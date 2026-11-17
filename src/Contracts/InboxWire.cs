@@ -40,7 +40,7 @@ public static class InboxWire
     {
         if (readThroughMessageId <= 0) throw Invalid();
         var writer = new PodWriter();
-        writer.Int64(readThroughMessageId);
+        writer.I64(readThroughMessageId);
         writer.Text(body, BodyBytes);
         return writer.Frame(FrameType.AccountConversationReplyRequest);
     }
@@ -62,7 +62,7 @@ public static class InboxWire
     {
         CheckStatus(target);
         var writer = new PodWriter();
-        writer.Int32(target);
+        writer.I32(target);
         writer.Text(reason, 1024);
         return writer.Frame(FrameType.ConversationStatusRequest);
     }
@@ -148,32 +148,32 @@ public static class InboxWire
         if (!string.IsNullOrEmpty(nextCursor))
         {
             DecodeCursor(nextCursor);
-            writer.Int32(CursorEnvelopeMagic);
-            writer.Int32(CursorEnvelopeVersion);
-            writer.Flag(true);
+            writer.I32(CursorEnvelopeMagic);
+            writer.I32(CursorEnvelopeVersion);
+            writer.Bool(true);
             writer.Text(nextCursor, 32);
         }
-        writer.Int32(total);
-        writer.Int32(items.Count);
+        writer.I32(total);
+        writer.I32(items.Count);
         foreach (var item in items)
         {
             CheckSummary(item.Id, item.Status, item.UnreadCount);
-            writer.Int64(item.Id);
-            writer.Int32(item.Status);
-            writer.Int32(item.UnreadCount);
-            writer.Int64(item.LastMessageAt.ToUnixTimeMilliseconds());
-            writer.Int64(item.UpdatedAt.ToUnixTimeMilliseconds());
-            writer.Flag(item.IsSystem);
-            writer.Flag(item.CanReply);
-            writer.Flag(item.LastMessage is not null);
+            writer.I64(item.Id);
+            writer.I32(item.Status);
+            writer.I32(item.UnreadCount);
+            writer.I64(item.LastMessageAt.ToUnixTimeMilliseconds());
+            writer.I64(item.UpdatedAt.ToUnixTimeMilliseconds());
+            writer.Bool(item.IsSystem);
+            writer.Bool(item.CanReply);
+            writer.Bool(item.LastMessage is not null);
             writer.Padding(1);
             writer.Text(item.Subject, SubjectBytes);
             if (item.LastMessage is { } last)
             {
                 CheckSender(last.Sender);
-                writer.Int32(last.Sender);
-                writer.Int64(last.CreatedAt.ToUnixTimeMilliseconds());
-                writer.Flag(!string.IsNullOrWhiteSpace(last.Name));
+                writer.I32(last.Sender);
+                writer.I64(last.CreatedAt.ToUnixTimeMilliseconds());
+                writer.Bool(!string.IsNullOrWhiteSpace(last.Name));
                 writer.Padding(3);
                 writer.Text(last.Name, SubjectBytes);
                 writer.Text(last.Body, BodyBytes);
@@ -192,18 +192,18 @@ public static class InboxWire
         if (detail.ReadSnapshot <= 0 || detail.Messages.Count > 100 || detail.Previous <= 0 || createResponse && detail.Previous is not null)
             throw Invalid();
         var writer = new PodWriter();
-        writer.Int64(detail.Id);
-        writer.Int32(detail.Status);
-        writer.Int32(detail.UnreadCount);
-        writer.Int64(detail.LastMessageAt.ToUnixTimeMilliseconds());
-        writer.Int64(detail.ReadSnapshot);
-        if (!createResponse) writer.Int64(detail.Previous ?? 0);
-        writer.Flag(detail.IsSystem);
-        writer.Flag(detail.CanReply);
-        writer.Flag(createResponse ? detail.Replayed : detail.Previous.HasValue);
+        writer.I64(detail.Id);
+        writer.I32(detail.Status);
+        writer.I32(detail.UnreadCount);
+        writer.I64(detail.LastMessageAt.ToUnixTimeMilliseconds());
+        writer.I64(detail.ReadSnapshot);
+        if (!createResponse) writer.I64(detail.Previous ?? 0);
+        writer.Bool(detail.IsSystem);
+        writer.Bool(detail.CanReply);
+        writer.Bool(createResponse ? detail.Replayed : detail.Previous.HasValue);
         writer.Padding(1);
         writer.Text(detail.Subject, SubjectBytes);
-        writer.Int32(detail.Messages.Count);
+        writer.I32(detail.Messages.Count);
         foreach (var message in detail.Messages)
         {
             if (message.ConversationId != detail.Id) throw Invalid();
@@ -223,12 +223,12 @@ public static class InboxWire
     {
         if (message.Id <= 0 || message.ConversationId <= 0) throw Invalid();
         CheckSender(message.Sender);
-        writer.Int64(message.Id);
-        writer.Int64(message.ConversationId);
-        writer.Int32(message.Sender);
-        writer.Int64(message.CreatedAt.ToUnixTimeMilliseconds());
-        writer.Flag(!string.IsNullOrWhiteSpace(message.Name));
-        writer.Flag(message.Replayed);
+        writer.I64(message.Id);
+        writer.I64(message.ConversationId);
+        writer.I32(message.Sender);
+        writer.I64(message.CreatedAt.ToUnixTimeMilliseconds());
+        writer.Bool(!string.IsNullOrWhiteSpace(message.Name));
+        writer.Bool(message.Replayed);
         writer.Padding(2);
         writer.Text(message.Name, SubjectBytes);
         writer.Text(message.Body, BodyBytes);
@@ -274,33 +274,14 @@ public static class InboxWire
         if (sender is < 0 or > 2) throw Invalid();
     }
 
-    private sealed class PodWriter
+    private sealed class PodWriter : ScalarBufferWriter
     {
-        private readonly ArrayBufferWriter<byte> fields = new();
         private readonly ArrayBufferWriter<byte> arena = new();
-
-        public void Int32(int value)
-        {
-            BinaryPrimitives.WriteInt32LittleEndian(fields.GetSpan(4), value);
-            fields.Advance(4);
-        }
-
-        public void Int64(long value)
-        {
-            BinaryPrimitives.WriteInt64LittleEndian(fields.GetSpan(8), value);
-            fields.Advance(8);
-        }
-
-        public void Flag(bool value)
-        {
-            fields.GetSpan(1)[0] = value ? (byte)1 : (byte)0;
-            fields.Advance(1);
-        }
 
         public void Padding(int length)
         {
-            fields.GetSpan(length)[..length].Clear();
-            fields.Advance(length);
+            buffer.GetSpan(length)[..length].Clear();
+            buffer.Advance(length);
         }
 
         public void Text(string? value, int limit)
@@ -308,16 +289,16 @@ public static class InboxWire
             value ??= "";
             int length = Utf8.GetByteCount(value);
             if (length > limit) throw Invalid();
-            Int32(arena.WrittenCount);
-            Int32(length);
+            I32(arena.WrittenCount);
+            I32(length);
             if (length > 0) arena.Advance(Utf8.GetBytes(value, arena.GetSpan(length)));
         }
 
         public byte[] Frame(FrameType type)
         {
-            Int32(arena.WrittenCount);
-            fields.Write(arena.WrittenSpan);
-            return Aeds.Encode(type, fields.WrittenSpan);
+            I32(arena.WrittenCount);
+            buffer.Write(arena.WrittenSpan);
+            return Aeds.Encode(type, buffer.WrittenSpan);
         }
     }
 }

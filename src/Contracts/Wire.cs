@@ -104,16 +104,8 @@ public static partial class Wire
             throw new ProtocolException("Invalid draft taxonomy coordinates");
     }
 
-    internal sealed class Writer
+    internal sealed class Writer : ScalarBufferWriter
     {
-        private readonly ArrayBufferWriter<byte> buffer = new();
-        public ReadOnlySpan<byte> Written => buffer.WrittenSpan;
-
-        public void I32(int value)
-        {
-            BinaryPrimitives.WriteInt32LittleEndian(buffer.GetSpan(4), value);
-            buffer.Advance(4);
-        }
 
         public void I32s(IReadOnlyList<int> values, int limit)
         {
@@ -121,20 +113,6 @@ public static partial class Wire
                 throw new ProtocolException("AEDS collection exceeds its item limit");
             I32(values.Count);
             foreach (var value in values) I32(value);
-        }
-
-        public void I64(long value)
-        {
-            BinaryPrimitives.WriteInt64LittleEndian(buffer.GetSpan(8), value);
-            buffer.Advance(8);
-        }
-
-        public void Bool(bool value) => Byte(value ? (byte)1 : (byte)0);
-
-        internal void Byte(byte value)
-        {
-            buffer.GetSpan(1)[0] = value;
-            buffer.Advance(1);
         }
 
         public void Uuid(Guid value)
