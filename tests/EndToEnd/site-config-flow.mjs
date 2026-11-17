@@ -36,7 +36,6 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   const response = await page.goto(origin, { waitUntil: 'domcontentloaded' })
   assert.equal(response.status(), 200)
-  await page.locator('footer').getByText('North & <South>', { exact: true }).first().waitFor()
   const footer = page.locator('.site-footer')
   await footer.getByText('North Company', { exact: false }).waitFor()
   assert.equal(await page.title(), seo.title)

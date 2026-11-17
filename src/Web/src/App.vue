@@ -13,7 +13,7 @@ import { observeSiteRefresh, siteRenewalDelay } from './site-refresh-coordinatio
 import { isSitePageSlug, sitePages } from './sitePageEntry'
 import { siteTitle } from './siteBrand'
 import navigation from '../../Contracts/public-navigation.json' with { type: 'json' }
-import { getSiteCompliance, type SiteCompliance } from '../../Contracts/site-config.ts'
+import { getSiteCompliance, getSiteSeo, type SiteCompliance } from '../../Contracts/site-config.ts'
 
 const route = useRoute()
 const router = useRouter()
@@ -59,14 +59,15 @@ watch(() => route.fullPath, () => { accountMenu.value = false })
 
 const lifetime = new AbortController()
 const compliance = ref<SiteCompliance>()
+const siteAuthor = ref(document.head.querySelector<HTMLMetaElement>('meta[name="author"]')?.content || undefined)
 const legal = computed(() => compliance.value?.enabled ? compliance.value : undefined)
 const year = new Date().getFullYear()
 const copyright = computed(() => {
   const value = legal.value
-  if (!value) return `© ${year} ${siteTitle}. ${t('nav.rightsReserved')}`
-  const start = value.copyrightStartYear
+  const start = value?.copyrightStartYear
   const years = start && start < year ? `${start}–${year}` : year
-  return `© ${years} ${value.copyrightOwner || siteTitle}${value.copyrightText ? ` ${value.copyrightText}` : ''}`
+  const owner = value?.copyrightOwner || siteAuthor.value
+  return ['©', years, owner, value?.copyrightText || t('nav.rightsReserved')].filter(Boolean).join(' ')
 })
 function publicLink(value: string) {
   const url = URL.parse(value)
@@ -85,10 +86,13 @@ watch([() => currentSession.value?.siteRefresh, () => currentSession.value?.expi
     cleanup(() => clearTimeout(timer))
   })
 watch(() => route.name, (name, _, cleanup) => {
-  if (!name || accountArea.value || name === 'login' || name === 'admin-identity' || compliance.value) return
+  if (!name || accountArea.value || name === 'login' || name === 'admin-identity') return
   const request = new AbortController()
   cleanup(() => request.abort())
-  void getSiteCompliance(request.signal).then(value => {
+  if (siteAuthor.value === undefined) void getSiteSeo(request.signal).then(value => {
+    if (!request.signal.aborted) siteAuthor.value = value.author
+  }).catch(() => {})
+  if (!compliance.value) void getSiteCompliance(request.signal).then(value => {
     if (!request.signal.aborted) compliance.value = value
   }).catch(() => {})
 }, { immediate: true })
@@ -216,23 +220,24 @@ async function leave() {
         <RouterView />
       </div>
       <template #footer>
-        <div class="site-footer">
-          <strong>{{ siteTitle }}</strong>
+        <div class="reading-column site-footer">
           <p>{{ copyright }}</p>
-          <div v-if="legal" class="site-policy-links" :aria-label="t('nav.compliance')">
-            <a v-if="legal.contentLicenseName && publicLink(legal.contentLicenseUrl)" :href="publicLink(legal.contentLicenseUrl)">{{ legal.contentLicenseName }}</a>
-            <span v-else-if="legal.contentLicenseName">{{ legal.contentLicenseName }}</span>
-            <template v-if="legal.regionMode === 'mainland-cn'">
-              <a v-if="legal.icpRecordNumber && publicLink(legal.icpRecordUrl)" :href="publicLink(legal.icpRecordUrl)">{{ legal.icpRecordNumber }}</a>
-              <a v-if="legal.policeRecordNumber && publicLink(legal.policeRecordUrl)" :href="publicLink(legal.policeRecordUrl)">{{ legal.policeRecordNumber }}</a>
-            </template>
-            <span v-if="legal.operatorName">{{ legal.operatorName }}</span>
-            <a v-if="legal.contactEmail && contactLink(legal.contactEmail)" :href="contactLink(legal.contactEmail)">{{ legal.contactEmail }}</a>
+          <div class="site-footer-links">
+            <div v-if="legal" class="site-policy-links" :aria-label="t('nav.compliance')">
+              <a v-if="legal.contentLicenseName && publicLink(legal.contentLicenseUrl)" :href="publicLink(legal.contentLicenseUrl)">{{ legal.contentLicenseName }}</a>
+              <span v-else-if="legal.contentLicenseName">{{ legal.contentLicenseName }}</span>
+              <template v-if="legal.regionMode === 'mainland-cn'">
+                <a v-if="legal.icpRecordNumber && publicLink(legal.icpRecordUrl)" :href="publicLink(legal.icpRecordUrl)">{{ legal.icpRecordNumber }}</a>
+                <a v-if="legal.policeRecordNumber && publicLink(legal.policeRecordUrl)" :href="publicLink(legal.policeRecordUrl)">{{ legal.policeRecordNumber }}</a>
+              </template>
+              <span v-if="legal.operatorName">{{ legal.operatorName }}</span>
+              <a v-if="legal.contactEmail && contactLink(legal.contactEmail)" :href="contactLink(legal.contactEmail)">{{ legal.contactEmail }}</a>
+            </div>
+            <nav class="site-policy-links" :aria-label="t('nav.policies')">
+              <RouterLink v-for="(_, slug) in sitePages" :key="slug" :to="{ name: slug }">{{ t(`policy.${slug}`) }}</RouterLink>
+              <a href="#">{{ t('nav.top') }}</a>
+            </nav>
           </div>
-          <nav class="site-policy-links" :aria-label="t('nav.policies')">
-            <RouterLink v-for="(_, slug) in sitePages" :key="slug" :to="{ name: slug }">{{ t(`policy.${slug}`) }}</RouterLink>
-          </nav>
-          <a href="#">{{ t('nav.top') }}</a>
         </div>
       </template>
     </ElPublicShell>
@@ -267,6 +272,7 @@ async function leave() {
 .site-policy-links {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: .5rem 1rem;
 }
 </style>

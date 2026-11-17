@@ -81,9 +81,25 @@ p { line-height: 1.65; }
   .public-initial-actions { gap: .5rem; }
 }
 .editorial-rule { padding-block-end: .75rem; border-block-end: 1px solid var(--fsus-border); }
-.site-footer { width: min(64rem, calc(100% - 2 * var(--fsusblog-page-gutter))); padding: 2rem var(--fsusblog-page-gutter); margin-inline: auto; }
-.site-footer p, .site-footer a { font-size: .875rem; color: var(--fsus-color-text-muted); }
-.site-footer p { margin: .25rem 0 1rem; }
+.site-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .75rem 1.5rem;
+  color: var(--fsus-color-text-muted);
+  font-size: .875rem;
+  overflow-wrap: anywhere;
+}
+.site-footer p { margin: 0; }
+.site-footer-links {
+  display: grid;
+  flex: 1 1 18rem;
+  min-inline-size: 0;
+  gap: .5rem;
+  text-align: end;
+}
+.site-footer-links a:hover { color: var(--fsus-color-action-primary); }
 .search-form { display: flex; align-items: stretch; gap: .5rem; margin-block: 1.5rem; }
 .metadata, .muted { color: var(--fsus-color-text-muted); }
 .metadata { font-size: .875rem; }
