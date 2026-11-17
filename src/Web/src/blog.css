@@ -149,6 +149,7 @@ p { line-height: 1.65; }
   white-space: nowrap;
 }
 .site-auth-actions { flex: none; display: flex; align-items: center; gap: .75rem; }
+.site-locale-combo, .public-initial-actions .site-locale-select { inline-size: 5.25rem; flex: none; }
 .site-locale-select, .site-theme-select {
   min-block-size: 44px;
   max-inline-size: 100%;

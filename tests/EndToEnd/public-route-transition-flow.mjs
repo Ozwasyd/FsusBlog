@@ -52,7 +52,8 @@ try {
     assert.deepEqual(docs, [origin + '/'])
     assert.equal(await page.evaluate(() => window.initialHeader === document.querySelector('header') && window.initialOutlet === document.querySelector('#page-content')), true)
 
-    await page.getByRole('combobox', { name: 'Interface language' }).filter({ visible: true }).selectOption('zh-CN')
+    await page.locator('.site-locale-combo').click()
+    await page.getByRole('option', { name: '中文', exact: true }).click()
     await page.getByRole('heading', { name: '归档', exact: true }).waitFor()
     assert.deepEqual(await page.evaluate(() => window.routeFades), fades)
     assert.deepEqual(errors, [])

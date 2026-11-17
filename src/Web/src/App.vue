@@ -213,7 +213,7 @@ async function leave() {
       <template #desktop-actions>
         <RouterLink v-if="currentSession" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
-        <SiteLocaleSelect />
+        <SiteLocaleSelect desktop />
         <ElThemeModeToggle :model-value="themeMode" variant="menu-button" :label="t('theme.label')" :labels="themeLabels" csp-safe @update:model-value="useTheme" />
       </template>
       <template #mobile-primary-actions>
