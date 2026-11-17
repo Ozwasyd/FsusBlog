@@ -18,12 +18,7 @@ internal static partial class Migration
         var names = fields.Select((_, i) => "@p" + i).ToArray();
         await using var insert = CreateLegacyCommand(shadow,
             $"INSERT INTO {staging} VALUES ({string.Join(", ", names)})");
-        foreach (var name in names)
-        {
-            var parameter = insert.CreateParameter();
-            parameter.ParameterName = name;
-            insert.Parameters.Add(parameter);
-        }
+        AddLegacyParameters(insert, names);
 
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         AppendLegacyValue(hash, projection.Table);
@@ -67,12 +62,7 @@ internal static partial class Migration
     {
         await using (var insert = CreateLegacyCommand(transaction, "INSERT INTO owner_map VALUES (@article, @admin, @user)"))
         {
-            foreach (var name in new[] { "article", "admin", "user" })
-            {
-                var parameter = insert.CreateParameter();
-                parameter.ParameterName = name;
-                insert.Parameters.Add(parameter);
-            }
+            AddLegacyParameters(insert, new[] { "article", "admin", "user" });
             foreach (var (id, owner) in owners)
             {
                 token.ThrowIfCancellationRequested();
@@ -243,12 +233,7 @@ internal static partial class Migration
         await using (var create = CreateLegacyCommand(tx, createSql)) await create.ExecuteNonQueryAsync(ct);
         var parameters = table.Columns.Select(column => "@" + column.Name).ToArray();
         await using var insert = CreateLegacyCommand(tx, $"INSERT INTO {table.Name} VALUES ({string.Join(',', parameters)})");
-        foreach (var name in parameters)
-        {
-            var parameter = insert.CreateParameter();
-            parameter.ParameterName = name;
-            insert.Parameters.Add(parameter);
-        }
+        AddLegacyParameters(insert, parameters);
         var count = 0;
         foreach (var values in rows)
         {

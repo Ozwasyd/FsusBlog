@@ -120,12 +120,7 @@ internal static partial class Migration
             WHERE r.source_revision_id=@source AND a.id=@article AND r.source_admin_id=@owner AND a.legacy_admin_id=@owner
               AND a.owner_id=@user AND NOT EXISTS (SELECT 1 FROM shadow_publication p WHERE p.source_revision_id=r.source_revision_id)
             """);
-        foreach (var name in new[] { "source", "article", "owner", "user" })
-        {
-            var parameter = find.CreateParameter();
-            parameter.ParameterName = name;
-            find.Parameters.Add(parameter);
-        }
+        AddLegacyParameters(find, new[] { "source", "article", "owner", "user" });
         var joined = new List<object?[]>(package.References.Length);
         foreach (var reference in package.References.OrderBy(item => item.AssetId).ThenBy(item => item.SourceId))
         {

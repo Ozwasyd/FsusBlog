@@ -281,6 +281,16 @@ internal static partial class Migration
         return tables.Values.OrderBy(table => table.Name, StringComparer.Ordinal).ToArray();
     }
 
+    private static void AddLegacyParameters(DbCommand command, string[] names)
+    {
+        foreach (var name in names)
+        {
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = name;
+            command.Parameters.Add(parameter);
+        }
+    }
+
     private static DbCommand CreateLegacyCommand(DbTransaction transaction, string sql)
     {
         var command = transaction.Connection!.CreateCommand();
