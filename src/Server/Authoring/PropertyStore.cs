@@ -42,7 +42,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         var rows = new Dictionary<Guid, PropertyValue>();
         if (page.Length > 0)
         {
-            await using var read = Store.Sql(db, tx, """
+            await using var read = SqlCommands.Create(db, tx, """
                 select definition_id,data::text,references_ids from public.property_value
                 where article_id=$1 and owner_id=$2 and definition_id=any($3)
                 """, input.ArticleId, ownerId, page.Select(definition => definition.Id).ToArray());
@@ -67,7 +67,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
             throw new BusinessException(Rejection.NotFound, "Install or upgrade the private article index with author-search.");
         var projection = await ResolveTextProjection(input.SchemaRevision, input.DefinitionId, input.DefinitionRevision, ct);
         var articleRevision = await AssertArticle(input.ArticleId, input.ArticleRevision, ct);
-        await using var command = Store.Sql(db, tx, $$"""
+        await using var command = SqlCommands.Create(db, tx, $$"""
             select a.revision,case when octet_length(v.data::text)<={{AuthorTextPropertyIndex.MaxStoredTextBytes}} then v.data::text end
             from public.property_article a
             join public.property_value v on v.article_id=a.article_id and v.owner_id=a.owner_id and v.definition_id=$3
@@ -147,10 +147,10 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         var receipt = transition.Receipt;
         if (!transition.Replayed)
         {
-            await using (var initialize = Store.Sql(db, tx, "insert into public.property_schema(owner_id,revision) values($1,0) on conflict do nothing", ownerId))
+            await using (var initialize = SqlCommands.Create(db, tx, "insert into public.property_schema(owner_id,revision) values($1,0) on conflict do nothing", ownerId))
                 await initialize.ExecuteNonQueryAsync(ct);
             var definition = transition.Schema.Find(command.Change.DefinitionId)!;
-            await using var write = Store.Sql(db, tx, """
+            await using var write = SqlCommands.Create(db, tx, """
                 insert into public.property_definition(owner_id,id,machine_key,revision,digest,shape)
                 values($1,$2,$3,$4,$5,$6)
                 on conflict(owner_id,id) do update set revision=excluded.revision,digest=excluded.digest,shape=excluded.shape
@@ -160,11 +160,11 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
             if (await write.ExecuteNonQueryAsync(ct) != 1) throw Conflict();
             if (!await VerifyStorageBudget(ct)) throw Invalid();
 
-            await using var advance = Store.Sql(db, tx, "update public.property_schema set revision=$2 where owner_id=$1 and revision=$3",
+            await using var advance = SqlCommands.Create(db, tx, "update public.property_schema set revision=$2 where owner_id=$1 and revision=$3",
                 ownerId, receipt.SchemaRevision, command.ExpectedSchemaRevision);
             if (await advance.ExecuteNonQueryAsync(ct) != 1) throw Conflict();
 
-            await using var journal = Store.Sql(db, tx, "insert into public.property_schema_command(owner_id,request_id,receipt) values($1,$2,$3)",
+            await using var journal = SqlCommands.Create(db, tx, "insert into public.property_schema_command(owner_id,request_id,receipt) values($1,$2,$3)",
                 ownerId, receipt.RequestId, Json(receipt));
             await journal.ExecuteNonQueryAsync(ct);
         }
@@ -200,7 +200,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         // The request fingerprint binds every field. Keep the first definition as the existing journal coordinate.
         var firstDefinition = input.Changes[0].DefinitionId;
         var fingerprint = SHA256.HashData(originalFrame);
-        await using (var replay = Store.Sql(db, tx, """
+        await using (var replay = SqlCommands.Create(db, tx, """
             select fingerprint,definition_id,revision from public.property_value_command where article_id=$1 and request_id=$2
             """, input.ArticleId, input.RequestId))
         await using (var reader = await replay.ExecuteReaderAsync(ct))
@@ -238,7 +238,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         }
 
         long next;
-        await using (var advance = Store.Sql(db, tx, """
+        await using (var advance = SqlCommands.Create(db, tx, """
             insert into public.property_article(article_id,owner_id,revision)
             select $1,$2,1 where $3=0 or exists (
                 select 1 from public.property_article where article_id=$1 and owner_id=$2 and revision=$3
@@ -252,7 +252,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         {
             if (value is not null)
             {
-                await using var upsert = Store.Sql(db, tx, """
+                await using var upsert = SqlCommands.Create(db, tx, """
                     insert into public.property_value(article_id,owner_id,definition_id,data,references_ids) values($1,$2,$3,$4,$5)
                     on conflict(article_id,definition_id) do update set data=excluded.data,references_ids=excluded.references_ids
                     """, input.ArticleId, ownerId, definition.Id, Json(value), ReferenceIds(value));
@@ -260,14 +260,14 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
             }
             else
             {
-                await using var remove = Store.Sql(db, tx, """
+                await using var remove = SqlCommands.Create(db, tx, """
                     delete from public.property_value where article_id=$1 and owner_id=$2 and definition_id=$3
                     """, input.ArticleId, ownerId, definition.Id);
                 await remove.ExecuteNonQueryAsync(ct);
             }
         }
 
-        await using var record = Store.Sql(db, tx, """
+        await using var record = SqlCommands.Create(db, tx, """
             insert into public.property_value_command(article_id,request_id,fingerprint,definition_id,revision)
             values($1,$2,$3,$4,$5)
             """, input.ArticleId, input.RequestId, fingerprint, firstDefinition, next);
@@ -282,7 +282,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     {
         // All still-present Text values carry the article-wide revision. Also include fields removed by this command.
         var affected = input.Changes.Select(change => change.DefinitionId).ToHashSet();
-        await using (var read = Store.Sql(db, tx, """
+        await using (var read = SqlCommands.Create(db, tx, """
             select definition_id from public.property_value where article_id=$1 and owner_id=$2
             """, input.ArticleId, ownerId))
         await using (var rows = await read.ExecuteReaderAsync(ct))
@@ -295,7 +295,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     }
 
     private Task ScopeLock(CancellationToken ct) =>
-        Store.LockCommand(db, tx, ownerId, PropertyScopeLock, ct);
+        SqlCommands.LockCommand(db, tx, ownerId, PropertyScopeLock, ct);
 
     private async Task<long> AssertArticle(int article, long? expectedRevision, CancellationToken ct)
     {
@@ -308,7 +308,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     {
         var revision = await Revision("select revision from public.property_schema where owner_id=$1", ct, ownerId);
         if (!await VerifyStorageBudget(ct)) throw new InvalidOperationException("Stored property schema exceeds its byte budget.");
-        await using var command = Store.Sql(db, tx,
+        await using var command = SqlCommands.Create(db, tx,
             "select id,machine_key,revision,digest,shape::text from public.property_definition where owner_id=$1 limit 4001", ownerId);
         await using var reader = await command.ExecuteReaderAsync(ct);
         var definitions = ImmutableArray.CreateBuilder<PropertyDefinition>();
@@ -331,7 +331,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     {
         var visible = new HashSet<int>();
         if (ids.Length == 0) return visible;
-        await using var command = Store.Sql(db, tx, $"""
+        await using var command = SqlCommands.Create(db, tx, $"""
             select r.id from public.article r
             {ReferenceAuthorityJoins("join")}
             where r.id=any($1) and r.owner_id=$2 and not r.deleted order by r.id {(lockTargets ? "for share of r" : "")}
@@ -349,7 +349,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         {
             // ScopeLock serializes all edits to this owner's values. The bound rejects a graph
             // too large to prove acyclic, even if the traversal hasn't reached the source yet.
-            await using var command = Store.Sql(db, tx, """
+            await using var command = SqlCommands.Create(db, tx, """
                 with recursive reachable(id) as (
                     select $2::integer
                     union
@@ -419,7 +419,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
 
     private async Task<PropertyReceipt?> ReadReceipt(Guid requestId, CancellationToken ct)
     {
-        await using var command = Store.Sql(db, tx, """
+        await using var command = SqlCommands.Create(db, tx, """
             select receipt::text from public.property_schema_command where owner_id=$1 and request_id=$2
             """, ownerId, requestId);
         return await command.ExecuteScalarAsync(ct) is string json ? Parse<PropertyReceipt>(json) : null;
@@ -427,7 +427,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
 
     private async Task<long> Revision(string sql, CancellationToken ct, params object[] parameters)
     {
-        await using var command = Store.Sql(db, tx, sql, parameters);
+        await using var command = SqlCommands.Create(db, tx, sql, parameters);
         return (await command.ExecuteScalarAsync(ct) as long?) ?? 0;
     }
 

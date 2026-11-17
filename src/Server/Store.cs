@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Buffers.Binary;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server.Authoring;
@@ -119,15 +118,8 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             row.IsDBNull(3) ? null : row.GetInt64(3), row.GetBoolean(4));
     }
 
-    internal static async Task LockCommand(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid commandKey, CancellationToken ct)
-    {
-        var scope = new byte[32];
-        actor.TryWriteBytes(scope);
-        commandKey.TryWriteBytes(scope.AsSpan(16));
-        var dedupeLock = BinaryPrimitives.ReadInt64LittleEndian(SHA256.HashData(scope));
-        await using var serialize = Sql(db, tx, "select pg_advisory_xact_lock($1)", dedupeLock);
-        await serialize.ExecuteNonQueryAsync(ct);
-    }
+    internal static Task LockCommand(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid commandKey, CancellationToken ct) =>
+        SqlCommands.LockCommand(db, tx, actor, commandKey, ct);
 
     internal static Task<(ArticleState Article, bool Changed)> Execute(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         ArticleAction action, Edit edit, CancellationToken ct) => Execute(db, tx, actor, action, edit, ct, null);

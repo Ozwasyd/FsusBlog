@@ -74,7 +74,7 @@ internal sealed partial class PropertyStore
     {
         if (scope.Definition.Scope != Scope) throw Missing();
         var pending = new List<PropertyTextChange>(TextProjectionBatch);
-        await using (var command = Store.Sql(db, tx, $$"""
+        await using (var command = SqlCommands.Create(db, tx, $$"""
             with eligible as (
                 select a.id from public.article a where a.owner_id=$1 and not a.deleted and {{ArchivedArticleAuthority.Available}}
             ),
@@ -104,13 +104,13 @@ internal sealed partial class PropertyStore
         foreach (var entry in pending)
         {
             ct.ThrowIfCancellationRequested();
-            await using (var delete = Store.Sql(db, tx, """
+            await using (var delete = SqlCommands.Create(db, tx, """
                 delete from public.author_text_property_posting where owner_id=$1 and definition_id=$2 and article_id=$3
                 """, ownerId, scope.Definition.Id, entry.ArticleId))
                 await delete.ExecuteNonQueryAsync(ct);
             if (entry.ValueRevision is not long valueRevision)
             {
-                await using var remove = Store.Sql(db, tx, """
+                await using var remove = SqlCommands.Create(db, tx, """
                     delete from public.author_text_property_document where owner_id=$1 and definition_id=$2 and article_id=$3
                     """, ownerId, scope.Definition.Id, entry.ArticleId);
                 await remove.ExecuteNonQueryAsync(ct);
@@ -118,7 +118,7 @@ internal sealed partial class PropertyStore
             }
 
             var text = entry.Text ?? "";
-            await using (var document = Store.Sql(db, tx, """
+            await using (var document = SqlCommands.Create(db, tx, """
                 insert into public.author_text_property_document(owner_id,definition_id,article_id,definition_revision,value_revision,source_digest)
                 values ($1,$2,$3,$4,$5,$6)
                 on conflict (owner_id,definition_id,article_id) do update

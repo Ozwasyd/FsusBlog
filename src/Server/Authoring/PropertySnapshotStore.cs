@@ -25,7 +25,7 @@ internal sealed partial class PropertyStore
 
         // The article is already write-locked. Read the property schema, values and definitions using
         // one statement snapshot, without reversing the property writer's scope -> article lock order.
-        await using var capture = Store.Sql(db, tx, $"""
+        await using var capture = SqlCommands.Create(db, tx, $"""
             with coordinates as materialized (
                 select $1::integer article_id,$3::uuid owner_id,
                     coalesce((select revision from public.property_schema where owner_id=$3),0) schema_revision,
@@ -68,7 +68,7 @@ internal sealed partial class PropertyStore
         long source, long revision, CancellationToken ct)
     {
         if (!await CurrentSchema.HasPropertySnapshotsAsync(db, tx, ct)) return;
-        await using var copy = Store.Sql(db, tx, """
+        await using var copy = SqlCommands.Create(db, tx, """
             insert into public.article_revision_property_snapshot(article_id,revision,schema_revision,value_revision)
             select article_id,$3,schema_revision,value_revision from public.article_revision_property_snapshot
             where article_id=$1 and revision=$2
@@ -80,7 +80,7 @@ internal sealed partial class PropertyStore
     {
         if (!await CurrentSchema.HasPropertySnapshotsAsync(db, tx, ct)) throw SnapshotUnavailable();
 
-        await using var query = Store.Sql(db, tx, $"""
+        await using var query = SqlCommands.Create(db, tx, $"""
             with snapshot as (
                 select s.*,$3::uuid owner_id
                 from public.article_revision_property_snapshot r

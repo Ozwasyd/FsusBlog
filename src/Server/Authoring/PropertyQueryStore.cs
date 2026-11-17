@@ -207,7 +207,7 @@ internal sealed partial class PropertyStore
         }
         AppendConditions(sql, parameters, conditions);
         sql.Append(" order by a.id desc limit $3");
-        await using var query = Store.Sql(db, tx, sql.ToString(), parameters.ToArray());
+        await using var query = SqlCommands.Create(db, tx, sql.ToString(), parameters.ToArray());
         var matches = new List<PropertyArticleRow>(WireLimits.PropertyPageSize + 1);
         await using var reader = await query.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
