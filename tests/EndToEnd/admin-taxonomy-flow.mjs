@@ -1,3 +1,4 @@
+import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
@@ -17,6 +18,7 @@ const run = promisify(execFile)
 
 export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie, priorCookie,
   grant, revoke, seed, logIn, probe, snapshot, readCookie, evidence }) {
+  await visitAdminWorkspace(page, '/admin/articles')
   const categoryEndpoint = adminOrigin.origin + WireRoutes.AdminCategories
   const tagEndpoint = adminOrigin.origin + WireRoutes.AdminTags
   const panel = page.getByRole('region', { name: 'Taxonomy usage', exact: true })

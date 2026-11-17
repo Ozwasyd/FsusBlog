@@ -1,3 +1,4 @@
+import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
@@ -15,6 +16,7 @@ import { adminArticleFixture, commitWithLostReceipt, sourceTitle } from './admin
 import { readDraft, submitPublicationMutation } from './browser-authoring-fixture.mjs'
 
 export async function verifyAdminArticleArchive({ page, context, adminOrigin, siteOrigin, grant, logIn, evidence }) {
+  await visitAdminWorkspace(page, '/admin/articles')
   const { admin, site, section, send, grantAndSignIn, previewRollback, inspect: content, index,
     expectStaleIndex, expectWithdrawnArticle, expectWithdrawnCorpus } = adminArticleFixture({ page, context, adminOrigin, siteOrigin })
   const archive = section.getByRole('region', { name: 'Archived articles', exact: true })

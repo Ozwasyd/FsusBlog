@@ -5,7 +5,7 @@ import Caddyfile
 	tls {$FSUSBLOG_ADMIN_TLS_CERTIFICATE} {$FSUSBLOG_ADMIN_TLS_KEY}
 
 	@wrong_tls_host expression `{http.request.tls.server_name}.lowerAscii() != {http.request.host}.lowerAscii()`
-	@admin_routes path /admin/identity /api/v2/admin/identity/* /assets/* /dist/*
+	@admin_routes path /admin /admin/ /admin/articles /admin/articles/ /admin/interaction /admin/interaction/ /admin/site /admin/site/ /admin/system /admin/system/ /admin/identity /admin/identity/ /api/v2/admin/identity/* /assets/* /dist/*
 	@admin_legacy_read {
 		method GET
 		path_regexp admin_legacy_read (?i)^/api/binary/(system/admin/page/[^/]+|author/comments/[0-9]+/(revisions|moderation-timeline))/?$

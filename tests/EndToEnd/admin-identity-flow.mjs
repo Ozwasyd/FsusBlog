@@ -1,3 +1,4 @@
+import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -162,10 +163,19 @@ try {
   const firstLogin = await logIn(admin)
   const initial = await snapshot(context)
   assert.equal(await expectPermissions(admin, context, adminOrigin.origin, ['admin.manage']), initial.principal.generation)
-  for (const heading of ['Operations status', 'Moderation queue', 'Taxonomy usage', 'Site pages',
-    'Site appearance', 'Restore a published article revision']) await expectPanelHidden(admin, heading)
+  for (const [path, headings] of [
+    ['/admin/system', ['Operations status']], ['/admin/interaction', ['Moderation queue']],
+    ['/admin/articles', ['Taxonomy usage', 'Restore a published article revision']],
+    ['/admin/site', ['Site pages', 'Site appearance']],
+  ]) {
+    await visitAdminWorkspace(admin, path)
+    for (const heading of headings) await expectPanelHidden(admin, heading)
+  }
+  await visitAdminWorkspace(admin, '/admin/identity')
   await admin.getByRole('button', { name: 'Reload administrator access', exact: true }).waitFor({ state: 'detached' })
+  await visitAdminWorkspace(admin, '/admin/interaction')
   await admin.getByRole('heading', { name: 'Support inbox', exact: true }).waitFor()
+  await visitAdminWorkspace(admin, '/admin/identity')
   checks.independentAdministratorStartsWithExactOwnGrant = true
   const oldCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
   assert.equal(oldCookie.httpOnly, true)
@@ -321,6 +331,7 @@ try {
     checks.articleRollbackUsesIndependentAdminAndStableReceipt = true
   }
 
+  await visitAdminWorkspace(admin, '/admin/identity')
   phase = 'logout'
   // Seed the site credential into the admin host only in this test to detect a shared cookie-clearing helper.
   await context.addCookies([{ ...siteCookie, domain: adminOrigin.hostname }])
@@ -359,11 +370,14 @@ try {
 if (failure) throw failure
 
 async function logIn(page) {
+  const destination = new URL(page.url()).pathname
   const beginning = waitPost(page, adminOrigin, passkeyBegin)
   const completed = await clickAndWait(page, adminOrigin, passkeyComplete, 'Log in as administrator')
   assert.equal(await frameType(await beginning), FrameType.PasskeyLoginBegin)
   await assertEmpty(completed)
+  await visitAdminWorkspace(page, '/admin/identity')
   await page.getByRole('heading', { name: 'Administrator session', exact: true }).waitFor()
+  await visitAdminWorkspace(page, destination)
   return completed
 }
 
@@ -396,6 +410,7 @@ function waitPost(page, origin, path) {
 }
 
 async function verifyOperationsPermissions(page, context, siteCookie, priorCookie, grant, revoke) {
+  await visitAdminWorkspace(page, '/admin/system')
   const endpoint = adminOrigin.origin + operationsStatus
   const statusButton = page.getByRole('button', { name: 'Check operations status', exact: true })
   const checkStatus = async () => (await Promise.all([
@@ -482,6 +497,7 @@ async function verifyOperationsPermissions(page, context, siteCookie, priorCooki
 }
 
 async function verifyModerationPermissions(page, context, siteCookie, priorCookie) {
+  await visitAdminWorkspace(page, '/admin/interaction')
   const run = promisify(execFile)
   const { stdout } = await run(moderatorSeed, [], { timeout: 20_000 })
   assert(/^[1-9][0-9]*$/.test(stdout.trim()), 'The moderation fixture must output one published article ID.')

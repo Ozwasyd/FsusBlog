@@ -1,3 +1,4 @@
+import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
 import { request } from 'node:https'
@@ -10,6 +11,7 @@ const wakeProtocol = 'fsus-inbox-wake.v2'
 const wakePathPattern = new RegExp(`^${WireRoutes.AdminInboxWake.replace('{id:long}', '[1-9]\\d*')}$`)
 
 export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, siteCookie, adminCookieName, probe, evidence) {
+  await visitAdminWorkspace(page, '/admin/interaction')
   const queue = adminOrigin + WireRoutes.AdminInboxQueue
   assert.equal((await context.request.get(siteOrigin + WireRoutes.AdminInboxQueue)).status(), 404)
   await probe(queue, siteCookie.name, siteCookie.value, 401)
@@ -70,7 +72,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       if (systemViewer) {
         const wakeUrl = new URL(WireRoutes.AdminInboxQueueWake + '?status=system&shared=1', adminOrigin)
         wakeUrl.protocol = 'wss:'
-        await systemViewer.goto(adminOrigin + '/admin/identity')
+        await systemViewer.goto(adminOrigin + '/admin/interaction')
         await captureInboxSocket(systemViewer, `^${wakeUrl.pathname}$`)
         const socket = systemViewer.waitForEvent('websocket', candidate => candidate.url() === wakeUrl.href)
         const systemPanel = systemViewer.getByRole('region', { name: 'Support inbox' })
@@ -262,7 +264,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
     async function peer(openThread) {
       const peerPage = await context.newPage()
       peerPages.push(peerPage)
-      await peerPage.goto(adminOrigin + '/admin/identity')
+      await peerPage.goto(adminOrigin + '/admin/interaction')
       const endpoint = new URL(openThread ? wakeEndpoint : WireRoutes.AdminInboxQueueWake + '?status=open', adminOrigin)
       endpoint.protocol = 'wss:'
       await captureInboxSocket(peerPage, `^${endpoint.pathname}$`)
@@ -324,7 +326,7 @@ export async function prepareAdminInboxWakeProbe(context, adminOrigin) {
   const wakeUrl = new URL(path, adminOrigin)
   wakeUrl.protocol = 'wss:'
   const page = await context.newPage()
-  await page.goto(new URL('/admin/identity', adminOrigin).href)
+  await page.goto(new URL('/admin/interaction', adminOrigin).href)
   const closed = () => page.evaluate(() => window.fsusTestInboxProbeClosed)
 
   await open(true)

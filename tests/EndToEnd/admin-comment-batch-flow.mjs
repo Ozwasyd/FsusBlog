@@ -15,7 +15,7 @@ export async function verifyAdminModerationBatch({ page, context, section, admin
   const recordError = error => errors.push(error.message)
   page.on('pageerror', recordError)
   try {
-    assert.equal(new URL(page.url()).pathname, '/admin/identity')
+    assert.equal(new URL(page.url()).pathname, '/admin/interaction')
     assert.equal(await claim.isDisabled(), true)
     await choose(approved[0])
     assert.equal(await claim.isDisabled(), true)

@@ -513,6 +513,7 @@ foreach (var route in new[] { "/user/manage/article/list", "/user/manage/article
 app.MapGet("/search", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishSearchShell : searchShell, Html); });
 app.MapGet("/login", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishLoginShell : loginShell, Html); });
 app.MapGet("/register", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishRegisterShell : registerShell, Html); });
+app.MapGet("/user", (HttpContext ctx) => { NoStore(ctx); return Results.Redirect("/user/identity/mfa"); });
 foreach (var route in new[] { "/user/identity/mfa", "/user/messagebox",
     "/user/manage/assets", "/user/manage/article/write", "/user/manage/article/workspace", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });

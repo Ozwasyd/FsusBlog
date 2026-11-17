@@ -2,13 +2,14 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
-import { ElConfigProvider, ElPublicShell, ElSiteHeader, ElThemeModeToggle, ElButton, ElDrawer } from '@ozwasyd/element-plus'
+import { ElConfigProvider, ElPublicShell, ElButton } from '@ozwasyd/element-plus'
 import en from '@element-plus/locale/lang/en'
 import zhCn from '@element-plus/locale/lang/zh-cn'
 import SiteLocaleSelect from './SiteLocaleSelect.vue'
 import SiteHeaderPreferences from './SiteHeaderPreferences.vue'
 import { siteLocale, t, themeLabels } from './siteLocale'
 import SiteAuthLayout from './SiteAuthLayout.vue'
+import AccountWorkspace from './AccountWorkspace.vue'
 import { currentSession, refreshSession, signOut } from './session'
 import { observeSiteRefresh, siteRenewalDelay } from './site-refresh-coordination'
 import { isSitePageSlug, sitePages } from './sitePageEntry'
@@ -32,7 +33,6 @@ function selectTheme(mode: string) {
 }
 
 const logoutFailure = ref(false)
-const accountMenu = ref(false)
 const navCopy = { home: 'nav.home', archive: 'nav.archive', about: 'nav.about' } as const
 const publicNavigation = computed(() => navigation.map(({ key, href }) => ({ key, href, label: t(navCopy[key as keyof typeof navCopy]) })))
 const publicShellPaths = new Set([...navigation.map(item => item.href), '/login'])
@@ -46,17 +46,26 @@ function navigatePublic(event: MouseEvent) {
   event.preventDefault()
   void router.push(href)
 }
-const accountArea = computed(() => route.name === 'canvas' || route.name === 'canvas-document' || route.name === 'write' || route.name === 'edit' || route.name === 'article-workspace' ||
-  route.name === 'article-list' || route.name === 'article-search' || route.name === 'article-trash' || route.name === 'messages' ||
-  route.name === 'security' || route.name === 'private-media')
-const articleCollection = computed(() => route.name === 'article-list' || route.name === 'article-search' || route.name === 'article-trash')
+const adminArea = computed(() => route.meta.adminSection !== undefined)
+const accountArea = computed(() => route.path.startsWith('/user/') && route.name !== 'missing')
+const accountLinks = computed(() => [
+  { to: '/', label: t('nav.publicSite') },
+  ...(currentSession.value?.canAuthor ? [
+    { to: '/user/manage/article/list', label: t('nav.articles') },
+    { to: '/user/manage/assets', label: t('nav.assets') },
+  ] : []),
+  ...(currentSession.value ? [
+    { to: '/user/messagebox', label: t('nav.messages') },
+    { to: '/user/comments', label: t('page.own-comments') },
+    { to: '/user/identity/mfa', label: t('nav.security') },
+  ] : []),
+])
 const ownerPath = '/user/manage/article/write'
 const authHref = computed(() => currentSession.value?.canAuthor ? ownerPath : '/login')
 const authLabel = computed(() => t(currentSession.value?.canAuthor ? 'nav.write' : 'nav.login'))
 watch(() => route.query.q, value => {
   searchQuery.value = typeof value === 'string' ? value : ''
 }, { immediate: true })
-watch(() => route.fullPath, () => { accountMenu.value = false })
 
 const publicContent = ref<HTMLElement>()
 const authLayout = ref<InstanceType<typeof SiteAuthLayout>>()
@@ -92,17 +101,17 @@ function publicLink(value: string) {
 function contactLink(value: string) {
   return /^[A-Za-z0-9._+@-]+$/.test(value) ? `mailto:${value}` : undefined
 }
-const sync = () => { if (route.name !== 'admin-identity') void refreshSession(lifetime.signal).catch(() => {}) }
+const sync = () => { if (!adminArea.value) void refreshSession(lifetime.signal).catch(() => {}) }
 const whenVisible = () => { if (document.visibilityState === 'visible') sync() }
 let stopSiteRefresh: (() => void) | undefined
-watch([() => currentSession.value?.siteRefresh, () => currentSession.value?.expiresAt, () => route.name === 'admin-identity'],
+watch([() => currentSession.value?.siteRefresh, () => currentSession.value?.expiresAt, () => adminArea.value],
   ([mode, expiresAt, admin], _, cleanup) => {
     if (mode !== 'persistent' || expiresAt === undefined || admin) return
     const timer = setTimeout(whenVisible, siteRenewalDelay(expiresAt))
     cleanup(() => clearTimeout(timer))
   })
 watch(() => route.name, (name, _, cleanup) => {
-  if (!name || accountArea.value || siteAuthPage.value || name === 'admin-identity') return
+  if (!name || accountArea.value || siteAuthPage.value || adminArea.value) return
   const request = new AbortController()
   cleanup(() => request.abort())
   if (siteAuthor.value === undefined) void getSiteSeo(request.signal).then(value => {
@@ -114,7 +123,7 @@ watch(() => route.name, (name, _, cleanup) => {
 }, { immediate: true })
 onMounted(() => {
   stopSiteRefresh = observeSiteRefresh(() => {
-    if (route.name !== 'admin-identity') void refreshSession(lifetime.signal, false).catch(() => {})
+    if (!adminArea.value) void refreshSession(lifetime.signal, false).catch(() => {})
   })
   sync()
   window.addEventListener('pageshow', sync)
@@ -132,7 +141,6 @@ function search(value: string) {
 }
 
 async function leave() {
-  accountMenu.value = false
   logoutFailure.value = false
   try {
     if (route.name !== 'home' && await router.replace('/')) return
@@ -148,45 +156,17 @@ async function leave() {
   <SiteAuthLayout v-if="siteAuthPage" ref="authLayout" :theme-mode="themeMode" @theme="useTheme">
     <RouterView />
   </SiteAuthLayout>
-  <template v-else-if="route.name === 'admin-identity'">
-    <div class="admin-language"><SiteLocaleSelect /></div>
+  <RouterView v-else-if="adminArea" v-slot="{ Component }">
+    <component :is="Component" :theme-mode="themeMode" @theme="useTheme" />
+  </RouterView>
+  <AccountWorkspace v-else-if="accountArea" home="/user" :label="t('nav.accountMenu')" :links="accountLinks"
+    :theme-mode="themeMode" @theme="useTheme">
+    <template #actions>
+      <ElButton v-if="currentSession || logoutFailure" text @click="leave">{{ t('nav.logout') }}</ElButton>
+      <RouterLink v-else class="site-header-text-action" to="/login">{{ t('nav.login') }}</RouterLink>
+    </template>
     <RouterView />
-  </template>
-  <div v-else-if="accountArea" class="workspace">
-    <ElSiteHeader max-width="64rem">
-      <template #brand><RouterLink class="workspace-brand" to="/">{{ siteTitle }}</RouterLink></template>
-      <template #desktop-actions>
-        <RouterLink to="/">{{ t('nav.publicSite') }}</RouterLink>
-        <RouterLink v-if="currentSession?.canAuthor && !articleCollection" :to="{ name: 'article-list' }">{{ t('nav.articles') }}</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
-        <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets">{{ t('nav.assets') }}</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
-        <SiteLocaleSelect />
-        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" :label="t('theme.label')" :labels="themeLabels" csp-safe @update:model-value="useTheme" />
-        <ElButton v-if="currentSession || logoutFailure" text @click="leave">{{ t('nav.logout') }}</ElButton>
-        <RouterLink v-else to="/login">{{ t('nav.login') }}</RouterLink>
-      </template>
-      <template #mobile-overflow-trigger>
-        <ElButton class="workspace-menu-button" v-bind="{ 'aria-haspopup': 'dialog', 'aria-expanded': accountMenu }" @click="accountMenu = true">
-          {{ t('nav.accountMenu') }}
-        </ElButton>
-      </template>
-    </ElSiteHeader>
-    <ElDrawer v-model="accountMenu" :title="t('nav.accountMenu')" direction="rtl" size="min(22rem, 100%)" append-to-body>
-      <nav class="workspace-menu" :aria-label="t('nav.accountMenu')">
-        <RouterLink to="/" @click="accountMenu = false">{{ t('nav.publicSite') }}</RouterLink>
-        <RouterLink v-if="currentSession?.canAuthor && !articleCollection" :to="{ name: 'article-list' }" @click="accountMenu = false">{{ t('nav.articles') }}</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox" @click="accountMenu = false">{{ t('nav.messages') }}</RouterLink>
-        <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets" @click="accountMenu = false">{{ t('nav.assets') }}</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa" @click="accountMenu = false">{{ t('nav.security') }}</RouterLink>
-        <SiteLocaleSelect />
-        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" :label="t('theme.label')" :labels="themeLabels" csp-safe @update:model-value="useTheme" />
-        <ElButton v-if="currentSession || logoutFailure" text @click="leave">{{ t('nav.logout') }}</ElButton>
-        <RouterLink v-else to="/login" @click="accountMenu = false">{{ t('nav.login') }}</RouterLink>
-      </nav>
-    </ElDrawer>
-    <RouterView />
-  </div>
+  </AccountWorkspace>
   <div v-else @click="navigatePublic">
     <a class="skip-link" href="#page-content">{{ t('nav.skip') }}</a>
     <ElPublicShell class="blog-public-shell"
@@ -267,23 +247,6 @@ async function leave() {
 </template>
 
 <style scoped>
-.admin-language { display: flex; justify-content: flex-end; padding: .75rem var(--fsusblog-page-gutter) 0; }
-.workspace-brand {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.workspace-menu-button { min-height: 44px; }
-.workspace-menu {
-  display: grid;
-  justify-items: start;
-  gap: var(--fsus-space-3);
-}
-.workspace-menu > a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-}
 .public-menu-preferences {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

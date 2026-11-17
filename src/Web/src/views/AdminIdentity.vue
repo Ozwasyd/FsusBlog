@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
-import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
+import type { ThemeMode } from '@ozwasyd/element-plus/theme'
+import AccountWorkspace from '../AccountWorkspace.vue'
+import SiteHeaderPreferences from '../SiteHeaderPreferences.vue'
+import { adminWorkspacePages, type AdminWorkspaceSection } from '../adminWorkspaceRoutes'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import AdminModerationControls from './AdminModerationControls.vue'
 import AdminTaxonomy from './AdminTaxonomy.vue'
@@ -27,6 +32,10 @@ import {
   type AdminSession,
 } from '../../../Contracts/admin-identity'
 
+defineProps<{ themeMode?: ThemeMode }>()
+const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
+const route = useRoute()
+const section = computed(() => adminWorkspacePages.find(page => page.name === route.name) ?? adminWorkspacePages[5])
 const adminUsesHttps = globalThis.location?.protocol === 'https:'
 const permissionLease = 60_000
 const permissionRefresh = 45_000
@@ -124,6 +133,20 @@ function clearPermissions() {
 function permits(grant: AdminPermission): boolean {
   return authority.value?.status === 'active' && permissions.value?.includes(grant) === true
 }
+
+function canOpen(page: AdminWorkspaceSection): boolean {
+  switch (page) {
+    case 'articles': return permits('article.write')
+    case 'interaction': return permits('admin.manage') || permits('comment.moderate')
+    case 'site': return permits('system.config')
+    case 'system': return permits('audit.read') || permits('system.config')
+    case 'overview':
+    case 'identity': return true
+  }
+}
+const links = computed(() => adminWorkspacePages.filter(page => canOpen(page.section))
+  .map(({ path, label }) => ({ to: path, label: t(label) })))
+watch(section, (next) => { if (next.section !== 'system') clearOperations() })
 
 async function checkPermissions(session: AdminSession) {
   if (lifetime.signal.aborted || permissionsRequest || authority.value?.status !== 'active' || authority.value.session !== session) return
@@ -252,67 +275,91 @@ function logOut() {
 </script>
 
 <template>
-  <main class="auth-page" :class="{ 'admin-workspace': authority?.status === 'active' }">
-    <h1>{{ t('admin.access') }}</h1>
-    <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
-    <ElAlert v-if="notice" :title="t(notice)" type="success" :closable="false" show-icon />
-
-    <section v-if="authority?.status === 'active'" class="auth-form" aria-labelledby="admin-session-heading">
-      <h2 id="admin-session-heading">{{ t('admin.session') }}</h2>
-      <dl>
-        <dt>{{ t('admin.handle') }}</dt>
-        <dd>{{ authority.session.handle }}</dd>
-        <dt>{{ t('admin.expires') }}</dt>
-        <dd><time :datetime="new Date(authority.session.expiresAt).toISOString()">{{ new Date(authority.session.expiresAt).toLocaleString() }}</time></dd>
-      </dl>
-      <ElButton native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
-    </section>
-    <section v-if="authority?.status === 'active'" class="auth-form" aria-labelledby="admin-permissions-heading">
-      <h2 id="admin-permissions-heading">{{ t('admin.effectivePermissions') }}</h2>
-      <ul v-if="permissions">
-        <li v-for="grant in permissions" :key="grant">{{ grant }}</li>
-      </ul>
-      <template v-else-if="permissionsFailure">
-        <ElAlert :title="t('admin.permissionsFailed')" type="error" :closable="false" show-icon />
-        <ElButton native-type="button" :loading="busy || permissionsPending" @click="refresh">{{ t('admin.reloadPermissions') }}</ElButton>
+  <AccountWorkspace v-if="authority?.status === 'active'" home="/admin" :label="t('admin.access')" :links="links"
+    :theme-mode="themeMode" @theme="emit('theme', $event)">
+    <template #actions>
+      <ElButton text native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
+    </template>
+    <main class="auth-page admin-workspace">
+      <h1>{{ t(section.label) }}</h1>
+      <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
+      <template v-if="section.section === 'overview'">
+        <p class="muted">{{ t('admin.workspace.intro') }}</p>
+        <ul class="admin-overview">
+          <li v-for="link in links.filter(item => item.to !== '/admin')" :key="link.to">
+            <RouterLink :to="link.to">{{ link.label }}</RouterLink>
+          </li>
+        </ul>
       </template>
-      <p v-else-if="permissionsPending" role="status">{{ t('admin.checkingPermissions') }}</p>
-    </section>
-    <AdminSessionHistory v-if="permits('admin.manage') && authority?.status === 'active'" :key="permissionEpoch" :session="authority.session"
-      :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-    <AdminModerationControls v-if="permits('comment.moderate')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-    <AdminInbox v-if="permits('admin.manage')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-    <section v-if="permits('audit.read')" class="auth-form admin-operations" aria-labelledby="admin-operations-heading">
-      <h2 id="admin-operations-heading">{{ t('admin.operationsStatus') }}</h2>
-      <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations">{{ t('admin.checkOperations') }}</ElButton>
-      <ElAlert v-if="operationsFailure" :title="t(operationsFailure)" type="error" :closable="false" show-icon />
-      <div aria-live="polite">
-        <dl v-if="operations">
-          <dt>{{ t('admin.publicSnapshot') }}</dt>
-          <dd>{{ operations.snapshotReady ? t('admin.ready') : t('admin.notReady') }}</dd>
-          <dt>{{ t('admin.publicationWatermark') }}</dt>
-          <dd>{{ operations.publicationWatermark.toString() }}</dd>
-          <dt>{{ t('admin.pendingEvents') }}</dt>
-          <dd>{{ operations.pendingPublicationEvents.toString() }}</dd>
-          <template v-if="operations.oldestPendingAt !== null">
-            <dt>{{ t('admin.oldestPendingEvent') }}</dt>
-            <dd>
-              <time :datetime="new Date(operations.oldestPendingAt).toISOString()">{{ new Date(operations.oldestPendingAt).toLocaleString() }}</time>
-            </dd>
-          </template>
+      <template v-else-if="section.section !== 'identity' && !canOpen(section.section)">
+        <ElAlert v-if="permissionsFailure" :title="t('admin.permissionsFailed')" type="error" :closable="false" show-icon />
+        <ElButton v-if="permissionsFailure" native-type="button" :disabled="busy" @click="refresh">{{ t('admin.reloadPermissions') }}</ElButton>
+        <p v-else-if="!permissions" role="status">{{ t('admin.checkingPermissions') }}</p>
+        <p v-else role="status">{{ t('admin.workspace.denied') }}</p>
+      </template>
+      <section v-if="section.section === 'identity'" class="auth-form" aria-labelledby="admin-session-heading">
+        <h2 id="admin-session-heading">{{ t('admin.session') }}</h2>
+        <dl>
+          <dt>{{ t('admin.handle') }}</dt>
+          <dd>{{ authority.session.handle }}</dd>
+          <dt>{{ t('admin.expires') }}</dt>
+          <dd><time :datetime="new Date(authority.session.expiresAt).toISOString()">{{ new Date(authority.session.expiresAt).toLocaleString() }}</time></dd>
         </dl>
-      </div>
-    </section>
-    <AdminTaxonomy v-if="permits('article.write')" :key="permissionEpoch" @session-lost="handleSessionLoss" />
-    <AdminArticleInventory v-if="permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-    <AdminArticleRollback v-if="permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-    <AdminAppearance v-if="authority?.status === 'active' && authority.session.appearanceEnabled && permits('system.config')" :key="permissionEpoch"
-      :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-    <AdminCluster v-if="authority?.status === 'active' && permits('system.config')" :key="permissionEpoch"
-      :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-    <AdminRiskReadiness v-if="adminUsesHttps && authority?.status === 'active' && permits('system.config')" :key="permissionEpoch"
-      :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-    <AdminSitePages v-if="permits('system.config')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+      </section>
+      <section v-if="section.section === 'identity'" class="auth-form" aria-labelledby="admin-permissions-heading">
+        <h2 id="admin-permissions-heading">{{ t('admin.effectivePermissions') }}</h2>
+        <ul v-if="permissions">
+          <li v-for="grant in permissions" :key="grant">{{ grant }}</li>
+        </ul>
+        <template v-else-if="permissionsFailure">
+          <ElAlert :title="t('admin.permissionsFailed')" type="error" :closable="false" show-icon />
+          <ElButton native-type="button" :loading="busy || permissionsPending" @click="refresh">{{ t('admin.reloadPermissions') }}</ElButton>
+        </template>
+        <p v-else-if="permissionsPending" role="status">{{ t('admin.checkingPermissions') }}</p>
+      </section>
+      <AdminSessionHistory v-if="section.section === 'identity' && permits('admin.manage')" :key="permissionEpoch" :session="authority.session"
+        :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+      <AdminModerationControls v-if="section.section === 'interaction' && permits('comment.moderate')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+      <AdminInbox v-if="section.section === 'interaction' && permits('admin.manage')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+      <section v-if="section.section === 'system' && permits('audit.read')" class="auth-form admin-operations" aria-labelledby="admin-operations-heading">
+        <h2 id="admin-operations-heading">{{ t('admin.operationsStatus') }}</h2>
+        <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations">{{ t('admin.checkOperations') }}</ElButton>
+        <ElAlert v-if="operationsFailure" :title="t(operationsFailure)" type="error" :closable="false" show-icon />
+        <div aria-live="polite">
+          <dl v-if="operations">
+            <dt>{{ t('admin.publicSnapshot') }}</dt>
+            <dd>{{ operations.snapshotReady ? t('admin.ready') : t('admin.notReady') }}</dd>
+            <dt>{{ t('admin.publicationWatermark') }}</dt>
+            <dd>{{ operations.publicationWatermark.toString() }}</dd>
+            <dt>{{ t('admin.pendingEvents') }}</dt>
+            <dd>{{ operations.pendingPublicationEvents.toString() }}</dd>
+            <template v-if="operations.oldestPendingAt !== null">
+              <dt>{{ t('admin.oldestPendingEvent') }}</dt>
+              <dd>
+                <time :datetime="new Date(operations.oldestPendingAt).toISOString()">{{ new Date(operations.oldestPendingAt).toLocaleString() }}</time>
+              </dd>
+            </template>
+          </dl>
+        </div>
+      </section>
+      <AdminTaxonomy v-if="section.section === 'articles' && permits('article.write')" :key="permissionEpoch" @session-lost="handleSessionLoss" />
+      <AdminArticleInventory v-if="section.section === 'articles' && permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+      <AdminArticleRollback v-if="section.section === 'articles' && permits('article.write')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+      <AdminAppearance v-if="section.section === 'site' && authority?.status === 'active' && authority.session.appearanceEnabled && permits('system.config')" :key="permissionEpoch"
+        :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+      <AdminCluster v-if="section.section === 'system' && authority?.status === 'active' && permits('system.config')" :key="permissionEpoch"
+        :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+      <AdminRiskReadiness v-if="section.section === 'system' && adminUsesHttps && authority?.status === 'active' && permits('system.config')" :key="permissionEpoch"
+        :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+      <AdminSitePages v-if="section.section === 'site' && permits('system.config')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+    </main>
+  </AccountWorkspace>
+  <template v-else>
+    <div class="admin-login-preferences"><SiteHeaderPreferences :theme-mode="themeMode" @theme="emit('theme', $event)" /></div>
+    <main class="auth-page admin-login">
+      <h1>{{ t('admin.access') }}</h1>
+      <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
+      <ElAlert v-if="notice" :title="t(notice)" type="success" :closable="false" show-icon />
     <p v-if="authority?.status === 'unavailable'">{{ t('admin.accessUnavailable') }}</p>
     <template v-else-if="authority?.status === 'signed-out'">
       <p v-if="!canUsePasskeys">{{ t('admin.securePasskeyRequired') }}</p>
@@ -331,13 +378,18 @@ function logOut() {
     </template>
     <p v-else-if="authority === null && busy" role="status">{{ t('admin.checkingAccess') }}</p>
     <ElButton v-else-if="authority === null" native-type="button" @click="refresh">{{ t('admin.reloadAccess') }}</ElButton>
-  </main>
+    </main>
+  </template>
 </template>
 
 <style scoped>
 .admin-bootstrap-form { display: grid; gap: 0.75rem; }
 .admin-setup-button { margin-inline-start: 0; }
-.admin-workspace { width: min(68rem, calc(100% - 2 * var(--fsusblog-page-gutter))); }
-.admin-workspace .auth-form { max-width: 40rem; }
+.admin-login-preferences { display: flex; justify-content: flex-end; gap: .5rem; padding: .75rem var(--fsusblog-page-gutter) 0; }
+.admin-login { margin-inline: auto; }
+.admin-workspace { width: auto; }
+.admin-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .75rem; padding: 0; list-style: none; }
+.admin-overview a { display: block; min-block-size: 44px; padding: .75rem; border: 1px solid var(--fsus-border); text-decoration: none; }
+.admin-overview a:hover { background: var(--el-fill-color-light); }
 .admin-operations { margin-block-start: 1.5rem; }
 </style>

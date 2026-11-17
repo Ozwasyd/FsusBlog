@@ -1,3 +1,4 @@
+import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
@@ -9,6 +10,7 @@ import {
 import { adminArticleFixture, commitWithLostReceipt, sourceTitle } from './admin-article-fixture.mjs'
 
 export async function verifyAdminArticleRollback({ page, context, adminOrigin, siteOrigin, grant, logIn, evidence }) {
+  await visitAdminWorkspace(page, '/admin/articles')
   const { admin, section, send, grantAndSignIn, previewRollback, inspect, index,
     expectStaleIndex, expectWithdrawnArticle, expectWithdrawnCorpus } = adminArticleFixture({ page, context, adminOrigin, siteOrigin })
   const availability = WireRoutes.AdminArticleRollbackAvailability

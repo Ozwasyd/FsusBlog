@@ -1,3 +1,4 @@
+import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
@@ -15,8 +16,10 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   const riskFixture = process.env.FSUSBLOG_TEST_ADMIN_RISK_EXPECTED
   const risk = riskFixture ? adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin, adminCookieName,
     siteCookie, priorCookie, probe, evidence, expected: JSON.parse(riskFixture) }) : null
+  await visitAdminWorkspace(page, '/admin/system')
   await cluster.denied()
   await risk?.denied()
+  await visitAdminWorkspace(page, '/admin/site')
   const legacy = '/api/binary/system/admin/page/about'
   const overview = adminOrigin.origin + WireRoutes.AdminSitePages
   const detail = WireRoutes.AdminSitePage.replace('{slug}', 'about')
@@ -39,10 +42,12 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   await probe(overview, adminCookieName, priorCookie.value, 401)
   await page.reload()
   await logIn(page)
+  await visitAdminWorkspace(page, '/admin/system')
   await cluster.granted()
   await risk?.granted()
   if (process.env.FSUSBLOG_TEST_ADMIN_RISK_CASE === 'root-pow-policy')
     await verifyRootCommentPowPolicy({ page, context, adminOrigin, siteOrigin, evidence })
+  await visitAdminWorkspace(page, '/admin/site')
   const allowed = await check()
   assert.equal(allowed.status(), 200)
   assert.match(allowed.headers()['cache-control'], /no-store/)
@@ -77,20 +82,30 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   if (editor) await verifyEditor({ page, section, context, adminOrigin, siteOrigin, adminCookieName, grantCookie, probe, legacy, evidence })
   else assert.equal(await section.getByRole('button', { name: 'Edit about content', exact: true }).count(), 0)
   const revokeAndObserve = async () => {
+    await visitAdminWorkspace(page, '/admin/site')
     await promisify(execFile)(revoke, [], { timeout: 8_000 })
     await probe(adminOrigin.origin + legacy, adminCookieName, grantCookie.value, 401)
     const revision = adminOrigin.origin + WireRoutes.AdminSitePageRevision.replace('{slug}', 'about')
     await probe(revision, adminCookieName, grantCookie.value, editor ? 401 : 404)
     assert.equal((await check()).status(), 401)
   }
-  if (risk) await risk.duringRevocation(grantCookie, revokeAndObserve)
+  if (risk) {
+    await visitAdminWorkspace(page, '/admin/system')
+    // A new System mount independently revalidates the same authority and observation.
+    await risk.granted()
+    // The retained reply must not resurrect System after navigation and Site observes revocation.
+    await risk.duringRevocation(grantCookie, revokeAndObserve)
+    assert.equal(new URL(page.url()).pathname, '/admin/site')
+  }
   else await revokeAndObserve()
   await displayed.waitFor({ state: 'hidden' })
   await cluster.cleared(grantCookie)
   await logIn(page)
   assert.equal((await context.request.get(overview)).status(), 403)
   await section.waitFor({ state: 'detached' })
+  await visitAdminWorkspace(page, '/admin/system')
   await cluster.denied()
+  await visitAdminWorkspace(page, '/admin/site')
   return await readCookie(context, adminOrigin.origin + WireRoutes.AdminSession, adminCookieName)
 }
 

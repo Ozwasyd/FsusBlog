@@ -1,3 +1,4 @@
+import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -11,6 +12,7 @@ import { decodeAdminAppearanceFontDetail, decodeAdminAppearanceState, encodeAdmi
 
 export async function verifyAppearanceActivation({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
   priorCookie, grant, revoke, logIn, probe, readCookie, evidence }) {
+  await visitAdminWorkspace(page, '/admin/site')
   const admin = path => adminOrigin.origin + path
   const pub = path => siteOrigin.origin + path
   const stateUrl = admin(WireRoutes.AdminAppearanceState)

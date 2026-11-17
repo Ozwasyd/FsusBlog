@@ -14,7 +14,8 @@ internal static class AdminIdentityEndpoints
     private const string RpSetting = "FSUSBLOG_ADMIN_RP_ID";
     private const string PublicOriginSetting = "FSUSBLOG_PUBLIC_ORIGIN";
     private const string ApiPath = "/api/v2/admin/identity";
-    private const string PagePath = "/admin/identity";
+    private static readonly string[] DocumentPaths =
+        ["/admin", "/admin/articles", "/admin/interaction", "/admin/site", "/admin/system", "/admin/identity"];
     private const string Limit = "admin-passkey";
 
     internal static void AddRateLimits(RateLimiterOptions options) =>
@@ -25,7 +26,7 @@ internal static class AdminIdentityEndpoints
     internal static bool IsAllowed(HttpContext ctx, PasskeyConfiguration? config)
     {
         var path = ctx.Request.Path;
-        var administration = path == PagePath || path.StartsWithSegments(ApiPath) || AdminSitePages.IsLegacyRoute(path) ||
+        var administration = DocumentPaths.Any(document => path == document || path == document + "/") || path.StartsWithSegments(ApiPath) || AdminSitePages.IsLegacyRoute(path) ||
             path.StartsWithSegments("/api/binary/author/comments");
         if (config is null) return !administration;
         var isAdminOrigin = string.Equals(config.Origin.Scheme, ctx.Request.Scheme, StringComparison.OrdinalIgnoreCase) &&
@@ -61,12 +62,14 @@ internal static class AdminIdentityEndpoints
             app.Services.GetRequiredService<InstanceLease>(), config);
         var appearance = app.Services.GetService<FsusBlog.V2.Server.Content.AppearanceAssets>();
 
-        app.MapGet(PagePath, (HttpContext ctx) =>
-        {
-            ctx.Response.Headers.CacheControl = "no-store";
-            ctx.Response.Headers["X-Robots-Tag"] = "noindex";
-            return Results.Bytes(app.Services.GetRequiredService<WebPages>().Page(useAppearance: false), "text/html; charset=utf-8");
-        });
+        var document = app.Services.GetRequiredService<WebPages>().Page(noIndex: true, useAppearance: false);
+        foreach (var path in DocumentPaths)
+            app.MapGet(path, (HttpContext ctx) =>
+            {
+                ctx.Response.Headers.CacheControl = "no-store";
+                ctx.Response.Headers["X-Robots-Tag"] = "noindex";
+                return Results.Bytes(document, "text/html; charset=utf-8");
+            });
         app.MapPost(WireRoutes.AdminBootstrapBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
             var result = await store.BeginBootstrap(BootstrapToken(ctx), ct);

@@ -8,6 +8,7 @@ import { readThemeMode, syncThemeMode } from '@ozwasyd/element-plus/theme'
 import './blog.css'
 import './reading-typography.css'
 import App from './App.vue'
+import { adminWorkspacePages } from './adminWorkspaceRoutes'
 import { preloadPublicEntry } from './publicEntry'
 import { siteTitle } from './siteBrand'
 import { preloadWorkspaceLocale, siteLocale, t, type MessageKey } from './siteLocale'
@@ -33,7 +34,10 @@ const router = createRouter({
     ...Object.keys(sitePages).map(slug => ({ path: '/' + slug, name: slug, component: sitePage })),
     { path: '/login', name: 'login', component: () => import('./views/Login.vue') },
     { path: '/register', name: 'register', component: () => import('./views/ReaderRegister.vue') },
-    { path: '/admin/identity', name: 'admin-identity', component: () => import('./views/AdminIdentity.vue') },
+    ...adminWorkspacePages.map(({ path, name, section }) => ({
+      path, name, component: () => import('./views/AdminIdentity.vue'), meta: { adminSection: section },
+    })),
+    { path: '/user', redirect: { name: 'security' } },
     { path: '/subscribe', name: 'subscribe', component: () => import('./views/SubscriptionPreference.vue') },
     { path: '/user/identity/mfa', name: 'security', component: () => import('./views/AccountSecurity.vue') },
     { path: '/user/messagebox', name: 'messages', component: () => import('./views/Messages.vue') },
@@ -57,7 +61,7 @@ const router = createRouter({
   ],
 })
 router.beforeEach(async to => {
-  if (to.path.startsWith('/user/') || to.name === 'admin-identity' || to.name === 'subscribe')
+  if (to.path.startsWith('/user/') || to.meta.adminSection || to.name === 'subscribe')
     await preloadWorkspaceLocale()
 })
 router.afterEach((to, from) => {
@@ -69,7 +73,7 @@ router.afterEach((to, from) => {
   if (to.name === 'article' && !from.name) return
   updateDocumentTitle(to.name)
   document.querySelector('meta[name="robots"]')?.remove()
-  if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'register' || to.name === 'admin-identity' || to.name === 'messages' || to.name === 'security' ||
+  if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'register' || to.meta.adminSection || to.name === 'messages' || to.name === 'security' ||
       to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'canvas' || to.name === 'canvas-document' || to.name === 'private-media' || authorInventory || subscription) {
     const robots = document.createElement('meta')
     robots.name = 'robots'
@@ -78,7 +82,7 @@ router.afterEach((to, from) => {
   }
 })
 const labels: Record<string, MessageKey> = {
-  'admin-identity': 'admin.access',
+  ...Object.fromEntries(adminWorkspacePages.map(({ name, label }) => [name, label])),
   archive: 'page.archive',
   search: 'page.search',
   category: 'page.category',

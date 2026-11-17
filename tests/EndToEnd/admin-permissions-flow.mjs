@@ -1,9 +1,17 @@
+import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 export async function expectPermissions(page, context, origin, expected) {
+  if (new URL(page.url()).pathname !== '/admin/identity') {
+    const account = await context.newPage()
+    try {
+      await account.goto(origin + '/admin/identity')
+      return await expectPermissions(account, context, origin, expected)
+    } finally { await account.close() }
+  }
   const section = page.getByRole('region', { name: 'Effective permissions', exact: true })
   await section.getByText('admin.manage', { exact: true }).waitFor()
   const [response, session] = await Promise.all([
@@ -33,6 +41,7 @@ export async function expectPanelHidden(page, name) {
 }
 
 export async function verifyMismatchedPermissionSession(page, context, origin) {
+  await visitAdminWorkspace(page, '/admin/identity')
   const endpoint = origin + WireRoutes.AdminEffectivePermissions
   await page.route(endpoint, async route => {
     const response = await route.fetch({ maxRedirects: 0 })
@@ -52,5 +61,7 @@ export async function verifyMismatchedPermissionSession(page, context, origin) {
   assert.equal((await context.request.get(origin + WireRoutes.AdminSession)).status(), 200)
   await page.getByRole('button', { name: 'Reload effective permissions', exact: true }).click()
   await expectPermissions(page, context, origin, ['admin.manage'])
+  await visitAdminWorkspace(page, '/admin/interaction')
   await page.getByRole('heading', { name: 'Support inbox', exact: true }).waitFor()
+  await visitAdminWorkspace(page, '/admin/identity')
 }
