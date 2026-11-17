@@ -122,7 +122,7 @@ try {
   await edit.click()
   await owner.waitForURL(url => url.pathname === `/user/manage/article/edit/${summaryArticle.id}`)
   await owner.waitForFunction(title => document.querySelector('#article-title')?.value === title, summaryArticle.title)
-  await owner.getByRole('link', { name: '文章管理', exact: true }).first().click()
+  await owner.getByRole('link', { name: 'Manage articles', exact: true }).first().click()
   await owner.waitForURL(url => url.pathname === inventoryPath)
   const deleteButton = owner.getByRole('button', { name: `移至回收站 ${published.title}`, exact: true })
   const deleteDialog = owner.getByRole('dialog', { name: '移至回收站', exact: true })

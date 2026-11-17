@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
@@ -12,8 +13,8 @@ const eligibility = shallowRef<PublicCommentEligibility & { canReply: boolean }>
 const body = ref('')
 const confirm = ref(false)
 const pending = ref(false)
-const result = ref('')
-const problem = ref('')
+const result = ref<MessageKey | ''>('')
+const problem = ref<MessageKey | ''>('')
 const candidate = shallowRef<{ body: string; id: string }>()
 const utf8 = new TextEncoder()
 const ready = computed(() => confirm.value && body.value.trim().length > 0 && body.value.trim().length <= 1000 &&
@@ -74,13 +75,13 @@ async function send() {
     body.value = ''
     confirm.value = false
     result.value = receipt.moderationStatus === 0
-      ? target ? 'Reply submitted for review.' : 'Comment submitted for review.'
-      : 'Comment submission confirmed.'
+      ? target ? 'comment.replySubmitted' : 'comment.submitted'
+      : 'comment.confirmed'
   } catch (error) {
     if (!controller.signal.aborted && identityEpoch.value === epoch) {
       problem.value = error instanceof ApiError && (error.status === 401 || error.status === 403)
-        ? 'Public comment submission is unavailable. Reload the article to check again.'
-        : 'Could not submit the comment. You can retry.'
+        ? 'comment.submitUnavailable'
+        : 'comment.submitFailed'
     }
   } finally {
     if (action === controller) {
@@ -93,18 +94,18 @@ async function send() {
 
 <template>
   <form v-if="eligibility" class="public-comment-composer" @submit.prevent="send">
-    <h3>{{ reply ? `Reply to ${reply.name}` : 'Leave a public comment' }}</h3>
-    <ElInput v-model="body" type="textarea" :label="reply ? 'Reply' : 'Comment'" v-bind="{ rows: 4, maxlength: 1000 }" :disabled="pending" />
+    <h3>{{ reply ? t('comment.replyTo', { name: reply.name }) : t('comment.leave') }}</h3>
+    <ElInput v-model="body" type="textarea" :label="reply ? t('comment.reply') : t('comment.bodyLabel')" v-bind="{ rows: 4, maxlength: 1000 }" :disabled="pending" />
     <ElCheckbox :model-value="confirm" :disabled="pending" @update:model-value="value => confirm = value === true">
-      Publish as {{ eligibility.displayName }} after review
+      {{ t('comment.publishAs', { name: eligibility.displayName }) }}
     </ElCheckbox>
     <div>
-      <ElButton type="primary" native-type="submit" :disabled="!ready" :loading="pending">Submit for review</ElButton>
-      <ElButton v-if="reply" native-type="button" @click="emit('cancel')">Cancel reply</ElButton>
+      <ElButton type="primary" native-type="submit" :disabled="!ready" :loading="pending">{{ t('comment.submit') }}</ElButton>
+      <ElButton v-if="reply" native-type="button" @click="emit('cancel')">{{ t('comment.cancelReply') }}</ElButton>
     </div>
-    <p v-if="pending" role="status">Verifying and submitting comment…</p>
-    <p v-if="result" role="status">{{ result }}</p>
-    <ElAlert v-if="problem" :title="problem" type="error" :closable="false" />
+    <p v-if="pending" role="status">{{ t('comment.submitting') }}</p>
+    <p v-if="result" role="status">{{ t(result) }}</p>
+    <ElAlert v-if="problem" :title="t(problem)" type="error" :closable="false" />
   </form>
 </template>
 

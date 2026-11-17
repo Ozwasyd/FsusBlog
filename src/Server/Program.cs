@@ -487,12 +487,23 @@ Mutation(WireRoutes.Restore, ArticleAction.Restore);
 
 var webPages = app.Services.GetRequiredService<WebPages>();
 var shell = webPages.Page();
+var archiveShell = ListingShell("page.archive", SiteLocale.Default, "/archive");
+var englishArchiveShell = ListingShell("page.archive", "en", "/archive");
+var searchShell = ListingShell("page.search", SiteLocale.Default, "/search");
+var englishSearchShell = ListingShell("page.search", "en", "/search");
 var loginShell = webPages.SiteLoginPage();
-var archiveShell = webPages.PublicPage("<section class=\"reading-column editorial-page\"><h1 class=\"editorial-rule\">Archive</h1><p role=\"status\">Loading articles…</p></section>", publicPath: "/archive");
-var searchShell = webPages.PublicPage("<section class=\"reading-column editorial-page\"><h1 class=\"editorial-rule\">Search</h1></section>", noIndex: true, publicPath: "/search");
-app.MapGet("/", (HttpContext ctx) => PublicResponse.Write(ctx, Snapshot(ctx).Home, Html));
+var englishLoginShell = webPages.SiteLoginPage("en");
+byte[] ListingShell(string titleKey, string locale, string path) => webPages.PublicPage(
+    $"<section class=\"reading-column editorial-page\"><h1 class=\"editorial-rule\">{SiteLocale.Html(locale, titleKey)}</h1>" +
+    (path == "/archive" ? $"<p role=\"status\">{SiteLocale.Html(locale, "page.loadingArticles")}</p>" : "") + "</section>",
+    title: SiteLocale.Text(locale, titleKey), noIndex: path == "/search", publicPath: path, locale: locale);
+app.MapGet("/", (HttpContext ctx) =>
+{
+    var snapshot = Snapshot(ctx);
+    return PublicResponse.Write(ctx, SiteLocale.Select(ctx) == "en" ? snapshot.EnglishHome : snapshot.Home, Html);
+});
 app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: true));
-app.MapGet("/archive", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(archiveShell, Html); });
+app.MapGet("/archive", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishArchiveShell : archiveShell, Html); });
 foreach (var route in new[] { "/user/manage/article/list", "/user/manage/article/search", "/user/manage/article/trash", "/user/comments" })
     app.MapGet(route, (HttpContext ctx) =>
     {
@@ -500,8 +511,8 @@ foreach (var route in new[] { "/user/manage/article/list", "/user/manage/article
         ctx.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
         return Results.Bytes(shell, Html);
     });
-app.MapGet("/search", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(searchShell, Html); });
-app.MapGet("/login", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(loginShell, Html); });
+app.MapGet("/search", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishSearchShell : searchShell, Html); });
+app.MapGet("/login", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishLoginShell : loginShell, Html); });
 foreach (var route in new[] { "/user/identity/mfa", "/user/messagebox",
     "/user/manage/assets", "/user/manage/article/write", "/user/manage/article/workspace", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });
@@ -534,10 +545,10 @@ async Task PublicDetail(HttpContext ctx, int id, bool asHtml)
     {
         if (publicMediaEnabled && snapshot.HasPublishedImages(id))
             ctx.Response.Headers[WireHeaders.PublicArticleMediaPresent] = "1";
-        await PublicResponse.Write(ctx, asHtml ? article.Html : article.Wire, asHtml ? Html : Binary);
+        await PublicResponse.Write(ctx, asHtml ? (SiteLocale.Select(ctx) == "en" ? article.EnglishHtml ?? article.Html : article.Html) : article.Wire, asHtml ? Html : Binary);
         return;
     }
-    var missing = asHtml ? Results.Text("文章不存在", "text/plain; charset=utf-8", statusCode: 404) : Error(ctx, 404, "Article not found.");
+    var missing = asHtml ? Results.Text(SiteLocale.Text(SiteLocale.Select(ctx), "reading.articleMissing"), "text/plain; charset=utf-8", statusCode: 404) : Error(ctx, 404, "Article not found.");
     await missing.ExecuteAsync(ctx);
 }
 

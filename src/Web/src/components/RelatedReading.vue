@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton } from '@ozwasyd/element-plus'
@@ -33,19 +34,19 @@ const target = (id: number) => ({ name: 'article', params: { id } })
 
 <template>
   <section v-if="failure || previous || next || suggestions.length" class="related-reading" aria-labelledby="related-reading-heading">
-    <h2 id="related-reading-heading">Related reading</h2>
+    <h2 id="related-reading-heading">{{ t('reading.related') }}</h2>
     <template v-if="failure">
-      <ElAlert title="Could not load related reading." type="info" :closable="false" />
-      <ElButton text @click="retry++">Retry related reading</ElButton>
+      <ElAlert :title="t('reading.relatedFailed')" type="info" :closable="false" />
+      <ElButton text @click="retry++">{{ t('reading.retryRelated') }}</ElButton>
     </template>
-    <nav v-else aria-label="Related articles">
+    <nav v-else :aria-label="t('reading.relatedArticles')">
       <ul>
         <li v-if="previous">
-          <span class="metadata">Previous article</span>
+          <span class="metadata">{{ t('reading.previousArticle') }}</span>
           <RouterLink :to="target(previous.id)" v-bind="{ 'data-related-role': 'previous' }">{{ previous.title }}</RouterLink>
         </li>
         <li v-if="next">
-          <span class="metadata">Next article</span>
+          <span class="metadata">{{ t('reading.nextArticle') }}</span>
           <RouterLink :to="target(next.id)" v-bind="{ 'data-related-role': 'next' }">{{ next.title }}</RouterLink>
         </li>
         <li v-for="item in suggestions" :key="item.id">

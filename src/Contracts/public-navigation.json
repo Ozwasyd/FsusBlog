@@ -1,5 +1,14 @@
 [
-  { "key": "home", "label": "首页", "href": "/" },
-  { "key": "archive", "label": "归档", "href": "/archive" },
-  { "key": "about", "label": "关于", "href": "/about" }
+  {
+    "key": "home",
+    "href": "/"
+  },
+  {
+    "key": "archive",
+    "href": "/archive"
+  },
+  {
+    "key": "about",
+    "href": "/about"
+  }
 ]

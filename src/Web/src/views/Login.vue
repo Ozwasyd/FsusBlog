@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
@@ -14,7 +15,7 @@ const ticket = ref('')
 const validTicket = computed(() => /^[A-Za-z0-9_-]+$/.test(ticket.value.trim()) && ticket.value.trim().length <= WireLimits.TicketBytes)
 const busy = ref(false)
 const recoveryBusy = ref(false)
-const failure = ref('')
+const failure = ref<MessageKey | ''>('')
 const registered = ref(false)
 const hasPasskeys = ref(false)
 const hasPersistentPasskeys = ref(false)
@@ -51,8 +52,8 @@ async function submit() {
   } catch (error) {
     if (!lifetime.signal.aborted) {
       failure.value = error instanceof ApiError && error.status === 401
-        ? 'This owner access key was not accepted.'
-        : 'Could not log in. Try again.'
+        ? 'login.keyRejected'
+        : 'login.failed'
     }
   } finally {
     if (!lifetime.signal.aborted) busy.value = false
@@ -77,7 +78,7 @@ async function usePasskey(register: boolean) {
     }
   } catch {
     if (!lifetime.signal.aborted)
-      failure.value = register ? 'Could not create the Passkey. Try again with a new owner access key.' : 'Could not log in with this Passkey. Try again.'
+      failure.value = register ? 'login.createFailed' : 'login.passkeyFailed'
   } finally {
     if (!lifetime.signal.aborted) busy.value = false
   }
@@ -95,7 +96,7 @@ async function verifyFactor() {
       await router.replace({ name: currentSession.value.canAuthor ? 'write' : 'home' })
     }
   } catch {
-    if (!lifetime.signal.aborted) failure.value = 'Verification failed. Use a fresh code or start a new login.'
+    if (!lifetime.signal.aborted) failure.value = 'login.factorFailed'
   } finally {
     if (!lifetime.signal.aborted) busy.value = false
   }
@@ -111,30 +112,30 @@ function cancelFactor() {
 
 <template>
   <div class="auth-heading">
-    <h1>Log in</h1>
-    <p>Write and publish articles.</p>
+    <h1>{{ t('page.login') }}</h1>
+    <p>{{ t('login.subtitle') }}</p>
   </div>
   <template v-if="currentSession">
-    <p v-if="canContinue"><RouterLink :to="{ name: 'write' }">Continue to writing</RouterLink></p>
-    <RouterLink to="/user/identity/mfa">Account security</RouterLink>
+    <p v-if="canContinue"><RouterLink :to="{ name: 'write' }">{{ t('login.continue') }}</RouterLink></p>
+    <RouterLink to="/user/identity/mfa">{{ t('login.security') }}</RouterLink>
   </template>
   <form v-else-if="pending" class="auth-form" @submit.prevent="verifyFactor">
-    <label for="login-factor">Authenticator or recovery code</label>
+    <label for="login-factor">{{ t('login.factor') }}</label>
     <ElInput id="login-factor" v-model="factor" autocomplete="one-time-code" :disabled="busy" />
-    <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
-    <ElButton type="primary" native-type="submit" :loading="busy" :disabled="!validMfaFactor(factor)">Verify and log in</ElButton>
-    <ElButton native-type="button" :disabled="busy" @click="cancelFactor">Start over</ElButton>
+    <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
+    <ElButton type="primary" native-type="submit" :loading="busy" :disabled="!validMfaFactor(factor)">{{ t('login.verify') }}</ElButton>
+    <ElButton native-type="button" :disabled="busy" @click="cancelFactor">{{ t('login.restart') }}</ElButton>
   </form>
   <form v-else class="auth-form" @submit.prevent="submit">
     <ElButton v-if="hasPasskeys" native-type="button" size="large" :disabled="busy || recoveryBusy" @click="usePasskey(false)">
-      Log in with Passkey
+      {{ t('login.passkey') }}
     </ElButton>
     <ElCheckbox v-if="hasPersistentPasskeys" :model-value="rememberMe" :disabled="busy || recoveryBusy"
       @update:model-value="rememberMe = $event === true">
-      Keep me signed in
+      {{ t('login.remember') }}
     </ElCheckbox>
-    <ElAlert v-if="registered" title="Passkey created. Log in with your Passkey." type="success" :closable="false" show-icon />
-    <label for="owner-key">Owner access key</label>
+    <ElAlert v-if="registered" :title="t('login.created')" type="success" :closable="false" show-icon />
+    <label for="owner-key">{{ t('login.ownerKey') }}</label>
     <ElInput
       id="owner-key"
       v-model="ticket"
@@ -143,14 +144,14 @@ function cancelFactor() {
       size="large"
       :disabled="busy || recoveryBusy"
     />
-    <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
+    <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
     <ElButton native-type="submit" size="large" type="primary" :loading="busy" :disabled="!validTicket || recoveryBusy">
-      Log in
+      {{ t('page.login') }}
     </ElButton>
     <ElButton v-if="hasPasskeys" native-type="button" size="large" :disabled="busy || recoveryBusy || !validTicket" @click="usePasskey(true)">
-      Create Passkey
+      {{ t('login.createPasskey') }}
     </ElButton>
   </form>
   <SiteRecoveryLogin v-if="!currentSession && !pending" :disabled="busy" @busy="recoveryBusy = $event" />
-  <div class="auth-footer"><RouterLink to="/">Cancel</RouterLink></div>
+  <div class="auth-footer"><RouterLink to="/">{{ t('login.cancel') }}</RouterLink></div>
 </template>

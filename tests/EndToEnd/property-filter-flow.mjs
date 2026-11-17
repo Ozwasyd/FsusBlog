@@ -443,7 +443,7 @@ async function verifyLateReply(publisher, origin, exactScore, replacement, obser
       window.pendingPropertyReply.deliver()
       await new Promise(resolve => setTimeout(resolve, 0))
     })
-    await page.getByRole('link', { name: '文章管理', exact: true }).click()
+    await page.getByRole('link', { name: 'Manage articles', exact: true }).click()
     await page.getByText('按文章属性筛选', { exact: true }).click()
     await page.getByText('请先在文章编辑器中创建属性定义。', { exact: true }).waitFor()
     observations.push('Leaving the filter cancels its pending request, and its late 401 cannot clear a different signed-in author.')

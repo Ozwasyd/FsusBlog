@@ -1,6 +1,6 @@
 import { isSitePageSlug, sitePages, type SitePageSlug } from '../../Contracts/site-pages'
 
-type SitePage = Readonly<{ slug: SitePageSlug; body: string; configured: boolean }>
+type SitePage = Readonly<{ slug: SitePageSlug; body: string; configured: boolean; bodyLanguage?: string }>
 
 let initial: SitePage | undefined
 
@@ -11,7 +11,7 @@ function read(root: ParentNode, slug: SitePageSlug): SitePage | undefined {
   const body = article.querySelector(':scope > [data-site-page-body]')
   if (!body || (state !== 'published' && state !== 'unconfigured')) return
   // The server owns this fragment, which is constructed from Markdown with raw HTML disabled.
-  return { slug, body: body.innerHTML, configured: state === 'published' }
+  return { slug, body: body.innerHTML, configured: state === 'published', bodyLanguage: body.getAttribute('lang') ?? undefined }
 }
 
 function readFragment(html: string, slug: SitePageSlug): SitePage | undefined {

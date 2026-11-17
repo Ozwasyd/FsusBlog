@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
@@ -18,7 +19,7 @@ const stage = ref<'closed' | 'key' | 'verified' | 'complete' | 'finished'>('clos
 const key = ref('')
 const keyValid = computed(() => validSiteRecoveryKey(key.value.trim()))
 const busy = ref(false)
-const failure = ref('')
+const failure = ref<MessageKey | ''>('')
 const lifetime = new AbortController()
 let operation: AbortController | undefined
 let attestation: Uint8Array<ArrayBuffer> | undefined
@@ -96,13 +97,13 @@ async function replacePasskey() {
   } catch (error) {
     if (signal.aborted) return
     if (stage.value === 'complete' && canRetryCompletion(error)) {
-      failure.value = 'Could not confirm the replacement. Retry to submit the same Passkey.'
+      failure.value = 'login.recovery.unconfirmed'
     } else if (stage.value === 'verified' && !(error instanceof ApiError && [401, 403, 404, 410].includes(error.status))) {
-      failure.value = 'Could not create the replacement Passkey. Try again.'
+      failure.value = 'login.recovery.createFailed'
     } else {
       dropAttestation()
       stage.value = 'key'
-      failure.value = 'Could not recover this account. Check your Recovery Key and try again.'
+      failure.value = 'login.recovery.failed'
     }
   } finally {
     if (operation === attempt) {
@@ -114,22 +115,22 @@ async function replacePasskey() {
 </script>
 
 <template>
-  <section v-if="available" class="site-recovery-login" aria-label="Passkey recovery">
+  <section v-if="available" class="site-recovery-login" :aria-label="t('login.recovery.label')">
     <ElButton v-if="stage === 'closed'" native-type="button" :disabled="disabled" @click="stage = 'key'">
-      Recover with Recovery Key
+      {{ t('login.recovery.open') }}
     </ElButton>
-    <ElAlert v-else-if="stage === 'finished'" title="Passkey replaced. Log in with your new Passkey." type="success" :closable="false" show-icon />
+    <ElAlert v-else-if="stage === 'finished'" :title="t('login.recovery.finished')" type="success" :closable="false" show-icon />
     <form v-else class="recovery-login-form" @submit.prevent="replacePasskey">
-      <p>Replace the lost Passkey, then log in with the new Passkey and any configured authenticator verification.</p>
+      <p>{{ t('login.recovery.explanation') }}</p>
       <template v-if="stage === 'key'">
-        <label for="site-recovery-login-key">Recovery Key</label>
+        <label for="site-recovery-login-key">{{ t('login.recovery.key') }}</label>
         <ElInput id="site-recovery-login-key" v-model="key" type="password" autocomplete="off" :disabled="busy || disabled" />
       </template>
-      <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
+      <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
       <ElButton type="primary" native-type="submit" :loading="busy" :disabled="disabled || (stage === 'key' && !keyValid && !busy)">
-        {{ stage === 'complete' && failure ? 'Retry Passkey replacement' : 'Replace Passkey' }}
+        {{ t(stage === 'complete' && failure ? 'login.recovery.retry' : 'login.recovery.replace') }}
       </ElButton>
-      <ElButton class="recovery-cancel" native-type="button" @click="clearRecovery">Cancel recovery</ElButton>
+      <ElButton class="recovery-cancel" native-type="button" @click="clearRecovery">{{ t('login.recovery.cancel') }}</ElButton>
     </form>
   </section>
 </template>

@@ -4,7 +4,7 @@ using FsusBlog.V2.Server.Operations;
 
 namespace FsusBlog.V2.Server.Content;
 
-internal sealed record PublicArticleBytes(byte[] Wire, byte[] Html);
+internal sealed record PublicArticleBytes(byte[] Wire, byte[] Html, byte[]? EnglishHtml = null);
 
 internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> articles, WebPages pages,
     long generation = 0, ILogger? log = null, RuntimeEvidence? evidence = null, PublishedMediaProjection? media = null)
@@ -165,13 +165,19 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
                 (long)Stopwatch.GetElapsedTime(origin).TotalMicroseconds, null);
     }
 
-    private PublicArticleBytes Encode(Article article) => new(PublicArticles.EncodeDetail(article),
-        pages.PublicPage(PublicArticleHtml.Render(article, _media?.Images(article.Id, article.Publication)), article.Title, article.Summary,
-            publicPath: $"/article/{DistributionSettings.Number(article.Id)}", contentDriven: true));
+    private PublicArticleBytes Encode(Article article)
+    {
+        var wire = PublicArticles.EncodeDetail(article);
+        var content = PublicArticleHtml.Render(article, _media?.Images(article.Id, article.Publication));
+        var path = $"/article/{DistributionSettings.Number(article.Id)}";
+        return new(wire,
+            pages.PublicPage(content, article.Title, article.Summary, publicPath: path, contentDriven: true),
+            pages.PublicPage(content, article.Title, article.Summary, publicPath: path, contentDriven: true, locale: "en"));
+    }
 
     private void Add(int id, PublicArticleBytes value)
     {
-        long size = (long)value.Wire.Length + value.Html.Length;
+        long size = (long)value.Wire.Length + value.Html.Length + (value.EnglishHtml?.Length ?? 0);
         if (size > ByteLimit || _entries.ContainsKey(id)) return;
         while (_bytes + size > ByteLimit && _recent.Last is { } victim)
         {

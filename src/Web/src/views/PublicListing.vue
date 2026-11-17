@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, onScopeDispose, shallowRef, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElInput, ElLink } from '@ozwasyd/element-plus'
@@ -31,7 +32,7 @@ const taxonomyId = computed(() => Number(route.params.id))
 const filter = shallowRef<TaxonomyMetadata>()
 const missing = ref(false)
 const heading = computed(() => filter.value?.name
-  ?? (isSearch.value ? 'Search' : isHome.value ? 'Latest posts' : taxonomy.value === 'category' ? 'Category' : taxonomy.value === 'tag' ? 'Tag' : 'Archive'))
+  ?? (isSearch.value ? t('page.search') : isHome.value ? t('reading.latestPosts') : taxonomy.value === 'category' ? t('page.category') : taxonomy.value === 'tag' ? t('page.tag') : t('page.archive')))
 const query = computed(() => typeof route.query.q === 'string' ? route.query.q.trim() : '')
 const page = computed(() => pageNumber(route.query.page))
 const cursor = computed(() => typeof route.query.cursor === 'string' && route.query.cursor ? route.query.cursor : undefined)
@@ -141,37 +142,37 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
 
 <template>
   <section class="reading-column editorial-page">
-    <h1 class="editorial-rule">{{ missing ? heading + ' not found' : heading }}</h1>
+    <h1 class="editorial-rule">{{ missing ? t('reading.notFound', { heading }) : heading }}</h1>
     <p v-if="filter?.description">{{ filter.description }}</p>
     <form v-if="isSearch" class="search-form" @submit.prevent="search">
-      <ElInput v-model="input" label="Search articles" placeholder="Search published articles" />
-      <ElButton type="primary" native-type="submit" :disabled="searchTooLong">Search</ElButton>
+      <ElInput v-model="input" :label="t('reading.searchLabel')" :placeholder="t('reading.searchPlaceholder')" />
+      <ElButton type="primary" native-type="submit" :disabled="searchTooLong">{{ t('page.search') }}</ElButton>
     </form>
     <section v-if="hotRoute && !loading && !failed && hotArticles.length" class="popular-articles" aria-labelledby="popular-articles-heading">
-      <h2 id="popular-articles-heading">Popular articles</h2>
+      <h2 id="popular-articles-heading">{{ t('reading.popular') }}</h2>
       <ol>
         <li v-for="item in hotArticles" :key="item.id">
           <RouterLink :to="{ name: 'article', params: { id: item.id } }" custom v-slot="{ href, navigate }">
             <ElLink :href="href" @click="navigate">{{ item.title }}</ElLink>
           </RouterLink>
-          <span class="metadata">{{ readCount.format(item.views) }} verified {{ item.views === 1 ? 'read' : 'reads' }}</span>
+          <span class="metadata">{{ t(item.views === 1 ? 'reading.verifiedRead' : 'reading.verifiedReads', { count: readCount.format(item.views) }) }}</span>
         </li>
       </ol>
     </section>
-    <p v-if="isSearch && (searchTooLong || searchRouteTooLong)" role="status">Use at most {{ maxSearchLength }} characters, including after normalization.</p>
-    <p v-else-if="loading" role="status">Loading articles…</p>
+    <p v-if="isSearch && (searchTooLong || searchRouteTooLong)" role="status">{{ t('reading.searchLimit', { limit: maxSearchLength }) }}</p>
+    <p v-else-if="loading" role="status">{{ t('page.loadingArticles') }}</p>
     <template v-else-if="cursorExpired">
-      <p role="status">This page link has expired. Start at the first page to see the current articles.</p>
-      <RouterLink :to="{ query: {} }">First page</RouterLink>
+      <p role="status">{{ t('reading.expiredPage') }}</p>
+      <RouterLink :to="{ query: {} }">{{ t('reading.firstPage') }}</RouterLink>
     </template>
-    <p v-else-if="missing" class="muted"><RouterLink to="/archive">Browse the archive</RouterLink></p>
+    <p v-else-if="missing" class="muted"><RouterLink to="/archive">{{ t('reading.browseArchive') }}</RouterLink></p>
     <template v-else-if="failed">
-      <ElAlert title="Could not load the articles." type="error" :closable="false" show-icon />
-      <ElButton class="retry" @click="reload++">Retry</ElButton>
+      <ElAlert :title="t('reading.listFailed')" type="error" :closable="false" show-icon />
+      <ElButton class="retry" @click="reload++">{{ t('reading.retry') }}</ElButton>
     </template>
-    <p v-else-if="searchPageOutOfRange" class="muted" role="status">There are no articles on this search result page.</p>
+    <p v-else-if="searchPageOutOfRange" class="muted" role="status">{{ t('reading.searchPageEmpty') }}</p>
     <p v-else-if="!articles.length" class="muted">
-      {{ isSearch ? query ? 'No articles match your search.' : 'Enter a word or phrase to search published articles.' : taxonomy ? 'There are no published articles here yet.' : 'No articles have been published yet.' }}
+      {{ t(isSearch ? query ? 'reading.noSearchMatches' : 'reading.searchPrompt' : taxonomy ? 'reading.noTaxonomyArticles' : 'reading.noArticles') }}
     </p>
     <ol v-else class="article-list">
       <li v-for="item in articles" :key="item.id">
@@ -186,18 +187,18 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
         </article>
       </li>
     </ol>
-    <nav v-if="isSearch && !loading && !failed && !searchRouteTooLong && query && (page > 1 || searchTotal > pageSize)" aria-label="Search result pages" class="page-links">
+    <nav v-if="isSearch && !loading && !failed && !searchRouteTooLong && query && (page > 1 || searchTotal > pageSize)" :aria-label="t('reading.searchPages')" class="page-links">
       <RouterLink v-if="searchPageOutOfRange" :to="{ query: { q: query } }" custom v-slot="{ href, navigate }">
-        <ElLink :href="href" @click="navigate">First page</ElLink>
+        <ElLink :href="href" @click="navigate">{{ t('reading.firstPage') }}</ElLink>
       </RouterLink>
-      <RouterLink v-else-if="page > 1" :to="{ query: { q: query, page: page - 1 } }">Previous</RouterLink>
-      <span aria-current="page">Page {{ page }}</span>
-      <RouterLink v-if="page * pageSize < searchTotal" :to="{ query: { q: query, page: page + 1 } }">Next</RouterLink>
+      <RouterLink v-else-if="page > 1" :to="{ query: { q: query, page: page - 1 } }">{{ t('reading.previous') }}</RouterLink>
+      <span aria-current="page">{{ t('reading.pageNumber', { page }) }}</span>
+      <RouterLink v-if="page * pageSize < searchTotal" :to="{ query: { q: query, page: page + 1 } }">{{ t('reading.next') }}</RouterLink>
     </nav>
-    <nav v-if="!isSearch && !loading && !failed && !cursorExpired && !missing && (nextCursor || page > 1)" aria-label="Article pages" class="page-links">
-      <RouterLink v-if="page > 1" :to="{ query: previousPageQuery }">{{ page > 2 && !priorCursor ? 'First page' : 'Previous' }}</RouterLink>
-      <span aria-current="page">Page {{ page }}</span>
-      <RouterLink v-if="nextCursor" :to="{ query: { page: page + 1, cursor: nextCursor } }">Next</RouterLink>
+    <nav v-if="!isSearch && !loading && !failed && !cursorExpired && !missing && (nextCursor || page > 1)" :aria-label="t('reading.articlePages')" class="page-links">
+      <RouterLink v-if="page > 1" :to="{ query: previousPageQuery }">{{ t(page > 2 && !priorCursor ? 'reading.firstPage' : 'reading.previous') }}</RouterLink>
+      <span aria-current="page">{{ t('reading.pageNumber', { page }) }}</span>
+      <RouterLink v-if="nextCursor" :to="{ query: { page: page + 1, cursor: nextCursor } }">{{ t('reading.next') }}</RouterLink>
     </nav>
   </section>
 </template>

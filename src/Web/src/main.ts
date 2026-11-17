@@ -1,4 +1,4 @@
-import { createApp } from 'vue'
+import { createApp, watch } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import '@fontsource/google-sans/latin-400.css'
 import '@fontsource/google-sans/latin-500.css'
@@ -9,6 +9,7 @@ import './blog.css'
 import App from './App.vue'
 import { preloadPublicEntry } from './publicEntry'
 import { siteTitle } from './siteBrand'
+import { siteLocale, t, type MessageKey } from './siteLocale'
 import { captureInitialSitePage, isSitePageSlug, sitePages } from './sitePageEntry'
 
 const publicListing = () => import('./views/PublicListing.vue')
@@ -56,10 +57,9 @@ router.afterEach((to, from) => {
   if (from.name && to.path !== from.path) document.head.querySelector('link[rel="canonical"]')?.remove()
   const authorInventory = to.name === 'article-list' || to.name === 'article-search' || to.name === 'article-trash'
   const subscription = to.name === 'subscribe'
-  document.documentElement.lang = isSitePageSlug(to.name) || to.name === 'private-media' || authorInventory || subscription ? 'zh-CN' : 'en'
+  updateDocumentLanguage(to.name)
   if (to.name === 'article' && !from.name) return
-  const title = isSitePageSlug(to.name) ? sitePages[to.name] : (labels[String(to.name)] ?? 'Article')
-  document.title = to.name === 'home' ? siteTitle : `${title} · ${siteTitle}`
+  updateDocumentTitle(to.name)
   document.querySelector('meta[name="robots"]')?.remove()
   if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'admin-identity' || to.name === 'messages' || to.name === 'security' ||
       to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'canvas' || to.name === 'canvas-document' || to.name === 'private-media' || authorInventory || subscription) {
@@ -69,27 +69,49 @@ router.afterEach((to, from) => {
     document.head.append(robots)
   }
 })
-const labels: Record<string, string> = {
-  archive: 'Archive',
-  search: 'Search',
-  category: 'Category',
-  tag: 'Tag',
-  login: 'Log in',
-  'admin-identity': 'Administrator access',
-  subscribe: '订阅偏好',
-  messages: '我的站内信',
-  'private-media': '资产库',
-  security: 'Account security',
-  canvas: 'Canvases',
-  'canvas-document': 'Canvas',
-  write: 'New article',
-  'article-workspace': 'Article workspace',
-  'article-list': '文章管理',
-  'article-search': '作者搜索',
-  'article-trash': '回收站',
-  edit: 'Edit article',
-  missing: 'Page not found',
+const labels: Record<string, MessageKey> = {
+  archive: 'page.archive',
+  search: 'page.search',
+  category: 'page.category',
+  tag: 'page.tag',
+  login: 'page.login',
+  subscribe: 'page.subscribe',
+  messages: 'nav.messages',
+  'private-media': 'nav.assets',
+  security: 'nav.security',
+  canvas: 'page.canvas',
+  'canvas-document': 'page.canvas-document',
+  write: 'page.write',
+  'article-workspace': 'page.article-workspace',
+  'article-list': 'nav.articles',
+  'article-search': 'page.article-search',
+  'article-trash': 'page.article-trash',
+  'own-comments': 'page.own-comments',
+  edit: 'page.edit',
+  missing: 'page.missing',
 }
+
+function updateDocumentLanguage(name: unknown) {
+  document.documentElement.lang = name === 'admin-identity' ? 'en' : siteLocale.value
+}
+
+function updateDocumentTitle(name: unknown) {
+  if (name === 'home') {
+    document.title = siteTitle
+    return
+  }
+  const label = name === 'admin-identity' ? 'Administrator access'
+    : isSitePageSlug(name) ? t(`policy.${name}`)
+    : t(labels[String(name)] ?? 'page.article')
+  document.title = `${label} · ${siteTitle}`
+}
+
+watch(siteLocale, () => {
+  const name = router.currentRoute.value.name
+  updateDocumentLanguage(name)
+  // The author supplies article titles. Never replace one on a language-only change.
+  if (name !== 'article') updateDocumentTitle(name)
+})
 
 try { syncThemeMode(readThemeMode()) } catch { syncThemeMode('system') }
 const app = createApp(App)

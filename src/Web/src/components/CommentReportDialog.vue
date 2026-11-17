@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElDialog, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
@@ -8,14 +9,14 @@ import { currentSession, identityEpoch } from '../session'
 
 const props = defineProps<{ articleId: number; commentId?: string }>()
 const emit = defineEmits<{ close: [] }>()
-const reasonLabels: Record<CommentReportReason, string> = {
-  spam: 'Spam', harassment: 'Harassment', hate: 'Hateful content', privacy: 'Privacy violation',
-  illegal: 'Illegal content', misinformation: 'Misinformation', other: 'Other',
+const reasonLabels: Record<CommentReportReason, MessageKey> = {
+  spam: 'comment.reason.spam', harassment: 'comment.reason.harassment', hate: 'comment.reason.hate', privacy: 'comment.reason.privacy',
+  illegal: 'comment.reason.illegal', misinformation: 'comment.reason.misinformation', other: 'comment.reason.other',
 }
 const reason = ref<CommentReportReason>()
 const detail = ref('')
 const pending = ref(false)
-const error = ref('')
+const error = ref<MessageKey | ''>('')
 const receipt = shallowRef<Awaited<ReturnType<typeof reportComment>>>()
 let request: AbortController | undefined
 
@@ -60,7 +61,7 @@ async function send() {
   } catch (failure) {
     if (!controller.signal.aborted && epoch === identityEpoch.value && session.siteSessionId === currentSession.value?.siteSessionId)
       error.value = failure instanceof ApiError && failure.status === 404
-        ? 'This comment is unavailable for reporting.' : 'Could not confirm your report. You can try again.'
+        ? 'comment.reportUnavailable' : 'comment.reportUnconfirmed'
   } finally {
     if (request === controller) {
       request = undefined
@@ -71,24 +72,24 @@ async function send() {
 </script>
 
 <template>
-  <ElDialog :model-value="!!commentId" title="Report this comment" append-to-body destroy-on-close
+  <ElDialog :model-value="!!commentId" :title="t('comment.reportTitle')" append-to-body destroy-on-close
     :close-on-click-modal="false" :before-close="dismiss" width="min(calc(100vw - 2rem), 30rem)">
     <p v-if="receipt" role="status">
-      {{ receipt.duplicate ? 'You already reported this comment.' : 'Your report was saved.' }}
-      Report #{{ receipt.id }}
+      {{ receipt.duplicate ? t('comment.reportDuplicate') : t('comment.reportSaved') }}
+      {{ t('comment.reportId', { id: String(receipt.id) }) }}
     </p>
     <div v-else class="comment-report-fields">
-      <ElSelect v-model="reason" ariaLabel="Report reason" placeholder="Choose a reason" :disabled="pending">
-        <ElOption v-for="choice in commentReportReasons" :key="choice" :label="reasonLabels[choice]" :value="choice" />
+      <ElSelect v-model="reason" :ariaLabel="t('comment.reportReason')" :placeholder="t('comment.chooseReason')" :disabled="pending">
+        <ElOption v-for="choice in commentReportReasons" :key="choice" :label="t(reasonLabels[choice])" :value="choice" />
       </ElSelect>
-      <ElInput v-model="detail" type="textarea" label="Details (optional)" v-bind="{ rows: 4, maxlength: WireLimits.CommentReportDetailChars }"
+      <ElInput v-model="detail" type="textarea" :label="t('comment.reportDetails')" v-bind="{ rows: 4, maxlength: WireLimits.CommentReportDetailChars }"
         :disabled="pending" />
-      <ElAlert v-if="error" :title="error" type="error" :closable="false" />
+      <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" />
     </div>
     <template #footer>
-      <ElButton native-type="button" @click="close">{{ receipt ? 'Close' : 'Cancel' }}</ElButton>
+      <ElButton native-type="button" @click="close">{{ receipt ? t('comment.close') : t('comment.cancel') }}</ElButton>
       <ElButton v-if="!receipt" native-type="button" type="primary" :disabled="!reason || pending" :loading="pending" @click="send">
-        Send report
+        {{ t('comment.sendReport') }}
       </ElButton>
     </template>
   </ElDialog>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { siteLocale, t, type MessageKey } from '../siteLocale'
 import { computed, inject, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElDialog } from '@ozwasyd/element-plus'
@@ -20,7 +21,7 @@ const loading = ref(false)
 const failed = ref(false)
 const removing = ref(false)
 const confirmRemoval = ref(false)
-const removalError = ref('')
+const removalError = ref<MessageKey | ''>('')
 const notifyDeleted = inject(commentAuthorDelete)
 const openEditor = inject(commentAuthorEdit)
 const reply = inject(commentReply)
@@ -31,7 +32,7 @@ const authorActions = useCommentAuthorEligibility(() => props.articleId,
 let request: AbortController | undefined
 let removal: AbortController | undefined
 const createdAt = new Date(props.node.createdAt).toISOString()
-const displayTime = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(props.node.createdAt)
+const displayTime = computed(() => new Intl.DateTimeFormat(siteLocale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(props.node.createdAt))
 
 onBeforeUnmount(() => {
   request?.abort()
@@ -63,7 +64,7 @@ async function removeOwn() {
   } catch (error) {
     if (!controller.signal.aborted && identityEpoch.value === epoch && currentSession.value?.siteSessionId === session.siteSessionId)
       removalError.value = error instanceof ApiError && error.status === 409
-        ? 'The comment changed. Reload the article before deleting it.' : 'Could not confirm comment deletion. Reload the article to check.'
+        ? 'comment.deleteChanged' : 'comment.deleteUnconfirmed'
   } finally {
     if (removal === controller) {
       removal = undefined
@@ -105,31 +106,31 @@ function toggle(show = !expanded.value) {
       @keydown.right.self.prevent="toggle(true)" @keydown.left.self.prevent="toggle(false)">
       <header class="comment-byline">
         <strong>{{ node.author.displayName }}</strong>
-        <span v-if="node.author.mode !== 'public' && !node.deleted">Anonymous</span>
-        <span v-if="node.replyToAuthor">Reply to {{ node.replyToAuthor.displayName }}</span>
-        <RouterLink :to="{ hash: `#comment-${node.id}` }" aria-label="Comment permalink">
+        <span v-if="node.author.mode !== 'public' && !node.deleted">{{ t('comment.anonymous') }}</span>
+        <span v-if="node.replyToAuthor">{{ t('comment.replyTo', { name: node.replyToAuthor.displayName }) }}</span>
+        <RouterLink :to="{ hash: `#comment-${node.id}` }" :aria-label="t('comment.permalink')">
           <time :datetime="createdAt">{{ displayTime }}</time>
         </RouterLink>
-        <span v-if="node.edited">Edited</span>
-        <ElButton v-if="canEdit && !node.deleted && openEditor" text size="small" @click="openEditor?.(node)">Edit my comment</ElButton>
-        <ElButton v-if="canDelete && !node.deleted" text size="small" :loading="removing" @click="confirmRemoval = true">Delete my comment</ElButton>
+        <span v-if="node.edited">{{ t('comment.edited') }}</span>
+        <ElButton v-if="canEdit && !node.deleted && openEditor" text size="small" @click="openEditor?.(node)">{{ t('comment.editMine') }}</ElButton>
+        <ElButton v-if="canDelete && !node.deleted" text size="small" :loading="removing" @click="confirmRemoval = true">{{ t('comment.deleteMine') }}</ElButton>
         <ElButton v-if="reply?.available.value && threadOpen && !node.deleted && node.depth < 32" text size="small"
-          @click="reply.start(node)">Reply</ElButton>
-        <ElButton v-if="report?.available.value && !node.deleted" text size="small" @click="report.start(node)">Report comment</ElButton>
+          @click="reply.start(node)">{{ t('comment.reply') }}</ElButton>
+        <ElButton v-if="report?.available.value && !node.deleted" text size="small" @click="report.start(node)">{{ t('comment.report') }}</ElButton>
       </header>
       <p class="comment-text" :lang="node.author.language">{{ node.content }}</p>
-      <p v-if="removalError" role="alert">{{ removalError }}</p>
-      <ElDialog v-if="canDelete && !node.deleted" v-model="confirmRemoval" title="Delete your comment?"
+      <p v-if="removalError" role="alert">{{ t(removalError) }}</p>
+      <ElDialog v-if="canDelete && !node.deleted" v-model="confirmRemoval" :title="t('comment.deleteTitle')"
         append-to-body :close-on-click-modal="false" width="min(calc(100vw - 2rem), 28rem)">
-        <p>Your comment will be removed. Published replies will remain visible.</p>
+        <p>{{ t('comment.deleteNotice') }}</p>
         <template #footer>
-          <ElButton native-type="button" @click="confirmRemoval = false">Keep comment</ElButton>
-          <ElButton native-type="button" type="danger" @click="removeOwn">Delete comment</ElButton>
+          <ElButton native-type="button" @click="confirmRemoval = false">{{ t('comment.keep') }}</ElButton>
+          <ElButton native-type="button" type="danger" @click="removeOwn">{{ t('comment.delete') }}</ElButton>
         </template>
       </ElDialog>
       <ElButton v-if="!contextOnly && node.childCount > 0" text size="small"
         v-bind="{ 'aria-expanded': expanded, 'aria-controls': `comment-replies-${node.id}` }" @click="toggle()">
-        {{ expanded ? 'Hide replies' : `Show replies (${node.childCount})` }}
+        {{ expanded ? t('comment.hideReplies') : t('comment.showReplies', { count: node.childCount }) }}
       </ElButton>
       <div v-if="!contextOnly && node.childCount > 0" v-show="expanded" :id="`comment-replies-${node.id}`">
         <ol v-if="children.length > 0" class="comment-children">
@@ -137,11 +138,11 @@ function toggle(show = !expanded.value) {
             :can-delete="previewDeletions?.has(child.id) || authorActions.deletable.has(child.id)"
             :can-edit="previewEdits?.has(child.id) || authorActions.editable.has(child.id)" :thread-open="threadOpen" />
         </ol>
-        <ElAlert v-if="failed" type="error" title="Could not load replies." :closable="false" />
+        <ElAlert v-if="failed" type="error" :title="t('comment.repliesFailed')" :closable="false" />
         <ElButton v-if="!done && children.length < 300" text size="small" :loading="loading" @click="more">
-          {{ failed ? 'Retry replies' : 'Load more replies' }}
+          {{ failed ? t('comment.retryReplies') : t('comment.moreReplies') }}
         </ElButton>
-        <p v-if="!done && children.length >= 300" role="status">This branch shows its first 300 direct replies.</p>
+        <p v-if="!done && children.length >= 300" role="status">{{ t('comment.branchLimit') }}</p>
       </div>
     </article>
   </li>

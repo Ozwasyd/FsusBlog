@@ -78,7 +78,7 @@ internal static class TaxonomyEndpoints
         Task Metadata(HttpContext ctx, PublicSnapshot current, bool tag, int id, bool asHtml = false)
         {
             var page = current.Taxonomy.ById(tag, id) ?? throw Missing(tag);
-            return Send(ctx, current, asHtml ? Results.Bytes(page.Html, Html) : Results.Bytes(page.Wire, Binary));
+            return Send(ctx, current, asHtml ? Results.Bytes(SiteLocale.Select(ctx) == "en" ? page.EnglishHtml ?? page.Html : page.Html, Html) : Results.Bytes(page.Wire, Binary));
         }
 
         Task List(HttpContext ctx, bool tag, int id, int page, int size)

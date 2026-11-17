@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { siteLocale, t } from '../siteLocale'
 import { ElButton, type ButtonInstance } from '@ozwasyd/element-plus'
 import { onMounted, onScopeDispose, ref, useTemplateRef, watch } from 'vue'
 import type { Article } from '../../../Contracts/public-articles'
@@ -64,18 +65,18 @@ onScopeDispose(() => {
 </script>
 
 <template>
-  <section class="publication-proof" aria-label="Publication verification">
-    <ElButton ref="verifyButton" :loading="state === 'busy'" @click="verify">Verify publication</ElButton>
+  <section class="publication-proof" :aria-label="t('reading.verification')">
+    <ElButton ref="verifyButton" :loading="state === 'busy'" @click="verify">{{ t('reading.verify') }}</ElButton>
     <div role="status">
       <span v-if="state === 'verified'">
-        Publication signature verified at <time :datetime="checkedAt">{{ new Date(checkedAt).toLocaleTimeString() }}</time>.
-        It covers the title, original Markdown, taxonomy IDs, and rights policy.
-        <a ref="receipt" :href="publicationProofPath(article)" target="_blank" rel="noopener noreferrer">Signed receipt (JSON)</a>
+        {{ t('reading.verifiedAt') }} <time :datetime="checkedAt">{{ new Date(checkedAt).toLocaleTimeString(siteLocale) }}</time>{{ t('reading.sentenceEnd') }}
+        {{ t('reading.verifiedCoverage') }}
+        <a ref="receipt" :href="publicationProofPath(article)" target="_blank" rel="noopener noreferrer">{{ t('reading.receipt') }}</a>
       </span>
-      <span v-else-if="state === 'busy'">Checking the current publication…</span>
-      <span v-else-if="state === 'unavailable'">Proof unavailable for this publication. Reload the article to check for an update.</span>
-      <span v-else-if="state === 'invalid'">The publication signature could not be verified.</span>
-      <span v-else-if="state === 'expired'">Verify again to see the latest publication signature status.</span>
+      <span v-else-if="state === 'busy'">{{ t('reading.checking') }}</span>
+      <span v-else-if="state === 'unavailable'">{{ t('reading.proofUnavailable') }}</span>
+      <span v-else-if="state === 'invalid'">{{ t('reading.proofInvalid') }}</span>
+      <span v-else-if="state === 'expired'">{{ t('reading.proofExpired') }}</span>
     </div>
   </section>
 </template>

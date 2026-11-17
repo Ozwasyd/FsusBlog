@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, type MessageKey } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, provide, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ElAlert, ElButton, ElDialog, ElInput } from '@ozwasyd/element-plus'
@@ -34,12 +35,12 @@ const replyTarget = shallowRef<{ id: string; name: string }>()
 const reportTarget = ref<string>()
 const reportingAvailable = useCommentReportingAvailability()
 let request: AbortController | undefined
-const mutationNotice = ref('')
+const mutationNotice = ref<MessageKey | ''>('')
 const editTarget = shallowRef<{ id: string; session: string }>()
 const editDetail = shallowRef<Awaited<ReturnType<typeof commentAuthorEditDetail>>>()
 const editBody = ref('')
 const editPending = ref(false)
-const editProblem = ref('')
+const editProblem = ref<MessageKey | ''>('')
 const editContent = computed(() => editBody.value.trim())
 const editReady = computed(() => !!editDetail.value && !editPending.value && !editProblem.value &&
   editContent.value.length > 0 && editContent.value.length <= 1000 && editContent.value !== editDetail.value.body)
@@ -60,7 +61,7 @@ provide(commentReply, {
   },
 })
 
-provide(commentAuthorDelete, id => { void refreshAfterMutation(id, 'Comment deleted.') })
+provide(commentAuthorDelete, id => { void refreshAfterMutation(id, 'comment.deleted') })
 provide(commentAuthorEdit, node => { void openEditor(node) })
 provide(commentReport, {
   available: reportingAvailable,
@@ -69,7 +70,7 @@ provide(commentReport, {
   },
 })
 
-async function refreshAfterMutation(id: string, message: string) {
+async function refreshAfterMutation(id: string, message: MessageKey) {
   const epoch = identityEpoch.value
   if (replyTarget.value?.id === id) replyTarget.value = undefined
   mutationNotice.value = message
@@ -111,13 +112,13 @@ async function openEditor(node: CommentNode) {
     const detail = await commentAuthorEditDetail(target.id, target.session, controller.signal)
     if (controller.signal.aborted) return
     if (detail.articleId !== props.articleId || detail.publication !== props.publication) {
-      editProblem.value = 'The article changed. Reload the article before editing this comment.'
+      editProblem.value = 'comment.articleChanged'
       return
     }
     editDetail.value = detail
     editBody.value = detail.body
   } catch {
-    if (!controller.signal.aborted) editProblem.value = 'This comment could not be opened for editing.'
+    if (!controller.signal.aborted) editProblem.value = 'comment.editOpenFailed'
   } finally {
     if (editAction === controller) {
       editAction = undefined
@@ -138,12 +139,12 @@ async function saveEdit() {
     await editOwnComment(target.id, detail.currentVersion, editContent.value, target.session, controller.signal)
     if (controller.signal.aborted) return
     closeEditor()
-    await refreshAfterMutation(target.id, 'Comment edit submitted for review.')
+    await refreshAfterMutation(target.id, 'comment.editSubmitted')
   } catch (error) {
     if (!controller.signal.aborted)
       editProblem.value = error instanceof ApiError && error.status === 409
-        ? 'The comment changed. Reload the article before editing again.'
-        : 'Could not confirm the edit. Reload the article to check its status.'
+        ? 'comment.editChanged'
+        : 'comment.editUnconfirmed'
   } finally {
     if (editAction === controller) {
       editAction = undefined
@@ -197,10 +198,10 @@ watch([() => props.articleId, () => props.publication, () => route.hash, restart
 
 <template>
   <section class="article-comments" aria-labelledby="article-comments-title">
-    <h2 id="article-comments-title" ref="commentTitle" tabindex="-1">Comments</h2>
-    <p v-if="mutationNotice" role="status">{{ mutationNotice }}</p>
-    <p v-if="linked === null" role="status">This comment is unavailable.</p>
-    <p v-if="loading" role="status">Loading comments…</p>
+    <h2 id="article-comments-title" ref="commentTitle" tabindex="-1">{{ t('comment.heading') }}</h2>
+    <p v-if="mutationNotice" role="status">{{ t(mutationNotice) }}</p>
+    <p v-if="linked === null" role="status">{{ t('comment.unavailable') }}</p>
+    <p v-if="loading" role="status">{{ t('comment.loading') }}</p>
     <template v-if="linked">
       <ol class="comment-roots">
         <CommentBranch v-for="node in permalinkNodes"
@@ -208,30 +209,30 @@ watch([() => props.articleId, () => props.publication, () => route.hash, restart
           :can-edit="authorActions.editable.has(node.id)"
           :thread-open="node.depth === 0 || linked.ancestors.some(root => root.id === node.rootId && !root.deleted)" context-only />
       </ol>
-      <RouterLink :to="{ hash: '#article-comments-title' }">All comments</RouterLink>
+      <RouterLink :to="{ hash: '#article-comments-title' }">{{ t('comment.all') }}</RouterLink>
     </template>
     <ol v-else-if="roots.length" class="comment-roots">
       <CommentBranch v-for="root in roots" :key="root.node.id" :article-id="articleId" :node="root.node" :preview="root.preview"
         :can-delete="authorActions.deletable.has(root.node.id)" :preview-deletions="authorActions.deletable"
         :can-edit="authorActions.editable.has(root.node.id)" :preview-edits="authorActions.editable" :thread-open="!root.node.deleted" />
     </ol>
-    <p v-else-if="!loading && !failed" class="muted">No comments yet.</p>
-    <ElAlert v-if="failed" type="error" title="Could not load comments." :closable="false" />
-    <ElButton v-if="failed" text @click="roots.length && next ? load(true) : restart++">Retry comments</ElButton>
-    <ElButton v-else-if="next && !loading" text @click="load(true)">Load more comments</ElButton>
-    <ElDialog :model-value="!!editTarget" title="Edit your comment" append-to-body destroy-on-close
+    <p v-else-if="!loading && !failed" class="muted">{{ t('comment.empty') }}</p>
+    <ElAlert v-if="failed" type="error" :title="t('comment.loadFailed')" :closable="false" />
+    <ElButton v-if="failed" text @click="roots.length && next ? load(true) : restart++">{{ t('comment.retry') }}</ElButton>
+    <ElButton v-else-if="next && !loading" text @click="load(true)">{{ t('comment.more') }}</ElButton>
+    <ElDialog :model-value="!!editTarget" :title="t('comment.editTitle')" append-to-body destroy-on-close
       :close-on-click-modal="false" :before-close="dismissEditor" width="min(calc(100vw - 2rem), 36rem)">
-      <p v-if="editPending" role="status">{{ editDetail ? 'Saving edit…' : 'Loading comment…' }}</p>
+      <p v-if="editPending" role="status">{{ editDetail ? t('comment.editSaving') : t('comment.loadingOne') }}</p>
       <template v-if="editDetail">
-        <p>Your comment will return to moderation before appearing again.</p>
-        <ElInput v-model="editBody" type="textarea" label="Edited comment" v-bind="{ rows: 5, maxlength: 1000 }"
+        <p>{{ t('comment.editReviewNotice') }}</p>
+        <ElInput v-model="editBody" type="textarea" :label="t('comment.editedInput')" v-bind="{ rows: 5, maxlength: 1000 }"
           :disabled="editPending" :readonly="!!editProblem" />
       </template>
-      <ElAlert v-if="editProblem" :title="editProblem" type="error" :closable="false" />
+      <ElAlert v-if="editProblem" :title="t(editProblem)" type="error" :closable="false" />
       <template #footer>
-        <ElButton native-type="button" @click="closeEditor">{{ editProblem ? 'Close' : 'Cancel' }}</ElButton>
+        <ElButton native-type="button" @click="closeEditor">{{ editProblem ? t('comment.close') : t('comment.cancel') }}</ElButton>
         <ElButton v-if="editDetail && !editProblem" native-type="button" type="primary" :disabled="!editReady"
-          :loading="editPending" @click="saveEdit">Save for review</ElButton>
+          :loading="editPending" @click="saveEdit">{{ t('comment.saveReview') }}</ElButton>
       </template>
     </ElDialog>
     <CommentReportDialog :article-id="articleId" :comment-id="reportTarget" @close="reportTarget = undefined" />

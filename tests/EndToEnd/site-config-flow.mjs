@@ -31,7 +31,7 @@ await mkdir(evidence, { recursive: true })
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
 try {
   const viewport = { width: 375, height: 812 }
-  const page = await browser.newPage({ viewport })
+  const page = await browser.newPage({ viewport, locale: 'en-US' })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   const response = await page.goto(origin, { waitUntil: 'domcontentloaded' })
@@ -46,10 +46,10 @@ try {
   assert.equal(await footer.getByRole('link', { name: 'info@example.test' }).getAttribute('href'), 'mailto:info@example.test')
   await footer.scrollIntoViewIfNeeded()
   await page.screenshot({ path: join(evidence, 'public-site-config-mobile.png'), fullPage: true })
-  await footer.getByRole('link', { name: '关于' }).click()
+  await footer.getByRole('link', { name: 'About' }).click()
   await page.waitForURL(new URL('/about', origin).href)
   assert.equal(await page.locator('link[rel="canonical"]').count(), 0)
-  assert.equal(await page.title(), `关于 · ${seo.title}`)
+  assert.equal(await page.title(), `About · ${seo.title}`)
   assert.deepEqual(errors, [])
   await writeFile(join(evidence, 'result.json'), JSON.stringify({
     started, finished: new Date().toISOString(), browser: browser.version(), viewport,

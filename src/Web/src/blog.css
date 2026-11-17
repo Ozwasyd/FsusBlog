@@ -130,7 +130,18 @@ p { line-height: 1.65; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.site-auth-bar > :last-child:not(:first-child) { flex: none; }
+.site-auth-actions { flex: none; display: flex; align-items: center; gap: .75rem; }
+.site-locale-select {
+  min-block-size: 44px;
+  max-inline-size: 100%;
+  padding-inline: .5rem;
+  color: var(--el-text-color-primary);
+  background: var(--fsus-paper);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-panel);
+  font: inherit;
+}
+.site-locale-select:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
 .site-auth-main.auth-page { margin-inline: auto; }
 .auth-heading p { color: var(--fsus-color-text-muted); margin-block: 0; }
 .auth-form { display: grid; gap: .75rem; margin-block: 3.25rem 2.25rem; }

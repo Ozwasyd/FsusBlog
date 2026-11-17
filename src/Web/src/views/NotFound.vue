@@ -1,7 +1,11 @@
+<script setup lang="ts">
+import { t } from '../siteLocale'
+</script>
+
 <template>
   <section class="reading-column editorial-page">
-    <h1>Page not found</h1>
-    <p>The page may have moved or been removed.</p>
-    <RouterLink to="/">Return home</RouterLink>
+    <h1>{{ t('page.missing') }}</h1>
+    <p>{{ t('reading.pageMoved') }}</p>
+    <RouterLink to="/">{{ t('reading.returnHome') }}</RouterLink>
   </section>
 </template>

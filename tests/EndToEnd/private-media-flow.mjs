@@ -32,7 +32,7 @@ try {
 
     await page.goto(`${url}/user/manage/assets`)
     await page.getByText('请使用作者账号登录', { exact: true }).waitFor()
-    assert.match(await page.title(), /资产库/)
+    assert.match(await page.title(), /Media library/)
     assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex')
     assert.equal(await page.getByLabel('选择图片').count(), 0)
 
@@ -41,7 +41,7 @@ try {
     await page.getByRole('button', { name: 'Log in', exact: true }).click()
     await page.getByRole('heading', { name: 'New article' }).waitFor()
     if (index) await page.getByRole('button', { name: 'Account menu' }).click()
-    await page.getByRole('link', { name: '资产库' }).filter({ visible: true }).click()
+    await page.getByRole('link', { name: 'Media library' }).filter({ visible: true }).click()
     await page.getByText('还没有图片', { exact: true }).waitFor()
     await page.screenshot({ path: join(evidence, `private-media-${name}-empty.png`) })
 

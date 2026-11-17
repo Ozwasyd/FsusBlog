@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ElAlert, ElButton } from '@ozwasyd/element-plus'
-import { isSitePageSlug, readSitePage, sitePages, updateSitePageRobots } from '../sitePageEntry'
+import { isSitePageSlug, readSitePage, updateSitePageRobots } from '../sitePageEntry'
 
 const route = useRoute()
 const slug = computed(() => isSitePageSlug(route.name) ? route.name : undefined)
-const title = computed(() => slug.value ? sitePages[slug.value] : '')
+const title = computed(() => slug.value ? t(`policy.${slug.value}`) : '')
 const page = shallowRef<Awaited<ReturnType<typeof readSitePage>>>()
 const state = ref<'loading' | 'failed' | 'ready'>('loading')
 const retry = ref(0)
@@ -43,12 +44,12 @@ watch([slug, retry], async ([value], _, cleanup) => {
     <header class="editorial-rule">
       <h1>{{ title }}</h1>
     </header>
-    <p v-if="state === 'loading'" role="status">正在加载页面内容…</p>
+    <p v-if="state === 'loading'" role="status">{{ t('reading.loadingPage') }}</p>
     <section v-else-if="state === 'failed'">
-      <ElAlert title="页面内容暂时无法加载" type="error" :closable="false" />
-      <ElButton @click="retry++">重试</ElButton>
-      <RouterLink to="/">返回首页</RouterLink>
+      <ElAlert :title="t('reading.pageFailed')" type="error" :closable="false" />
+      <ElButton @click="retry++">{{ t('reading.retry') }}</ElButton>
+      <RouterLink to="/">{{ t('reading.returnHome') }}</RouterLink>
     </section>
-    <div v-else-if="page" v-bind="{ class: 'site-page-markdown', 'data-site-page-body': '', 'data-state': page.configured ? 'published' : 'unconfigured' }" v-html="page.body" />
+    <div v-else-if="page" v-bind="{ class: 'site-page-markdown', 'data-site-page-body': '', 'data-state': page.configured ? 'published' : 'unconfigured' }" :lang="page.bodyLanguage" v-html="page.body" />
   </article>
 </template>

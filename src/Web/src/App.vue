@@ -2,7 +2,11 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
-import { ElPublicShell, ElSiteHeader, ElThemeModeToggle, ElButton, ElDrawer } from '@ozwasyd/element-plus'
+import { ElConfigProvider, ElPublicShell, ElSiteHeader, ElThemeModeToggle, ElButton, ElDrawer } from '@ozwasyd/element-plus'
+import en from '@element-plus/locale/lang/en'
+import zhCn from '@element-plus/locale/lang/zh-cn'
+import SiteLocaleSelect from './SiteLocaleSelect.vue'
+import { siteLocale, t, themeLabels } from './siteLocale'
 import SiteAuthLayout from './SiteAuthLayout.vue'
 import { currentSession, refreshSession, signOut } from './session'
 import { observeSiteRefresh, siteRenewalDelay } from './site-refresh-coordination'
@@ -23,6 +27,8 @@ function useTheme(mode: ThemeMode) {
 }
 const logoutFailure = ref(false)
 const accountMenu = ref(false)
+const navCopy = { home: 'nav.home', archive: 'nav.archive', about: 'nav.about' } as const
+const publicNavigation = computed(() => navigation.map(({ key, href }) => ({ key, href, label: t(navCopy[key as keyof typeof navCopy]) })))
 const publicNavPaths = new Set(navigation.map(item => item.href))
 
 function navigatePublic(event: MouseEvent) {
@@ -40,7 +46,7 @@ const accountArea = computed(() => route.name === 'canvas' || route.name === 'ca
 const articleCollection = computed(() => route.name === 'article-list' || route.name === 'article-search' || route.name === 'article-trash')
 const ownerPath = '/user/manage/article/write'
 const authHref = computed(() => currentSession.value?.canAuthor ? ownerPath : '/login')
-const authLabel = computed(() => currentSession.value?.canAuthor ? '写文章' : '登录')
+const authLabel = computed(() => t(currentSession.value?.canAuthor ? 'nav.write' : 'nav.login'))
 watch(() => route.query.q, value => {
   searchQuery.value = typeof value === 'string' ? value : ''
 }, { immediate: true })
@@ -52,7 +58,7 @@ const legal = computed(() => compliance.value?.enabled ? compliance.value : unde
 const year = new Date().getFullYear()
 const copyright = computed(() => {
   const value = legal.value
-  if (!value) return `© ${year} ${siteTitle}. All rights reserved.`
+  if (!value) return `© ${year} ${siteTitle}. ${t('nav.rightsReserved')}`
   const start = value.copyrightStartYear
   const years = start && start < year ? `${start}–${year}` : year
   return `© ${years} ${value.copyrightOwner || siteTitle}${value.copyrightText ? ` ${value.copyrightText}` : ''}`
@@ -113,6 +119,7 @@ async function leave() {
 </script>
 
 <template>
+  <ElConfigProvider :locale="route.name !== 'admin-identity' && siteLocale === 'zh-CN' ? zhCn : en">
   <SiteAuthLayout v-if="route.name === 'login'" :theme-mode="themeMode" @theme="useTheme">
     <RouterView />
   </SiteAuthLayout>
@@ -121,44 +128,51 @@ async function leave() {
     <ElSiteHeader max-width="64rem">
       <template #brand><RouterLink class="workspace-brand" to="/">{{ siteTitle }}</RouterLink></template>
       <template #desktop-actions>
-        <RouterLink to="/">Public site</RouterLink>
-        <RouterLink v-if="currentSession?.canAuthor && !articleCollection" :to="{ name: 'article-list' }">文章管理</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox">站内信</RouterLink>
-        <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets">资产库</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">Account security</RouterLink>
-        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
-        <ElButton v-if="currentSession || logoutFailure" text @click="leave">Log out</ElButton>
-        <RouterLink v-else to="/login">Log in</RouterLink>
+        <RouterLink to="/">{{ t('nav.publicSite') }}</RouterLink>
+        <RouterLink v-if="currentSession?.canAuthor && !articleCollection" :to="{ name: 'article-list' }">{{ t('nav.articles') }}</RouterLink>
+        <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
+        <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets">{{ t('nav.assets') }}</RouterLink>
+        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
+        <SiteLocaleSelect />
+        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" :label="t('theme.label')" :labels="themeLabels" csp-safe @update:model-value="useTheme" />
+        <ElButton v-if="currentSession || logoutFailure" text @click="leave">{{ t('nav.logout') }}</ElButton>
+        <RouterLink v-else to="/login">{{ t('nav.login') }}</RouterLink>
       </template>
       <template #mobile-overflow-trigger>
         <ElButton class="workspace-menu-button" v-bind="{ 'aria-haspopup': 'dialog', 'aria-expanded': accountMenu }" @click="accountMenu = true">
-          Account menu
+          {{ t('nav.accountMenu') }}
         </ElButton>
       </template>
     </ElSiteHeader>
-    <ElDrawer v-model="accountMenu" title="Account menu" direction="rtl" size="min(22rem, 100%)" append-to-body>
-      <nav class="workspace-menu" aria-label="Account navigation">
-        <RouterLink to="/" @click="accountMenu = false">Public site</RouterLink>
-        <RouterLink v-if="currentSession?.canAuthor && !articleCollection" :to="{ name: 'article-list' }" @click="accountMenu = false">文章管理</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox" @click="accountMenu = false">站内信</RouterLink>
-        <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets" @click="accountMenu = false">资产库</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa" @click="accountMenu = false">Account security</RouterLink>
-        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
-        <ElButton v-if="currentSession || logoutFailure" text @click="leave">Log out</ElButton>
-        <RouterLink v-else to="/login" @click="accountMenu = false">Log in</RouterLink>
+    <ElDrawer v-model="accountMenu" :title="t('nav.accountMenu')" direction="rtl" size="min(22rem, 100%)" append-to-body>
+      <nav class="workspace-menu" :aria-label="t('nav.accountMenu')">
+        <RouterLink to="/" @click="accountMenu = false">{{ t('nav.publicSite') }}</RouterLink>
+        <RouterLink v-if="currentSession?.canAuthor && !articleCollection" :to="{ name: 'article-list' }" @click="accountMenu = false">{{ t('nav.articles') }}</RouterLink>
+        <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox" @click="accountMenu = false">{{ t('nav.messages') }}</RouterLink>
+        <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets" @click="accountMenu = false">{{ t('nav.assets') }}</RouterLink>
+        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa" @click="accountMenu = false">{{ t('nav.security') }}</RouterLink>
+        <SiteLocaleSelect />
+        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" :label="t('theme.label')" :labels="themeLabels" csp-safe @update:model-value="useTheme" />
+        <ElButton v-if="currentSession || logoutFailure" text @click="leave">{{ t('nav.logout') }}</ElButton>
+        <RouterLink v-else to="/login" @click="accountMenu = false">{{ t('nav.login') }}</RouterLink>
       </nav>
     </ElDrawer>
     <RouterView />
   </div>
   <div v-else @click="navigatePublic">
-    <a class="skip-link" href="#page-content">跳到正文</a>
+    <a class="skip-link" href="#page-content">{{ t('nav.skip') }}</a>
     <ElPublicShell
       :brand="siteTitle"
-      :nav-items="navigation"
+      :nav-items="publicNavigation"
       :active-nav="String(route.name ?? '')"
       active-nav-motion="indicator"
       desktop-search-mode="trigger"
-      search-aria-label="搜索"
+      :search-aria-label="t('nav.search')"
+      :search-placeholder="t('nav.search')"
+      :mobile-nav-label="t('nav.primary')"
+      :mobile-nav-menu-label="t('nav.menu')"
+      :mobile-search-trigger-label="t('nav.search')"
+      :mobile-search-cancel-label="t('nav.cancel')"
       mobile-search-mode="trigger"
       :auth-href="authHref"
       :auth-label="authLabel"
@@ -171,19 +185,21 @@ async function leave() {
       @search="search"
     >
       <template #desktop-actions>
-        <RouterLink v-if="currentSession" to="/user/messagebox">站内信</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">Account security</RouterLink>
-        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
+        <RouterLink v-if="currentSession" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
+        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
+        <SiteLocaleSelect />
+        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" :label="t('theme.label')" :labels="themeLabels" csp-safe @update:model-value="useTheme" />
       </template>
       <template #mobile-primary-actions>
-        <RouterLink v-if="currentSession" to="/user/messagebox">站内信</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">Account security</RouterLink>
-        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
+        <RouterLink v-if="currentSession" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
+        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
+        <SiteLocaleSelect />
+        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" :label="t('theme.label')" :labels="themeLabels" csp-safe @update:model-value="useTheme" />
       </template>
       <div id="page-content" tabindex="-1">
         <div v-if="logoutFailure" class="reading-column editor-shell-error" role="alert">
-          The server did not confirm logout.
-          <ElButton text @click="leave">Try again</ElButton>
+          {{ t('nav.logoutFailed') }}
+          <ElButton text @click="leave">{{ t('nav.retry') }}</ElButton>
         </div>
         <RouterView />
       </div>
@@ -191,7 +207,7 @@ async function leave() {
         <div class="site-footer">
           <strong>{{ siteTitle }}</strong>
           <p>{{ copyright }}</p>
-          <div v-if="legal" class="site-policy-links" aria-label="站点合规">
+          <div v-if="legal" class="site-policy-links" :aria-label="t('nav.compliance')">
             <a v-if="legal.contentLicenseName && publicLink(legal.contentLicenseUrl)" :href="publicLink(legal.contentLicenseUrl)">{{ legal.contentLicenseName }}</a>
             <span v-else-if="legal.contentLicenseName">{{ legal.contentLicenseName }}</span>
             <template v-if="legal.regionMode === 'mainland-cn'">
@@ -201,14 +217,15 @@ async function leave() {
             <span v-if="legal.operatorName">{{ legal.operatorName }}</span>
             <a v-if="legal.contactEmail && contactLink(legal.contactEmail)" :href="contactLink(legal.contactEmail)">{{ legal.contactEmail }}</a>
           </div>
-          <nav class="site-policy-links" aria-label="站点政策">
-            <RouterLink v-for="(label, slug) in sitePages" :key="slug" :to="{ name: slug }">{{ label }}</RouterLink>
+          <nav class="site-policy-links" :aria-label="t('nav.policies')">
+            <RouterLink v-for="(_, slug) in sitePages" :key="slug" :to="{ name: slug }">{{ t(`policy.${slug}`) }}</RouterLink>
           </nav>
-          <a href="#">Top</a>
+          <a href="#">{{ t('nav.top') }}</a>
         </div>
       </template>
     </ElPublicShell>
   </div>
+  </ElConfigProvider>
 </template>
 
 <style scoped>

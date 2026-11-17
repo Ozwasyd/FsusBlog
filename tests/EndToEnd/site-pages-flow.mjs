@@ -23,7 +23,7 @@ for (const slug of Object.keys(sitePages)) {
   assert.equal(head.headers.get('cache-control'), 'no-store')
   assert.equal(await head.text(), '')
   const html = await first.text()
-  assert.match(html, new RegExp(`<article data-site-page="${slug}" data-state="published">`))
+  assert.match(html, new RegExp(`<article[^>]* data-site-page="${slug}" data-state="published">`))
   assert.match(html, new RegExp(fixture(slug)))
   assert.equal(wire.status, 200)
   const packet = decodeFrame(new Uint8Array(await wire.arrayBuffer()), FrameType.PageContent)
@@ -40,7 +40,7 @@ const { chromium } = tools('@playwright/test')
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
 try {
   for (const size of [{ width: 1280, height: 860 }, { width: 390, height: 844 }]) {
-    const page = await browser.newPage({ viewport: size, colorScheme: size.width < 500 ? 'dark' : 'light' })
+    const page = await browser.newPage({ viewport: size, locale: 'zh-CN', colorScheme: size.width < 500 ? 'dark' : 'light' })
     const errors = []
     const pageErrors = []
     page.on('pageerror', error => pageErrors.push(error.message))

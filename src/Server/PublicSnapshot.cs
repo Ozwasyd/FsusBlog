@@ -32,6 +32,7 @@ internal sealed class PublicSnapshot
     internal long Watermark { get; }
     internal long TaxonomyEpoch { get; }
     internal byte[] Home { get; }
+    internal byte[] EnglishHome { get; }
     internal TaxonomyProjection Taxonomy { get; }
     internal RelatedReadingProjection RelatedReading { get; }
     internal DistributionSnapshot? Distribution { get; }
@@ -60,17 +61,18 @@ internal sealed class PublicSnapshot
         _details.Warm(articles.Take(1200), previous?._details, cancellationToken);
         _listing = new PublicListProjection(Generation, articles, cursor);
         var first = articles.Take(10).ToArray();
-        Home = pages.PublicPage(HomeContent(first), publicPath: "/");
+        Home = pages.PublicPage(HomeContent(first, SiteLocale.Default), publicPath: "/");
+        EnglishHome = pages.PublicPage(HomeContent(first, "en"), publicPath: "/", locale: "en");
         _index = articles.Count == 0 ? [PublicArticles.EncodeSearch([], 0)] : articles.Chunk(WireLimits.SearchIndexPageSize)
             .Select(part => PublicArticles.EncodeSearch(part, part.Length)).ToArray();
         Distribution = DistributionSnapshot.Build(distribution, articles, cancellationToken);
     }
 
-    private static string HomeContent(IReadOnlyList<Article> articles)
+    private static string HomeContent(IReadOnlyList<Article> articles, string locale)
     {
-        var html = new StringBuilder("<section class=\"reading-column editorial-page\"><h1 class=\"editorial-rule\">Latest posts</h1>");
+        var html = new StringBuilder($"<section class=\"reading-column editorial-page\"><h1 class=\"editorial-rule\">{SiteLocale.Html(locale, "reading.latestPosts")}</h1>");
         if (articles.Count == 0)
-            html.Append("<p class=\"muted\">No articles have been published yet.</p>");
+            html.Append($"<p class=\"muted\">{SiteLocale.Html(locale, "page.emptyArticles")}</p>");
         else
         {
             html.Append("<ol class=\"article-list\">");
@@ -424,36 +426,37 @@ internal sealed class WebPages(string template, PublicSiteConfiguration? site = 
 
     // Public renderers supply main content; private application shells still use Page.
     // data-fsus-public-content is the app-owned client capture boundary for site pages.
-    internal byte[] PublicPage(string content = "", string? title = null, string? description = null, string? language = null,
-        bool noIndex = false, string? publicPath = null, bool contentDriven = false)
+    internal byte[] PublicPage(string content = "", string? title = null, string? description = null,
+        bool noIndex = false, string? publicPath = null, bool contentDriven = false, string locale = SiteLocale.Default)
     {
         var flow = contentDriven ? " data-content-flow=\"content-driven\"" : "";
         var shell = $"""
             <div class="public-initial">
-            <a class="skip-link" href="#page-content">跳到正文</a>
+            <a class="skip-link" href="#page-content">{SiteLocale.Html(locale, "nav.skip")}</a>
             <header class="public-initial-header"><div class="public-initial-bar">
             <div class="public-initial-brand-nav"><a class="public-initial-brand" href="/">{HtmlEncoder.Default.Encode(SiteTitle)}</a>
-            <nav aria-label="主导航">{PublicNavigation.Render(publicPath)}</nav></div>
-            <div class="public-initial-actions"><a href="/search">搜索</a><a href="/login">登录</a></div>
+            <nav aria-label="{SiteLocale.Html(locale, "nav.primary")}">{PublicNavigation.Render(publicPath, locale)}</nav></div>
+            <div class="public-initial-actions"><a href="/search">{SiteLocale.Html(locale, "nav.search")}</a><a href="/login">{SiteLocale.Html(locale, "nav.login")}</a>{SiteLocale.Selector(locale)}</div>
             </div></header><main id="page-content" tabindex="-1" data-fsus-public-content{flow}>{content}</main></div>
             """;
-        return Page(shell, title, description, language, noIndex, publicPath);
+        return Page(shell, title, description, locale, noIndex, publicPath, locale: locale);
     }
 
     // Anonymous first paint only. Vue owns capability checks and all credential controls.
-    internal byte[] SiteLoginPage() => Page($"""
+    internal byte[] SiteLoginPage(string locale = SiteLocale.Default) => Page($"""
         <header class="site-auth-header"><div class="site-auth-bar">
-        <a class="site-auth-brand" href="/">{HtmlEncoder.Default.Encode(SiteTitle)}</a>
+        <a class="site-auth-brand" href="/">{HtmlEncoder.Default.Encode(SiteTitle)}</a><div class="site-auth-actions">{SiteLocale.Selector(locale)}</div>
         </div></header>
         <main class="auth-page site-auth-main"><div class="auth-heading">
-        <h1>Log in</h1><p>Write and publish articles.</p></div>
-        <noscript>Enable JavaScript to log in.</noscript></main>
-        """, title: "Log in", noIndex: true);
+        <h1>{SiteLocale.Html(locale, "page.login")}</h1><p>{SiteLocale.Html(locale, "login.subtitle")}</p></div>
+        <noscript>{SiteLocale.Html(locale, "login.noScript")}</noscript></main>
+        """, title: SiteLocale.Text(locale, "page.login"), noIndex: true, language: locale, locale: locale);
 
     internal byte[] Page(string content = "", string? title = null, string? description = null, string? language = null,
-        bool noIndex = false, string? publicPath = null, bool useAppearance = true)
+        bool noIndex = false, string? publicPath = null, bool useAppearance = true, string? locale = null)
     {
         var document = useAppearance && appearance is not null ? appearance.WithStylesheet(template) : template;
+        if (locale is not null) document = document.Replace("</head>", $"<meta name=\"fsus-locale\" content=\"{HtmlEncoder.Default.Encode(locale)}\"></head>", StringComparison.Ordinal);
         var titleText = title is null ? SiteTitle : $"{title} · {SiteTitle}";
         document = document.Replace("<title>Fsu's Blog</title>", $"<title>{HtmlEncoder.Default.Encode(titleText)}</title>", StringComparison.Ordinal);
         var canonical = publicPath is not null && !noIndex && site?.Origin is { } origin ? origin + publicPath : null;

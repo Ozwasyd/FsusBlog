@@ -23,7 +23,7 @@ internal sealed class SitePages
         [("about", "关于"), ("privacy", "隐私政策"), ("guidelines", "用户守则"), ("copyright", "版权声明")];
 
     private sealed record Page(AdminSitePageRevision Revision, byte[] Html, byte[] Frame, bool Configured,
-        EntityTagHeaderValue HtmlTag, EntityTagHeaderValue FrameTag);
+        EntityTagHeaderValue HtmlTag, EntityTagHeaderValue FrameTag, byte[] EnglishHtml, EntityTagHeaderValue EnglishHtmlTag);
 
     private readonly FrozenDictionary<string, Page> current;
     private readonly ConcurrentDictionary<string, Page> published = new(StringComparer.Ordinal);
@@ -98,7 +98,8 @@ internal sealed class SitePages
                 context.Response.Headers.CacheControl = "no-store";
                 var page = await PublicPage(baseline, ct);
                 SetHeaders(context, page);
-                return Results.Bytes(page.Html, Html, entityTag: page.HtmlTag);
+                var english = SiteLocale.Select(context) == "en";
+                return Results.Bytes(english ? page.EnglishHtml : page.Html, Html, entityTag: english ? page.EnglishHtmlTag : page.HtmlTag);
             });
             if (EditorEnabled) pageRoute.RequireRateLimiting("query");
         }
@@ -130,12 +131,18 @@ internal sealed class SitePages
     private Page Build((string Slug, string Title) spec, AdminSitePageRevision revision, bool configured)
     {
         var frame = SitePageWire.Encode(spec.Slug, revision.Markdown);
-        var title = HtmlEncoder.Default.Encode(spec.Title);
         var state = configured ? "published" : "unconfigured";
-        var content = $"<article class=\"reading-column editorial-page article-body\" data-fsus-surface=\"reading\" data-site-page=\"{spec.Slug}\" data-state=\"{state}\"><header class=\"editorial-rule\"><h1>{title}</h1></header>" +
-            $"<div data-site-page-body>{PublicArticleHtml.RenderMarkdown(revision.Markdown)}</div></article>";
-        var html = renderer.PublicPage(content, spec.Title, language: "zh-CN", noIndex: !configured, publicPath: "/" + spec.Slug, contentDriven: true);
-        return new(revision, html, frame, configured, StrongTag(html), StrongTag(frame));
+        var body = PublicArticleHtml.RenderMarkdown(revision.Markdown);
+        byte[] HtmlFor(string locale)
+        {
+            var title = SiteLocale.Text(locale, "policy." + spec.Slug);
+            var content = $"<article class=\"reading-column editorial-page article-body\" data-fsus-surface=\"reading\" data-site-page=\"{spec.Slug}\" data-state=\"{state}\"><header class=\"editorial-rule\"><h1>{HtmlEncoder.Default.Encode(title)}</h1></header>" +
+                $"<div data-site-page-body lang=\"zh-CN\">{body}</div></article>";
+            return renderer.PublicPage(content, title, noIndex: !configured, publicPath: "/" + spec.Slug, contentDriven: true, locale: locale);
+        }
+        var html = HtmlFor(SiteLocale.Default);
+        var englishHtml = HtmlFor("en");
+        return new(revision, html, frame, configured, StrongTag(html), StrongTag(frame), englishHtml, StrongTag(englishHtml));
     }
 
     private static EntityTagHeaderValue StrongTag(byte[] contents) => new("\"" + Convert.ToHexStringLower(SHA256.HashData(contents)) + "\"");

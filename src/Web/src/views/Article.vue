@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../siteLocale'
 import { siteTitle } from '../siteBrand'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
@@ -79,42 +80,42 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
 
 <template>
   <section v-if="busy" class="reading-column editorial-page">
-    <p role="status">Loading article…</p>
+    <p role="status">{{ t('reading.loadingArticle') }}</p>
   </section>
   <section v-else-if="error" class="reading-column editorial-page">
-    <h1>{{ error === 'missing' ? 'Article not found' : 'Could not load the article' }}</h1>
-    <p v-if="error === 'missing'">It may have been withdrawn or removed.</p>
-    <ElButton v-if="error === 'failed'" @click="retry++">Retry</ElButton>
-    <RouterLink v-else to="/">Return home</RouterLink>
+    <h1>{{ t(error === 'missing' ? 'reading.articleMissing' : 'reading.articleFailed') }}</h1>
+    <p v-if="error === 'missing'">{{ t('reading.withdrawn') }}</p>
+    <ElButton v-if="error === 'failed'" @click="retry++">{{ t('reading.retry') }}</ElButton>
+    <RouterLink v-else to="/">{{ t('reading.returnHome') }}</RouterLink>
   </section>
   <article v-else-if="article" class="reading-column editorial-page article-body" v-bind="{ 'data-fsus-surface': 'reading' }">
-    <img v-if="cover" :src="cover" alt="Article cover" class="article-cover">
+    <img v-if="cover" :src="cover" :alt="t('reading.cover')" class="article-cover">
     <header class="editorial-rule">
       <h1>{{ article.title }}</h1>
       <div class="article-taxonomy metadata">
-        <span v-if="article.publishedAt">Published <time :datetime="date(article.publishedAt)">{{ date(article.publishedAt) }}</time></span>
+        <span v-if="article.publishedAt">{{ t('reading.published') }} <time :datetime="date(article.publishedAt)">{{ date(article.publishedAt) }}</time></span>
         <RouterLink v-if="article.category.id > 0" :to="{ name: 'category', params: { id: article.category.id } }">{{ article.category.name }}</RouterLink>
         <RouterLink v-for="tag in article.tags" :key="tag.id" :to="{ name: 'tag', params: { id: tag.id } }">#{{ tag.name }}</RouterLink>
       </div>
     </header>
-    <ElAlert v-if="!nativeMarkdown" title="Formatted view unavailable. Showing the original article text." type="info" :closable="false" />
+    <ElAlert v-if="!nativeMarkdown" :title="t('reading.formatUnavailable')" type="info" :closable="false" />
     <div ref="readBody" v-bind="{ 'data-fsus-article-read-body': '' }">
       <ElMarkdownRenderer v-if="nativeMarkdown" :key="`${article.id}:${article.publication}`" :content="article.body"
         :content-version="article.publication.toString()" mode="article" @render-complete="renderedArticle = article" />
       <pre v-else class="article-source">{{ article.body }}</pre>
     </div>
-    <section v-if="galleryImages?.length && failedImages.size < galleryImages.length" aria-label="Published images"
+    <section v-if="galleryImages?.length && failedImages.size < galleryImages.length" :aria-label="t('reading.images')"
       v-bind="{ 'data-fsus-public-article-media': '', 'data-article-id': article.id, 'data-publication': article.publication.toString() }">
       <template v-for="(image, index) in galleryImages" :key="image.digest">
         <img v-if="!failedImages.has(image.digest)" :src="image.url" :width="image.width" :height="image.height"
-          :alt="`Published image ${index + 1}`" loading="lazy" decoding="async" @error="imageUnavailable(image)">
+          :alt="t('reading.imageNumber', { index: index + 1 })" loading="lazy" decoding="async" @error="imageUnavailable(image)">
       </template>
     </section>
     <div v-if="imageLoadFailed || failedImages.size" class="article-image-error">
-      <p>Could not load the published images.</p>
-      <ElButton @click="retry++">Reload article and images</ElButton>
+      <p>{{ t('reading.imagesFailed') }}</p>
+      <ElButton @click="retry++">{{ t('reading.reloadImages') }}</ElButton>
     </div>
-    <aside v-if="article.rights?.enabled && article.rights.showPublicBadge" class="article-rights" aria-label="Article rights">
+    <aside v-if="article.rights?.enabled && article.rights.showPublicBadge" class="article-rights" :aria-label="t('reading.rights')">
       <p>{{ article.rights.licenseType }}</p>
       <p v-if="article.rights.copyrightHolder || article.rights.copyrightYear">
         {{ article.rights.copyrightHolder }} {{ article.rights.copyrightYear }}
