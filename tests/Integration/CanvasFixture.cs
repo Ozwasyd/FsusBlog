@@ -6,20 +6,16 @@ using FsusBlog.V2.Server.Authoring;
 
 namespace FsusBlog.V2.Integration.Tests;
 
-internal sealed class CanvasFixture(ScratchDatabase database, CancellationTokenSource deadline) : IAsyncDisposable
+internal sealed class CanvasFixture(ScratchDatabase database, CancellationToken token) : IAsyncDisposable
 {
     private readonly Store _store = new(database.DataSource);
-    internal CancellationToken Token => deadline.Token;
+    internal CancellationToken Token => token;
     internal string ConnectionString => database.ConnectionString;
 
     internal static async Task<CanvasFixture> Open()
     {
-        var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        try
-        {
-            return new(await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, deadline.Token), deadline);
-        }
-        catch { deadline.Dispose(); throw; }
+        var database = await ScratchDatabase.CreateTimed(out var token);
+        return new(database, token);
     }
 
     internal async Task<(string Token, Identity User)> Author(string name, bool author = true)
@@ -80,9 +76,5 @@ internal sealed class CanvasFixture(ScratchDatabase database, CancellationTokenS
     internal static async Task Denied<T>(Rejection rejection, Task<T> command) =>
         Assert.Equal(rejection, (await Assert.ThrowsAsync<BusinessException>(() => command)).Rejection);
 
-    public async ValueTask DisposeAsync()
-    {
-        try { await database.DisposeAsync(); }
-        finally { deadline.Dispose(); }
-    }
+    public ValueTask DisposeAsync() => database.DisposeAsync();
 }
