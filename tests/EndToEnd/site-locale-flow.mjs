@@ -41,7 +41,7 @@ const tools = createRequire(new URL('../../src/Web/package.json', import.meta.ur
 const { chromium } = tools('@playwright/test')
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, args: ['--no-proxy-server'] })
 try {
-  for (const width of [1280, 375]) {
+  for (const width of [1280, 375, 320]) {
     const context = await browser.newContext({ locale: 'en-US', viewport: { width, height: 800 }, serviceWorkers: 'block' })
     await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort())
     const page = await context.newPage()
@@ -75,7 +75,28 @@ try {
     assert.equal(response.headers()['content-language'], 'zh-CN')
     await page.getByRole('heading', { name: '归档', exact: true }).waitFor()
     if (width < 500) await page.getByText('菜单', { exact: true }).click()
-    await page.getByRole('combobox', { name: '界面语言' }).filter({ visible: true }).selectOption('en')
+    const languageControl = page.getByRole('combobox', { name: '界面语言' }).filter({ visible: true })
+    if (width < 500) {
+      const themeControl = page.getByRole('combobox', { name: '主题', exact: true }).filter({ visible: true })
+      await themeControl.waitFor()
+      const [languageBox, themeBox] = await Promise.all([languageControl.boundingBox(), themeControl.boundingBox()])
+      assert.ok(languageBox && themeBox)
+      assert.ok(Math.abs(languageBox.y - themeBox.y) <= 1)
+      assert.ok(Math.abs(languageBox.height - themeBox.height) <= 1)
+      assert.ok(languageBox.x + languageBox.width < themeBox.x)
+      assert.ok(themeBox.x + themeBox.width <= width)
+      assert.equal(await themeControl.locator('option[value=system]').textContent(), '跟随系统')
+      await themeControl.selectOption('dark')
+      await page.waitForFunction(() => document.documentElement.dataset.themeMode === 'dark')
+    }
+    await languageControl.selectOption('en')
+    if (width < 500) {
+      const themeControl = page.getByRole('combobox', { name: 'Theme mode', exact: true }).filter({ visible: true })
+      assert.equal(await themeControl.inputValue(), 'dark')
+      assert.equal(await themeControl.locator('option[value=system]').textContent(), 'System')
+      await themeControl.selectOption('system')
+      await page.waitForFunction(() => document.documentElement.dataset.themeMode === 'system')
+    }
     await page.getByRole('heading', { name: 'Archive', exact: true }).waitFor()
     assert.match(await page.title(), /^Archive/)
     assert.equal(await page.locator('html').getAttribute('lang'), 'en')

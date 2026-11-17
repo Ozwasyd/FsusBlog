@@ -49,4 +49,7 @@ export function t(key: MessageKey, params?: Readonly<Record<string, string | num
     Object.hasOwn(params, name) ? String(params[name]) : token) : text
 }
 
-export const themeLabels = computed(() => ({ light: t('theme.light'), dark: t('theme.dark'), system: t('theme.system') }))
+export const themeLabels = computed(() => {
+  const light = t('theme.light'), dark = t('theme.dark'), system = t('theme.system')
+  return { light, dark, system, lightShort: light, darkShort: dark, systemShort: system }
+})

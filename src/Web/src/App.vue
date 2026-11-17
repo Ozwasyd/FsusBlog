@@ -25,6 +25,11 @@ function useTheme(mode: ThemeMode) {
   themeMode.value = mode
   try { writeThemeMode(mode) } catch { /* Theme remains selectable if storage is unavailable. */ }
 }
+function selectMobileTheme(event: Event) {
+  const mode = (event.target as HTMLSelectElement).value
+  if (mode === 'light' || mode === 'dark' || mode === 'system') useTheme(mode)
+}
+
 const logoutFailure = ref(false)
 const accountMenu = ref(false)
 const navCopy = { home: 'nav.home', archive: 'nav.archive', about: 'nav.about' } as const
@@ -193,8 +198,15 @@ async function leave() {
       <template #mobile-primary-actions>
         <RouterLink v-if="currentSession" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
-        <SiteLocaleSelect />
-        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" :label="t('theme.label')" :labels="themeLabels" csp-safe @update:model-value="useTheme" />
+        <div class="public-menu-preferences">
+          <SiteLocaleSelect />
+          <select class="site-theme-select" :aria-label="t('theme.label')" :value="themeMode ?? 'system'"
+            @change="selectMobileTheme">
+            <option value="light">{{ themeLabels.light }}</option>
+            <option value="dark">{{ themeLabels.dark }}</option>
+            <option value="system">{{ themeLabels.system }}</option>
+          </select>
+        </div>
       </template>
       <div id="page-content" tabindex="-1">
         <div v-if="logoutFailure" class="reading-column editor-shell-error" role="alert">
@@ -245,6 +257,13 @@ async function leave() {
   align-items: center;
   min-height: 44px;
 }
+.public-menu-preferences {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .5rem;
+  padding: .375rem;
+}
+.public-menu-preferences > select { min-inline-size: 0; inline-size: 100%; }
 .site-policy-links {
   display: flex;
   flex-wrap: wrap;
