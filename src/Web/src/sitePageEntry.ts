@@ -5,7 +5,7 @@ type SitePage = Readonly<{ slug: SitePageSlug; body: string; configured: boolean
 let initial: SitePage | undefined
 
 function read(root: ParentNode, slug: SitePageSlug): SitePage | undefined {
-  const article = root.querySelector('#app > main > article[data-site-page]')
+  const article = root.querySelector('#app [data-fsus-public-content] > article[data-site-page]')
   if (!article || article.getAttribute('data-site-page') !== slug) return
   const state = article.getAttribute('data-state')
   const body = article.querySelector(':scope > [data-site-page-body]')
