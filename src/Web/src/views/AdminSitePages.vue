@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { ref, shallowRef } from 'vue'
-import { ElAlert, ElButton } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElInlineActions, ElResourceList, ElResourceListItem, ElSettingsSection, ElTag } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminSitePage, readAdminSitePages } from '../../../Contracts/admin-site-pages'
 import type { SitePageSlug } from '../../../Contracts/site-pages'
@@ -58,29 +58,64 @@ watchAdminSessionClear(() => props.sessionSignal, clear)
 </script>
 
 <template>
-  <section class="auth-form" aria-labelledby="admin-site-pages-heading">
-    <h2 id="admin-site-pages-heading">{{ t('admin.sitePages') }}</h2>
-    <ElButton native-type="button" :loading="busy" @click="read()">{{ t('admin.checkSitePages') }}</ElButton>
+  <ElSettingsSection ariaLabelledby="admin-site-pages-heading" density="compact">
+    <template #title>
+      <span id="admin-site-pages-heading">{{ t('admin.sitePages') }}</span>
+    </template>
+    <template #actions>
+      <ElButton native-type="button" :loading="busy" @click="read()">{{ t('admin.checkSitePages') }}</ElButton>
+    </template>
     <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" />
-    <ul v-if="pages" class="site-pages-list">
-      <li v-for="page in pages.pages" :key="page.slug">
-        <strong>{{ page.title }}</strong> <code>/{{ page.slug }}</code>
-        <span>{{ page.configured ? t('admin.configured') : t('admin.unconfigured') }}</span>
-        <ElButton v-if="page.configured" :disabled="busy" native-type="button" text
-          @click="read(page.slug)">{{ t('admin.viewPageContent', { slug: page.slug }) }}</ElButton>
-        <ElButton v-if="pages.editor && page.configured" :disabled="busy" native-type="button" text
-          @click="selected = undefined; editor = page.slug">{{ t('admin.editPageContent', { slug: page.slug }) }}</ElButton>
-        <pre v-if="selected?.slug === page.slug" tabindex="0" :aria-label="t('admin.pageMarkdown', { slug: page.slug })">{{ selected.markdown }}</pre>
-        <AdminSitePageEditor v-if="editor === page.slug" :key="page.slug" :slug="page.slug" :session-signal="sessionSignal"
-          @session-lost="emit('session-lost', $event)" @close="editor = undefined" />
-      </li>
-    </ul>
-  </section>
+    <ElResourceList v-if="pages" class="site-pages-list" density="compact">
+      <ElResourceListItem v-for="page in pages.pages" :key="page.slug" :title="page.title">
+        <template #badge>
+          <ElTag size="small" :type="page.configured ? 'success' : 'info'">
+            {{ page.configured ? t('admin.configured') : t('admin.unconfigured') }}
+          </ElTag>
+        </template>
+        <template #meta>
+          <code>/{{ page.slug }}</code>
+        </template>
+        <template #actions>
+          <ElInlineActions>
+            <ElButton v-if="page.configured" :disabled="busy" native-type="button" text
+              @click="read(page.slug)">{{ t('admin.viewPageContent', { slug: page.slug }) }}</ElButton>
+            <ElButton v-if="pages.editor && page.configured" :disabled="busy" native-type="button" text
+              @click="selected = undefined; editor = page.slug">{{ t('admin.editPageContent', { slug: page.slug }) }}</ElButton>
+          </ElInlineActions>
+        </template>
+        <pre
+          v-if="selected?.slug === page.slug"
+          class="site-page-preview"
+          tabindex="0"
+          :aria-label="t('admin.pageMarkdown', { slug: page.slug })"
+        >{{ selected.markdown }}</pre>
+        <AdminSitePageEditor
+          v-if="editor === page.slug"
+          :key="page.slug"
+          :slug="page.slug"
+          :session-signal="sessionSignal"
+          @session-lost="emit('session-lost', $event)"
+          @close="editor = undefined"
+        />
+      </ElResourceListItem>
+    </ElResourceList>
+  </ElSettingsSection>
 </template>
 
 <style scoped>
-.site-pages-list { margin: 0; padding-inline-start: 1.25rem; }
-.site-pages-list li { margin-block: .5rem; }
-.site-pages-list code { margin-inline: .3rem; }
-.site-pages-list pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 20rem; overflow: auto; }
+.site-page-preview {
+  margin: 8px 0 0;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-control, 6px);
+  background: var(--fsus-color-surface-raised, var(--el-fill-color-light));
+  color: var(--el-text-color-primary);
+  font-size: var(--el-font-size-small);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 20rem;
+  overflow: auto;
+}
 </style>

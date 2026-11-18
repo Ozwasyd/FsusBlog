@@ -6,7 +6,7 @@ import type { ThemeMode } from '@ozwasyd/element-plus/theme'
 import SiteHeaderPreferences from './SiteHeaderPreferences.vue'
 import { siteTitle } from './siteBrand'
 
-defineProps<{ home: string; label: string; links: readonly { to: string; label: string }[]; themeMode?: ThemeMode }>()
+defineProps<{ home: string; label: string; links: readonly { to: string; label: string }[]; themeMode?: ThemeMode; surface?: 'account' | 'task' }>()
 const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
 const route = useRoute()
 const open = ref(false)
@@ -14,7 +14,7 @@ watch(() => route.fullPath, () => { open.value = false })
 </script>
 
 <template>
-  <div class="account-workspace">
+  <div class="account-workspace" :class="{ 'is-task-surface': surface === 'task' }">
     <ElSiteHeader max-width="76rem">
       <template #brand><RouterLink class="workspace-brand" :to="home">{{ siteTitle }}</RouterLink></template>
       <template #desktop-actions>
@@ -56,6 +56,15 @@ watch(() => route.fullPath, () => { open.value = false })
 }
 .account-workspace-nav, .account-workspace-drawer { display: grid; align-content: start; gap: .25rem; }
 .account-workspace-nav { padding-block: clamp(2.75rem, 8vw, 5rem); }
+.account-workspace.is-task-surface .account-workspace-nav {
+  padding-block: var(--fsus-space-6);
+}
+.account-workspace-content {
+  min-width: 0;
+}
+.account-workspace.is-task-surface .account-workspace-content {
+  padding-block: var(--fsus-space-6) var(--fsus-space-8);
+}
 .account-workspace-nav a, .account-workspace-drawer a {
   display: flex;
   align-items: center;
@@ -64,14 +73,24 @@ watch(() => route.fullPath, () => { open.value = false })
   border-radius: var(--fsus-radius-control);
   color: var(--el-text-color-secondary);
   text-decoration: none;
+  transition: color var(--fsus-motion-control) var(--fsus-motion-standard),
+    background-color var(--fsus-motion-control) var(--fsus-motion-standard);
 }
 .account-workspace-nav a:hover, .account-workspace-drawer a:hover,
 .account-workspace-nav [aria-current="page"], .account-workspace-drawer [aria-current="page"] {
   color: var(--el-text-color-primary);
   background: var(--el-fill-color-light);
 }
+.account-workspace-nav [aria-current="page"], .account-workspace-drawer [aria-current="page"] {
+  font-weight: 500;
+  box-shadow: inset 2px 0 0 var(--fsus-scholarly-blue);
+}
 @media (max-width: 767px) {
   .account-workspace-frame { display: block; padding-inline: 0; }
   .account-workspace-nav { display: none; }
+  .account-workspace.is-task-surface .account-workspace-content {
+    padding-inline: var(--fsusblog-page-gutter);
+    padding-block: var(--fsus-space-5) var(--fsus-space-6);
+  }
 }
 </style>

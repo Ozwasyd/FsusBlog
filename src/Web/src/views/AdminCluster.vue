@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { ref, shallowRef } from 'vue'
-import { ElAlert, ElButton } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElCopyableDetail, ElKeyValueGrid, ElKeyValueItem, ElSettingsSection, ElTag } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminCluster } from '../../../Contracts/admin-cluster'
 import type { AdminSession } from '../../../Contracts/admin-identity'
@@ -45,29 +45,36 @@ watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clea
 </script>
 
 <template>
-  <section class="auth-form" aria-labelledby="admin-cluster-heading" :aria-busy="busy">
-    <h2 id="admin-cluster-heading">{{ t('admin.deploymentStatus') }}</h2>
-    <ElButton native-type="button" :loading="busy" @click="check">{{ t('admin.checkDeployment') }}</ElButton>
+  <ElSettingsSection ariaLabelledby="admin-cluster-heading" v-bind="{ 'aria-busy': busy }" density="compact">
+    <template #title>
+      <span id="admin-cluster-heading">{{ t('admin.deploymentStatus') }}</span>
+    </template>
+    <template #actions>
+      <ElButton native-type="button" :loading="busy" @click="check">{{ t('admin.checkDeployment') }}</ElButton>
+    </template>
     <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" />
     <div aria-live="polite">
-      <dl v-if="observation">
-        <dt>{{ t('admin.mode') }}</dt><dd>{{ t('admin.singleInstance') }}</dd>
-        <dt>{{ t('admin.distributedScheduling') }}</dt><dd>{{ t('admin.singleInstanceUnavailable') }}</dd>
-        <template v-if="observation.nodeId"><dt>{{ t('admin.nodeLabel') }}</dt><dd>{{ observation.nodeId }}</dd></template>
-        <dt>{{ t('admin.instanceId') }}</dt><dd><code>{{ observation.instanceId }}</code></dd>
-        <dt>{{ t('admin.buildVersion') }}</dt><dd>{{ observation.buildVersion }}</dd>
-        <dt>{{ t('admin.processStart') }}</dt>
-        <dd><time :datetime="new Date(observation.startedAt).toISOString()">{{ new Date(observation.startedAt).toLocaleString() }}</time></dd>
-        <dt>{{ t('admin.observedAt') }}</dt>
-        <dd><time :datetime="new Date(observation.observedAt).toISOString()">{{ new Date(observation.observedAt).toLocaleString() }}</time></dd>
-        <dt>{{ t('admin.publicationLease') }}</dt><dd>{{ t('admin.leaseConfirmed', { age: observation.leaseAgeMs }) }}</dd>
-        <dt>{{ t('admin.publicSnapshot') }}</dt><dd>{{ observation.snapshotReady ? t('admin.ready') : t('admin.notReady') }}</dd>
-      </dl>
+      <ElKeyValueGrid v-if="observation" density="compact">
+        <ElKeyValueItem :label="t('admin.mode')" :value="t('admin.singleInstance')" />
+        <ElKeyValueItem :label="t('admin.distributedScheduling')" :value="t('admin.singleInstanceUnavailable')" />
+        <ElKeyValueItem v-if="observation.nodeId" :label="t('admin.nodeLabel')" :value="observation.nodeId" />
+        <ElKeyValueItem :label="t('admin.instanceId')" monospace>
+          <ElCopyableDetail :value="observation.instanceId" />
+        </ElKeyValueItem>
+        <ElKeyValueItem :label="t('admin.buildVersion')" :value="observation.buildVersion" />
+        <ElKeyValueItem :label="t('admin.processStart')">
+          <time :datetime="new Date(observation.startedAt).toISOString()">{{ new Date(observation.startedAt).toLocaleString() }}</time>
+        </ElKeyValueItem>
+        <ElKeyValueItem :label="t('admin.observedAt')">
+          <time :datetime="new Date(observation.observedAt).toISOString()">{{ new Date(observation.observedAt).toLocaleString() }}</time>
+        </ElKeyValueItem>
+        <ElKeyValueItem :label="t('admin.publicationLease')" :value="t('admin.leaseConfirmed', { age: observation.leaseAgeMs })" />
+        <ElKeyValueItem :label="t('admin.publicSnapshot')">
+          <ElTag size="small" :type="observation.snapshotReady ? 'success' : 'warning'">
+            {{ observation.snapshotReady ? t('admin.ready') : t('admin.notReady') }}
+          </ElTag>
+        </ElKeyValueItem>
+      </ElKeyValueGrid>
     </div>
-  </section>
+  </ElSettingsSection>
 </template>
-
-<style scoped>
-dl { min-width: 0; }
-dd { margin: 0 0 .5rem; overflow-wrap: anywhere; }
-</style>

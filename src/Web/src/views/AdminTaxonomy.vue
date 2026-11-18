@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { ElAlert, ElButton, ElEmptyState, ElSkeleton } from '@ozwasyd/element-plus'
+import {
+  ElAlert, ElButton, ElEmptyState, ElInlineActions, ElKeyValueGrid,
+  ElKeyValueItem, ElOption, ElSelect, ElSettingsSection, ElSkeleton,
+} from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminTaxonomy, readAdminTaxonomyDependencies,
   type AdminTaxonomyDependencies, type AdminTaxonomyPage } from '../../../Contracts/admin-taxonomy'
@@ -162,23 +165,39 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="admin-taxonomy" :aria-labelledby="`admin-taxonomy-heading-${kind}`" :aria-busy="pending">
-    <h2 :id="`admin-taxonomy-heading-${kind}`" ref="heading" tabindex="-1">{{ t('admin.taxonomy.m3') }}</h2>
-    <ElButton class="taxonomy-refresh" native-type="button" text :disabled="pending || edited !== undefined" @click="load(pageNumber)">{{ t('admin.articles.refresh') }}</ElButton>
-    <p v-if="notice" role="status">{{ t(notice.key, { label: t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2') }) }}</p>
+  <ElSettingsSection
+    class="admin-taxonomy"
+    :ariaLabelledby="`admin-taxonomy-heading-${kind}`"
+    v-bind="{ 'aria-busy': pending }"
+    density="compact"
+  >
+    <template #title>
+      <span :id="`admin-taxonomy-heading-${kind}`" ref="heading" tabindex="-1">{{ t('admin.taxonomy.m3') }}</span>
+    </template>
+    <template #actions>
+      <ElButton class="taxonomy-refresh" native-type="button" text :disabled="pending || edited !== undefined" @click="load(pageNumber)">{{ t('admin.articles.refresh') }}</ElButton>
+    </template>
+
+    <p v-if="notice" class="taxonomy-status" role="status">{{ t(notice.key, { label: t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2') }) }}</p>
     <ElSkeleton v-if="pending" :rows="3" animated />
     <ElAlert v-else-if="failure === 'forbidden'" :title="t('admin.taxonomy.m7')" type="warning" :closable="false" show-icon />
     <ElAlert v-else-if="failure === 'request'" :title="t('admin.taxonomy.m8')" type="error" :closable="false" show-icon>
       <ElButton native-type="button" text @click="load(pageNumber)">{{ t('admin.taxonomy.m9') }}</ElButton>
     </ElAlert>
     <template v-else-if="page">
-      <div v-if="canEditMetadata" class="taxonomy-actions">
+      <ElInlineActions v-if="canEditMetadata">
         <ElButton native-type="button" :disabled="edited !== undefined" @click="openEditor(0, $event)">{{ t('admin.taxonomy.m41', { kind: kindLabel }) }}</ElButton>
-      </div>
-      <AdminTagMetadata v-if="edited !== undefined" :key="`${kind}:${edited}`" :kind="metadataKind" :id="edited"
-        @close="closeEditor(false)" @saved="closeEditor(true)"
-        @session-lost="emit('session-lost', $event)" />
-      <ElEmptyState v-if="page.items.length === 0" :title="kind === 'categories' ? t('admin.taxonomy.m10') : t('admin.taxonomy.m11')" />
+      </ElInlineActions>
+      <AdminTagMetadata
+        v-if="edited !== undefined"
+        :key="`${kind}:${edited}`"
+        :kind="metadataKind"
+        :id="edited"
+        @close="closeEditor(false)"
+        @saved="closeEditor(true)"
+        @session-lost="emit('session-lost', $event)"
+      />
+      <ElEmptyState v-if="page.items.length === 0" size="inline" :title="kind === 'categories' ? t('admin.taxonomy.m10') : t('admin.taxonomy.m11')" />
       <div v-else class="taxonomy-table-scroll" tabindex="0" role="region" :aria-label="t('admin.taxonomy.m12')" :aria-describedby="`taxonomy-count-notes-${kind}`">
         <table>
           <caption>{{ kind === 'categories' ? t('admin.taxonomy.m13') : t('admin.taxonomy.m14') }}</caption>
@@ -206,64 +225,178 @@ onBeforeUnmount(() => {
           </tbody>
         </table>
       </div>
+
       <div v-if="page.items.length" class="taxonomy-actions" role="group" :aria-label="t(canEditMetadata ? 'admin.taxonomy.m46' : 'admin.taxonomy.m47', { kind: kindsLabel })">
-        <label :for="`admin-${metadataKind}-target`">{{ t(canEditMetadata ? 'admin.taxonomy.m48' : 'admin.taxonomy.m49', { label: metadataLabel }) }}</label>
-        <select :id="`admin-${metadataKind}-target`" v-model="target">
-          <option :value="undefined" disabled>{{ t('admin.taxonomy.m42', { kind: kindLabel }) }}</option>
-          <option v-for="item in page.items" :key="item.id" :value="item.id">{{ item.name }}</option>
-        </select>
-        <ElButton ref="inspectButton" native-type="button" text :disabled="!target || references?.state === 'loading'" @click="inspectReferences">
-          {{ t('admin.taxonomy.m21') }}
-        </ElButton>
-        <ElButton v-if="canEditMetadata" native-type="button" text :disabled="!target || edited !== undefined" @click="openEditor(target, $event)">
-          {{ t('admin.taxonomy.m43', { kind: kindLabel }) }}
-        </ElButton>
+        <label :for="`admin-${metadataKind}-target`" class="taxonomy-select-label">{{ t(canEditMetadata ? 'admin.taxonomy.m48' : 'admin.taxonomy.m49', { label: metadataLabel }) }}</label>
+        <ElSelect
+          :id="`admin-${metadataKind}-target`"
+          v-model="target"
+          class="taxonomy-select"
+          :ariaLabel="t(canEditMetadata ? 'admin.taxonomy.m48' : 'admin.taxonomy.m49', { label: metadataLabel })"
+          :placeholder="t('admin.taxonomy.m42', { kind: kindLabel })"
+        >
+          <ElOption v-for="item in page.items" :key="item.id" :label="item.name" :value="item.id" />
+        </ElSelect>
+        <ElInlineActions>
+          <ElButton ref="inspectButton" native-type="button" text :disabled="!target || references?.state === 'loading'" @click="inspectReferences">
+            {{ t('admin.taxonomy.m21') }}
+          </ElButton>
+          <ElButton v-if="canEditMetadata" native-type="button" text :disabled="!target || edited !== undefined" @click="openEditor(target, $event)">
+            {{ t('admin.taxonomy.m43', { kind: kindLabel }) }}
+          </ElButton>
+        </ElInlineActions>
       </div>
+
       <section v-if="references" class="taxonomy-references" :aria-label="t('admin.taxonomy.m22')" :aria-busy="references.state === 'loading'">
         <h3>{{ t('admin.taxonomy.m44', { name: references.name }) }}</h3>
-        <p v-if="references.state === 'loading'" role="status">{{ t('admin.taxonomy.m23') }}</p>
+        <p v-if="references.state === 'loading'" class="taxonomy-status" role="status">{{ t('admin.taxonomy.m23') }}</p>
         <ElAlert v-else-if="references.state === 'failed'" :title="t(references.message)" type="error" :closable="false" />
         <template v-else>
-          <dl>
-            <dt>{{ t('admin.taxonomy.m24') }}</dt><dd>{{ references.counts.activeArticles }}</dd>
-            <dt>{{ t('admin.taxonomy.m25') }}</dt><dd>{{ references.counts.retainedOnlyArticles }}</dd>
-            <dt>{{ t('admin.taxonomy.m26') }}</dt><dd>{{ references.counts.reservedAliases }}</dd>
-          </dl>
-          <p v-if="references.counts.activeArticles || references.counts.retainedOnlyArticles || references.counts.reservedAliases">
+          <ElKeyValueGrid density="compact">
+            <ElKeyValueItem :label="t('admin.taxonomy.m24')" :value="String(references.counts.activeArticles)" />
+            <ElKeyValueItem :label="t('admin.taxonomy.m25')" :value="String(references.counts.retainedOnlyArticles)" />
+            <ElKeyValueItem :label="t('admin.taxonomy.m26')" :value="String(references.counts.reservedAliases)" />
+          </ElKeyValueGrid>
+          <p v-if="references.counts.activeArticles || references.counts.retainedOnlyArticles || references.counts.reservedAliases" class="taxonomy-ref-note">
             {{ t('admin.taxonomy.m27') }}
           </p>
-          <p v-else>{{ t('admin.taxonomy.m28') }}</p>
+          <p v-else class="taxonomy-ref-note">{{ t('admin.taxonomy.m28') }}</p>
         </template>
-        <ElButton native-type="button" text @click="closeReferences">{{ t('admin.taxonomy.m29') }}</ElButton>
+        <ElInlineActions>
+          <ElButton native-type="button" text @click="closeReferences">{{ t('admin.taxonomy.m29') }}</ElButton>
+        </ElInlineActions>
       </section>
+
       <p v-if="page.items.length" :id="`taxonomy-count-notes-${kind}`" class="taxonomy-notes">
         <span class="taxonomy-scroll-note">{{ t('admin.taxonomy.m50') }}</span>
         {{ t('admin.taxonomy.m51', { kind: kindLabel }) }}
       </p>
+
       <nav v-if="pageNumber > 0 || page.nextId !== null" class="taxonomy-actions" :aria-label="t('admin.taxonomy.m30')">
-        <ElButton native-type="button" :disabled="pageNumber === 0" @click="load(pageNumber - 1)">{{ t('admin.taxonomy.m31') }}</ElButton>
-        <span role="status">{{ t('admin.taxonomy.m45', { page: pageNumber + 1 }) }}</span>
-        <ElButton native-type="button" :disabled="page.nextId === null" @click="next">{{ t('admin.taxonomy.m32') }}</ElButton>
+        <ElInlineActions>
+          <ElButton native-type="button" :disabled="pageNumber === 0" @click="load(pageNumber - 1)">{{ t('admin.taxonomy.m31') }}</ElButton>
+          <span class="taxonomy-page-status" role="status">{{ t('admin.taxonomy.m45', { page: pageNumber + 1 }) }}</span>
+          <ElButton native-type="button" :disabled="page.nextId === null" @click="next">{{ t('admin.taxonomy.m32') }}</ElButton>
+        </ElInlineActions>
       </nav>
     </template>
-  </section>
+  </ElSettingsSection>
 </template>
 
 <style scoped>
-.admin-taxonomy { margin-block-start: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
-.admin-taxonomy h2 { font-size: 1.125rem; margin: 0; }
-.taxonomy-refresh { justify-self: start; }
-.taxonomy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
-.taxonomy-actions > :deep(.el-button + .el-button) { margin-inline-start: 0; }
-.taxonomy-table-scroll { overflow-x: auto; }
-.taxonomy-table-scroll:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
-.taxonomy-notes { margin: 0; color: var(--fsus-color-text-muted); }
-.taxonomy-references { padding: var(--fsus-space-3); border: 1px solid var(--fsus-border); }
-.taxonomy-references h3 { margin-block-start: 0; }
-.taxonomy-scroll-note { display: none; }
-table { width: 100%; border-collapse: collapse; }
-caption { text-align: start; padding-block: .5rem; color: var(--fsus-color-text-muted); }
-th, td { padding: .5rem .625rem; text-align: end; border-block-end: 1px solid var(--fsus-border); white-space: nowrap; }
-th:first-child { min-width: 8rem; max-width: 18rem; text-align: start; white-space: normal; overflow-wrap: anywhere; }
-@media (max-width: 46rem) { .taxonomy-scroll-note { display: inline; } }
+.admin-taxonomy h2 {
+  font-size: var(--el-font-size-large);
+  margin: 0;
+}
+
+.taxonomy-status,
+.taxonomy-notes,
+.taxonomy-ref-note {
+  margin: 0;
+  font-size: var(--el-font-size-small);
+  color: var(--el-text-color-secondary);
+}
+
+.taxonomy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.taxonomy-select-label {
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.taxonomy-select {
+  flex: 0 1 15rem;
+  min-inline-size: 11rem;
+  max-inline-size: 100%;
+}
+
+.taxonomy-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-panel, 12px);
+  background: var(--el-bg-color);
+}
+
+.taxonomy-table-scroll:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+
+.taxonomy-references {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-panel, 12px);
+  background: var(--fsus-color-surface-raised, var(--el-fill-color-light));
+}
+
+.taxonomy-references h3 {
+  margin: 0;
+  font-size: var(--el-font-size-base);
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.taxonomy-page-status {
+  font-size: var(--el-font-size-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--el-text-color-secondary);
+}
+
+.taxonomy-scroll-note {
+  display: none;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+caption {
+  text-align: start;
+  padding: 12px 14px 8px;
+  font-size: var(--el-font-size-small);
+  color: var(--el-text-color-secondary);
+}
+
+th, td {
+  padding: 10px 14px;
+  text-align: end;
+  border-block-start: 1px solid var(--el-border-color-lighter);
+  white-space: nowrap;
+  font-size: var(--el-font-size-small);
+}
+
+thead th {
+  background: var(--fsus-color-surface-raised, var(--el-fill-color-light));
+  color: var(--el-text-color-secondary);
+  font-weight: 600;
+}
+
+tbody tr:hover {
+  background: var(--el-fill-color-light);
+}
+
+th:first-child {
+  min-width: 8rem;
+  max-width: 18rem;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  color: var(--el-text-color-primary);
+}
+
+@media (max-width: 46rem) {
+  .taxonomy-scroll-note {
+    display: inline;
+  }
+}
 </style>

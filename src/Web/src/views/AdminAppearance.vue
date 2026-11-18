@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
-import { ElAlert, ElButton, ElCard, ElOption, ElSelect } from '@ozwasyd/element-plus'
+import {
+  ElAlert, ElButton, ElCopyableDetail, ElEmptyState, ElFormSection, ElInlineActions,
+  ElKeyValueGrid, ElKeyValueItem, ElOption,
+  ElResourceList, ElResourceListItem, ElSelect, ElSettingsSection,
+} from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { applyAppearance, readAdminAppearance, readAppearanceCatalog, readAppearanceFontDetail, readAppearanceHistory } from '../../../Contracts/admin-appearance'
 import { watchAdminSessionClear } from './adminSessionClear'
@@ -125,90 +129,170 @@ watchAdminSessionClear(() => props.sessionSignal, clear, () => lifetime.abort())
 </script>
 
 <template>
-  <section class="auth-form" aria-labelledby="admin-appearance">
-    <h2 id="admin-appearance">{{ t('admin.siteAppearance') }}</h2>
-    <ElButton :loading="busy" native-type="button" @click="run(read)">{{ t('admin.checkAppearance') }}</ElButton>
-    <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" />
-    <p v-if="notice" role="status">{{ t(notice) }}</p>
-    <template v-if="state && catalog">
-      <p>{{ t('admin.activeAppearance', { theme: name(state.theme), font: name(state.font) }) }}</p>
-      <p v-if="!state.serving" role="status">{{ t('admin.appearanceFallback') }}</p>
-      <label for="admin-appearance-theme">{{ t('admin.theme') }}</label>
-      <ElSelect id="admin-appearance-theme" v-model="theme" :ariaLabel="t('admin.theme')" :disabled="busy">
-        <ElOption v-if="state.theme && !catalog.some(item => item.archive === state?.theme)" :value="state.theme" :label="t('admin.unavailablePackage')" disabled />
-        <ElOption value="" :label="t('admin.builtIn')" />
-        <ElOption v-for="item in catalog.filter(item => !item.font)" :key="item.archive" :value="item.archive" :label="`${item.id} ${item.version}`" />
-      </ElSelect>
-      <label for="admin-appearance-font">{{ t('admin.font') }}</label>
-      <ElSelect id="admin-appearance-font" v-model="font" :ariaLabel="t('admin.font')" :disabled="busy">
-        <ElOption v-if="state.font && !catalog.some(item => item.archive === state?.font)" :value="state.font" :label="t('admin.unavailablePackage')" disabled />
-        <ElOption value="" :label="t('admin.builtIn')" />
-        <ElOption v-for="item in catalog.filter(item => item.font)" :key="item.archive" :value="item.archive" :label="`${item.id} ${item.version}`" />
-      </ElSelect>
-      <ElButton v-if="selectedFont" :disabled="busy" native-type="button" @click="readFontDetail(selectedFont.archive)">
-        {{ t('admin.fontDetails') }}
-      </ElButton>
-      <section v-if="fontDetail" class="font-details" aria-labelledby="admin-font-details">
-        <h3 id="admin-font-details" ref="fontDetailHeading" tabindex="-1">{{ t('admin.fontDetails') }}</h3>
-        <p>{{ fontDetail.name || fontDetail.id }} {{ fontDetail.version }}</p>
-        <dl>
-          <template v-if="fontDetail.family">
-            <dt>{{ t('admin.fontFamily') }}</dt>
-            <dd>{{ fontDetail.family }}</dd>
-          </template>
-          <dt>{{ t('admin.archiveSha') }}</dt>
-          <dd><code>{{ fontDetail.archiveDigest }}</code></dd>
-          <dt>{{ t('admin.fontFace') }}</dt>
-          <dd>{{ t('admin.fontFaceDescription', { weight: fontDetail.faceWeight, style: fontDetail.faceStyle, bytes: fontDetail.faceBytes }) }}</dd>
-          <dt>{{ t('admin.faceSha') }}</dt>
-          <dd><code>{{ fontDetail.faceDigest }}</code></dd>
-          <template v-if="fontDetail.unicodeRange">
-            <dt>{{ t('admin.unicodeRange') }}</dt>
-            <dd><code>{{ fontDetail.unicodeRange }}</code></dd>
-          </template>
-          <template v-if="fontDetail.sourceKind">
-            <dt>{{ t('admin.source') }}</dt>
-            <dd>{{ fontDetail.sourcePackage }} {{ fontDetail.sourceVersion }} · {{ fontDetail.sourceUpstream }} ({{ fontDetail.sourceKind }})</dd>
-          </template>
-          <dt>{{ t('admin.license') }}</dt>
-          <dd>{{ fontDetail.licenseName }}</dd>
-        </dl>
-        <pre>{{ fontDetail.licenseText }}</pre>
-      </section>
-      <ElButton type="primary" :disabled="busy || !canApply" native-type="button" @click="apply(false)">{{ t('admin.applyAppearance') }}</ElButton>
-      <ElButton v-if="state.canRollback" :disabled="busy" native-type="button" @click="apply(true)">
-        {{ t('admin.restoreAppearance', { theme: name(state.previousTheme), font: name(state.previousFont) }) }}
-      </ElButton>
-      <ElButton :disabled="busy" native-type="button" @click="readHistory()">
-        {{ historyBefore === undefined ? t('admin.checkAppearanceHistory') : t('admin.latestAppearance') }}
-      </ElButton>
-      <section v-if="history" aria-labelledby="admin-appearance-history">
-        <h3 id="admin-appearance-history" ref="historyHeading" tabindex="-1">{{ t('admin.appearanceHistory') }}</h3>
-        <p v-if="history.items.length === 0">{{ t('admin.noAppearanceHistory') }}</p>
-        <ol v-else class="appearance-history">
-          <li v-for="change in history.items" :key="String(change.revision)">
-            <ElCard shadow="never">
-              <strong>{{ t('admin.appearanceRevision', { action: change.rollback ? t('admin.rolledBack') : t('admin.applied'), revision: String(change.revision) }) }}</strong>
-              <p><time :datetime="historyTime(change.happenedUnixMs)">{{ historyTime(change.happenedUnixMs) }}</time> · {{ change.actor }}</p>
-              <dl>
-                <dt>{{ t('admin.themeArchive') }}</dt>
-                <dd><code>{{ change.previousTheme || t('admin.builtIn') }}</code> → <code>{{ change.theme || t('admin.builtIn') }}</code></dd>
-                <dt>{{ t('admin.fontArchive') }}</dt>
-                <dd><code>{{ change.previousFont || t('admin.builtIn') }}</code> → <code>{{ change.font || t('admin.builtIn') }}</code></dd>
-              </dl>
-            </ElCard>
-          </li>
-        </ol>
-        <ElButton v-if="history.nextBefore" :disabled="busy" native-type="button" @click="readHistory(history.nextBefore ?? undefined)">
-          {{ t('admin.earlierAppearance') }}
-        </ElButton>
-      </section>
+  <ElSettingsSection ariaLabelledby="admin-appearance" density="compact">
+    <template #title>
+      <span id="admin-appearance">{{ t('admin.siteAppearance') }}</span>
     </template>
-  </section>
+    <template #actions>
+      <ElButton :loading="busy" native-type="button" @click="run(read)">{{ t('admin.checkAppearance') }}</ElButton>
+    </template>
+
+    <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" />
+    <p v-if="notice" class="appearance-status" role="status">{{ t(notice) }}</p>
+
+    <template v-if="state && catalog">
+      <div class="appearance-summary">
+        <p class="appearance-active">{{ t('admin.activeAppearance', { theme: name(state.theme), font: name(state.font) }) }}</p>
+        <ElAlert v-if="!state.serving" :title="t('admin.appearanceFallback')" type="warning" :closable="false" />
+      </div>
+
+      <ElFormSection density="compact">
+        <div class="appearance-fields">
+          <div class="appearance-field">
+            <label for="admin-appearance-theme">{{ t('admin.theme') }}</label>
+            <ElSelect id="admin-appearance-theme" v-model="theme" :ariaLabel="t('admin.theme')" :disabled="busy">
+              <ElOption v-if="state.theme && !catalog.some(item => item.archive === state?.theme)" :value="state.theme" :label="t('admin.unavailablePackage')" disabled />
+              <ElOption value="" :label="t('admin.builtIn')" />
+              <ElOption v-for="item in catalog.filter(item => !item.font)" :key="item.archive" :value="item.archive" :label="`${item.id} ${item.version}`" />
+            </ElSelect>
+          </div>
+          <div class="appearance-field">
+            <label for="admin-appearance-font">{{ t('admin.font') }}</label>
+            <ElSelect id="admin-appearance-font" v-model="font" :ariaLabel="t('admin.font')" :disabled="busy">
+              <ElOption v-if="state.font && !catalog.some(item => item.archive === state?.font)" :value="state.font" :label="t('admin.unavailablePackage')" disabled />
+              <ElOption value="" :label="t('admin.builtIn')" />
+              <ElOption v-for="item in catalog.filter(item => item.font)" :key="item.archive" :value="item.archive" :label="`${item.id} ${item.version}`" />
+            </ElSelect>
+          </div>
+        </div>
+        <ElInlineActions>
+          <ElButton type="primary" :disabled="busy || !canApply" native-type="button" @click="apply(false)">{{ t('admin.applyAppearance') }}</ElButton>
+          <ElButton v-if="state.canRollback" :disabled="busy" native-type="button" @click="apply(true)">
+            {{ t('admin.restoreAppearance', { theme: name(state.previousTheme), font: name(state.previousFont) }) }}
+          </ElButton>
+          <ElButton v-if="selectedFont" :disabled="busy" native-type="button" @click="readFontDetail(selectedFont.archive)">
+            {{ t('admin.fontDetails') }}
+          </ElButton>
+          <ElButton :disabled="busy" native-type="button" @click="readHistory()">
+            {{ historyBefore === undefined ? t('admin.checkAppearanceHistory') : t('admin.latestAppearance') }}
+          </ElButton>
+        </ElInlineActions>
+      </ElFormSection>
+
+      <ElSettingsSection v-if="fontDetail" class="font-details" title-tag="h3" ariaLabelledby="admin-font-details" density="compact">
+        <template #title>
+          <span id="admin-font-details" ref="fontDetailHeading" tabindex="-1">{{ t('admin.fontDetails') }}</span>
+        </template>
+        <template #description>{{ fontDetail.name || fontDetail.id }} {{ fontDetail.version }}</template>
+        <ElKeyValueGrid density="compact">
+          <ElKeyValueItem v-if="fontDetail.family" :label="t('admin.fontFamily')" :value="fontDetail.family" />
+          <ElKeyValueItem :label="t('admin.archiveSha')" monospace>
+            <ElCopyableDetail :value="fontDetail.archiveDigest" />
+          </ElKeyValueItem>
+          <ElKeyValueItem
+            :label="t('admin.fontFace')"
+            :value="t('admin.fontFaceDescription', { weight: fontDetail.faceWeight, style: fontDetail.faceStyle, bytes: fontDetail.faceBytes })"
+          />
+          <ElKeyValueItem :label="t('admin.faceSha')" monospace>
+            <ElCopyableDetail :value="fontDetail.faceDigest" />
+          </ElKeyValueItem>
+          <ElKeyValueItem v-if="fontDetail.unicodeRange" :label="t('admin.unicodeRange')" monospace>
+            <code>{{ fontDetail.unicodeRange }}</code>
+          </ElKeyValueItem>
+          <ElKeyValueItem
+            v-if="fontDetail.sourceKind"
+            :label="t('admin.source')"
+            :value="`${fontDetail.sourcePackage} ${fontDetail.sourceVersion} · ${fontDetail.sourceUpstream} (${fontDetail.sourceKind})`"
+          />
+          <ElKeyValueItem :label="t('admin.license')" :value="fontDetail.licenseName" />
+        </ElKeyValueGrid>
+        <pre class="font-license-text">{{ fontDetail.licenseText }}</pre>
+      </ElSettingsSection>
+
+      <ElSettingsSection v-if="history" title-tag="h3" ariaLabelledby="admin-appearance-history" density="compact">
+        <template #title>
+          <span id="admin-appearance-history" ref="historyHeading" tabindex="-1">{{ t('admin.appearanceHistory') }}</span>
+        </template>
+        <ElEmptyState v-if="history.items.length === 0" size="inline" :title="t('admin.noAppearanceHistory')" />
+        <ElResourceList v-else class="appearance-history" density="compact">
+          <ElResourceListItem
+            v-for="change in history.items"
+            :key="String(change.revision)"
+            :title="t('admin.appearanceRevision', { action: change.rollback ? t('admin.rolledBack') : t('admin.applied'), revision: String(change.revision) })"
+          >
+            <template #meta>
+              <span>
+                <time :datetime="historyTime(change.happenedUnixMs)">{{ historyTime(change.happenedUnixMs) }}</time>
+                · {{ change.actor }}
+              </span>
+            </template>
+            <ElKeyValueGrid density="compact">
+              <ElKeyValueItem :label="t('admin.themeArchive')">
+                <code>{{ change.previousTheme || t('admin.builtIn') }}</code> → <code>{{ change.theme || t('admin.builtIn') }}</code>
+              </ElKeyValueItem>
+              <ElKeyValueItem :label="t('admin.fontArchive')">
+                <code>{{ change.previousFont || t('admin.builtIn') }}</code> → <code>{{ change.font || t('admin.builtIn') }}</code>
+              </ElKeyValueItem>
+            </ElKeyValueGrid>
+          </ElResourceListItem>
+        </ElResourceList>
+        <div v-if="history.nextBefore" class="appearance-history-more">
+          <ElButton :disabled="busy" native-type="button" @click="readHistory(history.nextBefore ?? undefined)">
+            {{ t('admin.earlierAppearance') }}
+          </ElButton>
+        </div>
+      </ElSettingsSection>
+    </template>
+  </ElSettingsSection>
 </template>
 
 <style scoped>
-.appearance-history { display: grid; gap: .75rem; padding: 0; list-style: none; }
-.appearance-history dd, .font-details dd { margin-inline-start: 0; overflow-wrap: anywhere; }
-.font-details pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.appearance-status,
+.appearance-active {
+  margin: 0;
+  font-size: var(--el-font-size-small);
+  color: var(--el-text-color-regular);
+}
+
+.appearance-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.appearance-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.appearance-field {
+  display: grid;
+  gap: 6px;
+}
+
+.appearance-field label {
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.font-license-text {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-control, 6px);
+  background: var(--fsus-color-surface-raised, var(--el-fill-color-light));
+  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-extra-small);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.appearance-history-more {
+  display: flex;
+  justify-content: flex-start;
+}
 </style>

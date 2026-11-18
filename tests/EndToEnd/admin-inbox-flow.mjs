@@ -11,14 +11,18 @@ const wakeProtocol = 'fsus-inbox-wake.v2'
 const wakePathPattern = new RegExp(`^${WireRoutes.AdminInboxWake.replace('{id:long}', '[1-9]\\d*')}$`)
 
 export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, siteCookie, adminCookieName, probe, evidence) {
-  await visitAdminWorkspace(page, '/admin/interaction')
   const queue = adminOrigin + WireRoutes.AdminInboxQueue
+  const live = process.env.FSUSBLOG_TEST_ADMIN_INBOX_LIVE === '1'
+  const shared = process.env.FSUSBLOG_TEST_ADMIN_INBOX_SHARED === '1'
+  const panel = page.getByRole('region', { name: 'Support inbox' })
+  const [defaultPage] = await Promise.all([
+    page.waitForResponse(response => isDefaultQueueResponse(response, queue, shared)),
+    visitAdminWorkspace(page, '/admin/interaction'),
+  ])
   assert.equal((await context.request.get(siteOrigin + WireRoutes.AdminInboxQueue)).status(), 404)
   await probe(queue, siteCookie.name, siteCookie.value, 401)
   await probe(queue, adminCookieName, siteCookie.value, 401)
 
-  const live = process.env.FSUSBLOG_TEST_ADMIN_INBOX_LIVE === '1'
-  const shared = process.env.FSUSBLOG_TEST_ADMIN_INBOX_SHARED === '1'
   const sockets = []
   const onSocket = socket => {
     const path = new URL(socket.url()).pathname
@@ -26,12 +30,6 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   }
   page.on('websocket', onSocket)
   if (live) await captureInboxSocket(page, wakePathPattern.source)
-
-  const panel = page.getByRole('region', { name: 'Support inbox' })
-  const [defaultPage] = await Promise.all([
-    page.waitForResponse(response => isDefaultQueueResponse(response, queue, shared)),
-    panel.getByRole('button', { name: 'Open support inbox' }).click(),
-  ])
   assert.equal(defaultPage.status(), 200)
   assert.equal(await defaultPage.headerValue(WireHeaders.AdminInboxLive), live ? '1' : null)
   const subject = panel.getByRole('button', { name: 'Inbox QA support case' })
@@ -76,7 +74,6 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
         await captureInboxSocket(systemViewer, `^${wakeUrl.pathname}$`)
         const socket = systemViewer.waitForEvent('websocket', candidate => candidate.url() === wakeUrl.href)
         const systemPanel = systemViewer.getByRole('region', { name: 'Support inbox' })
-        await systemPanel.getByRole('button', { name: 'Open support inbox' }).click()
         await systemPanel.getByRole('combobox', { name: 'Filter support inbox' }).click()
         await systemViewer.getByRole('option', { name: 'System notices', exact: true }).click()
         await waitForInboxSocket(systemViewer, wakeUrl.href)
@@ -269,7 +266,6 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       endpoint.protocol = 'wss:'
       await captureInboxSocket(peerPage, `^${endpoint.pathname}$`)
       const peerPanel = peerPage.getByRole('region', { name: 'Support inbox' })
-      await peerPanel.getByRole('button', { name: 'Open support inbox' }).click()
       if (openThread) await peerPanel.getByRole('button', { name: 'Inbox QA support case', exact: true }).click()
       else {
         await peerPanel.getByRole('combobox', { name: 'Filter support inbox' }).click()

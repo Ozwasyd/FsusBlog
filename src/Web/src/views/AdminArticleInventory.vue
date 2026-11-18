@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
-import { ElAlert, ElButton, ElDialog, ElInput, ElTable, ElTableColumn, ElEmptyState, ElSkeleton } from '@ozwasyd/element-plus'
+import {
+  ElAlert, ElButton, ElDialog, ElEmptyState, ElInlineActions,
+  ElInput, ElSkeleton, ElTable, ElTableColumn, ElTag,
+} from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { isValidAdminArticleRollbackReason } from '../../../Contracts/admin-article-rollback'
 import { executeTrashPublication, executeTrashRestore, readTrashPublication, readTrashPublicationAvailability,
@@ -31,6 +34,13 @@ const noticeParams = shallowRef<Record<string, string | number>>({})
 const stateLabels: Record<AuthorArticleRow['state'], MessageKey> = {
   draft: 'admin.inventory.stateDraft', scheduled: 'admin.inventory.stateScheduled',
   published: 'admin.inventory.statePublished', retracted: 'admin.inventory.stateRetracted', deleted: 'admin.inventory.stateDeleted',
+}
+const stateTagTypes: Record<AuthorArticleRow['state'], 'info' | 'warning' | 'success' | 'danger'> = {
+  draft: 'info',
+  scheduled: 'warning',
+  published: 'success',
+  retracted: 'warning',
+  deleted: 'danger',
 }
 const busy = computed(() => reading.value || restoring.value || !!retry.value)
 const headingId = `admin-article-inventory-${props.trash ? 'trash' : 'active'}`
@@ -147,8 +157,10 @@ async function restore(publicly = false) {
     <ElSkeleton v-if="reading" :rows="4" />
     <ElAlert v-if="failed" :title="t('admin.inventory.loadFailed')" type="error" :closable="false" />
     <ElAlert v-if="restoreFailure" :title="t(restoreFailure)" type="warning" :closable="false" />
-    <p v-if="notice" role="status">{{ t(notice, noticeParams) }}</p>
-    <ElButton v-if="retry" native-type="button" :loading="restoring" @click="restore()">{{ t('admin.inventory.check') }}</ElButton>
+    <p v-if="notice" class="inventory-status" role="status">{{ t(notice, noticeParams) }}</p>
+    <ElInlineActions v-if="retry">
+      <ElButton native-type="button" :loading="restoring" @click="restore()">{{ t('admin.inventory.check') }}</ElButton>
+    </ElInlineActions>
     <template v-if="page">
       <p class="inventory-count" role="status">{{ t(query.trash ? (page.total === 1 ? 'admin.inventory.deletedOne' : 'admin.inventory.deletedMany') : (page.total === 1 ? 'admin.inventory.activeOne' : 'admin.inventory.activeMany'), { count: page.total }) }}</p>
       <ElEmptyState v-if="!rows.length" :title="t(query.trash ? 'admin.articles.emptyTrash' : 'admin.articles.emptyArticles')" size="compact" />
@@ -156,7 +168,12 @@ async function restore(publicly = false) {
         <ElTableColumn prop="title" :label="t('admin.articles.title')" min-width="240">
           <template #default="{ row }">
             <div class="inventory-record">
-              <strong>{{ row.title }}</strong>
+              <div class="inventory-record-head">
+                <strong>{{ row.title }}</strong>
+                <ElTag size="small" :type="stateTagTypes[row.state as AuthorArticleRow['state']]">
+                  {{ t(stateLabels[row.state as AuthorArticleRow['state']]) }}
+                </ElTag>
+              </div>
               <div class="inventory-meta">{{ t('admin.inventory.row', { article: row.id, revision: String(row.revision), state: t(stateLabels[row.state as AuthorArticleRow['state']]) }) }}</div>
               <div v-if="row.category || row.tags.length" class="inventory-meta">{{ [row.category, ...row.tags].filter(Boolean).map((entry: { name: string }) => entry.name).join(' · ') }}</div>
             </div>
@@ -170,26 +187,34 @@ async function restore(publicly = false) {
           </template>
         </ElTableColumn>
       </ElTable>
-      <div v-if="query.beforeId || page.nextId" class="inventory-actions">
+      <ElInlineActions v-if="query.beforeId || page.nextId" class="inventory-actions">
         <ElButton v-if="query.beforeId" native-type="button" :disabled="busy" @click="load({ ...query, beforeId: undefined })">{{ t('admin.inventory.first') }}</ElButton>
         <ElButton v-if="page.nextId" native-type="button" :disabled="busy" @click="nextPage">{{ t('admin.inventory.next') }}</ElButton>
-      </div>
+      </ElInlineActions>
     </template>
     <ElDialog :model-value="!!selected" :title="t('admin.inventory.restoreTitle')" width="min(30rem, 90vw)"
       :close-on-press-escape="!restoring" :close-on-click-modal="!restoring" :show-close="!restoring"
       @update:model-value="visible => { if (!visible && !restoring) selected = undefined }">
-      <p v-if="selected">{{ t('admin.inventory.confirmDraft', { revision: String(selected.revision), title: selected.title }) }}</p>
-      <div v-if="publication" class="inventory">
-        <p>{{ t('admin.inventory.confirmPublic', { revision: String(publication.sourceRevision), title: publication.title }) }}</p>
-        <label for="admin-trash-publication-reason">{{ t('admin.inventory.reason') }}</label>
-        <ElInput id="admin-trash-publication-reason" v-model="reason" :disabled="restoring" />
-        <ElButton native-type="button" :disabled="!isValidAdminArticleRollbackReason(reason.trim())" :loading="restoring" @click="restore(true)">
-          {{ t('admin.inventory.restorePublic') }}
-        </ElButton>
+      <div class="inventory-dialog-body">
+        <p v-if="selected">{{ t('admin.inventory.confirmDraft', { revision: String(selected.revision), title: selected.title }) }}</p>
+        <div v-if="publication" class="inventory-publication">
+          <p>{{ t('admin.inventory.confirmPublic', { revision: String(publication.sourceRevision), title: publication.title }) }}</p>
+          <div class="inventory-field">
+            <label for="admin-trash-publication-reason">{{ t('admin.inventory.reason') }}</label>
+            <ElInput id="admin-trash-publication-reason" v-model="reason" :disabled="restoring" />
+          </div>
+          <ElInlineActions>
+            <ElButton native-type="button" :disabled="!isValidAdminArticleRollbackReason(reason.trim())" :loading="restoring" @click="restore(true)">
+              {{ t('admin.inventory.restorePublic') }}
+            </ElButton>
+          </ElInlineActions>
+        </div>
       </div>
       <template #footer>
-        <ElButton native-type="button" :disabled="restoring" @click="selected = undefined">{{ t('admin.inventory.cancel') }}</ElButton>
-        <ElButton v-if="restoreAvailable" native-type="button" type="primary" :loading="restoring" @click="restore()">{{ t('admin.inventory.restorePrivate') }}</ElButton>
+        <ElInlineActions>
+          <ElButton native-type="button" :disabled="restoring" @click="selected = undefined">{{ t('admin.inventory.cancel') }}</ElButton>
+          <ElButton v-if="restoreAvailable" native-type="button" type="primary" :loading="restoring" @click="restore()">{{ t('admin.inventory.restorePrivate') }}</ElButton>
+        </ElInlineActions>
       </template>
     </ElDialog>
   </section>
@@ -197,19 +222,25 @@ async function restore(publicly = false) {
 
 <style scoped>
 .inventory-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.inventory-search { display: grid; grid-template-columns: auto minmax(12rem, 30rem) auto; align-items: center; justify-content: start; gap: .75rem; }
-.inventory-search :deep(.el-button) { margin: 0; }
-.inventory-record { display: grid; gap: .2rem; min-width: 0; white-space: normal; }
-.inventory-record > strong { color: var(--el-text-color-primary); font-weight: 600; overflow-wrap: anywhere; }
-.inventory-meta, .inventory-count { color: var(--el-text-color-secondary); font-size: .875rem; overflow-wrap: anywhere; }
-.inventory-count { margin-block: .35rem .2rem; }
+.inventory-search { display: grid; grid-template-columns: auto minmax(12rem, 30rem) auto; align-items: center; justify-content: start; gap: 10px; }
+.inventory-search label,
+.inventory-field label {
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+.inventory-record { display: grid; gap: 4px; min-width: 0; white-space: normal; }
+.inventory-record-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.inventory-record-head > strong { color: var(--el-text-color-primary); font-weight: 600; overflow-wrap: anywhere; }
+.inventory-meta, .inventory-count, .inventory-status { color: var(--el-text-color-secondary); font-size: var(--el-font-size-small); overflow-wrap: anywhere; }
+.inventory-count, .inventory-status { margin: 4px 0; }
 .inventory-table { min-width: 0; }
+.inventory-dialog-body, .inventory-publication, .inventory-field { display: grid; gap: 10px; }
+.inventory-dialog-body p { margin: 0; }
 @media (max-width: 40rem) {
   .inventory-search { grid-template-columns: minmax(0, 1fr) auto; }
   .inventory-search label { grid-column: 1 / -1; }
 }
 
 .inventory { display: grid; gap: var(--fsus-space-2); overflow-wrap: anywhere; }
-.inventory-actions { display: flex; gap: var(--fsus-space-2); flex-wrap: wrap; align-items: center; }
-.inventory-actions :deep(.el-button + .el-button) { margin-inline-start: 0; }
 </style>

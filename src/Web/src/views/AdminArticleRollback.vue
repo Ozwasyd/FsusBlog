@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
-import { ElAlert, ElButton, ElCheckbox, ElInput, ElEmptyState, ElSkeleton } from '@ozwasyd/element-plus'
+import {
+  ElAlert, ElButton, ElCheckbox, ElDangerZone, ElEmptyState, ElFormSection,
+  ElInput, ElKeyValueGrid, ElKeyValueItem, ElSettingsSection, ElSkeleton,
+} from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   executeAdminArticleDraftRollback, readAdminArticleDraftRollbackAvailability, requestAdminArticleDraftRollbackProof,
@@ -185,58 +188,123 @@ onScopeDispose(() => lifetime.abort())
 <template>
   <ElSkeleton v-if="checkingAvailability" :rows="3" />
   <ElEmptyState v-else-if="!available" :title="t('admin.rollback.unavailable')" size="compact" />
-  <section v-if="available" class="auth-form article-rollback" aria-labelledby="admin-article-rollback-heading" :aria-busy="busy || archiveWorking">
-    <h2 id="admin-article-rollback-heading">{{ t('admin.rollback.heading') }}</h2>
-    <form class="article-rollback" @submit.prevent="readPreview">
-      <label for="admin-rollback-article">{{ t('admin.rollback.articleId') }}</label>
-      <ElInput id="admin-rollback-article" v-model="articleId" v-bind="{ inputmode: 'numeric' }" :disabled="editingLocked" @input="resetPreview" />
-      <label for="admin-rollback-source">{{ t('admin.rollback.historicalRevision') }}</label>
-      <ElInput id="admin-rollback-source" v-model="sourceRevision" v-bind="{ inputmode: 'numeric' }" :disabled="editingLocked" @input="resetPreview" />
-      <ElButton native-type="submit" :disabled="!sourceCoordinates || editingLocked">{{ t('admin.rollback.preview') }}</ElButton>
-    </form>
+  <ElSettingsSection
+    v-if="available"
+    class="article-rollback"
+    ariaLabelledby="admin-article-rollback-heading"
+    v-bind="{ 'aria-busy': busy || archiveWorking }"
+    density="compact"
+  >
+    <template #title>
+      <span id="admin-article-rollback-heading">{{ t('admin.rollback.heading') }}</span>
+    </template>
+
+    <ElFormSection density="compact">
+      <form class="rollback-lookup-form" @submit.prevent="readPreview">
+        <div class="rollback-lookup-fields">
+          <div class="rollback-field">
+            <label for="admin-rollback-article">{{ t('admin.rollback.articleId') }}</label>
+            <ElInput id="admin-rollback-article" v-model="articleId" v-bind="{ inputmode: 'numeric' }" :disabled="editingLocked" @input="resetPreview" />
+          </div>
+          <div class="rollback-field">
+            <label for="admin-rollback-source">{{ t('admin.rollback.historicalRevision') }}</label>
+            <ElInput id="admin-rollback-source" v-model="sourceRevision" v-bind="{ inputmode: 'numeric' }" :disabled="editingLocked" @input="resetPreview" />
+          </div>
+        </div>
+        <div>
+          <ElButton native-type="submit" :disabled="!sourceCoordinates || editingLocked">{{ t('admin.rollback.preview') }}</ElButton>
+        </div>
+      </form>
+    </ElFormSection>
+
     <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" />
     <ElAlert v-if="receiptTitle" :title="receiptTitle" type="success" :closable="false" />
-    <ElButton v-if="retry" native-type="button" :loading="busy" @click="checkReceipt">
-      {{ draftRetry ? t('admin.rollback.checkDraft') : t('admin.rollback.checkPublic') }}
-    </ElButton>
-    <div v-else-if="preview" class="article-rollback">
+
+    <div v-if="retry">
+      <ElButton native-type="button" :loading="busy" @click="checkReceipt">
+        {{ draftRetry ? t('admin.rollback.checkDraft') : t('admin.rollback.checkPublic') }}
+      </ElButton>
+    </div>
+
+    <div v-else-if="preview" class="rollback-preview">
       <h3>{{ preview.sourceTitle }}</h3>
-      <dl>
-        <dt>{{ t('admin.rollback.currentRevision') }}</dt><dd>{{ preview.currentRevision }}</dd>
-        <dt>{{ t('admin.rollback.currentPublication') }}</dt><dd>{{ preview.currentPublicationId }}</dd>
-        <dt>{{ t('admin.rollback.sourceRevision') }}</dt><dd>{{ preview.sourceRevision }}</dd>
-        <dt>{{ t('admin.rollback.sourcePublication') }}</dt><dd>{{ preview.sourcePublicationId }}</dd>
-      </dl>
+      <ElKeyValueGrid density="compact">
+        <ElKeyValueItem :label="t('admin.rollback.currentRevision')" :value="String(preview.currentRevision)" />
+        <ElKeyValueItem :label="t('admin.rollback.currentPublication')" :value="String(preview.currentPublicationId)" />
+        <ElKeyValueItem :label="t('admin.rollback.sourceRevision')" :value="String(preview.sourceRevision)" />
+        <ElKeyValueItem :label="t('admin.rollback.sourcePublication')" :value="String(preview.sourcePublicationId)" />
+      </ElKeyValueGrid>
+
       <ElAlert v-if="!preview.packageComplete" :title="blockers[preview.blockingReason]" type="warning" :closable="false" />
       <template v-else>
-        <label for="admin-rollback-reason">{{ t('admin.rollback.reason') }}</label>
-        <ElInput id="admin-rollback-reason" v-model="reason" type="textarea" :disabled="editingLocked" @input="confirmed = false" />
-        <ElCheckbox :model-value="confirmed" :disabled="editingLocked" @update:model-value="confirmed = $event === true">
-          {{ t('admin.rollback.confirmPublic') }}
-        </ElCheckbox>
-        <ElButton native-type="button" type="primary" :disabled="!canPublish" :loading="busy" @click="rollback(false)">
-          {{ t('admin.rollback.publish') }}
-        </ElButton>
-        <div v-if="draftAvailable" class="article-rollback draft-rollback">
-          <label for="admin-rollback-draft-reason">{{ t('admin.rollback.draftReason') }}</label>
-          <ElInput id="admin-rollback-draft-reason" v-model="draftReason" type="textarea" :disabled="editingLocked" @input="draftConfirmed = false" />
+        <ElFormSection density="compact">
+          <div class="rollback-field">
+            <label for="admin-rollback-reason">{{ t('admin.rollback.reason') }}</label>
+            <ElInput id="admin-rollback-reason" v-model="reason" type="textarea" :disabled="editingLocked" @input="confirmed = false" />
+          </div>
+          <ElCheckbox :model-value="confirmed" :disabled="editingLocked" @update:model-value="confirmed = $event === true">
+            {{ t('admin.rollback.confirmPublic') }}
+          </ElCheckbox>
+          <div>
+            <ElButton native-type="button" type="primary" :disabled="!canPublish" :loading="busy" @click="rollback(false)">
+              {{ t('admin.rollback.publish') }}
+            </ElButton>
+          </div>
+        </ElFormSection>
+
+        <ElDangerZone v-if="draftAvailable" class="draft-rollback" density="compact">
+          <div class="rollback-field">
+            <label for="admin-rollback-draft-reason">{{ t('admin.rollback.draftReason') }}</label>
+            <ElInput id="admin-rollback-draft-reason" v-model="draftReason" type="textarea" :disabled="editingLocked" @input="draftConfirmed = false" />
+          </div>
           <ElCheckbox :model-value="draftConfirmed" :disabled="editingLocked" @update:model-value="draftConfirmed = $event === true">
             {{ t('admin.rollback.confirmDraft') }}
           </ElCheckbox>
-          <ElButton native-type="button" type="danger" plain :disabled="!canRestoreDraft" :loading="busy" @click="rollback(true)">
-            {{ t('admin.rollback.restoreDraft') }}
-          </ElButton>
-        </div>
+          <div>
+            <ElButton native-type="button" type="danger" plain :disabled="!canRestoreDraft" :loading="busy" @click="rollback(true)">
+              {{ t('admin.rollback.restoreDraft') }}
+            </ElButton>
+          </div>
+        </ElDangerZone>
       </template>
     </div>
-    <AdminArticleArchive :session-signal="signal" :preview="preview" :blocked="busy || !!retry"
-      @working-change="archiveWorking = $event" @invalidate-review="resetPreview()" @session-lost="emit('session-lost', $event)" />
-  </section>
+
+    <AdminArticleArchive
+      :session-signal="signal"
+      :preview="preview"
+      :blocked="busy || !!retry"
+      @working-change="archiveWorking = $event"
+      @invalidate-review="resetPreview()"
+      @session-lost="emit('session-lost', $event)"
+    />
+  </ElSettingsSection>
 </template>
 
 <style scoped>
-.article-rollback { display: grid; align-items: start; gap: .5rem; }
-.article-rollback h3 { margin-block: .5rem 0; overflow-wrap: anywhere; }
-.article-rollback dl { margin-block: 0; }
-.draft-rollback { margin-block-start: .5rem; padding-block-start: .75rem; border-block-start: 1px solid var(--el-border-color); }
+.rollback-lookup-form,
+.rollback-preview,
+.rollback-field {
+  display: grid;
+  gap: 10px;
+}
+
+.rollback-lookup-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.rollback-field label {
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.rollback-preview h3 {
+  margin: 0;
+  font-size: var(--el-font-size-base);
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  overflow-wrap: anywhere;
+}
 </style>

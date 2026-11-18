@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef } from 'vue'
-import { ElAlert, ElButton, ElEmptyState, ElSkeleton, ElStatistic, ElTable, ElTableColumn } from '@ozwasyd/element-plus'
+import {
+  ElAlert, ElButton, ElDistributionBarRow, ElDistributionList, ElEmptyState,
+  ElKpiGroup, ElSettingsSection, ElSkeleton, ElStatistic, ElTable, ElTableColumn,
+} from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import type { AdminSession } from '../../../Contracts/admin-identity'
 import { readAdminSiteTraffic } from '../../../Contracts/admin-site-traffic'
@@ -19,6 +22,7 @@ const points = computed(() => observation.value?.days.map((day, index, days) =>
   `${days.length === 1 ? 150 : index * 300 / (days.length - 1)},${90 - day.views / peak.value * 80}`).join(' ') ?? '')
 const days = computed(() => [...observation.value?.days ?? []])
 const regions = computed(() => [...observation.value?.regions ?? []].sort((a, b) => b.views - a.views))
+const regionPeak = computed(() => Math.max(1, ...regions.value.map(region => region.views)))
 const regionNames = computed(() => new Intl.DisplayNames([siteLocale.value], { type: 'region' }))
 const subdivisions: Readonly<Record<string, MessageKey>> = {
   'CN-BJ': 'admin.traffic.region.beijing', 'CN-SH': 'admin.traffic.region.shanghai',
@@ -63,30 +67,39 @@ onMounted(() => { void load() })
 </script>
 
 <template>
-  <section class="admin-traffic" aria-labelledby="admin-traffic-heading" :aria-busy="busy">
-    <header>
-      <div><h2 id="admin-traffic-heading">{{ t('admin.traffic.title') }}</h2><p>{{ t('admin.traffic.period') }}</p></div>
+  <ElSettingsSection class="admin-traffic" ariaLabelledby="admin-traffic-heading" v-bind="{ 'aria-busy': busy }" density="compact">
+    <template #title>
+      <span id="admin-traffic-heading">{{ t('admin.traffic.title') }}</span>
+    </template>
+    <template #description>{{ t('admin.traffic.period') }}</template>
+    <template #actions>
       <ElButton native-type="button" :loading="busy" @click="load">{{ t('admin.traffic.refresh') }}</ElButton>
-    </header>
-    <div v-if="busy" role="status"><p>{{ t('admin.traffic.loading') }}</p><ElSkeleton :rows="4" /></div>
+    </template>
+
+    <div v-if="busy" class="traffic-loading" role="status">
+      <p>{{ t('admin.traffic.loading') }}</p>
+      <ElSkeleton :rows="4" />
+    </div>
     <ElAlert v-else-if="error" :title="t(error)" type="error" :closable="false" />
-    <ElEmptyState v-else-if="observation && !observation.enabled" :title="t('admin.traffic.disabled')" role="status" />
+    <ElEmptyState v-else-if="observation && !observation.enabled" size="inline" :title="t('admin.traffic.disabled')" role="status" />
     <template v-else-if="observation">
-      <ElStatistic class="traffic-total" :title="t('admin.traffic.total')" :value="total" :formatter="number" />
+      <ElKpiGroup density="compact">
+        <ElStatistic class="traffic-total" :title="t('admin.traffic.total')" :value="total" :formatter="number" />
+      </ElKpiGroup>
       <div class="traffic-grid">
-        <section aria-labelledby="traffic-trend-heading">
+        <section class="traffic-card" aria-labelledby="traffic-trend-heading">
           <h3 id="traffic-trend-heading">{{ t('admin.traffic.trend') }}</h3>
-          <ElEmptyState v-if="total === 0" :title="t('admin.traffic.empty')" role="status" />
+          <ElEmptyState v-if="total === 0" size="inline" :title="t('admin.traffic.empty')" role="status" />
           <template v-else>
-            <svg viewBox="0 0 300 100" role="img" :aria-label="t('admin.traffic.chart')">
+            <svg class="traffic-chart" viewBox="0 0 300 100" role="img" :aria-label="t('admin.traffic.chart')">
               <line x1="0" y1="90" x2="300" y2="90" class="traffic-axis" />
-              <polyline :points="points" />
+              <polyline :points="points" class="traffic-line" />
             </svg>
             <p class="traffic-range"><span>{{ observation.days[0]?.date }}</span><span>{{ observation.days.at(-1)?.date }}</span></p>
           </template>
-          <details v-if="observation.days.length">
+          <details v-if="observation.days.length" class="traffic-details">
             <summary>{{ t('admin.traffic.dailyData') }}</summary>
-            <ElTable :data="days">
+            <ElTable :data="days" border stripe>
               <ElTableColumn prop="date" :label="t('admin.traffic.date')" min-width="120" />
               <ElTableColumn prop="views" :label="t('admin.traffic.views')" min-width="90" align="right">
                 <template #default="{ row }">{{ number(row.views) }}</template>
@@ -94,36 +107,97 @@ onMounted(() => { void load() })
             </ElTable>
           </details>
         </section>
-        <section aria-labelledby="traffic-regions-heading">
+        <section class="traffic-card" aria-labelledby="traffic-regions-heading">
           <h3 id="traffic-regions-heading">{{ t('admin.traffic.regions') }}</h3>
-          <ElEmptyState v-if="!observation.regionsConfigured" :title="t('admin.traffic.regionsUnconfigured')" role="status" />
-          <ElEmptyState v-else-if="!regions.length" :title="t('admin.traffic.regionsEmpty')" role="status" />
-          <ElTable v-else :data="regions">
-            <ElTableColumn prop="region" :label="t('admin.traffic.region')" min-width="120">
-              <template #default="{ row }">{{ regionName(row.region) }}</template>
-            </ElTableColumn>
-            <ElTableColumn prop="views" :label="t('admin.traffic.views')" min-width="90" align="right">
-              <template #default="{ row }">{{ number(row.views) }}</template>
-            </ElTableColumn>
-          </ElTable>
+          <ElEmptyState v-if="!observation.regionsConfigured" size="inline" :title="t('admin.traffic.regionsUnconfigured')" role="status" />
+          <ElEmptyState v-else-if="!regions.length" size="inline" :title="t('admin.traffic.regionsEmpty')" role="status" />
+          <ElDistributionList v-else density="compact">
+            <ElDistributionBarRow
+              v-for="row in regions"
+              :key="row.region"
+              :label="regionName(row.region)"
+              :value="number(row.views)"
+              :ratio="row.views / regionPeak"
+            />
+          </ElDistributionList>
         </section>
       </div>
     </template>
-  </section>
+  </ElSettingsSection>
 </template>
 
 <style scoped>
-.admin-traffic { min-width: 0; margin-block: 1rem 2rem; }
-header { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: .75rem; }
-header h2, header p { margin-block: 0 .5rem; }
-.traffic-total { font-size: 1.25rem; font-weight: 600; }
-.traffic-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
-.traffic-grid > section { min-width: 0; padding: 1rem; border: 1px solid var(--fsus-border); border-radius: .5rem; }
-svg { display: block; width: 100%; max-height: 12rem; overflow: visible; }
-polyline { fill: none; stroke: var(--el-color-primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.traffic-axis { stroke: var(--fsus-border); }
-.traffic-range { display: flex; justify-content: space-between; gap: .75rem; }
-.traffic-range { font-size: .85rem; }
-summary { cursor: pointer; padding-block: .75rem; }
-@media (max-width: 42rem) { .traffic-grid { grid-template-columns: minmax(0, 1fr); } }
+.traffic-loading {
+  display: grid;
+  gap: 8px;
+}
+
+.traffic-loading p {
+  margin: 0;
+  font-size: var(--el-font-size-small);
+  color: var(--el-text-color-secondary);
+}
+
+.traffic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.traffic-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-panel, 12px);
+  background: var(--el-bg-color);
+}
+
+.traffic-card h3 {
+  margin: 0;
+  font-size: var(--el-font-size-base);
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.traffic-chart {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.traffic-axis {
+  stroke: var(--el-border-color);
+  stroke-width: 1;
+}
+
+.traffic-line {
+  fill: none;
+  stroke: var(--el-color-primary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.traffic-range {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: var(--el-font-size-extra-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--el-text-color-secondary);
+}
+
+.traffic-details {
+  display: grid;
+  gap: 10px;
+}
+
+.traffic-details summary {
+  cursor: pointer;
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
 </style>

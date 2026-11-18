@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef } from 'vue'
-import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElCheckbox, ElFormSection, ElInlineActions, ElInput, ElSkeleton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { publishAdminSitePage, readSitePageRevision, validPageMarkdown } from '../../../Contracts/admin-site-pages'
 import type { SitePageSlug } from '../../../Contracts/site-pages'
@@ -82,27 +82,60 @@ onScopeDispose(() => lifetime.abort())
 
 <template>
   <section class="site-page-editor" :aria-label="t('admin.editPageContent', { slug })" :aria-busy="busy">
-    <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" />
-    <ElAlert v-if="updated" :title="t('admin.pagePublished', { slug })" type="success" :closable="false" />
-    <template v-if="page">
-      <label :for="`site-page-editor-${slug}`">{{ t('admin.pageMarkdownEditor', { slug }) }}</label>
-      <ElInput :id="`site-page-editor-${slug}`" v-model="markdown" type="textarea" :autosize="{ minRows: 10, maxRows: 20 }"
-        v-bind="{ maxlength: WireLimits.PageContentChars }" :disabled="busy" @input="confirmed = false; updated = false" />
-    </template>
-    <ElAlert v-if="page && !valid" :title="t('admin.markdownTooLarge')" type="warning" :closable="false" />
-    <ElCheckbox v-if="page && !stale" :model-value="confirmed" :disabled="busy" @update:model-value="confirmed = $event === true">
-      {{ t('admin.replacePublicPage', { slug }) }}
-    </ElCheckbox>
-    <div class="site-page-actions">
-      <ElButton v-if="page && !stale" native-type="button" type="primary" :loading="busy" :disabled="!canPublish"
-        @click="publish">{{ t('admin.publishPasskey') }}</ElButton>
-      <ElButton v-if="stale || !page" native-type="button" :loading="busy" @click="load">{{ t('admin.reloadPublished') }}</ElButton>
-      <ElButton native-type="button" :disabled="busy" @click="emit('close')">{{ t('admin.closeEditor') }}</ElButton>
-    </div>
+    <ElFormSection density="compact">
+      <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" />
+      <ElAlert v-if="updated" :title="t('admin.pagePublished', { slug })" type="success" :closable="false" />
+      <ElSkeleton v-if="busy && !page" :rows="4" />
+      <div v-if="page" class="site-page-editor-field">
+        <label :for="`site-page-editor-${slug}`">{{ t('admin.pageMarkdownEditor', { slug }) }}</label>
+        <ElInput
+          :id="`site-page-editor-${slug}`"
+          v-model="markdown"
+          type="textarea"
+          :autosize="{ minRows: 10, maxRows: 20 }"
+          v-bind="{ maxlength: WireLimits.PageContentChars }"
+          :disabled="busy"
+          @input="confirmed = false; updated = false"
+        />
+      </div>
+      <ElAlert v-if="page && !valid" :title="t('admin.markdownTooLarge')" type="warning" :closable="false" />
+      <ElCheckbox
+        v-if="page && !stale"
+        :model-value="confirmed"
+        :disabled="busy"
+        @update:model-value="confirmed = $event === true"
+      >
+        {{ t('admin.replacePublicPage', { slug }) }}
+      </ElCheckbox>
+      <ElInlineActions>
+        <ElButton
+          v-if="page && !stale"
+          native-type="button"
+          type="primary"
+          :loading="busy"
+          :disabled="!canPublish"
+          @click="publish"
+        >{{ t('admin.publishPasskey') }}</ElButton>
+        <ElButton v-if="stale || !page" native-type="button" :loading="busy" @click="load">{{ t('admin.reloadPublished') }}</ElButton>
+        <ElButton native-type="button" :disabled="busy" @click="emit('close')">{{ t('admin.closeEditor') }}</ElButton>
+      </ElInlineActions>
+    </ElFormSection>
   </section>
 </template>
 
 <style scoped>
-.site-page-editor { display: grid; gap: .5rem; margin-block: .5rem 1rem; }
-.site-page-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.site-page-editor {
+  margin-block: 10px 4px;
+}
+
+.site-page-editor-field {
+  display: grid;
+  gap: 6px;
+}
+
+.site-page-editor-field label {
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
 </style>

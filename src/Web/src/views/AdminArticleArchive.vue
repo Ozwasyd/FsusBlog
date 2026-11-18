@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
-import { ElAlert, ElButton, ElCheckbox, ElDialog, ElInput } from '@ozwasyd/element-plus'
+import {
+  ElAlert, ElButton, ElCheckbox, ElDangerZone, ElDialog, ElEmptyState, ElFormSection,
+  ElInlineActions, ElInput, ElResourceList,
+  ElResourceListItem, ElSettingsSection,
+} from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   AdminArchiveTarget, executeAdminArticleArchive, readAdminArticleArchiveAvailability,
@@ -190,51 +194,70 @@ onMounted(async () => {
   <div v-if="available" class="admin-archive">
     <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" />
     <ElAlert v-if="notice" :title="notice" type="success" :closable="false" />
-    <ElButton v-if="retry" native-type="button" :loading="saving" :disabled="props.blocked || reading" @click="submit">
-      {{ t('admin.archive.check') }}
-    </ElButton>
-    <div v-else-if="review" class="archive-review">
+    <div v-if="retry">
+      <ElButton native-type="button" :loading="saving" :disabled="props.blocked || reading" @click="submit">
+        {{ t('admin.archive.check') }}
+      </ElButton>
+    </div>
+    <component :is="selected ? ElFormSection : ElDangerZone" v-else-if="review" class="archive-review" density="compact">
       <template v-if="selected">
-        <h3>{{ t('admin.archive.republishTitle', { title: selected.title }) }}</h3>
-        <p>{{ t('admin.archive.coordinates', { article: selected.articleId, revision: String(selected.revision), release: String(selected.privateReleaseId) }) }}</p>
-        <ElButton native-type="button" text :disabled="blocked || reading" v-bind="{ 'aria-haspopup': 'dialog' }"
-          @click="openArchivePreview(selected)">{{ t('admin.archive.preview') }}</ElButton>
+        <div class="archive-selected-head">
+          <h3>{{ t('admin.archive.republishTitle', { title: selected.title }) }}</h3>
+          <p class="archive-coordinates">{{ t('admin.archive.coordinates', { article: selected.articleId, revision: String(selected.revision), release: String(selected.privateReleaseId) }) }}</p>
+          <div>
+            <ElButton native-type="button" text :disabled="blocked || reading" v-bind="{ 'aria-haspopup': 'dialog' }"
+              @click="openArchivePreview(selected)">{{ t('admin.archive.preview') }}</ElButton>
+          </div>
+        </div>
       </template>
-      <label for="admin-archive-reason">{{ selected ? t('admin.archive.republishReason') : t('admin.archive.archiveReason') }}</label>
-      <ElInput id="admin-archive-reason" v-model="reason" type="textarea" :disabled="blocked" @input="confirmed = false" />
+      <div class="archive-field">
+        <label for="admin-archive-reason">{{ selected ? t('admin.archive.republishReason') : t('admin.archive.archiveReason') }}</label>
+        <ElInput id="admin-archive-reason" v-model="reason" type="textarea" :disabled="blocked" @input="confirmed = false" />
+      </div>
       <ElCheckbox :model-value="confirmed" :disabled="blocked" @update:model-value="confirmed = $event === true">
         {{ selected ? t('admin.archive.confirmRepublish') : t('admin.archive.confirmArchive') }}
       </ElCheckbox>
-      <div class="archive-actions">
+      <ElInlineActions class="archive-actions">
         <ElButton native-type="button" :type="selected ? 'primary' : 'danger'" :plain="!selected"
           :disabled="!canSubmit" :loading="saving" @click="submit">
           {{ selected ? t('admin.archive.republish') : t('admin.archive.archive') }}
         </ElButton>
         <ElButton v-if="selected" native-type="button" text :disabled="blocked || reading" @click="select()">{{ t('admin.archive.cancel') }}</ElButton>
-      </div>
-    </div>
-    <section class="admin-archive" aria-labelledby="archived-articles-heading" :aria-busy="reading">
-      <h3 id="archived-articles-heading">{{ t('admin.archive.heading') }}</h3>
+      </ElInlineActions>
+    </component>
+
+    <ElSettingsSection class="admin-archive-list-section" title-tag="h3" ariaLabelledby="archived-articles-heading" v-bind="{ 'aria-busy': reading }" density="compact">
+      <template #title>
+        <span id="archived-articles-heading">{{ t('admin.archive.heading') }}</span>
+      </template>
+      <template #actions>
+        <ElInlineActions>
+          <ElButton native-type="button" text :disabled="blocked || reading" @click="load()">
+            {{ before === undefined ? t('admin.archive.refresh') : t('admin.archive.first') }}
+          </ElButton>
+          <ElButton v-if="page?.nextId" native-type="button" text :disabled="blocked || reading"
+            @click="load(page?.nextId ?? undefined)">{{ t('admin.archive.next') }}</ElButton>
+        </ElInlineActions>
+      </template>
       <ElAlert v-if="listFailure" :title="t(listFailure)" type="error" :closable="false" />
-      <p v-else-if="page?.items.length === 0" role="status">{{ t('admin.archive.empty') }}</p>
-      <ul v-else-if="page" class="archive-list">
-        <li v-for="row in page.items" :key="row.articleId">
-          <strong>{{ row.title }}</strong>
-          <p>{{ t('admin.archive.row', { article: row.articleId, revision: String(row.revision) }) }}</p>
-          <time :datetime="new Date(Number(row.archivedUnixMs)).toISOString()">
-            {{ archivedTime.format(Number(row.archivedUnixMs)) }}
-          </time>
-          <ElButton native-type="button" text :disabled="blocked || reading" @click="select(row)">{{ t('admin.archive.review') }}</ElButton>
-        </li>
-      </ul>
-      <div class="archive-actions">
-        <ElButton native-type="button" text :disabled="blocked || reading" @click="load()">
-          {{ before === undefined ? t('admin.archive.refresh') : t('admin.archive.first') }}
-        </ElButton>
-        <ElButton v-if="page?.nextId" native-type="button" text :disabled="blocked || reading"
-          @click="load(page?.nextId ?? undefined)">{{ t('admin.archive.next') }}</ElButton>
-      </div>
-    </section>
+      <ElEmptyState v-else-if="page?.items.length === 0" size="inline" :title="t('admin.archive.empty')" role="status" />
+      <ElResourceList v-else-if="page" class="archive-list" density="compact">
+        <ElResourceListItem v-for="row in page.items" :key="row.articleId" :title="row.title">
+          <template #meta>
+            <span>
+              {{ t('admin.archive.row', { article: row.articleId, revision: String(row.revision) }) }}
+              · <time :datetime="new Date(Number(row.archivedUnixMs)).toISOString()">
+                {{ archivedTime.format(Number(row.archivedUnixMs)) }}
+              </time>
+            </span>
+          </template>
+          <template #actions>
+            <ElButton native-type="button" text :disabled="blocked || reading" @click="select(row)">{{ t('admin.archive.review') }}</ElButton>
+          </template>
+        </ElResourceListItem>
+      </ElResourceList>
+    </ElSettingsSection>
+
     <ElDialog :model-value="previewOpen" :title="t('admin.archive.sourceTitle')" append-to-body destroy-on-close
       width="min(52rem, calc(100vw - 2rem))" top="5vh" @close="closeArchivePreview">
       <ElAlert v-if="previewError" :title="t(previewError)" type="error" :closable="false" />
@@ -248,13 +271,52 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.admin-archive, .archive-review { display: grid; align-items: start; gap: .5rem; }
-.admin-archive { margin-block-start: .5rem; padding-block-start: .75rem; border-block-start: 1px solid var(--el-border-color); }
-.admin-archive h3, .admin-archive p { margin-block: 0; overflow-wrap: anywhere; }
-.archive-list { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
-.archive-list li { display: grid; justify-items: start; gap: .25rem; overflow-wrap: anywhere; }
-.archive-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
-.archive-actions :deep(.el-button + .el-button) { margin-inline-start: 0; }
-.archive-preview-title { overflow-wrap: anywhere; }
-.archive-source { max-block-size: 55vh; margin: 0; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.admin-archive {
+  display: grid;
+  gap: 16px;
+}
+
+.archive-selected-head,
+.archive-field {
+  display: grid;
+  gap: 6px;
+}
+
+.archive-selected-head h3 {
+  margin: 0;
+  font-size: var(--el-font-size-base);
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  overflow-wrap: anywhere;
+}
+
+.archive-coordinates {
+  margin: 0;
+  font-size: var(--el-font-size-small);
+  color: var(--el-text-color-secondary);
+  overflow-wrap: anywhere;
+}
+
+.archive-field label {
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.archive-preview-title {
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+}
+
+.archive-source {
+  max-block-size: 55vh;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-control, 6px);
+  background: var(--fsus-color-surface-raised, var(--el-fill-color-light));
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 </style>

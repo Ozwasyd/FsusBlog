@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
-import { onBeforeUnmount, ref, shallowRef } from 'vue'
-import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
+import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import {
+  ElAlert, ElButton, ElEmptyState, ElInlineActions, ElInput,
+  ElResourceList, ElResourceListItem, ElSettingsSection, ElSkeleton,
+} from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { appealReason, decideAdminAppeal, readAdminAppeals, type PendingAppeal } from '../../../Contracts/comment-appeals'
 
@@ -15,6 +18,18 @@ const failure = ref<MessageKey | ''>('')
 const notice = ref<MessageKey | ''>('')
 const more = ref(false)
 const lifetime = new AbortController()
+onMounted(() => {
+  if (!props.sessionSignal.aborted && list.value === null) void load()
+})
+watch(() => props.sessionSignal, signal => {
+  list.value = null
+  selected.value = undefined
+  reason.value = ''
+  failure.value = ''
+  notice.value = ''
+  more.value = false
+  if (!signal.aborted) void load()
+})
 onBeforeUnmount(() => lifetime.abort())
 
 async function run(task: (signal: AbortSignal) => Promise<void>) {
@@ -60,40 +75,91 @@ function decide(id: string, decision: 'granted' | 'denied') {
 </script>
 
 <template>
-  <section class="appeal-review" aria-labelledby="admin-appeal-heading">
-    <h3 id="admin-appeal-heading">{{ t('admin.appeals.m1') }}</h3>
-    <ElButton native-type="button" :loading="busy" @click="load()">{{ t('admin.appeals.m2') }}</ElButton>
+  <ElSettingsSection class="appeal-review" title-tag="h3" ariaLabelledby="admin-appeal-heading" density="compact">
+    <template #title>
+      <span id="admin-appeal-heading">{{ t('admin.appeals.m1') }}</span>
+    </template>
+    <template #actions>
+      <ElButton native-type="button" :text="list !== null" :loading="busy" @click="load()">{{ t('admin.appeals.m2') }}</ElButton>
+    </template>
     <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" />
-    <p v-if="notice" role="status">{{ t(notice) }}</p>
-    <p v-if="list?.length === 0" role="status">{{ t('admin.appeals.m3') }}</p>
-    <ol v-else-if="list" class="appeal-review-list">
-      <li v-for="item in list" :key="item.id">
-        <p>{{ t('admin.appeals.m13', { article: item.article, comment: item.comment }) }}</p>
+    <p v-if="notice" class="appeal-status" role="status">{{ t(notice) }}</p>
+    <ElSkeleton v-if="busy && list === null" :rows="2" animated />
+    <ElEmptyState v-else-if="list?.length === 0" size="inline" :title="t('admin.appeals.m3')" role="status" />
+    <ElResourceList v-else-if="list" class="appeal-review-list" density="compact">
+      <ElResourceListItem
+        v-for="item in list"
+        :key="item.id"
+        :title="t('admin.appeals.m13', { article: item.article, comment: item.comment })"
+      >
         <p class="appeal-text">{{ item.body }}</p>
-        <p class="appeal-text">{{ item.reason }}</p>
-        <ElButton v-if="selected !== item.id" native-type="button" :disabled="busy"
-          @click="selected = item.id; reason = ''">{{ t('admin.appeals.m4') }}</ElButton>
-        <div v-else class="appeal-form">
-          <label :for="`appeal-review-${item.id}`">{{ t('admin.appeals.m5') }}</label>
-          <ElInput :id="`appeal-review-${item.id}`" v-model="reason" type="textarea" :disabled="busy" />
-          <div class="appeal-actions">
+        <p class="appeal-text appeal-reason">{{ item.reason }}</p>
+        <template v-if="selected !== item.id" #actions>
+          <ElButton native-type="button" :disabled="busy"
+            @click="selected = item.id; reason = ''">{{ t('admin.appeals.m4') }}</ElButton>
+        </template>
+        <div v-if="selected === item.id" class="appeal-form">
+          <div class="appeal-field">
+            <label :for="`appeal-review-${item.id}`">{{ t('admin.appeals.m5') }}</label>
+            <ElInput :id="`appeal-review-${item.id}`" v-model="reason" type="textarea" :disabled="busy" />
+          </div>
+          <ElInlineActions>
             <ElButton native-type="button" type="primary" :disabled="busy || !appealReason(reason)"
               @click="decide(item.id, 'granted')">{{ t('admin.appeals.m6') }}</ElButton>
             <ElButton native-type="button" :disabled="busy || !appealReason(reason)"
               @click="decide(item.id, 'denied')">{{ t('admin.appeals.m7') }}</ElButton>
-          </div>
+          </ElInlineActions>
         </div>
-      </li>
-    </ol>
-    <ElButton v-if="more" native-type="button" :loading="busy" text @click="load(true)">{{ t('admin.appeals.m8') }}</ElButton>
-  </section>
+      </ElResourceListItem>
+    </ElResourceList>
+    <div v-if="more" class="appeal-more">
+      <ElButton native-type="button" :loading="busy" text @click="load(true)">{{ t('admin.appeals.m8') }}</ElButton>
+    </div>
+  </ElSettingsSection>
 </template>
 
 <style scoped>
-.appeal-review, .appeal-form { display: grid; gap: var(--fsus-space-2); }
-.appeal-review > button { justify-self: start; }
-.appeal-review-list { display: grid; gap: var(--fsus-space-3); margin: 0; padding: 0; list-style: none; }
-.appeal-text { overflow-wrap: anywhere; white-space: pre-wrap; }
-.appeal-actions { display: flex; flex-wrap: wrap; gap: var(--fsus-space-2); }
-.appeal-actions :deep(.el-button + .el-button) { margin-inline-start: 0; }
+.appeal-review-list {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-panel, 12px);
+  background: var(--el-bg-color);
+  overflow: hidden;
+}
+
+.appeal-status {
+  margin: 0;
+  font-size: var(--el-font-size-small);
+  color: var(--el-text-color-secondary);
+}
+
+.appeal-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: var(--el-font-size-base);
+  line-height: 1.5;
+  color: var(--el-text-color-primary);
+}
+
+.appeal-reason {
+  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-small);
+}
+
+.appeal-form,
+.appeal-field {
+  display: grid;
+  gap: 8px;
+}
+
+.appeal-field label {
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.appeal-more {
+  display: flex;
+  justify-content: flex-start;
+}
 </style>

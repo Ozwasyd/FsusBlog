@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '../siteLocale'
 import { onUnmounted, ref, shallowRef } from 'vue'
-import { ElAlert, ElButton } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElEmptyState, ElMetadataItem, ElMetadataRow, ElResourceList, ElResourceListItem, ElSettingsSection } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import type { AdminSession } from '../../../Contracts/admin-identity'
 import { readAdminSessionHistory, type AdminSessionHistoryRow } from '../../../Contracts/admin-session-history'
@@ -37,32 +37,31 @@ async function loadHistory() {
 </script>
 
 <template>
-  <section class="auth-form admin-session-history" aria-labelledby="admin-session-history-heading">
-    <h2 id="admin-session-history-heading">{{ t('admin.sessionHistory') }}</h2>
-    <ElButton native-type="button" :loading="loading" @click="loadHistory">{{ t('admin.loadSessionHistory') }}</ElButton>
+  <ElSettingsSection class="admin-session-history" ariaLabelledby="admin-session-history-heading" density="compact">
+    <template #title><span id="admin-session-history-heading">{{ t('admin.sessionHistory') }}</span></template>
+    <template #actions>
+      <ElButton native-type="button" :loading="loading" @click="loadHistory">{{ t('admin.loadSessionHistory') }}</ElButton>
+    </template>
     <ElAlert v-if="failure" :title="t('admin.sessionHistoryFailed')" type="error" :closable="false" show-icon />
-    <p v-if="history?.length === 0" role="status">{{ t('admin.noSessionHistory') }}</p>
-    <ol v-else-if="history" class="history-list">
-      <li v-for="(row, index) in history" :key="index">
-        <strong>{{ stateLabel(row.state) }}</strong>
-        <dl>
-          <dt>{{ t('admin.signedIn') }}</dt>
-          <dd><time :datetime="new Date(row.startedAt).toISOString()">{{ new Date(row.startedAt).toLocaleString() }}</time></dd>
-          <dt>{{ t('admin.scheduledExpiry') }}</dt>
-          <dd><time :datetime="new Date(row.expiresAt).toISOString()">{{ new Date(row.expiresAt).toLocaleString() }}</time></dd>
-          <template v-if="row.state === 'ended' && row.endedAt !== null">
-            <dt>{{ t('admin.endedAt') }}</dt>
-            <dd><time :datetime="new Date(row.endedAt).toISOString()">{{ new Date(row.endedAt).toLocaleString() }}</time></dd>
-          </template>
-        </dl>
-      </li>
-    </ol>
-  </section>
+    <ElEmptyState v-if="history?.length === 0" size="inline" :title="t('admin.noSessionHistory')" role="status" />
+    <ElResourceList v-else-if="history" density="compact">
+      <ElResourceListItem v-for="(row, index) in history" :key="index" :title="stateLabel(row.state)" density="compact">
+        <ElMetadataRow density="compact">
+          <ElMetadataItem :label="t('admin.signedIn')">
+            <time :datetime="new Date(row.startedAt).toISOString()">{{ new Date(row.startedAt).toLocaleString() }}</time>
+          </ElMetadataItem>
+          <ElMetadataItem :label="t('admin.scheduledExpiry')">
+            <time :datetime="new Date(row.expiresAt).toISOString()">{{ new Date(row.expiresAt).toLocaleString() }}</time>
+          </ElMetadataItem>
+          <ElMetadataItem v-if="row.state === 'ended' && row.endedAt !== null" :label="t('admin.endedAt')">
+            <time :datetime="new Date(row.endedAt).toISOString()">{{ new Date(row.endedAt).toLocaleString() }}</time>
+          </ElMetadataItem>
+        </ElMetadataRow>
+      </ElResourceListItem>
+    </ElResourceList>
+  </ElSettingsSection>
 </template>
 
 <style scoped>
-.admin-session-history { margin-block-start: 1.5rem; }
-.history-list { display: grid; gap: 1rem; padding-inline-start: 1.5rem; }
-.history-list dl { display: grid; grid-template-columns: minmax(6rem, auto) 1fr; gap: 0.25rem 1rem; }
-.history-list dd { margin-inline-start: 0; }
+.admin-session-history { min-width: 0; }
 </style>

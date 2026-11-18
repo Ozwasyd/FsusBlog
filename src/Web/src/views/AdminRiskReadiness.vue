@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { ref, shallowRef } from 'vue'
-import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
+import {
+  ElAlert, ElButton, ElCopyableDetail, ElFormSection, ElInlineActions, ElInput,
+  ElKeyValueGrid, ElKeyValueItem, ElSettingsSection,
+} from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import type { AdminSession } from '../../../Contracts/admin-identity'
 import { readAdminRiskReadiness } from '../../../Contracts/admin-risk-readiness'
@@ -89,43 +92,81 @@ watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clea
 </script>
 
 <template>
-  <section class="auth-form" aria-labelledby="admin-risk-controls-heading" :aria-busy="busy">
-    <h2 id="admin-risk-controls-heading">{{ t('admin.riskControls') }}</h2>
-    <ElButton native-type="button" :loading="busy" @click="check">{{ t('admin.checkRisk') }}</ElButton>
+  <ElSettingsSection ariaLabelledby="admin-risk-controls-heading" v-bind="{ 'aria-busy': busy }" density="compact">
+    <template #title>
+      <span id="admin-risk-controls-heading">{{ t('admin.riskControls') }}</span>
+    </template>
+    <template #actions>
+      <ElButton native-type="button" :loading="busy" @click="check">{{ t('admin.checkRisk') }}</ElButton>
+    </template>
     <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" />
     <div aria-live="polite">
-      <dl v-if="observation">
-        <dt>{{ t('admin.publicCommentReads') }}</dt>
-        <dd>{{ t('admin.fixedConcurrency') }}</dd>
-        <dt>{{ t('admin.signedInRoots') }}</dt>
-        <dd>{{ observation.rootWriteMode === 1 ? t('admin.classicPowInstalled') : t('admin.routeNotInstalled') }}</dd>
-        <dt>{{ t('admin.signedInReplies') }}</dt>
-        <dd v-if="observation.replyWriteMode === 2">{{ t('admin.replyTablePresent') }}</dd>
-        <dd v-else-if="observation.replyWriteMode === 1">{{ t('admin.replyTableAbsent') }}</dd>
-        <dd v-else>{{ t('admin.routeNotInstalled') }}</dd>
-        <dt>{{ t('admin.forwardedAddress') }}</dt>
-        <dd>{{ observation.forwardingMode === 1 ? t('admin.trustedLoopback') : t('admin.peerAddress') }}</dd>
-        <dt>{{ t('admin.dynamicRisk') }}</dt>
-        <dd>{{ t('admin.notInstalled') }}</dd>
-        <dt>{{ t('admin.strongAnonymous') }}</dt>
-        <dd>{{ t('admin.notInstalled') }}</dd>
-      </dl>
+      <ElKeyValueGrid v-if="observation" density="compact">
+        <ElKeyValueItem :label="t('admin.publicCommentReads')" :value="t('admin.fixedConcurrency')" />
+        <ElKeyValueItem
+          :label="t('admin.signedInRoots')"
+          :value="observation.rootWriteMode === 1 ? t('admin.classicPowInstalled') : t('admin.routeNotInstalled')"
+        />
+        <ElKeyValueItem
+          :label="t('admin.signedInReplies')"
+          :value="observation.replyWriteMode === 2
+            ? t('admin.replyTablePresent')
+            : observation.replyWriteMode === 1
+              ? t('admin.replyTableAbsent')
+              : t('admin.routeNotInstalled')"
+        />
+        <ElKeyValueItem
+          :label="t('admin.forwardedAddress')"
+          :value="observation.forwardingMode === 1 ? t('admin.trustedLoopback') : t('admin.peerAddress')"
+        />
+        <ElKeyValueItem :label="t('admin.dynamicRisk')" :value="t('admin.notInstalled')" />
+        <ElKeyValueItem :label="t('admin.strongAnonymous')" :value="t('admin.notInstalled')" />
+      </ElKeyValueGrid>
     </div>
-    <section v-if="rootPolicy" aria-labelledby="admin-root-comment-proof-heading">
-      <h3 id="admin-root-comment-proof-heading">{{ t('admin.rootProofPolicy') }}</h3>
-      <p aria-live="polite">{{ t('admin.proofGeneration', { generation: rootPolicy.generation.toString(), seconds: rootPolicy.proofSeconds }) }}</p>
-      <p><code class="policy-digest">{{ rootPolicy.digest }}</code></p>
-      <label for="root-comment-proof-seconds">{{ t('admin.proofLifetime') }}</label>
-      <ElInput id="root-comment-proof-seconds" v-model="seconds" v-bind="{ inputmode: 'numeric' }" :disabled="busy" />
-      <ElButton native-type="button" :disabled="busy || !validRootCommentPowSeconds(Number(seconds)) ||
-        Number(seconds) === rootPolicy.proofSeconds" @click="change(false)">{{ t('admin.applyProofLifetime') }}</ElButton>
-      <ElButton v-if="rootPolicy.previousSeconds > 0" native-type="button" :disabled="busy"
-        @click="change(true)">{{ t('admin.restoreProofLifetime') }}</ElButton>
-    </section>
-  </section>
+    <ElFormSection v-if="rootPolicy" title-tag="h3" ariaLabelledby="admin-root-comment-proof-heading" density="compact">
+      <template #title>
+        <span id="admin-root-comment-proof-heading">{{ t('admin.rootProofPolicy') }}</span>
+      </template>
+      <template #description>
+        <span aria-live="polite">{{ t('admin.proofGeneration', { generation: rootPolicy.generation.toString(), seconds: rootPolicy.proofSeconds }) }}</span>
+      </template>
+      <ElCopyableDetail class="policy-digest" :value="rootPolicy.digest" />
+      <div class="risk-policy-field">
+        <label for="root-comment-proof-seconds">{{ t('admin.proofLifetime') }}</label>
+        <ElInput id="root-comment-proof-seconds" v-model="seconds" v-bind="{ inputmode: 'numeric' }" :disabled="busy" />
+      </div>
+      <ElInlineActions>
+        <ElButton
+          native-type="button"
+          type="primary"
+          :disabled="busy || !validRootCommentPowSeconds(Number(seconds)) || Number(seconds) === rootPolicy.proofSeconds"
+          @click="change(false)"
+        >{{ t('admin.applyProofLifetime') }}</ElButton>
+        <ElButton
+          v-if="rootPolicy.previousSeconds > 0"
+          native-type="button"
+          :disabled="busy"
+          @click="change(true)"
+        >{{ t('admin.restoreProofLifetime') }}</ElButton>
+      </ElInlineActions>
+    </ElFormSection>
+  </ElSettingsSection>
 </template>
 
 <style scoped>
-dd { margin: 0 0 .5rem; }
-.policy-digest { overflow-wrap: anywhere; }
+.risk-policy-field {
+  display: grid;
+  gap: 6px;
+  max-width: 280px;
+}
+
+.risk-policy-field label {
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+.policy-digest {
+  overflow-wrap: anywhere;
+}
 </style>
