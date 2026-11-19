@@ -171,9 +171,8 @@ internal static partial class Migration
                                         End administrator sessions and cancel pending invitations
                   admin-identity disable HANDLE
                                         Disable an administrator and remove authentication credentials
-                  operator NAME         Create an author and issue an expiring one-use login ticket
-                  operator NAME --reader
-                                        Create a reader and issue an expiring one-use login ticket
+                  operator NAME [--reader]
+                                        Create a reader account and issue an expiring one-use login ticket
                   ticket NAME           Issue a new expiring one-use ticket for an existing enabled user
                   revoke NAME           End all sessions and pending tickets for an existing user
                   notify ACCOUNT_ID EVENT_ID
@@ -296,7 +295,7 @@ internal static partial class Migration
                     await AdminIdentityAsync(connection, adminArguments, token);
                     break;
                 case ["operator", var name]:
-                    await IssueAsync(connection, name, create: true, author: true, token);
+                    await IssueAsync(connection, name, create: true, author: false, token);
                     break;
                 case ["operator", var name, "--reader"]:
                     await IssueAsync(connection, name, create: true, author: false, token);
@@ -611,7 +610,7 @@ internal static partial class Migration
             .Where(name => name.StartsWith(SchemaResourcePrefix, StringComparison.Ordinal))
             .Order(StringComparer.Ordinal);
         var sql = new StringBuilder();
-        foreach (var resource in resources.Prepend(bootstrap).Distinct(StringComparer.Ordinal))
+        foreach (var resource in resources.Prepend(bootstrap).Append("FsusBlogV2.OptionalSchema.site-traffic.sql").Distinct(StringComparer.Ordinal))
         {
             await using var stream = assembly.GetManifestResourceStream(resource) ??
                 throw new InvalidOperationException($"Schema resource {resource} is missing.");

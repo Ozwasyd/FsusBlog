@@ -18,7 +18,7 @@ import {
   ElTag,
   ElTaskPageHeader,
 } from '@ozwasyd/element-plus'
-import AdminModerationControls from './AdminModerationControls.vue'
+import AdminInteractionWorkspace from './AdminInteractionWorkspace.vue'
 import AdminArticlesWorkspace from './AdminArticlesWorkspace.vue'
 import AdminSiteTraffic from './AdminSiteTraffic.vue'
 import AdminSitePages from './AdminSitePages.vue'
@@ -138,6 +138,14 @@ function clearPermissions() {
   clearTimeout(permissionLeaseTimer)
   clearTimeout(permissionRefreshTimer)
   setPermissions(null)
+}
+
+const permissionLabels: Record<AdminPermission, MessageKey> = {
+  'admin.manage': 'admin.permission.admin.manage',
+  'article.write': 'admin.permission.article.write',
+  'audit.read': 'admin.permission.audit.read',
+  'comment.moderate': 'admin.permission.comment.moderate',
+  'system.config': 'admin.permission.system.config',
 }
 
 function permits(grant: AdminPermission): boolean {
@@ -310,25 +318,31 @@ function logOut() {
               <time :datetime="new Date(authority.session.expiresAt).toISOString()">{{ new Date(authority.session.expiresAt).toLocaleString() }}</time>
             </ElKeyValueItem>
           </ElKeyValueGrid>
-        </ElSettingsSection>
-        <ElSettingsSection v-if="section.section === 'identity'" ariaLabelledby="admin-permissions-heading" density="compact">
-          <template #title><span id="admin-permissions-heading">{{ t('admin.effectivePermissions') }}</span></template>
-          <ul v-if="permissions" class="admin-permission-list">
-            <li v-for="grant in permissions" :key="grant" class="admin-permission-chip">{{ grant }}</li>
-          </ul>
-          <div v-else-if="permissionsFailure" class="admin-inline-stack">
-            <ElAlert :title="t('admin.permissionsFailed')" type="error" :closable="false" show-icon />
-            <ElButton native-type="button" :loading="busy || permissionsPending" @click="refresh">{{ t('admin.reloadPermissions') }}</ElButton>
-          </div>
-          <div v-else-if="permissionsPending" class="admin-status-skeleton">
-            <ElSkeleton :rows="2" animated />
-            <p class="admin-status-text" role="status">{{ t('admin.checkingPermissions') }}</p>
+          <div class="admin-session-permissions">
+            <span class="admin-session-permissions-label">{{ t('admin.effectivePermissions') }}</span>
+            <div v-if="permissions" class="admin-permission-list">
+              <ElTag v-for="grant in permissions" :key="grant" size="small" type="info" v-bind="{ title: grant }">{{ t(permissionLabels[grant]) }}</ElTag>
+            </div>
+            <div v-else-if="permissionsFailure" class="admin-inline-stack">
+              <ElAlert :title="t('admin.permissionsFailed')" type="error" :closable="false" show-icon />
+              <ElButton native-type="button" :loading="busy || permissionsPending" @click="refresh">{{ t('admin.reloadPermissions') }}</ElButton>
+            </div>
+            <div v-else-if="permissionsPending" class="admin-status-skeleton">
+              <ElSkeleton :rows="1" animated />
+              <p class="admin-status-text" role="status">{{ t('admin.checkingPermissions') }}</p>
+            </div>
           </div>
         </ElSettingsSection>
         <AdminSessionHistory v-if="section.section === 'identity' && permits('admin.manage')" :key="permissionEpoch" :session="authority.session"
           :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-        <AdminModerationControls v-if="section.section === 'interaction' && permits('comment.moderate')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-        <AdminInbox v-if="section.section === 'interaction' && permits('admin.manage')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+        <AdminInteractionWorkspace
+          v-if="section.section === 'interaction' && (permits('comment.moderate') || permits('admin.manage'))"
+          :key="permissionEpoch"
+          :session-signal="permissionAuthority.signal"
+          :can-moderate="permits('comment.moderate')"
+          :can-manage-inbox="permits('admin.manage')"
+          @session-lost="handleSessionLoss"
+        />
         <ElSettingsSection v-if="section.section === 'system' && permits('audit.read')" class="admin-operations"
           ariaLabelledby="admin-operations-heading" density="compact">
           <template #title><span id="admin-operations-heading">{{ t('admin.operationsStatus') }}</span></template>
@@ -428,25 +442,20 @@ function logOut() {
   color: var(--el-text-color-secondary);
   font-size: var(--el-font-size-base);
 }
+.admin-session-permissions {
+  display: grid;
+  gap: var(--fsus-space-2);
+  margin-top: var(--fsus-space-3);
+}
+.admin-session-permissions-label {
+  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+}
 .admin-permission-list {
   display: flex;
   flex-wrap: wrap;
   gap: var(--fsus-space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.admin-permission-chip {
-  display: inline-flex;
-  align-items: center;
-  min-block-size: 28px;
-  padding: 0 var(--fsus-space-3);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-pill);
-  background: var(--fsus-color-surface-raised);
-  color: var(--el-text-color-primary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: var(--el-font-size-small);
 }
 .admin-login-surface {
   display: grid;

@@ -69,9 +69,10 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
             await using var delete = Store.Sql(db, tx, """
                 delete from public.author_document_export e
                 where e.expires_at<=statement_timestamp()
-                   or exists (select from public.blog_user u where u.id=e.owner_id
-                       and (not u.enabled or not u.can_author or u.generation<>e.author_generation))
-                   or exists (select from public.article a where a.id=e.article_id and (a.deleted or a.owner_id<>e.owner_id))
+                   or not exists (select from public.admin_principal p where p.id=e.owner_id
+                       and p.enabled and p.generation=e.author_generation
+                       and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write'))
+                   or exists (select from public.article a where a.id=e.article_id and a.deleted)
                 """);
             return await delete.ExecuteNonQueryAsync(ct);
         }, ct);
@@ -149,10 +150,12 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
                 await using var db = await source.OpenConnectionAsync(ct);
                 await using var check = Store.Sql(db, null, """
                     select exists(
-                        select from public.author_document_export e join public.blog_user u on u.id=e.owner_id
-                        join public.article a on a.id=e.article_id and a.owner_id=e.owner_id
+                        select from public.author_document_export e join public.admin_principal p on p.id=e.owner_id
+                        join public.article a on a.id=e.article_id
                         where e.owner_id=$1 and e.id=$2 and e.state=2 and e.expires_at>statement_timestamp()
-                        and u.enabled and u.can_author and u.generation=e.author_generation and not a.deleted)
+                        and p.enabled and p.generation=e.author_generation
+                        and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write')
+                        and not a.deleted)
                     """, job.Owner, job.Request.Id);
                 check.CommandTimeout = 2;
                 if (await check.ExecuteScalarAsync(ct) is true) continue;
@@ -199,7 +202,10 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
     private static async Task RequireAuthority(NpgsqlConnection db, NpgsqlTransaction tx, Job job, CancellationToken ct)
     {
         await using var check = Store.Sql(db, tx, """
-            select true from public.blog_user where id=$1 and generation=$2 and enabled and can_author for share
+            select true from public.admin_principal p
+            where p.id=$1 and p.generation=$2 and p.enabled
+              and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write')
+            for share
             """, job.Owner, job.Generation);
         if (await check.ExecuteScalarAsync(ct) is not true)
             throw new BusinessException(Rejection.Forbidden, "Document export author authority changed.");

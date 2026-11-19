@@ -65,6 +65,27 @@ const plugins = () => [resolvePreparedWasm(), vue(), vueJsx()]
 export default defineConfig({
   plugins: plugins(),
   worker: { format: 'es', plugins },
+  build: {
+    rollupOptions: {
+      output: {
+        // Keep transitive dependencies in Rollup's shared chunks. These selected
+        // leaf/model modules have no dependency back into the Write view.
+        onlyExplicitManualChunks: true,
+        manualChunks(id) {
+          const normalized = id.replaceAll('\\', '/')
+          if (normalized.endsWith('/src/authoring/workspaceRegistry.ts') ||
+              /\/src\/Contracts\/(property-values|property-text-hit|document-export-tasks|markdown-export)\.ts$/.test(normalized)) {
+            return 'authoring-model'
+          }
+          // Independent ESM libraries, not Mermaid internals or its parser.
+          // Keep every diagram loader, including Wardley, unchanged.
+          if (/\/node_modules\/(dompurify|marked|roughjs|d3-[^/]+)\//.test(normalized)) {
+            return 'diagram-primitives'
+          }
+        },
+      },
+    },
+  },
   resolve: {
     dedupe: ['vue'],
     alias: [

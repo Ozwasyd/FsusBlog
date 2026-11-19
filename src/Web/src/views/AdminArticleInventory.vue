@@ -1,19 +1,32 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import {
   ElAlert, ElButton, ElDialog, ElEmptyState, ElInlineActions,
   ElInput, ElSkeleton, ElTable, ElTableColumn, ElTag,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
+import { adminDeleteArticle } from '../../../Contracts/admin-identity'
 import { isValidAdminArticleRollbackReason } from '../../../Contracts/admin-article-rollback'
 import { executeTrashPublication, executeTrashRestore, readTrashPublication, readTrashPublicationAvailability,
   readTrashRestoreAvailability, requestTrashPublicationProof, requestTrashRestoreProof } from '../../../Contracts/admin-article-trash'
 import { listAdminArticles, type AuthorArticlePage, type AuthorArticleQuery, type AuthorArticleRow } from '../../../Contracts/author-articles'
 import type { AdminArticleTrashPublicationIntent, AdminArticleTrashPublicationPreview, AdminArticleTrashRestoreIntent } from '../../../Contracts/wire.generated'
 
-const props = withDefaults(defineProps<{ sessionSignal: AbortSignal; trash?: boolean; active?: boolean; keyword?: string }>(), { trash: false, active: true, keyword: '' })
-const emit = defineEmits<{ 'session-lost': [cause: ApiError]; busy: [value: boolean]; 'update:keyword': [value: string] }>()
+const props = withDefaults(defineProps<{
+  sessionSignal: AbortSignal
+  trash?: boolean
+  active?: boolean
+  keyword?: string
+  taxonomyFilter?: { kind: 'category' | 'tag'; id: number; name: string }
+}>(), { trash: false, active: true, keyword: '', taxonomyFilter: undefined })
+const emit = defineEmits<{
+  'session-lost': [cause: ApiError]
+  busy: [value: boolean]
+  'update:keyword': [value: string]
+  'clear-taxonomy-filter': []
+}>()
 const lifetime = new AbortController()
 const signal = AbortSignal.any([lifetime.signal, props.sessionSignal])
 const page = shallowRef<AuthorArticlePage>()
@@ -27,8 +40,12 @@ const publication = shallowRef<AdminArticleTrashPublicationPreview>()
 const reason = ref('')
 const selected = shallowRef<AuthorArticleRow>()
 const retry = shallowRef<AdminArticleTrashRestoreIntent | AdminArticleTrashPublicationIntent>()
+const publicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
 const restoring = ref(false)
 const restoreFailure = ref<MessageKey | ''>('')
+const deleteTarget = shallowRef<AuthorArticleRow>()
+const deleting = ref(false)
+const deleteFailure = ref<MessageKey | ''>('')
 const notice = ref<MessageKey | ''>('')
 const noticeParams = shallowRef<Record<string, string | number>>({})
 const stateLabels: Record<AuthorArticleRow['state'], MessageKey> = {
@@ -42,12 +59,13 @@ const stateTagTypes: Record<AuthorArticleRow['state'], 'info' | 'warning' | 'suc
   retracted: 'warning',
   deleted: 'danger',
 }
-const busy = computed(() => reading.value || restoring.value || !!retry.value)
+const busy = computed(() => reading.value || restoring.value || deleting.value || !!retry.value)
 const headingId = `admin-article-inventory-${props.trash ? 'trash' : 'active'}`
 const keywordId = `${headingId}-keyword`
 const rows = computed(() => [...page.value?.items ?? []])
-watch(() => busy.value || !!selected.value, value => emit('busy', value), { immediate: true, flush: 'sync' })
+watch(() => busy.value || !!selected.value || !!deleteTarget.value, value => emit('busy', value), { immediate: true, flush: 'sync' })
 watch(() => props.active, active => { if (active) void search() })
+watch(() => props.taxonomyFilter, () => { if (props.active) void search() })
 onScopeDispose(() => lifetime.abort())
 
 onMounted(() => {
@@ -92,7 +110,13 @@ async function load(next: AuthorArticleQuery) {
 }
 
 function search(trash = query.value.trash) {
-  return load({ trash, keyword: keyword.value.trim(), match: 'title-summary' })
+  return load({
+    trash,
+    keyword: keyword.value.trim(),
+    match: 'title-summary',
+    ...(props.taxonomyFilter?.kind === 'category' ? { categoryId: props.taxonomyFilter.id } : {}),
+    ...(props.taxonomyFilter?.kind === 'tag' ? { tagId: props.taxonomyFilter.id } : {}),
+  })
 }
 
 function nextPage() {
@@ -144,16 +168,57 @@ async function restore(publicly = false) {
   } finally { restoring.value = false }
   if (refresh && !signal.aborted) await load({ ...query.value, beforeId: undefined })
 }
+
+async function confirmDelete() {
+  const row = deleteTarget.value
+  if (!row || deleting.value || signal.aborted) return
+  deleting.value = true
+  deleteFailure.value = ''
+  notice.value = ''
+  try {
+    await adminDeleteArticle(row.id, signal)
+    if (signal.aborted) return
+    const deletedTitle = row.title
+    deleteTarget.value = undefined
+    noticeParams.value = { title: deletedTitle }
+    notice.value = 'admin.inventory.deleted'
+    deleting.value = false
+    await load({ ...query.value, beforeId: undefined })
+  } catch (cause) {
+    if (signal.aborted) return
+    if (cause instanceof ApiError && cause.status === 401) {
+      deleteTarget.value = undefined
+      emit('session-lost', cause)
+    } else {
+      deleteFailure.value = 'admin.inventory.deleteFailed'
+    }
+  } finally { deleting.value = false }
+}
 </script>
 
 <template>
   <section class="inventory" :aria-labelledby="headingId" :aria-busy="reading">
     <h2 :id="headingId" class="inventory-title">{{ t('admin.inventory.heading') }}</h2>
-    <form class="inventory-search" @submit.prevent="search()">
-      <label :for="keywordId">{{ t('admin.inventory.keyword') }}</label>
-      <ElInput :id="keywordId" v-model="keyword" :disabled="busy" clearable />
-      <ElButton native-type="submit" :disabled="busy" :loading="reading">{{ t('admin.inventory.search') }}</ElButton>
-    </form>
+    <div class="inventory-toolbar">
+      <form class="inventory-search" @submit.prevent="search()">
+        <label :for="keywordId">{{ t('admin.inventory.keyword') }}</label>
+        <ElInput :id="keywordId" v-model="keyword" :disabled="busy" clearable />
+        <ElButton native-type="submit" :disabled="busy" :loading="reading">{{ t('admin.inventory.search') }}</ElButton>
+      </form>
+      <RouterLink v-if="!trash" :to="{ name: 'write' }" custom v-slot="{ href, navigate }">
+        <ElButton tag="a" type="primary" class="inventory-write-link" v-bind="{ href }" @click="navigate">
+          {{ t('admin.inventory.writeNew') }}
+        </ElButton>
+      </RouterLink>
+    </div>
+    <div v-if="taxonomyFilter && !trash" class="inventory-filter-bar" role="status">
+      <ElTag size="small" type="info">
+        {{ t('admin.inventory.taxonomyFilter', { kind: t(taxonomyFilter.kind === 'category' ? 'admin.taxonomy.kindCategory' : 'admin.taxonomy.kindTag'), name: taxonomyFilter.name }) }}
+      </ElTag>
+      <ElButton native-type="button" text size="small" :disabled="busy" @click="emit('clear-taxonomy-filter')">
+        {{ t('admin.inventory.clearFilter') }}
+      </ElButton>
+    </div>
     <ElSkeleton v-if="reading" :rows="4" />
     <ElAlert v-if="failed" :title="t('admin.inventory.loadFailed')" type="error" :closable="false" />
     <ElAlert v-if="restoreFailure" :title="t(restoreFailure)" type="warning" :closable="false" />
@@ -164,7 +229,7 @@ async function restore(publicly = false) {
     <template v-if="page">
       <p class="inventory-count" role="status">{{ t(query.trash ? (page.total === 1 ? 'admin.inventory.deletedOne' : 'admin.inventory.deletedMany') : (page.total === 1 ? 'admin.inventory.activeOne' : 'admin.inventory.activeMany'), { count: page.total }) }}</p>
       <ElEmptyState v-if="!rows.length" :title="t(query.trash ? 'admin.articles.emptyTrash' : 'admin.articles.emptyArticles')" size="compact" />
-      <ElTable v-else :data="rows" row-key="id" :responsive="query.trash && (restoreAvailable || publicationAvailable) ? 'auto' : 'scroll'" class="inventory-table">
+      <ElTable v-else :data="rows" row-key="id" :responsive="!query.trash || restoreAvailable || publicationAvailable ? 'auto' : 'scroll'" class="inventory-table">
         <ElTableColumn prop="title" :label="t('admin.articles.title')" min-width="240">
           <template #default="{ row }">
             <div class="inventory-record">
@@ -179,11 +244,24 @@ async function restore(publicly = false) {
             </div>
           </template>
         </ElTableColumn>
-        <ElTableColumn v-if="query.trash && (restoreAvailable || publicationAvailable)" :label="t('admin.articles.actions')" min-width="140">
+        <ElTableColumn v-if="!query.trash || restoreAvailable || publicationAvailable" :label="t('admin.articles.actions')" min-width="180">
           <template #default="{ row }">
-            <ElButton native-type="button" :disabled="busy" @click="selected = row">
+            <ElButton v-if="query.trash" native-type="button" :disabled="busy" @click="selected = row">
               {{ restoreAvailable ? t('admin.inventory.restoreDraft') : t('admin.inventory.review') }}
             </ElButton>
+            <ElInlineActions v-else>
+              <ElButton v-if="publicOrigin && row.state === 'published'" tag="a" text size="small" class="inventory-action-link" v-bind="{ href: `${publicOrigin}/article/${row.id}`, target: '_blank', rel: 'noopener' }">
+                {{ t('admin.inventory.view') }}
+              </ElButton>
+              <RouterLink :to="{ name: 'edit', params: { id: row.id } }" custom v-slot="{ href, navigate }">
+                <ElButton tag="a" text size="small" class="inventory-action-link" v-bind="{ href }" @click="navigate">
+                  {{ t('admin.inventory.edit') }}
+                </ElButton>
+              </RouterLink>
+              <ElButton native-type="button" text size="small" type="danger" :disabled="busy" @click="deleteFailure = ''; deleteTarget = row">
+                {{ t('admin.inventory.delete') }}
+              </ElButton>
+            </ElInlineActions>
           </template>
         </ElTableColumn>
       </ElTable>
@@ -217,12 +295,29 @@ async function restore(publicly = false) {
         </ElInlineActions>
       </template>
     </ElDialog>
+    <ElDialog :model-value="!!deleteTarget" :title="t('admin.inventory.deleteTitle')" width="min(28rem, 90vw)"
+      :close-on-press-escape="!deleting" :close-on-click-modal="!deleting" :show-close="!deleting"
+      @update:model-value="visible => { if (!visible && !deleting) deleteTarget = undefined }">
+      <div v-if="deleteTarget" class="inventory-dialog-body">
+        <ElAlert v-if="deleteFailure" :title="t(deleteFailure)" type="error" :closable="false" />
+        <p>{{ t('admin.inventory.deleteConfirm', { title: deleteTarget.title }) }}</p>
+      </div>
+      <template #footer>
+        <ElInlineActions>
+          <ElButton native-type="button" :disabled="deleting" @click="deleteTarget = undefined">{{ t('admin.inventory.cancel') }}</ElButton>
+          <ElButton native-type="button" type="danger" :loading="deleting" @click="confirmDelete">{{ t('admin.inventory.deleteAction') }}</ElButton>
+        </ElInlineActions>
+      </template>
+    </ElDialog>
   </section>
 </template>
 
 <style scoped>
 .inventory-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.inventory-search { display: grid; grid-template-columns: auto minmax(12rem, 30rem) auto; align-items: center; justify-content: start; gap: 10px; }
+.inventory-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.inventory-search { display: grid; grid-template-columns: auto minmax(12rem, 30rem) auto; align-items: center; justify-content: start; gap: 10px; flex: 1 1 20rem; }
+.inventory-write-link, .inventory-action-link { text-decoration: none; }
+.inventory-filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .inventory-search label,
 .inventory-field label {
   font-size: var(--el-font-size-small);

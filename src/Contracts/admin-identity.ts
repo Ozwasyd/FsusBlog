@@ -156,6 +156,15 @@ function readAdminSession(payload: Uint8Array, headers: Headers): AdminSession {
     ...(permissionSession ? { permissionSession } : {}) };
 }
 
+export function adminDeleteArticle(id: number, signal?: AbortSignal): Promise<void> {
+  if (!Number.isInteger(id) || id <= 0 || id > 0x7fffffff)
+    throw new ProtocolError('Invalid article ID.');
+  const path = WireRoutes.AdminArticleDelete.replace('{id:int}', String(id));
+  return request(path, FrameType.EmptySuccess, bytes => {
+    if (bytes.length !== 4) throw new ProtocolError('Invalid article delete response.');
+  }, signal, 'POST');
+}
+
 function readPermissionSession(headers: Headers): string | undefined {
   const value = headers.get(WireHeaders.AdminPermissionSession);
   if (value !== null && !/^[a-f0-9]{64}$/.test(value)) throw new ProtocolError('Invalid administrator permission session.');

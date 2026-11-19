@@ -90,3 +90,12 @@ export async function changeTaxonomyMetadata(kind: AdminMetadataKind, edit: Admi
       return result
     }, signal, creating ? 'POST' : 'PUT', frame, { [WireHeaders.PowProof]: encodePowProof(challenge, proof, nonce) })
 }
+
+export function deleteTaxonomy(kind: AdminMetadataKind, id: number, signal?: AbortSignal): Promise<void> {
+  if (!Number.isInteger(id) || id <= 0 || id > 0x7fffffff)
+    throw new ProtocolError(`Invalid ${kind} ID.`)
+  const path = (kind === 'tag' ? WireRoutes.AdminTagDelete : WireRoutes.AdminCategoryDelete).replace('{id:int}', String(id))
+  return request(path, FrameType.EmptySuccess, bytes => {
+    if (bytes.length !== 4) throw new ProtocolError(`Invalid ${kind} delete response.`)
+  }, signal, 'POST')
+}

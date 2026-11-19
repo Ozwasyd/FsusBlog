@@ -4,7 +4,7 @@ import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vu
 import {
   ElAlert, ElButton, ElConversationContextBar, ElConversationList, ElEmptySelectionState,
   ElInboxEmptyState, ElInboxLayout, ElInput, ElMessageBubble, ElMessageTimeline,
-  ElOption, ElReplyComposerShell, ElSelect, ElSettingsSection, ElSkeleton, ElTag, ElThreadPanel,
+  ElOption, ElReplyComposerShell, ElSelect, ElSkeleton, ElTag, ElThreadPanel,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { adminSendNotice, isNoticeRecipient, newNoticeEventId } from '../../../Contracts/admin-inbox-notice'
@@ -385,13 +385,11 @@ onBeforeUnmount(() => operation.abort())
 </script>
 
 <template>
-  <ElSettingsSection class="inbox-admin" ariaLabelledby="admin-inbox-title" density="compact">
-    <template #title>
-      <span id="admin-inbox-title">{{ t('admin.inbox.m1') }}</span>
-    </template>
-    <template #actions>
+  <section class="inbox-admin" aria-labelledby="admin-inbox-title">
+    <h2 id="admin-inbox-title" class="inbox-admin-sr-title">{{ t('admin.inbox.m1') }}</h2>
+    <div class="inbox-admin-panel-actions">
       <ElButton native-type="button" @click="toggle">{{ t(expanded ? 'admin.inbox.m2' : 'admin.inbox.m3') }}</ElButton>
-    </template>
+    </div>
 
     <template v-if="expanded">
       <ElAlert v-if="failed" :title="t(failed)" type="error" :closable="false" />
@@ -567,10 +565,29 @@ onBeforeUnmount(() => operation.abort())
 
       <p v-if="notice" class="inbox-admin-notice" role="status">{{ t(notice) }}</p>
     </template>
-  </ElSettingsSection>
+  </section>
 </template>
 
 <style scoped>
+.inbox-admin {
+  display: grid;
+  gap: var(--fsus-space-2, 12px);
+}
+
+.inbox-admin-sr-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.inbox-admin-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .inbox-admin-queue {
   display: grid;
   align-content: start;

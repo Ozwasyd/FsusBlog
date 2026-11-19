@@ -22,15 +22,14 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         Guid id;
         string name;
         long generation;
-        bool canAuthor;
         await using (var cmd = Sql(db, tx, """
-            select id,name,generation,can_author from public.blog_user where enabled and
+            select id,name,generation from public.blog_user where enabled and
                 id=(select user_id from public.login_ticket where digest=$1 and expires_at>clock_timestamp()) for update
             """, ticket))
         await using (var row = await cmd.ExecuteReaderAsync(ct))
         {
             if (!await row.ReadAsync(ct)) throw Unauthenticated();
-            (id, name, generation, canAuthor) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2), row.GetBoolean(3));
+            (id, name, generation) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2));
         }
         if (await CurrentSchema.RequiresSiteRecoveryAsync(db, tx, id, ct)) throw Unauthenticated();
         await using (var consume = Sql(db, tx, """
@@ -46,7 +45,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             """, SHA256.HashData(secret), id, generation);
         var expiry = (DateTime)(await add.ExecuteScalarAsync(ct))!;
         await InstanceLease.CommitProtected(tx, lease, ct);
-        return (Convert.ToHexStringLower(secret), new(id, name, generation, canAuthor, expiry));
+        return (Convert.ToHexStringLower(secret), new(id, name, generation, false, expiry));
     }
 
     internal Task<T> WithSession<T>(string? token, bool author, Func<NpgsqlConnection, NpgsqlTransaction, Identity, Task<T>> run, CancellationToken ct) =>
@@ -61,30 +60,74 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         if (TokenDigest(token) is not { } digest) throw Unauthenticated();
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        if (lockAccount)
-        {
-            await using var account = Sql(db, tx, """
-                select id from public.blog_user where enabled
-                and id=(select user_id from public.user_session where digest=$1) for update
-                """, digest);
-            if (await account.ExecuteScalarAsync(ct) is null) throw Unauthenticated();
-        }
         Identity actor;
-        await using (var cmd = Sql(db, tx, """
-            select u.id,u.name,u.generation,u.can_author,s.expires_at
-            from public.blog_user u join public.user_session s on s.user_id=u.id
-            where u.enabled and s.digest=$1 and u.generation=s.generation and s.expires_at>clock_timestamp()
-            """ + (lockAccount ? " for update of s" : " for share of u,s"), digest))
-        await using (var row = await cmd.ExecuteReaderAsync(ct))
+        if (author)
         {
-            if (!await row.ReadAsync(ct)) throw Unauthenticated();
-            actor = new(row.GetGuid(0), row.GetString(1), row.GetInt64(2), row.GetBoolean(3), row.GetFieldValue<DateTimeOffset>(4));
+            Guid principal;
+            string handle;
+            long generation;
+            await using (var cmd = Sql(db, tx, """
+                select id,handle,generation from public.admin_principal where enabled
+                and id=(select principal_id from public.admin_session where digest=$1)
+                for share
+                """, digest))
+            await using (var row = await cmd.ExecuteReaderAsync(ct))
+            {
+                if (!await row.ReadAsync(ct)) throw Unauthenticated();
+                (principal, handle, generation) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2));
+            }
+            DateTimeOffset expiresAt;
+            await using (var cmd = Sql(db, tx, """
+                select expires_at from public.admin_session where digest=$1 and principal_id=$2 and generation=$3
+                and expires_at>clock_timestamp()
+                and exists (select from public.admin_permission where principal_id=$2 and permission=$4)
+                and exists (select from public.admin_passkey_credential where principal_id=$2)
+                for share
+                """, digest, principal, generation, CurrentSchema.AdminManagePermission))
+                expiresAt = await cmd.ExecuteScalarAsync(ct) is DateTime expiry ? new DateTimeOffset(expiry) : throw Unauthenticated();
+            await using (var grant = Sql(db, tx, """
+                select exists (select from public.admin_permission where principal_id=$1 and permission=$2)
+                """, principal, CurrentSchema.ArticleWritePermission))
+                if (await grant.ExecuteScalarAsync(ct) is not true)
+                    throw new BusinessException(Rejection.Forbidden, "This administrator does not hold the required permission.");
+            await EnsureAdminOwnerAnchor(db, tx, principal, ct);
+            actor = new(principal, handle, generation, true, expiresAt);
         }
-        if (author && !actor.CanAuthor) throw new BusinessException(Rejection.Forbidden, "This account cannot write articles.");
+        else
+        {
+            if (lockAccount)
+            {
+                await using var account = Sql(db, tx, """
+                    select id from public.blog_user where enabled
+                    and id=(select user_id from public.user_session where digest=$1) for update
+                    """, digest);
+                if (await account.ExecuteScalarAsync(ct) is null) throw Unauthenticated();
+            }
+            await using (var cmd = Sql(db, tx, """
+                select u.id,u.name,u.generation,s.expires_at
+                from public.blog_user u join public.user_session s on s.user_id=u.id
+                where u.enabled and s.digest=$1 and u.generation=s.generation and s.expires_at>clock_timestamp()
+                """ + (lockAccount ? " for update of s" : " for share of u,s"), digest))
+            await using (var row = await cmd.ExecuteReaderAsync(ct))
+            {
+                if (!await row.ReadAsync(ct)) throw Unauthenticated();
+                actor = new(row.GetGuid(0), row.GetString(1), row.GetInt64(2), false, row.GetFieldValue<DateTimeOffset>(3));
+            }
+        }
         var result = await run(db, tx, actor);
         if (actor.ExpiresAt <= DateTimeOffset.UtcNow) throw Unauthenticated();
         await InstanceLease.CommitProtected(tx, lease, ct);
         return result;
+    }
+
+    internal static async Task EnsureAdminOwnerAnchor(NpgsqlConnection db, NpgsqlTransaction tx, Guid principalId, CancellationToken ct)
+    {
+        await using var anchor = Sql(db, tx, """
+            insert into public.blog_user(id,name,can_author,enabled,generation)
+            values($1,$2,false,false,1)
+            on conflict (id) do nothing
+            """, principalId, $"admin-principal:{principalId:N}");
+        await anchor.ExecuteNonQueryAsync(ct);
     }
 
     internal async Task SignOut(string? token, CancellationToken ct)
@@ -100,10 +143,10 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
     internal static async Task<ArticleState> Find(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, int id, bool locking,
         CancellationToken ct, bool includeDeleted = false)
     {
-        const string owned = "from public.article a where a.id=$1 and a.owner_id=$2 and ($3 or not a.deleted)";
+        const string owned = "from public.article a where a.id=$1 and ($2 or not a.deleted)";
         if (locking)
         {
-            await using var take = Sql(db, tx, $"select a.id {owned} for update", id, actor.Id, includeDeleted);
+            await using var take = Sql(db, tx, $"select a.id {owned} for update", id, includeDeleted);
             if (await take.ExecuteScalarAsync(ct) is null)
                 throw new BusinessException(Rejection.NotFound, "Article not found.");
         }
@@ -111,7 +154,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         await using var cmd = Sql(db, tx, $"""
             select revision,title,body,published_revision,deleted
             {owned} and {ArchivedArticleAuthority.Available}
-            """, id, actor.Id, includeDeleted);
+            """, id, includeDeleted);
         await using var row = await cmd.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.NotFound, "Article not found.");
         return new(id, actor.Id, row.GetInt64(0), row.GetString(1), row.GetString(2),

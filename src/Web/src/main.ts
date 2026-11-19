@@ -17,7 +17,6 @@ import { captureInitialSitePage, isSitePageSlug, sitePages } from './sitePageEnt
 const publicListing = () => import('./views/PublicListing.vue')
 const editor = () => import('./views/Write.vue')
 const canvas = () => import('./views/CanvasWorkspace.vue')
-const authorArticles = () => import('./views/AuthorArticles.vue')
 const sitePage = () => import('./views/SitePage.vue')
 const router = createRouter({
   history: createWebHistory(),
@@ -43,14 +42,11 @@ const router = createRouter({
     { path: '/user/identity/mfa', name: 'security', component: () => import('./views/AccountSecurity.vue') },
     { path: '/user/messagebox', name: 'messages', component: () => import('./views/Messages.vue') },
     { path: '/user/comments', name: 'own-comments', component: () => import('./views/OwnComments.vue') },
-    { path: '/user/manage/canvas', name: 'canvas', component: canvas },
-    { path: '/user/manage/canvas/:id', name: 'canvas-document', component: canvas },
-    { path: '/user/manage/assets', name: 'private-media', component: () => import('./views/PrivateMedia.vue') },
-    { path: '/user/manage/article/list', name: 'article-list', component: authorArticles },
-    { path: '/user/manage/article/search', name: 'article-search', component: authorArticles },
-    { path: '/user/manage/article/trash', name: 'article-trash', component: authorArticles },
+    { path: '/admin/canvas', name: 'canvas', component: canvas },
+    { path: '/admin/canvas/:id', name: 'canvas-document', component: canvas },
+    { path: '/admin/assets', name: 'private-media', component: () => import('./views/PrivateMedia.vue') },
     {
-      path: '/user/manage/article',
+      path: '/admin/articles',
       component: editor,
       children: [
         { path: 'write', name: 'write', components: {} },
@@ -62,7 +58,7 @@ const router = createRouter({
   ],
 })
 router.beforeEach(async to => {
-  if (to.path.startsWith('/user/') || to.meta.adminSection || to.name === 'subscribe')
+  if (to.path.startsWith('/user/') || to.path.startsWith('/admin') || to.meta.adminSection || to.name === 'subscribe')
     await preloadWorkspaceLocale()
 })
 router.afterEach((to, from) => {

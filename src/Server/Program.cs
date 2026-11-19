@@ -33,10 +33,12 @@ var adminArticleRollback = builder.Configuration.GetValue(
     FsusBlog.V2.Server.Administration.AdminArticleRollbackEndpoints.Setting, false);
 if (adminArticleRollback && adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps)
     throw new InvalidOperationException("Published article rollback requires a dedicated HTTPS administrator origin.");
-var adminTagMetadata = builder.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminTagMetadataEndpoints.Setting, false);
+var adminTagMetadata = builder.Configuration.GetValue<bool?>(FsusBlog.V2.Server.Administration.AdminTagMetadataEndpoints.Setting)
+    ?? (adminIdentity?.Origin.Scheme == Uri.UriSchemeHttps);
 if (adminTagMetadata && adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps)
     throw new InvalidOperationException("Tag metadata editing requires a dedicated HTTPS administrator origin.");
-var adminCategoryMetadata = builder.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminTagMetadataEndpoints.CategorySetting, false);
+var adminCategoryMetadata = builder.Configuration.GetValue<bool?>(FsusBlog.V2.Server.Administration.AdminTagMetadataEndpoints.CategorySetting)
+    ?? (adminIdentity?.Origin.Scheme == Uri.UriSchemeHttps);
 if (adminCategoryMetadata && adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps)
     throw new InvalidOperationException("Category metadata editing requires a dedicated HTTPS administrator origin.");
 var sitePageEditor = builder.Configuration.GetValue(SitePages.EditorSetting, false);
@@ -68,7 +70,9 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
         services.GetRequiredService<IHttpContextAccessor>(), slowRequests));
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
-var trafficEnabled = builder.Configuration.GetValue(SiteTraffic.EnabledSetting, false);
+var trafficEnabled = builder.Configuration.GetValue<bool?>(SiteTraffic.EnabledSetting)
+    ?? (publicSite.Origin is not null && Uri.TryCreate(publicSite.Origin, UriKind.Absolute, out var publicUri) &&
+        publicUri.Scheme == Uri.UriSchemeHttps);
 var trafficOrigin = trafficEnabled ? new Uri(publicSite.Origin ??
     throw new InvalidOperationException("Traffic statistics require an explicit public HTTPS origin.")) : null;
 builder.Services.AddSingleton<SiteTraffic>();
@@ -329,15 +333,18 @@ FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame, recover
 FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie, persistentSite);
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
 InboxStreamEndpoints.Map(app, Cookie);
+var authorCookie = adminIdentity is not null
+    ? FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.SessionCookieName(adminIdentity)
+    : Cookie;
 if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null)
 {
-    FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie);
-    FsusBlog.V2.Server.Content.MediaUploadEndpoints.Map(app, Cookie);
-    FsusBlog.V2.Server.Content.ArticleMediaEndpoints.Map(app, Cookie, publicMediaEnabled);
+    FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, authorCookie);
+    FsusBlog.V2.Server.Content.MediaUploadEndpoints.Map(app, authorCookie);
+    FsusBlog.V2.Server.Content.ArticleMediaEndpoints.Map(app, authorCookie, publicMediaEnabled);
 }
 if (publishedMedia is not null)
-    PublishedMediaEndpoints.Map(app, Cookie, publications, publishedMedia, ReadFrame);
-FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, RequireCurrentSnapshot, Query, ReadListCursor, Cookie, ReadFrame);
+    PublishedMediaEndpoints.Map(app, authorCookie, publications, publishedMedia, ReadFrame);
+FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, RequireCurrentSnapshot, Query, ReadListCursor, authorCookie, ReadFrame);
 app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().Map(app);
 integrityKeys.Map(app);
 await LegacyReleaseResponsibility.MapAsync(app, publications, lease);
@@ -348,21 +355,21 @@ if (subscription is not null) SubscriptionEndpoints.Map(app, subscription, publi
 if (articleReadEnabled) ArticleReadEndpoints.Map(app, publicSite.Origin!, publications, ReadFrame);
 FsusBlog.V2.Server.Content.DistributionEndpoints.Map(app, publications,
     app.Services.GetRequiredService<FsusBlog.V2.Server.Content.DistributionSettings>());
-FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
-FsusBlog.V2.Server.Authoring.PropertyEndpoints.Map(app, Cookie, ReadFrame, Query);
-FsusBlog.V2.Server.Authoring.AuthorTextSearchEndpoints.Map(app, Cookie, ReadFrame);
-FsusBlog.V2.Server.Authoring.ArticleSummaryEndpoints.Map(app, Cookie, ReadFrame);
-FsusBlog.V2.Server.Authoring.SavedViewEndpoints.Map(app, Cookie, ReadFrame, Query);
-FsusBlog.V2.Server.Authoring.RecoveryScopeEndpoints.Map(app, Cookie);
-FsusBlog.V2.Server.Authoring.AuthoringWorkspaceEndpoints.Map(app, Cookie, ReadFrame);
-FsusBlog.V2.Server.Authoring.AuthorRecentOpenEndpoints.Map(app, Cookie, ReadFrame, Query);
-FsusBlog.V2.Server.Authoring.RevisionHistoryEndpoints.Map(app, Cookie, Query, ReadFrame);
-FsusBlog.V2.Server.Authoring.PublicationRightsEndpoints.Map(app, Cookie, Query, ReadFrame);
-FsusBlog.V2.Server.Authoring.ArticleInventoryEndpoints.Map(app, Cookie, Query);
-FsusBlog.V2.Server.Authoring.ArticleScheduleEndpoints.Map(app, Cookie, Query, ReadFrame);
-FsusBlog.V2.Server.Authoring.MarkdownExportEndpoints.Map(app, Cookie, Query, pdfExport);
-if (documentExportTasks) DocumentExportEndpoints.Map(app, Cookie, pdfExport, ReadFrame);
-pluginPreview?.Map(app, Cookie, Query);
+FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, authorCookie, ReadFrame);
+FsusBlog.V2.Server.Authoring.PropertyEndpoints.Map(app, authorCookie, ReadFrame, Query);
+FsusBlog.V2.Server.Authoring.AuthorTextSearchEndpoints.Map(app, authorCookie, ReadFrame);
+FsusBlog.V2.Server.Authoring.ArticleSummaryEndpoints.Map(app, authorCookie, ReadFrame);
+FsusBlog.V2.Server.Authoring.SavedViewEndpoints.Map(app, authorCookie, ReadFrame, Query);
+FsusBlog.V2.Server.Authoring.RecoveryScopeEndpoints.Map(app, authorCookie);
+FsusBlog.V2.Server.Authoring.AuthoringWorkspaceEndpoints.Map(app, authorCookie, ReadFrame);
+FsusBlog.V2.Server.Authoring.AuthorRecentOpenEndpoints.Map(app, authorCookie, ReadFrame, Query);
+FsusBlog.V2.Server.Authoring.RevisionHistoryEndpoints.Map(app, authorCookie, Query, ReadFrame);
+FsusBlog.V2.Server.Authoring.PublicationRightsEndpoints.Map(app, authorCookie, Query, ReadFrame);
+FsusBlog.V2.Server.Authoring.ArticleInventoryEndpoints.Map(app, authorCookie, Query);
+FsusBlog.V2.Server.Authoring.ArticleScheduleEndpoints.Map(app, authorCookie, Query, ReadFrame);
+FsusBlog.V2.Server.Authoring.MarkdownExportEndpoints.Map(app, authorCookie, Query, pdfExport);
+if (documentExportTasks) DocumentExportEndpoints.Map(app, authorCookie, pdfExport, ReadFrame);
+pluginPreview?.Map(app, authorCookie, Query);
 var commentRoutes = FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame,
     lease.RootCommentPowPolicyInstalled);
 FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame, commentRoutes, trustLoopbackProxy, Query);
@@ -458,6 +465,11 @@ app.MapPost(WireRoutes.SignIn, (HttpContext ctx) =>
     .RequireRateLimiting("sign-in");
 app.MapGet(WireRoutes.Session, async (HttpContext ctx, Store store, CancellationToken ct) =>
 {
+    if (FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.IsAdminOrigin(ctx, adminIdentity))
+    {
+        var adminToken = ctx.Request.Cookies[authorCookie];
+        return await store.WithSession(adminToken, true, (_, _, actor) => Task.FromResult(SessionResponse(ctx, actor, adminToken!)), ct);
+    }
     var token = ctx.Request.Cookies[Cookie];
     return await store.WithSession(token, false, async (db, tx, actor) =>
     {
@@ -479,7 +491,7 @@ app.MapPost(WireRoutes.SignOut, async (HttpContext ctx, Store store, Cancellatio
 }).RequireRateLimiting("command");
 app.MapGet(WireRoutes.Draft, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
 {
-    var token = ctx.Request.Cookies[Cookie];
+    var token = ctx.Request.Cookies[authorCookie];
     var expected = FsusBlog.V2.Server.Sessions.SiteSessions.Requested(ctx);
     return store.WithSession(token, true, async (db, tx, actor) =>
     {
@@ -514,27 +526,18 @@ app.MapGet("/", (HttpContext ctx) =>
 });
 app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: true));
 app.MapGet("/archive", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishArchiveShell : archiveShell, Html); });
-foreach (var route in new[] { "/user/manage/article/list", "/user/manage/article/search", "/user/manage/article/trash", "/user/comments" })
-    app.MapGet(route, (HttpContext ctx) =>
-    {
-        NoStore(ctx);
-        ctx.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
-        return Results.Bytes(shell, Html);
-    });
+app.MapGet("/user/comments", (HttpContext ctx) =>
+{
+    NoStore(ctx);
+    ctx.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+    return Results.Bytes(shell, Html);
+});
 app.MapGet("/search", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishSearchShell : searchShell, Html); });
 app.MapGet("/login", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishLoginShell : loginShell, Html); });
 app.MapGet("/register", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(SiteLocale.Select(ctx) == "en" ? englishRegisterShell : registerShell, Html); });
 app.MapGet("/user", (HttpContext ctx) => { NoStore(ctx); return Results.Redirect("/user/identity/mfa"); });
-foreach (var route in new[] { "/user/identity/mfa", "/user/messagebox",
-    "/user/manage/assets", "/user/manage/article/write", "/user/manage/article/workspace", "/user/manage/article/edit/{id:int}" })
+foreach (var route in new[] { "/user/identity/mfa", "/user/messagebox" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });
-foreach (var route in new[] { "/user/manage/canvas", "/user/manage/canvas/{id:guid}" })
-    app.MapGet(route, (HttpContext ctx) =>
-    {
-        NoStore(ctx);
-        ctx.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
-        return Results.Bytes(shell, Html);
-    });
 app.MapGet("/health/ready", (HttpContext ctx) => { NoStore(ctx); return Results.StatusCode(publications.Snapshot is null ? 503 : 204); });
 app.MapFallback("/api/{**rest}", ctx => Error(ctx, 404, "Unknown API route.").ExecuteAsync(ctx));
 await app.RunAsync();
@@ -593,7 +596,7 @@ void Mutation(string path, ArticleAction action)
         if (!ClientMutationHeader.Matches(ctx, input.IdempotencyKey))
             return Error(ctx, 400, ClientMutationHeader.Mismatch);
         var edit = Publishing.Validate(action, new(input.Id, input.ExpectedRevision, input.IdempotencyKey, input.Title, input.Body));
-        var result = await publications.Command(store, ctx.Request.Cookies[Cookie], action, edit, ct,
+        var result = await publications.Command(store, ctx.Request.Cookies[authorCookie], action, edit, ct,
             FsusBlog.V2.Server.Sessions.SiteSessions.Requested(ctx), insertion, insertions, bodyEdits);
         return action == ArticleAction.Delete ? Results.Bytes(Wire.EncodeEmptySuccess(), Binary) : DraftResponse(result.Article);
     }).RequireRateLimiting("command");

@@ -765,6 +765,7 @@ public static class WireRoutes
     public const string AdminArticleDraftRollbackStepUpComplete = "/api/v2/admin/identity/articles/rollback-to-draft/step-up/complete.aeds";
     public const string AdminArticleDraftRollbackExecute = "/api/v2/admin/identity/articles/rollback-to-draft/execute.aeds";
     public const string AdminArticleInventory = "/api/v2/admin/identity/articles.aeds";
+    public const string AdminArticleDelete = "/api/v2/admin/identity/articles/{id:int}/delete.aeds";
     public const string AdminArticleTrashRestoreAvailability = "/api/v2/admin/identity/articles/trash/restore/available.aeds";
     public const string AdminArticleTrashRestoreBegin = "/api/v2/admin/identity/articles/trash/restore/step-up/begin.aeds";
     public const string AdminArticleTrashRestoreComplete = "/api/v2/admin/identity/articles/trash/restore/step-up/complete.aeds";
@@ -802,11 +803,13 @@ public static class WireRoutes
     public const string AdminTagMetadataPow = "/api/v2/admin/identity/taxonomy/tags/{id:int}/metadata/pow.aeds";
     public const string AdminTagCreate = "/api/v2/admin/identity/taxonomy/tags/create.aeds";
     public const string AdminTagCreatePow = "/api/v2/admin/identity/taxonomy/tags/create/pow.aeds";
+    public const string AdminTagDelete = "/api/v2/admin/identity/taxonomy/tags/{id:int}/delete.aeds";
     public const string AdminCategoryMetadataAvailability = "/api/v2/admin/identity/taxonomy/categories/edit/available.aeds";
     public const string AdminCategoryMetadata = "/api/v2/admin/identity/taxonomy/categories/{id:int}/metadata.aeds";
     public const string AdminCategoryMetadataPow = "/api/v2/admin/identity/taxonomy/categories/{id:int}/metadata/pow.aeds";
     public const string AdminCategoryCreate = "/api/v2/admin/identity/taxonomy/categories/create.aeds";
     public const string AdminCategoryCreatePow = "/api/v2/admin/identity/taxonomy/categories/create/pow.aeds";
+    public const string AdminCategoryDelete = "/api/v2/admin/identity/taxonomy/categories/{id:int}/delete.aeds";
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
     public const string AdminCommentRevisions = "/api/binary/author/comments/{id:long}/revisions";
     public const string AdminCommentTimeline = "/api/binary/author/comments/{id:long}/moderation-timeline";

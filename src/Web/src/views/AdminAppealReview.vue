@@ -3,7 +3,7 @@ import { t, type MessageKey } from '../siteLocale'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   ElAlert, ElButton, ElEmptyState, ElInlineActions, ElInput,
-  ElResourceList, ElResourceListItem, ElSettingsSection, ElSkeleton,
+  ElResourceList, ElResourceListItem, ElSkeleton,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { appealReason, decideAdminAppeal, readAdminAppeals, type PendingAppeal } from '../../../Contracts/comment-appeals'
@@ -75,13 +75,11 @@ function decide(id: string, decision: 'granted' | 'denied') {
 </script>
 
 <template>
-  <ElSettingsSection class="appeal-review" title-tag="h3" ariaLabelledby="admin-appeal-heading" density="compact">
-    <template #title>
-      <span id="admin-appeal-heading">{{ t('admin.appeals.m1') }}</span>
-    </template>
-    <template #actions>
-      <ElButton native-type="button" :text="list !== null" :loading="busy" @click="load()">{{ t('admin.appeals.m2') }}</ElButton>
-    </template>
+  <section class="appeal-review" aria-labelledby="admin-appeal-heading">
+    <h2 id="admin-appeal-heading" class="appeal-sr-title">{{ t('admin.appeals.m1') }}</h2>
+    <div class="appeal-panel-actions">
+      <ElButton native-type="button" text :loading="busy" @click="load()">{{ t('admin.appeals.refresh') }}</ElButton>
+    </div>
     <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" />
     <p v-if="notice" class="appeal-status" role="status">{{ t(notice) }}</p>
     <ElSkeleton v-if="busy && list === null" :rows="2" animated />
@@ -108,6 +106,8 @@ function decide(id: string, decision: 'granted' | 'denied') {
               @click="decide(item.id, 'granted')">{{ t('admin.appeals.m6') }}</ElButton>
             <ElButton native-type="button" :disabled="busy || !appealReason(reason)"
               @click="decide(item.id, 'denied')">{{ t('admin.appeals.m7') }}</ElButton>
+            <ElButton native-type="button" text :disabled="busy"
+              @click="selected = undefined; reason = ''">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
           </ElInlineActions>
         </div>
       </ElResourceListItem>
@@ -115,10 +115,29 @@ function decide(id: string, decision: 'granted' | 'denied') {
     <div v-if="more" class="appeal-more">
       <ElButton native-type="button" :loading="busy" text @click="load(true)">{{ t('admin.appeals.m8') }}</ElButton>
     </div>
-  </ElSettingsSection>
+  </section>
 </template>
 
 <style scoped>
+.appeal-review {
+  display: grid;
+  gap: var(--fsus-space-2, 12px);
+}
+
+.appeal-sr-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.appeal-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .appeal-review-list {
   border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--fsus-radius-panel, 12px);

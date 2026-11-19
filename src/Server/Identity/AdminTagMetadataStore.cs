@@ -105,6 +105,44 @@ internal sealed partial class AdminPasskeyStore
             return Encode(receipt);
         }, ct);
 
+    internal Task<byte[]> DeleteTaxonomy(string? session, int id, bool category, Action invalidate, CancellationToken ct) =>
+        WithLiveAdmin(session, CurrentSchema.ArticleWritePermission, async (db, tx, _) =>
+        {
+            var entity = Entity(category);
+            var links = category ? "article_revision_category" : "article_revision_tag";
+            var key = category ? "category_id" : "tag_id";
+            await Store.LockCommand(db, tx, Guid.Empty, category ? CategoryMetadataLock : TagMetadataLock, ct);
+
+            await using (var check = Store.Sql(db, tx, $"select 1 from public.{entity} where id=$1", id))
+                if (await check.ExecuteScalarAsync(ct) is null)
+                    throw new BusinessException(Rejection.NotFound, category ? "Category not found." : "Tag not found.");
+
+            await using (var inUse = Store.Sql(db, tx, $"select 1 from public.{links} where {key}=$1 limit 1", id))
+                if (await inUse.ExecuteScalarAsync(ct) is not null)
+                    throw new BusinessException(Rejection.Conflict,
+                        category ? "This category is still referenced by saved article revisions." : "This tag is still referenced by saved article revisions.");
+
+            if (!category)
+            {
+                await using var delAliases = Store.Sql(db, tx, "delete from public.tag_url_name where tag_id=$1", id);
+                await delAliases.ExecuteNonQueryAsync(ct);
+            }
+
+            await using (var delAudit = Store.Sql(db, tx, $"delete from public.admin_{entity}_metadata_command where {entity}_id=$1", id))
+                await delAudit.ExecuteNonQueryAsync(ct);
+
+            await using (var delEntity = Store.Sql(db, tx, $"delete from public.{entity} where id=$1", id))
+                if (await delEntity.ExecuteNonQueryAsync(ct) != 1)
+                    throw new BusinessException(Rejection.NotFound, category ? "Category not found." : "Tag not found.");
+
+            await using (var epoch = Store.Sql(db, tx, "update public.taxonomy_epoch set revision=revision+1 where singleton returning revision"))
+                if (await epoch.ExecuteScalarAsync(ct) is not long)
+                    throw new PublicUnavailableException();
+
+            invalidate();
+            return Wire.EncodeEmptySuccess();
+        }, ct);
+
     private static async Task<int> CreateTaxonomy(NpgsqlConnection db, NpgsqlTransaction tx, string name, string description, bool category, CancellationToken ct)
     {
         var entity = Entity(category);

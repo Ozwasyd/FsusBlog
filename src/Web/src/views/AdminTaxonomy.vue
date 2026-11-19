@@ -2,48 +2,58 @@
 import { t, type MessageKey } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
-  ElAlert, ElButton, ElEmptyState, ElInlineActions, ElKeyValueGrid,
-  ElKeyValueItem, ElOption, ElSelect, ElSettingsSection, ElSkeleton,
+  ElAlert, ElButton, ElDialog, ElEmptyState, ElInlineActions,
+  ElInput, ElSettingsSection, ElSkeleton,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
-import { readAdminTaxonomy, readAdminTaxonomyDependencies,
-  type AdminTaxonomyDependencies, type AdminTaxonomyPage } from '../../../Contracts/admin-taxonomy'
-import { taxonomyMetadataAvailable } from '../../../Contracts/admin-tag-metadata'
+import { readAdminTaxonomy, type AdminTaxonomyItem, type AdminTaxonomyPage } from '../../../Contracts/admin-taxonomy'
+import { deleteTaxonomy, taxonomyMetadataAvailable } from '../../../Contracts/admin-tag-metadata'
 import AdminTagMetadata from './AdminTagMetadata.vue'
 
 type TaxonomyKind = Parameters<typeof readAdminTaxonomy>[0]
-type ReferenceDetails = { name: string } & (
-  { state: 'loading' } |
-  { state: 'ready'; counts: AdminTaxonomyDependencies } |
-  { state: 'failed'; message: MessageKey }
-)
+
 const props = defineProps<{ initialKind: TaxonomyKind; active: boolean }>()
-const emit = defineEmits<{ 'session-lost': [error: ApiError] }>()
+const emit = defineEmits<{
+  'session-lost': [error: ApiError]
+  'view-articles': [filter: { kind: 'category' | 'tag'; id: number; name: string }]
+}>()
 const kind = ref<TaxonomyKind>(props.initialKind)
-const metadataKind = computed(() => kind.value === 'categories' ? 'category' : 'tag')
+const metadataKind = computed<'category' | 'tag'>(() => kind.value === 'categories' ? 'category' : 'tag')
 const kindLabel = computed(() => t(kind.value === 'categories' ? 'admin.taxonomy.kindCategory' : 'admin.taxonomy.kindTag'))
-const kindsLabel = computed(() => t(kind.value === 'categories' ? 'admin.taxonomy.kindsCategories' : 'admin.taxonomy.kindsTags'))
-const metadataLabel = computed(() => kind.value === 'categories' ? t('admin.taxonomy.m1') : t('admin.taxonomy.m2'))
 const page = shallowRef<AdminTaxonomyPage>()
 const cursors = shallowRef<readonly (number | null)[]>([null])
 const pageNumber = ref(0)
 const pending = ref(false)
 const failure = ref<'forbidden' | 'request'>()
 const canEditMetadata = ref(false)
-const target = ref<number>()
+const searchQuery = ref('')
 const edited = ref<number>()
-const notice = ref<{ key: MessageKey; kind: TaxonomyKind }>()
+const deleteTarget = shallowRef<AdminTaxonomyItem>()
+const deleting = ref(false)
+const deleteError = ref('')
+const notice = ref<{ key: MessageKey; kind: TaxonomyKind; name?: string }>()
 const heading = ref<HTMLElement>()
-const inspectButton = ref<InstanceType<typeof ElButton>>()
-const references = shallowRef<ReferenceDetails>()
 let opener: HTMLElement | undefined
 let request: AbortController | undefined
-let referenceRequest: AbortController | undefined
+let deleteController: AbortController | undefined
 let viewGeneration = 0
+
+const filteredItems = computed(() => {
+  const items = page.value?.items ?? []
+  const query = searchQuery.value.trim().toLocaleLowerCase()
+  if (!query) return items
+  return items.filter(item => item.name.toLocaleLowerCase().includes(query))
+})
+
+const editorTitle = computed(() => {
+  if (edited.value === undefined) return ''
+  return edited.value === 0
+    ? t('admin.tagMetadata.m7', { kind: kindLabel.value })
+    : t('admin.tagMetadata.m8', { kind: kindLabel.value })
+})
 
 async function load(index: number) {
   viewGeneration++
-  clearReferences()
   request?.abort()
   const current = new AbortController()
   const listKind = kind.value
@@ -51,7 +61,8 @@ async function load(index: number) {
   request = current
   page.value = undefined
   edited.value = undefined
-  target.value = undefined
+  deleteTarget.value = undefined
+  deleteError.value = ''
   canEditMetadata.value = false
   failure.value = undefined
   pageNumber.value = index
@@ -60,7 +71,6 @@ async function load(index: number) {
     const data = await readAdminTaxonomy(listKind, cursors.value[index] ?? null, current.signal)
     if (current.signal.aborted) return
     page.value = data
-    // Listing and reference inspection do not depend on the optional writer.
     pending.value = false
     const enabled = await taxonomyMetadataAvailable(itemKind, current.signal).catch(() => false)
     if (!current.signal.aborted) canEditMetadata.value = enabled
@@ -76,51 +86,11 @@ async function load(index: number) {
   }
 }
 
-function clearReferences() {
-  referenceRequest?.abort()
-  referenceRequest = undefined
-  references.value = undefined
-}
-
-async function inspectReferences() {
-  const item = page.value?.items.find(entry => entry.id === target.value)
-  if (!item || references.value?.state === 'loading') return
-  clearReferences()
-  const currentKind = kind.value
-  const current = new AbortController()
-  referenceRequest = current
-  references.value = { name: item.name, state: 'loading' }
-  try {
-    const counts = await readAdminTaxonomyDependencies(currentKind, item.id, current.signal)
-    if (!current.signal.aborted) references.value = { name: item.name, state: 'ready', counts }
-  } catch (error) {
-    if (current.signal.aborted) return
-    if (error instanceof ApiError && error.status === 401) {
-      clearReferences()
-      emit('session-lost', error)
-    } else {
-      const message = error instanceof ApiError && error.status === 403
-        ? 'admin.taxonomy.m33' : 'admin.taxonomy.m34'
-      references.value = { name: item.name, state: 'failed', message }
-    }
-  } finally {
-    if (referenceRequest === current) referenceRequest = undefined
-  }
-}
-
-async function closeReferences() {
-  const id = target.value
-  const view = viewGeneration
-  clearReferences()
-  await nextTick()
-  if (view === viewGeneration && target.value === id && !references.value) inspectButton.value?.ref?.focus()
-}
-
-function openEditor(id: number | undefined, event: Event) {
-  if (id === undefined || edited.value !== undefined || !canEditMetadata.value) return
+function openEditor(id: number, event?: Event) {
+  if (edited.value !== undefined || !canEditMetadata.value) return
   edited.value = id
   notice.value = undefined
-  opener = event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined
+  opener = event?.currentTarget instanceof HTMLElement ? event.currentTarget : undefined
 }
 
 async function closeEditor(saved: boolean) {
@@ -142,6 +112,61 @@ async function closeEditor(saved: boolean) {
   else heading.value?.focus()
 }
 
+function openDelete(item: AdminTaxonomyItem) {
+  if (deleting.value || !canEditMetadata.value) return
+  deleteError.value = ''
+  deleteTarget.value = item
+}
+
+async function confirmDelete() {
+  const item = deleteTarget.value
+  if (!item || deleting.value || item.retainedArticles > 0) return
+  deleting.value = true
+  deleteError.value = ''
+  deleteController?.abort()
+  const controller = new AbortController()
+  deleteController = controller
+  try {
+    await deleteTaxonomy(metadataKind.value, item.id, controller.signal)
+    if (controller.signal.aborted) return
+    const deletedName = item.name
+    deleteTarget.value = undefined
+    notice.value = { key: 'admin.taxonomy.deleted', kind: kind.value, name: deletedName }
+    await load(pageNumber.value)
+  } catch (error) {
+    if (controller.signal.aborted) return
+    if (error instanceof ApiError && error.status === 401) {
+      deleteTarget.value = undefined
+      emit('session-lost', error)
+    } else if (error instanceof ApiError && error.status === 409) {
+      deleteError.value = error.message
+    } else {
+      deleteError.value = t('admin.taxonomy.deleteFailed', { kind: kindLabel.value })
+    }
+  } finally {
+    if (deleteController === controller) deleteController = undefined
+    deleting.value = false
+  }
+}
+
+function viewLinkedArticles(item: AdminTaxonomyItem) {
+  deleteTarget.value = undefined
+  emit('view-articles', { kind: metadataKind.value, id: item.id, name: item.name })
+}
+
+function formatOtherStates(item: AdminTaxonomyItem) {
+  if (item.drafts === 0 && item.scheduled === 0 && item.retracted === 0 && item.deleted === 0 && item.retainedArticles === item.published) {
+    return t('admin.taxonomy.noOtherStates')
+  }
+  return t('admin.taxonomy.otherStateSummary', {
+    drafts: item.drafts,
+    scheduled: item.scheduled,
+    retracted: item.retracted,
+    deleted: item.deleted,
+    retained: item.retainedArticles,
+  })
+}
+
 function next() {
   if (pending.value || !page.value?.nextId) return
   cursors.value = [...cursors.value.slice(0, pageNumber.value + 1), page.value.nextId]
@@ -150,17 +175,15 @@ function next() {
 
 onMounted(() => { void load(0) })
 watch(() => props.active, active => {
-  // Preserve an open metadata editor; otherwise a revisit starts from fresh page-one facts.
-  if (!active || edited.value !== undefined) return
+  if (!active || edited.value !== undefined || deleteTarget.value !== undefined) return
   cursors.value = [null]
   notice.value = undefined
   void load(0)
 })
-watch(target, clearReferences, { flush: 'sync' })
 onBeforeUnmount(() => {
   viewGeneration++
   request?.abort()
-  clearReferences()
+  deleteController?.abort()
 })
 </script>
 
@@ -178,94 +201,78 @@ onBeforeUnmount(() => {
       <ElButton class="taxonomy-refresh" native-type="button" text :disabled="pending || edited !== undefined" @click="load(pageNumber)">{{ t('admin.articles.refresh') }}</ElButton>
     </template>
 
-    <p v-if="notice" class="taxonomy-status" role="status">{{ t(notice.key, { label: t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2') }) }}</p>
+    <p v-if="notice" class="taxonomy-status" role="status">{{ t(notice.key, { label: notice.name ? `${kindLabel}「${notice.name}」` : t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2') }) }}</p>
     <ElSkeleton v-if="pending" :rows="3" animated />
     <ElAlert v-else-if="failure === 'forbidden'" :title="t('admin.taxonomy.m7')" type="warning" :closable="false" show-icon />
     <ElAlert v-else-if="failure === 'request'" :title="t('admin.taxonomy.m8')" type="error" :closable="false" show-icon>
       <ElButton native-type="button" text @click="load(pageNumber)">{{ t('admin.taxonomy.m9') }}</ElButton>
     </ElAlert>
     <template v-else-if="page">
-      <ElInlineActions v-if="canEditMetadata">
-        <ElButton native-type="button" :disabled="edited !== undefined" @click="openEditor(0, $event)">{{ t('admin.taxonomy.m41', { kind: kindLabel }) }}</ElButton>
-      </ElInlineActions>
-      <AdminTagMetadata
-        v-if="edited !== undefined"
-        :key="`${kind}:${edited}`"
-        :kind="metadataKind"
-        :id="edited"
-        @close="closeEditor(false)"
-        @saved="closeEditor(true)"
-        @session-lost="emit('session-lost', $event)"
-      />
+      <div class="taxonomy-toolbar">
+        <ElInput
+          v-model="searchQuery"
+          class="taxonomy-search-input"
+          :placeholder="t('admin.taxonomy.searchPlaceholder', { kind: kindLabel })"
+          :label="t('admin.taxonomy.searchPlaceholder', { kind: kindLabel })"
+          clearable
+        />
+        <ElButton
+          v-if="canEditMetadata"
+          native-type="button"
+          type="primary"
+          :disabled="edited !== undefined"
+          @click="openEditor(0, $event)"
+        >
+          {{ t('admin.taxonomy.m41', { kind: kindLabel }) }}
+        </ElButton>
+      </div>
+
       <ElEmptyState v-if="page.items.length === 0" size="inline" :title="kind === 'categories' ? t('admin.taxonomy.m10') : t('admin.taxonomy.m11')" />
+      <ElEmptyState v-else-if="filteredItems.length === 0" size="inline" :title="t('admin.taxonomy.noSearchMatch', { kind: kindLabel })" />
       <div v-else class="taxonomy-table-scroll" tabindex="0" role="region" :aria-label="t('admin.taxonomy.m12')" :aria-describedby="`taxonomy-count-notes-${kind}`">
         <table>
-          <caption>{{ kind === 'categories' ? t('admin.taxonomy.m13') : t('admin.taxonomy.m14') }}</caption>
           <thead>
             <tr>
               <th scope="col">{{ kind === 'categories' ? t('admin.taxonomy.m1') : t('admin.taxonomy.m2') }}</th>
               <th scope="col">{{ t('admin.taxonomy.m15') }}</th>
-              <th scope="col">{{ t('admin.taxonomy.m16') }}</th>
-              <th scope="col">{{ t('admin.taxonomy.m17') }}</th>
-              <th scope="col">{{ t('admin.taxonomy.m18') }}</th>
-              <th scope="col">{{ t('admin.taxonomy.m19') }}</th>
-              <th scope="col">{{ t('admin.taxonomy.m20') }}</th>
+              <th scope="col">{{ t('admin.taxonomy.otherStates') }}</th>
+              <th scope="col">{{ t('admin.taxonomy.actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="item in page.items" :key="item.id">
+            <tr v-for="item in filteredItems" :key="item.id">
               <th scope="row">{{ item.name }}</th>
-              <td>{{ item.published }}</td>
-              <td>{{ item.drafts }}</td>
-              <td>{{ item.scheduled }}</td>
-              <td>{{ item.retracted }}</td>
-              <td>{{ item.deleted }}</td>
-              <td>{{ item.retainedArticles }}</td>
+              <td>
+                <ElButton
+                  v-if="item.published > 0"
+                  native-type="button"
+                  text
+                  size="small"
+                  class="taxonomy-count-link"
+                  @click="viewLinkedArticles(item)"
+                >
+                  {{ item.published }}
+                </ElButton>
+                <span v-else>0</span>
+              </td>
+              <td class="taxonomy-other-states">{{ formatOtherStates(item) }}</td>
+              <td class="taxonomy-row-actions">
+                <ElInlineActions>
+                  <ElButton native-type="button" text size="small" @click="viewLinkedArticles(item)">
+                    {{ t('admin.taxonomy.viewArticles') }}
+                  </ElButton>
+                  <ElButton v-if="canEditMetadata" native-type="button" text size="small" :disabled="edited !== undefined" @click="openEditor(item.id, $event)">
+                    {{ t('admin.taxonomy.edit') }}
+                  </ElButton>
+                  <ElButton v-if="canEditMetadata" native-type="button" text size="small" type="danger" :disabled="deleting" @click="openDelete(item)">
+                    {{ t('admin.taxonomy.delete') }}
+                  </ElButton>
+                </ElInlineActions>
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-
-      <div v-if="page.items.length" class="taxonomy-actions" role="group" :aria-label="t(canEditMetadata ? 'admin.taxonomy.m46' : 'admin.taxonomy.m47', { kind: kindsLabel })">
-        <label :for="`admin-${metadataKind}-target`" class="taxonomy-select-label">{{ t(canEditMetadata ? 'admin.taxonomy.m48' : 'admin.taxonomy.m49', { label: metadataLabel }) }}</label>
-        <ElSelect
-          :id="`admin-${metadataKind}-target`"
-          v-model="target"
-          class="taxonomy-select"
-          :ariaLabel="t(canEditMetadata ? 'admin.taxonomy.m48' : 'admin.taxonomy.m49', { label: metadataLabel })"
-          :placeholder="t('admin.taxonomy.m42', { kind: kindLabel })"
-        >
-          <ElOption v-for="item in page.items" :key="item.id" :label="item.name" :value="item.id" />
-        </ElSelect>
-        <ElInlineActions>
-          <ElButton ref="inspectButton" native-type="button" text :disabled="!target || references?.state === 'loading'" @click="inspectReferences">
-            {{ t('admin.taxonomy.m21') }}
-          </ElButton>
-          <ElButton v-if="canEditMetadata" native-type="button" text :disabled="!target || edited !== undefined" @click="openEditor(target, $event)">
-            {{ t('admin.taxonomy.m43', { kind: kindLabel }) }}
-          </ElButton>
-        </ElInlineActions>
-      </div>
-
-      <section v-if="references" class="taxonomy-references" :aria-label="t('admin.taxonomy.m22')" :aria-busy="references.state === 'loading'">
-        <h3>{{ t('admin.taxonomy.m44', { name: references.name }) }}</h3>
-        <p v-if="references.state === 'loading'" class="taxonomy-status" role="status">{{ t('admin.taxonomy.m23') }}</p>
-        <ElAlert v-else-if="references.state === 'failed'" :title="t(references.message)" type="error" :closable="false" />
-        <template v-else>
-          <ElKeyValueGrid density="compact">
-            <ElKeyValueItem :label="t('admin.taxonomy.m24')" :value="String(references.counts.activeArticles)" />
-            <ElKeyValueItem :label="t('admin.taxonomy.m25')" :value="String(references.counts.retainedOnlyArticles)" />
-            <ElKeyValueItem :label="t('admin.taxonomy.m26')" :value="String(references.counts.reservedAliases)" />
-          </ElKeyValueGrid>
-          <p v-if="references.counts.activeArticles || references.counts.retainedOnlyArticles || references.counts.reservedAliases" class="taxonomy-ref-note">
-            {{ t('admin.taxonomy.m27') }}
-          </p>
-          <p v-else class="taxonomy-ref-note">{{ t('admin.taxonomy.m28') }}</p>
-        </template>
-        <ElInlineActions>
-          <ElButton native-type="button" text @click="closeReferences">{{ t('admin.taxonomy.m29') }}</ElButton>
-        </ElInlineActions>
-      </section>
 
       <p v-if="page.items.length" :id="`taxonomy-count-notes-${kind}`" class="taxonomy-notes">
         <span class="taxonomy-scroll-note">{{ t('admin.taxonomy.m50') }}</span>
@@ -280,6 +287,65 @@ onBeforeUnmount(() => {
         </ElInlineActions>
       </nav>
     </template>
+
+    <ElDialog
+      :model-value="edited !== undefined"
+      :title="editorTitle"
+      width="min(30rem, 92vw)"
+      @update:model-value="visible => { if (!visible) closeEditor(false) }"
+    >
+      <AdminTagMetadata
+        v-if="edited !== undefined"
+        :key="`${kind}:${edited}`"
+        :kind="metadataKind"
+        :id="edited"
+        @close="closeEditor(false)"
+        @saved="closeEditor(true)"
+        @session-lost="emit('session-lost', $event)"
+      />
+    </ElDialog>
+
+    <ElDialog
+      :model-value="!!deleteTarget"
+      :title="t('admin.taxonomy.deleteTitle', { kind: kindLabel })"
+      width="min(28rem, 92vw)"
+      :close-on-press-escape="!deleting"
+      :close-on-click-modal="!deleting"
+      :show-close="!deleting"
+      @update:model-value="visible => { if (!visible && !deleting) deleteTarget = undefined }"
+    >
+      <div v-if="deleteTarget" class="taxonomy-delete-body">
+        <ElAlert v-if="deleteError" :title="deleteError" type="error" :closable="false" />
+        <p v-if="deleteTarget.retainedArticles > 0">
+          {{ t('admin.taxonomy.deleteBlocked', { kind: kindLabel, name: deleteTarget.name, count: deleteTarget.retainedArticles }) }}
+        </p>
+        <p v-else>
+          {{ t('admin.taxonomy.deleteConfirm', { kind: kindLabel, name: deleteTarget.name }) }}
+        </p>
+      </div>
+      <template #footer>
+        <ElInlineActions>
+          <ElButton native-type="button" :disabled="deleting" @click="deleteTarget = undefined">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
+          <ElButton
+            v-if="deleteTarget && deleteTarget.retainedArticles > 0"
+            native-type="button"
+            type="primary"
+            @click="viewLinkedArticles(deleteTarget)"
+          >
+            {{ t('admin.taxonomy.goViewArticles') }}
+          </ElButton>
+          <ElButton
+            v-else-if="deleteTarget"
+            native-type="button"
+            type="danger"
+            :loading="deleting"
+            @click="confirmDelete"
+          >
+            {{ t('admin.taxonomy.deleteAction') }}
+          </ElButton>
+        </ElInlineActions>
+      </template>
+    </ElDialog>
   </ElSettingsSection>
 </template>
 
@@ -289,9 +355,21 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 
+.taxonomy-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.taxonomy-search-input {
+  flex: 1 1 14rem;
+  max-width: 22rem;
+}
+
 .taxonomy-status,
-.taxonomy-notes,
-.taxonomy-ref-note {
+.taxonomy-notes {
   margin: 0;
   font-size: var(--el-font-size-small);
   color: var(--el-text-color-secondary);
@@ -304,18 +382,6 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
-.taxonomy-select-label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
-}
-
-.taxonomy-select {
-  flex: 0 1 15rem;
-  min-inline-size: 11rem;
-  max-inline-size: 100%;
-}
-
 .taxonomy-table-scroll {
   overflow-x: auto;
   border: 1px solid var(--el-border-color-lighter);
@@ -326,22 +392,6 @@ onBeforeUnmount(() => {
 .taxonomy-table-scroll:focus-visible {
   outline: 2px solid var(--el-color-primary);
   outline-offset: 2px;
-}
-
-.taxonomy-references {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 12px);
-  background: var(--fsus-color-surface-raised, var(--el-fill-color-light));
-}
-
-.taxonomy-references h3 {
-  margin: 0;
-  font-size: var(--el-font-size-base);
-  font-weight: 600;
-  color: var(--el-text-color-primary);
 }
 
 .taxonomy-page-status {
@@ -360,22 +410,16 @@ table {
   font-variant-numeric: tabular-nums;
 }
 
-caption {
-  text-align: start;
-  padding: 12px 14px 8px;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-}
-
 th, td {
   padding: 10px 14px;
-  text-align: end;
+  text-align: start;
   border-block-start: 1px solid var(--el-border-color-lighter);
   white-space: nowrap;
   font-size: var(--el-font-size-small);
 }
 
 thead th {
+  border-block-start: none;
   background: var(--fsus-color-surface-raised, var(--el-fill-color-light));
   color: var(--el-text-color-secondary);
   font-weight: 600;
@@ -388,10 +432,35 @@ tbody tr:hover {
 th:first-child {
   min-width: 8rem;
   max-width: 18rem;
-  text-align: start;
   white-space: normal;
   overflow-wrap: anywhere;
   color: var(--el-text-color-primary);
+}
+
+.taxonomy-count-link {
+  padding: 0 4px;
+  min-height: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.taxonomy-other-states {
+  color: var(--el-text-color-secondary);
+  white-space: normal;
+}
+
+.taxonomy-row-actions {
+  white-space: nowrap;
+}
+
+.taxonomy-delete-body {
+  display: grid;
+  gap: 10px;
+}
+
+.taxonomy-delete-body p {
+  margin: 0;
+  color: var(--el-text-color-regular);
+  line-height: 1.5;
 }
 
 @media (max-width: 46rem) {

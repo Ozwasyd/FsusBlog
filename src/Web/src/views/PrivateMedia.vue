@@ -199,7 +199,7 @@ onBeforeUnmount(() => scope.abort())
   <main class="media-page">
     <ElTaskPageHeader :title="t('account.message78')" />
     <ElEmptyState v-if="!currentSession?.canAuthor" :title="t('account.message79')">
-      <RouterLink v-if="!currentSession" to="/login">{{ t('account.message80') }}</RouterLink>
+      <RouterLink v-if="!currentSession" to="/admin/identity">{{ t('account.message80') }}</RouterLink>
     </ElEmptyState>
     <template v-else>
       <ElAlert v-if="!available" type="info" :title="t('account.message81')" :closable="false" />

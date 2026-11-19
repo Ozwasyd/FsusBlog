@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Analytics;
 using FsusBlog.V2.Server.Comments;
 using FsusBlog.V2.Server.Operations;
@@ -16,8 +17,18 @@ internal static class AdminIdentityEndpoints
     private const string PublicOriginSetting = "FSUSBLOG_PUBLIC_ORIGIN";
     private const string ApiPath = "/api/v2/admin/identity";
     private static readonly string[] DocumentPaths =
-        ["/admin", "/admin/articles", "/admin/interaction", "/admin/site", "/admin/system", "/admin/identity"];
+        ["/admin", "/admin/articles", "/admin/articles/write", "/admin/articles/workspace", "/admin/canvas", "/admin/assets", "/admin/interaction", "/admin/site", "/admin/system", "/admin/identity"];
+    private static readonly string[] ParameterizedDocumentPaths =
+        ["/admin/articles/edit/{id:int}", "/admin/canvas/{id:guid}"];
     private const string Limit = "admin-passkey";
+
+    internal static string SessionCookieName(PasskeyConfiguration config) =>
+        config.Origin.Scheme == "https" ? "__Host-FsusAdminSession" : "fsus-v2-admin-session";
+
+    internal static bool IsAdminOrigin(HttpContext ctx, PasskeyConfiguration? config) =>
+        config is not null &&
+        string.Equals(config.Origin.Scheme, ctx.Request.Scheme, StringComparison.OrdinalIgnoreCase) &&
+        string.Equals(config.Origin.Authority, ctx.Request.Host.Value, StringComparison.OrdinalIgnoreCase);
 
     internal static void AddRateLimits(RateLimiterOptions options) =>
         options.AddPolicy(Limit, context => RateLimitPartition.GetFixedWindowLimiter(
@@ -27,13 +38,16 @@ internal static class AdminIdentityEndpoints
     internal static bool IsAllowed(HttpContext ctx, PasskeyConfiguration? config)
     {
         var path = ctx.Request.Path;
-        var administration = DocumentPaths.Any(document => path == document || path == document + "/") || path.StartsWithSegments(ApiPath) || AdminSitePages.IsLegacyRoute(path) ||
+        var administration = DocumentPaths.Any(document => path == document || path == document + "/") ||
+            path.StartsWithSegments("/admin/articles/edit") || path.StartsWithSegments("/admin/canvas") ||
+            path.StartsWithSegments(ApiPath) || path.StartsWithSegments("/api/v2/authoring") ||
+            path.StartsWithSegments("/api/v2/media") || AdminSitePages.IsLegacyRoute(path) ||
             path.StartsWithSegments("/api/binary/author/comments");
         if (config is null) return !administration;
-        var isAdminOrigin = string.Equals(config.Origin.Scheme, ctx.Request.Scheme, StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(config.Origin.Authority, ctx.Request.Host.Value, StringComparison.OrdinalIgnoreCase);
+        var isAdminOrigin = IsAdminOrigin(ctx, config);
         return isAdminOrigin
-            ? administration || path.StartsWithSegments("/assets") || path.StartsWithSegments("/dist")
+            ? administration || path == WireRoutes.Session || path == WireRoutes.CategoryList || path == WireRoutes.TagList ||
+              path.StartsWithSegments("/assets") || path.StartsWithSegments("/dist")
             : !administration;
     }
 
@@ -56,15 +70,20 @@ internal static class AdminIdentityEndpoints
     {
         if (config is null) return;
         var secure = config.Origin.Scheme == "https";
-        var session = secure ? "__Host-FsusAdminSession" : "fsus-v2-admin-session";
+        var session = SessionCookieName(config);
         var bootstrap = secure ? "__Host-FsusAdminBootstrap" : "fsus-v2-admin-bootstrap";
         var login = secure ? "__Host-FsusAdminAssertion" : "fsus-v2-admin-assertion";
         var store = new AdminPasskeyStore(app.Services.GetRequiredService<NpgsqlDataSource>(),
             app.Services.GetRequiredService<InstanceLease>(), config);
         var appearance = app.Services.GetService<FsusBlog.V2.Server.Content.AppearanceAssets>();
 
-        var document = app.Services.GetRequiredService<WebPages>().Page(noIndex: true, useAppearance: false);
-        foreach (var path in DocumentPaths)
+        var publicOrigin = app.Services.GetRequiredService<FsusBlog.V2.Server.Content.DistributionSettings>().Site.Origin;
+        var documentBytes = app.Services.GetRequiredService<WebPages>().Page(noIndex: true, useAppearance: false);
+        var document = string.IsNullOrEmpty(publicOrigin)
+            ? documentBytes
+            : System.Text.Encoding.UTF8.GetBytes(System.Text.Encoding.UTF8.GetString(documentBytes).Replace("</head>",
+                $"<meta name=\"fsus-public-origin\" content=\"{System.Net.WebUtility.HtmlEncode(publicOrigin)}\"></head>", StringComparison.Ordinal));
+        foreach (var path in DocumentPaths.Concat(ParameterizedDocumentPaths))
             app.MapGet(path, (HttpContext ctx) =>
             {
                 ctx.Response.Headers.CacheControl = "no-store";
@@ -95,7 +114,7 @@ internal static class AdminIdentityEndpoints
             var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
             var token = await store.CompleteLogin(input, ctx.Request.Cookies[login], ct);
             ctx.Response.Cookies.Delete(login, Cookie(WireRoutes.AdminPasskeyComplete));
-            ctx.Response.Cookies.Append(session, token, Cookie(ApiPath));
+            ctx.Response.Cookies.Append(session, token, Cookie("/"));
             return Frame(Wire.EncodeEmptySuccess());
         }).RequireRateLimiting(Limit);
         app.MapGet(WireRoutes.AdminSession, async (HttpContext ctx, CancellationToken ct) =>
@@ -152,9 +171,9 @@ internal static class AdminIdentityEndpoints
         AdminCommentRevisions.Map(app, store, session);
         AdminArticleTrashRestore.Map(app, config.Origin, store, session, Limit, readFrame);
         AdminArticleTrashPublication.Map(app, config.Origin, store, session, Limit, readFrame);
-        if (app.Configuration.GetValue(AdminTagMetadataEndpoints.Setting, false))
+        if (app.Configuration.GetValue<bool?>(AdminTagMetadataEndpoints.Setting) ?? (config.Origin.Scheme == Uri.UriSchemeHttps))
             AdminTagMetadataEndpoints.Map(app, config.Origin, store, session, readFrame);
-        if (app.Configuration.GetValue(AdminTagMetadataEndpoints.CategorySetting, false))
+        if (app.Configuration.GetValue<bool?>(AdminTagMetadataEndpoints.CategorySetting) ?? (config.Origin.Scheme == Uri.UriSchemeHttps))
             AdminTagMetadataEndpoints.Map(app, config.Origin, store, session, readFrame, category: true);
         if (app.Configuration.GetValue(AdminArticleRollbackEndpoints.Setting, false))
             AdminArticleRollbackEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
@@ -181,10 +200,16 @@ internal static class AdminIdentityEndpoints
             ctx.Response.Headers.CacheControl = "no-store";
             return store.ArticleInventory(ctx.Request.Cookies[session], ctx, query, ct);
         }).RequireRateLimiting("command");
+        app.MapPost(WireRoutes.AdminArticleDelete, (HttpContext ctx, int id, Publications publications, CancellationToken ct) =>
+        {
+            if (id <= 0) throw new BusinessException(Rejection.Invalid, "Invalid article ID.");
+            return publications.AdministrativePublication(
+                invalidate => store.DeleteArticle(ctx.Request.Cookies[session], id, invalidate, ct), ct);
+        }).RequireRateLimiting("command");
         app.MapPost(WireRoutes.AdminSignOut, async (HttpContext ctx, CancellationToken ct) =>
         {
             await store.SignOut(ctx.Request.Cookies[session], ct);
-            ctx.Response.Cookies.Delete(session, Cookie(ApiPath));
+            ctx.Response.Cookies.Delete(session, Cookie("/"));
             return Frame(Wire.EncodeEmptySuccess());
         }).RequireRateLimiting("command");
 

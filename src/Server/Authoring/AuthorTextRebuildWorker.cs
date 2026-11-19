@@ -86,7 +86,9 @@ internal sealed class AuthorTextRebuildWorker(NpgsqlDataSource source, InstanceL
     private static async Task Process(NpgsqlConnection db, NpgsqlTransaction tx, Job job, CancellationToken ct)
     {
         await using (var account = Store.Sql(db, tx, """
-            select enabled and can_author and generation=$2 from public.blog_user where id=$1 for share
+            select p.enabled and p.generation=$2
+                and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write')
+            from public.admin_principal p where p.id=$1 for share
             """, job.Owner, job.OwnerGeneration))
         {
             account.CommandTimeout = 3;

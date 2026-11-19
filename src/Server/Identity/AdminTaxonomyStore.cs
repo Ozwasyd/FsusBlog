@@ -81,9 +81,10 @@ internal sealed partial class AdminPasskeyStore
             select a.deleted,a.published_revision,a.publication_count,
                    bool_or(l.revision=a.revision) as current,
                    bool_or(l.revision=coalesce(a.published_revision,0)) as published,
-                   exists(select from public.article_schedule s join public.blog_user u on u.id=s.actor_id
+                   exists(select from public.article_schedule s join public.admin_principal p on p.id=s.actor_id
                           where s.article_id=a.id and s.revision=a.revision and s.actor_id=a.owner_id
-                            and s.generation=u.generation and u.enabled and u.can_author) as scheduled
+                            and s.generation=p.generation and p.enabled
+                            and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write')) as scheduled
             from public.{links} l join public.article a on a.id=l.article_id
             where l.{key}={coordinate} group by a.id
             """;

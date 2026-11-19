@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef } from 'vue'
-import { ElAlert, ElButton, ElFormSection, ElInlineActions, ElInput } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElInlineActions, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { changeTaxonomyMetadata, currentTaxonomyMetadata, normalizeTaxonomyMetadata, type AdminMetadataKind,
   type AdminTaxonomyMetadata, type AdminTaxonomyMetadataEdit } from '../../../Contracts/admin-tag-metadata'
@@ -83,46 +83,48 @@ onScopeDispose(() => lifetime.abort())
 </script>
 
 <template>
-  <section class="tag-metadata-editor" :aria-label="heading" :aria-busy="busy">
-    <ElFormSection title-tag="h3" density="compact">
-      <template #title>{{ heading }}</template>
-      <ElAlert
-        v-if="error"
-        :title="typeof error === 'string' ? error : t(error.key, { kind: t(error.kind === 'tag' ? 'admin.tagMetadata.kindTag' : 'admin.tagMetadata.kindCategory') })"
-        type="error"
-        :closable="false"
-      />
-      <form v-if="creating || current" class="tag-metadata-form" @submit.prevent="save">
-        <div class="tag-metadata-field">
-          <label :for="`admin-${kind}-name`">{{ t('admin.tagMetadata.m16', { label }) }}</label>
-          <ElInput :id="`admin-${kind}-name`" v-model="name" :disabled="busy || !!outstanding || stale" />
-        </div>
-        <div class="tag-metadata-field">
-          <label :for="`admin-${kind}-description`">{{ t('admin.tagMetadata.m17', { label }) }}</label>
-          <ElInput :id="`admin-${kind}-description`" v-model="description" type="textarea" :disabled="busy || !!outstanding || stale" />
-        </div>
-        <ElAlert v-if="!normalized" :title="warning" type="warning" :closable="false" />
-        <ElInlineActions>
-          <ElButton v-if="!stale" native-type="submit" type="primary" :disabled="!normalized || busy" :loading="busy">
-            {{ submitLabel }}
-          </ElButton>
-          <ElButton v-if="!creating && (stale || !current)" native-type="button" :disabled="busy" @click="load">{{ t('admin.tagMetadata.m18', { kind: kindLabel }) }}</ElButton>
-          <ElButton native-type="button" :disabled="busy" @click="emit('close')">{{ t('admin.tagMetadata.m19', { kind: kindLabel }) }}</ElButton>
-        </ElInlineActions>
-      </form>
-      <ElInlineActions v-else>
+  <div class="tag-metadata-editor" :aria-label="heading" :aria-busy="busy">
+    <ElAlert
+      v-if="error"
+      :title="typeof error === 'string' ? error : t(error.key, { kind: t(error.kind === 'tag' ? 'admin.tagMetadata.kindTag' : 'admin.tagMetadata.kindCategory') })"
+      type="error"
+      :closable="false"
+    />
+    <form v-if="creating || current" class="tag-metadata-form" @submit.prevent="save">
+      <div class="tag-metadata-field">
+        <label :for="`admin-${kind}-name`">{{ t('admin.tagMetadata.m16', { label }) }}</label>
+        <ElInput :id="`admin-${kind}-name`" v-model="name" :disabled="busy || !!outstanding || stale" />
+      </div>
+      <div class="tag-metadata-field">
+        <label :for="`admin-${kind}-description`">{{ t('admin.tagMetadata.m17', { label }) }}</label>
+        <ElInput :id="`admin-${kind}-description`" v-model="description" type="textarea" :disabled="busy || !!outstanding || stale" />
+      </div>
+      <ElAlert v-if="!normalized" :title="warning" type="warning" :closable="false" />
+      <ElInlineActions>
+        <ElButton native-type="button" :disabled="busy" @click="emit('close')">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
         <ElButton v-if="!creating && (stale || !current)" native-type="button" :disabled="busy" @click="load">{{ t('admin.tagMetadata.m18', { kind: kindLabel }) }}</ElButton>
-        <ElButton native-type="button" :disabled="busy" @click="emit('close')">{{ t('admin.tagMetadata.m19', { kind: kindLabel }) }}</ElButton>
+        <ElButton v-if="!stale" native-type="submit" type="primary" :disabled="!normalized || busy" :loading="busy">
+          {{ submitLabel }}
+        </ElButton>
       </ElInlineActions>
-    </ElFormSection>
-  </section>
+    </form>
+    <ElInlineActions v-else>
+      <ElButton native-type="button" :disabled="busy" @click="emit('close')">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
+      <ElButton v-if="!creating && (stale || !current)" native-type="button" :disabled="busy" @click="load">{{ t('admin.tagMetadata.m18', { kind: kindLabel }) }}</ElButton>
+    </ElInlineActions>
+  </div>
 </template>
 
 <style scoped>
+.tag-metadata-editor,
 .tag-metadata-form,
 .tag-metadata-field {
   display: grid;
-  gap: 8px;
+  gap: 12px;
+}
+
+.tag-metadata-field {
+  gap: 6px;
 }
 
 .tag-metadata-field label {

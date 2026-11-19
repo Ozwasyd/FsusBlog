@@ -3,7 +3,7 @@ import { t } from '../siteLocale'
 import ArchiveTimeline from '../components/ArchiveTimeline.vue'
 import { computed, onScopeDispose, shallowRef, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { ElAlert, ElButton, ElInput, ElLink } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElInput, ElLink, ElPaginationBar } from '@ozwasyd/element-plus'
 import { api, ApiError, type ArticleCard } from '../../../Contracts/client'
 import type { PopularArticle } from '../../../Contracts/article-hot'
 import { normalizeLocalSearchQuery } from '../../../Contracts/local-search.ts'
@@ -193,19 +193,35 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
         </article>
       </li>
     </ol>
-    <nav v-if="isSearch && !loading && !failed && !searchRouteTooLong && query && (page > 1 || searchTotal > pageSize)" :aria-label="t('reading.searchPages')" class="page-links">
-      <RouterLink v-if="searchPageOutOfRange" :to="{ query: { q: query } }" custom v-slot="{ href, navigate }">
-        <ElLink :href="href" @click="navigate">{{ t('reading.firstPage') }}</ElLink>
-      </RouterLink>
-      <RouterLink v-else-if="page > 1" :to="{ query: { q: query, page: page - 1 } }">{{ t('reading.previous') }}</RouterLink>
-      <span aria-current="page">{{ t('reading.pageNumber', { page }) }}</span>
-      <RouterLink v-if="page * pageSize < searchTotal" :to="{ query: { q: query, page: page + 1 } }">{{ t('reading.next') }}</RouterLink>
-    </nav>
-    <nav v-if="!isSearch && !loading && !failed && !cursorExpired && !missing && (nextCursor || page > 1)" :aria-label="t('reading.articlePages')" class="page-links">
-      <RouterLink v-if="page > 1" :to="{ query: previousPageQuery }">{{ t(page > 2 && !priorCursor ? 'reading.firstPage' : 'reading.previous') }}</RouterLink>
-      <span aria-current="page">{{ t('reading.pageNumber', { page }) }}</span>
-      <RouterLink v-if="nextCursor" :to="{ query: { page: page + 1, cursor: nextCursor } }">{{ t('reading.next') }}</RouterLink>
-    </nav>
+    <ElPaginationBar v-if="isSearch && !loading && !failed && !searchRouteTooLong && query && (page > 1 || searchTotal > pageSize)" :ariaLabel="t('reading.searchPages')" class="page-links">
+      <template #summary>
+        <span aria-current="page">{{ t('reading.pageNumber', { page }) }}</span>
+      </template>
+      <template #pagination>
+        <RouterLink v-if="searchPageOutOfRange" :to="{ query: { q: query } }" custom v-slot="{ href, navigate }">
+          <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t('reading.firstPage') }}</ElButton>
+        </RouterLink>
+        <RouterLink v-else-if="page > 1" :to="{ query: { q: query, page: page - 1 } }" custom v-slot="{ href, navigate }">
+          <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t('reading.previous') }}</ElButton>
+        </RouterLink>
+        <RouterLink v-if="page * pageSize < searchTotal" :to="{ query: { q: query, page: page + 1 } }" custom v-slot="{ href, navigate }">
+          <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t('reading.next') }}</ElButton>
+        </RouterLink>
+      </template>
+    </ElPaginationBar>
+    <ElPaginationBar v-if="!isSearch && !loading && !failed && !cursorExpired && !missing && (nextCursor || page > 1)" :ariaLabel="t('reading.articlePages')" class="page-links">
+      <template #summary>
+        <span aria-current="page">{{ t('reading.pageNumber', { page }) }}</span>
+      </template>
+      <template #pagination>
+        <RouterLink v-if="page > 1" :to="{ query: previousPageQuery }" custom v-slot="{ href, navigate }">
+          <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t(page > 2 && !priorCursor ? 'reading.firstPage' : 'reading.previous') }}</ElButton>
+        </RouterLink>
+        <RouterLink v-if="nextCursor" :to="{ query: { page: page + 1, cursor: nextCursor } }" custom v-slot="{ href, navigate }">
+          <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t('reading.next') }}</ElButton>
+        </RouterLink>
+      </template>
+    </ElPaginationBar>
   </section>
 </template>
 

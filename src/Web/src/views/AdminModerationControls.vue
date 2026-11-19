@@ -2,9 +2,9 @@
 import { t, type MessageKey } from '../siteLocale'
 import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import {
-  ElAlert, ElButton, ElCheckbox, ElCopyableDetail, ElEmptyState, ElFormSection,
-  ElInlineActions, ElInput, ElResourceList,
-  ElResourceListItem, ElSettingsSection, ElSkeleton, ElTag, ElTimeline, ElTimelineItem,
+  ElAlert, ElButton, ElCheckbox, ElCopyableDetail, ElDialog, ElEmptyState,
+  ElInlineActions, ElInput, ElResourceList, ElResourceListItem,
+  ElSkeleton, ElTag, ElTimeline, ElTimelineItem,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminCommentQueue, type AdminCommentCursor, type AdminCommentQueue } from '../../../Contracts/admin-identity'
@@ -22,7 +22,6 @@ import { proveAdminModerationDecision } from '../../../Contracts/admin-step-up'
 import { readCommentRevisions, readModerationTimeline, validModerationCoordinates,
   type CommentRevisionPage, type ModerationTimeline } from '../../../Contracts/comment-moderation-timeline'
 import { WireLimits } from '../../../Contracts/wire.generated'
-import AdminAppealReview from './AdminAppealReview.vue'
 
 type ConflictMessage = { key: MessageKey; conflicts: readonly AdminCommentCursor[] }
 type DisplayMessage = MessageKey | { key: MessageKey; params: Record<string, string | number> } | ConflictMessage
@@ -59,10 +58,12 @@ const failure = ref<DisplayMessage | ''>('')
 const notice = ref<DisplayMessage | ''>('')
 const historyArticle = ref('')
 const historyComment = ref('')
+const historyDialogOpen = ref(false)
+const historyLoading = ref(false)
+const historyError = ref<MessageKey | ''>('')
 const history = shallowRef<ModerationTimeline | null>(null)
 const revisions = shallowRef<CommentRevisionPage | null>(null)
-const revisionHeading = ref<HTMLElement>()
-const canReadHistory = computed(() => !busy.value && validModerationCoordinates(historyArticle.value, historyComment.value))
+const canReadHistory = computed(() => !historyLoading.value && validModerationCoordinates(historyArticle.value, historyComment.value))
 const statuses = ['admin.moderation.m1', 'admin.moderation.m2', 'admin.moderation.m3', 'admin.moderation.m4'] as const
 const eventLabels: Record<string, MessageKey> = {
   create: 'admin.moderation.m5', approve: 'admin.moderation.m2', reject: 'admin.moderation.m3', hide: 'admin.moderation.m4', edit: 'admin.moderation.m6', delete: 'admin.moderation.m7',
@@ -104,6 +105,7 @@ watch(() => props.sessionSignal, (signal, _, onCleanup) => {
 function clearHistory() {
   history.value = null
   revisions.value = null
+  historyError.value = ''
 }
 
 watch([historyArticle, historyComment], clearHistory, { flush: 'sync' })
@@ -118,6 +120,8 @@ function clearReview() {
   failure.value = ''
   historyArticle.value = ''
   historyComment.value = ''
+  historyDialogOpen.value = false
+  historyLoading.value = false
   clearHistory()
 }
 
@@ -179,31 +183,67 @@ function load(after: AdminCommentCursor | null = null) {
   }, () => 'admin.moderation.m12')
 }
 
-function loadHistory() {
+async function openCommentHistory(row: AdminCommentCursor) {
+  historyArticle.value = String(row.articleId)
+  historyComment.value = row.commentId.toString()
+  historyDialogOpen.value = true
+  await loadHistoryAndRevisions()
+}
+
+async function loadHistoryAndRevisions(before: number | null = null) {
   const article = historyArticle.value
   const comment = historyComment.value
-  if (!validModerationCoordinates(article, comment)) return
-  return run(async signal => {
-    clearHistory()
-    const result = await readModerationTimeline(article, comment, signal)
-    if (!signal.aborted && article === historyArticle.value && comment === historyComment.value) history.value = result
-  }, error => error instanceof ApiError && error.status === 404
-    ? 'admin.moderation.m13' : 'admin.moderation.m14')
+  if (!validModerationCoordinates(article, comment) || historyLoading.value || props.sessionSignal.aborted) return
+  const signal = AbortSignal.any([lifetime.signal, reviewAuthority.signal, props.sessionSignal])
+  historyLoading.value = true
+  historyError.value = ''
+  if (!before) {
+    history.value = null
+    revisions.value = null
+  }
+  try {
+    if (before) {
+      const page = await readCommentRevisions(article, comment, before, signal)
+      if (!signal.aborted && article === historyArticle.value && comment === historyComment.value) revisions.value = page
+    } else {
+      const [timeline, page] = await Promise.all([
+        readModerationTimeline(article, comment, signal).catch(error => {
+          if (error instanceof ApiError && error.status === 404) return null
+          throw error
+        }),
+        readCommentRevisions(article, comment, null, signal).catch(error => {
+          if (error instanceof ApiError && error.status === 404) return null
+          throw error
+        }),
+      ])
+      if (signal.aborted || article !== historyArticle.value || comment !== historyComment.value) return
+      history.value = timeline
+      revisions.value = page
+      if (!timeline && !page) historyError.value = 'admin.moderation.m13'
+    }
+  } catch (error) {
+    if (signal.aborted) return
+    if (error instanceof ApiError && error.status === 401) {
+      historyDialogOpen.value = false
+      clearReview()
+      emit('sessionLost', error)
+    } else {
+      historyError.value = error instanceof ApiError && error.status === 404
+        ? 'admin.moderation.m13' : 'admin.moderation.m14'
+    }
+  } finally {
+    if (!signal.aborted) historyLoading.value = false
+  }
+}
+
+function loadHistory() {
+  historyDialogOpen.value = true
+  void loadHistoryAndRevisions()
 }
 
 function loadRevisions(before: number | null = null) {
-  if (!canReadHistory.value) return
-  const article = historyArticle.value
-  const comment = historyComment.value
-  return run(async signal => {
-    if (!before) clearHistory()
-    const page = await readCommentRevisions(article, comment, before, signal)
-    if (signal.aborted || article !== historyArticle.value || comment !== historyComment.value) return
-    revisions.value = page
-    await nextTick()
-    if (!signal.aborted) revisionHeading.value?.focus()
-  }, error => error instanceof ApiError && error.status === 404
-    ? 'admin.moderation.m15' : 'admin.moderation.m16')
+  historyDialogOpen.value = true
+  void loadHistoryAndRevisions(before)
 }
 
 function claimForReview(target: AdminCommentCursor) {
@@ -369,13 +409,11 @@ function decideBatch(decision: 1 | 2) {
 </script>
 
 <template>
-  <ElSettingsSection class="admin-moderation" ariaLabelledby="admin-moderation-heading" density="compact">
-    <template #title>
-      <span id="admin-moderation-heading">{{ t('admin.moderation.m32') }}</span>
-    </template>
-    <template #actions>
-      <ElButton native-type="button" :text="Boolean(queue)" :disabled="Boolean(claim || batchClaims)" :loading="busy" @click="load()">{{ t('admin.moderation.m33') }}</ElButton>
-    </template>
+  <section class="admin-moderation" aria-labelledby="admin-moderation-heading">
+    <h2 id="admin-moderation-heading" class="moderation-sr-title">{{ t('admin.moderation.m32') }}</h2>
+    <div class="moderation-panel-actions">
+      <ElButton native-type="button" text :disabled="Boolean(claim || batchClaims)" :loading="busy" @click="load()">{{ t('admin.moderation.refresh') }}</ElButton>
+    </div>
 
     <ElAlert v-if="failure" :title="displayMessage(failure)" type="error" :closable="false" show-icon />
     <ElAlert v-if="notice" :title="displayMessage(notice)" type="success" :closable="false" show-icon />
@@ -458,12 +496,19 @@ function decideBatch(decision: 1 | 2) {
                   <ElButton native-type="button" :disabled="busy" @click="release">{{ t('admin.moderation.m59') }}</ElButton>
                 </ElInlineActions>
               </div>
-              <ElButton
-                v-else-if="!batchClaims"
-                native-type="button"
-                :disabled="busy || Boolean(claim) || selected.size > 0"
-                @click="claimForReview(item)"
-              >{{ t('admin.moderation.m60') }}</ElButton>
+              <ElInlineActions v-else-if="!batchClaims">
+                <ElButton
+                  native-type="button"
+                  :disabled="busy || Boolean(claim) || selected.size > 0"
+                  @click="claimForReview(item)"
+                >{{ t('admin.moderation.m60') }}</ElButton>
+                <ElButton
+                  native-type="button"
+                  text
+                  :disabled="busy"
+                  @click="openCommentHistory(item)"
+                >{{ t('admin.moderation.inspectHistory') }}</ElButton>
+              </ElInlineActions>
             </div>
           </article>
         </div>
@@ -474,12 +519,8 @@ function decideBatch(decision: 1 | 2) {
       </div>
     </template>
 
-    <AdminAppealReview :session-signal="sessionSignal" @session-lost="emit('sessionLost', $event)" />
-
-    <ElFormSection title-tag="h3" ariaLabelledby="admin-comment-history-heading" density="compact">
-      <template #title>
-        <span id="admin-comment-history-heading">{{ t('admin.moderation.m34') }}</span>
-      </template>
+    <details class="moderation-lookup-details">
+      <summary>{{ t('admin.moderation.lookupById') }}</summary>
       <form id="admin-comment-history-form" class="moderation-lookup-form" @submit.prevent="loadHistory">
         <div class="moderation-lookup-fields">
           <div class="moderation-field">
@@ -496,63 +537,100 @@ function decideBatch(decision: 1 | 2) {
           <ElButton native-type="button" :disabled="!canReadHistory" @click="loadRevisions()">{{ t('admin.moderation.m38') }}</ElButton>
         </ElInlineActions>
       </form>
+    </details>
 
-      <template v-if="history">
-        <p class="moderation-status" role="status">
-          {{ t('admin.moderation.m67', { status: t(history.deleted ? 'admin.moderation.m7' : statuses[history.currentStatus]) }) }}
-        </p>
-        <ElAlert v-if="!history.consistent" :title="t('admin.moderation.m39')" type="warning" :closable="false" />
-        <ElEmptyState v-if="history.events.length === 0" size="inline" :title="t('admin.moderation.m40')" />
-        <ElTimeline v-else class="moderation-timeline">
-          <ElTimelineItem
-            v-for="(event, index) in history.events"
-            :key="index"
-            :timestamp="new Date(event.occurredAtUtc).toLocaleString()"
-            placement="top"
-          >
-            <div class="moderation-timeline-event">
-              <div class="moderation-timeline-head">
-                <strong>{{ Object.hasOwn(eventLabels, event.eventType) ? t(eventLabels[event.eventType]) : event.eventType }}</strong>
-                <template v-if="eventLabels[event.eventType] !== statuses[event.nextStatus]"> · {{ t(statuses[event.nextStatus]) }}</template>
-                · {{ event.actorType }}
-                · <time :datetime="event.occurredAtUtc">{{ new Date(event.occurredAtUtc).toLocaleString() }}</time>
-              </div>
-              <p v-if="event.reasonCode" class="moderation-body">{{ event.reasonCode }}</p>
-            </div>
-          </ElTimelineItem>
-        </ElTimeline>
-      </template>
+    <ElDialog
+      :model-value="historyDialogOpen"
+      :title="t('admin.moderation.historyTitle', { article: historyArticle, comment: historyComment })"
+      width="min(36rem, 92vw)"
+      @update:model-value="visible => { if (!visible) historyDialogOpen = false }"
+    >
+      <div class="moderation-history-dialog">
+        <ElSkeleton v-if="historyLoading" :rows="3" animated />
+        <ElAlert v-else-if="historyError" :title="t(historyError)" type="error" :closable="false" />
+        <template v-else>
+          <template v-if="history">
+            <p class="moderation-status" role="status">
+              {{ t('admin.moderation.m67', { status: t(history.deleted ? 'admin.moderation.m7' : statuses[history.currentStatus]) }) }}
+            </p>
+            <ElAlert v-if="!history.consistent" :title="t('admin.moderation.m39')" type="warning" :closable="false" />
+            <ElEmptyState v-if="history.events.length === 0" size="inline" :title="t('admin.moderation.m40')" />
+            <ElTimeline v-else class="moderation-timeline">
+              <ElTimelineItem
+                v-for="(event, index) in history.events"
+                :key="index"
+                :timestamp="new Date(event.occurredAtUtc).toLocaleString()"
+                placement="top"
+              >
+                <div class="moderation-timeline-event">
+                  <div class="moderation-timeline-head">
+                    <strong>{{ Object.hasOwn(eventLabels, event.eventType) ? t(eventLabels[event.eventType]) : event.eventType }}</strong>
+                    <template v-if="eventLabels[event.eventType] !== statuses[event.nextStatus]"> · {{ t(statuses[event.nextStatus]) }}</template>
+                    · {{ event.actorType }}
+                    · <time :datetime="event.occurredAtUtc">{{ new Date(event.occurredAtUtc).toLocaleString() }}</time>
+                  </div>
+                  <p v-if="event.reasonCode" class="moderation-body">{{ event.reasonCode }}</p>
+                </div>
+              </ElTimelineItem>
+            </ElTimeline>
+          </template>
 
-      <template v-if="revisions">
-        <h4 ref="revisionHeading" class="moderation-subheading" tabindex="-1">{{ t('admin.moderation.m41') }}</h4>
-        <ElResourceList class="moderation-revisions" density="compact">
-          <ElResourceListItem
-            v-for="revision in revisions.rows"
-            :key="revision.version"
-            :title="t('admin.moderation.m68', { version: revision.version })"
-          >
-            <template #badge>
-              <ElTag size="small" type="info">{{ revision.operation }}</ElTag>
-            </template>
-            <template #meta>
-              <time :datetime="revision.createdAtUtc">{{ new Date(revision.createdAtUtc).toLocaleString() }}</time>
-            </template>
-            <p class="moderation-body">{{ revision.content }}</p>
-            <details class="moderation-digest-details">
-              <summary>{{ t('admin.moderation.m42') }}</summary>
-              <ElCopyableDetail :value="revision.contentSha256" />
-            </details>
-          </ElResourceListItem>
-        </ElResourceList>
-        <ElInlineActions v-if="revisions.next">
-          <ElButton native-type="button" :disabled="!canReadHistory" @click="loadRevisions(revisions.next)">{{ t('admin.moderation.m43') }}</ElButton>
+          <template v-if="revisions">
+            <h4 class="moderation-subheading">{{ t('admin.moderation.m41') }}</h4>
+            <ElResourceList class="moderation-revisions" density="compact">
+              <ElResourceListItem
+                v-for="revision in revisions.rows"
+                :key="revision.version"
+                :title="t('admin.moderation.m68', { version: revision.version })"
+              >
+                <template #badge>
+                  <ElTag size="small" type="info">{{ revision.operation }}</ElTag>
+                </template>
+                <template #meta>
+                  <time :datetime="revision.createdAtUtc">{{ new Date(revision.createdAtUtc).toLocaleString() }}</time>
+                </template>
+                <p class="moderation-body">{{ revision.content }}</p>
+                <details class="moderation-digest-details">
+                  <summary>{{ t('admin.moderation.m42') }}</summary>
+                  <ElCopyableDetail :value="revision.contentSha256" />
+                </details>
+              </ElResourceListItem>
+            </ElResourceList>
+            <ElInlineActions v-if="revisions.next">
+              <ElButton native-type="button" :disabled="!canReadHistory" @click="loadRevisions(revisions.next)">{{ t('admin.moderation.m43') }}</ElButton>
+            </ElInlineActions>
+          </template>
+        </template>
+      </div>
+      <template #footer>
+        <ElInlineActions>
+          <ElButton native-type="button" @click="historyDialogOpen = false">{{ t('admin.moderation.closeHistory') }}</ElButton>
         </ElInlineActions>
       </template>
-    </ElFormSection>
-  </ElSettingsSection>
+    </ElDialog>
+  </section>
 </template>
 
 <style scoped>
+.admin-moderation {
+  display: grid;
+  gap: var(--fsus-space-2, 12px);
+}
+
+.moderation-sr-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.moderation-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .moderation-comments {
   border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--fsus-radius-panel, 12px);
@@ -560,9 +638,28 @@ function decideBatch(decision: 1 | 2) {
   overflow: hidden;
 }
 
+.moderation-lookup-details {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-panel, 12px);
+  padding: 12px 16px;
+  background: var(--fsus-color-surface-raised, var(--el-fill-color-light));
+}
+
+.moderation-lookup-details summary {
+  cursor: pointer;
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-secondary);
+}
+
+.moderation-lookup-form {
+  margin-top: 12px;
+}
+
 .moderation-lookup-form,
 .moderation-claim,
-.moderation-timeline-event {
+.moderation-timeline-event,
+.moderation-history-dialog {
   display: grid;
   gap: 10px;
 }

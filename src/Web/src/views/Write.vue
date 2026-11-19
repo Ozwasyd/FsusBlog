@@ -140,7 +140,8 @@ const validBody = computed(() => validDraftBody(original.value?.body ?? ''))
 const editable = computed(() => Boolean(currentSession.value?.canAuthor && original.value?.id === id.value && !loading.value))
 const cannotWrite = computed(() => closingTabs.value || pending.value || recoveryBlocked.value || hasConflict.value ||
   metadataDirty.value || !validBody.value || !validTitle.value)
-const publishedPath = computed(() => original.value?.published ? `/article/${original.value.id}` : '')
+const publicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
+const publishedPath = computed(() => original.value?.published && publicOrigin ? `${publicOrigin}/article/${original.value.id}` : '')
 const minimumEditorWidthRem = 29
 const splitterWidthRem = 1
 const editorArea = ref<HTMLElement>()
@@ -1282,8 +1283,8 @@ async function reloadDraft() {
   <main class="editor-page">
     <header class="editor-header">
       <div>
-        <RouterLink class="editor-back" to="/">{{ t('author.write.back') }}</RouterLink>
-        <RouterLink v-if="currentSession?.canAuthor" class="canvas-entry" to="/user/manage/canvas">{{ t('author.write.canvases') }}</RouterLink>
+        <RouterLink class="editor-back" to="/admin/articles">{{ t('author.write.back') }}</RouterLink>
+        <RouterLink v-if="currentSession?.canAuthor" class="canvas-entry" to="/admin/canvas">{{ t('author.write.canvases') }}</RouterLink>
         <h1>{{ id === undefined ? t('author.write.articleWorkspace') : id === 0 ? t('author.write.newArticle') : t('author.write.editArticle') }}</h1>
         <span v-if="editable" class="metadata">{{ original?.published ? t('author.write.published') : t('author.write.draft') }}</span>
       </div>
@@ -1364,7 +1365,7 @@ async function reloadDraft() {
     <p v-if="!authorizationReady || loading" role="status">{{ t('author.write.openingTheEditor') }}</p>
     <template v-else-if="!currentSession?.canAuthor">
       <ElAlert :title="failure || t('author.write.logInWithAnAuthorAccountToWrite')" type="info" :closable="false" />
-      <p><RouterLink :to="{ name: 'login' }">{{ t('author.write.logIn') }}</RouterLink></p>
+      <p><RouterLink to="/admin/identity">{{ t('author.write.logIn') }}</RouterLink></p>
     </template>
     <p v-else-if="id === undefined" role="status">{{ t('author.write.openAnArticleOrStartANewDraft') }}</p>
     <template v-else-if="!editable">
@@ -1383,7 +1384,7 @@ async function reloadDraft() {
           <template #before>
             <template v-if="paneFocused(pane)">
               <p v-if="notice" class="write-notice" role="status">
-                {{ notice }} <RouterLink v-if="publishedPath" :to="publishedPath">{{ t('author.write.readThePublishedArticle') }}</RouterLink>
+                {{ notice }} <a v-if="publishedPath" :href="publishedPath" target="_blank" rel="noopener">{{ t('author.write.readThePublishedArticle') }}</a>
               </p>
               <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
               <ElButton v-if="hasConflict" class="retry" @click="reloadDraft">{{ t('author.write.loadLatestRevision') }}</ElButton>

@@ -47,22 +47,18 @@ function navigatePublic(event: MouseEvent) {
   void router.push(href)
 }
 const adminArea = computed(() => route.meta.adminSection !== undefined)
+const adminAuthoringArea = computed(() => route.path.startsWith('/admin/') && route.meta.adminSection === undefined && route.name !== 'missing')
 const accountArea = computed(() => route.path.startsWith('/user/') && route.name !== 'missing')
 const accountLinks = computed(() => [
   { to: '/', label: t('nav.publicSite') },
-  ...(currentSession.value?.canAuthor ? [
-    { to: '/user/manage/article/list', label: t('nav.articles') },
-    { to: '/user/manage/assets', label: t('nav.assets') },
-  ] : []),
   ...(currentSession.value ? [
     { to: '/user/messagebox', label: t('nav.messages') },
     { to: '/user/comments', label: t('page.own-comments') },
     { to: '/user/identity/mfa', label: t('nav.security') },
   ] : []),
 ])
-const ownerPath = '/user/manage/article/write'
-const authHref = computed(() => currentSession.value?.canAuthor ? ownerPath : '/login')
-const authLabel = computed(() => t(currentSession.value?.canAuthor ? 'nav.write' : 'nav.login'))
+const authHref = '/login'
+const authLabel = computed(() => t('nav.login'))
 watch(() => route.query.q, value => {
   searchQuery.value = typeof value === 'string' ? value : ''
 }, { immediate: true })
@@ -159,6 +155,7 @@ async function leave() {
   <RouterView v-else-if="adminArea" v-slot="{ Component }">
     <component :is="Component" :theme-mode="themeMode" @theme="useTheme" />
   </RouterView>
+  <RouterView v-else-if="adminAuthoringArea" />
   <AccountWorkspace v-else-if="accountArea" home="/user" :label="t('nav.accountMenu')" :links="accountLinks"
     :theme-mode="themeMode" @theme="useTheme">
     <template #actions>

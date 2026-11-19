@@ -92,7 +92,7 @@ function close() {
 async function activate(id: number, separate: boolean) {
   if (props.disabled || !visible.value) return
   if (separate) {
-    window.open(`/user/manage/article/edit/${id}`, '_blank', 'noopener')
+    window.open(`/admin/articles/edit/${id}`, '_blank', 'noopener')
     return
   }
   const intent = ++generation

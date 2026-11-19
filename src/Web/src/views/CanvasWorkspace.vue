@@ -20,7 +20,7 @@ import { credentialEpoch, currentSession, identityEpoch, invalidateSession, refr
 
 const route = useRoute()
 const router = useRouter()
-const articlePath = '/user/manage/article/workspace'
+const articlePath = '/admin/articles/workspace'
 const documentId = computed(() => typeof route.params.id === 'string' ? route.params.id.toLowerCase() : '')
 const authorized = computed(() => currentSession.value?.canAuthor === true && currentSession.value.expiresAt > Date.now())
 const ready = ref(false)
@@ -716,7 +716,7 @@ function edgeLabel(edge: CanvasGraphEdge) {
   <main class="canvas-workspace" aria-labelledby="canvas-title" @keydown="historyShortcut">
     <header class="canvas-header">
       <div>
-        <RouterLink :to="documentId ? '/user/manage/canvas' : articlePath">{{ documentId ? t('author.canvas.all_canvases') : t('author.canvas.article_workspace') }}</RouterLink>
+        <RouterLink :to="documentId ? '/admin/canvas' : articlePath">{{ documentId ? t('author.canvas.all_canvases') : t('author.canvas.article_workspace') }}</RouterLink>
         <h1 id="canvas-title">{{ document?.title ?? (documentId ? t('author.canvas.canvas') : t('author.canvas.canvases')) }}</h1>
       </div>
       <div v-if="authorized && ready" class="canvas-toolbar">
@@ -733,7 +733,7 @@ function edgeLabel(edge: CanvasGraphEdge) {
     </header>
 
     <p v-if="!ready" role="status">{{ t('author.canvas.verifying_author_session') }}</p>
-    <RouterLink v-else-if="!authorized" to="/login">{{ t('author.canvas.log_in_to_access_canvas') }}</RouterLink>
+    <RouterLink v-else-if="!authorized" to="/admin/identity">{{ t('author.canvas.log_in_to_access_canvas') }}</RouterLink>
     <template v-else>
       <ElAlert v-if="error" type="error" :title="error" :closable="false" />
       <p v-if="message" role="status">{{ message }}</p>

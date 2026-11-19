@@ -25,7 +25,6 @@ const hasPersistentPasskeys = ref(false)
 const rememberMe = ref(false)
 const pending = ref<string | null>(null)
 const factor = ref('')
-const canContinue = computed(() => currentSession.value?.canAuthor)
 const router = useRouter()
 const lifetime = new AbortController()
 onUnmounted(() => {
@@ -69,7 +68,7 @@ async function usePasskey(register: boolean) {
     } else {
       pending.value = await signInWithPasskey(lifetime.signal, hasPersistentPasskeys.value && rememberMe.value)
       if (!lifetime.signal.aborted && currentSession.value)
-        await router.replace({ name: currentSession.value.canAuthor ? 'write' : 'home' })
+        await router.replace({ name: 'home' })
     }
   } catch {
     if (!lifetime.signal.aborted)
@@ -88,7 +87,7 @@ async function verifyFactor() {
     if (!lifetime.signal.aborted && currentSession.value) {
       factor.value = ''
       pending.value = null
-      await router.replace({ name: currentSession.value.canAuthor ? 'write' : 'home' })
+      await router.replace({ name: 'home' })
     }
   } catch {
     if (!lifetime.signal.aborted) failure.value = 'login.factorFailed'
@@ -111,7 +110,6 @@ function cancelFactor() {
     <p>{{ t('login.subtitle') }}</p>
   </div>
   <template v-if="currentSession">
-    <p v-if="canContinue"><RouterLink :to="{ name: 'write' }">{{ t('login.continue') }}</RouterLink></p>
     <RouterLink to="/user/identity/mfa">{{ t('login.security') }}</RouterLink>
   </template>
   <form v-else-if="pending" class="auth-form" @submit.prevent="verifyFactor">

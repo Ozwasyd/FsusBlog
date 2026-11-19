@@ -98,7 +98,9 @@ internal static class ArticleScheduleStore
         {
             // Account updates lock the account before any article. Skip a busy account instead of reversing that order.
             await using var author = SqlCommands.Create(db, tx, """
-                select enabled and can_author and generation=$2 from public.blog_user where id=$1 for share skip locked
+                select p.enabled and p.generation=$2
+                    and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write')
+                from public.admin_principal p where p.id=$1 for share skip locked
                 """, candidate.Actor, candidate.Generation);
             if (await author.ExecuteScalarAsync(ct) is not bool permitted) continue;
             await using var verify = SqlCommands.Create(db, tx, $"""

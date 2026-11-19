@@ -101,6 +101,37 @@ internal sealed partial class AdminPasskeyStore
         return new AdminArticleTrashRestoreReceipt(draft.Id, draft.Revision);
     }, ct);
 
+    internal Task<byte[]> DeleteArticle(string? session, int articleId, Action invalidate, CancellationToken ct) =>
+        WithLiveAdmin(session, CurrentSchema.ArticleWritePermission, async (db, tx, admin) =>
+        {
+            long revision;
+            string title;
+            string body;
+            bool deleted;
+            await using (var query = Store.Sql(db, tx, $"""
+                select a.revision,a.title,a.body,a.deleted
+                from public.article a
+                where a.id=$1 and {ArchivedArticleAuthority.Available}
+                for update of a
+                """, articleId))
+            await using (var row = await query.ExecuteReaderAsync(ct))
+            {
+                if (!await row.ReadAsync(ct))
+                    throw new BusinessException(Rejection.NotFound, "Article not found.");
+                revision = row.GetInt64(0);
+                title = row.GetString(1);
+                body = row.GetString(2);
+                deleted = row.GetBoolean(3);
+            }
+            if (deleted)
+                throw new BusinessException(Rejection.NotFound, "Article not found.");
+            await Store.EnsureAdminOwnerAnchor(db, tx, admin.Id, ct);
+            var actor = new Identity(admin.Id, admin.Snapshot.Handle, admin.Snapshot.Generation, true, DateTimeOffset.MaxValue);
+            await Store.Execute(db, tx, actor, ArticleAction.Delete, new Edit(articleId, revision, Guid.NewGuid(), title, body), ct);
+            invalidate();
+            return Wire.EncodeEmptySuccess();
+        }, ct);
+
     private static async Task RequireTrashRestoreSchema(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         if (!await CurrentSchema.HasAdminArticleTrashRestoreAsync(db, tx, ct))

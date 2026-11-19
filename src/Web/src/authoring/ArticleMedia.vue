@@ -257,7 +257,7 @@ onBeforeUnmount(() => {
           <ElButton v-if="selected" native-type="button" :disabled="pending || !canChange" @click="emit('save', { assetId: selected, attach: true })">{{ t('author.articleMedia.attach.image') }}</ElButton>
         </div>
         <ElButton v-if="more" native-type="button" text :disabled="pending" @click="loadMore">{{ t('author.articleMedia.load.more.images') }}</ElButton>
-        <p><RouterLink to="/user/manage/assets">{{ t('author.articleMedia.open.asset.library') }}</RouterLink></p>
+        <p><RouterLink to="/admin/assets">{{ t('author.articleMedia.open.asset.library') }}</RouterLink></p>
         <div v-if="preview" class="attachment-preview">
           <ElButton native-type="button" text @click="closePreview">{{ t('author.articleMedia.close.image.preview') }}</ElButton>
           <img :src="preview.path" :alt="label(preview.id)" @error="error = t('author.articleMedia.preview.expired.again')" />
