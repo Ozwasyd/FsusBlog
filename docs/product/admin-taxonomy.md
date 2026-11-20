@@ -1,6 +1,6 @@
 # 管理员分类与标签目录
 
-在独立 HTTPS 管理源的 `/admin/identity` 中使用 Passkey 登录后，可查看分类和标签目录。目录需要单独授予的 `article.write`。站点作者会话和 `admin.manage`、`audit.read` 或 `comment.moderate` 各自的权限无法读取该目录。列表显示分类和标签名与汇总数量，没有文章标题、正文、作者或删除资格。
+在管理源（HTTPS 或本机 Loopback）使用管理员 Passkey 登录后，可在 `/admin/articles` 的「分类」与「标签」标签页查看并管理分类与标签目录。普通读者会话无法读取该目录。列表显示名称、已发布与各状态汇总数量，并提供关联文章筛选、创建、编辑与无引用删除操作。
 
 `GET /api/v2/admin/identity/taxonomy/categories.aeds` 与 `GET /api/v2/admin/identity/taxonomy/tags.aeds` 使用 AEDS `32864`，按 ID 升序返回每页最多 24 项，使用可选 `after` 继续浏览。接口按管理员会话授权，并发送 `Cache-Control: no-store`。公开数量来自带权利快照验证的现行发布投影，按公开版本的分类和标签计算。服务核对该投影与同一次 PostgreSQL 查询中的发布水位。投影暂不可用时返回 503。
 
@@ -12,7 +12,7 @@
 
 v1 同类读取通过 `/api/binary/author/taxonomy/categories` 和 `/api/binary/author/taxonomy/tags`，独立管理员需要 `article.write`。归档数统计关联的已归档文章。v1 分类与标签删除入口物理移除数据，v2 此处只读取依赖。 [v1 授权与目录入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.WorkflowRoutes.cs) · [v1 目录统计](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.cs) · [v1 物理删除](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs#L287)
 
-开启 `FSUSBLOG_ADMIN_CATEGORY_METADATA=true` 后，具备 `article.write` 的管理员可在同一界面创建分类、改名或清除描述。已有 v2 数据库先在停服下核对 `tag-metadata`，再运行 `category-metadata`。新库包含两个可选目录，开关默认关闭。
+配置合法管理员源后，`FSUSBLOG_ADMIN_CATEGORY_METADATA` 默认自动开启（可通过 `=false` 显式关闭）。管理员可在后台目录页创建分类、改名、编辑描述或通过 `POST /api/v2/admin/identity/taxonomy/categories/{id}/delete.aeds` 删除无任何修订引用的分类，也可在文章编辑器的「分类与标签」侧边栏直接新建分类并自动选中。
 
 分类名称按 v1 去除首尾空白并保留大小写，不创建名称别名。有效名称限制为 128 UTF‑8 字节，描述最多 500 个 Unicode 标量。创建分配新的正整数 ID，改名保留所有历史及当前修订中的分类 ID。分类与标签共用永久 `taxonomy_epoch`，有变化时在同一事务更新元数据、请求回执及公开代次。空操作或幂等重试不增加代次。
 

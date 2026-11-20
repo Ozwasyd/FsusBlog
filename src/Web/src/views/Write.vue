@@ -111,6 +111,7 @@ const metadataDirty = computed(() => taxonomyDirty.value || summaryDirty.value)
 const taxonomyStale = ref(false)
 const propertyPending = ref(false)
 const revisionComparisonActive = ref(false)
+const taxonomyModalActive = ref(false)
 const summaryEditor = shallowRef<InstanceType<typeof ArticleSummary>>()
 const taxonomyEditor = shallowRef<InstanceType<typeof ArticleTaxonomy>>()
 const recovery = editorRecovery()
@@ -135,7 +136,7 @@ const hasConflict = computed(() => taxonomyStale.value || tab.value?.risk === 'c
 const articlePending = computed(() => tab.value?.risk === 'saving')
 const pending = computed(() => articlePending.value || propertyPending.value)
 const canSwitch = computed(() => !layoutRestoring.value && !propertyPending.value && !metadataDirty.value && !recoveryWorking.value &&
-  !closingTabs.value && composing.value === undefined && !(articlePending.value && tab.value?.articleId === 0))
+  !closingTabs.value && !taxonomyModalActive.value && composing.value === undefined && !(articlePending.value && tab.value?.articleId === 0))
 const retry = computed(() => tab.value?.retry)
 const validTitle = computed(() => validDraftTitle(original.value?.title ?? ''))
 const validBody = computed(() => validDraftBody(original.value?.body ?? ''))
@@ -1429,7 +1430,7 @@ async function reloadDraft() {
           @pointerdown="startResize" @pointermove="dragResize" @pointerup="endResize" @pointercancel="endResize"
           @lostpointercapture="endResize" @keydown="keyboardResize" />
       </div>
-      <EditorInspector v-if="original && original.id > 0" v-slot="{ ready: inspectorReady }" :nested-modal-active="revisionComparisonActive"
+      <EditorInspector v-if="original && original.id > 0" v-slot="{ ready: inspectorReady }" :nested-modal-active="revisionComparisonActive || taxonomyModalActive"
         :opened="persistentWorkspace ? !sourceInspectorPending && inspectorOpen : undefined" @update:opened="setInspectorOpen">
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" />
@@ -1457,6 +1458,7 @@ async function reloadDraft() {
           @change="taxonomyDirty = $event"
           @save="submit('assign-taxonomy', $event)"
           @stale="taxonomyStale = true"
+          @modal-change="taxonomyModalActive = $event"
         />
         <ArticleProperties
           :article-id="original.id"

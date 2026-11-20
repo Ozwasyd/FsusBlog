@@ -310,7 +310,7 @@ function logOut() {
           </div>
         </ElSettingsSection>
         <AdminArticlesWorkspace v-if="section.section === 'articles'" :key="sessionEpoch"
-          :session-signal="sessionAuthority.signal" :can-rollback="adminUsesHttps" @session-lost="handleSessionLoss" />
+          :session-signal="sessionAuthority.signal" :can-rollback="canUsePasskeys" @session-lost="handleSessionLoss" />
         <AdminSiteTraffic v-if="section.section === 'site'" :key="sessionEpoch"
           :session="authority.session" :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
         <AdminAppearance v-if="section.section === 'site' && authority.session.appearanceEnabled" :key="sessionEpoch"
