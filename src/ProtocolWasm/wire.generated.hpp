@@ -84,6 +84,7 @@ inline constexpr uint32_t AuthorArticleKeywordChars = 128;
 inline constexpr uint32_t NameBytes = 256;
 inline constexpr uint32_t AdminClusterNodeIdBytes = 64;
 inline constexpr uint32_t AdminClusterVersionBytes = 96;
+inline constexpr uint32_t AdminSignInHistoryMaxItems = 50;
 inline constexpr uint32_t PageContentChars = 200000;
 inline constexpr uint32_t PageContentBytes = 600000;
 inline constexpr uint32_t AdminSitePageDigestBytes = 64;

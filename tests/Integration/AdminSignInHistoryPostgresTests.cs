@@ -52,15 +52,18 @@ public sealed class AdminSignInHistoryPostgresTests
         Assert.NotEqual(ownerToken, current.PermissionSession);
         Assert.NotEqual(unlinked.PermissionSession, current.PermissionSession);
         Assert.Equal((await store.SessionWithPermissionBinding(ownerToken, ct)).PermissionSession, current.PermissionSession);
-        var packet = Wire.EncodeAdminSignInHistory(current.History);
+        var packet = Wire.EncodeAdminSignInHistorySnapshot(current.History);
+        var roundtrip = Wire.DecodeAdminSignInHistorySnapshot(packet);
+        Assert.Equal(current.History.Generation, roundtrip.Generation);
+        Assert.Equal(current.History.SignIns, roundtrip.SignIns);
         var body = Aeds.Decode(packet, FrameType.AdminSignInHistory).ToArray();
         Assert.Equal(37, body.Length);
         Assert.Equal(current.History.Generation, BinaryPrimitives.ReadInt64LittleEndian(body));
         Assert.Equal(1, BinaryPrimitives.ReadInt32LittleEndian(body.AsSpan(8)));
         Assert.Equal((byte)AdminSignInState.Current, body[^1]);
-        Assert.Throws<ProtocolException>(() => Wire.EncodeAdminSignInHistory(new(1,
+        Assert.Throws<ProtocolException>(() => Wire.EncodeAdminSignInHistorySnapshot(new(1,
             [new(1, 5, 0, AdminSignInState.Current), new(1, 5, 0, AdminSignInState.Current)])));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeAdminSignInHistory(new(1, [new(1, 5, 3, AdminSignInState.Expired)])));
+        Assert.Throws<ProtocolException>(() => Wire.EncodeAdminSignInHistorySnapshot(new(1, [new(1, 5, 3, AdminSignInState.Expired)])));
 
         await Execute(db, null, ct, "update public.admin_principal set enabled=false where id=$1", owner);
         await Denied(() => store.RecentSignIns(ownerToken, ct));

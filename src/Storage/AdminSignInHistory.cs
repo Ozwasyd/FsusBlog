@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using FsusBlog.V2.Contracts;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -8,7 +9,7 @@ namespace FsusBlogV2.Storage;
 
 internal static class AdminSignInHistory
 {
-    internal const int RetainedSignIns = 50;
+    internal const int RetainedSignIns = WireLimits.AdminSignInHistoryMaxItems;
 
     internal static async Task RecordAsync(NpgsqlConnection db, NpgsqlTransaction tx, Guid principal,
         byte[] digest, long generation, CancellationToken ct)

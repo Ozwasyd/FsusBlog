@@ -627,6 +627,7 @@
     "NameBytes": 256,
     "AdminClusterNodeIdBytes": 64,
     "AdminClusterVersionBytes": 96,
+    "AdminSignInHistoryMaxItems": 50,
     "PageContentChars": 200000,
     "PageContentBytes": 600000,
     "AdminSitePageDigestBytes": 64,
@@ -943,6 +944,26 @@
     "MfaChallengeActionOffset": 104,
     "MfaChallengeProofOffset": 168
   },
+  "enums": {
+    "AdminSignInState": {
+      "type": "u8",
+      "values": {
+        "Current": 1,
+        "Ended": 2,
+        "Expired": 3
+      }
+    }
+  },
+  "embeddedRecords": {
+    "AdminSignIn": {
+      "fields": [
+        ["StartedAt", "i64"],
+        ["ExpiresAt", "i64"],
+        ["EndedAt", "i64"],
+        ["State", "enum", "AdminSignInState"]
+      ]
+    }
+  },
   "fieldGroups": {
     "AuthoringWorkspaceSnapshotBase": [["SchemaVersion", "i32"], ["Revision", "i64"], ["UpdatedAtUnixMs", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["Skipped", "i32"]],
     "AuthoringWorkspaceCommandBase": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"]],
@@ -997,6 +1018,10 @@
     },
     "AdminClusterStatus": {
       "fields": [["Mode", "i32"], ["NodeId", "text", "AdminClusterNodeIdBytes"], ["InstanceId", "uuid"], ["BuildVersion", "text", "AdminClusterVersionBytes"], ["StartedAt", "i64"], ["ObservedAt", "i64"], ["LeaseAgeMs", "i32"], ["SnapshotReady", "bool"]]
+    },
+    "AdminSignInHistorySnapshot": {
+      "frame": "AdminSignInHistory",
+      "fields": [["Generation", "i64"], ["SignIns", "list", "AdminSignIn", "AdminSignInHistoryMaxItems"]]
     },
     "AdminArticleRollbackIntent": {
       "fields": [{"group": "AdminArticleRollbackIntentFields"}]
