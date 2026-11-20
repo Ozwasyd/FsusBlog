@@ -202,28 +202,32 @@ watch([() => props.articleId, () => props.publication, () => route.hash, restart
 
 <template>
   <section class="article-comments" aria-labelledby="article-comments-title">
-    <h2 id="article-comments-title" ref="commentTitle" tabindex="-1">{{ t('comment.heading') }}</h2>
-    <p v-if="mutationNotice" role="status">{{ t(mutationNotice) }}</p>
-    <p v-if="linked === null" role="status">{{ t('comment.unavailable') }}</p>
-    <p v-if="loading" role="status">{{ t('comment.loading') }}</p>
+    <h2 id="article-comments-title" ref="commentTitle" class="article-comments-heading" tabindex="-1">{{ t('comment.heading') }}</h2>
+    <p v-if="mutationNotice" class="comment-status" role="status">{{ t(mutationNotice) }}</p>
+    <p v-if="linked === null" class="comment-status" role="status">{{ t('comment.unavailable') }}</p>
+    <p v-if="loading" class="comment-status" role="status">{{ t('comment.loading') }}</p>
     <template v-if="linked">
-      <ol class="comment-roots">
+      <ol class="comment-roots" role="list">
         <CommentBranch v-for="node in permalinkNodes"
           :key="node.id" :article-id="articleId" :node="node" :target="target" :can-delete="authorActions.deletable.has(node.id)"
           :can-edit="authorActions.editable.has(node.id)"
           :thread-open="node.depth === 0 || linked.ancestors.some(root => root.id === node.rootId && !root.deleted)" context-only />
       </ol>
-      <RouterLink :to="{ hash: '#article-comments-title' }">{{ t('comment.all') }}</RouterLink>
+      <p class="comment-list-footer">
+        <RouterLink class="comment-all-link" :to="{ hash: '#article-comments-title' }">{{ t('comment.all') }}</RouterLink>
+      </p>
     </template>
-    <ol v-else-if="roots.length" class="comment-roots">
+    <ol v-else-if="roots.length" class="comment-roots" role="list">
       <CommentBranch v-for="root in roots" :key="root.node.id" :article-id="articleId" :node="root.node" :preview="root.preview"
         :can-delete="authorActions.deletable.has(root.node.id)" :preview-deletions="authorActions.deletable"
         :can-edit="authorActions.editable.has(root.node.id)" :preview-edits="authorActions.editable" :thread-open="!root.node.deleted" />
     </ol>
-    <p v-else-if="!loading && !failed" class="muted">{{ t('comment.empty') }}</p>
-    <ElAlert v-if="failed" type="error" :title="t('comment.loadFailed')" :closable="false" />
-    <ElButton v-if="failed" text @click="roots.length && next ? load(true) : restart++">{{ t('comment.retry') }}</ElButton>
-    <ElButton v-else-if="next && !loading" text @click="load(true)">{{ t('comment.more') }}</ElButton>
+    <p v-else-if="!loading && !failed" class="comment-empty muted">{{ t('comment.empty') }}</p>
+    <ElAlert v-if="failed" class="comment-alert" type="error" :title="t('comment.loadFailed')" :closable="false" />
+    <div v-if="failed || (next && !loading)" class="comment-list-footer">
+      <ElButton v-if="failed" text @click="roots.length && next ? load(true) : restart++">{{ t('comment.retry') }}</ElButton>
+      <ElButton v-else-if="next && !loading" text @click="load(true)">{{ t('comment.more') }}</ElButton>
+    </div>
     <ElDialog :model-value="!!editTarget" :title="t('comment.editTitle')" append-to-body destroy-on-close
       :close-on-click-modal="false" :before-close="dismissEditor" width="min(calc(100vw - 2rem), 36rem)">
       <p v-if="editPending" role="status">{{ editDetail ? t('comment.editSaving') : t('comment.loadingOne') }}</p>
@@ -240,7 +244,7 @@ watch([() => props.articleId, () => props.publication, () => route.hash, restart
       </template>
     </ElDialog>
     <CommentReportDialog :article-id="articleId" :comment-id="reportTarget" @close="reportTarget = undefined" />
-    <div v-if="publication" ref="composer" tabindex="-1">
+    <div v-if="publication" ref="composer" class="comment-composer-slot" tabindex="-1">
       <PublicCommentComposer :article-id="articleId" :publication="publication" :write-enabled="writeEnabled" :reply="replyTarget"
         @availability="value => replyAvailable = value" @cancel="replyTarget = undefined" />
     </div>
@@ -248,6 +252,42 @@ watch([() => props.articleId, () => props.publication, () => route.hash, restart
 </template>
 
 <style scoped>
-.article-comments { border-block-start: 1px solid var(--el-border-color-light); margin-block-start: 2rem; padding-block-start: 1rem; }
+.article-comments { margin-block-start: 3rem; }
+.article-comments-heading {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 0 .25rem;
+  scroll-margin-block-start: 6.5rem;
+  color: var(--fsus-color-text-quiet);
+  font-size: .8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.article-comments-heading::after {
+  content: '';
+  flex: 1;
+  block-size: 1px;
+  background: var(--fsus-border);
+}
+.article-comments-heading:focus:not(:focus-visible),
+.comment-composer-slot:focus:not(:focus-visible) {
+  outline: none;
+}
 .comment-roots { list-style: none; padding: 0; margin: 0; }
+.comment-status { margin-block: .75rem; color: var(--fsus-color-text-quiet); font-size: .875rem; }
+.comment-empty { margin-block: 1.25rem .75rem; font-size: .9375rem; }
+.comment-alert { margin-block-start: 1rem; }
+.comment-list-footer { margin-block-start: .75rem; }
+.comment-all-link {
+  color: var(--fsus-color-text-quiet);
+  font-size: .875rem;
+  text-decoration: none;
+}
+.comment-all-link:hover,
+.comment-all-link:focus-visible {
+  color: var(--fsus-scholarly-blue);
+  text-decoration: underline;
+  text-underline-offset: .25em;
+}
 </style>

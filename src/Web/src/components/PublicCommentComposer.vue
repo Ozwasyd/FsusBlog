@@ -118,12 +118,12 @@ async function send() {
     <ElCheckbox :model-value="confirm" :disabled="pending" @update:model-value="value => confirm = value === true">
       {{ t('comment.publishAs', { name: eligibility.displayName }) }}
     </ElCheckbox>
-    <div>
-      <ElButton type="primary" native-type="submit" :disabled="!ready" :loading="pending">{{ t('comment.submit') }}</ElButton>
-      <ElButton v-if="reply" native-type="button" @click="emit('cancel')">{{ t('comment.cancelReply') }}</ElButton>
+    <div class="public-comment-composer-actions">
+      <ElButton class="public-comment-btn" type="primary" native-type="submit" :disabled="!ready" :loading="pending">{{ t('comment.submit') }}</ElButton>
+      <ElButton v-if="reply" class="public-comment-btn" native-type="button" @click="emit('cancel')">{{ t('comment.cancelReply') }}</ElButton>
     </div>
-    <p v-if="pending" role="status">{{ t('comment.submitting') }}</p>
-    <p v-if="result" role="status">{{ t(result) }}</p>
+    <p v-if="pending" class="public-comment-status" role="status">{{ t('comment.submitting') }}</p>
+    <p v-if="result" class="public-comment-status" role="status">{{ t(result) }}</p>
     <ElAlert v-if="problem" :title="t(problem)" type="error" :closable="false" />
   </form>
   <p v-else-if="showSignIn" class="public-comment-sign-in">
@@ -133,19 +133,31 @@ async function send() {
 </template>
 
 <style scoped>
-.public-comment-composer { display: grid; gap: 0.75rem; margin-block: 1.25rem; }
-.public-comment-composer h3 { margin: 0; }
+.public-comment-composer { display: grid; gap: .875rem; margin-block: 1.5rem 0; }
+.public-comment-composer h3 { margin: 0; color: var(--fsus-ink); font-size: .9375rem; font-weight: 700; }
+.public-comment-composer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.public-comment-btn + .public-comment-btn { margin-inline-start: 0; }
+.public-comment-status { margin: 0; color: var(--fsus-color-text-quiet); font-size: .875rem; }
 .public-comment-sign-in {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.25rem 0.75rem;
-  margin-block: 0.75rem 0;
+  gap: .25rem .75rem;
+  margin-block: 1rem 0;
+  font-size: .875rem;
 }
 .public-comment-sign-in-link {
   display: inline-flex;
   align-items: center;
   min-block-size: 44px;
+  color: var(--fsus-scholarly-blue);
   font-weight: 500;
+  text-decoration: none;
+}
+.public-comment-sign-in-link:hover,
+.public-comment-sign-in-link:focus-visible {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: .25em;
 }
 </style>
