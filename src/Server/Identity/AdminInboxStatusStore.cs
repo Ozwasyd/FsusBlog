@@ -8,11 +8,11 @@ using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminInboxStatusStore(AdminSessionGate gate)
 {
     internal Task<byte[]> ChangeInboxStatus(string? session, long id, string version, ConversationStatus target,
         string reason, byte[] frame, ScopedPow pow, HttpContext http, bool issue, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             const PowScope scope = PowScope.AdminInboxStatus;
             var context = string.Create(CultureInfo.InvariantCulture, $"{id}:{version}");

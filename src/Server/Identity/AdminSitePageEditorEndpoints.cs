@@ -8,7 +8,7 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal static class AdminSitePageEditorEndpoints
 {
-    internal static void Map(WebApplication app, Uri origin, AdminPasskeyStore store, string session, string passkeyLimit,
+    internal static void Map(WebApplication app, Uri origin, AdminSitePageStore store, string session, string passkeyLimit,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         var actions = new AdminActionRoutes(app, origin.GetLeftPart(UriPartial.Authority), session, readFrame);

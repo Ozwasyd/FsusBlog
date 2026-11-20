@@ -80,7 +80,7 @@ public sealed class AdminTaxonomyPostgresTests
         Assert.Equal(new AdminTaxonomyDependencies(3, 0, 1, 1), await Dependencies(tagDependencies + "3"));
 
         // This deliberately held projection instance cannot combine a newer durable public write with older released counts.
-        var direct = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        var direct = new AdminTaxonomyStore(new AdminSessionGate(fixture.DataSource, null));
         await Sql("insert into public.blog_outbox(article_id,revision,kind) values($1,$2,'publish')", published.Id, published.Revision);
         await Assert.ThrowsAsync<PublicUnavailableException>(() => direct.Taxonomy(adminToken, false, QueryCollection.Empty, publications, ct));
         await Sql("update public.admin_principal set generation=generation+1 where id=$1", admin);

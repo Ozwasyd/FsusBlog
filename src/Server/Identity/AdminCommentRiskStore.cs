@@ -2,41 +2,39 @@ using System.Security.Cryptography;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Security;
-using FsusBlogV2.Storage;
 using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminCommentRiskStore(AdminSessionGate gate, AdminStepUpService stepUp)
 {
     internal Task<(AdminRootCommentPowPolicy State, string PermissionSession)> ReadRootCommentPowPolicy(string? session, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             var current = await RootCommentPowPolicy.Read(db, tx, ct);
             var previous = await current.PreviousSeconds(db, tx, ct);
             return (new AdminRootCommentPowPolicy(current.Generation, current.Digest, current.ProofSeconds, previous),
-                PermissionBinding(admin.Digest));
+                AdminSessionGate.PermissionBinding(admin.Digest));
         }, ct);
 
     internal Task<byte[]> BeginRootCommentPowStepUp(string? session, AdminRootCommentPowCommand intent, CancellationToken ct) =>
-        BeginStepUp(session, RootCommentPowIntentDigest(intent),
-            (db, tx, _) => CheckRootCommentPowIntent(db, tx, intent, ct), ct, StepUpAction.ActivateRootCommentPow);
+        stepUp.BeginStepUp(session, RootCommentPowIntentDigest(intent),
+            (db, tx, _) => CheckRootCommentPowIntent(db, tx, intent, ct), ct, AdminStepUpAction.ActivateRootCommentPow);
 
     internal Task<byte[]> CompleteRootCommentPowStepUp(string? session, PasskeyLoginRequest assertion, CancellationToken ct) =>
-        CompleteStepUp(session, assertion, StepUpAction.ActivateRootCommentPow, ct);
+        stepUp.CompleteStepUp(session, assertion, AdminStepUpAction.ActivateRootCommentPow, ct);
 
     internal Task<(AdminRootCommentPowPolicy State, string PermissionSession)> ApplyRootCommentPowPolicy(string? session,
         AdminRootCommentPowCommand intent, string? proof, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             var current = await CheckRootCommentPowIntent(db, tx, intent, ct, update: true);
-            if (proof is not { Length: 43 } || !proof.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_') ||
-                !await ConsumeStepUpProof(db, tx, admin, ChallengeDigest(proof, null), RootCommentPowIntentDigest(intent), ct,
-                    StepUpAction.ActivateRootCommentPow))
+            if (!await stepUp.ConsumeProofAsync(db, tx, admin, proof, RootCommentPowIntentDigest(intent), ct,
+                    AdminStepUpAction.ActivateRootCommentPow))
                 throw new BusinessException(Rejection.Forbidden, "A current Passkey proof for this exact root comment policy change is required.");
             var next = await current.Activate(db, tx, admin.Id, intent.ProofSeconds, intent.Rollback, ct);
             return (new AdminRootCommentPowPolicy(next.Generation, next.Digest, next.ProofSeconds, current.ProofSeconds),
-                PermissionBinding(admin.Digest));
+                AdminSessionGate.PermissionBinding(admin.Digest));
         }, ct);
 
     private static async Task<RootCommentPowPolicy> CheckRootCommentPowIntent(NpgsqlConnection db, NpgsqlTransaction tx,

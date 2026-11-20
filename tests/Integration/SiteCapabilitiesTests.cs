@@ -694,4 +694,54 @@ public sealed class SiteCapabilitiesTests
             }
         }
     }
+
+    [Fact]
+    public async Task ExplicitAdminClosureSkipsPasskeyParsingAndDomainStoresConstructWithoutPasskeyConfig()
+    {
+        var webDist = Path.Combine(Path.GetTempPath(), "fsusblog-cap-noadmin-" + Guid.NewGuid().ToString("N"));
+        var capabilities = SiteCapabilities.Resolve(BuildConfig(new()
+        {
+            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "",
+            ["FSUSBLOG_ADMIN_RP_ID"] = "admin.example.test",
+        }), webDist);
+
+        Assert.Null(capabilities.AdminIdentity);
+        Assert.False(capabilities.AdminArticleRollback);
+        Assert.False(capabilities.AdminCommentBatch);
+        Assert.False(capabilities.AdminInboxReplies);
+        Assert.False(capabilities.AdminTagMetadata);
+        Assert.False(capabilities.AdminCategoryMetadata);
+
+        await using var dataSource = Npgsql.NpgsqlDataSource.Create("Host=127.0.0.1;Port=5432;Username=postgres;Database=postgres");
+        var gate = new AdminSessionGate(dataSource, null);
+        var stepUp = new AdminStepUpService(gate);
+        _ = new AdminOperationsStore(gate);
+        _ = new AdminSignInHistoryStore(gate);
+        _ = new AdminCommentQueueStore(gate);
+        _ = new AdminCommentHistoryStore(gate);
+        _ = new AdminTaxonomyStore(gate);
+        _ = new AdminTagMetadataStore(gate);
+        _ = new AdminInboxStore(gate);
+        _ = new AdminInboxReadStore(gate);
+        _ = new AdminInboxActivityStore(gate);
+        _ = new AdminInboxReplyStore(gate);
+        _ = new AdminInboxStatusStore(gate);
+        _ = new AdminInboxNoticeStore(gate);
+        _ = new AdminSitePageStore(gate);
+        _ = new AdminAppearanceStore(gate, stepUp);
+        _ = new AdminModerationStore(gate, stepUp);
+        _ = new AdminModerationBatchStore(gate, stepUp);
+        _ = new AdminCommentAppealStore(gate, stepUp);
+        _ = new AdminCommentRiskStore(gate, stepUp);
+        _ = new AdminArticleRollbackStore(gate, stepUp);
+        _ = new AdminArticleArchiveStore(gate, stepUp);
+        _ = new AdminArticleTrashRestoreStore(gate, stepUp);
+        _ = new AdminArticleTrashPublicationStore(gate, stepUp);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            stepUp.BeginModerationStepUp("session", new AdminModerationIntent(1, 1, 0, 1, "test"), CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            stepUp.CompleteModerationStepUp("session", new PasskeyLoginRequest("token", "id", [], [], [], [], [], false), CancellationToken.None));
+    }
 }

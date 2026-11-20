@@ -7,7 +7,7 @@ internal static class AdminModerationBatchEndpoints
 {
     internal const string Setting = "FSUSBLOG_ADMIN_COMMENT_BATCH";
 
-    internal static void Map(WebApplication app, string origin, AdminPasskeyStore store, string session, string passkeyLimit,
+    internal static void Map(WebApplication app, string origin, AdminModerationBatchStore store, string session, string passkeyLimit,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, bool fenceVisibleMessages)
     {
         app.MapPost(WireRoutes.AdminModerationBatchClaim, (HttpContext ctx, CancellationToken ct) => Run(ctx, origin, async () =>

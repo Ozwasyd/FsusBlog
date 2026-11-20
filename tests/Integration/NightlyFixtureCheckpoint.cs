@@ -167,7 +167,8 @@ public sealed partial class NightlyFixturePostgresTests
     {
         var archiveSettings = new NpgsqlConnectionStringBuilder(settings.ConnectionString) { Pooling = true, MaxPoolSize = 1 };
         await using var data = NpgsqlDataSource.Create(archiveSettings.ConnectionString);
-        var store = new AdminPasskeyStore(data, lease, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var archiveGate = new AdminSessionGate(data, lease);
+        var store = new AdminArticleArchiveStore(archiveGate, new AdminStepUpService(archiveGate));
         var session = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         await using var exists = Store.Sql(db, null, "select exists (select from public.admin_principal)");
         if (await exists.ExecuteScalarAsync(ct) is true)
@@ -186,7 +187,7 @@ public sealed partial class NightlyFixturePostgresTests
             if (reader.Position != position.ArchiveOffset) reader.Seek(position.ArchiveOffset);
             var article = Parse(await reader.Read(ct), archiveStart + position.Archived, binding.Count);
             var intent = ArchiveIntent(article, binding.Count, band, position.Archived);
-            var fingerprint = AdminPasskeyStore.ArticleArchiveIntentDigest(intent);
+            var fingerprint = AdminArticleArchiveStore.ArticleArchiveIntentDigest(intent);
             bool committed = position.ArchiveStage == 1 && await HasArchiveCommand(db, intent.IdempotencyKey, ct);
             if (resumed)
             {
@@ -439,12 +440,12 @@ public sealed partial class NightlyFixturePostgresTests
             set archive_stage=1,archive_article=$1,archive_intent_sha256=$2,release_high_water=$3
             where singleton and archive_stage=0 and archive_offset>0 and release_high_water=$3-1
                 and exists (select from public.article_publication p where p.article_id=$1 and p.revision=5 and p.publication_id=$3)
-            """, intent.ArticleId, AdminPasskeyStore.ArticleArchiveIntentDigest(intent), intent.ExpectedReleaseId);
+            """, intent.ArticleId, AdminArticleArchiveStore.ArticleArchiveIntentDigest(intent), intent.ExpectedReleaseId);
         Assert.Equal(1, await prepared.ExecuteNonQueryAsync(ct));
     }
 
     private async Task<AdminArticleArchiveReceipt> ArchiveWithCheckpoint(NpgsqlConnection control, InstanceLease lease,
-        AdminPasskeyStore store, Stream source, Identity actor, PlannedArticle article, long sourceRelease, AdminArticleArchiveIntent intent,
+        AdminArticleArchiveStore store, Stream source, Identity actor, PlannedArticle article, long sourceRelease, AdminArticleArchiveIntent intent,
         byte[] originalSessionDigest, CheckpointBinding binding, Action invalidatePublic, CancellationToken ct)
     {
         var prepareLost = await Assert.ThrowsAsync<CheckpointInterrupted>(async () =>
@@ -460,7 +461,7 @@ public sealed partial class NightlyFixturePostgresTests
         await resume.OpenAsync(ct);
         var (recoveredArticle, resumedIntent, _) = await ReadArchiveCheckpointInput(resume, source, binding, ct);
         Assert.Equal(intent, resumedIntent);
-        var intentHash = AdminPasskeyStore.ArticleArchiveIntentDigest(resumedIntent);
+        var intentHash = AdminArticleArchiveStore.ArticleArchiveIntentDigest(resumedIntent);
         var preparedPosition = await ReadCheckpoint(resume, null, binding, ct);
         await VerifyArchiveCheckpointState(resume, lease, binding, preparedPosition, recoveredArticle, resumedIntent,
             intentHash, committed: false, ct);
@@ -492,8 +493,8 @@ public sealed partial class NightlyFixturePostgresTests
         }
         var reconnect = new NpgsqlConnectionStringBuilder(control.ConnectionString) { Pooling = false };
         await using var restartSource = NpgsqlDataSource.Create(reconnect.ConnectionString);
-        var restartStore = new AdminPasskeyStore(restartSource, lease,
-            new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var restartGate = new AdminSessionGate(restartSource, lease);
+        var restartStore = new AdminArticleArchiveStore(restartGate, new AdminStepUpService(restartGate));
         var replay = await restartStore.ExecuteArticleArchive(replaySession, null, replayIntent, invalidatePublic, ct);
         Assert.Equal(durable, replay);
         var conflict = await Assert.ThrowsAsync<BusinessException>(() => restartStore.ExecuteArticleArchive(replaySession, null,

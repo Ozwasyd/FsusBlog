@@ -18,11 +18,12 @@ public sealed class AdminOperationsPostgresTests
         var (admin, key, _) = await FixtureSql.AdminAsync(db, ct, "observer", 10, [1], [2]);
         var actor = Guid.NewGuid();
 
-        var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        var gate = new AdminSessionGate(fixture.DataSource, null);
+        var adminStore = new AdminOperationsStore(gate);
         var publications = PublicationFixture.Project(fixture.DataSource);
         await Denied(Rejection.Unauthorized, () => adminStore.OperationsStatus(null, publications, ct));
         var (empty, binding) = await adminStore.OperationsStatus(key, publications, ct);
-        Assert.Equal((await adminStore.SessionWithPermissionBinding(key, ct)).PermissionSession, binding);
+        Assert.Equal((await gate.SessionWithPermissionBinding(key, ct)).PermissionSession, binding);
         Assert.Equal(new AdminOperationsStatus(false, 0, 0, 0), empty);
 
         var site = new Store(fixture.DataSource);

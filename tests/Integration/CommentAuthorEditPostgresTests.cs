@@ -29,7 +29,7 @@ public sealed partial class AdminModerationPostgresTests
         var session = RandomNumberGenerator.GetBytes(32);
         var otherSession = RandomNumberGenerator.GetBytes(32);
         var moderator = await AddModerator(db, "comment-edit-reviewer", ct);
-        var review = CreateStore(fixture);
+        var (_, review, _, _, _) = CreateStores(fixture);
         var publicRead = new CommentReadStore(fixture.DataSource);
         await Approve(1);
         await Approve(3);

@@ -37,3 +37,12 @@ HTTPS 管理域上的管理员进入系统页面时自动查询已安装的风�
 PostgreSQL 回归覆盖逐条冲突、独立证明、两名收件账号的通知与审核共同回滚，以及收件顺序相反的并发批次。Chrome 经 Caddy HTTPS 验证 390px 管理页面的选择、领取、取消、重新领取和 Passkey 批准与驳回。停机迁移可重复执行，并拒绝用途约束被移除的结构。 [验证记录](../../artifacts/admin-comment-batch/)
 
 认证接口位于 `/api/v2/admin/identity/`。WebAuthn 复用 AEDS 帧 63、64、66、67，当前管理员会话查询使用 v2 帧 32830。v1 还有 JWT 轮换、长时会话、敏感动作的独立验证与其他业务权限。现有内容接口继续使用各自的权限判断。 [v1 管理认证契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/api/contracts.md#independent-admin-principal-aeds-endpoints)
+
+## 服务端职责与依赖边界
+
+管理后台在 `src/Server/Identity/` 内按身份边界与业务域显式拆分并按能力前提构造：
+
+- **会话与事务门禁**（[`AdminSessionGate`](../../src/Server/Identity/AdminSessionGate.cs)）：唯一在线管理员会话/事务门禁，每次调用均开启受 `InstanceLease.BeginProtected` / `CommitProtected` 保护的 PostgreSQL 事务并在事务内实时核验启用状态、代次、会话到期与有效凭据，生成 `X-Fsus-Admin-Permission-Session` 绑定摘要并处理登出撤权。无状态令牌与 SQL 辅助位于 [`AdminSql`](../../src/Server/Identity/AdminSql.cs)。
+- **认证仪式与 Fido2 边界**（[`AdminPasskeyStore`](../../src/Server/Identity/AdminPasskeyStore.cs)）：独占管理员引导注册、独立登录、`PasskeyStore` 统一登录委派及 Step-Up WebAuthn 挑战与断言核验细节；显式设置 `FSUSBLOG_ADMIN_ORIGIN=""` 关闭管理端时不构造该服务，也不强制解析管理端 Passkey 配置。
+- **二次验证服务**（[`AdminStepUpService`](../../src/Server/Identity/AdminStepUpService.cs)）：基于 `AdminSessionGate`（与按需注入的 `AdminPasskeyStore`）管理 Step-Up 挑战签发及同事务一次性 proof 消费（`ConsumeProofAsync`），保留各动作表隔离与 401/403/428 错误分类语义。
+- **独立业务域 Store**：登录历史（`AdminSignInHistoryStore`）、运行与风险就绪（`AdminOperationsStore`）、根评论风险策略（`AdminCommentRiskStore`）、分类标签目录与共享元数据（`AdminTaxonomyStore`、`AdminTagMetadataStore`）、评论队列/历史/审核/批量审核/申诉（`AdminCommentQueueStore`、`AdminCommentHistoryStore`、`AdminModerationStore`、`AdminModerationBatchStore`、`AdminCommentAppealStore`）、管理员站内信读写与动作（`AdminInboxStore`、`AdminInboxReadStore`、`AdminInboxActivityStore`、`AdminInboxReplyStore`、`AdminInboxStatusStore`、`AdminInboxNoticeStore`）、站点页与签名外观（`AdminSitePageStore`、`AdminAppearanceStore`）以及文章回滚/归档/回收站恢复（`AdminArticleRollbackStore`、`AdminArticleArchiveStore`、`AdminArticleTrashRestoreStore`、`AdminArticleTrashPublicationStore`）均通过显式构造函数依赖复用 `AdminSessionGate`（及需要二次验证时的 `AdminStepUpService`），并在 [`AdminIdentityEndpoints`](../../src/Server/Identity/AdminIdentityEndpoints.cs) 及各域端点按对应 `SiteCapabilities` 开关按需构造与挂载。

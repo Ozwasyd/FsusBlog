@@ -30,7 +30,7 @@ public sealed class AdminCommentQueuePostgresTests
         var store = new Store(fixture.DataSource);
         var (siteToken, _) = await store.SignIn(siteTicket, ct);
         var (_, authorToken, _) = await fixture.SignIn("comment-queue-author", ct);
-        var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        var adminStore = new AdminCommentQueueStore(new AdminSessionGate(fixture.DataSource, null));
         var publications = PublicationFixture.Project(fixture.DataSource);
         var published = await Publish("Public comment fixture");
         var retracted = await Publish("Retracted comment fixture");

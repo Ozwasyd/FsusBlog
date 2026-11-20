@@ -27,16 +27,20 @@ public sealed partial class AdminArticleRollbackPostgresTests
         var other = await CreateAdmin(db, ct, "other-archive-administrator", true);
         var siteSession = await fixture.SignInSiteUser("archive-site-reader", ct, minutes: 1);
         var session = await fixture.SignIn(author, ct, minutes: 1);
-        var service = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var gate = new AdminSessionGate(fixture.DataSource, null);
+        var passkeys = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var stepUp = new AdminStepUpService(gate, passkeys);
+        var service = new AdminArticleArchiveStore(gate, stepUp);
+        var rollback = new AdminArticleRollbackStore(gate, stepUp);
         var publications = PublicationFixture.Project(fixture.DataSource);
         await publications.Refresh(ct);
         var originalProjection = publications.Snapshot!;
         Assert.Equal("Later body", originalProjection.Article(1)!.Body);
 
         var archive = new AdminArticleArchiveIntent(1, 2, 2, 1, Guid.NewGuid(), "Archive the reviewed historical release", 3);
-        var archiveDigest = AdminPasskeyStore.ArticleArchiveIntentDigest(archive);
+        var archiveDigest = AdminArticleArchiveStore.ArticleArchiveIntentDigest(archive);
         var draft = new AdminArticleDraftRollbackIntent(1, 2, 2, 1, archive.IdempotencyKey, archive.Reason, 0);
-        Assert.False(archiveDigest.AsSpan().SequenceEqual(AdminPasskeyStore.ArticleDraftRollbackIntentDigest(draft)));
+        Assert.False(archiveDigest.AsSpan().SequenceEqual(AdminArticleRollbackStore.ArticleDraftRollbackIntentDigest(draft)));
         await Denied(Rejection.Unauthorized, () => service.CheckArticleArchiveAvailability(null, ct));
         await Denied(Rejection.Unauthorized, () => service.CheckArticleArchiveAvailability(siteSession.Token, ct));
         await service.CheckArticleArchiveAvailability(administrator.Token, ct);
@@ -46,14 +50,14 @@ public sealed partial class AdminArticleRollbackPostgresTests
         var begin = await service.BeginArticleArchiveStepUp(administrator.Token, archive, ct);
         var challenge = Aeds.Decode(begin, FrameType.PasskeyLoginBegin);
         var challengeToken = Encoding.ASCII.GetString(challenge.Slice(WireLayouts.PasskeyLoginBeginTokenOffset, WireLayouts.PasskeyTokenSize)).TrimEnd('\0');
-        await Denied(Rejection.Forbidden, () => service.CompleteArticleDraftRollbackStepUp(administrator.Token,
+        await Denied(Rejection.Forbidden, () => rollback.CompleteArticleDraftRollbackStepUp(administrator.Token,
             new PasskeyLoginRequest(challengeToken, "", [], [], [], [], [], false), ct));
         Assert.Equal(1L, await Scalar<long>("""
             select count(*) from public.admin_article_rollback_step_up where session_digest=$1 and action=8 and body_digest=$2 and kind=1
             """, administrator.Digest, archiveDigest));
 
         var staleArchive = archive with { ExpectedReleaseId = 99 };
-        var staleProof = await SeedProof(db, ct, administrator, AdminPasskeyStore.ArticleArchiveIntentDigest(staleArchive), action: 8);
+        var staleProof = await SeedProof(db, ct, administrator, AdminArticleArchiveStore.ArticleArchiveIntentDigest(staleArchive), action: 8);
         await Denied(Rejection.Conflict, () => Perform(administrator, staleProof, staleArchive));
         await Execute("delete from public.admin_article_rollback_step_up where session_digest=$1 and kind=2", administrator.Digest);
         var proof = await SeedProof(db, ct, administrator, archiveDigest, action: 8);
@@ -61,7 +65,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         await Denied(Rejection.Forbidden, () => Perform(other, proof, archive));
         await Denied(Rejection.Forbidden, () => Perform(administrator, proof, archive with { Reason = "Changed archived source after verification" }));
         await Denied(Rejection.Forbidden, () => publications.AdministrativePublication(
-            invalidate => service.ExecuteArticleDraftRollback(administrator.Token, proof, draft, invalidate, ct), ct));
+            invalidate => rollback.ExecuteArticleDraftRollback(administrator.Token, proof, draft, invalidate, ct), ct));
 
         await RejectOutbox(3, administrator, proof, archive);
         Assert.Same(originalProjection, publications.Snapshot);
@@ -150,7 +154,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         }
 
         var release = new AdminArticleArchiveIntent(1, 3, archived.ReleaseId, 3, Guid.NewGuid(), "Republish the archived release after review", 2);
-        var releaseDigest = AdminPasskeyStore.ArticleArchiveIntentDigest(release);
+        var releaseDigest = AdminArticleArchiveStore.ArticleArchiveIntentDigest(release);
         Assert.False(archiveDigest.AsSpan().SequenceEqual(releaseDigest));
         await Denied(Rejection.Conflict, () => service.BeginArticleArchiveStepUp(other.Token, release with { ExpectedReleaseId = 2 }, ct));
         Aeds.Decode(await service.BeginArticleArchiveStepUp(other.Token, release, ct), FrameType.PasskeyLoginBegin);

@@ -27,32 +27,32 @@ public sealed partial class AdminModerationPostgresTests
         var (first, second) = await SeedBatchReplies(db, 2, ct);
         var moderator = await AddModerator(db, "batch-reviewer", ct);
         var other = await AddModerator(db, "another-batch-reviewer", ct);
-        var service = CreateStore(fixture);
+        var (_, moderation, batch, _, _) = CreateStores(fixture);
 
-        var held = await service.AcquireCommentClaim(other.Token, new(1, 4), ct);
+        var held = await moderation.AcquireCommentClaim(other.Token, new(1, 4), ct);
         var rejectedClaims = await Assert.ThrowsAsync<ModerationBatchConflictException>(() =>
-            service.AcquireModerationBatch(moderator.Token, [new(1, 4), new(1, 99), new(1, 3)], ct));
+            batch.AcquireModerationBatch(moderator.Token, [new(1, 4), new(1, 99), new(1, 3)], ct));
         // Request positions, not the database lock order: held and absent conflict; the valid third target rolls back.
         Assert.Equal(0b011, rejectedClaims.Positions);
         Assert.True(await ReadDatabase<bool>(db, """
             select (select count(*) from public.admin_comment_claim)=1 and exists (
                 select from public.admin_comment_claim where comment_id=4 and principal_id=$1 and state=1 and claim_version=$2)
             """, ct, other.Id, held.ClaimVersion));
-        await service.ReleaseCommentClaim(other.Token, held, ct);
+        await moderation.ReleaseCommentClaim(other.Token, held, ct);
 
-        var claims = await service.AcquireModerationBatch(moderator.Token, [new(1, 3), new(1, 4)], ct);
+        var claims = await batch.AcquireModerationBatch(moderator.Token, [new(1, 3), new(1, 4)], ct);
         Assert.Equal(new long[] { 3, 4 }, claims.Select(claim => claim.CommentId));
-        var renewed = await service.RenewCommentClaim(moderator.Token, claims[1], ct);
+        var renewed = await moderation.RenewCommentClaim(moderator.Token, claims[1], ct);
         const string reason = "Reviewed both attributed replies";
         var intent = new AdminModerationBatchDecision(1, reason, [BatchItem(claims[0]), BatchItem(renewed)]);
         var staleIntent = intent with { Rows = [BatchItem(claims[0]), BatchItem(claims[1])] };
         var stale = await Assert.ThrowsAsync<ModerationBatchConflictException>(() =>
-            service.BeginModerationBatchStepUp(moderator.Token, Wire.EncodeAdminModerationBatchDecision(staleIntent), ct));
+            batch.BeginModerationBatchStepUp(moderator.Token, Wire.EncodeAdminModerationBatchDecision(staleIntent), ct));
         Assert.Equal(0b10, stale.Positions);
         Assert.Equal(0L, await ReadDatabase<long>(db, "select count(*) from public.admin_comment_batch_step_up", ct));
 
         var frame = Wire.EncodeAdminModerationBatchDecision(intent);
-        var challenge = await service.BeginModerationBatchStepUp(moderator.Token, frame, ct);
+        var challenge = await batch.BeginModerationBatchStepUp(moderator.Token, frame, ct);
         Aeds.Decode(challenge, FrameType.PasskeyLoginBegin);
         Assert.True(await ReadDatabase<bool>(db, """
             select exists (select from public.admin_comment_batch_step_up
@@ -71,7 +71,7 @@ public sealed partial class AdminModerationPostgresTests
 
         await Execute(db, "insert into public.comment_blocked_region values(1,4,'ZZ')", ct);
         var blocked = await Assert.ThrowsAsync<ModerationBatchConflictException>(() =>
-            service.DecideModerationBatch(moderator.Token, proof, frame, fenceVisibleMessages: true, ct));
+            batch.DecideModerationBatch(moderator.Token, proof, frame, fenceVisibleMessages: true, ct));
         Assert.Equal(0b10, blocked.Positions);
         await AssertRolledBack();
         await Execute(db, "delete from public.comment_blocked_region where article_id=1 and comment_id=4", ct);
@@ -80,13 +80,13 @@ public sealed partial class AdminModerationPostgresTests
             alter table public.comment_reply_notice add constraint fixture_deny_second_reply_notice check (reply_id<>4)
             """, ct);
         var failure = await Assert.ThrowsAsync<PostgresException>(() =>
-            service.DecideModerationBatch(moderator.Token, proof, frame, fenceVisibleMessages: true, ct));
+            batch.DecideModerationBatch(moderator.Token, proof, frame, fenceVisibleMessages: true, ct));
         Assert.Equal(PostgresErrorCodes.CheckViolation, failure.SqlState);
         Assert.Equal("fixture_deny_second_reply_notice", failure.ConstraintName);
         await AssertRolledBack();
         await Execute(db, "alter table public.comment_reply_notice drop constraint fixture_deny_second_reply_notice", ct);
 
-        var receipt = await service.DecideModerationBatch(moderator.Token, proof, frame, fenceVisibleMessages: true, ct);
+        var receipt = await batch.DecideModerationBatch(moderator.Token, proof, frame, fenceVisibleMessages: true, ct);
         Assert.True(receipt.BatchId > 0);
         Assert.Equal(2, receipt.Count);
         await ProofRejected(moderator.Token, proof, frame);
@@ -121,7 +121,7 @@ public sealed partial class AdminModerationPostgresTests
         await AssertPrivateNotice(second, first, 4);
 
         Task ProofRejected(string session, string token, byte[] candidate) => Assert.ThrowsAsync<ModerationProofRequiredException>(() =>
-            service.DecideModerationBatch(session, token, candidate, fenceVisibleMessages: true, ct));
+            batch.DecideModerationBatch(session, token, candidate, fenceVisibleMessages: true, ct));
 
         async Task AssertRolledBack()
         {
@@ -162,7 +162,7 @@ public sealed partial class AdminModerationPostgresTests
         var (first, second) = await SeedBatchReplies(db, 4, ct);
         var left = await AddModerator(db, "batch-left-reviewer", ct);
         var right = await AddModerator(db, "batch-right-reviewer", ct);
-        var service = CreateStore(fixture);
+        var (_, _, service, _, _) = CreateStores(fixture);
         // Descending comment locks encounter B,A in the left batch and A,B in the right batch.
         var leftClaims = await service.AcquireModerationBatch(left.Token, [new(1, 3), new(1, 4)], ct);
         var rightClaims = await service.AcquireModerationBatch(right.Token, [new(1, 5), new(1, 6)], ct);
@@ -219,7 +219,7 @@ public sealed partial class AdminModerationPostgresTests
             select setval(pg_get_serial_sequence('public.comment','id'),1);
             """, ct);
         var moderator = await AddModerator(db, "reply-reviewer", ct);
-        var admin = CreateStore(fixture);
+        var (_, admin, _, _, _) = CreateStores(fixture);
         var reply = new PublicCommentReply(1, 1, 1, "Reply display", "Independent public reply", Guid.NewGuid(), true);
         var optIn = new Dictionary<string, string>
         {
@@ -350,7 +350,7 @@ public sealed partial class AdminModerationPostgresTests
             await Execute(db, """
                 insert into public.admin_step_up(digest,principal_id,session_digest,generation,action,body_digest,options,expires_at,kind)
                 values($1,$2,$3,1,1,$4,null,clock_timestamp()+interval '45 seconds',2)
-                """, ct, digest, moderator.Id, moderator.Digest, AdminPasskeyStore.DecisionDigest(intent));
+                """, ct, digest, moderator.Id, moderator.Digest, AdminModerationStore.DecisionDigest(intent));
             return (intent, token, digest);
         }
     }
@@ -397,7 +397,7 @@ public sealed partial class AdminModerationPostgresTests
         await using (var retry = await db.BeginTransactionAsync(ct))
             await Denied(Rejection.Conflict, () => CommentAppeals.Submit(db, retry, actor, authorSession, 1, new(reason, challenge.Challenge), ct));
         var appeal = (long)(await Scalar("select id from public.comment_appeal where adverse_id=$1", adverse))!;
-        var service = CreateStore(fixture);
+        var (_, _, _, service, history) = CreateStores(fixture);
         var payload = Aeds.Encode(FrameType.CommentAppealDecisionRequest, """
             {"decision":"granted","reason":"Independent review confirms the source."}
             """u8);
@@ -409,7 +409,7 @@ public sealed partial class AdminModerationPostgresTests
         await Execute(db, """
             insert into public.comment_appeal_admin_step_up(digest,principal_id,session_digest,generation,action,body_digest,expires_at,kind)
             values($1,$2,$3,1,5,$4,clock_timestamp()+interval '45 seconds',2)
-            """, ct, SHA256.HashData(Encoding.ASCII.GetBytes(proof)), reviewer.Id, reviewer.Digest, AdminPasskeyStore.AppealDecisionDigest(appeal, payload));
+            """, ct, SHA256.HashData(Encoding.ASCII.GetBytes(proof)), reviewer.Id, reviewer.Digest, AdminCommentAppealStore.AppealDecisionDigest(appeal, payload));
         var altered = Aeds.Encode(FrameType.CommentAppealDecisionRequest, """
             {"decision":"denied","reason":"Independent review confirms the source."}
             """u8);
@@ -455,7 +455,7 @@ public sealed partial class AdminModerationPostgresTests
             insert into public.comment_appeal_admin_step_up(digest,principal_id,session_digest,generation,action,body_digest,expires_at,kind)
             values($1,$2,$3,1,5,$4,clock_timestamp()+interval '45 seconds',2)
             """, ct, SHA256.HashData(Encoding.ASCII.GetBytes(secondProof)), reviewer.Id, reviewer.Digest,
-            AdminPasskeyStore.AppealDecisionDigest(secondAppeal, altered));
+            AdminCommentAppealStore.AppealDecisionDigest(secondAppeal, altered));
 
         var attempts = await Task.WhenAll(ResolveSecond(), ResolveSecond());
         Assert.Single(attempts, result => result);
@@ -472,7 +472,7 @@ public sealed partial class AdminModerationPostgresTests
 
         async Task CheckTimeline(long comment, int status, long version)
         {
-            var frame = await service.CommentTimeline(reviewer.Token, comment, QueryCollection.Empty, ct);
+            var frame = await history.CommentTimeline(reviewer.Token, comment, QueryCollection.Empty, ct);
             using var receipt = JsonDocument.Parse(Aeds.Decode(frame, (FrameType)225).ToArray());
             Assert.True(receipt.RootElement.GetProperty("consistent").GetBoolean());
             Assert.Equal(status, receipt.RootElement.GetProperty("currentStatus").GetInt32());
@@ -506,7 +506,7 @@ public sealed partial class AdminModerationPostgresTests
         var first = await AddModerator(db, "first-moderator", ct);
         var second = await AddModerator(db, "second-moderator", ct);
         var siteUser = await fixture.SignInSiteUser("claim-site-user", ct);
-        var service = CreateStore(fixture);
+        var (_, service, _, _, _) = CreateStores(fixture);
         var target = new AdminModerationClaimRequest(1, 1);
         await Denied(Rejection.Unauthorized, () => service.AcquireCommentClaim(siteUser.Token, target, ct));
 
@@ -582,7 +582,7 @@ public sealed partial class AdminModerationPostgresTests
         await AddPendingComment(db, ct);
         var owner = await AddModerator(db, "decision-owner", ct);
         var other = await AddModerator(db, "another-moderator", ct);
-        var service = CreateStore(fixture);
+        var (_, service, _, _, _) = CreateStores(fixture);
         var claim = await service.AcquireCommentClaim(owner.Token, new(1, 1), ct);
         var decision = new AdminModerationDecision(1, 1, 0, 1, "Reviewed the submitted comment", claim.CommentVersion,
             claim.ClaimToken, claim.ClaimGeneration, claim.ClaimVersion);
@@ -646,13 +646,20 @@ public sealed partial class AdminModerationPostgresTests
                 values($1,$2,$3,1,1,$4,null,clock_timestamp()+interval '45 seconds',2)
                 on conflict(session_digest,kind) do update set digest=excluded.digest,body_digest=excluded.body_digest,
                     expires_at=excluded.expires_at
-                """, ct, digest, owner.Id, owner.Digest, AdminPasskeyStore.DecisionDigest(value));
+                """, ct, digest, owner.Id, owner.Digest, AdminModerationStore.DecisionDigest(value));
             return (token, digest);
         }
     }
 
-    private static AdminPasskeyStore CreateStore(ScratchDatabase fixture) =>
-        new(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+    private static (AdminSessionGate Gate, AdminModerationStore Moderation, AdminModerationBatchStore Batch,
+        AdminCommentAppealStore Appeals, AdminCommentHistoryStore History) CreateStores(ScratchDatabase fixture)
+    {
+        var gate = new AdminSessionGate(fixture.DataSource, null);
+        var passkeys = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        var stepUp = new AdminStepUpService(gate, passkeys);
+        return (gate, new AdminModerationStore(gate, stepUp), new AdminModerationBatchStore(gate, stepUp),
+            new AdminCommentAppealStore(gate, stepUp), new AdminCommentHistoryStore(gate));
+    }
 
     private static async Task<(Guid First, Guid Second)> SeedBatchReplies(NpgsqlConnection db, int count, CancellationToken ct)
     {

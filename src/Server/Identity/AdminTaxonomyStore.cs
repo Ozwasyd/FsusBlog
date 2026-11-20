@@ -5,10 +5,10 @@ using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminTaxonomyStore(AdminSessionGate gate)
 {
     internal Task<AdminTaxonomyPage> Taxonomy(string? token, bool tags, IQueryCollection query, Publications publications,
-        CancellationToken ct) => WithSession(token, async (db, tx, _) =>
+        CancellationToken ct) => gate.WithSession(token, async (db, tx, _) =>
         {
             var after = TaxonomyCursor(query);
             var snapshot = publications.Snapshot ?? throw new PublicUnavailableException();
@@ -50,7 +50,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<AdminTaxonomyDependencies> TaxonomyDependencies(string? token, bool tags, IQueryCollection query, CancellationToken ct) =>
-        WithSession(token, async (db, tx, _) =>
+        gate.WithSession(token, async (db, tx, _) =>
         {
             var id = TaxonomyCoordinate(query, "dependency", "Invalid administrator taxonomy dependency ID.");
             var (registry, _, _) = TaxonomyRelations(tags);

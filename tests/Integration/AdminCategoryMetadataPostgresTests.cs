@@ -32,7 +32,7 @@ public sealed class AdminCategoryMetadataPostgresTests
 
         await using var lease = new InstanceLease(fixture.ConnectionString);
         await lease.Start(NullLogger.Instance, ct, new(AdminCategoryMetadata: true));
-        var admin = new AdminPasskeyStore(fixture.DataSource, lease, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var admin = new AdminTagMetadataStore(new AdminSessionGate(fixture.DataSource, lease));
         var store = new Store(fixture.DataSource, lease);
         var publications = Project();
         await publications.Refresh(ct);
