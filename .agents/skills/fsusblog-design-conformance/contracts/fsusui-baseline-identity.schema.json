@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fsusblog-design-conformance:fsusui-baseline-identity:v1",
+  "title": "fsusblog-design-conformance.fsusui-baseline-identity.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "sourceKind",
+    "repository",
+    "absolutePath",
+    "gitHead",
+    "packageVersion",
+    "dirty",
+    "dirtyFingerprint",
+    "skillDigest",
+    "contractDigests",
+    "baselineDigest"
+  ],
+  "properties": {
+    "schema": {
+      "const": "fsusblog-design-conformance.fsusui-baseline-identity.v1"
+    },
+    "sourceKind": {
+      "enum": [
+        "local-source",
+        "package-pin"
+      ]
+    },
+    "repository": {
+      "const": "Ozwasyd/FsusUI"
+    },
+    "absolutePath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "gitHead": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "packageVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dirty": {
+      "type": "boolean"
+    },
+    "dirtyFingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "skillDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "contractDigests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stagePolicy",
+        "classification",
+        "adjudication",
+        "uxAcceptance"
+      ],
+      "properties": {
+        "stagePolicy": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "classification": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "adjudication": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "uxAcceptance": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "baselineDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "schema": "fsusblog-design-conformance.ui-stage-policy.v2",
+  "policyVersion": "fsusblog-ui-domain.v2",
+  "repository": "Ozwasyd/FsusBlog",
+  "authorityScope": "repository-domain-and-acceptance-only",
+  "requiredSkillIds": [
+    "fsusblog-design-conformance",
+    "fsusui-design-conformance"
+  ],
+  "uiDecisionClasses": [
+    "prescribed",
+    "bounded-composition",
+    "layout-judgment",
+    "interaction-judgment",
+    "system-design-dispute"
+  ],
+  "verificationClasses": [
+    "ux-local",
+    "ux-path",
+    "ux-system"
+  ],
+  "systemDesignDisputeClass": "system-design-dispute",
+  "implementationOwnership": {
+    "allowedPathClass": "implementation",
+    "forbiddenPathClasses": [
+      "tests",
+      "fixtures",
+      "snapshots",
+      "acceptance-mapping",
+      "design-authorities",
+      "skill-contracts"
+    ],
+    "acceptanceMayModifyImplementation": false,
+    "adjudicationMayModifyImplementation": false
+  },
+  "acceptanceRequirements": {
+    "requiresRenderedEvidence": true,
+    "requiresProductionFixture": true,
+    "acceptedReceiptRequiresZeroBlockers": true,
+    "independentAcceptanceRequired": true
+  },
+  "consumerWorkaroundsForbidden": [
+    "private-selector",
+    "deep-selector",
+    "fsusui-token-fork",
+    "component-wrapper",
+    "consumer-local-parser",
+    "consumer-local-offset-map"
+  ],
+  "sharedOrchestrationAuthority": "external",
+  "forbiddenSharedOrchestrationClaims": [
+    "root-controller",
+    "permanent-actor-roster",
+    "model-profile-effort",
+    "route-selection",
+    "runtime-execution-permissions",
+    "lease-resource-capacity",
+    "shared-stage-order",
+    "checkpoint-continuation",
+    "retry-recovery-failure-routing",
+    "delivery-cleanup-terminalization"
+  ],
+  "requiredClassificationBindings": [
+    "skillDigest",
+    "authorityDigest",
+    "baselineIdentity",
+    "candidateIdentity",
+    "domainPolicyDigest"
+  ],
+  "requiredAcceptanceBindings": [
+    "classificationReceiptDigest",
+    "skillDigest",
+    "authorityDigest",
+    "baselineIdentity",
+    "candidateIdentity",
+    "domainPolicyDigest"
+  ]
+}
