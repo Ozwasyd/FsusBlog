@@ -1,5 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
-import { isValidAdminArticleRollbackReason, proofHeaders, readRollbackAvailability, requestRollbackProof } from './admin-article-rollback.ts';
+import { isValidAdminArticleRollbackReason } from './admin-article-rollback.ts';
+import { readAdminAvailability } from './admin-identity.ts';
+import { optionalAdminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { PodReader } from './binary.ts';
 import { request } from './client.ts';
 import {
@@ -23,7 +25,7 @@ export type AdminArchivedArticles = Readonly<{
 }>;
 
 export function readAdminArticleArchiveAvailability(signal: AbortSignal): Promise<boolean> {
-  return readRollbackAvailability(WireRoutes.AdminArticleArchiveAvailability, signal);
+  return readAdminAvailability(WireRoutes.AdminArticleArchiveAvailability, signal);
 }
 
 export function readAdminArticleArchivePage(before: number | undefined, signal: AbortSignal): Promise<AdminArchivedArticles> {
@@ -47,8 +49,10 @@ export function readAdminArticleArchivePreview(archive: AdminArchivedArticle, si
 }
 
 export async function requestAdminArticleArchiveProof(intent: AdminArticleArchiveIntent, signal: AbortSignal): Promise<string> {
-  return requestRollbackProof(WireRoutes.AdminArticleArchiveStepUpBegin, WireRoutes.AdminArticleArchiveStepUpComplete,
-    intentFrame(intent), signal);
+  return proveAdminStepUp({
+    begin: WireRoutes.AdminArticleArchiveStepUpBegin,
+    complete: WireRoutes.AdminArticleArchiveStepUpComplete,
+  }, intentFrame(intent), signal);
 }
 
 export function executeAdminArticleArchive(intent: AdminArticleArchiveIntent, proof: string | undefined,
@@ -63,7 +67,7 @@ export function executeAdminArticleArchive(intent: AdminArticleArchiveIntent, pr
       throw new ProtocolError('Invalid administrator article archive receipt');
     }
     return result;
-  }, signal, 'POST', intentFrame(intent), proofHeaders(proof));
+  }, signal, 'POST', intentFrame(intent), optionalAdminProofHeaders(proof));
 }
 
 function decodeArchivePage(payload: Uint8Array, before: number | undefined): AdminArchivedArticles {

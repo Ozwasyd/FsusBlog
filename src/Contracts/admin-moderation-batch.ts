@@ -1,11 +1,10 @@
 import { ApiError, encodeFrame, ProtocolError } from './aeds.ts';
 import type { AdminCommentCursor } from './admin-identity.ts';
 import { validModerationReason } from './admin-moderation.ts';
+import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { PodReader, PodWriter } from './binary.ts';
 import { request } from './client.ts';
-import { readMfaProof } from './mfa.ts';
-import { requestPasskeyAssertion } from './passkey.ts';
-import { FrameType, WireHeaders, WireLimits, WireRoutes, type AdminModerationClaim } from './wire.generated.ts';
+import { FrameType, WireLimits, WireRoutes, type AdminModerationClaim } from './wire.generated.ts';
 
 export type AdminModerationBatchItem = Readonly<Omit<AdminModerationClaim, 'expiresAt'> & { expectedStatus: 0 }>;
 export type AdminModerationBatchDecision = Readonly<{
@@ -32,13 +31,12 @@ export function claimModerationBatch(items: readonly AdminCommentCursor[], signa
 export async function proveAndDecideModerationBatch(decision: AdminModerationBatchDecision, signal: AbortSignal): Promise<AdminModerationBatchReceipt> {
   const count = decision.rows.length;
   const frame = encodeModerationBatchDecision(decision);
-  const assertion = await requestPasskeyAssertion(WireRoutes.AdminModerationBatchStepUpBegin, signal, frame, true);
-  signal.throwIfAborted();
-  const proof = await request(WireRoutes.AdminModerationBatchStepUpComplete, FrameType.MfaChallengeResult,
-    payload => readMfaProof(payload, 'admin-sensitive', true), signal, 'POST', assertion);
-  signal.throwIfAborted();
+  const proof = await proveAdminStepUp({
+    begin: WireRoutes.AdminModerationBatchStepUpBegin,
+    complete: WireRoutes.AdminModerationBatchStepUpComplete,
+  }, frame, signal);
   return request(WireRoutes.AdminModerationBatchDecision, FrameType.AdminModerationBatchReceipt,
-    payload => decodeModerationBatchReceipt(payload, count), signal, 'POST', frame, { [WireHeaders.MfaProof]: proof });
+    payload => decodeModerationBatchReceipt(payload, count), signal, 'POST', frame, adminProofHeaders(proof));
 }
 
 export function encodeModerationBatchDecision(value: AdminModerationBatchDecision): Uint8Array<ArrayBuffer> {
