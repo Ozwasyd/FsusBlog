@@ -55,7 +55,7 @@ internal sealed partial class AdminPasskeyStore
 {
     internal Task<(AdminRiskReadiness Controls, string PermissionSession)> RiskReadiness(string? token,
         InstalledCommentRoutes commentRoutes, bool trustLoopbackProxy, CancellationToken ct) =>
-        WithLiveAdmin(token, CurrentSchema.SystemConfigPermission, async (db, tx, admin) =>
+        WithLiveAdmin(token, async (db, tx, admin) =>
         {
             var replyMode = 0;
             if (commentRoutes.SignedInReply)

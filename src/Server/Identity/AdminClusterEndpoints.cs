@@ -38,7 +38,7 @@ internal sealed partial class AdminPasskeyStore
 {
     internal Task<(AdminClusterStatus Status, string PermissionSession)> ClusterStatus(string? token,
         AdminClusterIdentity instance, InstanceLease lease, Publications publications, CancellationToken ct) =>
-        WithLiveAdmin(token, CurrentSchema.SystemConfigPermission, (_, _, admin) =>
+        WithLiveAdmin(token, (_, _, admin) =>
         {
             var ready = publications.Snapshot is not null;
             var age = lease.ObserveAgeMilliseconds();

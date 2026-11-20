@@ -13,7 +13,6 @@ public sealed class PropertyBatchPostgresTests
         await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(db.DataSource);
         var (author, session, _) = await db.SignIn("Property batch author", ct);
-        var (_, otherSession, _) = await db.SignIn(author, ct);
         var original = await Save(0, 0, "Original body");
         var draft = await Save(original.Id, original.Revision, "Updated body");
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
@@ -82,7 +81,7 @@ public sealed class PropertyBatchPostgresTests
         };
         var outcomes = await Task.WhenAll(
             Post(WireRoutes.PropertyValueCommand, Wire.EncodePropertyValueBatch(first), session),
-            Post(WireRoutes.PropertyValueCommand, Wire.EncodePropertyValueBatch(second), otherSession));
+            Post(WireRoutes.PropertyValueCommand, Wire.EncodePropertyValueBatch(second), session));
         var winner = Assert.Single(outcomes, outcome => outcome.Status == HttpStatusCode.OK);
         var loser = Assert.Single(outcomes, outcome => outcome.Status == HttpStatusCode.Conflict);
         Assert.Equal(WireLayouts.ErrorBytes, Aeds.Decode(loser.Bytes, FrameType.ApiError).Length);

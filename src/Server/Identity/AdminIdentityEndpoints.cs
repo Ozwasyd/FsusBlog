@@ -51,12 +51,12 @@ internal static class AdminIdentityEndpoints
             : !administration;
     }
 
-    internal static PasskeyConfiguration? ReadConfiguration(IConfiguration configuration)
+    internal static PasskeyConfiguration? ReadConfiguration(IConfiguration configuration, string? publicOrigin = null)
     {
         var config = PasskeyConfiguration.Read(configuration, OriginSetting, RpSetting);
         if (config is null) return null;
-        var site = PasskeyConfiguration.Read(configuration);
-        var publicHost = configuration[PublicOriginSetting];
+        var publicHost = publicOrigin ?? configuration[PublicOriginSetting];
+        var site = PasskeyConfiguration.Read(configuration, publicHost);
         if (site?.RpId == config.RpId ||
             (Uri.TryCreate(publicHost, UriKind.Absolute, out var siteOrigin) && siteOrigin.IdnHost == config.RpId) ||
             (!config.Origin.IsLoopback && !Uri.TryCreate(publicHost, UriKind.Absolute, out _)))
@@ -64,10 +64,11 @@ internal static class AdminIdentityEndpoints
         return config;
     }
 
-    internal static void Map(WebApplication app, PasskeyConfiguration? config,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, InstalledCommentRoutes commentRoutes, bool trustLoopbackProxy,
+    internal static void Map(WebApplication app, SiteCapabilities capabilities,
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, InstalledCommentRoutes commentRoutes,
         Func<HttpContext, string, int, string?> query)
     {
+        var config = capabilities.AdminIdentity;
         if (config is null) return;
         var secure = config.Origin.Scheme == "https";
         var session = SessionCookieName(config);
@@ -124,12 +125,6 @@ internal static class AdminIdentityEndpoints
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = active.PermissionSession;
             return Frame(Wire.EncodeAdminSessionSnapshot(active.Snapshot));
         }).RequireRateLimiting("command");
-        app.MapGet(WireRoutes.AdminEffectivePermissions, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            var scope = await store.EffectivePermissions(ctx.Request.Cookies[session], ct);
-            ctx.Response.Headers[WireHeaders.AdminPermissionSession] = scope.PermissionSession;
-            return Frame(Wire.EncodeAdminEffectivePermissions(scope.Permissions));
-        }).RequireRateLimiting("command");
         app.MapGet(WireRoutes.AdminSignInHistory, async (HttpContext ctx, CancellationToken ct) =>
         {
             var scope = await store.RecentSignIns(ctx.Request.Cookies[session], ct);
@@ -158,24 +153,24 @@ internal static class AdminIdentityEndpoints
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
             return Frame(Wire.EncodeAdminSiteTraffic(result.Traffic));
         }).RequireRateLimiting("command");
-        var batchModeration = app.Configuration.GetValue(AdminModerationBatchEndpoints.Setting, false);
+        var batchModeration = capabilities.AdminCommentBatch;
         app.MapGet(WireRoutes.AdminCommentQueue, async (HttpContext ctx, CancellationToken ct) =>
             Frame(Wire.EncodeAdminCommentQueue(await store.CommentQueue(ctx.Request.Cookies[session], ctx.Request.Query, ct,
                 batchModeration ? () => ctx.Response.Headers[WireHeaders.AdminModerationBatchEnabled] = "1" : null))))
             .RequireRateLimiting("command");
         AdminClusterEndpoints.Map(app, store, session, Limit);
-        if (secure) AdminRiskReadinessEndpoints.Map(app, config.Origin, store, session, Limit, commentRoutes, trustLoopbackProxy, readFrame);
-        AdminModerationEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
-        AdminInboxEndpoints.Map(app, store, session, readFrame);
+        if (secure) AdminRiskReadinessEndpoints.Map(app, config.Origin, store, session, Limit, commentRoutes, capabilities.TrustLoopbackProxy, readFrame);
+        AdminModerationEndpoints.Map(app, config.Origin, store, session, Limit, readFrame, capabilities);
+        AdminInboxEndpoints.Map(app, store, session, readFrame, capabilities);
         AdminSitePages.Map(app, store, session);
         AdminCommentRevisions.Map(app, store, session);
         AdminArticleTrashRestore.Map(app, config.Origin, store, session, Limit, readFrame);
         AdminArticleTrashPublication.Map(app, config.Origin, store, session, Limit, readFrame);
-        if (app.Configuration.GetValue<bool?>(AdminTagMetadataEndpoints.Setting) ?? (config.Origin.Scheme == Uri.UriSchemeHttps))
+        if (capabilities.AdminTagMetadata)
             AdminTagMetadataEndpoints.Map(app, config.Origin, store, session, readFrame);
-        if (app.Configuration.GetValue<bool?>(AdminTagMetadataEndpoints.CategorySetting) ?? (config.Origin.Scheme == Uri.UriSchemeHttps))
+        if (capabilities.AdminCategoryMetadata)
             AdminTagMetadataEndpoints.Map(app, config.Origin, store, session, readFrame, category: true);
-        if (app.Configuration.GetValue(AdminArticleRollbackEndpoints.Setting, false))
+        if (capabilities.AdminArticleRollback)
             AdminArticleRollbackEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         if (app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().EditorEnabled)
             AdminSitePageEditorEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);

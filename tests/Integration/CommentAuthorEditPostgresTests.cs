@@ -118,7 +118,7 @@ public sealed partial class AdminModerationPostgresTests
                     and reply_to_id=1 and parent_depth=0 and depth=1 and not deleted and edited_at is not null)
             """, ct, delivered));
 
-        var manager = await AddModerator(db, "comment-history-manager", ct, canModerate: false);
+        var siteUser = await fixture.SignInSiteUser("comment-history-site-user", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
         {
             ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost", ["FSUSBLOG_ADMIN_RP_ID"] = "localhost"
@@ -126,7 +126,7 @@ public sealed partial class AdminModerationPostgresTests
         const string historyRoute = "/api/binary/author/comments/1/revisions";
         await History(HttpStatusCode.NotFound, moderator.Token, adminOrigin: false);
         await History(HttpStatusCode.Unauthorized, null);
-        await History(HttpStatusCode.Forbidden, manager.Token);
+        await History(HttpStatusCode.Unauthorized, siteUser.Token);
         await History(HttpStatusCode.BadRequest, moderator.Token, historyRoute + "?before=2&before=3");
         await History(HttpStatusCode.BadRequest, moderator.Token, historyRoute + "?articleId=1&articleId=2");
         await History(HttpStatusCode.NotFound, moderator.Token, historyRoute + "?articleId=2");
@@ -220,7 +220,7 @@ public sealed partial class AdminModerationPostgresTests
 
         const string timelineRoute = "/api/binary/author/comments/3/moderation-timeline";
         await History(HttpStatusCode.NotFound, moderator.Token, timelineRoute, adminOrigin: false);
-        await History(HttpStatusCode.Forbidden, manager.Token, timelineRoute);
+        await History(HttpStatusCode.Unauthorized, siteUser.Token, timelineRoute);
         await History(HttpStatusCode.NotFound, moderator.Token, timelineRoute + "?articleId=2");
         var timelinePacket = await History(HttpStatusCode.OK, moderator.Token, timelineRoute);
         Assert.Equal(timelinePacket, await History(HttpStatusCode.OK, moderator.Token, timelineRoute + "?articleId=1"));

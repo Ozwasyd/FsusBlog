@@ -98,15 +98,12 @@ public sealed class DistributionPostgresTests
     {
         await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(35));
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
-        var user = Guid.NewGuid();
-        await FixtureSql.ExecuteAsync(connection, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'distribution-author',true,true,1)", user);
-        var ticket = await FixtureSql.IssueLoginTicketAsync(connection, null, ct, user, minutes: 1);
+        var actor = await database.SignIn("distribution-author", ct, minutes: 1);
         await using (var catalog = Store.Sql(connection, null, """
             insert into public.category(id,name) values(11,'Published category'),(12,'Draft category');
             insert into public.tag(id,name) values(41,'Public tag'),(42,'Draft tag');
             insert into public.tag_url_name(name_key,tag_id) values('public tag',41),('public alias',41),('draft tag',42);
             """)) await catalog.ExecuteNonQueryAsync(ct);
-        var actor = await new Store(database.DataSource).SignIn(ticket, ct);
         var site = Directory.CreateTempSubdirectory("fsusv2-distribution-pages-");
         try
         {
@@ -117,7 +114,9 @@ public sealed class DistributionPostgresTests
                 await File.WriteAllTextAsync(Path.Combine(path, slug + ".md"), $"Public {slug} body.", ct);
             await using var server = await ServerProcess.Start(database.ConnectionString, ct, new Dictionary<string, string>
             {
-                [PublicSiteConfiguration.OriginKey] = Origin, ["FSUSBLOG_SITE_PAGES"] = path
+                [PublicSiteConfiguration.OriginKey] = Origin,
+                ["FSUSBLOG_ADMIN_ORIGIN"] = ServerProcess.DefaultAdminOrigin,
+                ["FSUSBLOG_SITE_PAGES"] = path
             });
             var client = server.Client;
             const string title = "Visible <em>Title</em> & 世界";

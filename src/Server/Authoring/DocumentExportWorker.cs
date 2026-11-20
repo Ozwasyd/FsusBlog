@@ -70,8 +70,7 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
                 delete from public.author_document_export e
                 where e.expires_at<=statement_timestamp()
                    or not exists (select from public.admin_principal p where p.id=e.owner_id
-                       and p.enabled and p.generation=e.author_generation
-                       and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write'))
+                       and p.enabled and p.generation=e.author_generation)
                    or exists (select from public.article a where a.id=e.article_id and a.deleted)
                 """);
             return await delete.ExecuteNonQueryAsync(ct);
@@ -154,7 +153,6 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
                         join public.article a on a.id=e.article_id
                         where e.owner_id=$1 and e.id=$2 and e.state=2 and e.expires_at>statement_timestamp()
                         and p.enabled and p.generation=e.author_generation
-                        and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write')
                         and not a.deleted)
                     """, job.Owner, job.Request.Id);
                 check.CommandTimeout = 2;
@@ -204,7 +202,6 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
         await using var check = Store.Sql(db, tx, """
             select true from public.admin_principal p
             where p.id=$1 and p.generation=$2 and p.enabled
-              and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write')
             for share
             """, job.Owner, job.Generation);
         if (await check.ExecuteScalarAsync(ct) is not true)

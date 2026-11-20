@@ -14,7 +14,7 @@ internal static partial class CurrentSchema
     private static readonly string[] CanvasConstraints =
     [
         "authoring_canvas p id",
-        "authoring_canvas f owner_id public.blog_user:id",
+        "authoring_canvas f owner_id public.admin_principal:id",
         "authoring_canvas c revision revision>0",
         "authoring_canvas c viewport_zoom viewport_zoom>=100ANDviewport_zoom<=4000",
         "canvas_node p canvas_id,id",
@@ -30,7 +30,7 @@ internal static partial class CurrentSchema
         "canvas_document_event p canvas_id,revision",
         "canvas_document_event u canvas_id,command_id",
         "canvas_document_event f canvas_id public.authoring_canvas:id",
-        "canvas_document_event f actor_id public.blog_user:id",
+        "canvas_document_event f actor_id public.admin_principal:id",
         "canvas_document_event c revision revision>0",
         "canvas_document_event c fingerprint octet_length(fingerprint)=32",
         "canvas_document_event c node_count node_count>=0ANDnode_count<=10000",

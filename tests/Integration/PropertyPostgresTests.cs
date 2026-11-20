@@ -26,7 +26,7 @@ public sealed class PropertyPostgresTests
         Assert.Equal(0, authorPanel.SchemaRevision);
         Assert.Empty(authorPanel.Fields);
         await ExpectError(WireRoutes.PropertyWorkspace, Wire.EncodePropertyWorkspaceRequest(input), visitor, HttpStatusCode.NotFound);
-        await ExpectError(WireRoutes.PropertyWorkspace, Wire.EncodePropertyWorkspaceRequest(input), guest, HttpStatusCode.Forbidden);
+        await ExpectError(WireRoutes.PropertyWorkspace, Wire.EncodePropertyWorkspaceRequest(input), guest, HttpStatusCode.Unauthorized);
 
         var create = new PropertyDefinitionCommand(1, Guid.NewGuid(), Guid.NewGuid(), 0, 0, "subtitle", "副标题");
         var definition = await Change(create);

@@ -20,15 +20,16 @@ public sealed class AdminCommentQueuePostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var (admin, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "moderator", 10, [1], [2], CurrentSchema.AuditReadPermission);
+        var (admin, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "moderator", 10, [1], [2]);
         var owner = Guid.NewGuid();
         var siteTicket = Secret();
-        await Execute("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'author',true,true,1)", owner);
+        await Execute("insert into public.blog_user(id,name,enabled,generation) values($1,'author',true,1)", owner);
         await Execute("insert into public.login_ticket values($1,$2,clock_timestamp()+interval '5 minutes')", Store.TokenDigest(siteTicket)!, owner);
         await Execute("insert into public.comment_public_handle values($1,'Fixture commenter')", owner);
 
         var store = new Store(fixture.DataSource);
         var (siteToken, _) = await store.SignIn(siteTicket, ct);
+        var (_, authorToken, _) = await fixture.SignIn("comment-queue-author", ct);
         var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
         var publications = PublicationFixture.Project(fixture.DataSource);
         var published = await Publish("Public comment fixture");
@@ -67,8 +68,6 @@ public sealed class AdminCommentQueuePostgresTests
         allExpected.Add((allExpected[WireLimits.AdminCommentQueueSize - 1].Comment, retracted.Id));
 
         await Denied(Rejection.Unauthorized, () => adminStore.CommentQueue(siteToken, QueryCollection.Empty, ct));
-        await Denied(Rejection.Forbidden, () => adminStore.CommentQueue(adminToken, QueryCollection.Empty, ct));
-        await Execute("insert into public.admin_permission values($1,$2)", admin, CurrentSchema.CommentModeratePermission);
         await Denied(Rejection.Invalid, () => adminStore.CommentQueue(adminToken, new QueryCollection(new Dictionary<string, StringValues>
         {
             ["afterComment"] = "1",
@@ -111,7 +110,7 @@ public sealed class AdminCommentQueuePostgresTests
             var edit = action == ArticleAction.Save
                 ? new Edit(id, revision, Guid.NewGuid(), title, "Moderation fixture article body")
                 : new Edit(id, revision, Guid.NewGuid(), "", "");
-            var (article, _) = await publications.Command(store, siteToken, action,
+            var (article, _) = await publications.Command(store, authorToken, action,
                 edit, ct);
             return article;
         }

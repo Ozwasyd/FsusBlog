@@ -16,9 +16,7 @@ public sealed class AuthorTextPropertyIndexPostgresTests
         await using var scratch = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await scratch.DataSource.OpenConnectionAsync(ct);
         var actor = new Identity(Guid.NewGuid(), "Property search owner", 1, true, DateTimeOffset.UtcNow.AddMinutes(2));
-        await FixtureSql.ExecuteAsync(db, null, ct, """
-            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)
-            """, actor.Id, actor.Name);
+        await FixtureSql.AdminPrincipalAsync(db, null, ct, actor.Id, "property-search-owner");
 
         var id = Guid.NewGuid();
         var created = await Transaction(tx => new PropertyStore(db, tx, actor).Change(

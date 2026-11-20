@@ -3,10 +3,19 @@ using System.Runtime.InteropServices;
 
 namespace FsusBlog.V2.Contracts;
 
+public enum ArticleSearchSort
+{
+    Relevance = 0,
+    Latest = 1
+}
+
+public readonly record struct ArticleSearchPage(Article[] Articles, int Total);
+
 /// <summary>In-memory weighted BM25 over the active snapshot's public article coordinates.</summary>
 public sealed partial class ArticleSearchIndex
 {
     private const int MaxResults = 200;
+    public const int MaxPaginatedResults = 1_000;
     private const int CompactMaxDocuments = WireLimits.SearchIndexMaxPages * WireLimits.SearchIndexPageSize;
     private const int MaxTerms = 262_144;
     private const int MaxPostings = 3_000_000;
@@ -51,17 +60,26 @@ public sealed partial class ArticleSearchIndex
         return new ArticleSearchIndex(Normalize(articles, lengths, builder.TotalLength, ct), terms, postings);
     }
 
-    public Article[] Search(string query, CancellationToken ct)
+    public Article[] Search(string query, CancellationToken ct) =>
+        SearchPage(query, ArticleSearchSort.Relevance, 1, MaxResults, ct).Articles;
+
+    public ArticleSearchPage SearchPage(string query, ArticleSearchSort sort, int page, int size, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
-        if (_documents.Length == 0) return [];
+        ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(size, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(size, MaxResults);
+        if (_documents.Length == 0) return new([], 0);
         var (normalized, exactIdentifier) = ArticleSearchTokens.NormalizeQuery(query);
-        if (normalized.Length == 0) return [];
-        if (exactIdentifier) return SearchIdentifier(normalized, ct);
+        if (normalized.Length == 0) return new([], 0);
+        var start = (long)(page - 1) * size;
+        var window = start >= MaxPaginatedResults ? 0 : (int)Math.Min(start + size, MaxPaginatedResults);
+        if (exactIdentifier) return SearchIdentifier(normalized, sort, (int)Math.Min(start, MaxPaginatedResults), window, ct);
         query = normalized;
-        if (_wide is { } blocks) return SearchWide(blocks, query, ct);
+        if (_wide is { } blocks) return SearchWide(blocks, query, sort, (int)Math.Min(start, MaxPaginatedResults), window, ct);
         var hashes = new HashSet<uint>();
-        var candidates = new PriorityQueue<Article, (double Score, long CreatedAt, int Id)>(MaxResults);
+        var candidates = window == 0 ? null : new PriorityQueue<Article, SearchRank>(window);
+        var total = 0;
         var buffer = ArrayPool<double>.Shared.Rent(_documents.Length);
         try
         {
@@ -81,17 +99,17 @@ public sealed partial class ArticleSearchIndex
                     scores[posting.Ordinal] += Score(posting.Weight, normalization, idf);
                 }
             }
-            Select(scores, 0, candidates, ct);
+            Select(scores, 0, candidates, sort, window, ref total, ct);
         }
         finally
         {
             ArrayPool<double>.Shared.Return(buffer);
         }
 
-        return Ordered(candidates);
+        return new(Ordered(candidates, (int)Math.Min(start, MaxPaginatedResults)), total);
     }
 
-    private Article[] SearchIdentifier(string query, CancellationToken ct)
+    private ArticleSearchPage SearchIdentifier(string query, ArticleSearchSort sort, int start, int window, CancellationToken ct)
     {
         // A complete identifier must have all of its segments in the existing postings. Verify only
         // the rarest segment's candidates, including those outside the regular 200-result limit.
@@ -100,13 +118,14 @@ public sealed partial class ArticleSearchIndex
         foreach (var hash in ArticleSearchTokens.Hashes(query, ct))
         {
             var count = _wide is null ? FindTerm(_terms, hash).Count : _wide.Sum(block => FindTerm(block.Terms, hash).Count);
-            if (count == 0) return [];
+            if (count == 0) return new([], 0);
             if (count >= fewest) continue;
             fewest = count;
             anchor = hash;
         }
 
-        var candidates = new PriorityQueue<Article, (double Score, long CreatedAt, int Id)>(MaxResults);
+        var candidates = window == 0 ? null : new PriorityQueue<Article, SearchRank>(window);
+        var total = 0;
         if (_wide is { } blocks)
         {
             foreach (var block in blocks)
@@ -127,7 +146,7 @@ public sealed partial class ArticleSearchIndex
             var term = FindTerm(_terms, anchor);
             for (var index = 0; index < term.Count; index++) Match(_postings[term.Start + index].Ordinal);
         }
-        return Ordered(candidates);
+        return new(Ordered(candidates, start), total);
 
         void Match(int ordinal)
         {
@@ -138,7 +157,7 @@ public sealed partial class ArticleSearchIndex
                 TaxonomyWeight * Count(article.Category?.Name ?? "") + BodyWeight * Count(article.Body);
             foreach (var tag in article.Tags ?? []) weight += TaxonomyWeight * Count(tag.Name);
             // An identifier has one IDF shared by every hit, so it cannot change the ordering.
-            if (weight > 0) Offer(candidates, article, Score(weight, document.Normalization, 1));
+            if (weight > 0) Offer(candidates, article, Score(weight, document.Normalization, 1), sort, window, ref total);
         }
 
         int Count(string value) => ArticleSearchTokens.CountIdentifier(value, query, ct);
@@ -157,29 +176,33 @@ public sealed partial class ArticleSearchIndex
         idf * ((weight * (K1 + 1)) / (weight + normalization));
 
     private void Select(ReadOnlySpan<double> scores, int start,
-        PriorityQueue<Article, (double Score, long CreatedAt, int Id)> candidates, CancellationToken ct)
+        PriorityQueue<Article, SearchRank>? candidates, ArticleSearchSort sort, int window, ref int total, CancellationToken ct)
     {
         for (var ordinal = 0; ordinal < scores.Length; ordinal++)
         {
             if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
             var score = scores[ordinal];
             if (score <= 0) continue;
-            Offer(candidates, _documents[start + ordinal].Article, score);
+            Offer(candidates, _documents[start + ordinal].Article, score, sort, window, ref total);
         }
     }
 
-    private static void Offer(PriorityQueue<Article, (double Score, long CreatedAt, int Id)> candidates,
-        Article article, double score)
+    private static void Offer(PriorityQueue<Article, SearchRank>? candidates,
+        Article article, double score, ArticleSearchSort sort, int window, ref int total)
     {
-        var rank = (score, article.CreatedAt.UtcTicks, article.Id);
-        if (candidates.Count < MaxResults) candidates.Enqueue(article, rank);
+        total++;
+        if (candidates is null || window == 0) return;
+        var rank = new SearchRank(score, article.PublishedAt.UtcTicks, article.CreatedAt.UtcTicks, article.Id, sort);
+        if (candidates.Count < window) candidates.Enqueue(article, rank);
         else candidates.EnqueueDequeue(article, rank);
     }
 
-    private static Article[] Ordered(PriorityQueue<Article, (double Score, long CreatedAt, int Id)> candidates)
+    private static Article[] Ordered(PriorityQueue<Article, SearchRank>? candidates, int start)
     {
-        var result = new Article[candidates.Count];
-        for (var index = result.Length - 1; index >= 0; index--)
+        if (candidates is null || candidates.Count <= start) return [];
+        var count = candidates.Count - start;
+        var result = new Article[count];
+        for (var index = count - 1; index >= 0; index--)
             result[index] = candidates.Dequeue();
         return result;
     }
@@ -258,6 +281,17 @@ public sealed partial class ArticleSearchIndex
     private readonly record struct PendingPosting(Posting Value, int Previous);
     private readonly record struct Bucket(int Head, int Count);
     private readonly record struct Document(Article Article, double Normalization);
+    private readonly record struct SearchRank(double Score, long PublishedTicks, long CreatedTicks, int Id, ArticleSearchSort Sort)
+        : IComparable<SearchRank>
+    {
+        public int CompareTo(SearchRank other) => Sort == ArticleSearchSort.Latest
+            ? Compare(PublishedTicks.CompareTo(other.PublishedTicks), Score.CompareTo(other.Score),
+                CreatedTicks.CompareTo(other.CreatedTicks), Id.CompareTo(other.Id))
+            : Compare(Score.CompareTo(other.Score), CreatedTicks.CompareTo(other.CreatedTicks),
+                Id.CompareTo(other.Id), 0);
+
+        private static int Compare(int a, int b, int c, int d) => a != 0 ? a : b != 0 ? b : c != 0 ? c : d;
+    }
     private readonly record struct Term(uint Hash, int Start, int Count)
     {
         internal static readonly IComparer<Term> ByHash =

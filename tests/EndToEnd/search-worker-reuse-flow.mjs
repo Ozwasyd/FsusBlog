@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { submitSearch as submit } from './search-form-fixture.mjs'
 import { setTimeout as delay } from 'node:timers/promises'
-import { sitePages } from '../../src/Contracts/site-pages.ts'
 import { WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
@@ -99,7 +98,7 @@ export async function exerciseSearchWorkerReuse({ page, origin, articleTitle, fi
     await race.goto(`${origin}/search`)
     await submit(race, firstQuery)
     await result(race).waitFor()
-    assert.equal(verifyDownload(received.slice(start)), oldGeneration)
+    verifyHeads(received.slice(start), oldGeneration, [204, 204])
 
     start = received.length
     const finalHead = await holdHead(context, origin, 2)
@@ -129,7 +128,7 @@ export async function exerciseSearchWorkerReuse({ page, origin, articleTitle, fi
     start = received.length
     await race.getByRole('button', { name: 'Retry', exact: true }).click()
     await noMatches(race).waitFor()
-    assert.equal(verifyDownload(received.slice(start)), newGeneration)
+    verifyHeads(received.slice(start), newGeneration, [204, 204])
     assert.equal(await result(race).count(), 0)
 
     const currentWorker = searchWorker(page)
@@ -140,19 +139,25 @@ export async function exerciseSearchWorkerReuse({ page, origin, articleTitle, fi
       await pendingHead.reached()
       await Promise.all([
         currentWorker.waitForEvent('close', { timeout: 10_000 }),
-        page.getByRole('navigation', { name: '站点政策' }).getByRole('link', { name: sitePages.about, exact: true }).click(),
+        page.locator('nav.site-policy-links').getByRole('link', { name: /^(About|关于)$/ }).click(),
       ])
       await page.waitForURL(`${origin}/about`)
       pendingHead.release()
-      await page.getByRole('heading', { name: sitePages.about, exact: true }).waitFor()
+      await page.getByRole('heading', { name: /^(About|关于)$/ }).waitFor()
       assert.equal(searchWorker(page), undefined)
       assert.equal(await result(page).count(), 0)
     } finally {
       await pendingHead.close()
     }
 
+    start = received.length
+    await page.goto(`${origin}/search`)
+    await submit(page, firstQuery)
+    await noMatches(page).waitFor()
+    verifyHeads(received.slice(start), newGeneration, [204, 204])
+
     observations.push(
-      `Search corpus ${oldGeneration} passed ${replay.length - 2} page GETs for the replacement generation ${newGeneration}; an unchanged query route reused its Worker with two HEADs and zero page GETs. Withdrawal rejected both the cached preflight and a deliberately delayed final HEAD. Leaving search while a HEAD was pending terminated its Worker.`,
+      `Search corpus ${oldGeneration} passed ${replay.length - 2} page GETs for the replacement generation ${newGeneration}; an unchanged query route, a second tab, and returning to /search after Worker termination all reused sealed compact storage with two HEADs and zero page GETs. Withdrawal rejected both the cached preflight and a deliberately delayed final HEAD. Leaving search while a HEAD was pending terminated its Worker.`,
     )
   } finally {
     context.off('response', record)

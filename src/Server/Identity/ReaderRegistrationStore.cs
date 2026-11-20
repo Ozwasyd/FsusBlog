@@ -35,7 +35,7 @@ internal sealed partial class PasskeyStore
         var id = Guid.NewGuid();
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         await using (var user = Store.Sql(db, tx, """
-            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,false,true,1)
+            insert into public.blog_user(id,name,enabled,generation) values($1,$2,true,1)
             """, id, "reader-" + id.ToString("N")))
             await user.ExecuteNonQueryAsync(ct);
         await using (var subject = Store.Sql(db, tx,

@@ -23,7 +23,11 @@ public sealed class ArticleSchedulePostgresTests
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (author, token, _) = await fixture.SignIn("Scheduled author", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct,
-            new Dictionary<string, string> { [PublicSiteConfiguration.OriginKey] = PublicOrigin });
+            new Dictionary<string, string>
+            {
+                [PublicSiteConfiguration.OriginKey] = PublicOrigin,
+                ["FSUSBLOG_ADMIN_ORIGIN"] = ServerProcess.DefaultAdminOrigin,
+            });
         var first = await Write(WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Original", "original body"));
         var published = await Write(WireRoutes.Publish, new(first.Id, first.Revision, Guid.NewGuid(), "", ""));
         var original = await ReadPublication(first.Id);
@@ -67,7 +71,7 @@ public sealed class ArticleSchedulePostgresTests
         // Existing account lock order means a due pass can skip a concurrent account update without deadlocking.
         await using (var account = await db.BeginTransactionAsync(ct))
         {
-            await FixtureSql.ScalarAsync(db, account, ct, "select id from public.blog_user where id=$1 for update", author);
+            await FixtureSql.ScalarAsync(db, account, ct, "select id from public.admin_principal where id=$1 for update", author);
             Assert.Equal(0, await Tick(newDue));
             await account.RollbackAsync(ct);
         }
@@ -114,7 +118,7 @@ public sealed class ArticleSchedulePostgresTests
 
         var neverPublic = await Write(WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Never public", "private"));
         await Submit(new(neverPublic.Id, neverPublic.Revision, Guid.NewGuid(), newDue));
-        await Execute("update public.blog_user set generation=generation+1 where id=$1", author);
+        await Execute("update public.admin_principal set generation=generation+1 where id=$1", author);
         Assert.Equal(0, await Tick(newDue));
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_schedule where article_id=$1", neverPublic.Id));
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_publication where article_id=$1", neverPublic.Id));

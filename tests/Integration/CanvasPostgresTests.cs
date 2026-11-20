@@ -92,7 +92,7 @@ public sealed class CanvasPostgresTests
         Assert.Equal(current.Body + visualPlan.InsertedMarkdown, (await test.Read(owner.Token, host.Id)).Body);
         Assert.Equal(false, await test.Scalar("select explicit_reference from public.canvas_edge where canvas_id=$1 and id=$2", document, visualEdge));
 
-        await test.Mutate("update public.blog_user set generation=generation+1 where id=$1", owner.User.Id);
+        await test.Mutate("update public.admin_principal set generation=generation+1 where id=$1", owner.User.Id);
         Aeds.Decode(await Post(WireRoutes.CanvasConfirm, Wire.EncodeCanvasConfirm(new(plan.PlanId)),
             HttpStatusCode.Unauthorized, owner.Token), FrameType.ApiError);
 
@@ -218,9 +218,8 @@ public sealed class CanvasPostgresTests
         await using var test = await CanvasFixture.Open();
         var owner = await test.Author("Canvas resolver owner");
         var outsider = await test.Author("Canvas resolver outsider");
-        var otherBrowser = await test.SignIn(owner.User.Id);
         var ownerSession = SiteSessions.Id(owner.User.Id, Store.TokenDigest(owner.Token)!);
-        var otherSession = SiteSessions.Id(owner.User.Id, Store.TokenDigest(otherBrowser.Token)!);
+        var otherSession = SiteSessions.Id(owner.User.Id, System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
         var outsiderSession = SiteSessions.Id(outsider.User.Id, Store.TokenDigest(outsider.Token)!);
         var foreign = await test.Save(outsider.Token, "Sensitive foreign title", "Sensitive foreign source");
         const string initialBody = "Utility 🐈\r\n\r\n# Pinned heading ^overview\r\n\r\nPinned paragraph ^detail";
@@ -349,7 +348,7 @@ public sealed class CanvasPostgresTests
         await test.Mutate("update public.article set deleted=true where id=$1", current.Id);
         Assert.Equal(CanvasReferenceState.Unavailable, (await Resolve(heading)).State);
         Assert.Equal(CanvasReferenceState.Unavailable, (await Resolve(pin)).State);
-        await test.Mutate("update public.blog_user set generation=generation+1 where id=$1", owner.User.Id);
+        await test.Mutate("update public.admin_principal set generation=generation+1 where id=$1", owner.User.Id);
         await Request(HttpMethod.Get, Route(heading, 1), owner.Token, HttpStatusCode.Unauthorized);
         await Request(HttpMethod.Get, Route(heading, 1, "&current=1"), owner.Token, HttpStatusCode.Unauthorized, sessions: [ownerSession]);
 
@@ -459,7 +458,7 @@ public sealed class CanvasPostgresTests
             new CanvasChangeFrame.PutEdge(new(loop, 0, note, note, 0, null))
         ]);
         await Send(HttpMethod.Get, WireRoutes.CanvasGraphList, null, HttpStatusCode.Unauthorized);
-        await Write(create, reader.Token, HttpStatusCode.Forbidden);
+        await Write(create, reader.Token, HttpStatusCode.Unauthorized);
         var head = Wire.DecodeCanvasGraphReceipt(await Write(create, owner.Token));
         Assert.Equal((id, 1L, title, 4, 2), (head.Id, head.Revision, head.Title, head.NodeCount, head.EdgeCount));
         Assert.Equal(head, Wire.DecodeCanvasGraphReceipt(await Write(create, owner.Token)));
@@ -519,7 +518,7 @@ public sealed class CanvasPostgresTests
         Assert.Equal(1L, await test.Scalar("select count(*) from public.canvas_link_plan where canvas_id=$1", id));
         Assert.EndsWith("[Public target](/article/" + target.Id + ")", (await test.Read(owner.Token, source.Id)).Body);
 
-        await test.Mutate("update public.blog_user set generation=generation+1 where id=$1", owner.User.Id);
+        await test.Mutate("update public.admin_principal set generation=generation+1 where id=$1", owner.User.Id);
         await Write(delete, owner.Token, HttpStatusCode.Unauthorized);
 
         static CanvasChangeFrame Node(Guid id, int kind, int? article = null, string? text = null, Guid[]? members = null) =>
@@ -555,30 +554,31 @@ public sealed class CanvasPostgresTests
         Assert.Equal(canvas, await test.WithCanvas(owner.Token, op => op.Create(input, test.Token)));
 
         await Denied(Rejection.NotFound, test.WithCanvas(outsider.Token, op => op.Create(input, test.Token)));
-        await Denied(Rejection.Forbidden, test.WithCanvas(ignored.Token, op => op.Create(input, test.Token)));
+        await Denied(Rejection.Unauthorized, test.WithCanvas(ignored.Token, op => op.Create(input, test.Token)));
         await Denied(Rejection.NotFound, test.WithCanvas(owner.Token, op => op.Create(
             new(Guid.NewGuid(), Guid.NewGuid(), host.Id, other.Id), test.Token)));
 
         var preview = new CanvasPreview(canvas.CanvasId, canvas.EdgeId, 1, original.Revision, target.Revision, original.Body.Length);
         await Denied(Rejection.NotFound, test.WithCanvas(outsider.Token, op => op.Preview(preview, test.Token)));
-        var plan = await test.WithCanvas(owner.Token, op => op.Preview(preview, test.Token));
-        Assert.Equal($"\n\n[Target](/article/{target.Id})", plan.InsertedMarkdown);
-        var anotherOwnerSession = await test.SignIn(owner.User.Id);
-        await Denied(Rejection.NotFound, test.WithCanvas(anotherOwnerSession.Token, op => op.Confirm(plan.PlanId, test.Token)));
-        Assert.Equal(original, await test.Read(owner.Token, host.Id));
+        var stalePlan = await test.WithCanvas(owner.Token, op => op.Preview(preview, test.Token));
+        Assert.Equal($"\n\n[Target](/article/{target.Id})", stalePlan.InsertedMarkdown);
+        var rotatedOwner = await test.SignIn(owner.User.Id);
+        await Denied(Rejection.NotFound, test.WithCanvas(rotatedOwner.Token, op => op.Confirm(stalePlan.PlanId, test.Token)));
+        Assert.Equal(original, await test.Read(rotatedOwner.Token, host.Id));
         Assert.Equal(1L, await test.Scalar("select revision from public.authoring_canvas where id=$1", canvas.CanvasId));
-        await Denied(Rejection.NotFound, test.WithCanvas(outsider.Token, op => op.Confirm(plan.PlanId, test.Token)));
+        await Denied(Rejection.NotFound, test.WithCanvas(outsider.Token, op => op.Confirm(stalePlan.PlanId, test.Token)));
 
-        var first = test.WithCanvas(owner.Token, op => op.Confirm(plan.PlanId, test.Token));
-        var repeat = test.WithCanvas(owner.Token, op => op.Confirm(plan.PlanId, test.Token));
+        var plan = await test.WithCanvas(rotatedOwner.Token, op => op.Preview(preview, test.Token));
+        var first = test.WithCanvas(rotatedOwner.Token, op => op.Confirm(plan.PlanId, test.Token));
+        var repeat = test.WithCanvas(rotatedOwner.Token, op => op.Confirm(plan.PlanId, test.Token));
         var results = await Task.WhenAll(first, repeat);
         Assert.Equal(results[0], results[1]);
         Assert.Equal(new CanvasLinked(plan.PlanId, host.Id, original.Revision + 1, 2), results[0]);
 
-        var edited = await test.Read(owner.Token, host.Id);
+        var edited = await test.Read(rotatedOwner.Token, host.Id);
         Assert.Equal(original.Body + plan.InsertedMarkdown, edited.Body);
         Assert.Equal(original.Revision, edited.PublishedRevision);
-        Assert.Equal(privateDraft, await test.Read(owner.Token, target.Id));
+        Assert.Equal(privateDraft, await test.Read(rotatedOwner.Token, target.Id));
         Assert.Equal(original.Body, await test.Scalar(
             "select body from public.article_revision where article_id=$1 and revision=$2", host.Id, original.Revision));
         Assert.Equal(1L, await test.Scalar("select count(*) from public.canvas_edge where canvas_id=$1", canvas.CanvasId));
@@ -629,7 +629,7 @@ public sealed class CanvasPostgresTests
         await test.Mutate("alter table public.canvas_link_plan drop constraint test_receipt_failure");
         var retry = await test.WithCanvas(author.Token, op => op.Confirm(current.PlanId, test.Token));
         Assert.Equal(2L, retry.ArticleRevision);
-        await test.Mutate("update public.blog_user set generation=generation+1 where id=$1", author.User.Id);
+        await test.Mutate("update public.admin_principal set generation=generation+1 where id=$1", author.User.Id);
         await Denied(Rejection.Unauthorized, test.WithCanvas(author.Token, op => op.Confirm(current.PlanId, test.Token)));
     }
 

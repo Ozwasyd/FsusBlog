@@ -18,7 +18,6 @@ public sealed class PublicationTransparencyPostgresTests
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        await RemoveLedgerSchema();
         Succeeded(await Migrate("enable"));
         Succeeded(await Migrate("enable"));
         var (_, session, _) = await fixture.SignIn("Ledger author", ct, minutes: 5);
@@ -125,11 +124,11 @@ public sealed class PublicationTransparencyPostgresTests
             }
             Denied(await Audit("3", finalPin), "prefix was not found or changed");
 
-            // A pre-ledger store with issued receipts cannot be relabeled as an empty genesis.
-            await RemoveLedgerSchema();
+            // An inactive ledger store with issued receipts cannot be relabeled as an empty genesis.
+            await ResetLedgerInactive();
             Denied(await Migrate("enable"), "before any native proof has been issued");
             Assert.Equal(2L, await Scalar("select count(*) from public.article_publication_proof"));
-            Assert.False((bool)(await Scalar("select to_regclass('public.article_publication_transparency') is not null"))!);
+            Assert.Equal(0L, await Scalar("select count(*) from public.article_publication_transparency"));
 
             Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, config, request => PublicationFixture.Forward(request, Host));
 
@@ -168,10 +167,12 @@ public sealed class PublicationTransparencyPostgresTests
         Task<object?> Scalar(string sql, params object[] args) =>
             FixtureSql.ScalarAsync(db, null, ct, sql, args);
 
-        async Task RemoveLedgerSchema()
+        async Task ResetLedgerInactive()
         {
-            await Scalar("alter table public.article_publication_proof drop column transparency_seq");
-            await Scalar("drop table if exists public.publication_transparency_head,public.article_publication_transparency");
+            await Scalar("alter table public.article_publication_proof alter column transparency_seq drop not null");
+            await Scalar("update public.article_publication_proof set transparency_seq=null");
+            await Scalar("delete from public.publication_transparency_head");
+            await Scalar("delete from public.article_publication_transparency");
         }
 
         Task<FixtureProcess.Result> Audit(params string[] prefix) =>

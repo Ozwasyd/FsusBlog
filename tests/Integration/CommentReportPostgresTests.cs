@@ -13,6 +13,8 @@ public sealed partial class AdminModerationPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (first, second) = await SeedBatchReplies(db, 0, ct);
+        var articleOwner = Guid.NewGuid();
+        await FixtureSql.AdminPrincipalAsync(db, null, ct, articleOwner, "other-report-article-owner");
         await Execute(db, """
             with other as (
                 insert into public.article(owner_id,revision,title,body,deleted)
@@ -20,7 +22,7 @@ public sealed partial class AdminModerationPostgresTests
             )
             insert into public.article_revision(article_id,revision,title,body,happened_at)
                 select id,1,'Other article','Other article',clock_timestamp() from other
-            """, ct, second);
+            """, ct, articleOwner);
         await Execute(db, """
             insert into public.article_publication(article_id,revision,published_at) values(2,1,clock_timestamp());
             insert into public.article_revision_rights values(2,1,true,'all-rights-reserved','',0,'','','append-attribution',300,true,true,true);

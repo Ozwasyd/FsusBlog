@@ -39,8 +39,7 @@ public sealed class CanvasHistoryPostgresTests
             "select member_ids from public.canvas_node where canvas_id=$1 and id=$2", document, frame)));
 
         var undo = Command(document, edited.Revision, CanvasGraphAction.Undo);
-        var otherSession = await test.Session();
-        var results = await Task.WhenAll(test.Write(undo), test.Write(undo, otherSession));
+        var results = await Task.WhenAll(test.Write(undo), test.Write(undo));
         var restored = results[0];
         Assert.Equal(restored, results[1]);
         Assert.Equal((3L, "Original", originalViewport, 3, 1),
@@ -51,7 +50,7 @@ public sealed class CanvasHistoryPostgresTests
         Assert.Equal(note, await test.Scalar("select source_node_id from public.canvas_edge where canvas_id=$1 and id=$2", document, edge));
 
         var redo = Command(document, restored.Revision, CanvasGraphAction.Redo);
-        var redone = await test.Write(redo, otherSession);
+        var redone = await test.Write(redo);
         Assert.Equal((4L, "After deletion", editViewport, 2, 0),
             (redone.Revision, redone.Title, redone.Viewport, redone.NodeCount, redone.EdgeCount));
         Assert.Equal(restored, await test.Write(undo));
@@ -175,10 +174,9 @@ public sealed class CanvasHistoryPostgresTests
         Assert.Equal(0L, await test.Scalar("select count(*) from public.canvas_history_patch where canvas_id=$1 and edit_revision=$2", document, second.Revision));
         await Denied(Rejection.Conflict, test.Write(Command(document, branch.Revision, CanvasGraphAction.Redo)));
 
-        var anotherSession = await test.Session();
         var commandA = Command(document, branch.Revision, CanvasGraphAction.Undo);
         var commandB = Command(document, branch.Revision, CanvasGraphAction.Undo);
-        var outcomes = await Task.WhenAll(Attempt(commandA, null), Attempt(commandB, anotherSession));
+        var outcomes = await Task.WhenAll(Attempt(commandA, null), Attempt(commandB, null));
         var winner = Assert.Single(outcomes, receipt => receipt is not null)!;
         Assert.Equal((branch.Revision + 1, "First"), (winner.Revision, winner.Title));
         Assert.Single(outcomes, receipt => receipt is null);

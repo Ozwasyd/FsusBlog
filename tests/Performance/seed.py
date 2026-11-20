@@ -262,8 +262,8 @@ COPY pg_temp.fsus_perf_fixture FROM STDIN;
 def write_inserts(out):
     out.write(
         f"""\\.
-INSERT INTO public.blog_user (id,name,can_author,enabled,generation)
-    VALUES ('{OWNER}','performance-fixture-author',true,true,1);
+INSERT INTO public.admin_principal (id,handle,user_handle,enabled,generation)
+    VALUES ('{OWNER}','performance-fixture-author',decode(repeat('11',32),'hex'),true,1);
 INSERT INTO public.category (id,name)
     SELECT id,'fixture category ' || lpad(id::text,2,'0') FROM generate_series(1,{CATEGORIES}) AS series(id);
 INSERT INTO public.tag (id,name)

@@ -64,14 +64,13 @@ router.beforeEach(async to => {
 router.afterEach((to, from) => {
   // Canonical metadata belongs to the verified HTML response for its original route.
   if (from.name && to.path !== from.path) document.head.querySelector('link[rel="canonical"]')?.remove()
-  const authorInventory = to.name === 'article-list' || to.name === 'article-search' || to.name === 'article-trash'
   const subscription = to.name === 'subscribe'
   updateDocumentLanguage()
   if (to.name === 'article' && !from.name) return
   updateDocumentTitle(to.name)
   document.querySelector('meta[name="robots"]')?.remove()
   if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'register' || to.meta.adminSection || to.name === 'messages' || to.name === 'security' ||
-      to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'canvas' || to.name === 'canvas-document' || to.name === 'private-media' || authorInventory || subscription) {
+      to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'canvas' || to.name === 'canvas-document' || to.name === 'private-media' || subscription) {
     const robots = document.createElement('meta')
     robots.name = 'robots'
     robots.content = subscription ? 'noindex, nofollow' : 'noindex'
@@ -94,9 +93,6 @@ const labels: Record<string, MessageKey> = {
   'canvas-document': 'page.canvas-document',
   write: 'page.write',
   'article-workspace': 'page.article-workspace',
-  'article-list': 'nav.articles',
-  'article-search': 'page.article-search',
-  'article-trash': 'page.article-trash',
   'own-comments': 'page.own-comments',
   edit: 'page.edit',
   missing: 'page.missing',

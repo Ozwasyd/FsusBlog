@@ -10,10 +10,8 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
-    private const string SitePagePublisher = CurrentSchema.SystemConfigPermission;
-
     internal Task<AdminSitePageRevision> CurrentSitePage(string? session, SitePages pages, string slug, CancellationToken ct) =>
-        WithLiveAdmin(session, SitePagePublisher, (db, tx, _) =>
+        WithLiveAdmin(session, (db, tx, _) =>
             SitePagePublicationStore.Read(db, tx, pages.EditorBaseline(slug), ct), ct);
 
     internal Task<byte[]> BeginSitePageStepUp(string? session, SitePages pages, AdminSitePagePublish intent, CancellationToken ct) =>
@@ -25,7 +23,7 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task<byte[]> IssueSitePagePow(string? session, SitePages pages, AdminSitePagePublish intent, byte[] frame,
         ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        WithLiveAdmin(session, SitePagePublisher, async (db, tx, _) =>
+        WithLiveAdmin(session, async (db, tx, _) =>
         {
             await CurrentSitePage(db, tx, pages, intent, ct);
             return PowWire.EncodeChallenge(pow.Issue(PowScope.AdminSitePagePublish, intent.Slug, session!, ScopedPow.Source(ctx),
@@ -34,7 +32,7 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task PublishSitePage(string? session, SitePages pages, AdminSitePagePublish intent, byte[] frame,
         string? proof, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        WithLiveAdmin(session, SitePagePublisher, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             var current = await CurrentSitePage(db, tx, pages, intent, ct, forUpdate: true);
             if (proof is not { Length: 43 } || !proof.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_') ||

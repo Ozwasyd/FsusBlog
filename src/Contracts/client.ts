@@ -160,12 +160,31 @@ export const api = {
     }), signal);
   },
 
-  search(query: string, signal?: AbortSignal) {
+  search(
+    query: string,
+    signal?: AbortSignal,
+    options?: { sort?: 'relevance' | 'latest'; page?: number; size?: number },
+  ) {
     const search = new URLSearchParams({ q: query });
-    return request(`${WireRoutes.PublicSearch}?${search}`, FrameType.ArticleSearch, payload => {
+    if (options?.sort && options.sort !== 'relevance') search.set('sort', options.sort);
+    if (options?.page !== undefined) search.set('page', String(options.page));
+    if (options?.size !== undefined) search.set('size', String(options.size));
+    return request(`${WireRoutes.PublicSearch}?${search}`, FrameType.ArticleSearch, (payload, headers) => {
+      const generation = headers.get(WireHeaders.SearchIndexGeneration);
+      if (generation !== null && !/^(0|[1-9][0-9]{0,18})$/.test(generation))
+        throw new ProtocolError('Invalid public search generation');
       const { articles, total } = decodeSearch(payload);
-      return { items: articles, total };
-    }, signal);
+      const totalHeader = headers.get(WireHeaders.SearchTotal);
+      let reportedTotal = total;
+      if (totalHeader !== null) {
+        if (!/^(0|[1-9][0-9]{0,9})$/.test(totalHeader)) throw new ProtocolError('Invalid public search total');
+        const parsed = Number(totalHeader);
+        if (!Number.isSafeInteger(parsed) || parsed < articles.length)
+          throw new ProtocolError('Invalid public search total');
+        reportedTotal = parsed;
+      }
+      return { items: articles, total: reportedTotal, nextCursor: null };
+    }, signal, 'GET', undefined, undefined, 'omit');
   },
 
   async publicIndex(signal?: AbortSignal) {

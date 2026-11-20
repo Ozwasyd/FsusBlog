@@ -32,7 +32,7 @@ public sealed class AuthorTextSearchPostgresTests
         var foreign = await Save(stranger, "Private foreign title", source);
         const string phrase = "\"Café orbit\"";
 
-        await Send(phrase, reader, HttpStatusCode.Forbidden);
+        await Send(phrase, reader, HttpStatusCode.Unauthorized);
         await Send(phrase, owner with { Handle = null }, HttpStatusCode.Conflict);
         await Send(phrase, owner with { Handle = stranger.Handle }, HttpStatusCode.Conflict);
         Assert.Equal(0, await IndexedCount(owner.Id));
@@ -104,11 +104,12 @@ public sealed class AuthorTextSearchPostgresTests
         await SendRanked(rankedTerm, forged, owner, HttpStatusCode.Conflict);
         await SendRanked("HARBORPROOF", first.NextCursor, owner, HttpStatusCode.Conflict);
         await SendRanked(rankedTerm, first.NextCursor, stranger, HttpStatusCode.Conflict);
-        await SendRanked(rankedTerm, first.NextCursor, await Session(owner.Id), HttpStatusCode.Conflict);
 
         // The rank witness includes clock changes at the same source revision, as in scheduled publication.
         await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
         Assert.Equal(1, await FixtureSql.ExecuteAsync(connection, null, ct, "update public.article set updated_at='2025-01-02T00:00:00Z' where id=$1", bodyHits[^1].Id));
+        await SendRanked(rankedTerm, first.NextCursor, owner, HttpStatusCode.Conflict);
+        owner = await Session(owner.Id);
         await SendRanked(rankedTerm, first.NextCursor, owner, HttpStatusCode.Conflict);
         first = await Ranked(rankedTerm, "", owner);
         Assert.Equal(bodyHits[^1].Id, first.Rows[1].Id);

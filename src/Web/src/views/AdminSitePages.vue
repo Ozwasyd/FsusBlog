@@ -47,7 +47,6 @@ async function read(slug?: SitePageSlug) {
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
-    else if (cause instanceof ApiError && cause.status === 403) error.value = 'admin.systemPermission'
     else error.value = 'admin.sitePageLoadFailed'
   } finally {
     if (active === request) { active = undefined; busy.value = false }

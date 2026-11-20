@@ -28,6 +28,7 @@ public sealed class PublicationProofPostgresTests
             var aPath = PublicationFixture.PrivateKey(scratch, "a.pkcs8", previous);
             var bPath = PublicationFixture.PrivateKey(scratch, "b.pkcs8", next);
             var settings = PublicationFixture.NativeSettings(Origin, "a", aPath);
+            settings["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin-proof.example.test";
             var mediaAvailable = OperatingSystem.IsMacOS() || OperatingSystem.IsLinux();
             if (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux())
             {
@@ -151,9 +152,11 @@ public sealed class PublicationProofPostgresTests
             async Task<HttpResponseMessage> Send(ServerProcess server, HttpMethod method, string url,
                 string host = "proof.example.test", byte[]? body = null, Guid? mutation = null)
             {
-                using var request = SiteAedsFixture.Request(method, url, body, body is null ? null : session,
-                    mutation.HasValue ? handle : null);
-                PublicationFixture.Forward(request, host);
+                var authoring = SiteAedsFixture.IsAuthoringRoute(url);
+                using var request = SiteAedsFixture.Request(method, url, body, null, mutation.HasValue ? handle : null);
+                if (authoring && body is not null)
+                    request.Headers.Add("Cookie", $"__Host-FsusAdminSession={session}");
+                PublicationFixture.Forward(request, authoring ? "admin-proof.example.test" : host);
                 if (mutation is { } key) request.Headers.Add(WireHeaders.ClientMutationId, key.ToString("D"));
                 var response = await server.Client.SendAsync(request, ct);
                 if (url.StartsWith("/integrity/v2", StringComparison.Ordinal))
@@ -165,8 +168,9 @@ public sealed class PublicationProofPostgresTests
             {
                 var image = MediaFixture.SolidImage(SKEncodedImageFormat.Png, SKColors.SteelBlue);
                 using var upload = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.PrivateMediaUpload + "?name=signed-cover.png",
-                    frame: null, session, handle);
-                PublicationFixture.Forward(upload, "proof.example.test");
+                    frame: null, null, handle);
+                upload.Headers.Add("Cookie", $"__Host-FsusAdminSession={session}");
+                PublicationFixture.Forward(upload, "admin-proof.example.test");
                 upload.Headers.Add(WireHeaders.ClientMutationId, Guid.NewGuid().ToString("D"));
                 upload.Content = new ByteArrayContent(image);
                 upload.Content.Headers.ContentType = new("image/png");

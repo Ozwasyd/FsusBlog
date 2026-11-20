@@ -199,7 +199,7 @@ public sealed partial class AdminModerationPostgresTests
         var recipientToken = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         var handle = SiteSessions.Id(sender, Store.TokenDigest(token)!);
         await Execute(db, """
-            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'Reply account',false,true,1)
+            insert into public.blog_user(id,name,enabled,generation) values($1,'Reply account',true,1)
             """, ct, sender);
         await Execute(db, """
             insert into public.user_session(digest,user_id,generation,expires_at)
@@ -221,13 +221,17 @@ public sealed partial class AdminModerationPostgresTests
         var moderator = await AddModerator(db, "reply-reviewer", ct);
         var admin = CreateStore(fixture);
         var reply = new PublicCommentReply(1, 1, 1, "Reply display", "Independent public reply", Guid.NewGuid(), true);
-        var optIn = new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS"] = "true" };
-        await using (var defaults = await ServerProcess.Start(fixture.ConnectionString, ct, optIn))
+        var optIn = new Dictionary<string, string>
         {
-            using var absent = await Send(defaults, reply, true);
+            ["FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS"] = "true",
+            [CommentReplies.Setting] = "false",
+        };
+        await using (var disabled = await ServerProcess.Start(fixture.ConnectionString, ct, optIn))
+        {
+            using var absent = await Send(disabled, reply, true);
             Assert.Equal(HttpStatusCode.NotFound, absent.StatusCode);
         }
-        optIn[CommentReplies.Setting] = "true";
+        optIn.Remove(CommentReplies.Setting);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, optIn);
         using (var stale = await Send(server, reply, true, current: new string('a', 64)))
             Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
@@ -364,7 +368,7 @@ public sealed partial class AdminModerationPostgresTests
         var authorSession = RandomNumberGenerator.GetBytes(32);
         var original = await AddModerator(db, "appeal-original", ct);
         var reviewer = await AddModerator(db, "appeal-reviewer", ct);
-        var outsider = await AddModerator(db, "appeal-outsider", ct, canModerate: false);
+        var outsider = await fixture.SignInSiteUser("appeal-outsider", ct);
         await Execute(db, "insert into public.comment_account_owner values(1,1,$1)", ct, owner);
         await Execute(db, "update public.comment set moderation_status=2,moderation_version=2 where article_id=1 and id=1", ct);
         await using (var rejected = await db.BeginTransactionAsync(ct))
@@ -398,7 +402,7 @@ public sealed partial class AdminModerationPostgresTests
             {"decision":"granted","reason":"Independent review confirms the source."}
             """u8);
         await Denied(Rejection.Forbidden, () => service.BeginAppealStepUp(original.Token, appeal, payload, ct));
-        await Denied(Rejection.Forbidden, () => service.BeginAppealStepUp(outsider.Token, appeal, payload, ct));
+        await Denied(Rejection.Unauthorized, () => service.BeginAppealStepUp(outsider.Token, appeal, payload, ct));
         Aeds.Decode(await service.BeginAppealStepUp(reviewer.Token, appeal, payload, ct), FrameType.PasskeyLoginBegin);
         await Assert.ThrowsAsync<ModerationProofRequiredException>(() => service.DecideAppeal(reviewer.Token, appeal, payload, null, ct));
         var proof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
@@ -501,10 +505,10 @@ public sealed partial class AdminModerationPostgresTests
         await AddPendingComment(db, ct);
         var first = await AddModerator(db, "first-moderator", ct);
         var second = await AddModerator(db, "second-moderator", ct);
-        var manager = await AddModerator(db, "manager", ct, canModerate: false);
+        var siteUser = await fixture.SignInSiteUser("claim-site-user", ct);
         var service = CreateStore(fixture);
         var target = new AdminModerationClaimRequest(1, 1);
-        await Denied(Rejection.Forbidden, () => service.AcquireCommentClaim(manager.Token, target, ct));
+        await Denied(Rejection.Unauthorized, () => service.AcquireCommentClaim(siteUser.Token, target, ct));
 
         ClaimAttempt[] results;
         await using (var gate = await db.BeginTransactionAsync(ct))
@@ -552,10 +556,8 @@ public sealed partial class AdminModerationPostgresTests
         var afterExpiry = await service.AcquireCommentClaim(success.Admin.Token, target, ct);
         Assert.Equal(reclaimed.ClaimGeneration + 1, afterExpiry.ClaimGeneration);
 
-        await Execute(db, "delete from public.admin_permission where principal_id=$1 and permission=$2", ct,
-            success.Admin.Id, CurrentSchema.CommentModeratePermission);
-        await Denied(Rejection.Forbidden, () => service.RenewCommentClaim(success.Admin.Token, afterExpiry, ct));
         await Execute(db, "delete from public.admin_session where digest=$1", ct, success.Admin.Digest);
+        await Denied(Rejection.Unauthorized, () => service.RenewCommentClaim(success.Admin.Token, afterExpiry, ct));
         await Denied(Rejection.Unauthorized, () => service.ReleaseCommentClaim(success.Admin.Token, afterExpiry, ct));
         var afterRevocation = await service.AcquireCommentClaim(conflict.Admin.Token, target, ct);
         Assert.Equal(afterExpiry.ClaimGeneration + 1, afterRevocation.ClaimGeneration);
@@ -659,8 +661,8 @@ public sealed partial class AdminModerationPostgresTests
         var second = Guid.Parse("22222222-2222-2222-2222-222222222222");
         var sender = Guid.NewGuid();
         await Execute(db, """
-            insert into public.blog_user(id,name,can_author,enabled,generation)
-            values($1,'First parent author',false,true,1),($2,'Second parent author',false,true,1),($3,'Reply author',false,true,1)
+            insert into public.blog_user(id,name,enabled,generation)
+            values($1,'First parent author',true,1),($2,'Second parent author',true,1),($3,'Reply author',true,1)
             """, ct, first, second, sender);
         await Execute(db, """
             insert into public.article_publication(article_id,revision,published_at) values(1,1,now());
@@ -714,8 +716,9 @@ public sealed partial class AdminModerationPostgresTests
     private static async Task AddPendingComment(NpgsqlConnection db, CancellationToken ct)
     {
         var member = Guid.NewGuid();
-        await Execute(db, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'Site fixture',true,true,1)",
+        await Execute(db, "insert into public.blog_user(id,name,enabled,generation) values($1,'Site fixture',true,1)",
             ct, member);
+        await FixtureSql.AdminPrincipalAsync(db, null, ct, member, "site-fixture");
         await Execute(db, """
             with article as (
                 insert into public.article(owner_id,revision,title,body,deleted)
@@ -734,8 +737,7 @@ public sealed partial class AdminModerationPostgresTests
 
     private static async Task<Moderator> AddModerator(NpgsqlConnection db, string handle, CancellationToken ct, bool canModerate = true)
     {
-        var (principal, token, digest) = await FixtureSql.AdminAsync(db, ct, handle, 10, RandomNumberGenerator.GetBytes(32), [2],
-            canModerate ? [CurrentSchema.CommentModeratePermission] : []);
+        var (principal, token, digest) = await FixtureSql.AdminAsync(db, ct, handle, 10, RandomNumberGenerator.GetBytes(32), [2]);
         return new(principal, token, digest);
     }
 

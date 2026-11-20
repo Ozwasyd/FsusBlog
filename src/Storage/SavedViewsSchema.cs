@@ -16,7 +16,7 @@ internal static partial class CurrentSchema
     private static readonly string[] SavedViewConstraints =
     [
         "author_saved_view_collection p site_id,owner_id",
-        "author_saved_view_collection f owner_id public.blog_user:id",
+        "author_saved_view_collection f owner_id public.admin_principal:id",
         "author_saved_view_collection c revision revision>0",
         "author_saved_view p site_id,owner_id,id",
         "author_saved_view f site_id,owner_id public.author_saved_view_collection:site_id,owner_id",

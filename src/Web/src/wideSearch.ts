@@ -1,5 +1,8 @@
 import { ApiError, ProtocolError } from '../../Contracts/aeds.ts'
-import { encodeLocalSearchResult, queryCorpusPage, searchTerms } from '../../Contracts/local-search.ts'
+import {
+  decodeCorpusDocuments, encodeLocalSearchResult, queryCorpusPage, scoreAdmittedCorpusPage, searchTerms,
+  type PublicSearchSort,
+} from '../../Contracts/local-search.ts'
 import type { ArticleCard } from '../../Contracts/public-articles.ts'
 import { withWideSearchStorage, type WideSearchStorage } from './wideSearchStorage.ts'
 import {
@@ -9,7 +12,7 @@ import {
 
 type Result = { frame: Uint8Array<ArrayBuffer>; identity: WideSearchIdentity | null }
 type CachedCorpus = { manifest: WideSearchManifest; owner: string }
-type CachedRanking = { corpus: CachedCorpus; terms: readonly number[]; positions: Uint32Array }
+type CachedRanking = { corpus: CachedCorpus; terms: readonly number[]; sort: PublicSearchSort; positions: Uint32Array }
 
 const attemptMs = 300_000
 const rowsPerSlot = 256 // Each FSPK page contains at most 200 articles.
@@ -49,36 +52,37 @@ function sortRanks(indices: Uint32Array, compare: (left: number, right: number) 
   }
 }
 
-type ReadPage = (page: WideSearchPage, terms: readonly number[]) => Promise<ReturnType<typeof parsePage>>
+type ReadPageBytes = (page: WideSearchPage) => Promise<Uint8Array<ArrayBuffer>>
 
-async function rankPages(manifest: WideSearchManifest, terms: readonly number[], read: ReadPage) {
+async function rankPages(
+  manifest: WideSearchManifest,
+  terms: readonly number[],
+  sort: PublicSearchSort,
+  read: ReadPageBytes,
+) {
   const positions = new Uint32Array(manifest.documentCount)
   const ids = new Uint32Array(manifest.documentCount)
   const times = new Float64Array(manifest.documentCount)
   const scores = new Float64Array(manifest.documentCount)
   let matches = 0
   for (const page of manifest.pages) {
-    const shard = await read(page, terms)
-    let row = 0
-    for (const article of shard.documents.values()) {
-      const score = shard.matches.get(article.id)
-      if (score !== undefined) {
-        positions[matches] = (page.number - 1) * rowsPerSlot + row
-        ids[matches] = article.id
-        times[matches] = article.createdAt
-        scores[matches++] = score
-      }
-      row++
+    const bytes = await read(page)
+    for (const hit of scoreAdmittedCorpusPage(bytes, terms)) {
+      positions[matches] = (page.number - 1) * rowsPerSlot + hit.row
+      ids[matches] = hit.id
+      times[matches] = hit.publishedAt
+      scores[matches++] = hit.score
     }
   }
   const order = Uint32Array.from({ length: matches }, (_, i) => i)
-  sortRanks(order, (left, right) =>
-    scores[right] - scores[left] || times[right] - times[left] || ids[right] - ids[left])
+  sortRanks(order, sort === 'latest'
+    ? (left, right) => times[right] - times[left] || scores[right] - scores[left] || ids[right] - ids[left]
+    : (left, right) => scores[right] - scores[left] || times[right] - times[left] || ids[right] - ids[left])
   for (let i = 0; i < order.length; i++) order[i] = positions[order[i]]
   return order
 }
 
-async function readResults(manifest: WideSearchManifest, positions: Uint32Array, page: number, size: number, read: ReadPage) {
+async function readResults(manifest: WideSearchManifest, positions: Uint32Array, page: number, size: number, read: ReadPageBytes) {
   const start = (page - 1) * size
   const selected = positions.subarray(start, start + size)
   const items = new Array<ArticleCard>(selected.length)
@@ -90,9 +94,9 @@ async function readResults(manifest: WideSearchManifest, positions: Uint32Array,
     needed.set(ordinal, selection)
   }
   for (const [ordinal, selection] of needed) {
-    const { documents } = await read(manifest.pages[ordinal], [])
-    const rows = Array.from(documents.values())
-    for (const { row, result } of selection) items[result] = rows[row]
+    const bytes = await read(manifest.pages[ordinal])
+    const decoded = decodeCorpusDocuments(bytes, selection.map(entry => entry.row))
+    for (let i = 0; i < selection.length; i++) items[selection[i].result] = decoded[i]
   }
   return encodeLocalSearchResult(items, positions.length)
 }
@@ -120,7 +124,13 @@ export function createWideSearch() {
     return withWideSearchStorage(AbortSignal.timeout(5_000), storage => forget(storage, corpus))
   }
 
-  async function search(query: string, page: number, size: number, request: AbortSignal): Promise<Result | undefined> {
+  async function search(
+    query: string,
+    page: number,
+    size: number,
+    request: AbortSignal,
+    sort: PublicSearchSort = 'relevance',
+  ): Promise<Result | undefined> {
     if (!Number.isInteger(page) || page < 1 || page > 10000 || !Number.isInteger(size) || size < 1 || size > 100) {
       throw new ProtocolError('Invalid local search query page')
     }
@@ -188,18 +198,19 @@ export function createWideSearch() {
         }
         retained = corpus
         check(scoring)
-        const read: ReadPage = async (part, search) => {
+        const read: ReadPageBytes = async part => {
           check(scoring)
           const bytes = await storage.read(corpus.owner, part.number)
           await verifyWideSearchPageBytes(part, bytes, scoring)
           check(scoring)
-          return parsePage(bytes, part, search)
+          return bytes
         }
         const cached = ranking
         const current = cached && cached.corpus.owner === corpus.owner && sameIdentity(cached.corpus.manifest, manifest) &&
-          terms.length === cached.terms.length && terms.every((hash, index) => hash === cached.terms[index])
+          cached.sort === sort && terms.length === cached.terms.length &&
+          terms.every((hash, index) => hash === cached.terms[index])
           ? cached
-          : { corpus, terms, positions: await rankPages(manifest, terms, read) }
+          : { corpus, terms, sort, positions: await rankPages(manifest, terms, sort, read) }
         ranking = current
         const frame = await readResults(manifest, current.positions, page, size, read)
         check(scoring)

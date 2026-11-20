@@ -16,9 +16,9 @@ internal static class MediaUploadEndpoints
     private const int MinPartSize = 64 * 1024;
     private const int MaxPartSize = 2 * 1024 * 1024;
 
-    internal static void Map(WebApplication app, string cookie)
+    internal static void Map(WebApplication app, string cookie, SiteCapabilities capabilities)
     {
-        if (!app.Configuration.GetValue(Setting, false)) return;
+        if (!capabilities.PrivateMediaResumable) return;
 
         app.MapPost(WireRoutes.PrivateMediaUploadBegin, async (HttpContext ctx, Store store, InstanceLease lease, CancellationToken ct) =>
         {

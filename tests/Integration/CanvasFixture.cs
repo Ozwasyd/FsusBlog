@@ -20,12 +20,17 @@ internal sealed class CanvasFixture(ScratchDatabase database, CancellationToken 
 
     internal async Task<(string Token, Identity User)> Author(string name, bool author = true)
     {
-        var (_, ticket) = await database.IssueTicket(name, Token, author);
-        return await _store.SignIn(ticket, Token);
+        var (id, token, _) = author
+            ? await database.SignInAdmin(name, Token, minutes: 5)
+            : await database.SignInSiteUser(name, Token, minutes: 5);
+        return (token, new Identity(id, author ? ScratchDatabase.AdminHandle(name, id) : name, 1, author, DateTimeOffset.UtcNow.AddMinutes(5)));
     }
 
-    internal async Task<(string Token, Identity User)> SignIn(Guid id) =>
-        await _store.SignIn(await database.IssueTicket(id, Token), Token);
+    internal async Task<(string Token, Identity User)> SignIn(Guid id)
+    {
+        var (_, token, _) = await database.SignIn(id, Token, minutes: 5);
+        return (token, new Identity(id, "admin", 1, true, DateTimeOffset.UtcNow.AddMinutes(5)));
+    }
 
     internal Task<T> WithGraph<T>(string token, Func<CanvasGraphStore, Task<T>> operation) =>
         _store.WithSession(token, true, (db, tx, actor) => operation(new(db, tx, actor)), Token);

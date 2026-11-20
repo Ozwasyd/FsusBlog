@@ -42,7 +42,7 @@ v2 原生 ZIP 包必须含有 `manifest.json`，其中 `Format` 为 1。还需�
 ## 离线检查 v1 主题包
 
 ```sh
-dotnet FsusBlogV2.Migrate.dll extension inspect-fstheme /private/operator/trust.json \
+dotnet FsusBlog.V2.Cli.dll extension inspect-fstheme /private/operator/trust.json \
   approved-source/minimal-ink /private/review/minimal-ink.fstheme /private/review/minimal-ink.signature
 ```
 
@@ -52,4 +52,4 @@ dotnet FsusBlogV2.Migrate.dll extension inspect-fstheme /private/operator/trust.
 
 预览仅记录原字节长度和摘要。固定 v1 Minimal Ink 夹具只有四个 PNG 起始字节，也能执行结构检查。该命令不做图像解码、CSS 安全认证、配置应用、提取、安装或启用，也不会把归档加入 FsusUI 运行时。v1 的 `--fsus-color-action-primary-bg` 指按钮底色。现有 v2 `--fsus-color-action-primary` 是 FsusUI 的强调色入口，两者不能直接映射。 [固定 v1 夹具](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/tests/backend/Unit/ThemeInfrastructureTests.cs#L871) · [固定 v1 token 规范](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/themes/token-schema.md)
 
-构建迁移工具后，可用 `python3 tests/Integration/Migration/legacy-theme-inspect.py "$PWD/src/Migrate/bin/Release/net10.0/FsusBlogV2.Migrate.dll"` 复现。测试按固定 v1 夹具重新打包实际 ZIP、签名并核对原档和条目摘要，同时检查未知来源、签名篡改、密钥撤销及非法包结构。
+构建迁移工具后，可用 `python3 tests/Integration/Migration/legacy-theme-inspect.py "$PWD/src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll"` 复现。测试按固定 v1 夹具重新打包实际 ZIP、签名并核对原档和条目摘要，同时检查未知来源、签名篡改、密钥撤销及非法包结构。

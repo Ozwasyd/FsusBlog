@@ -110,15 +110,10 @@ public sealed class ArticleSearchWideHttpPostgresTests
 
     internal static async Task<string> Seed(ScratchDatabase fixture, CancellationToken ct)
     {
-        var author = Guid.NewGuid();
-        string ticket;
+        var (author, token, _) = await fixture.SignIn("FAS4 wide author", ct, minutes: 5);
         await using (var db = await fixture.DataSource.OpenConnectionAsync(ct))
         await using (var tx = await db.BeginTransactionAsync(ct))
         {
-            await FixtureSql.ExecuteAsync(db, tx, ct, """
-                insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'FAS4 wide author',true,true,1)
-                """, author);
-            ticket = await FixtureSql.IssueLoginTicketAsync(db, tx, ct, author, minutes: 5);
             // With equal timestamps, the snapshot's descending ID order puts article 1 at the final ordinal.
             await FixtureSql.ExecuteAsync(db, tx, ct, """
                 insert into public.article(id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at)
@@ -151,8 +146,7 @@ public sealed class ArticleSearchWideHttpPostgresTests
                 """);
             await tx.CommitAsync(ct);
         }
-        var session = await new Store(fixture.DataSource).SignIn(ticket, ct);
-        return session.Token;
+        return token;
     }
 
     private static string ArticlePath(int id) =>

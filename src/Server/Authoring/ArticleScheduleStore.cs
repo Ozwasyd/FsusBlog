@@ -15,7 +15,7 @@ internal static class ArticleScheduleStore
     {
         var published = await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
         await using var cmd = SqlCommands.Create(db, tx, """
-            select s.due_at from public.article_schedule s join public.blog_user u on u.id=s.actor_id and u.generation=s.generation
+            select s.due_at from public.article_schedule s join public.admin_principal p on p.id=s.actor_id and p.generation=s.generation
             where s.article_id=$1 and s.revision=$2 and s.actor_id=$3
             """, id, expected, actor.Id);
         return new(id, expected, Milliseconds(await cmd.ExecuteScalarAsync(ct)), published);
@@ -99,7 +99,6 @@ internal static class ArticleScheduleStore
             // Account updates lock the account before any article. Skip a busy account instead of reversing that order.
             await using var author = SqlCommands.Create(db, tx, """
                 select p.enabled and p.generation=$2
-                    and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write')
                 from public.admin_principal p where p.id=$1 for share skip locked
                 """, candidate.Actor, candidate.Generation);
             if (await author.ExecuteScalarAsync(ct) is not bool permitted) continue;

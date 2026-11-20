@@ -15,7 +15,7 @@ internal static class ArticleInventorySql
     internal static string CurrentSchedule(int generationParameter, bool crossAuthor = false)
     {
         var generation = "$" + generationParameter.ToString(CultureInfo.InvariantCulture);
-        if (crossAuthor) generation = $"coalesce((select p.generation from public.admin_principal p where p.id=a.owner_id and p.enabled and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write')),{generation})";
+        if (crossAuthor) generation = $"coalesce((select p.generation from public.admin_principal p where p.id=a.owner_id and p.enabled),{generation})";
         return $"""
             left join public.article_schedule s on s.article_id=a.id and s.revision=a.revision
                 and s.actor_id=a.owner_id and s.generation={generation} and not a.deleted

@@ -74,8 +74,8 @@ ln -s "$repo/src/Web/node_modules" "$scratch/source/src/Web/node_modules"
   "$dotnet" restore FsusBlog.V2.slnx --locked-mode
   "$dotnet" publish src/Server/FsusBlog.V2.Server.csproj -c Release --no-restore \
     --self-contained false -p:UseAppHost=false -o "$scratch/package/server"
-  "$dotnet" publish src/Migrate/FsusBlogV2.Migrate.csproj -c Release --no-restore \
-    --self-contained false -p:UseAppHost=false -o "$scratch/package/migrate"
+  "$dotnet" publish src/Cli/FsusBlog.V2.Cli.csproj -c Release --no-restore \
+    --self-contained false -p:UseAppHost=false -o "$scratch/package/cli"
   cd src/Web
   node node_modules/vue-tsc/bin/vue-tsc.js --noEmit
   FSUSBLOG_FSUSUI_WASM_DIST="$wasm" node node_modules/vite/bin/vite.js build --outDir "$scratch/package/web"
@@ -96,7 +96,7 @@ cp -- "$scratch/source/deploy/fsusblog-daily-checkpoint.service" "$scratch/sourc
 {
   printf 'fsusblog_commit=%s\nfsusui_commit=%s\n' "$rev" "$ui_rev"
   printf 'server_rid=%s\nheading_parser=%s\n' "$server_rid" "$heading_parser"
-  printf 'web=web/\nserver=server/FsusBlog.V2.Server.dll\nmigrate=migrate/FsusBlogV2.Migrate.dll\ndictionary=search-lexicon.fsdl\n'
+  printf 'web=web/\nserver=server/FsusBlog.V2.Server.dll\ncli=cli/FsusBlog.V2.Cli.dll\ndictionary=search-lexicon.fsdl\n'
 } > "$scratch/package/release.txt"
 (
   cd "$scratch/package"

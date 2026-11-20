@@ -23,7 +23,7 @@ public sealed class AuthorRecentOpenPostgresTests
         using (var rawDraft = await Send(HttpMethod.Get, WireRoutes.Draft.Replace("{id:int}", first.Id.ToString()), author))
             Assert.Equal(HttpStatusCode.OK, rawDraft.StatusCode);
         Assert.Equal(0, (await Page(author)).Revision);
-        await Check(HttpMethod.Get, WireRoutes.AuthorRecentOpens, reader, null, HttpStatusCode.Forbidden);
+        await Check(HttpMethod.Get, WireRoutes.AuthorRecentOpens, reader, null, HttpStatusCode.Unauthorized);
         await Check(HttpMethod.Get, WireRoutes.AuthorRecentOpens, new(author.Token, other.Handle), null, HttpStatusCode.Conflict);
         await Check(HttpMethod.Post, WireRoutes.AuthorRecentOpens, author, Frame(foreign, 0), HttpStatusCode.NotFound);
         await Check(HttpMethod.Post, WireRoutes.AuthorRecentOpens, author, Frame(first with { Revision = first.Revision + 1 }, 0), HttpStatusCode.Conflict);
@@ -78,7 +78,7 @@ public sealed class AuthorRecentOpenPostgresTests
         await Check(HttpMethod.Get, WireRoutes.AuthorRecentOpens + $"?cursor={tampered}", author, null, HttpStatusCode.BadRequest);
         await Command(author, new(1, head, Guid.NewGuid(), updated.Id, updated.Revision));
         await Check(HttpMethod.Get, WireRoutes.AuthorRecentOpens + cursor, author, null, HttpStatusCode.Conflict);
-        await store.SignOut(author.Token, ct);
+        await db.SignOutAdmin(author.Token, ct);
         await Check(HttpMethod.Get, WireRoutes.AuthorRecentOpens, author, null, HttpStatusCode.Unauthorized);
 
         async Task<HttpStatusCode> Compete(Draft draft, Guid key)

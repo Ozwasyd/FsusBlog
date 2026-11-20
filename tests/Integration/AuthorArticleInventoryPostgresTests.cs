@@ -43,14 +43,16 @@ public sealed class AuthorArticleInventoryPostgresTests
         var due = DateTimeOffset.UtcNow.AddHours(2).ToUnixTimeMilliseconds();
         await POST(owner, WireRoutes.DraftScheduleCommand, Wire.EncodeArticleScheduleCommand(new(scheduled.Id, scheduled.Revision, Guid.NewGuid(), due)));
 
-        using (var shell = await client.GetAsync("/user/manage/article/list", ct))
+        using (var shellRequest = new HttpRequestMessage(HttpMethod.Get, "/admin/articles"))
         {
+            shellRequest.Headers.Host = ServerProcess.DefaultAdminHost;
+            using var shell = await client.SendAsync(shellRequest, ct);
             Assert.Equal(HttpStatusCode.OK, shell.StatusCode);
-            Assert.Equal("noindex, nofollow", Assert.Single(shell.Headers.GetValues("X-Robots-Tag")));
+            Assert.Equal("noindex", Assert.Single(shell.Headers.GetValues("X-Robots-Tag")));
             Assert.DoesNotContain("State Published", await shell.Content.ReadAsStringAsync(ct));
         }
         await Failure(null, "?scope=active", HttpStatusCode.Unauthorized);
-        await Failure(reader, "?scope=trash", HttpStatusCode.Forbidden);
+        await Failure(reader, "?scope=trash", HttpStatusCode.Unauthorized);
         await Failure(owner, "?scope=trash&state=published", HttpStatusCode.BadRequest);
         await Failure(owner, "?category=0", HttpStatusCode.BadRequest);
         await Failure(owner, "?before=1&before=2", HttpStatusCode.BadRequest);
@@ -89,7 +91,7 @@ public sealed class AuthorArticleInventoryPostgresTests
             frame: null, owner, handle: null);
         using var deleted = await client.SendAsync(draftRequest, ct);
         Assert.Equal(HttpStatusCode.NotFound, deleted.StatusCode);
-        await store.SignOut(owner, ct);
+        await db.SignOutAdmin(owner, ct);
         await Failure(owner, "?scope=trash", HttpStatusCode.Unauthorized);
 
         async Task<string> Login(string name, bool author) => (await db.SignIn(name, ct, author, minutes: 1)).Token;

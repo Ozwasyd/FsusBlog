@@ -23,10 +23,6 @@ public sealed class PublicationHeadPostgresTests
         if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        await Scalar("drop table public.publication_transparency_head");
-        await Scalar("alter table public.article_publication_transparency drop constraint publication_transparency_exact_head");
-        await Migrate("head-schema");
-        await Migrate("head-schema");
         await Migrate("enable");
 
         var (_, session, _) = await fixture.SignIn("Public head fixture", ct, minutes: 5);

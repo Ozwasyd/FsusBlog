@@ -12,7 +12,7 @@ export type AdminArticleTaxonomyFilter = Readonly<{
   name: string
 }>
 
-defineProps<{ sessionSignal: AbortSignal }>()
+defineProps<{ sessionSignal: AbortSignal; canRollback?: boolean }>()
 const emit = defineEmits<{ 'session-lost': [cause: unknown] }>()
 const selected = ref<string | number>('articles')
 const keyword = ref('')
@@ -60,7 +60,7 @@ function openArticlesByTaxonomy(filter: AdminArticleTaxonomyFilter) {
         @session-lost="emit('session-lost', $event)"
       />
     </ElTabPane>
-    <ElTabPane name="recovery" :label="t('admin.articles.recovery')" lazy>
+    <ElTabPane v-if="canRollback !== false" name="recovery" :label="t('admin.articles.recovery')" lazy>
       <AdminArticleRollback :session-signal="sessionSignal" @busy="working.recovery = $event"
         @session-lost="emit('session-lost', $event)" />
     </ElTabPane>

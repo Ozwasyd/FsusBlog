@@ -40,7 +40,7 @@ public sealed partial class PrivateMediaPostgresTests
                 await files.Materialize(asset, normalized, ct);
             await using var connection = await db.DataSource.OpenConnectionAsync(ct);
             var schemaFile = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
-                "../../../../../src/Migrate/OptionalSchema/private-media-import-origin.sql"));
+                "../../../../../src/Cli/OptionalSchema/private-media-import-origin.sql"));
             await FixtureSql.ExecuteAsync(connection, null, ct, await File.ReadAllTextAsync(schemaFile, ct));
             await CurrentSchema.VerifyAsync(connection, ct);
             int article;

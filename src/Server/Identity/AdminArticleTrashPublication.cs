@@ -49,14 +49,14 @@ internal sealed partial class AdminPasskeyStore
         long? Responsibility, int DeleteEvent);
 
     internal Task CheckTrashPublicationAvailability(string? session, CancellationToken ct) =>
-        WithLiveAdmin(session, RollbackPermission, async (db, tx, _) =>
+        WithLiveAdmin(session, async (db, tx, _) =>
         {
             await RequireTrashPublicationSchema(db, tx, ct);
             return true;
         }, ct);
 
     internal Task<AdminArticleTrashPublicationPreview> PreviewTrashPublication(string? session, int article, long revision, CancellationToken ct) =>
-        WithLiveAdmin(session, RollbackPermission, async (db, tx, _) =>
+        WithLiveAdmin(session, async (db, tx, _) =>
             (await ReadFormerPublication(db, tx, article, revision, locking: false, ct)).Preview, ct);
 
     internal Task<byte[]> BeginTrashPublicationStepUp(string? session, AdminArticleTrashPublicationIntent intent, CancellationToken ct) =>
@@ -71,7 +71,7 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task<AdminArticleTrashPublicationReceipt> RestoreTrashPublication(string? session, string? proof,
         AdminArticleTrashPublicationIntent intent, PublishedMediaStore? media, Action invalidatePublic, CancellationToken ct) =>
-        WithLiveAdmin(session, RollbackPermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await RequireTrashPublicationSchema(db, tx, ct);
             const StepUpAction action = StepUpAction.RestoreDeletedPublication;

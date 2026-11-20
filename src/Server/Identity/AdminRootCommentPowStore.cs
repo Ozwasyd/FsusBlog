@@ -10,7 +10,7 @@ namespace FsusBlog.V2.Server.Administration;
 internal sealed partial class AdminPasskeyStore
 {
     internal Task<(AdminRootCommentPowPolicy State, string PermissionSession)> ReadRootCommentPowPolicy(string? session, CancellationToken ct) =>
-        WithLiveAdmin(session, CurrentSchema.SystemConfigPermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             var current = await RootCommentPowPolicy.Read(db, tx, ct);
             var previous = await current.PreviousSeconds(db, tx, ct);
@@ -27,7 +27,7 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task<(AdminRootCommentPowPolicy State, string PermissionSession)> ApplyRootCommentPowPolicy(string? session,
         AdminRootCommentPowCommand intent, string? proof, CancellationToken ct) =>
-        WithLiveAdmin(session, CurrentSchema.SystemConfigPermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             var current = await CheckRootCommentPowIntent(db, tx, intent, ct, update: true);
             if (proof is not { Length: 43 } || !proof.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_') ||

@@ -241,9 +241,9 @@ ln -s "$(cd ../FsusUI && pwd -P)" "$run/FsusUI"
 {
   cd "$run/source"
   "$dotnet" restore src/Server/FsusBlog.V2.Server.csproj --locked-mode
-  "$dotnet" restore src/Migrate/FsusBlogV2.Migrate.csproj --locked-mode
+  "$dotnet" restore src/Cli/FsusBlog.V2.Cli.csproj --locked-mode
   "$dotnet" build src/Server/FsusBlog.V2.Server.csproj -c Release --no-restore --output "$run/server"
-  "$dotnet" build src/Migrate/FsusBlogV2.Migrate.csproj -c Release --no-restore --output "$run/migrate"
+  "$dotnet" build src/Cli/FsusBlog.V2.Cli.csproj -c Release --no-restore --output "$run/migrate"
   (cd src/Web && node node_modules/vite/bin/vite.js build --outDir "$run/web")
   go build -trimpath -o "$run/load" tests/Performance/{load,cold}.go
   cd "$repo"
@@ -263,15 +263,15 @@ admin_schema=$(sed -nE 's/^    internal const int AdminIdentityVersion = ([1-9][
   pg_ctl -D "$run/pg" -l "$evidence/postgres.log" -w -t 20 start \
     -o "-c listen_addresses='' -c unix_socket_directories=$run -c unix_socket_permissions=0700 -p $pg_port"
   psql -X -w -v ON_ERROR_STOP=1 -c "CREATE DATABASE $database TEMPLATE template0"
-  "$dotnet" "$run/migrate/FsusBlogV2.Migrate.dll" plan > "$evidence/migration-plan.json"
-  "$dotnet" "$run/migrate/FsusBlogV2.Migrate.dll" apply "$evidence/migration-plan.json"
+  "$dotnet" "$run/migrate/FsusBlog.V2.Cli.dll" plan > "$evidence/migration-plan.json"
+  "$dotnet" "$run/migrate/FsusBlog.V2.Cli.dll" apply "$evidence/migration-plan.json"
   python3 "$run/source/tests/Performance/seed.py" --database "$database" --admin-schema "$admin_schema" \
     --sql "$run/seed.sql" --manifest "$evidence/fixture.json"
   shasum -a 256 "$run/seed.sql" "$evidence/fixture.json" > "$evidence/fixture.sha256"
   psql -X -w -v ON_ERROR_STOP=1 -d "$database" -f "$run/seed.sql"
   psql -X -w -v ON_ERROR_STOP=1 -d "$database" -f "$run/source/tests/Fixtures/publication-rights.sql"
   shasum -a 256 "$run/source/tests/Fixtures/publication-rights.sql" > "$evidence/fixture-rights.sha256"
-  "$dotnet" "$run/migrate/FsusBlogV2.Migrate.dll" verify
+  "$dotnet" "$run/migrate/FsusBlog.V2.Cli.dll" verify
   psql -X -w -v ON_ERROR_STOP=1 -d "$database" -c 'SELECT current_database(),current_setting('"'"'server_version'"'"'),pg_backend_pid(),count(*) FROM public.article_publication'
 } > "$evidence/database.log" 2>&1
 
@@ -310,7 +310,7 @@ if [[ "$proxy_mode" == true ]]; then
   stage=proxy-startup
   start_proxy
   stage=proxy-boundary
-  "$dotnet" "$run/migrate/FsusBlogV2.Migrate.dll" operator proxy-check |
+  "$dotnet" "$run/migrate/FsusBlog.V2.Cli.dll" operator proxy-check |
     node "$run/source/tests/Performance/proxy-boundary.mjs" "$target" "$origin" "$proxy_ca" \
       > "$evidence/proxy-boundary.log" 2>&1
 else

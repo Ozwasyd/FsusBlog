@@ -87,7 +87,6 @@ internal sealed class AuthorTextRebuildWorker(NpgsqlDataSource source, InstanceL
     {
         await using (var account = Store.Sql(db, tx, """
             select p.enabled and p.generation=$2
-                and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write')
             from public.admin_principal p where p.id=$1 for share
             """, job.Owner, job.OwnerGeneration))
         {

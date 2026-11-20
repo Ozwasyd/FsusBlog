@@ -20,7 +20,9 @@ public sealed class PluginPreviewPostgresTests
         var ct = deadline.Token;
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
-        using var shell = await server.Client.GetAsync("/user/manage/article/write", ct);
+        using var shellRequest = new HttpRequestMessage(HttpMethod.Get, "/admin/articles/write");
+        shellRequest.Headers.Host = ServerProcess.DefaultAdminHost;
+        using var shell = await server.Client.SendAsync(shellRequest, ct);
         shell.EnsureSuccessStatusCode();
         Assert.DoesNotContain("fsus-author-plugin-preview", await shell.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         using var response = await server.Client.PostAsync(PathFor(1, 1), null, ct);
@@ -110,7 +112,7 @@ public sealed class PluginPreviewPostgresTests
         finally { File.Move(withdrawn, approval, overwrite: true); }
         await Preview(https, current, null, HttpStatusCode.Unauthorized);
         await Preview(https, current, peer, HttpStatusCode.NotFound);
-        await Preview(https, current, reader, HttpStatusCode.Forbidden);
+        await Preview(https, current, reader, HttpStatusCode.Unauthorized);
         await Preview(https, current, owner with { Handle = peer.Handle }, HttpStatusCode.Conflict);
         await Preview(https, current, owner with { Handle = null }, HttpStatusCode.Conflict);
         await Preview(https, first, owner, HttpStatusCode.Conflict);
@@ -121,7 +123,7 @@ public sealed class PluginPreviewPostgresTests
         using (var unpublished = await https.GetAsync($"/article/{current.Id}", ct))
             Assert.Equal(HttpStatusCode.NotFound, unpublished.StatusCode);
 
-        await Execute(db, "delete from public.user_session where digest=$1", ct, Store.TokenDigest(owner.Token)!);
+        await Execute(db, "delete from public.admin_session where digest=$1", ct, Store.TokenDigest(owner.Token)!);
         await Preview(https, current, owner, HttpStatusCode.Unauthorized);
         await using var state = Store.Sql(db, null, "select body from public.article_revision where article_id=$1 and revision=$2", current.Id, current.Revision);
         Assert.Equal(currentBody, await state.ExecuteScalarAsync(ct));
@@ -180,7 +182,7 @@ public sealed class PluginPreviewPostgresTests
     {
         var id = Guid.NewGuid();
         var ticket = RandomNumberGenerator.GetBytes(32);
-        await Execute(db, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)", ct, id, name, canAuthor);
+        await Execute(db, "insert into public.blog_user(id,name,enabled,generation) values($1,$2,true,1)", ct, id, name);
         await Execute(db, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')",
             ct, SHA256.HashData(ticket), id);
         var token = (await store.SignIn(Convert.ToHexStringLower(ticket), ct)).Token;

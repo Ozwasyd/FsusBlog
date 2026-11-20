@@ -6,13 +6,13 @@ namespace FsusBlog.V2.Server.Administration;
 internal static class AdminModerationEndpoints
 {
     internal static void Map(WebApplication app, Uri origin, AdminPasskeyStore store, string session, string passkeyLimit,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, FsusBlog.V2.Server.Operations.SiteCapabilities capabilities)
     {
         var authority = origin.GetLeftPart(UriPartial.Authority);
         var actions = new AdminActionRoutes(app, authority, session, readFrame);
-        var fenceVisibleMessages = app.Configuration.GetValue(InboxActivityFence.Setting, false);
-        AdminCommentAppeals.Map(app, authority, store, session, passkeyLimit, readFrame);
-        if (app.Configuration.GetValue(AdminModerationBatchEndpoints.Setting, false))
+        var fenceVisibleMessages = capabilities.AdminInboxActivityOrder;
+        AdminCommentAppeals.Map(app, authority, store, session, passkeyLimit, readFrame, fenceVisibleMessages);
+        if (capabilities.AdminCommentBatch)
             AdminModerationBatchEndpoints.Map(app, authority, store, session, passkeyLimit, readFrame, fenceVisibleMessages);
         actions.Post(WireRoutes.AdminModerationClaim, WireLimits.AdminModerationClaimRequestFrameBytes, async (cookie, frame, ct) =>
             Wire.EncodeAdminModerationClaim(await store.AcquireCommentClaim(cookie, Wire.DecodeAdminModerationClaimRequest(frame), ct)))

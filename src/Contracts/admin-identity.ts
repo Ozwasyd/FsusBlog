@@ -12,8 +12,6 @@ import {
   type AdminOperationsStatus as WireAdminOperationsStatus,
 } from './wire.generated.ts';
 
-const adminPermissions = ['admin.manage', 'article.write', 'audit.read', 'comment.moderate', 'system.config'] as const;
-
 export type AdminSession = Readonly<{
   handle: string;
   generation: bigint;
@@ -22,7 +20,6 @@ export type AdminSession = Readonly<{
   permissionSession?: string;
 }>;
 export type AdminAuthority = { status: 'unavailable' } | { status: 'signed-out' } | { status: 'active'; session: AdminSession };
-export type AdminPermission = typeof adminPermissions[number];
 export type AdminOperationsStatus = Readonly<Omit<WireAdminOperationsStatus, 'oldestPendingAt'> & { oldestPendingAt: number | null }>;
 export type AdminCommentCursor = Readonly<{ articleId: number; commentId: bigint }>;
 type AdminQueuedComment = Readonly<AdminCommentCursor & { createdAt: number; displayName: string; body: string }>;
@@ -73,30 +70,6 @@ export function readAdminOperations(session: AdminSession, signal: AbortSignal):
     if (!session.permissionSession || readPermissionSession(headers) !== session.permissionSession)
       throw new ProtocolError('Administrator permission session changed.');
     return readOperationsStatus(payload);
-  }, signal);
-}
-
-export function readAdminEffectivePermissions(session: AdminSession, signal: AbortSignal): Promise<readonly AdminPermission[]> {
-  return request(WireRoutes.AdminEffectivePermissions, FrameType.AdminEffectivePermissions, (payload, headers) => {
-    if (!session.permissionSession || readPermissionSession(headers) !== session.permissionSession)
-      throw new ProtocolError('Administrator permission session changed.');
-    const reader = new PodReader(payload);
-    const generation = reader.i64();
-    const count = reader.i32();
-    if (generation !== session.generation || count < 1 || count > adminPermissions.length)
-      throw new ProtocolError('Invalid administrator permission snapshot.');
-
-    const grants: AdminPermission[] = [];
-    for (let i = 0; i < count; i++) {
-      const value = reader.text(32);
-      const permission = adminPermissions.find(candidate => candidate === value);
-      if (!permission || (grants.length > 0 && grants[grants.length - 1] >= permission))
-        throw new ProtocolError('Invalid administrator permission grant.');
-      grants.push(permission);
-    }
-    reader.finish();
-    if (!grants.includes('admin.manage')) throw new ProtocolError('Missing administrator permission.');
-    return grants;
   }, signal);
 }
 

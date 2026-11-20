@@ -57,13 +57,12 @@ internal sealed class SitePages
         return Find(slug, configured: true).Revision;
     }
 
-    internal SitePages(IConfiguration configuration, WebPages renderer, NpgsqlDataSource source, InstanceLease lease, bool editorEnabled)
+    internal SitePages(string? configuredRoot, WebPages renderer, NpgsqlDataSource source, InstanceLease lease, bool editorEnabled)
     {
         this.renderer = renderer;
         this.source = source;
         this.lease = lease;
         EditorEnabled = editorEnabled;
-        var configuredRoot = configuration["FSUSBLOG_SITE_PAGES"];
         if (string.IsNullOrWhiteSpace(configuredRoot))
         {
             if (EditorEnabled) throw new InvalidOperationException("The site page editor requires the four deployment baseline files.");

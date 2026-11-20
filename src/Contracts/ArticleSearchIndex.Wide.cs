@@ -85,7 +85,8 @@ public sealed partial class ArticleSearchIndex
         return new WideBlock(first, count, terms, bytes);
     }
 
-    private Article[] SearchWide(WideBlock[] blocks, string query, CancellationToken ct)
+    private ArticleSearchPage SearchWide(WideBlock[] blocks, string query, ArticleSearchSort sort, int start, int window,
+        CancellationToken ct)
     {
         var hashes = new HashSet<uint>();
         var terms = new List<(uint Hash, double Idf)>();
@@ -96,9 +97,10 @@ public sealed partial class ArticleSearchIndex
             foreach (var block in blocks) frequency += FindTerm(block.Terms, hash).Count;
             if (frequency != 0) terms.Add((hash, InverseFrequency(frequency)));
         }
-        if (terms.Count == 0) return [];
+        if (terms.Count == 0) return new([], 0);
 
-        var candidates = new PriorityQueue<Article, (double Score, long CreatedAt, int Id)>(MaxResults);
+        var candidates = window == 0 ? null : new PriorityQueue<Article, SearchRank>(window);
+        var total = 0;
         var buffer = ArrayPool<double>.Shared.Rent(WideBlockDocuments);
         try
         {
@@ -126,14 +128,14 @@ public sealed partial class ArticleSearchIndex
                         scores[ordinal] += Score(weight, _documents[block.First + ordinal].Normalization, idf);
                     }
                 }
-                if (scored) Select(scores, block.First, candidates, ct);
+                if (scored) Select(scores, block.First, candidates, sort, window, ref total, ct);
             }
         }
         finally
         {
             ArrayPool<double>.Shared.Return(buffer);
         }
-        return Ordered(candidates);
+        return new(Ordered(candidates, start), total);
     }
 
     private static int VarintWidth(int value)

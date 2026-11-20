@@ -110,7 +110,7 @@ public sealed partial class DocumentExportPostgresTests
 
             await Reject(client, CreateRoute, null, htmlRequest, HttpStatusCode.Unauthorized, ct);
             await Reject(client, CreateRoute, outsider, htmlRequest, HttpStatusCode.NotFound, ct);
-            await Reject(client, CreateRoute, reader, htmlRequest, HttpStatusCode.Forbidden, ct);
+            await Reject(client, CreateRoute, reader, htmlRequest, HttpStatusCode.Unauthorized, ct);
             await Reject(client, CreateRoute, owner with { Handle = outsider.Handle }, htmlRequest, HttpStatusCode.Conflict, ct);
             await Reject(client, DownloadRoute, owner with { Handle = null }, Reference(htmlId), HttpStatusCode.Conflict, ct);
             await RejectList(client, current.Id, outsider, HttpStatusCode.NotFound, ct);
@@ -166,7 +166,7 @@ public sealed partial class DocumentExportPostgresTests
             Assert.Equal(body.IndexOf("~~~js", StringComparison.Ordinal), (int)warnings[1]!["start"]!);
             await Reject(client, DownloadRoute, outsider, Reference(htmlId), HttpStatusCode.NotFound, ct);
             await ExportResponseFixture.Receipt(client, htmlId, outsider.Token, outsider.Handle, HttpStatusCode.NotFound, ct);
-            await Reject(client, DownloadRoute, reader, Reference(htmlId), HttpStatusCode.Forbidden, ct);
+            await Reject(client, DownloadRoute, reader, Reference(htmlId), HttpStatusCode.Unauthorized, ct);
             await Reject(client, DownloadRoute, null, Reference(htmlId), HttpStatusCode.Unauthorized, ct);
             await CancelOwnedQueuedTask(db, client, owner, newer, older.Revision, cancelId, ct);
         }
@@ -213,7 +213,7 @@ public sealed partial class DocumentExportPostgresTests
                 owner.Id, epubId);
             return await query.ExecuteScalarAsync(token) is true;
         }, "The expired task was not removed by the worker on restart.", ct);
-        await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.user_session where digest=$1", Store.TokenDigest(owner.Token)!);
+        await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.admin_session where digest=$1", Store.TokenDigest(owner.Token)!);
         await RejectList(final.Client, older.Id, owner, HttpStatusCode.Unauthorized, ct);
         await ExportResponseFixture.Receipt(final.Client, wordId, owner.Token, owner.Handle, HttpStatusCode.Unauthorized, ct);
 

@@ -15,7 +15,7 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task<AdminModerationClaim> AcquireCommentClaim(string? session, AdminModerationClaimRequest target,
         CancellationToken ct) =>
-        WithLiveAdmin(session, CurrentSchema.CommentModeratePermission,
+        WithLiveAdmin(session,
             (db, tx, admin) => AcquireCommentClaim(db, tx, admin, target, ct), ct);
 
     private static async Task<AdminModerationClaim> AcquireCommentClaim(NpgsqlConnection db, NpgsqlTransaction tx,
@@ -40,13 +40,11 @@ internal sealed partial class AdminPasskeyStore
                     select from public.admin_principal p join public.admin_session s on s.principal_id=p.id
                     where p.id=claim.principal_id and p.enabled and p.generation=claim.admin_generation
                         and s.digest=claim.session_digest and s.generation=p.generation and s.expires_at>clock_timestamp()
-                        and exists (select from public.admin_permission where principal_id=p.id and permission=$9)
-                        and exists (select from public.admin_permission where principal_id=p.id and permission=$10)
                         and exists (select from public.admin_passkey_credential where principal_id=p.id)
                 )
             returning claim_generation,claim_version,expires_at
             """, target.ArticleId, target.CommentId, admin.Id, admin.Digest, admin.Snapshot.Generation,
-            ClaimDigest(token), version, ClaimActive, Permission, CurrentSchema.CommentModeratePermission);
+            ClaimDigest(token), version, ClaimActive);
         await using var row = await cmd.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.Conflict, "The pending comment is already claimed.");
         return new AdminModerationClaim(target.ArticleId, target.CommentId, version, token, row.GetInt64(0),
@@ -54,7 +52,7 @@ internal sealed partial class AdminPasskeyStore
     }
 
     internal Task<AdminModerationClaim> RenewCommentClaim(string? session, AdminModerationClaim claim, CancellationToken ct) =>
-        WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await CheckClaim(db, tx, admin, Receipt(claim), ct);
             await using var cmd = Store.Sql(db, tx, """
@@ -69,7 +67,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task ReleaseCommentClaim(string? session, AdminModerationClaim claim, CancellationToken ct) =>
-        WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await CheckClaim(db, tx, admin, Receipt(claim), ct);
             await CloseClaim(db, tx, claim.ArticleId, claim.CommentId, ClaimReleased, ct);
@@ -81,7 +79,7 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task DecideComment(string? session, string? proof, AdminModerationDecision decision, CancellationToken ct,
         bool fenceVisibleMessages = false) =>
-        WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             if (proof is not { Length: 43 } || !proof.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_') ||
                 !await ConsumeStepUpProof(db, tx, admin, ChallengeDigest(proof, null), DecisionDigest(decision), ct))

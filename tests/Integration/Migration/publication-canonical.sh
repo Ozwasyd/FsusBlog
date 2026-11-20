@@ -7,7 +7,7 @@ if [[ ${PGHOST:-} != /* || -z ${PGUSER:-} || -z ${FSUSBLOG_TEST_DB:-} ]]; then
     exit 2
 fi
 if [[ -n ${PG_TOOLS_DIR:-} ]]; then PATH="$PG_TOOLS_DIR:$PATH"; fi
-migrate=("${DOTNET_BIN:-dotnet}" "${FSUSBLOG_MIGRATE_DLL:-src/Migrate/bin/Release/net10.0/FsusBlogV2.Migrate.dll}")
+migrate=("${DOTNET_BIN:-dotnet}" "${FSUSBLOG_CLI_DLL:-${FSUSBLOG_MIGRATE_DLL:-src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll}}")
 umask 077
 scratch=$(mktemp -d /tmp/fsusv2-canonical.XXXXXXXX)
 database="fsusv2_canonical_$(openssl rand -hex 9)"
@@ -27,19 +27,16 @@ export FSUSBLOG_DB="${FSUSBLOG_TEST_DB%;};Database=$database"
 "${migrate[@]}" plan > "$scratch/plan.json"
 "${migrate[@]}" apply "$scratch/plan.json"
 
-# Reconstruct the previously accepted schema, then exercise the actual offline adoption command.
+# Seed a retained publication before native canonical binding, then exercise CLI canonical verification.
 "${sql[@]}" <<'SQL'
-DROP TABLE public.publication_transparency_head, public.article_publication_transparency,
-    public.article_publication_proof, public.publication_proof_key, public.article_publication_canonical;
-ALTER TABLE public.article_publication_history DROP CONSTRAINT publication_history_native_binding;
-ALTER TABLE public.article_publication_rights DROP CONSTRAINT publication_rights_native_binding;
-ALTER TABLE public.blog_outbox DROP CONSTRAINT outbox_native_publication_binding;
-INSERT INTO public.blog_user VALUES ('65235b8e-5d95-411a-8a9c-d1036d319b71','fixture author',true,true,1);
+INSERT INTO public.admin_principal(id,handle,user_handle,enabled,generation)
+    VALUES ('65235b8e-5d95-411a-8a9c-d1036d319b71','fixture-author',decode(repeat('01',32),'hex'),true,1);
 BEGIN;
 INSERT INTO public.article(id,owner_id,revision,title,body,published_revision,publication_count,deleted)
     OVERRIDING SYSTEM VALUE VALUES (42,'65235b8e-5d95-411a-8a9c-d1036d319b71',9007199254740993,'Réseau 🐈',
         E'Cafe\u0301\r\n独立😀\n',9007199254740993,1,false);
-INSERT INTO public.article_revision VALUES (42,9007199254740993,'Réseau 🐈',E'Cafe\u0301\r\n独立😀\n','2026-11-13T00:00:00.120001Z');
+INSERT INTO public.article_revision(article_id,revision,title,body,happened_at)
+    VALUES (42,9007199254740993,'Réseau 🐈',E'Cafe\u0301\r\n独立😀\n','2026-11-13T00:00:00.120001Z');
 INSERT INTO public.tag(id,name) VALUES (11,'Tag Anna'),(42,'Tag Bo');
 INSERT INTO public.article_revision_tag VALUES (42,9007199254740993,42),(42,9007199254740993,11);
 INSERT INTO public.article_revision_rights VALUES (42,9007199254740993,false,'CC-BY-4.0','',0,E'État\n新','{title}',
@@ -57,10 +54,6 @@ expect_failure() {
         exit 1
     fi
 }
-expect_failure
-rg -F 'storage is not installed' "$scratch/stderr"
-"${migrate[@]}" publication-canonical schema
-"${migrate[@]}" publication-canonical schema
 "${migrate[@]}" publication-canonical verify | rg -Fx '{"canonicalVersion":2,"verifiedPublications":0}'
 expect_failure 9007199254741999
 rg -F 'has no native canonical binding' "$scratch/stderr"

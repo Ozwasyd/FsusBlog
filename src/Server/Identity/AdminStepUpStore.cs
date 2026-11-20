@@ -22,7 +22,7 @@ internal sealed partial class AdminPasskeyStore
     private Task<byte[]> BeginStepUp(string? session, byte[] bodyDigest,
         Func<NpgsqlConnection, NpgsqlTransaction, LiveAdmin, Task> verifyTarget, CancellationToken ct,
         StepUpAction action = StepUpAction.ModerateComment) =>
-        WithLiveAdmin(session, StepUpPermission(action), async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await verifyTarget(db, tx, admin);
             await using var query = Store.Sql(db, tx, """
@@ -45,7 +45,6 @@ internal sealed partial class AdminPasskeyStore
     private async Task<byte[]> CompleteStepUp(string? session, PasskeyLoginRequest request,
         StepUpAction action, CancellationToken ct)
     {
-        var permission = StepUpPermission(action);
         var articleTransition = action is StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or
             StepUpAction.ArticleArchive or StepUpAction.RestoreArticleTrash or StepUpAction.RestoreDeletedPublication;
         var transition = action switch
@@ -56,7 +55,7 @@ internal sealed partial class AdminPasskeyStore
             StepUpAction.RestoreDeletedPublication => "former publication restore",
             _ => "published rollback"
         };
-        var challenge = await WithLiveAdmin(session, permission, async (db, tx, admin) =>
+        var challenge = await WithLiveAdmin(session, async (db, tx, admin) =>
         {
             if (action == StepUpAction.ReviewCommentAppeal)
                 await FsusBlog.V2.Server.Comments.CommentAppeals.RequireSchema(db, tx, ct);
@@ -90,7 +89,7 @@ internal sealed partial class AdminPasskeyStore
             throw new BusinessException(Rejection.Forbidden, $"The {transition} requires a verified administrator Passkey.");
         }
 
-        return await WithLiveAdmin(session, permission, async (db, tx, admin) =>
+        return await WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await using var user = Store.Sql(db, tx, "select user_handle from public.admin_principal where id=$1", admin.Id);
             var handle = (await user.ExecuteScalarAsync(ct) as byte[]) ?? throw Denied();
@@ -112,7 +111,7 @@ internal sealed partial class AdminPasskeyStore
     // The original intent proof remains separate from the claim-bound HTTP decision.
     internal Task<T> WithModerationProof<T>(string? session, string? proof, AdminModerationIntent intent,
         Func<NpgsqlConnection, NpgsqlTransaction, Guid, Task<T>> apply, CancellationToken ct) =>
-        WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             if (!await ConsumeStepUpProof(db, tx, admin, ChallengeDigest(proof, null), IntentDigest(intent), ct)) throw Denied();
             await CheckPendingComment(db, tx, intent, locked: true, ct);
@@ -166,20 +165,6 @@ internal sealed partial class AdminPasskeyStore
         StepUpAction.ModerateCommentBatch => "public.admin_comment_batch_step_up",
         StepUpAction.ActivateRootCommentPow => "public.admin_root_comment_pow_step_up",
         StepUpAction.RestoreArticleTrash => "public.admin_article_trash_step_up",
-        _ => throw new ArgumentOutOfRangeException(nameof(action))
-    };
-
-    private static string StepUpPermission(StepUpAction action) => action switch
-    {
-        StepUpAction.ModerateComment => CurrentSchema.CommentModeratePermission,
-        StepUpAction.PublishSitePage => CurrentSchema.SystemConfigPermission,
-        StepUpAction.PublishArticleRollback or StepUpAction.DraftArticleRollback or StepUpAction.ArticleArchive or
-            StepUpAction.RestoreArticleTrash or StepUpAction.RestoreDeletedPublication =>
-            CurrentSchema.ArticleWritePermission,
-        StepUpAction.ActivateAppearance => CurrentSchema.SystemConfigPermission,
-        StepUpAction.ReviewCommentAppeal => CurrentSchema.CommentModeratePermission,
-        StepUpAction.ModerateCommentBatch => CurrentSchema.CommentModeratePermission,
-        StepUpAction.ActivateRootCommentPow => CurrentSchema.SystemConfigPermission,
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 }

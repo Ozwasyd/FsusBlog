@@ -1,7 +1,8 @@
 # Sourced by the native identity schema rehearsals.
 start_identity_fixture() {
-    if [[ -z "${FSUSBLOG_TEST_DB:-}" || -z "${PGHOST:-}" || -z "${PGUSER:-}" || -z "${FSUSBLOG_TEST_MIGRATE_DLL:-}" ]]; then
-        printf '%s\n' 'Configure a scratch PostgreSQL cluster and the built migration DLL.' >&2
+    local cli_dll="${FSUSBLOG_TEST_CLI_DLL:-${FSUSBLOG_TEST_MIGRATE_DLL:-}}"
+    if [[ -z "${FSUSBLOG_TEST_DB:-}" || -z "${PGHOST:-}" || -z "${PGUSER:-}" || -z "$cli_dll" ]]; then
+        printf '%s\n' 'Configure a scratch PostgreSQL cluster and the built CLI DLL.' >&2
         exit 2
     fi
     scratch=$(mktemp -d "${TMPDIR:-/tmp}/fsus-$1.XXXXXXXX")
@@ -9,7 +10,7 @@ start_identity_fixture() {
     fixture_label="$3"
     drop_mode="${4:-}"
     pg=(psql -X --no-password -v ON_ERROR_STOP=1)
-    migrate=("${DOTNET_BIN:-dotnet}" "$FSUSBLOG_TEST_MIGRATE_DLL")
+    migrate=("${DOTNET_BIN:-dotnet}" "$cli_dll")
     created=0
     lease=''
     trap finish_identity_fixture EXIT

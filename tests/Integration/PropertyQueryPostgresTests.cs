@@ -171,6 +171,7 @@ public sealed class PropertyQueryPostgresTests
             new(schema, [upper, lower], ""));
         var packet = Wire.EncodeSavedViewCommand(save);
         await Qualified(scoreContinuation, HttpStatusCode.Conflict, anotherOwnerSession, peerHandle);
+        (owner, handle) = (anotherOwnerSession, peerHandle);
         var firstSave = await Saved(WireRoutes.SavedViews, packet);
         Assert.Equal(firstSave, await Saved(WireRoutes.SavedViews, packet));
         Assert.Equal(new SavedViewReceipt(viewId, 1, 1, false), Wire.DecodeSavedViewReceipt(firstSave));
@@ -183,17 +184,19 @@ public sealed class PropertyQueryPostgresTests
             Wire.EncodeSavedViewExecute(new(viewId, 1, ""))));
         Assert.Equal(groupPage.Rows.Select(row => row.Id), started.Rows.Select(row => row.Id));
         var continuation = Wire.EncodeSavedViewExecute(new(viewId, 1, started.NextCursor));
-        await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.BadRequest, anotherOwnerSession, peerHandle);
-        await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.Conflict, anotherOwnerSession, handle);
         await Saved(WireRoutes.SavedViewExecute, Wire.EncodeSavedViewExecute(new(viewId, 1, groupPage.NextCursor)), HttpStatusCode.BadRequest);
         await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.NotFound, outsider, outsiderHandle);
         Assert.Empty(Wire.DecodeSavedViewCatalog(await Saved(WireRoutes.SavedViews, session: outsider, sessionId: outsiderHandle)).Views);
         Assert.Equal(primary.Id, Assert.Single(Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, continuation)).Rows).Id);
+        var priorSavedHandle = handle;
+        (_, owner, handle) = await db.SignIn(ownerId, ct);
+        await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.BadRequest, owner, handle);
+        await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.Conflict, owner, priorSavedHandle);
 
         var editedName = new SavedViewCommand(SavedViewAction.Rename, viewId, 1, 1, Guid.NewGuid(), "Range review", null);
         var attempts = await Task.WhenAll(
             Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(editedName), session: owner, sessionId: handle),
-            Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(editedName), session: anotherOwnerSession, sessionId: peerHandle));
+            Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(editedName), session: owner, sessionId: handle));
         Assert.Equal(attempts[0], attempts[1]);
         await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(editedName with { RequestId = Guid.NewGuid() }), HttpStatusCode.Conflict);
         await Saved(WireRoutes.SavedViewExecute, continuation, HttpStatusCode.Conflict);
@@ -233,7 +236,7 @@ public sealed class PropertyQueryPostgresTests
         var otherOrder = Wire.EncodeSavedViewPlacementCommand(new(SavedViewPlacementAction.MoveBefore, viewId, 2, 5, Guid.NewGuid(), Guid.Empty));
         var replies = await Task.WhenAll(
             Response(WireRoutes.SavedViewPlacement, changedOrder, owner, handle),
-            Response(WireRoutes.SavedViewPlacement, otherOrder, anotherOwnerSession, peerHandle));
+            Response(WireRoutes.SavedViewPlacement, otherOrder, owner, handle));
         Assert.Single(replies, reply => reply.Status == HttpStatusCode.OK);
         Assert.Single(replies, reply => reply.Status == HttpStatusCode.Conflict);
         var placement = Wire.DecodeSavedViewPlacement(await Saved(WireRoutes.SavedViewPlacement));
@@ -411,7 +414,8 @@ public sealed class PropertyQueryPostgresTests
         await Send(WireRoutes.PropertyArticleQuery, Wire.EncodePropertyArticleQueryGroup(keywordContinuation with { Keyword = keyword[1..] }),
             owner, HttpStatusCode.BadRequest, handle);
         await Group([scoreMatch], keywordPage.NextCursor, HttpStatusCode.BadRequest);
-        await Send(WireRoutes.PropertyArticleQuery, continuationFrame, anotherOwnerSession, HttpStatusCode.BadRequest, peerHandle);
+        (_, owner, handle) = await db.SignIn(ownerId, ct);
+        await Send(WireRoutes.PropertyArticleQuery, continuationFrame, owner, HttpStatusCode.BadRequest, handle);
 
         var keywordViewId = Guid.NewGuid();
         var keywordView = new SavedViewCommand(SavedViewAction.Save, keywordViewId, 0, 15, Guid.NewGuid(), "Keyword and score", keywordQuery);

@@ -111,7 +111,7 @@ public sealed class ExtensionDocumentReadPostgresTests
             var currentOwner = await custodian.ResolveOwnerAsync(latest.Id, latest.Revision, ct);
             installations.SetOwner(currentOwner);
             using var ended = NewRange(currentOwner, Issue(currentOwner), 1, 3);
-            await store.SignOut(author.Token, ct);
+            await db.SignOutAdmin(author.Token, ct);
             var signedOut = await Assert.ThrowsAsync<BusinessException>(() => broker.ReadRangeAsync(ended, ct).AsTask());
             Assert.Equal(Rejection.Unauthorized, signedOut.Rejection);
             installations.Deactivate("fixture.extension");

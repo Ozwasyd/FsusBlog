@@ -12,11 +12,8 @@ public sealed class PublicationHistoryPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var actor = Guid.NewGuid();
-        var ticket = RandomNumberGenerator.GetBytes(32);
-        await Execute("insert into public.blog_user values($1,'Publication history owner',true,true,1)", actor);
-        await Execute("insert into public.login_ticket values($1,$2,now()+interval '2 minutes')", SHA256.HashData(ticket), actor);
-        var session = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct);
+        var (actor, sessionToken, _) = await fixture.SignIn("Publication history owner", ct);
+        var session = (Token: sessionToken, Id: actor);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
 
         var created = Wire.DecodeDraft(await Post(WireRoutes.Save, new(0, 0, Guid.NewGuid(), "First publication", "First body")));

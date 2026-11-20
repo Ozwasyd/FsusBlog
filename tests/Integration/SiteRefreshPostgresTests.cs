@@ -227,7 +227,7 @@ public sealed class SiteRefreshPostgresTests
     {
         var owner = Guid.NewGuid();
         var credential = RandomNumberGenerator.GetBytes(32);
-        await FixtureSql.SiteAccountAsync(db, null, ct, owner, name, canAuthor: true);
+        await FixtureSql.SiteAccountAsync(db, null, ct, owner, name, canAuthor: false);
         await FixtureSql.SitePasskeyAsync(db, null, ct, owner, credential, RandomNumberGenerator.GetBytes(32));
         return (owner, credential);
     }
@@ -290,7 +290,7 @@ public sealed class SiteRefreshPostgresTests
     }
 
     private static Task<Identity> ReadOwner(Store access, string token, CancellationToken ct) =>
-        access.WithSession(token, true, (_, _, actor) => Task.FromResult(actor), ct);
+        access.WithSession(token, false, (_, _, actor) => Task.FromResult(actor), ct);
 
     private static async Task NoAccess(Store access, string token, CancellationToken ct) =>
         Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(() => ReadOwner(access, token, ct))).Rejection);

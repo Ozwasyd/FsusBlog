@@ -14,8 +14,6 @@ public sealed class PublicationRightsPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var actor = Guid.NewGuid();
-        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         await using (var prepare = new NpgsqlCommand("""
             drop table public.publication_transparency_head, public.article_publication_transparency,
                 public.article_publication_proof, public.publication_proof_key, public.article_publication_cover,
@@ -24,10 +22,7 @@ public sealed class PublicationRightsPostgresTests
             alter table public.article_publication_rights drop constraint publication_rights_native_binding;
             alter table public.blog_outbox drop constraint outbox_native_publication_binding;
             """, db)) await prepare.ExecuteNonQueryAsync(ct);
-        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.blog_user values($1,'Previous catalog author',true,true,1)", actor);
-        await using (var session = Store.Sql(db, null,
-            "insert into public.user_session (digest,user_id,generation,expires_at) values($1,$2,1,clock_timestamp()+interval '5 minutes')",
-            Store.TokenDigest(token)!, actor)) await session.ExecuteNonQueryAsync(ct);
+        var (_, token, _) = await fixture.SignIn("Previous catalog author", ct, minutes: 5);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var draft = await Send(WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Prior catalog", "Without canonical storage"));
         var published = await Send(WireRoutes.Publish, new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""));
@@ -47,14 +42,15 @@ public sealed class PublicationRightsPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var author = await SignIn("Rights owner");
-        var other = await SignIn("Other rights owner");
+        var other = (await fixture.SignIn("Read-only rights admin", ct, canAuthor: false)).Token;
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var initial = await Save(0, 0, "Rights marker", "Rights test body");
         var expected = Wire.DefaultRights(initial.Id, initial.Revision);
         Assert.Equal(expected, await Policy(initial, author));
         var change = new ArticleRightsCommand(initial.Id, initial.Revision, Guid.NewGuid(), true, "CC-BY-SA-4.0",
             "First holder & Co", 2026, "Original rights statement", "Credit {holder}", "excerpt-only", 240, false, true, false);
-        await Set(change, other, HttpStatusCode.NotFound);
+        await Set(change, other, HttpStatusCode.Unauthorized);
+        await Set(change with { Id = 999_999 }, author, HttpStatusCode.NotFound);
         await Set(change, null, HttpStatusCode.Unauthorized);
         var edited = Wire.DecodeArticleRightsPolicy(await Set(change, author));
         Assert.Equal(Wire.RightsPolicy(change, initial.Revision + 1), edited);
@@ -70,7 +66,9 @@ public sealed class PublicationRightsPostgresTests
             (firstRights.License, firstRights.Holder, firstRights.Statement));
         Assert.Equal(1 | 4 | 16 | 32 | 64 | 128, firstRights.Flags);
         var path = $"/article/{initial.Id}";
-        Assert.Contains("First holder &amp; Co", await server.Client.GetStringAsync(path, ct));
+        var rendered = await server.Client.GetStringAsync(path, ct);
+        Assert.Contains("Rights test body", rendered);
+        Assert.DoesNotContain("First holder", rendered);
 
         var next = Wire.DecodeArticleRightsPolicy(await Set(change with
         {
@@ -129,14 +127,8 @@ public sealed class PublicationRightsPostgresTests
             Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
         Assert.DoesNotContain("Untracked legacy marker", await server.Client.GetStringAsync("/", ct));
 
-        async Task<string> SignIn(string name)
-        {
-            var id = Guid.NewGuid();
-            var ticket = RandomNumberGenerator.GetBytes(32);
-            await Execute("insert into public.blog_user values($1,$2,true,true,1)", id, name);
-            await Execute("insert into public.login_ticket values($1,$2,now()+interval '2 minutes')", SHA256.HashData(ticket), id);
-            return (await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
-        }
+        async Task<string> SignIn(string name) =>
+            (await fixture.SignIn(name, ct)).Token;
         async Task<ArticleRightsPolicy> Policy(Draft draft, string token) =>
             Wire.DecodeArticleRightsPolicy(await Response(HttpMethod.Get,
                 WireRoutes.DraftRights.Replace("{id:int}", draft.Id.ToString()) + $"?revision={draft.Revision}",

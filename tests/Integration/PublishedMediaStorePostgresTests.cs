@@ -255,11 +255,16 @@ public sealed class PublishedMediaStorePostgresTests
         internal async Task<Actor> Author(string name, CancellationToken ct)
         {
             var id = Guid.NewGuid();
+            var token = Convert.ToHexStringLower(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+            var digest = Store.TokenDigest(token)!;
             await using var db = await _db.OpenConnectionAsync(ct);
-            await FixtureSql.ExecuteAsync(db, null, ct, "INSERT INTO public.blog_user (id,name,can_author,enabled,generation) VALUES ($1,$2,true,true,1)", id, name);
-            var ticket = await FixtureSql.IssueLoginTicketAsync(db, null, ct, id, minutes: 1);
-            var session = await AuthorStore.SignIn(ticket, ct);
-            return new(id, session.Token);
+            await using var tx = await db.BeginTransactionAsync(ct);
+            await FixtureSql.ExecuteAsync(db, tx, ct, FixtureSql.AdminSessionSql, FixtureSql.AdminSessionArguments(
+                id, ScratchDatabase.AdminHandle(name, id),
+                System.Security.Cryptography.RandomNumberGenerator.GetBytes(32),
+                System.Security.Cryptography.RandomNumberGenerator.GetBytes(8), [1], digest, 5));
+            await tx.CommitAsync(ct);
+            return new(id, token);
         }
 
         internal async Task<Asset> Upload(Actor author, string name, SKColor color, CancellationToken ct,

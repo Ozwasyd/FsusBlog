@@ -16,16 +16,13 @@ public sealed class TaxonomyPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<main><!--fsus-public-content--></main>"), NullLogger<Publications>.Instance);
-        var user = Guid.NewGuid();
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        await Execute("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'fixture writer',true,true,1)", user);
-        var ticket = await FixtureSql.IssueLoginTicketAsync(db, null, ct, user);
+        var actor = await fixture.SignIn("fixture writer", ct);
         await Execute("""
             insert into public.category(id,name,description) values(1,'Tech & Robots','<taxonomy description>'),(2,'Empty',null);
             insert into public.tag(id,name,description) values(4,'Café',null);
             insert into public.tag_url_name values('ANCIENNE',4);
             """);
-        var actor = await store.SignIn(ticket, ct);
 
         var first = await Save("Taxonomy article one");
         var second = await Save("Taxonomy article two");
@@ -53,8 +50,9 @@ public sealed class TaxonomyPostgresTests
         await Assign(assignment with { ExpectedRevision = changed.Revision, IdempotencyKey = Guid.NewGuid(), CategoryId = 99 }, actor.Token,
             HttpStatusCode.BadRequest);
         await Assign(assignment, null, HttpStatusCode.Unauthorized);
-        var outsider = await fixture.SignIn("other writer", ct);
-        await Assign(assignment with { ExpectedRevision = changed.Revision, IdempotencyKey = Guid.NewGuid() }, outsider.Token, HttpStatusCode.NotFound);
+        var readOnlyAdmin = await fixture.SignIn("read-only admin", ct, canAuthor: false);
+        await Assign(assignment with { ExpectedRevision = changed.Revision, IdempotencyKey = Guid.NewGuid() }, readOnlyAdmin.Token, HttpStatusCode.Unauthorized);
+        await Assign(assignment with { Id = 999_999, ExpectedRevision = changed.Revision, IdempotencyKey = Guid.NewGuid() }, actor.Token, HttpStatusCode.NotFound);
         using (var stale = Request(HttpMethod.Get, $"/api/v2/authoring/draft/{first.Id}/taxonomy.aeds?revision={draft.Revision}", actor.Token))
         using (var staleResponse = await client.SendAsync(stale, ct))
             Assert.Equal(HttpStatusCode.Conflict, staleResponse.StatusCode);
@@ -160,12 +158,8 @@ public sealed class TaxonomyPostgresTests
         }
     }
 
-    private static HttpRequestMessage Request(HttpMethod method, string path, string? token)
-    {
-        var request = new HttpRequestMessage(method, path);
-        if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-        return request;
-    }
+    private static HttpRequestMessage Request(HttpMethod method, string path, string? token) =>
+        SiteAedsFixture.Request(method, path, null, token, null);
 
     private static (int Id, int Count)[] ReadCounts(byte[] payload)
     {

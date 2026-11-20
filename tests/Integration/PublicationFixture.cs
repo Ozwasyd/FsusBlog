@@ -24,9 +24,12 @@ internal static class PublicationFixture
         return directory;
     }
 
+    private const string AdminHost = "admin.example.test";
+
     internal static Dictionary<string, string> NativeSettings(string origin, string keyId, string privateKey) => new()
     {
         ["FSUSBLOG_PUBLIC_ORIGIN"] = origin,
+        ["FSUSBLOG_ADMIN_ORIGIN"] = "https://" + AdminHost,
         ["FSUSBLOG_TRUST_LOOPBACK_PROXY"] = "true",
         [Signing + "NativeV2Enabled"] = "true",
         [Signing + "CurrentKeyId"] = keyId,
@@ -59,7 +62,14 @@ internal static class PublicationFixture
     internal static async Task<Draft> Edit(ServerProcess server, string host, string token, string route,
         ArticleCommand command, CancellationToken ct)
     {
-        using var response = await SendForwarded(server, HttpMethod.Post, route, host, token, Wire.EncodeArticleCommand(command), ct);
+        using var request = new HttpRequestMessage(HttpMethod.Post, route)
+        {
+            Content = new ByteArrayContent(Wire.EncodeArticleCommand(command))
+        };
+        request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(Aeds.ContentType);
+        request.Headers.Add("Cookie", $"__Host-FsusAdminSession={token}");
+        Forward(request, AdminHost, "https");
+        using var response = await server.Client.SendAsync(request, ct);
         response.EnsureSuccessStatusCode();
         return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
     }

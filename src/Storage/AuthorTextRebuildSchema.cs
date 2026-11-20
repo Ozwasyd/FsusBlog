@@ -9,7 +9,7 @@ internal static partial class CurrentSchema
 
     private static readonly string[] AuthorTextRebuildConstraints =
     [
-        "author_text_rebuild_job f owner_id public.blog_user:id",
+        "author_text_rebuild_job f owner_id public.admin_principal:id",
         "author_text_rebuild_job c profile profile>=1ANDprofile<=4",
         "author_text_rebuild_job c owner_generation owner_generation>0",
         "author_text_rebuild_job c schema_revision,definition_revision schema_revision>=definition_revision",

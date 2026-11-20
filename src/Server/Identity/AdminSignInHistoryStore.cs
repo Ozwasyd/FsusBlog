@@ -6,7 +6,7 @@ namespace FsusBlog.V2.Server.Administration;
 internal sealed partial class AdminPasskeyStore
 {
     internal Task<(AdminSignInHistorySnapshot History, string PermissionSession)> RecentSignIns(string? token, CancellationToken ct) =>
-        WithLiveAdmin(token, Permission, async (db, tx, admin) =>
+        WithLiveAdmin(token, async (db, tx, admin) =>
         {
             await using var command = Store.Sql(db, tx, """
                 select h.started_at,h.expires_at,h.ended_at,coalesce(h.id=s.sign_in_id,false)

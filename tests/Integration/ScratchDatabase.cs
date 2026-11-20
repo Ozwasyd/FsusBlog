@@ -16,15 +16,65 @@ internal sealed class ScratchDatabase : IAsyncDisposable
     internal string ConnectionString { get; }
     internal NpgsqlDataSource DataSource { get; }
 
-    internal async Task<(Guid Id, string Token, string Handle)> SignIn(string name, CancellationToken ct,
-        bool canAuthor = true, int minutes = 2)
+    internal Task<(Guid Id, string Token, string Handle)> SignIn(string name, CancellationToken ct,
+        bool canAuthor = true, int minutes = 2) =>
+        canAuthor ? SignInAdmin(name, ct, minutes: minutes) : SignInSiteUser(name, ct, minutes: minutes);
+
+    internal async Task<(Guid Id, string Token, string Handle)> SignInSiteUser(string name, CancellationToken ct, int minutes = 2)
     {
-        var (id, ticket) = await IssueTicket(name, ct, canAuthor, minutes);
+        var (id, ticket) = await IssueTicket(name, ct, canAuthor: false, minutes: minutes);
         return await Redeem(id, ticket, ct);
     }
 
-    internal async Task<(Guid Id, string Token, string Handle)> SignIn(Guid id, CancellationToken ct, int minutes = 2) =>
-        await Redeem(id, await IssueTicket(id, ct, minutes), ct);
+    internal async Task SignOutAdmin(string token, CancellationToken ct)
+    {
+        if (Store.TokenDigest(token) is not { } digest) return;
+        await using var connection = await DataSource.OpenConnectionAsync(ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "delete from public.admin_session where digest=$1", digest);
+    }
+
+    internal async Task<(Guid Id, string Token, string Handle)> SignInAdmin(string name, CancellationToken ct,
+        int minutes = 2)
+    {
+        await using var connection = await DataSource.OpenConnectionAsync(ct);
+        var id = Guid.NewGuid();
+        var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+        var digest = Store.TokenDigest(token)!;
+        var handle = AdminHandle(name, id);
+        await using var tx = await connection.BeginTransactionAsync(ct);
+        await FixtureSql.ExecuteAsync(connection, tx, ct, FixtureSql.AdminSessionSql, FixtureSql.AdminSessionArguments(
+            id, handle, RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(8), [1], digest, minutes));
+        await tx.CommitAsync(ct);
+        return (id, token, SiteSessions.Id(id, digest));
+    }
+
+    internal async Task<(Guid Id, string Token, string Handle)> SignIn(Guid id, CancellationToken ct, int minutes = 2)
+    {
+        await using var connection = await DataSource.OpenConnectionAsync(ct);
+        if (await FixtureSql.ScalarAsync(connection, null, ct,
+                "select generation from public.admin_principal where id=$1 and enabled", id) is long generation)
+        {
+            var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+            var digest = Store.TokenDigest(token)!;
+            await FixtureSql.ExecuteAsync(connection, null, ct, """
+                insert into public.admin_session(digest,principal_id,generation,expires_at)
+                values($1,$2,$3,clock_timestamp()+$4*interval '1 minute')
+                on conflict (principal_id) do update
+                    set digest=excluded.digest,generation=excluded.generation,expires_at=excluded.expires_at
+                """, digest, id, generation, minutes);
+            return (id, token, SiteSessions.Id(id, digest));
+        }
+        return await Redeem(id, await IssueTicket(id, ct, minutes), ct);
+    }
+
+    internal static string AdminHandle(string name, Guid id)
+    {
+        var normalized = new string(name.ToLowerInvariant().Select(c => char.IsAsciiLetterOrDigit(c) ? c : '-').ToArray()).Trim('-');
+        if (normalized.Length == 0 || !char.IsAsciiLetter(normalized[0])) normalized = "a-" + normalized;
+        var suffix = "-" + id.ToString("N")[..8];
+        var maxPrefix = 64 - suffix.Length;
+        return (normalized.Length > maxPrefix ? normalized[..maxPrefix] : normalized) + suffix;
+    }
 
     internal async Task<(Guid Id, string Ticket)> IssueTicket(string name, CancellationToken ct, bool canAuthor = true, int minutes = 2)
     {
@@ -33,12 +83,12 @@ internal sealed class ScratchDatabase : IAsyncDisposable
         var secret = RandomNumberGenerator.GetBytes(32);
         await FixtureSql.ExecuteAsync(connection, null, ct, """
             with account as (
-                insert into public.blog_user(id,name,can_author,enabled,generation)
-                values($1,$2,$3,true,1) returning id
+                insert into public.blog_user(id,name,enabled,generation)
+                values($1,$2,true,1) returning id
             )
             insert into public.login_ticket(digest,user_id,expires_at)
-            select $4,id,now()+make_interval(mins => $5) from account
-            """, id, name, canAuthor, SHA256.HashData(secret), minutes);
+            select $3,id,now()+make_interval(mins => $4) from account
+            """, id, name, SHA256.HashData(secret), minutes);
         return (id, Convert.ToHexStringLower(secret));
     }
 
@@ -101,12 +151,11 @@ internal sealed class ScratchDatabase : IAsyncDisposable
         try
         {
             var schema = SchemaDirectory();
-            var supplements = Directory.EnumerateFiles(schema, "*.sql").Where(file => Path.GetFileName(file) != "schema-1.sql")
-                .Order(StringComparer.Ordinal);
+            var files = Directory.EnumerateFiles(schema, "*.sql").Order(StringComparer.Ordinal);
             await using var connection = await database.DataSource.OpenConnectionAsync(ct);
             await using (var tx = await connection.BeginTransactionAsync(ct))
             {
-                foreach (var file in supplements.Prepend(Path.Combine(schema, "schema-1.sql")))
+                foreach (var file in files)
                 {
                     var sql = await File.ReadAllTextAsync(file, ct);
                     await using var command = new NpgsqlCommand(sql, connection, tx);
@@ -147,8 +196,8 @@ internal sealed class ScratchDatabase : IAsyncDisposable
     {
         for (DirectoryInfo? path = new(AppContext.BaseDirectory); path is not null; path = path.Parent)
         {
-            var schema = Path.Combine(path.FullName, "src", "Migrate");
-            if (File.Exists(Path.Combine(schema, "schema-1.sql"))) return schema;
+            var schema = Path.Combine(path.FullName, "src", "Cli", "Schema");
+            if (File.Exists(Path.Combine(schema, "01-core.sql"))) return schema;
         }
         throw new DirectoryNotFoundException("Could not locate the checked-in PostgreSQL schema.");
     }

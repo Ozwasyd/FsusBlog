@@ -18,7 +18,7 @@ internal static partial class CurrentSchema
     private static string[] AuthorTextIndexConstraints(bool hasSummary, bool hasHeading) =>
     [
         "author_text_document p owner_id,article_id",
-        "author_text_document f owner_id public.blog_user:id",
+        "author_text_document f owner_id public.admin_principal:id",
         "author_text_document f article_id,revision public.article_revision:article_id,revision",
         hasHeading ? "author_text_document c profile profile>=1ANDprofile<=3" :
             hasSummary ? "author_text_document c profile profile>=1ANDprofile<=2" : "author_text_document c profile profile=1",

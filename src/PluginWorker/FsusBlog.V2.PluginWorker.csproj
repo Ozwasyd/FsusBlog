@@ -10,7 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Jint" Version="[4.13.0]" />
     <Compile Include="../Core/Extensions/PureRenderContract.cs" Link="PureRenderContract.cs" />
-    <Compile Include="../Migrate/PurePluginInterpreter.cs" Link="PurePluginInterpreter.cs" />
+    <Compile Include="../Cli/PurePluginInterpreter.cs" Link="PurePluginInterpreter.cs" />
     <RuntimeHostConfigurationOption Include="System.Globalization.PredefinedCulturesOnly" Value="true" />
     <RuntimeHostConfigurationOption Include="System.TimeZoneInfo.Invariant" Value="true" />
     <RuntimeHostConfigurationOption Include="System.GC.Server" Value="false" />

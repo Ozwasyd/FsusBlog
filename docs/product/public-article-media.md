@@ -43,8 +43,8 @@ Caddy 2.11.9 的原生 TLS HTTP/2 测试在 18.5 ms 内记录同一地址的 31 
 恢复候选使用已验证备份中的 PostgreSQL 数据和私有媒体文件，再以独立公开目录重建。停止服务，等发布写入交接结束，使用对应恢复库的 `FSUSBLOG_DB` 和备份的持久站点 UUID。公开、私有和 Web 路径均须为现存绝对路径。公开根可以是新建且由运行用户持有的 0700 空目录。
 
 ```sh
-dotnet migrate/FsusBlogV2.Migrate.dll article-public-media rebuild "$site_uuid" "$private_root" "$public_root" "$web_root"
-dotnet migrate/FsusBlogV2.Migrate.dll article-public-media verify "$site_uuid" "$private_root" "$public_root" "$web_root"
+dotnet cli/FsusBlog.V2.Cli.dll article-public-media rebuild "$site_uuid" "$private_root" "$public_root" "$web_root"
+dotnet cli/FsusBlog.V2.Cli.dll article-public-media verify "$site_uuid" "$private_root" "$public_root" "$web_root"
 ```
 
 两个操作锁定当前数据库持有者交接及两个目录，校验真实站点、发布和源文件。核验覆盖当前和历史已提交图片，逐个检查所引用的私有源和去重后的公开对象。重建只物化缺失的摘要对象，原子写入后读取校验。现存对象摘要冲突时命令失败并保留原对象。命令报告核验的私有源、公开对象和重建数量。文章当前可见性仍由服务启动后的公开快照决定。孤儿对象清扫另行验收。

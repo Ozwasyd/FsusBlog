@@ -42,7 +42,7 @@ internal sealed partial class AdminPasskeyStore
     private const string TrashArticle = $"from public.article a where {TrashArticlePredicate}";
 
     internal Task CheckTrashRestoreAvailability(string? session, CancellationToken ct) =>
-        WithLiveAdmin(session, CurrentSchema.ArticleWritePermission, async (db, tx, _) =>
+        WithLiveAdmin(session, async (db, tx, _) =>
         {
             await RequireTrashRestoreSchema(db, tx, ct);
             return true;
@@ -61,7 +61,7 @@ internal sealed partial class AdminPasskeyStore
         CompleteStepUp(session, request, StepUpAction.RestoreArticleTrash, ct);
 
     internal Task<AdminArticleTrashRestoreReceipt> RestoreFromTrash(string? session, string? proof, AdminArticleTrashRestoreIntent intent,
-        CancellationToken ct) => WithLiveAdmin(session, CurrentSchema.ArticleWritePermission, async (db, tx, admin) =>
+        CancellationToken ct) => WithLiveAdmin(session, async (db, tx, admin) =>
     {
         await RequireTrashRestoreSchema(db, tx, ct);
         var fingerprint = TrashRestoreFingerprint(intent);
@@ -102,7 +102,7 @@ internal sealed partial class AdminPasskeyStore
     }, ct);
 
     internal Task<byte[]> DeleteArticle(string? session, int articleId, Action invalidate, CancellationToken ct) =>
-        WithLiveAdmin(session, CurrentSchema.ArticleWritePermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             long revision;
             string title;
@@ -125,7 +125,6 @@ internal sealed partial class AdminPasskeyStore
             }
             if (deleted)
                 throw new BusinessException(Rejection.NotFound, "Article not found.");
-            await Store.EnsureAdminOwnerAnchor(db, tx, admin.Id, ct);
             var actor = new Identity(admin.Id, admin.Snapshot.Handle, admin.Snapshot.Generation, true, DateTimeOffset.MaxValue);
             await Store.Execute(db, tx, actor, ArticleAction.Delete, new Edit(articleId, revision, Guid.NewGuid(), title, body), ct);
             invalidate();

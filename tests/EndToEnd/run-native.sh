@@ -46,7 +46,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 server_source=${FSUSBLOG_NATIVE_SERVER_BUILD:-$repo/src/Server/bin/Release/net10.0}
-migrate_source=${FSUSBLOG_NATIVE_MIGRATE_BUILD:-$repo/src/Migrate/bin/Release/net10.0}
+migrate_source=${FSUSBLOG_NATIVE_MIGRATE_BUILD:-$repo/src/Cli/bin/Release/net10.0}
 web_source=${FSUSBLOG_WEB_DIST:-$repo/src/Web/dist}
 mkdir -p "$scratch/server" "$scratch/migrate" "$scratch/web"
 cp -R "$server_source/." "$scratch/server"
@@ -62,7 +62,7 @@ export FSUSBLOG_WEB_DIST="$scratch/web"
   node --version
   "$PG_TOOLS_DIR/postgres" --version
   shasum -a 256 src/Web/pnpm-lock.yaml src/Server/packages.lock.json
-  (cd "$scratch" && shasum -a 256 web/index.html server/FsusBlog.V2.Server.dll migrate/FsusBlogV2.Migrate.dll)
+  (cd "$scratch" && shasum -a 256 web/index.html server/FsusBlog.V2.Server.dll migrate/FsusBlog.V2.Cli.dll)
 } > "$evidence/run.txt"
 
 "$PG_TOOLS_DIR/initdb" -D "$scratch/data" -U fsusqa --auth-local=trust --auth-host=reject --locale=C -E UTF8 > "$evidence/initdb.log"
@@ -71,7 +71,7 @@ pg_started=1
   -o "-c listen_addresses='' -k $scratch/socket -p 54930 -c unix_socket_permissions=0700" -w start
 export FSUSBLOG_DB="Host=$scratch/socket;Port=54930;Username=fsusqa;Database=postgres;SSL Mode=Disable"
 
-migrate=(dotnet "$scratch/migrate/FsusBlogV2.Migrate.dll")
+migrate=(dotnet "$scratch/migrate/FsusBlog.V2.Cli.dll")
 "${migrate[@]}" plan > "$evidence/schema-plan.json"
 "${migrate[@]}" apply "$evidence/schema-plan.json" > "$evidence/schema.log"
 if [[ ${FSUSBLOG_TEST_MEDIA_WEBP:-0} == 1 ]]; then

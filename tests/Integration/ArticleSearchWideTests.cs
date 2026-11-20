@@ -177,6 +177,83 @@ public sealed class ArticleSearchWideTests
         Assert.Equal(0, BinaryPrimitives.ReadInt32LittleEndian(empty[8..]));
     }
 
+    [Fact]
+    public void SearchPageSupportsLatestSortAndBoundedPaginationAcrossCompactAndWideProfiles()
+    {
+        const int count = 41_050;
+        var articles = new Article[count];
+        for (var i = 0; i < count; i++)
+        {
+            var id = i + 1;
+            var title = id switch
+            {
+                1 => "Sortprobe Sortprobe Sortprobe",
+                2 => "Quiet",
+                40_500 => "Quiet",
+                40_900 => "Job_ITEM-9",
+                <= 1_200 => "Pageprobe",
+                _ => "Quiet"
+            };
+            var body = id switch
+            {
+                2 => "sortprobe",
+                40_500 => "sortprobe",
+                40_800 => "shared `job_item-9`",
+                _ => QuietBody
+            };
+            var published = id switch
+            {
+                1 => Published,
+                2 => Published.AddDays(5),
+                40_500 => Published.AddDays(10),
+                40_800 => Published.AddDays(8),
+                40_900 => Published.AddDays(2),
+                _ => Published.AddMinutes(id)
+            };
+            articles[i] = Row(id, title, body, published);
+        }
+
+        var wide = Assert.IsType<ArticleSearchIndex>(ArticleSearchIndex.Build(articles, CancellationToken.None));
+        Assert.True(wide.UsesWideProfile);
+
+        var byRelevance = wide.SearchPage("sortprobe", ArticleSearchSort.Relevance, 1, 10, CancellationToken.None);
+        Assert.Equal(3, byRelevance.Total);
+        Assert.Equal([1, 40_500, 2], byRelevance.Articles.Select(article => article.Id));
+
+        var byLatest = wide.SearchPage("sortprobe", ArticleSearchSort.Latest, 1, 2, CancellationToken.None);
+        Assert.Equal(3, byLatest.Total);
+        Assert.Equal([40_500, 2], byLatest.Articles.Select(article => article.Id));
+        var byLatestPage2 = wide.SearchPage("sortprobe", ArticleSearchSort.Latest, 2, 2, CancellationToken.None);
+        Assert.Equal(3, byLatestPage2.Total);
+        Assert.Equal([1], byLatestPage2.Articles.Select(article => article.Id));
+        var pastEnd = wide.SearchPage("sortprobe", ArticleSearchSort.Latest, 3, 2, CancellationToken.None);
+        Assert.Equal(3, pastEnd.Total);
+        Assert.Empty(pastEnd.Articles);
+
+        // Compound identifier honors Latest sort and pagination.
+        var compoundRel = wide.SearchPage("job_item-9", ArticleSearchSort.Relevance, 1, 10, CancellationToken.None);
+        Assert.Equal(2, compoundRel.Total);
+        Assert.Equal([40_900, 40_800], compoundRel.Articles.Select(article => article.Id));
+        var compoundLatest = wide.SearchPage("job_item-9", ArticleSearchSort.Latest, 1, 10, CancellationToken.None);
+        Assert.Equal(2, compoundLatest.Total);
+        Assert.Equal([40_800, 40_900], compoundLatest.Articles.Select(article => article.Id));
+
+        // Pagination caps at MaxPaginatedResults (1,000) while reporting exact total (1,198 Pageprobe articles).
+        var page100 = wide.SearchPage("pageprobe", ArticleSearchSort.Latest, 100, 10, CancellationToken.None);
+        Assert.Equal(1_198, page100.Total);
+        Assert.Equal(10, page100.Articles.Length);
+        var page101 = wide.SearchPage("pageprobe", ArticleSearchSort.Latest, 101, 10, CancellationToken.None);
+        Assert.Equal(1_198, page101.Total);
+        Assert.Empty(page101.Articles);
+
+        // Compact profile matches the same latest-sort contract.
+        var compact = Assert.IsType<ArticleSearchIndex>(ArticleSearchIndex.Build(articles[..1_200], CancellationToken.None));
+        Assert.False(compact.UsesWideProfile);
+        var compactLatest = compact.SearchPage("sortprobe", ArticleSearchSort.Latest, 1, 10, CancellationToken.None);
+        Assert.Equal(2, compactLatest.Total);
+        Assert.Equal([2, 1], compactLatest.Articles.Select(article => article.Id));
+    }
+
     private static Article Row(int id, string title, string body, DateTimeOffset created) =>
         new(id, 1, id, 1, 1, title, body, created, created, created);
 

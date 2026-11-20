@@ -34,8 +34,8 @@ VALUES
     (1,1,true,'all-rights-reserved','Historical fixture rights',2024,'Retained rights policy','','append-attribution',60,false,true,true),
     (1,2,true,'all-rights-reserved','Current fixture rights',2026,'Current rights policy','','append-attribution',120,true,true,true);
 INSERT INTO public.article_publication_rights (article_id,publication_id,revision) VALUES (1,1,1),(1,2,2);
-INSERT INTO public.blog_user (id,name,can_author,enabled,generation)
-VALUES ('a8e91b13-7706-4c71-8ead-61b201df1f7b','tls-other-inventory-author',true,true,1);
+INSERT INTO public.admin_principal (id,handle,user_handle,enabled,generation)
+VALUES ('a8e91b13-7706-4c71-8ead-61b201df1f7b','tls-other-inventory-author',decode(repeat('11',32),'hex'),true,1);
 WITH added AS (
     INSERT INTO public.article (owner_id,revision,title,body,deleted)
     SELECT CASE WHEN n=1 THEN u.id ELSE 'a8e91b13-7706-4c71-8ead-61b201df1f7b'::uuid END,

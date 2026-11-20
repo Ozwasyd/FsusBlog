@@ -44,7 +44,7 @@ internal static partial class CurrentSchema
     private static readonly string[] AuthoringWorkspaceConstraints =
     [
         "authoring_workspace p user_id",
-        "authoring_workspace f user_id public.blog_user:id",
+        "authoring_workspace f user_id public.admin_principal:id",
         "authoring_workspace c schema_version schema_version=1",
         "authoring_workspace c revision revision>0",
         "authoring_workspace c active_article_id active_article_id>=0",

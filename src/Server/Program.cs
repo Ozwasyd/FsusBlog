@@ -26,38 +26,28 @@ if (args is ["legacy-media", ..])
 }
 
 var builder = WebApplication.CreateBuilder(args);
-var trustLoopbackProxy = LoopbackProxy.ReadConfiguration(builder.Configuration);
-var adminIdentity = FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.ReadConfiguration(builder.Configuration);
-var adminInboxLive = adminIdentity is not null && builder.Configuration.GetValue(AdminInboxEndpoints.LiveSetting, false);
-var adminArticleRollback = builder.Configuration.GetValue(
-    FsusBlog.V2.Server.Administration.AdminArticleRollbackEndpoints.Setting, false);
-if (adminArticleRollback && adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps)
-    throw new InvalidOperationException("Published article rollback requires a dedicated HTTPS administrator origin.");
-var adminTagMetadata = builder.Configuration.GetValue<bool?>(FsusBlog.V2.Server.Administration.AdminTagMetadataEndpoints.Setting)
-    ?? (adminIdentity?.Origin.Scheme == Uri.UriSchemeHttps);
-if (adminTagMetadata && adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps)
-    throw new InvalidOperationException("Tag metadata editing requires a dedicated HTTPS administrator origin.");
-var adminCategoryMetadata = builder.Configuration.GetValue<bool?>(FsusBlog.V2.Server.Administration.AdminTagMetadataEndpoints.CategorySetting)
-    ?? (adminIdentity?.Origin.Scheme == Uri.UriSchemeHttps);
-if (adminCategoryMetadata && adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps)
-    throw new InvalidOperationException("Category metadata editing requires a dedicated HTTPS administrator origin.");
-var sitePageEditor = builder.Configuration.GetValue(SitePages.EditorSetting, false);
-var recoveryKey = FsusBlog.V2.Server.Passkeys.RecoveryKeySecret.Read(builder.Configuration);
-var persistentSite = FsusBlog.V2.Server.Passkeys.SiteRefreshStore.ReadConfiguration(builder.Configuration);
-var subscription = SubscriptionIdentity.Read(builder.Configuration[SubscriptionIdentity.KeySetting]);
+var dist = Path.GetFullPath(builder.Configuration["FSUSBLOG_WEB_DIST"] ?? "src/Web/dist");
+var capabilities = SiteCapabilities.Resolve(builder.Configuration, dist);
+var trustLoopbackProxy = capabilities.TrustLoopbackProxy;
+var adminIdentity = capabilities.AdminIdentity;
+var adminInboxLive = capabilities.AdminInboxLive;
+var recoveryKey = capabilities.RecoveryKey;
+var persistentSite = capabilities.SitePersistentRefresh;
+var subscription = capabilities.Subscription;
 var evidenceDirectory = builder.Configuration["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"];
-var wideSearchCorpus = builder.Configuration.GetValue(WideSearchCorpusEndpoints.Setting, false);
+var wideSearchCorpus = capabilities.WideSearchCorpus;
+var publicSearchMode = capabilities.PublicSearchMode;
 var connectionString = builder.Configuration["FSUSBLOG_DB"] ?? throw new InvalidOperationException("FSUSBLOG_DB is required.");
 var integrityKeys = new IntegrityKeys(builder.Configuration);
-var dist = Path.GetFullPath(builder.Configuration["FSUSBLOG_WEB_DIST"] ?? "src/Web/dist");
 var template = await File.ReadAllTextAsync(Path.Combine(dist, "index.html"));
 if (!template.Contains("<!--fsus-public-content-->", StringComparison.Ordinal))
     throw new InvalidOperationException("The v2 web build is missing the public content slot.");
-var onlineAppearance = builder.Configuration.GetValue(AppearanceAssets.OnlineSetting, false);
-var appearance = AppearanceAssets.Load(builder.Configuration[AppearanceAssets.RootSetting],
-    dist, builder.Configuration[MediaEndpoints.StorageSetting], onlineAppearance);
+if (publicSearchMode != "auto")
+    template = template.Replace("</head>", $"<meta name=\"fsus-public-search-mode\" content=\"{publicSearchMode}\"></head>", StringComparison.Ordinal);
+var appearance = AppearanceAssets.Load(capabilities.AppearanceRoot, dist, capabilities.PrivateMediaRoot, capabilities.OnlineAppearance);
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = WireLimits.MaxCommandFrameBytes);
+builder.Services.AddSingleton(capabilities);
 builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
 builder.Services.AddSingleton(services => new InstanceLease(connectionString, services.GetService<RuntimeEvidence>()));
 if (!string.IsNullOrEmpty(evidenceDirectory))
@@ -69,21 +59,17 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
     builder.Services.AddSingleton(services => new RuntimeEvidence(evidenceDirectory, output,
         services.GetRequiredService<IHttpContextAccessor>(), slowRequests));
 }
-var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
-var trafficEnabled = builder.Configuration.GetValue<bool?>(SiteTraffic.EnabledSetting)
-    ?? (publicSite.Origin is not null && Uri.TryCreate(publicSite.Origin, UriKind.Absolute, out var publicUri) &&
-        publicUri.Scheme == Uri.UriSchemeHttps);
-var trafficOrigin = trafficEnabled ? new Uri(publicSite.Origin ??
-    throw new InvalidOperationException("Traffic statistics require an explicit public HTTPS origin.")) : null;
+var publicSite = capabilities.PublicSite;
+var trafficEnabled = capabilities.SiteTraffic;
+var trafficOrigin = capabilities.TrafficOrigin;
 builder.Services.AddSingleton<SiteTraffic>();
 if (trafficEnabled)
     builder.Services.AddHostedService(services => services.GetRequiredService<SiteTraffic>());
-var pdfExport = FsusBlog.V2.Server.Authoring.PdfDocumentExport.Read(builder.Configuration);
-var pluginPreview = PluginPreviewEndpoints.Read(builder.Configuration, publicSite.Origin, dist,
-    builder.Configuration[MediaEndpoints.StorageSetting]);
+var pdfExport = capabilities.PdfExport;
+var pluginPreview = capabilities.PluginPreview;
 if (pluginPreview is not null)
     template = template.Replace("</head>", PluginPreviewEndpoints.Marker + "</head>", StringComparison.Ordinal);
-var documentExportTasks = builder.Configuration.GetValue(DocumentExportEndpoints.Setting, false);
+var documentExportTasks = capabilities.DocumentExportTasks;
 if (documentExportTasks)
 {
     template = template.Replace("</head>", DocumentExportEndpoints.Marker + "</head>", StringComparison.Ordinal);
@@ -93,17 +79,15 @@ if (documentExportTasks)
 }
 if (pdfExport is not null)
     template = template.Replace("</head>", FsusBlog.V2.Server.Authoring.PdfDocumentExport.PageMarker + "</head>", StringComparison.Ordinal);
-if (builder.Configuration.GetValue(PublicHotArticles.Setting, false))
+if (capabilities.PublicHotArticles)
 {
     template = template.Replace("</head>", PublicHotArticles.PageMarker + "</head>", StringComparison.Ordinal);
     builder.Services.AddSingleton<PublicHotArticles>();
     builder.Services.AddHostedService(services => services.GetRequiredService<PublicHotArticles>());
 }
-var articleReadEnabled = builder.Configuration.GetValue(ArticleReadEndpoints.Setting, false);
+var articleReadEnabled = capabilities.ArticleReadProof;
 if (articleReadEnabled)
 {
-    if (publicSite.Origin is null)
-        throw new InvalidOperationException("Article read proof requires an explicit public HTTPS origin.");
     template = template.Replace("</head>", ArticleReadEndpoints.PageMarker + "</head>", StringComparison.Ordinal);
     builder.Services.AddSingleton(services => new ArticleReadAuthority(connectionString,
         services.GetRequiredService<InstanceLease>(), TimeProvider.System));
@@ -116,19 +100,11 @@ if (proofKeys is not null)
     builder.Services.AddSingleton<PublicationProofs>();
     builder.Services.AddHostedService(services => services.GetRequiredService<PublicationProofs>());
 }
-if (onlineAppearance && (adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps || publicSite.Origin is null ||
-    Uri.Compare(adminIdentity.Origin, new Uri(publicSite.Origin), UriComponents.SchemeAndServer, UriFormat.SafeUnescaped,
-        StringComparison.OrdinalIgnoreCase) == 0))
-    throw new InvalidOperationException("Online appearance requires independent HTTPS administrator and public origins.");
 if (appearance is not null) builder.Services.AddSingleton(appearance);
-if (sitePageEditor && (adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps || publicSite.Origin is null))
-    throw new InvalidOperationException("The site page editor requires independent HTTPS administrator and public origins.");
-if (subscription is not null && publicSite.Origin is null)
-    throw new InvalidOperationException("Subscription preferences require an explicit public HTTPS origin.");
 builder.Services.AddSingleton(new WebPages(template, publicSite, appearance));
-builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.SitePages(builder.Configuration,
+builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.SitePages(capabilities.SitePagesRoot,
     services.GetRequiredService<WebPages>(), services.GetRequiredService<NpgsqlDataSource>(),
-    services.GetRequiredService<InstanceLease>(), sitePageEditor));
+    services.GetRequiredService<InstanceLease>(), capabilities.SitePageEditor));
 builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.DistributionSettings(publicSite,
     services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().ConfiguredPaths));
 builder.Services.AddSingleton<Store>();
@@ -143,12 +119,12 @@ builder.Services.AddSingleton(services => new InboxWake(connectionString, servic
 builder.Services.AddHostedService(services => services.GetRequiredService<InboxWake>());
 builder.Services.AddSingleton<FsusBlog.V2.Server.Comments.CommentReadStore>();
 builder.Services.AddSingleton(_ => new FsusBlog.V2.Server.Security.ScopedPow(TimeProvider.System));
-if (builder.Configuration[FsusBlog.V2.Server.Content.MediaEndpoints.StorageSetting] is { Length: > 0 } mediaRoot)
+if (capabilities.PrivateMediaRoot is { Length: > 0 } mediaRoot)
 {
     builder.Services.AddSingleton(_ => new FsusBlog.V2.Server.Content.MediaFiles(mediaRoot, dist));
     builder.Services.AddSingleton<FsusBlog.V2.Server.Content.MediaStore>();
 }
-var publicMediaEnabled = PublishedMediaEndpoints.Configure(builder, dist, trustLoopbackProxy);
+var publicMediaEnabled = PublishedMediaEndpoints.Configure(builder, dist, capabilities);
 builder.Services.AddHostedService<OutboxWorker>();
 builder.Services.AddSingleton<AuthorTextRebuildWorker>();
 builder.Services.AddHostedService(services => services.GetRequiredService<AuthorTextRebuildWorker>());
@@ -218,15 +194,22 @@ if (app.Services.GetService<RuntimeEvidence>() is { } runtimeEvidence)
 }
 var lease = app.Services.GetRequiredService<InstanceLease>();
 using var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
-await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, new(Subscription: subscription is null ? null : true,
+await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, new(
+    Subscription: subscription is null ? null : true,
     RecoveryKey: recoveryKey is null ? null : true,
-    AdminInboxStatus: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.StatusSetting, false) ? true : null,
-    AdminInboxNotice: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.NoticeSetting, false) ? true : null,
-    AdminInboxRead: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.SharedReadSetting, false) ? true : null,
-    AdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, SiteRefresh: persistentSite ? true : null, SitePageEditor: sitePageEditor ? true : null,
-    AdminArticleRollback: adminArticleRollback ? true : null, AppearanceActivation: onlineAppearance ? true : null,
-    AdminTagMetadata: adminTagMetadata ? true : null, PublicationMedia: publicMediaEnabled ? true : null,
-    DocumentExports: documentExportTasks ? true : null, AdminCategoryMetadata: adminCategoryMetadata ? true : null));
+    AdminInboxStatus: capabilities.AdminInboxStatus ? true : null,
+    AdminInboxNotice: capabilities.AdminInboxNotice ? true : null,
+    AdminInboxRead: capabilities.AdminInboxSharedRead ? true : null,
+    AdminInboxReply: capabilities.AdminInboxReplies ? true : null,
+    SiteRefresh: persistentSite ? true : null,
+    SitePageEditor: capabilities.SitePageEditor ? true : null,
+    AdminArticleRollback: capabilities.AdminArticleRollback ? true : null,
+    AppearanceActivation: capabilities.OnlineAppearance ? true : null,
+    AdminTagMetadata: capabilities.AdminTagMetadata ? true : null,
+    PublicationMedia: publicMediaEnabled ? true : null,
+    AdminCommentBatch: capabilities.AdminCommentBatch ? true : null,
+    DocumentExports: documentExportTasks ? true : null,
+    AdminCategoryMetadata: capabilities.AdminCategoryMetadata ? true : null));
 var publishedMedia = app.Services.GetService<PublishedMediaStore>();
 var publications = app.Services.GetRequiredService<Publications>();
 var siteTraffic = trafficEnabled ? app.Services.GetRequiredService<SiteTraffic>() : null;
@@ -329,17 +312,17 @@ app.UseWhen(ctx => ctx.Request.Path == WireRoutes.InboxStream ||
 }));
 app.UseRateLimiter();
 appearance?.Map(app);
-FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame, recoveryKey, persistentSite);
+FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame, capabilities);
 FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie, persistentSite);
-FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
+FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame, capabilities);
 InboxStreamEndpoints.Map(app, Cookie);
 var authorCookie = adminIdentity is not null
     ? FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.SessionCookieName(adminIdentity)
     : Cookie;
 if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null)
 {
-    FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, authorCookie);
-    FsusBlog.V2.Server.Content.MediaUploadEndpoints.Map(app, authorCookie);
+    FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, authorCookie, capabilities);
+    FsusBlog.V2.Server.Content.MediaUploadEndpoints.Map(app, authorCookie, capabilities);
     FsusBlog.V2.Server.Content.ArticleMediaEndpoints.Map(app, authorCookie, publicMediaEnabled);
 }
 if (publishedMedia is not null)
@@ -371,8 +354,8 @@ FsusBlog.V2.Server.Authoring.MarkdownExportEndpoints.Map(app, authorCookie, Quer
 if (documentExportTasks) DocumentExportEndpoints.Map(app, authorCookie, pdfExport, ReadFrame);
 pluginPreview?.Map(app, authorCookie, Query);
 var commentRoutes = FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame,
-    lease.RootCommentPowPolicyInstalled);
-FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame, commentRoutes, trustLoopbackProxy, Query);
+    lease.RootCommentPowPolicyInstalled, capabilities);
+FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, capabilities, ReadFrame, commentRoutes, Query);
 FsusBlog.V2.Server.Comments.CommentAuthorDeleteEndpoints.Map(app, Cookie, ReadFrame);
 
 app.MapGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) => PublicList(ctx, "home", page, size)).RequireRateLimiting("query");
@@ -394,10 +377,32 @@ app.MapGet(WireRoutes.PublicSearch, (HttpContext ctx) =>
 {
     var keyword = Query(ctx, "q", 256)?.Trim();
     if (string.IsNullOrEmpty(keyword)) return Error(ctx, 400, "A search term is required.");
+    var sortText = Query(ctx, "sort", 20);
+    var sort = sortText switch
+    {
+        null or "relevance" => ArticleSearchSort.Relevance,
+        "latest" => ArticleSearchSort.Latest,
+        _ => (ArticleSearchSort)(-1)
+    };
+    if (!Enum.IsDefined(sort)) return Error(ctx, 400, "Invalid search sort mode.");
+    var pageText = Query(ctx, "page", 10);
+    var sizeText = Query(ctx, "size", 10);
+    var paginated = pageText is not null || sizeText is not null;
+    var page = 1;
+    var size = paginated ? 10 : 200;
+    if (pageText is not null && (!int.TryParse(pageText, NumberStyles.None, CultureInfo.InvariantCulture, out page) ||
+        page is < 1 or > 10_000 || pageText != page.ToString(CultureInfo.InvariantCulture)))
+        return Error(ctx, 400, "Invalid search page.");
+    if (sizeText is not null && (!int.TryParse(sizeText, NumberStyles.None, CultureInfo.InvariantCulture, out size) ||
+        size is < 1 or > 100 || sizeText != size.ToString(CultureInfo.InvariantCulture)))
+        return Error(ctx, 400, "Invalid search page size.");
     var snapshot = Snapshot(ctx);
-    var bytes = snapshot.Search(keyword, ctx.RequestAborted);
+    var result = snapshot.SearchPage(keyword, sort, page, size, ctx.RequestAborted);
     RequireCurrentSnapshot(ctx, snapshot);
-    return bytes is null ? Error(ctx, 503, "The article search projection is unavailable.") : Results.Bytes(bytes, Binary);
+    if (result is not { } hit) return Error(ctx, 503, "The article search projection is unavailable.");
+    var reportedTotal = paginated ? Math.Min(hit.Total, ArticleSearchIndex.MaxPaginatedResults) : hit.Total;
+    ctx.Response.Headers[WireHeaders.SearchTotal] = reportedTotal.ToString(CultureInfo.InvariantCulture);
+    return Results.Bytes(hit.Bytes, Binary);
 }).RequireRateLimiting("query");
 if (wideSearchCorpus) WideSearchCorpusEndpoints.Map(app, app.Services.GetRequiredService<PublicProjection>(), lease);
 if (app.Services.GetService<PublicHotArticles>() is { } hotArticles)

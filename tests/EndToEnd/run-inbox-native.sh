@@ -11,7 +11,7 @@ psql=${PG_TOOLS_DIR:-/opt/homebrew/opt/libpq/bin}/psql
 dotnet=${FSUS_DOTNET:-dotnet}
 dist=${FSUSBLOG_WEB_DIST:-$repo/src/Web/dist}
 server=${FSUSBLOG_SERVER_DLL:-$repo/src/Server/bin/Release/net10.0/FsusBlog.V2.Server.dll}
-migrate=${FSUSBLOG_MIGRATE_DLL:-$repo/src/Migrate/bin/Release/net10.0/FsusBlogV2.Migrate.dll}
+migrate=${FSUSBLOG_MIGRATE_DLL:-$repo/src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll}
 export FSUSBLOG_TEST_CHROME=${FSUSBLOG_TEST_CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}
 export FSUSBLOG_TEST_EVIDENCE=${FSUSBLOG_TEST_EVIDENCE:-$repo/artifacts/inbox-native-$(date -u +%Y%m%d-%H%M%S)}
 mkdir -p "$FSUSBLOG_TEST_EVIDENCE"

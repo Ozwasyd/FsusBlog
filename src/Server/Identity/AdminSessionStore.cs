@@ -16,47 +16,33 @@ internal sealed partial class AdminPasskeyStore
     private sealed record Challenge(Guid? Principal, long? Generation, string Options, DateTimeOffset StartedAt);
     private sealed record LiveAdmin(Guid Id, byte[] Digest, AdminSessionSnapshot Snapshot);
 
-    private Task<T> WithSession<T>(string? token, string requiredPermission,
-        Func<NpgsqlConnection, NpgsqlTransaction, AdminSessionSnapshot, Task<T>> use, CancellationToken ct) =>
-        WithLiveAdmin(token, requiredPermission, (db, tx, actor) => use(db, tx, actor.Snapshot), ct);
+    private static readonly byte[] PermissionSessionDomain = "FsusBlog v2 administrator permission session"u8.ToArray();
 
-    private async Task<T> WithLiveAdmin<T>(string? token, string requiredPermission,
+    internal Task<(AdminSessionSnapshot Snapshot, string PermissionSession)> SessionWithPermissionBinding(
+        string? token, CancellationToken ct) =>
+        WithLiveAdmin(token, (_, _, admin) => Task.FromResult((admin.Snapshot, PermissionBinding(admin.Digest))), ct);
+
+    private static string PermissionBinding(byte[] digest)
+    {
+        Span<byte> material = stackalloc byte[PermissionSessionDomain.Length + 32];
+        PermissionSessionDomain.CopyTo(material);
+        digest.CopyTo(material[PermissionSessionDomain.Length..]);
+        return Convert.ToHexStringLower(SHA256.HashData(material));
+    }
+
+    private Task<T> WithSession<T>(string? token,
+        Func<NpgsqlConnection, NpgsqlTransaction, AdminSessionSnapshot, Task<T>> use, CancellationToken ct) =>
+        WithLiveAdmin(token, (db, tx, actor) => use(db, tx, actor.Snapshot), ct);
+
+    private async Task<T> WithLiveAdmin<T>(string? token,
         Func<NpgsqlConnection, NpgsqlTransaction, LiveAdmin, Task<T>> use, CancellationToken ct)
     {
         var digest = Store.TokenDigest(token) ?? throw Denied();
         await using var db = await _source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
-        Guid principal;
-        string handle;
-        long generation;
-        await using (var cmd = Store.Sql(db, tx, """
-            select id,handle,generation from public.admin_principal where enabled
-            and id=(select principal_id from public.admin_session where digest=$1)
-            for share
-            """, digest))
-        await using (var row = await cmd.ExecuteReaderAsync(ct))
-        {
-            if (!await row.ReadAsync(ct)) throw Denied();
-            (principal, handle, generation) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2));
-        }
-        long expiration;
-        await using (var cmd = Store.Sql(db, tx, """
-            select expires_at from public.admin_session where digest=$1 and principal_id=$2 and generation=$3
-            and expires_at>clock_timestamp()
-            and exists (select from public.admin_permission where principal_id=$2 and permission=$4)
-            and exists (select from public.admin_passkey_credential where principal_id=$2)
-            for share
-            """, digest, principal, generation, Permission))
-            expiration = (await cmd.ExecuteScalarAsync(ct) is DateTime expiry) ? new DateTimeOffset(expiry).ToUnixTimeMilliseconds() : throw Denied();
-        if (requiredPermission != Permission)
-        {
-            await using var grant = Store.Sql(db, tx, """
-                select exists (select from public.admin_permission where principal_id=$1 and permission=$2)
-                """, principal, requiredPermission);
-            if (await grant.ExecuteScalarAsync(ct) is not true)
-                throw new BusinessException(Rejection.Forbidden, "This administrator does not hold the required permission.");
-        }
-        var result = await use(db, tx, new LiveAdmin(principal, digest, new AdminSessionSnapshot(handle, generation, expiration)));
+        var actor = await Store.VerifyLiveAdminAsync(db, tx, digest, ct);
+        var expiration = actor.ExpiresAt.ToUnixTimeMilliseconds();
+        var result = await use(db, tx, new LiveAdmin(actor.Id, digest, new AdminSessionSnapshot(actor.Name, actor.Generation, expiration)));
         if (expiration <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) throw Denied();
         await InstanceLease.CommitProtected(tx, _lease, ct);
         return result;
@@ -97,10 +83,6 @@ internal sealed partial class AdminPasskeyStore
             if (!await row.ReadAsync(ct)) throw Denied();
             principal = new(row.GetGuid(0), row.GetString(1), row.GetFieldValue<byte[]>(2), row.GetInt64(3), row.GetFieldValue<DateTimeOffset>(4));
         }
-        await using var grant = Store.Sql(db, tx, """
-            select exists (select from public.admin_permission where principal_id=$1 and permission=$2)
-            """, principal.Id, Permission);
-        if (await grant.ExecuteScalarAsync(ct) is not true) throw Denied();
         return principal;
     }
 

@@ -12,10 +12,11 @@ internal static class InboxWriteEndpoints
 {
     internal const string Setting = "FSUSBLOG_PRIVATE_INBOX_WRITES";
 
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame,
+        FsusBlog.V2.Server.Operations.SiteCapabilities capabilities)
     {
-        var enabled = app.Configuration.GetValue(Setting, false);
-        var fenceVisibleMessages = app.Configuration.GetValue(InboxActivityFence.Setting, false);
+        var enabled = capabilities.PrivateInboxWrites;
+        var fenceVisibleMessages = capabilities.AdminInboxActivityOrder;
         app.MapGet(WireRoutes.InboxWriteAvailability, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var packet = await store.WithSession(ctx.Request.Cookies[cookie], false,

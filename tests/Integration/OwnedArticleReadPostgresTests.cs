@@ -15,9 +15,7 @@ public sealed class OwnedArticleReadPostgresTests
             await using var reader = await fixture.DataSource.OpenConnectionAsync(ct);
             var owner = Guid.NewGuid();
             await using var seed = await writer.BeginTransactionAsync(ct);
-            await FixtureSql.ExecuteAsync(writer, seed, ct, """
-                insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'Owned lock fixture',true,true,1)
-                """, owner);
+            await FixtureSql.AdminPrincipalAsync(writer, seed, ct, owner, "owned-lock-fixture");
             await FixtureSql.ExecuteAsync(writer, seed, ct, """
                 insert into public.article(id,owner_id,revision,title,body,deleted)
                     overriding system value values(42,$1,1,'Initial','Saved',false)

@@ -36,6 +36,6 @@
 | `extension quarantine SEQUENCE:DIGEST EXTENSION_ID REASON_CODE` | 隔离并写入原因、时间和隔离收据 |
 | `extension release SEQUENCE:DIGEST EXTENSION_ID QUARANTINE_RECEIPT APPROVAL_ID` | 将隔离收据与本次运维批准记录的 UUID 绑定并清除隔离 |
 
-通过 `dotnet /path/to/FsusBlogV2.Migrate.dll` 执行上表命令。初始化和每次变更输出包含 `sequence` 和 `digest` 的 JSON。变更必须传入已核对的当前检查点，格式为 `sequence:digest`。在独立位置保存最新检查点可检测旧账本回放。状态始终报告所读取的检查点，运维可与独立记录比对。包损坏显示 `active-blocked`，仍可依据已认证账本隔离。清除隔离需要独立批准记录且包处于停用状态，再次激活会重新验证归档和有效信任。命令不启动工作进程，`active-verified` 表示安装登记和签名已核验。
+通过 `dotnet /path/to/FsusBlog.V2.Cli.dll` 执行上表命令。初始化和每次变更输出包含 `sequence` 和 `digest` 的 JSON。变更必须传入已核对的当前检查点，格式为 `sequence:digest`。在独立位置保存最新检查点可检测旧账本回放。状态始终报告所读取的检查点，运维可与独立记录比对。包损坏显示 `active-blocked`，仍可依据已认证账本隔离。清除隔离需要独立批准记录且包处于停用状态，再次激活会重新验证归档和有效信任。命令不启动工作进程，`active-verified` 表示安装登记和签名已核验。
 
-端到端测试从 OpenSSL 和 Python 生成新的签名包、信任配置和私有工作目录，通过实际 CLI 进程验证初始化、激活、过期检查点拒绝、损坏状态、隔离和释放。运行 `bash tests/Integration/Migration/extensions.sh "$PWD/src/Migrate/bin/Release/net10.0/FsusBlogV2.Migrate.dll"`。当前结果来自 macOS 原生工具链。
+端到端测试从 OpenSSL 和 Python 生成新的签名包、信任配置和私有工作目录，通过实际 CLI 进程验证初始化、激活、过期检查点拒绝、损坏状态、隔离和释放。运行 `bash tests/Integration/Migration/extensions.sh "$PWD/src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll"`。当前结果来自 macOS 原生工具链。

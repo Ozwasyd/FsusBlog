@@ -15,4 +15,4 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ExecStart=/usr/bin/dotnet /opt/fsusblog/migrate/FsusBlogV2.Migrate.dll publication-transparency checkpoint-daily-auto "${FSUSBLOG_PUBLIC_ORIGIN}" "${FSUSBLOG_CHECKPOINT_KEYS}" "${FSUSBLOG_CHECKPOINT_ANCHOR_SEQUENCE}" "${FSUSBLOG_CHECKPOINT_ANCHOR_SHA256}" /var/lib/fsusblog-checkpoints
+ExecStart=/usr/bin/dotnet /opt/fsusblog/cli/FsusBlog.V2.Cli.dll publication-transparency checkpoint-daily-auto "${FSUSBLOG_PUBLIC_ORIGIN}" "${FSUSBLOG_CHECKPOINT_KEYS}" "${FSUSBLOG_CHECKPOINT_ANCHOR_SEQUENCE}" "${FSUSBLOG_CHECKPOINT_ANCHOR_SHA256}" /var/lib/fsusblog-checkpoints

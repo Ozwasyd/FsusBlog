@@ -11,7 +11,7 @@ internal sealed partial class AdminPasskeyStore
 {
     internal Task<IReadOnlyList<AdminModerationClaim>> AcquireModerationBatch(string? session,
         IReadOnlyList<AdminModerationClaimRequest> targets, CancellationToken ct) =>
-        WithLiveAdmin<IReadOnlyList<AdminModerationClaim>>(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
+        WithLiveAdmin<IReadOnlyList<AdminModerationClaim>>(session, async (db, tx, admin) =>
         {
             await RequireModerationBatchSchema(db, tx, ct);
             var claims = new AdminModerationClaim[targets.Count];
@@ -44,7 +44,7 @@ internal sealed partial class AdminPasskeyStore
         bool fenceVisibleMessages, CancellationToken ct)
     {
         var decision = Wire.DecodeAdminModerationBatchDecision(frame);
-        return WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
+        return WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await RequireModerationBatchSchema(db, tx, ct);
             if (proof is not { Length: 43 } || !proof.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_') ||

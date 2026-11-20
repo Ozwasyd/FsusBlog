@@ -13,16 +13,17 @@ internal static class PublishedMediaEndpoints
     internal const string PathPrefix = "/public-media";
     private const string FilePolicy = "published-media-file";
 
-    internal static bool Configure(WebApplicationBuilder builder, string webRoot, bool trustLoopbackProxy)
+    internal static bool Configure(WebApplicationBuilder builder, string webRoot,
+        FsusBlog.V2.Server.Operations.SiteCapabilities capabilities)
     {
-        var path = builder.Configuration[StorageSetting];
+        var path = capabilities.PublicMediaRoot;
         if (string.IsNullOrEmpty(path)) return false;
-        if (!Path.IsPathFullyQualified(path) || string.IsNullOrEmpty(builder.Configuration[MediaEndpoints.StorageSetting]))
+        if (!Path.IsPathFullyQualified(path) || string.IsNullOrEmpty(capabilities.PrivateMediaRoot))
             throw new InvalidOperationException("Published media requires a canonical public root and configured private media.");
-        var appearance = builder.Configuration[AppearanceAssets.RootSetting];
+        var appearance = capabilities.AppearanceRoot;
         builder.Services.AddSingleton(services => new PublishedMediaStore(services.GetRequiredService<MediaFiles>(),
             path, webRoot, string.IsNullOrEmpty(appearance) ? [] : [appearance]));
-        if (trustLoopbackProxy) builder.Services.AddSingleton<PublishedMediaProxy>();
+        if (capabilities.TrustLoopbackProxy) builder.Services.AddSingleton<PublishedMediaProxy>();
         return true;
     }
 

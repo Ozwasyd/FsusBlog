@@ -239,10 +239,7 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
             """);
         if (await empty.ExecuteScalarAsync(ct) is not true)
             throw new InvalidOperationException("Fixture target has existing business rows, incompatible taxonomy, or allocated IDs.");
-        await using var user = Store.Sql(db, tx, """
-            insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,$3)
-            """, actor.Id, actor.Name, actor.Generation);
-        await user.ExecuteNonQueryAsync(ct);
+        await FixtureSql.AdminPrincipalAsync(db, tx, ct, actor.Id, ScratchDatabase.AdminHandle(actor.Name, actor.Id), enabled: true, generation: actor.Generation);
     }
 
     private static async Task StartArchiveSession(NpgsqlConnection db, InstanceLease lease, byte[] sessionDigest, CancellationToken ct)
@@ -251,8 +248,7 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         // The fixture exercises the native grant, session and proof consumption checks. The separate browser test exercises Passkey.
         await using var seed = Store.Sql(db, tx, FixtureSql.AdminSessionSql,
             FixtureSql.AdminSessionArguments(ArchiveAdministrator, "nightly-fixture-archive",
-                RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), [1],
-                ["admin.manage", "article.write"], sessionDigest, 2));
+                RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), [1], sessionDigest, 2));
         Assert.Equal(1, await seed.ExecuteNonQueryAsync(ct));
         await InstanceLease.CommitProtected(tx, lease, ct);
     }
@@ -331,13 +327,12 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         await using var retire = Store.Sql(db, tx, """
             with sessions as (delete from public.admin_session where principal_id=$1 returning 1),
                  credentials as (delete from public.admin_passkey_credential where principal_id=$1 returning 1),
-                 grants as (delete from public.admin_permission where principal_id=$1 returning 1),
                  principal as (
                     update public.admin_principal set enabled=false,generation=2,generation_changed_at=clock_timestamp()
                     where id=$1 and enabled and generation=1 returning 1
                  )
             select (select count(*) from sessions)=1 and (select count(*) from credentials)=1 and
-                   (select count(*) from grants)=2 and (select count(*) from principal)=1
+                   (select count(*) from principal)=1
             """, ArchiveAdministrator);
         Assert.True(await retire.ExecuteScalarAsync(ct) is true);
         if (checkpoint is not null)

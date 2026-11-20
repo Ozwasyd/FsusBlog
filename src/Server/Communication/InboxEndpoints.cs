@@ -9,7 +9,8 @@ namespace FsusBlog.V2.Server.Communication;
 
 internal static class InboxEndpoints
 {
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame,
+        FsusBlog.V2.Server.Operations.SiteCapabilities capabilities)
     {
         app.MapGet(WireRoutes.InboxList, (HttpContext ctx, Store store, CancellationToken ct) =>
             Account(ctx, store, cookie, async inbox =>
@@ -71,7 +72,7 @@ internal static class InboxEndpoints
                 return new Response(packet, page.RequiresResync ? null : page.Next);
             }, ct);
         }).RequireRateLimiting("command");
-        InboxWriteEndpoints.Map(app, cookie, readFrame);
+        InboxWriteEndpoints.Map(app, cookie, readFrame, capabilities);
     }
 
     private readonly record struct Response(byte[] Frame, long? Cursor = null);

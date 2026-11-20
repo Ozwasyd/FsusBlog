@@ -8,9 +8,9 @@ internal sealed partial class AdminPasskeyStore
     internal async Task<AdminInboxPage> ReadInboxByActivity(string? token, int filter, string? next, bool shared, CancellationToken ct)
     {
         var initial = next is null
-            ? await WithLiveAdmin(token, Permission, (db, tx, _) => InboxActivityFence.SnapshotAsync(db, tx, ct), ct)
+            ? await WithLiveAdmin(token, (db, tx, _) => InboxActivityFence.SnapshotAsync(db, tx, ct), ct)
             : 0L;
-        return await WithLiveAdmin(token, Permission, async (db, tx, admin) =>
+        return await WithLiveAdmin(token, async (db, tx, admin) =>
         {
             var scope = checked((byte)(filter + (shared ? 41 : 33)));
             AdminInboxActivityCursor? position = next is null ? null :

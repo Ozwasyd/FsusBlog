@@ -83,7 +83,6 @@ public enum FrameType : ushort
     AdminRootCommentPowPolicy = 33008,
     AdminRootCommentPowCommand = 33009,
     AdminClusterStatus = 32962,
-    AdminEffectivePermissions = 32948,
     AdminSignInHistory = 32963,
     AdminSiteTraffic = 33071,
     AdminSitePages = 32905,
@@ -738,7 +737,6 @@ public static class WireRoutes
     public const string AdminPasskeyBegin = "/api/v2/admin/identity/passkey/begin.aeds";
     public const string AdminPasskeyComplete = "/api/v2/admin/identity/passkey/complete.aeds";
     public const string AdminSession = "/api/v2/admin/identity/session.aeds";
-    public const string AdminEffectivePermissions = "/api/v2/admin/identity/permissions.aeds";
     public const string AdminSignInHistory = "/api/v2/admin/identity/sessions/history.aeds";
     public const string AdminSiteTraffic = "/api/v2/admin/identity/site-traffic.aeds";
     public const string AdminSignOut = "/api/v2/admin/identity/sign-out.aeds";
@@ -922,6 +920,7 @@ public static class WireHeaders
     public const string ClientMutationId = "X-Fsus-Client-Mutation-Id";
     public const string SearchIndexGeneration = "X-Fsus-Search-Index-Generation";
     public const string SearchIndexPages = "X-Fsus-Search-Index-Pages";
+    public const string SearchTotal = "X-Fsus-Search-Total";
     public const string SearchCorpusDigest = "X-Fsus-Search-Corpus-Digest";
     public const string SearchCorpusTargetDigest = "X-Fsus-Search-Corpus-Target-Digest";
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";

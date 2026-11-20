@@ -8,7 +8,7 @@ namespace FsusBlog.V2.Server.Administration;
 internal sealed partial class AdminPasskeyStore
 {
     internal Task<AdminTaxonomyPage> Taxonomy(string? token, bool tags, IQueryCollection query, Publications publications,
-        CancellationToken ct) => WithSession(token, CurrentSchema.ArticleWritePermission, async (db, tx, _) =>
+        CancellationToken ct) => WithSession(token, async (db, tx, _) =>
         {
             var after = TaxonomyCursor(query);
             var snapshot = publications.Snapshot ?? throw new PublicUnavailableException();
@@ -50,7 +50,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<AdminTaxonomyDependencies> TaxonomyDependencies(string? token, bool tags, IQueryCollection query, CancellationToken ct) =>
-        WithSession(token, CurrentSchema.ArticleWritePermission, async (db, tx, _) =>
+        WithSession(token, async (db, tx, _) =>
         {
             var id = TaxonomyCoordinate(query, "dependency", "Invalid administrator taxonomy dependency ID.");
             var (registry, _, _) = TaxonomyRelations(tags);
@@ -83,8 +83,7 @@ internal sealed partial class AdminPasskeyStore
                    bool_or(l.revision=coalesce(a.published_revision,0)) as published,
                    exists(select from public.article_schedule s join public.admin_principal p on p.id=s.actor_id
                           where s.article_id=a.id and s.revision=a.revision and s.actor_id=a.owner_id
-                            and s.generation=p.generation and p.enabled
-                            and exists (select from public.admin_permission g where g.principal_id=p.id and g.permission='article.write')) as scheduled
+                            and s.generation=p.generation and p.enabled) as scheduled
             from public.{links} l join public.article a on a.id=l.article_id
             where l.{key}={coordinate} group by a.id
             """;

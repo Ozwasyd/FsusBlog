@@ -15,7 +15,8 @@ internal static partial class CurrentSchema
     private static readonly string[] Columns =
     [
         "v2_schema singleton:bool version:int4",
-        "blog_user id:uuid name:text can_author:bool enabled:bool generation:int8",
+        "blog_user id:uuid name:text enabled:bool generation:int8",
+        "admin_principal id:uuid handle:text user_handle:bytea enabled:bool generation:int8 generation_changed_at:timestamptz=clock_timestamp",
         "login_ticket digest:bytea user_id:uuid expires_at:timestamptz",
         "user_session digest:bytea user_id:uuid generation:int8 expires_at:timestamptz passkey_credential_id:bytea? totp_verified_at:timestamptz?",
         "article id:int4:a owner_id:uuid revision:int8 title:text body:text published_revision:int8? publication_count:int4=0 deleted:bool created_at:timestamptz=now updated_at:timestamptz=now",
@@ -32,6 +33,12 @@ internal static partial class CurrentSchema
         "blog_user p id",
         "blog_user u name",
         "blog_user c generation generation>0",
+        "admin_principal p id",
+        "admin_principal u handle",
+        "admin_principal c handle handle~'^[a-z][a-z0-9_.-]{0,63}$'::text",
+        "admin_principal u user_handle",
+        "admin_principal c user_handle octet_length(user_handle)=32",
+        "admin_principal c generation generation>0",
         "login_ticket p digest",
         "login_ticket c digest octet_length(digest)=32",
         "login_ticket f user_id public.blog_user:id",
@@ -42,7 +49,7 @@ internal static partial class CurrentSchema
         "article p id",
         "article c revision revision>0",
         "article c publication_count publication_count>=0",
-        "article f owner_id public.blog_user:id",
+        "article f owner_id public.admin_principal:id",
         "article f id,revision public.article_revision:article_id,revision deferred",
         "article f id,published_revision public.article_revision:article_id,revision deferred",
         "article_revision p article_id,revision",
@@ -50,7 +57,7 @@ internal static partial class CurrentSchema
         "article_revision f article_id public.article:id",
         "article_command p actor_id,command_id",
         "article_command c fingerprint octet_length(fingerprint)=32",
-        "article_command f actor_id public.blog_user:id",
+        "article_command f actor_id public.admin_principal:id",
         "article_command f article_id public.article:id",
         "article_command f article_id,revision public.article_revision:article_id,revision",
         "article_publication p article_id",
@@ -111,7 +118,7 @@ internal static partial class CurrentSchema
     internal static async Task<bool> VerifyCatalogAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         CancellationToken cancellationToken, bool requireRecoveryScope = true, bool requireRevisionHistory = true,
         bool requireAdminIdentity = true, bool requirePublicationHistory = true, bool requireArticleSchedule = true,
-        bool requireMediaUpload = true, bool legacyCanvas = false, int adminIdentityVersion = AdminIdentityVersion,
+        bool requireMediaUpload = true, bool legacyCanvas = false,
         bool requirePublicationRights = true,
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
@@ -194,7 +201,7 @@ internal static partial class CurrentSchema
             throw new InvalidOperationException("Administrator trash restoration requires independent administrator identity.");
         RequireSchemaPresence(requireAdminArticleTrashRestore, hasAdminArticleTrashRestore,
             "The administrator trash restore schema presence does not match the requested operation.");
-        var requireModerationVersion = requireAdminIdentity && adminIdentityVersion >= AdminModerationVersion;
+        var requireModerationVersion = requireAdminIdentity;
         var hasCommentAuthorDelete = await HasCommentAuthorDeleteSchemaAsync(connection, transaction, cancellationToken);
         if (hasCommentAuthorDelete && !requireModerationVersion)
             throw new InvalidOperationException("Comment author deletion requires the current comment version column.");
@@ -309,7 +316,7 @@ internal static partial class CurrentSchema
             .Concat(hasCommentReplies ? CommentReplyColumns : [])
             .Concat(hasAdminCommentBatch ? AdminCommentBatchColumns : [])
             .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
-            .Concat(requireAdminIdentity ? GetAdminIdentityColumns(adminIdentityVersion) : [])
+            .Concat(requireAdminIdentity ? AdminIdentityColumns : [])
             .Concat(requirePublicationHistory ? (hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns) : [])
             .Concat(hasPublicationMedia ? PublicationMediaColumns : [])
             .Concat(hasPublicationCover ? PublicationCoverColumns : [])
@@ -363,7 +370,7 @@ internal static partial class CurrentSchema
             .Concat(hasCommentReplies ? CommentReplyConstraints : [])
             .Concat(hasAdminCommentBatch ? AdminCommentBatchConstraints : [])
             .Concat(requireRevisionHistory ? RevisionHistoryConstraints : [])
-            .Concat(requireAdminIdentity ? GetAdminIdentityConstraints(adminIdentityVersion) : [])
+            .Concat(requireAdminIdentity ? AdminIdentityConstraints : [])
             .Concat(requirePublicationHistory ? PublicationHistoryConstraints : [])
             .Concat(hasPublicationMedia ? PublicationMediaConstraints : [])
             .Concat(hasAdminArticleRollback ? PublicationHistoryAdminRollbackConstraints : [])
@@ -478,7 +485,7 @@ internal static partial class CurrentSchema
                                                       'admin_article_trash_step_up')
                                          AND target.relname = 'admin_session')
                                      OR (c.relname = 'site_session_refresh_tombstone' AND target.relname = 'site_session_refresh')
-                                     OR (c.relname = 'author_document_export' AND target.relname IN ('blog_user', 'article_revision'))
+                                     OR (c.relname = 'author_document_export' AND target.relname IN ('admin_principal', 'article_revision'))
                                      OR (c.relname = 'site_passkey_name' AND target.relname = 'passkey_credential'))
                                    THEN ' delete-cascade'
                               WHEN k.confdeltype = 'c' AND k.confupdtype = 'c' AND n.nspname = 'public'

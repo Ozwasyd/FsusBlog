@@ -11,11 +11,10 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
-    private const string AppearancePermission = CurrentSchema.SystemConfigPermission;
     private const string AppearancePowScope = "site";
 
     internal Task<byte[]> ReadAppearance(string? session, AppearanceRegistry registry, CancellationToken ct) =>
-        WithLiveAdmin(session, AppearancePermission, async (db, tx, _) =>
+        WithLiveAdmin(session, async (db, tx, _) =>
         {
             var current = await AppearanceActivationStore.Read(db, tx, registry, ct);
             var previous = await AppearanceActivationStore.Previous(db, tx, current.Revision, ct);
@@ -25,11 +24,11 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<byte[]> AppearanceCatalog(string? session, AppearanceRegistry registry, CancellationToken ct) =>
-        WithLiveAdmin(session, AppearancePermission, (_, _, _) => Task.FromResult(Wire.EncodeAdminAppearanceCatalog(
+        WithLiveAdmin(session, (_, _, _) => Task.FromResult(Wire.EncodeAdminAppearanceCatalog(
             registry.Available().Select(entry => new AdminAppearancePackage(entry.Id, entry.Version, entry.ArchiveDigest, entry.Font)).ToArray())), ct);
 
     internal Task<byte[]> AppearanceFontDetail(string? session, AppearanceRegistry registry, string? digest, CancellationToken ct) =>
-        WithLiveAdmin(session, AppearancePermission, (_, _, _) =>
+        WithLiveAdmin(session, (_, _, _) =>
         {
             if (digest is not { Length: WireLimits.AdminAppearanceDigestBytes } ||
                 !digest.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'))
@@ -43,7 +42,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<byte[]> AppearanceHistory(string? session, long? before, int limit, CancellationToken ct) =>
-        WithLiveAdmin(session, AppearancePermission, async (db, tx, _) =>
+        WithLiveAdmin(session, async (db, tx, _) =>
             Wire.EncodeAdminAppearanceHistory(await AppearanceActivationStore.History(db, tx, before, limit, ct), limit), ct);
 
     internal Task<byte[]> BeginAppearanceStepUp(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, CancellationToken ct) =>
@@ -55,7 +54,7 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task<byte[]> IssueAppearancePow(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, byte[] frame,
         ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        WithLiveAdmin(session, AppearancePermission, async (db, tx, _) =>
+        WithLiveAdmin(session, async (db, tx, _) =>
         {
             await CheckAppearance(db, tx, registry, command, ct);
             return PowWire.EncodeChallenge(pow.Issue(PowScope.AdminAppearance, AppearancePowScope, session!, ScopedPow.Source(ctx),
@@ -64,7 +63,7 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task ApplyAppearance(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, byte[] frame,
         string? proof, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        WithLiveAdmin(session, AppearancePermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             var (current, next) = await CheckAppearance(db, tx, registry, command, ct, locked: true);
             if (proof is not { Length: 43 } || !proof.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_') ||

@@ -12,7 +12,7 @@ internal static partial class CurrentSchema
     private static readonly string[] LegacyCanvasConstraints =
     [
         "authoring_canvas p id",
-        "authoring_canvas f owner_id public.blog_user:id",
+        "authoring_canvas f owner_id public.admin_principal:id",
         "authoring_canvas c revision revision>0",
         "canvas_edge p canvas_id,id",
         "canvas_edge f canvas_id public.authoring_canvas:id",

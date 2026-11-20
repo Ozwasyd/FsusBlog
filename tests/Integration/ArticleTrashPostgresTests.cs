@@ -14,7 +14,11 @@ public sealed class ArticleTrashPostgresTests
         var other = (await fixture.SignIn("other author", ct, canAuthor: true, minutes: 1)).Token;
         var reader = (await fixture.SignIn("site reader", ct, canAuthor: false, minutes: 1)).Token;
         await Sql("insert into public.category(id,name) values(41,'Taxonomy category'); insert into public.tag(id,name) values(81,'Taxonomy tag');");
-        var settings = new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_ORIGIN"] = "https://blog.example.test" };
+        var settings = new Dictionary<string, string>
+        {
+            ["FSUSBLOG_PUBLIC_ORIGIN"] = "https://blog.example.test",
+            ["FSUSBLOG_ADMIN_ORIGIN"] = ServerProcess.DefaultAdminOrigin,
+        };
         const string marker = "Article trash public marker";
         Draft restored;
         string publicPath;
@@ -47,7 +51,8 @@ public sealed class ArticleTrashPostgresTests
             var restore = Mutation(draft.Id, schedule.Revision + 1);
             await Command(WireRoutes.Restore, delete, owner, HttpStatusCode.Conflict);
             await Command(WireRoutes.Delete, delete with { ExpectedRevision = saved.Revision }, owner, HttpStatusCode.Conflict);
-            await Command(WireRoutes.Delete, delete, other, HttpStatusCode.NotFound);
+            await Command(WireRoutes.Delete, delete, reader, HttpStatusCode.Unauthorized);
+            await Command(WireRoutes.Delete, delete with { Id = 999_999 }, other, HttpStatusCode.NotFound);
 
             // Force a post-commit projection failure for the real delete command. The old public artifacts must close immediately.
             await Sql("alter table public.blog_outbox add constraint test_delete_projection_failure check (kind <> 'delete' or processed_at is null)");
@@ -65,8 +70,8 @@ public sealed class ArticleTrashPostgresTests
             Assert.Equal("publish,delete", await History());
 
             await Command(WireRoutes.Restore, restore, null, HttpStatusCode.Unauthorized);
-            await Command(WireRoutes.Restore, restore, reader, HttpStatusCode.Forbidden);
-            await Command(WireRoutes.Restore, restore, other, HttpStatusCode.NotFound);
+            await Command(WireRoutes.Restore, restore, reader, HttpStatusCode.Unauthorized);
+            await Command(WireRoutes.Restore, restore with { Id = 999_999 }, other, HttpStatusCode.NotFound);
             await Command(WireRoutes.Restore, restore with { ExpectedRevision = delete.ExpectedRevision }, owner, HttpStatusCode.Conflict);
 
             // A failed private outbox insert must roll restore back. Exact retries then commit one revision only.
@@ -122,7 +127,10 @@ public sealed class ArticleTrashPostgresTests
 
         async Task<byte[]> Send(HttpClient endpoint, HttpRequestMessage request, string? token, HttpStatusCode expected)
         {
-            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            var authoring = request.RequestUri is { } uri && SiteAedsFixture.IsAuthoringRoute(uri.OriginalString);
+            if (authoring) request.Headers.Host = ServerProcess.DefaultAdminHost;
+            if (token is not null)
+                request.Headers.Add("Cookie", $"{(authoring ? ServerProcess.DefaultAdminCookie : "fsus-v2-session")}={token}");
             using var response = await endpoint.SendAsync(request, ct);
             Assert.Equal(expected, response.StatusCode);
             if (expected != HttpStatusCode.OK || token is not null) Assert.True(response.Headers.CacheControl?.NoStore);

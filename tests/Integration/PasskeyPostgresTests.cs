@@ -20,7 +20,7 @@ public sealed class PasskeyPostgresTests
         var id = Guid.NewGuid();
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await using (var insert = Store.Sql(db, null,
-            "insert into public.blog_user(id,name,can_author,enabled,generation) values ($1,'Passkey fixture',true,true,1)", id))
+            "insert into public.blog_user(id,name,enabled,generation) values ($1,'Passkey fixture',true,1)", id))
             await insert.ExecuteNonQueryAsync(ct);
         await using (var insert = Store.Sql(db, null,
             "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,clock_timestamp()+interval '5 minutes')", digest, id))

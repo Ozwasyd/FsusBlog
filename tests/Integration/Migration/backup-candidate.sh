@@ -39,12 +39,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-migrate_project="src/Migrate/FsusBlogV2.Migrate.csproj"
-"$dotnet_bin" restore "$migrate_project" --configfile NuGet.Config --locked-mode
-"$dotnet_bin" build "$migrate_project" --no-restore
+cli_project="src/Cli/FsusBlog.V2.Cli.csproj"
+"$dotnet_bin" restore "$cli_project" --configfile NuGet.Config --locked-mode
+"$dotnet_bin" build "$cli_project" --no-restore
 export DOTNET_BIN="$dotnet_bin"
-export FSUSBLOG_MIGRATE_DLL="src/Migrate/bin/Debug/net10.0/FsusBlogV2.Migrate.dll"
-migrate=("$DOTNET_BIN" "$FSUSBLOG_MIGRATE_DLL")
+export FSUSBLOG_CLI_DLL="src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll"
+migrate=("$DOTNET_BIN" "$FSUSBLOG_CLI_DLL")
 backup=(python3 tools/site-backup.py)
 
 "${maintenance[@]}" -c "CREATE DATABASE \"$source_db\" TEMPLATE template0"
@@ -64,8 +64,8 @@ bytes="$(wc -c < "$scratch/input/$media_leaf" | tr -d '[:space:]')"
 digest="$(shasum -a 256 "$scratch/input/$media_leaf" | awk '{print $1}')"
 "${source_sql[@]}" -v bytes="$bytes" -v digest="$digest" -v media_id="$media_id" <<'SQL'
 BEGIN;
-INSERT INTO public.blog_user(id,name,can_author,enabled,generation)
-    VALUES ('20000000-0000-0000-0000-000000000001','Backup test owner',true,true,1);
+INSERT INTO public.admin_principal(id,handle,user_handle,enabled,generation)
+    VALUES ('20000000-0000-0000-0000-000000000001','backup-test-owner',decode(repeat('11',32),'hex'),true,1);
 INSERT INTO public.article(owner_id,revision,title,body,deleted)
     VALUES ('20000000-0000-0000-0000-000000000001',1,'Test title','Fixture private body',false);
 INSERT INTO public.article_revision(article_id,revision,title,body,happened_at)

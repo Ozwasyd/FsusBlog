@@ -1,12 +1,24 @@
 import { ApiError, ProtocolError } from '../../Contracts/aeds.ts'
-import { decodeLocalSearchResult, verifySearchGeneration } from '../../Contracts/local-search.ts'
-import type { SearchCommand, SearchReply } from './search.worker.ts'
+import { api } from '../../Contracts/client.ts'
+import {
+  decodeLocalSearchResult, verifySearchGeneration, type PublicSearchSort,
+} from '../../Contracts/local-search.ts'
+import { discardCompactSearchCorpus } from './compactSearchStorage.ts'
+import type { SearchCommand, SearchReply, WorkerSearchMode } from './search.worker.ts'
 import { verifyWideSearchGeneration } from './wideSearchWire.ts'
+
+export type PublicSearchMode = 'auto' | 'local' | 'server'
+
+function readPublicSearchMode(): PublicSearchMode {
+  const value = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-search-mode"]')?.content
+  return value === 'server' || value === 'local' ? value : 'auto'
+}
 
 export function createLocalSearch() {
   let worker: Worker | undefined
   let active: AbortController | undefined
   let sequence = 0
+  let preferServer = false
 
   function stopWorker() {
     worker?.terminate()
@@ -16,6 +28,7 @@ export function createLocalSearch() {
   function dispose() {
     active?.abort()
     stopWorker()
+    preferServer = false
   }
 
   function startWorker() {
@@ -30,7 +43,13 @@ export function createLocalSearch() {
     return instance
   }
 
-  async function search(query: string, signal: AbortSignal, page = 1, size = 10) {
+  async function search(
+    query: string,
+    signal: AbortSignal,
+    page = 1,
+    size = 10,
+    sort: PublicSearchSort = 'relevance',
+  ) {
     signal.throwIfAborted()
     active?.abort()
     const request = new AbortController()
@@ -39,6 +58,13 @@ export function createLocalSearch() {
     const cancel = () => request.abort(signal.reason)
     signal.addEventListener('abort', cancel, { once: true })
     try {
+      const mode = readPublicSearchMode()
+      if (mode === 'server' || (mode === 'auto' && preferServer)) {
+        const result = await api.search(query, request.signal, { sort, page, size })
+        request.signal.throwIfAborted()
+        return result
+      }
+      const workerMode: WorkerSearchMode = mode === 'local' ? 'local' : 'auto'
       const current = worker ??= startWorker()
       const reply = await new Promise<SearchReply>((resolve, reject) => {
         function cleanup() {
@@ -57,12 +83,19 @@ export function createLocalSearch() {
         }
         current.addEventListener('message', receive)
         request.signal.addEventListener('abort', abort, { once: true })
-        current.postMessage({ kind: 'search', id, query, page, size } satisfies SearchCommand)
+        current.postMessage({ kind: 'search', id, query, page, size, sort, mode: workerMode } satisfies SearchCommand)
       })
       if (!reply.ok) {
         throw reply.status
           ? new ApiError(reply.message, reply.status)
           : new ProtocolError(reply.message)
+      }
+      if ('fallback' in reply) {
+        const result = await api.search(query, request.signal, { sort, page, size })
+        request.signal.throwIfAborted()
+        preferServer = true
+        if (worker === current) stopWorker()
+        return result
       }
       const result = decodeLocalSearchResult(reply.frame)
       const visibility = reply.visibility
@@ -83,7 +116,13 @@ export function createLocalSearch() {
         try {
           await verifySearchGeneration(visibility.generation, request.signal)
         } catch (error) {
-          if (!request.signal.aborted && worker === current) stopWorker()
+          if (!request.signal.aborted) {
+            if (worker === current) stopWorker()
+            if (error instanceof ProtocolError || error instanceof ApiError &&
+                (error.status === 409 || error.status === 404 || error.status === 503)) {
+              await discardCompactSearchCorpus(visibility.generation).catch(() => {})
+            }
+          }
           throw error
         }
       }

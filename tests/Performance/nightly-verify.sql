@@ -185,12 +185,14 @@ SELECT articles=:articles AND active=:articles-3*:lifecycle AND coordinate_defec
     AND publication_history=:articles+2*:lifecycle AND responsibility_snapshots=2*:lifecycle AND responsibility_links=responsibility_snapshots
     AND categories=revisions-articles AND tags=categories AND schedules=2*:lifecycle AND schedule_receipts=schedules
     AND NOT EXISTS (SELECT FROM public.blog_outbox WHERE processed_at IS NOT NULL)
-    AND (SELECT count(*)=1 AND bool_and(id=:'owner'::uuid AND enabled AND can_author AND generation=1) FROM public.blog_user)
+    AND NOT EXISTS (SELECT FROM public.blog_user)
     AND NOT EXISTS (SELECT FROM public.login_ticket) AND NOT EXISTS (SELECT FROM public.user_session)
-    AND (SELECT count(*)=1 AND bool_and(id=:'archivist'::uuid AND handle='nightly-fixture-archive' AND NOT enabled AND generation=2)
+    AND (SELECT count(*)=2
+        AND count(*) FILTER (WHERE id=:'owner'::uuid AND enabled AND generation=1)=1
+        AND count(*) FILTER (WHERE id=:'archivist'::uuid AND handle='nightly-fixture-archive' AND NOT enabled AND generation=2)=1
         FROM public.admin_principal)
     AND NOT EXISTS (SELECT FROM public.admin_session) AND NOT EXISTS (SELECT FROM public.admin_passkey_credential)
-    AND NOT EXISTS (SELECT FROM public.admin_permission) AND NOT EXISTS (SELECT FROM public.admin_invitation)
+    AND NOT EXISTS (SELECT FROM public.admin_invitation)
     AND NOT EXISTS (SELECT FROM public.admin_challenge) AND NOT EXISTS (SELECT FROM public.admin_article_rollback_step_up)
     AS article_graph_ok, to_jsonb(totals) AS article_metrics FROM totals \gset
 SELECT jsonb_build_object('kind','article-graph','actual',:'article_metrics'::jsonb);

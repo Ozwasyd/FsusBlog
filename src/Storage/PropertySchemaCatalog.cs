@@ -15,7 +15,7 @@ internal static partial class CurrentSchema
     private static readonly string[] PropertyConstraints =
     [
         "property_schema p owner_id",
-        "property_schema f owner_id public.blog_user:id",
+        "property_schema f owner_id public.admin_principal:id",
         "property_schema c revision revision>=0",
         "property_definition p owner_id,id",
         "property_definition u owner_id,machine_key",

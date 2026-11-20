@@ -15,7 +15,6 @@ public sealed class PropertySnapshotPostgresTests
         await using var db = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(db.DataSource);
         var owner = await db.SignIn("Property snapshot owner", ct);
-        var secondSession = await db.SignIn(owner.Id, ct);
         var outsider = await db.SignIn("Property snapshot outsider", ct);
 
         const string OriginalText = "snapshot-private-original-raw";
@@ -117,10 +116,13 @@ public sealed class PropertySnapshotPostgresTests
             await Snapshot(saved.Id, saved.Revision, saved.Revision, owner, HttpStatusCode.Conflict);
             await Snapshot(saved.Id, published.Revision, saved.Revision, null, HttpStatusCode.Unauthorized);
             await Snapshot(saved.Id, published.Revision, saved.Revision, outsider, HttpStatusCode.NotFound);
+            var priorHandle = owner.Handle;
+            var secondSession = await db.SignIn(owner.Id, ct);
             await Snapshot(saved.Id, published.Revision, saved.Revision,
-                (secondSession.Id, secondSession.Token, owner.Handle), HttpStatusCode.Conflict);
-            await store.SignOut(secondSession.Token, ct);
+                (secondSession.Id, secondSession.Token, priorHandle), HttpStatusCode.Conflict);
+            await db.SignOutAdmin(secondSession.Token, ct);
             await Snapshot(saved.Id, published.Revision, saved.Revision, secondSession, HttpStatusCode.Unauthorized);
+            owner = await db.SignIn(owner.Id, ct);
 
             var legacyId = await InsertUncapturedRevision(owner.Id);
             await Batch(initial with { ArticleId = legacyId, ArticleRevision = 1, SchemaRevision = rename.SchemaRevision,

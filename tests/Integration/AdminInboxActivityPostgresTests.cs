@@ -20,8 +20,8 @@ public sealed class AdminInboxActivityPostgresTests
         var admin = await Administrator("activity-admin");
         var other = await Administrator("other-activity-admin");
         await Sql("""
-            insert into public.blog_user(id,name,can_author,enabled,generation)
-            values($1,'activity-reader',false,true,1),($2,'activity-notice-recipient',false,true,1)
+            insert into public.blog_user(id,name,enabled,generation)
+            values($1,'activity-reader',true,1),($2,'activity-notice-recipient',true,1)
             """, owner, secondOwner);
         await Sql("""
             insert into public.inbox_conversation(id,account_id,subject,status,is_system,last_message_at)

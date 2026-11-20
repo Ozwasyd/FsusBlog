@@ -10,20 +10,18 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
-    private const string RollbackPermission = CurrentSchema.ArticleWritePermission;
-
     internal Task CheckArticleRollbackAvailability(string? session, CancellationToken ct) =>
-        WithLiveAdmin(session, RollbackPermission, (_, _, _) => Task.FromResult(true), ct);
+        WithLiveAdmin(session, (_, _, _) => Task.FromResult(true), ct);
 
     internal Task CheckArticleDraftRollbackAvailability(string? session, CancellationToken ct) =>
-        WithLiveAdmin(session, RollbackPermission, async (db, tx, _) =>
+        WithLiveAdmin(session, async (db, tx, _) =>
         {
             await RequireArticleDraftRollbackSchema(db, tx, ct);
             return true;
         }, ct);
 
     internal Task<AdminArticleRollbackPreview> PreviewArticleRollback(string? session, int article, long revision,
-        CancellationToken ct) => WithLiveAdmin(session, RollbackPermission, async (db, tx, _) =>
+        CancellationToken ct) => WithLiveAdmin(session, async (db, tx, _) =>
     {
         var state = await ReadRollbackTarget(db, tx, article, revision, locking: false, ct);
         return new AdminArticleRollbackPreview(article, state.CurrentRevision, state.CurrentPublication, revision,
@@ -67,7 +65,7 @@ internal sealed partial class AdminPasskeyStore
 
     private Task<AdminArticleRollbackReceipt> ExecuteArticleRollback(string? session, string? proof, AdminArticleRollbackIntent intent,
         byte[] fingerprint, StepUpAction action, int destination, Action invalidatePublic, CancellationToken ct) =>
-        WithLiveAdmin(session, RollbackPermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             if (action == StepUpAction.DraftArticleRollback) await RequireArticleDraftRollbackSchema(db, tx, ct);
             if (action == StepUpAction.ArticleArchive) await RequireArticleArchiveSchema(db, tx, ct);

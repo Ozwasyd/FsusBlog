@@ -22,8 +22,8 @@ public sealed class SchemaAdmissionPostgresTests
 
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
         await Execute(connection, """
-            INSERT INTO public.blog_user (id, name, generation, enabled, can_author)
-            VALUES ('f4a1a998-7b96-4b9a-b578-bbb20157d941','Schema fixture',1,true,true)
+            INSERT INTO public.blog_user (id, name, generation, enabled)
+            VALUES ('f4a1a998-7b96-4b9a-b578-bbb20157d941','Schema fixture',1,true)
             """, ct);
         var valid = await ReadState(connection, ct);
         foreach (var scenario in scenarios)

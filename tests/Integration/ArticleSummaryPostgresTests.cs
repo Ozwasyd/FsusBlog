@@ -17,6 +17,7 @@ public sealed class ArticleSummaryPostgresTests
         var store = new Store(db.DataSource);
         var owner = await SignIn("Summary owner");
         var stranger = await SignIn("Summary stranger");
+        var readOnlyAdmin = await db.SignIn("Summary read-only", ct, canAuthor: false);
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
 
         const string title = "Draft title";
@@ -28,7 +29,8 @@ public sealed class ArticleSummaryPostgresTests
 
         var command = new ArticleSummaryCommand(first.Id, first.Revision, Guid.NewGuid(), "  " + manual + " \n");
         var packet = Wire.EncodeArticleSummaryCommand(command);
-        await Send(HttpMethod.Post, WireRoutes.ArticleSummarySave, packet, HttpStatusCode.NotFound, stranger);
+        await Send(HttpMethod.Post, WireRoutes.ArticleSummarySave, packet, HttpStatusCode.Unauthorized, new Actor(readOnlyAdmin.Token, readOnlyAdmin.Handle));
+        await Send(HttpMethod.Post, WireRoutes.ArticleSummarySave, Wire.EncodeArticleSummaryCommand(command with { Id = 999_999 }), HttpStatusCode.NotFound, stranger);
         await Send(HttpMethod.Post, WireRoutes.ArticleSummarySave, packet, HttpStatusCode.Conflict, owner with { Handle = null });
         var saved = Wire.DecodeDraft(await Send(HttpMethod.Post, WireRoutes.ArticleSummarySave, packet));
         Assert.Equal(new Draft(first.Id, first.Revision + 1, title, body, false), saved);

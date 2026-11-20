@@ -20,14 +20,14 @@ internal sealed class SiteTraffic : BackgroundService
     private DateOnly? pruned;
     internal bool Enabled { get; }
 
-    public SiteTraffic(IConfiguration configuration, NpgsqlDataSource database, InstanceLease lease, ILogger<SiteTraffic> log)
+    public SiteTraffic(SiteCapabilities capabilities, NpgsqlDataSource database, InstanceLease lease, ILogger<SiteTraffic> log)
     {
         this.database = database;
         this.lease = lease;
         this.log = log;
-        Enabled = string.Equals(configuration[EnabledSetting], "true", StringComparison.OrdinalIgnoreCase);
+        Enabled = capabilities.SiteTraffic;
         if (!Enabled) return;
-        try { regions = new SiteTrafficRegions(configuration[RegionsSetting]); }
+        try { regions = new SiteTrafficRegions(capabilities.TrafficRegionsPath); }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or ArgumentException)
         { log.LogWarning("Site traffic offline region configuration is unavailable; collection is suspended."); }
     }

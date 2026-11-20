@@ -20,10 +20,10 @@ public sealed class AdminTaxonomyPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var (admin, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "taxonomy-reviewer", 10, [1], [2], CurrentSchema.CommentModeratePermission);
+        var (admin, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "taxonomy-reviewer", 10, [1], [2]);
         var author = Guid.NewGuid();
         var ticket = Secret();
-        await Sql("insert into public.blog_user (id,name,can_author,enabled,generation) values($1,'taxonomy-fixture-writer',true,true,1)", author);
+        await Sql("insert into public.blog_user (id,name,enabled,generation) values($1,'taxonomy-fixture-reader',true,1)", author);
         await Sql("insert into public.login_ticket values($1,$2,clock_timestamp()+interval '5 minutes')", Store.TokenDigest(ticket)!, author);
         await Sql("insert into public.category(id,name) select id,'Category '||id from generate_series(1,26) id");
         await Sql("insert into public.tag(id,name) values(1,'Tag primary'),(2,'Tag private'),(3,'Tag historical')");
@@ -31,6 +31,7 @@ public sealed class AdminTaxonomyPostgresTests
 
         var store = new Store(fixture.DataSource);
         var token = (await store.SignIn(ticket, ct)).Token;
+        var (_, authorToken, _) = await fixture.SignIn("taxonomy-fixture-writer", ct);
         var publications = PublicationFixture.Project(fixture.DataSource);
         var published = await Publish(await Draft("Public article", 1, 1));
         var alternate = await Assign(published, 2, 2);
@@ -51,13 +52,10 @@ public sealed class AdminTaxonomyPostgresTests
         });
         await Get(WireRoutes.AdminCategories, HttpStatusCode.NotFound, adminToken, adminHost: false);
         await Get(WireRoutes.AdminCategories, HttpStatusCode.Unauthorized, token, siteCookie: true);
-        await Get(WireRoutes.AdminCategories, HttpStatusCode.Forbidden, adminToken);
         var categoryDependencies = WireRoutes.AdminCategories + "?dependency=";
         var tagDependencies = WireRoutes.AdminTags + "?dependency=";
         await Get(categoryDependencies + "1", HttpStatusCode.NotFound, adminToken, adminHost: false);
         await Get(categoryDependencies + "1", HttpStatusCode.Unauthorized, token, siteCookie: true);
-        await Get(categoryDependencies + "1", HttpStatusCode.Forbidden, adminToken);
-        await Sql("insert into public.admin_permission values($1,$2)", admin, CurrentSchema.ArticleWritePermission);
         await Get(WireRoutes.AdminCategories + "?after=1&after=2", HttpStatusCode.BadRequest, adminToken);
         await Get(WireRoutes.AdminCategories + "?after=%2B1", HttpStatusCode.BadRequest, adminToken);
         foreach (var invalid in new[] { "0", "%2B1", "2147483648", "1&after=1", "1&dependency=2" })
@@ -106,20 +104,20 @@ public sealed class AdminTaxonomyPostgresTests
 
         async Task<ArticleState> Assign(ArticleState draft, int category, int tag)
         {
-            var assigned = await store.WithSession(token, true, (conn, tx, actor) => Store.AssignTaxonomy(conn, tx, actor,
+            var assigned = await store.WithSession(authorToken, true, (conn, tx, actor) => Store.AssignTaxonomy(conn, tx, actor,
                 new TaxonomyAssignment(draft.Id, draft.Revision, Guid.NewGuid(), category, [tag]), ct), ct);
             return draft with { Revision = assigned.Revision };
         }
 
         async Task<ArticleState> Schedule(ArticleState draft)
         {
-            var scheduled = await store.WithSession(token, true, (conn, tx, actor) => Store.Schedule(conn, tx, actor,
+            var scheduled = await store.WithSession(authorToken, true, (conn, tx, actor) => Store.Schedule(conn, tx, actor,
                 new(draft.Id, draft.Revision, Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds()), ct), ct);
             return draft with { Revision = scheduled.Revision };
         }
 
         async Task<ArticleState> Change(ArticleAction action, int id, long revision, string title = "") =>
-            (await publications.Command(store, token, action, new(id, revision, Guid.NewGuid(), title,
+            (await publications.Command(store, authorToken, action, new(id, revision, Guid.NewGuid(), title,
                 action == ArticleAction.Save ? "Taxonomy fixtures retain article content" : ""), ct)).Article;
 
         Task Sql(string sql, params object[] args) =>

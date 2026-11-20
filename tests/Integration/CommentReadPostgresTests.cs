@@ -374,8 +374,10 @@ public sealed class CommentReadPostgresTests
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await using var tx = await db.BeginTransactionAsync(ct);
         await FixtureSql.ExecuteAsync(db, tx, ct, """
-            insert into public.blog_user(id,name,can_author,enabled,generation)
-            values ('87dead9a-1591-4eae-846c-0192aaeeccca','comment fixture',true,true,1);
+            insert into public.blog_user(id,name,enabled,generation)
+            values ('87dead9a-1591-4eae-846c-0192aaeeccca','comment fixture',true,1);
+            insert into public.admin_principal(id,handle,user_handle,enabled,generation)
+            values ('87dead9a-1591-4eae-846c-0192aaeeccca','comment-fixture',decode(repeat('11',32),'hex'),true,1);
             insert into public.article(id,owner_id,revision,title,body,published_revision,publication_count,deleted)
             overriding system value values
             (1,'87dead9a-1591-4eae-846c-0192aaeeccca',1,'visible article','text',1,1,false),

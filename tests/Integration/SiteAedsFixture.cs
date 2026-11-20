@@ -6,6 +6,11 @@ namespace FsusBlog.V2.Integration.Tests;
 
 internal static class SiteAedsFixture
 {
+    internal static bool IsAuthoringRoute(string route) =>
+        route.StartsWith("/api/v2/authoring", StringComparison.Ordinal) ||
+        route.StartsWith("/api/v2/media", StringComparison.Ordinal) ||
+        route.StartsWith("/api/binary/author/comments", StringComparison.Ordinal);
+
     internal static HttpRequestMessage Request(HttpMethod method, string route, byte[]? frame, string? token, string? handle)
     {
         var request = new HttpRequestMessage(method, route);
@@ -14,7 +19,10 @@ internal static class SiteAedsFixture
             request.Content = new ByteArrayContent(frame);
             request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
         }
-        if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+        var authoring = IsAuthoringRoute(route);
+        if (authoring) request.Headers.Host = ServerProcess.DefaultAdminHost;
+        if (token is not null)
+            request.Headers.Add("Cookie", $"{(authoring ? ServerProcess.DefaultAdminCookie : "fsus-v2-session")}={token}");
         if (handle is not null) request.Headers.Add(WireHeaders.CurrentSession, handle);
         return request;
     }

@@ -47,7 +47,6 @@ async function check() {
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
-    else if (cause instanceof ApiError && cause.status === 403) error.value = 'admin.systemPermission'
     else error.value = 'admin.riskCheckFailed'
   } finally {
     if (request === current) {

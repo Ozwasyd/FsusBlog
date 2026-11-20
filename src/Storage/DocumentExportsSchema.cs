@@ -14,7 +14,7 @@ internal static partial class CurrentSchema
     private static readonly string[] DocumentExportConstraints =
     [
         "author_document_export p owner_id,id",
-        "author_document_export f owner_id public.blog_user:id delete-cascade",
+        "author_document_export f owner_id public.admin_principal:id delete-cascade",
         "author_document_export f article_id,source_revision public.article_revision:article_id,revision delete-cascade",
         "author_document_export c source_revision,expected_revision source_revision>=1ANDsource_revision<=expected_revision",
         "author_document_export c author_generation author_generation>0",

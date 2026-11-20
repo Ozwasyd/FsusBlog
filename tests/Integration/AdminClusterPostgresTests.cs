@@ -12,7 +12,8 @@ public sealed class AdminClusterPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var (admin, token, _) = await FixtureSql.AdminAsync(db, ct, "observer", 10, [1], [2], "audit.read");
+        var (admin, token, _) = await FixtureSql.AdminAsync(db, ct, "observer", 10, [1], [2]);
+        var siteUser = await fixture.SignInSiteUser("cluster-site-user", ct);
         var settings = new Dictionary<string, string>
         {
             ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost",
@@ -22,8 +23,7 @@ public sealed class AdminClusterPostgresTests
         await using var first = await ServerProcess.Start(fixture.ConnectionString, ct, settings);
         await Denied(first, HttpStatusCode.NotFound, token, adminOrigin: false);
         await Denied(first, HttpStatusCode.Unauthorized, null);
-        await Denied(first, HttpStatusCode.Forbidden, token);
-        await Execute("insert into public.admin_permission values($1,'system.config')", admin);
+        await Denied(first, HttpStatusCode.Unauthorized, siteUser.Token);
 
         var original = await Observation(first, token);
         Assert.Equal(1, original.Mode);

@@ -46,9 +46,9 @@ internal static class AdminSitePages
 internal sealed partial class AdminPasskeyStore
 {
     internal Task<byte[]> SitePagesOverview(string? token, SitePages pages, CancellationToken ct) =>
-        WithSession(token, CurrentSchema.SystemConfigPermission, (_, _, _) =>
+        WithSession(token, (_, _, _) =>
             Task.FromResult(Wire.EncodeAdminSitePages(new(pages.ConfiguredMask))), ct);
 
     internal Task<byte[]> SitePage(string? token, SitePages pages, string slug, CancellationToken ct) =>
-        WithSession(token, CurrentSchema.SystemConfigPermission, (db, tx, _) => pages.ConfiguredFrame(db, tx, slug, ct), ct);
+        WithSession(token, (db, tx, _) => pages.ConfiguredFrame(db, tx, slug, ct), ct);
 }

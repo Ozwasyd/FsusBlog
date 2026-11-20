@@ -14,7 +14,7 @@ internal sealed partial class AdminPasskeyStore
         """;
 
     internal Task<int> AcknowledgeInboxRead(string? token, long id, long through, string snapshot, CancellationToken ct) =>
-        WithLiveAdmin(token, Permission, async (db, tx, admin) =>
+        WithLiveAdmin(token, async (db, tx, admin) =>
         {
             if (!AdminInboxCursor.TryDecode(snapshot, admin.Digest, InboxReadScope, out var captured) ||
                 captured.First != id || captured.Second != through)

@@ -6,14 +6,27 @@ import { FrameType, WireHeaders, WireLayouts as L, WireLimits as Limit, WireRout
 import lexicon from './search-lexicon.json' with { type: 'json' };
 
 type Term = { offset: number; end: number; idf: number; hasPositions: boolean };
-type SearchArticle = ArticleCard & { length: number };
+type SearchArticle = ArticleCard & { length: number; row: number };
 type Taxon = ArticleCard['category'];
 type Shard = { documents: Map<number, SearchArticle>; matches: Map<number, number> };
 type Result = { items: ArticleCard[]; total: number; nextCursor: null };
-type PositionSpan = (id: number, start: number, end: number) => void;
+type PositionSpan = (row: number, start: number, end: number) => void;
 type CorpusPages = { generation: string; pages: Uint8Array[] };
 type CorpusCache = { corpus?: CorpusPages };
 type PreviousCorpusPage = { generation: string; bytes: Uint8Array };
+
+export type PublicSearchSort = 'relevance' | 'latest';
+export type PersistedCompactCorpus = Readonly<{ generation: string; pages: readonly Uint8Array[] }>;
+export interface CompactSearchStorage {
+  load(signal?: AbortSignal): Promise<PersistedCompactCorpus | undefined>;
+  save(corpus: PersistedCompactCorpus, signal?: AbortSignal): Promise<void>;
+  discard(generation: string, signal?: AbortSignal): Promise<void>;
+}
+export type AdmittedHit = Readonly<{ row: number; id: number; publishedAt: number; views: number; score: number }>;
+
+export function normalizePublicSearchSort(value: unknown): PublicSearchSort {
+  return value === 'latest' ? 'latest' : 'relevance';
+}
 
 const utf8 = new TextEncoder();
 const none: Taxon = { id: 0, name: '' };
@@ -223,7 +236,7 @@ function readPostings(
       else bodyPositions++;
     }
     requireWire((titlePositions === 0 || title > 0) && (bodyPositions === 0 || body > 0), 'posting position fields');
-    if (positions > 0) recordPositions?.(id, positionStart, read.offset);
+    if (positions > 0) recordPositions?.(doc.row, positionStart, read.offset);
     if (matches) {
       const frequency = title * 2.5 + meta * 0.9 + body;
       const score = term.idf * (frequency * 2.2) / (frequency + 1.2 * (0.25 + 0.75 * doc.length / meanLength));
@@ -236,47 +249,42 @@ function readPostings(
 class PhraseSpans {
   private readonly slots = new Map<number, number>();
   private readonly masks: bigint[] = [];
-  private readonly rows = new Map<number, number>();
   private readonly spans: Uint32Array;
   private readonly expected: bigint;
 
-  constructor(terms: readonly number[], documents: Map<number, SearchArticle>) {
+  constructor(terms: readonly number[], docCount: number) {
     for (const [index, hash] of terms.entries()) {
       const slot = this.slots.get(hash) ?? this.masks.length;
       this.slots.set(hash, slot);
       this.masks[slot] = (this.masks[slot] ?? 0n) | (1n << BigInt(index));
     }
-    let row = 0;
-    for (const id of documents.keys()) this.rows.set(id, row++);
-    // A validated byte range per document/query hash is sufficient for the phrase merge.
-    this.spans = new Uint32Array(documents.size * this.masks.length * 2);
+    // A validated byte range per document row/query hash is sufficient for the phrase merge.
+    this.spans = new Uint32Array(docCount * this.masks.length * 2);
     this.expected = 1n << BigInt(terms.length - 1);
   }
 
   recorder(hash: number): PositionSpan | undefined {
     const slot = this.slots.get(hash);
     if (slot === undefined) return undefined;
-    return (id, start, end) => {
-      const at = (this.rows.get(id)! * this.masks.length + slot) * 2;
+    return (row, start, end) => {
+      const at = (row * this.masks.length + slot) * 2;
       this.spans[at] = start;
       this.spans[at + 1] = end;
     };
   }
 
-  addBonuses(bytes: Bytes, matches: Map<number, number>) {
+  hasMatch(bytes: Bytes, row: number): boolean {
     const width = this.masks.length;
-    for (const [id, row] of this.rows) {
-      const first = row * width * 2;
-      let present = 0;
-      while (present < width && this.spans[first + present * 2 + 1] !== 0) present++;
-      if (present !== width) continue;
-      const positions: PositionStream[] = [];
-      for (let slot = 0; slot < width; slot++) {
-        const at = first + slot * 2;
-        positions.push(new PositionStream(bytes, this.spans[at], this.spans[at + 1], this.masks[slot]));
-      }
-      if (hasPhrase(positions, this.expected)) matches.set(id, (matches.get(id) ?? 0) + phraseBonus);
+    const first = row * width * 2;
+    for (let slot = 0; slot < width; slot++) {
+      if (this.spans[first + slot * 2 + 1] === 0) return false;
     }
+    const positions: PositionStream[] = [];
+    for (let slot = 0; slot < width; slot++) {
+      const at = first + slot * 2;
+      positions.push(new PositionStream(bytes, this.spans[at], this.spans[at + 1], this.masks[slot]));
+    }
+    return hasPhrase(positions, this.expected);
   }
 }
 
@@ -437,13 +445,13 @@ function parseCorpusPage(payload: Uint8Array, terms: readonly number[], admitted
     }
     documents.set(id, {
       id, title, summary, views, category, tags: articleTags, createdAt: publishedAt, publishedAt, updatedAt: null,
-      scheduledPublishAt: null, length, ...coordinates(b, at + 52),
+      scheduledPublishAt: null, length, row: i, ...coordinates(b, at + 52),
     });
   }
   requireWire(consumedReferences === referenceCount, 'shard tag references');
 
   const matches = new Map<number, number>();
-  const phrase = terms.length > 1 ? new PhraseSpans(terms, documents) : undefined;
+  const phrase = terms.length > 1 ? new PhraseSpans(terms, docCount) : undefined;
   const uniqueTerms = new Set(terms);
   let priorHash = -1;
   let consumed = postingAt;
@@ -465,8 +473,161 @@ function parseCorpusPage(payload: Uint8Array, terms: readonly number[], admitted
     consumed += length;
   }
   requireWire(consumed === end, 'shard trailing bytes');
-  phrase?.addBonuses(b, matches);
+  if (phrase) {
+    for (const [id, doc] of documents) {
+      if (phrase.hasMatch(b, doc.row)) matches.set(id, (matches.get(id) ?? 0) + phraseBonus);
+    }
+  }
   return { documents, matches };
+}
+
+function findTermRecord(b: Bytes, termAt: number, termCount: number, targetHash: number): number {
+  let low = 0;
+  let high = termCount - 1;
+  while (low <= high) {
+    const mid = (low + high) >>> 1;
+    const at = termAt + mid * L.SearchTermRecordSize;
+    const hash = b.u32(at);
+    if (hash === targetHash) return at;
+    if (hash < targetHash) low = mid + 1;
+    else high = mid - 1;
+  }
+  return -1;
+}
+
+function findDocumentRow(b: Bytes, docAt: number, docCount: number, targetId: number, lowStart: number): number {
+  let low = lowStart;
+  let high = docCount - 1;
+  while (low <= high) {
+    const mid = (low + high) >>> 1;
+    const id = b.u32(docAt + mid * L.SearchDocumentRecordSize);
+    if (id === targetId) return mid;
+    if (id < targetId) low = mid + 1;
+    else high = mid - 1;
+  }
+  return -1;
+}
+
+/** Fast binary-search scoring over an already-admitted FSPK v4 page without decoding non-matching strings. */
+export function scoreAdmittedCorpusPage(payload: Uint8Array, terms: readonly number[]): AdmittedHit[] {
+  requireWire(terms.length <= Limit.SearchQueryChars, 'term count');
+  if (terms.length === 0) return [];
+  const b = new Bytes(payload.subarray(L.SearchPackagePayloadOffset));
+  const termCount = b.u32(16);
+  const docCount = b.u32(20);
+  if (docCount === 0 || termCount === 0) return [];
+  const termAt = b.u32(36);
+  const docAt = b.u32(40);
+  const postingAt = b.u32(60);
+  const average = b.f32(68);
+  const scores = new Float64Array(docCount);
+  const matchedRows: number[] = [];
+  const phrase = terms.length > 1 ? new PhraseSpans(terms, docCount) : undefined;
+  const uniqueTerms = [...new Set(terms)].sort((a, b) => a - b);
+
+  for (const hash of uniqueTerms) {
+    const at = findTermRecord(b, termAt, termCount, hash);
+    if (at < 0) continue;
+    const idf = b.f32(at + 4);
+    const offset = postingAt + b.u32(at + 8);
+    const length = b.u32(at + 12);
+    const hasPositions = b.u32(at + 16) === 1;
+    const recordPositions = hasPositions ? phrase?.recorder(hash) : undefined;
+    const read = new PostingReader(b, offset, offset + length);
+    const count = read.vint();
+    let id = 0;
+    let rowHint = 0;
+    for (let i = 0; i < count; i++) {
+      id += read.vint();
+      const row = findDocumentRow(b, docAt, docCount, id, rowHint);
+      requireWire(row >= 0, 'posting document ID');
+      rowHint = row + 1;
+      const title = tf[b.u8(read.offset++)];
+      const meta = tf[b.u8(read.offset++)];
+      const body = tf[b.u8(read.offset++)];
+      const positions = read.vint();
+      const positionStart = read.offset;
+      for (let j = 0; j < positions; j++) {
+        read.vint();
+        read.vint();
+        read.vint();
+      }
+      if (positions > 0) recordPositions?.(row, positionStart, read.offset);
+      const docLength = b.u32(docAt + row * L.SearchDocumentRecordSize + 20);
+      const frequency = title * 2.5 + meta * 0.9 + body;
+      const score = idf * (frequency * 2.2) / (frequency + 1.2 * (0.25 + 0.75 * docLength / average));
+      if (scores[row] === 0) matchedRows.push(row);
+      scores[row] += score;
+    }
+  }
+
+  const hits: AdmittedHit[] = [];
+  for (const row of matchedRows) {
+    if (phrase?.hasMatch(b, row)) scores[row] += phraseBonus;
+    const at = docAt + row * L.SearchDocumentRecordSize;
+    hits.push({
+      row,
+      id: b.u32(at),
+      views: b.u32(at + 12),
+      publishedAt: b.time(at + 24),
+      score: scores[row],
+    });
+  }
+  return hits;
+}
+
+/** Decode only the requested document rows from an already-admitted FSPK v4 page. */
+export function decodeCorpusDocuments(payload: Uint8Array, rows: readonly number[]): ArticleCard[] {
+  if (rows.length === 0) return [];
+  const b = new Bytes(payload.subarray(L.SearchPackagePayloadOffset));
+  const docCount = b.u32(20);
+  const categoryCount = b.u32(24);
+  const tagCount = b.u32(28);
+  const docAt = b.u32(40);
+  const categoryAt = b.u32(44);
+  const tagAt = b.u32(48);
+  const tagRefAt = b.u32(52);
+  const stringAt = b.u32(56);
+  const postingAt = b.u32(60);
+  const readTaxon = (tableAt: number, index: number): Taxon => {
+    const at = tableAt + index * L.SearchDictionaryRecordSize;
+    return {
+      id: b.u32(at),
+      name: text(b, stringAt, b.u32(at + 4), b.u16(at + 8), postingAt, Limit.TaxonomyNameBytes),
+    };
+  };
+  const decodedCategories = new Map<number, Taxon>();
+  const decodedTags = new Map<number, Taxon>();
+  return rows.map(row => {
+    requireWire(Number.isInteger(row) && row >= 0 && row < docCount, 'document row');
+    const at = docAt + row * L.SearchDocumentRecordSize;
+    const id = b.u32(at);
+    const categoryIndex = b.u16(at + 4);
+    let category: Taxon = none;
+    if (categoryIndex !== 65535) {
+      requireWire(categoryIndex < categoryCount, 'category index');
+      category = decodedCategories.get(categoryIndex) ?? readTaxon(categoryAt, categoryIndex);
+      decodedCategories.set(categoryIndex, category);
+    }
+    const references = b.u16(at + 6);
+    const tagOffset = b.u32(at + 8);
+    const views = b.u32(at + 12);
+    const publishedAt = b.time(at + 24);
+    const title = text(b, stringAt, b.u32(at + 32), b.u16(at + 36), postingAt, Limit.TitleBytes);
+    const summary = text(b, stringAt, b.u32(at + 40), b.u16(at + 44), postingAt, 2048);
+    const articleTags: Taxon[] = [];
+    for (let j = 0; j < references; j++) {
+      const tagIndex = b.u16(tagRefAt + (tagOffset + j) * 2);
+      requireWire(tagIndex < tagCount, 'tag index');
+      const tag = decodedTags.get(tagIndex) ?? readTaxon(tagAt, tagIndex);
+      decodedTags.set(tagIndex, tag);
+      articleTags.push(tag);
+    }
+    return {
+      id, title, summary, views, category, tags: articleTags, createdAt: publishedAt, publishedAt,
+      updatedAt: null, scheduledPublishAt: null, ...coordinates(b, at + 52),
+    };
+  });
 }
 
 /** Encode the pinned raw browser search-worker result contract, separate from FAS4 HTTP. */
@@ -690,53 +851,181 @@ async function corpusRequest(
   return { generation: current, pages, bytes: await readBytes(response, Limit.SearchCorpusPageBytes) };
 }
 
+export type CorpusSearch = ((
+  query: string,
+  signal?: AbortSignal,
+  page?: number,
+  size?: number,
+  sort?: PublicSearchSort,
+) => Promise<{ frame: Uint8Array<ArrayBuffer>; generation: string | null }>) & {
+  invalidate(generation: string, signal?: AbortSignal): Promise<void>;
+};
+
 /** Search published corpus data. The consumer revalidates the result generation before display. */
-export function searchCorpus(query: string, signal?: AbortSignal, page = 1, size = 10) {
-  return runCorpusSearch(query, signal, page, size);
+export function searchCorpus(query: string, signal?: AbortSignal, page = 1, size = 10, sort: PublicSearchSort = 'relevance') {
+  return runCorpusSearch(query, signal, page, size, sort);
 }
 
-/** Keep one completely admitted generation in the owning search worker's memory. */
-export function createCorpusSearch() {
+/** Keep one completely admitted generation in the owning search worker's memory and optional persistent storage. */
+export function createCorpusSearch(options?: { storage?: CompactSearchStorage }): CorpusSearch {
+  const storage = options?.storage;
   const cache: CorpusCache = {};
   let searching = false;
-  return async (query: string, signal?: AbortSignal, page = 1, size = 10) => {
+  const search = (async (query: string, signal?: AbortSignal, page = 1, size = 10, sort: PublicSearchSort = 'relevance') => {
     requireWire(!searching, 'concurrent corpus query');
     searching = true;
     try {
-      return await runCorpusSearch(query, signal, page, size, cache);
+      return await runCorpusSearch(query, signal, page, size, sort, cache, storage);
     } catch (error) {
       cache.corpus = undefined;
       throw error;
     } finally {
       searching = false;
     }
+  }) as CorpusSearch;
+  search.invalidate = async (generation: string, signal?: AbortSignal) => {
+    if (cache.corpus?.generation === generation) cache.corpus = undefined;
+    await storage?.discard(generation, signal).catch(() => {});
   };
+  return search;
 }
 
-async function currentCachedCorpus(cache: CorpusCache, signal: AbortSignal | undefined) {
-  const prior = cache.corpus;
+function compareHits(
+  a: { score: number; publishedAt: number; id: number },
+  b: { score: number; publishedAt: number; id: number },
+  sort: PublicSearchSort,
+): number {
+  return sort === 'latest'
+    ? b.publishedAt - a.publishedAt || b.score - a.score || b.id - a.id
+    : b.score - a.score || b.publishedAt - a.publishedAt || b.id - a.id;
+}
+
+function scoreAdmittedCorpus(
+  pages: readonly Uint8Array[],
+  terms: readonly number[],
+  page: number,
+  size: number,
+  sort: PublicSearchSort,
+  signal: AbortSignal | undefined,
+): Uint8Array<ArrayBuffer> {
+  const matches: (AdmittedHit & { pageIndex: number })[] = [];
+  for (let i = 0; i < pages.length; i++) {
+    signal?.throwIfAborted();
+    for (const hit of scoreAdmittedCorpusPage(pages[i], terms)) {
+      matches.push({ ...hit, pageIndex: i });
+    }
+  }
+  matches.sort((a, b) => compareHits(a, b, sort));
+  const start = (page - 1) * size;
+  const selected = matches.slice(start, start + size);
+  const items = new Array<ArticleCard>(selected.length);
+  const byPage = new Map<number, { row: number; resultIndex: number }[]>();
+  for (let i = 0; i < selected.length; i++) {
+    const entry = selected[i];
+    const group = byPage.get(entry.pageIndex) ?? [];
+    group.push({ row: entry.row, resultIndex: i });
+    byPage.set(entry.pageIndex, group);
+  }
+  for (const [pageIndex, group] of byPage) {
+    const decoded = decodeCorpusDocuments(pages[pageIndex], group.map(entry => entry.row));
+    for (let i = 0; i < group.length; i++) items[group[i].resultIndex] = decoded[i];
+  }
+  return encodeLocalSearchResult(items, matches.length);
+}
+
+async function currentCachedCorpus(
+  cache: CorpusCache,
+  storage: CompactSearchStorage | undefined,
+  signal: AbortSignal | undefined,
+): Promise<{ admitted?: CorpusPages; persisted?: CorpusPages; previous?: CorpusPages }> {
+  let prior = cache.corpus;
+  let fromStorage = false;
+  if (!prior && storage) {
+    try {
+      const loaded = await storage.load(signal);
+      if (loaded && loaded.pages.length > 0 && loaded.pages.length <= Limit.SearchCorpusMaxPages) {
+        prior = { generation: loaded.generation, pages: [...loaded.pages] };
+        fromStorage = true;
+      }
+    } catch (error) {
+      signal?.throwIfAborted();
+    }
+  }
   if (!prior) return {};
   try {
     await verifySearchGeneration(prior.generation, signal);
-    return { admitted: prior };
+    return fromStorage ? { persisted: prior } : { admitted: prior };
   } catch (error) {
     cache.corpus = undefined;
-    if (!(error instanceof ApiError) || error.status !== 409) throw error;
-    return { previous: prior };
+    if (error instanceof ApiError && error.status === 409) return { previous: prior };
+    if (fromStorage && (error instanceof ProtocolError || error instanceof ApiError && (error.status === 404 || error.status === 503))) {
+      await storage?.discard(prior.generation).catch(() => {});
+    }
+    throw error;
   }
 }
 
-async function runCorpusSearch(query: string, signal: AbortSignal | undefined, page: number, size: number,
-  cache?: CorpusCache): Promise<{ frame: Uint8Array<ArrayBuffer>; generation: string | null }> {
+async function runCorpusSearch(
+  query: string,
+  signal: AbortSignal | undefined,
+  page: number,
+  size: number,
+  sort: PublicSearchSort = 'relevance',
+  cache?: CorpusCache,
+  storage?: CompactSearchStorage,
+): Promise<{ frame: Uint8Array<ArrayBuffer>; generation: string | null }> {
   requireWire(Number.isInteger(page) && page > 0 && page <= 10000 &&
     Number.isInteger(size) && size > 0 && size <= 100, 'query page');
   const terms = searchTerms(query);
   signal?.throwIfAborted();
   if (terms.length === 0) return { frame: encodeLocalSearchResult([], 0), generation: null };
 
-  const { admitted, previous } = cache ? await currentCachedCorpus(cache, signal) : {};
+  const cached = cache ? await currentCachedCorpus(cache, storage, signal) : {};
+  if (cached.admitted) {
+    const encoded = scoreAdmittedCorpus(cached.admitted.pages, terms, page, size, sort, signal);
+    signal?.throwIfAborted();
+    return { frame: encoded, generation: cached.admitted.generation };
+  }
+
+  if (cached.persisted) {
+    try {
+      const ids = new Set<number>();
+      const matches: { article: SearchArticle; score: number }[] = [];
+      let totalBytes = 0;
+      const pages = cached.persisted.pages;
+      for (let i = 0; i < pages.length; i++) {
+        signal?.throwIfAborted();
+        totalBytes += pages[i].length;
+        requireWire(totalBytes <= Limit.SearchCorpusTotalBytes, 'corpus pages or byte budget');
+        const shard = queryCorpusPage(pages[i], terms);
+        requireWire(pages.length === 1 || shard.documents.size > 0, 'empty corpus page');
+        for (const article of shard.documents.values()) {
+          requireWire(!ids.has(article.id), 'duplicate corpus article');
+          ids.add(article.id);
+          const score = shard.matches.get(article.id);
+          if (score !== undefined) matches.push({ article, score });
+        }
+      }
+      matches.sort((a, b) => compareHits(
+        { score: a.score, publishedAt: a.article.createdAt, id: a.article.id },
+        { score: b.score, publishedAt: b.article.createdAt, id: b.article.id },
+        sort,
+      ));
+      const start = (page - 1) * size;
+      const encoded = encodeLocalSearchResult(matches.slice(start, start + size).map(hit => hit.article), matches.length);
+      signal?.throwIfAborted();
+      if (cache) cache.corpus = cached.persisted;
+      return { frame: encoded, generation: cached.persisted.generation };
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (!(error instanceof ProtocolError)) throw error;
+      await storage?.discard(cached.persisted.generation).catch(() => {});
+    }
+  }
+
   // Reused or reconstructed pages still pass the canonical parser and generation checks.
   // Retire unmatched buffers as we go under the same aggregate budget between requests.
+  const previous = cached.previous;
   const reusable: (Uint8Array | undefined)[] | undefined = previous?.pages;
   let unusedBytes = reusable?.reduce((sum, bytes) => sum + (bytes?.length ?? 0), 0) ?? 0;
   function takePrevious(pageNumber: number): PreviousCorpusPage | undefined {
@@ -747,20 +1036,14 @@ async function runCorpusSearch(query: string, signal: AbortSignal | undefined, p
       return { generation: previous.generation, bytes: old };
     }
   }
-  const first = admitted
-    ? { generation: admitted.generation, pages: admitted.pages.length, bytes: admitted.pages[0] }
-    : await corpusRequest(signal, undefined, 1, takePrevious(1));
-  const pendingPages: Uint8Array[] | undefined = cache && !admitted ? [] : undefined;
-  const ids = new Set<number>();
-  const matches: { article: SearchArticle; score: number }[] = [];
-  let totalBytes = 0;
-  for (let i = 1; i <= first.pages; i++) {
-    signal?.throwIfAborted();
-    let shard: Shard;
-    if (admitted) {
-      // Buffers are private to this worker and all postings were validated on cold load.
-      shard = parseCorpusPage(admitted.pages[i - 1], terms, true);
-    } else {
+  try {
+    const first = await corpusRequest(signal, undefined, 1, takePrevious(1));
+    const pendingPages: Uint8Array[] | undefined = cache ? [] : undefined;
+    const ids = new Set<number>();
+    const matches: { article: SearchArticle; score: number }[] = [];
+    let totalBytes = 0;
+    for (let i = 1; i <= first.pages; i++) {
+      signal?.throwIfAborted();
       const loaded = i === 1 ? first : await corpusRequest(signal, first.generation, i, takePrevious(i));
       totalBytes += loaded.bytes.length;
       requireWire(loaded.pages === first.pages && totalBytes <= Limit.SearchCorpusTotalBytes, 'corpus pages or byte budget');
@@ -768,23 +1051,33 @@ async function runCorpusSearch(query: string, signal: AbortSignal | undefined, p
         reusable.fill(undefined);
         unusedBytes = 0;
       }
-      shard = queryCorpusPage(loaded.bytes, terms);
+      const shard = queryCorpusPage(loaded.bytes, terms);
       pendingPages?.push(loaded.bytes);
+      requireWire(first.pages === 1 || shard.documents.size > 0, 'empty corpus page');
+      for (const article of shard.documents.values()) {
+        requireWire(!ids.has(article.id), 'duplicate corpus article');
+        ids.add(article.id);
+        const score = shard.matches.get(article.id);
+        if (score !== undefined) matches.push({ article, score });
+      }
     }
-    requireWire(first.pages === 1 || shard.documents.size > 0, 'empty corpus page');
-    for (const article of shard.documents.values()) {
-      requireWire(!ids.has(article.id), 'duplicate corpus article');
-      ids.add(article.id);
-      const score = shard.matches.get(article.id);
-      if (score !== undefined) matches.push({ article, score });
+    matches.sort((a, b) => compareHits(
+      { score: a.score, publishedAt: a.article.createdAt, id: a.article.id },
+      { score: b.score, publishedAt: b.article.createdAt, id: b.article.id },
+      sort,
+    ));
+    const start = (page - 1) * size;
+    const encoded = encodeLocalSearchResult(matches.slice(start, start + size).map(hit => hit.article), matches.length);
+    signal?.throwIfAborted();
+    if (cache && pendingPages) {
+      cache.corpus = { generation: first.generation, pages: pendingPages };
+      await storage?.save({ generation: first.generation, pages: pendingPages }, signal).catch(() => {});
     }
+    return { frame: encoded, generation: first.generation };
+  } catch (error) {
+    if (previous) await storage?.discard(previous.generation).catch(() => {});
+    throw error;
   }
-  matches.sort((a, b) => b.score - a.score || b.article.createdAt - a.article.createdAt || b.article.id - a.article.id);
-  const start = (page - 1) * size;
-  const encoded = encodeLocalSearchResult(matches.slice(start, start + size).map(hit => hit.article), matches.length);
-  signal?.throwIfAborted();
-  if (cache && pendingPages) cache.corpus = { generation: first.generation, pages: pendingPages };
-  return { frame: encoded, generation: first.generation };
 }
 
 /** Final same-origin visibility check before a worker result is made visible. */

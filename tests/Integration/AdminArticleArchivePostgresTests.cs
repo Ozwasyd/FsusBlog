@@ -25,11 +25,8 @@ public sealed partial class AdminArticleRollbackPostgresTests
             Publishing.Fingerprint(ArticleAction.Publish, new(1, 1, previousAuthorCommand, "", "")), author, previousAuthorCommand);
         var administrator = await CreateAdmin(db, ct, "archive-administrator", true);
         var other = await CreateAdmin(db, ct, "other-archive-administrator", true);
-        var manager = await CreateAdmin(db, ct, "archive-without-write-grant", false);
-        var loginSecret = RandomNumberGenerator.GetBytes(32);
-        await Execute("insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,clock_timestamp()+interval '1 minute')",
-            SHA256.HashData(loginSecret), author);
-        var session = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(loginSecret), ct);
+        var siteSession = await fixture.SignInSiteUser("archive-site-reader", ct, minutes: 1);
+        var session = await fixture.SignIn(author, ct, minutes: 1);
         var service = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
         var publications = PublicationFixture.Project(fixture.DataSource);
         await publications.Refresh(ct);
@@ -41,10 +38,9 @@ public sealed partial class AdminArticleRollbackPostgresTests
         var draft = new AdminArticleDraftRollbackIntent(1, 2, 2, 1, archive.IdempotencyKey, archive.Reason, 0);
         Assert.False(archiveDigest.AsSpan().SequenceEqual(AdminPasskeyStore.ArticleDraftRollbackIntentDigest(draft)));
         await Denied(Rejection.Unauthorized, () => service.CheckArticleArchiveAvailability(null, ct));
-        await Denied(Rejection.Unauthorized, () => service.CheckArticleArchiveAvailability(session.Token, ct));
-        await Denied(Rejection.Forbidden, () => service.CheckArticleArchiveAvailability(manager.Token, ct));
+        await Denied(Rejection.Unauthorized, () => service.CheckArticleArchiveAvailability(siteSession.Token, ct));
         await service.CheckArticleArchiveAvailability(administrator.Token, ct);
-        await Denied(Rejection.Forbidden, () => service.ListArchivedArticles(manager.Token, 0, ct));
+        await Denied(Rejection.Unauthorized, () => service.ListArchivedArticles(siteSession.Token, 0, ct));
         Assert.Empty((await service.ListArchivedArticles(administrator.Token, 0, ct)).Items);
         await Denied(Rejection.Conflict, () => service.BeginArticleArchiveStepUp(administrator.Token, archive with { ExpectedReleaseId = 99 }, ct));
         var begin = await service.BeginArticleArchiveStepUp(administrator.Token, archive, ct);
@@ -109,8 +105,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         var rawSource = shown with { Markdown = "\uFEFF原文\r\n末尾空格  \n" };
         Assert.Equal(rawSource, Wire.DecodeAdminArticleArchivePreview(Wire.EncodeAdminArticleArchivePreview(rawSource)));
         await Denied(Rejection.Unauthorized, () => service.PreviewArchivedArticle(null, 1, 3, archived.ReleaseId, ct));
-        await Denied(Rejection.Unauthorized, () => service.PreviewArchivedArticle(session.Token, 1, 3, archived.ReleaseId, ct));
-        await Denied(Rejection.Forbidden, () => service.PreviewArchivedArticle(manager.Token, 1, 3, archived.ReleaseId, ct));
+        await Denied(Rejection.Unauthorized, () => service.PreviewArchivedArticle(siteSession.Token, 1, 3, archived.ReleaseId, ct));
         await Denied(Rejection.Conflict, () => service.PreviewArchivedArticle(other.Token, 2, 3, archived.ReleaseId, ct));
         await Denied(Rejection.Conflict, () => service.PreviewArchivedArticle(other.Token, 1, 2, archived.ReleaseId, ct));
         await Denied(Rejection.Conflict, () => service.PreviewArchivedArticle(other.Token, 1, 3, 2, ct));

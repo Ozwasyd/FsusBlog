@@ -11,10 +11,9 @@ namespace FsusBlog.V2.Server.Administration;
 internal static class AdminCommentAppeals
 {
     internal static void Map(WebApplication app, string origin, AdminPasskeyStore store, string session, string passkeyLimit,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, bool fenceVisibleMessages)
     {
         var actions = new AdminActionRoutes(app, origin, session, readFrame);
-        var fenceVisibleMessages = app.Configuration.GetValue(InboxActivityFence.Setting, false);
         app.MapGet(WireRoutes.AdminCommentAppeals, async (HttpContext ctx, CancellationToken ct) =>
             Frame(await store.ReadAppeals(ctx.Request.Cookies[session], ctx.Request.Query, ct))).RequireRateLimiting("command");
 
@@ -45,7 +44,7 @@ internal static class AdminCommentAppeals
 internal sealed partial class AdminPasskeyStore
 {
     internal Task<byte[]> ReadAppeals(string? session, IQueryCollection query, CancellationToken ct) =>
-        WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await CommentAppeals.RequireSchema(db, tx, ct);
             await using var select = Store.Sql(db, tx, $"""
@@ -82,7 +81,7 @@ internal sealed partial class AdminPasskeyStore
     {
         var input = Wire.DecodeAdminAppeal(frame);
         var reason = CommentAppeals.Reason(input.Reason);
-        return WithLiveAdmin(session, CurrentSchema.CommentModeratePermission, async (db, tx, admin) =>
+        return WithLiveAdmin(session, async (db, tx, admin) =>
         {
             var (article, comment, version) = await VerifyAppeal(db, tx, id, admin.Id, ct);
             if (proof is not { Length: 43 } || !proof.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_') ||

@@ -13,7 +13,7 @@ internal static partial class CurrentSchema
     [
         "private_media_upload p id",
         "private_media_upload u owner_id,command_id",
-        "private_media_upload f owner_id public.blog_user:id",
+        "private_media_upload f owner_id public.admin_principal:id",
         "private_media_upload f asset_id public.private_media:id",
         "private_media_upload c name octet_length(name)>=1ANDoctet_length(name)<=255",
         "private_media_upload c format format>=1ANDformat<=2",

@@ -14,13 +14,6 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
     private sealed record Family(Guid Id, byte[] Access, byte[] Refresh, byte[]? PreviousAccess, long Generation, bool Active,
         bool Recent, long AccountGeneration);
 
-    internal static bool ReadConfiguration(IConfiguration settings) => settings[Setting] switch
-    {
-        null or "false" => false,
-        "true" => true,
-        _ => throw new InvalidOperationException(Setting + " must be true or false.")
-    };
-
     internal static async Task<Issued> Start(NpgsqlConnection db, NpgsqlTransaction tx, string access,
         DateTimeOffset accessExpires, CancellationToken ct)
     {

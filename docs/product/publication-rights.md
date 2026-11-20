@@ -109,7 +109,7 @@ jq -n --slurpfile head head.json --slurpfile member member.json \
 在独立的签名账户中，用下列命令每日生成一份只读的版本 2 归档候选。省略日期时取 PostgreSQL 主库事务开始时间对应的前一个 UTC 日。附带日期可以补签已关闭的历史日。
 
 ```sh
-dotnet migrate/FsusBlogV2.Migrate.dll publication-transparency checkpoint-daily-auto \
+dotnet cli/FsusBlog.V2.Cli.dll publication-transparency checkpoint-daily-auto \
   HTTPS_ORIGIN KEYS_JSON ANCHOR_SEQ ANCHOR_SHA256 OUTPUT_ROOT [YYYY-MM-DD]
 ```
 

@@ -13,11 +13,13 @@ internal static class PasskeyEndpoints
     private const string ProvisionCookiePath = "/api/v2/identity/passkey/register";
 
     internal static void Map(WebApplication app, string sessionCookie,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, RecoveryKeySecret? recoveryKey, bool persistentEnabled)
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, SiteCapabilities capabilities)
     {
-        var configuration = PasskeyConfiguration.Read(app.Configuration);
+        var configuration = capabilities.SitePasskey;
         var secrets = TotpSecret.Read(app.Configuration);
-        var readerRegistration = string.Equals(app.Configuration["FSUSBLOG_READER_REGISTRATION"], "true", StringComparison.OrdinalIgnoreCase);
+        var recoveryKey = capabilities.RecoveryKey;
+        var persistentEnabled = capabilities.SitePersistentRefresh;
+        var readerRegistration = capabilities.ReaderRegistration;
         if (configuration is null)
         {
             if (readerRegistration)

@@ -187,7 +187,7 @@ public sealed class ArticleReadAuthorityPostgresTests
     {
         var actor = new Identity(Guid.NewGuid(), "read-proof-owner", 1, true, DateTimeOffset.UtcNow.AddHours(1));
         await using var tx = await db.BeginTransactionAsync(ct);
-        await FixtureSql.ExecuteAsync(db, tx, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)", actor.Id, actor.Name);
+        await FixtureSql.AdminPrincipalAsync(db, tx, ct, actor.Id, actor.Name);
         var (saved, _) = await Store.Execute(db, tx, actor, ArticleAction.Save, new(0, 0, Guid.NewGuid(), "Read article", "Public body."), ct);
         _ = await Store.Execute(db, tx, actor, ArticleAction.Publish, new(saved.Id, saved.Revision, Guid.NewGuid(), "", ""), ct);
         await tx.CommitAsync(ct);

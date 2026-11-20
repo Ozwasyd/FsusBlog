@@ -20,22 +20,21 @@ public sealed class AdminOperationsPostgresTests
 
         var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
         var publications = PublicationFixture.Project(fixture.DataSource);
-        await Denied(Rejection.Forbidden, () => adminStore.OperationsStatus(key, publications, ct));
         await Denied(Rejection.Unauthorized, () => adminStore.OperationsStatus(null, publications, ct));
-        await Execute("insert into public.admin_permission values($1,$2)", admin, CurrentSchema.AuditReadPermission);
         var (empty, binding) = await adminStore.OperationsStatus(key, publications, ct);
         Assert.Equal((await adminStore.SessionWithPermissionBinding(key, ct)).PermissionSession, binding);
         Assert.Equal(new AdminOperationsStatus(false, 0, 0, 0), empty);
 
         var site = new Store(fixture.DataSource);
         var ticket = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        await Execute("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'owner',true,true,1)", actor);
+        await Execute("insert into public.blog_user(id,name,enabled,generation) values($1,'reader',true,1)", actor);
         await Execute("insert into public.login_ticket values($1,$2,clock_timestamp()+interval '5 minutes')", Store.TokenDigest(ticket)!, actor);
         var (siteToken, _) = await site.SignIn(ticket, ct);
         await Denied(Rejection.Unauthorized, () => adminStore.OperationsStatus(siteToken, publications, ct));
-        var (draft, _) = await publications.Command(site, siteToken, ArticleAction.Save,
+        var (_, authorToken, _) = await fixture.SignIn("owner", ct);
+        var (draft, _) = await publications.Command(site, authorToken, ArticleAction.Save,
             new Edit(0, 0, Guid.NewGuid(), "A fixture article", "A fixture body"), ct);
-        await publications.Command(site, siteToken, ArticleAction.Publish,
+        await publications.Command(site, authorToken, ArticleAction.Publish,
             new Edit(draft.Id, draft.Revision, Guid.NewGuid(), "A fixture article", "A fixture body"), ct);
         var (published, _) = await adminStore.OperationsStatus(key, publications, ct);
         Assert.True(published.SnapshotReady);

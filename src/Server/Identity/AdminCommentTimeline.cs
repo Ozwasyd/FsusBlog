@@ -10,7 +10,7 @@ internal sealed partial class AdminPasskeyStore
     private const int CommentTimelineEvents = 128;
 
     internal Task<byte[]> CommentTimeline(string? token, long id, IQueryCollection query, CancellationToken ct) =>
-        WithSession(token, CurrentSchema.CommentModeratePermission, async (db, tx, _) =>
+        WithSession(token, async (db, tx, _) =>
         {
             var article = TimelineArticle(query);
             var hasOwnership = await CurrentSchema.HasCommentAuthorDeleteSchemaAsync(db, tx, ct);

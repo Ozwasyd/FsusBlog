@@ -11,6 +11,10 @@ public sealed class AdminDocumentRouteTests
     [Theory]
     [InlineData("/admin")]
     [InlineData("/admin/articles")]
+    [InlineData("/admin/articles/write")]
+    [InlineData("/admin/articles/workspace")]
+    [InlineData("/admin/canvas")]
+    [InlineData("/admin/assets")]
     [InlineData("/admin/interaction")]
     [InlineData("/admin/site")]
     [InlineData("/admin/system")]
@@ -34,17 +38,25 @@ public sealed class AdminDocumentRouteTests
     [InlineData("/")]
     [InlineData("/login")]
     [InlineData("/user/manage/article/list")]
-    [InlineData("/api/v2/identity/session.aeds")]
     public void AdministratorOriginDoesNotBecomeAnApplicationCatchAll(string path) =>
         Assert.False(AdminIdentityEndpoints.IsAllowed(Request("https", "admin.example.test", path), Configuration));
 
     [Theory]
     [InlineData("/api/v2/admin/identity/session.aeds")]
     [InlineData("/api/v2/admin/identity/passkey/login/begin.aeds")]
+    [InlineData("/api/v2/authoring/save.aeds")]
+    [InlineData("/api/v2/media/upload.aeds")]
     public void AdministratorApiOriginSeparationIsUnchanged(string path)
     {
         Assert.True(AdminIdentityEndpoints.IsAllowed(Request("https", "admin.example.test", path), Configuration));
         Assert.False(AdminIdentityEndpoints.IsAllowed(Request("https", "public.example.test", path), Configuration));
+    }
+
+    [Fact]
+    public void SessionProbeIsSharedAcrossAdminAndPublicOrigins()
+    {
+        Assert.True(AdminIdentityEndpoints.IsAllowed(Request("https", "admin.example.test", "/api/v2/identity/session.aeds"), Configuration));
+        Assert.True(AdminIdentityEndpoints.IsAllowed(Request("https", "public.example.test", "/api/v2/identity/session.aeds"), Configuration));
     }
 
     private static DefaultHttpContext Request(string scheme, string host, string path)

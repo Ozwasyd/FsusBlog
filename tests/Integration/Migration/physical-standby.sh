@@ -116,7 +116,7 @@ wait_ready() {
 }
 start_pg "$run/primary" "$evidence/primary-postgres.log" "$primary_sock"
 primary_live=1
-migrate=(env -i PATH="$PATH" LC_ALL=C FSUSBLOG_DB="$(dsn "$primary_sock")" "$dotnet" "$payload/migrate/FsusBlogV2.Migrate.dll")
+migrate=(env -i PATH="$PATH" LC_ALL=C FSUSBLOG_DB="$(dsn "$primary_sock")" "$dotnet" "$payload/cli/FsusBlog.V2.Cli.dll")
 "${migrate[@]}" plan > "$run/plan.json"
 "${migrate[@]}" apply "$run/plan.json"
 "${migrate[@]}" verify
@@ -164,8 +164,8 @@ if ((rejoin)); then
   pg_ctl -D "$run/standby" -m fast -w -t 15 stop
   standby_live=0
   [[ ! -S "$standby_sock/.s.PGSQL.$port" ]]
-  q "$primary_sock" "insert into blog_user(id,name,can_author,enabled,generation)
-    values('$divergent_id','discarded old timeline fixture',false,false,1)" >/dev/null
+  q "$primary_sock" "insert into blog_user(id,name,enabled,generation)
+    values('$divergent_id','discarded old timeline fixture',false,1)" >/dev/null
   divergent_lsn=$(q "$primary_sock" 'select pg_current_wal_flush_lsn()')
   [[ $divergent_lsn =~ ^[0-9A-F]+/[0-9A-F]+$ ]]
   [[ "$(q "$primary_sock" "select pg_current_wal_flush_lsn() > '$boundary'::pg_lsn")" == t ]]

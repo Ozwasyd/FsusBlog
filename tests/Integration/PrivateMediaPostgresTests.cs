@@ -43,7 +43,7 @@ public sealed partial class PrivateMediaPostgresTests
             using var truncated = await Upload(server.Client, primary, command, "sample.png", "image/png", png[..24], ct);
             Assert.Equal(HttpStatusCode.BadRequest, truncated.StatusCode);
             using var unable = await Upload(server.Client, reader, command, "sample.png", "image/png", png, ct);
-            Assert.Equal(HttpStatusCode.Forbidden, unable.StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, unable.StatusCode);
             Assert.Empty(directory.EnumerateFiles());
 
             // Trailing payload/metadata is removed by rendering decoded pixels into a new PNG.
@@ -773,7 +773,7 @@ public sealed partial class PrivateMediaPostgresTests
             await using (var server = await ServerProcess.Start(db.ConnectionString, ct, settings))
             {
                 using var auth = await Begin(server.Client, reader, key, "resumable.png", image, ct);
-                Assert.Equal(HttpStatusCode.Forbidden, auth.StatusCode);
+                Assert.Equal(HttpStatusCode.Unauthorized, auth.StatusCode);
                 using var advertised = await Send(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaList, owner, ct);
                 Assert.Equal("1", Assert.Single(advertised.Headers.GetValues(WireHeaders.PrivateMediaResumable)));
                 using var webpBeforeUpgrade = await Begin(server.Client, owner, key, "resumable.webp",

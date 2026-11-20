@@ -22,12 +22,12 @@ public sealed class AdminSignInHistoryPostgresTests
         var other = await AddAdmin(db, "history-other", ct);
         var site = Guid.NewGuid();
         var siteToken = NewToken();
-        await Execute(db, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'Site author',true,true,1)", site);
+        await Execute(db, null, ct, "insert into public.blog_user(id,name,enabled,generation) values($1,'Site reader',true,1)", site);
         await Execute(db, null, ct, """
             insert into public.user_session(digest,user_id,generation,expires_at)
             values($1,$2,1,clock_timestamp()+interval '10 minutes')
             """, Digest(siteToken), site);
-        Assert.Equal(site, await new Store(fixture.DataSource).WithSession(siteToken, true, (_, _, actor) => Task.FromResult(actor.Id), ct));
+        Assert.Equal(site, await new Store(fixture.DataSource).WithSession(siteToken, false, (_, _, actor) => Task.FromResult(actor.Id), ct));
         await Denied(() => store.RecentSignIns(siteToken, ct));
         await Denied(() => store.RecentSignIns(null, ct));
 
@@ -62,7 +62,7 @@ public sealed class AdminSignInHistoryPostgresTests
             [new(1, 5, 0, AdminSignInState.Current), new(1, 5, 0, AdminSignInState.Current)])));
         Assert.Throws<ProtocolException>(() => Wire.EncodeAdminSignInHistory(new(1, [new(1, 5, 3, AdminSignInState.Expired)])));
 
-        await Execute(db, null, ct, "delete from public.admin_permission where principal_id=$1", owner);
+        await Execute(db, null, ct, "update public.admin_principal set enabled=false where id=$1", owner);
         await Denied(() => store.RecentSignIns(ownerToken, ct));
     }
 
@@ -171,8 +171,6 @@ public sealed class AdminSignInHistoryPostgresTests
             insert into public.admin_passkey_credential(credential_id,principal_id,public_key,sign_count,backup_eligible,backed_up)
             values($1,$2,$3,0,false,false)
             """, RandomNumberGenerator.GetBytes(32), principal, new byte[] { 1 });
-        await Execute(db, null, ct, "insert into public.admin_permission(principal_id,permission) values($1,$2)",
-            principal, CurrentSchema.AdminManagePermission);
         return principal;
     }
 

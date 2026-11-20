@@ -254,7 +254,9 @@ def dump_command(endpoint, major, snapshot):
 
 def migrate_command():
     binary = os.environ.get("DOTNET_BIN", "dotnet")
-    assembly = os.environ.get("FSUSBLOG_MIGRATE_DLL", "src/Migrate/bin/Release/net10.0/FsusBlogV2.Migrate.dll")
+    assembly = (os.environ.get("FSUSBLOG_CLI_DLL")
+                or os.environ.get("FSUSBLOG_MIGRATE_DLL")
+                or "src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll")
     return [binary, assembly, "backup", "measure"]
 
 

@@ -20,14 +20,14 @@ internal static class AdminInboxEndpoints
     internal sealed class LiveSocket;
 
     internal static void Map(WebApplication app, AdminPasskeyStore store, string session,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, SiteCapabilities capabilities)
     {
-        var replies = app.Configuration.GetValue(ReplySetting, false);
-        var status = app.Configuration.GetValue(StatusSetting, false);
-        var notice = app.Configuration.GetValue(NoticeSetting, false);
-        var sharedRead = app.Configuration.GetValue(SharedReadSetting, false);
-        var live = app.Configuration.GetValue(LiveSetting, false);
-        var activityOrder = app.Configuration.GetValue(InboxActivityFence.Setting, false);
+        var replies = capabilities.AdminInboxReplies;
+        var status = capabilities.AdminInboxStatus;
+        var notice = capabilities.AdminInboxNotice;
+        var sharedRead = capabilities.AdminInboxSharedRead;
+        var live = capabilities.AdminInboxLive;
+        var activityOrder = capabilities.AdminInboxActivityOrder;
         app.MapGet(WireRoutes.AdminInboxQueue, async (HttpContext ctx, CancellationToken ct) =>
         {
             var shared = Shared(ctx);

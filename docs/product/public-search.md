@@ -20,7 +20,9 @@ Chrome 157 用 220 篇实库文章验证两个分片。发布和撤回第 221 �
 
 ## 大语料
 
-生产搜索由 TypeScript Worker 生成 FSR4，页内使用原浮点 IDF、平均长度和位置数据，跨页按得分、发布时间和 ID 降序合并。短语计算每页最多保留 200 KiB 的位置范围表，并合并所查询词的有序位置。紧凑档在 Worker 内存保留一代完整 FSPK 页，复用和显示前各检查一次代次。旧代页在同页返回匹配的强 ETag 和空体 304 后重新校验。固定 v1 通过 Emscripten runtime 加载角色分片，使用 Service Worker 的 CacheStorage 保存资产。固定原始排序与当前 Worker 排序的差分由各自的向量验收。 [当前 Worker](../../src/Web/src/search.worker.ts) · [短语差分](../../tests/Protocol/local-search-positions.test.ts) · [固定 v1 排名](v1-search-ranking-oracle.md) · [同一 core 分片的差分](../../tests/Protocol/v1-search-ranking-differential.test.mjs)
+生产搜索由 TypeScript Worker 生成 FSR4，页内使用原浮点 IDF、平均长度和位置数据，跨页支持 `relevance`（默认，按得分、发布时间和 ID 降序）与 `latest`（按发布时间、得分和 ID 降序）两种排序合并。短语计算每页最多保留 200 KiB 的位置范围表，并合并所查询词的有序位置。紧凑档在 Worker 内存及安全上下文的独立 IndexedDB（`fsusblog-v2-compact-search-v1`，由同源 Web Lock 协调并附逐页 SHA-256 摘要）保留一代完整 FSPK 页；离开 `/search` 仍终止 Worker，重返 `/search`、刷新或跨标签页可经两次代次 HEAD 复验直接复用封存页，代次变化时以封存页作为 `If-None-Match`（304）与 FSPT v4 增量刷新基线，确认失效或损坏时立即清除关联缓存。已准入的 FSPK v4 页（紧凑档热内存页及宽档经服务端清单 SHA-256 校验的封存页）评分走有序词项与文档二分查找并仅延迟解码当前展示页命中的行，冷准入仍执行完整结构校验。
+
+服务配置 `FSUSBLOG_PUBLIC_SEARCH_MODE` 支持 `auto`（默认）、`local` 和 `server`（非法值启动即失败）。`auto` 模式下，紧凑档返回 503 时优先使用已启用且具备存储条件的宽档，宽档未启用或不可用时无缝回落到零数据库查询的服务端 FAS4，并在当前 `/search` 访问周期内直连 FAS4 且释放 Worker（宽档损坏或撤回 409 仍严格拒绝，不静默回落）；`server` 模式通过 `<meta name="fsus-public-search-mode" content="server">` 指示前端直连服务端 FAS4（不启动 Worker）；`local` 模式保持严格本地路径。 [当前 Worker](../../src/Web/src/search.worker.ts) · [紧凑档存储](../../src/Web/src/compactSearchStorage.ts) · [短语差分](../../tests/Protocol/local-search-positions.test.ts) · [固定 v1 排名](v1-search-ranking-oracle.md) · [同一 core 分片的差分](../../tests/Protocol/v1-search-ranking-differential.test.mjs)
 
 FSPK 编码器使用同一逐页生产者服务现有内存收集器与诊断暂存目标。每次输出包含页号、文章数、首末文章 ID 和完整原始页。单页仍最多 200 篇和 8 MiB，现有 HTTP 路径仍最多 128 页和 64 MiB。暂存调用显式给出界限，最多接受 512 页和 256 MiB，这组上限供独立测量使用。预算未满足、取消或暂存方拒绝时丢弃全部暂存页。
 

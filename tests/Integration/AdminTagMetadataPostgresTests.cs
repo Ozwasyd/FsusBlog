@@ -35,8 +35,8 @@ public sealed class AdminTagMetadataPostgresTests
         var baseline = publications.Snapshot!;
         Assert.Equal(0L, baseline.TaxonomyEpoch);
         Assert.Equal(1, baseline.Taxonomy.TagByName("Ancienne"));
-        await Assert.ThrowsAsync<BusinessException>(() => admin.ReadTagMetadata(token, 1, ct));
-        await Sql("insert into public.admin_permission values($1,$2)", id, CurrentSchema.ArticleWritePermission);
+        var siteUser = await fixture.SignInSiteUser("tag-site-user", ct);
+        Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(() => admin.ReadTagMetadata(siteUser.Token, 1, ct))).Rejection);
 
         var pow = new ScopedPow(TimeProvider.System);
         var first = new AdminTagMetadataCommand(1, 0, Guid.NewGuid(), "Cafe\u0301 nouveau", " Changed description. ");
@@ -118,7 +118,7 @@ public sealed class AdminTagMetadataPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var (_, token, _) = await FixtureSql.AdminAsync(db, ct, "tag-creator", 10, [1], [2], CurrentSchema.ArticleWritePermission);
+        var (_, token, _) = await FixtureSql.AdminAsync(db, ct, "tag-creator", 10, [1], [2]);
         await FixtureSql.ExecuteAsync(db, null, ct,
             "insert into public.tag(id,name) values(4,'Retired tag successor'),(70,$1)", "Cafe\u0301 existant");
         await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.tag_url_name values('RETIRED TOPIC',4)");

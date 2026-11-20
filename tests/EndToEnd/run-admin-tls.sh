@@ -26,7 +26,7 @@ for executable in "$dotnet" "$caddy" "${pg}psql" "${pg}createdb" "${pg}dropdb" o
   command -v "$executable" >/dev/null || { printf 'Missing executable: %s\n' "$executable" >&2; exit 2; }
 done
 server=${FSUSBLOG_NATIVE_SERVER_BUILD:-$repo/src/Server/bin/Release/net10.0}/FsusBlog.V2.Server.dll
-migrate=${FSUSBLOG_NATIVE_MIGRATE_BUILD:-$repo/src/Migrate/bin/Release/net10.0}/FsusBlogV2.Migrate.dll
+migrate=${FSUSBLOG_NATIVE_MIGRATE_BUILD:-$repo/src/Cli/bin/Release/net10.0}/FsusBlog.V2.Cli.dll
 export FSUSBLOG_WEB_DIST=${FSUSBLOG_WEB_DIST:-$repo/src/Web/dist}
 export FSUSBLOG_TEST_CHROME=${FSUSBLOG_TEST_CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}
 for path in "$server" "$migrate" "$FSUSBLOG_WEB_DIST/index.html"; do
@@ -224,7 +224,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_INBOX:-0} == 1 ]]; then
     export FSUSBLOG_ADMIN_INBOX_ACTIVITY_ORDER=false
   fi
 fi
-FSUSBLOG_TEST_ADMIN_TICKET=$("$dotnet" "$migrate" admin-identity bootstrap tls-admin-fixture admin.manage)
+FSUSBLOG_TEST_ADMIN_TICKET=$("$dotnet" "$migrate" admin-identity bootstrap tls-admin-fixture)
 export FSUSBLOG_TEST_SITE_TICKET FSUSBLOG_TEST_ADMIN_TICKET
 export FSUSBLOG_TEST_TLS_DOTNET="$dotnet" FSUSBLOG_TEST_TLS_MIGRATE="$migrate"
 export FSUSBLOG_TEST_ADMIN_REVOKE="$scratch/revoke-admin"
@@ -441,9 +441,7 @@ EOF
     chmod 700 "$FSUSBLOG_TEST_REPLY_PARENT_TICKET"
   fi
   if [[ ${FSUSBLOG_TEST_COMMENT_APPEAL:-0} == 1 ]]; then
-    "$dotnet" "$migrate" admin-identity bootstrap tls-appeal-reviewer admin.manage > /dev/null
-    "$dotnet" "$migrate" admin-identity grant tls-appeal-reviewer comment.moderate > "$evidence/appeal-reviewer-grant.log"
-    FSUSBLOG_TEST_APPEAL_REVIEWER_TICKET=$("$dotnet" "$migrate" admin-identity rotate-passkey tls-appeal-reviewer)
+    FSUSBLOG_TEST_APPEAL_REVIEWER_TICKET=$("$dotnet" "$migrate" admin-identity bootstrap tls-appeal-reviewer)
     export FSUSBLOG_TEST_APPEAL_REVIEWER_TICKET
     export FSUSBLOG_TEST_APPEAL_OWNER_TICKET="$scratch/issue-appeal-owner-ticket"
     cat > "$FSUSBLOG_TEST_APPEAL_OWNER_TICKET" <<'EOF'
@@ -877,7 +875,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
       join public.blog_user u on u.id=r.reporter_id
       join public.comment c on (c.article_id,c.id)=(r.article_id,r.comment_id)
       join public.article_publication p on (p.article_id,p.publication_id)=(r.article_id,r.publication_id)
-      where u.name='tls-comment-reply-fixture' and not u.can_author and c.moderation_status=1 and not c.deleted
+      where u.name='tls-comment-reply-fixture' and c.moderation_status=1 and not c.deleted
         and r.reason_code='spam' and r.detail='Private report detail for a real visible native comment.';
       select 'total_reports=' || count(*) from public.comment_report
     " > "$evidence/comment-report-audit.txt"
@@ -894,7 +892,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
       join public.comment_reply_notice n on (n.article_id,n.reply_id)=(e.article_id,e.comment_id)
       join public.admin_comment_moderation approved on (approved.article_id,approved.comment_id,approved.comment_version)
         =(e.article_id,e.comment_id,e.comment_version) and approved.previous_status=0 and approved.next_status=1
-      where u.name='tls-comment-reply-fixture' and not u.can_author and c.moderation_status=1
+      where u.name='tls-comment-reply-fixture' and c.moderation_status=1
         and c.moderation_version=e.comment_version+1 and c.body=e.body and c.edited_at=e.happened_at
         and c.parent_id=c.reply_to_id and e.previous_status=1 and e.moderation_status=0 and e.previous_body<>e.body
         and e.previous_body_digest=pg_catalog.sha256(convert_to(e.previous_body,'UTF8'))

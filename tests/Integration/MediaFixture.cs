@@ -27,11 +27,22 @@ internal static class MediaFixture
         var secret = RandomNumberGenerator.GetBytes(32);
         var digest = SHA256.HashData(secret);
         await using var db = await source.OpenConnectionAsync(ct);
-        await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,$3,true,1)",
-            id, name, canAuthor);
-        await FixtureSql.ExecuteAsync(db, null, ct, """
-            insert into public.user_session(digest,user_id,generation,expires_at) values($1,$2,1,now()+interval '5 minutes')
-            """, digest, id);
+        await using var tx = await db.BeginTransactionAsync(ct);
+        if (canAuthor)
+        {
+            await FixtureSql.ExecuteAsync(db, tx, ct, FixtureSql.AdminSessionSql, FixtureSql.AdminSessionArguments(
+                id, ScratchDatabase.AdminHandle(name, id), RandomNumberGenerator.GetBytes(32),
+                RandomNumberGenerator.GetBytes(8), [1], digest, 5));
+        }
+        else
+        {
+            await FixtureSql.SiteAccountAsync(db, tx, ct, id, name, canAuthor: false);
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
+                insert into public.user_session(digest,user_id,generation,expires_at)
+                values($1,$2,1,clock_timestamp()+interval '5 minutes')
+                """, digest, id);
+        }
+        await tx.CommitAsync(ct);
         return new(id, Convert.ToHexStringLower(secret), SiteSessions.Id(id, digest));
     }
 

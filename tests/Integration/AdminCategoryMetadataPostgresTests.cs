@@ -41,11 +41,11 @@ public sealed class AdminCategoryMetadataPostgresTests
 
         var pow = new ScopedPow(TimeProvider.System);
         var create = new AdminTagMetadataCommand(0, 0, Guid.NewGuid(), " Café topics ", " Original category description. ");
-        var denied = await Assert.ThrowsAsync<BusinessException>(() => admin.ReadCategoryMetadata(token, 1, ct));
-        Assert.Equal(Rejection.Forbidden, denied.Rejection);
-        denied = await Assert.ThrowsAsync<BusinessException>(() => Challenge(create, MakeNonce()));
-        Assert.Equal(Rejection.Forbidden, denied.Rejection);
-        await Sql("insert into public.admin_permission values($1,$2)", adminId, CurrentSchema.ArticleWritePermission);
+        var siteUser = await fixture.SignInSiteUser("category-site-user", ct);
+        var denied = await Assert.ThrowsAsync<BusinessException>(() => admin.ReadCategoryMetadata(siteUser.Token, 1, ct));
+        Assert.Equal(Rejection.Unauthorized, denied.Rejection);
+        denied = await Assert.ThrowsAsync<BusinessException>(() => Challenge(create, MakeNonce(), siteUser.Token));
+        Assert.Equal(Rejection.Unauthorized, denied.Rejection);
 
         var createFrame = await Execute(create, await Proof(create));
         var created = Wire.DecodeAdminCategoryMetadata(createFrame);
@@ -161,11 +161,11 @@ public sealed class AdminCategoryMetadataPostgresTests
                 Wire.EncodeAdminCategoryMetadataCommand(change), http, pow, invalidate, ct), ct);
         }
 
-        Task<byte[]> Challenge(AdminTagMetadataCommand change, string nonce)
+        Task<byte[]> Challenge(AdminTagMetadataCommand change, string nonce, string? actorToken = null)
         {
             var http = Context();
             http.Request.Headers[WireHeaders.PowClientNonce] = nonce;
-            return admin.ChangeCategoryMetadata(token, change, Wire.EncodeAdminCategoryMetadataCommand(change), http, pow, null, ct);
+            return admin.ChangeCategoryMetadata(actorToken ?? token, change, Wire.EncodeAdminCategoryMetadataCommand(change), http, pow, null, ct);
         }
 
         async Task<string> Proof(AdminTagMetadataCommand change)

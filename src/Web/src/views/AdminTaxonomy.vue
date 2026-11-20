@@ -24,7 +24,7 @@ const page = shallowRef<AdminTaxonomyPage>()
 const cursors = shallowRef<readonly (number | null)[]>([null])
 const pageNumber = ref(0)
 const pending = ref(false)
-const failure = ref<'forbidden' | 'request'>()
+const failure = ref<'request'>()
 const canEditMetadata = ref(false)
 const searchQuery = ref('')
 const edited = ref<number>()
@@ -77,7 +77,7 @@ async function load(index: number) {
   } catch (error) {
     if (current.signal.aborted) return
     if (error instanceof ApiError && error.status === 401) emit('session-lost', error)
-    else failure.value = error instanceof ApiError && error.status === 403 ? 'forbidden' : 'request'
+    else failure.value = 'request'
   } finally {
     if (request === current) {
       request = undefined
@@ -203,7 +203,6 @@ onBeforeUnmount(() => {
 
     <p v-if="notice" class="taxonomy-status" role="status">{{ t(notice.key, { label: notice.name ? `${kindLabel}「${notice.name}」` : t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2') }) }}</p>
     <ElSkeleton v-if="pending" :rows="3" animated />
-    <ElAlert v-else-if="failure === 'forbidden'" :title="t('admin.taxonomy.m7')" type="warning" :closable="false" show-icon />
     <ElAlert v-else-if="failure === 'request'" :title="t('admin.taxonomy.m8')" type="error" :closable="false" show-icon>
       <ElButton native-type="button" text @click="load(pageNumber)">{{ t('admin.taxonomy.m9') }}</ElButton>
     </ElAlert>

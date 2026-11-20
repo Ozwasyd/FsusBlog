@@ -9,7 +9,8 @@ internal readonly record struct InstalledCommentRoutes(bool RootSubmission, bool
 internal static class CommentReadEndpoints
 {
     internal static InstalledCommentRoutes Map(WebApplication app, Publications publications, string cookie,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, bool rootPowPolicy)
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, bool rootPowPolicy,
+        FsusBlog.V2.Server.Operations.SiteCapabilities capabilities)
     {
         CommentReports.Map(app, cookie, readFrame);
         app.MapGet(WireRoutes.CommentRoots, (HttpContext ctx, CommentReadStore store, int articleId, CancellationToken ct) =>
@@ -28,9 +29,9 @@ internal static class CommentReadEndpoints
             Read(publications, articleId, Cursor(ctx), cursor => store.Thread(articleId, rootId, cursor, Limit(ctx, 20, 100), ct),
                 () => CommentReadWire.Thread(rootId, [], null))).RequireRateLimiting("query");
 
-        if (app.Configuration.GetValue("FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS", false))
+        if (capabilities.PublicCommentSubmissions)
         {
-            var replies = app.Configuration.GetValue(CommentReplies.Setting, false);
+            var replies = capabilities.SignedInCommentReplies;
             CommentSubmissionEndpoints.Map(app, cookie, readFrame, replies, rootPowPolicy);
             app.MapGet(WireRoutes.PublicCommentEligibility, async (HttpContext ctx, int articleId, Store store, CancellationToken ct) =>
             {

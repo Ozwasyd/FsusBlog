@@ -63,35 +63,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         Identity actor;
         if (author)
         {
-            Guid principal;
-            string handle;
-            long generation;
-            await using (var cmd = Sql(db, tx, """
-                select id,handle,generation from public.admin_principal where enabled
-                and id=(select principal_id from public.admin_session where digest=$1)
-                for share
-                """, digest))
-            await using (var row = await cmd.ExecuteReaderAsync(ct))
-            {
-                if (!await row.ReadAsync(ct)) throw Unauthenticated();
-                (principal, handle, generation) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2));
-            }
-            DateTimeOffset expiresAt;
-            await using (var cmd = Sql(db, tx, """
-                select expires_at from public.admin_session where digest=$1 and principal_id=$2 and generation=$3
-                and expires_at>clock_timestamp()
-                and exists (select from public.admin_permission where principal_id=$2 and permission=$4)
-                and exists (select from public.admin_passkey_credential where principal_id=$2)
-                for share
-                """, digest, principal, generation, CurrentSchema.AdminManagePermission))
-                expiresAt = await cmd.ExecuteScalarAsync(ct) is DateTime expiry ? new DateTimeOffset(expiry) : throw Unauthenticated();
-            await using (var grant = Sql(db, tx, """
-                select exists (select from public.admin_permission where principal_id=$1 and permission=$2)
-                """, principal, CurrentSchema.ArticleWritePermission))
-                if (await grant.ExecuteScalarAsync(ct) is not true)
-                    throw new BusinessException(Rejection.Forbidden, "This administrator does not hold the required permission.");
-            await EnsureAdminOwnerAnchor(db, tx, principal, ct);
-            actor = new(principal, handle, generation, true, expiresAt);
+            actor = await VerifyLiveAdminAsync(db, tx, digest, ct);
         }
         else
         {
@@ -120,14 +92,31 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         return result;
     }
 
-    internal static async Task EnsureAdminOwnerAnchor(NpgsqlConnection db, NpgsqlTransaction tx, Guid principalId, CancellationToken ct)
+    internal static async Task<Identity> VerifyLiveAdminAsync(NpgsqlConnection db, NpgsqlTransaction tx, byte[] digest, CancellationToken ct)
     {
-        await using var anchor = Sql(db, tx, """
-            insert into public.blog_user(id,name,can_author,enabled,generation)
-            values($1,$2,false,false,1)
-            on conflict (id) do nothing
-            """, principalId, $"admin-principal:{principalId:N}");
-        await anchor.ExecuteNonQueryAsync(ct);
+        Guid principal;
+        string handle;
+        long generation;
+        await using (var cmd = Sql(db, tx, """
+            select id,handle,generation from public.admin_principal where enabled
+            and id=(select principal_id from public.admin_session where digest=$1)
+            for share
+            """, digest))
+        await using (var row = await cmd.ExecuteReaderAsync(ct))
+        {
+            if (!await row.ReadAsync(ct)) throw Unauthenticated();
+            (principal, handle, generation) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2));
+        }
+        await using var session = Sql(db, tx, """
+            select expires_at from public.admin_session where digest=$1 and principal_id=$2 and generation=$3
+            and expires_at>clock_timestamp()
+            and exists (select from public.admin_passkey_credential where principal_id=$2)
+            for share
+            """, digest, principal, generation);
+        var expiresAt = await session.ExecuteScalarAsync(ct) is DateTime expiry
+            ? new DateTimeOffset(expiry)
+            : throw Unauthenticated();
+        return new(principal, handle, generation, true, expiresAt);
     }
 
     internal async Task SignOut(string? token, CancellationToken ct)

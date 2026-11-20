@@ -23,7 +23,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         var author = await SeedHistory(db, ct);
         var admin = await CreateAdmin(db, ct, "history-administrator", true);
         var other = await CreateAdmin(db, ct, "other-administrator", true);
-        var manager = await CreateAdmin(db, ct, "no-article-grant", false);
+        var siteUser = await fixture.SignInSiteUser("rollback-site-user", ct);
         var service = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
         var publications = PublicationFixture.Project(fixture.DataSource);
         await publications.Refresh(ct);
@@ -31,7 +31,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         Assert.Equal("Later body", originalProjection.Article(1)!.Body);
         var intent = new AdminArticleRollbackIntent(1, 2, 2, 1, Guid.NewGuid(), "Restore the verified historical publication");
         await Denied(Rejection.Unauthorized, () => service.CheckArticleRollbackAvailability(null, ct));
-        await Denied(Rejection.Forbidden, () => service.CheckArticleRollbackAvailability(manager.Token, ct));
+        await Denied(Rejection.Unauthorized, () => service.CheckArticleRollbackAvailability(siteUser.Token, ct));
         await Denied(Rejection.NotFound, () => service.PreviewArticleRollback(admin.Token, 2, 1, ct));
         Assert.Equal(2, (await service.PreviewArticleRollback(admin.Token, 1, 1, ct)).BlockingReason);
         await Denied(Rejection.Conflict, () => service.BeginArticleRollbackStepUp(admin.Token, intent, ct));
@@ -104,8 +104,8 @@ public sealed partial class AdminArticleRollbackPostgresTests
             where b.principal_id=$1 and b.command_id=$2 and b.reason=$3
                and r.copyright_holder='Original holder' and d.responsible_party='Historical claimant'
             """, admin.Id, intent.IdempotencyKey, intent.Reason));
-        await Execute("delete from public.admin_permission where principal_id=$1 and permission='article.write'", admin.Id);
-        await Denied(Rejection.Forbidden, () => Perform(admin, null, intent));
+        await Execute("update public.admin_principal set enabled=false where id=$1", admin.Id);
+        await Denied(Rejection.Unauthorized, () => Perform(admin, null, intent));
 
         async Task<AdminArticleRollbackReceipt> Perform(Admin actor, string? assertion, AdminArticleRollbackIntent command) =>
             await publications.AdministrativePublication(
@@ -123,7 +123,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         var author = await SeedHistory(db, ct);
         var admin = await CreateAdmin(db, ct, "draft-rollback-admin", true);
         var other = await CreateAdmin(db, ct, "different-admin", true);
-        var manager = await CreateAdmin(db, ct, "draft-rollback-without-grant", false);
+        var siteUser = await fixture.SignInSiteUser("draft-rollback-site-user", ct);
         var service = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
         var publications = PublicationFixture.Project(fixture.DataSource);
         await publications.Refresh(ct);
@@ -136,7 +136,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         Assert.False(draftDigest.AsSpan().SequenceEqual(publishedDigest));
 
         await Denied(Rejection.Unauthorized, () => service.CheckArticleDraftRollbackAvailability(null, ct));
-        await Denied(Rejection.Forbidden, () => service.CheckArticleDraftRollbackAvailability(manager.Token, ct));
+        await Denied(Rejection.Unauthorized, () => service.CheckArticleDraftRollbackAvailability(siteUser.Token, ct));
         await service.CheckArticleDraftRollbackAvailability(admin.Token, ct);
         await Denied(Rejection.Conflict, () => service.BeginArticleDraftRollbackStepUp(admin.Token, intent, ct));
         await SeedResponsibility(db, ct);
@@ -250,14 +250,11 @@ public sealed partial class AdminArticleRollbackPostgresTests
               and r.copyright_holder='Original holder' and r.license_type='CC-BY-4.0' and d.responsible_party='Historical claimant'
             """, admin.Id, intent.IdempotencyKey, intent.Reason, result.PrivateReleaseId, result.RightsSnapshotId,
             result.ResponsibilitySnapshotId));
-        await Execute("delete from public.admin_permission where principal_id=$1 and permission='article.write'", admin.Id);
-        await Denied(Rejection.Forbidden, () => Perform(admin, null, intent));
+        await Execute("update public.admin_principal set enabled=false where id=$1", admin.Id);
+        await Denied(Rejection.Unauthorized, () => Perform(admin, null, intent));
 
         // Restart through Kestrel to exercise the public representations and the owner's private draft.
-        var secret = RandomNumberGenerator.GetBytes(32);
-        await Execute("insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,clock_timestamp()+interval '1 minute')",
-            SHA256.HashData(secret), author);
-        var session = await new Store(fixture.DataSource).SignIn(Convert.ToHexStringLower(secret), ct);
+        var (_, sessionToken, _) = await fixture.SignIn(author, ct, minutes: 1);
         await using var restarted = await ServerProcess.Start(fixture.ConnectionString, ct);
         foreach (var path in new[] { "/article/1", WireRoutes.PublicArticle.Replace("{id}", "1", StringComparison.Ordinal) })
         {
@@ -275,16 +272,16 @@ public sealed partial class AdminArticleRollbackPostgresTests
         using (var old = new HttpRequestMessage(HttpMethod.Head, $"{WireRoutes.PublicSearchCorpus}?generation={originalProjection.GenerationHeader}"))
         using (var conflict = await restarted.Client.SendAsync(old, ct))
             Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
-        using (var read = new HttpRequestMessage(HttpMethod.Get, WireRoutes.Draft.Replace("{id:int}", "1", StringComparison.Ordinal)))
+        using (var read = SiteAedsFixture.Request(HttpMethod.Get, WireRoutes.Draft.Replace("{id:int}", "1", StringComparison.Ordinal),
+            null, sessionToken, handle: null))
         {
-            read.Headers.Add("Cookie", $"fsus-v2-session={session.Token}");
             using var response = await restarted.Client.SendAsync(read, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var draft = Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal(new Draft(1, 3, "Historical release", "Historical body", false), draft);
         }
         using (var publish = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Publish,
-            Wire.EncodeArticleCommand(new(1, 3, Guid.NewGuid(), "", "")), session.Token, handle: null))
+            Wire.EncodeArticleCommand(new(1, 3, Guid.NewGuid(), "", "")), sessionToken, handle: null))
         {
             using var response = await restarted.Client.SendAsync(publish, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -305,7 +302,14 @@ public sealed partial class AdminArticleRollbackPostgresTests
     private static async Task<Guid> SeedHistory(NpgsqlConnection db, CancellationToken ct)
     {
         var author = Guid.NewGuid();
-        await ExecuteSql(db, ct, "insert into public.blog_user values($1,'Article fixture author',true,true,1)", author);
+        var digest = SHA256.HashData(RandomNumberGenerator.GetBytes(32));
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            await FixtureSql.ExecuteAsync(db, tx, ct, FixtureSql.AdminSessionSql, FixtureSql.AdminSessionArguments(
+                author, ScratchDatabase.AdminHandle("article-fixture-author", author),
+                RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(8), [1], digest, 5));
+            await tx.CommitAsync(ct);
+        }
         await ExecuteSql(db, ct, """
             with article as (
                 insert into public.article(owner_id,revision,title,body,published_revision,publication_count,deleted)
@@ -362,8 +366,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
 
     private static async Task<Admin> CreateAdmin(NpgsqlConnection db, CancellationToken ct, string handle, bool granted)
     {
-        var (id, token, digest) = await FixtureSql.AdminAsync(db, ct, handle, 10, RandomNumberGenerator.GetBytes(32), [1],
-            granted ? [CurrentSchema.ArticleWritePermission] : []);
+        var (id, token, digest) = await FixtureSql.AdminAsync(db, ct, handle, 10, RandomNumberGenerator.GetBytes(32), [1]);
         return new Admin(id, token, digest);
     }
 

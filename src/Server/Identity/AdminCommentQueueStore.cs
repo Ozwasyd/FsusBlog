@@ -9,7 +9,7 @@ internal sealed partial class AdminPasskeyStore
 {
     internal Task<AdminCommentQueue> CommentQueue(string? token, IQueryCollection query, CancellationToken ct,
         Action? advertiseBatch = null) =>
-        WithSession(token, CurrentSchema.CommentModeratePermission, async (db, tx, _) =>
+        WithSession(token, async (db, tx, _) =>
         {
             var (afterComment, afterArticle) = QueueCursor(query);
             if (advertiseBatch is not null && await CurrentSchema.HasAdminCommentBatchSchemaAsync(db, tx, ct)) advertiseBatch();

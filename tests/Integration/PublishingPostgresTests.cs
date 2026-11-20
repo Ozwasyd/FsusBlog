@@ -15,7 +15,7 @@ public sealed class PublishingPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
         var store = new Store(fixture.DataSource);
-        var actor = await store.SignIn((await fixture.IssueTicket("search owner", ct, canAuthor: true, minutes: 1)).Ticket, ct);
+        var actor = await fixture.SignIn("search owner", ct, canAuthor: true, minutes: 1);
         (int Id, long Revision, long Publication) coordinate;
         string generation;
         string validator;
@@ -95,7 +95,7 @@ public sealed class PublishingPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
         var store = new Store(fixture.DataSource);
-        var actor = await store.SignIn((await fixture.IssueTicket("lease owner", ct, canAuthor: true, minutes: 1)).Ticket, ct);
+        var actor = await fixture.SignIn("lease owner", ct, canAuthor: true, minutes: 1);
         await using var first = await ServerProcess.Start(fixture.ConnectionString, ct);
         var deniedStart = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -190,7 +190,7 @@ public sealed class PublishingPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
-        var session = await store.SignIn((await fixture.IssueTicket("projection owner", ct, canAuthor: true, minutes: 1)).Ticket, ct);
+        var session = await fixture.SignIn("projection owner", ct, canAuthor: true, minutes: 1);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         await using var database = await fixture.DataSource.OpenConnectionAsync(ct);
         const string marker = "projection fixture unique text";
@@ -263,7 +263,7 @@ public sealed class PublishingPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
-        var session = await store.SignIn((await fixture.IssueTicket("http publisher", ct, canAuthor: true, minutes: 1)).Ticket, ct);
+        var session = await fixture.SignIn("http publisher", ct, canAuthor: true, minutes: 1);
         const string marker = "public replacement unique marker";
         int articleId;
         string publishedGeneration;
@@ -340,7 +340,7 @@ public sealed class PublishingPostgresTests
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
         await publications.Refresh(ct);
-        var session = await store.SignIn((await fixture.IssueTicket("transaction author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
+        var session = await fixture.SignIn("transaction author", ct, canAuthor: true, minutes: 1);
         var command = new Edit(0, 0, Guid.NewGuid(), "Rollback fixture", "The draft must roll back with the event.");
 
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
@@ -373,16 +373,19 @@ public sealed class PublishingPostgresTests
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
         var edit = new Edit(0, 0, Guid.NewGuid(), "No unauthorized writes", "private");
-        var reader = await store.SignIn((await fixture.IssueTicket("reader", ct, canAuthor: false, minutes: 1)).Ticket, ct);
-        var author = await store.SignIn((await fixture.IssueTicket("author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
+        var reader = await fixture.SignIn("reader", ct, canAuthor: false, minutes: 1);
+        var siteUser = await fixture.SignInSiteUser("site-reader", ct, minutes: 1);
+        var author = await fixture.SignIn("author", ct, canAuthor: true, minutes: 1);
+        var expiringAdmin = await fixture.SignIn("expiring-admin", ct, canAuthor: true, minutes: 1);
 
-        await AssertDenied(reader.Token, Rejection.Forbidden);
+        await AssertDenied(reader.Token, Rejection.Unauthorized);
+        await AssertDenied(siteUser.Token, Rejection.Unauthorized);
         await AssertDenied(null, Rejection.Unauthorized);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, "update public.blog_user set generation=generation+1 where id=$1", author.User.Id));
+        Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, "update public.admin_principal set generation=generation+1 where id=$1", author.Id));
         await AssertDenied(author.Token, Rejection.Unauthorized);
-        Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, "update public.user_session set expires_at=clock_timestamp()-interval '1 second' where user_id=$1", reader.User.Id));
-        await AssertDenied(reader.Token, Rejection.Unauthorized);
+        Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, "update public.admin_session set expires_at=clock_timestamp()-interval '1 second' where principal_id=$1", expiringAdmin.Id));
+        await AssertDenied(expiringAdmin.Token, Rejection.Unauthorized);
         Assert.Equal(0L, await FixtureSql.ScalarAsync(db, null, ct, "select count(*) from public.article"));
 
         async Task AssertDenied(string? session, Rejection expected)
@@ -398,9 +401,9 @@ public sealed class PublishingPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         var publications = PublicationFixture.Project(fixture.DataSource);
-        var first = await store.SignIn((await fixture.IssueTicket("first author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
-        var second = await store.SignIn((await fixture.IssueTicket("another author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
-        var handle = FsusBlog.V2.Server.Sessions.SiteSessions.Id(first.User.Id, Store.TokenDigest(first.Token)!);
+        var first = await fixture.SignIn("first author", ct, canAuthor: true, minutes: 1);
+        var second = await fixture.SignIn("another author", ct, canAuthor: true, minutes: 1);
+        var handle = first.Handle;
         var edit = new Edit(0, 0, Guid.NewGuid(), "Private draft", "Owner-only content.");
 
         var conflict = await Assert.ThrowsAsync<BusinessException>(() =>
@@ -413,7 +416,7 @@ public sealed class PublishingPostgresTests
             """)) Assert.Equal(0L, await verify.ExecuteScalarAsync(ct));
 
         var saved = await publications.Command(store, first.Token, ArticleAction.Save, edit, ct, handle);
-        Assert.Equal(first.User.Id, saved.Article.Owner);
+        Assert.Equal(first.Id, saved.Article.Owner);
     }
 
     [PostgresFact]
@@ -422,7 +425,7 @@ public sealed class PublishingPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
-        var session = await store.SignIn((await fixture.IssueTicket("publisher", ct, canAuthor: true, minutes: 1)).Ticket, ct);
+        var session = await fixture.SignIn("publisher", ct, canAuthor: true, minutes: 1);
         var first = await CreateAndPublish("one");
         var second = await CreateAndPublish("two");
         Assert.NotEqual(first.Publication, second.Publication);
@@ -456,9 +459,10 @@ public sealed class PublishingPostgresTests
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
         await publications.Refresh(ct);
-        var issue = await fixture.IssueTicket("original owner", ct, canAuthor: true, minutes: 1);
-        var session = await store.SignIn(issue.Ticket, ct);
+        var issue = await fixture.IssueTicket("site reader ticket", ct, canAuthor: false, minutes: 1);
+        await store.SignIn(issue.Ticket, ct);
         Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(() => store.SignIn(issue.Ticket, ct))).Rejection);
+        var session = await fixture.SignIn("original owner", ct, canAuthor: true, minutes: 1);
         var command = new Edit(0, 0, Guid.NewGuid(), "Saved title", "Saved Markdown body");
         var first = publications.Command(store, session.Token, ArticleAction.Save, command, ct);
         var retry = publications.Command(store, session.Token, ArticleAction.Save, command, ct);
@@ -475,10 +479,12 @@ public sealed class PublishingPostgresTests
         var published = (await publications.Command(store, session.Token, ArticleAction.Publish, publish, ct)).Article;
         Assert.Equal(published.Revision, publications.Snapshot!.Article(saved.Id)!.Revision);
 
-        var outsider = await store.SignIn((await fixture.IssueTicket("other author", ct, canAuthor: true, minutes: 1)).Ticket, ct);
+        var readOnlyAdmin = await fixture.SignIn("read-only admin", ct, canAuthor: false, minutes: 1);
         var retract = new Edit(saved.Id, published.Revision, Guid.NewGuid(), "", "");
+        Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(() =>
+            publications.Command(store, readOnlyAdmin.Token, ArticleAction.Retract, retract, ct))).Rejection);
         Assert.Equal(Rejection.NotFound, (await Assert.ThrowsAsync<BusinessException>(() =>
-            publications.Command(store, outsider.Token, ArticleAction.Retract, retract, ct))).Rejection);
+            publications.Command(store, session.Token, ArticleAction.Retract, retract with { Id = 999_999 }, ct))).Rejection);
         await publications.Command(store, session.Token, ArticleAction.Retract, retract, ct);
         Assert.Null(publications.Snapshot!.Article(saved.Id));
         await using var connection = await fixture.DataSource.OpenConnectionAsync(ct);

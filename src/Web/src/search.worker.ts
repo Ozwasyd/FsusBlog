@@ -1,42 +1,63 @@
 import { ApiError } from '../../Contracts/aeds.ts'
-import { createCorpusSearch } from '../../Contracts/local-search.ts'
+import { createCorpusSearch, type PublicSearchSort } from '../../Contracts/local-search.ts'
+import { compactSearchStorage } from './compactSearchStorage.ts'
 import { createWideSearch } from './wideSearch.ts'
 import { canUseWideSearchStorage } from './wideSearchStorage.ts'
 import type { WideSearchIdentity } from './wideSearchWire.ts'
 
-type SearchRequest = { kind: 'search'; id: number; query: string; page: number; size: number }
+export type WorkerSearchMode = 'auto' | 'local'
+type SearchRequest = {
+  kind: 'search'
+  id: number
+  query: string
+  page: number
+  size: number
+  sort: PublicSearchSort
+  mode: WorkerSearchMode
+}
 type Visibility = { kind: 'compact'; generation: string } | { kind: 'wide'; identity: WideSearchIdentity }
-type WorkerResult = { frame: Uint8Array<ArrayBuffer>; visibility: Visibility | null }
+type WorkerResult =
+  | { frame: Uint8Array<ArrayBuffer>; visibility: Visibility | null }
+  | { fallback: 'server' }
 export type SearchCommand = SearchRequest | { kind: 'cancel'; id: number } |
   { kind: 'invalidate'; identity: WideSearchIdentity }
 export type SearchReply =
   | { id: number; ok: true; frame: Uint8Array; visibility: Visibility | null }
+  | { id: number; ok: true; fallback: 'server' }
   | { id: number; ok: false; status: number; message: string }
 
-const compact = createCorpusSearch()
+const compact = createCorpusSearch({ storage: compactSearchStorage })
 const wide = createWideSearch()
 let pending: SearchRequest | undefined
 let running: { id: number; controller: AbortController } | undefined
 
-async function runSearch({ query, page, size }: SearchRequest, signal: AbortSignal): Promise<WorkerResult> {
+async function runSearch({ query, page, size, sort, mode }: SearchRequest, signal: AbortSignal): Promise<WorkerResult> {
   async function searchCompact(): Promise<WorkerResult> {
-    const { frame, generation } = await compact(query, signal, page, size)
+    const { frame, generation } = await compact(query, signal, page, size, sort)
     return { frame, visibility: generation === null ? null : { kind: 'compact', generation } }
   }
   async function searchWide(): Promise<WorkerResult | undefined> {
-    const result = await wide.search(query, page, size, signal)
+    const result = await wide.search(query, page, size, signal, sort)
     return result && { frame: result.frame, visibility: result.identity === null ? null : { kind: 'wide', identity: result.identity } }
   }
 
-  if (wide.prefersWide()) return await searchWide() ?? await searchCompact()
+  let triedWide = false
+  if (wide.prefersWide()) {
+    triedWide = true
+    const wideResult = await searchWide()
+    if (wideResult) return wideResult
+  }
   try {
     return await searchCompact()
   } catch (error) {
     signal.throwIfAborted()
-    if (!(error instanceof ApiError) || error.status !== 503 || !canUseWideSearchStorage()) throw error
-    const result = await searchWide()
-    if (!result) throw error
-    return result
+    if (!(error instanceof ApiError) || error.status !== 503) throw error
+    if (!triedWide && canUseWideSearchStorage()) {
+      const result = await searchWide()
+      if (result) return result
+    }
+    if (mode === 'auto') return { fallback: 'server' }
+    throw error
   }
 }
 
@@ -47,9 +68,16 @@ async function pump() {
     const controller = new AbortController()
     running = { id: job.id, controller }
     try {
-      const { frame, visibility } = await runSearch(job, controller.signal)
+      const outcome = await runSearch(job, controller.signal)
       if (!controller.signal.aborted) {
-        self.postMessage({ id: job.id, ok: true, frame, visibility } satisfies SearchReply, { transfer: [frame.buffer] })
+        if ('fallback' in outcome) {
+          self.postMessage({ id: job.id, ok: true, fallback: outcome.fallback } satisfies SearchReply)
+        } else {
+          self.postMessage(
+            { id: job.id, ok: true, frame: outcome.frame, visibility: outcome.visibility } satisfies SearchReply,
+            { transfer: [outcome.frame.buffer] },
+          )
+        }
       }
     } catch (error) {
       if (!controller.signal.aborted) self.postMessage({

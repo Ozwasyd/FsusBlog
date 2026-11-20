@@ -51,7 +51,7 @@ function readFontDetail(archive: string) {
     fontDetail.value = detail
     await nextTick()
     if (!request.aborted) fontDetailHeading.value?.focus()
-  }, 'admin.fontDetailsForbidden', 'admin.fontPackageUnavailable')
+  }, 'admin.fontPackageUnavailable')
 }
 
 function readHistory(before?: bigint) {
@@ -62,7 +62,7 @@ function readHistory(before?: bigint) {
     historyBefore.value = before
     await nextTick()
     if (!request.aborted) historyHeading.value?.focus()
-  }, 'admin.appearanceHistoryForbidden')
+  })
 }
 
 function historyTime(unixMs: bigint) {
@@ -74,7 +74,6 @@ function name(digest: string) {
 }
 
 async function run(action: (request: AbortSignal) => Promise<void>,
-  forbidden: MessageKey = 'admin.appearanceForbidden',
   unavailable: MessageKey = 'admin.appearanceUnavailable') {
   if (busy.value || props.sessionSignal.aborted) return
   const request = signal()
@@ -90,7 +89,7 @@ async function run(action: (request: AbortSignal) => Promise<void>,
     } else if (cause instanceof ApiError && cause.status === 404) {
       error.value = unavailable
     } else if (cause instanceof ApiError && cause.status === 403) {
-      error.value = forbidden
+      error.value = 'admin.appearanceForbidden'
     } else if (cause instanceof ApiError && cause.status === 409) {
       state.value = undefined
       error.value = 'admin.appearanceChanged'

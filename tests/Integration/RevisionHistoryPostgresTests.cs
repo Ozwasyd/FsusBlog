@@ -13,7 +13,6 @@ public sealed class RevisionHistoryPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await fixture.SignIn("Revision owner", ct);
-        var otherSession = await fixture.SignIn(owner.Id, ct);
         var outsider = await fixture.SignIn("Revision outsider", ct);
         var reader = await fixture.SignIn("Revision reader", ct, canAuthor: false);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
@@ -43,13 +42,15 @@ public sealed class RevisionHistoryPostgresTests
         var last = Wire.DecodeRevisionHistory(await Request(HttpMethod.Get, History(current) + nextPage, owner.Token));
         Assert.Equal(new long[] { 3, 2, 1 }, last.Items.Select(item => item.Revision));
         Assert.Empty(last.NextCursor);
-        await Request(HttpMethod.Get, History(current) + nextPage, otherSession.Token, status: HttpStatusCode.BadRequest);
+        var staleHandle = owner.Handle;
+        owner = await fixture.SignIn(owner.Id, ct);
+        await Request(HttpMethod.Get, History(current) + nextPage, owner.Token, status: HttpStatusCode.BadRequest);
         await Request(HttpMethod.Get, History(otherArticle) + nextPage, owner.Token, status: HttpStatusCode.BadRequest);
         var firstChar = first.NextCursor[0] == 'A' ? 'B' : 'A';
         await Request(HttpMethod.Get, History(current) + $"&cursor={firstChar}{first.NextCursor[1..]}", owner.Token, status: HttpStatusCode.BadRequest);
         await Request(HttpMethod.Get, History(current), null, status: HttpStatusCode.Unauthorized);
         await Request(HttpMethod.Get, History(current), outsider.Token, status: HttpStatusCode.NotFound);
-        await Request(HttpMethod.Get, History(current), reader.Token, status: HttpStatusCode.Forbidden);
+        await Request(HttpMethod.Get, History(current), reader.Token, status: HttpStatusCode.Unauthorized);
 
         var compare = WireRoutes.DraftRevisionComparison.Replace("{id:int}", current.Id.ToString())
             .Replace("{sourceRevision:long}", article.Revision.ToString()) + $"?revision={current.Revision}";
@@ -60,7 +61,7 @@ public sealed class RevisionHistoryPostgresTests
         await Execute("delete from public.article_revision_tag where article_id=$1 and revision=$2", article.Id, current.Revision);
         var metadataRoute = compare + "&map=metadata";
         await Request(HttpMethod.Get, metadataRoute, owner.Token, status: HttpStatusCode.Conflict);
-        await Request(HttpMethod.Get, metadataRoute, otherSession.Token, status: HttpStatusCode.Conflict, handle: owner.Handle);
+        await Request(HttpMethod.Get, metadataRoute, owner.Token, status: HttpStatusCode.Conflict, handle: staleHandle);
         await Request(HttpMethod.Get, metadataRoute, outsider.Token, status: HttpStatusCode.NotFound, handle: outsider.Handle);
         var metadataBytes = await Request(HttpMethod.Get, metadataRoute, owner.Token, handle: owner.Handle);
         using (var fields = new BinaryReader(new MemoryStream(Aeds.Decode(metadataBytes, FrameType.RevisionMetadataComparison).ToArray())))
@@ -74,10 +75,11 @@ public sealed class RevisionHistoryPostgresTests
         }
         await Request(HttpMethod.Get, compare, outsider.Token, status: HttpStatusCode.NotFound);
         Assert.Equal(pair, Wire.DecodeRevisionComparison(await Request(HttpMethod.Get, compare, owner.Token, handle: owner.Handle)));
-        await Request(HttpMethod.Get, compare, otherSession.Token, status: HttpStatusCode.Conflict, handle: owner.Handle);
+        await Request(HttpMethod.Get, compare, owner.Token, status: HttpStatusCode.Conflict, handle: staleHandle);
         await Request(HttpMethod.Get, compare, outsider.Token, status: HttpStatusCode.NotFound, handle: outsider.Handle);
         var input = new DraftRollback(article.Id, current.Revision, article.Revision, Guid.NewGuid(), "Restore the original draft. 📝");
-        await Restore(input, outsider.Token, HttpStatusCode.NotFound);
+        await Restore(input, reader.Token, HttpStatusCode.Unauthorized);
+        await Restore(input with { Id = 999_999 }, owner.Token, HttpStatusCode.NotFound);
 
         // A failed enqueue must roll back draft, copied taxonomy, command and provenance together.
         await Execute("alter table public.blog_outbox add constraint test_fail_restore check (kind <> 'draft-rollback')");
@@ -123,7 +125,7 @@ public sealed class RevisionHistoryPostgresTests
         var mappedCommand = new ArticleBodyInsertionCommand(basis.Id, basis.Revision, Guid.NewGuid(), basis.Title,
             inserted + basis.Body, 0, inserted.Length);
         var mappedBytes = Wire.EncodeArticleBodyInsertionCommand(mappedCommand);
-        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, mappedBytes, HttpStatusCode.Conflict, owner.Handle);
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, mappedBytes, HttpStatusCode.Conflict, staleHandle);
         var impossible = Wire.EncodeArticleBodyInsertionCommand(mappedCommand with { Offset = 1 });
         await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, impossible, HttpStatusCode.BadRequest, owner.Handle);
         await Execute("alter table public.article_body_insertion add constraint test_abort_insertion check (length_utf16 < 0)");
@@ -162,7 +164,7 @@ public sealed class RevisionHistoryPostgresTests
         var sequence = new ArticleBodyInsertionsCommand(metadata.Id, metadata.Revision, Guid.NewGuid(), metadata.Title,
             withPrefix + suffix, [new(0, prefix.Length), new(withPrefix.Length, suffix.Length)]);
         var sequenceFrame = Wire.EncodeArticleBodyInsertionsCommand(sequence);
-        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, sequenceFrame, HttpStatusCode.Conflict, owner.Handle);
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, HttpStatusCode.Conflict, staleHandle);
         await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, sequenceFrame, HttpStatusCode.Conflict);
         var wrongSequence = Wire.EncodeArticleBodyInsertionsCommand(sequence with { Insertions = [new(1, prefix.Length), sequence.Insertions[1]] });
         await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, wrongSequence, HttpStatusCode.BadRequest, owner.Handle);
@@ -185,7 +187,7 @@ public sealed class RevisionHistoryPostgresTests
             Wire.EncodeArticleBodyInsertionCommand(new(multiple.Id, multiple.Revision, Guid.NewGuid(), multiple.Title,
                 multiple.Body + finalInsertion, multiple.Body.Length, finalInsertion.Length)), handle: owner.Handle));
         var chainPath = ChainPath(final, chainBasis.Revision);
-        await Request(HttpMethod.Get, chainPath, otherSession.Token, status: HttpStatusCode.Conflict, handle: owner.Handle);
+        await Request(HttpMethod.Get, chainPath, owner.Token, status: HttpStatusCode.Conflict, handle: staleHandle);
         await Request(HttpMethod.Get, chainPath, outsider.Token, status: HttpStatusCode.NotFound, handle: outsider.Handle);
         var chain = Wire.DecodeDraftRevisionBodyInsertionChain(await Request(HttpMethod.Get, chainPath, owner.Token, handle: owner.Handle));
         Assert.True(chain.Available);
@@ -221,7 +223,7 @@ public sealed class RevisionHistoryPostgresTests
         var spliceSave = new ArticleBodyEditsCommand(withLegacy.Id, withLegacy.Revision, Guid.NewGuid(), withLegacy.Title,
             afterDeletion[..replaceOffset] + "END", [new(0, removedLength, ""), new(replaceOffset, 4, "END")]);
         var spliceFrame = Wire.EncodeArticleBodyEditsCommand(spliceSave);
-        await Request(HttpMethod.Post, WireRoutes.Save, otherSession.Token, spliceFrame, HttpStatusCode.Conflict, owner.Handle);
+        await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, spliceFrame, HttpStatusCode.Conflict, staleHandle);
         var invalidSplice = Wire.EncodeArticleBodyEditsCommand(spliceSave with
         {
             Edits = [new(1, removedLength, ""), new(replaceOffset, 4, "END")]
@@ -236,7 +238,9 @@ public sealed class RevisionHistoryPostgresTests
         Assert.Equal(spliceReceipt, await Request(HttpMethod.Post, WireRoutes.Save, owner.Token, spliceFrame, handle: owner.Handle));
         var editHead = Wire.DecodeDraft(spliceReceipt);
         var editsPath = ChainPath(editHead, spliceBasis.Revision).Replace("body-chain", "body-edit");
-        await Request(HttpMethod.Get, editsPath, otherSession.Token, status: HttpStatusCode.Conflict, handle: owner.Handle);
+        var priorHandle = owner.Handle;
+        owner = await fixture.SignIn(owner.Id, ct);
+        await Request(HttpMethod.Get, editsPath, owner.Token, status: HttpStatusCode.Conflict, handle: priorHandle);
         await Request(HttpMethod.Get, editsPath, outsider.Token, status: HttpStatusCode.NotFound, handle: outsider.Handle);
         var editsChain = Wire.DecodeDraftRevisionBodyEditChain(await Request(HttpMethod.Get, editsPath, owner.Token, handle: owner.Handle));
         Assert.True(editsChain.Available);

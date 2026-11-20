@@ -21,9 +21,9 @@ internal static class MediaEndpoints
         options.AddImmediateConcurrency(ReadPolicy, 4);
     }
 
-    internal static void Map(WebApplication app, string cookie)
+    internal static void Map(WebApplication app, string cookie, SiteCapabilities capabilities)
     {
-        var resumable = app.Configuration.GetValue(MediaUploadEndpoints.Setting, false);
+        var resumable = capabilities.PrivateMediaResumable;
         app.MapGet(WireRoutes.PrivateMediaList, async (HttpContext ctx, Store store, MediaStore media, InstanceLease lease, CancellationToken token) =>
         {
             var boundary = Position(ctx);

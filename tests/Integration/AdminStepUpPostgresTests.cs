@@ -17,7 +17,8 @@ public sealed class AdminStepUpPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var member = Guid.NewGuid();
-        await Execute("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,'Site fixture',true,true,1)", member);
+        await Execute("insert into public.blog_user(id,name,enabled,generation) values($1,'Site fixture',true,1)", member);
+        await FixtureSql.AdminPrincipalAsync(db, null, ct, member, "site-fixture");
         await Execute("""
             with article as (
                 insert into public.article(id,owner_id,revision,title,body,deleted) overriding system value
@@ -36,10 +37,10 @@ public sealed class AdminStepUpPostgresTests
 
         var moderator = await Admin("moderator", true);
         var other = await Admin("other-moderator", true);
-        var manager = await Admin("manager", false);
+        var siteUser = await fixture.SignInSiteUser("step-up-site-user", ct);
         var service = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
         var intent = new AdminModerationIntent(1, 1, 0, 1, "Policy reviewed");
-        await Denied(Rejection.Forbidden, () => service.BeginModerationStepUp(manager.Token, intent, ct));
+        await Denied(Rejection.Unauthorized, () => service.BeginModerationStepUp(siteUser.Token, intent, ct));
         await Denied(Rejection.NotFound, () => service.BeginModerationStepUp(moderator.Token, intent with { CommentId = 3 }, ct));
         var challenge = await service.BeginModerationStepUp(moderator.Token, intent, ct);
         Aeds.Decode(challenge, FrameType.PasskeyLoginBegin);
@@ -99,8 +100,7 @@ public sealed class AdminStepUpPostgresTests
         }
 
         Task<(Guid Id, string Token, byte[] Digest)> Admin(string handle, bool canModerate) =>
-            FixtureSql.AdminAsync(db, ct, handle, 10, RandomNumberGenerator.GetBytes(32), [2],
-                canModerate ? [CurrentSchema.CommentModeratePermission] : []);
+            FixtureSql.AdminAsync(db, ct, handle, 10, RandomNumberGenerator.GetBytes(32), [2]);
 
         Task Execute(string sql, params object[] parameters) =>
             FixtureSql.ExecuteAsync(db, null, ct, sql, parameters);

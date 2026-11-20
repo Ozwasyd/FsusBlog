@@ -100,13 +100,31 @@ public sealed class ArticleSearchPostgresTests
             var maxIdentifier = new string('A', 126) + "-1";
             Assert.Equal(13, Assert.Single((await Search(maxIdentifier)).Hits).Id);
             Assert.Empty((await Search(maxIdentifier + "2")).Hits);
+            var (latestPage1, _, latestTotal1) = await SearchPage("needle", "latest", 1, 2);
+            Assert.Equal(5, latestTotal1);
+            Assert.Equal([3, 4], latestPage1.Select(item => item.Id));
+            var (latestPage2, _, latestTotal2) = await SearchPage("needle", "latest", 2, 2);
+            Assert.Equal(5, latestTotal2);
+            Assert.Equal([5, 1], latestPage2.Select(item => item.Id));
+            var (latestPage3, _, latestTotal3) = await SearchPage("needle", "latest", 3, 2);
+            Assert.Equal(5, latestTotal3);
+            Assert.Equal([2], latestPage3.Select(item => item.Id));
+            var (latestPage4, _, latestTotal4) = await SearchPage("needle", "latest", 4, 2);
+            Assert.Equal(5, latestTotal4);
+            Assert.Empty(latestPage4);
+            var (commonTail, _, commonTotal) = await SearchPage("common", "relevance", 21, 10);
+            Assert.Equal(205, commonTotal);
+            Assert.Equal(Enumerable.Range(1001, 5).Reverse(), commonTail.Select(item => item.Id));
             var after = await Mark("measure-after");
-            Assert.Equal(11, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
+            Assert.Equal(16, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
             Assert.Equal(Count(before, "dbCommandStarts"), Count(after, "dbCommandStarts"));
             Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(after, "dbPhysicalOpenStarts"));
             using (var corpus = await client.GetAsync(WireRoutes.PublicSearchCorpus, ct))
                 Assert.Equal(generation, Assert.Single(corpus.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
             await ExpectError(WireRoutes.PublicSearch, HttpStatusCode.BadRequest);
+            await ExpectError($"{PathFor("needle")}&sort=hot", HttpStatusCode.BadRequest);
+            await ExpectError($"{PathFor("needle")}&page=0", HttpStatusCode.BadRequest);
+            await ExpectError($"{PathFor("needle")}&size=101", HttpStatusCode.BadRequest);
 
             var retract = Wire.EncodeArticleCommand(new(1, 1, Guid.NewGuid(), "", ""));
             await Sql("alter table public.blog_outbox add constraint block_fas4_refresh check (kind <> 'retract' or processed_at is null)");
@@ -124,8 +142,21 @@ public sealed class ArticleSearchPostgresTests
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                 Assert.True(response.Headers.CacheControl?.NoStore);
                 Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+                Assert.Single(response.Headers.GetValues(WireHeaders.SearchTotal));
                 return (ReadHits(await response.Content.ReadAsByteArrayAsync(ct)),
                     Assert.Single(response.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
+            }
+
+            async Task<(Hit[] Hits, string Generation, int Total)> SearchPage(string keyword, string sort, int page, int size)
+            {
+                using var response = await client.GetAsync(
+                    $"{PathFor(keyword)}&sort={Uri.EscapeDataString(sort)}&page={page}&size={size}", ct);
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                Assert.True(response.Headers.CacheControl?.NoStore);
+                Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+                return (ReadHits(await response.Content.ReadAsByteArrayAsync(ct)),
+                    Assert.Single(response.Headers.GetValues(WireHeaders.SearchIndexGeneration)),
+                    int.Parse(Assert.Single(response.Headers.GetValues(WireHeaders.SearchTotal))));
             }
 
             async Task ExpectError(string path, HttpStatusCode status)
@@ -165,6 +196,172 @@ public sealed class ArticleSearchPostgresTests
 
         Task Sql(string statement, params object[] inputs) =>
             FixtureSql.ExecuteAsync(db, null, ct, statement, inputs);
+    }
+
+    [PostgresFact]
+    public async Task PublicSearchModeConfigControlsHtmlMetaAndFailsFastOnInvalidValue()
+    {
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
+
+        await using (var autoServer = await ServerProcess.Start(fixture.ConnectionString, ct))
+        {
+            var html = await autoServer.Client.GetStringAsync("/search", ct);
+            Assert.DoesNotContain("fsus-public-search-mode", html, StringComparison.Ordinal);
+        }
+
+        await using (var serverMode = await ServerProcess.Start(fixture.ConnectionString, ct,
+            new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_SEARCH_MODE"] = "server" }))
+        {
+            var html = await serverMode.Client.GetStringAsync("/search", ct);
+            Assert.Contains("<meta name=\"fsus-public-search-mode\" content=\"server\">", html, StringComparison.Ordinal);
+        }
+
+        await using (var localMode = await ServerProcess.Start(fixture.ConnectionString, ct,
+            new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_SEARCH_MODE"] = "local" }))
+        {
+            var html = await localMode.Client.GetStringAsync("/search", ct);
+            Assert.Contains("<meta name=\"fsus-public-search-mode\" content=\"local\">", html, StringComparison.Ordinal);
+        }
+
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ServerProcess.Start(fixture.ConnectionString, ct,
+                new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_SEARCH_MODE"] = "hybrid" }));
+        Assert.Contains("FSUSBLOG_PUBLIC_SEARCH_MODE", failure.Message, StringComparison.Ordinal);
+    }
+
+    [PostgresFact]
+    public async Task DedicatedFas4SupportsLatestSortBoundedPaginationAndZeroDbQueries()
+    {
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var (author, _, _) = await fixture.SignIn("FAS4 paged author", ct, minutes: 1);
+        await using (var transaction = await db.BeginTransactionAsync(ct))
+        {
+            await FixtureSql.ExecuteAsync(db, transaction, ct, """
+                insert into public.article (id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at)
+                overriding system value
+                select id,$1,1,title,body,1,1,false,
+                       timestamptz '2024-01-01 UTC' + offset_days * interval '1 day',timestamptz '2024-01-01 UTC'
+                from (
+                    values
+                        (1,'Needle Needle Needle','silence',0),
+                        (2,'Quiet','Needle',3),
+                        (3,'Summary','Needle',2),
+                        (4,'Batch-ITEM_7','silence',1),
+                        (5,'Job','Section `BATCH-ITEM_7`',4)
+                ) fixture(id,title,body,offset_days)
+                union all
+                select id,$1,1,'Common Entry','silence',1,1,false,
+                       timestamptz '2024-01-01 UTC' + (id - 1000) * interval '1 minute',timestamptz '2024-01-01 UTC'
+                from generate_series(1001,1205) id
+                """, author);
+            await FixtureSql.ExecuteAsync(db, transaction, ct, """
+                insert into public.article_revision(article_id,revision,title,body,happened_at)
+                    select id,revision,title,body,created_at from public.article;
+                insert into public.article_publication(article_id,revision,publication_id,published_at)
+                    select id,revision,10000+id,created_at from public.article;
+                insert into public.article_revision_rights (
+                    article_id,revision,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,
+                    copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled)
+                    select article_id,revision,true,'all-rights-reserved','',0,'','','append-attribution',300,true,true,true
+                    from public.article_publication;
+                insert into public.article_publication_rights (article_id,publication_id,revision)
+                    select article_id,publication_id,revision from public.article_publication;
+                """);
+            await transaction.CommitAsync(ct);
+        }
+
+        var evidence = Directory.CreateTempSubdirectory("fsusv2-fas4-paged-");
+        try
+        {
+            var output = Path.Combine(evidence.FullName, "runtime.ndjson");
+            await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
+            {
+                ["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"] = evidence.FullName,
+                ["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] = output
+            });
+            var client = server.Client;
+            var before = await Mark("measure-before");
+
+            var (rel, relTotal) = await Query("needle", "relevance", 1, 10);
+            Assert.Equal(3, relTotal);
+            Assert.Equal([1, 2, 3], rel.Select(item => item.Id));
+
+            var (lat1, latTotal1) = await Query("needle", "latest", 1, 2);
+            Assert.Equal(3, latTotal1);
+            Assert.Equal([2, 3], lat1.Select(item => item.Id));
+
+            var (lat2, latTotal2) = await Query("needle", "latest", 2, 2);
+            Assert.Equal(3, latTotal2);
+            Assert.Equal([1], lat2.Select(item => item.Id));
+
+            var (lat3, latTotal3) = await Query("needle", "latest", 3, 2);
+            Assert.Equal(3, latTotal3);
+            Assert.Empty(lat3);
+
+            var (compoundRel, compoundRelTotal) = await Query("batch-item_7", "relevance", 1, 10);
+            Assert.Equal(2, compoundRelTotal);
+            Assert.Equal([4, 5], compoundRel.Select(item => item.Id));
+
+            var (compoundLatest, compoundLatestTotal) = await Query("batch-item_7", "latest", 1, 10);
+            Assert.Equal(2, compoundLatestTotal);
+            Assert.Equal([5, 4], compoundLatest.Select(item => item.Id));
+
+            var (commonPage21, commonTotal) = await Query("common", "relevance", 21, 10);
+            Assert.Equal(205, commonTotal);
+            Assert.Equal([1005, 1004, 1003, 1002, 1001], commonPage21.Select(item => item.Id));
+
+            var after = await Mark("measure-after");
+            Assert.Equal(7, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
+            Assert.Equal(Count(before, "dbCommandStarts"), Count(after, "dbCommandStarts"));
+            Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(after, "dbPhysicalOpenStarts"));
+
+            foreach (var bad in new[]
+            {
+                $"{PathFor("needle")}&sort=hot",
+                $"{PathFor("needle")}&page=0",
+                $"{PathFor("needle")}&page=10001",
+                $"{PathFor("needle")}&size=0",
+                $"{PathFor("needle")}&size=101"
+            })
+            {
+                using var response = await client.GetAsync(bad, ct);
+                Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+                Aeds.Decode(await response.Content.ReadAsByteArrayAsync(ct), FrameType.ApiError);
+            }
+
+            async Task<(Hit[] Hits, int Total)> Query(string keyword, string sort, int page, int size)
+            {
+                using var response = await client.GetAsync(
+                    $"{PathFor(keyword)}&sort={sort}&page={page}&size={size}", ct);
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                Assert.True(response.Headers.CacheControl?.NoStore);
+                Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+                Assert.Single(response.Headers.GetValues(WireHeaders.SearchIndexGeneration));
+                return (ReadHits(await response.Content.ReadAsByteArrayAsync(ct)),
+                    int.Parse(Assert.Single(response.Headers.GetValues(WireHeaders.SearchTotal))));
+            }
+
+            async Task<JsonElement> Mark(string name)
+            {
+                var request = Path.Combine(evidence.FullName, "runtime.mark");
+                var staging = Path.Combine(evidence.FullName, "stage");
+                await File.WriteAllTextAsync(staging, name, ct);
+                File.Move(staging, request);
+                while (!File.Exists(Path.Combine(evidence.FullName, name + ".ack"))) await Task.Delay(20, ct);
+                var matches = new List<JsonElement>();
+                foreach (var line in await File.ReadAllLinesAsync(output, ct))
+                {
+                    using var row = JsonDocument.Parse(line);
+                    if (row.RootElement.GetProperty("mark").GetString() == name) matches.Add(row.RootElement.Clone());
+                }
+                return Assert.Single(matches);
+            }
+        }
+        finally
+        {
+            evidence.Delete(recursive: true);
+        }
     }
 
     private static string PathFor(string keyword) => $"{WireRoutes.PublicSearch}?q={Uri.EscapeDataString(keyword)}";

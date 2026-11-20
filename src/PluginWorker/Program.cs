@@ -1,4 +1,4 @@
-using FsusBlogV2.Migrate;
+using FsusBlog.V2.Cli;
 
 if (args.Length != 0 || !LinuxWorkerBoundary.Seal()) return 3;
 using var output = Console.OpenStandardOutput();

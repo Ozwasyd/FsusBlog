@@ -71,7 +71,7 @@ dotnet=$(command -v "${DOTNET_BIN:-dotnet}")
 if [[ $http_probe == true ]]; then
     dotnet=$(cd -- "$(dirname "$dotnet")" && printf '%s/%s\n' "$(pwd -P)" "$(basename "$dotnet")")
 fi
-migrate_dll=${FSUSBLOG_MIGRATE_DLL:-$repo/src/Migrate/bin/Release/net10.0/FsusBlogV2.Migrate.dll}
+migrate_dll=${FSUSBLOG_MIGRATE_DLL:-$repo/src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll}
 test_dll=${FSUSBLOG_NIGHTLY_TEST_DLL:-$repo/tests/Integration/bin/Release/net10.0/FsusBlog.V2.Integration.Tests.dll}
 artifacts=("$test_dll")
 if [[ $http_probe == false ]]; then artifacts+=("$migrate_dll"); fi
@@ -164,7 +164,7 @@ stage = Path(sys.argv[4])
 commit = sys.argv[5]
 root = server.parent.parent
 server_name = "server/FsusBlog.V2.Server.dll"
-migrate_name = "migrate/FsusBlogV2.Migrate.dll"
+migrate_name = "cli/FsusBlog.V2.Cli.dll"
 if server != root / server_name or web != root / "web":
     raise SystemExit("Server and web must belong to one extracted release payload.")
 verify = runpy.run_path("tools/verify-release.py")
@@ -273,7 +273,7 @@ if [[ $http_probe == true ]]; then
         shasum -a 256 "${comment_inputs[@]}" >> "$evidence/run.txt"
     fi
     stage_http_release "$4" "$5" "$6" > "$evidence/http-release-binding.json" 2> "$evidence/http-release-binding.log"
-    migrate_dll="$scratch/release/migrate/FsusBlogV2.Migrate.dll"
+    migrate_dll="$scratch/release/cli/FsusBlog.V2.Cli.dll"
     shasum -a 256 "${decoders[@]}" tests/Performance/nightly-http-{oracle.sql,probe.mjs} >> "$evidence/run.txt"
     if [[ $wide_browser == true ]]; then
         shasum -a 256 "$scratch/release/Caddyfile" tests/Performance/proxy.sh \

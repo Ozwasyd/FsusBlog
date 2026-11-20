@@ -217,8 +217,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
             var digest = Store.TokenDigest(token)!;
             await author.Execute(FixtureSql.AdminSessionSql,
                 FixtureSql.AdminSessionArguments(admin, "facet-fixture-admin",
-                    RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), [1],
-                    ["admin.manage", "article.write"], digest, 2));
+                    RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), [1], digest, 2));
             var proof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
             await author.Execute("""
                 insert into public.admin_article_rollback_step_up

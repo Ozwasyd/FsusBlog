@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if (( $# != 1 )); then
-    printf 'Usage: %s /absolute/path/FsusBlogV2.Migrate.dll\n' "$0" >&2
+    printf 'Usage: %s /absolute/path/FsusBlog.V2.Cli.dll\n' "$0" >&2
     exit 2
 fi
 project="$1"

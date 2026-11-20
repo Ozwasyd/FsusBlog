@@ -12,7 +12,7 @@ internal sealed partial class AdminPasskeyStore
 {
     internal Task<byte[]> ReplyInbox(string? session, long id, string key, string body, byte[] frame, ScopedPow pow,
         string context, HttpContext http, bool issue, bool fenceVisibleMessages, CancellationToken ct) =>
-        WithLiveAdmin(session, Permission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             const PowScope scope = PowScope.AdminInboxReply;
             var fingerprint = InboxRules.Fingerprint("admin-reply", id, 0, "", body);

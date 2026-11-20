@@ -120,8 +120,10 @@ public sealed class MarkdownExportPostgresTests
         var current = await Save(older.Id, older.Revision, currentTitle, currentBody);
         var export = PathFor(current, older.Revision);
 
-        using (var shell = await server.Client.GetAsync("/user/manage/article/write", ct))
+        using (var shellRequest = new HttpRequestMessage(HttpMethod.Get, "/admin/articles/write"))
         {
+            shellRequest.Headers.Host = ServerProcess.DefaultAdminHost;
+            using var shell = await server.Client.SendAsync(shellRequest, ct);
             shell.EnsureSuccessStatusCode();
             Assert.DoesNotContain("fsus-pdf-export", await shell.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         }
@@ -133,7 +135,7 @@ public sealed class MarkdownExportPostgresTests
         await ReadWord(word, owner, HttpStatusCode.OK, olderTitle, "No trailing newline", "<script>literal document text</script>");
         await ReadWord(word, outsider, HttpStatusCode.NotFound);
         await ReadWord(word, null, HttpStatusCode.Unauthorized);
-        await ReadWord(word, reader, HttpStatusCode.Forbidden);
+        await ReadWord(word, reader, HttpStatusCode.Unauthorized);
         await ReadWord(PathFor(older, older.Revision).Replace("export.md", "export.docx", StringComparison.Ordinal), owner, HttpStatusCode.Conflict);
         var html = PathFor(current, older.Revision, "html");
         var savedHtml = await ReadHtml(html, owner, HttpStatusCode.OK);
@@ -145,7 +147,7 @@ public sealed class MarkdownExportPostgresTests
         Assert.Contains(currentTitle, await ReadHtml(currentHtml, owner, HttpStatusCode.OK), StringComparison.Ordinal);
         await ReadHtml(html, null, HttpStatusCode.Unauthorized);
         await ReadHtml(html, outsider, HttpStatusCode.NotFound);
-        await ReadHtml(html, reader, HttpStatusCode.Forbidden);
+        await ReadHtml(html, reader, HttpStatusCode.Unauthorized);
         await ReadHtml(PathFor(older, older.Revision, "html"), owner, HttpStatusCode.Conflict);
         await ReadHtml(html + "&revision=2", owner, HttpStatusCode.BadRequest);
         var epub = PathFor(current, older.Revision, "epub");
@@ -163,7 +165,7 @@ public sealed class MarkdownExportPostgresTests
         Assert.Equal(savedEpub, await ReadEpub(epub, owner, HttpStatusCode.OK));
         await ReadEpub(epub, null, HttpStatusCode.Unauthorized);
         await ReadEpub(epub, outsider, HttpStatusCode.NotFound);
-        await ReadEpub(epub, reader, HttpStatusCode.Forbidden);
+        await ReadEpub(epub, reader, HttpStatusCode.Unauthorized);
         await ReadEpub(PathFor(older, older.Revision, "epub"), owner, HttpStatusCode.Conflict);
         var sourceWithLink = await Save(0, 0, "Unexportable image", "![External](https://export.invalid/no)");
         var linkedHtml = PathFor(sourceWithLink, sourceWithLink.Revision, "html");
@@ -171,7 +173,7 @@ public sealed class MarkdownExportPostgresTests
         await ReadEpub(PathFor(sourceWithLink, sourceWithLink.Revision, "epub"), owner, HttpStatusCode.BadRequest);
         await Read(export, null, HttpStatusCode.Unauthorized);
         await Read(export, outsider, HttpStatusCode.NotFound);
-        await Read(export, reader, HttpStatusCode.Forbidden);
+        await Read(export, reader, HttpStatusCode.Unauthorized);
         await Read(PathFor(older, older.Revision), owner, HttpStatusCode.Conflict);
         await Read(PathFor(current, current.Revision + 1), owner, HttpStatusCode.BadRequest);
         await Read(export + "&revision=2", owner, HttpStatusCode.BadRequest);
@@ -191,7 +193,7 @@ public sealed class MarkdownExportPostgresTests
         await ReadHtml(html, owner, HttpStatusCode.NotFound);
         await ReadEpub(epub, owner, HttpStatusCode.NotFound);
 
-        await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.user_session where digest=$1", SHA256.HashData(Convert.FromHexString(owner)));
+        await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.admin_session where digest=$1", SHA256.HashData(Convert.FromHexString(owner)));
         await Read(export, owner, HttpStatusCode.Unauthorized);
         await ReadWord(word, owner, HttpStatusCode.Unauthorized);
         await ReadHtml(linkedHtml, owner, HttpStatusCode.Unauthorized);
@@ -306,7 +308,7 @@ public sealed class MarkdownExportPostgresTests
         Assert.False(saved.AsSpan().SequenceEqual(latest));
         await ReadPdf(server.Client, path, null, HttpStatusCode.Unauthorized, ct);
         await ReadPdf(server.Client, path, outsider, HttpStatusCode.NotFound, ct);
-        await ReadPdf(server.Client, path, reader, HttpStatusCode.Forbidden, ct);
+        await ReadPdf(server.Client, path, reader, HttpStatusCode.Unauthorized, ct);
         await ReadPdf(server.Client, PathFor(older, older.Revision, "pdf"), owner, HttpStatusCode.Conflict, ct);
         await ReadPdf(server.Client, path + "&revision=2", owner, HttpStatusCode.BadRequest, ct);
 
@@ -317,7 +319,7 @@ public sealed class MarkdownExportPostgresTests
         var oversized = await SiteAedsFixture.SaveDraft(server.Client, owner, null, 0, 0, "PDF size fixture", new string('字', 256 * 1024 / 3 + 1), ct);
         await ReadPdf(server.Client, PathFor(oversized, oversized.Revision, "pdf"), owner, HttpStatusCode.BadRequest, ct);
 
-        await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.user_session where digest=$1", SHA256.HashData(Convert.FromHexString(owner)));
+        await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.admin_session where digest=$1", SHA256.HashData(Convert.FromHexString(owner)));
         await ReadPdf(server.Client, path, owner, HttpStatusCode.Unauthorized, ct);
     }
 

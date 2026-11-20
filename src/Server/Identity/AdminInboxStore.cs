@@ -12,7 +12,7 @@ internal sealed partial class AdminPasskeyStore
         """;
 
     internal Task<string> InboxQueuePosition(string? token, int filter, bool statusEnabled, CancellationToken ct) =>
-        WithLiveAdmin(token, Permission, async (db, tx, _) =>
+        WithLiveAdmin(token, async (db, tx, _) =>
         {
             // Compare the actual page plus its pagination boundary. The highest ID alone
             // misses status changes and tickets allocated earlier but committed later.
@@ -31,7 +31,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<string> InboxThreadPosition(string? token, long id, bool statusEnabled, CancellationToken ct) =>
-        WithLiveAdmin(token, Permission, async (db, tx, _) =>
+        WithLiveAdmin(token, async (db, tx, _) =>
         {
             var statusHead = statusEnabled ? InboxStatusHead : "0";
             await using var query = Store.Sql(db, tx, $"""
@@ -43,7 +43,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<AdminInboxPage> ReadInbox(string? token, int filter, string? next, CancellationToken ct, bool shared = false) =>
-        WithLiveAdmin(token, Permission, async (db, tx, admin) =>
+        WithLiveAdmin(token, async (db, tx, admin) =>
         {
             var scope = checked((byte)(filter + (shared ? 17 : 1)));
             var position = InboxPosition(next, admin.Digest, scope);
@@ -73,7 +73,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<AdminInboxThread> ReadInboxThread(string? token, long id, string? older, CancellationToken ct, bool shared = false) =>
-        WithLiveAdmin(token, Permission, async (db, tx, admin) =>
+        WithLiveAdmin(token, async (db, tx, admin) =>
         {
             var scope = shared ? (byte)24 : (byte)8;
             var position = InboxPosition(older, admin.Digest, scope);

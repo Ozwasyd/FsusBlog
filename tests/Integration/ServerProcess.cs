@@ -6,6 +6,10 @@ namespace FsusBlog.V2.Integration.Tests;
 
 internal sealed class ServerProcess : IAsyncDisposable
 {
+    internal const string DefaultAdminHost = "localhost";
+    internal const string DefaultAdminOrigin = "http://localhost";
+    internal const string DefaultAdminCookie = "fsus-v2-admin-session";
+
     private readonly Process _process;
     private readonly string _temporaryDist;
     private readonly BoundedLog _log;
@@ -50,6 +54,13 @@ internal sealed class ServerProcess : IAsyncDisposable
             start.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
             start.Environment["Logging__LogLevel__Default"] = "Warning";
             start.Environment["Logging__LogLevel__Microsoft.Hosting.Lifetime"] = "Information";
+            var explicitOriginBoundary = settings is not null && (
+                settings.ContainsKey("FSUSBLOG_ADMIN_ORIGIN") ||
+                settings.ContainsKey("FSUSBLOG_PUBLIC_ORIGIN") ||
+                settings.ContainsKey("FSUSBLOG_PASSKEY_ORIGIN") ||
+                settings.ContainsKey("FSUSBLOG_TRUST_LOOPBACK_PROXY"));
+            if (!explicitOriginBoundary)
+                start.Environment["FSUSBLOG_ADMIN_ORIGIN"] = DefaultAdminOrigin;
             if (settings is not null)
                 foreach (var setting in settings) start.Environment[setting.Key] = setting.Value;
 

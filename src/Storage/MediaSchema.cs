@@ -11,7 +11,7 @@ internal static partial class CurrentSchema
     [
         "private_media p id",
         "private_media u owner_id,command_id",
-        "private_media f owner_id public.blog_user:id",
+        "private_media f owner_id public.admin_principal:id",
         "private_media c request_hash octet_length(request_hash)=32",
         "private_media c content_hash octet_length(content_hash)=32",
         "private_media c name octet_length(name)>=1ANDoctet_length(name)<=255",

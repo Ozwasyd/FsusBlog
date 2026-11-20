@@ -12,7 +12,7 @@ internal sealed partial class AdminPasskeyStore
 {
     internal Task<byte[]> ChangeInboxStatus(string? session, long id, string version, ConversationStatus target,
         string reason, byte[] frame, ScopedPow pow, HttpContext http, bool issue, CancellationToken ct) =>
-        WithLiveAdmin(session, Permission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             const PowScope scope = PowScope.AdminInboxStatus;
             var context = string.Create(CultureInfo.InvariantCulture, $"{id}:{version}");

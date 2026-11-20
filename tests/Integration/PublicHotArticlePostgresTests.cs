@@ -16,7 +16,8 @@ public sealed class PublicHotArticlePostgresTests
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (author, token, _) = await fixture.SignIn("Ranking author", ct, minutes: 1);
         var route = WireRoutes.PublicArticleHot.Replace("{size}", "10");
-        await using (var disabled = await ServerProcess.Start(fixture.ConnectionString, ct))
+        await using (var disabled = await ServerProcess.Start(fixture.ConnectionString, ct,
+            new Dictionary<string, string> { [PublicHotArticles.Setting] = "false" }))
         {
             using var response = await disabled.Client.GetAsync(route, ct);
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);

@@ -16,7 +16,6 @@ internal sealed partial class AdminPasskeyStore(NpgsqlDataSource source, Instanc
     private readonly NpgsqlDataSource _source = source;
     private readonly InstanceLease? _lease = lease;
     private readonly Fido2 _verifier = config.CreateVerifier("FsusBlog administration");
-    private const string Permission = CurrentSchema.AdminManagePermission;
     private const int Login = 1;
     private const int Bootstrap = 2;
     private const int ChallengeLimit = 128;

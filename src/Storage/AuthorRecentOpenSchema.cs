@@ -16,7 +16,7 @@ internal static partial class CurrentSchema
     private static readonly string[] AuthorRecentOpenConstraints =
     [
         "author_recent_open_collection p site_id,owner_id",
-        "author_recent_open_collection f owner_id public.blog_user:id",
+        "author_recent_open_collection f owner_id public.admin_principal:id",
         "author_recent_open_collection c revision revision>0",
         "author_recent_open p site_id,owner_id,article_id",
         "author_recent_open u site_id,owner_id,sequence",

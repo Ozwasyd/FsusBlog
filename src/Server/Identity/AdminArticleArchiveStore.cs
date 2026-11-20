@@ -10,7 +10,7 @@ namespace FsusBlog.V2.Server.Administration;
 internal sealed partial class AdminPasskeyStore
 {
     internal Task<IResult> ArticleInventory(string? session, HttpContext ctx, Func<HttpContext, string, int, string?> query, CancellationToken ct) =>
-        WithSession(session, CurrentSchema.ArticleWritePermission,
+        WithSession(session,
             (db, tx, _) => ArticleInventoryEndpoints.ReadPage(ctx, query, db, tx, null, ct), ct);
 
     // Check the exact current article, historical tail, and retained private release together.
@@ -29,14 +29,14 @@ internal sealed partial class AdminPasskeyStore
         """;
 
     internal Task CheckArticleArchiveAvailability(string? session, CancellationToken ct) =>
-        WithLiveAdmin(session, RollbackPermission, async (db, tx, _) =>
+        WithLiveAdmin(session, async (db, tx, _) =>
         {
             await RequireArticleArchiveSchema(db, tx, ct);
             return true;
         }, ct);
 
     internal Task<AdminArticleArchivePage> ListArchivedArticles(string? session, int before, CancellationToken ct) =>
-        WithLiveAdmin(session, RollbackPermission, async (db, tx, _) =>
+        WithLiveAdmin(session, async (db, tx, _) =>
         {
             await RequireArticleArchiveSchema(db, tx, ct);
             var limit = WireLimits.AdminArticleArchivePageSize;
@@ -58,7 +58,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<byte[]> PreviewArchivedArticle(string? session, int article, long revision,
-        long privateRelease, CancellationToken ct) => WithLiveAdmin(session, RollbackPermission, async (db, tx, _) =>
+        long privateRelease, CancellationToken ct) => WithLiveAdmin(session, async (db, tx, _) =>
     {
         await RequireArticleArchiveSchema(db, tx, ct);
         await using (var take = Store.Sql(db, tx, """
@@ -107,7 +107,7 @@ internal sealed partial class AdminPasskeyStore
 
     private Task<AdminArticleRollbackReceipt> RestoreArchivedArticle(string? session, string? proof,
         AdminArticleArchiveIntent intent, byte[] fingerprint, Action invalidatePublic, CancellationToken ct) =>
-        WithLiveAdmin(session, RollbackPermission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await RequireArticleArchiveSchema(db, tx, ct);
             await Store.LockCommand(db, tx, admin.Id, intent.IdempotencyKey, ct);

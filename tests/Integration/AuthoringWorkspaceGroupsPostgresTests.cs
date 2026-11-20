@@ -63,7 +63,7 @@ public sealed class AuthoringWorkspaceGroupsPostgresTests
         Assert.True(unchanged.InspectorOpen);
 
         await Send(client, HttpMethod.Get, WireRoutes.AuthoringWorkspaceGroups, author with { Handle = other.Handle }, null, HttpStatusCode.Conflict, ct);
-        await Send(client, HttpMethod.Get, WireRoutes.AuthoringWorkspaceGroups, reader, null, HttpStatusCode.Forbidden, ct);
+        await Send(client, HttpMethod.Get, WireRoutes.AuthoringWorkspaceGroups, reader, null, HttpStatusCode.Unauthorized, ct);
         var unrelated = await ReadGroups(client, other, ct);
         Assert.Equal(0, unrelated.Revision);
         Assert.Empty(unrelated.Tabs);

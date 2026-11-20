@@ -4,8 +4,9 @@ import { hexFixture } from './fixture-source.ts';
 import { test } from 'node:test';
 import { ProtocolError, encodeFrame } from '../../src/Contracts/aeds.ts';
 import {
-  createCorpusSearch, decodeLocalSearchResult, encodeLocalSearchResult, normalizeLocalSearchQuery, queryCorpusPage,
-  searchCorpus, searchTerms, verifySearchGeneration,
+  createCorpusSearch, decodeCorpusDocuments, decodeLocalSearchResult, encodeLocalSearchResult, normalizeLocalSearchQuery,
+  normalizePublicSearchSort, queryCorpusPage, scoreAdmittedCorpusPage, searchCorpus, searchTerms, verifySearchGeneration,
+  type CompactSearchStorage, type PersistedCompactCorpus,
 } from '../../src/Contracts/local-search.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireRoutes } from '../../src/Contracts/wire.generated.ts';
 
@@ -379,4 +380,172 @@ test('FSPT admits an exact target in the normal Worker cache and retries a damag
   withdrewDuringFallback = true;
   await assert.rejects(search('needle'), { status: 409 });
   assert.deepEqual(calls, [...refresh, `GET:${targetGeneration}:2`]);
+});
+
+test('admitted binary-search scoring and lazy decode match full shard parsing bit-for-bit', () => {
+  const dictionary = fixtures('search-cjk-v4');
+  for (const [bytes, queries] of [
+    [packageBytes, ['needle', '雪', 'needle 雪', '雪 needle', 'needle 雪 needle', 'title needle', 'needle needle', 'absent']],
+    [dictionary, ['博客搜索', '搜索 博客', '博客 搜索', '公开页', '公开', '客', '的', '的 搜索', 'ABC 博客', 'absent']],
+  ] as const) {
+    for (const query of queries) {
+      const terms = searchTerms(query);
+      const full = queryCorpusPage(bytes, terms);
+      const hits = scoreAdmittedCorpusPage(bytes, terms);
+      assert.equal(hits.length, full.matches.size, `hit count mismatch for "${query}"`);
+      for (const hit of hits) {
+        const expectedDoc = full.documents.get(hit.id)!;
+        assert.equal(hit.score, full.matches.get(hit.id), `score mismatch for "${query}"`);
+        assert.equal(hit.publishedAt, expectedDoc.publishedAt);
+        assert.equal(hit.views, expectedDoc.views);
+      }
+      const decoded = decodeCorpusDocuments(bytes, hits.map(hit => hit.row));
+      assert.equal(decoded.length, hits.length);
+      for (let i = 0; i < decoded.length; i++) {
+        const expectedDoc = full.documents.get(hits[i].id)!;
+        const { length: _len, row: _row, ...expectedCard } = expectedDoc;
+        assert.deepEqual(decoded[i], expectedCard);
+      }
+    }
+  }
+});
+
+test('persistent compact storage reuses across sessions, refreshes via 304, discards corruption, and supports latest sort', async (t) => {
+  assert.equal(normalizePublicSearchSort('latest'), 'latest');
+  assert.equal(normalizePublicSearchSort('relevance'), 'relevance');
+  assert.equal(normalizePublicSearchSort('hot'), 'relevance');
+  assert.equal(normalizePublicSearchSort(undefined), 'relevance');
+
+  function pageWith(id: number, publishedAt: bigint, titleOnly = false) {
+    const result = pageWithId(id);
+    const shard = new DataView(result.buffer, L.SearchPackagePayloadOffset);
+    const docAt = shard.getUint32(40, true);
+    shard.setBigInt64(docAt + 24, publishedAt, true);
+    if (titleOnly) {
+      // Lower body TF on the needle term to create a distinct BM25 score vs recency order.
+      const postingAt = shard.getUint32(60, true);
+      for (let i = 0; i < shard.getUint32(16, true); i++) {
+        const termOffset = L.SearchShardHeaderSize + i * L.SearchTermRecordSize;
+        if (shard.getUint32(termOffset, true) === searchTerms('needle')[0]) {
+          const at = postingAt + shard.getUint32(termOffset + 8, true);
+          // Posting layout: docCount(1), idDelta(1), titleTf, metaTf, bodyTf
+          shard.setUint8(at + 2, 1);
+          shard.setUint8(at + 4, 1);
+        }
+      }
+    }
+    return result;
+  }
+
+  // Page 1 (id 42, older, higher score for 'needle' because title+body TF boosted)
+  // Page 2 (id 43, newer by +1 day, lower score for 'needle')
+  const olderHigher = pageWith(42, 1700000000000n, true);
+  const newerLower = pageWith(43, 1700086400000n, false);
+  assert(scoreAdmittedCorpusPage(olderHigher, searchTerms('needle'))[0].score >
+    scoreAdmittedCorpusPage(newerLower, searchTerms('needle'))[0].score);
+
+  let generation = '900';
+  let available = true;
+  let corpus = [olderHigher, newerLower];
+  const calls: string[] = [];
+  const bodies: number[] = [];
+  const tag = (bytes: Uint8Array) => `"${createHash('sha256').update(bytes).digest('hex')}"`;
+
+  t.mock.method(globalThis, 'fetch', (path: string, init: RequestInit) => {
+    const url = new URL(path, 'http://localhost');
+    const pinned = url.searchParams.get('generation');
+    const page = Number(url.searchParams.get('page'));
+    calls.push(`${init.method}:${pinned ?? 'current'}:${page || '-'}`);
+    const headers = {
+      'Content-Type': 'application/octet-stream',
+      [WireHeaders.SearchIndexPages]: String(corpus.length),
+      [WireHeaders.SearchIndexGeneration]: generation,
+    };
+    if (!available) return new Response(null, { status: 503 });
+    if (pinned !== null && pinned !== generation) return new Response(null, { status: 409 });
+    if (!page) return new Response(null, { status: 204, headers });
+    const bytes = corpus[page - 1];
+    const etag = tag(bytes);
+    if (new Headers(init.headers).get('If-None-Match') === etag) {
+      return new Response(null, { status: 304, headers: { ...headers, ETag: etag } });
+    }
+    bodies.push(page);
+    return new Response(bytes.slice(), { headers: { ...headers, ETag: etag } });
+  });
+
+  let stored: PersistedCompactCorpus | undefined;
+  const discards: string[] = [];
+  const storage: CompactSearchStorage = {
+    async load() { return stored; },
+    async save(next) { stored = { generation: next.generation, pages: next.pages.map(p => p.slice()) }; },
+    async discard(gen) {
+      discards.push(gen);
+      if (stored?.generation === gen) stored = undefined;
+    },
+  };
+
+  // First session: cold download saves to persistent storage; relevance puts olderHigher (42) before newerLower (43).
+  const firstSession = createCorpusSearch({ storage });
+  const rel1 = await firstSession('needle', undefined, 1, 10, 'relevance');
+  assert.deepEqual(decodeLocalSearchResult(rel1.frame).items.map(a => a.id), [42, 43]);
+  assert.equal(stored?.generation, '900');
+  assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:900:2']);
+  assert.deepEqual(bodies.splice(0), [1, 2]);
+
+  // Same session warm RAM hit with sort='latest' puts newerLower (43) before olderHigher (42) with zero page GETs.
+  const lat1 = await firstSession('needle', undefined, 1, 10, 'latest');
+  assert.deepEqual(decodeLocalSearchResult(lat1.frame).items.map(a => a.id), [43, 42]);
+  assert.deepEqual(calls.splice(0), ['HEAD:900:-']);
+  assert.deepEqual(bodies.splice(0), []);
+
+  // Second session (simulating reload / return to /search / second tab): reuses persisted storage with ZERO page GETs.
+  const secondSession = createCorpusSearch({ storage });
+  const rel2 = await secondSession('needle', undefined, 1, 10, 'relevance');
+  assert.deepEqual(decodeLocalSearchResult(rel2.frame).items.map(a => a.id), [42, 43]);
+  assert.deepEqual(calls.splice(0), ['HEAD:900:-']);
+  assert.deepEqual(bodies.splice(0), []);
+
+  // Subsequent query in second session uses promoted RAM fast path for 'latest'.
+  const lat2 = await secondSession('needle', undefined, 1, 10, 'latest');
+  assert.deepEqual(decodeLocalSearchResult(lat2.frame).items.map(a => a.id), [43, 42]);
+  assert.deepEqual(calls.splice(0), ['HEAD:900:-']);
+  assert.deepEqual(bodies.splice(0), []);
+
+  // Third session after generation advances: persisted page 1 hits 304, only page 2 downloads, storage updates to 901.
+  generation = '901';
+  corpus = [olderHigher, pageWith(44, 1700172800000n, false)];
+  const thirdSession = createCorpusSearch({ storage });
+  const lat3 = await thirdSession('needle', undefined, 1, 10, 'latest');
+  assert.deepEqual(decodeLocalSearchResult(lat3.frame).items.map(a => a.id), [44, 42]);
+  assert.equal(stored?.generation, '901');
+  assert.deepEqual(calls.splice(0), ['HEAD:900:-', 'GET:current:1', 'GET:901:2']);
+  assert.deepEqual(bodies.splice(0), [2]);
+
+  // Corrupted persisted storage is detected, discarded, and cleanly refetched from network.
+  const corruptedPage = stored!.pages[0].slice();
+  corruptedPage[4] ^= 0xff;
+  stored = { generation: '901', pages: [corruptedPage, stored!.pages[1]] };
+  const fourthSession = createCorpusSearch({ storage });
+  const rel4 = await fourthSession('needle', undefined, 1, 10, 'relevance');
+  assert.deepEqual(decodeLocalSearchResult(rel4.frame).items.map(a => a.id), [42, 44]);
+  assert.deepEqual(discards.splice(0), ['901']);
+  assert.equal(stored?.generation, '901');
+  assert.deepEqual(calls.splice(0), ['HEAD:901:-', 'GET:current:1', 'GET:901:2']);
+  assert.deepEqual(bodies.splice(0), [1, 2]);
+
+  // 503 on HEAD against persisted storage discards obsolete compact cache.
+  available = false;
+  const fifthSession = createCorpusSearch({ storage });
+  await assert.rejects(fifthSession('needle'), { status: 503 });
+  assert.deepEqual(discards.splice(0), ['901']);
+  assert.equal(stored, undefined);
+  assert.deepEqual(calls.splice(0), ['HEAD:901:-']);
+
+  // invalidate() clears RAM and invokes storage.discard().
+  available = true;
+  await fifthSession('needle');
+  assert.equal(stored?.generation, '901');
+  await fifthSession.invalidate('901');
+  assert.equal(stored, undefined);
+  assert.deepEqual(discards.splice(0), ['901']);
 });

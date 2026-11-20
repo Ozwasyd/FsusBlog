@@ -13,7 +13,7 @@ internal sealed partial class AdminPasskeyStore
 {
     internal Task<byte[]> SendInboxNotice(string? session, long eventId, AdminInboxNotice input, byte[] frame,
         ScopedPow pow, HttpContext http, bool issue, bool fenceVisibleMessages, CancellationToken ct) =>
-        WithLiveAdmin(session, Permission, async (db, tx, admin) =>
+        WithLiveAdmin(session, async (db, tx, admin) =>
         {
             const PowScope scope = PowScope.AdminInboxNotice;
             string subject = InboxRules.Subject(input.Subject, system: true);

@@ -124,11 +124,15 @@ internal sealed class PublicSnapshot
         CancellationToken ct, Func<Article, bool>? filter = null) =>
         _listing.Read(PublicListQuery.Parse(scope, page, size, keyword, sort, cursor), ct, filter);
 
-    internal byte[]? Search(string keyword, CancellationToken ct)
+    internal byte[]? Search(string keyword, CancellationToken ct) =>
+        SearchPage(keyword, ArticleSearchSort.Relevance, 1, 200, ct)?.Bytes;
+
+    internal (byte[] Bytes, int Total)? SearchPage(string keyword, ArticleSearchSort sort, int page, int size,
+        CancellationToken ct)
     {
         if (_search is null) return null;
-        var matching = _search.Search(keyword, ct);
-        return PublicArticles.EncodeSearch(matching, matching.Length);
+        var matching = _search.SearchPage(keyword, sort, page, size, ct);
+        return (PublicArticles.EncodeSearch(matching.Articles, matching.Articles.Length), matching.Total);
     }
 
     private static EntityTagHeaderValue[] CorpusTags(IReadOnlyList<byte[]> pages, CancellationToken ct)

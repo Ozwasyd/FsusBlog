@@ -47,7 +47,7 @@ internal sealed partial class AdminPasskeyStore
     internal Task<(byte[] Frame, long? Next, int Article)> CommentRevisions<TPosition>(string? token, long id, TPosition state,
         Func<TPosition, (long Before, int Article)> readPosition,
         CancellationToken ct) =>
-        WithSession<(byte[], long?, int)>(token, CurrentSchema.CommentModeratePermission, async (db, tx, _) =>
+        WithSession<(byte[], long?, int)>(token, async (db, tx, _) =>
         {
             if (id <= 0 || !await CurrentSchema.HasCommentAuthorDeleteSchemaAsync(db, tx, ct) ||
                 !await CurrentSchema.HasCommentAuthorEditSchemaAsync(db, tx, ct))

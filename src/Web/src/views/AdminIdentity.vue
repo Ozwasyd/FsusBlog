@@ -5,11 +5,10 @@ import { useRoute } from 'vue-router'
 import type { ThemeMode } from '@ozwasyd/element-plus/theme'
 import AccountWorkspace from '../AccountWorkspace.vue'
 import SiteAuthLayout from '../SiteAuthLayout.vue'
-import { adminWorkspacePages, type AdminWorkspaceSection } from '../adminWorkspaceRoutes'
+import { adminWorkspacePages } from '../adminWorkspaceRoutes'
 import {
   ElAlert,
   ElButton,
-  ElEmptyState,
   ElInput,
   ElKeyValueGrid,
   ElKeyValueItem,
@@ -26,20 +25,16 @@ import AdminSessionHistory from './AdminSessionHistory.vue'
 import AdminCluster from './AdminCluster.vue'
 import AdminRiskReadiness from './AdminRiskReadiness.vue'
 import AdminAppearance from './AdminAppearance.vue'
-import AdminInbox from './AdminInbox.vue'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   bootstrapAdminPasskey,
   readAdminAuthority,
-  readAdminEffectivePermissions,
   readAdminOperations,
   signInAdmin,
   signOutAdmin,
   validAdminBootstrapToken,
   type AdminAuthority,
   type AdminOperationsStatus,
-  type AdminPermission,
-  type AdminSession,
 } from '../../../Contracts/admin-identity'
 
 defineProps<{ themeMode?: ThemeMode }>()
@@ -47,8 +42,6 @@ const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
 const route = useRoute()
 const section = computed(() => adminWorkspacePages.find(page => page.name === route.name) ?? adminWorkspacePages[4])
 const adminUsesHttps = globalThis.location?.protocol === 'https:'
-const permissionLease = 60_000
-const permissionRefresh = 45_000
 const lifetime = new AbortController()
 const authority = shallowRef<AdminAuthority | null>(null)
 const bootstrapOpen = ref(false)
@@ -61,21 +54,21 @@ const notice = ref<MessageKey | ''>('')
 const operations = shallowRef<AdminOperationsStatus | null>(null)
 const operationsBusy = ref(false)
 const operationsFailure = ref<MessageKey | ''>('')
-const permissionAuthority = shallowRef(new AbortController())
-const permissionEpoch = ref(0)
-const permissions = shallowRef<readonly AdminPermission[] | null>(null)
-const permissionsPending = ref(false)
-const permissionsFailure = ref(false)
+const sessionAuthority = shallowRef(new AbortController())
+const sessionEpoch = ref(0)
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 let operationsRequest: AbortController | undefined
-let permissionsRequest: AbortController | undefined
-let permissionLeaseTimer: ReturnType<typeof setTimeout> | undefined
-let permissionRefreshTimer: ReturnType<typeof setTimeout> | undefined
+
+function resetSessionScope() {
+  clearOperations()
+  sessionAuthority.value.abort()
+  sessionAuthority.value = new AbortController()
+  sessionEpoch.value++
+}
 
 function setAuthority(next: AdminAuthority | null) {
   clearTimeout(expiryTimer)
-  clearPermissions()
-  permissionsFailure.value = false
+  resetSessionScope()
   if (next?.status === 'active') {
     const remaining = next.session.expiresAt - Date.now()
     if (remaining <= 0) {
@@ -86,7 +79,6 @@ function setAuthority(next: AdminAuthority | null) {
     closeBootstrap()
   }
   authority.value = next
-  if (next?.status === 'active') void checkPermissions(next.session)
 }
 
 async function run(task: () => Promise<void>, onFailure: MessageKey) {
@@ -117,89 +109,12 @@ onMounted(() => {
 onUnmounted(() => {
   lifetime.abort()
   clearTimeout(expiryTimer)
-  clearPermissions()
+  resetSessionScope()
   document.removeEventListener('visibilitychange', whenVisible)
 })
 
-function setPermissions(next: readonly AdminPermission[] | null) {
-  const previous = permissions.value
-  if (previous === next || (previous && next && previous.length === next.length && previous.every((grant, i) => next[i] === grant))) return
-  clearOperations()
-  permissionAuthority.value.abort()
-  permissionAuthority.value = new AbortController()
-  permissionEpoch.value++
-  permissions.value = next
-}
-
-function clearPermissions() {
-  permissionsRequest?.abort()
-  permissionsRequest = undefined
-  permissionsPending.value = false
-  clearTimeout(permissionLeaseTimer)
-  clearTimeout(permissionRefreshTimer)
-  setPermissions(null)
-}
-
-const permissionLabels: Record<AdminPermission, MessageKey> = {
-  'admin.manage': 'admin.permission.admin.manage',
-  'article.write': 'admin.permission.article.write',
-  'audit.read': 'admin.permission.audit.read',
-  'comment.moderate': 'admin.permission.comment.moderate',
-  'system.config': 'admin.permission.system.config',
-}
-
-function permits(grant: AdminPermission): boolean {
-  return authority.value?.status === 'active' && permissions.value?.includes(grant) === true
-}
-
-function canOpen(page: AdminWorkspaceSection): boolean {
-  switch (page) {
-    case 'articles': return permits('article.write')
-    case 'interaction': return permits('admin.manage') || permits('comment.moderate')
-    case 'site': return permits('audit.read') || permits('system.config')
-    case 'system': return permits('audit.read') || permits('system.config')
-    case 'identity': return true
-  }
-}
-const links = computed(() => adminWorkspacePages.filter(page => canOpen(page.section))
-  .map(({ path, label }) => ({ to: path, label: t(label) })))
+const links = computed(() => adminWorkspacePages.map(({ path, label }) => ({ to: path, label: t(label) })))
 watch(section, (next) => { if (next.section !== 'system') clearOperations() })
-
-async function checkPermissions(session: AdminSession) {
-  if (lifetime.signal.aborted || permissionsRequest || authority.value?.status !== 'active' || authority.value.session !== session) return
-  const check = new AbortController()
-  permissionsRequest = check
-  permissionsPending.value = true
-  permissionsFailure.value = false
-  const reportedAt = Date.now()
-  try {
-    const grants = await readAdminEffectivePermissions(session, check.signal)
-    if (check.signal.aborted) return
-    const remaining = Math.min(reportedAt + permissionLease, session.expiresAt) - Date.now()
-    if (remaining <= 0) throw new Error('Administrator permissions expired while loading.')
-    setPermissions(grants)
-    clearTimeout(permissionLeaseTimer)
-    clearTimeout(permissionRefreshTimer)
-    permissionLeaseTimer = setTimeout(() => {
-      clearPermissions()
-      permissionsFailure.value = true
-    }, remaining)
-    if (session.expiresAt > reportedAt + permissionRefresh) {
-      permissionRefreshTimer = setTimeout(() => {
-        if (document.visibilityState === 'visible') void checkPermissions(session)
-      }, Math.max(0, reportedAt + permissionRefresh - Date.now()))
-    }
-  } catch (error) {
-    if (check.signal.aborted || handleSessionLoss(error)) return
-    clearPermissions()
-    permissionsFailure.value = true
-  } finally {
-    if (permissionsRequest === check) {
-      permissionsRequest = undefined
-      permissionsPending.value = false
-    }
-  }
-}
 
 function clearOperations() {
   operationsRequest?.abort()
@@ -211,7 +126,7 @@ function clearOperations() {
 
 async function checkOperations() {
   const active = authority.value
-  if (active?.status !== 'active' || !permits('audit.read') || busy.value || operationsBusy.value) return
+  if (active?.status !== 'active' || busy.value || operationsBusy.value) return
   clearOperations()
   const check = new AbortController()
   operationsRequest = check
@@ -234,9 +149,7 @@ async function checkOperations() {
       if (observed?.status === 'signed-out') { handleSessionLoss(error); return }
       if (observed && !same(observed)) { setAuthority(observed); return }
     }
-    operationsFailure.value = error instanceof ApiError && error.status === 403
-      ? 'admin.operationsForbidden'
-      : 'admin.operationsFailed'
+    operationsFailure.value = 'admin.operationsFailed'
   } finally {
     if (operationsRequest === check) {
       operationsRequest = undefined
@@ -300,15 +213,6 @@ function logOut() {
     <main class="admin-workspace">
       <ElTaskPageHeader :title="t(section.label)" density="compact" />
       <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
-      <div v-if="section.section !== 'identity' && !canOpen(section.section)" class="admin-permission-gate">
-        <ElAlert v-if="permissionsFailure" :title="t('admin.permissionsFailed')" type="error" :closable="false" show-icon />
-        <ElButton v-if="permissionsFailure" native-type="button" :disabled="busy" @click="refresh">{{ t('admin.reloadPermissions') }}</ElButton>
-        <div v-else-if="!permissions" class="admin-status-skeleton">
-          <ElSkeleton :rows="3" animated />
-          <p class="admin-status-text" role="status">{{ t('admin.checkingPermissions') }}</p>
-        </div>
-        <ElEmptyState v-else size="compact" :title="t('admin.workspace.denied')" role="status" />
-      </div>
       <div class="admin-sections">
         <ElSettingsSection v-if="section.section === 'identity'" ariaLabelledby="admin-session-heading" density="compact">
           <template #title><span id="admin-session-heading">{{ t('admin.session') }}</span></template>
@@ -318,32 +222,16 @@ function logOut() {
               <time :datetime="new Date(authority.session.expiresAt).toISOString()">{{ new Date(authority.session.expiresAt).toLocaleString() }}</time>
             </ElKeyValueItem>
           </ElKeyValueGrid>
-          <div class="admin-session-permissions">
-            <span class="admin-session-permissions-label">{{ t('admin.effectivePermissions') }}</span>
-            <div v-if="permissions" class="admin-permission-list">
-              <ElTag v-for="grant in permissions" :key="grant" size="small" type="info" v-bind="{ title: grant }">{{ t(permissionLabels[grant]) }}</ElTag>
-            </div>
-            <div v-else-if="permissionsFailure" class="admin-inline-stack">
-              <ElAlert :title="t('admin.permissionsFailed')" type="error" :closable="false" show-icon />
-              <ElButton native-type="button" :loading="busy || permissionsPending" @click="refresh">{{ t('admin.reloadPermissions') }}</ElButton>
-            </div>
-            <div v-else-if="permissionsPending" class="admin-status-skeleton">
-              <ElSkeleton :rows="1" animated />
-              <p class="admin-status-text" role="status">{{ t('admin.checkingPermissions') }}</p>
-            </div>
-          </div>
         </ElSettingsSection>
-        <AdminSessionHistory v-if="section.section === 'identity' && permits('admin.manage')" :key="permissionEpoch" :session="authority.session"
-          :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+        <AdminSessionHistory v-if="section.section === 'identity'" :key="sessionEpoch" :session="authority.session"
+          :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
         <AdminInteractionWorkspace
-          v-if="section.section === 'interaction' && (permits('comment.moderate') || permits('admin.manage'))"
-          :key="permissionEpoch"
-          :session-signal="permissionAuthority.signal"
-          :can-moderate="permits('comment.moderate')"
-          :can-manage-inbox="permits('admin.manage')"
+          v-if="section.section === 'interaction'"
+          :key="sessionEpoch"
+          :session-signal="sessionAuthority.signal"
           @session-lost="handleSessionLoss"
         />
-        <ElSettingsSection v-if="section.section === 'system' && permits('audit.read')" class="admin-operations"
+        <ElSettingsSection v-if="section.section === 'system'" class="admin-operations"
           ariaLabelledby="admin-operations-heading" density="compact">
           <template #title><span id="admin-operations-heading">{{ t('admin.operationsStatus') }}</span></template>
           <template #actions>
@@ -365,17 +253,17 @@ function logOut() {
             </ElKeyValueGrid>
           </div>
         </ElSettingsSection>
-        <AdminArticlesWorkspace v-if="section.section === 'articles' && permits('article.write')" :key="permissionEpoch"
-          :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-        <AdminSiteTraffic v-if="section.section === 'site' && permits('audit.read')" :key="permissionEpoch"
-          :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-        <AdminAppearance v-if="section.section === 'site' && authority?.status === 'active' && authority.session.appearanceEnabled && permits('system.config')" :key="permissionEpoch"
-          :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-        <AdminCluster v-if="section.section === 'system' && authority?.status === 'active' && permits('system.config')" :key="permissionEpoch"
-          :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-        <AdminRiskReadiness v-if="section.section === 'system' && adminUsesHttps && authority?.status === 'active' && permits('system.config')" :key="permissionEpoch"
-          :session="authority.session" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
-        <AdminSitePages v-if="section.section === 'site' && permits('system.config')" :key="permissionEpoch" :session-signal="permissionAuthority.signal" @session-lost="handleSessionLoss" />
+        <AdminArticlesWorkspace v-if="section.section === 'articles'" :key="sessionEpoch"
+          :session-signal="sessionAuthority.signal" :can-rollback="adminUsesHttps" @session-lost="handleSessionLoss" />
+        <AdminSiteTraffic v-if="section.section === 'site'" :key="sessionEpoch"
+          :session="authority.session" :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
+        <AdminAppearance v-if="section.section === 'site' && authority.session.appearanceEnabled" :key="sessionEpoch"
+          :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
+        <AdminCluster v-if="section.section === 'system'" :key="sessionEpoch"
+          :session="authority.session" :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
+        <AdminRiskReadiness v-if="section.section === 'system' && adminUsesHttps" :key="sessionEpoch"
+          :session="authority.session" :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
+        <AdminSitePages v-if="section.section === 'site'" :key="sessionEpoch" :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
       </div>
     </main>
   </AccountWorkspace>
@@ -427,35 +315,15 @@ function logOut() {
 .admin-sections > :deep(*) {
   margin-block: 0;
 }
-.admin-permission-gate,
-.admin-inline-stack,
 .admin-status-skeleton {
   display: grid;
   gap: var(--fsus-space-3);
-  justify-items: start;
-}
-.admin-status-skeleton {
   justify-items: stretch;
 }
 .admin-status-text {
   margin: 0;
   color: var(--el-text-color-secondary);
   font-size: var(--el-font-size-base);
-}
-.admin-session-permissions {
-  display: grid;
-  gap: var(--fsus-space-2);
-  margin-top: var(--fsus-space-3);
-}
-.admin-session-permissions-label {
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-}
-.admin-permission-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--fsus-space-2);
 }
 .admin-login-surface {
   display: grid;

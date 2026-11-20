@@ -318,7 +318,7 @@ public sealed class InboxPostgresTests
     private static async Task<Guid> AddUser(NpgsqlDataSource data, string name, CancellationToken ct)
     {
         var user = Guid.NewGuid();
-        await using var insert = data.CreateCommand("INSERT INTO public.blog_user VALUES ($1, $2, false, true, 1)");
+        await using var insert = data.CreateCommand("INSERT INTO public.blog_user (id, name, enabled, generation) VALUES ($1, $2, true, 1)");
         insert.Parameters.AddWithValue(user);
         insert.Parameters.AddWithValue(name);
         await insert.ExecuteNonQueryAsync(ct);
