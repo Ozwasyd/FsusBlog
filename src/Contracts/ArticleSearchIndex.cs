@@ -265,14 +265,15 @@ public sealed partial class ArticleSearchIndex
             {
                 remainingChars -= text.Length;
                 if (remainingChars < 0) return false;
-                foreach (var hash in ArticleSearchTokens.Hashes(text, ct))
+                var subtokenWeight = Math.Max(1, weight / 2);
+                return ArticleSearchTokens.VisitIndexTokens(text, ct, (hash, exact) =>
                 {
+                    var delta = exact ? weight : subtokenWeight;
                     ref var frequency = ref CollectionsMarshal.GetValueRefOrAddDefault(_frequencies, hash, out _);
-                    if (frequency > int.MaxValue - weight) return false;
-                    frequency += weight;
-                    if (_frequencies.Count > termLimit) return false;
-                }
-                return true;
+                    if (frequency > int.MaxValue - delta) return false;
+                    frequency += delta;
+                    return _frequencies.Count <= termLimit;
+                });
             }
         }
     }

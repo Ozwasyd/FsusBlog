@@ -94,7 +94,7 @@ public static class LocalSearchCorpus
     private sealed record Document(Article Article, Dictionary<uint, Frequencies> Terms, int Length, int EstimatedBytes);
     private record struct Frequencies(int Title, int Meta, int Body, List<Position>? Positions);
     private readonly record struct Position(int Offset, byte Field, int Width);
-    private readonly record struct Token(uint Hash, int Width, int Advance, bool Stopword = false);
+    private readonly record struct Token(uint Hash, int Width, int Advance, bool SkipPositions = false);
     private readonly record struct Posting(int ArticleId, Frequencies Tf);
     private readonly record struct Term(uint Hash, float Idf, int Offset, int Length, bool HasPositions);
     private readonly record struct TextSlice(int Offset, int Length);
@@ -139,7 +139,7 @@ public static class LocalSearchCorpus
             {
                 if ((tokens++ & 1023) == 0) ct.ThrowIfCancellationRequested();
                 terms.TryGetValue(token.Hash, out var old);
-                if (!token.Stopword && (field is TitleField or BodyField))
+                if (!token.SkipPositions && (field is TitleField or BodyField))
                 {
                     (old.Positions ??= []).Add(new Position(offset, field, token.Width));
                     positions++;
@@ -359,13 +359,24 @@ public static class LocalSearchCorpus
     private static IEnumerable<Token> Tokens(string text)
     {
         text = text.Normalize(NormalizationForm.FormKC);
+        uint[]? subtokens = null;
         for (var index = 0; index < text.Length;)
         {
             if (char.IsAsciiLetterOrDigit(text[index]))
             {
                 var start = index++;
                 while (index < text.Length && char.IsAsciiLetterOrDigit(text[index])) index++;
-                yield return new Token(HashAscii(text.AsSpan(start, index - start)), 1, 1);
+                var length = index - start;
+                var fullHash = HashAscii(text.AsSpan(start, length));
+                var expanded = 0;
+                if (length >= 3)
+                {
+                    subtokens ??= new uint[ArticleSearchTokens.MaxAsciiSubtokens];
+                    expanded = ArticleSearchTokens.ExpandAscii(text.AsSpan(start, length), fullHash, subtokens);
+                }
+                yield return new Token(fullHash, 1, 1);
+                for (var i = 0; i < expanded; i++)
+                    yield return new Token(subtokens![i], 1, 0, SkipPositions: true);
             }
             else if (SearchLexicon.IsCjk(text[index]))
             {

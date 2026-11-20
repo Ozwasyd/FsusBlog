@@ -19,6 +19,10 @@ test('FSPK v4 indexes a body-only term and produces the fixed FSR4 result', () =
   assert.deepEqual(searchTerms('foo ＦＯＯ'), [0xf6a5c420, 0xf6a5c420]);
   const shard = queryCorpusPage(packageBytes, searchTerms('needle'));
   assert.deepEqual([...shard.matches.keys()], [42]);
+  assert.deepEqual([...queryCorpusPage(packageBytes, searchTerms('need')).matches.keys()], [42]);
+  assert.deepEqual([...queryCorpusPage(packageBytes, searchTerms('tit')).matches.keys()], [42]);
+  assert.deepEqual([...queryCorpusPage(packageBytes, searchTerms('not')).matches.keys()], [42]);
+  assert.equal(queryCorpusPage(packageBytes, searchTerms('ne')).matches.size, 0);
   assert.equal(queryCorpusPage(packageBytes, searchTerms('雪')).matches.size, 1);
   assert.equal(queryCorpusPage(packageBytes, searchTerms('absent')).matches.size, 0);
   const doc = shard.documents.get(42)!;

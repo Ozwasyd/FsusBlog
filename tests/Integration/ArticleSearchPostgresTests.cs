@@ -24,6 +24,37 @@ public sealed class ArticleSearchPostgresTests
         Assert.Throws<OperationCanceledException>(() => index.Search("needle", cancellation.Token));
     }
 
+    [Fact]
+    public void IndexesAsciiPrefixesAndCamelCaseSubwordsWithLowerWeightThanExactMatches()
+    {
+        var when = DateTimeOffset.UnixEpoch.AddYears(50);
+        var index = ArticleSearchIndex.Build([
+            new Article(1, 1, 1, 1, 1, "FsusBlog guide", "PostgreSQL dotNet10", when, when, when),
+            new Article(2, 1, 2, 1, 1, "FsusUI tokens", "under unit testing", when.AddDays(1), when, when),
+            new Article(3, 1, 3, 1, 1, "Fsu", "standalone exact term", when.AddDays(-1), when, when)
+        ], CancellationToken.None);
+        Assert.NotNull(index);
+
+        // Exact title match ("Fsu") outranks prefix title matches ("FsusBlog", "FsusUI"),
+        // while both prefix matches are still recalled.
+        var fsu = index.Search("Fsu", CancellationToken.None).Select(article => article.Id).ToArray();
+        Assert.Equal(3, fsu[0]);
+        Assert.Equal([1, 2, 3], fsu.Order());
+
+        // CamelCase / acronym / digit-boundary subwords match without matching unrelated prefixes.
+        Assert.Equal([1], index.Search("Blog", CancellationToken.None).Select(article => article.Id));
+        Assert.Equal([2], index.Search("UI", CancellationToken.None).Select(article => article.Id));
+        Assert.Equal([1], index.Search("SQL", CancellationToken.None).Select(article => article.Id));
+        Assert.Equal([1], index.Search("post", CancellationToken.None).Select(article => article.Id));
+        Assert.Equal([1], index.Search("net", CancellationToken.None).Select(article => article.Id));
+        Assert.Equal([1], index.Search("10", CancellationToken.None).Select(article => article.Id));
+
+        // Query-time tokenization stays exact-only so "FsusBlog" never falsely matches "FsusUI".
+        Assert.Equal([1], index.Search("FsusBlog", CancellationToken.None).Select(article => article.Id));
+        Assert.Equal([2], index.Search("FsusUI", CancellationToken.None).Select(article => article.Id));
+        Assert.Empty(index.Search("fs", CancellationToken.None));
+    }
+
     [PostgresFact]
     public async Task DedicatedFas4RanksCurrentPublicFieldsAndFailsClosedAcrossWithdrawal()
     {

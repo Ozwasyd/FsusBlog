@@ -19,10 +19,10 @@ public sealed class LocalSearchCorpusStagingTests
     public void StagedBytesAndPublicEtagMatchIndependentFspkVector()
     {
         // SHA-256 of tests/Protocol/fixtures/search-fspk-v4.hex decoded to bytes.
-        const string vectorEtag = "\"daa50289bca4130b4148236c0019bd62066846893a79606e2455a5cc867caa28\"";
+        const string vectorEtag = "\"6e3e010ccdbdf9bb4e3fcc74984e946763a2eed40c0e6f42acb2424bd922494d\"";
         var stage = Assert.Single(Stage([Sample]));
         AssertMetadata(stage, 1, 1, 42, 42);
-        Assert.Equal(402, stage.Bytes.Length);
+        Assert.Equal(582, stage.Bytes.Length);
         Assert.Equal(vectorEtag, $"\"{Convert.ToHexStringLower(SHA256.HashData(stage.Bytes))}\"");
 
         var snapshot = new PublicSnapshot(1, [Sample], new([], [], []), new WebPages(""),
