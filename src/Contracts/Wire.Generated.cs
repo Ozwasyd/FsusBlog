@@ -916,6 +916,7 @@ public static class WireHeaders
     public const string PowClientNonce = "X-Fsus-Pow-Client-Nonce";
     public const string CommentReplyEnabled = "X-Fsus-Comment-Reply-Enabled";
     public const string CommentAuthorEditEnabled = "X-Fsus-Comment-Author-Edit";
+    public const string PublicCommentWriteEnabled = "X-Fsus-Comment-Write-Enabled";
     public const string AdminModerationBatchEnabled = "X-Fsus-Admin-Moderation-Batch-Enabled";
     public const string SubscriptionProof = "X-Fsus-Subscription-Proof";
     public const string ClientMutationId = "X-Fsus-Client-Mutation-Id";

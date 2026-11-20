@@ -14,7 +14,8 @@ internal static class CommentReadEndpoints
     {
         CommentReports.Map(app, cookie, readFrame);
         app.MapGet(WireRoutes.CommentRoots, (HttpContext ctx, CommentReadStore store, int articleId, CancellationToken ct) =>
-            Read(publications, articleId, Cursor(ctx), cursor => store.Roots(articleId, cursor, Limit(ctx, 10, 50), ct),
+            ReadWithWriteHeader(ctx, publications, articleId, Cursor(ctx),
+                cursor => store.RootsWithWriteStatus(articleId, cursor, Limit(ctx, 10, 50), capabilities.PublicCommentSubmissions, ct),
                 () => CommentReadWire.Roots([], null))).RequireRateLimiting("query");
 
         app.MapGet(WireRoutes.CommentChildren, (HttpContext ctx, CommentReadStore store, int articleId, long parentId, CancellationToken ct) =>
@@ -22,7 +23,8 @@ internal static class CommentReadEndpoints
                 () => CommentReadWire.Children(parentId, 0, [], null))).RequireRateLimiting("query");
 
         app.MapGet(WireRoutes.CommentContext, (HttpContext ctx, CommentReadStore store, int articleId, long commentId, int? window, CancellationToken ct) =>
-            Read(publications, articleId, null, _ => store.Context(articleId, commentId, Math.Clamp(window ?? 6, 2, 20), ct),
+            ReadWithWriteHeader(ctx, publications, articleId, null,
+                _ => store.ContextWithWriteStatus(articleId, commentId, Math.Clamp(window ?? 6, 2, 20), capabilities.PublicCommentSubmissions, ct),
                 () => CommentReadWire.Context(null, [], []))).RequireRateLimiting("query");
 
         app.MapGet(WireRoutes.CommentThread, (HttpContext ctx, CommentReadStore store, int articleId, long rootId, CancellationToken ct) =>
@@ -59,6 +61,16 @@ internal static class CommentReadEndpoints
         var bytes = snapshot.Article(article) is not null ? await fetch(cursor) : hidden();
         if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
         return Results.Bytes(bytes, Aeds.ContentType);
+    }
+
+    private static async Task<IResult> ReadWithWriteHeader(HttpContext ctx, Publications publications, int article, long? cursor,
+        Func<long?, Task<(byte[] Frame, bool WriteEnabled)>> fetch, Func<byte[]> hidden)
+    {
+        var snapshot = publications.Snapshot ?? throw new PublicUnavailableException();
+        var result = snapshot.Article(article) is not null ? await fetch(cursor) : (Frame: hidden(), WriteEnabled: false);
+        if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
+        if (result.WriteEnabled) ctx.Response.Headers[WireHeaders.PublicCommentWriteEnabled] = "1";
+        return Results.Bytes(result.Frame, Aeds.ContentType);
     }
 
     private static long? Cursor(HttpContext ctx)

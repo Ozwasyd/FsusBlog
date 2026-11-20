@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { commentEligibility, submitPublicComment } from '../../../Contracts/comment-write'
+import { passkeyAvailable } from '../../../Contracts/passkey'
 import type { PublicCommentEligibility } from '../../../Contracts/wire.generated'
 import { currentSession, identityEpoch } from '../session'
 
-const props = defineProps<{ articleId: number; publication: bigint; reply?: { id: string; name: string } }>()
+const props = defineProps<{ articleId: number; publication: bigint; writeEnabled?: boolean; reply?: { id: string; name: string } }>()
 const emit = defineEmits<{ availability: [value: boolean]; cancel: [] }>()
+const route = useRoute()
 const eligibility = shallowRef<PublicCommentEligibility & { canReply: boolean }>()
 const body = ref('')
 const confirm = ref(false)
@@ -16,7 +19,11 @@ const pending = ref(false)
 const result = ref<MessageKey | ''>('')
 const problem = ref<MessageKey | ''>('')
 const candidate = shallowRef<{ body: string; id: string }>()
+const canSignIn = ref(false)
 const utf8 = new TextEncoder()
+const hasReaderSession = computed(() => Boolean(currentSession.value && currentSession.value.expiresAt > Date.now()))
+const showSignIn = computed(() => Boolean(props.writeEnabled) && !hasReaderSession.value && canSignIn.value)
+const signInLocation = computed(() => ({ name: 'login', query: { redirect: `${route.path}#article-comments-title` } }))
 const ready = computed(() => confirm.value && body.value.trim().length > 0 && body.value.trim().length <= 1000 &&
   utf8.encode(body.value.trim()).length <= 4096)
 let action: AbortController | undefined
@@ -34,6 +41,18 @@ function resetDraft() {
 }
 
 watch(() => props.reply?.id, resetDraft, { flush: 'sync' })
+watch([() => props.writeEnabled, hasReaderSession], async ([open, signedIn], _, cleanup) => {
+  canSignIn.value = false
+  if (!open || signedIn) return
+  const controller = new AbortController()
+  cleanup(() => controller.abort())
+  try {
+    const available = await passkeyAvailable(controller.signal)
+    if (!controller.signal.aborted) canSignIn.value = available
+  } catch {
+    if (!controller.signal.aborted) canSignIn.value = false
+  }
+}, { immediate: true })
 watch([currentSession, identityEpoch, () => props.articleId, () => props.publication], async ([session], _, cleanup) => {
   const controller = new AbortController()
   cleanup(() => controller.abort())
@@ -107,9 +126,26 @@ async function send() {
     <p v-if="result" role="status">{{ t(result) }}</p>
     <ElAlert v-if="problem" :title="t(problem)" type="error" :closable="false" />
   </form>
+  <p v-else-if="showSignIn" class="public-comment-sign-in">
+    <span class="muted">{{ t('comment.signInPrompt') }}</span>
+    <RouterLink class="public-comment-sign-in-link" :to="signInLocation">{{ t('comment.signInAction') }}</RouterLink>
+  </p>
 </template>
 
 <style scoped>
 .public-comment-composer { display: grid; gap: 0.75rem; margin-block: 1.25rem; }
 .public-comment-composer h3 { margin: 0; }
+.public-comment-sign-in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  margin-block: 0.75rem 0;
+}
+.public-comment-sign-in-link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 44px;
+  font-weight: 500;
+}
 </style>

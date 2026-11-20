@@ -47,7 +47,12 @@ const lifetime = new AbortController()
 const adminRedirect = computed(() => safeRedirect(route.query.redirect, 'admin'))
 const readerRedirect = computed(() => safeRedirect(route.query.redirect, 'reader'))
 const wantsAdmin = computed(() => adminRedirect.value !== null)
-const alreadySignedIn = computed(() => wantsAdmin.value ? adminActive.value : Boolean(currentSession.value || adminActive.value))
+const wantsReader = computed(() => readerRedirect.value !== null)
+const alreadySignedIn = computed(() => wantsAdmin.value
+  ? adminActive.value
+  : wantsReader.value
+    ? Boolean(currentSession.value)
+    : Boolean(currentSession.value || adminActive.value))
 
 onUnmounted(() => {
   lifetime.abort()

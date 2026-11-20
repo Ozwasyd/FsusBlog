@@ -49,7 +49,11 @@ internal sealed class CommentReadStore(NpgsqlDataSource source)
         )
         """;
 
-    internal async Task<byte[]> Roots(int article, long? cursor, int limit, CancellationToken ct)
+    internal async Task<byte[]> Roots(int article, long? cursor, int limit, CancellationToken ct) =>
+        (await RootsWithWriteStatus(article, cursor, limit, false, ct)).Frame;
+
+    internal async Task<(byte[] Frame, bool WriteEnabled)> RootsWithWriteStatus(
+        int article, long? cursor, int limit, bool checkWrite, CancellationToken ct)
     {
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await Start(db, ct);
@@ -64,9 +68,11 @@ internal sealed class CommentReadStore(NpgsqlDataSource source)
                 from nodes where parent_id=any($2)
             ) children where ordinal<=$3 order by parent_id,id
             """, ct, article, roots.Select(node => node.Id).ToArray(), PreviewLimit);
+        var writeEnabled = checkWrite && await WriteEnabled(db, tx, article, ct);
         var byRoot = previews.ToLookup(child => child.ParentId);
-        return CommentReadWire.Roots(roots.Select(root => new CommentRoot(
+        var frame = CommentReadWire.Roots(roots.Select(root => new CommentRoot(
             root with { HasMoreChildren = root.ChildCount > PreviewLimit }, byRoot[root.Id].ToArray())).ToArray(), next);
+        return (frame, writeEnabled);
     }
 
     internal async Task<byte[]> Children(int article, long parent, long? cursor, int limit, CancellationToken ct)
@@ -92,7 +98,11 @@ internal sealed class CommentReadStore(NpgsqlDataSource source)
         return CommentReadWire.Thread(root, replies, TakePage(replies, limit));
     }
 
-    internal async Task<byte[]> Context(int article, long comment, int window, CancellationToken ct)
+    internal async Task<byte[]> Context(int article, long comment, int window, CancellationToken ct) =>
+        (await ContextWithWriteStatus(article, comment, window, false, ct)).Frame;
+
+    internal async Task<(byte[] Frame, bool WriteEnabled)> ContextWithWriteStatus(
+        int article, long comment, int window, bool checkWrite, CancellationToken ct)
     {
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await Start(db, ct);
@@ -104,7 +114,8 @@ internal sealed class CommentReadStore(NpgsqlDataSource source)
             )
             select nodes.* from nodes join path on path.id=nodes.id order by depth
             """, ct, article, comment);
-        if (path.Count == 0) return CommentReadWire.Context(null, [], []);
+        var writeEnabled = checkWrite && await WriteEnabled(db, tx, article, ct);
+        if (path.Count == 0) return (CommentReadWire.Context(null, [], []), writeEnabled);
         var target = path[^1];
         path.RemoveAt(path.Count - 1);
         var half = window / 2;
@@ -116,8 +127,23 @@ internal sealed class CommentReadStore(NpgsqlDataSource source)
             """, ct, article, target.ParentId ?? 0, comment, half + 1);
         var before = neighbors.Where(row => row.Id < comment).ToArray();
         var after = neighbors.Where(row => row.Id > comment).ToArray();
-        return CommentReadWire.Context(target, path, before.TakeLast(half).Concat(after.Take(half)).ToArray(),
+        var frame = CommentReadWire.Context(target, path, before.TakeLast(half).Concat(after.Take(half)).ToArray(),
             before.Length > half, after.Length > half);
+        return (frame, writeEnabled);
+    }
+
+    private static async Task<bool> WriteEnabled(NpgsqlConnection db, NpgsqlTransaction tx, int article, CancellationToken ct)
+    {
+        await using var query = Store.Sql(db, tx, """
+            select exists(
+                select 1
+                from public.article a
+                join public.article_publication p on p.article_id=a.id and p.revision=a.published_revision
+                join public.comment_public_write w on w.article_id=a.id
+                where a.id=$1 and not a.deleted and p.published_at<=statement_timestamp()
+            )
+            """, article);
+        return await query.ExecuteScalarAsync(ct) is true;
     }
 
     private static long? TakePage(List<CommentNode> rows, int limit)

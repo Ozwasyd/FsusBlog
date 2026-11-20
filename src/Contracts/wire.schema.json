@@ -522,6 +522,7 @@
     "PowClientNonce": "X-Fsus-Pow-Client-Nonce",
     "CommentReplyEnabled": "X-Fsus-Comment-Reply-Enabled",
     "CommentAuthorEditEnabled": "X-Fsus-Comment-Author-Edit",
+    "PublicCommentWriteEnabled": "X-Fsus-Comment-Write-Enabled",
     "AdminModerationBatchEnabled": "X-Fsus-Admin-Moderation-Batch-Enabled",
     "SubscriptionProof": "X-Fsus-Subscription-Proof",
     "ClientMutationId": "X-Fsus-Client-Mutation-Id",

@@ -414,6 +414,60 @@ public sealed class CommentReadPostgresTests
         }
     }
 
+    [PostgresFact]
+    public async Task CommentReadEndpointsAdvertiseWriteHeaderOnlyForOpenPublishedArticlesWhenEnabled()
+    {
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(30));
+        await Seed(fixture, ct);
+        await using (var db = await fixture.DataSource.OpenConnectionAsync(ct))
+        await using (var tx = await db.BeginTransactionAsync(ct))
+        {
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
+                insert into public.article(id,owner_id,revision,title,body,published_revision,publication_count,deleted)
+                overriding system value values
+                (3,'87dead9a-1591-4eae-846c-0192aaeeccca',1,'closed comments article','text',1,1,false);
+                insert into public.article_revision(article_id,revision,title,body,happened_at)
+                values (3,1,'closed comments article','text',now());
+                insert into public.article_publication(article_id,revision,published_at) values (3,1,now());
+                insert into public.article_revision_rights values(3,1,true,'all-rights-reserved','',0,'','','append-attribution',300,true,true,true);
+                insert into public.article_publication_rights (article_id,publication_id,revision)
+                    select article_id,publication_id,revision from public.article_publication where article_id=3;
+                insert into public.comment_public_write(article_id) values (1),(2);
+                """);
+            await tx.CommitAsync(ct);
+        }
+
+        await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct))
+        {
+            using var openRoots = await server.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "1", StringComparison.Ordinal), ct);
+            Assert.Equal(HttpStatusCode.OK, openRoots.StatusCode);
+            Assert.True(openRoots.Headers.TryGetValues(WireHeaders.PublicCommentWriteEnabled, out var openValues));
+            Assert.Equal(["1"], openValues);
+
+            using var openContext = await server.Client.GetAsync(
+                WireRoutes.CommentContext.Replace("{articleId:int}", "1", StringComparison.Ordinal).Replace("{commentId:long}", (Start + 13).ToString(), StringComparison.Ordinal), ct);
+            Assert.Equal(HttpStatusCode.OK, openContext.StatusCode);
+            Assert.True(openContext.Headers.TryGetValues(WireHeaders.PublicCommentWriteEnabled, out var contextValues));
+            Assert.Equal(["1"], contextValues);
+
+            using var closedRoots = await server.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "3", StringComparison.Ordinal), ct);
+            Assert.Equal(HttpStatusCode.OK, closedRoots.StatusCode);
+            Assert.False(closedRoots.Headers.Contains(WireHeaders.PublicCommentWriteEnabled));
+
+            using var privateRoots = await server.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "2", StringComparison.Ordinal), ct);
+            Assert.Equal(HttpStatusCode.OK, privateRoots.StatusCode);
+            Assert.False(privateRoots.Headers.Contains(WireHeaders.PublicCommentWriteEnabled));
+        }
+
+        await using (var disabledServer = await ServerProcess.Start(fixture.ConnectionString, ct,
+            new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS"] = "false" }))
+        {
+            using var disabledRoots = await disabledServer.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "1", StringComparison.Ordinal), ct);
+            Assert.Equal(HttpStatusCode.OK, disabledRoots.StatusCode);
+            Assert.False(disabledRoots.Headers.Contains(WireHeaders.PublicCommentWriteEnabled));
+        }
+    }
+
     private static byte[] Payload(byte[] body, FrameType type) => Aeds.Decode(body, type).ToArray();
     private static int Read32(byte[] bytes, int offset) => BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(offset));
     private static long Read64(byte[] bytes, int offset) => BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(offset));

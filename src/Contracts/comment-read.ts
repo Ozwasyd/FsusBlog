@@ -1,6 +1,6 @@
 import { ProtocolError, decodeUtf8 } from './binary.ts';
 import { request } from './client.ts';
-import { FrameType, WireRoutes, WireLimits } from './wire.generated.ts';
+import { FrameType, WireHeaders, WireRoutes, WireLimits } from './wire.generated.ts';
 
 export type CommentAuthor = {
   mode: 'public' | 'legacy_server_visible_pseudonymous' | 'zk_anonymous';
@@ -217,10 +217,19 @@ function cursorQuery(cursor: string | null): string {
   return cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
 }
 
+function readWriteEnabled(headers: Headers): boolean {
+  const value = headers.get(WireHeaders.PublicCommentWriteEnabled);
+  if (value !== null && value !== '1') throw new ProtocolError('Invalid AEDS comment write availability');
+  return value === '1';
+}
+
 export const comments = {
   roots(article: number, cursor: string | null, signal: AbortSignal) {
     const route = WireRoutes.CommentRoots.replace('{articleId:int}', String(article));
-    return request(route + cursorQuery(cursor), FrameType.CommentTreeRootCursor, decodeCommentRoots, signal);
+    return request(route + cursorQuery(cursor), FrameType.CommentTreeRootCursor, (payload, headers) => ({
+      ...decodeCommentRoots(payload),
+      writeEnabled: readWriteEnabled(headers),
+    }), signal);
   },
   children(article: number, parent: CommentNode, cursor: string | null, signal: AbortSignal) {
     const route = WireRoutes.CommentChildren.replace('{articleId:int}', String(article)).replace('{parentId:long}', parent.id);
@@ -229,10 +238,10 @@ export const comments = {
   },
   context(article: number, id: string, signal: AbortSignal) {
     const route = WireRoutes.CommentContext.replace('{articleId:int}', String(article)).replace('{commentId:long}', id);
-    return request(route, FrameType.CommentPermalinkContext, payload => {
+    return request(route, FrameType.CommentPermalinkContext, (payload, headers) => {
       const context = decodeCommentContext(payload);
       check(context === null || context.target.id === id, 'permalink target');
-      return context;
+      return { context, writeEnabled: readWriteEnabled(headers) };
     }, signal);
   },
 };

@@ -30,6 +30,7 @@ const failed = ref(false)
 const restart = ref(0)
 const commentTitle = ref<HTMLElement>()
 const composer = ref<HTMLElement>()
+const writeEnabled = ref(false)
 const replyAvailable = ref(false)
 const replyTarget = shallowRef<{ id: string; name: string }>()
 const reportTarget = ref<string>()
@@ -159,6 +160,7 @@ async function load(follow: boolean, hash?: string) {
     request?.abort()
     roots.value = []
     linked.value = undefined
+    writeEnabled.value = false
     target.value = hash?.match(/^#comment-([1-9][0-9]{0,18})$/)?.[1]
     next.value = null
   }
@@ -170,15 +172,17 @@ async function load(follow: boolean, hash?: string) {
     if (!follow && target.value) {
       const permalink = await comments.context(props.articleId, target.value, controller.signal)
       if (controller.signal.aborted) return
-      linked.value = permalink
-      if (permalink) {
+      writeEnabled.value = permalink.writeEnabled
+      linked.value = permalink.context
+      if (permalink.context) {
         await nextTick()
-        if (!controller.signal.aborted) document.getElementById(`comment-${permalink.target.id}`)?.focus()
+        if (!controller.signal.aborted) document.getElementById(`comment-${permalink.context.target.id}`)?.focus()
         return
       }
     }
     const page = await comments.roots(props.articleId, follow ? next.value : null, controller.signal)
     if (!controller.signal.aborted) {
+      writeEnabled.value = page.writeEnabled
       const existing = new Set(roots.value.map(root => root.node.id))
       roots.value = [...roots.value, ...page.items.filter(root => !existing.has(root.node.id))]
       next.value = page.cursor
@@ -237,7 +241,7 @@ watch([() => props.articleId, () => props.publication, () => route.hash, restart
     </ElDialog>
     <CommentReportDialog :article-id="articleId" :comment-id="reportTarget" @close="reportTarget = undefined" />
     <div v-if="publication" ref="composer" tabindex="-1">
-      <PublicCommentComposer :article-id="articleId" :publication="publication" :reply="replyTarget"
+      <PublicCommentComposer :article-id="articleId" :publication="publication" :write-enabled="writeEnabled" :reply="replyTarget"
         @availability="value => replyAvailable = value" @cancel="replyTarget = undefined" />
     </div>
   </section>
