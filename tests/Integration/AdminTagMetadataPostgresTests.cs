@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -101,7 +100,7 @@ public sealed class AdminTagMetadataPostgresTests
             var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
             var challenge = pow.Issue(PowScope.AdminTagMetadata, change.Id.ToString(CultureInfo.InvariantCulture), token,
                 IPAddress.Loopback, nonce, Wire.EncodeAdminTagMetadataCommand(change));
-            return SolveProof(challenge, nonce, ct);
+            return PowFixture.Solve(challenge, nonce, ct);
         }
 
         Task Sql(string text, params object[] values) =>
@@ -187,12 +186,7 @@ public sealed class AdminTagMetadataPostgresTests
             var nonce = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
             context.Request.Headers[WireHeaders.PowClientNonce] = nonce;
             var frame = await admin.ChangeTagMetadata(token, value, Wire.EncodeAdminTagCreateCommand(value), context, pow, null, ct);
-            var body = Aeds.Decode(frame, FrameType.PowChallenge);
-            Assert.Equal(WireLayouts.PowChallengeBytes, body.Length);
-            return SolveProof(new(Encoding.ASCII.GetString(body[..WireLayouts.PowChallengeSaltBytes]).TrimEnd('\0'),
-                BinaryPrimitives.ReadInt32LittleEndian(body[WireLayouts.PowChallengeSaltBytes..]),
-                BinaryPrimitives.ReadInt64LittleEndian(body[WireLayouts.PowChallengeTimestampOffset..]),
-                Encoding.ASCII.GetString(body[WireLayouts.PowChallengeSignatureOffset..]).TrimEnd('\0')), nonce, ct);
+            return PowFixture.SolveFrame(frame, nonce, ct);
         }
 
         static DefaultHttpContext Context()
@@ -201,28 +195,5 @@ public sealed class AdminTagMetadataPostgresTests
             context.Connection.RemoteIpAddress = IPAddress.Loopback;
             return context;
         }
-    }
-
-    internal static string SolveProof(PowChallenge challenge, string clientNonce, CancellationToken ct)
-    {
-        var number = 0;
-        while (!ScopedPow.HasWork(challenge.Salt, number.ToString(CultureInfo.InvariantCulture), clientNonce, challenge.Difficulty))
-        {
-            ct.ThrowIfCancellationRequested();
-            ++number;
-        }
-
-        using var output = new MemoryStream();
-        using var writer = new BinaryWriter(output);
-        writer.Write("FPOW\u0001"u8);
-        writer.Write(challenge.Difficulty);
-        writer.Write(challenge.Timestamp);
-        foreach (var value in new[] { challenge.Salt, number.ToString(CultureInfo.InvariantCulture), challenge.Signature, clientNonce })
-        {
-            writer.Write((ushort)value.Length);
-            writer.Write(System.Text.Encoding.ASCII.GetBytes(value));
-        }
-        writer.Flush();
-        return Convert.ToBase64String(output.ToArray());
     }
 }
