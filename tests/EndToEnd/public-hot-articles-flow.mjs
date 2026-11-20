@@ -144,7 +144,7 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
     const format = new Intl.NumberFormat('en')
     for (const [index, item] of top.entries()) {
       await region.getByRole('listitem').nth(index)
-        .getByText(`${format.format(item.views)} verified ${item.views === 1 ? 'read' : 'reads'}`, { exact: true }).waitFor()
+        .getByText(`${format.format(item.views)} ${item.views === 1 ? 'read' : 'reads'}`, { exact: true }).waitFor()
     }
   }
 

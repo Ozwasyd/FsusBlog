@@ -4,6 +4,6 @@
 
 公开 `GET /api/binary/article/hot/{size}.aeds` 使用 v1 ArticleHot 帧 3，支持 1–100 条。每项包含当前公开文章 ID、标题和已验证阅读次数。列表按次数、文章 ID 降序，尚无次数的公开文章使用零。后台读取索引，核对实际当前发布和服务租约，并预编码所有可返回条数。通常每 30 秒更新计数，公开发布快照变化后尽快重新验证。索引未准备好或超过一分钟未成功更新时返回 503。公开 GET 和 HEAD 直接读取内存，无数据库查询。
 
-首页第一页在最新文章列表上方显示最多五项，使用实际 FsusUI 链接。浏览器收到 GET 后用同一路径的 HEAD 检查发布代次与强 ETag，再显示列表。旧代次返回 409。验证窗口内发生撤回或排名更新时，不显示未经确认的原列表。后续分页没有热门请求。
+首页第一页在最新文章列表上方显示热门文章（桌面端最多五项，窄屏移动端最多三项，避免挤占最新文章首屏），使用实际 FsusUI 链接。浏览器收到 GET 后用同一路径的 HEAD 检查发布代次与强 ETag，再显示列表。旧代次返回 409。验证窗口内发生撤回或排名更新时，不显示未经确认的原列表。后续分页没有热门请求。
 
 PostgreSQL 与 Kestrel 测试核对次数并列顺序、私有稿件排除、零次补位、精确摘要、撤回及热门 GET/HEAD 归因数据库调用为零。Chrome 对启用和关闭分别运行，验证五个链接、稳定主列表、取消旧请求、实际撤回及 ETag 不匹配。首次专项构建修正了测试的数组长度调用，第二次修正了测试观察器标记，第三次保持产品代码并通过。 [原生用例](../../artifacts/public-article-popularity/native.log) · [启用浏览器证据](../../artifacts/public-article-popularity/chromium-1/public-hot-articles.json) · [关闭浏览器证据](../../artifacts/public-article-popularity/chromium-0/public-hot-articles.json)

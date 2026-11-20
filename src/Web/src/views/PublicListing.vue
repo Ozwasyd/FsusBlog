@@ -74,6 +74,16 @@ onScopeDispose(localSearch.dispose)
 const hotEnabled = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-hot-articles"]')?.content === '1'
 const hotRoute = computed(() => hotEnabled && isHome.value && page.value === 1 && !cursor.value ? route.fullPath : undefined)
 const hotArticles = shallowRef<PopularArticle[]>([])
+const compactHotQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  ? window.matchMedia('(max-width: 37.99rem)')
+  : undefined
+const compactHotViewport = ref(compactHotQuery?.matches ?? false)
+if (compactHotQuery) {
+  const syncCompactHotViewport = (event: MediaQueryListEvent) => { compactHotViewport.value = event.matches }
+  compactHotQuery.addEventListener('change', syncCompactHotViewport)
+  onScopeDispose(() => compactHotQuery.removeEventListener('change', syncCompactHotViewport))
+}
+const visibleHotArticles = computed(() => hotArticles.value.slice(0, compactHotViewport.value ? 3 : 5))
 const readCount = new Intl.NumberFormat('en')
 
 watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, reload], async ([search, home, kind, categoryOrTagId, ordinal, token, text, sort], _, cleanup) => {
@@ -195,10 +205,10 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
         </nav>
       </div>
     </div>
-    <section v-if="hotRoute && !loading && !failed && hotArticles.length" class="popular-articles" aria-labelledby="popular-articles-heading">
+    <section v-if="hotRoute && !loading && !failed && visibleHotArticles.length" class="popular-articles" aria-labelledby="popular-articles-heading">
       <h2 id="popular-articles-heading">{{ t('reading.popular') }}</h2>
       <ol role="list">
-        <li v-for="(item, index) in hotArticles" :key="item.id">
+        <li v-for="(item, index) in visibleHotArticles" :key="item.id">
           <span class="popular-rank" aria-hidden="true">{{ String(index + 1).padStart(2, '0') }}</span>
           <RouterLink :to="{ name: 'article', params: { id: item.id } }" custom v-slot="{ href, navigate }">
             <ElLink class="popular-article-link" :href="href" :underline="false" @click="navigate">
