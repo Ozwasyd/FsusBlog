@@ -4,9 +4,11 @@ import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElCheckbox } from '@ozwasyd/element-plus'
 import { readerRegistrationAvailable, registerReaderPasskey } from '../../../Contracts/reader-registration'
 import { t, type MessageKey } from '../siteLocale'
+import { readInitialRegisterState } from '../workspacePreload'
 
-const checking = ref(true)
-const available = ref(false)
+const initialRegister = readInitialRegisterState()
+const checking = ref(!initialRegister)
+const available = ref(initialRegister?.available ?? false)
 const agreed = ref(false)
 const busy = ref(false)
 const registered = ref(false)
@@ -44,7 +46,9 @@ async function register() {
   }
 }
 
-onMounted(() => { void checkAvailability() })
+onMounted(() => {
+  if (!initialRegister) void checkAvailability()
+})
 </script>
 
 <template>

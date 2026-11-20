@@ -15,8 +15,8 @@ try {
       window.fallbackFades = []
       const animate = Element.prototype.animate
       Element.prototype.animate = function (keyframes, options) {
-        if (this.matches('#page-content, .site-auth-main'))
-          window.fallbackFades.push({ path: location.pathname, outlet: this.id || 'auth', keyframes, options })
+        if (this.matches('#page-content, .site-auth-main, .account-workspace-content, main.editor-page, main.canvas-workspace, main.media-page'))
+          window.fallbackFades.push({ path: location.pathname, outlet: this.id || this.className || 'route', keyframes, options })
         return animate.call(this, keyframes, options)
       }
       const start = document.startViewTransition?.bind(document)
@@ -30,8 +30,8 @@ try {
           const transition = start(async () => {
             await cb()
             entry.toPath = location.pathname
-            const status = document.querySelector('#page-content [role="status"]')
-            entry.loadingSeen = Boolean(status && /loading/i.test(status.textContent ?? ''))
+            const status = document.querySelector('#page-content [role="status"], .site-auth-main [role="status"]')
+            entry.loadingSeen = Boolean(status && /loading|checking|正在加载|正在检查/i.test(status.textContent ?? ''))
           })
           transition.finished.finally(() => { entry.finished = true })
           return transition
@@ -107,6 +107,9 @@ try {
     }
     const moreTransitions = await page.evaluate(start => window.routeTransitions.slice(start), transitions.length)
     assert.deepEqual(moreTransitions.map(t => t.toPath), expectedMore)
+    for (const t of moreTransitions) {
+      assert.equal(t.loadingSeen, false, `Expected auth/public content ready before snapshot on ${t.toPath}`)
+    }
     assert.deepEqual(await page.evaluate(() => window.fallbackFades), [])
     assert.equal(await page.evaluate(() => document.documentElement.dataset.fsusblogTransitioning ?? null), null)
     assert.deepEqual(docs, [origin + '/'])

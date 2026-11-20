@@ -10,7 +10,7 @@ import './reading-typography.css'
 import App from './App.vue'
 import { adminWorkspacePages } from './adminWorkspaceRoutes'
 import { preloadPublicEntry } from './publicEntry'
-import { installPublicRouteTransitions } from './routeTransition'
+import { installRouteTransitions } from './routeTransition'
 import { siteTitle } from './siteBrand'
 import { preloadWorkspaceLocale, siteLocale, t, type MessageKey } from './siteLocale'
 import { captureInitialSitePage, isSitePageSlug, sitePages } from './sitePageEntry'
@@ -78,7 +78,7 @@ router.afterEach((to, from) => {
     document.head.append(robots)
   }
 })
-installPublicRouteTransitions(router)
+installRouteTransitions(router)
 const labels: Record<string, MessageKey> = {
   ...Object.fromEntries(adminWorkspacePages.map(({ name, label }) => [name, label])),
   archive: 'page.archive',

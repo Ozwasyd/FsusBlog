@@ -8,6 +8,7 @@ import { cancelMediaUpload, finalizeMediaUpload, listMedia, mediaDate, mediaDige
   sendMediaPart, startMediaUpload, uploadMedia, type MediaUploadState, type PrivateMediaItem } from '../../../Contracts/private-media'
 import { forgetMediaRecovery, mediaRecovery } from '../mediaUploadRecovery'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../authorSession'
+import { consumeAuthoringSessionPreload, readInitialPrivateMediaPage } from '../workspacePreload'
 
 const route = useRoute()
 const entries = shallowRef<readonly PrivateMediaItem[]>([])
@@ -177,30 +178,42 @@ function closePreview() {
   void nextTick(() => (previewOpener?.isConnected ? previewOpener : heading.value)?.focus())
 }
 
+const preloadedAuth = consumeAuthoringSessionPreload()
+const initialMedia = readInitialPrivateMediaPage()
+let usedInitialMedia = false
 watch(identityEpoch, () => {
   scope.abort()
   scope = new AbortController()
   preview.value = undefined
   clearSelection()
-  entries.value = []
-  hasMore.value = false
-  resumable.value = false
-  webp.value = false
   working.value = false
   loading.value = false
   feedback.value = ''
   error.value = ''
+  if (!usedInitialMedia && initialMedia && currentSession.value?.canAuthor) {
+    usedInitialMedia = true
+    entries.value = [...initialMedia.items]
+    hasMore.value = initialMedia.hasMore
+    available.value = true
+    resumable.value = initialMedia.resumable && Boolean(currentSession.value?.siteSessionId)
+    webp.value = initialMedia.webp
+    return
+  }
+  entries.value = []
+  hasMore.value = false
+  resumable.value = false
+  webp.value = false
   if (currentSession.value?.canAuthor) void load()
 }, { immediate: true, flush: 'sync' })
 
 onMounted(() => {
-  void refreshSession(scope.signal).catch(() => {})
+  if (!preloadedAuth) void refreshSession(scope.signal).catch(() => {})
 })
 onBeforeUnmount(() => scope.abort())
 </script>
 
 <template>
-  <main class="media-page">
+  <main class="media-page" tabindex="-1">
     <ElTaskPageHeader :title="t('account.message78')" />
     <ElEmptyState v-if="!currentSession?.canAuthor" :title="t('account.message79')">
       <RouterLink v-if="!currentSession" :to="{ name: 'login', query: { redirect: route.fullPath } }">{{ t('account.message80') }}</RouterLink>

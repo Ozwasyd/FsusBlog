@@ -17,13 +17,16 @@ import CanvasBundlePanel from '../authoring/CanvasBundlePanel.vue'
 import { canvasEditorHandoffKey, cancelCanvasEditorHandoff, offerCanvasEditorHandoff } from '../authoring/canvasEditorHandoff'
 import { canvasBundle } from '../../../Contracts/canvas-bundle'
 import { credentialEpoch, currentSession, identityEpoch, invalidateSession, refreshSession } from '../authorSession'
+import { consumeAuthoringSessionPreload, readInitialCanvasDocuments } from '../workspacePreload'
 
 const route = useRoute()
 const router = useRouter()
 const articlePath = '/admin/articles/workspace'
 const documentId = computed(() => typeof route.params.id === 'string' ? route.params.id.toLowerCase() : '')
+const preloadedAuth = consumeAuthoringSessionPreload()
+const initialCanvasDocuments = readInitialCanvasDocuments()
 const authorized = computed(() => currentSession.value?.canAuthor === true && currentSession.value.expiresAt > Date.now())
-const ready = ref(false)
+const ready = ref(preloadedAuth)
 const loading = ref(false)
 const working = ref(false)
 const bundlePending = ref(false)
@@ -319,11 +322,18 @@ async function loadAll() {
   }
 }
 
+let usedInitialDocuments = false
 watch([documentId, identityEpoch, ready], () => {
+  if (!usedInitialDocuments && initialCanvasDocuments && !documentId.value && ready.value && authorized.value) {
+    usedInitialDocuments = true
+    documents.value = initialCanvasDocuments
+    return
+  }
   reset()
   if (ready.value && authorized.value) void load()
 }, { immediate: true, flush: 'sync' })
 onMounted(() => {
+  if (preloadedAuth) return
   void refreshSession(ownerLife.signal).finally(() => {
     if (!ownerLife.signal.aborted) ready.value = true
   }).catch(() => { error.value = t('author.canvas.could_not_verify_your_session') })
@@ -713,7 +723,7 @@ function edgeLabel(edge: CanvasGraphEdge) {
 </script>
 
 <template>
-  <main class="canvas-workspace" aria-labelledby="canvas-title" @keydown="historyShortcut">
+  <main class="canvas-workspace" aria-labelledby="canvas-title" tabindex="-1" @keydown="historyShortcut">
     <header class="canvas-header">
       <div>
         <RouterLink :to="documentId ? '/admin/canvas' : articlePath">{{ documentId ? t('author.canvas.all_canvases') : t('author.canvas.article_workspace') }}</RouterLink>

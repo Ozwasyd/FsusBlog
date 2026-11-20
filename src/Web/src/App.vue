@@ -15,7 +15,7 @@ import { currentSession, refreshSession, signOut } from './session'
 import { currentSession as currentAuthorSession, hasAdminSessionHint, observeAdminAuth, refreshSession as refreshAuthorSession } from './authorSession'
 import { observeSiteRefresh, siteRenewalDelay } from './site-refresh-coordination'
 import { isSitePageSlug, sitePages } from './sitePageEntry'
-import { consumeFallbackRouteFade } from './routeTransition'
+import { consumeFallbackRouteFade, findActiveRouteSurface, focusRouteContent } from './routeTransition'
 import { siteTitle } from './siteBrand'
 import navigation from '../../Contracts/public-navigation.json' with { type: 'json' }
 import { getSiteCompliance, getSiteSeo, type SiteCompliance } from '../../Contracts/site-config.ts'
@@ -86,9 +86,16 @@ const publicContent = ref<HTMLElement>()
 const authLayout = ref<InstanceType<typeof SiteAuthLayout>>()
 // Fallback pure-opacity fade when native View Transitions are unavailable.
 // Modern browsers run FsusUI's route-crossfade via routeTransition.ts.
-watch(() => route.path, (_, __, cleanup) => {
-  if (!consumeFallbackRouteFade()) return
-  const content = siteAuthPage.value ? authLayout.value?.content : publicContent.value
+watch(() => route.path, (_, previous, cleanup) => {
+  if (!previous) return
+  if (!consumeFallbackRouteFade()) {
+    if (!document.documentElement.dataset.fsusblogTransitioning) focusRouteContent()
+    return
+  }
+  const content = siteAuthPage.value
+    ? authLayout.value?.content
+    : (publicContent.value ?? findActiveRouteSurface())
+  focusRouteContent()
   if (!content || typeof content.animate !== 'function') return
   const animation = content.animate([
     { opacity: 0 },

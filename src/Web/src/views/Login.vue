@@ -11,6 +11,7 @@ import { validMfaFactor } from '../../../Contracts/mfa'
 import { siteRefreshAvailable } from '../../../Contracts/site-refresh'
 import { markAdminSessionHint } from '../authorSession'
 import { cancelMfaLogin, currentSession, registerFirstPasskey, signInWithMfa, signInWithPasskey } from '../session'
+import { readInitialLoginState } from '../workspacePreload'
 import SiteRecoveryLogin from './SiteRecoveryLogin.vue'
 
 function safeRedirect(raw: unknown, role: 'admin' | 'reader'): string | null {
@@ -23,22 +24,23 @@ function safeRedirect(raw: unknown, role: 'admin' | 'reader'): string | null {
 
 const route = useRoute()
 const router = useRouter()
+const initialLogin = readInitialLoginState()
 const setupOpen = ref(false)
 const ticket = ref('')
 const validTicket = computed(() => /^[A-Za-z0-9_-]+$/.test(ticket.value.trim()) && ticket.value.trim().length <= WireLimits.TicketBytes)
 const busy = ref(false)
 const recoveryBusy = ref(false)
-const recoveryAvailable = ref(false)
+const recoveryAvailable = ref(initialLogin?.recoveryAvailable ?? false)
 const recoveryOpen = ref(false)
 const recoveryRef = ref<InstanceType<typeof SiteRecoveryLogin>>()
 const failure = ref<MessageKey | ''>('')
 const registered = ref(false)
-const checkingPasskeys = ref(true)
-const hasPasskeys = ref(false)
-const canRegister = ref(false)
-const hasPersistentPasskeys = ref(false)
+const checkingPasskeys = ref(!initialLogin)
+const hasPasskeys = ref(initialLogin?.hasPasskeys ?? false)
+const canRegister = ref(initialLogin?.canRegister ?? false)
+const hasPersistentPasskeys = ref(initialLogin?.hasPersistentPasskeys ?? false)
 const rememberMe = ref(false)
-const adminActive = ref(false)
+const adminActive = ref(initialLogin?.adminActive ?? false)
 const pending = ref<string | null>(null)
 const factor = ref('')
 const lifetime = new AbortController()
@@ -52,6 +54,7 @@ onUnmounted(() => {
   if (pending.value) cancelMfaLogin(pending.value)
 })
 onMounted(async () => {
+  if (initialLogin) return
   void readAdminAuthority(lifetime.signal).then(authority => {
     if (lifetime.signal.aborted) return
     adminActive.value = authority.status === 'active'
@@ -194,6 +197,7 @@ function cancelFactor() {
       </ElButton>
     </div>
     <SiteRecoveryLogin v-if="hasPasskeys" ref="recoveryRef" hide-trigger :disabled="busy"
+      :initial-available="initialLogin?.recoveryAvailable"
       @busy="recoveryBusy = $event" @available="recoveryAvailable = $event" @open="recoveryOpen = $event" />
     <div v-if="hasPasskeys && !registered && setupOpen" class="passkey-setup">
       <form class="passkey-setup-form" @submit.prevent="usePasskey(true)">

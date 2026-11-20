@@ -28,6 +28,7 @@ import AdminAppearance from './AdminAppearance.vue'
 import { ApiError } from '../../../Contracts/aeds'
 import { passkeyAvailable } from '../../../Contracts/passkey'
 import { announceAdminAuthChange, clearAuthorSession, markAdminSessionHint } from '../authorSession'
+import { readInitialAdminEntry } from '../workspacePreload'
 import {
   bootstrapAdminPasskey,
   readAdminAuthority,
@@ -129,8 +130,15 @@ function whenVisible() {
   if (document.visibilityState === 'visible') void refresh()
 }
 
+const initialAdmin = readInitialAdminEntry()
+if (initialAdmin) {
+  unifiedLogin.value = initialAdmin.unifiedLogin
+  setAuthority(initialAdmin.authority)
+}
+
 onMounted(() => {
-  void refresh()
+  if (!initialAdmin) void refresh()
+  else if (authority.value?.status === 'signed-out' && unifiedLogin.value) void redirectToUnifiedLogin()
   document.addEventListener('visibilitychange', whenVisible)
 })
 onUnmounted(() => {

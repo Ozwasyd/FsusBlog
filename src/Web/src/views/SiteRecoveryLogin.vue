@@ -12,13 +12,16 @@ import {
 } from '../../../Contracts/recovery-key'
 import { identityEpoch } from '../session'
 
-const props = withDefaults(defineProps<{ disabled: boolean; hideTrigger?: boolean }>(), { hideTrigger: false })
+const props = withDefaults(defineProps<{ disabled: boolean; hideTrigger?: boolean; initialAvailable?: boolean }>(), {
+  hideTrigger: false,
+  initialAvailable: undefined,
+})
 const emit = defineEmits<{
   busy: [value: boolean]
   available: [value: boolean]
   open: [value: boolean]
 }>()
-const available = ref(false)
+const available = ref(props.initialAvailable ?? false)
 const stage = ref<'closed' | 'key' | 'verified' | 'complete' | 'finished'>('closed')
 const key = ref('')
 const keyValid = computed(() => validSiteRecoveryKey(key.value.trim()))
@@ -61,6 +64,10 @@ defineExpose({ openRecovery, clearRecovery })
 watch(identityEpoch, clearRecovery, { flush: 'sync' })
 onMounted(async () => {
   window.addEventListener('pagehide', clearRecovery)
+  if (props.initialAvailable !== undefined) {
+    emit('available', props.initialAvailable)
+    return
+  }
   try {
     const enabled = await siteRecoveryAvailable(lifetime.signal)
     if (!lifetime.signal.aborted) {

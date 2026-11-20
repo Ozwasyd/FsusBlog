@@ -31,7 +31,7 @@ watch(() => route.fullPath, () => { open.value = false })
       <nav class="account-workspace-nav" :aria-label="label">
         <RouterLink v-for="link in links" :key="link.to" :to="link.to">{{ link.label }}</RouterLink>
       </nav>
-      <div class="account-workspace-content"><slot /></div>
+      <div class="account-workspace-content" tabindex="-1"><slot /></div>
     </div>
     <ElDrawer v-model="open" :title="label" direction="rtl" size="min(22rem, 100%)" append-to-body>
       <nav class="account-workspace-drawer" :aria-label="label">

@@ -38,6 +38,7 @@ import {
 } from '../authoring/canvasEditorHandoff'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refreshSession } from '../authorSession'
+import { consumeAuthoringSessionPreload } from '../workspacePreload'
 import {
   WorkspaceRegistry,
   type DraftSave,
@@ -118,8 +119,9 @@ const recoveryFailure = recovery.failure
 const recoveryChecking = recovery.guarded
 const recoveryWorking = ref(false)
 const recoveryBlocked = computed(() => recoveryWorking.value || recoveryChecking.value || recoveryItems.value.length > 0)
+const preloadedAuth = consumeAuthoringSessionPreload() && !sourceArrival
 const failure = ref('')
-const authorizationReady = ref(false)
+const authorizationReady = ref(preloadedAuth)
 const layoutRestoring = ref(false)
 const loading = ref(false)
 const reload = ref(0)
@@ -461,13 +463,17 @@ watch([identityEpoch, () => currentSession.value?.canAuthor], ([epoch, author]) 
 }, { immediate: true })
 
 onMounted(() => {
-  void refreshSession(lifetime.signal, !sourceArrival).then(() => {
+  if (preloadedAuth) {
     sourceSessionVerified = true
-  }).catch(() => {
-    if (!lifetime.signal.aborted) failure.value = t('author.write.couldNotVerifyYourSession')
-  }).finally(() => {
-    if (!lifetime.signal.aborted) authorizationReady.value = true
-  })
+  } else {
+    void refreshSession(lifetime.signal, !sourceArrival).then(() => {
+      sourceSessionVerified = true
+    }).catch(() => {
+      if (!lifetime.signal.aborted) failure.value = t('author.write.couldNotVerifyYourSession')
+    }).finally(() => {
+      if (!lifetime.signal.aborted) authorizationReady.value = true
+    })
+  }
   window.addEventListener('beforeunload', onUnload)
   window.addEventListener('pagehide', flushWorkspace)
   window.addEventListener('offline', persistence.offline)
@@ -1281,7 +1287,7 @@ async function reloadDraft() {
 </script>
 
 <template>
-  <main class="editor-page">
+  <main class="editor-page" tabindex="-1">
     <header class="editor-header">
       <div>
         <RouterLink class="editor-back" to="/admin/articles">{{ t('author.write.back') }}</RouterLink>
