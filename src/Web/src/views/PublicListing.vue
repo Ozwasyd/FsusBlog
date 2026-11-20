@@ -159,7 +159,11 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
 
 <template>
   <section class="reading-column editorial-page">
-    <h1 :class="isHome ? 'visually-hidden' : 'editorial-rule'">{{ missing ? t('reading.notFound', { heading }) : heading }}</h1>
+    <h1 v-if="isHome" class="visually-hidden">{{ heading }}</h1>
+    <header v-else-if="isArchive && (loading || cursorExpired || failed)" class="editorial-rule archive-page-header">
+      <h1>{{ heading }}</h1>
+    </header>
+    <h1 v-else-if="!isArchive" class="editorial-rule">{{ missing ? t('reading.notFound', { heading }) : heading }}</h1>
     <p v-if="filter?.description">{{ filter.description }}</p>
     <div v-if="isSearch" role="search">
       <form class="search-form" action="/search" method="GET" @submit.prevent="search">
@@ -207,7 +211,7 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
       <ElButton class="retry" @click="reload++">{{ t('reading.retry') }}</ElButton>
     </template>
     <p v-else-if="searchPageOutOfRange" class="muted" role="status">{{ t('reading.searchPageEmpty') }}</p>
-    <ArchiveTimeline v-else-if="isArchive" :items="articles" :total="archiveTotal" />
+    <ArchiveTimeline v-else-if="isArchive" :heading="heading" :items="articles" :total="archiveTotal" />
     <p v-else-if="!articles.length" class="muted">
       {{ t(isSearch ? query ? 'reading.noSearchMatches' : 'reading.searchPrompt' : taxonomy ? 'reading.noTaxonomyArticles' : 'reading.noArticles') }}
     </p>
@@ -257,6 +261,8 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
 </template>
 
 <style scoped>
+.archive-page-header { padding-block-end: 1.25rem; margin-block-end: 2.75rem; }
+.archive-page-header h1 { margin: 0; font-size: clamp(1.625rem, 1.25rem + 1.5vw, 2rem); line-height: 1.25; }
 .popular-articles { margin-block: 1.5rem 1rem; padding-block-end: 1rem; border-block-end: 1px solid var(--fsus-border); }
 .popular-articles h2 { margin-block: 0 .65rem; font-size: 1.25rem; }
 .popular-articles ol { margin: 0; padding-inline-start: 1.4rem; }
