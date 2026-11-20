@@ -4,6 +4,7 @@
 
 - 后端和独立维护工具使用 .NET SDK `10.0.404`、运行库 `10.0.15`、C# 14、`net10.0` 和 ASP.NET Core Minimal APIs。
 - 数据：PostgreSQL / Npgsql，服务启动只检查当前 schema。离线工具负责初始化和验证。
+- 工程分层：`Contracts`、`Core` 之上是独立的 `src/Storage/FsusBlog.V2.Storage.csproj`，单独编译共享的 schema 形态校验与存储辅助代码，`Server` 与 `Cli` 均通过 `ProjectReference` 引用，发布目录各自携带 `FsusBlog.V2.Storage.dll`。Storage 类型保持 `internal`，只对 `Server`、`Cli` 和集成测试开放友元访问；它不含 DDL，Server 仍只做 DML 与只读准入，DDL 留在 `Cli`。
 - 前端：Vue / TypeScript，通过 [本地源码 alias](docs/fsusui.md) 消费相邻 `FsusUI` checkout。不会安装 FsusUI 发布包。
 - 跨栈协议：[AEDS v2](docs/protocol.md)，不提供 JSON 业务回退。
 

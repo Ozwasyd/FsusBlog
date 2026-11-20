@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Contracts/FsusBlog.V2.Contracts.csproj" />
     <Project Path="src/Core/FsusBlog.V2.Core.csproj" />
+    <Project Path="src/Storage/FsusBlog.V2.Storage.csproj" />
     <Project Path="src/Server/FsusBlog.V2.Server.csproj" />
     <Project Path="src/Cli/FsusBlog.V2.Cli.csproj" />
   </Folder>
