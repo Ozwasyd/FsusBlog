@@ -12,8 +12,12 @@ import {
 } from '../../../Contracts/recovery-key'
 import { identityEpoch } from '../session'
 
-const props = defineProps<{ disabled: boolean }>()
-const emit = defineEmits<{ busy: [value: boolean] }>()
+const props = withDefaults(defineProps<{ disabled: boolean; hideTrigger?: boolean }>(), { hideTrigger: false })
+const emit = defineEmits<{
+  busy: [value: boolean]
+  available: [value: boolean]
+  open: [value: boolean]
+}>()
 const available = ref(false)
 const stage = ref<'closed' | 'key' | 'verified' | 'complete' | 'finished'>('closed')
 const key = ref('')
@@ -24,6 +28,8 @@ const lifetime = new AbortController()
 let operation: AbortController | undefined
 let attestation: Uint8Array<ArrayBuffer> | undefined
 
+watch(stage, value => emit('open', value !== 'closed' && value !== 'finished'), { flush: 'sync' })
+
 function setBusy(value: boolean) {
   busy.value = value
   emit('busy', value)
@@ -32,6 +38,12 @@ function setBusy(value: boolean) {
 function dropAttestation() {
   attestation?.fill(0)
   attestation = undefined
+}
+
+function openRecovery() {
+  if (!available.value || props.disabled || busy.value) return
+  failure.value = ''
+  stage.value = 'key'
 }
 
 function clearRecovery() {
@@ -44,12 +56,17 @@ function clearRecovery() {
   setBusy(false)
 }
 
+defineExpose({ openRecovery, clearRecovery })
+
 watch(identityEpoch, clearRecovery, { flush: 'sync' })
 onMounted(async () => {
   window.addEventListener('pagehide', clearRecovery)
   try {
     const enabled = await siteRecoveryAvailable(lifetime.signal)
-    if (!lifetime.signal.aborted) available.value = enabled
+    if (!lifetime.signal.aborted) {
+      available.value = enabled
+      emit('available', enabled)
+    }
   } catch {
     // Recovery is opt-in. Keep the existing login controls available if the check fails.
   }
@@ -115,12 +132,13 @@ async function replacePasskey() {
 </script>
 
 <template>
-  <section v-if="available" class="site-recovery-login" :aria-label="t('login.recovery.label')">
-    <ElButton v-if="stage === 'closed'" text native-type="button" :disabled="disabled" @click="stage = 'key'">
+  <section v-if="available && (!hideTrigger || stage !== 'closed')" class="site-recovery-login"
+    :class="{ 'is-embedded': hideTrigger }" :aria-label="t('login.recovery.label')">
+    <ElButton v-if="!hideTrigger && stage === 'closed'" text native-type="button" :disabled="disabled" @click="stage = 'key'">
       {{ t('login.recovery.open') }}
     </ElButton>
     <ElAlert v-else-if="stage === 'finished'" :title="t('login.recovery.finished')" type="success" :closable="false" show-icon />
-    <form v-else class="recovery-login-form" @submit.prevent="replacePasskey">
+    <form v-else-if="stage !== 'closed'" class="recovery-login-form" @submit.prevent="replacePasskey">
       <p>{{ t('login.recovery.explanation') }}</p>
       <template v-if="stage === 'key'">
         <label for="site-recovery-login-key">{{ t('login.recovery.key') }}</label>
@@ -137,6 +155,8 @@ async function replacePasskey() {
 
 <style scoped>
 .site-recovery-login { margin-block: 1.5rem; }
+.site-recovery-login.is-embedded { margin-block: 0 1.5rem; }
 .recovery-login-form { display: grid; gap: 0.75rem; }
+.recovery-login-form p { margin-block: .25rem; }
 .recovery-cancel { margin-inline-start: 0; }
 </style>

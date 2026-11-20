@@ -28,6 +28,9 @@ const ticket = ref('')
 const validTicket = computed(() => /^[A-Za-z0-9_-]+$/.test(ticket.value.trim()) && ticket.value.trim().length <= WireLimits.TicketBytes)
 const busy = ref(false)
 const recoveryBusy = ref(false)
+const recoveryAvailable = ref(false)
+const recoveryOpen = ref(false)
+const recoveryRef = ref<InstanceType<typeof SiteRecoveryLogin>>()
 const failure = ref<MessageKey | ''>('')
 const registered = ref(false)
 const checkingPasskeys = ref(true)
@@ -67,8 +70,21 @@ onMounted(async () => {
   } catch { hasPersistentPasskeys.value = false }
 })
 
+function toggleRecovery() {
+  if (recoveryOpen.value) {
+    recoveryRef.value?.clearRecovery()
+    return
+  }
+  setupOpen.value = false
+  ticket.value = ''
+  failure.value = ''
+  recoveryRef.value?.openRecovery()
+}
+
 function toggleSetup() {
-  setupOpen.value = !setupOpen.value
+  const next = !setupOpen.value
+  if (next) recoveryRef.value?.clearRecovery()
+  setupOpen.value = next
   ticket.value = ''
   failure.value = ''
 }
@@ -167,12 +183,20 @@ function cancelFactor() {
         <ElAlert v-if="failure && failure !== 'login.createFailed'" :title="t(failure)" type="error" :closable="false" show-icon />
       </template>
     </div>
-    <SiteRecoveryLogin v-if="hasPasskeys" :disabled="busy" @busy="recoveryBusy = $event" />
-    <div v-if="hasPasskeys && !registered" class="passkey-setup">
-      <ElButton text native-type="button" :disabled="busy || recoveryBusy" v-bind="{ 'aria-expanded': setupOpen }" @click="toggleSetup">
+    <div v-if="hasPasskeys && (recoveryAvailable || !registered)" class="login-secondary-actions">
+      <ElButton v-if="recoveryAvailable" text native-type="button" class="login-secondary-trigger"
+        :disabled="busy || recoveryBusy" v-bind="{ 'aria-expanded': recoveryOpen }" @click="toggleRecovery">
+        {{ t('login.recovery.open') }}
+      </ElButton>
+      <ElButton v-if="!registered" text native-type="button" class="login-secondary-trigger"
+        :disabled="busy || recoveryBusy" v-bind="{ 'aria-expanded': setupOpen }" @click="toggleSetup">
         {{ t('login.openSetup') }}
       </ElButton>
-      <form v-if="setupOpen" class="passkey-setup-form" @submit.prevent="usePasskey(true)">
+    </div>
+    <SiteRecoveryLogin v-if="hasPasskeys" ref="recoveryRef" hide-trigger :disabled="busy"
+      @busy="recoveryBusy = $event" @available="recoveryAvailable = $event" @open="recoveryOpen = $event" />
+    <div v-if="hasPasskeys && !registered && setupOpen" class="passkey-setup">
+      <form class="passkey-setup-form" @submit.prevent="usePasskey(true)">
         <p>{{ t('login.setupHelp') }}</p>
         <label for="passkey-setup-ticket">{{ t('login.setupTicket') }}</label>
         <ElInput id="passkey-setup-ticket" v-model="ticket" type="password" autocomplete="off" :disabled="busy || recoveryBusy" />
@@ -195,7 +219,17 @@ function cancelFactor() {
 .login-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem; }
 .login-footer a { display: inline-flex; align-items: center; min-block-size: 44px; color: var(--el-text-color-secondary); }
 .login-footer a:hover { color: var(--el-text-color-primary); }
-.passkey-setup { margin-block: 1rem 1.5rem; }
+.login-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: .25rem 1rem;
+  margin-block: 1rem 1.25rem;
+}
+.login-secondary-actions :deep(.el-button + .el-button) { margin-inline-start: 0; }
+.login-secondary-trigger { min-block-size: 44px; padding-inline: .5rem; margin-inline: -.5rem; }
+.passkey-setup { margin-block: 0 1.5rem; }
 .passkey-setup-form { display: grid; gap: .75rem; }
 .passkey-setup-form p { margin-block: .25rem; }
 </style>
