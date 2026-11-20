@@ -10,7 +10,7 @@ function select(value: unknown) {
 </script>
 
 <template>
-  <ElDropdown trigger="click" placement="bottom-end" @command="select">
+  <ElDropdown trigger="click" placement="bottom-end" popper-class="site-header-dropdown-popper" @command="select">
     <button class="site-header-text-action" type="button" :aria-label="label">
       {{ items.find(item => item.value === selected)?.label }}
       <ArrowDown class="site-header-chevron" v-bind="{ 'aria-hidden': true }" />

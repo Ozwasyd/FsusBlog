@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
-import { ElConfigProvider, ElPublicShell, ElButton } from '@ozwasyd/element-plus'
+import { syncThemeMode, writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
+import { ElConfigProvider, ElPublicShell, ElButton, runViewTransition } from '@ozwasyd/element-plus'
 import en from '@element-plus/locale/lang/en'
 import zhCn from '@element-plus/locale/lang/zh-cn'
 import SiteLocaleSelect from './SiteLocaleSelect.vue'
@@ -24,9 +24,25 @@ const searchQuery = ref('')
 const themeMode = ref<ThemeMode>()
 const selected = document.documentElement.dataset.themeMode
 if (selected === 'light' || selected === 'dark' || selected === 'system') themeMode.value = selected
-function useTheme(mode: ThemeMode) {
+function resolvedThemeFor(mode: ThemeMode): 'light' | 'dark' {
+  if (mode === 'light' || mode === 'dark') return mode
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+function applyTheme(mode: ThemeMode) {
   themeMode.value = mode
-  try { writeThemeMode(mode) } catch { /* Theme remains selectable if storage is unavailable. */ }
+  try { writeThemeMode(mode) } catch { syncThemeMode(mode) }
+}
+function useTheme(mode: ThemeMode) {
+  if (mode === themeMode.value) return
+  const currentResolved = document.documentElement.dataset.themeResolved
+  if (!currentResolved || currentResolved === resolvedThemeFor(mode)) {
+    applyTheme(mode)
+    return
+  }
+  runViewTransition(async () => {
+    applyTheme(mode)
+    await nextTick()
+  }, { name: 'theme-switch' })
 }
 function selectTheme(mode: string) {
   if (mode === 'light' || mode === 'dark' || mode === 'system') useTheme(mode)

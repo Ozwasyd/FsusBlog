@@ -242,6 +242,10 @@ p { line-height: 1.65; }
   color: var(--el-text-color-primary);
 }
 .site-header-text-action:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
+:root[data-fsus-view-transition] .site-header-dropdown-popper {
+  visibility: hidden;
+  pointer-events: none;
+}
 .public-initial-actions .site-locale-select, .site-auth-actions select:disabled {
   border-color: transparent;
   background: transparent;

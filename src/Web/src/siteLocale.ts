@@ -1,4 +1,5 @@
-import { computed, readonly, ref } from 'vue'
+import { computed, nextTick, readonly, ref } from 'vue'
+import { runViewTransition } from '@ozwasyd/element-plus'
 import messages from '../../Contracts/site-locales.json' with { type: 'json' }
 import type workspaceCatalog from './workspace-locales.json'
 
@@ -42,11 +43,14 @@ const activeLocale = ref<SiteLocale>(isSiteLocale(initial) ? initial : savedLoca
 export const siteLocale = readonly(activeLocale)
 
 export function selectSiteLocale(value: string): void {
-  if (!isSiteLocale(value)) return
-  activeLocale.value = value
+  if (!isSiteLocale(value) || value === activeLocale.value) return
   const secure = location.protocol === 'https:' ? '; Secure' : ''
   try { document.cookie = `${cookieName}=${value}; Path=/; Max-Age=31536000; SameSite=Lax${secure}` }
   catch { /* Keep the current page usable if cookies are disabled. */ }
+  runViewTransition(async () => {
+    activeLocale.value = value
+    await nextTick()
+  }, { name: 'locale-switch' })
 }
 
 window.addEventListener('pageshow', event => {
