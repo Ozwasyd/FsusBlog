@@ -270,8 +270,8 @@ watch([() => props.articleId, () => props.publication, () => route.hash, restart
   block-size: 1px;
   background: var(--fsus-border);
 }
-.article-comments-heading:focus:not(:focus-visible),
-.comment-composer-slot:focus:not(:focus-visible) {
+.article-comments-heading:focus,
+.comment-composer-slot:focus {
   outline: none;
 }
 .comment-roots { list-style: none; padding: 0; margin: 0; }

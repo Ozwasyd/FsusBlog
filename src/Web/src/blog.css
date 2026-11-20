@@ -246,7 +246,7 @@ p { line-height: 1.65; }
   visibility: hidden;
   pointer-events: none;
 }
-:is(#page-content, .site-auth-main, .account-workspace-content, .editor-page, .canvas-workspace, .media-page):focus:not(:focus-visible) {
+:is(#page-content, .site-auth-main, .account-workspace-content, .editor-page, .canvas-workspace, .media-page):focus {
   outline: none;
 }
 .public-initial-actions .site-locale-select, .site-auth-actions select:disabled {
