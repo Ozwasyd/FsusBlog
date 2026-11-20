@@ -29,9 +29,11 @@ public sealed class ArticleSearchPostgresTests
     {
         var when = DateTimeOffset.UnixEpoch.AddYears(50);
         var index = ArticleSearchIndex.Build([
-            new Article(1, 1, 1, 1, 1, "FsusBlog guide", "PostgreSQL dotNet10", when, when, when),
+            new Article(1, 1, 1, 1, 1, "FsusBlog AEDS guide", "PostgreSQL dotNet10", when, when, when),
             new Article(2, 1, 2, 1, 1, "FsusUI tokens", "under unit testing", when.AddDays(1), when, when),
-            new Article(3, 1, 3, 1, 1, "Fsu", "standalone exact term", when.AddDays(-1), when, when)
+            new Article(3, 1, 3, 1, 1, "Fsu", "standalone exact term", when.AddDays(-1), when, when),
+            new Article(4, 1, 4, 1, 1, "Go", "short exact word", when.AddDays(-2), when, when),
+            new Article(5, 1, 5, 1, 1, "Golang handbook", "prefix candidate", when.AddDays(2), when, when)
         ], CancellationToken.None);
         Assert.NotNull(index);
 
@@ -49,10 +51,21 @@ public sealed class ArticleSearchPostgresTests
         Assert.Equal([1], index.Search("net", CancellationToken.None).Select(article => article.Id));
         Assert.Equal([1], index.Search("10", CancellationToken.None).Select(article => article.Id));
 
+        // 1-2 char ASCII queries recall metadata word/subword prefixes (e.g. A/AE -> AEDS, fs -> Fsus*, bl -> Blog),
+        // with exact matches outranking short prefixes and without scanning body-only or mid-word substrings.
+        Assert.Equal([1], index.Search("A", CancellationToken.None).Select(article => article.Id));
+        Assert.Equal([1], index.Search("AE", CancellationToken.None).Select(article => article.Id));
+        Assert.Equal([1], index.Search("ＡＥ", CancellationToken.None).Select(article => article.Id));
+        Assert.Equal([1, 2, 3], index.Search("fs", CancellationToken.None).Select(article => article.Id).Order());
+        Assert.Equal([1], index.Search("bl", CancellationToken.None).Select(article => article.Id));
+        Assert.Equal([4, 5], index.Search("go", CancellationToken.None).Select(article => article.Id));
+        Assert.Empty(index.Search("po", CancellationToken.None));
+        Assert.Empty(index.Search("un", CancellationToken.None));
+        Assert.Empty(index.Search("ed", CancellationToken.None));
+
         // Query-time tokenization stays exact-only so "FsusBlog" never falsely matches "FsusUI".
         Assert.Equal([1], index.Search("FsusBlog", CancellationToken.None).Select(article => article.Id));
         Assert.Equal([2], index.Search("FsusUI", CancellationToken.None).Select(article => article.Id));
-        Assert.Empty(index.Search("fs", CancellationToken.None));
     }
 
     [PostgresFact]

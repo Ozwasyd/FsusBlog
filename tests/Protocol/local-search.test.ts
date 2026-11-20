@@ -5,8 +5,8 @@ import { test } from 'node:test';
 import { ProtocolError, encodeFrame } from '../../src/Contracts/aeds.ts';
 import {
   createCorpusSearch, decodeCorpusDocuments, decodeLocalSearchResult, encodeLocalSearchResult, normalizeLocalSearchQuery,
-  normalizePublicSearchSort, queryCorpusPage, scoreAdmittedCorpusPage, searchCorpus, searchTerms, verifySearchGeneration,
-  type CompactSearchStorage, type PersistedCompactCorpus,
+  normalizePublicSearchSort, queryCorpusPage, scoreAdmittedCorpusPage, searchCorpus, searchShortAsciiPrefixes,
+  searchTerms, verifySearchGeneration, type CompactSearchStorage, type PersistedCompactCorpus,
 } from '../../src/Contracts/local-search.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireRoutes } from '../../src/Contracts/wire.generated.ts';
 
@@ -387,15 +387,19 @@ test('FSPT admits an exact target in the normal Worker cache and retries a damag
 });
 
 test('admitted binary-search scoring and lazy decode match full shard parsing bit-for-bit', () => {
+  assert.deepEqual(searchShortAsciiPrefixes('A AE ＡＥ a AEDS Fsu'), ['a', 'ae']);
   const dictionary = fixtures('search-cjk-v4');
   for (const [bytes, queries] of [
-    [packageBytes, ['needle', '雪', 'needle 雪', '雪 needle', 'needle 雪 needle', 'title needle', 'needle needle', 'absent']],
-    [dictionary, ['博客搜索', '搜索 博客', '博客 搜索', '公开页', '公开', '客', '的', '的 搜索', 'ABC 博客', 'absent']],
+    [packageBytes, ['needle', '雪', 'needle 雪', '雪 needle', 'needle 雪 needle', 'title needle', 'needle needle',
+      't', 'ti', 'no', 'la', 'ne', 'it', 'absent']],
+    [dictionary, ['博客搜索', '搜索 博客', '博客 搜索', '公开页', '公开', '客', '的', '的 搜索', 'ABC 博客',
+      'a', 'ab', 'bc', 'absent']],
   ] as const) {
     for (const query of queries) {
       const terms = searchTerms(query);
-      const full = queryCorpusPage(bytes, terms);
-      const hits = scoreAdmittedCorpusPage(bytes, terms);
+      const shortPrefixes = searchShortAsciiPrefixes(query);
+      const full = queryCorpusPage(bytes, terms, shortPrefixes);
+      const hits = scoreAdmittedCorpusPage(bytes, terms, shortPrefixes);
       assert.equal(hits.length, full.matches.size, `hit count mismatch for "${query}"`);
       for (const hit of hits) {
         const expectedDoc = full.documents.get(hit.id)!;
@@ -412,6 +416,16 @@ test('admitted binary-search scoring and lazy decode match full shard parsing bi
       }
     }
   }
+  // 1-2 char ASCII matches metadata word prefixes (Title/note/Lab/ABC), not body-only or mid-word substrings.
+  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('t'), searchShortAsciiPrefixes('t')).length, 1);
+  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('ti'), searchShortAsciiPrefixes('ti')).length, 1);
+  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('no'), searchShortAsciiPrefixes('no')).length, 1);
+  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('la'), searchShortAsciiPrefixes('la')).length, 1);
+  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('ne'), searchShortAsciiPrefixes('ne')).length, 0);
+  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('it'), searchShortAsciiPrefixes('it')).length, 0);
+  assert.equal(scoreAdmittedCorpusPage(dictionary, searchTerms('a'), searchShortAsciiPrefixes('a')).length, 1);
+  assert.equal(scoreAdmittedCorpusPage(dictionary, searchTerms('ab'), searchShortAsciiPrefixes('ab')).length, 1);
+  assert.equal(scoreAdmittedCorpusPage(dictionary, searchTerms('bc'), searchShortAsciiPrefixes('bc')).length, 0);
 });
 
 test('persistent compact storage reuses across sessions, refreshes via 304, discards corruption, and supports latest sort', async (t) => {

@@ -176,6 +176,91 @@ internal static class ArticleSearchTokens
         return false;
     }
 
+    internal static List<(string Prefix, uint Hash)>? ShortAsciiPrefixes(string normalizedQuery)
+    {
+        List<(string Prefix, uint Hash)>? prefixes = null;
+        for (var offset = 0; offset < normalizedQuery.Length;)
+        {
+            if (!char.IsAsciiLetterOrDigit(normalizedQuery[offset]))
+            {
+                offset++;
+                continue;
+            }
+            var start = offset++;
+            while (offset < normalizedQuery.Length && char.IsAsciiLetterOrDigit(normalizedQuery[offset])) offset++;
+            var length = offset - start;
+            if (length <= 0 || length >= AsciiMinPrefixLength) continue;
+            var span = normalizedQuery.AsSpan(start, length);
+            var duplicate = false;
+            if (prefixes is not null)
+            {
+                for (var i = 0; i < prefixes.Count; i++)
+                {
+                    if (prefixes[i].Prefix.AsSpan().SequenceEqual(span))
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+            }
+            if (duplicate) continue;
+            prefixes ??= [];
+            prefixes.Add((normalizedQuery.Substring(start, length), LocalSearchCorpus.HashAscii(span)));
+        }
+        return prefixes;
+    }
+
+    internal static int CountAsciiPrefixMatches(string text, ReadOnlySpan<char> prefix)
+    {
+        if (string.IsNullOrEmpty(text) || prefix.Length == 0 || text.Length <= prefix.Length) return 0;
+        var span = text.IsNormalized(NormalizationForm.FormKC)
+            ? text.AsSpan()
+            : text.Normalize(NormalizationForm.FormKC).AsSpan();
+        var count = 0;
+        for (var offset = 0; offset < span.Length;)
+        {
+            if (!char.IsAsciiLetterOrDigit(span[offset]))
+            {
+                offset++;
+                continue;
+            }
+            var start = offset++;
+            while (offset < span.Length && char.IsAsciiLetterOrDigit(span[offset])) offset++;
+            var token = span.Slice(start, offset - start);
+            if (token.Length <= prefix.Length) continue;
+            if (StartsWithLowerAscii(token, prefix))
+            {
+                count++;
+                continue;
+            }
+            var segmentStart = 0;
+            for (var i = 1; i <= token.Length; i++)
+            {
+                if (i < token.Length && !IsSubwordBoundary(token, i)) continue;
+                var segmentLength = i - segmentStart;
+                if (segmentStart > 0 && segmentLength > prefix.Length &&
+                    StartsWithLowerAscii(token.Slice(segmentStart, segmentLength), prefix))
+                {
+                    count++;
+                    break;
+                }
+                segmentStart = i;
+            }
+        }
+        return count;
+
+        static bool StartsWithLowerAscii(ReadOnlySpan<char> value, ReadOnlySpan<char> lowerPrefix)
+        {
+            for (var i = 0; i < lowerPrefix.Length; i++)
+            {
+                var unit = value[i];
+                if (unit is >= 'A' and <= 'Z') unit = (char)(unit + 32);
+                if (unit != lowerPrefix[i]) return false;
+            }
+            return true;
+        }
+    }
+
     private static bool IsCompoundIdentifier(ReadOnlySpan<char> query)
     {
         var hasDigit = false;
