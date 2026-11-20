@@ -233,10 +233,10 @@ async function leave() {
       @search="search"
     >
       <template #desktop-actions>
+        <SiteHeaderPreferences :theme-mode="themeMode" @theme="useTheme" />
         <RouterLink v-if="currentAuthorSession" class="site-header-text-action" to="/admin/site">{{ t('nav.admin') }}</RouterLink>
         <RouterLink v-if="currentSession" class="site-header-text-action" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'security'" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
-        <SiteHeaderPreferences :theme-mode="themeMode" @theme="useTheme" />
       </template>
       <template #mobile-primary-actions>
         <RouterLink v-if="currentAuthorSession" class="site-header-text-action" to="/admin/site">{{ t('nav.admin') }}</RouterLink>
