@@ -6,7 +6,7 @@ import { ElButton, ElCheckbox, ElOption, ElSelect, ElSettingsSection } from '@oz
 import { ApiError } from '../../../Contracts/client'
 import { articleMedia, privateArticlePreview, type ArticleAttachment, type AttachmentEdit } from '../../../Contracts/article-media'
 import type { PublishImagesSelection } from '../../../Contracts/published-media'
-import { credentialEpoch } from '../session'
+import { credentialEpoch } from '../authorSession'
 import { createDocumentExportTask } from '../../../Contracts/document-export-tasks'
 import { listMedia, type PrivateMediaItem } from '../../../Contracts/private-media'
 import { maxDocumentExportImages } from '../../../Contracts/markdown-export'

@@ -12,7 +12,7 @@ import {
 import { normalizePropertyDecimal, type PropertyValue } from '../../../Contracts/property-values'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import SavedViewPanel from './SavedViewPanel.vue'
-import { credentialEpoch, currentSession, identityEpoch, invalidateSession } from '../session'
+import { credentialEpoch, currentSession, identityEpoch, invalidateSession } from '../authorSession'
 
 const props = defineProps<{ keyword?: string; embedded?: boolean }>()
 const emit = defineEmits<{

@@ -5,7 +5,7 @@ import { ElButton, ElDrawer } from '@ozwasyd/element-plus'
 import ArticleLibraryResults from './ArticleLibraryResults.vue'
 import ArticleLibraryRecent from './ArticleLibraryRecent.vue'
 import ArticleLibrarySaved from './ArticleLibrarySaved.vue'
-import { identityEpoch } from '../session'
+import { identityEpoch } from '../authorSession'
 
 const props = defineProps<{ articleId?: number; articleRevision?: bigint; recentOpensVersion: number; disabled: boolean;
   activate: (id: number) => Promise<boolean> }>()

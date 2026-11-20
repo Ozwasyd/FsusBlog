@@ -12,6 +12,7 @@ import { siteLocale, t, themeLabels } from './siteLocale'
 import SiteAuthLayout from './SiteAuthLayout.vue'
 import AccountWorkspace from './AccountWorkspace.vue'
 import { currentSession, refreshSession, signOut } from './session'
+import { observeAdminAuth, refreshSession as refreshAuthorSession } from './authorSession'
 import { observeSiteRefresh, siteRenewalDelay } from './site-refresh-coordination'
 import { isSitePageSlug, sitePages } from './sitePageEntry'
 import { consumeFallbackRouteFade } from './routeTransition'
@@ -115,17 +116,25 @@ function publicLink(value: string) {
 function contactLink(value: string) {
   return /^[A-Za-z0-9._+@-]+$/.test(value) ? `mailto:${value}` : undefined
 }
-const sync = () => { if (!adminArea.value) void refreshSession(lifetime.signal).catch(() => {}) }
+const sync = () => {
+  if (adminArea.value) return
+  if (adminAuthoringArea.value) void refreshAuthorSession(lifetime.signal).catch(() => {})
+  else void refreshSession(lifetime.signal).catch(() => {})
+}
 const whenVisible = () => { if (document.visibilityState === 'visible') sync() }
 let stopSiteRefresh: (() => void) | undefined
-watch([() => currentSession.value?.siteRefresh, () => currentSession.value?.expiresAt, () => adminArea.value],
-  ([mode, expiresAt, admin], _, cleanup) => {
-    if (mode !== 'persistent' || expiresAt === undefined || admin) return
+let stopAdminAuth: (() => void) | undefined
+watch([() => currentSession.value?.siteRefresh, () => currentSession.value?.expiresAt, () => adminArea.value, () => adminAuthoringArea.value],
+  ([mode, expiresAt, admin, authoring], _, cleanup) => {
+    if (mode !== 'persistent' || expiresAt === undefined || admin || authoring) return
     const timer = setTimeout(whenVisible, siteRenewalDelay(expiresAt))
     cleanup(() => clearTimeout(timer))
   })
+watch([adminArea, adminAuthoringArea], ([admin, authoring], [prevAdmin, prevAuthoring]) => {
+  if (admin !== prevAdmin || authoring !== prevAuthoring) sync()
+})
 watch(() => route.name, (name, _, cleanup) => {
-  if (!name || accountArea.value || siteAuthPage.value || adminArea.value) return
+  if (!name || accountArea.value || siteAuthPage.value || adminArea.value || adminAuthoringArea.value) return
   const request = new AbortController()
   cleanup(() => request.abort())
   if (siteAuthor.value === undefined) void getSiteSeo(request.signal).then(value => {
@@ -137,7 +146,10 @@ watch(() => route.name, (name, _, cleanup) => {
 }, { immediate: true })
 onMounted(() => {
   stopSiteRefresh = observeSiteRefresh(() => {
-    if (!adminArea.value) void refreshSession(lifetime.signal, false).catch(() => {})
+    if (!adminArea.value && !adminAuthoringArea.value) void refreshSession(lifetime.signal, false).catch(() => {})
+  })
+  stopAdminAuth = observeAdminAuth(() => {
+    if (adminAuthoringArea.value) void refreshAuthorSession(lifetime.signal, false).catch(() => {})
   })
   sync()
   window.addEventListener('pageshow', sync)
@@ -146,6 +158,7 @@ onMounted(() => {
 onUnmounted(() => {
   lifetime.abort()
   stopSiteRefresh?.()
+  stopAdminAuth?.()
   window.removeEventListener('pageshow', sync)
   document.removeEventListener('visibilitychange', whenVisible)
 })

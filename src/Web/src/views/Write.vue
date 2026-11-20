@@ -37,7 +37,7 @@ import {
   type HistoricalSearchSeek, type PropertySearchSeek,
 } from '../authoring/canvasEditorHandoff'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
-import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refreshSession } from '../session'
+import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refreshSession } from '../authorSession'
 import {
   WorkspaceRegistry,
   type DraftSave,
@@ -140,8 +140,9 @@ const validBody = computed(() => validDraftBody(original.value?.body ?? ''))
 const editable = computed(() => Boolean(currentSession.value?.canAuthor && original.value?.id === id.value && !loading.value))
 const cannotWrite = computed(() => closingTabs.value || pending.value || recoveryBlocked.value || hasConflict.value ||
   metadataDirty.value || !validBody.value || !validTitle.value)
-const publicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
-const publishedPath = computed(() => original.value?.published && publicOrigin ? `${publicOrigin}/article/${original.value.id}` : '')
+const configuredPublicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
+const publicBase = configuredPublicOrigin && configuredPublicOrigin !== globalThis.location?.origin ? configuredPublicOrigin : ''
+const publishedPath = computed(() => original.value?.published ? `${publicBase}/article/${original.value.id}` : '')
 const minimumEditorWidthRem = 29
 const splitterWidthRem = 1
 const editorArea = ref<HTMLElement>()

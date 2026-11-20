@@ -5,7 +5,7 @@ import { ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { propertyApi, type PropertyWorkspace } from '../../../Contracts/property-values'
 import { WireLimits } from '../../../Contracts/wire.generated'
-import { credentialEpoch, currentSession } from '../session'
+import { credentialEpoch, currentSession } from '../authorSession'
 import { showPropertyValue } from './propertyDisplay'
 
 const props = defineProps<{ articleId: number; revision: bigint; sourceRevision: bigint; label: string }>()

@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import http from 'node:http'
+import net from 'node:net'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
@@ -143,10 +144,44 @@ function syncServerHeadMeta(): Plugin {
   }
 }
 
+function companionLoopback(): Plugin {
+  return {
+    name: 'fsus-companion-loopback',
+    apply: 'serve',
+    configureServer(server) {
+      const httpServer = server.httpServer
+      if (!httpServer) return
+      let companion: net.Server | undefined
+      httpServer.once('listening', () => {
+        const address = httpServer.address()
+        if (!address || typeof address === 'string') return
+        const targetHost = address.address === '::1' ? '::1' : address.address === '127.0.0.1' ? '127.0.0.1' : undefined
+        if (!targetHost) return
+        const mirrorHost = targetHost === '::1' ? '127.0.0.1' : '::1'
+        const proxy = net.createServer(client => {
+          const upstream = net.connect({ host: targetHost, port: address.port })
+          client.pipe(upstream)
+          upstream.pipe(client)
+          const destroy = () => {
+            client.destroy()
+            upstream.destroy()
+          }
+          client.on('error', destroy)
+          upstream.on('error', destroy)
+        })
+        proxy.on('error', () => {})
+        proxy.listen({ host: mirrorHost, port: address.port, ipv6Only: mirrorHost === '::1' })
+        companion = proxy
+      })
+      httpServer.once('close', () => { companion?.close() })
+    },
+  }
+}
+
 const proxyRule = { target: serverUrl, changeOrigin: false }
 const plugins = () => [resolvePreparedWasm(), vue(), vueJsx()]
 export default defineConfig({
-  plugins: [...plugins(), syncServerHeadMeta()],
+  plugins: [...plugins(), syncServerHeadMeta(), companionLoopback()],
   worker: { format: 'es', plugins },
   build: {
     rollupOptions: {
@@ -190,7 +225,7 @@ export default defineConfig({
   optimizeDeps: { exclude: ['@ozwasyd/element-plus', '@ozwasyd/element-plus/theme', '@ozwasyd/element-plus/markdown-runtime'] },
   define: { 'import.meta.env.FSUS_MARKDOWN_NATIVE': JSON.stringify(nativeMarkdown) },
   server: {
-    host: '127.0.0.1',
+    host: 'localhost',
     port: Number.isFinite(webPort) && webPort > 0 ? webPort : 5173,
     strictPort: true,
     fs: { allow: [root, uiRoot, wasmDir] },

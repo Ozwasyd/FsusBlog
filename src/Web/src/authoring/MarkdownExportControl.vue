@@ -4,7 +4,7 @@ import { onScopeDispose, ref, watch } from 'vue'
 import { ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { exportArticleRevision, type ArticleExportFormat } from '../../../Contracts/markdown-export'
-import { credentialEpoch, currentSession, identityEpoch, recheckCredential } from '../session'
+import { credentialEpoch, currentSession, identityEpoch, recheckCredential } from '../authorSession'
 
 const props = withDefaults(defineProps<{ article: number; revision: bigint; selected: bigint; disabled?: boolean; format?: ArticleExportFormat; attachment?: string }>(), {
   format: 'md',

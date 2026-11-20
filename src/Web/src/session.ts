@@ -1,9 +1,8 @@
 import { computed, shallowRef } from 'vue'
-import { api, ApiError, type Session } from '../../Contracts/client'
+import { api, type Session } from '../../Contracts/client'
 import { loginWithPasskey, provisionPasskey } from '../../Contracts/passkey'
 import { completeMfaLogin, type Factor } from '../../Contracts/mfa'
 import { hasSiteRefreshCookie, signOutSiteRefresh } from '../../Contracts/site-refresh'
-import { purgeVerifiedDraftScope, verifyDraftScope } from './authoring/draftScope'
 import { announceSiteAuthChange, readSiteAuthority, refreshSiteAuthority, withSiteAuthMutation } from './site-refresh-coordination'
 
 const authority = shallowRef<{ session: Session | null; identity: number; credential: number }>({
@@ -135,40 +134,18 @@ async function mutateLogin(perform: () => Promise<Session | null>, signal?: Abor
 
 export async function signOut(signal?: AbortSignal) {
   pendingMfa = undefined
-  const epoch = authority.value.identity
-  const author = authority.value.session?.canAuthor === true
   const persistent = authority.value.session?.siteRefresh === 'persistent'
   const request = ++requestEpoch
   mutation = request
   try {
     await withSiteAuthMutation(signal, async () => {
       if (request !== requestEpoch || signal?.aborted) return
-      let recoveryError: unknown
-      if (author) {
-        try {
-          await verifyDraftScope(epoch, () => request === requestEpoch && epoch === identityEpoch.value,
-            () => currentSession.value?.siteSessionId, signal)
-        }
-        catch (error) {
-          if (!(error instanceof ApiError && error.status === 401)) recoveryError = error
-        }
-      }
-      if (request !== requestEpoch || signal?.aborted) return
       updateSession(null)
-      try {
-        const hasRefresh = persistent || await hasSiteRefreshCookie(signal)
-        if (request !== requestEpoch || signal?.aborted) return
-        if (hasRefresh) await signOutSiteRefresh(signal)
-        else await api.signOut(signal)
-        announceSiteAuthChange()
-      }
-      catch (logoutError) {
-        try { await purgeVerifiedDraftScope(epoch) }
-        catch (cleanupError) { throw new AggregateError([logoutError, cleanupError]) }
-        throw logoutError
-      }
-      await purgeVerifiedDraftScope(epoch)
-      if (recoveryError) throw recoveryError
+      const hasRefresh = persistent || await hasSiteRefreshCookie(signal)
+      if (request !== requestEpoch || signal?.aborted) return
+      if (hasRefresh) await signOutSiteRefresh(signal)
+      else await api.signOut(signal)
+      announceSiteAuthChange()
     })
   } finally {
     if (mutation === request) mutation = undefined

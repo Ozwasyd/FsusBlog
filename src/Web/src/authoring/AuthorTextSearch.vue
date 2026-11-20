@@ -16,7 +16,7 @@ import { ApiError } from '../../../Contracts/client'
 import type { FilterField, PropertyCondition, PropertyQuery } from '../../../Contracts/property-query'
 import { propertyApi } from '../../../Contracts/property-values'
 import { WireLimits } from '../../../Contracts/wire.generated'
-import { credentialEpoch, currentSession, invalidateSession } from '../session'
+import { credentialEpoch, currentSession, invalidateSession } from '../authorSession'
 import AuthorPropertyFilter from './AuthorPropertyFilter.vue'
 import {
   cancelEditorSourceHandoff, editorSourceHandoffKey, offerHistoricalSearchEditorHandoff, offerPropertySearchEditorHandoff, offerSearchEditorHandoff,

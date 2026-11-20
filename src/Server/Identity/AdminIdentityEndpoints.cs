@@ -14,7 +14,6 @@ internal static class AdminIdentityEndpoints
 {
     private const string OriginSetting = "FSUSBLOG_ADMIN_ORIGIN";
     private const string RpSetting = "FSUSBLOG_ADMIN_RP_ID";
-    private const string PublicOriginSetting = "FSUSBLOG_PUBLIC_ORIGIN";
     private const string ApiPath = "/api/v2/admin/identity";
     private static readonly string[] DocumentPaths =
         ["/admin", "/admin/articles", "/admin/articles/write", "/admin/articles/workspace", "/admin/canvas", "/admin/assets", "/admin/interaction", "/admin/site", "/admin/system", "/admin/identity"];
@@ -38,30 +37,29 @@ internal static class AdminIdentityEndpoints
     internal static bool IsAllowed(HttpContext ctx, PasskeyConfiguration? config)
     {
         var path = ctx.Request.Path;
-        var administration = DocumentPaths.Any(document => path == document || path == document + "/") ||
-            path.StartsWithSegments("/admin/articles/edit") || path.StartsWithSegments("/admin/canvas") ||
+        var administration = path.StartsWithSegments("/admin") ||
             path.StartsWithSegments(ApiPath) || path.StartsWithSegments("/api/v2/authoring") ||
             path.StartsWithSegments("/api/v2/media") || AdminSitePages.IsLegacyRoute(path) ||
             path.StartsWithSegments("/api/binary/author/comments");
-        if (config is null) return !administration;
-        var isAdminOrigin = IsAdminOrigin(ctx, config);
-        return isAdminOrigin
-            ? administration || path == WireRoutes.Session || path == WireRoutes.CategoryList || path == WireRoutes.TagList ||
-              path.StartsWithSegments("/assets") || path.StartsWithSegments("/dist")
-            : !administration;
+        return !administration || IsAdminOrigin(ctx, config);
     }
 
     internal static PasskeyConfiguration? ReadConfiguration(IConfiguration configuration, string? publicOrigin = null)
     {
-        var config = PasskeyConfiguration.Read(configuration, OriginSetting, RpSetting);
-        if (config is null) return null;
-        var publicHost = publicOrigin ?? configuration[PublicOriginSetting];
-        var site = PasskeyConfiguration.Read(configuration, publicHost);
-        if (site?.RpId == config.RpId ||
-            (Uri.TryCreate(publicHost, UriKind.Absolute, out var siteOrigin) && siteOrigin.IdnHost == config.RpId) ||
-            (!config.Origin.IsLoopback && !Uri.TryCreate(publicHost, UriKind.Absolute, out _)))
-            throw new InvalidOperationException("Administration requires a dedicated origin and RP ID distinct from this site's public host and account RP.");
-        return config;
+        var explicitOrigin = configuration[OriginSetting];
+        var explicitRp = configuration[RpSetting];
+        if (explicitOrigin is not null || explicitRp is not null)
+        {
+            if (string.IsNullOrWhiteSpace(explicitOrigin) && string.IsNullOrWhiteSpace(explicitRp))
+                return null;
+            return PasskeyConfiguration.Read(configuration, OriginSetting, RpSetting);
+        }
+        if (string.IsNullOrWhiteSpace(publicOrigin) ||
+            !Uri.TryCreate(publicOrigin, UriKind.Absolute, out var derived) ||
+            !string.Equals(publicOrigin, derived.GetLeftPart(UriPartial.Authority), StringComparison.Ordinal) ||
+            (derived.HostNameType != UriHostNameType.Dns && !derived.IsLoopback))
+            return null;
+        return new(derived, derived.IdnHost);
     }
 
     internal static void Map(WebApplication app, SiteCapabilities capabilities,

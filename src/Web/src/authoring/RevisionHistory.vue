@@ -12,7 +12,7 @@ import type { Draft, RevisionComparison } from '../../../Contracts/wire.generate
 import MarkdownExportControl from './MarkdownExportControl.vue'
 import DocumentExportTasks from './DocumentExportTasks.vue'
 import RevisionPropertyPage from './RevisionPropertyPage.vue'
-import { credentialEpoch, currentSession, identityEpoch } from '../session'
+import { credentialEpoch, currentSession, identityEpoch } from '../authorSession'
 import type { HistoricalSearchSeek } from './canvasEditorHandoff'
 import { textareaSourceRange, verifySourceMatch } from './sourceCoordinates'
 

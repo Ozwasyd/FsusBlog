@@ -150,30 +150,28 @@ internal sealed class SiteCapabilities
 
         AdminArticleRollback = ReadOptionalBool(configuration, AdminArticleRollbackEndpoints.Setting) ?? httpsAdmin;
         if (AdminArticleRollback && !httpsAdmin)
-            throw new InvalidOperationException("Published article rollback requires a dedicated HTTPS administrator origin.");
+            throw new InvalidOperationException("Published article rollback requires an HTTPS administrator origin.");
 
         AdminTagMetadata = ReadOptionalBool(configuration, AdminTagMetadataEndpoints.Setting) ?? httpsAdmin;
         if (AdminTagMetadata && !httpsAdmin)
-            throw new InvalidOperationException("Tag metadata editing requires a dedicated HTTPS administrator origin.");
+            throw new InvalidOperationException("Tag metadata editing requires an HTTPS administrator origin.");
 
         AdminCategoryMetadata = ReadOptionalBool(configuration, AdminTagMetadataEndpoints.CategorySetting) ?? httpsAdmin;
         if (AdminCategoryMetadata && !httpsAdmin)
-            throw new InvalidOperationException("Category metadata editing requires a dedicated HTTPS administrator origin.");
+            throw new InvalidOperationException("Category metadata editing requires an HTTPS administrator origin.");
 
+        var httpsSiteAndAdmin = httpsAdmin && publicSite.Origin is not null;
         SitePageEditor = ReadOptionalBool(configuration, SitePages.EditorSetting) ??
-            (httpsAdmin && publicSite.Origin is not null && SitePagesRoot is not null);
-        if (SitePageEditor && (!httpsAdmin || publicSite.Origin is null))
-            throw new InvalidOperationException("The site page editor requires independent HTTPS administrator and public origins.");
+            (httpsSiteAndAdmin && SitePagesRoot is not null);
+        if (SitePageEditor && !httpsSiteAndAdmin)
+            throw new InvalidOperationException("The site page editor requires HTTPS administrator and public origins.");
         if (SitePageEditor && string.IsNullOrWhiteSpace(SitePagesRoot))
             throw new InvalidOperationException("The site page editor requires the four deployment baseline files.");
 
-        var distinctHttps = httpsAdmin && publicSite.Origin is not null &&
-            Uri.Compare(adminIdentity!.Origin, new Uri(publicSite.Origin), UriComponents.SchemeAndServer,
-                UriFormat.SafeUnescaped, StringComparison.OrdinalIgnoreCase) != 0;
         OnlineAppearance = ReadOptionalBool(configuration, AppearanceAssets.OnlineSetting) ??
-            (AppearanceRoot is not null && distinctHttps);
-        if (OnlineAppearance && !distinctHttps)
-            throw new InvalidOperationException("Online appearance requires independent HTTPS administrator and public origins.");
+            (AppearanceRoot is not null && httpsSiteAndAdmin);
+        if (OnlineAppearance && !httpsSiteAndAdmin)
+            throw new InvalidOperationException("Online appearance requires HTTPS administrator and public origins.");
         if (OnlineAppearance && string.IsNullOrWhiteSpace(AppearanceRoot))
             throw new InvalidOperationException("Online appearance requires a signed deployment registry.");
 

@@ -12,7 +12,7 @@ import { WireLimits } from '../../../Contracts/wire.generated'
 import type { PropertySearchSeek } from '../authoring/canvasEditorHandoff'
 import { verifySourceMatch } from '../authoring/sourceCoordinates'
 import { showPropertyValue as showValue } from '../authoring/propertyDisplay'
-import { currentSession, invalidateSession } from '../session'
+import { currentSession, invalidateSession } from '../authorSession'
 
 const props = defineProps<{
   articleId: number; revision: bigint; identity: number; disabled: boolean

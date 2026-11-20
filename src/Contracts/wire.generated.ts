@@ -842,6 +842,7 @@ export const WireRoutes = {
   SitePasskeyRemoveCurrentComplete: "/api/v2/identity/recovery-key/rebind/current-passkey/remove/complete.aeds",
   PasskeyProvisionComplete: "/api/v2/identity/passkey/register/complete.aeds",
   PasskeyAvailability: "/api/v2/identity/passkey/availability.aeds",
+  AuthoringSession: "/api/v2/authoring/session.aeds",
   Draft: "/api/v2/authoring/draft/{id:int}.aeds",
   DraftRevisionHistory: "/api/v2/authoring/draft/{id:int}/revisions.aeds",
   DraftRevisionComparison: "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds",

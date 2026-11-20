@@ -1,0 +1,145 @@
+# FsusBlog v2 — Unified Single-Domain Nginx TLS Reverse Proxy Example
+#
+# Replace `blog.example.org`, TLS certificate paths, and the upstream port (`5080`)
+# to match your deployment.
+#
+# Required FsusBlog.V2.Server environment variables (single domain):
+#   FSUSBLOG_DB='Host=127.0.0.1;Port=5432;Username=fsusblog;Database=fsusblog'
+#   FSUSBLOG_PUBLIC_ORIGIN=https://blog.example.org
+#   FSUSBLOG_DATA_DIR=/var/lib/fsusblog
+#   FSUSBLOG_TRUST_LOOPBACK_PROXY=true
+#   (--urls http://127.0.0.1:5080)
+#
+# Security notes:
+# - FsusBlog.V2.Server emits strict Content-Security-Policy, X-Content-Type-Options,
+#   Referrer-Policy, Cross-Origin-Resource-Policy, and Cache-Control headers on every
+#   response. Do NOT strip or weaken those upstream headers in Nginx.
+# - LoopbackProxy validates a single-hop client IP in X-Forwarded-For and requires
+#   X-Forwarded-Proto=https from 127.0.0.1 / ::1. Always pass `$remote_addr`, NEVER
+#   `$proxy_add_x_forwarded_for` (comma-separated chains are rejected fail-closed).
+# - Keep `gzip off` so dynamic / binary AEDS frames are never compressed over TLS.
+# - Keep `add_header` at server scope only so Strict-Transport-Security is inherited
+#   by every location block.
+
+map $http_upgrade $fsusblog_connection_upgrade {
+    default upgrade;
+    ''      '';
+}
+
+upstream fsusblog_backend {
+    server 127.0.0.1:5080;
+    keepalive 64;
+    keepalive_timeout 60s;
+}
+
+# Reject unknown Host / SNI requests fail-closed.
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 444;
+}
+
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+}
+
+# Redirect plaintext HTTP to canonical HTTPS.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name blog.example.org;
+
+    # Uncomment if using Certbot / acme.sh HTTP-01 webroot renewal:
+    # location ^~ /.well-known/acme-challenge/ {
+    #     root /var/www/acme-challenge;
+    #     default_type text/plain;
+    # }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on; # Nginx 1.25.1+; on older versions use `listen 443 ssl http2;` instead.
+    server_name blog.example.org;
+
+    server_tokens off;
+
+    ssl_certificate     /srv/fsusblog/tls/fullchain.pem;
+    ssl_certificate_key /srv/fsusblog/tls/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:fsusblog_ssl:10m;
+    ssl_session_timeout 10m;
+    ssl_session_tickets off;
+
+    # Strict Transport Security (inherited by all locations without local add_header).
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Disable proxy compression and buffering to match Kestrel's AEDS binary frames,
+    # paced /public-media streaming, and live WebSocket wake channels.
+    gzip off;
+    proxy_cache off;
+    proxy_buffering off;
+    proxy_request_buffering off;
+
+    # Covers standard AEDS command frames (up to ~2 MiB); media routes override below.
+    client_max_body_size 3m;
+
+    # Shared single-hop loopback proxy headers (strictly validated by LoopbackProxy.cs).
+    proxy_http_version 1.1;
+    proxy_set_header Host              $http_host;
+    proxy_set_header X-Forwarded-For   $remote_addr;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header Upgrade           $http_upgrade;
+    proxy_set_header Connection        $fsusblog_connection_upgrade;
+
+    # Strip untrusted client forwarding headers.
+    proxy_set_header Forwarded         "";
+    proxy_set_header X-Original-For    "";
+    proxy_set_header X-Original-Proto  "";
+    proxy_set_header X-Original-Host   "";
+    proxy_set_header X-Original-Prefix "";
+    proxy_set_header X-Real-IP         "";
+
+    # Optional: restrict admin and authoring entry points to your VPN / office IPs.
+    # (Admin routes still enforce Passkey auth, __Host-FsusAdminSession SameSite=Strict
+    # cookies, X-Fsus-Admin-Permission-Session binding, and 45s Passkey Step-Up.)
+    #
+    # location ~ ^/(admin(/|$)|api/v2/(admin|authoring)/|api/binary/author/comments/) {
+    #     allow 100.64.0.0/10;   # e.g., Tailscale / WireGuard subnet
+    #     allow 203.0.113.10;    # e.g., static operator IP
+    #     deny all;
+    #     proxy_pass http://fsusblog_backend;
+    # }
+
+    # Private draft image previews carry short-lived tokens; keep them out of access logs.
+    location ^~ /api/v2/media/draft-preview {
+        access_log off;
+        proxy_pass http://fsusblog_backend;
+    }
+
+    # Private media uploads support up to 20 MiB images (MediaImage.MaxBytes).
+    location ^~ /api/v2/media/ {
+        client_max_body_size 21m;
+        proxy_pass http://fsusblog_backend;
+    }
+
+    # Long-lived WebSocket inbox wake channels (subprotocol: fsus-inbox-wake.v2).
+    location ~ ^/api/v2/(notifications/inbox/wake|admin/identity/inbox/([0-9]+/)?wake)$ {
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_pass http://fsusblog_backend;
+    }
+
+    # All public pages, AEDS endpoints, /public-media, /site-appearance, and /admin routes.
+    location / {
+        proxy_pass http://fsusblog_backend;
+    }
+}

@@ -6,7 +6,7 @@ import { ElButton, ElLink } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { savedViewPlacement, type SavedViewPlacement } from '../../../Contracts/saved-views'
 import { WireLimits } from '../../../Contracts/wire.generated'
-import { credentialEpoch, currentSession } from '../session'
+import { credentialEpoch, currentSession } from '../authorSession'
 
 defineProps<{ active: boolean; disabled: boolean }>()
 const emit = defineEmits<{ available: [value: boolean] }>()

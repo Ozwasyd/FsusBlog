@@ -484,11 +484,6 @@ app.MapPost(WireRoutes.SignIn, (HttpContext ctx) =>
     .RequireRateLimiting("sign-in");
 app.MapGet(WireRoutes.Session, async (HttpContext ctx, Store store, CancellationToken ct) =>
 {
-    if (FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.IsAdminOrigin(ctx, adminIdentity))
-    {
-        var adminToken = ctx.Request.Cookies[authorCookie];
-        return await store.WithSession(adminToken, true, (_, _, actor) => Task.FromResult(SessionResponse(ctx, actor, adminToken!)), ct);
-    }
     var token = ctx.Request.Cookies[Cookie];
     return await store.WithSession(token, false, async (db, tx, actor) =>
     {
@@ -500,6 +495,11 @@ app.MapGet(WireRoutes.Session, async (HttpContext ctx, Store store, Cancellation
         return SessionResponse(ctx, actor, token!);
     }, ct);
 });
+app.MapGet(WireRoutes.AuthoringSession, (HttpContext ctx, Store store, CancellationToken ct) =>
+{
+    var adminToken = ctx.Request.Cookies[authorCookie];
+    return store.WithSession(adminToken, true, (_, _, actor) => Task.FromResult(SessionResponse(ctx, actor, adminToken!)), ct);
+}).RequireRateLimiting("command");
 app.MapPost(WireRoutes.SignOut, async (HttpContext ctx, Store store, CancellationToken ct) =>
 {
     await store.SignOut(ctx.Request.Cookies[Cookie], ct);

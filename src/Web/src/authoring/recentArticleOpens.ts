@@ -2,7 +2,7 @@ import { t, type MessageKey } from '../siteLocale'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { listRecentOpens, recordRecentOpen } from '../../../Contracts/author-recent-opens'
 import { ApiError } from '../../../Contracts/client'
-import { currentSession, identityEpoch } from '../session'
+import { currentSession, identityEpoch } from '../authorSession'
 
 type Visit = Readonly<{ articleId: number; articleRevision: bigint; expiresAt: number }>
 

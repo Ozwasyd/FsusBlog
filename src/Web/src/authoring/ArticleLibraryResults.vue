@@ -6,7 +6,7 @@ import { listAuthorArticles, type AuthorArticlePage, type AuthorArticleRow, type
 import { taxonomyList } from '../../../Contracts/taxonomy-client'
 import type { TaxonomyKind, TaxonomyListItem } from '../../../Contracts/taxonomy'
 import { WireLimits } from '../../../Contracts/wire.generated'
-import { currentSession, identityEpoch } from '../session'
+import { currentSession, identityEpoch } from '../authorSession'
 import { moveLibraryFocus } from './articleLibraryKeyboard'
 
 type Scope = Exclude<AuthorArticleState, 'deleted'> | ''

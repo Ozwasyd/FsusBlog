@@ -4,7 +4,7 @@ import { ref, shallowRef, watch } from 'vue'
 import { ElButton } from '@ozwasyd/element-plus'
 import { listRecentOpens, type RecentOpenCursor, type RecentOpens } from '../../../Contracts/author-recent-opens'
 import { ApiError } from '../../../Contracts/client'
-import { currentSession, identityEpoch } from '../session'
+import { currentSession, identityEpoch } from '../authorSession'
 import { moveLibraryFocus } from './articleLibraryKeyboard'
 
 const props = defineProps<{ active: boolean; version: number; articleId?: number; disabled: boolean }>()

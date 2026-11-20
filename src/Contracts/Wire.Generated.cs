@@ -847,6 +847,7 @@ public static class WireRoutes
     public const string SitePasskeyRemoveCurrentComplete = "/api/v2/identity/recovery-key/rebind/current-passkey/remove/complete.aeds";
     public const string PasskeyProvisionComplete = "/api/v2/identity/passkey/register/complete.aeds";
     public const string PasskeyAvailability = "/api/v2/identity/passkey/availability.aeds";
+    public const string AuthoringSession = "/api/v2/authoring/session.aeds";
     public const string Draft = "/api/v2/authoring/draft/{id:int}.aeds";
     public const string DraftRevisionHistory = "/api/v2/authoring/draft/{id:int}/revisions.aeds";
     public const string DraftRevisionComparison = "/api/v2/authoring/draft/{id:int}/revisions/{sourceRevision:long}.aeds";

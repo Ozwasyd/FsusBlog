@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { t, siteLocale, type MessageKey } from '../siteLocale'
-import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElEmptyState, ElMessageBox, ElProgress, ElSettingsSection, ElSkeleton, ElTaskPageHeader } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { cancelMediaUpload, finalizeMediaUpload, listMedia, mediaDate, mediaDigest, privateMediaHref, removeMedia,
   sendMediaPart, startMediaUpload, uploadMedia, type MediaUploadState, type PrivateMediaItem } from '../../../Contracts/private-media'
 import { forgetMediaRecovery, mediaRecovery } from '../mediaUploadRecovery'
-import { currentSession, identityEpoch, invalidateSession } from '../session'
+import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../authorSession'
 
 const entries = shallowRef<readonly PrivateMediaItem[]>([])
 const selected = shallowRef<{ file: File; key: string; digest?: string; coordinate?: string }>()
@@ -192,6 +192,9 @@ watch(identityEpoch, () => {
   if (currentSession.value?.canAuthor) void load()
 }, { immediate: true, flush: 'sync' })
 
+onMounted(() => {
+  void refreshSession(scope.signal).catch(() => {})
+})
 onBeforeUnmount(() => scope.abort())
 </script>
 

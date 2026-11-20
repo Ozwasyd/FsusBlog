@@ -1,10 +1,10 @@
 # 独立管理员身份
 
-管理员从 `/admin/identity` 注册和使用 Passkey。运行时配置 `FSUSBLOG_ADMIN_ORIGIN`（未指定 `FSUSBLOG_ADMIN_RP_ID` 时自动取 `FSUSBLOG_ADMIN_ORIGIN` 的规范化主机名）。管理员域名必须和公开站点 `FSUSBLOG_PUBLIC_ORIGIN` 及站点账号的 Passkey RP 区分。线上使用 HTTPS。原生验收在环回地址使用 `https://localhost` 作为管理端，并通过 `https://127.0.0.1` 访问站点。反向代理保留原始 Host，仅转发管理员页面、身份 AEDS API 和静态资源，应用也会拒绝在该域名访问公开站点及站点账号入口。 [双主机部署配置](../../deploy/README.md#独立管理域名)
+管理员从 `/admin/identity` 注册和使用 Passkey。默认与公开站点共用同一个规范 HTTPS 来源：未显式设置 `FSUSBLOG_ADMIN_ORIGIN` 时自动复用 `FSUSBLOG_PUBLIC_ORIGIN`（未指定 `FSUSBLOG_ADMIN_RP_ID` 时自动取对应规范化主机名）；显式设置 `FSUSBLOG_ADMIN_ORIGIN=""` 可彻底关闭在线管理入口；也可按需显式指定不同的 `FSUSBLOG_ADMIN_ORIGIN`。线上必须使用 HTTPS，且所有管理与创作路径仅接受与配置来源完全匹配的 scheme、Host 与端口，其余来源一律 fail-closed 返回 404。反向代理保留原始 Host 并重建单跳转发头。 [单域名 TLS 反代部署（Nginx / Caddy）](../../deploy/README.md)
 
-通过受控的数据库操作员运行 `admin-identity bootstrap HANDLE`。命令建立唯一统一类型的管理员主体（集成原创作与站点管理全部能力，`article.owner_id` 及所有创作表直接外键关联 `admin_principal(id)`），提交后输出一枚十分钟内有效的一次性引导密钥。浏览器在管理域完成要求用户验证的可发现 Passkey 注册，引导密钥和挑战随后失效。注册本身不签发会话。重新用 Passkey 登录后，当前浏览器获得独立的 HttpOnly、SameSite=Strict 凭据。线上使用 Secure 和 `__Host-` 前缀将凭据限定在管理主机，环回验收使用限路径的独立 Cookie。每个管理员只有一个两小时有效的会话，完成新的 Passkey 验证会原子地撤销旧会话。
+通过受控的数据库操作员运行 `admin-identity bootstrap HANDLE`。命令建立唯一统一类型的管理员主体（集成原创作与站点管理全部能力，`article.owner_id` 及所有创作表直接外键关联 `admin_principal(id)`），提交后输出一枚十分钟内有效的一次性引导密钥。浏览器在规范来源完成要求用户验证的可发现 Passkey 注册（使用独立随机 `admin_principal.user_handle` 与 `admin_passkey_credential` 表，与读者 `blog_user` / `passkey_credential` 互不冲突），引导密钥和挑战随后失效。注册本身不签发会话。重新用 Passkey 登录后，当前浏览器获得独立的 HttpOnly、SameSite=Strict 凭据。线上使用 Secure 和 `__Host-` 前缀（`__Host-FsusAdminSession`），本机回环开发使用 `fsus-v2-admin-session`。每个管理员只有一个两小时有效的会话，完成新的 Passkey 验证会原子地撤销旧会话。
 
-`admin-identity rotate-passkey HANDLE` 撤销旧凭据和会话并签发替代引导密钥，`admin-identity revoke-all HANDLE` 撤销会话和未完成的引导或登录挑战，`admin-identity disable HANDLE` 禁用主体并移除凭据。使用数据库会话真实操作员身份 `session_user` 写入同事务的离线审计。会话查询每次复核管理员启用状态、代次、会话到期时间与有效 Passkey 凭据；站点普通用户（`blog_user`，无 `can_author` 列）和站点 Cookie 无法取得任何管理员或创作权限（返回 401；公开域调用管理路径返回 404）。
+`admin-identity rotate-passkey HANDLE` 撤销旧凭据和会话并签发替代引导密钥，`admin-identity revoke-all HANDLE` 撤销会话和未完成的引导或登录挑战，`admin-identity disable HANDLE` 禁用主体并移除凭据。使用数据库会话真实操作员身份 `session_user` 写入同事务的离线审计。会话查询每次复核管理员启用状态、代次、会话到期时间与有效 Passkey 凭据；站点普通用户（`blog_user`，无 `can_author` 列）和读者 Cookie（`fsus-v2-session`）无法取得任何管理员或创作权限（访问管理/创作会话与业务端点均返回 401；读者接口 `GET /api/v2/identity/session.aeds` 只读读者 Cookie，创作接口 `GET /api/v2/authoring/session.aeds` 与管理接口 `GET /api/v2/admin/identity/session.aeds` 只读管理员 Cookie；非规范来源调用管理路径返回 404）。
 
 新库通过 `plan` 和 `apply` 建立管理员组件版本 8。启动缺少或不匹配当前组件时拒绝接入请求。
 

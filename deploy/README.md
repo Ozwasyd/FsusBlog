@@ -1,16 +1,51 @@
-# 单机 Caddy TLS 部署
+# 单域名 TLS 反代部署（Nginx / Caddy）
+
+FsusBlog v2 默认采用**统一单域名架构**：公开站点（`/`、`/archive`、`/article/*`、`/login`、`/user/*`）与管理/创作后台（`/admin/*`、`/api/v2/admin/identity/*`、`/api/v2/authoring/*`、`/api/v2/media/*`）共用同一个 HTTPS 域名。
+
+安全边界由多层纵深防御共同保障，无需维护第二套管理域名与证书：
+
+- **严格 CSP 与 XSS 清洗**：服务端在所有响应上统一输出 `Content-Security-Policy`（`default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`）、`X-Content-Type-Options: nosniff`、`Referrer-Policy: same-origin`，公开内容经安全 Markdown 渲染器输出，禁止原始 HTML 与不安全 URL 协议。
+- **身份与凭据隔离**：普通读者（`blog_user` / `passkey_credential` / `fsus-v2-session`）与管理员（`admin_principal` / `admin_passkey_credential` / `__Host-FsusAdminSession`）在数据库表、Passkey 凭据表、会话 Cookie 与会话接口（`/api/v2/identity/session.aeds` vs `/api/v2/admin/identity/session.aeds` & `/api/v2/authoring/session.aeds`）上完全隔离。
+- **高危操作防护**：保留 `SameSite=Strict`、`HttpOnly`、`X-Fsus-Admin-Permission-Session` 防串响应头、45 秒一次性 Passkey 二次验证（Step-Up）、双人申诉复核与全写操作同源校验。
+
+## 最小应用配置
 
 带作者章节标题搜索的发布包包含从旁边检出的 FsusUI 源码编译的本机 Markdown 解析器。用 `tools/build-release.sh` 在与部署环境兼容的系统和 CPU 架构上构建，构建机需要支持 C++23 的 C++ 编译器。`release.txt` 中的 `server_rid` 标记目标运行时。Linux 部署请使用对应 Linux 包，macOS 部署请使用对应 macOS 包。
 
-Caddy 保留站点 `Host`，从实际 TLS 连接生成单跳转发头，并将完整 HTTP 响应交给浏览器。Kestrel 在同一受控主机监听 `127.0.0.1`。代理配置关闭响应缓存、明文 HTTP 入口和 Caddy 管理端口。
+Kestrel 仅监听本机回环地址 `127.0.0.1:5080`，由同机 Nginx 或 Caddy 终结 TLS。最小单域名配置如下（未显式设置 `FSUSBLOG_PASSKEY_ORIGIN` / `FSUSBLOG_ADMIN_ORIGIN` 时，自动从 `FSUSBLOG_PUBLIC_ORIGIN` 推导对应的 Origin 与 RP ID）：
 
-Caddy 到 Kestrel 使用 HTTP/1.1，最多保持 64 条上游连接，空闲连接 60 秒后关闭。上游不启用自动压缩。此配置用于限制负载突发时回环拨号数量；调整后须重新验证实际容量和写入行为。
+```bash
+export FSUSBLOG_DB='Host=127.0.0.1;Port=5432;Username=fsusblog;Database=fsusblog'
+export FSUSBLOG_PUBLIC_ORIGIN=https://blog.example.org
+export FSUSBLOG_DATA_DIR=/var/lib/fsusblog
+export FSUSBLOG_WEB_DIST=/srv/fsusblog/web
+export FSUSBLOG_TRUST_LOOPBACK_PROXY=true
+dotnet /srv/fsusblog/server/FsusBlog.V2.Server.dll --urls http://127.0.0.1:5080
+```
 
-公开图片启用后，Caddy 对 `/public-media` 独立匹配，保留 `no-store`，与公开页面共用上游池。启用可信回环代理时，Kestrel 先校验单跳转发的真实客户端地址，再对图片按每 IP 10 次/秒和额外 30 次突发配额准入，拒绝时返回 429 与 `Retry-After`。应用保留每 IP 每分钟 600 次的兜底限额。验证后的图片最多同时持有四份缓冲，代理模式的长 GET 先发送 1 MiB，后续由 Kestrel 按最高 8 MiB/s 逐段发送。Caddy 2.11.9 通过 `Incremental` 响应信号逐段转发。
+代理模式的健康检查访问 HTTPS 入口的 `/health/ready`。回环地址处于同一操作系统信任边界，部署者须限制本机访问及 TLS 私钥权限。
 
-为 Kestrel 设置 `FSUSBLOG_TRUST_LOOPBACK_PROXY=true`，在数据库和静态资源设置外指定 `--urls http://127.0.0.1:5080`。浏览器登录使用的 `FSUSBLOG_PASSKEY_ORIGIN` 必须匹配外部 HTTPS 来源，`FSUSBLOG_PASSKEY_RP_ID` 使用该来源的主机名。代理模式的健康检查访问 Caddy HTTPS 上的 `/health/ready`。回环地址处于同一操作系统信任边界，部署者须限制本机访问及 TLS 私钥权限。
+## Nginx 单域名部署（推荐）
 
-为 Caddy 单独配置公开地址、监听地址、证书链与相应私钥。
+参考随仓库和发布包分发的 [`deploy/nginx.conf.example`](nginx.conf.example)。将其复制到 `/etc/nginx/conf.d/fsusblog.conf`（或 `sites-available`），替换域名、证书路径和上游端口后执行：
+
+```bash
+nginx -t
+systemctl reload nginx
+```
+
+配置中与 FsusBlog v2 运行时契约严格对应的关键项：
+
+1. **单跳转发头（`LoopbackProxy` 强校验）**：必须使用 `proxy_set_header X-Forwarded-For $remote_addr;` 与 `proxy_set_header X-Forwarded-Proto https;` 并剥离客户端伪造的 `Forwarded`、`X-Original-*`、`X-Real-IP`。**切勿使用 `$proxy_add_x_forwarded_for`**，否则携带逗号的多跳链路会被 Kestrel fail-closed 拒绝（400）。
+2. **保留原始 `Host` 与拒绝未知 SNI**：使用 `proxy_set_header Host $http_host;` 并在 `default_server` 配置 `ssl_reject_handshake on;`。
+3. **关闭压缩与缓冲**：`gzip off;`、`proxy_cache off;`、`proxy_buffering off;`、`proxy_request_buffering off;`，避免压缩动态/AEDS 二进制帧，并保留 `/public-media` 的渐进流式限速发送与分片上传。
+4. **WebSocket 与上传上限**：为 `/api/v2/notifications/inbox/wake` 和 `/api/v2/admin/identity/inbox/.../wake` 透传 `Upgrade`/`Connection` 与长读超时；常规命令帧限制 `client_max_body_size 3m;`，`/api/v2/media/` 单独放宽至 `21m`（匹配后端 20 MiB 图片上限）；`/api/v2/media/draft-preview` 关闭访问日志。
+5. **不覆盖上游安全头**：`Strict-Transport-Security` 放在 `server` 级，且不在子 `location` 重复声明 `add_header`；不要改写或弱化 Kestrel 下发的 `Content-Security-Policy` 与 `Cache-Control`。
+6. **可选管理入口网络层收紧**：如需进一步缩小暴露面，可在模板中取消注释对 `/admin`、`/api/v2/admin/`、`/api/v2/authoring/` 的 `allow <VPN/办公IP>; deny all;` 规则。
+
+## Caddy 单域名部署
+
+也可以直接使用同目录的 [`deploy/Caddyfile`](Caddyfile) 进行单域名 HTTPS 部署。Caddy 保留站点 `Host`，从实际 TLS 连接生成单跳转发头，使用 HTTP/1.1 最多保持 64 条上游连接（空闲 60 秒关闭），关闭上游自动压缩、响应缓存、明文 HTTP 入口和管理端口，并对 `/public-media` 保留 `no-store` 及通过 `Incremental` 信号逐段转发。
 
 ```bash
 export FSUSBLOG_PUBLIC_ADDRESS=https://blog.example.org
@@ -22,34 +57,18 @@ caddy validate --config deploy/Caddyfile --adapter caddyfile
 caddy run --config deploy/Caddyfile --adapter caddyfile
 ```
 
-证书由部署方更新并重启代理进程。测试使用按次生成的回环证书及独立 CA，通过同一 Caddyfile 验证代理、来源、Cookie 和会话。生产证书和外部网络仍需在实际部署验证。见[本机负载与代理入口](../tests/Performance/README.md)。
+公开图片启用时，Kestrel 先校验单跳转发的真实客户端地址，再对图片按每 IP 10 次/秒和额外 30 次突发配额准入（拒绝时返回 429 与 `Retry-After`），并保留每 IP 每分钟 600 次的兜底限额；验证后的图片最多同时持有四份缓冲，代理模式的长 GET 先发送 1 MiB，后续按最高 8 MiB/s 逐段发送。证书由部署方更新并重启代理进程。见[本机负载与代理入口](../tests/Performance/README.md)。
 
-## 独立管理域名
+## 可选：关闭后台或拆分独立管理域名
 
-启用管理员登录时使用 `Caddyfile.admin`。它从同目录的 `Caddyfile` 导入公开站点和回环上游规则。两个文件一起分发，单独使用 `Caddyfile` 仍可提供纯公开站点部署。
-
-为 Caddy 追加管理域名和证书设置，给 Kestrel 设置匹配的管理来源和 RP ID。公开来源应与 `FSUSBLOG_PUBLIC_ADDRESS` 一致。每个证书必须覆盖对应主机的 SAN。也可以为两个主机指定同一份包含两者的证书链和密钥。
-
-```bash
-export FSUSBLOG_ADMIN_ADDRESS=https://manage.example.org
-export FSUSBLOG_ADMIN_TLS_CERTIFICATE=/srv/fsusblog/admin-tls/fullchain.pem
-export FSUSBLOG_ADMIN_TLS_KEY=/srv/fsusblog/admin-tls/privkey.pem
-export FSUSBLOG_PUBLIC_ORIGIN=https://blog.example.org
-export FSUSBLOG_ADMIN_ORIGIN=https://manage.example.org
-export FSUSBLOG_ADMIN_RP_ID=manage.example.org
-caddy validate --config deploy/Caddyfile.admin --adapter caddyfile
-caddy run --config deploy/Caddyfile.admin --adapter caddyfile
-```
-
-管理主机只向上游转发管理文档 `/admin`、`/admin/articles`、`/admin/interaction`、`/admin/site`、`/admin/system`、`/admin/identity`（含单个尾随斜杠），以及 `/api/v2/admin/identity/*`、`/assets/*` 和 `/dist/*`。管理主机要求 TLS SNI 与 HTTP Host 匹配。Caddy 按真实 TLS 请求重建转发头，站点账号和管理员凭据各自按主机与权限验证。管理员 Cookie 使用 `__Host-` 前缀，完成 Passkey 登录后才签发。域名、公网证书和网络接入策略需要部署方验证。 [Caddy 的 SNI 和 Host 说明](https://caddyserver.com/docs/caddyfile/options#strict-sni-host)
-
-`tests/EndToEnd/run-admin-tls.sh` 使用两个独立的环回证书、原生 PostgreSQL 和 Chrome 虚拟 CTAP2 验证此配置。为脚本设置测试数据库连接 `FSUSBLOG_TEST_DB` 及配套的 `PGHOST`、`PGPORT`、`PGUSER`。可通过 `FSUSBLOG_NATIVE_SERVER_BUILD`、`FSUSBLOG_NATIVE_CLI_BUILD` 和 `FSUSBLOG_WEB_DIST` 指向解包后的发布产物。测试只为子进程设置证书信任，结束后移除临时数据库、私钥和监听进程。 [Chrome 测试证书用法](https://github.com/GoogleChrome/samples/blob/gh-pages/webtransport/webtransport_server.py)
+- **纯公开只读节点**：若希望在配置了 `FSUSBLOG_PUBLIC_ORIGIN` 的公开实例上完全关闭管理后台，显式设置 `FSUSBLOG_ADMIN_ORIGIN=""`。启动后所有 `/admin/*`、`/api/v2/admin/identity/*`、`/api/v2/authoring/*` 与 `/api/v2/media/*` 路由均 fail-closed 返回 404。
+- **可选独立管理域名**：如果运维策略明确要求将管理后台拆分到独立子域（如 `https://manage.example.org`），可显式配置 `FSUSBLOG_ADMIN_ORIGIN=https://manage.example.org`（未指定 `FSUSBLOG_ADMIN_RP_ID` 时自动取主机名），Nginx 侧为其配置独立 `server` 块或使用 [`deploy/Caddyfile.admin`](Caddyfile.admin)。注意管理路由只接受与 `FSUSBLOG_ADMIN_ORIGIN` 完全匹配的 scheme、Host 和端口。
 
 ## 站点访问统计
 
-管理员的「站点」页显示最近 30 个 UTC 日的访问量与最多 30 个地区，访问统计要求独立管理会话与 `audit.read`。这里只统计同源公开页面成功返回的 HTML GET（不是独立访客数，不含静态资源、API、后台、缓存命中的 304、站内只走前端路由的切换或本机/内网地址）。热度统计是另一套计量，两者不混算。旧版数据不会自动迁入。
+管理员的「站点」页显示最近 30 个 UTC 日的访问量与最多 30 个地区，访问统计要求管理员会话。这里只统计同源公开页面成功返回的 HTML GET（不是独立访客数，不含静态资源、API、后台 `/admin/*`、缓存命中的 304、站内只走前端路由的切换或本机/内网地址）。热度统计是另一套计量，两者不混算。旧版数据不会自动迁入。
 
-默认关闭。在维护窗口通过对应版本的迁移程序运行 `site-traffic schema`，然后为服务设置 `FSUSBLOG_SITE_TRAFFIC=true` 和有效的 `FSUSBLOG_PUBLIC_ORIGIN`。代理部署继续沿用上文的可信单跳 Caddy 模式，按真正连接地址计量，不接受客户端自行提供的地区字段。可选的 `FSUSBLOG_SITE_TRAFFIC_REGIONS` 指向部署者提供的离线 JSON 前缀表（最多 1 MiB/4096 条，最长匹配优先），每条包含 `cidr` 和 `region`；地区格式为两位国家码或 ISO 地区扩展，例如 `CN-BJ`。未配置地区表时仍可统计访问量；已配置但未命中的地址归到「未知地区」。项目不自带地理数据库，也不会将地址发给外部查询服务。
+配置有效的 `FSUSBLOG_PUBLIC_ORIGIN` 后默认开启（可通过 `FSUSBLOG_SITE_TRAFFIC=false` 静默关闭）。代理部署沿用上文的可信单跳模式，按真正连接地址计量，不接受客户端自行提供的地区字段。可选的 `FSUSBLOG_SITE_TRAFFIC_REGIONS`（或 `FSUSBLOG_DATA_DIR/traffic-regions.json`）指向部署者提供的离线 JSON 前缀表（最多 1 MiB/4096 条，最长匹配优先），每条包含 `cidr` 和 `region`；地区格式为两位国家码或 ISO 地区扩展，例如 `CN-BJ`。未配置地区表时仍可统计访问量；已配置但未命中的地址归到「未知地区」。项目不自带地理数据库，也不会将地址发给外部查询服务。
 
 数据库仅持久化日期、地区和访问次数，不记录每次访问或原始 IP。计数批量落库；正在运行的采集器按 UTC 清理 30 日窗口之前的汇总，停用或停服期间不会执行该清理。页面会区分未启用、未配置地区表、暂无数据和暂不可用，不用本机测试访问填充真实统计。
 

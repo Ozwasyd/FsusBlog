@@ -8,7 +8,7 @@ import {
   readExportFormattingReceipt, hasExportWarnings, documentWarningLabels, type DocumentExportWarning,
   type DocumentExportFailure, type DocumentExportFormat, type DocumentExportStatus, type DocumentExportTask,
 } from '../../../Contracts/document-export-tasks'
-import { credentialEpoch, currentSession, identityEpoch, recheckCredential } from '../session'
+import { credentialEpoch, currentSession, identityEpoch, recheckCredential } from '../authorSession'
 
 const props = defineProps<{ article: number; revision: bigint; selected: bigint; active: boolean; disabled?: boolean }>()
 const enabled = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-document-export-tasks"]')?.content === '1'

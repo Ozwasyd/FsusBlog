@@ -16,7 +16,7 @@ import CanvasBoard from '../authoring/CanvasBoard.vue'
 import CanvasBundlePanel from '../authoring/CanvasBundlePanel.vue'
 import { canvasEditorHandoffKey, cancelCanvasEditorHandoff, offerCanvasEditorHandoff } from '../authoring/canvasEditorHandoff'
 import { canvasBundle } from '../../../Contracts/canvas-bundle'
-import { credentialEpoch, currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
+import { credentialEpoch, currentSession, identityEpoch, invalidateSession, refreshSession } from '../authorSession'
 
 const route = useRoute()
 const router = useRouter()

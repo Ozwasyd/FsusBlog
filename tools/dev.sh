@@ -14,7 +14,7 @@ Usage: ./tools/dev.sh [options]
 Starts an isolated local development stack with hot reload:
   - Persistent PostgreSQL 18 cluster in .dev-data/pgdata (port 55432 by default)
   - FsusBlog.V2.Server via dotnet watch (http://127.0.0.1:5080 by default)
-  - Vite HMR dev server consuming ../FsusUI source (http://127.0.0.1:5173 & http://localhost:5173)
+  - Vite HMR dev server consuming ../FsusUI source (unified single-origin http://localhost:5173)
 
 Options:
   --reset          Wipe .dev-data/ and initialize a fresh database before starting
@@ -456,6 +456,8 @@ if (( db_only )); then
   printf '  FSUSBLOG_DATA_DIR=%s\n' "$site_data"
   printf '  FSUSBLOG_ADMIN_ORIGIN=http://localhost:%s\n' "$web_port"
   printf '  FSUSBLOG_ADMIN_RP_ID=localhost\n'
+  printf '  FSUSBLOG_PASSKEY_ORIGIN=http://localhost:%s\n' "$web_port"
+  printf '  FSUSBLOG_PASSKEY_RP_ID=localhost\n'
   [[ -n "$admin_bootstrap_key" ]] && printf '  Admin bootstrap key (dev-admin): %s\n' "$admin_bootstrap_key"
   [[ -n "$reader_login_ticket" ]] && printf '  Reader login ticket (dev-reader): %s\n' "$reader_login_ticket"
   [[ -n "$dev_admin_cookie" ]] && printf '  Dev admin cookie (fsus-v2-admin-session on localhost:%s): %s\n' "$web_port" "$dev_admin_cookie"
@@ -468,8 +470,10 @@ fi
 
 export ASPNETCORE_ENVIRONMENT="Development"
 export ASPNETCORE_URLS="http://127.0.0.1:$api_port"
-export FSUSBLOG_ADMIN_ORIGIN="http://localhost:$web_port"
-export FSUSBLOG_ADMIN_RP_ID="localhost"
+export FSUSBLOG_ADMIN_ORIGIN="${FSUSBLOG_ADMIN_ORIGIN:-http://localhost:$web_port}"
+export FSUSBLOG_ADMIN_RP_ID="${FSUSBLOG_ADMIN_RP_ID:-localhost}"
+export FSUSBLOG_PASSKEY_ORIGIN="${FSUSBLOG_PASSKEY_ORIGIN:-http://localhost:$web_port}"
+export FSUSBLOG_PASSKEY_RP_ID="${FSUSBLOG_PASSKEY_RP_ID:-localhost}"
 export FSUSBLOG_DATA_DIR="$site_data"
 if [[ -f "$repo/src/Web/dist/index.html" ]]; then
   export FSUSBLOG_WEB_DIST="$repo/src/Web/dist"
@@ -532,7 +536,7 @@ done
 printf '\n========================================================================\n'
 printf ' FsusBlog V2 Dev + HMR Ready\n'
 printf '========================================================================\n'
-printf ' Public site (HMR) : http://127.0.0.1:%s/\n' "$web_port"
+printf ' Site (HMR)        : http://localhost:%s/\n' "$web_port"
 printf ' Admin console     : http://localhost:%s/admin/identity\n' "$web_port"
 printf ' Backend API       : http://127.0.0.1:%s\n' "$api_port"
 printf ' PostgreSQL 18     : %s\n' "$FSUSBLOG_DB"

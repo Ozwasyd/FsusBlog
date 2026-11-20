@@ -5,7 +5,7 @@ import { ElButton } from '@ozwasyd/element-plus'
 import { renderMarkdownResultWithRuntime } from '@ozwasyd/element-plus/markdown-runtime'
 import { ApiError } from '../../../Contracts/aeds'
 import { previewArticlePlugin, reviewArticlePlugin, withdrawArticlePlugin } from '../../../Contracts/author-plugin-preview'
-import { credentialEpoch, currentSession, recheckCredential } from '../session'
+import { credentialEpoch, currentSession, recheckCredential } from '../authorSession'
 
 const props = defineProps<{ article: number; revision: bigint; active: boolean; disabled: boolean }>()
 const enabled = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-author-plugin-preview"]')?.content === '1'

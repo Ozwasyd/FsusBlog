@@ -32,7 +32,7 @@ tools/protocol-test.sh
 ./tools/dev.sh --db-only
 ```
 
-- 公开站热重载：`http://127.0.0.1:5173/`；管理后台热重载：`http://localhost:5173/admin/identity`（保留与生产一致的独立 Origin 隔离）。
+- 统一单源热重载：`http://localhost:5173/`（公开站）与 `http://localhost:5173/admin/identity`（管理与创作后台），读者与管理员会话通过独立表、独立 Passkey、独立 `HttpOnly; SameSite=Strict` Cookie 与独立会话接口严格隔离。
 - 浏览器 DevTools 控制台可执行 `__fsusDebug.aeds(true)` 开启开发态 AEDS v2 二进制帧与 `X-Fsus-*` 响应头实时日志（生产构建自动 tree-shake 移除）。
 
 若以构建后的静态产物直接运行后端，构建 Web 后从仓库根目录启动：
@@ -53,4 +53,4 @@ shasum -a 256 -c SHA256SUMS
 git bundle verify history.bundle
 ```
 
-在运行目录解包 `fsusblog-v2.tar.gz`，再用 `shasum -a 256 -c /absolute/path/to/payload.sha256` 验证文件。部署时设置 `FSUSBLOG_WEB_DIST` 指向包内 `web`，用运行库启动 `server/FsusBlog.V2.Server.dll`。审核历史可在空裸仓库执行 `git fetch /absolute/path/to/history.bundle HEAD:refs/heads/main` 和 `git fsck --full`。部署说明见[单机 Caddy TLS](deploy/README.md)和[数据库初始化与恢复](docs/migration.md)。
+在运行目录解包 `fsusblog-v2.tar.gz`，再用 `shasum -a 256 -c /absolute/path/to/payload.sha256` 验证文件。部署时设置 `FSUSBLOG_WEB_DIST` 指向包内 `web`，用运行库启动 `server/FsusBlog.V2.Server.dll`。审核历史可在空裸仓库执行 `git fetch /absolute/path/to/history.bundle HEAD:refs/heads/main` 和 `git fsck --full`。部署说明见[单域名 TLS 反代部署（Nginx / Caddy）](deploy/README.md)和[数据库初始化与恢复](docs/migration.md)。

@@ -105,6 +105,65 @@ public sealed class SiteCapabilitiesTests
     }
 
     [Fact]
+    public void SinglePublicOriginAutoDerivesBothSiteAndAdminPasskeysAndHttpsCapabilities()
+    {
+        var root = Directory.CreateTempSubdirectory("fsusblog-single-origin-");
+        var webDist = Directory.CreateTempSubdirectory("fsusblog-single-dist-");
+        try
+        {
+            var pages = Directory.CreateDirectory(Path.Combine(root.FullName, "site-pages"));
+            foreach (var name in new[] { "about.md", "privacy.md", "guidelines.md", "copyright.md" })
+                File.WriteAllText(Path.Combine(pages.FullName, name), "# " + name);
+            var appearance = Directory.CreateDirectory(Path.Combine(root.FullName, "appearance"));
+            File.WriteAllText(Path.Combine(appearance.FullName, "appearance.json"), "{}");
+
+            var capabilities = SiteCapabilities.Resolve(BuildConfig(new()
+            {
+                [SiteCapabilities.DataDirSetting] = root.FullName,
+                [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+            }), webDist.FullName);
+
+            Assert.Equal("https://blog.example.test", capabilities.PublicSite.Origin);
+            Assert.Equal(new Uri("https://blog.example.test"), capabilities.SitePasskey?.Origin);
+            Assert.Equal("blog.example.test", capabilities.SitePasskey?.RpId);
+            Assert.Equal(new Uri("https://blog.example.test"), capabilities.AdminIdentity?.Origin);
+            Assert.Equal("blog.example.test", capabilities.AdminIdentity?.RpId);
+            Assert.True(capabilities.ReaderRegistration);
+            Assert.True(capabilities.SitePersistentRefresh);
+            Assert.True(capabilities.AdminInboxReplies);
+            Assert.True(capabilities.AdminCommentBatch);
+            Assert.True(capabilities.AdminArticleRollback);
+            Assert.True(capabilities.AdminTagMetadata);
+            Assert.True(capabilities.AdminCategoryMetadata);
+            Assert.True(capabilities.SitePageEditor);
+            Assert.True(capabilities.OnlineAppearance);
+
+            // Explicit FSUSBLOG_ADMIN_ORIGIN="" disables all admin capabilities fail-closed on a public-only node
+            var publicOnly = SiteCapabilities.Resolve(BuildConfig(new()
+            {
+                [SiteCapabilities.DataDirSetting] = root.FullName,
+                [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+                ["FSUSBLOG_ADMIN_ORIGIN"] = "",
+            }), webDist.FullName);
+
+            Assert.Equal(new Uri("https://blog.example.test"), publicOnly.SitePasskey?.Origin);
+            Assert.Null(publicOnly.AdminIdentity);
+            Assert.False(publicOnly.AdminInboxReplies);
+            Assert.False(publicOnly.AdminCommentBatch);
+            Assert.False(publicOnly.AdminArticleRollback);
+            Assert.False(publicOnly.AdminTagMetadata);
+            Assert.False(publicOnly.AdminCategoryMetadata);
+            Assert.False(publicOnly.SitePageEditor);
+            Assert.False(publicOnly.OnlineAppearance);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+            Directory.Delete(webDist.FullName, recursive: true);
+        }
+    }
+
+    [Fact]
     public void DataDirAutoProvisionsMediaAndDiscoversOptionalSubdirectories()
     {
         var root = Directory.CreateTempSubdirectory("fsusblog-datadir-");
@@ -498,6 +557,139 @@ public sealed class SiteCapabilitiesTests
             {
                 AttachPublicHttps(inboxWrite);
                 using var resp = await disabled.Client.SendAsync(inboxWrite, ct);
+                Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+            }
+        }
+    }
+
+    [PostgresFact]
+    public async Task UnifiedSingleOriginIsolatesReaderAndAdminSessionsOnSameHost()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
+        var (_, readerToken, _) = await fixture.SignInSiteUser("single-origin-reader", ct, minutes: 5);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var (_, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "single-origin-admin", 10, [1], [2]);
+
+        static void AttachHttps(HttpRequestMessage request, string host = "blog.example.test")
+        {
+            request.Headers.Host = host;
+            request.Headers.Add("X-Forwarded-Proto", "https");
+            request.Headers.Add("X-Forwarded-For", "198.51.100.20");
+        }
+
+        var bothCookies = $"fsus-v2-session={readerToken}; __Host-FsusAdminSession={adminToken}";
+
+        await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
+        {
+            [LoopbackProxy.ConfigurationKey] = "true",
+            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+        }, req => AttachHttps(req)))
+        {
+            // Both public home and /admin document are served on the single canonical origin
+            using (var homeReq = new HttpRequestMessage(HttpMethod.Get, "/"))
+            {
+                AttachHttps(homeReq);
+                using var home = await server.Client.SendAsync(homeReq, ct);
+                Assert.Equal(HttpStatusCode.OK, home.StatusCode);
+            }
+            using (var adminReq = new HttpRequestMessage(HttpMethod.Get, "/admin"))
+            {
+                AttachHttps(adminReq);
+                using var adminDoc = await server.Client.SendAsync(adminReq, ct);
+                Assert.Equal(HttpStatusCode.OK, adminDoc.StatusCode);
+            }
+            using (var wrongHostAdmin = new HttpRequestMessage(HttpMethod.Get, "/admin"))
+            {
+                AttachHttps(wrongHostAdmin, "other.example.test");
+                using var resp = await server.Client.SendAsync(wrongHostAdmin, ct);
+                Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+            }
+
+            // Reader session endpoint reads ONLY reader cookie even when admin cookie is also present
+            using (var readerBoth = new HttpRequestMessage(HttpMethod.Get, WireRoutes.Session))
+            {
+                AttachHttps(readerBoth);
+                readerBoth.Headers.Add("Cookie", bothCookies);
+                using var resp = await server.Client.SendAsync(readerBoth, ct);
+                Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+                var session = Wire.DecodeSession(await resp.Content.ReadAsByteArrayAsync(ct));
+                Assert.Equal("single-origin-reader", session.Name);
+                Assert.False(session.CanAuthor);
+            }
+            using (var readerWithAdminOnly = new HttpRequestMessage(HttpMethod.Get, WireRoutes.Session))
+            {
+                AttachHttps(readerWithAdminOnly);
+                readerWithAdminOnly.Headers.Add("Cookie", $"__Host-FsusAdminSession={adminToken}");
+                using var resp = await server.Client.SendAsync(readerWithAdminOnly, ct);
+                Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
+            }
+
+            // Authoring session endpoint reads ONLY admin cookie, never reader cookie
+            using (var authoringBoth = new HttpRequestMessage(HttpMethod.Get, WireRoutes.AuthoringSession))
+            {
+                AttachHttps(authoringBoth);
+                authoringBoth.Headers.Add("Cookie", bothCookies);
+                using var resp = await server.Client.SendAsync(authoringBoth, ct);
+                Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+                var session = Wire.DecodeSession(await resp.Content.ReadAsByteArrayAsync(ct));
+                Assert.Equal("single-origin-admin", session.Name);
+                Assert.True(session.CanAuthor);
+            }
+            using (var authoringReaderOnly = new HttpRequestMessage(HttpMethod.Get, WireRoutes.AuthoringSession))
+            {
+                AttachHttps(authoringReaderOnly);
+                authoringReaderOnly.Headers.Add("Cookie", $"fsus-v2-session={readerToken}");
+                using var resp = await server.Client.SendAsync(authoringReaderOnly, ct);
+                Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
+            }
+            using (var authoringWrongHost = new HttpRequestMessage(HttpMethod.Get, WireRoutes.AuthoringSession))
+            {
+                AttachHttps(authoringWrongHost, "other.example.test");
+                authoringWrongHost.Headers.Add("Cookie", $"__Host-FsusAdminSession={adminToken}");
+                using var resp = await server.Client.SendAsync(authoringWrongHost, ct);
+                Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+            }
+
+            // Admin identity session endpoint reads ONLY admin cookie
+            using (var adminBoth = new HttpRequestMessage(HttpMethod.Get, WireRoutes.AdminSession))
+            {
+                AttachHttps(adminBoth);
+                adminBoth.Headers.Add("Cookie", bothCookies);
+                using var resp = await server.Client.SendAsync(adminBoth, ct);
+                Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+                var snapshot = Wire.DecodeAdminSessionSnapshot(await resp.Content.ReadAsByteArrayAsync(ct));
+                Assert.Equal("single-origin-admin", snapshot.Handle);
+            }
+            using (var adminReaderOnly = new HttpRequestMessage(HttpMethod.Get, WireRoutes.AdminSession))
+            {
+                AttachHttps(adminReaderOnly);
+                adminReaderOnly.Headers.Add("Cookie", $"fsus-v2-session={readerToken}");
+                using var resp = await server.Client.SendAsync(adminReaderOnly, ct);
+                Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
+            }
+        }
+
+        // Explicit FSUSBLOG_ADMIN_ORIGIN="" disables /admin and /api/v2/authoring/* fail-closed
+        await using (var publicOnly = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
+        {
+            [LoopbackProxy.ConfigurationKey] = "true",
+            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "",
+        }, req => AttachHttps(req)))
+        {
+            using (var homeReq = new HttpRequestMessage(HttpMethod.Get, "/"))
+            {
+                AttachHttps(homeReq);
+                using var home = await publicOnly.Client.SendAsync(homeReq, ct);
+                Assert.Equal(HttpStatusCode.OK, home.StatusCode);
+            }
+            foreach (var blocked in new[] { "/admin", WireRoutes.AdminSession, WireRoutes.AuthoringSession })
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, blocked);
+                AttachHttps(req);
+                req.Headers.Add("Cookie", $"__Host-FsusAdminSession={adminToken}");
+                using var resp = await publicOnly.Client.SendAsync(req, ct);
                 Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
             }
         }

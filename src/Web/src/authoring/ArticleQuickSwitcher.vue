@@ -6,7 +6,7 @@ import { listAuthorArticles, type AuthorArticleState } from '../../../Contracts/
 import { listRecentOpens } from '../../../Contracts/author-recent-opens'
 import { ApiError } from '../../../Contracts/client'
 import { WireLimits } from '../../../Contracts/wire.generated'
-import { credentialEpoch, currentSession, identityEpoch } from '../session'
+import { credentialEpoch, currentSession, identityEpoch } from '../authorSession'
 import type { WorkspaceGroup } from './workspaceRegistry'
 
 const props = defineProps<{

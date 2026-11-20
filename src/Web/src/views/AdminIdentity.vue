@@ -26,6 +26,7 @@ import AdminCluster from './AdminCluster.vue'
 import AdminRiskReadiness from './AdminRiskReadiness.vue'
 import AdminAppearance from './AdminAppearance.vue'
 import { ApiError } from '../../../Contracts/aeds'
+import { announceAdminAuthChange, clearAuthorSession } from '../authorSession'
 import {
   bootstrapAdminPasskey,
   readAdminAuthority,
@@ -189,7 +190,10 @@ function logIn() {
     notice.value = ''
     closeBootstrap()
     const session = await signInAdmin(lifetime.signal)
-    if (!lifetime.signal.aborted) setAuthority({ status: 'active', session })
+    if (!lifetime.signal.aborted) {
+      setAuthority({ status: 'active', session })
+      announceAdminAuthChange()
+    }
   }, 'admin.passkeyLoginFailed')
 }
 
@@ -198,7 +202,9 @@ function logOut() {
   return run(async () => {
     notice.value = ''
     setAuthority(null)
+    await clearAuthorSession(lifetime.signal)
     await signOutAdmin(lifetime.signal)
+    announceAdminAuthChange()
     if (!lifetime.signal.aborted) setAuthority({ status: 'signed-out' })
   }, 'admin.logoutUnconfirmed')
 }

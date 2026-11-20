@@ -240,6 +240,10 @@ export const api = {
     return request(WireRoutes.Session, FrameType.OperatorSession, readSession, signal);
   },
 
+  authoringSession(signal?: AbortSignal): Promise<Session> {
+    return request(WireRoutes.AuthoringSession, FrameType.OperatorSession, readSession, signal);
+  },
+
   signOut(signal?: AbortSignal): Promise<void> {
     return request(WireRoutes.SignOut, FrameType.EmptySuccess, decodeSuccess, signal, 'POST');
   },

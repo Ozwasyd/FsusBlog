@@ -7,7 +7,7 @@ import { ApiError } from '../../../Contracts/client'
 import type { PropertyMatches, PropertyQuery } from '../../../Contracts/property-query'
 import { changeSavedView, listSavedViews, placeSavedView, runSavedView, savedViewPlacement,
   type PlacementAction, type PlacementChange, type SavedView, type SavedViewCatalog, type SavedViewChange, type SavedViewPlacement } from '../../../Contracts/saved-views'
-import { currentSession, identityEpoch, invalidateSession } from '../session'
+import { currentSession, identityEpoch, invalidateSession } from '../authorSession'
 import { savedViewLink } from './savedViewLink'
 
 const props = defineProps<{ query?: PropertyQuery; readOnly?: boolean }>()

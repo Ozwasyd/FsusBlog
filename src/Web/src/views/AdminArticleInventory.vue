@@ -40,7 +40,8 @@ const publication = shallowRef<AdminArticleTrashPublicationPreview>()
 const reason = ref('')
 const selected = shallowRef<AuthorArticleRow>()
 const retry = shallowRef<AdminArticleTrashRestoreIntent | AdminArticleTrashPublicationIntent>()
-const publicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
+const configuredPublicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
+const publicBase = configuredPublicOrigin && configuredPublicOrigin !== globalThis.location?.origin ? configuredPublicOrigin : ''
 const restoring = ref(false)
 const restoreFailure = ref<MessageKey | ''>('')
 const deleteTarget = shallowRef<AuthorArticleRow>()
@@ -250,7 +251,7 @@ async function confirmDelete() {
               {{ restoreAvailable ? t('admin.inventory.restoreDraft') : t('admin.inventory.review') }}
             </ElButton>
             <ElInlineActions v-else>
-              <ElButton v-if="publicOrigin && row.state === 'published'" tag="a" text size="small" class="inventory-action-link" v-bind="{ href: `${publicOrigin}/article/${row.id}`, target: '_blank', rel: 'noopener' }">
+              <ElButton v-if="row.state === 'published'" tag="a" text size="small" class="inventory-action-link" v-bind="{ href: `${publicBase}/article/${row.id}`, target: '_blank', rel: 'noopener' }">
                 {{ t('admin.inventory.view') }}
               </ElButton>
               <RouterLink :to="{ name: 'edit', params: { id: row.id } }" custom v-slot="{ href, navigate }">
