@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "Dev (Vite HMR)": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://127.0.0.1:5080",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "FSUSBLOG_DB": "Host=127.0.0.1;Port=55432;Username=postgres;Database=fsusblog_dev",
+        "FSUSBLOG_ADMIN_ORIGIN": "http://localhost:5173",
+        "FSUSBLOG_ADMIN_RP_ID": "localhost"
+      }
+    },
+    "Standalone (Built Dist)": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5080;http://127.0.0.1:5080",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "FSUSBLOG_DB": "Host=127.0.0.1;Port=55432;Username=postgres;Database=fsusblog_dev",
+        "FSUSBLOG_ADMIN_ORIGIN": "http://localhost:5080",
+        "FSUSBLOG_ADMIN_RP_ID": "localhost"
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug FsusBlog.V2.Server (Vite HMR)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-server",
+      "program": "${workspaceFolder}/src/Server/bin/Debug/net10.0/FsusBlog.V2.Server.dll",
+      "args": ["--urls", "http://127.0.0.1:5080"],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "FSUSBLOG_DB": "Host=127.0.0.1;Port=55432;Username=postgres;Database=fsusblog_dev",
+        "FSUSBLOG_ADMIN_ORIGIN": "http://localhost:5173",
+        "FSUSBLOG_ADMIN_RP_ID": "localhost",
+        "FSUSBLOG_DATA_DIR": "${workspaceFolder}/.dev-data/site-data"
+      }
+    },
+    {
+      "name": "Attach to FsusBlog.V2.Server",
+      "type": "coreclr",
+      "request": "attach"
+    }
+  ]
+}

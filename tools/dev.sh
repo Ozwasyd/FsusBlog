@@ -1,0 +1,556 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo="$(cd "$(dirname "$0")/.." && pwd -P)"
+cd "$repo"
+
+export PATH="/opt/homebrew/opt/postgresql@18/bin:/usr/local/opt/postgresql@18/bin:$PATH"
+export LC_ALL=C
+
+usage() {
+  cat <<'EOF'
+Usage: ./tools/dev.sh [options]
+
+Starts an isolated local development stack with hot reload:
+  - Persistent PostgreSQL 18 cluster in .dev-data/pgdata (port 55432 by default)
+  - FsusBlog.V2.Server via dotnet watch (http://127.0.0.1:5080 by default)
+  - Vite HMR dev server consuming ../FsusUI source (http://127.0.0.1:5173 & http://localhost:5173)
+
+Options:
+  --reset          Wipe .dev-data/ and initialize a fresh database before starting
+  --seed           Idempotently seed demo articles, taxonomy, comments, and an inbox thread
+  --admin-session  Provision a local dev Passkey fixture + 24h admin cookie in .dev-data/
+  --db-only        Start only PostgreSQL + initialized schema/data dir (for IDE F5 debugging)
+  --no-watch       Use dotnet run instead of dotnet watch for the backend
+  -h, --help       Show this help message
+
+Environment overrides:
+  FSUS_DEV_PG_PORT     PostgreSQL port (default: 55432)
+  FSUS_DEV_API_PORT    Backend Kestrel port (default: 5080)
+  FSUS_DEV_WEB_PORT    Vite dev server port (default: 5173)
+  DOTNET_BIN           .NET SDK command (default: dotnet)
+EOF
+}
+
+reset_db=0
+seed_demo=0
+dev_admin_session=0
+db_only=0
+use_watch=1
+
+while (($# > 0)); do
+  case "$1" in
+    --reset) reset_db=1 ;;
+    --seed) seed_demo=1 ;;
+    --admin-session) dev_admin_session=1 ;;
+    --db-only) db_only=1 ;;
+    --no-watch) use_watch=0 ;;
+    -h|--help) usage; exit 0 ;;
+    *) printf 'Unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+dotnet_bin="${DOTNET_BIN:-dotnet}"
+pg_port="${FSUS_DEV_PG_PORT:-55432}"
+api_port="${FSUS_DEV_API_PORT:-5080}"
+web_port="${FSUS_DEV_WEB_PORT:-5173}"
+dev_root="$repo/.dev-data"
+pg_data="$dev_root/pgdata"
+pg_sock="$dev_root/pgsock"
+site_data="$dev_root/site-data"
+secrets_file="$dev_root/secrets.env"
+db_name="fsusblog_dev"
+
+for cmd in "$dotnet_bin" initdb pg_ctl createdb psql openssl; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    printf 'Missing required tool: %s\n' "$cmd" >&2
+    exit 1
+  fi
+done
+if (( ! db_only )) && ! command -v pnpm >/dev/null 2>&1; then
+  printf 'Missing required tool: pnpm\n' >&2
+  exit 1
+fi
+
+started_pg=0
+server_pid=""
+web_pid=""
+
+cleanup() {
+  local code=$?
+  trap - EXIT INT TERM
+  if [[ -n "$web_pid" ]]; then
+    kill "$web_pid" 2>/dev/null || true
+    wait "$web_pid" 2>/dev/null || true
+  fi
+  if [[ -n "$server_pid" ]]; then
+    kill "$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+  fi
+  if (( started_pg )); then
+    pg_ctl -D "$pg_data" -m fast stop >/dev/null 2>&1 || true
+  fi
+  exit "$code"
+}
+trap cleanup EXIT INT TERM
+
+if (( reset_db )); then
+  if [[ -f "$pg_data/postmaster.pid" ]]; then
+    pg_ctl -D "$pg_data" -m fast stop >/dev/null 2>&1 || true
+  fi
+  rm -rf -- "$dev_root"
+fi
+
+mkdir -p "$dev_root" "$pg_sock" "$site_data"
+chmod 700 "$dev_root" "$site_data"
+
+# Ensure baseline static site-pages exist so /about, /privacy, /guidelines, /copyright and the editor work out-of-the-box.
+site_pages_dir="$site_data/site-pages"
+if [[ ! -d "$site_pages_dir" ]]; then
+  mkdir -p "$site_pages_dir"
+  cat > "$site_pages_dir/about.md" <<'EOF'
+# About
+
+Local FsusBlog v2 development instance.
+EOF
+  cat > "$site_pages_dir/privacy.md" <<'EOF'
+# Privacy
+
+Local development privacy placeholder.
+EOF
+  cat > "$site_pages_dir/guidelines.md" <<'EOF'
+# Guidelines
+
+Local development community guidelines placeholder.
+EOF
+  cat > "$site_pages_dir/copyright.md" <<'EOF'
+# Copyright
+
+Local development copyright notice placeholder.
+EOF
+fi
+
+# Build CLI & Server incrementally (Debug for fast inner loop and IDE symbol alignment).
+if [[ ! -f "$repo/src/Cli/obj/project.assets.json" ]] || [[ ! -f "$repo/src/Server/obj/project.assets.json" ]]; then
+  printf '[dev] Restoring .NET solution (locked mode)...\n'
+  "$dotnet_bin" restore FsusBlog.V2.slnx --configfile NuGet.Config --locked-mode >/dev/null
+fi
+printf '[dev] Building FsusBlog.V2.Cli and FsusBlog.V2.Server (Debug)...\n'
+"$dotnet_bin" build src/Cli/FsusBlog.V2.Cli.csproj -c Debug --no-restore -v quiet >/dev/null
+"$dotnet_bin" build src/Server/FsusBlog.V2.Server.csproj -c Debug --no-restore -v quiet >/dev/null
+cli_dll="$repo/src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll"
+
+# Persist local development secrets across restarts.
+if [[ ! -f "$secrets_file" ]]; then
+  umask 077
+  "$dotnet_bin" "$cli_dll" init-secrets > "$secrets_file"
+  chmod 600 "$secrets_file"
+fi
+# shellcheck disable=SC1090
+source "$secrets_file"
+
+# Start or reuse persistent local PG 18 cluster.
+if [[ ! -d "$pg_data/base" ]]; then
+  printf '[dev] Initializing PostgreSQL 18 cluster in %s...\n' "$pg_data"
+  initdb -D "$pg_data" -U postgres --auth=trust --encoding=UTF8 --locale=C >/dev/null
+fi
+
+if ! pg_ctl -D "$pg_data" status >/dev/null 2>&1; then
+  printf '[dev] Starting PostgreSQL 18 on 127.0.0.1:%s...\n' "$pg_port"
+  pg_ctl -D "$pg_data" -l "$dev_root/postgres.log" \
+    -o "-p $pg_port -k $pg_sock -h 127.0.0.1" start >/dev/null
+  started_pg=1
+else
+  printf '[dev] Reusing running PostgreSQL cluster in %s.\n' "$pg_data"
+fi
+
+export FSUSBLOG_DB="Host=127.0.0.1;Port=$pg_port;Username=postgres;Database=$db_name"
+psql_db=(psql -X -q --no-password -h 127.0.0.1 -p "$pg_port" -U postgres -v ON_ERROR_STOP=1 -d "$db_name")
+
+db_exists=$(psql -X -qAt --no-password -h 127.0.0.1 -p "$pg_port" -U postgres -d postgres \
+  -c "SELECT 1 FROM pg_database WHERE datname = '$db_name'")
+if [[ "$db_exists" != "1" ]]; then
+  createdb -h 127.0.0.1 -p "$pg_port" -U postgres -T template0 "$db_name"
+  printf '[dev] Applying FsusBlog V2 schema via FsusBlog.V2.Cli...\n'
+  "$dotnet_bin" "$cli_dll" plan > "$dev_root/plan.json"
+  "$dotnet_bin" "$cli_dll" apply "$dev_root/plan.json"
+fi
+
+"$dotnet_bin" "$cli_dll" verify >/dev/null
+
+admin_bootstrap_key=""
+reader_login_ticket=""
+dev_admin_cookie=""
+
+if (( seed_demo )); then
+  printf '[dev] Ensuring demo seed data...\n'
+  has_admin=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.admin_principal WHERE handle = 'dev-admin'")
+  if [[ "$has_admin" == "0" ]]; then
+    admin_bootstrap_key=$("$dotnet_bin" "$cli_dll" admin-identity bootstrap dev-admin)
+  fi
+
+  has_reader=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.blog_user WHERE name = 'dev-reader'")
+  if [[ "$has_reader" == "0" ]]; then
+    reader_login_ticket=$("$dotnet_bin" "$cli_dll" operator dev-reader)
+    reader_id=$("${psql_db[@]}" -Atc "SELECT id FROM public.blog_user WHERE name = 'dev-reader'")
+    "$dotnet_bin" "$cli_dll" comment handle "$reader_id" "Dev Reader" >/dev/null
+  else
+    reader_login_ticket=$("$dotnet_bin" "$cli_dll" ticket dev-reader)
+  fi
+
+  has_articles=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.article")
+  if [[ "$has_articles" == "0" ]]; then
+    "${psql_db[@]}" >/dev/null <<'SQL'
+BEGIN;
+
+INSERT INTO public.category (name, description) VALUES
+  ('Engineering', 'Architecture, binary protocols, and systems engineering.'),
+  ('Essays', 'Notes on writing, minimalism, and web craftsmanship.');
+
+INSERT INTO public.tag (name, description) VALUES
+  ('dotnet', '.NET 10 and C# 14 backend runtime'),
+  ('postgresql', 'PostgreSQL 18 schema and storage'),
+  ('vue', 'Vue 3 and FsusUI workspace'),
+  ('aeds', 'AEDS v2 binary framing');
+
+INSERT INTO public.tag_url_name (name_key, tag_id)
+SELECT lower(name), id FROM public.tag;
+
+WITH owner AS (
+  SELECT id FROM public.admin_principal WHERE handle = 'dev-admin'
+),
+a1 AS (
+  INSERT INTO public.article (owner_id, revision, title, body, published_revision, publication_count, deleted, created_at, updated_at)
+  SELECT id, 1,
+         'FsusBlog v2 本地开发与 AEDS 二进制协议导览',
+         E'## 欢迎使用 FsusBlog v2\n\n这是一篇用于本地热重载与调试的示例文章。\n\n- 后端运行在 `.NET 10` + `PostgreSQL 18`\n- 前端通过 Vite HMR 直连相邻 `../FsusUI` 源码\n- 全部运行时业务接口均采用 `AEDS v2` 二进制帧\n\n```ts\n// 在浏览器控制台开启 AEDS 二进制帧调试日志\nwindow.__fsusDebug?.aeds(true)\n```\n',
+         1, 1, false, now() - interval '3 days', now() - interval '3 days'
+  FROM owner RETURNING id, owner_id, title, body, created_at
+),
+r1 AS (
+  INSERT INTO public.article_revision (article_id, revision, title, body, happened_at, author_summary)
+  SELECT id, 1, title, body, created_at, '介绍 FsusBlog v2 本地开发架构、Vite HMR 联动 FsusUI 与 AEDS 帧调试方式。' FROM a1
+  RETURNING article_id, revision, happened_at
+),
+c1 AS (
+  INSERT INTO public.article_command (actor_id, command_id, fingerprint, article_id, revision, title, body, published)
+  SELECT a1.owner_id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-a1-r1', 'UTF8')), a1.id, 1, a1.title, a1.body, true FROM a1
+  RETURNING actor_id, command_id, article_id, revision
+),
+p1 AS (
+  INSERT INTO public.article_publication (article_id, revision, publication_no, published_at)
+  SELECT article_id, revision, 1, happened_at FROM r1
+  RETURNING article_id, publication_id, revision, publication_no, published_at
+),
+h1 AS (
+  INSERT INTO public.article_publication_history (article_id, event_no, revision, publication_no, publication_id, kind, reason, happened_at, actor_id, command_id)
+  SELECT p1.article_id, 1, p1.revision, p1.publication_no, p1.publication_id, 'publish', 'author-published', p1.published_at, c1.actor_id, c1.command_id
+  FROM p1 JOIN c1 ON c1.article_id = p1.article_id
+),
+o1 AS (
+  INSERT INTO public.blog_outbox (article_id, revision, kind, created_at, processed_at)
+  SELECT article_id, revision, 'publish', published_at, published_at FROM p1
+),
+rr1 AS (
+  INSERT INTO public.article_revision_rights (article_id, revision, enabled, license_type, copyright_holder, copyright_year, rights_statement, attribution_template, copy_policy, max_excerpt_chars, allow_code_copy, show_public_badge, proof_binding_enabled)
+  SELECT article_id, revision, true, 'CC-BY-4.0', 'FsusBlog Dev', 2026, 'Licensed under CC-BY-4.0.', '{title}', 'append-attribution', 300, true, true, false FROM r1
+),
+pr1 AS (
+  INSERT INTO public.article_publication_rights (article_id, publication_id, revision)
+  SELECT article_id, publication_id, revision FROM p1
+),
+cat1 AS (
+  INSERT INTO public.article_revision_category (article_id, revision, category_id)
+  SELECT r1.article_id, r1.revision, cat.id FROM r1, public.category cat WHERE cat.name = 'Engineering'
+),
+tag1 AS (
+  INSERT INTO public.article_revision_tag (article_id, revision, tag_id)
+  SELECT r1.article_id, r1.revision, t.id FROM r1, public.tag t WHERE t.name IN ('dotnet', 'postgresql', 'aeds')
+),
+cw1 AS (
+  INSERT INTO public.comment_public_write (article_id) SELECT id FROM a1
+)
+SELECT 1;
+
+WITH owner AS (
+  SELECT id FROM public.admin_principal WHERE handle = 'dev-admin'
+),
+a2 AS (
+  INSERT INTO public.article (owner_id, revision, title, body, published_revision, publication_count, deleted, created_at, updated_at)
+  SELECT id, 1,
+         'Designing for Quiet Restraint in Reading Interfaces',
+         E'## Intellectual Minimalism\n\nGood editorial software stays out of the reader''s way. Clear hierarchy, crisp spacing, and deterministic interactions matter more than ornamental chrome.\n\n### Local Live Editing\n\nEdit any file under `src/Web/src/` or sibling `../FsusUI/vue/packages/` and watch Vite HMR update the page instantaneously.\n',
+         1, 1, false, now() - interval '1 day', now() - interval '1 day'
+  FROM owner RETURNING id, owner_id, title, body, created_at
+),
+r2 AS (
+  INSERT INTO public.article_revision (article_id, revision, title, body, happened_at, author_summary)
+  SELECT id, 1, title, body, created_at, 'Notes on reading typography, FsusUI token discipline, and live local iteration.' FROM a2
+  RETURNING article_id, revision, happened_at
+),
+c2 AS (
+  INSERT INTO public.article_command (actor_id, command_id, fingerprint, article_id, revision, title, body, published)
+  SELECT a2.owner_id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-a2-r1', 'UTF8')), a2.id, 1, a2.title, a2.body, true FROM a2
+  RETURNING actor_id, command_id, article_id, revision
+),
+p2 AS (
+  INSERT INTO public.article_publication (article_id, revision, publication_no, published_at)
+  SELECT article_id, revision, 1, happened_at FROM r2
+  RETURNING article_id, publication_id, revision, publication_no, published_at
+),
+h2 AS (
+  INSERT INTO public.article_publication_history (article_id, event_no, revision, publication_no, publication_id, kind, reason, happened_at, actor_id, command_id)
+  SELECT p2.article_id, 1, p2.revision, p2.publication_no, p2.publication_id, 'publish', 'author-published', p2.published_at, c2.actor_id, c2.command_id
+  FROM p2 JOIN c2 ON c2.article_id = p2.article_id
+),
+o2 AS (
+  INSERT INTO public.blog_outbox (article_id, revision, kind, created_at, processed_at)
+  SELECT article_id, revision, 'publish', published_at, published_at FROM p2
+),
+rr2 AS (
+  INSERT INTO public.article_revision_rights (article_id, revision, enabled, license_type, copyright_holder, copyright_year, rights_statement, attribution_template, copy_policy, max_excerpt_chars, allow_code_copy, show_public_badge, proof_binding_enabled)
+  SELECT article_id, revision, true, 'CC-BY-4.0', 'FsusBlog Dev', 2026, 'Licensed under CC-BY-4.0.', '{title}', 'append-attribution', 300, true, true, false FROM r2
+),
+pr2 AS (
+  INSERT INTO public.article_publication_rights (article_id, publication_id, revision)
+  SELECT article_id, publication_id, revision FROM p2
+),
+cat2 AS (
+  INSERT INTO public.article_revision_category (article_id, revision, category_id)
+  SELECT r2.article_id, r2.revision, cat.id FROM r2, public.category cat WHERE cat.name = 'Essays'
+),
+tag2 AS (
+  INSERT INTO public.article_revision_tag (article_id, revision, tag_id)
+  SELECT r2.article_id, r2.revision, t.id FROM r2, public.tag t WHERE t.name IN ('vue')
+),
+cw2 AS (
+  INSERT INTO public.comment_public_write (article_id) SELECT id FROM a2
+)
+SELECT 1;
+
+-- Seed one unpublished draft visible inside /admin/articles.
+WITH owner AS (
+  SELECT id FROM public.admin_principal WHERE handle = 'dev-admin'
+),
+a3 AS (
+  INSERT INTO public.article (owner_id, revision, title, body, published_revision, publication_count, deleted, created_at, updated_at)
+  SELECT id, 1, '未发布草稿：编辑器与 Canvas 调试沙箱', E'这是一篇尚未发布的草稿，可在管理后台 `/admin/articles` 中直接编辑或发布。\n',
+         NULL, 0, false, now() - interval '2 hours', now() - interval '2 hours'
+  FROM owner RETURNING id, owner_id, title, body, created_at
+),
+r3 AS (
+  INSERT INTO public.article_revision (article_id, revision, title, body, happened_at)
+  SELECT id, 1, title, body, created_at FROM a3
+)
+INSERT INTO public.article_command (actor_id, command_id, fingerprint, article_id, revision, title, body, published)
+SELECT owner_id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-a3-r1', 'UTF8')), id, 1, title, body, false FROM a3;
+
+-- Seed one approved public comment and one pending comment for /admin/interaction moderation queue.
+WITH first_article AS (
+  SELECT id FROM public.article WHERE published_revision IS NOT NULL ORDER BY id ASC LIMIT 1
+),
+reader AS (
+  SELECT id FROM public.blog_user WHERE name = 'dev-reader'
+),
+approved AS (
+  INSERT INTO public.comment (article_id, id, parent_id, root_id, parent_depth, reply_to_id, depth, moderation_status, deleted, body, author_mode, display_name, display_language, created_at, moderation_version)
+  SELECT first_article.id, 1, NULL, 1, NULL, NULL, 0, 1, false,
+         '本地开发环境跑起来非常丝滑，AEDS 帧调试也清楚多了。', 3, 'Dev Reader', 'zh-CN', now() - interval '6 hours', 2
+  FROM first_article
+  RETURNING article_id, id
+),
+approved_cmd AS (
+  INSERT INTO public.comment_submit_command (user_id, command_id, fingerprint, article_id, comment_id)
+  SELECT reader.id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-c1', 'UTF8')), approved.article_id, approved.id
+  FROM reader, approved
+),
+approved_owner AS (
+  INSERT INTO public.comment_account_owner (article_id, comment_id, user_id)
+  SELECT approved.article_id, approved.id, reader.id FROM approved, reader
+),
+pending AS (
+  INSERT INTO public.comment (article_id, id, parent_id, root_id, parent_depth, reply_to_id, depth, moderation_status, deleted, body, author_mode, display_name, display_language, created_at, moderation_version)
+  SELECT first_article.id, 2, NULL, 2, NULL, NULL, 0, 0, false,
+         '这是一条待审核测试评论，可在后台 Interaction -> Moderation queue 中体验审核流程。', 3, 'Dev Reader', 'zh-CN', now() - interval '30 minutes', 1
+  FROM first_article
+  RETURNING article_id, id
+),
+pending_cmd AS (
+  INSERT INTO public.comment_submit_command (user_id, command_id, fingerprint, article_id, comment_id)
+  SELECT reader.id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-c2', 'UTF8')), pending.article_id, pending.id
+  FROM reader, pending
+)
+INSERT INTO public.comment_account_owner (article_id, comment_id, user_id)
+SELECT pending.article_id, pending.id, reader.id FROM pending, reader;
+
+SELECT setval(pg_get_serial_sequence('public.comment', 'id'), (SELECT COALESCE(max(id), 1) FROM public.comment));
+
+-- Seed one reader support inbox thread visible in /user/messagebox and /admin/interaction.
+WITH reader AS (
+  SELECT id FROM public.blog_user WHERE name = 'dev-reader'
+),
+conv AS (
+  INSERT INTO public.inbox_conversation (account_id, subject, status, is_system, last_message_at)
+  SELECT id, '本地联调测试工单', 0, false, now() - interval '20 minutes' FROM reader
+  RETURNING id, account_id, last_message_at
+),
+msg AS (
+  INSERT INTO public.inbox_message (conversation_id, sender, is_internal, body, sent_at)
+  SELECT id, 0, false, '你好，这是一条用于验证站内信与后台支持收件箱实时联调的示例消息。', last_message_at FROM conv
+  RETURNING conversation_id, id, sent_at
+),
+deliv AS (
+  INSERT INTO public.inbox_delivery (account_id, last_sequence)
+  SELECT account_id, 1 FROM conv
+  ON CONFLICT (account_id) DO UPDATE SET last_sequence = public.inbox_delivery.last_sequence + 1
+  RETURNING account_id, last_sequence
+)
+INSERT INTO public.inbox_event (account_id, sequence, kind, conversation_id, message_id, occurred_at)
+SELECT deliv.account_id, deliv.last_sequence, 12, msg.conversation_id, msg.id, msg.sent_at
+FROM deliv, msg;
+
+UPDATE public.inbox_conversation c
+SET last_message_id = (SELECT max(m.id) FROM public.inbox_message m WHERE m.conversation_id = c.id)
+WHERE c.last_message_id IS NULL;
+
+COMMIT;
+SQL
+    "$dotnet_bin" "$cli_dll" verify >/dev/null
+  fi
+fi
+
+# Opt-in local dev admin session (purely database-level fixture for dev-admin; zero server auth bypass).
+if (( dev_admin_session )); then
+  has_admin=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.admin_principal WHERE handle = 'dev-admin'")
+  if [[ "$has_admin" == "0" ]]; then
+    admin_bootstrap_key=$("$dotnet_bin" "$cli_dll" admin-identity bootstrap dev-admin)
+  fi
+  dev_admin_cookie=$(openssl rand -hex 32)
+  "${psql_db[@]}" -c "
+    WITH p AS (
+      SELECT id, generation FROM public.admin_principal WHERE handle = 'dev-admin'
+    ), cred AS (
+      INSERT INTO public.admin_passkey_credential (credential_id, principal_id, public_key, sign_count, backup_eligible, backed_up)
+      SELECT decode('64657661646d696e', 'hex'), id, decode('64657661646d696e', 'hex'), 0, false, false FROM p
+      ON CONFLICT (principal_id) DO NOTHING
+    ), ret AS (
+      DELETE FROM public.admin_session WHERE principal_id IN (SELECT id FROM p)
+    ), si AS (
+      INSERT INTO public.admin_sign_in (principal_id, started_at, expires_at)
+      SELECT id, clock_timestamp(), clock_timestamp() + interval '24 hours' FROM p
+      RETURNING principal_id, id
+    )
+    INSERT INTO public.admin_session (digest, principal_id, generation, expires_at, sign_in_id)
+    SELECT pg_catalog.sha256(decode('$dev_admin_cookie', 'hex')), p.id, p.generation, clock_timestamp() + interval '24 hours', si.id
+    FROM p JOIN si ON si.principal_id = p.id;
+  "
+  umask 077
+  printf '%s\n' "$dev_admin_cookie" > "$dev_root/dev-admin-session.txt"
+  chmod 600 "$dev_root/dev-admin-session.txt"
+fi
+
+if (( db_only )); then
+  printf '\n=== FsusBlog V2 Local Dev PostgreSQL Ready ===\n'
+  printf '  FSUSBLOG_DB=%s\n' "$FSUSBLOG_DB"
+  printf '  FSUSBLOG_DATA_DIR=%s\n' "$site_data"
+  printf '  FSUSBLOG_ADMIN_ORIGIN=http://localhost:%s\n' "$web_port"
+  printf '  FSUSBLOG_ADMIN_RP_ID=localhost\n'
+  [[ -n "$admin_bootstrap_key" ]] && printf '  Admin bootstrap key (dev-admin): %s\n' "$admin_bootstrap_key"
+  [[ -n "$reader_login_ticket" ]] && printf '  Reader login ticket (dev-reader): %s\n' "$reader_login_ticket"
+  [[ -n "$dev_admin_cookie" ]] && printf '  Dev admin cookie (fsus-v2-admin-session on localhost:%s): %s\n' "$web_port" "$dev_admin_cookie"
+  printf '\nPress Ctrl+C to stop PostgreSQL (data persists in .dev-data/).\n'
+  if (( started_pg )); then
+    while true; do sleep 60; done
+  fi
+  exit 0
+fi
+
+export ASPNETCORE_ENVIRONMENT="Development"
+export ASPNETCORE_URLS="http://127.0.0.1:$api_port"
+export FSUSBLOG_ADMIN_ORIGIN="http://localhost:$web_port"
+export FSUSBLOG_ADMIN_RP_ID="localhost"
+export FSUSBLOG_DATA_DIR="$site_data"
+if [[ -f "$repo/src/Web/dist/index.html" ]]; then
+  export FSUSBLOG_WEB_DIST="$repo/src/Web/dist"
+else
+  export FSUSBLOG_WEB_DIST="$repo/src/Web"
+fi
+if [[ -n "${FSUSBLOG_PUBLIC_ORIGIN:-}" ]]; then
+  export FSUSBLOG_SUBSCRIPTION_HMAC_KEY
+else
+  unset FSUSBLOG_SUBSCRIPTION_HMAC_KEY
+fi
+if [[ -n "${FSUSBLOG_PASSKEY_ORIGIN:-}" ]]; then
+  export FSUSBLOG_TOTP_KEY_HEX FSUSBLOG_RECOVERY_KEY_PEPPER_HEX
+else
+  unset FSUSBLOG_TOTP_KEY_HEX FSUSBLOG_RECOVERY_KEY_PEPPER_HEX
+fi
+
+printf '[dev] Starting FsusBlog.V2.Server on http://127.0.0.1:%s (%s)...\n' \
+  "$api_port" "$( (( use_watch )) && echo 'dotnet watch' || echo 'dotnet run' )"
+if (( use_watch )); then
+  "$dotnet_bin" watch --non-interactive --project "$repo/src/Server/FsusBlog.V2.Server.csproj" \
+    run --no-launch-profile -- --urls "http://127.0.0.1:$api_port" &
+else
+  "$dotnet_bin" run --no-launch-profile --no-build --project "$repo/src/Server/FsusBlog.V2.Server.csproj" \
+    -- --urls "http://127.0.0.1:$api_port" &
+fi
+server_pid=$!
+
+for _ in $(seq 1 80); do
+  if curl -s -o /dev/null "http://127.0.0.1:$api_port/health/ready"; then
+    break
+  fi
+  if ! kill -0 "$server_pid" 2>/dev/null; then
+    printf '[dev] Server exited before becoming ready.\n' >&2
+    exit 1
+  fi
+  sleep 0.25
+done
+
+printf '[dev] Starting Vite HMR dev server on port %s (proxying to http://127.0.0.1:%s)...\n' "$web_port" "$api_port"
+(
+  cd "$repo/src/Web"
+  FSUS_SERVER_URL="http://127.0.0.1:$api_port" \
+  FSUS_WEB_PORT="$web_port" \
+  pnpm run dev
+) &
+web_pid=$!
+
+for _ in $(seq 1 40); do
+  if curl -s -o /dev/null "http://127.0.0.1:$web_port/"; then
+    break
+  fi
+  if ! kill -0 "$web_pid" 2>/dev/null; then
+    printf '[dev] Vite dev server exited early.\n' >&2
+    exit 1
+  fi
+  sleep 0.25
+done
+
+printf '\n========================================================================\n'
+printf ' FsusBlog V2 Dev + HMR Ready\n'
+printf '========================================================================\n'
+printf ' Public site (HMR) : http://127.0.0.1:%s/\n' "$web_port"
+printf ' Admin console     : http://localhost:%s/admin/identity\n' "$web_port"
+printf ' Backend API       : http://127.0.0.1:%s\n' "$api_port"
+printf ' PostgreSQL 18     : %s\n' "$FSUSBLOG_DB"
+printf ' AEDS console debug: __fsusDebug.aeds(true)  (in browser DevTools)\n'
+if [[ -n "$admin_bootstrap_key" ]]; then
+  printf '%s\n' '------------------------------------------------------------------------'
+  printf ' Admin bootstrap key (dev-admin, 10m): %s\n' "$admin_bootstrap_key"
+fi
+if [[ -n "$reader_login_ticket" ]]; then
+  printf ' Reader login ticket (dev-reader, 10m): %s\n' "$reader_login_ticket"
+fi
+if [[ -n "$dev_admin_cookie" ]]; then
+  printf ' Dev admin session cookie (24h, set on http://localhost:%s):\n' "$web_port"
+  printf '   Cookie name : fsus-v2-admin-session\n'
+  printf '   Cookie value: %s\n' "$dev_admin_cookie"
+  printf '   Saved in    : .dev-data/dev-admin-session.txt\n'
+fi
+printf '========================================================================\n'
+printf 'Press Ctrl+C to stop Vite, Server, and PostgreSQL cleanly.\n\n'
+
+wait "$server_pid" "$web_pid"

@@ -26,7 +26,21 @@ if (args is ["legacy-media", ..])
 }
 
 var builder = WebApplication.CreateBuilder(args);
-var dist = Path.GetFullPath(builder.Configuration["FSUSBLOG_WEB_DIST"] ?? "src/Web/dist");
+var configuredDist = builder.Configuration["FSUSBLOG_WEB_DIST"];
+var dist = Path.GetFullPath(configuredDist ?? "src/Web/dist");
+if (string.IsNullOrEmpty(configuredDist) && builder.Environment.IsDevelopment() &&
+    !File.Exists(Path.Combine(dist, "index.html")))
+{
+    foreach (var candidate in new[] { "src/Web", "../Web/dist", "../Web" })
+    {
+        var resolved = Path.GetFullPath(candidate);
+        if (File.Exists(Path.Combine(resolved, "index.html")))
+        {
+            dist = resolved;
+            break;
+        }
+    }
+}
 var capabilities = SiteCapabilities.Resolve(builder.Configuration, dist);
 var trustLoopbackProxy = capabilities.TrustLoopbackProxy;
 var adminIdentity = capabilities.AdminIdentity;

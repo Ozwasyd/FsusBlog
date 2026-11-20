@@ -1,4 +1,6 @@
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
+import http from 'node:http'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
@@ -61,9 +63,90 @@ function resolvePreparedWasm(): Plugin {
   }
 }
 
+const serverUrl = process.env.FSUS_SERVER_URL ?? 'http://127.0.0.1:5080'
+const webPort = Number(process.env.FSUS_WEB_PORT ?? 5173)
+
+const sitePagePaths = new Set(['/about', '/privacy', '/guidelines', '/copyright'])
+
+function fetchServerShellFragments(requestPath: string, requestHost: string | undefined): Promise<{ headTags: string[]; publicContent?: string }> {
+  return new Promise(resolveFragments => {
+    let target: URL
+    try {
+      target = new URL(serverUrl)
+    } catch {
+      resolveFragments({ headTags: [] })
+      return
+    }
+    const cleanPath = requestPath.split('?', 1)[0] || '/'
+    const isSitePage = sitePagePaths.has(cleanPath)
+    const probePath = cleanPath.startsWith('/admin') ? '/admin/identity' : isSitePage ? cleanPath : '/'
+    const req = http.request({
+      hostname: target.hostname,
+      port: target.port || (target.protocol === 'https:' ? 443 : 80),
+      path: probePath,
+      method: 'GET',
+      timeout: 400,
+      headers: requestHost ? { host: requestHost, accept: 'text/html' } : { accept: 'text/html' },
+    }, res => {
+      if (res.statusCode !== 200) {
+        res.resume()
+        resolveFragments({ headTags: [] })
+        return
+      }
+      let body = ''
+      res.setEncoding('utf8')
+      const limit = isSitePage ? 700_000 : 32_768
+      res.on('data', chunk => {
+        if (body.length < limit) body += chunk
+      })
+      res.on('end', () => {
+        const headEnd = body.indexOf('</head>')
+        const head = headEnd >= 0 ? body.slice(0, headEnd) : body
+        const metas = head.match(/<meta\s+name="fsus-[^"]+"[^>]*>/gi) ?? []
+        const styles = head.match(/<link\s+rel="stylesheet"\s+href="\/site-appearance\/[^"]+"[^>]*>/gi) ?? []
+        let publicContent: string | undefined
+        if (isSitePage) {
+          const match = body.match(/<div\s+id="app">([\s\S]*?)<\/div>\s*(?:<script|<\/body>)/i)
+          if (match?.[1]) publicContent = match[1]
+        }
+        resolveFragments({ headTags: [...metas, ...styles], publicContent })
+      })
+    })
+    req.on('timeout', () => { req.destroy(); resolveFragments({ headTags: [] }) })
+    req.on('error', () => resolveFragments({ headTags: [] }))
+    req.end()
+  })
+}
+
+function syncServerHeadMeta(): Plugin {
+  const requestHost = new AsyncLocalStorage<string | undefined>()
+  return {
+    name: 'fsus-dev-server-meta',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        requestHost.run(req.headers.host, next)
+      })
+    },
+    transformIndexHtml: {
+      order: 'pre',
+      async handler(html, ctx) {
+        const { headTags, publicContent } = await fetchServerShellFragments(ctx.originalUrl ?? ctx.path, requestHost.getStore())
+        let result = html
+        if (headTags.length > 0)
+          result = result.replace('</head>', `    ${headTags.join('\n    ')}\n  </head>`)
+        if (publicContent)
+          result = result.replace('<!--fsus-public-content-->', publicContent)
+        return result
+      },
+    },
+  }
+}
+
+const proxyRule = { target: serverUrl, changeOrigin: false }
 const plugins = () => [resolvePreparedWasm(), vue(), vueJsx()]
 export default defineConfig({
-  plugins: plugins(),
+  plugins: [...plugins(), syncServerHeadMeta()],
   worker: { format: 'es', plugins },
   build: {
     rollupOptions: {
@@ -108,9 +191,19 @@ export default defineConfig({
   define: { 'import.meta.env.FSUS_MARKDOWN_NATIVE': JSON.stringify(nativeMarkdown) },
   server: {
     host: '127.0.0.1',
+    port: Number.isFinite(webPort) && webPort > 0 ? webPort : 5173,
+    strictPort: true,
     fs: { allow: [root, uiRoot, wasmDir] },
     proxy: {
-      '/api': { target: process.env.FSUS_SERVER_URL ?? 'http://127.0.0.1:5080', changeOrigin: false },
+      '/api': { ...proxyRule, ws: true },
+      '/public-media': proxyRule,
+      '/site-appearance': proxyRule,
+      '/integrity': proxyRule,
+      '/feed': proxyRule,
+      '/sitemap.xml': proxyRule,
+      '/sitemap': proxyRule,
+      '/robots.txt': proxyRule,
+      '/health': proxyRule,
     },
   },
 })

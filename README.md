@@ -15,7 +15,27 @@ dotnet test tests/Core/FsusBlog.V2.Core.Tests.csproj -c Release --no-build
 tools/protocol-test.sh
 ```
 
-前端构建及本地数据库初始化分别看 [Web] 和 [迁移说明](docs/migration.md)。开发或集成必须使用独立空 PostgreSQL 数据库，切勿对 v1 或生产库执行初始化。构建 Web 后，从仓库根目录启动：
+前端构建及本地数据库初始化分别看 [Web] 和 [迁移说明](docs/migration.md)。开发或集成必须使用独立空 PostgreSQL 数据库，切勿对 v1 或生产库执行初始化。
+
+### 本地开发、热重载与调试
+
+日常开发推荐使用一键脚本 `tools/dev.sh`，自动拉起 `.dev-data/` 下的独立持久化 PostgreSQL 18、初始化 Schema 并并行启动后端（`dotnet watch`）与前端（Vite HMR，支持联动修改 `../FsusUI` 源码实时热更新）：
+
+```sh
+# 首次启动并灌入示例文章、分类标签、待审评论与支持工单
+./tools/dev.sh --seed
+
+# 清空本地开发库重建并重新灌入示例数据
+./tools/dev.sh --reset --seed
+
+# 仅拉起本地开发 PostgreSQL（配合 IDE F5 断点调试后端，见 launchSettings.json / .vscode/launch.json）
+./tools/dev.sh --db-only
+```
+
+- 公开站热重载：`http://127.0.0.1:5173/`；管理后台热重载：`http://localhost:5173/admin/identity`（保留与生产一致的独立 Origin 隔离）。
+- 浏览器 DevTools 控制台可执行 `__fsusDebug.aeds(true)` 开启开发态 AEDS v2 二进制帧与 `X-Fsus-*` 响应头实时日志（生产构建自动 tree-shake 移除）。
+
+若以构建后的静态产物直接运行后端，构建 Web 后从仓库根目录启动：
 
 ```sh
 # FSUSBLOG_DB 为 v2 数据库 DSN，建议从环境注入。

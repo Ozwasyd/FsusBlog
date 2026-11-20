@@ -1,0 +1,16 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build-server",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/src/Server/FsusBlog.V2.Server.csproj",
+        "--no-restore"
+      ],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

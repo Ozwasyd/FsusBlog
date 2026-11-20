@@ -120,6 +120,9 @@ watch(siteLocale, () => {
 })
 
 try { syncThemeMode(readThemeMode()) } catch { syncThemeMode('system') }
+if (import.meta.env.DEV) {
+  void import('./devDebug').then(module => module.installDevAedsInspector())
+}
 const app = createApp(App)
 app.use(router)
 await router.isReady()
