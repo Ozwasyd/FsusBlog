@@ -71,10 +71,10 @@ dotnet=$(command -v "${DOTNET_BIN:-dotnet}")
 if [[ $http_probe == true ]]; then
     dotnet=$(cd -- "$(dirname "$dotnet")" && printf '%s/%s\n' "$(pwd -P)" "$(basename "$dotnet")")
 fi
-migrate_dll=${FSUSBLOG_MIGRATE_DLL:-$repo/src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll}
+cli_dll=${FSUSBLOG_CLI_DLL:-$repo/src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll}
 test_dll=${FSUSBLOG_NIGHTLY_TEST_DLL:-$repo/tests/Integration/bin/Release/net10.0/FsusBlog.V2.Integration.Tests.dll}
 artifacts=("$test_dll")
-if [[ $http_probe == false ]]; then artifacts+=("$migrate_dll"); fi
+if [[ $http_probe == false ]]; then artifacts+=("$cli_dll"); fi
 for artifact in "${artifacts[@]}"; do
     [[ -f $artifact ]] || { printf 'Missing built fixture artifact %s\n' "$artifact" >&2; exit 2; }
 done
@@ -273,14 +273,14 @@ if [[ $http_probe == true ]]; then
         shasum -a 256 "${comment_inputs[@]}" >> "$evidence/run.txt"
     fi
     stage_http_release "$4" "$5" "$6" > "$evidence/http-release-binding.json" 2> "$evidence/http-release-binding.log"
-    migrate_dll="$scratch/release/cli/FsusBlog.V2.Cli.dll"
+    cli_dll="$scratch/release/cli/FsusBlog.V2.Cli.dll"
     shasum -a 256 "${decoders[@]}" tests/Performance/nightly-http-{oracle.sql,probe.mjs} >> "$evidence/run.txt"
     if [[ $wide_browser == true ]]; then
         shasum -a 256 "$scratch/release/Caddyfile" tests/Performance/proxy.sh \
             tests/Performance/nightly-wide-search-{oracle.sql,tls.sh,probe.mjs} >> "$evidence/run.txt"
     fi
 fi
-shasum -a 256 "$migrate_dll" "$test_dll" \
+shasum -a 256 "$cli_dll" "$test_dll" \
     tests/Performance/{seed.py,nightly-run.sh,nightly-plan.py,nightly-comments.sql,nightly-verify.sql,nightly-verify-article-bytes.py} >> "$evidence/run.txt"
 
 phase() {
@@ -336,7 +336,7 @@ maintenance=(psql -X -qAt --no-password -v ON_ERROR_STOP=1 -d postgres)
 export PGDATABASE="$db"
 export FSUSBLOG_DB="Host=$PGHOST;Port=$PGPORT;Username=$PGUSER;Database=$db;SSL Mode=Disable;Command Timeout=150"
 sql=(psql -X -qAt --no-password -v ON_ERROR_STOP=1)
-migrate=("$dotnet" "$migrate_dll")
+migrate=("$dotnet" "$cli_dll")
 "${migrate[@]}" plan > "$scratch/bootstrap.json"
 phase schema "${migrate[@]}" apply "$scratch/bootstrap.json"
 "${migrate[@]}" verify >> "$evidence/schema.log"

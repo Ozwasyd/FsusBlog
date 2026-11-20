@@ -10,7 +10,7 @@ import { decodeDraft, decodePublicCommentSubmissionResult, encodeArticleCommand,
 
 const source = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { request } = source('@playwright/test')
-const { FSUSBLOG_TEST_SITE_URL: origin, FSUSBLOG_TEST_TLS_DOTNET: dotnet, FSUSBLOG_TEST_TLS_MIGRATE: migrate,
+const { FSUSBLOG_TEST_SITE_URL: origin, FSUSBLOG_TEST_TLS_DOTNET: dotnet, FSUSBLOG_TEST_TLS_CLI: migrate,
   FSUSBLOG_TEST_ADMIN_MODERATOR_SITE_TICKET: ticket, FSUSBLOG_TEST_ADMIN_MODERATOR_DATABASE: database,
   FSUSBLOG_TEST_ADMIN_MODERATOR_BODY: body } = process.env
 assert(origin && dotnet && migrate && /^[a-f0-9]{64}$/.test(ticket ?? '') && /^fsusv2_admin_tls_[a-f0-9]+$/.test(database ?? '') && body)

@@ -249,7 +249,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
 
 internal sealed class PublicationMediaRecoveryFactAttribute : FactAttribute
 {
-    internal const string MigrationPath = "FSUSBLOG_TEST_MIGRATE_DLL";
+    internal const string MigrationPath = "FSUSBLOG_TEST_CLI_DLL";
     internal const string PostgresPath = "PG_TOOLS_DIR";
 
     public PublicationMediaRecoveryFactAttribute()

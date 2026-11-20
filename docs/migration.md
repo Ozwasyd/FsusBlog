@@ -22,7 +22,7 @@ migrate=(dotnet src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll)
 
 ## v2 数据库备份恢复
 
-`tools/site-backup.py` 可生成供离线恢复演练使用的 PostgreSQL 和私有媒体候选。先停止站点及该数据库的离线写入工具，等待上传和删除结束。指定两个绝对路径，备份父目录和源媒体目录均由当前用户持有、模式为 0700，且互相隔离。无媒体时提供独立的空目录。显式设置 `PGDATABASE`、`PGHOST` 和 `PGPORT`，它们须与 `FSUSBLOG_DB` 指向同一源库。使用与服务器同主版本的 `pg_dump` 和受控连接凭据。使用已构建的 CLI DLL，可用 `FSUSBLOG_CLI_DLL`（或兼容旧变量 `FSUSBLOG_MIGRATE_DLL`） 和 `DOTNET_BIN` 定位。
+`tools/site-backup.py` 可生成供离线恢复演练使用的 PostgreSQL 和私有媒体候选。先停止站点及该数据库的离线写入工具，等待上传和删除结束。指定两个绝对路径，备份父目录和源媒体目录均由当前用户持有、模式为 0700，且互相隔离。无媒体时提供独立的空目录。显式设置 `PGDATABASE`、`PGHOST` 和 `PGPORT`，它们须与 `FSUSBLOG_DB` 指向同一源库。使用与服务器同主版本的 `pg_dump` 和受控连接凭据。使用已构建的 CLI DLL，可用 `FSUSBLOG_CLI_DLL` 和 `DOTNET_BIN` 定位。
 
 ```bash
 python3 tools/site-backup.py capture "$private_backup_parent" "$new_candidate_name" "$source_media_root"

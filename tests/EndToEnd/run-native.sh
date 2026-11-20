@@ -46,7 +46,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 server_source=${FSUSBLOG_NATIVE_SERVER_BUILD:-$repo/src/Server/bin/Release/net10.0}
-migrate_source=${FSUSBLOG_NATIVE_MIGRATE_BUILD:-$repo/src/Cli/bin/Release/net10.0}
+migrate_source=${FSUSBLOG_NATIVE_CLI_BUILD:-$repo/src/Cli/bin/Release/net10.0}
 web_source=${FSUSBLOG_WEB_DIST:-$repo/src/Web/dist}
 mkdir -p "$scratch/server" "$scratch/migrate" "$scratch/web"
 cp -R "$server_source/." "$scratch/server"

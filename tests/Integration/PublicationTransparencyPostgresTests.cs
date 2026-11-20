@@ -197,7 +197,7 @@ public sealed class PublicationTransparencyPostgresTests
 
 internal sealed class PublicationTransparencyFact : FactAttribute
 {
-    internal const string MigrationPath = "FSUSBLOG_TEST_MIGRATE_DLL";
+    internal const string MigrationPath = "FSUSBLOG_TEST_CLI_DLL";
 
     public PublicationTransparencyFact()
     {

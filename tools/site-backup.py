@@ -252,11 +252,9 @@ def dump_command(endpoint, major, snapshot):
             f"--snapshot={snapshot}", "--lock-wait-timeout=5000"]
 
 
-def migrate_command():
+def cli_command():
     binary = os.environ.get("DOTNET_BIN", "dotnet")
-    assembly = (os.environ.get("FSUSBLOG_CLI_DLL")
-                or os.environ.get("FSUSBLOG_MIGRATE_DLL")
-                or "src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll")
+    assembly = os.environ.get("FSUSBLOG_CLI_DLL", "src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll")
     return [binary, assembly, "backup", "measure"]
 
 
@@ -280,7 +278,7 @@ def capture(parent_path, leaf, media_path):
             database = None
             complete = False
             try:
-                database = subprocess.Popen(migrate_command() + ["--hold-snapshot"], stdin=subprocess.PIPE,
+                database = subprocess.Popen(cli_command() + ["--hold-snapshot"], stdin=subprocess.PIPE,
                                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 site = read_measurement(database)
                 endpoint, snapshot, files = extract_measurement(site, hold=True)
@@ -363,7 +361,7 @@ def verify(path, expected):
 
 def verify_restored(path, expected, media_path):
     source = verify(path, expected)
-    result = subprocess.run(migrate_command(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    result = subprocess.run(cli_command(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                             check=False, timeout=310)
     ensure(result.returncode == 0, "Independent restored PostgreSQL measurement failed.")
     restored = json_document(result.stdout)

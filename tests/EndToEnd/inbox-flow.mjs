@@ -165,7 +165,7 @@ console.log('Native PostgreSQL communication flow passed in desktop and narrow C
 
 function appendFixtureNotice(recipient, event = 'while-open', subject = 'New notification after opening') {
   const printed = execFileSync(process.env.FSUSBLOG_INBOX_DOTNET,
-    [process.env.FSUSBLOG_INBOX_MIGRATE_DLL, 'notify', recipient, event], {
+    [process.env.FSUSBLOG_INBOX_CLI_DLL, 'notify', recipient, event], {
       encoding: 'utf8',
       input: JSON.stringify({ subject, body: 'This update came from PostgreSQL.' }),
     })

@@ -7,7 +7,7 @@ if [[ ${PGHOST:-} != /* || -z ${PGUSER:-} || -z ${FSUSBLOG_TEST_DB:-} ]]; then
     exit 2
 fi
 if [[ -n ${PG_TOOLS_DIR:-} ]]; then PATH="$PG_TOOLS_DIR:$PATH"; fi
-migrate=("${DOTNET_BIN:-dotnet}" "${FSUSBLOG_CLI_DLL:-${FSUSBLOG_MIGRATE_DLL:-src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll}}")
+migrate=("${DOTNET_BIN:-dotnet}" "${FSUSBLOG_CLI_DLL:-src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll}")
 umask 077
 scratch=$(mktemp -d /tmp/fsusv2-canonical.XXXXXXXX)
 database="fsusv2_canonical_$(openssl rand -hex 9)"

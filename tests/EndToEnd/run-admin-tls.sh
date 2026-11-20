@@ -26,7 +26,7 @@ for executable in "$dotnet" "$caddy" "${pg}psql" "${pg}createdb" "${pg}dropdb" o
   command -v "$executable" >/dev/null || { printf 'Missing executable: %s\n' "$executable" >&2; exit 2; }
 done
 server=${FSUSBLOG_NATIVE_SERVER_BUILD:-$repo/src/Server/bin/Release/net10.0}/FsusBlog.V2.Server.dll
-migrate=${FSUSBLOG_NATIVE_MIGRATE_BUILD:-$repo/src/Cli/bin/Release/net10.0}/FsusBlog.V2.Cli.dll
+migrate=${FSUSBLOG_NATIVE_CLI_BUILD:-$repo/src/Cli/bin/Release/net10.0}/FsusBlog.V2.Cli.dll
 export FSUSBLOG_WEB_DIST=${FSUSBLOG_WEB_DIST:-$repo/src/Web/dist}
 export FSUSBLOG_TEST_CHROME=${FSUSBLOG_TEST_CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}
 for path in "$server" "$migrate" "$FSUSBLOG_WEB_DIST/index.html"; do
@@ -226,12 +226,12 @@ if [[ ${FSUSBLOG_TEST_ADMIN_INBOX:-0} == 1 ]]; then
 fi
 FSUSBLOG_TEST_ADMIN_TICKET=$("$dotnet" "$migrate" admin-identity bootstrap tls-admin-fixture)
 export FSUSBLOG_TEST_SITE_TICKET FSUSBLOG_TEST_ADMIN_TICKET
-export FSUSBLOG_TEST_TLS_DOTNET="$dotnet" FSUSBLOG_TEST_TLS_MIGRATE="$migrate"
+export FSUSBLOG_TEST_TLS_DOTNET="$dotnet" FSUSBLOG_TEST_TLS_CLI="$migrate"
 export FSUSBLOG_TEST_ADMIN_REVOKE="$scratch/revoke-admin"
 cat > "$FSUSBLOG_TEST_ADMIN_REVOKE" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-"$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_MIGRATE" admin-identity revoke-all tls-admin-fixture
+"$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_CLI" admin-identity revoke-all tls-admin-fixture
 EOF
 chmod 700 "$FSUSBLOG_TEST_ADMIN_REVOKE"
 permission_fixture() {
@@ -239,7 +239,7 @@ permission_fixture() {
   cat > "$path" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
-"\$FSUSBLOG_TEST_TLS_DOTNET" "\$FSUSBLOG_TEST_TLS_MIGRATE" admin-identity $action tls-admin-fixture $capability
+"\$FSUSBLOG_TEST_TLS_DOTNET" "\$FSUSBLOG_TEST_TLS_CLI" admin-identity $action tls-admin-fixture $capability
 EOF
   chmod 700 "$path"
 }
@@ -436,7 +436,7 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
     cat > "$FSUSBLOG_TEST_REPLY_PARENT_TICKET" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-exec "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_MIGRATE" ticket tls-moderation-fixture
+exec "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_CLI" ticket tls-moderation-fixture
 EOF
     chmod 700 "$FSUSBLOG_TEST_REPLY_PARENT_TICKET"
   fi
@@ -447,7 +447,7 @@ EOF
     cat > "$FSUSBLOG_TEST_APPEAL_OWNER_TICKET" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-exec "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_MIGRATE" ticket tls-moderation-fixture
+exec "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_CLI" ticket tls-moderation-fixture
 EOF
     chmod 700 "$FSUSBLOG_TEST_APPEAL_OWNER_TICKET"
   fi
