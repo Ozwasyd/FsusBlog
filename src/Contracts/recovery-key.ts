@@ -2,7 +2,7 @@ import { ApiError, decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { request, validSiteSessionId } from './client.ts';
 import { readMfaProof } from './mfa.ts';
 import { requestPasskeyAssertion, requestPasskeyAttestation } from './passkey.ts';
-import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
+import { requestWithScopedPow } from './pow.ts';
 import {
   decodeRecoveryKeyIssued,
   decodeRecoveryKeyStatus,
@@ -53,14 +53,15 @@ export async function issueSiteRecoveryKey(operation: KeyOperation, signal: Abor
 export async function verifySiteRecoveryKey(key: string, signal: AbortSignal): Promise<void> {
   if (!validSiteRecoveryKey(key)) throw new ProtocolError('Invalid Recovery Key.');
   const body = encodeFrame(FrameType.RecoveryKeyVerify, encodeRecoveryKeyVerify({ key }));
-  const clientNonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
   try {
-    const challenge = await request(WireRoutes.RecoveryKeyPow, FrameType.PowChallenge, decodePowChallenge,
-      signal, 'POST', body, { [WireHeaders.PowClientNonce]: clientNonce });
-    const nonce = await solveScopedPow(challenge, clientNonce, signal);
-    signal.throwIfAborted();
-    await request(WireRoutes.RecoveryKeyVerify, FrameType.EmptySuccess, decodeSuccess, signal,
-      'POST', body, { [WireHeaders.PowProof]: encodePowProof(challenge, nonce, clientNonce) });
+    await requestWithScopedPow({
+      challengePath: WireRoutes.RecoveryKeyPow,
+      submitPath: WireRoutes.RecoveryKeyVerify,
+      expected: FrameType.EmptySuccess,
+      decode: decodeSuccess,
+      body,
+      signal,
+    });
   } finally {
     body.fill(0);
   }
