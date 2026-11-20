@@ -3,6 +3,19 @@ import { api, ApiError, type Session } from '../../Contracts/client'
 import { purgeVerifiedDraftScope, verifyDraftScope } from './authoring/draftScope'
 
 const authChannelName = 'fsusblog-v2-admin-auth'
+const adminHintKey = 'fsusblog.adminActive'
+
+export function hasAdminSessionHint(): boolean {
+  try { return globalThis.sessionStorage?.getItem(adminHintKey) === '1' }
+  catch { return false }
+}
+
+export function markAdminSessionHint(active: boolean) {
+  try {
+    if (active) globalThis.sessionStorage?.setItem(adminHintKey, '1')
+    else globalThis.sessionStorage?.removeItem(adminHintKey)
+  } catch { /* ignore restricted storage environments */ }
+}
 
 const authority = shallowRef<{ session: Session | null; identity: number; credential: number }>({
   session: null, identity: 0, credential: 0,
@@ -28,6 +41,7 @@ function updateSession(value: Session | null) {
     identity: observed.identity + Number(changed),
     credential: observed.credential + Number(changed),
   }
+  markAdminSessionHint(next !== null)
   clearTimeout(expiryTimer)
   if (next) {
     const expire = () => {
@@ -95,6 +109,7 @@ export async function clearAuthorSession(signal?: AbortSignal): Promise<void> {
       }
     }
     if (request === requestEpoch) updateSession(null)
+    markAdminSessionHint(false)
     await purgeVerifiedDraftScope(epoch).catch(() => {})
     announceAdminAuthChange()
   } finally {

@@ -19,12 +19,16 @@ export async function passkeyAvailable(signal?: AbortSignal): Promise<boolean> {
   }
 }
 
-export type PasskeyLogin = { status: 'signed-in'; session: Session } | { status: 'mfa'; token: string };
+export type PasskeyLogin =
+  | { status: 'signed-in'; role: 'reader'; session: Session }
+  | { status: 'signed-in'; role: 'admin' }
+  | { status: 'mfa'; token: string };
 
 export async function loginWithPasskey(signal?: AbortSignal, rememberMe = false): Promise<PasskeyLogin> {
   const assertion = await requestPasskeyAssertion(WireRoutes.PasskeyLoginBegin, signal, undefined, false, rememberMe);
-  const pending = await request(WireRoutes.PasskeyLoginComplete, FrameType.AuthLoginFlow, decodeLoginFlow, signal, 'POST', assertion);
-  return pending ? { status: 'mfa', token: pending } : { status: 'signed-in', session: await api.session(signal) };
+  const flow = await request(WireRoutes.PasskeyLoginComplete, FrameType.AuthLoginFlow, decodeLoginFlow, signal, 'POST', assertion);
+  if (flow.kind === 'admin') return { status: 'signed-in', role: 'admin' };
+  return flow.pending ? { status: 'mfa', token: flow.pending } : { status: 'signed-in', role: 'reader', session: await api.session(signal) };
 }
 
 export async function requestPasskeyAssertion(beginPath: string, signal?: AbortSignal, body?: Uint8Array<ArrayBuffer>,
@@ -55,10 +59,19 @@ async function getAssertion(token: string, options: PublicKeyCredentialRequestOp
   return encodeFrame(FrameType.PasskeyLoginCompleteRequest, payload);
 }
 
-export async function provisionPasskey(ticket: string, signal?: AbortSignal): Promise<void> {
-  const attestation = await requestPasskeyAttestation(WireRoutes.PasskeyProvisionBegin, signal,
+export async function beginPasskeyProvision(ticket: string, signal?: AbortSignal) {
+  return request(WireRoutes.PasskeyProvisionBegin, FrameType.PasskeyRegisterBegin, decodeProvisionBegin, signal, 'POST',
     encodeFrame(FrameType.OperatorSignIn, encodeSignIn({ ticket })));
+}
+
+export async function completePasskeyProvision(begin: { token: string; options: PublicKeyCredentialCreationOptions }, signal?: AbortSignal): Promise<void> {
+  const attestation = await getAttestation(begin.token, begin.options, signal);
   await request(WireRoutes.PasskeyProvisionComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', attestation);
+}
+
+export async function provisionPasskey(ticket: string, signal?: AbortSignal): Promise<void> {
+  const started = await beginPasskeyProvision(ticket, signal);
+  await completePasskeyProvision(started, signal);
 }
 
 export async function enrollSitePasskey(expectedSession: string, signal?: AbortSignal): Promise<void> {
@@ -184,15 +197,27 @@ function begin(payload: Uint8Array, size: number, extra: number, tokenOffset: nu
     } };
 }
 
-function decodeLoginFlow(payload: Uint8Array): string | null {
-  if (payload.length !== WireLayouts.PasskeyAuthLoginFlowSize || view(payload).getInt32(0, true) <= 0 ||
-      payload[7] !== 1 || decodeUtf8(payload.subarray(8, 25)) !== 'anonymous_account' || payload.subarray(25, 104).some(Boolean))
+export type DecodedPasskeyLoginFlow =
+  | { kind: 'reader'; pending: string | null }
+  | { kind: 'admin' };
+
+export function decodeLoginFlow(payload: Uint8Array): DecodedPasskeyLoginFlow {
+  if (payload.length !== WireLayouts.PasskeyAuthLoginFlowSize || view(payload).getInt32(0, true) <= 0 || payload[7] !== 1)
     throw invalid();
-  if (payload[4] === 1 && payload[5] === 0 && payload[6] === 0 && !payload.subarray(104).some(Boolean)) return null;
-  if (payload[4] !== 2 || payload[5] !== 2 || payload[6] !== 1 || payload.subarray(147).some(Boolean)) throw invalid();
+  if (decodeUtf8(payload.subarray(8, 21)) === 'administrator') {
+    if (payload[4] !== 1 || payload[5] !== 0 || payload[6] !== 0 || payload.subarray(21).some(Boolean))
+      throw invalid();
+    return { kind: 'admin' };
+  }
+  if (decodeUtf8(payload.subarray(8, 25)) !== 'anonymous_account' || payload.subarray(25, 104).some(Boolean))
+    throw invalid();
+  if (payload[4] === 1 && payload[5] === 0 && payload[6] === 0 && !payload.subarray(104).some(Boolean))
+    return { kind: 'reader', pending: null };
+  if (payload[4] !== 2 || payload[5] !== 2 || payload[6] !== 1 || payload.subarray(147).some(Boolean))
+    throw invalid();
   const token = decodeUtf8(payload.subarray(104, 147));
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw invalid();
-  return token;
+  return { kind: 'reader', pending: token };
 }
 
 function complete(size: number, token: string, fields: Uint8Array[], hints: number[], login: boolean) {

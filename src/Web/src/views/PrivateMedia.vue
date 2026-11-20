@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t, siteLocale, type MessageKey } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { ElAlert, ElButton, ElEmptyState, ElMessageBox, ElProgress, ElSettingsSection, ElSkeleton, ElTaskPageHeader } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { cancelMediaUpload, finalizeMediaUpload, listMedia, mediaDate, mediaDigest, privateMediaHref, removeMedia,
@@ -9,6 +9,7 @@ import { cancelMediaUpload, finalizeMediaUpload, listMedia, mediaDate, mediaDige
 import { forgetMediaRecovery, mediaRecovery } from '../mediaUploadRecovery'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../authorSession'
 
+const route = useRoute()
 const entries = shallowRef<readonly PrivateMediaItem[]>([])
 const selected = shallowRef<{ file: File; key: string; digest?: string; coordinate?: string }>()
 const uploadState = shallowRef<MediaUploadState>()
@@ -202,7 +203,7 @@ onBeforeUnmount(() => scope.abort())
   <main class="media-page">
     <ElTaskPageHeader :title="t('account.message78')" />
     <ElEmptyState v-if="!currentSession?.canAuthor" :title="t('account.message79')">
-      <RouterLink v-if="!currentSession" to="/admin/identity">{{ t('account.message80') }}</RouterLink>
+      <RouterLink v-if="!currentSession" :to="{ name: 'login', query: { redirect: route.fullPath } }">{{ t('account.message80') }}</RouterLink>
     </ElEmptyState>
     <template v-else>
       <ElAlert v-if="!available" type="info" :title="t('account.message81')" :closable="false" />

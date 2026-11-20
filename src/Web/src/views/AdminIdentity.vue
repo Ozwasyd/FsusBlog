@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import type { ThemeMode } from '@ozwasyd/element-plus/theme'
 import AccountWorkspace from '../AccountWorkspace.vue'
 import SiteAuthLayout from '../SiteAuthLayout.vue'
@@ -26,7 +26,8 @@ import AdminCluster from './AdminCluster.vue'
 import AdminRiskReadiness from './AdminRiskReadiness.vue'
 import AdminAppearance from './AdminAppearance.vue'
 import { ApiError } from '../../../Contracts/aeds'
-import { announceAdminAuthChange, clearAuthorSession } from '../authorSession'
+import { passkeyAvailable } from '../../../Contracts/passkey'
+import { announceAdminAuthChange, clearAuthorSession, markAdminSessionHint } from '../authorSession'
 import {
   bootstrapAdminPasskey,
   readAdminAuthority,
@@ -41,8 +42,12 @@ import {
 defineProps<{ themeMode?: ThemeMode }>()
 const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
 const route = useRoute()
+const router = useRouter()
 const section = computed(() => adminWorkspacePages.find(page => page.name === route.name) ?? adminWorkspacePages[4])
 const adminUsesHttps = globalThis.location?.protocol === 'https:'
+const configuredPublicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
+const splitAdminHost = Boolean(configuredPublicOrigin && configuredPublicOrigin !== globalThis.location?.origin)
+const unifiedLogin = ref(false)
 const lifetime = new AbortController()
 const authority = shallowRef<AdminAuthority | null>(null)
 const bootstrapOpen = ref(false)
@@ -73,13 +78,31 @@ function setAuthority(next: AdminAuthority | null) {
   if (next?.status === 'active') {
     const remaining = next.session.expiresAt - Date.now()
     if (remaining <= 0) {
+      markAdminSessionHint(false)
       authority.value = { status: 'signed-out' }
       return
     }
+    markAdminSessionHint(true)
     expiryTimer = setTimeout(() => setAuthority(next), Math.min(remaining, 2_147_483_647))
     closeBootstrap()
+  } else if (next?.status === 'signed-out' || next?.status === 'unavailable') {
+    markAdminSessionHint(false)
   }
   authority.value = next
+}
+
+async function resolveUnifiedLogin(): Promise<boolean> {
+  if (splitAdminHost) return false
+  if (unifiedLogin.value) return true
+  const available = await passkeyAvailable(lifetime.signal).catch(() => false)
+  if (!lifetime.signal.aborted) unifiedLogin.value = available
+  return available
+}
+
+async function redirectToUnifiedLogin(): Promise<boolean> {
+  if (!(await resolveUnifiedLogin()) || lifetime.signal.aborted) return false
+  await router.replace({ name: 'login', query: { redirect: route.fullPath } })
+  return true
 }
 
 async function run(task: () => Promise<void>, onFailure: MessageKey) {
@@ -95,7 +118,10 @@ function refresh() {
   return run(async () => {
     setAuthority(null)
     const next = await readAdminAuthority(lifetime.signal)
-    if (!lifetime.signal.aborted) setAuthority(next)
+    if (lifetime.signal.aborted) return
+    if (next.status === 'signed-out' && await redirectToUnifiedLogin()) return
+    setAuthority(next)
+    if (next.status === 'active') void resolveUnifiedLogin()
   }, 'admin.accessCheckFailed')
 }
 
@@ -114,7 +140,10 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', whenVisible)
 })
 
-const links = computed(() => adminWorkspacePages.map(({ path, label }) => ({ to: path, label: t(label) })))
+const links = computed(() => [
+  ...(splitAdminHost ? [] : [{ to: '/', label: t('nav.publicSite') }]),
+  ...adminWorkspacePages.map(({ path, label }) => ({ to: path, label: t(label) })),
+])
 watch(section, (next) => { if (next.section !== 'system') clearOperations() })
 
 function clearOperations() {
@@ -163,6 +192,7 @@ function handleSessionLoss(error: unknown): boolean {
   if (!(error instanceof ApiError) || error.status !== 401) return false
   setAuthority({ status: 'signed-out' })
   failure.value = 'admin.sessionLost'
+  if (unifiedLogin.value) void router.replace({ name: 'login', query: { redirect: route.fullPath } })
   return true
 }
 
@@ -205,7 +235,12 @@ function logOut() {
     await clearAuthorSession(lifetime.signal)
     await signOutAdmin(lifetime.signal)
     announceAdminAuthChange()
-    if (!lifetime.signal.aborted) setAuthority({ status: 'signed-out' })
+    if (lifetime.signal.aborted) return
+    if (unifiedLogin.value) {
+      await router.replace({ name: 'home' })
+      return
+    }
+    setAuthority({ status: 'signed-out' })
   }, 'admin.logoutUnconfirmed')
 }
 </script>

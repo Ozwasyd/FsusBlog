@@ -537,7 +537,8 @@ printf '\n======================================================================
 printf ' FsusBlog V2 Dev + HMR Ready\n'
 printf '========================================================================\n'
 printf ' Site (HMR)        : http://localhost:%s/\n' "$web_port"
-printf ' Admin console     : http://localhost:%s/admin/identity\n' "$web_port"
+printf ' Unified login     : http://localhost:%s/login\n' "$web_port"
+printf ' Admin console     : http://localhost:%s/admin/site\n' "$web_port"
 printf ' Backend API       : http://127.0.0.1:%s\n' "$api_port"
 printf ' PostgreSQL 18     : %s\n' "$FSUSBLOG_DB"
 printf ' AEDS console debug: __fsusDebug.aeds(true)  (in browser DevTools)\n'

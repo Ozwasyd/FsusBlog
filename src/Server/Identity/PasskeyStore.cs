@@ -4,6 +4,7 @@ using Fido2NetLib;
 using Fido2NetLib.Objects;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Operations;
 using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.WebUtilities;
@@ -105,18 +106,24 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         await InstanceLease.CommitProtected(tx, _lease, ct);
     }
 
-    internal async Task<(SiteRefreshStore.Issued? Session, int AccountNumber, string? MfaToken, string? MfaBinding)> CompleteLogin(
-        PasskeyLoginRequest request, bool mfaEnabled, bool persistentEnabled, CancellationToken ct)
+    internal sealed record UnifiedLoginResult(
+        SiteRefreshStore.Issued? ReaderSession,
+        int AccountNumber,
+        string? MfaToken,
+        string? MfaBinding,
+        string? AdminToken);
+
+    internal async Task<UnifiedLoginResult> CompleteLogin(
+        PasskeyLoginRequest request, bool mfaEnabled, bool persistentEnabled, AdminPasskeyStore? adminStore, CancellationToken ct)
     {
         await using var db = await _source.OpenConnectionAsync(ct);
         var challenge = await ConsumeChallenge(db, request.Token, null, ct);
-        if (request.RememberMe && !persistentEnabled)
-            throw new BusinessException(Rejection.Invalid, "Persistent Passkey sessions are not available.");
         CheckId(request.CredentialId, request.RawId);
 
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
-        Guid userId;
-        long userGeneration;
+        Guid userId = default;
+        long userGeneration = 0;
+        var foundReader = false;
         await using (var user = Store.Sql(db, tx, """
             select u.id,u.generation from public.blog_user u
             where u.enabled and u.id=(select user_id from public.passkey_credential where credential_id=$1)
@@ -124,23 +131,37 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
             """, request.RawId))
         await using (var row = await user.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Denied();
-            (userId, userGeneration) = (row.GetGuid(0), row.GetInt64(1));
+            if (await row.ReadAsync(ct))
+            {
+                (userId, userGeneration) = (row.GetGuid(0), row.GetInt64(1));
+                foundReader = true;
+            }
         }
-        var number = await VerifyAssertion(db, tx, request, userId, AssertionOptions.FromJson(challenge.Options),
-            requireHandle: true, ct);
-        if (await MfaStore.IsEnabled(db, tx, userId, ct))
+        if (foundReader)
         {
-            if (!mfaEnabled) throw new PublicUnavailableException();
-            var binding = NewToken();
-            var actor = new MfaStore.Subject(userId, userGeneration, number, [.. MfaStore.FlowDigest(binding), .. request.RawId]);
-            var mfa = await MfaStore.BeginFlow(db, tx, actor, MfaStore.Purpose.Login, request.RememberMe ? "persistent" : "", ct);
+            if (request.RememberMe && !persistentEnabled)
+                throw new BusinessException(Rejection.Invalid, "Persistent Passkey sessions are not available.");
+            var number = await VerifyAssertion(db, tx, request, userId, AssertionOptions.FromJson(challenge.Options),
+                requireHandle: true, ct);
+            if (await MfaStore.IsEnabled(db, tx, userId, ct))
+            {
+                if (!mfaEnabled) throw new PublicUnavailableException();
+                var binding = NewToken();
+                var actor = new MfaStore.Subject(userId, userGeneration, number, [.. MfaStore.FlowDigest(binding), .. request.RawId]);
+                var mfa = await MfaStore.BeginFlow(db, tx, actor, MfaStore.Purpose.Login, request.RememberMe ? "persistent" : "", ct);
+                await InstanceLease.CommitProtected(tx, _lease, ct);
+                return new(null, number, mfa, binding, null);
+            }
+            var session = await MfaStore.IssueSession(db, tx, userId, userGeneration, request.RawId, mfa: false, request.RememberMe, ct);
             await InstanceLease.CommitProtected(tx, _lease, ct);
-            return (null, number, mfa, binding);
+            return new(session, number, null, null, null);
         }
-        var session = await MfaStore.IssueSession(db, tx, userId, userGeneration, request.RawId, mfa: false, request.RememberMe, ct);
+
+        if (adminStore is null) throw Denied();
+        var adminToken = await adminStore.CompleteUnifiedLogin(db, tx, request, challenge.Options,
+            challenge.ExpiresAt - TimeSpan.FromSeconds(300), ct);
         await InstanceLease.CommitProtected(tx, _lease, ct);
-        return (session, number, null, null);
+        return new(null, 0, null, null, adminToken);
     }
 
     internal async Task<byte[]> BeginSetupProof(string? session, CancellationToken ct)
@@ -308,7 +329,7 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         if (await insert.ExecuteNonQueryAsync(ct) != 1) throw new PublicUnavailableException();
     }
 
-    private async Task<(string Options, Guid? UserId, long? Generation)> ConsumeChallenge(NpgsqlConnection db,
+    private async Task<(string Options, Guid? UserId, long? Generation, DateTimeOffset ExpiresAt)> ConsumeChallenge(NpgsqlConnection db,
         string token, byte[]? binding, CancellationToken ct)
     {
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
@@ -317,17 +338,18 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         return challenge;
     }
 
-    private static async Task<(string Options, Guid? UserId, long? Generation)> ConsumeChallenge(NpgsqlConnection db,
+    private static async Task<(string Options, Guid? UserId, long? Generation, DateTimeOffset ExpiresAt)> ConsumeChallenge(NpgsqlConnection db,
         NpgsqlTransaction tx, string token, byte[]? binding, CancellationToken ct)
     {
         await using var consume = Store.Sql(db, tx, """
             delete from public.passkey_challenge
             where digest=$1 and expires_at>clock_timestamp() and binding_digest is not distinct from $2
-            returning options,user_id,generation
+            returning options,user_id,generation,expires_at
             """, TokenDigest(token), NullableBytes(binding));
         await using var row = await consume.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct)) throw Denied();
-        return (row.GetString(0), row.IsDBNull(1) ? null : row.GetGuid(1), row.IsDBNull(2) ? null : row.GetInt64(2));
+        return (row.GetString(0), row.IsDBNull(1) ? null : row.GetGuid(1), row.IsDBNull(2) ? null : row.GetInt64(2),
+            row.GetFieldValue<DateTimeOffset>(3));
     }
 
     private static NpgsqlParameter NullableBytes(byte[]? bytes) =>

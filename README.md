@@ -32,7 +32,7 @@ tools/protocol-test.sh
 ./tools/dev.sh --db-only
 ```
 
-- 统一单源热重载：`http://localhost:5173/`（公开站）与 `http://localhost:5173/admin/identity`（管理与创作后台），读者与管理员会话通过独立表、独立 Passkey、独立 `HttpOnly; SameSite=Strict` Cookie 与独立会话接口严格隔离。
+- 统一单源热重载：`http://localhost:5173/`（公开站）与 `http://localhost:5173/login`（读者与管理员统一 Passkey 登录入口，按身份自动跳转至 `/user/identity/mfa` 或 `/admin/site`；底层表、Passkey、Cookie 与会话接口仍严格隔离）。
 - 浏览器 DevTools 控制台可执行 `__fsusDebug.aeds(true)` 开启开发态 AEDS v2 二进制帧与 `X-Fsus-*` 响应头实时日志（生产构建自动 tree-shake 移除）。
 
 若以构建后的静态产物直接运行后端，构建 Web 后从仓库根目录启动：

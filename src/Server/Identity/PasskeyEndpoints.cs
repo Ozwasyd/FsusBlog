@@ -1,6 +1,7 @@
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using Npgsql;
+using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Operations;
 using FsusBlog.V2.Server.Sessions;
 using Microsoft.AspNetCore.Http.Features;
@@ -35,6 +36,9 @@ internal static class PasskeyEndpoints
         var database = app.Services.GetRequiredService<NpgsqlDataSource>();
         var lease = app.Services.GetRequiredService<InstanceLease>();
         var passkeys = new PasskeyStore(database, configuration, lease);
+        var adminIdentity = capabilities.AdminIdentity;
+        var adminStore = adminIdentity is not null ? new AdminPasskeyStore(database, lease, adminIdentity) : null;
+        var adminCookie = adminIdentity is not null ? AdminIdentityEndpoints.SessionCookieName(adminIdentity) : null;
         var expectedOrigin = configuration.Origin.GetLeftPart(UriPartial.Authority);
         var secure = configuration.Origin.Scheme == "https";
         var refresh = persistentEnabled
@@ -114,15 +118,21 @@ internal static class PasskeyEndpoints
         {
             RequireHost(ctx);
             var request = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
-            var (session, number, pending, binding) = await passkeys.CompleteLogin(request, secrets is not null, persistentEnabled, ct);
-            if (session is not null) IssueSession(ctx, session);
-            if (binding is not null)
+            var allowAdmin = adminStore is not null && AdminIdentityEndpoints.IsAdminOrigin(ctx, adminIdentity);
+            var result = await passkeys.CompleteLogin(request, secrets is not null, persistentEnabled, allowAdmin ? adminStore : null, ct);
+            if (result.AdminToken is not null)
+            {
+                ctx.Response.Cookies.Append(adminCookie!, result.AdminToken, Cookie("/"));
+                return Results.Bytes(PasskeyWire.AuthenticatedAdministrator(), Aeds.ContentType);
+            }
+            if (result.ReaderSession is not null) IssueSession(ctx, result.ReaderSession);
+            if (result.MfaBinding is not null)
             {
                 var options = Cookie(WireRoutes.MfaChallengeVerify);
                 options.MaxAge = TimeSpan.FromMinutes(5);
-                ctx.Response.Cookies.Append(MfaEndpoints.LoginCookie, binding, options);
+                ctx.Response.Cookies.Append(MfaEndpoints.LoginCookie, result.MfaBinding, options);
             }
-            return Results.Bytes(PasskeyWire.Authenticated(number, pending), Aeds.ContentType);
+            return Results.Bytes(PasskeyWire.Authenticated(result.AccountNumber, result.MfaToken), Aeds.ContentType);
         }).RequireRateLimiting("sign-in");
 
         app.MapPost(WireRoutes.PasskeyProvisionBegin, async (HttpContext ctx, CancellationToken ct) =>

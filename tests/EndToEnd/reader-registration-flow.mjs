@@ -67,7 +67,7 @@ try {
   await page.getByRole('link', { name: 'Log in with Passkey', exact: true }).click()
   await page.waitForURL(origin + '/login')
   await page.getByRole('button', { name: 'Log in with Passkey', exact: true }).click()
-  await page.waitForURL(origin + '/')
+  await page.waitForURL(origin + '/user/identity/mfa')
   const response = await context.request.get(origin + WireRoutes.Session)
   assert.equal(response.status(), 200)
   const session = decodeSession(decodeFrame(await response.body(), FrameType.OperatorSession).payload)

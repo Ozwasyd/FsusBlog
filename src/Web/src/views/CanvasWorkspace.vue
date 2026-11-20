@@ -733,7 +733,7 @@ function edgeLabel(edge: CanvasGraphEdge) {
     </header>
 
     <p v-if="!ready" role="status">{{ t('author.canvas.verifying_author_session') }}</p>
-    <RouterLink v-else-if="!authorized" to="/admin/identity">{{ t('author.canvas.log_in_to_access_canvas') }}</RouterLink>
+    <RouterLink v-else-if="!authorized" :to="{ name: 'login', query: { redirect: route.fullPath } }">{{ t('author.canvas.log_in_to_access_canvas') }}</RouterLink>
     <template v-else>
       <ElAlert v-if="error" type="error" :title="error" :closable="false" />
       <p v-if="message" role="status">{{ message }}</p>

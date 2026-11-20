@@ -1366,7 +1366,7 @@ async function reloadDraft() {
     <p v-if="!authorizationReady || loading" role="status">{{ t('author.write.openingTheEditor') }}</p>
     <template v-else-if="!currentSession?.canAuthor">
       <ElAlert :title="failure || t('author.write.logInWithAnAuthorAccountToWrite')" type="info" :closable="false" />
-      <p><RouterLink to="/admin/identity">{{ t('author.write.logIn') }}</RouterLink></p>
+      <p><RouterLink :to="{ name: 'login', query: { redirect: route.fullPath } }">{{ t('author.write.logIn') }}</RouterLink></p>
     </template>
     <p v-else-if="id === undefined" role="status">{{ t('author.write.openAnArticleOrStartANewDraft') }}</p>
     <template v-else-if="!editable">

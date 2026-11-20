@@ -124,6 +124,25 @@ internal sealed partial class AdminPasskeyStore(NpgsqlDataSource source, Instanc
         finally { CryptographicOperations.ZeroMemory(raw); }
     }
 
+    internal async Task<string> CompleteUnifiedLogin(NpgsqlConnection db, NpgsqlTransaction tx, PasskeyLoginRequest request,
+        string optionsJson, DateTimeOffset challengeStartedAt, CancellationToken ct)
+    {
+        RequireCredentialId(request.CredentialId, request.RawId);
+        if (request.AuthenticatorData.Length < 37) throw Denied();
+        var principal = await LockPrincipal(db, tx, """
+            select principal_id from public.admin_passkey_credential where credential_id=$1
+            """, request.RawId, ct);
+        if (challengeStartedAt <= principal.GenerationChangedAt) throw Denied();
+        await VerifyCredential(db, tx, principal.Id, principal.UserHandle, request, AssertionOptions.FromJson(optionsJson), ct);
+        var raw = RandomNumberGenerator.GetBytes(32);
+        try
+        {
+            await AdminSignInHistory.RecordAsync(db, tx, principal.Id, SHA256.HashData(raw), principal.Generation, ct);
+            return Convert.ToHexStringLower(raw);
+        }
+        finally { CryptographicOperations.ZeroMemory(raw); }
+    }
+
     private async Task VerifyCredential(NpgsqlConnection db, NpgsqlTransaction tx, Guid principal, byte[] handle,
         PasskeyLoginRequest request, AssertionOptions options, CancellationToken ct, bool requireHandle = true)
     {

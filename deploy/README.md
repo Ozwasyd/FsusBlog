@@ -5,6 +5,7 @@ FsusBlog v2 默认采用**统一单域名架构**：公开站点（`/`、`/archi
 安全边界由多层纵深防御共同保障，无需维护第二套管理域名与证书：
 
 - **严格 CSP 与 XSS 清洗**：服务端在所有响应上统一输出 `Content-Security-Policy`（`default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`）、`X-Content-Type-Options: nosniff`、`Referrer-Policy: same-origin`，公开内容经安全 Markdown 渲染器输出，禁止原始 HTML 与不安全 URL 协议。
+- **统一登录与按身份分流**：普通用户与管理员共用 `/login` Passkey 登录入口（支持一次性票据与管理员引导密钥），服务端按 Passkey 归属表自动签发各自隔离的会话 Cookie，登录成功后分别跳转到普通用户后台（`/user/identity/mfa`）与管理后台（`/admin/site`）。
 - **身份与凭据隔离**：普通读者（`blog_user` / `passkey_credential` / `fsus-v2-session`）与管理员（`admin_principal` / `admin_passkey_credential` / `__Host-FsusAdminSession`）在数据库表、Passkey 凭据表、会话 Cookie 与会话接口（`/api/v2/identity/session.aeds` vs `/api/v2/admin/identity/session.aeds` & `/api/v2/authoring/session.aeds`）上完全隔离。
 - **高危操作防护**：保留 `SameSite=Strict`、`HttpOnly`、`X-Fsus-Admin-Permission-Session` 防串响应头、45 秒一次性 Passkey 二次验证（Step-Up）、双人申诉复核与全写操作同源校验。
 

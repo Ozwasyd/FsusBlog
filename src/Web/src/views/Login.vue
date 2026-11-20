@@ -1,16 +1,28 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
 import { WireLimits } from '../../../Contracts/wire.generated'
+import { readAdminAuthority } from '../../../Contracts/admin-identity'
 import { passkeyAvailable } from '../../../Contracts/passkey'
 import { readerRegistrationAvailable } from '../../../Contracts/reader-registration'
 import { validMfaFactor } from '../../../Contracts/mfa'
 import { siteRefreshAvailable } from '../../../Contracts/site-refresh'
+import { markAdminSessionHint } from '../authorSession'
 import { cancelMfaLogin, currentSession, registerFirstPasskey, signInWithMfa, signInWithPasskey } from '../session'
 import SiteRecoveryLogin from './SiteRecoveryLogin.vue'
 
+function safeRedirect(raw: unknown, role: 'admin' | 'reader'): string | null {
+  const value = typeof raw === 'string' ? raw : Array.isArray(raw) && typeof raw[0] === 'string' ? raw[0] : ''
+  if (!value.startsWith('/') || value.startsWith('//') || value.includes('\\')) return null
+  const isAdminPath = value === '/admin' || value.startsWith('/admin/')
+  if (role === 'admin') return isAdminPath ? value : null
+  return !isAdminPath && value !== '/login' && value !== '/register' ? value : null
+}
+
+const route = useRoute()
+const router = useRouter()
 const setupOpen = ref(false)
 const ticket = ref('')
 const validTicket = computed(() => /^[A-Za-z0-9_-]+$/.test(ticket.value.trim()) && ticket.value.trim().length <= WireLimits.TicketBytes)
@@ -23,15 +35,25 @@ const hasPasskeys = ref(false)
 const canRegister = ref(false)
 const hasPersistentPasskeys = ref(false)
 const rememberMe = ref(false)
+const adminActive = ref(false)
 const pending = ref<string | null>(null)
 const factor = ref('')
-const router = useRouter()
 const lifetime = new AbortController()
+const adminRedirect = computed(() => safeRedirect(route.query.redirect, 'admin'))
+const readerRedirect = computed(() => safeRedirect(route.query.redirect, 'reader'))
+const wantsAdmin = computed(() => adminRedirect.value !== null)
+const alreadySignedIn = computed(() => wantsAdmin.value ? adminActive.value : Boolean(currentSession.value || adminActive.value))
+
 onUnmounted(() => {
   lifetime.abort()
   if (pending.value) cancelMfaLogin(pending.value)
 })
 onMounted(async () => {
+  void readAdminAuthority(lifetime.signal).then(authority => {
+    if (lifetime.signal.aborted) return
+    adminActive.value = authority.status === 'active'
+    markAdminSessionHint(adminActive.value)
+  }).catch(() => {})
   try { hasPasskeys.value = await passkeyAvailable(lifetime.signal) }
   catch { hasPasskeys.value = false }
   finally { checkingPasskeys.value = false }
@@ -66,9 +88,16 @@ async function usePasskey(register: boolean) {
         registered.value = true
       }
     } else {
-      pending.value = await signInWithPasskey(lifetime.signal, hasPersistentPasskeys.value && rememberMe.value)
-      if (!lifetime.signal.aborted && currentSession.value)
-        await router.replace({ name: 'home' })
+      const result = await signInWithPasskey(lifetime.signal, hasPersistentPasskeys.value && rememberMe.value)
+      if (lifetime.signal.aborted) return
+      if (result.kind === 'mfa') {
+        pending.value = result.token
+      } else if (result.kind === 'admin') {
+        adminActive.value = true
+        await router.replace(adminRedirect.value ?? { name: 'admin-site' })
+      } else if (result.kind === 'reader' && currentSession.value) {
+        await router.replace(readerRedirect.value ?? { name: 'security' })
+      }
     }
   } catch {
     if (!lifetime.signal.aborted)
@@ -77,6 +106,7 @@ async function usePasskey(register: boolean) {
     if (!lifetime.signal.aborted) busy.value = false
   }
 }
+
 async function verifyFactor() {
   const method = validMfaFactor(factor.value)
   if (busy.value || !pending.value || !method) return
@@ -87,7 +117,7 @@ async function verifyFactor() {
     if (!lifetime.signal.aborted && currentSession.value) {
       factor.value = ''
       pending.value = null
-      await router.replace({ name: 'home' })
+      await router.replace(readerRedirect.value ?? { name: 'security' })
     }
   } catch {
     if (!lifetime.signal.aborted) failure.value = 'login.factorFailed'
@@ -109,9 +139,10 @@ function cancelFactor() {
     <h1>{{ t('page.login') }}</h1>
     <p>{{ t('login.subtitle') }}</p>
   </div>
-  <template v-if="currentSession">
-    <RouterLink to="/user/identity/mfa">{{ t('login.security') }}</RouterLink>
-  </template>
+  <div v-if="alreadySignedIn" class="signed-in-links">
+    <RouterLink v-if="adminActive" :to="adminRedirect ?? '/admin/site'">{{ t('login.adminWorkspace') }}</RouterLink>
+    <RouterLink v-if="currentSession" :to="readerRedirect ?? '/user/identity/mfa'">{{ t('login.security') }}</RouterLink>
+  </div>
   <form v-else-if="pending" class="auth-form" @submit.prevent="verifyFactor">
     <label for="login-factor">{{ t('login.factor') }}</label>
     <ElInput id="login-factor" v-model="factor" autocomplete="one-time-code" :disabled="busy" />
@@ -154,12 +185,13 @@ function cancelFactor() {
   </template>
   <div class="auth-footer login-footer">
     <RouterLink to="/">{{ t('login.cancel') }}</RouterLink>
-    <RouterLink v-if="canRegister && !pending && !currentSession" :to="{ name: 'register' }">{{ t('page.register') }}</RouterLink>
+    <RouterLink v-if="canRegister && !pending && !alreadySignedIn" :to="{ name: 'register' }">{{ t('page.register') }}</RouterLink>
   </div>
 </template>
 
-
 <style scoped>
+.signed-in-links { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; margin-block: 1rem; }
+.signed-in-links a { display: inline-flex; align-items: center; min-block-size: 44px; font-weight: 500; }
 .login-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem; }
 .login-footer a { display: inline-flex; align-items: center; min-block-size: 44px; color: var(--el-text-color-secondary); }
 .login-footer a:hover { color: var(--el-text-color-primary); }

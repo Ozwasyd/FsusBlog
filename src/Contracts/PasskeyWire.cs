@@ -106,6 +106,16 @@ public static class PasskeyWire
         return Aeds.Encode(FrameType.AuthLoginFlow, payload);
     }
 
+    public static byte[] AuthenticatedAdministrator()
+    {
+        var payload = new byte[PasskeyAuthLoginFlowSize];
+        BinaryPrimitives.WriteInt32LittleEndian(payload, 1);
+        payload[4] = 1;
+        payload[7] = 1;
+        "administrator"u8.CopyTo(payload.AsSpan(8));
+        return Aeds.Encode(FrameType.AuthLoginFlow, payload);
+    }
+
     public static PasskeyLoginRequest ReadLogin(ReadOnlySpan<byte> frame, bool discoverable = true)
     {
         var p = new Completion(Aeds.Decode(frame, FrameType.PasskeyLoginCompleteRequest), PasskeyLoginCompleteSize, 0);

@@ -12,7 +12,7 @@ import { siteLocale, t, themeLabels } from './siteLocale'
 import SiteAuthLayout from './SiteAuthLayout.vue'
 import AccountWorkspace from './AccountWorkspace.vue'
 import { currentSession, refreshSession, signOut } from './session'
-import { observeAdminAuth, refreshSession as refreshAuthorSession } from './authorSession'
+import { currentSession as currentAuthorSession, hasAdminSessionHint, observeAdminAuth, refreshSession as refreshAuthorSession } from './authorSession'
 import { observeSiteRefresh, siteRenewalDelay } from './site-refresh-coordination'
 import { isSitePageSlug, sitePages } from './sitePageEntry'
 import { consumeFallbackRouteFade } from './routeTransition'
@@ -76,7 +76,7 @@ const accountLinks = computed(() => [
     { to: '/user/identity/mfa', label: t('nav.security') },
   ] : []),
 ])
-const authHref = '/login'
+const authHref = computed(() => (currentSession.value || currentAuthorSession.value) ? '' : '/login')
 const authLabel = computed(() => t('nav.login'))
 watch(() => route.query.q, value => {
   searchQuery.value = typeof value === 'string' ? value : ''
@@ -118,8 +118,12 @@ function contactLink(value: string) {
 }
 const sync = () => {
   if (adminArea.value) return
-  if (adminAuthoringArea.value) void refreshAuthorSession(lifetime.signal).catch(() => {})
-  else void refreshSession(lifetime.signal).catch(() => {})
+  if (adminAuthoringArea.value) {
+    void refreshAuthorSession(lifetime.signal).catch(() => {})
+    return
+  }
+  void refreshSession(lifetime.signal).catch(() => {})
+  if (hasAdminSessionHint()) void refreshAuthorSession(lifetime.signal).catch(() => {})
 }
 const whenVisible = () => { if (document.visibilityState === 'visible') sync() }
 let stopSiteRefresh: (() => void) | undefined
@@ -149,7 +153,8 @@ onMounted(() => {
     if (!adminArea.value && !adminAuthoringArea.value) void refreshSession(lifetime.signal, false).catch(() => {})
   })
   stopAdminAuth = observeAdminAuth(() => {
-    if (adminAuthoringArea.value) void refreshAuthorSession(lifetime.signal, false).catch(() => {})
+    if (adminAuthoringArea.value || (!adminArea.value && hasAdminSessionHint()))
+      void refreshAuthorSession(lifetime.signal, false).catch(() => {})
   })
   sync()
   window.addEventListener('pageshow', sync)
@@ -221,13 +226,15 @@ async function leave() {
       @search="search"
     >
       <template #desktop-actions>
-        <RouterLink v-if="currentSession" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
+        <RouterLink v-if="currentAuthorSession" class="site-header-text-action" to="/admin/site">{{ t('nav.admin') }}</RouterLink>
+        <RouterLink v-if="currentSession" class="site-header-text-action" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
+        <RouterLink v-if="currentSession && route.name !== 'security'" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
         <SiteHeaderPreferences :theme-mode="themeMode" @theme="useTheme" />
       </template>
       <template #mobile-primary-actions>
-        <RouterLink v-if="currentSession" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
+        <RouterLink v-if="currentAuthorSession" class="site-header-text-action" to="/admin/site">{{ t('nav.admin') }}</RouterLink>
+        <RouterLink v-if="currentSession" class="site-header-text-action" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
+        <RouterLink v-if="currentSession && route.name !== 'security'" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
         <div class="public-menu-preferences">
           <SiteLocaleSelect />
           <select class="site-theme-select" :aria-label="t('theme.label')" :value="themeMode ?? 'system'"

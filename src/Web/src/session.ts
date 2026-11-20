@@ -1,8 +1,10 @@
 import { computed, shallowRef } from 'vue'
-import { api, type Session } from '../../Contracts/client'
-import { loginWithPasskey, provisionPasskey } from '../../Contracts/passkey'
+import { api, ApiError, type Session } from '../../Contracts/client'
+import { bootstrapAdminPasskey, validAdminBootstrapToken } from '../../Contracts/admin-identity'
+import { beginPasskeyProvision, completePasskeyProvision, loginWithPasskey } from '../../Contracts/passkey'
 import { completeMfaLogin, type Factor } from '../../Contracts/mfa'
 import { hasSiteRefreshCookie, signOutSiteRefresh } from '../../Contracts/site-refresh'
+import { announceAdminAuthChange, markAdminSessionHint } from './authorSession'
 import { announceSiteAuthChange, readSiteAuthority, refreshSiteAuthority, withSiteAuthMutation } from './site-refresh-coordination'
 
 const authority = shallowRef<{ session: Session | null; identity: number; credential: number }>({
@@ -86,17 +88,36 @@ export async function signIn(ticket: string, signal?: AbortSignal) {
   await mutateLogin(() => api.signIn(ticket, signal), signal)
 }
 
-export async function signInWithPasskey(signal?: AbortSignal, rememberMe = false): Promise<string | null> {
+export type PasskeySignInResult =
+  | { kind: 'reader' }
+  | { kind: 'admin' }
+  | { kind: 'mfa'; token: string }
+  | { kind: 'aborted' }
+
+export async function signInWithPasskey(signal?: AbortSignal, rememberMe = false): Promise<PasskeySignInResult> {
   pendingMfa = undefined
-  let pending: string | null = null
+  const box: { outcome: PasskeySignInResult } = { outcome: { kind: 'aborted' } }
   const accepted = await mutateLogin(async () => {
-    const outcome = await loginWithPasskey(signal, rememberMe)
-    if (outcome.status === 'signed-in') return outcome.session
-    pending = outcome.token
-    return null
+    const result = await loginWithPasskey(signal, rememberMe)
+    if (result.status === 'mfa') {
+      box.outcome = { kind: 'mfa', token: result.token }
+      return null
+    }
+    if (result.role === 'admin') {
+      box.outcome = { kind: 'admin' }
+      return undefined
+    }
+    box.outcome = { kind: 'reader' }
+    return result.session
   }, signal)
-  if (accepted && pending !== null) pendingMfa = pending
-  return accepted ? pending : null
+  if (!accepted) return { kind: 'aborted' }
+  const { outcome } = box
+  if (outcome.kind === 'mfa') pendingMfa = outcome.token
+  if (outcome.kind === 'admin') {
+    markAdminSessionHint(true)
+    announceAdminAuthChange()
+  }
+  return outcome
 }
 
 export async function signInWithMfa(token: string, factor: Factor, signal?: AbortSignal) {
@@ -110,12 +131,22 @@ export function cancelMfaLogin(token: string) {
 export async function registerFirstPasskey(ticket: string, signal?: AbortSignal) {
   pendingMfa = undefined
   await mutateLogin(async () => {
-    await provisionPasskey(ticket, signal)
+    let started: Awaited<ReturnType<typeof beginPasskeyProvision>>
+    try {
+      started = await beginPasskeyProvision(ticket, signal)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401 && validAdminBootstrapToken(ticket)) {
+        await bootstrapAdminPasskey(ticket, signal)
+        return undefined
+      }
+      throw error
+    }
+    await completePasskeyProvision(started, signal)
     return null
   }, signal)
 }
 
-async function mutateLogin(perform: () => Promise<Session | null>, signal?: AbortSignal) {
+async function mutateLogin(perform: () => Promise<Session | null | undefined>, signal?: AbortSignal) {
   const request = ++requestEpoch
   mutation = request
   try {
@@ -123,8 +154,10 @@ async function mutateLogin(perform: () => Promise<Session | null>, signal?: Abor
       if (request !== requestEpoch || signal?.aborted) return false
       const value = await perform()
       if (request !== requestEpoch || signal?.aborted) return false
-      updateSession(value, true)
-      if (value) announceSiteAuthChange()
+      if (value !== undefined) {
+        updateSession(value, true)
+        if (value) announceSiteAuthChange()
+      }
       return true
     })
   } finally {
