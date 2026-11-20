@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
-import { ref, shallowRef } from 'vue'
+import { onMounted, ref, shallowRef } from 'vue'
 import {
   ElAlert, ElButton, ElCopyableDetail, ElFormSection, ElInlineActions, ElInput,
   ElKeyValueGrid, ElKeyValueItem, ElSettingsSection,
@@ -30,8 +30,8 @@ function clear() {
   error.value = ''
 }
 
-async function check() {
-  if (props.sessionSignal.aborted || busy.value) return
+async function check(force = true) {
+  if (props.sessionSignal.aborted || (!force && busy.value)) return
   clear()
   const current = request = new AbortController()
   const signal = AbortSignal.any([current.signal, props.sessionSignal])
@@ -47,7 +47,7 @@ async function check() {
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
-    else error.value = 'admin.riskCheckFailed'
+    else if (force || !(cause instanceof ApiError && cause.status === 403)) error.value = 'admin.riskCheckFailed'
   } finally {
     if (request === current) {
       request = undefined
@@ -88,6 +88,7 @@ async function change(rollback: boolean) {
 }
 
 watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clear)
+onMounted(() => { void check(false) })
 </script>
 
 <template>
@@ -96,7 +97,7 @@ watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clea
       <span id="admin-risk-controls-heading">{{ t('admin.riskControls') }}</span>
     </template>
     <template #actions>
-      <ElButton native-type="button" :loading="busy" @click="check">{{ t('admin.checkRisk') }}</ElButton>
+      <ElButton native-type="button" :loading="busy" @click="check(true)">{{ t('admin.checkRisk') }}</ElButton>
     </template>
     <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" />
     <div aria-live="polite">
@@ -129,7 +130,13 @@ watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clea
       <template #description>
         <span aria-live="polite">{{ t('admin.proofGeneration', { generation: rootPolicy.generation.toString(), seconds: rootPolicy.proofSeconds }) }}</span>
       </template>
-      <ElCopyableDetail class="policy-digest" :value="rootPolicy.digest" />
+      <ElCopyableDetail
+        class="policy-digest"
+        :value="rootPolicy.digest"
+        :label="t('admin.copy')"
+        :copied-label="t('admin.copied')"
+        :error-label="t('admin.copyFailed')"
+      />
       <div class="risk-policy-field">
         <label for="root-comment-proof-seconds">{{ t('admin.proofLifetime') }}</label>
         <ElInput id="root-comment-proof-seconds" v-model="seconds" v-bind="{ inputmode: 'numeric' }" :disabled="busy" />

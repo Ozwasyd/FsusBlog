@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
-import { ref, shallowRef } from 'vue'
+import { onMounted, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElInlineActions, ElResourceList, ElResourceListItem, ElSettingsSection, ElTag } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminSitePage, readAdminSitePages } from '../../../Contracts/admin-site-pages'
@@ -27,8 +27,9 @@ function clear() {
   error.value = ''
 }
 
-async function read(slug?: SitePageSlug) {
-  if (props.sessionSignal.aborted || busy.value) return
+async function read(slug?: SitePageSlug, force = true) {
+  if (props.sessionSignal.aborted || (!force && busy.value)) return
+  active?.abort()
   const request = active = new AbortController()
   const signal = AbortSignal.any([request.signal, props.sessionSignal])
   selected.value = undefined
@@ -47,13 +48,14 @@ async function read(slug?: SitePageSlug) {
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
-    else error.value = 'admin.sitePageLoadFailed'
+    else if (force || !(cause instanceof ApiError && cause.status === 403)) error.value = 'admin.sitePageLoadFailed'
   } finally {
     if (active === request) { active = undefined; busy.value = false }
   }
 }
 
 watchAdminSessionClear(() => props.sessionSignal, clear)
+onMounted(() => { void read(undefined, false) })
 </script>
 
 <template>
@@ -62,7 +64,7 @@ watchAdminSessionClear(() => props.sessionSignal, clear)
       <span id="admin-site-pages-heading">{{ t('admin.sitePages') }}</span>
     </template>
     <template #actions>
-      <ElButton native-type="button" :loading="busy" @click="read()">{{ t('admin.checkSitePages') }}</ElButton>
+      <ElButton native-type="button" :loading="busy" @click="read(undefined, true)">{{ t('admin.checkSitePages') }}</ElButton>
     </template>
     <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" />
     <ElResourceList v-if="pages" class="site-pages-list" density="compact">

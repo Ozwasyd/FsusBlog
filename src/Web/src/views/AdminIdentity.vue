@@ -152,7 +152,13 @@ const links = computed(() => [
   ...(splitAdminHost ? [] : [{ to: '/', label: t('nav.publicSite') }]),
   ...adminWorkspacePages.map(({ path, label }) => ({ to: path, label: t(label) })),
 ])
-watch(section, (next) => { if (next.section !== 'system') clearOperations() })
+watch([() => authority.value, () => section.value.section], ([current, currentSection]) => {
+  if (currentSection !== 'system') {
+    clearOperations()
+    return
+  }
+  if (current?.status === 'active') void checkOperations(false)
+}, { immediate: true })
 
 function clearOperations() {
   operationsRequest?.abort()
@@ -162,9 +168,9 @@ function clearOperations() {
   operationsFailure.value = ''
 }
 
-async function checkOperations() {
+async function checkOperations(force = true) {
   const active = authority.value
-  if (active?.status !== 'active' || busy.value || operationsBusy.value) return
+  if (active?.status !== 'active' || busy.value || (!force && operationsBusy.value)) return
   clearOperations()
   const check = new AbortController()
   operationsRequest = check
@@ -187,6 +193,7 @@ async function checkOperations() {
       if (observed?.status === 'signed-out') { handleSessionLoss(error); return }
       if (observed && !same(observed)) { setAuthority(observed); return }
     }
+    if (!force && error instanceof ApiError && error.status === 403) return
     operationsFailure.value = 'admin.operationsFailed'
   } finally {
     if (operationsRequest === check) {
@@ -284,7 +291,7 @@ function logOut() {
           ariaLabelledby="admin-operations-heading" density="compact">
           <template #title><span id="admin-operations-heading">{{ t('admin.operationsStatus') }}</span></template>
           <template #actions>
-            <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations">{{ t('admin.checkOperations') }}</ElButton>
+            <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations(true)">{{ t('admin.checkOperations') }}</ElButton>
           </template>
           <ElAlert v-if="operationsFailure" :title="t(operationsFailure)" type="error" :closable="false" show-icon />
           <div aria-live="polite">
