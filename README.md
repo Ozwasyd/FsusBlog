@@ -22,7 +22,7 @@ tools/protocol-test.sh
 日常开发推荐使用一键脚本 `tools/dev.sh`，自动拉起 `.dev-data/` 下的独立持久化 PostgreSQL 18、初始化 Schema 并并行启动后端（`dotnet watch`）与前端（Vite HMR，支持联动修改 `../FsusUI` 源码实时热更新）：
 
 ```sh
-# 首次启动并灌入示例文章、分类标签、待审评论与支持工单
+# 首次启动并灌入示例文章、分类标签、阅读计数、待审评论与支持工单
 ./tools/dev.sh --seed
 
 # 清空本地开发库重建并重新灌入示例数据

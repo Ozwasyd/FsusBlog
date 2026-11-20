@@ -18,7 +18,7 @@ Starts an isolated local development stack with hot reload:
 
 Options:
   --reset          Wipe .dev-data/ and initialize a fresh database before starting
-  --seed           Idempotently seed demo articles, taxonomy, comments, and an inbox thread
+  --seed           Idempotently seed demo articles, taxonomy, comments, read counts, and an inbox thread
   --admin-session  Provision a local dev Passkey fixture + 24h admin cookie in .dev-data/
   --db-only        Start only PostgreSQL + initialized schema/data dir (for IDE F5 debugging)
   --no-watch       Use dotnet run instead of dotnet watch for the backend
@@ -413,6 +413,100 @@ FROM deliv, msg;
 UPDATE public.inbox_conversation c
 SET last_message_id = (SELECT max(m.id) FROM public.inbox_message m WHERE m.conversation_id = c.id)
 WHERE c.last_message_id IS NULL;
+
+COMMIT;
+SQL
+    "$dotnet_bin" "$cli_dll" verify >/dev/null
+  fi
+
+  has_reads=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.article_read_total")
+  if [[ "$has_reads" == "0" ]]; then
+    "${psql_db[@]}" >/dev/null <<'SQL'
+BEGIN;
+
+-- Seed consistent verified read counts for the first two published articles so the homepage
+-- "Popular articles" section displays realistic demo counts on local HTTP dev.
+WITH ranked AS (
+  SELECT id, row_number() OVER (ORDER BY id ASC) AS seq
+  FROM public.article
+  WHERE published_revision IS NOT NULL AND NOT deleted
+),
+seeded_totals AS (
+  INSERT INTO public.article_read_total (article_id, views)
+  SELECT id, CASE seq WHEN 1 THEN 128 WHEN 2 THEN 74 END
+  FROM ranked
+  WHERE seq <= 2
+  ON CONFLICT (article_id) DO NOTHING
+  RETURNING article_id
+),
+seeded_hours AS (
+  INSERT INTO public.article_read_hour (article_id, hour_utc, count)
+  SELECT r.id, date_trunc('hour', now(), 'UTC') - make_interval(hours => v.hours_ago), v.cnt
+  FROM ranked r
+  JOIN (VALUES
+    (1, 26, 21::bigint),
+    (1, 18, 34::bigint),
+    (1,  8, 45::bigint),
+    (1,  2, 28::bigint),
+    (2, 20, 19::bigint),
+    (2, 10, 24::bigint),
+    (2,  3, 31::bigint)
+  ) AS v(seq, hours_ago, cnt) ON v.seq = r.seq
+  WHERE EXISTS (SELECT 1 FROM seeded_totals st WHERE st.article_id = r.id)
+  ON CONFLICT (article_id, hour_utc) DO NOTHING
+),
+seeded_dwell AS (
+  INSERT INTO public.article_read_dwell (article_id, day_utc, bucket, count)
+  SELECT r.id, ((now() AT TIME ZONE 'UTC')::date - v.days_ago), v.bucket, v.cnt
+  FROM ranked r
+  JOIN (VALUES
+    (1, 1, 0,  9::bigint),
+    (1, 1, 1, 18::bigint),
+    (1, 1, 2, 19::bigint),
+    (1, 1, 3,  9::bigint),
+    (1, 0, 0, 11::bigint),
+    (1, 0, 1, 22::bigint),
+    (1, 0, 2, 26::bigint),
+    (1, 0, 3, 14::bigint),
+    (2, 1, 0,  4::bigint),
+    (2, 1, 1,  7::bigint),
+    (2, 1, 2,  5::bigint),
+    (2, 1, 3,  3::bigint),
+    (2, 0, 0,  9::bigint),
+    (2, 0, 1, 18::bigint),
+    (2, 0, 2, 17::bigint),
+    (2, 0, 3, 11::bigint)
+  ) AS v(seq, days_ago, bucket, cnt) ON v.seq = r.seq
+  WHERE EXISTS (SELECT 1 FROM seeded_totals st WHERE st.article_id = r.id)
+  ON CONFLICT (article_id, day_utc, bucket) DO NOTHING
+)
+UPDATE public.article_read_epoch
+SET last_epoch = GREATEST(COALESCE(last_epoch, 0), floor(extract(epoch FROM (now() - interval '1 hour')) / 900)::bigint)
+WHERE singleton AND EXISTS (SELECT 1 FROM seeded_totals);
+
+COMMIT;
+SQL
+    "$dotnet_bin" "$cli_dll" verify >/dev/null
+  fi
+
+  has_traffic=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.site_traffic_daily")
+  if [[ "$has_traffic" == "0" ]]; then
+    "${psql_db[@]}" >/dev/null <<'SQL'
+BEGIN;
+
+-- Seed 7 days of sample site traffic aggregates (visible in /admin/site when HTTPS traffic stats are enabled).
+INSERT INTO public.site_traffic_daily (day, region, views)
+SELECT ((now() AT TIME ZONE 'UTC')::date - v.days_ago), v.region, v.views
+FROM (VALUES
+  (6, 'CN-SH', 24::bigint), (6, 'CN-BJ', 14::bigint), (6, 'US',  8::bigint), (6, 'unknown', 5::bigint),
+  (5, 'CN-SH', 31::bigint), (5, 'CN-BJ', 19::bigint), (5, 'JP',  7::bigint), (5, 'unknown', 6::bigint),
+  (4, 'CN-SH', 28::bigint), (4, 'US',    12::bigint), (4, 'JP',  9::bigint), (4, 'unknown', 4::bigint),
+  (3, 'CN-SH', 36::bigint), (3, 'CN-BJ', 22::bigint), (3, 'US', 15::bigint), (3, 'unknown', 7::bigint),
+  (2, 'CN-SH', 42::bigint), (2, 'CN-BJ', 26::bigint), (2, 'JP', 11::bigint), (2, 'unknown', 8::bigint),
+  (1, 'CN-SH', 39::bigint), (1, 'CN-BJ', 24::bigint), (1, 'US', 16::bigint), (1, 'JP',      9::bigint),
+  (0, 'CN-SH', 33::bigint), (0, 'CN-BJ', 18::bigint), (0, 'US', 13::bigint), (0, 'unknown', 6::bigint)
+) AS v(days_ago, region, views)
+ON CONFLICT (day, region) DO NOTHING;
 
 COMMIT;
 SQL
