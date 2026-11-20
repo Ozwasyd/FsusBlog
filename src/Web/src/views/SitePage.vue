@@ -3,7 +3,7 @@ import { t } from '../siteLocale'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ElAlert, ElButton } from '@ozwasyd/element-plus'
-import { isSitePageSlug, readSitePage, updateSitePageRobots } from '../sitePageEntry'
+import { consumeInitialSitePage, isSitePageSlug, readSitePage, updateSitePageRobots } from '../sitePageEntry'
 
 const route = useRoute()
 const slug = computed(() => isSitePageSlug(route.name) ? route.name : undefined)
@@ -13,10 +13,22 @@ const state = ref<'loading' | 'failed' | 'ready'>('loading')
 const retry = ref(0)
 
 watch([slug, retry], async ([value], _, cleanup) => {
+  if (!value) {
+    page.value = undefined
+    state.value = 'loading'
+    updateSitePageRobots(false)
+    return
+  }
+  const cached = consumeInitialSitePage(value)
+  if (cached) {
+    page.value = cached
+    state.value = 'ready'
+    updateSitePageRobots(cached.configured)
+    return
+  }
   page.value = undefined
   state.value = 'loading'
   updateSitePageRobots(false)
-  if (!value) return
   const request = new AbortController()
   const timeout = window.setTimeout(() => request.abort('timeout'), 4_000)
   let current = true

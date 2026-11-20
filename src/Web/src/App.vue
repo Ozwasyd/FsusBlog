@@ -2,7 +2,8 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { syncThemeMode, writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
-import { ElConfigProvider, ElPublicShell, ElButton, runViewTransition } from '@ozwasyd/element-plus'
+import { ElConfigProvider, ElPublicShell, ElButton } from '@ozwasyd/element-plus'
+import { runSiteViewTransition } from './viewTransition'
 import en from '@element-plus/locale/lang/en'
 import zhCn from '@element-plus/locale/lang/zh-cn'
 import SiteLocaleSelect from './SiteLocaleSelect.vue'
@@ -13,6 +14,7 @@ import AccountWorkspace from './AccountWorkspace.vue'
 import { currentSession, refreshSession, signOut } from './session'
 import { observeSiteRefresh, siteRenewalDelay } from './site-refresh-coordination'
 import { isSitePageSlug, sitePages } from './sitePageEntry'
+import { consumeFallbackRouteFade } from './routeTransition'
 import { siteTitle } from './siteBrand'
 import navigation from '../../Contracts/public-navigation.json' with { type: 'json' }
 import { getSiteCompliance, getSiteSeo, type SiteCompliance } from '../../Contracts/site-config.ts'
@@ -39,7 +41,7 @@ function useTheme(mode: ThemeMode) {
     applyTheme(mode)
     return
   }
-  runViewTransition(async () => {
+  runSiteViewTransition(async () => {
     applyTheme(mode)
     await nextTick()
   }, { name: 'theme-switch' })
@@ -81,16 +83,16 @@ watch(() => route.query.q, value => {
 
 const publicContent = ref<HTMLElement>()
 const authLayout = ref<InstanceType<typeof SiteAuthLayout>>()
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
-// Animate the destination content, not its shell. Query/hash, theme, and
-// locale changes do not replay the transition.
+// Fallback pure-opacity fade when native View Transitions are unavailable.
+// Modern browsers run FsusUI's route-crossfade via routeTransition.ts.
 watch(() => route.path, (_, __, cleanup) => {
+  if (!consumeFallbackRouteFade()) return
   const content = siteAuthPage.value ? authLayout.value?.content : publicContent.value
-  if (!content || reducedMotion.matches || typeof content.animate !== 'function') return
+  if (!content || typeof content.animate !== 'function') return
   const animation = content.animate([
-    { opacity: .18, transform: 'translateY(10px)' },
-    { opacity: 1, transform: 'translateY(0)' },
-  ], { duration: 250, easing: 'ease-out' })
+    { opacity: 0 },
+    { opacity: 1 },
+  ], { duration: 220, easing: 'cubic-bezier(0, 0, 0.2, 1)' })
   cleanup(() => animation.cancel())
 }, { flush: 'post' })
 

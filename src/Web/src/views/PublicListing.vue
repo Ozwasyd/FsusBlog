@@ -12,7 +12,7 @@ import {
 import {
   taxonomyArticles, taxonomyMetadata, type TaxonomyKind, type TaxonomyMetadata,
 } from '../../../Contracts/taxonomy-client'
-import { pageNumber, readInitialListing } from '../publicEntry'
+import { pageNumber, readInitialListing, readInitialTaxonomy } from '../publicEntry'
 import { createLocalSearch } from '../localSearch'
 import { loadPublicHotArticles } from '../publicHotArticles'
 import { siteTitle } from '../siteBrand'
@@ -105,14 +105,21 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, 
     if (search) {
       result = await localSearch.search(text, request.signal, ordinal, pageSize, sort)
     } else if (kind) {
-      const [metadata, page] = await Promise.all([
-        taxonomyMetadata(kind, categoryOrTagId, request.signal),
-        taxonomyArticles(kind, categoryOrTagId, ordinal, pageSize, request.signal, currentCursor),
-      ])
-      if (request.signal.aborted) return
-      filter.value = metadata
-      document.title = `${metadata.name} · ${siteTitle}`
-      result = page
+      const initial = !token ? readInitialTaxonomy(kind, categoryOrTagId, ordinal) : undefined
+      if (initial) {
+        filter.value = initial.metadata
+        document.title = `${initial.metadata.name} · ${siteTitle}`
+        result = initial.result
+      } else {
+        const [metadata, page] = await Promise.all([
+          taxonomyMetadata(kind, categoryOrTagId, request.signal),
+          taxonomyArticles(kind, categoryOrTagId, ordinal, pageSize, request.signal, currentCursor),
+        ])
+        if (request.signal.aborted) return
+        filter.value = metadata
+        document.title = `${metadata.name} · ${siteTitle}`
+        result = page
+      }
     } else {
       result = (!token ? readInitialListing(ordinal, home ? 'home' : 'archive') : undefined)
         ?? await api.publicList(ordinal, pageSize, request.signal, { archive: !home, cursor: currentCursor })

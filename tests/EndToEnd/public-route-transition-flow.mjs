@@ -10,12 +10,32 @@ try {
     const context = await browser.newContext({ locale: 'en-US', reducedMotion, viewport: { width: 1280, height: 800 } })
     await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort())
     await context.addInitScript(() => {
-      window.routeFades = []
+      window.routeTransitions = []
+      window.localeTransitions = []
+      window.fallbackFades = []
       const animate = Element.prototype.animate
       Element.prototype.animate = function (keyframes, options) {
         if (this.matches('#page-content, .site-auth-main'))
-          window.routeFades.push({ path: location.pathname, outlet: this.id || 'auth', keyframes, options })
+          window.fallbackFades.push({ path: location.pathname, outlet: this.id || 'auth', keyframes, options })
         return animate.call(this, keyframes, options)
+      }
+      const start = document.startViewTransition?.bind(document)
+      if (typeof start === 'function') {
+        document.startViewTransition = function (cb) {
+          const kind = document.documentElement.dataset.fsusblogTransitioning ?? ''
+          const fromPath = location.pathname
+          const entry = { kind, fromPath, toPath: '', loadingSeen: false, finished: false }
+          if (kind === 'route-crossfade') window.routeTransitions.push(entry)
+          else if (kind === 'locale-switch') window.localeTransitions.push(entry)
+          const transition = start(async () => {
+            await cb()
+            entry.toPath = location.pathname
+            const status = document.querySelector('#page-content [role="status"]')
+            entry.loadingSeen = Boolean(status && /loading/i.test(status.textContent ?? ''))
+          })
+          transition.finished.finally(() => { entry.finished = true })
+          return transition
+        }
       }
     })
     const page = await context.newPage()
@@ -27,7 +47,8 @@ try {
     await page.goto(origin)
     await page.locator('.el-public-shell').waitFor()
     await page.getByRole('button', { name: 'Interface language' }).filter({ visible: true }).waitFor()
-    assert.deepEqual(await page.evaluate(() => window.routeFades), [])
+    assert.deepEqual(await page.evaluate(() => window.routeTransitions), [])
+    assert.deepEqual(await page.evaluate(() => window.fallbackFades), [])
     await page.evaluate(() => { window.initialHeader = document.querySelector('header'); window.initialOutlet = document.querySelector('#page-content') })
 
     const nav = page.locator('header').getByRole('link')
@@ -40,23 +61,29 @@ try {
     await page.goBack()
     await page.waitForURL(origin + '/archive')
     await page.getByRole('heading', { name: 'Archive', exact: true }).waitFor()
-
-    const fades = await page.evaluate(() => window.routeFades)
-    assert.deepEqual(fades.map(fade => fade.path), reducedMotion === 'reduce' ? [] : ['/archive', '/about', '/archive'])
-    for (const fade of fades) {
-      assert.equal(fade.options.duration, 250)
-      assert.deepEqual(fade.keyframes, [
-        { opacity: .18, transform: 'translateY(10px)' },
-        { opacity: 1, transform: 'translateY(0)' },
-      ])
+    if (reducedMotion === 'no-preference') {
+      await page.waitForFunction(() => window.routeTransitions.length === 3 && window.routeTransitions.every(t => t.finished))
     }
+
+    const transitions = await page.evaluate(() => window.routeTransitions)
+    assert.deepEqual(transitions.map(t => t.toPath), reducedMotion === 'reduce' ? [] : ['/archive', '/about', '/archive'])
+    for (const t of transitions) {
+      assert.equal(t.loadingSeen, false, `Expected prefetched content ready before snapshot on ${t.toPath}`)
+    }
+    assert.deepEqual(await page.evaluate(() => window.fallbackFades), [])
     assert.deepEqual(docs, [origin + '/'])
     assert.equal(await page.evaluate(() => window.initialHeader === document.querySelector('header') && window.initialOutlet === document.querySelector('#page-content')), true)
 
     await page.locator('.site-locale-menu button').click()
     await page.getByRole('menuitem', { name: '中文', exact: true }).click()
     await page.getByRole('heading', { name: '归档', exact: true }).waitFor()
-    assert.deepEqual(await page.evaluate(() => window.routeFades), fades)
+    assert.deepEqual(await page.evaluate(() => window.routeTransitions), transitions)
+    if (reducedMotion === 'no-preference') {
+      await page.waitForFunction(() => window.localeTransitions.length === 1 && window.localeTransitions[0].finished)
+    } else {
+      assert.equal(await page.evaluate(() => window.localeTransitions.length), 0)
+    }
+
     await nav.filter({ hasText: /^登录$/ }).click()
     await page.waitForURL(origin + '/login')
     await page.locator('.site-auth-main h1').waitFor()
@@ -74,12 +101,49 @@ try {
     }
     await page.getByRole('link', { name: '取消', exact: true }).click()
     await page.waitForURL(origin + '/')
-    const moreFades = await page.evaluate(start => window.routeFades.slice(start), fades.length)
-    assert.deepEqual(moreFades.map(({ path, outlet }) => [path, outlet]), reducedMotion === 'reduce'
-      ? [] : [...authPaths.map(path => [path, 'auth']), ['/', 'page-content']])
+    const expectedMore = reducedMotion === 'reduce' ? [] : [...authPaths, '/']
+    if (expectedMore.length) {
+      await page.waitForFunction(count => window.routeTransitions.length === count && window.routeTransitions.every(t => t.finished), transitions.length + expectedMore.length)
+    }
+    const moreTransitions = await page.evaluate(start => window.routeTransitions.slice(start), transitions.length)
+    assert.deepEqual(moreTransitions.map(t => t.toPath), expectedMore)
+    assert.deepEqual(await page.evaluate(() => window.fallbackFades), [])
+    assert.equal(await page.evaluate(() => document.documentElement.dataset.fsusblogTransitioning ?? null), null)
     assert.deepEqual(docs, [origin + '/'])
     assert.deepEqual(errors, [])
     await context.close()
   }
+
+  // Verify pure-opacity fallback when document.startViewTransition is unavailable
+  {
+    const context = await browser.newContext({ locale: 'en-US', reducedMotion: 'no-preference', viewport: { width: 1280, height: 800 } })
+    await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort())
+    await context.addInitScript(() => {
+      Object.defineProperty(document, 'startViewTransition', { value: undefined, configurable: true, writable: true })
+      window.fallbackFades = []
+      const animate = Element.prototype.animate
+      Element.prototype.animate = function (keyframes, options) {
+        if (this.matches('#page-content, .site-auth-main'))
+          window.fallbackFades.push({ path: location.pathname, outlet: this.id || 'auth', keyframes, options })
+        return animate.call(this, keyframes, options)
+      }
+    })
+    const page = await context.newPage()
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    await page.goto(origin)
+    await page.locator('.el-public-shell').waitFor()
+    assert.deepEqual(await page.evaluate(() => window.fallbackFades), [])
+    await page.locator('header').getByRole('link').filter({ hasText: /^Archive$/ }).click()
+    await page.waitForURL(origin + '/archive')
+    await page.getByRole('heading', { name: 'Archive', exact: true }).waitFor()
+    const fades = await page.evaluate(() => window.fallbackFades)
+    assert.equal(fades.length, 1)
+    assert.equal(fades[0].path, '/archive')
+    assert.equal(fades[0].options.duration, 220)
+    assert.deepEqual(fades[0].keyframes, [{ opacity: 0 }, { opacity: 1 }])
+    assert.deepEqual(errors, [])
+    await context.close()
+  }
 } finally { await browser.close() }
-console.log('Verified content-only public and authentication route fades, browser Back, stable headers, no reload and reduced-motion support.')
+console.log('Verified data-ready View Transition route crossfades, browser Back, stable headers, fallback opacity fade, no reload and reduced-motion support.')

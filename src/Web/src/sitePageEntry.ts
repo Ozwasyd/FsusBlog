@@ -25,12 +25,26 @@ export function captureInitialSitePage(slug: unknown): void {
   if (isSitePageSlug(slug)) initial = read(document, slug)
 }
 
-export async function readSitePage(slug: SitePageSlug, signal: AbortSignal): Promise<SitePage> {
-  if (initial?.slug === slug) {
-    const cached = initial
-    initial = undefined
-    return cached
+export function consumeInitialSitePage(slug: SitePageSlug): SitePage | undefined {
+  if (initial?.slug !== slug) return undefined
+  const cached = initial
+  initial = undefined
+  return cached
+}
+
+export async function preloadSitePage(slug: SitePageSlug, signal: AbortSignal): Promise<void> {
+  initial = undefined
+  try {
+    const page = await readSitePage(slug, signal)
+    if (!signal.aborted) initial = page
+  } catch {
+    // The route view owns loading, error, and retry states on slow or failed fetches.
   }
+}
+
+export async function readSitePage(slug: SitePageSlug, signal: AbortSignal): Promise<SitePage> {
+  const cached = consumeInitialSitePage(slug)
+  if (cached) return cached
   const response = await fetch('/' + slug, {
     signal, redirect: 'error', credentials: 'omit', headers: { Accept: 'text/html' },
   })

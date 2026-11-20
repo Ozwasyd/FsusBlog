@@ -20,7 +20,7 @@ defineExpose({ content })
       </div>
     </div>
   </header>
-  <main ref="content" class="auth-page site-auth-main">
+  <main ref="content" class="auth-page site-auth-main" tabindex="-1">
     <slot />
   </main>
 </template>

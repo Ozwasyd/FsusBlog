@@ -242,7 +242,7 @@ p { line-height: 1.65; }
   color: var(--el-text-color-primary);
 }
 .site-header-text-action:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
-:root[data-fsus-view-transition] .site-header-dropdown-popper {
+:root[data-fsusblog-transitioning] .site-header-dropdown-popper {
   visibility: hidden;
   pointer-events: none;
 }
