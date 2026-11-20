@@ -434,13 +434,14 @@ internal sealed class WebPages(string template, PublicSiteConfiguration? site = 
         bool noIndex = false, string? publicPath = null, bool contentDriven = false, string locale = SiteLocale.Default)
     {
         var flow = contentDriven ? " data-content-flow=\"content-driven\"" : "";
+        var searchLink = publicPath == "/search" ? "" : $"""<a href="/search">{SiteLocale.Html(locale, "nav.search")}</a>""";
         var shell = $"""
             <div class="public-initial">
             <a class="skip-link" href="#page-content">{SiteLocale.Html(locale, "nav.skip")}</a>
             <header class="public-initial-header"><div class="public-initial-bar">
             <div class="public-initial-brand-nav"><a class="public-initial-brand" href="/">{HtmlEncoder.Default.Encode(SiteTitle)}</a>
             <nav aria-label="{SiteLocale.Html(locale, "nav.primary")}">{PublicNavigation.Render(publicPath, locale)}</nav></div>
-            <div class="public-initial-actions"><a href="/search">{SiteLocale.Html(locale, "nav.search")}</a><a href="/login">{SiteLocale.Html(locale, "nav.login")}</a>{SiteLocale.Selector(locale)}</div>
+            <div class="public-initial-actions">{searchLink}<a href="/login">{SiteLocale.Html(locale, "nav.login")}</a>{SiteLocale.Selector(locale)}</div>
             </div></header><main id="page-content" tabindex="-1" data-fsus-public-content{flow}>{content}</main></div>
             """;
         return Page(shell, title, description, locale, noIndex, publicPath, locale: locale);

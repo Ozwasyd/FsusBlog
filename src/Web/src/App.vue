@@ -23,6 +23,7 @@ import { getSiteCompliance, getSiteSeo, type SiteCompliance } from '../../Contra
 const route = useRoute()
 const router = useRouter()
 const siteAuthPage = computed(() => route.name === 'login' || route.name === 'register')
+const searchPage = computed(() => route.name === 'search')
 const searchQuery = ref('')
 const themeMode = ref<ThemeMode>()
 const selected = document.documentElement.dataset.themeMode
@@ -78,9 +79,9 @@ const accountLinks = computed(() => [
 ])
 const authHref = computed(() => (currentSession.value || currentAuthorSession.value) ? '' : '/login')
 const authLabel = computed(() => t('nav.login'))
-watch(() => route.query.q, value => {
-  searchQuery.value = typeof value === 'string' ? value : ''
-}, { immediate: true })
+watch(() => route.path, () => {
+  searchQuery.value = ''
+})
 
 const publicContent = ref<HTMLElement>()
 const authLayout = ref<InstanceType<typeof SiteAuthLayout>>()
@@ -176,7 +177,9 @@ onUnmounted(() => {
 })
 
 function search(value: string) {
-  void router.push({ name: 'search', query: value.trim() ? { q: value.trim() } : {} })
+  const query = value.trim()
+  searchQuery.value = ''
+  void router.push({ name: 'search', query: query ? { q: query } : {} })
 }
 
 async function leave() {
@@ -214,14 +217,15 @@ async function leave() {
       :nav-items="publicNavigation"
       :active-nav="String(route.name ?? '')"
       active-nav-motion="indicator"
-      desktop-search-mode="trigger"
+      :show-search="!searchPage"
+      :desktop-search-mode="searchPage ? 'none' : 'trigger'"
       :search-aria-label="t('nav.search')"
       :search-placeholder="t('nav.search')"
       :mobile-nav-label="t('nav.primary')"
       :mobile-nav-menu-label="t('nav.menu')"
       :mobile-search-trigger-label="t('nav.search')"
       :mobile-search-cancel-label="t('nav.cancel')"
-      mobile-search-mode="trigger"
+      :mobile-search-mode="searchPage ? 'none' : 'trigger'"
       :auth-href="authHref"
       :auth-label="authLabel"
       v-model:search-query="searchQuery"
