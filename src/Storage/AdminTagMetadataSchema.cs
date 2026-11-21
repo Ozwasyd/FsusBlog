@@ -41,13 +41,24 @@ internal static partial class CurrentSchema
         "admin_category_metadata_command c session_reference octet_length(session_reference)=32"
     ];
 
+    private static readonly string[] AdminTagMetadataRelations =
+        ["public.taxonomy_epoch", "public.admin_tag_metadata_command"];
+    private static readonly string[] AdminCategoryMetadataRelations =
+        ["public.admin_category_metadata_command"];
+
     internal static Task<bool> HasAdminTagMetadataAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "The administrator tag metadata schema is incomplete.",
-            "public.taxonomy_epoch", "public.admin_tag_metadata_command");
+            AdminTagMetadataRelations);
+
+    private static bool HasAdminTagMetadata(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("The administrator tag metadata schema is incomplete.", AdminTagMetadataRelations);
 
     internal static Task<bool> HasAdminCategoryMetadataAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "The administrator category metadata schema is incomplete.",
-            "public.admin_category_metadata_command");
+            AdminCategoryMetadataRelations);
+
+    private static bool HasAdminCategoryMetadata(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("The administrator category metadata schema is incomplete.", AdminCategoryMetadataRelations);
 
     private static async Task VerifyTaxonomyEpochAsync(NpgsqlConnection db, NpgsqlTransaction tx, bool category, CancellationToken ct)
     {

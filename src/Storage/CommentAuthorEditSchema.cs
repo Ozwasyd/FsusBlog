@@ -41,16 +41,24 @@ internal static partial class CurrentSchema
         "comment_author_edit_outbox f article_id,comment_id,comment_version public.comment_author_edited:article_id,comment_id,comment_version"
     ];
 
+    private const string CommentAuthorEditedRelation = "public.comment_author_edited";
+    private static readonly string[] CommentAuthorEditRelations =
+        ["public.comment_author_edit_challenge", CommentAuthorEditedRelation, "public.comment_author_edit_outbox"];
+
     internal static Task<bool> HasCommentAuthorEditSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "Comment author edit storage is incomplete.",
-            "public.comment_author_edit_challenge", "public.comment_author_edited", "public.comment_author_edit_outbox");
+            CommentAuthorEditRelations);
+
+    private static bool HasCommentAuthorEditSchema(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("Comment author edit storage is incomplete.", CommentAuthorEditRelations);
 
     internal static async Task<bool> SupportsPendingCommentAuthorEditAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         await ReadCommentAuthorEditStatusAsync(db, tx, ct) == PendingCommentAuthorEditStatus;
 
-    private static async Task<string[]> ReadCommentAuthorEditConstraintsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    private static string[] ReadCommentAuthorEditConstraints(CatalogPresenceSnapshot catalog)
     {
-        var status = await ReadCommentAuthorEditStatusAsync(db, tx, ct);
+        var status = catalog.FindStrictLocalCheckExpression(
+            CommentAuthorEditedRelation, "comment_author_edited_previous_status_check");
         if (status is not (LegacyCommentAuthorEditStatus or PendingCommentAuthorEditStatus))
             throw new InvalidOperationException("FsusBlog V2 constraint shape mismatch. Comment author edit previous status is invalid.");
         return [.. CommentAuthorEditConstraints, "comment_author_edited c previous_status " + status];

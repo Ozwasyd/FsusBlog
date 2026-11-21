@@ -50,7 +50,7 @@ internal static partial class CurrentSchema
         if (required.HasValue && required.Value != found) throw new InvalidOperationException(mismatch);
     }
 
-    private static bool Complete(object? count, int expected, string incomplete) => count switch
+    internal static bool Complete(object? count, int expected, string incomplete) => count switch
     {
         0 => false,
         int found when found == expected => true,

@@ -21,6 +21,11 @@ internal static partial class CurrentSchema
         "comment_reply_notice f conversation_id,message_id public.inbox_message:conversation_id,id"
     ];
 
+    private const string CommentReplyRelation = "public.comment_reply_notice";
+
     internal static Task<bool> HasCommentReplySchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasRelationAsync(db, tx, "public.comment_reply_notice", ct);
+        HasRelationAsync(db, tx, CommentReplyRelation, ct);
+
+    private static bool HasCommentReplySchema(CatalogPresenceSnapshot catalog) =>
+        catalog.HasRelation(CommentReplyRelation);
 }

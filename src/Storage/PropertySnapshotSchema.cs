@@ -31,6 +31,8 @@ internal static partial class CurrentSchema
         "article_revision_property_snapshot f article_id,schema_revision,value_revision public.article_property_snapshot:article_id,schema_revision,value_revision"
     ];
 
+    private const string PropertySnapshotRelation = "public.article_revision_property_snapshot";
+
     internal static async Task<bool> HasPropertySnapshotsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         await using var query = new NpgsqlCommand(
@@ -43,4 +45,12 @@ internal static partial class CurrentSchema
             _ => throw new InvalidOperationException("Invalid saved property snapshot relation.")
         };
     }
+
+    private static bool HasPropertySnapshots(CatalogPresenceSnapshot catalog) =>
+        catalog.GetRelationKind(PropertySnapshotRelation) switch
+        {
+            null => false,
+            'r' => true,
+            _ => throw new InvalidOperationException("Invalid saved property snapshot relation.")
+        };
 }

@@ -29,9 +29,15 @@ internal static partial class CurrentSchema
         ..StepUpConstraints("admin_site_page_step_up", "action=2")
     ];
 
+    private static readonly string[] SitePageEditorRelations =
+        ["public.site_page_content", "public.site_page_publish_audit", "public.admin_site_page_step_up"];
+
     internal static Task<bool> HasSitePageEditorSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "The site page editor schema is partially installed.",
-            "public.site_page_content", "public.site_page_publish_audit", "public.admin_site_page_step_up");
+            SitePageEditorRelations);
+
+    private static bool HasSitePageEditorSchema(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("The site page editor schema is partially installed.", SitePageEditorRelations);
 
     private static async Task VerifySitePageCoordinatesAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {

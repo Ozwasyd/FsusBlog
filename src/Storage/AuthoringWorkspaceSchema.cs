@@ -41,6 +41,17 @@ internal static partial class CurrentSchema
         };
     }
 
+    private static bool HasAuthoringWorkspaceLayout(CatalogPresenceSnapshot catalog) =>
+        catalog.HasColumn(AuthoringWorkspaceRelation, "inspector_open");
+
+    private static bool HasAuthoringWorkspaceGroups(CatalogPresenceSnapshot catalog)
+    {
+        var count = (catalog.HasColumn(AuthoringWorkspaceRelation, "secondary_active_article_id") ? 1 : 0)
+            + (catalog.HasColumn(AuthoringWorkspaceRelation, "secondary_tabs") ? 1 : 0)
+            + (catalog.HasColumn(AuthoringWorkspaceRelation, "focused_group") ? 1 : 0);
+        return Complete(count, 3, "The authoring workspace group schema is incomplete.");
+    }
+
     private static readonly string[] AuthoringWorkspaceConstraints =
     [
         "authoring_workspace p user_id",
