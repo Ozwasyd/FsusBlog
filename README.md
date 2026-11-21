@@ -16,7 +16,7 @@ dotnet test tests/Core/FsusBlog.V2.Core.Tests.csproj -c Release --no-build
 ./tools/protocol-test.sh
 ```
 
-`FsusBlog.V2.slnx` 覆盖 `src/`（`Contracts`、`Core`、`Server`、`Cli`、`PluginWorker`）与 `tests/`（`Core.Tests`、`Integration.Tests`、`ProtocolTests`）全部现有 .NET 工程，项目级构建入口仍保持有效。解决方案构建仅验证受管程序集编译通过，不代表全链路验收：
+`FsusBlog.V2.slnx` 覆盖 `src/`（`Contracts`、`Core`、`Storage`、`Server`、`Cli`、`PluginWorker`）与 `tests/`（`Core.Tests`、`Integration.Tests`、`ProtocolTests`）全部现有 .NET 工程，项目级构建入口仍保持有效。解决方案构建仅验证受管程序集编译通过，不代表全链路验收：
 
 - 协议固定向量与跨栈校验：`tests/Protocol/FsusBlog.V2.ProtocolTests.csproj` 是独立控制台可执行程序，不由 `dotnet test` 运行；须执行 `./tools/protocol-test.sh` 实际运行 C#、TypeScript、本机 C++ 与 Wasm 固定向量。
 - 离线插件工作进程：`src/PluginWorker/FsusBlog.V2.PluginWorker.csproj` 纳入解决方案仅覆盖受管编译，不改变其 Linux ARM64 目标平台限制；发布封装（`tools/stage-linux-plugin-worker.sh`）与真实沙箱验收（`tests/Integration/Migration/linux-managed-plugin-flow.py` 及隔离/cgroup 探针）仍为 Linux ARM64 专用入口，须与受管编译分别记账，见 [离线平台插件执行](docs/product/platform-plugin-offline.md)。
