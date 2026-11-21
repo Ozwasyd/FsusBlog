@@ -2,6 +2,8 @@
 
 首次新建空库使用独立的 `FsusBlog.V2.Cli`。服务启动只读取当前版本标记和约定的关系、列及约束，遇到未预置或部分预置的数据库会中止。迁移和应用服务使用各自的数据库身份。服务身份需要读取 catalog 和 `public.v2_schema`，执行业务所需 DML，以及使用 identity 序列。
 
+建表 SQL 只嵌入 `FsusBlog.V2.Cli`。服务启动准入与 CLI `verify` 共用 `src/Storage/FsusBlog.V2.Storage.csproj` 编译出的同一份形态校验程序集 `FsusBlog.V2.Storage.dll`，两边都通过工程引用携带，不再各自编译源码副本。
+
 `FSUSBLOG_DB` 是含显式数据库名的 Npgsql 连接串。凭据从环境或连接配置注入，命令行只传入操作和文件路径。
 
 ```bash

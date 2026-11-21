@@ -335,10 +335,19 @@
           "Fido2": "[4.0.1, 4.0.1]",
           "FsusBlog.V2.Contracts": "[1.0.0, )",
           "FsusBlog.V2.Core": "[1.0.0, )",
+          "FsusBlog.V2.Storage": "[1.0.0, )",
           "Markdig": "[1.3.2, )",
           "Npgsql": "[10.0.3, )",
           "SkiaSharp": "[3.119.4, 3.119.4]",
           "SkiaSharp.NativeAssets.Linux": "[3.119.4, 3.119.4]"
+        }
+      },
+      "fsusblog.v2.storage": {
+        "type": "Project",
+        "dependencies": {
+          "FsusBlog.V2.Contracts": "[1.0.0, )",
+          "FsusBlog.V2.Core": "[1.0.0, )",
+          "Npgsql": "[10.0.3, )"
         }
       }
     }
