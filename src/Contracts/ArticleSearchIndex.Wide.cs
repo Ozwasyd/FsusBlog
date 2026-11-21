@@ -97,7 +97,26 @@ public sealed partial class ArticleSearchIndex
             foreach (var block in blocks) frequency += FindTerm(block.Terms, hash).Count;
             if (frequency != 0) terms.Add((hash, InverseFrequency(frequency)));
         }
-        if (terms.Count == 0) return new([], 0);
+        List<(string Prefix, double Idf)>? shortTerms = null;
+        if (ArticleSearchTokens.ShortAsciiPrefixes(query) is { Count: > 0 } shortPrefixes)
+        {
+            for (var p = 0; p < shortPrefixes.Count; p++)
+            {
+                var (prefix, hash) = shortPrefixes[p];
+                var prefixDf = 0;
+                for (var ordinal = 0; ordinal < _documents.Length; ordinal++)
+                {
+                    if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
+                    if (ShortPrefixWeight(_documents[ordinal].Article, prefix) > 0) prefixDf++;
+                }
+                if (prefixDf == 0) continue;
+                var exactDf = 0;
+                foreach (var block in blocks) exactDf += FindTerm(block.Terms, hash).Count;
+                shortTerms ??= [];
+                shortTerms.Add((prefix, InverseFrequency(Math.Min(_documents.Length, exactDf + prefixDf))));
+            }
+        }
+        if (terms.Count == 0 && shortTerms is null) return new([], 0);
 
         var candidates = window == 0 ? null : new PriorityQueue<Article, SearchRank>(window);
         var total = 0;
@@ -126,6 +145,25 @@ public sealed partial class ArticleSearchIndex
                         ordinal -= ReadVarint(block.Postings, ref offset);
                         var weight = ReadVarint(block.Postings, ref offset);
                         scores[ordinal] += Score(weight, _documents[block.First + ordinal].Normalization, idf);
+                    }
+                }
+                if (shortTerms is not null)
+                {
+                    for (var p = 0; p < shortTerms.Count; p++)
+                    {
+                        var (prefix, idf) = shortTerms[p];
+                        for (var ordinal = 0; ordinal < block.Count; ordinal++)
+                        {
+                            if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
+                            var weight = ShortPrefixWeight(_documents[block.First + ordinal].Article, prefix);
+                            if (weight == 0) continue;
+                            if (!scored)
+                            {
+                                scores.Clear();
+                                scored = true;
+                            }
+                            scores[ordinal] += Score(weight, _documents[block.First + ordinal].Normalization, idf);
+                        }
                     }
                 }
                 if (scored) Select(scores, block.First, candidates, sort, window, ref total, ct);

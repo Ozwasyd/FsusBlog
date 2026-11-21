@@ -19,10 +19,10 @@ watch(() => route.fullPath, () => { open.value = false })
       <template #brand><RouterLink class="workspace-brand" :to="home">{{ siteTitle }}</RouterLink></template>
       <template #desktop-actions>
         <SiteHeaderPreferences :theme-mode="themeMode" @theme="emit('theme', $event)" />
-        <slot name="actions" />
+        <slot name="actions" :drawer="false" />
       </template>
       <template #mobile-overflow-trigger>
-        <ElButton text class="account-workspace-menu" v-bind="{ 'aria-haspopup': 'dialog', 'aria-expanded': open }" @click="open = true">
+        <ElButton class="account-workspace-menu" v-bind="{ 'aria-haspopup': 'dialog', 'aria-expanded': open }" @click="open = true">
           {{ label }}
         </ElButton>
       </template>
@@ -33,12 +33,18 @@ watch(() => route.fullPath, () => { open.value = false })
       </nav>
       <div class="account-workspace-content" tabindex="-1"><slot /></div>
     </div>
-    <ElDrawer v-model="open" :title="label" direction="rtl" size="min(22rem, 100%)" append-to-body>
-      <nav class="account-workspace-drawer" :aria-label="label">
-        <RouterLink v-for="link in links" :key="link.to" :to="link.to" @click="open = false">{{ link.label }}</RouterLink>
-        <SiteHeaderPreferences :theme-mode="themeMode" @theme="emit('theme', $event)" />
-        <div @click="open = false"><slot name="actions" /></div>
-      </nav>
+    <ElDrawer v-model="open" :title="label" direction="rtl" size="clamp(min(18.5rem, calc(100vw - 24px)), 80vw, 20rem)" append-to-body>
+      <div class="account-workspace-drawer">
+        <nav class="account-workspace-drawer-nav" :aria-label="label">
+          <RouterLink v-for="link in links" :key="link.to" :to="link.to" @click="open = false">{{ link.label }}</RouterLink>
+        </nav>
+        <div class="account-workspace-drawer-section">
+          <SiteHeaderPreferences mobile :theme-mode="themeMode" @theme="emit('theme', $event)" />
+        </div>
+        <div v-if="$slots.actions" class="account-workspace-drawer-section account-workspace-drawer-actions" @click="open = false">
+          <slot name="actions" :drawer="true" />
+        </div>
+      </div>
     </ElDrawer>
   </div>
 </template>
@@ -54,7 +60,20 @@ watch(() => route.fullPath, () => { open.value = false })
   margin-inline: auto;
   padding-inline: var(--fsusblog-page-gutter);
 }
-.account-workspace-nav, .account-workspace-drawer { display: grid; align-content: start; gap: .25rem; }
+.account-workspace-nav, .account-workspace-drawer-nav { display: grid; align-content: start; gap: .25rem; }
+.account-workspace-drawer { display: grid; align-content: start; gap: 1rem; }
+.account-workspace-drawer-section {
+  padding-block-start: 1rem;
+  border-block-start: 1px solid var(--el-border-color-lighter);
+}
+.account-workspace-drawer-actions {
+  display: grid;
+  gap: .5rem;
+}
+.account-workspace-drawer-actions :slotted(*) {
+  inline-size: 100%;
+  margin: 0;
+}
 .account-workspace-nav { padding-block: clamp(2.75rem, 8vw, 5rem); }
 .account-workspace.is-task-surface .account-workspace-nav {
   padding-block: var(--fsus-space-6);
@@ -65,7 +84,8 @@ watch(() => route.fullPath, () => { open.value = false })
 .account-workspace.is-task-surface .account-workspace-content {
   padding-block: var(--fsus-space-6) var(--fsus-space-8);
 }
-.account-workspace-nav a, .account-workspace-drawer a {
+.account-workspace-nav a, .account-workspace-drawer-nav a {
+  position: relative;
   display: flex;
   align-items: center;
   min-block-size: 44px;
@@ -76,14 +96,22 @@ watch(() => route.fullPath, () => { open.value = false })
   transition: color var(--fsus-motion-control) var(--fsus-motion-standard),
     background-color var(--fsus-motion-control) var(--fsus-motion-standard);
 }
-.account-workspace-nav a:hover, .account-workspace-drawer a:hover,
-.account-workspace-nav [aria-current="page"], .account-workspace-drawer [aria-current="page"] {
+.account-workspace-nav a:hover, .account-workspace-drawer-nav a:hover,
+.account-workspace-nav [aria-current="page"], .account-workspace-drawer-nav [aria-current="page"] {
   color: var(--el-text-color-primary);
   background: var(--el-fill-color-light);
 }
-.account-workspace-nav [aria-current="page"], .account-workspace-drawer [aria-current="page"] {
+.account-workspace-nav [aria-current="page"], .account-workspace-drawer-nav [aria-current="page"] {
   font-weight: 500;
-  box-shadow: inset 2px 0 0 var(--fsus-scholarly-blue);
+}
+.account-workspace-nav [aria-current="page"]::before, .account-workspace-drawer-nav [aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  inset-block: .5rem;
+  inset-inline-start: 0;
+  inline-size: 2px;
+  border-radius: 999px;
+  background: var(--fsus-scholarly-blue);
 }
 @media (max-width: 767px) {
   .account-workspace-frame { display: block; padding-inline: 0; }

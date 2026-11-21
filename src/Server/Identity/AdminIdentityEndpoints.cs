@@ -221,11 +221,12 @@ internal static class AdminIdentityEndpoints
             return gate.WithSession(ctx.Request.Cookies[session],
                 (db, tx, _) => ArticleInventoryEndpoints.ReadPage(ctx, query, db, tx, null, ct), ct);
         }).RequireRateLimiting("command");
-        app.MapPost(WireRoutes.AdminArticleDelete, (HttpContext ctx, int id, Publications publications, CancellationToken ct) =>
+        app.MapPost(WireRoutes.AdminArticleDelete, async (HttpContext ctx, int id, Publications publications, CancellationToken ct) =>
         {
+            AdminActionRoutes.RequireOrigin(ctx, config.Origin.GetLeftPart(UriPartial.Authority));
             if (id <= 0) throw new BusinessException(Rejection.Invalid, "Invalid article ID.");
-            return publications.AdministrativePublication(
-                invalidate => trashRestore.DeleteArticle(ctx.Request.Cookies[session], id, invalidate, ct), ct);
+            return Frame(await publications.AdministrativePublication(
+                invalidate => trashRestore.DeleteArticle(ctx.Request.Cookies[session], id, invalidate, ct), ct));
         }).RequireRateLimiting("command");
         app.MapPost(WireRoutes.AdminSignOut, async (HttpContext ctx, CancellationToken ct) =>
         {

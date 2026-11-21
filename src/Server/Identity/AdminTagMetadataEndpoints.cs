@@ -38,12 +38,13 @@ internal static class AdminTagMetadataEndpoints
             (HttpContext ctx, ScopedPow pow, Publications publications, CancellationToken ct) =>
                 Protect(ctx, 0, pow, publications, true, ct)).RequireRateLimiting("command");
         app.MapPost(category ? WireRoutes.AdminCategoryDelete : WireRoutes.AdminTagDelete,
-            (HttpContext ctx, int id, Publications publications, CancellationToken ct) =>
+            async (HttpContext ctx, int id, Publications publications, CancellationToken ct) =>
             {
+                AdminActionRoutes.RequireOrigin(ctx, origin.GetLeftPart(UriPartial.Authority));
                 if (id <= 0)
                     throw new BusinessException(Rejection.Invalid, category ? "Invalid category ID." : "Invalid tag ID.");
-                return publications.AdministrativePublication(
-                    invalidate => store.DeleteTaxonomy(ctx.Request.Cookies[session], id, category, invalidate, ct), ct);
+                return AdminActionRoutes.Frame(await publications.AdministrativePublication(
+                    invalidate => store.DeleteTaxonomy(ctx.Request.Cookies[session], id, category, invalidate, ct), ct));
             }).RequireRateLimiting("command");
 
         Task<IResult> Protect(HttpContext ctx, int id, ScopedPow pow, Publications? publications, bool create, CancellationToken ct) =>

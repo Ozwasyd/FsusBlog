@@ -53,7 +53,7 @@ internal static partial class CurrentSchema
     {
         var categoryHistory = category ? "union all select revision from public.admin_category_metadata_command where changed" : "";
         await using var query = new NpgsqlCommand($"""
-            select revision=coalesce((select max(revision) from (
+            select revision>=coalesce((select max(revision) from (
                 select revision from public.admin_tag_metadata_command where changed
                 {categoryHistory}
             ) as history),0) from public.taxonomy_epoch where singleton
