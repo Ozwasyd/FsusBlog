@@ -19,6 +19,11 @@ internal static partial class CurrentSchema
         "author_text_rebuild_job u available_at,owner_id,profile,definition_id"
     ];
 
+    private const string AuthorTextRebuildRelation = "public.author_text_rebuild_job";
+
     internal static Task<bool> HasAuthorTextRebuildAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
-        HasRelationAsync(db, tx, "public.author_text_rebuild_job", ct);
+        HasRelationAsync(db, tx, AuthorTextRebuildRelation, ct);
+
+    private static bool HasAuthorTextRebuild(CatalogPresenceSnapshot catalog) =>
+        catalog.HasRelation(AuthorTextRebuildRelation);
 }

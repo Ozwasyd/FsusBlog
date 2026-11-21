@@ -21,6 +21,11 @@ internal static partial class CurrentSchema
         "comment_report f reporter_id public.blog_user:id"
     ];
 
+    private const string CommentReportRelation = "public.comment_report";
+
     internal static Task<bool> HasCommentReportSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasRelationAsync(db, tx, "public.comment_report", ct);
+        HasRelationAsync(db, tx, CommentReportRelation, ct);
+
+    private static bool HasCommentReportSchema(CatalogPresenceSnapshot catalog) =>
+        catalog.HasRelation(CommentReportRelation);
 }
