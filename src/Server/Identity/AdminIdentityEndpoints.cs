@@ -81,6 +81,7 @@ internal static class AdminIdentityEndpoints
         var passkeys = new AdminPasskeyStore(database, lease, config);
         var stepUp = new AdminStepUpService(gate, passkeys);
         var signInHistory = new AdminSignInHistoryStore(gate);
+        var readerGovernance = new AdminReaderGovernanceStore(gate, stepUp);
         var operations = new AdminOperationsStore(gate);
         var commentQueue = new AdminCommentQueueStore(gate);
         var moderation = new AdminModerationStore(gate, stepUp);
@@ -179,6 +180,7 @@ internal static class AdminIdentityEndpoints
                 capabilities.TrustLoopbackProxy, readFrame);
         AdminModerationEndpoints.Map(app, config.Origin, moderation, commentAppeals, moderationBatch, session, Limit, readFrame,
             capabilities);
+        AdminReaderGovernanceEndpoints.Map(app, config.Origin, readerGovernance, session, Limit, readFrame);
         AdminInboxEndpoints.Map(app, gate, session, readFrame, capabilities);
         AdminSitePages.Map(app, sitePageStore, session);
         AdminCommentRevisions.Map(app, commentHistory, session);

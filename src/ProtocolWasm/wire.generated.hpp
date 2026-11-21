@@ -85,6 +85,11 @@ inline constexpr uint32_t NameBytes = 256;
 inline constexpr uint32_t AdminClusterNodeIdBytes = 64;
 inline constexpr uint32_t AdminClusterVersionBytes = 96;
 inline constexpr uint32_t AdminSignInHistoryMaxItems = 50;
+inline constexpr uint32_t AdminReaderPageSize = 24;
+inline constexpr uint32_t AdminReaderKeywordChars = 128;
+inline constexpr uint32_t AdminReaderReasonChars = 500;
+inline constexpr uint32_t AdminReaderReasonBytes = 2000;
+inline constexpr uint32_t AdminReaderStatusCommandFrameBytes = 2100;
 inline constexpr uint32_t PageContentChars = 200000;
 inline constexpr uint32_t PageContentBytes = 600000;
 inline constexpr uint32_t AdminSitePageDigestBytes = 64;
@@ -486,6 +491,9 @@ enum class FrameType : uint16_t {
     AdminClusterStatus = 32962,
     AdminSignInHistory = 32963,
     AdminSiteTraffic = 33071,
+    AdminReaderAccountPage = 33072,
+    AdminReaderStatusCommand = 33073,
+    AdminReaderStatusReceipt = 33074,
     AdminSitePages = 32905,
     AdminArticleRollbackIntent = 32924,
     AdminArticleRollbackPreview = 32925,
@@ -693,7 +701,7 @@ inline constexpr FrameRange frameRanges[] = {
     {33032, 33049},
     {33055, 33066},
     {33068, 33068},
-    {33070, 33071},
+    {33070, 33074},
 };
 }
 

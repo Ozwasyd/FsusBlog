@@ -96,6 +96,9 @@
     "AdminClusterStatus": 32962,
     "AdminSignInHistory": 32963,
     "AdminSiteTraffic": 33071,
+    "AdminReaderAccountPage": 33072,
+    "AdminReaderStatusCommand": 33073,
+    "AdminReaderStatusReceipt": 33074,
     "AdminSitePages": 32905,
     "AdminArticleRollbackIntent": 32924,
     "AdminArticleRollbackPreview": 32925,
@@ -347,6 +350,10 @@
     "AdminSession": "/api/v2/admin/identity/session.aeds",
     "AdminSignInHistory": "/api/v2/admin/identity/sessions/history.aeds",
     "AdminSiteTraffic": "/api/v2/admin/identity/site-traffic.aeds",
+    "AdminReaderAccounts": "/api/v2/admin/identity/readers.aeds",
+    "AdminReaderStatusStepUpBegin": "/api/v2/admin/identity/readers/status/step-up/begin.aeds",
+    "AdminReaderStatusStepUpComplete": "/api/v2/admin/identity/readers/status/step-up/complete.aeds",
+    "AdminReaderStatusExecute": "/api/v2/admin/identity/readers/status/execute.aeds",
     "AdminSignOut": "/api/v2/admin/identity/sign-out.aeds",
     "AdminStepUpBegin": "/api/v2/admin/identity/step-up/passkey/begin.aeds",
     "AdminStepUpComplete": "/api/v2/admin/identity/step-up/passkey/complete.aeds",
@@ -628,6 +635,11 @@
     "AdminClusterNodeIdBytes": 64,
     "AdminClusterVersionBytes": 96,
     "AdminSignInHistoryMaxItems": 50,
+    "AdminReaderPageSize": 24,
+    "AdminReaderKeywordChars": 128,
+    "AdminReaderReasonChars": 500,
+    "AdminReaderReasonBytes": 2000,
+    "AdminReaderStatusCommandFrameBytes": 2100,
     "PageContentChars": 200000,
     "PageContentBytes": 600000,
     "AdminSitePageDigestBytes": 64,
@@ -962,6 +974,26 @@
         ["EndedAt", "i64"],
         ["State", "enum", "AdminSignInState"]
       ]
+    },
+    "AdminReaderAccount": {
+      "fields": [
+        ["UserId", "uuid"],
+        ["AccountId", "i32"],
+        ["Name", "text", "NameBytes"],
+        ["DisplayName", "text", "PublicCommentHandleBytes"],
+        ["Enabled", "bool"],
+        ["Generation", "i64"],
+        ["PasskeyCount", "i32"],
+        ["HasRecoveryKey", "bool"],
+        ["HasTotp", "bool"],
+        ["ActiveSessionCount", "i32"],
+        ["CommentCount", "i32"],
+        ["RegisteredAtUnixMs", "i64"],
+        ["LastUsedAtUnixMs", "i64"],
+        ["LastGovernanceAtUnixMs", "i64"],
+        ["LastGovernanceActor", "text", "NameBytes"],
+        ["LastGovernanceReason", "text", "AdminReaderReasonBytes"]
+      ]
     }
   },
   "fieldGroups": {
@@ -1022,6 +1054,36 @@
     "AdminSignInHistorySnapshot": {
       "frame": "AdminSignInHistory",
       "fields": [["Generation", "i64"], ["SignIns", "list", "AdminSignIn", "AdminSignInHistoryMaxItems"]]
+    },
+    "AdminReaderAccountPage": {
+      "fields": [
+        ["Total", "i32"],
+        ["EnabledTotal", "i32"],
+        ["DisabledTotal", "i32"],
+        ["HasMore", "bool"],
+        ["NextCursorAccountId", "i32"],
+        ["NextCursorUserId", "uuid"],
+        ["Items", "list", "AdminReaderAccount", "AdminReaderPageSize"]
+      ]
+    },
+    "AdminReaderStatusCommand": {
+      "fields": [
+        ["UserId", "uuid"],
+        ["ExpectedGeneration", "i64"],
+        ["TargetEnabled", "bool"],
+        ["IdempotencyKey", "uuid"],
+        ["Reason", "text", "AdminReaderReasonBytes"]
+      ]
+    },
+    "AdminReaderStatusReceipt": {
+      "fields": [
+        ["UserId", "uuid"],
+        ["Enabled", "bool"],
+        ["Generation", "i64"],
+        ["RevokedSessionCount", "i32"],
+        ["HappenedAtUnixMs", "i64"],
+        ["Replayed", "bool"]
+      ]
     },
     "AdminArticleRollbackIntent": {
       "fields": [{"group": "AdminArticleRollbackIntentFields"}]

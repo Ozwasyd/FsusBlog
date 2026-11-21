@@ -84,6 +84,9 @@ export const FrameType = {
   AdminClusterStatus: 32962,
   AdminSignInHistory: 32963,
   AdminSiteTraffic: 33071,
+  AdminReaderAccountPage: 33072,
+  AdminReaderStatusCommand: 33073,
+  AdminReaderStatusReceipt: 33074,
   AdminSitePages: 32905,
   AdminArticleRollbackIntent: 32924,
   AdminArticleRollbackPreview: 32925,
@@ -320,6 +323,11 @@ export const WireLimits = {
   AdminClusterNodeIdBytes: 64,
   AdminClusterVersionBytes: 96,
   AdminSignInHistoryMaxItems: 50,
+  AdminReaderPageSize: 24,
+  AdminReaderKeywordChars: 128,
+  AdminReaderReasonChars: 500,
+  AdminReaderReasonBytes: 2000,
+  AdminReaderStatusCommandFrameBytes: 2100,
   PageContentChars: 200000,
   PageContentBytes: 600000,
   AdminSitePageDigestBytes: 64,
@@ -735,6 +743,10 @@ export const WireRoutes = {
   AdminSession: "/api/v2/admin/identity/session.aeds",
   AdminSignInHistory: "/api/v2/admin/identity/sessions/history.aeds",
   AdminSiteTraffic: "/api/v2/admin/identity/site-traffic.aeds",
+  AdminReaderAccounts: "/api/v2/admin/identity/readers.aeds",
+  AdminReaderStatusStepUpBegin: "/api/v2/admin/identity/readers/status/step-up/begin.aeds",
+  AdminReaderStatusStepUpComplete: "/api/v2/admin/identity/readers/status/step-up/complete.aeds",
+  AdminReaderStatusExecute: "/api/v2/admin/identity/readers/status/execute.aeds",
   AdminSignOut: "/api/v2/admin/identity/sign-out.aeds",
   AdminStepUpBegin: "/api/v2/admin/identity/step-up/passkey/begin.aeds",
   AdminStepUpComplete: "/api/v2/admin/identity/step-up/passkey/complete.aeds",
@@ -970,6 +982,27 @@ const adminSignInFields = {
 export interface AdminSignIn extends PodValue<typeof adminSignInFields> {}
 const adminSignInField = /* @__PURE__ */ podField.record<AdminSignIn>(adminSignInFields);
 
+const adminReaderAccountFields = {
+  userId: podField.uuid,
+  accountId: podField.i32,
+  name: podField.text(WireLimits.NameBytes),
+  displayName: podField.text(WireLimits.PublicCommentHandleBytes),
+  enabled: podField.bool,
+  generation: podField.i64,
+  passkeyCount: podField.i32,
+  hasRecoveryKey: podField.bool,
+  hasTotp: podField.bool,
+  activeSessionCount: podField.i32,
+  commentCount: podField.i32,
+  registeredAtUnixMs: podField.i64,
+  lastUsedAtUnixMs: podField.i64,
+  lastGovernanceAtUnixMs: podField.i64,
+  lastGovernanceActor: podField.text(WireLimits.NameBytes),
+  lastGovernanceReason: podField.text(WireLimits.AdminReaderReasonBytes),
+};
+export interface AdminReaderAccount extends PodValue<typeof adminReaderAccountFields> {}
+const adminReaderAccountField = /* @__PURE__ */ podField.record<AdminReaderAccount>(adminReaderAccountFields);
+
 const recoveryKeyOperationFields = {
   operation: podField.i32,
 };
@@ -1104,6 +1137,39 @@ const adminSignInHistorySnapshotFields = {
 };
 export interface AdminSignInHistorySnapshot extends PodValue<typeof adminSignInHistorySnapshotFields> {}
 export const [encodeAdminSignInHistorySnapshot, decodeAdminSignInHistorySnapshot] = /* @__PURE__ */ definePodRecord<AdminSignInHistorySnapshot>(adminSignInHistorySnapshotFields);
+
+const adminReaderAccountPageFields = {
+  total: podField.i32,
+  enabledTotal: podField.i32,
+  disabledTotal: podField.i32,
+  hasMore: podField.bool,
+  nextCursorAccountId: podField.i32,
+  nextCursorUserId: podField.uuid,
+  items: /* @__PURE__ */ podField.list(adminReaderAccountField, WireLimits.AdminReaderPageSize, 83),
+};
+export interface AdminReaderAccountPage extends PodValue<typeof adminReaderAccountPageFields> {}
+export const [encodeAdminReaderAccountPage, decodeAdminReaderAccountPage] = /* @__PURE__ */ definePodRecord<AdminReaderAccountPage>(adminReaderAccountPageFields);
+
+const adminReaderStatusCommandFields = {
+  userId: podField.uuid,
+  expectedGeneration: podField.i64,
+  targetEnabled: podField.bool,
+  idempotencyKey: podField.uuid,
+  reason: podField.text(WireLimits.AdminReaderReasonBytes),
+};
+export interface AdminReaderStatusCommand extends PodValue<typeof adminReaderStatusCommandFields> {}
+export const [encodeAdminReaderStatusCommand, decodeAdminReaderStatusCommand] = /* @__PURE__ */ definePodRecord<AdminReaderStatusCommand>(adminReaderStatusCommandFields);
+
+const adminReaderStatusReceiptFields = {
+  userId: podField.uuid,
+  enabled: podField.bool,
+  generation: podField.i64,
+  revokedSessionCount: podField.i32,
+  happenedAtUnixMs: podField.i64,
+  replayed: podField.bool,
+};
+export interface AdminReaderStatusReceipt extends PodValue<typeof adminReaderStatusReceiptFields> {}
+export const [encodeAdminReaderStatusReceipt, decodeAdminReaderStatusReceipt] = /* @__PURE__ */ definePodRecord<AdminReaderStatusReceipt>(adminReaderStatusReceiptFields);
 
 const adminArticleRollbackIntentFields = {
   articleId: podField.i32,

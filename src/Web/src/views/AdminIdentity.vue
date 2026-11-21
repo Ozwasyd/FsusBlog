@@ -284,6 +284,7 @@ function logOut() {
         <AdminInteractionWorkspace
           v-if="section.section === 'interaction'"
           :key="sessionEpoch"
+          :session="authority.session"
           :session-signal="sessionAuthority.signal"
           @session-lost="handleSessionLoss"
         />

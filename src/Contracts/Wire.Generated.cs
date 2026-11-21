@@ -85,6 +85,9 @@ public enum FrameType : ushort
     AdminClusterStatus = 32962,
     AdminSignInHistory = 32963,
     AdminSiteTraffic = 33071,
+    AdminReaderAccountPage = 33072,
+    AdminReaderStatusCommand = 33073,
+    AdminReaderStatusReceipt = 33074,
     AdminSitePages = 32905,
     AdminArticleRollbackIntent = 32924,
     AdminArticleRollbackPreview = 32925,
@@ -330,6 +333,11 @@ public static class WireLimits
     public const int AdminClusterNodeIdBytes = 64;
     public const int AdminClusterVersionBytes = 96;
     public const int AdminSignInHistoryMaxItems = 50;
+    public const int AdminReaderPageSize = 24;
+    public const int AdminReaderKeywordChars = 128;
+    public const int AdminReaderReasonChars = 500;
+    public const int AdminReaderReasonBytes = 2000;
+    public const int AdminReaderStatusCommandFrameBytes = 2100;
     public const int PageContentChars = 200000;
     public const int PageContentBytes = 600000;
     public const int AdminSitePageDigestBytes = 64;
@@ -747,6 +755,10 @@ public static class WireRoutes
     public const string AdminSession = "/api/v2/admin/identity/session.aeds";
     public const string AdminSignInHistory = "/api/v2/admin/identity/sessions/history.aeds";
     public const string AdminSiteTraffic = "/api/v2/admin/identity/site-traffic.aeds";
+    public const string AdminReaderAccounts = "/api/v2/admin/identity/readers.aeds";
+    public const string AdminReaderStatusStepUpBegin = "/api/v2/admin/identity/readers/status/step-up/begin.aeds";
+    public const string AdminReaderStatusStepUpComplete = "/api/v2/admin/identity/readers/status/step-up/complete.aeds";
+    public const string AdminReaderStatusExecute = "/api/v2/admin/identity/readers/status/execute.aeds";
     public const string AdminSignOut = "/api/v2/admin/identity/sign-out.aeds";
     public const string AdminStepUpBegin = "/api/v2/admin/identity/step-up/passkey/begin.aeds";
     public const string AdminStepUpComplete = "/api/v2/admin/identity/step-up/passkey/complete.aeds";
@@ -965,6 +977,7 @@ public static class WireHeaders
 }
 
 public sealed record AdminSignIn(long StartedAt, long ExpiresAt, long EndedAt, AdminSignInState State);
+public sealed record AdminReaderAccount(Guid UserId, int AccountId, string Name, string DisplayName, bool Enabled, long Generation, int PasskeyCount, bool HasRecoveryKey, bool HasTotp, int ActiveSessionCount, int CommentCount, long RegisteredAtUnixMs, long LastUsedAtUnixMs, long LastGovernanceAtUnixMs, string LastGovernanceActor, string LastGovernanceReason);
 public sealed record RecoveryKeyOperation(int Operation);
 public sealed record RecoveryKeyIssued(string Key, long Version, long CreatedAt);
 public sealed record RecoveryKeyStatus(bool Active);
@@ -980,6 +993,9 @@ public sealed record AdminRootCommentPowPolicy(long Generation, string Digest, i
 public sealed record AdminRootCommentPowCommand(long ExpectedGeneration, string ExpectedDigest, int ProofSeconds, bool Rollback);
 public sealed record AdminClusterStatus(int Mode, string NodeId, Guid InstanceId, string BuildVersion, long StartedAt, long ObservedAt, int LeaseAgeMs, bool SnapshotReady);
 public sealed record AdminSignInHistorySnapshot(long Generation, IReadOnlyList<AdminSignIn> SignIns);
+public sealed record AdminReaderAccountPage(int Total, int EnabledTotal, int DisabledTotal, bool HasMore, int NextCursorAccountId, Guid NextCursorUserId, IReadOnlyList<AdminReaderAccount> Items);
+public sealed record AdminReaderStatusCommand(Guid UserId, long ExpectedGeneration, bool TargetEnabled, Guid IdempotencyKey, string Reason);
+public sealed record AdminReaderStatusReceipt(Guid UserId, bool Enabled, long Generation, int RevokedSessionCount, long HappenedAtUnixMs, bool Replayed);
 public sealed record AdminArticleRollbackIntent(int ArticleId, long ExpectedRevision, long ExpectedPublicationId, long SourceRevision, Guid IdempotencyKey, string Reason);
 public sealed record AdminArticleRollbackPreview(int ArticleId, long CurrentRevision, long CurrentPublicationId, long SourceRevision, long SourcePublicationId, string SourceTitle, bool PackageComplete, int BlockingReason);
 public sealed record AdminArticleRollbackReceipt(int ArticleId, long Revision, long SourceRevision, long PreviousPublicationId, long PublicationId, int PublicationNo, long PublishedUnixMs, long RightsSnapshotId, long ResponsibilitySnapshotId);
@@ -1067,6 +1083,29 @@ public static partial class Wire
 
     private static AdminSignIn ReadAdminSignIn(ref Reader reader) =>
         new AdminSignIn(reader.I64(), reader.I64(), reader.I64(), ReadAdminSignInState(ref reader));
+
+    private static void WriteAdminReaderAccount(Writer writer, AdminReaderAccount record)
+    {
+        writer.Uuid(record.UserId);
+        writer.I32(record.AccountId);
+        writer.Text(record.Name, WireLimits.NameBytes);
+        writer.Text(record.DisplayName, WireLimits.PublicCommentHandleBytes);
+        writer.Bool(record.Enabled);
+        writer.I64(record.Generation);
+        writer.I32(record.PasskeyCount);
+        writer.Bool(record.HasRecoveryKey);
+        writer.Bool(record.HasTotp);
+        writer.I32(record.ActiveSessionCount);
+        writer.I32(record.CommentCount);
+        writer.I64(record.RegisteredAtUnixMs);
+        writer.I64(record.LastUsedAtUnixMs);
+        writer.I64(record.LastGovernanceAtUnixMs);
+        writer.Text(record.LastGovernanceActor, WireLimits.NameBytes);
+        writer.Text(record.LastGovernanceReason, WireLimits.AdminReaderReasonBytes);
+    }
+
+    private static AdminReaderAccount ReadAdminReaderAccount(ref Reader reader) =>
+        new AdminReaderAccount(reader.Uuid(), reader.I32(), reader.Text(WireLimits.NameBytes), reader.Text(WireLimits.PublicCommentHandleBytes), reader.Bool(), reader.I64(), reader.I32(), reader.Bool(), reader.Bool(), reader.I32(), reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Text(WireLimits.NameBytes), reader.Text(WireLimits.AdminReaderReasonBytes));
 
     public static byte[] EncodeRecoveryKeyOperation(RecoveryKeyOperation value) =>
         EncodeRecord(FrameType.RecoveryKeyOperation, value, Validate, static (writer, record) =>
@@ -1262,6 +1301,51 @@ public static partial class Wire
     public static AdminSignInHistorySnapshot DecodeAdminSignInHistorySnapshot(ReadOnlySpan<byte> frame) =>
         DecodeRecord<AdminSignInHistorySnapshot>(FrameType.AdminSignInHistory, frame, static (ref Reader reader) =>
             new AdminSignInHistorySnapshot(reader.I64(), reader.List(WireLimits.AdminSignInHistoryMaxItems, 25, ReadAdminSignIn)), Validate);
+
+    public static byte[] EncodeAdminReaderAccountPage(AdminReaderAccountPage value) =>
+        EncodeRecord(FrameType.AdminReaderAccountPage, value, Validate, static (writer, record) =>
+        {
+            writer.I32(record.Total);
+            writer.I32(record.EnabledTotal);
+            writer.I32(record.DisabledTotal);
+            writer.Bool(record.HasMore);
+            writer.I32(record.NextCursorAccountId);
+            writer.Uuid(record.NextCursorUserId);
+            writer.List(record.Items, WireLimits.AdminReaderPageSize, WriteAdminReaderAccount);
+        });
+
+    public static AdminReaderAccountPage DecodeAdminReaderAccountPage(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminReaderAccountPage>(FrameType.AdminReaderAccountPage, frame, static (ref Reader reader) =>
+            new AdminReaderAccountPage(reader.I32(), reader.I32(), reader.I32(), reader.Bool(), reader.I32(), reader.Uuid(), reader.List(WireLimits.AdminReaderPageSize, 83, ReadAdminReaderAccount)), Validate);
+
+    public static byte[] EncodeAdminReaderStatusCommand(AdminReaderStatusCommand value) =>
+        EncodeRecord(FrameType.AdminReaderStatusCommand, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.UserId);
+            writer.I64(record.ExpectedGeneration);
+            writer.Bool(record.TargetEnabled);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Text(record.Reason, WireLimits.AdminReaderReasonBytes);
+        });
+
+    public static AdminReaderStatusCommand DecodeAdminReaderStatusCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminReaderStatusCommand>(FrameType.AdminReaderStatusCommand, frame, static (ref Reader reader) =>
+            new AdminReaderStatusCommand(reader.Uuid(), reader.I64(), reader.Bool(), reader.Uuid(), reader.Text(WireLimits.AdminReaderReasonBytes)), Validate);
+
+    public static byte[] EncodeAdminReaderStatusReceipt(AdminReaderStatusReceipt value) =>
+        EncodeRecord(FrameType.AdminReaderStatusReceipt, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.UserId);
+            writer.Bool(record.Enabled);
+            writer.I64(record.Generation);
+            writer.I32(record.RevokedSessionCount);
+            writer.I64(record.HappenedAtUnixMs);
+            writer.Bool(record.Replayed);
+        });
+
+    public static AdminReaderStatusReceipt DecodeAdminReaderStatusReceipt(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminReaderStatusReceipt>(FrameType.AdminReaderStatusReceipt, frame, static (ref Reader reader) =>
+            new AdminReaderStatusReceipt(reader.Uuid(), reader.Bool(), reader.I64(), reader.I32(), reader.I64(), reader.Bool()), Validate);
 
     public static byte[] EncodeAdminArticleRollbackIntent(AdminArticleRollbackIntent value) =>
         EncodeRecord(FrameType.AdminArticleRollbackIntent, value, Validate, static (writer, record) =>
