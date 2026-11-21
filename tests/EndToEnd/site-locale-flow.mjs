@@ -17,6 +17,7 @@ for (const path of ['/', '/archive', '/search', '/login', '/about']) {
     assert.match(response.headers.get('vary') ?? '', /\baccept-language\b/i)
     const html = await response.text()
     assert.ok(html.includes(`<html lang="${language}">`), `${path}: the initial document should use ${language}`)
+    assert.ok(html.includes('<meta name="color-scheme" content="light dark">'), `${path}: the initial document should declare light dark color-scheme`)
     assert.ok(html.includes(`name="fsus-locale" content="${language}"`))
     if (path === '/login') {
       assert.match(response.headers.get('cache-control'), /no-store/)
@@ -109,6 +110,98 @@ try {
     await page.goto(origin + '/about')
     await page.getByRole('heading', { name: 'About', exact: true }).waitFor()
     assert.equal(await page.locator('[data-site-page-body]').getAttribute('lang'), 'zh-CN')
+
+    const peer = await context.newPage()
+    peer.on('pageerror', error => errors.push(error.message))
+    await peer.goto(origin + '/')
+    await peer.waitForFunction(() => document.documentElement.dataset.themeMode === 'system')
+    if (width < 500) {
+      await page.getByText('Menu', { exact: true }).click()
+      await peer.getByText('Menu', { exact: true }).click()
+    }
+    const selectPageTheme = async (mode, label) => {
+      if (width < 500) {
+        const control = page.getByRole('combobox', { name: 'Theme mode', exact: true }).filter({ visible: true })
+        await control.selectOption(mode)
+      } else {
+        await page.locator('.site-theme-menu button').click()
+        await page.getByRole('menuitem', { name: label, exact: true }).click()
+      }
+    }
+    const assertPeerTheme = async (mode, label, resolved) => {
+      await peer.waitForFunction(({ expectedMode, expectedResolved }) => {
+        const root = document.documentElement
+        return root.dataset.themeMode === expectedMode
+          && root.dataset.themeResolved === expectedResolved
+          && root.style.colorScheme === expectedResolved
+      }, { expectedMode: mode, expectedResolved: resolved })
+      const classes = await peer.evaluate(() => ({
+        dark: document.documentElement.classList.contains('dark'),
+        light: document.documentElement.classList.contains('light'),
+      }))
+      assert.deepEqual(classes, { dark: mode === 'dark', light: mode === 'light' })
+      if (width < 500) {
+        const control = peer.getByRole('combobox', { name: 'Theme mode', exact: true }).filter({ visible: true })
+        assert.equal(await control.inputValue(), mode)
+      } else {
+        assert.equal((await peer.locator('.site-theme-menu button').textContent())?.trim(), label)
+      }
+    }
+    await selectPageTheme('dark', 'Dark')
+    await assertPeerTheme('dark', 'Dark', 'dark')
+    await selectPageTheme('light', 'Light')
+    await assertPeerTheme('light', 'Light', 'light')
+    await selectPageTheme('system', 'System')
+    await assertPeerTheme('system', 'System', 'light')
+
+    await peer.emulateMedia({ colorScheme: 'dark' })
+    await assertPeerTheme('system', 'System', 'dark')
+    await peer.evaluate(() => {
+      document.documentElement.dataset.themeResolved = 'light'
+      document.documentElement.style.colorScheme = 'light'
+      window.dispatchEvent(new Event('focus'))
+    })
+    await assertPeerTheme('system', 'System', 'dark')
+    await peer.emulateMedia({ colorScheme: 'light' })
+    await assertPeerTheme('system', 'System', 'light')
+    const reconciledOnResume = await peer.evaluate(() => {
+      let changes = 0
+      const onThemeChange = () => { changes += 1 }
+      document.documentElement.addEventListener('fsus:theme-change', onThemeChange)
+      window.dispatchEvent(new Event('focus'))
+      const noopChanges = changes
+      document.documentElement.dataset.themeResolved = 'dark'
+      document.documentElement.style.colorScheme = 'dark'
+      window.dispatchEvent(new Event('pageshow'))
+      const pageshowChanges = changes - noopChanges
+      document.documentElement.dataset.themeResolved = 'dark'
+      document.documentElement.style.colorScheme = 'dark'
+      document.dispatchEvent(new Event('visibilitychange'))
+      const visibilityChanges = changes - noopChanges - pageshowChanges
+      document.documentElement.removeEventListener('fsus:theme-change', onThemeChange)
+      return {
+        noopChanges,
+        pageshowChanges,
+        visibilityChanges,
+        resolved: document.documentElement.dataset.themeResolved,
+        colorScheme: document.documentElement.style.colorScheme,
+        hasDarkClass: document.documentElement.classList.contains('dark'),
+      }
+    })
+    assert.deepEqual(reconciledOnResume, {
+      noopChanges: 0,
+      pageshowChanges: 1,
+      visibilityChanges: 1,
+      resolved: 'light',
+      colorScheme: 'light',
+      hasDarkClass: false,
+    })
+    if (width < 500) {
+      await page.getByText('Menu', { exact: true }).click()
+      await page.getByRole('combobox', { name: 'Theme mode', exact: true }).waitFor({ state: 'hidden' })
+    }
+    await peer.close()
+
     assert.equal(await page.locator('vite-error-overlay').count(), 0)
     assert.deepEqual(errors, [])
     if (process.env.FSUSBLOG_TEST_EVIDENCE)
@@ -116,4 +209,4 @@ try {
     await context.close()
   }
 } finally { await browser.close() }
-console.log('Verified zh-CN/en server variants, cookie preference, reload, responsive navigation, page language and no ticket input on the login page.')
+console.log('Verified zh-CN/en server variants, cookie preference, reload, responsive navigation, theme sync and foreground reconciliation, page language and no ticket input on the login page.')

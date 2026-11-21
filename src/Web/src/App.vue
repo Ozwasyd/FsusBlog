@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { syncThemeMode, writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
+import { readThemeMode, subscribeThemeMode, syncThemeMode, writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
 import { ElConfigProvider, ElPublicShell, ElButton } from '@ozwasyd/element-plus'
 import { runSiteViewTransition } from './viewTransition'
 import en from '@element-plus/locale/lang/en'
@@ -25,9 +25,15 @@ const router = useRouter()
 const siteAuthPage = computed(() => route.name === 'login' || route.name === 'register')
 const searchPage = computed(() => route.name === 'search')
 const searchQuery = ref('')
-const themeMode = ref<ThemeMode>()
-const selected = document.documentElement.dataset.themeMode
-if (selected === 'light' || selected === 'dark' || selected === 'system') themeMode.value = selected
+function parseThemeMode(value: string | undefined): ThemeMode | undefined {
+  return value === 'light' || value === 'dark' || value === 'system' ? value : undefined
+}
+function tryReadThemeMode(): ThemeMode | undefined {
+  try { return readThemeMode() } catch { return undefined }
+}
+const themeMode = ref<ThemeMode>(parseThemeMode(document.documentElement.dataset.themeMode) ?? 'system')
+let persistedTheme: ThemeMode | undefined = themeMode.value
+let themePersisted = true
 function resolvedThemeFor(mode: ThemeMode): 'light' | 'dark' {
   if (mode === 'light' || mode === 'dark') return mode
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -35,6 +41,30 @@ function resolvedThemeFor(mode: ThemeMode): 'light' | 'dark' {
 function applyTheme(mode: ThemeMode) {
   themeMode.value = mode
   try { writeThemeMode(mode) } catch { syncThemeMode(mode) }
+}
+function reconcileTheme() {
+  const root = document.documentElement
+  const stored = tryReadThemeMode()
+  let next = themeMode.value
+  if (stored !== undefined) {
+    if (themePersisted) {
+      persistedTheme = stored
+      next = stored
+    } else if (stored !== persistedTheme) {
+      persistedTheme = stored
+      themePersisted = true
+      next = stored
+    }
+  }
+  const nextResolved = resolvedThemeFor(next)
+  if (
+    themeMode.value === next
+    && root.dataset.themeMode === next
+    && root.dataset.themeResolved === nextResolved
+    && root.style.colorScheme === nextResolved
+  ) return
+  themeMode.value = next
+  syncThemeMode(next)
 }
 function useTheme(mode: ThemeMode) {
   if (mode === themeMode.value) return
@@ -49,7 +79,8 @@ function useTheme(mode: ThemeMode) {
   }, { name: 'theme-switch' })
 }
 function selectTheme(mode: string) {
-  if (mode === 'light' || mode === 'dark' || mode === 'system') useTheme(mode)
+  const parsed = parseThemeMode(mode)
+  if (parsed) useTheme(parsed)
 }
 
 const logoutFailure = ref(false)
@@ -134,6 +165,27 @@ const sync = () => {
   if (hasAdminSessionHint()) void refreshAuthorSession(lifetime.signal).catch(() => {})
 }
 const whenVisible = () => { if (document.visibilityState === 'visible') sync() }
+const onPageShow = () => {
+  reconcileTheme()
+  sync()
+}
+const onVisibilityChange = () => {
+  if (document.visibilityState !== 'visible') return
+  reconcileTheme()
+  sync()
+}
+const onWindowFocus = () => {
+  reconcileTheme()
+}
+const onStorage = (event: StorageEvent) => {
+  try {
+    if (event.storageArea && event.storageArea !== window.localStorage) return
+  } catch {
+    return
+  }
+  reconcileTheme()
+}
+let stopThemeMode: (() => void) | undefined
 let stopSiteRefresh: (() => void) | undefined
 let stopAdminAuth: (() => void) | undefined
 watch([() => currentSession.value?.siteRefresh, () => currentSession.value?.expiresAt, () => adminArea.value, () => adminAuthoringArea.value],
@@ -157,6 +209,17 @@ watch(() => route.name, (name, _, cleanup) => {
   }).catch(() => {})
 }, { immediate: true })
 onMounted(() => {
+  stopThemeMode = subscribeThemeMode(detail => {
+    themeMode.value = detail.mode
+    const stored = tryReadThemeMode()
+    if (stored !== undefined) {
+      persistedTheme = stored
+      themePersisted = stored === detail.mode
+    } else {
+      themePersisted = false
+    }
+  })
+  reconcileTheme()
   stopSiteRefresh = observeSiteRefresh(() => {
     if (!adminArea.value && !adminAuthoringArea.value) void refreshSession(lifetime.signal, false).catch(() => {})
   })
@@ -165,15 +228,20 @@ onMounted(() => {
       void refreshAuthorSession(lifetime.signal, false).catch(() => {})
   })
   sync()
-  window.addEventListener('pageshow', sync)
-  document.addEventListener('visibilitychange', whenVisible)
+  window.addEventListener('pageshow', onPageShow)
+  window.addEventListener('focus', onWindowFocus)
+  window.addEventListener('storage', onStorage)
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 onUnmounted(() => {
   lifetime.abort()
+  stopThemeMode?.()
   stopSiteRefresh?.()
   stopAdminAuth?.()
-  window.removeEventListener('pageshow', sync)
-  document.removeEventListener('visibilitychange', whenVisible)
+  window.removeEventListener('pageshow', onPageShow)
+  window.removeEventListener('focus', onWindowFocus)
+  window.removeEventListener('storage', onStorage)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
 function search(value: string) {
@@ -248,7 +316,7 @@ async function leave() {
         <RouterLink v-if="currentSession && route.name !== 'security'" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
         <div class="public-menu-preferences">
           <SiteLocaleSelect />
-          <select class="site-theme-select" :aria-label="t('theme.label')" :value="themeMode ?? 'system'"
+          <select class="site-theme-select" :aria-label="t('theme.label')" :value="themeMode"
             @change="selectTheme(($event.target as HTMLSelectElement).value)">
             <option value="light">{{ themeLabels.light }}</option>
             <option value="dark">{{ themeLabels.dark }}</option>
