@@ -1,6 +1,6 @@
 # 创作扩展包与操作授权
 
-`Core/Extensions` 实现 P5 创作扩展的本地包验证与进程内授权。包格式取自固定 v1 源码的 `AuthoringExtensionPackages` 与 `ZipAuthoringPackageArchiveReader`。`manifest.json` 使用固定字段和数值枚举，发布者对原始 ZIP 字节提供独立的 ECDSA SHA-256 P1363 签名。宿主先配置精确的归档摘要、来源与信任材料，再通过 `ExtensionPackageVerifier.Verify` 验证。验证要求签名、来源记录、三类内容摘要、宿主平台和公钥有效期一致。归档检查限制条目数量和长度，拒绝路径穿越、链接、大小写冲突和解析歧义。
+`Core/Extensions` 实现 P5 创作扩展的纯本地包验证、数据模型与进程内授权策略；真实磁盘/POSIX 系统实现（`ExtensionDisk`、`ExtensionInstallationStore`、`ExtensionStaging` 等）位于 `Platform/Extensions`（严格单向依赖 `Platform -> Core`）。包格式取自固定 v1 源码的 `AuthoringExtensionPackages` 与 `ZipAuthoringPackageArchiveReader`。`manifest.json` 使用固定字段和数值枚举，发布者对原始 ZIP 字节提供独立的 ECDSA SHA-256 P1363 签名。宿主先配置精确的归档摘要、来源与信任材料，再通过 `ExtensionPackageVerifier.Verify` 验证。验证要求签名、来源记录、三类内容摘要、宿主平台和公钥有效期一致。归档检查限制条目数量和长度，拒绝路径穿越、链接、大小写冲突和解析歧义。
 
 `ExtensionAuthority` 由可信宿主持有。授权同时绑定包、贡献、能力、用途、会话代次、站点、文档和修订。每个请求 ID 在进程内只可获取一次操作。读取范围、读取选区和写入暂存分别使用封闭的请求类型。撤销同意、替换信任、切换包或更新身份坐标后，旧操作在发布前复核会失败，恢复旧坐标也不会恢复旧同意。命令有并发和时间预算。包替换拒绝降级、同版本异内容和不兼容的状态结构切换。
 
@@ -12,7 +12,7 @@
 
 已授权的请求使用 `CreateNew` 获取 `0600` 文件句柄，随即移除路径，再向原始句柄写入有限长度。已有同名文件保留原字节。句柄释放完成并复核原安装包和请求授权后才签发摘要收据。释放失败时保留首个工作错误及次要故障。暂存目录及其路径由宿主独占控制，同操作系统身份并发重命名与崩溃后的 inode 回收仍需单独验证。
 
-测试使用真实签名 ZIP、受控时钟和本地磁盘，覆盖错误签名、来源、密钥撤销边界、时钟回退、非法条目、版本冲突、越权请求、重放、异步暂存期间撤销、并发同请求和磁盘碰撞。安装测试覆盖第二写者拒绝、打开持久化目录恢复激活、降级、ZIP 和签名篡改、账本篡改、旧账本重放、密钥轮换和签名有效期到期。运行 `dotnet test tests/Core/FsusBlog.V2.Core.Tests.csproj --filter FullyQualifiedName~ExtensionAuthorityTests`。
+纯模型测试覆盖错误签名、来源、密钥撤销边界、时钟回退、非法条目、版本冲突、越权请求、重放与通用暂存边界，运行 `dotnet test tests/Core/FsusBlog.V2.Core.Tests.csproj -c Release --no-build --filter FullyQualifiedName~ExtensionAuthorityTests`。真实磁盘安装与暂存测试使用真实签名 ZIP、受控时钟和本地 Unix `0700`/`0400`/`0600` 目录，覆盖第二写者拒绝、打开持久化目录恢复激活、降级、ZIP 和签名篡改、账本篡改、旧账本重放、密钥轮换、签名有效期到期、异步暂存期间撤销、并发同请求和磁盘碰撞，运行 `dotnet test tests/Platform/FsusBlog.V2.Platform.Tests.csproj -c Release --no-build --filter FullyQualifiedName~ExtensionInstallationTests`。
 
 服务端的保存修订读取 custodian 复用 PostgreSQL 的登录会话、站点 ID 和文章修订所有权。宿主绑定此 custodian 后，`ExtensionDocumentBroker.ReadRangeAsync` 接收既有 `DocumentRangeRead` 授权下的一次性请求，在原安装存储保留签名包范围，并在当前会话、未归档文章和当前修订的锁内核对授权并形成结果。结果只包含指定 UTF-16 范围的文字和绑定坐标，拒绝整篇读取、越界、截断代理项和超出 UTF-8 预算。原生数据库测试覆盖真实签名启用、异步等待期间撤销与取消、会话不匹配和过期修订。 [固定 v1 文档读取边界](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs#L538)
 

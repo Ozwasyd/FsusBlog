@@ -1,7 +1,8 @@
 using System.Runtime.InteropServices;
+using FsusBlog.V2.Core.Extensions;
 using Microsoft.Win32.SafeHandles;
 
-namespace FsusBlog.V2.Core.Extensions;
+namespace FsusBlog.V2.Platform.Extensions;
 
 internal static class ExtensionDisk
 {

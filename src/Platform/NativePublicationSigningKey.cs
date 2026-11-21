@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 
-namespace FsusBlog.V2.Core;
+namespace FsusBlog.V2.Platform;
 
 public static class NativePublicationSigningKey
 {

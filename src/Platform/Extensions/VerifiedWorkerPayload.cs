@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
+using FsusBlog.V2.Core.Extensions;
 
-namespace FsusBlog.V2.Core.Extensions;
+namespace FsusBlog.V2.Platform.Extensions;
 
 internal sealed record WorkerPayloadLimits(int ManifestBytes, int Files, int Entries, int Depth, long ContentBytes, int MinimumFileBytes);
 

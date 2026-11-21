@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using FsusBlog.V2.Core.Extensions;
+using FsusBlog.V2.Platform.Extensions;
 using FsusBlog.V2.Server.Operations;
 using Npgsql;
 
@@ -26,7 +27,7 @@ internal sealed class AppearanceAssets(AppearanceRegistry registry, bool online)
         var root = new DirectoryInfo(setting);
         RequireSeparate(webDist);
         if (!string.IsNullOrWhiteSpace(mediaRoot)) RequireSeparate(Path.GetFullPath(mediaRoot));
-        return new(AppearanceRegistry.Load(root, TimeProvider.System), online);
+        return new(AppearanceRegistryLoader.Load(root, TimeProvider.System), online);
 
         void RequireSeparate(string other)
         {

@@ -1,4 +1,6 @@
-namespace FsusBlog.V2.Core.Extensions;
+using FsusBlog.V2.Core.Extensions;
+
+namespace FsusBlog.V2.Platform.Extensions;
 
 internal sealed class LinuxPluginRunner(string expected, LinuxWorkerUnit unit)
 {

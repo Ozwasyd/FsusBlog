@@ -2,12 +2,13 @@ using System.Buffers;
 using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
-using static FsusBlog.V2.Core.Extensions.ExtensionDisk;
+using FsusBlog.V2.Core.Extensions;
+using static FsusBlog.V2.Platform.Extensions.ExtensionDisk;
 
-namespace FsusBlog.V2.Core.Extensions;
+namespace FsusBlog.V2.Platform.Extensions;
 
 /// <summary>A private host scratch root. A package can propose data but cannot choose a pathname.</summary>
-public sealed class ExtensionStaging(string rootId, DirectoryInfo privateRoot)
+public sealed class ExtensionStaging(string rootId, DirectoryInfo privateRoot) : IExtensionStagingBroker
 {
     private readonly string _path = ExtensionManifestReader.IsIdentifier(rootId) ? ValidatePrivateRoot(privateRoot) :
         throw new ExtensionRejectedException("staging-root-unavailable");

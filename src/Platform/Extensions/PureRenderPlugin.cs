@@ -3,11 +3,12 @@ using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using FsusBlog.V2.Core.Extensions;
 using Microsoft.Win32.SafeHandles;
 using static FsusBlog.V2.Core.Extensions.ExtensionManifestReader;
 using static FsusBlog.V2.Core.Extensions.ExtensionPackageVerifier;
 
-namespace FsusBlog.V2.Core.Extensions;
+namespace FsusBlog.V2.Platform.Extensions;
 
 /// <summary>Host-owned single-hook approval. Holds the original private registry lock until the result is checked.</summary>
 public sealed class PureRenderPlugin : IDisposable

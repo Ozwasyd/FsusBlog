@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using FsusBlog.V2.Core.Extensions;
+using FsusBlog.V2.Platform.Extensions;
 
 namespace FsusBlog.V2.Cli;
 
@@ -167,7 +168,7 @@ internal static class PlatformPluginCommand
                 throw PluginWorkerCompletion.Translate(error, "plugin-worker-deadline");
             }
         }, () => PluginWorkerCompletion.ReleaseProcessAsync(deadline,
-            () => PluginWorkerCompletion.ReapProcessAsync(process, entireProcessTree: true, TimeSpan.FromSeconds(2)), output, errors));
+            () => WorkerProcess.ReapAsync(process, entireProcessTree: true, TimeSpan.FromSeconds(2)), output, errors));
     }
 
     private static ExtensionRejectedException Deny(string code) => new(code);

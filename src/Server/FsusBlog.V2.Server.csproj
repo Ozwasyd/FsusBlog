@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Core/FsusBlog.V2.Core.csproj" />
+    <ProjectReference Include="../Platform/FsusBlog.V2.Platform.csproj" />
     <ProjectReference Include="../Contracts/FsusBlog.V2.Contracts.csproj" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="Markdig" Version="1.3.2" />

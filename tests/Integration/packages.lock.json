@@ -329,12 +329,19 @@
       "fsusblog.v2.core": {
         "type": "Project"
       },
+      "fsusblog.v2.platform": {
+        "type": "Project",
+        "dependencies": {
+          "FsusBlog.V2.Core": "[1.0.0, )"
+        }
+      },
       "fsusblog.v2.server": {
         "type": "Project",
         "dependencies": {
           "Fido2": "[4.0.1, 4.0.1]",
           "FsusBlog.V2.Contracts": "[1.0.0, )",
           "FsusBlog.V2.Core": "[1.0.0, )",
+          "FsusBlog.V2.Platform": "[1.0.0, )",
           "Markdig": "[1.3.2, )",
           "Npgsql": "[10.0.3, )",
           "SkiaSharp": "[3.119.4, 3.119.4]",

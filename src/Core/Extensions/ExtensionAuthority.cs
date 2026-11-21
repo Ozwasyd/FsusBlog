@@ -2,6 +2,8 @@ using static FsusBlog.V2.Core.Extensions.ExtensionManifestReader;
 
 namespace FsusBlog.V2.Core.Extensions;
 
+internal interface IExtensionStagingBroker;
+
 public sealed record ExtensionOwner(Guid Actor, Guid Session, long SessionGeneration, Guid Site, int Document, long Revision);
 
 public sealed record ExtensionConsent(string ExtensionId, string ContributionId, ExtensionOwner Owner, string Purpose,
@@ -261,7 +263,7 @@ public sealed class ExtensionAuthority
             lock (_authority._gate) Check(cancellationToken);
         }
 
-        internal BrokerScope BeginStaging(ExtensionStaging broker, CancellationToken cancellationToken) =>
+        internal BrokerScope BeginStaging(IExtensionStagingBroker broker, CancellationToken cancellationToken) =>
             BeginBroker(broker, "staging-already-started", "staging-installed-scope-required", cancellationToken);
 
         internal BrokerScope BeginDocumentRead(ExtensionDocumentBroker broker, CancellationToken cancellationToken) =>
