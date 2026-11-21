@@ -3,19 +3,21 @@ import { t } from '../siteLocale'
 import { computed, nextTick, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElDialog, ElMessageBox } from '@ozwasyd/element-plus'
-import { api, ApiError } from '../../../Contracts/client'
+import { api } from '../../../Contracts/client'
 import {
-  canvasGraph, defaultCanvasViewport, encodeCanvasGraphCommand,
-  type CanvasGeometry, type CanvasGraphChange, type CanvasGraphCommand,
-  type CanvasGraphEdge, type CanvasGraphHeader, type CanvasGraphHistory, type CanvasNode,
-  type CanvasReferenceResolution, type CanvasViewport,
+  canvasGraph, defaultCanvasViewport, type CanvasGeometry, type CanvasGraphChange, type CanvasGraphCommand,
+  type CanvasGraphEdge, type CanvasNode, type CanvasViewport,
 } from '../../../Contracts/canvas-graph'
 import { confirmCanvasLink, previewCanvasLink } from '../../../Contracts/canvas-links'
-import type { CanvasLinkPlan } from '../../../Contracts/wire.generated'
+import { canvasBundle } from '../../../Contracts/canvas-bundle'
+import { cancelCanvasEditorHandoff, canvasEditorHandoffKey, offerCanvasEditorHandoff } from '../authoring/canvasEditorHandoff'
+import {
+  filterEndpointChoices, filterMemberChoices, filterOutlineEdges, filterOutlineNodes, hasNextOutlinePage,
+  resolveHistoryShortcutAction, sliceOutlineRecords, type CanvasNotice,
+} from '../authoring/canvasCommands'
+import { CanvasController, type CanvasFormFields, type CanvasIdentity } from '../authoring/canvasController'
 import CanvasBoard from '../authoring/CanvasBoard.vue'
 import CanvasBundlePanel from '../authoring/CanvasBundlePanel.vue'
-import { canvasEditorHandoffKey, cancelCanvasEditorHandoff, offerCanvasEditorHandoff } from '../authoring/canvasEditorHandoff'
-import { canvasBundle } from '../../../Contracts/canvas-bundle'
 import { credentialEpoch, currentSession, identityEpoch, invalidateSession, refreshSession } from '../authorSession'
 import { consumeAuthoringSessionPreload, readInitialCanvasDocuments } from '../workspacePreload'
 
@@ -25,347 +27,175 @@ const articlePath = '/admin/articles/workspace'
 const documentId = computed(() => typeof route.params.id === 'string' ? route.params.id.toLowerCase() : '')
 const preloadedAuth = consumeAuthoringSessionPreload()
 const initialCanvasDocuments = readInitialCanvasDocuments()
-const authorized = computed(() => currentSession.value?.canAuthor === true && currentSession.value.expiresAt > Date.now())
 const ready = ref(preloadedAuth)
-const loading = ref(false)
-const working = ref(false)
-const bundlePending = ref(false)
-const stale = ref(false)
-const message = ref('')
-const error = ref('')
-const title = ref('')
-const document = shallowRef<CanvasGraphHeader>()
-const documents = shallowRef<readonly CanvasGraphHeader[]>([])
-const nodes = shallowRef<readonly CanvasNode[]>([])
-const edges = shallowRef<readonly CanvasGraphEdge[]>([])
-const offset = ref<number | null>(null)
-const view = ref<'canvas' | 'outline'>('canvas')
-const outlinePage = ref(0)
-const outlineSearch = ref('')
-const focusBoardNode = ref('')
-const loadingAll = ref(false)
-const completeGraph = ref(false)
-const bulkProgress = ref(0)
-const nodeId = ref('')
-const edgeId = ref('')
-const retry = shallowRef<CanvasGraphCommand>()
-const plan = shallowRef<CanvasLinkPlan & { edgeKind: CanvasGraphEdge['kind'] }>()
-const linkPending = ref(false)
-const linkUnconfirmed = ref(false)
-const graphReadFailure = ref(false)
-const history = shallowRef<CanvasGraphHistory>()
-const historyFailure = ref(false)
-const historyLoading = ref(false)
 const tools = ref<HTMLElement>()
 const graph = ref<HTMLElement>()
-let historyRequest: AbortController | undefined
-const reference = shallowRef<CanvasReferenceResolution>()
-const referenceLoading = ref(false)
-const referenceError = ref(false)
-const referenceOpenNotice = ref('')
-let referenceRequest: AbortController | undefined
-const form = ref<'title' | 'node' | 'edge'>()
-const nodeKind = ref<CanvasNode['kind']>('plain-text-note')
-const note = ref('')
-const article = ref('')
-const anchor = ref('')
-const pinned = ref('')
-const members = ref<string[]>([])
-const endpoint = ref('')
-const editingEdge = shallowRef<CanvasGraphEdge>()
-const choiceFilter = ref('')
-const edgeKind = ref<CanvasGraphEdge['kind']>('visual-only')
-const label = ref('')
-const selectedNode = computed(() => nodes.value.find(node => node.id === nodeId.value))
-const selectedEdge = computed(() => edges.value.find(edge => edge.id === edgeId.value))
-const selectedReference = computed(() => {
-  const node = selectedNode.value
-  return node && 'articleId' in node ? node : undefined
-})
-const canOpenReference = computed(() => reference.value?.state === 'resolved' &&
-  !!currentSession.value?.siteSessionId && (reference.value.sourceOffset === null || import.meta.env.FSUS_MARKDOWN_NATIVE))
-const byId = computed(() => new Map(nodes.value.map(node => [node.id, node])))
-const involved = computed(() => selectedEdge.value && {
-  from: byId.value.get(selectedEdge.value.sourceNodeId), to: byId.value.get(selectedEdge.value.targetNodeId),
-})
-const activeLink = computed(() => {
-  const pair = involved.value
-  if (!pair || pair.from?.kind !== 'article-reference' || pair.to?.kind !== 'article-reference' ||
-    pair.from.pinnedRevision || pair.to.pinnedRevision || pair.from.articleId === pair.to.articleId) return undefined
-  return { from: pair.from, to: pair.to }
-})
-const disabled = computed(() => loading.value || loadingAll.value || working.value || linkPending.value || !!plan.value || !!retry.value || stale.value || graphReadFailure.value || bundlePending.value)
-const historyActionAvailable = computed(() => {
-  const current = document.value
-  const position = history.value
-  const ready = !disabled.value && !form.value && current && position?.revision === current.revision
-  return {
-    undo: Boolean(ready && position.undoRevision !== null),
-    redo: Boolean(ready && position.redoRevision !== null),
-  }
-})
-const extent = computed(() => outlinePage.value * 50)
-const outlineQuery = computed(() => outlineSearch.value.trim().toLowerCase())
-const matchingNodes = computed(() => outlineQuery.value ? nodes.value.filter(node =>
-  nodeLabel(node).toLowerCase().includes(outlineQuery.value) ||
-  ('anchor' in node && node.anchor.includes(outlineQuery.value))) : nodes.value)
-const matchingEdges = computed(() => outlineQuery.value ? edges.value.filter(edge =>
-  edgeLabel(edge).toLowerCase().includes(outlineQuery.value)) : edges.value)
-const outlineNodes = computed(() => matchingNodes.value.slice(extent.value, extent.value + 50))
-const outlineEdges = computed(() => matchingEdges.value.slice(extent.value, extent.value + 50))
-const hasNextOutline = computed(() => extent.value + 50 < Math.max(matchingNodes.value.length, matchingEdges.value.length))
-watch(outlineSearch, () => { outlinePage.value = 0 })
-watch([view, nodeId], () => { focusBoardNode.value = '' }, { flush: 'sync' })
-const matchesChoice = (node: CanvasNode) => nodeLabel(node).toLowerCase().includes(choiceFilter.value.trim().toLowerCase())
-const memberChoices = computed(() => nodes.value.filter(node => node.kind !== 'group-frame' && matchesChoice(node)).slice(0, 256))
-const endpointChoices = computed(() => {
-  const selected = byId.value.get(endpoint.value)
-  return [...(selected ? [selected] : []),
-    ...nodes.value.filter(node => node.id !== endpoint.value && matchesChoice(node)).slice(0, selected ? 255 : 256)]
-})
 const ownerLife = new AbortController()
-let scope = new AbortController()
 
-function scoped(signal: AbortSignal) {
-  return scope.signal === signal && !signal.aborted && authorized.value
-}
-
-function reset() {
-  scope.abort()
-  scope = new AbortController()
-  document.value = undefined
-  documents.value = []
-  nodes.value = []
-  edges.value = []
-  nodeId.value = ''
-  edgeId.value = ''
-  offset.value = null
-  outlinePage.value = 0
-  outlineSearch.value = ''
-  focusBoardNode.value = ''
-  loadingAll.value = false
-  completeGraph.value = false
-  bulkProgress.value = 0
-  retry.value = undefined
-  plan.value = undefined
-  form.value = undefined
-  working.value = false
-  bundlePending.value = false
-  loading.value = false
-  stale.value = false
-  graphReadFailure.value = false
-  history.value = undefined
-  historyFailure.value = false
-  historyLoading.value = false
-  historyRequest?.abort()
-  historyRequest = undefined
-  clearReference()
-  linkPending.value = false
-  linkUnconfirmed.value = false
-  error.value = ''
-  message.value = ''
-  title.value = ''
-}
-
-function recordError(cause: unknown, signal: AbortSignal, fallback: string, reading = false): boolean {
-  if (!scoped(signal)) return false
-  if (!(cause instanceof ApiError)) {
-    error.value = fallback
-    return false
-  }
-  if (cause.status === 401) {
-    invalidateSession()
-  } else if (cause.status === 403 || cause.status === 404 && reading) {
-    nodes.value = []
-    edges.value = []
-    document.value = undefined
-    documents.value = []
-    history.value = undefined
-    historyFailure.value = false
-    plan.value = undefined
-    retry.value = undefined
-    error.value = t('author.canvas.canvas_is_unavailable')
-  } else if (cause.status === 409) {
-    stale.value = true
-    error.value = t('author.canvas.the_canvas_changed_reload_the_current_revision')
-  } else if (cause.status === 400 || cause.status === 404) {
-    error.value = cause.message
-  } else {
-    error.value = fallback
-    return false
-  }
-  return true
-}
-
-async function loadHistory(current = document.value) {
-  const signal = scope.signal
-  if (!current || !scoped(signal)) return
-  historyRequest?.abort()
-  const request = new AbortController()
-  historyRequest = request
-  historyLoading.value = true
-  history.value = undefined
-  historyFailure.value = false
-
-  const isLatest = () => request === historyRequest && !request.signal.aborted && scoped(signal) &&
-    document.value?.id === current.id && document.value.revision === current.revision
-  try {
-    const next = await canvasGraph.history(current.id, current.revision, request.signal)
-    if (!isLatest()) return
-    if (next.revision !== current.revision) throw Error('Canvas history revision changed')
-    history.value = next
-  } catch (cause) {
-    if (!isLatest()) return
-    if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
-      recordError(cause, signal, t('author.canvas.could_not_load_canvas_history'), true)
-    } else {
-      historyFailure.value = true
-    }
-  } finally {
-    if (request === historyRequest && scoped(signal)) {
-      historyLoading.value = false
-      historyRequest = undefined
-    }
+function currentIdentity(): CanvasIdentity | null {
+  const session = currentSession.value
+  if (!session) return null
+  return {
+    name: session.name,
+    generation: session.generation,
+    canAuthor: session.canAuthor,
+    expiresAt: session.expiresAt,
+    siteSessionId: session.siteSessionId,
+    credentialEpoch: credentialEpoch.value,
   }
 }
 
-async function load(more = false, confirmed?: CanvasGraphHeader) {
-  const signal = scope.signal
-  if (!scoped(signal) || loading.value || (more && offset.value === null)) return
-  loading.value = true
-  error.value = ''
-  try {
-    if (!documentId.value) {
-      const value = await canvasGraph.list(signal)
-      if (scoped(signal)) documents.value = value
-    } else {
-      const previous = more ? document.value : undefined
-      const id = documentId.value
-      const page = await canvasGraph.page(id, confirmed ? { revision: confirmed.revision }
-        : previous && offset.value !== null ? { revision: previous.revision, offset: offset.value } : {}, signal)
-      if (!scoped(signal)) return
-      document.value = page.header
-      nodes.value = more ? [...nodes.value, ...page.nodes] : page.nodes
-      edges.value = more ? [...edges.value, ...page.edges] : page.edges
-      offset.value = page.nextOffset
-      if (!more) {
-        outlinePage.value = 0
-        if (page.nextOffset !== null && page.nextOffset === page.header.nodeCount) {
-          const edgePage = await canvasGraph.page(id, { revision: page.header.revision, offset: page.nextOffset }, signal)
-          if (!scoped(signal)) return
-          edges.value = edgePage.edges
-          offset.value = edgePage.nextOffset
-        }
-      }
-      if (offset.value === null) {
-        if (nodeId.value && !byId.value.has(nodeId.value)) nodeId.value = ''
-        if (edgeId.value && !edges.value.some(edge => edge.id === edgeId.value)) edgeId.value = ''
-      }
-    }
-    if (scoped(signal)) {
-      stale.value = false
-      graphReadFailure.value = false
-      if (!more && document.value) {
-        if (confirmed) await loadHistory(document.value)
-        else void loadHistory(document.value)
-      }
-      if (completeGraph.value && offset.value !== null && !more) await loadAll()
-    }
-  } catch (cause) {
-    if (scoped(signal)) graphReadFailure.value = true
-    recordError(cause, signal, t('author.canvas.could_not_load_the_canvas'), true)
-  } finally {
-    if (scoped(signal)) loading.value = false
-  }
-}
+const controller = new CanvasController({
+  transport: {
+    list: signal => canvasGraph.list(signal),
+    page: (id, position, signal) => canvasGraph.page(id, position, signal),
+    history: (id, expectedRevision, signal) => canvasGraph.history(id, expectedRevision, signal),
+    write: (command, signal) => canvasGraph.write(command, signal),
+    resolveReference: (id, nodeId, revision, signal, session) => canvasGraph.resolve(id, nodeId, revision, signal, session),
+    readDraft: (articleId, signal) => api.draft(articleId, signal),
+    readPublicArticle: (articleId, signal) => api.publicArticle(articleId, signal),
+    previewLink: (input, host, target, signal, visualOnly) => previewCanvasLink(input, host, target, signal, visualOnly),
+    confirmLink: (preview, signal) => confirmCanvasLink(preview, signal),
+  },
+  navigation: {
+    openDocument: id => router.push({ name: 'canvas-document', params: { id } }),
+    openCanvasList: () => router.replace({ name: 'canvas' }),
+    openEditor: async (articleId, token) => !(await router.push({
+      name: 'edit',
+      params: { id: articleId },
+      state: { [canvasEditorHandoffKey]: token },
+    })),
+  },
+  handoff: {
+    offer: offerCanvasEditorHandoff,
+    cancel: cancelCanvasEditorHandoff,
+  },
+  onInvalidateSession: () => invalidateSession(),
+  nativeMarkdownAvailable: Boolean(import.meta.env.FSUS_MARKDOWN_NATIVE),
+})
 
-async function loadAll() {
-  const current = document.value
-  const signal = scope.signal
-  let next = offset.value
-  if (!current || next === null || loadingAll.value || !scoped(signal)) return
-  loadingAll.value = true
-  error.value = ''
-  bulkProgress.value = nodes.value.length + edges.value.length
-  const nextNodes = [...nodes.value]
-  const nextEdges = [...edges.value]
+const state = shallowRef(controller.state)
+const unsubscribe = controller.subscribe(() => { state.value = controller.state })
 
-  try {
-    while (next !== null) {
-      const page = await canvasGraph.page(current.id, { revision: current.revision, offset: next }, signal)
-      if (!scoped(signal) || current !== document.value) return
-      nextNodes.push(...page.nodes)
-      nextEdges.push(...page.edges)
-      bulkProgress.value = nextNodes.length + nextEdges.length
-      next = page.nextOffset
-    }
-    if (nextNodes.length !== current.nodeCount || nextEdges.length !== current.edgeCount) {
-      throw new Error('Canvas pages did not cover the advertised counts')
-    }
-    if (!scoped(signal) || current !== document.value) return
-    nodes.value = nextNodes
-    edges.value = nextEdges
-    offset.value = null
-    completeGraph.value = true
-    if (nodeId.value && !byId.value.has(nodeId.value)) nodeId.value = ''
-    if (edgeId.value && !nextEdges.some(edge => edge.id === edgeId.value)) edgeId.value = ''
-  } catch (cause) {
-    if (!scoped(signal)) return
-    completeGraph.value = false
-    if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
-      recordError(cause, signal, t('author.canvas.could_not_load_all_canvas_records'), true)
-    } else {
-      error.value = t('author.canvas.could_not_load_all_canvas_records_try_again')
-    }
-  } finally {
-    if (scoped(signal)) loadingAll.value = false
-  }
-}
-
-let usedInitialDocuments = false
-watch([documentId, identityEpoch, ready], () => {
-  if (!usedInitialDocuments && initialCanvasDocuments && !documentId.value && ready.value && authorized.value) {
-    usedInitialDocuments = true
-    documents.value = initialCanvasDocuments
-    return
-  }
-  reset()
-  if (ready.value && authorized.value) void load()
+watch([documentId, identityEpoch, currentSession, ready], () => {
+  controller.syncContext({
+    documentId: documentId.value,
+    identity: currentIdentity(),
+    identityEpoch: identityEpoch.value,
+    ready: ready.value,
+    initialDocuments: initialCanvasDocuments,
+  })
 }, { immediate: true, flush: 'sync' })
-onMounted(() => {
-  if (preloadedAuth) return
-  void refreshSession(ownerLife.signal).finally(() => {
-    if (!ownerLife.signal.aborted) ready.value = true
-  }).catch(() => { error.value = t('author.canvas.could_not_verify_your_session') })
-})
-function protectUnload(event: BeforeUnloadEvent) {
-  if (working.value || bundlePending.value || retry.value || linkUnconfirmed.value || linkPending.value) event.preventDefault()
-}
-onMounted(() => window.addEventListener('beforeunload', protectUnload))
-onScopeDispose(() => {
-  ownerLife.abort()
-  scope.abort()
-  historyRequest?.abort()
-  clearReference()
-  window.removeEventListener('beforeunload', protectUnload)
-})
-function canNavigate() {
-  return !working.value && !bundlePending.value && !linkPending.value && !form.value && !plan.value &&
-    !retry.value && !linkUnconfirmed.value
-}
-onBeforeRouteUpdate(canNavigate)
-onBeforeRouteLeave(canNavigate)
 
-function clearReference() {
-  referenceRequest?.abort()
-  referenceRequest = undefined
-  reference.value = undefined
-  referenceLoading.value = false
-  referenceError.value = false
-  referenceOpenNotice.value = ''
+const formatNotice = (notice: CanvasNotice | undefined) =>
+  notice ? (notice.kind === 'text' ? notice.text : t(notice.key)) : ''
+
+const authorized = computed(() => state.value.authorized)
+const loading = computed(() => state.value.loading)
+const working = computed(() => state.value.working)
+const bundlePending = computed({
+  get: () => state.value.bundlePending,
+  set: value => controller.setBundlePending(value),
+})
+const stale = computed(() => state.value.stale)
+const graphReadFailure = computed(() => state.value.graphReadFailure)
+const message = computed(() => formatNotice(state.value.message))
+const error = computed(() => formatNotice(state.value.error))
+const document = computed(() => state.value.document)
+const documents = computed(() => state.value.documents)
+const nodes = computed(() => state.value.nodes)
+const edges = computed(() => state.value.edges)
+const byId = computed(() => state.value.byId)
+const offset = computed(() => state.value.offset)
+const view = computed({
+  get: () => state.value.view,
+  set: value => controller.setView(value),
+})
+const outlinePage = computed({
+  get: () => state.value.outlinePage,
+  set: value => {
+    if (value < state.value.outlinePage) controller.previousOutlinePage()
+    else if (value > state.value.outlinePage) controller.nextOutlinePage()
+  },
+})
+const outlineSearch = computed({
+  get: () => state.value.outlineSearch,
+  set: value => controller.setOutlineSearch(value),
+})
+const focusBoardNode = computed({
+  get: () => state.value.focusBoardNode,
+  set: value => { if (!value) controller.clearFocusRequest() },
+})
+const loadingAll = computed(() => state.value.loadingAll)
+const bulkProgress = computed(() => state.value.bulkProgress)
+const nodeId = computed(() => state.value.nodeId)
+const edgeId = computed(() => state.value.edgeId)
+const selectedNode = computed(() => state.value.selectedNode)
+const selectedEdge = computed(() => state.value.selectedEdge)
+const selectedReference = computed(() => state.value.selectedReference)
+const activeLink = computed(() => state.value.activeLink)
+const retry = computed(() => state.value.retry)
+const plan = computed(() => state.value.plan)
+const linkPending = computed(() => state.value.linkPending)
+const linkUnconfirmed = computed(() => state.value.linkUnconfirmed)
+const historyFailure = computed(() => state.value.historyFailure)
+const historyLoading = computed(() => state.value.historyLoading)
+const historyActionAvailable = computed(() => state.value.historyActionAvailable)
+const reference = computed(() => state.value.reference)
+const referenceLoading = computed(() => state.value.referenceLoading)
+const referenceError = computed(() => state.value.referenceError)
+const referenceOpenNotice = computed(() => formatNotice(state.value.referenceOpenNotice))
+const canOpenReference = computed(() => state.value.canOpenReference)
+const disabled = computed(() => state.value.disabled)
+
+const form = computed({
+  get: () => state.value.form,
+  set: value => { if (!value) controller.closeForm() },
+})
+function formField<K extends keyof CanvasFormFields>(key: K) {
+  return computed({
+    get: () => state.value[key],
+    set: (value: CanvasFormFields[K]) => controller.updateForm({ [key]: value } as Partial<CanvasFormFields>),
+  })
+}
+const title = formField('title')
+const nodeKind = formField('nodeKind')
+const note = formField('note')
+const article = formField('article')
+const anchor = formField('anchor')
+const pinned = formField('pinned')
+const members = computed(() => state.value.members)
+const endpoint = formField('endpoint')
+const editingNode = computed(() => state.value.editingNode)
+const editingEdge = computed(() => state.value.editingEdge)
+const choiceFilter = formField('choiceFilter')
+const edgeKind = formField('edgeKind')
+const label = formField('label')
+
+const nodeTypeLabels = computed(() => ({
+  'plain-text-note': t('author.canvas.note'),
+  'article-reference': t('author.canvas.article'),
+  'heading-reference': t('author.canvas.heading'),
+  'block-reference': t('author.canvas.block'),
+  'group-frame': t('author.canvas.frame'),
+}))
+function nodeLabel(node: CanvasNode): string {
+  return 'text' in node ? node.text.slice(0, 70) : t('author.canvas.kind_reference_article', { kind: nodeTypeLabels.value[node.kind], article: node.articleId })
+}
+function edgeLabel(edge: CanvasGraphEdge) {
+  const from = byId.value.get(edge.sourceNodeId)
+  const to = byId.value.get(edge.targetNodeId)
+  return edge.label || `${from ? nodeLabel(from) : t('author.canvas.unloaded_node')} → ${to ? nodeLabel(to) : t('author.canvas.unloaded_node')}`
 }
 
-watch([document, selectedReference, view, stale], clearReference, { flush: 'sync' })
+const outlineQuery = computed(() => outlineSearch.value.trim().toLowerCase())
+const matchingNodes = computed(() => filterOutlineNodes(nodes.value, outlineSearch.value, nodeLabel))
+const matchingEdges = computed(() => filterOutlineEdges(edges.value, outlineSearch.value, edgeLabel))
+const outlineNodes = computed(() => sliceOutlineRecords(matchingNodes.value, outlinePage.value))
+const outlineEdges = computed(() => sliceOutlineRecords(matchingEdges.value, outlinePage.value))
+const hasNextOutline = computed(() => hasNextOutlinePage(matchingNodes.value.length, matchingEdges.value.length, outlinePage.value))
+const memberChoices = computed(() => filterMemberChoices(nodes.value, choiceFilter.value, nodeLabel))
+const endpointChoices = computed(() => filterEndpointChoices(nodes.value, byId.value, endpoint.value, choiceFilter.value, nodeLabel))
 
 const referenceStatus = computed(() => ({
   unavailable: t('author.canvas.this_reference_is_unavailable'),
@@ -375,168 +205,80 @@ const referenceStatus = computed(() => ({
   'stale-revision': t('author.canvas.the_referenced_revision_is_unavailable'),
 }))
 
-async function resolveReference() {
-  const current = document.value
-  const node = selectedReference.value
-  const signal = scope.signal
-  if (!current || !node || disabled.value || !scoped(signal) || referenceLoading.value) return
-  clearReference()
-  const request = new AbortController()
-  referenceRequest = request
-  referenceLoading.value = true
-  const isLatest = () => scoped(signal) && request === referenceRequest && !request.signal.aborted &&
-    document.value === current && selectedReference.value === node
-
-  try {
-    const result = await canvasGraph.resolve(current.id, node.id, current.revision, request.signal)
-    if (!isLatest()) return
-    if (result.canvasId !== current.id || result.nodeId !== node.id || result.canvasRevision !== current.revision ||
-      (result.articleId !== null && (result.articleId !== node.articleId ||
-        result.pinned !== (node.pinnedRevision !== null) ||
-        (node.pinnedRevision !== null && result.articleRevision !== node.pinnedRevision)))) {
-      referenceError.value = true
-      return
-    }
-    reference.value = result
-  } catch (cause) {
-    if (!isLatest()) return
-    if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
-      recordError(cause, signal, t('author.canvas.could_not_resolve_the_reference'), true)
-    } else {
-      referenceError.value = true
-    }
-  } finally {
-    if (referenceRequest === request) {
-      referenceLoading.value = false
-      referenceRequest = undefined
-    }
-  }
+onMounted(() => {
+  if (preloadedAuth) return
+  void refreshSession(ownerLife.signal).finally(() => {
+    if (!ownerLife.signal.aborted) ready.value = true
+  }).catch(() => { controller.setSessionVerificationError() })
+})
+function protectUnload(event: BeforeUnloadEvent) {
+  if (controller.shouldProtectUnload) event.preventDefault()
 }
+onMounted(() => window.addEventListener('beforeunload', protectUnload))
+onScopeDispose(() => {
+  unsubscribe()
+  ownerLife.abort()
+  controller.dispose()
+  window.removeEventListener('beforeunload', protectUnload)
+})
+const canNavigate = () => controller.canNavigate
+onBeforeRouteUpdate(canNavigate)
+onBeforeRouteLeave(canNavigate)
 
-async function openReference() {
-  const canvas = document.value
-  const node = selectedReference.value
-  const preview = reference.value
-  const handle = currentSession.value?.siteSessionId
-  const epoch = credentialEpoch.value
-  const signal = scope.signal
-  if (!canvas || !node || !canOpenReference.value || !preview?.articleId || preview.articleRevision === null ||
-    !handle || disabled.value || referenceLoading.value || !scoped(signal) || !canNavigate()) return
-
-  const request = new AbortController()
-  referenceRequest = request
-  referenceLoading.value = true
-  referenceOpenNotice.value = ''
-  const isLatest = () => scoped(signal) && request === referenceRequest && !request.signal.aborted &&
-    document.value === canvas && selectedReference.value === node && credentialEpoch.value === epoch && canNavigate()
-
-  let token: string | undefined
-  try {
-    const result = await canvasGraph.resolve(canvas.id, node.id, canvas.revision, request.signal, handle)
-    if (!isLatest()) return
-    if (result.state !== 'resolved' || result.articleId !== preview.articleId ||
-      result.articleRevision !== preview.articleRevision || result.sourceOffset !== preview.sourceOffset || result.pinned !== preview.pinned) {
-      referenceOpenNotice.value = preview.pinned && result.state === 'stale-revision'
-        ? t('author.canvas.the_pinned_revision_cannot_be_opened_as_the_current_draft')
-        : t('author.canvas.could_not_open_this_reference_at_its_resolved_position_resolve_it_again')
-      return
-    }
-    token = offerCanvasEditorHandoff({ articleId: preview.articleId, revision: preview.articleRevision, sourceOffset: result.sourceOffset }, epoch)
-    if (await router.push({ name: 'edit', params: { id: preview.articleId }, state: { [canvasEditorHandoffKey]: token } })) {
-      cancelCanvasEditorHandoff(token)
-      if (isLatest()) referenceOpenNotice.value = t('author.canvas.the_editor_could_not_be_opened_try_again')
-    }
-  } catch (cause) {
-    if (token) cancelCanvasEditorHandoff(token)
-    if (isLatest()) {
-      if (cause instanceof ApiError && cause.status === 401) invalidateSession()
-      referenceOpenNotice.value = t('author.canvas.the_editor_could_not_be_opened_resolve_the_reference_again')
-    }
-  } finally {
-    if (referenceRequest === request) {
-      referenceLoading.value = false
-      referenceRequest = undefined
-    }
-  }
-}
+const load = (more = false) => controller.load(more)
+const loadAll = () => controller.loadAll()
+const loadHistory = () => controller.loadHistory()
+const send = (command: CanvasGraphCommand) => controller.send(command)
+const patch = (changes: CanvasGraphChange[] = [], name = '', viewport: CanvasViewport | null = null) =>
+  controller.patch(changes, name, viewport)
+const saveViewport = (viewport: CanvasViewport) => controller.saveViewport(viewport)
+const zoom = (amount: number) => controller.zoom(amount)
+const move = (id: string, geometry: CanvasGeometry) => controller.moveNode(id, geometry)
+const chooseNode = (id: string) => controller.chooseNode(id)
+const chooseEdge = (id: string) => controller.chooseEdge(id)
+const showNode = () => controller.showNode()
+const nameDocument = () => controller.openTitleForm()
+const saveTitle = () => controller.saveTitle()
+const addNode = (kind: CanvasNode['kind'] = 'plain-text-note', existing = false) => controller.openNodeForm(kind, existing)
+const saveNode = () => controller.saveNode()
+const addEdge = () => controller.openEdgeForm()
+const showEdgeForm = (edge?: CanvasGraphEdge) => controller.openEdgeForm(edge)
+const saveEdge = () => controller.saveEdge()
+const resolveReference = () => controller.resolveReference()
+const openReference = () => controller.openReference()
+const prepareLink = () => controller.prepareLink()
+const applyLink = () => controller.applyLink()
+const cancelLink = () => controller.cancelLink()
 
 function openImported(id: string) {
   void router.push({ name: 'canvas-document', params: { id } })
 }
 
-function chooseNode(id: string) { nodeId.value = id; edgeId.value = '' }
-function chooseEdge(id: string) { edgeId.value = id; nodeId.value = '' }
-async function showNode() {
-  const node = selectedNode.value
-  const viewport = document.value?.viewport
-  if (!node || !viewport) return
-  const signal = scope.signal
-  view.value = 'canvas'
-  await saveViewport({ ...viewport, x: Math.max(-1_000_000_000, node.geometry.x - 3500),
-    y: Math.max(-1_000_000_000, node.geometry.y - 3500) })
-  if (scoped(signal) && selectedNode.value?.id === node.id && view.value === 'canvas' && !stale.value)
-    focusBoardNode.value = node.id
+function setMembers(event: Event) {
+  if (!(event.target instanceof HTMLSelectElement)) return
+  const selected = Array.from(event.target.selectedOptions, option => option.value)
+  controller.setFrameMembers(memberChoices.value, selected)
 }
 
-async function send(command: CanvasGraphCommand) {
-  const signal = scope.signal
-  if (!scoped(signal) || working.value || linkPending.value || stale.value ||
-    (retry.value && retry.value !== command)) return
-  try { encodeCanvasGraphCommand(command) }
-  catch { error.value = t('author.canvas.check_the_canvas_text_reference_and_size_limits'); return }
-  working.value = true
-  message.value = ''
-  error.value = ''
-  retry.value = command
-  try {
-    const result = await canvasGraph.write(command, signal)
-    if (!scoped(signal)) return
-    retry.value = undefined
-    working.value = false
-    form.value = undefined
-    message.value = command.action === 'undo' ? t('author.canvas.canvas_change_undone')
-      : command.action === 'redo' ? t('author.canvas.canvas_change_redone') : t('author.canvas.canvas_saved')
-    if (command.action === 'create') {
-      await router.push({ name: 'canvas-document', params: { id: result.id } })
-    } else if (result.deleted) {
-      await router.replace({ name: 'canvas' })
-    } else if (command.action === 'undo' || command.action === 'redo') {
-      await load(false, result)
-    } else if (command.changes.length === 0) {
-      document.value = result
-      // A later continuation must use the newly confirmed revision.
-      void loadHistory(result)
-    } else if (completeGraph.value && command.changes.length === 1 &&
-      command.changes[0].kind === 'upsert-node' && byId.value.has(command.changes[0].node.id) &&
-      result.nodeCount === nodes.value.length && result.edgeCount === edges.value.length) {
-      // An existing node upsert changes no incident records. The exact CAS
-      // receipt confirms this immutable candidate without refetching all pages.
-      const changed = command.changes[0].node
-      nodes.value = nodes.value.map(node => node.id === changed.id ? changed : node)
-      document.value = result
-      void loadHistory(result)
-    } else {
-      await load(false, result)
-    }
-  } catch (cause) {
-    if (recordError(cause, signal, t('author.canvas.could_not_confirm_the_change_retry_the_same_request'))) retry.value = undefined
-  } finally {
-    if (scoped(signal)) working.value = false
-  }
+async function deleteDocument() {
+  const selected = document.value
+  const token = controller.contextToken
+  if (!selected || disabled.value) return
+  try { await ElMessageBox.confirm(t('author.canvas.delete_this_canvas_and_its_nodes_and_edges'), t('author.canvas.delete_canvas'), { confirmButtonText: t('author.canvas.delete') }) }
+  catch { return }
+  if (ownerLife.signal.aborted || controller.contextToken !== token) return
+  await controller.deleteDocument(selected)
 }
 
 async function travel(action: 'undo' | 'redo') {
   const current = document.value
   if (!current || !historyActionAvailable.value[action]) return
-  const signal = scope.signal
+  const token = controller.contextToken
   const trigger = tools.value?.querySelector<HTMLButtonElement>(`button.canvas-${action}`)
   const hadFocus = trigger === window.document.activeElement
-  await send({
-    id: current.id, commandId: crypto.randomUUID(), expectedRevision: current.revision,
-    action, title: '', viewport: null, changes: [],
-  })
+  await controller.travel(action)
   await nextTick()
-  if (!hadFocus || !scoped(signal) || document.value?.id !== current.id) return
+  if (!hadFocus || ownerLife.signal.aborted || controller.contextToken !== token || !controller.isAuthorized() || document.value?.id !== current.id) return
   const active = window.document.activeElement
   if (active !== trigger && active !== window.document.body) return
   if (trigger && !trigger.disabled) {
@@ -548,177 +290,11 @@ async function travel(action: 'undo' | 'redo') {
 }
 
 function historyShortcut(event: KeyboardEvent) {
-  if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.ctrlKey === event.metaKey) return
-  const key = event.key.toLowerCase()
-  const action = key === 'z' ? (event.shiftKey ? 'redo' : 'undo') : key === 'y' && !event.shiftKey ? 'redo' : undefined
+  const action = resolveHistoryShortcutAction(event)
   if (!action || !historyActionAvailable.value[action] || !(event.target instanceof HTMLElement) ||
     !graph.value?.contains(event.target) || event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return
   event.preventDefault()
   void travel(action)
-}
-
-function patch(changes: CanvasGraphChange[] = [], name = '', viewport: CanvasViewport | null = null) {
-  if (!document.value || disabled.value) return
-  return send({
-    id: document.value.id, commandId: crypto.randomUUID(), expectedRevision: document.value.revision,
-    action: 'edit', title: name, viewport, changes,
-  })
-}
-function saveViewport(viewport: CanvasViewport) {
-  const saved = document.value?.viewport
-  if (saved && (viewport.x !== saved.x || viewport.y !== saved.y || viewport.zoom !== saved.zoom)) return patch([], '', viewport)
-}
-function zoom(amount: number) {
-  const viewport = document.value?.viewport
-  if (viewport) saveViewport({ ...viewport, zoom: Math.min(4000, Math.max(100, viewport.zoom + amount)) })
-}
-function move(id: string, geometry: CanvasGeometry) {
-  const node = byId.value.get(id)
-  if (node) patch([{ kind: 'upsert-node', node: { ...node, geometry } }])
-}
-
-function nameDocument() {
-  title.value = document.value?.title ?? ''
-  form.value = 'title'
-}
-function saveTitle() {
-  const next = title.value.trim()
-  if (!next || next === document.value?.title) return
-  if (document.value) patch([], next)
-  else void send({ id: crypto.randomUUID(), commandId: crypto.randomUUID(), expectedRevision: 0n,
-    action: 'create', title: next, viewport: null, changes: [] })
-}
-function addNode(kind: CanvasNode['kind'] = 'plain-text-note', existing = false) {
-  const node = existing ? selectedNode.value : undefined
-  choiceFilter.value = ''
-  nodeKind.value = node?.kind ?? kind
-  note.value = node && 'text' in node ? node.text : ''
-  article.value = node && 'articleId' in node ? String(node.articleId) : ''
-  anchor.value = node && 'anchor' in node ? node.anchor : ''
-  pinned.value = node && 'pinnedRevision' in node ? node.pinnedRevision?.toString() ?? '' : ''
-  members.value = node?.kind === 'group-frame' ? [...node.memberIds] : []
-  editingNode.value = node
-  form.value = 'node'
-}
-const editingNode = shallowRef<CanvasNode>()
-function saveNode() {
-  const canvas = document.value
-  if (!canvas) return
-  const current = editingNode.value
-  const id = current?.id ?? crypto.randomUUID()
-  const shift = (canvas.nodeCount % 8) * 3400
-  const geometry = current?.geometry ?? {
-    x: Math.min(1_000_000_000, canvas.viewport.x + 3500 + shift),
-    y: Math.min(1_000_000_000, canvas.viewport.y + 3500 + shift), width: 17000, height: 10000,
-  }
-  const kind = nodeKind.value
-  const base = { id, geometry }
-  let node: CanvasNode
-  if (kind === 'plain-text-note') node = { ...base, kind, text: note.value }
-  else if (kind === 'group-frame') node = { ...base, kind, text: note.value, memberIds: members.value }
-  else {
-    if (!/^[1-9]\d{0,9}$/.test(article.value) || Number(article.value) > 2_147_483_647 ||
-      pinned.value && !/^[1-9]\d{0,18}$/.test(pinned.value)) {
-      error.value = t('author.canvas.enter_a_valid_article_id_and_optional_pinned_revision')
-      return
-    }
-    const referenced = { ...base, articleId: Number(article.value), pinnedRevision: pinned.value ? BigInt(pinned.value) : null }
-    node = kind === 'article-reference' ? { ...referenced, kind } : { ...referenced, kind, anchor: anchor.value }
-  }
-  patch([{ kind: 'upsert-node', node }])
-}
-function setMembers(event: Event) {
-  if (!(event.target instanceof HTMLSelectElement)) return
-  const shown = new Set(memberChoices.value.map(node => node.id))
-  const hidden = members.value.filter(member => !shown.has(member))
-  const selected = Array.from(event.target.selectedOptions, option => option.value)
-  members.value = [...hidden, ...selected]
-}
-function addEdge() {
-  if (!selectedNode.value) return
-  showEdgeForm()
-}
-function showEdgeForm(edge?: CanvasGraphEdge) {
-  editingEdge.value = edge
-  endpoint.value = edge?.targetNodeId ?? ''
-  choiceFilter.value = ''
-  edgeKind.value = edge?.kind ?? 'visual-only'
-  label.value = edge?.label ?? ''
-  form.value = 'edge'
-}
-function saveEdge() {
-  const prior = editingEdge.value
-  const sourceNodeId = prior?.sourceNodeId ?? selectedNode.value?.id
-  if (!sourceNodeId || !byId.value.has(endpoint.value) && prior?.targetNodeId !== endpoint.value) return
-  patch([{ kind: 'upsert-edge', edge: { id: prior?.id ?? crypto.randomUUID(), sourceNodeId,
-    targetNodeId: endpoint.value, kind: edgeKind.value, order: prior?.order ?? document.value?.edgeCount ?? 0,
-    label: label.value || null } }])
-}
-async function deleteDocument() {
-  const selected = document.value
-  const signal = scope.signal
-  if (!selected || disabled.value) return
-  try { await ElMessageBox.confirm(t('author.canvas.delete_this_canvas_and_its_nodes_and_edges'), t('author.canvas.delete_canvas'), { confirmButtonText: t('author.canvas.delete') }) }
-  catch { return }
-  if (!scoped(signal) || document.value !== selected) return
-  await send({ id: selected.id, expectedRevision: selected.revision, commandId: crypto.randomUUID(),
-    action: 'delete', title: '', viewport: null, changes: [] })
-}
-
-async function prepareLink() {
-  const pair = activeLink.value
-  const edge = selectedEdge.value
-  const canvas = document.value
-  const signal = scope.signal
-  if (!pair || !edge || !canvas || disabled.value) return
-  linkPending.value = true
-  error.value = ''
-  try {
-    const [host, target] = await Promise.all([api.draft(pair.from.articleId, signal), api.publicArticle(pair.to.articleId, signal)])
-    if (!scoped(signal) || document.value !== canvas || selectedEdge.value !== edge) return
-    const preview = await previewCanvasLink({ canvasId: canvas.id, edgeId: edge.id, canvasRevision: canvas.revision,
-      hostRevision: host.revision, targetRevision: target.revision, sourceOffset: host.body.length }, host.id, target.id, signal,
-    edge.kind === 'visual-only')
-    if (scoped(signal) && document.value === canvas && selectedEdge.value === edge) plan.value = { ...preview, edgeKind: edge.kind }
-  } catch (cause) { recordError(cause, signal, t('author.canvas.could_not_prepare_the_article_link')) }
-  finally { if (scoped(signal)) linkPending.value = false }
-}
-async function applyLink() {
-  const preview = plan.value
-  const signal = scope.signal
-  if (!preview || !scoped(signal) || linkPending.value) return
-  linkPending.value = true
-  error.value = ''
-  try {
-    await confirmCanvasLink(preview, signal)
-    if (!scoped(signal)) return
-    plan.value = undefined
-    linkUnconfirmed.value = false
-    message.value = t('author.canvas.link_added_to_a_new_article_draft')
-    await load()
-  } catch (cause) {
-    const rejected = recordError(cause, signal, t('author.canvas.the_outcome_is_uncertain_retry_the_same_link_confirmation'))
-    if (scoped(signal)) {
-      if (rejected) plan.value = undefined
-      linkUnconfirmed.value = !rejected
-    }
-  } finally { if (scoped(signal)) linkPending.value = false }
-}
-function cancelLink() {
-  if (!linkPending.value && !linkUnconfirmed.value) plan.value = undefined
-}
-
-const nodeTypeLabels = computed(() => ({
-  'plain-text-note': t('author.canvas.note'), 'article-reference': t('author.canvas.article'), 'heading-reference': t('author.canvas.heading'),
-  'block-reference': t('author.canvas.block'), 'group-frame': t('author.canvas.frame'),
-}))
-function nodeLabel(node: CanvasNode): string {
-  return 'text' in node ? node.text.slice(0, 70) : t('author.canvas.kind_reference_article', { kind: nodeTypeLabels.value[node.kind], article: node.articleId })
-}
-function edgeLabel(edge: CanvasGraphEdge) {
-  const from = byId.value.get(edge.sourceNodeId)
-  const to = byId.value.get(edge.targetNodeId)
-  return edge.label || `${from ? nodeLabel(from) : t('author.canvas.unloaded_node')} → ${to ? nodeLabel(to) : t('author.canvas.unloaded_node')}`
 }
 </script>
 

@@ -1,7 +1,7 @@
 import { ApiError, ProtocolError } from '../../Contracts/aeds.ts'
 import {
-  decodeCorpusDocuments, encodeLocalSearchResult, queryCorpusPage, scoreAdmittedCorpusPage, searchTerms,
-  type PublicSearchSort,
+  decodeCorpusDocuments, encodeLocalSearchResult, queryCorpusPage, scoreAdmittedCorpusPage,
+  searchShortAsciiPrefixes, searchTerms, type PublicSearchSort,
 } from '../../Contracts/local-search.ts'
 import type { ArticleCard } from '../../Contracts/public-articles.ts'
 import { withWideSearchStorage, type WideSearchStorage } from './wideSearchStorage.ts'
@@ -12,7 +12,13 @@ import {
 
 type Result = { frame: Uint8Array<ArrayBuffer>; identity: WideSearchIdentity | null }
 type CachedCorpus = { manifest: WideSearchManifest; owner: string }
-type CachedRanking = { corpus: CachedCorpus; terms: readonly number[]; sort: PublicSearchSort; positions: Uint32Array }
+type CachedRanking = {
+  corpus: CachedCorpus
+  terms: readonly number[]
+  shortPrefixes: readonly string[]
+  sort: PublicSearchSort
+  positions: Uint32Array
+}
 
 const attemptMs = 300_000
 const rowsPerSlot = 256 // Each FSPK page contains at most 200 articles.
@@ -57,6 +63,7 @@ type ReadPageBytes = (page: WideSearchPage) => Promise<Uint8Array<ArrayBuffer>>
 async function rankPages(
   manifest: WideSearchManifest,
   terms: readonly number[],
+  shortPrefixes: readonly string[],
   sort: PublicSearchSort,
   read: ReadPageBytes,
 ) {
@@ -67,7 +74,7 @@ async function rankPages(
   let matches = 0
   for (const page of manifest.pages) {
     const bytes = await read(page)
-    for (const hit of scoreAdmittedCorpusPage(bytes, terms)) {
+    for (const hit of scoreAdmittedCorpusPage(bytes, terms, shortPrefixes)) {
       positions[matches] = (page.number - 1) * rowsPerSlot + hit.row
       ids[matches] = hit.id
       times[matches] = hit.publishedAt
@@ -135,6 +142,7 @@ export function createWideSearch() {
       throw new ProtocolError('Invalid local search query page')
     }
     const terms = searchTerms(query)
+    const shortPrefixes = searchShortAsciiPrefixes(query)
     request.throwIfAborted()
     if (terms.length === 0) return { frame: encodeLocalSearchResult([], 0), identity: null }
 
@@ -208,9 +216,11 @@ export function createWideSearch() {
         const cached = ranking
         const current = cached && cached.corpus.owner === corpus.owner && sameIdentity(cached.corpus.manifest, manifest) &&
           cached.sort === sort && terms.length === cached.terms.length &&
-          terms.every((hash, index) => hash === cached.terms[index])
+          terms.every((hash, index) => hash === cached.terms[index]) &&
+          shortPrefixes.length === cached.shortPrefixes.length &&
+          shortPrefixes.every((prefix, index) => prefix === cached.shortPrefixes[index])
           ? cached
-          : { corpus, terms, sort, positions: await rankPages(manifest, terms, sort, read) }
+          : { corpus, terms, shortPrefixes, sort, positions: await rankPages(manifest, terms, shortPrefixes, sort, read) }
         ranking = current
         const frame = await readResults(manifest, current.positions, page, size, read)
         check(scoring)

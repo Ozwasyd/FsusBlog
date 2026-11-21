@@ -34,6 +34,7 @@ const deleteError = ref('')
 const notice = ref<{ key: MessageKey; kind: TaxonomyKind; name?: string }>()
 const heading = ref<HTMLElement>()
 let opener: HTMLElement | undefined
+let deleteOpener: HTMLElement | undefined
 let request: AbortController | undefined
 let deleteController: AbortController | undefined
 let viewGeneration = 0
@@ -68,12 +69,13 @@ async function load(index: number) {
   pageNumber.value = index
   pending.value = true
   try {
-    const data = await readAdminTaxonomy(listKind, cursors.value[index] ?? null, current.signal)
+    const [data, enabled] = await Promise.all([
+      readAdminTaxonomy(listKind, cursors.value[index] ?? null, current.signal),
+      taxonomyMetadataAvailable(itemKind, current.signal).catch(() => false),
+    ])
     if (current.signal.aborted) return
     page.value = data
-    pending.value = false
-    const enabled = await taxonomyMetadataAvailable(itemKind, current.signal).catch(() => false)
-    if (!current.signal.aborted) canEditMetadata.value = enabled
+    canEditMetadata.value = enabled
   } catch (error) {
     if (current.signal.aborted) return
     if (error instanceof ApiError && error.status === 401) emit('session-lost', error)
@@ -112,10 +114,21 @@ async function closeEditor(saved: boolean) {
   else heading.value?.focus()
 }
 
-function openDelete(item: AdminTaxonomyItem) {
+function openDelete(item: AdminTaxonomyItem, event?: Event) {
   if (deleting.value || !canEditMetadata.value) return
   deleteError.value = ''
+  deleteOpener = event?.currentTarget instanceof HTMLElement ? event.currentTarget : undefined
   deleteTarget.value = item
+}
+
+async function closeDelete() {
+  if (deleting.value) return
+  const previousOpener = deleteOpener
+  deleteOpener = undefined
+  deleteTarget.value = undefined
+  deleteError.value = ''
+  await nextTick()
+  if (previousOpener?.isConnected) previousOpener.focus({ preventScroll: true })
 }
 
 async function confirmDelete() {
@@ -130,12 +143,21 @@ async function confirmDelete() {
     await deleteTaxonomy(metadataKind.value, item.id, controller.signal)
     if (controller.signal.aborted) return
     const deletedName = item.name
+    const targetPage = page.value && page.value.items.length <= 1 && pageNumber.value > 0
+      ? pageNumber.value - 1
+      : pageNumber.value
+    if (targetPage < pageNumber.value) cursors.value = cursors.value.slice(0, targetPage + 1)
+    deleteOpener = undefined
     deleteTarget.value = undefined
     notice.value = { key: 'admin.taxonomy.deleted', kind: kind.value, name: deletedName }
-    await load(pageNumber.value)
+    const view = viewGeneration
+    await load(targetPage)
+    await nextTick()
+    if (viewGeneration === view + 1) heading.value?.focus()
   } catch (error) {
     if (controller.signal.aborted) return
     if (error instanceof ApiError && error.status === 401) {
+      deleteOpener = undefined
       deleteTarget.value = undefined
       emit('session-lost', error)
     } else if (error instanceof ApiError && error.status === 409) {
@@ -150,6 +172,7 @@ async function confirmDelete() {
 }
 
 function viewLinkedArticles(item: AdminTaxonomyItem) {
+  deleteOpener = undefined
   deleteTarget.value = undefined
   emit('view-articles', { kind: metadataKind.value, id: item.id, name: item.name })
 }
@@ -201,7 +224,11 @@ onBeforeUnmount(() => {
       <ElButton class="taxonomy-refresh" native-type="button" text :disabled="pending || edited !== undefined" @click="load(pageNumber)">{{ t('admin.articles.refresh') }}</ElButton>
     </template>
 
-    <p v-if="notice" class="taxonomy-status" role="status">{{ t(notice.key, { label: notice.name ? `${kindLabel}「${notice.name}」` : t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2') }) }}</p>
+    <p v-if="notice" class="taxonomy-status" role="status">
+      {{ notice.name
+        ? t(notice.key, { kind: t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2'), name: notice.name })
+        : t(notice.key, { label: t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2') }) }}
+    </p>
     <ElSkeleton v-if="pending" :rows="3" animated />
     <ElAlert v-else-if="failure === 'request'" :title="t('admin.taxonomy.m8')" type="error" :closable="false" show-icon>
       <ElButton native-type="button" text @click="load(pageNumber)">{{ t('admin.taxonomy.m9') }}</ElButton>
@@ -263,7 +290,7 @@ onBeforeUnmount(() => {
                   <ElButton v-if="canEditMetadata" native-type="button" text size="small" :disabled="edited !== undefined" @click="openEditor(item.id, $event)">
                     {{ t('admin.taxonomy.edit') }}
                   </ElButton>
-                  <ElButton v-if="canEditMetadata" native-type="button" text size="small" type="danger" :disabled="deleting" @click="openDelete(item)">
+                  <ElButton v-if="canEditMetadata" native-type="button" text size="small" type="danger" :disabled="deleting" @click="openDelete(item, $event)">
                     {{ t('admin.taxonomy.delete') }}
                   </ElButton>
                 </ElInlineActions>
@@ -291,6 +318,7 @@ onBeforeUnmount(() => {
       :model-value="edited !== undefined"
       :title="editorTitle"
       width="min(30rem, 92vw)"
+      append-to-body
       @update:model-value="visible => { if (!visible) closeEditor(false) }"
     >
       <AdminTagMetadata
@@ -308,10 +336,11 @@ onBeforeUnmount(() => {
       :model-value="!!deleteTarget"
       :title="t('admin.taxonomy.deleteTitle', { kind: kindLabel })"
       width="min(28rem, 92vw)"
+      append-to-body
       :close-on-press-escape="!deleting"
       :close-on-click-modal="!deleting"
       :show-close="!deleting"
-      @update:model-value="visible => { if (!visible && !deleting) deleteTarget = undefined }"
+      @update:model-value="visible => { if (!visible) void closeDelete() }"
     >
       <div v-if="deleteTarget" class="taxonomy-delete-body">
         <ElAlert v-if="deleteError" :title="deleteError" type="error" :closable="false" />
@@ -324,7 +353,7 @@ onBeforeUnmount(() => {
       </div>
       <template #footer>
         <ElInlineActions>
-          <ElButton native-type="button" :disabled="deleting" @click="deleteTarget = undefined">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
+          <ElButton native-type="button" :disabled="deleting" @click="closeDelete">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
           <ElButton
             v-if="deleteTarget && deleteTarget.retainedArticles > 0"
             native-type="button"
@@ -444,11 +473,15 @@ th:first-child {
 
 .taxonomy-other-states {
   color: var(--el-text-color-secondary);
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .taxonomy-row-actions {
   white-space: nowrap;
+}
+
+.taxonomy-row-actions :deep(.el-inline-actions) {
+  flex-wrap: nowrap;
 }
 
 .taxonomy-delete-body {

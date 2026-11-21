@@ -65,12 +65,23 @@ export async function signOutAdmin(signal?: AbortSignal): Promise<void> {
   await request(WireRoutes.AdminSignOut, FrameType.EmptySuccess, decodeSuccess, signal, 'POST');
 }
 
+const permissionSessionPattern = /^[a-f0-9]{64}$/;
+
 export function readAdminOperations(session: AdminSession, signal: AbortSignal): Promise<AdminOperationsStatus> {
   return request(WireRoutes.AdminOperationsStatus, FrameType.AdminOperationsStatus, (payload, headers) => {
-    if (!session.permissionSession || readPermissionSession(headers) !== session.permissionSession)
-      throw new ProtocolError('Administrator permission session changed.');
+    assertAdminPermissionSession(session, headers);
     return readOperationsStatus(payload);
   }, signal);
+}
+
+export async function readAdminAvailability(path: string, signal: AbortSignal): Promise<boolean> {
+  const response = await fetch(path, {
+    credentials: 'same-origin', redirect: 'error', cache: 'no-store', signal,
+  });
+  if (response.status === 204) return true;
+  if (response.status === 404) return false;
+  if (!response.ok) throw new ApiError(response.statusText || 'Request failed', response.status);
+  throw new ProtocolError('Invalid administrator availability response');
 }
 
 export function readAdminCommentQueue(after: AdminCommentCursor | null, signal?: AbortSignal): Promise<AdminCommentQueue> {
@@ -140,6 +151,18 @@ export function adminDeleteArticle(id: number, signal?: AbortSignal): Promise<vo
 
 function readPermissionSession(headers: Headers): string | undefined {
   const value = headers.get(WireHeaders.AdminPermissionSession);
-  if (value !== null && !/^[a-f0-9]{64}$/.test(value)) throw new ProtocolError('Invalid administrator permission session.');
+  if (value !== null && !permissionSessionPattern.test(value))
+    throw new ProtocolError('Invalid administrator permission session.');
   return value ?? undefined;
+}
+
+export function assertAdminPermissionSession(
+  session: Pick<AdminSession, 'permissionSession'>,
+  headers: Headers,
+  message = 'Administrator permission session changed.',
+): void {
+  const actual = readPermissionSession(headers);
+  if (!session.permissionSession || !permissionSessionPattern.test(session.permissionSession) ||
+      actual !== session.permissionSession)
+    throw new ProtocolError(message);
 }

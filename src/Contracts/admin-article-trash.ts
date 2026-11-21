@@ -1,16 +1,17 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
-import { proofHeaders, readRollbackAvailability, requestRollbackProof } from './admin-article-rollback.ts';
+import { readAdminAvailability } from './admin-identity.ts';
+import { optionalAdminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { request } from './client.ts';
 import { decodeAdminArticleTrashRestoreReceipt, encodeAdminArticleTrashRestoreIntent, decodeAdminArticleTrashPublicationPreview,
   decodeAdminArticleTrashPublicationReceipt, encodeAdminArticleTrashPublicationIntent,
   FrameType, WireHeaders, WireRoutes, type AdminArticleTrashRestoreIntent, type AdminArticleTrashPublicationIntent } from './wire.generated.ts';
 
 export function readTrashRestoreAvailability(signal: AbortSignal) {
-  return readRollbackAvailability(WireRoutes.AdminArticleTrashRestoreAvailability, signal);
+  return readAdminAvailability(WireRoutes.AdminArticleTrashRestoreAvailability, signal);
 }
 
 export function readTrashPublicationAvailability(signal: AbortSignal) {
-  return readRollbackAvailability(WireRoutes.AdminArticleTrashPublicationAvailability, signal);
+  return readAdminAvailability(WireRoutes.AdminArticleTrashPublicationAvailability, signal);
 }
 
 export function readTrashPublication(articleId: number, revision: bigint, signal: AbortSignal) {
@@ -26,8 +27,10 @@ export function readTrashPublication(articleId: number, revision: bigint, signal
 }
 
 export function requestTrashPublicationProof(intent: AdminArticleTrashPublicationIntent, signal: AbortSignal) {
-  return requestRollbackProof(WireRoutes.AdminArticleTrashPublicationBegin, WireRoutes.AdminArticleTrashPublicationComplete,
-    publicationFrame(intent), signal, { [WireHeaders.ClientMutationId]: intent.idempotencyKey });
+  return proveAdminStepUp({
+    begin: WireRoutes.AdminArticleTrashPublicationBegin,
+    complete: WireRoutes.AdminArticleTrashPublicationComplete,
+  }, publicationFrame(intent), signal, { [WireHeaders.ClientMutationId]: intent.idempotencyKey });
 }
 
 export function executeTrashPublication(intent: AdminArticleTrashPublicationIntent, proof: string | undefined, signal: AbortSignal) {
@@ -38,7 +41,7 @@ export function executeTrashPublication(intent: AdminArticleTrashPublicationInte
         receipt.publicationId <= 0n || receipt.publicationId === receipt.sourcePublicationId)
       throw new ProtocolError('Invalid administrator publication restore receipt.');
     return receipt;
-  }, signal, 'POST', publicationFrame(intent), { ...proofHeaders(proof), [WireHeaders.ClientMutationId]: intent.idempotencyKey });
+  }, signal, 'POST', publicationFrame(intent), { ...optionalAdminProofHeaders(proof), [WireHeaders.ClientMutationId]: intent.idempotencyKey });
 }
 
 function publicationFrame(intent: AdminArticleTrashPublicationIntent) {
@@ -46,8 +49,10 @@ function publicationFrame(intent: AdminArticleTrashPublicationIntent) {
 }
 
 export function requestTrashRestoreProof(intent: AdminArticleTrashRestoreIntent, signal: AbortSignal) {
-  return requestRollbackProof(WireRoutes.AdminArticleTrashRestoreBegin, WireRoutes.AdminArticleTrashRestoreComplete,
-    frame(intent), signal, { [WireHeaders.ClientMutationId]: intent.idempotencyKey });
+  return proveAdminStepUp({
+    begin: WireRoutes.AdminArticleTrashRestoreBegin,
+    complete: WireRoutes.AdminArticleTrashRestoreComplete,
+  }, frame(intent), signal, { [WireHeaders.ClientMutationId]: intent.idempotencyKey });
 }
 
 export function executeTrashRestore(intent: AdminArticleTrashRestoreIntent, proof: string | undefined, signal: AbortSignal) {
@@ -56,7 +61,7 @@ export function executeTrashRestore(intent: AdminArticleTrashRestoreIntent, proo
     if (receipt.articleId !== intent.articleId || receipt.revision !== intent.expectedRevision + 1n)
       throw new ProtocolError('Invalid administrator trash restore receipt.');
     return receipt;
-  }, signal, 'POST', frame(intent), { ...proofHeaders(proof), [WireHeaders.ClientMutationId]: intent.idempotencyKey });
+  }, signal, 'POST', frame(intent), { ...optionalAdminProofHeaders(proof), [WireHeaders.ClientMutationId]: intent.idempotencyKey });
 }
 
 function frame(intent: AdminArticleTrashRestoreIntent) {

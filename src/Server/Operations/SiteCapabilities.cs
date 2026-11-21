@@ -139,6 +139,7 @@ internal sealed class SiteCapabilities
 
         var hasAdmin = adminIdentity is not null;
         var httpsAdmin = adminIdentity?.Origin.Scheme == Uri.UriSchemeHttps;
+        var loopbackAdmin = adminIdentity is { Origin: { Scheme: "http", IsLoopback: true } };
 
         AdminInboxReplies = hasAdmin && (ReadOptionalBool(configuration, AdminInboxEndpoints.ReplySetting) ?? true);
         AdminInboxStatus = hasAdmin && (ReadOptionalBool(configuration, AdminInboxEndpoints.StatusSetting) ?? true);
@@ -148,30 +149,30 @@ internal sealed class SiteCapabilities
         AdminInboxActivityOrder = hasAdmin && (ReadOptionalBool(configuration, InboxActivityFence.Setting) ?? true);
         AdminCommentBatch = hasAdmin && (ReadOptionalBool(configuration, AdminModerationBatchEndpoints.Setting) ?? true);
 
-        AdminArticleRollback = ReadOptionalBool(configuration, AdminArticleRollbackEndpoints.Setting) ?? httpsAdmin;
-        if (AdminArticleRollback && !httpsAdmin)
-            throw new InvalidOperationException("Published article rollback requires an HTTPS administrator origin.");
+        AdminArticleRollback = ReadOptionalBool(configuration, AdminArticleRollbackEndpoints.Setting) ?? hasAdmin;
+        if (AdminArticleRollback && !hasAdmin)
+            throw new InvalidOperationException("Published article rollback requires an administrator origin.");
 
-        AdminTagMetadata = ReadOptionalBool(configuration, AdminTagMetadataEndpoints.Setting) ?? httpsAdmin;
-        if (AdminTagMetadata && !httpsAdmin)
-            throw new InvalidOperationException("Tag metadata editing requires an HTTPS administrator origin.");
+        AdminTagMetadata = ReadOptionalBool(configuration, AdminTagMetadataEndpoints.Setting) ?? hasAdmin;
+        if (AdminTagMetadata && !hasAdmin)
+            throw new InvalidOperationException("Tag metadata editing requires an administrator origin.");
 
-        AdminCategoryMetadata = ReadOptionalBool(configuration, AdminTagMetadataEndpoints.CategorySetting) ?? httpsAdmin;
-        if (AdminCategoryMetadata && !httpsAdmin)
-            throw new InvalidOperationException("Category metadata editing requires an HTTPS administrator origin.");
+        AdminCategoryMetadata = ReadOptionalBool(configuration, AdminTagMetadataEndpoints.CategorySetting) ?? hasAdmin;
+        if (AdminCategoryMetadata && !hasAdmin)
+            throw new InvalidOperationException("Category metadata editing requires an administrator origin.");
 
-        var httpsSiteAndAdmin = httpsAdmin && publicSite.Origin is not null;
+        var siteAndAdminReady = (httpsAdmin && publicSite.Origin is not null) || loopbackAdmin;
         SitePageEditor = ReadOptionalBool(configuration, SitePages.EditorSetting) ??
-            (httpsSiteAndAdmin && SitePagesRoot is not null);
-        if (SitePageEditor && !httpsSiteAndAdmin)
-            throw new InvalidOperationException("The site page editor requires HTTPS administrator and public origins.");
+            (siteAndAdminReady && SitePagesRoot is not null);
+        if (SitePageEditor && !siteAndAdminReady)
+            throw new InvalidOperationException("The site page editor requires HTTPS administrator and public origins or a loopback administrator origin.");
         if (SitePageEditor && string.IsNullOrWhiteSpace(SitePagesRoot))
             throw new InvalidOperationException("The site page editor requires the four deployment baseline files.");
 
         OnlineAppearance = ReadOptionalBool(configuration, AppearanceAssets.OnlineSetting) ??
-            (AppearanceRoot is not null && httpsSiteAndAdmin);
-        if (OnlineAppearance && !httpsSiteAndAdmin)
-            throw new InvalidOperationException("Online appearance requires HTTPS administrator and public origins.");
+            (AppearanceRoot is not null && siteAndAdminReady);
+        if (OnlineAppearance && !siteAndAdminReady)
+            throw new InvalidOperationException("Online appearance requires HTTPS administrator and public origins or a loopback administrator origin.");
         if (OnlineAppearance && string.IsNullOrWhiteSpace(AppearanceRoot))
             throw new InvalidOperationException("Online appearance requires a signed deployment registry.");
 

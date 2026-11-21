@@ -350,10 +350,11 @@ CREATE TABLE public.comment_appeal_admin_step_up (
     generation bigint NOT NULL CHECK (generation > 0),
     action integer NOT NULL CHECK (action = 5),
     body_digest bytea NOT NULL CHECK (octet_length(body_digest) = 32),
-    options text,
+    options text CHECK (octet_length(options) BETWEEN 1 AND 8192),
     expires_at timestamptz NOT NULL,
-    kind smallint NOT NULL CHECK (kind BETWEEN 1 AND 2),
-    UNIQUE (session_digest, kind)
+    kind smallint NOT NULL,
+    UNIQUE (session_digest, kind),
+    CHECK ((kind = 1 AND options IS NOT NULL) OR (kind = 2 AND options IS NULL))
 );
 
 CREATE TABLE public.admin_comment_batch (

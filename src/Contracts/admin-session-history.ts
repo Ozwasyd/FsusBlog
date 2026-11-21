@@ -1,7 +1,7 @@
 import { ProtocolError } from './aeds.ts';
-import type { AdminSession } from './admin-identity.ts';
+import { assertAdminPermissionSession, type AdminSession } from './admin-identity.ts';
 import { request } from './client.ts';
-import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
+import { FrameType, WireRoutes } from './wire.generated.ts';
 
 const headerBytes = 12;
 const rowBytes = 25;
@@ -17,8 +17,7 @@ export type AdminSessionHistoryRow = Readonly<{
 
 export function readAdminSessionHistory(session: AdminSession, signal: AbortSignal): Promise<readonly AdminSessionHistoryRow[]> {
   return request(WireRoutes.AdminSignInHistory, FrameType.AdminSignInHistory, (payload, headers) => {
-    if (!session.permissionSession || headers.get(WireHeaders.AdminPermissionSession) !== session.permissionSession)
-      throw new ProtocolError('Administrator history session changed.');
+    assertAdminPermissionSession(session, headers, 'Administrator history session changed.');
     return decodeHistory(payload, session.generation);
   }, signal);
 }

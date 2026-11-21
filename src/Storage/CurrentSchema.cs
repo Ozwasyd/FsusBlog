@@ -94,12 +94,8 @@ internal static partial class CurrentSchema
                 throw new InvalidOperationException("The database is an isolated legacy import candidate and cannot serve.");
         }
 
-        var webpMedia = await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
-            requireSubscription: admission.Subscription, requireRecoveryKey: admission.RecoveryKey, requireAdminInboxReply: admission.AdminInboxReply, requireSiteRefresh: admission.SiteRefresh,
-            requireSitePageEditor: admission.SitePageEditor, requireAdminArticleRollback: admission.AdminArticleRollback, requireAdminInboxStatus: admission.AdminInboxStatus, requireAdminInboxNotice: admission.AdminInboxNotice, requireAppearanceActivation: admission.AppearanceActivation, requireAdminTagMetadata: admission.AdminTagMetadata, requireAdminInboxRead: admission.AdminInboxRead,
-            requirePublicationMedia: admission.PublicationMedia, requireAdminCommentBatch: admission.AdminCommentBatch,
-            requireAuthorTextIndex: admission.AuthorTextIndex, requireArticleSummary: admission.ArticleSummary,
-            requireDocumentExports: admission.DocumentExports, requireAdminCategoryMetadata: admission.AdminCategoryMetadata);
+        var webpMedia = await VerifyCatalogAsync(connection, transaction, cancellationToken,
+            CatalogVerificationOptions.FromAdmission(admission));
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -116,79 +112,75 @@ internal static partial class CurrentSchema
     }
 
     internal static async Task<bool> VerifyCatalogAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        CancellationToken cancellationToken, bool requireRecoveryScope = true, bool requireRevisionHistory = true,
-        bool requireAdminIdentity = true, bool requirePublicationHistory = true, bool requireArticleSchedule = true,
-        bool requireMediaUpload = true, bool legacyCanvas = false,
-        bool requirePublicationRights = true,
-        bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
-        bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
-        bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null,
-        bool? requireAuthorRecentOpens = null, bool? requirePublicationCanonical = null, bool? requirePublicationProof = null, bool? requirePublicationMedia = null, bool? requireCommentAppeal = null,
-        bool? requireAuthoringWorkspaceGroups = null, bool? requireCommentReplies = null, bool? requireAdminCommentBatch = null,
-        bool? requireArticleRead = null, bool? requirePublicationTransparency = null, bool? requirePublicationHead = null,
-        bool? requireArticleReadTotal = null, bool? requireCommentAuthorEdit = null, bool? requireCommentReport = null,
-        bool? requireAuthorTextIndex = null, bool? requireRootCommentPowPolicy = null, bool? requireArticleSummary = null,
-        bool requireAuthorTextSummaryIndex = false, bool requireAuthorTextHeadingIndex = false,
-        bool requireAuthorTextPropertyIndex = false, bool requireAuthorTextRebuild = false,
-        bool? requireDocumentExports = null, bool? requireAdminCategoryMetadata = null,
-        bool? requireAdminArticleTrashRestore = null, bool? requireArticleCover = null, bool? requirePublicationCover = null)
+        CancellationToken cancellationToken, CatalogVerificationOptions? options = null)
     {
-        requireArticleMedia ??= await HasRelationAsync(connection, transaction, "public.article_revision_media", cancellationToken);
+        options ??= CatalogVerificationOptions.Default;
+        var core = options.Core;
+        var site = options.Site;
+        var adminInbox = options.AdminInbox;
+        var adminContent = options.AdminContent;
+        var comments = options.Comments;
+        var authoring = options.Authoring;
+        var authorText = options.AuthorText;
+        var media = options.Media;
+        var publication = options.Publication;
+
+        var hasArticleMedia = media.ArticleMedia ?? await HasRelationAsync(connection, transaction, "public.article_revision_media", cancellationToken);
         var hasArticleCover = await HasArticleCoverAsync(connection, transaction, cancellationToken);
-        RequireSchemaPresence(requireArticleCover, hasArticleCover,
+        RequireSchemaPresence(media.ArticleCover, hasArticleCover,
             "The saved article cover schema presence does not match the requested operation.");
-        if (hasArticleCover && !requireArticleMedia.Value)
+        if (hasArticleCover && !hasArticleMedia)
             throw new InvalidOperationException("Saved article covers require the article attachment schema.");
         var hasPrivateMediaImportOrigin = await HasPrivateMediaImportOriginAsync(connection, transaction, cancellationToken);
         var hasLegacyReleaseOrigin = await HasLegacyReleaseOriginAsync(connection, transaction, cancellationToken);
-        if (hasPrivateMediaImportOrigin && !requireArticleMedia.Value)
+        if (hasPrivateMediaImportOrigin && !hasArticleMedia)
             throw new InvalidOperationException("Imported private media requires the article attachment schema.");
-        requireSubscription ??= await HasRelationAsync(connection, transaction, SiteSubscriptionRelation, cancellationToken);
+        var hasSubscription = site.Subscription ?? await HasRelationAsync(connection, transaction, SiteSubscriptionRelation, cancellationToken);
         var hasRecoveryKey = await HasSiteRecoveryKeySchemaAsync(connection, transaction, cancellationToken);
-        RequireSchemaPresence(requireRecoveryKey, hasRecoveryKey,
+        RequireSchemaPresence(site.RecoveryKey, hasRecoveryKey,
             "The site Recovery Key schema presence does not match the requested operation.");
         var hasAdminInboxReply = await HasRelationAsync(connection, transaction, AdminInboxReplyRelation, cancellationToken);
-        RequireSchemaPresence(requireAdminInboxReply, hasAdminInboxReply,
+        RequireSchemaPresence(adminInbox.Reply, hasAdminInboxReply,
             "The administrator inbox reply schema presence does not match the requested operation.");
         var hasAdminInboxStatus = await HasRelationAsync(connection, transaction, AdminInboxStatusRelation, cancellationToken);
-        RequireSchemaPresence(requireAdminInboxStatus, hasAdminInboxStatus,
+        RequireSchemaPresence(adminInbox.Status, hasAdminInboxStatus,
             "The administrator inbox status schema presence does not match the requested operation.");
         var hasAdminInboxNotice = await HasRelationAsync(connection, transaction, AdminInboxNoticeRelation, cancellationToken);
-        RequireSchemaPresence(requireAdminInboxNotice, hasAdminInboxNotice,
+        RequireSchemaPresence(adminInbox.Notice, hasAdminInboxNotice,
             "The administrator inbox notice schema presence does not match the requested operation.");
         var hasAdminInboxRead = await HasRelationAsync(connection, transaction, AdminInboxReadRelation, cancellationToken);
-        RequireSchemaPresence(requireAdminInboxRead, hasAdminInboxRead,
+        RequireSchemaPresence(adminInbox.Read, hasAdminInboxRead,
             "The shared administrator inbox read schema presence does not match the requested operation.");
-        requireAuthoringWorkspace ??= await HasRelationAsync(connection, transaction, AuthoringWorkspaceRelation, cancellationToken);
+        var hasAuthoringWorkspace = authoring.Workspace ?? await HasRelationAsync(connection, transaction, AuthoringWorkspaceRelation, cancellationToken);
         var hasSiteRefresh = await HasSiteRefreshSchemaAsync(connection, transaction, cancellationToken);
-        RequireSchemaPresence(requireSiteRefresh, hasSiteRefresh,
+        RequireSchemaPresence(site.Refresh, hasSiteRefresh,
             "The site refresh schema presence does not match the requested operation.");
         var hasSitePageEditor = await HasSitePageEditorSchemaAsync(connection, transaction, cancellationToken);
-        RequireSchemaPresence(requireSitePageEditor, hasSitePageEditor,
+        RequireSchemaPresence(site.PageEditor, hasSitePageEditor,
             "The site page editor schema presence does not match the requested operation.");
         var hasAppearanceActivation = await HasAppearanceActivationAsync(connection, transaction, cancellationToken);
-        RequireSchemaPresence(requireAppearanceActivation, hasAppearanceActivation,
+        RequireSchemaPresence(site.AppearanceActivation, hasAppearanceActivation,
             "The signed appearance schema presence does not match the requested operation.");
         var hasRootCommentPowPolicy = await HasRootCommentPowPolicyAsync(connection, transaction, cancellationToken);
-        if ((hasRootCommentPowPolicy && !requireAdminIdentity) ||
-            (requireRootCommentPowPolicy.HasValue && requireRootCommentPowPolicy.Value != hasRootCommentPowPolicy))
+        if ((hasRootCommentPowPolicy && !core.AdminIdentity) ||
+            (comments.RootPowPolicy.HasValue && comments.RootPowPolicy.Value != hasRootCommentPowPolicy))
             throw new InvalidOperationException("The root comment proof policy schema presence does not match the requested operation.");
         var hasSavedViews = await HasSavedViewsAsync(connection, transaction, cancellationToken);
-        RequireSchemaPresence(requireSavedViews, hasSavedViews,
+        RequireSchemaPresence(authoring.SavedViews, hasSavedViews,
             "The saved views schema presence does not match the requested operation.");
         var hasSavedViewPlacement = await HasSavedViewPlacementAsync(connection, transaction, cancellationToken);
-        if ((hasSavedViewPlacement && !hasSavedViews) || (requireSavedViewPlacement.HasValue && requireSavedViewPlacement.Value != hasSavedViewPlacement))
+        if ((hasSavedViewPlacement && !hasSavedViews) || (authoring.SavedViewPlacement.HasValue && authoring.SavedViewPlacement.Value != hasSavedViewPlacement))
             throw new InvalidOperationException("The saved view placement schema presence does not match the requested operation.");
         var hasAdminTagMetadata = await HasAdminTagMetadataAsync(connection, transaction, cancellationToken);
-        RequireSchemaPresence(requireAdminTagMetadata, hasAdminTagMetadata,
+        RequireSchemaPresence(adminContent.TagMetadata, hasAdminTagMetadata,
             "The administrator tag metadata schema presence does not match the requested operation.");
         var hasAdminCategoryMetadata = await HasAdminCategoryMetadataAsync(connection, transaction, cancellationToken);
         if (hasAdminCategoryMetadata && !hasAdminTagMetadata)
             throw new InvalidOperationException("The administrator category metadata schema requires the taxonomy epoch.");
-        RequireSchemaPresence(requireAdminCategoryMetadata, hasAdminCategoryMetadata,
+        RequireSchemaPresence(adminContent.CategoryMetadata, hasAdminCategoryMetadata,
             "The administrator category metadata schema is unavailable. Run category-metadata with the server stopped.");
         var hasAdminArticleRollback = await HasAdminArticleRollbackSchemaAsync(connection, transaction, cancellationToken);
-        RequireSchemaPresence(requireAdminArticleRollback, hasAdminArticleRollback,
+        RequireSchemaPresence(adminContent.ArticleRollback, hasAdminArticleRollback,
             "The administrator article rollback schema presence does not match the requested operation.");
         var hasAdminArticleDraftRollback = hasAdminArticleRollback &&
             await HasAdminArticleDraftRollbackSchemaAsync(connection, transaction, cancellationToken);
@@ -197,58 +189,58 @@ internal static partial class CurrentSchema
         var hasAdminArticleTrashPublication = hasAdminArticleArchive &&
             await HasAdminArticleTrashPublicationSchemaAsync(connection, transaction, cancellationToken);
         var hasAdminArticleTrashRestore = await HasAdminArticleTrashRestoreAsync(connection, transaction, cancellationToken);
-        if (hasAdminArticleTrashRestore && !requireAdminIdentity)
+        if (hasAdminArticleTrashRestore && !core.AdminIdentity)
             throw new InvalidOperationException("Administrator trash restoration requires independent administrator identity.");
-        RequireSchemaPresence(requireAdminArticleTrashRestore, hasAdminArticleTrashRestore,
+        RequireSchemaPresence(adminContent.ArticleTrashRestore, hasAdminArticleTrashRestore,
             "The administrator trash restore schema presence does not match the requested operation.");
-        var requireModerationVersion = requireAdminIdentity;
+        var requireModerationVersion = core.AdminIdentity;
         var hasCommentAuthorDelete = await HasCommentAuthorDeleteSchemaAsync(connection, transaction, cancellationToken);
         if (hasCommentAuthorDelete && !requireModerationVersion)
             throw new InvalidOperationException("Comment author deletion requires the current comment version column.");
         var hasCommentAuthorEdit = await HasCommentAuthorEditSchemaAsync(connection, transaction, cancellationToken);
         if ((hasCommentAuthorEdit && !hasCommentAuthorDelete) ||
-            (requireCommentAuthorEdit.HasValue && requireCommentAuthorEdit.Value != hasCommentAuthorEdit))
+            (comments.AuthorEdit.HasValue && comments.AuthorEdit.Value != hasCommentAuthorEdit))
             throw new InvalidOperationException("Comment author edit schema presence does not match the requested operation.");
         string[] commentAuthorEditConstraints = hasCommentAuthorEdit
             ? await ReadCommentAuthorEditConstraintsAsync(connection, transaction, cancellationToken) : [];
         var hasCommentReport = await HasCommentReportSchemaAsync(connection, transaction, cancellationToken);
-        RequireSchemaPresence(requireCommentReport, hasCommentReport,
+        RequireSchemaPresence(comments.Report, hasCommentReport,
             "Comment report schema presence does not match the requested operation.");
         var hasCommentAppeal = await HasCommentAppealSchemaAsync(connection, transaction, cancellationToken);
-        if (hasCommentAppeal && !hasCommentAuthorDelete || requireCommentAppeal.HasValue && requireCommentAppeal.Value != hasCommentAppeal)
+        if (hasCommentAppeal && !hasCommentAuthorDelete || comments.Appeal.HasValue && comments.Appeal.Value != hasCommentAppeal)
             throw new InvalidOperationException("Comment appeal schema presence does not match the requested operation.");
         var hasCommentReplies = await HasCommentReplySchemaAsync(connection, transaction, cancellationToken);
-        if (hasCommentReplies && !hasCommentAuthorDelete || requireCommentReplies.HasValue && requireCommentReplies.Value != hasCommentReplies)
+        if (hasCommentReplies && !hasCommentAuthorDelete || comments.Replies.HasValue && comments.Replies.Value != hasCommentReplies)
             throw new InvalidOperationException("Comment reply notice schema presence does not match the requested operation.");
         var hasAdminCommentBatch = await HasAdminCommentBatchSchemaAsync(connection, transaction, cancellationToken);
         if ((hasAdminCommentBatch && !requireModerationVersion) ||
-            (requireAdminCommentBatch.HasValue && requireAdminCommentBatch.Value != hasAdminCommentBatch))
+            (comments.AdminBatch.HasValue && comments.AdminBatch.Value != hasAdminCommentBatch))
             throw new InvalidOperationException("Administrator comment batch schema presence does not match the requested operation.");
-        var hasWorkspaceLayout = requireAuthoringWorkspace.Value && await HasAuthoringWorkspaceLayoutAsync(connection, transaction, cancellationToken);
-        var hasWorkspaceGroups = requireAuthoringWorkspace.Value && await HasAuthoringWorkspaceGroupsAsync(connection, transaction, cancellationToken);
+        var hasWorkspaceLayout = hasAuthoringWorkspace && await HasAuthoringWorkspaceLayoutAsync(connection, transaction, cancellationToken);
+        var hasWorkspaceGroups = hasAuthoringWorkspace && await HasAuthoringWorkspaceGroupsAsync(connection, transaction, cancellationToken);
         if ((hasWorkspaceGroups && !hasWorkspaceLayout) ||
-            (requireAuthoringWorkspaceGroups.HasValue && requireAuthoringWorkspaceGroups.Value != hasWorkspaceGroups))
+            (authoring.WorkspaceGroups.HasValue && authoring.WorkspaceGroups.Value != hasWorkspaceGroups))
             throw new InvalidOperationException("The authoring workspace group schema presence does not match the requested operation.");
         var hasAuthorRecentOpens = await HasAuthorRecentOpensAsync(connection, transaction, cancellationToken);
-        if ((hasAuthorRecentOpens && !requireRecoveryScope) ||
-            (requireAuthorRecentOpens.HasValue && requireAuthorRecentOpens.Value != hasAuthorRecentOpens))
+        if ((hasAuthorRecentOpens && !core.RecoveryScope) ||
+            (authoring.RecentOpens.HasValue && authoring.RecentOpens.Value != hasAuthorRecentOpens))
             throw new InvalidOperationException("The author recent opens schema presence does not match the requested operation.");
         var hasAuthorTextIndex = await HasAuthorTextIndexAsync(connection, transaction, cancellationToken);
-        RequireSchemaPresence(requireAuthorTextIndex, hasAuthorTextIndex,
+        RequireSchemaPresence(authorText.Index, hasAuthorTextIndex,
             "The author full-text index schema presence does not match the requested operation.");
         var hasAuthorTextSummaryIndex = hasAuthorTextIndex &&
             await HasAuthorTextSummaryIndexAsync(connection, transaction, cancellationToken);
-        if (requireAuthorTextSummaryIndex && !hasAuthorTextSummaryIndex)
+        if (authorText.SummaryIndex && !hasAuthorTextSummaryIndex)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install summary indexing.");
         var hasAuthorTextHeadingIndex = hasAuthorTextIndex &&
             await HasAuthorTextHeadingIndexAsync(connection, transaction, cancellationToken);
-        if (hasAuthorTextHeadingIndex && !hasAuthorTextSummaryIndex || requireAuthorTextHeadingIndex && !hasAuthorTextHeadingIndex)
+        if (hasAuthorTextHeadingIndex && !hasAuthorTextSummaryIndex || authorText.HeadingIndex && !hasAuthorTextHeadingIndex)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install heading indexing.");
         var hasAuthorTextPropertyIndex = await HasAuthorTextPropertyIndexAsync(connection, transaction, cancellationToken);
-        if (hasAuthorTextPropertyIndex && !hasAuthorTextHeadingIndex || requireAuthorTextPropertyIndex && !hasAuthorTextPropertyIndex)
+        if (hasAuthorTextPropertyIndex && !hasAuthorTextHeadingIndex || authorText.PropertyIndex && !hasAuthorTextPropertyIndex)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install text property indexing.");
         var hasAuthorTextRebuild = await HasAuthorTextRebuildAsync(connection, transaction, cancellationToken);
-        if (hasAuthorTextRebuild && !hasAuthorTextPropertyIndex || requireAuthorTextRebuild && !hasAuthorTextRebuild)
+        if (hasAuthorTextRebuild && !hasAuthorTextPropertyIndex || authorText.Rebuild && !hasAuthorTextRebuild)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install autonomous indexing.");
         var hasArticleSummary = await HasArticleSummaryAsync(connection, transaction, cancellationToken);
         var hasDocumentExports = await HasDocumentExportsAsync(connection, transaction, cancellationToken);
@@ -260,7 +252,7 @@ internal static partial class CurrentSchema
             await HasDocumentExportAttachmentsAsync(connection, transaction, cancellationToken, list: true);
         var exportImageScope = hasExportImageList
             ? await ReadExportImageScopeAsync(connection, transaction, cancellationToken) : ExportImageScope.Html;
-        if (requireDocumentExports.HasValue && requireDocumentExports.Value != hasDocumentExports)
+        if (authoring.DocumentExports.HasValue && authoring.DocumentExports.Value != hasDocumentExports)
             throw new InvalidOperationException("The document export schema presence does not match the requested operation.");
         var hasArticleBodyInsertion = await HasArticleBodyInsertionAsync(connection, transaction, cancellationToken);
         var hasArticleBodyInsertionOperations = hasArticleBodyInsertion &&
@@ -268,43 +260,43 @@ internal static partial class CurrentSchema
         var hasArticleBodyEdits = hasArticleBodyInsertionOperations &&
             await HasArticleBodyEditsAsync(connection, transaction, cancellationToken);
         var hasPublicationCanonical = await HasPublicationCanonicalAsync(connection, transaction, cancellationToken);
-        if ((hasPublicationCanonical && (!requirePublicationHistory || !requirePublicationRights)) ||
-            (requirePublicationCanonical.HasValue && requirePublicationCanonical.Value != hasPublicationCanonical))
+        if ((hasPublicationCanonical && (!core.PublicationHistory || !core.PublicationRights)) ||
+            (publication.Canonical.HasValue && publication.Canonical.Value != hasPublicationCanonical))
             throw new InvalidOperationException("The native publication canonical schema presence does not match the requested operation.");
         var hasPublicationMedia = await HasPublicationMediaAsync(connection, transaction, cancellationToken);
-        if ((hasPublicationMedia && (!requirePublicationHistory || !requireArticleMedia.Value)) ||
-            (requirePublicationMedia.HasValue && requirePublicationMedia.Value != hasPublicationMedia))
+        if ((hasPublicationMedia && (!core.PublicationHistory || !hasArticleMedia)) ||
+            (media.PublicationMedia.HasValue && media.PublicationMedia.Value != hasPublicationMedia))
             throw new InvalidOperationException("The article publication media schema presence does not match the requested operation.");
         var hasPublicationCover = await HasPublicationCoverAsync(connection, transaction, cancellationToken);
         if (hasPublicationCover && (!hasPublicationMedia || !hasPublicationCanonical || !hasArticleCover))
             throw new InvalidOperationException("Public article covers require author covers, selected publication media, and canonical storage.");
-        RequireSchemaPresence(requirePublicationCover, hasPublicationCover,
+        RequireSchemaPresence(media.PublicationCover, hasPublicationCover,
             "The public article cover schema presence does not match the requested operation.");
         var hasPublicationProof = await HasPublicationProofAsync(connection, transaction, cancellationToken);
         if ((hasPublicationProof && !hasPublicationCanonical) ||
-            (requirePublicationProof.HasValue && requirePublicationProof.Value != hasPublicationProof))
+            (publication.Proof.HasValue && publication.Proof.Value != hasPublicationProof))
             throw new InvalidOperationException("The native publication proof schema presence does not match the requested operation.");
         var publicationTransparency = await PublicationTransparencyStateAsync(connection, transaction, cancellationToken);
         var hasPublicationTransparency = publicationTransparency.HasValue;
         if ((hasPublicationTransparency && !hasPublicationProof) ||
-            (requirePublicationTransparency.HasValue && requirePublicationTransparency.Value != hasPublicationTransparency))
+            (publication.Transparency.HasValue && publication.Transparency.Value != hasPublicationTransparency))
             throw new InvalidOperationException("The native publication transparency schema presence does not match the requested operation.");
         var hasPublicationHead = await HasPublicationHeadAsync(connection, transaction, cancellationToken);
         if ((hasPublicationHead && !hasPublicationTransparency) ||
-            (requirePublicationHead.HasValue && requirePublicationHead.Value != hasPublicationHead))
+            (publication.Head.HasValue && publication.Head.Value != hasPublicationHead))
             throw new InvalidOperationException("The native publication head schema presence does not match the requested operation.");
         var hasSiteTraffic = await HasSiteTrafficAsync(connection, transaction, cancellationToken);
         var hasArticleRead = await HasArticleReadSchemaAsync(connection, transaction, cancellationToken);
-        RequireSchemaPresence(requireArticleRead, hasArticleRead,
+        RequireSchemaPresence(publication.ArticleRead, hasArticleRead,
             "The article read aggregate schema presence does not match the requested operation.");
         var hasArticleReadTotal = await HasArticleReadTotalSchemaAsync(connection, transaction, cancellationToken);
-        if ((hasArticleReadTotal && !hasArticleRead) || (requireArticleReadTotal.HasValue && requireArticleReadTotal.Value != hasArticleReadTotal))
+        if ((hasArticleReadTotal && !hasArticleRead) || (publication.ArticleReadTotal.HasValue && publication.ArticleReadTotal.Value != hasArticleReadTotal))
             throw new InvalidOperationException("The article read total schema presence does not match the requested operation.");
         var hasPropertySnapshots = await HasPropertySnapshotsAsync(connection, transaction, cancellationToken);
         var hasSitePasskeyNames = await HasSitePasskeyNamesAsync(connection, transaction, cancellationToken);
         var expectedColumns = Columns.Select(column => hasArticleSummary && column == ArticleRevisionColumns
                 ? ArticleRevisionColumns + " author_summary:text?" : column)
-            .Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
+            .Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(core.LegacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(hasPropertySnapshots ? PropertySnapshotColumns : [])
             .Concat(PasskeyColumns).Concat(hasSitePasskeyNames ? [SitePasskeyNameColumns] : []).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion))
             .Concat(hasPrivateMediaImportOrigin ? PrivateMediaImportColumns : MediaColumns)
@@ -315,16 +307,16 @@ internal static partial class CurrentSchema
             .Concat(hasCommentAppeal ? CommentAppealColumns : [])
             .Concat(hasCommentReplies ? CommentReplyColumns : [])
             .Concat(hasAdminCommentBatch ? AdminCommentBatchColumns : [])
-            .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
-            .Concat(requireAdminIdentity ? AdminIdentityColumns : [])
-            .Concat(requirePublicationHistory ? (hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns) : [])
+            .Concat(core.RevisionHistory ? RevisionHistoryColumns : [])
+            .Concat(core.AdminIdentity ? AdminIdentityColumns : [])
+            .Concat(core.PublicationHistory ? (hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns) : [])
             .Concat(hasPublicationMedia ? PublicationMediaColumns : [])
             .Concat(hasPublicationCover ? PublicationCoverColumns : [])
-            .Concat(requireArticleSchedule ? ArticleScheduleColumns : [])
-            .Concat(requireMediaUpload ? MediaUploadColumns : [])
-            .Concat(requireArticleMedia.Value ? ArticleMediaColumns : [])
+            .Concat(core.ArticleSchedule ? ArticleScheduleColumns : [])
+            .Concat(core.MediaUpload ? MediaUploadColumns : [])
+            .Concat(hasArticleMedia ? ArticleMediaColumns : [])
             .Concat(hasArticleCover ? ArticleCoverColumns : [])
-            .Concat(requireSubscription.Value ? SiteSubscriptionColumns : [])
+            .Concat(hasSubscription ? SiteSubscriptionColumns : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyColumns : [])
             .Concat(hasSiteRefresh ? SiteRefreshColumns : [])
             .Concat(hasSitePageEditor ? SitePageEditorColumns : [])
@@ -336,7 +328,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminCategoryMetadata ? AdminCategoryMetadataColumns : [])
             .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive, hasAdminArticleTrashPublication) : [])
             .Concat(hasAdminArticleTrashRestore ? AdminArticleTrashRestoreColumns : [])
-            .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
+            .Concat(hasAuthoringWorkspace ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
             .Concat(hasArticleBodyInsertion ? [ArticleBodyInsertionColumns(hasArticleBodyInsertionOperations, hasArticleBodyEdits)] : [])
             .Concat(hasDocumentExports ? [DocumentExportColumns + (hasDocumentExportAttachments ? " attachment_id:uuid?" : "") + (hasExportImageList ? " attachment_ids:_uuid?" : "")] : [])
@@ -347,7 +339,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminInboxStatus ? AdminInboxStatusColumns : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeColumns : [])
             .Concat(hasAdminInboxRead ? AdminInboxReadColumns : [])
-            .Concat(requirePublicationRights ? PublicationRightsColumns : [])
+            .Concat(core.PublicationRights ? PublicationRightsColumns : [])
             .Concat(hasPublicationCanonical ? PublicationCanonicalColumns : [])
             .Concat(hasPublicationProof ? GetPublicationProofColumns(publicationTransparency) : [])
             .Concat(hasPublicationTransparency ? PublicationTransparencyColumns : [])
@@ -355,10 +347,10 @@ internal static partial class CurrentSchema
             .Concat(hasSiteTraffic ? SiteTrafficColumns : [])
             .Concat(hasArticleRead ? ArticleReadColumns : [])
             .Concat(hasArticleReadTotal ? ArticleReadTotalColumns : [])
-            .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
-            .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
+            .Concat(!core.LegacyCanvas && core.CanvasHistory ? CanvasHistoryColumns : [])
+            .Concat(core.RecoveryScope ? RecoveryScopeColumns : []).ToArray();
         var expectedConstraints = Constraints.Concat(hasArticleSummary ? [ArticleSummaryConstraint] : [])
-            .Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
+            .Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(core.LegacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
             .Concat(PropertyConstraints).Concat(hasPropertySnapshots ? PropertySnapshotConstraints : [])
             .Concat(PasskeyConstraints).Concat(hasSitePasskeyNames ? SitePasskeyNameConstraints : []).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
             .Concat(hasPrivateMediaImportOrigin ? PrivateMediaImportConstraints : [])
@@ -369,16 +361,16 @@ internal static partial class CurrentSchema
             .Concat(hasCommentAppeal ? CommentAppealConstraints : [])
             .Concat(hasCommentReplies ? CommentReplyConstraints : [])
             .Concat(hasAdminCommentBatch ? AdminCommentBatchConstraints : [])
-            .Concat(requireRevisionHistory ? RevisionHistoryConstraints : [])
-            .Concat(requireAdminIdentity ? AdminIdentityConstraints : [])
-            .Concat(requirePublicationHistory ? PublicationHistoryConstraints : [])
+            .Concat(core.RevisionHistory ? RevisionHistoryConstraints : [])
+            .Concat(core.AdminIdentity ? AdminIdentityConstraints : [])
+            .Concat(core.PublicationHistory ? PublicationHistoryConstraints : [])
             .Concat(hasPublicationMedia ? PublicationMediaConstraints : [])
             .Concat(hasAdminArticleRollback ? PublicationHistoryAdminRollbackConstraints : [])
-            .Concat(requireArticleSchedule ? ArticleScheduleConstraints : [])
-            .Concat(requireMediaUpload ? MediaUploadConstraints : [])
-            .Concat(requireArticleMedia.Value ? ArticleMediaConstraints : [])
+            .Concat(core.ArticleSchedule ? ArticleScheduleConstraints : [])
+            .Concat(core.MediaUpload ? MediaUploadConstraints : [])
+            .Concat(hasArticleMedia ? ArticleMediaConstraints : [])
             .Concat(hasArticleCover ? ArticleCoverConstraints : [])
-            .Concat(requireSubscription.Value ? SiteSubscriptionConstraints : [])
+            .Concat(hasSubscription ? SiteSubscriptionConstraints : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyConstraints : [])
             .Concat(hasSiteRefresh ? SiteRefreshConstraints : [])
             .Concat(hasSitePageEditor ? SitePageEditorConstraints : [])
@@ -390,7 +382,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminCategoryMetadata ? AdminCategoryMetadataConstraints : [])
             .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackConstraints(hasAdminArticleDraftRollback, hasAdminArticleArchive, hasAdminArticleTrashPublication) : [])
             .Concat(hasAdminArticleTrashRestore ? AdminArticleTrashRestoreConstraints : [])
-            .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
+            .Concat(hasAuthoringWorkspace ? AuthoringWorkspaceConstraints : [])
             .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])
             .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])
             .Concat(hasArticleBodyInsertion ? ArticleBodyInsertionConstraints(hasArticleBodyInsertionOperations, hasArticleBodyEdits) : [])
@@ -409,7 +401,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminInboxStatus ? AdminInboxStatusConstraints : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeConstraints : [])
             .Concat(hasAdminInboxRead ? AdminInboxReadConstraints : [])
-            .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
+            .Concat(core.PublicationRights ? PublicationRightsConstraints : [])
             .Concat(hasPublicationCanonical ? PublicationCanonicalConstraints : [])
             .Concat(hasPublicationCanonical ? [PublicationCanonicalVersionConstraint(hasPublicationCover)] : [])
             .Concat(hasPublicationCover ? PublicationCoverConstraints : [])
@@ -419,10 +411,10 @@ internal static partial class CurrentSchema
             .Concat(hasSiteTraffic ? SiteTrafficConstraints : [])
             .Concat(hasArticleRead ? ArticleReadConstraints : [])
             .Concat(hasArticleReadTotal ? ArticleReadTotalConstraints : [])
-            .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
-            .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();
+            .Concat(!core.LegacyCanvas && core.CanvasHistory ? CanvasHistoryConstraints : [])
+            .Concat(core.RecoveryScope ? RecoveryScopeConstraints : []).ToArray();
         var webpMedia = await VerifyRelationsAsync(connection, transaction, expectedColumns, expectedConstraints, cancellationToken);
-        RequireSchemaPresence(requireArticleSummary, hasArticleSummary,
+        RequireSchemaPresence(authoring.ArticleSummary, hasArticleSummary,
             "The article author summary schema presence does not match the requested operation.");
         if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
         if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, hasAdminCategoryMetadata, cancellationToken);

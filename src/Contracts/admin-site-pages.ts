@@ -1,8 +1,7 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
+import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { decodeUtf8 } from './binary.ts';
 import { request } from './client.ts';
-import { readMfaProof } from './mfa.ts';
-import { requestPasskeyAssertion } from './passkey.ts';
 import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
 import { decodeSitePage, sitePages, type SitePageSlug } from './site-pages.ts';
 import { decodeAdminSitePageRevision, decodeAdminSitePages, encodeAdminSitePagePublish,
@@ -40,16 +39,17 @@ export function validPageMarkdown(markdown: string): boolean {
 export async function publishAdminSitePage(intent: AdminSitePagePublish, signal: AbortSignal): Promise<void> {
   if (!validPageMarkdown(intent.markdown)) throw new ProtocolError('Invalid site page Markdown');
   const frame = encodeFrame(FrameType.AdminSitePagePublish, encodeAdminSitePagePublish(intent));
-  const assertion = await requestPasskeyAssertion(WireRoutes.AdminSitePageStepUpBegin, signal, frame, true);
-  const passkey = await request(WireRoutes.AdminSitePageStepUpComplete, FrameType.MfaChallengeResult,
-    payload => readMfaProof(payload, 'admin-sensitive', true), signal, 'POST', assertion);
+  const passkey = await proveAdminStepUp({
+    begin: WireRoutes.AdminSitePageStepUpBegin,
+    complete: WireRoutes.AdminSitePageStepUpComplete,
+  }, frame, signal);
 
   const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('');
   const challenge = await request(WireRoutes.AdminSitePagePow, FrameType.PowChallenge, decodePowChallenge,
     signal, 'POST', frame, { [WireHeaders.PowClientNonce]: nonce });
   const work = await solveScopedPow(challenge, nonce, signal);
   await request(WireRoutes.AdminSitePagePublish, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', frame,
-    { [WireHeaders.MfaProof]: passkey, [WireHeaders.PowProof]: encodePowProof(challenge, work, nonce) });
+    { ...adminProofHeaders(passkey), [WireHeaders.PowProof]: encodePowProof(challenge, work, nonce) });
 }
 
 export function readAdminSitePage(slug: SitePageSlug, signal: AbortSignal) {
