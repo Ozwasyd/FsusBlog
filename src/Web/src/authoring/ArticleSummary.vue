@@ -150,9 +150,9 @@ function save() {
       <p v-if="dirty && !valid" role="status">{{ t('author.articleSummary.use.plain.text.up.to.characters', { p0: String(WireLimits.ArticleSummaryEditChars) }) }}</p>
       <p v-else-if="saving" role="status">{{ t('author.articleSummary.saving.summary') }}</p>
       <div class="summary-actions">
-        <ElButton native-type="button" :disabled="!canChange || !dirty || !valid" @click="save">{{ t('author.articleSummary.save.summary') }}</ElButton>
-        <ElButton v-if="text" native-type="button" :disabled="!canChange" text @click="setText('')">{{ t('author.articleSummary.clear.summary') }}</ElButton>
-        <ElButton v-if="dirty" native-type="button" :disabled="!canChange" text @click="setText(loaded.text)">{{ t('author.articleSummary.discard.summary.changes') }}</ElButton>
+        <ElButton native-type="button" size="small" :disabled="!canChange || !dirty || !valid" @click="save">{{ t('author.articleSummary.save.summary') }}</ElButton>
+        <ElButton v-if="text" native-type="button" size="small" :disabled="!canChange" text @click="setText('')">{{ t('author.articleSummary.clear.summary') }}</ElButton>
+        <ElButton v-if="dirty" native-type="button" size="small" :disabled="!canChange" text @click="setText(loaded.text)">{{ t('author.articleSummary.discard.summary.changes') }}</ElButton>
       </div>
     </div>
   </details>

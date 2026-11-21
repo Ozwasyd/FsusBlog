@@ -193,10 +193,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <ElSettingsSection :title="t('author.articleMedia.private.attachments')">
-    <ElButton native-type="button" :disabled="pending" @click="expanded = !expanded">
-      {{ expanded ? t('author.articleMedia.hide.private.attachments') : t('author.articleMedia.manage.private.attachments') }}
-    </ElButton>
+  <ElSettingsSection density="compact" title-tag="h3" :title="t('author.articleMedia.private.attachments')">
+    <div class="media-toggle">
+      <ElButton native-type="button" size="small" :disabled="pending" @click="expanded = !expanded">
+        {{ expanded ? t('author.articleMedia.hide.private.attachments') : t('author.articleMedia.manage.private.attachments') }}
+      </ElButton>
+    </div>
     <template v-if="expanded">
       <p v-if="!available">{{ t('author.articleMedia.the.private.media.library.is.disabled') }}</p>
       <template v-else>
@@ -278,6 +280,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.media-toggle { display: flex; }
 .attachment-list { padding: 0; list-style: none; }
 .attachment-list li, .attachment-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; overflow-wrap: anywhere; }
 .attachment-list :deep(.el-checkbox) { max-inline-size: 100%; height: auto; }

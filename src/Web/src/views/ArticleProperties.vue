@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
-import { ElAlert, ElButton, ElCheckbox, ElCheckboxGroup, ElInput, ElOption, ElRadio, ElRadioGroup, ElSelect } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElCheckbox, ElCheckboxGroup, ElInput, ElOption, ElRadio, ElRadioGroup, ElSelect, ElSettingsSection } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import {
   normalizePropertyDecimal, propertyApi, propertyKinds,
@@ -503,11 +503,13 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
 </script>
 
 <template>
-  <section class="editor-taxonomy" aria-labelledby="article-properties-title">
-    <h2 id="article-properties-title" ref="heading" tabindex="-1">{{ t('author.properties.properties') }}</h2>
-    <p v-if="mutating" role="status">{{ t('author.properties.savingArticleProperties') }}</p>
-    <p v-else-if="busy" role="status">{{ t('author.properties.loadingArticleProperties') }}</p>
-    <p v-if="message" role="status">{{ message }}</p>
+  <ElSettingsSection density="compact" title-tag="h3" ariaLabelledby="article-properties-title">
+    <template #title>
+      <span id="article-properties-title" ref="heading" tabindex="-1">{{ t('author.properties.properties') }}</span>
+    </template>
+    <p v-if="mutating" class="property-status" role="status">{{ t('author.properties.savingArticleProperties') }}</p>
+    <p v-else-if="busy" class="property-status" role="status">{{ t('author.properties.loadingArticleProperties') }}</p>
+    <p v-if="message" class="property-status" role="status">{{ message }}</p>
     <ElAlert v-if="failure" :title="failure" type="error" :closable="false" />
     <ElButton v-if="shouldReload && !staged.size" :disabled="busy || disabled" @click="retryCount++">{{ t('author.properties.reloadProperties') }}</ElButton>
     <ElButton v-if="canRetry && retained" :disabled="busy || disabled" @click="perform(retained)">{{ t('author.properties.retryLastPropertyChange') }}</ElButton>
@@ -534,9 +536,9 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
       </div>
     </div>
     <template v-if="workspace && !shouldReload">
-      <p v-if="!workspace.fields.length && !creating">{{ t('author.properties.noPropertiesYet') }}</p>
-      <dl v-if="workspace.fields.length">
-        <template v-for="field in workspace.fields" :key="field.definitionId">
+      <p v-if="!workspace.fields.length && !creating" class="property-empty">{{ t('author.properties.noPropertiesYet') }}</p>
+      <dl v-if="workspace.fields.length" class="property-list">
+        <div v-for="field in workspace.fields" :key="field.definitionId" class="property-row">
           <dt>{{ field.label }}</dt>
           <dd>
             <span>{{ showValue(field) }}</span>
@@ -544,24 +546,25 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
               v-if="!field.deprecated || field.value.kind !== 'missing'"
               v-bind="{ id: fieldActionId(field) }"
               text
+              size="small"
               :disabled="disabledInput || creating || !!editing || (batchMode && batchFull && !staged.has(field.definitionId))"
               @click="openValueForm(field)"
             >
               {{ field.deprecated ? t('author.properties.manage') : t('author.properties.edit') }} {{ field.label }}
             </ElButton>
           </dd>
-        </template>
+        </div>
       </dl>
       <nav v-if="pageKeys.length > 1 || workspace.nextKey" class="editor-taxonomy-actions" :aria-label="t('author.properties.propertyPages')">
-        <ElButton text native-type="button" :disabled="disabledInput || !!editing || creating || pageKeys.length === 1"
+        <ElButton text size="small" native-type="button" :disabled="disabledInput || !!editing || creating || pageKeys.length === 1"
           @click="changePage(false)">{{ t('author.properties.previousProperties') }}</ElButton>
         <span role="status">{{ t('author.properties.pageNumber', { page: pageKeys.length }) }}</span>
-        <ElButton text native-type="button" :disabled="disabledInput || !!editing || creating || !workspace.nextKey"
+        <ElButton text size="small" native-type="button" :disabled="disabledInput || !!editing || creating || !workspace.nextKey"
           @click="changePage(true)">{{ t('author.properties.moreProperties') }}</ElButton>
       </nav>
       <div v-if="!creating && !editing && !batchMode" class="editor-taxonomy-actions">
-        <ElButton :disabled="disabledInput" native-type="button" @click="startDefinition">{{ t('author.properties.addProperty') }}</ElButton>
-        <ElButton v-if="workspace.fields.length" :disabled="disabledInput" native-type="button" @click="startBatch">{{ t('author.properties.editMultipleProperties') }}</ElButton>
+        <ElButton size="small" :disabled="disabledInput" native-type="button" @click="startDefinition">{{ t('author.properties.addProperty') }}</ElButton>
+        <ElButton v-if="workspace.fields.length" size="small" :disabled="disabledInput" native-type="button" @click="startBatch">{{ t('author.properties.editMultipleProperties') }}</ElButton>
       </div>
       <form v-if="creating" class="property-form" @submit.prevent="createDefinition">
         <label for="new-property-label">{{ t('author.properties.propertyLabel') }}</label>
@@ -625,13 +628,18 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
         </div>
       </form>
     </template>
-  </section>
+  </ElSettingsSection>
 </template>
 
 <style scoped>
-.property-form, .property-batch { display: grid; gap: .5rem; min-width: 0; }
+.property-status, .property-empty { margin: 0; color: var(--fsus-muted); font-size: var(--fsus-font-size-sm, 0.875rem); }
+.property-list { display: grid; gap: var(--fsus-space-2); margin: 0; }
+.property-row { display: grid; gap: 2px; padding-block-end: var(--fsus-space-2); border-block-end: 1px solid var(--fsus-border); }
+.property-row:last-child { padding-block-end: 0; border-block-end: 0; }
+.property-row dt { font-size: var(--fsus-font-size-xs, 0.8125rem); font-weight: 500; color: var(--fsus-muted); }
+.property-row dd { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--fsus-space-2); margin: 0; overflow-wrap: anywhere; }
+.property-form, .property-batch { display: grid; gap: var(--fsus-space-2); min-width: 0; }
 .property-batch p, .staged-properties { margin-block: 0; }
 .staged-properties { padding-inline-start: 1.25rem; overflow-wrap: anywhere; }
 .staged-properties li { margin-block: .25rem; }
-dd { overflow-wrap: anywhere; }
 </style>

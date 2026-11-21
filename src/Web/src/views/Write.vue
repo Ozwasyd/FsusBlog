@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { shallowRef } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElInput, ElSettingsSection } from '@ozwasyd/element-plus'
 import { t } from '../siteLocale'
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
 import ArticleProperties from './ArticleProperties.vue'
@@ -305,24 +305,6 @@ const {
       </div>
       <EditorInspector v-if="original && original.id > 0" v-slot="{ ready: inspectorReady }" :nested-modal-active="revisionComparisonActive || taxonomyModalActive"
         :opened="persistentWorkspace ? !sourceInspectorPending && inspectorOpen : undefined" @update:opened="setInspectorOpen">
-        <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
-          :disabled="pending || hasConflict" />
-        <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
-          :disabled="pending || hasConflict" format="docx" />
-        <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
-          :disabled="pending || hasConflict" format="html" />
-        <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
-          :disabled="pending || hasConflict" format="epub" />
-        <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
-          :disabled="pending || hasConflict" format="pdf" />
-        <DocumentExportTasks :article="original.id" :revision="original.revision" :selected="original.revision"
-          :active="inspectorReady && !revisionComparisonActive" :disabled="pending || hasConflict" />
-        <AuthorPluginPreview :article="original.id" :revision="original.revision"
-          :active="inspectorReady && !revisionComparisonActive" :disabled="!canPreviewPlugin" />
-        <ArticleMedia :article-id="original.id" :revision="original.revision"
-          :credential="credential" :can-publish="canPublishImages"
-          :can-change="!!currentSession?.siteSessionId && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
-          @save="submit('save-attachment', undefined, undefined, undefined, undefined, $event)" @publish-images="publishSelectedImages" />
         <ArticleTaxonomy ref="taxonomyEditor"
           :article-id="original.id"
           :revision="original.revision"
@@ -333,6 +315,10 @@ const {
           @stale="markTaxonomyStale"
           @modal-change="setTaxonomyModalActive"
         />
+        <ArticleSummary ref="summaryEditor" :article-id="original.id" :revision="original.revision" :credential="credential"
+          :can-change="canChangeSummary" :saving="articlePending && summaryDirty"
+          :source-target="summarySeek" :inspector-ready="inspectorReady" @source-revealed="finishSourceSeek"
+          @change="setSummaryDirty" @save="saveSummary" />
         <ArticleProperties
           :article-id="original.id"
           :revision="original.revision"
@@ -341,19 +327,10 @@ const {
           :source-target="propertySeek" :inspector-ready="inspectorReady && !recoveryBlocked"
           @pending="setPropertyPending" @source-revealed="finishPropertySeek"
         />
-        <RevisionHistory
-          :key="identityEpoch"
-          :article-id="original.id"
-          :revision="original.revision"
-          :historical-seek="historicalSeek" :inspector-ready="inspectorReady && !recoveryBlocked"
-          :editor-draft="editable && !pending && !hasConflict && !recoveryBlocked ? original : undefined"
-          :editor-summary="summaryEditor?.comparisonSummary"
-          :editor-taxonomy="taxonomyEditor?.comparisonTaxonomy"
-          :can-rollback="editable && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
-          @restore="submit('rollback-history', undefined, $event)"
-          @comparison-modal="setRevisionComparisonActive"
-          @historical-revealed="finishHistoricalSeek" @historical-closed="closeHistoricalSeek"
-        />
+        <ArticleMedia :article-id="original.id" :revision="original.revision"
+          :credential="credential" :can-publish="canPublishImages"
+          :can-change="!!currentSession?.siteSessionId && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
+          @save="submit('save-attachment', undefined, undefined, undefined, undefined, $event)" @publish-images="publishSelectedImages" />
         <ArticleSchedule
           :key="`schedule-${identityEpoch}`"
           :article-id="original.id"
@@ -368,10 +345,37 @@ const {
           :can-change="editable && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
           @save="submit('save-rights', undefined, undefined, undefined, $event)"
         />
-        <ArticleSummary ref="summaryEditor" :article-id="original.id" :revision="original.revision" :credential="credential"
-          :can-change="canChangeSummary" :saving="articlePending && summaryDirty"
-          :source-target="summarySeek" :inspector-ready="inspectorReady" @source-revealed="finishSourceSeek"
-          @change="setSummaryDirty" @save="saveSummary" />
+        <RevisionHistory
+          :key="identityEpoch"
+          :article-id="original.id"
+          :revision="original.revision"
+          :historical-seek="historicalSeek" :inspector-ready="inspectorReady && !recoveryBlocked"
+          :editor-draft="editable && !pending && !hasConflict && !recoveryBlocked ? original : undefined"
+          :editor-summary="summaryEditor?.comparisonSummary"
+          :editor-taxonomy="taxonomyEditor?.comparisonTaxonomy"
+          :can-rollback="editable && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
+          @restore="submit('rollback-history', undefined, $event)"
+          @comparison-modal="setRevisionComparisonActive"
+          @historical-revealed="finishHistoricalSeek" @historical-closed="closeHistoricalSeek"
+        />
+        <ElSettingsSection density="compact" title-tag="h3" :title="t('author.editorInspector.export')">
+          <div class="inspector-export-grid">
+            <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
+              size="small" block :disabled="pending || hasConflict" />
+            <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
+              size="small" block :disabled="pending || hasConflict" format="docx" />
+            <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
+              size="small" block :disabled="pending || hasConflict" format="html" />
+            <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
+              size="small" block :disabled="pending || hasConflict" format="epub" />
+            <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
+              size="small" block :disabled="pending || hasConflict" format="pdf" />
+          </div>
+          <DocumentExportTasks :article="original.id" :revision="original.revision" :selected="original.revision"
+            :active="inspectorReady && !revisionComparisonActive" :disabled="pending || hasConflict" />
+          <AuthorPluginPreview :article="original.id" :revision="original.revision"
+            :active="inspectorReady && !revisionComparisonActive" :disabled="!canPreviewPlugin" />
+        </ElSettingsSection>
       </EditorInspector>
     </section>
   </main>
@@ -439,5 +443,11 @@ const {
     align-items: start;
     column-gap: var(--fsus-space-4);
   }
+}
+.inspector-export-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: var(--fsus-space-2);
+  min-inline-size: 0;
 }
 </style>

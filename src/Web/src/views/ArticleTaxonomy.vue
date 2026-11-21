@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '../siteLocale'
 import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
-import { ElAlert, ElButton, ElDialog, ElOption, ElSelect } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElDialog, ElOption, ElSelect, ElSettingsSection } from '@ozwasyd/element-plus'
 import {
   draftTaxonomy, taxonomyList, type DraftTaxonomy, type TaxonomySelection,
 } from '../../../Contracts/taxonomy-client'
@@ -168,52 +168,58 @@ function reset() {
 </script>
 
 <template>
-  <section class="editor-taxonomy" aria-labelledby="editor-taxonomy-title">
-    <h2 id="editor-taxonomy-title">{{ t('author.taxonomy.classification') }}</h2>
-    <p v-if="loading" role="status">{{ t('author.taxonomy.loadingClassification') }}</p>
+  <ElSettingsSection density="compact" title-tag="h3" ariaLabelledby="editor-taxonomy-title">
+    <template #title>
+      <span id="editor-taxonomy-title">{{ t('author.taxonomy.classification') }}</span>
+    </template>
+    <p v-if="loading" class="taxonomy-status" role="status">{{ t('author.taxonomy.loadingClassification') }}</p>
     <template v-else-if="error">
       <ElAlert :title="error" type="error" :closable="false" />
       <ElButton :disabled="props.disabled" @click="retry++">{{ t('author.taxonomy.retryClassification') }}</ElButton>
     </template>
-    <template v-else-if="original">
-      <div class="editor-taxonomy-label-row">
-        <label for="edit-category">{{ t('author.taxonomy.category') }}</label>
-        <ElButton
-          v-if="canCreateCategory"
-          native-type="button"
-          text
-          size="small"
-          :disabled="props.disabled || !!creatingKind"
-          @click="openCreate('category', $event)"
-        >
-          {{ t('admin.tagMetadata.m7', { kind: t('admin.tagMetadata.kindCategory') }) }}
-        </ElButton>
+    <div v-else-if="original" class="taxonomy-fields">
+      <div class="taxonomy-field">
+        <div class="editor-taxonomy-label-row">
+          <label for="edit-category">{{ t('author.taxonomy.category') }}</label>
+          <ElButton
+            v-if="canCreateCategory"
+            native-type="button"
+            text
+            size="small"
+            :disabled="props.disabled || !!creatingKind"
+            @click="openCreate('category', $event)"
+          >
+            {{ t('admin.tagMetadata.m7', { kind: t('admin.tagMetadata.kindCategory') }) }}
+          </ElButton>
+        </div>
+        <ElSelect id="edit-category" v-model="category" :ariaLabel="t('author.taxonomy.category')" :disabled="props.disabled" filterable>
+          <ElOption :value="0" :label="t('author.taxonomy.noCategory')" />
+          <ElOption v-for="item in categoryOptions" :key="item.id" :value="item.id" :label="item.name" />
+        </ElSelect>
       </div>
-      <ElSelect id="edit-category" v-model="category" :ariaLabel="t('author.taxonomy.category')" :disabled="props.disabled" filterable>
-        <ElOption :value="0" :label="t('author.taxonomy.noCategory')" />
-        <ElOption v-for="item in categoryOptions" :key="item.id" :value="item.id" :label="item.name" />
-      </ElSelect>
-      <div class="editor-taxonomy-label-row">
-        <label for="edit-tags">{{ t('author.taxonomy.tags') }}</label>
-        <ElButton
-          v-if="canCreateTag"
-          native-type="button"
-          text
-          size="small"
-          :disabled="props.disabled || !!creatingKind"
-          @click="openCreate('tag', $event)"
-        >
-          {{ t('admin.tagMetadata.m7', { kind: t('admin.tagMetadata.kindTag') }) }}
-        </ElButton>
+      <div class="taxonomy-field">
+        <div class="editor-taxonomy-label-row">
+          <label for="edit-tags">{{ t('author.taxonomy.tags') }}</label>
+          <ElButton
+            v-if="canCreateTag"
+            native-type="button"
+            text
+            size="small"
+            :disabled="props.disabled || !!creatingKind"
+            @click="openCreate('tag', $event)"
+          >
+            {{ t('admin.tagMetadata.m7', { kind: t('admin.tagMetadata.kindTag') }) }}
+          </ElButton>
+        </div>
+        <ElSelect id="edit-tags" v-model="tags" :ariaLabel="t('author.taxonomy.tags')" :disabled="props.disabled" :multiple-limit="maxTags" multiple filterable>
+          <ElOption v-for="item in tagOptions" :key="item.id" :value="item.id" :label="item.name" />
+        </ElSelect>
       </div>
-      <ElSelect id="edit-tags" v-model="tags" :ariaLabel="t('author.taxonomy.tags')" :disabled="props.disabled" :multiple-limit="maxTags" multiple filterable>
-        <ElOption v-for="item in tagOptions" :key="item.id" :value="item.id" :label="item.name" />
-      </ElSelect>
       <div class="editor-taxonomy-actions">
-        <ElButton :disabled="props.disabled || !dirty" @click="emit('save', selected)">{{ t('author.taxonomy.saveClassification') }}</ElButton>
-        <ElButton v-if="dirty" :disabled="props.disabled" text @click="reset">{{ t('author.taxonomy.discardClassificationChanges') }}</ElButton>
+        <ElButton size="small" :disabled="props.disabled || !dirty" @click="emit('save', selected)">{{ t('author.taxonomy.saveClassification') }}</ElButton>
+        <ElButton v-if="dirty" size="small" :disabled="props.disabled" text @click="reset">{{ t('author.taxonomy.discardClassificationChanges') }}</ElButton>
       </div>
-    </template>
+    </div>
 
     <ElDialog
       :model-value="creatingKind !== undefined"
@@ -232,10 +238,25 @@ function reset() {
         @session-lost="handleSessionLost"
       />
     </ElDialog>
-  </section>
+  </ElSettingsSection>
 </template>
 
 <style scoped>
+.taxonomy-status {
+  margin: 0;
+  color: var(--fsus-muted);
+  font-size: var(--fsus-font-size-sm, 0.875rem);
+}
+.taxonomy-fields {
+  display: grid;
+  gap: var(--fsus-space-3);
+  min-inline-size: 0;
+}
+.taxonomy-field {
+  display: grid;
+  gap: var(--fsus-space-1);
+  min-inline-size: 0;
+}
 .editor-taxonomy-label-row {
   display: flex;
   align-items: center;

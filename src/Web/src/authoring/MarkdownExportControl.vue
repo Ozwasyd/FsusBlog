@@ -6,8 +6,19 @@ import { ApiError } from '../../../Contracts/aeds'
 import { exportArticleRevision, type ArticleExportFormat } from '../../../Contracts/markdown-export'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential } from '../authorSession'
 
-const props = withDefaults(defineProps<{ article: number; revision: bigint; selected: bigint; disabled?: boolean; format?: ArticleExportFormat; attachment?: string }>(), {
+const props = withDefaults(defineProps<{
+  article: number
+  revision: bigint
+  selected: bigint
+  disabled?: boolean
+  format?: ArticleExportFormat
+  attachment?: string
+  size?: 'default' | 'small'
+  block?: boolean
+}>(), {
   format: 'md',
+  size: 'default',
+  block: false,
 })
 const failure = ref('')
 const loading = ref(false)
@@ -80,9 +91,17 @@ onScopeDispose(reset)
 </script>
 
 <template>
-  <span v-if="format !== 'pdf' || pdfAvailable" class="markdown-export">
-    <ElButton native-type="button" :loading="loading" :disabled="disabled || loading" @click="download">
-      {{ t('author.markdownExportControl.download', { p0: String(selected === revision ? 'saved' : 'revision'), p1: String(formatLabels[format]), p2: String(attachment?.includes(',') ? ' with these images' : attachment ? ' with this image' : '') }) }}
+  <span v-if="format !== 'pdf' || pdfAvailable" class="markdown-export" :class="{ 'markdown-export--block': block }">
+    <ElButton class="markdown-export-button" native-type="button" :size="size" :loading="loading" :disabled="disabled || loading" @click="download">
+      {{ t('author.markdownExportControl.download', {
+        p0: t(selected === revision ? 'author.markdownExportControl.scopeSaved' : 'author.markdownExportControl.scopeRevision'),
+        p1: formatLabels[format],
+        p2: attachment?.includes(',')
+          ? t('author.markdownExportControl.withImages')
+          : attachment
+            ? t('author.markdownExportControl.withImage')
+            : '',
+      }) }}
     </ElButton>
     <span v-if="failure" class="markdown-export-error" role="alert">{{ failure }}</span>
   </span>
@@ -90,5 +109,7 @@ onScopeDispose(reset)
 
 <style scoped>
 .markdown-export { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
-.markdown-export-error { font-size: .875rem; }
+.markdown-export--block { display: grid; min-inline-size: 0; }
+.markdown-export--block .markdown-export-button { inline-size: 100%; margin: 0; }
+.markdown-export-error { font-size: .875rem; color: var(--el-color-danger); }
 </style>

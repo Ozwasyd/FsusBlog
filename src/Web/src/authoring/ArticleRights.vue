@@ -94,12 +94,16 @@ function save() {
         @update:model-value="policy.showPublicBadge = $event === true">{{ t('author.articleRights.show.the.public.rights.notice') }}</ElCheckbox>
       <ElCheckbox :model-value="policy.proofBindingEnabled" :disabled="!canChange"
         @update:model-value="policy.proofBindingEnabled = $event === true">{{ t('author.articleRights.request.proof.binding') }}</ElCheckbox>
-      <ElButton :disabled="!canChange || !valid" @click="save">{{ t('author.articleRights.save.publication.rights') }}</ElButton>
+      <div class="rights-actions">
+        <ElButton size="small" :disabled="!canChange || !valid" @click="save">{{ t('author.articleRights.save.publication.rights') }}</ElButton>
+      </div>
     </div>
   </details>
 </template>
 
 <style scoped>
 summary { cursor: pointer; }
-.rights-fields { display: grid; gap: .45rem; padding-block: .5rem; }
+.rights-fields { display: grid; gap: var(--fsus-space-2); padding-block: var(--fsus-space-2); }
+.rights-fields p { margin: 0; font-size: var(--fsus-font-size-sm, 0.875rem); color: var(--fsus-muted); }
+.rights-actions { display: flex; flex-wrap: wrap; gap: var(--fsus-space-2); padding-block-start: var(--fsus-space-1); }
 </style>

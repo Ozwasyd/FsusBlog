@@ -19,7 +19,9 @@ const expanded = ref(false)
 const drawerOpened = ref(false)
 const inspectorId = useId()
 const titleId = `${inspectorId}-title`
-const launcher = ref<HTMLButtonElement>()
+const launcherButton = ref<ComponentPublicInstance>()
+const launcherElement = () =>
+  launcherButton.value?.$el instanceof HTMLButtonElement ? launcherButton.value.$el : null
 const pane = ref<HTMLElement>()
 const parking = ref<HTMLElement>()
 
@@ -44,7 +46,7 @@ const contentTarget = computed(() =>
   (host.value === 'drawer' ? drawer.value?.target.value : pane.value) ?? parking.value)
 
 const focus = createInspectorFocus<HTMLElement>({
-  externalLauncher: () => launcher.value ?? null,
+  externalLauncher: launcherElement,
   restore: element => focusInspectorOpener(element, contentTarget.value ?? null),
   afterRender(restore) {
     let cancelled = false
@@ -72,7 +74,7 @@ function renderHost() {
 
 function open(requested = false) {
   if (expanded.value) return
-  current = focus.open(host.value, requested ? launcher.value : null)
+  current = focus.open(host.value, requested ? launcherElement() : null)
   expanded.value = true
   renderHost()
   if (requested) emit('update:opened', true)
@@ -127,20 +129,26 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <button
-    :key="host" ref="launcher" v-show="host === 'pane' || !expanded"
-    class="inspector-launcher" type="button" :aria-expanded="expanded"
-    :aria-controls="host === 'pane' || drawer?.target.value ? inspectorId : undefined"
-    :aria-haspopup="host === 'drawer' ? 'dialog' : undefined"
+  <ElButton
+    :key="host"
+    ref="launcherButton"
+    v-show="host === 'pane' || !expanded"
+    class="inspector-launcher"
+    native-type="button"
+    v-bind="{
+      'aria-expanded': expanded,
+      'aria-controls': host === 'pane' || drawer?.target.value ? inspectorId : undefined,
+      'aria-haspopup': host === 'drawer' ? 'dialog' : undefined,
+    }"
     @click="expanded ? close(current) : open(true)"
-  >{{ triggerLabel }}</button>
+  >{{ triggerLabel }}</ElButton>
   <aside
     v-if="host === 'pane'" v-show="expanded" :id="inspectorId"
     class="inspector-pane" :aria-labelledby="titleId"
   >
     <header class="inspector-heading">
       <h2 :id="titleId">{{ title }}</h2>
-      <ElButton native-type="button" text @click="close(current)">{{ t('author.editorInspector.close') }}</ElButton>
+      <ElButton native-type="button" text size="small" @click="close(current)">{{ t('author.editorInspector.close') }}</ElButton>
     </header>
     <div ref="pane" class="inspector-pane-content" />
   </aside>
@@ -149,7 +157,7 @@ onBeforeUnmount(() => {
     :title="title" direction="rtl" size="100%" append-to-body
     v-on="drawer.events"
   >
-    <div :id="inspectorId" :ref="drawer.mount" />
+    <div :id="inspectorId" :ref="drawer.mount" class="inspector-drawer-content" />
   </ElDrawer>
   <div ref="parking" hidden />
   <!-- A single slot tree moves into the live host when that host's body mounts. -->
@@ -162,21 +170,6 @@ onBeforeUnmount(() => {
 .inspector-launcher {
   grid-area: launcher;
   justify-self: start;
-  min-block-size: var(--fsus-control-height-action);
-  padding-inline: var(--fsus-space-4);
-  border: 1px solid var(--fsus-border);
-  border-radius: var(--fsus-radius-control);
-  background: var(--fsus-paper);
-  color: var(--fsus-ink);
-  font: inherit;
-  cursor: pointer;
-}
-.inspector-launcher:hover {
-  color: var(--fsus-color-action-primary);
-}
-.inspector-launcher:focus-visible {
-  outline: 2px solid var(--fsus-color-action-primary);
-  outline-offset: 2px;
 }
 .inspector-pane {
   grid-area: pane;
@@ -190,6 +183,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--fsus-border);
   border-radius: var(--fsus-radius-panel);
   background: var(--fsus-paper);
+  overflow: hidden;
 }
 .inspector-heading {
   display: flex;
@@ -197,19 +191,100 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: var(--fsus-space-2);
   border-block-end: 1px solid var(--fsus-border);
-  padding: var(--fsus-space-2) var(--fsus-space-4);
+  padding: var(--fsus-space-3) var(--fsus-space-4);
 }
 .inspector-heading h2 {
   margin: 0;
   font-size: var(--fsus-typography-heading-sm-size);
+  font-weight: 600;
+  line-height: 1.35;
 }
 .inspector-pane-content {
   min-block-size: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding-inline: var(--fsus-space-4);
+  padding: var(--fsus-space-4);
+}
+.inspector-drawer-content {
+  padding-block-end: var(--fsus-space-4);
 }
 .inspector-content {
+  display: grid;
   min-inline-size: 0;
+}
+.inspector-content > :deep(:first-child) {
+  border-block-start: 0;
+  padding-block-start: 0;
+}
+.inspector-content :deep(label),
+.inspector-pane-content .inspector-content :deep(label) {
+  font-size: var(--fsus-font-size-sm, 0.875rem);
+  font-weight: 500;
+  color: var(--fsus-muted);
+}
+.inspector-content :deep(details) {
+  min-inline-size: 0;
+  border-block-start: 1px solid var(--fsus-border);
+}
+.inspector-content :deep(details > summary) {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--fsus-space-2);
+  min-block-size: var(--fsus-control-height-action);
+  padding-block: var(--fsus-space-2);
+  font-size: var(--fsus-font-size-base, 0.9375rem);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--fsus-ink);
+  cursor: pointer;
+  border-radius: var(--fsus-radius-control);
+}
+.inspector-content :deep(details > summary::-webkit-details-marker) {
+  display: none;
+}
+.inspector-content :deep(details > summary::before) {
+  content: '';
+  inline-size: 1em;
+  block-size: 1em;
+  flex-shrink: 0;
+  background-color: currentColor;
+  opacity: 0.72;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") no-repeat center / contain;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") no-repeat center / contain;
+  rotate: -90deg;
+}
+.inspector-content :deep(details > summary:dir(rtl)::before) {
+  rotate: 90deg;
+}
+.inspector-content :deep(details[open] > summary::before) {
+  rotate: 0deg;
+}
+.inspector-content :deep(details > summary:hover) {
+  color: var(--fsus-color-action-primary);
+}
+.inspector-content :deep(details > summary:focus-visible) {
+  outline: 2px solid var(--fsus-color-action-primary);
+  outline-offset: 2px;
+}
+.inspector-content :deep(details::details-content) {
+  interpolate-size: allow-keywords;
+  overflow: clip;
+  contain: layout;
+}
+.inspector-content :deep(details:not([open])::details-content) {
+  block-size: 0;
+}
+.inspector-content :deep(details[open]) {
+  padding-block-end: var(--fsus-space-3);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .inspector-content :deep(details > summary::before) {
+    transition: rotate 0.2s ease;
+  }
+  .inspector-content :deep(details::details-content) {
+    transition: block-size 0.22s ease, content-visibility 0.22s ease;
+    transition-behavior: allow-discrete;
+  }
 }
 </style>

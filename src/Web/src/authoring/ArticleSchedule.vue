@@ -48,26 +48,30 @@ function toggle(event: Event) {
 <template>
   <details class="article-schedule" @toggle="toggle">
     <summary>{{ t('author.articleSchedule.scheduled.publication') }}</summary>
-    <ElAlert v-if="failure" type="error" :closable="false" :title="failure" />
-    <p v-else-if="open && !current" role="status">{{ t('author.articleSchedule.loading.schedule') }}</p>
-    <template v-if="current">
-      <p v-if="current.dueUnixMs">
-        {{ t('author.articleSchedule.scheduled.for.editing.and.saving.the.draft.clears', { p0: String(new Date(Number(current.dueUnixMs)).toISOString()) }) }}
-      </p>
-      <label for="article-schedule-time">{{ t('author.articleSchedule.publish.at.utc') }}</label>
-      <ElInput id="article-schedule-time" v-model="due" placeholder="2027-01-30T12:00:00Z" :disabled="!canChange" />
-      <div class="schedule-actions">
-        <ElButton :disabled="!canChange || !input || input === current.dueUnixMs" @click="emit('schedule', input)">
-          {{ current.dueUnixMs ? t('author.articleSchedule.reschedule.publication') : t('author.articleSchedule.schedule.publication') }}
-        </ElButton>
-        <ElButton v-if="current.dueUnixMs" :disabled="!canChange" text @click="emit('schedule', 0n)">{{ t('author.articleSchedule.cancel.schedule') }}</ElButton>
-        <ElButton v-if="current.dueUnixMs" text @click="attempt++">{{ t('author.articleSchedule.refresh.schedule') }}</ElButton>
-      </div>
-    </template>
+    <div class="schedule-fields">
+      <ElAlert v-if="failure" type="error" :closable="false" :title="failure" />
+      <p v-else-if="open && !current" class="schedule-status" role="status">{{ t('author.articleSchedule.loading.schedule') }}</p>
+      <template v-if="current">
+        <p v-if="current.dueUnixMs" class="schedule-note">
+          {{ t('author.articleSchedule.scheduled.for.editing.and.saving.the.draft.clears', { p0: String(new Date(Number(current.dueUnixMs)).toISOString()) }) }}
+        </p>
+        <label for="article-schedule-time">{{ t('author.articleSchedule.publish.at.utc') }}</label>
+        <ElInput id="article-schedule-time" v-model="due" placeholder="2027-01-30T12:00:00Z" :disabled="!canChange" />
+        <div class="schedule-actions">
+          <ElButton size="small" :disabled="!canChange || !input || input === current.dueUnixMs" @click="emit('schedule', input)">
+            {{ current.dueUnixMs ? t('author.articleSchedule.reschedule.publication') : t('author.articleSchedule.schedule.publication') }}
+          </ElButton>
+          <ElButton v-if="current.dueUnixMs" size="small" :disabled="!canChange" text @click="emit('schedule', 0n)">{{ t('author.articleSchedule.cancel.schedule') }}</ElButton>
+          <ElButton v-if="current.dueUnixMs" size="small" text @click="attempt++">{{ t('author.articleSchedule.refresh.schedule') }}</ElButton>
+        </div>
+      </template>
+    </div>
   </details>
 </template>
 
 <style scoped>
 .article-schedule summary { cursor: pointer; }
-.schedule-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+.schedule-fields { display: grid; gap: var(--fsus-space-2); padding-block-start: var(--fsus-space-1); }
+.schedule-status, .schedule-note { margin: 0; font-size: var(--fsus-font-size-sm, 0.875rem); color: var(--fsus-muted); }
+.schedule-actions { display: flex; flex-wrap: wrap; gap: var(--fsus-space-2); }
 </style>

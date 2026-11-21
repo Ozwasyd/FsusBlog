@@ -347,4 +347,4 @@ p { line-height: 1.65; }
 
 .editor-taxonomy { display: grid; gap: .5rem; margin-block-start: 2rem; padding-block-start: 1rem; border-block-start: 1px solid var(--fsus-border); }
 .editor-taxonomy h2 { margin-block: 0 .5rem; }
-.editor-taxonomy-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.editor-taxonomy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
