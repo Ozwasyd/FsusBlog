@@ -1,6 +1,6 @@
 import { ProtocolError, encodeFrame } from './aeds.ts';
 import { request, siteSessionHeader } from './client.ts';
-import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
+import { requestWithScopedPow } from './pow.ts';
 import {
   decodePublicCommentEligibility, decodePublicCommentSubmissionResult, encodePublicCommentSubmission, encodePublicCommentReply,
   FrameType, WireHeaders, WireRoutes,
@@ -27,19 +27,19 @@ export async function submitPublicComment(articleId: number, publication: bigint
     : encodeFrame(FrameType.PublicCommentSubmission, encodePublicCommentSubmission(command));
   const headers = new Headers(siteSessionHeader(reply?.session));
   headers.set(WireHeaders.ClientMutationId, key);
-  const clientNonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
-  headers.set(WireHeaders.PowClientNonce, clientNonce);
-  const challenge = await request(reply ? WireRoutes.PublicCommentReplyPow : WireRoutes.PublicCommentPowChallenge,
-    FrameType.PowChallenge, decodePowChallenge, signal, 'POST', frame, headers);
-  const nonce = await solveScopedPow(challenge, clientNonce, signal);
-  signal.throwIfAborted();
-  headers.delete(WireHeaders.PowClientNonce);
-  headers.set(WireHeaders.PowProof, encodePowProof(challenge, nonce, clientNonce));
-  return request(reply ? WireRoutes.SubmitPublicCommentReply : WireRoutes.SubmitPublicComment, FrameType.PublicCommentSubmissionResult, payload => {
-    const result = decodePublicCommentSubmissionResult(payload);
-    if (result.articleId !== articleId || result.commentId <= 0n ||
-        result.moderationStatus < 0 || result.moderationStatus > 3)
-      throw new ProtocolError('Invalid AEDS public comment confirmation');
-    return result;
-  }, signal, 'POST', frame, headers);
+  return requestWithScopedPow({
+    challengePath: reply ? WireRoutes.PublicCommentReplyPow : WireRoutes.PublicCommentPowChallenge,
+    submitPath: reply ? WireRoutes.SubmitPublicCommentReply : WireRoutes.SubmitPublicComment,
+    expected: FrameType.PublicCommentSubmissionResult,
+    decode: payload => {
+      const result = decodePublicCommentSubmissionResult(payload);
+      if (result.articleId !== articleId || result.commentId <= 0n ||
+          result.moderationStatus < 0 || result.moderationStatus > 3)
+        throw new ProtocolError('Invalid AEDS public comment confirmation');
+      return result;
+    },
+    body: frame,
+    signal,
+    headers,
+  });
 }

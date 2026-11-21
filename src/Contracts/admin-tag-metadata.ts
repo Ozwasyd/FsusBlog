@@ -1,8 +1,8 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
 import { request } from './client.ts'
-import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts'
-import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts'
+import { requestWithScopedPow } from './pow.ts'
+import { FrameType, WireLimits, WireRoutes } from './wire.generated.ts'
 
 export type AdminMetadataKind = 'tag' | 'category'
 export type AdminTaxonomyMetadata = Readonly<{ id: number; revision: bigint; name: string; description: string; changed: boolean }>
@@ -77,18 +77,21 @@ export async function changeTaxonomyMetadata(kind: AdminMetadataKind, edit: Admi
   writer.text(normalized.name, nameLimit(kind))
   writer.text(normalized.description, WireLimits.TaxonomyDescriptionBytes)
   const frame = encodeFrame(routes.command, writer.finish())
-  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
-  const challenge = await request(routes.pow, FrameType.PowChallenge, decodePowChallenge, signal, 'POST', frame,
-    { [WireHeaders.PowClientNonce]: nonce })
-  const proof = await solveScopedPow(challenge, nonce, signal)
-  return request(routes.path, routes.receipt,
-    bytes => {
+  return requestWithScopedPow({
+    challengePath: routes.pow,
+    submitPath: routes.path,
+    expected: routes.receipt,
+    decode: bytes => {
       const result = readMetadata(bytes, kind, edit.id)
       if (result.name !== normalized.name || result.description !== normalized.description || creating && !result.changed ||
           (result.changed ? result.revision <= edit.expectedRevision : result.revision !== edit.expectedRevision))
         throw new ProtocolError(`The ${kind} metadata receipt does not match the request.`)
       return result
-    }, signal, creating ? 'POST' : 'PUT', frame, { [WireHeaders.PowProof]: encodePowProof(challenge, proof, nonce) })
+    },
+    body: frame,
+    signal,
+    method: creating ? 'POST' : 'PUT',
+  })
 }
 
 export function deleteTaxonomy(kind: AdminMetadataKind, id: number, signal?: AbortSignal): Promise<void> {
