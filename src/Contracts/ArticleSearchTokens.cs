@@ -7,6 +7,9 @@ internal static class ArticleSearchTokens
 {
     private const int MaxCjkSegment = 4096;
     private const int MaxMeasuredBody = 256 * 1024;
+    internal const int AsciiMinPrefixLength = 3;
+    internal const int AsciiMaxPrefixLength = 12;
+    internal const int MaxAsciiSubtokens = 32;
     private static readonly Regex Link = new(@"!?\[(?<text>.*?)\]\(.*?\)", RegexOptions.NonBacktracking);
     private static readonly Regex Tag = new(@"<.*?>", RegexOptions.NonBacktracking);
 
@@ -72,6 +75,189 @@ internal static class ArticleSearchTokens
                 if (scalar.Value > 0x20 && !char.IsPunctuation(unit) && !char.IsWhiteSpace(unit))
                     yield return LocalSearchCorpus.HashRune(scalar);
             }
+        }
+    }
+
+    internal static bool VisitIndexTokens(string text, CancellationToken ct, Func<uint, bool, bool> visit)
+    {
+        Span<uint> subtokens = stackalloc uint[MaxAsciiSubtokens];
+        for (var offset = 0; offset < text.Length;)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (char.IsAsciiLetterOrDigit(text[offset]))
+            {
+                var start = offset++;
+                while (offset < text.Length && char.IsAsciiLetterOrDigit(text[offset])) offset++;
+                var span = text.AsSpan(start, offset - start);
+                var fullHash = LocalSearchCorpus.HashAscii(span);
+                if (!visit(fullHash, true)) return false;
+                var expanded = ExpandAscii(span, fullHash, subtokens);
+                for (var i = 0; i < expanded; i++)
+                    if (!visit(subtokens[i], false)) return false;
+            }
+            else if (SearchLexicon.IsCjk(text[offset]))
+            {
+                var start = offset++;
+                while (offset < text.Length && SearchLexicon.IsCjk(text[offset])) offset++;
+                while (offset - start > MaxCjkSegment)
+                    if (!visit(LocalSearchCorpus.HashWord(text.AsSpan(start++, 1)), true)) return false;
+                foreach (var (at, width) in SearchLexicon.Segment(text, start, offset))
+                {
+                    if (!visit(LocalSearchCorpus.HashWord(text.AsSpan(at, width)), true)) return false;
+                    for (var relative = 0; relative < width; relative++)
+                    {
+                        var longest = Math.Min(width - 1, width - relative);
+                        for (var part = 2; part <= longest; part++)
+                        {
+                            var candidate = text.AsSpan(at + relative, part);
+                            if (SearchLexicon.IsWord(candidate) && !visit(LocalSearchCorpus.HashWord(candidate), true))
+                                return false;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                if (!Rune.TryGetRuneAt(text, offset, out var scalar)) scalar = Rune.ReplacementChar;
+                offset += scalar.Utf16SequenceLength;
+                var unit = (char)scalar.Value;
+                if (scalar.Value > 0x20 && !char.IsPunctuation(unit) && !char.IsWhiteSpace(unit) &&
+                    !visit(LocalSearchCorpus.HashRune(scalar), true))
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    internal static int ExpandAscii(ReadOnlySpan<char> token, uint fullHash, Span<uint> destination)
+    {
+        if (token.Length < 2 || destination.Length == 0) return 0;
+        var count = 0;
+
+        var maxPrefix = Math.Min(AsciiMaxPrefixLength, token.Length - 1);
+        for (var length = AsciiMinPrefixLength; length <= maxPrefix; length++)
+            Add(destination, ref count, fullHash, LocalSearchCorpus.HashAscii(token[..length]));
+
+        var segmentStart = 0;
+        for (var i = 1; i <= token.Length; i++)
+        {
+            if (i < token.Length && !IsSubwordBoundary(token, i)) continue;
+            var segmentLength = i - segmentStart;
+            if (segmentLength >= 2 && segmentLength < token.Length)
+            {
+                var segment = token.Slice(segmentStart, segmentLength);
+                Add(destination, ref count, fullHash, LocalSearchCorpus.HashAscii(segment));
+                var segmentMaxPrefix = Math.Min(AsciiMaxPrefixLength, segmentLength - 1);
+                for (var length = AsciiMinPrefixLength; length <= segmentMaxPrefix; length++)
+                    Add(destination, ref count, fullHash, LocalSearchCorpus.HashAscii(segment[..length]));
+            }
+            segmentStart = i;
+        }
+
+        return count;
+
+        static void Add(Span<uint> target, ref int written, uint exactHash, uint hash)
+        {
+            if (hash == exactHash || written >= target.Length) return;
+            for (var i = 0; i < written; i++)
+                if (target[i] == hash) return;
+            target[written++] = hash;
+        }
+    }
+
+    private static bool IsSubwordBoundary(ReadOnlySpan<char> token, int index)
+    {
+        var previous = token[index - 1];
+        var current = token[index];
+        if (char.IsAsciiDigit(previous) != char.IsAsciiDigit(current)) return true;
+        if (char.IsAsciiLetterLower(previous) && char.IsAsciiLetterUpper(current)) return true;
+        if (char.IsAsciiLetterUpper(previous) && char.IsAsciiLetterUpper(current) &&
+            index + 1 < token.Length && char.IsAsciiLetterLower(token[index + 1])) return true;
+        return false;
+    }
+
+    internal static List<(string Prefix, uint Hash)>? ShortAsciiPrefixes(string normalizedQuery)
+    {
+        List<(string Prefix, uint Hash)>? prefixes = null;
+        for (var offset = 0; offset < normalizedQuery.Length;)
+        {
+            if (!char.IsAsciiLetterOrDigit(normalizedQuery[offset]))
+            {
+                offset++;
+                continue;
+            }
+            var start = offset++;
+            while (offset < normalizedQuery.Length && char.IsAsciiLetterOrDigit(normalizedQuery[offset])) offset++;
+            var length = offset - start;
+            if (length <= 0 || length >= AsciiMinPrefixLength) continue;
+            var span = normalizedQuery.AsSpan(start, length);
+            var duplicate = false;
+            if (prefixes is not null)
+            {
+                for (var i = 0; i < prefixes.Count; i++)
+                {
+                    if (prefixes[i].Prefix.AsSpan().SequenceEqual(span))
+                    {
+                        duplicate = true;
+                        break;
+                    }
+                }
+            }
+            if (duplicate) continue;
+            prefixes ??= [];
+            prefixes.Add((normalizedQuery.Substring(start, length), LocalSearchCorpus.HashAscii(span)));
+        }
+        return prefixes;
+    }
+
+    internal static int CountAsciiPrefixMatches(string text, ReadOnlySpan<char> prefix)
+    {
+        if (string.IsNullOrEmpty(text) || prefix.Length == 0 || text.Length <= prefix.Length) return 0;
+        var span = text.IsNormalized(NormalizationForm.FormKC)
+            ? text.AsSpan()
+            : text.Normalize(NormalizationForm.FormKC).AsSpan();
+        var count = 0;
+        for (var offset = 0; offset < span.Length;)
+        {
+            if (!char.IsAsciiLetterOrDigit(span[offset]))
+            {
+                offset++;
+                continue;
+            }
+            var start = offset++;
+            while (offset < span.Length && char.IsAsciiLetterOrDigit(span[offset])) offset++;
+            var token = span.Slice(start, offset - start);
+            if (token.Length <= prefix.Length) continue;
+            if (StartsWithLowerAscii(token, prefix))
+            {
+                count++;
+                continue;
+            }
+            var segmentStart = 0;
+            for (var i = 1; i <= token.Length; i++)
+            {
+                if (i < token.Length && !IsSubwordBoundary(token, i)) continue;
+                var segmentLength = i - segmentStart;
+                if (segmentStart > 0 && segmentLength > prefix.Length &&
+                    StartsWithLowerAscii(token.Slice(segmentStart, segmentLength), prefix))
+                {
+                    count++;
+                    break;
+                }
+                segmentStart = i;
+            }
+        }
+        return count;
+
+        static bool StartsWithLowerAscii(ReadOnlySpan<char> value, ReadOnlySpan<char> lowerPrefix)
+        {
+            for (var i = 0; i < lowerPrefix.Length; i++)
+            {
+                var unit = value[i];
+                if (unit is >= 'A' and <= 'Z') unit = (char)(unit + 32);
+                if (unit != lowerPrefix[i]) return false;
+            }
+            return true;
         }
     }
 

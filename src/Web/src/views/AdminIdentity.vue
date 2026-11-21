@@ -261,10 +261,10 @@ function logOut() {
 </script>
 
 <template>
-  <AccountWorkspace v-if="authority?.status === 'active'" home="/admin/site" :label="t('admin.access')" :links="links"
+  <AccountWorkspace v-if="authority?.status === 'active'" home="/admin/site" :label="t('admin.menu')" :links="links"
     surface="task" :theme-mode="themeMode" @theme="emit('theme', $event)">
-    <template #actions>
-      <ElButton text native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
+    <template #actions="{ drawer }">
+      <ElButton :text="!drawer" native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
     </template>
     <main class="admin-workspace">
       <ElTaskPageHeader :title="t(section.label)" density="compact" />
@@ -310,7 +310,7 @@ function logOut() {
           </div>
         </ElSettingsSection>
         <AdminArticlesWorkspace v-if="section.section === 'articles'" :key="sessionEpoch"
-          :session-signal="sessionAuthority.signal" :can-rollback="adminUsesHttps" @session-lost="handleSessionLoss" />
+          :session-signal="sessionAuthority.signal" :can-rollback="canUsePasskeys" @session-lost="handleSessionLoss" />
         <AdminSiteTraffic v-if="section.section === 'site'" :key="sessionEpoch"
           :session="authority.session" :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
         <AdminAppearance v-if="section.section === 'site' && authority.session.appearanceEnabled" :key="sessionEpoch"

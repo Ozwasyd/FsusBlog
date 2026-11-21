@@ -24,6 +24,9 @@ public sealed partial class ArticleSearchIndex
     private const int SummaryWeight = 8;
     private const int TaxonomyWeight = 5;
     private const int BodyWeight = 2;
+    private const int ShortPrefixTitleWeight = 4;
+    private const int ShortPrefixSummaryWeight = 2;
+    private const int ShortPrefixTaxonomyWeight = 1;
     private const double K1 = 1.2;
     private const double B = 0.75;
 
@@ -99,6 +102,8 @@ public sealed partial class ArticleSearchIndex
                     scores[posting.Ordinal] += Score(posting.Weight, normalization, idf);
                 }
             }
+            if (ArticleSearchTokens.ShortAsciiPrefixes(query) is { Count: > 0 } shortPrefixes)
+                AddCompactShortPrefixScores(scores, shortPrefixes, ct);
             Select(scores, 0, candidates, sort, window, ref total, ct);
         }
         finally
@@ -107,6 +112,51 @@ public sealed partial class ArticleSearchIndex
         }
 
         return new(Ordered(candidates, (int)Math.Min(start, MaxPaginatedResults)), total);
+    }
+
+    private void AddCompactShortPrefixScores(Span<double> scores, IReadOnlyList<(string Prefix, uint Hash)> prefixes,
+        CancellationToken ct)
+    {
+        var weightBuffer = ArrayPool<int>.Shared.Rent(_documents.Length);
+        try
+        {
+            var weights = weightBuffer.AsSpan(0, _documents.Length);
+            for (var p = 0; p < prefixes.Count; p++)
+            {
+                var (prefix, hash) = prefixes[p];
+                var prefixDf = 0;
+                for (var ordinal = 0; ordinal < _documents.Length; ordinal++)
+                {
+                    if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
+                    var weight = ShortPrefixWeight(_documents[ordinal].Article, prefix);
+                    weights[ordinal] = weight;
+                    if (weight > 0) prefixDf++;
+                }
+                if (prefixDf == 0) continue;
+                var exactDf = FindTerm(_terms, hash).Count;
+                var idf = InverseFrequency(Math.Min(_documents.Length, exactDf + prefixDf));
+                for (var ordinal = 0; ordinal < _documents.Length; ordinal++)
+                {
+                    var weight = weights[ordinal];
+                    if (weight > 0) scores[ordinal] += Score(weight, _documents[ordinal].Normalization, idf);
+                }
+            }
+        }
+        finally
+        {
+            ArrayPool<int>.Shared.Return(weightBuffer);
+        }
+    }
+
+    private static int ShortPrefixWeight(Article article, string prefix)
+    {
+        var span = prefix.AsSpan();
+        var weight = ShortPrefixTitleWeight * ArticleSearchTokens.CountAsciiPrefixMatches(article.Title, span)
+            + ShortPrefixSummaryWeight * ArticleSearchTokens.CountAsciiPrefixMatches(article.Summary ?? "", span)
+            + ShortPrefixTaxonomyWeight * ArticleSearchTokens.CountAsciiPrefixMatches(article.Category?.Name ?? "", span);
+        foreach (var tag in article.Tags ?? [])
+            weight += ShortPrefixTaxonomyWeight * ArticleSearchTokens.CountAsciiPrefixMatches(tag.Name, span);
+        return weight;
     }
 
     private ArticleSearchPage SearchIdentifier(string query, ArticleSearchSort sort, int start, int window, CancellationToken ct)
@@ -265,14 +315,15 @@ public sealed partial class ArticleSearchIndex
             {
                 remainingChars -= text.Length;
                 if (remainingChars < 0) return false;
-                foreach (var hash in ArticleSearchTokens.Hashes(text, ct))
+                var subtokenWeight = Math.Max(1, weight / 2);
+                return ArticleSearchTokens.VisitIndexTokens(text, ct, (hash, exact) =>
                 {
+                    var delta = exact ? weight : subtokenWeight;
                     ref var frequency = ref CollectionsMarshal.GetValueRefOrAddDefault(_frequencies, hash, out _);
-                    if (frequency > int.MaxValue - weight) return false;
-                    frequency += weight;
-                    if (_frequencies.Count > termLimit) return false;
-                }
-                return true;
+                    if (frequency > int.MaxValue - delta) return false;
+                    frequency += delta;
+                    return _frequencies.Count <= termLimit;
+                });
             }
         }
     }

@@ -280,17 +280,68 @@ internal static partial class Cli
             throw new InvalidOperationException("Article body insertion operations were not installed.");
         if (!await CurrentSchema.HasArticleBodyEditsAsync(connection, transaction, token))
             throw new InvalidOperationException("Article body edits were not installed.");
-        await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
-            requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true,
-            requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireAdminInboxRead: true, requireSiteRefresh: true,
-            requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true,
-            requireAdminTagMetadata: true, requireAdminCategoryMetadata: true, requireAppearanceActivation: true,
-            requireAuthorRecentOpens: true, requirePublicationCanonical: true, requirePublicationProof: true, requirePublicationMedia: true,
-            requireAuthoringWorkspaceGroups: true, requireAdminCommentBatch: true, requireArticleRead: true,
-            requirePublicationTransparency: true, requirePublicationHead: true, requireCommentAuthorEdit: true, requireCommentReport: true,
-            requireAuthorTextIndex: true, requireRootCommentPowPolicy: true, requireArticleSummary: true,
-            requireAuthorTextSummaryIndex: true, requireAuthorTextHeadingIndex: true, requireAuthorTextPropertyIndex: true,
-            requireAuthorTextRebuild: true, requireDocumentExports: true);
+        await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, new CatalogVerificationOptions
+        {
+            Site = new()
+            {
+                Subscription = true,
+                RecoveryKey = true,
+                Refresh = true,
+                PageEditor = true,
+                AppearanceActivation = true
+            },
+            AdminInbox = new()
+            {
+                Reply = true,
+                Status = true,
+                Notice = true,
+                Read = true
+            },
+            AdminContent = new()
+            {
+                TagMetadata = true,
+                CategoryMetadata = true,
+                ArticleRollback = true
+            },
+            Comments = new()
+            {
+                RootPowPolicy = true,
+                AuthorEdit = true,
+                Report = true,
+                AdminBatch = true
+            },
+            Authoring = new()
+            {
+                Workspace = true,
+                WorkspaceGroups = true,
+                SavedViews = true,
+                SavedViewPlacement = true,
+                RecentOpens = true,
+                ArticleSummary = true,
+                DocumentExports = true
+            },
+            AuthorText = new()
+            {
+                Index = true,
+                SummaryIndex = true,
+                HeadingIndex = true,
+                PropertyIndex = true,
+                Rebuild = true
+            },
+            Media = new()
+            {
+                ArticleMedia = true,
+                PublicationMedia = true
+            },
+            Publication = new()
+            {
+                Canonical = true,
+                Proof = true,
+                Transparency = true,
+                Head = true,
+                ArticleRead = true
+            }
+        });
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);
