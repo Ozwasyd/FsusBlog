@@ -1,12 +1,11 @@
 import { ProtocolError } from './aeds.ts';
-import type { AdminSession } from './admin-identity.ts';
+import { assertAdminPermissionSession, type AdminSession } from './admin-identity.ts';
 import { request } from './client.ts';
-import { decodeAdminClusterStatus, FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
+import { decodeAdminClusterStatus, FrameType, WireLimits, WireRoutes } from './wire.generated.ts';
 
 export function readAdminCluster(session: AdminSession, signal: AbortSignal) {
   return request(WireRoutes.AdminClusterStatus, FrameType.AdminClusterStatus, (payload, headers) => {
-    if (!session.permissionSession || headers.get(WireHeaders.AdminPermissionSession) !== session.permissionSession)
-      throw new ProtocolError('Administrator permission session changed.');
+    assertAdminPermissionSession(session, headers);
     return decodeClusterObservation(payload);
   }, signal);
 }

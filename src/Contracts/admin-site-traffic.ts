@@ -1,8 +1,8 @@
 import { ProtocolError } from './aeds.ts'
-import type { AdminSession } from './admin-identity.ts'
+import { assertAdminPermissionSession, type AdminSession } from './admin-identity.ts'
 import { PodReader } from './binary.ts'
 import { request } from './client.ts'
-import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts'
+import { FrameType, WireRoutes } from './wire.generated.ts'
 
 export type AdminSiteTraffic = Readonly<{
   enabled: boolean
@@ -13,8 +13,7 @@ export type AdminSiteTraffic = Readonly<{
 
 export function readAdminSiteTraffic(session: AdminSession, signal?: AbortSignal): Promise<AdminSiteTraffic> {
   return request(WireRoutes.AdminSiteTraffic, FrameType.AdminSiteTraffic, (payload, headers) => {
-    if (!session.permissionSession || headers.get(WireHeaders.AdminPermissionSession) !== session.permissionSession)
-      throw new ProtocolError('Administrator permission session changed.')
+    assertAdminPermissionSession(session, headers)
     return decodeAdminSiteTraffic(payload)
   }, signal)
 }
