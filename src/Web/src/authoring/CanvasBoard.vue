@@ -2,6 +2,17 @@
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef, useId, watch } from 'vue'
 import type { CanvasGeometry, CanvasGraphEdge, CanvasNode, CanvasViewport } from '../../../Contracts/canvas-graph'
+import {
+  commitCanvasGesture,
+  createCanvasGesture,
+  projectCanvasNode,
+  queryVisibleCanvasEdges,
+  queryVisibleCanvasNodes,
+  rovingCanvasNodeIndex,
+  stepCanvasArrow,
+  stepCanvasGesture,
+  type CanvasGesture,
+} from './canvasViewport'
 
 const props = defineProps<{
   nodes: readonly CanvasNode[]
@@ -21,16 +32,11 @@ const emit = defineEmits<{
   'focus-request-handled': []
 }>()
 
-const nodesOnScreen = 100
-const edgesOnScreen = 200
-const maxCoordinate = 1_000_000_000
-const point = (value: number) => Math.max(-maxCoordinate, Math.min(maxCoordinate, Math.round(value)))
 const board = ref<HTMLElement>()
 const keyboardHelpId = useId()
 const size = shallowRef({ width: 0, height: 0 })
 const position = shallowRef<{ x: number; y: number }>()
 const nodesById = computed(() => new Map(props.nodes.map(node => [node.id, node])))
-const graphZoom = computed(() => props.viewport.zoom / 1000)
 const labels: Record<CanvasNode['kind'], MessageKey> = {
   'article-reference': 'author.canvasBoard.articleReference',
   'heading-reference': 'author.canvasBoard.headingReference',
@@ -39,16 +45,7 @@ const labels: Record<CanvasNode['kind'], MessageKey> = {
   'group-frame': 'author.canvasBoard.frame',
 }
 
-type Gesture = {
-  pointer: number
-  startX: number
-  startY: number
-  zoom: number
-  original: { x: number; y: number }
-  moved: boolean
-} & ({ kind: 'node'; id: string; geometry: CanvasGeometry } | { kind: 'pan'; viewport: CanvasViewport })
-
-const gesture = shallowRef<Gesture>()
+const gesture = shallowRef<CanvasGesture>()
 const nodeFocus = ref<string>()
 let frame = 0
 let observer: ResizeObserver | undefined
@@ -91,42 +88,20 @@ function geometry(node: CanvasNode) {
     : node.geometry
 }
 
-function project(node: CanvasNode, view: CanvasViewport = viewport.value, box: CanvasGeometry = geometry(node)) {
-  const scale = graphZoom.value / 100
-  return {
-    node,
-    x: (box.x - view.x) * scale,
-    y: (box.y - view.y) * scale,
-    width: box.width * scale,
-    height: box.height * scale,
-  }
-}
-
-function spatialQuery(nodes: readonly CanvasNode[], view: CanvasViewport) {
-  const result: ReturnType<typeof project>[] = []
-  const inside = (box: ReturnType<typeof project>) => box.x + box.width >= 0 && box.y + box.height >= 0
-    && box.x <= size.value.width && box.y <= size.value.height
-  const selected = props.selectedNodeId && nodesById.value.get(props.selectedNodeId)
-  const selectedBox = selected ? project(selected, view, selected.geometry) : undefined
-  if (selectedBox && inside(selectedBox)) result.push(selectedBox)
-  for (const node of nodes) {
-    if (node === selected) continue
-    const box = project(node, view, node.geometry)
-    if (inside(box)) result.push(box)
-    if (result.length === nodesOnScreen) break
-  }
-  // Frames sit beneath their contents. UUID/revision authority stays with the document.
-  return result.sort((left, right) => Number(left.node.kind !== 'group-frame') - Number(right.node.kind !== 'group-frame'))
-}
-
 // Move one transient node without recomputing the authoritative viewport query at every frame.
-const idleProjection = computed(() => spatialQuery(props.nodes, props.viewport))
+const idleProjection = computed(() =>
+  queryVisibleCanvasNodes(props.nodes, nodesById.value, props.viewport, size.value, props.selectedNodeId),
+)
 
 const visibleNodes = computed(() => {
   const drag = gesture.value
   if (!drag || !position.value) return idleProjection.value
-  if (drag.kind === 'pan') return spatialQuery(props.nodes, viewport.value)
-  return idleProjection.value.map(box => box.node.id === drag.id ? project(box.node) : box)
+  if (drag.kind === 'pan') {
+    return queryVisibleCanvasNodes(props.nodes, nodesById.value, viewport.value, size.value, props.selectedNodeId)
+  }
+  return idleProjection.value.map(box =>
+    box.node.id === drag.id ? projectCanvasNode(box.node, viewport.value, geometry(box.node)) : box,
+  )
 })
 
 watch([visibleNodes, () => props.focusRequestId, () => props.disabled], ([boxes, requested, disabled]) => {
@@ -141,27 +116,9 @@ const firstNode = computed(() => visibleNodes.value.find(box => box.node.id === 
   ?? visibleNodes.value.find(box => box.node.id === props.selectedNodeId)?.node.id
   ?? visibleNodes.value[0]?.node.id)
 
-const visibleEdges = computed(() => {
-  const shown = new Set(visibleNodes.value.map(box => box.node.id))
-  const lines: { edge: CanvasGraphEdge; x1: number; x2: number; y1: number; y2: number }[] = []
-  for (const edge of props.edges) {
-    if (!shown.has(edge.sourceNodeId) && !shown.has(edge.targetNodeId)) continue
-    const source = nodesById.value.get(edge.sourceNodeId)
-    const target = nodesById.value.get(edge.targetNodeId)
-    if (!source || !target) continue
-    const from = project(source)
-    const to = project(target)
-    lines.push({
-      edge,
-      x1: from.x + from.width / 2,
-      y1: from.y + from.height / 2,
-      x2: to.x + to.width / 2,
-      y2: to.y + to.height / 2,
-    })
-    if (lines.length === edgesOnScreen) break
-  }
-  return lines
-})
+const visibleEdges = computed(() =>
+  queryVisibleCanvasEdges(props.edges, visibleNodes.value, nodesById.value, viewport.value, geometry),
+)
 
 function description(node: CanvasNode): string {
   if (node.kind === 'plain-text-note') return node.text.slice(0, 240)
@@ -173,14 +130,7 @@ function description(node: CanvasNode): string {
 
 function begin(event: PointerEvent, node?: CanvasNode) {
   if (props.disabled || !event.isPrimary || event.button !== 0 || !board.value || gesture.value) return
-  const original = node?.geometry ?? props.viewport
-  const base = {
-    pointer: event.pointerId, startX: event.clientX, startY: event.clientY, zoom: graphZoom.value,
-    original: { x: original.x, y: original.y }, moved: false,
-  }
-  gesture.value = node
-    ? { ...base, kind: 'node', id: node.id, geometry: node.geometry }
-    : { ...base, kind: 'pan', viewport: props.viewport }
+  gesture.value = createCanvasGesture(event.pointerId, event.clientX, event.clientY, props.viewport, node)
   board.value.setPointerCapture(event.pointerId)
   if (node) {
     if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus({ preventScroll: true })
@@ -190,22 +140,10 @@ function begin(event: PointerEvent, node?: CanvasNode) {
   }
 }
 
-function pointerPosition(event: PointerEvent, drag: Gesture) {
-  const dx = event.clientX - drag.startX
-  const dy = event.clientY - drag.startY
-  if (Math.abs(dx) + Math.abs(dy) < 4 && !drag.moved) return
-  drag.moved = true
-  const direction = drag.kind === 'node' ? 1 : -1
-  return {
-    x: point(drag.original.x + direction * dx * 100 / drag.zoom),
-    y: point(drag.original.y + direction * dy * 100 / drag.zoom),
-  }
-}
-
 function move(event: PointerEvent) {
   const drag = gesture.value
   if (!drag || drag.pointer !== event.pointerId) return
-  pending = pointerPosition(event, drag)
+  pending = stepCanvasGesture(drag, event.clientX, event.clientY)
   if (!pending || frame) return
   frame = requestAnimationFrame(() => {
     frame = 0
@@ -216,11 +154,11 @@ function move(event: PointerEvent) {
 function finish(event: PointerEvent) {
   const drag = gesture.value
   if (!drag || drag.pointer !== event.pointerId) return
-  const next = pointerPosition(event, drag)
+  const committed = commitCanvasGesture(drag, event.clientX, event.clientY)
   stopGesture()
-  if (!next || props.disabled || (next.x === drag.original.x && next.y === drag.original.y)) return
-  if (drag.kind === 'node') emit('move-node', drag.id, { ...drag.geometry, ...next })
-  else emit('viewport', { ...drag.viewport, ...next })
+  if (!committed || props.disabled) return
+  if (committed.kind === 'node') emit('move-node', committed.id, committed.geometry)
+  else emit('viewport', committed.viewport)
 }
 
 function cancel(event: PointerEvent) {
@@ -230,20 +168,16 @@ function cancel(event: PointerEvent) {
 function arrow(event: KeyboardEvent, node?: CanvasNode) {
   if (props.disabled || event.altKey || event.ctrlKey || event.metaKey) return
   if (!node && event.target !== board.value) return
-  const deltas: Record<string, readonly [number, number]> = {
-    ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
-  }
-  const delta = deltas[event.key]
-  if (!delta) return
   if (node && props.selectedNodeId !== node.id) return
+  const stepped = stepCanvasArrow(
+    event.key,
+    event.shiftKey,
+    node ? { kind: 'node', node } : { kind: 'viewport', viewport: props.viewport },
+  )
+  if (!stepped) return
   event.preventDefault()
-  const multiplier = event.shiftKey ? 4 : 1
-  const original = node?.geometry ?? props.viewport
-  const step = (node ? 800 : 3_200) * multiplier
-  const next = { x: point(original.x + delta[0] * step), y: point(original.y + delta[1] * step) }
-  if (next.x === original.x && next.y === original.y) return
-  if (node) emit('move-node', node.id, { ...node.geometry, ...next })
-  else emit('viewport', { ...props.viewport, ...next })
+  if (stepped.kind === 'node') emit('move-node', stepped.id, stepped.geometry)
+  else emit('viewport', stepped.viewport)
 }
 
 function boardKeys(event: KeyboardEvent) {
@@ -259,9 +193,8 @@ function focusVisible(event: KeyboardEvent, node: CanvasNode) {
   const list = visibleNodes.value
   const index = list.findIndex(box => box.node.id === node.id)
   if (index < 0 || !board.value) return
-  const destination = event.key === 'Home' ? 0 : event.key === 'End' ? list.length - 1
-    : Math.max(0, Math.min(list.length - 1, index + (event.key === 'PageDown' ? 1 : -1)))
-  const next = list[destination]
+  const destination = rovingCanvasNodeIndex(event.key, index, list.length)
+  const next = destination === undefined ? undefined : list[destination]
   if (!next) return
   event.preventDefault()
   const selector = `#canvas-board-node-${next.node.id}`

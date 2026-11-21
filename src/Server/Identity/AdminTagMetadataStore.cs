@@ -10,13 +10,14 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+// Shared store for both tag and category metadata management.
+internal sealed class AdminTagMetadataStore(AdminSessionGate gate)
 {
     private static readonly Guid TagMetadataLock = new("cd3aef2b-973a-4dbb-a5fe-ef6457dbd3de");
     private static readonly Guid CategoryMetadataLock = new("ef338fb8-fb03-4025-86bc-324c35f26ca9");
 
     internal Task<bool> TagMetadataAvailable(string? session, CancellationToken ct) =>
-        WithLiveAdmin(session, (_, _, _) => Task.FromResult(true), ct);
+        gate.WithLiveAdmin(session, (_, _, _) => Task.FromResult(true), ct);
 
     internal Task<AdminTagMetadata> ReadTagMetadata(string? session, int id, CancellationToken ct) =>
         ReadMetadata(session, id, false, ct);
@@ -25,7 +26,7 @@ internal sealed partial class AdminPasskeyStore
         ReadMetadata(session, id, true, ct);
 
     private Task<AdminTagMetadata> ReadMetadata(string? session, int id, bool category, CancellationToken ct) =>
-        WithLiveAdmin(session, (db, tx, _) => ReadTaxonomyMetadata(db, tx, id, category, ct), ct);
+        gate.WithLiveAdmin(session, (db, tx, _) => ReadTaxonomyMetadata(db, tx, id, category, ct), ct);
 
     internal Task<byte[]> ChangeTagMetadata(string? session, AdminTagMetadataCommand input, byte[] frame, HttpContext http,
         ScopedPow pow, Action? invalidate, CancellationToken ct) => ChangeMetadata(session, input, frame, http, pow, invalidate, false, ct);
@@ -35,7 +36,7 @@ internal sealed partial class AdminPasskeyStore
 
     private Task<byte[]> ChangeMetadata(string? session, AdminTagMetadataCommand input, byte[] frame, HttpContext http,
         ScopedPow pow, Action? invalidate, bool category, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             var entity = Entity(category);
             var scope = category ? PowScope.AdminCategoryMetadata : PowScope.AdminTagMetadata;
@@ -106,7 +107,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<byte[]> DeleteTaxonomy(string? session, int id, bool category, Action invalidate, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, _) =>
+        gate.WithLiveAdmin(session, async (db, tx, _) =>
         {
             var entity = Entity(category);
             var links = category ? "article_revision_category" : "article_revision_tag";

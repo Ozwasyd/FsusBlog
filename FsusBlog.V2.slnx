@@ -2,11 +2,16 @@
   <Folder Name="/src/">
     <Project Path="src/Contracts/FsusBlog.V2.Contracts.csproj" />
     <Project Path="src/Core/FsusBlog.V2.Core.csproj" />
+    <Project Path="src/Platform/FsusBlog.V2.Platform.csproj" />
+    <Project Path="src/Storage/FsusBlog.V2.Storage.csproj" />
     <Project Path="src/Server/FsusBlog.V2.Server.csproj" />
     <Project Path="src/Cli/FsusBlog.V2.Cli.csproj" />
+    <Project Path="src/PluginWorker/FsusBlog.V2.PluginWorker.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Core/FsusBlog.V2.Core.Tests.csproj" />
+    <Project Path="tests/Platform/FsusBlog.V2.Platform.Tests.csproj" />
     <Project Path="tests/Integration/FsusBlog.V2.Integration.Tests.csproj" />
+    <Project Path="tests/Protocol/FsusBlog.V2.ProtocolTests.csproj" />
   </Folder>
 </Solution>

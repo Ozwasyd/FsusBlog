@@ -1,19 +1,19 @@
 using FsusBlog.V2.Contracts;
-using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Administration;
 
 internal static class AdminModerationEndpoints
 {
-    internal static void Map(WebApplication app, Uri origin, AdminPasskeyStore store, string session, string passkeyLimit,
+    internal static void Map(WebApplication app, Uri origin, AdminModerationStore store, AdminCommentAppealStore appeals,
+        AdminModerationBatchStore? batch, string session, string passkeyLimit,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, FsusBlog.V2.Server.Operations.SiteCapabilities capabilities)
     {
         var authority = origin.GetLeftPart(UriPartial.Authority);
         var actions = new AdminActionRoutes(app, authority, session, readFrame);
         var fenceVisibleMessages = capabilities.AdminInboxActivityOrder;
-        AdminCommentAppeals.Map(app, authority, store, session, passkeyLimit, readFrame, fenceVisibleMessages);
-        if (capabilities.AdminCommentBatch)
-            AdminModerationBatchEndpoints.Map(app, authority, store, session, passkeyLimit, readFrame, fenceVisibleMessages);
+        AdminCommentAppeals.Map(app, authority, appeals, session, passkeyLimit, readFrame, fenceVisibleMessages);
+        if (capabilities.AdminCommentBatch && batch is not null)
+            AdminModerationBatchEndpoints.Map(app, authority, batch, session, passkeyLimit, readFrame, fenceVisibleMessages);
         actions.Post(WireRoutes.AdminModerationClaim, WireLimits.AdminModerationClaimRequestFrameBytes, async (cookie, frame, ct) =>
             Wire.EncodeAdminModerationClaim(await store.AcquireCommentClaim(cookie, Wire.DecodeAdminModerationClaimRequest(frame), ct)))
             .RequireRateLimiting("command");

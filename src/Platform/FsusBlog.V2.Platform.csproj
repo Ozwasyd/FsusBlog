@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Core/FsusBlog.V2.Core.csproj" />
+  </ItemGroup>
+</Project>

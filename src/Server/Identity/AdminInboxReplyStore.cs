@@ -8,11 +8,11 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminInboxReplyStore(AdminSessionGate gate)
 {
     internal Task<byte[]> ReplyInbox(string? session, long id, string key, string body, byte[] frame, ScopedPow pow,
         string context, HttpContext http, bool issue, bool fenceVisibleMessages, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             const PowScope scope = PowScope.AdminInboxReply;
             var fingerprint = InboxRules.Fingerprint("admin-reply", id, 0, "", body);

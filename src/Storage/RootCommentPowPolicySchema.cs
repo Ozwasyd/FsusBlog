@@ -29,9 +29,15 @@ internal static partial class CurrentSchema
         ..StepUpConstraints("admin_root_comment_pow_step_up", "action=9")
     ];
 
+    private static readonly string[] RootCommentPowPolicyRelations =
+        ["public.root_comment_pow_policy", "public.root_comment_pow_policy_audit", "public.admin_root_comment_pow_step_up"];
+
     internal static Task<bool> HasRootCommentPowPolicyAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "The root comment proof policy schema is partially installed.",
-            "public.root_comment_pow_policy", "public.root_comment_pow_policy_audit", "public.admin_root_comment_pow_step_up");
+            RootCommentPowPolicyRelations);
+
+    private static bool HasRootCommentPowPolicy(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("The root comment proof policy schema is partially installed.", RootCommentPowPolicyRelations);
 
     private static async Task VerifyRootCommentPowPolicyAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {

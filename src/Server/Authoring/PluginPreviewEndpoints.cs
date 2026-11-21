@@ -4,6 +4,7 @@ using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Extensions;
+using FsusBlog.V2.Platform.Extensions;
 using FsusBlog.V2.Server.Operations;
 using FsusBlog.V2.Server.Sessions;
 using Microsoft.AspNetCore.Http.Features;

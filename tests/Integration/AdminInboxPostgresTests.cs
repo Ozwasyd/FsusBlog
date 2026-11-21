@@ -31,7 +31,7 @@ public sealed class AdminInboxPostgresTests
         await SeedSession(db, secondAccount, "second ticket account", secondToken, ct);
 
         var accountStore = new Store(fixture.DataSource);
-        var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        var adminStore = new AdminInboxStore(new AdminSessionGate(fixture.DataSource, null));
         Assert.Empty(await adminStore.InboxQueuePosition(adminToken, -1, false, ct));
         var denied = await Assert.ThrowsAsync<BusinessException>(() => adminStore.InboxQueuePosition(firstToken, -1, false, ct));
         Assert.Equal(Rejection.Unauthorized, denied.Rejection);
@@ -326,7 +326,7 @@ public sealed class AdminInboxPostgresTests
         }
 
         async Task<string> StatusWork(string version, byte[] data, string? token = null) =>
-            SolveChallenge(await Status(statusPow, HttpStatusCode.OK, token ?? adminToken, version, data, nonce), nonce);
+            PowFixture.SolveFrame(await Status(statusPow, HttpStatusCode.OK, token ?? adminToken, version, data, nonce), nonce, ct);
 
         async Task<byte[]> Status(string route, HttpStatusCode expected, string token, string version, byte[] data, string value)
         {
@@ -336,7 +336,7 @@ public sealed class AdminInboxPostgresTests
             return await ExpectBody(server, request, expected, ct);
         }
 
-        async Task<string> Work() => SolveChallenge(await Post(challenge, HttpStatusCode.OK, adminToken, command, frame, nonce), nonce);
+        async Task<string> Work() => PowFixture.SolveFrame(await Post(challenge, HttpStatusCode.OK, adminToken, command, frame, nonce), nonce, ct);
 
         async Task<byte[]> Post(string path, HttpStatusCode expected, string secret, string key, byte[] data, string? nonce = null,
             string? proof = null, string? origin = null)

@@ -4,6 +4,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Extensions;
+using FsusBlog.V2.Platform;
+using FsusBlog.V2.Platform.Extensions;
 
 namespace FsusBlog.V2.Cli;
 

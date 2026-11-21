@@ -23,6 +23,8 @@ internal static partial class CurrentSchema
     ];
 
     // Null means the extension is absent. Activation makes the exact proof-to-leaf binding required.
+    private const string PublicationTransparencyRelation = "public.article_publication_transparency";
+
     internal static async Task<bool?> PublicationTransparencyStateAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         await using var command = new NpgsqlCommand("""
@@ -35,6 +37,17 @@ internal static partial class CurrentSchema
         await row.ReadAsync(ct);
         bool? active = row.IsDBNull(1) ? null : row.GetBoolean(1);
         if (row.GetBoolean(0) != active.HasValue)
+            throw new InvalidOperationException("Native publication transparency schema is incomplete.");
+        return active;
+    }
+
+    private static bool? PublicationTransparencyState(CatalogPresenceSnapshot catalog)
+    {
+        var hasLedger = catalog.HasRelation(PublicationTransparencyRelation);
+        bool? active = catalog.TryGetColumn(PublicationProofRelation, "transparency_seq", out var column)
+            ? column.NotNull
+            : null;
+        if (hasLedger != active.HasValue)
             throw new InvalidOperationException("Native publication transparency schema is incomplete.");
         return active;
     }

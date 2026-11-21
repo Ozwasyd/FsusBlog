@@ -1,8 +1,8 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { ApiError, request } from './client.ts';
 import { requestPasskeyAttestation } from './passkey.ts';
-import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
-import { FrameType, WireHeaders } from './wire.generated.ts';
+import { powProofHeaders, proveScopedPow } from './pow.ts';
+import { FrameType } from './wire.generated.ts';
 
 const routes = {
   status: '/api/v2/identity/reader-registration/status.aeds',
@@ -32,14 +32,9 @@ export async function registerReaderPasskey(signal: AbortSignal): Promise<void> 
   if (!supported()) throw new ProtocolError('Reader registration requires a secure WebAuthn context.');
   signal.throwIfAborted();
   const consent = encodeFrame(FrameType.EmptySuccess, Uint8Array.of(1, 0, 0, 0));
-  const clientNonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
-  const challenge = await request(routes.pow, FrameType.PowChallenge, decodePowChallenge,
-    signal, 'POST', consent, { [WireHeaders.PowClientNonce]: clientNonce });
-  const nonce = await solveScopedPow(challenge, clientNonce, signal);
-  signal.throwIfAborted();
+  const proof = await proveScopedPow(routes.pow, consent, signal);
   // A new reader has no existing credentials to exclude: preserve the provision decoder's zero-exclusion contract.
-  const attestation = await requestPasskeyAttestation(routes.begin, signal, consent,
-    { [WireHeaders.PowProof]: encodePowProof(challenge, nonce, clientNonce) });
+  const attestation = await requestPasskeyAttestation(routes.begin, signal, consent, powProofHeaders(proof));
   signal.throwIfAborted();
   await request(routes.complete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', attestation);
 }

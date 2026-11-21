@@ -30,8 +30,14 @@ internal static partial class CurrentSchema
         "site_session_refresh_tombstone c used_at,expires_at used_at<expires_at"
     ];
 
+    private static readonly string[] SiteRefreshRelations =
+        ["public.site_session_refresh", "public.site_session_refresh_tombstone"];
+
     internal static Task<bool> HasSiteRefreshSchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         CancellationToken ct) =>
         HasCompleteRelationsAsync(connection, transaction, ct, "The site refresh schema is partially installed.",
-            "public.site_session_refresh", "public.site_session_refresh_tombstone");
+            SiteRefreshRelations);
+
+    private static bool HasSiteRefreshSchema(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("The site refresh schema is partially installed.", SiteRefreshRelations);
 }

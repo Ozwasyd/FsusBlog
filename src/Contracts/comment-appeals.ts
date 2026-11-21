@@ -1,8 +1,7 @@
 import { encodeFrame } from './aeds.ts';
+import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { PodReader, ProtocolError, decodeUtf8 } from './binary.ts';
 import { request, siteSessionHeader } from './client.ts';
-import { requestPasskeyAssertion } from './passkey.ts';
-import { readMfaProof } from './mfa.ts';
 import { requestCommentAuthorChallenge } from './comment-author.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
@@ -61,15 +60,15 @@ export async function decideAdminAppeal(appeal: string, decision: 'granted' | 'd
   if (!/^[1-9]\d{0,18}$/.test(appeal) || id(BigInt(appeal)) !== appeal || !appealReason(reason)) throw invalid();
   const frame = encodeFrame(FrameType.CommentAppealDecisionRequest,
     new TextEncoder().encode(JSON.stringify({ decision, reason: reason.trim() })));
-  const assertion = await requestPasskeyAssertion(WireRoutes.AdminAppealStepUpBegin.replace('{id:long}', appeal), signal, frame, true);
-  const proof = await request(WireRoutes.AdminAppealStepUpComplete, FrameType.MfaChallengeResult,
-    payload => readMfaProof(payload, 'admin-sensitive', true), signal, 'POST', assertion);
-  signal.throwIfAborted();
+  const proof = await proveAdminStepUp({
+    begin: WireRoutes.AdminAppealStepUpBegin.replace('{id:long}', appeal),
+    complete: WireRoutes.AdminAppealStepUpComplete,
+  }, frame, signal);
   return request(WireRoutes.AdminAppealDecision.replace('{id:long}', appeal), FrameType.CommentAppealDecisionResult, payload => {
     const value = json(payload);
     if (value.success !== true || value.code !== 'ok' || !Number.isSafeInteger(value.appealId) || String(value.appealId) !== appeal)
       throw invalid();
-  }, signal, 'POST', frame, { [WireHeaders.MfaProof]: proof });
+  }, signal, 'POST', frame, adminProofHeaders(proof));
 }
 
 function appealPage(path: string, before: string | null) {

@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -32,7 +31,7 @@ public sealed class AdminCategoryMetadataPostgresTests
 
         await using var lease = new InstanceLease(fixture.ConnectionString);
         await lease.Start(NullLogger.Instance, ct, new(AdminCategoryMetadata: true));
-        var admin = new AdminPasskeyStore(fixture.DataSource, lease, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var admin = new AdminTagMetadataStore(new AdminSessionGate(fixture.DataSource, lease));
         var store = new Store(fixture.DataSource, lease);
         var publications = Project();
         await publications.Refresh(ct);
@@ -87,7 +86,7 @@ public sealed class AdminCategoryMetadataPostgresTests
         var wrongScope = pow.Issue(PowScope.AdminTagMetadata, rename.Id.ToString(CultureInfo.InvariantCulture), token,
             IPAddress.Loopback, wrongScopeNonce, Wire.EncodeAdminCategoryMetadataCommand(rename));
         var rejected = await Assert.ThrowsAsync<ScopedPowFailure>(() =>
-            Execute(rename, AdminTagMetadataPostgresTests.SolveProof(wrongScope, wrongScopeNonce, ct)));
+            Execute(rename, PowFixture.Solve(wrongScope, wrongScopeNonce, ct)));
         Assert.Equal("pow_rejected", rejected.Details);
         Assert.Same(before, publications.Snapshot);
 
@@ -172,13 +171,7 @@ public sealed class AdminCategoryMetadataPostgresTests
         {
             var nonce = MakeNonce();
             var frame = await Challenge(change, nonce);
-            var body = Aeds.Decode(frame, FrameType.PowChallenge);
-            Assert.Equal(WireLayouts.PowChallengeBytes, body.Length);
-            var challenge = new PowChallenge(Encoding.ASCII.GetString(body[..WireLayouts.PowChallengeSaltBytes]).TrimEnd('\0'),
-                BinaryPrimitives.ReadInt32LittleEndian(body[WireLayouts.PowChallengeSaltBytes..]),
-                BinaryPrimitives.ReadInt64LittleEndian(body[WireLayouts.PowChallengeTimestampOffset..]),
-                Encoding.ASCII.GetString(body[WireLayouts.PowChallengeSignatureOffset..]).TrimEnd('\0'));
-            return AdminTagMetadataPostgresTests.SolveProof(challenge, nonce, ct);
+            return PowFixture.SolveFrame(frame, nonce, ct);
         }
     }
 

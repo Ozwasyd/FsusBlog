@@ -41,10 +41,16 @@ internal static partial class CurrentSchema
         "comment_appeal_event c kind kind>=1ANDkind<=2",
         "comment_appeal_event c previous_status previous_status=2",
         "comment_appeal_event c next_status next_status>=1ANDnext_status<=2",
-        ..StepUpConstraints("comment_appeal_admin_step_up", "action=5", validateOptions: false)
+        ..StepUpConstraints("comment_appeal_admin_step_up", "action=5")
     ];
+
+    private static readonly string[] CommentAppealRelations =
+        ["public.comment_appeal_challenge", "public.comment_appeal", "public.comment_appeal_decision", "public.comment_appeal_event", "public.comment_appeal_admin_step_up"];
 
     internal static Task<bool> HasCommentAppealSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "Comment appeal storage is incomplete.",
-            "public.comment_appeal_challenge", "public.comment_appeal", "public.comment_appeal_decision", "public.comment_appeal_event", "public.comment_appeal_admin_step_up");
+            CommentAppealRelations);
+
+    private static bool HasCommentAppealSchema(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("Comment appeal storage is incomplete.", CommentAppealRelations);
 }

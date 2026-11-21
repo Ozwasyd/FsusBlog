@@ -25,10 +25,11 @@ public sealed partial class AppearanceRegistry
     public string? StyleDigest { get; }
     public string? FontDigest => _font?.Hash;
 
-    public static AppearanceRegistry Load(DirectoryInfo root, TimeProvider clock)
+    public static AppearanceRegistry Load(Func<string, int, byte[]> readFile, TimeProvider clock)
     {
-        var path = ExtensionDisk.ValidatePrivateRoot(root);
-        var configuration = Decode<Registry>(ExtensionDisk.Read(path, "appearance.json", 128 * 1024, default));
+        ArgumentNullException.ThrowIfNull(readFile);
+        ArgumentNullException.ThrowIfNull(clock);
+        var configuration = Decode<Registry>(ReadBounded(readFile, "appearance.json", 128 * 1024));
         if (configuration.Packages.IsDefault || configuration.Packages.Length > 16 || configuration.Keys.IsDefault ||
             configuration.Keys.Length > 16 || configuration.Sources.IsDefault || configuration.Sources.Length > 16 ||
             configuration.ActiveTheme is not null && !IsIdentifier(configuration.ActiveTheme) ||
@@ -48,8 +49,8 @@ public sealed partial class AppearanceRegistry
                 LegacyThemeFormat => descriptor.ArchiveSha256 + ".fstheme",
                 _ => throw Reject("appearance-package-format")
             };
-            var archive = ExtensionDisk.Read(path, archiveName, MaxRegistryArchive, default);
-            var signed = ExtensionDisk.Read(path, descriptor.SignatureSha256 + ".signature", MaxSignatureBytes, default);
+            var archive = ReadBounded(readFile, archiveName, MaxRegistryArchive);
+            var signed = ReadBounded(readFile, descriptor.SignatureSha256 + ".signature", MaxSignatureBytes);
             if (Digest(signed) != descriptor.SignatureSha256) throw Reject("appearance-signature-digest");
             var trust = verifier.VerifyArchive(descriptor.Source, archive, signed, default, requireCurrent: false);
             if (trust.Source.ArchiveSha256 != descriptor.ArchiveSha256) throw Reject("appearance-archive-reference");
@@ -60,6 +61,13 @@ public sealed partial class AppearanceRegistry
         var theme = Select<Theme>(byId, configuration.ActiveTheme);
         var font = Select<Font>(byId, configuration.ActiveFont);
         return new(theme, font, clock, byId.ToImmutableDictionary(StringComparer.Ordinal));
+    }
+
+    private static byte[] ReadBounded(Func<string, int, byte[]> readFile, string name, int limit)
+    {
+        var bytes = readFile(name, limit);
+        if (bytes is null || bytes.Length is < 1 || bytes.Length > limit) throw Reject("installed-file-size");
+        return bytes;
     }
 
     private AppearanceRegistry(Theme? theme, Font? font, TimeProvider clock, ImmutableDictionary<string, Entry> entries)

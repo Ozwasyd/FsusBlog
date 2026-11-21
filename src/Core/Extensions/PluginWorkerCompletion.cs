@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace FsusBlog.V2.Core.Extensions;
 
 internal static class PluginWorkerCompletion
@@ -54,16 +52,6 @@ internal static class PluginWorkerCompletion
         catch (TimeoutException) when (!pipes.IsCompleted) { throw new ExtensionRejectedException(DrainFailure); }
         catch (Exception) { } // The work outcome already determines the transport error.
     }
-
-    internal static Task ReapProcessAsync(Process process, bool entireProcessTree, TimeSpan timeout) => ReleaseAsync(() =>
-    {
-        try
-        {
-            if (!process.HasExited) process.Kill(entireProcessTree);
-        }
-        catch (InvalidOperationException) when (process.HasExited) { }
-        return Task.CompletedTask;
-    }, () => process.WaitForExitAsync().WaitAsync(timeout));
 
     internal static async Task<byte[]> ReadAsync(Stream stream, int limit, CancellationToken ct)
     {

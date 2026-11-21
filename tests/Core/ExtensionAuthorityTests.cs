@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using FsusBlog.V2.Core.Extensions;
 
-public sealed partial class ExtensionAuthorityTests
+public sealed class ExtensionAuthorityTests
 {
     private const string PathInArchive = "bin/worker.wasm";
     private const string Source = "approved-source/fixture";
@@ -114,71 +114,21 @@ public sealed partial class ExtensionAuthorityTests
     }
 
     [Fact]
-    public async Task StagePreservesExistingFileAndClosesOnlyTheHandleItCreated()
+    public void StagingOperationRequiresBoundBrokerScopeInCoreModel()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        using var disk = new InstallationDisk();
-        using var authority = OpenStagingStore(disk, key, out var owner);
+        var (authority, owner, _, _) = Host(key);
         var grant = authority.RecordConsent(Consent(owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
-        var root = Directory.CreateTempSubdirectory("fsus-extension-check-");
-        // Resolve macOS /var when the OS gives the conventional symlink rather than /private/var.
-        if (OperatingSystem.IsMacOS() && root.FullName.StartsWith("/var/", StringComparison.Ordinal)) root = new DirectoryInfo("/private" + root.FullName);
-        try
-        {
-            File.SetUnixFileMode(root.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            var staging = authority.BindStaging("scratch", root);
-            var collision = NewOperation();
-            var existing = Path.Combine(root.FullName, $"{collision.Proposal.RequestId:N}.stage");
-            await File.WriteAllTextAsync(existing, "earlier request owns this");
-            await Assert.ThrowsAnyAsync<IOException>(() => staging.Stage(collision, new MemoryStream("abc"u8.ToArray())));
-            Assert.Equal("earlier request owns this", await File.ReadAllTextAsync(existing));
-
-            var accepted = await staging.Stage(NewOperation(), new MemoryStream("abc"u8.ToArray()));
-            Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", accepted);
-            var rejection = await Assert.ThrowsAsync<ExtensionRejectedException>(() => staging.Stage(NewOperation(), new MemoryStream("abcd"u8.ToArray())));
-            Assert.Equal("staging-length", rejection.Code);
-
-            using var canceled = new CancellationTokenSource();
-            var failed = await Assert.ThrowsAsync<IOException>(() => staging.Stage(NewOperation(), new FaultingStream(canceled), canceled.Token));
-            Assert.Equal("first write input failure", failed.Message);
-            Assert.Equal(existing, Assert.Single(Directory.GetFiles(root.FullName)));
-        }
-        finally { root.Delete(recursive: true); }
-
-        ExtensionAuthority.Operation NewOperation() => authority.Begin(owner, "fixture.read", "preview",
+        using var operation = authority.Begin(owner, "fixture.read", "preview",
             new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3));
+
+        var executed = false;
+        AssertRejected("staging-broker-required", () => operation.Complete(() => executed = true));
+        Assert.False(executed);
+        AssertRejected("staging-installed-scope-required", () => operation.BeginStaging(new StubStagingBroker(), CancellationToken.None));
     }
 
-    [Fact]
-    public async Task StagingOwnsOneHandleAndRevocationWhileAwaitingInputRejectsItsReceipt()
-    {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        using var disk = new InstallationDisk();
-        using var authority = OpenStagingStore(disk, key, out var owner);
-        var grant = authority.RecordConsent(Consent(owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
-        using var operation = authority.Begin(owner, "fixture.read", "preview", new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3));
-        var root = Directory.CreateTempSubdirectory("fsus-extension-revoke-");
-        if (OperatingSystem.IsMacOS() && root.FullName.StartsWith("/var/", StringComparison.Ordinal)) root = new DirectoryInfo("/private" + root.FullName);
-        try
-        {
-            File.SetUnixFileMode(root.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            var staging = authority.BindStaging("scratch", root);
-            using var input = new PausedStream();
-            var pending = staging.Stage(operation, input);
-            await input.Waiting.Task.WaitAsync(TimeSpan.FromSeconds(2));
-            var concurrent = await Assert.ThrowsAsync<ExtensionRejectedException>(() => staging.Stage(operation, Stream.Null));
-            Assert.Equal("staging-already-started", concurrent.Code);
-            AssertRejected("installation-store-broker-busy", () => authority.Deactivate("fixture.extension"));
-            authority.RevokeConsent(grant);
-            input.Resume.SetResult();
-            var revoked = await Assert.ThrowsAsync<ExtensionRejectedException>(() => pending);
-            Assert.Equal("operation-no-longer-current", revoked.Code);
-            Assert.Empty(Directory.GetFileSystemEntries(root.FullName));
-        }
-        finally { root.Delete(recursive: true); }
-    }
+    private sealed class StubStagingBroker : IExtensionStagingBroker;
 
     private static void AssertRejected(string code, Action act) => Assert.Equal(code, Assert.Throws<ExtensionRejectedException>(act).Code);
 
@@ -243,27 +193,5 @@ public sealed partial class ExtensionAuthorityTests
         private int _reads;
         public DateTimeOffset? Next { get; set; }
         public override DateTimeOffset GetUtcNow() => _reads++ == 0 ? Now : Next ?? Now;
-    }
-
-    private sealed class FaultingStream(CancellationTokenSource cancellation) : MemoryStream
-    {
-        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            cancellation.Cancel();
-            throw new IOException("first write input failure");
-        }
-    }
-
-    private sealed class PausedStream() : MemoryStream("abc"u8.ToArray())
-    {
-        public TaskCompletionSource Waiting { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public TaskCompletionSource Resume { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
-        {
-            Waiting.TrySetResult();
-            await Resume.Task.WaitAsync(cancellationToken);
-            return await base.ReadAsync(buffer, cancellationToken);
-        }
     }
 }

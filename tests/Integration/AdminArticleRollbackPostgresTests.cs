@@ -24,7 +24,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         var admin = await CreateAdmin(db, ct, "history-administrator", true);
         var other = await CreateAdmin(db, ct, "other-administrator", true);
         var siteUser = await fixture.SignInSiteUser("rollback-site-user", ct);
-        var service = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var service = CreateStore(fixture);
         var publications = PublicationFixture.Project(fixture.DataSource);
         await publications.Refresh(ct);
         var originalProjection = publications.Snapshot!;
@@ -42,7 +42,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         Aeds.Decode(await service.BeginArticleRollbackStepUp(admin.Token, intent, ct), FrameType.PasskeyLoginBegin);
 
         // The browser suite verifies actual user-verifying assertions. Native store integration supplies only the proof row.
-        var proof = await SeedProof(db, ct, admin, AdminPasskeyStore.ArticleRollbackIntentDigest(intent), action: 3);
+        var proof = await SeedProof(db, ct, admin, AdminArticleRollbackStore.ArticleRollbackIntentDigest(intent), action: 3);
         await Denied(Rejection.Forbidden, () => Perform(admin, null, intent));
         await Denied(Rejection.Forbidden, () => Perform(other, proof, intent));
         await Denied(Rejection.Forbidden, () => Perform(admin, proof, intent with { Reason = "A different rollback reason" }));
@@ -124,15 +124,15 @@ public sealed partial class AdminArticleRollbackPostgresTests
         var admin = await CreateAdmin(db, ct, "draft-rollback-admin", true);
         var other = await CreateAdmin(db, ct, "different-admin", true);
         var siteUser = await fixture.SignInSiteUser("draft-rollback-site-user", ct);
-        var service = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var service = CreateStore(fixture);
         var publications = PublicationFixture.Project(fixture.DataSource);
         await publications.Refresh(ct);
         var originalProjection = publications.Snapshot!;
         Assert.Equal("Later body", originalProjection.Article(1)!.Body);
         var intent = new AdminArticleDraftRollbackIntent(1, 2, 2, 1, Guid.NewGuid(), "Return reviewed history to a private draft", 0);
         var publishedIntent = new AdminArticleRollbackIntent(1, 2, 2, 1, intent.IdempotencyKey, intent.Reason);
-        var draftDigest = AdminPasskeyStore.ArticleDraftRollbackIntentDigest(intent);
-        var publishedDigest = AdminPasskeyStore.ArticleRollbackIntentDigest(publishedIntent);
+        var draftDigest = AdminArticleRollbackStore.ArticleDraftRollbackIntentDigest(intent);
+        var publishedDigest = AdminArticleRollbackStore.ArticleRollbackIntentDigest(publishedIntent);
         Assert.False(draftDigest.AsSpan().SequenceEqual(publishedDigest));
 
         await Denied(Rejection.Unauthorized, () => service.CheckArticleDraftRollbackAvailability(null, ct));
@@ -391,6 +391,13 @@ public sealed partial class AdminArticleRollbackPostgresTests
 
     private static async Task Denied(Rejection expected, Func<Task> action) =>
         Assert.Equal(expected, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
+
+    private static AdminArticleRollbackStore CreateStore(ScratchDatabase fixture)
+    {
+        var gate = new AdminSessionGate(fixture.DataSource, null);
+        var passkeys = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        return new AdminArticleRollbackStore(gate, new AdminStepUpService(gate, passkeys));
+    }
 
     private sealed record Admin(Guid Id, string Token, byte[] Digest);
 }

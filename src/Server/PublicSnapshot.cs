@@ -19,7 +19,7 @@ internal sealed class PublicSnapshot
     private static readonly byte[] SearchProfileDomain =
         Encoding.ASCII.GetBytes(FormattableString.Invariant($"public-search-bm25-v{WireLimits.SearchFas4Profile}\0"));
     private readonly byte[][] _index;
-    private readonly IReadOnlyList<byte[]>? _corpus;
+    private readonly LocalSearchCorpusSnapshot? _corpus;
     private readonly EntityTagHeaderValue[] _corpusTags;
     private readonly CorpusDelta? _corpusDelta;
     private readonly FrozenDictionary<int, Article> _byId;
@@ -37,7 +37,8 @@ internal sealed class PublicSnapshot
     internal RelatedReadingProjection RelatedReading { get; }
     internal DistributionSnapshot? Distribution { get; }
     internal int IndexPageCount => _index.Length;
-    internal int CorpusPageCount => _corpus?.Count ?? 0;
+    internal int CorpusPageCount => _corpus?.Pages.Count ?? 0;
+    internal int ReusedCorpusPageCount => _corpus?.ReusedPageCount ?? 0;
     internal int PublicArticleCount => _byId.Count;
     internal IReadOnlyList<Article> WideSearchArticles => _byId.Values;
 
@@ -47,10 +48,10 @@ internal sealed class PublicSnapshot
     {
         Watermark = watermark;
         TaxonomyEpoch = taxonomyEpoch;
-        _corpus = LocalSearchCorpus.Build(articles, cancellationToken);
-        _corpusTags = _corpus is null ? [] : CorpusTags(_corpus, cancellationToken);
+        _corpus = LocalSearchCorpus.BuildSnapshot(articles, previous?._corpus, cancellationToken);
+        _corpusTags = _corpus is null ? [] : CorpusTags(_corpus, previous, cancellationToken);
         _search = ArticleSearchIndex.Build(articles, cancellationToken);
-        Generation = PublicGeneration(articles, taxonomyEpoch, _corpus, _search?.UsesWideProfile is true, cancellationToken);
+        Generation = PublicGeneration(articles, taxonomyEpoch, _corpus?.Pages, _search?.UsesWideProfile is true, cancellationToken);
         GenerationHeader = Generation.ToString(CultureInfo.InvariantCulture);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
         RelatedReading = new RelatedReadingProjection(articles, cancellationToken);
@@ -112,7 +113,7 @@ internal sealed class PublicSnapshot
 
     internal byte[]? Index(int page) => page > 0 && page <= _index.Length ? _index[page - 1] : null;
 
-    internal byte[]? Corpus(int page) => _corpus is not null && page > 0 && page <= _corpus.Count ? _corpus[page - 1] : null;
+    internal byte[]? Corpus(int page) => _corpus is not null && page > 0 && page <= _corpus.Pages.Count ? _corpus.Pages[page - 1] : null;
 
     internal EntityTagHeaderValue CorpusTag(int page) => _corpusTags[page - 1];
 
@@ -135,12 +136,22 @@ internal sealed class PublicSnapshot
         return (PublicArticles.EncodeSearch(matching.Articles, matching.Articles.Length), matching.Total);
     }
 
-    private static EntityTagHeaderValue[] CorpusTags(IReadOnlyList<byte[]> pages, CancellationToken ct)
+    private static EntityTagHeaderValue[] CorpusTags(LocalSearchCorpusSnapshot corpus, PublicSnapshot? previous, CancellationToken ct)
     {
+        var pages = corpus.Pages;
+        var priorPages = previous?._corpus?.Pages;
         var tags = new EntityTagHeaderValue[pages.Count];
         for (var index = 0; index < tags.Length; index++)
         {
             ct.ThrowIfCancellationRequested();
+            var reusedFrom = corpus.ReusedFromPageIndex(index);
+            if (reusedFrom >= 0 && previous is not null && priorPages is not null &&
+                reusedFrom < priorPages.Count && reusedFrom < previous._corpusTags.Length &&
+                ReferenceEquals(pages[index], priorPages[reusedFrom]))
+            {
+                tags[index] = previous._corpusTags[reusedFrom];
+                continue;
+            }
             tags[index] = new($"\"{Convert.ToHexStringLower(SHA256.HashData(pages[index]))}\"");
         }
         return tags;
@@ -148,7 +159,7 @@ internal sealed class PublicSnapshot
 
     private CorpusDelta? BuildCorpusDelta(PublicSnapshot? previous, CancellationToken ct)
     {
-        if (previous?._corpus is not { } basis || _corpus is not { } target || previous.Generation == Generation ||
+        if (previous?._corpus?.Pages is not { } basis || _corpus?.Pages is not { } target || previous.Generation == Generation ||
             previous.PublicArticleCount != PublicArticleCount || basis.Count != target.Count || target.Count < 2 ||
             !previous._corpusTags[0].Equals(_corpusTags[0])) return null;
 

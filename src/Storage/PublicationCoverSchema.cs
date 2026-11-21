@@ -16,6 +16,11 @@ internal static partial class CurrentSchema
         ? "article_publication_canonical c canonical_version canonical_version=ANY(ARRAY[2,3])"
         : "article_publication_canonical c canonical_version canonical_version=2";
 
+    private const string PublicationCoverRelation = "public.article_publication_cover";
+
     internal static Task<bool> HasPublicationCoverAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
-        HasRelationAsync(db, tx, "public.article_publication_cover", ct);
+        HasRelationAsync(db, tx, PublicationCoverRelation, ct);
+
+    private static bool HasPublicationCover(CatalogPresenceSnapshot catalog) =>
+        catalog.HasRelation(PublicationCoverRelation);
 }

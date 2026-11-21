@@ -16,7 +16,7 @@ public sealed class AdminSignInHistoryPostgresTests
     public async Task RecentSignInsUseOnlyTheCurrentAdminPrincipalAndDoNotSynthesizeUnlinkedSessions()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        var store = OpenStore(fixture);
+        var (gate, store) = OpenStore(fixture);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await AddAdmin(db, "history-owner", ct);
         var other = await AddAdmin(db, "history-other", ct);
@@ -38,7 +38,7 @@ public sealed class AdminSignInHistoryPostgresTests
             """, Digest(preUpgrade), owner);
         var unlinked = await store.RecentSignIns(preUpgrade, ct);
         Assert.Empty(unlinked.History.SignIns);
-        Assert.Equal((await store.SessionWithPermissionBinding(preUpgrade, ct)).PermissionSession, unlinked.PermissionSession);
+        Assert.Equal((await gate.SessionWithPermissionBinding(preUpgrade, ct)).PermissionSession, unlinked.PermissionSession);
 
         var ownerToken = await Record(db, owner, ct);
         var otherToken = await Record(db, other, ct);
@@ -51,16 +51,19 @@ public sealed class AdminSignInHistoryPostgresTests
         Assert.Matches("^[a-f0-9]{64}$", current.PermissionSession);
         Assert.NotEqual(ownerToken, current.PermissionSession);
         Assert.NotEqual(unlinked.PermissionSession, current.PermissionSession);
-        Assert.Equal((await store.SessionWithPermissionBinding(ownerToken, ct)).PermissionSession, current.PermissionSession);
-        var packet = Wire.EncodeAdminSignInHistory(current.History);
+        Assert.Equal((await gate.SessionWithPermissionBinding(ownerToken, ct)).PermissionSession, current.PermissionSession);
+        var packet = Wire.EncodeAdminSignInHistorySnapshot(current.History);
+        var roundtrip = Wire.DecodeAdminSignInHistorySnapshot(packet);
+        Assert.Equal(current.History.Generation, roundtrip.Generation);
+        Assert.Equal(current.History.SignIns, roundtrip.SignIns);
         var body = Aeds.Decode(packet, FrameType.AdminSignInHistory).ToArray();
         Assert.Equal(37, body.Length);
         Assert.Equal(current.History.Generation, BinaryPrimitives.ReadInt64LittleEndian(body));
         Assert.Equal(1, BinaryPrimitives.ReadInt32LittleEndian(body.AsSpan(8)));
         Assert.Equal((byte)AdminSignInState.Current, body[^1]);
-        Assert.Throws<ProtocolException>(() => Wire.EncodeAdminSignInHistory(new(1,
+        Assert.Throws<ProtocolException>(() => Wire.EncodeAdminSignInHistorySnapshot(new(1,
             [new(1, 5, 0, AdminSignInState.Current), new(1, 5, 0, AdminSignInState.Current)])));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeAdminSignInHistory(new(1, [new(1, 5, 3, AdminSignInState.Expired)])));
+        Assert.Throws<ProtocolException>(() => Wire.EncodeAdminSignInHistorySnapshot(new(1, [new(1, 5, 3, AdminSignInState.Expired)])));
 
         await Execute(db, null, ct, "update public.admin_principal set enabled=false where id=$1", owner);
         await Denied(() => store.RecentSignIns(ownerToken, ct));
@@ -70,7 +73,7 @@ public sealed class AdminSignInHistoryPostgresTests
     public async Task TracksReplacementLogoutAndNaturalExpiryWithoutRevokingAReplacementFromAnOldCookie()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        var store = OpenStore(fixture);
+        var (gate, store) = OpenStore(fixture);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await AddAdmin(db, "history-transitions", ct);
         var expiredToken = await Record(db, owner, ct);
@@ -99,14 +102,14 @@ public sealed class AdminSignInHistoryPostgresTests
 
         var loggedOutToken = await Record(db, owner, ct);
         await Denied(() => store.RecentSignIns(replacedToken, ct));
-        await store.SignOut(replacedToken, ct);
+        await gate.SignOut(replacedToken, ct);
         var beforeLogout = (await store.RecentSignIns(loggedOutToken, ct)).History;
         var active = Assert.Single(beforeLogout.SignIns, row => row.State == AdminSignInState.Current);
         Assert.Equal(0L, active.EndedAt);
         Assert.True(active.ExpiresAt > active.StartedAt);
         var replaced = Assert.Single(beforeLogout.SignIns, row => row.State == AdminSignInState.Ended);
         Assert.InRange(replaced.EndedAt, replaced.StartedAt, replaced.ExpiresAt - 1);
-        await store.SignOut(loggedOutToken, ct);
+        await gate.SignOut(loggedOutToken, ct);
         await Denied(() => store.RecentSignIns(loggedOutToken, ct));
 
         var renewedToken = await Record(db, owner, ct);
@@ -136,7 +139,7 @@ public sealed class AdminSignInHistoryPostgresTests
     public async Task KeepsOnlyTheFiftyMostRecentSuccessfulSignInsPerPrincipal()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        var store = OpenStore(fixture);
+        var (_, store) = OpenStore(fixture);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var owner = await AddAdmin(db, "history-retention", ct);
         var other = await AddAdmin(db, "history-retention-other", ct);
@@ -159,8 +162,11 @@ public sealed class AdminSignInHistoryPostgresTests
             Assert.Equal(true, await remaining.ExecuteScalarAsync(ct));
     }
 
-    private static AdminPasskeyStore OpenStore(ScratchDatabase fixture) =>
-        new(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+    private static (AdminSessionGate Gate, AdminSignInHistoryStore Store) OpenStore(ScratchDatabase fixture)
+    {
+        var gate = new AdminSessionGate(fixture.DataSource, null);
+        return (gate, new AdminSignInHistoryStore(gate));
+    }
 
     private static async Task<Guid> AddAdmin(NpgsqlConnection db, string handle, CancellationToken ct)
     {

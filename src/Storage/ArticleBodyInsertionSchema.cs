@@ -37,6 +37,8 @@ internal static partial class CurrentSchema
             "article_body_insertion c edit_texts array_position(edit_texts,NULL::text)ISNULL"] : constraints;
     }
 
+    private const string ArticleBodyInsertionRelation = "public.article_body_insertion";
+
     internal static async Task<bool> HasArticleBodyEditsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         await using var read = new NpgsqlCommand("""
@@ -51,6 +53,13 @@ internal static partial class CurrentSchema
             _ => throw new InvalidOperationException("Invalid article body edit text column.")
         };
     }
+
+    private static bool HasArticleBodyEdits(CatalogPresenceSnapshot catalog) =>
+        catalog.TryGetColumn(ArticleBodyInsertionRelation, "edit_texts", out var column)
+            ? column.TypeName == "pg_catalog._text"
+                ? true
+                : throw new InvalidOperationException("Invalid article body edit text column.")
+            : false;
 
     internal static async Task<bool> HasArticleBodyInsertionOperationsAsync(NpgsqlConnection db, NpgsqlTransaction tx,
         CancellationToken ct)
@@ -68,6 +77,13 @@ internal static partial class CurrentSchema
         };
     }
 
+    private static bool HasArticleBodyInsertionOperations(CatalogPresenceSnapshot catalog) =>
+        catalog.TryGetColumn(ArticleBodyInsertionRelation, "operations", out var column)
+            ? column.TypeName == "pg_catalog._int4"
+                ? true
+                : throw new InvalidOperationException("Invalid article body insertion operations column.")
+            : false;
+
     internal static async Task<bool> HasArticleBodyInsertionAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         await using var read = new NpgsqlCommand(
@@ -80,4 +96,12 @@ internal static partial class CurrentSchema
             _ => throw new InvalidOperationException("Invalid article body insertion relation.")
         };
     }
+
+    private static bool HasArticleBodyInsertion(CatalogPresenceSnapshot catalog) =>
+        catalog.GetRelationKind(ArticleBodyInsertionRelation) switch
+        {
+            null => false,
+            'r' => true,
+            _ => throw new InvalidOperationException("Invalid article body insertion relation.")
+        };
 }

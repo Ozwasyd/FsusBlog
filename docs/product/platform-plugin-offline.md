@@ -49,6 +49,8 @@ Debian 13 ARM64 实测使用 systemd 257.13 和用户会话总线。固定负载
 tools/stage-linux-plugin-worker.sh /absolute/verified-dotnet /absolute/staged-worker
 ~~~
 
+`src/PluginWorker/FsusBlog.V2.PluginWorker.csproj` 已纳入 `FsusBlog.V2.slnx` 并在项目级保持独立可构建，但解决方案或项目级 `dotnet build` 仅验证受管程序集编译，不扩大平台支持承诺，也不绕过其 Linux ARM64 目标平台限制。受管编译、Linux ARM64 发布封装（`tools/stage-linux-plugin-worker.sh`）与真实沙箱验收（`tests/Integration/Migration/linux-managed-plugin-flow.py` 及前述隔离/cgroup 探针）须分别记账；非 Linux ARM64 环境下后两项记为未执行。
+
 部署者应核对生成的 `payload.sha256` 以及清单自身的 SHA-256，然后将完整工作目录安装在固定的 `/opt/fsusblog-platform-plugin-arm64`。安装目录和内容由 root 持有，其他账号无写权限。保持打包工具设置的文件模式，特别是 `rootfs` 根目录的只读模式。发布内容包括工作进程、.NET 运行时目录和所需的 Debian 动态加载依赖。调用期间保持安装目录稳定，更新时以全新的审核凭证替换。
 
 ~~~sh

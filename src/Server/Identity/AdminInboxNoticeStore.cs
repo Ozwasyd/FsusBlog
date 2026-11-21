@@ -9,11 +9,11 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminInboxNoticeStore(AdminSessionGate gate)
 {
     internal Task<byte[]> SendInboxNotice(string? session, long eventId, AdminInboxNotice input, byte[] frame,
         ScopedPow pow, HttpContext http, bool issue, bool fenceVisibleMessages, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             const PowScope scope = PowScope.AdminInboxNotice;
             string subject = InboxRules.Subject(input.Subject, system: true);

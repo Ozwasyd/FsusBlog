@@ -43,9 +43,15 @@ internal static partial class CurrentSchema
         "article_read_total c views views>0"
     ];
 
+    private static readonly string[] ArticleReadRelations =
+        ["public.article_read_hour", "public.article_read_dwell", "public.article_read_epoch"];
+
     internal static Task<bool> HasArticleReadSchemaAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "Article read aggregate storage is incomplete.",
-            "public.article_read_hour", "public.article_read_dwell", "public.article_read_epoch");
+            ArticleReadRelations);
+
+    private static bool HasArticleReadSchema(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("Article read aggregate storage is incomplete.", ArticleReadRelations);
 
     internal static async Task<bool> HasArticleReadTotalSchemaAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
     {
