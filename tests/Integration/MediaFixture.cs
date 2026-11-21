@@ -102,7 +102,7 @@ internal static class MediaFixture
         byte[] bytes, CancellationToken ct)
     {
         using var request = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.PrivateMediaUpload + "?name=" + Uri.EscapeDataString(name),
-            null, session.Token, session.SiteSessionId);
+            null, session.Token, session.SiteSessionId, SiteAedsFixture.IsHttps(client));
         request.Headers.Add(WireHeaders.ClientMutationId, key.ToString("D"));
         request.Content = new ByteArrayContent(bytes);
         request.Content.Headers.ContentType = new MediaTypeHeaderValue(type);

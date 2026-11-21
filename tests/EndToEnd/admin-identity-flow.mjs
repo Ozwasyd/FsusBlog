@@ -16,7 +16,6 @@ import { verifyAppearanceActivation } from './admin-appearance-flow.mjs'
 import { verifyAdminArticleArchive } from './admin-article-archive-flow.mjs'
 import { verifyAdminArticleRollback } from './admin-article-rollback-flow.mjs'
 import { prepareAdminInboxWakeProbe, verifyAdminInbox } from './admin-inbox-flow.mjs'
-import { expectPanelHidden, expectPermissions, verifyMismatchedPermissionSession } from './admin-permissions-flow.mjs'
 import { expectSignInHistory, rejectMismatchedSignInHistory } from './admin-sign-in-history-flow.mjs'
 import {
   decodeAdminModerationClaim, decodeAdminModerationDecision, decodeAdminModerationIntent, decodeAdminOperationsStatus, decodeAdminSessionSnapshot,
@@ -29,9 +28,8 @@ const adminUrl = process.env.FSUSBLOG_TEST_ADMIN_URL
 const siteUrl = process.env.FSUSBLOG_TEST_SITE_URL
 const adminTicket = process.env.FSUSBLOG_TEST_ADMIN_TICKET
 const siteTicket = process.env.FSUSBLOG_TEST_SITE_TICKET
+const siteSessionToken = process.env.FSUSBLOG_TEST_SITE_SESSION
 const revokeExecutable = process.env.FSUSBLOG_TEST_ADMIN_REVOKE
-const auditGrant = process.env.FSUSBLOG_TEST_ADMIN_AUDIT_GRANT
-const auditRevoke = process.env.FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
 const moderatorGrant = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT
 const moderatorRevoke = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE
 const moderatorSeed = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_SEED
@@ -41,10 +39,11 @@ const taxonomyRevoke = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_REVOKE
 const taxonomySeed = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED
 const sitePagesGrant = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGES_GRANT
 const sitePagesRevoke = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGES_REVOKE
-assert(adminUrl && siteUrl && /^[0-9a-f]{64}$/.test(adminTicket ?? '') && /^[0-9a-f]{64}$/.test(siteTicket ?? ''),
-  'Provide isolated site/admin origins and two unused one-time fixture keys.')
+assert(adminUrl && siteUrl && /^[0-9a-f]{64}$/.test(adminTicket ?? '') && /^[0-9a-f]{64}$/.test(siteTicket ?? '') &&
+  /^[0-9a-f]{64}$/.test(siteSessionToken ?? ''),
+  'Provide isolated site/admin origins, two unused one-time fixture keys, and a seeded site session token.')
 assert.notEqual(adminTicket, siteTicket, 'Use independent site and administrator fixture keys.')
-assert(Boolean(auditGrant) === Boolean(auditRevoke), 'Provide both offline audit permission executables to test grant and revoke.')
+assert.notEqual(adminTicket, siteSessionToken, 'Use independent site session and administrator bootstrap credentials.')
 const moderationFixture = [moderatorGrant, moderatorRevoke, moderatorSeed, moderatorBody]
 assert(moderationFixture.every(Boolean) || moderationFixture.every(value => !value),
   'Provide grant, revoke, seed and test body together for moderation acceptance.')
@@ -52,7 +51,7 @@ const taxonomyFixture = [taxonomyGrant, taxonomyRevoke, taxonomySeed]
 assert(taxonomyFixture.every(Boolean) || taxonomyFixture.every(value => !value),
   'Provide grant, revoke and seed executables together for taxonomy acceptance.')
 assert(Boolean(sitePagesGrant) === Boolean(sitePagesRevoke), 'Provide both offline site-page permission executables.')
-assert([moderatorGrant, auditGrant, taxonomyGrant, sitePagesGrant].filter(Boolean).length <= 1,
+assert([moderatorGrant, taxonomyGrant, sitePagesGrant].filter(Boolean).length <= 1,
   'Run administrator permission scenarios separately to preserve the rate budget.')
 const adminOrigin = new URL(adminUrl)
 const siteOrigin = new URL(siteUrl)
@@ -68,7 +67,7 @@ const {
   AdminPasskeyComplete: passkeyComplete, AdminSession: adminSession, AdminSignOut: adminLogout,
   AdminOperationsStatus: operationsStatus, AdminCommentQueue: moderationQueue,
   AdminStepUpBegin: stepUpBegin, AdminStepUpComplete: stepUpComplete,
-  AdminEffectivePermissions: permissions, AdminSignInHistory: signInHistory,
+  AdminSignInHistory: signInHistory,
   AdminModerationClaim: moderationClaim, AdminModerationRenew: moderationRenew, AdminModerationRelease: moderationRelease,
   AdminModerationDecision: moderationDecision, AdminModerationStepUpBegin: moderationStepUpBegin,
   CommentRoots: commentRoots,
@@ -92,6 +91,10 @@ let phase = 'site-session'
 let failure
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  await context.addCookies([
+    { name: 'fsus_locale', value: 'en', url: adminOrigin.origin },
+    { name: 'fsus_locale', value: 'en', url: siteOrigin.origin },
+  ])
   context.on('response', response => {
     const url = new URL(response.url())
     if (!url.pathname.startsWith(adminPath + '/') && !url.pathname.startsWith('/api/v2/identity/')) return
@@ -112,15 +115,24 @@ try {
     headers: { [WireHeaders.AdminBootstrapToken]: siteTicket },
   })
   assert(rejectedSiteTicket.status() >= 400 && rejectedSiteTicket.status() < 500, 'An unspent site fixture key cannot bootstrap an administrator.')
-  await site.goto(siteOrigin.origin + '/login')
-  await site.getByLabel('Owner access key').fill(siteTicket)
-  const siteLogin = await clickAndWait(site, siteOrigin, siteSignIn, 'Log in')
-  assert.equal(siteLogin.status(), 200)
-  await site.waitForURL(siteOrigin.origin + '/user/manage/article/write')
+  const rejectedTicketSignIn = await context.request.post(siteOrigin.origin + siteSignIn, {
+    headers: { 'Content-Type': 'application/octet-stream', Origin: siteOrigin.origin },
+    data: Buffer.alloc(0),
+  })
+  assert.equal(rejectedTicketSignIn.status(), 401, 'Raw ticket sign-in must fail closed with passkey_required.')
+  await context.addCookies([{
+    name: siteCookieName,
+    value: siteSessionToken,
+    url: siteOrigin.origin,
+    httpOnly: true,
+    secure: siteOrigin.protocol === 'https:',
+    sameSite: 'Lax',
+  }])
   const siteCookie = await readCookie(context, siteOrigin.origin + siteSession, siteCookieName)
   assert.equal(siteCookie.httpOnly, true)
   assert.equal(siteCookie.secure, siteOrigin.protocol === 'https:')
   const siteState = await context.request.get(siteOrigin.origin + siteSession)
+  assert.equal(siteState.status(), 200)
   assert.equal(decodeFrame(await siteState.body()).type, FrameType.OperatorSession)
   await credentialProbe(adminOrigin.origin + adminSession, siteCookieName, siteCookie.value, 401)
   await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, siteCookie.value, 401)
@@ -135,12 +147,12 @@ try {
   }
   await admin.getByRole('heading', { name: 'Administrator access', exact: true }).waitFor()
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
-  assert.equal((await context.request.get(adminOrigin.origin + permissions)).status(), 401)
-  assert.equal((await context.request.get(siteOrigin.origin + permissions)).status(), 404)
+  assert.equal((await context.request.get(adminOrigin.origin + operationsStatus)).status(), 401)
+  assert.equal((await context.request.get(siteOrigin.origin + operationsStatus)).status(), 404)
   assert.equal((await context.request.get(adminOrigin.origin + signInHistory)).status(), 401)
   assert.equal((await context.request.get(siteOrigin.origin + signInHistory)).status(), 404)
-  await credentialProbe(adminOrigin.origin + permissions, siteCookieName, siteCookie.value, 401)
-  await credentialProbe(adminOrigin.origin + permissions, adminCookieName, siteCookie.value, 401)
+  await credentialProbe(adminOrigin.origin + operationsStatus, siteCookieName, siteCookie.value, 401)
+  await credentialProbe(adminOrigin.origin + operationsStatus, adminCookieName, siteCookie.value, 401)
   await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, siteCookie.value, 401)
   await admin.getByRole('button', { name: 'Set up administrator Passkey', exact: true }).click()
   await admin.getByLabel('One-time administrator bootstrap key', { exact: true }).fill(adminTicket)
@@ -162,21 +174,15 @@ try {
   phase = 'admin-login'
   const firstLogin = await logIn(admin)
   const initial = await snapshot(context)
-  assert.equal(await expectPermissions(admin, context, adminOrigin.origin, ['admin.manage']), initial.principal.generation)
-  for (const [path, headings] of [
-    ['/admin/system', ['Operations status']], ['/admin/interaction', ['Moderation queue']],
-    ['/admin/articles', ['Taxonomy usage', 'Restore a published article revision']],
-    ['/admin/site', ['Site pages', 'Site appearance']],
-  ]) {
-    await visitAdminWorkspace(admin, path)
-    for (const heading of headings) await expectPanelHidden(admin, heading)
-  }
-  await visitAdminWorkspace(admin, '/admin/identity')
-  await admin.getByRole('button', { name: 'Reload administrator access', exact: true }).waitFor({ state: 'detached' })
+  await visitAdminWorkspace(admin, '/admin/system')
+  await admin.getByRole('heading', { name: 'Operations status', exact: true }).waitFor()
   await visitAdminWorkspace(admin, '/admin/interaction')
+  await admin.getByRole('tab', { name: 'Moderation queue', exact: true }).waitFor()
+  await admin.getByRole('tab', { name: 'Support inbox', exact: true }).click()
   await admin.getByRole('heading', { name: 'Support inbox', exact: true }).waitFor()
   await visitAdminWorkspace(admin, '/admin/identity')
-  checks.independentAdministratorStartsWithExactOwnGrant = true
+  await admin.getByRole('button', { name: 'Reload administrator access', exact: true }).waitFor({ state: 'detached' })
+  checks.unifiedAdministratorAccessesWorkspaceSections = true
   const oldCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
   assert.equal(oldCookie.httpOnly, true)
   assert.equal(oldCookie.sameSite, 'Strict')
@@ -184,10 +190,8 @@ try {
   assert.equal(oldCookie.secure, secureAdmin)
   assert.equal(oldCookie.domain, adminOrigin.hostname)
   assertNoCredential(initial.body, oldCookie.value)
-  if (auditGrant && auditRevoke) {
-    await rejectMismatchedSignInHistory(admin, adminOrigin.origin)
-    checks.signInHistoryRejectsWrongSessionBinding = true
-  }
+  await rejectMismatchedSignInHistory(admin, adminOrigin.origin)
+  checks.signInHistoryRejectsWrongSessionBinding = true
   const [initialSignIn] = await expectSignInHistory({ page: admin, context, origin: adminOrigin.origin,
     generation: initial.principal.generation, currentCookie: oldCookie.value, expected: ['Current'] })
   await rejectReplay(context, firstLogin)
@@ -260,14 +264,13 @@ try {
     checks.offlineRevocationRetiresOwnSignIn = true
   }
 
-  if (auditGrant && auditRevoke) {
-    phase = 'operations-permission'
-    await verifyMismatchedPermissionSession(admin, context, adminOrigin.origin)
-    checks.adminPermissionProjectionRejectsWrongSessionBinding = true
-    finalCookie = await verifyOperationsPermissions(admin, context, siteCookie, finalCookie, auditGrant, auditRevoke)
-    checks.operationsRequireIndependentAuditGrant = true
-    checks.operationsGrantAndRevokeInvalidateOldSessions = true
-    checks.currentPermissionsDriveVisiblePanelsAndTrackRevocation = true
+  const hasSpecializedScenario = Boolean(moderatorGrant || taxonomyGrant || sitePagesGrant ||
+    process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE === '1' || process.env.FSUSBLOG_TEST_ADMIN_INBOX === '1' ||
+    process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE === '1' || process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK === '1')
+  if (!hasSpecializedScenario) {
+    phase = 'operations-status'
+    finalCookie = await verifyOperationsStatus(admin, context, siteCookie, finalCookie, revokeExecutable)
+    checks.operationsStatusBoundToCurrentAdminSession = true
   }
 
   if (moderatorGrant) {
@@ -339,8 +342,8 @@ try {
   await admin.getByRole('button', { name: 'Log in as administrator', exact: true }).waitFor()
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
   await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, finalCookie.value, 401)
-  assert.equal((await context.request.get(adminOrigin.origin + permissions)).status(), 401)
-  await credentialProbe(adminOrigin.origin + permissions, adminCookieName, finalCookie.value, 401)
+  assert.equal((await context.request.get(adminOrigin.origin + operationsStatus)).status(), 401)
+  await credentialProbe(adminOrigin.origin + operationsStatus, adminCookieName, finalCookie.value, 401)
   await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, finalCookie.value, 401)
   if (process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE === '1') {
     await credentialProbe(adminOrigin.origin + adminPath + '/articles.aeds', adminCookieName, finalCookie.value, 401)
@@ -409,90 +412,92 @@ function waitPost(page, origin, path) {
     { timeout: 12_000 })
 }
 
-async function verifyOperationsPermissions(page, context, siteCookie, priorCookie, grant, revoke) {
+async function expectPanelHidden(page, heading) {
+  assert.equal(await page.getByRole('heading', { name: heading, exact: true }).count(), 0,
+    `Panel "${heading}" must remain hidden.`)
+}
+
+async function verifyOperationsStatus(page, context, siteCookie, priorCookie, revoke) {
   await visitAdminWorkspace(page, '/admin/system')
   const endpoint = adminOrigin.origin + operationsStatus
-  const statusButton = page.getByRole('button', { name: 'Check operations status', exact: true })
-  const checkStatus = async () => (await Promise.all([
-    page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'GET'),
-    statusButton.click(),
-  ]))[0]
+  const operationsSection = page.getByRole('region', { name: 'Operations status', exact: true })
+  const statusButton = operationsSection.getByRole('button', { name: 'Check operations status', exact: true })
+  const waitOperationsIdle = async () => {
+    await statusButton.waitFor()
+    await operationsSection.locator('button.is-loading').waitFor({ state: 'detached' })
+  }
+  const checkStatus = async () => {
+    await waitOperationsIdle()
+    return (await Promise.all([
+      page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'GET'),
+      statusButton.click(),
+    ]))[0]
+  }
   const revokedMessage = 'Your administrator session expired or was revoked. Log in again.'
   const alert = text => page.getByRole('alert').filter({ hasText: text })
-  const displayedSnapshot = page.getByText('Public snapshot', { exact: true })
-  const generation = (await snapshot(context)).principal.generation
+  const displayedSnapshot = operationsSection.getByText('Public snapshot', { exact: true })
 
   assert.equal((await context.request.get(siteOrigin.origin + operationsStatus)).status(), 404)
   await credentialProbe(endpoint, siteCookieName, siteCookie.value, 401)
   await credentialProbe(endpoint, adminCookieName, siteCookie.value, 401)
-  assert.equal((await context.request.get(endpoint)).status(), 403, 'An administrator login alone must not grant operations status.')
-  await expectPanelHidden(page, 'Operations status')
-  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
 
-  await promisify(execFile)(grant, [], { timeout: 8_000 })
-  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, priorCookie.value, 401)
-  await credentialProbe(adminOrigin.origin + permissions, adminCookieName, priorCookie.value, 401)
-  await credentialProbe(endpoint, adminCookieName, priorCookie.value, 401)
-  await page.reload()
-  await displayedSnapshot.waitFor({ state: 'hidden' })
-  await logIn(page)
-  const granted = await snapshot(context)
-  assert(granted.principal.generation > generation)
-  assert.equal(await expectPermissions(page, context, adminOrigin.origin, ['admin.manage', 'audit.read']), granted.principal.generation)
-  await expectPanelHidden(page, 'Moderation queue')
-  let grantedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
-  assert(grantedCookie.value !== priorCookie.value)
+  const active = await snapshot(context)
   const association = WireHeaders.AdminPermissionSession.toLowerCase()
+  await displayedSnapshot.waitFor()
   const status = await checkStatus()
   assert.equal(status.status(), 200)
   assert((await status.headerValue('Cache-Control'))?.includes('no-store'))
-  assert(granted.binding && status.headers()[association] === granted.binding)
+  assert(active.binding && status.headers()[association] === active.binding)
   const body = await status.body()
-  assertNoCredential(body, grantedCookie.value)
+  assertNoCredential(body, priorCookie.value)
   const observed = decodeAdminOperationsStatus(decodeFrame(body, FrameType.AdminOperationsStatus).payload)
   assert.equal(observed.snapshotReady, true, 'This running fixture must report its published snapshot.')
   assert(observed.publicationWatermark >= 0n && observed.pendingPublicationEvents >= 0n)
   assert(observed.pendingPublicationEvents === 0n ? observed.oldestPendingAt === 0n : observed.oldestPendingAt > 0n)
-  await page.getByRole('heading', { name: 'Operations status', exact: true }).waitFor()
+  await operationsSection.getByRole('heading', { name: 'Operations status', exact: true }).waitFor()
   for (const name of ['Public snapshot', 'Publication watermark', 'Pending publication events'])
-    await page.getByText(name, { exact: true }).waitFor()
+    await operationsSection.getByText(name, { exact: true }).waitFor()
 
   await context.clearCookies({ name: adminCookieName })
   await page.reload()
   await logIn(page)
-  const expired = await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401, true)
-  grantedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
-  const binding = (await snapshot(context)).binding
+  await displayedSnapshot.waitFor()
+  await waitOperationsIdle()
+  const expired = await credentialProbe(endpoint, adminCookieName, priorCookie.value, 401, true)
+  const rotatedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  assert(rotatedCookie.value !== priorCookie.value)
+  const rotated = await snapshot(context)
   const unavailable = alert('Could not check operations status. Try again.')
   for (const [code, payload] of [[200, body], [401, expired]]) {
     await page.route(endpoint, route => route.fulfill({ status: code, body: payload, contentType: 'application/octet-stream',
-      headers: { [association]: granted.binding } }), { times: 1 })
+      headers: { [association]: active.binding } }), { times: 1 })
     assert.equal((await checkStatus()).status(), code)
     await unavailable.or(displayedSnapshot).or(alert(revokedMessage)).first().waitFor()
     assert(await unavailable.isVisible(), 'A retired session response must not render or sign out the current administrator.')
   }
-  assert.equal((await checkStatus()).headers()[association], binding)
+  assert.equal((await checkStatus()).headers()[association], rotated.binding)
   await displayedSnapshot.waitFor()
+  await waitOperationsIdle()
   checks.operationsStatusRejectsOtherSessionBinding = true
   await page.screenshot({ path: join(evidence, 'administrator-operations-status.png') })
 
-  await page.route(endpoint, async route => {
-    const issued = await route.fetch()
-    await promisify(execFile)(revoke, [], { timeout: 8_000 })
-    await route.fulfill({ response: issued })
-  }, { times: 1 })
-  assert.equal((await checkStatus()).status(), 200)
-  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, grantedCookie.value, 401)
-  await credentialProbe(adminOrigin.origin + permissions, adminCookieName, grantedCookie.value, 401)
-  await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401)
-  await logIn(page)
-  checks.operationsStatusRecheckedAfterRevocation = true
-  const revoked = await snapshot(context)
-  assert(revoked.principal.generation > granted.principal.generation)
-  assert.equal(await expectPermissions(page, context, adminOrigin.origin, ['admin.manage']), revoked.principal.generation)
-  assert.equal((await context.request.get(endpoint)).status(), 403, 'Revoking audit permission must retain login only.')
-  await expectPanelHidden(page, 'Operations status')
-  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
+  if (revoke) {
+    await page.route(endpoint, async route => {
+      const issued = await route.fetch()
+      await promisify(execFile)(revoke, [], { timeout: 8_000 })
+      await route.fulfill({ response: issued })
+    }, { times: 1 })
+    assert.equal((await checkStatus()).status(), 200)
+    await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, rotatedCookie.value, 401)
+    await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, rotatedCookie.value, 401)
+    await credentialProbe(endpoint, adminCookieName, rotatedCookie.value, 401)
+    await logIn(page)
+    checks.operationsStatusRecheckedAfterRevocation = true
+    const afterRevoke = await snapshot(context)
+    assert(afterRevoke.principal.generation > rotated.principal.generation)
+    await displayedSnapshot.waitFor()
+    assert.equal((await checkStatus()).status(), 200)
+  }
   return readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
 }
 

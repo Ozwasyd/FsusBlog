@@ -285,7 +285,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         KeyValuePair<string, string>? header = null)
     {
         var handle = actor is not null && currentSession != "" ? currentSession ?? actor.SiteSessionId : null;
-        using var request = SiteAedsFixture.Request(method, path, bytes, actor?.Token, handle);
+        using var request = SiteAedsFixture.Request(method, path, bytes, actor?.Token, handle, SiteAedsFixture.IsHttps(client));
         if (mutation is { } key) request.Headers.Add(WireHeaders.ClientMutationId, key.ToString("D"));
         if (header is { } additional) request.Headers.Add(additional.Key, additional.Value);
         return await client.SendAsync(request, ct);

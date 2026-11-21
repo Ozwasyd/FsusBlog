@@ -181,6 +181,17 @@ elif [[ ${FSUSBLOG_TEST_SEARCH_PATCH:-0} == 1 ]]; then
   shasum -a 256 tests/EndToEnd/public-fixture.sql tests/Fixtures/publication-rights.sql >> "$evidence/run.txt"
 else
   FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator tls-site-fixture)
+  if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} != 1 && ${FSUSBLOG_TEST_SITE_REFRESH:-0} != 1 &&
+    ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} != 1 && ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} != 1 ]]; then
+    FSUSBLOG_TEST_SITE_SESSION=$(openssl rand -hex 32)
+    "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -v site_session="$FSUSBLOG_TEST_SITE_SESSION" > "$evidence/site-session-seed.log" <<'SQL'
+INSERT INTO public.user_session(digest, user_id, generation, expires_at)
+SELECT pg_catalog.sha256(decode(:'site_session', 'hex')), id, generation, clock_timestamp() + interval '30 minutes'
+FROM public.blog_user
+WHERE name = 'tls-site-fixture';
+SQL
+    export FSUSBLOG_TEST_SITE_SESSION
+  fi
 fi
 if [[ ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} == 1 ]]; then
   export FSUSBLOG_ARTICLE_READ_PROOF=true FSUSBLOG_TEST_READ_PROOF_DATABASE="$database"
@@ -459,11 +470,8 @@ EOF
   chmod 700 "$FSUSBLOG_TEST_ADMIN_MODERATOR_SEED"
 else
   unset FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE \
-    FSUSBLOG_TEST_ADMIN_MODERATOR_SEED FSUSBLOG_TEST_ADMIN_MODERATOR_BODY
-  export FSUSBLOG_TEST_ADMIN_AUDIT_GRANT="$scratch/grant-admin-audit-read"
-  export FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE="$scratch/revoke-admin-audit-read"
-  permission_fixture "$FSUSBLOG_TEST_ADMIN_AUDIT_GRANT" grant audit.read
-  permission_fixture "$FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE" revoke audit.read
+    FSUSBLOG_TEST_ADMIN_MODERATOR_SEED FSUSBLOG_TEST_ADMIN_MODERATOR_BODY \
+    FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
 fi
 
 if [[ ${FSUSBLOG_TEST_PUBLICATION_HEAD:-0} == 1 ]]; then

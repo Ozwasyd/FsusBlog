@@ -57,8 +57,9 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
             var runner = Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet";
             await Run(runner, [migration, "publication-transparency", "enable"], migrationEnvironment: true);
 
-            var (_, ticket) = await fixture.IssueTicket("Daily member fixture", ct, minutes: 5);
-            var (session, author) = await new Store(fixture.DataSource).SignIn(ticket, ct);
+            var authorSession = await MediaFixture.CreateSession(fixture.DataSource, "Daily member fixture", ct, canAuthor: true);
+            var session = authorSession.Token;
+            var author = new Identity(authorSession.Id, "Daily member fixture", 1, true, DateTimeOffset.UtcNow.AddMinutes(5));
             Member covered;
             Member omitted;
             Member oddLeaf;
@@ -117,7 +118,7 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
             };
             settings[Archive + "CurrentAnchor"] = Coordinate(tail.Sequence) + ":" + Hex(tail.Hash);
             await Install(archive);
-            await WithTls(async client =>
+            await WithTls(async (client, server) =>
             {
                 var headBytes = await Get(client, Checkpoints + "/head.json", HttpStatusCode.OK);
                 Assert.Equal(await File.ReadAllTextAsync(headPath, ct), headBytes);
@@ -143,11 +144,8 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                 await Get(client, $"{Checkpoints}/daily/{day}/{covered.Sequence}.json", HttpStatusCode.NotFound);
                 await Get(client, $"/integrity/v2/article/{omitted.Article.Id}/{covered.Publication}/daily-proof.json", HttpStatusCode.NotFound);
 
-                using var retract = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract,
-                    Wire.EncodeArticleCommand(new(oddLeaf.Article.Id, oddLeaf.Article.Revision, Guid.NewGuid(), "", "")),
-                    session, handle: null);
-                using var response = await client.SendAsync(retract, ct);
-                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                await PublicationFixture.Edit(server, address.Authority, session, WireRoutes.Retract,
+                    new(oddLeaf.Article.Id, oddLeaf.Article.Revision, Guid.NewGuid(), "", ""), ct);
                 await Get(client, oddLeaf.Path, HttpStatusCode.NotFound);
                 Assert.Equal(aggregate, await Get(client, dayRoute, HttpStatusCode.OK));
             });
@@ -155,7 +153,7 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
             var tampered = archive.DeepClone();
             tampered["inclusions"]![0]!["inclusion"]!["siblings"]![0] = new string('0', 64);
             await Install(tampered);
-            await WithTls(async client =>
+            await WithTls(async (client, _) =>
             {
                 await Get(client, covered.Path, HttpStatusCode.ServiceUnavailable);
                 await Get(client, oddLeaf.Path, HttpStatusCode.NotFound);
@@ -190,7 +188,7 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                 const string headRoute = "/integrity/v2/log/head.json";
                 string sealedPath = "";
                 string sealedHash = "";
-                await WithTls(async client =>
+                await WithTls(async (client, _) =>
                 {
                     var initial = await Get(client, headRoute, HttpStatusCode.OK);
                     Assert.Equal(await File.ReadAllTextAsync(headPath, ct), initial);
@@ -231,7 +229,7 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                 settings[Archive + "Path"] = sealedPath;
                 settings[Archive + "Sha256"] = sealedHash;
                 settings[Archive + "CurrentAnchor"] = Coordinate(tail.Sequence) + ":" + Hex(tail.Hash);
-                await WithTls(async client =>
+                await WithTls(async (client, _) =>
                 {
                     await Get(client, Checkpoints + "/head.json", HttpStatusCode.OK);
                     var served = await Get(client, $"{Checkpoints}/daily/{day}.json", HttpStatusCode.OK);
@@ -344,13 +342,13 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                 settings[Archive + "Sha256"] = Hex(SHA256.HashData(bytes));
             }
 
-            async Task WithTls(Func<HttpClient, Task> verify)
+            async Task WithTls(Func<HttpClient, ServerProcess, Task> verify)
             {
                 await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, settings,
                     request => PublicationFixture.Forward(request, address.Authority));
                 await using var proxy = await NativeCaddyProxy.Start(server.Client.BaseAddress!, directory.FullName, ct, address);
                 evidence.WriteLine($"Caddy endpoint {address.Authority}, leaf SHA-256 {proxy.Fingerprint}.");
-                await verify(proxy.Client);
+                await verify(proxy.Client, server);
             }
 
             async Task<string> Get(HttpClient client, string path, HttpStatusCode code)

@@ -1038,12 +1038,12 @@ public sealed partial class PrivateMediaPostgresTests
     private static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path, MediaFixture.Session? session,
         CancellationToken ct, string? previewTicket = null, bool range = false)
     {
-        using var request = Request(method, path, session);
+        using var request = Request(method, path, session, SiteAedsFixture.IsHttps(client));
         if (previewTicket is not null) request.Headers.Authorization = new("Bearer", previewTicket);
         if (range) request.Headers.Range = new RangeHeaderValue(0, 0);
         return await client.SendAsync(request, ct);
     }
 
-    private static HttpRequestMessage Request(HttpMethod method, string path, MediaFixture.Session? session) =>
-        SiteAedsFixture.Request(method, path, frame: null, session?.Token, session?.SiteSessionId);
+    private static HttpRequestMessage Request(HttpMethod method, string path, MediaFixture.Session? session, bool secure = false) =>
+        SiteAedsFixture.Request(method, path, frame: null, session?.Token, session?.SiteSessionId, secure);
 }

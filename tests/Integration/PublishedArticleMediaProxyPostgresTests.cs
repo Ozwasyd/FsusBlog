@@ -29,17 +29,15 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             var privateRoot = MediaFixture.CreateOwnedDirectory(workspace.FullName, "private");
             var publicRoot = MediaFixture.CreateOwnedDirectory(workspace.FullName, "public");
             var tls = MediaFixture.CreateOwnedDirectory(workspace.FullName, "tls");
+            var address = NativeCaddyProxy.NewAddress();
             await using var upstream = await ServerProcess.Start(db.ConnectionString, ct, new Dictionary<string, string>
             {
+                ["FSUSBLOG_PUBLIC_ORIGIN"] = address.GetLeftPart(UriPartial.Authority),
                 [MediaEndpoints.StorageSetting] = privateRoot,
                 [PublishedMediaEndpoints.StorageSetting] = publicRoot,
                 [LoopbackProxy.ConfigurationKey] = "true"
-            }, ready =>
-            {
-                ready.Headers.Add("X-Forwarded-For", "127.0.0.1");
-                ready.Headers.Add("X-Forwarded-Proto", "https");
-            });
-            await using var proxy = await NativeCaddyProxy.Start(upstream.Client.BaseAddress!, tls, ct);
+            }, ready => PublicationFixture.Forward(ready, address.Authority));
+            await using var proxy = await NativeCaddyProxy.Start(upstream.Client.BaseAddress!, tls, ct, address);
             var client = proxy.Client;
             _proxyOutput.WriteLine($"Caddy SHA-256 leaf pin {proxy.Fingerprint}, HTTP/2 on {client.BaseAddress}");
             var image = await Upload(client, author, "pacing-fixture.png", "image/png", NoiseImage(), ct);

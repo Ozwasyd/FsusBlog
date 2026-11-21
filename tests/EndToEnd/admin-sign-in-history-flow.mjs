@@ -5,8 +5,11 @@ import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.gen
 export async function expectSignInHistory({ page, context, origin, generation, currentCookie, expected }) {
   const route = origin + WireRoutes.AdminSignInHistory
   const panel = page.getByRole('region', { name: 'Administrator session history', exact: true })
+  const refresh = panel.getByRole('button', { name: 'Refresh', exact: true })
+  await refresh.waitFor()
+  await panel.locator('button.is-loading').waitFor({ state: 'detached' })
   const response = page.waitForResponse(item => item.url() === route)
-  await panel.getByRole('button', { name: 'Load session history', exact: true }).click()
+  await refresh.click()
   const snapshot = await response
   assert.equal(snapshot.status(), 200)
   assert.match(snapshot.headers()['cache-control'], /no-store/)
@@ -42,6 +45,9 @@ export async function expectSignInHistory({ page, context, origin, generation, c
 
 export async function rejectMismatchedSignInHistory(page, origin) {
   const panel = page.getByRole('region', { name: 'Administrator session history', exact: true })
+  const refresh = panel.getByRole('button', { name: 'Refresh', exact: true })
+  await refresh.waitFor()
+  await panel.locator('button.is-loading').waitFor({ state: 'detached' })
   await page.route(origin + WireRoutes.AdminSignInHistory, async route => {
     const response = await route.fetch({ maxRedirects: 0 })
     const headers = response.headers()
@@ -51,7 +57,7 @@ export async function rejectMismatchedSignInHistory(page, origin) {
     headers[association] = first + headers[association].slice(1)
     await route.fulfill({ response, headers })
   }, { times: 1 })
-  await panel.getByRole('button', { name: 'Load session history', exact: true }).click()
+  await refresh.click()
   await panel.getByText('Could not load administrator session history. Try again.', { exact: true }).waitFor()
   assert.equal(await panel.getByRole('listitem').count(), 0)
 }

@@ -121,7 +121,7 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal(asset, First(await list.Content.ReadAsByteArrayAsync(ct), 1));
             await AssertHidden(client, HttpMethod.Get, path, outsider, ct);
             await AssertHidden(client, HttpMethod.Get, path, null, ct);
-            using var contentRequest = Request(HttpMethod.Get, path, owner);
+            using var contentRequest = Request(HttpMethod.Get, path, owner, SiteAedsFixture.IsHttps(client));
             contentRequest.Version = HttpVersion.Version20;
             contentRequest.VersionPolicy = HttpVersionPolicy.RequestVersionExact;
             using var content = await client.SendAsync(contentRequest, ct);

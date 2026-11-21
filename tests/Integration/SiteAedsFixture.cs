@@ -11,7 +11,11 @@ internal static class SiteAedsFixture
         route.StartsWith("/api/v2/media", StringComparison.Ordinal) ||
         route.StartsWith("/api/binary/author/comments", StringComparison.Ordinal);
 
-    internal static HttpRequestMessage Request(HttpMethod method, string route, byte[]? frame, string? token, string? handle)
+    internal static bool IsHttps(HttpClient client) =>
+        string.Equals(client.BaseAddress?.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+
+    internal static HttpRequestMessage Request(HttpMethod method, string route, byte[]? frame, string? token, string? handle,
+        bool secure = false)
     {
         var request = new HttpRequestMessage(method, route);
         if (frame is not null)
@@ -20,9 +24,14 @@ internal static class SiteAedsFixture
             request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
         }
         var authoring = IsAuthoringRoute(route);
-        if (authoring) request.Headers.Host = ServerProcess.DefaultAdminHost;
+        if (authoring && !secure) request.Headers.Host = ServerProcess.DefaultAdminHost;
         if (token is not null)
-            request.Headers.Add("Cookie", $"{(authoring ? ServerProcess.DefaultAdminCookie : "fsus-v2-session")}={token}");
+        {
+            var cookie = authoring
+                ? (secure ? "__Host-FsusAdminSession" : ServerProcess.DefaultAdminCookie)
+                : "fsus-v2-session";
+            request.Headers.Add("Cookie", $"{cookie}={token}");
+        }
         if (handle is not null) request.Headers.Add(WireHeaders.CurrentSession, handle);
         return request;
     }
@@ -30,7 +39,7 @@ internal static class SiteAedsFixture
     internal static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string route, byte[]? frame,
         string? token, string? handle, CancellationToken ct, string? accept = null)
     {
-        using var request = Request(method, route, frame, token, handle);
+        using var request = Request(method, route, frame, token, handle, IsHttps(client));
         if (accept is not null) request.Headers.Accept.ParseAdd(accept);
         return await client.SendAsync(request, ct);
     }
