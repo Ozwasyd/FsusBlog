@@ -7,25 +7,17 @@ import {
   ElSkeleton, ElTag, ElTimeline, ElTimelineItem,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
-import { readAdminCommentQueue, type AdminCommentCursor, type AdminCommentQueue } from '../../../Contracts/admin-identity'
-import {
-  claimComment,
-  decideComment,
-  releaseCommentClaim,
-  renewCommentClaim,
-  validModerationReason,
-  type AdminModerationClaim,
-  type AdminModerationDecision,
-} from '../../../Contracts/admin-moderation'
-import { claimModerationBatch, proveAndDecideModerationBatch, readModerationBatchConflicts } from '../../../Contracts/admin-moderation-batch'
-import { proveAdminModerationDecision } from '../../../Contracts/admin-step-up'
-import { readCommentRevisions, readModerationTimeline, validModerationCoordinates,
-  type CommentRevisionPage, type ModerationTimeline } from '../../../Contracts/comment-moderation-timeline'
+import { type AdminCommentCursor } from '../../../Contracts/admin-identity'
+import { validModerationReason } from '../../../Contracts/admin-moderation'
+import { validModerationCoordinates } from '../../../Contracts/comment-moderation-timeline'
 import { WireLimits } from '../../../Contracts/wire.generated'
+import {
+  AdminModerationController,
+  moderationCoordinate as coordinate,
+  type ModerationDisplayMessage,
+} from '../admin/adminModerationController'
 
-type ConflictMessage = { key: MessageKey; conflicts: readonly AdminCommentCursor[] }
-type DisplayMessage = MessageKey | { key: MessageKey; params: Record<string, string | number> } | ConflictMessage
-function displayMessage(message: DisplayMessage): string {
+function displayMessage(message: ModerationDisplayMessage): string {
   if (typeof message === 'string') return t(message)
   if ('conflicts' in message) return t(message.key, {
     unavailable: message.conflicts.map(row => t('admin.moderation.m62', {
@@ -37,375 +29,100 @@ function displayMessage(message: DisplayMessage): string {
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ sessionLost: [error: ApiError] }>()
-const queue = shallowRef<AdminCommentQueue | null>(null)
-const claim = shallowRef<AdminModerationClaim | null>(null)
-const batchClaims = shallowRef<readonly AdminModerationClaim[] | null>(null)
-const selected = shallowRef<ReadonlySet<string>>(new Set())
-const reason = ref('')
-const trimmedReason = computed(() => reason.value.trim())
-const reasonValid = computed(() => validModerationReason(trimmedReason.value))
-const batchReason = ref('')
-const trimmedBatchReason = computed(() => batchReason.value.trim())
-const batchReasonValid = computed(() => validModerationReason(trimmedBatchReason.value))
 const batchHeading = ref<HTMLElement>()
-const batchExpiry = computed(() => batchClaims.value && Math.min(...batchClaims.value.map(row => Number(row.expiresAt))))
-const selectedTargets = computed(() => queue.value?.comments.filter(row => selected.value.has(coordinate(row))) ?? [])
-const visibleComments = computed(() => batchClaims.value ? selectedTargets.value : queue.value?.comments ?? [])
-const batchAvailable = computed(() => queue.value?.batchEnabled === true &&
-  queue.value.comments.length >= WireLimits.AdminModerationBatchMinimum && !claim.value)
-const busy = ref(false)
-const failure = ref<DisplayMessage | ''>('')
-const notice = ref<DisplayMessage | ''>('')
-const historyArticle = ref('')
-const historyComment = ref('')
-const historyDialogOpen = ref(false)
-const historyLoading = ref(false)
-const historyError = ref<MessageKey | ''>('')
-const history = shallowRef<ModerationTimeline | null>(null)
-const revisions = shallowRef<CommentRevisionPage | null>(null)
-const canReadHistory = computed(() => !historyLoading.value && validModerationCoordinates(historyArticle.value, historyComment.value))
 const statuses = ['admin.moderation.m1', 'admin.moderation.m2', 'admin.moderation.m3', 'admin.moderation.m4'] as const
 const eventLabels: Record<string, MessageKey> = {
   create: 'admin.moderation.m5', approve: 'admin.moderation.m2', reject: 'admin.moderation.m3', hide: 'admin.moderation.m4', edit: 'admin.moderation.m6', delete: 'admin.moderation.m7',
   appeal: 'admin.moderation.m8', appeal_decision: 'admin.moderation.m9',
 }
-const lifetime = new AbortController()
-let cursor: AdminCommentCursor | null = null
-let claimTimer: ReturnType<typeof setTimeout> | undefined
-let batchTimer: ReturnType<typeof setTimeout> | undefined
-let reviewAuthority = new AbortController()
+
+const controller = new AdminModerationController({
+  hooks: {
+    onSessionLost: error => emit('sessionLost', error),
+    onBatchClaimed: async isActive => {
+      await nextTick()
+      if (isActive()) batchHeading.value?.focus()
+    },
+  },
+})
+
+const state = shallowRef(controller.snapshot())
+const unsubscribe = controller.subscribe(() => {
+  state.value = controller.snapshot()
+})
+
+const queue = computed(() => state.value.queue)
+const claim = computed(() => state.value.claim)
+const batchClaims = computed(() => state.value.batchClaims)
+const selected = computed(() => state.value.selected)
+const reason = computed({
+  get: () => state.value.reason,
+  set: value => controller.setReason(value),
+})
+const trimmedReason = computed(() => state.value.reason.trim())
+const reasonValid = computed(() => validModerationReason(trimmedReason.value))
+const batchReason = computed({
+  get: () => state.value.batchReason,
+  set: value => controller.setBatchReason(value),
+})
+const trimmedBatchReason = computed(() => state.value.batchReason.trim())
+const batchReasonValid = computed(() => validModerationReason(trimmedBatchReason.value))
+const batchExpiry = computed(() => {
+  const claims = state.value.batchClaims
+  return claims && claims.length > 0 ? Math.min(...claims.map(row => Number(row.expiresAt))) : null
+})
+const selectedTargets = computed(() => state.value.queue?.comments.filter(row => state.value.selected.has(coordinate(row))) ?? [])
+const visibleComments = computed(() => state.value.batchClaims ? selectedTargets.value : state.value.queue?.comments ?? [])
+const batchAvailable = computed(() => state.value.queue?.batchEnabled === true &&
+  state.value.queue.comments.length >= WireLimits.AdminModerationBatchMinimum && !state.value.claim)
+const busy = computed(() => state.value.busy)
+const failure = computed(() => state.value.failure)
+const notice = computed(() => state.value.notice)
+const historyArticle = computed({
+  get: () => state.value.historyArticle,
+  set: value => controller.setHistoryArticle(value),
+})
+const historyComment = computed({
+  get: () => state.value.historyComment,
+  set: value => controller.setHistoryComment(value),
+})
+const historyDialogOpen = computed({
+  get: () => state.value.historyDialogOpen,
+  set: open => controller.setHistoryDialogOpen(open),
+})
+const historyLoading = computed(() => state.value.historyLoading)
+const historyError = computed(() => state.value.historyError)
+const history = computed(() => state.value.history)
+const revisions = computed(() => state.value.revisions)
+const canReadHistory = computed(() => !state.value.historyLoading &&
+  validModerationCoordinates(state.value.historyArticle, state.value.historyComment))
+
+watch(() => props.sessionSignal, signal => {
+  controller.bindSession(signal, { autoLoad: true })
+}, { immediate: true, flush: 'sync' })
 
 onMounted(() => {
-  if (!props.sessionSignal.aborted && !queue.value) void load()
+  if (!props.sessionSignal.aborted && !state.value.queue) void controller.load()
 })
 
 onUnmounted(() => {
-  lifetime.abort()
-  clearTimeout(claimTimer)
-  clearTimeout(batchTimer)
+  unsubscribe()
+  controller.dispose()
 })
 
-watch(() => props.sessionSignal, (signal, _, onCleanup) => {
-  reviewAuthority.abort()
-  const authority = new AbortController()
-  reviewAuthority = authority
-  clearReview()
-  const reset = () => {
-    authority.abort()
-    clearReview()
-  }
-  if (signal.aborted) reset()
-  else {
-    signal.addEventListener('abort', reset, { once: true })
-    onCleanup(() => signal.removeEventListener('abort', reset))
-    void load()
-  }
-}, { immediate: true, flush: 'sync' })
-
-function clearHistory() {
-  history.value = null
-  revisions.value = null
-  historyError.value = ''
-}
-
-watch([historyArticle, historyComment], clearHistory, { flush: 'sync' })
-
-function clearReview() {
-  setClaim(null)
-  clearBatch()
-  cursor = null
-  queue.value = null
-  busy.value = false
-  notice.value = ''
-  failure.value = ''
-  historyArticle.value = ''
-  historyComment.value = ''
-  historyDialogOpen.value = false
-  historyLoading.value = false
-  clearHistory()
-}
-
-function isClaimed(row: AdminCommentCursor): boolean {
-  return claim.value?.articleId === row.articleId && claim.value.commentId === row.commentId
-}
-
-function setClaim(next: AdminModerationClaim | null) {
-  clearTimeout(claimTimer)
-  if (!next || !isClaimed(next)) reason.value = ''
-  claim.value = next
-  if (!next) return
-  const until = Number(next.expiresAt)
-  const expire = () => {
-    const remaining = until - Date.now()
-    if (remaining > 0) claimTimer = setTimeout(expire, Math.min(remaining, 2_147_483_647))
-    else {
-      setClaim(null)
-      failure.value = 'admin.moderation.m10'
-    }
-  }
-  expire()
-}
-
-async function run(action: (signal: AbortSignal) => Promise<void>, explain: (error: unknown) => DisplayMessage) {
-  if (busy.value || props.sessionSignal.aborted) return
-  const signal = AbortSignal.any([lifetime.signal, reviewAuthority.signal, props.sessionSignal])
-  busy.value = true
-  failure.value = ''
-  notice.value = ''
-  try { await action(signal) }
-  catch (error) {
-    if (signal.aborted) return
-    if (error instanceof ApiError && error.status === 401) {
-      clearReview()
-      emit('sessionLost', error)
-    } else if (error instanceof ApiError && error.status === 403) {
-      clearReview()
-      failure.value = 'admin.moderation.m11'
-    } else failure.value = explain(error)
-  } finally {
-    if (!signal.aborted) busy.value = false
-  }
-}
-
-function repeatableConflict(error: unknown): boolean {
-  return error instanceof ApiError && (error.status === 404 || error.status === 409)
-}
-
-function load(after: AdminCommentCursor | null = null) {
-  if (claim.value || batchClaims.value) return
-  return run(async signal => {
-    clearBatch()
-    queue.value = null
-    const response = await readAdminCommentQueue(after, signal)
-    if (signal.aborted) return
-    cursor = after
-    queue.value = response
-  }, () => 'admin.moderation.m12')
-}
-
-async function openCommentHistory(row: AdminCommentCursor) {
-  historyArticle.value = String(row.articleId)
-  historyComment.value = row.commentId.toString()
-  historyDialogOpen.value = true
-  await loadHistoryAndRevisions()
-}
-
-async function loadHistoryAndRevisions(before: number | null = null) {
-  const article = historyArticle.value
-  const comment = historyComment.value
-  if (!validModerationCoordinates(article, comment) || historyLoading.value || props.sessionSignal.aborted) return
-  const signal = AbortSignal.any([lifetime.signal, reviewAuthority.signal, props.sessionSignal])
-  historyLoading.value = true
-  historyError.value = ''
-  if (!before) {
-    history.value = null
-    revisions.value = null
-  }
-  try {
-    if (before) {
-      const page = await readCommentRevisions(article, comment, before, signal)
-      if (!signal.aborted && article === historyArticle.value && comment === historyComment.value) revisions.value = page
-    } else {
-      const [timeline, page] = await Promise.all([
-        readModerationTimeline(article, comment, signal).catch(error => {
-          if (error instanceof ApiError && error.status === 404) return null
-          throw error
-        }),
-        readCommentRevisions(article, comment, null, signal).catch(error => {
-          if (error instanceof ApiError && error.status === 404) return null
-          throw error
-        }),
-      ])
-      if (signal.aborted || article !== historyArticle.value || comment !== historyComment.value) return
-      history.value = timeline
-      revisions.value = page
-      if (!timeline && !page) historyError.value = 'admin.moderation.m13'
-    }
-  } catch (error) {
-    if (signal.aborted) return
-    if (error instanceof ApiError && error.status === 401) {
-      historyDialogOpen.value = false
-      clearReview()
-      emit('sessionLost', error)
-    } else {
-      historyError.value = error instanceof ApiError && error.status === 404
-        ? 'admin.moderation.m13' : 'admin.moderation.m14'
-    }
-  } finally {
-    if (!signal.aborted) historyLoading.value = false
-  }
-}
-
-function loadHistory() {
-  historyDialogOpen.value = true
-  void loadHistoryAndRevisions()
-}
-
-function loadRevisions(before: number | null = null) {
-  historyDialogOpen.value = true
-  void loadHistoryAndRevisions(before)
-}
-
-function claimForReview(target: AdminCommentCursor) {
-  if (claim.value || batchClaims.value || selected.value.size) return
-  return run(async signal => {
-    const receipt = await claimComment(target, signal)
-    if (!signal.aborted) setClaim(receipt)
-  }, error => repeatableConflict(error) ? 'admin.moderation.m17'
-    : 'admin.moderation.m18')
-}
-
-function renew() {
-  const receipt = claim.value
-  if (!receipt) return
-  return run(async signal => {
-    const renewed = await renewCommentClaim(receipt, signal)
-    if (!signal.aborted) setClaim(renewed)
-  }, error => claimFailure(error, 'admin.moderation.m19'))
-}
-
-function release() {
-  const receipt = claim.value
-  if (!receipt) return
-  return run(async signal => {
-    await releaseCommentClaim(receipt, signal)
-    if (signal.aborted) return
-    setClaim(null)
-    notice.value = 'admin.moderation.m20'
-  }, error => claimFailure(error, 'admin.moderation.m21'))
-}
-
-function claimFailure(error: unknown, fallback: DisplayMessage): DisplayMessage {
-  if (!repeatableConflict(error)) return fallback
-  setClaim(null)
-  return 'admin.moderation.m22'
-}
-
-function decide(decision: 1 | 2) {
-  const receipt = claim.value
-  if (!receipt || !reasonValid.value) return
-  const command: AdminModerationDecision = {
-    articleId: receipt.articleId,
-    commentId: receipt.commentId,
-    expectedStatus: 0,
-    decision,
-    reason: trimmedReason.value,
-    commentVersion: receipt.commentVersion,
-    claimToken: receipt.claimToken,
-    claimGeneration: receipt.claimGeneration,
-    claimVersion: receipt.claimVersion,
-  }
-  return run(async signal => {
-    const proof = await proveAdminModerationDecision(command, signal)
-    if (signal.aborted || claim.value !== receipt) return
-    await decideComment(command, proof, signal)
-    if (signal.aborted) return
-    setClaim(null)
-    queue.value = null
-    notice.value = decision === 1 ? 'admin.moderation.m23' : 'admin.moderation.m24'
-    const updated = await readAdminCommentQueue(cursor, signal)
-    if (!signal.aborted) queue.value = updated
-  }, error => claimFailure(error, notice.value
-    ? 'admin.moderation.m25' : 'admin.moderation.m26'))
-}
-
-function coordinate(row: AdminCommentCursor): string {
-  return `${row.articleId}/${row.commentId}`
-}
-
-function select(row: AdminCommentCursor, checked: boolean) {
-  if (!batchAvailable.value || batchClaims.value || busy.value || props.sessionSignal.aborted) return
-  const next = new Set(selected.value)
-  if (!checked) next.delete(coordinate(row))
-  else if (next.size < WireLimits.AdminModerationBatchCount) next.add(coordinate(row))
-  selected.value = next
-}
-
-function clearBatch() {
-  clearTimeout(batchTimer)
-  batchClaims.value = null
-  selected.value = new Set()
-  batchReason.value = ''
-}
-
-function startBatch() {
-  const targets = selectedTargets.value
-  if (!batchAvailable.value || batchClaims.value || targets.length < WireLimits.AdminModerationBatchMinimum) return
-  return run(async signal => {
-    const receipts = await claimModerationBatch(targets, signal)
-    if (signal.aborted) return
-    batchClaims.value = receipts
-    const expire = () => {
-      if (batchClaims.value !== receipts) return
-      const remaining = (batchExpiry.value ?? 0) - Date.now()
-      if (remaining > 0) batchTimer = setTimeout(expire, Math.min(remaining, 2_147_483_647))
-      else {
-        clearBatch()
-        failure.value = 'admin.moderation.m27'
-      }
-    }
-    expire()
-    await nextTick()
-    if (!signal.aborted && batchClaims.value === receipts) batchHeading.value?.focus()
-  }, error => batchConflict(error, targets) ?? 'admin.moderation.m28')
-}
-
-function batchConflict(error: unknown, targets: readonly AdminCommentCursor[]): ConflictMessage | null {
-  const conflicts = readModerationBatchConflicts(error, targets)
-  if (!conflicts) return null
-  return { key: 'admin.moderation.m63', conflicts }
-}
-
-async function releaseBatchClaims(receipts: readonly AdminModerationClaim[], signal: AbortSignal): Promise<boolean> {
-  let released = true
-  for (const receipt of receipts) {
-    try { await releaseCommentClaim(receipt, signal) }
-    catch (error) {
-      if (signal.aborted || (error instanceof ApiError && (error.status === 401 || error.status === 403))) throw error
-      if (!repeatableConflict(error)) released = false
-    }
-  }
-  return released
-}
-
-function cancelBatch() {
-  const receipts = batchClaims.value
-  if (!receipts) return
-  return run(async signal => {
-    clearBatch()
-    const released = await releaseBatchClaims(receipts, signal)
-    if (signal.aborted) return
-    if (released) notice.value = 'admin.moderation.m29'
-    else failure.value = 'admin.moderation.m30'
-  }, () => 'admin.moderation.m30')
-}
-
-function decideBatch(decision: 1 | 2) {
-  const receipts = batchClaims.value
-  if (!receipts || !batchReasonValid.value) return
-  const rows = receipts.map(({ expiresAt: _, ...receipt }) => ({ ...receipt, expectedStatus: 0 as const }))
-  const command = { decision, reason: trimmedBatchReason.value, rows }
-  return run(async signal => {
-    try {
-      const receipt = await proveAndDecideModerationBatch(command, signal)
-      if (signal.aborted) return
-      clearBatch()
-      failure.value = ''
-      queue.value = null
-      notice.value = decision === 1 ? { key: 'admin.moderation.m65', params: { count: receipt.count } } : { key: 'admin.moderation.m66', params: { count: receipt.count } }
-      const updated = await readAdminCommentQueue(cursor, signal)
-      if (!signal.aborted) queue.value = updated
-    } catch (error) {
-      if (signal.aborted) return
-      const conflict = batchConflict(error, rows)
-      if (!conflict) throw error
-      clearBatch()
-      const released = await releaseBatchClaims(receipts, signal)
-      if (!signal.aborted) failure.value = released ? conflict : { ...conflict, key: 'admin.moderation.m64' }
-    }
-  }, () => notice.value ? 'admin.moderation.m25'
-    : 'admin.moderation.m31')
-}
+const isClaimed = (row: AdminCommentCursor) => controller.isClaimed(row)
+const load = (after: AdminCommentCursor | null = null) => controller.load(after)
+const openCommentHistory = (row: AdminCommentCursor) => controller.openCommentHistory(row)
+const loadHistory = () => controller.loadHistory()
+const loadRevisions = (before: number | null = null) => controller.loadRevisions(before)
+const claimForReview = (target: AdminCommentCursor) => controller.claimForReview(target)
+const renew = () => controller.renew()
+const release = () => controller.release()
+const decide = (decision: 1 | 2) => controller.decide(decision)
+const select = (row: AdminCommentCursor, checked: boolean) => controller.select(row, checked)
+const startBatch = () => controller.startBatch()
+const cancelBatch = () => controller.cancelBatch()
+const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
 </script>
 
 <template>
