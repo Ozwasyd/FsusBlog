@@ -332,26 +332,26 @@ async function leave() {
         <RouterView />
       </div>
       <template #footer>
-        <div class="reading-column site-footer">
-          <div class="site-footer-identity">
-            <strong>{{ siteTitle }}</strong>
-            <p>{{ copyright }}</p>
-          </div>
-          <div class="site-footer-links">
-            <div v-if="legal" class="site-policy-links" :aria-label="t('nav.compliance')">
-              <a v-if="legal.contentLicenseName && publicLink(legal.contentLicenseUrl)" :href="publicLink(legal.contentLicenseUrl)">{{ legal.contentLicenseName }}</a>
-              <span v-else-if="legal.contentLicenseName">{{ legal.contentLicenseName }}</span>
-              <template v-if="legal.regionMode === 'mainland-cn'">
-                <a v-if="legal.icpRecordNumber && publicLink(legal.icpRecordUrl)" :href="publicLink(legal.icpRecordUrl)">{{ legal.icpRecordNumber }}</a>
-                <a v-if="legal.policeRecordNumber && publicLink(legal.policeRecordUrl)" :href="publicLink(legal.policeRecordUrl)">{{ legal.policeRecordNumber }}</a>
-              </template>
-              <span v-if="legal.operatorName">{{ legal.operatorName }}</span>
-              <a v-if="legal.contactEmail && contactLink(legal.contactEmail)" :href="contactLink(legal.contactEmail)">{{ legal.contactEmail }}</a>
+        <div class="reading-column site-footer-shell">
+          <div class="site-footer">
+            <strong class="site-footer-brand">{{ siteTitle }}</strong>
+            <a class="site-footer-top" href="#">{{ t('nav.top') }}</a>
+            <p class="site-footer-copyright">{{ copyright }}</p>
+            <div class="site-footer-links">
+              <nav class="site-policy-links" :aria-label="t('nav.policies')">
+                <RouterLink v-for="(_, slug) in sitePages" :key="slug" :to="{ name: slug }">{{ t(`policy.${slug}`) }}</RouterLink>
+              </nav>
+              <div v-if="legal" class="site-policy-links site-compliance-links" :aria-label="t('nav.compliance')">
+                <a v-if="legal.contentLicenseName && publicLink(legal.contentLicenseUrl)" :href="publicLink(legal.contentLicenseUrl)">{{ legal.contentLicenseName }}</a>
+                <span v-else-if="legal.contentLicenseName">{{ legal.contentLicenseName }}</span>
+                <template v-if="legal.regionMode === 'mainland-cn'">
+                  <a v-if="legal.icpRecordNumber && publicLink(legal.icpRecordUrl)" :href="publicLink(legal.icpRecordUrl)">{{ legal.icpRecordNumber }}</a>
+                  <a v-if="legal.policeRecordNumber && publicLink(legal.policeRecordUrl)" :href="publicLink(legal.policeRecordUrl)">{{ legal.policeRecordNumber }}</a>
+                </template>
+                <span v-if="legal.operatorName">{{ legal.operatorName }}</span>
+                <a v-if="legal.contactEmail && contactLink(legal.contactEmail)" :href="contactLink(legal.contactEmail)">{{ legal.contactEmail }}</a>
+              </div>
             </div>
-            <nav class="site-policy-links" :aria-label="t('nav.policies')">
-              <RouterLink v-for="(_, slug) in sitePages" :key="slug" :to="{ name: slug }">{{ t(`policy.${slug}`) }}</RouterLink>
-              <a href="#">{{ t('nav.top') }}</a>
-            </nav>
           </div>
         </div>
       </template>
@@ -368,10 +368,4 @@ async function leave() {
   padding: .375rem;
 }
 .public-menu-preferences > select { min-inline-size: 0; inline-size: 100%; }
-.site-policy-links {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: .5rem 1rem;
-}
 </style>

@@ -110,6 +110,38 @@ try {
     await page.goto(origin + '/about')
     await page.getByRole('heading', { name: 'About', exact: true }).waitFor()
     assert.equal(await page.locator('[data-site-page-body]').getAttribute('lang'), 'zh-CN')
+    const footerLayout = await page.evaluate(() => {
+      const footer = document.querySelector('.site-footer')
+      const brand = document.querySelector('.site-footer-brand')
+      const topLink = document.querySelector('.site-footer-top')
+      const policyNav = document.querySelector('nav.site-policy-links')
+      const policyLinks = [...policyNav.querySelectorAll('a')]
+      const footerRect = footer.getBoundingClientRect()
+      const brandRect = brand.getBoundingClientRect()
+      const topRect = topLink.getBoundingClientRect()
+      const firstPolicyRect = policyLinks[0].getBoundingClientRect()
+      return {
+        topInsidePolicyNav: policyNav.contains(topLink),
+        policyCount: policyLinks.length,
+        brandX: brandRect.x,
+        brandMidY: brandRect.y + brandRect.height / 2,
+        topX: topRect.x,
+        topRight: topRect.right,
+        topMidY: topRect.y + topRect.height / 2,
+        topHeight: topRect.height,
+        firstPolicyX: firstPolicyRect.x,
+        firstPolicyHeight: firstPolicyRect.height,
+        footerRight: footerRect.right,
+      }
+    })
+    assert.equal(footerLayout.topInsidePolicyNav, false)
+    assert.equal(footerLayout.policyCount, 4)
+    assert.ok(Math.abs(footerLayout.topRight - footerLayout.footerRight) <= 1)
+    assert.ok(Math.abs(footerLayout.brandMidY - footerLayout.topMidY) <= 4)
+    if (width < 500) {
+      assert.ok(Math.abs(footerLayout.firstPolicyX - footerLayout.brandX) <= 1)
+      assert.ok(footerLayout.topHeight >= 44 && footerLayout.firstPolicyHeight >= 44)
+    }
 
     const peer = await context.newPage()
     peer.on('pageerror', error => errors.push(error.message))
