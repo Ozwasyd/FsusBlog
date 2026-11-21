@@ -261,10 +261,10 @@ function logOut() {
 </script>
 
 <template>
-  <AccountWorkspace v-if="authority?.status === 'active'" home="/admin/site" :label="t('admin.access')" :links="links"
+  <AccountWorkspace v-if="authority?.status === 'active'" home="/admin/site" :label="t('admin.menu')" :links="links"
     surface="task" :theme-mode="themeMode" @theme="emit('theme', $event)">
-    <template #actions>
-      <ElButton text native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
+    <template #actions="{ drawer }">
+      <ElButton :text="!drawer" native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
     </template>
     <main class="admin-workspace">
       <ElTaskPageHeader :title="t(section.label)" density="compact" />

@@ -82,6 +82,56 @@ try {
   await shell.dispose()
   checks.allFiveRoutesReuseAuthenticatedShell = true
   await page.screenshot({ path: join(evidence, 'admin-workspace.png') })
+
+  for (const width of [375, 320]) {
+    await page.setViewportSize({ width, height: 812 })
+    const menuTrigger = page.getByRole('button', { name: 'Admin menu', exact: true })
+    await expect(menuTrigger).toBeVisible()
+    const triggerBox = await menuTrigger.boundingBox()
+    assert(triggerBox && triggerBox.height >= 44)
+    await menuTrigger.click()
+    const drawer = page.getByRole('dialog', { name: 'Admin menu', exact: true })
+    await expect(drawer).toBeVisible()
+    const layout = await page.evaluate(() => {
+      const body = document.querySelector('.el-drawer__body')
+      const groups = [...document.querySelectorAll('.account-workspace-drawer [role="radiogroup"]')]
+      const logout = document.querySelector('.account-workspace-drawer-actions button')
+      const r = el => el?.getBoundingClientRect()
+      return {
+        pageOverflowX: document.documentElement.scrollWidth > window.innerWidth,
+        bodyOverflowX: !!body && body.scrollWidth > body.clientWidth,
+        dropdownCount: document.querySelectorAll('.account-workspace-drawer .el-dropdown').length,
+        groupRects: groups.map(g => { const b = r(g); return b ? { x: b.x, width: b.width, height: b.height } : null }),
+        logoutRect: (() => { const b = r(logout); return b ? { x: b.x, width: b.width, height: b.height } : null })(),
+      }
+    })
+    assert.equal(layout.pageOverflowX, false)
+    assert.equal(layout.bodyOverflowX, false)
+    assert.equal(layout.dropdownCount, 0)
+    assert.equal(layout.groupRects.length, 2)
+    assert(layout.logoutRect && layout.groupRects[0] && layout.groupRects[1])
+    assert(Math.abs(layout.logoutRect.x - layout.groupRects[0].x) <= 1)
+    assert(Math.abs(layout.logoutRect.width - layout.groupRects[0].width) <= 1)
+    assert(layout.logoutRect.height >= 44 && layout.groupRects[0].height >= 44 && layout.groupRects[1].height >= 44)
+    if (width === 375) {
+      await drawer.getByRole('radiogroup', { name: 'Theme mode', exact: true }).getByText('Dark', { exact: true }).click()
+      await page.waitForFunction(() => document.documentElement.dataset.themeMode === 'dark')
+      await drawer.getByRole('radiogroup', { name: 'Interface language', exact: true }).getByText('中文', { exact: true }).click()
+      const zhDrawer = page.getByRole('dialog', { name: '管理菜单', exact: true })
+      await expect(zhDrawer).toBeVisible()
+      await zhDrawer.getByRole('radiogroup', { name: '界面语言', exact: true }).getByText('EN', { exact: true }).click()
+      await expect(drawer).toBeVisible()
+      await drawer.getByRole('radiogroup', { name: 'Theme mode', exact: true }).getByText('System', { exact: true }).click()
+      await page.waitForFunction(() => document.documentElement.dataset.themeMode === 'system')
+      await drawer.getByRole('link', { name: 'Site', exact: true }).click()
+      await page.waitForURL(admin.origin + '/admin/site')
+      await expect(drawer).toBeHidden()
+    } else {
+      await page.keyboard.press('Escape')
+      await expect(drawer).toBeHidden()
+    }
+  }
+  checks.mobileDrawerNavigationAndPreferences = true
   assert.deepEqual(faults, [])
 
   async function clickMutation(path, name) {

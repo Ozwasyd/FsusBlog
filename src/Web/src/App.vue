@@ -2,13 +2,12 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { readThemeMode, subscribeThemeMode, syncThemeMode, writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
-import { ElConfigProvider, ElPublicShell, ElButton, ElRadioButton, ElRadioGroup } from '@ozwasyd/element-plus'
+import { ElConfigProvider, ElPublicShell, ElButton } from '@ozwasyd/element-plus'
 import { runSiteViewTransition } from './viewTransition'
 import en from '@element-plus/locale/lang/en'
 import zhCn from '@element-plus/locale/lang/zh-cn'
-import SiteLocaleSelect from './SiteLocaleSelect.vue'
 import SiteHeaderPreferences from './SiteHeaderPreferences.vue'
-import { siteLocale, t, themeLabels } from './siteLocale'
+import { siteLocale, t } from './siteLocale'
 import SiteAuthLayout from './SiteAuthLayout.vue'
 import AccountWorkspace from './AccountWorkspace.vue'
 import { currentSession, refreshSession, signOut } from './session'
@@ -77,11 +76,6 @@ function useTheme(mode: ThemeMode) {
     applyTheme(mode)
     await nextTick()
   }, { name: 'theme-switch' })
-}
-function selectTheme(mode: string | number | boolean | undefined) {
-  if (typeof mode !== 'string') return
-  const parsed = parseThemeMode(mode)
-  if (parsed) useTheme(parsed)
 }
 
 const logoutFailure = ref(false)
@@ -273,8 +267,8 @@ async function leave() {
   <RouterView v-else-if="adminAuthoringArea" />
   <AccountWorkspace v-else-if="accountArea" home="/user" :label="t('nav.accountMenu')" :links="accountLinks"
     :theme-mode="themeMode" @theme="useTheme">
-    <template #actions>
-      <ElButton v-if="currentSession || logoutFailure" text @click="leave">{{ t('nav.logout') }}</ElButton>
+    <template #actions="{ drawer }">
+      <ElButton v-if="currentSession || logoutFailure" :text="!drawer" @click="leave">{{ t('nav.logout') }}</ElButton>
       <RouterLink v-else class="site-header-text-action" to="/login">{{ t('nav.login') }}</RouterLink>
     </template>
     <RouterView />
@@ -316,13 +310,7 @@ async function leave() {
         <RouterLink v-if="currentSession" class="site-header-text-action" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'security'" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
         <div class="public-menu-preferences">
-          <SiteLocaleSelect />
-          <ElRadioGroup class="public-menu-segment-group fsus-radio-group--touch"
-            size="small" :label="t('theme.label')" :model-value="themeMode" @update:model-value="selectTheme">
-            <ElRadioButton class="public-menu-segment" value="light">{{ themeLabels.light }}</ElRadioButton>
-            <ElRadioButton class="public-menu-segment" value="dark">{{ themeLabels.dark }}</ElRadioButton>
-            <ElRadioButton class="public-menu-segment" value="system">{{ themeLabels.system }}</ElRadioButton>
-          </ElRadioGroup>
+          <SiteHeaderPreferences mobile :theme-mode="themeMode" @theme="useTheme" />
         </div>
       </template>
       <div id="page-content" ref="publicContent" tabindex="-1">
@@ -363,9 +351,6 @@ async function leave() {
 
 <style scoped>
 .public-menu-preferences {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: .5rem;
   padding-block: .375rem 0;
 }
 </style>
