@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { t } from '../siteLocale'
-import { computed, ref, shallowRef, watch } from 'vue'
-import { ElAlert, ElButton, ElOption, ElSelect } from '@ozwasyd/element-plus'
+import { computed, nextTick, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { ElAlert, ElButton, ElDialog, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import {
   draftTaxonomy, taxonomyList, type DraftTaxonomy, type TaxonomySelection,
 } from '../../../Contracts/taxonomy-client'
 import type { TaxonomyListItem } from '../../../Contracts/taxonomy'
+import {
+  taxonomyMetadataAvailable, type AdminMetadataKind, type AdminTaxonomyMetadata,
+} from '../../../Contracts/admin-tag-metadata'
 import { ApiError } from '../../../Contracts/client'
+import { invalidateSession } from '../authorSession'
+import AdminTagMetadata from './AdminTagMetadata.vue'
 
 const props = defineProps<{
   articleId: number
@@ -18,16 +23,28 @@ const emit = defineEmits<{
   change: [dirty: boolean]
   save: [selection: TaxonomySelection]
   stale: []
+  modalChange: [active: boolean]
 }>()
 const original = shallowRef<DraftTaxonomy & { identity: number }>()
 const categoryOptions = shallowRef<TaxonomyListItem[]>([])
 const tagOptions = shallowRef<TaxonomyListItem[]>([])
 const category = ref(0)
 const tags = ref<number[]>([])
+const canCreateCategory = ref(false)
+const canCreateTag = ref(false)
+const creatingKind = ref<AdminMetadataKind>()
 const loading = ref(false)
 const error = ref('')
 const retry = ref(0)
 const maxTags = 32
+const lifetime = new AbortController()
+let opener: HTMLElement | undefined
+
+const createDialogTitle = computed(() => {
+  if (!creatingKind.value) return ''
+  const kind = t(creatingKind.value === 'category' ? 'admin.tagMetadata.kindCategory' : 'admin.tagMetadata.kindTag')
+  return t('admin.tagMetadata.m7', { kind })
+})
 const selected = computed<TaxonomySelection>(() => ({
   categoryId: category.value || null,
   tagIds: [...tags.value].sort((a, b) => a - b),
@@ -50,26 +67,34 @@ const comparisonTaxonomy = computed(() => {
 defineExpose({ comparisonTaxonomy })
 
 watch(dirty, value => emit('change', value), { flush: 'sync' })
+watch(creatingKind, kind => emit('modalChange', kind !== undefined), { flush: 'sync' })
 watch(() => [props.articleId, props.revision, props.identity, retry.value] as const, async ([article, revision, identity], __, cleanup) => {
   const request = new AbortController()
   cleanup(() => request.abort())
+  creatingKind.value = undefined
   original.value = undefined
   category.value = 0
   tags.value = []
   categoryOptions.value = []
   tagOptions.value = []
+  canCreateCategory.value = false
+  canCreateTag.value = false
   error.value = ''
   loading.value = true
 
   try {
-    const [draft, categories, tagsForSite] = await Promise.all([
+    const [draft, categories, tagsForSite, categoryWritable, tagWritable] = await Promise.all([
       draftTaxonomy(article, revision, request.signal),
       taxonomyList('category', request.signal),
       taxonomyList('tag', request.signal),
+      taxonomyMetadataAvailable('category', request.signal).catch(() => false),
+      taxonomyMetadataAvailable('tag', request.signal).catch(() => false),
     ])
     if (request.signal.aborted) return
     categoryOptions.value = categories
     tagOptions.value = tagsForSite
+    canCreateCategory.value = categoryWritable
+    canCreateTag.value = tagWritable
     category.value = draft.categoryId ?? 0
     tags.value = [...draft.tagIds]
     original.value = { ...draft, identity }
@@ -86,6 +111,56 @@ watch(() => [props.articleId, props.revision, props.identity, retry.value] as co
   }
 }, { immediate: true })
 
+onScopeDispose(() => {
+  lifetime.abort()
+  emit('modalChange', false)
+})
+
+function openCreate(kind: AdminMetadataKind, event?: Event) {
+  if (props.disabled || creatingKind.value) return
+  opener = event?.currentTarget instanceof HTMLElement ? event.currentTarget : undefined
+  creatingKind.value = kind
+}
+
+async function closeCreate() {
+  const previousOpener = opener
+  opener = undefined
+  creatingKind.value = undefined
+  await nextTick()
+  if (previousOpener?.isConnected) previousOpener.focus({ preventScroll: true })
+}
+
+function mergeCreatedOption(items: readonly TaxonomyListItem[], created: AdminTaxonomyMetadata): TaxonomyListItem[] {
+  if (items.some(item => item.id === created.id)) {
+    return items.map(item => item.id === created.id ? { ...item, name: created.name } : item)
+  }
+  return [...items, { id: created.id, name: created.name, articleCount: 0 }]
+}
+
+async function handleCreated(created: AdminTaxonomyMetadata) {
+  const kind = creatingKind.value
+  if (!kind) return
+  if (kind === 'category') {
+    const refreshed = await taxonomyList('category', lifetime.signal).catch(() => categoryOptions.value)
+    if (lifetime.signal.aborted) return
+    categoryOptions.value = mergeCreatedOption(refreshed, created)
+    category.value = created.id
+  } else {
+    const refreshed = await taxonomyList('tag', lifetime.signal).catch(() => tagOptions.value)
+    if (lifetime.signal.aborted) return
+    tagOptions.value = mergeCreatedOption(refreshed, created)
+    if (!tags.value.includes(created.id) && tags.value.length < maxTags) {
+      tags.value = [...tags.value, created.id]
+    }
+  }
+  await closeCreate()
+}
+
+function handleSessionLost() {
+  void closeCreate()
+  invalidateSession()
+}
+
 function reset() {
   category.value = original.value?.categoryId ?? 0
   tags.value = [...(original.value?.tagIds ?? [])]
@@ -101,12 +176,36 @@ function reset() {
       <ElButton :disabled="props.disabled" @click="retry++">{{ t('author.taxonomy.retryClassification') }}</ElButton>
     </template>
     <template v-else-if="original">
-      <label for="edit-category">{{ t('author.taxonomy.category') }}</label>
+      <div class="editor-taxonomy-label-row">
+        <label for="edit-category">{{ t('author.taxonomy.category') }}</label>
+        <ElButton
+          v-if="canCreateCategory"
+          native-type="button"
+          text
+          size="small"
+          :disabled="props.disabled || !!creatingKind"
+          @click="openCreate('category', $event)"
+        >
+          {{ t('admin.tagMetadata.m7', { kind: t('admin.tagMetadata.kindCategory') }) }}
+        </ElButton>
+      </div>
       <ElSelect id="edit-category" v-model="category" :ariaLabel="t('author.taxonomy.category')" :disabled="props.disabled" filterable>
         <ElOption :value="0" :label="t('author.taxonomy.noCategory')" />
         <ElOption v-for="item in categoryOptions" :key="item.id" :value="item.id" :label="item.name" />
       </ElSelect>
-      <label for="edit-tags">{{ t('author.taxonomy.tags') }}</label>
+      <div class="editor-taxonomy-label-row">
+        <label for="edit-tags">{{ t('author.taxonomy.tags') }}</label>
+        <ElButton
+          v-if="canCreateTag"
+          native-type="button"
+          text
+          size="small"
+          :disabled="props.disabled || !!creatingKind"
+          @click="openCreate('tag', $event)"
+        >
+          {{ t('admin.tagMetadata.m7', { kind: t('admin.tagMetadata.kindTag') }) }}
+        </ElButton>
+      </div>
       <ElSelect id="edit-tags" v-model="tags" :ariaLabel="t('author.taxonomy.tags')" :disabled="props.disabled" :multiple-limit="maxTags" multiple filterable>
         <ElOption v-for="item in tagOptions" :key="item.id" :value="item.id" :label="item.name" />
       </ElSelect>
@@ -115,5 +214,32 @@ function reset() {
         <ElButton v-if="dirty" :disabled="props.disabled" text @click="reset">{{ t('author.taxonomy.discardClassificationChanges') }}</ElButton>
       </div>
     </template>
+
+    <ElDialog
+      :model-value="creatingKind !== undefined"
+      :title="createDialogTitle"
+      width="min(30rem, 92vw)"
+      append-to-body
+      @update:model-value="visible => { if (!visible) closeCreate() }"
+    >
+      <AdminTagMetadata
+        v-if="creatingKind"
+        :key="`create-${creatingKind}`"
+        :kind="creatingKind"
+        :id="0"
+        @close="closeCreate()"
+        @saved="handleCreated"
+        @session-lost="handleSessionLost"
+      />
+    </ElDialog>
   </section>
 </template>
+
+<style scoped>
+.editor-taxonomy-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fsus-space-2);
+}
+</style>

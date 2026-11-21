@@ -34,6 +34,9 @@ const tf = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 30, 50, 100, 140];
 const titleField = 1;
 const bodyField = 4;
 const phraseBonus = 1.25;
+const asciiMinPrefixLength = 3;
+const shortPrefixTitleBoost = 0.6;
+const shortPrefixMetaBoost = 0.25;
 const corpusPatchType = 'application/vnd.fsus.search-patch';
 const cjk = /^[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+$/u;
 const weights = new Map(Object.entries(lexicon.words).filter(([word]) => cjk.test(word)));
@@ -123,6 +126,79 @@ export function searchTerms(query: string): readonly number[] {
   const words = normalized.match(/[a-zA-Z0-9]+|[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+|[\p{Letter}\p{Decimal_Number}]/gu) ?? [];
   const tokens = words.flatMap(word => cjk.test(word) ? segmentCjk(word) : [word.replace(/[A-Z]/g, letter => letter.toLowerCase())]);
   return tokens.map(word => murmur(utf8.encode(word)));
+}
+
+export function searchShortAsciiPrefixes(query: string): readonly string[] {
+  const normalized = normalizeLocalSearchQuery(query);
+  requireWire(normalized !== undefined, query.length > Limit.SearchQueryChars ? 'query length' : 'normalized query length');
+  const words = normalized.match(/[a-zA-Z0-9]+/g);
+  if (!words) return [];
+  const seen = new Set<string>();
+  for (const word of words) {
+    if (word.length > 0 && word.length < asciiMinPrefixLength) {
+      seen.add(word.toLowerCase());
+    }
+  }
+  return [...seen];
+}
+
+function isAsciiLower(code: number) { return code >= 97 && code <= 122; }
+function isAsciiUpper(code: number) { return code >= 65 && code <= 90; }
+function isAsciiDigit(code: number) { return code >= 48 && code <= 57; }
+function isAsciiWord(code: number) { return isAsciiLower(code) || isAsciiUpper(code) || isAsciiDigit(code); }
+function lowerAscii(code: number) { return isAsciiUpper(code) ? code + 32 : code; }
+
+function isSubwordBoundary(value: string, end: number, index: number): boolean {
+  const previous = value.charCodeAt(index - 1);
+  const current = value.charCodeAt(index);
+  if (isAsciiDigit(previous) !== isAsciiDigit(current)) return true;
+  if (isAsciiLower(previous) && isAsciiUpper(current)) return true;
+  if (isAsciiUpper(previous) && isAsciiUpper(current) && index + 1 < end && isAsciiLower(value.charCodeAt(index + 1))) return true;
+  return false;
+}
+
+function startsWithLowerAscii(value: string, at: number, prefix: string): boolean {
+  for (let i = 0; i < prefix.length; i++) {
+    if (lowerAscii(value.charCodeAt(at + i)) !== prefix.charCodeAt(i)) return false;
+  }
+  return true;
+}
+
+function countAsciiPrefixMatches(value: string, prefix: string): number {
+  if (value.length <= prefix.length) return 0;
+  let source = value;
+  for (let i = 0; i < value.length; i++) {
+    if (value.charCodeAt(i) >= 0x80) {
+      source = value.normalize('NFKC');
+      break;
+    }
+  }
+  let count = 0;
+  for (let offset = 0; offset < source.length;) {
+    if (!isAsciiWord(source.charCodeAt(offset))) {
+      offset++;
+      continue;
+    }
+    const start = offset++;
+    while (offset < source.length && isAsciiWord(source.charCodeAt(offset))) offset++;
+    const length = offset - start;
+    if (length <= prefix.length) continue;
+    if (startsWithLowerAscii(source, start, prefix)) {
+      count++;
+      continue;
+    }
+    let segmentStart = start;
+    for (let i = start + 1; i <= offset; i++) {
+      if (i < offset && !isSubwordBoundary(source, offset, i)) continue;
+      const segmentLength = i - segmentStart;
+      if (segmentStart > start && segmentLength > prefix.length && startsWithLowerAscii(source, segmentStart, prefix)) {
+        count++;
+        break;
+      }
+      segmentStart = i;
+    }
+  }
+  return count;
 }
 
 function segmentCjk(text: string) {
@@ -357,22 +433,32 @@ function hasPhrase(positions: PositionStream[], expected: bigint): boolean {
 }
 
 /** Parses a complete core shard, including all posting lists even when their terms do not match. */
-export function queryCorpusPage(payload: Uint8Array, terms: readonly number[]): Shard {
+export function queryCorpusPage(
+  payload: Uint8Array,
+  terms: readonly number[],
+  shortPrefixes: readonly string[] = [],
+): Shard {
   requireWire(terms.length <= Limit.SearchQueryChars, 'term count');
+  requireWire(shortPrefixes.length <= Limit.SearchQueryChars, 'prefix count');
   // The phrase pass reuses validated byte spans. Isolate potentially shared backing first.
   if (!(payload.buffer instanceof ArrayBuffer)) {
     requireWire(payload.length <= Limit.SearchCorpusPageBytes, 'package header');
     payload = Uint8Array.from(payload);
   }
   try {
-    return parseCorpusPage(payload, terms, false);
+    return parseCorpusPage(payload, terms, false, shortPrefixes);
   } catch (error) {
     if (error instanceof RangeError) throw new ProtocolError('Truncated local search corpus');
     throw error;
   }
 }
 
-function parseCorpusPage(payload: Uint8Array, terms: readonly number[], admitted: boolean): Shard {
+function parseCorpusPage(
+  payload: Uint8Array,
+  terms: readonly number[],
+  admitted: boolean,
+  shortPrefixes: readonly string[],
+): Shard {
   const p = new Bytes(payload);
   requireWire(p.length >= L.SearchPackagePayloadOffset + L.SearchShardHeaderSize &&
     p.length <= Limit.SearchCorpusPageBytes && p.u32(0) === L.SearchPackageMagic &&
@@ -478,7 +564,64 @@ function parseCorpusPage(payload: Uint8Array, terms: readonly number[], admitted
       if (phrase.hasMatch(b, doc.row)) matches.set(id, (matches.get(id) ?? 0) + phraseBonus);
     }
   }
+  if (shortPrefixes.length > 0 && docCount > 0) {
+    const docRows = [...documents.values()];
+    scoreShortMetadataPrefixes(b, termAt, termCount, docCount, postingAt, average, shortPrefixes,
+      row => docRows[row],
+      (row, delta) => {
+        const id = docRows[row].id;
+        matches.set(id, (matches.get(id) ?? 0) + delta);
+      });
+  }
   return { documents, matches };
+}
+
+function exactDocumentFrequency(b: Bytes, termAt: number, termCount: number, postingAt: number, hash: number): number {
+  const at = findTermRecord(b, termAt, termCount, hash);
+  if (at < 0) return 0;
+  const offset = postingAt + b.u32(at + 8);
+  const length = b.u32(at + 12);
+  return new PostingReader(b, offset, offset + length).vint();
+}
+
+function scoreShortMetadataPrefixes(
+  b: Bytes,
+  termAt: number,
+  termCount: number,
+  docCount: number,
+  postingAt: number,
+  average: number,
+  shortPrefixes: readonly string[],
+  readDoc: (row: number) => { title: string; summary: string; category: Taxon; tags: readonly Taxon[]; length: number },
+  addScore: (row: number, delta: number) => void,
+) {
+  const frequencies = new Float64Array(docCount);
+  for (const prefix of shortPrefixes) {
+    if (prefix.length === 0 || prefix.length >= asciiMinPrefixLength) continue;
+    frequencies.fill(0);
+    let prefixDf = 0;
+    for (let row = 0; row < docCount; row++) {
+      const doc = readDoc(row);
+      const titleHits = countAsciiPrefixMatches(doc.title, prefix);
+      let metaHits = countAsciiPrefixMatches(doc.summary, prefix) + countAsciiPrefixMatches(doc.category.name, prefix);
+      for (let j = 0; j < doc.tags.length; j++) metaHits += countAsciiPrefixMatches(doc.tags[j].name, prefix);
+      const frequency = titleHits * shortPrefixTitleBoost + metaHits * shortPrefixMetaBoost;
+      if (frequency > 0) {
+        frequencies[row] = frequency;
+        prefixDf++;
+      }
+    }
+    if (prefixDf === 0) continue;
+    const exactDf = exactDocumentFrequency(b, termAt, termCount, postingAt, murmur(utf8.encode(prefix)));
+    const combinedDf = Math.min(docCount, exactDf + prefixDf);
+    const idf = Math.log(1 + (docCount - combinedDf + 0.5) / (combinedDf + 0.5));
+    for (let row = 0; row < docCount; row++) {
+      const frequency = frequencies[row];
+      if (frequency === 0) continue;
+      const docLength = readDoc(row).length;
+      addScore(row, idf * (frequency * 2.2) / (frequency + 1.2 * (0.25 + 0.75 * docLength / average)));
+    }
+  }
 }
 
 function findTermRecord(b: Bytes, termAt: number, termCount: number, targetHash: number): number {
@@ -509,13 +652,18 @@ function findDocumentRow(b: Bytes, docAt: number, docCount: number, targetId: nu
 }
 
 /** Fast binary-search scoring over an already-admitted FSPK v4 page without decoding non-matching strings. */
-export function scoreAdmittedCorpusPage(payload: Uint8Array, terms: readonly number[]): AdmittedHit[] {
+export function scoreAdmittedCorpusPage(
+  payload: Uint8Array,
+  terms: readonly number[],
+  shortPrefixes: readonly string[] = [],
+): AdmittedHit[] {
   requireWire(terms.length <= Limit.SearchQueryChars, 'term count');
-  if (terms.length === 0) return [];
+  requireWire(shortPrefixes.length <= Limit.SearchQueryChars, 'prefix count');
+  if (terms.length === 0 && shortPrefixes.length === 0) return [];
   const b = new Bytes(payload.subarray(L.SearchPackagePayloadOffset));
   const termCount = b.u32(16);
   const docCount = b.u32(20);
-  if (docCount === 0 || termCount === 0) return [];
+  if (docCount === 0 || (termCount === 0 && shortPrefixes.length === 0)) return [];
   const termAt = b.u32(36);
   const docAt = b.u32(40);
   const postingAt = b.u32(60);
@@ -561,9 +709,25 @@ export function scoreAdmittedCorpusPage(payload: Uint8Array, terms: readonly num
     }
   }
 
+  if (phrase) {
+    for (const row of matchedRows) {
+      if (phrase.hasMatch(b, row)) scores[row] += phraseBonus;
+    }
+  }
+
+  if (shortPrefixes.length > 0) {
+    const allRows = Array.from({ length: docCount }, (_, i) => i);
+    const cards = decodeCorpusDocuments(payload, allRows);
+    scoreShortMetadataPrefixes(b, termAt, termCount, docCount, postingAt, average, shortPrefixes,
+      row => ({ ...cards[row], length: b.u32(docAt + row * L.SearchDocumentRecordSize + 20) }),
+      (row, delta) => {
+        if (scores[row] === 0) matchedRows.push(row);
+        scores[row] += delta;
+      });
+  }
+
   const hits: AdmittedHit[] = [];
   for (const row of matchedRows) {
-    if (phrase?.hasMatch(b, row)) scores[row] += phraseBonus;
     const at = docAt + row * L.SearchDocumentRecordSize;
     hits.push({
       row,
@@ -903,6 +1067,7 @@ function compareHits(
 function scoreAdmittedCorpus(
   pages: readonly Uint8Array[],
   terms: readonly number[],
+  shortPrefixes: readonly string[],
   page: number,
   size: number,
   sort: PublicSearchSort,
@@ -911,7 +1076,7 @@ function scoreAdmittedCorpus(
   const matches: (AdmittedHit & { pageIndex: number })[] = [];
   for (let i = 0; i < pages.length; i++) {
     signal?.throwIfAborted();
-    for (const hit of scoreAdmittedCorpusPage(pages[i], terms)) {
+    for (const hit of scoreAdmittedCorpusPage(pages[i], terms, shortPrefixes)) {
       matches.push({ ...hit, pageIndex: i });
     }
   }
@@ -977,12 +1142,13 @@ async function runCorpusSearch(
   requireWire(Number.isInteger(page) && page > 0 && page <= 10000 &&
     Number.isInteger(size) && size > 0 && size <= 100, 'query page');
   const terms = searchTerms(query);
+  const shortPrefixes = searchShortAsciiPrefixes(query);
   signal?.throwIfAborted();
   if (terms.length === 0) return { frame: encodeLocalSearchResult([], 0), generation: null };
 
   const cached = cache ? await currentCachedCorpus(cache, storage, signal) : {};
   if (cached.admitted) {
-    const encoded = scoreAdmittedCorpus(cached.admitted.pages, terms, page, size, sort, signal);
+    const encoded = scoreAdmittedCorpus(cached.admitted.pages, terms, shortPrefixes, page, size, sort, signal);
     signal?.throwIfAborted();
     return { frame: encoded, generation: cached.admitted.generation };
   }
@@ -997,7 +1163,7 @@ async function runCorpusSearch(
         signal?.throwIfAborted();
         totalBytes += pages[i].length;
         requireWire(totalBytes <= Limit.SearchCorpusTotalBytes, 'corpus pages or byte budget');
-        const shard = queryCorpusPage(pages[i], terms);
+        const shard = queryCorpusPage(pages[i], terms, shortPrefixes);
         requireWire(pages.length === 1 || shard.documents.size > 0, 'empty corpus page');
         for (const article of shard.documents.values()) {
           requireWire(!ids.has(article.id), 'duplicate corpus article');
@@ -1051,7 +1217,7 @@ async function runCorpusSearch(
         reusable.fill(undefined);
         unusedBytes = 0;
       }
-      const shard = queryCorpusPage(loaded.bytes, terms);
+      const shard = queryCorpusPage(loaded.bytes, terms, shortPrefixes);
       pendingPages?.push(loaded.bytes);
       requireWire(first.pages === 1 || shard.documents.size > 0, 'empty corpus page');
       for (const article of shard.documents.values()) {

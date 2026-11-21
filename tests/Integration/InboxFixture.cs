@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Net;
 using System.Net.WebSockets;
 using System.Security.Cryptography;
@@ -74,15 +73,6 @@ internal static class InboxFixture
         Assert.Equal(WebSocketMessageType.Binary, frame.MessageType);
         Assert.True(frame.EndOfMessage);
         Assert.Equal(Wire.EncodeEmptySuccess(), bytes[..frame.Count]);
-    }
-
-    internal static string SolveChallenge(byte[] frame, string nonce)
-    {
-        var result = Aeds.Decode(frame, FrameType.PowChallenge);
-        return CommentReadPostgresTests.Solve(Encoding.UTF8.GetString(result[..WireLayouts.PowChallengeSaltBytes]).TrimEnd('\0'),
-            Encoding.UTF8.GetString(result[WireLayouts.PowChallengeSignatureOffset..]).TrimEnd('\0'),
-            BinaryPrimitives.ReadInt32LittleEndian(result[WireLayouts.PowChallengeSaltBytes..]),
-            BinaryPrimitives.ReadInt64LittleEndian(result[WireLayouts.PowChallengeTimestampOffset..]), nonce);
     }
 
     internal static BinaryReader Reader(byte[] frame, FrameType type) => new(new MemoryStream(Aeds.Decode(frame, type).ToArray()));

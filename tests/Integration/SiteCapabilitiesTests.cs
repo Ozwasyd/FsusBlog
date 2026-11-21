@@ -332,8 +332,17 @@ public sealed class SiteCapabilitiesTests
 
         Assert.Throws<InvalidOperationException>(() => SiteCapabilities.Resolve(BuildConfig(new()
         {
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost",
             [AdminArticleRollbackEndpoints.Setting] = "true",
+        }), webDist));
+
+        Assert.Throws<InvalidOperationException>(() => SiteCapabilities.Resolve(BuildConfig(new()
+        {
+            [AdminTagMetadataEndpoints.Setting] = "true",
+        }), webDist));
+
+        Assert.Throws<InvalidOperationException>(() => SiteCapabilities.Resolve(BuildConfig(new()
+        {
+            [AdminTagMetadataEndpoints.CategorySetting] = "true",
         }), webDist));
 
         Assert.Throws<InvalidOperationException>(() => SiteCapabilities.Resolve(BuildConfig(new()
@@ -357,10 +366,50 @@ public sealed class SiteCapabilitiesTests
 
         Assert.Throws<InvalidOperationException>(() => SiteCapabilities.Resolve(BuildConfig(new()
         {
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
+            [SitePages.EditorSetting] = "true",
+        }), webDist));
+
+        Assert.Throws<InvalidOperationException>(() => SiteCapabilities.Resolve(BuildConfig(new()
+        {
             [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
             ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
             [AppearanceAssets.OnlineSetting] = "true",
         }), webDist));
+    }
+
+    [Fact]
+    public void LoopbackAdminOriginActivatesLocalEditingCapabilities()
+    {
+        var root = Directory.CreateTempSubdirectory("fsusblog-loopback-admin-");
+        var webDist = Directory.CreateTempSubdirectory("fsusblog-loopback-dist-");
+        try
+        {
+            var pages = Directory.CreateDirectory(Path.Combine(root.FullName, "site-pages"));
+            foreach (var name in new[] { "about.md", "privacy.md", "guidelines.md", "copyright.md" })
+                File.WriteAllText(Path.Combine(pages.FullName, name), "# " + name);
+            var appearance = Directory.CreateDirectory(Path.Combine(root.FullName, "appearance"));
+            File.WriteAllText(Path.Combine(appearance.FullName, "appearance.json"), "{}");
+
+            var capabilities = SiteCapabilities.Resolve(BuildConfig(new()
+            {
+                [SiteCapabilities.DataDirSetting] = root.FullName,
+                ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173",
+            }), webDist.FullName);
+
+            Assert.Equal(new Uri("http://localhost:5173"), capabilities.AdminIdentity?.Origin);
+            Assert.Equal("localhost", capabilities.AdminIdentity?.RpId);
+            Assert.True(capabilities.AdminTagMetadata);
+            Assert.True(capabilities.AdminCategoryMetadata);
+            Assert.True(capabilities.AdminArticleRollback);
+            Assert.True(capabilities.SitePageEditor);
+            Assert.True(capabilities.OnlineAppearance);
+        }
+        finally
+        {
+            Directory.Delete(root.FullName, recursive: true);
+            Directory.Delete(webDist.FullName, recursive: true);
+        }
     }
 
     [Fact]

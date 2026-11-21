@@ -16,18 +16,34 @@ internal static class LocalSearchVectors
         if (!first[0].AsSpan().SequenceEqual(expected))
             throw new InvalidOperationException("FSPK writer differs from the independently constructed search corpus");
 
-        // Independent Murmur3 vectors include every tail width, NFKC and four-byte UTF-8.
+        // Independent Murmur3 vectors include every tail width, NFKC, four-byte UTF-8, and ASCII prefix/camelCase subwords.
         var tokenArticle = article with { Title = "A aB ABc ＡＢＣＤ abcDE ABCDEFGHI é 雪 𠀀 29",
             Body = "", Summary = null, Category = null, Tags = [] };
         var tokenShard = LocalSearchCorpus.Build([tokenArticle])![0].AsSpan(WireLayouts.SearchPackagePayloadOffset);
-        uint[] hashes = [0x10110787, 0x3c2569b2, 0x3ff6e96a, 0x421406f0, 0x43ed676a,
-            0x57f73152, 0x88cf0092, 0x9bbfd75f, 0xb3dd93fa, 0xe89b9af6];
+        uint[] hashes = [0x10110787, 0x20617ba6, 0x3c2569b2, 0x3ff6e96a, 0x421406f0,
+            0x43ed676a, 0x49ddccc4, 0x4f31114c, 0x57f73152, 0x6181c085,
+            0x883c9b06, 0x88cf0092, 0x9bbfd75f, 0xb3dd93fa, 0xe89b9af6];
         var termCount = BinaryPrimitives.ReadInt32LittleEndian(tokenShard[16..]);
         var termOffset = BinaryPrimitives.ReadInt32LittleEndian(tokenShard[36..]);
         if (termCount != hashes.Length) throw new InvalidOperationException("FSPK tokenizer produced an unexpected term count");
         for (var i = 0; i < hashes.Length; i++)
             if (BinaryPrimitives.ReadUInt32LittleEndian(tokenShard[(termOffset + i * WireLayouts.SearchTermRecordSize)..]) != hashes[i])
                 throw new InvalidOperationException("FSPK token hash differs from independent Murmur3 vectors");
+
+        var asciiSubwordArticle = tokenArticle with { Title = "FsusBlog FsusUI PostgreSQL" };
+        var asciiShard = LocalSearchCorpus.Build([asciiSubwordArticle])![0].AsSpan(WireLayouts.SearchPackagePayloadOffset);
+        var asciiDocOffset = BinaryPrimitives.ReadInt32LittleEndian(asciiShard[40..]);
+        if (BinaryPrimitives.ReadInt32LittleEndian(asciiShard[(asciiDocOffset + 20)..]) != 3)
+            throw new InvalidOperationException("FSPK ASCII subwords must not inflate document length");
+        var asciiTermCount = BinaryPrimitives.ReadInt32LittleEndian(asciiShard[16..]);
+        var asciiTermOffset = BinaryPrimitives.ReadInt32LittleEndian(asciiShard[36..]);
+        var asciiHashes = new HashSet<uint>(asciiTermCount);
+        for (var i = 0; i < asciiTermCount; i++)
+            asciiHashes.Add(BinaryPrimitives.ReadUInt32LittleEndian(asciiShard[(asciiTermOffset + i * WireLayouts.SearchTermRecordSize)..]));
+        // fsu, blog, ui, post, sql, fsusblog, fsusui, postgresql
+        foreach (var expectedHash in (uint[])[0x0c2f3a3b, 0xfea39fc2, 0xb291ae90, 0x97e96e58, 0x95dd7f4c, 0x579fce26, 0x25e32459, 0x3fa414a9])
+            if (!asciiHashes.Contains(expectedHash))
+                throw new InvalidOperationException($"FSPK missed expected ASCII prefix/subword hash 0x{expectedHash:x8}");
 
         var dictionaryArticle = tokenArticle with { Title = "ABC", Body = "博客搜索的公开页" };
         var dictionary = LocalSearchCorpus.Build([dictionaryArticle])![0];

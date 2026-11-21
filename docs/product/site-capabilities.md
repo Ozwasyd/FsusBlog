@@ -14,8 +14,8 @@ FSUSBLOG_DATA_DIR=/var/lib/fsusblog
 
 - **单源自动推导**：未设置 `FSUSBLOG_PASSKEY_ORIGIN` 或 `FSUSBLOG_ADMIN_ORIGIN` 时，均自动复用 `FSUSBLOG_PUBLIC_ORIGIN`；未设置 `FSUSBLOG_PASSKEY_RP_ID` 或 `FSUSBLOG_ADMIN_RP_ID` 时，自动取对应 Origin 的规范化主机名（`IdnHost`）。显式设置 `FSUSBLOG_PASSKEY_ORIGIN=""` 可静默关闭站点 Passkey（同时自动关闭依赖它的读者注册与持久续期）；显式设置 `FSUSBLOG_ADMIN_ORIGIN=""` 可静默关闭全部管理后台与创作入口（纯公开只读节点）；显式设置 `FSUSBLOG_ADMIN_ORIGIN=https://admin.example.com` 仍可选拆分独立管理域名。显式提供不匹配的 `RP_ID` 仍会在启动时立即失败。
 - **统一数据目录 `FSUSBLOG_DATA_DIR`**：要求绝对路径且与 `FSUSBLOG_WEB_DIST` 严格隔离。启动时自动创建 `0700` 权限的 `private-media/` 与 `public-media/` 子目录，并按需静默发现可选资产：
-  - `site-pages/` 同时包含 `about.md`、`privacy.md`、`guidelines.md`、`copyright.md` 时自动启用静态站点页及在线编辑器（HTTPS 来源下）；
-  - `appearance/appearance.json` 存在时自动加载签名外观注册表及在线切换（HTTPS 来源下）；
+  - `site-pages/` 同时包含 `about.md`、`privacy.md`、`guidelines.md`、`copyright.md` 时自动启用静态站点页及在线编辑器（HTTPS 来源或本机 Loopback 管理源下）；
+  - `appearance/appearance.json` 存在时自动加载签名外观注册表及在线切换（HTTPS 来源或本机 Loopback 管理源下）；
   - `traffic-regions.json` 存在时自动启用离线流量区域统计。
   - 单独配置 `FSUSBLOG_PRIVATE_MEDIA_ROOT`、`FSUSBLOG_PUBLIC_MEDIA_ROOT`、`FSUSBLOG_SITE_PAGES`、`FSUSBLOG_APPEARANCE_ROOT` 或 `FSUSBLOG_SITE_TRAFFIC_REGIONS` 会覆盖对应子路径；显式设为空字符串 `""` 可在启用 `FSUSBLOG_DATA_DIR` 时单独关闭该项。
 - **安全密钥一键生成**：TOTP、Recovery Key 与订阅 HMAC 密钥绝不内置弱默认值，可通过离线 CSPRNG 命令一次性生成 256-bit 随机十六进制密钥：
@@ -36,7 +36,7 @@ dotnet FsusBlog.V2.Cli.dll admin-identity bootstrap HANDLE
 | --- | --- | --- |
 | 无条件默认开启 | 公开评论提交 `FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS`、登录评论回复 `FSUSBLOG_SIGNED_IN_COMMENT_REPLIES`、私有站内信写入 `FSUSBLOG_PRIVATE_INBOX_WRITES`、异步文档导出 `FSUSBLOG_DOCUMENT_EXPORT_TASKS`、公开热门文章 `FSUSBLOG_PUBLIC_HOT_ARTICLES`、宽语料分段搜索 `FSUSBLOG_WIDE_SEARCH_CORPUS`、公开搜索模式 `FSUSBLOG_PUBLIC_SEARCH_MODE`（默认 `auto`） | 启动即启用；显式设为 `false`（或搜索模式设为 `local`/`server`）时静默覆盖 |
 | 依赖公开 HTTPS 源自动开启 | 站点 Passkey、读者自助注册 `FSUSBLOG_READER_REGISTRATION`、持久会话续期 `FSUSBLOG_SITE_PERSISTENT_REFRESH`、阅读证明计数 `FSUSBLOG_ARTICLE_READ_PROOF`、无追踪站点流量统计 `FSUSBLOG_SITE_TRAFFIC` | 配置 `FSUSBLOG_PUBLIC_ORIGIN` 后自动启用；未配置时静默保持关闭；显式 `=true` 但缺少前提时启动即报错 |
-| 依赖管理员源自动开启 | 管理员站内信回复/状态/通知/共享已读/实时推送/活动排序（`FSUSBLOG_ADMIN_INBOX_*`）、评论批量审核 `FSUSBLOG_ADMIN_COMMENT_BATCH`；HTTPS 管理员源额外自动开启已发布文章回滚 `FSUSBLOG_ADMIN_ARTICLE_ROLLBACK`、标签与分类元数据 `FSUSBLOG_ADMIN_TAG_METADATA` / `FSUSBLOG_ADMIN_CATEGORY_METADATA` | 默认从 `FSUSBLOG_PUBLIC_ORIGIN` 自动推导（或通过 `FSUSBLOG_ADMIN_ORIGIN` 显式覆盖）并按协议安全级别自动启用；显式 `FSUSBLOG_ADMIN_ORIGIN=""` 关闭全部后台；单项 `=false` 可逐项关闭；显式 `=true` 但缺少 HTTPS 来源时启动即报错 |
+| 依赖管理员源自动开启 | 管理员站内信回复/状态/通知/共享已读/实时推送/活动排序（`FSUSBLOG_ADMIN_INBOX_*`）、评论批量审核 `FSUSBLOG_ADMIN_COMMENT_BATCH`、已发布文章回滚 `FSUSBLOG_ADMIN_ARTICLE_ROLLBACK`、标签与分类元数据 `FSUSBLOG_ADMIN_TAG_METADATA` / `FSUSBLOG_ADMIN_CATEGORY_METADATA` | 默认从 `FSUSBLOG_PUBLIC_ORIGIN` 自动推导（或通过 `FSUSBLOG_ADMIN_ORIGIN` 显式配置 HTTPS / 本机 Loopback 管理源）并自动启用；显式 `FSUSBLOG_ADMIN_ORIGIN=""` 关闭全部后台；单项 `=false` 可逐项关闭；显式 `=true` 但缺少管理员源时启动即报错 |
 | 依赖数据目录与资产自动开启 | 私有媒体分片续传 `FSUSBLOG_PRIVATE_MEDIA_RESUMABLE`、站点页在线编辑 `FSUSBLOG_SITE_PAGE_EDITOR`、签名外观在线激活 `FSUSBLOG_APPEARANCE_ACTIVATION` | 目录或必需基线文件就绪后自动激活；显式 `=false` 或目录项置空 `""` 时静默关闭 |
 | 外部信任边界与密钥（保持显式） | `FSUSBLOG_TRUST_LOOPBACK_PROXY`、`FSUSBLOG_TOTP_KEY_HEX`、`FSUSBLOG_RECOVERY_KEY_PEPPER_HEX`、`FSUSBLOG_SUBSCRIPTION_HMAC_KEY`、`FSUSBLOG_PDF_TOOL_ROOT` / `FSUSBLOG_PDF_TOOL_SHA256`、`FSUSBLOG_PLATFORM_PLUGIN_ROOT` / `FSUSBLOG_AUTHOR_PLUGIN_PREVIEW_ID`、`FSUSBLOG_RUNTIME_EVIDENCE_*` | 保持显式 opt-in，绝不自动放宽信任边界或使用弱默认密钥 |
 
@@ -47,5 +47,5 @@ dotnet FsusBlog.V2.Cli.dll admin-identity bootstrap HANDLE
 - 首页热门文章模块仅在已存在已验证阅读记录（`hotArticles.length > 0`）时渲染；
 - 搜索排序切换（相关度 / 最新发布）仅在匹配文章数 `> 1` 时渲染，单结果或空结果不展示多余排序栏；
 - 搜索分页栏仅在结果超出单页或处于后续页时渲染；
-- 管理后台文章工作区的「已发布回滚」标签仅在 HTTPS 管理员源启用回滚能力时展示；
+- 管理后台文章工作区的「已发布回滚」标签仅在安全上下文管理员源启用回滚能力时展示；
 - 创作工作区的异步导出面板默认折叠，PDF 格式仅在配置受检沙箱工具链时出现。

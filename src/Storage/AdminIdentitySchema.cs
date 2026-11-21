@@ -13,7 +13,7 @@ internal static partial class CurrentSchema
     private static string StepUpColumns(string table) =>
         $"{table} digest:bytea principal_id:uuid session_digest:bytea generation:int8 action:int4 body_digest:bytea options:text? expires_at:timestamptz kind:int2";
 
-    private static string[] StepUpConstraints(string table, string action, bool validateOptions = true) =>
+    private static string[] StepUpConstraints(string table, string action) =>
     [
         $"{table} p digest",
         $"{table} f principal_id public.admin_principal:id",
@@ -24,11 +24,8 @@ internal static partial class CurrentSchema
         $"{table} c generation generation>0",
         $"{table} c action {action}",
         $"{table} c body_digest octet_length(body_digest)=32",
-        ..(validateOptions ? new[]
-        {
-            $"{table} c options octet_length(options)>=1ANDoctet_length(options)<=8192",
-            $"{table} c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
-        } : [$"{table} c kind kind>=1ANDkind<=2"])
+        $"{table} c options octet_length(options)>=1ANDoctet_length(options)<=8192",
+        $"{table} c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
     ];
 
     private static readonly string[] AdminIdentityColumns =
