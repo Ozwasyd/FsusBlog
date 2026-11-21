@@ -85,6 +85,8 @@ try {
       assert.ok(languageBox && themeBox)
       assert.ok(Math.abs(languageBox.y - themeBox.y) <= 1)
       assert.ok(Math.abs(languageBox.height - themeBox.height) <= 1)
+      assert.ok(languageBox.height >= 44 && languageBox.height <= 46)
+      assert.ok(themeBox.width > languageBox.width)
       assert.ok(languageBox.x + languageBox.width < themeBox.x)
       assert.ok(themeBox.x + themeBox.width <= width)
       assert.equal(await themeControl.locator('option[value=system]').textContent(), '跟随系统')
