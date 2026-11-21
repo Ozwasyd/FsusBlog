@@ -31,7 +31,7 @@ public sealed class AdminInboxPostgresTests
         await SeedSession(db, secondAccount, "second ticket account", secondToken, ct);
 
         var accountStore = new Store(fixture.DataSource);
-        var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        var adminStore = new AdminInboxStore(new AdminSessionGate(fixture.DataSource, null));
         Assert.Empty(await adminStore.InboxQueuePosition(adminToken, -1, false, ct));
         var denied = await Assert.ThrowsAsync<BusinessException>(() => adminStore.InboxQueuePosition(firstToken, -1, false, ct));
         Assert.Equal(Rejection.Unauthorized, denied.Rejection);

@@ -28,7 +28,7 @@ public sealed class AdminTagMetadataPostgresTests
 
         await using var lease = new InstanceLease(fixture.ConnectionString);
         await lease.Start(NullLogger.Instance, ct, new(AdminTagMetadata: true));
-        var admin = new AdminPasskeyStore(fixture.DataSource, lease, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var admin = new AdminTagMetadataStore(new AdminSessionGate(fixture.DataSource, lease));
         var publications = Project();
         await publications.Refresh(ct);
         var baseline = publications.Snapshot!;
@@ -123,7 +123,7 @@ public sealed class AdminTagMetadataPostgresTests
         await FixtureSql.ExecuteAsync(db, null, ct, "insert into public.tag_url_name values('RETIRED TOPIC',4)");
         await using var lease = new InstanceLease(fixture.ConnectionString);
         await lease.Start(NullLogger.Instance, ct, new(AdminTagMetadata: true));
-        var admin = new AdminPasskeyStore(fixture.DataSource, lease, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var admin = new AdminTagMetadataStore(new AdminSessionGate(fixture.DataSource, lease));
         var publications = PublicationFixture.Project(fixture.DataSource, lease);
         await publications.Refresh(ct);
         var before = publications.Snapshot!;

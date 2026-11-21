@@ -137,7 +137,8 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         var archivePlan = new PlanReader(stream);
         var archiveSettings = new NpgsqlConnectionStringBuilder(settings.ConnectionString) { Pooling = true, MaxPoolSize = 1 };
         await using var archiveSource = NpgsqlDataSource.Create(archiveSettings.ConnectionString);
-        var archiveStore = new AdminPasskeyStore(archiveSource, lease, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+        var archiveGate = new AdminSessionGate(archiveSource, lease);
+        var archiveStore = new AdminArticleArchiveStore(archiveGate, new AdminStepUpService(archiveGate));
         var session = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         var sessionDigest = Store.TokenDigest(session)!;
         await StartArchiveSession(db, lease, sessionDigest, ct);
@@ -298,7 +299,7 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
     {
         var proof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
         var proofDigest = SHA256.HashData(Encoding.ASCII.GetBytes(proof));
-        var intentDigest = AdminPasskeyStore.ArticleArchiveIntentDigest(intent);
+        var intentDigest = AdminArticleArchiveStore.ArticleArchiveIntentDigest(intent);
         await using (var step = Store.Sql(db, tx, """
             with session as (
                 update public.admin_session set expires_at=clock_timestamp()+interval '2 minutes'

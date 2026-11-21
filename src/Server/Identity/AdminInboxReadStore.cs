@@ -3,18 +3,18 @@ using FsusBlog.V2.Core;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminInboxReadStore(AdminSessionGate gate)
 {
-    private const byte InboxReadScope = 9;
-    private const string AdminReadJoin = "LEFT JOIN public.inbox_admin_read r ON r.conversation_id=c.id";
-    private const string AdminUnread = """
+    internal const byte InboxReadScope = 9;
+    internal const string AdminReadJoin = "LEFT JOIN public.inbox_admin_read r ON r.conversation_id=c.id";
+    internal const string AdminUnread = """
         (SELECT count(*) FROM public.inbox_message unread
          WHERE unread.conversation_id=c.id AND NOT unread.is_internal AND unread.sender=0
            AND unread.id>coalesce(r.read_through,0))
         """;
 
     internal Task<int> AcknowledgeInboxRead(string? token, long id, long through, string snapshot, CancellationToken ct) =>
-        WithLiveAdmin(token, async (db, tx, admin) =>
+        gate.WithLiveAdmin(token, async (db, tx, admin) =>
         {
             if (!AdminInboxCursor.TryDecode(snapshot, admin.Digest, InboxReadScope, out var captured) ||
                 captured.First != id || captured.Second != through)
@@ -41,5 +41,5 @@ internal sealed partial class AdminPasskeyStore
             return CountInboxUnread((long)(await count.ExecuteScalarAsync(ct))!);
         }, ct);
 
-    private static int CountInboxUnread(long count) => (int)Math.Min(int.MaxValue, count);
+    internal static int CountInboxUnread(long count) => (int)Math.Min(int.MaxValue, count);
 }

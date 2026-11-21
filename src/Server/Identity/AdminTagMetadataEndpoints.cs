@@ -9,7 +9,7 @@ internal static class AdminTagMetadataEndpoints
     internal const string Setting = "FSUSBLOG_ADMIN_TAG_METADATA";
     internal const string CategorySetting = "FSUSBLOG_ADMIN_CATEGORY_METADATA";
 
-    internal static void Map(WebApplication app, Uri origin, AdminPasskeyStore store, string session,
+    internal static void Map(WebApplication app, Uri origin, AdminTagMetadataStore store, string session,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, bool category = false)
     {
         var actions = new AdminActionRoutes(app, origin.GetLeftPart(UriPartial.Authority), session, readFrame);

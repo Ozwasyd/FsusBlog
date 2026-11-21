@@ -5,14 +5,14 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminInboxStore(AdminSessionGate gate)
 {
     private const string InboxStatusHead = """
         coalesce((SELECT s.id FROM public.inbox_admin_status s WHERE s.conversation_id=c.id ORDER BY s.id DESC LIMIT 1), 0)
         """;
 
     internal Task<string> InboxQueuePosition(string? token, int filter, bool statusEnabled, CancellationToken ct) =>
-        WithLiveAdmin(token, async (db, tx, _) =>
+        gate.WithLiveAdmin(token, async (db, tx, _) =>
         {
             // Compare the actual page plus its pagination boundary. The highest ID alone
             // misses status changes and tickets allocated earlier but committed later.
@@ -31,7 +31,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<string> InboxThreadPosition(string? token, long id, bool statusEnabled, CancellationToken ct) =>
-        WithLiveAdmin(token, async (db, tx, _) =>
+        gate.WithLiveAdmin(token, async (db, tx, _) =>
         {
             var statusHead = statusEnabled ? InboxStatusHead : "0";
             await using var query = Store.Sql(db, tx, $"""
@@ -43,12 +43,12 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<AdminInboxPage> ReadInbox(string? token, int filter, string? next, CancellationToken ct, bool shared = false) =>
-        WithLiveAdmin(token, async (db, tx, admin) =>
+        gate.WithLiveAdmin(token, async (db, tx, admin) =>
         {
             var scope = checked((byte)(filter + (shared ? 17 : 1)));
             var position = InboxPosition(next, admin.Digest, scope);
-            var unread = shared ? AdminUnread : "0::bigint";
-            var join = shared ? AdminReadJoin : "";
+            var unread = shared ? AdminInboxReadStore.AdminUnread : "0::bigint";
+            var join = shared ? AdminInboxReadStore.AdminReadJoin : "";
             await using var query = Store.Sql(db, tx, $"""
                 SELECT c.id,c.account_id,c.subject,c.status,c.is_system,{InboxStore.ConversationActivity},unread.count
                 FROM public.inbox_conversation c {join}
@@ -73,13 +73,13 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<AdminInboxThread> ReadInboxThread(string? token, long id, string? older, CancellationToken ct, bool shared = false) =>
-        WithLiveAdmin(token, async (db, tx, admin) =>
+        gate.WithLiveAdmin(token, async (db, tx, admin) =>
         {
             var scope = shared ? (byte)24 : (byte)8;
             var position = InboxPosition(older, admin.Digest, scope);
             if (position is { } boundary && boundary.First != id) throw InvalidInboxCursor();
-            var unread = shared ? AdminUnread : "0::bigint";
-            var join = shared ? AdminReadJoin : "";
+            var unread = shared ? AdminInboxReadStore.AdminUnread : "0::bigint";
+            var join = shared ? AdminInboxReadStore.AdminReadJoin : "";
             await using var query = Store.Sql(db, tx, $"""
                 SELECT c.id,c.account_id,c.subject,c.status,c.is_system,{InboxStore.ConversationActivity},
                     m.id,m.sender,m.is_internal,m.sent_at,m.body,c.xmin::text,{unread}
@@ -110,16 +110,16 @@ internal sealed partial class AdminPasskeyStore
             if (conversation is null) throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
             items.Reverse();
             var latestVisible = shared && older is null ? items.LastOrDefault(message => !message.Internal) : null;
-            var read = latestVisible is null ? null : new AdminInboxCursor(id, latestVisible.Id).Encode(admin.Digest, InboxReadScope);
+            var read = latestVisible is null ? null : new AdminInboxCursor(id, latestVisible.Id).Encode(admin.Digest, AdminInboxReadStore.InboxReadScope);
             return new AdminInboxThread(conversation, items, previous, version, read);
         }, ct);
 
-    private static AdminInboxRow InboxRow(NpgsqlDataReader row, int unread) => new(row.GetInt64(0), row.GetGuid(1),
+    internal static AdminInboxRow InboxRow(NpgsqlDataReader row, int unread) => new(row.GetInt64(0), row.GetGuid(1),
         row.GetString(2), row.GetInt16(3), row.GetBoolean(4), row.GetFieldValue<DateTimeOffset>(5).ToUnixTimeMilliseconds(),
-        CountInboxUnread(row.GetInt64(unread)));
+        AdminInboxReadStore.CountInboxUnread(row.GetInt64(unread)));
 
     private static AdminInboxCursor? InboxPosition(string? value, byte[] session, byte scope) => value is null ? null :
         AdminInboxCursor.TryDecode(value, session, scope, out var cursor) ? cursor : throw InvalidInboxCursor();
 
-    private static BusinessException InvalidInboxCursor() => new(Rejection.Invalid, "The administrator inbox cursor is invalid or expired.");
+    internal static BusinessException InvalidInboxCursor() => new(Rejection.Invalid, "The administrator inbox cursor is invalid or expired.");
 }

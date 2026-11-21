@@ -3,10 +3,10 @@ using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminSignInHistoryStore(AdminSessionGate gate)
 {
     internal Task<(AdminSignInHistorySnapshot History, string PermissionSession)> RecentSignIns(string? token, CancellationToken ct) =>
-        WithLiveAdmin(token, async (db, tx, admin) =>
+        gate.WithLiveAdmin(token, async (db, tx, admin) =>
         {
             await using var command = Store.Sql(db, tx, """
                 select h.started_at,h.expires_at,h.ended_at,coalesce(h.id=s.sign_in_id,false)
@@ -27,6 +27,6 @@ internal sealed partial class AdminPasskeyStore
                 var state = current ? AdminSignInState.Current : ended == expires ? AdminSignInState.Expired : AdminSignInState.Ended;
                 signIns.Add(new(started, expires, ended, state));
             }
-            return (new AdminSignInHistorySnapshot(admin.Snapshot.Generation, signIns), PermissionBinding(admin.Digest));
+            return (new AdminSignInHistorySnapshot(admin.Snapshot.Generation, signIns), AdminSessionGate.PermissionBinding(admin.Digest));
         }, ct);
 }

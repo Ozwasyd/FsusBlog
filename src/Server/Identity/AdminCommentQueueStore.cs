@@ -5,11 +5,11 @@ using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminCommentQueueStore(AdminSessionGate gate)
 {
     internal Task<AdminCommentQueue> CommentQueue(string? token, IQueryCollection query, CancellationToken ct,
         Action? advertiseBatch = null) =>
-        WithSession(token, async (db, tx, _) =>
+        gate.WithSession(token, async (db, tx, _) =>
         {
             var (afterComment, afterArticle) = QueueCursor(query);
             if (advertiseBatch is not null && await CurrentSchema.HasAdminCommentBatchSchemaAsync(db, tx, ct)) advertiseBatch();

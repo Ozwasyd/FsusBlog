@@ -14,7 +14,9 @@ public sealed class AdminEffectivePermissionsPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var store = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        var store = new AdminSessionGate(fixture.DataSource, null);
+        var operations = new AdminOperationsStore(store);
+        var commentQueue = new AdminCommentQueueStore(store);
         var publications = PublicationFixture.Project(fixture.DataSource);
         var (owner, firstToken) = await Add("first");
         var (other, secondToken) = await Add("second");
@@ -28,8 +30,8 @@ public sealed class AdminEffectivePermissionsPostgresTests
         var sibling = await store.SessionWithPermissionBinding(secondToken, ct);
         Assert.Equal(snapshot.Snapshot.Generation, sibling.Snapshot.Generation);
         Assert.NotEqual(snapshot.PermissionSession, sibling.PermissionSession);
-        await store.OperationsStatus(firstToken, publications, ct);
-        await store.CommentQueue(firstToken, Microsoft.AspNetCore.Http.QueryCollection.Empty, ct);
+        await operations.OperationsStatus(firstToken, publications, ct);
+        await commentQueue.CommentQueue(firstToken, Microsoft.AspNetCore.Http.QueryCollection.Empty, ct);
         await Denied(() => store.SessionWithPermissionBinding(null, ct));
         await Denied(() => store.SessionWithPermissionBinding(siteUser.Token, ct));
 
@@ -49,8 +51,8 @@ public sealed class AdminEffectivePermissionsPostgresTests
         var renewed = await store.SessionWithPermissionBinding(newToken, ct);
         Assert.Equal(2L, renewed.Snapshot.Generation);
         Assert.NotEqual(snapshot.PermissionSession, renewed.PermissionSession);
-        await store.OperationsStatus(newToken, publications, ct);
-        await store.CommentQueue(newToken, Microsoft.AspNetCore.Http.QueryCollection.Empty, ct);
+        await operations.OperationsStatus(newToken, publications, ct);
+        await commentQueue.CommentQueue(newToken, Microsoft.AspNetCore.Http.QueryCollection.Empty, ct);
         Assert.Equal(sibling.PermissionSession, (await store.SessionWithPermissionBinding(secondToken, ct)).PermissionSession);
         await Execute("update public.admin_principal set enabled=false where id=$1", other);
         await Denied(() => store.SessionWithPermissionBinding(secondToken, ct));
@@ -92,12 +94,14 @@ public sealed class AdminEffectivePermissionsPostgresTests
             values($1,$2,1,clock_timestamp()+interval '10 minutes')
             """, Store.TokenDigest(token)!, principalId);
 
-        var adminStore = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        var adminStore = new AdminSessionGate(fixture.DataSource, null);
+        var operations = new AdminOperationsStore(adminStore);
+        var commentQueue = new AdminCommentQueueStore(adminStore);
         var publications = PublicationFixture.Project(fixture.DataSource);
         var active = await adminStore.SessionWithPermissionBinding(token, ct);
         Assert.Equal("unified-admin", active.Snapshot.Handle);
-        await adminStore.OperationsStatus(token, publications, ct);
-        await adminStore.CommentQueue(token, Microsoft.AspNetCore.Http.QueryCollection.Empty, ct);
+        await operations.OperationsStatus(token, publications, ct);
+        await commentQueue.CommentQueue(token, Microsoft.AspNetCore.Http.QueryCollection.Empty, ct);
         var article = (await publications.Command(new Store(fixture.DataSource), token, ArticleAction.Save,
             new Edit(0, 0, Guid.NewGuid(), "Unified admin article", "Body"), ct)).Article;
         Assert.True(article.Id > 0);

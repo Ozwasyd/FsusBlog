@@ -38,7 +38,9 @@ public sealed class AdminStepUpPostgresTests
         var moderator = await Admin("moderator", true);
         var other = await Admin("other-moderator", true);
         var siteUser = await fixture.SignInSiteUser("step-up-site-user", ct);
-        var service = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        var gate = new AdminSessionGate(fixture.DataSource, null);
+        var passkeys = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("http://localhost"), "localhost"));
+        var service = new AdminStepUpService(gate, passkeys);
         var intent = new AdminModerationIntent(1, 1, 0, 1, "Policy reviewed");
         await Denied(Rejection.Unauthorized, () => service.BeginModerationStepUp(siteUser.Token, intent, ct));
         await Denied(Rejection.NotFound, () => service.BeginModerationStepUp(moderator.Token, intent with { CommentId = 3 }, ct));
@@ -95,7 +97,7 @@ public sealed class AdminStepUpPostgresTests
                 insert into public.admin_step_up(digest,principal_id,session_digest,generation,action,body_digest,options,expires_at,kind)
                 values($1,$2,$3,1,1,$4,null,clock_timestamp()+$5 * interval '1 second',2)
                 on conflict (session_digest,kind) do update set digest=excluded.digest,expires_at=excluded.expires_at
-                """, SHA256.HashData(System.Text.Encoding.ASCII.GetBytes(token)), id, session, AdminPasskeyStore.IntentDigest(intent), lifetime);
+                """, SHA256.HashData(System.Text.Encoding.ASCII.GetBytes(token)), id, session, AdminStepUpService.IntentDigest(intent), lifetime);
             return token;
         }
 

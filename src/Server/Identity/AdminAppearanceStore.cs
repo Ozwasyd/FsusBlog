@@ -9,12 +9,12 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminAppearanceStore(AdminSessionGate gate, AdminStepUpService stepUp)
 {
     private const string AppearancePowScope = "site";
 
     internal Task<byte[]> ReadAppearance(string? session, AppearanceRegistry registry, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, _) =>
+        gate.WithLiveAdmin(session, async (db, tx, _) =>
         {
             var current = await AppearanceActivationStore.Read(db, tx, registry, ct);
             var previous = await AppearanceActivationStore.Previous(db, tx, current.Revision, ct);
@@ -24,11 +24,11 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<byte[]> AppearanceCatalog(string? session, AppearanceRegistry registry, CancellationToken ct) =>
-        WithLiveAdmin(session, (_, _, _) => Task.FromResult(Wire.EncodeAdminAppearanceCatalog(
+        gate.WithLiveAdmin(session, (_, _, _) => Task.FromResult(Wire.EncodeAdminAppearanceCatalog(
             registry.Available().Select(entry => new AdminAppearancePackage(entry.Id, entry.Version, entry.ArchiveDigest, entry.Font)).ToArray())), ct);
 
     internal Task<byte[]> AppearanceFontDetail(string? session, AppearanceRegistry registry, string? digest, CancellationToken ct) =>
-        WithLiveAdmin(session, (_, _, _) =>
+        gate.WithLiveAdmin(session, (_, _, _) =>
         {
             if (digest is not { Length: WireLimits.AdminAppearanceDigestBytes } ||
                 !digest.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'))
@@ -42,19 +42,19 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<byte[]> AppearanceHistory(string? session, long? before, int limit, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, _) =>
+        gate.WithLiveAdmin(session, async (db, tx, _) =>
             Wire.EncodeAdminAppearanceHistory(await AppearanceActivationStore.History(db, tx, before, limit, ct), limit), ct);
 
     internal Task<byte[]> BeginAppearanceStepUp(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, CancellationToken ct) =>
-        BeginStepUp(session, AppearanceIntentDigest(command),
-            (db, tx, _) => CheckAppearance(db, tx, registry, command, ct), ct, StepUpAction.ActivateAppearance);
+        stepUp.BeginStepUp(session, AppearanceIntentDigest(command),
+            (db, tx, _) => CheckAppearance(db, tx, registry, command, ct), ct, AdminStepUpAction.ActivateAppearance);
 
     internal Task<byte[]> CompleteAppearanceStepUp(string? session, PasskeyLoginRequest assertion, CancellationToken ct) =>
-        CompleteStepUp(session, assertion, StepUpAction.ActivateAppearance, ct);
+        stepUp.CompleteStepUp(session, assertion, AdminStepUpAction.ActivateAppearance, ct);
 
     internal Task<byte[]> IssueAppearancePow(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, byte[] frame,
         ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, _) =>
+        gate.WithLiveAdmin(session, async (db, tx, _) =>
         {
             await CheckAppearance(db, tx, registry, command, ct);
             return PowWire.EncodeChallenge(pow.Issue(PowScope.AdminAppearance, AppearancePowScope, session!, ScopedPow.Source(ctx),
@@ -63,12 +63,11 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task ApplyAppearance(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, byte[] frame,
         string? proof, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             var (current, next) = await CheckAppearance(db, tx, registry, command, ct, locked: true);
-            if (proof is not { Length: 43 } || !proof.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_') ||
-                !await ConsumeStepUpProof(db, tx, admin, ChallengeDigest(proof, null), AppearanceIntentDigest(command), ct,
-                    StepUpAction.ActivateAppearance))
+            if (!await stepUp.ConsumeProofAsync(db, tx, admin, proof, AppearanceIntentDigest(command), ct,
+                    AdminStepUpAction.ActivateAppearance))
                 throw new BusinessException(Rejection.Forbidden, "A current Passkey proof for this exact appearance change is required.");
             await pow.Consume(db, tx, PowScope.AdminAppearance, AppearancePowScope, session!, ScopedPow.Source(ctx), frame,
                 ScopedPow.ReadProof(ctx), ct);

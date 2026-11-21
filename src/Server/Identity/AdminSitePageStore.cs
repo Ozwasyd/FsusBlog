@@ -8,22 +8,29 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminSitePageStore(AdminSessionGate gate, AdminStepUpService? stepUp = null)
 {
+    internal Task<byte[]> SitePagesOverview(string? token, SitePages pages, CancellationToken ct) =>
+        gate.WithSession(token, (_, _, _) =>
+            Task.FromResult(Wire.EncodeAdminSitePages(new(pages.ConfiguredMask))), ct);
+
+    internal Task<byte[]> SitePage(string? token, SitePages pages, string slug, CancellationToken ct) =>
+        gate.WithSession(token, (db, tx, _) => pages.ConfiguredFrame(db, tx, slug, ct), ct);
+
     internal Task<AdminSitePageRevision> CurrentSitePage(string? session, SitePages pages, string slug, CancellationToken ct) =>
-        WithLiveAdmin(session, (db, tx, _) =>
+        gate.WithLiveAdmin(session, (db, tx, _) =>
             SitePagePublicationStore.Read(db, tx, pages.EditorBaseline(slug), ct), ct);
 
     internal Task<byte[]> BeginSitePageStepUp(string? session, SitePages pages, AdminSitePagePublish intent, CancellationToken ct) =>
-        BeginStepUp(session, SitePageIntentDigest(intent),
-            (db, tx, _) => CurrentSitePage(db, tx, pages, intent, ct), ct, StepUpAction.PublishSitePage);
+        RequireStepUp().BeginStepUp(session, SitePageIntentDigest(intent),
+            (db, tx, _) => CurrentSitePage(db, tx, pages, intent, ct), ct, AdminStepUpAction.PublishSitePage);
 
     internal Task<byte[]> CompleteSitePageStepUp(string? session, PasskeyLoginRequest assertion, CancellationToken ct) =>
-        CompleteStepUp(session, assertion, StepUpAction.PublishSitePage, ct);
+        RequireStepUp().CompleteStepUp(session, assertion, AdminStepUpAction.PublishSitePage, ct);
 
     internal Task<byte[]> IssueSitePagePow(string? session, SitePages pages, AdminSitePagePublish intent, byte[] frame,
         ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, _) =>
+        gate.WithLiveAdmin(session, async (db, tx, _) =>
         {
             await CurrentSitePage(db, tx, pages, intent, ct);
             return PowWire.EncodeChallenge(pow.Issue(PowScope.AdminSitePagePublish, intent.Slug, session!, ScopedPow.Source(ctx),
@@ -32,18 +39,21 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task PublishSitePage(string? session, SitePages pages, AdminSitePagePublish intent, byte[] frame,
         string? proof, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
+            var stepUpService = RequireStepUp();
             var current = await CurrentSitePage(db, tx, pages, intent, ct, forUpdate: true);
-            if (proof is not { Length: 43 } || !proof.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_') ||
-                !await ConsumeStepUpProof(db, tx, admin, ChallengeDigest(proof, null), SitePageIntentDigest(intent), ct,
-                    StepUpAction.PublishSitePage))
+            if (!await stepUpService.ConsumeProofAsync(db, tx, admin, proof, SitePageIntentDigest(intent), ct,
+                    AdminStepUpAction.PublishSitePage))
                 throw new BusinessException(Rejection.Forbidden, "A current Passkey proof for this exact site page change is required.");
             await pow.Consume(db, tx, PowScope.AdminSitePagePublish, intent.Slug, session!, ScopedPow.Source(ctx),
                 frame, ScopedPow.ReadProof(ctx), ct);
             await SitePagePublicationStore.Publish(db, tx, admin.Id, current, intent.Markdown, ct);
             return true;
         }, ct);
+
+    private AdminStepUpService RequireStepUp() =>
+        stepUp ?? throw new InvalidOperationException("Administrator site page editor Step-Up is not configured.");
 
     private static async Task<AdminSitePageRevision> CurrentSitePage(NpgsqlConnection db, NpgsqlTransaction tx, SitePages pages,
         AdminSitePagePublish intent, CancellationToken ct, bool forUpdate = false)

@@ -223,8 +223,9 @@ public sealed class AuthorTextPropertyFacetPostgresTests
                 insert into public.admin_article_rollback_step_up
                     (digest,principal_id,session_digest,generation,action,body_digest,expires_at,kind)
                 values($1,$2,$3,1,8,$4,clock_timestamp()+interval '45 seconds',2)
-                """, SHA256.HashData(Encoding.ASCII.GetBytes(proof)), admin, digest, AdminPasskeyStore.ArticleArchiveIntentDigest(intent));
-            var archives = new AdminPasskeyStore(fixture.DataSource, null, new PasskeyConfiguration(new Uri("https://localhost"), "localhost"));
+                """, SHA256.HashData(Encoding.ASCII.GetBytes(proof)), admin, digest, AdminArticleArchiveStore.ArticleArchiveIntentDigest(intent));
+            var gate = new AdminSessionGate(fixture.DataSource, null);
+            var archives = new AdminArticleArchiveStore(gate, new AdminStepUpService(gate));
             var receipt = await archives.ExecuteArticleArchive(token, proof, intent, () => { }, ct);
             Assert.Equal((draft.Id, published.Revision + 1, Wire.AdminArticleArchiveStatus), (receipt.ArticleId, receipt.Revision, receipt.TargetStatus));
         }

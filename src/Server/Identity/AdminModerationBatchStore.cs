@@ -7,11 +7,11 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminModerationBatchStore(AdminSessionGate gate, AdminStepUpService stepUp)
 {
     internal Task<IReadOnlyList<AdminModerationClaim>> AcquireModerationBatch(string? session,
         IReadOnlyList<AdminModerationClaimRequest> targets, CancellationToken ct) =>
-        WithLiveAdmin<IReadOnlyList<AdminModerationClaim>>(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin<IReadOnlyList<AdminModerationClaim>>(session, async (db, tx, admin) =>
         {
             await RequireModerationBatchSchema(db, tx, ct);
             var claims = new AdminModerationClaim[targets.Count];
@@ -20,7 +20,7 @@ internal sealed partial class AdminPasskeyStore
                 .OrderBy(row => row.target.ArticleId).ThenByDescending(row => row.target.CommentId);
             foreach (var (target, index) in ordered)
             {
-                try { claims[index] = await AcquireCommentClaim(db, tx, admin, target, ct); }
+                try { claims[index] = await AdminModerationStore.AcquireCommentClaim(db, tx, admin, target, ct); }
                 catch (BusinessException error) when (error.Rejection == Rejection.Conflict) { conflicts |= 1 << index; }
             }
             if (conflicts != 0) throw new ModerationBatchConflictException(conflicts);
@@ -30,26 +30,25 @@ internal sealed partial class AdminPasskeyStore
     internal Task<byte[]> BeginModerationBatchStepUp(string? session, byte[] frame, CancellationToken ct)
     {
         var decision = Wire.DecodeAdminModerationBatchDecision(frame);
-        return BeginStepUp(session, SHA256.HashData(frame), async (db, tx, admin) =>
+        return stepUp.BeginStepUp(session, SHA256.HashData(frame), async (db, tx, admin) =>
         {
             await RequireModerationBatchSchema(db, tx, ct);
             await VerifyModerationBatchClaims(db, tx, admin, decision, ct);
-        }, ct, StepUpAction.ModerateCommentBatch);
+        }, ct, AdminStepUpAction.ModerateCommentBatch);
     }
 
     internal Task<byte[]> CompleteModerationBatchStepUp(string? session, PasskeyLoginRequest request, CancellationToken ct) =>
-        CompleteStepUp(session, request, StepUpAction.ModerateCommentBatch, ct);
+        stepUp.CompleteStepUp(session, request, AdminStepUpAction.ModerateCommentBatch, ct, RequireModerationBatchSchema);
 
     internal Task<AdminModerationBatchReceipt> DecideModerationBatch(string? session, string? proof, byte[] frame,
         bool fenceVisibleMessages, CancellationToken ct)
     {
         var decision = Wire.DecodeAdminModerationBatchDecision(frame);
-        return WithLiveAdmin(session, async (db, tx, admin) =>
+        return gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await RequireModerationBatchSchema(db, tx, ct);
-            if (proof is not { Length: 43 } || !proof.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_') ||
-                !await ConsumeStepUpProof(db, tx, admin, ChallengeDigest(proof, null), SHA256.HashData(frame), ct,
-                    StepUpAction.ModerateCommentBatch))
+            if (!await stepUp.ConsumeProofAsync(db, tx, admin, proof, SHA256.HashData(frame), ct,
+                    AdminStepUpAction.ModerateCommentBatch))
                 throw new ModerationProofRequiredException();
             var ordered = await VerifyModerationBatchClaims(db, tx, admin, decision, ct);
             var status = checked((short)decision.Decision);
@@ -59,20 +58,20 @@ internal sealed partial class AdminPasskeyStore
                 """, admin.Id, SHA256.HashData(admin.Digest), status, decision.Rows.Count);
             var batch = (long)(await summary.ExecuteScalarAsync(ct))!;
             var audits = new List<long>(ordered.Length);
-            var approved = new List<ClaimCoordinates>();
+            var approved = new List<AdminModerationStore.ClaimCoordinates>();
             foreach (var (row, index) in ordered)
             {
                 var claim = Receipt(row);
                 try
                 {
-                    var (audit, notice) = await ApplyCommentDecision(db, tx, admin, claim, status, decision.Reason, ct);
+                    var (audit, notice) = await AdminModerationStore.ApplyCommentDecision(db, tx, admin, claim, status, decision.Reason, ct);
                     audits.Add(audit);
                     if (notice) approved.Add(claim);
                 }
                 catch (BusinessException error) when (error.Rejection == Rejection.Conflict)
                 { throw new ModerationBatchConflictException(1 << index); }
             }
-            await Execute(db, tx, ct, """
+            await AdminSql.Execute(db, tx, ct, """
                 insert into public.admin_comment_batch_item(batch_id,moderation_id)
                 select $1, audit_id from unnest($2::bigint[]) as audit_id
                 """, batch, audits.ToArray());
@@ -83,7 +82,7 @@ internal sealed partial class AdminPasskeyStore
     }
 
     private static async Task<(AdminModerationBatchItem Row, int Index)[]> VerifyModerationBatchClaims(NpgsqlConnection db,
-        NpgsqlTransaction tx, LiveAdmin admin, AdminModerationBatchDecision decision, CancellationToken ct)
+        NpgsqlTransaction tx, AdminLiveSession admin, AdminModerationBatchDecision decision, CancellationToken ct)
     {
         var ordered = decision.Rows.Select((row, index) => (Row: row, Index: index))
             .OrderBy(target => target.Row.ArticleId).ThenByDescending(target => target.Row.CommentId).ToArray();
@@ -92,7 +91,7 @@ internal sealed partial class AdminPasskeyStore
         {
             try
             {
-                await CheckClaim(db, tx, admin, Receipt(row), ct);
+                await AdminModerationStore.CheckClaim(db, tx, admin, Receipt(row), ct);
                 if (decision.Decision == 1)
                 {
                     await using var mask = Store.Sql(db, tx, """
@@ -107,11 +106,11 @@ internal sealed partial class AdminPasskeyStore
         return ordered;
     }
 
-    private static ClaimCoordinates Receipt(AdminModerationBatchItem row) =>
+    private static AdminModerationStore.ClaimCoordinates Receipt(AdminModerationBatchItem row) =>
         new(row.ArticleId, row.CommentId, row.CommentVersion, row.ClaimToken, row.ClaimGeneration, row.ClaimVersion);
 
     private static async Task DeliverModerationBatchNotices(NpgsqlConnection db, NpgsqlTransaction tx,
-        IReadOnlyList<ClaimCoordinates> approved, bool fenceVisibleMessages, CancellationToken ct)
+        IReadOnlyList<AdminModerationStore.ClaimCoordinates> approved, bool fenceVisibleMessages, CancellationToken ct)
     {
         var notices = new List<CommentReplies.ApprovedNotice>(approved.Count);
         foreach (var row in approved)

@@ -7,12 +7,8 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminArticleArchiveStore(AdminSessionGate gate, AdminStepUpService stepUp)
 {
-    internal Task<IResult> ArticleInventory(string? session, HttpContext ctx, Func<HttpContext, string, int, string?> query, CancellationToken ct) =>
-        WithSession(session,
-            (db, tx, _) => ArticleInventoryEndpoints.ReadPage(ctx, query, db, tx, null, ct), ct);
-
     // Check the exact current article, historical tail, and retained private release together.
     private const string CurrentArchive = $"""
         from public.admin_article_rollback archived
@@ -29,14 +25,14 @@ internal sealed partial class AdminPasskeyStore
         """;
 
     internal Task CheckArticleArchiveAvailability(string? session, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, _) =>
+        gate.WithLiveAdmin(session, async (db, tx, _) =>
         {
             await RequireArticleArchiveSchema(db, tx, ct);
             return true;
         }, ct);
 
     internal Task<AdminArticleArchivePage> ListArchivedArticles(string? session, int before, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, _) =>
+        gate.WithLiveAdmin(session, async (db, tx, _) =>
         {
             await RequireArticleArchiveSchema(db, tx, ct);
             var limit = WireLimits.AdminArticleArchivePageSize;
@@ -58,7 +54,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<byte[]> PreviewArchivedArticle(string? session, int article, long revision,
-        long privateRelease, CancellationToken ct) => WithLiveAdmin(session, async (db, tx, _) =>
+        long privateRelease, CancellationToken ct) => gate.WithLiveAdmin(session, async (db, tx, _) =>
     {
         await RequireArticleArchiveSchema(db, tx, ct);
         await using (var take = Store.Sql(db, tx, """
@@ -74,31 +70,31 @@ internal sealed partial class AdminPasskeyStore
     }, ct);
 
     internal Task<byte[]> BeginArticleArchiveStepUp(string? session, AdminArticleArchiveIntent intent, CancellationToken ct) =>
-        BeginStepUp(session, ArticleArchiveIntentDigest(intent), async (db, tx, _) =>
+        stepUp.BeginStepUp(session, ArticleArchiveIntentDigest(intent), async (db, tx, _) =>
         {
             await RequireArticleArchiveSchema(db, tx, ct);
             if (intent.TargetStatus == Wire.AdminArticleArchiveStatus)
             {
-                var state = await ReadRollbackTarget(db, tx, intent.ArticleId, intent.SourceRevision, locking: false, ct);
-                RequireRollbackTarget(state, ArchiveCoordinates(intent));
+                var state = await AdminArticleRollbackStore.ReadRollbackTarget(db, tx, intent.ArticleId, intent.SourceRevision, locking: false, ct);
+                AdminArticleRollbackStore.RequireRollbackTarget(state, ArchiveCoordinates(intent));
             }
             else
             {
                 await ReadArchivedTarget(db, tx, intent.ArticleId, intent.ExpectedRevision, intent.ExpectedReleaseId,
                     locking: false, includeBody: false, ct);
             }
-        }, ct, StepUpAction.ArticleArchive);
+        }, ct, AdminStepUpAction.ArticleArchive);
 
     internal Task<byte[]> CompleteArticleArchiveStepUp(string? session, PasskeyLoginRequest assertion, CancellationToken ct) =>
-        CompleteStepUp(session, assertion, StepUpAction.ArticleArchive, ct);
+        stepUp.CompleteStepUp(session, assertion, AdminStepUpAction.ArticleArchive, ct, RequireArticleArchiveSchema);
 
     internal async Task<AdminArticleArchiveReceipt> ExecuteArticleArchive(string? session, string? proof,
         AdminArticleArchiveIntent intent, Action invalidatePublic, CancellationToken ct)
     {
         var fingerprint = ArticleArchiveIntentDigest(intent);
         var receipt = intent.TargetStatus == Wire.AdminArticleArchiveStatus
-            ? await ExecuteArticleRollback(session, proof, ArchiveCoordinates(intent), fingerprint, StepUpAction.ArticleArchive,
-                intent.TargetStatus, invalidatePublic, ct)
+            ? await AdminArticleRollbackStore.ExecuteRollbackAsync(gate, stepUp, session, proof, ArchiveCoordinates(intent),
+                fingerprint, AdminStepUpAction.ArticleArchive, intent.TargetStatus, invalidatePublic, ct)
             : await RestoreArchivedArticle(session, proof, intent, fingerprint, invalidatePublic, ct);
         return new(receipt.ArticleId, receipt.Revision, receipt.SourceRevision, receipt.PreviousPublicationId,
             receipt.PublicationId, receipt.PublicationNo, receipt.PublishedUnixMs, receipt.RightsSnapshotId,
@@ -107,26 +103,26 @@ internal sealed partial class AdminPasskeyStore
 
     private Task<AdminArticleRollbackReceipt> RestoreArchivedArticle(string? session, string? proof,
         AdminArticleArchiveIntent intent, byte[] fingerprint, Action invalidatePublic, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await RequireArticleArchiveSchema(db, tx, ct);
             await Store.LockCommand(db, tx, admin.Id, intent.IdempotencyKey, ct);
-            var replay = await ReadRetainedRollback(db, tx, admin.Id, intent.IdempotencyKey, fingerprint,
-                StepUpAction.ArticleArchive, intent.TargetStatus, fromArchive: true, ct);
+            var replay = await AdminArticleRollbackStore.ReadRetainedRollback(db, tx, admin.Id, intent.IdempotencyKey, fingerprint,
+                AdminStepUpAction.ArticleArchive, intent.TargetStatus, fromArchive: true, ct);
             if (replay is not null) return replay;
-            await RequireRollbackProof(db, tx, admin, proof, fingerprint, StepUpAction.ArticleArchive, ct);
+            await AdminArticleRollbackStore.RequireRollbackProof(stepUp, db, tx, admin, proof, fingerprint, AdminStepUpAction.ArticleArchive, ct);
 
             var archive = await ReadArchivedTarget(db, tx, intent.ArticleId, intent.ExpectedRevision, intent.ExpectedReleaseId,
                 locking: true, includeBody: true, ct);
             var revision = checked(intent.ExpectedRevision + 1);
-            await CopyRollbackRevision(db, tx, intent.ArticleId, revision, intent.ExpectedRevision, archive.Title,
+            await AdminArticleRollbackStore.CopyRollbackRevision(db, tx, intent.ArticleId, revision, intent.ExpectedRevision, archive.Title,
                 archive.Body, intent.SourceRevision, intent.TargetStatus, ct);
             var release = await PublicationHistoryStore.RollbackByAdministrator(db, tx, intent.ArticleId,
                 intent.ExpectedReleaseId, intent.SourceRevision, revision, intent.ExpectedRevision, intent.ExpectedReleaseId,
                 archive.Responsibility, admin.Id, intent.IdempotencyKey, fingerprint, intent.Reason, intent.TargetStatus,
                 archive.Lineage, ct);
             invalidatePublic();
-            return RollbackReceipt(intent.ArticleId, revision, intent.SourceRevision, intent.ExpectedReleaseId, release);
+            return AdminArticleRollbackStore.RollbackReceipt(intent.ArticleId, revision, intent.SourceRevision, intent.ExpectedReleaseId, release);
         }, ct);
 
     internal static byte[] ArticleArchiveIntentDigest(AdminArticleArchiveIntent intent) =>
@@ -135,7 +131,7 @@ internal sealed partial class AdminPasskeyStore
     private static AdminArticleRollbackIntent ArchiveCoordinates(AdminArticleArchiveIntent intent) =>
         new(intent.ArticleId, intent.ExpectedRevision, intent.ExpectedReleaseId, intent.SourceRevision, intent.IdempotencyKey, intent.Reason);
 
-    private static async Task RequireArticleArchiveSchema(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    internal static async Task RequireArticleArchiveSchema(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         if (!await CurrentSchema.HasAdminArticleArchiveSchemaAsync(db, tx, ct))
             throw new BusinessException(Rejection.NotFound, "Article archive transitions are unavailable.");

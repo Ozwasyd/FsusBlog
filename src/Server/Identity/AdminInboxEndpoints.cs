@@ -19,15 +19,22 @@ internal static class AdminInboxEndpoints
     internal const string LivePolicy = "admin-inbox-live";
     internal sealed class LiveSocket;
 
-    internal static void Map(WebApplication app, AdminPasskeyStore store, string session,
+    internal static void Map(WebApplication app, AdminSessionGate gate, string session,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, SiteCapabilities capabilities)
     {
+        var store = new AdminInboxStore(gate);
         var replies = capabilities.AdminInboxReplies;
         var status = capabilities.AdminInboxStatus;
         var notice = capabilities.AdminInboxNotice;
         var sharedRead = capabilities.AdminInboxSharedRead;
         var live = capabilities.AdminInboxLive;
         var activityOrder = capabilities.AdminInboxActivityOrder;
+        var activityStore = activityOrder ? new AdminInboxActivityStore(gate) : null;
+        var replyStore = replies ? new AdminInboxReplyStore(gate) : null;
+        var statusStore = status ? new AdminInboxStatusStore(gate) : null;
+        var noticeStore = notice ? new AdminInboxNoticeStore(gate) : null;
+        var readStore = sharedRead ? new AdminInboxReadStore(gate) : null;
+
         app.MapGet(WireRoutes.AdminInboxQueue, async (HttpContext ctx, CancellationToken ct) =>
         {
             var shared = Shared(ctx);
@@ -46,7 +53,7 @@ internal static class AdminInboxEndpoints
             };
             var admin = ctx.Request.Cookies[session];
             var cursor = Query(ctx.Request.Query, "cursor", activity ? AdminInboxActivityCursor.EncodedLength : 64);
-            var page = activity ? await store.ReadInboxByActivity(admin, filter, cursor, shared, ct) :
+            var page = activity ? await activityStore!.ReadInboxByActivity(admin, filter, cursor, shared, ct) :
                 await store.ReadInbox(admin, filter, cursor, ct, shared);
             if (notice) ctx.Response.Headers[WireHeaders.AdminInboxNoticeEnabled] = "1";
             if (sharedRead) ctx.Response.Headers[WireHeaders.AdminInboxSharedRead] = "1";
@@ -95,28 +102,28 @@ internal static class AdminInboxEndpoints
                 }).WithMetadata(new LiveSocket()).RequireRateLimiting(LivePolicy);
         }
 
-        if (replies)
+        if (replyStore is not null)
         {
             app.MapPost(WireRoutes.AdminInboxReplyPow, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
                 Reply(id, ctx, pow, true, ct)).RequireRateLimiting("command");
             app.MapPost(WireRoutes.AdminInboxReply, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
                 Reply(id, ctx, pow, false, ct)).RequireRateLimiting("command");
         }
-        if (status)
+        if (statusStore is not null)
         {
             app.MapPost(WireRoutes.AdminInboxStatusPow, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
                 ChangeStatus(id, ctx, pow, true, ct)).RequireRateLimiting("command");
             app.MapPost(WireRoutes.AdminInboxStatus, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
                 ChangeStatus(id, ctx, pow, false, ct)).RequireRateLimiting("command");
         }
-        if (notice)
+        if (noticeStore is not null)
         {
             app.MapPost(WireRoutes.AdminInboxSendNoticePow, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
                 SendNotice(ctx, pow, true, ct)).RequireRateLimiting("command");
             app.MapPost(WireRoutes.AdminInboxSendNotice, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
                 SendNotice(ctx, pow, false, ct)).RequireRateLimiting("command");
         }
-        if (sharedRead)
+        if (readStore is not null)
         {
             app.MapPost(WireRoutes.AdminInboxAcknowledge, async (long id, HttpContext ctx, CancellationToken ct) =>
             {
@@ -125,7 +132,7 @@ internal static class AdminInboxEndpoints
                     header[0] is not { Length: 64 } snapshot)
                     throw new BusinessException(Rejection.Invalid, "An administrator read snapshot is required.");
                 var through = InboxWire.DecodeRead(await readFrame(ctx, Aeds.HeaderSize + sizeof(long), ct));
-                var unread = await store.AcknowledgeInboxRead(ctx.Request.Cookies[session], id, through, snapshot, ct);
+                var unread = await readStore.AcknowledgeInboxRead(ctx.Request.Cookies[session], id, through, snapshot, ct);
                 ctx.Response.Headers[WireHeaders.AdminInboxUnread] = unread.ToString(CultureInfo.InvariantCulture);
                 return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
             }).RequireRateLimiting("command");
@@ -150,7 +157,7 @@ internal static class AdminInboxEndpoints
                 var frame = await readFrame(ctx, InboxWire.MaxRequestFrameBytes, ct);
                 var body = InboxRules.Body(InboxWire.DecodeAdminReply(frame));
                 var context = string.Create(CultureInfo.InvariantCulture, $"{id}:{key}");
-                return await store.ReplyInbox(ctx.Request.Cookies[session], id, key, body, frame, pow, context, ctx, issue,
+                return await replyStore!.ReplyInbox(ctx.Request.Cookies[session], id, key, body, frame, pow, context, ctx, issue,
                     activityOrder, ct);
             }, PowScope.AdminInboxReply);
 
@@ -165,7 +172,7 @@ internal static class AdminInboxEndpoints
                     throw new BusinessException(Rejection.Invalid, "Invalid administrator inbox version.");
                 var frame = await readFrame(ctx, InboxWire.MaxAdminStatusFrameBytes, ct);
                 var (target, reason) = InboxWire.DecodeAdminStatus(frame);
-                return await store.ChangeInboxStatus(ctx.Request.Cookies[session], id, version, (ConversationStatus)target,
+                return await statusStore!.ChangeInboxStatus(ctx.Request.Cookies[session], id, version, (ConversationStatus)target,
                     reason, frame, pow, ctx, issue, ct);
             }, PowScope.AdminInboxStatus);
 
@@ -177,7 +184,7 @@ internal static class AdminInboxEndpoints
                     !long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var eventId) || eventId <= 0)
                     throw new BusinessException(Rejection.Invalid, "Set a positive source event ID.");
                 var frame = await readFrame(ctx, Wire.MaxAdminInboxNoticeFrameBytes, ct);
-                return await store.SendInboxNotice(ctx.Request.Cookies[session], eventId, Wire.DecodeAdminInboxNotice(frame),
+                return await noticeStore!.SendInboxNotice(ctx.Request.Cookies[session], eventId, Wire.DecodeAdminInboxNotice(frame),
                     frame, pow, ctx, issue, activityOrder, ct);
             }, PowScope.AdminInboxNotice);
     }

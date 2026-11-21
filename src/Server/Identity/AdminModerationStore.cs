@@ -7,7 +7,7 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminModerationStore(AdminSessionGate gate, AdminStepUpService stepUp)
 {
     private const short ClaimActive = 1;
     private const short ClaimReleased = 2;
@@ -15,14 +15,14 @@ internal sealed partial class AdminPasskeyStore
 
     internal Task<AdminModerationClaim> AcquireCommentClaim(string? session, AdminModerationClaimRequest target,
         CancellationToken ct) =>
-        WithLiveAdmin(session,
+        gate.WithLiveAdmin(session,
             (db, tx, admin) => AcquireCommentClaim(db, tx, admin, target, ct), ct);
 
-    private static async Task<AdminModerationClaim> AcquireCommentClaim(NpgsqlConnection db, NpgsqlTransaction tx,
-        LiveAdmin admin, AdminModerationClaimRequest target, CancellationToken ct)
+    internal static async Task<AdminModerationClaim> AcquireCommentClaim(NpgsqlConnection db, NpgsqlTransaction tx,
+        AdminLiveSession admin, AdminModerationClaimRequest target, CancellationToken ct)
     {
         var version = await LockPendingComment(db, tx, target.ArticleId, target.CommentId, ct);
-        var token = Token();
+        var token = AdminSql.Token();
         await using var cmd = Store.Sql(db, tx, """
             insert into public.admin_comment_claim as claim
                 (article_id,comment_id,principal_id,session_digest,admin_generation,claim_digest,
@@ -52,7 +52,7 @@ internal sealed partial class AdminPasskeyStore
     }
 
     internal Task<AdminModerationClaim> RenewCommentClaim(string? session, AdminModerationClaim claim, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await CheckClaim(db, tx, admin, Receipt(claim), ct);
             await using var cmd = Store.Sql(db, tx, """
@@ -67,7 +67,7 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task ReleaseCommentClaim(string? session, AdminModerationClaim claim, CancellationToken ct) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await CheckClaim(db, tx, admin, Receipt(claim), ct);
             await CloseClaim(db, tx, claim.ArticleId, claim.CommentId, ClaimReleased, ct);
@@ -75,14 +75,13 @@ internal sealed partial class AdminPasskeyStore
         }, ct);
 
     internal Task<byte[]> BeginModerationDecisionStepUp(string? session, AdminModerationDecision decision, CancellationToken ct) =>
-        BeginStepUp(session, DecisionDigest(decision), (db, tx, admin) => CheckClaim(db, tx, admin, Receipt(decision), ct), ct);
+        stepUp.BeginStepUp(session, DecisionDigest(decision), (db, tx, admin) => CheckClaim(db, tx, admin, Receipt(decision), ct), ct);
 
     internal Task DecideComment(string? session, string? proof, AdminModerationDecision decision, CancellationToken ct,
         bool fenceVisibleMessages = false) =>
-        WithLiveAdmin(session, async (db, tx, admin) =>
+        gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
-            if (proof is not { Length: 43 } || !proof.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_') ||
-                !await ConsumeStepUpProof(db, tx, admin, ChallengeDigest(proof, null), DecisionDigest(decision), ct))
+            if (!await stepUp.ConsumeProofAsync(db, tx, admin, proof, DecisionDigest(decision), ct))
                 throw new ModerationProofRequiredException();
             await CheckClaim(db, tx, admin, Receipt(decision), ct);
             var status = checked((short)decision.Decision);
@@ -92,8 +91,8 @@ internal sealed partial class AdminPasskeyStore
             return true;
         }, ct);
 
-    private static async Task<(long AuditId, bool Notice)> ApplyCommentDecision(NpgsqlConnection db, NpgsqlTransaction tx,
-        LiveAdmin admin, ClaimCoordinates claim, short status, string reason, CancellationToken ct)
+    internal static async Task<(long AuditId, bool Notice)> ApplyCommentDecision(NpgsqlConnection db, NpgsqlTransaction tx,
+        AdminLiveSession admin, ClaimCoordinates claim, short status, string reason, CancellationToken ct)
     {
         await using var update = Store.Sql(db, tx, """
             update public.comment set moderation_status=$4, moderation_version=moderation_version+1
@@ -111,18 +110,18 @@ internal sealed partial class AdminPasskeyStore
         return ((long)(await audit.ExecuteScalarAsync(ct))!, status == 1 && signedReply);
     }
 
-    private sealed record ClaimCoordinates(int ArticleId, long CommentId, long CommentVersion, string Token, long Generation, long Version);
+    internal sealed record ClaimCoordinates(int ArticleId, long CommentId, long CommentVersion, string Token, long Generation, long Version);
 
-    private static ClaimCoordinates Receipt(AdminModerationClaim claim) =>
+    internal static ClaimCoordinates Receipt(AdminModerationClaim claim) =>
         new(claim.ArticleId, claim.CommentId, claim.CommentVersion, claim.ClaimToken, claim.ClaimGeneration, claim.ClaimVersion);
 
-    private static ClaimCoordinates Receipt(AdminModerationDecision decision) =>
+    internal static ClaimCoordinates Receipt(AdminModerationDecision decision) =>
         new(decision.ArticleId, decision.CommentId, decision.CommentVersion, decision.ClaimToken, decision.ClaimGeneration, decision.ClaimVersion);
 
     internal static byte[] DecisionDigest(AdminModerationDecision decision) =>
         SHA256.HashData(Wire.EncodeAdminModerationDecision(decision));
 
-    private static byte[] ClaimDigest(string token) => ChallengeDigest(token, null);
+    private static byte[] ClaimDigest(string token) => AdminSql.ChallengeDigest(token, null);
 
     private static async Task<long> LockPendingComment(NpgsqlConnection db, NpgsqlTransaction tx, int article, long comment,
         CancellationToken ct)
@@ -136,7 +135,7 @@ internal sealed partial class AdminPasskeyStore
         return (await cmd.ExecuteScalarAsync(ct) as long?) ?? throw ModerationChanged();
     }
 
-    private static async Task CheckClaim(NpgsqlConnection db, NpgsqlTransaction tx, LiveAdmin admin, ClaimCoordinates claim,
+    internal static async Task CheckClaim(NpgsqlConnection db, NpgsqlTransaction tx, AdminLiveSession admin, ClaimCoordinates claim,
         CancellationToken ct)
     {
         if (await LockPendingComment(db, tx, claim.ArticleId, claim.CommentId, ct) != claim.CommentVersion)

@@ -19,7 +19,7 @@ internal static class AdminSitePages
         return !slug.TrimEnd('/').IsEmpty && !slug.TrimEnd('/').Contains('/');
     }
 
-    internal static void Map(WebApplication app, AdminPasskeyStore store, string session)
+    internal static void Map(WebApplication app, AdminSitePageStore store, string session)
     {
         app.MapGet(WireRoutes.AdminSitePages, async (HttpContext ctx, SitePages pages, CancellationToken ct) =>
         {
@@ -41,14 +41,4 @@ internal static class AdminSitePages
             return Results.Bytes(SitePageWire.Encode(page.Slug, page.Markdown), Aeds.ContentType);
         }).RequireRateLimiting("command");
     }
-}
-
-internal sealed partial class AdminPasskeyStore
-{
-    internal Task<byte[]> SitePagesOverview(string? token, SitePages pages, CancellationToken ct) =>
-        WithSession(token, (_, _, _) =>
-            Task.FromResult(Wire.EncodeAdminSitePages(new(pages.ConfiguredMask))), ct);
-
-    internal Task<byte[]> SitePage(string? token, SitePages pages, string slug, CancellationToken ct) =>
-        WithSession(token, (db, tx, _) => pages.ConfiguredFrame(db, tx, slug, ct), ct);
 }

@@ -3,25 +3,25 @@ using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed partial class AdminPasskeyStore
+internal sealed class AdminInboxActivityStore(AdminSessionGate gate)
 {
     internal async Task<AdminInboxPage> ReadInboxByActivity(string? token, int filter, string? next, bool shared, CancellationToken ct)
     {
         var initial = next is null
-            ? await WithLiveAdmin(token, (db, tx, _) => InboxActivityFence.SnapshotAsync(db, tx, ct), ct)
+            ? await gate.WithLiveAdmin(token, (db, tx, _) => InboxActivityFence.SnapshotAsync(db, tx, ct), ct)
             : 0L;
-        return await WithLiveAdmin(token, async (db, tx, admin) =>
+        return await gate.WithLiveAdmin(token, async (db, tx, admin) =>
         {
             var scope = checked((byte)(filter + (shared ? 41 : 33)));
             AdminInboxActivityCursor? position = next is null ? null :
-                AdminInboxActivityCursor.TryDecode(next, admin.Digest, scope, out var parsed) ? parsed : throw InvalidInboxCursor();
+                AdminInboxActivityCursor.TryDecode(next, admin.Digest, scope, out var parsed) ? parsed : throw AdminInboxStore.InvalidInboxCursor();
             long snapshot = position?.Snapshot ?? initial;
             if (snapshot == 0) return new AdminInboxPage([], null);
 
-            var unread = shared ? AdminUnread : "0::bigint";
-            var join = shared ? AdminReadJoin : "";
-            var filterUnread = filter == 3 ? AdminUnread : "0::bigint";
-            var pendingJoin = filter == 3 ? AdminReadJoin : "";
+            var unread = shared ? AdminInboxReadStore.AdminUnread : "0::bigint";
+            var join = shared ? AdminInboxReadStore.AdminReadJoin : "";
+            var filterUnread = filter == 3 ? AdminInboxReadStore.AdminUnread : "0::bigint";
+            var pendingJoin = filter == 3 ? AdminInboxReadStore.AdminReadJoin : "";
             await using var query = Store.Sql(db, tx, $"""
                 WITH page AS MATERIALIZED (
                     SELECT c.id,last_visible.sent_at
@@ -53,7 +53,7 @@ internal sealed partial class AdminPasskeyStore
                     cursor = new AdminInboxActivityCursor(snapshot, lastAt, items[^1].Id).Encode(admin.Digest, scope);
                     break;
                 }
-                items.Add(InboxRow(rows, 6));
+                items.Add(AdminInboxStore.InboxRow(rows, 6));
                 lastAt = rows.GetFieldValue<DateTimeOffset>(7);
             }
             return new AdminInboxPage(items, cursor);
