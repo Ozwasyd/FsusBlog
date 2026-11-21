@@ -2,8 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { readThemeMode, subscribeThemeMode, syncThemeMode, writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
-import { ElConfigProvider, ElPublicShell, ElButton } from '@ozwasyd/element-plus'
-import { ArrowDown } from '@ozwasyd/element-plus/icons-vue'
+import { ElConfigProvider, ElPublicShell, ElButton, ElRadioButton, ElRadioGroup } from '@ozwasyd/element-plus'
 import { runSiteViewTransition } from './viewTransition'
 import en from '@element-plus/locale/lang/en'
 import zhCn from '@element-plus/locale/lang/zh-cn'
@@ -79,7 +78,8 @@ function useTheme(mode: ThemeMode) {
     await nextTick()
   }, { name: 'theme-switch' })
 }
-function selectTheme(mode: string) {
+function selectTheme(mode: string | number | boolean | undefined) {
+  if (typeof mode !== 'string') return
   const parsed = parseThemeMode(mode)
   if (parsed) useTheme(parsed)
 }
@@ -317,15 +317,12 @@ async function leave() {
         <RouterLink v-if="currentSession && route.name !== 'security'" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
         <div class="public-menu-preferences">
           <SiteLocaleSelect />
-          <span class="site-select-field">
-            <select class="site-theme-select" :aria-label="t('theme.label')" :value="themeMode"
-              @change="selectTheme(($event.target as HTMLSelectElement).value)">
-              <option value="light">{{ themeLabels.light }}</option>
-              <option value="dark">{{ themeLabels.dark }}</option>
-              <option value="system">{{ themeLabels.system }}</option>
-            </select>
-            <ArrowDown class="site-select-chevron" v-bind="{ 'aria-hidden': true }" />
-          </span>
+          <ElRadioGroup class="public-menu-segment-group fsus-radio-group--touch"
+            size="small" :label="t('theme.label')" :model-value="themeMode" @update:model-value="selectTheme">
+            <ElRadioButton class="public-menu-segment" value="light">{{ themeLabels.light }}</ElRadioButton>
+            <ElRadioButton class="public-menu-segment" value="dark">{{ themeLabels.dark }}</ElRadioButton>
+            <ElRadioButton class="public-menu-segment" value="system">{{ themeLabels.system }}</ElRadioButton>
+          </ElRadioGroup>
         </div>
       </template>
       <div id="page-content" ref="publicContent" tabindex="-1">
@@ -367,9 +364,8 @@ async function leave() {
 <style scoped>
 .public-menu-preferences {
   display: grid;
-  grid-template-columns: minmax(4.75rem, auto) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: .5rem;
-  padding-block: .25rem 0;
+  padding-block: .375rem 0;
 }
-.public-menu-preferences > .site-select-field { min-inline-size: 0; inline-size: 100%; }
 </style>

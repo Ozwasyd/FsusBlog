@@ -77,32 +77,31 @@ try {
     assert.equal(response.headers()['content-language'], 'zh-CN')
     await page.getByRole('heading', { name: '归档', exact: true }).waitFor()
     if (width < 500) await page.getByText('菜单', { exact: true }).click()
-    const languageControl = page.getByRole('combobox', { name: '界面语言' }).filter({ visible: true })
+    const languageControl = page.getByRole('radiogroup', { name: '界面语言', exact: true }).filter({ visible: true })
     if (width < 500) {
-      const themeControl = page.getByRole('combobox', { name: '主题', exact: true }).filter({ visible: true })
+      const themeControl = page.getByRole('radiogroup', { name: '主题', exact: true }).filter({ visible: true })
       await themeControl.waitFor()
       const [languageBox, themeBox] = await Promise.all([languageControl.boundingBox(), themeControl.boundingBox()])
       assert.ok(languageBox && themeBox)
-      assert.ok(Math.abs(languageBox.y - themeBox.y) <= 1)
-      assert.ok(Math.abs(languageBox.height - themeBox.height) <= 1)
-      assert.ok(languageBox.height >= 44 && languageBox.height <= 46)
-      assert.ok(themeBox.width > languageBox.width)
-      assert.ok(languageBox.x + languageBox.width < themeBox.x)
+      assert.ok(Math.abs(languageBox.x - themeBox.x) <= 1)
+      assert.ok(Math.abs(languageBox.width - themeBox.width) <= 1)
+      assert.ok(languageBox.height >= 44 && languageBox.height <= 50)
+      assert.ok(themeBox.height >= 44 && themeBox.height <= 50)
+      assert.ok(languageBox.y + languageBox.height < themeBox.y)
       assert.ok(themeBox.x + themeBox.width <= width)
-      assert.equal(await themeControl.locator('option[value=system]').textContent(), '跟随系统')
-      await themeControl.selectOption('dark')
+      await themeControl.getByText('跟随系统', { exact: true }).waitFor()
+      await themeControl.getByText('深色', { exact: true }).click()
       await page.waitForFunction(() => document.documentElement.dataset.themeMode === 'dark')
     }
-    if (width < 500) await languageControl.selectOption('en')
+    if (width < 500) await languageControl.getByText('EN', { exact: true }).click()
     else {
       await page.locator('.site-locale-menu button').click()
       await page.getByRole('menuitem', { name: 'EN', exact: true }).click()
     }
     if (width < 500) {
-      const themeControl = page.getByRole('combobox', { name: 'Theme mode', exact: true }).filter({ visible: true })
-      assert.equal(await themeControl.inputValue(), 'dark')
-      assert.equal(await themeControl.locator('option[value=system]').textContent(), 'System')
-      await themeControl.selectOption('system')
+      const themeControl = page.getByRole('radiogroup', { name: 'Theme mode', exact: true }).filter({ visible: true })
+      assert.equal(await themeControl.getByRole('radio', { name: 'Dark', exact: true }).isChecked(), true)
+      await themeControl.getByText('System', { exact: true }).click()
       await page.waitForFunction(() => document.documentElement.dataset.themeMode === 'system')
     }
     await page.getByRole('heading', { name: 'Archive', exact: true }).waitFor()
@@ -155,8 +154,8 @@ try {
     }
     const selectPageTheme = async (mode, label) => {
       if (width < 500) {
-        const control = page.getByRole('combobox', { name: 'Theme mode', exact: true }).filter({ visible: true })
-        await control.selectOption(mode)
+        const control = page.getByRole('radiogroup', { name: 'Theme mode', exact: true }).filter({ visible: true })
+        await control.getByText(label, { exact: true }).click()
       } else {
         await page.locator('.site-theme-menu button').click()
         await page.getByRole('menuitem', { name: label, exact: true }).click()
@@ -175,8 +174,8 @@ try {
       }))
       assert.deepEqual(classes, { dark: mode === 'dark', light: mode === 'light' })
       if (width < 500) {
-        const control = peer.getByRole('combobox', { name: 'Theme mode', exact: true }).filter({ visible: true })
-        assert.equal(await control.inputValue(), mode)
+        const control = peer.getByRole('radiogroup', { name: 'Theme mode', exact: true }).filter({ visible: true })
+        assert.equal(await control.getByRole('radio', { name: label, exact: true }).isChecked(), true)
       } else {
         assert.equal((await peer.locator('.site-theme-menu button').textContent())?.trim(), label)
       }
@@ -232,7 +231,7 @@ try {
     })
     if (width < 500) {
       await page.getByText('Menu', { exact: true }).click()
-      await page.getByRole('combobox', { name: 'Theme mode', exact: true }).waitFor({ state: 'hidden' })
+      await page.getByRole('radiogroup', { name: 'Theme mode', exact: true }).waitFor({ state: 'hidden' })
     }
     await peer.close()
 

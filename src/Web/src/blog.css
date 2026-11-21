@@ -271,49 +271,28 @@ p { line-height: 1.65; }
 }
 .site-auth-actions { flex: none; display: flex; align-items: center; gap: .75rem; }
 @media (max-width: 767px) { .site-auth-bar { min-block-size: 84px; gap: 8px; } }
-.site-select-field {
-  position: relative;
-  display: inline-grid;
-  align-items: center;
+.public-menu-segment-group {
+  display: flex;
+  inline-size: 100%;
   min-inline-size: 0;
-  color: var(--el-text-color-secondary);
 }
-.site-select-field:has(> select:not(:disabled):is(:hover, :focus-visible)) {
-  color: var(--el-text-color-primary);
+.public-menu-segment {
+  display: grid;
+  flex: 1 1 auto;
+  min-inline-size: 0;
 }
-.site-select-chevron {
-  position: absolute;
-  inset-inline-end: .55rem;
-  inset-block-start: 50%;
-  transform: translateY(-50%);
-  inline-size: .75rem;
-  block-size: .75rem;
-  color: currentColor;
-  pointer-events: none;
+.public-menu-locale-group .public-menu-segment {
+  flex: 1 1 0;
 }
-.site-locale-select, .site-theme-select {
+.site-locale-select {
   min-block-size: 44px;
   max-inline-size: 100%;
-  padding-inline: .625rem;
-  color: var(--el-text-color-secondary);
+  padding-inline: .5rem;
+  color: var(--el-text-color-primary);
   background: var(--fsus-paper);
   border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--fsus-radius-control);
-  font: 500 14px/1.2 var(--el-font-family);
-  white-space: nowrap;
-  cursor: pointer;
-}
-.site-select-field > select {
-  appearance: none;
-  inline-size: 100%;
-  padding-inline-end: 1.75rem;
-  text-overflow: ellipsis;
-}
-.site-locale-select:not(:disabled):hover, .site-theme-select:not(:disabled):hover,
-.site-locale-select:focus-visible, .site-theme-select:focus-visible {
-  border-color: var(--fsus-scholarly-blue);
-  background: var(--el-fill-color-light);
-  color: var(--el-text-color-primary);
+  font: inherit;
 }
 .site-header-text-action,
 .blog-public-shell .el-public-shell__actions :is(.el-public-shell__desktop-search-trigger, .el-public-shell__auth-link) {
@@ -349,7 +328,7 @@ p { line-height: 1.65; }
   background: transparent;
   font-size: 14px;
 }
-.site-locale-select:focus-visible, .site-theme-select:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
+.site-locale-select:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
 .site-auth-main.auth-page { margin-inline: auto; }
 .auth-heading p { color: var(--fsus-color-text-muted); margin-block: 0; }
 .auth-form { display: grid; gap: .75rem; margin-block: 3.25rem 2.25rem; }
