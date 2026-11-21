@@ -37,11 +37,16 @@ internal sealed class AppearanceAssets(AppearanceRegistry registry, bool online)
         static bool Outside(string relative) => relative == ".." || relative.StartsWith("../", StringComparison.Ordinal);
     }
 
+    internal string? StylesheetPath =>
+        Online ? CurrentStyleRoute : Registry.StyleDigest is { } digest ? $"/site-appearance/{digest}.css" : null;
+
+    internal string? StylesheetLink =>
+        StylesheetPath is { } path ? $"<link rel=\"stylesheet\" href=\"{path}\">" : null;
+
     internal string WithStylesheet(string template)
     {
-        var path = Online ? CurrentStyleRoute : Registry.StyleDigest is { } digest ? $"/site-appearance/{digest}.css" : null;
-        return path is null ? template
-            : template.Replace("</head>", $"<link rel=\"stylesheet\" href=\"{path}\"></head>", StringComparison.Ordinal);
+        return StylesheetLink is not { } link ? template
+            : template.Replace("</head>", link + "</head>", StringComparison.Ordinal);
     }
 
     internal void Map(WebApplication app)

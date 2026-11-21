@@ -76,18 +76,13 @@ internal static class AdminIdentityEndpoints
             app.Services.GetRequiredService<InstanceLease>(), config);
         var appearance = app.Services.GetService<FsusBlog.V2.Server.Content.AppearanceAssets>();
 
-        var publicOrigin = app.Services.GetRequiredService<FsusBlog.V2.Server.Content.DistributionSettings>().Site.Origin;
-        var documentBytes = app.Services.GetRequiredService<WebPages>().Page(noIndex: true, useAppearance: false);
-        var document = string.IsNullOrEmpty(publicOrigin)
-            ? documentBytes
-            : System.Text.Encoding.UTF8.GetBytes(System.Text.Encoding.UTF8.GetString(documentBytes).Replace("</head>",
-                $"<meta name=\"fsus-public-origin\" content=\"{System.Net.WebUtility.HtmlEncode(publicOrigin)}\"></head>", StringComparison.Ordinal));
+        var document = app.Services.GetRequiredService<WebPages>().AdminPage(capabilities.PublicSite.Origin);
         foreach (var path in DocumentPaths.Concat(ParameterizedDocumentPaths))
             app.MapGet(path, (HttpContext ctx) =>
             {
                 ctx.Response.Headers.CacheControl = "no-store";
                 ctx.Response.Headers["X-Robots-Tag"] = "noindex";
-                return Results.Bytes(document, "text/html; charset=utf-8");
+                return Results.Bytes(document, ServerHttp.HtmlContentType);
             });
         app.MapPost(WireRoutes.AdminBootstrapBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
