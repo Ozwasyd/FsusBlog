@@ -191,7 +191,7 @@ export default defineConfig({
         onlyExplicitManualChunks: true,
         manualChunks(id) {
           const normalized = id.replaceAll('\\', '/')
-          if (normalized.endsWith('/src/authoring/workspaceRegistry.ts') ||
+          if (/\/src\/authoring\/(workspaceRegistry|draftMarkdownImport|splitLayoutModel|sourceHandoffCoordinator|writeCommandAdapter|writeWorkspaceController)\.ts$/.test(normalized) ||
               /\/src\/Contracts\/(property-values|property-text-hit|document-export-tasks|markdown-export)\.ts$/.test(normalized)) {
             return 'authoring-model'
           }

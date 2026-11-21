@@ -326,7 +326,7 @@ public sealed class AdminInboxPostgresTests
         }
 
         async Task<string> StatusWork(string version, byte[] data, string? token = null) =>
-            SolveChallenge(await Status(statusPow, HttpStatusCode.OK, token ?? adminToken, version, data, nonce), nonce);
+            PowFixture.SolveFrame(await Status(statusPow, HttpStatusCode.OK, token ?? adminToken, version, data, nonce), nonce, ct);
 
         async Task<byte[]> Status(string route, HttpStatusCode expected, string token, string version, byte[] data, string value)
         {
@@ -336,7 +336,7 @@ public sealed class AdminInboxPostgresTests
             return await ExpectBody(server, request, expected, ct);
         }
 
-        async Task<string> Work() => SolveChallenge(await Post(challenge, HttpStatusCode.OK, adminToken, command, frame, nonce), nonce);
+        async Task<string> Work() => PowFixture.SolveFrame(await Post(challenge, HttpStatusCode.OK, adminToken, command, frame, nonce), nonce, ct);
 
         async Task<byte[]> Post(string path, HttpStatusCode expected, string secret, string key, byte[] data, string? nonce = null,
             string? proof = null, string? origin = null)
