@@ -13,14 +13,18 @@ internal static partial class Cli
         var active = await CurrentSchema.PublicationTransparencyStateAsync(connection, tx, ct);
         if (active is null)
             throw new InvalidOperationException("Native publication transparency storage is not installed.");
-        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requirePublicationProof: true, requirePublicationTransparency: true);
+        var transparencyCatalog = new CatalogVerificationOptions
+        {
+            Publication = new() { Proof = true, Transparency = true }
+        };
+        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, transparencyCatalog);
         if (active is not true)
         {
             await using var old = new NpgsqlCommand("select exists(select from public.article_publication_proof)", connection, tx);
             if (await old.ExecuteScalarAsync(ct) is true)
                 throw new InvalidOperationException("Enable publication transparency before any native proof has been issued. No historical receipt was changed.");
             await ExecuteAsync(connection, tx, "alter table public.article_publication_proof alter column transparency_seq set not null", ct);
-            await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requirePublicationProof: true, requirePublicationTransparency: true);
+            await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, transparencyCatalog);
         }
         await tx.CommitAsync(ct);
         Console.WriteLine("Native publication transparency is active.");

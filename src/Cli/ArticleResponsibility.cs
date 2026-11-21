@@ -17,7 +17,11 @@ internal static partial class Cli
         using var input = Console.OpenStandardInput();
         var evidence = await ReadArticleResponsibilityAsync(input, ct);
         await using var tx = await BeginStoppedOperationAsync(connection, ct);
-        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requireArticleMedia: true, requireAdminArticleRollback: true);
+        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, new CatalogVerificationOptions
+        {
+            Media = new() { ArticleMedia = true },
+            AdminContent = new() { ArticleRollback = true }
+        });
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
 
         await using (var locked = ResponsibilitySql(connection, tx, """

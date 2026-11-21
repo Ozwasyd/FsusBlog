@@ -24,7 +24,10 @@ internal static partial class Cli
                 throw new InvalidOperationException("Publication media recovery requires an offline primary database.");
         // Read the references after the handoff is drained. An older repeatable-read snapshot can omit an admitted commit.
         await PrepareStoppedOperationAsync(db, tx, ct);
-        await CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireArticleMedia: true, requirePublicationMedia: true);
+        await CurrentSchema.VerifyCatalogAsync(db, tx, ct, new CatalogVerificationOptions
+        {
+            Media = new() { ArticleMedia = true, PublicationMedia = true }
+        });
         await ExecuteAsync(db, tx, """
             LOCK TABLE public.authoring_recovery_site, public.article, public.article_publication,
                 public.article_publication_history, public.article_publication_media, public.article_revision_media, public.private_media
