@@ -79,7 +79,7 @@ public sealed class InboxPostgresTests
         {
             using var result = await Send(path, frame, command, token, issuing: true);
             Assert.Equal(HttpStatusCode.OK, result.StatusCode);
-            return InboxFixture.SolveChallenge(await result.Content.ReadAsByteArrayAsync(ct), ClientNonce);
+            return PowFixture.SolveFrame(await result.Content.ReadAsByteArrayAsync(ct), ClientNonce, ct);
         }
     }
 

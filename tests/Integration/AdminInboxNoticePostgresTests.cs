@@ -122,7 +122,7 @@ public sealed class AdminInboxNoticePostgresTests
         {
             const string nonce = "7ddb277082ed464a845d2be0e1abeaba";
             var response = await Send(WireRoutes.AdminInboxSendNoticePow, HttpStatusCode.OK, cookie, frame, nonce, sourceEvent);
-            return SolveChallenge(response, nonce);
+            return PowFixture.SolveFrame(response, nonce, ct);
         }
 
         async Task<byte[]> Send(string path, HttpStatusCode status, string token, byte[] frame, string? value = null,

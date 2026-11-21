@@ -1,8 +1,8 @@
 import { encodeFrame } from './aeds.ts';
-import { ProtocolError, request } from './client.ts';
+import { ProtocolError } from './client.ts';
 import { PodWriter } from './binary.ts';
 import { decodeSystemNoticeSent } from './inbox.ts';
-import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
+import { requestWithScopedPow } from './pow.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
 export function isNoticeRecipient(account: string) {
@@ -30,11 +30,13 @@ export async function adminSendNotice(account: string, subject: string, body: st
   if (sourceEvent <= 0n || BigInt.asIntN(64, sourceEvent) !== sourceEvent)
     throw new ProtocolError('Invalid system notice source event ID');
   const frame = adminNoticeFrame(account, subject, body);
-  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
-  const identity = { [WireHeaders.SourceEventId]: String(sourceEvent) };
-  const challenge = await request(WireRoutes.AdminInboxSendNoticePow, FrameType.PowChallenge, decodePowChallenge, signal, 'POST', frame,
-    { ...identity, [WireHeaders.PowClientNonce]: nonce });
-  const proof = encodePowProof(challenge, await solveScopedPow(challenge, nonce, signal), nonce);
-  return request(WireRoutes.AdminInboxSendNotice, FrameType.ConversationDetailV2, decodeSystemNoticeSent, signal, 'POST', frame,
-    { ...identity, [WireHeaders.PowProof]: proof });
+  return requestWithScopedPow({
+    challengePath: WireRoutes.AdminInboxSendNoticePow,
+    submitPath: WireRoutes.AdminInboxSendNotice,
+    expected: FrameType.ConversationDetailV2,
+    decode: decodeSystemNoticeSent,
+    body: frame,
+    signal,
+    headers: { [WireHeaders.SourceEventId]: String(sourceEvent) },
+  });
 }

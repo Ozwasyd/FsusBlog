@@ -257,6 +257,17 @@ SQL
 "${psql_restore[@]}" -c 'ALTER TABLE public.site_subscription DROP CONSTRAINT site_subscription_channel_check'
 FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'constraint shape mismatch' "${cli[@]}" verify
 
+appeal_step_up_pair="CHECK ((kind = 1 AND options IS NOT NULL) OR (kind = 2 AND options IS NULL))"
+"${psql_source[@]}" -c 'ALTER TABLE public.comment_appeal_admin_step_up DROP CONSTRAINT comment_appeal_admin_step_up_options_check'
+expect_failure 'comment_appeal_admin_step_up c options octet_length(options)>=1ANDoctet_length(options)<=8192' "${cli[@]}" verify
+"${psql_source[@]}" -c 'ALTER TABLE public.comment_appeal_admin_step_up ADD CONSTRAINT comment_appeal_admin_step_up_options_check CHECK (octet_length(options) BETWEEN 1 AND 8192)'
+"${psql_source[@]}" -c 'ALTER TABLE public.comment_appeal_admin_step_up DROP CONSTRAINT comment_appeal_admin_step_up_check'
+expect_failure 'comment_appeal_admin_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL' "${cli[@]}" verify
+"${psql_source[@]}" -c "ALTER TABLE public.comment_appeal_admin_step_up ADD CONSTRAINT comment_appeal_admin_step_up_check $appeal_step_up_pair NOT VALID"
+expect_failure 'comment_appeal_admin_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL not-validated' "${cli[@]}" verify
+"${psql_source[@]}" -c 'ALTER TABLE public.comment_appeal_admin_step_up VALIDATE CONSTRAINT comment_appeal_admin_step_up_check'
+"${cli[@]}" verify
+
 "${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 2'
 expect_failure 'unexpected-identity-sequence' "${cli[@]}" verify
 "${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 1'

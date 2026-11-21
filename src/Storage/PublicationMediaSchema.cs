@@ -29,6 +29,11 @@ internal static partial class CurrentSchema
         "article_publication_media c height height>=1ANDheight<=8192"
     ];
 
+    private const string PublicationMediaRelation = "public.article_publication_media";
+
     internal static Task<bool> HasPublicationMediaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasRelationAsync(db, tx, "public.article_publication_media", ct);
+        HasRelationAsync(db, tx, PublicationMediaRelation, ct);
+
+    private static bool HasPublicationMedia(CatalogPresenceSnapshot catalog) =>
+        catalog.HasRelation(PublicationMediaRelation);
 }

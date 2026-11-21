@@ -224,8 +224,12 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         if (await CurrentSchema.ReadRecoverySiteIdAsync(db, tx, ct) != site ||
             !await CurrentSchema.HasAdminArticleArchiveSchemaAsync(db, tx, ct))
             throw new InvalidOperationException("Fixture target does not match the attested site and publication schema.");
-        await CurrentSchema.VerifyCatalogAsync(db, tx, ct, requireArticleMedia: true, requireAdminArticleRollback: true,
-            requirePublicationCanonical: true);
+        await CurrentSchema.VerifyCatalogAsync(db, tx, ct, new CatalogVerificationOptions
+        {
+            Media = new() { ArticleMedia = true },
+            AdminContent = new() { ArticleRollback = true },
+            Publication = new() { Canonical = true }
+        });
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(db, tx, ct);
         await using var empty = Store.Sql(db, tx, """
             select not exists (select from public.article) and not exists (select from public.blog_user)

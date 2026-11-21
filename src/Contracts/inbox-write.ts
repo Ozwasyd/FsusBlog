@@ -2,7 +2,7 @@ import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { decodeUtf8 } from './binary.ts';
 import { request, validSiteSessionId } from './client.ts';
 import { decodeInboxCreated, decodeInboxReplied } from './inbox.ts';
-import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
+import { requestWithScopedPow } from './pow.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
 const textEncoder = new TextEncoder();
@@ -56,14 +56,15 @@ export function inboxComposeEnabled(signal: AbortSignal): Promise<boolean> {
 async function send(challengePath: string, commandPath: string, key: string, frame: Uint8Array<ArrayBuffer>, response: FrameType,
   accept: (payload: Uint8Array) => bigint, signal: AbortSignal, session: string): Promise<bigint> {
   if (!/^[A-Za-z0-9_:.\-]{1,64}$/.test(key) || !validSiteSessionId(session)) throw invalid();
-  const scopeNonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('');
-  const headers = { [WireHeaders.ClientMutationId]: key, [WireHeaders.CurrentSession]: session };
-  const challenge = await request(challengePath, FrameType.PowChallenge, decodePowChallenge, signal, 'POST', frame,
-    { ...headers, [WireHeaders.PowClientNonce]: scopeNonce });
-  const work = await solveScopedPow(challenge, scopeNonce, signal);
-  signal.throwIfAborted();
-  return request(commandPath, response, accept, signal, 'POST', frame,
-    { ...headers, [WireHeaders.PowProof]: encodePowProof(challenge, work, scopeNonce) });
+  return requestWithScopedPow({
+    challengePath,
+    submitPath: commandPath,
+    expected: response,
+    decode: accept,
+    body: frame,
+    signal,
+    headers: { [WireHeaders.ClientMutationId]: key, [WireHeaders.CurrentSession]: session },
+  });
 }
 
 function bounded(value: string, limit: number): Uint8Array {

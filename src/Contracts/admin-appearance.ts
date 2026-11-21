@@ -1,10 +1,9 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
+import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { PodReader } from './binary.ts';
 import { request } from './client.ts';
-import { readMfaProof } from './mfa.ts';
-import { requestPasskeyAssertion } from './passkey.ts';
-import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
-import { decodeAdminAppearanceFontDetail, decodeAdminAppearanceState, encodeAdminAppearanceCommand, FrameType, WireHeaders, WireLimits, WireRoutes,
+import { requestWithScopedPow } from './pow.ts';
+import { decodeAdminAppearanceFontDetail, decodeAdminAppearanceState, encodeAdminAppearanceCommand, FrameType, WireLimits, WireRoutes,
   type AdminAppearanceCommand } from './wire.generated.ts';
 
 const digest = (value: string) => /^[a-f0-9]{64}$/.test(value);
@@ -111,13 +110,17 @@ export function decodeAppearanceHistory(payload: Uint8Array, before?: bigint,
 
 export async function applyAppearance(input: AdminAppearanceCommand, signal: AbortSignal) {
   const frame = encodeFrame(FrameType.AdminAppearanceCommand, encodeAdminAppearanceCommand(input));
-  const assertion = await requestPasskeyAssertion(WireRoutes.AdminAppearanceStepUpBegin, signal, frame, true);
-  const proof = await request(WireRoutes.AdminAppearanceStepUpComplete, FrameType.MfaChallengeResult,
-    payload => readMfaProof(payload, 'admin-sensitive', true), signal, 'POST', assertion);
-  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), part => part.toString(16).padStart(2, '0')).join('');
-  const challenge = await request(WireRoutes.AdminAppearancePow, FrameType.PowChallenge, decodePowChallenge,
-    signal, 'POST', frame, { [WireHeaders.PowClientNonce]: nonce });
-  const work = await solveScopedPow(challenge, nonce, signal);
-  await request(WireRoutes.AdminAppearanceApply, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', frame,
-    { [WireHeaders.MfaProof]: proof, [WireHeaders.PowProof]: encodePowProof(challenge, work, nonce) });
+  const proof = await proveAdminStepUp({
+    begin: WireRoutes.AdminAppearanceStepUpBegin,
+    complete: WireRoutes.AdminAppearanceStepUpComplete,
+  }, frame, signal);
+  await requestWithScopedPow({
+    challengePath: WireRoutes.AdminAppearancePow,
+    submitPath: WireRoutes.AdminAppearanceApply,
+    expected: FrameType.EmptySuccess,
+    decode: decodeSuccess,
+    body: frame,
+    signal,
+    submitHeaders: adminProofHeaders(proof),
+  });
 }

@@ -25,7 +25,14 @@ internal static partial class CurrentSchema
         "article_publication_proof c signature octet_length(signature)=64"
     ];
 
+    private const string PublicationProofRelation = "public.article_publication_proof";
+    private static readonly string[] PublicationProofRelations =
+        [PublicationProofRelation, "public.publication_proof_key"];
+
     internal static Task<bool> HasPublicationProofAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "Native publication proof schema is incomplete.",
-            "public.article_publication_proof", "public.publication_proof_key");
+            PublicationProofRelations);
+
+    private static bool HasPublicationProof(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("Native publication proof schema is incomplete.", PublicationProofRelations);
 }

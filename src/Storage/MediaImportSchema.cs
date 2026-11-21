@@ -37,7 +37,13 @@ internal static partial class CurrentSchema
         "article_revision_media_import c alt_text char_length(alt_text)<=256",
     ];
 
+    private static readonly string[] PrivateMediaImportRelations =
+        ["public.private_media_import", "public.article_revision_media_import"];
+
     internal static Task<bool> HasPrivateMediaImportOriginAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken ct) =>
         HasCompleteRelationsAsync(connection, transaction, ct, "The imported private media origin schema is incomplete.",
-            "public.private_media_import", "public.article_revision_media_import");
+            PrivateMediaImportRelations);
+
+    private static bool HasPrivateMediaImportOrigin(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("The imported private media origin schema is incomplete.", PrivateMediaImportRelations);
 }

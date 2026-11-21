@@ -15,6 +15,11 @@ internal static partial class CurrentSchema
         "site_passkey_name c name char_length(name)>=1ANDchar_length(name)<=64ANDoctet_length(name)<=256"
     ];
 
+    private const string SitePasskeyNameRelation = "public.site_passkey_name";
+
     internal static Task<bool> HasSitePasskeyNamesAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasRelationAsync(db, tx, "public.site_passkey_name", ct);
+        HasRelationAsync(db, tx, SitePasskeyNameRelation, ct);
+
+    private static bool HasSitePasskeyNames(CatalogPresenceSnapshot catalog) =>
+        catalog.HasRelation(SitePasskeyNameRelation);
 }

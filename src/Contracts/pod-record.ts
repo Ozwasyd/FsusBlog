@@ -1,4 +1,4 @@
-import { PodReader, PodWriter } from './binary.ts';
+import { PodReader, PodWriter, ProtocolError } from './binary.ts';
 
 type Field<T> = {
   read(reader: PodReader): T;
@@ -34,6 +34,39 @@ export const podField = {
       write: (writer, value) => writer.i32s(value, limit),
     };
   },
+  enumU8<T extends number>(values: Readonly<Record<string, T>>): Field<T> {
+    const allowed = new Set<number>(Object.values(values));
+    return {
+      read: reader => {
+        const value = reader.u8();
+        if (!allowed.has(value)) throw new ProtocolError('Invalid AEDS enum value');
+        return value as T;
+      },
+      write: (writer, value) => {
+        if (!allowed.has(value)) throw new ProtocolError('Invalid AEDS enum value');
+        writer.u8(value);
+      },
+    };
+  },
+  record<T extends object>(fields: { [Key in keyof T]: Field<T[Key]> }): Field<T> {
+    const order = Object.keys(fields) as (keyof T)[];
+    return {
+      read: reader => {
+        const value = {} as T;
+        for (const key of order) value[key] = fields[key].read(reader);
+        return value;
+      },
+      write: (writer, value) => {
+        for (const key of order) fields[key].write(writer, value[key]);
+      },
+    };
+  },
+  list<T>(item: Field<T>, limit: number, minItemBytes = 1): Field<readonly T[]> {
+    return {
+      read: reader => reader.list(limit, minItemBytes, item.read),
+      write: (writer, value) => writer.list(value, limit, item.write),
+    };
+  },
 };
 
 export type PodValue<Layout> = {
@@ -41,17 +74,16 @@ export type PodValue<Layout> = {
 };
 
 export function definePodRecord<T extends object>(fields: { [Key in keyof T]: Field<T[Key]> }) {
-  const order = Object.keys(fields) as (keyof T)[];
+  const codec = podField.record(fields);
   return [
     (value: T): Uint8Array => {
       const writer = new PodWriter();
-      for (const key of order) fields[key].write(writer, value[key]);
+      codec.write(writer, value);
       return writer.finish();
     },
     (payload: Uint8Array): T => {
       const reader = new PodReader(payload);
-      const value = {} as T;
-      for (const key of order) value[key] = fields[key].read(reader);
+      const value = codec.read(reader);
       reader.finish();
       return value;
     },

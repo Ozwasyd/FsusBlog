@@ -319,6 +319,7 @@ export const WireLimits = {
   NameBytes: 256,
   AdminClusterNodeIdBytes: 64,
   AdminClusterVersionBytes: 96,
+  AdminSignInHistoryMaxItems: 50,
   PageContentChars: 200000,
   PageContentBytes: 600000,
   AdminSitePageDigestBytes: 64,
@@ -952,6 +953,23 @@ export const WireHeaders = {
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
 
+export const AdminSignInState = {
+  Current: 1,
+  Ended: 2,
+  Expired: 3,
+} as const;
+
+export type AdminSignInState = typeof AdminSignInState[keyof typeof AdminSignInState];
+
+const adminSignInFields = {
+  startedAt: podField.i64,
+  expiresAt: podField.i64,
+  endedAt: podField.i64,
+  state: /* @__PURE__ */ podField.enumU8(AdminSignInState),
+};
+export interface AdminSignIn extends PodValue<typeof adminSignInFields> {}
+const adminSignInField = /* @__PURE__ */ podField.record<AdminSignIn>(adminSignInFields);
+
 const recoveryKeyOperationFields = {
   operation: podField.i32,
 };
@@ -1079,6 +1097,13 @@ const adminClusterStatusFields = {
 };
 export interface AdminClusterStatus extends PodValue<typeof adminClusterStatusFields> {}
 export const [encodeAdminClusterStatus, decodeAdminClusterStatus] = /* @__PURE__ */ definePodRecord<AdminClusterStatus>(adminClusterStatusFields);
+
+const adminSignInHistorySnapshotFields = {
+  generation: podField.i64,
+  signIns: /* @__PURE__ */ podField.list(adminSignInField, WireLimits.AdminSignInHistoryMaxItems, 25),
+};
+export interface AdminSignInHistorySnapshot extends PodValue<typeof adminSignInHistorySnapshotFields> {}
+export const [encodeAdminSignInHistorySnapshot, decodeAdminSignInHistorySnapshot] = /* @__PURE__ */ definePodRecord<AdminSignInHistorySnapshot>(adminSignInHistorySnapshotFields);
 
 const adminArticleRollbackIntentFields = {
   articleId: podField.i32,
