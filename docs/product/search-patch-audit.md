@@ -38,7 +38,7 @@ python3 -B tests/Protocol/fsim-catalog.test.py -v
 
 仅对相邻紧凑快照的续页提供差分。要求文章数、总页数及首页一致，且只有一个续页改变。基页和目标页均最多 512 KiB。快照最多保留一条差分，含头最多 64 KiB 且不超过完整目标页的一半。差分由最长共同头尾和目标页不同的中段生成。没有磁盘补丁目录或可访问的旧代次。宽 corpus 继续取当前完整页。 [快照生成](../../src/Server/PublicSnapshot.cs) · [编码](../../src/Contracts/SearchCorpusPatch.cs)
 
-`GET /api/v2/public/search-corpus` 的续页继续使用 `generation` 和 `page` 固定目标，并在 `baseGeneration` 和 `If-None-Match` 中给出基页代次和强摘要。请求 `Accept: application/vnd.fsus.search-patch, application/octet-stream` 时才能选择补丁。补丁响应使用 `200`、`application/vnd.fsus.search-patch` 和 `Cache-Control: no-store`，由 `X-Fsus-Search-Corpus-Target-Digest` 单独给出目标整页的摘要。整页强 ETag 仅用于整页和空体 `304`。旧目标返回 `409`。 [HTTP 入口](../../src/Server/Program.cs)
+`GET /api/v2/public/search-corpus` 的续页继续使用 `generation` 和 `page` 固定目标，并在 `baseGeneration` 和 `If-None-Match` 中给出基页代次和强摘要。请求 `Accept: application/vnd.fsus.search-patch, application/octet-stream` 时才能选择补丁。补丁响应使用 `200`、`application/vnd.fsus.search-patch` 和 `Cache-Control: no-store`，由 `X-Fsus-Search-Corpus-Target-Digest` 单独给出目标整页的摘要。整页强 ETag 仅用于整页和空体 `304`。旧目标返回 `409`。 [HTTP 入口](../../src/Server/Content/PublicReadEndpoints.cs)
 
 v4 定长 108 字节小端头依次为 `FSPT`、`u32` 版本 4、两个 `i64` 代次、`u32` 页码、基页及目标页的两个 `u32` 长度、共同头尾的两个 `u32` 长度、两页各 32 字节 SHA-256。之后只有目标中段。Worker 用自身缓存计算基页摘要，核对两个代次、页码、范围和目标摘要，最后经过原有 FSPK 解码、FSR4 排序和显示前 HEAD。坏补丁只尝试一次同目标代次的普通整页。 [Worker 读取](../../src/Contracts/local-search.ts) · [独立向量](../../tests/Protocol/local-search.test.ts) · [真实 HTTP 与浏览器对照](../../tests/EndToEnd/search-corpus-reuse-flow.mjs)
 
