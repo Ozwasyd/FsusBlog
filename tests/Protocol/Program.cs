@@ -20,6 +20,7 @@ SiteConfigVectors.Run(fixtures);
 SitePasskeyNameVectors.Run(fixtures);
 PasskeyEnrollmentVectors.Run(fixtures);
 SubscriptionPreferenceVectors.Run(fixtures);
+AdminSignInHistoryVectors.Run(fixtures);
 
 var command = new ArticleCommand(0, 0, Guid.Parse("00446688-2244-6688-99aa-bbccddeeff00"), "独立向量", "first draft 🐈\n");
 var expected = Fixture("article-command.hex");

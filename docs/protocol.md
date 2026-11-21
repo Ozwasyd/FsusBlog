@@ -2,7 +2,9 @@
 
 外层帧使用固定提交 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 的 [AEDS v2 协议](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/core/Algorithms/AEDS_V2_PROTOCOL.md)。16 字节小端标头包含魔数、版本 2、标头大小、零标志、帧类型、载荷字节数、载荷 CRC-16。未知类型、其他版本、非零标志、超出预算和 CRC 不符均拒绝。HTTP 业务消息使用 `application/octet-stream`。
 
-`src/Contracts/wire.schema.json` 保存首条链路公开路由、帧类型、布局常量与新记录定义。运行 `node tools/protocol-generate.mjs` 更新 C#、TypeScript 和 C++ 构件，`--check` 校验生成物。C#/TypeScript 的扩展载荷字段读写由定义生成，公开文章的可变偏移和校验逻辑保留在编解码器。
+`src/Contracts/wire.schema.json` 保存公开路由、帧类型、布局常量、显式宽度枚举（`enums`，当前支持 `u8`）、嵌入记录（`embeddedRecords`）、字段组（`fieldGroups`）与新记录定义（含 `enum`、`record` 嵌入及有界 `list` 嵌套列表）。运行 `node tools/protocol-generate.mjs` 更新 C#、TypeScript 和 C++ 构件，`--check` 校验生成物。C#/TypeScript 的扩展载荷字段读写由定义生成，业务跨字段校验与公开文章的可变偏移保留在各自编解码器。
+
+首组迁移的嵌套列表业务载荷为 `AdminSignInHistorySnapshot`（`AdminSignInHistory` 帧 32963，`GET /api/v2/admin/identity/sessions/history.aeds`）：`i64` 代次后接 `i32` 行数（上限 `WireLimits.AdminSignInHistoryMaxItems = 50`），每行 25 字节（`StartedAt`/`ExpiresAt`/`EndedAt` 三个 `i64` 加显式 `u8` 枚举 `AdminSignInState`）。布局代码由生成器产出并已移除手写布局，代次、时间范围、`Current` 须为首项及各状态 `EndedAt` 关系保留在 `AdminSignInHistoryWire.cs` 与 `admin-session-history.ts` 的校验中。
 
 | 路径 | 载荷 |
 | --- | --- |
@@ -43,7 +45,7 @@ v1 的服务端用 core、domain 和 stopwords 文本编译搜索字典，通过
 
 登录扩展使用一次性运维票据。Passkey、Recovery、MFA、风险决策和 PoW 仍按产品台账追踪。其余固定提交声明的业务帧和路由未通过本阶段验收。
 
-运行 `FSUS_DOTNET=/path/to/dotnet ./tools/protocol-test.sh`（默认使用 `PATH` 上的 `dotnet`）。`tests/Protocol/FsusBlog.V2.ProtocolTests.csproj` 已纳入 `FsusBlog.V2.slnx` 以覆盖解决方案编译，但该工程是接收夹具目录参数的独立控制台可执行程序（不通过 `dotnet test` 发现或执行）；仅编译通过不代表协议固定向量已执行，仍须运行 `./tools/protocol-test.sh`。测试对比 C#、TypeScript 和独立固定向量，使用本机 C++ 验证标头，并使用可离线构建的 wasm32 模块，在 Node 的 WebAssembly 引擎验证标头与 CRC。模块源于同一 C++ 帧验证代码，通过本地 Clang 和 wasm-ld 构建。网页的本地搜索 Worker 使用 TypeScript 读取 FSPK 并输出 FSR4，通用 AEDS Wasm 模块的网页接入和业务载荷解码仍待验收。
+运行 `FSUS_DOTNET=/path/to/dotnet ./tools/protocol-test.sh`（默认使用 `PATH` 上的 `dotnet`）。`tests/Protocol/FsusBlog.V2.ProtocolTests.csproj` 已纳入 `FsusBlog.V2.slnx` 以覆盖解决方案编译，但该工程是接收夹具目录参数的独立控制台可执行程序（不通过 `dotnet test` 发现或执行）；仅编译通过不代表协议固定向量已执行，仍须运行 `./tools/protocol-test.sh`。测试对比 C#、TypeScript 和独立固定向量，使用本机 C++ 验证标头，并使用可离线构建的 wasm32 模块，在 Node 的 WebAssembly 引擎验证标头与 CRC。模块源于同一 C++ 帧验证代码，通过本地 Clang 和 wasm-ld 构建。通用帧 3,847 项 JS/Wasm 差分仅覆盖外层帧头与 CRC；`AdminSignInHistory` 等业务载荷的编解码等价性由独立的 C# 与 TypeScript 正反向字节向量（含空/满列表、非法枚举值、全截断、越界与跨字段组合拒绝）单独证明。网页的本地搜索 Worker 使用 TypeScript 读取 FSPK 并输出 FSR4，通用 AEDS Wasm 模块的网页接入和业务载荷解码仍待验收。
 
 ApiError 和历史文章向量来自固定提交的 `tests/fixtures/protocol/`。新命令和当前公开 ArticleDetail、ArticleList、ArticleSearch 向量按相应字节布局由 Python 标准库 struct 和逐位 CRC 独立组装，再核对编码字节和解码结果。详情保留规范要求的空权限记录。文章列表、详情和搜索携带分类与标签；已发布文章的权利快照仍待接入。
 
