@@ -2,7 +2,7 @@
 
 这是从空目录建立的新实现，以 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 为静态参考。当前仓库仍在实施 [验收计划](docs/status.md)。实际协议、界面和数据库支持范围以对应证据为准。
 
-- 后端和独立维护工具使用 .NET SDK `10.0.404`、运行库 `10.0.15`、C# 14、`net10.0` 和 ASP.NET Core Minimal APIs。
+- 后端和独立维护工具使用 .NET SDK `10.0.404`、运行库 `10.0.15`、C# 14、`net10.0` 和 ASP.NET Core Minimal APIs。纯领域模型与策略位于 `src/Core/`，POSIX/PInvoke、文件描述符、签名密钥与媒体目录 I/O、扩展磁盘存储及 Linux Worker 执行边界位于独立工程 `src/Platform/`（严格单向依赖 `Platform -> Core`）。
 - 数据：PostgreSQL / Npgsql，服务启动只检查当前 schema。离线工具负责初始化和验证。
 - 工程分层：`Contracts`、`Core` 之上是独立的 `src/Storage/FsusBlog.V2.Storage.csproj`，单独编译共享的 schema 形态校验与存储辅助代码，`Server` 与 `Cli` 均通过 `ProjectReference` 引用，发布目录各自携带 `FsusBlog.V2.Storage.dll`。Storage 类型保持 `internal`，只对 `Server`、`Cli` 和集成测试开放友元访问；它不含 DDL，Server 仍只做 DML 与只读准入，DDL 留在 `Cli`。
 - 前端：Vue / TypeScript，通过 [本地源码 alias](docs/fsusui.md) 消费相邻 `FsusUI` checkout。不会安装 FsusUI 发布包。
@@ -13,10 +13,11 @@
 dotnet restore FsusBlog.V2.slnx --configfile NuGet.Config --locked-mode
 dotnet build FsusBlog.V2.slnx -c Release --no-restore
 dotnet test tests/Core/FsusBlog.V2.Core.Tests.csproj -c Release --no-build
+dotnet test tests/Platform/FsusBlog.V2.Platform.Tests.csproj -c Release --no-build
 ./tools/protocol-test.sh
 ```
 
-`FsusBlog.V2.slnx` 覆盖 `src/`（`Contracts`、`Core`、`Storage`、`Server`、`Cli`、`PluginWorker`）与 `tests/`（`Core.Tests`、`Integration.Tests`、`ProtocolTests`）全部现有 .NET 工程，项目级构建入口仍保持有效。解决方案构建仅验证受管程序集编译通过，不代表全链路验收：
+`FsusBlog.V2.slnx` 覆盖 `src/`（`Contracts`、`Core`、`Platform`、`Storage`、`Server`、`Cli`、`PluginWorker`）与 `tests/`（`Core.Tests`、`Platform.Tests`、`Integration.Tests`、`ProtocolTests`）全部现有 .NET 工程，项目级构建入口仍保持有效。解决方案构建仅验证受管程序集编译通过，不代表全链路验收：
 
 - 协议固定向量与跨栈校验：`tests/Protocol/FsusBlog.V2.ProtocolTests.csproj` 是独立控制台可执行程序，不由 `dotnet test` 运行；须执行 `./tools/protocol-test.sh` 实际运行 C#、TypeScript、本机 C++ 与 Wasm 固定向量。
 - 离线插件工作进程：`src/PluginWorker/FsusBlog.V2.PluginWorker.csproj` 纳入解决方案仅覆盖受管编译，不改变其 Linux ARM64 目标平台限制；发布封装（`tools/stage-linux-plugin-worker.sh`）与真实沙箱验收（`tests/Integration/Migration/linux-managed-plugin-flow.py` 及隔离/cgroup 探针）仍为 Linux ARM64 专用入口，须与受管编译分别记账，见 [离线平台插件执行](docs/product/platform-plugin-offline.md)。

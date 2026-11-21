@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using FsusBlog.V2.Core.Extensions;
+using FsusBlog.V2.Platform.Extensions;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -98,7 +99,7 @@ internal sealed class MacPdfRuntime(PdfExportToolchain toolchain)
             await process.WaitForExitAsync(deadline.Token);
             return PdfWorkerProtocol.Accept(process.ExitCode, result, errors);
         }, () => PluginWorkerCompletion.ReleaseProcessAsync(deadline,
-            () => PluginWorkerCompletion.ReapProcessAsync(process, entireProcessTree: true, TimeSpan.FromSeconds(2)), stdout, stderr));
+            () => WorkerProcess.ReapAsync(process, entireProcessTree: true, TimeSpan.FromSeconds(2)), stdout, stderr));
     }
 
     private static async Task<byte[]> ReadBounded(Stream stream, int maximum, CancellationToken ct)

@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -12,13 +11,12 @@ public sealed class AppearanceRegistryTests
     [Fact]
     public void SignedThemeIsImmutableAndKnownKeyExpiryLatchesAcrossClockRollback()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var disk = new AppearanceDirectory();
+        var store = new AppearanceMemoryStore();
         using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var clock = new TestClock();
-        var source = disk.Add(signer, Theme(), "summer");
-        disk.Configure(signer, [source], "summer", Now.AddSeconds(1));
-        var registry = AppearanceRegistry.Load(disk.Root, clock);
+        var source = store.Add(signer, Theme(), "summer");
+        store.Configure(signer, [source], "summer", Now.AddSeconds(1));
+        var registry = AppearanceRegistry.Load(store.Read, clock);
         var digest = Assert.IsType<string>(registry.StyleDigest);
         var style = Assert.IsType<byte[]>(registry.ReadStyle(digest));
         Assert.Equal(Hash(style), digest);
@@ -39,48 +37,45 @@ public sealed class AppearanceRegistryTests
     [InlineData("#225533", "appearance-entry-shape", "manifest.json", true)]
     public void MalformedSignedThemesCannotIntroduceStylesheetContent(string color, string expected, string? member = null, bool link = false)
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var disk = new AppearanceDirectory();
+        var store = new AppearanceMemoryStore();
         using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var source = disk.Add(signer, Theme(color, member, link), "summer");
-        disk.Configure(signer, [source], "summer");
-        Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, new TestClock())).Code);
+        var source = store.Add(signer, Theme(color, member, link), "summer");
+        store.Configure(signer, [source], "summer");
+        Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, new TestClock())).Code);
     }
 
     [Fact]
     public void ActivationAndApprovedSignerComeFromTheHostConfiguration()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var disk = new AppearanceDirectory();
+        var store = new AppearanceMemoryStore();
         using var original = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var wrong = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var source = disk.Add(original, Theme(), "summer");
-        disk.Configure(original, [source], null);
+        var source = store.Add(original, Theme(), "summer");
+        store.Configure(original, [source], null);
         var clock = new TestClock();
-        Assert.Null(AppearanceRegistry.Load(disk.Root, clock).StyleDigest);
-        disk.Configure(wrong, [source], "summer");
-        Assert.Equal("archive-signature", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, clock)).Code);
-        disk.Configure(original, [source], "winter");
-        Assert.Equal("appearance-active-reference", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, clock)).Code);
+        Assert.Null(AppearanceRegistry.Load(store.Read, clock).StyleDigest);
+        store.Configure(wrong, [source], "summer");
+        Assert.Equal("archive-signature", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, clock)).Code);
+        store.Configure(original, [source], "winter");
+        Assert.Equal("appearance-active-reference", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, clock)).Code);
     }
 
     [Fact]
     public void OnlineSelectionUsesThePublishedArchiveDigestAndNeverRevivesAnExpiredSelection()
     {
-        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
-        using var disk = new AppearanceDirectory();
+        var store = new AppearanceMemoryStore();
         using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var source = disk.Add(signer, Theme(), "summer");
-        disk.Configure(signer, [source], null);
+        var source = store.Add(signer, Theme(), "summer");
+        store.Configure(signer, [source], null);
         var clock = new TestClock();
-        var registry = AppearanceRegistry.Load(disk.Root, clock);
+        var registry = AppearanceRegistry.Load(store.Read, clock);
         var option = Assert.Single(registry.Available());
         Assert.Equal(new AppearancePackage("summer", "1.0", source.ArchiveSha256, false), option);
         Assert.Null(registry.FontDetail(option.ArchiveDigest));
         Assert.Equal(new AppearanceSelection(), registry.Default);
         Assert.Empty(registry.SelectedStyle(registry.Default, 0)!);
         var selection = new AppearanceSelection(option.ArchiveDigest);
-        Assert.Contains("#225533", System.Text.Encoding.UTF8.GetString(registry.SelectedStyle(selection, 1)!));
+        Assert.Contains("#225533", Encoding.UTF8.GetString(registry.SelectedStyle(selection, 1)!));
         Assert.Null(registry.SelectedStyle(new AppearanceSelection(FontDigest: option.ArchiveDigest), 1));
         clock.Now = Now.AddHours(2);
         Assert.Null(registry.SelectedStyle(selection, 1));
@@ -93,14 +88,13 @@ public sealed class AppearanceRegistryTests
     [Fact]
     public void LegacyFontUsesApprovedArchiveAndExactFaceBytes()
     {
-        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
-        using var disk = new AppearanceDirectory();
+        var store = new AppearanceMemoryStore();
         using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var font = LegacyFontBytes();
-        var descriptor = disk.Add(signer, LegacyFont(font), "legacy", "fsfont-v1");
-        disk.Configure(signer, [descriptor], null, activeFont: "fsusblog.font.fixture");
+        var descriptor = store.Add(signer, LegacyFont(font), "legacy", "fsfont-v1");
+        store.Configure(signer, [descriptor], null, activeFont: "fsusblog.font.fixture");
         var clock = new TestClock();
-        var registry = AppearanceRegistry.Load(disk.Root, clock);
+        var registry = AppearanceRegistry.Load(store.Read, clock);
         var listed = Assert.Single(registry.Available());
         Assert.Equal(new AppearancePackage("fsusblog.font.fixture", "1.0.0", descriptor.ArchiveSha256, true), listed);
         Assert.Equal(font, registry.ReadFont(Hash(font)));
@@ -109,16 +103,11 @@ public sealed class AppearanceRegistryTests
             new("npm-fontsource", "@fontsource/google-sans", "5.2.1", "Google Fonts")), registry.FontDetail(descriptor.ArchiveSha256));
         Assert.Null(registry.FontDetail(Hash(font)));
         var style = Assert.IsType<byte[]>(registry.SelectedStyle(registry.Default, 7));
-        Assert.Contains("unicode-range:U+0000-00FF", System.Text.Encoding.UTF8.GetString(style));
-        Assert.Contains("/font/7/" + Hash(font), System.Text.Encoding.UTF8.GetString(style));
+        Assert.Contains("unicode-range:U+0000-00FF", Encoding.UTF8.GetString(style));
+        Assert.Contains("/font/7/" + Hash(font), Encoding.UTF8.GetString(style));
 
-        var path = Path.Combine(disk.Root.FullName, descriptor.ArchiveSha256 + ".fsfont");
-        var data = File.ReadAllBytes(path);
-        data[0] ^= 1;
-        File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-        File.WriteAllBytes(path, data);
-        File.SetUnixFileMode(path, UnixFileMode.UserRead);
-        Assert.Equal("archive-digest", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, clock)).Code);
+        store.Tamper(descriptor.ArchiveSha256 + ".fsfont");
+        Assert.Equal("archive-digest", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, clock)).Code);
         clock.Now = Now.AddHours(2);
         Assert.Null(registry.FontDetail(descriptor.ArchiveSha256));
         clock.Now = Now;
@@ -139,26 +128,24 @@ public sealed class AppearanceRegistryTests
     [InlineData("budget", "appearance-entry-size")]
     public void SignedLegacyFontRejectsUnsupportedOrMismatchedContents(string variation, string expected)
     {
-        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
-        using var disk = new AppearanceDirectory();
+        var store = new AppearanceMemoryStore();
         using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var source = disk.Add(signer, LegacyFont(LegacyFontBytes(), variation), "legacy", "fsfont-v1");
-        disk.Configure(signer, [source], null);
-        Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, new TestClock())).Code);
+        var source = store.Add(signer, LegacyFont(LegacyFontBytes(), variation), "legacy", "fsfont-v1");
+        store.Configure(signer, [source], null);
+        Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, new TestClock())).Code);
     }
 
     [Fact]
     public void SignedLegacyPaletteKeepsTheOriginalArchiveCoordinateAndEmitsTheSameV2Tokens()
     {
-        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
-        using var disk = new AppearanceDirectory();
+        var store = new AppearanceMemoryStore();
         using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var differentSigner = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var archive = LegacyTheme();
-        var source = disk.Add(signer, archive, "legacy-theme", "fstheme-v1-palette");
+        var source = store.Add(signer, archive, "legacy-theme", "fstheme-v1-palette");
         var clock = new TestClock();
-        disk.Configure(signer, [source], null);
-        var registry = AppearanceRegistry.Load(disk.Root, clock);
+        store.Configure(signer, [source], null);
+        var registry = AppearanceRegistry.Load(store.Read, clock);
         Assert.Null(registry.StyleDigest);
         var choice = Assert.Single(registry.Available());
         Assert.Equal(new AppearancePackage("fsusblog.theme.fixture", "1.0.0", Hash(archive), false), choice);
@@ -172,8 +159,8 @@ public sealed class AppearanceRegistryTests
         Assert.Null(registry.SelectedStyle(selection, 1));
         clock.Now = Now;
         Assert.False(registry.IsCurrent(selection));
-        disk.Configure(differentSigner, [source], null);
-        Assert.Equal("archive-signature", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, clock)).Code);
+        store.Configure(differentSigner, [source], null);
+        Assert.Equal("archive-signature", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, clock)).Code);
     }
 
     [Theory]
@@ -189,12 +176,11 @@ public sealed class AppearanceRegistryTests
     [InlineData("contrast", "appearance-palette-contrast")]
     public void SignedLegacyPaletteRejectsUnsupportedThemeSemantics(string variation, string expected)
     {
-        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
-        using var disk = new AppearanceDirectory();
+        var store = new AppearanceMemoryStore();
         using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var source = disk.Add(signer, LegacyTheme(variation), "legacy-theme", "fstheme-v1-palette");
-        disk.Configure(signer, [source], null);
-        Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, new TestClock())).Code);
+        var source = store.Add(signer, LegacyTheme(variation), "legacy-theme", "fstheme-v1-palette");
+        store.Configure(signer, [source], null);
+        Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, new TestClock())).Code);
     }
 
     private static byte[] LegacyTheme(string variation = "")
@@ -331,23 +317,17 @@ public sealed class AppearanceRegistryTests
 
     private sealed record Descriptor(string Source, string ArchiveSha256, string SignatureSha256, string? Format = null);
 
-    private sealed class AppearanceDirectory : IDisposable
+    private sealed class AppearanceMemoryStore
     {
-        public DirectoryInfo Root { get; }
-
-        public AppearanceDirectory()
-        {
-            Root = Directory.CreateTempSubdirectory("fsus-appearance-");
-            if (OperatingSystem.IsMacOS() && Root.FullName.StartsWith("/var/", StringComparison.Ordinal)) Root = new("/private" + Root.FullName);
-        }
+        private readonly Dictionary<string, byte[]> _files = new(StringComparer.Ordinal);
 
         internal Descriptor Add(ECDsa signer, byte[] zip, string id, string? format = null)
         {
             var signed = signer.SignData(zip, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
             var manifest = new Descriptor($"approved-source/{id}", Hash(zip), Hash(signed), format);
             var suffix = format switch { "fsfont-v1" => ".fsfont", "fstheme-v1-palette" => ".fstheme", _ => ".zip" };
-            Put(manifest.ArchiveSha256 + suffix, zip);
-            Put(manifest.SignatureSha256 + ".signature", signed);
+            _files[manifest.ArchiveSha256 + suffix] = zip.ToArray();
+            _files[manifest.SignatureSha256 + ".signature"] = signed;
             return manifest;
         }
 
@@ -361,18 +341,21 @@ public sealed class AppearanceRegistryTests
                 ActiveTheme = activeTheme,
                 ActiveFont = activeFont
             };
-            Put("appearance.json", JsonSerializer.SerializeToUtf8Bytes(config));
+            _files["appearance.json"] = JsonSerializer.SerializeToUtf8Bytes(config);
         }
 
-        private void Put(string name, byte[] bytes)
+        internal void Tamper(string name)
         {
-            if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
-            var nameInRoot = Path.Combine(Root.FullName, name);
-            using (var incoming = new FileStream(nameInRoot + ".tmp", FileMode.CreateNew, FileAccess.Write)) incoming.Write(bytes);
-            File.SetUnixFileMode(nameInRoot + ".tmp", UnixFileMode.UserRead);
-            File.Move(nameInRoot + ".tmp", nameInRoot, overwrite: true);
+            var data = _files[name].ToArray();
+            data[0] ^= 1;
+            _files[name] = data;
         }
 
-        public void Dispose() => Root.Delete(recursive: true);
+        internal byte[] Read(string name, int limit)
+        {
+            if (!_files.TryGetValue(name, out var bytes)) throw new FileNotFoundException("Missing in-memory appearance fixture.", name);
+            if (bytes.Length is < 1 || bytes.Length > limit) throw new ExtensionRejectedException("installed-file-size");
+            return bytes.ToArray();
+        }
     }
 }

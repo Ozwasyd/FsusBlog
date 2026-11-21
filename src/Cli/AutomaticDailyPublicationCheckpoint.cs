@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Platform;
 using FsusBlogV2.Storage;
 using Microsoft.Win32.SafeHandles;
 using Npgsql;

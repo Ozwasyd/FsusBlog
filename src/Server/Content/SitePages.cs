@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Platform;
 using FsusBlog.V2.Server.Operations;
 using Microsoft.Net.Http.Headers;
 using Microsoft.Win32.SafeHandles;

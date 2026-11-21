@@ -1,17 +1,11 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text.Json;
+using FsusBlog.V2.Core.Extensions;
 using static FsusBlog.V2.Core.Extensions.ExtensionManifestReader;
 using static FsusBlog.V2.Core.Extensions.ExtensionPackageVerifier;
 
-namespace FsusBlog.V2.Core.Extensions;
-
-public sealed record ExtensionCheckpoint(long Sequence, string Digest);
-public sealed record ExtensionQuarantine(Guid Receipt, string Reason, DateTimeOffset QuarantinedAt,
-    Guid? ReleaseApproval = null, DateTimeOffset? ReleasedAt = null);
-public sealed record ExtensionInstallationStatus(string Id, string Version, string Publisher, string Identity, string State,
-    string? VerificationIssue, ExtensionQuarantine? Quarantine);
-public sealed record ExtensionStoreStatus(ExtensionCheckpoint Checkpoint, ImmutableArray<ExtensionInstallationStatus> Installations);
+namespace FsusBlog.V2.Platform.Extensions;
 
 /// <summary>Owns the activation ledger and its host-provisioned trust while holding an exclusive store handle.</summary>
 public sealed class ExtensionInstallationStore : IDisposable

@@ -28,6 +28,12 @@
       "fsusblog.v2.core": {
         "type": "Project"
       },
+      "fsusblog.v2.platform": {
+        "type": "Project",
+        "dependencies": {
+          "FsusBlog.V2.Core": "[1.0.0, )"
+        }
+      },
       "fsusblog.v2.storage": {
         "type": "Project",
         "dependencies": {

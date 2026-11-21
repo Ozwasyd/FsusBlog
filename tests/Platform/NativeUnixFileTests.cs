@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices;
-using FsusBlog.V2.Core;
+using FsusBlog.V2.Platform;
+
+namespace FsusBlog.V2.Platform.Tests;
 
 public sealed class NativeUnixFileTests
 {

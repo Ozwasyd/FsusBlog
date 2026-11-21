@@ -1,5 +1,6 @@
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Extensions;
+using FsusBlog.V2.Platform.Extensions;
 using FsusBlog.V2.Server.Sessions;
 using FsusBlogV2.Storage;
 using Npgsql;

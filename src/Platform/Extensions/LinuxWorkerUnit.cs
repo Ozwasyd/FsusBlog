@@ -1,8 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using FsusBlog.V2.Core.Extensions;
 
-namespace FsusBlog.V2.Core.Extensions;
+namespace FsusBlog.V2.Platform.Extensions;
 
 internal sealed record LinuxWorkerLimits(int DeadlineSeconds, int RuntimeSeconds, int MemoryBytes, int Tasks);
 
@@ -184,7 +185,7 @@ internal sealed class LinuxWorkerUnit(uint uid, string name, string errorPrefix,
     }
 
     private static Task ReapClientAsync(Process process) =>
-        PluginWorkerCompletion.ReapProcessAsync(process, entireProcessTree: false, TimeSpan.FromSeconds(1));
+        WorkerProcess.ReapAsync(process, entireProcessTree: false, TimeSpan.FromSeconds(1));
 
     private ProcessStartInfo Start(string file, params string[] arguments)
     {
