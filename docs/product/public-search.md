@@ -1,6 +1,6 @@
 # 本地全文检索
 
-公开快照的 FSPK v4 页面使用固定 v1 核心词表、领域词表和停用词表。三份词表合并为一份仓库数据，C# 索引和浏览器 Worker 使用同一份输入。两端先做 NFKC，再按同一权重在中文、日文和韩文连续字段内选择分词。ASCII 字母数字按原有规则分组，并转换 ASCII 大写。补充平面文字仍按 Unicode 标量处理。连续超过 4,096 个中日韩字符时，索引保留每个单字和在词库最大宽度内逐位置命中的完整词。 [固定词表源码](https://github.com/Ozwasyd/FsusBlog/tree/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Dictionaries/Search)
+公开快照的 FSPK v4 页面使用固定 v1 核心词表、领域词表和停用词表。三份词表合并为一份仓库数据，C# 索引和浏览器 Worker 使用同一份输入。两端先做 NFKC，再按同一权重在中文、日文和韩文连续字段内选择分词。ASCII 字母数字按原有规则分组并转换 ASCII 大写；构建 FSPK 索引时，还额外为 ASCII 词元发出 3–12 字符前缀及驼峰、大小写缩写、字母数字边界子词（至少 2 字符）的无位置衍生词元，不改变文档长度和精确词短语位置；查询侧保持精确分词，并对 1–2 字符的短 ASCII 查询词元在标题、摘要与分类标签上补充低权重词前缀/子词前缀召回（不扫描正文、不膨胀倒排索引）。补充平面文字仍按 Unicode 标量处理。连续超过 4,096 个中日韩字符时，索引保留每个单字和在词库最大宽度内逐位置命中的完整词。 [固定词表源码](https://github.com/Ozwasyd/FsusBlog/tree/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Dictionaries/Search)
 
 词典词、词内可识别子词和单字证据共用原文字段的位置。词长随 FSPK v4 位置编码。短语必须按位置顺序在同一字段连续命中，支持重复词。停用词保留普通匹配频次，跳过短语位置。查询有词典词时优先按词匹配，查询单字及部分新词时仍能查询单字证据。 [固定 v1 服务端分词](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.Dictionary.cs)
 

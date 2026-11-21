@@ -7,7 +7,7 @@ import { changeTaxonomyMetadata, currentTaxonomyMetadata, normalizeTaxonomyMetad
   type AdminTaxonomyMetadata, type AdminTaxonomyMetadataEdit } from '../../../Contracts/admin-tag-metadata'
 
 const props = defineProps<{ kind: AdminMetadataKind; id: number }>()
-const emit = defineEmits<{ close: []; saved: []; 'session-lost': [error: ApiError] }>()
+const emit = defineEmits<{ close: []; saved: [metadata: AdminTaxonomyMetadata]; 'session-lost': [error: ApiError] }>()
 const lifetime = new AbortController()
 const current = shallowRef<AdminTaxonomyMetadata>()
 const outstanding = shallowRef<AdminTaxonomyMetadataEdit>()
@@ -73,8 +73,8 @@ function save() {
     ...normalized.value, id: props.id, expectedRevision: current.value?.revision ?? 0n, requestId: crypto.randomUUID(),
   }
   void run(async () => {
-    await changeTaxonomyMetadata(props.kind, input, lifetime.signal)
-    if (!lifetime.signal.aborted) emit('saved')
+    const saved = await changeTaxonomyMetadata(props.kind, input, lifetime.signal)
+    if (!lifetime.signal.aborted) emit('saved', saved)
   })
 }
 

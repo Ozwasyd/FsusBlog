@@ -196,4 +196,149 @@ public sealed class AdminTagMetadataPostgresTests
             return context;
         }
     }
+
+    [PostgresFact]
+    public async Task LoopbackAdminHttpCreatesEditsDeletesTaxonomyAndPassesSchemaVerification()
+    {
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        var (adminId, token, _) = await FixtureSql.AdminAsync(db, ct, "loopback-taxonomy-admin", 10, [1], [2]);
+        var cookie = $"{ServerProcess.DefaultAdminCookie}={token}";
+
+        await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct))
+        {
+            // Loopback HTTP admin origin automatically enables tag & category metadata endpoints.
+            foreach (var path in new[] { WireRoutes.AdminTagMetadataAvailability, WireRoutes.AdminCategoryMetadataAvailability })
+            {
+                using var check = AdminRequest(HttpMethod.Get, path);
+                using var resp = await server.Client.SendAsync(check, ct);
+                Assert.Equal(HttpStatusCode.NoContent, resp.StatusCode);
+            }
+
+            // 1. Tag: create -> edit -> reject cross-origin delete -> delete (AEDS EmptySuccess) -> 404.
+            var createTag = new AdminTagMetadataCommand(0, 0, Guid.NewGuid(), "LoopbackTag", "Initial tag note");
+            var createdTag = await SubmitTaxonomy(server.Client, WireRoutes.AdminTagCreatePow, WireRoutes.AdminTagCreate,
+                HttpMethod.Post, Wire.EncodeAdminTagCreateCommand(createTag), Wire.DecodeAdminTagMetadata);
+            Assert.True(createdTag.Id > 0);
+            Assert.Equal("LoopbackTag", createdTag.Name);
+
+            var editTag = new AdminTagMetadataCommand(createdTag.Id, createdTag.Revision, Guid.NewGuid(), "LoopbackTagRenamed", "Updated tag note");
+            var editedTag = await SubmitTaxonomy(server.Client,
+                WireRoutes.AdminTagMetadataPow.Replace("{id:int}", createdTag.Id.ToString(CultureInfo.InvariantCulture)),
+                WireRoutes.AdminTagMetadata.Replace("{id:int}", createdTag.Id.ToString(CultureInfo.InvariantCulture)),
+                HttpMethod.Put, Wire.EncodeAdminTagMetadataCommand(editTag), Wire.DecodeAdminTagMetadata);
+            Assert.Equal("LoopbackTagRenamed", editedTag.Name);
+            Assert.Equal("Updated tag note", editedTag.Description);
+
+            var tagDeletePath = WireRoutes.AdminTagDelete.Replace("{id:int}", createdTag.Id.ToString(CultureInfo.InvariantCulture));
+            using (var noOrigin = AdminRequest(HttpMethod.Post, tagDeletePath, includeOrigin: false))
+            using (var forbidden = await server.Client.SendAsync(noOrigin, ct))
+                Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+
+            using (var delTag = AdminRequest(HttpMethod.Post, tagDeletePath))
+            using (var resp = await server.Client.SendAsync(delTag, ct))
+            {
+                Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+                Assert.Equal(Aeds.ContentType, resp.Content.Headers.ContentType?.MediaType);
+                var payload = Aeds.Decode(await resp.Content.ReadAsByteArrayAsync(ct), FrameType.EmptySuccess);
+                Assert.Equal([1, 0, 0, 0], payload.ToArray());
+            }
+
+            using (var readDeleted = AdminRequest(HttpMethod.Get,
+                WireRoutes.AdminTagMetadata.Replace("{id:int}", createdTag.Id.ToString(CultureInfo.InvariantCulture))))
+            using (var resp = await server.Client.SendAsync(readDeleted, ct))
+                Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+
+            // 2. Category: create -> edit -> conflict while referenced -> delete unreferenced (AEDS EmptySuccess).
+            var usedCategory = await SubmitTaxonomy(server.Client, WireRoutes.AdminCategoryCreatePow, WireRoutes.AdminCategoryCreate,
+                HttpMethod.Post, Wire.EncodeAdminCategoryMetadataCommand(
+                    new AdminTagMetadataCommand(0, 0, Guid.NewGuid(), "ReferencedCat", "In use")), Wire.DecodeAdminCategoryMetadata);
+            await using (var tx = await db.BeginTransactionAsync(ct))
+            {
+                await FixtureSql.ExecuteAsync(db, tx, ct, """
+                    insert into public.article(id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at)
+                    overriding system value values(100,$1,1,'Draft','Body',null,0,false,clock_timestamp(),clock_timestamp())
+                    """, adminId);
+                await FixtureSql.ExecuteAsync(db, tx, ct, """
+                    insert into public.article_revision(article_id,revision,title,body,happened_at)
+                    values(100,1,'Draft','Body',clock_timestamp())
+                    """);
+                await FixtureSql.ExecuteAsync(db, tx, ct, """
+                    insert into public.article_revision_category(article_id,revision,category_id)
+                    values(100,1,$1)
+                    """, usedCategory.Id);
+                await tx.CommitAsync(ct);
+            }
+
+            using (var blockedDel = AdminRequest(HttpMethod.Post,
+                WireRoutes.AdminCategoryDelete.Replace("{id:int}", usedCategory.Id.ToString(CultureInfo.InvariantCulture))))
+            using (var resp = await server.Client.SendAsync(blockedDel, ct))
+                Assert.Equal(HttpStatusCode.Conflict, resp.StatusCode);
+
+            var freeCategory = await SubmitTaxonomy(server.Client, WireRoutes.AdminCategoryCreatePow, WireRoutes.AdminCategoryCreate,
+                HttpMethod.Post, Wire.EncodeAdminCategoryMetadataCommand(
+                    new AdminTagMetadataCommand(0, 0, Guid.NewGuid(), "UnusedCat", "Temp")), Wire.DecodeAdminCategoryMetadata);
+            var editedCategory = await SubmitTaxonomy(server.Client,
+                WireRoutes.AdminCategoryMetadataPow.Replace("{id:int}", freeCategory.Id.ToString(CultureInfo.InvariantCulture)),
+                WireRoutes.AdminCategoryMetadata.Replace("{id:int}", freeCategory.Id.ToString(CultureInfo.InvariantCulture)),
+                HttpMethod.Put, Wire.EncodeAdminCategoryMetadataCommand(
+                    new AdminTagMetadataCommand(freeCategory.Id, freeCategory.Revision, Guid.NewGuid(), "UnusedCat2", "Temp2")),
+                Wire.DecodeAdminCategoryMetadata);
+            Assert.Equal("UnusedCat2", editedCategory.Name);
+
+            using (var delCat = AdminRequest(HttpMethod.Post,
+                WireRoutes.AdminCategoryDelete.Replace("{id:int}", freeCategory.Id.ToString(CultureInfo.InvariantCulture))))
+            using (var resp = await server.Client.SendAsync(delCat, ct))
+            {
+                Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+                Assert.Equal(Aeds.ContentType, resp.Content.Headers.ContentType?.MediaType);
+                var payload = Aeds.Decode(await resp.Content.ReadAsByteArrayAsync(ct), FrameType.EmptySuccess);
+                Assert.Equal([1, 0, 0, 0], payload.ToArray());
+            }
+        }
+
+        // 3. After deleting tag & category (removing their FK-bound command rows while advancing taxonomy_epoch),
+        //    schema verification and a fresh server startup must succeed cleanly.
+        await CurrentSchema.VerifyAsync(db, ct);
+        await using (var restarted = await ServerProcess.Start(fixture.ConnectionString, ct))
+        {
+            using var req = AdminRequest(HttpMethod.Get, WireRoutes.AdminCategories);
+            using var resp = await restarted.Client.SendAsync(req, ct);
+            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        }
+
+        HttpRequestMessage AdminRequest(HttpMethod method, string path, bool includeOrigin = true)
+        {
+            var req = new HttpRequestMessage(method, path);
+            req.Headers.Host = ServerProcess.DefaultAdminHost;
+            req.Headers.Add("Cookie", cookie);
+            if (includeOrigin && method != HttpMethod.Get)
+                req.Headers.Add("Origin", ServerProcess.DefaultAdminOrigin);
+            return req;
+        }
+
+        async Task<AdminTagMetadata> SubmitTaxonomy(HttpClient client, string powPath, string mutationPath,
+            HttpMethod method, byte[] frame, Func<ReadOnlySpan<byte>, AdminTagMetadata> decode)
+        {
+            var nonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
+            byte[] challengeFrame;
+            using (var powReq = AdminRequest(HttpMethod.Post, powPath))
+            {
+                powReq.Headers.Add(WireHeaders.PowClientNonce, nonce);
+                powReq.Content = new ByteArrayContent(frame);
+                powReq.Content.Headers.ContentType = new(Aeds.ContentType);
+                using var powResp = await client.SendAsync(powReq, ct);
+                Assert.Equal(HttpStatusCode.OK, powResp.StatusCode);
+                challengeFrame = await powResp.Content.ReadAsByteArrayAsync(ct);
+            }
+            using var mutReq = AdminRequest(method, mutationPath);
+            mutReq.Headers.Add(WireHeaders.PowProof, PowFixture.SolveFrame(challengeFrame, nonce, ct));
+            mutReq.Content = new ByteArrayContent(frame);
+            mutReq.Content.Headers.ContentType = new(Aeds.ContentType);
+            using var mutResp = await client.SendAsync(mutReq, ct);
+            Assert.Equal(HttpStatusCode.OK, mutResp.StatusCode);
+            Assert.Equal(Aeds.ContentType, mutResp.Content.Headers.ContentType?.MediaType);
+            return decode(await mutResp.Content.ReadAsByteArrayAsync(ct));
+        }
+    }
 }

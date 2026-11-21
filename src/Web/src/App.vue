@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { syncThemeMode, writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
+import { readThemeMode, subscribeThemeMode, syncThemeMode, writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
 import { ElConfigProvider, ElPublicShell, ElButton } from '@ozwasyd/element-plus'
 import { runSiteViewTransition } from './viewTransition'
 import en from '@element-plus/locale/lang/en'
 import zhCn from '@element-plus/locale/lang/zh-cn'
-import SiteLocaleSelect from './SiteLocaleSelect.vue'
 import SiteHeaderPreferences from './SiteHeaderPreferences.vue'
-import { siteLocale, t, themeLabels } from './siteLocale'
+import { siteLocale, t } from './siteLocale'
 import SiteAuthLayout from './SiteAuthLayout.vue'
 import AccountWorkspace from './AccountWorkspace.vue'
 import { currentSession, refreshSession, signOut } from './session'
@@ -25,9 +24,15 @@ const router = useRouter()
 const siteAuthPage = computed(() => route.name === 'login' || route.name === 'register')
 const searchPage = computed(() => route.name === 'search')
 const searchQuery = ref('')
-const themeMode = ref<ThemeMode>()
-const selected = document.documentElement.dataset.themeMode
-if (selected === 'light' || selected === 'dark' || selected === 'system') themeMode.value = selected
+function parseThemeMode(value: string | undefined): ThemeMode | undefined {
+  return value === 'light' || value === 'dark' || value === 'system' ? value : undefined
+}
+function tryReadThemeMode(): ThemeMode | undefined {
+  try { return readThemeMode() } catch { return undefined }
+}
+const themeMode = ref<ThemeMode>(parseThemeMode(document.documentElement.dataset.themeMode) ?? 'system')
+let persistedTheme: ThemeMode | undefined = themeMode.value
+let themePersisted = true
 function resolvedThemeFor(mode: ThemeMode): 'light' | 'dark' {
   if (mode === 'light' || mode === 'dark') return mode
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -35,6 +40,30 @@ function resolvedThemeFor(mode: ThemeMode): 'light' | 'dark' {
 function applyTheme(mode: ThemeMode) {
   themeMode.value = mode
   try { writeThemeMode(mode) } catch { syncThemeMode(mode) }
+}
+function reconcileTheme() {
+  const root = document.documentElement
+  const stored = tryReadThemeMode()
+  let next = themeMode.value
+  if (stored !== undefined) {
+    if (themePersisted) {
+      persistedTheme = stored
+      next = stored
+    } else if (stored !== persistedTheme) {
+      persistedTheme = stored
+      themePersisted = true
+      next = stored
+    }
+  }
+  const nextResolved = resolvedThemeFor(next)
+  if (
+    themeMode.value === next
+    && root.dataset.themeMode === next
+    && root.dataset.themeResolved === nextResolved
+    && root.style.colorScheme === nextResolved
+  ) return
+  themeMode.value = next
+  syncThemeMode(next)
 }
 function useTheme(mode: ThemeMode) {
   if (mode === themeMode.value) return
@@ -47,9 +76,6 @@ function useTheme(mode: ThemeMode) {
     applyTheme(mode)
     await nextTick()
   }, { name: 'theme-switch' })
-}
-function selectTheme(mode: string) {
-  if (mode === 'light' || mode === 'dark' || mode === 'system') useTheme(mode)
 }
 
 const logoutFailure = ref(false)
@@ -134,6 +160,27 @@ const sync = () => {
   if (hasAdminSessionHint()) void refreshAuthorSession(lifetime.signal).catch(() => {})
 }
 const whenVisible = () => { if (document.visibilityState === 'visible') sync() }
+const onPageShow = () => {
+  reconcileTheme()
+  sync()
+}
+const onVisibilityChange = () => {
+  if (document.visibilityState !== 'visible') return
+  reconcileTheme()
+  sync()
+}
+const onWindowFocus = () => {
+  reconcileTheme()
+}
+const onStorage = (event: StorageEvent) => {
+  try {
+    if (event.storageArea && event.storageArea !== window.localStorage) return
+  } catch {
+    return
+  }
+  reconcileTheme()
+}
+let stopThemeMode: (() => void) | undefined
 let stopSiteRefresh: (() => void) | undefined
 let stopAdminAuth: (() => void) | undefined
 watch([() => currentSession.value?.siteRefresh, () => currentSession.value?.expiresAt, () => adminArea.value, () => adminAuthoringArea.value],
@@ -157,6 +204,17 @@ watch(() => route.name, (name, _, cleanup) => {
   }).catch(() => {})
 }, { immediate: true })
 onMounted(() => {
+  stopThemeMode = subscribeThemeMode(detail => {
+    themeMode.value = detail.mode
+    const stored = tryReadThemeMode()
+    if (stored !== undefined) {
+      persistedTheme = stored
+      themePersisted = stored === detail.mode
+    } else {
+      themePersisted = false
+    }
+  })
+  reconcileTheme()
   stopSiteRefresh = observeSiteRefresh(() => {
     if (!adminArea.value && !adminAuthoringArea.value) void refreshSession(lifetime.signal, false).catch(() => {})
   })
@@ -165,15 +223,20 @@ onMounted(() => {
       void refreshAuthorSession(lifetime.signal, false).catch(() => {})
   })
   sync()
-  window.addEventListener('pageshow', sync)
-  document.addEventListener('visibilitychange', whenVisible)
+  window.addEventListener('pageshow', onPageShow)
+  window.addEventListener('focus', onWindowFocus)
+  window.addEventListener('storage', onStorage)
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 onUnmounted(() => {
   lifetime.abort()
+  stopThemeMode?.()
   stopSiteRefresh?.()
   stopAdminAuth?.()
-  window.removeEventListener('pageshow', sync)
-  document.removeEventListener('visibilitychange', whenVisible)
+  window.removeEventListener('pageshow', onPageShow)
+  window.removeEventListener('focus', onWindowFocus)
+  window.removeEventListener('storage', onStorage)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
 function search(value: string) {
@@ -204,8 +267,8 @@ async function leave() {
   <RouterView v-else-if="adminAuthoringArea" />
   <AccountWorkspace v-else-if="accountArea" home="/user" :label="t('nav.accountMenu')" :links="accountLinks"
     :theme-mode="themeMode" @theme="useTheme">
-    <template #actions>
-      <ElButton v-if="currentSession || logoutFailure" text @click="leave">{{ t('nav.logout') }}</ElButton>
+    <template #actions="{ drawer }">
+      <ElButton v-if="currentSession || logoutFailure" :text="!drawer" @click="leave">{{ t('nav.logout') }}</ElButton>
       <RouterLink v-else class="site-header-text-action" to="/login">{{ t('nav.login') }}</RouterLink>
     </template>
     <RouterView />
@@ -247,13 +310,7 @@ async function leave() {
         <RouterLink v-if="currentSession" class="site-header-text-action" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'security'" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
         <div class="public-menu-preferences">
-          <SiteLocaleSelect />
-          <select class="site-theme-select" :aria-label="t('theme.label')" :value="themeMode ?? 'system'"
-            @change="selectTheme(($event.target as HTMLSelectElement).value)">
-            <option value="light">{{ themeLabels.light }}</option>
-            <option value="dark">{{ themeLabels.dark }}</option>
-            <option value="system">{{ themeLabels.system }}</option>
-          </select>
+          <SiteHeaderPreferences mobile :theme-mode="themeMode" @theme="useTheme" />
         </div>
       </template>
       <div id="page-content" ref="publicContent" tabindex="-1">
@@ -264,26 +321,26 @@ async function leave() {
         <RouterView />
       </div>
       <template #footer>
-        <div class="reading-column site-footer">
-          <div class="site-footer-identity">
-            <strong>{{ siteTitle }}</strong>
-            <p>{{ copyright }}</p>
-          </div>
-          <div class="site-footer-links">
-            <div v-if="legal" class="site-policy-links" :aria-label="t('nav.compliance')">
-              <a v-if="legal.contentLicenseName && publicLink(legal.contentLicenseUrl)" :href="publicLink(legal.contentLicenseUrl)">{{ legal.contentLicenseName }}</a>
-              <span v-else-if="legal.contentLicenseName">{{ legal.contentLicenseName }}</span>
-              <template v-if="legal.regionMode === 'mainland-cn'">
-                <a v-if="legal.icpRecordNumber && publicLink(legal.icpRecordUrl)" :href="publicLink(legal.icpRecordUrl)">{{ legal.icpRecordNumber }}</a>
-                <a v-if="legal.policeRecordNumber && publicLink(legal.policeRecordUrl)" :href="publicLink(legal.policeRecordUrl)">{{ legal.policeRecordNumber }}</a>
-              </template>
-              <span v-if="legal.operatorName">{{ legal.operatorName }}</span>
-              <a v-if="legal.contactEmail && contactLink(legal.contactEmail)" :href="contactLink(legal.contactEmail)">{{ legal.contactEmail }}</a>
+        <div class="reading-column site-footer-shell">
+          <div class="site-footer">
+            <strong class="site-footer-brand">{{ siteTitle }}</strong>
+            <a class="site-footer-top" href="#">{{ t('nav.top') }}</a>
+            <p class="site-footer-copyright">{{ copyright }}</p>
+            <div class="site-footer-links">
+              <nav class="site-policy-links" :aria-label="t('nav.policies')">
+                <RouterLink v-for="(_, slug) in sitePages" :key="slug" :to="{ name: slug }">{{ t(`policy.${slug}`) }}</RouterLink>
+              </nav>
+              <div v-if="legal" class="site-policy-links site-compliance-links" :aria-label="t('nav.compliance')">
+                <a v-if="legal.contentLicenseName && publicLink(legal.contentLicenseUrl)" :href="publicLink(legal.contentLicenseUrl)">{{ legal.contentLicenseName }}</a>
+                <span v-else-if="legal.contentLicenseName">{{ legal.contentLicenseName }}</span>
+                <template v-if="legal.regionMode === 'mainland-cn'">
+                  <a v-if="legal.icpRecordNumber && publicLink(legal.icpRecordUrl)" :href="publicLink(legal.icpRecordUrl)">{{ legal.icpRecordNumber }}</a>
+                  <a v-if="legal.policeRecordNumber && publicLink(legal.policeRecordUrl)" :href="publicLink(legal.policeRecordUrl)">{{ legal.policeRecordNumber }}</a>
+                </template>
+                <span v-if="legal.operatorName">{{ legal.operatorName }}</span>
+                <a v-if="legal.contactEmail && contactLink(legal.contactEmail)" :href="contactLink(legal.contactEmail)">{{ legal.contactEmail }}</a>
+              </div>
             </div>
-            <nav class="site-policy-links" :aria-label="t('nav.policies')">
-              <RouterLink v-for="(_, slug) in sitePages" :key="slug" :to="{ name: slug }">{{ t(`policy.${slug}`) }}</RouterLink>
-              <a href="#">{{ t('nav.top') }}</a>
-            </nav>
           </div>
         </div>
       </template>
@@ -294,16 +351,6 @@ async function leave() {
 
 <style scoped>
 .public-menu-preferences {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .5rem;
-  padding: .375rem;
-}
-.public-menu-preferences > select { min-inline-size: 0; inline-size: 100%; }
-.site-policy-links {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: .5rem 1rem;
+  padding-block: .375rem 0;
 }
 </style>

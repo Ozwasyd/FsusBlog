@@ -117,6 +117,8 @@ public sealed class ArticleSearchWideTests
             .OrderDescending().Take(198));
         Assert.Equal(expectedTies, Ids("roundtable"));
         Assert.Empty(Ids("neverpublishedtoken"));
+        Assert.Equal(expected, Ids("am"));
+        Assert.Empty(Ids("fr"));
 
         var compact = Assert.IsType<ArticleSearchIndex>(ArticleSearchIndex.Build(articles[..40_000], CancellationToken.None));
         Assert.False(compact.UsesWideProfile);

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using System.Security.Cryptography;
 using FsusBlog.V2.Core.Extensions;
 using FsusBlog.V2.Server.Operations;
@@ -82,7 +83,8 @@ internal sealed class AppearanceAssets(AppearanceRegistry registry, bool online)
         if (origin.Count > 0 && (origin.Count != 1 ||
             !string.Equals(origin[0], $"{ctx.Request.Scheme}://{ctx.Request.Host}", StringComparison.OrdinalIgnoreCase)))
             return Results.NotFound();
-        if (!ctx.Request.IsHttps || revision is < 0 || (digest is not null && !ValidDigest(digest)))
+        if ((!ctx.Request.IsHttps && (ctx.Connection.RemoteIpAddress is not { } peer || !IPAddress.IsLoopback(peer))) ||
+            revision is < 0 || (digest is not null && !ValidDigest(digest)))
             return Results.NotFound();
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
         budget.CancelAfter(TimeSpan.FromSeconds(1));
