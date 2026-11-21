@@ -83,7 +83,17 @@ export function watchAdminInboxWake(scope: bigint | AdminInboxLiveStatus, signal
   if (scope === 'system') query?.set('shared', '1');
   const path = typeof scope === 'bigint' ? WireRoutes.AdminInboxWake.replace('{id:long}', String(scope)) :
     WireRoutes.AdminInboxQueueWake + (query ? `?${query}` : '');
-  watchInboxWake(signal, refresh, connected => { if (connected) refresh(); }, onRevoked, path);
+  let seenDisconnect = false;
+  watchInboxWake(signal, refresh, connected => {
+    if (!connected) {
+      seenDisconnect = true;
+      return;
+    }
+    if (seenDisconnect) {
+      seenDisconnect = false;
+      refresh();
+    }
+  }, onRevoked, path);
 }
 
 export function acknowledgeAdminInboxRead(id: bigint, snapshot: NonNullable<AdminInboxThread['readSnapshot']>, signal: AbortSignal) {

@@ -673,3 +673,108 @@ test('toggle collapse/expand, queue live 429 retry + focus hook, unchanged statu
 
   controller.dispose()
 })
+
+test('fine-grained channels, latest-wins thread/filter switching, non-blocking read ack, and stable version during mutations', async () => {
+  const threadAGate = deferred<AdminInboxThread>()
+  const threadBGate = deferred<AdminInboxThread>()
+  const ackGate = deferred<number>()
+  const filterGate = deferred<AdminInboxPage>()
+  const refreshGate = deferred<AdminInboxThread>()
+  let threadFetches: bigint[] = []
+  let openHookCalls = 0
+  let filterCallCount = 0
+  let refreshMode: 'normal' | 'hold' = 'normal'
+
+  const controller = new AdminInboxController({
+    hooks: { onThreadOpened: () => { openHookCalls++ } },
+    transport: createTransport({
+      adminInbox: async filter => {
+        if (filter === 'pending') {
+          filterCallCount++
+          if (filterCallCount === 1) return filterGate.promise
+          throw new ApiError('queue load failed', 503)
+        }
+        return makePage([makeRow(1n), makeRow(2n)])
+      },
+      adminInboxThread: async id => {
+        threadFetches.push(id)
+        if (id === 1n && refreshMode === 'normal' && threadFetches.filter(x => x === 1n).length === 1) {
+          return threadAGate.promise
+        }
+        if (id === 2n && refreshMode === 'normal' && threadFetches.filter(x => x === 2n).length === 1) {
+          return threadBGate.promise
+        }
+        if (refreshMode === 'hold') {
+          return refreshGate.promise
+        }
+        return makeThread(id, { version: '2', readSnapshot: null })
+      },
+      acknowledgeAdminInboxRead: async () => ackGate.promise,
+    }),
+  })
+
+  const session = new AbortController()
+  controller.bindSession(session.signal)
+  await flushMicrotasks()
+
+  // Clicking thread 1 then rapidly clicking thread 2 cancels thread 1 (latest-wins) without dropping thread 2.
+  const open1 = controller.openThread(1n)
+  assert.equal(controller.state.threadPending, true)
+  assert.equal(controller.state.queuePending, false)
+  const open2 = controller.openThread(2n)
+  threadAGate.resolve(makeThread(1n))
+  threadBGate.resolve(makeThread(2n))
+  await flushMicrotasks()
+
+  // Thread 2 is rendered and threadPending is already false even while read ack is still pending.
+  assert.equal(controller.state.thread?.conversation.id, 2n)
+  assert.equal(controller.state.threadPending, false)
+  assert.equal(controller.state.readPending, true)
+  assert.equal(controller.state.replyPending, false)
+  assert.equal(controller.state.statusPending, false)
+  ackGate.resolve(0)
+  await Promise.all([open1, open2])
+  assert.equal(controller.state.readPending, false)
+
+  // Re-clicking the already-open thread 2 focuses it without issuing a duplicate GET.
+  const fetchesBeforeReclick = threadFetches.length
+  const hooksBeforeReclick = openHookCalls
+  await controller.openThread(2n)
+  assert.equal(threadFetches.length, fetchesBeforeReclick)
+  assert.equal(openHookCalls, hooksBeforeReclick + 1)
+
+  // Switching filter preserves existing rows & open thread while loading (no skeleton flash), then swaps atomically.
+  controller.setFilter('pending')
+  assert.equal(controller.state.queuePending, true)
+  assert.equal(controller.state.rows.length, 2)
+  assert.equal(controller.state.thread?.conversation.id, 2n)
+  filterGate.resolve(makePage([makeRow(2n, { status: 1 })]))
+  await flushMicrotasks()
+  assert.equal(controller.state.queuePending, false)
+  assert.deepEqual(controller.state.rows.map(r => r.id), [2n])
+  assert.equal(controller.state.thread?.conversation.id, 2n)
+
+  // Sending a reply keeps thread.version intact during post-reply refresh so the status form never unmounts.
+  refreshMode = 'hold'
+  controller.setReply('Smooth non-jumping reply')
+  const replyPromise = controller.sendReply()!
+  await flushMicrotasks()
+  assert.equal(controller.state.replyPending, true)
+  assert.equal(controller.state.statusPending, false)
+  assert.equal(controller.state.thread?.version, '1')
+  assert.equal(controller.state.notice, 'admin.inbox.m42')
+  refreshGate.resolve(makeThread(2n, { version: '2', readSnapshot: null }))
+  await replyPromise
+  assert.equal(controller.state.replyPending, false)
+  assert.equal(controller.state.thread?.version, '2')
+
+  // Filter switch error clears stale rows from previous filter cleanly.
+  controller.setFilter('open')
+  await flushMicrotasks()
+  controller.setFilter('pending')
+  await flushMicrotasks()
+  assert.equal(controller.state.failed, 'admin.inbox.m39')
+  assert.equal(controller.state.rows.length, 0)
+
+  controller.dispose()
+})

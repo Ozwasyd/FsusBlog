@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { t } from '../siteLocale'
+import { siteLocale, t } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   ElAlert, ElButton, ElConversationContextBar, ElConversationList, ElEmptySelectionState,
@@ -11,6 +11,7 @@ import type { AdminInboxStatus, AdminInboxThread } from '../../../Contracts/admi
 import {
   AdminInboxController,
   adminInboxStatusTransitions as transitions,
+  type AdminInboxState,
 } from '../admin/adminInboxController'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
@@ -56,7 +57,7 @@ const controller = new AdminInboxController({
       if (!focusedInThread) return
       return () => {
         void nextTick(() => {
-          if (!props.sessionSignal.aborted && state.value.thread?.conversation.id === conversationId &&
+          if (!props.sessionSignal.aborted && thread.value?.conversation.id === conversationId &&
               !focus.isConnected && document.activeElement === document.body) {
             title.value?.focus()
           }
@@ -79,58 +80,117 @@ const controller = new AdminInboxController({
 })
 
 controller.bindSession(props.sessionSignal, { autoLoad: false })
-const state = shallowRef(controller.snapshot())
+const initial = controller.snapshot()
+
+const rows = shallowRef(initial.rows)
+const thread = shallowRef(initial.thread)
+const next = ref(initial.next)
+const filterValue = ref(initial.filter)
+const orderValue = ref(initial.order)
+const expanded = ref(initial.expanded)
+const queuePending = ref(initial.queuePending)
+const threadPending = ref(initial.threadPending)
+const readPending = ref(initial.readPending)
+const replyPending = ref(initial.replyPending)
+const statusPending = ref(initial.statusPending)
+const noticePending = ref(initial.noticePending)
+const failed = ref(initial.failed)
+const replyValue = ref(initial.reply)
+const notice = ref(initial.notice)
+const destinationValue = ref(initial.destination)
+const reasonValue = ref(initial.reason)
+const needsRefresh = ref(initial.needsRefresh)
+const sharedRead = ref(initial.sharedRead)
+const activityAvailable = ref(initial.activityAvailable)
+const unreadAckFailed = ref(initial.unreadAckFailed)
+const noticesEnabled = ref(initial.noticesEnabled)
+const composeNoticeValue = ref(initial.composeNotice)
+const recipientValue = ref(initial.recipient)
+const noticeSubjectValue = ref(initial.noticeSubject)
+const noticeBodyValue = ref(initial.noticeBody)
+
+function syncSnapshot(snap: AdminInboxState) {
+  if (rows.value !== snap.rows) rows.value = snap.rows
+  if (thread.value !== snap.thread) thread.value = snap.thread
+  if (next.value !== snap.next) next.value = snap.next
+  if (filterValue.value !== snap.filter) filterValue.value = snap.filter
+  if (orderValue.value !== snap.order) orderValue.value = snap.order
+  if (expanded.value !== snap.expanded) expanded.value = snap.expanded
+  if (queuePending.value !== snap.queuePending) queuePending.value = snap.queuePending
+  if (threadPending.value !== snap.threadPending) threadPending.value = snap.threadPending
+  if (readPending.value !== snap.readPending) readPending.value = snap.readPending
+  if (replyPending.value !== snap.replyPending) replyPending.value = snap.replyPending
+  if (statusPending.value !== snap.statusPending) statusPending.value = snap.statusPending
+  if (noticePending.value !== snap.noticePending) noticePending.value = snap.noticePending
+  if (failed.value !== snap.failed) failed.value = snap.failed
+  if (replyValue.value !== snap.reply) replyValue.value = snap.reply
+  if (notice.value !== snap.notice) notice.value = snap.notice
+  if (destinationValue.value !== snap.destination) destinationValue.value = snap.destination
+  if (reasonValue.value !== snap.reason) reasonValue.value = snap.reason
+  if (needsRefresh.value !== snap.needsRefresh) needsRefresh.value = snap.needsRefresh
+  if (sharedRead.value !== snap.sharedRead) sharedRead.value = snap.sharedRead
+  if (activityAvailable.value !== snap.activityAvailable) activityAvailable.value = snap.activityAvailable
+  if (unreadAckFailed.value !== snap.unreadAckFailed) unreadAckFailed.value = snap.unreadAckFailed
+  if (noticesEnabled.value !== snap.noticesEnabled) noticesEnabled.value = snap.noticesEnabled
+  if (composeNoticeValue.value !== snap.composeNotice) composeNoticeValue.value = snap.composeNotice
+  if (recipientValue.value !== snap.recipient) recipientValue.value = snap.recipient
+  if (noticeSubjectValue.value !== snap.noticeSubject) noticeSubjectValue.value = snap.noticeSubject
+  if (noticeBodyValue.value !== snap.noticeBody) noticeBodyValue.value = snap.noticeBody
+}
+
 const unsubscribe = controller.subscribe(() => {
-  state.value = controller.snapshot()
+  syncSnapshot(controller.snapshot())
 })
 
-const rows = computed(() => state.value.rows)
-const thread = computed(() => state.value.thread)
-const next = computed(() => state.value.next)
 const filter = computed({
-  get: () => state.value.filter,
+  get: () => filterValue.value,
   set: value => controller.setFilter(value),
 })
 const order = computed({
-  get: () => state.value.order,
+  get: () => orderValue.value,
   set: value => controller.setOrder(value),
 })
-const expanded = computed(() => state.value.expanded)
-const pending = computed(() => state.value.pending)
-const failed = computed(() => state.value.failed)
 const reply = computed({
-  get: () => state.value.reply,
+  get: () => replyValue.value,
   set: value => controller.setReply(value),
 })
-const notice = computed(() => state.value.notice)
 const destination = computed({
-  get: () => state.value.destination,
+  get: () => destinationValue.value,
   set: value => controller.setDestination(value),
 })
 const reason = computed({
-  get: () => state.value.reason,
+  get: () => reasonValue.value,
   set: value => controller.setReason(value),
 })
-const needsRefresh = computed(() => state.value.needsRefresh)
-const sharedRead = computed(() => state.value.sharedRead)
-const activityAvailable = computed(() => state.value.activityAvailable)
-const unreadAckFailed = computed(() => state.value.unreadAckFailed)
-const noticesEnabled = computed(() => state.value.noticesEnabled)
 const composeNotice = computed({
-  get: () => state.value.composeNotice,
+  get: () => composeNoticeValue.value,
   set: value => controller.setComposeNotice(value),
 })
 const recipient = computed({
-  get: () => state.value.recipient,
+  get: () => recipientValue.value,
   set: value => controller.setRecipient(value),
 })
 const noticeSubject = computed({
-  get: () => state.value.noticeSubject,
+  get: () => noticeSubjectValue.value,
   set: value => controller.setNoticeSubject(value),
 })
 const noticeBody = computed({
-  get: () => state.value.noticeBody,
+  get: () => noticeBodyValue.value,
   set: value => controller.setNoticeBody(value),
+})
+
+const renderedMessages = computed(() => {
+  const current = thread.value
+  if (!current) return []
+  const locale = siteLocale.value
+  const internalLabel = t('admin.inbox.m49')
+  return current.messages.map(message => ({
+    id: String(message.id),
+    variant: messageVariant(message),
+    author: `${t(senders[message.sender])}${message.internal ? ` · ${internalLabel}` : ''}`,
+    meta: new Date(message.at).toLocaleString(locale),
+    body: message.body,
+  }))
 })
 
 function openThread(id: bigint, before: string | null = null, event?: MouseEvent) {
@@ -153,7 +213,7 @@ watch(() => props.sessionSignal, signal => {
 }, { flush: 'sync' })
 
 onMounted(() => {
-  if (state.value.expanded && !props.sessionSignal.aborted) loadQueue()
+  if (expanded.value && !props.sessionSignal.aborted) loadQueue()
 })
 
 onBeforeUnmount(() => {
@@ -178,10 +238,10 @@ onBeforeUnmount(() => {
         density="compact"
       >
         <template #list>
-          <div ref="queue" class="inbox-admin-queue" tabindex="-1" :aria-busy="pending">
+          <div ref="queue" class="inbox-admin-queue" tabindex="-1" :aria-busy="queuePending">
             <div class="inbox-admin-toolbar">
               <div class="inbox-admin-filters">
-                <ElSelect v-model="filter" :ariaLabel="t('admin.inbox.m4')" :disabled="pending">
+                <ElSelect v-model="filter" :ariaLabel="t('admin.inbox.m4')">
                   <ElOption :label="t('admin.inbox.m5')" value="" />
                   <ElOption :label="t('admin.inbox.m6')" value="open" />
                   <ElOption :label="t('admin.inbox.m7')" value="pending" />
@@ -189,14 +249,14 @@ onBeforeUnmount(() => {
                   <ElOption v-if="sharedRead" :label="t('admin.inbox.m9')" value="unread" />
                   <ElOption v-if="sharedRead" :label="t('admin.inbox.m10')" value="system" />
                 </ElSelect>
-                <ElSelect v-if="activityAvailable" v-model="order" :ariaLabel="t('admin.inbox.m11')" :disabled="pending">
+                <ElSelect v-if="activityAvailable" v-model="order" :ariaLabel="t('admin.inbox.m11')">
                   <ElOption :label="t('admin.inbox.m12')" value="created" />
                   <ElOption :label="t('admin.inbox.m13')" value="activity" />
                 </ElSelect>
               </div>
               <div class="inbox-admin-toolbar-actions">
-                <ElButton native-type="button" text :loading="pending" @click="loadQueue()">{{ t('admin.inbox.m14') }}</ElButton>
-                <ElButton v-if="noticesEnabled && !composeNotice" native-type="button" :disabled="pending"
+                <ElButton native-type="button" text :loading="queuePending" @click="loadQueue()">{{ t('admin.inbox.m14') }}</ElButton>
+                <ElButton v-if="noticesEnabled && !composeNotice" native-type="button" :disabled="noticePending"
                   @click="composeNotice = true">{{ t('admin.inbox.m15') }}</ElButton>
               </div>
             </div>
@@ -204,26 +264,26 @@ onBeforeUnmount(() => {
             <form v-if="noticesEnabled && composeNotice" class="inbox-admin-notice-form" @submit.prevent="sendNotice">
               <div class="inbox-admin-field">
                 <label for="admin-notice-account">{{ t('admin.inbox.m16') }}</label>
-                <ElInput id="admin-notice-account" v-model="recipient" :disabled="pending" />
+                <ElInput id="admin-notice-account" v-model="recipient" :disabled="noticePending" />
               </div>
               <div class="inbox-admin-field">
                 <label for="admin-notice-subject">{{ t('admin.inbox.m17') }}</label>
-                <ElInput id="admin-notice-subject" v-model="noticeSubject" :disabled="pending" />
+                <ElInput id="admin-notice-subject" v-model="noticeSubject" :disabled="noticePending" />
               </div>
               <div class="inbox-admin-field">
                 <label for="admin-notice-body">{{ t('admin.inbox.m18') }}</label>
-                <ElInput id="admin-notice-body" v-model="noticeBody" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" :disabled="pending" />
+                <ElInput id="admin-notice-body" v-model="noticeBody" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" :disabled="noticePending" />
               </div>
               <div class="inbox-admin-notice-actions">
-                <ElButton native-type="submit" type="primary" :loading="pending"
+                <ElButton native-type="submit" type="primary" :loading="noticePending"
                   :disabled="!isNoticeRecipient(recipient.trim()) || !noticeBody.trim()">{{ t('admin.inbox.m19') }}</ElButton>
-                <ElButton native-type="button" :disabled="pending" @click="clearNotice">{{ t('admin.inbox.m20') }}</ElButton>
+                <ElButton native-type="button" :disabled="noticePending" @click="clearNotice">{{ t('admin.inbox.m20') }}</ElButton>
               </div>
             </form>
 
-            <ElSkeleton v-if="pending && rows.length === 0" :rows="4" class="inbox-admin-skeleton" />
+            <ElSkeleton v-if="queuePending && rows.length === 0" :rows="4" class="inbox-admin-skeleton" />
             <ElInboxEmptyState
-              v-else-if="!pending && !failed && rows.length === 0"
+              v-else-if="!queuePending && !failed && rows.length === 0"
               :title="t('admin.inbox.m21')"
             />
             <ElConversationList v-if="rows.length" class="inbox-admin-list">
@@ -237,7 +297,6 @@ onBeforeUnmount(() => {
                 <button
                   type="button"
                   class="inbox-admin-subject"
-                  :disabled="pending"
                   @click="openThread(item.id, null, $event)"
                 >{{ item.subject }}</button>
                 <div class="inbox-admin-item-meta">
@@ -249,16 +308,16 @@ onBeforeUnmount(() => {
             </ElConversationList>
 
             <div v-if="next" class="inbox-admin-more">
-              <ElButton native-type="button" text :disabled="pending" @click="loadQueue(next)">{{ t('admin.inbox.m24') }}</ElButton>
+              <ElButton native-type="button" text :loading="queuePending" @click="loadQueue(next)">{{ t('admin.inbox.m24') }}</ElButton>
             </div>
           </div>
         </template>
 
         <template #detail>
-          <div v-if="thread" ref="threadPanel" class="inbox-admin-thread" :aria-busy="pending">
+          <div v-if="thread" ref="threadPanel" class="inbox-admin-thread" :aria-busy="threadPending || replyPending || statusPending">
             <ElThreadPanel title-tag="h3" density="compact">
               <template #back>
-                <ElButton native-type="button" text :disabled="pending" @click="closeThread">{{ t('admin.inbox.m25') }}</ElButton>
+                <ElButton native-type="button" text @click="closeThread">{{ t('admin.inbox.m25') }}</ElButton>
               </template>
               <template #title>
                 <span id="admin-inbox-thread" ref="title" tabindex="-1">{{ thread.conversation.subject }}</span>
@@ -268,7 +327,7 @@ onBeforeUnmount(() => {
                   v-if="thread.version || thread.liveEnabled || needsRefresh"
                   native-type="button"
                   text
-                  :disabled="pending"
+                  :loading="threadPending"
                   @click="reloadThread"
                 >{{ t('admin.inbox.m26') }}</ElButton>
               </template>
@@ -281,21 +340,21 @@ onBeforeUnmount(() => {
                 </ElConversationContextBar>
                 <div v-if="unreadAckFailed" class="inbox-admin-alert-row">
                   <ElAlert :title="t('admin.inbox.m27')" type="warning" :closable="false" />
-                  <ElButton native-type="button" :disabled="pending" @click="retryRead">{{ t('admin.inbox.m28') }}</ElButton>
+                  <ElButton native-type="button" :loading="readPending" @click="retryRead">{{ t('admin.inbox.m28') }}</ElButton>
                 </div>
               </template>
               <template #messages>
                 <div v-if="thread.previous" class="inbox-admin-earlier">
-                  <ElButton native-type="button" text :disabled="pending"
+                  <ElButton native-type="button" text :loading="threadPending"
                     @click="openThread(thread.conversation.id, thread.previous)">{{ t('admin.inbox.m29') }}</ElButton>
                 </div>
                 <ElMessageTimeline>
                   <ElMessageBubble
-                    v-for="message in thread.messages"
-                    :key="String(message.id)"
-                    :variant="messageVariant(message)"
-                    :author="`${t(senders[message.sender])}${message.internal ? ` · ${t('admin.inbox.m49')}` : ''}`"
-                    :meta="new Date(message.at).toLocaleString()"
+                    v-for="message in renderedMessages"
+                    :key="message.id"
+                    :variant="message.variant"
+                    :author="message.author"
+                    :meta="message.meta"
                   >{{ message.body }}</ElMessageBubble>
                 </ElMessageTimeline>
               </template>
@@ -310,27 +369,27 @@ onBeforeUnmount(() => {
                           type="textarea"
                           v-bind="{ 'aria-label': t('admin.inbox.m33') }"
                           :autosize="{ minRows: 3, maxRows: 8 }"
-                          :disabled="pending"
+                          :disabled="replyPending"
                         />
                       </template>
                       <template #actions>
-                        <ElButton native-type="submit" type="primary" :loading="pending" :disabled="!reply.trim()">{{ t('admin.inbox.m34') }}</ElButton>
+                        <ElButton native-type="submit" type="primary" :loading="replyPending" :disabled="!reply.trim()">{{ t('admin.inbox.m34') }}</ElButton>
                       </template>
                     </ElReplyComposerShell>
                   </form>
                   <form v-if="thread.version" class="inbox-admin-status-form" @submit.prevent="saveStatus">
                     <div class="inbox-admin-status-row">
-                      <ElSelect v-model="destination" :ariaLabel="t('admin.inbox.m35')" :placeholder="t('admin.inbox.m36')" :disabled="pending">
+                      <ElSelect v-model="destination" :ariaLabel="t('admin.inbox.m35')" :placeholder="t('admin.inbox.m36')" :disabled="statusPending">
                         <ElOption v-for="option in transitions[thread.conversation.status]" :key="option" :label="t(statuses[option])" :value="option" />
                       </ElSelect>
                       <div class="inbox-admin-field">
                         <label for="admin-inbox-status-reason">{{ t('admin.inbox.m37') }}</label>
-                        <ElInput id="admin-inbox-status-reason" v-model="reason" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" :disabled="pending" />
+                        <ElInput id="admin-inbox-status-reason" v-model="reason" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" :disabled="statusPending" />
                       </div>
                     </div>
                     <div class="inbox-admin-status-actions">
-                      <ElButton native-type="submit" :loading="pending"
-                        :disabled="destination === undefined || !reason.trim() || reason.trim().length > 256">{{ t('admin.inbox.m38') }}</ElButton>
+                      <ElButton native-type="submit" :loading="statusPending"
+                        :disabled="replyPending || destination === undefined || !reason.trim() || reason.trim().length > 256">{{ t('admin.inbox.m38') }}</ElButton>
                     </div>
                   </form>
                 </div>
@@ -438,7 +497,7 @@ onBeforeUnmount(() => {
 
 .inbox-admin-item.is-selected {
   border-left-color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9);
+  background: var(--fsus-state-selected-bg, var(--el-fill-color-light));
 }
 
 .inbox-admin-subject {
