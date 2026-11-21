@@ -1,5 +1,6 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import type { AdminCommentCursor } from './admin-identity.ts';
+import { adminProofHeaders } from './admin-step-up.ts';
 import { request } from './client.ts';
 import {
   decodeAdminModerationClaim,
@@ -7,7 +8,6 @@ import {
   encodeAdminModerationClaimRequest,
   encodeAdminModerationDecision,
   FrameType,
-  WireHeaders,
   WireLimits,
   WireRoutes,
   type AdminModerationClaim,
@@ -44,7 +44,7 @@ export function releaseCommentClaim(claim: AdminModerationClaim, signal: AbortSi
 export function decideComment(decision: AdminModerationDecision, proof: string, signal: AbortSignal): Promise<void> {
   const body = encodeFrame(FrameType.AdminModerationDecision, encodeAdminModerationDecision(decision));
   return request(WireRoutes.AdminModerationDecision, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', body,
-    { [WireHeaders.MfaProof]: proof });
+    adminProofHeaders(proof));
 }
 
 function readClaim(payload: Uint8Array, target: AdminCommentCursor): AdminModerationClaim {

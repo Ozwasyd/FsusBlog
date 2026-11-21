@@ -3,7 +3,7 @@ import { ProtocolError, request } from './client.ts';
 import { PodReader, PodWriter } from './binary.ts';
 import { decodeInboxReplied } from './inbox.ts';
 import { watchInboxWake } from './inbox-wake.ts';
-import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
+import { requestWithScopedPow } from './pow.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
 export type AdminInboxFilter = AdminInboxLiveStatus | 'unread';
@@ -114,18 +114,21 @@ export function adminReplyFrame(body: string) {
 
 export async function adminReply(id: bigint, body: string, key: string, signal: AbortSignal) {
   if (id <= 0n || BigInt.asIntN(64, id) !== id || !/^[A-Za-z0-9_.:-]{1,64}$/.test(key)) throw invalid();
-  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
   const frame = adminReplyFrame(body);
   const at = (route: string) => route.replace('{id:long}', String(id));
-  const challenge = await request(at(WireRoutes.AdminInboxReplyPow), FrameType.PowChallenge, decodePowChallenge, signal, 'POST', frame,
-    { [WireHeaders.ClientMutationId]: key, [WireHeaders.PowClientNonce]: nonce });
-  const work = await solveScopedPow(challenge, nonce, signal);
-  const proof = encodePowProof(challenge, work, nonce);
-  return request(at(WireRoutes.AdminInboxReply), FrameType.ConversationMessage, payload => {
-    const message = decodeInboxReplied(payload, id, 1);
-    if (message.body !== body) throw invalid();
-    return message;
-  }, signal, 'POST', frame, { [WireHeaders.ClientMutationId]: key, [WireHeaders.PowProof]: proof });
+  return requestWithScopedPow({
+    challengePath: at(WireRoutes.AdminInboxReplyPow),
+    submitPath: at(WireRoutes.AdminInboxReply),
+    expected: FrameType.ConversationMessage,
+    decode: payload => {
+      const message = decodeInboxReplied(payload, id, 1);
+      if (message.body !== body) throw invalid();
+      return message;
+    },
+    body: frame,
+    signal,
+    headers: { [WireHeaders.ClientMutationId]: key },
+  });
 }
 
 export function adminStatusFrame(status: AdminInboxStatus, reason: string) {
@@ -153,15 +156,17 @@ export function decodeAdminStatusResult(payload: Uint8Array, target: AdminInboxS
 
 export async function adminChangeStatus(id: bigint, version: string, target: AdminInboxStatus, reason: string, signal: AbortSignal) {
   if (id <= 0n || BigInt.asIntN(64, id) !== id || !validVersion(version)) throw invalid();
-  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
   const frame = adminStatusFrame(target, reason);
   const at = (route: string) => route.replace('{id:long}', String(id));
-  const additional = { [WireHeaders.AdminInboxVersion]: version };
-  const challenge = await request(at(WireRoutes.AdminInboxStatusPow), FrameType.PowChallenge, decodePowChallenge, signal, 'POST', frame,
-    { ...additional, [WireHeaders.PowClientNonce]: nonce });
-  const proof = encodePowProof(challenge, await solveScopedPow(challenge, nonce, signal), nonce);
-  return request(at(WireRoutes.AdminInboxStatus), FrameType.ConversationStatusMutationResult,
-    payload => decodeAdminStatusResult(payload, target), signal, 'POST', frame, { ...additional, [WireHeaders.PowProof]: proof });
+  return requestWithScopedPow({
+    challengePath: at(WireRoutes.AdminInboxStatusPow),
+    submitPath: at(WireRoutes.AdminInboxStatus),
+    expected: FrameType.ConversationStatusMutationResult,
+    decode: payload => decodeAdminStatusResult(payload, target),
+    body: frame,
+    signal,
+    headers: { [WireHeaders.AdminInboxVersion]: version },
+  });
 }
 
 function validVersion(value: string) {

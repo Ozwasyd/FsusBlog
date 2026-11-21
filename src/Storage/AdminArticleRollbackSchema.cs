@@ -60,6 +60,15 @@ internal static partial class CurrentSchema
             archive ? "action=ANY(ARRAY[3,7,8])" : draft ? "action=ANY(ARRAY[3,7])" : "action=3")
     ];
 
+    private const string AdminArticleRollbackRelation = "public.admin_article_rollback";
+    private static readonly string[] AdminArticleRollbackRelations =
+    [
+        "public.article_revision_responsibility",
+        "public.article_publication_responsibility",
+        AdminArticleRollbackRelation,
+        "public.admin_article_rollback_step_up"
+    ];
+
     internal static async Task<bool> HasAdminArticleRollbackSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         await using var command = new NpgsqlCommand("""
@@ -76,14 +85,31 @@ internal static partial class CurrentSchema
             "The administrator article rollback schema is partially installed.");
     }
 
+    private static bool HasAdminArticleRollbackSchema(CatalogPresenceSnapshot catalog)
+    {
+        var found = catalog.CountRelations(AdminArticleRollbackRelations)
+            + (catalog.HasColumn(PublicationHistoryRelation, "admin_actor_id") ? 1 : 0)
+            + (catalog.HasColumn(PublicationHistoryRelation, "admin_command_id") ? 1 : 0);
+        return Complete(found, 6, "The administrator article rollback schema is partially installed.");
+    }
+
     internal static async Task<bool> HasAdminArticleDraftRollbackSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
         => await HasRollbackColumn(db, tx, "destination", ct);
+
+    private static bool HasAdminArticleDraftRollbackSchema(CatalogPresenceSnapshot catalog) =>
+        catalog.HasColumn(AdminArticleRollbackRelation, "destination");
 
     internal static async Task<bool> HasAdminArticleArchiveSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
         => await HasRollbackColumn(db, tx, "from_archive", ct);
 
+    private static bool HasAdminArticleArchiveSchema(CatalogPresenceSnapshot catalog) =>
+        catalog.HasColumn(AdminArticleRollbackRelation, "from_archive");
+
     internal static Task<bool> HasAdminArticleTrashPublicationSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasRollbackColumn(db, tx, "from_trash", ct);
+
+    private static bool HasAdminArticleTrashPublicationSchema(CatalogPresenceSnapshot catalog) =>
+        catalog.HasColumn(AdminArticleRollbackRelation, "from_trash");
 
     private static async Task<bool> HasRollbackColumn(NpgsqlConnection db, NpgsqlTransaction tx, string column, CancellationToken ct)
     {

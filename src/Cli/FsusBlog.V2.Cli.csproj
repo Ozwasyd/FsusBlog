@@ -6,11 +6,11 @@
     <ProjectReference Include="../Core/FsusBlog.V2.Core.csproj" />
     <ProjectReference Include="../Platform/FsusBlog.V2.Platform.csproj" />
     <ProjectReference Include="../Contracts/FsusBlog.V2.Contracts.csproj" />
+    <ProjectReference Include="../Storage/FsusBlog.V2.Storage.csproj" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="Jint" Version="[4.13.0]" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Using Include="Microsoft.Extensions.Configuration" />
-    <Compile Include="../Storage/*.cs" Link="Storage/%(Filename)%(Extension)" />
     <EmbeddedResource Include="Schema/*.sql" LogicalName="FsusBlog.V2.Cli.Schema.%(Filename)%(Extension)" />
     <EmbeddedResource Include="OptionalSchema/private-media-import-origin.sql"
                       LogicalName="FsusBlog.V2.Cli.OptionalSchema.private-media-import-origin.sql" />

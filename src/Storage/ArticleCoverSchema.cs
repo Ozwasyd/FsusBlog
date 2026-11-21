@@ -11,6 +11,11 @@ internal static partial class CurrentSchema
         "article_revision_cover f article_id,revision,asset_id public.article_revision_media:article_id,revision,asset_id"
     ];
 
+    private const string ArticleCoverRelation = "public.article_revision_cover";
+
     internal static Task<bool> HasArticleCoverAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
-        HasRelationAsync(db, tx, "public.article_revision_cover", ct);
+        HasRelationAsync(db, tx, ArticleCoverRelation, ct);
+
+    private static bool HasArticleCover(CatalogPresenceSnapshot catalog) =>
+        catalog.HasRelation(ArticleCoverRelation);
 }

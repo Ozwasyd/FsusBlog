@@ -240,6 +240,13 @@ public enum FrameType : ushort
     MfaChallengeVerifyRequest = 55,
 }
 
+public enum AdminSignInState : byte
+{
+    Current = 1,
+    Ended = 2,
+    Expired = 3,
+}
+
 public static class WireHeader
 {
     public const int Magic = 0x53444541;
@@ -322,6 +329,7 @@ public static class WireLimits
     public const int NameBytes = 256;
     public const int AdminClusterNodeIdBytes = 64;
     public const int AdminClusterVersionBytes = 96;
+    public const int AdminSignInHistoryMaxItems = 50;
     public const int PageContentChars = 200000;
     public const int PageContentBytes = 600000;
     public const int AdminSitePageDigestBytes = 64;
@@ -956,6 +964,7 @@ public static class WireHeaders
     public const string AdminRootCommentPowPolicy = "X-Fsus-Admin-Root-Comment-Pow-Policy";
 }
 
+public sealed record AdminSignIn(long StartedAt, long ExpiresAt, long EndedAt, AdminSignInState State);
 public sealed record RecoveryKeyOperation(int Operation);
 public sealed record RecoveryKeyIssued(string Key, long Version, long CreatedAt);
 public sealed record RecoveryKeyStatus(bool Active);
@@ -970,6 +979,7 @@ public sealed record AdminRiskReadiness(int PublicReadMode, int RootWriteMode, i
 public sealed record AdminRootCommentPowPolicy(long Generation, string Digest, int ProofSeconds, int PreviousSeconds);
 public sealed record AdminRootCommentPowCommand(long ExpectedGeneration, string ExpectedDigest, int ProofSeconds, bool Rollback);
 public sealed record AdminClusterStatus(int Mode, string NodeId, Guid InstanceId, string BuildVersion, long StartedAt, long ObservedAt, int LeaseAgeMs, bool SnapshotReady);
+public sealed record AdminSignInHistorySnapshot(long Generation, IReadOnlyList<AdminSignIn> SignIns);
 public sealed record AdminArticleRollbackIntent(int ArticleId, long ExpectedRevision, long ExpectedPublicationId, long SourceRevision, Guid IdempotencyKey, string Reason);
 public sealed record AdminArticleRollbackPreview(int ArticleId, long CurrentRevision, long CurrentPublicationId, long SourceRevision, long SourcePublicationId, string SourceTitle, bool PackageComplete, int BlockingReason);
 public sealed record AdminArticleRollbackReceipt(int ArticleId, long Revision, long SourceRevision, long PreviousPublicationId, long PublicationId, int PublicationNo, long PublishedUnixMs, long RightsSnapshotId, long ResponsibilitySnapshotId);
@@ -1035,6 +1045,29 @@ public sealed record PropertyValueBatchReceipt(int ArticleId, long SchemaRevisio
 
 public static partial class Wire
 {
+    private static void WriteAdminSignInState(Writer writer, AdminSignInState value) => writer.Byte(value switch
+    {
+        AdminSignInState.Current or AdminSignInState.Ended or AdminSignInState.Expired => (byte)value,
+        _ => throw new ProtocolException("Invalid AEDS enum value"),
+    });
+
+    private static AdminSignInState ReadAdminSignInState(ref Reader reader) => (AdminSignInState)reader.Byte() switch
+    {
+        var value and (AdminSignInState.Current or AdminSignInState.Ended or AdminSignInState.Expired) => value,
+        _ => throw new ProtocolException("Invalid AEDS enum value"),
+    };
+
+    private static void WriteAdminSignIn(Writer writer, AdminSignIn record)
+    {
+        writer.I64(record.StartedAt);
+        writer.I64(record.ExpiresAt);
+        writer.I64(record.EndedAt);
+        WriteAdminSignInState(writer, record.State);
+    }
+
+    private static AdminSignIn ReadAdminSignIn(ref Reader reader) =>
+        new AdminSignIn(reader.I64(), reader.I64(), reader.I64(), ReadAdminSignInState(ref reader));
+
     public static byte[] EncodeRecoveryKeyOperation(RecoveryKeyOperation value) =>
         EncodeRecord(FrameType.RecoveryKeyOperation, value, Validate, static (writer, record) =>
         {
@@ -1218,6 +1251,17 @@ public static partial class Wire
     public static AdminClusterStatus DecodeAdminClusterStatus(ReadOnlySpan<byte> frame) =>
         DecodeRecord<AdminClusterStatus>(FrameType.AdminClusterStatus, frame, static (ref Reader reader) =>
             new AdminClusterStatus(reader.I32(), reader.Text(WireLimits.AdminClusterNodeIdBytes), reader.Uuid(), reader.Text(WireLimits.AdminClusterVersionBytes), reader.I64(), reader.I64(), reader.I32(), reader.Bool()), Validate);
+
+    public static byte[] EncodeAdminSignInHistorySnapshot(AdminSignInHistorySnapshot value) =>
+        EncodeRecord(FrameType.AdminSignInHistory, value, Validate, static (writer, record) =>
+        {
+            writer.I64(record.Generation);
+            writer.List(record.SignIns, WireLimits.AdminSignInHistoryMaxItems, WriteAdminSignIn);
+        });
+
+    public static AdminSignInHistorySnapshot DecodeAdminSignInHistorySnapshot(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminSignInHistorySnapshot>(FrameType.AdminSignInHistory, frame, static (ref Reader reader) =>
+            new AdminSignInHistorySnapshot(reader.I64(), reader.List(WireLimits.AdminSignInHistoryMaxItems, 25, ReadAdminSignIn)), Validate);
 
     public static byte[] EncodeAdminArticleRollbackIntent(AdminArticleRollbackIntent value) =>
         EncodeRecord(FrameType.AdminArticleRollbackIntent, value, Validate, static (writer, record) =>

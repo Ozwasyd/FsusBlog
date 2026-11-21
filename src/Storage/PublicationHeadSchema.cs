@@ -24,8 +24,13 @@ internal static partial class CurrentSchema
         "publication_transparency_head f key_id,key_version,key_sha256 public.publication_proof_key:key_id,version,spki_sha256",
     ];
 
+    private const string PublicationHeadRelation = "public.publication_transparency_head";
+
     internal static Task<bool> HasPublicationHeadAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasRelationAsync(db, tx, "public.publication_transparency_head", ct);
+        HasRelationAsync(db, tx, PublicationHeadRelation, ct);
+
+    private static bool HasPublicationHead(CatalogPresenceSnapshot catalog) =>
+        catalog.HasRelation(PublicationHeadRelation);
 
     internal static async Task VerifyPublicationCheckpointSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {

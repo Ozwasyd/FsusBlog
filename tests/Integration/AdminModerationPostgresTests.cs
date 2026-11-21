@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -318,10 +317,7 @@ public sealed partial class AdminModerationPostgresTests
         {
             using var response = await Send(server, command, true);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var challenge = Aeds.Decode(await response.Content.ReadAsByteArrayAsync(ct), FrameType.PowChallenge).ToArray();
-            return CommentReadPostgresTests.Solve(Encoding.UTF8.GetString(challenge.AsSpan(0, 64)).TrimEnd('\0'),
-                Encoding.UTF8.GetString(challenge.AsSpan(76)).TrimEnd('\0'), BinaryPrimitives.ReadInt32LittleEndian(challenge.AsSpan(64)),
-                BinaryPrimitives.ReadInt64LittleEndian(challenge.AsSpan(68)), ClientNonce);
+            return PowFixture.SolveFrame(await response.Content.ReadAsByteArrayAsync(ct), ClientNonce, ct);
         }
 
         async Task<PublicCommentSubmissionResult> Submit(PublicCommentReply command, string authorization)

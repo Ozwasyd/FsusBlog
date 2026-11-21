@@ -95,8 +95,29 @@ internal static partial class CurrentSchema
         "CREATE INDEX author_document_export_article ON public.author_document_export USING btree (owner_id, article_id, created_at, id)"
     ];
 
+    private const string DocumentExportsRelation = "public.author_document_export";
+
     internal static Task<bool> HasDocumentExportsAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
-        HasRelationAsync(db, tx, "public.author_document_export", ct);
+        HasRelationAsync(db, tx, DocumentExportsRelation, ct);
+
+    private static bool HasDocumentExports(CatalogPresenceSnapshot catalog) =>
+        catalog.HasRelation(DocumentExportsRelation);
+
+    private static bool HasCurrentDocumentExportProvider(CatalogPresenceSnapshot catalog) =>
+        catalog.HasValidatedCheckDefinition(DocumentExportsRelation,
+            CurrentDocumentExportProviderConstraint,
+            SingleAttachmentProviderConstraint,
+            "CHECK (provider >= 1 AND provider <= 4)");
+
+    private static bool HasDocumentExportAttachments(CatalogPresenceSnapshot catalog, bool list = false) =>
+        catalog.HasColumn(DocumentExportsRelation, list ? "attachment_ids" : "attachment_id");
+
+    private static ExportImageScope ReadExportImageScope(CatalogPresenceSnapshot catalog) =>
+        catalog.HasValidatedCheckExpression(DocumentExportsRelation, ExportImageListCondition(ExportImageScope.All))
+            ? ExportImageScope.All
+            : catalog.HasValidatedCheckExpression(DocumentExportsRelation, ExportImageListCondition(ExportImageScope.Portable))
+                ? ExportImageScope.Portable
+                : ExportImageScope.Html;
 
     private static async Task VerifyDocumentExportIndexesAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {

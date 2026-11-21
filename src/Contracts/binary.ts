@@ -13,15 +13,25 @@ export class PodReader {
     this.payload = payload;
   }
 
+  u8(): number {
+    return this.take(1)[0];
+  }
+
   i32(): number {
     return this.view(4).getInt32(0, true);
   }
 
   i32s(limit: number): number[] {
+    return this.list(limit, 4, reader => reader.i32());
+  }
+
+  list<T>(limit: number, minItemBytes: number, readItem: (reader: PodReader) => T): T[] {
+    if (!Number.isSafeInteger(minItemBytes) || minItemBytes < 1)
+      throw new ProtocolError('Invalid AEDS item size');
     const count = this.i32();
-    if (count < 0 || count > limit || count > (this.payload.length - this.offset) / 4)
+    if (count < 0 || count > limit || count > (this.payload.length - this.offset) / minItemBytes)
       throw new ProtocolError('Invalid AEDS collection length');
-    return Array.from({ length: count }, () => this.i32());
+    return Array.from({ length: count }, () => readItem(this));
   }
 
   i64(): bigint {
@@ -76,6 +86,12 @@ export class PodReader {
 export class PodWriter {
   private readonly parts: Uint8Array[] = [];
 
+  u8(value: number): void {
+    if (!Number.isInteger(value) || value < 0 || value > 0xff)
+      throw new ProtocolError('Value outside AEDS uint8 range');
+    this.parts.push(Uint8Array.of(value));
+  }
+
   i32(value: number): void {
     if (!Number.isInteger(value) || value < -0x80000000 || value > 0x7fffffff)
       throw new ProtocolError('Value outside AEDS int32 range');
@@ -83,9 +99,13 @@ export class PodWriter {
   }
 
   i32s(values: readonly number[], limit: number): void {
+    this.list(values, limit, (writer, value) => writer.i32(value));
+  }
+
+  list<T>(values: readonly T[], limit: number, writeItem: (writer: PodWriter, value: T) => void): void {
     if (values.length > limit) throw new ProtocolError('AEDS collection exceeds its item limit');
     this.i32(values.length);
-    for (const value of values) this.i32(value);
+    for (const value of values) writeItem(this, value);
   }
 
   i64(value: bigint): void {

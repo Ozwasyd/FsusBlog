@@ -1,50 +1,29 @@
 <script setup lang="ts">
-import { t, type MessageKey } from '../siteLocale'
-import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { t } from '../siteLocale'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   ElAlert, ElButton, ElConversationContextBar, ElConversationList, ElEmptySelectionState,
   ElInboxEmptyState, ElInboxLayout, ElInput, ElMessageBubble, ElMessageTimeline,
   ElOption, ElReplyComposerShell, ElSelect, ElSkeleton, ElTag, ElThreadPanel,
 } from '@ozwasyd/element-plus'
-import { ApiError } from '../../../Contracts/client'
-import { adminSendNotice, isNoticeRecipient, newNoticeEventId } from '../../../Contracts/admin-inbox-notice'
-import { acknowledgeAdminInboxRead, adminChangeStatus, adminInbox, adminInboxThread, adminReply,
-  supportsAdminInboxLiveStatus, watchAdminInboxWake, type AdminInboxFilter, type AdminInboxLiveStatus,
-  type AdminInboxOrder, type AdminInboxPage, type AdminInboxRow,
-  type AdminInboxStatus, type AdminInboxThread } from '../../../Contracts/admin-inbox'
+import { isNoticeRecipient } from '../../../Contracts/admin-inbox-notice'
+import type { AdminInboxStatus, AdminInboxThread } from '../../../Contracts/admin-inbox'
+import {
+  AdminInboxController,
+  adminInboxStatusTransitions as transitions,
+} from '../admin/adminInboxController'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ sessionLost: [error: unknown] }>()
-const rows = shallowRef<AdminInboxRow[]>([])
-const thread = shallowRef<AdminInboxThread>()
-const next = ref<string | null>(null)
-const filter = ref<AdminInboxFilter>('')
-const order = ref<AdminInboxOrder>('created')
-const expanded = ref(true)
-const pending = ref(false)
-const failed = ref<MessageKey | ''>('')
+
 const title = ref<HTMLElement>()
 const threadPanel = ref<HTMLElement>()
 const queue = ref<HTMLElement>()
-const reply = ref('')
-const notice = ref<MessageKey | ''>('')
-const destination = ref<AdminInboxStatus>()
-const reason = ref('')
-const needsRefresh = ref(false)
-const sharedRead = ref(false)
-const activityAvailable = ref(false)
-const queueLive = ref(false)
-const unreadAckFailed = ref(false)
-const noticesEnabled = ref(false)
-const composeNotice = ref(false)
-const recipient = ref('')
-const noticeSubject = ref('')
-const noticeBody = ref('')
 const statuses = ['admin.inbox.m6', 'admin.inbox.m7', 'admin.inbox.m8'] as const
-const statusFilters = ['open', 'pending', 'closed'] as const
-const transitions: readonly (readonly AdminInboxStatus[])[] = [[1, 2], [0, 2], [0]]
 const senders = ['admin.inbox.m30', 'admin.inbox.m31', 'admin.inbox.m32'] as const
 const statusTagTypes = ['', 'warning', 'info'] as const
+
+let opener: HTMLElement | undefined
 
 function statusTagType(status: AdminInboxStatus) {
   return statusTagTypes[status]
@@ -56,332 +35,131 @@ function messageVariant(message: AdminInboxThread['messages'][number]): 'other' 
   if (message.sender === 2) return 'system'
   return 'other'
 }
-let operation = new AbortController()
-let opener: HTMLElement | undefined
-let attempt: { conversation: bigint; body: string; key: string } | undefined
-let noticeAttempt: { account: string; subject: string; body: string; eventId: bigint } | undefined
 
-function reset() {
-  operation.abort()
-  operation = new AbortController()
-  rows.value = []
-  thread.value = undefined
-  next.value = null
-  failed.value = ''
-  pending.value = false
-  opener = undefined
-  clearReply()
-  clearStatus()
-  clearNotice()
-  noticesEnabled.value = false
-  sharedRead.value = false
-  activityAvailable.value = false
-  queueLive.value = false
-  unreadAckFailed.value = false
-}
+const controller = new AdminInboxController({
+  hooks: {
+    onSessionLost: error => emit('sessionLost', error),
+    onReset: () => { opener = undefined },
+    onThreadOpened: async () => {
+      await nextTick()
+      title.value?.focus()
+    },
+    onThreadRefreshed: () => nextTick(),
+    onThreadClosed: () => {
+      void nextTick(() => {
+        if (opener?.isConnected) opener.focus()
+      })
+    },
+    onBeforeApplyLatestThread: conversationId => {
+      const focus = document.activeElement
+      const focusedInThread = focus && threadPanel.value?.contains(focus)
+      if (!focusedInThread) return
+      return () => {
+        void nextTick(() => {
+          if (!props.sessionSignal.aborted && state.value.thread?.conversation.id === conversationId &&
+              !focus.isConnected && document.activeElement === document.body) {
+            title.value?.focus()
+          }
+        })
+      }
+    },
+    onBeforeApplyLiveQueuePage: () => {
+      const focus = document.activeElement
+      const focusedInQueue = focus && queue.value?.contains(focus)
+      if (!focusedInQueue) return
+      return () => {
+        void nextTick(() => {
+          if (!props.sessionSignal.aborted && !focus.isConnected && document.activeElement === document.body) {
+            queue.value?.focus()
+          }
+        })
+      }
+    },
+  },
+})
 
-function closeThread() {
-  thread.value = undefined
-  unreadAckFailed.value = false
-  clearReply()
-  clearStatus()
-  void nextTick(() => { if (opener?.isConnected) opener.focus() })
-}
+controller.bindSession(props.sessionSignal, { autoLoad: false })
+const state = shallowRef(controller.snapshot())
+const unsubscribe = controller.subscribe(() => {
+  state.value = controller.snapshot()
+})
 
-async function read(load: (signal: AbortSignal) => Promise<void>, message: MessageKey = 'admin.inbox.m39') {
-  if (pending.value || props.sessionSignal.aborted) return
-  const signal = AbortSignal.any([props.sessionSignal, operation.signal])
-  pending.value = true
-  failed.value = ''
-  try { await load(signal) }
-  catch (error) {
-    if (signal.aborted) return
-    if (!(error instanceof ApiError && error.details.startsWith('pow_'))) emit('sessionLost', error)
-    failed.value = message
-  } finally { if (!signal.aborted) pending.value = false }
-}
-
-function loadQueue(cursor: string | null = null) {
-  void read(async signal => {
-    let page = await adminInbox(filter.value, cursor, signal, sharedRead.value, order.value)
-    if (!cursor && !sharedRead.value && page.sharedAvailable)
-      page = await adminInbox(filter.value, null, signal, true, order.value)
-    if (signal.aborted) return
-    applyQueuePage(page, cursor !== null)
-  })
-}
-
-function applyQueuePage(page: AdminInboxPage, append = false) {
-  rows.value = append ? [...rows.value, ...page.rows] : page.rows
-  next.value = page.next
-  noticesEnabled.value = page.noticesEnabled
-  sharedRead.value = page.sharedAvailable
-  activityAvailable.value = page.activityAvailable
-  queueLive.value = !append && page.liveEnabled
-}
+const rows = computed(() => state.value.rows)
+const thread = computed(() => state.value.thread)
+const next = computed(() => state.value.next)
+const filter = computed({
+  get: () => state.value.filter,
+  set: value => controller.setFilter(value),
+})
+const order = computed({
+  get: () => state.value.order,
+  set: value => controller.setOrder(value),
+})
+const expanded = computed(() => state.value.expanded)
+const pending = computed(() => state.value.pending)
+const failed = computed(() => state.value.failed)
+const reply = computed({
+  get: () => state.value.reply,
+  set: value => controller.setReply(value),
+})
+const notice = computed(() => state.value.notice)
+const destination = computed({
+  get: () => state.value.destination,
+  set: value => controller.setDestination(value),
+})
+const reason = computed({
+  get: () => state.value.reason,
+  set: value => controller.setReason(value),
+})
+const needsRefresh = computed(() => state.value.needsRefresh)
+const sharedRead = computed(() => state.value.sharedRead)
+const activityAvailable = computed(() => state.value.activityAvailable)
+const unreadAckFailed = computed(() => state.value.unreadAckFailed)
+const noticesEnabled = computed(() => state.value.noticesEnabled)
+const composeNotice = computed({
+  get: () => state.value.composeNotice,
+  set: value => controller.setComposeNotice(value),
+})
+const recipient = computed({
+  get: () => state.value.recipient,
+  set: value => controller.setRecipient(value),
+})
+const noticeSubject = computed({
+  get: () => state.value.noticeSubject,
+  set: value => controller.setNoticeSubject(value),
+})
+const noticeBody = computed({
+  get: () => state.value.noticeBody,
+  set: value => controller.setNoticeBody(value),
+})
 
 function openThread(id: bigint, before: string | null = null, event?: MouseEvent) {
   if (event?.currentTarget instanceof HTMLElement) opener = event.currentTarget
-  void read(async signal => {
-    const page = await adminInboxThread(id, before, signal, sharedRead.value)
-    if (signal.aborted) return
-    thread.value = before && thread.value?.conversation.id === id
-      ? { ...page, messages: [...page.messages, ...thread.value.messages], readSnapshot: thread.value.readSnapshot } : page
-    if (!before) {
-      clearStatus()
-      await nextTick()
-      title.value?.focus()
-      await acknowledge(id, signal)
-    }
-  })
+  void controller.openThread(id, before)
 }
 
-async function acknowledge(id: bigint, signal: AbortSignal) {
-  const seen = thread.value
-  if (signal.aborted || seen?.conversation.id !== id || !seen.readSnapshot) return
-  unreadAckFailed.value = false
-  try {
-    const unread = await acknowledgeAdminInboxRead(id, seen.readSnapshot, signal)
-    if (signal.aborted || thread.value?.readSnapshot !== seen.readSnapshot) return
-    const updated = { ...seen.conversation, unread }
-    thread.value = { ...seen, conversation: updated, readSnapshot: null }
-    rows.value = filter.value === 'unread' && unread === 0
-      ? rows.value.filter(item => item.id !== id)
-      : rows.value.map(item => item.id === id ? { ...item, unread } : item)
-  } catch (error) {
-    if (signal.aborted) return
-    emit('sessionLost', error)
-    unreadAckFailed.value = true
-  }
-}
+const closeThread = () => controller.closeThread()
+const loadQueue = (cursor: string | null = null) => { void controller.loadQueue(cursor) }
+const retryRead = () => { void controller.retryRead() }
+const clearNotice = () => controller.clearNotice()
+const sendNotice = () => { void controller.sendNotice() }
+const sendReply = () => { void controller.sendReply() }
+const saveStatus = () => { void controller.saveStatus() }
+const reloadThread = () => { void controller.reloadThread() }
+const toggle = () => controller.toggle()
 
-function retryRead() {
-  const current = thread.value
-  if (current) void read(signal => acknowledge(current.conversation.id, signal))
-}
-
-function clearReply() {
-  reply.value = ''
-  notice.value = ''
-  attempt = undefined
-}
-
-function clearStatus() {
-  destination.value = undefined
-  reason.value = ''
-  needsRefresh.value = false
-}
-
-function clearNotice() {
-  composeNotice.value = false
-  recipient.value = ''
-  noticeSubject.value = ''
-  noticeBody.value = ''
-  noticeAttempt = undefined
-}
-
-function sendNotice() {
-  const account = recipient.value.trim().toLowerCase()
-  const subject = noticeSubject.value
-  const body = noticeBody.value
-  if (!noticesEnabled.value || !isNoticeRecipient(account) || !body.trim() || pending.value) return
-  if (noticeAttempt?.account !== account || noticeAttempt.subject !== subject || noticeAttempt.body !== body)
-    noticeAttempt = { account, subject, body, eventId: newNoticeEventId() }
-  const eventId = noticeAttempt.eventId
-  notice.value = ''
-  void read(async signal => {
-    await adminSendNotice(account, subject, body, eventId, signal)
-    if (signal.aborted) return
-    clearNotice()
-    notice.value = 'admin.inbox.m40'
-    const page = await adminInbox(filter.value, null, signal, sharedRead.value, order.value)
-    if (!signal.aborted) applyQueuePage(page)
-  }, 'admin.inbox.m41')
-}
-
-function applyLatestThread(latest: AdminInboxThread, keepReadSnapshot = false) {
-  const current = thread.value
-  if (current?.conversation.id !== latest.conversation.id) return false
-  const focus = document.activeElement
-  const focusedInThread = focus && threadPanel.value?.contains(focus)
-  const first = latest.messages[0].id
-  // Keep the earlier pages only when the newest authoritative page still joins them.
-  const overlap = current.messages.findIndex(message => message.id === first)
-  thread.value = {
-    ...latest,
-    previous: overlap > 0 ? current.previous : latest.previous,
-    messages: overlap > 0 ? [...current.messages.slice(0, overlap), ...latest.messages] : latest.messages,
-    readSnapshot: keepReadSnapshot ? current.readSnapshot : latest.readSnapshot,
-  }
-  if (destination.value !== undefined && !transitions[latest.conversation.status].includes(destination.value))
-    destination.value = undefined
-  if (focusedInThread) {
-    void nextTick(() => {
-      if (!props.sessionSignal.aborted && thread.value?.conversation.id === latest.conversation.id &&
-          !focus.isConnected && document.activeElement === document.body) title.value?.focus()
-    })
-  }
-  needsRefresh.value = false
-  return true
-}
-
-async function refreshThread(id: bigint, signal: AbortSignal) {
-  const latest = await adminInboxThread(id, null, signal, sharedRead.value)
-  if (signal.aborted || !applyLatestThread(latest)) return
-  await nextTick()
-  await acknowledge(id, signal)
-}
-
-function sendReply() {
-  const current = thread.value
-  if (!current || current.conversation.status === 2 || !current.repliesEnabled || !reply.value.trim() || pending.value) return
-  const conversation = current.conversation.id
-  const body = reply.value
-  if (attempt?.conversation !== conversation || attempt.body !== body) attempt = { conversation, body, key: crypto.randomUUID() }
-  const key = attempt.key
-  notice.value = ''
-  void read(async signal => {
-    const saved = await adminReply(conversation, body, key, signal)
-    if (signal.aborted) return
-    const messages = current.messages.some(message => message.id === saved.id) ? current.messages :
-      [...current.messages, { id: saved.id, sender: 1 as const, internal: false, at: saved.createdAt, body: saved.body }]
-        .sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
-    thread.value = { ...current, messages, version: null }
-    clearReply()
-    notice.value = 'admin.inbox.m42'
-    if (current.version) {
-      needsRefresh.value = true
-      await refreshThread(conversation, signal)
-    }
-  }, 'admin.inbox.m43')
-}
-
-function saveStatus() {
-  const current = thread.value
-  const target = destination.value
-  if (!current?.version || target === undefined || !transitions[current.conversation.status].includes(target) ||
-      !reason.value.trim() || reason.value.trim().length > 256) return
-  const conversation = current.conversation.id
-  const version = current.version
-  const explanation = reason.value
-  notice.value = ''
-  void read(async signal => {
-    const saved = await adminChangeStatus(conversation, version, target, explanation, signal)
-    if (signal.aborted) return
-    const updated = { ...current.conversation, status: saved.current }
-    thread.value = { ...current, conversation: updated, version: null }
-    rows.value = statusFilters.some(status => status === filter.value) && filter.value !== statusFilters[saved.current]
-      ? rows.value.filter(item => item.id !== conversation)
-      : rows.value.map(item => item.id === conversation ? updated : item)
-    clearStatus()
-    notice.value = saved.changed ? 'admin.inbox.m44' : 'admin.inbox.m45'
-    needsRefresh.value = true
-    await refreshThread(conversation, signal)
-  }, 'admin.inbox.m46')
-}
-
-function reloadThread() {
-  const current = thread.value
-  if (current) void read(signal => refreshThread(current.conversation.id, signal))
-}
-
-function toggle() {
-  expanded.value = !expanded.value
-  filter.value = ''
-  order.value = 'created'
-  reset()
-  if (expanded.value) loadQueue()
-}
-
-function liveScope(): bigint | AdminInboxLiveStatus | undefined {
-  const current = thread.value
-  if (current) return current.liveEnabled ? current.conversation.id : undefined
-  const status = filter.value
-  return expanded.value && queueLive.value && order.value === 'created' && supportsAdminInboxLiveStatus(status)
-    ? status : undefined
-}
-
-watch([filter, order], () => {
-  if (!expanded.value) return
-  const shared = sharedRead.value
-  const activity = activityAvailable.value
-  reset()
-  sharedRead.value = shared
-  activityAvailable.value = activity
-  loadQueue()
-})
 watch(() => props.sessionSignal, signal => {
-  expanded.value = !signal.aborted
-  filter.value = ''
-  order.value = 'created'
-  reset()
-  if (!signal.aborted) loadQueue()
+  controller.bindSession(signal, { autoLoad: true })
 }, { flush: 'sync' })
+
 onMounted(() => {
-  if (expanded.value && !props.sessionSignal.aborted) loadQueue()
+  if (state.value.expanded && !props.sessionSignal.aborted) loadQueue()
 })
-watch(liveScope, (value, _, onCleanup) => {
-  if (value === undefined) return
-  const target = value
-  const scope = new AbortController()
-  const signal = AbortSignal.any([props.sessionSignal, operation.signal, scope.signal])
-  let dirty = false
-  let refreshing = false
-  let retry: ReturnType<typeof setTimeout> | undefined
-  let delay = 1_000
 
-  async function refresh() {
-    if (signal.aborted || liveScope() !== target || !dirty || refreshing || pending.value || retry !== undefined) return
-    dirty = false
-    refreshing = true
-    try {
-      if (typeof target === 'string') {
-        const previous = rows.value
-        const page = await adminInbox(target, null, signal, sharedRead.value)
-        if (signal.aborted || liveScope() !== target) return
-        if (pending.value || previous !== rows.value) dirty = true
-        else {
-          const focus = document.activeElement
-          applyQueuePage(page)
-          if (focus && queue.value?.contains(focus)) {
-            void nextTick(() => {
-              if (!signal.aborted && !focus.isConnected && document.activeElement === document.body) queue.value?.focus()
-            })
-          }
-        }
-      } else {
-        const previous = thread.value
-        const snapshot = await adminInboxThread(target, null, signal, sharedRead.value)
-        if (signal.aborted || liveScope() !== target) return
-        if (pending.value || previous !== thread.value) dirty = true
-        else applyLatestThread(snapshot, unreadAckFailed.value)
-      }
-      delay = 1_000
-    } catch (error) {
-      if (signal.aborted) return
-      if (error instanceof ApiError && error.status === 401) {
-        emit('sessionLost', error)
-      } else if (!(error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 429)) {
-        dirty = true
-        retry = setTimeout(() => { retry = undefined; void refresh() }, delay)
-        delay = Math.min(delay * 2, 16_000)
-      }
-    } finally {
-      refreshing = false
-      if (dirty) void refresh()
-    }
-  }
-
-  function wake() { dirty = true; void refresh() }
-  const resume = watch(pending, () => { void refresh() })
-  onCleanup(() => {
-    scope.abort()
-    clearTimeout(retry)
-    resume()
-  })
-  watchAdminInboxWake(target, signal, wake, () => emit('sessionLost', new ApiError('Administrator session expired.', 401)))
+onBeforeUnmount(() => {
+  unsubscribe()
+  controller.dispose()
 })
-onBeforeUnmount(() => operation.abort())
 </script>
 
 <template>

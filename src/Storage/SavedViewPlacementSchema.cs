@@ -30,7 +30,13 @@ internal static partial class CurrentSchema
         "author_saved_view_placement_command c fingerprint octet_length(fingerprint)=32"
     ];
 
+    private static readonly string[] SavedViewPlacementRelations =
+        ["public.author_saved_view_default", "public.author_saved_view_pin", "public.author_saved_view_placement_command"];
+
     internal static Task<bool> HasSavedViewPlacementAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "The saved view placement schema is incomplete.",
-            "public.author_saved_view_default", "public.author_saved_view_pin", "public.author_saved_view_placement_command");
+            SavedViewPlacementRelations);
+
+    private static bool HasSavedViewPlacement(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("The saved view placement schema is incomplete.", SavedViewPlacementRelations);
 }

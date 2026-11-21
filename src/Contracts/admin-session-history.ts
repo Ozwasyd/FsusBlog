@@ -1,11 +1,10 @@
 import { ProtocolError } from './aeds.ts';
-import type { AdminSession } from './admin-identity.ts';
+import { assertAdminPermissionSession, type AdminSession } from './admin-identity.ts';
 import { request } from './client.ts';
-import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
+import {
+  AdminSignInState, decodeAdminSignInHistorySnapshot, FrameType, WireRoutes,
+} from './wire.generated.ts';
 
-const headerBytes = 12;
-const rowBytes = 25;
-const maxRows = 50;
 const maxDate = 8_640_000_000_000_000n;
 
 export type AdminSessionHistoryRow = Readonly<{
@@ -17,35 +16,30 @@ export type AdminSessionHistoryRow = Readonly<{
 
 export function readAdminSessionHistory(session: AdminSession, signal: AbortSignal): Promise<readonly AdminSessionHistoryRow[]> {
   return request(WireRoutes.AdminSignInHistory, FrameType.AdminSignInHistory, (payload, headers) => {
-    if (!session.permissionSession || headers.get(WireHeaders.AdminPermissionSession) !== session.permissionSession)
-      throw new ProtocolError('Administrator history session changed.');
-    return decodeHistory(payload, session.generation);
+    assertAdminPermissionSession(session, headers, 'Administrator history session changed.');
+    return decodeAdminSessionHistory(payload, session.generation);
   }, signal);
 }
 
-function decodeHistory(payload: Uint8Array, generation: bigint): readonly AdminSessionHistoryRow[] {
-  if (payload.length < headerBytes) throw invalid();
-  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
-  const count = view.getInt32(8, true);
-  if (view.getBigInt64(0, true) !== generation || count < 0 || count > maxRows || payload.length !== headerBytes + count * rowBytes)
-    throw invalid();
+export function decodeAdminSessionHistory(payload: Uint8Array, generation: bigint): readonly AdminSessionHistoryRow[] {
+  const snapshot = decodeAdminSignInHistorySnapshot(payload);
+  if (snapshot.generation <= 0n || snapshot.generation !== generation) throw invalid();
 
   const rows: AdminSessionHistoryRow[] = [];
-  for (let i = 0; i < count; i++) {
-    const offset = headerBytes + i * rowBytes;
-    const startedAt = time(view.getBigInt64(offset, true));
-    const expiresAt = time(view.getBigInt64(offset + 8, true));
+  for (let i = 0; i < snapshot.signIns.length; i++) {
+    const signIn = snapshot.signIns[i];
+    const startedAt = time(signIn.startedAt);
+    const expiresAt = time(signIn.expiresAt);
     if (expiresAt <= startedAt) throw invalid();
-    const ending = view.getBigInt64(offset + 16, true);
-    const state = view.getUint8(offset + 24);
-    if (state === 1) {
-      if (i !== 0 || ending !== 0n) throw invalid();
+    if (signIn.state === AdminSignInState.Current) {
+      if (i !== 0 || signIn.endedAt !== 0n) throw invalid();
       rows.push({ startedAt, expiresAt, endedAt: null, state: 'current' });
     } else {
-      const endedAt = time(ending);
+      const endedAt = time(signIn.endedAt);
       if (endedAt < startedAt) throw invalid();
-      if ((state === 2 && endedAt < expiresAt) || (state === 3 && endedAt === expiresAt))
-        rows.push({ startedAt, expiresAt, endedAt, state: state === 2 ? 'ended' : 'expired' });
+      if ((signIn.state === AdminSignInState.Ended && endedAt < expiresAt) ||
+          (signIn.state === AdminSignInState.Expired && endedAt === expiresAt))
+        rows.push({ startedAt, expiresAt, endedAt, state: signIn.state === AdminSignInState.Ended ? 'ended' : 'expired' });
       else throw invalid();
     }
   }

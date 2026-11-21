@@ -127,7 +127,7 @@ internal static class AdminIdentityEndpoints
         {
             var scope = await store.RecentSignIns(ctx.Request.Cookies[session], ct);
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = scope.PermissionSession;
-            return Frame(Wire.EncodeAdminSignInHistory(scope.History));
+            return Frame(Wire.EncodeAdminSignInHistorySnapshot(scope.History));
         }).RequireRateLimiting("command");
         app.MapPost(WireRoutes.AdminStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
         {

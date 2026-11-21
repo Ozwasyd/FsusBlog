@@ -188,12 +188,7 @@ public sealed class CommentReadPostgresTests
             using var response = await Send(command, challenge: true);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.True(response.Headers.CacheControl?.NoStore);
-            var challenge = Payload(await response.Content.ReadAsByteArrayAsync(ct), FrameType.PowChallenge);
-            var salt = Encoding.UTF8.GetString(challenge.AsSpan(0, 64)).TrimEnd('\0');
-            var signature = Encoding.UTF8.GetString(challenge.AsSpan(76)).TrimEnd('\0');
-            var bits = Read32(challenge, 64);
-            var timestamp = Read64(challenge, 68);
-            return Solve(salt, signature, bits, timestamp, ClientNonce);
+            return PowFixture.SolveFrame(await response.Content.ReadAsByteArrayAsync(ct), ClientNonce, ct);
         }
 
         async Task<HttpResponseMessage> Send(PublicCommentSubmission command, bool authenticated = true, bool keyHeader = true,
@@ -226,7 +221,7 @@ public sealed class CommentReadPostgresTests
         var otherSource = IPAddress.Parse("192.0.2.2");
         byte[] frame = [174, 26, 55];
         var challenge = authority.Issue(PowScope.PublicCommentSubmit, "", session, source, ClientNonce, frame);
-        var proof = PowWire.ReadProof(Solve(challenge.Salt, challenge.Signature, challenge.Difficulty, challenge.Timestamp, ClientNonce));
+        var proof = PowWire.ReadProof(PowFixture.Solve(challenge, ClientNonce, ct));
 
         await using (var tx = await db.BeginTransactionAsync(ct))
         {
@@ -318,7 +313,7 @@ public sealed class CommentReadPostgresTests
         PowProof Issue(RootCommentPowPolicy policy)
         {
             var challenge = authority.Issue(PowScope.PublicCommentSubmit, "", session, source, ClientNonce, frame, policy);
-            return PowWire.ReadProof(Solve(challenge.Salt, challenge.Signature, challenge.Difficulty, challenge.Timestamp, ClientNonce));
+            return PowWire.ReadProof(PowFixture.Solve(challenge, ClientNonce, ct));
         }
 
         Task Consume(NpgsqlTransaction tx, PowProof proof, RootCommentPowPolicy policy) =>
@@ -342,31 +337,6 @@ public sealed class CommentReadPostgresTests
     {
         internal DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
         public override DateTimeOffset GetUtcNow() => Now;
-    }
-
-    internal static string Solve(string salt, string signature, int bits, long timestamp, string clientNonce)
-    {
-        for (var i = 0; i < 1_000_000; i++)
-        {
-            var nonce = i.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{salt}:{nonce}:{clientNonce}"));
-            if (hash[0] != 0 || hash[1] >= 16) continue;
-            Assert.Equal(12, bits);
-            using var output = new MemoryStream();
-            using var writer = new BinaryWriter(output);
-            writer.Write("FPOW"u8);
-            writer.Write((byte)1);
-            writer.Write(bits);
-            writer.Write(timestamp);
-            foreach (var value in new[] { salt, nonce, signature, clientNonce })
-            {
-                var encoded = Encoding.UTF8.GetBytes(value);
-                writer.Write((ushort)encoded.Length);
-                writer.Write(encoded);
-            }
-            return Convert.ToBase64String(output.ToArray());
-        }
-        throw new InvalidOperationException("No valid proof within test iteration budget.");
     }
 
     private static async Task Seed(ScratchDatabase fixture, CancellationToken ct)

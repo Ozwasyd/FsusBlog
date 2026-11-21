@@ -107,12 +107,16 @@ public static partial class Wire
     internal sealed class Writer : ScalarBufferWriter
     {
 
-        public void I32s(IReadOnlyList<int> values, int limit)
+        public void I32s(IReadOnlyList<int> values, int limit) =>
+            List(values, limit, static (writer, value) => writer.I32(value));
+
+        public void List<T>(IReadOnlyList<T> values, int limit, Action<Writer, T> writeItem)
         {
             if (values.Count > limit)
                 throw new ProtocolException("AEDS collection exceeds its item limit");
             I32(values.Count);
-            foreach (var value in values) I32(value);
+            for (var index = 0; index < values.Count; index++)
+                writeItem(this, values[index]);
         }
 
         public void Uuid(Guid value)
@@ -144,14 +148,17 @@ public static partial class Wire
     {
         private ReadOnlySpan<byte> remaining = payload;
 
+        public byte Byte() => Take(1)[0];
         public int I32() => BinaryPrimitives.ReadInt32LittleEndian(Take(4));
-        public int[] I32s(int limit)
+        public int[] I32s(int limit) => List(limit, 4, static (ref Reader reader) => reader.I32());
+        public T[] List<T>(int limit, int minItemBytes, ReadRecord<T> readItem)
         {
             var count = I32();
-            if (count < 0 || count > limit || count > remaining.Length / 4)
+            if (count < 0 || count > limit || count > remaining.Length / minItemBytes)
                 throw new ProtocolException("Invalid AEDS collection length");
-            var values = new int[count];
-            for (var i = 0; i < count; i++) values[i] = I32();
+            if (count == 0) return [];
+            var values = new T[count];
+            for (var index = 0; index < count; index++) values[index] = readItem(ref this);
             return values;
         }
         public long I64() => BinaryPrimitives.ReadInt64LittleEndian(Take(8));

@@ -124,6 +124,14 @@
         "dependencies": {
           "FsusBlog.V2.Core": "[1.0.0, )"
         }
+      },
+      "fsusblog.v2.storage": {
+        "type": "Project",
+        "dependencies": {
+          "FsusBlog.V2.Contracts": "[1.0.0, )",
+          "FsusBlog.V2.Core": "[1.0.0, )",
+          "Npgsql": "[10.0.3, )"
+        }
       }
     }
   }

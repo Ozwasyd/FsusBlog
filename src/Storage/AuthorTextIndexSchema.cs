@@ -39,6 +39,16 @@ internal static partial class CurrentSchema
         .. (hasHeading ? new[] { "author_text_posting c field,segment field=4ANDsegment>=1ANDsegment<=200000ORfield<>4ANDsegment=0" } : [])
     ];
 
+    private const string AuthorTextDocumentRelation = "public.author_text_document";
+    private const string AuthorTextPostingRelation = "public.author_text_posting";
+    private static readonly (string Relation, char Kind)[] AuthorTextIndexRelations =
+    [
+        (AuthorTextDocumentRelation, 'r'),
+        (AuthorTextPostingRelation, 'r'),
+        ("public.author_text_posting_owner_article", 'i'),
+        ("public.author_text_article_owner", 'i')
+    ];
+
     internal static async Task<bool> HasAuthorTextIndexAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
     {
         await using var query = new NpgsqlCommand("""
@@ -55,12 +65,34 @@ internal static partial class CurrentSchema
             "The author full-text index schema is incomplete.");
     }
 
+    private static bool HasAuthorTextIndex(CatalogPresenceSnapshot catalog)
+    {
+        var present = 0;
+        var matched = 0;
+        foreach (var (relation, expectedKind) in AuthorTextIndexRelations)
+        {
+            if (catalog.GetRelationKind(relation) is not { } actualKind) continue;
+            present++;
+            if (actualKind == expectedKind) matched++;
+        }
+        var state = present == 0 ? 0 : matched == AuthorTextIndexRelations.Length ? 1 : 2;
+        return Complete(state, 1, "The author full-text index schema is incomplete.");
+    }
+
     internal static Task<bool> HasAuthorTextSummaryIndexAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
-        HasColumnAndCheckAsync(db, tx, ct, "public.author_text_document", "summary_digest",
+        HasColumnAndCheckAsync(db, tx, ct, AuthorTextDocumentRelation, "summary_digest",
+            "author_text_document_summary_digest_check", "The author full-text summary index schema is incomplete.");
+
+    private static bool HasAuthorTextSummaryIndex(CatalogPresenceSnapshot catalog) =>
+        catalog.HasColumnAndCheck(AuthorTextDocumentRelation, "summary_digest",
             "author_text_document_summary_digest_check", "The author full-text summary index schema is incomplete.");
 
     internal static Task<bool> HasAuthorTextHeadingIndexAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
-        HasColumnAndCheckAsync(db, tx, ct, "public.author_text_posting", "segment",
+        HasColumnAndCheckAsync(db, tx, ct, AuthorTextPostingRelation, "segment",
+            "author_text_posting_segment_check", "The author full-text heading index schema is incomplete.", requireLocalValidated: true);
+
+    private static bool HasAuthorTextHeadingIndex(CatalogPresenceSnapshot catalog) =>
+        catalog.HasColumnAndCheck(AuthorTextPostingRelation, "segment",
             "author_text_posting_segment_check", "The author full-text heading index schema is incomplete.", requireLocalValidated: true);
 
     private static async Task VerifyAuthorTextArticleOwnerIndexAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)

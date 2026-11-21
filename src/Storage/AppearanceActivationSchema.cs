@@ -27,9 +27,15 @@ internal static partial class CurrentSchema
         ..StepUpConstraints("admin_appearance_step_up", "action=4")
     ];
 
+    private static readonly string[] AppearanceActivationRelations =
+        ["public.appearance_activation", "public.appearance_activation_audit", "public.admin_appearance_step_up"];
+
     internal static Task<bool> HasAppearanceActivationAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasCompleteRelationsAsync(db, tx, ct, "Appearance activation schema is partially installed.",
-            "public.appearance_activation", "public.appearance_activation_audit", "public.admin_appearance_step_up");
+            AppearanceActivationRelations);
+
+    private static bool HasAppearanceActivation(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("Appearance activation schema is partially installed.", AppearanceActivationRelations);
 
     private static async Task VerifyAppearanceActivationAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {

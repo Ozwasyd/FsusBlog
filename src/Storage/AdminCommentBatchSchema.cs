@@ -27,8 +27,14 @@ internal static partial class CurrentSchema
         ..StepUpConstraints("admin_comment_batch_step_up", "action=6")
     ];
 
+    private static readonly string[] AdminCommentBatchRelations =
+        ["public.admin_comment_batch", "public.admin_comment_batch_item", "public.admin_comment_batch_step_up"];
+
     internal static Task<bool> HasAdminCommentBatchSchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         CancellationToken cancellationToken) =>
         HasCompleteRelationsAsync(connection, transaction, cancellationToken, "Administrator comment batch storage is incomplete.",
-            "public.admin_comment_batch", "public.admin_comment_batch_item", "public.admin_comment_batch_step_up");
+            AdminCommentBatchRelations);
+
+    private static bool HasAdminCommentBatchSchema(CatalogPresenceSnapshot catalog) =>
+        catalog.HasCompleteRelations("Administrator comment batch storage is incomplete.", AdminCommentBatchRelations);
 }
