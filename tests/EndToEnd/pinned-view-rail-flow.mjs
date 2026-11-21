@@ -22,7 +22,13 @@ function responseFor(response, path, method) {
 
 async function openRail(page, pane) {
   const receipt = page.waitForResponse(response => responseFor(response, placementPath, 'GET'))
-  await button(page, 'Article library').click()
+  const direct = button(page, 'Article library')
+  if (await direct.isVisible()) {
+    await direct.click()
+  } else {
+    await button(page, 'More actions').click()
+    await page.getByRole('menuitem', { name: 'Article library', exact: true }).click()
+  }
   await expect(pane).toBeVisible()
   const placement = await receipt
   assert.equal(placement.status(), 200)

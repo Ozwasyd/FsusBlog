@@ -6,7 +6,13 @@ import {
   createInspectorFocus, focusInspectorOpener, type InspectorHost, type InspectorPresentation,
 } from './inspectorFocus'
 
-const props = withDefaults(defineProps<{ title?: string; triggerLabel?: string; nestedModalActive?: boolean; opened?: boolean }>(), {
+const props = withDefaults(defineProps<{
+  title?: string
+  triggerLabel?: string
+  nestedModalActive?: boolean
+  opened?: boolean
+  paneTarget?: HTMLElement
+}>(), {
   opened: undefined,
 })
 const title = computed(() => props.title ?? t('author.editorInspector.article.inspector'))
@@ -134,6 +140,10 @@ onBeforeUnmount(() => {
     ref="launcherButton"
     v-show="host === 'pane' || !expanded"
     class="inspector-launcher"
+    :size="paneTarget ? 'small' : undefined"
+    :text="Boolean(paneTarget)"
+    :bg="Boolean(paneTarget && expanded)"
+    :type="paneTarget && expanded ? 'primary' : 'default'"
     native-type="button"
     v-bind="{
       'aria-expanded': expanded,
@@ -142,16 +152,21 @@ onBeforeUnmount(() => {
     }"
     @click="expanded ? close(current) : open(true)"
   >{{ triggerLabel }}</ElButton>
-  <aside
-    v-if="host === 'pane'" v-show="expanded" :id="inspectorId"
-    class="inspector-pane" :aria-labelledby="titleId"
-  >
-    <header class="inspector-heading">
-      <h2 :id="titleId">{{ title }}</h2>
-      <ElButton native-type="button" text size="small" @click="close(current)">{{ t('author.editorInspector.close') }}</ElButton>
-    </header>
-    <div ref="pane" class="inspector-pane-content" />
-  </aside>
+  <Teleport v-if="host === 'pane'" :to="paneTarget ?? 'body'" :disabled="!paneTarget">
+    <aside
+      v-show="expanded"
+      :id="inspectorId"
+      class="inspector-pane"
+      :class="{ 'inspector-pane--docked': Boolean(paneTarget) }"
+      :aria-labelledby="titleId"
+    >
+      <header class="inspector-heading">
+        <h2 :id="titleId">{{ title }}</h2>
+        <ElButton native-type="button" text size="small" @click="close(current)">{{ t('author.editorInspector.close') }}</ElButton>
+      </header>
+      <div ref="pane" class="inspector-pane-content" />
+    </aside>
+  </Teleport>
   <ElDrawer
     v-else-if="drawer" :key="drawer.key" :model-value="expanded"
     :title="title" direction="rtl" size="100%" append-to-body
@@ -185,6 +200,18 @@ onBeforeUnmount(() => {
   background: var(--fsus-paper);
   overflow: hidden;
 }
+.inspector-pane--docked {
+  grid-area: auto;
+  position: static;
+  inset-block-start: auto;
+  align-self: stretch;
+  inline-size: clamp(20rem, 26vw, 24rem);
+  block-size: 100%;
+  max-block-size: none;
+  border: 0;
+  border-inline-start: 1px solid var(--fsus-border);
+  border-radius: 0;
+}
 .inspector-heading {
   display: flex;
   align-items: center;
@@ -203,6 +230,7 @@ onBeforeUnmount(() => {
   min-block-size: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: var(--fsus-space-4);
 }
 .inspector-drawer-content {

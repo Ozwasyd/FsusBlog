@@ -334,14 +334,6 @@ p { line-height: 1.65; }
 .auth-form { display: grid; gap: .75rem; margin-block: 3.25rem 2.25rem; }
 .auth-footer { border-block-start: 1px solid var(--fsus-border); padding-block-start: 1.5rem; }
 .workspace-brand { font-size: 1.25rem; font-weight: 700; text-decoration: none; }
-.editor-page { width: min(83rem, calc(100% - 2 * var(--fsusblog-page-gutter))); margin-inline: auto; padding-block: 1.5rem 4rem; }
-.editor-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .7rem 1rem; padding-block-end: .75rem; border-block-end: 1px solid var(--fsus-border); }
-.editor-header > div { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
-.editor-header h1 { font-size: 1.375rem; margin: 0; }
-.editor-back { color: var(--fsus-color-text-muted); }
-.editor-document { width: min(75rem, 100%); margin-inline: auto; padding-block: 1.5rem; display: grid; gap: .5rem; }
-.editor-document label { font-weight: 700; }
-.editor-document p { margin: .35rem 0 .8rem; }
 .editor-shell-error { padding-inline: var(--fsusblog-page-gutter); }
 .write-notice a { margin-inline-start: .4rem; }
 

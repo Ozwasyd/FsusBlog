@@ -353,8 +353,13 @@ try {
   await page.keyboard.press('Escape')
   await expect(launcher).toBeFocused()
 
+  const openMobileMenuItem = async name => {
+    await button(page, 'More actions').click()
+    await page.getByRole('menuitem', { name, exact: true }).click()
+  }
+
   await page.setViewportSize({ width: 375, height: 850 })
-  await launcher.click()
+  await openMobileMenuItem('Article library')
   const drawer = page.getByRole('dialog', { name: 'Article library' })
   await expect(drawer).toBeVisible()
   await expect(selected(drawer)).toHaveText(/重复标题/)
@@ -369,7 +374,7 @@ try {
   await page.screenshot({ path: join(evidence, 'article-library-mobile.png') })
   await page.keyboard.press('Escape')
   await expect(drawer).toBeHidden()
-  await expect(launcher).toBeFocused()
+  await expect(button(page, 'More actions')).toBeFocused()
   await expect(body(page)).toHaveValue(duplicate.body)
 
   const expectedRecents = await exerciseQuickSwitcher({ page, author, active: duplicate, foreign, handle })
@@ -385,14 +390,14 @@ try {
   }
   assert.deepEqual((await recentOpens(author, handle)).items.map(row => row.articleId), expectedRecents)
   const delayedResults = await holdResponse(page, url => url.pathname === new URL(inventory).pathname && !url.searchParams.has('article'))
-  await button(page, 'Article library').click()
+  await openMobileMenuItem('Article library')
   try {
     assert.equal(await delayedResults.status(), 200)
     await switchAccount(peerCookies)
     await expect(page.getByRole('dialog', { name: 'Article library' })).toBeHidden()
   } finally { delayedResults.release() }
   await delayedResults.done
-  await button(page, 'Article library').click()
+  await openMobileMenuItem('Article library')
   await expect(drawer.getByText(foreign.title, { exact: true })).toBeVisible()
   await expect(drawer.getByText(title, { exact: true })).toHaveCount(0)
   await button(drawer, 'Recent opens').click()
@@ -421,18 +426,18 @@ try {
   }, { path: WireRoutes.AuthorArticles, keyword })
   const old = await holdResponse(page, url => url.pathname === WireRoutes.AuthorArticles && url.searchParams.get('keyword') === keyword)
   try {
-    await button(page, 'Quick switch articles').click()
+    await openMobileMenuItem('Quick switch articles')
     await searchInput.fill(keyword)
     assert.equal(await old.status(), 200)
     await switchAccount(peerCookies)
     await expect(quick).toBeHidden()
-    await button(page, 'Quick switch articles').click()
+    await openMobileMenuItem('Quick switch articles')
     await searchInput.fill(foreign.title)
     await expect(quick.getByRole('option', { name: new RegExp(foreign.title) })).toBeVisible()
     await save(seeding, { ...witness, title: freshTitle }, witness.body)
     await switchAccount(ownerState.cookies)
     await expect(quick).toBeHidden()
-    await button(page, 'Quick switch articles').click()
+    await openMobileMenuItem('Quick switch articles')
     await searchInput.fill(keyword)
     await expect(quick.getByRole('option', { name: new RegExp(freshTitle) })).toBeVisible()
   } finally {

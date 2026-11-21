@@ -35,13 +35,20 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
   const editPath = id => `${origin}/user/manage/article/edit/${id}`
   const body = () => editor.locator('#article-body')
   const launcher = () => editor.getByRole('button', { name: 'Outline', exact: true })
+  const moreActions = () => editor.getByRole('button', { name: 'More actions', exact: true })
   const desktop = () => editor.getByRole('complementary', { name: outlineName, exact: true })
   const mobile = () => editor.getByRole('dialog', { name: outlineName, exact: true })
   const heading = (panel, name) => panel.getByRole('button', { name, exact: true })
   const current = panel => panel.locator('[aria-current="location"]')
   const editorHandles = []
 
-  async function open(panel) {
+  async function open(panel, compact = false) {
+    if (compact) {
+      await moreActions().click()
+      await editor.getByRole('menuitem', { name: 'Outline', exact: true }).click()
+      await expect(panel).toBeVisible()
+      return
+    }
     await launcher().focus()
     await editor.keyboard.press('Enter')
     await expect(panel).toBeVisible()
@@ -77,16 +84,17 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
     await expectCaret(offset, { focused: true })
   }
 
-  async function dismiss(panel, from, expectedCaret) {
-    const opener = await launcher().elementHandle()
+  async function dismiss(panel, from, expectedCaret, compact = false) {
+    const trigger = compact ? moreActions() : launcher()
+    const opener = await trigger.elementHandle()
     assert(opener)
     try {
       await from.focus()
       await editor.keyboard.press('Escape')
       await expect(panel).toBeHidden()
-      await expect(launcher()).toBeFocused()
-      await expect(launcher()).toHaveAttribute('aria-expanded', 'false')
-      assert.equal(await launcher().evaluate((live, before) => live === before, opener), true)
+      await expect(trigger).toBeFocused()
+      if (!compact) await expect(launcher()).toHaveAttribute('aria-expanded', 'false')
+      assert.equal(await trigger.evaluate((live, before) => live === before, opener), true)
       await expectCaret(expectedCaret)
     } finally {
       await opener.dispose()
@@ -126,13 +134,13 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
 
     await editor.setViewportSize(mobileViewport)
     const drawer = mobile()
-    await open(drawer)
+    await open(drawer, true)
     await expect(sidebar).toBeHidden()
     await expectHeadingOrder(drawer)
     await expect(heading(drawer, repeatedHeading).nth(1)).toHaveAttribute('aria-current', 'location')
     await screenshot(editor, 'article-outline-mobile')
-    await dismiss(drawer, heading(drawer, firstHeading), secondRepeat)
-    await open(drawer)
+    await dismiss(drawer, heading(drawer, firstHeading), secondRepeat, true)
+    await open(drawer, true)
     await choose(drawer, heading(drawer, lastHeading), finalHeading, 'Space')
     assert.equal(await body().evaluate((live, original) => live === original, editorA), true)
     assert.equal(await editor.evaluate(() => document.documentElement.scrollWidth), mobileViewport.width)
@@ -144,8 +152,11 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
     await choose(sidebar, repeated.nth(1), secondRepeat)
     await open(sidebar)
     await expect(repeated.nth(1)).toHaveAttribute('aria-current', 'location')
-    await editor.getByLabel('Article ID', { exact: true }).fill(String(second.id))
-    await editor.getByRole('button', { name: 'Open in other group', exact: true }).click()
+    await moreActions().click()
+    await editor.getByRole('menuitem', { name: 'Workspace & open…', exact: true }).click()
+    const workspaceDialog = editor.getByRole('dialog', { name: 'Workspace & open article', exact: true })
+    await workspaceDialog.getByLabel('Article ID', { exact: true }).fill(String(second.id))
+    await workspaceDialog.getByRole('button', { name: 'Open in other group', exact: true }).click()
     await expect(editor).toHaveURL(editPath(second.id))
     await expect(sidebar).toBeHidden()
     await expect(body()).toBeEditable()

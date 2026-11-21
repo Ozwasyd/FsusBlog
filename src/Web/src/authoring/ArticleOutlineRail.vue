@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { t } from '../siteLocale'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch, type ComponentPublicInstance } from 'vue'
 import { ElButton, ElDrawer, type MarkdownEditorOutlineItem } from '@ozwasyd/element-plus'
 import { focusInspectorOpener } from './inspectorFocus'
 
@@ -11,6 +11,9 @@ const props = defineProps<{
   disabled: boolean
   foreground: boolean
   reveal: (heading: MarkdownEditorOutlineItem) => boolean
+  launcherTarget?: HTMLElement
+  dockTarget?: HTMLElement
+  fallbackOpener?: () => HTMLElement | null
 }>()
 const emit = defineEmits<{ visibility: [open: boolean] }>()
 
@@ -18,6 +21,7 @@ type Selection = { heading: MarkdownEditorOutlineItem; reveal: typeof props.reve
 type Presentation = {
   key: number
   compact: boolean
+  restoreFocus: boolean
   selection?: Selection
   events: { close: () => void; closed: () => void; opened: () => void }
 }
@@ -29,7 +33,7 @@ const headingButtonId = (nodeId: string) => `${contentId}-${nodeId}`
 const panelName = computed(() => t('author.articleOutlineRail.article.outline'))
 const compact = ref(false)
 const expanded = ref(false)
-const launcher = ref<HTMLButtonElement>()
+const launcherBtn = ref<ComponentPublicInstance & { ref?: HTMLButtonElement }>()
 const content = ref<HTMLElement>()
 const surface = shallowRef<Presentation>()
 const focusedId = ref<string | null>(null)
@@ -40,10 +44,11 @@ const visible = computed(() => headings.value.slice(page.value * pageSize, (page
 const tabStop = computed(() => visible.value.find(heading => heading.nodeId === focusedId.value)
   ?? visible.value.find(heading => heading.nodeId === props.active) ?? visible.value[0])
 
-const host = computed(() => surface.value?.compact ? ElDrawer : 'aside')
-const hostProps = computed(() => surface.value?.compact
-  ? { modelValue: expanded.value, title: panelName, direction: 'ltr' as const, size: 'min(86vw, 22rem)', appendToBody: true }
-  : { class: 'outline-pane', 'aria-labelledby': headingId })
+function launcherElement(): HTMLElement | null {
+  if (launcherBtn.value?.ref instanceof HTMLElement) return launcherBtn.value.ref
+  if (launcherBtn.value?.$el instanceof HTMLElement) return launcherBtn.value.$el
+  return null
+}
 
 let media: MediaQueryList | undefined
 let generation = 0
@@ -93,7 +98,7 @@ function open() {
   if (!props.foreground || props.disabled || expanded.value) return
   compact.value = media?.matches ?? compact.value
   const owner: Presentation = {
-    key: advance(), compact: compact.value,
+    key: advance(), compact: compact.value, restoreFocus: true,
     events: {
       close: () => close(owner),
       closed: () => finish(owner),
@@ -109,11 +114,17 @@ function open() {
   if (!owner.compact) enter(owner)
 }
 
-function close(owner: Presentation | undefined, heading?: MarkdownEditorOutlineItem) {
+function close(owner: Presentation | undefined, heading?: MarkdownEditorOutlineItem, restoreFocus = true) {
   if (!owner || surface.value !== owner || !expanded.value) return
+  owner.restoreFocus = restoreFocus
   if (heading) owner.selection = { heading, reveal: props.reveal }
   expanded.value = false
   if (!owner.compact) finish(owner)
+}
+
+function toggle() {
+  if (expanded.value) close(surface.value)
+  else open()
 }
 
 function finish(owner: Presentation) {
@@ -128,7 +139,10 @@ function finish(owner: Presentation) {
       && selection.reveal(selection.heading)
     if (key !== generation) return
     broadcast(false)
-    if (!revealed && props.foreground && launcher.value) focusInspectorOpener(launcher.value, null)
+    if (!revealed && owner.restoreFocus && props.foreground) {
+      const opener = launcherElement() ?? props.fallbackOpener?.()
+      if (opener) focusInspectorOpener(opener, null)
+    }
   })
 }
 
@@ -176,7 +190,10 @@ function reset() {
   expanded.value = false
   broadcast(false)
   if (returnFocus) afterRender(key, () => {
-    if (props.foreground && launcher.value) focusInspectorOpener(launcher.value, null)
+    if (props.foreground) {
+      const opener = launcherElement() ?? props.fallbackOpener?.()
+      if (opener) focusInspectorOpener(opener, null)
+    }
   })
 }
 
@@ -224,19 +241,47 @@ onBeforeUnmount(() => {
   media?.removeEventListener('change', resize)
   broadcast(false)
 })
+
+defineExpose({
+  open,
+  close: (restoreFocus = true) => close(surface.value, undefined, restoreFocus),
+  toggle,
+  expanded,
+})
 </script>
 
 <template>
-  <div v-show="foreground" class="outline-rail" @keydown="escapePane">
-    <button
-      ref="launcher" class="outline-launcher" type="button" :aria-expanded="expanded"
-      :aria-controls="expanded ? contentId : undefined" :aria-haspopup="compact ? 'dialog' : undefined"
-      :disabled="disabled" @click="expanded ? close(surface) : open()"
-    >{{ t('author.articleOutlineRail.outline') }}</button>
-    <component v-if="surface" :is="host" :key="surface.key" v-bind="hostProps" v-on="surface.events">
-      <header v-if="!surface.compact" class="outline-header">
+  <Teleport :to="launcherTarget ?? 'body'" :disabled="!launcherTarget">
+    <ElButton
+      v-if="!compact && foreground"
+      ref="launcherBtn"
+      class="outline-launcher"
+      text
+      size="small"
+      :bg="expanded"
+      :type="expanded ? 'primary' : 'default'"
+      native-type="button"
+      :disabled="disabled"
+      v-bind="{
+        'aria-expanded': expanded,
+        'aria-controls': expanded ? contentId : undefined,
+        onKeydown: escapePane,
+      }"
+      @click="toggle"
+    >{{ t('author.articleOutlineRail.outline') }}</ElButton>
+  </Teleport>
+  <Teleport v-if="surface && !surface.compact" :to="dockTarget ?? 'body'" :disabled="!dockTarget">
+    <aside
+      v-show="foreground"
+      :key="surface.key"
+      class="outline-pane"
+      :class="{ 'outline-pane--docked': Boolean(dockTarget) }"
+      :aria-labelledby="headingId"
+      @keydown="escapePane"
+    >
+      <header class="outline-header">
         <h2 :id="headingId">{{ panelName }}</h2>
-        <ElButton text native-type="button" @click="close(surface)">{{ t('author.articleOutlineRail.close') }}</ElButton>
+        <ElButton text size="small" native-type="button" @click="close(surface)">{{ t('author.articleOutlineRail.close') }}</ElButton>
       </header>
       <div :id="contentId" ref="content" class="outline-body" tabindex="-1">
         <p v-if="state === 'loading'" role="status">{{ t('author.articleOutlineRail.loading.the.outline') }}</p>
@@ -256,33 +301,50 @@ onBeforeUnmount(() => {
             </li>
           </ol>
           <div v-if="lastPage > 0" class="outline-pages">
-            <ElButton text native-type="button" :disabled="page === 0" @click="goTo((page - 1) * pageSize)">{{ t('author.articleOutlineRail.previous.headings') }}</ElButton>
-            <ElButton text native-type="button" :disabled="page === lastPage" @click="goTo((page + 1) * pageSize)">{{ t('author.articleOutlineRail.next.headings') }}</ElButton>
+            <ElButton text size="small" native-type="button" :disabled="page === 0" @click="goTo((page - 1) * pageSize)">{{ t('author.articleOutlineRail.previous.headings') }}</ElButton>
+            <ElButton text size="small" native-type="button" :disabled="page === lastPage" @click="goTo((page + 1) * pageSize)">{{ t('author.articleOutlineRail.next.headings') }}</ElButton>
           </div>
         </nav>
       </div>
-    </component>
-  </div>
+    </aside>
+  </Teleport>
+  <ElDrawer
+    v-if="surface && surface.compact"
+    :key="surface.key"
+    :model-value="expanded"
+    :title="panelName"
+    direction="ltr"
+    size="min(86vw, 22rem)"
+    append-to-body
+    v-on="surface.events"
+  >
+    <div :id="contentId" ref="content" class="outline-body" tabindex="-1">
+      <p v-if="state === 'loading'" role="status">{{ t('author.articleOutlineRail.loading.the.outline') }}</p>
+      <p v-else-if="state === 'unavailable'" role="status">{{ t('author.articleOutlineRail.the.outline.is.unavailable') }}</p>
+      <p v-else-if="!headings.length" role="status">{{ t('author.articleOutlineRail.this.article.has.no.headings') }}</p>
+      <nav v-else :aria-label="t('author.articleOutlineRail.article.headings')">
+        <ol class="outline-headings" role="list" :start="page * pageSize + 1">
+          <li v-for="(heading, index) in visible" :key="heading.nodeId">
+            <button
+              :id="headingButtonId(heading.nodeId)" class="outline-heading" type="button"
+              :style="{ '--outline-indent': Math.max(0, Math.min(5, heading.depth - 1)) }"
+              :tabindex="tabStop?.nodeId === heading.nodeId ? 0 : -1"
+              :aria-current="active === heading.nodeId ? 'location' : undefined"
+              @focus="focusedId = heading.nodeId" @keydown="navigate($event, index)" @click="choose(heading)"
+            >{{ heading.text || t('author.articleOutlineRail.untitled.heading') }}</button>
+            <p v-if="diagnostics(heading).length" class="outline-diagnostic">{{ diagnostics(heading).join(' · ') }}</p>
+          </li>
+        </ol>
+        <div v-if="lastPage > 0" class="outline-pages">
+          <ElButton text size="small" native-type="button" :disabled="page === 0" @click="goTo((page - 1) * pageSize)">{{ t('author.articleOutlineRail.previous.headings') }}</ElButton>
+          <ElButton text size="small" native-type="button" :disabled="page === lastPage" @click="goTo((page + 1) * pageSize)">{{ t('author.articleOutlineRail.next.headings') }}</ElButton>
+        </div>
+      </nav>
+    </div>
+  </ElDrawer>
 </template>
 
 <style scoped>
-.outline-rail {
-  justify-self: start;
-}
-.outline-launcher {
-  min-block-size: var(--fsus-control-height-action);
-  padding-inline: var(--fsus-space-4);
-  border: 1px solid var(--fsus-border);
-  border-radius: var(--fsus-radius-control);
-  background: var(--fsus-paper);
-  color: var(--fsus-ink);
-  font: inherit;
-  cursor: pointer;
-}
-.outline-launcher:disabled {
-  color: var(--fsus-color-text-muted);
-  cursor: default;
-}
 .outline-pane {
   position: fixed;
   z-index: 30;
@@ -297,23 +359,37 @@ onBeforeUnmount(() => {
   background: var(--fsus-paper);
   box-shadow: var(--fsus-shadow-panel);
 }
+.outline-pane--docked {
+  position: static;
+  z-index: auto;
+  inset: auto;
+  inline-size: 17rem;
+  block-size: 100%;
+  max-block-size: none;
+  border: 0;
+  border-inline-end: 1px solid var(--fsus-border);
+  border-radius: 0;
+  box-shadow: none;
+}
 .outline-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--fsus-space-2);
-  padding: var(--fsus-space-2) var(--fsus-space-4);
+  padding: var(--fsus-space-3) var(--fsus-space-4);
   border-block-end: 1px solid var(--fsus-border);
 }
 .outline-header h2 {
   margin: 0;
   font-size: var(--fsus-typography-heading-sm-size);
+  font-weight: 600;
 }
 .outline-pane .outline-body {
   min-block-size: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: var(--fsus-space-2);
+  scrollbar-gutter: stable;
+  padding: var(--fsus-space-2) var(--fsus-space-3);
 }
 .outline-headings {
   margin: 0;
@@ -331,6 +407,7 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--fsus-ink);
   font: inherit;
+  font-size: .875rem;
   text-align: start;
   overflow-wrap: anywhere;
   cursor: pointer;
@@ -340,22 +417,23 @@ onBeforeUnmount(() => {
   background: var(--fsus-state-selected-bg);
 }
 .outline-heading[aria-current] {
-  font-weight: 700;
+  font-weight: 600;
+  color: var(--fsus-color-action-primary);
 }
 .outline-body:focus-visible,
-.outline-heading:focus-visible,
-.outline-launcher:focus-visible {
-  outline: 2px solid var(--fsus-color-focus-ring);
+.outline-heading:focus-visible {
+  outline: 2px solid var(--fsus-color-focus-ring, var(--fsus-color-action-primary));
   outline-offset: -2px;
 }
 .outline-diagnostic {
   margin: 0 var(--fsus-space-2) var(--fsus-space-2);
   color: var(--fsus-color-text-muted);
-  font-size: .875rem;
+  font-size: .8125rem;
 }
 .outline-pages {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
+  margin-block-start: var(--fsus-space-2);
 }
 </style>

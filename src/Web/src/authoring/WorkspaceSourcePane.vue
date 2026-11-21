@@ -16,16 +16,29 @@ import { captureBodyEdits } from './savedBodyInsertion'
 import type { WorkspaceSource } from './workspaceRegistry'
 
 const props = defineProps<{
-  pane: WorkspaceSource<Draft>; focus: boolean; blocked: boolean; split: boolean; canSwitch: boolean; concealed: boolean
+  pane: WorkspaceSource<Draft>
+  focus: boolean
+  blocked: boolean
+  split: boolean
+  canSwitch: boolean
+  concealed: boolean
   sourceTarget?: EditorSourceSeek
+  outlineLauncherTarget?: HTMLElement
+  outlineDockTarget?: HTMLElement
+  outlineFallbackOpener?: () => HTMLElement | null
 }>()
 const emit = defineEmits<{
-  edit: [field: 'title' | 'body', value: string, edits?: readonly BodyEdit[]]; activate: []; compose: [active: boolean]
+  edit: [field: 'title' | 'body', value: string, edits?: readonly BodyEdit[]]
+  activate: []
+  compose: [active: boolean]
   sourceRevealed: [target: EditorSourceSeek, success: boolean]
+  outlineVisibility: [open: boolean]
 }>()
 const nativeMarkdown = import.meta.env.FSUS_MARKDOWN_NATIVE
 const markdown = ref<InstanceType<typeof ElMarkdownEditor>>()
-const titleInput = ref<InstanceType<typeof ElInput>>()
+const titleInput = ref<HTMLInputElement>()
+const outlineRail = ref<InstanceType<typeof ArticleOutlineRail>>()
+const splitOutlineSlot = ref<HTMLElement>()
 // The clipboard confirmation is teleported outside its editor and has no public closing hook.
 const comparisonCommands = defaultMarkdownEditorCommands.filter(command => command.key !== 'paste-as-markdown')
 const titleId = computed(() => props.focus ? 'article-title' : `article-title-${props.pane.tab.sessionId}`)
@@ -175,7 +188,7 @@ async function revealSearch(seek: Extract<EditorSourceSeek, { kind: 'search' }>,
   if (!current() || !await verifySourceMatch(source, target) || !current() || document.activeElement !== previouslyFocused) return false
 
   if (field === 'title') {
-    const input = titleInput.value?.input
+    const input = titleInput.value
     if (!(input instanceof HTMLInputElement) || !visibleInput(input) || input.value !== source) return false
     input.focus()
     if (!current() || document.activeElement !== input || input.value !== source) return false
@@ -203,48 +216,227 @@ function edit(field: 'title' | 'body', value: string) {
   if (field === 'body') nextEdits = undefined
   if (props.focus && !props.blocked) emit('edit', field, field === 'body' && crlf.value ? restoreCrlf(value) : value, edits)
 }
+
+function onOutlineVisibility(open: boolean) {
+  outlineVisible.value = open
+  emit('outlineVisibility', open)
+}
+
+defineExpose({
+  openOutline: () => outlineRail.value?.open(),
+  closeOutline: (restoreFocus = true) => outlineRail.value?.close(restoreFocus),
+  toggleOutline: () => outlineRail.value?.toggle(),
+  outlineDisabled,
+  outlineVisible,
+  hasNativeMarkdown: Boolean(nativeMarkdown),
+})
 </script>
 
 <template>
   <section :id="`workspace-source-${pane.tab.sessionId}`" class="workspace-source" tabindex="-1" :aria-label="groupName"
-    :class="{ 'workspace-source--secondary': pane.tab.group === 'secondary' }" v-bind="{ hidden: concealed, inert: concealed }"
+    :class="{ 'workspace-source--secondary': pane.tab.group === 'secondary', 'workspace-source--split': split }"
+    v-bind="{ hidden: concealed, inert: concealed }"
     @compositionstart.capture="emit('compose', true)" @compositionend="emit('compose', false)">
     <header v-if="split" class="workspace-source__heading">
       <h2>{{ groupName }}</h2>
-      <ElButton v-if="!focus" text native-type="button" :disabled="!canSwitch" @click="emit('activate')">{{ t('author.workspaceSourcePane.edit.in.this.group') }}</ElButton>
+      <div class="workspace-source__heading-actions">
+        <span ref="splitOutlineSlot" class="workspace-source__outline-slot" />
+        <ElButton v-if="!focus" text size="small" native-type="button" :disabled="!canSwitch" @click="emit('activate')">{{ t('author.workspaceSourcePane.edit.in.this.group') }}</ElButton>
+      </div>
     </header>
-    <slot name="before" />
-    <label :for="titleId">{{ t('author.workspaceSourcePane.title') }}</label>
-    <ElInput ref="titleInput" :id="titleId" :model-value="pane.draft.title" @update:model-value="edit('title', $event)"
-      :placeholder="t('author.workspaceSourcePane.write.the.article.title')" size="large" :readonly="!focus" :disabled="focus && blocked" />
-    <p v-if="focus && (pane.tab.articleId === 0 || pane.tab.risk === 'dirty' || pane.tab.risk === 'conflict')" class="metadata">{{ t('author.workspaceSourcePane.save.the.draft.before.publishing') }}</p>
-    <p class="metadata">{{ t('author.workspaceSourcePane.bytes', { p0: String(titleLength), p1: String(WireLimits.TitleBytes) }) }}</p>
-    <div class="workspace-source__body-heading">
-      <label :for="bodyId">{{ t('author.workspaceSourcePane.body') }}</label>
-      <ArticleOutlineRail v-if="nativeMarkdown" :foreground="foreground"
-        :headings="outlineSnapshot?.model.items ?? []" :active="outlineActive" :state="outlineState"
-        :disabled="outlineDisabled" :reveal="revealOutline" @visibility="outlineVisible = $event" />
-      <ElButton v-if="nativeMarkdown && focus && !concealed" text native-type="button" :disabled="blocked"
-        @click="foreground && markdown?.openSearch()">{{ t('author.workspaceSourcePane.find.in.body') }}</ElButton>
+    <div v-if="$slots.before" class="workspace-source__notices">
+      <slot name="before" />
     </div>
-    <ElMarkdownEditor v-if="nativeMarkdown" ref="markdown" :textarea-id="bodyId" :locale-text="{ textarea: { source: t('author.workspaceSourcePane.body'), live: t('author.workspaceSourcePane.body') } }"
-      :model-value="editorSource" @update:model-value="edit('body', $event)" :placeholder="t('author.workspaceSourcePane.start.writing.here')"
-      @transaction="editorTransaction" @selection-change="editorSelectionChanged" @mode-change="outlineMode = $event"
-      :document-identity="identity" :readonly="!focus" :disabled="focus && blocked" :show-actions="false"
-      :mode="split ? 'source' : undefined" :commands="split ? comparisonCommands : undefined" :show-mode-switcher="!split" />
-    <template v-else>
-      <ElAlert :title="t('author.workspaceSourcePane.rich.editing.unavailable.edit.the.original.markdown.below')" type="info" :closable="false" />
-      <ElInput :id="bodyId" :model-value="editorSource" @update:model-value="edit('body', $event)" type="textarea"
-        :autosize="{ minRows: 14 }" :placeholder="t('author.workspaceSourcePane.start.writing.here')" :readonly="!focus" :disabled="focus && blocked" />
-    </template>
-    <slot name="after" />
+    <div class="workspace-source__header">
+      <label class="visually-hidden" :for="titleId">{{ t('author.workspaceSourcePane.title') }}</label>
+      <input
+        :id="titleId"
+        ref="titleInput"
+        class="workspace-source__title"
+        type="text"
+        :value="pane.draft.title"
+        :placeholder="t('author.workspaceSourcePane.write.the.article.title')"
+        :readonly="!focus"
+        :disabled="focus && blocked"
+        @input="edit('title', ($event.target as HTMLInputElement).value)"
+      />
+      <div class="workspace-source__meta">
+        <div class="workspace-source__meta-left">
+          <span class="workspace-source__bytes">{{ t('author.workspaceSourcePane.bytes', { p0: String(titleLength), p1: String(WireLimits.TitleBytes) }) }}</span>
+          <span v-if="focus && (pane.tab.articleId === 0 || pane.tab.risk === 'dirty' || pane.tab.risk === 'conflict')" class="workspace-source__hint">{{ t('author.workspaceSourcePane.save.the.draft.before.publishing') }}</span>
+        </div>
+        <div class="workspace-source__meta-right">
+          <label class="visually-hidden" :for="bodyId">{{ t('author.workspaceSourcePane.body') }}</label>
+          <ArticleOutlineRail
+            v-if="nativeMarkdown"
+            ref="outlineRail"
+            :foreground="foreground"
+            :headings="outlineSnapshot?.model.items ?? []"
+            :active="outlineActive"
+            :state="outlineState"
+            :disabled="outlineDisabled"
+            :reveal="revealOutline"
+            :launcher-target="split ? splitOutlineSlot : outlineLauncherTarget"
+            :dock-target="outlineDockTarget"
+            :fallback-opener="outlineFallbackOpener"
+            @visibility="onOutlineVisibility"
+          />
+          <ElButton v-if="nativeMarkdown && focus && !concealed" text size="small" native-type="button" :disabled="blocked"
+            @click="foreground && markdown?.openSearch()">{{ t('author.workspaceSourcePane.find.in.body') }}</ElButton>
+        </div>
+      </div>
+    </div>
+    <div v-if="$slots.import" class="workspace-source__import">
+      <slot name="import" />
+    </div>
+    <div class="workspace-source__body">
+      <ElMarkdownEditor v-if="nativeMarkdown" ref="markdown" class="workspace-source__markdown" :textarea-id="bodyId"
+        :locale-text="{ textarea: { source: t('author.workspaceSourcePane.body'), live: t('author.workspaceSourcePane.body') } }"
+        :model-value="editorSource" @update:model-value="edit('body', $event)" :placeholder="t('author.workspaceSourcePane.start.writing.here')"
+        @transaction="editorTransaction" @selection-change="editorSelectionChanged" @mode-change="outlineMode = $event"
+        :document-identity="identity" :readonly="!focus" :disabled="focus && blocked" :show-actions="false"
+        :chrome="split ? 'framed' : 'embedded'" :editor-profile="split ? 'markdown' : 'prose'"
+        :mode="split ? 'source' : undefined" :commands="split ? comparisonCommands : undefined" :show-mode-switcher="!split" />
+      <template v-else>
+        <ElAlert :title="t('author.workspaceSourcePane.rich.editing.unavailable.edit.the.original.markdown.below')" type="info" :closable="false" />
+        <ElInput :id="bodyId" :model-value="editorSource" @update:model-value="edit('body', $event)" type="textarea"
+          :autosize="{ minRows: 14 }" :placeholder="t('author.workspaceSourcePane.start.writing.here')" :readonly="!focus" :disabled="focus && blocked" />
+      </template>
+    </div>
+    <div v-if="$slots.after" class="workspace-source__after">
+      <slot name="after" />
+    </div>
   </section>
 </template>
 
 <style scoped>
-.workspace-source { display: grid; align-content: start; gap: .5rem; min-inline-size: 0; }
+.workspace-source {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fsus-space-3);
+  inline-size: min(50rem, 100%);
+  min-inline-size: 0;
+  min-block-size: 100%;
+  margin-inline: auto;
+  padding-block: var(--fsus-space-4) var(--fsus-space-5);
+}
+.workspace-source--split {
+  inline-size: 100%;
+  margin-inline: 0;
+  padding-block: var(--fsus-space-3);
+}
 .workspace-source[hidden] { display: none; }
-.workspace-source__heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
-.workspace-source__heading h2 { margin: 0; font-size: var(--fsus-typography-heading-sm-size); }
-.workspace-source__body-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--fsus-space-3); }
+.workspace-source__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--fsus-space-2);
+  padding-block-end: var(--fsus-space-2);
+  border-block-end: 1px solid var(--fsus-border);
+}
+.workspace-source__heading h2 {
+  margin: 0;
+  font-size: var(--fsus-typography-heading-sm-size);
+  font-weight: 600;
+}
+.workspace-source__heading-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fsus-space-1);
+}
+.workspace-source__outline-slot {
+  display: contents;
+}
+.workspace-source__notices:empty,
+.workspace-source__import:empty,
+.workspace-source__after:empty {
+  display: none;
+}
+.workspace-source__notices,
+.workspace-source__after {
+  display: grid;
+  gap: var(--fsus-space-2);
+}
+.workspace-source__header {
+  display: grid;
+  gap: var(--fsus-space-2);
+}
+.workspace-source__title {
+  inline-size: 100%;
+  min-inline-size: 0;
+  padding: var(--fsus-space-1) 0 var(--fsus-space-3);
+  border: 0;
+  border-block-end: 1px solid var(--fsus-border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--fsus-ink);
+  font-family: inherit;
+  font-size: clamp(1.375rem, 2.4vw, 1.875rem);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+.workspace-source__title::placeholder {
+  color: var(--fsus-color-text-muted);
+  font-weight: 500;
+}
+.workspace-source__title:focus-visible {
+  outline: none;
+  border-block-end-color: var(--fsus-color-action-primary);
+  box-shadow: 0 1px 0 0 var(--fsus-color-action-primary);
+}
+.workspace-source__title:disabled {
+  opacity: 0.65;
+}
+.workspace-source__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fsus-space-2);
+  min-block-size: 2rem;
+}
+.workspace-source__meta-left,
+.workspace-source__meta-right {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fsus-space-2);
+}
+.workspace-source__bytes,
+.workspace-source__hint {
+  color: var(--fsus-color-text-muted);
+  font-size: .8125rem;
+  line-height: 1.4;
+}
+.workspace-source__bytes {
+  font-variant-numeric: tabular-nums;
+}
+.workspace-source__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+.workspace-source__markdown {
+  flex: 1 1 auto;
+}
+@media (max-width: 1023px) {
+  .workspace-source {
+    gap: var(--fsus-space-2);
+    padding-block: var(--fsus-space-3) var(--fsus-space-4);
+  }
+  .workspace-source__title {
+    font-size: clamp(1.1875rem, 5vw, 1.375rem);
+    padding-block-end: var(--fsus-space-2);
+  }
+}
+@media (forced-colors: active) {
+  .workspace-source__title:focus-visible {
+    outline: 2px solid Highlight;
+    box-shadow: none;
+  }
+}
 </style>

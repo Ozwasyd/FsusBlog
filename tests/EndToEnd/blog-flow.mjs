@@ -707,7 +707,8 @@ try {
   await exerciseSearchWorkerReuse({
     page: visitor, origin, articleTitle: title, firstQuery: bodyTerm, repeatQuery: bodyTerm.toUpperCase(),
     withdraw: async () => {
-      await button(publisher, 'Withdraw').click()
+      await button(publisher, 'More actions').click()
+      await publisher.getByRole('menuitem', { name: 'Withdraw', exact: true }).click()
       await visible(publisher.getByText('Article withdrawn.', { exact: true }))
     },
     observations,

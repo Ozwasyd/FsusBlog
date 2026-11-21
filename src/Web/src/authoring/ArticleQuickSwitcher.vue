@@ -14,6 +14,8 @@ const props = defineProps<{
   otherGroup?: WorkspaceGroup
   activate: (id: number, revision: bigint, current: () => boolean, targetGroup?: WorkspaceGroup) => Promise<boolean>
   articleHref: (id: number) => string
+  hideLauncher?: boolean
+  quietLauncher?: boolean
 }>()
 const emit = defineEmits<{ activated: [id: number] }>()
 type Result = Readonly<{ id: number; title: string; revision?: bigint; state?: AuthorArticleState; at: number }>
@@ -200,10 +202,12 @@ watch([identityEpoch, credentialEpoch, () => currentSession.value?.siteSessionId
 }, { flush: 'sync' })
 onMounted(() => window.addEventListener('keydown', shortcut))
 onBeforeUnmount(() => { cancelAction(); window.removeEventListener('keydown', shortcut) })
+defineExpose({ show, close })
 </script>
 
 <template>
-  <ElButton native-type="button" :disabled="disabled" v-bind="{ 'aria-keyshortcuts': 'Control+O Meta+O' }" @click="show">
+  <ElButton v-if="!hideLauncher" :text="quietLauncher" :size="quietLauncher ? 'small' : undefined"
+    native-type="button" :disabled="disabled" v-bind="{ 'aria-keyshortcuts': 'Control+O Meta+O' }" @click="show">
     {{ t('author.articleQuickSwitcher.quick.switch.articles') }}
   </ElButton>
   <ElDialog v-model="open" :title="t('author.articleQuickSwitcher.quick.switch.articles')" append-to-body destroy-on-close width="min(34rem, calc(100vw - 2rem))"

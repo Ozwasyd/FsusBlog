@@ -74,7 +74,7 @@ onScopeDispose(() => { ++readTicket })
 </script>
 
 <template>
-  <ElButton v-if="!open" ref="launcher" native-type="button" @click="begin">{{ t('author.draftMarkdownImport.import.markdown') }}</ElButton>
+  <ElButton v-if="!open" ref="launcher" text size="small" native-type="button" @click="begin">{{ t('author.draftMarkdownImport.import.markdown') }}</ElButton>
   <section v-else :aria-labelledby="`${id}-heading`" class="markdown-import">
     <h3 :id="`${id}-heading`">{{ t('author.draftMarkdownImport.import.markdown') }}</h3>
     <label :for="`${id}-file`">{{ t('author.draftMarkdownImport.markdown.file') }}</label>
@@ -85,14 +85,25 @@ onScopeDispose(() => { ++readTicket })
     <label :for="`${id}-title`">{{ t('author.draftMarkdownImport.title.for.plain.markdown') }}</label>
     <ElInput :id="`${id}-title`" v-model="title" v-bind="titleAttributes" />
     <ElAlert v-if="error" :title="error" type="error" :closable="false" />
-    <div>
-      <ElButton native-type="button" :loading="reading" @click="load">{{ t('author.draftMarkdownImport.load.into.draft') }}</ElButton>
-      <ElButton native-type="button" @click="cancel">{{ t('author.draftMarkdownImport.cancel.import') }}</ElButton>
+    <div class="markdown-import__actions">
+      <ElButton type="primary" size="small" native-type="button" :loading="reading" @click="load">{{ t('author.draftMarkdownImport.load.into.draft') }}</ElButton>
+      <ElButton size="small" native-type="button" @click="cancel">{{ t('author.draftMarkdownImport.cancel.import') }}</ElButton>
     </div>
   </section>
 </template>
 
 <style scoped>
-.markdown-import { display: grid; gap: .5rem; margin-block: .75rem; }
+.markdown-import {
+  display: grid;
+  gap: var(--fsus-space-2);
+  margin-block: var(--fsus-space-2);
+  padding: var(--fsus-space-4);
+  border: 1px solid var(--fsus-border);
+  border-radius: var(--fsus-radius-panel);
+  background: var(--fsus-paper);
+}
+.markdown-import h3 { margin: 0; font-size: var(--fsus-typography-heading-sm-size); }
+.markdown-import label { font-size: .8125rem; color: var(--fsus-color-text-muted); }
 .markdown-import input { min-inline-size: 0; max-inline-size: 100%; }
+.markdown-import__actions { display: flex; flex-wrap: wrap; gap: var(--fsus-space-2); margin-block-start: var(--fsus-space-1); }
 </style>

@@ -58,6 +58,11 @@ async function layout(context, session, command, status = 200) {
 }
 
 async function open(page, article) {
+  const inlineInput = page.getByLabel('Article ID', { exact: true })
+  if (!await inlineInput.isVisible()) {
+    await button(page, 'More actions').click()
+    await page.getByRole('menuitem', { name: 'Workspace & open…', exact: true }).click()
+  }
   await page.getByLabel('Article ID', { exact: true }).fill(String(article.id))
   await button(page, 'Open article').click()
   await expect(page).toHaveURL(editUrl(article))

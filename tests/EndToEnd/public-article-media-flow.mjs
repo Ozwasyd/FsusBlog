@@ -295,7 +295,8 @@ try {
       phase = `${device}: withdrawal closes only public access`
       await closeInspector(page)
       const retract = page.waitForResponse(response => response.url() === origin + WireRoutes.Retract && response.request().method() === 'POST')
-      await page.getByRole('button', { name: 'Withdraw', exact: true }).click()
+      await page.getByRole('button', { name: 'More actions', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Withdraw', exact: true }).click()
       assert.equal((await retract).status(), 200)
       await page.getByText('Article withdrawn.', { exact: true }).waitFor()
       const withdrawn = await anonymous.request.get(publicUrl, { headers: { 'If-None-Match': '"' + chosenPreview.digest + '"' } })

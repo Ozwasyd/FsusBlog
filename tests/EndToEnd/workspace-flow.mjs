@@ -60,9 +60,20 @@ async function expectEditor(page, origin, article, body = article.body) {
   assert.equal(await page.locator('#article-body').count(), 1, 'Only the active article may mount an editor')
 }
 
+async function openWorkspaceDialog(page) {
+  const dialog = page.getByRole('dialog', { name: 'Workspace & open article', exact: true })
+  if (await dialog.isVisible()) return dialog
+  await control(page, 'More actions').click()
+  await page.getByRole('menuitem', { name: 'Workspace & open…', exact: true }).click()
+  await dialog.waitFor()
+  return dialog
+}
+
 async function openById(page, articleId) {
-  await page.getByLabel('Article ID', { exact: true }).fill(String(articleId))
-  await control(page, 'Open article').click()
+  const inlineInput = page.getByLabel('Article ID', { exact: true })
+  const scope = await inlineInput.isVisible() ? page : await openWorkspaceDialog(page)
+  await scope.getByLabel('Article ID', { exact: true }).fill(String(articleId))
+  await control(scope, 'Open article').click()
 }
 
 async function openWithDelayedResponse(page, origin, current, target) {
@@ -108,7 +119,17 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   const local = `Unconfirmed edit for ${pinned.title}.`
 
   await expectEditor(page, origin, primary)
-  if (await exactTab(page, primary.title, 'Preview').count()) await control(page, `Pin ${primary.title}`).click()
+  if (!await exactTab(page, primary.title, 'Pinned').count()) {
+    const pinButton = control(page, `Pin ${primary.title}`)
+    if (await pinButton.isVisible()) {
+      await pinButton.click()
+    } else {
+      const dialog = await openWorkspaceDialog(page)
+      await control(dialog, `Pin ${primary.title}`).click()
+      await page.keyboard.press('Escape')
+      await dialog.waitFor({ state: 'detached' })
+    }
+  }
   await exactTab(page, primary.title, 'Pinned').waitFor()
 
   await openWithDelayedResponse(page, origin, primary, pinned)
@@ -204,23 +225,27 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   const persisted = await page.request.get(`${origin}${routes.draft(pinned.id)}`)
   assert.equal(persisted.status(), 200)
   assert.deepEqual(draft(await persisted.body()), pinned, 'Tab discard must leave the persistent private draft untouched')
-  await page.getByText('Recently closed', { exact: true }).click()
-  const reopen = control(page, `Reopen Article ${pinned.id}`)
+  const recentDialog = await openWorkspaceDialog(page)
+  const reopen = control(recentDialog, `Reopen Article ${pinned.id}`)
   await reopen.click()
   await expectEditor(page, origin, pinned)
   await exactTab(page, pinned.title, 'Pinned').waitFor()
   await exactTab(page, primary.title, 'Pinned').click()
   await expectEditor(page, origin, primary)
 
-  await page.getByLabel('Article ID', { exact: true }).fill(String(primary.id))
+  const openDialog = await openWorkspaceDialog(page)
+  await openDialog.getByLabel('Article ID', { exact: true }).fill(String(primary.id))
   const independent = page.context().waitForEvent('page')
-  await page.getByRole('link', { name: 'Open in browser tab', exact: true }).click()
+  await openDialog.getByRole('link', { name: 'Open in browser tab', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await openDialog.waitFor({ state: 'detached' })
   const separate = await independent
   try {
     monitor(separate, 'workspace-independent')
     await expectEditor(separate, origin, primary)
-    assert.equal(await workspaceList(separate).getByRole('tab').count(), 1, 'A native browser tab owns a separate article registry')
-    await control(separate, `Close ${primary.title}`).click()
+    assert.equal(await workspaceList(separate).count(), 0, 'A single-article browser tab starts without the multi-tab strip')
+    const separateDialog = await openWorkspaceDialog(separate)
+    await control(separateDialog, `Close ${primary.title}`).click()
     await separate.waitForURL(`${origin}/user/manage/article/workspace`)
     await separate.getByText('Open an article or start a new draft.', { exact: true }).waitFor()
     assert.equal(await separate.locator('#article-body').count(), 0)

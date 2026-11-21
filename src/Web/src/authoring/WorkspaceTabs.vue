@@ -336,11 +336,11 @@ async function advancePage(index: number) {
 .workspace-tabs {
   position: relative;
   display: flex;
+  flex: 1 1 auto;
   min-width: 0;
   align-items: center;
   gap: var(--fsus-space-2, .5rem);
-  margin-block: .5rem;
-  border-block-end: 1px solid var(--fsus-border);
+  margin: 0;
 }
 
 .workspace-tabs__list {

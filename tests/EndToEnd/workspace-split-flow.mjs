@@ -33,9 +33,41 @@ async function signIn(context, ticket) {
   return session
 }
 
+const workspaceDialog = page => page.getByRole('dialog', { name: 'Workspace & open article', exact: true })
+
+async function openWorkspaceDialog(page) {
+  const dialog = workspaceDialog(page)
+  if (await dialog.isVisible()) return dialog
+  await button(page, 'More actions').click()
+  await page.getByRole('menuitem', { name: 'Workspace & open…', exact: true }).click()
+  await expect(dialog).toBeVisible()
+  return dialog
+}
+
+async function closeWorkspaceDialog(page) {
+  const dialog = workspaceDialog(page)
+  if (await dialog.isVisible()) {
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+  }
+}
+
+async function pinArticle(page, draft) {
+  const direct = button(page, `Pin ${draft.title}`)
+  if (await direct.isVisible()) {
+    await direct.click()
+    return
+  }
+  const dialog = await openWorkspaceDialog(page)
+  await button(dialog, `Pin ${draft.title}`).click()
+  await closeWorkspaceDialog(page)
+}
+
 async function openById(page, id, command = 'Open in other group') {
-  await page.getByLabel('Article ID', { exact: true }).fill(String(id))
-  await button(page, command).click()
+  const inlineInput = page.getByLabel('Article ID', { exact: true })
+  const scope = await inlineInput.isVisible() ? page : await openWorkspaceDialog(page)
+  await scope.getByLabel('Article ID', { exact: true }).fill(String(id))
+  await button(scope, command).click()
 }
 
 async function expectPane(pane, draft, source, writable) {
@@ -121,7 +153,7 @@ async function exerciseSplitter(page, primary, secondary) {
   assert(home.left.width < returned.left.width && returned.left.width < end.left.width)
   assert(home.right.width > returned.right.width && returned.right.width > end.right.width)
 
-  const actions = page.getByText('Group actions', { exact: true })
+  const actions = button(page, 'Group actions')
   const equalize = button(page, 'Equalize group widths')
   await press(page, actions)
   await press(page, equalize, 'Space')
@@ -129,7 +161,7 @@ async function exerciseSplitter(page, primary, secondary) {
   const equal = await splitGeometry(page, primary, secondary)
   assert.equal(equal.values.now, 50)
   assert(Math.abs(equal.left.width - equal.right.width) <= 1)
-  await press(page, actions)
+  await closeWorkspaceDialog(page)
   await press(page, handle, 'End')
   await handle.scrollIntoViewIfNeeded()
   const box = await handle.boundingBox()
@@ -304,7 +336,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     const discard = dialog.getByRole('radio', { name: 'Discard unsaved edits from this browser', exact: true })
     const listedTabs = dialog.getByRole('list', { name: 'Tabs to close', exact: true }).getByRole('listitem')
     const confirmedTargets = [`${first.title} (unsaved changes) · Article ${first.id}`, `${tail.title} (up to date) · Article ${tail.id}`]
-    await page.getByText('Group actions', { exact: true }).click()
+    await button(page, 'Group actions').click()
     await press(page, others)
     await expect(listedTabs).toHaveText(confirmedTargets)
     await expect(discard).not.toBeChecked()
@@ -315,7 +347,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expect(tab(page, first, 'Unsaved')).toBeVisible()
     await expect(tab(page, tail, 'Preview')).toBeVisible()
     await expect(tab(page, second, 'Pinned')).toBeVisible()
-    await expect(page.getByText('Recently closed', { exact: true })).toHaveCount(0)
+    await expect(workspaceDialog(page).getByRole('heading', { name: 'Recently closed', exact: true })).toHaveCount(0)
 
     await press(page, others)
     await expect(listedTabs).toHaveText(confirmedTargets)
@@ -336,19 +368,20 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expect(page.getByText('Could not verify recovery copies. Save the drafts before closing these tabs.', { exact: true })).toBeVisible()
     await expect(others).toBeFocused()
     await expect(tabList(page).getByRole('tab')).toHaveCount(4)
-    await expect(page.getByText('Recently closed', { exact: true })).toHaveCount(0)
+    await expect(workspaceDialog(page).getByRole('heading', { name: 'Recently closed', exact: true })).toHaveCount(0)
 
     await press(page, right)
     await expect(tab(page, tail, 'Preview')).toHaveCount(0)
     await expect(page.getByText('Closed 1 tab.', { exact: true })).toBeVisible()
     await expect(tab(page, alternate, 'Pinned')).toBeFocused()
     await expect(tab(page, first, 'Unsaved')).toBeVisible()
+    await openWorkspaceDialog(page)
     await expect(right).toBeDisabled()
     await expect(page).toHaveURL(editPath(alternate.id))
     await expectSameEditor(body(primary), alternateNode)
     await expectSameEditor(body(secondary), secondNode)
-    await page.getByText('Recently closed', { exact: true }).click()
-    await expect(button(page, `Reopen Article ${tail.id}`)).toBeVisible()
+    await expect(button(workspaceDialog(page), `Reopen Article ${tail.id}`)).toBeVisible()
+    await closeWorkspaceDialog(page)
 
     await press(page, tab(page, first, 'Unsaved'))
     await expect(page).toHaveURL(editPath(first.id))
@@ -359,25 +392,31 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
       await page.setViewportSize({ width: 375, height: 850 })
       const switcher = button(page, 'Switch article tab')
       await expect(switcher).toBeVisible()
+      await openWorkspaceDialog(page)
       await press(page, others)
       await expect(switcher).toBeFocused()
       await expect(page).toHaveURL(editPath(first.id))
       await expect(body(primary)).toHaveValue(localSource)
       await expectSameEditor(body(primary), activeNode)
-      await expect(button(page, `Reopen Article ${alternate.id}`)).toBeVisible()
+      await openWorkspaceDialog(page)
+      await expect(button(workspaceDialog(page), `Reopen Article ${alternate.id}`)).toBeVisible()
+      await closeWorkspaceDialog(page)
       await page.setViewportSize({ width: 1366, height: 900 })
       await expect(tabList(page).getByRole('tab')).toHaveCount(2)
       await expect(tab(page, second, 'Pinned')).toBeVisible()
       await expectSameEditor(body(secondary), secondNode)
     } finally { await activeNode.dispose() }
 
-    await button(page, `Reopen Article ${alternate.id}`).click()
+    await openWorkspaceDialog(page)
+    await button(workspaceDialog(page), `Reopen Article ${alternate.id}`).click()
     await expect(page).toHaveURL(editPath(alternate.id))
-    await button(page, `Reopen Article ${tail.id}`).click()
+    await openWorkspaceDialog(page)
+    await button(workspaceDialog(page), `Reopen Article ${tail.id}`).click()
     await expect(page).toHaveURL(editPath(tail.id))
     await press(page, tab(page, alternate, 'Pinned'))
     await expect(page).toHaveURL(editPath(alternate.id))
     await expectPane(primary, alternate, alternate.body, true)
+    await openWorkspaceDialog(page)
     await press(page, others)
     await expect(listedTabs).toHaveText(confirmedTargets)
     await button(dialog, 'Close tabs').click()
@@ -387,8 +426,8 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expect(tab(page, tail, 'Preview')).toHaveCount(0)
     await expect(tab(page, alternate, 'Pinned')).toBeFocused()
     await expectSameEditor(body(secondary), secondNode)
-    await page.getByText('Recently closed', { exact: true }).click()
-    const reopenFirst = button(page, `Reopen Article ${first.id}`)
+    await openWorkspaceDialog(page)
+    const reopenFirst = button(workspaceDialog(page), `Reopen Article ${first.id}`)
     await expect(reopenFirst).toBeVisible()
     await reopenFirst.click()
     await expect(page).toHaveURL(editPath(first.id))
@@ -398,10 +437,12 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expect(body(primary)).toHaveValue(localSource)
     await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toHaveCount(0)
 
-    await button(page, `Reopen Article ${tail.id}`).click()
+    await openWorkspaceDialog(page)
+    await button(workspaceDialog(page), `Reopen Article ${tail.id}`).click()
     await expect(page).toHaveURL(editPath(tail.id))
     await press(page, tab(page, alternate, 'Pinned'))
     await expect(page).toHaveURL(editPath(alternate.id))
+    await openWorkspaceDialog(page)
     await press(page, others)
     await expect(listedTabs).toHaveText(confirmedTargets)
     await expect(discard).not.toBeChecked()
@@ -412,8 +453,8 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expect(tabList(page).getByRole('tab')).toHaveCount(2)
     await expect(tab(page, alternate, 'Pinned')).toBeFocused()
     await expectSameEditor(body(secondary), secondNode)
-    await page.getByText('Recently closed', { exact: true }).click()
-    await button(page, `Reopen Article ${first.id}`).click()
+    await openWorkspaceDialog(page)
+    await button(workspaceDialog(page), `Reopen Article ${first.id}`).click()
     await expect(page).toHaveURL(editPath(first.id))
     await expectPane(primary, first, first.body, true)
     await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toHaveCount(0)
@@ -501,7 +542,7 @@ async function exerciseSaveAndClose(author) {
   try {
     await page.goto(editPath(anchor.id))
     await expect(body(page)).toBeEditable()
-    await button(page, `Pin ${anchor.title}`).click()
+    await pinArticle(page, anchor)
     await edit(first)
     await edit(second)
     await press(page, anchorTab)
@@ -640,7 +681,7 @@ async function exerciseSingleDirtyClose(author) {
   try {
     await page.goto(editPath(anchor.id))
     await expect(body(page)).toBeEditable()
-    await button(page, `Pin ${anchor.title}`).click()
+    await pinArticle(page, anchor)
     await openById(page, victim.id, 'Open article')
     await expect(page).toHaveURL(editPath(victim.id))
     await expect(body(page)).toBeEditable()
@@ -664,7 +705,7 @@ async function exerciseSingleDirtyClose(author) {
     await expect(anchorTab).toBeFocused()
     await expect(tabList(page).getByRole('tab')).toHaveCount(1)
     assert.equal(await draftCopy(local), false)
-    await page.getByText('Recently closed', { exact: true }).click()
+    await openWorkspaceDialog(page)
     await recent.click()
     await expect(page).toHaveURL(editPath(victim.id))
     await expect(body(page)).toBeEditable()
@@ -718,7 +759,7 @@ async function exerciseSingleDirtyClose(author) {
     assert.deepEqual(await readDraft(await author.request.get(draftPath(victim.id))), {
       ...victim, body: savedSource, revision: victim.revision + 1n,
     })
-    if (!await recent.isVisible()) await page.getByText('Recently closed', { exact: true }).click()
+    if (!await recent.isVisible()) await openWorkspaceDialog(page)
     await recent.click()
     await expect(page).toHaveURL(editPath(victim.id))
     await expect(title(page)).toHaveValue(victim.title)
@@ -731,7 +772,7 @@ async function exerciseSingleDirtyClose(author) {
     })
     assert.equal(removed.status(), 200)
     decodeFrame(await removed.body(), FrameType.EmptySuccess)
-    if (!await recent.isVisible()) await page.getByText('Recently closed', { exact: true }).click()
+    if (!await recent.isVisible()) await openWorkspaceDialog(page)
     const denied = page.waitForResponse(response => response.url() === draftPath(victim.id))
     await press(page, recent)
     assert.equal((await denied).status(), 404)
@@ -751,7 +792,7 @@ async function exerciseSingleDirtyClose(author) {
 
 async function changeGroupLayout(page, readLayout, before, command, expected) {
   const action = button(page, command)
-  if (!await action.isVisible()) await page.getByText('Group actions', { exact: true }).click()
+  if (!await action.isVisible()) await openWorkspaceDialog(page)
   const sameGroup = before.focusedGroup === 0 ? 'Move to primary group' : 'Move to secondary group'
   await expect(button(page, sameGroup)).toBeDisabled()
   await expect(action).toBeEnabled()
@@ -992,7 +1033,8 @@ async function exerciseSavedWorkspace({ author, session, outsider, outsiderSessi
     await reopened.waitForFunction(() => navigator.onLine)
     await expect(tab(reopened, secondaryPreview, 'Preview')).toHaveCount(0)
     // The normal router leave awaits the layout flush after the network has returned.
-    await reopened.getByRole('link', { name: 'Canvases', exact: true }).click()
+    await button(reopened, 'More actions').click()
+    await reopened.getByRole('menuitem', { name: 'Canvases', exact: true }).click()
     await expect(reopened).toHaveURL(`${origin}/user/manage/canvas`)
     assert.deepEqual(offlinePosts, [], 'Reconnection and route flush must never replay a local offline layout change')
     assert.deepEqual(await savedGroups(writerContext, session), persisted)
