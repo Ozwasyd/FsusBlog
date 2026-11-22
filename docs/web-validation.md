@@ -39,4 +39,6 @@ node tests/EndToEnd/blog-flow.mjs
 
 媒体验收同样使用 `run-native.sh` 和独立管理员 Passkey。将 `FSUSBLOG_TEST_FLOW` 分别设为 `private-media`、`article-media` 和 `public-article-media`，验证资产库、编辑器附件与公开图片。对应的附加检查分别使用 `FSUSBLOG_TEST_RESUMABLE_MEDIA=1`、`FSUSBLOG_DOCUMENT_EXPORT_TASKS=true` 和 `FSUSBLOG_TEST_MEDIA_WEBP=1`。
 
+`FSUSBLOG_TEST_FLOW=property-inspector-scale bash tests/EndToEnd/run-native.sh` 使用当前编辑器遍历 1,000 个属性定义。附加 `FSUSBLOG_TEST_PROPERTY_ACCESSIBILITY=1` 可复验明暗主题在 100%、150%、200% 浏览器缩放下的键盘焦点和 Chromium 无障碍树。
+
 后续在当前 FsusUI checkout 用 Emscripten 5.0.4 重建原生资源，清除 `FSUSBLOG_FSUSUI_WASM_DIST` 后重新运行 V2 的严格检查和构建；六个新生成的本地资源都进入成品。在 1280×800 和 375×850 重跑真实 Chrome Markdown 编辑/预览探针，两种视口均通过且无诊断。见 [构建和摘要](fsusui.md)。

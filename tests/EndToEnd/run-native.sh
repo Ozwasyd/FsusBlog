@@ -88,7 +88,7 @@ case "$flow" in
 esac
 if [[ $flow == blog || $flow == canvas-keyboard || $flow == editor-readiness ||
       $flow == workspace-recovery || $flow == workspace-split || $flow == workspace-locale ||
-      $flow == article-library || $flow == property-history || $media_flow == 1 ||
+      $flow == article-library || $flow == property-history || $flow == property-inspector-scale || $media_flow == 1 ||
       ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap browser-author)
   export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP

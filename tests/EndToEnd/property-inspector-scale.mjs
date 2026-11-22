@@ -6,15 +6,15 @@ import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodePropertyEditor, encodePropertySchemaCommand, encodePropertyValueCommand, propertyKinds } from '../../src/Contracts/property-values.ts'
 import {
-  decodeDraft, decodePropertyCommandReceipt, decodePropertyWorkspaceRequest, encodeArticleCommand, encodeSignIn,
-  FrameType, WireHeaders, WireLimits, WireRoutes,
+  decodeDraft, decodePropertyCommandReceipt, decodePropertyWorkspaceRequest, encodeArticleCommand,
+  FrameType, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
-import { chromium, expect, observePageErrors, postReceipt } from './browser-authoring-fixture.mjs'
+import { authorFixture, chromium, expect, observePageErrors, postReceipt } from './browser-authoring-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
-const { FSUSBLOG_TEST_URL: url, FSUSBLOG_TEST_TICKET: ticket, FSUSBLOG_TEST_EVIDENCE: evidence,
+const { FSUSBLOG_TEST_URL: url, FSUSBLOG_TEST_AUTHOR_BOOTSTRAP: bootstrap, FSUSBLOG_TEST_EVIDENCE: evidence,
   FSUSBLOG_TEST_CHROME: executablePath } = process.env
-assert(url && ticket && evidence)
+assert(url && bootstrap && evidence)
 const origin = new URL(url).origin
 const desktop = { width: 1280, height: 850 }
 const compact = { width: 375, height: 850 }
@@ -83,7 +83,7 @@ async function accessibility(draft, schema, post) {
       }
       for (const theme of ['light', 'dark']) {
         await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' })
-        await page.goto(`${origin}/user/manage/article/edit/${draft.id}`)
+        await page.goto(`${origin}/admin/articles/edit/${draft.id}`)
         await expect(page.locator('html')).toHaveAttribute('data-theme-resolved', theme)
         const bounds = await page.evaluate(() => ({
           outer: outerWidth, viewport: innerWidth, dpr: devicePixelRatio, scroll: document.documentElement.scrollWidth,
@@ -151,12 +151,9 @@ async function accessibility(draft, schema, post) {
 
 try {
   context = await browser.newContext({ viewport: desktop })
-  let session
+  const { signInWithPasskey } = authorFixture(origin, result.diagnostics)
+  const session = await signInWithPasskey(context, bootstrap)
   const post = (path, type, input, expected) => postReceipt(context, origin, path, type, input, expected, session)
-
-  const signIn = await post(WireRoutes.SignIn, FrameType.OperatorSignIn, encodeSignIn({ ticket }), FrameType.OperatorSession)
-  session = signIn.headers[WireHeaders.CurrentSession.toLowerCase()]
-  assert(session, 'Scale fixture requires the current protected author session')
 
   const draft = decodeDraft((await post(WireRoutes.Save, FrameType.ArticleCommand, encodeArticleCommand({
     id: 0, expectedRevision: 0n, idempotencyKey: randomUUID(), title: 'Property scale inspector draft', body: 'Inspector scale source.',
@@ -215,7 +212,10 @@ try {
     const expected = await visiblePage(ordinal)
     assert.equal(stored.nextKey, ordinal < pages ? expected.at(-1).machineKey : '')
     assert.deepEqual(stored.fields, expected.map(field => ({ ...field, definitionRevision: 1n, deprecated: false, value: { kind: 'missing' } })))
-    if (checkFocus) await expect(roleWithExactName(panel(), 'heading', 'Properties')).toBeFocused()
+    if (checkFocus) {
+      const heading = roleWithExactName(panel(), 'heading', 'Properties')
+      await expect.poll(() => heading.evaluate(element => element.contains(document.activeElement))).toBe(true)
+    }
     assert.equal(readResponses.length, count + 1)
     assert.equal(readRequests.length, count + 1)
     result.responses.push({ page: ordinal, viewportWidth: screen.width, count: stored.fields.length, bytes: bytes.length,
@@ -229,7 +229,7 @@ try {
   }
 
   await checkedRead(1, async () => {
-    await page.goto(`${origin}/user/manage/article/edit/${draft.id}`)
+    await page.goto(`${origin}/admin/articles/edit/${draft.id}`)
     await expect(page.getByLabel('Title', { exact: true })).toHaveValue(draft.title)
     await launcher.press('Enter')
   }, false)
