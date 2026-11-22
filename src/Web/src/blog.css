@@ -365,9 +365,15 @@ p { line-height: 1.65; }
   font-size: 14px;
 }
 .site-locale-select:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
-.site-auth-main.auth-page { margin-inline: auto; }
-.auth-heading p { color: var(--fsus-color-text-muted); margin-block: 0; }
-.auth-form { display: grid; gap: .75rem; margin-block: 2.25rem 1.25rem; }
+.site-auth-main.auth-page {
+  width: min(25rem, calc(100% - 2 * var(--fsusblog-page-gutter)));
+  margin-inline: auto;
+}
+.site-auth-main.auth-page h1 { font-size: clamp(1.75rem, 4vw, 2.125rem); }
+.auth-heading { display: grid; gap: .5rem; }
+.auth-heading h1 { margin: 0; }
+.auth-heading p { color: var(--fsus-color-text-muted); margin-block: 0; line-height: 1.6; }
+.auth-form { display: grid; gap: .875rem; margin-block: 2rem 1.25rem; }
 .auth-secondary-panel {
   display: grid;
   gap: 1rem;

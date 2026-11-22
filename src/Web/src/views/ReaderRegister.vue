@@ -55,6 +55,7 @@ onMounted(() => {
   <div class="auth-heading">
     <h1>{{ t('page.register') }}</h1>
     <p>{{ t('readerRegistration.subtitle') }}</p>
+    <p v-if="!registered && available" class="register-scope-note">{{ t('readerRegistration.readerOnly') }}</p>
   </div>
   <div v-if="registered" class="auth-form register-state" role="status">
     <ElAlert :title="t('readerRegistration.created')" type="success" :closable="false" show-icon />
@@ -71,18 +72,13 @@ onMounted(() => {
     </div>
   </div>
   <form v-else class="auth-form register-form" @submit.prevent="register">
-    <div class="auth-secondary-panel register-consent-panel">
-      <div class="register-scope">
-        <p class="auth-secondary-hint">{{ t('readerRegistration.readerOnly') }}</p>
-        <RouterLink class="register-guidelines-link" to="/guidelines" target="_blank" rel="noopener noreferrer">
-          {{ t('readerRegistration.guidelines') }}
-        </RouterLink>
-      </div>
-      <div class="register-consent-row">
-        <ElCheckbox :model-value="agreed" :disabled="busy" @update:model-value="agreed = $event === true">
-          {{ t('readerRegistration.consent') }}
-        </ElCheckbox>
-      </div>
+    <div class="register-consent-block">
+      <ElCheckbox :model-value="agreed" :disabled="busy" @update:model-value="agreed = $event === true">
+        {{ t('readerRegistration.consent') }}
+      </ElCheckbox>
+      <RouterLink class="register-guidelines-link" to="/guidelines" target="_blank" rel="noopener noreferrer">
+        {{ t('readerRegistration.guidelines') }}
+      </RouterLink>
     </div>
     <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
     <ElButton native-type="submit" type="primary" size="large" :loading="busy" :disabled="!agreed || busy">
@@ -95,39 +91,36 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.register-scope-note {
+  font-size: var(--el-font-size-small);
+}
+
 .register-form {
   gap: 1.25rem;
 }
 
-.register-consent-panel {
-  gap: .875rem;
-}
-
-.register-scope {
+.register-consent-block {
   display: grid;
-  gap: .5rem;
+  gap: .25rem;
 }
 
 .register-guidelines-link {
   justify-self: start;
+  margin-inline-start: 1.5rem;
   display: inline-flex;
   align-items: center;
   min-block-size: 32px;
   font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-color-primary);
-  text-decoration: none;
+  color: var(--el-text-color-secondary);
+  text-decoration: underline;
+  text-decoration-color: var(--el-border-color);
+  text-underline-offset: 4px;
 }
 
 .register-guidelines-link:hover,
 .register-guidelines-link:focus-visible {
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
-.register-consent-row {
-  padding-block-start: .75rem;
-  border-block-start: 1px solid var(--el-border-color-lighter);
+  color: var(--el-text-color-primary);
+  text-decoration-color: currentColor;
 }
 
 .register-next-link {
