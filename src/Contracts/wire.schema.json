@@ -1028,6 +1028,18 @@
     }
   },
   "fieldGroups": {
+    "ArticleReceiptRevisions": [["ArticleId", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"]],
+    "PublicationTransition": [["PublicationNo", "i32"], ["TransitionedUnixMs", "i64"], ["RightsSnapshotId", "i64"], ["ResponsibilitySnapshotId", "i64"], ["TargetStatus", "i32"]],
+    "ArticleRevisionIdentity": [["Id", "i32"], ["Revision", "i64"]],
+    "DraftText": [["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"]],
+    "PropertyWorkspaceRevisions": [["ArticleId", "i32"], ["ArticleRevision", "i64"], ["SchemaRevision", "i64"], ["ValueRevision", "i64"]],
+    "CommentPublication": [["ArticleId", "i32"], ["Publication", "i64"]],
+    "RecentOpenTarget": [["RequestId", "uuid"], ["ArticleId", "i32"], ["ArticleRevision", "i64"]],
+    "CanvasEdgeIdentity": [["CanvasId", "uuid"], ["EdgeId", "uuid"]],
+    "ArticleMutationReason": [["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"]],
+    "ArticleTaxonomySelection": [["CategoryId", "i32"], ["TagIds", "i32s", "TaxonomyTagCount"]],
+    "PublicCommentText": [["DisplayName", "text", "PublicCommentHandleBytes"], ["Body", "text", "PublicCommentBodyBytes"]],
+    "CommentIdentity": [["ArticleId", "i32"], ["CommentId", "i64"]],
     "AuthoringWorkspaceSnapshotBase": [["SchemaVersion", "i32"], ["Revision", "i64"], ["UpdatedAtUnixMs", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["Skipped", "i32"]],
     "AuthoringWorkspaceCommandBase": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"]],
     "ArticleMutationIdentity": [["Id", "i32"], ["ExpectedRevision", "i64"], ["IdempotencyKey", "uuid"]],
@@ -1087,10 +1099,10 @@
       "fields": [["Key", "text", "RecoveryKeyBytes"]]
     },
     "AdminModerationClaimRequest": {
-      "fields": [["ArticleId", "i32"], ["CommentId", "i64"]]
+      "fields": [{"group": "CommentIdentity"}]
     },
     "AdminModerationClaim": {
-      "fields": [["ArticleId", "i32"], ["CommentId", "i64"], {"group": "AdminModerationClaimWitness"}, ["ExpiresAt", "i64"]]
+      "fields": [{"group": "CommentIdentity"}, {"group": "AdminModerationClaimWitness"}, ["ExpiresAt", "i64"]]
     },
     "AdminModerationDecision": {
       "fields": [{"group": "AdminModerationIntentFields"}, {"group": "AdminModerationClaimWitness"}]
@@ -1181,19 +1193,19 @@
       "fields": [["ArticleId", "i32"], ["CurrentRevision", "i64"], ["CurrentPublicationId", "i64"], ["SourceRevision", "i64"], ["SourcePublicationId", "i64"], ["SourceTitle", "text", "TitleBytes"], ["PackageComplete", "bool"], ["BlockingReason", "i32"]]
     },
     "AdminArticleRollbackReceipt": {
-      "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["PreviousPublicationId", "i64"], ["PublicationId", "i64"], ["PublicationNo", "i32"], ["PublishedUnixMs", "i64"], ["RightsSnapshotId", "i64"], ["ResponsibilitySnapshotId", "i64"]]
+      "fields": [{"group": "ArticleReceiptRevisions"}, ["PreviousPublicationId", "i64"], ["PublicationId", "i64"], ["PublicationNo", "i32"], ["PublishedUnixMs", "i64"], ["RightsSnapshotId", "i64"], ["ResponsibilitySnapshotId", "i64"]]
     },
     "AdminArticleDraftRollbackIntent": {
       "fields": [{"group": "AdminArticleRollbackIntentFields"}, ["TargetStatus", "i32"]]
     },
     "AdminArticleDraftRollbackReceipt": {
-      "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["PreviousPublicationId", "i64"], ["PrivateReleaseId", "i64"], ["PublicationNo", "i32"], ["TransitionedUnixMs", "i64"], ["RightsSnapshotId", "i64"], ["ResponsibilitySnapshotId", "i64"], ["TargetStatus", "i32"]]
+      "fields": [{"group": "ArticleReceiptRevisions"}, ["PreviousPublicationId", "i64"], ["PrivateReleaseId", "i64"], {"group": "PublicationTransition"}]
     },
     "AdminArticleArchiveIntent": {
-      "fields": [["ArticleId", "i32"], ["ExpectedRevision", "i64"], ["ExpectedReleaseId", "i64"], ["SourceRevision", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"], ["TargetStatus", "i32"]]
+      "fields": [["ArticleId", "i32"], ["ExpectedRevision", "i64"], ["ExpectedReleaseId", "i64"], ["SourceRevision", "i64"], {"group": "ArticleMutationReason"}, ["TargetStatus", "i32"]]
     },
     "AdminArticleArchiveReceipt": {
-      "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["PreviousReleaseId", "i64"], ["ReleaseId", "i64"], ["PublicationNo", "i32"], ["TransitionedUnixMs", "i64"], ["RightsSnapshotId", "i64"], ["ResponsibilitySnapshotId", "i64"], ["TargetStatus", "i32"]]
+      "fields": [{"group": "ArticleReceiptRevisions"}, ["PreviousReleaseId", "i64"], ["ReleaseId", "i64"], {"group": "PublicationTransition"}]
     },
     "AdminArticleArchivePreview": {
       "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["PrivateReleaseId", "i64"], ["Title", "text", "TitleBytes"], ["Markdown", "text", "BodyBytes"]]
@@ -1208,10 +1220,10 @@
       "fields": [{"group": "AdminArticleTrashPublicationCoordinates"}, ["Title", "text", "TitleBytes"]]
     },
     "AdminArticleTrashPublicationIntent": {
-      "fields": [{"group": "AdminArticleTrashPublicationCoordinates"}, ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"]]
+      "fields": [{"group": "AdminArticleTrashPublicationCoordinates"}, {"group": "ArticleMutationReason"}]
     },
     "AdminArticleTrashPublicationReceipt": {
-      "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["SourcePublicationId", "i64"], ["PublicationId", "i64"]]
+      "fields": [{"group": "ArticleReceiptRevisions"}, ["SourcePublicationId", "i64"], ["PublicationId", "i64"]]
     },
     "AdminSitePages": {
       "fields": [["ConfiguredMask", "i32"]]
@@ -1247,10 +1259,10 @@
       "fields": [{"group": "AuthoringWorkspaceCommandBase"}, {"group": "AuthoringWorkspaceGroupPresentation"}]
     },
     "AuthorRecentOpenCommand": {
-      "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["RequestId", "uuid"], ["ArticleId", "i32"], ["ArticleRevision", "i64"]]
+      "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], {"group": "RecentOpenTarget"}]
     },
     "AuthorRecentOpenReceipt": {
-      "fields": [["SchemaVersion", "i32"], ["Revision", "i64"], ["RequestId", "uuid"], ["ArticleId", "i32"], ["ArticleRevision", "i64"], ["OpenedAtUnixMs", "i64"]]
+      "fields": [["SchemaVersion", "i32"], ["Revision", "i64"], {"group": "RecentOpenTarget"}, ["OpenedAtUnixMs", "i64"]]
     },
     "AdminAppearanceState": {
       "fields": [["Revision", "i64"], ["Theme", "text", "AdminAppearanceDigestBytes"], ["Font", "text", "AdminAppearanceDigestBytes"], ["Serving", "bool"], ["CanRollback", "bool"], ["PreviousTheme", "text", "AdminAppearanceDigestBytes"], ["PreviousFont", "text", "AdminAppearanceDigestBytes"]]
@@ -1265,28 +1277,28 @@
       "fields": [["SiteId", "uuid"], ["UserId", "uuid"]]
     },
     "PublicCommentEligibility": {
-      "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["DisplayName", "text", "PublicCommentHandleBytes"]]
+      "fields": [{"group": "CommentPublication"}, ["DisplayName", "text", "PublicCommentHandleBytes"]]
     },
     "CommentAuthorEditDetail": {
-      "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["CurrentVersion", "i64"], ["Body", "text", "PublicCommentBodyBytes"]]
+      "fields": [{"group": "CommentPublication"}, ["CurrentVersion", "i64"], ["Body", "text", "PublicCommentBodyBytes"]]
     },
     "PublicCommentSubmission": {
-      "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["IdempotencyKey", "uuid"], ["ExplicitPublic", "bool"], ["DisplayName", "text", "PublicCommentHandleBytes"], ["Body", "text", "PublicCommentBodyBytes"]]
+      "fields": [{"group": "CommentPublication"}, ["IdempotencyKey", "uuid"], ["ExplicitPublic", "bool"], {"group": "PublicCommentText"}]
     },
     "PublicCommentReply": {
-      "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["ParentId", "i64"], ["DisplayName", "text", "PublicCommentHandleBytes"], ["Body", "text", "PublicCommentBodyBytes"], ["IdempotencyKey", "uuid"], ["ExplicitPublic", "bool"]]
+      "fields": [{"group": "CommentPublication"}, ["ParentId", "i64"], {"group": "PublicCommentText"}, ["IdempotencyKey", "uuid"], ["ExplicitPublic", "bool"]]
     },
     "PublicCommentSubmissionResult": {
-      "fields": [["ArticleId", "i32"], ["CommentId", "i64"], ["ModerationStatus", "i32"], ["Replayed", "bool"]]
+      "fields": [{"group": "CommentIdentity"}, ["ModerationStatus", "i32"], ["Replayed", "bool"]]
     },
     "SubscriptionPreferenceRequest": {
       "fields": [["Email", "text", "SubscriptionEmailBytes"], ["Channel", "i32"]]
     },
     "DraftTaxonomy": {
-      "fields": [["Id", "i32"], ["Revision", "i64"], ["CategoryId", "i32"], ["TagIds", "i32s", "TaxonomyTagCount"]]
+      "fields": [{"group": "ArticleRevisionIdentity"}, {"group": "ArticleTaxonomySelection"}]
     },
     "TaxonomyAssignment": {
-      "fields": [{"group": "ArticleMutationIdentity"}, ["CategoryId", "i32"], ["TagIds", "i32s", "TaxonomyTagCount"]]
+      "fields": [{"group": "ArticleMutationIdentity"}, {"group": "ArticleTaxonomySelection"}]
     },
     "SignIn": {
       "frame": "OperatorSignIn",
@@ -1297,43 +1309,43 @@
       "fields": [["Name", "text", "NameBytes"], ["Generation", "i64"], ["CanAuthor", "bool"]]
     },
     "Draft": {
-      "fields": [["Id", "i32"], ["Revision", "i64"], ["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"], ["Published", "bool"]]
+      "fields": [{"group": "ArticleRevisionIdentity"}, {"group": "DraftText"}, ["Published", "bool"]]
     },
     "DraftRollback": {
-      "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["SourceRevision", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"]]
+      "fields": [["Id", "i32"], ["ExpectedRevision", "i64"], ["SourceRevision", "i64"], {"group": "ArticleMutationReason"}]
     },
     "ArticleRightsPolicy": {
-      "fields": [["Id", "i32"], ["Revision", "i64"], ["Present", "bool"], {"group": "ArticleRightsSettings"}]
+      "fields": [{"group": "ArticleRevisionIdentity"}, ["Present", "bool"], {"group": "ArticleRightsSettings"}]
     },
     "ArticleRightsCommand": {
       "fields": [{"group": "ArticleMutationIdentity"}, {"group": "ArticleRightsSettings"}]
     },
     "ArticleSchedule": {
-      "fields": [["Id", "i32"], ["Revision", "i64"], ["DueUnixMs", "i64"], ["PublishedRevision", "i64"]]
+      "fields": [{"group": "ArticleRevisionIdentity"}, ["DueUnixMs", "i64"], ["PublishedRevision", "i64"]]
     },
     "ArticleScheduleCommand": {
       "fields": [{"group": "ArticleMutationIdentity"}, ["DueUnixMs", "i64"]]
     },
     "RevisionComparison": {
-      "fields": [["Id", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"], ["SourceTitle", "text", "TitleBytes"], ["SourceBody", "text", "BodyBytes"]]
+      "fields": [{"group": "ArticleRevisionIdentity"}, ["SourceRevision", "i64"], {"group": "DraftText"}, ["SourceTitle", "text", "TitleBytes"], ["SourceBody", "text", "BodyBytes"]]
     },
     "ArticleCommand": {
-      "fields": [{"group": "ArticleMutationIdentity"}, ["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"]]
+      "fields": [{"group": "ArticleMutationIdentity"}, {"group": "DraftText"}]
     },
     "ArticleBodyInsertionCommand": {
-      "fields": [{"group": "ArticleMutationIdentity"}, ["Title", "text", "TitleBytes"], ["Body", "text", "BodyBytes"], ["Offset", "i32"], ["Length", "i32"]]
+      "fields": [{"group": "ArticleMutationIdentity"}, {"group": "DraftText"}, ["Offset", "i32"], ["Length", "i32"]]
     },
     "DraftRevisionBodyInsertion": {
-      "fields": [["Id", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["Available", "bool"], ["Offset", "i32"], ["Length", "i32"], ["SourceDigest", "text", "ArticleBodyInsertionDigestBytes"], ["Digest", "text", "ArticleBodyInsertionDigestBytes"], ["SourceBody", "text", "BodyBytes"], ["Body", "text", "BodyBytes"]]
+      "fields": [{"group": "ArticleRevisionIdentity"}, ["SourceRevision", "i64"], ["Available", "bool"], ["Offset", "i32"], ["Length", "i32"], ["SourceDigest", "text", "ArticleBodyInsertionDigestBytes"], ["Digest", "text", "ArticleBodyInsertionDigestBytes"], ["SourceBody", "text", "BodyBytes"], ["Body", "text", "BodyBytes"]]
     },
     "CanvasCreate": {
-      "fields": [["CanvasId", "uuid"], ["EdgeId", "uuid"], ["HostArticleId", "i32"], ["TargetArticleId", "i32"]]
+      "fields": [{"group": "CanvasEdgeIdentity"}, ["HostArticleId", "i32"], ["TargetArticleId", "i32"]]
     },
     "CanvasCreated": {
-      "fields": [["CanvasId", "uuid"], ["EdgeId", "uuid"], ["CanvasRevision", "i64"]]
+      "fields": [{"group": "CanvasEdgeIdentity"}, ["CanvasRevision", "i64"]]
     },
     "CanvasPreview": {
-      "fields": [["CanvasId", "uuid"], ["EdgeId", "uuid"], ["CanvasRevision", "i64"], ["HostRevision", "i64"], ["TargetRevision", "i64"], ["SourceOffset", "i32"]]
+      "fields": [{"group": "CanvasEdgeIdentity"}, ["CanvasRevision", "i64"], ["HostRevision", "i64"], ["TargetRevision", "i64"], ["SourceOffset", "i32"]]
     },
     "CanvasLinkPlan": {
       "fields": [["PlanId", "uuid"], ["CanvasRevision", "i64"], ["HostArticleId", "i32"], ["HostRevision", "i64"], ["TargetArticleId", "i32"], ["TargetRevision", "i64"], ["SourceOffset", "i32"], ["InsertedMarkdown", "text", "CanvasInsertionBytes"], ["ExpiresAtUnixSeconds", "i64"]]
@@ -1348,7 +1360,7 @@
       "fields": [["Operation", "i32"], {"group": "PropertyDefinitionMutationIdentity"}, ["MachineKey", "text", "PropertyKeyBytes"], ["Label", "text", "PropertyLabelBytes"]]
     },
     "PropertyWorkspaceRequest": {
-      "fields": [["ArticleId", "i32"], ["ArticleRevision", "i64"], ["SchemaRevision", "i64"], ["ValueRevision", "i64"], ["AfterKey", "text", "PropertyKeyBytes"]]
+      "fields": [{"group": "PropertyWorkspaceRevisions"}, ["AfterKey", "text", "PropertyKeyBytes"]]
     },
     "PropertyFilterabilityCommand": {
       "fields": [{"group": "PropertyDefinitionMutationIdentity"}, ["Enabled", "bool"]]
@@ -1360,7 +1372,7 @@
       "fields": [["DefinitionId", "uuid"], ["SchemaRevision", "i64"], ["DefinitionRevision", "i64"], ["Deprecated", "bool"], ["SearchEligible", "bool"], ["Filterable", "bool"], ["Sortable", "bool"], ["Digest", "text", "PropertyDefinitionDigestBytes"]]
     },
     "PropertyTextCommand": {
-      "fields": [["ArticleId", "i32"], ["ArticleRevision", "i64"], ["SchemaRevision", "i64"], ["ValueRevision", "i64"], ["DefinitionId", "uuid"], ["DefinitionRevision", "i64"], ["RequestId", "uuid"], ["Remove", "bool"], ["Value", "text", "PropertyValueBytes"]]
+      "fields": [{"group": "PropertyWorkspaceRevisions"}, ["DefinitionId", "uuid"], ["DefinitionRevision", "i64"], ["RequestId", "uuid"], ["Remove", "bool"], ["Value", "text", "PropertyValueBytes"]]
     },
     "PropertyCommandReceipt": {
       "fields": [["DefinitionId", "uuid"], ["SchemaRevision", "i64"], ["Revision", "i64"]]
