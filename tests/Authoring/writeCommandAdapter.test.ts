@@ -18,6 +18,10 @@ const baseDraft: Draft = {
   published: false,
 }
 
+function authenticatedSession(handle: string) {
+  return { currentHandle: () => handle, hasSession: () => true, recheckCredential: async () => {} }
+}
+
 function makeTransport(overrides: Partial<WriteCommandTransportPort> = {}): WriteCommandTransportPort {
   const unsupported = () => Promise.reject(new Error('unexpected transport call'))
   return {
@@ -98,28 +102,27 @@ test('selectSaveTransport chooses full save, single insertion, multiple insertio
 
 test('writeCommandAdapter dispatches exact delta/full transport and rejects mismatched save replies', async () => {
   const calls: string[] = []
+  function savedReply(input: Pick<Draft, 'title' | 'body'>) {
+    return { ...baseDraft, title: input.title, body: input.body, revision: 5n }
+  }
   const adapter = createWriteCommandAdapter({
-    session: {
-      currentHandle: () => 'handle-a',
-      hasSession: () => true,
-      recheckCredential: async () => {},
-    },
+    session: authenticatedSession('handle-a'),
     transport: makeTransport({
       articleAction: async (action, input) => {
         calls.push(`full:${action}`)
-        return { ...baseDraft, title: input.title, body: input.body, revision: 5n }
+        return savedReply(input)
       },
       saveWithBodyInsertion: async input => {
         calls.push(`insertion:${input.offset}:${input.length}`)
-        return { ...baseDraft, title: input.title, body: input.body, revision: 5n }
+        return savedReply(input)
       },
       saveWithBodyInsertions: async input => {
         calls.push(`insertions:${input.insertions.length}`)
-        return { ...baseDraft, title: input.title, body: input.body, revision: 5n }
+        return savedReply(input)
       },
       saveWithBodyEdits: async input => {
         calls.push(`edits:${input.edits.length}`)
-        return { ...baseDraft, title: input.title, body: input.body, revision: 5n }
+        return savedReply(input)
       },
     }),
   })
@@ -136,11 +139,7 @@ test('writeCommandAdapter dispatches exact delta/full transport and rejects mism
   assert.deepEqual(calls, ['full:save', 'insertion:5:1', 'insertions:2', 'edits:1'])
 
   const tampered = createWriteCommandAdapter({
-    session: {
-      currentHandle: () => 'handle-a',
-      hasSession: () => true,
-      recheckCredential: async () => {},
-    },
+    session: authenticatedSession('handle-a'),
     transport: makeTransport({
       articleAction: async () => ({ ...baseDraft, title: 'Different Title', body: baseDraft.body, revision: 5n }),
     }),
@@ -227,11 +226,7 @@ test('loadDraft rejects late responses and non-expired errors after account hand
 
   // Summary reply that alters title/body is rejected.
   const summaryAdapter = createWriteCommandAdapter({
-    session: {
-      currentHandle: () => 'account-b',
-      hasSession: () => true,
-      recheckCredential: async () => {},
-    },
+    session: authenticatedSession('account-b'),
     transport: makeTransport({
       saveDraftSummary: async () => ({ ...baseDraft, body: 'altered by server', revision: 5n }),
     }),

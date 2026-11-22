@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { ApiError } from '../../src/Contracts/aeds.ts'
 import type { Session } from '../../src/Contracts/client.ts'
-import type { Draft } from '../../src/Contracts/wire.generated.ts'
+import type { ArticleCommand, Draft } from '../../src/Contracts/wire.generated.ts'
 import {
   acceptEditorSourceHandoff,
   offerSearchEditorHandoff,
@@ -53,26 +53,28 @@ interface HarnessOptions {
   initialArticleId?: number
   initialPersistentWorkspace?: boolean
   initialAuthorizationReady?: boolean
-  initialSession?: Session | null
   initialToken?: unknown
   transport?: Partial<WriteCommandTransportPort>
-  confirm?: Partial<WorkspaceConfirmPort>
   recovery?: Partial<WorkspaceRecoveryPort>
   persistence?: Partial<WorkspacePersistencePort>
-  nowMs?: () => number
+}
+
+function articlePath(articleId: number | undefined) {
+  if (articleId === undefined) return '/admin/articles/workspace'
+  return articleId === 0 ? '/admin/articles/write' : `/admin/articles/edit/${articleId}`
+}
+
+function articleRoute(articleId: number, identity = 1) {
+  return { articleId, identity, isValid: () => true }
 }
 
 function createHarness(options: HarnessOptions = {}) {
-  let currentSession: Session | null = options.initialSession === undefined ? makeSession() : options.initialSession
+  let currentSession: Session | null = makeSession()
   let identityEpoch = 1
   let credentialEpoch = 1
   let currentArticleId: number | undefined = options.initialArticleId ?? 10
-  let currentPath = currentArticleId === undefined
-    ? '/admin/articles/workspace'
-    : currentArticleId === 0
-      ? '/admin/articles/write'
-      : `/admin/articles/edit/${currentArticleId}`
-  let now = 1_000
+  let currentPath = articlePath(currentArticleId)
+  const now = () => 1_000
   let keyCounter = 0
 
   const events: string[] = []
@@ -90,6 +92,18 @@ function createHarness(options: HarnessOptions = {}) {
     [10, makeDraft({ id: 10, revision: 3n, title: 'Article 10', body: 'Body 10' })],
     [11, makeDraft({ id: 11, revision: 5n, title: 'Article 11', body: 'Body 11' })],
   ])
+
+  function saveBody(input: Pick<ArticleCommand, 'id' | 'expectedRevision' | 'title' | 'body'>): Draft {
+    const saved = {
+      id: input.id,
+      revision: input.expectedRevision + 1n,
+      title: input.title,
+      body: input.body,
+      published: drafts.get(input.id)?.published ?? false,
+    }
+    drafts.set(input.id, saved)
+    return saved
+  }
 
   const defaultTransport: WriteCommandTransportPort = {
     readDraft: async (id, _signal, handle) => {
@@ -113,39 +127,15 @@ function createHarness(options: HarnessOptions = {}) {
     },
     saveWithBodyInsertion: async (input, handle) => {
       events.push(`insertion:${input.id}:${input.offset}:${input.length}:${handle.slice(0, 4)}`)
-      const saved: Draft = {
-        id: input.id,
-        revision: input.expectedRevision + 1n,
-        title: input.title,
-        body: input.body,
-        published: drafts.get(input.id)?.published ?? false,
-      }
-      drafts.set(input.id, saved)
-      return saved
+      return saveBody(input)
     },
     saveWithBodyInsertions: async (input, handle) => {
       events.push(`insertions:${input.id}:${input.insertions.length}:${handle.slice(0, 4)}`)
-      const saved: Draft = {
-        id: input.id,
-        revision: input.expectedRevision + 1n,
-        title: input.title,
-        body: input.body,
-        published: drafts.get(input.id)?.published ?? false,
-      }
-      drafts.set(input.id, saved)
-      return saved
+      return saveBody(input)
     },
     saveWithBodyEdits: async (input, handle) => {
       events.push(`edits:${input.id}:${input.edits.length}:${handle.slice(0, 4)}`)
-      const saved: Draft = {
-        id: input.id,
-        revision: input.expectedRevision + 1n,
-        title: input.title,
-        body: input.body,
-        published: drafts.get(input.id)?.published ?? false,
-      }
-      drafts.set(input.id, saved)
-      return saved
+      return saveBody(input)
     },
     assignTaxonomy: async input => ({ id: input.id, revision: input.expectedRevision + 1n }),
     rollbackDraft: async input => ({
@@ -188,8 +178,8 @@ function createHarness(options: HarnessOptions = {}) {
     initialToken: options.initialToken,
     initialArticleId: currentArticleId,
     accept: acceptEditorSourceHandoff,
-    now: () => now,
-    nowMs: options.nowMs ?? (() => now),
+    now,
+    nowMs: now,
   })
 
   const recovery: WorkspaceRecoveryPort = {
@@ -222,9 +212,9 @@ function createHarness(options: HarnessOptions = {}) {
   const router: WorkspaceRouterPort = {
     articleId: () => currentArticleId,
     path: () => currentPath,
-    resolveArticlePath: id => id === 0 ? '/admin/articles/write' : `/admin/articles/edit/${id}`,
+    resolveArticlePath: articlePath,
     pushArticle: async (id, persistent) => {
-      const toPath = id === 0 ? '/admin/articles/write' : `/admin/articles/edit/${id}`
+      const toPath = articlePath(id)
       const fromPath = currentPath
       routerCalls.push(`push:${id}:${persistent}`)
       const allowed = await controller.beforeRouteUpdate({ toPath, fromPath, toArticleId: id })
@@ -236,7 +226,7 @@ function createHarness(options: HarnessOptions = {}) {
     replaceArticle: async (id, persistent) => {
       routerCalls.push(`replace:${id}:${persistent}`)
       currentArticleId = id
-      currentPath = id === 0 ? '/admin/articles/write' : `/admin/articles/edit/${id}`
+      currentPath = articlePath(id)
       return false
     },
     replaceWorkspace: async persistent => {
@@ -248,14 +238,12 @@ function createHarness(options: HarnessOptions = {}) {
   }
 
   let leaveDecision = true
-  let discardTabDecision = true
   let protectedCloseDecision: ProtectedCloseChoice = 'keep'
 
   const confirm: WorkspaceConfirmPort = {
     confirmProtectedClose: async () => protectedCloseDecision,
-    confirmDiscardTab: async () => discardTabDecision,
+    confirmDiscardTab: async () => true,
     confirmLeave: async () => leaveDecision,
-    ...options.confirm,
   }
 
   const controller = createWriteWorkspaceController({
@@ -277,7 +265,7 @@ function createHarness(options: HarnessOptions = {}) {
     format: (key, params) => params ? `${key}:${JSON.stringify(params)}` : key,
     recordRecentOpen: (articleId, revision) => { recentOpens.push({ articleId, revision }) },
     scheduleTick: cb => { pendingTicks.push(cb) },
-    nowMs: options.nowMs ?? (() => now),
+    nowMs: now,
     newRequestKey: () => `00000000-0000-4000-8000-${String(++keyCounter).padStart(12, '0')}`,
   })
 
@@ -286,11 +274,9 @@ function createHarness(options: HarnessOptions = {}) {
   return {
     controller,
     handoff,
-    drafts,
     events,
     persistedRecovery,
     discardedArticles,
-    recentOpens,
     recheckCalls,
     routerCalls,
     getSession: () => currentSession,
@@ -304,22 +290,16 @@ function createHarness(options: HarnessOptions = {}) {
     },
     setRoute(articleId: number | undefined) {
       currentArticleId = articleId
-      currentPath = articleId === undefined
-        ? '/admin/articles/workspace'
-        : articleId === 0
-          ? '/admin/articles/write'
-          : `/admin/articles/edit/${articleId}`
+      currentPath = articlePath(articleId)
     },
     setRecoveryState(candidates: RecoveryCandidate[], guarded: boolean) {
       recoveryCandidates = candidates
       recoveryGuarded = guarded
     },
     setLeaveDecision(value: boolean) { leaveDecision = value },
-    setDiscardTabDecision(value: boolean) { discardTabDecision = value },
     setProtectedCloseDecision(value: ProtectedCloseChoice) { protectedCloseDecision = value },
     setRefreshSession(fn: (signal: AbortSignal, reuseInFlight: boolean) => Promise<void>) { refreshSessionImpl = fn },
     setRecheck(fn: (handle: string, signal: AbortSignal) => Promise<void>) { recheckImpl = fn },
-    advanceTime(ms: number) { now += ms },
     flushTicks() { while (pendingTicks.length) pendingTicks.shift()!() },
     getIdentityEpoch: () => identityEpoch,
   }
@@ -339,7 +319,7 @@ test('route and input helpers parse valid article routes and reject out-of-range
 
 test('dirty state, metadata guards, IME composition, delta/full save, and CAS 409 conflict preserve edits', async () => {
   const h = createHarness({ initialArticleId: 10 })
-  await h.controller.syncRoute({ articleId: 10, identity: 1, isValid: () => true })
+  await h.controller.syncRoute(articleRoute(10))
   assert.equal(h.controller.flags().editable, true)
   assert.equal(h.controller.flags().dirty, false)
   assert.equal(h.controller.shouldPreventUnload(), false)
@@ -383,7 +363,7 @@ test('dirty state, metadata guards, IME composition, delta/full save, and CAS 40
       articleAction: async () => { throw new ApiError('CAS conflict', 409) },
     },
   })
-  await conflictHarness.controller.syncRoute({ articleId: 10, identity: 1, isValid: () => true })
+  await conflictHarness.controller.syncRoute(articleRoute(10))
   const conflictPane = conflictHarness.controller.snapshot().sourcePanes[0]!
   conflictHarness.controller.edit(conflictPane, 'title', 'Conflicting Title')
   await conflictHarness.controller.submit('save')
@@ -393,7 +373,7 @@ test('dirty state, metadata guards, IME composition, delta/full save, and CAS 40
 
   // Creating a brand-new draft replaces route to the assigned article ID on save.
   const createHarnessObj = createHarness({ initialArticleId: 0 })
-  await createHarnessObj.controller.syncRoute({ articleId: 0, identity: 1, isValid: () => true })
+  await createHarnessObj.controller.syncRoute(articleRoute(0))
   const newPane = createHarnessObj.controller.snapshot().sourcePanes[0]!
   createHarnessObj.controller.edit(newPane, 'title', 'Fresh Title')
   createHarnessObj.controller.edit(createHarnessObj.controller.snapshot().sourcePanes[0]!, 'body', 'Fresh Body')
@@ -404,7 +384,7 @@ test('dirty state, metadata guards, IME composition, delta/full save, and CAS 40
 
 test('critical timing 1: cancelling leave or protected close preserves user input and tab state', async () => {
   const h = createHarness({ initialArticleId: 10 })
-  await h.controller.syncRoute({ articleId: 10, identity: 1, isValid: () => true })
+  await h.controller.syncRoute(articleRoute(10))
   const pane = h.controller.snapshot().sourcePanes[0]!
   h.controller.edit(pane, 'title', 'Keep This Title')
   h.controller.edit(h.controller.snapshot().sourcePanes[0]!, 'body', 'Keep This Body')
@@ -435,7 +415,7 @@ test('critical timing 1: cancelling leave or protected close preserves user inpu
 
 test('critical timing 2: delayed recovery or late load/layout responses cannot overwrite new input', async () => {
   const h = createHarness({ initialArticleId: 0 })
-  await h.controller.syncRoute({ articleId: 0, identity: 1, isValid: () => true })
+  await h.controller.syncRoute(articleRoute(0))
 
   // Recovery initially guards input while checking.
   h.setRecoveryState([], true)
@@ -482,7 +462,7 @@ test('critical timing 2: delayed recovery or late load/layout responses cannot o
   await slowStarted
   firstValid = false
   lateHarness.setRoute(11)
-  await lateHarness.controller.syncRoute({ articleId: 11, identity: 1, isValid: () => true })
+  await lateHarness.controller.syncRoute(articleRoute(11))
   resolveSlowDraft(makeDraft({ id: 10, revision: 3n, title: 'Late 10', body: 'Late body' }))
   await slowLoad
   assert.equal(lateHarness.controller.snapshot().original?.id, 11)
@@ -526,7 +506,7 @@ test('critical timing 3: automatic session renewal rebinds handle without rebuil
     initialArticleId: 10,
     initialPersistentWorkspace: true,
   })
-  await h.controller.syncRoute({ articleId: 10, identity: 1, isValid: () => true })
+  await h.controller.syncRoute(articleRoute(10))
   const originalTab = h.controller.snapshot().tab!
   h.controller.togglePin(originalTab)
   h.controller.setInspectorOpen(true)
@@ -556,7 +536,7 @@ test('critical timing 3: automatic session renewal rebinds handle without rebuil
 
 test('critical timing 4: switching accounts rejects old draft handles and cross-account 409 session mismatch', async () => {
   const h = createHarness({ initialArticleId: 10 })
-  await h.controller.syncRoute({ articleId: 10, identity: 1, isValid: () => true })
+  await h.controller.syncRoute(articleRoute(10))
   const oldPane = h.controller.snapshot().sourcePanes[0]!
   const oldTab = h.controller.snapshot().tab!
   const oldHandle = h.getSession()!.siteSessionId!
@@ -579,7 +559,7 @@ test('critical timing 4: switching accounts rejects old draft handles and cross-
   assert.equal((await h.controller.registry.save(oldTab)).kind, 'superseded')
 
   // Even after Account B opens article 10, operations tagged with Account A's credential handle are rejected.
-  await h.controller.syncRoute({ articleId: 10, identity: h.getIdentityEpoch(), isValid: () => true })
+  await h.controller.syncRoute(articleRoute(10, h.getIdentityEpoch()))
   h.controller.setSummaryDirty(true)
   h.events.length = 0
   await h.controller.saveSummary({
@@ -609,7 +589,7 @@ test('critical timing 4: switching accounts rejects old draft handles and cross-
     mismatchHarness.recheckCalls.push(handle)
     mismatchHarness.setSession(null, true, true)
   })
-  await mismatchHarness.controller.syncRoute({ articleId: 0, identity: 1, isValid: () => true })
+  await mismatchHarness.controller.syncRoute(articleRoute(0))
   mismatchHarness.controller.edit(mismatchHarness.controller.snapshot().sourcePanes[0]!, 'title', 'Stale Create')
   mismatchHarness.controller.edit(mismatchHarness.controller.snapshot().sourcePanes[0]!, 'body', 'Stale Body')
   await mismatchHarness.controller.submit('save')
@@ -670,7 +650,7 @@ test('abort and dispose clean up lifetime, recovery, persistence, registry, and 
       }),
     },
   })
-  await savingHarness.controller.syncRoute({ articleId: 10, identity: 1, isValid: () => true })
+  await savingHarness.controller.syncRoute(articleRoute(10))
   savingHarness.controller.edit(savingHarness.controller.snapshot().sourcePanes[0]!, 'title', 'Saving Before Unmount')
   const pendingSave = savingHarness.controller.submit('save')
   await saveStarted
@@ -703,7 +683,7 @@ test('source handoff integrates with syncRoute to activate search seeks and clea
     initialAuthorizationReady: false,
   })
   await h.controller.mountSessionCheck(false)
-  await h.controller.syncRoute({ articleId: 10, identity: 1, isValid: () => true })
+  await h.controller.syncRoute(articleRoute(10))
   const seek = h.handoff.snapshot().sourceSeek
   assert.ok(seek)
   assert.equal(seek.kind, 'search')

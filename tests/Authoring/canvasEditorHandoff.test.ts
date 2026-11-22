@@ -13,6 +13,13 @@ import {
 
 const target = { articleId: 43, revision: 7n, sourceOffset: 21 }
 
+function searchHit(sourceDigest: Uint8Array) {
+  return {
+    articleId: 43, revision: 7n, sourceStart: 10, sourceEnd: 11,
+    sourceByteStart: 12, sourceByteEnd: 15, sourceDigest, match: '中',
+  }
+}
+
 test('the opaque handoff needs the exact credential epoch and article and is consumed once', () => {
   const token = offerCanvasEditorHandoff(target, 12)
   assert.match(token, /^[a-f0-9-]{36}$/)
@@ -51,10 +58,7 @@ test('an elapsed handoff stays consumed if a timer is reset', t => {
 
 test('the search target shares the opaque one-use slot and belongs to the exact credential handle', () => {
   const sourceDigest = Uint8Array.from({ length: 32 }, () => 3)
-  const match = {
-    articleId: 43, revision: 7n, field: 'body' as const, sourceStart: 10, sourceEnd: 11,
-    sourceByteStart: 12, sourceByteEnd: 15, sourceDigest, match: '中',
-  }
+  const match = { ...searchHit(sourceDigest), field: 'body' as const }
   const canvas = offerCanvasEditorHandoff(target, 12)
   const token = offerSearchEditorHandoff(match, 12, 'first-handle')
   assert.equal(acceptCanvasEditorHandoff(canvas, 43, 12), undefined)
@@ -74,10 +78,7 @@ test('the search target shares the opaque one-use slot and belongs to the exact 
 
 test('a historical search handoff separates the current head from its exact one-use saved match', () => {
   const sourceDigest = Uint8Array.from({ length: 32 }, () => 3)
-  const hit = {
-    articleId: 43, revision: 7n, field: 'summary' as const, sourceStart: 10, sourceEnd: 11,
-    sourceByteStart: 12, sourceByteEnd: 15, sourceDigest, match: '中',
-  }
+  const hit = { ...searchHit(sourceDigest), field: 'summary' as const }
   assert.throws(() => offerHistoricalSearchEditorHandoff(hit, 7n, 12, 'selected-session'), RangeError)
   const token = offerHistoricalSearchEditorHandoff(hit, 9n, 12, 'selected-session')
   sourceDigest[0] = 8
@@ -95,9 +96,8 @@ test('a historical search handoff separates the current head from its exact one-
 test('property text handoff preserves the pinned snapshot in the exact session and consumes it once', () => {
   const sourceDigest = Uint8Array.from({ length: 32 }, () => 3)
   const hit = {
-    articleId: 43, revision: 7n, schemaRevision: 11n, definitionId: '238012e6-67e1-46cd-a9fe-71b23ed59641',
-    definitionRevision: 9n, valueRevision: 4n, sourceStart: 10, sourceEnd: 11,
-    sourceByteStart: 12, sourceByteEnd: 15, sourceDigest, match: '中',
+    ...searchHit(sourceDigest), schemaRevision: 11n, definitionId: '238012e6-67e1-46cd-a9fe-71b23ed59641',
+    definitionRevision: 9n, valueRevision: 4n,
   }
   assert.throws(() => offerPropertySearchEditorHandoff({ ...hit, valueRevision: 0n }, 12, 'selected-session'), RangeError)
   const token = offerPropertySearchEditorHandoff(hit, 12, 'selected-session')

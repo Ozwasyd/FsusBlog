@@ -9,10 +9,30 @@ import {
 } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
 import {
   createSourceHandoffCoordinator,
+  type SourceHandoffCoordinatorOptions,
   type SourceHandoffLiveState,
 } from '../../src/Web/src/authoring/sourceHandoffCoordinator.ts'
 
 const digest = Uint8Array.from({ length: 32 }, (_, index) => index)
+
+function coordinatorForToken(initialToken: string, clocks: Pick<SourceHandoffCoordinatorOptions, 'now' | 'nowMs'> = {}) {
+  return createSourceHandoffCoordinator({ initialToken, initialArticleId: 42, accept: acceptEditorSourceHandoff, ...clocks })
+}
+
+function activationContext() {
+  return {
+    sessionId: 10,
+    witnessedRevision: 7n,
+    recoveryItemsCount: 0,
+    recoveryWorking: false,
+    revisionComparisonActive: false,
+    isRouteCurrent: () => true,
+  }
+}
+
+function searchRange(start: number, end: number) {
+  return { sourceStart: start, sourceEnd: end, sourceByteStart: start, sourceByteEnd: end, sourceDigest: digest }
+}
 
 function makeLiveState(overrides: Partial<SourceHandoffLiveState> = {}): SourceHandoffLiveState {
   return {
@@ -37,19 +57,11 @@ test('arrival handoff waits for verified session, resolves once, and handles act
     articleId: 42,
     revision: 7n,
     field: 'body',
-    sourceStart: 2,
-    sourceEnd: 6,
-    sourceByteStart: 2,
-    sourceByteEnd: 6,
-    sourceDigest: digest,
+    ...searchRange(2, 6),
     match: 'word',
   }, 3, 'session-a')
 
-  const coordinator = createSourceHandoffCoordinator({
-    initialToken: token,
-    initialArticleId: 42,
-    accept: acceptEditorSourceHandoff,
-  })
+  const coordinator = coordinatorForToken(token)
   assert.equal(coordinator.hasArrival(), true)
   assert.equal(coordinator.snapshot().sourceInspectorPending, true)
   // Unverified session cannot consume the token yet.
@@ -82,22 +94,12 @@ test('search summary handoff opens inspector, enforces 6s window and edit guard,
     articleId: 42,
     revision: 7n,
     field: 'summary',
-    sourceStart: 0,
-    sourceEnd: 4,
-    sourceByteStart: 0,
-    sourceByteEnd: 4,
-    sourceDigest: digest,
+    ...searchRange(0, 4),
     match: 'note',
     precision: 'rebased',
   }, 5, 'handle-1')
 
-  const coordinator = createSourceHandoffCoordinator({
-    initialToken: token,
-    initialArticleId: 42,
-    accept: acceptEditorSourceHandoff,
-    now: () => perfNow,
-    nowMs: () => wallNow,
-  })
+  const coordinator = coordinatorForToken(token, { now: () => perfNow, nowMs: () => wallNow })
   coordinator.markSessionVerified()
   const resolved = coordinator.resolveArrival(42, 5, 'handle-1')
   assert.equal(resolved.kind, 'ready')
@@ -107,15 +109,10 @@ test('search summary handoff opens inspector, enforces 6s window and edit guard,
   const inspectorStates: boolean[] = []
   const activated = coordinator.activateTarget({
     source: resolved.source,
-    sessionId: 10,
-    witnessedRevision: 7n,
+    ...activationContext(),
     handle: 'handle-1',
     persistentWorkspace: true,
-    recoveryItemsCount: 0,
-    recoveryWorking: false,
-    revisionComparisonActive: false,
     activeEditSequence: 3,
-    isRouteCurrent: () => true,
     readLiveState: () => live,
     setInspectorOpen: open => {
       inspectorStates.push(open)
@@ -152,21 +149,11 @@ test('search summary handoff opens inspector, enforces 6s window and edit guard,
     articleId: 42,
     revision: 7n,
     field: 'body',
-    sourceStart: 0,
-    sourceEnd: 4,
-    sourceByteStart: 0,
-    sourceByteEnd: 4,
-    sourceDigest: digest,
+    ...searchRange(0, 4),
     match: 'note',
     precision: 'rebased',
   }, 5, 'handle-1')
-  const second = createSourceHandoffCoordinator({
-    initialToken: token2,
-    initialArticleId: 42,
-    accept: acceptEditorSourceHandoff,
-    now: () => perfNow,
-    nowMs: () => wallNow,
-  })
+  const second = coordinatorForToken(token2, { now: () => perfNow, nowMs: () => wallNow })
   second.markSessionVerified()
   const resolved2 = second.resolveArrival(42, 5, 'handle-1')
   assert.equal(resolved2.kind, 'ready')
@@ -174,15 +161,10 @@ test('search summary handoff opens inspector, enforces 6s window and edit guard,
   const secondInspector: boolean[] = []
   second.activateTarget({
     source: resolved2.source,
-    sessionId: 10,
-    witnessedRevision: 7n,
+    ...activationContext(),
     handle: 'handle-1',
     persistentWorkspace: true,
-    recoveryItemsCount: 0,
-    recoveryWorking: false,
-    revisionComparisonActive: false,
     activeEditSequence: 3,
-    isRouteCurrent: () => true,
     readLiveState: () => live,
     setInspectorOpen: open => secondInspector.push(open),
   })
@@ -203,20 +185,10 @@ test('historical and property seeks stay isolated across activity changes, crede
     articleId: 42,
     revision: 4n,
     field: 'body',
-    sourceStart: 0,
-    sourceEnd: 4,
-    sourceByteStart: 0,
-    sourceByteEnd: 4,
-    sourceDigest: digest,
+    ...searchRange(0, 4),
     match: 'hist',
   }, 7n, 2, 'handle-h')
-  const historyCoord = createSourceHandoffCoordinator({
-    initialToken: historyToken,
-    initialArticleId: 42,
-    accept: acceptEditorSourceHandoff,
-    now: () => perfNow,
-    nowMs: () => 1_000,
-  })
+  const historyCoord = coordinatorForToken(historyToken, { now: () => perfNow, nowMs: () => 1_000 })
   historyCoord.markSessionVerified()
   const historyResolved = historyCoord.resolveArrival(42, 2, 'handle-h')
   assert.equal(historyResolved.kind, 'ready')
@@ -226,15 +198,10 @@ test('historical and property seeks stay isolated across activity changes, crede
   const live = makeLiveState({ originalRevision: 7n })
   historyCoord.activateTarget({
     source: historyResolved.source,
-    sessionId: 10,
-    witnessedRevision: 7n,
+    ...activationContext(),
     handle: 'handle-h',
     persistentWorkspace: true,
-    recoveryItemsCount: 0,
-    recoveryWorking: false,
-    revisionComparisonActive: false,
     activeEditSequence: 0,
-    isRouteCurrent: () => true,
     readLiveState: () => live,
     setInspectorOpen: () => {},
   })
@@ -261,35 +228,20 @@ test('historical and property seeks stay isolated across activity changes, crede
     definitionId: '238012e6-67e1-46cd-a9fe-71b23ed59641',
     definitionRevision: 2n,
     valueRevision: 1n,
-    sourceStart: 0,
-    sourceEnd: 3,
-    sourceByteStart: 0,
-    sourceByteEnd: 3,
-    sourceDigest: digest,
+    ...searchRange(0, 3),
     match: 'val',
   }, 2, 'handle-p')
-  const propCoord = createSourceHandoffCoordinator({
-    initialToken: propToken,
-    initialArticleId: 42,
-    accept: acceptEditorSourceHandoff,
-    now: () => perfNow,
-    nowMs: () => 1_000,
-  })
+  const propCoord = coordinatorForToken(propToken, { now: () => perfNow, nowMs: () => 1_000 })
   propCoord.markSessionVerified()
   const propResolved = propCoord.resolveArrival(42, 2, 'handle-p')
   assert.equal(propResolved.kind, 'ready')
   if (propResolved.kind !== 'ready') return
   propCoord.activateTarget({
     source: propResolved.source,
-    sessionId: 10,
-    witnessedRevision: 7n,
+    ...activationContext(),
     handle: 'handle-p',
     persistentWorkspace: true,
-    recoveryItemsCount: 0,
-    recoveryWorking: false,
-    revisionComparisonActive: false,
     activeEditSequence: 0,
-    isRouteCurrent: () => true,
     readLiveState: () => live,
     setInspectorOpen: () => {},
   })
@@ -302,26 +254,17 @@ test('historical and property seeks stay isolated across activity changes, crede
 
 test('canvas handoff reports canvas failure notice and clears on article id or credential change', () => {
   const token = offerCanvasEditorHandoff({ articleId: 42, revision: 7n, sourceOffset: 15 }, 4)
-  const coord = createSourceHandoffCoordinator({
-    initialToken: token,
-    initialArticleId: 42,
-    accept: acceptEditorSourceHandoff,
-  })
+  const coord = coordinatorForToken(token)
   coord.markSessionVerified()
   const resolved = coord.resolveArrival(42, 4, 'h1')
   assert.equal(resolved.kind, 'ready')
   if (resolved.kind !== 'ready') return
   coord.activateTarget({
     source: resolved.source,
-    sessionId: 10,
-    witnessedRevision: 7n,
+    ...activationContext(),
     handle: 'h1',
     persistentWorkspace: false,
-    recoveryItemsCount: 0,
-    recoveryWorking: false,
-    revisionComparisonActive: false,
     activeEditSequence: 0,
-    isRouteCurrent: () => true,
     readLiveState: () => makeLiveState(),
     setInspectorOpen: () => {},
   })
