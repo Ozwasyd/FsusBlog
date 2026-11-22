@@ -1,7 +1,6 @@
 using static System.Net.HttpStatusCode;
 using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Net;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml.Linq;
@@ -162,19 +161,10 @@ public sealed class SitePagesOnlinePostgresTests
         async Task<HttpResponseMessage> AdminRequest(ServerProcess server, HttpMethod method, string path,
             byte[]? body = null, Dictionary<string, string>? extraHeaders = null)
         {
-            using var request = new HttpRequestMessage(method, path);
-            request.Headers.Host = ServerProcess.DefaultAdminHost;
-            request.Headers.TryAddWithoutValidation("Cookie", $"{ServerProcess.DefaultAdminCookie}={admin.Token}");
-            if (method == HttpMethod.Post)
-                request.Headers.TryAddWithoutValidation("Origin", ServerProcess.DefaultAdminOrigin);
+            using var request = SiteAedsFixture.AdminRequest(method, path, admin.Token, body, includeOrigin: method == HttpMethod.Post);
             if (extraHeaders is not null)
                 foreach (var (k, v) in extraHeaders)
                     request.Headers.TryAddWithoutValidation(k, v);
-            if (body is not null)
-            {
-                request.Content = new ByteArrayContent(body);
-                request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
-            }
             return await server.Client.SendAsync(request, ct);
         }
     }

@@ -16,20 +16,27 @@ internal sealed class AuthorPropertyFixture(ScratchDatabase database, HttpClient
         internal long SchemaRevision { get; set; }
     }
 
-    internal static async Task<T> ReadyWithFacet<T>(Func<Task<T>> request,
-        Func<T, (AuthorTextFacetedPage Search, AuthorTextPropertyFacet? Facet)> project)
-    {
-        for (var attempt = 0; attempt < 8; attempt++)
+    internal static Task<T> ReadyWithFacet<T>(Func<Task<T>> request,
+        Func<T, (AuthorTextFacetedPage Search, AuthorTextPropertyFacet? Facet)> project) =>
+        Ready(request, page =>
         {
-            var page = await request();
             var (search, facet) = project(page);
-            if (search.Ready) return page;
+            if (search.Ready) return true;
             Assert.Null(facet);
             Assert.Empty(search.Rows);
             Assert.Empty(search.NextCursor);
             Assert.Equal(0, search.Total);
+            return false;
+        }, "The fixture search index did not finish within eight requests.");
+
+    internal static async Task<T> Ready<T>(Func<Task<T>> request, Func<T, bool> ready, string failure)
+    {
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            var page = await request();
+            if (ready(page)) return page;
         }
-        throw new InvalidOperationException("The fixture search index did not finish within eight requests.");
+        throw new InvalidOperationException(failure);
     }
 
     internal static async Task<Actor> SignIn(ScratchDatabase database, string name, CancellationToken ct)

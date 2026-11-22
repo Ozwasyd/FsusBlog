@@ -317,17 +317,14 @@ public sealed class AuthorTextPropertyTextPostgresTests
         static AuthorTextPropertyTextQuery Query(Actor actor, Field field, string text) =>
             new(new(text, "", null, null, actor.SchemaRevision, []), field.Id, field.Revision);
 
-        async Task<AuthorTextFacetedPage> Ready(AuthorTextPropertyTextQuery request, Actor actor)
-        {
-            for (var i = 0; i < 8; i++)
+        Task<AuthorTextFacetedPage> Ready(AuthorTextPropertyTextQuery request, Actor actor) =>
+            AuthorPropertyFixture.Ready(() => Read(request, actor), page =>
             {
-                var page = await Read(request, actor);
-                if (page.Ready) return page;
+                if (page.Ready) return true;
                 Assert.Empty(page.Rows);
                 Assert.Empty(page.NextCursor);
-            }
-            throw new InvalidOperationException("The fixture property index did not finish within eight requests.");
-        }
+                return false;
+            }, "The fixture property index did not finish within eight requests.");
 
         async Task<AuthorTextFacetedPage> Read(AuthorTextPropertyTextQuery request, Actor actor) =>
             Wire.DecodeAuthorTextPropertyTextPage(await author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextQuery(request), actor));
@@ -343,16 +340,13 @@ public sealed class AuthorTextPropertyTextPostgresTests
         Task<byte[]> RejectComposed(AuthorTextPropertyTextQualifiedQuery request, Actor actor, HttpStatusCode status) =>
             author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextQualifiedQuery(request), actor, status);
 
-        async Task<AuthorTextPropertySortPage> ReadyMixed(AuthorTextPropertyTextMixedQuery request)
-        {
-            for (var attempt = 0; attempt < 8; attempt++)
+        Task<AuthorTextPropertySortPage> ReadyMixed(AuthorTextPropertyTextMixedQuery request) =>
+            AuthorPropertyFixture.Ready(() => ReadMixed(request), page =>
             {
-                var page = await ReadMixed(request);
-                if (page.Search.Ready) return page;
+                if (page.Search.Ready) return true;
                 Assert.Empty(page.Search.Rows);
-            }
-            throw new InvalidOperationException("The fixture mixed index did not finish within eight requests.");
-        }
+                return false;
+            }, "The fixture mixed index did not finish within eight requests.");
 
         async Task<AuthorTextPropertySortPage> ReadMixed(AuthorTextPropertyTextMixedQuery request) =>
             Wire.DecodeAuthorTextPropertyTextMixedPage(

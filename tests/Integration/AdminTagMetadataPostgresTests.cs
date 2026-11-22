@@ -204,7 +204,6 @@ public sealed class AdminTagMetadataPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (adminId, token, _) = await FixtureSql.AdminAsync(db, ct, "loopback-taxonomy-admin", 10, [1], [2]);
-        var cookie = $"{ServerProcess.DefaultAdminCookie}={token}";
 
         await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct))
         {
@@ -301,15 +300,8 @@ public sealed class AdminTagMetadataPostgresTests
             using var resp = Ok(await restarted.Client.SendAsync(req, ct));
         }
 
-        HttpRequestMessage AdminRequest(HttpMethod method, string path, bool includeOrigin = true)
-        {
-            var req = new HttpRequestMessage(method, path);
-            req.Headers.Host = ServerProcess.DefaultAdminHost;
-            req.Headers.Add("Cookie", cookie);
-            if (includeOrigin && method != HttpMethod.Get)
-                req.Headers.Add("Origin", ServerProcess.DefaultAdminOrigin);
-            return req;
-        }
+        HttpRequestMessage AdminRequest(HttpMethod method, string path, bool includeOrigin = true) =>
+            SiteAedsFixture.AdminRequest(method, path, token, includeOrigin: includeOrigin);
 
         async Task<AdminTagMetadata> SubmitTaxonomy(HttpClient client, string powPath, string mutationPath,
             HttpMethod method, byte[] frame, Func<ReadOnlySpan<byte>, AdminTagMetadata> decode)
