@@ -35,10 +35,8 @@ public static partial class Wire
         var revision = reader.I64();
         var published = reader.I64();
         var cursor = reader.Text(WireLimits.RevisionHistoryCursorChars);
-        var items = new RevisionHistoryItem[reader.Count(0, WireLimits.RevisionHistoryPageSize, static () => new ProtocolException("Invalid revision history size"))];
-        for (var i = 0; i < items.Length; i++)
-            items[i] = new(reader.I64(), reader.Text(WireLimits.TitleBytes), reader.I64(), reader.I64(),
-                reader.Text(WireLimits.RollbackReasonBytes));
+        var items = reader.Items<RevisionHistoryItem>(0, WireLimits.RevisionHistoryPageSize, static () => new ProtocolException("Invalid revision history size"), static (ref Reader reader) => new(reader.I64(), reader.Text(WireLimits.TitleBytes), reader.I64(), reader.I64(),
+                reader.Text(WireLimits.RollbackReasonBytes)));
         reader.Finish();
         var page = new RevisionHistoryPage(id, revision, published, cursor, items);
         Validate(page);

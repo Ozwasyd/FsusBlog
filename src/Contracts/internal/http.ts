@@ -1,5 +1,6 @@
+import { ApiError, decodeSuccess } from '../aeds.ts';
 import { request, siteSessionHeader } from '../client.ts';
-import type { FrameType } from '../wire.generated.ts';
+import { FrameType } from '../wire.generated.ts';
 
 export { request, siteSessionHeader };
 
@@ -19,4 +20,14 @@ export function sessionGet<T>(path: string, expected: FrameType, decode: Decoder
 export function sessionPost<T>(path: string, expected: FrameType, decode: Decoder<T>, signal: AbortSignal | undefined,
   body: Body, session?: string): Promise<T> {
   return post(path, expected, decode, signal, body, siteSessionHeader(session));
+}
+
+export async function readAvailability(path: string, signal?: AbortSignal): Promise<boolean> {
+  try {
+    await request(path, FrameType.EmptySuccess, decodeSuccess, signal);
+    return true;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return false;
+    throw error;
+  }
 }

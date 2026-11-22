@@ -1,7 +1,7 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { decodeUtf8 } from './binary.ts';
-import { api, ApiError, validSiteSessionId, type Session } from './client.ts';
-import { post, request } from './internal/http.ts';
+import { api, validSiteSessionId, type Session } from './client.ts';
+import { post, readAvailability } from './internal/http.ts';
 import { mfaAction, mfaStartData, readMfaProof } from './mfa.ts';
 import { encodeSignIn, FrameType, WireHeader, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
@@ -11,13 +11,7 @@ const invalid = () => new ProtocolError('Invalid Passkey AEDS options.');
 
 export async function passkeyAvailable(signal?: AbortSignal): Promise<boolean> {
   if (!globalThis.isSecureContext || typeof PublicKeyCredential !== 'function') return false;
-  try {
-    await request(WireRoutes.PasskeyAvailability, FrameType.EmptySuccess, decodeSuccess, signal);
-    return true;
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return false;
-    throw error;
-  }
+  return readAvailability(WireRoutes.PasskeyAvailability, signal);
 }
 
 export type PasskeyLogin =

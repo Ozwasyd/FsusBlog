@@ -155,9 +155,7 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyArticlePage));
         var next = reader.Text(WireLimits.PropertyQueryCursorChars);
-        var rows = new PropertyArticleRow[reader.Count(0, WireLimits.PropertyPageSize, InvalidProperty)];
-        for (var i = 0; i < rows.Length; i++)
-            rows[i] = new(reader.I32(), reader.I64(), reader.Text(WireLimits.TitleBytes));
+        var rows = reader.Items<PropertyArticleRow>(0, WireLimits.PropertyPageSize, InvalidProperty, static (ref Reader reader) => new(reader.I32(), reader.I64(), reader.Text(WireLimits.TitleBytes)));
         reader.Finish();
         return new(next, rows);
     }

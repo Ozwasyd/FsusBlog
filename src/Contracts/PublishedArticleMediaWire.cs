@@ -83,8 +83,7 @@ public static partial class Wire
         var article = reader.I32();
         var revision = reader.I64();
         var key = reader.Uuid();
-        var assets = new Guid[reader.Count(1, ArticlePublishImages.Maximum, InvalidPublishImages)];
-        for (var i = 0; i < assets.Length; i++) assets[i] = reader.Uuid();
+        var assets = reader.Items<Guid>(1, ArticlePublishImages.Maximum, InvalidPublishImages, static (ref Reader reader) => reader.Uuid());
         reader.Finish();
         var value = new ArticlePublishImages(article, revision, key, assets);
         ValidatePublishImages(value);
@@ -114,9 +113,7 @@ public static partial class Wire
         var reader = new Reader(Aeds.Decode(frame, FrameType.PublicArticleMedia));
         var article = reader.I32();
         var publication = reader.I64();
-        var images = new PublishedArticleImage[reader.Count(0, ArticlePublishImages.Maximum, InvalidArticleMedia)];
-        for (var i = 0; i < images.Length; i++)
-            images[i] = new(Convert.ToHexStringLower(reader.FixedBytes(32)), reader.I32(), reader.I32(), reader.I32(), reader.I32());
+        var images = reader.Items<PublishedArticleImage>(0, ArticlePublishImages.Maximum, InvalidArticleMedia, static (ref Reader reader) => new(Convert.ToHexStringLower(reader.FixedBytes(32)), reader.I32(), reader.I32(), reader.I32(), reader.I32()));
         reader.Finish();
         var value = new PublicArticleMedia(article, publication, images);
         ValidatePublicArticleMedia(value);

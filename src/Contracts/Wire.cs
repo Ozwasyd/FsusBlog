@@ -164,6 +164,13 @@ public static partial class Wire
             return count;
         }
 
+        public T[] Items<T>(int minimum, int maximum, Func<ProtocolException> invalid, ReadRecord<T> readItem)
+        {
+            var values = new T[Count(minimum, maximum, invalid)];
+            for (var index = 0; index < values.Length; index++) values[index] = readItem(ref this);
+            return values;
+        }
+
         public T[] List<T>(int limit, int minItemBytes, ReadRecord<T> readItem)
         {
             var count = I32();

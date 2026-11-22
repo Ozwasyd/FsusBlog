@@ -1,6 +1,5 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
-import { ApiError } from './client.ts';
-import { post, request } from './internal/http.ts';
+import { post, readAvailability } from './internal/http.ts';
 import { requestPasskeyAttestation } from './passkey.ts';
 import { powProofHeaders, proveScopedPow } from './pow.ts';
 import { FrameType } from './wire.generated.ts';
@@ -19,13 +18,7 @@ function supported(): boolean {
 
 export async function readerRegistrationAvailable(signal?: AbortSignal): Promise<boolean> {
   if (!supported()) return false;
-  try {
-    await request(routes.status, FrameType.EmptySuccess, decodeSuccess, signal);
-    return true;
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return false;
-    throw error;
-  }
+  return readAvailability(routes.status, signal);
 }
 
 // Call only after the reader explicitly chooses to register. Completion never signs in.

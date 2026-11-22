@@ -121,8 +121,7 @@ public static partial class Wire
     public static IReadOnlyList<CanvasGraphReceipt> DecodeCanvasGraphList(ReadOnlySpan<byte> frame)
     {
         var r = new Reader(Aeds.Decode(frame, FrameType.CanvasGraphList));
-        var documents = new CanvasGraphReceipt[r.Count(0, WireLimits.CanvasGraphMaxDocuments, CanvasProtocolError)];
-        for (var i = 0; i < documents.Length; i++) documents[i] = ReadCanvasReceipt(ref r);
+        var documents = r.Items<CanvasGraphReceipt>(0, WireLimits.CanvasGraphMaxDocuments, CanvasProtocolError, ReadCanvasReceipt);
         r.Finish();
         return documents;
     }
@@ -147,10 +146,8 @@ public static partial class Wire
         var document = ReadCanvasReceipt(ref r);
         var next = r.I32();
         if (next < -1 || next > document.NodeCount + document.EdgeCount) throw CanvasProtocolError();
-        var nodes = new CanvasNodeFrame[r.Count(0, WireLimits.CanvasGraphMaxPageNodes, CanvasProtocolError)];
-        for (var i = 0; i < nodes.Length; i++) nodes[i] = ReadCanvasNode(ref r);
-        var edges = new CanvasEdgeFrame[r.Count(0, WireLimits.CanvasGraphMaxPageEdges, CanvasProtocolError)];
-        for (var i = 0; i < edges.Length; i++) edges[i] = ReadCanvasEdge(ref r);
+        var nodes = r.Items<CanvasNodeFrame>(0, WireLimits.CanvasGraphMaxPageNodes, CanvasProtocolError, ReadCanvasNode);
+        var edges = r.Items<CanvasEdgeFrame>(0, WireLimits.CanvasGraphMaxPageEdges, CanvasProtocolError, ReadCanvasEdge);
         r.Finish();
         return new(document, next, nodes, edges);
     }
@@ -247,8 +244,7 @@ public static partial class Wire
         if (node.Kind == 3) return node with { Text = r.Text(WireLimits.CanvasGraphNoteBytes) };
         if (node.Kind != 4) throw CanvasProtocolError();
         var label = r.Text(WireLimits.CanvasGraphLabelBytes);
-        var members = new Guid[r.Count(0, 10_000, CanvasProtocolError)];
-        for (var i = 0; i < members.Length; i++) members[i] = r.Uuid();
+        var members = r.Items<Guid>(0, 10_000, CanvasProtocolError, static (ref Reader r) => r.Uuid());
         return node with { Text = label, MemberIds = members };
     }
 

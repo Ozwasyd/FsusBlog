@@ -1,6 +1,6 @@
-import { ApiError, decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
+import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { validSiteSessionId } from './client.ts';
-import { post, request } from './internal/http.ts';
+import { post, readAvailability, request } from './internal/http.ts';
 import { readMfaProof } from './mfa.ts';
 import { requestPasskeyAssertion, requestPasskeyAttestation } from './passkey.ts';
 import { requestWithScopedPow } from './pow.ts';
@@ -22,13 +22,7 @@ export function validSiteRecoveryKey(key: string): boolean {
 
 export async function siteRecoveryAvailable(signal: AbortSignal): Promise<boolean> {
   if (!globalThis.isSecureContext || typeof PublicKeyCredential !== 'function') return false;
-  try {
-    await request(WireRoutes.RecoveryKeyAvailability, FrameType.EmptySuccess, decodeSuccess, signal);
-    return true;
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return false;
-    throw error;
-  }
+  return readAvailability(WireRoutes.RecoveryKeyAvailability, signal);
 }
 
 export function siteRecoveryStatus(signal: AbortSignal): Promise<boolean> {
