@@ -1,6 +1,12 @@
 {
   "zh-CN": {
     "account.articleNumber": "文章 {id}",
+    "account.commentsAppealPlaceholder": "说明原评论为何符合社区规范或补充上下文…",
+    "account.commentsCharCount": "{count} / {max} 字符",
+    "account.commentsDecisionReason": "复核说明",
+    "account.commentsEditPlaceholder": "编辑评论内容…",
+    "account.commentsEmptyDescription": "你在文章下方发表的评论及申诉记录会显示在这里。",
+    "account.commentsSummary": "查看你发表的评论状态，编辑待审核评论，或对被驳回的评论发起独立申诉。",
     "account.deleteImageConfirm": "永久删除「{name}」？",
     "account.expires": "到期时间 {date}",
     "account.inboxBodyPlaceholder": "请描述需要帮助的具体情况…",
@@ -1919,6 +1925,12 @@
   },
   "en": {
     "account.articleNumber": "Article {id}",
+    "account.commentsAppealPlaceholder": "Explain why the comment fits community guidelines or add context…",
+    "account.commentsCharCount": "{count} / {max} chars",
+    "account.commentsDecisionReason": "Review decision",
+    "account.commentsEditPlaceholder": "Edit your comment…",
+    "account.commentsEmptyDescription": "Comments you post on articles and any appeal updates will appear here.",
+    "account.commentsSummary": "Review your comment moderation status, edit pending comments, or appeal rejected decisions.",
     "account.deleteImageConfirm": "Permanently delete “{name}”?",
     "account.expires": "Expires {date}",
     "account.inboxBodyPlaceholder": "Describe how we can help…",
