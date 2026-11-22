@@ -64,7 +64,7 @@ public sealed class RecoveryScopeTests
             }
             else
             {
-                await FixtureSql.SiteAccountAsync(connection, tx, ct, id, name, canAuthor: false);
+                await FixtureSql.SiteAccountAsync(connection, tx, ct, id, name);
             }
             await tx.CommitAsync(ct);
         }

@@ -197,7 +197,7 @@ public sealed class SitePasskeyMetadataPostgresTests
     private static async Task<Guid> AddAccount(NpgsqlConnection db, string name, CancellationToken ct, bool enabled = true)
     {
         var owner = Guid.NewGuid();
-        await FixtureSql.SiteAccountAsync(db, null, ct, owner, name, canAuthor: false, enabled);
+        await FixtureSql.SiteAccountAsync(db, null, ct, owner, name, enabled);
         await FixtureSql.SitePasskeySubjectAsync(db, null, ct, owner);
         return owner;
     }

@@ -112,7 +112,7 @@ public sealed class SiteSessionsPostgresTests
     private static async Task<Guid> AddAccount(NpgsqlConnection db, string name, CancellationToken ct)
     {
         var id = Guid.NewGuid();
-        await FixtureSql.SiteAccountAsync(db, null, ct, id, name, canAuthor: false);
+        await FixtureSql.SiteAccountAsync(db, null, ct, id, name);
         return id;
     }
 

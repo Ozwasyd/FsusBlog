@@ -227,7 +227,7 @@ public sealed class SiteRefreshPostgresTests
     {
         var owner = Guid.NewGuid();
         var credential = RandomNumberGenerator.GetBytes(32);
-        await FixtureSql.SiteAccountAsync(db, null, ct, owner, name, canAuthor: false);
+        await FixtureSql.SiteAccountAsync(db, null, ct, owner, name);
         await FixtureSql.SitePasskeyAsync(db, null, ct, owner, credential, RandomNumberGenerator.GetBytes(32));
         return (owner, credential);
     }

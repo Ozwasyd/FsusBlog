@@ -22,7 +22,7 @@ internal sealed class ScratchDatabase : IAsyncDisposable
 
     internal async Task<(Guid Id, string Token, string Handle)> SignInSiteUser(string name, CancellationToken ct, int minutes = 2)
     {
-        var (id, ticket) = await IssueTicket(name, ct, canAuthor: false, minutes: minutes);
+        var (id, ticket) = await IssueTicket(name, ct, minutes);
         return await Redeem(id, ticket, ct);
     }
 
@@ -76,7 +76,7 @@ internal sealed class ScratchDatabase : IAsyncDisposable
         return (normalized.Length > maxPrefix ? normalized[..maxPrefix] : normalized) + suffix;
     }
 
-    internal async Task<(Guid Id, string Ticket)> IssueTicket(string name, CancellationToken ct, bool canAuthor = true, int minutes = 2)
+    internal async Task<(Guid Id, string Ticket)> IssueTicket(string name, CancellationToken ct, int minutes = 2)
     {
         var id = Guid.NewGuid();
         await using var connection = await DataSource.OpenConnectionAsync(ct);

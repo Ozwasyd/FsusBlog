@@ -220,7 +220,7 @@ public sealed class SiteRecoveryKeyPostgresTests
     private static async Task<Account> AddAccount(NpgsqlConnection db, RecoveryKeySecret secrets, string name, CancellationToken ct)
     {
         var id = Guid.NewGuid();
-        await FixtureSql.SiteAccountAsync(db, null, ct, id, name, canAuthor: false);
+        await FixtureSql.SiteAccountAsync(db, null, ct, id, name);
         await FixtureSql.SitePasskeyAsync(db, null, ct, id, RandomNumberGenerator.GetBytes(32), [2]);
         var generated = secrets.Generate();
         await Execute(db, """

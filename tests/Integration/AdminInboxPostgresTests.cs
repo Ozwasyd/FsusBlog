@@ -109,7 +109,7 @@ public sealed class AdminInboxPostgresTests
         var (other, otherToken, _) = await FixtureSql.AdminAsync(db, ct, "support-another", 5, RandomNumberGenerator.GetBytes(8), [2]);
         var user = Guid.NewGuid();
         var siteToken = Secret();
-        await SeedSession(db, user, "support-site", siteToken, ct, canAuthor: true);
+        await SeedSession(db, user, "support-site", siteToken, ct);
         await Sql("""
             insert into public.inbox_conversation(id,account_id,subject,status,is_system,last_message_at)
             select id,$1,'Support case '||id,case when id=1 then 2 else 0 end,false,now() from generate_series(1,26) id

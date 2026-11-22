@@ -454,7 +454,7 @@ public sealed class PublishingPostgresTests
         var store = new Store(fixture.DataSource);
         var publications = new Publications(fixture.DataSource, new WebPages("<body><!--fsus-public-content--></body>"), NullLogger<Publications>.Instance);
         await publications.Refresh(ct);
-        var issue = await fixture.IssueTicket("site reader ticket", ct, canAuthor: false, minutes: 1);
+        var issue = await fixture.IssueTicket("site reader ticket", ct, minutes: 1);
         await store.SignIn(issue.Ticket, ct);
         await BusinessAssert.Denied(Rejection.Unauthorized, () => store.SignIn(issue.Ticket, ct));
         var session = await fixture.SignIn("original owner", ct, canAuthor: true, minutes: 1);

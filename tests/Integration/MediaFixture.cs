@@ -36,7 +36,7 @@ internal static class MediaFixture
         }
         else
         {
-            await FixtureSql.SiteAccountAsync(db, tx, ct, id, name, canAuthor: false);
+            await FixtureSql.SiteAccountAsync(db, tx, ct, id, name);
             await FixtureSql.ExecuteAsync(db, tx, ct, """
                 insert into public.user_session(digest,user_id,generation,expires_at)
                 values($1,$2,1,clock_timestamp()+interval '5 minutes')

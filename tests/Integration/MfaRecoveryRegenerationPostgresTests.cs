@@ -131,7 +131,7 @@ public sealed class MfaRecoveryRegenerationPostgresTests
         var replayFloor = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / Totp.StepSeconds;
         await using (var tx = await db.BeginTransactionAsync(ct))
         {
-            await FixtureSql.SiteAccountAsync(db, tx, ct, account, name, canAuthor: false);
+            await FixtureSql.SiteAccountAsync(db, tx, ct, account, name);
             await FixtureSql.SitePasskeyAsync(db, tx, ct, account, credential, RandomNumberGenerator.GetBytes(32));
             await Execute(db, tx, ct, """
                 insert into public.mfa_totp(user_id,sealed_seed,last_step,verified_at,retry_after,failed_count)

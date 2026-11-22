@@ -24,7 +24,7 @@ public sealed class MfaPostgresTests
         var first = Store.TokenDigest(firstToken)!;
         var second = Store.TokenDigest(secondToken)!;
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        await FixtureSql.SiteAccountAsync(db, null, ct, id, "MFA fixture", canAuthor: true);
+        await FixtureSql.SiteAccountAsync(db, null, ct, id, "MFA fixture");
         await FixtureSql.SitePasskeyAsync(db, null, ct, id, credential, RandomNumberGenerator.GetBytes(32));
         foreach (var digest in new[] { first, second })
         {

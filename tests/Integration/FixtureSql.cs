@@ -42,7 +42,7 @@ internal static class FixtureSql
         [id, handle, userHandle, credential, key, digest, minutes];
 
     internal static Task<int> SiteAccountAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,
-        Guid id, string name, bool canAuthor = false, bool enabled = true) => ExecuteAsync(db, tx, ct, """
+        Guid id, string name, bool enabled = true) => ExecuteAsync(db, tx, ct, """
             insert into public.blog_user(id,name,enabled,generation) values($1,$2,$3,1)
             """, id, name, enabled);
 

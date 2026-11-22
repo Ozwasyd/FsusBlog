@@ -22,6 +22,38 @@ public sealed class SiteCapabilitiesTests
     private static IConfiguration BuildConfig(Dictionary<string, string?> values) =>
         new ConfigurationBuilder().AddInMemoryCollection(values).Build();
 
+    private static DirectoryInfo CreateSitePages(DirectoryInfo data)
+    {
+        var pages = Directory.CreateDirectory(Path.Combine(data.FullName, "site-pages"));
+        foreach (var name in new[] { "about.md", "privacy.md", "guidelines.md", "copyright.md" })
+            File.WriteAllText(Path.Combine(pages.FullName, name), "# " + name);
+        return pages;
+    }
+
+    private static void WriteAppearanceFixture(DirectoryInfo data)
+    {
+        var appearance = Directory.CreateDirectory(Path.Combine(data.FullName, "appearance"));
+        File.WriteAllText(Path.Combine(appearance.FullName, "appearance.json"), "{}");
+    }
+
+    private static void CheckAdminChannels(SiteCapabilities capabilities, Action<bool> check)
+    {
+        check(capabilities.AdminInboxReplies);
+        check(capabilities.AdminInboxStatus);
+        check(capabilities.AdminInboxNotice);
+        check(capabilities.AdminInboxSharedRead);
+        check(capabilities.AdminInboxLive);
+        check(capabilities.AdminInboxActivityOrder);
+        check(capabilities.AdminCommentBatch);
+    }
+
+    private static void CheckAdminArticleTools(SiteCapabilities capabilities, Action<bool> check)
+    {
+        check(capabilities.AdminArticleRollback);
+        check(capabilities.AdminTagMetadata);
+        check(capabilities.AdminCategoryMetadata);
+    }
+
     [Fact]
     public void MinimalConfigActivatesZeroConfigDefaultsWithoutRequiringOptionalPrerequisites()
     {
@@ -54,16 +86,8 @@ public sealed class SiteCapabilitiesTests
         Assert.Null(capabilities.TrafficOrigin);
         Assert.False(capabilities.ReaderRegistration);
         Assert.False(capabilities.SitePersistentRefresh);
-        Assert.False(capabilities.AdminInboxReplies);
-        Assert.False(capabilities.AdminInboxStatus);
-        Assert.False(capabilities.AdminInboxNotice);
-        Assert.False(capabilities.AdminInboxSharedRead);
-        Assert.False(capabilities.AdminInboxLive);
-        Assert.False(capabilities.AdminInboxActivityOrder);
-        Assert.False(capabilities.AdminCommentBatch);
-        Assert.False(capabilities.AdminArticleRollback);
-        Assert.False(capabilities.AdminTagMetadata);
-        Assert.False(capabilities.AdminCategoryMetadata);
+        CheckAdminChannels(capabilities, value => Assert.False(value));
+        CheckAdminArticleTools(capabilities, value => Assert.False(value));
         Assert.False(capabilities.SitePageEditor);
         Assert.False(capabilities.SiteConfigEditor);
         Assert.True(capabilities.SiteConfigOverrideActive);
@@ -91,16 +115,8 @@ public sealed class SiteCapabilitiesTests
         Assert.Equal(new Uri("https://blog.example.test"), capabilities.TrafficOrigin);
         Assert.True(capabilities.ReaderRegistration);
         Assert.True(capabilities.SitePersistentRefresh);
-        Assert.True(capabilities.AdminInboxReplies);
-        Assert.True(capabilities.AdminInboxStatus);
-        Assert.True(capabilities.AdminInboxNotice);
-        Assert.True(capabilities.AdminInboxSharedRead);
-        Assert.True(capabilities.AdminInboxLive);
-        Assert.True(capabilities.AdminInboxActivityOrder);
-        Assert.True(capabilities.AdminCommentBatch);
-        Assert.True(capabilities.AdminArticleRollback);
-        Assert.True(capabilities.AdminTagMetadata);
-        Assert.True(capabilities.AdminCategoryMetadata);
+        CheckAdminChannels(capabilities, value => Assert.True(value));
+        CheckAdminArticleTools(capabilities, value => Assert.True(value));
         Assert.True(capabilities.SitePageEditor);
         Assert.True(capabilities.SiteConfigEditor);
 
@@ -112,199 +128,155 @@ public sealed class SiteCapabilitiesTests
     [Fact]
     public void SinglePublicOriginAutoDerivesBothSiteAndAdminPasskeysAndHttpsCapabilities()
     {
-        var root = Directory.CreateTempSubdirectory("fsusblog-single-origin-");
-        var webDist = Directory.CreateTempSubdirectory("fsusblog-single-dist-");
-        try
+        using var directories = new SiteFixtureDirectories("fsusblog-single-origin-", "fsusblog-single-dist-");
+        var (root, webDist) = directories.Paths;
+        CreateSitePages(root);
+        WriteAppearanceFixture(root);
+
+        var capabilities = SiteCapabilities.Resolve(BuildConfig(new()
         {
-            var pages = Directory.CreateDirectory(Path.Combine(root.FullName, "site-pages"));
-            foreach (var name in new[] { "about.md", "privacy.md", "guidelines.md", "copyright.md" })
-                File.WriteAllText(Path.Combine(pages.FullName, name), "# " + name);
-            var appearance = Directory.CreateDirectory(Path.Combine(root.FullName, "appearance"));
-            File.WriteAllText(Path.Combine(appearance.FullName, "appearance.json"), "{}");
+            [SiteCapabilities.DataDirSetting] = root.FullName,
+            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+        }), webDist.FullName);
 
-            var capabilities = SiteCapabilities.Resolve(BuildConfig(new()
-            {
-                [SiteCapabilities.DataDirSetting] = root.FullName,
-                [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-            }), webDist.FullName);
+        Assert.Equal("https://blog.example.test", capabilities.PublicSite.Origin);
+        Assert.Equal(new Uri("https://blog.example.test"), capabilities.SitePasskey?.Origin);
+        Assert.Equal("blog.example.test", capabilities.SitePasskey?.RpId);
+        Assert.Equal(new Uri("https://blog.example.test"), capabilities.AdminIdentity?.Origin);
+        Assert.Equal("blog.example.test", capabilities.AdminIdentity?.RpId);
+        Assert.True(capabilities.ReaderRegistration);
+        Assert.True(capabilities.SitePersistentRefresh);
+        Assert.True(capabilities.AdminInboxReplies);
+        Assert.True(capabilities.AdminCommentBatch);
+        CheckAdminArticleTools(capabilities, value => Assert.True(value));
+        Assert.True(capabilities.SitePageEditor);
+        Assert.True(capabilities.SiteConfigEditor);
+        Assert.True(capabilities.OnlineAppearance);
 
-            Assert.Equal("https://blog.example.test", capabilities.PublicSite.Origin);
-            Assert.Equal(new Uri("https://blog.example.test"), capabilities.SitePasskey?.Origin);
-            Assert.Equal("blog.example.test", capabilities.SitePasskey?.RpId);
-            Assert.Equal(new Uri("https://blog.example.test"), capabilities.AdminIdentity?.Origin);
-            Assert.Equal("blog.example.test", capabilities.AdminIdentity?.RpId);
-            Assert.True(capabilities.ReaderRegistration);
-            Assert.True(capabilities.SitePersistentRefresh);
-            Assert.True(capabilities.AdminInboxReplies);
-            Assert.True(capabilities.AdminCommentBatch);
-            Assert.True(capabilities.AdminArticleRollback);
-            Assert.True(capabilities.AdminTagMetadata);
-            Assert.True(capabilities.AdminCategoryMetadata);
-            Assert.True(capabilities.SitePageEditor);
-            Assert.True(capabilities.SiteConfigEditor);
-            Assert.True(capabilities.OnlineAppearance);
-
-            // Explicit FSUSBLOG_ADMIN_ORIGIN="" disables all admin capabilities fail-closed on a public-only node
-            var publicOnly = SiteCapabilities.Resolve(BuildConfig(new()
-            {
-                [SiteCapabilities.DataDirSetting] = root.FullName,
-                [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-                ["FSUSBLOG_ADMIN_ORIGIN"] = "",
-            }), webDist.FullName);
-
-            Assert.Equal(new Uri("https://blog.example.test"), publicOnly.SitePasskey?.Origin);
-            Assert.Null(publicOnly.AdminIdentity);
-            Assert.False(publicOnly.AdminInboxReplies);
-            Assert.False(publicOnly.AdminCommentBatch);
-            Assert.False(publicOnly.AdminArticleRollback);
-            Assert.False(publicOnly.AdminTagMetadata);
-            Assert.False(publicOnly.AdminCategoryMetadata);
-            Assert.False(publicOnly.SitePageEditor);
-            Assert.False(publicOnly.SiteConfigEditor);
-            Assert.False(publicOnly.OnlineAppearance);
-        }
-        finally
+        // Explicit FSUSBLOG_ADMIN_ORIGIN="" disables all admin capabilities fail-closed on a public-only node
+        var publicOnly = SiteCapabilities.Resolve(BuildConfig(new()
         {
-            Directory.Delete(root.FullName, recursive: true);
-            Directory.Delete(webDist.FullName, recursive: true);
-        }
+            [SiteCapabilities.DataDirSetting] = root.FullName,
+            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "",
+        }), webDist.FullName);
+
+        Assert.Equal(new Uri("https://blog.example.test"), publicOnly.SitePasskey?.Origin);
+        Assert.Null(publicOnly.AdminIdentity);
+        Assert.False(publicOnly.AdminInboxReplies);
+        Assert.False(publicOnly.AdminCommentBatch);
+        CheckAdminArticleTools(publicOnly, value => Assert.False(value));
+        Assert.False(publicOnly.SitePageEditor);
+        Assert.False(publicOnly.SiteConfigEditor);
+        Assert.False(publicOnly.OnlineAppearance);
     }
 
     [Fact]
     public void DataDirAutoProvisionsMediaAndDiscoversOptionalSubdirectories()
     {
-        var root = Directory.CreateTempSubdirectory("fsusblog-datadir-");
-        var webDist = Directory.CreateTempSubdirectory("fsusblog-dist-");
-        try
+        using var directories = new SiteFixtureDirectories("fsusblog-datadir-", "fsusblog-dist-");
+        var (root, webDist) = directories.Paths;
+        // Empty appearance dir without appearance.json and missing site-pages should not trigger prematurely
+        Directory.CreateDirectory(Path.Combine(root.FullName, "appearance"));
+        var initial = SiteCapabilities.Resolve(BuildConfig(new()
         {
-            // Empty appearance dir without appearance.json and missing site-pages should not trigger prematurely
-            Directory.CreateDirectory(Path.Combine(root.FullName, "appearance"));
-            var initial = SiteCapabilities.Resolve(BuildConfig(new()
-            {
-                [SiteCapabilities.DataDirSetting] = root.FullName,
-                [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-                ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
-            }), webDist.FullName);
+            [SiteCapabilities.DataDirSetting] = root.FullName,
+            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
+        }), webDist.FullName);
 
-            Assert.Equal(Path.Combine(root.FullName, "private-media"), initial.PrivateMediaRoot);
-            Assert.Equal(Path.Combine(root.FullName, "public-media"), initial.PublicMediaRoot);
-            Assert.True(Directory.Exists(initial.PrivateMediaRoot));
-            Assert.True(Directory.Exists(initial.PublicMediaRoot));
-            Assert.True(initial.PrivateMediaResumable);
-            Assert.Null(initial.SitePagesRoot);
-            Assert.True(initial.SitePageEditor);
-            Assert.Null(initial.AppearanceRoot);
-            Assert.False(initial.OnlineAppearance);
-            Assert.Null(initial.TrafficRegionsPath);
+        Assert.Equal(Path.Combine(root.FullName, "private-media"), initial.PrivateMediaRoot);
+        Assert.Equal(Path.Combine(root.FullName, "public-media"), initial.PublicMediaRoot);
+        Assert.True(Directory.Exists(initial.PrivateMediaRoot));
+        Assert.True(Directory.Exists(initial.PublicMediaRoot));
+        Assert.True(initial.PrivateMediaResumable);
+        Assert.Null(initial.SitePagesRoot);
+        Assert.True(initial.SitePageEditor);
+        Assert.Null(initial.AppearanceRoot);
+        Assert.False(initial.OnlineAppearance);
+        Assert.Null(initial.TrafficRegionsPath);
 
-            // Adding all 4 baseline site pages + appearance.json + traffic-regions.json activates discovery
-            var pages = Directory.CreateDirectory(Path.Combine(root.FullName, "site-pages"));
-            foreach (var name in new[] { "about.md", "privacy.md", "guidelines.md", "copyright.md" })
-                File.WriteAllText(Path.Combine(pages.FullName, name), "# " + name);
-            File.WriteAllText(Path.Combine(root.FullName, "appearance", "appearance.json"), "{}");
-            var regionsFile = Path.Combine(root.FullName, "traffic-regions.json");
-            File.WriteAllText(regionsFile, "[]");
+        // Adding all 4 baseline site pages + appearance.json + traffic-regions.json activates discovery
+        var pages = CreateSitePages(root);
+        File.WriteAllText(Path.Combine(root.FullName, "appearance", "appearance.json"), "{}");
+        var regionsFile = Path.Combine(root.FullName, "traffic-regions.json");
+        File.WriteAllText(regionsFile, "[]");
 
-            var discovered = SiteCapabilities.Resolve(BuildConfig(new()
-            {
-                [SiteCapabilities.DataDirSetting] = root.FullName,
-                [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-                ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
-            }), webDist.FullName);
-
-            Assert.Equal(pages.FullName, discovered.SitePagesRoot);
-            Assert.True(discovered.SitePageEditor);
-            Assert.Equal(Path.Combine(root.FullName, "appearance"), discovered.AppearanceRoot);
-            Assert.True(discovered.OnlineAppearance);
-            Assert.Equal(regionsFile, discovered.TrafficRegionsPath);
-        }
-        finally
+        var discovered = SiteCapabilities.Resolve(BuildConfig(new()
         {
-            Directory.Delete(root.FullName, recursive: true);
-            Directory.Delete(webDist.FullName, recursive: true);
-        }
+            [SiteCapabilities.DataDirSetting] = root.FullName,
+            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
+        }), webDist.FullName);
+
+        Assert.Equal(pages.FullName, discovered.SitePagesRoot);
+        Assert.True(discovered.SitePageEditor);
+        Assert.Equal(Path.Combine(root.FullName, "appearance"), discovered.AppearanceRoot);
+        Assert.True(discovered.OnlineAppearance);
+        Assert.Equal(regionsFile, discovered.TrafficRegionsPath);
     }
 
     [Fact]
     public void ExplicitFalseAndEmptyOverridesStayStrictlyFailClosed()
     {
-        var root = Directory.CreateTempSubdirectory("fsusblog-datadir-off-");
-        var webDist = Directory.CreateTempSubdirectory("fsusblog-dist-off-");
-        try
-        {
-            var pages = Directory.CreateDirectory(Path.Combine(root.FullName, "site-pages"));
-            foreach (var name in new[] { "about.md", "privacy.md", "guidelines.md", "copyright.md" })
-                File.WriteAllText(Path.Combine(pages.FullName, name), "# " + name);
-            Directory.CreateDirectory(Path.Combine(root.FullName, "appearance"));
-            File.WriteAllText(Path.Combine(root.FullName, "appearance", "appearance.json"), "{}");
+        using var directories = new SiteFixtureDirectories("fsusblog-datadir-off-", "fsusblog-dist-off-");
+        var (root, webDist) = directories.Paths;
+        CreateSitePages(root);
+        WriteAppearanceFixture(root);
 
-            var capabilities = SiteCapabilities.Resolve(BuildConfig(new()
-            {
-                [SiteCapabilities.DataDirSetting] = root.FullName,
-                [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-                ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
-                ["FSUSBLOG_PASSKEY_ORIGIN"] = "",
-                [MediaEndpoints.StorageSetting] = "",
-                ["FSUSBLOG_SITE_PAGES"] = "",
-                [AppearanceAssets.RootSetting] = "",
-                [SiteCapabilities.PublicCommentsSetting] = "false",
-                [CommentReplies.Setting] = "false",
-                [InboxWriteEndpoints.Setting] = "false",
-                [DocumentExportEndpoints.Setting] = "false",
-                [PublicHotArticles.Setting] = "false",
-                [WideSearchCorpusEndpoints.Setting] = "false",
-                [SiteCapabilities.PublicSearchModeSetting] = "server",
-                [ArticleReadEndpoints.Setting] = "false",
-                [SiteTraffic.EnabledSetting] = "false",
-                [AdminInboxEndpoints.ReplySetting] = "false",
-                [AdminInboxEndpoints.StatusSetting] = "false",
-                [AdminInboxEndpoints.NoticeSetting] = "false",
-                [AdminInboxEndpoints.SharedReadSetting] = "false",
-                [AdminInboxEndpoints.LiveSetting] = "false",
-                [InboxActivityFence.Setting] = "false",
-                [AdminModerationBatchEndpoints.Setting] = "false",
-                [AdminArticleRollbackEndpoints.Setting] = "false",
-                [AdminTagMetadataEndpoints.Setting] = "false",
-                [AdminTagMetadataEndpoints.CategorySetting] = "false",
-                [SitePages.EditorSetting] = "false",
-                [PublicSiteConfiguration.EditorSetting] = "false",
-            }), webDist.FullName);
-
-            Assert.Null(capabilities.SitePasskey);
-            Assert.Null(capabilities.PrivateMediaRoot);
-            Assert.Null(capabilities.PublicMediaRoot);
-            Assert.Null(capabilities.SitePagesRoot);
-            Assert.Null(capabilities.AppearanceRoot);
-            Assert.False(capabilities.PublicCommentSubmissions);
-            Assert.False(capabilities.SignedInCommentReplies);
-            Assert.False(capabilities.PrivateInboxWrites);
-            Assert.False(capabilities.DocumentExportTasks);
-            Assert.False(capabilities.PublicHotArticles);
-            Assert.False(capabilities.WideSearchCorpus);
-            Assert.Equal("server", capabilities.PublicSearchMode);
-            Assert.False(capabilities.PrivateMediaResumable);
-            Assert.False(capabilities.ArticleReadProof);
-            Assert.False(capabilities.SiteTraffic);
-            Assert.False(capabilities.ReaderRegistration);
-            Assert.False(capabilities.SitePersistentRefresh);
-            Assert.False(capabilities.AdminInboxReplies);
-            Assert.False(capabilities.AdminInboxStatus);
-            Assert.False(capabilities.AdminInboxNotice);
-            Assert.False(capabilities.AdminInboxSharedRead);
-            Assert.False(capabilities.AdminInboxLive);
-            Assert.False(capabilities.AdminInboxActivityOrder);
-            Assert.False(capabilities.AdminCommentBatch);
-            Assert.False(capabilities.AdminArticleRollback);
-            Assert.False(capabilities.AdminTagMetadata);
-            Assert.False(capabilities.AdminCategoryMetadata);
-            Assert.False(capabilities.SitePageEditor);
-            Assert.False(capabilities.OnlineAppearance);
-        }
-        finally
+        var capabilities = SiteCapabilities.Resolve(BuildConfig(new()
         {
-            Directory.Delete(root.FullName, recursive: true);
-            Directory.Delete(webDist.FullName, recursive: true);
-        }
+            [SiteCapabilities.DataDirSetting] = root.FullName,
+            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
+            ["FSUSBLOG_PASSKEY_ORIGIN"] = "",
+            [MediaEndpoints.StorageSetting] = "",
+            ["FSUSBLOG_SITE_PAGES"] = "",
+            [AppearanceAssets.RootSetting] = "",
+            [SiteCapabilities.PublicCommentsSetting] = "false",
+            [CommentReplies.Setting] = "false",
+            [InboxWriteEndpoints.Setting] = "false",
+            [DocumentExportEndpoints.Setting] = "false",
+            [PublicHotArticles.Setting] = "false",
+            [WideSearchCorpusEndpoints.Setting] = "false",
+            [SiteCapabilities.PublicSearchModeSetting] = "server",
+            [ArticleReadEndpoints.Setting] = "false",
+            [SiteTraffic.EnabledSetting] = "false",
+            [AdminInboxEndpoints.ReplySetting] = "false",
+            [AdminInboxEndpoints.StatusSetting] = "false",
+            [AdminInboxEndpoints.NoticeSetting] = "false",
+            [AdminInboxEndpoints.SharedReadSetting] = "false",
+            [AdminInboxEndpoints.LiveSetting] = "false",
+            [InboxActivityFence.Setting] = "false",
+            [AdminModerationBatchEndpoints.Setting] = "false",
+            [AdminArticleRollbackEndpoints.Setting] = "false",
+            [AdminTagMetadataEndpoints.Setting] = "false",
+            [AdminTagMetadataEndpoints.CategorySetting] = "false",
+            [SitePages.EditorSetting] = "false",
+            [PublicSiteConfiguration.EditorSetting] = "false",
+        }), webDist.FullName);
+
+        Assert.Null(capabilities.SitePasskey);
+        Assert.Null(capabilities.PrivateMediaRoot);
+        Assert.Null(capabilities.PublicMediaRoot);
+        Assert.Null(capabilities.SitePagesRoot);
+        Assert.Null(capabilities.AppearanceRoot);
+        Assert.False(capabilities.PublicCommentSubmissions);
+        Assert.False(capabilities.SignedInCommentReplies);
+        Assert.False(capabilities.PrivateInboxWrites);
+        Assert.False(capabilities.DocumentExportTasks);
+        Assert.False(capabilities.PublicHotArticles);
+        Assert.False(capabilities.WideSearchCorpus);
+        Assert.Equal("server", capabilities.PublicSearchMode);
+        Assert.False(capabilities.PrivateMediaResumable);
+        Assert.False(capabilities.ArticleReadProof);
+        Assert.False(capabilities.SiteTraffic);
+        Assert.False(capabilities.ReaderRegistration);
+        Assert.False(capabilities.SitePersistentRefresh);
+        CheckAdminChannels(capabilities, value => Assert.False(value));
+        CheckAdminArticleTools(capabilities, value => Assert.False(value));
+        Assert.False(capabilities.SitePageEditor);
+        Assert.False(capabilities.OnlineAppearance);
     }
 
     [Fact]
@@ -340,36 +312,25 @@ public sealed class SiteCapabilitiesTests
     [Fact]
     public void LoopbackAdminOriginActivatesLocalEditingCapabilities()
     {
-        var root = Directory.CreateTempSubdirectory("fsusblog-loopback-admin-");
-        var webDist = Directory.CreateTempSubdirectory("fsusblog-loopback-dist-");
-        try
-        {
-            var pages = Directory.CreateDirectory(Path.Combine(root.FullName, "site-pages"));
-            foreach (var name in new[] { "about.md", "privacy.md", "guidelines.md", "copyright.md" })
-                File.WriteAllText(Path.Combine(pages.FullName, name), "# " + name);
-            var appearance = Directory.CreateDirectory(Path.Combine(root.FullName, "appearance"));
-            File.WriteAllText(Path.Combine(appearance.FullName, "appearance.json"), "{}");
+        using var directories = new SiteFixtureDirectories("fsusblog-loopback-admin-", "fsusblog-loopback-dist-");
+        var (root, webDist) = directories.Paths;
+        CreateSitePages(root);
+        WriteAppearanceFixture(root);
 
-            var capabilities = SiteCapabilities.Resolve(BuildConfig(new()
-            {
-                [SiteCapabilities.DataDirSetting] = root.FullName,
-                ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173",
-            }), webDist.FullName);
-
-            Assert.Equal(new Uri("http://localhost:5173"), capabilities.AdminIdentity?.Origin);
-            Assert.Equal("localhost", capabilities.AdminIdentity?.RpId);
-            Assert.True(capabilities.AdminTagMetadata);
-            Assert.True(capabilities.AdminCategoryMetadata);
-            Assert.True(capabilities.AdminArticleRollback);
-            Assert.True(capabilities.SitePageEditor);
-            Assert.True(capabilities.SiteConfigEditor);
-            Assert.True(capabilities.OnlineAppearance);
-        }
-        finally
+        var capabilities = SiteCapabilities.Resolve(BuildConfig(new()
         {
-            Directory.Delete(root.FullName, recursive: true);
-            Directory.Delete(webDist.FullName, recursive: true);
-        }
+            [SiteCapabilities.DataDirSetting] = root.FullName,
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173",
+        }), webDist.FullName);
+
+        Assert.Equal(new Uri("http://localhost:5173"), capabilities.AdminIdentity?.Origin);
+        Assert.Equal("localhost", capabilities.AdminIdentity?.RpId);
+        Assert.True(capabilities.AdminTagMetadata);
+        Assert.True(capabilities.AdminCategoryMetadata);
+        Assert.True(capabilities.AdminArticleRollback);
+        Assert.True(capabilities.SitePageEditor);
+        Assert.True(capabilities.SiteConfigEditor);
+        Assert.True(capabilities.OnlineAppearance);
     }
 
     [Fact]
@@ -689,5 +650,17 @@ public sealed class SiteCapabilitiesTests
             stepUp.BeginModerationStepUp("session", new AdminModerationIntent(1, 1, 0, 1, "test"), CancellationToken.None));
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             stepUp.CompleteModerationStepUp("session", new PasskeyLoginRequest("token", "id", [], [], [], [], [], false), CancellationToken.None));
+    }
+
+    private sealed class SiteFixtureDirectories(string dataPrefix, string webPrefix) : IDisposable
+    {
+        internal (DirectoryInfo Data, DirectoryInfo Web) Paths { get; } =
+            (Directory.CreateTempSubdirectory(dataPrefix), Directory.CreateTempSubdirectory(webPrefix));
+
+        public void Dispose()
+        {
+            Directory.Delete(Paths.Data.FullName, recursive: true);
+            Directory.Delete(Paths.Web.FullName, recursive: true);
+        }
     }
 }

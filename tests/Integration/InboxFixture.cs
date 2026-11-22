@@ -42,9 +42,9 @@ internal static class InboxFixture
 
     internal static string Secret() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 
-    internal static async Task SeedSession(NpgsqlConnection db, Guid id, string name, string token, CancellationToken ct, bool canAuthor = false)
+    internal static async Task SeedSession(NpgsqlConnection db, Guid id, string name, string token, CancellationToken ct)
     {
-        await FixtureSql.SiteAccountAsync(db, null, ct, id, name, canAuthor);
+        await FixtureSql.SiteAccountAsync(db, null, ct, id, name);
         await FixtureSql.ExecuteAsync(db, null, ct, """
             insert into public.user_session(digest,user_id,generation,expires_at) values($1,$2,1,now()+interval '5 minutes')
             """, Store.TokenDigest(token)!, id);
