@@ -4,6 +4,8 @@ namespace FsusBlog.V2.Server.Authoring;
 
 internal static partial class AuthorTextIndex
 {
+    private const int BackgroundBodyBatchSize = 32;
+
     internal static Task LockRebuild(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, CancellationToken ct) =>
         Store.LockCommand(db, tx, owner, Scope, ct);
 
@@ -12,7 +14,7 @@ internal static partial class AuthorTextIndex
     {
         var heading = profile == AuthorTextRebuildProfile.Heading;
         var summary = heading || profile == AuthorTextRebuildProfile.Summary;
-        await Reconcile(db, tx, owner, ct, summary, heading);
+        await Reconcile(db, tx, owner, ct, summary, heading, BackgroundBodyBatchSize);
         await using var current = Store.Sql(db, tx, $"with {Changed(summary, heading)} select exists(select from changed)", owner);
         current.CommandTimeout = 3;
         return await current.ExecuteScalarAsync(ct) is true;

@@ -17,7 +17,7 @@ internal sealed record AuthorTextFacetedPage(bool Ready, bool More, IReadOnlyLis
 
 internal static partial class AuthorTextIndex
 {
-    private const int BatchSize = 8;
+    private const int QueryBatchSize = 8;
     private const int BatchSourceCharacters = 250_000;
     private const string RankOrder = "p.phrase_rank desc,p.field_rank desc,p.updated_unix_ms desc,p.article_id";
     private const string RankTime = "floor(extract(epoch from a.updated_at)*1000)::bigint";
@@ -103,16 +103,16 @@ internal static partial class AuthorTextIndex
         """;
 
     private static async Task Reconcile(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, CancellationToken ct,
-        bool includeSummary = false, bool includeHeading = false)
+        bool includeSummary = false, bool includeHeading = false, int batchSize = QueryBatchSize)
     {
-        var batch = new List<Pending>(BatchSize);
+        var batch = new List<Pending>(batchSize);
         await using (var read = Store.Sql(db, tx, $"""
             with {Changed(includeSummary, includeHeading)},
             picked as (select * from changed order by id limit $2)
             select p.id,p.revision,r.title,r.body,coalesce(r.author_summary,'')
             from picked p left join public.article_revision r on r.article_id=p.id and r.revision=p.revision
             order by p.id
-            """, owner, BatchSize))
+            """, owner, batchSize))
         {
             read.CommandTimeout = 3;
             await using var rows = await read.ExecuteReaderAsync(ct);
