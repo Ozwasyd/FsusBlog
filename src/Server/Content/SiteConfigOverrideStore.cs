@@ -31,22 +31,6 @@ internal static class SiteConfigOverrideStore
         string SiteLogoDarkUrl,
         string SiteWordmarkUrl);
 
-    private sealed record StoredCompliance(
-        bool Enabled,
-        string RegionMode,
-        int? CopyrightStartYear,
-        string CopyrightOwner,
-        string CopyrightText,
-        string ContentLicenseName,
-        string ContentLicenseUrl,
-        string IcpRecordNumber,
-        string IcpRecordUrl,
-        string PoliceRecordNumber,
-        string PoliceRecordUrl,
-        string PoliceBadgeIconUrl,
-        string OperatorName,
-        string ContactEmail);
-
     internal static async Task<PublicSiteConfiguration.Snapshot> Read(NpgsqlConnection db, NpgsqlTransaction tx,
         PublicSiteConfiguration config, CancellationToken ct, bool forUpdate = false)
     {
@@ -59,7 +43,7 @@ internal static class SiteConfigOverrideStore
         if (revision == 0) return config.Baseline;
         var storedSeo = JsonSerializer.Deserialize<StoredSeo>(row.GetString(1))
             ?? throw new InvalidOperationException("Stored site SEO override is invalid.");
-        var storedCompliance = JsonSerializer.Deserialize<StoredCompliance>(row.GetString(2))
+        var storedCompliance = JsonSerializer.Deserialize<SiteCompliance>(row.GetString(2))
             ?? throw new InvalidOperationException("Stored site compliance override is invalid.");
         var (seo, compliance) = config.ValidateOverride(new AdminSiteConfigCommand(
             revision, config.Baseline.Digest,
@@ -100,13 +84,7 @@ internal static class SiteConfigOverrideStore
             nextSeo.PwaIcon192Url, nextSeo.PwaIcon512Url, nextSeo.PwaMaskableIconUrl,
             nextSeo.ThemeColor, nextSeo.BackgroundColor,
             nextSeo.SiteLogoUrl, nextSeo.SiteLogoDarkUrl, nextSeo.SiteWordmarkUrl));
-        var complianceJson = JsonSerializer.Serialize(new StoredCompliance(
-            nextCompliance.Enabled, nextCompliance.RegionMode, nextCompliance.CopyrightStartYear,
-            nextCompliance.CopyrightOwner, nextCompliance.CopyrightText,
-            nextCompliance.ContentLicenseName, nextCompliance.ContentLicenseUrl,
-            nextCompliance.IcpRecordNumber, nextCompliance.IcpRecordUrl,
-            nextCompliance.PoliceRecordNumber, nextCompliance.PoliceRecordUrl, nextCompliance.PoliceBadgeIconUrl,
-            nextCompliance.OperatorName, nextCompliance.ContactEmail));
+        var complianceJson = JsonSerializer.Serialize(nextCompliance);
         if (Utf8.GetByteCount(seoJson) > MaxJsonBytes || Utf8.GetByteCount(complianceJson) > MaxJsonBytes)
             throw new BusinessException(Rejection.Invalid, "Site configuration exceeds storage size limits.");
 

@@ -103,50 +103,8 @@ internal sealed class PublicSiteConfiguration
             var icpNumber = TextValue("IcpRecordNumber", command.IcpRecordNumber, 64);
             var policeNumber = TextValue("PoliceRecordNumber", command.PoliceRecordNumber, 64);
 
-            var seo = new SiteSeo
-            {
-                Title = title,
-                Description = description,
-                Author = author,
-                BaseUrl = Origin ?? "",
-                OgImage = UrlValue("OgImage", command.OgImage, asset: true),
-                FaviconSvgUrl = UrlValue("FaviconSvgUrl", command.FaviconSvgUrl, asset: true),
-                FaviconIcoUrl = UrlValue("FaviconIcoUrl", command.FaviconIcoUrl, asset: true),
-                FaviconPngUrl = UrlValue("FaviconPngUrl", command.FaviconPngUrl, asset: true),
-                AppleTouchIconUrl = UrlValue("AppleTouchIconUrl", command.AppleTouchIconUrl, asset: true),
-                ManifestName = TextValue("ManifestName", command.ManifestName, 128),
-                ManifestShortName = TextValue("ManifestShortName", command.ManifestShortName, 128),
-                PwaIcon192Url = UrlValue("PwaIcon192Url", command.PwaIcon192Url, asset: true),
-                PwaIcon512Url = UrlValue("PwaIcon512Url", command.PwaIcon512Url, asset: true),
-                PwaMaskableIconUrl = UrlValue("PwaMaskableIconUrl", command.PwaMaskableIconUrl, asset: true),
-                ThemeColor = ColorValue("ThemeColor", command.ThemeColor),
-                BackgroundColor = ColorValue("BackgroundColor", command.BackgroundColor),
-                SiteLogoUrl = UrlValue("SiteLogoUrl", command.SiteLogoUrl, asset: true),
-                SiteLogoDarkUrl = UrlValue("SiteLogoDarkUrl", command.SiteLogoDarkUrl, asset: true),
-                SiteWordmarkUrl = UrlValue("SiteWordmarkUrl", command.SiteWordmarkUrl, asset: true)
-            };
-
-            var compliance = new SiteCompliance
-            {
-                Enabled = command.ComplianceEnabled,
-                RegionMode = RegionValue("RegionMode", command.RegionMode),
-                CopyrightOwner = TextValue("CopyrightOwner", command.CopyrightOwner, 128),
-                CopyrightStartYear = YearValue("CopyrightStartYear", command.CopyrightStartYear),
-                CopyrightText = TextValue("CopyrightText", command.CopyrightText, 2048, allowWhitespaceControls: true),
-                ContentLicenseName = licenseName,
-                ContentLicenseUrl = UrlValue("ContentLicenseUrl", command.ContentLicenseUrl, label: licenseName),
-                IcpRecordNumber = icpNumber,
-                IcpRecordUrl = UrlValue("IcpRecordUrl", command.IcpRecordUrl, label: icpNumber,
-                    fallback: icpNumber.Length == 0 ? "" : "https://beian.miit.gov.cn/"),
-                PoliceRecordNumber = policeNumber,
-                PoliceRecordUrl = UrlValue("PoliceRecordUrl", command.PoliceRecordUrl, label: policeNumber,
-                    fallback: policeNumber.Length == 0 ? "" : "https://beian.mps.gov.cn/"),
-                PoliceBadgeIconUrl = UrlValue("PoliceBadgeIconUrl", command.PoliceBadgeIconUrl, asset: true, label: policeNumber),
-                OperatorName = TextValue("OperatorName", command.OperatorName, 128),
-                ContactEmail = EmailValue("ContactEmail", command.ContactEmail)
-            };
-
-            return (seo, compliance);
+            return (ReadSeo(Origin, title, description, author, command: command),
+                ReadCompliance(licenseName, icpNumber, policeNumber, command: command));
         }
         catch (InvalidOperationException error)
         {
@@ -163,46 +121,77 @@ internal sealed class PublicSiteConfiguration
         var licenseName = Text(compliance, "ContentLicenseName", 128);
         var icpNumber = Text(compliance, "IcpRecordNumber", 64);
         var policeNumber = Text(compliance, "PoliceRecordNumber", 64);
-        return new(origin, new SiteSeo
+        var description = Text(seo, "Description", 4096, DefaultDescription, allowWhitespaceControls: true);
+        var author = Text(seo, "Author", 64, DefaultAuthor);
+        return new(origin, ReadSeo(origin, seoTitle, description, author, section: seo),
+            ReadCompliance(licenseName, icpNumber, policeNumber, section: compliance));
+    }
+
+    private static SiteSeo ReadSeo(string? origin, string title, string description, string author,
+        IConfigurationSection? section = null, AdminSiteConfigCommand? command = null)
+    {
+        var fields = new Fields(section);
+        return new()
         {
-            Title = seoTitle,
-            Description = Text(seo, "Description", 4096, DefaultDescription, allowWhitespaceControls: true),
-            Author = Text(seo, "Author", 64, DefaultAuthor),
+            Title = title,
+            Description = description,
+            Author = author,
             BaseUrl = origin ?? "",
-            OgImage = Url(seo, "OgImage", asset: true),
-            FaviconSvgUrl = Url(seo, "FaviconSvgUrl", asset: true),
-            FaviconIcoUrl = Url(seo, "FaviconIcoUrl", asset: true),
-            FaviconPngUrl = Url(seo, "FaviconPngUrl", asset: true),
-            AppleTouchIconUrl = Url(seo, "AppleTouchIconUrl", asset: true),
-            ManifestName = Text(seo, "ManifestName", 128),
-            ManifestShortName = Text(seo, "ManifestShortName", 128),
-            PwaIcon192Url = Url(seo, "PwaIcon192Url", asset: true),
-            PwaIcon512Url = Url(seo, "PwaIcon512Url", asset: true),
-            PwaMaskableIconUrl = Url(seo, "PwaMaskableIconUrl", asset: true),
-            ThemeColor = Color(seo, "ThemeColor"),
-            BackgroundColor = Color(seo, "BackgroundColor"),
-            SiteLogoUrl = Url(seo, "SiteLogoUrl", asset: true),
-            SiteLogoDarkUrl = Url(seo, "SiteLogoDarkUrl", asset: true),
-            SiteWordmarkUrl = Url(seo, "SiteWordmarkUrl", asset: true)
-        }, new SiteCompliance
+            OgImage = fields.Url("OgImage", command?.OgImage, asset: true),
+            FaviconSvgUrl = fields.Url("FaviconSvgUrl", command?.FaviconSvgUrl, asset: true),
+            FaviconIcoUrl = fields.Url("FaviconIcoUrl", command?.FaviconIcoUrl, asset: true),
+            FaviconPngUrl = fields.Url("FaviconPngUrl", command?.FaviconPngUrl, asset: true),
+            AppleTouchIconUrl = fields.Url("AppleTouchIconUrl", command?.AppleTouchIconUrl, asset: true),
+            ManifestName = fields.Text("ManifestName", command?.ManifestName, 128),
+            ManifestShortName = fields.Text("ManifestShortName", command?.ManifestShortName, 128),
+            PwaIcon192Url = fields.Url("PwaIcon192Url", command?.PwaIcon192Url, asset: true),
+            PwaIcon512Url = fields.Url("PwaIcon512Url", command?.PwaIcon512Url, asset: true),
+            PwaMaskableIconUrl = fields.Url("PwaMaskableIconUrl", command?.PwaMaskableIconUrl, asset: true),
+            ThemeColor = fields.Color("ThemeColor", command?.ThemeColor),
+            BackgroundColor = fields.Color("BackgroundColor", command?.BackgroundColor),
+            SiteLogoUrl = fields.Url("SiteLogoUrl", command?.SiteLogoUrl, asset: true),
+            SiteLogoDarkUrl = fields.Url("SiteLogoDarkUrl", command?.SiteLogoDarkUrl, asset: true),
+            SiteWordmarkUrl = fields.Url("SiteWordmarkUrl", command?.SiteWordmarkUrl, asset: true)
+        };
+    }
+
+    private static SiteCompliance ReadCompliance(string licenseName, string icpNumber, string policeNumber,
+        IConfigurationSection? section = null, AdminSiteConfigCommand? command = null)
+    {
+        var fields = new Fields(section);
+        return new()
         {
-            Enabled = Boolean(compliance, "Enabled"),
-            RegionMode = Region(compliance),
-            CopyrightOwner = Text(compliance, "CopyrightOwner", 128),
-            CopyrightStartYear = Year(compliance),
-            CopyrightText = Text(compliance, "CopyrightText", 2048, allowWhitespaceControls: true),
+            Enabled = section is null ? command!.ComplianceEnabled : Boolean(section, "Enabled"),
+            RegionMode = fields.Region("RegionMode", command?.RegionMode),
+            CopyrightOwner = fields.Text("CopyrightOwner", command?.CopyrightOwner, 128),
+            CopyrightStartYear = section is null ? YearValue("CopyrightStartYear", command!.CopyrightStartYear) : Year(section),
+            CopyrightText = fields.Text("CopyrightText", command?.CopyrightText, 2048, allowWhitespaceControls: true),
             ContentLicenseName = licenseName,
-            ContentLicenseUrl = Url(compliance, "ContentLicenseUrl", label: licenseName),
+            ContentLicenseUrl = fields.Url("ContentLicenseUrl", command?.ContentLicenseUrl, label: licenseName),
             IcpRecordNumber = icpNumber,
-            IcpRecordUrl = Url(compliance, "IcpRecordUrl", label: icpNumber,
+            IcpRecordUrl = fields.Url("IcpRecordUrl", command?.IcpRecordUrl, label: icpNumber,
                 fallback: icpNumber.Length == 0 ? "" : "https://beian.miit.gov.cn/"),
             PoliceRecordNumber = policeNumber,
-            PoliceRecordUrl = Url(compliance, "PoliceRecordUrl", label: policeNumber,
+            PoliceRecordUrl = fields.Url("PoliceRecordUrl", command?.PoliceRecordUrl, label: policeNumber,
                 fallback: policeNumber.Length == 0 ? "" : "https://beian.mps.gov.cn/"),
-            PoliceBadgeIconUrl = Url(compliance, "PoliceBadgeIconUrl", asset: true, label: policeNumber),
-            OperatorName = Text(compliance, "OperatorName", 128),
-            ContactEmail = Email(compliance)
-        });
+            PoliceBadgeIconUrl = fields.Url("PoliceBadgeIconUrl", command?.PoliceBadgeIconUrl, asset: true, label: policeNumber),
+            OperatorName = fields.Text("OperatorName", command?.OperatorName, 128),
+            ContactEmail = fields.Email("ContactEmail", command?.ContactEmail)
+        };
+    }
+
+    private readonly struct Fields(IConfigurationSection? section)
+    {
+        private string Key(string key) => section is null ? key : section.Path + ":" + key;
+        private string? Value(string key, string? supplied) => section is null ? supplied : section[key];
+
+        internal string Text(string key, string? value, int limit, bool allowWhitespaceControls = false) =>
+            TextValue(Key(key), Value(key, value), limit, allowWhitespaceControls: allowWhitespaceControls);
+        internal string Url(string key, string? value, bool asset = false, string? label = null, string fallback = "") =>
+            UrlValue(Key(key), Value(key, value), asset, label, fallback);
+        internal string Color(string key, string? value) => ColorValue(Key(key), Value(key, value));
+        internal string Email(string key, string? value) => EmailValue(Key(key), Value(key, value));
+        internal string Region(string key, string? value) => RegionValue(Key(key), Value(key, value));
     }
 
     internal void Map(WebApplication app)
@@ -310,9 +299,6 @@ internal sealed class PublicSiteConfiguration
         throw Invalid(key, $"valid UTF-8 text within {maximumBytes} bytes");
     }
 
-    private static string Url(IConfigurationSection source, string key, bool asset = false, string? label = null, string fallback = "") =>
-        UrlValue(source.Path + ":" + key, source[key], asset, label, fallback);
-
     internal static string UrlValue(string key, string? raw, bool asset = false, string? label = null, string fallback = "")
     {
         var url = TextValue(key, raw, 256, fallback);
@@ -330,18 +316,12 @@ internal sealed class PublicSiteConfiguration
     private static bool IsHttpsAuthority(Uri uri) => uri.Scheme == Uri.UriSchemeHttps && uri.Port != 0 &&
         string.IsNullOrEmpty(uri.UserInfo) && uri.HostNameType is UriHostNameType.Dns or UriHostNameType.IPv4 or UriHostNameType.IPv6;
 
-    private static string Color(IConfigurationSection source, string key) =>
-        ColorValue(source.Path + ":" + key, source[key]);
-
     internal static string ColorValue(string key, string? raw)
     {
         var color = TextValue(key, raw, 7);
         if (color.Length == 0 || color.Length == 7 && color[0] == '#' && color.Skip(1).All(char.IsAsciiHexDigit)) return color;
         throw Invalid(key, "a six-digit hexadecimal color");
     }
-
-    private static string Email(IConfigurationSection source) =>
-        EmailValue(source.Path + ":ContactEmail", source["ContactEmail"]);
 
     internal static string EmailValue(string key, string? raw)
     {
@@ -350,9 +330,6 @@ internal sealed class PublicSiteConfiguration
             text.All(glyph => char.IsAsciiLetterOrDigit(glyph) || glyph is '.' or '-' or '_' or '+' or '@')) return text;
         throw Invalid(key, "one explicit public email address");
     }
-
-    private static string Region(IConfigurationSection source) =>
-        RegionValue(source.Path + ":RegionMode", source["RegionMode"]);
 
     internal static string RegionValue(string key, string? raw) => TextValue(key, raw, 32, "global").ToLowerInvariant() switch
     {
