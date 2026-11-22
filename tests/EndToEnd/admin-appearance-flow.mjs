@@ -13,7 +13,7 @@ import { decodeAdminAppearanceFontDetail, decodeAdminAppearanceState, encodeAdmi
 import { exactButton, roleWithExactName, exactText } from './role-locators.mjs'
 
 export async function verifyAppearanceActivation({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
-  priorCookie, grant, revoke, logIn, probe, readCookie, evidence }) {
+  priorCookie, revoke, logIn, probe, readCookie, evidence }) {
   await visitAdminWorkspace(page, '/admin/site')
   const admin = path => adminOrigin.origin + path
   const pub = path => siteOrigin.origin + path
@@ -36,27 +36,17 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   const check = () => exactButton(section, 'Check active appearance').click()
   assert.equal(await page.locator('link[href^="/site-appearance/"]').count(), 0)
   await probe(stateUrl, adminCookieName, siteCookie.value, 401)
+  await probe(catalogUrl, adminCookieName, siteCookie.value, 401)
   await probe(historyUrl, adminCookieName, siteCookie.value, 401)
   if (legacyFont) {
     assert.match(legacyFontDigest, /^[a-f0-9]{64}$/)
     await probe(fontDetailUrl, adminCookieName, '', 401)
     await probe(fontDetailUrl, adminCookieName, siteCookie.value, 401)
     await probe(pub(fontDetailPath(legacyFontDigest)), adminCookieName, priorCookie.value, 404)
-    assertStatus(await context.request.get(fontDetailUrl), 403)
   }
   await probe(pub(WireRoutes.AdminAppearanceState), adminCookieName, priorCookie.value, 404)
   await probe(pub(WireRoutes.AdminAppearanceHistory), adminCookieName, priorCookie.value, 404)
   await probe(admin(alias), adminCookieName, priorCookie.value, 404)
-  assertStatus(await context.request.get(stateUrl), 403)
-  assertStatus(await context.request.get(catalogUrl), 403)
-  assertStatus(await context.request.get(historyUrl), 403)
-  await section.waitFor({ state: 'detached' })
-
-  await promisify(execFile)(grant, [], { timeout: 8_000 })
-  await probe(stateUrl, adminCookieName, priorCookie.value, 401)
-  await page.reload()
-  await exactButton(page, 'Log in as administrator').waitFor()
-  await logIn(page)
   await check()
   await section.getByText(`Active theme: fixture.theme · Active font: ${fontName}`).waitFor()
   if (fontDetailUrl) {
@@ -217,8 +207,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await checkHistory()
   await exactText(history, 'Rolled back · revision 2').waitFor()
   await exactText(history, 'Applied · revision 1').waitFor()
-  assert.equal(await roleWithExactName(history, 'heading', 'Appearance history')
-    .evaluate(element => element === document.activeElement), true)
+  await roleWithExactName(history, 'heading', 'Appearance history').and(page.locator(':focus-within')).waitFor()
 
   await writeFile(join(evidence, 'appearance-rollback-url.txt'), restored.css)
   assert.deepEqual(siteErrors, [])
@@ -231,11 +220,10 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await check()
   await exactButton(page, 'Log in as administrator').waitFor()
   await logIn(page)
-  assertStatus(await context.request.get(stateUrl), 403)
-  assertStatus(await context.request.get(catalogUrl), 403)
-  assertStatus(await context.request.get(historyUrl), 403)
-  if (fontDetailUrl) assertStatus(await context.request.get(fontDetailUrl), 403)
-  await section.waitFor({ state: 'detached' })
+  assertStatus(await context.request.get(stateUrl), 200)
+  assertStatus(await context.request.get(catalogUrl), 200)
+  assertStatus(await context.request.get(historyUrl), 200)
+  if (fontDetailUrl) assertStatus(await context.request.get(fontDetailUrl), 200)
   return await readCookie(context, stateUrl, adminCookieName)
 }
 

@@ -292,9 +292,10 @@ try {
   }
 
   if (process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE === '1') {
+    assert(revokeExecutable, 'Provide the administrator revocation fixture for appearance acceptance.')
     phase = 'appearance-activation'
     finalCookie = await verifyAppearanceActivation({ ...permissionFixture,
-      priorCookie: finalCookie, grant: process.env.FSUSBLOG_TEST_APPEARANCE_GRANT, revoke: process.env.FSUSBLOG_TEST_APPEARANCE_REVOKE,
+      priorCookie: finalCookie, revoke: revokeExecutable,
       ...permissionChecks })
     checks.signedAppearanceActivationAndRollbackEvictSupersededAssets = true
   }

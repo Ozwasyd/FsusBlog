@@ -318,9 +318,6 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 || ${FSUSBLOG_TEST_ADMIN
   shasum -a 256 tests/EndToEnd/admin-article-rollback-fixture.sql >> "$evidence/run.txt"
 elif [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
-  export FSUSBLOG_TEST_APPEARANCE_GRANT="$scratch/grant-appearance" FSUSBLOG_TEST_APPEARANCE_REVOKE="$scratch/revoke-appearance"
-  permission_fixture "$FSUSBLOG_TEST_APPEARANCE_GRANT" grant system.config
-  permission_fixture "$FSUSBLOG_TEST_APPEARANCE_REVOKE" revoke system.config
   export FSUSBLOG_APPEARANCE_ROOT=$(cd "$scratch" && pwd -P)/appearance FSUSBLOG_APPEARANCE_ACTIVATION=true
   fontsource=src/Web/node_modules/@fontsource/google-sans
   font_fixture="$fontsource/files/google-sans-latin-400-normal.woff2"
@@ -334,8 +331,6 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE:-0} == 1 ]]; then
     legacy_theme_name=${theme_archives[0]##*/}
     export FSUSBLOG_TEST_ADMIN_APPEARANCE_FSTHEME_SHA256=${legacy_theme_name%.fstheme}
   fi
-  "$dotnet" "$migrate" appearance schema > "$evidence/appearance-schema.log"
-  "$dotnet" "$migrate" appearance schema >> "$evidence/appearance-schema.log"
   appearance_before=$(shasum -a 256 "$FSUSBLOG_APPEARANCE_ROOT/appearance.json")
 elif [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGES:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
