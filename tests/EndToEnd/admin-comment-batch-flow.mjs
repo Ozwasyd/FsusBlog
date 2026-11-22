@@ -1,3 +1,5 @@
+import { assertStatus } from './response-status-fixture.mjs'
+import { roleWithExactName, exactText, exactLabel } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
@@ -8,7 +10,7 @@ import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.gen
 export async function verifyAdminModerationBatch({ page, context, section, adminOrigin, publicRoute, evidence }) {
   const approved = ['Batch approve fixture one', 'Batch approve fixture two']
   const rejected = ['Batch reject fixture one', 'Batch reject fixture two']
-  const claim = section.getByRole('button', { name: 'Claim selected comments', exact: true })
+  const claim = roleWithExactName(section, 'button', 'Claim selected comments')
   const initialViewport = page.viewportSize()
   await page.setViewportSize({ width: 390, height: 844 })
   const errors = []
@@ -21,8 +23,8 @@ export async function verifyAdminModerationBatch({ page, context, section, admin
     assert.equal(await claim.isDisabled(), true)
     await choose(approved[1])
     await takeClaims()
-    await section.getByRole('button', { name: 'Cancel batch review', exact: true }).click()
-    await section.getByText('Batch review canceled.', { exact: true }).waitFor()
+    await roleWithExactName(section, 'button', 'Cancel batch review').click()
+    await exactText(section, 'Batch review canceled.').waitFor()
     await claim.waitFor()
     assert.equal(await claim.isDisabled(), true)
     for (const body of approved) await choose(body)
@@ -32,9 +34,9 @@ export async function verifyAdminModerationBatch({ page, context, section, admin
     for (const body of rejected) await choose(body)
     await takeClaims()
     await decide(2, 'Reject selected comments with Passkey', '2 comments rejected.')
-    await section.getByText('No comments are waiting for moderation.', { exact: true }).waitFor()
+    await exactText(section, 'No comments are waiting for moderation.').waitFor()
     const published = await context.request.get(publicRoute)
-    assert.equal(published.status(), 200)
+    assertStatus(published, 200)
     const publicFrame = await published.body()
     for (const body of approved) assert(publicFrame.includes(Buffer.from(body)))
     for (const body of rejected) assert(!publicFrame.includes(Buffer.from(body)))
@@ -46,24 +48,24 @@ export async function verifyAdminModerationBatch({ page, context, section, admin
   }
 
   async function choose(body) {
-    const row = section.getByRole('article').filter({ has: page.getByText(body, { exact: true }) })
+    const row = section.getByRole('article').filter({ has: exactText(page, body) })
     const checkbox = row.getByRole('checkbox', { name: /Select comment \d+ for batch review/ })
     // FsusUI renders the clickable label around its visually-hidden native input.
-    await row.getByText(/Select comment \d+ for batch review/, { exact: true }).click()
+    await exactText(row, /Select comment \d+ for batch review/).click()
     assert.equal(await checkbox.isChecked(), true)
   }
 
   async function takeClaims() {
     const [response] = await Promise.all([waitPost(WireRoutes.AdminModerationBatchClaim), claim.click()])
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     assert.equal(decodeFrame(await response.body()).type, FrameType.AdminModerationBatchClaims)
-    await section.getByText('2 comments claimed for review.', { exact: true }).waitFor()
+    await exactText(section, '2 comments claimed for review.').waitFor()
   }
 
   async function decide(decision, label, notice) {
-    const action = section.getByRole('button', { name: label, exact: true })
+    const action = roleWithExactName(section, 'button', label)
     assert.equal(await action.isDisabled(), true)
-    await section.getByLabel('Reason for batch decision', { exact: true }).fill('Batch moderation integration fixture')
+    await exactLabel(section, 'Reason for batch decision').fill('Batch moderation integration fixture')
     if (decision === 1)
       await page.screenshot({ path: join(evidence, 'admin-comment-batch-mobile.png'), animations: 'disabled' })
     const [started, completed, committed] = await Promise.all([
@@ -71,7 +73,7 @@ export async function verifyAdminModerationBatch({ page, context, section, admin
       waitPost(WireRoutes.AdminModerationBatchDecision), action.click(),
     ])
     for (const response of [started, completed, committed]) {
-      assert.equal(response.status(), 200)
+      assertStatus(response, 200)
       assert((await response.headerValue('Cache-Control'))?.includes('no-store'))
     }
     assert.equal(decodeFrame(await started.body()).type, FrameType.PasskeyLoginBegin)
@@ -82,11 +84,11 @@ export async function verifyAdminModerationBatch({ page, context, section, admin
     const payload = decodeFrame(command, FrameType.AdminModerationBatchDecision).payload
     assert.equal(new DataView(payload.buffer, payload.byteOffset, payload.byteLength).getInt32(0, true), decision)
     assert(decodeModerationBatchReceipt(decodeFrame(await committed.body(), FrameType.AdminModerationBatchReceipt).payload, 2).batchId > 0n)
-    await section.getByText(notice, { exact: true }).waitFor()
+    await exactText(section, notice).waitFor()
     const repeated = await context.request.post(committed.url(), {
       headers: { Origin: adminOrigin, 'Content-Type': 'application/octet-stream', [WireHeaders.MfaProof]: proof }, data: command,
     })
-    assert.equal(repeated.status(), 428)
+    assertStatus(repeated, 428)
   }
 
   function waitPost(path) {

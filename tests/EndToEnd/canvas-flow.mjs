@@ -1,3 +1,4 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import { waitForPathResponse } from './response-wait-fixture.mjs'
 import { createCanvasThroughUi } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
@@ -6,7 +7,7 @@ import { decodeCanvasGraphPage } from '../../src/Contracts/canvas-graph.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseCanvasReferences } from './canvas-reference-flow.mjs'
 import { exerciseCanvasBundle } from './canvas-bundle-flow.mjs'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 export async function exerciseCanvas({ page, origin, targetArticle, createDraft, screenshot, observations, monitor }) {
   const client = await page.context().newPage()
@@ -24,7 +25,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
   const draftPath = WireRoutes.Draft.replace('{id:int}', String(source.id))
   async function draft() {
     const response = await client.request.get(origin + draftPath)
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     return decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
   }
   async function state(offset = 0, revision) {
@@ -35,13 +36,13 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
       address.searchParams.set('revision', String(revision))
     }
     const response = await client.request.get(address.href)
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     return decodeCanvasGraphPage(decodeFrame(await response.body(), FrameType.CanvasGraphPage).payload, offset)
   }
   async function addReference(id, label) {
     await button('Add reference').click()
     const add = dialog('Add node')
-    await add.getByLabel('Article ID', { exact: true }).fill(String(id))
+    await exactLabel(add, 'Article ID').fill(String(id))
     await exactButton(add, 'Save node').click()
     await exactButton(outline(), label).waitFor()
   }
@@ -56,7 +57,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
       assert.match(shell.headers()['x-robots-tag'], /noindex/)
       await roleWithExactName(anonymous, 'link', 'Log in to access Canvas').waitFor()
       assert.equal(await roleWithExactName(anonymous, 'heading', title).count(), 0)
-      assert.equal((await anonymous.request.get(origin + WireRoutes.CanvasGraphList)).status(), 401)
+      assertStatus(await anonymous.request.get(origin + WireRoutes.CanvasGraphList), 401)
     } finally { await anonymous.close() }
 
     await button('Add note').click()
@@ -75,13 +76,13 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     await client.mouse.move(box.x + 72, box.y + 55, { steps: 5 })
     const moved = waitForPathResponse(client, () => WireRoutes.CanvasGraphWrite, 'POST')
     await client.mouse.up()
-    assert.equal((await moved).status(), 200)
-    await client.getByText('Revision 3 · 1/1 nodes · 0/0 edges', { exact: true }).waitFor()
+    assertStatus(await moved, 200)
+    await exactText(client, 'Revision 3 · 1/1 nodes · 0/0 edges').waitFor()
     assert.deepEqual((await state()).nodes[0].geometry, { x: 8700, y: 7000, width: 17000, height: 10000 })
     await node.focus()
     await client.keyboard.press('Enter')
     await client.keyboard.press('ArrowRight')
-    await client.getByText('Revision 4 · 1/1 nodes · 0/0 edges', { exact: true }).waitFor()
+    await exactText(client, 'Revision 4 · 1/1 nodes · 0/0 edges').waitFor()
     assert.equal((await state()).nodes[0].geometry.x, 9500)
     await screenshot(client, 'canvas-workspace-desktop')
 
@@ -92,23 +93,23 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     await addReference(targetArticle.id, `Article reference ${targetArticle.id}`)
     await button('Add reference').click()
     await add.getByLabel('Reference type').selectOption('heading-reference')
-    await add.getByLabel('Article ID', { exact: true }).fill(String(source.id))
+    await exactLabel(add, 'Article ID').fill(String(source.id))
     await add.getByLabel('Anchor ID').fill('planning')
     await exactButton(add, 'Save node').click()
     await exactButton(outline(), `Heading reference ${source.id}`).waitFor()
     await button('Add reference').click()
     await add.getByLabel('Reference type').selectOption('block-reference')
-    await add.getByLabel('Article ID', { exact: true }).fill(String(source.id))
+    await exactLabel(add, 'Article ID').fill(String(source.id))
     await add.getByLabel('Anchor ID').fill('later')
     await add.getByLabel('Pinned revision (optional)').fill(String(source.revision))
     await exactButton(add, 'Save node').click()
     await exactButton(outline(), `Block reference ${source.id}`).waitFor()
     await button('Add frame').click()
     await add.getByLabel('Frame name').fill('Planning frame')
-    await add.getByLabel('Loaded frame members', { exact: true }).selectOption({ label: 'Private spatial note' })
+    await exactLabel(add, 'Loaded frame members').selectOption({ label: 'Private spatial note' })
     await exactButton(add, 'Save node').click()
     await exactButton(outline(), 'Planning frame').click()
-    await client.getByText('1 member', { exact: true }).waitFor()
+    await exactText(client, '1 member').waitFor()
     await exactButton(outline(), `Article reference ${source.id}`).click()
     await button('Connect').click()
     const connect = dialog('Connect nodes')
@@ -119,7 +120,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     assert.equal(await button('Review article link').count(), 0)
     const review = dialog('Review article link')
     await button('Review visual connection').click()
-    await review.getByText('Use the selected visual connection as an article link. The connection stays in the Canvas.', { exact: true }).waitFor()
+    await exactText(review, 'Use the selected visual connection as an article link. The connection stays in the Canvas.').waitFor()
     await exactButton(review, 'Cancel').click()
     await review.waitFor({ state: 'hidden' })
     assert.equal((await draft()).body, sourceBody)
@@ -131,7 +132,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     await exactButton(connect, 'Save edge').click()
     await exactButton(outline(), 'Article source link').click()
     await button('Review article link').click()
-    await review.getByText(`Add this Markdown to the end of article ${source.id}'s private draft.`, { exact: true }).waitFor()
+    await exactText(review, `Add this Markdown to the end of article ${source.id}'s private draft.`).waitFor()
     const snippet = await review.locator('pre').innerText()
     assert(snippet.endsWith(`](/article/${targetArticle.id})`))
     await exactButton(review, 'Cancel').click()
@@ -150,13 +151,13 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
       return url.pathname === WireRoutes.CanvasPreview && url.searchParams.get('edge') === 'visual-only'
     })
     await button('Review visual connection').click()
-    assert.equal((await selectedPreview).status(), 200)
+    assertStatus(await selectedPreview, 200)
     const visualInsertion = await review.locator('pre').textContent()
     assert(visualInsertion.endsWith(`](/article/${targetArticle.id})`))
     assert.equal((await draft()).body, linked.body)
     const visualConfirm = waitForPathResponse(client, () => WireRoutes.CanvasConfirm)
     await exactButton(review, 'Confirm link').click()
-    assert.equal((await visualConfirm).status(), 200)
+    assertStatus(await visualConfirm, 200)
     await review.waitFor({ state: 'hidden' })
     const visualLinked = await draft()
     assert.equal(visualLinked.revision, linked.revision + 1n)
@@ -182,7 +183,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     await viewport().focus()
     const panned = waitForPathResponse(client, () => WireRoutes.CanvasGraphWrite, 'POST')
     await client.keyboard.press('ArrowRight')
-    assert.equal((await panned).status(), 200)
+    assertStatus(await panned, 200)
     await client.getByRole('status').filter({ hasText: 'Canvas saved.' }).waitFor()
     assert.equal((await state()).header.viewport.x, 3200)
     await viewport().scrollIntoViewIfNeeded()

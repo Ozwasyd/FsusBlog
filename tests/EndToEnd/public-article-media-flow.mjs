@@ -1,3 +1,4 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
@@ -11,7 +12,7 @@ import { withMediaSession } from './media-session-fixture.mjs'
 import { decodeMediaItems, uploadMedia } from '../../src/Contracts/private-media.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactText } from './role-locators.mjs'
 
 const { chromium } = requireWebPackage('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
@@ -80,7 +81,7 @@ try {
       const attachmentPath = WireRoutes.ArticleMedia.replace('{id:int}', String(articleId))
 
       async function assertNotPublic(url) {
-        assert.equal((await anonymous.request.get(url)).status(), 404)
+        assertStatus(await anonymous.request.get(url), 404)
       }
 
       function waitForPost(path) {
@@ -94,8 +95,8 @@ try {
             response.headers()[WireHeaders.ArticleCover.toLowerCase()] === assetId),
           exactButton(page, `Use ${name} as draft cover`).press('Enter'),
         ])
-        assert.equal(saved.status(), 200)
-        assert.equal(attachments.status(), 200)
+        assertStatus(saved, 200)
+        assertStatus(attachments, 200)
         assert.equal(attachments.headers()['cache-control'], 'no-store')
         return decodeDraft(decodeFrame(await saved.body(), FrameType.Draft).payload)
       }
@@ -112,7 +113,7 @@ try {
       assert.equal(new Set([chosenPreview.digest, galleryPreview.digest, privatePreview.digest]).size, 3)
       const privateRoute = origin + WireRoutes.ArticleMediaPreview
       const leakedTicket = await anonymous.request.get(privateRoute, { headers: { Authorization: privatePreview.authorization } })
-      assert.equal(leakedTicket.status(), 404)
+      assertStatus(leakedTicket, 404)
       assert.equal((await leakedTicket.body()).length, 0)
       const privateCover = await saveCover(privateOnly.name, fixture.privateOnly.id)
 
@@ -121,7 +122,7 @@ try {
       const galleryChoice = roleWithExactName(page, 'checkbox', `Publish ${galleryFile.name}`)
       const unselected = roleWithExactName(page, 'checkbox', `Publish ${privateOnly.name}`)
       await choice.waitFor({ state: 'attached' })
-      await page.getByText(`Publish ${chosen.name}`, { exact: true }).waitFor()
+      await exactText(page, `Publish ${chosen.name}`).waitFor()
       assert.equal(await choice.isChecked(), false)
       assert.equal(await unselected.isChecked(), false)
       assert.equal(await review.isEnabled(), false)
@@ -139,7 +140,7 @@ try {
       await closeInspector(page)
       const ordinary = waitForPost(WireRoutes.Publish)
       await exactButton(page, 'Publish article').click()
-      assert.equal((await ordinary).status(), 200)
+      assertStatus(await ordinary, 200)
       await page.getByText('Article published.', { exact: false }).waitFor()
       const ordinaryRelease = await publicCoordinate(anonymous, articleId)
       assert.equal(ordinaryRelease.media, null)
@@ -154,7 +155,7 @@ try {
           manifestReads.push(request.url())
       })
       const ordinaryPage = await publicPage.goto(articlePath)
-      assert.equal(ordinaryPage.status(), 200)
+      assertStatus(ordinaryPage, 200)
       await roleWithExactName(publicPage, 'heading', title).waitFor()
       await publicPage.locator('#app[data-v-app]').waitFor()
       assert.equal(await gallery.count(), 0)
@@ -165,7 +166,7 @@ try {
       await inspector.click()
       if (await manage.isVisible()) await manage.click()
       async function publishChosen(revision, asCover) {
-        await page.getByText(`Publish ${chosen.name}`, { exact: true }).waitFor()
+        await exactText(page, `Publish ${chosen.name}`).waitFor()
         assert.equal(await choice.isChecked(), false, 'A newly saved or published revision starts with no selections.')
         await choice.press('Space')
         assert.equal(await galleryChoice.isChecked(), false)
@@ -178,7 +179,7 @@ try {
           waitForPost(publishPath),
           confirm.press('Enter'),
         ])
-        assert.equal(receipt.status(), 200)
+        assertStatus(receipt, 200)
         assert.match(await receipt.request().headerValue(WireHeaders.CurrentSession) ?? '', /^[a-f0-9]{64}$/)
         const command = decodeFrame(receipt.request().postDataBuffer(), FrameType.ArticlePublishImages)
         const fields = new PodReader(command.payload)
@@ -235,7 +236,7 @@ try {
       assert.equal(online.cover, new URL(publicUrl).pathname)
       await assertNotPublic(rawUrl(articleId, omitted.publication, chosenPreview.digest))
       const raw = await anonymous.request.get(publicUrl)
-      assert.equal(raw.status(), 200)
+      assertStatus(raw, 200)
       assert.equal(raw.headers()['cache-control'], 'no-store')
       assert.equal(raw.headers()['content-type'], chosenContentType)
       assert.equal(raw.headers()['x-content-type-options'], 'nosniff')
@@ -249,7 +250,7 @@ try {
         assert.equal(publicBytes.subarray(8, 12).toString('ascii'), 'WEBP')
       }
       const head = await anonymous.request.head(publicUrl)
-      assert.equal(head.status(), 200)
+      assertStatus(head, 200)
       for (const header of ['cache-control', 'content-type', 'content-length', 'cross-origin-resource-policy']) {
         assert.equal(head.headers()[header], raw.headers()[header])
       }
@@ -259,14 +260,14 @@ try {
 
       const loadedManifest = waitForUrlResponse(publicPage, () => manifestUrl(articleId, online.publication))
       const publicHtml = await publicPage.goto(articlePath)
-      assert.equal(publicHtml.status(), 200)
+      assertStatus(publicHtml, 200)
       const source = await publicHtml.text()
       assert(source.includes('aria-label="Published images"') && source.includes(new URL(galleryUrl).pathname), 'SSR must include the authorized gallery image.')
       assert.equal(Array.from(source.matchAll(/alt="Article cover"/g)).length, 1)
       for (const asset of assets) {
         assert(!source.includes(asset.name) && !source.includes(asset.id), 'Public HTML must not expose private attachment metadata.')
       }
-      assert.equal((await loadedManifest).status(), 200)
+      assertStatus(await loadedManifest, 200)
       await roleWithExactName(publicPage.locator('#app[data-v-app]'), 'region', 'Published images').waitFor()
       assert.deepEqual(manifestReads, [manifestUrl(articleId, online.publication)])
       assert.equal(await cover.count(), 1)
@@ -274,7 +275,7 @@ try {
       assert.equal(await gallery.getAttribute('data-publication'), String(online.publication))
       if (process.env.FSUSBLOG_TEST_REQUIRE_NATIVE === '1') {
         assert.equal(await publicPage.getByText('Formatted view unavailable.', { exact: false }).count(), 0)
-        await publicPage.getByText('The gallery holds only the images selected for this publication.', { exact: true }).waitFor()
+        await exactText(publicPage, 'The gallery holds only the images selected for this publication.').waitFor()
       }
       const publicImage = roleWithExactName(gallery, 'img', 'Published image 1')
       await publicImage.scrollIntoViewIfNeeded()
@@ -289,7 +290,7 @@ try {
         const serverRendered = await browser.newContext({ viewport, colorScheme, javaScriptEnabled: false })
         try {
           const staticPage = await serverRendered.newPage()
-          assert.equal((await staticPage.goto(articlePath)).status(), 200)
+          assertStatus(await staticPage.goto(articlePath), 200)
           const staticImage = roleWithExactName(staticPage, 'region', 'Published images').getByRole('img')
           await staticImage.scrollIntoViewIfNeeded()
           const bounds = await staticImage.boundingBox()
@@ -308,13 +309,13 @@ try {
       const retract = waitForPost(WireRoutes.Retract)
       await exactButton(page, 'More actions').click()
       await roleWithExactName(page, 'menuitem', 'Withdraw').click()
-      assert.equal((await retract).status(), 200)
-      await page.getByText('Article withdrawn.', { exact: true }).waitFor()
+      assertStatus(await retract, 200)
+      await exactText(page, 'Article withdrawn.').waitFor()
       const withdrawn = await anonymous.request.get(publicUrl, { headers: { 'If-None-Match': '"' + chosenPreview.digest + '"' } })
-      assert.equal(withdrawn.status(), 404)
+      assertStatus(withdrawn, 404)
       assert.equal(withdrawn.headers()['cache-control'], 'no-store')
       assert.equal((await withdrawn.body()).length, 0)
-      assert.equal((await anonymous.request.head(publicUrl)).status(), 404)
+      assertStatus(await anonymous.request.head(publicUrl), 404)
       await assertNotPublic(galleryUrl)
       await assertNotPublic(manifestUrl(articleId, online.publication))
       await assertNotPublic(articlePath)
@@ -377,21 +378,21 @@ async function uploadWebpInLibrary(page, file) {
   const listed = waitForUrlResponse(page, () => origin + WireRoutes.PrivateMediaList)
   await page.goto(origin + '/user/manage/assets')
   const listing = await listed
-  assert.equal(listing.status(), 200)
+  assertStatus(listing, 200)
   assert.equal(listing.headers()[WireHeaders.PrivateMediaWebp.toLowerCase()], '1')
   const chooser = page.locator('#private-media-file[accept*="image/webp"]')
   await chooser.setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) })
   const stored = waitForPathResponse(page, () => WireRoutes.PrivateMediaUpload)
   await exactButton(page, '上传图片').click()
   const receipt = await stored
-  assert.equal(receipt.status(), 200)
+  assertStatus(receipt, 200)
   const frame = decodeFrame(await receipt.body())
   assert.equal(frame.type, FrameType.PrivateMediaItems)
   const { items } = decodeMediaItems(frame.payload)
   assert.equal(items.length, 1)
   assert.equal(items[0].name, file.name)
   assert.equal(items[0].format, 3)
-  await page.getByText('图片已保存。', { exact: true }).waitFor()
+  await exactText(page, '图片已保存。').waitFor()
   return items[0]
 }
 
@@ -406,7 +407,7 @@ async function preview(page, name, width) {
   const received = waitForUrlResponse(page, () => origin + WireRoutes.ArticleMediaPreview)
   await exactButton(page, `Preview ${name}`).press('Enter')
   const response = await received
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   assert.equal(response.headers()['content-type'], name.endsWith('.webp') ? 'image/webp' : 'image/png')
   const authorization = await response.request().headerValue('authorization')
   assert.match(authorization ?? '', /^Bearer [A-Za-z0-9_-]{91}$/)
@@ -415,7 +416,7 @@ async function preview(page, name, width) {
   await page.waitForFunction(({ name, width }) => Array.from(document.images).some(image => image.alt === name && image.naturalWidth === width), { name, width })
   assert((await image.getAttribute('src'))?.startsWith('blob:' + origin + '/'))
   const authorizedBytes = await page.context().request.get(response.url(), { headers: { Authorization: authorization } })
-  assert.equal(authorizedBytes.status(), 200)
+  assertStatus(authorizedBytes, 200)
   const bytes = await authorizedBytes.body()
   assert.equal(bytes.length, Number(response.headers()['content-length']))
   await exactButton(page, 'Close image preview').click()
@@ -434,7 +435,7 @@ async function closeInspector(page) {
 
 async function publicCoordinate(context, id) {
   const response = await context.request.get(origin + WireRoutes.PublicArticle.replace('{id}', String(id)))
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   const frame = decodeFrame(await response.body())
   assert.equal(frame.type, FrameType.ArticleDetail)
   const article = decodeArticle(frame.payload)
@@ -444,7 +445,7 @@ async function publicCoordinate(context, id) {
 
 async function readManifest(context, id, publication) {
   const response = await context.request.get(manifestUrl(id, publication))
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   assert.equal(response.headers()['cache-control'], 'no-store')
   const bytes = await response.body()
   const frame = decodeFrame(bytes)

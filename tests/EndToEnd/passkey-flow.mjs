@@ -1,3 +1,4 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -7,7 +8,7 @@ import { decodeSitePasskeyManagement, encodeSitePasskeyRemove } from '../../src/
 import { encodeSignIn, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { postFrame } from './browser-authoring-fixture.mjs'
 import { addAuthenticator, enableAuthenticator, expect, launchIdentityBrowser } from './site-authentication-fixture.mjs'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_PASSKEY_URL
 const ticket = process.env.FSUSBLOG_TEST_PASSKEY_TICKET
@@ -43,7 +44,7 @@ try {
   phase = 'ticket-cannot-sign-in'
   const deniedTicket = await postFrame(context.request, origin + WireRoutes.SignIn,
     FrameType.OperatorSignIn, encodeSignIn({ ticket }))
-  assert.equal(deniedTicket.status(), 401)
+  assertStatus(deniedTicket, 401)
   assert.equal(deniedTicket.headers()['set-cookie'], undefined)
   assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
   checks.setupTicketCannotSignIn = true
@@ -51,13 +52,13 @@ try {
   phase = 'provision'
   await page.goto(`${origin}/login`)
   await expect(exactButton(page, 'Log in with Passkey')).toBeVisible()
-  const setupTicket = page.getByLabel('One-time setup ticket', { exact: true })
+  const setupTicket = exactLabel(page, 'One-time setup ticket')
   await expect(setupTicket).toHaveCount(0)
   await expect(exactButton(page, 'Create Passkey')).toHaveCount(0)
-  await page.getByText('Set up your first Passkey', { exact: true }).click()
+  await exactText(page, 'Set up your first Passkey').click()
   await setupTicket.fill(ticket)
   await exactButton(page, 'Create Passkey').click()
-  await page.getByText('Passkey created. Log in with your Passkey.', { exact: true }).waitFor({ timeout: 10_000 })
+  await exactText(page, 'Passkey created. Log in with your Passkey.').waitFor({ timeout: 10_000 })
   assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
   await expect(setupTicket).toHaveCount(0)
   checks.rejectedTicketStillProvisionsWithoutSession = true
@@ -72,7 +73,7 @@ try {
   const cookie = (await context.cookies()).find(cookie => cookie.name === 'fsus-v2-session')
   assert(cookie?.httpOnly && cookie.sameSite === 'Strict' && cookie.expires === -1)
   const session = await context.request.get(`${origin}/api/v2/identity/session.aeds`)
-  assert.equal(session.status(), 200)
+  assertStatus(session, 200)
   const current = session.headers()[WireHeaders.CurrentSession.toLowerCase()]
   assert(/^[0-9a-f]{64}$/.test(current), 'Expected the active browser session handle.')
   await page.screenshot({ path: join(evidence, 'passkey-signed-in.png') })
@@ -80,7 +81,7 @@ try {
   phase = 'credential-inventory'
   const sessionHeaders = { [WireHeaders.CurrentSession]: current }
   const response = await context.request.get(origin + inventoryPath, { headers: sessionHeaders })
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   assert.match(response.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
   const inventory = decodeFrame(await response.body())
   assert.equal(inventory.type, FrameType.SitePasskeys)
@@ -100,11 +101,11 @@ try {
   const inventoryRegion = roleWithExactName(page, 'region', 'Passkeys')
   await roleWithExactName(inventoryRegion, 'heading', 'Passkeys').waitFor()
   const credential = inventoryRegion.getByRole('listitem')
-  await credential.getByText('Current session passkey', { exact: true }).waitFor()
-  await credential.getByText('Created', { exact: true }).waitFor()
-  await credential.getByText('Last used', { exact: true }).waitFor()
-  await credential.getByText('Backup eligible', { exact: true }).waitFor()
-  await credential.getByText('Backed up', { exact: true }).waitFor()
+  await exactText(credential, 'Current session passkey').waitFor()
+  await exactText(credential, 'Created').waitFor()
+  await exactText(credential, 'Last used').waitFor()
+  await exactText(credential, 'Backup eligible').waitFor()
+  await exactText(credential, 'Backed up').waitFor()
   const times = credential.locator('time')
   assert.equal(await times.count(), 2)
   const createdAt = Date.parse(await times.first().getAttribute('datetime') ?? '')
@@ -119,9 +120,9 @@ try {
 
   if (renameRequired) {
     phase = 'credential-rename'
-    assert.equal(management.status(), 200)
+    assertStatus(management, 200)
     await exactButton(credential, 'Rename Passkey').click()
-    const field = credential.getByLabel('Passkey name', { exact: true })
+    const field = exactLabel(credential, 'Passkey name')
     const save = exactButton(credential, 'Save with Passkey')
     assert(await save.isDisabled(), 'A blank name cannot be submitted.')
     await field.fill(friendlyName)
@@ -130,15 +131,15 @@ try {
     const completed = mutation(WireRoutes.SitePasskeyRenameComplete)
     await save.click()
     for (const mutationResponse of await Promise.all([began, completed])) {
-      assert.equal(mutationResponse.status(), 200)
+      assertStatus(mutationResponse, 200)
       assert.equal((await mutationResponse.request().allHeaders())[WireHeaders.CurrentSession.toLowerCase()], current)
       assert.match(await mutationResponse.headerValue('Cache-Control') ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
     }
     await inventoryRegion.getByRole('status').filter({ hasText: /^Passkey name saved\.$/ }).waitFor()
-    await credential.getByText(friendlyName, { exact: true }).waitFor()
-    await credential.getByText('Current session passkey', { exact: true }).waitFor()
+    await exactText(credential, friendlyName).waitFor()
+    await exactText(credential, 'Current session passkey').waitFor()
     await page.reload()
-    await credential.getByText(friendlyName, { exact: true }).waitFor()
+    await exactText(credential, friendlyName).waitFor()
     await page.screenshot({ path: join(evidence, 'passkey-renamed.png') })
     checks.renameWithPasskey = true
   } else if (management.status() === 404) {
@@ -147,7 +148,7 @@ try {
 
   if (enrollmentRequired) {
     phase = 'credential-enrollment'
-    assert.equal(management.status(), 200)
+    assertStatus(management, 200)
     const [first] = await readManagement(context, current)
     const approve = origin + WireRoutes.SitePasskeyEnrollApprove
     let switched = false
@@ -173,7 +174,7 @@ try {
       await exactButton(inventoryRegion, 'Add Passkey').click()
       const enrollmentResults = await Promise.all(writes)
       for (const [index, result] of enrollmentResults.entries()) {
-        assert.equal(result.status(), 200)
+        assertStatus(result, 200)
         assert((await result.request().allHeaders())[WireHeaders.CurrentSession.toLowerCase()] === current,
           'Enrollment must carry the current session handle at every stage.')
         assert.match(await result.headerValue('Cache-Control') ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
@@ -190,7 +191,7 @@ try {
           headers: { ...sessionHeaders, Origin: origin, 'Content-Type': 'application/octet-stream' },
           data: original.postDataBuffer(),
         })
-        assert.equal(repeated.status(), 401, 'A completed enrollment ceremony cannot be used twice.')
+        assertStatus(repeated, 401, 'A completed enrollment ceremony cannot be used twice.')
         assert.match(repeated.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
       }
       checks.enrollmentReplayDenied = true
@@ -221,24 +222,24 @@ try {
     monitor(security)
     await security.goto(origin + securityPath)
     const credentials = roleWithExactName(security, 'region', 'Passkeys')
-    await credentials.getByText(renameRequired ? friendlyName : 'Current session passkey', { exact: true }).waitFor()
+    await exactText(credentials, renameRequired ? friendlyName : 'Current session passkey').waitFor()
 
     phase = 'logout'
     const logout = page.waitForResponse(response => response.request().method() === 'POST' &&
       response.url() === `${origin}/api/v2/identity/sign-out.aeds`)
     await exactButton(page, 'Log out').click()
     await page.waitForURL(`${origin}/`)
-    assert.equal((await logout).status(), 200)
-    assert.equal((await context.request.get(`${origin}/api/v2/identity/session.aeds`)).status(), 401)
+    assertStatus(await logout, 200)
+    assertStatus(await context.request.get(`${origin}/api/v2/identity/session.aeds`), 401)
     await security.getByText('to manage your account.', { exact: false }).waitFor()
     assert.equal(await credentials.count(), 0, 'The open tab must clear its passkey inventory after sign-out.')
-    assert.equal(await security.getByText(friendlyName, { exact: true }).count(), 0)
+    assert.equal(await exactText(security, friendlyName).count(), 0)
     const signedOut = await context.request.get(origin + inventoryPath, { headers: { [WireHeaders.CurrentSession]: current } })
-    assert.equal(signedOut.status(), 401)
+    assertStatus(signedOut, 401)
     assert.match(signedOut.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
     if (renameRequired) {
       const signedOutManagement = await context.request.get(origin + managementPath, { headers: sessionHeaders })
-      assert.equal(signedOutManagement.status(), 401)
+      assertStatus(signedOutManagement, 401)
       assert.match(signedOutManagement.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
       checks.signedOutManagementDenied = true
     }
@@ -253,9 +254,9 @@ try {
       response.url() === origin + WireRoutes.PasskeyLoginComplete)
     await exactButton(page, 'Log in with Passkey').click()
     await page.waitForURL(`${origin}/user/manage/article/write`)
-    assert.equal((await signIn).status(), 200)
+    assertStatus(await signIn, 200)
     const renewed = await context.request.get(`${origin}/api/v2/identity/session.aeds`)
-    assert.equal(renewed.status(), 200)
+    assertStatus(renewed, 200)
     const next = renewed.headers()[WireHeaders.CurrentSession.toLowerCase()]
     assert(/^[0-9a-f]{64}$/.test(next) && next !== current, 'The second device must start a new session.')
     const entries = await readManagement(context, next)
@@ -270,7 +271,7 @@ try {
       const rows = inventoryRegion.getByRole('listitem')
       const selectedIndex = removeCurrent ? 0 : 1
       const selected = rows.nth(selectedIndex)
-      await rows.first().getByText('Current session passkey', { exact: true }).waitFor()
+      await exactText(rows.first(), 'Current session passkey').waitFor()
       const removeLabel = removeCurrent ? 'Remove current Passkey' : 'Remove Passkey'
       const remove = exactButton(selected, removeLabel)
       const confirm = exactButton(selected, 'Remove with Passkey')
@@ -315,7 +316,7 @@ try {
       assert(target.subarray(0, 32).toString('hex') === entries[selectedIndex].reference && target.readBigInt64LE(32) === entries[selectedIndex].revision,
         'Approval must address the selected device and its displayed revision.')
       if (removalRollbackRequired) {
-        await inventoryRegion.getByText('Could not confirm Passkey removal. Reload Passkeys to check.', { exact: true }).waitFor()
+        await exactText(inventoryRegion, 'Could not confirm Passkey removal. Reload Passkeys to check.').waitFor()
         await exactButton(inventoryRegion, 'Reload Passkeys').click()
         await exactButton(selected, 'Remove Passkey').waitFor()
         assert.equal(await rows.count(), 2)
@@ -324,7 +325,7 @@ try {
         assert(!(await context.cookies(origin)).some(item => item.name === 'fsus-v2-session'))
         assert(removedCookie && surviving, 'Both independent device sessions must have existed before removal.')
         const stale = await browser.newContext({ storageState: { cookies: [removedCookie], origins: [] } })
-        try { assert.equal((await stale.request.get(origin + WireRoutes.Session)).status(), 401) }
+        try { assertStatus(await stale.request.get(origin + WireRoutes.Session), 401) }
         finally { await stale.close() }
         const remainingRows = await readManagement(surviving, current)
         assert.equal(remainingRows.length, 1)
@@ -334,7 +335,7 @@ try {
           headers: { ...sessionHeaders, Origin: origin, 'Content-Type': 'application/octet-stream' },
           data: Buffer.from(encodeSitePasskeyRemove(remaining.reference, remaining.revision)),
         })
-        assert.equal(denied.status(), 409)
+        assertStatus(denied, 409)
         checks.removalRevokedCurrentSession = true
         checks.otherSessionSurvived = true
         checks.ordinaryLastRemovalDenied = true
@@ -343,7 +344,7 @@ try {
           headers: { Origin: origin, 'Content-Type': 'application/octet-stream', [WireHeaders.CurrentSession]: next },
           data: complete.request().postDataBuffer(),
         })
-        assert.equal(repeated.status(), 401, 'The completed removal cannot be used twice.')
+        assertStatus(repeated, 401, 'The completed removal cannot be used twice.')
         await inventoryRegion.getByRole('status').filter({ hasText: /^Passkey removed\.$/ }).waitFor()
         assert.equal(await rows.count(), 1)
         assert.equal(await exactButton(inventoryRegion, 'Remove Passkey').count(), 0)
@@ -351,7 +352,7 @@ try {
       }
       if (!removeCurrent) {
         const currentAfter = await context.request.get(`${origin}/api/v2/identity/session.aeds`)
-        assert.equal(currentAfter.status(), 200)
+        assertStatus(currentAfter, 200)
         assert(currentAfter.headers()[WireHeaders.CurrentSession.toLowerCase()] === next, 'The current session must survive removal.')
         const remaining = await readManagement(context, next)
         if (removalRollbackRequired) {
@@ -387,7 +388,7 @@ async function readManagement(context, currentSession) {
   const result = await context.request.get(origin + managementPath, {
     headers: { [WireHeaders.CurrentSession]: currentSession },
   })
-  assert.equal(result.status(), 200)
+  assertStatus(result, 200)
   assert.match(result.headers()['cache-control'] ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
   const data = decodeFrame(await result.body())
   assert.equal(data.type, FrameType.SitePasskeyManagement)

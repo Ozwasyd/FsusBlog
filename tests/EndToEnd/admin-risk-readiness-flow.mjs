@@ -1,3 +1,5 @@
+import { assertStatus } from './response-status-fixture.mjs'
+import { roleWithExactName, exactText } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
@@ -18,7 +20,7 @@ export async function verifyRootCommentPowPolicy({ page, context, adminOrigin, s
   const route = adminOrigin.origin + WireRoutes.AdminRootCommentPowPolicy
   const apply = adminOrigin.origin + WireRoutes.AdminRootCommentPowApply
   const submit = siteOrigin.origin + WireRoutes.SubmitPublicComment
-  const policy = page.getByRole('region', { name: 'Root comment proof policy', exact: true })
+  const policy = roleWithExactName(page, 'region', 'Root comment proof policy')
   const proofLifetime = policy.getByLabel('Proof lifetime in seconds')
   const site = await context.newPage()
   site.setDefaultTimeout(12_000)
@@ -27,7 +29,7 @@ export async function verifyRootCommentPowPolicy({ page, context, adminOrigin, s
 
   async function read(generation, proofSeconds, previousSeconds) {
     const response = await context.request.get(route, { timeout: 15_000 })
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     assert.match(response.headers()['cache-control'], /no-store/)
     const { payload } = decodeFrame(await response.body(), FrameType.AdminRootCommentPowPolicy)
     const result = decodeAdminRootCommentPowPolicy(payload)
@@ -38,25 +40,25 @@ export async function verifyRootCommentPowPolicy({ page, context, adminOrigin, s
   async function change(label, generation, proofSeconds) {
     const [response] = await Promise.all([
       waitForUrlResponse(page, () => apply, 'POST', { timeout: 15_000 }),
-      policy.getByRole('button', { name: label, exact: true }).click({ timeout: 12_000 }),
+      roleWithExactName(policy, 'button', label).click({ timeout: 12_000 }),
     ])
-    assert.equal(response.status(), 200)
-    await policy.getByText('Generation ' + generation + ' · ' + proofSeconds + ' seconds', { exact: true }).waitFor({ timeout: 12_000 })
+    assertStatus(response, 200)
+    await exactText(policy, 'Generation ' + generation + ' · ' + proofSeconds + ' seconds').waitFor({ timeout: 12_000 })
   }
 
   try {
-    await policy.getByText('Generation 1 · 120 seconds', { exact: true }).waitFor({ timeout: 12_000 })
+    await exactText(policy, 'Generation 1 · 120 seconds').waitFor({ timeout: 12_000 })
     const initial = await read(1n, 120, 0)
     await site.route(submit, async request => {
       await release.promise
       await request.continue()
     }, { times: 1 })
     await site.goto(siteOrigin.origin + '/article/1')
-    const send = site.getByRole('button', { name: 'Submit for review', exact: true })
-    await site.getByRole('textbox', { name: 'Comment', exact: true }).fill('One pending comment from the current root policy fixture.')
+    const send = roleWithExactName(site, 'button', 'Submit for review')
+    await roleWithExactName(site, 'textbox', 'Comment').fill('One pending comment from the current root policy fixture.')
     const label = 'Publish as Policy Fixture Author after review'
-    await site.getByText(label, { exact: true }).click()
-    assert(await site.getByRole('checkbox', { name: label, exact: true }).isChecked())
+    await exactText(site, label).click()
+    assert(await roleWithExactName(site, 'checkbox', label).isChecked())
     assert(await send.isEnabled())
     const [outgoing] = await Promise.all([
       site.waitForRequest(request => request.url() === submit && request.method() === 'POST', { timeout: 15_000 }),
@@ -74,7 +76,7 @@ export async function verifyRootCommentPowPolicy({ page, context, adminOrigin, s
     }))
     const stale = await context.request.post(apply, { data: Buffer.from(staleCommand), timeout: 15_000,
       headers: { Origin: adminOrigin.origin, 'Content-Type': 'application/octet-stream' } })
-    assert.equal(stale.status(), 409)
+    assertStatus(stale, 409)
     await change('Restore previous proof lifetime', '3', 120)
     const restored = await read(3n, 120, 60)
     assert.equal(restored.digest, initial.digest)
@@ -82,7 +84,7 @@ export async function verifyRootCommentPowPolicy({ page, context, adminOrigin, s
     const refusal = waitForUrlResponse(site, () => submit, 'POST', { timeout: 15_000 })
     release.resolve()
     const old = await refusal
-    assert.equal(old.status(), 401)
+    assertStatus(old, 401)
     const rejected = decodeApiError(decodeFrame(await old.body(), FrameType.ApiError).payload, old.status())
     assert.equal(rejected.details, 'comment_pow_rejected')
     await site.getByRole('alert').filter({ hasText: 'Public comment submission is unavailable.' }).waitFor()
@@ -91,9 +93,9 @@ export async function verifyRootCommentPowPolicy({ page, context, adminOrigin, s
       waitForUrlResponse(site, () => submit, 'POST'),
       send.click(),
     ])
-    assert.equal(fresh.status(), 200)
+    assertStatus(fresh, 200)
     assert.deepEqual(fresh.request().postDataBuffer(), old.request().postDataBuffer())
-    await site.getByText('Comment submitted for review.', { exact: true }).waitFor()
+    await exactText(site, 'Comment submitted for review.').waitFor()
     await writeFile(join(evidence, 'root-comment-pow-policy.json'), JSON.stringify({
       initial: initial.generation.toString(), restored: restored.generation.toString(), digest: restored.digest,
       stalePolicyCommand: stale.status(), staleProof: old.status(), currentProof: fresh.status(), sameCommand: true,
@@ -112,8 +114,8 @@ export function adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin,
     assert(values.includes(expected?.[field]), `The fixture must specify a supported ${field}.`)
   }
   const endpoint = adminOrigin.origin + path
-  const section = page.getByRole('region', { name: 'Risk controls', exact: true })
-  const button = section.getByRole('button', { name: 'Check risk controls', exact: true })
+  const section = roleWithExactName(page, 'region', 'Risk controls')
+  const button = roleWithExactName(section, 'button', 'Check risk controls')
   const observation = section.locator('dl')
   const failure = section.getByRole('alert').filter({ hasText: 'Could not check risk controls. Try again.' })
   const check = async () => (await Promise.all([
@@ -122,7 +124,7 @@ export function adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin,
   ]))[0]
 
   function readObservation(response, bytes) {
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     assert.match(response.headers()['content-type'] ?? '', /^application\/octet-stream(?:\s*;|$)/i)
     assert(response.headers()['cache-control']?.split(',').some(value => value.trim() === 'no-store'))
     const binding = response.headers()[bindingHeader]
@@ -158,7 +160,7 @@ export function adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin,
     const handler = route => route.fulfill({ status: 200, headers, body })
     await page.route(endpoint, handler, { times: 1 })
     try {
-      assert.equal((await check()).status(), 200)
+      assertStatus(await check(), 200)
       await failure.waitFor()
       await observation.waitFor({ state: 'detached' })
     } finally {
@@ -175,7 +177,7 @@ export function adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin,
     async denied() {
       await probe(siteOrigin.origin + path, adminCookieName, priorCookie.value, 404)
       await probe(endpoint, adminCookieName, siteCookie.value, 401)
-      assert.equal((await context.request.get(endpoint, { maxRedirects: 0 })).status(), 403)
+      assertStatus(await context.request.get(endpoint, { maxRedirects: 0 }), 403)
       await section.waitFor({ state: 'detached' })
     },
     async granted() {
@@ -198,7 +200,7 @@ export function adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin,
       const body = await response.body()
       const { binding, payload } = readObservation(response, body)
       const authority = await context.request.get(adminOrigin.origin + WireRoutes.AdminSession, { maxRedirects: 0 })
-      assert.equal(authority.status(), 200)
+      assertStatus(authority, 200)
       assert.equal(binding, authority.headers()[bindingHeader])
       await displayed()
 

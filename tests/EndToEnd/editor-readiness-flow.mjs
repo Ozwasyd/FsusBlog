@@ -1,3 +1,4 @@
+import { roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -14,10 +15,10 @@ const context = await browser.newContext({ viewport: { width: 1280, height: 800 
 const diagnostics = []
 const observations = []
 const writeUrl = `${origin}/user/manage/article/write`
-const heading = page => page.getByRole('heading', { name: 'New article', exact: true })
-const titleInput = page => page.getByLabel('Title', { exact: true })
-const bodyInput = page => page.getByLabel('Body', { exact: true })
-const checking = page => page.getByText('Checking local draft recovery…', { exact: true })
+const heading = page => roleWithExactName(page, 'heading', 'New article')
+const titleInput = page => exactLabel(page, 'Title')
+const bodyInput = page => exactLabel(page, 'Body')
+const checking = page => exactText(page, 'Checking local draft recovery…')
 let currentPage
 let releaseResponse
 let failure
@@ -66,8 +67,8 @@ try {
   await bodyInput(desktop).fill(body)
   await expect(titleInput(desktop)).toHaveValue(title)
   await expect(bodyInput(desktop)).toHaveValue(body)
-  await desktop.getByRole('link', { name: 'Back', exact: true }).click()
-  const confirmation = desktop.getByText('Discard unsaved changes?', { exact: true })
+  await roleWithExactName(desktop, 'link', 'Back').click()
+  const confirmation = exactText(desktop, 'Discard unsaved changes?')
   await expect(confirmation).toBeVisible()
   await desktop.screenshot({ path: join(evidence, 'editor-readiness-cancel.png') })
   await button(desktop, 'Keep writing').click()
@@ -107,7 +108,7 @@ try {
   await expect(checking(mobile)).toBeVisible()
   const find = button(mobile, 'Find in body')
   await expect(find).toBeDisabled()
-  await expect(mobile.getByText('Local draft recovery is unavailable. Save to keep your changes on the server.', { exact: true })).toBeVisible()
+  await expect(exactText(mobile, 'Local draft recovery is unavailable. Save to keep your changes on the server.')).toBeVisible()
   const lateTitle = 'Save after recovery scope timeout'
   const lateBody = 'The server can still save this 🧭 draft.'
   await titleInput(mobile).fill(lateTitle)
@@ -122,7 +123,7 @@ try {
   const original = await selection()
   assert(original[0] < original[1])
   await find.press('Space')
-  const query = mobile.getByRole('textbox', { name: '在文档中查找', exact: true })
+  const query = roleWithExactName(mobile, 'textbox', '在文档中查找')
   await expect(query).toBeFocused()
   await query.press('Escape')
   await expect(editor).toBeFocused()
@@ -132,7 +133,7 @@ try {
   await expect(query).toBeFocused()
   await query.fill('🧭')
   await button(mobile, '切换替换').tap()
-  await mobile.getByRole('textbox', { name: '替换为', exact: true }).fill('中文')
+  await roleWithExactName(mobile, 'textbox', '替换为').fill('中文')
   await button(mobile, '替换').tap()
   await query.press('Escape')
   await expect(editor).toBeFocused()

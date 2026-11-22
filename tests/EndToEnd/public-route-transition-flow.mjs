@@ -1,3 +1,4 @@
+import { roleWithExactName } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { requireWebPackage } from './web-package-fixture.mjs'
 
@@ -54,13 +55,13 @@ try {
     const nav = page.locator('header').getByRole('link')
     await nav.filter({ hasText: /^Archive$/ }).click()
     await page.waitForURL(origin + '/archive')
-    await page.getByRole('heading', { name: 'Archive', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'Archive').waitFor()
     await nav.filter({ hasText: /^About$/ }).click()
     await page.waitForURL(origin + '/about')
-    await page.getByRole('heading', { name: 'About', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'About').waitFor()
     await page.goBack()
     await page.waitForURL(origin + '/archive')
-    await page.getByRole('heading', { name: 'Archive', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'Archive').waitFor()
     if (reducedMotion === 'no-preference') {
       await page.waitForFunction(() => window.routeTransitions.length === 3 && window.routeTransitions.every(t => t.finished))
     }
@@ -75,8 +76,8 @@ try {
     assert.equal(await page.evaluate(() => window.initialHeader === document.querySelector('header') && window.initialOutlet === document.querySelector('#page-content')), true)
 
     await page.locator('.site-locale-menu button').click()
-    await page.getByRole('menuitem', { name: '中文', exact: true }).click()
-    await page.getByRole('heading', { name: '归档', exact: true }).waitFor()
+    await roleWithExactName(page, 'menuitem', '中文').click()
+    await roleWithExactName(page, 'heading', '归档').waitFor()
     assert.deepEqual(await page.evaluate(() => window.routeTransitions), transitions)
     if (reducedMotion === 'no-preference') {
       await page.waitForFunction(() => window.localeTransitions.length === 1 && window.localeTransitions[0].finished)
@@ -90,16 +91,16 @@ try {
     const authPaths = ['/login']
     if (process.env.FSUSBLOG_TEST_AUTH_TRANSITIONS === '1') {
       await page.evaluate(() => { window.authHeader = document.querySelector('header.site-auth-header') })
-      await page.getByRole('link', { name: '创建读者账户', exact: true }).click()
+      await roleWithExactName(page, 'link', '创建读者账户').click()
       await page.waitForURL(origin + '/register')
-      await page.getByRole('heading', { name: '创建读者账户', exact: true }).waitFor()
+      await roleWithExactName(page, 'heading', '创建读者账户').waitFor()
       assert.equal(await page.evaluate(() => window.authHeader === document.querySelector('header.site-auth-header')), true)
       await page.goBack()
       await page.waitForURL(origin + '/login')
       assert.equal(await page.evaluate(() => window.authHeader === document.querySelector('header.site-auth-header')), true)
       authPaths.push('/register', '/login')
     }
-    await page.getByRole('link', { name: '取消', exact: true }).click()
+    await roleWithExactName(page, 'link', '取消').click()
     await page.waitForURL(origin + '/')
     const expectedMore = reducedMotion === 'reduce' ? [] : [...authPaths, '/']
     if (expectedMore.length) {
@@ -139,7 +140,7 @@ try {
     assert.deepEqual(await page.evaluate(() => window.fallbackFades), [])
     await page.locator('header').getByRole('link').filter({ hasText: /^Archive$/ }).click()
     await page.waitForURL(origin + '/archive')
-    await page.getByRole('heading', { name: 'Archive', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'Archive').waitFor()
     const fades = await page.evaluate(() => window.fallbackFades)
     assert.equal(fades.length, 1)
     assert.equal(fades[0].path, '/archive')

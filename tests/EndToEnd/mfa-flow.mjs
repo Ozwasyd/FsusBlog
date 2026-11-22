@@ -1,8 +1,9 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { enableAuthenticator, launchIdentityBrowser, readSeed, request, totp } from './site-authentication-fixture.mjs'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_MFA_URL
 const ticket = process.env.FSUSBLOG_TEST_MFA_TICKET
@@ -22,7 +23,7 @@ let recoveryRegenerated = false
 try {
   const context = await browser.newContext()
   const page = await context.newPage()
-  assert.equal((await context.request.post(origin + regeneratePath)).status(), 401)
+  assertStatus(await context.request.post(origin + regeneratePath), 401)
   page.on('pageerror', error => faults.push(error.message))
   page.on('response', response => {
     const url = new URL(response.url())
@@ -36,13 +37,13 @@ try {
   const logout = async () => {
     const confirmed = waitApi('/api/v2/identity/sign-out.aeds')
     await exactButton(page, 'Log out').click()
-    assert.equal((await confirmed).status(), 200)
+    assertStatus(await confirmed, 200)
     await page.waitForURL(origin + '/')
   }
   const signedIn = async () => {
     await page.waitForURL(origin + '/user/manage/article/write')
     await page.getByRole('heading', { name: 'New article' }).waitFor({ timeout: 9_000 })
-    assert.equal((await context.request.get(origin + '/api/v2/identity/session.aeds')).status(), 200)
+    assertStatus(await context.request.get(origin + '/api/v2/identity/session.aeds'), 200)
     assertions++
   }
   const sessionCookie = async () => {
@@ -54,9 +55,9 @@ try {
   const verifyRotation = async (oldCookie) => {
     assert((await sessionCookie()).value !== oldCookie.value, 'MFA change reused the prior session credential.')
     const stale = await request.newContext({ storageState: { cookies: [oldCookie], origins: [] } })
-    try { assert.equal((await stale.get(origin + '/api/v2/identity/session.aeds')).status(), 401) }
+    try { assertStatus(await stale.get(origin + '/api/v2/identity/session.aeds'), 401) }
     finally { await stale.dispose() }
-    assert.equal((await context.request.get(origin + '/api/v2/identity/session.aeds')).status(), 200)
+    assertStatus(await context.request.get(origin + '/api/v2/identity/session.aeds'), 200)
     rotations++
   }
   const passkey = async () => {
@@ -64,12 +65,12 @@ try {
     const completed = waitApi('/api/binary/auth/passkey/login/complete')
     await exactButton(page, 'Log in with Passkey').click()
     const response = await completed
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     return await response.body()
   }
   const verify = async (code) => {
     const checked = waitApi('/api/binary/auth/mfa/challenge')
-    await page.getByLabel('Authenticator or recovery code', { exact: true }).fill(code)
+    await exactLabel(page, 'Authenticator or recovery code').fill(code)
     await exactButton(page, 'Verify and log in').click()
     return (await checked).status()
   }
@@ -77,14 +78,14 @@ try {
   await page.goto(origin + '/login')
   await page.getByLabel('Owner access key').fill(ticket)
   await exactButton(page, 'Create Passkey').click()
-  await page.getByText('Passkey created. Log in with your Passkey.', { exact: true }).waitFor({ timeout: 9_000 })
+  await exactText(page, 'Passkey created. Log in with your Passkey.').waitFor({ timeout: 9_000 })
   assert.equal((await passkey())[20], 1)
   await signedIn()
 
   phase = 'setup-and-verify'
   await roleWithExactName(page, 'link', 'Account').first().click()
   await page.waitForURL(origin + '/user/identity/mfa')
-  assert.equal((await context.request.post(origin + '/api/binary/auth/mfa/setup/start')).status(), 428)
+  assertStatus(await context.request.post(origin + '/api/binary/auth/mfa/setup/start'), 428)
   await exactButton(page, 'Set up authenticator').click()
   const seedNode = page.getByTestId('mfa-seed')
   await seedNode.waitFor({ timeout: 9_000 })
@@ -94,7 +95,7 @@ try {
   const step = Math.floor(Date.now() / 30_000)
   const setupCode = totp(secret, step)
   const beforeSetup = await sessionCookie()
-  await page.getByLabel('Authenticator code', { exact: true }).fill(setupCode)
+  await exactLabel(page, 'Authenticator code').fill(setupCode)
   await exactButton(page, 'Enable verification').click()
   await roleWithExactName(page, 'heading', 'Recovery codes').waitFor({ timeout: 9_000 })
   await verifyRotation(beforeSetup)
@@ -106,7 +107,7 @@ try {
 
   phase = 'totp-login'
   assert.equal((await passkey())[20], 2)
-  assert.equal((await context.request.get(origin + '/api/v2/identity/session.aeds')).status(), 401)
+  assertStatus(await context.request.get(origin + '/api/v2/identity/session.aeds'), 401)
   await page.screenshot({ path: join(evidence, 'mfa-pending.png') })
   assert.equal(await verify(setupCode), 401)
   await page.getByText('Verification failed. Use a fresh code or start a new login.').waitFor()
@@ -122,15 +123,15 @@ try {
 
   phase = 'regenerate-recovery-codes'
   await roleWithExactName(page, 'link', 'Account').first().click()
-  assert.equal((await context.request.post(origin + regeneratePath)).status(), 428)
+  assertStatus(await context.request.post(origin + regeneratePath), 428)
   const beforeRegeneration = await sessionCookie()
   const recoveryList = page.getByRole('listitem').filter({ hasText: /^(?:[0-9A-F]{4}-){7}[0-9A-F]{4}$/ })
   await exactButton(page, 'Regenerate recovery codes').click()
-  await page.getByLabel('Authenticator or recovery code to regenerate', { exact: true }).fill(recovery[1])
+  await exactLabel(page, 'Authenticator or recovery code to regenerate').fill(recovery[1])
   const regenerated = waitApi(regeneratePath)
   await exactButton(page, 'Replace recovery codes').click()
   const replacement = await regenerated
-  assert.equal(replacement.status(), 200)
+  assertStatus(replacement, 200)
   assert.equal(replacement.headers()['cache-control'], 'no-store')
   assert.equal((await replacement.headerValues('set-cookie')).length, 0)
   assert((await sessionCookie()).value === beforeRegeneration.value, 'Recovery code rotation changed the active cookie.')
@@ -138,7 +139,7 @@ try {
   const usedProof = await replacement.request().headerValue('x-fsus-mfa-proof')
   assert(Boolean(usedProof), 'Recovery rotation required an action proof.')
   const repeated = await context.request.post(origin + regeneratePath, { headers: { 'X-Fsus-Mfa-Proof': usedProof } })
-  assert.equal(repeated.status(), 428)
+  assertStatus(repeated, 428)
   await recoveryList.nth(9).waitFor({ timeout: 9_000 })
   const newCodes = await recoveryList.allTextContents()
   assert.equal(newCodes.length, 10)
@@ -160,15 +161,15 @@ try {
   phase = 'one-use-disable-proof'
   const beforeDisable = await sessionCookie()
   await roleWithExactName(page, 'link', 'Account').first().click()
-  await page.getByLabel('Authenticator or recovery code', { exact: true }).fill(newCodes[0])
+  await exactLabel(page, 'Authenticator or recovery code').fill(newCodes[0])
   const usedCode = waitApi('/api/binary/auth/mfa/challenge')
   await exactButton(page, 'Disable authenticator verification').click()
-  assert.equal((await usedCode).status(), 401)
-  await page.getByText('Could not verify your request. Use a fresh code and try again.', { exact: true }).waitFor()
+  assertStatus(await usedCode, 401)
+  await exactText(page, 'Could not verify your request. Use a fresh code and try again.').waitFor()
   const disabled = waitApi('/api/binary/auth/mfa/disable')
-  await page.getByLabel('Authenticator or recovery code', { exact: true }).fill(newCodes[1])
+  await exactLabel(page, 'Authenticator or recovery code').fill(newCodes[1])
   await exactButton(page, 'Disable authenticator verification').click()
-  assert.equal((await disabled).status(), 200)
+  assertStatus(await disabled, 200)
   await exactButton(page, 'Set up authenticator').waitFor({ timeout: 9_000 })
   await verifyRotation(beforeDisable)
   await logout()

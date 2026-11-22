@@ -1,3 +1,4 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import { createCanvasThroughUi } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
@@ -5,7 +6,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeCanvasReferenceResolution } from '../../src/Contracts/canvas-graph.ts'
 import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { canvasEditorHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 export async function exerciseCanvasReferences({ page, origin, createDraft, screenshot, observations }) {
   const viewportBefore = page.viewportSize()
@@ -40,7 +41,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await button('Add reference').click()
     const dialog = page.getByRole('dialog', { name: 'Add node' })
     await dialog.getByLabel('Reference type').selectOption(kind)
-    await dialog.getByLabel('Article ID', { exact: true }).fill(String(articleId))
+    await exactLabel(dialog, 'Article ID').fill(String(articleId))
     if (anchor !== undefined) await dialog.getByLabel('Anchor ID').fill(anchor)
     if (pinned) await dialog.getByLabel('Pinned revision (optional)').fill(String(pinned))
     return dialog
@@ -73,7 +74,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
   }
 
   async function readReference(response) {
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     return decodeCanvasReferenceResolution(decodeFrame(await response.body(), FrameType.CanvasReferenceResolution).payload)
   }
 
@@ -110,7 +111,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     assert.deepEqual(await readReference(await pending), witness.resolution, 'Current-only preflight must repeat the exact resolved witness')
     await page.waitForURL(url => url.origin + url.pathname === `${origin}/user/manage/article/edit/${draft.id}`)
     const draftReceipt = await readDraft
-    assert.equal(draftReceipt.status(), 200)
+    assertStatus(draftReceipt, 200)
     assert.deepEqual(decodeDraft(decodeFrame(await draftReceipt.body(), FrameType.Draft).payload), draft)
     await nativeEditor().waitFor()
     await page.waitForFunction(({ source, titleValue, caret }) => {
@@ -127,7 +128,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     const response = await page.request.post(`${origin}${WireRoutes.Save}`, {
       data: Buffer.from(encodeFrame(FrameType.ArticleCommand, command)), headers: { 'Content-Type': 'application/octet-stream' },
     })
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     const updated = decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
     assert.equal(updated.id, previous.id)
     assert.equal(updated.revision, previous.revision + 1n)
@@ -139,13 +140,13 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     const planned = page.waitForResponse(response => response.url() === `${origin}${WireRoutes.Save}` && response.request().method() === 'POST')
     await button('Save draft').click()
     const receipt = await planned
-    assert.equal(receipt.status(), 200)
+    assertStatus(receipt, 200)
     const saved = decodeDraft(decodeFrame(await receipt.body(), FrameType.Draft).payload)
     assert.equal(saved.id, previous.id)
     assert.equal(saved.revision, previous.revision + 1n)
     assert.equal(saved.title, titleValue)
     assert.equal(saved.body, rawBody)
-    await page.getByText('Draft saved.', { exact: true }).waitFor()
+    await exactText(page, 'Draft saved.').waitFor()
     return saved
   }
 
@@ -203,7 +204,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     const edited = await saveFromEditor(reverted, editedTitle, newRaw)
     await expectProjected(newProjected)
     const stored = await page.request.get(draftReadPath(original.id))
-    assert.equal(stored.status(), 200)
+    assertStatus(stored, 200)
     assert.deepEqual(decodeDraft(decodeFrame(await stored.body(), FrameType.Draft).payload), edited)
     observations.push('Canvas witnesses the raw UTF-16 caret of a uniform CRLF draft and opens its LF editor projection without normalizing decomposed Unicode. Title-only save, undo, and multiline editing retain the exact CRLF source in the saved draft.')
   }
@@ -225,7 +226,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     const headingWitness = await resolveSelected()
     await resolved().waitFor()
     await preview().getByRole('heading', { name: /Source coordinates/ }).waitFor()
-    await preview().getByText(`Resolved revision ${article.revision}`, { exact: true }).waitFor()
+    await exactText(preview(), `Resolved revision ${article.revision}`).waitFor()
     await preview().getByText(/Planning heading/).waitFor()
     await openResolved(headingWitness, 'planning')
     await returnToCanvas('outline')
@@ -235,7 +236,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
       response.url() === origin + WireRoutes.CanvasGraphWrite)
     await exactButton(rejected, 'Save node').click()
     const denied = await rejectedWrite
-    assert.equal(denied.status(), 404)
+    assertStatus(denied, 404)
     decodeFrame(await denied.body(), FrameType.ApiError)
     await rejected.getByRole('alert').filter({ hasText: 'Canvas reference is unavailable.' }).waitFor()
     await exactButton(rejected, 'Cancel').click()
@@ -259,7 +260,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await selectPinnedBlock()
     const blockWitness = await resolveSelected()
     await resolved().waitFor()
-    await preview().getByText(`Pinned revision ${article.revision}`, { exact: true }).waitFor()
+    await exactText(preview(), `Pinned revision ${article.revision}`).waitFor()
     await preview().getByText(/A paragraph with ‹tag›/).waitFor()
     assert.equal(await preview().locator('tag, title-literal').count(), 0)
     await screenshot(page, 'canvas-reference-mobile')
@@ -316,7 +317,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     const changedRevision = await changed.promise
     if (changedRevision instanceof Error) throw changedRevision
     assert.equal(typeof changedRevision, 'bigint')
-    await page.getByText('The referenced revision is no longer current. Resolve it again from the Canvas.', { exact: true }).waitFor()
+    await exactText(page, 'The referenced revision is no longer current. Resolve it again from the Canvas.').waitFor()
     await page.waitForURL(url => url.origin + url.pathname === editorPath)
     assert.equal(await nativeEditor().count(), 0)
     assert.equal(await page.evaluate(() => window.canvasReferenceEditorMounted), false)
@@ -334,9 +335,9 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     const { canvasId, nodeId, canvasRevision } = historic.resolution
     assert.deepEqual(refusal, { canvasId, nodeId, canvasRevision, state: 'stale-revision', articleId: null,
       articleRevision: null, pinned: false, title: null, excerpt: null, sourceOffset: null })
-    await preview().getByText('The pinned revision cannot be opened as the current draft.', { exact: true }).waitFor()
+    await exactText(preview(), 'The pinned revision cannot be opened as the current draft.').waitFor()
     await resolved().waitFor()
-    await preview().getByText(`Pinned revision ${article.revision}`, { exact: true }).waitFor()
+    await exactText(preview(), `Pinned revision ${article.revision}`).waitFor()
     await preview().getByText(/A paragraph with ‹tag›/).waitFor()
     assert.equal(page.url(), canvasUrl)
     assert.equal(await nativeEditor().count(), 0)

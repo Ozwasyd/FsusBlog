@@ -1,3 +1,4 @@
+import { exactText, roleWithExactName } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { submitSearch as submit } from './search-form-fixture.mjs'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -6,7 +7,7 @@ import { WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.ge
 const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
 const pagesHeader = WireHeaders.SearchIndexPages.toLowerCase()
 const corpus = (url, origin) => url.origin === origin && url.pathname === WireRoutes.PublicSearchCorpus
-const noMatches = page => page.getByText('No articles match your search.', { exact: true })
+const noMatches = page => exactText(page, 'No articles match your search.')
 const searchWorker = page => page.workers().find(worker => new URL(worker.url()).pathname.includes('/search.worker'))
 
 
@@ -78,7 +79,7 @@ export async function exerciseSearchWorkerReuse({ page, origin, articleTitle, fi
   }
   context.on('response', record)
   const race = await context.newPage()
-  const result = tab => tab.locator('ol.article-list').getByRole('link', { name: articleTitle, exact: true })
+  const result = tab => roleWithExactName(tab.locator('ol.article-list'), 'link', articleTitle)
   try {
     let start = received.length
     await page.goto(`${origin}/search`)
@@ -126,7 +127,7 @@ export async function exerciseSearchWorkerReuse({ page, origin, articleTitle, fi
     assert.equal(await result(page).count(), 0)
 
     start = received.length
-    await race.getByRole('button', { name: 'Retry', exact: true }).click()
+    await roleWithExactName(race, 'button', 'Retry').click()
     await noMatches(race).waitFor()
     verifyHeads(received.slice(start), newGeneration, [204, 204])
     assert.equal(await result(race).count(), 0)

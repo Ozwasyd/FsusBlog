@@ -1,3 +1,5 @@
+import { assertStatus } from './response-status-fixture.mjs'
+import { roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { requireWebPackage } from './web-package-fixture.mjs'
 import { join } from 'node:path'
@@ -10,8 +12,8 @@ import { FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contra
 const { expect } = requireWebPackage('@playwright/test')
 const button = (scope, name) => scope.getByRole('button', { name, exact: true })
 const mode = scope => button(scope, 'Pinned views')
-const pins = scope => scope.getByRole('navigation', { name: 'Pinned saved views', exact: true })
-const title = page => page.getByLabel('Title', { exact: true })
+const pins = scope => roleWithExactName(scope, 'navigation', 'Pinned saved views')
+const title = page => exactLabel(page, 'Title')
 const placementPath = WireRoutes.SavedViewPlacement
 const executionPath = WireRoutes.SavedViewExecute
 const currentSession = WireHeaders.CurrentSession.toLowerCase()
@@ -27,11 +29,11 @@ async function openRail(page, pane) {
     await direct.click()
   } else {
     await button(page, 'More actions').click()
-    await page.getByRole('menuitem', { name: 'Article library', exact: true }).click()
+    await roleWithExactName(page, 'menuitem', 'Article library').click()
   }
   await expect(pane).toBeVisible()
   const placement = await receipt
-  assert.equal(placement.status(), 200)
+  assertStatus(placement, 200)
   decodeFrame(await placement.body(), FrameType.SavedViewPlacement)
   const handle = placement.request().headers()[currentSession]
   assert(handle && validSiteSessionId(handle))
@@ -43,7 +45,7 @@ async function startEditor(page, origin, article, width) {
   await page.goto(new URL(`/user/manage/article/edit/${article.id}`, origin).href)
   await expect(title(page)).toHaveValue(article.title)
   await expect(title(page)).toBeEditable()
-  return page.getByRole(width === 375 ? 'dialog' : 'complementary', { name: 'Article library', exact: true })
+  return roleWithExactName(page, width === 375 ? 'dialog' : 'complementary', 'Article library')
 }
 
 async function expectPins(pane, expected) {
@@ -102,7 +104,7 @@ export async function exercisePinnedViewRail({ page, article, links, observation
       })
 
       await clickTarget.click()
-      const confirmation = mobile.getByText('Discard unsaved changes?', { exact: true })
+      const confirmation = exactText(mobile, 'Discard unsaved changes?')
       await expect(confirmation).toBeVisible()
       await button(mobile, 'Keep writing').click()
       await expect(confirmation).toBeHidden()
@@ -116,7 +118,7 @@ export async function exercisePinnedViewRail({ page, article, links, observation
       await button(mobile, 'Discard changes').click()
       await expect(mobile).toHaveURL(new URL(chosen.href, editorUrl).href)
       const result = await pending
-      assert.equal(result.status(), 200)
+      assertStatus(result, 200)
       assert.equal(result.request().headers()[currentSession], handle)
       assert.equal(executed.length, 1)
       const input = new PodReader(decodeFrame(result.request().postDataBuffer(), FrameType.SavedViewExecute).payload)
@@ -127,8 +129,8 @@ export async function exercisePinnedViewRail({ page, article, links, observation
       const { rows, nextCursor } = decodePropertyMatches(decodeFrame(await result.body(), FrameType.PropertyArticlePage).payload)
       assert.equal(nextCursor, '')
       assert.deepEqual(rows.map(({ id, title }) => ({ id, title })), [{ id: article.id, title: article.title }])
-      const output = mobile.getByRole('region', { name: '保存视图结果', exact: true })
-      await expect(output.getByRole('heading', { name: chosen.title, exact: true })).toBeFocused()
+      const output = roleWithExactName(mobile, 'region', '保存视图结果')
+      await expect(roleWithExactName(output, 'heading', chosen.title)).toBeFocused()
       const resultLinks = output.getByRole('link')
       await expect(resultLinks).toHaveCount(rows.length)
       await expect(resultLinks.first()).toHaveAttribute('href', `/user/manage/article/edit/${article.id}`)

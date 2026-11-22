@@ -1,3 +1,4 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { waitForPathResponse, waitForUrlResponse } from './response-wait-fixture.mjs'
@@ -11,7 +12,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodWriter } from '../../src/Contracts/binary.ts'
 import { uploadMedia } from '../../src/Contracts/private-media.ts'
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactText } from './role-locators.mjs'
 
 const { chromium } = requireWebPackage('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
@@ -71,7 +72,7 @@ try {
         waitForUrlResponse(page, () => previewUrl),
         page.keyboard.press('Enter'),
       ])
-      assert.equal(previewResponse.status(), 200)
+      assertStatus(previewResponse, 200)
       const authorization = await previewResponse.request().headerValue('authorization')
       assert(/^Bearer [A-Za-z0-9_-]{91}$/.test(authorization ?? ''), 'Browser supplied the private preview header')
       assert.equal(await previewResponse.request().headerValue('referer'), null)
@@ -84,10 +85,10 @@ try {
       assert.equal(denied.status, 404)
       assert.equal((await denied.arrayBuffer()).byteLength, 0)
       const withoutAuthorization = await author.request.get(previewUrl)
-      assert.equal(withoutAuthorization.status(), 404)
+      assertStatus(withoutAuthorization, 404)
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
       const ownerPreview = await author.request.get(previewUrl, { headers: { Authorization: authorization } })
-      assert.equal(ownerPreview.status(), 200)
+      assertStatus(ownerPreview, 200)
       const previewBytes = await ownerPreview.body()
       assert(previewBytes.length > 0)
       await verifyOfflineAttachment(page, draft, asset.id, file, previewBytes)
@@ -98,10 +99,10 @@ try {
           waitForPathResponse(page, () => WireRoutes.DocumentExportCreate),
           page.getByRole('button', { name: 'Queue HTML with this image' }).click(),
         ])
-        assert.equal(queued.status(), 200)
+        assertStatus(queued, 200)
         assert.equal(await queued.request().headerValue(WireHeaders.HtmlExportAttachment), asset.id)
         await page.getByRole('button', { name: 'HTML task added' }).waitFor()
-        await page.getByText('Document export tasks', { exact: true }).click()
+        await exactText(page, 'Document export tasks').click()
         const tasks = page.getByRole('region', { name: 'Document export tasks' })
         const [result] = await Promise.all([
           page.waitForEvent('download'), tasks.getByRole('button', { name: 'Download export' }).click(),
@@ -126,7 +127,7 @@ try {
         page.waitForResponse(response => coverRead(response) && response.headers()['x-fsus-article-cover'] === asset.id),
         exactButton(page, `Use ${file} as draft cover`).click(),
       ])
-      assert.equal(savedCover.status(), 200)
+      assertStatus(savedCover, 200)
       assert.equal(attachedCover.headers()['cache-control'], 'no-store')
       const covered = decodeDraft(decodeFrame(await savedCover.body(), FrameType.Draft).payload)
       assert.equal(covered.revision, draft.revision + 3n)
@@ -144,20 +145,20 @@ try {
         assert.equal(response.status(), status)
       }
       const replay = await author.request.post(postCover, { headers, data })
-      assert.equal(replay.status(), 200)
+      assertStatus(replay, 200)
       assert.deepEqual(await replay.body(), await savedCover.body())
       await assertCoverRejected(WireHeaders.CurrentSession, 'invalid', data, 409)
       const staleKey = crypto.randomUUID()
       const staleData = coverFrame(draft.id, covered.revision - 1n, staleKey, second.id)
       await assertCoverRejected(WireHeaders.ClientMutationId, staleKey, staleData, 409)
       assert.equal((await fetch(postCover, { method: 'POST', headers, body: data })).status, 401)
-      await page.getByText('Draft cover', { exact: true }).waitFor()
+      await exactText(page, 'Draft cover').waitFor()
 
       const [selection, images] = await Promise.all([
         waitForPathResponse(page, () => `/api/v2/authoring/draft/${draft.id}/export.html`),
         page.waitForEvent('download'), page.getByRole('button', { name: 'Download saved HTML with these images' }).click(),
       ])
-      assert.equal(selection.status(), 200)
+      assertStatus(selection, 200)
       assert.deepEqual((await selection.request().headerValue(WireHeaders.HtmlExportAttachment)).split(',').sort(),
         [asset.id, second.id].sort())
       assert.equal((await readFile(await images.path(), 'utf8')).split('data:image/png;base64,' + previewBytes.toString('base64')).length, 3)
@@ -176,24 +177,24 @@ try {
       const unattachedKey = crypto.randomUUID()
       const unattached = coverFrame(draft.id, current, unattachedKey, second.id)
       await assertCoverRejected(WireHeaders.ClientMutationId, unattachedKey, unattached, 404)
-      await page.getByText('Revision history', { exact: true }).click()
+      await exactText(page, 'Revision history').click()
       await exactButton(page, `Compare revision ${covered.revision}`).click()
       const comparison = roleWithExactName(page, 'dialog', 'Revision comparison')
       const [fields] = await Promise.all([
         page.waitForResponse(response => new URL(response.url()).searchParams.get('map') === 'metadata'),
-        comparison.getByText('Saved summary and classification', { exact: true }).press('Enter'),
+        exactText(comparison, 'Saved summary and classification').press('Enter'),
       ])
       assert.equal(fields.headers()['x-fsus-article-cover'], 'none')
       assert.equal(fields.headers()['x-fsus-source-article-cover'], asset.id)
-      await comparison.getByText(`Private image ${asset.id}`, { exact: true }).waitFor()
+      await exactText(comparison, `Private image ${asset.id}`).waitFor()
       await comparison.getByLabel('Reason for restoring this draft').fill('Restore the selected private cover.')
       await exactButton(comparison, 'Restore as new draft').click()
       await comparison.waitFor({ state: 'hidden' })
-      await page.getByText('Draft cover', { exact: true }).waitFor()
+      await exactText(page, 'Draft cover').waitFor()
       await exactButton(page, 'Detach companion-' + file).click()
       await exactButton(page, `Detach ${file}`).click()
-      await page.getByText('No images are attached to this revision.', { exact: true }).waitFor()
-      assert.equal((await author.request.get(previewUrl, { headers: { Authorization: authorization } })).status(), 404)
+      await exactText(page, 'No images are attached to this revision.').waitFor()
+      assertStatus(await author.request.get(previewUrl, { headers: { Authorization: authorization } }), 404)
       revokedPreviewUrl = objectUrl
       assert(await page.evaluate(url => new Promise(resolve => {
         const probe = new Image()
@@ -232,7 +233,7 @@ async function downloadAttachment(page, draft, assetId, format, extension = form
     page.waitForEvent('download'),
     button.click(),
   ])
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   const revision = String(draft.revision + 1n)
   assert.deepEqual([...new URL(response.url()).searchParams], [['revision', revision], ['sourceRevision', revision]])
   assert.equal(await response.request().headerValue(WireHeaders.HtmlExportAttachment), assetId)

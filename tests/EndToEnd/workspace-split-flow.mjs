@@ -1,3 +1,4 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -9,7 +10,7 @@ import {
 } from '../../src/Contracts/wire.generated.ts'
 import { waitForUrlResponse } from './response-wait-fixture.mjs'
 import { authorFixture, button, chromium, expect, holdResponse, readDraft, submitArticle } from './browser-authoring-fixture.mjs'
-import { roleWithExactName } from './role-locators.mjs'
+import { roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -66,9 +67,9 @@ async function pinArticle(page, draft) {
 }
 
 async function openById(page, id, command = 'Open in other group') {
-  const inlineInput = page.getByLabel('Article ID', { exact: true })
+  const inlineInput = exactLabel(page, 'Article ID')
   const scope = await inlineInput.isVisible() ? page : await openWorkspaceDialog(page)
-  await scope.getByLabel('Article ID', { exact: true }).fill(String(id))
+  await exactLabel(scope, 'Article ID').fill(String(id))
   await button(scope, command).click()
 }
 
@@ -89,7 +90,7 @@ async function reopenDraft(page, draft) {
 }
 
 function expectWorkspaceMessage(page, message) {
-  return expect(page.getByText(message, { exact: true })).toBeVisible()
+  return expect(exactText(page, message)).toBeVisible()
 }
 
 async function expectPane(pane, draft, source, writable) {
@@ -302,7 +303,7 @@ async function capture(page, name) {
 }
 
 async function decodeSavedGroups(response) {
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   const snapshot = decodeAuthoringWorkspaceGroups(decodeFrame(await response.body(), FrameType.AuthoringWorkspaceGroups).payload)
   assert.equal(snapshot.schemaVersion, 3)
   return snapshot
@@ -460,7 +461,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await press(page, others)
     await expect(listedTabs).toHaveText(confirmedTargets)
     await expect(discard).not.toBeChecked()
-    await dialog.getByText('Discard unsaved edits from this browser', { exact: true }).click()
+    await exactText(dialog, 'Discard unsaved edits from this browser').click()
     await expect(discard).toBeChecked()
     await button(dialog, 'Close tabs').click()
     await expectWorkspaceMessage(page, 'Closed 2 tabs.')
@@ -541,10 +542,10 @@ async function exerciseSaveAndClose(author) {
   async function chooseSave() {
     const dialog = roleWithExactName(page, 'dialog', 'Close tabs with unsaved edits?')
     await expect(dialog).toHaveCount(0)
-    if (!await others.isVisible()) await page.getByText('Tab actions', { exact: true }).click()
+    if (!await others.isVisible()) await exactText(page, 'Tab actions').click()
     await press(page, others)
     const option = 'Save drafts before closing'
-    await dialog.getByText(option, { exact: true }).click()
+    await exactText(dialog, option).click()
     await expect(roleWithExactName(dialog, 'radio', option)).toBeChecked()
     await button(dialog, 'Close tabs').click()
   }
@@ -670,7 +671,7 @@ async function exerciseSingleDirtyClose(author) {
 
   async function confirmClose(option) {
     await openCloseDialog()
-    await dialog.getByText(option, { exact: true }).click()
+    await exactText(dialog, option).click()
     await expect(roleWithExactName(dialog, 'radio', option)).toBeChecked()
     await button(dialog, 'Close tabs').click()
   }
@@ -773,12 +774,12 @@ async function exerciseSingleDirtyClose(author) {
     const removed = await submitArticle(author.request, origin + WireRoutes.Delete, {
       id: victim.id, expectedRevision: victim.revision + 1n, title: '', body: '',
     })
-    assert.equal(removed.status(), 200)
+    assertStatus(removed, 200)
     decodeFrame(await removed.body(), FrameType.EmptySuccess)
     if (!await recent.isVisible()) await openWorkspaceDialog(page)
     const denied = waitForUrlResponse(page, () => draftPath(victim.id))
     await press(page, recent)
-    assert.equal((await denied).status(), 404)
+    assertStatus(await denied, 404)
     await expectWorkspaceMessage(page, 'The article is unavailable.')
     await expect(recent).toHaveCount(0)
     await expect(page).toHaveURL(editPath(anchor.id))
@@ -1043,7 +1044,7 @@ async function exerciseSavedWorkspace({ author, session, outsider, outsiderSessi
     const other = await outsider.newPage()
     monitor(other)
     const wrongSession = await outsider.request.get(groupsPath, { headers: { [WireHeaders.CurrentSession]: session } })
-    assert.equal(wrongSession.status(), 409)
+    assertStatus(wrongSession, 409)
     const otherLayout = await savedGroups(outsider, outsiderSession)
     assert.equal(otherLayout.revision, 0n)
     assert.deepEqual(coordinates(otherLayout), { primary: [], secondary: [], primaryActive: 0, secondaryActive: 0, focusedGroup: 0 })
@@ -1097,7 +1098,7 @@ try {
   const secondary = group(page, 'Secondary')
   const denied = waitForUrlResponse(page, () => draftPath(foreign.id))
   await openById(page, foreign.id)
-  assert.equal((await denied).status(), 404)
+  assertStatus(await denied, 404)
   await expectWorkspaceMessage(page, 'The article is unavailable.')
   await expect(page).toHaveURL(editPath(first.id))
   await expect(secondary).toHaveCount(0)
@@ -1190,7 +1191,7 @@ try {
     await expectPane(primary, first, localSource, true)
     await expect(secondary).toBeHidden()
     await expect(separator(page)).toHaveCount(0)
-    await expect(page.getByText('Equalize group widths', { exact: true })).toHaveCount(0)
+    await expect(exactText(page, 'Equalize group widths')).toHaveCount(0)
     await expect(body(primary)).toBeFocused()
     await expectSameEditor(body(primary), firstNode)
     assert.equal(await secondNode.evaluate(element => element.isConnected), true, `Collapse at ${width}px must retain the second editor`)

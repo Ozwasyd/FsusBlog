@@ -1,3 +1,5 @@
+import { assertStatus } from './response-status-fixture.mjs'
+import { exactLabel, roleWithExactName, exactText } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticleCommand, decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
@@ -5,10 +7,10 @@ import { readMarkdownDownload } from './markdown-export-flow.mjs'
 
 export async function exerciseMarkdownImport({ page, origin, bytes, title, body }) {
   const button = name => page.getByRole('button', { name, exact: true })
-  const titleInput = page.getByLabel('Title', { exact: true })
-  const bodyInput = page.getByLabel('Body', { exact: true })
+  const titleInput = exactLabel(page, 'Title')
+  const bodyInput = exactLabel(page, 'Body')
   const launcher = button('Import Markdown')
-  const importer = page.getByRole('region', { name: 'Import Markdown', exact: true })
+  const importer = roleWithExactName(page, 'region', 'Import Markdown')
   const action = name => importer.getByRole('button', { name, exact: true })
   const save = button('Save draft')
   const isSave = request => request.method() === 'POST' && new URL(request.url()).pathname === WireRoutes.Save
@@ -23,7 +25,7 @@ export async function exerciseMarkdownImport({ page, origin, bytes, title, body 
     assert.equal(saveRequests.length, 0, 'Loading local Markdown must not save a draft.')
   }
   async function chooseFile(buffer) {
-    await importer.getByLabel('Markdown file', { exact: true }).setInputFiles({
+    await exactLabel(importer, 'Markdown file').setInputFiles({
       name: 'article.md', mimeType: 'text/markdown', buffer,
     })
   }
@@ -34,7 +36,7 @@ export async function exerciseMarkdownImport({ page, origin, bytes, title, body 
   }
 
   try {
-    await page.getByRole('heading', { name: 'New article', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'New article').waitFor()
     await launcher.waitFor()
     await expectBlank()
 
@@ -42,8 +44,8 @@ export async function exerciseMarkdownImport({ page, origin, bytes, title, body 
     const malformed = exported.replace(/^title: .*$/mu, 'title: "unterminated')
     assert.notEqual(malformed, exported)
     await launcher.click()
-    await importer.getByLabel('Title for plain Markdown', { exact: true }).fill('Must not downgrade a named export')
-    await importer.getByLabel('Markdown to import', { exact: true }).fill(malformed)
+    await exactLabel(importer, 'Title for plain Markdown').fill('Must not downgrade a named export')
+    await exactLabel(importer, 'Markdown to import').fill(malformed)
     await action('Load into draft').click()
     await importer.getByRole('alert').waitFor()
     await cancelImport()
@@ -57,7 +59,7 @@ export async function exerciseMarkdownImport({ page, origin, bytes, title, body 
     await chooseFile(bytes)
     await expectBlank()
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
-    const sourceId = await importer.getByLabel('Markdown to import', { exact: true }).getAttribute('id')
+    const sourceId = await exactLabel(importer, 'Markdown to import').getAttribute('id')
     await page.waitForFunction(({ id, value }) => document.getElementById(id)?.value === value,
       { id: sourceId, value: exported.replace(/\r\n?/gu, '\n') })
     await action('Load into draft').click()
@@ -66,8 +68,8 @@ export async function exerciseMarkdownImport({ page, origin, bytes, title, body 
     assert.equal(await titleInput.inputValue(), title)
     assert.equal(await bodyInput.inputValue(), body.replace(/\r\n?/gu, '\n'))
     assert.equal(saveRequests.length, 0)
-    await page.getByRole('link', { name: 'Back', exact: true }).click()
-    await page.getByText('Discard unsaved changes?', { exact: true }).waitFor()
+    await roleWithExactName(page, 'link', 'Back').click()
+    await exactText(page, 'Discard unsaved changes?').waitFor()
     await button('Keep writing').click()
     assert.equal(await titleInput.inputValue(), title)
 
@@ -75,7 +77,7 @@ export async function exerciseMarkdownImport({ page, origin, bytes, title, body 
       page.waitForResponse(response => isSave(response.request())),
       save.click(),
     ])
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     const request = response.request().postDataBuffer()
     assert(request)
     const command = decodeArticleCommand(decodeFrame(request, FrameType.ArticleCommand).payload)
@@ -88,7 +90,7 @@ export async function exerciseMarkdownImport({ page, origin, bytes, title, body 
     assert.equal(saveRequests.length, 1)
     await page.waitForURL(origin + '/user/manage/article/edit/' + draft.id)
     await page.reload()
-    await page.getByRole('heading', { name: 'Edit article', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'Edit article').waitFor()
     assert.equal(await titleInput.inputValue(), title)
     assert.equal(await bodyInput.inputValue(), body.replace(/\r\n?/gu, '\n'))
     await launcher.waitFor({ state: 'hidden' })

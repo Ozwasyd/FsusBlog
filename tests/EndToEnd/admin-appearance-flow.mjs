@@ -1,3 +1,4 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
@@ -9,7 +10,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAppearanceHistory } from '../../src/Contracts/admin-appearance.ts'
 import { decodeAdminAppearanceFontDetail, decodeAdminAppearanceState, encodeAdminAppearanceCommand,
   FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactText } from './role-locators.mjs'
 
 export async function verifyAppearanceActivation({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
   priorCookie, grant, revoke, logIn, probe, readCookie, evidence }) {
@@ -41,14 +42,14 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
     await probe(fontDetailUrl, adminCookieName, '', 401)
     await probe(fontDetailUrl, adminCookieName, siteCookie.value, 401)
     await probe(pub(fontDetailPath(legacyFontDigest)), adminCookieName, priorCookie.value, 404)
-    assert.equal((await context.request.get(fontDetailUrl)).status(), 403)
+    assertStatus(await context.request.get(fontDetailUrl), 403)
   }
   await probe(pub(WireRoutes.AdminAppearanceState), adminCookieName, priorCookie.value, 404)
   await probe(pub(WireRoutes.AdminAppearanceHistory), adminCookieName, priorCookie.value, 404)
   await probe(admin(alias), adminCookieName, priorCookie.value, 404)
-  assert.equal((await context.request.get(stateUrl)).status(), 403)
-  assert.equal((await context.request.get(catalogUrl)).status(), 403)
-  assert.equal((await context.request.get(historyUrl)).status(), 403)
+  assertStatus(await context.request.get(stateUrl), 403)
+  assertStatus(await context.request.get(catalogUrl), 403)
+  assertStatus(await context.request.get(historyUrl), 403)
   await section.waitFor({ state: 'detached' })
 
   await promisify(execFile)(grant, [], { timeout: 8_000 })
@@ -66,7 +67,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   const history = roleWithExactName(section, 'region', 'Appearance history')
   const checkHistory = () => exactButton(section, 'Check appearance history').click()
   await checkHistory()
-  await history.getByText('No appearance changes recorded.', { exact: true }).waitFor()
+  await exactText(history, 'No appearance changes recorded.').waitFor()
 
   const sites = await context.newPage()
   const siteErrors = []
@@ -74,12 +75,12 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await sites.emulateMedia({ colorScheme: 'light' })
   const current = async (revision, accent) => {
     const redirect = await context.request.get(pub(alias), { maxRedirects: 0 })
-    assert.equal(redirect.status(), 302)
+    assertStatus(redirect, 302)
     assert.equal(redirect.headers()['cache-control'], 'no-store')
     const css = redirect.headers().location
     assert.match(css, new RegExp(`^/site-appearance/${revision}/[a-f0-9]{64}\\.css$`))
     const styles = await context.request.get(pub(css))
-    assert.equal(styles.status(), 200)
+    assertStatus(styles, 200)
     assert.equal(styles.headers()['cross-origin-resource-policy'], 'same-origin')
     assert.equal(styles.headers()['cache-control'], 'no-store')
     assert.match(styles.headers()['content-type'], /^text\/css/)
@@ -89,12 +90,12 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
     const font = cssText.match(/\/site-appearance\/font\/\d+\/[a-f0-9]{64}\.woff2/)?.[0]
     assert(font)
     const fontBytes = await context.request.get(pub(font))
-    assert.equal(fontBytes.status(), 200)
+    assertStatus(fontBytes, 200)
     assert.equal(fontBytes.headers()['cache-control'], 'no-store')
     assert.equal(createHash('sha256').update(await fontBytes.body()).digest('hex'), font.split('/').at(-1).slice(0, -6))
     const foreign = await context.request.get(pub(css), { headers: { 'Sec-Fetch-Site': 'cross-site' } })
-    assert.equal(foreign.status(), 404)
-    assert.equal((await context.request.get(pub(font), { headers: { Origin: adminOrigin.origin } })).status(), 404)
+    assertStatus(foreign, 404)
+    assertStatus(await context.request.get(pub(font), { headers: { Origin: adminOrigin.origin } }), 404)
     await sites.goto(pub('/'))
     assert.equal(await sites.locator('link[href="/site-appearance/current.css"]').count(), 1)
     await sites.waitForFunction(expected => getComputedStyle(document.documentElement)
@@ -116,8 +117,8 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   const submit = (data, headers = {}) => context.request.post(applyUrl, {
     headers: { Origin: adminOrigin.origin, 'Content-Type': 'application/octet-stream', ...headers }, data,
   })
-  assert.equal((await submit(rejectedFrame)).status(), 400)
-  assert.equal((await submit(rejectedFrame, { Origin: siteOrigin.origin })).status(), 403)
+  assertStatus(await submit(rejectedFrame), 400)
+  assertStatus(await submit(rejectedFrame, { Origin: siteOrigin.origin }), 403)
 
   const theme = roleWithExactName(section, 'combobox', 'Theme')
   await theme.click()
@@ -139,7 +140,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   }
   await page.route(applyUrl, intercept)
   await section.getByRole('button', { name: 'Apply appearance with Passkey' }).click()
-  await section.getByText('Appearance applied.', { exact: true }).waitFor({ timeout: 18_000 })
+  await exactText(section, 'Appearance applied.').waitFor({ timeout: 18_000 })
   await page.unroute(applyUrl, intercept)
   assert.deepEqual(observations, [403, 400, 200, 409])
   const alternate = await current(1, '#663322')
@@ -173,16 +174,16 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
     await sites.screenshot({ path: join(evidence, 'appearance-public-dark.png') })
     await sites.emulateMedia({ colorScheme: 'light' })
   }
-  for (const path of Object.values(initial)) assert.equal((await context.request.get(pub(path))).status(), 404)
+  for (const path of Object.values(initial)) assertStatus(await context.request.get(pub(path)), 404)
   await section.getByRole('button', { name: `Restore fixture.theme / ${fontName} with Passkey` }).click()
-  await section.getByText('Previous appearance restored.', { exact: true }).waitFor()
+  await exactText(section, 'Previous appearance restored.').waitFor()
   const restored = await current(2, '#225533')
   for (const path of [...Object.values(initial), ...Object.values(alternate)])
-    assert.equal((await context.request.get(pub(path))).status(), 404)
+    assertStatus(await context.request.get(pub(path)), 404)
 
   const readHistory = async (path, beforeRevision) => {
     const response = await context.request.get(historyUrl + path)
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     assert.equal(response.headers()['cache-control'], 'no-store')
     const { payload } = decodeFrame(await response.body(), FrameType.AdminAppearanceHistory)
     const decoded = decodeAppearanceHistory(payload, beforeRevision, 1)
@@ -212,10 +213,10 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   if (legacyThemeDigest) assert.equal(applied.theme, legacyThemeDigest)
   assert.deepEqual([applied.previousFont, applied.font, rollback.previousFont, rollback.font], Array(4).fill(state.font))
   for (const query of ['?before=02', '?before=1&before=2', '?before=9223372036854775808', '?before=0', '?limit=0', '?limit=51', '?scope=public'])
-    assert.equal((await context.request.get(historyUrl + query)).status(), 400)
+    assertStatus(await context.request.get(historyUrl + query), 400)
   await checkHistory()
-  await history.getByText('Rolled back · revision 2', { exact: true }).waitFor()
-  await history.getByText('Applied · revision 1', { exact: true }).waitFor()
+  await exactText(history, 'Rolled back · revision 2').waitFor()
+  await exactText(history, 'Applied · revision 1').waitFor()
   assert.equal(await roleWithExactName(history, 'heading', 'Appearance history')
     .evaluate(element => element === document.activeElement), true)
 
@@ -230,10 +231,10 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await check()
   await exactButton(page, 'Log in as administrator').waitFor()
   await logIn(page)
-  assert.equal((await context.request.get(stateUrl)).status(), 403)
-  assert.equal((await context.request.get(catalogUrl)).status(), 403)
-  assert.equal((await context.request.get(historyUrl)).status(), 403)
-  if (fontDetailUrl) assert.equal((await context.request.get(fontDetailUrl)).status(), 403)
+  assertStatus(await context.request.get(stateUrl), 403)
+  assertStatus(await context.request.get(catalogUrl), 403)
+  assertStatus(await context.request.get(historyUrl), 403)
+  if (fontDetailUrl) assertStatus(await context.request.get(fontDetailUrl), 403)
   await section.waitFor({ state: 'detached' })
   return await readCookie(context, stateUrl, adminCookieName)
 }
@@ -247,9 +248,9 @@ async function verifyFontDetails({ page, section, context, fontDetailUrl, fontNa
     readFile(new URL('LICENSE', fontSource), 'utf8'),
   ])
   assert.equal(createHash('sha256').update(archive).digest('hex'), legacyFontDigest)
-  assert.equal((await context.request.get(detailUrl('0'.repeat(64)))).status(), 404)
-  assert.equal((await context.request.get(detailUrl(themeDigest))).status(), 404)
-  assert.equal((await context.request.get(detailUrl('A'.repeat(64)))).status(), 400)
+  assertStatus(await context.request.get(detailUrl('0'.repeat(64))), 404)
+  assertStatus(await context.request.get(detailUrl(themeDigest)), 404)
+  assertStatus(await context.request.get(detailUrl('A'.repeat(64))), 400)
 
   const font = roleWithExactName(section, 'combobox', 'Font')
   await font.click()
@@ -257,7 +258,7 @@ async function verifyFontDetails({ page, section, context, fontDetailUrl, fontNa
   const served = page.waitForResponse(response => response.url() === fontDetailUrl && response.request().method() === 'GET')
   await exactButton(section, 'Font details').click()
   const response = await served
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   assert.equal(response.headers()['cache-control'], 'no-store')
   const detail = decodeAdminAppearanceFontDetail(decodeFrame(await response.body(), FrameType.AdminAppearanceFontDetail).payload)
   const expected = {

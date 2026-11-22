@@ -1,26 +1,27 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { waitForPathResponse } from './response-wait-fixture.mjs'
 import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 export async function exerciseDraftRevision({ page, origin, articleId, sourceRevision, originalBody, publicArticle, screenshot, observations,
   pdfEnabled, pdfFixture }) {
   const currentBody = `${originalBody}\nNewer saved revision.`
-  assert.equal(await page.getByLabel('Body', { exact: true }).inputValue(), currentBody)
+  assert.equal(await exactLabel(page, 'Body').inputValue(), currentBody)
   const pane = page.getByRole('complementary', { name: 'Article inspector' })
   await exactButton(page, 'Inspector').click()
-  await pane.getByText('Revision history', { exact: true }).click()
+  await exactText(pane, 'Revision history').click()
   const comparePath = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(articleId))
     .replace('{sourceRevision:long}', String(sourceRevision))
   const currentDraftPath = WireRoutes.Draft.replace('{id:int}', String(articleId))
   const storedBefore = await page.request.get(`${origin}${currentDraftPath}`)
-  assert.equal(storedBefore.status(), 200)
+  assertStatus(storedBefore, 200)
   const savedBefore = decodeDraft(decodeFrame(await storedBefore.body(), FrameType.Draft).payload)
   const staleBase = savedBefore.revision + 1n
   const stale = await page.request.get(`${origin}${comparePath}?revision=${staleBase}`)
-  assert.equal(stale.status(), 409)
+  assertStatus(stale, 409)
   assert.equal(decodeFrame(await stale.body()).type, FrameType.ApiError)
   const choose = exactButton(pane, `Compare revision ${sourceRevision}`)
   // Run the view's request against that mismatched coordinate without altering the server's response.
@@ -28,19 +29,19 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
     route.continue({ url: `${origin}${comparePath}?revision=${staleBase}` }), { times: 1 })
   await choose.click()
   const comparison = roleWithExactName(page, 'dialog', 'Revision comparison')
-  await comparison.getByText('The saved draft changed. Load its current revision and compare again.', { exact: true }).waitFor()
+  await exactText(comparison, 'The saved draft changed. Load its current revision and compare again.').waitFor()
   assert.equal(await comparison.locator('pre').count(), 0)
   await page.keyboard.press('Escape')
   await comparison.waitFor({ state: 'hidden' })
   await exactButton(pane, 'Reload revisions').click()
   await choose.click()
-  const earlier = comparison.getByLabel('Earlier revision Markdown', { exact: true })
-  const current = comparison.getByLabel('Current saved revision Markdown', { exact: true })
+  const earlier = exactLabel(comparison, 'Earlier revision Markdown')
+  const current = exactLabel(comparison, 'Current saved revision Markdown')
   await earlier.waitFor()
   await current.waitFor()
   assert.equal(await earlier.textContent(), originalBody)
   assert.equal(await current.textContent(), currentBody)
-  await comparison.getByText('Title unchanged. Markdown changed.', { exact: true }).waitFor()
+  await exactText(comparison, 'Title unchanged. Markdown changed.').waitFor()
   await page.waitForFunction(() => {
     const earlier = document.querySelector('pre[aria-label="Earlier revision Markdown"]')?.getBoundingClientRect()
     const current = document.querySelector('pre[aria-label="Current saved revision Markdown"]')?.getBoundingClientRect()
@@ -107,12 +108,12 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   await screenshot(page, 'editor-revision-comparison')
   const completed = waitForPathResponse(page, () => WireRoutes.DraftRollback, 'POST')
   await restore.click()
-  assert.equal((await completed).status(), 200)
+  assertStatus(await completed, 200)
   await page.getByRole('status').filter({ hasText: 'Revision restored to a new draft.' }).waitFor()
   await pane.getByText(reason, { exact: false }).waitFor()
   await page.waitForFunction(source => document.querySelector('#article-body')?.value === source, originalBody)
   const stored = await page.request.get(`${origin}${WireRoutes.Draft.replace('{id:int}', String(articleId))}`)
-  assert.equal(stored.status(), 200)
+  assertStatus(stored, 200)
   const restored = decodeDraft(decodeFrame(await stored.body(), FrameType.Draft).payload)
   assert.equal(restored.body, originalBody)
   assert(restored.revision > sourceRevision)

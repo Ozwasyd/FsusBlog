@@ -1,3 +1,4 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
@@ -12,7 +13,7 @@ import {
   CANVAS_SCALE_HEADING_ANCHOR, CANVAS_SCALE_NEAR_NOTE, createCanvasScaleCorpus,
 } from './canvas-scale-corpus.mjs'
 import { waitForPathResponse, waitForUrlResponse } from './response-wait-fixture.mjs'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactText } from './role-locators.mjs'
 
 const binary = 'application/octet-stream'
 const nodeSelector = '.canvas-board__node'
@@ -119,9 +120,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
   const board = () => page.getByRole('region', { name: 'Interactive Canvas Viewport' })
   const selection = () => page.getByRole('complementary', { name: 'Selected Canvas record' })
   const toolbar = () => page.getByRole('group', { name: 'Canvas tools' })
-  const footer = revision => page.getByText(
-    `Revision ${revision} · ${counts[0]}/${counts[0]} nodes · ${counts[1]}/${counts[1]} edges`, { exact: true },
-  )
+  const footer = revision => exactText(page, `Revision ${revision} · ${counts[0]}/${counts[0]} nodes · ${counts[1]}/${counts[1]} edges`)
   const visibleNote = label => exactButton(board(), 'Note ' + label)
   const finder = () => outline().getByRole('searchbox', { name: 'Find loaded records' })
 
@@ -155,7 +154,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
     await finder().fill(label)
     const result = exactButton(outline(), label)
     await result.press('Enter')
-    await selection().getByText(label, { exact: true }).waitFor()
+    await exactText(selection(), label).waitFor()
     assert.equal(await result.getAttribute('aria-pressed'), 'true')
   }
 
@@ -167,8 +166,8 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
       assert.match(shell.headers()['x-robots-tag'], /noindex/)
       await roleWithExactName(tab, 'link', 'Log in to access Canvas').waitFor()
       assert.equal(await roleWithExactName(tab, 'heading', corpus.title).count(), 0)
-      assert.equal((await tab.request.get(origin + graphPath)).status(), 401)
-      assert.equal((await tab.request.get(origin + route(WireRoutes.CanvasBundleExport, canvasId) + '?revision=1')).status(), 401)
+      assertStatus(await tab.request.get(origin + graphPath), 401)
+      assertStatus(await tab.request.get(origin + route(WireRoutes.CanvasBundleExport, canvasId) + '?revision=1'), 401)
     } finally {
       await other.close()
     }
@@ -239,7 +238,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
     ])
     assert.deepEqual(response.request().postDataBuffer(), payload)
     assert.deepEqual(decodeCanvasLinked(decodeFrame(await response.body(), FrameType.CanvasLinked).payload), receipt)
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     revision = receipt.canvasRevision
     await review.waitFor({ state: 'hidden' })
     await footer(revision).waitFor({ timeout: 180_000 })
@@ -260,10 +259,10 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
     if (outsider) {
       const other = await outsider()
       try {
-        assert.equal((await other.request.get(origin + WireRoutes.CanvasGraphList)).status(), 200)
-        assert.equal((await other.request.get(origin + graphPath)).status(), 404)
-        assert.equal((await other.request.get(
-          origin + route(WireRoutes.CanvasBundleExport, canvasId) + '?revision=1')).status(), 404)
+        assertStatus(await other.request.get(origin + WireRoutes.CanvasGraphList), 200)
+        assertStatus(await other.request.get(origin + graphPath), 404)
+        assertStatus(await other.request.get(
+          origin + route(WireRoutes.CanvasBundleExport, canvasId) + '?revision=1'), 404)
         report.otherOwnerDenied = true
       } finally {
         await other.close()
@@ -332,7 +331,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
             const preview = roleWithExactName(selection(), 'region', 'Canvas reference preview')
             await exactButton(preview, 'Resolve reference').press('Enter')
             await preview.getByRole('status').filter({ hasText: 'Reference resolved.' }).waitFor()
-            await preview.getByText('Pinned revision ' + second.revision, { exact: true }).waitFor()
+            await exactText(preview, 'Pinned revision ' + second.revision).waitFor()
             await roleWithExactName(preview, 'heading', second.title).waitFor()
             await preview.getByText(/Canvas scale heading/).waitFor()
           })
@@ -397,7 +396,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
     assert.equal(href, route(WireRoutes.CanvasBundleExport, canvasId) + '?revision=' + revision)
     const exportStarted = performance.now()
     const exported = await page.request.get(origin + href)
-    assert.equal(exported.status(), 200)
+    assertStatus(exported, 200)
     assert.match(exported.headers()['content-type'], /^application\/vnd\.fsus\.canvas\+json/)
     const bytes = await exported.body()
     const archive = JSON.parse(bytes.toString('utf8'))
@@ -411,7 +410,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
     assert.deepEqual(archive.nodes, original.nodes)
     assert.deepEqual(archive.edges, original.edges)
     const repeatExport = await page.request.get(origin + href)
-    assert.equal(repeatExport.status(), 200)
+    assertStatus(repeatExport, 200)
     assert.deepEqual(await repeatExport.body(), bytes)
     report.exactExport = { revision, bytes: bytes.length, digest: digest(bytes), milliseconds: round(performance.now() - exportStarted) }
 

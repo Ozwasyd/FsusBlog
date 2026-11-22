@@ -9,7 +9,7 @@ import { decodeApiError, decodeFrame, encodeFrame } from '../../src/Contracts/ae
 import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { decodeDraft, decodeSession, encodeArticleCommand, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { assertEmptySuccess, button, enableAuthenticator, expect, launchIdentityBrowser, readTlsIdentityFixture, recordIdentityResponse, request, secureLoginProtocol, setupSiteTotp, completeSiteTotp, siteApi } from './site-authentication-fixture.mjs'
-import { roleWithExactName } from './role-locators.mjs'
+import { roleWithExactName, exactText, exactLabel } from './role-locators.mjs'
 
 const emptySuccess = reply => assertEmptySuccess(reply, 'Authentication response may be stored.')
 const exec = promisify(execFile)
@@ -220,13 +220,13 @@ async function openBrowser(role) {
 async function enroll(page, ticket) {
   await page.getByLabel('Owner access key').fill(ticket)
   await emptySuccess(await clickApi(page, WireRoutes.PasskeyProvisionComplete, 'Create Passkey'))
-  await page.getByText('Passkey created. Log in with your Passkey.', { exact: true }).waitFor()
+  await exactText(page, 'Passkey created. Log in with your Passkey.').waitFor()
 }
 
 async function passkey(page, remember, phase) {
   await page.goto(origin + '/login')
   const choice = roleWithExactName(page, 'checkbox', 'Keep me signed in')
-  const label = page.getByText('Keep me signed in', { exact: true })
+  const label = exactText(page, 'Keep me signed in')
   await label.waitFor()
   assert.equal(await choice.isChecked(), false, 'Persistent sign-in must be an explicit choice.')
   if (remember) {
@@ -312,15 +312,15 @@ async function openDirtyWorkspace(writer, handle) {
   assertStatus(stored, 200)
   const { id } = decodeDraft(decodeFrame(await stored.body(), FrameType.Draft).payload)
   await writer.goto(origin + '/user/manage/article/workspace')
-  await writer.getByLabel('Article ID', { exact: true }).fill(String(id))
+  await exactLabel(writer, 'Article ID').fill(String(id))
   await button(writer, 'Open article').click()
   await writer.waitForURL(origin + '/user/manage/article/edit/' + id)
-  await expect(writer.getByLabel('Title', { exact: true })).toHaveValue(savedTitle)
+  await expect(exactLabel(writer, 'Title')).toHaveValue(savedTitle)
   await button(writer, 'Pin ' + savedTitle).click()
   const title = 'Unsaved title spanning session rotation'
   const body = 'Unsaved Markdown spanning session rotation.\n\nSecond paragraph.'
-  await writer.getByLabel('Title', { exact: true }).fill(title)
-  await writer.getByLabel('Body', { exact: true }).fill(body)
+  await exactLabel(writer, 'Title').fill(title)
+  await exactLabel(writer, 'Body').fill(body)
   await button(writer, 'Inspector').click()
   await verifyDirtyWorkspace(writer, { title, body })
   return { title, body }
@@ -330,8 +330,8 @@ async function verifyDirtyWorkspace(writer, workspace) {
   const selected = roleWithExactName(writer, 'tablist', 'Open articles').getByRole('tab', { selected: true })
   await expect(selected).toContainText(workspace.title)
   await expect(button(writer, 'Unpin ' + workspace.title)).toHaveAttribute('aria-pressed', 'true')
-  await expect(writer.getByLabel('Title', { exact: true })).toHaveValue(workspace.title)
-  await expect(writer.getByLabel('Body', { exact: true })).toHaveValue(workspace.body)
+  await expect(exactLabel(writer, 'Title')).toHaveValue(workspace.title)
+  await expect(exactLabel(writer, 'Body')).toHaveValue(workspace.body)
   await expect(roleWithExactName(writer, 'complementary', 'Article inspector')).toBeVisible()
 }
 
@@ -349,8 +349,8 @@ async function rejectStaleDraftCreate(cookies, handle, peer, peerCookie) {
   const title = 'Stale author cross-account fixture'
   try {
     await page.goto(origin + '/user/manage/article/write')
-    await page.getByLabel('Title', { exact: true }).fill(title)
-    await page.getByLabel('Body', { exact: true }).fill('This draft belongs to the originally authenticated account.')
+    await exactLabel(page, 'Title').fill(title)
+    await exactLabel(page, 'Body').fill('This draft belongs to the originally authenticated account.')
     const submitted = Promise.withResolvers()
     await page.route(origin + WireRoutes.Save, async route => {
       try {

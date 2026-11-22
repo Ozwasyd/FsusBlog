@@ -1,22 +1,23 @@
+import { exactLabel, roleWithExactName, exactText } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 
 const inspectorName = 'Article inspector'
 const compactViewport = { width: 375, height: 850 }
 
 function label(page) {
-  return page.getByLabel('Property label', { exact: true })
+  return exactLabel(page, 'Property label')
 }
 
 function launcher(page) {
-  return page.getByRole('button', { name: 'Inspector', exact: true })
+  return roleWithExactName(page, 'button', 'Inspector')
 }
 
 function pane(page) {
-  return page.getByRole('complementary', { name: inspectorName, exact: true })
+  return roleWithExactName(page, 'complementary', inspectorName)
 }
 
 function drawer(page) {
-  return page.getByRole('dialog', { name: inspectorName, exact: true })
+  return roleWithExactName(page, 'dialog', inspectorName)
 }
 
 async function closedWithFocus(page, host) {
@@ -48,7 +49,7 @@ async function snapshotInput(page, content) {
 }
 
 async function requireSameInput(page, host, element, content) {
-  const target = host.getByLabel('Property label', { exact: true })
+  const target = exactLabel(host, 'Property label')
   await target.waitFor()
   assert.equal(await target.evaluate((current, previous) => current === previous, element), true,
     'Moving the Inspector must keep the same editing control and Vue slot')
@@ -63,7 +64,7 @@ export async function exerciseInspector({ page, screenshot, token, observations 
   const first = `Inspector draft ${token}`
   const second = `Inspector reverse ${token}`
   const originalUrl = page.url()
-  const originalBody = await page.getByLabel('Body', { exact: true }).inputValue()
+  const originalBody = await exactLabel(page, 'Body').inputValue()
   const handles = []
   try {
     const originalLauncher = await launcher(page).elementHandle()
@@ -72,7 +73,7 @@ export async function exerciseInspector({ page, screenshot, token, observations 
     await launcher(page).focus()
     await page.keyboard.press('Enter')
     await pane(page).waitFor()
-    await pane(page).getByRole('button', { name: 'Add property', exact: true }).click()
+    await roleWithExactName(pane(page), 'button', 'Add property').click()
     const element = await snapshotInput(page, first)
     handles.push(element)
 
@@ -107,14 +108,14 @@ export async function exerciseInspector({ page, screenshot, token, observations 
     // Reopen immediately after Escape focus. Delayed events from the closed host may not overwrite this branch.
     await page.keyboard.press('Enter')
     await requireSameInput(page, pane(page), element, second)
-    await pane(page).getByRole('button', { name: 'Cancel', exact: true }).click()
-    await pane(page).getByRole('heading', { name: inspectorName, exact: true }).waitFor()
-    await pane(page).getByRole('button', { name: 'Close', exact: true }).click()
+    await roleWithExactName(pane(page), 'button', 'Cancel').click()
+    await roleWithExactName(pane(page), 'heading', inspectorName).waitFor()
+    await roleWithExactName(pane(page), 'button', 'Close').click()
     await closedWithFocus(page, pane(page))
     await launcher(page).click()
     await pane(page).waitFor()
     assert.equal(page.url(), originalUrl, 'Inspector actions cannot navigate to a different article')
-    assert.equal(await page.getByLabel('Body', { exact: true }).inputValue(), originalBody)
+    assert.equal(await exactLabel(page, 'Body').inputValue(), originalBody)
   } finally {
     await Promise.all(handles.map(element => element.dispose()))
     await page.setViewportSize(desktopViewport)
@@ -133,19 +134,19 @@ export async function exerciseInspectorDate(page, observations) {
     await page.setViewportSize(compactViewport)
     const compact = drawer(page)
     await compact.waitFor()
-    await compact.getByRole('button', { name: 'Add property', exact: true }).click()
-    await compact.getByLabel('Property label', { exact: true }).fill(field)
-    await compact.getByLabel('Property key', { exact: true }).fill('editorial-date')
-    await compact.getByRole('combobox', { name: 'Property type', exact: true }).click()
-    await page.getByRole('option', { name: 'Date', exact: true }).click()
-    await compact.getByRole('button', { name: 'Create property', exact: true }).click()
-    await compact.getByRole('button', { name: `Edit ${field}`, exact: true }).click()
-    await compact.getByLabel(`${field} value`, { exact: true }).fill('2024-02-29T17:06:01.15Z')
-    await compact.getByRole('button', { name: 'Save property', exact: true }).click()
-    await compact.getByText(canonicalDate, { exact: true }).waitFor()
+    await roleWithExactName(compact, 'button', 'Add property').click()
+    await exactLabel(compact, 'Property label').fill(field)
+    await exactLabel(compact, 'Property key').fill('editorial-date')
+    await roleWithExactName(compact, 'combobox', 'Property type').click()
+    await roleWithExactName(page, 'option', 'Date').click()
+    await roleWithExactName(compact, 'button', 'Create property').click()
+    await roleWithExactName(compact, 'button', `Edit ${field}`).click()
+    await exactLabel(compact, `${field} value`).fill('2024-02-29T17:06:01.15Z')
+    await roleWithExactName(compact, 'button', 'Save property').click()
+    await exactText(compact, canonicalDate).waitFor()
   } finally {
     await page.setViewportSize(desktopViewport)
   }
-  await pane(page).getByText(canonicalDate, { exact: true }).waitFor()
+  await exactText(pane(page), canonicalDate).waitFor()
   observations.push('The compact Inspector commits a leap-day UTC date and the desktop pane shows the same canonical millisecond value.')
 }

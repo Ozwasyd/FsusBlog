@@ -1,3 +1,4 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
@@ -7,7 +8,7 @@ import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { decodeRecentOpens } from '../../src/Contracts/author-recent-opens.ts'
 import { encodeTaxonomyAssignment, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { authorFixture, button, chromium, expect, holdResponse, postReceipt } from './browser-authoring-fixture.mjs'
-import { roleWithExactName } from './role-locators.mjs'
+import { roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -18,7 +19,7 @@ const recentPath = `${origin}${WireRoutes.AuthorRecentOpens}`
 const draftPath = id => `${origin}${WireRoutes.Draft.replace('{id:int}', String(id))}`
 const list = scope => scope.getByRole('list', { name: 'Article results' })
 const selected = scope => list(scope).locator('button[aria-current="true"]')
-const body = page => page.getByLabel('Body', { exact: true })
+const body = page => exactLabel(page, 'Body')
 const diagnostics = []
 const observations = []
 
@@ -27,7 +28,7 @@ const create = (context, title, content = `Saved source: ${title}`) => createDra
 
 async function recentOpens(context, handle) {
   const response = await context.request.get(recentPath, { headers: { [WireHeaders.CurrentSession]: handle } })
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   return decodeRecentOpens(decodeFrame(await response.body(), FrameType.AuthorRecentOpenPage).payload)
 }
 
@@ -59,7 +60,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
     })
     await input.fill(keyword)
     const response = await received
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     assert.equal(response.request().headers()[WireHeaders.CurrentSession.toLowerCase()], handle)
     return decodeAuthorArticlePage(decodeFrame(await response.body(), FrameType.AuthorArticlePage).payload)
   }
@@ -208,7 +209,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
       canceled.release()
     }
     await canceled.done
-    await expect(page.getByText('Opening article…', { exact: true })).toHaveCount(0)
+    await expect(exactText(page, 'Opening article…')).toHaveCount(0)
     await expect(page).toHaveURL(editor(active.id))
     await expect(body(primary)).toHaveValue(dirty)
     await openSearch(changed.title)
@@ -241,7 +242,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
   }
 
   await roleWithExactName(page, 'link', 'Back').click()
-  await page.getByText('Discard unsaved changes?', { exact: true }).waitFor()
+  await exactText(page, 'Discard unsaved changes?').waitFor()
   await button(page, 'Discard changes').click()
   await expect(page).toHaveURL(`${origin}/`)
   observations.push({ quickSwitcher: { nativeShortcut: true, keyboardActiveDescendant: true, mobileLauncher: true,
@@ -271,9 +272,9 @@ try {
     }), FrameType.DraftTaxonomy)
   }
   const outside = await author.request.get(`${inventory}?article=${foreign.id}`, { headers: { [WireHeaders.CurrentSession]: handle } })
-  assert.equal(outside.status(), 200)
+  assertStatus(outside, 200)
   assert.deepEqual(decodeAuthorArticlePage(decodeFrame(await outside.body(), FrameType.AuthorArticlePage).payload), { total: 0, nextId: null, items: [] })
-  assert.equal((await author.request.get(inventory, { headers: { [WireHeaders.CurrentSession]: outsideHandle } })).status(), 409)
+  assertStatus(await author.request.get(inventory, { headers: { [WireHeaders.CurrentSession]: outsideHandle } }), 409)
 
   const page = await author.newPage()
   monitor(page)
@@ -287,14 +288,14 @@ try {
   const pane = page.getByRole('complementary', { name: 'Article library' })
   await expect(pane).toBeVisible()
   await button(pane, 'Recent opens').click()
-  await expect(pane.getByText('No recent opens.', { exact: true })).toBeVisible()
+  await expect(exactText(pane, 'No recent opens.')).toBeVisible()
   await button(pane, 'All articles').click()
   await expect(selected(pane)).toHaveText(/Library exact active article/)
   await expect(list(pane).getByRole('button')).toHaveCount(WireLimits.AuthorArticlePageSize + 1)
   const openWidth = await body(page).evaluate(element => element.getBoundingClientRect().width)
   assert(Math.abs(openWidth - width) <= 8, `Opening the library changed editor width from ${width} to ${openWidth}`)
   assert.equal(await body(page).evaluate((current, previous) => current === previous, field), true)
-  await expect(pane.getByText(foreign.title, { exact: true })).toHaveCount(0)
+  await expect(exactText(pane, foreign.title)).toHaveCount(0)
   await button(pane, 'Next articles').click()
   await expect(list(pane).getByRole('button', { name: /重复标题/ })).toHaveCount(2)
   await button(pane, 'Previous articles').click()
@@ -306,14 +307,14 @@ try {
     }
     const response = page.waitForResponse(`${inventory}?scope=active${suffix}`)
     await button(pane, 'Filter articles').click()
-    assert.equal((await response).status(), 200)
+    assertStatus(await response, 200)
     await expect(list(pane).getByRole('button')).toHaveCount(suffix ? 2 : WireLimits.AuthorArticlePageSize + 1)
-    if (suffix) await expect(pane.getByText('Browser fixture 12', { exact: true })).toBeVisible()
+    if (suffix) await expect(exactText(pane, 'Browser fixture 12')).toBeVisible()
     await expect(selected(pane)).toHaveText(/Library exact active article/)
     observations.push(suffix ? { exactCategoryAndTagQuery: true } : { taxonomyClearRestoresUnfilteredPage: true })
   }
   await pane.getByLabel('Search article titles').fill('重复标题')
-  await pane.getByLabel('Status', { exact: true }).selectOption('draft')
+  await exactLabel(pane, 'Status').selectOption('draft')
   await button(pane, 'Filter articles').click()
   const duplicates = list(pane).getByRole('button', { name: /重复标题/ })
   await expect(duplicates).toHaveCount(2)
@@ -399,10 +400,10 @@ try {
   } finally { delayedResults.release() }
   await delayedResults.done
   await openMobileMenuItem('Article library')
-  await expect(drawer.getByText(foreign.title, { exact: true })).toBeVisible()
-  await expect(drawer.getByText(title, { exact: true })).toHaveCount(0)
+  await expect(exactText(drawer, foreign.title)).toBeVisible()
+  await expect(exactText(drawer, title)).toHaveCount(0)
   await button(drawer, 'Recent opens').click()
-  await expect(drawer.getByText('No recent opens.', { exact: true })).toBeVisible()
+  await expect(exactText(drawer, 'No recent opens.')).toBeVisible()
 
   await switchAccount(ownerState.cookies)
   await expect(drawer).toBeHidden()

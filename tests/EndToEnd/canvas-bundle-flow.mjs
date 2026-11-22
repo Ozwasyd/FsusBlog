@@ -1,3 +1,5 @@
+import { assertStatus } from './response-status-fixture.mjs'
+import { roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 import { createCanvasThroughUi } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
@@ -14,16 +16,16 @@ export async function exerciseCanvasBundle({ page, origin, screenshot, observati
   const remappedSource = 'Mapped source owns this paragraph ^proof\n'
   const article = await createDraft('Private original source title', originalSource)
   const remapped = await createDraft('Private mapped source title', remappedSource)
-  const button = label => page.getByRole('button', { name: label, exact: true })
-  const dialog = label => page.getByRole('dialog', { name: label, exact: true })
-  const heading = label => page.getByRole('heading', { name: label, exact: true })
+  const button = label => roleWithExactName(page, 'button', label)
+  const dialog = label => roleWithExactName(page, 'dialog', label)
+  const heading = label => roleWithExactName(page, 'heading', label)
   const importDialog = () => dialog('Import Canvas bundle')
-  const exportLink = () => page.getByRole('link', { name: 'Export Canvas bundle', exact: true })
+  const exportLink = () => roleWithExactName(page, 'link', 'Export Canvas bundle')
   const documentId = () => new URL(page.url()).pathname.split('/').at(-1)
 
   async function aeds(path, type, decode) {
     const result = await page.request.get(origin + path)
-    assert.equal(result.status(), 200)
+    assertStatus(result, 200)
     return decode(decodeFrame(await result.body(), type).payload)
   }
   const canvasList = async () => (await aeds(WireRoutes.CanvasGraphList, FrameType.CanvasGraphList, decodeCanvasGraphList))
@@ -33,7 +35,7 @@ export async function exerciseCanvasBundle({ page, origin, screenshot, observati
 
   async function upload(bytes) {
     await button('Import Canvas').click()
-    await importDialog().getByLabel('Canvas bundle file', { exact: true }).setInputFiles({
+    await exactLabel(importDialog(), 'Canvas bundle file').setInputFiles({
       name: 'canvas.fsuscanvas', mimeType: 'application/vnd.fsus.canvas+json', buffer: bytes,
     })
   }
@@ -47,17 +49,17 @@ export async function exerciseCanvasBundle({ page, origin, screenshot, observati
     await button('Add note').click()
     const add = dialog('Add node')
     await add.getByLabel('Note text').fill(note)
-    await add.getByRole('button', { name: 'Save node', exact: true }).click()
+    await roleWithExactName(add, 'button', 'Save node').click()
     await add.waitFor({ state: 'hidden' })
-    await page.getByText('Revision 2 · 1/1 nodes · 0/0 edges', { exact: true }).waitFor()
+    await exactText(page, 'Revision 2 · 1/1 nodes · 0/0 edges').waitFor()
     await button('Add reference').click()
     await add.getByLabel('Reference type').selectOption('block-reference')
-    await add.getByLabel('Article ID', { exact: true }).fill(String(article.id))
+    await exactLabel(add, 'Article ID').fill(String(article.id))
     await add.getByLabel('Anchor ID').fill('proof')
     await add.getByLabel('Pinned revision (optional)').fill(String(article.revision))
-    await add.getByRole('button', { name: 'Save node', exact: true }).click()
+    await roleWithExactName(add, 'button', 'Save node').click()
     await add.waitFor({ state: 'hidden' })
-    const display = page.getByText('Revision 3 · 2/2 nodes · 0/0 edges', { exact: true })
+    const display = exactText(page, 'Revision 3 · 2/2 nodes · 0/0 edges')
     await display.waitFor()
     const before = await graph(originalId)
     const configuredHref = await exportLink().getAttribute('href')
@@ -79,12 +81,12 @@ export async function exerciseCanvasBundle({ page, origin, screenshot, observati
     assert.equal(metadata.nodes.length, 2)
     assert.match(metadata.sha256, /^[a-f0-9]{64}$/)
     const repeat = await page.request.get(origin + configuredHref)
-    assert.equal(repeat.status(), 200)
+    assertStatus(repeat, 200)
     assert.match(repeat.headers()['content-type'], /^application\/vnd\.fsus\.canvas\+json/)
     assert.match(repeat.headers()['cache-control'], /no-store/)
     assert.deepEqual(await repeat.body(), bytes)
 
-    await page.getByRole('link', { name: 'All canvases', exact: true }).click()
+    await roleWithExactName(page, 'link', 'All canvases').click()
     await heading('Canvases').waitFor()
     await page.getByRole('link', { name, exact: true }).waitFor()
     const listBefore = await canvasList()
@@ -92,24 +94,24 @@ export async function exerciseCanvasBundle({ page, origin, screenshot, observati
     await upload(tampered)
     await importDialog().getByRole('alert').filter({ hasText: 'The file could not be validated' }).waitFor()
     assert.deepEqual(await canvasList(), listBefore)
-    await importDialog().getByRole('button', { name: 'Cancel', exact: true }).click()
+    await roleWithExactName(importDialog(), 'button', 'Cancel').click()
     await importDialog().waitFor({ state: 'hidden' })
     await page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'Import Canvas')
 
     await page.setViewportSize({ width: 375, height: 850 })
     await upload(bytes)
-    await importDialog().getByText('Bundle validated. No Canvas has been created.', { exact: true }).waitFor()
-    const apply = importDialog().getByRole('button', { name: 'Create from bundle', exact: true })
+    await exactText(importDialog(), 'Bundle validated. No Canvas has been created.').waitFor()
+    const apply = roleWithExactName(importDialog(), 'button', 'Create from bundle')
     assert(await apply.isDisabled())
     assert.deepEqual(await canvasList(), listBefore)
-    await importDialog().getByRole('button', { name: 'Cancel', exact: true }).click()
+    await roleWithExactName(importDialog(), 'button', 'Cancel').click()
     await importDialog().waitFor({ state: 'hidden' })
     assert.deepEqual(await canvasList(), listBefore)
 
     await upload(bytes)
-    await importDialog().getByText('Bundle validated. No Canvas has been created.', { exact: true }).waitFor()
+    await exactText(importDialog(), 'Bundle validated. No Canvas has been created.').waitFor()
     const articleId = importDialog().getByLabel(/Reference 1 article ID/)
-    const pin = importDialog().getByLabel('Reference 1 fixed revision', { exact: true })
+    const pin = exactLabel(importDialog(), 'Reference 1 fixed revision')
     assert.equal(await articleId.inputValue(), '')
     assert.equal(await pin.inputValue(), '')
     await articleId.fill(String(remapped.id))
@@ -119,7 +121,7 @@ export async function exerciseCanvasBundle({ page, origin, screenshot, observati
     await screenshot(page, 'canvas-bundle-mobile-mapping')
     await apply.click()
     await heading(name).waitFor()
-    await page.getByText('Revision 1 · 2/2 nodes · 0/0 edges', { exact: true }).waitFor()
+    await exactText(page, 'Revision 1 · 2/2 nodes · 0/0 edges').waitFor()
     const importedId = documentId()
     assert.notEqual(importedId, originalId)
     const after = await graph(importedId)

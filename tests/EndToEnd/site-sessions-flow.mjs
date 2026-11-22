@@ -1,3 +1,4 @@
+import { exactText, roleWithExactName } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { assertEmpty, assertStatus } from './response-status-fixture.mjs'
 import { waitForUrlResponse } from './response-wait-fixture.mjs'
@@ -119,7 +120,7 @@ try {
   assertStatus(await primary.context.request.get(origin + currentPath), 200)
   assert.deepEqual((await getSessions(primary, allSessions)).map(row => row.id), [primary.handle])
   await revokeButtons(primary.page).first().waitFor({ state: 'hidden' })
-  await primary.page.getByText('This browser', { exact: true }).waitFor({ state: 'visible' })
+  await exactText(primary.page, 'This browser').waitFor({ state: 'visible' })
   await primary.page.screenshot({ path: join(evidence, 'after-revocation.png') })
   checks.bulkPreservedCurrentAndForeign = true
 
@@ -148,11 +149,11 @@ function revokePath(handle) {
 }
 
 function revokeButtons(page) {
-  return page.getByRole('button', { name: 'Revoke session', exact: true })
+  return roleWithExactName(page, 'button', 'Revoke session')
 }
 
 function bulkButton(page) {
-  return page.getByRole('button', { name: 'Revoke other sessions', exact: true })
+  return roleWithExactName(page, 'button', 'Revoke other sessions')
 }
 
 async function signIn(name, ticket, viewport = { width: 1280, height: 800 }) {
@@ -175,7 +176,7 @@ async function signIn(name, ticket, viewport = { width: 1280, height: 800 }) {
   await page.goto(origin + '/login')
   const signedIn = waitForUrlResponse(page, () => origin + identity + '/sign-in.aeds', 'POST')
   await page.getByLabel('Owner access key').fill(ticket)
-  await page.getByRole('button', { name: 'Log in', exact: true }).click()
+  await roleWithExactName(page, 'button', 'Log in').click()
   const response = await signedIn
   assertStatus(response, 200, 'One-use fixture ticket was not accepted.')
   await page.waitForURL(origin + '/user/manage/article/write')
@@ -193,9 +194,9 @@ async function signIn(name, ticket, viewport = { width: 1280, height: 800 }) {
 
 async function openSecurity(session) {
   await session.page.goto(origin + securityPath)
-  await session.page.getByRole('heading', { name: 'Account', exact: true }).waitFor()
-  await session.page.getByRole('heading', { name: 'Active sessions', exact: true }).waitFor()
-  await session.page.getByText('This browser', { exact: true }).waitFor()
+  await roleWithExactName(session.page, 'heading', 'Account').waitFor()
+  await roleWithExactName(session.page, 'heading', 'Active sessions').waitFor()
+  await exactText(session.page, 'This browser').waitFor()
 }
 
 async function getSessions(session, fixtures) {

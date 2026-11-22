@@ -1,3 +1,5 @@
+import { assertStatus } from './response-status-fixture.mjs'
+import { roleWithExactName } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { requireWebPackage } from './web-package-fixture.mjs'
 import { createHash } from 'node:crypto'
@@ -22,9 +24,9 @@ try {
     page.on('console', event => { if (/Failed to decode downloaded font|OTS parsing error/.test(event.text())) failures.push(event.text()) })
     const fontLoaded = page.waitForResponse(r => /\/site-appearance\/font\/\w{64}\.woff2$/.test(r.url()))
     await page.goto(origin)
-    await page.getByRole('heading', { name: 'Latest posts', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'Latest posts').waitFor()
     const font = await fontLoaded
-    assert.equal(font.status(), 200)
+    assertStatus(font, 200)
     assert.equal(font.headers()['content-type'], 'font/woff2')
     assert.equal(font.headers()['cache-control'], 'no-store')
     assert.equal(font.headers()['x-content-type-options'], 'nosniff')
@@ -32,7 +34,7 @@ try {
     const href = await page.locator('link[href^="/site-appearance/"]').getAttribute('href')
     assert(href)
     const css = await page.request.get(href)
-    assert.equal(css.status(), 200)
+    assertStatus(css, 200)
     assert.equal(css.headers()['cache-control'], 'no-store')
     assert.equal(css.headers()['x-content-type-options'], 'nosniff')
     assert(href.endsWith(`/${hash(await css.body())}.css`))
@@ -50,8 +52,8 @@ try {
     assert.equal(appearance.primary, appearance.action)
     assert.match(appearance.font, /^FsusBlogSiteFont,/)
     assert.equal(appearance.fontStatus, 'loaded')
-    assert.equal((await page.request.get('/site-appearance/appearance.json')).status(), 404)
-    assert.equal((await page.request.get(href.replace(/[0-9a-f]{64}/, '0'.repeat(64)))).status(), 404)
+    assertStatus(await page.request.get('/site-appearance/appearance.json'), 404)
+    assertStatus(await page.request.get(href.replace(/[0-9a-f]{64}/, '0'.repeat(64))), 404)
     await page.screenshot({ path: resolve(evidence, `${colorScheme}-${width}.png`) })
     tests.push({ profile, appearance, css: href, font: new URL(font.url()).pathname })
     await page.close()
@@ -61,9 +63,9 @@ try {
   if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait))
   const page = await browser.newPage({ baseURL: origin })
   await page.goto(origin)
-  await page.getByRole('heading', { name: 'Latest posts', exact: true }).waitFor()
-  assert.equal((await page.request.get(tests[0].css)).status(), 404)
-  assert.equal((await page.request.get(tests[0].font)).status(), 404)
+  await roleWithExactName(page, 'heading', 'Latest posts').waitFor()
+  assertStatus(await page.request.get(tests[0].css), 404)
+  assertStatus(await page.request.get(tests[0].font), 404)
   assert(!await page.evaluate(() => getComputedStyle(document.documentElement).fontFamily.includes('FsusBlogSiteFont')))
   assert.deepEqual(failures, [])
   await writeFile(resolve(evidence, 'browser-result.json'), JSON.stringify({ tests, expired: true, failures }, null, 2))

@@ -1,3 +1,4 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -5,7 +6,7 @@ import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeSession, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { postFrame } from './browser-authoring-fixture.mjs'
 import { enableAuthenticator, expect, launchIdentityBrowser } from './site-authentication-fixture.mjs'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactText } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_PASSKEY_URL
 assert(origin, 'Provide an isolated reader-registration-enabled origin; no setup ticket is needed.')
@@ -30,7 +31,7 @@ try {
   // Without either a browser binding or work proof, begin must not create a session.
   const unproved = await postFrame(context.request, origin + registration + '/begin.aeds',
     FrameType.EmptySuccess, Uint8Array.of(1, 0, 0, 0), { 'Content-Type': 'application/octet-stream', Origin: origin })
-  assert.equal(unproved.status(), 401)
+  assertStatus(unproved, 401)
   assert.equal(unproved.headers()['set-cookie'], undefined)
   await noSession(context)
   checks.unboundBeginRejected = true
@@ -43,7 +44,7 @@ try {
   await expect(consent).not.toBeChecked()
   await expect(page.locator('input:not([type="checkbox"])')).toHaveCount(0)
   assert.deepEqual(calls, [])
-  await page.getByText('I have read and agree to the guidelines.', { exact: true }).click()
+  await exactText(page, 'I have read and agree to the guidelines.').click()
   await expect(create).toBeEnabled()
   const [policy] = await Promise.all([
     context.waitForEvent('page'),
@@ -58,8 +59,7 @@ try {
   checks.explicitConsentAndPolicyPreserveForm = true
 
   await create.click()
-  await expect(page.getByText('Your reader account and Passkey have been created. You are not logged in yet. Log in with your new Passkey.',
-    { exact: true })).toBeVisible({ timeout: 30_000 })
+  await expect(exactText(page, 'Your reader account and Passkey have been created. You are not logged in yet. Log in with your new Passkey.')).toBeVisible({ timeout: 30_000 })
   await noSession(context)
   assert.deepEqual(calls, ['/pow.aeds', '/begin.aeds', '/complete.aeds'].map(path => registration + path))
   checks.registrationDoesNotSignIn = true
@@ -70,7 +70,7 @@ try {
   await exactButton(page, 'Log in with Passkey').click()
   await page.waitForURL(origin + '/user/identity/mfa')
   const response = await context.request.get(origin + WireRoutes.Session)
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   const session = decodeSession(decodeFrame(await response.body(), FrameType.OperatorSession).payload)
   assert.equal(session.canAuthor, false)
   assert((await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
@@ -78,9 +78,9 @@ try {
   checks.passkeySignsInReaderOnly = true
 
   const articles = await context.request.get(origin + WireRoutes.AuthorArticles)
-  assert.equal(articles.status(), 403)
+  assertStatus(articles, 403)
   await page.goto(origin + '/user/manage/article/write')
-  await expect(page.getByText('Log in with an author account to write an article.', { exact: true })).toBeVisible()
+  await expect(exactText(page, 'Log in with an author account to write an article.')).toBeVisible()
   await expect(page.locator('#workspace-editor, .workspace-actions')).toHaveCount(0)
   checks.authorApiAndEditorDenied = true
   await page.screenshot({ path: join(evidence, 'reader-editor-denied.png') })
@@ -97,5 +97,5 @@ if (failure) throw failure
 
 async function noSession(context) {
   assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
-  assert.equal((await context.request.get(origin + WireRoutes.Session)).status(), 401)
+  assertStatus(await context.request.get(origin + WireRoutes.Session), 401)
 }

@@ -1,3 +1,5 @@
+import { assertStatus } from './response-status-fixture.mjs'
+import { roleWithExactName, exactText } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -62,8 +64,8 @@ try {
   assert(security?.protocol.startsWith('TLS') && await page.evaluate(() => window.isSecureContext))
   assert.equal(page.url(), articleUrl)
   await expect(page).toHaveTitle(/^Original Évidence 🐈 · /)
-  await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
-  await expect(page.getByText('Proof browser fixture.', { exact: true })).toBeVisible()
+  await expect(roleWithExactName(page, 'heading', title)).toBeVisible()
+  await expect(exactText(page, 'Proof browser fixture.')).toBeVisible()
   await readerHasNoProofUi()
   assert.deepEqual(calls, [])
   checks.tls = security.protocol
@@ -98,12 +100,12 @@ try {
   const nextProof = await currentProof(updated.id)
   assert.notEqual(nextProof, firstProof)
   await unavailablePublicProof(firstProof)
-  assert.equal((await author.get(firstProof)).status(), 404)
+  assertStatus(await author.get(firstProof), 404)
   checks.staleArticleReplacementDenied = true
 
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto(articleUrl)
-  await expect(page.getByRole('heading', { name: nextTitle, exact: true })).toBeVisible()
+  await expect(roleWithExactName(page, 'heading', nextTitle)).toBeVisible()
   await readerHasNoProofUi()
   verifyPublicationProof(JSON.parse(await publicJsonBytes(nextProof)),
     JSON.parse(await publicJsonBytes(keysPath)), origin)
@@ -115,7 +117,7 @@ try {
   const publicHead = checkHead ? await verifyOpaqueHead(nextProof) : null
   await command(WireRoutes.Retract, updated.id, updated.revision)
   await unavailablePublicProof(nextProof)
-  assert.equal((await author.get(nextProof)).status(), 404)
+  assertStatus(await author.get(nextProof), 404)
   checks.withdrawnPublicationReceiptDenied = true
   if (publicHead) {
     const withdrawn = await publicIntegrity(nextProof)
@@ -152,7 +154,7 @@ async function command(path, id, expectedRevision, title = '', body = '') {
 
 async function currentProof(id) {
   const detail = await author.get(WireRoutes.PublicArticle.replace('{id}', String(id)))
-  assert.equal(detail.status(), 200)
+  assertStatus(detail, 200)
   const article = decodeArticle(decodeFrame(await detail.body(), FrameType.ArticleDetail).payload)
   const path = publicationProofPath(article)
   await expect.poll(async () => {

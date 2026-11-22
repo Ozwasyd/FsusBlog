@@ -1,3 +1,4 @@
+import { exactText, exactLabel, roleWithExactName } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { assertStatus } from './response-status-fixture.mjs'
 import { execFile } from 'node:child_process'
@@ -96,7 +97,7 @@ try {
   const retired = await verifyRecovery(replacement.page)
   assertStatus(retired, 401)
   checks.rotatedKeyRejected = retired.status()
-  await replacement.page.getByText(recoveryFailed, { exact: true }).waitFor()
+  await exactText(replacement.page, recoveryFailed).waitFor()
   await session(owner.context, 200)
 
   if (removeCurrent) {
@@ -120,7 +121,7 @@ try {
     checks.removalWithoutRecoveryDenied = true
 
     await button(page, 'Remove current Passkey').click()
-    const keyField = page.getByLabel('Recovery Key to confirm removal', { exact: true })
+    const keyField = exactLabel(page, 'Recovery Key to confirm removal')
     await keyField.fill(first)
     const [invalid, invalidProof] = await Promise.all([
       clickApi(page, WireRoutes.RecoveryKeyVerify, 'Remove with Passkey'), waitApi(page, WireRoutes.RecoveryKeyPow),
@@ -156,25 +157,25 @@ try {
   }
 
   phase = 'verify-response-loss'
-  await replacement.page.getByLabel('Recovery Key', { exact: true }).fill(second)
+  await exactLabel(replacement.page, 'Recovery Key').fill(second)
   const lostVerification = await loseResponse(replacement.page, WireRoutes.RecoveryKeyVerify, async (upstream, sent) => {
     assertRecoveryCookie(upstream.headers()['set-cookie'])
     assert(Boolean((await sent.allHeaders())[WireHeaders.PowProof.toLowerCase()]), 'The lost verification omitted proof of work.')
   })
-  const errorMessage = replacement.page.getByText(recoveryFailed, { exact: true })
+  const errorMessage = exactText(replacement.page, recoveryFailed)
   await Promise.all([
     lostVerification.result, button(replacement.page, 'Replace Passkey').click(),
   ])
   await errorMessage.waitFor()
   const cookies = await replacement.context.cookies(origin + WireRoutes.RecoveryKeyRebindBegin)
   assert(!cookies.some(cookie => cookie.name === rebindCookieName), 'Browser received the recovery cookie despite the dropped response.')
-  assert(await replacement.page.getByLabel('Recovery Key', { exact: true }).inputValue() === '',
+  assert(await exactLabel(replacement.page, 'Recovery Key').inputValue() === '',
     'The key remained visible to the form after the lost response.')
   await reservationUnspent()
   checks.lostVerificationLeftKeyUnspent = true
 
   phase = 'rebind-response-loss'
-  await replacement.page.getByLabel('Recovery Key', { exact: true }).fill(second)
+  await exactLabel(replacement.page, 'Recovery Key').fill(second)
   const lostCompletion = await loseResponse(replacement.page, WireRoutes.RecoveryKeyRebindComplete, (_, sent) => {
     const body = sent.postDataBuffer()
     assert(body?.length, 'No real registration attestation was submitted.')
@@ -198,7 +199,7 @@ try {
   assert(originalAttestation.equals(repeated.request().postDataBuffer()),
     'The browser did not repeat the same WebAuthn registration attestation.')
   assertNoSessionGrant(await repeated.headerValue('set-cookie'))
-  await replacement.page.getByText('Passkey replaced. Log in with your new Passkey.', { exact: true }).waitFor()
+  await exactText(replacement.page, 'Passkey replaced. Log in with your new Passkey.').waitFor()
   await session(replacement.context, 401)
   checks.identicalAttestationRetried = true
   checks.rebindGrantedNoSession = true
@@ -220,7 +221,7 @@ try {
   const login = await passkey(replacement.page)
   assert.equal(await authLogin(login, 2), originalIdentity)
   await session(replacement.context, 401)
-  await replacement.page.getByLabel('Authenticator or recovery code', { exact: true }).waitFor()
+  await exactLabel(replacement.page, 'Authenticator or recovery code').waitFor()
   await completeSiteTotp(replacement.page, clickApi, secrets, secret, setupStep)
   await signedIn(replacement.page)
   const newState = await session(replacement.context, 200)
@@ -321,14 +322,14 @@ async function session(context, status) {
 
 async function signedIn(page) {
   await page.waitForURL(origin + '/user/manage/article/write')
-  await page.getByRole('heading', { name: 'New article', exact: true }).waitFor()
+  await roleWithExactName(page, 'heading', 'New article').waitFor()
 }
 
 async function enrollPasskey(page, ticket) {
   await button(page, 'Set up your first Passkey').click()
-  await page.getByLabel('One-time setup ticket', { exact: true }).fill(ticket)
+  await exactLabel(page, 'One-time setup ticket').fill(ticket)
   assertStatus(await clickApi(page, WireRoutes.PasskeyProvisionComplete, 'Create Passkey'), 200)
-  await page.getByText('Passkey created. Log in with your Passkey.', { exact: true }).waitFor()
+  await exactText(page, 'Passkey created. Log in with your Passkey.').waitFor()
 }
 
 async function passkey(page) {
@@ -375,7 +376,7 @@ function assertWebAuthnUv(body) {
 async function openRecovery(page, key) {
   await page.goto(origin + '/login')
   await button(page, 'Can’t use your Passkey?').click()
-  await page.getByLabel('Recovery Key', { exact: true }).fill(key)
+  await exactLabel(page, 'Recovery Key').fill(key)
 }
 
 async function verifyRecovery(page) {

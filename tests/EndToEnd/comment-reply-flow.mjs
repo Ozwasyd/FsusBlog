@@ -1,3 +1,4 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { writeFile } from 'node:fs/promises'
@@ -9,7 +10,7 @@ import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeCommentAuthorEditDetail, decodePublicCommentReply, decodePublicCommentSubmissionResult, decodeSession,
   FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { waitForPathResponse, waitForUrlResponse } from './response-wait-fixture.mjs'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 export async function verifyApprovedReply({ browser, siteOrigin, evidence, articleId, parentId, approve }) {
   const authorTicket = process.env.FSUSBLOG_TEST_REPLY_AUTHOR_TICKET
@@ -33,7 +34,7 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
     }
     await author.bringToFront()
     const articleUrl = `${siteOrigin}/article/${articleId}`
-    assert.equal((await author.goto(articleUrl)).status(), 200)
+    assertStatus(await author.goto(articleUrl), 200)
     await roleWithExactName(author, 'heading', 'Moderation fixture article').waitFor()
     assert.match(await author.title(), /Moderation fixture article/)
     const parent = author.locator(`[id="comment-${parentId}"]`)
@@ -42,9 +43,9 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
     const composer = roleWithExactName(author, 'heading', 'Reply to Moderation fixture writer')
     await composer.waitFor()
     assert.equal(await composer.evaluate(heading => heading.closest('[tabindex="-1"]') === document.activeElement), true)
-    const input = author.getByLabel('Reply', { exact: true })
+    const input = exactLabel(author, 'Reply')
     const confirm = author.getByRole('checkbox', { name: 'Publish as Reply fixture writer after review' })
-    const confirmLabel = author.getByText('Publish as Reply fixture writer after review', { exact: true })
+    const confirmLabel = exactText(author, 'Publish as Reply fixture writer after review')
     const send = author.getByRole('button', { name: 'Submit for review' })
     await input.fill('This unconfirmed text belongs to the first reply state.')
     await confirmLabel.click()
@@ -75,9 +76,9 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
 
     await recipient.bringToFront()
     const before = waitForPathResponse(recipient, () => WireRoutes.InboxList)
-    assert.equal((await recipient.goto(siteOrigin + '/user/messagebox')).status(), 200)
+    assertStatus(await recipient.goto(siteOrigin + '/user/messagebox'), 200)
     await recipient.getByRole('heading', { name: '我的站内信' }).waitFor()
-    assert.equal((await before).status(), 200)
+    assertStatus(await before, 200)
     assert.match(await recipient.title(), /我的站内信/)
     const notice = recipient.getByRole('button', { name: new RegExp(subject) })
     assert.equal(await notice.count(), 0)
@@ -90,15 +91,15 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
       recipient.waitForResponse(response => /^\/api\/binary\/messages\/conversations\/\d+$/.test(new URL(response.url()).pathname)),
       notice.click(),
     ])
-    assert.equal(inboxThread.status(), 200)
+    assertStatus(inboxThread, 200)
     const permalink = `/article/${articleId}#comment-${receipt.commentId}`
     await recipient.getByRole('heading', { name: subject }).waitFor()
-    await recipient.getByText(`Reply fixture writer 回复了您的评论：${body.slice(0, 40)}。定位：${permalink}`, { exact: true }).last().waitFor()
-    assert.equal((await authorContext.request.get(inboxThread.url())).status(), 404)
+    await exactText(recipient, `Reply fixture writer 回复了您的评论：${body.slice(0, 40)}。定位：${permalink}`).last().waitFor()
+    assertStatus(await authorContext.request.get(inboxThread.url()), 404)
     await recipient.screenshot({ path: join(evidence, 'comment-reply-private-inbox.png'), animations: 'disabled' })
-    assert.equal((await recipient.goto(siteOrigin + permalink)).status(), 200)
+    assertStatus(await recipient.goto(siteOrigin + permalink), 200)
     const target = recipient.locator(`[id="comment-${receipt.commentId}"]`)
-    await target.getByText(body, { exact: true }).waitFor()
+    await exactText(target, body).waitFor()
     assert.equal(await target.evaluate(element => element === document.activeElement), true)
     assert.equal(await recipient.locator('vite-error-overlay').count(), 0)
     const edit = process.env.FSUSBLOG_TEST_COMMENT_EDIT === '1'
@@ -118,7 +119,7 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
 
   async function login(context, ticket) {
     const page = await context.newPage()
-    assert.equal((await page.goto(siteOrigin + '/login')).status(), 200)
+    assertStatus(await page.goto(siteOrigin + '/login'), 200)
     await page.getByLabel('Owner access key').fill(ticket)
     await exactButton(page, 'Log in').click()
     await page.waitForURL(siteOrigin + '/user/manage/article/write')
@@ -132,13 +133,13 @@ async function submitReply(page, origin, send, parentId) {
     waitForUrlResponse(page, () => origin + WireRoutes.SubmitPublicCommentReply),
     send.click(),
   ])
-  assert.equal(challenge.status(), 200)
-  assert.equal(submitted.status(), 200)
+  assertStatus(challenge, 200)
+  assertStatus(submitted, 200)
   assert(challenge.request().postDataBuffer().equals(submitted.request().postDataBuffer()))
   assert.equal(decodePublicCommentReply(decodeFrame(submitted.request().postDataBuffer(), FrameType.PublicCommentReply).payload).parentId, parentId)
   const receipt = decodePublicCommentSubmissionResult(decodeFrame(await submitted.body(), FrameType.PublicCommentSubmissionResult).payload)
   assert.equal(receipt.moderationStatus, 0)
-  await page.getByText('Reply submitted for review.', { exact: true }).waitFor()
+  await exactText(page, 'Reply submitted for review.').waitFor()
   return receipt
 }
 
@@ -166,7 +167,7 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
   }
   async function invisibleInPublic() {
     const response = await anonymous.request.get(publicUrl)
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     const payload = Buffer.from(decodeFrame(await response.body(), FrameType.CommentPermalinkContext).payload)
     noPrivateText(payload)
     assert.equal(decodeCommentContext(payload), null)
@@ -175,42 +176,42 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
   try {
     await invisibleInPublic()
     const publicationReply = await anonymous.request.get(siteOrigin + WireRoutes.PublicArticle.replace('{id}', String(articleId)))
-    assert.equal(publicationReply.status(), 200)
+    assertStatus(publicationReply, 200)
     const publication = decodeArticle(decodeFrame(await publicationReply.body(), FrameType.ArticleDetail).payload).publication
 
     const peerSession = await recipient.request.get(siteOrigin + WireRoutes.Session)
-    assert.equal(peerSession.status(), 200)
+    assertStatus(peerSession, 200)
     const peerHeaders = { [WireHeaders.CurrentSession]: peerSession.headers()[nonceHeader] }
     assert.match(peerHeaders[WireHeaders.CurrentSession], /^[a-f0-9]{64}$/)
     const deniedDetail = await recipient.request.get(detailUrl, { headers: peerHeaders })
-    assert.equal(deniedDetail.status(), 404)
+    assertStatus(deniedDetail, 404)
     noPrivateText(await deniedDetail.body())
     const otherList = waitForUrlResponse(recipient, () => ownList, 'GET')
-    assert.equal((await recipient.goto(comments)).status(), 200)
+    assertStatus(await recipient.goto(comments), 200)
     const otherRows = await otherList
-    assert.equal(otherRows.status(), 200)
+    assertStatus(otherRows, 200)
     noPrivateText(await otherRows.body())
     await roleWithExactName(recipient, 'heading', '我的评论').waitFor()
 
     await author.bringToFront()
     const own = waitForUrlResponse(author, () => ownList, 'GET')
-    assert.equal((await author.goto(comments)).status(), 200)
+    assertStatus(await author.goto(comments), 200)
     const listed = await own
-    assert.equal(listed.status(), 200)
+    assertStatus(listed, 200)
     assert.equal(await listed.headerValue(WireHeaders.CommentAuthorEditEnabled), '1')
     const handle = listed.request().headers()[nonceHeader]
     assert.match(handle, /^[a-f0-9]{64}$/)
-    const row = text => author.getByRole('listitem').filter({ has: author.getByText(text, { exact: true }) })
-    await row(body).getByText('待审核', { exact: true }).waitFor()
+    const row = text => author.getByRole('listitem').filter({ has: exactText(author, text) })
+    await exactText(row(body), '待审核').waitFor()
     const detail = waitForUrlResponse(author, () => detailUrl, 'GET')
     await exactButton(row(body), '编辑评论').click()
     const loaded = await detail
-    assert.equal(loaded.status(), 200)
+    assertStatus(loaded, 200)
     assert.match((await loaded.headerValue('Cache-Control')) ?? '', /no-store/)
     const previous = await readDetail(loaded)
     assert.deepEqual(previous, { articleId, publication, currentVersion: 1n, body })
     const form = roleWithExactName(author, 'form', '编辑待审核评论')
-    const input = form.getByLabel('评论内容', { exact: true })
+    const input = exactLabel(form, '评论内容')
     await input.waitFor()
     assert.equal(await input.inputValue(), body)
     await input.fill(newBody)
@@ -229,7 +230,7 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
         author.waitForRequest(request => request.url() === editUrl && request.method() === 'POST'),
         exactButton(form, '保存修改').click(),
       ])
-      assert.equal(issued.status(), 200)
+      assertStatus(issued, 200)
       assert.equal(readJson(issued.request().postDataBuffer(), FrameType.CommentManagementChallengeRequest).purpose, 'edit')
       const proof = readJson(await issued.body(), FrameType.CommentManagementChallengeResponse)
       const command = (await paused.promise).postDataBuffer()
@@ -240,7 +241,7 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
       assert.equal(edit.content, newBody)
       const deniedEdit = await recipient.request.post(editUrl, { data: command,
         headers: { ...peerHeaders, 'Content-Type': 'application/octet-stream', Origin: siteOrigin } })
-      assert.equal(deniedEdit.status(), 404)
+      assertStatus(deniedEdit, 404)
       noPrivateText(await deniedEdit.body())
       const commit = waitForUrlResponse(author, () => editUrl, 'POST')
       resume.resolve()
@@ -248,20 +249,20 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
     } finally {
       resume.resolve()
     }
-    assert.equal(applied.status(), 200)
+    assertStatus(applied, 200)
     const result = readJson(await applied.body(), FrameType.CommentAuthorMutationResult)
     assert.deepEqual([result.success, result.code, result.currentVersion, result.moderationStatus], [true, 'ok', 2, 0])
     await form.waitFor({ state: 'hidden' })
-    await author.getByText('评论已修改，仍待审核。', { exact: true }).waitFor()
-    await row(newBody).getByText('待审核', { exact: true }).waitFor()
+    await exactText(author, '评论已修改，仍待审核。').waitFor()
+    await exactText(row(newBody), '待审核').waitFor()
     assert.equal(await row(body).count(), 0)
     const reread = await author.request.get(detailUrl, { headers: { [WireHeaders.CurrentSession]: handle } })
-    assert.equal(reread.status(), 200)
+    assertStatus(reread, 200)
     assert.deepEqual(await readDetail(reread), { ...previous, currentVersion: 2n, body: newBody })
     await invisibleInPublic()
 
     const timeline = await moderator.request.get(admin + WireRoutes.AdminCommentTimeline.replace('{id:long}', String(id)) + `?articleId=${articleId}`)
-    assert.equal(timeline.status(), 200)
+    assertStatus(timeline, 200)
     const bytes = await timeline.body()
     noPrivateText(bytes)
     const history = readJson(bytes, FrameType.CommentModerationTimeline)
@@ -291,28 +292,28 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
   const selector = id => `[id="comment-${id}"]`
   try {
     const ownerSession = await author.request.get(siteOrigin + WireRoutes.Session)
-    assert.equal(ownerSession.status(), 200)
+    assertStatus(ownerSession, 200)
     assert.equal(decodeSession(decodeFrame(await ownerSession.body(), FrameType.OperatorSession).payload).canAuthor, false)
     const otherSession = await recipient.request.get(siteOrigin + WireRoutes.Session)
-    assert.equal(otherSession.status(), 200)
+    assertStatus(otherSession, 200)
     const otherHandle = otherSession.headers()[WireHeaders.CurrentSession.toLowerCase()]
     assert(/^[a-f0-9]{64}$/.test(otherHandle ?? ''))
-    assert.equal((await anon.request.get(detailUrl)).status(), 401)
+    assertStatus(await anon.request.get(detailUrl), 401)
     const denied = await recipient.request.get(detailUrl, { headers: { [WireHeaders.CurrentSession]: otherHandle } })
-    assert.equal(denied.status(), 404)
+    assertStatus(denied, 404)
     assertNoCommentText(await denied.body())
     await recipient.locator(selector(parentId)).getByRole('button', menu).waitFor()
     assert.equal(await recipient.locator(selector(replyId)).getByRole('button', menu).count(), 0)
 
     const guest = await anon.newPage()
-    assert.equal((await guest.goto(siteOrigin + permalink)).status(), 200)
-    await guest.locator(selector(replyId)).getByText(body, { exact: true }).waitFor()
+    assertStatus(await guest.goto(siteOrigin + permalink), 200)
+    await exactText(guest.locator(selector(replyId)), body).waitFor()
     assert.equal(await guest.locator(selector(replyId)).getByRole('button', menu).count(), 0)
 
     await recipient.bringToFront()
     await exactButton(recipient.locator(selector(replyId)), 'Reply').click()
-    await recipient.getByLabel('Reply', { exact: true }).fill(childBody)
-    await recipient.getByText('Publish as Moderation fixture writer after review', { exact: true }).click()
+    await exactLabel(recipient, 'Reply').fill(childBody)
+    await exactText(recipient, 'Publish as Moderation fixture writer after review').click()
     const child = await submitReply(recipient, siteOrigin, recipient.getByRole('button', { name: 'Submit for review' }), replyId)
     assert.equal(child.articleId, articleId)
     await approve(childBody, child.commentId)
@@ -329,20 +330,20 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
 
     await author.bringToFront()
     await author.goto(siteOrigin + permalink)
-    assert.equal((await author.reload()).status(), 200)
+    assertStatus(await author.reload(), 200)
     const publicationResponse = await author.request.get(siteOrigin + WireRoutes.PublicArticle.replace('{id}', String(articleId)))
-    assert.equal(publicationResponse.status(), 200)
+    assertStatus(publicationResponse, 200)
     const publication = decodeArticle(decodeFrame(await publicationResponse.body(), FrameType.ArticleDetail).payload).publication
     const action = author.locator(selector(replyId)).getByRole('button', menu)
     const dialog = roleWithExactName(author, 'dialog', 'Edit your comment')
-    const input = dialog.getByLabel('Edited comment', { exact: true })
+    const input = exactLabel(dialog, 'Edited comment')
     const save = exactButton(dialog, 'Save for review')
     async function openEditor() {
       const [loaded] = await Promise.all([
         waitForUrlResponse(author, () => detailUrl, 'GET'),
         action.click(),
       ])
-      assert.equal(loaded.status(), 200)
+      assertStatus(loaded, 200)
       assert.match((await loaded.headerValue('Cache-Control')) ?? '', /no-store/)
       const decoded = decodeCommentAuthorEditDetail(decodeFrame(await loaded.body(), FrameType.CommentAuthorEditDetail).payload)
       assert.equal(decoded.articleId, articleId)
@@ -375,8 +376,8 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
       waitForUrlResponse(author, () => editUrl, 'POST'),
       save.click(),
     ])
-    assert.equal(grant.status(), 200)
-    assert.equal(applied.status(), 200)
+    assertStatus(grant, 200)
+    assertStatus(applied, 200)
     assert.deepEqual(writes, [challengeUrl, editUrl])
     const { purpose } = readJson(grant.request().postDataBuffer(), FrameType.CommentManagementChallengeRequest)
     assert.equal(purpose, 'edit')
@@ -392,10 +393,10 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
     assert.equal(result.moderationStatus, 0)
     assert.equal(result.currentVersion, command.expectedVersion + 1)
     await dialog.waitFor({ state: 'hidden' })
-    await author.getByText('Comment edit submitted for review.', { exact: true }).waitFor()
-    await author.getByText('This comment is unavailable.', { exact: true }).waitFor()
-    assert.equal(await author.getByText(body, { exact: true }).count(), 0)
-    assert.equal(await author.getByText(newBody, { exact: true }).count(), 0)
+    await exactText(author, 'Comment edit submitted for review.').waitFor()
+    await exactText(author, 'This comment is unavailable.').waitFor()
+    assert.equal(await exactText(author, body).count(), 0)
+    assert.equal(await exactText(author, newBody).count(), 0)
     const pending = await readContext(replyId)
     assert.equal(pending.view, null)
     assertNoCommentText(pending.payload)
@@ -409,11 +410,11 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
     await author.screenshot({ path: join(evidence, 'comment-edit-pending-mobile.png'), animations: 'disabled' })
 
     await approve(newBody, replyId)
-    assert.equal((await guest.reload()).status(), 200)
+    assertStatus(await guest.reload(), 200)
     const publicNode = guest.locator(selector(replyId))
-    await publicNode.getByText(newBody, { exact: true }).waitFor()
-    await publicNode.getByText('Edited', { exact: true }).waitFor()
-    assert.equal(await publicNode.getByText(body, { exact: true }).count(), 0)
+    await exactText(publicNode, newBody).waitFor()
+    await exactText(publicNode, 'Edited').waitFor()
+    assert.equal(await exactText(publicNode, body).count(), 0)
     assert.equal(await publicNode.getByRole('button', menu).count(), 0)
     const final = (await readContext(replyId)).view.target
     const finalChild = (await readContext(child.commentId)).view.target
@@ -425,7 +426,7 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
     const finalNotice = await readNotice()
     assert.deepEqual(finalNotice.messages.map(message => [message.id, message.body]),
       originalNotice.messages.map(message => [message.id, message.body]))
-    assert.equal((await recipient.goto(siteOrigin + '/user/messagebox')).status(), 200)
+    assertStatus(await recipient.goto(siteOrigin + '/user/messagebox'), 200)
     const noticeButton = recipient.getByRole('button', { name: /收到新的评论回复/ })
     await noticeButton.waitFor()
     assert.equal(await noticeButton.count(), 1)
@@ -438,14 +439,14 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
   async function readContext(id) {
     const url = siteOrigin + WireRoutes.CommentContext.replace('{articleId:int}', String(articleId)).replace('{commentId:long}', String(id))
     const response = await anon.request.get(url)
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     const payload = Buffer.from(decodeFrame(await response.body(), FrameType.CommentPermalinkContext).payload)
     return { payload, view: decodeCommentContext(payload) }
   }
 
   async function readNotice() {
     const response = await recipient.request.get(inboxUrl)
-    assert.equal(response.status(), 200)
+    assertStatus(response, 200)
     return decodeInboxThread(decodeFrame(await response.body(), FrameType.ConversationDetailV3).payload)
   }
 

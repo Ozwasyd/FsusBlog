@@ -1,3 +1,5 @@
+import { assertStatus } from './response-status-fixture.mjs'
+import { roleWithExactName, exactText } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { submitSearch as submit } from './search-form-fixture.mjs'
 import { randomUUID } from 'node:crypto'
@@ -115,7 +117,7 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     observations.corruptionCleanup = await waitForEmptyCache(peer)
     assertWarm(collect('corruptionRejectedWithoutRefetch'), manifest, 1)
 
-    await peer.getByRole('button', { name: 'Retry', exact: true }).click()
+    await roleWithExactName(peer, 'button', 'Retry').click()
     await assertCards(peer, [fixtureCount])
     assertComplete(collect('explicitAdmissionAfterCorruption'), manifest)
     const recovered = observations.recoveredStorage = await inspectCache(peer, manifest)
@@ -139,10 +141,10 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     await peer.getByRole('status').filter({ hasText: /^Use at most 128 characters, including after normalization\.$/ }).waitFor({ timeout })
     const queryForm = peer.locator('form.search-form')
     assert.equal(await queryForm.getByRole('textbox', { name: 'Search articles' }).inputValue(), beyondNormalizedBoundary)
-    assert(await queryForm.getByRole('button', { name: 'Search', exact: true }).isDisabled())
+    assert(await roleWithExactName(queryForm, 'button', 'Search').isDisabled())
     assert.equal(await cards(peer).count(), 0)
     assert.equal(await peer.getByRole('alert').count(), 0)
-    assert.equal(await peer.getByRole('button', { name: 'Retry', exact: true }).count(), 0)
+    assert.equal(await roleWithExactName(peer, 'button', 'Retry').count(), 0)
     assert.deepEqual(collect('normalizedLengthOverLimit'), { requests: [], responses: [] })
 
     const outOfRange = new URLSearchParams({ q: String(fixtureCount), page: '2' })
@@ -151,10 +153,10 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     assert.equal(peer.url(), `${origin}/search?${outOfRange}`)
     assert.equal(await cards(peer).count(), 0)
     const pagination = peer.getByRole('navigation', { name: 'Search result pages' })
-    assert.equal(await pagination.getByRole('link', { name: 'Next', exact: true }).count(), 0)
+    assert.equal(await roleWithExactName(pagination, 'link', 'Next').count(), 0)
     assertWarm(collect('outOfRangePage'), manifest)
 
-    await pagination.getByRole('link', { name: 'First page', exact: true }).click()
+    await roleWithExactName(pagination, 'link', 'First page').click()
     await peer.waitForURL(`${origin}/search?q=${fixtureCount}`)
     await assertCards(peer, [fixtureCount])
     assertWarm(collect('returnToFirstPage'), manifest)
@@ -186,8 +188,8 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     assert.notEqual(replacement.generation, manifest.generation)
     assert.notEqual(replacement.digest, manifest.digest)
     assert.equal(replacement.documentCount, fixtureCount - 1)
-    await peer.getByRole('button', { name: 'Retry', exact: true }).click()
-    await peer.getByText('No articles match your search.', { exact: true }).waitFor({ timeout })
+    await roleWithExactName(peer, 'button', 'Retry').click()
+    await exactText(peer, 'No articles match your search.').waitFor({ timeout })
     assert.equal(await cards(peer).count(), 0)
     assertComplete(collect('replacement'), replacement)
     observations.replacementStorage = await inspectCache(peer, replacement)
@@ -201,7 +203,7 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
 
 
 async function assertCards(page, ids) {
-  await page.locator('ol.article-list').getByRole('link', { name: articleTitle(ids[0]), exact: true }).waitFor({ timeout })
+  await roleWithExactName(page.locator('ol.article-list'), 'link', articleTitle(ids[0])).waitFor({ timeout })
   assert.deepEqual(await cards(page).allTextContents(), ids.map(articleTitle))
   const paths = await cards(page).evaluateAll(links => links.map(link => new URL(link.href).pathname))
   assert.deepEqual(paths, ids.map(id => `/article/${id}`))
@@ -210,8 +212,8 @@ async function assertCards(page, ids) {
 async function assertDeepPage(page) {
   const nav = page.getByRole('navigation', { name: 'Search result pages' })
   assert.equal(await nav.locator('span[aria-current="page"]').textContent(), `Page ${deepPage}`)
-  assert.equal(await nav.getByRole('link', { name: 'Previous', exact: true }).count(), 1)
-  assert.equal(await nav.getByRole('link', { name: 'Next', exact: true }).count(), 0)
+  assert.equal(await roleWithExactName(nav, 'link', 'Previous').count(), 1)
+  assert.equal(await roleWithExactName(nav, 'link', 'Next').count(), 0)
 }
 
 async function markSupersededVisibility(page) {
@@ -412,7 +414,7 @@ async function sealedManifest(request) {
     const response = await request.get(WireRoutes.PublicSearchWideManifest)
     try {
       if (response.status() !== 503) {
-        assert.equal(response.status(), 200)
+        assertStatus(response, 200)
         const { payload } = decodeFrame(await response.body(), FrameType.PublicSearchWideManifest)
         const bytes = Buffer.from(payload)
         const generation = bytes.readBigInt64LE(4).toString()
@@ -484,7 +486,7 @@ async function run() {
   async function post(path, type, payload, reply) {
     const response = await postFrame(author, path, type, payload)
     try {
-      assert.equal(response.status(), 200)
+      assertStatus(response, 200)
       return decodeFrame(await response.body(), reply).payload
     } finally {
       await response.dispose()

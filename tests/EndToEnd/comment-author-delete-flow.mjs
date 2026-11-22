@@ -1,3 +1,5 @@
+import { roleWithExactName, exactText } from './role-locators.mjs'
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
@@ -100,7 +102,7 @@ try {
   await post(publisher, WireRoutes.Publish, FrameType.ArticleCommand, encodeArticleCommand({ id: draft.id, expectedRevision: draft.revision,
     idempotencyKey: randomUUID(), title: '', body: '' }), FrameType.Draft)
   const view = await publisher.request.get(`${origin}${WireRoutes.PublicArticle.replace('{id}', String(draft.id))}`)
-  assert.equal(view.status(), 200)
+  assertStatus(view, 200)
   const { publication } = decodeArticle(decodeFrame(await view.body(), FrameType.ArticleDetail).payload)
   sql(`insert into public.comment_public_write(article_id) values(:article);
        insert into public.comment_public_handle(user_id,display_name) select id,'Shared display label' from public.blog_user
@@ -129,7 +131,7 @@ try {
   await remove(commenter, commenterAuth, root, stale, 404)
   const revoked = await challenge(secondSession, secondAuth, other)
   const ended = await secondSession.request.post(`${origin}${WireRoutes.SignOut}`)
-  assert.equal(ended.status(), 200)
+  assertStatus(ended, 200)
   await remove(secondSession, secondAuth, other, revoked, 401)
   await remove(commenter, commenterAuth, other, revoked, 404)
   sql('update public.comment set moderation_version=moderation_version+1 where article_id=:article and id=:id;', { article: draft.id, id: other })
@@ -162,11 +164,11 @@ try {
   page.on('request', req => { if (req.url() === `${origin}${requestPath(WireRoutes.CommentAuthorChallenge, root)}`) challenges++ })
   await page.goto(article)
   const target = page.locator(`#comment-${root}`)
-  const action = target.getByRole('button', { name: 'Delete my comment', exact: true })
+  const action = roleWithExactName(target, 'button', 'Delete my comment')
   await expect(action).toBeVisible()
   const reply = page.locator(`#comment-${child}`)
   if (!await reply.isVisible()) await target.getByRole('button', { name: 'Show replies (1)' }).click()
-  await expect(reply.getByText(childText, { exact: true })).toBeVisible()
+  await expect(exactText(reply, childText)).toBeVisible()
   await expect(reply.getByRole('button', { name: 'Delete my comment' })).toHaveCount(0)
   await expect(page.locator('#comment-9007199254740993').getByRole('button', { name: 'Delete my comment' })).toHaveCount(0)
   const anonymousPage = await reader.newPage()
@@ -180,17 +182,17 @@ try {
   await confirmation.getByRole('button', { name: 'Keep comment' }).click()
   await expect(confirmation).toBeHidden()
   assert.equal(challenges, 0)
-  await expect(target.getByText(parentText, { exact: true })).toBeVisible()
+  await expect(exactText(target, parentText)).toBeVisible()
   await action.click()
   await confirmation.getByRole('button', { name: 'Delete comment' }).click()
-  await expect(page.getByText('Comment deleted.', { exact: true })).toBeVisible()
-  await expect(page.getByText(parentText, { exact: true })).toHaveCount(0)
+  await expect(exactText(page, 'Comment deleted.')).toBeVisible()
+  await expect(exactText(page, parentText)).toHaveCount(0)
   if (!await reply.isVisible()) await target.getByRole('button', { name: 'Show replies (1)' }).click()
-  await expect(reply.getByText(childText, { exact: true })).toBeVisible()
+  await expect(exactText(reply, childText)).toBeVisible()
   await expect(target.getByRole('button', { name: 'Delete my comment' })).toHaveCount(0)
   await page.screenshot({ path: join(evidence, 'comment-delete-public-tombstone.png') })
   await anonymousPage.goto(`${article}#comment-${root}`)
-  await expect(anonymousPage.getByText('This comment is unavailable.', { exact: true })).toBeVisible()
+  await expect(exactText(anonymousPage, 'This comment is unavailable.')).toBeVisible()
   const fresh = decodeDraft(decodeFrame(await (await publisher.request.get(`${origin}${WireRoutes.Draft.replace('{id:int}', String(draft.id))}`)).body(), FrameType.Draft).payload)
   const withdrawn = await comment(outsider, draft.id, publication, 'Owned comment remains manageable after withdrawal.')
   sql('update public.comment set moderation_status=1,moderation_version=moderation_version+1 where id=:id;', { id: withdrawn })

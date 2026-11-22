@@ -1,3 +1,4 @@
+import { roleWithExactName, exactText } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { submitSearch } from './search-form-fixture.mjs'
 import { createHash } from 'node:crypto'
@@ -24,7 +25,7 @@ try {
   const owner = await browser.newPage()
   await owner.goto(`${origin}/login`)
   await owner.getByLabel('Owner access key').fill(ticket)
-  await owner.getByRole('button', { name: 'Log in', exact: true }).click()
+  await roleWithExactName(owner, 'button', 'Log in').click()
   await owner.getByRole('heading', { name: 'New article' }).waitFor()
 
   const visitor = await browser.newPage({ viewport: { width: 375, height: 850 } })
@@ -87,7 +88,7 @@ try {
   assert.notEqual(stages.longCjkExact[2].validator, stages.withdrawn[2].validator)
 
   await submit('搜索')
-  await visitor.getByText('No articles match your search.', { exact: true }).waitFor()
+  await exactText(visitor, 'No articles match your search.').waitFor()
   assert.equal(await result(longRunTitle).count(), 0)
   stages.longCjkNonAdjacent = checkedWarm(longGeneration)
 
@@ -187,7 +188,7 @@ try {
   assert.notEqual(stale.headers.get('content-type'), patchType)
   await stale.arrayBuffer()
   await submit('搜')
-  await visitor.getByText('No articles match your search.', { exact: true }).waitFor()
+  await exactText(visitor, 'No articles match your search.').waitFor()
   stages.patchWithdrawn = checkedRefresh(changed[1], { ...changed[2], validator: full.validator })
   assert.equal(stages.patchWithdrawn[2].type, 'application/octet-stream')
   assert.equal(await result(longRunTitle).count(), 0)

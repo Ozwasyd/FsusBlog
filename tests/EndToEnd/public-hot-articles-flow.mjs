@@ -1,8 +1,9 @@
+import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticleHot } from '../../src/Contracts/article-hot.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { roleWithExactName } from './role-locators.mjs'
+import { roleWithExactName, exactText } from './role-locators.mjs'
 
 const hotPath = WireRoutes.PublicArticleHot.replace('{size}', '10')
 const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
@@ -10,7 +11,7 @@ const visibleLimit = 5
 const wrongTag = '"browser-test-mismatched-article-hot-validator"'
 
 async function readRanking(response) {
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   const { etag, [generationHeader]: generation } = response.headers()
   assert.match(etag, /^"[0-9a-f]{64}"$/)
   assert.match(generation, /^[0-9]+$/)
@@ -21,7 +22,7 @@ async function readRanking(response) {
 }
 
 function assertProof(response, ranking) {
-  assert.equal(response.status(), 204)
+  assertStatus(response, 204)
   assert.equal(new URL(response.url()).searchParams.get('generation'), ranking.generation)
   assert.equal(response.headers()[generationHeader], ranking.generation)
   assert.equal(response.headers().etag, ranking.etag)
@@ -114,7 +115,7 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
 
   async function start(page) {
     const result = await page.goto(site + '/')
-    assert.equal(result.status(), 200)
+    assertStatus(result, 200)
     await roleWithExactName(page, 'heading', 'Latest posts').waitFor()
     await next(page).waitFor()
     assert.equal(await page.locator(marker).count(), enabled ? 1 : 0)
@@ -123,7 +124,7 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
   async function older(page) {
     await next(page).click()
     await page.waitForURL(url => url.pathname === '/' && url.searchParams.get('page') === '2' && !!url.searchParams.get('cursor'))
-    await roleWithExactName(page, 'navigation', 'Article pages').getByText('Page 2', { exact: true }).waitFor()
+    await exactText(roleWithExactName(page, 'navigation', 'Article pages'), 'Page 2').waitFor()
     await articleLinks(page).first().waitFor()
     await roleWithExactName(page, 'heading', 'Latest posts').waitFor()
     assert.equal(await panel(page).count(), 0)
@@ -144,8 +145,7 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
     }))), top.map(item => ({ text: item.title, href: `/article/${item.id}` })))
     const format = new Intl.NumberFormat('en')
     for (const [index, item] of top.entries()) {
-      await region.getByRole('listitem').nth(index)
-        .getByText(`${format.format(item.views)} ${item.views === 1 ? 'read' : 'reads'}`, { exact: true }).waitFor()
+      await exactText(region.getByRole('listitem').nth(index), `${format.format(item.views)} ${item.views === 1 ? 'read' : 'reads'}`).waitFor()
     }
   }
 
@@ -156,7 +156,7 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
       await older(page)
       assert.equal(requests.length, 0)
       assert.deepEqual(await mounts(page), [])
-      assert.equal((await page.request.get(site + hotPath)).status(), 404)
+      assertStatus(await page.request.get(site + hotPath), 404)
       observations.push({ scenario: 'public-hot-disabled', browserHotRequests: requests.length })
     })
     assert.deepEqual(diagnostics, [])
