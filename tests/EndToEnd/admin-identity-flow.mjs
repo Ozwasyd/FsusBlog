@@ -39,8 +39,6 @@ const moderatorGrant = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT
 const moderatorRevoke = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE
 const moderatorSeed = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_SEED
 const moderatorBody = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_BODY
-const taxonomyGrant = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_GRANT
-const taxonomyRevoke = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_REVOKE
 const taxonomySeed = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED
 const sitePagesGrant = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGES_GRANT
 const sitePagesRevoke = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGES_REVOKE
@@ -52,11 +50,9 @@ assert.notEqual(adminTicket, siteSessionToken, 'Use independent site session and
 const moderationFixture = [moderatorGrant, moderatorRevoke, moderatorSeed, moderatorBody]
 assert(moderationFixture.every(Boolean) || moderationFixture.every(value => !value),
   'Provide grant, revoke, seed and test body together for moderation acceptance.')
-const taxonomyFixture = [taxonomyGrant, taxonomyRevoke, taxonomySeed]
-assert(taxonomyFixture.every(Boolean) || taxonomyFixture.every(value => !value),
-  'Provide grant, revoke and seed executables together for taxonomy acceptance.')
+assert(!taxonomySeed || revokeExecutable, 'Provide the administrator revocation fixture for taxonomy acceptance.')
 assert(Boolean(sitePagesGrant) === Boolean(sitePagesRevoke), 'Provide both offline site-page permission executables.')
-assert([moderatorGrant, taxonomyGrant, sitePagesGrant].filter(Boolean).length <= 1,
+assert([moderatorGrant, taxonomySeed, sitePagesGrant].filter(Boolean).length <= 1,
   'Run administrator permission scenarios separately to preserve the rate budget.')
 const adminOrigin = new URL(adminUrl)
 const siteOrigin = new URL(siteUrl)
@@ -263,7 +259,7 @@ try {
     checks.offlineRevocationRetiresOwnSignIn = true
   }
 
-  const hasSpecializedScenario = Boolean(moderatorGrant || taxonomyGrant || sitePagesGrant ||
+  const hasSpecializedScenario = Boolean(moderatorGrant || taxonomySeed || sitePagesGrant ||
     process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE === '1' || process.env.FSUSBLOG_TEST_ADMIN_INBOX === '1' ||
     process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE === '1' || process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK === '1')
   if (!hasSpecializedScenario) {
@@ -286,14 +282,14 @@ try {
   const adminWorkspace = { page: admin, context, adminOrigin, siteOrigin }
   const permissionChecks = { logIn, probe: credentialProbe, readCookie, evidence }
   const permissionFixture = { ...adminWorkspace, adminCookieName, siteCookie }
-  if (taxonomyGrant) {
-    phase = 'taxonomy-permission'
+  if (taxonomySeed) {
+    phase = 'taxonomy'
     finalCookie = await verifyTaxonomy({ ...permissionFixture,
-      priorCookie: finalCookie, grant: taxonomyGrant, revoke: taxonomyRevoke, seed: taxonomySeed, logIn,
+      priorCookie: finalCookie, revoke: revokeExecutable, seed: taxonomySeed, logIn,
       probe: credentialProbe, snapshot, readCookie, evidence })
-    checks.taxonomyRequiresIndependentGrant = true
+    checks.taxonomyRequiresLiveAdministratorSession = true
     checks.taxonomyCountersAndCursorUseStoredRevisions = true
-    checks.taxonomyGrantAndRevokeInvalidateOldSessions = true
+    checks.taxonomyRevocationInvalidatesOldSessions = true
   }
 
   if (process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE === '1') {
