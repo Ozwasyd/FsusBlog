@@ -81,9 +81,9 @@ fi
 "${migrate[@]}" verify >> "$evidence/schema.log"
 FSUSBLOG_TEST_TICKET=$("${migrate[@]}" operator browser-author)
 export FSUSBLOG_TEST_TICKET
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == blog ]]; then
-  FSUSBLOG_TEST_PROPERTY_PEER_TICKET=$("${migrate[@]}" operator browser-property-peer)
-  export FSUSBLOG_TEST_PROPERTY_PEER_TICKET
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == blog || ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
+  FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap browser-author)
+  export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
 fi
 if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator canvas-scale-outsider)
@@ -154,16 +154,24 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-hot-articles ]]; then
   shasum -a 256 tests/EndToEnd/public-hot-fixture.sql >> "$evidence/run.txt"
 fi
 
-dotnet "$scratch/server/FsusBlog.V2.Server.dll" --urls http://127.0.0.1:0 > "$evidence/server.log" 2>&1 &
+http_port=$(node --input-type=module <<'JS'
+import { createServer } from 'node:net'
+const listener = createServer().listen(0, '127.0.0.1', () => {
+  console.log(listener.address().port)
+  listener.close()
+})
+JS
+)
+url="http://localhost:$http_port"
+export FSUSBLOG_ADMIN_ORIGIN="$url" FSUSBLOG_ADMIN_RP_ID=localhost
+dotnet "$scratch/server/FsusBlog.V2.Server.dll" --urls "http://127.0.0.1:$http_port" > "$evidence/server.log" 2>&1 &
 server_pid=$!
-url=
 for (( attempt=0; attempt<100; attempt++ )); do
-  url=$(sed -nE 's/^[[:space:]]*Now listening on: (http:\/\/127\.0\.0\.1:[0-9]+)$/\1/p' "$evidence/server.log")
-  if [[ -n "$url" ]] && curl --silent --fail "$url/health/ready" >/dev/null; then break; fi
+  if curl --silent --fail "$url/health/ready" >/dev/null; then break; fi
   kill -0 "$server_pid"
   sleep 0.2
 done
-[[ -n "$url" ]] && curl --silent --fail "$url/health/ready" >/dev/null
+curl --silent --fail "$url/health/ready" >/dev/null
 export FSUSBLOG_TEST_URL="$url"
 if [[ ${FSUSBLOG_TEST_MEDIA_WEBP:-0} == 1 ]]; then
   if "${migrate[@]}" media-webp schema > "$evidence/media-webp-live-rejection.log" 2>&1; then

@@ -5,13 +5,14 @@ import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
 import { chromium, readDraft, submitArticle } from './browser-authoring-fixture.mjs'
 
-const { FSUSBLOG_TEST_URL, FSUSBLOG_TEST_TICKET, FSUSBLOG_TEST_SITE_URL, FSUSBLOG_TEST_SITE_TICKET,
+const { FSUSBLOG_TEST_URL, FSUSBLOG_TEST_SITE_URL, FSUSBLOG_TEST_ADMIN_URL, FSUSBLOG_TEST_AUTHOR_BOOTSTRAP: bootstrap,
   FSUSBLOG_TEST_CHROME: executablePath, FSUSBLOG_TEST_TLS_SPKI: tlsPins, FSUSBLOG_TEST_EVIDENCE: evidence } = process.env
 const origin = FSUSBLOG_TEST_SITE_URL ?? FSUSBLOG_TEST_URL
-const ticket = FSUSBLOG_TEST_SITE_TICKET ?? FSUSBLOG_TEST_TICKET
-assert(origin && ticket && evidence)
+const adminOrigin = FSUSBLOG_TEST_ADMIN_URL ?? origin
+assert(origin && bootstrap && evidence)
 if (origin.startsWith('https:')) assert.match(tlsPins ?? '', /^[A-Za-z0-9+/]{43}=(?:,[A-Za-z0-9+/]{43}=)?$/)
 const browser = await chromium.launch({ headless: true, executablePath,
   args: tlsPins ? [`--ignore-certificate-errors-spki-list=${tlsPins}`] : [] })
@@ -23,12 +24,10 @@ const title = 'Browser fixture new'
 const patchType = 'application/vnd.fsus.search-patch'
 try {
   const owner = await browser.newPage()
-  await owner.goto(`${origin}/login`)
-  await owner.getByLabel('Owner access key').fill(ticket)
-  await roleWithExactName(owner, 'button', 'Log in').click()
-  await owner.getByRole('heading', { name: 'New article' }).waitFor()
+  await signInFreshAdmin(owner, adminOrigin, bootstrap)
 
   const visitor = await browser.newPage({ viewport: { width: 375, height: 850 } })
+  await visitor.context().addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
   visitor.context().on('response', response => {
     const url = new URL(response.url())
     if (url.origin !== origin || url.pathname !== WireRoutes.PublicSearchCorpus) return
@@ -226,7 +225,7 @@ try {
   }
 
   async function command(route, id, expectedRevision, title = '', body = '') {
-    return readDraft(await submitArticle(owner.request, origin + route, { id, expectedRevision, title, body }))
+    return readDraft(await submitArticle(owner.request, adminOrigin + route, { id, expectedRevision, title, body }))
   }
 
   function hash(bytes) {

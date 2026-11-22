@@ -6,11 +6,12 @@ import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticleHot } from '../../src/Contracts/article-hot.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exercisePublicHotArticles } from './public-hot-articles-flow.mjs'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
 import { chromium, submitArticle } from './browser-authoring-fixture.mjs'
 
-const { FSUSBLOG_TEST_URL: origin, FSUSBLOG_TEST_TICKET: ticket, FSUSBLOG_TEST_CHROME: executablePath,
+const { FSUSBLOG_TEST_URL: origin, FSUSBLOG_TEST_AUTHOR_BOOTSTRAP: bootstrap, FSUSBLOG_TEST_CHROME: executablePath,
   FSUSBLOG_TEST_EVIDENCE: evidence, FSUSBLOG_TEST_HOT_ENABLED: selected } = process.env
-assert(origin && ticket && evidence)
+assert(origin && bootstrap && evidence)
 const enabled = selected === '1'
 const browser = await chromium.launch({ headless: true, executablePath })
 const observations = []
@@ -19,12 +20,7 @@ const expected = [[3, 20], [9, 10], [8, 10], [4, 5], [2, 2], [6, 1]]
   .map(([id, views]) => ({ id, views, title: `Browser fixture ${id}` }))
 try {
   const owner = enabled ? await browser.newPage() : null
-  if (owner) {
-    await owner.goto(new URL('/login', origin).href)
-    await owner.getByLabel('Owner access key').fill(ticket)
-    await owner.getByRole('button', { name: 'Log in', exact: true }).click()
-    await owner.getByRole('heading', { name: 'New article' }).waitFor()
-  }
+  if (owner) await signInFreshAdmin(owner, origin, bootstrap)
   await exercisePublicHotArticles({
     browser, origin, enabled, expected, observations,
     advance: owner && (async ({ generation }) => {

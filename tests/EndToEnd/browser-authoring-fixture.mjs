@@ -11,7 +11,7 @@ export { chromium, expect, button }
 export const binary = { 'Content-Type': 'application/octet-stream' }
 
 export async function createCanvasThroughUi(page, origin, title) {
-  await page.goto(origin + '/user/manage/canvas')
+  await page.goto(origin + '/admin/canvas')
   await button(page, 'New Canvas').click()
   const dialog = page.getByRole('dialog', { name: 'New Canvas', exact: true })
   await dialog.getByLabel('Canvas title').fill(title)

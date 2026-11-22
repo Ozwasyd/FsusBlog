@@ -5,16 +5,18 @@
 
 BEGIN;
 
+SELECT id AS fixture_owner FROM public.admin_principal WHERE handle = 'browser-author'
+\gset
+
 INSERT INTO public.category (id, name, description)
 VALUES (1, 'Web engineering', 'Published implementation notes.'), (2, 'Empty category', null);
 INSERT INTO public.tag (id, name, description) VALUES (4, 'Café', null);
 INSERT INTO public.tag_url_name (name_key, tag_id) VALUES ('ANCIENNE', 4);
 
 INSERT INTO public.article (owner_id, revision, title, body, published_revision, publication_count, deleted, created_at)
-SELECT owner.id, 1, 'Browser fixture ' || seed.ordinal, 'A fixed public article.', 1, 1, false,
+SELECT :'fixture_owner', 1, 'Browser fixture ' || seed.ordinal, 'A fixed public article.', 1, 1, false,
        TIMESTAMPTZ '2026-01-01 00:00:00+00' + seed.ordinal * INTERVAL '1 minute'
-FROM public.blog_user owner CROSS JOIN generate_series(1, :fixture_count) seed(ordinal)
-WHERE owner.name = 'browser-author'
+FROM generate_series(1, :fixture_count) seed(ordinal)
 ORDER BY seed.ordinal;
 
 INSERT INTO public.article_revision (article_id, revision, title, body, happened_at)

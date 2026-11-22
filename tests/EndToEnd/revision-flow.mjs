@@ -58,7 +58,7 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   const currentNarrow = await current.boundingBox()
   assert(earlierNarrow && currentNarrow && earlierNarrow.y + earlierNarrow.height < currentNarrow.y,
     'Narrow comparison must stack the exact sources without hiding either')
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
+  await page.waitForFunction(() => document.documentElement.scrollWidth === 375)
   await comparison.getByRole('button', { name: 'Download revision Markdown' }).click({ trial: true })
   await verifyOfflineHtmlDownload(page, exactButton(comparison, 'Download revision HTML'),
     savedBefore.title, 'Draft milestone', 'Newer saved revision.')

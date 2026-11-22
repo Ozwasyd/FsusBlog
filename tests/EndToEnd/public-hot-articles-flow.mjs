@@ -77,6 +77,7 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
   async function visit(scenario) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 850 } })
     try {
+      await context.addCookies([{ name: 'fsus_locale', value: 'en', url: site }])
       const page = await context.newPage()
       const requests = []
       const responses = []

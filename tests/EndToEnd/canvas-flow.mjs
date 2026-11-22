@@ -53,6 +53,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     assert.equal((await state()).header.revision, 1n)
     const anonymous = await client.context().browser().newPage()
     try {
+      await anonymous.context().addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
       const shell = await anonymous.goto(client.url())
       assert.match(shell.headers()['x-robots-tag'], /noindex/)
       await roleWithExactName(anonymous, 'link', 'Log in to access Canvas').waitFor()

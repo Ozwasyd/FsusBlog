@@ -169,13 +169,15 @@ created=1
 "$dotnet" "$migrate" apply "$evidence/schema-plan.json" > "$evidence/schema.log"
 "$dotnet" "$migrate" verify >> "$evidence/schema.log"
 if [[ ${FSUSBLOG_TEST_WIDE_SEARCH:-0} == 1 ]]; then
-  FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator browser-author)
+  FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("$dotnet" "$migrate" admin-identity bootstrap browser-author)
+  export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
   export FSUSBLOG_WIDE_SEARCH_CORPUS=true
   "${pg}psql" -X -w -v ON_ERROR_STOP=1 -v fixture_count=26002 -d "$database" \
     -f tests/EndToEnd/public-fixture.sql -f tests/Fixtures/publication-rights.sql > "$evidence/wide-search-fixture.log"
   shasum -a 256 tests/EndToEnd/public-fixture.sql tests/Fixtures/publication-rights.sql >> "$evidence/run.txt"
 elif [[ ${FSUSBLOG_TEST_SEARCH_PATCH:-0} == 1 ]]; then
-  FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator browser-author)
+  FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("$dotnet" "$migrate" admin-identity bootstrap browser-author)
+  export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
   "${pg}psql" -X -w -v ON_ERROR_STOP=1 -v fixture_count=220 -d "$database" \
     -f tests/EndToEnd/public-fixture.sql -f tests/Fixtures/publication-rights.sql > "$evidence/search-patch-fixture.log"
   shasum -a 256 tests/EndToEnd/public-fixture.sql tests/Fixtures/publication-rights.sql >> "$evidence/run.txt"
@@ -493,11 +495,14 @@ expect() {
   expect public-health 204 "$FSUSBLOG_PUBLIC_ADDRESS/health/ready"
   expect naked-upstream-denied 400 -H "Host: $admin_host:$public_port" \
     "http://127.0.0.1:$upstream_port/admin/identity"
+  expect public-host-authoring-denied 404 "$FSUSBLOG_PUBLIC_ADDRESS/api/v2/authoring/session.aeds"
   expect public-host-administrator-denied 404 "$FSUSBLOG_PUBLIC_ADDRESS/api/v2/admin/identity/session.aeds"
   expect forged-forwarded-host-denied 404 -H "X-Forwarded-Host: $admin_host:$public_port" \
     "$FSUSBLOG_PUBLIC_ADDRESS/api/v2/admin/identity/session.aeds"
   if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} != 1 && ${FSUSBLOG_TEST_SITE_REFRESH:-0} != 1 ]]; then
     expect administrator-shell 200 "$FSUSBLOG_ADMIN_ADDRESS/admin/identity"
+    expect administrator-authoring-shell 200 "$FSUSBLOG_ADMIN_ADDRESS/admin/articles/write"
+    expect anonymous-authoring-session 401 "$FSUSBLOG_ADMIN_ADDRESS/api/v2/authoring/session.aeds"
     expect anonymous-administrator-session 401 "$FSUSBLOG_ADMIN_ADDRESS/api/v2/admin/identity/session.aeds"
     expect administrator-host-public-denied 404 "$FSUSBLOG_ADMIN_ADDRESS/"
     expect administrator-authority-preserved 401 -H "X-Forwarded-Host: $public_host:$public_port" \

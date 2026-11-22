@@ -24,14 +24,14 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
   const openAction = () => exactButton(preview(), 'Open in editor')
   const nativeEditor = () => page.locator('.el-markdown-editor')
   const canvasHeading = roleWithExactName(page, 'heading', title)
-  const editorPath = `${origin}/user/manage/article/edit/${article.id}`
+  const editorPath = `${origin}/admin/articles/edit/${article.id}`
   const draftReadPath = id => origin + WireRoutes.Draft.replace('{id:int}', String(id))
   const referencePrefix = WireRoutes.CanvasReference.split('{id:guid}', 1)[0]
   let canvasUrl
 
   async function createCanvas(name) {
     await createCanvasThroughUi(page, origin, name)
-    await page.waitForURL(url => url.pathname.startsWith('/user/manage/canvas/'))
+    await page.waitForURL(url => url.pathname.startsWith('/admin/canvas/'))
     await roleWithExactName(page, 'heading', name).waitFor()
     await button('Outline').click()
     return page.url()
@@ -109,7 +109,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     const readDraft = page.waitForResponse(response => response.request().method() === 'GET' && response.url() === draftReadPath(draft.id))
     await openAction().click()
     assert.deepEqual(await readReference(await pending), witness.resolution, 'Current-only preflight must repeat the exact resolved witness')
-    await page.waitForURL(url => url.origin + url.pathname === `${origin}/user/manage/article/edit/${draft.id}`)
+    await page.waitForURL(url => url.origin + url.pathname === `${origin}/admin/articles/edit/${draft.id}`)
     const draftReceipt = await readDraft
     assertStatus(draftReceipt, 200)
     assert.deepEqual(decodeDraft(decodeFrame(await draftReceipt.body(), FrameType.Draft).payload), draft)

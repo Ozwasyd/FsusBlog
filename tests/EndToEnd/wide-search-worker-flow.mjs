@@ -9,7 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import {
-  decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes,
+  decodeDraft, encodeArticleCommand, FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 
 const fixtureCount = 26_002
@@ -449,42 +449,45 @@ async function sealedManifest(request) {
 async function run() {
   const { launchIdentityBrowser, request } = await import('./site-authentication-fixture.mjs')
   const { postFrame } = await import('./browser-authoring-fixture.mjs')
+  const { signInFreshAdmin } = await import('./webauthn-fixture.mjs')
   const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
-  const ticket = process.env.FSUSBLOG_TEST_SITE_TICKET
+  const adminOrigin = new URL(process.env.FSUSBLOG_TEST_ADMIN_URL ?? 'http://invalid.test').origin
+  const bootstrap = process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
   const pins = process.env.FSUSBLOG_TEST_TLS_SPKI
   const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
   assert(url.protocol === 'https:' && ['127.0.0.1', 'localhost'].includes(url.hostname) &&
-    /^[0-9a-f]{64}$/.test(ticket ?? '') && /^[A-Za-z0-9+/]{43}=(?:,[A-Za-z0-9+/]{43}=)?$/.test(pins ?? '') && evidence,
-  'Use the isolated Caddy HTTPS fixture with a disposable article-owner ticket and TLS leaf pins.')
+    /^[0-9a-f]{64}$/.test(bootstrap ?? '') && /^[A-Za-z0-9+/]{43}=(?:,[A-Za-z0-9+/]{43}=)?$/.test(pins ?? '') && evidence,
+  'Use the isolated Caddy HTTPS fixture with a disposable administrator bootstrap key and TLS leaf pins.')
   await mkdir(evidence, { recursive: true })
-  const author = await request.newContext({ baseURL: url.origin })
+  const publicHttp = await request.newContext({ baseURL: url.origin })
   const browser = await launchIdentityBrowser(pins)
   const observations = { browser: browser.version(), origin: url.origin }
   try {
-    const manifest = await sealedManifest(author)
+    const manifest = await sealedManifest(publicHttp)
     assert.equal(manifest.documentCount, fixtureCount)
     const context = await browser.newContext({ viewport: { width: 375, height: 850 }, serviceWorkers: 'block' })
+    await context.addCookies([{ name: 'fsus_locale', value: 'en', url: url.origin }])
     const page = await context.newPage()
-    const signIn = await post(WireRoutes.SignIn, FrameType.OperatorSignIn, encodeSignIn({ ticket }), FrameType.OperatorSession)
-    assert(signIn.length > 0)
+    const owner = await browser.newPage()
+    await signInFreshAdmin(owner, adminOrigin, bootstrap)
     await exerciseWideSearchWorker({
       page, origin: url.origin, manifest, observations,
-      readManifest: () => sealedManifest(author),
+      readManifest: () => sealedManifest(publicHttp),
       async withdraw() {
         const payload = encodeArticleCommand({ id: fixtureCount, expectedRevision: 1n, title: '', body: '', idempotencyKey: randomUUID() })
-        const receipt = decodeDraft(await post(WireRoutes.Retract, FrameType.ArticleCommand, payload, FrameType.Draft))
+        const receipt = decodeDraft(await post(owner.request, WireRoutes.Retract, FrameType.ArticleCommand, payload, FrameType.Draft))
         assert.equal(receipt.id, fixtureCount)
         assert.equal(receipt.revision, 2n)
         assert.equal(receipt.published, false)
       },
     })
   } finally {
-    await Promise.all([browser.close(), author.dispose()])
+    await Promise.all([browser.close(), publicHttp.dispose()])
     await writeFile(join(evidence, 'wide-search-worker.json'), JSON.stringify(observations, null, 2) + '\n')
   }
 
-  async function post(path, type, payload, reply) {
-    const response = await postFrame(author, path, type, payload)
+  async function post(client, path, type, payload, reply) {
+    const response = await postFrame(client, adminOrigin + path, type, payload)
     try {
       assertStatus(response, 200)
       return decodeFrame(await response.body(), reply).payload

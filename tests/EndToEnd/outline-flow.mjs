@@ -33,7 +33,7 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
 
   const editor = await page.context().newPage()
   monitor(editor, 'outline')
-  const editPath = id => `${origin}/user/manage/article/edit/${id}`
+  const editPath = id => `${origin}/admin/articles/edit/${id}`
   const body = () => editor.locator('#article-body')
   const launcher = () => exactButton(editor, 'Outline')
   const moreActions = () => exactButton(editor, 'More actions')

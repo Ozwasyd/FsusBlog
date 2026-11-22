@@ -88,7 +88,7 @@ export async function exerciseMarkdownImport({ page, origin, bytes, title, body 
     assert.equal(draft.published, false)
     assert.deepEqual({ title: draft.title, body: draft.body }, { title, body })
     assert.equal(saveRequests.length, 1)
-    await page.waitForURL(origin + '/user/manage/article/edit/' + draft.id)
+    await page.waitForURL(origin + '/admin/articles/edit/' + draft.id)
     await page.reload()
     await roleWithExactName(page, 'heading', 'Edit article').waitFor()
     assert.equal(await titleInput.inputValue(), title)

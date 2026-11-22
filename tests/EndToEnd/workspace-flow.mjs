@@ -5,7 +5,7 @@ import { readDraft, submitArticle } from './browser-authoring-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const routes = {
-  edit: articleId => `/user/manage/article/edit/${articleId}`,
+  edit: articleId => `/admin/articles/edit/${articleId}`,
   draft: articleId => WireRoutes.Draft.replace('{id:int}', String(articleId)),
 }
 
@@ -51,10 +51,11 @@ async function openWorkspaceDialog(page) {
 }
 
 async function openById(page, articleId) {
-  const inlineInput = page.getByLabel('Article ID', { exact: true })
-  const scope = await inlineInput.isVisible() ? page : await openWorkspaceDialog(page)
-  await scope.getByLabel('Article ID', { exact: true }).fill(String(articleId))
-  await exactButton(scope, 'Open article').click()
+  const dialog = await openWorkspaceDialog(page)
+  const input = dialog.getByLabel('Article ID', { exact: true })
+  await input.fill(String(articleId))
+  await input.press('Enter')
+  return dialog
 }
 
 async function openWithDelayedResponse(page, origin, current, target) {
@@ -81,7 +82,8 @@ async function openWithDelayedResponse(page, origin, current, target) {
       delay(10_000, 'no draft request', { signal: timer.signal }),
     ]), 200, 'Expected the real authenticated draft response before release')
     assert.equal(page.url(), `${origin}${routes.edit(current.id)}`, 'URL must stay on the ready editor until the target is ready')
-    assert.equal(await exactTab(page, current.title, 'Pinned').getAttribute('aria-selected'), 'true')
+    if (await workspaceList(page).isVisible())
+      assert.equal(await exactTab(page, current.title, 'Pinned').getAttribute('aria-selected'), 'true')
     assert.equal(await workspaceList(page).getByRole('tab', { name: target.title, exact: false }).count(), 0, 'No target tab before a valid draft')
     assert.equal(await inputBody(page).inputValue(), current.body)
   } finally {
@@ -106,12 +108,13 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
       await pinButton.click()
     } else {
       const dialog = await openWorkspaceDialog(page)
-      await exactButton(dialog, `Pin ${primary.title}`).click()
+      if (!await exactButton(dialog, `Unpin ${primary.title}`).isVisible())
+        await exactButton(dialog, `Pin ${primary.title}`).click()
+      await exactButton(dialog, `Unpin ${primary.title}`).waitFor()
       await page.keyboard.press('Escape')
       await dialog.waitFor({ state: 'detached' })
     }
   }
-  await exactTab(page, primary.title, 'Pinned').waitFor()
 
   await openWithDelayedResponse(page, origin, primary, pinned)
   await exactButton(page, `Pin ${pinned.title}`).click()
@@ -139,9 +142,11 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   // A failed activation leaves the prior ready document and its route intact.
   const absentId = 0x7fffffff
   const rejected = page.waitForResponse(response => new URL(response.url()).pathname === routes.draft(absentId))
-  await openById(page, absentId)
+  const attempted = await openById(page, absentId)
   assert.equal((await rejected).status(), 404)
-  await page.getByText('The article is unavailable.', { exact: true }).waitFor()
+  await attempted.getByText('The article is unavailable.', { exact: true }).waitFor()
+  await page.keyboard.press('Escape')
+  await attempted.waitFor({ state: 'detached' })
   await expectEditor(page, origin, replacement)
   assert.equal(await replacementTab.getAttribute('aria-selected'), 'true')
   assert.equal(await workspaceList(page).getByRole('tab').count(), 3)
@@ -226,7 +231,7 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
     assert.equal(await workspaceList(separate).count(), 0, 'A single-article browser tab starts without the multi-tab strip')
     const separateDialog = await openWorkspaceDialog(separate)
     await exactButton(separateDialog, `Close ${primary.title}`).click()
-    await separate.waitForURL(`${origin}/user/manage/article/workspace`)
+    await separate.waitForURL(`${origin}/admin/articles/workspace`)
     await separate.getByText('Open an article or start a new draft.', { exact: true }).waitFor()
     assert.equal(await separate.locator('#article-body').count(), 0)
     await separate.getByLabel('Article ID', { exact: true }).and(separate.locator(':focus')).waitFor({ timeout: 3000 })

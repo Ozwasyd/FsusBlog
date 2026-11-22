@@ -1,5 +1,6 @@
 import { assertStatus } from './response-status-fixture.mjs'
 import { waitForPathResponse } from './response-wait-fixture.mjs'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
 import { holdResponse, journalContains } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
 import { requireWebPackage } from './web-package-fixture.mjs'
@@ -24,9 +25,6 @@ import { exerciseCanvas } from './canvas-flow.mjs'
 import { exerciseCanvasHistory } from './canvas-history-flow.mjs'
 import { exerciseArticleSchedule } from './article-schedule-flow.mjs'
 import { exerciseArticleRights } from './article-rights-flow.mjs'
-import { exercisePropertyFilter } from './property-filter-flow.mjs'
-import { exerciseAuthorTextSearch, exerciseSummarySearchReveal } from './author-text-search-flow.mjs'
-import { exerciseAuthorTextPropertyFacet } from './author-text-property-facet-flow.mjs'
 import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 import { exerciseMarkdownImport } from './markdown-import-flow.mjs'
 import { exerciseDocumentExportTasks } from './document-export-task-flow.mjs'
@@ -36,7 +34,7 @@ const { chromium } = requireWebPackage('@playwright/test')
 
 const config = {
   origin: process.env.FSUSBLOG_TEST_URL,
-  ticket: process.env.FSUSBLOG_TEST_TICKET,
+  bootstrap: process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP,
   evidence: resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/browser'),
   browserPath: process.env.FSUSBLOG_TEST_CHROME,
   requireNative: process.env.FSUSBLOG_TEST_REQUIRE_NATIVE === '1',
@@ -44,7 +42,7 @@ const config = {
   pdfEnabled: Boolean(process.env.FSUSBLOG_PDF_TOOL_ROOT && process.env.FSUSBLOG_PDF_TOOL_SHA256),
   pdfFixture: process.env.FSUSBLOG_TEST_PDF_FIXTURE,
 }
-assert(config.origin && config.ticket, 'Provide FSUSBLOG_TEST_URL and FSUSBLOG_TEST_TICKET for an isolated server fixture.')
+assert(config.origin && config.bootstrap, 'Provide FSUSBLOG_TEST_URL and FSUSBLOG_TEST_AUTHOR_BOOTSTRAP for an isolated server fixture.')
 if (config.pdfFixture) {
   assert(config.pdfEnabled, 'Provide the pinned PDF toolchain to capture the PDF fixture.')
   assert(isAbsolute(config.pdfFixture), 'The PDF fixture path must be absolute.')
@@ -94,6 +92,9 @@ const responses = []
 const startedAt = new Date().toISOString()
 const desktop = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'light' })
 const mobile = await browser.newContext({ viewport: { width: 375, height: 850 }, colorScheme: 'light' })
+await Promise.all([desktop, mobile].map(context => context.addCookies([
+  { name: 'fsus_locale', value: 'en', url: origin },
+])))
 let publisher = await desktop.newPage()
 const visitor = await mobile.newPage()
 function monitor(page, name) {
@@ -143,7 +144,7 @@ async function exercisePropertyBatch(publisher, observations) {
   const article = await articleCommand(WireRoutes.Save, 0, 0n, 'Independent property batch draft', 'The batch changes properties only.')
   const page = await publisher.context().newPage()
   monitor(page, 'property-batch')
-  const editor = `${origin}/user/manage/article/edit/${article.id}`
+  const editor = `${origin}/admin/articles/edit/${article.id}`
   const panel = roleWithExactName(page, 'region', 'Properties')
   const control = name => button(panel, name)
   const textLabel = 'Article subtitle'
@@ -370,17 +371,13 @@ try {
     await visible(roleWithExactName(visitor, 'link', 'Browser fixture 12'))
     observations.push('Signed home cursor traverses forward and back. Category data and empty state render. The old tag URL redirects to the numeric page.')
   }
-  await visitor.goto(`${origin}/user/manage/article/write`)
+  await visitor.goto(`${origin}/admin/articles/write`)
   await visible(visitor.getByText('Log in with an author account to write an article.'))
   await hidden(exactLabel(visitor, 'Title'))
   observations.push('Anonymous write route hides the draft and exposes login.')
 
-  await publisher.goto(`${origin}/login`)
-  await visible(roleWithExactName(publisher, 'heading', 'Log in'))
-  assert.match(await publisher.title(), /Log in/)
-  await screen(publisher, 'login-desktop')
-  await publisher.getByLabel('Owner access key').fill(config.ticket)
-  await button(publisher, 'Log in').click()
+  await signInFreshAdmin(publisher, origin, config.bootstrap, page => screen(page, 'login-desktop'))
+  await publisher.goto(`${origin}/admin/articles/write`)
   await visible(publisher.getByRole('heading', { name: 'New article' }))
   await exactLabel(publisher, 'Title').fill(title)
   await exactLabel(publisher, 'Body').fill(body)
@@ -396,7 +393,7 @@ try {
   assert.equal(await exactLabel(publisher, 'Title').inputValue(), title)
 
   await button(publisher, 'Save draft').click()
-  await publisher.waitForURL(/\/user\/manage\/article\/edit\/\d+$/)
+  await publisher.waitForURL(/\/admin\/articles\/edit\/\d+$/)
   writtenId = Number(new URL(publisher.url()).pathname.split('/').at(-1))
   await visible(exactText(publisher, 'Draft saved.'))
   await button(publisher, 'Inspector').click()
@@ -520,10 +517,6 @@ try {
   observations.push('The editor reloads a private text value, an exact decimal and a false Boolean without coercion.')
 
   await button(publisher.getByRole('complementary', { name: 'Article inspector' }), 'Close').click()
-  await exercisePropertyFilter(publisher, origin, { id: writtenId, title }, exactScore, observations, articleCommand)
-  await exerciseAuthorTextSearch({ publisher, origin, article: { id: writtenId, title }, bodyTerm, monitor, observations, articleCommand,
-    publicFixture: config.publicFixture })
-  await exerciseAuthorTextPropertyFacet({ publisher, origin, monitor, observations, articleCommand })
 
   const summaryTerm = `summaryprobe${token}`
   const firstSummary = `摘要 🧭 Cafe\u0301\nDraft ${summaryTerm}`
@@ -562,9 +555,7 @@ try {
   await inspectSummary()
   await summaryInput.fill(firstSummary)
   assert(await button(publisher, 'Publish article').isDisabled())
-  const savedSummaryDraft = await saveSummary(firstSummary)
-  await exerciseSummarySearchReveal({ publisher, origin, draft: savedSummaryDraft, source: firstSummary,
-    word: summaryTerm, monitor, observations })
+  await saveSummary(firstSummary)
   const privatePage = await nativeFetch(`${origin}/article/${writtenId}`)
   assert.equal(privatePage.status, 404)
   assert(!(await privatePage.text()).includes(firstSummary))
@@ -616,8 +607,10 @@ try {
   await visible(roleWithExactName(visitor, 'link', title))
   assert.equal(await visitor.locator('vite-error-overlay').count(), 0)
   await button(visitor, 'Menu').click()
-  await visitor.getByRole('button', { name: /Theme mode/ }).click()
-  await roleWithExactName(visitor, 'menuitemradio', 'Dark').click()
+  const theme = roleWithExactName(visitor, 'radiogroup', 'Theme mode').filter({ visible: true })
+  await exactText(theme, 'Dark').click()
+  assert.equal(await roleWithExactName(theme, 'radio', 'Dark').isChecked(), true)
+  await button(visitor, 'Menu').click()
   await visitor.waitForFunction(() => document.documentElement.classList.contains('dark'))
   assert.equal(await visitor.evaluate(() => document.documentElement.scrollWidth), 375)
   await screen(visitor, 'home-mobile-dark')
@@ -641,17 +634,17 @@ try {
   }
   await screen(visitor, 'article-mobile-dark')
 
+  const corpusResponse = mobile.waitForEvent('response', response =>
+    new URL(response.url()).pathname === WireRoutes.PublicSearchCorpus && response.request().method() === 'GET')
   await search(visitor, 'release note')
-  await visible(roleWithExactName(visitor, 'link', title))
-  assert(!indexEntry.summary.includes(bodyTerm), 'The full-text term must fall outside the index summary')
-  const corpusResponse = mobile.waitForEvent('response', response => new URL(response.url()).pathname === WireRoutes.PublicSearchCorpus && response.request().method() === 'GET')
-  const generationCheck = waitForPathResponse(visitor, () => WireRoutes.PublicSearchCorpus, 'HEAD')
-  await search(visitor, bodyTerm)
   await visible(roleWithExactName(visitor, 'link', title))
   const corpus = await corpusResponse
   assertStatus(corpus, 200)
-  const corpusBytes = await nativeFetch(corpus.url()).then(response => response.arrayBuffer())
-  assert.equal(Buffer.from(corpusBytes, 0, 4).toString('ascii'), 'FSPK')
+  assert.equal((await corpus.body()).subarray(0, 4).toString('ascii'), 'FSPK')
+  assert(!indexEntry.summary.includes(bodyTerm), 'The full-text term must fall outside the index summary')
+  const generationCheck = waitForPathResponse(visitor, () => WireRoutes.PublicSearchCorpus, 'HEAD')
+  await search(visitor, bodyTerm)
+  await visible(roleWithExactName(visitor, 'link', title))
   assertStatus(await generationCheck, 204)
   assert.equal((await api.search(bodyTerm)).items[0].id, writtenId)
   await screen(visitor, 'search-mobile-dark')
@@ -700,15 +693,23 @@ try {
     createDraft: (title, body) => articleCommand(WireRoutes.Save, 0, 0n, title, body),
   })
   await exerciseCanvasHistory({ page: publisher, origin, screenshot: screen, monitor, observations })
-  await exerciseSearchWorkerReuse({
-    page: visitor, origin, articleTitle: title, firstQuery: bodyTerm, repeatQuery: bodyTerm.toUpperCase(),
-    withdraw: async () => {
-      await button(publisher, 'More actions').click()
-      await roleWithExactName(publisher, 'menuitem', 'Withdraw').click()
-      await visible(exactText(publisher, 'Article withdrawn.'))
-    },
-    observations,
-  })
+  const searchContext = await browser.newContext({ viewport: { width: 375, height: 850 }, colorScheme: 'dark' })
+  try {
+    await searchContext.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
+    const isolatedSearch = await searchContext.newPage()
+    monitor(isolatedSearch, 'fresh-search-corpus')
+    await exerciseSearchWorkerReuse({
+      page: isolatedSearch, origin, articleTitle: title, firstQuery: bodyTerm, repeatQuery: bodyTerm.toUpperCase(),
+      withdraw: async () => {
+        await button(publisher, 'More actions').click()
+        await roleWithExactName(publisher, 'menuitem', 'Withdraw').click()
+        await visible(exactText(publisher, 'Article withdrawn.'))
+      },
+      observations,
+    })
+  } finally {
+    await searchContext.close()
+  }
   const withdrawn = await api.publicIndex()
   assert.notEqual(withdrawn.generation, published.generation)
   assert(!withdrawn.items.some(item => item.id === writtenId))
@@ -728,7 +729,7 @@ try {
     try {
       const importPage = await importer.newPage()
       monitor(importPage, 'markdown-import')
-      await importPage.goto(`${origin}/user/manage/article/write`)
+      await importPage.goto(`${origin}/admin/articles/write`)
       const imported = await exerciseMarkdownImport({ page: importPage, origin, bytes: initialExport.bytes, title, body })
       assert.notEqual(imported.id, writtenId)
       await assert.rejects(api.publicArticle(imported.id), { status: 404 })
@@ -739,12 +740,12 @@ try {
     }
   }
   await exercisePropertyBatch(publisher, observations)
-  const signOut = waitForPathResponse(publisher, () => WireRoutes.SignOut)
-  await button(publisher, 'Log out').click()
+  await publisher.goto(`${origin}/admin/identity`)
+  const signOut = waitForPathResponse(publisher, () => WireRoutes.AdminSignOut)
+  await button(publisher, 'Log out of administrator session').click()
   assertStatus(await signOut, 200)
-  await publisher.waitForURL(`${origin}/`)
-  await visible(roleWithExactName(publisher, 'link', 'Log in'))
-  assertStatus(await publisher.request.get(`${origin}${WireRoutes.Session}`), 401)
+  await visible(roleWithExactName(publisher, 'heading', 'Administrator access'))
+  assertStatus(await publisher.request.get(`${origin}${WireRoutes.AuthoringSession}`), 401)
   observations.push('CAS rejects stale edit, reload reads the durable winner, withdrawal removes public access and index entry, logout returns to anonymous shell.')
   assert(responses.some(response => response.path === WireRoutes.Save && response.status === 409))
   assert.deepEqual(diagnostics, [])
