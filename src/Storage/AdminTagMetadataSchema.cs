@@ -9,19 +9,15 @@ internal static partial class CurrentSchema
             "p singleton",
             "c singleton singleton",
             "c revision revision>=0"),
-        Table("admin_tag_metadata_command principal_id:uuid request_id:uuid tag_id:int4 revision:int8 old_name:text old_description:text name:text description:text changed:bool fingerprint:bytea session_reference:bytea happened_at:timestamptz",
-            "p principal_id,request_id",
-            "f principal_id public.admin_principal:id",
-            "f tag_id public.tag:id",
-            "c revision revision>=0",
-            "c fingerprint octet_length(fingerprint)=32",
-            "c session_reference octet_length(session_reference)=32"));
+        MetadataCommand("tag"));
 
-    private static readonly SchemaFacts AdminCategoryMetadataShape = Table(
-        "admin_category_metadata_command principal_id:uuid request_id:uuid category_id:int4 revision:int8 old_name:text old_description:text name:text description:text changed:bool fingerprint:bytea session_reference:bytea happened_at:timestamptz",
+    private static readonly SchemaFacts AdminCategoryMetadataShape = MetadataCommand("category");
+
+    private static SchemaFacts MetadataCommand(string taxonomy) => Table(
+        $"admin_{taxonomy}_metadata_command principal_id:uuid request_id:uuid {taxonomy}_id:int4 revision:int8 old_name:text old_description:text name:text description:text changed:bool fingerprint:bytea session_reference:bytea happened_at:timestamptz",
         "p principal_id,request_id",
         "f principal_id public.admin_principal:id",
-        "f category_id public.category:id",
+        $"f {taxonomy}_id public.{taxonomy}:id",
         "c revision revision>=0",
         "c fingerprint octet_length(fingerprint)=32",
         "c session_reference octet_length(session_reference)=32");

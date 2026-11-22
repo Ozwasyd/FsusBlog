@@ -7,6 +7,9 @@ internal static partial class CurrentSchema
     internal const string AdminIdentityMarker = "public.admin_identity_schema";
     internal const int AdminIdentityVersion = 8;
 
+    private static SchemaFacts StepUpShape(string table, string action) =>
+        new([StepUpColumns(table)], StepUpConstraints(table, action));
+
     private static string StepUpColumns(string table) =>
         $"{table} digest:bytea principal_id:uuid session_digest:bytea generation:int8 action:int4 body_digest:bytea options:text? expires_at:timestamptz kind:int2";
 

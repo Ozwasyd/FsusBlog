@@ -2,25 +2,20 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    private static readonly SchemaFacts RootCommentPowPolicyShape = new(
-        Columns: [
-            "root_comment_pow_policy singleton:bool generation:int8 proof_seconds:int4",
-            "root_comment_pow_policy_audit generation:int8 principal_id:uuid previous_seconds:int4 proof_seconds:int4 rollback:bool happened_at:timestamptz",
-            StepUpColumns("admin_root_comment_pow_step_up")
-        ],
-        Constraints: [
-            "root_comment_pow_policy p singleton",
-            "root_comment_pow_policy c singleton singleton",
-            "root_comment_pow_policy c generation generation>0",
-            "root_comment_pow_policy c proof_seconds proof_seconds>=60ANDproof_seconds<=120",
-            "root_comment_pow_policy_audit p generation",
-            "root_comment_pow_policy_audit f principal_id public.admin_principal:id",
-            "root_comment_pow_policy_audit c generation generation>1",
-            "root_comment_pow_policy_audit c previous_seconds previous_seconds>=60ANDprevious_seconds<=120",
-            "root_comment_pow_policy_audit c proof_seconds proof_seconds>=60ANDproof_seconds<=120",
-            "root_comment_pow_policy_audit c previous_seconds,proof_seconds previous_seconds<>proof_seconds",
-            ..StepUpConstraints("admin_root_comment_pow_step_up", "action=9")
-        ]);
+    private static readonly SchemaFacts RootCommentPowPolicyShape = Tables(
+        Table("root_comment_pow_policy singleton:bool generation:int8 proof_seconds:int4",
+            "p singleton",
+            "c singleton singleton",
+            "c generation generation>0",
+            "c proof_seconds proof_seconds>=60ANDproof_seconds<=120"),
+        Table("root_comment_pow_policy_audit generation:int8 principal_id:uuid previous_seconds:int4 proof_seconds:int4 rollback:bool happened_at:timestamptz",
+            "p generation",
+            "f principal_id public.admin_principal:id",
+            "c generation generation>1",
+            "c previous_seconds previous_seconds>=60ANDprevious_seconds<=120",
+            "c proof_seconds proof_seconds>=60ANDproof_seconds<=120",
+            "c previous_seconds,proof_seconds previous_seconds<>proof_seconds"),
+        StepUpShape("admin_root_comment_pow_step_up", "action=9"));
 
     private static readonly RelationGroup RootCommentPowPolicyRelations = new(
         "The root comment proof policy schema is partially installed.",
