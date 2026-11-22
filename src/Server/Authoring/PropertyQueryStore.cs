@@ -36,8 +36,7 @@ internal sealed partial class PropertyStore
     private async Task<(long Revision, string Next, PropertyDefinition[] Definitions)> ReadCatalog(string? after, long schemaRevision,
         CancellationToken ct)
     {
-        await ScopeLock(ct);
-        var schema = await ReadSchema(ct);
+        var schema = await ReadLockedSchema(ct);
         if (after is not null && schemaRevision != schema.Revision) throw Conflict();
         var fields = schema.Page(after, WireLimits.PropertyPageSize + 1);
         var page = fields.Take(WireLimits.PropertyPageSize).ToArray();
@@ -46,14 +45,13 @@ internal sealed partial class PropertyStore
     }
 
     private static PropertyFilterField FilterField(PropertyDefinition definition) => new(definition.Id, definition.Revision, definition.MachineKey,
-        definition.Names.FirstOrDefault(name => name.Locale == "zh")?.Label ?? definition.Names[0].Label, FieldKind(definition.Settings.Kind),
+        EditorLabel(definition), FieldKind(definition.Settings.Kind),
         definition.Status == PropertyStatus.Active && definition.Settings.Filterable, definition.Status != PropertyStatus.Active,
-        definition.Settings.Options.Where(option => option.Status == PropertyStatus.Active).Select(option => new PropertyFieldOption(option.Id, option.Label)).ToArray());
+        EditorOptions(definition));
 
     internal async Task<PropertyCommandReceipt> SetFilterable(PropertyFilterabilityCommand input, CancellationToken ct)
     {
-        await ScopeLock(ct);
-        var schema = await ReadSchema(ct);
+        var schema = await ReadLockedSchema(ct);
         if (schema.Find(input.DefinitionId) is null) throw Missing();
         return await ApplyChange(schema, new(ownerId, input.RequestId, input.SchemaRevision, input.DefinitionRevision,
             new PropertyChange.SetFilterable(input.DefinitionId, input.Enabled)), ct);
@@ -77,8 +75,7 @@ internal sealed partial class PropertyStore
 
     internal async Task<PropertyArticlePage> OpenSavedView(SavedViewDefinition saved, string session, SavedViewExecute request, CancellationToken ct)
     {
-        await ScopeLock(ct);
-        var schema = await ReadSchema(ct);
+        var schema = await ReadLockedSchema(ct);
         var conditions = saved.Conditions.Select(item =>
         {
             var definition = schema.Find(item.DefinitionId) ?? throw SavedViewDependency();
@@ -103,8 +100,7 @@ internal sealed partial class PropertyStore
     internal async Task<(Condition[] Conditions, FacetDefinition? Facet, SortDefinition? Sort)> ResolveSearchQuery(long schemaRevision,
         IReadOnlyList<PropertyCondition> conditions, FacetSelection? facet, SortSelection? sort, CancellationToken ct)
     {
-        await ScopeLock(ct);
-        var schema = await ReadSchema(ct);
+        var schema = await ReadLockedSchema(ct);
         return ResolveSearchQuery(schema, schemaRevision, conditions, facet, sort);
     }
 
@@ -115,8 +111,7 @@ internal sealed partial class PropertyStore
     {
         var qualified = conditions.Count != 0 || facet.HasValue || sort.HasValue;
         if (textQuery is null && !qualified) return ([], null, null, null);
-        await ScopeLock(ct);
-        var schema = await ReadSchema(ct);
+        var schema = await ReadLockedSchema(ct);
         var text = textQuery is null ? null : ResolveTextProjection(
             schema, schemaRevision, textQuery.DefinitionId, textQuery.DefinitionRevision);
         if (!qualified) return ([], null, null, text);

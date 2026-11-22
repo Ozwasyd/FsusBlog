@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -17,6 +18,21 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     private static readonly Guid PropertyScopeLock = new("c6143d07-094d-4a49-8ca8-6e3d4fa547ce");
     // The application uses one site per database. The owner and scope are never taken from a request.
     private PropertyScope Scope => new("primary", ownerId);
+    private sealed record FieldType(PropertyKind Domain, PropertyFieldKind Field, Type Value, string Tag);
+
+    private static readonly FieldType[] Types =
+    [
+        new(PropertyKind.Text, PropertyFieldKind.Text, typeof(PropertyValue.Text), "text"),
+        new(PropertyKind.Number, PropertyFieldKind.Number, typeof(PropertyValue.Number), "number"),
+        new(PropertyKind.Boolean, PropertyFieldKind.Boolean, typeof(PropertyValue.Boolean), "boolean"),
+        new(PropertyKind.Date, PropertyFieldKind.Date, typeof(PropertyValue.Date), "date"),
+        new(PropertyKind.SingleSelect, PropertyFieldKind.SingleSelect, typeof(PropertyValue.SingleSelect), "single-select"),
+        new(PropertyKind.MultiSelect, PropertyFieldKind.MultiSelect, typeof(PropertyValue.MultiSelect), "multi-select"),
+        new(PropertyKind.ArticleReference, PropertyFieldKind.ArticleReference, typeof(PropertyValue.ArticleReference), "article-reference"),
+        new(PropertyKind.Url, PropertyFieldKind.Url, typeof(PropertyValue.Url), "url"),
+    ];
+    private static readonly FrozenDictionary<PropertyFieldKind, FieldType> ByField = Types.ToFrozenDictionary(type => type.Field);
+    private static readonly FrozenDictionary<PropertyKind, FieldType> ByDomain = Types.ToFrozenDictionary(type => type.Domain);
     private static readonly JsonSerializerOptions StoredJson = CreateSerializer();
 
     internal async Task<PropertyWorkspace> Read(PropertyWorkspaceRequest input, CancellationToken ct)
@@ -85,20 +101,25 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
             [EditorField(projection.Definition, new PropertyFieldValue.Text(text))]);
     }
 
+    private static string EditorLabel(PropertyDefinition definition) =>
+        definition.Names.FirstOrDefault(name => name.Locale == "zh")?.Label ?? definition.Names[0].Label;
+
+    private static PropertyFieldOption[] EditorOptions(PropertyDefinition definition) =>
+        definition.Settings.Options.Where(option => option.Status == PropertyStatus.Active)
+            .Select(option => new PropertyFieldOption(option.Id, option.Label)).ToArray();
+
     private static PropertyEditorField EditorField(PropertyDefinition definition, PropertyFieldValue value) =>
         new(definition.Id, definition.Revision, definition.MachineKey,
-            definition.Names.FirstOrDefault(name => name.Locale == "zh")?.Label ?? definition.Names[0].Label,
+            EditorLabel(definition),
             definition.Status == PropertyStatus.Deprecated, FieldKind(definition.Settings.Kind),
-            definition.Settings.Options.Where(option => option.Status == PropertyStatus.Active)
-                .Select(option => new PropertyFieldOption(option.Id, option.Label)).ToArray(), value);
+            EditorOptions(definition), value);
 
     internal Task<PropertyCommandReceipt> Change(PropertyDefinitionCommand input, CancellationToken ct) =>
         Change(new PropertySchemaInput(input, PropertyFieldKind.Text, []), textOnly: true, ct);
 
     internal async Task<PropertyDefinitionProjection> ReadProjection(Guid id, CancellationToken ct)
     {
-        await ScopeLock(ct);
-        var schema = await ReadSchema(ct);
+        var schema = await ReadLockedSchema(ct);
         if (schema.Find(id) is not { Status: PropertyStatus.Active or PropertyStatus.Deprecated } definition)
             throw Missing();
         var flags = definition.Settings;
@@ -108,8 +129,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
 
     internal async Task<PropertyCommandReceipt> Change(PropertyDefinitionProjectionCommand input, CancellationToken ct)
     {
-        await ScopeLock(ct);
-        var schema = await ReadSchema(ct);
+        var schema = await ReadLockedSchema(ct);
         if (schema.Find(input.DefinitionId) is null) throw Missing();
         return await ApplyChange(schema, new(ownerId, input.RequestId, input.SchemaRevision, input.DefinitionRevision,
             new PropertyChange.SetProjectionFlags(input.DefinitionId, input.SearchEligible, input.Sortable)), ct);
@@ -118,8 +138,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     internal async Task<PropertyCommandReceipt> Change(PropertySchemaInput details, bool textOnly, CancellationToken ct)
     {
         var input = details.Command;
-        await ScopeLock(ct);
-        var schema = await ReadSchema(ct);
+        var schema = await ReadLockedSchema(ct);
         var kind = DomainKind(details.Kind);
         var command = new PropertyCommand(ownerId, input.RequestId, input.SchemaRevision, input.DefinitionRevision, input.Operation switch
         {
@@ -300,6 +319,12 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         return revision;
     }
 
+    private async Task<PropertySchema> ReadLockedSchema(CancellationToken ct)
+    {
+        await ScopeLock(ct);
+        return await ReadSchema(ct);
+    }
+
     private async Task<PropertySchema> ReadSchema(CancellationToken ct)
     {
         var revision = await Revision("select revision from public.property_schema where owner_id=$1", ct, ownerId);
@@ -395,23 +420,13 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         _ => throw Invalid(),
     };
 
-    private static PropertyFieldKind FieldKind(PropertyKind kind) => kind switch
-    {
-        PropertyKind.Text => PropertyFieldKind.Text, PropertyKind.Number => PropertyFieldKind.Number,
-        PropertyKind.Boolean => PropertyFieldKind.Boolean, PropertyKind.Date => PropertyFieldKind.Date,
-        PropertyKind.SingleSelect => PropertyFieldKind.SingleSelect, PropertyKind.MultiSelect => PropertyFieldKind.MultiSelect,
-        PropertyKind.ArticleReference => PropertyFieldKind.ArticleReference, PropertyKind.Url => PropertyFieldKind.Url,
-        _ => throw new InvalidOperationException("Stored property kind is unknown."),
-    };
+    private static PropertyFieldKind FieldKind(PropertyKind kind) => ByDomain.TryGetValue(kind, out var type)
+        ? type.Field : throw new InvalidOperationException("Stored property kind is unknown.");
 
-    private static PropertyKind DomainKind(PropertyFieldKind kind) => kind switch
-    {
-        PropertyFieldKind.Text => PropertyKind.Text, PropertyFieldKind.Number => PropertyKind.Number,
-        PropertyFieldKind.Boolean => PropertyKind.Boolean, PropertyFieldKind.Date => PropertyKind.Date,
-        PropertyFieldKind.SingleSelect => PropertyKind.SingleSelect, PropertyFieldKind.MultiSelect => PropertyKind.MultiSelect,
-        PropertyFieldKind.ArticleReference => PropertyKind.ArticleReference, PropertyFieldKind.Url => PropertyKind.Url,
-        _ => throw Invalid(),
-    };
+    private static FieldType RequireType(PropertyFieldKind kind) =>
+        ByField.TryGetValue(kind, out var type) ? type : throw Invalid();
+
+    private static PropertyKind DomainKind(PropertyFieldKind kind) => RequireType(kind).Domain;
 
     private async Task<PropertyReceipt?> ReadReceipt(Guid requestId, CancellationToken ct)
     {
@@ -434,18 +449,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     private static BusinessException Conflict() => new(Rejection.Conflict, "The article properties changed. Reload before editing.");
     private static BusinessException Invalid() => new(Rejection.Invalid, "Invalid article property.");
 
-    private static string PropertyTypeTag(PropertyFieldKind kind) => kind switch
-    {
-        PropertyFieldKind.Text => "text",
-        PropertyFieldKind.Number => "number",
-        PropertyFieldKind.Boolean => "boolean",
-        PropertyFieldKind.Date => "date",
-        PropertyFieldKind.SingleSelect => "single-select",
-        PropertyFieldKind.MultiSelect => "multi-select",
-        PropertyFieldKind.ArticleReference => "article-reference",
-        PropertyFieldKind.Url => "url",
-        _ => throw Invalid(),
-    };
+    private static string PropertyTypeTag(PropertyFieldKind kind) => RequireType(kind).Tag;
 
     private static JsonSerializerOptions CreateSerializer()
     {
@@ -453,21 +457,10 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         resolver.Modifiers.Add(info =>
         {
             if (info.Type != typeof(PropertyValue)) return;
-            info.PolymorphismOptions = new()
-            {
-                DerivedTypes =
-                {
-                    new(typeof(PropertyValue.Null), "null"),
-                    new(typeof(PropertyValue.Text), PropertyTypeTag(PropertyFieldKind.Text)),
-                    new(typeof(PropertyValue.Number), PropertyTypeTag(PropertyFieldKind.Number)),
-                    new(typeof(PropertyValue.Boolean), PropertyTypeTag(PropertyFieldKind.Boolean)),
-                    new(typeof(PropertyValue.Date), PropertyTypeTag(PropertyFieldKind.Date)),
-                    new(typeof(PropertyValue.SingleSelect), PropertyTypeTag(PropertyFieldKind.SingleSelect)),
-                    new(typeof(PropertyValue.MultiSelect), PropertyTypeTag(PropertyFieldKind.MultiSelect)),
-                    new(typeof(PropertyValue.ArticleReference), PropertyTypeTag(PropertyFieldKind.ArticleReference)),
-                    new(typeof(PropertyValue.Url), PropertyTypeTag(PropertyFieldKind.Url)),
-                },
-            };
+            var options = new System.Text.Json.Serialization.Metadata.JsonPolymorphismOptions();
+            options.DerivedTypes.Add(new(typeof(PropertyValue.Null), "null"));
+            foreach (var type in Types) options.DerivedTypes.Add(new(type.Value, type.Tag));
+            info.PolymorphismOptions = options;
         });
         return new(PropertyStorageJson.Options) { TypeInfoResolver = resolver };
     }
