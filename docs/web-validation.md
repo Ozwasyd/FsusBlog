@@ -33,6 +33,8 @@ node tests/EndToEnd/blog-flow.mjs
 
 最近一轮完整证据位于 `artifacts/native-e2e-fsusv2-e2e.kbjzwL/`。`run.txt` 记录 `exit=0` 和 `cleanup=1`，`browser-result.json` 记录原生 Markdown 必需、零额外诊断、CAS 返回 409、服务端登出返回 200 以及原浏览器会话随后的拒绝。真实浏览器也验证了首页游标前进和后退、发布后的旧游标恢复、分类数据和空状态，以及旧标签名称跳转到数字地址。此轮关联开发中的文件状态与具体构建摘要，提交后可用同一入口复跑。
 
-运行 `bash tests/EndToEnd/run-native.sh` 会用独立的 Unix socket 建立临时数据库、运行迁移、导入固定公开文章与分类标签夹具、启动 V2 服务和浏览器，再核验清理。写作通过当前管理员入口和浏览器虚拟 Passkey 登录。验收覆盖公开页与 AEDS 使用同一发布坐标，私有修订不会替换已发布正文，撤回后详情和本地索引均不可见，旧修订冲突保留本地编辑。取消离开也经过真实 FsusUI 对话框验证。证据目录含桌面登录/编辑、375px 暗色首页/文章/搜索截图、浏览器结果、服务日志和构建摘要。 作者全文检索、属性条件及保存视图协议使用 `tests/Integration/` 的真实 PostgreSQL 用例验证。
+运行 `bash tests/EndToEnd/run-native.sh` 会用独立的 Unix socket 建立临时数据库、运行迁移、导入固定公开文章与分类标签夹具、启动 V2 服务和浏览器，再核验清理。写作通过当前管理员入口和浏览器虚拟 Passkey 登录。验收覆盖公开页与 AEDS 使用同一发布坐标，私有修订不会替换已发布正文，撤回后详情和本地索引均不可见，旧修订冲突保留本地编辑。取消离开也经过真实 FsusUI 对话框验证。证据目录含桌面登录/编辑、375px 暗色首页/文章/搜索截图、浏览器结果、服务日志和构建摘要。
+
+`FSUSBLOG_TEST_FLOW=article-library bash tests/EndToEnd/run-native.sh` 在当前编辑器验证文章库和快速切换，包括桌面与窄屏入口、分页、焦点恢复和会话切换。同一入口使用 `FSUSBLOG_TEST_FLOW=property-history` 验证编辑器中的历史属性对比。作者全文检索及属性索引使用 `tests/Integration/AuthorText*PostgresTests.cs` 验证。属性查询、保存视图执行及权限使用 `PropertyQueryPostgresTests` 验证。作者列表、软删除与恢复分别由 `AuthorArticleInventoryPostgresTests` 和 `ArticleTrashPostgresTests` 使用真实 PostgreSQL 接口验收。
 
 后续在当前 FsusUI checkout 用 Emscripten 5.0.4 重建原生资源，清除 `FSUSBLOG_FSUSUI_WASM_DIST` 后重新运行 V2 的严格检查和构建；六个新生成的本地资源都进入成品。在 1280×800 和 375×850 重跑真实 Chrome Markdown 编辑/预览探针，两种视口均通过且无诊断。见 [构建和摘要](fsusui.md)。

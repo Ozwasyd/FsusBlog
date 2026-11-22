@@ -338,7 +338,7 @@ function onMoreCommand(command: unknown) {
       void nextTick(() => activePaneRef.value?.openOutline())
       break
     case 'quick-switch':
-      void nextTick(() => quickSwitcher.value?.show())
+      void nextTick(() => quickSwitcher.value?.show(moreButtonElement()))
       break
     case 'new-draft':
       void router.push({ name: 'write', state: persistentWorkspace.value ? workspaceState : undefined })

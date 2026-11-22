@@ -84,6 +84,7 @@ export FSUSBLOG_TEST_TICKET
 flow=${FSUSBLOG_TEST_FLOW:-blog}
 if [[ $flow == blog || $flow == canvas-keyboard || $flow == editor-readiness ||
       $flow == workspace-recovery || $flow == workspace-split || $flow == workspace-locale ||
+      $flow == article-library || $flow == property-history ||
       ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap browser-author)
   export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
@@ -92,13 +93,9 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator canvas-scale-outsider)
   export FSUSBLOG_TEST_OUTSIDER_TICKET
 fi
-if [[ $flow == workspace-recovery || $flow == workspace-split ]]; then
+if [[ $flow == workspace-recovery || $flow == workspace-split || $flow == article-library || $flow == property-history ]]; then
   FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap "$flow-outsider")
   export FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP
-fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-library || ${FSUSBLOG_TEST_FLOW:-blog} == property-history ]]; then
-  FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator workspace-recovery-outsider)
-  export FSUSBLOG_TEST_OUTSIDER_TICKET
 fi
 if [[ ${FSUSBLOG_TEST_FLOW:-blog} == comment-author-delete ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator comment-delete-outsider --reader)
@@ -107,11 +104,6 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == comment-author-delete ]]; then
   FSUSBLOG_TEST_COMMENT_DELETE_DB="$scratch/socket"
   export FSUSBLOG_TEST_OUTSIDER_TICKET FSUSBLOG_TEST_COMMENTER_TICKET FSUSBLOG_TEST_COMMENTER_SECOND_TICKET FSUSBLOG_TEST_COMMENT_DELETE_DB
   export FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true
-fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == author-inventory ]]; then
-  FSUSBLOG_TEST_MOBILE_TICKET=$("${migrate[@]}" operator inventory-second-author)
-  export FSUSBLOG_TEST_MOBILE_TICKET
-  : "${FSUSBLOG_TEST_PUBLIC_FIXTURE:=0}"
 fi
 if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media || ${FSUSBLOG_TEST_FLOW:-blog} == article-media || ${FSUSBLOG_TEST_FLOW:-blog} == public-article-media ]]; then
   FSUSBLOG_TEST_MOBILE_TICKET=$("${migrate[@]}" operator mobile-author)
@@ -191,7 +183,7 @@ case ${FSUSBLOG_TEST_FLOW:-blog} in
     ;;
   public-hot-articles) node tests/EndToEnd/run-public-hot-articles.mjs ;;
   property-inspector-scale) node tests/EndToEnd/property-inspector-scale.mjs ;;
-  canvas-keyboard|article-media|public-article-media|search-corpus-reuse|editor-readiness|workspace-recovery|workspace-split|article-library|property-history|author-inventory|comment-author-delete|site-locale|workspace-locale|public-route-transition)
+  canvas-keyboard|article-media|public-article-media|search-corpus-reuse|editor-readiness|workspace-recovery|workspace-split|article-library|property-history|comment-author-delete|site-locale|workspace-locale|public-route-transition)
     node "tests/EndToEnd/${FSUSBLOG_TEST_FLOW}-flow.mjs"
     ;;
   private-media)

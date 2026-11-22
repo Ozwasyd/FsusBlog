@@ -12,8 +12,8 @@ import { roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
-const workspace = `${origin}/user/manage/article/workspace`
-const editor = id => `${origin}/user/manage/article/edit/${id}`
+const workspace = `${origin}/admin/articles/workspace`
+const editor = id => `${origin}/admin/articles/edit/${id}`
 const inventory = `${origin}${WireRoutes.AuthorArticles}`
 const recentPath = `${origin}${WireRoutes.AuthorRecentOpens}`
 const draftPath = id => `${origin}${WireRoutes.Draft.replace('{id:int}', String(id))}`
@@ -23,13 +23,18 @@ const body = page => exactLabel(page, 'Body')
 const diagnostics = []
 const observations = []
 
-const { signIn, saveDraft: save, createDraft, monitor } = authorFixture(origin, diagnostics)
+const { signInWithPasskey, saveDraft: save, createDraft, monitor } = authorFixture(origin, diagnostics)
 const create = (context, title, content = `Saved source: ${title}`) => createDraft(context, title, content)
 
 async function recentOpens(context, handle) {
   const response = await context.request.get(recentPath, { headers: { [WireHeaders.CurrentSession]: handle } })
   assertStatus(response, 200)
   return decodeRecentOpens(decodeFrame(await response.body(), FrameType.AuthorRecentOpenPage).payload)
+}
+
+async function openMobileMenuItem(page, name) {
+  await button(page, 'More actions').click()
+  await roleWithExactName(page, 'menuitem', name).click()
 }
 
 async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) {
@@ -65,8 +70,9 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
     return decodeAuthorArticlePage(decodeFrame(await response.body(), FrameType.AuthorArticlePage).payload)
   }
 
-  async function openSearch(term) {
-    await launcher.click()
+  async function openSearch(term, { mobile = false } = {}) {
+    if (mobile) await openMobileMenuItem(page, 'Quick switch articles')
+    else await launcher.click()
     await ready()
     return search(term)
   }
@@ -115,7 +121,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
   assert.equal(await body(page).evaluate((node, saved) => node === saved, original), true)
 
   await page.setViewportSize({ width: 375, height: 850 })
-  await launcher.click()
+  await openMobileMenuItem(page, 'Quick switch articles')
   await ready()
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
   const denied = await search(foreign.title)
@@ -124,7 +130,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
   await expect(openOther).toBeDisabled()
   await input.press('Escape')
   await expect(dialog).toBeHidden()
-  await expect(launcher).toBeFocused()
+  await expect(button(page, 'More actions')).toBeFocused()
 
   await page.setViewportSize({ width: 1280, height: 800 })
   const candidate = await create(author, 'Exact switcher target')
@@ -174,7 +180,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
   assert.equal(await body(page).evaluate((node, saved) => node === saved, original), true)
 
   await page.setViewportSize({ width: 375, height: 850 })
-  await openSearch(changed.title)
+  await openSearch(changed.title, { mobile: true })
   await expect(options).toHaveCount(1)
   await openOther.focus()
   await expect(openOther).toBeFocused()
@@ -244,7 +250,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
   await roleWithExactName(page, 'link', 'Back').click()
   await exactText(page, 'Discard unsaved changes?').waitFor()
   await button(page, 'Discard changes').click()
-  await expect(page).toHaveURL(`${origin}/`)
+  await expect(page).toHaveURL(`${origin}/admin/articles`)
   observations.push({ quickSwitcher: { nativeShortcut: true, keyboardActiveDescendant: true, mobileLauncher: true,
     exactEscapeFocusAndSelection: true, foreignSearchDenied: true, staleRevisionRejected: true, separateBrowserTab: true,
     waitsForOwnedDraft: true, canceledPendingActivation: true, activatesExistingGroup: true, preservesDirtyEditorHost: true, recentAuthority: true,
@@ -257,8 +263,8 @@ const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TES
 try {
   const author = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const outsider = await browser.newContext()
-  const handle = await signIn(author, process.env.FSUSBLOG_TEST_TICKET)
-  const outsideHandle = await signIn(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_TICKET)
+  const handle = await signInWithPasskey(author, process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP)
+  const outsideHandle = await signInWithPasskey(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP)
   const first = await create(author, 'Library exact active article')
   const title = '重复标题 · Article library'
   const previousDuplicate = await create(author, title)
@@ -355,13 +361,8 @@ try {
   await page.keyboard.press('Escape')
   await expect(launcher).toBeFocused()
 
-  const openMobileMenuItem = async name => {
-    await button(page, 'More actions').click()
-    await roleWithExactName(page, 'menuitem', name).click()
-  }
-
   await page.setViewportSize({ width: 375, height: 850 })
-  await openMobileMenuItem('Article library')
+  await openMobileMenuItem(page, 'Article library')
   const drawer = page.getByRole('dialog', { name: 'Article library' })
   await expect(drawer).toBeVisible()
   await expect(selected(drawer)).toHaveText(/重复标题/)
@@ -392,14 +393,14 @@ try {
   }
   assert.deepEqual((await recentOpens(author, handle)).items.map(row => row.articleId), expectedRecents)
   const delayedResults = await holdResponse(page, url => url.pathname === new URL(inventory).pathname && !url.searchParams.has('article'))
-  await openMobileMenuItem('Article library')
+  await openMobileMenuItem(page, 'Article library')
   try {
     assert.equal(await delayedResults.status(), 200)
     await switchAccount(peerCookies)
     await expect(page.getByRole('dialog', { name: 'Article library' })).toBeHidden()
   } finally { delayedResults.release() }
   await delayedResults.done
-  await openMobileMenuItem('Article library')
+  await openMobileMenuItem(page, 'Article library')
   await expect(exactText(drawer, foreign.title)).toBeVisible()
   await expect(exactText(drawer, title)).toHaveCount(0)
   await button(drawer, 'Recent opens').click()
@@ -428,18 +429,18 @@ try {
   }, { path: WireRoutes.AuthorArticles, keyword })
   const old = await holdResponse(page, url => url.pathname === WireRoutes.AuthorArticles && url.searchParams.get('keyword') === keyword)
   try {
-    await openMobileMenuItem('Quick switch articles')
+    await openMobileMenuItem(page, 'Quick switch articles')
     await searchInput.fill(keyword)
     assert.equal(await old.status(), 200)
     await switchAccount(peerCookies)
     await expect(quick).toBeHidden()
-    await openMobileMenuItem('Quick switch articles')
+    await openMobileMenuItem(page, 'Quick switch articles')
     await searchInput.fill(foreign.title)
     await expect(quick.getByRole('option', { name: new RegExp(foreign.title) })).toBeVisible()
     await save(seeding, { ...witness, title: freshTitle }, witness.body)
     await switchAccount(ownerState.cookies)
     await expect(quick).toBeHidden()
-    await openMobileMenuItem('Quick switch articles')
+    await openMobileMenuItem(page, 'Quick switch articles')
     await searchInput.fill(keyword)
     await expect(quick.getByRole('option', { name: new RegExp(freshTitle) })).toBeVisible()
   } finally {

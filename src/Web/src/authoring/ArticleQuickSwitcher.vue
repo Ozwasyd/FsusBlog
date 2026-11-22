@@ -37,6 +37,7 @@ const optionId = (id: number) => `${listId}-${id}`
 const retry = ref(0)
 let action: AbortController | undefined
 let focusAfterClose: number | undefined
+let menuOpener: HTMLElement | null = null
 
 function current(handle: string | undefined, identity: number, credential: number) {
   const session = currentSession.value
@@ -90,9 +91,10 @@ watch([open, query, retry], ([shown, value], _, cleanup) => {
   cleanup(() => { window.clearTimeout(timer); controller.abort() })
 }, { flush: 'sync' })
 
-function show() {
+function show(opener: HTMLElement | null = null) {
   if (props.disabled || open.value || !currentSession.value?.canAuthor || currentSession.value.expiresAt <= Date.now()) return false
   focusAfterClose = undefined
+  menuOpener = opener
   keyword.value = ''
   open.value = true
   return true
@@ -188,8 +190,11 @@ async function choose(row: Result, destination: 'workspace' | 'browser' | 'other
 function closed() {
   if (open.value) return
   const id = focusAfterClose
+  const opener = menuOpener
   focusAfterClose = undefined
+  menuOpener = null
   if (id !== undefined) emit('activated', id)
+  else if (opener?.isConnected) opener.focus({ preventScroll: true })
 }
 
 function opened() {
@@ -198,6 +203,7 @@ function opened() {
 
 watch([identityEpoch, credentialEpoch, () => currentSession.value?.siteSessionId], () => {
   focusAfterClose = undefined
+  menuOpener = null
   close()
 }, { flush: 'sync' })
 onMounted(() => window.addEventListener('keydown', shortcut))
@@ -207,7 +213,7 @@ defineExpose({ show, close })
 
 <template>
   <ElButton v-if="!hideLauncher" :text="quietLauncher" :size="quietLauncher ? 'small' : undefined"
-    native-type="button" :disabled="disabled" v-bind="{ 'aria-keyshortcuts': 'Control+O Meta+O' }" @click="show">
+    native-type="button" :disabled="disabled" v-bind="{ 'aria-keyshortcuts': 'Control+O Meta+O' }" @click="show()">
     {{ t('author.articleQuickSwitcher.quick.switch.articles') }}
   </ElButton>
   <ElDialog v-model="open" :title="t('author.articleQuickSwitcher.quick.switch.articles')" append-to-body destroy-on-close width="min(34rem, calc(100vw - 2rem))"

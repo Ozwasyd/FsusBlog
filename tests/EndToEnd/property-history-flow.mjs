@@ -7,17 +7,18 @@ import { encodeArticleSummaryCommand } from '../../src/Contracts/article-summary
 import { decodePropertyEditor, encodePropertySchemaCommand, encodePropertyValueCommand } from '../../src/Contracts/property-values.ts'
 import {
   decodeArticleRightsPolicy, decodeDraft, decodeDraftTaxonomy, decodePropertyCommandReceipt, encodeArticleCommand, encodeArticleRightsCommand, encodeTaxonomyAssignment,
-  encodeSignIn, FrameType, WireHeaders, WireLimits, WireRoutes,
+  FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
-import { chromium, expect, observePageErrors, postReceipt } from './browser-authoring-fixture.mjs'
+import { authorFixture, chromium, expect, observePageErrors, postReceipt } from './browser-authoring-fixture.mjs'
 import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
-const { FSUSBLOG_TEST_URL: url, FSUSBLOG_TEST_TICKET: ticket, FSUSBLOG_TEST_OUTSIDER_TICKET: outsiderTicket,
+const { FSUSBLOG_TEST_URL: url, FSUSBLOG_TEST_AUTHOR_BOOTSTRAP: authorBootstrap, FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP: outsiderBootstrap,
   FSUSBLOG_TEST_EVIDENCE: evidence, FSUSBLOG_TEST_CHROME: executablePath } = process.env
-assert(url && ticket && outsiderTicket && evidence)
+assert(url && authorBootstrap && outsiderBootstrap && evidence)
 const origin = new URL(url).origin
 const browser = await chromium.launch({ executablePath })
 const result = { browser: browser.version(), observations: [], diagnostics: [] }
+const { signInWithPasskey } = authorFixture(origin, result.diagnostics)
 const savedBefore = 'Frozen private value 漢字 🧭'
 const savedAfter = 'New privately saved value à 🔒'
 const beforeLabel = 'First property name'
@@ -26,19 +27,12 @@ const afterLabel = 'Renamed property name'
 const post = (context, path, type, input, expected, credential) =>
   postReceipt(context, origin, path, type, input, expected, credential)
 
-async function login(context, ticket) {
-  const { headers } = await post(context, WireRoutes.SignIn, FrameType.OperatorSignIn, encodeSignIn({ ticket }), FrameType.OperatorSession)
-  const credential = headers[WireHeaders.CurrentSession.toLowerCase()]
-  assert(credential)
-  return credential
-}
-
 try {
   const owner = await browser.newContext({ viewport: { width: 1280, height: 850 } })
   const outsider = await browser.newContext()
   const anonymous = await browser.newContext()
-  const credential = await login(owner, ticket)
-  const outsiderCredential = await login(outsider, outsiderTicket)
+  const credential = await signInWithPasskey(owner, authorBootstrap)
+  const outsiderCredential = await signInWithPasskey(outsider, outsiderBootstrap)
   async function command(path, id, expectedRevision, title = '', body = '') {
     return decodeDraft((await post(owner, path, FrameType.ArticleCommand,
       encodeArticleCommand({ id, expectedRevision, idempotencyKey: randomUUID(), title, body }), FrameType.Draft, credential)).payload)
@@ -128,7 +122,7 @@ try {
   const historyRead = request => request.method() === 'GET' && new URL(request.url()).searchParams.get('map') === 'properties'
   let requests = 0
   page.on('request', request => { if (historyRead(request)) requests++ })
-  await page.goto(`${origin}/user/manage/article/edit/${initial.id}`)
+  await page.goto(`${origin}/admin/articles/edit/${initial.id}`)
   await expect(exactLabel(page, 'Body')).toHaveValue(current.body)
   await exactButton(page, 'Inspector').click()
   const inspector = roleWithExactName(page, 'complementary', 'Article inspector')
