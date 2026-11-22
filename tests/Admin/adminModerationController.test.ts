@@ -8,10 +8,12 @@ import { WireLimits } from '../../src/Contracts/wire.generated.ts'
 import {
   AdminModerationController,
   moderationCoordinate,
+  type AdminModerationControllerOptions,
   type AdminModerationTransport,
 } from '../../src/Web/src/admin/adminModerationController.ts'
 import { MAX_TIMEOUT_MS } from '../../src/Web/src/admin/adminOperationCoordinator.ts'
 import { FakeClock } from './fakeClock.ts'
+import { bindTestSession } from './controllerSession.ts'
 
 function makeQueue(count = 3, batchEnabled = true, next: AdminCommentCursor | null = null): AdminCommentQueue {
   return {
@@ -40,8 +42,11 @@ function makeClaim(target: AdminCommentCursor, expiresAt: number, overrides: Par
   }
 }
 
-function createTransport(overrides: Partial<AdminModerationTransport> = {}): AdminModerationTransport {
-  return {
+function createController(
+  options: Omit<AdminModerationControllerOptions, 'transport'>,
+  overrides: Partial<AdminModerationTransport> = {},
+): AdminModerationController {
+  const transport: AdminModerationTransport = {
     readAdminCommentQueue: async () => makeQueue(),
     claimComment: async target => makeClaim(target, 1_700_000_060_000),
     renewCommentClaim: async claim => ({ ...claim, claimVersion: claim.claimVersion + 1n, expiresAt: claim.expiresAt + 60_000n }),
@@ -54,6 +59,7 @@ function createTransport(overrides: Partial<AdminModerationTransport> = {}): Adm
     readCommentRevisions: async () => ({ rows: [], next: null }),
     ...overrides,
   }
+  return new AdminModerationController({ ...options, transport })
 }
 
 async function flushMicrotasks(): Promise<void> {
@@ -71,21 +77,17 @@ test('single claim lifecycle: claim, renew preserves reason and replaces expiry 
   let claimCalls = 0
   let releaseCalls = 0
 
-  const controller = new AdminModerationController({
-    clock,
-    transport: createTransport({
-      claimComment: async () => {
-        claimCalls++
-        if (claimCalls === 1) return firstClaim
-        secondClaim = makeClaim(target, clock.now() + 20_000, { claimToken: 'B'.repeat(43), claimGeneration: 2n })
-        return secondClaim
-      },
-      renewCommentClaim: async () => renewedClaim,
-      releaseCommentClaim: async () => { releaseCalls++ },
-    }),
+  const controller = createController({ clock }, {
+    claimComment: async () => {
+      claimCalls++
+      if (claimCalls === 1) return firstClaim
+      secondClaim = makeClaim(target, clock.now() + 20_000, { claimToken: 'B'.repeat(43), claimGeneration: 2n })
+      return secondClaim
+    },
+    renewCommentClaim: async () => renewedClaim,
+    releaseCommentClaim: async () => { releaseCalls++ },
   })
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
   assert.equal(controller.state.queue?.comments.length, 3)
 
@@ -136,12 +138,8 @@ test('long lease expiry > MAX_TIMEOUT_MS reschedules accurately without prematur
   const clock = new FakeClock(1_000_000)
   const target: AdminCommentCursor = { articleId: 10, commentId: 100n }
   const longLease = makeClaim(target, clock.now() + MAX_TIMEOUT_MS + 5_000)
-  const controller = new AdminModerationController({
-    clock,
-    transport: createTransport({ claimComment: async () => longLease }),
-  })
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  const controller = createController({ clock }, { claimComment: async () => longLease })
+  bindTestSession(controller)
   await flushMicrotasks()
 
   await controller.claimForReview(target)
@@ -165,26 +163,22 @@ test('single decision preserves Passkey/428 failure without auto-retry, aborts s
   let queueLoads = 0
   const stepUpGate = Promise.withResolvers<string>()
 
-  const controller = new AdminModerationController({
-    clock,
-    transport: createTransport({
-      readAdminCommentQueue: async () => {
-        queueLoads++
-        if (queueLoads === 2) throw new ApiError('queue reload failed', 503)
-        return makeQueue()
-      },
-      claimComment: async () => lease,
-      proveAdminModerationDecision: async () => {
-        proveCalls++
-        if (proveCalls === 1) throw new ApiError('MFA_PROOF_REQUIRED', 428)
-        if (proveCalls === 2) return 'P'.repeat(43)
-        return stepUpGate.promise
-      },
-      decideComment: async () => { decideCalls++ },
-    }),
+  const controller = createController({ clock }, {
+    readAdminCommentQueue: async () => {
+      queueLoads++
+      if (queueLoads === 2) throw new ApiError('queue reload failed', 503)
+      return makeQueue()
+    },
+    claimComment: async () => lease,
+    proveAdminModerationDecision: async () => {
+      proveCalls++
+      if (proveCalls === 1) throw new ApiError('MFA_PROOF_REQUIRED', 428)
+      if (proveCalls === 2) return 'P'.repeat(43)
+      return stepUpGate.promise
+    },
+    decideComment: async () => { decideCalls++ },
   })
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
 
   // 1) 428 keeps claim and reason intact, sets m26, and never auto-retries.
@@ -228,24 +222,22 @@ test('single conflicts (404/409) and 401/403 enforce exact moderation semantics'
   const lostErrors: ApiError[] = []
   let mode: 'claim409' | 'renew409' | 'release403' | 'load401' = 'claim409'
 
-  const controller = new AdminModerationController({
+  const controller = createController({
     clock,
     hooks: { onSessionLost: err => lostErrors.push(err) },
-    transport: createTransport({
-      readAdminCommentQueue: async () => {
-        if (mode === 'load401') throw new ApiError('unauthorized', 401)
-        return makeQueue()
-      },
-      claimComment: async () => {
-        if (mode === 'claim409') throw new ApiError('already claimed', 409)
-        return lease
-      },
-      renewCommentClaim: async () => { throw new ApiError('stale claim', 409) },
-      releaseCommentClaim: async () => { throw new ApiError('forbidden', 403) },
-    }),
+  }, {
+    readAdminCommentQueue: async () => {
+      if (mode === 'load401') throw new ApiError('unauthorized', 401)
+      return makeQueue()
+    },
+    claimComment: async () => {
+      if (mode === 'claim409') throw new ApiError('already claimed', 409)
+      return lease
+    },
+    renewCommentClaim: async () => { throw new ApiError('stale claim', 409) },
+    releaseCommentClaim: async () => { throw new ApiError('forbidden', 403) },
   })
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
 
   // Claim 409 -> m17
@@ -289,35 +281,33 @@ test('batch lifecycle: selection bounds, earliest expiry, partial release failur
   let releaseConflictId: bigint | null = null
   let decideBatchMode: 'ok' | 'conflict' | 'stepup428' = 'conflict'
 
-  const controller = new AdminModerationController({
+  const controller = createController({
     clock,
     hooks: { onBatchClaimed: isActive => { focusChecks.push(isActive()) } },
-    transport: createTransport({
-      readAdminCommentQueue: async () => queue,
-      claimModerationBatch: async targets => {
-        if (batchClaimMode === 'conflict') {
-          // Bitmask 0x00002 -> second selected item conflicted
-          throw new ApiError('conflict', 409, 'moderation_batch_conflicts:00002')
-        }
-        return targets.map((target, index) => makeClaim(target, clock.now() + (index === 0 ? 40_000 : 15_000)))
-      },
-      releaseCommentClaim: async claim => {
-        releasedIds.push(claim.commentId)
-        if (releaseConflictId === claim.commentId) throw new ApiError('already expired', 404)
-        if (releaseFailId === claim.commentId) throw new ApiError('temporary error', 500)
-      },
-      proveAndDecideModerationBatch: async cmd => {
-        if (decideBatchMode === 'stepup428') throw new ApiError('MFA_PROOF_REQUIRED', 428)
-        if (decideBatchMode === 'conflict') {
-          // Bitmask 0x00003 -> both items conflicted
-          throw new ApiError('conflict', 409, 'moderation_batch_conflicts:00003')
-        }
-        return { batchId: 99n, count: cmd.rows.length }
-      },
-    }),
+  }, {
+    readAdminCommentQueue: async () => queue,
+    claimModerationBatch: async targets => {
+      if (batchClaimMode === 'conflict') {
+        // Bitmask 0x00002 -> second selected item conflicted
+        throw new ApiError('conflict', 409, 'moderation_batch_conflicts:00002')
+      }
+      return targets.map((target, index) => makeClaim(target, clock.now() + (index === 0 ? 40_000 : 15_000)))
+    },
+    releaseCommentClaim: async claim => {
+      releasedIds.push(claim.commentId)
+      if (releaseConflictId === claim.commentId) throw new ApiError('already expired', 404)
+      if (releaseFailId === claim.commentId) throw new ApiError('temporary error', 500)
+    },
+    proveAndDecideModerationBatch: async cmd => {
+      if (decideBatchMode === 'stepup428') throw new ApiError('MFA_PROOF_REQUIRED', 428)
+      if (decideBatchMode === 'conflict') {
+        // Bitmask 0x00003 -> both items conflicted
+        throw new ApiError('conflict', 409, 'moderation_batch_conflicts:00003')
+      }
+      return { batchId: 99n, count: cmd.rows.length }
+    },
   })
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
 
   // Selection below minimum cannot start batch.
@@ -424,26 +414,24 @@ test('stale requests, stale timers, cancellation, and cross-session responses ne
   const sessionLostErrors: ApiError[] = []
   let activeSession = 'A'
 
-  const controller = new AdminModerationController({
+  const controller = createController({
     clock,
     hooks: { onSessionLost: err => sessionLostErrors.push(err) },
-    transport: createTransport({
-      readAdminCommentQueue: async () => (activeSession === 'A' ? queueA : queueB),
-      claimComment: async target => {
-        if (activeSession === 'A') return staleClaimGate.promise
-        return makeClaim(target, clock.now() + 50_000, { claimToken: 'N'.repeat(43) })
-      },
-      claimModerationBatch: async targets => targets.map((t, i) =>
-        makeClaim(t, clock.now() + 30_000, { claimToken: `S${i}`.padEnd(43, 'X') })),
-      releaseCommentClaim: async claim => {
-        releasedTokens.push(claim.claimToken)
-        if (claim.claimToken.startsWith('S0')) return staleReleaseGate.promise
-      },
-    }),
+  }, {
+    readAdminCommentQueue: async () => (activeSession === 'A' ? queueA : queueB),
+    claimComment: async target => {
+      if (activeSession === 'A') return staleClaimGate.promise
+      return makeClaim(target, clock.now() + 50_000, { claimToken: 'N'.repeat(43) })
+    },
+    claimModerationBatch: async targets => targets.map((t, i) =>
+      makeClaim(t, clock.now() + 30_000, { claimToken: `S${i}`.padEnd(43, 'X') })),
+    releaseCommentClaim: async claim => {
+      releasedTokens.push(claim.claimToken)
+      if (claim.claimToken.startsWith('S0')) return staleReleaseGate.promise
+    },
   })
 
-  const sessionA = new AbortController()
-  controller.bindSession(sessionA.signal)
+  const sessionA = bindTestSession(controller)
   await flushMicrotasks()
 
   // Session A starts claiming comment 100 (ignores abort and resolves late).
@@ -451,8 +439,7 @@ test('stale requests, stale timers, cancellation, and cross-session responses ne
 
   // Switch to Session B before Session A's claim returns.
   activeSession = 'B'
-  const sessionB = new AbortController()
-  controller.bindSession(sessionB.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
   assert.equal(controller.state.queue?.comments[0]?.articleId, 90)
 
@@ -471,8 +458,7 @@ test('stale requests, stale timers, cancellation, and cross-session responses ne
 
   // Now verify cancelling mid-batch release stops remaining releases and never touches new claims.
   activeSession = 'A'
-  const sessionC = new AbortController()
-  controller.bindSession(sessionC.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
   controller.select(queueA.comments[0]!, true)
   controller.select(queueA.comments[1]!, true)
@@ -485,8 +471,7 @@ test('stale requests, stale timers, cancellation, and cross-session responses ne
 
   // Switch to Session D mid-release and claim new item.
   activeSession = 'B'
-  const sessionD = new AbortController()
-  controller.bindSession(sessionD.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
   await controller.claimForReview(queueB.comments[1]!)
   const sessionDClaim = controller.state.claim!
@@ -519,25 +504,23 @@ test('history channel runs independently, cancels stale coordinate responses, an
   const lostErrors: ApiError[] = []
   let timelineCalls = 0
 
-  const controller = new AdminModerationController({
+  const controller = createController({
     clock,
     hooks: { onSessionLost: err => lostErrors.push(err) },
-    transport: createTransport({
-      readModerationTimeline: async (_article, comment) => {
-        timelineCalls++
-        if (comment === '100') return timelineGate.promise
-        if (comment === '404') throw new ApiError('missing', 404)
-        throw new ApiError('expired', 401)
-      },
-      readCommentRevisions: async (_article, comment) => {
-        if (comment === '100') return revisionGate.promise
-        if (comment === '404') throw new ApiError('missing', 404)
-        throw new ApiError('expired', 401)
-      },
-    }),
+  }, {
+    readModerationTimeline: async (_article, comment) => {
+      timelineCalls++
+      if (comment === '100') return timelineGate.promise
+      if (comment === '404') throw new ApiError('missing', 404)
+      throw new ApiError('expired', 401)
+    },
+    readCommentRevisions: async (_article, comment) => {
+      if (comment === '100') return revisionGate.promise
+      if (comment === '404') throw new ApiError('missing', 404)
+      throw new ApiError('expired', 401)
+    },
   })
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
 
   // Open history for comment 100 (in flight).
@@ -573,11 +556,8 @@ test('history channel runs independently, cancels stale coordinate responses, an
 test('selection enforces WireLimits.AdminModerationBatchCount upper cap', async () => {
   const count = WireLimits.AdminModerationBatchCount + 2
   const queue = makeQueue(count, true)
-  const controller = new AdminModerationController({
-    transport: createTransport({ readAdminCommentQueue: async () => queue }),
-  })
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  const controller = createController({}, { readAdminCommentQueue: async () => queue })
+  bindTestSession(controller)
   await flushMicrotasks()
 
   for (const row of queue.comments) controller.select(row, true)
@@ -598,26 +578,24 @@ test('already-expired claim expires immediately, explicit cancel frees channel, 
   let claimCall = 0
   let batchReleaseErrorStatus: 401 | 403 = 403
 
-  const controller = new AdminModerationController({
+  const controller = createController({
     clock,
     hooks: { onSessionLost: err => lostErrors.push(err) },
-    transport: createTransport({
-      readAdminCommentQueue: async () => queue,
-      claimComment: async target => {
-        claimCall++
-        if (claimCall === 1) return makeClaim(target, clock.now() - 1)
-        if (claimCall === 2) return slowClaim.promise
-        return makeClaim(target, clock.now() + 30_000, { claimToken: 'F'.repeat(43) })
-      },
-      claimModerationBatch: async targets => targets.map(t => makeClaim(t, clock.now() + 30_000)),
-      releaseCommentClaim: async claim => {
-        releasedIds.push(claim.commentId)
-        if (releasedIds.length === 1) throw new ApiError('denied', batchReleaseErrorStatus)
-      },
-    }),
+  }, {
+    readAdminCommentQueue: async () => queue,
+    claimComment: async target => {
+      claimCall++
+      if (claimCall === 1) return makeClaim(target, clock.now() - 1)
+      if (claimCall === 2) return slowClaim.promise
+      return makeClaim(target, clock.now() + 30_000, { claimToken: 'F'.repeat(43) })
+    },
+    claimModerationBatch: async targets => targets.map(t => makeClaim(t, clock.now() + 30_000)),
+    releaseCommentClaim: async claim => {
+      releasedIds.push(claim.commentId)
+      if (releasedIds.length === 1) throw new ApiError('denied', batchReleaseErrorStatus)
+    },
   })
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
 
   // Already expired receipt expires synchronously with zero dangling timers.
@@ -640,8 +618,7 @@ test('already-expired claim expires immediately, explicit cancel frees channel, 
   assert.deepEqual(controller.state.claim, activeClaim)
 
   // 403 on first batch release stops loop immediately and clears review with m11.
-  const session2 = new AbortController()
-  controller.bindSession(session2.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
   controller.select(queue.comments[0]!, true)
   controller.select(queue.comments[1]!, true)
@@ -655,8 +632,7 @@ test('already-expired claim expires immediately, explicit cancel frees channel, 
   assert.equal(lostErrors.length, 0)
 
   // 401 on first batch release stops loop immediately and emits sessionLost.
-  const session3 = new AbortController()
-  controller.bindSession(session3.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
   controller.select(queue.comments[0]!, true)
   controller.select(queue.comments[1]!, true)

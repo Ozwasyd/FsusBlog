@@ -11,9 +11,11 @@ import type {
 } from '../../src/Contracts/admin-inbox.ts'
 import {
   AdminInboxController,
+  type AdminInboxControllerOptions,
   type AdminInboxTransport,
 } from '../../src/Web/src/admin/adminInboxController.ts'
 import { FakeClock } from './fakeClock.ts'
+import { bindTestSession } from './controllerSession.ts'
 
 interface FakeWakeSubscription {
   readonly scope: bigint | AdminInboxLiveStatus
@@ -69,11 +71,12 @@ function makeThread(id: bigint, overrides: Partial<AdminInboxThread> = {}): Admi
   }
 }
 
-function createTransport(
+function createController(
+  options: Omit<AdminInboxControllerOptions, 'transport'>,
   overrides: Partial<AdminInboxTransport> = {},
   wakes: FakeWakeSubscription[] = [],
-): AdminInboxTransport {
-  return {
+): AdminInboxController {
+  const transport: AdminInboxTransport = {
     adminInbox: async () => makePage([makeRow(1n), makeRow(2n)]),
     adminInboxThread: async id => makeThread(id),
     acknowledgeAdminInboxRead: async () => 0,
@@ -85,25 +88,23 @@ function createTransport(
     },
     ...overrides,
   }
+  return new AdminInboxController({ ...options, transport })
 }
 
 test('queue auto-upgrades to shared read, disables live on pagination, and preserves capabilities across filter/order switches', async () => {
   const queueCalls: Array<{ filter: AdminInboxFilter; cursor: string | null; shared: boolean | undefined; order: AdminInboxOrder | undefined }> = []
   const wakes: FakeWakeSubscription[] = []
-  const controller = new AdminInboxController({
-    transport: createTransport({
-      adminInbox: async (filter, cursor, _signal, shared, order) => {
-        queueCalls.push({ filter, cursor, shared, order })
-        if (cursor === 'next-cursor') {
-          return makePage([makeRow(3n)], { next: null, liveEnabled: true })
-        }
-        return makePage([makeRow(1n, { unread: shared ? 2 : null })], { next: 'next-cursor', sharedAvailable: true, activityAvailable: true, liveEnabled: true })
-      },
-    }, wakes),
-  })
+  const controller = createController({}, {
+    adminInbox: async (filter, cursor, _signal, shared, order) => {
+      queueCalls.push({ filter, cursor, shared, order })
+      if (cursor === 'next-cursor') {
+        return makePage([makeRow(3n)], { next: null, liveEnabled: true })
+      }
+      return makePage([makeRow(1n, { unread: shared ? 2 : null })], { next: 'next-cursor', sharedAvailable: true, activityAvailable: true, liveEnabled: true })
+    },
+  }, wakes)
 
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
 
   // Initial load detects sharedAvailable=true and performs a second shared=true fetch.
@@ -156,40 +157,38 @@ test('thread open, earlier messages prepend, read acknowledgement failure + retr
   let closedHooks = 0
   const snapshotToken = 's'.repeat(64)
 
-  const controller = new AdminInboxController({
+  const controller = createController({
     hooks: {
       onSessionLost: err => sessionLostErrors.push(err),
       onThreadOpened: () => { openedHooks++ },
       onThreadClosed: () => { closedHooks++ },
     },
-    transport: createTransport({
-      adminInbox: async filter => makePage([makeRow(5n, { unread: 1 }), makeRow(6n, { unread: 3 })], {
-        liveEnabled: filter !== 'unread',
-      }),
-      adminInboxThread: async (id, before) => {
-        if (before === 'prev-page') {
-          return makeThread(id, {
-            previous: null,
-            messages: [{ id: 8n, sender: 0, internal: false, at: 1_699_999_999_000, body: 'Earlier message' }],
-            readSnapshot: null,
-          })
-        }
+  }, {
+    adminInbox: async filter => makePage([makeRow(5n, { unread: 1 }), makeRow(6n, { unread: 3 })], {
+      liveEnabled: filter !== 'unread',
+    }),
+    adminInboxThread: async (id, before) => {
+      if (before === 'prev-page') {
         return makeThread(id, {
-          previous: 'prev-page',
-          readSnapshot: { token: snapshotToken, through: 10n },
+          previous: null,
+          messages: [{ id: 8n, sender: 0, internal: false, at: 1_699_999_999_000, body: 'Earlier message' }],
+          readSnapshot: null,
         })
-      },
-      acknowledgeAdminInboxRead: async (_id, snapshot) => {
-        ackAttempts++
-        ackSnapshots.push(snapshot.token)
-        if (ackAttempts === 1) throw new ApiError('temporary ack error', 503)
-        return 0
-      },
-    }, wakes),
-  })
+      }
+      return makeThread(id, {
+        previous: 'prev-page',
+        readSnapshot: { token: snapshotToken, through: 10n },
+      })
+    },
+    acknowledgeAdminInboxRead: async (_id, snapshot) => {
+      ackAttempts++
+      ackSnapshots.push(snapshot.token)
+      if (ackAttempts === 1) throw new ApiError('temporary ack error', 503)
+      return 0
+    },
+  }, wakes)
 
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
   controller.setFilter('unread')
   await flushMicrotasks()
@@ -238,34 +237,32 @@ test('reply, status change, and system notice preserve idempotency keys, PoW err
   let failNotice = true
   let statusChanged = true
 
-  const controller = new AdminInboxController({
+  const controller = createController({
     idGenerator: {
       randomUuid: () => `uuid-${++uuidCounter}`,
       newNoticeEventId: () => ++eventCounter,
     },
     hooks: { onSessionLost: err => sessionLostErrors.push(err) },
-    transport: createTransport({
-      adminInbox: async () => makePage([makeRow(10n, { status: 0 })]),
-      adminInboxThread: async id => makeThread(id, {
-        conversation: makeRow(id, { status: statusChanged ? 1 : 0 }),
-        version: '2',
-        readSnapshot: null,
-      }),
-      adminReply: async (id, body, key) => {
-        replyKeys.push(key)
-        if (failReplyWithPow) throw new ApiError('PoW rejected', 428, 'pow_expired')
-        return { id: 25n, conversationId: id, sender: 1, createdAt: 1_700_000_010_000, body }
-      },
-      adminChangeStatus: async (_id, _version, target) => ({ previous: 0, current: target, changed: statusChanged }),
-      adminSendNotice: async (_account, _subject, _body, sourceEvent) => {
-        noticeEvents.push(sourceEvent)
-        if (failNotice) throw new ApiError('PoW needed', 409, 'pow_invalid')
-      },
+  }, {
+    adminInbox: async () => makePage([makeRow(10n, { status: 0 })]),
+    adminInboxThread: async id => makeThread(id, {
+      conversation: makeRow(id, { status: statusChanged ? 1 : 0 }),
+      version: '2',
+      readSnapshot: null,
     }),
+    adminReply: async (id, body, key) => {
+      replyKeys.push(key)
+      if (failReplyWithPow) throw new ApiError('PoW rejected', 428, 'pow_expired')
+      return { id: 25n, conversationId: id, sender: 1, createdAt: 1_700_000_010_000, body }
+    },
+    adminChangeStatus: async (_id, _version, target) => ({ previous: 0, current: target, changed: statusChanged }),
+    adminSendNotice: async (_account, _subject, _body, sourceEvent) => {
+      noticeEvents.push(sourceEvent)
+      if (failNotice) throw new ApiError('PoW needed', 409, 'pow_invalid')
+    },
   })
 
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  const session = bindTestSession(controller)
   await flushMicrotasks()
 
   // System notice: pow_* failure must NOT emit sessionLost, and retrying the same form reuses the exact eventId.
@@ -318,13 +315,10 @@ test('reply, status change, and system notice preserve idempotency keys, PoW err
   controller.setDestination(2)
   controller.setReason('Close after timeout')
   const prevLen = sessionLostErrors.length
-  const badTransportController = new AdminInboxController({
-    hooks: { onSessionLost: err => sessionLostErrors.push(err) },
-    transport: createTransport({
-      adminInbox: async () => makePage([makeRow(10n)]),
-      adminInboxThread: async id => makeThread(id, { readSnapshot: null }),
-      adminChangeStatus: async () => { throw new ApiError('stale version', 409) },
-    }),
+  const badTransportController = createController({ hooks: { onSessionLost: err => sessionLostErrors.push(err) } }, {
+    adminInbox: async () => makePage([makeRow(10n)]),
+    adminInboxThread: async id => makeThread(id, { readSnapshot: null }),
+    adminChangeStatus: async () => { throw new ApiError('stale version', 409) },
   })
   badTransportController.bindSession(session.signal)
   await flushMicrotasks()
@@ -349,47 +343,45 @@ test('live refresh coordinates pending deferral, overlap merge, keepReadSnapshot
   let threadFetchCount = 0
   const retainedSnapshot = { token: 'k'.repeat(64), through: 10n }
 
-  const controller = new AdminInboxController({
+  const controller = createController({
     clock,
     hooks: { onSessionLost: err => sessionLostErrors.push(err) },
-    transport: createTransport({
-      adminInbox: async () => makePage([makeRow(7n)]),
-      adminInboxThread: async (id, before) => {
-        threadFetchCount++
-        if (before === 'earlier-1') {
-          return makeThread(id, {
-            previous: null,
-            messages: [{ id: 5n, sender: 0, internal: false, at: 1_699_999_000_000, body: 'Old history msg' }],
-            readSnapshot: null,
-          })
-        }
-        if (threadFetchCount === 1) {
-          return makeThread(id, {
-            previous: 'earlier-1',
-            version: '1',
-            readSnapshot: retainedSnapshot,
-          })
-        }
-        if (liveThreadMode === 'fail500') throw new ApiError('server busy', 503)
-        if (liveThreadMode === 'fail403') throw new ApiError('forbidden', 403)
-        if (liveThreadMode === 'fail401') throw new ApiError('expired', 401)
+  }, {
+    adminInbox: async () => makePage([makeRow(7n)]),
+    adminInboxThread: async (id, before) => {
+      threadFetchCount++
+      if (before === 'earlier-1') {
         return makeThread(id, {
-          previous: 'should-be-replaced-by-current-previous',
-          messages: [
-            { id: 10n, sender: 0, internal: false, at: 1_700_000_000_000, body: 'Initial account message' },
-            { id: 11n, sender: 1, internal: true, at: 1_700_000_001_000, body: 'Internal note' },
-            { id: 12n, sender: 0, internal: false, at: 1_700_000_009_000, body: 'Live incoming message' },
-          ],
-          readSnapshot: { token: 'z'.repeat(64), through: 12n },
+          previous: null,
+          messages: [{ id: 5n, sender: 0, internal: false, at: 1_699_999_000_000, body: 'Old history msg' }],
+          readSnapshot: null,
         })
-      },
-      acknowledgeAdminInboxRead: async () => { throw new ApiError('ack failed', 500) },
-      adminReply: async () => replyGate.promise,
-    }, wakes),
-  })
+      }
+      if (threadFetchCount === 1) {
+        return makeThread(id, {
+          previous: 'earlier-1',
+          version: '1',
+          readSnapshot: retainedSnapshot,
+        })
+      }
+      if (liveThreadMode === 'fail500') throw new ApiError('server busy', 503)
+      if (liveThreadMode === 'fail403') throw new ApiError('forbidden', 403)
+      if (liveThreadMode === 'fail401') throw new ApiError('expired', 401)
+      return makeThread(id, {
+        previous: 'should-be-replaced-by-current-previous',
+        messages: [
+          { id: 10n, sender: 0, internal: false, at: 1_700_000_000_000, body: 'Initial account message' },
+          { id: 11n, sender: 1, internal: true, at: 1_700_000_001_000, body: 'Internal note' },
+          { id: 12n, sender: 0, internal: false, at: 1_700_000_009_000, body: 'Live incoming message' },
+        ],
+        readSnapshot: { token: 'z'.repeat(64), through: 12n },
+      })
+    },
+    acknowledgeAdminInboxRead: async () => { throw new ApiError('ack failed', 500) },
+    adminReply: async () => replyGate.promise,
+  }, wakes)
 
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
 
   // Open thread (ack fails -> unreadAckFailed=true) and load earlier history page.
@@ -467,23 +459,21 @@ test('cross-session isolation, explicit cancel, and idempotent dispose block sta
   const staleQueueGate = Promise.withResolvers<AdminInboxPage>()
   let activeSession = 'A'
 
-  const controller = new AdminInboxController({
+  const controller = createController({
     clock,
     hooks: { onSessionLost: err => sessionLostErrors.push(err) },
-    transport: createTransport({
-      adminInbox: async (_filter, _cursor, _signal, shared) => {
-        if (activeSession === 'A') {
-          if (shared) return makePage([makeRow(1n, { subject: 'Session A ticket' })])
-          return makePage([makeRow(1n, { subject: 'Session A ticket' })])
-        }
-        if (activeSession === 'A-late') return staleQueueGate.promise
-        return makePage([makeRow(99n, { subject: 'Session B ticket' })], { sharedAvailable: false })
-      },
-    }, wakes),
-  })
+  }, {
+    adminInbox: async (_filter, _cursor, _signal, shared) => {
+      if (activeSession === 'A') {
+        if (shared) return makePage([makeRow(1n, { subject: 'Session A ticket' })])
+        return makePage([makeRow(1n, { subject: 'Session A ticket' })])
+      }
+      if (activeSession === 'A-late') return staleQueueGate.promise
+      return makePage([makeRow(99n, { subject: 'Session B ticket' })], { sharedAvailable: false })
+    },
+  }, wakes)
 
-  const sessionA = new AbortController()
-  controller.bindSession(sessionA.signal)
+  const sessionA = bindTestSession(controller)
   await flushMicrotasks()
   assert.equal(wakes.length, 1)
   const wakeA = wakes[0]!
@@ -493,8 +483,7 @@ test('cross-session isolation, explicit cancel, and idempotent dispose block sta
   const staleLoad = controller.loadQueue()
 
   activeSession = 'B'
-  const sessionB = new AbortController()
-  controller.bindSession(sessionB.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
   assert.equal(wakeA.signal.aborted, true)
   assert.deepEqual(controller.state.rows.map(r => r.id), [99n])
@@ -543,7 +532,7 @@ test('toggle collapse/expand, queue live 429 retry + focus hook, unchanged statu
   let threadFocusAfter = 0
   let threadStatus: 0 | 2 = 0
 
-  const controller = new AdminInboxController({
+  const controller = createController({
     clock,
     hooks: {
       onBeforeApplyLiveQueuePage: () => {
@@ -552,22 +541,20 @@ test('toggle collapse/expand, queue live 429 retry + focus hook, unchanged statu
       },
       onBeforeApplyLatestThread: () => () => { threadFocusAfter++ },
     },
-    transport: createTransport({
-      adminInbox: async () => {
-        if (queueMode === 'rate429') throw new ApiError('slow down', 429)
-        if (queueMode === 'conflict409') throw new ApiError('conflict', 409)
-        return makePage([makeRow(20n, { subject: 'Live queue item' })], { sharedAvailable: false })
-      },
-      adminInboxThread: async id => makeThread(id, {
-        conversation: makeRow(id, { status: threadStatus }),
-        readSnapshot: null,
-      }),
-      adminChangeStatus: async (_id, _version, target) => ({ previous: target, current: target, changed: false }),
-    }, wakes),
-  })
+  }, {
+    adminInbox: async () => {
+      if (queueMode === 'rate429') throw new ApiError('slow down', 429)
+      if (queueMode === 'conflict409') throw new ApiError('conflict', 409)
+      return makePage([makeRow(20n, { subject: 'Live queue item' })], { sharedAvailable: false })
+    },
+    adminInboxThread: async id => makeThread(id, {
+      conversation: makeRow(id, { status: threadStatus }),
+      readSnapshot: null,
+    }),
+    adminChangeStatus: async (_id, _version, target) => ({ previous: target, current: target, changed: false }),
+  }, wakes)
 
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
   const queueWake = wakes[0]!
   assert.equal(queueWake.scope, '')
@@ -630,36 +617,32 @@ test('fine-grained channels, latest-wins thread/filter switching, non-blocking r
   let filterCallCount = 0
   let refreshMode: 'normal' | 'hold' = 'normal'
 
-  const controller = new AdminInboxController({
-    hooks: { onThreadOpened: () => { openHookCalls++ } },
-    transport: createTransport({
-      adminInbox: async filter => {
-        if (filter === 'pending') {
-          filterCallCount++
-          if (filterCallCount === 1) return filterGate.promise
-          throw new ApiError('queue load failed', 503)
-        }
-        return makePage([makeRow(1n), makeRow(2n)])
-      },
-      adminInboxThread: async id => {
-        threadFetches.push(id)
-        if (id === 1n && refreshMode === 'normal' && threadFetches.filter(x => x === 1n).length === 1) {
-          return threadAGate.promise
-        }
-        if (id === 2n && refreshMode === 'normal' && threadFetches.filter(x => x === 2n).length === 1) {
-          return threadBGate.promise
-        }
-        if (refreshMode === 'hold') {
-          return refreshGate.promise
-        }
-        return makeThread(id, { version: '2', readSnapshot: null })
-      },
-      acknowledgeAdminInboxRead: async () => ackGate.promise,
-    }),
+  const controller = createController({ hooks: { onThreadOpened: () => { openHookCalls++ } } }, {
+    adminInbox: async filter => {
+      if (filter === 'pending') {
+        filterCallCount++
+        if (filterCallCount === 1) return filterGate.promise
+        throw new ApiError('queue load failed', 503)
+      }
+      return makePage([makeRow(1n), makeRow(2n)])
+    },
+    adminInboxThread: async id => {
+      threadFetches.push(id)
+      if (id === 1n && refreshMode === 'normal' && threadFetches.filter(x => x === 1n).length === 1) {
+        return threadAGate.promise
+      }
+      if (id === 2n && refreshMode === 'normal' && threadFetches.filter(x => x === 2n).length === 1) {
+        return threadBGate.promise
+      }
+      if (refreshMode === 'hold') {
+        return refreshGate.promise
+      }
+      return makeThread(id, { version: '2', readSnapshot: null })
+    },
+    acknowledgeAdminInboxRead: async () => ackGate.promise,
   })
 
-  const session = new AbortController()
-  controller.bindSession(session.signal)
+  bindTestSession(controller)
   await flushMicrotasks()
 
   // Clicking thread 1 then rapidly clicking thread 2 cancels thread 1 (latest-wins) without dropping thread 2.
