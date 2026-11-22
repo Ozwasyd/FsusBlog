@@ -85,10 +85,11 @@ internal static class ServerEndpoints
         RecoveryScopeEndpoints.Map(app, authorCookie);
         AuthoringWorkspaceEndpoints.Map(app, authorCookie, ServerHttp.ReadFrame);
         AuthorRecentOpenEndpoints.Map(app, authorCookie, ServerHttp.ReadFrame, ServerHttp.Query);
-        RevisionHistoryEndpoints.Map(app, authorCookie, ServerHttp.Query, ServerHttp.ReadFrame);
-        PublicationRightsEndpoints.Map(app, authorCookie, ServerHttp.Query, ServerHttp.ReadFrame);
+        var draftMutations = new DraftMutationRoutes(app, authorCookie, ServerHttp.ReadFrame);
+        RevisionHistoryEndpoints.Map(app, authorCookie, ServerHttp.Query, draftMutations);
+        draftMutations.MapRights(ServerHttp.Query);
         ArticleInventoryEndpoints.Map(app, authorCookie, ServerHttp.Query);
-        ArticleScheduleEndpoints.Map(app, authorCookie, ServerHttp.Query, ServerHttp.ReadFrame);
+        draftMutations.MapSchedule(ServerHttp.Query);
         MarkdownExportEndpoints.Map(app, authorCookie, ServerHttp.Query, capabilities.PdfExport);
         if (capabilities.DocumentExportTasks)
             DocumentExportEndpoints.Map(app, authorCookie, capabilities.PdfExport, ServerHttp.ReadFrame);

@@ -9,7 +9,7 @@ namespace FsusBlog.V2.Server.Authoring;
 internal static class RevisionHistoryEndpoints
 {
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+        DraftMutationRoutes mutations)
     {
         app.MapGet(WireRoutes.DraftRevisionHistory, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
         {
@@ -85,16 +85,6 @@ internal static class RevisionHistoryEndpoints
             }, ct);
         }).RequireRateLimiting("command");
 
-        app.MapPost(WireRoutes.DraftRollback, async (HttpContext ctx, Store store, CancellationToken ct) =>
-        {
-            var input = Wire.DecodeDraftRollback(await readFrame(ctx, WireLimits.MaxDraftRollbackFrameBytes, ct));
-            ClientMutationHeader.Require(ctx, input.IdempotencyKey);
-            return await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
-            {
-                var result = await Store.RollbackDraft(db, tx, actor, input, ct);
-                var response = new Draft(result.Id, result.Revision, result.Title, result.Body, result.PublishedRevision is not null);
-                return Results.Bytes(Wire.EncodeDraft(response), Aeds.ContentType);
-            }, ct);
-        }).RequireRateLimiting("command");
+        mutations.MapRollback();
     }
 }
