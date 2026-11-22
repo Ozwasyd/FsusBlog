@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { t, type MessageKey } from '../siteLocale'
+import { siteLocale, t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { useDelayedBusy } from '../delayedBusy'
 import { useRoute, useRouter } from 'vue-router'
 import type { ThemeMode } from '@ozwasyd/element-plus/theme'
 import AccountWorkspace from '../AccountWorkspace.vue'
@@ -62,6 +63,7 @@ const failure = ref<MessageKey | ''>('')
 const notice = ref<MessageKey | ''>('')
 const operations = shallowRef<AdminOperationsStatus | null>(null)
 const operationsBusy = ref(false)
+const operationsLoading = useDelayedBusy(() => operationsBusy.value)
 const operationsFailure = ref<MessageKey | ''>('')
 const sessionAuthority = shallowRef(new AbortController())
 const sessionEpoch = ref(0)
@@ -240,7 +242,7 @@ function clearOperations() {
 
 async function checkOperations(force = true) {
   const active = authority.value
-  if (active?.status !== 'active' || busy.value || (!force && operationsBusy.value)) return
+  if (active?.status !== 'active' || (force && busy.value) || (!force && operationsBusy.value)) return
   clearOperations()
   const check = new AbortController()
   operationsRequest = check
@@ -339,7 +341,7 @@ function logOut() {
     <main class="admin-workspace">
       <ElTaskPageHeader
         :title="t(section.label)"
-        :description="section.section === 'identity' ? t('admin.accountSummary') : undefined"
+        :description="section.section === 'identity' ? t('admin.accountSummary') : section.section === 'system' ? t('admin.systemSummary') : undefined"
         density="compact"
       />
       <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
@@ -358,7 +360,7 @@ function logOut() {
             <ElKeyValueItem :label="t('admin.handle')" :value="authority.session.handle" monospace />
             <ElKeyValueItem :label="t('admin.sessionGeneration')" :value="authority.session.generation.toString()" monospace />
             <ElKeyValueItem :label="t('admin.expires')">
-              <time :datetime="new Date(authority.session.expiresAt).toISOString()">{{ new Date(authority.session.expiresAt).toLocaleString() }}</time>
+              <time :datetime="new Date(authority.session.expiresAt).toISOString()">{{ new Date(authority.session.expiresAt).toLocaleString(siteLocale) }}</time>
             </ElKeyValueItem>
           </ElKeyValueGrid>
         </ElSettingsSection>
@@ -372,13 +374,14 @@ function logOut() {
           @session-lost="handleSessionLoss"
         />
         <ElSettingsSection v-if="section.section === 'system'" class="admin-operations"
-          ariaLabelledby="admin-operations-heading" density="compact">
+          ariaLabelledby="admin-operations-heading" :description="t('admin.operationsSummary')"
+          v-bind="{ 'aria-busy': operationsBusy }" density="compact">
           <template #title><span id="admin-operations-heading">{{ t('admin.operationsStatus') }}</span></template>
           <template #actions>
-            <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations(true)">{{ t('admin.checkOperations') }}</ElButton>
+            <ElButton native-type="button" text :disabled="busy" :loading="operationsLoading" @click="checkOperations(true)">{{ t('admin.checkOperations') }}</ElButton>
           </template>
           <ElAlert v-if="operationsFailure" :title="t(operationsFailure)" type="error" :closable="false" show-icon />
-          <div aria-live="polite">
+          <div class="admin-operations-body" aria-live="polite">
             <ElKeyValueGrid v-if="operations" density="compact">
               <ElKeyValueItem :label="t('admin.publicSnapshot')">
                 <ElTag :type="operations.snapshotReady ? 'success' : 'warning'" size="small">
@@ -388,9 +391,10 @@ function logOut() {
               <ElKeyValueItem :label="t('admin.publicationWatermark')" :value="operations.publicationWatermark.toString()" monospace />
               <ElKeyValueItem :label="t('admin.pendingEvents')" :value="operations.pendingPublicationEvents.toString()" monospace />
               <ElKeyValueItem v-if="operations.oldestPendingAt !== null" :label="t('admin.oldestPendingEvent')">
-                <time :datetime="new Date(operations.oldestPendingAt).toISOString()">{{ new Date(operations.oldestPendingAt).toLocaleString() }}</time>
+                <time :datetime="new Date(operations.oldestPendingAt).toISOString()">{{ new Date(operations.oldestPendingAt).toLocaleString(siteLocale) }}</time>
               </ElKeyValueItem>
             </ElKeyValueGrid>
+            <ElSkeleton v-else-if="operationsLoading && !operationsFailure" :rows="1" animated />
           </div>
         </ElSettingsSection>
         <AdminArticlesWorkspace v-if="section.section === 'articles'" :key="sessionEpoch"
@@ -456,6 +460,9 @@ function logOut() {
 }
 .admin-sections > :deep(*) {
   margin-block: 0;
+}
+.admin-operations-body {
+  min-block-size: 3.5rem;
 }
 .admin-status-skeleton {
   display: grid;

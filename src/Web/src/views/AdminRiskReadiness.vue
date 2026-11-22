@@ -9,6 +9,7 @@ import { ApiError } from '../../../Contracts/aeds'
 import type { AdminSession } from '../../../Contracts/admin-identity'
 import { readAdminRiskReadiness } from '../../../Contracts/admin-risk-readiness'
 import { applyRootCommentPowPolicy, readRootCommentPowPolicy, validRootCommentPowSeconds } from '../../../Contracts/admin-root-comment-pow'
+import { useDelayedBusy } from '../delayedBusy'
 import { watchAdminSessionClear } from './adminSessionClear'
 
 const props = defineProps<{ session: AdminSession, sessionSignal: AbortSignal }>()
@@ -17,6 +18,7 @@ const observation = shallowRef<Awaited<ReturnType<typeof readAdminRiskReadiness>
 const rootPolicy = shallowRef<Awaited<ReturnType<typeof readRootCommentPowPolicy>>>()
 const seconds = ref('')
 const busy = ref(false)
+const checkLoading = useDelayedBusy(() => busy.value)
 const error = ref<MessageKey | ''>('')
 let request: AbortController | undefined
 
@@ -92,14 +94,19 @@ onMounted(() => { void check(false) })
 </script>
 
 <template>
-  <ElSettingsSection ariaLabelledby="admin-risk-controls-heading" v-bind="{ 'aria-busy': busy }" density="compact">
+  <ElSettingsSection
+    ariaLabelledby="admin-risk-controls-heading"
+    :description="t('admin.riskSummary')"
+    v-bind="{ 'aria-busy': busy }"
+    density="compact"
+  >
     <template #title>
       <span id="admin-risk-controls-heading">{{ t('admin.riskControls') }}</span>
     </template>
     <template #actions>
-      <ElButton native-type="button" :loading="busy" @click="check(true)">{{ t('admin.checkRisk') }}</ElButton>
+      <ElButton native-type="button" text :loading="checkLoading" @click="check(true)">{{ t('admin.checkRisk') }}</ElButton>
     </template>
-    <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" />
+    <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" show-icon />
     <div aria-live="polite">
       <ElKeyValueGrid v-if="observation" density="compact">
         <ElKeyValueItem :label="t('admin.publicCommentReads')" :value="t('admin.fixedConcurrency')" />
