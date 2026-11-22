@@ -4,12 +4,13 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    private static readonly string[] ArticleCoverColumns = ["article_revision_cover article_id:int4 revision:int8 asset_id:uuid"];
-    private static readonly string[] ArticleCoverConstraints =
-    [
-        "article_revision_cover p article_id,revision",
-        "article_revision_cover f article_id,revision,asset_id public.article_revision_media:article_id,revision,asset_id"
-    ];
+    private static readonly SchemaFacts ArticleCoverShape = new(
+        Columns: ["article_revision_cover article_id:int4 revision:int8 asset_id:uuid"],
+        Constraints: [
+            "article_revision_cover p article_id,revision",
+            "article_revision_cover f article_id,revision,asset_id public.article_revision_media:article_id,revision,asset_id"
+        ]);
+
 
     private const string ArticleCoverRelation = "public.article_revision_cover";
 

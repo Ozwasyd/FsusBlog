@@ -4,20 +4,20 @@ internal static partial class CurrentSchema
 {
     internal const string PublicationRightsRelation = "public.article_publication_rights";
 
-    private static readonly string[] PublicationRightsColumns =
-    [
-        "article_revision_rights article_id:int4 revision:int8 enabled:bool license_type:text copyright_holder:text copyright_year:int4 rights_statement:text attribution_template:text copy_policy:text max_excerpt_chars:int4 allow_code_copy:bool show_public_badge:bool proof_binding_enabled:bool",
-        "article_publication_rights id:int8:a article_id:int4 publication_id:int8 revision:int8"
-    ];
+    private static readonly SchemaFacts PublicationRightsShape = new(
+        Columns: [
+            "article_revision_rights article_id:int4 revision:int8 enabled:bool license_type:text copyright_holder:text copyright_year:int4 rights_statement:text attribution_template:text copy_policy:text max_excerpt_chars:int4 allow_code_copy:bool show_public_badge:bool proof_binding_enabled:bool",
+            "article_publication_rights id:int8:a article_id:int4 publication_id:int8 revision:int8"
+        ],
+        Constraints: [
+            "article_revision_rights p article_id,revision",
+            "article_revision_rights f article_id,revision public.article_revision:article_id,revision",
+            "article_revision_rights c max_excerpt_chars max_excerpt_chars>=0ANDmax_excerpt_chars<=10000",
+            "article_publication_rights p id",
+            "article_publication_rights u publication_id",
+            "article_publication_rights c publication_id publication_id>0",
+            "article_publication_rights f article_id,revision public.article_revision_rights:article_id,revision"
+        ]);
 
-    private static readonly string[] PublicationRightsConstraints =
-    [
-        "article_revision_rights p article_id,revision",
-        "article_revision_rights f article_id,revision public.article_revision:article_id,revision",
-        "article_revision_rights c max_excerpt_chars max_excerpt_chars>=0ANDmax_excerpt_chars<=10000",
-        "article_publication_rights p id",
-        "article_publication_rights u publication_id",
-        "article_publication_rights c publication_id publication_id>0",
-        "article_publication_rights f article_id,revision public.article_revision_rights:article_id,revision"
-    ];
+
 }

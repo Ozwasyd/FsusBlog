@@ -257,127 +257,98 @@ internal static partial class CurrentSchema
             "The article read total", prerequisitesMet: hasArticleRead);
         var hasPropertySnapshots = HasPropertySnapshots(catalog);
         var hasSitePasskeyNames = catalog.HasRelation(SitePasskeyNameRelation);
-        var expectedColumns = Columns.Select(column => hasArticleSummary && column == ArticleRevisionColumns
-                ? ArticleRevisionColumns + " author_summary:text?" : column)
-            .Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(core.LegacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
-            .Concat(hasPropertySnapshots ? PropertySnapshotColumns : [])
-            .Concat(PasskeyColumns).Concat(hasSitePasskeyNames ? [SitePasskeyNameColumns] : []).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion))
-            .Concat(hasPrivateMediaImportOrigin ? PrivateMediaImportColumns : MediaColumns)
-            .Concat(hasLegacyReleaseOrigin ? [LegacyReleaseOriginColumns] : [])
-            .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
-            .Concat(hasCommentAuthorEdit ? CommentAuthorEditColumns : [])
-            .Concat(hasCommentReport ? [CommentReportColumns] : [])
-            .Concat(hasCommentAppeal ? CommentAppealColumns : [])
-            .Concat(hasCommentReplies ? CommentReplyColumns : [])
-            .Concat(hasAdminCommentBatch ? AdminCommentBatchColumns : [])
-            .Concat(core.RevisionHistory ? RevisionHistoryColumns : [])
-            .Concat(core.AdminIdentity ? AdminIdentityColumns : [])
-            .Concat(core.PublicationHistory ? (hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns) : [])
-            .Concat(hasPublicationMedia ? PublicationMediaColumns : [])
-            .Concat(hasPublicationCover ? PublicationCoverColumns : [])
-            .Concat(core.ArticleSchedule ? ArticleScheduleColumns : [])
-            .Concat(core.MediaUpload ? MediaUploadColumns : [])
-            .Concat(hasArticleMedia ? ArticleMediaColumns : [])
-            .Concat(hasArticleCover ? ArticleCoverColumns : [])
-            .Concat(hasSubscription ? SiteSubscriptionColumns : [])
-            .Concat(hasRecoveryKey ? SiteRecoveryKeyColumns : [])
-            .Concat(hasSiteRefresh ? SiteRefreshColumns : [])
-            .Concat(hasSitePageEditor ? SitePageEditorColumns : [])
-            .Concat(hasSiteConfigOverride ? SiteConfigOverrideColumns : [])
-            .Concat(hasAppearanceActivation ? AppearanceActivationColumns : [])
-            .Concat(hasRootCommentPowPolicy ? RootCommentPowPolicyColumns : [])
-            .Concat(hasSavedViews ? SavedViewColumns : [])
-            .Concat(hasSavedViewPlacement ? SavedViewPlacementColumns : [])
-            .Concat(hasAdminTagMetadata ? AdminTagMetadataColumns : [])
-            .Concat(hasAdminCategoryMetadata ? AdminCategoryMetadataColumns : [])
-            .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive, hasAdminArticleTrashPublication) : [])
-            .Concat(hasAdminArticleTrashRestore ? AdminArticleTrashRestoreColumns : [])
-            .Concat(hasAuthoringWorkspace ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups) : [])
-            .Concat(hasAuthorRecentOpens ? AuthorRecentOpenColumns : [])
-            .Concat(hasArticleBodyInsertion ? [ArticleBodyInsertionColumns(hasArticleBodyInsertionOperations, hasArticleBodyEdits)] : [])
-            .Concat(hasDocumentExports ? [DocumentExportColumns + (hasDocumentExportAttachments ? " attachment_id:uuid?" : "") + (hasExportImageList ? " attachment_ids:_uuid?" : "")] : [])
-            .Concat(hasAuthorTextIndex ? AuthorTextIndexColumns(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
-            .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexColumns : [])
-            .Concat(hasAuthorTextRebuild ? [AuthorTextRebuildColumns] : [])
-            .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
-            .Concat(hasAdminInboxStatus ? AdminInboxStatusColumns : [])
-            .Concat(hasAdminInboxNotice ? AdminInboxNoticeColumns : [])
-            .Concat(hasAdminInboxRead ? AdminInboxReadColumns : [])
-            .Concat(core.PublicationRights ? PublicationRightsColumns : [])
-            .Concat(hasPublicationCanonical ? PublicationCanonicalColumns : [])
-            .Concat(hasPublicationProof ? GetPublicationProofColumns(publicationTransparency) : [])
-            .Concat(hasPublicationTransparency ? PublicationTransparencyColumns : [])
-            .Concat(hasPublicationHead ? PublicationHeadColumns : [])
-            .Concat(hasSiteTraffic ? SiteTrafficColumns : [])
-            .Concat(hasArticleRead ? ArticleReadColumns : [])
-            .Concat(hasArticleReadTotal ? ArticleReadTotalColumns : [])
-            .Concat(!core.LegacyCanvas && core.CanvasHistory ? CanvasHistoryColumns : [])
-            .Concat(core.RecoveryScope ? RecoveryScopeColumns : []).ToArray();
-        var expectedConstraints = Constraints.Concat(hasArticleSummary ? [ArticleSummaryConstraint] : [])
-            .Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(core.LegacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
-            .Concat(PropertyConstraints).Concat(hasPropertySnapshots ? PropertySnapshotConstraints : [])
-            .Concat(PasskeyConstraints).Concat(hasSitePasskeyNames ? SitePasskeyNameConstraints : []).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
-            .Concat(hasPrivateMediaImportOrigin ? PrivateMediaImportConstraints : [])
-            .Concat(hasLegacyReleaseOrigin ? LegacyReleaseOriginConstraints : [])
-            .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
-            .Concat(commentAuthorEditConstraints)
-            .Concat(hasCommentReport ? CommentReportConstraints : [])
-            .Concat(hasCommentAppeal ? CommentAppealConstraints : [])
-            .Concat(hasCommentReplies ? CommentReplyConstraints : [])
-            .Concat(hasAdminCommentBatch ? AdminCommentBatchConstraints : [])
-            .Concat(core.RevisionHistory ? RevisionHistoryConstraints : [])
-            .Concat(core.AdminIdentity ? AdminIdentityConstraints : [])
-            .Concat(core.PublicationHistory ? PublicationHistoryConstraints : [])
-            .Concat(hasPublicationMedia ? PublicationMediaConstraints : [])
-            .Concat(hasAdminArticleRollback ? PublicationHistoryAdminRollbackConstraints : [])
-            .Concat(core.ArticleSchedule ? ArticleScheduleConstraints : [])
-            .Concat(core.MediaUpload ? MediaUploadConstraints : [])
-            .Concat(hasArticleMedia ? ArticleMediaConstraints : [])
-            .Concat(hasArticleCover ? ArticleCoverConstraints : [])
-            .Concat(hasSubscription ? SiteSubscriptionConstraints : [])
-            .Concat(hasRecoveryKey ? SiteRecoveryKeyConstraints : [])
-            .Concat(hasSiteRefresh ? SiteRefreshConstraints : [])
-            .Concat(hasSitePageEditor ? SitePageEditorConstraints : [])
-            .Concat(hasSiteConfigOverride ? SiteConfigOverrideConstraints : [])
-            .Concat(hasAppearanceActivation ? AppearanceActivationConstraints : [])
-            .Concat(hasRootCommentPowPolicy ? RootCommentPowPolicyConstraints : [])
-            .Concat(hasSavedViews ? SavedViewConstraints : [])
-            .Concat(hasSavedViewPlacement ? SavedViewPlacementConstraints : [])
-            .Concat(hasAdminTagMetadata ? AdminTagMetadataConstraints : [])
-            .Concat(hasAdminCategoryMetadata ? AdminCategoryMetadataConstraints : [])
-            .Concat(hasAdminArticleRollback ? GetAdminArticleRollbackConstraints(hasAdminArticleDraftRollback, hasAdminArticleArchive, hasAdminArticleTrashPublication) : [])
-            .Concat(hasAdminArticleTrashRestore ? AdminArticleTrashRestoreConstraints : [])
-            .Concat(hasAuthoringWorkspace ? AuthoringWorkspaceConstraints : [])
-            .Concat(hasWorkspaceGroups ? AuthoringWorkspaceGroupsConstraints : [])
-            .Concat(hasAuthorRecentOpens ? AuthorRecentOpenConstraints : [])
-            .Concat(hasArticleBodyInsertion ? ArticleBodyInsertionConstraints(hasArticleBodyInsertionOperations, hasArticleBodyEdits) : [])
-            .Concat(hasDocumentExports
-                ? DocumentExportConstraints.Concat(hasDocumentExportAttachments
-                    ? [$"author_document_export c provider provider>=1ANDprovider<={(hasExportImageList ? 4 : 3)}",
-                       "author_document_export c provider,attachment_id (provider=3)=(attachment_idISNOTNULL)"]
-                    : [currentDocumentExportProvider ? "author_document_export c provider provider>=1ANDprovider<=2"
-                        : "author_document_export c provider provider=1"]).Concat(hasExportImageList
-                    ? ["author_document_export c provider,attachment_ids (provider=4)=(attachment_idsISNOTNULL)",
-                       $"author_document_export c attachment_ids,format {ExportImageListCondition(exportImageScope)}"] : []) : [])
-            .Concat(hasAuthorTextIndex ? AuthorTextIndexConstraints(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex) : [])
-            .Concat(hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexConstraints : [])
-            .Concat(hasAuthorTextRebuild ? AuthorTextRebuildConstraints : [])
-            .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
-            .Concat(hasAdminInboxStatus ? AdminInboxStatusConstraints : [])
-            .Concat(hasAdminInboxNotice ? AdminInboxNoticeConstraints : [])
-            .Concat(hasAdminInboxRead ? AdminInboxReadConstraints : [])
-            .Concat(core.PublicationRights ? PublicationRightsConstraints : [])
-            .Concat(hasPublicationCanonical ? PublicationCanonicalConstraints : [])
-            .Concat(hasPublicationCanonical ? [PublicationCanonicalVersionConstraint(hasPublicationCover)] : [])
-            .Concat(hasPublicationCover ? PublicationCoverConstraints : [])
-            .Concat(hasPublicationProof ? PublicationProofConstraints : [])
-            .Concat(hasPublicationTransparency ? PublicationTransparencyConstraints : [])
-            .Concat(hasPublicationHead ? PublicationHeadConstraints : [])
-            .Concat(hasSiteTraffic ? SiteTrafficConstraints : [])
-            .Concat(hasArticleRead ? ArticleReadConstraints : [])
-            .Concat(hasArticleReadTotal ? ArticleReadTotalConstraints : [])
-            .Concat(!core.LegacyCanvas && core.CanvasHistory ? CanvasHistoryConstraints : [])
-            .Concat(core.RecoveryScope ? RecoveryScopeConstraints : []).ToArray();
+        SchemaFacts?[] features =
+        [
+            new(Columns.Select(column => hasArticleSummary && column == ArticleRevisionColumns
+                    ? ArticleRevisionColumns + " author_summary:text?" : column), Constraints),
+            hasArticleSummary ? new([], [ArticleSummaryConstraint]) : null,
+            CommunicationShape,
+            TaxonomyShape,
+            core.LegacyCanvas
+                ? new(LegacyCanvasColumns, LegacyCanvasConstraints)
+                : new(CanvasColumns, CanvasConstraints),
+            PropertyShape,
+            hasPropertySnapshots ? PropertySnapshotShape : null,
+            PasskeyShape,
+            hasSitePasskeyNames ? new([SitePasskeyNameColumns], SitePasskeyNameConstraints) : null,
+            MfaShape,
+            new(GetCommentColumns(requireModerationVersion), GetCommentConstraints(requireModerationVersion)),
+            new(hasPrivateMediaImportOrigin ? PrivateMediaImportColumns : MediaColumns, MediaConstraints),
+            hasPrivateMediaImportOrigin ? new([], PrivateMediaImportConstraints) : null,
+            hasLegacyReleaseOrigin ? new([LegacyReleaseOriginColumns], LegacyReleaseOriginConstraints) : null,
+            hasCommentAuthorDelete ? CommentAuthorDeleteShape : null,
+            hasCommentAuthorEdit ? new(CommentAuthorEditColumns, commentAuthorEditConstraints) : null,
+            hasCommentReport ? new([CommentReportColumns], CommentReportConstraints) : null,
+            hasCommentAppeal ? CommentAppealShape : null,
+            hasCommentReplies ? CommentReplyShape : null,
+            hasAdminCommentBatch ? AdminCommentBatchShape : null,
+            core.RevisionHistory ? RevisionHistoryShape : null,
+            core.AdminIdentity ? AdminIdentityShape : null,
+            core.PublicationHistory
+                ? new(hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns,
+                    PublicationHistoryConstraints)
+                : null,
+            hasPublicationMedia ? PublicationMediaShape : null,
+            hasPublicationCover ? new(PublicationCoverColumns, []) : null,
+            hasAdminArticleRollback ? new([], PublicationHistoryAdminRollbackConstraints) : null,
+            core.ArticleSchedule ? ArticleScheduleShape : null,
+            core.MediaUpload ? MediaUploadShape : null,
+            hasArticleMedia ? ArticleMediaShape : null,
+            hasArticleCover ? ArticleCoverShape : null,
+            hasSubscription ? SiteSubscriptionShape : null,
+            hasRecoveryKey ? SiteRecoveryKeyShape : null,
+            hasSiteRefresh ? SiteRefreshShape : null,
+            hasSitePageEditor ? SitePageEditorShape : null,
+            hasSiteConfigOverride ? SiteConfigOverrideShape : null,
+            hasAppearanceActivation ? AppearanceActivationShape : null,
+            hasRootCommentPowPolicy ? RootCommentPowPolicyShape : null,
+            hasSavedViews ? SavedViewShape : null,
+            hasSavedViewPlacement ? SavedViewPlacementShape : null,
+            hasAdminTagMetadata ? AdminTagMetadataShape : null,
+            hasAdminCategoryMetadata ? AdminCategoryMetadataShape : null,
+            hasAdminArticleRollback
+                ? new(GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive, hasAdminArticleTrashPublication),
+                    GetAdminArticleRollbackConstraints(hasAdminArticleDraftRollback, hasAdminArticleArchive, hasAdminArticleTrashPublication))
+                : null,
+            hasAdminArticleTrashRestore ? AdminArticleTrashRestoreShape : null,
+            hasAuthoringWorkspace
+                ? new(GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups), AuthoringWorkspaceConstraints)
+                : null,
+            hasWorkspaceGroups ? new([], AuthoringWorkspaceGroupsConstraints) : null,
+            hasAuthorRecentOpens ? AuthorRecentOpenShape : null,
+            hasArticleBodyInsertion
+                ? new([ArticleBodyInsertionColumns(hasArticleBodyInsertionOperations, hasArticleBodyEdits)],
+                    ArticleBodyInsertionConstraints(hasArticleBodyInsertionOperations, hasArticleBodyEdits))
+                : null,
+            hasDocumentExports
+                ? DocumentExportShape(hasDocumentExportAttachments, hasExportImageList, currentDocumentExportProvider, exportImageScope)
+                : null,
+            hasAuthorTextIndex
+                ? new(AuthorTextIndexColumns(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex),
+                    AuthorTextIndexConstraints(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex))
+                : null,
+            hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexShape : null,
+            hasAuthorTextRebuild ? new([AuthorTextRebuildColumns], AuthorTextRebuildConstraints) : null,
+            hasAdminInboxReply ? AdminInboxReplyShape : null,
+            hasAdminInboxStatus ? AdminInboxStatusShape : null,
+            hasAdminInboxNotice ? AdminInboxNoticeShape : null,
+            hasAdminInboxRead ? AdminInboxReadShape : null,
+            core.PublicationRights ? PublicationRightsShape : null,
+            hasPublicationCanonical
+                ? new(PublicationCanonicalColumns, PublicationCanonicalConstraints.Append(PublicationCanonicalVersionConstraint(hasPublicationCover)))
+                : null,
+            hasPublicationCover ? new([], PublicationCoverConstraints) : null,
+            hasPublicationProof ? new(GetPublicationProofColumns(publicationTransparency), PublicationProofConstraints) : null,
+            hasPublicationTransparency ? new(PublicationTransparencyColumns, PublicationTransparencyConstraints) : null,
+            hasPublicationHead ? new(PublicationHeadColumns, PublicationHeadConstraints) : null,
+            hasSiteTraffic ? SiteTrafficShape : null,
+            hasArticleRead ? ArticleReadShape : null,
+            hasArticleReadTotal ? ArticleReadTotalShape : null,
+            !core.LegacyCanvas && core.CanvasHistory ? CanvasHistoryShape : null,
+            core.RecoveryScope ? RecoveryScopeShape : null
+        ];
+        var expectedColumns = features.SelectMany(feature => feature?.Columns ?? []).ToArray();
+        var expectedConstraints = features.SelectMany(feature => feature?.Constraints ?? []).ToArray();
         var webpMedia = await VerifyRelationsAsync(connection, transaction, expectedColumns, expectedConstraints, cancellationToken);
         CheckPresence(authoring.ArticleSummary, hasArticleSummary, "The article author summary");
         if (hasSitePageEditor) await SitePageCoordinates.VerifyAsync(connection, transaction, cancellationToken);
@@ -389,6 +360,29 @@ internal static partial class CurrentSchema
         if (hasAuthorTextIndex) await AuthorTextArticleOwnerIndex.VerifyAsync(connection, transaction, cancellationToken);
         if (hasDocumentExports) await VerifyDocumentExportIndexesAsync(connection, transaction, cancellationToken);
         return webpMedia;
+    }
+
+    private sealed record SchemaFacts(IEnumerable<string> Columns, IEnumerable<string> Constraints);
+
+    private static SchemaFacts DocumentExportShape(
+        bool attachments, bool imageList, bool currentProvider, ExportImageScope scope)
+    {
+        var columns = DocumentExportColumns + (attachments ? " attachment_id:uuid?" : "") + (imageList ? " attachment_ids:_uuid?" : "");
+        var constraints = DocumentExportConstraints.ToList();
+        if (attachments)
+        {
+            constraints.Add($"author_document_export c provider provider>=1ANDprovider<={(imageList ? 4 : 3)}");
+            constraints.Add("author_document_export c provider,attachment_id (provider=3)=(attachment_idISNOTNULL)");
+        }
+        else
+            constraints.Add(currentProvider ? "author_document_export c provider provider>=1ANDprovider<=2"
+                : "author_document_export c provider provider=1");
+        if (imageList)
+        {
+            constraints.Add("author_document_export c provider,attachment_ids (provider=4)=(attachment_idsISNOTNULL)");
+            constraints.Add($"author_document_export c attachment_ids,format {ExportImageListCondition(scope)}");
+        }
+        return new([columns], constraints);
     }
 
     private static async Task<bool> VerifyRelationsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
