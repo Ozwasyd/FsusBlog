@@ -38,41 +38,12 @@ const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: unknown] }>()
 
 type ConfigTab = 'seo' | 'brand' | 'compliance'
-type FormModel = {
-  title: string
-  description: string
-  author: string
-  ogImage: string
-  faviconSvgUrl: string
-  faviconIcoUrl: string
-  faviconPngUrl: string
-  appleTouchIconUrl: string
-  manifestName: string
-  manifestShortName: string
-  pwaIcon192Url: string
-  pwaIcon512Url: string
-  pwaMaskableIconUrl: string
-  themeColor: string
-  backgroundColor: string
-  siteLogoUrl: string
-  siteLogoDarkUrl: string
-  siteWordmarkUrl: string
+type FieldKey = Exclude<keyof AdminSiteConfigCommand,
+  'expectedRevision' | 'expectedDigest' | 'complianceEnabled' | 'regionMode'>
+type FormModel = Record<FieldKey, string> & {
   complianceEnabled: boolean
   regionMode: 'global' | 'mainland-cn'
-  copyrightStartYear: string
-  copyrightOwner: string
-  copyrightText: string
-  contentLicenseName: string
-  contentLicenseUrl: string
-  icpRecordNumber: string
-  icpRecordUrl: string
-  policeRecordNumber: string
-  policeRecordUrl: string
-  policeBadgeIconUrl: string
-  operatorName: string
-  contactEmail: string
 }
-type FieldKey = Exclude<keyof FormModel, 'complianceEnabled' | 'regionMode'>
 
 const fieldTabs: Readonly<Record<FieldKey, ConfigTab>> = {
   title: 'seo',
@@ -108,72 +79,38 @@ const fieldTabs: Readonly<Record<FieldKey, ConfigTab>> = {
 }
 
 const fieldOrder = Object.keys(fieldTabs) as FieldKey[]
-const fieldLabelKeys: Readonly<Record<FieldKey, MessageKey>> = {
-  title: 'admin.siteConfig.siteTitle',
-  author: 'admin.siteConfig.author',
-  description: 'admin.siteConfig.description',
-  ogImage: 'admin.siteConfig.ogImage',
-  siteLogoUrl: 'admin.siteConfig.siteLogoUrl',
-  siteLogoDarkUrl: 'admin.siteConfig.siteLogoDarkUrl',
-  siteWordmarkUrl: 'admin.siteConfig.siteWordmarkUrl',
-  faviconSvgUrl: 'admin.siteConfig.faviconSvgUrl',
-  faviconIcoUrl: 'admin.siteConfig.faviconIcoUrl',
-  faviconPngUrl: 'admin.siteConfig.faviconPngUrl',
-  appleTouchIconUrl: 'admin.siteConfig.appleTouchIconUrl',
-  manifestName: 'admin.siteConfig.manifestName',
-  manifestShortName: 'admin.siteConfig.manifestShortName',
-  themeColor: 'admin.siteConfig.themeColor',
-  backgroundColor: 'admin.siteConfig.backgroundColor',
-  pwaIcon192Url: 'admin.siteConfig.pwaIcon192Url',
-  pwaIcon512Url: 'admin.siteConfig.pwaIcon512Url',
-  pwaMaskableIconUrl: 'admin.siteConfig.pwaMaskableIconUrl',
-  copyrightOwner: 'admin.siteConfig.copyrightOwner',
-  copyrightStartYear: 'admin.siteConfig.copyrightStartYear',
-  copyrightText: 'admin.siteConfig.copyrightText',
-  contentLicenseName: 'admin.siteConfig.contentLicenseName',
-  contentLicenseUrl: 'admin.siteConfig.contentLicenseUrl',
-  icpRecordNumber: 'admin.siteConfig.icpRecordNumber',
-  icpRecordUrl: 'admin.siteConfig.icpRecordUrl',
-  policeRecordNumber: 'admin.siteConfig.policeRecordNumber',
-  policeRecordUrl: 'admin.siteConfig.policeRecordUrl',
-  policeBadgeIconUrl: 'admin.siteConfig.policeBadgeIconUrl',
-  operatorName: 'admin.siteConfig.operatorName',
-  contactEmail: 'admin.siteConfig.contactEmail',
+
+const brandLogos = { siteLogoUrl: '/assets/logo.svg', siteLogoDarkUrl: '/assets/logo-dark.svg' } as const
+const favicons = {
+  faviconSvgUrl: '/assets/favicon.svg',
+  faviconIcoUrl: '/assets/favicon.ico',
+  faviconPngUrl: '/assets/favicon.png',
+  appleTouchIconUrl: '/assets/apple-touch-icon.png',
+} as const
+const pwaIcons = {
+  pwaIcon192Url: '/assets/icon-192.png',
+  pwaIcon512Url: '/assets/icon-512.png',
+  pwaMaskableIconUrl: '/assets/icon-maskable-512.png',
+} as const
+const primaryFields = { title: 'organization', author: 'name' } as const
+const manifestNames = ['manifestName', 'manifestShortName'] as const
+const registrations = [
+  { number: 'icpRecordNumber', url: 'icpRecordUrl', hint: 'admin.siteConfig.icpUrlHint', placeholder: 'https://beian.miit.gov.cn/' },
+  { number: 'policeRecordNumber', url: 'policeRecordUrl', hint: 'admin.siteConfig.policeUrlHint', placeholder: 'https://beian.mps.gov.cn/' },
+] as const
+
+function fieldLabel(field: FieldKey): MessageKey {
+  return field === 'title' ? 'admin.siteConfig.siteTitle' : `admin.siteConfig.${field}`
+}
+
+function textFields(read: (field: FieldKey) => string): Record<FieldKey, string> {
+  return Object.fromEntries(fieldOrder.map(field => [field, read(field)])) as Record<FieldKey, string>
 }
 
 const emptyForm = (): FormModel => ({
-  title: '',
-  description: '',
-  author: '',
-  ogImage: '',
-  faviconSvgUrl: '',
-  faviconIcoUrl: '',
-  faviconPngUrl: '',
-  appleTouchIconUrl: '',
-  manifestName: '',
-  manifestShortName: '',
-  pwaIcon192Url: '',
-  pwaIcon512Url: '',
-  pwaMaskableIconUrl: '',
-  themeColor: '',
-  backgroundColor: '',
-  siteLogoUrl: '',
-  siteLogoDarkUrl: '',
-  siteWordmarkUrl: '',
+  ...textFields(() => ''),
   complianceEnabled: false,
   regionMode: 'global',
-  copyrightStartYear: '',
-  copyrightOwner: '',
-  copyrightText: '',
-  contentLicenseName: '',
-  contentLicenseUrl: '',
-  icpRecordNumber: '',
-  icpRecordUrl: '',
-  policeRecordNumber: '',
-  policeRecordUrl: '',
-  policeBadgeIconUrl: '',
-  operatorName: '',
-  contactEmail: '',
 })
 
 const lifetime = new AbortController()
@@ -201,38 +138,11 @@ function selectTab(value: string | number) {
 
 function stateToForm(source: AdminSiteConfigState): FormModel {
   return {
-    title: source.title,
-    description: source.description,
-    author: source.author,
-    ogImage: source.ogImage,
-    faviconSvgUrl: source.faviconSvgUrl,
-    faviconIcoUrl: source.faviconIcoUrl,
-    faviconPngUrl: source.faviconPngUrl,
-    appleTouchIconUrl: source.appleTouchIconUrl,
-    manifestName: source.manifestName,
-    manifestShortName: source.manifestShortName,
-    pwaIcon192Url: source.pwaIcon192Url,
-    pwaIcon512Url: source.pwaIcon512Url,
-    pwaMaskableIconUrl: source.pwaMaskableIconUrl,
-    themeColor: source.themeColor,
-    backgroundColor: source.backgroundColor,
-    siteLogoUrl: source.siteLogoUrl,
-    siteLogoDarkUrl: source.siteLogoDarkUrl,
-    siteWordmarkUrl: source.siteWordmarkUrl,
+    ...textFields(field => field === 'copyrightStartYear'
+      ? (source.copyrightStartYear > 0 ? String(source.copyrightStartYear) : '')
+      : source[field]),
     complianceEnabled: source.complianceEnabled,
     regionMode: source.regionMode === 'mainland-cn' ? 'mainland-cn' : 'global',
-    copyrightStartYear: source.copyrightStartYear > 0 ? String(source.copyrightStartYear) : '',
-    copyrightOwner: source.copyrightOwner,
-    copyrightText: source.copyrightText,
-    contentLicenseName: source.contentLicenseName,
-    contentLicenseUrl: source.contentLicenseUrl,
-    icpRecordNumber: source.icpRecordNumber,
-    icpRecordUrl: source.icpRecordUrl,
-    policeRecordNumber: source.policeRecordNumber,
-    policeRecordUrl: source.policeRecordUrl,
-    policeBadgeIconUrl: source.policeBadgeIconUrl,
-    operatorName: source.operatorName,
-    contactEmail: source.contactEmail,
   }
 }
 
@@ -254,35 +164,35 @@ function parseYear(raw: string): number | null {
 
 function validateField(field: FieldKey): SiteConfigFieldError | null {
   switch (field) {
+    case 'themeColor':
+    case 'backgroundColor': return validSiteColor(form[field])
+    case 'icpRecordNumber':
+    case 'policeRecordNumber': return validSiteText(form[field], WireLimits.SiteConfigRecordNumberBytes)
+    case 'manifestName':
+    case 'manifestShortName':
+    case 'copyrightOwner':
+    case 'contentLicenseName':
+    case 'operatorName': return validSiteText(form[field], WireLimits.SiteConfigShortTextBytes)
+    case 'ogImage':
+    case 'faviconSvgUrl':
+    case 'faviconIcoUrl':
+    case 'faviconPngUrl':
+    case 'appleTouchIconUrl':
+    case 'pwaIcon192Url':
+    case 'pwaIcon512Url':
+    case 'pwaMaskableIconUrl':
+    case 'siteLogoUrl':
+    case 'siteLogoDarkUrl':
+    case 'siteWordmarkUrl': return validSiteUrl(form[field], { asset: true })
     case 'title': return validSiteText(form.title, WireLimits.SiteConfigTitleBytes, true)
     case 'author': return validSiteText(form.author, WireLimits.SiteConfigAuthorBytes, true)
     case 'description': return validSiteText(form.description, WireLimits.SiteConfigDescriptionBytes, false, true)
-    case 'ogImage': return validSiteUrl(form.ogImage, { asset: true })
-    case 'faviconSvgUrl': return validSiteUrl(form.faviconSvgUrl, { asset: true })
-    case 'faviconIcoUrl': return validSiteUrl(form.faviconIcoUrl, { asset: true })
-    case 'faviconPngUrl': return validSiteUrl(form.faviconPngUrl, { asset: true })
-    case 'appleTouchIconUrl': return validSiteUrl(form.appleTouchIconUrl, { asset: true })
-    case 'manifestName': return validSiteText(form.manifestName, WireLimits.SiteConfigShortTextBytes)
-    case 'manifestShortName': return validSiteText(form.manifestShortName, WireLimits.SiteConfigShortTextBytes)
-    case 'pwaIcon192Url': return validSiteUrl(form.pwaIcon192Url, { asset: true })
-    case 'pwaIcon512Url': return validSiteUrl(form.pwaIcon512Url, { asset: true })
-    case 'pwaMaskableIconUrl': return validSiteUrl(form.pwaMaskableIconUrl, { asset: true })
-    case 'themeColor': return validSiteColor(form.themeColor)
-    case 'backgroundColor': return validSiteColor(form.backgroundColor)
-    case 'siteLogoUrl': return validSiteUrl(form.siteLogoUrl, { asset: true })
-    case 'siteLogoDarkUrl': return validSiteUrl(form.siteLogoDarkUrl, { asset: true })
-    case 'siteWordmarkUrl': return validSiteUrl(form.siteWordmarkUrl, { asset: true })
-    case 'copyrightOwner': return validSiteText(form.copyrightOwner, WireLimits.SiteConfigShortTextBytes)
     case 'copyrightStartYear': return validCopyrightStartYear(parseYear(form.copyrightStartYear))
     case 'copyrightText': return validSiteText(form.copyrightText, WireLimits.SiteConfigCopyrightTextBytes, false, true)
-    case 'contentLicenseName': return validSiteText(form.contentLicenseName, WireLimits.SiteConfigShortTextBytes)
     case 'contentLicenseUrl': return validSiteUrl(form.contentLicenseUrl, { label: form.contentLicenseName })
-    case 'icpRecordNumber': return validSiteText(form.icpRecordNumber, WireLimits.SiteConfigRecordNumberBytes)
     case 'icpRecordUrl': return validSiteUrl(form.icpRecordUrl, { label: form.icpRecordNumber })
-    case 'policeRecordNumber': return validSiteText(form.policeRecordNumber, WireLimits.SiteConfigRecordNumberBytes)
     case 'policeRecordUrl': return validSiteUrl(form.policeRecordUrl, { label: form.policeRecordNumber })
     case 'policeBadgeIconUrl': return validSiteUrl(form.policeBadgeIconUrl, { asset: true, label: form.policeRecordNumber })
-    case 'operatorName': return validSiteText(form.operatorName, WireLimits.SiteConfigShortTextBytes)
     case 'contactEmail': return validSiteEmail(form.contactEmail)
   }
 }
@@ -345,7 +255,7 @@ function onBlur(field: FieldKey) {
     clearAnnouncement()
     announcedField = field
     announceTimer = setTimeout(() => {
-      liveAnnouncement.value = `${t(fieldLabelKeys[field])}: ${errorMessage(issue)}`
+      liveAnnouncement.value = `${t(fieldLabel(field))}: ${errorMessage(issue)}`
     }, 500)
   } else if (announcedField === field) {
     clearAnnouncement()
@@ -364,38 +274,10 @@ function buildCommand(current: AdminSiteConfigState): AdminSiteConfigCommand {
   return {
     expectedRevision: current.revision,
     expectedDigest: current.digest,
-    title: form.title.trim(),
-    description: form.description.trim(),
-    author: form.author.trim(),
-    ogImage: form.ogImage.trim(),
-    faviconSvgUrl: form.faviconSvgUrl.trim(),
-    faviconIcoUrl: form.faviconIcoUrl.trim(),
-    faviconPngUrl: form.faviconPngUrl.trim(),
-    appleTouchIconUrl: form.appleTouchIconUrl.trim(),
-    manifestName: form.manifestName.trim(),
-    manifestShortName: form.manifestShortName.trim(),
-    pwaIcon192Url: form.pwaIcon192Url.trim(),
-    pwaIcon512Url: form.pwaIcon512Url.trim(),
-    pwaMaskableIconUrl: form.pwaMaskableIconUrl.trim(),
-    themeColor: form.themeColor.trim(),
-    backgroundColor: form.backgroundColor.trim(),
-    siteLogoUrl: form.siteLogoUrl.trim(),
-    siteLogoDarkUrl: form.siteLogoDarkUrl.trim(),
-    siteWordmarkUrl: form.siteWordmarkUrl.trim(),
+    ...textFields(field => form[field].trim()),
     complianceEnabled: form.complianceEnabled,
     regionMode: form.regionMode,
     copyrightStartYear: year && year > 0 ? year : 0,
-    copyrightOwner: form.copyrightOwner.trim(),
-    copyrightText: form.copyrightText.trim(),
-    contentLicenseName: form.contentLicenseName.trim(),
-    contentLicenseUrl: form.contentLicenseUrl.trim(),
-    icpRecordNumber: form.icpRecordNumber.trim(),
-    icpRecordUrl: form.icpRecordUrl.trim(),
-    policeRecordNumber: form.policeRecordNumber.trim(),
-    policeRecordUrl: form.policeRecordUrl.trim(),
-    policeBadgeIconUrl: form.policeBadgeIconUrl.trim(),
-    operatorName: form.operatorName.trim(),
-    contactEmail: form.contactEmail.trim(),
   }
 }
 
@@ -639,22 +521,13 @@ onScopeDispose(() => {
           </template>
           <div class="site-config-split">
             <div class="site-config-fields">
-              <div class="config-field">
-                <label for="site-config-field-title">{{ t('admin.siteConfig.siteTitle') }} <span aria-hidden="true">*</span></label>
-                <span id="site-config-hint-title" class="config-hint">{{ t('admin.siteConfig.siteTitleHint') }}</span>
-                <ElInput id="site-config-field-title" v-model="form.title" :disabled="saving"
-                  v-bind="fieldInputBind('title', { hintId: 'site-config-hint-title', required: true, autocomplete: 'organization' })"
-                  @blur="onBlur('title')" @input="onInput('title')" />
-                <p v-if="visibleError('title')" id="site-config-error-title" class="config-error">{{ errorMessage(visibleError('title')!) }}</p>
-              </div>
-
-              <div class="config-field">
-                <label for="site-config-field-author">{{ t('admin.siteConfig.author') }} <span aria-hidden="true">*</span></label>
-                <span id="site-config-hint-author" class="config-hint">{{ t('admin.siteConfig.authorHint') }}</span>
-                <ElInput id="site-config-field-author" v-model="form.author" :disabled="saving"
-                  v-bind="fieldInputBind('author', { hintId: 'site-config-hint-author', required: true, autocomplete: 'name' })"
-                  @blur="onBlur('author')" @input="onInput('author')" />
-                <p v-if="visibleError('author')" id="site-config-error-author" class="config-error">{{ errorMessage(visibleError('author')!) }}</p>
+              <div v-for="(autocomplete, field) in primaryFields" :key="field" class="config-field">
+                <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }} <span aria-hidden="true">*</span></label>
+                <span :id="`site-config-hint-${field}`" class="config-hint">{{ t(field === 'title' ? 'admin.siteConfig.siteTitleHint' : 'admin.siteConfig.authorHint') }}</span>
+                <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :disabled="saving"
+                  v-bind="fieldInputBind(field, { hintId: `site-config-hint-${field}`, required: true, autocomplete })"
+                  @blur="onBlur(field)" @input="onInput(field)" />
+                <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
               </div>
 
               <div class="config-field">
@@ -709,19 +582,12 @@ onScopeDispose(() => {
               <fieldset class="config-fieldset">
                 <legend>{{ t('admin.siteConfig.brandGroup') }}</legend>
                 <p id="site-config-hint-brand-urls" class="config-hint">{{ t('admin.siteConfig.assetUrlHint') }}</p>
-                <div class="config-field">
-                  <label for="site-config-field-siteLogoUrl">{{ t('admin.siteConfig.siteLogoUrl') }}</label>
-                  <ElInput id="site-config-field-siteLogoUrl" v-model="form.siteLogoUrl" placeholder="/assets/logo.svg" :disabled="saving"
-                    v-bind="fieldInputBind('siteLogoUrl', { hintId: 'site-config-hint-brand-urls', identifier: true })"
-                    @blur="onBlur('siteLogoUrl')" @input="onInput('siteLogoUrl')" />
-                  <p v-if="visibleError('siteLogoUrl')" id="site-config-error-siteLogoUrl" class="config-error">{{ errorMessage(visibleError('siteLogoUrl')!) }}</p>
-                </div>
-                <div class="config-field">
-                  <label for="site-config-field-siteLogoDarkUrl">{{ t('admin.siteConfig.siteLogoDarkUrl') }}</label>
-                  <ElInput id="site-config-field-siteLogoDarkUrl" v-model="form.siteLogoDarkUrl" placeholder="/assets/logo-dark.svg" :disabled="saving"
-                    v-bind="fieldInputBind('siteLogoDarkUrl', { hintId: 'site-config-hint-brand-urls', identifier: true })"
-                    @blur="onBlur('siteLogoDarkUrl')" @input="onInput('siteLogoDarkUrl')" />
-                  <p v-if="visibleError('siteLogoDarkUrl')" id="site-config-error-siteLogoDarkUrl" class="config-error">{{ errorMessage(visibleError('siteLogoDarkUrl')!) }}</p>
+                <div v-for="(placeholder, field) in brandLogos" :key="field" class="config-field">
+                  <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }}</label>
+                  <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :placeholder="placeholder" :disabled="saving"
+                    v-bind="fieldInputBind(field, { hintId: 'site-config-hint-brand-urls', identifier: true })"
+                    @blur="onBlur(field)" @input="onInput(field)" />
+                  <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
                 </div>
                 <div class="config-field">
                   <label for="site-config-field-siteWordmarkUrl">{{ t('admin.siteConfig.siteWordmarkUrl') }}</label>
@@ -736,33 +602,12 @@ onScopeDispose(() => {
               <fieldset class="config-fieldset">
                 <legend>{{ t('admin.siteConfig.faviconGroup') }}</legend>
                 <div class="config-grid-2">
-                  <div class="config-field">
-                    <label for="site-config-field-faviconSvgUrl">{{ t('admin.siteConfig.faviconSvgUrl') }}</label>
-                    <ElInput id="site-config-field-faviconSvgUrl" v-model="form.faviconSvgUrl" placeholder="/assets/favicon.svg" :disabled="saving"
-                      v-bind="fieldInputBind('faviconSvgUrl', { identifier: true })"
-                      @blur="onBlur('faviconSvgUrl')" @input="onInput('faviconSvgUrl')" />
-                    <p v-if="visibleError('faviconSvgUrl')" id="site-config-error-faviconSvgUrl" class="config-error">{{ errorMessage(visibleError('faviconSvgUrl')!) }}</p>
-                  </div>
-                  <div class="config-field">
-                    <label for="site-config-field-faviconIcoUrl">{{ t('admin.siteConfig.faviconIcoUrl') }}</label>
-                    <ElInput id="site-config-field-faviconIcoUrl" v-model="form.faviconIcoUrl" placeholder="/assets/favicon.ico" :disabled="saving"
-                      v-bind="fieldInputBind('faviconIcoUrl', { identifier: true })"
-                      @blur="onBlur('faviconIcoUrl')" @input="onInput('faviconIcoUrl')" />
-                    <p v-if="visibleError('faviconIcoUrl')" id="site-config-error-faviconIcoUrl" class="config-error">{{ errorMessage(visibleError('faviconIcoUrl')!) }}</p>
-                  </div>
-                  <div class="config-field">
-                    <label for="site-config-field-faviconPngUrl">{{ t('admin.siteConfig.faviconPngUrl') }}</label>
-                    <ElInput id="site-config-field-faviconPngUrl" v-model="form.faviconPngUrl" placeholder="/assets/favicon.png" :disabled="saving"
-                      v-bind="fieldInputBind('faviconPngUrl', { identifier: true })"
-                      @blur="onBlur('faviconPngUrl')" @input="onInput('faviconPngUrl')" />
-                    <p v-if="visibleError('faviconPngUrl')" id="site-config-error-faviconPngUrl" class="config-error">{{ errorMessage(visibleError('faviconPngUrl')!) }}</p>
-                  </div>
-                  <div class="config-field">
-                    <label for="site-config-field-appleTouchIconUrl">{{ t('admin.siteConfig.appleTouchIconUrl') }}</label>
-                    <ElInput id="site-config-field-appleTouchIconUrl" v-model="form.appleTouchIconUrl" placeholder="/assets/apple-touch-icon.png" :disabled="saving"
-                      v-bind="fieldInputBind('appleTouchIconUrl', { identifier: true })"
-                      @blur="onBlur('appleTouchIconUrl')" @input="onInput('appleTouchIconUrl')" />
-                    <p v-if="visibleError('appleTouchIconUrl')" id="site-config-error-appleTouchIconUrl" class="config-error">{{ errorMessage(visibleError('appleTouchIconUrl')!) }}</p>
+                  <div v-for="(placeholder, field) in favicons" :key="field" class="config-field">
+                    <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }}</label>
+                    <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :placeholder="placeholder" :disabled="saving"
+                      v-bind="fieldInputBind(field, { identifier: true })"
+                      @blur="onBlur(field)" @input="onInput(field)" />
+                    <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
                   </div>
                 </div>
               </fieldset>
@@ -770,21 +615,13 @@ onScopeDispose(() => {
               <fieldset class="config-fieldset">
                 <legend>{{ t('admin.siteConfig.pwaGroup') }}</legend>
                 <div class="config-grid-2">
-                  <div class="config-field">
-                    <label for="site-config-field-manifestName">{{ t('admin.siteConfig.manifestName') }}</label>
-                    <span id="site-config-hint-manifestName" class="config-hint">{{ t('admin.siteConfig.manifestNameHint') }}</span>
-                    <ElInput id="site-config-field-manifestName" v-model="form.manifestName" :disabled="saving"
-                      v-bind="fieldInputBind('manifestName', { hintId: 'site-config-hint-manifestName' })"
-                      @blur="onBlur('manifestName')" @input="onInput('manifestName')" />
-                    <p v-if="visibleError('manifestName')" id="site-config-error-manifestName" class="config-error">{{ errorMessage(visibleError('manifestName')!) }}</p>
-                  </div>
-                  <div class="config-field">
-                    <label for="site-config-field-manifestShortName">{{ t('admin.siteConfig.manifestShortName') }}</label>
-                    <span id="site-config-hint-manifestShortName" class="config-hint">{{ t('admin.siteConfig.manifestShortNameHint') }}</span>
-                    <ElInput id="site-config-field-manifestShortName" v-model="form.manifestShortName" :disabled="saving"
-                      v-bind="fieldInputBind('manifestShortName', { hintId: 'site-config-hint-manifestShortName' })"
-                      @blur="onBlur('manifestShortName')" @input="onInput('manifestShortName')" />
-                    <p v-if="visibleError('manifestShortName')" id="site-config-error-manifestShortName" class="config-error">{{ errorMessage(visibleError('manifestShortName')!) }}</p>
+                  <div v-for="field in manifestNames" :key="field" class="config-field">
+                    <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }}</label>
+                    <span :id="`site-config-hint-${field}`" class="config-hint">{{ t(`admin.siteConfig.${field}Hint`) }}</span>
+                    <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :disabled="saving"
+                      v-bind="fieldInputBind(field, { hintId: `site-config-hint-${field}` })"
+                      @blur="onBlur(field)" @input="onInput(field)" />
+                    <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
                   </div>
                   <div class="config-field">
                     <label for="site-config-field-themeColor">{{ t('admin.siteConfig.themeColor') }}</label>
@@ -818,26 +655,12 @@ onScopeDispose(() => {
                   </div>
                 </div>
 
-                <div class="config-field">
-                  <label for="site-config-field-pwaIcon192Url">{{ t('admin.siteConfig.pwaIcon192Url') }}</label>
-                  <ElInput id="site-config-field-pwaIcon192Url" v-model="form.pwaIcon192Url" placeholder="/assets/icon-192.png" :disabled="saving"
-                    v-bind="fieldInputBind('pwaIcon192Url', { identifier: true })"
-                    @blur="onBlur('pwaIcon192Url')" @input="onInput('pwaIcon192Url')" />
-                  <p v-if="visibleError('pwaIcon192Url')" id="site-config-error-pwaIcon192Url" class="config-error">{{ errorMessage(visibleError('pwaIcon192Url')!) }}</p>
-                </div>
-                <div class="config-field">
-                  <label for="site-config-field-pwaIcon512Url">{{ t('admin.siteConfig.pwaIcon512Url') }}</label>
-                  <ElInput id="site-config-field-pwaIcon512Url" v-model="form.pwaIcon512Url" placeholder="/assets/icon-512.png" :disabled="saving"
-                    v-bind="fieldInputBind('pwaIcon512Url', { identifier: true })"
-                    @blur="onBlur('pwaIcon512Url')" @input="onInput('pwaIcon512Url')" />
-                  <p v-if="visibleError('pwaIcon512Url')" id="site-config-error-pwaIcon512Url" class="config-error">{{ errorMessage(visibleError('pwaIcon512Url')!) }}</p>
-                </div>
-                <div class="config-field">
-                  <label for="site-config-field-pwaMaskableIconUrl">{{ t('admin.siteConfig.pwaMaskableIconUrl') }}</label>
-                  <ElInput id="site-config-field-pwaMaskableIconUrl" v-model="form.pwaMaskableIconUrl" placeholder="/assets/icon-maskable-512.png" :disabled="saving"
-                    v-bind="fieldInputBind('pwaMaskableIconUrl', { identifier: true })"
-                    @blur="onBlur('pwaMaskableIconUrl')" @input="onInput('pwaMaskableIconUrl')" />
-                  <p v-if="visibleError('pwaMaskableIconUrl')" id="site-config-error-pwaMaskableIconUrl" class="config-error">{{ errorMessage(visibleError('pwaMaskableIconUrl')!) }}</p>
+                <div v-for="(placeholder, field) in pwaIcons" :key="field" class="config-field">
+                  <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }}</label>
+                  <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :placeholder="placeholder" :disabled="saving"
+                    v-bind="fieldInputBind(field, { identifier: true })"
+                    @blur="onBlur(field)" @input="onInput(field)" />
+                  <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
                 </div>
               </fieldset>
             </div>
@@ -976,36 +799,23 @@ onScopeDispose(() => {
                 <legend>{{ t('admin.siteConfig.cnGroup') }}</legend>
                 <p class="config-hint">{{ t('admin.siteConfig.cnHint') }}</p>
                 <div class="config-grid-2">
-                  <div class="config-field">
-                    <label for="site-config-field-icpRecordNumber">{{ t('admin.siteConfig.icpRecordNumber') }}</label>
-                    <ElInput id="site-config-field-icpRecordNumber" v-model="form.icpRecordNumber" :disabled="saving"
-                      v-bind="fieldInputBind('icpRecordNumber', { identifier: true })"
-                      @blur="onBlur('icpRecordNumber')" @input="onInput('icpRecordNumber')" />
-                    <p v-if="visibleError('icpRecordNumber')" id="site-config-error-icpRecordNumber" class="config-error">{{ errorMessage(visibleError('icpRecordNumber')!) }}</p>
-                  </div>
-                  <div class="config-field">
-                    <label for="site-config-field-icpRecordUrl">{{ t('admin.siteConfig.icpRecordUrl') }}</label>
-                    <span id="site-config-hint-icpRecordUrl" class="config-hint">{{ t('admin.siteConfig.icpUrlHint') }}</span>
-                    <ElInput id="site-config-field-icpRecordUrl" v-model="form.icpRecordUrl" placeholder="https://beian.miit.gov.cn/" :disabled="saving"
-                      v-bind="fieldInputBind('icpRecordUrl', { hintId: 'site-config-hint-icpRecordUrl', identifier: true })"
-                      @blur="onBlur('icpRecordUrl')" @input="onInput('icpRecordUrl')" />
-                    <p v-if="visibleError('icpRecordUrl')" id="site-config-error-icpRecordUrl" class="config-error">{{ errorMessage(visibleError('icpRecordUrl')!) }}</p>
-                  </div>
-                  <div class="config-field">
-                    <label for="site-config-field-policeRecordNumber">{{ t('admin.siteConfig.policeRecordNumber') }}</label>
-                    <ElInput id="site-config-field-policeRecordNumber" v-model="form.policeRecordNumber" :disabled="saving"
-                      v-bind="fieldInputBind('policeRecordNumber', { identifier: true })"
-                      @blur="onBlur('policeRecordNumber')" @input="onInput('policeRecordNumber')" />
-                    <p v-if="visibleError('policeRecordNumber')" id="site-config-error-policeRecordNumber" class="config-error">{{ errorMessage(visibleError('policeRecordNumber')!) }}</p>
-                  </div>
-                  <div class="config-field">
-                    <label for="site-config-field-policeRecordUrl">{{ t('admin.siteConfig.policeRecordUrl') }}</label>
-                    <span id="site-config-hint-policeRecordUrl" class="config-hint">{{ t('admin.siteConfig.policeUrlHint') }}</span>
-                    <ElInput id="site-config-field-policeRecordUrl" v-model="form.policeRecordUrl" placeholder="https://beian.mps.gov.cn/" :disabled="saving"
-                      v-bind="fieldInputBind('policeRecordUrl', { hintId: 'site-config-hint-policeRecordUrl', identifier: true })"
-                      @blur="onBlur('policeRecordUrl')" @input="onInput('policeRecordUrl')" />
-                    <p v-if="visibleError('policeRecordUrl')" id="site-config-error-policeRecordUrl" class="config-error">{{ errorMessage(visibleError('policeRecordUrl')!) }}</p>
-                  </div>
+                  <template v-for="record in registrations" :key="record.number">
+                    <div class="config-field">
+                      <label :for="`site-config-field-${record.number}`">{{ t(fieldLabel(record.number)) }}</label>
+                      <ElInput :id="`site-config-field-${record.number}`" v-model="form[record.number]" :disabled="saving"
+                        v-bind="fieldInputBind(record.number, { identifier: true })"
+                        @blur="onBlur(record.number)" @input="onInput(record.number)" />
+                      <p v-if="visibleError(record.number)" :id="`site-config-error-${record.number}`" class="config-error">{{ errorMessage(visibleError(record.number)!) }}</p>
+                    </div>
+                    <div class="config-field">
+                      <label :for="`site-config-field-${record.url}`">{{ t(fieldLabel(record.url)) }}</label>
+                      <span :id="`site-config-hint-${record.url}`" class="config-hint">{{ t(record.hint) }}</span>
+                      <ElInput :id="`site-config-field-${record.url}`" v-model="form[record.url]" :placeholder="record.placeholder" :disabled="saving"
+                        v-bind="fieldInputBind(record.url, { hintId: `site-config-hint-${record.url}`, identifier: true })"
+                        @blur="onBlur(record.url)" @input="onInput(record.url)" />
+                      <p v-if="visibleError(record.url)" :id="`site-config-error-${record.url}`" class="config-error">{{ errorMessage(visibleError(record.url)!) }}</p>
+                    </div>
+                  </template>
                 </div>
                 <div class="config-field">
                   <label for="site-config-field-policeBadgeIconUrl">{{ t('admin.siteConfig.policeBadgeIconUrl') }}</label>
