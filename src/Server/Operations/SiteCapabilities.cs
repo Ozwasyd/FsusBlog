@@ -86,37 +86,31 @@ internal sealed class SiteCapabilities
         Subscription = subscription;
 
         var dataDir = ResolveDataDir(configuration, webDist);
-        PrivateMediaRoot = ResolveOptionalPath(configuration, MediaEndpoints.StorageSetting,
-            () => dataDir is null ? null : EnsurePrivateSubdirectory(dataDir, "private-media"));
-        PublicMediaRoot = ResolveOptionalPath(configuration, PublishedMediaEndpoints.StorageSetting,
-            () => dataDir is not null && PrivateMediaRoot is not null ? EnsurePrivateSubdirectory(dataDir, "public-media") : null);
-        SitePagesRoot = ResolveOptionalPath(configuration, "FSUSBLOG_SITE_PAGES",
-            () => dataDir is null ? null : DiscoverSitePages(dataDir));
-        AppearanceRoot = ResolveOptionalPath(configuration, AppearanceAssets.RootSetting,
-            () => dataDir is null ? null : DiscoverAppearance(dataDir));
-        TrafficRegionsPath = ResolveOptionalPath(configuration, Analytics.SiteTraffic.RegionsSetting,
-            () => dataDir is null ? null : DiscoverExistingFile(dataDir, "traffic-regions.json"));
+        PrivateMediaRoot = ResolvePath(MediaEndpoints.StorageSetting, dir => EnsureDirectory(Path.Combine(dir, "private-media")));
+        PublicMediaRoot = ResolvePath(PublishedMediaEndpoints.StorageSetting,
+            dir => PrivateMediaRoot is null ? null : EnsureDirectory(Path.Combine(dir, "public-media")));
+        SitePagesRoot = ResolvePath("FSUSBLOG_SITE_PAGES", dir => DiscoverAssets(dir, "site-pages", BaselineSitePageFiles));
+        AppearanceRoot = ResolvePath(AppearanceAssets.RootSetting, dir => DiscoverAssets(dir, "appearance", ["appearance.json"]));
+        TrafficRegionsPath = ResolvePath(Analytics.SiteTraffic.RegionsSetting, dir => DiscoverExistingFile(dir, "traffic-regions.json"));
 
         PublicSearchMode = (configuration[PublicSearchModeSetting] ?? "auto").Trim().ToLowerInvariant();
         if (PublicSearchMode is not ("auto" or "local" or "server"))
             throw new InvalidOperationException($"{PublicSearchModeSetting} must be auto, local, or server.");
 
-        PublicCommentSubmissions = ReadOptionalBool(configuration, PublicCommentsSetting) ?? true;
-        SignedInCommentReplies = PublicCommentSubmissions && (ReadOptionalBool(configuration, CommentReplies.Setting) ?? true);
-        PrivateInboxWrites = ReadOptionalBool(configuration, InboxWriteEndpoints.Setting) ?? true;
-        DocumentExportTasks = ReadOptionalBool(configuration, DocumentExportEndpoints.Setting) ?? true;
-        PublicHotArticles = ReadOptionalBool(configuration, Analytics.PublicHotArticles.Setting) ?? true;
-        WideSearchCorpus = ReadOptionalBool(configuration, WideSearchCorpusEndpoints.Setting) ?? true;
-        PrivateMediaResumable = PrivateMediaRoot is not null && (ReadOptionalBool(configuration, MediaUploadEndpoints.Setting) ?? true);
+        PublicCommentSubmissions = Enabled(PublicCommentsSetting);
+        SignedInCommentReplies = PublicCommentSubmissions && Enabled(CommentReplies.Setting);
+        PrivateInboxWrites = Enabled(InboxWriteEndpoints.Setting);
+        DocumentExportTasks = Enabled(DocumentExportEndpoints.Setting);
+        PublicHotArticles = Enabled(Analytics.PublicHotArticles.Setting);
+        WideSearchCorpus = Enabled(WideSearchCorpusEndpoints.Setting);
+        PrivateMediaResumable = PrivateMediaRoot is not null && Enabled(MediaUploadEndpoints.Setting);
 
         var hasHttpsPublic = publicSite.Origin is not null &&
             Uri.TryCreate(publicSite.Origin, UriKind.Absolute, out var publicUri) &&
             publicUri.Scheme == Uri.UriSchemeHttps;
 
-        var requestedReadProof = ReadOptionalBool(configuration, ArticleReadEndpoints.Setting);
-        ArticleReadProof = requestedReadProof ?? (publicSite.Origin is not null);
-        if (ArticleReadProof && publicSite.Origin is null)
-            throw new InvalidOperationException("Article read proof requires an explicit public HTTPS origin.");
+        ArticleReadProof = ResolveRequired(ReadOptionalBool(configuration, ArticleReadEndpoints.Setting), publicSite.Origin is not null,
+            "Article read proof requires an explicit public HTTPS origin.");
 
         var requestedTraffic = ReadOptionalBool(configuration, Analytics.SiteTraffic.EnabledSetting);
         SiteTraffic = requestedTraffic ?? hasHttpsPublic;
@@ -143,35 +137,30 @@ internal sealed class SiteCapabilities
         var httpsAdmin = adminIdentity?.Origin.Scheme == Uri.UriSchemeHttps;
         var loopbackAdmin = adminIdentity is { Origin: { Scheme: "http", IsLoopback: true } };
 
-        AdminInboxReplies = hasAdmin && (ReadOptionalBool(configuration, AdminInboxEndpoints.ReplySetting) ?? true);
-        AdminInboxStatus = hasAdmin && (ReadOptionalBool(configuration, AdminInboxEndpoints.StatusSetting) ?? true);
-        AdminInboxNotice = hasAdmin && (ReadOptionalBool(configuration, AdminInboxEndpoints.NoticeSetting) ?? true);
-        AdminInboxSharedRead = hasAdmin && (ReadOptionalBool(configuration, AdminInboxEndpoints.SharedReadSetting) ?? true);
-        AdminInboxLive = hasAdmin && (ReadOptionalBool(configuration, AdminInboxEndpoints.LiveSetting) ?? true);
-        AdminInboxActivityOrder = hasAdmin && (ReadOptionalBool(configuration, InboxActivityFence.Setting) ?? true);
-        AdminCommentBatch = hasAdmin && (ReadOptionalBool(configuration, AdminModerationBatchEndpoints.Setting) ?? true);
+        AdminInboxReplies = hasAdmin && Enabled(AdminInboxEndpoints.ReplySetting);
+        AdminInboxStatus = hasAdmin && Enabled(AdminInboxEndpoints.StatusSetting);
+        AdminInboxNotice = hasAdmin && Enabled(AdminInboxEndpoints.NoticeSetting);
+        AdminInboxSharedRead = hasAdmin && Enabled(AdminInboxEndpoints.SharedReadSetting);
+        AdminInboxLive = hasAdmin && Enabled(AdminInboxEndpoints.LiveSetting);
+        AdminInboxActivityOrder = hasAdmin && Enabled(InboxActivityFence.Setting);
+        AdminCommentBatch = hasAdmin && Enabled(AdminModerationBatchEndpoints.Setting);
 
-        AdminArticleRollback = ReadOptionalBool(configuration, AdminArticleRollbackEndpoints.Setting) ?? hasAdmin;
-        if (AdminArticleRollback && !hasAdmin)
-            throw new InvalidOperationException("Published article rollback requires an administrator origin.");
+        AdminArticleRollback = ResolveRequired(ReadOptionalBool(configuration, AdminArticleRollbackEndpoints.Setting), hasAdmin,
+            "Published article rollback requires an administrator origin.");
 
-        AdminTagMetadata = ReadOptionalBool(configuration, AdminTagMetadataEndpoints.Setting) ?? hasAdmin;
-        if (AdminTagMetadata && !hasAdmin)
-            throw new InvalidOperationException("Tag metadata editing requires an administrator origin.");
+        AdminTagMetadata = ResolveRequired(ReadOptionalBool(configuration, AdminTagMetadataEndpoints.Setting), hasAdmin,
+            "Tag metadata editing requires an administrator origin.");
 
-        AdminCategoryMetadata = ReadOptionalBool(configuration, AdminTagMetadataEndpoints.CategorySetting) ?? hasAdmin;
-        if (AdminCategoryMetadata && !hasAdmin)
-            throw new InvalidOperationException("Category metadata editing requires an administrator origin.");
+        AdminCategoryMetadata = ResolveRequired(ReadOptionalBool(configuration, AdminTagMetadataEndpoints.CategorySetting), hasAdmin,
+            "Category metadata editing requires an administrator origin.");
 
         var siteAndAdminReady = (httpsAdmin && publicSite.Origin is not null) || loopbackAdmin;
-        SitePageEditor = ReadOptionalBool(configuration, SitePages.EditorSetting) ?? siteAndAdminReady;
-        if (SitePageEditor && !siteAndAdminReady)
-            throw new InvalidOperationException("The site page editor requires HTTPS administrator and public origins or a loopback administrator origin.");
+        SitePageEditor = ResolveRequired(ReadOptionalBool(configuration, SitePages.EditorSetting), siteAndAdminReady,
+            "The site page editor requires HTTPS administrator and public origins or a loopback administrator origin.");
 
         var requestedSiteConfigEditor = ReadOptionalBool(configuration, PublicSiteConfiguration.EditorSetting);
-        SiteConfigEditor = requestedSiteConfigEditor ?? siteAndAdminReady;
-        if (SiteConfigEditor && !siteAndAdminReady)
-            throw new InvalidOperationException("The site configuration editor requires HTTPS administrator and public origins or a loopback administrator origin.");
+        SiteConfigEditor = ResolveRequired(requestedSiteConfigEditor, siteAndAdminReady,
+            "The site configuration editor requires HTTPS administrator and public origins or a loopback administrator origin.");
         SiteConfigOverrideActive = requestedSiteConfigEditor ?? true;
 
         OnlineAppearance = ReadOptionalBool(configuration, AppearanceAssets.OnlineSetting) ??
@@ -183,6 +172,15 @@ internal sealed class SiteCapabilities
 
         PdfExport = PdfDocumentExport.Read(configuration);
         PluginPreview = PluginPreviewEndpoints.Read(configuration, publicSite.Origin, webDist, PrivateMediaRoot);
+
+        bool Enabled(string key) => ReadOptionalBool(configuration, key) ?? true;
+
+        string? ResolvePath(string key, Func<string, string?> discover)
+        {
+            var value = configuration[key];
+            if (value is not null) return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+            return dataDir is null ? null : discover(dataDir);
+        }
     }
 
     internal static SiteCapabilities Resolve(IConfiguration configuration, string webDist)
@@ -208,12 +206,10 @@ internal sealed class SiteCapabilities
         };
     }
 
-    private static string? ResolveOptionalPath(IConfiguration configuration, string key, Func<string?> fallback)
+    private static bool ResolveRequired(bool? requested, bool available, string error)
     {
-        var explicitValue = configuration[key];
-        if (explicitValue is not null)
-            return string.IsNullOrWhiteSpace(explicitValue) ? null : explicitValue.Trim();
-        return fallback();
+        if (requested == true && !available) throw new InvalidOperationException(error);
+        return requested ?? available;
     }
 
     private static string? ResolveDataDir(IConfiguration configuration, string webDist)
@@ -228,17 +224,11 @@ internal sealed class SiteCapabilities
         var resolvedDist = Path.TrimEndingDirectorySeparator(Path.GetFullPath(webDist));
         if (Contains(full, resolvedDist) || Contains(resolvedDist, full))
             throw new InvalidOperationException($"{DataDirSetting} must be separate from the web build directory.");
-        if (!Directory.Exists(full))
-        {
-            if (OperatingSystem.IsWindows()) Directory.CreateDirectory(full);
-            else Directory.CreateDirectory(full, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        }
-        return full;
+        return EnsureDirectory(full);
     }
 
-    private static string EnsurePrivateSubdirectory(string dataDir, string name)
+    private static string EnsureDirectory(string path)
     {
-        var path = Path.Combine(dataDir, name);
         if (!Directory.Exists(path))
         {
             if (OperatingSystem.IsWindows()) Directory.CreateDirectory(path);
@@ -247,17 +237,10 @@ internal sealed class SiteCapabilities
         return path;
     }
 
-    private static string? DiscoverSitePages(string dataDir)
+    private static string? DiscoverAssets(string dataDir, string name, string[] files)
     {
-        var path = Path.Combine(dataDir, "site-pages");
-        if (!Directory.Exists(path)) return null;
-        return BaselineSitePageFiles.All(file => File.Exists(Path.Combine(path, file))) ? path : null;
-    }
-
-    private static string? DiscoverAppearance(string dataDir)
-    {
-        var path = Path.Combine(dataDir, "appearance");
-        return Directory.Exists(path) && File.Exists(Path.Combine(path, "appearance.json")) ? path : null;
+        var path = Path.Combine(dataDir, name);
+        return Directory.Exists(path) && files.All(file => File.Exists(Path.Combine(path, file))) ? path : null;
     }
 
     private static string? DiscoverExistingFile(string dataDir, string name)
