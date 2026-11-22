@@ -478,34 +478,30 @@ try {
     observations.push('Save classification commits against the current article revision and remains private until publication.')
   }
 
-  await button(publisher, 'Add property').click()
-  await publisher.getByLabel('Property label').fill('Article subtitle')
-  await publisher.getByLabel('Property key').fill('article-subtitle')
-  await button(publisher, 'Create property').click()
-  await button(publisher, 'Edit Article subtitle').click()
+  async function addPropertyForEditing(label, key, type) {
+    await button(publisher, 'Add property').click()
+    await publisher.getByLabel('Property label').fill(label)
+    await publisher.getByLabel('Property key').fill(key)
+    if (type) {
+      await publisher.getByRole('combobox', { name: 'Property type' }).click()
+      await roleWithExactName(publisher, 'option', type).click()
+    }
+    await button(publisher, 'Create property').click()
+    await button(publisher, `Edit ${label}`).click()
+  }
+
+  await addPropertyForEditing('Article subtitle', 'article-subtitle')
   await publisher.getByLabel('Article subtitle value').fill(`Private subtitle ${token}`)
   await button(publisher, 'Save property').click()
   await visible(publisher.getByText(`Private subtitle ${token}`, { exact: true }))
 
-  await button(publisher, 'Add property').click()
-  await publisher.getByLabel('Property label').fill('Editorial score')
-  await publisher.getByLabel('Property key').fill('editorial-score')
-  await publisher.getByRole('combobox', { name: 'Property type' }).click()
-  await roleWithExactName(publisher, 'option', 'Number').click()
-  await button(publisher, 'Create property').click()
-  await button(publisher, 'Edit Editorial score').click()
+  await addPropertyForEditing('Editorial score', 'editorial-score', 'Number')
   const exactScore = '12345678901234567890.12345678'
   await publisher.getByLabel('Editorial score value').fill(exactScore)
   await button(publisher, 'Save property').click()
   await visible(publisher.getByText(exactScore, { exact: true }))
 
-  await button(publisher, 'Add property').click()
-  await publisher.getByLabel('Property label').fill('Editorial approval')
-  await publisher.getByLabel('Property key').fill('editorial-approval')
-  await publisher.getByRole('combobox', { name: 'Property type' }).click()
-  await roleWithExactName(publisher, 'option', 'Boolean').click()
-  await button(publisher, 'Create property').click()
-  await button(publisher, 'Edit Editorial approval').click()
+  await addPropertyForEditing('Editorial approval', 'editorial-approval', 'Boolean')
   const approval = publisher.getByRole('radiogroup', { name: 'Editorial approval value' })
   await approval.getByText('False', { exact: true }).click()
   assert.equal(await roleWithExactName(approval, 'radio', 'False').isChecked(), true)

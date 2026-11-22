@@ -531,6 +531,13 @@ async function exerciseSaveAndClose(author) {
     await expect(tab(page, draft, 'Unsaved')).toBeVisible()
   }
 
+  async function editPairAndReturn(firstDraft, secondDraft) {
+    await edit(firstDraft)
+    await edit(secondDraft)
+    await press(page, anchorTab)
+    await expect(page).toHaveURL(editPath(anchor.id))
+  }
+
   async function chooseSave() {
     const dialog = roleWithExactName(page, 'dialog', 'Close tabs with unsaved edits?')
     await expect(dialog).toHaveCount(0)
@@ -554,10 +561,7 @@ async function exerciseSaveAndClose(author) {
     await page.goto(editPath(anchor.id))
     await expect(body(page)).toBeEditable()
     await pinArticle(page, anchor)
-    await edit(first)
-    await edit(second)
-    await press(page, anchorTab)
-    await expect(page).toHaveURL(editPath(anchor.id))
+    await editPairAndReturn(first, second)
     await chooseSave()
     await expectWorkspaceMessage(page, 'Closed 2 tabs.')
     await expect(tabs).toHaveCount(1)
@@ -566,10 +570,7 @@ async function exerciseSaveAndClose(author) {
     first = await expectStored(first, localText(first), first.revision + 1n)
     second = await expectStored(second, localText(second), second.revision + 1n)
 
-    await edit(first)
-    await edit(second)
-    await press(page, anchorTab)
-    await expect(page).toHaveURL(editPath(anchor.id))
+    await editPairAndReturn(first, second)
     await expect.poll(hasFirstRecoveryCopy).toBe(true)
     await abortDraftCopyDelete(page, first.id)
 
@@ -594,10 +595,7 @@ async function exerciseSaveAndClose(author) {
     await expectStored(first, localText(first), first.revision + 1n)
     await expectStored(second, localText(second), second.revision + 1n)
 
-    await edit(interrupted)
-    await edit(conflicting)
-    await press(page, anchorTab)
-    await expect(page).toHaveURL(editPath(anchor.id))
+    await editPairAndReturn(interrupted, conflicting)
     const requests = []
     let lostReplyStatus
     await page.route(savePath, async route => {
