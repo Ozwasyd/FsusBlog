@@ -9,11 +9,13 @@ import {
 } from '../../src/Contracts/wire.generated.ts'
 import { authorFixture, binary, button, chromium, expect, journalContains, submitArticle } from './browser-authoring-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
+import { openById } from './workspace-flow.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
-const workspaceUrl = `${origin}/user/manage/article/workspace`
-const editUrl = article => `${origin}/user/manage/article/edit/${article.id}`
+const workspaceUrl = `${origin}/admin/articles/workspace`
+const editUrl = article => `${origin}/admin/articles/edit/${article.id}`
 const route = WireRoutes.AuthoringWorkspace
 const launch = () => chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
 const tabList = page => page.getByRole('tablist', { name: 'Open articles' })
@@ -23,7 +25,26 @@ const observations = []
 const diagnostics = []
 await mkdir(evidence, { recursive: true })
 
-const { signIn, createDraft, monitor } = authorFixture(origin, diagnostics)
+const { createDraft, monitor } = authorFixture(origin, diagnostics)
+
+async function signIn(context, bootstrap) {
+  assert(bootstrap)
+  const page = monitor(await context.newPage())
+  try {
+    await signInFreshAdmin(page, origin, bootstrap)
+    const response = await context.request.get(origin + WireRoutes.AuthoringSession)
+    try {
+      assert.equal(response.status(), 200)
+      const session = response.headers()[WireHeaders.CurrentSession.toLowerCase()]
+      assert(session)
+      return session
+    } finally {
+      await response.dispose()
+    }
+  } finally {
+    await page.close()
+  }
+}
 const create = (context, title) => createDraft(context, title, `Saved private draft for ${title}`)
 
 function layoutResponse(response) {
@@ -59,13 +80,8 @@ async function layout(context, session, command, status = 200) {
 }
 
 async function open(page, article) {
-  const inlineInput = page.getByLabel('Article ID', { exact: true })
-  if (!await inlineInput.isVisible()) {
-    await button(page, 'More actions').click()
-    await roleWithExactName(page, 'menuitem', 'Workspace & open…').click()
-  }
-  await page.getByLabel('Article ID', { exact: true }).fill(String(article.id))
-  await button(page, 'Open article').click()
+  const dialog = await openById(page, article.id)
+  await expect(dialog).toBeHidden()
   await expect(page).toHaveURL(editUrl(article))
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue(article.title)
 }
@@ -112,8 +128,8 @@ let browser = await launch()
 try {
   const originContext = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const outsider = await browser.newContext()
-  const session = await signIn(originContext, process.env.FSUSBLOG_TEST_TICKET)
-  const outsiderSession = await signIn(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_TICKET)
+  const session = await signIn(originContext, process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP)
+  const outsiderSession = await signIn(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP)
   const first = await create(originContext, 'Pinned private article')
   const second = await create(originContext, 'Active private article')
   const removed = await create(originContext, 'Article deleted before restart')
@@ -124,11 +140,11 @@ try {
   await original.goto(workspaceUrl)
   await expect(roleWithExactName(original, 'heading', 'Article workspace')).toBeVisible()
   await open(original, first)
-  await button(original, `Pin ${first.title}`).click()
+  await button(tabList(original), `Pin ${first.title}`).click()
   await open(original, second)
-  await button(original, `Pin ${second.title}`).click()
+  await button(tabList(original), `Pin ${second.title}`).click()
   await open(original, removed)
-  await button(original, `Pin ${removed.title}`).click()
+  await button(tabList(original), `Pin ${removed.title}`).click()
   await open(original, preview)
   await tab(original, second, 'Pinned').click()
   await expect(original).toHaveURL(editUrl(second))

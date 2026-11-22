@@ -81,7 +81,9 @@ fi
 "${migrate[@]}" verify >> "$evidence/schema.log"
 FSUSBLOG_TEST_TICKET=$("${migrate[@]}" operator browser-author)
 export FSUSBLOG_TEST_TICKET
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == blog || ${FSUSBLOG_TEST_FLOW:-blog} == canvas-keyboard || ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
+flow=${FSUSBLOG_TEST_FLOW:-blog}
+if [[ $flow == blog || $flow == canvas-keyboard || $flow == editor-readiness ||
+      $flow == workspace-recovery || ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap browser-author)
   export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
 fi
@@ -89,7 +91,11 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator canvas-scale-outsider)
   export FSUSBLOG_TEST_OUTSIDER_TICKET
 fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery || ${FSUSBLOG_TEST_FLOW:-blog} == article-library || ${FSUSBLOG_TEST_FLOW:-blog} == property-history ]]; then
+if [[ $flow == workspace-recovery ]]; then
+  FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap workspace-recovery-outsider)
+  export FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP
+fi
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-library || ${FSUSBLOG_TEST_FLOW:-blog} == property-history ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator workspace-recovery-outsider)
   export FSUSBLOG_TEST_OUTSIDER_TICKET
 fi

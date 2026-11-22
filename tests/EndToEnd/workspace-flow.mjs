@@ -50,7 +50,7 @@ async function openWorkspaceDialog(page) {
   return dialog
 }
 
-async function openById(page, articleId) {
+export async function openById(page, articleId) {
   const dialog = await openWorkspaceDialog(page)
   const input = dialog.getByLabel('Article ID', { exact: true })
   await input.fill(String(articleId))
