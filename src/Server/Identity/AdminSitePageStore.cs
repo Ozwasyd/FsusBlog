@@ -11,8 +11,8 @@ namespace FsusBlog.V2.Server.Administration;
 internal sealed class AdminSitePageStore(AdminSessionGate gate, AdminStepUpService? stepUp = null)
 {
     internal Task<byte[]> SitePagesOverview(string? token, SitePages pages, CancellationToken ct) =>
-        gate.WithSession(token, (_, _, _) =>
-            Task.FromResult(Wire.EncodeAdminSitePages(new(pages.ConfiguredMask))), ct);
+        gate.WithSession(token, async (db, tx, _) =>
+            Wire.EncodeAdminSitePages(new(await pages.ConfiguredMaskAsync(db, tx, ct))), ct);
 
     internal Task<byte[]> SitePage(string? token, SitePages pages, string slug, CancellationToken ct) =>
         gate.WithSession(token, (db, tx, _) => pages.ConfiguredFrame(db, tx, slug, ct), ct);
@@ -49,6 +49,7 @@ internal sealed class AdminSitePageStore(AdminSessionGate gate, AdminStepUpServi
             await pow.Consume(db, tx, PowScope.AdminSitePagePublish, intent.Slug, session!, ScopedPow.Source(ctx),
                 frame, ScopedPow.ReadProof(ctx), ct);
             await SitePagePublicationStore.Publish(db, tx, admin.Id, current, intent.Markdown, ct);
+            pages.MarkPublished(intent.Slug);
             return true;
         }, ct);
 

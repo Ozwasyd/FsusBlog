@@ -48,6 +48,12 @@ internal static class AdminSitePageEditorEndpoints
                     if (legacy) frame = Wire.EncodeAdminSitePagePublish(intent);
                     var proof = AdminActionRoutes.Proof(ctx);
                     await store.PublishSitePage(ctx.Request.Cookies[session], pages, intent, frame, proof, pow, ctx, ct);
+                    var publications = ctx.RequestServices.GetService<Publications>();
+                    if (publications is not null)
+                    {
+                        try { await publications.Refresh(ct); }
+                        catch when (!ct.IsCancellationRequested) { }
+                    }
                     return Wire.EncodeEmptySuccess();
                 }, PowScope.AdminSitePagePublish);
             }

@@ -32,6 +32,7 @@ internal sealed class PublicSnapshot
     internal long Watermark { get; }
     internal long TaxonomyEpoch { get; }
     internal long SiteConfigRevision { get; }
+    internal int SitePagesMask { get; }
     internal byte[] Home { get; }
     internal byte[] EnglishHome { get; }
     internal TaxonomyProjection Taxonomy { get; }
@@ -45,11 +46,12 @@ internal sealed class PublicSnapshot
 
     internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
         PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, DistributionSettings? distribution, CancellationToken cancellationToken,
-        long taxonomyEpoch = 0, PublishedMediaProjection? media = null, long siteConfigRevision = 0)
+        long taxonomyEpoch = 0, PublishedMediaProjection? media = null, long siteConfigRevision = 0, int sitePagesMask = 0)
     {
         Watermark = watermark;
         TaxonomyEpoch = taxonomyEpoch;
         SiteConfigRevision = siteConfigRevision;
+        SitePagesMask = sitePagesMask;
         _corpus = LocalSearchCorpus.BuildSnapshot(articles, previous?._corpus, cancellationToken);
         _corpusTags = _corpus is null ? [] : CorpusTags(_corpus, previous, cancellationToken);
         _search = ArticleSearchIndex.Build(articles, cancellationToken);
@@ -238,7 +240,7 @@ internal sealed class PublicSnapshot
 
 internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log, InstanceLease? lease = null,
     RuntimeEvidence? evidence = null, DistributionSettings? distribution = null, PublishedMediaStore? media = null,
-    PublicProjection? projection = null, bool siteConfigOverrideActive = false)
+    PublicProjection? projection = null, bool siteConfigOverrideActive = false, SitePages? sitePages = null)
 {
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
@@ -360,10 +362,10 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         ct = stop?.Token ?? ct;
         await using var connection = await db.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(connection, lease, ct, System.Data.IsolationLevel.RepeatableRead);
-        var (maxEvent, taxonomyEpoch, siteConfigRevision) = await ReadWatermarks(connection, tx, ct);
+        var (maxEvent, taxonomyEpoch, siteConfigRevision, sitePagesMask) = await ReadWatermarks(connection, tx, ct);
         var next = Snapshot;
         var rebuilt = next is null || next.Watermark != maxEvent || next.TaxonomyEpoch != taxonomyEpoch ||
-            next.SiteConfigRevision != siteConfigRevision;
+            next.SiteConfigRevision != siteConfigRevision || next.SitePagesMask != sitePagesMask;
         if (rebuilt)
         {
             var taxonomy = await TaxonomyStore.Read(connection, tx, ct);
@@ -416,7 +418,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                     row.GetFieldValue<DateTimeOffset>(7), summary, category, tags, rights, mediaProjection?.CoverDigest(id, publication)));
             }
             next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution,
-                ct, taxonomyEpoch, mediaProjection, siteConfigRevision);
+                ct, taxonomyEpoch, mediaProjection, siteConfigRevision, sitePagesMask);
         }
         await using (var advance = Store.Sql(connection, tx, """
             update public.blog_outbox set processed_at=now() where processed_at is null
@@ -427,7 +429,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         evidence?.CountRefresh(rebuilt);
     }
 
-    private async Task<(long Article, long Taxonomy, long SiteConfig)> ReadWatermarks(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct)
+    private async Task<(long Article, long Taxonomy, long SiteConfig, int SitePagesMask)> ReadWatermarks(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct)
     {
         _taxonomyEpochInstalled ??= await CurrentSchema.HasAdminTagMetadataAsync(connection, tx, ct);
         var siteConfig = siteConfigOverrideActive ? (pages.SiteConfig ?? distribution?.Site) : null;
@@ -449,7 +451,8 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         }
         if (readSiteConfig && siteConfig!.Revision != siteConfigRevision)
             await SiteConfigOverrideStore.SyncAsync(connection, tx, siteConfig, ct);
-        return (articleWatermark, taxonomyEpoch, siteConfigRevision);
+        var sitePagesMask = sitePages is null ? 0 : await sitePages.ConfiguredMaskAsync(connection, tx, ct);
+        return (articleWatermark, taxonomyEpoch, siteConfigRevision, sitePagesMask);
     }
 }
 

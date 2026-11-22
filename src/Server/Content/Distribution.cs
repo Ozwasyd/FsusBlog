@@ -8,8 +8,11 @@ using FsusBlog.V2.Contracts;
 
 namespace FsusBlog.V2.Server.Content;
 
-internal sealed record DistributionSettings(PublicSiteConfiguration Site, IReadOnlyList<string> SitePagePaths)
+internal sealed record DistributionSettings(PublicSiteConfiguration Site, Func<IReadOnlyList<string>> SitePagePaths)
 {
+    internal DistributionSettings(PublicSiteConfiguration site, IReadOnlyList<string> sitePagePaths)
+        : this(site, () => sitePagePaths) { }
+
     internal static string Number(int number) => number.ToString(CultureInfo.InvariantCulture);
 }
 
@@ -84,7 +87,7 @@ internal sealed record DistributionSnapshot(byte[] Rss, byte[] Atom, byte[] Json
                 date_published = entry.Article.PublishedAt.ToUniversalTime(), date_modified = Modified(entry.Article).ToUniversalTime()
             })
         });
-        var paths = SitemapLocations(articles, settings.SitePagePaths, ct).ToArray();
+        var paths = SitemapLocations(articles, settings.SitePagePaths(), ct).ToArray();
         var sitemap = BuildSitemap(origin, paths, ct);
         var robots = Utf8.GetBytes("User-agent: *\nAllow: /\nAllow: /feed/\nAllow: /sitemap.xml\nAllow: /robots.txt\n" +
             "Disallow: /login\nDisallow: /register\nDisallow: /recover\nDisallow: /user\nDisallow: /admin\nDisallow: /api/\n" +

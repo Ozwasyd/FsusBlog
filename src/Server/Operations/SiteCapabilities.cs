@@ -164,12 +164,9 @@ internal sealed class SiteCapabilities
             throw new InvalidOperationException("Category metadata editing requires an administrator origin.");
 
         var siteAndAdminReady = (httpsAdmin && publicSite.Origin is not null) || loopbackAdmin;
-        SitePageEditor = ReadOptionalBool(configuration, SitePages.EditorSetting) ??
-            (siteAndAdminReady && SitePagesRoot is not null);
+        SitePageEditor = ReadOptionalBool(configuration, SitePages.EditorSetting) ?? siteAndAdminReady;
         if (SitePageEditor && !siteAndAdminReady)
             throw new InvalidOperationException("The site page editor requires HTTPS administrator and public origins or a loopback administrator origin.");
-        if (SitePageEditor && string.IsNullOrWhiteSpace(SitePagesRoot))
-            throw new InvalidOperationException("The site page editor requires the four deployment baseline files.");
 
         var requestedSiteConfigEditor = ReadOptionalBool(configuration, PublicSiteConfiguration.EditorSetting);
         SiteConfigEditor = requestedSiteConfigEditor ?? siteAndAdminReady;

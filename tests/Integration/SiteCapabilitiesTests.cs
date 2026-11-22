@@ -99,11 +99,11 @@ public sealed class SiteCapabilitiesTests
         Assert.True(capabilities.AdminArticleRollback);
         Assert.True(capabilities.AdminTagMetadata);
         Assert.True(capabilities.AdminCategoryMetadata);
+        Assert.True(capabilities.SitePageEditor);
         Assert.True(capabilities.SiteConfigEditor);
 
-        // No FSUSBLOG_DATA_DIR / site-pages / appearance yet -> cleanly false
+        // No FSUSBLOG_DATA_DIR / appearance yet -> cleanly false
         Assert.False(capabilities.PrivateMediaResumable);
-        Assert.False(capabilities.SitePageEditor);
         Assert.False(capabilities.OnlineAppearance);
     }
 
@@ -190,7 +190,7 @@ public sealed class SiteCapabilitiesTests
             Assert.True(Directory.Exists(initial.PublicMediaRoot));
             Assert.True(initial.PrivateMediaResumable);
             Assert.Null(initial.SitePagesRoot);
-            Assert.False(initial.SitePageEditor);
+            Assert.True(initial.SitePageEditor);
             Assert.Null(initial.AppearanceRoot);
             Assert.False(initial.OnlineAppearance);
             Assert.Null(initial.TrafficRegionsPath);
@@ -264,6 +264,8 @@ public sealed class SiteCapabilitiesTests
                 [AdminArticleRollbackEndpoints.Setting] = "false",
                 [AdminTagMetadataEndpoints.Setting] = "false",
                 [AdminTagMetadataEndpoints.CategorySetting] = "false",
+                [SitePages.EditorSetting] = "false",
+                [PublicSiteConfiguration.EditorSetting] = "false",
             }), webDist.FullName);
 
             Assert.Null(capabilities.SitePasskey);
@@ -360,13 +362,6 @@ public sealed class SiteCapabilitiesTests
         Assert.Throws<InvalidOperationException>(() => SiteCapabilities.Resolve(BuildConfig(new()
         {
             [SiteCapabilities.DataDirSetting] = webDist,
-        }), webDist));
-
-        Assert.Throws<InvalidOperationException>(() => SiteCapabilities.Resolve(BuildConfig(new()
-        {
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
-            [SitePages.EditorSetting] = "true",
         }), webDist));
 
         Assert.Throws<InvalidOperationException>(() => SiteCapabilities.Resolve(BuildConfig(new()

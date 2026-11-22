@@ -103,7 +103,7 @@ internal static class ServerServices
                 services.GetRequiredService<WebPages>(), services.GetRequiredService<NpgsqlDataSource>(),
                 services.GetRequiredService<InstanceLease>(), capabilities.SitePageEditor));
             builder.Services.AddSingleton(services => new DistributionSettings(publicSite,
-                services.GetRequiredService<SitePages>().ConfiguredPaths));
+                services.GetRequiredService<SitePages>().CurrentConfiguredPaths));
             builder.Services.AddSingleton<Store>();
             builder.Services.AddSingleton<PublicProjection>();
             builder.Services.AddSingleton(services => new Publications(
@@ -115,7 +115,8 @@ internal static class ServerServices
                 services.GetService<DistributionSettings>(),
                 services.GetService<PublishedMediaStore>(),
                 services.GetService<PublicProjection>(),
-                capabilities.SiteConfigOverrideActive));
+                capabilities.SiteConfigOverrideActive,
+                services.GetRequiredService<SitePages>()));
 
             if (capabilities.WideSearchCorpus)
             {

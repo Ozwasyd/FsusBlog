@@ -10,7 +10,7 @@
 
 管理员专用域的 `GET /api/binary/system/admin/page/{slug}` 与 v1 一样返回 `PageContent` AEDS 帧。`GET /api/v2/admin/identity/site-pages/{slug}.aeds` 供管理员工作区读取同一内容，包括本机 HTTP 的窄 cookie 路径。公开域访问这两个管理员读取路由返回 404，未配置的页也返回 404。`GET /api/v2/admin/identity/site-pages.aeds` 返回 v2 `AdminSitePages` 单个四位掩码，顺序固定为关于、隐私政策、用户守则、版权声明。管理员读取均为 `no-store`。
 
-在线发布为可选模式。新库的 `apply` 已安装该表结构，在配置了 HTTPS 来源与四页部署基线后默认启用（也可通过 `FSUSBLOG_SITE_PAGE_EDITOR=false` 静默关闭）。启用后，首次编辑使用部署文件的版本 0 和正文 SHA-256，此后该页由已提交的 PostgreSQL 版本提供。关闭开关并重启恢复部署文件；数据库版本和审计保留，重新启用时恢复。页面仍沿用同一安全 Markdown 渲染器与固定 URL。页面内容可为空，超出字符或字节上限的请求直接拒绝。
+在线发布默认在配置了安全管理员源（HTTPS 公开+管理员源，或本机 Loopback 管理员源）后自动启用，不再强制要求磁盘先存在四页基线文件（也可通过 `FSUSBLOG_SITE_PAGE_EDITOR=false` 静默关闭）。当配置了 `FSUSBLOG_SITE_PAGES`（或数据目录下 `site-pages/`）四页文件时，首次编辑以部署文件的版本 0 和正文 SHA-256 为基线；未配置磁盘文件时，四页以空内容（版本 0、对外显示未配置占位并发送 `noindex`）作为基线，管理员在后台直接创建并发布后该页立即切换为已配置公开页并纳入 `/sitemap.xml`。关闭开关并重启即恢复磁盘基线或未配置占位；数据库版本和审计保留，重新启用时恢复。页面仍沿用同一安全 Markdown 渲染器与固定 URL。页面内容可为空，超出字符或字节上限的请求直接拒绝。
 
 拥有 `system.config` 的管理员可以点击 **Edit**，确认替换公开页后使用其管理员 Passkey 发布。更新精确绑定 slug、当前版本、当前正文摘要和新 Markdown。旧版本请求返回 409，界面保留操作员输入供复制。Passkey 和 PoW 都限定为本次发布操作。事务内写入下一版本和审计行，审计记录管理员 ID、版本、正文修改前后摘要和时间。成功返回 AEDS `EmptySuccess`。公开 HTML 和 v1 AEDS GET 从同一已提交版本提供，分别发送强 ETag 和 `no-store`。相同 ETag 的条件读返回 304，仅带日期的请求重新返回当前内容。v2 发布接口使用带 CAS 的 `/api/v2/admin/identity/site-pages/*` 路由。
 
