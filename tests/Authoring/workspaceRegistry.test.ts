@@ -19,10 +19,22 @@ const emptyLayout: SavedWorkspaceLayout = {
   activeArticleId: 0, tabs: [], inspectorOpen: false, secondaryActiveArticleId: 0, secondaryTabs: [], focusedGroup: 0,
 }
 
+function loadedDraft(id: number, revision?: bigint, body?: string): DraftLoad<Draft> {
+  return { kind: 'ready', draft: draft(id, revision, body) }
+}
+
+function savedDraft(item: Draft): DraftSave<Draft> {
+  return { kind: 'saved', draft: item }
+}
+
+function restoreLayout(registry: WorkspaceRegistry<Draft>, layout: SavedWorkspaceLayout) {
+  return registry.restoreLayout(layout, new AbortController().signal)
+}
+
 function setup(transport: Partial<EditorTransport<Draft>> = {}, capacity?: number, now?: () => number) {
   const registry = new WorkspaceRegistry<Draft>({
-    load: async id => ({ kind: 'ready', draft: draft(id) }),
-    save: async item => ({ kind: 'saved', draft: { ...item, revision: item.revision + 1n } }),
+    load: async id => loadedDraft(id),
+    save: async item => savedDraft({ ...item, revision: item.revision + 1n }),
     ...transport,
   }, capacity, now)
   registry.setIdentity(author)
@@ -42,7 +54,7 @@ async function activate(registry: WorkspaceRegistry<Draft>, id: number, group?: 
 }
 
 test('an exact reference cannot replace a ready tab with an unwitnessed newer revision', async () => {
-  const registry = setup({ load: async id => ({ kind: 'ready', draft: draft(id, id === 2 ? 4n : 1n) }) }, 1)
+  const registry = setup({ load: async id => loadedDraft(id, id === 2 ? 4n : 1n) }, 1)
   const old = await activate(registry, 1)
   const stale = await registry.openOrActivate(2, 'main', 'preview', undefined, 3n)
   assert.deepEqual(stale, { kind: 'blocked', reason: 'stale-reference' })
@@ -58,7 +70,7 @@ test('an uncertain save freezes its body edits and later changes cannot reuse th
   const registry = setup({ save: async (item, _signal, key, edits) => {
     calls.push({ key, body: item.body, edits })
     if (calls.length === 1) return { kind: 'blocked', reason: 'unavailable' }
-    return { kind: 'saved', draft: { ...item, revision: item.revision + 1n } }
+    return savedDraft({ ...item, revision: item.revision + 1n })
   } })
   const tab = await activate(registry, 1)
   const edit = { offset: 0, removedLength: 0, insert: 'new ' }
@@ -79,7 +91,7 @@ test('only uninterrupted body edits are carried into each saved revision, even i
   const written: unknown[] = []
   const registry = setup({ save: async (item, _signal, _key, edits) => {
     written.push(edits)
-    return { kind: 'saved', draft: { ...item, revision: item.revision + 1n } }
+    return savedDraft({ ...item, revision: item.revision + 1n })
   } })
   const tab = await activate(registry, 1)
   const prior = registry.activeDraft!
@@ -113,7 +125,7 @@ test('an exact reference rechecks a ready source and preserves dirty and stale s
   let loads = 0
   const registry = setup({ load: async id => {
     ++loads
-    return { kind: 'ready', draft: draft(id, currentRevision) }
+    return loadedDraft(id, currentRevision)
   } })
   const tab = await activate(registry, 2)
   assert.equal(registry.updateDraft(tab, draft(2, 2n, 'local source')), true)
@@ -129,7 +141,7 @@ test('an exact reference rechecks a ready source and preserves dirty and stale s
 
 test('an article selection rechecks its saved revision while retaining its existing group and local edits', async () => {
   let revision = 2n
-  const registry = setup({ load: async id => ({ kind: 'ready', draft: draft(id, revision) }) })
+  const registry = setup({ load: async id => loadedDraft(id, revision) })
   const target = await activate(registry, 2, 'secondary')
   assert(registry.updateDraft(target, draft(2, 2n, 'unsaved secondary text')))
   const original = await activate(registry, 1, 'main')
@@ -152,10 +164,10 @@ test('an article selection rechecks its saved revision while retaining its exist
 test('saved layout restores only ready drafts, retaining order, preview and selected article', async () => {
   const held = deferred<DraftLoad<Draft>>()
   const registry = setup({ load: async id => id === 2 ? held.promise : id === 3
-    ? { kind: 'blocked', reason: 'forbidden' } : { kind: 'ready', draft: draft(id) } })
-  const pending = registry.restoreLayout({ ...emptyLayout, tabs: [1, 3, -2], activeArticleId: 2 }, new AbortController().signal)
+    ? { kind: 'blocked', reason: 'forbidden' } : loadedDraft(id) })
+  const pending = restoreLayout(registry, { ...emptyLayout, tabs: [1, 3, -2], activeArticleId: 2 })
   assert.deepEqual(registry.tabs, [])
-  held.resolve({ kind: 'ready', draft: draft(2) })
+  held.resolve(loadedDraft(2))
   assert.equal(await pending, 1)
   assert.deepEqual(registry.savedLayout, { ...emptyLayout, tabs: [1, -2], activeArticleId: 2 })
   assert.equal(registry.activeTab?.mode, 'preview')
@@ -165,16 +177,16 @@ test('saved layout restores only ready drafts, retaining order, preview and sele
 test('layout hydration loses authority on identity changes even if its draft request completes', async () => {
   const held = deferred<DraftLoad<Draft>>()
   const registry = setup({ load: () => held.promise })
-  const pending = registry.restoreLayout({ ...emptyLayout, tabs: [1], activeArticleId: 1 }, new AbortController().signal)
+  const pending = restoreLayout(registry, { ...emptyLayout, tabs: [1], activeArticleId: 1 })
   registry.setIdentity({ ...author, principalId: 'other-author' })
-  held.resolve({ kind: 'ready', draft: draft(1) })
+  held.resolve(loadedDraft(1))
   assert.equal(await pending, undefined)
   assert.deepEqual(registry.savedLayout, emptyLayout)
 })
 
 test('the Inspector restores as workspace presentation and rejects another session or identity', async () => {
   const registry = setup()
-  await registry.restoreLayout({ ...emptyLayout, tabs: [1, 2], activeArticleId: 2, inspectorOpen: true }, new AbortController().signal)
+  await restoreLayout(registry, { ...emptyLayout, tabs: [1, 2], activeArticleId: 2, inspectorOpen: true })
   assert.equal(registry.inspectorOpen, true)
   const first = registry.tabs.find(tab => tab.articleId === 1)!
   registry.setInspectorOpen(first, false)
@@ -190,8 +202,8 @@ test('the Inspector restores as workspace presentation and rejects another sessi
 
 test('a transient failed read does not turn a recoverable layout into an authoritative partial one', async () => {
   const registry = setup({ load: async id => id === 2 ? { kind: 'blocked', reason: 'unavailable' }
-    : { kind: 'ready', draft: draft(id) } })
-  assert.equal(await registry.restoreLayout({ ...emptyLayout, tabs: [1, -2], activeArticleId: 1 }, new AbortController().signal), undefined)
+    : loadedDraft(id) })
+  assert.equal(await restoreLayout(registry, { ...emptyLayout, tabs: [1, -2], activeArticleId: 1 }), undefined)
   assert.deepEqual(registry.tabs, [])
 })
 
@@ -203,7 +215,7 @@ test('duplicate entrypoints await one ready receipt and activate the original gr
   const route = registry.openOrActivate(12, 'secondary')
   assert.equal(registry.activeDraft, undefined)
   assert.deepEqual(registry.tabs, [])
-  pending.resolve({ kind: 'ready', draft: draft(12) })
+  pending.resolve(loadedDraft(12))
   assert.deepEqual(await rail, { kind: 'superseded' })
   const result = await route
   assert.equal(result.kind, 'ready')
@@ -225,7 +237,7 @@ test('crossed route navigation cancels old readiness and never creates a ghost t
         return pending.promise
       }
       if (id === 3) return Promise.resolve({ kind: 'blocked', reason: 'missing' })
-      return Promise.resolve({ kind: 'ready', draft: draft(id) })
+      return Promise.resolve(loadedDraft(id))
     },
   })
   await activate(registry, 1)
@@ -235,7 +247,7 @@ test('crossed route navigation cancels old readiness and never creates a ghost t
   assert.deepEqual(await registry.openOrActivate(3), { kind: 'blocked', reason: 'missing' })
   assert.equal(signal?.aborted, true)
   assert.deepEqual(await second, { kind: 'superseded' })
-  pending.resolve({ kind: 'ready', draft: draft(2) })
+  pending.resolve(loadedDraft(2))
   assert.deepEqual(registry.tabs.map(tab => tab.articleId), [1])
 })
 
@@ -280,7 +292,7 @@ test('save handles edits during persistence, retaining newer text at the returne
   assert.deepEqual(await registry.save(tab), { kind: 'busy' })
   assert.deepEqual(registry.requestClose(tab), { kind: 'protected' })
   registry.updateDraft(tab, draft(1, 1n, 'second'))
-  pending.resolve({ kind: 'saved', draft: draft(1, 2n, 'first') })
+  pending.resolve(savedDraft(draft(1, 2n, 'first')))
   assert.deepEqual(await save, { kind: 'saved', articleId: 1, revision: 2n })
   assert.deepEqual(submitted, draft(1, 1n, 'first'))
   assert.deepEqual(registry.activeDraft, draft(1, 2n, 'second'))
@@ -313,7 +325,7 @@ test('a draft whose first creation response was lost keeps the exact key and pay
     save: async (item, _signal, key) => {
       attempts.push({ item, key })
       return attempts.length === 1 ? { kind: 'blocked', reason: 'unavailable' }
-        : { kind: 'saved', draft: { ...item, id: 42, revision: 1n } }
+        : savedDraft({ ...item, id: 42, revision: 1n })
     },
   })
   const start = await registry.startDraft(draft(0, 0n, ''))
@@ -340,7 +352,7 @@ test('retry uses the exact original classification operation and key', async () 
   const selected = async (item: Draft, _signal: AbortSignal, key: string): Promise<DraftSave<Draft>> => {
     keys.push(key)
     return keys.length === 1 ? { kind: 'blocked', reason: 'unavailable' }
-      : { kind: 'saved', draft: { ...item, revision: 2n } }
+      : savedDraft({ ...item, revision: 2n })
   }
   const classification = await registry.commit(tab, 'assign-taxonomy', selected)
   assert.deepEqual(classification, { kind: 'blocked', reason: 'unavailable' })
@@ -357,7 +369,7 @@ test('a rejected draft keeps local edits and allows a corrected request with a n
   const registry = setup({
     save: async (item, _signal, key) => {
       keys.push(key)
-      return keys.length === 1 ? { kind: 'rejected' } : { kind: 'saved', draft: { ...item, revision: 2n } }
+      return keys.length === 1 ? { kind: 'rejected' } : savedDraft({ ...item, revision: 2n })
     },
   })
   const tab = await activate(registry, 1)
@@ -378,7 +390,7 @@ test('publication rejects dirty and unsaved drafts, and fences edits while writi
   const publish = registry.commit(tab, 'publish', () => pending.promise)
   assert.equal(registry.updateDraft(tab, draft(1, 1n, 'edit during publish')), false)
   assert.deepEqual(await registry.commit(tab, 'retract', () => pending.promise), { kind: 'busy' })
-  pending.resolve({ kind: 'saved', draft: draft(1, 2n) })
+  pending.resolve(savedDraft(draft(1, 2n)))
   assert.deepEqual(await publish, { kind: 'saved', articleId: 1, revision: 2n })
   registry.updateDraft(tab, draft(1, 2n, 'dirty'))
   assert.deepEqual(await registry.commit(tab, 'retract', () => pending.promise), { kind: 'dirty' })
@@ -403,7 +415,7 @@ test('identity A to B to A cannot publish an old result or accept an old session
   assert.notEqual(current.sessionId, old.sessionId)
   assert.equal(saveSignal?.aborted, true)
   assert.deepEqual(await save, { kind: 'superseded' })
-  pending.resolve({ kind: 'saved', draft: draft(1, 2n, 'A private edit') })
+  pending.resolve(savedDraft(draft(1, 2n, 'A private edit')))
   assert.equal(registry.updateDraft(old, draft(1, 1n, 'stale')), false)
   assert.equal(registry.activeDraft?.revision, 1n)
 })
@@ -459,7 +471,7 @@ test('revoking a session hides its content and ignores an old save result', asyn
   assert.equal(registry.tabs[0]?.risk, 'blocked')
   assert.equal(registry.requestClose(tab).kind, 'protected')
   assert.deepEqual(await save, { kind: 'superseded' })
-  pending.resolve({ kind: 'saved', draft: draft(1, 2n) })
+  pending.resolve(savedDraft(draft(1, 2n)))
   assert.deepEqual(await registry.openOrActivate(1), { kind: 'blocked', reason: 'forbidden' })
 })
 
@@ -477,7 +489,7 @@ test('returning to an inactive session rechecks authority without overwriting di
   let permission = true
   const registry = setup({
     load: async id => id === 1 && !permission ? { kind: 'blocked', reason: 'forbidden' } :
-      { kind: 'ready', draft: draft(id, id === 1 ? revision : 1n, 'server') },
+      loadedDraft(id, id === 1 ? revision : 1n, 'server'),
   })
   const one = await activate(registry, 1, 'main')
   registry.updateDraft(one, draft(1, 1n, 'local'))
@@ -501,12 +513,12 @@ test('returning to an inactive session rechecks authority without overwriting di
 
 test('a superseded route guard cannot replace the existing preview', async () => {
   const pending = deferred<DraftLoad<Draft>>()
-  const registry = setup({ load: async id => id === 2 ? pending.promise : { kind: 'ready', draft: draft(id) } })
+  const registry = setup({ load: async id => id === 2 ? pending.promise : loadedDraft(id) })
   await activate(registry, 1)
   let admissible = true
   const activation = registry.openOrActivate(2, 'main', 'preview', () => admissible)
   admissible = false
-  pending.resolve({ kind: 'ready', draft: draft(2) })
+  pending.resolve(loadedDraft(2))
   assert.deepEqual(await activation, { kind: 'superseded' })
   assert.deepEqual(registry.tabs.map(tab => tab.articleId), [1])
   assert.equal(registry.activeTab?.articleId, 1)
@@ -540,7 +552,7 @@ test('idle retains scoped tabs and recently closed entries are bounded and never
 
 test('only a current terminal reopen failure removes its recently closed entry', async () => {
   let reason: WorkspaceBlock | undefined
-  const registry = setup({ load: async id => id === 1 && reason ? { kind: 'blocked', reason } : { kind: 'ready', draft: draft(id) } })
+  const registry = setup({ load: async id => id === 1 && reason ? { kind: 'blocked', reason } : loadedDraft(id) })
   registry.requestClose(await activate(registry, 1))
   const active = await activate(registry, 2)
   reason = 'unavailable'
@@ -578,7 +590,7 @@ test('reexposing the comparison rechecks permission and retains dirty text acros
   let permission = true
   let revision = 1n
   const registry = setup({ load: async id => id !== 1 || permission
-    ? { kind: 'ready', draft: draft(id, id === 1 ? revision : 1n) } : { kind: 'blocked', reason: 'forbidden' } })
+    ? loadedDraft(id, id === 1 ? revision : 1n) : { kind: 'blocked', reason: 'forbidden' } })
   const first = await activate(registry, 1)
   registry.updateDraft(first, draft(1, 1n, 'local only'))
   const second = await activate(registry, 2, 'secondary')
@@ -597,14 +609,14 @@ test('reexposing the comparison rechecks permission and retains dirty text acros
 test('the comparison cannot restore a response after authority changes', async () => {
   const pending = deferred<DraftLoad<Draft>>()
   let delayed = false
-  const registry = setup({ load: async id => delayed && id === 1 ? pending.promise : { kind: 'ready', draft: draft(id) } })
+  const registry = setup({ load: async id => delayed && id === 1 ? pending.promise : loadedDraft(id) })
   const first = await activate(registry, 1)
   await activate(registry, 2, 'secondary')
   delayed = true
   const exposed = registry.recheckComparison(first, new AbortController().signal)
   await Promise.resolve()
   registry.setIdentity({ ...author, generation: 2n })
-  pending.resolve({ kind: 'ready', draft: draft(1, 2n, 'old identity private text') })
+  pending.resolve(loadedDraft(1, 2n, 'old identity private text'))
   assert.equal(await exposed, false)
   assert.deepEqual(registry.sourcePanes, [])
   assert.equal(registry.hasSecondaryGroup, false)
@@ -614,7 +626,7 @@ test('saved groups restore only current authorized drafts in their exact group, 
   const registry = setup()
   const layout: SavedWorkspaceLayout = { activeArticleId: 1, tabs: [1, -4], inspectorOpen: true,
     secondaryActiveArticleId: 2, secondaryTabs: [-3, 2], focusedGroup: 1 }
-  assert.equal(await registry.restoreLayout(layout, new AbortController().signal), 0)
+  assert.equal(await restoreLayout(registry, layout), 0)
   assert.deepEqual(registry.savedLayout, layout)
   assert.deepEqual(registry.tabs.map(tab => [tab.articleId, tab.group, tab.active]), [[1, 'main', false], [4, 'main', false],
     [3, 'secondary', false], [2, 'secondary', true]])
@@ -624,10 +636,10 @@ test('saved groups restore only current authorized drafts in their exact group, 
 })
 
 test('restoring missing selected drafts only falls back to a surviving selected record', async () => {
-  const registry = setup({ load: async id => id === 2 ? { kind: 'blocked', reason: 'missing' } : { kind: 'ready', draft: draft(id) } })
+  const registry = setup({ load: async id => id === 2 ? { kind: 'blocked', reason: 'missing' } : loadedDraft(id) })
   const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1], activeArticleId: 1,
     secondaryActiveArticleId: 2, secondaryTabs: [2, -3], focusedGroup: 1 }
-  assert.equal(await registry.restoreLayout(layout, new AbortController().signal), 1)
+  assert.equal(await restoreLayout(registry, layout), 1)
   assert.equal(registry.activeTab?.articleId, 1)
   assert.deepEqual(registry.sourcePanes.map(pane => pane.draft.id), [1])
   assert.deepEqual(registry.savedLayout, { ...layout, secondaryActiveArticleId: 0, secondaryTabs: [-3], focusedGroup: 0 })
@@ -635,7 +647,7 @@ test('restoring missing selected drafts only falls back to a surviving selected 
 
 test('malformed multi-group layouts fail before reading content', async () => {
   let reads = 0
-  const registry = setup({ load: async id => { reads++; return { kind: 'ready', draft: draft(id) } } })
+  const registry = setup({ load: async id => { reads++; return loadedDraft(id) } })
   const malformed = [
     { ...emptyLayout, tabs: [1], secondaryTabs: [-1] },
     { ...emptyLayout, secondaryTabs: [-2, -3] },
@@ -644,7 +656,7 @@ test('malformed multi-group layouts fail before reading content', async () => {
     { ...emptyLayout, tabs: Array.from({ length: 100 }, (_, index) => index + 1), secondaryTabs: [101] },
   ]
   for (const layout of malformed)
-    assert.equal(await registry.restoreLayout(layout, new AbortController().signal), undefined)
+    assert.equal(await restoreLayout(registry, layout), undefined)
   assert.equal(reads, 0)
   assert.deepEqual(registry.tabs, [])
 })
@@ -653,7 +665,7 @@ test('moving a focused preview appends its exact session, protects both editors 
   const registry = setup()
   const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1, -2], activeArticleId: 2,
     secondaryTabs: [3, -4], secondaryActiveArticleId: 4, focusedGroup: 1 }
-  assert.equal(await registry.restoreLayout(layout, new AbortController().signal), 0)
+  assert.equal(await restoreLayout(registry, layout), 0)
   const focused = registry.activeTab!
   const liveEditors = registry.sourcePanes.map(pane => pane.tab.sessionId)
   const revision = registry.revision
@@ -677,7 +689,7 @@ test('moving a background tab preserves both selected sessions and rejects old l
   const registry = setup()
   const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1, 2], activeArticleId: 1,
     secondaryTabs: [3, -4], secondaryActiveArticleId: 3 }
-  assert.equal(await registry.restoreLayout(layout, new AbortController().signal), 0)
+  assert.equal(await restoreLayout(registry, layout), 0)
   const draftToMove = await activate(registry, 2, 'main')
   assert(registry.updateDraft(draftToMove, draft(2, 1n, 'background local source')))
   const focused = await activate(registry, 1, 'main')
@@ -706,7 +718,7 @@ test('merging groups keeps order and pending server commands on the same focused
   const registry = setup({ save: () => pending.promise })
   const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1, -2], activeArticleId: 2,
     secondaryTabs: [-3, 4], secondaryActiveArticleId: 4, focusedGroup: 1 }
-  await registry.restoreLayout(layout, new AbortController().signal)
+  await restoreLayout(registry, layout)
   const focused = registry.activeTab!
   const liveEditors = registry.sourcePanes.map(pane => pane.tab.sessionId)
   assert.equal(registry.updateDraft(focused, draft(4, 1n, 'dirty secondary source')), true)
@@ -721,7 +733,7 @@ test('merging groups keeps order and pending server commands on the same focused
   assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), liveEditors)
   assert.equal(registry.sourcePanes[0].selected, false)
 
-  pending.resolve({ kind: 'saved', draft: draft(4, 2n, 'dirty secondary source') })
+  pending.resolve(savedDraft(draft(4, 2n, 'dirty secondary source')))
   assert.deepEqual(await save, { kind: 'saved', articleId: 4, revision: 2n })
   const previousSelection = await activate(registry, 2)
   assert.equal(previousSelection.sessionId, liveEditors[0])

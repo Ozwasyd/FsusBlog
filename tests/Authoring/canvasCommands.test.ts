@@ -4,6 +4,7 @@ import { defaultCanvasViewport, type CanvasGraphEdge, type CanvasGraphHeader, ty
 import {
   buildCanvasEdge,
   buildCanvasNode,
+  type CanvasNodeDraftInput,
   canApplyOptimisticNodeUpsert,
   CHOICE_CAP,
   computeHistoryAvailability,
@@ -37,6 +38,14 @@ const header = (overrides: Partial<CanvasGraphHeader> = {}): CanvasGraphHeader =
   ...overrides,
 })
 
+function nodeDraft(kind: CanvasNode['kind'], fields: Partial<Omit<CanvasNodeDraftInput, 'kind'>>): CanvasNodeDraftInput {
+  return { kind, text: '', article: '', anchor: '', pinned: '', memberIds: [], ...fields }
+}
+
+function articleNode(id: number, geometry: CanvasNode['geometry'], articleId: number, pinnedRevision: bigint | null = null) {
+  return { id: uuid(id), kind: 'article-reference' as const, geometry, articleId, pinnedRevision }
+}
+
 test('graph command builders produce wire-valid commands and reject malformed edits', () => {
   const doc = header()
   const createCmd = createCanvasCommand('Planning', uuid(10), uuid(11))
@@ -57,11 +66,7 @@ test('graph command builders produce wire-valid commands and reject malformed ed
 
 test('node and edge builders preserve shift placement, reference validation, and hidden frame members', () => {
   const canvas = header({ nodeCount: 3, viewport: { x: 1000, y: 2000, zoom: 1000 } })
-  const noteBuilt = buildCanvasNode(
-    { kind: 'plain-text-note', text: 'Note body', article: '', anchor: '', pinned: '', memberIds: [] },
-    canvas,
-    uuid(20),
-  )
+  const noteBuilt = buildCanvasNode(nodeDraft('plain-text-note', { text: 'Note body' }), canvas, uuid(20))
   assert.equal(noteBuilt.ok, true)
   if (noteBuilt.ok) {
     assert.deepEqual(noteBuilt.node.geometry, {
@@ -72,25 +77,21 @@ test('node and edge builders preserve shift placement, reference validation, and
     })
   }
 
-  const invalidRef = buildCanvasNode(
-    { kind: 'article-reference', text: '', article: '0', anchor: '', pinned: '', memberIds: [] },
-    canvas,
-    uuid(21),
-  )
+  const invalidRef = buildCanvasNode(nodeDraft('article-reference', { article: '0' }), canvas, uuid(21))
   assert.deepEqual(invalidRef, {
     ok: false,
     errorKey: 'author.canvas.enter_a_valid_article_id_and_optional_pinned_revision',
   })
 
   const invalidPin = buildCanvasNode(
-    { kind: 'heading-reference', text: '', article: '42', anchor: 'intro', pinned: 'abc', memberIds: [] },
+    nodeDraft('heading-reference', { article: '42', anchor: 'intro', pinned: 'abc' }),
     canvas,
     uuid(22),
   )
   assert.equal(invalidPin.ok, false)
 
   const validBlock = buildCanvasNode(
-    { kind: 'block-reference', text: '', article: '42', anchor: 'detail', pinned: '12', memberIds: [] },
+    nodeDraft('block-reference', { article: '42', anchor: 'detail', pinned: '12' }),
     canvas,
     uuid(23),
   )
@@ -108,7 +109,7 @@ test('node and edge builders preserve shift placement, reference validation, and
     text: 'Old',
   }
   const edited = buildCanvasNode(
-    { kind: 'plain-text-note', text: 'Updated', article: '', anchor: '', pinned: '', memberIds: [] },
+    nodeDraft('plain-text-note', { text: 'Updated' }),
     canvas,
     uuid(25),
     existing,
@@ -119,8 +120,8 @@ test('node and edge builders preserve shift placement, reference validation, and
     assert.deepEqual(edited.node.geometry, existing.geometry)
   }
 
-  const n1: CanvasNode = { id: uuid(30), kind: 'article-reference', geometry: existing.geometry, articleId: 1, pinnedRevision: null }
-  const n2: CanvasNode = { id: uuid(31), kind: 'article-reference', geometry: existing.geometry, articleId: 2, pinnedRevision: null }
+  const n1 = articleNode(30, existing.geometry, 1)
+  const n2 = articleNode(31, existing.geometry, 2)
   const byId = new Map([[n1.id, n1], [n2.id, n2]])
   const createdEdge = buildCanvasEdge(
     { endpoint: n2.id, kind: 'explicit-reference-note', label: 'Link' },
@@ -161,28 +162,20 @@ test('node and edge builders preserve shift placement, reference validation, and
 
 test('link eligibility, optimistic upsert, history availability, and shortcut parsing keep exact invariants', () => {
   const g = { x: 0, y: 0, width: 17000, height: 10000 }
-  const ref1: CanvasNode = { id: uuid(1), kind: 'article-reference', geometry: g, articleId: 10, pinnedRevision: null }
-  const ref2: CanvasNode = { id: uuid(2), kind: 'article-reference', geometry: g, articleId: 20, pinnedRevision: null }
-  const refPinned: CanvasNode = { id: uuid(3), kind: 'article-reference', geometry: g, articleId: 30, pinnedRevision: 5n }
+  const ref1 = articleNode(1, g, 10)
+  const ref2 = articleNode(2, g, 20)
+  const refPinned = articleNode(3, g, 30, 5n)
   const headingRef: CanvasNode = { id: uuid(4), kind: 'heading-reference', geometry: g, articleId: 40, anchor: 'sec', pinnedRevision: null }
   const byId = new Map([[ref1.id, ref1], [ref2.id, ref2], [refPinned.id, refPinned], [headingRef.id, headingRef]])
 
-  assert.deepEqual(
-    resolveActiveArticleLink({ id: uuid(10), kind: 'visual-only', sourceNodeId: ref1.id, targetNodeId: ref2.id, order: 0, label: null }, byId),
-    { from: ref1, to: ref2 },
-  )
-  assert.equal(
-    resolveActiveArticleLink({ id: uuid(11), kind: 'explicit-reference-note', sourceNodeId: ref1.id, targetNodeId: refPinned.id, order: 1, label: null }, byId),
-    undefined,
-  )
-  assert.equal(
-    resolveActiveArticleLink({ id: uuid(12), kind: 'explicit-reference-note', sourceNodeId: ref1.id, targetNodeId: ref1.id, order: 2, label: null }, byId),
-    undefined,
-  )
-  assert.equal(
-    resolveActiveArticleLink({ id: uuid(13), kind: 'explicit-reference-note', sourceNodeId: ref1.id, targetNodeId: headingRef.id, order: 3, label: null }, byId),
-    undefined,
-  )
+  function articleLink(id: number, kind: CanvasGraphEdge['kind'], targetNodeId: string, order: number) {
+    return resolveActiveArticleLink({ id: uuid(id), kind, sourceNodeId: ref1.id, targetNodeId, order, label: null }, byId)
+  }
+
+  assert.deepEqual(articleLink(10, 'visual-only', ref2.id, 0), { from: ref1, to: ref2 })
+  assert.equal(articleLink(11, 'explicit-reference-note', refPinned.id, 1), undefined)
+  assert.equal(articleLink(12, 'explicit-reference-note', ref1.id, 2), undefined)
+  assert.equal(articleLink(13, 'explicit-reference-note', headingRef.id, 3), undefined)
 
   const doc = header({ revision: 3n, nodeCount: 4, edgeCount: 1 })
   const updatedRef1 = { ...ref1, geometry: { ...g, x: 800 } }
@@ -195,29 +188,25 @@ test('link eligibility, optimistic upsert, history availability, and shortcut pa
     undefined,
   )
 
+  const historyContext = { disabled: false, hasOpenForm: false, document: doc }
   assert.deepEqual(
     computeHistoryAvailability({
-      disabled: false,
-      hasOpenForm: false,
-      document: doc,
+      ...historyContext,
       history: { revision: 3n, undoRevision: 2n, redoRevision: null },
     }),
     { undo: true, redo: false },
   )
   assert.deepEqual(
     computeHistoryAvailability({
-      disabled: false,
+      ...historyContext,
       hasOpenForm: true,
-      document: doc,
       history: { revision: 3n, undoRevision: 2n, redoRevision: 4n },
     }),
     { undo: false, redo: false },
   )
   assert.deepEqual(
     computeHistoryAvailability({
-      disabled: false,
-      hasOpenForm: false,
-      document: doc,
+      ...historyContext,
       history: { revision: 2n, undoRevision: 1n, redoRevision: 3n },
     }),
     { undo: false, redo: false },
