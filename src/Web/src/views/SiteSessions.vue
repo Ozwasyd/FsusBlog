@@ -16,10 +16,13 @@ import {
 import { listSiteSessions, revokeSiteSessions, type SessionList } from '../../../Contracts/site-sessions'
 import { ApiError } from '../../../Contracts/client'
 import { currentSession, identityEpoch } from '../session'
+import { useDelayedBusy } from '../delayedBusy'
 
 const list = shallowRef<SessionList | null>(null)
 const error = ref('')
 const busy = ref(false)
+const actionKind = ref<'load' | 'revoke' | null>(null)
+const refreshLoading = useDelayedBusy(() => busy.value && actionKind.value === 'load')
 let operation: AbortController | undefined
 
 onUnmounted(() => operation?.abort())
@@ -29,28 +32,30 @@ watch(identityEpoch, () => {
   list.value = null
   error.value = ''
   busy.value = false
+  actionKind.value = null
   void load()
 }, { immediate: true, flush: 'sync' })
 
 function load() {
-  return run(async (id, signal) => listSiteSessions(id, signal))
+  return run('load', async (id, signal) => listSiteSessions(id, signal))
 }
 
 async function revoke(target?: string) {
   if (!list.value) return
-  await run(async (id, signal) => {
+  await run('revoke', async (id, signal) => {
     await revokeSiteSessions(id, target, signal)
     return listSiteSessions(id, signal)
   })
 }
 
-async function run(action: (id: string, signal: AbortSignal) => Promise<SessionList>) {
+async function run(kind: 'load' | 'revoke', action: (id: string, signal: AbortSignal) => Promise<SessionList>) {
   const id = currentSession.value?.siteSessionId
   if (!id || busy.value) return
   const epoch = identityEpoch.value
   const request = new AbortController()
   operation = request
   busy.value = true
+  actionKind.value = kind
   error.value = ''
   const isCurrent = () => !request.signal.aborted && epoch === identityEpoch.value
   try {
@@ -66,6 +71,7 @@ async function run(action: (id: string, signal: AbortSignal) => Promise<SessionL
     if (operation === request) {
       operation = undefined
       busy.value = false
+      actionKind.value = null
     }
   }
 }
@@ -84,7 +90,7 @@ async function run(action: (id: string, signal: AbortSignal) => Promise<SessionL
     </template>
     <template #actions>
       <ElInlineActions density="compact">
-        <ElButton native-type="button" text :loading="busy" @click="load">{{ t('account.message74') }}</ElButton>
+        <ElButton native-type="button" text :loading="refreshLoading" @click="load">{{ t('account.message74') }}</ElButton>
         <ElButton
           v-if="list && list.sessions.length > 1"
           native-type="button"

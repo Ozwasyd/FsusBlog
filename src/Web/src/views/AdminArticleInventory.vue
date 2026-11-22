@@ -13,6 +13,7 @@ import { executeTrashPublication, executeTrashRestore, readTrashPublication, rea
   readTrashRestoreAvailability, requestTrashPublicationProof, requestTrashRestoreProof } from '../../../Contracts/admin-article-trash'
 import { listAdminArticles, type AuthorArticlePage, type AuthorArticleQuery, type AuthorArticleRow } from '../../../Contracts/author-articles'
 import type { AdminArticleTrashPublicationIntent, AdminArticleTrashPublicationPreview, AdminArticleTrashRestoreIntent } from '../../../Contracts/wire.generated'
+import { useDelayedBusy } from '../delayedBusy'
 
 const props = withDefaults(defineProps<{
   sessionSignal: AbortSignal
@@ -60,17 +61,24 @@ const stateTagTypes: Record<AuthorArticleRow['state'], 'info' | 'warning' | 'suc
   retracted: 'warning',
   deleted: 'danger',
 }
-const busy = computed(() => reading.value || restoring.value || deleting.value || !!retry.value)
+const mutating = computed(() => restoring.value || deleting.value || !!retry.value)
+const busy = computed(() => reading.value || mutating.value)
+const readSource = ref<'initial' | 'search' | 'page' | 'after-mutation' | null>(null)
+const searchLoading = useDelayedBusy(() => reading.value && readSource.value === 'search')
+let readRequest: AbortController | undefined
 const headingId = `admin-article-inventory-${props.trash ? 'trash' : 'active'}`
 const keywordId = `${headingId}-keyword`
 const rows = computed(() => [...page.value?.items ?? []])
 watch(() => busy.value || !!selected.value || !!deleteTarget.value, value => emit('busy', value), { immediate: true, flush: 'sync' })
-watch(() => props.active, active => { if (active) void search() })
-watch(() => props.taxonomyFilter, () => { if (props.active) void search() })
-onScopeDispose(() => lifetime.abort())
+watch(() => props.active, active => { if (active) void search(query.value.trash, 'initial') })
+watch(() => props.taxonomyFilter, () => { if (props.active) void search(query.value.trash, 'initial') })
+onScopeDispose(() => {
+  readRequest?.abort()
+  lifetime.abort()
+})
 
 onMounted(() => {
-  if (props.active) void search()
+  if (props.active) void search(query.value.trash, 'initial')
   for (const [available, read] of [[restoreAvailable, readTrashRestoreAvailability], [publicationAvailable, readTrashPublicationAvailability]] as const) {
     void read(signal).then(value => { if (!signal.aborted) available.value = value }).catch(sessionError)
   }
@@ -94,34 +102,44 @@ function sessionError(cause: unknown) {
   if (!signal.aborted && cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
 }
 
-async function load(next: AuthorArticleQuery) {
-  if (busy.value || signal.aborted) return
+async function load(next: AuthorArticleQuery, source: 'initial' | 'search' | 'page' | 'after-mutation' = 'page') {
+  if (mutating.value || signal.aborted) return
+  readRequest?.abort()
+  const current = readRequest = new AbortController()
+  const requestSignal = AbortSignal.any([signal, current.signal])
   reading.value = true
+  readSource.value = source
   failed.value = false
-  page.value = undefined
   query.value = next
   try {
-    const result = await listAdminArticles(next, signal)
-    if (!signal.aborted) page.value = result
+    const result = await listAdminArticles(next, requestSignal)
+    if (!requestSignal.aborted) page.value = result
   } catch (cause) {
-    if (signal.aborted) return
+    if (requestSignal.aborted) return
+    page.value = undefined
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
     else failed.value = true
-  } finally { reading.value = false }
+  } finally {
+    if (readRequest === current) {
+      readRequest = undefined
+      reading.value = false
+      readSource.value = null
+    }
+  }
 }
 
-function search(trash = query.value.trash) {
+function search(trash = query.value.trash, source: 'initial' | 'search' = 'search') {
   return load({
     trash,
     keyword: keyword.value.trim(),
     match: 'title-summary',
     ...(props.taxonomyFilter?.kind === 'category' ? { categoryId: props.taxonomyFilter.id } : {}),
     ...(props.taxonomyFilter?.kind === 'tag' ? { tagId: props.taxonomyFilter.id } : {}),
-  })
+  }, source)
 }
 
 function nextPage() {
-  if (page.value?.nextId) return load({ ...query.value, beforeId: page.value.nextId })
+  if (page.value?.nextId) return load({ ...query.value, beforeId: page.value.nextId }, 'page')
 }
 
 async function restore(publicly = false) {
@@ -167,7 +185,7 @@ async function restore(publicly = false) {
       refresh = true
     }
   } finally { restoring.value = false }
-  if (refresh && !signal.aborted) await load({ ...query.value, beforeId: undefined })
+  if (refresh && !signal.aborted) await load({ ...query.value, beforeId: undefined }, 'after-mutation')
 }
 
 async function confirmDelete() {
@@ -184,7 +202,7 @@ async function confirmDelete() {
     noticeParams.value = { title: deletedTitle }
     notice.value = 'admin.inventory.deleted'
     deleting.value = false
-    await load({ ...query.value, beforeId: undefined })
+    await load({ ...query.value, beforeId: undefined }, 'after-mutation')
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) {
@@ -203,8 +221,8 @@ async function confirmDelete() {
     <div class="inventory-toolbar">
       <form class="inventory-search" @submit.prevent="search()">
         <label :for="keywordId">{{ t('admin.inventory.keyword') }}</label>
-        <ElInput :id="keywordId" v-model="keyword" :disabled="busy" clearable />
-        <ElButton native-type="submit" :disabled="busy" :loading="reading">{{ t('admin.inventory.search') }}</ElButton>
+        <ElInput :id="keywordId" v-model="keyword" :disabled="mutating" clearable />
+        <ElButton native-type="submit" :disabled="mutating" :loading="searchLoading">{{ t('admin.inventory.search') }}</ElButton>
       </form>
       <RouterLink v-if="!trash" :to="{ name: 'write' }" custom v-slot="{ href, navigate }">
         <ElButton tag="a" type="primary" class="inventory-write-link" v-bind="{ href }" @click="navigate">
@@ -216,11 +234,11 @@ async function confirmDelete() {
       <ElTag size="small" type="info">
         {{ t('admin.inventory.taxonomyFilter', { kind: t(taxonomyFilter.kind === 'category' ? 'admin.taxonomy.kindCategory' : 'admin.taxonomy.kindTag'), name: taxonomyFilter.name }) }}
       </ElTag>
-      <ElButton native-type="button" text size="small" :disabled="busy" @click="emit('clear-taxonomy-filter')">
+      <ElButton native-type="button" text size="small" :disabled="mutating" @click="emit('clear-taxonomy-filter')">
         {{ t('admin.inventory.clearFilter') }}
       </ElButton>
     </div>
-    <ElSkeleton v-if="reading" :rows="4" />
+    <ElSkeleton v-if="reading && !page" :rows="4" />
     <ElAlert v-if="failed" :title="t('admin.inventory.loadFailed')" type="error" :closable="false" />
     <ElAlert v-if="restoreFailure" :title="t(restoreFailure)" type="warning" :closable="false" />
     <p v-if="notice" class="inventory-status" role="status">{{ t(notice, noticeParams) }}</p>

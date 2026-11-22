@@ -5,12 +5,14 @@ import { ElAlert, ElButton, ElEmptyState, ElMetadataItem, ElMetadataRow, ElResou
 import { ApiError } from '../../../Contracts/aeds'
 import type { AdminSession } from '../../../Contracts/admin-identity'
 import { readAdminSessionHistory, type AdminSessionHistoryRow } from '../../../Contracts/admin-session-history'
+import { useDelayedBusy } from '../delayedBusy'
 
 const props = defineProps<{ session: AdminSession; sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ sessionLost: [error: ApiError] }>()
 const lifetime = new AbortController()
 const history = shallowRef<readonly AdminSessionHistoryRow[] | null>(null)
 const loading = ref(false)
+const refreshLoading = useDelayedBusy(() => loading.value)
 const failure = ref(false)
 const stateLabel = (state: AdminSessionHistoryRow['state']) => ({ current: t('admin.sessionCurrent'), ended: t('admin.sessionEnded'), expired: t('admin.sessionExpired') })[state]
 const stateTagType = (state: AdminSessionHistoryRow['state']) => ({ current: 'success', ended: 'info', expired: 'warning' } as const)[state]
@@ -47,7 +49,7 @@ async function loadHistory() {
   >
     <template #title><span id="admin-session-history-heading">{{ t('admin.sessionHistory') }}</span></template>
     <template #actions>
-      <ElButton native-type="button" text :loading="loading" @click="loadHistory">{{ t('admin.refreshSessionHistory') }}</ElButton>
+      <ElButton native-type="button" text :loading="refreshLoading" @click="loadHistory">{{ t('admin.refreshSessionHistory') }}</ElButton>
     </template>
     <ElAlert v-if="failure" :title="t('admin.sessionHistoryFailed')" type="error" :closable="false" show-icon />
     <ElSkeleton v-else-if="loading && !history" :rows="2" animated />

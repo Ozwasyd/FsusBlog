@@ -18,7 +18,10 @@ import {
 } from '../../../Contracts/admin-readers'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { t, type MessageKey } from '../siteLocale'
+import { useDelayedBusy } from '../delayedBusy'
 import { watchAdminSessionClear } from './adminSessionClear'
+
+type LoadSource = 'initial' | 'search' | 'filter' | 'refresh' | 'more' | 'after-mutation'
 
 const props = defineProps<{ session: AdminSession; sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: ApiError] }>()
@@ -29,6 +32,7 @@ const keyword = ref('')
 const appliedKeyword = ref('')
 const statusFilter = ref<AdminReaderStatusFilter>('all')
 const loading = ref(false)
+const loadingSource = ref<LoadSource | null>(null)
 const submitting = ref(false)
 const failure = ref<MessageKey | ''>('')
 const notice = ref<MessageKey | ''>('')
@@ -44,6 +48,9 @@ const retryCommand = shallowRef<AdminReaderStatusCommand | null>(null)
 let activeRequest: AbortController | undefined
 const lifetime = new AbortController()
 const busy = computed(() => loading.value || submitting.value)
+const searchLoading = useDelayedBusy(() => loading.value && loadingSource.value === 'search')
+const refreshLoading = useDelayedBusy(() => loading.value && loadingSource.value === 'refresh')
+const moreLoading = useDelayedBusy(() => loading.value && loadingSource.value === 'more')
 const reasonValid = computed(() => validReaderGovernanceReason(reason.value))
 const reasonInvalid = computed(() => reasonTouched.value && !reasonValid.value)
 
@@ -53,6 +60,7 @@ function clearState() {
   page.value = null
   items.value = []
   loading.value = false
+  loadingSource.value = null
   submitting.value = false
   failure.value = ''
   notice.value = ''
@@ -70,7 +78,7 @@ function closeDialog(force = false) {
 }
 
 function openAction(account: AdminReaderAccount, nextEnabled: boolean) {
-  if (busy.value) return
+  if (submitting.value) return
   target.value = account
   targetEnabled.value = nextEnabled
   reason.value = ''
@@ -84,12 +92,13 @@ function onReasonInput() {
   retryCommand.value = null
 }
 
-async function load(append = false) {
+async function load(append = false, source: LoadSource = append ? 'more' : 'refresh') {
   if (props.sessionSignal.aborted || submitting.value) return
   activeRequest?.abort()
   const current = activeRequest = new AbortController()
   const signal = AbortSignal.any([current.signal, props.sessionSignal, lifetime.signal])
   loading.value = true
+  loadingSource.value = source
   failure.value = ''
   if (!append) notice.value = ''
   try {
@@ -112,27 +121,28 @@ async function load(append = false) {
     if (activeRequest === current) {
       activeRequest = undefined
       loading.value = false
+      loadingSource.value = null
     }
   }
 }
 
 function submitSearch() {
   appliedKeyword.value = keyword.value.trim()
-  void load(false)
+  void load(false, 'search')
 }
 
 function clearSearch() {
   keyword.value = ''
   appliedKeyword.value = ''
   statusFilter.value = 'all'
-  void load(false)
+  void load(false, 'filter')
 }
 
 function selectStatus(value: string | number | boolean | undefined) {
   if (value !== 'all' && value !== 'enabled' && value !== 'disabled') return
   if (statusFilter.value === value) return
   statusFilter.value = value
-  void load(false)
+  void load(false, 'filter')
 }
 
 async function submitGovernance() {
@@ -151,6 +161,9 @@ async function submitGovernance() {
     reason: trimmedReason,
   }
 
+  activeRequest?.abort()
+  loading.value = false
+  loadingSource.value = null
   const current = activeRequest = new AbortController()
   const signal = AbortSignal.any([current.signal, props.sessionSignal, lifetime.signal])
   submitting.value = true
@@ -170,7 +183,7 @@ async function submitGovernance() {
     }
     notice.value = receipt.enabled ? 'admin.readers.enabledNotice' : 'admin.readers.disabledNotice'
     submitting.value = false
-    await load(false)
+    await load(false, 'after-mutation')
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof ApiError && cause.status === 401) {
@@ -180,7 +193,7 @@ async function submitGovernance() {
       retryCommand.value = null
       dialogFailure.value = 'admin.readers.conflict'
       submitting.value = false
-      await load(false)
+      await load(false, 'after-mutation')
     } else if (cause instanceof ApiError && cause.status === 428) {
       retryCommand.value = null
       dialogFailure.value = 'admin.readers.proofRequired'
@@ -221,10 +234,10 @@ function securitySummary(item: AdminReaderAccount): string {
 
 watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clearState)
 watch(() => props.sessionSignal, signal => {
-  if (!signal.aborted && page.value === null && !loading.value) void load(false)
+  if (!signal.aborted && page.value === null && !loading.value) void load(false, 'initial')
 })
 onMounted(() => {
-  if (!props.sessionSignal.aborted && page.value === null) void load(false)
+  if (!props.sessionSignal.aborted && page.value === null) void load(false, 'initial')
 })
 onBeforeUnmount(() => {
   activeRequest?.abort()
@@ -244,11 +257,11 @@ onBeforeUnmount(() => {
             id="admin-readers-keyword"
             v-model="keyword"
             :placeholder="t('admin.readers.searchPlaceholder')"
-            :disabled="busy"
+            :disabled="submitting"
             clearable
             v-bind="{ maxlength: WireLimits.AdminReaderKeywordChars, autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false', enterkeyhint: 'search' }"
           />
-          <ElButton native-type="submit" :disabled="busy" :loading="loading">{{ t('admin.readers.search') }}</ElButton>
+          <ElButton native-type="submit" :disabled="submitting" :loading="searchLoading">{{ t('admin.readers.search') }}</ElButton>
         </form>
       </div>
       <div class="readers-filter-row">
@@ -257,7 +270,7 @@ onBeforeUnmount(() => {
           size="small"
           :label="t('admin.readers.statusFilter')"
           :model-value="statusFilter"
-          :disabled="busy"
+          :disabled="submitting"
           @update:model-value="selectStatus"
         >
           <ElRadioButton value="all">
@@ -271,10 +284,10 @@ onBeforeUnmount(() => {
           </ElRadioButton>
         </ElRadioGroup>
         <ElInlineActions>
-          <ElButton v-if="appliedKeyword || statusFilter !== 'all'" native-type="button" text :disabled="busy" @click="clearSearch">
+          <ElButton v-if="appliedKeyword || statusFilter !== 'all'" native-type="button" text :disabled="submitting" @click="clearSearch">
             {{ t('admin.readers.resetFilters') }}
           </ElButton>
-          <ElButton native-type="button" text :loading="loading" :disabled="submitting" @click="load(false)">
+          <ElButton native-type="button" text :loading="refreshLoading" :disabled="submitting" @click="load(false, 'refresh')">
             {{ t('admin.readers.refresh') }}
           </ElButton>
         </ElInlineActions>
@@ -334,14 +347,14 @@ onBeforeUnmount(() => {
               native-type="button"
               text
               type="danger"
-              :disabled="busy"
+              :disabled="submitting"
               @click="openAction(item, false)"
             >{{ t('admin.readers.disableAction') }}</ElButton>
             <ElButton
               v-else
               native-type="button"
               text
-              :disabled="busy"
+              :disabled="submitting"
               @click="openAction(item, true)"
             >{{ t('admin.readers.enableAction') }}</ElButton>
           </template>
@@ -349,7 +362,7 @@ onBeforeUnmount(() => {
       </ElResourceList>
 
       <div v-if="page.hasMore" class="readers-more">
-        <ElButton native-type="button" text :loading="loading" :disabled="submitting" @click="load(true)">
+        <ElButton native-type="button" text :loading="moreLoading" :disabled="submitting" @click="load(true, 'more')">
           {{ t('admin.readers.loadMore') }}
         </ElButton>
       </div>

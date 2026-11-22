@@ -13,6 +13,7 @@ import {
   adminInboxStatusTransitions as transitions,
   type AdminInboxState,
 } from '../admin/adminInboxController'
+import { useDelayedBusy } from '../delayedBusy'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ sessionLost: [error: unknown] }>()
@@ -89,6 +90,12 @@ const filterValue = ref(initial.filter)
 const orderValue = ref(initial.order)
 const queuePending = ref(initial.queuePending)
 const threadPending = ref(initial.threadPending)
+const queueAction = ref<'refresh' | 'more' | null>(null)
+const threadAction = ref<'reload' | 'earlier' | null>(null)
+const queueRefreshLoading = useDelayedBusy(() => queuePending.value && queueAction.value === 'refresh')
+const queueMoreLoading = useDelayedBusy(() => queuePending.value && queueAction.value === 'more')
+const threadReloadLoading = useDelayedBusy(() => threadPending.value && threadAction.value === 'reload')
+const threadEarlierLoading = useDelayedBusy(() => threadPending.value && threadAction.value === 'earlier')
 const readPending = ref(initial.readPending)
 const replyPending = ref(initial.replyPending)
 const statusPending = ref(initial.statusPending)
@@ -114,8 +121,14 @@ function syncSnapshot(snap: AdminInboxState) {
   if (next.value !== snap.next) next.value = snap.next
   if (filterValue.value !== snap.filter) filterValue.value = snap.filter
   if (orderValue.value !== snap.order) orderValue.value = snap.order
-  if (queuePending.value !== snap.queuePending) queuePending.value = snap.queuePending
-  if (threadPending.value !== snap.threadPending) threadPending.value = snap.threadPending
+  if (queuePending.value !== snap.queuePending) {
+    queuePending.value = snap.queuePending
+    if (!snap.queuePending) queueAction.value = null
+  }
+  if (threadPending.value !== snap.threadPending) {
+    threadPending.value = snap.threadPending
+    if (!snap.threadPending) threadAction.value = null
+  }
   if (readPending.value !== snap.readPending) readPending.value = snap.readPending
   if (replyPending.value !== snap.replyPending) replyPending.value = snap.replyPending
   if (statusPending.value !== snap.statusPending) statusPending.value = snap.statusPending
@@ -193,24 +206,31 @@ const renderedMessages = computed(() => {
 
 function openThread(id: bigint, before: string | null = null, event?: MouseEvent) {
   if (event?.currentTarget instanceof HTMLElement) opener = event.currentTarget
+  threadAction.value = before ? 'earlier' : null
   void controller.openThread(id, before)
 }
 
 const closeThread = () => controller.closeThread()
-const loadQueue = (cursor: string | null = null) => { void controller.loadQueue(cursor) }
+const loadQueue = (cursor: string | null = null, action: 'refresh' | 'more' | null = cursor ? 'more' : 'refresh') => {
+  queueAction.value = action
+  void controller.loadQueue(cursor)
+}
 const retryRead = () => { void controller.retryRead() }
 const clearNotice = () => controller.clearNotice()
 const sendNotice = () => { void controller.sendNotice() }
 const sendReply = () => { void controller.sendReply() }
 const saveStatus = () => { void controller.saveStatus() }
-const reloadThread = () => { void controller.reloadThread() }
+const reloadThread = () => {
+  threadAction.value = 'reload'
+  void controller.reloadThread()
+}
 
 watch(() => props.sessionSignal, signal => {
   controller.bindSession(signal, { autoLoad: true })
 }, { flush: 'sync' })
 
 onMounted(() => {
-  if (!props.sessionSignal.aborted) loadQueue()
+  if (!props.sessionSignal.aborted) loadQueue(null, null)
 })
 
 onBeforeUnmount(() => {
@@ -248,7 +268,7 @@ onBeforeUnmount(() => {
                 </ElSelect>
               </div>
               <div class="inbox-admin-toolbar-actions">
-                <ElButton native-type="button" text :loading="queuePending" @click="loadQueue()">{{ t('admin.inbox.m14') }}</ElButton>
+                <ElButton native-type="button" text :loading="queueRefreshLoading" @click="loadQueue()">{{ t('admin.inbox.m14') }}</ElButton>
                 <ElButton v-if="noticesEnabled && !composeNotice" native-type="button" :disabled="noticePending"
                   @click="composeNotice = true">{{ t('admin.inbox.m15') }}</ElButton>
               </div>
@@ -301,7 +321,7 @@ onBeforeUnmount(() => {
             </ElConversationList>
 
             <div v-if="next" class="inbox-admin-more">
-              <ElButton native-type="button" text :loading="queuePending" @click="loadQueue(next)">{{ t('admin.inbox.m24') }}</ElButton>
+              <ElButton native-type="button" text :loading="queueMoreLoading" @click="loadQueue(next)">{{ t('admin.inbox.m24') }}</ElButton>
             </div>
           </div>
         </template>
@@ -320,7 +340,7 @@ onBeforeUnmount(() => {
                   v-if="thread.version || thread.liveEnabled || needsRefresh"
                   native-type="button"
                   text
-                  :loading="threadPending"
+                  :loading="threadReloadLoading"
                   @click="reloadThread"
                 >{{ t('admin.inbox.m26') }}</ElButton>
               </template>
@@ -338,7 +358,7 @@ onBeforeUnmount(() => {
               </template>
               <template #messages>
                 <div v-if="thread.previous" class="inbox-admin-earlier">
-                  <ElButton native-type="button" text :loading="threadPending"
+                  <ElButton native-type="button" text :loading="threadEarlierLoading"
                     @click="openThread(thread.conversation.id, thread.previous)">{{ t('admin.inbox.m29') }}</ElButton>
                 </div>
                 <ElMessageTimeline>

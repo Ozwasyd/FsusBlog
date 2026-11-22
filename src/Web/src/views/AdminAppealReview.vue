@@ -7,6 +7,7 @@ import {
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { appealReason, decideAdminAppeal, readAdminAppeals, type PendingAppeal } from '../../../Contracts/comment-appeals'
+import { useDelayedBusy } from '../delayedBusy'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ sessionLost: [error: ApiError] }>()
@@ -14,12 +15,15 @@ const list = shallowRef<PendingAppeal[] | null>(null)
 const selected = ref<string>()
 const reason = ref('')
 const busy = ref(false)
+const busySource = ref<'initial' | 'refresh' | 'more' | 'decide' | null>(null)
+const refreshLoading = useDelayedBusy(() => busy.value && busySource.value === 'refresh')
+const moreLoading = useDelayedBusy(() => busy.value && busySource.value === 'more')
 const failure = ref<MessageKey | ''>('')
 const notice = ref<MessageKey | ''>('')
 const more = ref(false)
 const lifetime = new AbortController()
 onMounted(() => {
-  if (!props.sessionSignal.aborted && list.value === null) void load()
+  if (!props.sessionSignal.aborted && list.value === null) void load(false, 'initial')
 })
 watch(() => props.sessionSignal, signal => {
   list.value = null
@@ -28,14 +32,15 @@ watch(() => props.sessionSignal, signal => {
   failure.value = ''
   notice.value = ''
   more.value = false
-  if (!signal.aborted) void load()
+  if (!signal.aborted) void load(false, 'initial')
 })
 onBeforeUnmount(() => lifetime.abort())
 
-async function run(task: (signal: AbortSignal) => Promise<void>) {
+async function run(source: 'initial' | 'refresh' | 'more' | 'decide', task: (signal: AbortSignal) => Promise<void>) {
   if (busy.value || props.sessionSignal.aborted) return
   const signal = AbortSignal.any([props.sessionSignal, lifetime.signal])
   busy.value = true
+  busySource.value = source
   failure.value = ''
   notice.value = ''
   try { await task(signal) }
@@ -45,11 +50,16 @@ async function run(task: (signal: AbortSignal) => Promise<void>) {
     else failure.value = error instanceof ApiError && error.status === 409
       ? 'admin.appeals.m9'
       : 'admin.appeals.m10'
-  } finally { if (!signal.aborted) busy.value = false }
+  } finally {
+    if (!signal.aborted) {
+      busy.value = false
+      busySource.value = null
+    }
+  }
 }
 
-function load(append = false) {
-  return run(async signal => {
+function load(append = false, source: 'initial' | 'refresh' | 'more' = append ? 'more' : 'refresh') {
+  return run(source, async signal => {
     const before = append ? list.value?.at(-1)?.id ?? null : null
     const page = await readAdminAppeals(before, signal)
     if (signal.aborted) return
@@ -63,7 +73,7 @@ function load(append = false) {
 function decide(id: string, decision: 'granted' | 'denied') {
   if (selected.value !== id || !appealReason(reason.value)) return
   const explanation = reason.value
-  return run(async signal => {
+  return run('decide', async signal => {
     await decideAdminAppeal(id, decision, explanation, signal)
     if (signal.aborted) return
     list.value = list.value?.filter(item => item.id !== id) ?? null
@@ -78,7 +88,7 @@ function decide(id: string, decision: 'granted' | 'denied') {
   <section class="appeal-review" aria-labelledby="admin-appeal-heading">
     <h2 id="admin-appeal-heading" class="appeal-sr-title">{{ t('admin.appeals.m1') }}</h2>
     <div class="appeal-panel-actions">
-      <ElButton native-type="button" text :loading="busy" @click="load()">{{ t('admin.appeals.refresh') }}</ElButton>
+      <ElButton native-type="button" text :loading="refreshLoading" @click="load()">{{ t('admin.appeals.refresh') }}</ElButton>
     </div>
     <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" />
     <p v-if="notice" class="appeal-status" role="status">{{ t(notice) }}</p>
@@ -113,7 +123,7 @@ function decide(id: string, decision: 'granted' | 'denied') {
       </ElResourceListItem>
     </ElResourceList>
     <div v-if="more" class="appeal-more">
-      <ElButton native-type="button" :loading="busy" text @click="load(true)">{{ t('admin.appeals.m8') }}</ElButton>
+      <ElButton native-type="button" :loading="moreLoading" text @click="load(true)">{{ t('admin.appeals.m8') }}</ElButton>
     </div>
   </section>
 </template>

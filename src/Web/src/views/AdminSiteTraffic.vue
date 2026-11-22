@@ -8,12 +8,14 @@ import { ApiError } from '../../../Contracts/aeds'
 import type { AdminSession } from '../../../Contracts/admin-identity'
 import { readAdminSiteTraffic } from '../../../Contracts/admin-site-traffic'
 import { siteLocale, t, type MessageKey } from '../siteLocale'
+import { useDelayedBusy } from '../delayedBusy'
 import { watchAdminSessionClear } from './adminSessionClear'
 
 const props = defineProps<{ session: AdminSession; sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: ApiError] }>()
 const observation = shallowRef<Awaited<ReturnType<typeof readAdminSiteTraffic>>>()
 const busy = ref(false)
+const refreshLoading = useDelayedBusy(() => busy.value)
 const error = ref<MessageKey | ''>('')
 let request: AbortController | undefined
 const total = computed(() => observation.value?.days.reduce((sum, day) => sum + day.views, 0) ?? 0)
@@ -47,15 +49,17 @@ function clear() {
 }
 async function load() {
   if (busy.value || props.sessionSignal.aborted) return
-  clear()
+  request?.abort()
   const current = request = new AbortController()
   const signal = AbortSignal.any([current.signal, props.sessionSignal])
   busy.value = true
+  error.value = ''
   try {
     const result = await readAdminSiteTraffic(props.session, signal)
     if (!signal.aborted) observation.value = result
   } catch (cause) {
     if (signal.aborted) return
+    observation.value = undefined
     if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
     else error.value = 'admin.traffic.failed'
   } finally {
@@ -73,10 +77,10 @@ onMounted(() => { void load() })
     </template>
     <template #description>{{ t('admin.traffic.period') }}</template>
     <template #actions>
-      <ElButton native-type="button" :loading="busy" @click="load">{{ t('admin.traffic.refresh') }}</ElButton>
+      <ElButton native-type="button" :loading="refreshLoading" @click="load">{{ t('admin.traffic.refresh') }}</ElButton>
     </template>
 
-    <div v-if="busy" class="traffic-loading" role="status">
+    <div v-if="busy && !observation" class="traffic-loading" role="status">
       <p>{{ t('admin.traffic.loading') }}</p>
       <ElSkeleton :rows="4" />
     </div>

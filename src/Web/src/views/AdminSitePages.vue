@@ -18,6 +18,7 @@ import { ApiError } from '../../../Contracts/aeds'
 import { readAdminSitePage, readAdminSitePages } from '../../../Contracts/admin-site-pages'
 import type { SitePageSlug } from '../../../Contracts/site-pages'
 import AdminSitePageEditor from './AdminSitePageEditor.vue'
+import { useDelayedBusy } from '../delayedBusy'
 import { watchAdminSessionClear } from './adminSessionClear'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
@@ -30,6 +31,7 @@ const selected = shallowRef<Awaited<ReturnType<typeof readAdminSitePage>>>()
 const readOnlyMode = ref<'source' | 'preview'>('source')
 const editor = ref<SitePageSlug>()
 const busy = ref(false)
+const refreshLoading = useDelayedBusy(() => busy.value)
 const readingSlug = ref<SitePageSlug>()
 const error = ref<MessageKey | ''>('')
 let active: AbortController | undefined
@@ -138,7 +140,7 @@ onMounted(() => { void readOverview(false) })
       <span id="admin-site-pages-heading">{{ t('admin.sitePages') }}</span>
     </template>
     <template #actions>
-      <ElButton native-type="button" :loading="busy" @click="readOverview(true)">{{ t('admin.sitePages.refresh') }}</ElButton>
+      <ElButton native-type="button" :loading="refreshLoading" @click="readOverview(true)">{{ t('admin.sitePages.refresh') }}</ElButton>
     </template>
 
     <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" show-icon />

@@ -31,6 +31,7 @@ import {
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { applySiteBrand, bumpSiteConfigEpoch, safeBrandAssetUrl } from '../siteBrand'
 import { t, type MessageKey } from '../siteLocale'
+import { useDelayedBusy } from '../delayedBusy'
 import { watchAdminSessionClear } from './adminSessionClear'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
@@ -180,6 +181,7 @@ const state = shallowRef<AdminSiteConfigState>()
 const form = reactive<FormModel>(emptyForm())
 const activeTab = ref<ConfigTab>('seo')
 const loading = ref(false)
+const refreshLoading = useDelayedBusy(() => loading.value)
 const saving = ref(false)
 const stale = ref(false)
 const confirmed = ref(false)
@@ -613,7 +615,7 @@ onScopeDispose(() => {
       <span id="admin-site-config-heading">{{ t('admin.siteConfig.title') }}</span>
     </template>
     <template #actions>
-      <ElButton native-type="button" :loading="loading" :disabled="saving" @click="load">{{ t('admin.siteConfig.refresh') }}</ElButton>
+      <ElButton native-type="button" :loading="refreshLoading" :disabled="saving" @click="load">{{ t('admin.siteConfig.refresh') }}</ElButton>
     </template>
 
     <div class="visually-hidden" aria-live="polite">{{ liveAnnouncement }}</div>

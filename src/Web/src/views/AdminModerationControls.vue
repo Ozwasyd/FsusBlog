@@ -16,6 +16,7 @@ import {
   moderationCoordinate as coordinate,
   type ModerationDisplayMessage,
 } from '../admin/adminModerationController'
+import { useDelayedBusy } from '../delayedBusy'
 
 function displayMessage(message: ModerationDisplayMessage): string {
   if (typeof message === 'string') return t(message)
@@ -110,8 +111,15 @@ onUnmounted(() => {
   controller.dispose()
 })
 
+const refreshRequested = ref(false)
+watch(busy, active => { if (!active) refreshRequested.value = false }, { flush: 'sync' })
+const refreshLoading = useDelayedBusy(() => busy.value && refreshRequested.value)
+
 const isClaimed = (row: AdminCommentCursor) => controller.isClaimed(row)
-const load = (after: AdminCommentCursor | null = null) => controller.load(after)
+const load = (after: AdminCommentCursor | null = null) => {
+  refreshRequested.value = after === null
+  return controller.load(after)
+}
 const openCommentHistory = (row: AdminCommentCursor) => controller.openCommentHistory(row)
 const loadHistory = () => controller.loadHistory()
 const loadRevisions = (before: number | null = null) => controller.loadRevisions(before)
@@ -129,7 +137,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
   <section class="admin-moderation" aria-labelledby="admin-moderation-heading">
     <h2 id="admin-moderation-heading" class="moderation-sr-title">{{ t('admin.moderation.m32') }}</h2>
     <div class="moderation-panel-actions">
-      <ElButton native-type="button" text :disabled="Boolean(claim || batchClaims)" :loading="busy" @click="load()">{{ t('admin.moderation.refresh') }}</ElButton>
+      <ElButton native-type="button" text :disabled="Boolean(claim || batchClaims)" :loading="refreshLoading" @click="load()">{{ t('admin.moderation.refresh') }}</ElButton>
     </div>
 
     <ElAlert v-if="failure" :title="displayMessage(failure)" type="error" :closable="false" show-icon />
