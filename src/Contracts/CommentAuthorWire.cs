@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace FsusBlog.V2.Contracts;
 
@@ -22,20 +23,28 @@ public static partial class Wire
 {
     private const long MaxCommentAuthorVersion = 9_007_199_254_740_991L;
 
+    private static T? ReadCommentJson<T>(ReadOnlySpan<byte> payload, JsonTypeInfo<T> type) where T : class
+    {
+        try { return JsonSerializer.Deserialize(payload, type); }
+        catch (JsonException) { return null; }
+    }
+
+    private static byte[] WriteCommentJson<T>(FrameType frame, T value, JsonTypeInfo<T> type) =>
+        Aeds.Encode(frame, JsonSerializer.SerializeToUtf8Bytes(value, type));
+
+    private static bool ValidCommentProof(string proof) =>
+        proof.Length == 43 && proof.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_');
+
     public static void ValidateCommentAuthorChallengeRequest(ReadOnlySpan<byte> frame)
         => ReadCommentAuthorChallengePurpose(frame, allowAppeal: false);
 
     public static string ReadCommentAuthorChallengePurpose(ReadOnlySpan<byte> frame, bool allowAppeal, bool allowEdit = false)
     {
-        try
-        {
-            var request = JsonSerializer.Deserialize(Aeds.Decode(frame, FrameType.CommentManagementChallengeRequest),
-                CommentAuthorJson.Default.CommentAuthorChallengeRequest);
-            if (request is { Purpose: "delete", CapabilitySecret: null }) return "delete";
-            if (allowAppeal && request is { Purpose: "appeal", CapabilitySecret: null }) return "appeal";
-            if (allowEdit && request is { Purpose: "edit", CapabilitySecret: null }) return "edit";
-        }
-        catch (JsonException) { }
+        var request = ReadCommentJson(Aeds.Decode(frame, FrameType.CommentManagementChallengeRequest),
+            CommentAuthorJson.Default.CommentAuthorChallengeRequest);
+        if (request is { Purpose: "delete", CapabilitySecret: null }) return "delete";
+        if (allowAppeal && request is { Purpose: "appeal", CapabilitySecret: null }) return "appeal";
+        if (allowEdit && request is { Purpose: "edit", CapabilitySecret: null }) return "edit";
         throw new ProtocolException("Invalid comment author challenge request.");
     }
 
@@ -43,14 +52,10 @@ public static partial class Wire
     {
         if (frame.Length > WireLimits.CommentAuthorEditFrameBytes)
             throw new ProtocolException("Comment edit request exceeds its frame limit.");
-        try
-        {
-            var request = JsonSerializer.Deserialize(Aeds.Decode(frame, FrameType.CommentAuthorEditRequest),
-                CommentAuthorJson.Default.CommentAuthorEditRequest);
-            if (request is { ExpectedVersion: > 0 and < MaxCommentAuthorVersion, Content.Length: > 0, Challenge: { Length: 43 } proof } &&
-                proof.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_')) return request;
-        }
-        catch (JsonException) { }
+        var request = ReadCommentJson(Aeds.Decode(frame, FrameType.CommentAuthorEditRequest),
+            CommentAuthorJson.Default.CommentAuthorEditRequest);
+        if (request is { ExpectedVersion: > 0 and < MaxCommentAuthorVersion, Content.Length: > 0, Challenge: { } proof } &&
+            ValidCommentProof(proof)) return request;
         throw new ProtocolException("Invalid comment author edit request.");
     }
 
@@ -62,24 +67,19 @@ public static partial class Wire
 
     public static string ReadCommentAuthorDeleteRequest(ReadOnlySpan<byte> frame)
     {
-        try
-        {
-            var request = JsonSerializer.Deserialize(Aeds.Decode(frame, FrameType.CommentAuthorStatusRequest),
-                CommentAuthorJson.Default.CommentAuthorDeleteRequest);
-            if (request is { Challenge: { Length: 43 } proof, CapabilitySecret: "" } &&
-                proof.All(ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_')) return proof;
-        }
-        catch (JsonException) { }
+        var request = ReadCommentJson(Aeds.Decode(frame, FrameType.CommentAuthorStatusRequest),
+            CommentAuthorJson.Default.CommentAuthorDeleteRequest);
+        if (request is { Challenge: { } proof, CapabilitySecret: "" } &&
+            ValidCommentProof(proof)) return proof;
         throw new ProtocolException("Invalid comment author delete request.");
     }
 
-    public static byte[] EncodeCommentAuthorChallenge(CommentAuthorChallenge value) => Aeds.Encode(
-        FrameType.CommentManagementChallengeResponse,
-        JsonSerializer.SerializeToUtf8Bytes(value, CommentAuthorJson.Default.CommentAuthorChallenge));
+    public static byte[] EncodeCommentAuthorChallenge(CommentAuthorChallenge value) =>
+        WriteCommentJson(FrameType.CommentManagementChallengeResponse, value,
+            CommentAuthorJson.Default.CommentAuthorChallenge);
 
-    public static byte[] EncodeCommentAuthorMutation(CommentAuthorMutation value) => Aeds.Encode(
-        FrameType.CommentAuthorMutationResult,
-        JsonSerializer.SerializeToUtf8Bytes(value, CommentAuthorJson.Default.CommentAuthorMutation));
+    public static byte[] EncodeCommentAuthorMutation(CommentAuthorMutation value) =>
+        WriteCommentJson(FrameType.CommentAuthorMutationResult, value, CommentAuthorJson.Default.CommentAuthorMutation);
 
     public static long[] DecodeCommentAuthorEligibilityRequest(ReadOnlySpan<byte> frame)
     {

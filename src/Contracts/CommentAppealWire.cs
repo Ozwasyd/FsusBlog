@@ -23,31 +23,24 @@ public static partial class Wire
 
     public static AuthorAppealInput DecodeAuthorAppeal(ReadOnlySpan<byte> frame)
     {
-        try
-        {
-            var request = JsonSerializer.Deserialize(Aeds.Decode(frame, FrameType.CommentAuthorAppealRequest),
-                CommentAppealJson.Default.AuthorAppealInput);
-            if (request is { Reason: not null, Challenge: { Length: 43 } proof } &&
-                proof.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_')) return request;
-        }
-        catch (JsonException) { }
+        var request = ReadCommentJson(Aeds.Decode(frame, FrameType.CommentAuthorAppealRequest),
+            CommentAppealJson.Default.AuthorAppealInput);
+        if (request is { Reason: not null, Challenge: { } proof } &&
+            ValidCommentProof(proof)) return request;
         throw new ProtocolException("Invalid author appeal.");
     }
 
     public static AdminAppealInput DecodeAdminAppeal(ReadOnlySpan<byte> frame)
     {
-        try
-        {
-            var request = JsonSerializer.Deserialize(Aeds.Decode(frame, FrameType.CommentAppealDecisionRequest),
-                CommentAppealJson.Default.AdminAppealInput);
-            if (request is { Reason: not null, Decision: "granted" or "denied" }) return request;
-        }
-        catch (JsonException) { }
+        var request = ReadCommentJson(Aeds.Decode(frame, FrameType.CommentAppealDecisionRequest),
+            CommentAppealJson.Default.AdminAppealInput);
+        if (request is { Reason: not null, Decision: "granted" or "denied" }) return request;
         throw new ProtocolException("Invalid administrator appeal decision.");
     }
 
-    public static byte[] EncodeAdminAppealResult(long id) => Aeds.Encode(FrameType.CommentAppealDecisionResult,
-        JsonSerializer.SerializeToUtf8Bytes(new(true, "ok", id), CommentAppealJson.Default.AdminAppealResult));
+    public static byte[] EncodeAdminAppealResult(long id) =>
+        WriteCommentJson(FrameType.CommentAppealDecisionResult, new(true, "ok", id),
+            CommentAppealJson.Default.AdminAppealResult);
 
     public static byte[] EncodeAuthorAppeals(IReadOnlyList<AuthorAppealRow> rows, bool more)
     {

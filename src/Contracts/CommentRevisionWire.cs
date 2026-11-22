@@ -21,10 +21,10 @@ internal partial class AdminCommentRevisionJson : JsonSerializerContext;
 public static partial class Wire
 {
     public static byte[] EncodeAdminCommentRevisions(List<AdminCommentRevision> revisions) =>
-        Aeds.Encode(FrameType.CommentRevisionList,
-            JsonSerializer.SerializeToUtf8Bytes(revisions, AdminCommentRevisionJson.Default.ListAdminCommentRevision));
+        WriteCommentJson(FrameType.CommentRevisionList, revisions,
+            AdminCommentRevisionJson.Default.ListAdminCommentRevision);
 
     public static byte[] EncodeAdminCommentTimeline(AdminCommentTimeline timeline) =>
-        Aeds.Encode(FrameType.CommentModerationTimeline,
-            JsonSerializer.SerializeToUtf8Bytes(timeline, AdminCommentRevisionJson.Default.AdminCommentTimeline));
+        WriteCommentJson(FrameType.CommentModerationTimeline, timeline,
+            AdminCommentRevisionJson.Default.AdminCommentTimeline);
 }
