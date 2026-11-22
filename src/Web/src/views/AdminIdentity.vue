@@ -20,6 +20,7 @@ import {
 import AdminInteractionWorkspace from './AdminInteractionWorkspace.vue'
 import AdminArticlesWorkspace from './AdminArticlesWorkspace.vue'
 import AdminSiteTraffic from './AdminSiteTraffic.vue'
+import AdminSiteConfig from './AdminSiteConfig.vue'
 import AdminSitePages from './AdminSitePages.vue'
 import AdminSessionHistory from './AdminSessionHistory.vue'
 import AdminCluster from './AdminCluster.vue'
@@ -314,6 +315,8 @@ function logOut() {
           :session-signal="sessionAuthority.signal" :can-rollback="canUsePasskeys" @session-lost="handleSessionLoss" />
         <AdminSiteTraffic v-if="section.section === 'site'" :key="sessionEpoch"
           :session="authority.session" :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
+        <AdminSiteConfig v-if="section.section === 'site' && authority.session.siteConfigEnabled" :key="sessionEpoch"
+          :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
         <AdminAppearance v-if="section.section === 'site' && authority.session.appearanceEnabled" :key="sessionEpoch"
           :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
         <AdminCluster v-if="section.section === 'system'" :key="sessionEpoch"

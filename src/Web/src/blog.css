@@ -51,11 +51,47 @@ p { line-height: 1.65; }
   gap: 2rem;
 }
 .public-initial-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   flex: 0 0 auto;
   color: var(--el-text-color-primary);
   font-size: 24px;
   font-weight: 700;
   line-height: 1.25;
+}
+.site-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-inline-size: 0;
+}
+.site-brand-logo {
+  display: block;
+  inline-size: auto;
+  block-size: 1.5rem;
+  max-inline-size: 2rem;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.site-brand-wordmark {
+  display: block;
+  inline-size: auto;
+  block-size: 1.5rem;
+  max-inline-size: 12rem;
+  object-fit: contain;
+}
+.site-police-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.site-police-badge {
+  display: block;
+  inline-size: 1rem;
+  block-size: 1rem;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 .public-initial-bar a { white-space: nowrap; text-decoration: none; }
 .public-initial-brand-nav nav a {

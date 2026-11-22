@@ -99,6 +99,7 @@ if (( reset_db )); then
   if [[ -f "$pg_data/postmaster.pid" ]]; then
     pg_ctl -D "$pg_data" -m fast stop >/dev/null 2>&1 || true
   fi
+  chmod -R u+w -- "$dev_root" 2>/dev/null || true
   rm -rf -- "$dev_root"
 fi
 
@@ -129,6 +130,92 @@ EOF
 
 Local development copyright notice placeholder.
 EOF
+fi
+
+# Seed a real ECDSA P-256 signed local dev appearance registry when --seed is enabled so /admin/site appearance switching works out-of-the-box.
+appearance_dir="$site_data/appearance"
+if (( seed_demo )) && [[ ! -f "$appearance_dir/appearance.json" ]] && command -v python3 >/dev/null 2>&1; then
+  printf '[dev] Provisioning signed demo appearance packages in %s...\n' "$appearance_dir"
+  python3 - "$appearance_dir" <<'PY'
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from zipfile import ZipFile
+import json, subprocess, sys
+
+root = Path(sys.argv[1])
+root.mkdir(mode=0o700, exist_ok=True)
+root.chmod(0o700)
+
+def digest(data: bytes) -> str:
+    return sha256(data).hexdigest()
+
+def p1363(der: bytes) -> bytes:
+    if der[0] != 0x30 or der[1] != len(der) - 2:
+        raise ValueError("Unexpected P-256 DER signature")
+    offset = 2
+    parts = []
+    for _ in range(2):
+        if der[offset] != 2:
+            raise ValueError("Expected DER integer")
+        width = der[offset + 1]
+        start = offset + 2
+        offset = start + width
+        parts.append(int.from_bytes(der[start:offset], "big").to_bytes(32, "big"))
+    return b"".join(parts)
+
+def write_readonly(name: str, data: bytes) -> None:
+    target = root / name
+    target.write_bytes(data)
+    target.chmod(0o400)
+
+now = datetime.now(timezone.utc)
+with TemporaryDirectory() as tmp:
+    temp = Path(tmp)
+    key = temp / "dev-publisher.pem"
+    subprocess.run(["openssl", "ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", str(key)], check=True)
+    spki = subprocess.check_output(["openssl", "pkey", "-in", str(key), "-pubout", "-outform", "DER"])
+    themes = [
+        ("editorial-moss", "dev.editorial-moss", "1.0.0", dict(LightAccent="#225533", LightHover="#1b4429", DarkAccent="#8ce0a8", DarkHover="#b3edd0")),
+        ("warm-terracotta", "dev.warm-terracotta", "1.0.0", dict(LightAccent="#7c2d12", LightHover="#66240e", DarkAccent="#f5b895", DarkHover="#fad0b6")),
+    ]
+    sources = []
+    packages = []
+    for slug, pkg_id, version, palette in themes:
+        ref = f"approved-source/{slug}"
+        manifest = dict(
+            Format=1, Kind="theme", Id=pkg_id, Version=version, Publisher="dev.local",
+            SignatureReference="signature/dev", TrustPolicyReference="trust/dev", Theme=palette
+        )
+        zpath = temp / f"{slug}.zip"
+        with ZipFile(zpath, "w") as zf:
+            zf.writestr("manifest.json", json.dumps(manifest))
+        content = zpath.read_bytes()
+        sig = p1363(subprocess.check_output(["openssl", "dgst", "-sha256", "-sign", str(key), str(zpath)]))
+        archive_sha = digest(content)
+        sig_sha = digest(sig)
+        write_readonly(f"{archive_sha}.zip", content)
+        write_readonly(f"{sig_sha}.signature", sig)
+        sources.append(dict(
+            Reference=ref, Provenance=f"provenance/{slug}", Publisher="dev.local", KeyId="dev-1",
+            ArchiveSha256=archive_sha, SignatureReference="signature/dev", TrustPolicyReference="trust/dev"
+        ))
+        packages.append(dict(Source=ref, ArchiveSha256=archive_sha, SignatureSha256=sig_sha))
+    registry = dict(
+        Keys=[dict(
+            Publisher="dev.local", KeyId="dev-1", SubjectPublicKeyInfo=list(spki),
+            ValidFrom=(now - timedelta(hours=1)).isoformat(),
+            ValidUntil=(now + timedelta(days=30)).isoformat(),
+            RevokedAt=None
+        )],
+        Sources=sources,
+        Packages=packages,
+        ActiveTheme=None,
+        ActiveFont=None
+    )
+    write_readonly("appearance.json", json.dumps(registry, indent=2).encode())
+PY
 fi
 
 # Build CLI & Server incrementally (Debug for fast inner loop and IDE symbol alignment).

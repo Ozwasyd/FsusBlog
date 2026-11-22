@@ -81,7 +81,7 @@ onMounted(() => { void load() })
       <ElSkeleton :rows="4" />
     </div>
     <ElAlert v-else-if="error" :title="t(error)" type="error" :closable="false" />
-    <ElEmptyState v-else-if="observation && !observation.enabled" size="inline" :title="t('admin.traffic.disabled')" role="status" />
+    <ElEmptyState v-else-if="observation && !observation.enabled" size="inline" :title="t('admin.traffic.disabled')" :description="t('admin.traffic.disabledHint')" role="status" />
     <template v-else-if="observation">
       <ElKpiGroup density="compact">
         <ElStatistic class="traffic-total" :title="t('admin.traffic.total')" :value="total" :formatter="number" />

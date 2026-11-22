@@ -118,7 +118,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, 
       const initial = !token ? readInitialTaxonomy(kind, categoryOrTagId, ordinal) : undefined
       if (initial) {
         filter.value = initial.metadata
-        document.title = `${initial.metadata.name} · ${siteTitle}`
+        document.title = `${initial.metadata.name} · ${siteTitle.value}`
         result = initial.result
       } else {
         const [metadata, page] = await Promise.all([
@@ -127,7 +127,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, 
         ])
         if (request.signal.aborted) return
         filter.value = metadata
-        document.title = `${metadata.name} · ${siteTitle}`
+        document.title = `${metadata.name} · ${siteTitle.value}`
         result = page
       }
     } else {

@@ -110,15 +110,15 @@ function updateDocumentLanguage() {
 
 function updateDocumentTitle(name: unknown) {
   if (name === 'home') {
-    document.title = siteTitle
+    document.title = siteTitle.value
     return
   }
   const label = isSitePageSlug(name) ? t(`policy.${name}`)
     : t(labels[String(name)] ?? 'page.article')
-  document.title = `${label} · ${siteTitle}`
+  document.title = `${label} · ${siteTitle.value}`
 }
 
-watch(siteLocale, () => {
+watch([siteLocale, siteTitle], () => {
   const name = router.currentRoute.value.name
   updateDocumentLanguage()
   // The author supplies article titles. Never replace one on a language-only change.

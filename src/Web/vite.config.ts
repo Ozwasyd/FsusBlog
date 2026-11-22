@@ -105,12 +105,13 @@ function fetchServerShellFragments(requestPath: string, requestHost: string | un
         const head = headEnd >= 0 ? body.slice(0, headEnd) : body
         const metas = head.match(/<meta\s+name="fsus-[^"]+"[^>]*>/gi) ?? []
         const styles = head.match(/<link\s+rel="stylesheet"\s+href="\/site-appearance\/[^"]+"[^>]*>/gi) ?? []
+        const manifests = head.match(/<link\s+rel="manifest"\s+href="\/manifest\.webmanifest"[^>]*>/gi) ?? []
         let publicContent: string | undefined
         if (isSitePage) {
           const match = body.match(/<div\s+id="app">([\s\S]*?)<\/div>\s*(?:<script|<\/body>)/i)
           if (match?.[1]) publicContent = match[1]
         }
-        resolveFragments({ headTags: [...metas, ...styles], publicContent })
+        resolveFragments({ headTags: [...metas, ...styles, ...manifests], publicContent })
       })
     })
     req.on('timeout', () => { req.destroy(); resolveFragments({ headTags: [] }) })
@@ -233,6 +234,7 @@ export default defineConfig({
       '/api': { ...proxyRule, ws: true },
       '/public-media': proxyRule,
       '/site-appearance': proxyRule,
+      '/manifest.webmanifest': proxyRule,
       '/integrity': proxyRule,
       '/feed': proxyRule,
       '/sitemap.xml': proxyRule,

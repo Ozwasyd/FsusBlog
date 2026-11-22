@@ -58,7 +58,7 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
     if (value.id !== articleId) throw new ProtocolError('Unexpected article coordinates.')
     images.value = initial?.images
     article.value = value
-    document.title = `${value.title} · ${siteTitle}`
+    document.title = `${value.title} · ${siteTitle.value}`
   } catch (cause) {
     if (current()) error.value = cause instanceof ApiError && cause.status === 404 ? 'missing' : 'failed'
     return

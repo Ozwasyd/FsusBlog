@@ -15,7 +15,7 @@ import { currentSession as currentAuthorSession, hasAdminSessionHint, observeAdm
 import { observeSiteRefresh, siteRenewalDelay } from './site-refresh-coordination'
 import { isSitePageSlug, sitePages } from './sitePageEntry'
 import { consumeFallbackRouteFade, findActiveRouteSurface, focusRouteContent } from './routeTransition'
-import { siteTitle } from './siteBrand'
+import { applySiteBrand, safeBrandAssetUrl, siteBrand, siteConfigEpoch, siteTitle } from './siteBrand'
 import navigation from '../../Contracts/public-navigation.json' with { type: 'json' }
 import { getSiteCompliance, getSiteSeo, type SiteCompliance } from '../../Contracts/site-config.ts'
 
@@ -31,6 +31,7 @@ function tryReadThemeMode(): ThemeMode | undefined {
   try { return readThemeMode() } catch { return undefined }
 }
 const themeMode = ref<ThemeMode>(parseThemeMode(document.documentElement.dataset.themeMode) ?? 'system')
+const resolvedTheme = ref<'light' | 'dark'>(document.documentElement.dataset.themeResolved === 'dark' ? 'dark' : resolvedThemeFor(themeMode.value))
 let persistedTheme: ThemeMode | undefined = themeMode.value
 let themePersisted = true
 function resolvedThemeFor(mode: ThemeMode): 'light' | 'dark' {
@@ -39,6 +40,7 @@ function resolvedThemeFor(mode: ThemeMode): 'light' | 'dark' {
 }
 function applyTheme(mode: ThemeMode) {
   themeMode.value = mode
+  resolvedTheme.value = resolvedThemeFor(mode)
   try { writeThemeMode(mode) } catch { syncThemeMode(mode) }
 }
 function reconcileTheme() {
@@ -56,6 +58,7 @@ function reconcileTheme() {
     }
   }
   const nextResolved = resolvedThemeFor(next)
+  resolvedTheme.value = nextResolved
   if (
     themeMode.value === next
     && root.dataset.themeMode === next
@@ -133,7 +136,26 @@ watch(() => route.path, (_, previous, cleanup) => {
 
 const lifetime = new AbortController()
 const compliance = ref<SiteCompliance>()
+const loadedSiteEpoch = ref(-1)
 const siteAuthor = ref(document.head.querySelector<HTMLMetaElement>('meta[name="author"]')?.content || undefined)
+const failedBrandUrls = ref<Record<string, boolean>>({})
+const activeBrandLogoUrl = computed(() => {
+  const brand = siteBrand.value
+  const candidate = resolvedTheme.value === 'dark' ? (brand.siteLogoDarkUrl || brand.siteLogoUrl) : brand.siteLogoUrl
+  return candidate && !failedBrandUrls.value[candidate] ? candidate : ''
+})
+const activeBrandWordmarkUrl = computed(() => {
+  const candidate = siteBrand.value.siteWordmarkUrl
+  return candidate && !failedBrandUrls.value[candidate] ? candidate : ''
+})
+const activePoliceBadgeUrl = computed(() => {
+  const candidate = legal.value?.policeBadgeIconUrl ? safeBrandAssetUrl(legal.value.policeBadgeIconUrl) : ''
+  return candidate && !failedBrandUrls.value[candidate] ? candidate : ''
+})
+function markBrandUrlFailed(url: string) {
+  if (!url || failedBrandUrls.value[url]) return
+  failedBrandUrls.value = { ...failedBrandUrls.value, [url]: true }
+}
 const legal = computed(() => compliance.value?.enabled ? compliance.value : undefined)
 const year = new Date().getFullYear()
 const copyright = computed(() => {
@@ -192,20 +214,29 @@ watch([() => currentSession.value?.siteRefresh, () => currentSession.value?.expi
 watch([adminArea, adminAuthoringArea], ([admin, authoring], [prevAdmin, prevAuthoring]) => {
   if (admin !== prevAdmin || authoring !== prevAuthoring) sync()
 })
-watch(() => route.name, (name, _, cleanup) => {
+watch([() => route.name, siteConfigEpoch], ([name, epoch], _, cleanup) => {
   if (!name || accountArea.value || siteAuthPage.value || adminArea.value || adminAuthoringArea.value) return
+  if (loadedSiteEpoch.value === epoch && compliance.value && siteAuthor.value !== undefined) return
   const request = new AbortController()
   cleanup(() => request.abort())
-  if (siteAuthor.value === undefined) void getSiteSeo(request.signal).then(value => {
-    if (!request.signal.aborted) siteAuthor.value = value.author
-  }).catch(() => {})
-  if (!compliance.value) void getSiteCompliance(request.signal).then(value => {
-    if (!request.signal.aborted) compliance.value = value
-  }).catch(() => {})
+  void Promise.all([
+    getSiteSeo(request.signal).then(value => {
+      if (request.signal.aborted) return
+      siteAuthor.value = value.author
+      failedBrandUrls.value = {}
+      applySiteBrand(value)
+    }).catch(() => {}),
+    getSiteCompliance(request.signal).then(value => {
+      if (!request.signal.aborted) compliance.value = value
+    }).catch(() => {}),
+  ]).then(() => {
+    if (!request.signal.aborted) loadedSiteEpoch.value = epoch
+  })
 }, { immediate: true })
 onMounted(() => {
   stopThemeMode = subscribeThemeMode(detail => {
     themeMode.value = detail.mode
+    resolvedTheme.value = detail.resolved
     const stored = tryReadThemeMode()
     if (stored !== undefined) {
       persistedTheme = stored
@@ -299,6 +330,30 @@ async function leave() {
       spa-search
       @search="search"
     >
+      <template v-if="activeBrandLogoUrl || activeBrandWordmarkUrl" #brand>
+        <span class="site-brand-mark">
+          <img
+            v-if="activeBrandLogoUrl"
+            class="site-brand-logo"
+            :src="activeBrandLogoUrl"
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+            referrerpolicy="no-referrer"
+            @error="markBrandUrlFailed(activeBrandLogoUrl)"
+          >
+          <img
+            v-if="activeBrandWordmarkUrl"
+            class="site-brand-wordmark"
+            :src="activeBrandWordmarkUrl"
+            :alt="siteTitle"
+            decoding="async"
+            referrerpolicy="no-referrer"
+            @error="markBrandUrlFailed(activeBrandWordmarkUrl)"
+          >
+          <span v-else>{{ siteTitle }}</span>
+        </span>
+      </template>
       <template #desktop-actions>
         <SiteHeaderPreferences :theme-mode="themeMode" @theme="useTheme" />
         <RouterLink v-if="currentAuthorSession" class="site-header-text-action" to="/admin/site">{{ t('nav.admin') }}</RouterLink>
@@ -335,7 +390,19 @@ async function leave() {
                 <span v-else-if="legal.contentLicenseName">{{ legal.contentLicenseName }}</span>
                 <template v-if="legal.regionMode === 'mainland-cn'">
                   <a v-if="legal.icpRecordNumber && publicLink(legal.icpRecordUrl)" :href="publicLink(legal.icpRecordUrl)">{{ legal.icpRecordNumber }}</a>
-                  <a v-if="legal.policeRecordNumber && publicLink(legal.policeRecordUrl)" :href="publicLink(legal.policeRecordUrl)">{{ legal.policeRecordNumber }}</a>
+                  <a v-if="legal.policeRecordNumber && publicLink(legal.policeRecordUrl)" :href="publicLink(legal.policeRecordUrl)" class="site-police-link">
+                    <img
+                      v-if="activePoliceBadgeUrl"
+                      class="site-police-badge"
+                      :src="activePoliceBadgeUrl"
+                      alt=""
+                      aria-hidden="true"
+                      decoding="async"
+                      referrerpolicy="no-referrer"
+                      @error="markBrandUrlFailed(activePoliceBadgeUrl)"
+                    >
+                    <span>{{ legal.policeRecordNumber }}</span>
+                  </a>
                 </template>
                 <span v-if="legal.operatorName">{{ legal.operatorName }}</span>
                 <a v-if="legal.contactEmail && contactLink(legal.contactEmail)" :href="contactLink(legal.contactEmail)">{{ legal.contactEmail }}</a>
