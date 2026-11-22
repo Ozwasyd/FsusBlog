@@ -33,9 +33,9 @@ public sealed partial class ArticleSearchIndex
     private readonly Document[] _documents;
     private readonly Term[] _terms;
     private readonly Posting[] _postings;
-    private readonly WideBlock[]? _wide;
+    private readonly WideIndex? _wide;
 
-    private ArticleSearchIndex(Document[] documents, Term[] terms, Posting[] postings, WideBlock[]? wide = null) =>
+    private ArticleSearchIndex(Document[] documents, Term[] terms, Posting[] postings, WideIndex? wide = null) =>
         (_documents, _terms, _postings, _wide) = (documents, terms, postings, wide);
 
     public bool UsesWideProfile => _wide is not null;
@@ -79,7 +79,7 @@ public sealed partial class ArticleSearchIndex
         var window = start >= MaxPaginatedResults ? 0 : (int)Math.Min(start + size, MaxPaginatedResults);
         if (exactIdentifier) return SearchIdentifier(normalized, sort, (int)Math.Min(start, MaxPaginatedResults), window, ct);
         query = normalized;
-        if (_wide is { } blocks) return SearchWide(blocks, query, sort, (int)Math.Min(start, MaxPaginatedResults), window, ct);
+        if (_wide is { } wide) return SearchWide(wide, query, sort, (int)Math.Min(start, MaxPaginatedResults), window, ct);
         var hashes = new HashSet<uint>();
         var candidates = window == 0 ? null : new PriorityQueue<Article, SearchRank>(window);
         var total = 0;
@@ -162,39 +162,23 @@ public sealed partial class ArticleSearchIndex
     private ArticleSearchPage SearchIdentifier(string query, ArticleSearchSort sort, int start, int window, CancellationToken ct)
     {
         // A complete identifier must have all of its segments in the existing postings. Verify only
-        // the rarest segment's candidates, including those outside the regular 200-result limit.
-        var fewest = int.MaxValue;
-        uint anchor = 0;
-        foreach (var hash in ArticleSearchTokens.Hashes(query, ct))
-        {
-            var count = _wide is null ? FindTerm(_terms, hash).Count : _wide.Sum(block => FindTerm(block.Terms, hash).Count);
-            if (count == 0) return new([], 0);
-            if (count >= fewest) continue;
-            fewest = count;
-            anchor = hash;
-        }
-
+        // one segment's candidates, including those outside the regular 200-result limit.
         var candidates = window == 0 ? null : new PriorityQueue<Article, SearchRank>(window);
         var total = 0;
-        if (_wide is { } blocks)
+        if (_wide is { } wide)
         {
-            foreach (var block in blocks)
-            {
-                var term = FindTerm(block.Terms, anchor);
-                var offset = term.Start;
-                var ordinal = block.Count;
-                for (var index = 0; index < term.Count; index++)
-                {
-                    ordinal -= ReadVarint(block.Postings, ref offset);
-                    _ = ReadVarint(block.Postings, ref offset);
-                    Match(block.First + ordinal);
-                }
-            }
+            VisitWideIdentifierCandidates(wide, query, Match, ct);
         }
         else
         {
-            var term = FindTerm(_terms, anchor);
-            for (var index = 0; index < term.Count; index++) Match(_postings[term.Start + index].Ordinal);
+            var anchor = default(Term);
+            foreach (var hash in ArticleSearchTokens.Hashes(query, ct))
+            {
+                var term = FindTerm(_terms, hash);
+                if (term.Count == 0) return new([], 0);
+                if (anchor.Count == 0 || term.Count < anchor.Count) anchor = term;
+            }
+            for (var index = 0; index < anchor.Count; index++) Match(_postings[anchor.Start + index].Ordinal);
         }
         return new(Ordered(candidates, start), total);
 
@@ -270,11 +254,13 @@ public sealed partial class ArticleSearchIndex
         return documents;
     }
 
-    private sealed class PostingBuilder(long remainingChars)
+    private sealed class PostingBuilder(long remainingChars, WideSources? sources = null)
     {
         private readonly Dictionary<uint, int> _frequencies = [];
         internal readonly Dictionary<uint, Bucket> Heads = [];
         internal readonly List<PendingPosting> Pending = [];
+        private readonly Dictionary<uint, int> _oddWeights = [];
+        internal readonly Dictionary<int, int> OddWeights = [];
         internal long TotalLength { get; private set; }
 
         internal bool Collect(IReadOnlyList<Article> articles, int first, Span<int> lengths,
@@ -282,11 +268,13 @@ public sealed partial class ArticleSearchIndex
         {
             Heads.Clear();
             Pending.Clear();
+            OddWeights.Clear();
             for (var ordinal = 0; ordinal < lengths.Length; ordinal++)
             {
                 ct.ThrowIfCancellationRequested();
                 var article = articles[first + ordinal];
                 _frequencies.Clear();
+                _oddWeights.Clear();
                 if (!Index(article.Title, TitleWeight) || !Index(article.Summary ?? "", SummaryWeight) ||
                     !Index(article.Category?.Name ?? "", TaxonomyWeight))
                     return false;
@@ -305,6 +293,7 @@ public sealed partial class ArticleSearchIndex
                         if (Heads.Count > termLimit) return false;
                         bucket = new Bucket(-1, 0);
                     }
+                    if (_oddWeights.TryGetValue(hash, out var adjustment)) OddWeights.Add(Pending.Count, adjustment);
                     Pending.Add(new PendingPosting(new Posting(ordinal, weight), bucket.Head));
                     bucket = new Bucket(Pending.Count - 1, bucket.Count + 1);
                 }
@@ -316,14 +305,25 @@ public sealed partial class ArticleSearchIndex
                 remainingChars -= text.Length;
                 if (remainingChars < 0) return false;
                 var subtokenWeight = Math.Max(1, weight / 2);
-                return ArticleSearchTokens.VisitIndexTokens(text, ct, (hash, exact) =>
+                if (sources is null)
+                    return ArticleSearchTokens.VisitIndexTokens(text, ct, (hash, exact) => Add(hash, exact ? weight : subtokenWeight));
+
+                return ArticleSearchTokens.VisitSources(text, ct, (hash, aliases) =>
                 {
-                    var delta = exact ? weight : subtokenWeight;
-                    ref var frequency = ref CollectionsMarshal.GetValueRefOrAddDefault(_frequencies, hash, out _);
-                    if (frequency > int.MaxValue - delta) return false;
-                    frequency += delta;
-                    return _frequencies.Count <= termLimit;
+                    var source = sources.Resolve(hash, aliases);
+                    if (source is not { } key) return false;
+                    if (weight % 2 != 0 && !aliases.IsEmpty)
+                        CollectionsMarshal.GetValueRefOrAddDefault(_oddWeights, key, out _)++;
+                    return Add(key, weight);
                 });
+            }
+
+            bool Add(uint hash, int delta)
+            {
+                ref var frequency = ref CollectionsMarshal.GetValueRefOrAddDefault(_frequencies, hash, out _);
+                if (frequency > int.MaxValue - delta) return false;
+                frequency += delta;
+                return _frequencies.Count <= termLimit;
             }
         }
     }

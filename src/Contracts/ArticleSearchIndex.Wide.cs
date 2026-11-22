@@ -13,6 +13,105 @@ public sealed partial class ArticleSearchIndex
     private const int MaxWideRetainedBytes = 32 * 1024 * 1024;
 
     private sealed record WideBlock(int First, int Count, Term[] Terms, byte[] Postings);
+    private readonly record struct WideAlias(uint Hash, int Offset);
+
+    private sealed record WideIndex(WideBlock[] Blocks, WideAlias[] Aliases, byte[] Sources)
+    {
+        internal ReadOnlySpan<byte> SourcesFor(uint hash)
+        {
+            var start = 0;
+            var end = Aliases.Length;
+            while (start < end)
+            {
+                var middle = start + (end - start) / 2;
+                if (Aliases[middle].Hash < hash) start = middle + 1;
+                else end = middle;
+            }
+            if (start == Aliases.Length || Aliases[start].Hash != hash) return [];
+            var limit = start + 1 == Aliases.Length ? Sources.Length : Aliases[start + 1].Offset;
+            return Sources.AsSpan(Aliases[start].Offset, limit - Aliases[start].Offset);
+        }
+    }
+
+    private sealed class WideSources
+    {
+        private readonly record struct Source(uint Hash, uint[] Aliases, int Previous);
+        private readonly Dictionary<uint, int> _heads = [];
+        private readonly List<Source> _sources = [];
+        private int _linkCount;
+
+        internal uint? Resolve(uint hash, ReadOnlySpan<uint> aliases)
+        {
+            var previous = _heads.GetValueOrDefault(hash, -1);
+            for (var index = previous; index >= 0; index = _sources[index].Previous)
+                if (aliases.SequenceEqual(_sources[index].Aliases)) return (uint)index;
+
+            if (_sources.Count == MaxTerms || _linkCount > MaxWideRetainedBytes - aliases.Length - 1)
+                return null;
+
+            var id = _sources.Count;
+            _heads[hash] = id;
+            _sources.Add(new Source(hash, aliases.ToArray(), previous));
+            _linkCount += aliases.Length + 1;
+            return (uint)id;
+        }
+
+        internal WideIndex? Pack(WideBlock[] blocks, int availableBytes, CancellationToken ct)
+        {
+            if (_linkCount > availableBytes) return null;
+            var references = new Dictionary<uint, List<int>>();
+            for (var id = 0; id < _sources.Count; id++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var source = _sources[id];
+                Add(source.Hash, id * 2);
+                foreach (var hash in source.Aliases) Add(hash, id * 2 + 1);
+                if ((long)references.Count * Unsafe.SizeOf<WideAlias>() + _linkCount > availableBytes)
+                    return null;
+            }
+
+            var byteCount = 0;
+            foreach (var links in references.Values)
+            {
+                ct.ThrowIfCancellationRequested();
+                var previous = 0;
+                for (var i = 0; i < links.Count; i++)
+                {
+                    if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
+                    var link = links[i];
+                    byteCount += VarintWidth(link - previous);
+                    previous = link;
+                }
+            }
+            if ((long)references.Count * Unsafe.SizeOf<WideAlias>() + byteCount > availableBytes) return null;
+
+            var sources = new byte[byteCount];
+            var aliases = new WideAlias[references.Count];
+            var offset = 0;
+            var index = 0;
+            foreach (var hash in references.Keys.Order())
+            {
+                ct.ThrowIfCancellationRequested();
+                aliases[index++] = new WideAlias(hash, offset);
+                var previous = 0;
+                var links = references[hash];
+                for (var i = 0; i < links.Count; i++)
+                {
+                    if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
+                    var link = links[i];
+                    WriteVarint(sources, ref offset, link - previous);
+                    previous = link;
+                }
+            }
+            return new WideIndex(blocks, aliases, sources);
+
+            void Add(uint hash, int link)
+            {
+                if (!references.TryGetValue(hash, out var links)) references.Add(hash, links = []);
+                links.Add(link);
+            }
+        }
+    }
 
     private static ArticleSearchIndex? BuildWide(IReadOnlyList<Article> articles, CancellationToken ct)
     {
@@ -20,7 +119,8 @@ public sealed partial class ArticleSearchIndex
 
         var lengths = new int[articles.Count];
         var blocks = new WideBlock[(articles.Count + WideBlockDocuments - 1) / WideBlockDocuments];
-        var builder = new PostingBuilder(MaxWideScannedChars);
+        var sources = new WideSources();
+        var builder = new PostingBuilder(MaxWideScannedChars, sources);
         var remainingTerms = MaxTerms;
         var remainingPostings = MaxWidePostings;
         var remainingBytes = MaxWideRetainedBytes - lengths.Length * Unsafe.SizeOf<Document>();
@@ -40,7 +140,9 @@ public sealed partial class ArticleSearchIndex
             remainingBytes -= block.Postings.Length;
             blocks[index] = block;
         }
-        return new ArticleSearchIndex(Normalize(articles, lengths, builder.TotalLength, ct), [], [], blocks);
+        var indexData = sources.Pack(blocks, remainingBytes, ct);
+        return indexData is null ? null :
+            new ArticleSearchIndex(Normalize(articles, lengths, builder.TotalLength, ct), [], [], indexData);
     }
 
     private static WideBlock? PackBlock(PostingBuilder builder, int first, int count, int availableBytes, CancellationToken ct)
@@ -59,7 +161,11 @@ public sealed partial class ArticleSearchIndex
             {
                 if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
                 var posting = builder.Pending[entry].Value;
-                byteCount += VarintWidth(previous - posting.Ordinal) + VarintWidth(posting.Weight);
+                var delta = (previous - posting.Ordinal) * 2;
+                // Only odd field weights need an adjustment when a source is used as an alias.
+                var adjustment = builder.OddWeights.GetValueOrDefault(entry);
+                byteCount += VarintWidth(delta + (adjustment != 0 ? 1 : 0)) + VarintWidth(posting.Weight);
+                if (adjustment != 0) byteCount += VarintWidth(adjustment);
                 if (byteCount > availableBytes) return null;
                 previous = posting.Ordinal;
             }
@@ -76,8 +182,11 @@ public sealed partial class ArticleSearchIndex
             {
                 if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
                 var posting = builder.Pending[entry].Value;
-                WriteVarint(bytes, ref offset, previous - posting.Ordinal);
+                var delta = (previous - posting.Ordinal) * 2;
+                var adjustment = builder.OddWeights.GetValueOrDefault(entry);
+                WriteVarint(bytes, ref offset, delta + (adjustment != 0 ? 1 : 0));
                 WriteVarint(bytes, ref offset, posting.Weight);
+                if (adjustment != 0) WriteVarint(bytes, ref offset, adjustment);
                 previous = posting.Ordinal;
             }
         }
@@ -85,95 +194,228 @@ public sealed partial class ArticleSearchIndex
         return new WideBlock(first, count, terms, bytes);
     }
 
-    private ArticleSearchPage SearchWide(WideBlock[] blocks, string query, ArticleSearchSort sort, int start, int window,
-        CancellationToken ct)
+    private sealed class WideQueryTerm
     {
-        var hashes = new HashSet<uint>();
-        var terms = new List<(uint Hash, double Idf)>();
+        internal int Frequency;
+        internal int Links;
+        internal int DirectLink = -1;
+        internal int[]? Weights;
+    }
+
+    private readonly record struct WideQueryUse(WideQueryTerm Term, bool Exact, int Previous);
+
+    private Dictionary<uint, WideQueryTerm> CollectWideTerms(WideIndex wide, string query, CancellationToken ct)
+    {
+        var terms = new Dictionary<uint, WideQueryTerm>();
+        var sources = new Dictionary<uint, int>();
+        var uses = new List<WideQueryUse>();
         foreach (var hash in ArticleSearchTokens.Hashes(query, ct))
         {
-            if (!hashes.Add(hash)) continue;
-            var frequency = 0;
-            foreach (var block in blocks) frequency += FindTerm(block.Terms, hash).Count;
-            if (frequency != 0) terms.Add((hash, InverseFrequency(frequency)));
+            var term = new WideQueryTerm();
+            if (!terms.TryAdd(hash, term)) continue;
+
+            foreach (var link in new WideLinks(wide.SourcesFor(hash)))
+            {
+                ct.ThrowIfCancellationRequested();
+                var source = (uint)(link / 2);
+                var previous = sources.GetValueOrDefault(source, -1);
+                sources[source] = uses.Count;
+                uses.Add(new WideQueryUse(term, link % 2 == 0, previous));
+                term.Links++;
+            }
         }
-        List<(string Prefix, double Idf)>? shortTerms = null;
+
+        foreach (var (source, head) in sources)
+        {
+            ct.ThrowIfCancellationRequested();
+            var first = uses[head];
+            if (first.Previous < 0 && first.Term.Links == 1)
+            {
+                first.Term.DirectLink = (int)source * 2 + (first.Exact ? 0 : 1);
+                foreach (var block in wide.Blocks) first.Term.Frequency += FindTerm(block.Terms, source).Count;
+                continue;
+            }
+
+            // A source can support more than one query term. Decode it once and merge its per-document weights.
+            foreach (var block in wide.Blocks)
+            {
+                foreach (var posting in new WidePostings(block, source, ct))
+                {
+                    var ordinal = block.First + posting.Ordinal;
+                    for (var useId = head; useId >= 0; useId = uses[useId].Previous)
+                    {
+                        var use = uses[useId];
+                        var weights = use.Term.Weights ??= new int[_documents.Length];
+                        if (weights[ordinal] == 0) use.Term.Frequency++;
+                        weights[ordinal] += use.Exact ? posting.Weight : posting.AliasWeight;
+                    }
+                }
+            }
+        }
+        return terms;
+    }
+
+    private ArticleSearchPage SearchWide(WideIndex wide, string query, ArticleSearchSort sort, int start, int window,
+        CancellationToken ct)
+    {
+        var collected = CollectWideTerms(wide, query, ct);
+        var terms = collected.Values.Where(term => term.Frequency != 0)
+            .Select(term => (Value: term, Idf: InverseFrequency(term.Frequency))).ToArray();
+        var shortTerms = new List<(string Prefix, double Idf)>();
         if (ArticleSearchTokens.ShortAsciiPrefixes(query) is { Count: > 0 } shortPrefixes)
         {
-            for (var p = 0; p < shortPrefixes.Count; p++)
+            foreach (var (prefix, hash) in shortPrefixes)
             {
-                var (prefix, hash) = shortPrefixes[p];
                 var prefixDf = 0;
                 for (var ordinal = 0; ordinal < _documents.Length; ordinal++)
                 {
                     if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
                     if (ShortPrefixWeight(_documents[ordinal].Article, prefix) > 0) prefixDf++;
                 }
-                if (prefixDf == 0) continue;
-                var exactDf = 0;
-                foreach (var block in blocks) exactDf += FindTerm(block.Terms, hash).Count;
-                shortTerms ??= [];
-                shortTerms.Add((prefix, InverseFrequency(Math.Min(_documents.Length, exactDf + prefixDf))));
+                var exactDf = collected.GetValueOrDefault(hash)?.Frequency ?? 0;
+                if (prefixDf > 0)
+                    shortTerms.Add((prefix, InverseFrequency(Math.Min(_documents.Length, exactDf + prefixDf))));
             }
         }
-        if (terms.Count == 0 && shortTerms is null) return new([], 0);
+        if (terms.Length == 0 && shortTerms.Count == 0) return new([], 0);
 
         var candidates = window == 0 ? null : new PriorityQueue<Article, SearchRank>(window);
         var total = 0;
-        var buffer = ArrayPool<double>.Shared.Rent(WideBlockDocuments);
+        var scoresBuffer = ArrayPool<double>.Shared.Rent(WideBlockDocuments);
         try
         {
-            foreach (var block in blocks)
+            foreach (var block in wide.Blocks)
             {
                 ct.ThrowIfCancellationRequested();
-                var scores = buffer.AsSpan(0, block.Count);
-                var scored = false;
-                foreach (var (hash, idf) in terms)
+                var scores = scoresBuffer.AsSpan(0, block.Count);
+                scores.Clear();
+                foreach (var (term, idf) in terms)
                 {
-                    var term = FindTerm(block.Terms, hash);
-                    if (term.Count == 0) continue;
-                    if (!scored)
+                    if (term.Weights is { } weights)
                     {
-                        scores.Clear();
-                        scored = true;
-                    }
-                    var offset = term.Start;
-                    var ordinal = block.Count;
-                    for (var i = 0; i < term.Count; i++)
-                    {
-                        if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
-                        ordinal -= ReadVarint(block.Postings, ref offset);
-                        var weight = ReadVarint(block.Postings, ref offset);
-                        scores[ordinal] += Score(weight, _documents[block.First + ordinal].Normalization, idf);
-                    }
-                }
-                if (shortTerms is not null)
-                {
-                    for (var p = 0; p < shortTerms.Count; p++)
-                    {
-                        var (prefix, idf) = shortTerms[p];
                         for (var ordinal = 0; ordinal < block.Count; ordinal++)
                         {
-                            if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
-                            var weight = ShortPrefixWeight(_documents[block.First + ordinal].Article, prefix);
-                            if (weight == 0) continue;
-                            if (!scored)
-                            {
-                                scores.Clear();
-                                scored = true;
-                            }
-                            scores[ordinal] += Score(weight, _documents[block.First + ordinal].Normalization, idf);
+                            var weight = weights[block.First + ordinal];
+                            if (weight != 0)
+                                scores[ordinal] += Score(weight, _documents[block.First + ordinal].Normalization, idf);
                         }
+                        continue;
+                    }
+
+                    var link = term.DirectLink;
+                    foreach (var posting in new WidePostings(block, (uint)(link / 2), ct))
+                        scores[posting.Ordinal] += Score(link % 2 == 0 ? posting.Weight : posting.AliasWeight,
+                            _documents[block.First + posting.Ordinal].Normalization, idf);
+                }
+                foreach (var (prefix, idf) in shortTerms)
+                {
+                    for (var ordinal = 0; ordinal < block.Count; ordinal++)
+                    {
+                        if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
+                        var weight = ShortPrefixWeight(_documents[block.First + ordinal].Article, prefix);
+                        if (weight != 0)
+                            scores[ordinal] += Score(weight, _documents[block.First + ordinal].Normalization, idf);
                     }
                 }
-                if (scored) Select(scores, block.First, candidates, sort, window, ref total, ct);
+                Select(scores, block.First, candidates, sort, window, ref total, ct);
             }
         }
         finally
         {
-            ArrayPool<double>.Shared.Return(buffer);
+            ArrayPool<double>.Shared.Return(scoresBuffer);
         }
         return new(Ordered(candidates, start), total);
+    }
+
+    private static void VisitWideIdentifierCandidates(WideIndex wide, string query, Action<int> match, CancellationToken ct)
+    {
+        var fewest = int.MaxValue;
+        ReadOnlySpan<byte> anchor = [];
+        var seen = new HashSet<uint>();
+        foreach (var hash in ArticleSearchTokens.Hashes(query, ct))
+        {
+            if (!seen.Add(hash)) continue;
+            var links = wide.SourcesFor(hash);
+            if (links.IsEmpty) return;
+            // Sum unmerged posting counts to choose an anchor without decoding candidates twice.
+            var count = 0;
+            foreach (var link in new WideLinks(links))
+            {
+                ct.ThrowIfCancellationRequested();
+                foreach (var block in wide.Blocks) count += FindTerm(block.Terms, (uint)(link / 2)).Count;
+            }
+            if (count >= fewest) continue;
+            fewest = count;
+            anchor = links;
+        }
+
+        var candidates = new bool[WideBlockDocuments];
+        foreach (var block in wide.Blocks)
+        {
+            ct.ThrowIfCancellationRequested();
+            var ordinals = candidates.AsSpan(0, block.Count);
+            ordinals.Clear();
+            foreach (var link in new WideLinks(anchor))
+            {
+                ct.ThrowIfCancellationRequested();
+                foreach (var posting in new WidePostings(block, (uint)(link / 2), ct))
+                    ordinals[posting.Ordinal] = true;
+            }
+            for (var ordinal = 0; ordinal < ordinals.Length; ordinal++)
+                if (ordinals[ordinal]) match(block.First + ordinal);
+        }
+    }
+
+    private ref struct WideLinks
+    {
+        private readonly ReadOnlySpan<byte> _bytes;
+        private int _offset;
+        private int _link;
+
+        internal WideLinks(ReadOnlySpan<byte> bytes) => _bytes = bytes;
+
+        public readonly WideLinks GetEnumerator() => this;
+        public readonly int Current => _link;
+
+        public bool MoveNext()
+        {
+            if (_offset == _bytes.Length) return false;
+            _link += ReadVarint(_bytes, ref _offset);
+            return true;
+        }
+    }
+
+    private readonly record struct WidePosting(int Ordinal, int Weight, int AliasWeight);
+
+    private struct WidePostings
+    {
+        private readonly byte[] _bytes;
+        private readonly CancellationToken _ct;
+        private readonly int _count;
+        private int _offset;
+        private int _ordinal;
+        private int _index;
+
+        internal WidePostings(WideBlock block, uint source, CancellationToken ct)
+        {
+            var term = FindTerm(block.Terms, source);
+            (_bytes, _ct, _count, _offset, _ordinal) = (block.Postings, ct, term.Count, term.Start, block.Count);
+        }
+
+        public readonly WidePostings GetEnumerator() => this;
+        public WidePosting Current { readonly get; private set; }
+
+        public bool MoveNext()
+        {
+            if (_index == _count) return false;
+            if ((_index++ & 1023) == 0) _ct.ThrowIfCancellationRequested();
+            var delta = ReadVarint(_bytes, ref _offset);
+            _ordinal -= delta / 2;
+            var weight = ReadVarint(_bytes, ref _offset);
+            var adjustment = delta % 2 == 0 ? 0 : ReadVarint(_bytes, ref _offset);
+            Current = new WidePosting(_ordinal, weight, (weight - adjustment) / 2);
+            return true;
+        }
     }
 
     private static int VarintWidth(int value)

@@ -132,6 +132,45 @@ public sealed class ArticleSearchWideTests
     }
 
     [Fact]
+    public void WideSearchSharesSourcePostingsWithoutLosingAliasesOrFieldWeights()
+    {
+        const int count = 40_001;
+        const string expanded = "abcdefghijklmnop bcdefghijklmnopq cdefghijklmnopqr defghijklmnopqrs " +
+            "efghijklmnopqrst fghijklmnopqrstu ghijklmnopqrstuv hijklmnopqrstuvw ijklmnopqrstuvwx " +
+            "jklmnopqrstuvwxy klmnopqrstuvwxyz lmnopqrstuvwxyzab";
+        var articles = Enumerable.Range(1, count).Select(id =>
+            Row(id, id <= 20_000 ? expanded : "Quiet", QuietBody, Published)).ToArray();
+
+        // Expanding the aliases would produce over two million postings in the first block alone.
+        articles[0] = articles[0] with
+        {
+            Category = new TaxonomyName(1, "ProjectBridge"),
+            Tags = [new TaxonomyName(2, "ProjectBridge")]
+        };
+        articles[20_000] = articles[20_000] with
+        {
+            Body = "quiet pro",
+            Category = new TaxonomyName(3, "ProjectBrace"),
+            Title = "frontdesk"
+        };
+        articles[^1] = articles[^1] with { Title = "pro ProjectBridge frontDesk" };
+
+        var index = Assert.IsType<ArticleSearchIndex>(ArticleSearchIndex.Build(articles, CancellationToken.None));
+        Assert.True(index.UsesWideProfile);
+
+        // Two half-weight taxonomy hits tie a half-weight taxonomy hit plus an exact body hit.
+        Assert.Equal([count, 20_001, 1], Ids("pro"));
+        Assert.Equal([count, 1], Ids("projectbridge"));
+        Assert.Equal([count], Ids("desk"));
+        Assert.Equal([count, 1, 20_001], Ids("pro projectbridge desk"));
+        var frequent = index.SearchPage("abcdef", ArticleSearchSort.Relevance, 1, 100, CancellationToken.None);
+        Assert.Equal(20_000, frequent.Total);
+        Assert.Equal(20_000, frequent.Articles[0].Id);
+
+        int[] Ids(string query) => index.Search(query, CancellationToken.None).Select(article => article.Id).ToArray();
+    }
+
+    [Fact]
     public void WideSnapshotServesExactFas4CoordinatesAndDiscardsWithdrawnTail()
     {
         const int last = 40_001;

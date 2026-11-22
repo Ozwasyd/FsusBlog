@@ -78,7 +78,18 @@ internal static class ArticleSearchTokens
         }
     }
 
-    internal static bool VisitIndexTokens(string text, CancellationToken ct, Func<uint, bool, bool> visit)
+    internal delegate bool VisitSource(uint hash, ReadOnlySpan<uint> aliases);
+
+    internal static bool VisitIndexTokens(string text, CancellationToken ct, Func<uint, bool, bool> visit) =>
+        VisitSources(text, ct, (hash, aliases) =>
+        {
+            if (!visit(hash, true)) return false;
+            foreach (var alias in aliases)
+                if (!visit(alias, false)) return false;
+            return true;
+        });
+
+    internal static bool VisitSources(string text, CancellationToken ct, VisitSource visit)
     {
         Span<uint> subtokens = stackalloc uint[MaxAsciiSubtokens];
         for (var offset = 0; offset < text.Length;)
@@ -90,27 +101,25 @@ internal static class ArticleSearchTokens
                 while (offset < text.Length && char.IsAsciiLetterOrDigit(text[offset])) offset++;
                 var span = text.AsSpan(start, offset - start);
                 var fullHash = LocalSearchCorpus.HashAscii(span);
-                if (!visit(fullHash, true)) return false;
                 var expanded = ExpandAscii(span, fullHash, subtokens);
-                for (var i = 0; i < expanded; i++)
-                    if (!visit(subtokens[i], false)) return false;
+                if (!visit(fullHash, subtokens[..expanded])) return false;
             }
             else if (SearchLexicon.IsCjk(text[offset]))
             {
                 var start = offset++;
                 while (offset < text.Length && SearchLexicon.IsCjk(text[offset])) offset++;
                 while (offset - start > MaxCjkSegment)
-                    if (!visit(LocalSearchCorpus.HashWord(text.AsSpan(start++, 1)), true)) return false;
+                    if (!visit(LocalSearchCorpus.HashWord(text.AsSpan(start++, 1)), [])) return false;
                 foreach (var (at, width) in SearchLexicon.Segment(text, start, offset))
                 {
-                    if (!visit(LocalSearchCorpus.HashWord(text.AsSpan(at, width)), true)) return false;
+                    if (!visit(LocalSearchCorpus.HashWord(text.AsSpan(at, width)), [])) return false;
                     for (var relative = 0; relative < width; relative++)
                     {
                         var longest = Math.Min(width - 1, width - relative);
                         for (var part = 2; part <= longest; part++)
                         {
                             var candidate = text.AsSpan(at + relative, part);
-                            if (SearchLexicon.IsWord(candidate) && !visit(LocalSearchCorpus.HashWord(candidate), true))
+                            if (SearchLexicon.IsWord(candidate) && !visit(LocalSearchCorpus.HashWord(candidate), []))
                                 return false;
                         }
                     }
@@ -122,7 +131,7 @@ internal static class ArticleSearchTokens
                 offset += scalar.Utf16SequenceLength;
                 var unit = (char)scalar.Value;
                 if (scalar.Value > 0x20 && !char.IsPunctuation(unit) && !char.IsWhiteSpace(unit) &&
-                    !visit(LocalSearchCorpus.HashRune(scalar), true))
+                    !visit(LocalSearchCorpus.HashRune(scalar), []))
                     return false;
             }
         }
