@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElCollapseTransition, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   beginSitePasskeyReplacement,
@@ -139,38 +139,44 @@ async function replacePasskey() {
 </script>
 
 <template>
-  <section v-if="available && (!hideTrigger || stage !== 'closed')" class="site-recovery-login"
+  <section v-if="available" class="site-recovery-login"
     :class="{ 'is-embedded': hideTrigger }" :aria-label="t('login.recovery.label')">
     <ElButton v-if="!hideTrigger && stage === 'closed'" text native-type="button" :disabled="disabled" @click="stage = 'key'">
       {{ t('login.recovery.open') }}
     </ElButton>
-    <ElAlert v-else-if="stage === 'finished'" :title="t('login.recovery.finished')" type="success" :closable="false" show-icon />
-    <form v-else-if="stage !== 'closed'" class="recovery-login-form auth-secondary-panel" @submit.prevent="replacePasskey">
-      <p class="auth-secondary-hint">{{ t('login.recovery.explanation') }}</p>
-      <div v-if="stage === 'key'" class="auth-secondary-field">
-        <label for="site-recovery-login-key">{{ t('login.recovery.key') }}</label>
-        <ElInput
-          id="site-recovery-login-key"
-          v-model="key"
-          type="password"
-          autocomplete="off"
-          v-bind="{ autocorrect: 'off', autocapitalize: 'none', spellcheck: false }"
-          :disabled="busy || disabled"
-        />
+    <ElCollapseTransition>
+      <div v-if="stage !== 'closed'" class="auth-disclosure">
+        <div class="auth-disclosure__inner">
+          <ElAlert v-if="stage === 'finished'" :title="t('login.recovery.finished')" type="success" :closable="false" show-icon />
+          <form v-else class="recovery-login-form auth-secondary-panel" @submit.prevent="replacePasskey">
+            <p class="auth-secondary-hint">{{ t('login.recovery.explanation') }}</p>
+            <div v-if="stage === 'key'" class="auth-secondary-field">
+              <label for="site-recovery-login-key">{{ t('login.recovery.key') }}</label>
+              <ElInput
+                id="site-recovery-login-key"
+                v-model="key"
+                type="password"
+                autocomplete="off"
+                v-bind="{ autocorrect: 'off', autocapitalize: 'none', spellcheck: false }"
+                :disabled="busy || disabled"
+              />
+            </div>
+            <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
+            <div class="auth-secondary-actions">
+              <ElButton type="primary" native-type="submit" :loading="busy" :disabled="disabled || (stage === 'key' && !keyValid && !busy)">
+                {{ t(stage === 'complete' && failure ? 'login.recovery.retry' : 'login.recovery.replace') }}
+              </ElButton>
+              <ElButton class="recovery-cancel" native-type="button" @click="clearRecovery">{{ t('login.recovery.cancel') }}</ElButton>
+            </div>
+          </form>
+        </div>
       </div>
-      <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
-      <div class="auth-secondary-actions">
-        <ElButton type="primary" native-type="submit" :loading="busy" :disabled="disabled || (stage === 'key' && !keyValid && !busy)">
-          {{ t(stage === 'complete' && failure ? 'login.recovery.retry' : 'login.recovery.replace') }}
-        </ElButton>
-        <ElButton class="recovery-cancel" native-type="button" @click="clearRecovery">{{ t('login.recovery.cancel') }}</ElButton>
-      </div>
-    </form>
+    </ElCollapseTransition>
   </section>
 </template>
 
 <style scoped>
 .site-recovery-login { margin-block: 1.5rem; }
-.site-recovery-login.is-embedded { margin-block: 0 1.5rem; }
+.site-recovery-login.is-embedded { margin-block: 0; }
 .recovery-cancel { margin-inline-start: 0; }
 </style>

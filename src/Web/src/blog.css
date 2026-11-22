@@ -405,6 +405,36 @@ p { line-height: 1.65; }
   padding-block-start: .25rem;
 }
 .auth-secondary-actions .el-button + .el-button { margin-inline-start: 0; }
+.auth-disclosure {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  interpolate-size: allow-keywords;
+}
+.auth-disclosure__inner {
+  padding-block: 0 1.5rem;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--fsus-motion-control, 220ms) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)),
+    transform var(--fsus-motion-control, 220ms) var(--fsus-motion-emphasized, cubic-bezier(0.2, 0, 0, 1));
+}
+.auth-disclosure.el-collapse-transition-enter-from .auth-disclosure__inner,
+.auth-disclosure.el-collapse-transition-leave-to .auth-disclosure__inner {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-disclosure__inner {
+    transform: none !important;
+    transition-duration: 1ms !important;
+  }
+}
+:root[data-fsus-motion='reduced'] .auth-disclosure__inner,
+:root[data-fsus-motion='disabled'] .auth-disclosure__inner {
+  transform: none !important;
+  transition-duration: 1ms !important;
+}
 .auth-footer { border-block-start: 1px solid var(--fsus-border); padding-block-start: 1.5rem; }
 .workspace-brand { font-size: 1.25rem; font-weight: 700; text-decoration: none; }
 .editor-shell-error { padding-inline: var(--fsusblog-page-gutter); }

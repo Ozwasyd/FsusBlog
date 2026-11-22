@@ -2,7 +2,7 @@
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { ElAlert, ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElCheckbox, ElCollapseTransition, ElInput } from '@ozwasyd/element-plus'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { readAdminAuthority } from '../../../Contracts/admin-identity'
 import { passkeyAvailable } from '../../../Contracts/passkey'
@@ -204,31 +204,35 @@ function cancelFactor() {
     <SiteRecoveryLogin v-if="hasPasskeys" ref="recoveryRef" hide-trigger :disabled="busy"
       :initial-available="initialLogin?.recoveryAvailable"
       @busy="recoveryBusy = $event" @available="recoveryAvailable = $event" @open="recoveryOpen = $event" />
-    <div v-if="hasPasskeys && !registered && setupOpen" class="passkey-setup">
-      <form class="passkey-setup-form auth-secondary-panel" @submit.prevent="usePasskey(true)">
-        <p class="auth-secondary-hint">{{ t('login.setupHelp') }}</p>
-        <div class="auth-secondary-field">
-          <label for="passkey-setup-ticket">{{ t('login.setupTicket') }}</label>
-          <ElInput
-            id="passkey-setup-ticket"
-            v-model="ticket"
-            type="password"
-            autocomplete="off"
-            v-bind="{ autocorrect: 'off', autocapitalize: 'none', spellcheck: false }"
-            :disabled="busy || recoveryBusy"
-          />
+    <ElCollapseTransition>
+      <div v-if="hasPasskeys && !registered && setupOpen" class="passkey-setup auth-disclosure">
+        <div class="auth-disclosure__inner">
+          <form class="passkey-setup-form auth-secondary-panel" @submit.prevent="usePasskey(true)">
+            <p class="auth-secondary-hint">{{ t('login.setupHelp') }}</p>
+            <div class="auth-secondary-field">
+              <label for="passkey-setup-ticket">{{ t('login.setupTicket') }}</label>
+              <ElInput
+                id="passkey-setup-ticket"
+                v-model="ticket"
+                type="password"
+                autocomplete="off"
+                v-bind="{ autocorrect: 'off', autocapitalize: 'none', spellcheck: false }"
+                :disabled="busy || recoveryBusy"
+              />
+            </div>
+            <ElAlert v-if="failure === 'login.createFailed'" :title="t(failure)" type="error" :closable="false" show-icon />
+            <div class="auth-secondary-actions">
+              <ElButton native-type="submit" type="primary" :loading="busy" :disabled="!validTicket || recoveryBusy">
+                {{ t('login.createPasskey') }}
+              </ElButton>
+              <ElButton native-type="button" :disabled="busy || recoveryBusy" @click="toggleSetup">
+                {{ t('comment.close') }}
+              </ElButton>
+            </div>
+          </form>
         </div>
-        <ElAlert v-if="failure === 'login.createFailed'" :title="t(failure)" type="error" :closable="false" show-icon />
-        <div class="auth-secondary-actions">
-          <ElButton native-type="submit" type="primary" :loading="busy" :disabled="!validTicket || recoveryBusy">
-            {{ t('login.createPasskey') }}
-          </ElButton>
-          <ElButton native-type="button" :disabled="busy || recoveryBusy" @click="toggleSetup">
-            {{ t('comment.close') }}
-          </ElButton>
-        </div>
-      </form>
-    </div>
+      </div>
+    </ElCollapseTransition>
   </template>
   <div class="auth-footer login-footer">
     <RouterLink to="/">{{ t('login.cancel') }}</RouterLink>
@@ -256,13 +260,20 @@ function cancelFactor() {
   padding-inline: .5rem;
   margin-inline: -.5rem;
   color: var(--el-text-color-secondary);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 1.5px;
+  transition:
+    color var(--fsus-motion-control-fast, 140ms) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)),
+    text-decoration-color var(--fsus-motion-control-fast, 140ms) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));
 }
 .login-secondary-trigger[aria-expanded='true'] {
   color: var(--el-text-color-primary);
   font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 6px;
-  text-decoration-thickness: 1.5px;
+  text-decoration-color: currentColor;
 }
-.passkey-setup { margin-block: 0 1.5rem; }
+@media (prefers-reduced-motion: reduce) {
+  .login-secondary-trigger { transition-duration: 1ms; }
+}
 </style>
