@@ -18,8 +18,8 @@ public static partial class Wire
 
     public static AuthorTextPropertyTextQuery DecodeAuthorTextPropertyTextQuery(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.MaxAuthorTextPropertyTextQueryFrameBytes) throw InvalidAuthorTextPropertyText();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorTextPropertyTextQuery));
+        var reader = Reader.Open(frame, FrameType.AuthorTextPropertyTextQuery, WireLimits.MaxAuthorTextPropertyTextQueryFrameBytes,
+            InvalidAuthorTextPropertyText);
         var search = ReadAuthorTextQualifiedQuery(ref reader);
         var value = new AuthorTextPropertyTextQuery(search, reader.Uuid(), reader.I64());
         reader.Finish();
@@ -51,8 +51,8 @@ public static partial class Wire
 
     public static AuthorTextPropertyTextQualifiedQuery DecodeAuthorTextPropertyTextQualifiedQuery(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.MaxAuthorTextPropertyTextQualifiedQueryFrameBytes) throw InvalidAuthorTextPropertyText();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorTextPropertyTextQualifiedQuery));
+        var reader = Reader.Open(frame, FrameType.AuthorTextPropertyTextQualifiedQuery, WireLimits.MaxAuthorTextPropertyTextQualifiedQueryFrameBytes,
+            InvalidAuthorTextPropertyText);
         var search = ReadAuthorTextQualifiedQuery(ref reader);
         var definition = reader.Uuid();
         var revision = reader.I64();
@@ -91,8 +91,8 @@ public static partial class Wire
 
     public static AuthorTextPropertyTextMixedQuery DecodeAuthorTextPropertyTextMixedQuery(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.MaxAuthorTextPropertyTextMixedQueryFrameBytes) throw InvalidAuthorTextPropertyText();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorTextPropertyTextMixedQuery));
+        var reader = Reader.Open(frame, FrameType.AuthorTextPropertyTextMixedQuery, WireLimits.MaxAuthorTextPropertyTextMixedQueryFrameBytes,
+            InvalidAuthorTextPropertyText);
         var search = ReadAuthorTextQualifiedQuery(ref reader);
         var definition = reader.Uuid();
         var revision = reader.I64();

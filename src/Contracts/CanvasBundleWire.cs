@@ -53,7 +53,7 @@ public static partial class Wire
         var title = input.Text(WireLimits.TitleBytes);
         var nodes = input.I32();
         var edges = input.I32();
-        var references = new CanvasBundleReference[ReadCount(ref input, WireLimits.CanvasBundleMaxReferences)];
+        var references = new CanvasBundleReference[input.Count(0, WireLimits.CanvasBundleMaxReferences, CanvasProtocolError)];
         for (var i = 0; i < references.Length; i++)
         {
             var slot = input.I32();
@@ -88,12 +88,12 @@ public static partial class Wire
 
     public static CanvasBundleExecute DecodeCanvasBundleExecute(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.CanvasBundleExecuteFrameBytes) throw InvalidCanvasBundle();
-        var input = new Reader(Aeds.Decode(frame, FrameType.CanvasBundleExecute));
+        var input = Reader.Open(frame, FrameType.CanvasBundleExecute, WireLimits.CanvasBundleExecuteFrameBytes,
+            InvalidCanvasBundle);
         var canvas = input.Uuid();
         var key = input.Uuid();
         var digest = input.Text(CanvasBundleDigestBytes);
-        var mappings = new CanvasBundleMapping[ReadCount(ref input, WireLimits.CanvasBundleMaxReferences)];
+        var mappings = new CanvasBundleMapping[input.Count(0, WireLimits.CanvasBundleMaxReferences, CanvasProtocolError)];
         for (var i = 0; i < mappings.Length; i++)
         {
             var slot = input.I32();

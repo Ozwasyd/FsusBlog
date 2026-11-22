@@ -148,9 +148,22 @@ public static partial class Wire
     {
         private ReadOnlySpan<byte> remaining = payload;
 
+        public static Reader Open(ReadOnlySpan<byte> frame, FrameType type, int maximumBytes, Func<ProtocolException> invalid)
+        {
+            if (frame.Length > maximumBytes) throw invalid();
+            return new Reader(Aeds.Decode(frame, type));
+        }
+
         public byte Byte() => Take(1)[0];
         public int I32() => BinaryPrimitives.ReadInt32LittleEndian(Take(4));
         public int[] I32s(int limit) => List(limit, 4, static (ref Reader reader) => reader.I32());
+        public int Count(int minimum, int maximum, Func<ProtocolException> invalid)
+        {
+            var count = I32();
+            if (count < minimum || count > maximum) throw invalid();
+            return count;
+        }
+
         public T[] List<T>(int limit, int minItemBytes, ReadRecord<T> readItem)
         {
             var count = I32();

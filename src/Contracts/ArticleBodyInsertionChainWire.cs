@@ -24,8 +24,8 @@ public static partial class Wire
 
     public static ArticleBodyInsertionsCommand DecodeArticleBodyInsertionsCommand(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.MaxArticleBodyInsertionsCommandFrameBytes) throw InvalidBodyInsertionChain();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleBodyInsertionsCommand));
+        var reader = Reader.Open(frame, FrameType.ArticleBodyInsertionsCommand, WireLimits.MaxArticleBodyInsertionsCommandFrameBytes,
+            InvalidBodyInsertionChain);
         var value = new ArticleBodyInsertionsCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.TitleBytes),
             reader.Text(WireLimits.BodyBytes), ReadBodyInsertions(ref reader));
         reader.Finish();
@@ -55,17 +55,15 @@ public static partial class Wire
 
     public static DraftRevisionBodyInsertionChain DecodeDraftRevisionBodyInsertionChain(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.MaxDraftRevisionBodyInsertionChainFrameBytes) throw InvalidBodyInsertionChain();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.DraftRevisionBodyInsertionChain));
+        var reader = Reader.Open(frame, FrameType.DraftRevisionBodyInsertionChain, WireLimits.MaxDraftRevisionBodyInsertionChainFrameBytes,
+            InvalidBodyInsertionChain);
         var id = reader.I32();
         var revision = reader.I64();
         var source = reader.I64();
         var available = reader.Bool();
         var sourceBody = reader.Text(WireLimits.BodyBytes);
         var body = reader.Text(WireLimits.BodyBytes);
-        var count = reader.I32();
-        if (count is < 0 or > WireLimits.ArticleBodyInsertionChainEdges) throw InvalidBodyInsertionChain();
-        var edges = new DraftRevisionBodyInsertionEdge[count];
+        var edges = new DraftRevisionBodyInsertionEdge[reader.Count(0, WireLimits.ArticleBodyInsertionChainEdges, InvalidBodyInsertionChain)];
         for (var index = 0; index < edges.Length; index++)
             edges[index] = new(reader.Text(WireLimits.ArticleBodyInsertionDigestBytes), reader.Text(WireLimits.ArticleBodyInsertionDigestBytes),
                 ReadBodyInsertions(ref reader));
@@ -87,10 +85,8 @@ public static partial class Wire
 
     private static BodyInsertion[] ReadBodyInsertions(ref Reader reader)
     {
-        var count = reader.I32();
-        if (count is < 0 or > WireLimits.ArticleBodyInsertionOperations) throw InvalidBodyInsertionChain();
-        var insertions = new BodyInsertion[count];
-        for (var index = 0; index < count; index++)
+        var insertions = new BodyInsertion[reader.Count(0, WireLimits.ArticleBodyInsertionOperations, InvalidBodyInsertionChain)];
+        for (var index = 0; index < insertions.Length; index++)
             insertions[index] = new(reader.I32(), reader.I32());
         return insertions;
     }

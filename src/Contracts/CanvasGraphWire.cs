@@ -41,15 +41,15 @@ public static partial class Wire
     // Frames encode variants by their elected fields. Domain validation runs after strict framing.
     public static CanvasGraphCommand DecodeCanvasGraphCommand(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.CanvasGraphCommandBytes) throw CanvasProtocolError();
-        var r = new Reader(Aeds.Decode(frame, FrameType.CanvasGraphCommand));
+        var r = Reader.Open(frame, FrameType.CanvasGraphCommand, WireLimits.CanvasGraphCommandBytes,
+            CanvasProtocolError);
         var id = r.Uuid();
         var key = r.Uuid();
         var expected = r.I64();
         var action = (CanvasGraphAction)r.I32();
         var title = r.Text(WireLimits.TitleBytes);
         CanvasViewport? viewport = r.Bool() ? ReadViewport(ref r) : null;
-        var changes = new CanvasChangeFrame[ReadCount(ref r, WireLimits.CanvasGraphMaxChanges)];
+        var changes = new CanvasChangeFrame[r.Count(0, WireLimits.CanvasGraphMaxChanges, CanvasProtocolError)];
         for (var i = 0; i < changes.Length; i++)
         {
             changes[i] = r.I32() switch
@@ -121,7 +121,7 @@ public static partial class Wire
     public static IReadOnlyList<CanvasGraphReceipt> DecodeCanvasGraphList(ReadOnlySpan<byte> frame)
     {
         var r = new Reader(Aeds.Decode(frame, FrameType.CanvasGraphList));
-        var documents = new CanvasGraphReceipt[ReadCount(ref r, WireLimits.CanvasGraphMaxDocuments)];
+        var documents = new CanvasGraphReceipt[r.Count(0, WireLimits.CanvasGraphMaxDocuments, CanvasProtocolError)];
         for (var i = 0; i < documents.Length; i++) documents[i] = ReadCanvasReceipt(ref r);
         r.Finish();
         return documents;
@@ -147,9 +147,9 @@ public static partial class Wire
         var document = ReadCanvasReceipt(ref r);
         var next = r.I32();
         if (next < -1 || next > document.NodeCount + document.EdgeCount) throw CanvasProtocolError();
-        var nodes = new CanvasNodeFrame[ReadCount(ref r, WireLimits.CanvasGraphMaxPageNodes)];
+        var nodes = new CanvasNodeFrame[r.Count(0, WireLimits.CanvasGraphMaxPageNodes, CanvasProtocolError)];
         for (var i = 0; i < nodes.Length; i++) nodes[i] = ReadCanvasNode(ref r);
-        var edges = new CanvasEdgeFrame[ReadCount(ref r, WireLimits.CanvasGraphMaxPageEdges)];
+        var edges = new CanvasEdgeFrame[r.Count(0, WireLimits.CanvasGraphMaxPageEdges, CanvasProtocolError)];
         for (var i = 0; i < edges.Length; i++) edges[i] = ReadCanvasEdge(ref r);
         r.Finish();
         return new(document, next, nodes, edges);
@@ -247,7 +247,7 @@ public static partial class Wire
         if (node.Kind == 3) return node with { Text = r.Text(WireLimits.CanvasGraphNoteBytes) };
         if (node.Kind != 4) throw CanvasProtocolError();
         var label = r.Text(WireLimits.CanvasGraphLabelBytes);
-        var members = new Guid[ReadCount(ref r, 10_000)];
+        var members = new Guid[r.Count(0, 10_000, CanvasProtocolError)];
         for (var i = 0; i < members.Length; i++) members[i] = r.Uuid();
         return node with { Text = label, MemberIds = members };
     }
@@ -293,12 +293,6 @@ public static partial class Wire
         w.I32(edge.Order);
         w.Bool(edge.Label is not null);
         if (edge.Label is not null) w.Text(edge.Label, WireLimits.CanvasGraphLabelBytes);
-    }
-
-    private static int ReadCount(ref Reader reader, int maximum)
-    {
-        var count = reader.I32();
-        return count >= 0 && count <= maximum ? count : throw CanvasProtocolError();
     }
 
     private static ProtocolException CanvasProtocolError() => new("Invalid Canvas document frame.");

@@ -155,10 +155,8 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyArticlePage));
         var next = reader.Text(WireLimits.PropertyQueryCursorChars);
-        var count = reader.I32();
-        if (count < 0 || count > WireLimits.PropertyPageSize) throw InvalidProperty();
-        var rows = new PropertyArticleRow[count];
-        for (var i = 0; i < count; i++)
+        var rows = new PropertyArticleRow[reader.Count(0, WireLimits.PropertyPageSize, InvalidProperty)];
+        for (var i = 0; i < rows.Length; i++)
             rows[i] = new(reader.I32(), reader.I64(), reader.Text(WireLimits.TitleBytes));
         reader.Finish();
         return new(next, rows);
@@ -196,10 +194,8 @@ public static partial class Wire
 
     private static PropertyCondition[] ReadPropertyConditions(ref Reader reader, bool allowEmpty = false)
     {
-        var count = reader.I32();
-        if (count < (allowEmpty ? 0 : 1) || count > WireLimits.PropertyQueryConditionCount) throw InvalidProperty();
-        var conditions = new PropertyCondition[count];
-        for (var i = 0; i < count; i++)
+        var conditions = new PropertyCondition[reader.Count(allowEmpty ? 0 : 1, WireLimits.PropertyQueryConditionCount, InvalidProperty)];
+        for (var i = 0; i < conditions.Length; i++)
         {
             var definition = reader.Uuid();
             var revision = reader.I64();

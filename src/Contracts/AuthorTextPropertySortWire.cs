@@ -29,8 +29,8 @@ public static partial class Wire
 
     public static AuthorTextPropertySortQuery DecodeAuthorTextPropertySortQuery(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.MaxAuthorTextPropertySortQueryFrameBytes) throw InvalidAuthorTextPropertySort();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorTextPropertySortQuery));
+        var reader = Reader.Open(frame, FrameType.AuthorTextPropertySortQuery, WireLimits.MaxAuthorTextPropertySortQueryFrameBytes,
+            InvalidAuthorTextPropertySort);
         var search = ReadAuthorTextQualifiedQuery(ref reader);
         var includeHeading = reader.Bool();
         var definition = reader.Uuid();

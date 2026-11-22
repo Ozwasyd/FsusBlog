@@ -26,8 +26,8 @@ public static partial class Wire
 
     public static ArticleBodyEditsCommand DecodeArticleBodyEditsCommand(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.MaxArticleBodyEditsCommandFrameBytes) throw InvalidBodyEdits();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleBodyEditsCommand));
+        var reader = Reader.Open(frame, FrameType.ArticleBodyEditsCommand, WireLimits.MaxArticleBodyEditsCommandFrameBytes,
+            InvalidBodyEdits);
         var value = new ArticleBodyEditsCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.TitleBytes),
             reader.Text(WireLimits.BodyBytes), ReadBodyEdits(ref reader));
         reader.Finish();
@@ -57,18 +57,16 @@ public static partial class Wire
 
     public static DraftRevisionBodyEditChain DecodeDraftRevisionBodyEditChain(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.MaxDraftRevisionBodyEditChainFrameBytes) throw InvalidBodyEdits();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.DraftRevisionBodyEditChain));
+        var reader = Reader.Open(frame, FrameType.DraftRevisionBodyEditChain, WireLimits.MaxDraftRevisionBodyEditChainFrameBytes,
+            InvalidBodyEdits);
         var id = reader.I32();
         var revision = reader.I64();
         var sourceRevision = reader.I64();
         var available = reader.Bool();
         var source = reader.Text(WireLimits.BodyBytes);
         var body = reader.Text(WireLimits.BodyBytes);
-        var count = reader.I32();
-        if (count is < 0 or > WireLimits.ArticleBodyInsertionChainEdges) throw InvalidBodyEdits();
-        var edges = new DraftRevisionBodyEditEdge[count];
-        for (var index = 0; index < count; index++)
+        var edges = new DraftRevisionBodyEditEdge[reader.Count(0, WireLimits.ArticleBodyInsertionChainEdges, InvalidBodyEdits)];
+        for (var index = 0; index < edges.Length; index++)
             edges[index] = new(reader.Text(WireLimits.ArticleBodyInsertionDigestBytes), reader.Text(WireLimits.ArticleBodyInsertionDigestBytes),
                 ReadBodyEdits(ref reader));
         reader.Finish();
@@ -90,10 +88,8 @@ public static partial class Wire
 
     private static BodyEdit[] ReadBodyEdits(ref Reader reader)
     {
-        var count = reader.I32();
-        if (count is < 0 or > WireLimits.ArticleBodyInsertionOperations) throw InvalidBodyEdits();
-        var edits = new BodyEdit[count];
-        for (var index = 0; index < count; index++) edits[index] = new(reader.I32(), reader.I32(), reader.Text(WireLimits.BodyBytes));
+        var edits = new BodyEdit[reader.Count(0, WireLimits.ArticleBodyInsertionOperations, InvalidBodyEdits)];
+        for (var index = 0; index < edits.Length; index++) edits[index] = new(reader.I32(), reader.I32(), reader.Text(WireLimits.BodyBytes));
         return edits;
     }
 

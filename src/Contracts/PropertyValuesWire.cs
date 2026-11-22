@@ -115,16 +115,14 @@ public static partial class Wire
 
     public static PropertyValueBatchInput DecodePropertyValueBatch(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.PropertyBatchMaxCommandBytes) throw InvalidProperty();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyValueBatchCommand));
+        var reader = Reader.Open(frame, FrameType.PropertyValueBatchCommand, WireLimits.PropertyBatchMaxCommandBytes,
+            InvalidProperty);
         var article = reader.I32();
         var revision = reader.I64();
         var schema = reader.I64();
         var values = reader.I64();
         var request = reader.Uuid();
-        var count = reader.I32();
-        if (count is < 1 or > WireLimits.PropertyBatchMaxChanges) throw InvalidProperty();
-        var changes = new PropertyValueChange[count];
+        var changes = new PropertyValueChange[reader.Count(1, WireLimits.PropertyBatchMaxChanges, InvalidProperty)];
         for (var index = 0; index < changes.Length; index++)
             changes[index] = new(reader.Uuid(), reader.I64(), ReadValue(ref reader));
         reader.Finish();
@@ -184,10 +182,8 @@ public static partial class Wire
         long schemaRevision = reader.I64();
         long valueRevision = reader.I64();
         string nextKey = reader.Text(WireLimits.PropertyKeyBytes);
-        int count = reader.I32();
-        if (count is < 0 or > WireLimits.PropertyPageSize) throw InvalidProperty();
-        var fields = new PropertyEditorField[count];
-        for (var index = 0; index < count; index++)
+        var fields = new PropertyEditorField[reader.Count(0, WireLimits.PropertyPageSize, InvalidProperty)];
+        for (var index = 0; index < fields.Length; index++)
             fields[index] = new(reader.Uuid(), reader.I64(), reader.Text(WireLimits.PropertyKeyBytes),
                 reader.Text(WireLimits.PropertyLabelBytes), reader.Bool(), ReadKind(ref reader), ReadOptions(ref reader), ReadValue(ref reader));
         reader.Finish();
@@ -257,10 +253,8 @@ public static partial class Wire
 
     private static PropertyFieldOption[] ReadOptions(ref Reader reader)
     {
-        var count = reader.I32();
-        if (count is < 0 or > WireLimits.PropertyOptionCount) throw InvalidProperty();
-        var options = new PropertyFieldOption[count];
-        for (var index = 0; index < count; index++)
+        var options = new PropertyFieldOption[reader.Count(0, WireLimits.PropertyOptionCount, InvalidProperty)];
+        for (var index = 0; index < options.Length; index++)
             options[index] = new(reader.Uuid(), reader.Text(WireLimits.PropertyLabelBytes));
         ValidateOptions(options);
         return options;
@@ -355,10 +349,8 @@ public static partial class Wire
 
     private static Guid[] ReadOptionIds(ref Reader reader)
     {
-        var count = reader.I32();
-        if (count is < 0 or > WireLimits.PropertyOptionCount) throw InvalidProperty();
-        var ids = new Guid[count];
-        for (var index = 0; index < count; index++) ids[index] = reader.Uuid();
+        var ids = new Guid[reader.Count(0, WireLimits.PropertyOptionCount, InvalidProperty)];
+        for (var index = 0; index < ids.Length; index++) ids[index] = reader.Uuid();
         return ValidateSet(ids, id => id != Guid.Empty) ? ids : throw InvalidProperty();
     }
 

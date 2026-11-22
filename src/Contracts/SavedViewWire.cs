@@ -40,8 +40,8 @@ public static partial class Wire
 
     public static SavedViewCommand DecodeSavedViewCommand(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.SavedViewKeywordCommandFrameBytes) throw InvalidSavedView();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.SavedViewCommand));
+        var reader = Reader.Open(frame, FrameType.SavedViewCommand, WireLimits.SavedViewKeywordCommandFrameBytes,
+            InvalidSavedView);
         var action = (SavedViewAction)reader.I32();
         var id = reader.Uuid();
         var revision = reader.I64();
@@ -179,10 +179,8 @@ public static partial class Wire
         var version = reader.I32();
         if (version is < 1 or > 7) throw InvalidSavedView();
         var keyword = version >= 6 ? reader.Text(WireLimits.AuthorArticleKeywordChars * 4) : "";
-        var count = reader.I32();
-        if (count is < 1 or > WireLimits.PropertyQueryConditionCount) throw InvalidSavedView();
-        var conditions = new SavedViewCondition[count];
-        for (var i = 0; i < count; ++i)
+        var conditions = new SavedViewCondition[reader.Count(1, WireLimits.PropertyQueryConditionCount, InvalidSavedView)];
+        for (var i = 0; i < conditions.Length; ++i)
         {
             var definition = reader.Uuid();
             var kind = ReadKind(ref reader);

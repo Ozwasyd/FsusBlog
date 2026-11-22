@@ -18,8 +18,7 @@ public static partial class Wire
 
     public static AdminInboxNotice DecodeAdminInboxNotice(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > MaxAdminInboxNoticeFrameBytes) throw InvalidNotice();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminInboxNotice));
+        var reader = Reader.Open(frame, FrameType.AdminInboxNotice, MaxAdminInboxNoticeFrameBytes, InvalidNotice);
         var account = reader.Uuid();
         if (account == Guid.Empty) throw InvalidNotice();
         var notice = new AdminInboxNotice(account, reader.Text(640), reader.Text(16000));

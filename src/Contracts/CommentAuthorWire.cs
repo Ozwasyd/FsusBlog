@@ -84,13 +84,11 @@ public static partial class Wire
     public static long[] DecodeCommentAuthorEligibilityRequest(ReadOnlySpan<byte> frame)
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.CommentAuthorEligibilityRequest));
-        var length = reader.I32();
-        if (length is < 1 or > WireLimits.CommentAuthorBatchSize)
-            throw new ProtocolException("Invalid comment eligibility count.");
-        var ids = new long[length];
+        var ids = new long[reader.Count(1, WireLimits.CommentAuthorBatchSize,
+            static () => new ProtocolException("Invalid comment eligibility count."))];
         for (var index = 0; index < ids.Length; index++) ids[index] = reader.I64();
         reader.Finish();
-        if (ids.Any(id => id <= 0) || ids.Distinct().Count() != length)
+        if (ids.Any(id => id <= 0) || ids.Distinct().Count() != ids.Length)
             throw new ProtocolException("Invalid comment eligibility coordinates.");
         return ids;
     }

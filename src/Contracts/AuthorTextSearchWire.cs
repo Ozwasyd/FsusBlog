@@ -28,9 +28,8 @@ public static partial class Wire
 
     public static string DecodeAuthorTextSearchQuery(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.MaxAuthorTextSearchQueryFrameBytes)
-            throw new ProtocolException("Author text search query exceeds its frame limit.");
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorTextSearchQuery));
+        var reader = Reader.Open(frame, FrameType.AuthorTextSearchQuery, WireLimits.MaxAuthorTextSearchQueryFrameBytes,
+            static () => new ProtocolException("Author text search query exceeds its frame limit."));
         var query = reader.Text(WireLimits.AuthorTextSearchQueryBytes);
         reader.Finish();
         ValidateAuthorTextQuery(query);
@@ -126,9 +125,8 @@ public static partial class Wire
 
     private static AuthorTextQualifiedQuery DecodeAuthorTextQualifiedQuery(ReadOnlySpan<byte> frame, FrameType type)
     {
-        if (frame.Length > WireLimits.MaxAuthorTextQualifiedQueryFrameBytes)
-            throw new ProtocolException("Author text search query exceeds its frame limit.");
-        var reader = new Reader(Aeds.Decode(frame, type));
+        var reader = Reader.Open(frame, type, WireLimits.MaxAuthorTextQualifiedQueryFrameBytes,
+            static () => new ProtocolException("Author text search query exceeds its frame limit."));
         var value = ReadAuthorTextQualifiedQuery(ref reader);
         reader.Finish();
         ValidateAuthorTextQualifiedQuery(value, requireQualifier: type == FrameType.AuthorTextQualifiedQuery);
@@ -174,9 +172,8 @@ public static partial class Wire
 
     private static AuthorTextRankedQuery DecodeAuthorTextCursorQuery(ReadOnlySpan<byte> frame, FrameType type)
     {
-        if (frame.Length > WireLimits.MaxAuthorTextRankedQueryFrameBytes)
-            throw new ProtocolException("Author text search query exceeds its frame limit.");
-        var reader = new Reader(Aeds.Decode(frame, type));
+        var reader = Reader.Open(frame, type, WireLimits.MaxAuthorTextRankedQueryFrameBytes,
+            static () => new ProtocolException("Author text search query exceeds its frame limit."));
         var query = reader.Text(WireLimits.AuthorTextSearchQueryBytes);
         var cursor = reader.Text(WireLimits.AuthorTextRankedCursorChars);
         reader.Finish();

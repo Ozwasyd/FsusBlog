@@ -22,8 +22,8 @@ public static partial class Wire
 
     public static AuthorTextPropertyFacetQuery DecodeAuthorTextPropertyFacetQuery(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.MaxAuthorTextPropertyFacetQueryFrameBytes) throw InvalidAuthorTextPropertyFacet();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthorTextPropertyFacetQuery));
+        var reader = Reader.Open(frame, FrameType.AuthorTextPropertyFacetQuery, WireLimits.MaxAuthorTextPropertyFacetQueryFrameBytes,
+            InvalidAuthorTextPropertyFacet);
         var search = ReadAuthorTextQualifiedQuery(ref reader);
         var value = new AuthorTextPropertyFacetQuery(search, reader.Bool(), reader.Uuid(), reader.I64());
         reader.Finish();

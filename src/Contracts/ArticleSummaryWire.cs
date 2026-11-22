@@ -20,8 +20,8 @@ public static partial class Wire
 
     public static ArticleSummaryCommand DecodeArticleSummaryCommand(ReadOnlySpan<byte> frame)
     {
-        if (frame.Length > WireLimits.MaxArticleSummaryCommandFrameBytes) throw InvalidArticleSummary();
-        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleSummaryCommand));
+        var reader = Reader.Open(frame, FrameType.ArticleSummaryCommand, WireLimits.MaxArticleSummaryCommandFrameBytes,
+            InvalidArticleSummary);
         var value = new ArticleSummaryCommand(reader.I32(), reader.I64(), reader.Uuid(),
             reader.Text(WireLimits.ArticleSummaryEditBytes));
         reader.Finish();
