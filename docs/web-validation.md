@@ -37,4 +37,6 @@ node tests/EndToEnd/blog-flow.mjs
 
 `FSUSBLOG_TEST_FLOW=article-library bash tests/EndToEnd/run-native.sh` 在当前编辑器验证文章库和快速切换，包括桌面与窄屏入口、分页、焦点恢复和会话切换。同一入口使用 `FSUSBLOG_TEST_FLOW=property-history` 验证编辑器中的历史属性对比。作者全文检索及属性索引使用 `tests/Integration/AuthorText*PostgresTests.cs` 验证。属性查询、保存视图执行及权限使用 `PropertyQueryPostgresTests` 验证。作者列表、软删除与恢复分别由 `AuthorArticleInventoryPostgresTests` 和 `ArticleTrashPostgresTests` 使用真实 PostgreSQL 接口验收。
 
+媒体验收同样使用 `run-native.sh` 和独立管理员 Passkey。将 `FSUSBLOG_TEST_FLOW` 分别设为 `private-media`、`article-media` 和 `public-article-media`，验证资产库、编辑器附件与公开图片。对应的附加检查分别使用 `FSUSBLOG_TEST_RESUMABLE_MEDIA=1`、`FSUSBLOG_DOCUMENT_EXPORT_TASKS=true` 和 `FSUSBLOG_TEST_MEDIA_WEBP=1`。
+
 后续在当前 FsusUI checkout 用 Emscripten 5.0.4 重建原生资源，清除 `FSUSBLOG_FSUSUI_WASM_DIST` 后重新运行 V2 的严格检查和构建；六个新生成的本地资源都进入成品。在 1280×800 和 375×850 重跑真实 Chrome Markdown 编辑/预览探针，两种视口均通过且无诊断。见 [构建和摘要](fsusui.md)。

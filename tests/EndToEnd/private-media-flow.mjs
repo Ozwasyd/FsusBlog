@@ -2,16 +2,18 @@ import assert from 'node:assert/strict'
 import { requireWebPackage } from './web-package-fixture.mjs'
 import { readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { api } from '../../src/Contracts/client.ts'
+import { currentMediaSession, mediaBootstraps } from './media-session-fixture.mjs'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
+import { assertStatus } from './response-status-fixture.mjs'
 
 const { chromium } = requireWebPackage('@playwright/test')
 const url = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const storage = process.env.FSUSBLOG_PRIVATE_MEDIA_ROOT
-const tickets = [process.env.FSUSBLOG_TEST_TICKET, process.env.FSUSBLOG_TEST_MOBILE_TICKET]
 const resumableRoute = '**/api/v2/media/resumable/**'
 const resumable = process.env.FSUSBLOG_TEST_RESUMABLE_MEDIA === '1'
-assert(evidence && storage && tickets.every(Boolean))
+const chineseLocale = { name: 'fsus_locale', value: 'zh-CN', url }
+assert(evidence && storage && mediaBootstraps.every(Boolean))
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })
 const results = []
 let failure
@@ -31,18 +33,17 @@ try {
       }
     })
 
-    await page.goto(`${url}/user/manage/assets`)
+    await context.addCookies([chineseLocale])
+    const anonymousLibrary = await page.goto(`${url}/admin/assets`)
+    assertStatus(anonymousLibrary, 200)
     await page.getByText('请使用作者账号登录', { exact: true }).waitFor()
-    assert.match(await page.title(), /Media library/)
-    assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex')
+    assert.match(await page.title(), /资产库/)
+    assert.equal(anonymousLibrary.headers()['x-robots-tag'], 'noindex')
     assert.equal(await page.getByLabel('选择图片').count(), 0)
 
-    await page.getByRole('link', { name: '登录', exact: true }).click()
-    await page.getByLabel('Owner access key').fill(tickets[index])
-    await page.getByRole('button', { name: 'Log in', exact: true }).click()
-    await page.getByRole('heading', { name: 'New article' }).waitFor()
-    if (index) await page.getByRole('button', { name: 'Account menu' }).click()
-    await page.getByRole('link', { name: 'Media library' }).filter({ visible: true }).click()
+    await signInFreshAdmin(page, url, mediaBootstraps[index])
+    await context.addCookies([chineseLocale])
+    await page.goto(`${url}/admin/assets`)
     await page.getByText('还没有图片', { exact: true }).waitFor()
     await page.screenshot({ path: join(evidence, `private-media-${name}-empty.png`) })
 
@@ -193,33 +194,32 @@ async function verifyAccountSwitch(page, uploadFile, context) {
   const submit = page.getByRole('button', { name: '上传图片' })
   const choose = page.getByLabel('选择图片')
   const resumeUi = page.getByText(/当前标签页重新选择/)
-  const oldCookie = (await context.cookies()).find(cookie => cookie.name === 'fsus-v2-session')
-  assert(oldCookie)
-  let foreignCookie
-  const nativeFetch = globalThis.fetch
-  globalThis.fetch = async (path, options) => {
-    const response = await nativeFetch(new URL(path, url), options)
-    foreignCookie = response.headers.get('set-cookie')?.match(/\bfsus-v2-session=([a-f0-9]{64})\b/)?.[1]
-    return response
-  }
-  try { await api.signIn(process.env.FSUSBLOG_TEST_MEDIA_SWITCH_TICKET) }
-  finally { globalThis.fetch = nativeFetch }
-  assert(foreignCookie)
+  const originalCookies = await context.cookies(url)
+  const originalSession = await currentMediaSession(page, url)
+  const peer = await browser.newContext()
+  let foreignCookies, foreignSession
+  try {
+    const peerPage = await peer.newPage()
+    await signInFreshAdmin(peerPage, url, process.env.FSUSBLOG_TEST_MEDIA_SWITCH_BOOTSTRAP)
+    await peer.addCookies([chineseLocale])
+    foreignCookies = await peer.cookies(url)
+    foreignSession = await currentMediaSession(peerPage, url)
+    assert.notEqual(foreignSession, originalSession)
+  } finally { await peer.close() }
   const switched = []
   await page.route(resumableRoute, async route => {
     const request = route.request()
     const path = new URL(request.url()).pathname
     switched.push([path, request.headers()['x-fsus-client-mutation-id']])
     if (path.endsWith('/parts/1.aeds')) {
-      await context.addCookies([{ name: 'fsus-v2-session', value: foreignCookie, url, httpOnly: true, sameSite: 'Strict' }])
+      await context.addCookies(foreignCookies)
       await route.abort('failed')
     } else await route.continue()
   })
   await submitInterruptedUpload(page, choose, submit, uploadFile)
   const original = beginMutation(switched)
   await page.unroute(resumableRoute)
-  const savedCookie = await context.cookies().then(cookies => cookies.find(cookie => cookie.name === 'fsus-v2-session'))
-  assert.equal(savedCookie.value, foreignCookie)
+  assert.equal(await currentMediaSession(page, url), foreignSession)
   await page.reload()
   await resumeUi.waitFor()
   const received = await completeResumableUpload(page, choose, submit, uploadFile)
@@ -228,7 +228,7 @@ async function verifyAccountSwitch(page, uploadFile, context) {
   await page.getByRole('button', { name: `删除 ${uploadFile.name}` }).click()
   await page.getByRole('button', { name: '删除图片', exact: true }).click()
   await page.getByText('图片已删除。', { exact: true }).waitFor()
-  await context.addCookies([oldCookie])
+  await context.addCookies(originalCookies)
   await page.route(resumableRoute, route => new URL(route.request().url()).pathname.endsWith('/parts/1.aeds') ? route.abort('failed') : route.continue())
   await page.reload()
   await resumeUi.waitFor()

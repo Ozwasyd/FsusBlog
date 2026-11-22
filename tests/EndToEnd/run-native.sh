@@ -82,9 +82,13 @@ fi
 FSUSBLOG_TEST_TICKET=$("${migrate[@]}" operator browser-author)
 export FSUSBLOG_TEST_TICKET
 flow=${FSUSBLOG_TEST_FLOW:-blog}
+media_flow=0
+case "$flow" in
+  private-media|article-media|public-article-media) media_flow=1 ;;
+esac
 if [[ $flow == blog || $flow == canvas-keyboard || $flow == editor-readiness ||
       $flow == workspace-recovery || $flow == workspace-split || $flow == workspace-locale ||
-      $flow == article-library || $flow == property-history ||
+      $flow == article-library || $flow == property-history || $media_flow == 1 ||
       ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap browser-author)
   export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
@@ -105,13 +109,15 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == comment-author-delete ]]; then
   export FSUSBLOG_TEST_OUTSIDER_TICKET FSUSBLOG_TEST_COMMENTER_TICKET FSUSBLOG_TEST_COMMENTER_SECOND_TICKET FSUSBLOG_TEST_COMMENT_DELETE_DB
   export FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true
 fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media || ${FSUSBLOG_TEST_FLOW:-blog} == article-media || ${FSUSBLOG_TEST_FLOW:-blog} == public-article-media ]]; then
-  FSUSBLOG_TEST_MOBILE_TICKET=$("${migrate[@]}" operator mobile-author)
-  export FSUSBLOG_TEST_MOBILE_TICKET
+if [[ $media_flow == 1 ]]; then
+  FSUSBLOG_TEST_MOBILE_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap mobile-author)
+  export FSUSBLOG_TEST_MOBILE_BOOTSTRAP
   if [[ ${FSUSBLOG_TEST_RESUMABLE_MEDIA:-0} == 1 ]]; then
     export FSUSBLOG_PRIVATE_MEDIA_RESUMABLE=true
-    FSUSBLOG_TEST_MEDIA_SWITCH_TICKET=$("${migrate[@]}" operator switch-author)
-    export FSUSBLOG_TEST_MEDIA_SWITCH_TICKET
+    if [[ $flow == private-media ]]; then
+      FSUSBLOG_TEST_MEDIA_SWITCH_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap switch-author)
+      export FSUSBLOG_TEST_MEDIA_SWITCH_BOOTSTRAP
+    fi
   else
     export FSUSBLOG_PRIVATE_MEDIA_RESUMABLE=false
   fi

@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
 import { api } from '../../src/Contracts/client.ts'
-import { withMediaSession } from './media-session-fixture.mjs'
+import { mediaBootstraps, withMediaSession } from './media-session-fixture.mjs'
 import { decodeMediaItems, uploadMedia } from '../../src/Contracts/private-media.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
@@ -38,7 +38,8 @@ try {
     const device = index === 0 ? 'desktop' : 'mobile'
     const colorScheme = index === 0 ? 'light' : 'dark'
     const author = await browser.newContext({ viewport, colorScheme })
-    const anonymous = await browser.newContext({ viewport, colorScheme })
+    const anonymous = await browser.newContext({ viewport, colorScheme, locale: 'en-US' })
+    await anonymous.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
     try {
       phase = `${device}: fixtures`
       const page = await author.newPage()
@@ -51,6 +52,8 @@ try {
           const url = URL.parse(message.location().url, origin)
           const status = /^Failed to load resource: the server responded with a status of (\d{3})\b/.exec(message.text())?.[1]
           if (url?.origin === origin && status && expectedResourceStatuses.get(url.pathname) === status) return
+          if (active === page && phase === `${device}: fixtures` && url?.origin === origin &&
+              url.pathname === WireRoutes.AdminSession && status === '401') return
           errors.push(`${url?.pathname ?? ''} ${message.text()}`)
         })
       }
@@ -64,10 +67,8 @@ try {
       const chosen = await imageFixture(page, `publish-choice-${device}.${webp ? 'webp' : 'png'}`, imageWidth, 80, '#2f5d96', '#e7aa70', chosenContentType)
       const galleryFile = await imageFixture(page, `gallery-image-${device}.png`, galleryWidth, 60, '#32573e', '#b08ba6')
       const privateOnly = await imageFixture(page, `keep-private-${device}.png`, 100, 90, '#851d39', '#338758')
-      const ticket = index === 0 ? process.env.FSUSBLOG_TEST_TICKET : process.env.FSUSBLOG_TEST_MOBILE_TICKET
-      assert(ticket, 'Provide separate one-time author tickets for the desktop and mobile fixtures.')
       const title = `Explicit article images ${device}`
-      const fixture = await createDraft(page, author, ticket, title, chosen, galleryFile, privateOnly)
+      const fixture = await createDraft(page, mediaBootstraps[index], title, chosen, galleryFile, privateOnly)
       const articleId = fixture.draft.id
       const articlePath = `${origin}/article/${articleId}`
       const inspector = exactButton(page, 'Inspector')
@@ -101,7 +102,7 @@ try {
         return decodeDraft(decodeFrame(await saved.body(), FrameType.Draft).payload)
       }
 
-      await page.goto(`${origin}/user/manage/article/edit/${articleId}`)
+      await page.goto(`${origin}/admin/articles/edit/${articleId}`)
       await inspector.click()
       await manage.click()
       await attach(page, chosen.name)
@@ -362,28 +363,27 @@ async function imageFixture(page, name, width, height, background, accent, type 
   return new File([Buffer.from(data.split(',')[1], 'base64')], name, { type })
 }
 
-async function createDraft(page, context, ticket, title, chosen, galleryFile, privateOnly) {
-  return withMediaSession(origin, ticket, async (cookie, session) => {
-    await context.addCookies([{ name: 'fsus-v2-session', value: cookie, url: origin, httpOnly: true, sameSite: 'Strict', secure: origin.startsWith('https:') }])
+async function createDraft(page, bootstrap, title, chosen, galleryFile, privateOnly) {
+  return withMediaSession(page, origin, bootstrap, async current => {
     const selectedAsset = webp ? await uploadWebpInLibrary(page, chosen) : await uploadMedia(chosen, crypto.randomUUID())
     const galleryAsset = await uploadMedia(galleryFile, crypto.randomUUID())
     const unselectedAsset = await uploadMedia(privateOnly, crypto.randomUUID())
     const draft = await api.save({ id: 0, expectedRevision: 0n, idempotencyKey: crypto.randomUUID(), title,
-      body: 'The gallery holds only the images selected for this publication.' }, undefined, session.siteSessionId)
+      body: 'The gallery holds only the images selected for this publication.' }, undefined, current)
     return { draft, chosen: selectedAsset, gallery: galleryAsset, privateOnly: unselectedAsset }
   })
 }
 
 async function uploadWebpInLibrary(page, file) {
   const listed = waitForUrlResponse(page, () => origin + WireRoutes.PrivateMediaList)
-  await page.goto(origin + '/user/manage/assets')
+  await page.goto(origin + '/admin/assets')
   const listing = await listed
   assertStatus(listing, 200)
   assert.equal(listing.headers()[WireHeaders.PrivateMediaWebp.toLowerCase()], '1')
   const chooser = page.locator('#private-media-file[accept*="image/webp"]')
   await chooser.setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) })
   const stored = waitForPathResponse(page, () => WireRoutes.PrivateMediaUpload)
-  await exactButton(page, '上传图片').click()
+  await exactButton(page, 'Upload image').click()
   const receipt = await stored
   assertStatus(receipt, 200)
   const frame = decodeFrame(await receipt.body())
@@ -392,7 +392,7 @@ async function uploadWebpInLibrary(page, file) {
   assert.equal(items.length, 1)
   assert.equal(items[0].name, file.name)
   assert.equal(items[0].format, 3)
-  await exactText(page, '图片已保存。').waitFor()
+  await exactText(page, 'Image saved.').waitFor()
   return items[0]
 }
 

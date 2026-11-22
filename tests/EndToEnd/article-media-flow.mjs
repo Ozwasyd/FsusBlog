@@ -6,7 +6,7 @@ import { requireWebPackage } from './web-package-fixture.mjs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { inspectDownloadedFile, inspectOfflinePage } from './media-export-fixture.mjs'
-import { withMediaSession } from './media-session-fixture.mjs'
+import { mediaBootstraps, withMediaSession } from './media-session-fixture.mjs'
 import { api } from '../../src/Contracts/client.ts'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodWriter } from '../../src/Contracts/binary.ts'
@@ -39,15 +39,13 @@ try {
         return fixture.toDataURL('image/png').split(',')[1]
       }), 'base64'))
       const file = `private-attachment-${name}.png`
-      const ticket = index ? process.env.FSUSBLOG_TEST_MOBILE_TICKET : process.env.FSUSBLOG_TEST_TICKET
-      const { cookie, asset, second, draft } = await withMediaSession(origin, ticket, async cookie => {
+      const { asset, second, draft } = await withMediaSession(page, origin, mediaBootstraps[index], async current => {
         const asset = await uploadMedia(new File([bytes], file, { type: 'image/png' }), crypto.randomUUID())
         const second = await uploadMedia(new File([bytes], 'companion-' + file, { type: 'image/png' }), crypto.randomUUID())
         const draft = await api.save({ id: 0, expectedRevision: 0n, idempotencyKey: crypto.randomUUID(),
-          title: `Private attachments ${name}`, body: 'Public text remains independent of private attachments.' })
-        return { cookie, asset, second, draft }
+          title: `Private attachments ${name}`, body: 'Public text remains independent of private attachments.' }, undefined, current)
+        return { asset, second, draft }
       })
-      await author.addCookies([{ name: 'fsus-v2-session', value: cookie, url: origin, httpOnly: true, sameSite: 'Strict' }])
 
       const diagnostics = []
       page.on('pageerror', error => diagnostics.push(error.message))
@@ -56,7 +54,7 @@ try {
         if (item.type() === 'error' &&
           (item.location().url !== revokedPreviewUrl || !item.text().includes('net::ERR_FILE_NOT_FOUND'))) diagnostics.push(item.text())
       })
-      await page.goto(`${origin}/user/manage/article/edit/${draft.id}`)
+      await page.goto(`${origin}/admin/articles/edit/${draft.id}`)
       await exactButton(page, 'Inspector').click()
       await page.getByRole('button', { name: 'Manage private attachments' }).click()
       const choose = page.getByRole('combobox', { name: 'Choose a private image' })
