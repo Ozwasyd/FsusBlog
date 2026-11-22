@@ -81,7 +81,7 @@ fi
 "${migrate[@]}" verify >> "$evidence/schema.log"
 FSUSBLOG_TEST_TICKET=$("${migrate[@]}" operator browser-author)
 export FSUSBLOG_TEST_TICKET
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == blog || ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == blog || ${FSUSBLOG_TEST_FLOW:-blog} == canvas-keyboard || ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap browser-author)
   export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
 fi

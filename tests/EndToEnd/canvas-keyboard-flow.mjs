@@ -4,16 +4,16 @@ import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeCanvasGraphPage } from '../../src/Contracts/canvas-graph.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { authorFixture, button, chromium, createCanvasThroughUi, expect } from './browser-authoring-fixture.mjs'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
+import { observePageErrors, button, chromium, createCanvasThroughUi, expect } from './browser-authoring-fixture.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const diagnostics = [], observations = []
-const { signIn, monitor } = authorFixture(origin, diagnostics)
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
 try {
   const context = await browser.newContext({ reducedMotion: 'reduce' })
-  await signIn(context, process.env.FSUSBLOG_TEST_TICKET)
-  const page = monitor(await context.newPage())
+  const page = observePageErrors(await context.newPage(), diagnostics)
+  await signInFreshAdmin(page, origin, process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP)
   for (const width of [1280, 375]) {
     await page.setViewportSize({ width, height: 900 })
     await createCanvasThroughUi(page, origin, `Keyboard ${width}`)
