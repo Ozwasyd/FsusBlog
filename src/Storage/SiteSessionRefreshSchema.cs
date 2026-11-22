@@ -1,7 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
-using Npgsql;
-
 namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
@@ -32,11 +28,6 @@ internal static partial class CurrentSchema
 
     private static readonly string[] SiteRefreshRelations =
         ["public.site_session_refresh", "public.site_session_refresh_tombstone"];
-
-    internal static Task<bool> HasSiteRefreshSchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        CancellationToken ct) =>
-        HasCompleteRelationsAsync(connection, transaction, ct, "The site refresh schema is partially installed.",
-            SiteRefreshRelations);
 
     private static bool HasSiteRefreshSchema(CatalogPresenceSnapshot catalog) =>
         catalog.HasCompleteRelations("The site refresh schema is partially installed.", SiteRefreshRelations);

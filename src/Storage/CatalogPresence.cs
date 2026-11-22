@@ -45,9 +45,11 @@ internal static partial class CurrentSchema
         return Complete(await query.ExecuteScalarAsync(ct), 2, incomplete);
     }
 
-    private static void RequireSchemaPresence(bool? required, bool found, string mismatch)
+    private static bool CheckPresence(bool? required, bool found, string feature, bool prerequisitesMet = true)
     {
-        if (required.HasValue && required.Value != found) throw new InvalidOperationException(mismatch);
+        if ((found && !prerequisitesMet) || (required.HasValue && required.Value != found))
+            throw new InvalidOperationException($"{feature} schema presence does not match the requested operation.");
+        return found;
     }
 
     internal static bool Complete(object? count, int expected, string incomplete) => count switch

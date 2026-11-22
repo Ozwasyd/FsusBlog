@@ -1,7 +1,3 @@
-using System.Threading;
-using System.Threading.Tasks;
-using Npgsql;
-
 namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
@@ -15,10 +11,4 @@ internal static partial class CurrentSchema
         "site_traffic_daily c views views>0"
     ];
     private const string SiteTrafficRelation = "public.site_traffic_daily";
-
-    internal static Task<bool> HasSiteTrafficAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasRelationAsync(db, tx, SiteTrafficRelation, ct);
-
-    private static bool HasSiteTraffic(CatalogPresenceSnapshot catalog) =>
-        catalog.HasRelation(SiteTrafficRelation);
 }

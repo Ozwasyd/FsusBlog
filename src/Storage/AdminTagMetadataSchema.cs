@@ -53,10 +53,6 @@ internal static partial class CurrentSchema
     private static bool HasAdminTagMetadata(CatalogPresenceSnapshot catalog) =>
         catalog.HasCompleteRelations("The administrator tag metadata schema is incomplete.", AdminTagMetadataRelations);
 
-    internal static Task<bool> HasAdminCategoryMetadataAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasCompleteRelationsAsync(db, tx, ct, "The administrator category metadata schema is incomplete.",
-            AdminCategoryMetadataRelations);
-
     private static bool HasAdminCategoryMetadata(CatalogPresenceSnapshot catalog) =>
         catalog.HasCompleteRelations("The administrator category metadata schema is incomplete.", AdminCategoryMetadataRelations);
 

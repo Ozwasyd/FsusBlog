@@ -30,7 +30,4 @@ internal static partial class CurrentSchema
 
     internal static Task<bool> HasPublicationCanonicalAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasRelationAsync(db, tx, PublicationCanonicalRelation, ct);
-
-    private static bool HasPublicationCanonical(CatalogPresenceSnapshot catalog) =>
-        catalog.HasRelation(PublicationCanonicalRelation);
 }

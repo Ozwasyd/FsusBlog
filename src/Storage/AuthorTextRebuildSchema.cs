@@ -23,7 +23,4 @@ internal static partial class CurrentSchema
 
     internal static Task<bool> HasAuthorTextRebuildAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
         HasRelationAsync(db, tx, AuthorTextRebuildRelation, ct);
-
-    private static bool HasAuthorTextRebuild(CatalogPresenceSnapshot catalog) =>
-        catalog.HasRelation(AuthorTextRebuildRelation);
 }

@@ -19,7 +19,4 @@ internal static partial class CurrentSchema
 
     internal static Task<bool> HasSitePasskeyNamesAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasRelationAsync(db, tx, SitePasskeyNameRelation, ct);
-
-    private static bool HasSitePasskeyNames(CatalogPresenceSnapshot catalog) =>
-        catalog.HasRelation(SitePasskeyNameRelation);
 }

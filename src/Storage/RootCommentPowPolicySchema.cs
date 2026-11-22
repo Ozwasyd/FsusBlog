@@ -32,10 +32,6 @@ internal static partial class CurrentSchema
     private static readonly string[] RootCommentPowPolicyRelations =
         ["public.root_comment_pow_policy", "public.root_comment_pow_policy_audit", "public.admin_root_comment_pow_step_up"];
 
-    internal static Task<bool> HasRootCommentPowPolicyAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasCompleteRelationsAsync(db, tx, ct, "The root comment proof policy schema is partially installed.",
-            RootCommentPowPolicyRelations);
-
     private static bool HasRootCommentPowPolicy(CatalogPresenceSnapshot catalog) =>
         catalog.HasCompleteRelations("The root comment proof policy schema is partially installed.", RootCommentPowPolicyRelations);
 

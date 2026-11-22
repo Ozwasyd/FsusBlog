@@ -29,9 +29,6 @@ internal static partial class CurrentSchema
     internal static Task<bool> HasPublicationHeadAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasRelationAsync(db, tx, PublicationHeadRelation, ct);
 
-    private static bool HasPublicationHead(CatalogPresenceSnapshot catalog) =>
-        catalog.HasRelation(PublicationHeadRelation);
-
     internal static async Task VerifyPublicationCheckpointSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         await using (var marker = new NpgsqlCommand("""

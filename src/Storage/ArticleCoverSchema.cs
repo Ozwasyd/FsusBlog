@@ -15,7 +15,4 @@ internal static partial class CurrentSchema
 
     internal static Task<bool> HasArticleCoverAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
         HasRelationAsync(db, tx, ArticleCoverRelation, ct);
-
-    private static bool HasArticleCover(CatalogPresenceSnapshot catalog) =>
-        catalog.HasRelation(ArticleCoverRelation);
 }

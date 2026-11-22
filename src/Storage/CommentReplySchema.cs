@@ -25,7 +25,4 @@ internal static partial class CurrentSchema
 
     internal static Task<bool> HasCommentReplySchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasRelationAsync(db, tx, CommentReplyRelation, ct);
-
-    private static bool HasCommentReplySchema(CatalogPresenceSnapshot catalog) =>
-        catalog.HasRelation(CommentReplyRelation);
 }

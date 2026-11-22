@@ -18,7 +18,4 @@ internal static partial class CurrentSchema
 
     internal static Task<bool> HasLegacyReleaseOriginAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
         HasRelationAsync(db, tx, LegacyReleaseOriginRelation, ct);
-
-    private static bool HasLegacyReleaseOrigin(CatalogPresenceSnapshot catalog) =>
-        catalog.HasRelation(LegacyReleaseOriginRelation);
 }

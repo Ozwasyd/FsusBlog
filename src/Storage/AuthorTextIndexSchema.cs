@@ -49,22 +49,6 @@ internal static partial class CurrentSchema
         ("public.author_text_article_owner", 'i')
     ];
 
-    internal static async Task<bool> HasAuthorTextIndexAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
-            select case when count(obj.oid)=0 then 0
-                        when count(*) filter (where obj.relkind::text=expected.kind)=4 then 1
-                        else 2 end
-            from (values (pg_catalog.to_regclass('public.author_text_document'), 'r'),
-                         (pg_catalog.to_regclass('public.author_text_posting'), 'r'),
-                         (pg_catalog.to_regclass('public.author_text_posting_owner_article'), 'i'),
-                         (pg_catalog.to_regclass('public.author_text_article_owner'), 'i')) expected(oid,kind)
-            left join pg_catalog.pg_class obj on obj.oid=expected.oid
-            """, db, tx);
-        return Complete(await query.ExecuteScalarAsync(ct), 1,
-            "The author full-text index schema is incomplete.");
-    }
-
     private static bool HasAuthorTextIndex(CatalogPresenceSnapshot catalog)
     {
         var present = 0;
@@ -78,10 +62,6 @@ internal static partial class CurrentSchema
         var state = present == 0 ? 0 : matched == AuthorTextIndexRelations.Length ? 1 : 2;
         return Complete(state, 1, "The author full-text index schema is incomplete.");
     }
-
-    internal static Task<bool> HasAuthorTextSummaryIndexAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
-        HasColumnAndCheckAsync(db, tx, ct, AuthorTextDocumentRelation, "summary_digest",
-            "author_text_document_summary_digest_check", "The author full-text summary index schema is incomplete.");
 
     private static bool HasAuthorTextSummaryIndex(CatalogPresenceSnapshot catalog) =>
         catalog.HasColumnAndCheck(AuthorTextDocumentRelation, "summary_digest",

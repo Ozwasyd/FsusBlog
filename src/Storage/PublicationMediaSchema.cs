@@ -33,7 +33,4 @@ internal static partial class CurrentSchema
 
     internal static Task<bool> HasPublicationMediaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         HasRelationAsync(db, tx, PublicationMediaRelation, ct);
-
-    private static bool HasPublicationMedia(CatalogPresenceSnapshot catalog) =>
-        catalog.HasRelation(PublicationMediaRelation);
 }

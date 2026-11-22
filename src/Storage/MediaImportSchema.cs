@@ -1,5 +1,3 @@
-using Npgsql;
-
 namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
@@ -39,10 +37,6 @@ internal static partial class CurrentSchema
 
     private static readonly string[] PrivateMediaImportRelations =
         ["public.private_media_import", "public.article_revision_media_import"];
-
-    internal static Task<bool> HasPrivateMediaImportOriginAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken ct) =>
-        HasCompleteRelationsAsync(connection, transaction, ct, "The imported private media origin schema is incomplete.",
-            PrivateMediaImportRelations);
 
     private static bool HasPrivateMediaImportOrigin(CatalogPresenceSnapshot catalog) =>
         catalog.HasCompleteRelations("The imported private media origin schema is incomplete.", PrivateMediaImportRelations);

@@ -97,12 +97,6 @@ internal static partial class CurrentSchema
 
     private const string DocumentExportsRelation = "public.author_document_export";
 
-    internal static Task<bool> HasDocumentExportsAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct) =>
-        HasRelationAsync(db, tx, DocumentExportsRelation, ct);
-
-    private static bool HasDocumentExports(CatalogPresenceSnapshot catalog) =>
-        catalog.HasRelation(DocumentExportsRelation);
-
     private static bool HasCurrentDocumentExportProvider(CatalogPresenceSnapshot catalog) =>
         catalog.HasValidatedCheckDefinition(DocumentExportsRelation,
             CurrentDocumentExportProviderConstraint,

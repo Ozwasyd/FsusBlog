@@ -128,65 +128,49 @@ internal static partial class CurrentSchema
         var catalog = await LoadCatalogPresenceSnapshotAsync(connection, transaction, cancellationToken);
 
         var hasArticleMedia = media.ArticleMedia ?? catalog.HasRelation(ArticleMediaRelation);
-        var hasArticleCover = HasArticleCover(catalog);
-        RequireSchemaPresence(media.ArticleCover, hasArticleCover,
-            "The saved article cover schema presence does not match the requested operation.");
+        var hasArticleCover = CheckPresence(media.ArticleCover, catalog.HasRelation(ArticleCoverRelation),
+            "The saved article cover");
         if (hasArticleCover && !hasArticleMedia)
             throw new InvalidOperationException("Saved article covers require the article attachment schema.");
         var hasPrivateMediaImportOrigin = HasPrivateMediaImportOrigin(catalog);
-        var hasLegacyReleaseOrigin = HasLegacyReleaseOrigin(catalog);
+        var hasLegacyReleaseOrigin = catalog.HasRelation(LegacyReleaseOriginRelation);
         if (hasPrivateMediaImportOrigin && !hasArticleMedia)
             throw new InvalidOperationException("Imported private media requires the article attachment schema.");
         var hasSubscription = site.Subscription ?? catalog.HasRelation(SiteSubscriptionRelation);
-        var hasRecoveryKey = HasSiteRecoveryKeySchema(catalog);
-        RequireSchemaPresence(site.RecoveryKey, hasRecoveryKey,
-            "The site Recovery Key schema presence does not match the requested operation.");
-        var hasAdminInboxReply = catalog.HasRelation(AdminInboxReplyRelation);
-        RequireSchemaPresence(adminInbox.Reply, hasAdminInboxReply,
-            "The administrator inbox reply schema presence does not match the requested operation.");
-        var hasAdminInboxStatus = catalog.HasRelation(AdminInboxStatusRelation);
-        RequireSchemaPresence(adminInbox.Status, hasAdminInboxStatus,
-            "The administrator inbox status schema presence does not match the requested operation.");
-        var hasAdminInboxNotice = catalog.HasRelation(AdminInboxNoticeRelation);
-        RequireSchemaPresence(adminInbox.Notice, hasAdminInboxNotice,
-            "The administrator inbox notice schema presence does not match the requested operation.");
-        var hasAdminInboxRead = catalog.HasRelation(AdminInboxReadRelation);
-        RequireSchemaPresence(adminInbox.Read, hasAdminInboxRead,
-            "The shared administrator inbox read schema presence does not match the requested operation.");
+        var hasRecoveryKey = CheckPresence(site.RecoveryKey, HasSiteRecoveryKeySchema(catalog),
+            "The site Recovery Key");
+        var hasAdminInboxReply = CheckPresence(adminInbox.Reply, catalog.HasRelation(AdminInboxReplyRelation),
+            "The administrator inbox reply");
+        var hasAdminInboxStatus = CheckPresence(adminInbox.Status, catalog.HasRelation(AdminInboxStatusRelation),
+            "The administrator inbox status");
+        var hasAdminInboxNotice = CheckPresence(adminInbox.Notice, catalog.HasRelation(AdminInboxNoticeRelation),
+            "The administrator inbox notice");
+        var hasAdminInboxRead = CheckPresence(adminInbox.Read, catalog.HasRelation(AdminInboxReadRelation),
+            "The shared administrator inbox read");
         var hasAuthoringWorkspace = authoring.Workspace ?? catalog.HasRelation(AuthoringWorkspaceRelation);
-        var hasSiteRefresh = HasSiteRefreshSchema(catalog);
-        RequireSchemaPresence(site.Refresh, hasSiteRefresh,
-            "The site refresh schema presence does not match the requested operation.");
-        var hasSitePageEditor = HasSitePageEditorSchema(catalog);
-        RequireSchemaPresence(site.PageEditor, hasSitePageEditor,
-            "The site page editor schema presence does not match the requested operation.");
-        var hasSiteConfigOverride = HasSiteConfigOverrideSchema(catalog);
-        RequireSchemaPresence(site.ConfigEditor, hasSiteConfigOverride,
-            "The site configuration override schema presence does not match the requested operation.");
-        var hasAppearanceActivation = HasAppearanceActivation(catalog);
-        RequireSchemaPresence(site.AppearanceActivation, hasAppearanceActivation,
-            "The signed appearance schema presence does not match the requested operation.");
-        var hasRootCommentPowPolicy = HasRootCommentPowPolicy(catalog);
-        if ((hasRootCommentPowPolicy && !core.AdminIdentity) ||
-            (comments.RootPowPolicy.HasValue && comments.RootPowPolicy.Value != hasRootCommentPowPolicy))
-            throw new InvalidOperationException("The root comment proof policy schema presence does not match the requested operation.");
-        var hasSavedViews = HasSavedViews(catalog);
-        RequireSchemaPresence(authoring.SavedViews, hasSavedViews,
-            "The saved views schema presence does not match the requested operation.");
-        var hasSavedViewPlacement = HasSavedViewPlacement(catalog);
-        if ((hasSavedViewPlacement && !hasSavedViews) || (authoring.SavedViewPlacement.HasValue && authoring.SavedViewPlacement.Value != hasSavedViewPlacement))
-            throw new InvalidOperationException("The saved view placement schema presence does not match the requested operation.");
-        var hasAdminTagMetadata = HasAdminTagMetadata(catalog);
-        RequireSchemaPresence(adminContent.TagMetadata, hasAdminTagMetadata,
-            "The administrator tag metadata schema presence does not match the requested operation.");
+        var hasSiteRefresh = CheckPresence(site.Refresh, HasSiteRefreshSchema(catalog),
+            "The site refresh");
+        var hasSitePageEditor = CheckPresence(site.PageEditor, HasSitePageEditorSchema(catalog),
+            "The site page editor");
+        var hasSiteConfigOverride = CheckPresence(site.ConfigEditor, HasSiteConfigOverrideSchema(catalog),
+            "The site configuration override");
+        var hasAppearanceActivation = CheckPresence(site.AppearanceActivation, HasAppearanceActivation(catalog),
+            "The signed appearance");
+        var hasRootCommentPowPolicy = CheckPresence(comments.RootPowPolicy, HasRootCommentPowPolicy(catalog),
+            "The root comment proof policy", prerequisitesMet: core.AdminIdentity);
+        var hasSavedViews = CheckPresence(authoring.SavedViews, HasSavedViews(catalog),
+            "The saved views");
+        var hasSavedViewPlacement = CheckPresence(authoring.SavedViewPlacement, HasSavedViewPlacement(catalog),
+            "The saved view placement", prerequisitesMet: hasSavedViews);
+        var hasAdminTagMetadata = CheckPresence(adminContent.TagMetadata, HasAdminTagMetadata(catalog),
+            "The administrator tag metadata");
         var hasAdminCategoryMetadata = HasAdminCategoryMetadata(catalog);
         if (hasAdminCategoryMetadata && !hasAdminTagMetadata)
             throw new InvalidOperationException("The administrator category metadata schema requires the taxonomy epoch.");
-        RequireSchemaPresence(adminContent.CategoryMetadata, hasAdminCategoryMetadata,
-            "The administrator category metadata schema is unavailable. Run category-metadata with the server stopped.");
-        var hasAdminArticleRollback = HasAdminArticleRollbackSchema(catalog);
-        RequireSchemaPresence(adminContent.ArticleRollback, hasAdminArticleRollback,
-            "The administrator article rollback schema presence does not match the requested operation.");
+        if (adminContent.CategoryMetadata is bool requiredCategoryMetadata && requiredCategoryMetadata != hasAdminCategoryMetadata)
+            throw new InvalidOperationException("The administrator category metadata schema is unavailable. Run category-metadata with the server stopped.");
+        var hasAdminArticleRollback = CheckPresence(adminContent.ArticleRollback, HasAdminArticleRollbackSchema(catalog),
+            "The administrator article rollback");
         var hasAdminArticleDraftRollback = hasAdminArticleRollback &&
             HasAdminArticleDraftRollbackSchema(catalog);
         var hasAdminArticleArchive = hasAdminArticleDraftRollback &&
@@ -196,43 +180,30 @@ internal static partial class CurrentSchema
         var hasAdminArticleTrashRestore = HasAdminArticleTrashRestore(catalog);
         if (hasAdminArticleTrashRestore && !core.AdminIdentity)
             throw new InvalidOperationException("Administrator trash restoration requires independent administrator identity.");
-        RequireSchemaPresence(adminContent.ArticleTrashRestore, hasAdminArticleTrashRestore,
-            "The administrator trash restore schema presence does not match the requested operation.");
+        CheckPresence(adminContent.ArticleTrashRestore, hasAdminArticleTrashRestore, "The administrator trash restore");
         var requireModerationVersion = core.AdminIdentity;
         var hasCommentAuthorDelete = HasCommentAuthorDeleteSchema(catalog);
         if (hasCommentAuthorDelete && !requireModerationVersion)
             throw new InvalidOperationException("Comment author deletion requires the current comment version column.");
-        var hasCommentAuthorEdit = HasCommentAuthorEditSchema(catalog);
-        if ((hasCommentAuthorEdit && !hasCommentAuthorDelete) ||
-            (comments.AuthorEdit.HasValue && comments.AuthorEdit.Value != hasCommentAuthorEdit))
-            throw new InvalidOperationException("Comment author edit schema presence does not match the requested operation.");
+        var hasCommentAuthorEdit = CheckPresence(comments.AuthorEdit, HasCommentAuthorEditSchema(catalog),
+            "Comment author edit", prerequisitesMet: hasCommentAuthorDelete);
         string[] commentAuthorEditConstraints = hasCommentAuthorEdit
             ? ReadCommentAuthorEditConstraints(catalog) : [];
-        var hasCommentReport = HasCommentReportSchema(catalog);
-        RequireSchemaPresence(comments.Report, hasCommentReport,
-            "Comment report schema presence does not match the requested operation.");
-        var hasCommentAppeal = HasCommentAppealSchema(catalog);
-        if (hasCommentAppeal && !hasCommentAuthorDelete || comments.Appeal.HasValue && comments.Appeal.Value != hasCommentAppeal)
-            throw new InvalidOperationException("Comment appeal schema presence does not match the requested operation.");
-        var hasCommentReplies = HasCommentReplySchema(catalog);
-        if (hasCommentReplies && !hasCommentAuthorDelete || comments.Replies.HasValue && comments.Replies.Value != hasCommentReplies)
-            throw new InvalidOperationException("Comment reply notice schema presence does not match the requested operation.");
-        var hasAdminCommentBatch = HasAdminCommentBatchSchema(catalog);
-        if ((hasAdminCommentBatch && !requireModerationVersion) ||
-            (comments.AdminBatch.HasValue && comments.AdminBatch.Value != hasAdminCommentBatch))
-            throw new InvalidOperationException("Administrator comment batch schema presence does not match the requested operation.");
+        var hasCommentReport = CheckPresence(comments.Report, catalog.HasRelation(CommentReportRelation),
+            "Comment report");
+        var hasCommentAppeal = CheckPresence(comments.Appeal, HasCommentAppealSchema(catalog),
+            "Comment appeal", prerequisitesMet: hasCommentAuthorDelete);
+        var hasCommentReplies = CheckPresence(comments.Replies, catalog.HasRelation(CommentReplyRelation),
+            "Comment reply notice", prerequisitesMet: hasCommentAuthorDelete);
+        var hasAdminCommentBatch = CheckPresence(comments.AdminBatch, HasAdminCommentBatchSchema(catalog),
+            "Administrator comment batch", prerequisitesMet: requireModerationVersion);
         var hasWorkspaceLayout = hasAuthoringWorkspace && HasAuthoringWorkspaceLayout(catalog);
-        var hasWorkspaceGroups = hasAuthoringWorkspace && HasAuthoringWorkspaceGroups(catalog);
-        if ((hasWorkspaceGroups && !hasWorkspaceLayout) ||
-            (authoring.WorkspaceGroups.HasValue && authoring.WorkspaceGroups.Value != hasWorkspaceGroups))
-            throw new InvalidOperationException("The authoring workspace group schema presence does not match the requested operation.");
-        var hasAuthorRecentOpens = HasAuthorRecentOpens(catalog);
-        if ((hasAuthorRecentOpens && !core.RecoveryScope) ||
-            (authoring.RecentOpens.HasValue && authoring.RecentOpens.Value != hasAuthorRecentOpens))
-            throw new InvalidOperationException("The author recent opens schema presence does not match the requested operation.");
-        var hasAuthorTextIndex = HasAuthorTextIndex(catalog);
-        RequireSchemaPresence(authorText.Index, hasAuthorTextIndex,
-            "The author full-text index schema presence does not match the requested operation.");
+        var hasWorkspaceGroups = CheckPresence(authoring.WorkspaceGroups, hasAuthoringWorkspace && HasAuthoringWorkspaceGroups(catalog),
+            "The authoring workspace group", prerequisitesMet: hasWorkspaceLayout);
+        var hasAuthorRecentOpens = CheckPresence(authoring.RecentOpens, HasAuthorRecentOpens(catalog),
+            "The author recent opens", prerequisitesMet: core.RecoveryScope);
+        var hasAuthorTextIndex = CheckPresence(authorText.Index, HasAuthorTextIndex(catalog),
+            "The author full-text index");
         var hasAuthorTextSummaryIndex = hasAuthorTextIndex &&
             HasAuthorTextSummaryIndex(catalog);
         if (authorText.SummaryIndex && !hasAuthorTextSummaryIndex)
@@ -244,11 +215,11 @@ internal static partial class CurrentSchema
         var hasAuthorTextPropertyIndex = HasAuthorTextPropertyIndex(catalog);
         if (hasAuthorTextPropertyIndex && !hasAuthorTextHeadingIndex || authorText.PropertyIndex && !hasAuthorTextPropertyIndex)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install text property indexing.");
-        var hasAuthorTextRebuild = HasAuthorTextRebuild(catalog);
+        var hasAuthorTextRebuild = catalog.HasRelation(AuthorTextRebuildRelation);
         if (hasAuthorTextRebuild && !hasAuthorTextPropertyIndex || authorText.Rebuild && !hasAuthorTextRebuild)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install autonomous indexing.");
         var hasArticleSummary = HasArticleSummary(catalog);
-        var hasDocumentExports = HasDocumentExports(catalog);
+        var hasDocumentExports = catalog.HasRelation(DocumentExportsRelation);
         var currentDocumentExportProvider = hasDocumentExports &&
             HasCurrentDocumentExportProvider(catalog);
         var hasDocumentExportAttachments = hasDocumentExports &&
@@ -257,49 +228,35 @@ internal static partial class CurrentSchema
             HasDocumentExportAttachments(catalog, list: true);
         var exportImageScope = hasExportImageList
             ? ReadExportImageScope(catalog) : ExportImageScope.Html;
-        if (authoring.DocumentExports.HasValue && authoring.DocumentExports.Value != hasDocumentExports)
-            throw new InvalidOperationException("The document export schema presence does not match the requested operation.");
+        CheckPresence(authoring.DocumentExports, hasDocumentExports, "The document export");
         var hasArticleBodyInsertion = HasArticleBodyInsertion(catalog);
         var hasArticleBodyInsertionOperations = hasArticleBodyInsertion &&
             HasArticleBodyInsertionOperations(catalog);
         var hasArticleBodyEdits = hasArticleBodyInsertionOperations &&
             HasArticleBodyEdits(catalog);
-        var hasPublicationCanonical = HasPublicationCanonical(catalog);
-        if ((hasPublicationCanonical && (!core.PublicationHistory || !core.PublicationRights)) ||
-            (publication.Canonical.HasValue && publication.Canonical.Value != hasPublicationCanonical))
-            throw new InvalidOperationException("The native publication canonical schema presence does not match the requested operation.");
-        var hasPublicationMedia = HasPublicationMedia(catalog);
-        if ((hasPublicationMedia && (!core.PublicationHistory || !hasArticleMedia)) ||
-            (media.PublicationMedia.HasValue && media.PublicationMedia.Value != hasPublicationMedia))
-            throw new InvalidOperationException("The article publication media schema presence does not match the requested operation.");
-        var hasPublicationCover = HasPublicationCover(catalog);
+        var hasPublicationCanonical = CheckPresence(publication.Canonical, catalog.HasRelation(PublicationCanonicalRelation),
+            "The native publication canonical", prerequisitesMet: core.PublicationHistory && core.PublicationRights);
+        var hasPublicationMedia = CheckPresence(media.PublicationMedia, catalog.HasRelation(PublicationMediaRelation),
+            "The article publication media", prerequisitesMet: core.PublicationHistory && hasArticleMedia);
+        var hasPublicationCover = catalog.HasRelation(PublicationCoverRelation);
         if (hasPublicationCover && (!hasPublicationMedia || !hasPublicationCanonical || !hasArticleCover))
             throw new InvalidOperationException("Public article covers require author covers, selected publication media, and canonical storage.");
-        RequireSchemaPresence(media.PublicationCover, hasPublicationCover,
-            "The public article cover schema presence does not match the requested operation.");
-        var hasPublicationProof = HasPublicationProof(catalog);
-        if ((hasPublicationProof && !hasPublicationCanonical) ||
-            (publication.Proof.HasValue && publication.Proof.Value != hasPublicationProof))
-            throw new InvalidOperationException("The native publication proof schema presence does not match the requested operation.");
+        CheckPresence(media.PublicationCover, hasPublicationCover, "The public article cover");
+        var hasPublicationProof = CheckPresence(publication.Proof, HasPublicationProof(catalog),
+            "The native publication proof", prerequisitesMet: hasPublicationCanonical);
         var publicationTransparency = PublicationTransparencyState(catalog);
-        var hasPublicationTransparency = publicationTransparency.HasValue;
-        if ((hasPublicationTransparency && !hasPublicationProof) ||
-            (publication.Transparency.HasValue && publication.Transparency.Value != hasPublicationTransparency))
-            throw new InvalidOperationException("The native publication transparency schema presence does not match the requested operation.");
-        var hasPublicationHead = HasPublicationHead(catalog);
-        if ((hasPublicationHead && !hasPublicationTransparency) ||
-            (publication.Head.HasValue && publication.Head.Value != hasPublicationHead))
-            throw new InvalidOperationException("The native publication head schema presence does not match the requested operation.");
-        var hasSiteTraffic = HasSiteTraffic(catalog);
-        var hasArticleRead = HasArticleReadSchema(catalog);
-        RequireSchemaPresence(publication.ArticleRead, hasArticleRead,
-            "The article read aggregate schema presence does not match the requested operation.");
+        var hasPublicationTransparency = CheckPresence(publication.Transparency, publicationTransparency.HasValue,
+            "The native publication transparency", prerequisitesMet: hasPublicationProof);
+        var hasPublicationHead = CheckPresence(publication.Head, catalog.HasRelation(PublicationHeadRelation),
+            "The native publication head", prerequisitesMet: hasPublicationTransparency);
+        var hasSiteTraffic = catalog.HasRelation(SiteTrafficRelation);
+        var hasArticleRead = CheckPresence(publication.ArticleRead, HasArticleReadSchema(catalog),
+            "The article read aggregate");
         // Retained as a dedicated index/opclass/sort-order probe rather than folded into CatalogPresenceSnapshot.
-        var hasArticleReadTotal = await HasArticleReadTotalSchemaAsync(connection, transaction, cancellationToken);
-        if ((hasArticleReadTotal && !hasArticleRead) || (publication.ArticleReadTotal.HasValue && publication.ArticleReadTotal.Value != hasArticleReadTotal))
-            throw new InvalidOperationException("The article read total schema presence does not match the requested operation.");
+        var hasArticleReadTotal = CheckPresence(publication.ArticleReadTotal, await HasArticleReadTotalSchemaAsync(connection, transaction, cancellationToken),
+            "The article read total", prerequisitesMet: hasArticleRead);
         var hasPropertySnapshots = HasPropertySnapshots(catalog);
-        var hasSitePasskeyNames = HasSitePasskeyNames(catalog);
+        var hasSitePasskeyNames = catalog.HasRelation(SitePasskeyNameRelation);
         var expectedColumns = Columns.Select(column => hasArticleSummary && column == ArticleRevisionColumns
                 ? ArticleRevisionColumns + " author_summary:text?" : column)
             .Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(core.LegacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
@@ -422,8 +379,7 @@ internal static partial class CurrentSchema
             .Concat(!core.LegacyCanvas && core.CanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(core.RecoveryScope ? RecoveryScopeConstraints : []).ToArray();
         var webpMedia = await VerifyRelationsAsync(connection, transaction, expectedColumns, expectedConstraints, cancellationToken);
-        RequireSchemaPresence(authoring.ArticleSummary, hasArticleSummary,
-            "The article author summary schema presence does not match the requested operation.");
+        CheckPresence(authoring.ArticleSummary, hasArticleSummary, "The article author summary");
         if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
         if (hasSiteConfigOverride) await VerifySiteConfigOverrideAsync(connection, transaction, cancellationToken);
         if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, hasAdminCategoryMetadata, cancellationToken);
