@@ -1,9 +1,9 @@
 import { verifyPublicationCheckpoint, runCli } from './publication-attestation.mjs'
-import { readJson } from './verify-publication-proof.mjs'
+import { isCliEntry, readJson } from './verify-publication-proof.mjs'
 
 export { verifyPublicationCheckpoint }
 
-if (import.meta.main) runCli(([origin, keyFile, headFile, input, ...scopeArgs]) => {
+if (isCliEntry(import.meta)) runCli(([origin, keyFile, headFile, input, ...scopeArgs]) => {
   const kind = scopeArgs[0] === '--daily' ? 'daily' : 'release'
   if (kind === 'daily') scopeArgs.shift()
   const [scope, sequence, entrySha256, ...extra] = scopeArgs

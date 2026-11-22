@@ -1,5 +1,6 @@
 import { createHash, createPublicKey, verify } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 const algorithm = 'ECDSA_P256_SHA256'
 const sha256 = value => createHash('sha256').update(value).digest('hex')
@@ -68,9 +69,20 @@ function readJson(path) {
   return JSON.parse(bytes)
 }
 
+export function isCliEntry(meta) {
+  if (typeof meta.main === 'boolean') return meta.main
+  if (!process.argv[1]) return false
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(meta.url))
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error
+    return false
+  }
+}
+
 export { algorithm, string, field, decimal, positiveInt, digest, utc, readJson, verifyNativeSignature }
 
-if (import.meta.main) {
+if (isCliEntry(import.meta)) {
   try {
     if (process.argv.length !== 5) throw new Error('Usage: verify-publication-proof.mjs HTTPS_ORIGIN KEYS_JSON PROOF_JSON')
     verifyPublicationProof(readJson(process.argv[4]), readJson(process.argv[3]), process.argv[2])
