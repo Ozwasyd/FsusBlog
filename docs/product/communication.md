@@ -6,7 +6,7 @@ v1 账号侧的站内信包括支持工单和系统通知，由账号所有权�
 
 PostgreSQL 事务同时提交消息、可见活动位置、已读状态和通知。每个账号的事件序号从 1 开始且连续。重连可以从已应用的序号继续分页，检测到缺失或超前游标时要求重同步。事件保存会话和消息坐标，由授权后的视图重新读取内容。服务启动只验证这些表的结构，数据库创建由离线迁移工具负责。
 
-站内信页面 `/user/messagebox` 使用本地 FsusUI 的任务标题、筛选、空态、载入状态和操作控件。桌面显示会话列表和阅读区，窄屏在两者切换，返回时恢复原选项焦点。页面支持筛选、加载更早记录、标记已读和私有通知刷新。
+站内信页面 `/user/messagebox` 运行在账户工作区任务壳体（`AccountWorkspace` `surface="task"`）内，使用本地 FsusUI 的 `ElTaskPageHeader`、Inbox Primitives（`ElInboxLayout`、`ElConversationList`、`ElConversationListItem`、`ElThreadPanel`、`ElConversationContextBar`、`ElMessageTimeline`、`ElMessageBubble`、`ElReplyComposerShell`、`ElInboxEmptyState`、`ElEmptySelectionState`）与 `ElDialog` 工单弹窗。桌面显示定高分栏列表与固定头部/回复栏的阅读区，760px 及以下窄屏在两者切换，返回时恢复原选项焦点。页面支持筛选、刷新、加载更早记录、标记已读、提交工单与私有通知实时刷新。
 
 v2 私有回放入口是 `GET /api/v2/notifications/private.aeds`。首张会话列表给出与数据读取一致的 `X-Fsus-Inbox-Replay-Cursor`，后续请求用 `after` 传递该值。游标只在签发它的登录会话有效。每个回放请求重新检查账号状态、会话有效期和代次。页面的列表、详情、回放、已读和写入请求均携带当前登录会话标识。当 Cookie 在另一标签页切换时，服务会拒绝旧页面的请求并要求重新确认身份。事件缺口要求重新读取列表取得新游标，浏览器仅在数据读取成功后推进游标。回放不缓存，当前保留所有事件，尚未定义自动清理窗口。
 
