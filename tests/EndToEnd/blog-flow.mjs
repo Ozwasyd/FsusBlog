@@ -9,6 +9,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { setTimeout as delay } from 'node:timers/promises'
 import { api } from '../../src/Contracts/client.ts'
 import { exerciseRelatedReading, verifyRelatedWithdrawal } from './related-reading-flow.mjs'
 import { exerciseSearchWorkerReuse } from './search-worker-reuse-flow.mjs'
@@ -16,7 +17,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticleSummary } from '../../src/Contracts/article-summary.ts'
 import { decodePropertyEditor, decodePropertyValueBatchReceipt, encodePropertySchemaCommand, encodePropertyValueCommand } from '../../src/Contracts/property-values.ts'
 import { decodeDraft, decodePropertyCommandReceipt, encodeArticleCommand, encodePropertyWorkspaceRequest,
-  FrameType, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+  FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseWorkspace } from './workspace-flow.mjs'
 import { exerciseArticleOutline } from './outline-flow.mjs'
 import { exerciseInspector, exerciseInspectorDate } from './inspector-flow.mjs'
@@ -122,6 +123,26 @@ monitor(visitor, 'visitor')
 const visible = async locator => locator.waitFor({ state: 'visible' })
 const hidden = async locator => locator.waitFor({ state: 'hidden' })
 const screen = (page, name) => page.screenshot({ path: join(config.evidence, `${name}.png`) })
+
+async function waitForHotRanking(generation) {
+  if (!serverHome.includes('<meta name="fsus-public-hot-articles" content="1">')) return
+  const path = WireRoutes.PublicArticleHot.replace('{size}', '10')
+  const signal = AbortSignal.timeout(2500)
+  for (;;) {
+    const response = await nativeFetch(origin + path, { signal })
+    if (response.status === 503) {
+      await response.body?.cancel()
+      await delay(20, undefined, { signal })
+      continue
+    }
+    assert.equal(response.status, 200)
+    decodeFrame(new Uint8Array(await response.arrayBuffer()), FrameType.ArticleHot)
+    const observed = response.headers.get(WireHeaders.SearchIndexGeneration)
+    assert(observed, 'The ranking must bind to a public generation')
+    if (generation !== undefined) assert.equal(observed, String(generation))
+    return
+  }
+}
 
 async function search(page, value) {
   await page.goto(`${origin}/search`)
@@ -343,6 +364,7 @@ let stalePageUrl
 let failure
 try {
   if (config.publicFixture) {
+    await waitForHotRanking()
     await visitor.goto(`${origin}/`)
     await visible(roleWithExactName(visitor, 'link', 'Browser fixture 12'))
     await roleWithExactName(visitor, 'link', 'Next').click()
@@ -591,6 +613,7 @@ try {
     assert(publicArticle.tags.some(tag => tag.id === 4))
   }
 
+  await waitForHotRanking(published.generation)
   if (stalePageUrl) {
     await visitor.goto(stalePageUrl)
     await visible(visitor.getByText('This page link has expired.', { exact: false }))
