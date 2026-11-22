@@ -22,8 +22,8 @@ public sealed partial class AdminArticleRollbackPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var author = await SeedHistory(db, ct);
-        var admin = await CreateAdmin(db, ct, "history-administrator", true);
-        var other = await CreateAdmin(db, ct, "other-administrator", true);
+        var admin = await CreateAdmin(db, ct, "history-administrator");
+        var other = await CreateAdmin(db, ct, "other-administrator");
         var siteUser = await fixture.SignInSiteUser("rollback-site-user", ct);
         var service = CreateStore(fixture);
         var publications = PublicationFixture.Project(fixture.DataSource);
@@ -122,8 +122,8 @@ public sealed partial class AdminArticleRollbackPostgresTests
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var author = await SeedHistory(db, ct);
-        var admin = await CreateAdmin(db, ct, "draft-rollback-admin", true);
-        var other = await CreateAdmin(db, ct, "different-admin", true);
+        var admin = await CreateAdmin(db, ct, "draft-rollback-admin");
+        var other = await CreateAdmin(db, ct, "different-admin");
         var siteUser = await fixture.SignInSiteUser("draft-rollback-site-user", ct);
         var service = CreateStore(fixture);
         var publications = PublicationFixture.Project(fixture.DataSource);
@@ -263,30 +263,15 @@ public sealed partial class AdminArticleRollbackPostgresTests
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
             Assert.True(response.Headers.CacheControl?.NoStore);
         }
-        using (var search = await restarted.Client.GetAsync(WireRoutes.PublicSearch + "?q=Historical", ct))
-        {
-            Assert.Equal(HttpStatusCode.OK, search.StatusCode);
-            var payload = Aeds.Decode(await search.Content.ReadAsByteArrayAsync(ct), FrameType.ArticleSearch);
-            Assert.True(payload[..4].SequenceEqual("FAS4"u8));
-            Assert.Equal(0, BinaryPrimitives.ReadInt32LittleEndian(payload[8..]));
-        }
+        await AssertSearchCount(restarted.Client, 0, ct);
         using (var old = new HttpRequestMessage(HttpMethod.Head, $"{WireRoutes.PublicSearchCorpus}?generation={originalProjection.GenerationHeader}"))
         using (var conflict = await restarted.Client.SendAsync(old, ct))
             Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
-        using (var read = SiteAedsFixture.Request(HttpMethod.Get, WireRoutes.Draft.Replace("{id:int}", "1", StringComparison.Ordinal),
-            null, sessionToken, handle: null))
-        {
-            using var response = await restarted.Client.SendAsync(read, ct);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var draft = Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
-            Assert.Equal(new Draft(1, 3, "Historical release", "Historical body", false), draft);
-        }
-        using (var publish = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Publish,
-            Wire.EncodeArticleCommand(new(1, 3, Guid.NewGuid(), "", "")), sessionToken, handle: null))
-        {
-            using var response = await restarted.Client.SendAsync(publish, ct);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        }
+        var savedDraft = await SiteAedsFixture.ExpectStatus(restarted.Client, HttpMethod.Get,
+            WireRoutes.Draft.Replace("{id:int}", "1", StringComparison.Ordinal), null, sessionToken, null, HttpStatusCode.OK, ct);
+        Assert.Equal(new Draft(1, 3, "Historical release", "Historical body", false), Wire.DecodeDraft(savedDraft));
+        await SiteAedsFixture.ExpectStatus(restarted.Client, HttpMethod.Post, WireRoutes.Publish,
+            Wire.EncodeArticleCommand(new(1, 3, Guid.NewGuid(), "", "")), sessionToken, null, HttpStatusCode.OK, ct);
         Assert.Equal(1L, await Scalar<long>("""
             select count(*) from public.article_publication
             where article_id=1 and revision=4 and publication_no=4 and publication_id<>$1
@@ -300,17 +285,19 @@ public sealed partial class AdminArticleRollbackPostgresTests
         Task<T> Scalar<T>(string sql, params object[] parameters) => ScalarSql<T>(db, ct, sql, parameters);
     }
 
+    private static async Task AssertSearchCount(HttpClient client, int count, CancellationToken ct)
+    {
+        using var search = await client.GetAsync(WireRoutes.PublicSearch + "?q=Historical", ct);
+        Assert.Equal(HttpStatusCode.OK, search.StatusCode);
+        var payload = Aeds.Decode(await search.Content.ReadAsByteArrayAsync(ct), FrameType.ArticleSearch);
+        Assert.True(payload[..4].SequenceEqual("FAS4"u8));
+        Assert.Equal(count, BinaryPrimitives.ReadInt32LittleEndian(payload[8..]));
+    }
+
     private static async Task<Guid> SeedHistory(NpgsqlConnection db, CancellationToken ct)
     {
-        var author = Guid.NewGuid();
-        var digest = SHA256.HashData(RandomNumberGenerator.GetBytes(32));
-        await using (var tx = await db.BeginTransactionAsync(ct))
-        {
-            await FixtureSql.ExecuteAsync(db, tx, ct, FixtureSql.AdminSessionSql, FixtureSql.AdminSessionArguments(
-                author, ScratchDatabase.AdminHandle("article-fixture-author", author),
-                RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(8), [1], digest, 5));
-            await tx.CommitAsync(ct);
-        }
+        var (author, _, _) = await FixtureSql.AdminAsync(db, ct, "article-fixture-author", 5,
+            RandomNumberGenerator.GetBytes(8), [1]);
         await ExecuteSql(db, ct, """
             with article as (
                 insert into public.article(owner_id,revision,title,body,published_revision,publication_count,deleted)
@@ -365,7 +352,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
             """);
     }
 
-    private static async Task<Admin> CreateAdmin(NpgsqlConnection db, CancellationToken ct, string handle, bool granted)
+    private static async Task<Admin> CreateAdmin(NpgsqlConnection db, CancellationToken ct, string handle)
     {
         var (id, token, digest) = await FixtureSql.AdminAsync(db, ct, handle, 10, RandomNumberGenerator.GetBytes(32), [1]);
         return new Admin(id, token, digest);

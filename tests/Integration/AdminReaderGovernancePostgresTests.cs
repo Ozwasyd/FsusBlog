@@ -1,3 +1,4 @@
+using static FsusBlog.V2.Integration.Tests.SiteAedsFixture;
 using static System.Net.HttpStatusCode;
 using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Net;
@@ -394,19 +395,6 @@ public sealed class AdminReaderGovernancePostgresTests
         return token;
     }
 
-    private static HttpRequestMessage AdminRequest(HttpMethod method, string path, string? cookie, byte[]? body = null, bool includeOrigin = true)
-    {
-        var request = new HttpRequestMessage(method, path);
-        request.Headers.Host = ServerProcess.DefaultAdminHost;
-        if (includeOrigin && method != HttpMethod.Get) request.Headers.Add("Origin", ServerProcess.DefaultAdminOrigin);
-        if (cookie is not null) request.Headers.Add("Cookie", $"{ServerProcess.DefaultAdminCookie}={cookie}");
-        if (body is not null)
-        {
-            request.Content = new ByteArrayContent(body);
-            request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(Aeds.ContentType);
-        }
-        return request;
-    }
 
     private static async Task<T> Scalar<T>(NpgsqlConnection db, CancellationToken ct, string sql, params object[] parameters) =>
         (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, parameters))!;

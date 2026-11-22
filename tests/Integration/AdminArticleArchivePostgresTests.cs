@@ -24,8 +24,8 @@ public sealed partial class AdminArticleRollbackPostgresTests
         var previousAuthorCommand = await Scalar<Guid>("select command_id from public.article_command where article_id=1 and revision=2");
         await Execute("update public.article_command set fingerprint=$1 where actor_id=$2 and command_id=$3",
             Publishing.Fingerprint(ArticleAction.Publish, new(1, 1, previousAuthorCommand, "", "")), author, previousAuthorCommand);
-        var administrator = await CreateAdmin(db, ct, "archive-administrator", true);
-        var other = await CreateAdmin(db, ct, "other-archive-administrator", true);
+        var administrator = await CreateAdmin(db, ct, "archive-administrator");
+        var other = await CreateAdmin(db, ct, "other-archive-administrator");
         var siteSession = await fixture.SignInSiteUser("archive-site-reader", ct, minutes: 1);
         var session = await fixture.SignIn(author, ct, minutes: 1);
         var gate = new AdminSessionGate(fixture.DataSource, null);
@@ -127,7 +127,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
                 Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
                 Assert.True(response.Headers.CacheControl?.NoStore);
             }
-            await AssertSearchCount(stoppedAfterArchive.Client, 0);
+            await AssertSearchCount(stoppedAfterArchive.Client, 0, ct);
             using (var old = new HttpRequestMessage(HttpMethod.Head, $"{WireRoutes.PublicSearchCorpus}?generation={originalProjection.GenerationHeader}"))
             using (var conflict = await stoppedAfterArchive.Client.SendAsync(old, ct))
                 Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
@@ -195,7 +195,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
             using var response = await restoredServer.Client.GetAsync(path, ct);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
-        await AssertSearchCount(restoredServer.Client, 1);
+        await AssertSearchCount(restoredServer.Client, 1, ct);
         using var ownerRead = await OwnerRequest(restoredServer.Client, HttpMethod.Get, draftPath);
         Assert.Equal(HttpStatusCode.OK, ownerRead.StatusCode);
         Assert.Equal(new Draft(1, 4, "Historical release", "Historical body", true),
@@ -262,20 +262,8 @@ public sealed partial class AdminArticleRollbackPostgresTests
                 (select count(*) from public.blog_outbox where article_id=1))::text
             """);
 
-        async Task AssertSearchCount(HttpClient client, int count)
-        {
-            using var search = await client.GetAsync(WireRoutes.PublicSearch + "?q=Historical", ct);
-            Assert.Equal(HttpStatusCode.OK, search.StatusCode);
-            var payload = Aeds.Decode(await search.Content.ReadAsByteArrayAsync(ct), FrameType.ArticleSearch);
-            Assert.True(payload[..4].SequenceEqual("FAS4"u8));
-            Assert.Equal(count, BinaryPrimitives.ReadInt32LittleEndian(payload[8..]));
-        }
-
-        async Task<HttpResponseMessage> OwnerRequest(HttpClient client, HttpMethod method, string path, byte[]? payload = null)
-        {
-            using var request = SiteAedsFixture.Request(method, path, payload, session.Token, handle: null);
-            return await client.SendAsync(request, ct);
-        }
+        Task<HttpResponseMessage> OwnerRequest(HttpClient client, HttpMethod method, string path, byte[]? payload = null) =>
+            SiteAedsFixture.Send(client, method, path, payload, session.Token, null, ct);
 
         Task Execute(string sql, params object[] parameters) => ExecuteSql(db, ct, sql, parameters);
         Task<T> Scalar<T>(string sql, params object[] parameters) => ScalarSql<T>(db, ct, sql, parameters);

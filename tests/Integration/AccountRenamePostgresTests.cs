@@ -1,3 +1,4 @@
+using static FsusBlog.V2.Integration.Tests.SiteAedsFixture;
 using static System.Net.HttpStatusCode;
 using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Net;
@@ -169,30 +170,10 @@ public sealed class AccountRenamePostgresTests
     private static HttpRequestMessage SiteRequest(HttpMethod method, string path, string? cookie, string currentSessionId,
         byte[]? body = null, string? origin = null)
     {
-        var request = new HttpRequestMessage(method, path);
+        var request = Request(method, path, body, cookie, currentSessionId);
         request.Headers.Host = ServerProcess.DefaultAdminHost;
         if (method != HttpMethod.Get) request.Headers.Add("Origin", origin ?? ServerProcess.DefaultAdminOrigin);
-        if (cookie is not null) request.Headers.Add("Cookie", $"fsus-v2-session={cookie}");
-        request.Headers.Add(WireHeaders.CurrentSession, currentSessionId);
-        if (body is not null)
-        {
-            request.Content = new ByteArrayContent(body);
-            request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(Aeds.ContentType);
-        }
         return request;
     }
 
-    private static HttpRequestMessage AdminRequest(HttpMethod method, string path, string? cookie, byte[]? body = null)
-    {
-        var request = new HttpRequestMessage(method, path);
-        request.Headers.Host = ServerProcess.DefaultAdminHost;
-        if (method != HttpMethod.Get) request.Headers.Add("Origin", ServerProcess.DefaultAdminOrigin);
-        if (cookie is not null) request.Headers.Add("Cookie", $"{ServerProcess.DefaultAdminCookie}={cookie}");
-        if (body is not null)
-        {
-            request.Content = new ByteArrayContent(body);
-            request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(Aeds.ContentType);
-        }
-        return request;
-    }
 }

@@ -10,15 +10,14 @@ public sealed class AuthorArticleInventoryPostgresTests
     public async Task InventoryPagesRevealOnlyCurrentOwnerRowsAndHideDeletedDrafts()
     {
         await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
-        var store = new Store(db.DataSource);
         var owner = await Login("inventory-owner", true);
         var other = await Login("inventory-other", true);
         var reader = await Login("inventory-reader", false);
         await using var catalog = await db.DataSource.OpenConnectionAsync(ct);
-        await using (var insert = Store.Sql(catalog, null, """
+        await FixtureSql.ExecuteAsync(catalog, null, ct, """
             insert into public.category (id,name) values(41,'Author category');
             insert into public.tag (id,name) values(81,'Author tag');
-            """)) await insert.ExecuteNonQueryAsync(ct);
+            """);
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
         var client = server.Client;
         const string sensitive = "BODY_MUST_NOT_BE_IN_THE_LIST";
@@ -87,10 +86,8 @@ public sealed class AuthorArticleInventoryPostgresTests
         Assert.Equal(otherDraft.Id, Assert.Single((await Page(other, "?scope=trash")).Rows).Id);
         Assert.Empty((await Page(other, "?scope=active")).Rows);
         Assert.Empty((await Page(other, $"?scope=trash&before={first.Next}&keyword=Owner")).Rows);
-        using var draftRequest = SiteAedsFixture.Request(HttpMethod.Get, WireRoutes.Draft.Replace("{id:int}", trash.Id.ToString()),
-            frame: null, owner, handle: null);
-        using var deleted = await client.SendAsync(draftRequest, ct);
-        Assert.Equal(HttpStatusCode.NotFound, deleted.StatusCode);
+        await SiteAedsFixture.ExpectStatus(client, HttpMethod.Get, WireRoutes.Draft.Replace("{id:int}", trash.Id.ToString()),
+            null, owner, null, HttpStatusCode.NotFound, ct);
         await db.SignOutAdmin(owner, ct);
         await Failure(owner, "?scope=trash", HttpStatusCode.Unauthorized);
 
@@ -99,42 +96,26 @@ public sealed class AuthorArticleInventoryPostgresTests
         async Task<Draft> Write(string token, string route, ArticleCommand command) =>
             Wire.DecodeDraft(await POST(token, route, Wire.EncodeArticleCommand(command)));
 
-        async Task<byte[]> POST(string token, string route, byte[] body)
-        {
-            using var message = SiteAedsFixture.Request(HttpMethod.Post, route, body, token, handle: null);
-            using var response = await client.SendAsync(message, ct);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            return await response.Content.ReadAsByteArrayAsync(ct);
-        }
+        Task<byte[]> POST(string token, string route, byte[] body) =>
+            SiteAedsFixture.ExpectStatus(client, HttpMethod.Post, route, body, token, null, HttpStatusCode.OK, ct);
 
         async Task Failure(string? token, string query, HttpStatusCode expected)
         {
-            using var response = await GET(token, query);
-            Assert.Equal(expected, response.StatusCode);
-            Assert.True(response.Headers.CacheControl!.NoStore);
-            Assert.Equal(FrameType.ApiError, ReadFrameType(await response.Content.ReadAsByteArrayAsync(ct)));
+            var frame = await SiteAedsFixture.ExpectPrivate(client, HttpMethod.Get, WireRoutes.AuthorArticles + query,
+                null, token, null, expected, ct);
+            Aeds.Decode(frame, out var type);
+            Assert.Equal(FrameType.ApiError, type);
         }
 
         async Task<(int Total, int Next, IReadOnlyList<AuthorArticleRow> Rows)> Page(string token, string query)
         {
-            using var response = await GET(token, query);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.True(response.Headers.CacheControl!.NoStore);
-            var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+            var bytes = await SiteAedsFixture.ExpectPrivate(client, HttpMethod.Get, WireRoutes.AuthorArticles + query,
+                null, token, null, HttpStatusCode.OK, ct);
             var payload = System.Text.Encoding.UTF8.GetString(bytes);
             Assert.DoesNotContain(sensitive, payload);
             Assert.DoesNotContain(summaryTerm, payload);
             return Decode(bytes);
         }
-
-        Task<HttpResponseMessage> GET(string? token, string query) =>
-            SiteAedsFixture.Send(client, HttpMethod.Get, WireRoutes.AuthorArticles + query, null, token, null, ct);
-    }
-
-    private static FrameType ReadFrameType(byte[] bytes)
-    {
-        Aeds.Decode(bytes, out var type);
-        return type;
     }
 
     private static (int, int, IReadOnlyList<AuthorArticleRow>) Decode(byte[] frame)

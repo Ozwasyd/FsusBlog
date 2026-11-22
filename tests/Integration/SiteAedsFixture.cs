@@ -36,6 +36,16 @@ internal static class SiteAedsFixture
         return request;
     }
 
+    internal static HttpRequestMessage AdminRequest(HttpMethod method, string route, string? token,
+        byte[]? frame = null, bool includeOrigin = true)
+    {
+        var request = Request(method, route, frame, token: null, handle: null);
+        request.Headers.Host = ServerProcess.DefaultAdminHost;
+        if (includeOrigin && method != HttpMethod.Get) request.Headers.Add("Origin", ServerProcess.DefaultAdminOrigin);
+        if (token is not null) request.Headers.Add("Cookie", $"{ServerProcess.DefaultAdminCookie}={token}");
+        return request;
+    }
+
     internal static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string route, byte[]? frame,
         string? token, string? handle, CancellationToken ct, string? accept = null)
     {

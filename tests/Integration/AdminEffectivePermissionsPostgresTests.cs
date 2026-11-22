@@ -121,21 +121,11 @@ public sealed class AdminEffectivePermissionsPostgresTests
         if (!File.Exists(cliDll))
             cliDll = Path.Combine(current.FullName, "src", "Cli", "bin", "Release", "net10.0", "FsusBlog.V2.Cli.dll");
 
-        var start = new System.Diagnostics.ProcessStartInfo("dotnet")
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
-        start.ArgumentList.Add(cliDll);
-        foreach (var arg in arguments) start.ArgumentList.Add(arg);
+        var start = FixtureProcess.Command("dotnet", [cliDll, .. arguments]);
         start.Environment["FSUSBLOG_DB"] = connectionString;
-        using var process = System.Diagnostics.Process.Start(start)!;
-        var stdout = await process.StandardOutput.ReadToEndAsync(ct);
-        var stderr = await process.StandardError.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct);
-        Assert.True(process.ExitCode == 0, $"Cli exited with {process.ExitCode}: {stderr}");
-        return stdout.Trim();
+        var result = await FixtureProcess.Run(start, ct);
+        Assert.True(result.Code == 0, $"Cli exited with {result.Code}: {result.Error}");
+        return result.Output.Trim();
     }
 
     private static string NewToken() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
