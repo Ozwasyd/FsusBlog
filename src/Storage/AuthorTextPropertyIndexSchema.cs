@@ -31,8 +31,8 @@ internal static partial class CurrentSchema
         "author_text_property_posting c start_u8,end_u8 start_u8<end_u8"
     ];
 
-    private static readonly string[] AuthorTextPropertyIndexRelations =
-        ["public.author_text_property_document", "public.author_text_property_posting"];
+    private static readonly (string Relation, char Kind)[] AuthorTextPropertyIndexRelations =
+        [("public.author_text_property_document", 'r'), ("public.author_text_property_posting", 'r')];
 
     internal static async Task<bool> HasAuthorTextPropertyIndexAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
     {
@@ -48,17 +48,6 @@ internal static partial class CurrentSchema
             "The author full-text property index schema is incomplete.");
     }
 
-    private static bool HasAuthorTextPropertyIndex(CatalogPresenceSnapshot catalog)
-    {
-        var present = 0;
-        var matched = 0;
-        foreach (var relation in AuthorTextPropertyIndexRelations)
-        {
-            if (catalog.GetRelationKind(relation) is not { } actualKind) continue;
-            present++;
-            if (actualKind == 'r') matched++;
-        }
-        var state = present == 0 ? 0 : matched == AuthorTextPropertyIndexRelations.Length ? 1 : 2;
-        return Complete(state, 1, "The author full-text property index schema is incomplete.");
-    }
+    private static bool HasAuthorTextPropertyIndex(CatalogPresenceSnapshot catalog) =>
+        catalog.HasTypedRelations(AuthorTextPropertyIndexRelations, "The author full-text property index schema is incomplete.");
 }

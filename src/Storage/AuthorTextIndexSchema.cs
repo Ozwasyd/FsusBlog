@@ -49,19 +49,8 @@ internal static partial class CurrentSchema
         ("public.author_text_article_owner", 'i')
     ];
 
-    private static bool HasAuthorTextIndex(CatalogPresenceSnapshot catalog)
-    {
-        var present = 0;
-        var matched = 0;
-        foreach (var (relation, expectedKind) in AuthorTextIndexRelations)
-        {
-            if (catalog.GetRelationKind(relation) is not { } actualKind) continue;
-            present++;
-            if (actualKind == expectedKind) matched++;
-        }
-        var state = present == 0 ? 0 : matched == AuthorTextIndexRelations.Length ? 1 : 2;
-        return Complete(state, 1, "The author full-text index schema is incomplete.");
-    }
+    private static bool HasAuthorTextIndex(CatalogPresenceSnapshot catalog) =>
+        catalog.HasTypedRelations(AuthorTextIndexRelations, "The author full-text index schema is incomplete.");
 
     private static bool HasAuthorTextSummaryIndex(CatalogPresenceSnapshot catalog) =>
         catalog.HasColumnAndCheck(AuthorTextDocumentRelation, "summary_digest",

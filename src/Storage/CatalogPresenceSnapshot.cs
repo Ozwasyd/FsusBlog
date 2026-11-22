@@ -52,27 +52,20 @@ internal sealed class CatalogPresenceScope
         return name;
     }
 
-    internal string RequireRelationInScope(string qualifiedName)
-    {
-        var name = NormalizePublicName(qualifiedName);
-        if (!_relations.Contains(name))
-            throw new InvalidOperationException($"Relation '{qualifiedName}' is outside the catalog presence snapshot scope.");
-        return name;
-    }
+    internal string RequireRelationInScope(string qualifiedName) =>
+        RequireInScope(qualifiedName, _relations, "Relation");
 
-    internal string RequireColumnRelationInScope(string qualifiedName)
-    {
-        var name = NormalizePublicName(qualifiedName);
-        if (!_columnRelations.Contains(name))
-            throw new InvalidOperationException($"Column metadata for '{qualifiedName}' is outside the catalog presence snapshot scope.");
-        return name;
-    }
+    internal string RequireColumnRelationInScope(string qualifiedName) =>
+        RequireInScope(qualifiedName, _columnRelations, "Column metadata for");
 
-    internal string RequireCheckRelationInScope(string qualifiedName)
+    internal string RequireCheckRelationInScope(string qualifiedName) =>
+        RequireInScope(qualifiedName, _checkRelations, "CHECK metadata for");
+
+    private static string RequireInScope(string qualifiedName, HashSet<string> names, string subject)
     {
         var name = NormalizePublicName(qualifiedName);
-        if (!_checkRelations.Contains(name))
-            throw new InvalidOperationException($"CHECK metadata for '{qualifiedName}' is outside the catalog presence snapshot scope.");
+        if (!names.Contains(name))
+            throw new InvalidOperationException($"{subject} '{qualifiedName}' is outside the catalog presence snapshot scope.");
         return name;
     }
 
@@ -133,28 +126,20 @@ internal sealed class CatalogPresenceSnapshot
     private readonly Dictionary<string, Dictionary<string, CatalogColumnInfo>> _columns;
     private readonly Dictionary<string, List<CatalogCheckInfo>> _checks;
 
-    private CatalogPresenceSnapshot(
-        CatalogPresenceScope scope,
-        Dictionary<string, char> relations,
-        Dictionary<string, Dictionary<string, CatalogColumnInfo>> columns,
-        Dictionary<string, List<CatalogCheckInfo>> checks,
-        int observedColumnCount,
-        int observedCheckCount)
+    private CatalogPresenceSnapshot(CatalogPresenceScope scope)
     {
         _scope = scope;
-        _relations = relations;
-        _columns = columns;
-        _checks = checks;
-        ObservedColumnCount = observedColumnCount;
-        ObservedCheckCount = observedCheckCount;
+        _relations = new(scope.RelationNames.Length, StringComparer.Ordinal);
+        _columns = new(scope.ColumnRelationNames.Length, StringComparer.Ordinal);
+        _checks = new(scope.CheckRelationNames.Length, StringComparer.Ordinal);
     }
 
     internal int ScopedRelationCount => _scope.RelationNames.Length;
     internal int ScopedColumnRelationCount => _scope.ColumnRelationNames.Length;
     internal int ScopedCheckRelationCount => _scope.CheckRelationNames.Length;
     internal int ObservedRelationCount => _relations.Count;
-    internal int ObservedColumnCount { get; }
-    internal int ObservedCheckCount { get; }
+    internal int ObservedColumnCount { get; private set; }
+    internal int ObservedCheckCount { get; private set; }
 
     internal static async Task<CatalogPresenceSnapshot> LoadAsync(
         NpgsqlConnection connection,
@@ -167,12 +152,7 @@ internal sealed class CatalogPresenceSnapshot
         command.Parameters.Add(new NpgsqlParameter<string[]> { TypedValue = scope.ColumnRelationNames });
         command.Parameters.Add(new NpgsqlParameter<string[]> { TypedValue = scope.CheckRelationNames });
 
-        var relations = new Dictionary<string, char>(scope.RelationNames.Length, StringComparer.Ordinal);
-        var columns = new Dictionary<string, Dictionary<string, CatalogColumnInfo>>(scope.ColumnRelationNames.Length, StringComparer.Ordinal);
-        var checks = new Dictionary<string, List<CatalogCheckInfo>>(scope.CheckRelationNames.Length, StringComparer.Ordinal);
-        var observedColumns = 0;
-        var observedChecks = 0;
-
+        var snapshot = new CatalogPresenceSnapshot(scope);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
@@ -183,24 +163,24 @@ internal sealed class CatalogPresenceSnapshot
             {
                 case "r":
                     if (itemName.Length > 0)
-                        relations[relation] = itemName[0];
+                        snapshot._relations[relation] = itemName[0];
                     break;
                 case "c":
-                    if (!columns.TryGetValue(relation, out var relationColumns))
+                    if (!snapshot._columns.TryGetValue(relation, out var relationColumns))
                     {
                         relationColumns = new Dictionary<string, CatalogColumnInfo>(StringComparer.Ordinal);
-                        columns[relation] = relationColumns;
+                        snapshot._columns[relation] = relationColumns;
                     }
                     relationColumns[itemName] = new CatalogColumnInfo(
                         NotNull: reader.GetBoolean(3),
                         TypeName: reader.IsDBNull(6) ? "" : reader.GetString(6));
-                    observedColumns++;
+                    snapshot.ObservedColumnCount++;
                     break;
                 case "k":
-                    if (!checks.TryGetValue(relation, out var relationChecks))
+                    if (!snapshot._checks.TryGetValue(relation, out var relationChecks))
                     {
                         relationChecks = [];
-                        checks[relation] = relationChecks;
+                        snapshot._checks[relation] = relationChecks;
                     }
                     relationChecks.Add(new CatalogCheckInfo(
                         Name: itemName,
@@ -209,14 +189,14 @@ internal sealed class CatalogPresenceSnapshot
                         IsStrictEnforced: reader.GetBoolean(5),
                         CompactExpression: reader.IsDBNull(6) ? "" : reader.GetString(6),
                         ConstraintDefinition: reader.IsDBNull(7) ? "" : reader.GetString(7)));
-                    observedChecks++;
+                    snapshot.ObservedCheckCount++;
                     break;
                 default:
                     throw new InvalidOperationException($"Unexpected catalog snapshot row kind '{kind}'.");
             }
         }
 
-        return new CatalogPresenceSnapshot(scope, relations, columns, checks, observedColumns, observedChecks);
+        return snapshot;
     }
 
     internal bool HasRelation(string qualifiedName) =>
@@ -238,6 +218,21 @@ internal sealed class CatalogPresenceSnapshot
     internal bool HasCompleteRelations(string incomplete, params string[] qualifiedNames) =>
         CurrentSchema.Complete(CountRelations(qualifiedNames), qualifiedNames.Length, incomplete);
 
+    internal bool HasTypedRelations((string Relation, char Kind)[] relations, string incomplete)
+    {
+        var present = 0;
+        var matched = 0;
+        foreach (var (relation, expectedKind) in relations)
+        {
+            if (GetRelationKind(relation) is not { } actualKind) continue;
+            present++;
+            if (actualKind == expectedKind) matched++;
+        }
+        if (present == 0) return false;
+        if (matched != relations.Length) throw new InvalidOperationException(incomplete);
+        return true;
+    }
+
     internal bool HasColumn(string qualifiedRelation, string columnName) =>
         TryGetColumn(qualifiedRelation, columnName, out _);
 
@@ -253,20 +248,12 @@ internal sealed class CatalogPresenceSnapshot
         return false;
     }
 
-    internal bool HasCheckConstraint(string qualifiedRelation, string constraintName, bool requireLocalValidated = false)
-    {
-        var relation = _scope.RequireCheckRelationInScope(qualifiedRelation);
-        if (!_checks.TryGetValue(relation, out var relationChecks)) return false;
-        foreach (var check in relationChecks)
-        {
-            if (string.Equals(check.Name, constraintName, StringComparison.Ordinal) &&
-                (!requireLocalValidated || (check.IsValidated && check.IsLocal)))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
+    private List<CatalogCheckInfo>? ChecksFor(string qualifiedRelation) =>
+        _checks.GetValueOrDefault(_scope.RequireCheckRelationInScope(qualifiedRelation));
+
+    internal bool HasCheckConstraint(string qualifiedRelation, string constraintName, bool requireLocalValidated = false) =>
+        ChecksFor(qualifiedRelation)?.Exists(check => check.Name == constraintName &&
+            (!requireLocalValidated || (check.IsValidated && check.IsLocal))) == true;
 
     internal bool HasColumnAndCheck(string qualifiedRelation, string columnName, string constraintName,
         string incomplete, bool requireLocalValidated = false)
@@ -278,46 +265,20 @@ internal sealed class CatalogPresenceSnapshot
 
     internal string? FindStrictLocalCheckExpression(string qualifiedRelation, string constraintName)
     {
-        var relation = _scope.RequireCheckRelationInScope(qualifiedRelation);
-        if (!_checks.TryGetValue(relation, out var relationChecks)) return null;
-        foreach (var check in relationChecks)
+        foreach (var check in ChecksFor(qualifiedRelation) ?? [])
         {
-            if (string.Equals(check.Name, constraintName, StringComparison.Ordinal) &&
-                check.IsValidated && check.IsLocal && check.IsStrictEnforced)
-            {
+            if (check.Name == constraintName && check.IsValidated && check.IsLocal && check.IsStrictEnforced)
                 return check.CompactExpression;
-            }
         }
         return null;
     }
 
-    internal bool HasValidatedCheckDefinition(string qualifiedRelation, params string[] definitions)
-    {
-        var relation = _scope.RequireCheckRelationInScope(qualifiedRelation);
-        if (!_checks.TryGetValue(relation, out var relationChecks)) return false;
-        foreach (var check in relationChecks)
-        {
-            if (!check.IsValidated) continue;
-            foreach (var definition in definitions)
-            {
-                if (string.Equals(check.ConstraintDefinition, definition, StringComparison.Ordinal))
-                    return true;
-            }
-        }
-        return false;
-    }
+    internal bool HasValidatedCheckDefinition(string qualifiedRelation, params string[] definitions) =>
+        ChecksFor(qualifiedRelation)?.Exists(check => check.IsValidated &&
+            definitions.Contains(check.ConstraintDefinition, StringComparer.Ordinal)) == true;
 
-    internal bool HasValidatedCheckExpression(string qualifiedRelation, string compactExpression)
-    {
-        var relation = _scope.RequireCheckRelationInScope(qualifiedRelation);
-        if (!_checks.TryGetValue(relation, out var relationChecks)) return false;
-        foreach (var check in relationChecks)
-        {
-            if (check.IsValidated && string.Equals(check.CompactExpression, compactExpression, StringComparison.Ordinal))
-                return true;
-        }
-        return false;
-    }
+    internal bool HasValidatedCheckExpression(string qualifiedRelation, string compactExpression) =>
+        ChecksFor(qualifiedRelation)?.Exists(check => check.IsValidated && check.CompactExpression == compactExpression) == true;
 }
 
 internal static partial class CurrentSchema
@@ -359,7 +320,7 @@ internal static partial class CurrentSchema
             ..AdminCommentBatchRelations,
             ..AuthorRecentOpenRelations,
             ..AuthorTextIndexRelations.Select(item => item.Relation),
-            ..AuthorTextPropertyIndexRelations,
+            ..AuthorTextPropertyIndexRelations.Select(item => item.Relation),
             AuthorTextRebuildRelation,
             DocumentExportsRelation,
             ArticleBodyInsertionRelation,
