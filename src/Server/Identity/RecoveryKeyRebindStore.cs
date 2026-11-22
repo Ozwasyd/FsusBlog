@@ -81,7 +81,7 @@ internal sealed partial class PasskeyStore
         await using var db = await _source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         var account = await LockRecoveryAccount(db, tx, digest, ct);
-        var options = RegistrationOptions(account.Handle);
+        var options = _verifier.RequestRegistration(account.Handle);
         var challenge = NewToken();
         await RecoveryWrite(db, tx, ct, """
             update public.site_recovery_rebind set challenge_digest=$3,options=$4,
@@ -89,7 +89,7 @@ internal sealed partial class PasskeyStore
             where user_id=$1 and ticket_digest=$2 and generation=$5 and completed_at is null and expires_at>clock_timestamp()
             """, account.Id, digest, TokenDigest(challenge), options.ToJson(), account.Generation);
         await InstanceLease.CommitProtected(tx, _lease, ct);
-        return RegistrationBegin(challenge, options);
+        return options.RegistrationFrame(challenge);
     }
 
     internal async Task CompleteRecoveryRebind(string? ticket, PasskeyProvisionRequest request, byte[] requestDigest,

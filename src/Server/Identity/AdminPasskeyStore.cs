@@ -25,16 +25,13 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
 
     internal async Task<(byte[] Frame, string Binding)> BeginLogin(CancellationToken ct)
     {
-        var options = _verifier.GetAssertionOptions(new GetAssertionOptionsParams
-        {
-            AllowedCredentials = [], UserVerification = UserVerificationRequirement.Required
-        });
+        var options = _verifier.RequestAssertion([]);
         var (token, binding) = (AdminSql.Token(), AdminSql.Token());
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         await SaveChallenge(db, tx, token, AdminSql.ChallengeDigest(binding, null), Login, null, options.ToJson(), ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
-        return (PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge), binding);
+        return (options.LoginFrame(token), binding);
     }
 
     internal async Task<(byte[] Frame, string Binding)> BeginBootstrap(string? ticket, CancellationToken ct)
@@ -44,20 +41,10 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         var principal = await BootstrapPrincipal(db, tx, digest, ct);
         var (token, binding) = (AdminSql.Token(), AdminSql.Token());
-        var options = _verifier.RequestNewCredential(new RequestNewCredentialParams
-        {
-            User = new Fido2User { Id = principal.UserHandle, Name = principal.Handle, DisplayName = principal.Handle },
-            AuthenticatorSelection = new AuthenticatorSelection
-            {
-                ResidentKey = ResidentKeyRequirement.Required, UserVerification = UserVerificationRequirement.Required
-            },
-            AttestationPreference = AttestationConveyancePreference.None
-        });
+        var options = _verifier.RequestRegistration(principal.UserHandle, principal.Handle, principal.Handle);
         await SaveChallenge(db, tx, token, AdminSql.ChallengeDigest(binding, digest), Bootstrap, principal, options.ToJson(), ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
-        return (PasskeyWire.ProvisionBegin(token, checked((uint)options.Timeout), options.Rp.Id, options.Rp.Name,
-            options.User.Name, options.User.DisplayName, options.User.Id, options.Challenge,
-            options.PubKeyCredParams.Select(parameter => (int)parameter.Alg).ToArray()), binding);
+        return (options.RegistrationFrame(token), binding);
     }
 
     internal async Task CompleteBootstrap(PasskeyProvisionRequest request, string? binding, string? ticket, CancellationToken ct)
@@ -147,12 +134,8 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
 
     internal (byte[] Frame, string OptionsJson) CreateStepUpChallenge(string token, byte[] credential)
     {
-        var options = _verifier.GetAssertionOptions(new GetAssertionOptionsParams
-        {
-            AllowedCredentials = [new PublicKeyCredentialDescriptor(credential)],
-            UserVerification = UserVerificationRequirement.Required
-        });
-        var frame = PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge, [credential]);
+        var options = _verifier.RequestAssertion([credential]);
+        var frame = options.LoginFrame(token, [credential]);
         return (frame, options.ToJson());
     }
 

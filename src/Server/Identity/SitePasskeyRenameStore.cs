@@ -37,13 +37,13 @@ internal sealed partial class PasskeyStore
             throw ChangeConflict(remove);
         var proofCredential = rows[0].CredentialId;
         byte[][] allowed = [proofCredential];
-        var options = RestrictedAssertionOptions(allowed);
+        var options = _verifier.RequestAssertion(allowed);
         var intent = new CredentialIntent(target.CredentialId, revision, name, proofCredential, options.ToJson(),
             remove ? target.CreatedAtTicks : null, recoveryVersion, recovery is null ? null : rows.Count);
         var token = NewToken();
         await SaveChallenge(db, tx, token, JsonSerializer.Serialize(intent), actor.Id, actor.Generation, ChangeBinding(actor.Scope, remove, recovery), ct, recovery is null ? 300 : 120);
         await InstanceLease.CommitProtected(tx, _lease, ct);
-        return PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge, allowed);
+        return options.LoginFrame(token, allowed);
     }
 
     internal Task CompleteSitePasskeyRename(string? session, string? expected, PasskeyLoginRequest request, CancellationToken ct) =>

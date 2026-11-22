@@ -199,7 +199,7 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
     internal static async Task<SiteRefreshStore.Issued> IssueSession(NpgsqlConnection db,
         NpgsqlTransaction tx, Guid id, long generation, byte[] credential, bool mfa, bool persistent, CancellationToken ct)
     {
-        var (token, digest) = NewSession();
+        var (token, digest) = SiteRefreshStore.NewToken();
         await using var session = Store.Sql(db, tx, """
             insert into public.user_session(digest,user_id,generation,expires_at,passkey_credential_id,totp_verified_at)
             values($1,$2,$3,clock_timestamp()+interval '8 hours',$4,case when $5 then clock_timestamp() else null end)
@@ -351,7 +351,7 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
     private static async Task<(string Token, DateTimeOffset Expires)> RotateSession(NpgsqlConnection db,
         NpgsqlTransaction tx, Subject actor, bool mfa, CancellationToken ct)
     {
-        var (token, digest) = NewSession();
+        var (token, digest) = SiteRefreshStore.NewToken();
         await SqlCommands.Execute(db, tx, ct, "update public.blog_user set generation=generation+1 where id=$1", actor.Id);
         DateTime expiry;
         await using (var replace = Store.Sql(db, tx, """
@@ -365,13 +365,6 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         await SqlCommands.Execute(db, tx, ct, "delete from public.user_session where user_id=$1 and digest<>$2", actor.Id, digest);
         await SqlCommands.Execute(db, tx, ct, "delete from public.mfa_flow where user_id=$1", actor.Id);
         return (token, expiry);
-    }
-
-    private static (string Token, byte[] Digest) NewSession()
-    {
-        var secret = RandomNumberGenerator.GetBytes(32);
-        try { return (Convert.ToHexStringLower(secret), SHA256.HashData(secret)); }
-        finally { CryptographicOperations.ZeroMemory(secret); }
     }
 
     internal static BusinessException Denied() => new(Rejection.Unauthorized, "MFA verification failed or expired.");

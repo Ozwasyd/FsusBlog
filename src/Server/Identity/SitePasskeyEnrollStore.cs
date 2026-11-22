@@ -22,12 +22,12 @@ internal sealed partial class PasskeyStore
         var state = await ReadEnrollmentState(db, tx, actor, ct);
         await RequireNoEnrollment(db, tx, actor, ct);
         byte[][] allowed = [state.Current];
-        var options = RestrictedAssertionOptions(allowed);
+        var options = _verifier.RequestAssertion(allowed);
         var token = NewToken();
         await SaveChallenge(db, tx, token, options.ToJson(), actor.Id, actor.Generation, EnrollmentApprovalBinding(actor.Scope), ct,
             EnrollmentLifetimeSeconds);
         await InstanceLease.CommitProtected(tx, _lease, ct);
-        return PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge, allowed);
+        return options.LoginFrame(token, allowed);
     }
 
     internal async Task<byte[]> ApproveSitePasskeyEnrollment(string? session, string? expected, PasskeyLoginRequest request, CancellationToken ct)
@@ -56,7 +56,7 @@ internal sealed partial class PasskeyStore
         await VerifyAssertion(db, tx, request, actor.Id, AssertionOptions.FromJson(approvedOptions), requireHandle: false, ct);
         await RequireCurrentPasskeySession(db, tx, session, expected, ct);
 
-        var options = RegistrationOptions(state.Handle);
+        var options = _verifier.RequestRegistration(state.Handle);
         var intent = new EnrollmentIntent(expected!, EnrollmentSet(state.Credentials), options.ToJson());
         var token = NewToken();
         await SaveChallenge(db, tx, token, JsonSerializer.Serialize(intent), actor.Id, actor.Generation, EnrollmentCreationBinding(actor.Id), ct,

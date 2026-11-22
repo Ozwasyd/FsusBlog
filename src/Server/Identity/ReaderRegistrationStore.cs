@@ -17,10 +17,10 @@ internal sealed partial class PasskeyStore
         await using var db = await _source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         await admit(db, tx);
-        var options = RegistrationOptions(RandomNumberGenerator.GetBytes(WireLimits.PasskeyUserHandleBytes));
+        var options = _verifier.RequestRegistration(RandomNumberGenerator.GetBytes(WireLimits.PasskeyUserHandleBytes));
         await SaveChallenge(db, tx, key, options.ToJson(), null, null, null, ct);
         await InstanceLease.CommitProtected(tx, _lease, ct);
-        return RegistrationBegin(token, options);
+        return options.RegistrationFrame(token);
     }
 
     internal async Task CompleteReaderRegistration(PasskeyProvisionRequest request, string? binding, CancellationToken ct)

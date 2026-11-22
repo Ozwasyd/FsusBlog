@@ -23,17 +23,13 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
 
     internal async Task<byte[]> BeginLogin(CancellationToken ct)
     {
-        var options = _verifier.GetAssertionOptions(new GetAssertionOptionsParams
-        {
-            AllowedCredentials = [],
-            UserVerification = UserVerificationRequirement.Required
-        });
+        var options = _verifier.RequestAssertion([]);
         var token = NewToken();
         await using var db = await _source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         await SaveChallenge(db, tx, token, options.ToJson(), null, null, null, ct);
         await InstanceLease.CommitProtected(tx, _lease, ct);
-        return PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge);
+        return options.LoginFrame(token);
     }
 
     internal async Task<(byte[] Frame, string Binding)> BeginProvision(string ticket, CancellationToken ct)
@@ -68,12 +64,12 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         await using (var subject = Store.Sql(db, tx, "select user_handle from public.passkey_subject where user_id=$1", userId))
             userHandle = (byte[])(await subject.ExecuteScalarAsync(ct))!;
 
-        var options = RegistrationOptions(userHandle);
+        var options = _verifier.RequestRegistration(userHandle);
         var token = NewToken();
         var binding = NewToken();
         await SaveChallenge(db, tx, token, options.ToJson(), userId, generation, TokenDigest(binding), ct);
         await InstanceLease.CommitProtected(tx, _lease, ct);
-        return (RegistrationBegin(token, options), binding);
+        return (options.RegistrationFrame(token), binding);
     }
 
     internal async Task CompleteProvision(PasskeyProvisionRequest request, string? binding, CancellationToken ct)
@@ -169,7 +165,7 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         var (options, ids) = await RestrictedAssertion(db, tx, actor.Id, ct);
         var token = await MfaStore.BeginFlow(db, tx, actor, MfaStore.Purpose.Assertion, options.ToJson(), ct);
         await InstanceLease.CommitProtected(tx, _lease, ct);
-        return PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge, ids);
+        return options.LoginFrame(token, ids);
     }
 
     private async Task<(AssertionOptions Options, List<byte[]> Credentials)> RestrictedAssertion(
@@ -182,30 +178,8 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         await using (var row = await query.ExecuteReaderAsync(ct))
             while (await row.ReadAsync(ct)) ids.Add(row.GetFieldValue<byte[]>(0));
         if (ids.Count is 0 or >16) throw Denied();
-        return (RestrictedAssertionOptions(ids), ids);
+        return (_verifier.RequestAssertion(ids), ids);
     }
-
-    private AssertionOptions RestrictedAssertionOptions(IReadOnlyList<byte[]> credentials) => _verifier.GetAssertionOptions(new GetAssertionOptionsParams
-    {
-        AllowedCredentials = credentials.Select(id => new PublicKeyCredentialDescriptor(id)).ToArray(),
-        UserVerification = UserVerificationRequirement.Required
-    });
-
-    private CredentialCreateOptions RegistrationOptions(byte[] userHandle) => _verifier.RequestNewCredential(new RequestNewCredentialParams
-    {
-        User = new Fido2User { Id = userHandle, Name = "fsus-anonymous-account", DisplayName = "Anonymous account" },
-        AuthenticatorSelection = new AuthenticatorSelection
-        {
-            ResidentKey = ResidentKeyRequirement.Required,
-            UserVerification = UserVerificationRequirement.Required
-        },
-        AttestationPreference = AttestationConveyancePreference.None
-    });
-
-    private static byte[] RegistrationBegin(string token, CredentialCreateOptions options) =>
-        PasskeyWire.ProvisionBegin(token, checked((uint)options.Timeout), options.Rp.Id, options.Rp.Name,
-            options.User.Name, options.User.DisplayName, options.User.Id, options.Challenge,
-            options.PubKeyCredParams.Select(parameter => (int)parameter.Alg).ToArray());
 
     private async Task<byte[]> RegisterCredential(NpgsqlConnection db, NpgsqlTransaction tx, Guid user, PasskeyProvisionRequest request,
         CredentialCreateOptions options, CancellationToken ct)

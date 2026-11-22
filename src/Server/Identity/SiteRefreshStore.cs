@@ -173,7 +173,7 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
         await SqlCommands.Execute(db, tx, ct, "delete from public.user_session where digest=$1", access);
     }
 
-    private static (string Token, byte[] Digest) NewToken()
+    internal static (string Token, byte[] Digest) NewToken()
     {
         var bytes = RandomNumberGenerator.GetBytes(32);
         try { return (Convert.ToHexStringLower(bytes), SHA256.HashData(bytes)); }

@@ -7,6 +7,34 @@ namespace FsusBlog.V2.Server.Passkeys;
 
 internal static class PasskeyVerification
 {
+    internal static AssertionOptions RequestAssertion(this Fido2 verifier, IReadOnlyList<byte[]> credentials) =>
+        verifier.GetAssertionOptions(new GetAssertionOptionsParams
+        {
+            AllowedCredentials = credentials.Select(id => new PublicKeyCredentialDescriptor(id)).ToArray(),
+            UserVerification = UserVerificationRequirement.Required
+        });
+
+    internal static CredentialCreateOptions RequestRegistration(this Fido2 verifier, byte[] handle,
+        string name = "fsus-anonymous-account", string displayName = "Anonymous account") =>
+        verifier.RequestNewCredential(new RequestNewCredentialParams
+        {
+            User = new Fido2User { Id = handle, Name = name, DisplayName = displayName },
+            AuthenticatorSelection = new AuthenticatorSelection
+            {
+                ResidentKey = ResidentKeyRequirement.Required,
+                UserVerification = UserVerificationRequirement.Required
+            },
+            AttestationPreference = AttestationConveyancePreference.None
+        });
+
+    internal static byte[] LoginFrame(this AssertionOptions options, string token, IReadOnlyList<byte[]>? allowed = null) =>
+        PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge, allowed);
+
+    internal static byte[] RegistrationFrame(this CredentialCreateOptions options, string token) =>
+        PasskeyWire.ProvisionBegin(token, checked((uint)options.Timeout), options.Rp.Id, options.Rp.Name,
+            options.User.Name, options.User.DisplayName, options.User.Id, options.Challenge,
+            options.PubKeyCredParams.Select(parameter => (int)parameter.Alg).ToArray());
+
     internal static Task<RegisteredPublicKeyCredential> Attest(Fido2 verifier, PasskeyProvisionRequest request,
         CredentialCreateOptions options, IsCredentialIdUniqueToUserAsyncDelegate unique, CancellationToken ct) =>
         verifier.MakeNewCredentialAsync(new MakeNewCredentialParams
