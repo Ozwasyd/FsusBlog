@@ -56,10 +56,9 @@ internal sealed partial class SavedViewStore(NpgsqlConnection db, NpgsqlTransact
         var key = Encoding.UTF8.GetBytes(name.ToUpperInvariant());
         if (input.Action != SavedViewAction.Retire)
         {
-            await using var duplicate = Store.Sql(db, tx, """
+            if (await SqlCommands.Scalar(db, tx, ct, """
                 select exists(select from public.author_saved_view where site_id=$1 and owner_id=$2 and name_key=$3 and id<>$4 and not retired)
-                """, site, actor.Id, key, input.Id);
-            if (await duplicate.ExecuteScalarAsync(ct) is true)
+                """, site, actor.Id, key, input.Id) is true)
                 throw new BusinessException(Rejection.Conflict, "A saved view already has this name.");
         }
 
@@ -99,10 +98,9 @@ internal sealed partial class SavedViewStore(NpgsqlConnection db, NpgsqlTransact
         if (await change.ExecuteNonQueryAsync(ct) != 1) throw Changed();
 
         var receipt = new SavedViewReceipt(input.Id, input.Revision + 1, revision + 1, input.Action == SavedViewAction.Retire);
-        await using var journal = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.author_saved_view_command values($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp())
             """, site, actor.Id, input.RequestId, receipt.Id, receipt.Revision, receipt.CollectionRevision, (int)input.Action, fingerprint);
-        await journal.ExecuteNonQueryAsync(ct);
         return receipt;
     }
 
@@ -123,8 +121,8 @@ internal sealed partial class SavedViewStore(NpgsqlConnection db, NpgsqlTransact
 
     private async Task<long> CollectionRevision(CancellationToken ct)
     {
-        await using var cmd = Store.Sql(db, tx, "select revision from public.author_saved_view_collection where site_id=$1 and owner_id=$2", site, actor.Id);
-        return await cmd.ExecuteScalarAsync(ct) is long revision ? revision : 0;
+        return await SqlCommands.Scalar(db, tx, ct,
+            "select revision from public.author_saved_view_collection where site_id=$1 and owner_id=$2", site, actor.Id) is long revision ? revision : 0;
     }
 
     private async Task<(long Revision, byte[] Definition, byte[] Digest)?> Read(Guid id, CancellationToken ct)

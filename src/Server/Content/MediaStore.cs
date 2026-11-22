@@ -29,13 +29,12 @@ internal sealed class MediaStore(MediaFiles files)
         MediaImage image, CancellationToken token)
     {
         var id = Guid.NewGuid();
-        await using (var insert = Store.Sql(db, transaction, """
+        if (await SqlCommands.Execute(db, transaction, token, """
             INSERT INTO public.private_media (id,owner_id,command_id,request_hash,content_hash,name,format,length,width,height,phase)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0)
             ON CONFLICT (owner_id,command_id) DO NOTHING
             """, id, owner, commandId, image.RequestHash, image.Hash, image.Name, (short)image.Format, image.Bytes.Length, image.Width,
-            image.Height))
-            if (await insert.ExecuteNonQueryAsync(token) == 1) return id;
+            image.Height) == 1) return id;
 
         await using var existing = Store.Sql(db, transaction, """
             SELECT id,request_hash,phase FROM public.private_media WHERE owner_id=$1 AND command_id=$2 FOR UPDATE
@@ -116,9 +115,8 @@ internal sealed class MediaStore(MediaFiles files)
     private static async Task SetPhase(NpgsqlConnection db, NpgsqlTransaction transaction, Guid owner, Guid id, MediaPhase phase,
         CancellationToken token)
     {
-        await using var command = Store.Sql(db, transaction, "UPDATE public.private_media SET phase=$3 WHERE owner_id=$1 AND id=$2",
+        await SqlCommands.Execute(db, transaction, token, "UPDATE public.private_media SET phase=$3 WHERE owner_id=$1 AND id=$2",
             owner, id, (short)phase);
-        await command.ExecuteNonQueryAsync(token);
     }
 
     private static MediaRecord ReadRecord(NpgsqlDataReader row) => new(row.GetGuid(0), row.GetString(1), (MediaFormat)row.GetInt16(2),

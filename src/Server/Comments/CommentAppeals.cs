@@ -151,7 +151,7 @@ internal static class CommentAppeals
         await RequireSchema(db, tx, ct);
         var (article, adverse, version) = await LockTarget(db, tx, actor.Id, id, ct);
         var (proof, digest) = CommentAuthorProof.Issue();
-        await using var issue = Store.Sql(db, tx, """
+        var expiry = (DateTime)(await SqlCommands.Scalar(db, tx, ct, """
             insert into public.comment_appeal_challenge
                 (digest,article_id,comment_id,user_id,session_digest,generation,adverse_id,comment_version,expires_at)
             values($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp()+interval '5 minutes')
@@ -159,15 +159,13 @@ internal static class CommentAppeals
                 set digest=excluded.digest,generation=excluded.generation,adverse_id=excluded.adverse_id,
                     comment_version=excluded.comment_version,expires_at=excluded.expires_at
             returning expires_at
-            """, digest, article, id, actor.Id, session, actor.Generation, adverse, version);
-        var expiry = (DateTime)(await issue.ExecuteScalarAsync(ct))!;
-        await using var clean = Store.Sql(db, tx, """
+            """, digest, article, id, actor.Id, session, actor.Generation, adverse, version))!;
+        await SqlCommands.Execute(db, tx, ct, """
             delete from public.comment_appeal_challenge where digest in (
                 select digest from public.comment_appeal_challenge where expires_at<=clock_timestamp()
                 order by expires_at limit 32 for update skip locked
             )
             """);
-        await clean.ExecuteNonQueryAsync(ct);
         return new(true, proof, expiry, null, version);
     }
 
@@ -178,7 +176,7 @@ internal static class CommentAppeals
         var reason = Reason(request.Reason);
         var (article, adverse, version) = await LockTarget(db, tx, actor.Id, id, ct);
         var digest = CommentAuthorProof.Digest(request.Challenge!) ?? throw Missing();
-        await using var insert = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             with verified as (
                 delete from public.comment_appeal_challenge where digest=$1 and article_id=$2 and comment_id=$3
                     and user_id=$4 and session_digest=$5 and generation=$6 and adverse_id=$7 and comment_version=$8
@@ -189,8 +187,7 @@ internal static class CommentAppeals
             )
             insert into public.comment_appeal_event(appeal_id,kind,previous_status,next_status,occurred_at)
             select id,1,2,2,submitted_at from submitted returning appeal_id
-            """, digest, article, id, actor.Id, session, actor.Generation, adverse, version, reason);
-        if (await insert.ExecuteScalarAsync(ct) is not long) throw Missing();
+            """, digest, article, id, actor.Id, session, actor.Generation, adverse, version, reason) is not long) throw Missing();
     }
 
     private static async Task<(int Article, long Adverse, long Version)> LockTarget(NpgsqlConnection db, NpgsqlTransaction tx,
@@ -211,8 +208,7 @@ internal static class CommentAppeals
             if (!await row.ReadAsync(ct)) throw Missing();
             (article, adverse, version) = (row.GetInt32(0), row.GetInt64(1), row.GetInt64(2));
         }
-        await using var exists = Store.Sql(db, tx, "select 1 from public.comment_appeal where adverse_id=$1", adverse);
-        if (await exists.ExecuteScalarAsync(ct) is not null)
+        if (await SqlCommands.Scalar(db, tx, ct, "select 1 from public.comment_appeal where adverse_id=$1", adverse) is not null)
             throw new BusinessException(Rejection.Conflict, "An appeal already exists for this moderation decision.");
         return (article, adverse, version);
     }

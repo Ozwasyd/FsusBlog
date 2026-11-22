@@ -76,22 +76,21 @@ internal sealed partial class PasskeyStore
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         var actor = await MfaStore.RequireSession(db, tx, session, ct);
         if (RecoveryTokenDigest(proof) is not { } proofDigest) throw new RecoveryKeyProofRequiredException();
-        await using (var consume = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             delete from public.site_recovery_flow
             where digest=$1 and user_id=$2 and generation=$3 and session_digest=$4 and purpose=$5 and kind=$6
                 and expires_at>clock_timestamp()
-            """, proofDigest, actor.Id, actor.Generation, actor.Scope, (short)operation.Operation, RecoveryProof))
-            if (await consume.ExecuteNonQueryAsync(ct) != 1) throw new RecoveryKeyProofRequiredException();
-        await using (var allowed = Store.Sql(db, tx, """
+            """, proofDigest, actor.Id, actor.Generation, actor.Scope, (short)operation.Operation, RecoveryProof) != 1)
+            throw new RecoveryKeyProofRequiredException();
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select not exists (
                 select from public.site_recovery_rebind where user_id=$1 and generation=$2
                     and expires_at>clock_timestamp() and completed_at is null
             ) and (
                 $3 or not exists (select from public.site_recovery_key where user_id=$1 and used_at is null)
             )
-            """, actor.Id, actor.Generation, operation.Operation == 2))
-            if (await allowed.ExecuteScalarAsync(ct) is not true)
-                throw new BusinessException(Rejection.Conflict, "A current key or recovery ceremony already exists.");
+            """, actor.Id, actor.Generation, operation.Operation == 2) is not true)
+            throw new BusinessException(Rejection.Conflict, "A current key or recovery ceremony already exists.");
         var key = secret.Generate();
         RecoveryKeyIssued receipt;
         await using (var insert = Store.Sql(db, tx, """
@@ -116,14 +115,13 @@ internal sealed partial class PasskeyStore
         short purpose, short kind, string? options, int seconds, CancellationToken ct)
     {
         var token = NewToken();
-        await using var save = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.site_recovery_flow(digest,user_id,generation,session_digest,purpose,kind,options,expires_at)
             values($1,$2,$3,$4,$5,$6,$7,clock_timestamp()+$8 * interval '1 second')
             on conflict(user_id,purpose,kind) do update set digest=excluded.digest,generation=excluded.generation,
                 session_digest=excluded.session_digest,options=excluded.options,expires_at=excluded.expires_at
             """, TokenDigest(token), actor.Id, actor.Generation, actor.Scope, purpose, kind,
             SqlCommands.Optional(NpgsqlTypes.NpgsqlDbType.Text, options), seconds);
-        await save.ExecuteNonQueryAsync(ct);
         return token;
     }
 

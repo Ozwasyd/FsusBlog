@@ -25,7 +25,7 @@ internal sealed partial class PropertyStore
 
         // The article is already write-locked. Read the property schema, values and definitions using
         // one statement snapshot, without reversing the property writer's scope -> article lock order.
-        await using var capture = SqlCommands.Create(db, tx, $"""
+        if (await SqlCommands.Execute(db, tx, ct, $"""
             with coordinates as materialized (
                 select $1::integer article_id,$3::uuid owner_id,
                     coalesce((select revision from public.property_schema where owner_id=$3),0) schema_revision,
@@ -59,8 +59,7 @@ internal sealed partial class PropertyStore
             select article_id,$2,schema_revision,value_revision from inserted
             union all
             select article_id,$2,schema_revision,value_revision from existing
-            """, article, revision, owner);
-        if (await capture.ExecuteNonQueryAsync(ct) != 1)
+            """, article, revision, owner) != 1)
             throw new InvalidOperationException("The article property snapshot was not attached.");
     }
 

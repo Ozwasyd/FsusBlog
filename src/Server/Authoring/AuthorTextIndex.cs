@@ -148,11 +148,10 @@ internal static partial class AuthorTextIndex
             if (entry is { Revision: { } revision, Title: { } title, Body: { } body })
             {
                 var profile = includeHeading ? AuthorTextProfile.HeadingIndexVersion : AuthorTextProfile.SummaryIndexVersion;
-                await using var insert = Store.Sql(db, tx, """
+                await SqlCommands.Execute(db, tx, ct, """
                     insert into public.author_text_document(owner_id,article_id,revision,profile,title_digest,body_digest,summary_digest)
                     values($1,$2,$3,$4,$5,$6,$7)
                     """, owner, entry.Id, revision, profile, Digest(title), Digest(body), Digest(entry.Summary));
-                await insert.ExecuteNonQueryAsync(ct);
                 await using var copy = await db.BeginBinaryImportAsync("""
                     copy public.author_text_posting(owner_id,article_id,field,ordinal,term,start_u16,end_u16,start_u8,end_u8,segment)
                     from stdin (format binary)

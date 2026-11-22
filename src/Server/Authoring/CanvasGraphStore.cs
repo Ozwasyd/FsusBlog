@@ -215,11 +215,10 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
             await row.ReadAsync(ct);
             if (row.GetInt64(0) >= RetainedDocuments || row.GetInt64(1) >= WireLimits.CanvasGraphMaxDocuments) throw Conflict();
         }
-        await using var create = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             insert into public.authoring_canvas(id,owner_id,revision,title,viewport_x,viewport_y,viewport_zoom,deleted,touched_at)
             values($1,$2,1,$3,$4,$5,$6,false,clock_timestamp()) on conflict do nothing returning touched_at
-            """, id, actor.Id, title, viewport.X, viewport.Y, viewport.Zoom);
-        if (await create.ExecuteScalarAsync(ct) is not DateTime touched) throw Missing();
+            """, id, actor.Id, title, viewport.X, viewport.Y, viewport.Zoom) is not DateTime touched) throw Missing();
         if (graph.Nodes.Length > 64 || graph.Edges.Length > 64)
         {
             await CopySeedNodes(id, graph.Nodes, ct);
@@ -293,12 +292,12 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
     private async Task<CanvasGraphReceipt> Advance(CanvasGraphReceipt current, Guid key, int kind, byte[] fingerprint, CancellationToken ct)
     {
         var viewport = current.Viewport;
-        await using var update = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             update public.authoring_canvas set revision=revision+1,title=$3,viewport_x=$4,viewport_y=$5,
                 viewport_zoom=$6,deleted=$7,touched_at=clock_timestamp()
             where id=$1 and revision=$2 returning touched_at
-            """, current.Id, current.Revision, current.Title, viewport.X, viewport.Y, viewport.Zoom, current.Deleted);
-        if (await update.ExecuteScalarAsync(ct) is not DateTime touched) throw Conflict();
+            """, current.Id, current.Revision, current.Title, viewport.X, viewport.Y, viewport.Zoom, current.Deleted) is not DateTime touched)
+            throw Conflict();
         var receipt = current with { Revision = current.Revision + 1, TouchedAt = touched };
         await Record(receipt, key, kind, fingerprint, ct);
         return receipt;
@@ -379,8 +378,7 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
 
     private async Task DeleteGraph(Guid id, CancellationToken ct)
     {
-        await using var edges = Store.Sql(db, tx, "delete from public.canvas_edge where canvas_id=$1", id);
-        await edges.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.canvas_edge where canvas_id=$1", id);
         await SqlCommands.Execute(db, tx, ct, "delete from public.canvas_node where canvas_id=$1", id);
     }
 

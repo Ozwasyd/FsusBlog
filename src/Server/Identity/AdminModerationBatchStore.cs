@@ -52,11 +52,10 @@ internal sealed class AdminModerationBatchStore(AdminSessionGate gate, AdminStep
                 throw new ModerationProofRequiredException();
             var ordered = await VerifyModerationBatchClaims(db, tx, admin, decision, ct);
             var status = checked((short)decision.Decision);
-            await using var summary = Store.Sql(db, tx, """
+            var batch = (long)(await SqlCommands.Scalar(db, tx, ct, """
                 insert into public.admin_comment_batch(principal_id,session_reference,decision,item_count,decided_at)
                 values($1,$2,$3,$4,clock_timestamp()) returning id
-                """, admin.Id, SHA256.HashData(admin.Digest), status, decision.Rows.Count);
-            var batch = (long)(await summary.ExecuteScalarAsync(ct))!;
+                """, admin.Id, SHA256.HashData(admin.Digest), status, decision.Rows.Count))!;
             var audits = new List<long>(ordered.Length);
             var approved = new List<AdminModerationStore.ClaimCoordinates>();
             foreach (var (row, index) in ordered)
@@ -94,10 +93,9 @@ internal sealed class AdminModerationBatchStore(AdminSessionGate gate, AdminStep
                 await AdminModerationStore.CheckClaim(db, tx, admin, Receipt(row), ct);
                 if (decision.Decision == 1)
                 {
-                    await using var mask = Store.Sql(db, tx, """
+                    if (await SqlCommands.Scalar(db, tx, ct, """
                         select 1 from public.comment_blocked_region where article_id=$1 and comment_id=$2 limit 1
-                        """, row.ArticleId, row.CommentId);
-                    if (await mask.ExecuteScalarAsync(ct) is not null) conflicts |= 1 << index;
+                        """, row.ArticleId, row.CommentId) is not null) conflicts |= 1 << index;
                 }
             }
             catch (BusinessException error) when (error.Rejection == Rejection.Conflict) { conflicts |= 1 << index; }

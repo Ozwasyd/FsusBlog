@@ -18,13 +18,12 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
         DateTimeOffset accessExpires, CancellationToken ct)
     {
         var (refresh, digest) = NewToken();
-        await using var insert = Store.Sql(db, tx, """
+        var refreshExpires = new DateTimeOffset((DateTime)(await SqlCommands.Scalar(db, tx, ct, """
             insert into public.site_session_refresh
                 (family_id,access_digest,refresh_digest,generation,idle_expires_at,absolute_expires_at,rotated_at)
             values($1,$2,$3,0,statement_timestamp()+interval '720 hours',statement_timestamp()+interval '2160 hours',statement_timestamp())
             returning idle_expires_at
-            """, Guid.NewGuid(), Store.TokenDigest(access)!, digest);
-        var refreshExpires = new DateTimeOffset((DateTime)(await insert.ExecuteScalarAsync(ct))!);
+            """, Guid.NewGuid(), Store.TokenDigest(access)!, digest))!);
         return new(access, accessExpires, refresh, refreshExpires);
     }
 
@@ -33,14 +32,13 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
         if (Store.TokenDigest(refresh) is not { } digest) return false;
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        await using var query = Store.Sql(db, tx, """
+        var active = await SqlCommands.Scalar(db, tx, ct, """
             select exists (
                 select from public.site_session_refresh f join public.user_session s on s.digest=f.access_digest
                 join public.blog_user u on u.id=s.user_id
                 where f.refresh_digest=$1 and f.idle_expires_at>clock_timestamp() and u.enabled and s.generation=u.generation
             )
-            """, digest);
-        var active = await query.ExecuteScalarAsync(ct) is true;
+            """, digest) is true;
         await InstanceLease.CommitProtected(tx, lease, ct);
         return active;
     }
@@ -95,10 +93,9 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
 
     internal static async Task<Guid?> FindCurrentFamily(NpgsqlConnection db, NpgsqlTransaction tx, byte[] access, CancellationToken ct)
     {
-        await using var query = Store.Sql(db, tx, """
+        return await SqlCommands.Scalar(db, tx, ct, """
             select family_id from public.site_session_refresh where access_digest=$1 and idle_expires_at>clock_timestamp()
-            """, access);
-        return await query.ExecuteScalarAsync(ct) as Guid?;
+            """, access) as Guid?;
     }
 
     private static async Task<Family?> Resolve(NpgsqlConnection db, NpgsqlTransaction tx, byte[] digest, CancellationToken ct)
@@ -117,8 +114,8 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
             if (!await row.ReadAsync(ct)) return null;
             (family, actor) = (row.GetGuid(0), row.GetGuid(1));
         }
-        await using (var owner = Store.Sql(db, tx, "select 1 from public.blog_user where id=$1 and enabled for update", actor))
-            if (await owner.ExecuteScalarAsync(ct) is null) return null;
+        if (await SqlCommands.Scalar(db, tx, ct,
+            "select 1 from public.blog_user where id=$1 and enabled for update", actor) is null) return null;
         await using var select = Store.Sql(db, tx, """
             select f.access_digest,f.refresh_digest,f.previous_access_digest,f.generation,
                 f.idle_expires_at>clock_timestamp() and f.absolute_expires_at>clock_timestamp() and s.generation=u.generation,
@@ -143,20 +140,18 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
             values($1,$2,$3,statement_timestamp(),statement_timestamp()+interval '720 hours')
             """, family.Refresh, family.Id, family.Generation);
         DateTimeOffset idleExpires;
-        await using (var rotate = Store.Sql(db, tx, """
+        idleExpires = await SqlCommands.Scalar(db, tx, ct, """
             update public.site_session_refresh set refresh_digest=$2,previous_access_digest=$3,generation=generation+1,
                 idle_expires_at=least(absolute_expires_at,statement_timestamp()+interval '720 hours'),rotated_at=statement_timestamp()
             where family_id=$1 and refresh_digest=$4 and generation=$5 and idle_expires_at>clock_timestamp()
             returning idle_expires_at
-            """, family.Id, refreshDigest, family.Access, family.Refresh, family.Generation))
-            idleExpires = await rotate.ExecuteScalarAsync(ct) is DateTime idle ? new(idle) : throw Changed();
+            """, family.Id, refreshDigest, family.Access, family.Refresh, family.Generation) is DateTime idle ? new(idle) : throw Changed();
         DateTimeOffset accessExpires;
-        await using (var replace = Store.Sql(db, tx, """
+        accessExpires = await SqlCommands.Scalar(db, tx, ct, """
             update public.user_session set digest=$2,expires_at=least($3,statement_timestamp()+interval '8 hours')
             where digest=$1 and generation=$4 returning expires_at
-            """, family.Access, accessDigest, idleExpires, family.AccountGeneration))
-            accessExpires = await replace.ExecuteScalarAsync(ct) is DateTime expiry ? new(expiry) : throw Changed();
-        await using var prune = Store.Sql(db, tx, """
+            """, family.Access, accessDigest, idleExpires, family.AccountGeneration) is DateTime expiry ? new(expiry) : throw Changed();
+        await SqlCommands.Execute(db, tx, ct, """
             with expired as (
                 select refresh_digest from public.site_session_refresh_tombstone where expires_at<=clock_timestamp()
                 order by expires_at limit 32 for update skip locked
@@ -164,7 +159,6 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
             delete from public.site_session_refresh_tombstone as tombstone using expired
             where tombstone.refresh_digest=expired.refresh_digest
             """);
-        await prune.ExecuteNonQueryAsync(ct);
         return new(access, accessExpires, refresh, idleExpires);
     }
 

@@ -28,8 +28,8 @@ internal sealed class AdminArticleTrashRestoreStore(AdminSessionGate gate, Admin
         stepUp.BeginStepUp(session, TrashRestoreFingerprint(intent), async (db, tx, _) =>
         {
             await RequireTrashRestoreSchema(db, tx, ct);
-            await using var query = Store.Sql(db, tx, $"select a.revision {TrashArticle}", intent.ArticleId);
-            if (await query.ExecuteScalarAsync(ct) is not long revision || revision != intent.ExpectedRevision)
+            if (await SqlCommands.Scalar(db, tx, ct,
+                $"select a.revision {TrashArticle}", intent.ArticleId) is not long revision || revision != intent.ExpectedRevision)
                 throw TrashRestoreConflict();
         }, ct, AdminStepUpAction.RestoreArticleTrash);
 
@@ -58,8 +58,8 @@ internal sealed class AdminArticleTrashRestoreStore(AdminSessionGate gate, Admin
         if (!await stepUp.ConsumeProofAsync(db, tx, admin, proof, fingerprint, ct, AdminStepUpAction.RestoreArticleTrash))
             throw new BusinessException(Rejection.Forbidden, "A current Passkey proof for this exact trash restoration is required.");
 
-        await using (var take = Store.Sql(db, tx, "select id from public.article where id=$1 for update", intent.ArticleId))
-            if (await take.ExecuteScalarAsync(ct) is null) throw TrashRestoreConflict();
+        if (await SqlCommands.Scalar(db, tx, ct,
+            "select id from public.article where id=$1 for update", intent.ArticleId) is null) throw TrashRestoreConflict();
         ArticleState current;
         await using (var query = Store.Sql(db, tx, $"select a.owner_id,a.revision,a.title,a.body {TrashArticle}", intent.ArticleId))
         await using (var row = await query.ExecuteReaderAsync(ct))

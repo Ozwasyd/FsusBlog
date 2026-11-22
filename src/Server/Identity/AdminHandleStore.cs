@@ -60,12 +60,11 @@ internal sealed partial class AdminHandleStore(AdminSessionGate gate, AdminStepU
 
             try
             {
-                await using var update = Store.Sql(db, tx, """
+                if (await SqlCommands.Execute(db, tx, ct, """
                     update public.admin_principal
                     set handle = $2
                     where id = $1
-                    """, admin.Id, normalized.NewHandle);
-                if (await update.ExecuteNonQueryAsync(ct) != 1)
+                    """, admin.Id, normalized.NewHandle) != 1)
                     throw AdminSessionGate.Denied();
             }
             catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.UniqueViolation)
@@ -126,10 +125,9 @@ internal sealed partial class AdminHandleStore(AdminSessionGate gate, AdminStepU
         if (!string.Equals(currentHandle, normalized.ExpectedHandle, StringComparison.Ordinal))
             throw new BusinessException(Rejection.Conflict, "The administrator handle changed before this update completed.");
 
-        await using var collision = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select 1 from public.admin_principal where handle = $1 and id <> $2
-            """, normalized.NewHandle, admin.Id);
-        if (await collision.ExecuteScalarAsync(ct) is not null)
+            """, normalized.NewHandle, admin.Id) is not null)
             throw new BusinessException(Rejection.Conflict, "This administrator handle is already in use.");
 
         return currentHandle;

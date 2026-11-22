@@ -62,10 +62,9 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
         var images = await ReadSelected(db, tx, owner, article, revision, selection, ct);
         if (await CurrentSchema.HasPublicationCoverAsync(db, tx, ct))
         {
-            await using var query = SqlCommands.Create(db, tx, """
+            if (await SqlCommands.Scalar(db, tx, ct, """
                 SELECT asset_id FROM public.article_revision_cover WHERE article_id=$1 AND revision=$2
-                """, article, revision);
-            if (await query.ExecuteScalarAsync(ct) is Guid cover)
+                """, article, revision) is Guid cover)
             {
                 for (var index = 0; index < images.Length; index++)
                     if (images[index].AssetId == cover) images[index] = images[index] with { IsCover = true };
@@ -171,13 +170,12 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
         for (var ordinal = 0; ordinal < images.Count; ordinal++)
         {
             var image = images[ordinal];
-            await using var insert = SqlCommands.Create(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 INSERT INTO public.article_publication_media
                     (article_id,publication_id,revision,ordinal,asset_id,content_hash,format,length,width,height)
                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
                 """, articleId, publicationId, revision, ordinal + 1, image.AssetId, image.Digest, (short)image.Format,
                 image.Length, image.Width, image.Height);
-            await insert.ExecuteNonQueryAsync(ct);
             if (image.IsCover)
             {
                 await SqlCommands.Execute(db, tx, ct, """

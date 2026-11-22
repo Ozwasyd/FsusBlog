@@ -174,7 +174,6 @@ internal sealed partial class PasskeyStore
     private static async Task<int> RecoveryExecute(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct,
         string sql, params object[] parameters)
     {
-        await using var cmd = Store.Sql(db, tx, sql, parameters);
-        return await cmd.ExecuteNonQueryAsync(ct);
+        return await SqlCommands.Execute(db, tx, ct, sql, parameters);
     }
 }

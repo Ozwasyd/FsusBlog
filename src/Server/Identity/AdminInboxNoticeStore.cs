@@ -46,13 +46,12 @@ internal sealed class AdminInboxNoticeStore(AdminSessionGate gate)
             async Task<long> CreateNotice()
             {
                 var sent = await inbox.SendAttributedNotice(subject, body, ct);
-                await using var audit = Store.Sql(db, tx, """
+                await SqlCommands.Execute(db, tx, ct, """
                     INSERT INTO public.inbox_admin_notice
                         (source_event_id,account_id,conversation_id,message_id,principal_id,session_reference,fingerprint,sent_at)
                     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
                     """, eventId, input.Account, sent.ConversationId, sent.Id, admin.Id, SHA256.HashData(admin.Digest),
                     fingerprint, sent.SentAt);
-                await audit.ExecuteNonQueryAsync(ct);
                 return sent.ConversationId;
             }
         }, ct);

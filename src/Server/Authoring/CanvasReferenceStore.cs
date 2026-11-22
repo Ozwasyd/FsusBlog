@@ -25,13 +25,12 @@ internal static class CanvasReferenceStore
         foreach (var target in targets)
         {
             ct.ThrowIfCancellationRequested();
-            await using var source = Store.Sql(db, tx, """
+            if (await SqlCommands.Scalar(db, tx, ct, """
                 select case when octet_length(r.body)<=$3 and char_length(r.body)<=$4 then r.body end
                 from public.article a join public.article_revision r
                 on r.article_id=a.id and r.revision=coalesce(nullif($2,0),a.revision)
                 where a.id=$1
-                """, target.Key.Article, target.Key.Pin, WireLimits.BodyBytes, CanvasAnchor.MaxSourceCharacters);
-            if (await source.ExecuteScalarAsync(ct) is not string body || body.Length > CanvasAnchor.MaxSourceCharacters)
+                """, target.Key.Article, target.Key.Pin, WireLimits.BodyBytes, CanvasAnchor.MaxSourceCharacters) is not string body || body.Length > CanvasAnchor.MaxSourceCharacters)
                 throw Unavailable();
 
             var anchors = target.Select(node => (node.Anchor!, Heading: node.Kind == CanvasNodeKind.HeadingReference))

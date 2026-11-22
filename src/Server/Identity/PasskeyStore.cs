@@ -52,17 +52,15 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         }
 
         if (await HasCredential(db, tx, userId, ct) || await CurrentSchema.RequiresSiteRecoveryAsync(db, tx, userId, ct)) throw Denied();
-        await using (var consume = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             delete from public.login_ticket where user_id=$1 and digest=$2 and expires_at>clock_timestamp()
-            """, userId, digest))
-            if (await consume.ExecuteNonQueryAsync(ct) != 1) throw Denied();
+            """, userId, digest) != 1) throw Denied();
 
         await SqlCommands.Execute(db, tx, ct, """
             insert into public.passkey_subject(user_id,user_handle) values ($1,$2) on conflict (user_id) do nothing
             """, userId, RandomNumberGenerator.GetBytes(WireLimits.PasskeyUserHandleBytes));
         byte[] userHandle;
-        await using (var subject = Store.Sql(db, tx, "select user_handle from public.passkey_subject where user_id=$1", userId))
-            userHandle = (byte[])(await subject.ExecuteScalarAsync(ct))!;
+        userHandle = (byte[])(await SqlCommands.Scalar(db, tx, ct, "select user_handle from public.passkey_subject where user_id=$1", userId))!;
 
         var options = _verifier.RequestRegistration(userHandle);
         var token = NewToken();
@@ -82,11 +80,10 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         var accountId = challenge.UserId!.Value;
         var options = CredentialCreateOptions.FromJson(challenge.Options);
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
-        await using (var verifyOwner = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select 1 from public.blog_user u join public.passkey_subject s on s.user_id=u.id
             where u.id=$1 and u.enabled and u.generation=$2 and s.user_handle=$3 for update of u
-            """, accountId, challenge.Generation!.Value, options.User.Id))
-            if (await verifyOwner.ExecuteScalarAsync(ct) is null) throw Denied();
+            """, accountId, challenge.Generation!.Value, options.User.Id) is null) throw Denied();
         if (await HasCredential(db, tx, accountId, ct) || await CurrentSchema.RequiresSiteRecoveryAsync(db, tx, accountId, ct)) throw Denied();
 
         await RegisterCredential(db, tx, accountId, request, options, ct);
@@ -277,8 +274,7 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
 
     private static async Task<bool> HasCredential(NpgsqlConnection db, NpgsqlTransaction tx, Guid id, CancellationToken ct)
     {
-        await using var cmd = Store.Sql(db, tx, "select exists(select 1 from public.passkey_credential where user_id=$1)", id);
-        return (bool)(await cmd.ExecuteScalarAsync(ct))!;
+        return (bool)(await SqlCommands.Scalar(db, tx, ct, "select exists(select 1 from public.passkey_credential where user_id=$1)", id))!;
     }
 
     private static async Task SaveChallenge(NpgsqlConnection db, NpgsqlTransaction tx, string token,
@@ -286,13 +282,13 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
     {
         await SqlCommands.Execute(db, tx, ct, "select pg_advisory_xact_lock($1)", ChallengeBudgetLock);
         await SqlCommands.Execute(db, tx, ct, "delete from public.passkey_challenge where expires_at<=clock_timestamp()");
-        await using var insert = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             insert into public.passkey_challenge(digest,user_id,generation,options,expires_at,binding_digest)
             select $1,$2,$3,$4,clock_timestamp()+$7 * interval '1 second',$5
             where (select count(*) from public.passkey_challenge)<$6
             """, TokenDigest(token), SqlCommands.Optional(NpgsqlDbType.Uuid, userId),
-            SqlCommands.Optional(NpgsqlDbType.Bigint, generation), options, SqlCommands.Optional(NpgsqlDbType.Bytea, binding), ChallengeCapacity, lifetimeSeconds);
-        if (await insert.ExecuteNonQueryAsync(ct) != 1) throw new PublicUnavailableException();
+            SqlCommands.Optional(NpgsqlDbType.Bigint, generation), options, SqlCommands.Optional(NpgsqlDbType.Bytea, binding), ChallengeCapacity, lifetimeSeconds) != 1)
+            throw new PublicUnavailableException();
     }
 
     private async Task<(string Options, Guid? UserId, long? Generation, DateTimeOffset ExpiresAt)> ConsumeChallenge(NpgsqlConnection db,

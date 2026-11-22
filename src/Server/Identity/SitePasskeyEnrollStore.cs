@@ -109,11 +109,10 @@ internal sealed partial class PasskeyStore
 
     private static async Task RequireNoEnrollment(NpgsqlConnection db, NpgsqlTransaction tx, MfaStore.Subject actor, CancellationToken ct)
     {
-        await using var pending = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select exists (select 1 from public.passkey_challenge where user_id=$1 and generation=$2 and binding_digest=$3
                 and expires_at>clock_timestamp())
-            """, actor.Id, actor.Generation, EnrollmentCreationBinding(actor.Id));
-        if (await pending.ExecuteScalarAsync(ct) is true)
+            """, actor.Id, actor.Generation, EnrollmentCreationBinding(actor.Id)) is true)
             throw new BusinessException(Rejection.Conflict, "A Passkey enrollment is already in progress. Try again after it expires.");
     }
 

@@ -71,8 +71,9 @@ internal sealed class AdminArticleTrashPublicationStore(AdminSessionGate gate, A
         if (revision == long.MaxValue) throw AdminArticleTrashRestoreStore.TrashRestoreConflict();
         if (locking)
         {
-            await using var take = Store.Sql(db, tx, "select id from public.article where id=$1 and deleted for update", article);
-            if (await take.ExecuteScalarAsync(ct) is null) throw AdminArticleTrashRestoreStore.TrashRestoreConflict();
+            if (await SqlCommands.Scalar(db, tx, ct,
+                "select id from public.article where id=$1 and deleted for update", article) is null)
+                throw AdminArticleTrashRestoreStore.TrashRestoreConflict();
         }
         await using var query = Store.Sql(db, tx, $"""
             select a.owner_id,source.revision,prior.publication_id,source.title,case when $3 then source.body else '' end,

@@ -77,9 +77,8 @@ internal sealed class InstanceLease : IAsyncDisposable
     internal async Task Start(ILogger log, CancellationToken ct, SchemaAdmission admission = default)
     {
         await _owner.OpenAsync(ct);
-        await using (var acquire = SqlCommands.Create(_owner, null, "select pg_catalog.pg_try_advisory_lock($1)", OwnershipKey))
-            if (await acquire.ExecuteScalarAsync(ct) is not true)
-                throw new InvalidOperationException("Another v2 server already owns this database.");
+        if (await SqlCommands.Scalar(_owner, null, ct, "select pg_catalog.pg_try_advisory_lock($1)", OwnershipKey) is not true)
+            throw new InvalidOperationException("Another v2 server already owns this database.");
 
         // Wait for already admitted transactions of a previous owner before reading the database.
         await using (var handoff = SqlCommands.Create(_owner, null, "select pg_catalog.pg_advisory_xact_lock($1,$2)",
@@ -92,8 +91,8 @@ internal sealed class InstanceLease : IAsyncDisposable
         if (admission.DocumentExports == true && !await CurrentSchema.HasCurrentDocumentExportProviderAsync(_owner, null, ct))
             throw new InvalidOperationException("Run the document-exports migration with the service stopped.");
         // The catalog verifier has already rejected partial or malformed installations.
-        await using (var policy = SqlCommands.Create(_owner, null, "select pg_catalog.to_regclass('public.root_comment_pow_policy') is not null"))
-            RootCommentPowPolicyInstalled = await policy.ExecuteScalarAsync(ct) is true;
+        RootCommentPowPolicyInstalled = await SqlCommands.Scalar(_owner, null, ct,
+            "select pg_catalog.to_regclass('public.root_comment_pow_policy') is not null") is true;
         AuthorTextRebuildInstalled = await CurrentSchema.HasAuthorTextRebuildAsync(_owner, null, ct);
         _pid = _owner.ProcessID;
         await using (var identity = new NpgsqlCommand("select backend_start from pg_catalog.pg_stat_activity where pid=pg_backend_pid()", _owner))

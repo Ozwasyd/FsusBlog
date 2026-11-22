@@ -23,10 +23,9 @@ internal static class ArticleSummaryEndpoints
             var frame = await SiteSessions.WithCurrentAuthor(store, token, expected, async (db, tx, actor, digest) =>
             {
                 await RevisionHistoryStore.LockCurrent(db, tx, actor, id, revision, ct);
-                await using var summary = Store.Sql(db, tx, """
+                if (await SqlCommands.Scalar(db, tx, ct, """
                     select coalesce(author_summary,'') from public.article_revision where article_id=$1 and revision=$2
-                    """, id, selected);
-                if (await summary.ExecuteScalarAsync(ct) is not string text)
+                    """, id, selected) is not string text)
                     throw new BusinessException(Rejection.NotFound, "Article summary is unavailable.");
                 if (selected != revision) SiteSessions.RequireCurrent(actor.Id, digest, expected);
                 return Wire.EncodeArticleSummary(new(id, selected, text));

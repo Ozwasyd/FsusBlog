@@ -26,26 +26,24 @@ internal static class ArticleScheduleStore
     {
         if (input.DueUnixMs == 0)
         {
-            await using var check = SqlCommands.Create(db, tx, "select exists(select from public.article_schedule where article_id=$1)", current.Id);
-            if (await check.ExecuteScalarAsync(ct) is not true)
+            if (await SqlCommands.Scalar(db, tx, ct,
+                "select exists(select from public.article_schedule where article_id=$1)", current.Id) is not true)
                 throw new BusinessException(Rejection.Conflict, "No pending publication remains to cancel.");
             return;
         }
         if (string.IsNullOrWhiteSpace(current.Body))
             throw new BusinessException(Rejection.Invalid, "A nonempty saved draft is required.");
         await PublicationRightsStore.Require(db, tx, current.Id, current.Revision, ct);
-        await using var future = SqlCommands.Create(db, tx, "select $1 > clock_timestamp()", Due(input));
-        if (await future.ExecuteScalarAsync(ct) is not true)
+        if (await SqlCommands.Scalar(db, tx, ct, "select $1 > clock_timestamp()", Due(input)) is not true)
             throw new BusinessException(Rejection.Invalid, "The publication time must be in the future.");
     }
 
     internal static async Task Record(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, ArticleState current,
         ArticleScheduleCommand input, CancellationToken ct)
     {
-        await using var receipt = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_schedule_receipt(actor_id,command_id,due_at,published_revision) values($1,$2,$3,$4)
             """, actor.Id, input.IdempotencyKey, Due(input), current.PublishedRevision ?? 0L);
-        await receipt.ExecuteNonQueryAsync(ct);
         if (input.DueUnixMs == 0)
         {
             await Clear(db, tx, current.Id, ct);
@@ -95,11 +93,10 @@ internal static class ArticleScheduleStore
         foreach (var candidate in due)
         {
             // Account updates lock the account before any article. Skip a busy account instead of reversing that order.
-            await using var author = SqlCommands.Create(db, tx, """
+            if (await SqlCommands.Scalar(db, tx, ct, """
                 select p.enabled and p.generation=$2
                 from public.admin_principal p where p.id=$1 for share skip locked
-                """, candidate.Actor, candidate.Generation);
-            if (await author.ExecuteScalarAsync(ct) is not bool permitted) continue;
+                """, candidate.Actor, candidate.Generation) is not bool permitted) continue;
             await using var verify = SqlCommands.Create(db, tx, $"""
                 select a.published_revision,s.revision=a.revision and s.actor_id=a.owner_id and not a.deleted
                     and {ArchivedArticleAuthority.Available}
@@ -122,10 +119,9 @@ internal static class ArticleScheduleStore
             }
             if (permitted && eligible)
             {
-                await using var publish = SqlCommands.Create(db, tx, """
+                await SqlCommands.Execute(db, tx, ct, """
                     update public.article set published_revision=$2,updated_at=clock_timestamp() where id=$1
                     """, candidate.Id, candidate.Revision);
-                await publish.ExecuteNonQueryAsync(ct);
                 // For retained hidden legacy state, use the previous transition boundary, strictly before the scheduled revision.
                 await PublicationHistoryStore.Apply(db, tx, candidate.Actor, candidate.Command, ArticleAction.Publish,
                     candidate.Id, candidate.Revision - 1, publication, candidate.Revision, ct, scheduled: true);

@@ -94,20 +94,18 @@ internal sealed class AdminModerationStore(AdminSessionGate gate, AdminStepUpSer
     internal static async Task<(long AuditId, bool Notice)> ApplyCommentDecision(NpgsqlConnection db, NpgsqlTransaction tx,
         AdminLiveSession admin, ClaimCoordinates claim, short status, string reason, CancellationToken ct)
     {
-        await using var update = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             update public.comment set moderation_status=$4, moderation_version=moderation_version+1
             where article_id=$1 and id=$2 and moderation_version=$3 and moderation_status=0 and not deleted
             returning reply_to_id is not null and reply_to_id=parent_id and author_mode=3
-            """, claim.ArticleId, claim.CommentId, claim.CommentVersion, status);
-        if (await update.ExecuteScalarAsync(ct) is not bool signedReply) throw ModerationChanged();
+            """, claim.ArticleId, claim.CommentId, claim.CommentVersion, status) is not bool signedReply) throw ModerationChanged();
         await CloseClaim(db, tx, claim.ArticleId, claim.CommentId, ClaimCompleted, ct);
-        await using var audit = Store.Sql(db, tx, """
+        return ((long)(await SqlCommands.Scalar(db, tx, ct, """
             insert into public.admin_comment_moderation
                 (article_id,comment_id,principal_id,previous_status,next_status,reason,happened_at,comment_version)
             values($1,$2,$3,0,$4,$5,clock_timestamp(),$6)
             returning id
-            """, claim.ArticleId, claim.CommentId, admin.Id, status, reason, claim.CommentVersion);
-        return ((long)(await audit.ExecuteScalarAsync(ct))!, status == 1 && signedReply);
+            """, claim.ArticleId, claim.CommentId, admin.Id, status, reason, claim.CommentVersion))!, status == 1 && signedReply);
     }
 
     internal sealed record ClaimCoordinates(int ArticleId, long CommentId, long CommentVersion, string Token, long Generation, long Version);
@@ -126,13 +124,12 @@ internal sealed class AdminModerationStore(AdminSessionGate gate, AdminStepUpSer
     private static async Task<long> LockPendingComment(NpgsqlConnection db, NpgsqlTransaction tx, int article, long comment,
         CancellationToken ct)
     {
-        await using var cmd = Store.Sql(db, tx, """
+        return (await SqlCommands.Scalar(db, tx, ct, """
             select c.moderation_version from public.comment c join public.article a on a.id=c.article_id
             join public.comment_submit_command s on s.article_id=c.article_id and s.comment_id=c.id
             where c.article_id=$1 and c.id=$2 and c.moderation_status=0 and not c.deleted and not a.deleted
             for update of c for share of a,s
-            """, article, comment);
-        return (await cmd.ExecuteScalarAsync(ct) as long?) ?? throw ModerationChanged();
+            """, article, comment) as long?) ?? throw ModerationChanged();
     }
 
     internal static async Task CheckClaim(NpgsqlConnection db, NpgsqlTransaction tx, AdminLiveSession admin, ClaimCoordinates claim,
@@ -140,25 +137,23 @@ internal sealed class AdminModerationStore(AdminSessionGate gate, AdminStepUpSer
     {
         if (await LockPendingComment(db, tx, claim.ArticleId, claim.CommentId, ct) != claim.CommentVersion)
             throw ModerationChanged();
-        await using var cmd = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select 1 from public.admin_comment_claim
             where article_id=$1 and comment_id=$2 and claim_digest=$3 and principal_id=$4 and session_digest=$5
                 and admin_generation=$6 and claim_generation=$7 and claim_version=$8
                 and claimed_comment_version=$9 and state=$10 and expires_at>clock_timestamp()
             for update
             """, claim.ArticleId, claim.CommentId, ClaimDigest(claim.Token), admin.Id, admin.Digest, admin.Snapshot.Generation,
-            claim.Generation, claim.Version, claim.CommentVersion, ClaimActive);
-        if (await cmd.ExecuteScalarAsync(ct) is null) throw ModerationChanged();
+            claim.Generation, claim.Version, claim.CommentVersion, ClaimActive) is null) throw ModerationChanged();
     }
 
     private static async Task CloseClaim(NpgsqlConnection db, NpgsqlTransaction tx, int article, long comment, short state,
         CancellationToken ct)
     {
-        await using var cmd = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             update public.admin_comment_claim set state=$3, claim_version=claim_version+1
             where article_id=$1 and comment_id=$2 and expires_at>clock_timestamp()
-            """, article, comment, state);
-        if (await cmd.ExecuteNonQueryAsync(ct) != 1) throw ModerationChanged();
+            """, article, comment, state) != 1) throw ModerationChanged();
     }
 
     private static BusinessException ModerationChanged() =>

@@ -37,7 +37,7 @@ internal static class SitePagePublicationStore
     internal static async Task Publish(NpgsqlConnection db, NpgsqlTransaction tx, Guid principal,
         AdminSitePageRevision previous, string markdown, CancellationToken ct)
     {
-        await using var command = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             with saved as (
                 update public.site_page_content set revision=revision+1,markdown=$3 where slug=$1 and revision=$2
                 returning slug,revision
@@ -45,8 +45,7 @@ internal static class SitePagePublicationStore
             insert into public.site_page_publish_audit (slug,revision,principal_id,previous_digest,next_digest,happened_at)
             select slug,revision,$4,$5,$6,clock_timestamp() from saved
             """, previous.Slug, previous.Revision, markdown, principal, Convert.FromHexString(previous.Digest),
-            MarkdownHash(markdown));
-        if (await command.ExecuteNonQueryAsync(ct) != 1)
+            MarkdownHash(markdown)) != 1)
             throw new BusinessException(Rejection.Conflict, "The published page changed. Reload before publishing.");
     }
 }

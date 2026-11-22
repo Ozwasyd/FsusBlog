@@ -20,11 +20,10 @@ internal readonly record struct PublicationTransparency(long Sequence, byte[] Ha
     {
         var receipt = PublicationTransparencyV2.ReceiptDigest(transcript, signature);
         var entry = PublicationTransparencyV2.EntryDigest(sequence, Hash, receipt);
-        await using var insert = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_publication_transparency(seq,publication_id,prev_sha256,receipt_sha256,entry_sha256)
             values($1,$2,$3,$4,$5)
             """, sequence, publication, Hash, receipt, entry);
-        await insert.ExecuteNonQueryAsync(ct);
         return new(sequence, entry);
     }
 }

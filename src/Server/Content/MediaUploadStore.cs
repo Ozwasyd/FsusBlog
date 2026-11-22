@@ -99,15 +99,13 @@ internal sealed class MediaUploadStore(NpgsqlConnection db, NpgsqlTransaction tx
     {
         if (upload.AssetId.HasValue) throw new BusinessException(Rejection.Conflict, "The private image is already reserved.");
         if (upload.PartLength(part, offset) != data.Length) throw new BusinessException(Rejection.Invalid, "Invalid media part length.");
-        await using var command = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             INSERT INTO public.private_media_upload_part (upload_id,part,digest,bytes)
             VALUES ($1,$2,$3,$4) ON CONFLICT (upload_id,part) DO NOTHING
-            """, upload.Id, part, digest, data);
-        if (await command.ExecuteNonQueryAsync(ct) == 1) return;
-        await using var exact = Store.Sql(db, tx, """
+            """, upload.Id, part, digest, data) == 1) return;
+        if (await SqlCommands.Scalar(db, tx, ct, """
             SELECT 1 FROM public.private_media_upload_part WHERE upload_id=$1 AND part=$2 AND digest=$3 AND bytes=$4
-            """, upload.Id, part, digest, data);
-        if (await exact.ExecuteScalarAsync(ct) is null)
+            """, upload.Id, part, digest, data) is null)
             throw new BusinessException(Rejection.Conflict, "This media part already has different contents.");
     }
 

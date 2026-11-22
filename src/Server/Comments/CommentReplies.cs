@@ -39,10 +39,9 @@ internal static class CommentReplies
                 throw new BusinessException(Rejection.NotFound, "This comment cannot accept a reply.");
             target = new(row.GetInt64(0), row.GetInt32(1));
         }
-        await using var capacity = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select exists(select 1 from public.comment where article_id=$1 and parent_id=$2 offset 499 limit 1)
-            """, article, parent);
-        if (await capacity.ExecuteScalarAsync(ct) is true)
+            """, article, parent) is true)
             throw new BusinessException(Rejection.Conflict, "This comment reached its reply limit.");
         return target;
     }

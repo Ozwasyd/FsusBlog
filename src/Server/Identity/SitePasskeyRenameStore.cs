@@ -95,15 +95,14 @@ internal sealed partial class PasskeyStore
 
     private static async Task<bool> ApplyRename(NpgsqlConnection db, NpgsqlTransaction tx, Guid user, CredentialIntent intent, CancellationToken ct)
     {
-        await using var command = Store.Sql(db, tx, intent.ExpectedRevision == 0 ? """
+        return await SqlCommands.Execute(db, tx, ct, intent.ExpectedRevision == 0 ? """
             insert into public.site_passkey_name(credential_id,user_id,revision,name)
             select credential_id,user_id,1,$3 from public.passkey_credential where credential_id=$1 and user_id=$2
             on conflict (credential_id) do nothing
             """ : """
             update public.site_passkey_name set name=$3,revision=revision+1
             where credential_id=$1 and user_id=$2 and revision=$4 and revision<9223372036854775807
-            """, intent.ExpectedRevision == 0 ? [intent.Target, user, intent.Name!] : [intent.Target, user, intent.Name!, intent.ExpectedRevision]);
-        return await command.ExecuteNonQueryAsync(ct) == 1;
+            """, intent.ExpectedRevision == 0 ? [intent.Target, user, intent.Name!] : [intent.Target, user, intent.Name!, intent.ExpectedRevision]) == 1;
     }
 
     private static async Task<bool> RemoveCredential(NpgsqlConnection db, NpgsqlTransaction tx, MfaStore.Subject actor,

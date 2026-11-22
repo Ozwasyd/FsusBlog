@@ -41,10 +41,9 @@ internal sealed class AdminStepUpService(AdminSessionGate gate, AdminPasskeyStor
         return gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await verifyTarget(db, tx, admin);
-            await using var query = Store.Sql(db, tx, """
+            var credential = (await SqlCommands.Scalar(db, tx, ct, """
                 select credential_id from public.admin_passkey_credential where principal_id=$1
-                """, admin.Id);
-            var credential = (await query.ExecuteScalarAsync(ct) as byte[]) ?? throw AdminSessionGate.Denied();
+                """, admin.Id) as byte[]) ?? throw AdminSessionGate.Denied();
             var token = AdminSql.Token();
             var (frame, optionsJson) = verifier.CreateStepUpChallenge(token, credential);
             await SaveStepUp(db, tx, admin, token, action, StepUpChallenge, bodyDigest, optionsJson, 120, ct);
@@ -99,8 +98,8 @@ internal sealed class AdminStepUpService(AdminSessionGate gate, AdminPasskeyStor
 
         return await gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
-            await using var user = Store.Sql(db, tx, "select user_handle from public.admin_principal where id=$1", admin.Id);
-            var handle = (await user.ExecuteScalarAsync(ct) as byte[]) ?? throw AdminSessionGate.Denied();
+            var handle = (await SqlCommands.Scalar(db, tx, ct,
+                "select user_handle from public.admin_principal where id=$1", admin.Id) as byte[]) ?? throw AdminSessionGate.Denied();
             try
             {
                 await verifier.VerifyStepUpAssertion(db, tx, admin.Id, handle, request, challenge.Options, ct);
@@ -131,12 +130,11 @@ internal sealed class AdminStepUpService(AdminSessionGate gate, AdminPasskeyStor
         string? proof, byte[] bodyDigest, CancellationToken ct, AdminStepUpAction action = AdminStepUpAction.ModerateComment)
     {
         if (!AdminSql.TryChallengeDigest(proof, out var proofDigest)) return false;
-        await using var consume = Store.Sql(db, tx, $"""
+        return await SqlCommands.Execute(db, tx, ct, $"""
             delete from {StepUpTable(action)}
             where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
               and body_digest=$7 and expires_at>clock_timestamp()
-            """, proofDigest, admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpProof, (int)action, bodyDigest);
-        return await consume.ExecuteNonQueryAsync(ct) == 1;
+            """, proofDigest, admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpProof, (int)action, bodyDigest) == 1;
     }
 
     private AdminPasskeyStore RequirePasskeys() =>
@@ -145,12 +143,11 @@ internal sealed class AdminStepUpService(AdminSessionGate gate, AdminPasskeyStor
     private static async Task CheckPendingComment(NpgsqlConnection db, NpgsqlTransaction tx, AdminModerationIntent intent,
         bool locked, CancellationToken ct)
     {
-        await using var query = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select 1 from public.comment c join public.article a on a.id=c.article_id
             join public.comment_submit_command s on s.article_id=c.article_id and s.comment_id=c.id
             where c.article_id=$1 and c.id=$2 and c.moderation_status=0 and not c.deleted and not a.deleted
-            """ + (locked ? " for update of c for share of a,s" : ""), intent.ArticleId, intent.CommentId);
-        if (await query.ExecuteScalarAsync(ct) is null)
+            """ + (locked ? " for update of c for share of a,s" : ""), intent.ArticleId, intent.CommentId) is null)
             throw new BusinessException(Rejection.NotFound, "The pending comment is no longer available.");
     }
 

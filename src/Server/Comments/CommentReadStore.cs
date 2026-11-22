@@ -134,7 +134,7 @@ internal sealed class CommentReadStore(NpgsqlDataSource source)
 
     private static async Task<bool> WriteEnabled(NpgsqlConnection db, NpgsqlTransaction tx, int article, CancellationToken ct)
     {
-        await using var query = Store.Sql(db, tx, """
+        return await SqlCommands.Scalar(db, tx, ct, """
             select exists(
                 select 1
                 from public.article a
@@ -142,8 +142,7 @@ internal sealed class CommentReadStore(NpgsqlDataSource source)
                 join public.comment_public_write w on w.article_id=a.id
                 where a.id=$1 and not a.deleted and p.published_at<=statement_timestamp()
             )
-            """, article);
-        return await query.ExecuteScalarAsync(ct) is true;
+            """, article) is true;
     }
 
     private static long? TakePage(List<CommentNode> rows, int limit)
@@ -158,8 +157,7 @@ internal sealed class CommentReadStore(NpgsqlDataSource source)
         var tx = await db.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
         try
         {
-            await using var settings = Store.Sql(db, tx, "set transaction read only; set local statement_timeout = '2s'");
-            await settings.ExecuteNonQueryAsync(ct);
+            await SqlCommands.Execute(db, tx, ct, "set transaction read only; set local statement_timeout = '2s'");
             return tx;
         }
         catch

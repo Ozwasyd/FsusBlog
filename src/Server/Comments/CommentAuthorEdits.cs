@@ -24,7 +24,7 @@ internal static class CommentAuthorEdits
         var target = await Find(db, tx, actor.Id, id, locking: true, ct);
         await RequireEditable(db, tx, target, ct);
         var (proof, digest) = CommentAuthorProof.Issue();
-        await using var issue = Store.Sql(db, tx, """
+        var expires = (DateTime)(await SqlCommands.Scalar(db, tx, ct, """
             insert into public.comment_author_edit_challenge
                 (digest,article_id,comment_id,user_id,session_digest,generation,comment_version,publication_id,expires_at)
             values($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp()+interval '5 minutes')
@@ -32,14 +32,12 @@ internal static class CommentAuthorEdits
                 generation=excluded.generation,comment_version=excluded.comment_version,
                 publication_id=excluded.publication_id,expires_at=excluded.expires_at
             returning expires_at
-            """, digest, target.Article, id, actor.Id, session, actor.Generation, target.Version, target.Publication);
-        var expires = (DateTime)(await issue.ExecuteScalarAsync(ct))!;
-        await using var prune = Store.Sql(db, tx, """
+            """, digest, target.Article, id, actor.Id, session, actor.Generation, target.Version, target.Publication))!;
+        await SqlCommands.Execute(db, tx, ct, """
             delete from public.comment_author_edit_challenge where digest in (
                 select digest from public.comment_author_edit_challenge where expires_at<=clock_timestamp()
                 order by expires_at limit 64 for update skip locked)
             """);
-        await prune.ExecuteNonQueryAsync(ct);
         return new(true, proof, expires, null, target.Version);
     }
 

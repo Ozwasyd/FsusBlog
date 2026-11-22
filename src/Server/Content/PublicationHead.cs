@@ -66,7 +66,7 @@ internal sealed class PublicationHead(PublicationProofKeys keys, PublicationHead
             throw new InvalidOperationException("Native head cannot attest a non-advancing publication ledger.");
         var claim = new PublicationTransparencyHeadV2(keys.Origin, tail.Sequence, tail.Hash, key.Id, key.Version, key.Fingerprint, issueTime);
         var signature = keys.Sign(claim.Payload());
-        await using var write = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             insert into public.publication_transparency_head(singleton,seq,entry_sha256,origin,key_id,key_version,key_sha256,attested_at,signature)
             values(true,$1,$2,$3,$4,$5,$6,$7,$8)
             on conflict(singleton) do update set seq=excluded.seq,entry_sha256=excluded.entry_sha256,
@@ -74,8 +74,7 @@ internal sealed class PublicationHead(PublicationProofKeys keys, PublicationHead
               attested_at=excluded.attested_at,signature=excluded.signature
             where (publication_transparency_head.seq,publication_transparency_head.entry_sha256,publication_transparency_head.signature)=($9,$10,$11)
             """, tail.Sequence, tail.Hash, keys.Origin, key.Id, key.Version, key.Fingerprint, issueTime, signature,
-            previous.Tail.Sequence, previous.Tail.Hash, previous.Signature);
-        if (await write.ExecuteNonQueryAsync(ct) != 1)
+            previous.Tail.Sequence, previous.Tail.Hash, previous.Signature) != 1)
             throw new InvalidOperationException("The durable publication head changed outside the configured writer.");
         return Encode(claim, signature);
     }

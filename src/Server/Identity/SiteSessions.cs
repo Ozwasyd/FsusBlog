@@ -43,19 +43,17 @@ internal static class SiteSessions
             RequireCurrent(actor.Id, digest, expectedCurrent);
             if (target is null)
             {
-                await using var others = Store.Sql(db, tx, """
+                return await SqlCommands.Execute(db, tx, ct, """
                     delete from public.user_session where user_id=$1 and digest<>$2
                     """, actor.Id, digest);
-                return await others.ExecuteNonQueryAsync(ct);
             }
 
             if (!Wire.ValidSiteSessionId(target)) throw NotFound();
             if (target == expectedCurrent) throw new BusinessException(Rejection.Conflict, "Use log out to end this browser session.");
-            await using var revoke = Store.Sql(db, tx, $"""
+            var removed = await SqlCommands.Execute(db, tx, ct, $"""
                 delete from public.user_session s where s.user_id=$1 and s.generation=$2 and {Lifetime(persistent)}>clock_timestamp()
                 and pg_catalog.sha256($3 || pg_catalog.uuid_send(s.user_id) || s.digest)=$4
                 """, actor.Id, actor.Generation, IdDomain, Convert.FromHexString(target));
-            var removed = await revoke.ExecuteNonQueryAsync(ct);
             if (removed != 1) throw NotFound();
             return removed;
         }, ct);

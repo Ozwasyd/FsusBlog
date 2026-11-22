@@ -119,14 +119,13 @@ internal static class CommentAuthorDeleteEndpoints
     {
         var target = await LockOwned(db, tx, actor.Id, id, ct);
         var (proof, digest) = CommentAuthorProof.Issue();
-        await using var issue = Store.Sql(db, tx, """
+        var expires = (DateTime)(await SqlCommands.Scalar(db, tx, ct, """
             insert into public.comment_author_delete_challenge(digest,article_id,comment_id,user_id,session_digest,generation,comment_version,expires_at)
             values($1,$2,$3,$4,$5,$6,$7,clock_timestamp()+interval '5 minutes')
             on conflict (article_id,comment_id,session_digest) do update
             set digest=excluded.digest,generation=excluded.generation,comment_version=excluded.comment_version,expires_at=excluded.expires_at
             returning expires_at
-            """, digest, target.Article, id, actor.Id, session, actor.Generation, target.Version);
-        var expires = (DateTime)(await issue.ExecuteScalarAsync(ct))!;
+            """, digest, target.Article, id, actor.Id, session, actor.Generation, target.Version))!;
         await Prune(db, tx, ct);
         return new(true, proof, expires, null, target.Version);
     }

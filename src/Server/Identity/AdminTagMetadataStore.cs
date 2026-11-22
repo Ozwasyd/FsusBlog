@@ -84,24 +84,22 @@ internal sealed class AdminTagMetadataStore(AdminSessionGate gate)
                         var old = TaxonomyNames.TagLookupKey(current.Name) ?? throw MetadataChanged(false);
                         await ReserveTagKeys(db, tx, id, old, key!, ct);
                     }
-                    await using var update = Store.Sql(db, tx, $"""
+                    if (await SqlCommands.Execute(db, tx, ct, $"""
                         update public.{entity} set name=$2,description=nullif($3,'') where id=$1
                         and not exists(select from public.{entity} where id<>$1 and name=$2)
-                        """, id, name, description);
-                    if (await update.ExecuteNonQueryAsync(ct) != 1) throw MetadataChanged(category);
+                        """, id, name, description) != 1) throw MetadataChanged(category);
                 }
-                await using var epoch = Store.Sql(db, tx, "update public.taxonomy_epoch set revision=revision+1 where singleton returning revision");
-                revision = await epoch.ExecuteScalarAsync(ct) is long value ? value : throw new PublicUnavailableException();
+                revision = await SqlCommands.Scalar(db, tx, ct,
+                    "update public.taxonomy_epoch set revision=revision+1 where singleton returning revision") is long value ? value : throw new PublicUnavailableException();
             }
 
             var receipt = new AdminTagMetadata(id, revision, name, description, changed);
-            await using var append = Store.Sql(db, tx, $"""
+            await SqlCommands.Execute(db, tx, ct, $"""
                 insert into public.admin_{entity}_metadata_command
                     (principal_id,request_id,{entity}_id,revision,old_name,old_description,name,description,changed,fingerprint,session_reference,happened_at)
                 values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,clock_timestamp())
                 """, admin.Id, input.RequestId, id, revision, current?.Name ?? "", current?.Description ?? "",
                 name, description, changed, digest, SHA256.HashData(admin.Digest));
-            await append.ExecuteNonQueryAsync(ct);
             if (changed) invalidate();
             return Encode(receipt);
         }, ct);
@@ -114,14 +112,12 @@ internal sealed class AdminTagMetadataStore(AdminSessionGate gate)
             var key = category ? "category_id" : "tag_id";
             await Store.LockCommand(db, tx, Guid.Empty, category ? CategoryMetadataLock : TagMetadataLock, ct);
 
-            await using (var check = Store.Sql(db, tx, $"select 1 from public.{entity} where id=$1", id))
-                if (await check.ExecuteScalarAsync(ct) is null)
-                    throw new BusinessException(Rejection.NotFound, category ? "Category not found." : "Tag not found.");
+            if (await SqlCommands.Scalar(db, tx, ct, $"select 1 from public.{entity} where id=$1", id) is null)
+                throw new BusinessException(Rejection.NotFound, category ? "Category not found." : "Tag not found.");
 
-            await using (var inUse = Store.Sql(db, tx, $"select 1 from public.{links} where {key}=$1 limit 1", id))
-                if (await inUse.ExecuteScalarAsync(ct) is not null)
-                    throw new BusinessException(Rejection.Conflict,
-                        category ? "This category is still referenced by saved article revisions." : "This tag is still referenced by saved article revisions.");
+            if (await SqlCommands.Scalar(db, tx, ct, $"select 1 from public.{links} where {key}=$1 limit 1", id) is not null)
+                throw new BusinessException(Rejection.Conflict,
+                    category ? "This category is still referenced by saved article revisions." : "This tag is still referenced by saved article revisions.");
 
             if (!category)
             {
@@ -130,13 +126,12 @@ internal sealed class AdminTagMetadataStore(AdminSessionGate gate)
 
             await SqlCommands.Execute(db, tx, ct, $"delete from public.admin_{entity}_metadata_command where {entity}_id=$1", id);
 
-            await using (var delEntity = Store.Sql(db, tx, $"delete from public.{entity} where id=$1", id))
-                if (await delEntity.ExecuteNonQueryAsync(ct) != 1)
-                    throw new BusinessException(Rejection.NotFound, category ? "Category not found." : "Tag not found.");
+            if (await SqlCommands.Execute(db, tx, ct, $"delete from public.{entity} where id=$1", id) != 1)
+                throw new BusinessException(Rejection.NotFound, category ? "Category not found." : "Tag not found.");
 
-            await using (var epoch = Store.Sql(db, tx, "update public.taxonomy_epoch set revision=revision+1 where singleton returning revision"))
-                if (await epoch.ExecuteScalarAsync(ct) is not long)
-                    throw new PublicUnavailableException();
+            if (await SqlCommands.Scalar(db, tx, ct,
+                "update public.taxonomy_epoch set revision=revision+1 where singleton returning revision") is not long)
+                throw new PublicUnavailableException();
 
             invalidate();
             return Wire.EncodeEmptySuccess();
@@ -146,13 +141,12 @@ internal sealed class AdminTagMetadataStore(AdminSessionGate gate)
     {
         var entity = Entity(category);
         // The kind lock also serializes allocation. Imported catalogs can contain explicit IDs ahead of the identity sequence.
-        await using var insert = Store.Sql(db, tx, $"""
+        return await SqlCommands.Scalar(db, tx, ct, $"""
             with next as (select greatest(coalesce(max(id),0),0)::bigint+1 as id from public.{entity})
             insert into public.{entity}(id,name,description)
             select id::integer,$1,nullif($2,'') from next where id<=2147483647
             on conflict do nothing returning id
-            """, name, description);
-        return await insert.ExecuteScalarAsync(ct) is int id ? id : throw MetadataChanged(category);
+            """, name, description) is int id ? id : throw MetadataChanged(category);
     }
 
     private static async Task<AdminTagMetadata> ReadTaxonomyMetadata(NpgsqlConnection db, NpgsqlTransaction tx, int id, bool category, CancellationToken ct)
@@ -193,12 +187,11 @@ internal sealed class AdminTagMetadataStore(AdminSessionGate gate)
                 var key = TaxonomyNames.TagLookupKey(row.GetString(0));
                 if (key == old || key == next) throw MetadataChanged(false);
             }
-        await using var claim = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             insert into public.tag_url_name(name_key,tag_id)
             select distinct entry,$3 from unnest(array[$1,$2]::text[]) keys(entry)
             on conflict(name_key) do update set tag_id=excluded.tag_id where tag_url_name.tag_id=excluded.tag_id
-            """, old, next, id);
-        if (await claim.ExecuteNonQueryAsync(ct) != (old == next ? 1 : 2)) throw MetadataChanged(false);
+            """, old, next, id) != (old == next ? 1 : 2)) throw MetadataChanged(false);
     }
 
     private static string? TagKey(string name) => name.Any(character => character is '/' or '\\') ||

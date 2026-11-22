@@ -20,7 +20,7 @@ internal sealed class AdminInboxReadStore(AdminSessionGate gate)
                 captured.First != id || captured.Second != through)
                 throw new BusinessException(Rejection.Conflict, "The administrator inbox snapshot expired. Reload this conversation.");
 
-            await using var write = Store.Sql(db, tx, """
+            if (await SqlCommands.Scalar(db, tx, ct, """
                 WITH visible AS (
                     SELECT id FROM public.inbox_message WHERE conversation_id=$1 AND id=$2 AND NOT is_internal
                 ), advanced AS (
@@ -31,14 +31,12 @@ internal sealed class AdminInboxReadStore(AdminSessionGate gate)
                     WHERE inbox_admin_read.read_through<excluded.read_through
                 )
                 SELECT EXISTS (SELECT FROM visible)
-                """, id, through, admin.Id, SHA256.HashData(admin.Digest));
-            if (await write.ExecuteScalarAsync(ct) is not true)
+                """, id, through, admin.Id, SHA256.HashData(admin.Digest)) is not true)
                 throw new BusinessException(Rejection.NotFound, "Administrator inbox snapshot not found.");
 
-            await using var count = Store.Sql(db, tx, $"""
+            return CountInboxUnread((long)(await SqlCommands.Scalar(db, tx, ct, $"""
                 SELECT {AdminUnread} FROM public.inbox_conversation c {AdminReadJoin} WHERE c.id=$1
-                """, id);
-            return CountInboxUnread((long)(await count.ExecuteScalarAsync(ct))!);
+                """, id))!);
         }, ct);
 
     internal static int CountInboxUnread(long count) => (int)Math.Min(int.MaxValue, count);

@@ -12,7 +12,7 @@ internal static class CommentWriteStore
     internal static async Task<PublicCommentEligibility> Eligibility(NpgsqlConnection db, NpgsqlTransaction tx,
         Identity actor, int articleId, long publication, CancellationToken ct)
     {
-        await using var gate = Store.Sql(db, tx, """
+        var name = await SqlCommands.Scalar(db, tx, ct, """
             select h.display_name
             from public.article a
             join public.article_publication p on p.article_id=a.id and p.revision=a.published_revision
@@ -20,8 +20,7 @@ internal static class CommentWriteStore
             join public.comment_public_handle h on h.user_id=$3
             where a.id=$1 and not a.deleted and p.publication_id=$2 and p.published_at<=statement_timestamp()
             for share of a,p,w,h
-            """, articleId, publication, actor.Id);
-        var name = await gate.ExecuteScalarAsync(ct) as string ??
+            """, articleId, publication, actor.Id) as string ??
             throw new BusinessException(Rejection.Forbidden, "Public comment submission is unavailable for this publication.");
         return new(articleId, publication, name);
     }
@@ -90,10 +89,9 @@ internal static class CommentWriteStore
         // A response lost after commit can obtain a fresh proof for the original mutation,
         // even if publication is closed before the client receives its durable receipt.
         var normalized = input with { Body = Normalize(input.Body) };
-        await using var previous = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select fingerprint from public.comment_submit_command where user_id=$1 and command_id=$2
-            """, actor.Id, input.IdempotencyKey);
-        if (await previous.ExecuteScalarAsync(ct) is byte[] fingerprint)
+            """, actor.Id, input.IdempotencyKey) is byte[] fingerprint)
         {
             if (!CryptographicOperations.FixedTimeEquals(fingerprint, Fingerprint(normalized, parent)))
                 throw new BusinessException(Rejection.Conflict, "The comment key was used for a different submission.");

@@ -18,10 +18,16 @@ internal static class SqlCommands
     internal static NpgsqlParameter Optional(NpgsqlDbType type, object? value) =>
         new() { NpgsqlDbType = type, Value = value ?? DBNull.Value };
 
-    internal static async Task Execute(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct, string sql, params object[] parameters)
+    internal static async Task<int> Execute(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql, params object[] parameters)
     {
         await using var command = Create(db, tx, sql, parameters);
-        await command.ExecuteNonQueryAsync(ct);
+        return await command.ExecuteNonQueryAsync(ct);
+    }
+
+    internal static async Task<object?> Scalar(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql, params object[] parameters)
+    {
+        await using var command = Create(db, tx, sql, parameters);
+        return await command.ExecuteScalarAsync(ct);
     }
 
     internal static async Task LockCommand(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid commandKey, CancellationToken ct)

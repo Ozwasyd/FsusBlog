@@ -43,20 +43,18 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
         await SqlCommands.Execute(db, tx, ct, """
             delete from public.canvas_link_plan where canvas_id=$1 and applied_revision is null and expires_at<=clock_timestamp()
             """, edge.CanvasId);
-        await using (var budget = Store.Sql(db, tx, """
+        if ((long)(await SqlCommands.Scalar(db, tx, ct, """
             select count(*) from public.canvas_link_plan where canvas_id=$1 and applied_revision is null
-            """, edge.CanvasId))
-            if ((long)(await budget.ExecuteScalarAsync(ct))! >= 20) throw Conflict();
+            """, edge.CanvasId))! >= 20) throw Conflict();
 
         var planId = Guid.NewGuid();
-        await using var plan = Store.Sql(db, tx, """
+        var expires = (DateTime)(await SqlCommands.Scalar(db, tx, ct, """
             insert into public.canvas_link_plan
             (id,canvas_id,edge_id,canvas_revision,host_revision,target_revision,source_offset,insert_digest,session_digest,session_generation,expires_at)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,date_trunc('second', clock_timestamp()) + interval '2 minutes')
             returning expires_at
             """, planId, edge.CanvasId, edge.EdgeId, intent.CanvasRevision, intent.HostRevision,
-            intent.TargetRevision, intent.SourceOffset, Digest(change.Inserted, intent.VisualOnly), sessionDigest, actor.Generation);
-        var expires = (DateTime)(await plan.ExecuteScalarAsync(ct))!;
+            intent.TargetRevision, intent.SourceOffset, Digest(change.Inserted, intent.VisualOnly), sessionDigest, actor.Generation))!;
         return new(planId, edge.Revision, edge.HostArticleId, intent.HostRevision, edge.TargetArticleId,
             intent.TargetRevision, intent.SourceOffset, change.Inserted, new DateTimeOffset(expires).ToUnixTimeSeconds());
     }
@@ -67,12 +65,11 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
         await Store.LockCommand(db, tx, actor.Id, id, ct);
         // Preview maintenance already holds the canvas lock before deleting expired plans.
         // Take the same locks in the same order even if the planner is cleaning this plan up.
-        await using (var canvas = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select c.id from public.authoring_canvas c where c.owner_id=$2 and
             c.id=(select p.canvas_id from public.canvas_link_plan p
                   where p.id=$1 and p.session_digest=$3 and p.session_generation=$4) for update of c
-            """, id, actor.Id, sessionDigest, actor.Generation))
-            if (await canvas.ExecuteScalarAsync(ct) is not Guid) throw Missing();
+            """, id, actor.Id, sessionDigest, actor.Generation) is not Guid) throw Missing();
         Plan saved;
         await using (var read = Store.Sql(db, tx, """
             select p.canvas_id,p.edge_id,p.canvas_revision,p.host_revision,p.target_revision,p.source_offset,p.insert_digest,
@@ -102,11 +99,10 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
 
         var receipt = await graph.RecordLink(edge.CanvasId, id, saved.Intent.CanvasRevision, saved.Digest, ct);
         long revision = receipt.Revision;
-        await using var finish = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             update public.canvas_link_plan set applied_article_id=$2,applied_revision=$3,applied_canvas_revision=$4
             where id=$1 and expires_at>clock_timestamp() and applied_revision is null
-            """, id, updated.Article.Id, updated.Article.Revision, revision);
-        if (await finish.ExecuteNonQueryAsync(ct) != 1) throw Conflict();
+            """, id, updated.Article.Id, updated.Article.Revision, revision) != 1) throw Conflict();
         return new(id, updated.Article.Id, updated.Article.Revision, revision);
     }
 

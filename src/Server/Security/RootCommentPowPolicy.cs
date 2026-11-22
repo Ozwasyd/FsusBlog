@@ -34,11 +34,10 @@ internal sealed record RootCommentPowPolicy(long Generation, int ProofSeconds)
     internal async Task<int> PreviousSeconds(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         if (Generation == 1) return 0;
-        await using var query = Store.Sql(db, tx, """
+        return await SqlCommands.Scalar(db, tx, ct, """
             select previous_seconds from public.root_comment_pow_policy_audit
             where generation=$1 and proof_seconds=$2
-            """, Generation, ProofSeconds);
-        return await query.ExecuteScalarAsync(ct) is int prior && Wire.IsRootCommentPowLifetime(prior) && prior != ProofSeconds
+            """, Generation, ProofSeconds) is int prior && Wire.IsRootCommentPowLifetime(prior) && prior != ProofSeconds
             ? prior : throw new PublicUnavailableException();
     }
 
@@ -46,7 +45,7 @@ internal sealed record RootCommentPowPolicy(long Generation, int ProofSeconds)
         int seconds, bool rollback, CancellationToken ct)
     {
         var next = new RootCommentPowPolicy(checked(Generation + 1), seconds);
-        await using var update = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             with change as (
                 update public.root_comment_pow_policy set generation=$3,proof_seconds=$4
                 where singleton and generation=$1 and proof_seconds=$2 returning generation
@@ -54,8 +53,7 @@ internal sealed record RootCommentPowPolicy(long Generation, int ProofSeconds)
             insert into public.root_comment_pow_policy_audit
                 (generation,principal_id,previous_seconds,proof_seconds,rollback,happened_at)
             select generation,$5,$2,$4,$6,clock_timestamp() from change
-            """, Generation, ProofSeconds, next.Generation, next.ProofSeconds, actor, rollback);
-        if (await update.ExecuteNonQueryAsync(ct) != 1)
+            """, Generation, ProofSeconds, next.Generation, next.ProofSeconds, actor, rollback) != 1)
             throw new BusinessException(Rejection.Conflict, "The root comment proof policy changed. Check its current settings.");
         return next;
     }

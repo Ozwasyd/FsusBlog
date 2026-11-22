@@ -81,12 +81,11 @@ internal sealed class CanvasHistoryStore(NpgsqlConnection db, NpgsqlTransaction 
 
     internal async Task Move(Guid id, long revision, long target, bool undone, CancellationToken ct)
     {
-        await using (var update = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             update public.canvas_history_patch set undone=$4,moved_at_revision=$2
             where canvas_id=$1 and edit_revision=$3 and undone<>$4
-            """, id, revision, target, undone))
-            if (await update.ExecuteNonQueryAsync(ct) != 1)
-                throw new InvalidOperationException("Canvas history changed while its document lock was held.");
+            """, id, revision, target, undone) != 1)
+            throw new InvalidOperationException("Canvas history changed while its document lock was held.");
         await Record(id, revision, target, [], ct);
     }
 

@@ -41,25 +41,23 @@ internal static class ArticleBodyInsertionStore
         {
             // Older admitted physical schemas still save the valid draft.
             if (!await CurrentSchema.HasArticleBodyEditsAsync(db, tx, ct)) return;
-            await using var edited = SqlCommands.Create(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.article_body_insertion
                     (article_id,revision,source_revision,source_digest,body_digest,operations,edit_texts)
                 values ($1,$2,$3,$4,$5,$6,$7)
                 """, id, revision, source, witness.SourceDigest, witness.BodyDigest,
                 edits.SelectMany(edit => new[] { edit.Offset, edit.RemovedLength }).ToArray(),
                 edits.Select(edit => edit.Insert).ToArray());
-            await edited.ExecuteNonQueryAsync(ct);
             return;
         }
         if (witness.Insertions is { } operations)
         {
-            await using var sequence = SqlCommands.Create(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.article_body_insertion
                     (article_id,revision,source_revision,offset_utf16,length_utf16,source_digest,body_digest,operations)
                 values ($1,$2,$3,$4,$5,$6,$7,$8)
                 """, id, revision, source, witness.Offset, witness.Length, witness.SourceDigest, witness.BodyDigest,
                 operations.SelectMany(operation => new[] { operation.Offset, operation.Length }).ToArray());
-            await sequence.ExecuteNonQueryAsync(ct);
             return;
         }
         if (!await CurrentSchema.HasArticleBodyInsertionAsync(db, tx, ct)) return;

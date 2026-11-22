@@ -58,23 +58,21 @@ internal sealed class AdminCommentAppealStore(AdminSessionGate gate, AdminStepUp
             bool signedReply = false;
             if (granted)
             {
-                await using var update = Store.Sql(db, tx, """
+                if (await SqlCommands.Scalar(db, tx, ct, """
                     update public.comment set moderation_status=1,moderation_version=moderation_version+1
                     where article_id=$1 and id=$2 and moderation_version=$3 and moderation_status=2 and not deleted
                     returning reply_to_id is not null and reply_to_id=parent_id and author_mode=3
-                    """, article, comment, version);
-                if (await update.ExecuteScalarAsync(ct) is not bool positiveReply) throw AppealChanged();
+                    """, article, comment, version) is not bool positiveReply) throw AppealChanged();
                 signedReply = positiveReply;
             }
-            await using var receipt = Store.Sql(db, tx, """
+            if (await SqlCommands.Execute(db, tx, ct, """
                 with receipt as (
                     insert into public.comment_appeal_decision(appeal_id,principal_id,session_reference,granted,reason,decided_at)
                     values($1,$2,$3,$4,$5,clock_timestamp()) on conflict(appeal_id) do nothing returning appeal_id,decided_at
                 )
                 insert into public.comment_appeal_event(appeal_id,kind,previous_status,next_status,occurred_at)
                 select appeal_id,2,2,$6,decided_at from receipt
-                """, id, admin.Id, SHA256.HashData(admin.Digest), granted, reason, (short)(granted ? 1 : 2));
-            if (await receipt.ExecuteNonQueryAsync(ct) != 1) throw AppealChanged();
+                """, id, admin.Id, SHA256.HashData(admin.Digest), granted, reason, (short)(granted ? 1 : 2)) != 1) throw AppealChanged();
             if (signedReply) await CommentReplies.DeliverApproved(db, tx, article, comment, fenceVisibleMessages, ct);
             return Wire.EncodeAdminAppealResult(id);
         }, ct);
@@ -112,8 +110,8 @@ internal sealed class AdminCommentAppealStore(AdminSessionGate gate, AdminStepUp
                 throw new BusinessException(Rejection.Forbidden, "The original moderator cannot decide this appeal.");
             (article, comment, version) = (row.GetInt32(0), row.GetInt64(1), row.GetInt64(2));
         }
-        await using var decided = Store.Sql(db, tx, "select 1 from public.comment_appeal_decision where appeal_id=$1", id);
-        if (await decided.ExecuteScalarAsync(ct) is not null) throw AppealChanged();
+        if (await SqlCommands.Scalar(db, tx, ct,
+            "select 1 from public.comment_appeal_decision where appeal_id=$1", id) is not null) throw AppealChanged();
         return (article, comment, version);
     }
 

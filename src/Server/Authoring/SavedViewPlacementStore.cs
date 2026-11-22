@@ -70,26 +70,23 @@ internal sealed partial class SavedViewStore
                     """, site, actor.Id, input.Id)) await set.ExecuteNonQueryAsync(ct);
                 break;
             case SavedViewPlacementAction.ClearDefault:
-                await using (var clear = Store.Sql(db, tx, """
+                if (await SqlCommands.Execute(db, tx, ct, """
                     delete from public.author_saved_view_default where site_id=$1 and owner_id=$2 and view_id=$3
-                    """, site, actor.Id, input.Id))
-                    if (await clear.ExecuteNonQueryAsync(ct) != 1) throw Changed();
+                    """, site, actor.Id, input.Id) != 1) throw Changed();
                 break;
             default:
                 await MovePin(input, ct);
                 break;
         }
 
-        await using var advance = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             update public.author_saved_view_collection set revision=revision+1 where site_id=$1 and owner_id=$2 and revision=$3
-            """, site, actor.Id, revision);
-        if (await advance.ExecuteNonQueryAsync(ct) != 1) throw Changed();
+            """, site, actor.Id, revision) != 1) throw Changed();
 
         var before = SqlCommands.Optional(NpgsqlDbType.Uuid, input.BeforeId == Guid.Empty ? null : input.BeforeId);
-        await using var journal = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.author_saved_view_placement_command values($1,$2,$3,$4,$5,$6,$7,$8,$9,clock_timestamp())
             """, site, actor.Id, input.RequestId, input.Id, view.Revision, revision + 1, (int)input.Action, before, fingerprint);
-        await journal.ExecuteNonQueryAsync(ct);
         return new(input.Id, view.Revision, revision + 1, false);
     }
 
@@ -130,20 +127,18 @@ internal sealed partial class SavedViewStore
 
     private async Task RemovePlacement(Guid id, CancellationToken ct)
     {
-        await using var read = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select exists(select from public.author_saved_view_default where site_id=$1 and owner_id=$2 and view_id=$3)
-            """, site, actor.Id, id);
-        if (await read.ExecuteScalarAsync(ct) is true)
+            """, site, actor.Id, id) is true)
             throw new BusinessException(Rejection.Conflict, "Clear or replace the default view before removing it.");
         await RemovePin(id, ct);
     }
 
     private async Task RejectPlacementKeyReuse(Guid requestId, CancellationToken ct)
     {
-        await using var query = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select exists(select from public.author_saved_view_placement_command where site_id=$1 and owner_id=$2 and request_id=$3)
-            """, site, actor.Id, requestId);
-        if (await query.ExecuteScalarAsync(ct) is true) throw Changed();
+            """, site, actor.Id, requestId) is true) throw Changed();
     }
 
     private async Task RemovePin(Guid id, CancellationToken ct)

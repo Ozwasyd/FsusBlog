@@ -56,11 +56,10 @@ internal static class SubscriptionEndpoints
             if (proof is not null)
             {
                 // Check expiry after admission to the matching row, including time spent waiting for its lock.
-                await using var lockProof = Store.Sql(db, tx, """
+                await SqlCommands.Scalar(db, tx, ct, """
                     select 1 from public.site_subscription
                     where email_key=$1 and channel=$2 and enabled and proof_digest=$3 for update
                     """, emailKey, channel, proof);
-                await lockProof.ExecuteScalarAsync(ct);
             }
             await using var write = proof is null
                 ? Store.Sql(db, tx, """

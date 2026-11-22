@@ -66,10 +66,8 @@ internal static class PublicationHistoryStore
         }
         else
         {
-            await using var remove = SqlCommands.Create(db, tx, "delete from public.article_publication where article_id=$1", articleId);
-            await remove.ExecuteNonQueryAsync(ct);
-            await using var clock = SqlCommands.Create(db, tx, "select clock_timestamp()");
-            var now = (DateTime)(await clock.ExecuteScalarAsync(ct))!;
+            await SqlCommands.Execute(db, tx, ct, "delete from public.article_publication where article_id=$1", articleId);
+            var now = (DateTime)(await SqlCommands.Scalar(db, tx, ct, "select clock_timestamp()"))!;
             var delete = action == ArticleAction.Delete;
             await Append(nextRevision, checked(eventNo + 1), publicationCount, null, active?.Id,
                 delete ? "delete" : "retract", delete ? "author-deleted" : "author-withdrew", now, actor, command);
@@ -121,11 +119,10 @@ internal static class PublicationHistoryStore
             """, article, revision, sourceRevision, SqlCommands.Optional(NpgsqlDbType.Bigint, sourceResponsibility));
         if (await responsibility.ExecuteScalarAsync(ct) is not long responsibilitySnapshot)
             throw new BusinessException(Rejection.Conflict, "The historical responsibility snapshot is unavailable.");
-        await using var responsibilityLink = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_publication_responsibility(publication_id,article_id,revision,snapshot_id)
             values($1,$2,$3,$4)
             """, release.Id, article, revision, responsibilitySnapshot);
-        await responsibilityLink.ExecuteNonQueryAsync(ct);
 
         // A restore copies the exact archived predecessor. Its original public rollback source remains
         // retained separately from the predecessor revision and private release coordinates.
@@ -133,7 +130,7 @@ internal static class PublicationHistoryStore
             hidden ? ",destination" : "";
         var extraValues = restored is not null ? ",2,true" :
             destination == Wire.AdminArticleArchiveStatus ? ",3" : hidden ? ",0" : "";
-        await using var retainCommand = SqlCommands.Create(db, tx, $"""
+        await SqlCommands.Execute(db, tx, ct, $"""
             insert into public.admin_article_rollback(principal_id,command_id,fingerprint,article_id,previous_revision,
                 source_revision,revision,source_publication_id,previous_publication_id,publication_id,publication_no,
                 published_at,rights_snapshot_id,responsibility_snapshot_id,reason{extraColumns})
@@ -141,7 +138,6 @@ internal static class PublicationHistoryStore
             """, administrator, command, fingerprint, article, previousRevision, restored?.HistoricalRevision ?? sourceRevision,
             revision, restored?.HistoricalPublicationId ?? sourcePublication, priorPublication, release.Id, release.Number,
             release.PublishedAt, rightsSnapshot, responsibilitySnapshot, reason);
-        await retainCommand.ExecuteNonQueryAsync(ct);
         var (kind, eventReason) = (destination, restored is not null) switch
         {
             (Wire.AdminArticleArchiveStatus, false) => ("retract", ArchivedArticleAuthority.Reason),
@@ -149,14 +145,13 @@ internal static class PublicationHistoryStore
             (Wire.AdminArticleRestoreStatus, false) => ("replace", "administrator-rollback-replaced"),
             _ => ("retract", "administrator-rollback-draft")
         };
-        await using var append = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_publication_history(article_id,event_no,revision,publication_no,publication_id,supersedes_id,
                 kind,reason,happened_at,admin_actor_id,admin_command_id)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
             """, article, checked(eventNo + 1), revision, release.Number, SqlCommands.Optional(NpgsqlDbType.Bigint, hidden ? null : release.Id),
             SqlCommands.Optional(NpgsqlDbType.Bigint, restored is not null ? null : priorPublication), kind, eventReason,
             release.PublishedAt, administrator, command);
-        await append.ExecuteNonQueryAsync(ct);
 
         if (hidden)
         {
@@ -180,15 +175,14 @@ internal static class PublicationHistoryStore
     private static async Task<int> RequireActiveBoundary(NpgsqlConnection db, NpgsqlTransaction tx, int article,
         long publication, CancellationToken ct)
     {
-        await using var tail = SqlCommands.Create(db, tx, """
+        return await SqlCommands.Scalar(db, tx, ct, """
             select h.event_no
             from public.article_publication_history h join public.article_publication p using(article_id)
             join public.article a on a.id=p.article_id
             where h.article_id=$1 and h.publication_id=$2 and p.publication_id=$2 and h.revision=p.revision
                 and h.publication_no=p.publication_no and p.publication_no=a.publication_count
                 and h.event_no=(select max(event_no) from public.article_publication_history where article_id=$1)
-            """, article, publication);
-        return await tail.ExecuteScalarAsync(ct) is int eventNo ? eventNo
+            """, article, publication) is int eventNo ? eventNo
             : throw new BusinessException(Rejection.Conflict, "The current publication requires a verified historical boundary.");
     }
 
@@ -230,10 +224,9 @@ internal static class PublicationHistoryStore
     internal static async Task<long> RecordPublishedOutbox(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision,
         CancellationToken ct)
     {
-        await using var add = SqlCommands.Create(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             insert into public.blog_outbox(article_id,revision,kind) values($1,$2,'publish') returning id
-            """, article, revision);
-        if (await add.ExecuteScalarAsync(ct) is not long id)
+            """, article, revision) is not long id)
             throw new InvalidOperationException("Could not record the new publication outbox event.");
         await PublicationCanonicalStore.Record(db, tx, article, revision, id, ct);
         return id;

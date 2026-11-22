@@ -19,17 +19,15 @@ internal static class ArchivedArticleAuthority
     internal static async Task<bool> IsLockedArchived(NpgsqlConnection db, NpgsqlTransaction tx, int article,
         CancellationToken ct)
     {
-        await using var query = SqlCommands.Create(db, tx, $"select not ({Available}) from (values ($1::integer)) a(id)", article);
-        return await query.ExecuteScalarAsync(ct) is true;
+        return await SqlCommands.Scalar(db, tx, ct, $"select not ({Available}) from (values ($1::integer)) a(id)", article) is true;
     }
 
     internal static async Task<bool> AnyLockedArchived(NpgsqlConnection db, NpgsqlTransaction tx, int[] articles,
         CancellationToken ct)
     {
-        await using var query = SqlCommands.Create(db, tx, $"""
+        return await SqlCommands.Scalar(db, tx, ct, $"""
             select exists(select from unnest($1::integer[]) a(id) where not ({Available}))
-            """, articles);
-        return await query.ExecuteScalarAsync(ct) is true;
+            """, articles) is true;
     }
 
     internal static async Task RequireLockedAvailability(NpgsqlConnection db, NpgsqlTransaction tx, int article,

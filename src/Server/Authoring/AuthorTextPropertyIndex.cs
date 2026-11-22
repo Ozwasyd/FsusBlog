@@ -109,10 +109,9 @@ internal sealed partial class PropertyStore
                 """, ownerId, scope.Definition.Id, entry.ArticleId);
             if (entry.ValueRevision is not long valueRevision)
             {
-                await using var remove = SqlCommands.Create(db, tx, """
+                await SqlCommands.Execute(db, tx, ct, """
                     delete from public.author_text_property_document where owner_id=$1 and definition_id=$2 and article_id=$3
                     """, ownerId, scope.Definition.Id, entry.ArticleId);
-                await remove.ExecuteNonQueryAsync(ct);
                 continue;
             }
 

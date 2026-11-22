@@ -57,12 +57,11 @@ internal sealed class AdminArticleArchiveStore(AdminSessionGate gate, AdminStepU
         long privateRelease, CancellationToken ct) => gate.WithLiveAdmin(session, async (db, tx, _) =>
     {
         await RequireArticleArchiveSchema(db, tx, ct);
-        await using (var take = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select id from public.article where id=$1 and revision=$2 and not deleted
                 and published_revision is null for share
-            """, article, revision))
-            if (await take.ExecuteScalarAsync(ct) is null)
-                throw new BusinessException(Rejection.Conflict, "The article no longer has a matching archived release.");
+            """, article, revision) is null)
+            throw new BusinessException(Rejection.Conflict, "The article no longer has a matching archived release.");
 
         // Recheck archive history and release authority in a fresh statement after any lock wait.
         var archive = await ReadArchivedTarget(db, tx, article, revision, privateRelease, locking: false, includeBody: true, ct);
@@ -144,8 +143,7 @@ internal sealed class AdminArticleArchiveStore(AdminSessionGate gate, AdminStepU
     {
         if (locking)
         {
-            await using var take = Store.Sql(db, tx, "select id from public.article where id=$1 and not deleted for update", article);
-            if (await take.ExecuteScalarAsync(ct) is null)
+            if (await SqlCommands.Scalar(db, tx, ct, "select id from public.article where id=$1 and not deleted for update", article) is null)
                 throw new BusinessException(Rejection.NotFound, "The archived article is unavailable.");
         }
 

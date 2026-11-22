@@ -32,18 +32,16 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             (id, name, generation) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2));
         }
         if (await CurrentSchema.RequiresSiteRecoveryAsync(db, tx, id, ct)) throw Unauthenticated();
-        await using (var consume = Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             delete from public.login_ticket where digest=$1 and user_id=$2 and expires_at>clock_timestamp()
                 and not exists(select 1 from public.passkey_credential where user_id=$2)
-            """, ticket, id))
-            if (await consume.ExecuteNonQueryAsync(ct) != 1) throw Unauthenticated();
+            """, ticket, id) != 1) throw Unauthenticated();
 
         var secret = RandomNumberGenerator.GetBytes(32);
-        await using var add = Sql(db, tx, """
+        var expiry = (DateTime)(await SqlCommands.Scalar(db, tx, ct, """
             insert into public.user_session(digest,user_id,generation,expires_at)
             values($1,$2,$3,clock_timestamp()+interval '8 hours') returning expires_at
-            """, SHA256.HashData(secret), id, generation);
-        var expiry = (DateTime)(await add.ExecuteScalarAsync(ct))!;
+            """, SHA256.HashData(secret), id, generation))!;
         await InstanceLease.CommitProtected(tx, lease, ct);
         return (Convert.ToHexStringLower(secret), new(id, name, generation, false, expiry));
     }
@@ -69,11 +67,10 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         {
             if (lockAccount)
             {
-                await using var account = Sql(db, tx, """
+                if (await SqlCommands.Scalar(db, tx, ct, """
                     select id from public.blog_user where enabled
                     and id=(select user_id from public.user_session where digest=$1) for update
-                    """, digest);
-                if (await account.ExecuteScalarAsync(ct) is null) throw Unauthenticated();
+                    """, digest) is null) throw Unauthenticated();
             }
             await using (var cmd = Sql(db, tx, """
                 select u.id,u.name,u.generation,s.expires_at
@@ -107,13 +104,12 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             if (!await row.ReadAsync(ct)) throw Unauthenticated();
             (principal, handle, generation) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2));
         }
-        await using var session = Sql(db, tx, """
+        var expiresAt = await SqlCommands.Scalar(db, tx, ct, """
             select expires_at from public.admin_session where digest=$1 and principal_id=$2 and generation=$3
             and expires_at>clock_timestamp()
             and exists (select from public.admin_passkey_credential where principal_id=$2)
             for share
-            """, digest, principal, generation);
-        var expiresAt = await session.ExecuteScalarAsync(ct) is DateTime expiry
+            """, digest, principal, generation) is DateTime expiry
             ? new DateTimeOffset(expiry)
             : throw Unauthenticated();
         return new(principal, handle, generation, true, expiresAt);
@@ -124,8 +120,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         if (TokenDigest(token) is not { } digest) return;
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        await using var cmd = Sql(db, tx, "delete from public.user_session where digest=$1", digest);
-        await cmd.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.user_session where digest=$1", digest);
         await InstanceLease.CommitProtected(tx, lease, ct);
     }
 
@@ -135,8 +130,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
         const string owned = "from public.article a where a.id=$1 and ($2 or not a.deleted)";
         if (locking)
         {
-            await using var take = Sql(db, tx, $"select a.id {owned} for update", id, includeDeleted);
-            if (await take.ExecuteScalarAsync(ct) is null)
+            if (await SqlCommands.Scalar(db, tx, ct, $"select a.id {owned} for update", id, includeDeleted) is null)
                 throw new BusinessException(Rejection.NotFound, "Article not found.");
         }
         // A fresh statement after locking observes the archive event committed by any prior holder.
@@ -238,8 +232,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             if (current is null)
             {
                 // A command that created the article carries zero as its input ID.
-                await using var article = Sql(db, tx, "select id from public.article where id=$1 for share", replay.Id);
-                if (await article.ExecuteScalarAsync(ct) is null)
+                if (await SqlCommands.Scalar(db, tx, ct, "select id from public.article where id=$1 for share", replay.Id) is null)
                     throw new BusinessException(Rejection.NotFound, "Article not found.");
                 await ArchivedArticleAuthority.RequireLockedAvailability(db, tx, replay.Id, ct);
             }

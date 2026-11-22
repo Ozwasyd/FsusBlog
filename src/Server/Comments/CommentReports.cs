@@ -72,10 +72,9 @@ internal static class CommentReports
             }
 
             // A conflicting transaction may commit after INSERT's statement snapshot.
-            await using var receipt = Store.Sql(db, tx, """
+            if (await SqlCommands.Scalar(db, tx, ct, """
                 select id from public.comment_report where article_id=$1 and comment_id=$2 and reporter_id=$3
-                """, article, comment, reporter);
-            if (await receipt.ExecuteScalarAsync(ct) is long existing) return new(true, "comment_report_duplicate", existing, true);
+                """, article, comment, reporter) is long existing) return new(true, "comment_report_duplicate", existing, true);
         }
         throw new PublicUnavailableException();
     }

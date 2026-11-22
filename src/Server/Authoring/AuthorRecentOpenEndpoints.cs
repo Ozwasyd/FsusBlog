@@ -88,16 +88,14 @@ internal static class AuthorRecentOpenEndpoints
     {
         // Only this feature locks the collection head. The article read lock then serializes with Save and Trash.
         bool created;
-        await using (var insert = Store.Sql(db, tx, """
+        created = await SqlCommands.Execute(db, tx, ct, """
             insert into public.author_recent_open_collection(site_id,owner_id,revision) values($1,$2,1)
             on conflict (site_id,owner_id) do nothing
-            """, site, owner))
-            created = await insert.ExecuteNonQueryAsync(ct) == 1;
+            """, site, owner) == 1;
 
-        await using var lockHead = Store.Sql(db, tx, """
+        var revision = (long)(await SqlCommands.Scalar(db, tx, ct, """
             select revision from public.author_recent_open_collection where site_id=$1 and owner_id=$2 for update
-            """, site, owner);
-        var revision = (long)(await lockHead.ExecuteScalarAsync(ct))!;
+            """, site, owner))!;
 
         var articleRevision = (await OwnedArticleRead.TryLock(db, tx, owner, input.ArticleId, ct))?.Revision
             ?? throw new BusinessException(Rejection.NotFound, "Article not found.");
@@ -119,7 +117,7 @@ internal static class AuthorRecentOpenEndpoints
 
         if ((created ? 0 : revision) != input.ExpectedRevision || articleRevision != input.ArticleRevision) throw Conflict();
         var next = input.ExpectedRevision + 1;
-        await using var cmd = Store.Sql(db, tx, """
+        var timestamp = (DateTime)(await SqlCommands.Scalar(db, tx, ct, """
             with advanced as (
                 update public.author_recent_open_collection set revision=$3 where site_id=$1 and owner_id=$2 returning revision
             ), receipt as (
@@ -131,8 +129,7 @@ internal static class AuthorRecentOpenEndpoints
             on conflict (site_id,owner_id,article_id) do update set
                 article_revision=excluded.article_revision,sequence=excluded.sequence,opened_at=excluded.opened_at
             returning opened_at
-            """, site, owner, next, input.RequestId, input.ArticleId, input.ArticleRevision);
-        var timestamp = (DateTime)(await cmd.ExecuteScalarAsync(ct))!;
+            """, site, owner, next, input.RequestId, input.ArticleId, input.ArticleRevision))!;
         if (next > RetainedEntries)
         {
             await SqlCommands.Execute(db, tx, ct, """

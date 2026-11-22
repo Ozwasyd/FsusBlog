@@ -12,12 +12,11 @@ internal static class SiteDisplayNames
         {
             var digest = Store.TokenDigest(token)!;
             SiteSessions.RequireCurrent(actor.Id, digest, expectedCurrent);
-            await using var query = Store.Sql(db, tx, """
+            var name = await SqlCommands.Scalar(db, tx, ct, """
                 select display_name
                 from public.comment_public_handle
                 where user_id = $1
-                """, actor.Id);
-            var name = await query.ExecuteScalarAsync(ct) as string;
+                """, actor.Id) as string;
             return new SiteDisplayNameState(name ?? "");
         }, ct);
 
@@ -29,13 +28,12 @@ internal static class SiteDisplayNames
         {
             var digest = Store.TokenDigest(token)!;
             SiteSessions.RequireCurrent(actor.Id, digest, expectedCurrent);
-            await using var upsert = Store.Sql(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.comment_public_handle(user_id, display_name)
                 values ($1, $2)
                 on conflict (user_id) do update
                     set display_name = excluded.display_name
                 """, actor.Id, normalized);
-            await upsert.ExecuteNonQueryAsync(ct);
             return new SiteDisplayNameState(normalized);
         }, ct);
     }

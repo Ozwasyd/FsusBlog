@@ -27,11 +27,10 @@ internal static class ArticleMediaStore
     {
         if (change is null)
         {
-            await using var copy = SqlCommands.Create(db, tx, """
+            if (await SqlCommands.Execute(db, tx, ct, """
                 INSERT INTO public.article_revision_media(article_id,revision,asset_id)
                 SELECT article_id,$3,asset_id FROM public.article_revision_media WHERE article_id=$1 AND revision=$2
-                """, article, source, revision);
-            if (await copy.ExecuteNonQueryAsync(ct) > 0 || cover is not null)
+                """, article, source, revision) > 0 || cover is not null)
                 await CopyCover(db, tx, article, source, revision, cover, ct);
             return;
         }
@@ -41,20 +40,18 @@ internal static class ArticleMediaStore
         {
             if (assets.Count >= Maximum || assets.Contains(change.AssetId))
                 throw new BusinessException(Rejection.Conflict, "This asset is already attached or the attachment limit was reached.");
-            await using var available = SqlCommands.Create(db, tx, """
+            if (await SqlCommands.Scalar(db, tx, ct, """
                 SELECT id FROM public.private_media WHERE id=$1 AND owner_id=$2 AND phase=1 FOR UPDATE
-                """, change.AssetId, owner);
-            if (await available.ExecuteScalarAsync(ct) is null) throw Missing();
+                """, change.AssetId, owner) is null) throw Missing();
             assets.Add(change.AssetId);
         }
         else if (!assets.Remove(change.AssetId)) throw Missing();
 
         if (assets.Count == 0) return;
-        await using var insert = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             INSERT INTO public.article_revision_media (article_id,revision,asset_id)
             SELECT $1,$2,asset FROM pg_catalog.unnest($3) AS refs(asset)
             """, article, revision, assets.ToArray());
-        await insert.ExecuteNonQueryAsync(ct);
         await CopyCover(db, tx, article, source, revision, cover, ct);
     }
 
@@ -68,12 +65,11 @@ internal static class ArticleMediaStore
         var selection = change is null
             ? "(select asset_id from public.article_revision_cover where article_id=$1 and revision=$3)"
             : "$3";
-        await using var copy = SqlCommands.Create(db, tx, $"""
+        if (await SqlCommands.Execute(db, tx, ct, $"""
             INSERT INTO public.article_revision_cover(article_id,revision,asset_id)
             SELECT article_id,revision,asset_id FROM public.article_revision_media
             WHERE article_id=$1 AND revision=$2 AND asset_id={selection}
-            """, article, revision, (object?)change?.AssetId ?? source);
-        if (await copy.ExecuteNonQueryAsync(ct) != 1 && change is not null) throw Missing();
+            """, article, revision, (object?)change?.AssetId ?? source) != 1 && change is not null) throw Missing();
     }
 
     internal static async Task WriteCoverHeaders(NpgsqlConnection db, NpgsqlTransaction tx, HttpResponse response,
@@ -95,19 +91,17 @@ internal static class ArticleMediaStore
     internal static async Task<bool> Contains(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, int article,
         long revision, Guid asset, CancellationToken ct)
     {
-        await using var query = SqlCommands.Create(db, tx, """
+        return await SqlCommands.Scalar(db, tx, ct, """
             SELECT a.id FROM public.article a JOIN public.article_revision_media r
               ON r.article_id=a.id AND r.revision=a.revision
             WHERE a.owner_id=$1 AND a.id=$2 AND a.revision=$3 AND NOT a.deleted AND r.asset_id=$4 FOR SHARE OF a
-            """, owner, article, revision, asset);
-        return await query.ExecuteScalarAsync(ct) is not null &&
+            """, owner, article, revision, asset) is not null &&
             !await ArchivedArticleAuthority.IsLockedArchived(db, tx, article, ct);
     }
 
     internal static async Task EnsureUnreferenced(NpgsqlConnection db, NpgsqlTransaction tx, Guid asset, CancellationToken ct)
     {
-        await using var query = SqlCommands.Create(db, tx, "SELECT EXISTS (SELECT FROM public.article_revision_media WHERE asset_id=$1)", asset);
-        if (await query.ExecuteScalarAsync(ct) is true)
+        if (await SqlCommands.Scalar(db, tx, ct, "SELECT EXISTS (SELECT FROM public.article_revision_media WHERE asset_id=$1)", asset) is true)
             throw new BusinessException(Rejection.Conflict, "A retained article revision references this private asset.");
     }
 

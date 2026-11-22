@@ -44,8 +44,8 @@ internal static class AuthoringWorkspaceEndpoints
             var token = ctx.Request.Cookies[cookie];
             return SiteSessions.WithCurrentAuthor<IResult>(store, token, SiteSessions.Requested(ctx), async (db, tx, actor, _) =>
             {
-                await using var schema = Store.Sql(db, tx, "select pg_catalog.to_regclass($1) is not null", CurrentSchema.AuthoringWorkspaceRelation);
-                if (await schema.ExecuteScalarAsync(ct) is not true)
+                if (await SqlCommands.Scalar(db, tx, ct,
+                    "select pg_catalog.to_regclass($1) is not null", CurrentSchema.AuthoringWorkspaceRelation) is not true)
                     throw new BusinessException(Rejection.NotFound, "Workspace layout storage is unavailable.");
                 var hasGroups = await CurrentSchema.HasAuthoringWorkspaceGroupsAsync(db, tx, ct);
                 if (format == Groups && !hasGroups)

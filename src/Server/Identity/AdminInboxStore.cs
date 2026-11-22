@@ -17,7 +17,7 @@ internal sealed class AdminInboxStore(AdminSessionGate gate)
             // Compare the actual page plus its pagination boundary. The highest ID alone
             // misses status changes and tickets allocated earlier but committed later.
             var statusHead = statusEnabled ? InboxStatusHead : "0";
-            await using var query = Store.Sql(db, tx, $"""
+            return (string)(await SqlCommands.Scalar(db, tx, ct, $"""
                 SELECT coalesce(string_agg(visible.position, ',' ORDER BY visible.id DESC), '')
                 FROM (
                     SELECT c.id,concat_ws(':',c.id,c.status,c.last_message_id,{statusHead}) AS position
@@ -26,19 +26,17 @@ internal sealed class AdminInboxStore(AdminSessionGate gate)
                         AND CASE $1 WHEN -1 THEN true WHEN 4 THEN c.is_system ELSE c.status=$1 END
                     ORDER BY c.id DESC LIMIT $2
                 ) visible
-                """, filter, Wire.AdminInboxPageSize + 1);
-            return (string)(await query.ExecuteScalarAsync(ct))!;
+                """, filter, Wire.AdminInboxPageSize + 1))!;
         }, ct);
 
     internal Task<string> InboxThreadPosition(string? token, long id, bool statusEnabled, CancellationToken ct) =>
         gate.WithLiveAdmin(token, async (db, tx, _) =>
         {
             var statusHead = statusEnabled ? InboxStatusHead : "0";
-            await using var query = Store.Sql(db, tx, $"""
+            return await SqlCommands.Scalar(db, tx, ct, $"""
                 SELECT concat_ws(':',c.status,c.last_message_id,{statusHead})
                 FROM public.inbox_conversation c WHERE c.id=$1 AND NOT c.is_system AND c.last_message_id IS NOT NULL
-                """, id);
-            return await query.ExecuteScalarAsync(ct) is string position ? position :
+                """, id) is string position ? position :
                 throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
         }, ct);
 

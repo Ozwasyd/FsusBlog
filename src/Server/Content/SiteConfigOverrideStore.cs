@@ -89,7 +89,7 @@ internal static class SiteConfigOverrideStore
             throw new BusinessException(Rejection.Invalid, "Site configuration exceeds storage size limits.");
 
         var nextSnapshot = PublicSiteConfiguration.CreateSnapshot(previous.Revision + 1, nextSeo, nextCompliance);
-        await using var command = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             with saved as (
                 update public.site_config_override set revision=revision+1, seo_json=$2, compliance_json=$3
                 where singleton and revision=$1
@@ -98,8 +98,7 @@ internal static class SiteConfigOverrideStore
             insert into public.site_config_audit (revision, principal_id, previous_digest, next_digest, happened_at)
             select revision, $4, $5, $6, clock_timestamp() from saved
             """, previous.Revision, seoJson, complianceJson, principal,
-            Convert.FromHexString(previous.Digest), Convert.FromHexString(nextSnapshot.Digest));
-        if (await command.ExecuteNonQueryAsync(ct) != 1)
+            Convert.FromHexString(previous.Digest), Convert.FromHexString(nextSnapshot.Digest)) != 1)
             throw new BusinessException(Rejection.Conflict, "The site configuration changed. Reload before saving.");
         return nextSnapshot;
     }

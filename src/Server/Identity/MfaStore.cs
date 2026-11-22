@@ -22,8 +22,7 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         var actor = await RequireSession(db, tx, session, ct);
-        await using var query = Store.Sql(db, tx, "select verified_at from public.mfa_totp where user_id=$1", actor.Id);
-        var value = await query.ExecuteScalarAsync(ct);
+        var value = await SqlCommands.Scalar(db, tx, ct, "select verified_at from public.mfa_totp where user_id=$1", actor.Id);
         await InstanceLease.CommitProtected(tx, lease, ct);
         return MfaWire.EncodeProfile(value is DateTime time ? new DateTimeOffset(time) : null);
     }
@@ -38,13 +37,12 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         var seed = RandomNumberGenerator.GetBytes(Totp.SecretBytes);
         try
         {
-            await using var save = Store.Sql(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.mfa_setup(user_id,generation,session_digest,sealed_seed,expires_at,failed_count)
                 values($1,$2,$3,$4,clock_timestamp()+interval '5 minutes',0)
                 on conflict (user_id) do update set generation=excluded.generation,session_digest=excluded.session_digest,
                     sealed_seed=excluded.sealed_seed,expires_at=excluded.expires_at,failed_count=0
                 """, actor.Id, actor.Generation, actor.Scope, secrets.Seal(actor.Id, seed));
-            await save.ExecuteNonQueryAsync(ct);
             await InstanceLease.CommitProtected(tx, lease, ct);
             var text = Totp.EncodeSecret(seed);
             var account = $"Account {actor.Number}";
@@ -60,12 +58,11 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         var actor = await RequireSession(db, tx, session, ct);
         byte[] envelope;
-        await using (var find = Store.Sql(db, tx, """
+        envelope = (await SqlCommands.Scalar(db, tx, ct, """
             select sealed_seed from public.mfa_setup
             where user_id=$1 and generation=$2 and session_digest=$3 and expires_at>clock_timestamp() and failed_count<$4
             for update
-            """, actor.Id, actor.Generation, actor.Scope, MaxFailures))
-            envelope = (await find.ExecuteScalarAsync(ct) as byte[]) ?? throw Denied();
+            """, actor.Id, actor.Generation, actor.Scope, MaxFailures) as byte[]) ?? throw Denied();
         var matched = Match(actor.Id, envelope, code, -1);
         if (!matched.HasValue)
         {
@@ -200,12 +197,11 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         NpgsqlTransaction tx, Guid id, long generation, byte[] credential, bool mfa, bool persistent, CancellationToken ct)
     {
         var (token, digest) = SiteRefreshStore.NewToken();
-        await using var session = Store.Sql(db, tx, """
+        var expires = new DateTimeOffset((DateTime)(await SqlCommands.Scalar(db, tx, ct, """
             insert into public.user_session(digest,user_id,generation,expires_at,passkey_credential_id,totp_verified_at)
             values($1,$2,$3,clock_timestamp()+interval '8 hours',$4,case when $5 then clock_timestamp() else null end)
             returning expires_at
-            """, digest, id, generation, credential, mfa);
-        var expires = new DateTimeOffset((DateTime)(await session.ExecuteScalarAsync(ct))!);
+            """, digest, id, generation, credential, mfa))!);
         return persistent ? await SiteRefreshStore.Start(db, tx, token, expires, ct) : new(token, expires);
     }
 
@@ -224,18 +220,16 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
             if (!await row.ReadAsync(ct)) throw Denied();
             actor = new(row.GetGuid(0), row.GetInt64(1), row.GetInt32(2), digest);
         }
-        await using var verify = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select 1 from public.user_session where digest=$1 and user_id=$2 and generation=$3
             and passkey_credential_id is not null and expires_at>clock_timestamp() for update
-            """, actor.Scope, actor.Id, actor.Generation);
-        if (await verify.ExecuteScalarAsync(ct) is null) throw Denied();
+            """, actor.Scope, actor.Id, actor.Generation) is null) throw Denied();
         return actor;
     }
 
     internal static async Task<bool> IsEnabled(NpgsqlConnection db, NpgsqlTransaction tx, Guid subject, CancellationToken ct)
     {
-        await using var query = Store.Sql(db, tx, "select exists (select 1 from public.mfa_totp where user_id=$1)", subject);
-        return (bool)(await query.ExecuteScalarAsync(ct))!;
+        return (bool)(await SqlCommands.Scalar(db, tx, ct, "select exists (select 1 from public.mfa_totp where user_id=$1)", subject))!;
     }
 
     internal static async Task<string> BeginFlow(NpgsqlConnection db, NpgsqlTransaction tx, Subject actor,
@@ -259,9 +253,9 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
             """;
         var filter = options is null ? key : key + " and options=$6";
         object[] coordinates = [FlowDigest(token, options), actor.Id, actor.Generation, (int)kind, actor.Scope];
-        await using var query = Store.Sql(db, tx, (consume ? "delete " + filter + " returning options" : "select options " + filter + " for update"),
-            options is null ? coordinates : [.. coordinates, options]);
-        return (await query.ExecuteScalarAsync(ct) as string) ?? throw Denied();
+        return (await SqlCommands.Scalar(db, tx, ct,
+            (consume ? "delete " + filter + " returning options" : "select options " + filter + " for update"),
+            options is null ? coordinates : [.. coordinates, options]) as string) ?? throw Denied();
     }
 
     private static async Task ConsumeProof(NpgsqlConnection db, NpgsqlTransaction tx, Subject actor,
@@ -312,8 +306,8 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         var verified = step.HasValue;
         if (!verified && RecoveryDigest(attempt.Recovery) is { } recovery)
         {
-            await using var consume = Store.Sql(db, tx, "delete from public.mfa_recovery_code where user_id=$1 and digest=$2", id, recovery);
-            verified = await consume.ExecuteNonQueryAsync(ct) == 1;
+            verified = await SqlCommands.Execute(db, tx, ct,
+                "delete from public.mfa_recovery_code where user_id=$1 and digest=$2", id, recovery) == 1;
         }
         await SqlCommands.Execute(db, tx, ct, """
             update public.mfa_totp set last_step=$2,failed_count=$3,
@@ -354,14 +348,13 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         var (token, digest) = SiteRefreshStore.NewToken();
         await SqlCommands.Execute(db, tx, ct, "update public.blog_user set generation=generation+1 where id=$1", actor.Id);
         DateTime expiry;
-        await using (var replace = Store.Sql(db, tx, """
+        expiry = await SqlCommands.Scalar(db, tx, ct, """
             insert into public.user_session(digest,user_id,generation,expires_at,passkey_credential_id,totp_verified_at)
             select $1,s.user_id,u.generation,s.expires_at,s.passkey_credential_id,case when $2 then clock_timestamp() else null end
             from public.user_session s join public.blog_user u on u.id=s.user_id
             where s.digest=$3 and s.expires_at>clock_timestamp()
             returning expires_at
-            """, digest, mfa, actor.Scope))
-            expiry = await replace.ExecuteScalarAsync(ct) is DateTime expiresAt ? expiresAt : throw Denied();
+            """, digest, mfa, actor.Scope) is DateTime expiresAt ? expiresAt : throw Denied();
         await SqlCommands.Execute(db, tx, ct, "delete from public.user_session where user_id=$1 and digest<>$2", actor.Id, digest);
         await SqlCommands.Execute(db, tx, ct, "delete from public.mfa_flow where user_id=$1", actor.Id);
         return (token, expiry);

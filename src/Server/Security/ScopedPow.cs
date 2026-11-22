@@ -46,7 +46,7 @@ internal sealed class ScopedPow(TimeProvider time)
             !HasWork(proof.Salt, proof.Nonce, proof.ClientNonce, proof.Difficulty))
             throw Refused();
 
-        await using var insert = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             with expired_rows as (
                 select digest from public.scoped_pow_consumed where expires_at<=clock_timestamp()
                 order by expires_at limit 32 for update skip locked
@@ -59,14 +59,12 @@ internal sealed class ScopedPow(TimeProvider time)
                 and to_timestamp($3) <= clock_timestamp()+interval '2 seconds'
             on conflict do nothing
             """, expected, DateTimeOffset.FromUnixTimeSeconds(proof.Timestamp + lifetime),
-                (double)proof.Timestamp);
-        if (await insert.ExecuteNonQueryAsync(ct) != 1) throw Refused();
+                (double)proof.Timestamp) != 1) throw Refused();
 
         // A simultaneous request may block on the digest's unique index. Recheck the database
         // clock after that wait, before returning authority to execute the protected mutation.
-        await using var expiry = Store.Sql(db, tx, "select $1>clock_timestamp()",
-            DateTimeOffset.FromUnixTimeSeconds(proof.Timestamp + lifetime));
-        if (await expiry.ExecuteScalarAsync(ct) is not true) throw Refused();
+        if (await SqlCommands.Scalar(db, tx, ct, "select $1>clock_timestamp()",
+            DateTimeOffset.FromUnixTimeSeconds(proof.Timestamp + lifetime)) is not true) throw Refused();
     }
 
     internal static bool HasWork(string salt, string nonce, string clientNonce, int bits)

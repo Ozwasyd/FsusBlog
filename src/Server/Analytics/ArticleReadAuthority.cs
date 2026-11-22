@@ -108,13 +108,11 @@ internal sealed class ArticleReadAuthority(string connectionString, InstanceLeas
             await RequirePrivateSession(connection, tx, ct);
             if (!await CurrentSchema.HasArticleReadSchemaAsync(connection, tx, ct)) throw new PublicUnavailableException();
             var trackTotals = await CurrentSchema.HasArticleReadTotalSchemaAsync(connection, tx, ct);
-            await using var read = Store.Sql(connection, tx, "select last_epoch from public.article_read_epoch where singleton");
-            var watermark = await read.ExecuteScalarAsync(ct);
+            var watermark = await SqlCommands.Scalar(connection, tx, ct, "select last_epoch from public.article_read_epoch where singleton");
             if (watermark is not (DBNull or long)) throw new PublicUnavailableException();
-            await using var create = Store.Sql(connection, tx, """
+            await SqlCommands.Execute(connection, tx, ct, """
                 create temporary table article_read_seen(viewer bytea primary key) on commit preserve rows
                 """);
-            await create.ExecuteNonQueryAsync(ct);
             await InstanceLease.CommitProtected(tx, lease, ct);
             return new(connection, new ArticleReadTickets(clock), watermark is long epoch ? epoch : -1, trackTotals);
         }
@@ -127,34 +125,31 @@ internal sealed class ArticleReadAuthority(string connectionString, InstanceLeas
 
     private static async Task RequirePrivateSession(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
-        await using var settings = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select pg_catalog.current_setting('log_parameter_max_length')='0'
                 and pg_catalog.current_setting('log_parameter_max_length_on_error')='0'
                 and coalesce(pg_catalog.current_setting('pgaudit.log_parameter',true),'off') in ('off','false','0')
                 and coalesce(pg_catalog.current_setting('auto_explain.log_parameter_max_length',true),'0')='0'
-            """);
-        if (await settings.ExecuteScalarAsync(ct) is not true) throw new PublicUnavailableException();
+            """) is not true) throw new PublicUnavailableException();
     }
 
     private static async Task<bool> IsActive(NpgsqlConnection db, NpgsqlTransaction tx, int id, long publication, CancellationToken ct)
     {
-        await using var predecessor = Store.Sql(db, tx, """
+        return await SqlCommands.Scalar(db, tx, ct, """
             select 1 from public.article a join public.article_publication p on p.article_id=a.id
             join public.article_publication_rights r on r.article_id=p.article_id and r.publication_id=p.publication_id and r.revision=p.revision
             where a.id=$1 and p.publication_id=$2 and not a.deleted and a.published_revision=p.revision
             for share of a,p
-            """, id, publication);
-        return await predecessor.ExecuteScalarAsync(ct) is not null;
+            """, id, publication) is not null;
     }
 
     private static async Task AddCount(NpgsqlConnection db, NpgsqlTransaction tx, int id, DateTimeOffset utc,
         long epoch, int dwellBucket, bool trackTotals, CancellationToken ct)
     {
         var hour = new DateTimeOffset(utc.Year, utc.Month, utc.Day, utc.Hour, 0, 0, TimeSpan.Zero);
-        await using var watermark = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             update public.article_read_epoch set last_epoch=$1 where singleton and (last_epoch is null or last_epoch<=$1)
-            """, epoch);
-        if (await watermark.ExecuteNonQueryAsync(ct) != 1) throw new PublicUnavailableException();
+            """, epoch) != 1) throw new PublicUnavailableException();
         const string incrementHour = """
             insert into public.article_read_hour(article_id,hour_utc,count) values($1,$2,1)
             on conflict(article_id,hour_utc) do update set count=article_read_hour.count+1
@@ -170,8 +165,7 @@ internal sealed class ArticleReadAuthority(string connectionString, InstanceLeas
             on conflict(article_id) do update set views=article_read_total.views+1
             where article_read_total.views<2147483647
             """;
-        await using var count = Store.Sql(db, tx, trackTotals ? incrementHourAndTotal : incrementHour, id, hour);
-        await count.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, trackTotals ? incrementHourAndTotal : incrementHour, id, hour);
         await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_read_dwell(article_id,day_utc,bucket,count) values($1,$2,$3,1)
             on conflict(article_id,day_utc,bucket) do update set count=article_read_dwell.count+1

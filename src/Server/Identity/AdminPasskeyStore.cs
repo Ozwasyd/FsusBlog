@@ -64,10 +64,9 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
         {
             verified = await PasskeyVerification.Attest(_verifier, request, options, async (candidate, ct) =>
             {
-                await using var prior = Store.Sql(db, tx, """
+                return (bool)(await SqlCommands.Scalar(db, tx, ct, """
                     select not exists(select 1 from public.admin_passkey_credential where credential_id=$1)
-                    """, candidate.CredentialId);
-                return (bool)(await prior.ExecuteScalarAsync(ct))!;
+                    """, candidate.CredentialId))!;
             }, ct);
         }
         catch (Fido2VerificationException) { throw AdminSessionGate.Denied(); }
@@ -80,10 +79,9 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
                 """, verified.Id, principal.Id, verified.PublicKey, (long)verified.SignCount, verified.IsBackupEligible, verified.IsBackedUp);
         }
         catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.UniqueViolation) { throw AdminSessionGate.Denied(); }
-        await using (var consume = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             delete from public.admin_invitation where principal_id=$1 and digest=$2 and generation=$3 and expires_at>clock_timestamp()
-            """, principal.Id, digest, principal.Generation))
-            if (await consume.ExecuteNonQueryAsync(ct) != 1) throw AdminSessionGate.Denied();
+            """, principal.Id, digest, principal.Generation) != 1) throw AdminSessionGate.Denied();
         await SqlCommands.Execute(db, tx, ct, """
             update public.admin_principal set generation=generation+1,generation_changed_at=clock_timestamp() where id=$1
             """, principal.Id);
@@ -177,12 +175,11 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
         var principal = await LockPrincipal(db, tx, """
             select principal_id from public.admin_invitation where digest=$1
             """, digest, ct);
-        await using var check = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select exists(select from public.admin_invitation
                 where digest=$1 and principal_id=$2 and generation=$3 and expires_at>clock_timestamp())
             and not exists(select from public.admin_passkey_credential where principal_id=$2)
-            """, digest, principal.Id, principal.Generation);
-        if (await check.ExecuteScalarAsync(ct) is not true) throw AdminSessionGate.Denied();
+            """, digest, principal.Id, principal.Generation) is not true) throw AdminSessionGate.Denied();
         return principal;
     }
 
@@ -207,13 +204,13 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
         await SqlCommands.Execute(db, tx, ct, "select pg_catalog.pg_advisory_xact_lock($1)", ChallengeLock);
         await SqlCommands.Execute(db, tx, ct, "delete from public.admin_challenge where expires_at<=clock_timestamp() or principal_id=$1",
             SqlCommands.Optional(NpgsqlDbType.Uuid, principal?.Id));
-        await using var cmd = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             insert into public.admin_challenge(digest,principal_id,generation,binding_digest,kind,options,expires_at,started_at)
             select $1,$2,$3,$4,$5,$6,statement_timestamp()+interval '2 minutes',statement_timestamp()
             where (select count(*) from public.admin_challenge)<$7
             """, AdminSql.ChallengeDigest(token, null), SqlCommands.Optional(NpgsqlDbType.Uuid, principal?.Id),
-            SqlCommands.Optional(NpgsqlDbType.Bigint, principal?.Generation), binding, kind, options, ChallengeLimit);
-        if (await cmd.ExecuteNonQueryAsync(ct) != 1) throw new PublicUnavailableException();
+            SqlCommands.Optional(NpgsqlDbType.Bigint, principal?.Generation), binding, kind, options, ChallengeLimit) != 1)
+            throw new PublicUnavailableException();
     }
 
     private async Task<Challenge> ConsumeChallenge(NpgsqlConnection db, string token, byte[] binding, int kind, CancellationToken ct)

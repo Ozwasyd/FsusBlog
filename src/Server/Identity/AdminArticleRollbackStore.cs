@@ -129,20 +129,18 @@ internal sealed class AdminArticleRollbackStore(AdminSessionGate gate, AdminStep
     internal static async Task CopyRollbackRevision(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision,
         long previousRevision, string title, string body, long sourceRevision, int destination, CancellationToken ct, bool wasDeleted = false)
     {
-        await using (var update = Store.Sql(db, tx, """
+        if (await SqlCommands.Execute(db, tx, ct, """
             update public.article set revision=$2,title=$3,body=$4,deleted=false,
                 published_revision=case when $6 then $2 else null end,updated_at=clock_timestamp()
             where id=$1 and revision=$5 and deleted=$7
-            """, article, revision, title, body, previousRevision, destination == Wire.AdminArticleRestoreStatus, wasDeleted))
-            if (await update.ExecuteNonQueryAsync(ct) != 1)
-                throw new BusinessException(Rejection.Conflict, "The article has changed.");
-        await using (var addRevision = Store.Sql(db, tx, """
+            """, article, revision, title, body, previousRevision, destination == Wire.AdminArticleRestoreStatus, wasDeleted) != 1)
+            throw new BusinessException(Rejection.Conflict, "The article has changed.");
+        if (await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_revision(article_id,revision,title,body,happened_at,author_summary)
             select $1,$2,$3,$4,clock_timestamp(),author_summary from public.article_revision
             where article_id=$1 and revision=$5
-            """, article, revision, title, body, sourceRevision))
-            if (await addRevision.ExecuteNonQueryAsync(ct) != 1)
-                throw new BusinessException(Rejection.Conflict, "The rollback source is unavailable.");
+            """, article, revision, title, body, sourceRevision) != 1)
+            throw new BusinessException(Rejection.Conflict, "The rollback source is unavailable.");
         await PropertyStore.CopySnapshot(db, tx, article, sourceRevision, revision, ct);
         await TaxonomyStore.CarryForward(db, tx, article, sourceRevision, revision, ct);
         await PublicationRightsStore.CarryForward(db, tx, article, sourceRevision, revision, ct);
@@ -178,8 +176,7 @@ internal sealed class AdminArticleRollbackStore(AdminSessionGate gate, AdminStep
     {
         if (locking)
         {
-            await using var take = Store.Sql(db, tx, "select id from public.article where id=$1 and not deleted for update", article);
-            if (await take.ExecuteScalarAsync(ct) is null)
+            if (await SqlCommands.Scalar(db, tx, ct, "select id from public.article where id=$1 and not deleted for update", article) is null)
                 throw new BusinessException(Rejection.NotFound, "Article is unavailable for published rollback.");
         }
         await using var inspect = Store.Sql(db, tx, """

@@ -49,11 +49,10 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
         if (!await CurrentSchema.HasPublicationProofAsync(connection, tx, ct))
             throw new InvalidOperationException("Native publication signing requires the offline publication-proof schema.");
         _transparency = await CurrentSchema.PublicationTransparencyStateAsync(connection, tx, ct) is true;
-        await using (var command = Store.Sql(connection, tx, """
+        if (await SqlCommands.Scalar(connection, tx, ct, """
             select exists (select from public.article_publication_proof where origin<>$1)
-            """, keys.Origin))
-            if (await command.ExecuteScalarAsync(ct) is true)
-                throw new InvalidOperationException("The configured signing origin differs from persisted native proofs.");
+            """, keys.Origin) is true)
+            throw new InvalidOperationException("The configured signing origin differs from persisted native proofs.");
         await using (var command = Store.Sql(connection, tx, "select key_id from public.publication_proof_key"))
         await using (var rows = await command.ExecuteReaderAsync(ct))
             while (await rows.ReadAsync(ct))
@@ -62,7 +61,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
 
         foreach (var key in keys.Keys.Values)
         {
-            await using var command = Store.Sql(connection, tx, """
+            if (await SqlCommands.Execute(connection, tx, ct, """
                 insert into public.publication_proof_key(key_id,version,spki_sha256,not_before,not_after,revoked_at,compromised_at)
                 values($1,$2,$3,$4,$5,$6,$7)
                 on conflict(key_id) do update set revoked_at=coalesce(publication_proof_key.revoked_at,excluded.revoked_at),
@@ -72,8 +71,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
                     and (publication_proof_key.revoked_at is null or publication_proof_key.revoked_at is not distinct from excluded.revoked_at)
                     and (publication_proof_key.compromised_at is null or publication_proof_key.compromised_at is not distinct from excluded.compromised_at)
                 """, key.Id, key.Version, key.Fingerprint, key.NotBefore, key.NotAfter,
-                SqlCommands.Optional(NpgsqlDbType.TimestampTz, key.Revoked), SqlCommands.Optional(NpgsqlDbType.TimestampTz, key.Compromised));
-            if (await command.ExecuteNonQueryAsync(ct) != 1)
+                SqlCommands.Optional(NpgsqlDbType.TimestampTz, key.Revoked), SqlCommands.Optional(NpgsqlDbType.TimestampTz, key.Compromised)) != 1)
                 throw new InvalidOperationException("An existing native publication signing key cannot be rebound or unrevoked.");
         }
         var loaded = _publicHead is null ? null : await _publicHead.Load(connection, tx, _transparency, ct);
@@ -122,8 +120,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
         if (_complete) return;
         await using var connection = await db.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(connection, lease, ct);
-        await using (var clock = Store.Sql(connection, tx, "select clock_timestamp()"))
-            if (await clock.ExecuteScalarAsync(ct) is not DateTime at || !keys.Current.Allows(at)) return;
+        if (await SqlCommands.Scalar(connection, tx, ct, "select clock_timestamp()") is not DateTime at || !keys.Current.Allows(at)) return;
         var pending = new List<Binding>(8);
         await using (var command = Store.Sql(connection, tx, """
             select c.article_id,c.revision,c.publication_id,c.publication_no,c.published_at,c.rights_snapshot_id,c.outbox_id,
@@ -147,8 +144,7 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
         foreach (var binding in pending)
         {
             if (!binding.Matches(snapshot.Article(binding.Article))) continue;
-            await using var clock = Store.Sql(connection, tx, "select clock_timestamp()");
-            var issued = (DateTime)(await clock.ExecuteScalarAsync(ct))!;
+            var issued = (DateTime)(await SqlCommands.Scalar(connection, tx, ct, "select clock_timestamp()"))!;
             if (!keys.Current.Allows(issued) || issued < binding.PublishedAt) continue;
             var claim = binding.Claim(keys.Origin, keys.Current, issued);
             var transcript = ArticlePublicationProofPayloadV2.Build(claim);
@@ -161,21 +157,19 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
                     _publicHead?.Observe(head.Value);
                 }
                 var sequence = checked(head.Value.Sequence + 1);
-                await using var insert = Store.Sql(connection, tx, """
+                await SqlCommands.Execute(connection, tx, ct, """
                     insert into public.article_publication_proof(publication_id,origin,key_id,key_version,key_sha256,issued_at,signature,transparency_seq)
                     values($1,$2,$3,$4,$5,$6,$7,$8)
                     """, binding.Publication, keys.Origin, keys.Current.Id, keys.Current.Version, keys.Current.Fingerprint, issued, signature, sequence);
-                await insert.ExecuteNonQueryAsync(ct);
                 head = await head.Value.Append(connection, tx, sequence, binding.Publication, transcript, signature, ct);
                 lastIssued = issued;
             }
             else
             {
-                await using var insert = Store.Sql(connection, tx, """
+                await SqlCommands.Execute(connection, tx, ct, """
                     insert into public.article_publication_proof(publication_id,origin,key_id,key_version,key_sha256,issued_at,signature)
                     values($1,$2,$3,$4,$5,$6,$7)
                     """, binding.Publication, keys.Origin, keys.Current.Id, keys.Current.Version, keys.Current.Fingerprint, issued, signature);
-                await insert.ExecuteNonQueryAsync(ct);
             }
         }
         var sealedHead = head.HasValue && _publicHead is not null

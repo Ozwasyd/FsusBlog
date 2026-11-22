@@ -35,11 +35,10 @@ internal sealed class AdminInboxReplyStore(AdminSessionGate gate)
 
             var recipient = await FindInboxRecipient(db, tx, id, ct);
             var appended = await new InboxStore(db, tx, recipient, fenceVisibleMessages).AppendAdministratorReply(id, body, ct);
-            await using var receipt = Store.Sql(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 INSERT INTO public.inbox_admin_reply (principal_id,command_id,fingerprint,session_reference,conversation_id,message_id)
                 VALUES ($1,$2,$3,$4,$5,$6)
                 """, admin.Id, key, fingerprint, SHA256.HashData(admin.Digest), id, appended.Id);
-            await receipt.ExecuteNonQueryAsync(ct);
             return InboxWire.EncodeMessage(new(appended.Id, id, (int)appended.Sender, appended.SentAt, appended.Body, admin.Snapshot.Handle));
         }, ct);
 
