@@ -1,4 +1,5 @@
 import { computed, onUnmounted, ref, shallowRef, watch, type Ref } from 'vue'
+import { snapshotFields } from './snapshotFields'
 import { t } from '../siteLocale'
 import {
   acceptEditorSourceHandoff,
@@ -52,24 +53,19 @@ export function useWriteSourceHandoff(options: UseWriteSourceHandoffOptions) {
   })
 
   const initial = coordinator.snapshot()
-  const sourceInspectorPending = ref(initial.sourceInspectorPending)
-  const sourceSeek = shallowRef<EditorSourceSeek | undefined>(initial.sourceSeek)
-  const historicalSeek = shallowRef<HistoricalSearchSeek | undefined>(initial.historicalSeek)
-  const propertySeek = shallowRef<PropertySearchSeek | undefined>(initial.propertySeek)
+  const fields = {
+    sourceInspectorPending: ref(initial.sourceInspectorPending),
+    sourceSeek: shallowRef<EditorSourceSeek | undefined>(initial.sourceSeek),
+    historicalSeek: shallowRef<HistoricalSearchSeek | undefined>(initial.historicalSeek),
+    propertySeek: shallowRef<PropertySearchSeek | undefined>(initial.propertySeek),
+  }
+  const { update } = snapshotFields(fields)
   const summarySeek = computed(() => {
-    const seek = sourceSeek.value
+    const seek = fields.sourceSeek.value
     if (seek?.kind === 'search' && seek.target.field === 'summary') return seek
   })
 
-  const unsubscribe = coordinator.subscribe(() => {
-    const snap = coordinator.snapshot()
-    if (sourceInspectorPending.value !== snap.sourceInspectorPending) {
-      sourceInspectorPending.value = snap.sourceInspectorPending
-    }
-    if (sourceSeek.value !== snap.sourceSeek) sourceSeek.value = snap.sourceSeek
-    if (historicalSeek.value !== snap.historicalSeek) historicalSeek.value = snap.historicalSeek
-    if (propertySeek.value !== snap.propertySeek) propertySeek.value = snap.propertySeek
-  })
+  const unsubscribe = coordinator.subscribe(() => update(coordinator.snapshot()))
   onUnmounted(unsubscribe)
 
   watch(options.credentialEpoch, () => {
@@ -124,10 +120,7 @@ export function useWriteSourceHandoff(options: UseWriteSourceHandoffOptions) {
 
   return {
     coordinator,
-    sourceInspectorPending,
-    sourceSeek,
-    historicalSeek,
-    propertySeek,
+    ...fields,
     summarySeek,
     bindActivity,
     finishSourceSeek,

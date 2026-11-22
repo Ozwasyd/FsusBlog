@@ -20,6 +20,7 @@ import { recentArticleOpens } from './recentArticleOpens'
 import { useWriteSourceHandoff } from './useWriteSourceHandoff'
 import { confirmDiscardTabDialog, confirmLeaveDialog, confirmProtectedCloseDialog } from './writeCloseDialog'
 import { createWriteCommandAdapter } from './writeCommandAdapter'
+import { snapshotFields } from './snapshotFields'
 import { workspacePersistence } from './workspacePersistence'
 import {
   articleRouteDestination,
@@ -142,101 +143,44 @@ export function useWriteWorkspace() {
   })
 
   const initial = controller.snapshot()
-  const original = shallowRef<Draft | undefined>(initial.original)
-  const tab = shallowRef<WorkspaceTab | undefined>(initial.tab)
-  const workspaceTabs = shallowRef<readonly WorkspaceTab[]>(initial.workspaceTabs)
-  const workspaceRevision = ref(initial.workspaceRevision)
-  const sourcePanes = shallowRef<readonly WorkspaceSource<Draft>[]>(initial.sourcePanes)
-  const hasSecondaryGroup = ref(initial.hasSecondaryGroup)
-  const recentlyClosed = shallowRef<readonly RecentlyClosed[]>(initial.recentlyClosed)
-  const inspectorOpen = ref(initial.inspectorOpen)
-  const persistentWorkspace = ref(initial.persistentWorkspace)
-  const authorizationReady = ref(initial.authorizationReady)
-  const layoutRestoring = ref(initial.layoutRestoring)
-  const loading = ref(initial.loading)
-  const opening = ref(initial.opening)
-  const closingTabs = ref(initial.closingTabs)
-  const recoveryWorking = ref(initial.recoveryWorking)
-  const composing = ref<number | undefined>(initial.composing)
-  const taxonomyDirty = ref(initial.taxonomyDirty)
-  const summaryDirty = ref(initial.summaryDirty)
-  const taxonomyStale = ref(initial.taxonomyStale)
-  const propertyPending = ref(initial.propertyPending)
-  const revisionComparisonActive = ref(initial.revisionComparisonActive)
-  const taxonomyModalActive = ref(initial.taxonomyModalActive)
-  const notice = ref(initial.notice)
-  const failure = ref(initial.failure)
-  const navigationNotice = ref(initial.navigationNotice)
-  const groupNotice = ref(initial.groupNotice)
+  const fields = {
+    original: shallowRef<Draft | undefined>(initial.original),
+    tab: shallowRef<WorkspaceTab | undefined>(initial.tab),
+    workspaceTabs: shallowRef<readonly WorkspaceTab[]>(initial.workspaceTabs),
+    workspaceRevision: ref(initial.workspaceRevision),
+    sourcePanes: shallowRef<readonly WorkspaceSource<Draft>[]>(initial.sourcePanes),
+    hasSecondaryGroup: ref(initial.hasSecondaryGroup),
+    recentlyClosed: shallowRef<readonly RecentlyClosed[]>(initial.recentlyClosed),
+    inspectorOpen: ref(initial.inspectorOpen),
+    persistentWorkspace: ref(initial.persistentWorkspace),
+    authorizationReady: ref(initial.authorizationReady),
+    layoutRestoring: ref(initial.layoutRestoring),
+    loading: ref(initial.loading),
+    opening: ref(initial.opening),
+    closingTabs: ref(initial.closingTabs),
+    recoveryWorking: ref(initial.recoveryWorking),
+    composing: ref<number | undefined>(initial.composing),
+    taxonomyDirty: ref(initial.taxonomyDirty),
+    summaryDirty: ref(initial.summaryDirty),
+    taxonomyStale: ref(initial.taxonomyStale),
+    propertyPending: ref(initial.propertyPending),
+    revisionComparisonActive: ref(initial.revisionComparisonActive),
+    taxonomyModalActive: ref(initial.taxonomyModalActive),
+    notice: ref(initial.notice),
+    failure: ref(initial.failure),
+    navigationNotice: ref(initial.navigationNotice),
+    groupNotice: ref(initial.groupNotice),
+    openInput: ref(initial.openInput),
+  }
+  const { state, update } = snapshotFields(fields)
   const openInput = computed({
-    get: () => openInputState.value,
+    get: () => fields.openInput.value,
     set: value => controller.setOpenInput(value),
   })
-  const openInputState = ref(initial.openInput)
-
-  const unsubscribeController = controller.subscribe(() => {
-    const snap = controller.snapshot()
-    if (original.value !== snap.original) original.value = snap.original
-    if (tab.value !== snap.tab) tab.value = snap.tab
-    if (workspaceTabs.value !== snap.workspaceTabs) workspaceTabs.value = snap.workspaceTabs
-    if (workspaceRevision.value !== snap.workspaceRevision) workspaceRevision.value = snap.workspaceRevision
-    if (sourcePanes.value !== snap.sourcePanes) sourcePanes.value = snap.sourcePanes
-    if (hasSecondaryGroup.value !== snap.hasSecondaryGroup) hasSecondaryGroup.value = snap.hasSecondaryGroup
-    if (recentlyClosed.value !== snap.recentlyClosed) recentlyClosed.value = snap.recentlyClosed
-    if (inspectorOpen.value !== snap.inspectorOpen) inspectorOpen.value = snap.inspectorOpen
-    if (persistentWorkspace.value !== snap.persistentWorkspace) persistentWorkspace.value = snap.persistentWorkspace
-    if (authorizationReady.value !== snap.authorizationReady) authorizationReady.value = snap.authorizationReady
-    if (layoutRestoring.value !== snap.layoutRestoring) layoutRestoring.value = snap.layoutRestoring
-    if (loading.value !== snap.loading) loading.value = snap.loading
-    if (opening.value !== snap.opening) opening.value = snap.opening
-    if (closingTabs.value !== snap.closingTabs) closingTabs.value = snap.closingTabs
-    if (recoveryWorking.value !== snap.recoveryWorking) recoveryWorking.value = snap.recoveryWorking
-    if (composing.value !== snap.composing) composing.value = snap.composing
-    if (taxonomyDirty.value !== snap.taxonomyDirty) taxonomyDirty.value = snap.taxonomyDirty
-    if (summaryDirty.value !== snap.summaryDirty) summaryDirty.value = snap.summaryDirty
-    if (taxonomyStale.value !== snap.taxonomyStale) taxonomyStale.value = snap.taxonomyStale
-    if (propertyPending.value !== snap.propertyPending) propertyPending.value = snap.propertyPending
-    if (revisionComparisonActive.value !== snap.revisionComparisonActive) {
-      revisionComparisonActive.value = snap.revisionComparisonActive
-    }
-    if (taxonomyModalActive.value !== snap.taxonomyModalActive) taxonomyModalActive.value = snap.taxonomyModalActive
-    if (notice.value !== snap.notice) notice.value = snap.notice
-    if (failure.value !== snap.failure) failure.value = snap.failure
-    if (navigationNotice.value !== snap.navigationNotice) navigationNotice.value = snap.navigationNotice
-    if (groupNotice.value !== snap.groupNotice) groupNotice.value = snap.groupNotice
-    if (openInputState.value !== snap.openInput) openInputState.value = snap.openInput
-  })
+  const unsubscribeController = controller.subscribe(() => update(controller.snapshot()))
 
   const flags = computed(() => deriveWorkspaceFlags({
-    state: {
-      original: original.value,
-      tab: tab.value,
-      workspaceTabs: workspaceTabs.value,
-      workspaceRevision: workspaceRevision.value,
-      sourcePanes: sourcePanes.value,
-      hasSecondaryGroup: hasSecondaryGroup.value,
-      recentlyClosed: recentlyClosed.value,
-      inspectorOpen: inspectorOpen.value,
-      persistentWorkspace: persistentWorkspace.value,
-      authorizationReady: authorizationReady.value,
-      layoutRestoring: layoutRestoring.value,
-      loading: loading.value,
-      opening: opening.value,
-      closingTabs: closingTabs.value,
-      recoveryWorking: recoveryWorking.value,
-      composing: composing.value,
-      taxonomyDirty: taxonomyDirty.value,
-      summaryDirty: summaryDirty.value,
-      taxonomyStale: taxonomyStale.value,
-      propertyPending: propertyPending.value,
-      revisionComparisonActive: revisionComparisonActive.value,
-      taxonomyModalActive: taxonomyModalActive.value,
-      notice: notice.value,
-      failure: failure.value,
-      navigationNotice: navigationNotice.value,
-      groupNotice: groupNotice.value,
-      openInput: openInputState.value,
-    },
+    state: { ...state },
     articleId: id.value,
     session: currentSession.value,
     recoveryItemsCount: recoveryItems.value.length,
@@ -270,12 +214,12 @@ export function useWriteWorkspace() {
     const articleId = inputArticle.value
     return articleId === undefined ? undefined : articleRouteDestination(articleId)
   })
-  const selectedPanelTitle = computed(() => tab.value?.title
-    ? t('author.write.contentTitle', { title: tab.value.title })
+  const selectedPanelTitle = computed(() => state.tab?.title
+    ? t('author.write.contentTitle', { title: state.tab.title })
     : t('author.write.articleContent'))
   const configuredPublicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
   const publicBase = configuredPublicOrigin && configuredPublicOrigin !== globalThis.location?.origin ? configuredPublicOrigin : ''
-  const publishedPath = computed(() => original.value?.published ? `${publicBase}/article/${original.value.id}` : '')
+  const publishedPath = computed(() => state.original?.published ? `${publicBase}/article/${state.original.id}` : '')
 
   let deferredFocus: Readonly<{ sessionId: number; epoch: number; pane: HTMLElement }> | undefined
 
@@ -301,16 +245,16 @@ export function useWriteWorkspace() {
 
   handoff.bindActivity({
     recoveryItems,
-    recoveryWorking,
-    activeTab: tab,
-    propertyPending,
+    recoveryWorking: fields.recoveryWorking,
+    activeTab: fields.tab,
+    propertyPending: fields.propertyPending,
     metadataDirty,
-    composing,
-    closingTabs,
-    revisionComparisonActive,
+    composing: fields.composing,
+    closingTabs: fields.closingTabs,
+    revisionComparisonActive: fields.revisionComparisonActive,
   })
 
-  watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], async ([articleId, identity], _, cleanup) => {
+  watch([id, identityEpoch, fields.authorizationReady, reload, fields.persistentWorkspace], async ([articleId, identity], _, cleanup) => {
     let valid = true
     cleanup(() => { valid = false })
     await controller.syncRoute({ articleId, identity, isValid: () => valid })
@@ -355,7 +299,7 @@ export function useWriteWorkspace() {
 
   async function focusSource(target: WorkspaceTab, epoch: number): Promise<void> {
     await nextTick()
-    if (epoch !== identityEpoch.value || tab.value?.sessionId !== target.sessionId || !editable.value) return
+    if (epoch !== identityEpoch.value || state.tab?.sessionId !== target.sessionId || !editable.value) return
     if (!recoveryBlocked.value && !pending.value && !metadataDirty.value) {
       document.getElementById('article-body')?.focus({ preventScroll: true })
       return
@@ -367,7 +311,7 @@ export function useWriteWorkspace() {
     }
   }
 
-  watch([recoveryBlocked, pending, metadataDirty, () => tab.value?.sessionId, editable], async ([blocked, writing, editingMetadata, sessionId, ready]) => {
+  watch([recoveryBlocked, pending, metadataDirty, () => state.tab?.sessionId, editable], async ([blocked, writing, editingMetadata, sessionId, ready]) => {
     const request = deferredFocus
     if (!request) return
     if (sessionId !== request.sessionId || request.epoch !== identityEpoch.value) {
@@ -378,7 +322,7 @@ export function useWriteWorkspace() {
     await nextTick()
     if (deferredFocus !== request) return
     deferredFocus = undefined
-    if (document.activeElement === request.pane && tab.value?.sessionId === request.sessionId && editable.value) {
+    if (document.activeElement === request.pane && state.tab?.sessionId === request.sessionId && editable.value) {
       document.getElementById('article-body')?.focus({ preventScroll: true })
     }
   })
@@ -386,7 +330,7 @@ export function useWriteWorkspace() {
   async function focusGroup(target: WorkspaceTab): Promise<void> {
     const epoch = identityEpoch.value
     deferredFocus = undefined
-    if (!await controller.navigateTo(target.articleId) || tab.value?.sessionId !== target.sessionId) return
+    if (!await controller.navigateTo(target.articleId) || state.tab?.sessionId !== target.sessionId) return
     await focusSource(target, epoch)
   }
 
@@ -424,7 +368,7 @@ export function useWriteWorkspace() {
     if (!outcome.imported) return
     await nextTick()
     if (!controller.lifetime.signal.aborted && credential.value === outcome.handle &&
-        tab.value?.sessionId === outcome.sessionId) {
+        state.tab?.sessionId === outcome.sessionId) {
       document.getElementById('article-title')?.focus()
     }
   }
@@ -481,29 +425,29 @@ export function useWriteWorkspace() {
     identityEpoch,
     credentialEpoch,
     workspaceState: workspaceHistoryState,
-    original,
-    tab,
-    workspaceTabs,
-    workspaceRevision,
-    sourcePanes,
-    hasSecondaryGroup,
-    recentlyClosed,
-    inspectorOpen,
-    persistentWorkspace,
-    authorizationReady,
-    loading,
-    opening,
-    closingTabs,
+    original: fields.original,
+    tab: fields.tab,
+    workspaceTabs: fields.workspaceTabs,
+    workspaceRevision: fields.workspaceRevision,
+    sourcePanes: fields.sourcePanes,
+    hasSecondaryGroup: fields.hasSecondaryGroup,
+    recentlyClosed: fields.recentlyClosed,
+    inspectorOpen: fields.inspectorOpen,
+    persistentWorkspace: fields.persistentWorkspace,
+    authorizationReady: fields.authorizationReady,
+    loading: fields.loading,
+    opening: fields.opening,
+    closingTabs: fields.closingTabs,
     recovery,
     recoveryItems,
     recoveryFailure,
     recoveryChecking,
-    recoveryWorking,
+    recoveryWorking: fields.recoveryWorking,
     recoveryBlocked,
-    notice,
-    failure,
-    navigationNotice,
-    groupNotice,
+    notice: fields.notice,
+    failure: fields.failure,
+    navigationNotice: fields.navigationNotice,
+    groupNotice: fields.groupNotice,
     layoutNotice: persistence.notice,
     supportsSavedGroups: persistence.supportsGroups,
     recentOpensVersion,
@@ -513,7 +457,7 @@ export function useWriteWorkspace() {
     inputArticle,
     selectedPanelTitle,
     articleDirty,
-    summaryDirty,
+    summaryDirty: fields.summaryDirty,
     metadataDirty,
     dirty,
     hasConflict,
@@ -535,8 +479,8 @@ export function useWriteWorkspace() {
     activeGroupIndex,
     canCloseGroupTabs,
     canPublishImages,
-    revisionComparisonActive,
-    taxonomyModalActive,
+    revisionComparisonActive: fields.revisionComparisonActive,
+    taxonomyModalActive: fields.taxonomyModalActive,
     sourceInspectorPending: handoff.sourceInspectorPending,
     sourceSeek: handoff.sourceSeek,
     historicalSeek: handoff.historicalSeek,
