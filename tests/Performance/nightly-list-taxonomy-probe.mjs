@@ -1,7 +1,7 @@
+import { ownedEvidence, checkNightlyListener } from './nightly-owned-evidence.mjs';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { closeSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { closeSync, mkdirSync, openSync, writeFileSync } from 'node:fs';
 import { Agent, get } from 'node:http';
 import { join } from 'node:path';
 import { decodeApiError, decodeFrame } from '../../src/Contracts/aeds.ts';
@@ -25,20 +25,7 @@ const home = page => pathFor(WireRoutes.PublicList, page);
 const nextQuery = cursor => '?' + new URLSearchParams({ cursor }).toString();
 
 assert.equal(process.argv.length, 3, 'Usage: nightly-list-taxonomy-probe.mjs OWNED_NIGHTLY_EVIDENCE_DIRECTORY');
-const evidence = realpathSync(process.argv[2]);
-const rootInfo = lstatSync(evidence);
-assert(rootInfo.isDirectory() && rootInfo.uid === process.geteuid() && (rootInfo.mode & 0o077) === 0,
-  'Expected the private evidence directory of this nightly run.');
-
-function read(relative, limit = 1_048_576) {
-  const path = join(evidence, relative);
-  const info = lstatSync(path);
-  assert(info.isFile() && info.uid === rootInfo.uid && (info.mode & 0o077) === 0 && info.size > 0 && info.size <= limit,
-    'Invalid owned evidence file: ' + relative);
-  const bytes = readFileSync(path);
-  assert.equal(bytes.length, info.size, 'Evidence size changed: ' + relative);
-  return bytes;
-}
+const { evidence, read } = ownedEvidence(process.argv[2], 'Expected the private evidence directory of this nightly run.', true);
 
 function ndjson(bytes, maxRows) {
   const rows = [];
@@ -94,13 +81,7 @@ assert(origin.origin === owner.get('origin') && /^http:\/\/127\.0\.0\.1:[1-9][0-
   Number(origin.port) >= 1024 && owner.get('readiness') === '204' && !owner.has('server_exit'),
   'This exact private Kestrel process must still be serving.');
 function checkListener() {
-  for (const key of ['owner_pid', 'postgres_pid', 'server_pid']) {
-    const pid = Number(owner.get(key));
-    assert(positive(pid) && pid > 1, 'Missing owned process: ' + key);
-    process.kill(pid, 0);
-  }
-  execFileSync('lsof', ['-n', '-P', '-a', '-p', owner.get('server_pid'),
-    '-iTCP@127.0.0.1:' + origin.port, '-sTCP:LISTEN'], { timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'] });
+  checkNightlyListener(owner, origin);
 }
 
 function catalog(name, entries, count, largest) {

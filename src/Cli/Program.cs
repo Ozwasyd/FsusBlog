@@ -467,12 +467,8 @@ internal static partial class Cli
               AND c.relkind NOT IN ('i', 'I')
             ORDER BY n.nspname, c.relname
             """, connection, transaction);
-        await using var reader = await command.ExecuteReaderAsync(token);
-        var relations = new List<Relation>();
-        while (await reader.ReadAsync(token))
-            relations.Add(new Relation(reader.GetString(0), reader.GetString(1), reader.GetString(2)));
-
-        return relations;
+        return await ReadInventoryRows(command,
+            static reader => new Relation(reader.GetString(0), reader.GetString(1), reader.GetString(2)), token);
     }
 
     private static async Task ExecuteAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,

@@ -237,11 +237,11 @@ if [[ $http_probe == true ]]; then
         exit 1
     fi
     if [[ $list_taxonomy == true ]]; then
-        verify_witness_inputs 'List/taxonomy' tests/Performance/nightly-list-taxonomy-{oracle.sql,probe.mjs}
+        verify_witness_inputs 'List/taxonomy' tests/Performance/nightly-list-taxonomy-{oracle.sql,probe.mjs} tests/Performance/nightly-{owned-evidence.mjs,oracle-scope.sql}
     fi
     if [[ $comment_probe == true ]]; then
         verify_witness_inputs 'Comment witness' tests/Performance/nightly-comment-{oracle.sql,probe.mjs,plans.mjs} \
-            src/Contracts/{client,comment-read}.ts src/Server/{Store.cs,Comments/CommentReadStore.cs}
+            tests/Performance/nightly-{owned-evidence.mjs,oracle-scope.sql} src/Contracts/{client,comment-read}.ts src/Server/{Store.cs,Comments/CommentReadStore.cs}
     fi
     stage_http_release "$4" "$5" "$6" > "$evidence/http-release-binding.json" 2> "$evidence/http-release-binding.log"
     cli_dll="$scratch/release/cli/FsusBlog.V2.Cli.dll"

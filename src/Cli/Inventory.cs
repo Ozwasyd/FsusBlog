@@ -35,15 +35,8 @@ internal static partial class Cli
             WHERE n.nspname = $1 AND c.relname = $2 AND a.attnum > 0 AND NOT a.attisdropped
             ORDER BY a.attnum
             """);
-        var columns = new List<ColumnInventory>();
-        await using var reader = await command.ExecuteReaderAsync(token);
-        while (await reader.ReadAsync(token))
-        {
-            columns.Add(new ColumnInventory(reader.GetString(0), reader.GetString(1), reader.GetBoolean(2),
-                reader.GetString(3), reader.GetString(4)));
-        }
-
-        return columns;
+        return await ReadInventoryRows(command, static reader => new ColumnInventory(reader.GetString(0), reader.GetString(1),
+            reader.GetBoolean(2), reader.GetString(3), reader.GetString(4)), token);
     }
 
     private static async Task<List<KeyInventory>> ReadKeysAsync(NpgsqlConnection connection,
@@ -57,14 +50,17 @@ internal static partial class Cli
             WHERE n.nspname = $1 AND c.relname = $2 AND k.contype IN ('f','p','u','x')
             ORDER BY k.conname
             """);
-        var keys = new List<KeyInventory>();
-        await using var reader = await command.ExecuteReaderAsync(token);
-        while (await reader.ReadAsync(token))
-        {
-            keys.Add(new KeyInventory(reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetBoolean(3)));
-        }
+        return await ReadInventoryRows(command, static reader => new KeyInventory(reader.GetString(0), reader.GetString(1),
+            reader.GetString(2), reader.GetBoolean(3)), token);
+    }
 
-        return keys;
+    private static async Task<List<T>> ReadInventoryRows<T>(NpgsqlCommand command, Func<NpgsqlDataReader, T> read,
+        CancellationToken token)
+    {
+        var rows = new List<T>();
+        await using var reader = await command.ExecuteReaderAsync(token);
+        while (await reader.ReadAsync(token)) rows.Add(read(reader));
+        return rows;
     }
 
     private static NpgsqlCommand ForRelation(NpgsqlConnection connection, NpgsqlTransaction transaction, Relation relation, string sql)

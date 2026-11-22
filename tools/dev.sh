@@ -634,16 +634,19 @@ else
 fi
 server_pid=$!
 
-for _ in $(seq 1 80); do
-  if curl -s -o /dev/null "http://127.0.0.1:$api_port/health/ready"; then
-    break
-  fi
-  if ! kill -0 "$server_pid" 2>/dev/null; then
-    printf '[dev] Server exited before becoming ready.\n' >&2
-    exit 1
-  fi
-  sleep 0.25
-done
+wait_for_dev_http() {
+  local count=$1 url=$2 child=$3 failure=$4
+  for _ in $(seq 1 "$count"); do
+    if curl -s -o /dev/null "$url"; then break; fi
+    if ! kill -0 "$child" 2>/dev/null; then
+      printf '%s\n' "$failure" >&2
+      exit 1
+    fi
+    sleep 0.25
+  done
+}
+
+wait_for_dev_http 80 "http://127.0.0.1:$api_port/health/ready" "$server_pid" '[dev] Server exited before becoming ready.'
 
 printf '[dev] Starting Vite HMR dev server on port %s (proxying to http://127.0.0.1:%s)...\n' "$web_port" "$api_port"
 (
@@ -654,16 +657,7 @@ printf '[dev] Starting Vite HMR dev server on port %s (proxying to http://127.0.
 ) &
 web_pid=$!
 
-for _ in $(seq 1 40); do
-  if curl -s -o /dev/null "http://127.0.0.1:$web_port/"; then
-    break
-  fi
-  if ! kill -0 "$web_pid" 2>/dev/null; then
-    printf '[dev] Vite dev server exited early.\n' >&2
-    exit 1
-  fi
-  sleep 0.25
-done
+wait_for_dev_http 40 "http://127.0.0.1:$web_port/" "$web_pid" '[dev] Vite dev server exited early.'
 
 printf '\n========================================================================\n'
 printf ' FsusBlog V2 Dev + HMR Ready\n'

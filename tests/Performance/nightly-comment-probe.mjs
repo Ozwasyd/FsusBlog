@@ -1,7 +1,7 @@
+import { ownedEvidence, checkNightlyListener } from './nightly-owned-evidence.mjs';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { closeSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { closeSync, lstatSync, mkdirSync, openSync, writeFileSync } from 'node:fs';
 import { Agent, get } from 'node:http';
 import { join } from 'node:path';
 import { decodeFrame } from '../../src/Contracts/aeds.ts';
@@ -26,20 +26,7 @@ const decimal = value => typeof value === 'string' && /^(0|[1-9][0-9]{0,18})$/.t
 const positive = value => decimal(value) && value !== '0';
 
 assert.equal(process.argv.length, 3, 'Usage: nightly-comment-probe.mjs OWNED_NIGHTLY_EVIDENCE_DIRECTORY');
-const evidence = realpathSync(process.argv[2]);
-const directory = lstatSync(evidence);
-assert(directory.isDirectory() && directory.uid === process.geteuid() && (directory.mode & 0o077) === 0,
-  'Expected the private directory of this nightly run.');
-
-function read(name, limit = 1_048_576) {
-  const path = join(evidence, name);
-  const info = lstatSync(path);
-  assert(info.isFile() && info.uid === directory.uid && (info.mode & 0o077) === 0 && info.size > 0 && info.size <= limit,
-    'Invalid owned evidence file: ' + name);
-  const bytes = readFileSync(path);
-  assert.equal(bytes.length, info.size);
-  return bytes;
-}
+const { evidence, directory, read } = ownedEvidence(process.argv[2], 'Expected the private directory of this nightly run.');
 
 function fields(name, keys) {
   const result = new Map();
@@ -89,17 +76,12 @@ assert(origin.origin === owner.get('origin') && Number(origin.port) >= 1024 &&
   owner.get('readiness') === '204' && !owner.has('server_exit'), 'The owned Kestrel listener must still be serving.');
 
 function checkOwner() {
-  for (const key of ['owner_pid', 'postgres_pid', 'server_pid']) {
-    const pid = Number(owner.get(key));
-    assert(Number.isSafeInteger(pid) && pid > 1, 'Missing owned process: ' + key);
-    process.kill(pid, 0);
-  }
-  const socket = owner.get('postgres_socket');
-  assert.match(socket, /\/fsusv2-nightly\.[\w]+\/socket\/\.s\.PGSQL\.[1-9][0-9]*$/);
-  const postgres = lstatSync(socket);
-  assert(postgres.isSocket() && postgres.uid === directory.uid && (postgres.mode & 0o077) === 0, 'Missing owned PostgreSQL socket.');
-  execFileSync('lsof', ['-n', '-P', '-a', '-p', owner.get('server_pid'),
-    '-iTCP@127.0.0.1:' + origin.port, '-sTCP:LISTEN'], { timeout: 3000, stdio: ['ignore', 'pipe', 'pipe'] });
+  checkNightlyListener(owner, origin, () => {
+    const socket = owner.get('postgres_socket');
+    assert.match(socket, /\/fsusv2-nightly\.[\w]+\/socket\/\.s\.PGSQL\.[1-9][0-9]*$/);
+    const postgres = lstatSync(socket);
+    assert(postgres.isSocket() && postgres.uid === directory.uid && (postgres.mode & 0o077) === 0, 'Missing owned PostgreSQL socket.');
+  });
 }
 
 const nodes = new Map();
