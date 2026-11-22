@@ -8,7 +8,6 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Sessions;
 using Npgsql;
 
 public sealed class PluginPreviewPostgresTests
@@ -37,9 +36,12 @@ public sealed class PluginPreviewPostgresTests
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var store = new Store(fixture.DataSource);
-        var owner = await Login(db, store, "Preview owner", true, ct);
-        var peer = await Login(db, store, "Preview peer", true, ct);
-        var reader = await Login(db, store, "Preview reader", false, ct);
+        var (_, ownerToken, ownerHandle) = await fixture.SignInAdmin("Preview owner", ct);
+        var (_, peerToken, peerHandle) = await fixture.SignInAdmin("Preview peer", ct);
+        var (_, readerToken, readerHandle) = await fixture.SignInSiteUser("Preview reader", ct);
+        var owner = new Actor(ownerToken, ownerHandle);
+        var peer = new Actor(peerToken, peerHandle);
+        var reader = new Actor(readerToken, readerHandle);
         var first = await Save(0, 0, "Body from an older revision");
         const string currentBody = "# 原文 📝\r\n\r\nSaved current Markdown.\n";
         var current = await Save(first.Id, first.Revision, currentBody);
@@ -65,7 +67,7 @@ public sealed class PluginPreviewPostgresTests
             ["FSUSBLOG_PUBLIC_ORIGIN"] = origin,
             ["FSUSBLOG_AUTHOR_PLUGIN_PREVIEW_ID"] = "fixture.site.render",
         });
-        using (var shell = await https.GetAsync("/user/manage/article/write", ct))
+        using (var shell = await https.GetAsync("/admin/articles/write", ct))
         {
             shell.EnsureSuccessStatusCode();
             Assert.Contains("<meta name=\"fsus-author-plugin-preview\" content=\"1\">", await shell.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
@@ -119,7 +121,7 @@ public sealed class PluginPreviewPostgresTests
         await Preview(https, large, owner, HttpStatusCode.BadRequest, grant: await Grant(large));
         await Preview(https, current, owner, HttpStatusCode.BadRequest, body: new byte[] { 1 });
         await Preview(https, current, owner, HttpStatusCode.Forbidden, sendOrigin: false);
-        await Preview(server.Client, current, owner, HttpStatusCode.Forbidden, sendOrigin: false);
+        await Preview(server.Client, current, owner, HttpStatusCode.NotFound, sendOrigin: false);
         using (var unpublished = await https.GetAsync($"/article/{current.Id}", ct))
             Assert.Equal(HttpStatusCode.NotFound, unpublished.StatusCode);
 
@@ -134,9 +136,8 @@ public sealed class PluginPreviewPostgresTests
 
         async Task<string> Grant(ArticleState article)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, PathFor(article.Id, article.Revision) + "&consent=1");
-            request.Headers.Add("Cookie", $"fsus-v2-session={owner.Token}");
-            request.Headers.Add(WireHeaders.CurrentSession, owner.Handle);
+            using var request = SiteAedsFixture.Request(HttpMethod.Post, PathFor(article.Id, article.Revision) + "&consent=1",
+                null, owner.Token, owner.Handle, secure: true);
             request.Headers.Add("Origin", origin);
             using var response = await https.SendAsync(request, ct);
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
@@ -153,10 +154,9 @@ public sealed class PluginPreviewPostgresTests
         async Task Preview(HttpClient client, ArticleState article, Actor? caller, HttpStatusCode expected, byte[]? body = null,
             bool sendOrigin = true, string? grant = null, bool withdraw = false)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post,
-                PathFor(article.Id, article.Revision) + (withdraw ? "&consent=0" : ""));
-            if (caller is not null) request.Headers.Add("Cookie", $"fsus-v2-session={caller.Token}");
-            if (caller?.Handle is { } handle) request.Headers.Add(WireHeaders.CurrentSession, handle);
+            using var request = SiteAedsFixture.Request(HttpMethod.Post,
+                PathFor(article.Id, article.Revision) + (withdraw ? "&consent=0" : ""),
+                null, caller?.Token, caller?.Handle, secure: true);
             if (sendOrigin) request.Headers.Add("Origin", origin);
             if (grant is not null) request.Headers.Add("X-Fsus-Plugin-Consent", grant);
             if (body is not null) request.Content = new ByteArrayContent(body);
@@ -176,17 +176,6 @@ public sealed class PluginPreviewPostgresTests
             else if (expected == HttpStatusCode.NoContent) Assert.Empty(bytes);
             else Assert.DoesNotContain("Saved current Markdown.", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
         }
-    }
-
-    private static async Task<Actor> Login(NpgsqlConnection db, Store store, string name, bool canAuthor, CancellationToken ct)
-    {
-        var id = Guid.NewGuid();
-        var ticket = RandomNumberGenerator.GetBytes(32);
-        await Execute(db, "insert into public.blog_user(id,name,enabled,generation) values($1,$2,true,1)", ct, id, name);
-        await Execute(db, "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')",
-            ct, SHA256.HashData(ticket), id);
-        var token = (await store.SignIn(Convert.ToHexStringLower(ticket), ct)).Token;
-        return new(token, SiteSessions.Id(id, Store.TokenDigest(token)!));
     }
 
     private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct, params object[] values)
