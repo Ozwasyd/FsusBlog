@@ -75,7 +75,7 @@ public sealed class CatalogPresenceSnapshotPostgresTests
         }
 
         // No cross-transaction cache: mutating the DB is observed immediately on the next verification on the same connection.
-        await Execute(connection, "DROP TABLE public.comment_report", ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "DROP TABLE public.comment_report");
         Assert.False(await CurrentSchema.VerifyAsync(connection, ct));
         await using (var tx = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct))
         {
@@ -96,33 +96,37 @@ public sealed class CatalogPresenceSnapshotPostgresTests
         await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         await using var db = await database.DataSource.OpenConnectionAsync(ct);
 
+        async Task ExpectInvalid(string message)
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
+            Assert.Contains(message, error.Message, StringComparison.Ordinal);
+        }
+
         // 1. Half-installed column group: drop one of the 3 authoring workspace group columns.
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             ALTER TABLE public.authoring_workspace
                 DROP CONSTRAINT authoring_workspace_focused_group_check,
                 DROP CONSTRAINT authoring_workspace_check1,
                 DROP COLUMN focused_group
-            """, ct);
-        var partialGroup = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("authoring workspace group schema is incomplete", partialGroup.Message, StringComparison.Ordinal);
-        await Execute(db, """
+            """);
+        await ExpectInvalid("authoring workspace group schema is incomplete");
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             ALTER TABLE public.authoring_workspace
                 ADD COLUMN focused_group integer NOT NULL DEFAULT 0 CONSTRAINT authoring_workspace_focused_group_check CHECK (focused_group >= 0 AND focused_group <= 1),
                 ADD CONSTRAINT authoring_workspace_check1 CHECK (focused_group = 0 OR secondary_active_article_id > 0)
-            """, ct);
+            """);
         await CurrentSchema.VerifyAsync(db, ct);
 
         // 2. Wrong column type on article_body_insertion.operations (text instead of int4[]).
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             ALTER TABLE public.article_body_insertion
                 DROP CONSTRAINT article_body_insertion_check,
                 DROP COLUMN edit_texts,
                 DROP COLUMN operations,
                 ADD COLUMN operations text
-            """, ct);
-        var badColumnType = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("Invalid article body insertion operations column", badColumnType.Message, StringComparison.Ordinal);
-        await Execute(db, """
+            """);
+        await ExpectInvalid("Invalid article body insertion operations column");
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             ALTER TABLE public.article_body_insertion
                 DROP COLUMN operations,
                 ADD COLUMN operations integer[],
@@ -131,81 +135,75 @@ public sealed class CatalogPresenceSnapshotPostgresTests
                     operations IS NULL AND edit_texts IS NULL
                     OR operations IS NOT NULL AND cardinality(operations) = cardinality(edit_texts)
                 )
-            """, ct);
+            """);
         // Drop the whole optional article_body_insertion table afterwards so we don't depend on exact multi-line check text;
         // verify optional absence passes cleanly.
-        await Execute(db, "DROP TABLE public.article_body_insertion", ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "DROP TABLE public.article_body_insertion");
         await CurrentSchema.VerifyAsync(db, ct);
 
         // 3. Wrong CHECK expression & unvalidated (NOT VALID) CHECK on comment_author_edited_previous_status_check.
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             ALTER TABLE public.comment_author_edited
                 DROP CONSTRAINT comment_author_edited_previous_status_check,
                 ADD CONSTRAINT comment_author_edited_previous_status_check CHECK (previous_status = 9)
-            """, ct);
-        var wrongStatusCheck = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("Comment author edit previous status is invalid", wrongStatusCheck.Message, StringComparison.Ordinal);
+            """);
+        await ExpectInvalid("Comment author edit previous status is invalid");
 
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             ALTER TABLE public.comment_author_edited
                 DROP CONSTRAINT comment_author_edited_previous_status_check,
                 ADD CONSTRAINT comment_author_edited_previous_status_check CHECK (previous_status >= 0 AND previous_status <= 1) NOT VALID
-            """, ct);
-        var unvalidatedStatusCheck = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("Comment author edit previous status is invalid", unvalidatedStatusCheck.Message, StringComparison.Ordinal);
+            """);
+        await ExpectInvalid("Comment author edit previous status is invalid");
 
-        await Execute(db, "ALTER TABLE public.comment_author_edited VALIDATE CONSTRAINT comment_author_edited_previous_status_check", ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "ALTER TABLE public.comment_author_edited VALIDATE CONSTRAINT comment_author_edited_previous_status_check");
         await CurrentSchema.VerifyAsync(db, ct);
 
         // 4. Unvalidated (NOT VALID) and wrong-expression CHECK on author_text_posting_segment_check (requireLocalValidated: true).
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             ALTER TABLE public.author_text_posting
                 DROP CONSTRAINT author_text_posting_segment_check,
                 ADD CONSTRAINT author_text_posting_segment_check
                     CHECK (field = 4 AND segment BETWEEN 1 AND 200000 OR field <> 4 AND segment = 0) NOT VALID
-            """, ct);
-        var unvalidatedHeadingCheck = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("author full-text heading index schema is incomplete", unvalidatedHeadingCheck.Message, StringComparison.Ordinal);
+            """);
+        await ExpectInvalid("author full-text heading index schema is incomplete");
 
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             ALTER TABLE public.author_text_posting
                 DROP CONSTRAINT author_text_posting_segment_check,
                 ADD CONSTRAINT author_text_posting_segment_check CHECK (segment >= 0)
-            """, ct);
-        var wrongHeadingCheck = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("constraint shape mismatch", wrongHeadingCheck.Message, StringComparison.Ordinal);
+            """);
+        await ExpectInvalid("constraint shape mismatch");
 
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             ALTER TABLE public.author_text_posting
                 DROP CONSTRAINT author_text_posting_segment_check,
                 ADD CONSTRAINT author_text_posting_segment_check
                     CHECK (field = 4 AND segment BETWEEN 1 AND 200000 OR field <> 4 AND segment = 0)
-            """, ct);
+            """);
         await CurrentSchema.VerifyAsync(db, ct);
 
         // 5. Retained independent specialized index probe: corrupt article_read_total_rank sort order (ASC instead of DESC).
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             DROP INDEX public.article_read_total_rank;
             CREATE INDEX article_read_total_rank ON public.article_read_total (views ASC, article_id ASC);
-            """, ct);
-        var badTotalIndex = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("descending btree index", badTotalIndex.Message, StringComparison.Ordinal);
-        await Execute(db, """
+            """);
+        await ExpectInvalid("descending btree index");
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             DROP INDEX public.article_read_total_rank;
             CREATE INDEX article_read_total_rank ON public.article_read_total (views DESC, article_id DESC);
-            """, ct);
+            """);
         await CurrentSchema.VerifyAsync(db, ct);
 
         // 6. Retained business-data invariant verifier: corrupt site_page_content revision vs publish audit.
-        await Execute(db, "UPDATE public.site_page_content SET revision = 1, markdown = 'corrupt' WHERE slug = 'about'", ct);
-        var badInvariant = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("site page editor publication coordinates are incomplete", badInvariant.Message, StringComparison.Ordinal);
-        await Execute(db, "UPDATE public.site_page_content SET revision = 0, markdown = NULL WHERE slug = 'about'", ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "UPDATE public.site_page_content SET revision = 1, markdown = 'corrupt' WHERE slug = 'about'");
+        await ExpectInvalid("site page editor publication coordinates are incomplete");
+        await FixtureSql.ExecuteAsync(db, null, ct, "UPDATE public.site_page_content SET revision = 0, markdown = NULL WHERE slug = 'about'");
         await CurrentSchema.VerifyAsync(db, ct);
 
         // 7. Non-local (inherited, conislocal = false) CHECK constraint on author_text_posting_segment_check.
         // Recreate empty author_text_posting inheriting the validated CHECK from a parent table so convalidated=true & conislocal=false.
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             DROP TABLE public.author_text_posting;
             CREATE TABLE public.tmp_author_text_posting_parent (
                 field integer NOT NULL,
@@ -224,7 +222,7 @@ public sealed class CatalogPresenceSnapshotPostgresTests
                 end_u8 integer NOT NULL,
                 CONSTRAINT author_text_posting_owner_article UNIQUE (owner_id, article_id, field, ordinal)
             ) INHERITS (public.tmp_author_text_posting_parent);
-            """, ct);
+            """);
         // Confirm PG18 actually recorded convalidated=true and conislocal=false for the inherited CHECK.
         Assert.Equal(true, await FixtureSql.ScalarAsync(db, null, ct, """
             SELECT k.convalidated AND NOT k.conislocal
@@ -240,12 +238,6 @@ public sealed class CatalogPresenceSnapshotPostgresTests
             CurrentSchema.VerifyAsync(db, ct));
         Assert.Equal(standaloneNonLocal.Message, batchedNonLocal.Message);
         Assert.Contains("author full-text heading index schema is incomplete", batchedNonLocal.Message, StringComparison.Ordinal);
-    }
-
-    private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand(sql, db);
-        await command.ExecuteNonQueryAsync(ct);
     }
 
     private sealed class NpgsqlCommandRecorder : ILoggerFactory, ILogger

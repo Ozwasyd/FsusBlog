@@ -22,14 +22,14 @@ public sealed class SchemaAdmissionPostgresTests
         };
 
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
-        await Execute(connection, """
+        await FixtureSql.ExecuteAsync(connection, null, ct, """
             INSERT INTO public.blog_user (id, name, generation, enabled)
             VALUES ('f4a1a998-7b96-4b9a-b578-bbb20157d941','Schema fixture',1,true)
-            """, ct);
+            """);
         var valid = await ReadState(connection, ct);
         foreach (var scenario in scenarios)
         {
-            await Execute(connection, scenario.Prepare, ct);
+            await FixtureSql.ExecuteAsync(connection, null, ct, scenario.Prepare);
             var before = await ReadState(connection, ct);
             var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             {
@@ -37,7 +37,7 @@ public sealed class SchemaAdmissionPostgresTests
             });
             Assert.Contains(scenario.Expected, failure.Message, StringComparison.OrdinalIgnoreCase);
             Assert.Equal(before, await ReadState(connection, ct));
-            await Execute(connection, scenario.Restore, ct);
+            await FixtureSql.ExecuteAsync(connection, null, ct, scenario.Restore);
             Assert.Equal(valid, await ReadState(connection, ct));
         }
 
@@ -57,20 +57,20 @@ public sealed class SchemaAdmissionPostgresTests
             CurrentSchema.VerifyAsync(connection, ct, new(AdminCommentBatch: false)));
         Assert.Contains("batch schema presence", forbidden.Message, StringComparison.OrdinalIgnoreCase);
 
-        await Execute(connection, "ALTER TABLE public.admin_comment_batch_item RENAME TO incomplete_comment_batch_item", ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "ALTER TABLE public.admin_comment_batch_item RENAME TO incomplete_comment_batch_item");
         var partial = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
         Assert.Contains("batch storage is incomplete", partial.Message, StringComparison.OrdinalIgnoreCase);
-        await Execute(connection, "ALTER TABLE public.incomplete_comment_batch_item RENAME TO admin_comment_batch_item", ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "ALTER TABLE public.incomplete_comment_batch_item RENAME TO admin_comment_batch_item");
 
-        await Execute(connection, """
+        await FixtureSql.ExecuteAsync(connection, null, ct, """
             ALTER TABLE public.admin_comment_batch_step_up
                 DROP CONSTRAINT admin_comment_batch_step_up_action_check,
                 ADD CHECK (action = 1)
-            """, ct);
+            """);
         var wrongPurpose = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
         Assert.Contains("admin_comment_batch_step_up c action action=6", wrongPurpose.Message, StringComparison.Ordinal);
 
-        await Execute(connection, "DROP TABLE public.admin_comment_batch_item, public.admin_comment_batch, public.admin_comment_batch_step_up", ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "DROP TABLE public.admin_comment_batch_item, public.admin_comment_batch, public.admin_comment_batch_step_up");
         await CurrentSchema.VerifyAsync(connection, ct, new(AdminCommentBatch: false));
         await CurrentSchema.VerifyAsync(connection, ct);
         var missing = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -85,16 +85,16 @@ public sealed class SchemaAdmissionPostgresTests
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
         await CurrentSchema.VerifyAsync(connection, ct, new(DocumentExports: true));
 
-        await Execute(connection, "ALTER INDEX public.author_document_export_pending RENAME TO wrong_document_export_pending", ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "ALTER INDEX public.author_document_export_pending RENAME TO wrong_document_export_pending");
         var indexDrift = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
         Assert.Contains("document export index shape mismatch", indexDrift.Message, StringComparison.Ordinal);
-        await Execute(connection, "ALTER INDEX public.wrong_document_export_pending RENAME TO author_document_export_pending", ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "ALTER INDEX public.wrong_document_export_pending RENAME TO author_document_export_pending");
 
-        await Execute(connection, "ALTER TABLE public.author_document_export DROP CONSTRAINT author_document_export_output_check", ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "ALTER TABLE public.author_document_export DROP CONSTRAINT author_document_export_output_check");
         var constraintDrift = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
         Assert.Contains("octet_length(output)<=4194304", constraintDrift.Message, StringComparison.Ordinal);
 
-        await Execute(connection, "DROP TABLE public.author_document_export", ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, "DROP TABLE public.author_document_export");
         await CurrentSchema.VerifyAsync(connection, ct);
         var missing = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             CurrentSchema.VerifyAsync(connection, ct, new(DocumentExports: true)));
@@ -120,7 +120,7 @@ public sealed class SchemaAdmissionPostgresTests
         foreach (var (kind, options) in new (short, string?)[] { (1, "x"), (1, widest), (2, null) })
         {
             await InsertAppealStepUp(connection, admin, kind, options, ct);
-            await Execute(connection, "DELETE FROM public.comment_appeal_admin_step_up", ct);
+            await FixtureSql.ExecuteAsync(connection, null, ct, "DELETE FROM public.comment_appeal_admin_step_up");
         }
 
         foreach (var (kind, options, constraint) in new (short, string?, string)[]
@@ -176,15 +176,15 @@ public sealed class SchemaAdmissionPostgresTests
         };
         foreach (var drift in drifts)
         {
-            await Execute(connection, drift.Prepare, ct);
+            await FixtureSql.ExecuteAsync(connection, null, ct, drift.Prepare);
             var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(connection, ct));
             Assert.Contains("constraint shape mismatch", failure.Message, StringComparison.Ordinal);
             Assert.Contains(drift.Expected, failure.Message, StringComparison.Ordinal);
-            await Execute(connection, drift.Restore, ct);
+            await FixtureSql.ExecuteAsync(connection, null, ct, drift.Restore);
             await CurrentSchema.VerifyAsync(connection, ct);
         }
 
-        await Execute(connection, drifts[2].Prepare, ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, drifts[2].Prepare);
         var before = await ReadConstraints(connection, ct);
         var startup = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -192,7 +192,7 @@ public sealed class SchemaAdmissionPostgresTests
         });
         Assert.Contains("constraint shape mismatch", startup.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(before, await ReadConstraints(connection, ct));
-        await Execute(connection, drifts[2].Restore, ct);
+        await FixtureSql.ExecuteAsync(connection, null, ct, drifts[2].Restore);
         await CurrentSchema.VerifyAsync(connection, ct);
     }
 
@@ -211,12 +211,6 @@ public sealed class SchemaAdmissionPostgresTests
             SELECT coalesce(string_agg(conname || ':' || pg_get_constraintdef(oid) || ':' || convalidated, E'\n' ORDER BY conname), '')
             FROM pg_constraint WHERE conrelid = 'public.comment_appeal_admin_step_up'::regclass
             """))!;
-
-    private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand(sql, db);
-        await command.ExecuteNonQueryAsync(ct);
-    }
 
     private static async Task<string> ReadState(NpgsqlConnection db, CancellationToken ct)
     {

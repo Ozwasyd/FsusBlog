@@ -175,6 +175,13 @@ public sealed class CatalogVerificationOptionsPostgresTests
         await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         await using var db = await database.DataSource.OpenConnectionAsync(ct);
 
+        async Task ExpectInvalid(string message, CatalogVerificationOptions? options = null,
+            StringComparison comparison = StringComparison.Ordinal)
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => VerifyInReadOnlyTx(db, options, ct));
+            Assert.Contains(message, error.Message, comparison);
+        }
+
         // 1. Complete schema: defaults, explicit true, and explicit false rejection
         Assert.False(await VerifyInReadOnlyTx(db, null, ct));
         Assert.False(await VerifyInReadOnlyTx(db, new CatalogVerificationOptions
@@ -189,53 +196,41 @@ public sealed class CatalogVerificationOptionsPostgresTests
             Publication = new() { Canonical = true, Proof = true, Transparency = true, Head = true, ArticleRead = true, ArticleReadTotal = true }
         }, ct));
 
-        var forbiddenReport = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            VerifyInReadOnlyTx(db, new CatalogVerificationOptions { Comments = new() { Report = false } }, ct));
-        Assert.Contains("Comment report schema presence", forbiddenReport.Message, StringComparison.Ordinal);
+        await ExpectInvalid("Comment report schema presence", new() { Comments = new() { Report = false } });
 
-        var forbiddenRecoveryKey = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            VerifyInReadOnlyTx(db, new CatalogVerificationOptions { Site = new() { RecoveryKey = false } }, ct));
-        Assert.Contains("Recovery Key schema presence", forbiddenRecoveryKey.Message, StringComparison.Ordinal);
+        await ExpectInvalid("Recovery Key schema presence", new() { Site = new() { RecoveryKey = false } });
 
-        var forbiddenHead = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            VerifyInReadOnlyTx(db, new CatalogVerificationOptions { Publication = new() { Head = false } }, ct));
-        Assert.Contains("publication head schema presence", forbiddenHead.Message, StringComparison.Ordinal);
+        await ExpectInvalid("publication head schema presence", new() { Publication = new() { Head = false } });
 
-        var coreScopeConflict = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            VerifyInReadOnlyTx(db, new CatalogVerificationOptions { Core = new() { RecoveryScope = false } }, ct));
-        Assert.Contains("author recent opens schema presence", coreScopeConflict.Message, StringComparison.Ordinal);
+        await ExpectInvalid("author recent opens schema presence", new() { Core = new() { RecoveryScope = false } });
 
         // 2. Half-installed optional relation group must be rejected under null, true, AND false
-        await Execute(db, "ALTER TABLE public.comment_appeal_event RENAME TO incomplete_comment_appeal_event", ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "ALTER TABLE public.comment_appeal_event RENAME TO incomplete_comment_appeal_event");
         foreach (var appealOption in new bool?[] { null, true, false })
         {
-            var partial = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                VerifyInReadOnlyTx(db, new CatalogVerificationOptions { Comments = new() { Appeal = appealOption } }, ct));
-            Assert.Contains("Comment appeal storage is incomplete", partial.Message, StringComparison.Ordinal);
+            await ExpectInvalid("Comment appeal storage is incomplete", new() { Comments = new() { Appeal = appealOption } });
         }
-        await Execute(db, "ALTER TABLE public.incomplete_comment_appeal_event RENAME TO comment_appeal_event", ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "ALTER TABLE public.incomplete_comment_appeal_event RENAME TO comment_appeal_event");
 
         // 3. Corrupted index and CHECK constraint must still be rejected with default options
-        await Execute(db, "ALTER INDEX public.author_text_article_owner RENAME TO broken_author_text_article_owner", ct);
-        var missingIndex = await Assert.ThrowsAsync<InvalidOperationException>(() => VerifyInReadOnlyTx(db, null, ct));
-        Assert.Contains("author full-text index", missingIndex.Message, StringComparison.OrdinalIgnoreCase);
-        await Execute(db, "ALTER INDEX public.broken_author_text_article_owner RENAME TO author_text_article_owner", ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "ALTER INDEX public.author_text_article_owner RENAME TO broken_author_text_article_owner");
+        await ExpectInvalid("author full-text index", comparison: StringComparison.OrdinalIgnoreCase);
+        await FixtureSql.ExecuteAsync(db, null, ct, "ALTER INDEX public.broken_author_text_article_owner RENAME TO author_text_article_owner");
 
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             ALTER TABLE public.comment_report
                 DROP CONSTRAINT comment_report_publication_id_check,
                 ADD CHECK (publication_id >= 0)
-            """, ct);
-        var wrongCheck = await Assert.ThrowsAsync<InvalidOperationException>(() => VerifyInReadOnlyTx(db, null, ct));
-        Assert.Contains("comment_report c publication_id publication_id>0", wrongCheck.Message, StringComparison.Ordinal);
-        await Execute(db, """
+            """);
+        await ExpectInvalid("comment_report c publication_id publication_id>0");
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             ALTER TABLE public.comment_report
                 DROP CONSTRAINT comment_report_publication_id_check,
                 ADD CHECK (publication_id > 0)
-            """, ct);
+            """);
 
         // 4. Allowed optional absence: null auto-detect and explicit false pass, explicit true fails
-        await Execute(db, "DROP TABLE public.comment_report, public.author_text_rebuild_job", ct);
+        await FixtureSql.ExecuteAsync(db, null, ct, "DROP TABLE public.comment_report, public.author_text_rebuild_job");
         Assert.False(await VerifyInReadOnlyTx(db, null, ct));
         Assert.False(await VerifyInReadOnlyTx(db, new CatalogVerificationOptions
         {
@@ -243,21 +238,16 @@ public sealed class CatalogVerificationOptionsPostgresTests
             AuthorText = new() { Index = true, SummaryIndex = true, HeadingIndex = true, PropertyIndex = true, Rebuild = false }
         }, ct));
 
-        var missingReport = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            VerifyInReadOnlyTx(db, new CatalogVerificationOptions { Comments = new() { Report = true } }, ct));
-        Assert.Contains("Comment report schema presence", missingReport.Message, StringComparison.Ordinal);
+        await ExpectInvalid("Comment report schema presence", new() { Comments = new() { Report = true } });
 
-        var missingRebuild = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            VerifyInReadOnlyTx(db, new CatalogVerificationOptions { AuthorText = new() { Rebuild = true } }, ct));
-        Assert.Contains("autonomous indexing", missingRebuild.Message, StringComparison.Ordinal);
+        await ExpectInvalid("autonomous indexing", new() { AuthorText = new() { Rebuild = true } });
 
         // 5. Core boolean toggle (RecoveryScope = false) when recovery scope & dependent recent opens are absent
-        await Execute(db, """
+        await FixtureSql.ExecuteAsync(db, null, ct, """
             DROP TABLE public.author_recent_open_receipt, public.author_recent_open,
                 public.author_recent_open_collection, public.authoring_recovery_site
-            """, ct);
-        var missingRecoveryScope = await Assert.ThrowsAsync<InvalidOperationException>(() => VerifyInReadOnlyTx(db, null, ct));
-        Assert.Contains("authoring_recovery_site", missingRecoveryScope.Message, StringComparison.Ordinal);
+            """);
+        await ExpectInvalid("authoring_recovery_site");
         Assert.False(await VerifyInReadOnlyTx(db, new CatalogVerificationOptions
         {
             Core = new() { RecoveryScope = false },
@@ -273,11 +263,5 @@ public sealed class CatalogVerificationOptionsPostgresTests
         var webp = await CurrentSchema.VerifyCatalogAsync(db, tx, ct, options);
         await tx.CommitAsync(ct);
         return webp;
-    }
-
-    private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand(sql, db);
-        await command.ExecuteNonQueryAsync(ct);
     }
 }
