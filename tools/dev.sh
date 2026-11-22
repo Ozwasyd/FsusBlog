@@ -136,34 +136,18 @@ fi
 appearance_dir="$site_data/appearance"
 if (( seed_demo )) && [[ ! -f "$appearance_dir/appearance.json" ]] && command -v python3 >/dev/null 2>&1; then
   printf '[dev] Provisioning signed demo appearance packages in %s...\n' "$appearance_dir"
-  python3 - "$appearance_dir" <<'PY'
+  python3 -B - "$appearance_dir" <<'PY'
 from datetime import datetime, timedelta, timezone
-from hashlib import sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from zipfile import ZipFile
-import json, subprocess, sys
+import sys
+
+sys.path.insert(0, "tools")
+from fixture_signing import AppearancePackages
 
 root = Path(sys.argv[1])
 root.mkdir(mode=0o700, exist_ok=True)
 root.chmod(0o700)
-
-def digest(data: bytes) -> str:
-    return sha256(data).hexdigest()
-
-def p1363(der: bytes) -> bytes:
-    if der[0] != 0x30 or der[1] != len(der) - 2:
-        raise ValueError("Unexpected P-256 DER signature")
-    offset = 2
-    parts = []
-    for _ in range(2):
-        if der[offset] != 2:
-            raise ValueError("Expected DER integer")
-        width = der[offset + 1]
-        start = offset + 2
-        offset = start + width
-        parts.append(int.from_bytes(der[start:offset], "big").to_bytes(32, "big"))
-    return b"".join(parts)
 
 def write_readonly(name: str, data: bytes) -> None:
     target = root / name
@@ -174,47 +158,18 @@ now = datetime.now(timezone.utc)
 with TemporaryDirectory() as tmp:
     temp = Path(tmp)
     key = temp / "dev-publisher.pem"
-    subprocess.run(["openssl", "ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", str(key)], check=True)
-    spki = subprocess.check_output(["openssl", "pkey", "-in", str(key), "-pubout", "-outform", "DER"])
+    packages = AppearancePackages(key, "dev.local", "dev-1", "signature/dev", "trust/dev", write_readonly, allow_tail=True)
     themes = [
         ("editorial-moss", "dev.editorial-moss", "1.0.0", dict(LightAccent="#225533", LightHover="#1b4429", DarkAccent="#8ce0a8", DarkHover="#b3edd0")),
         ("warm-terracotta", "dev.warm-terracotta", "1.0.0", dict(LightAccent="#7c2d12", LightHover="#66240e", DarkAccent="#f5b895", DarkHover="#fad0b6")),
     ]
-    sources = []
-    packages = []
     for slug, pkg_id, version, palette in themes:
-        ref = f"approved-source/{slug}"
         manifest = dict(
             Format=1, Kind="theme", Id=pkg_id, Version=version, Publisher="dev.local",
             SignatureReference="signature/dev", TrustPolicyReference="trust/dev", Theme=palette
         )
-        zpath = temp / f"{slug}.zip"
-        with ZipFile(zpath, "w") as zf:
-            zf.writestr("manifest.json", json.dumps(manifest))
-        content = zpath.read_bytes()
-        sig = p1363(subprocess.check_output(["openssl", "dgst", "-sha256", "-sign", str(key), str(zpath)]))
-        archive_sha = digest(content)
-        sig_sha = digest(sig)
-        write_readonly(f"{archive_sha}.zip", content)
-        write_readonly(f"{sig_sha}.signature", sig)
-        sources.append(dict(
-            Reference=ref, Provenance=f"provenance/{slug}", Publisher="dev.local", KeyId="dev-1",
-            ArchiveSha256=archive_sha, SignatureReference="signature/dev", TrustPolicyReference="trust/dev"
-        ))
-        packages.append(dict(Source=ref, ArchiveSha256=archive_sha, SignatureSha256=sig_sha))
-    registry = dict(
-        Keys=[dict(
-            Publisher="dev.local", KeyId="dev-1", SubjectPublicKeyInfo=list(spki),
-            ValidFrom=(now - timedelta(hours=1)).isoformat(),
-            ValidUntil=(now + timedelta(days=30)).isoformat(),
-            RevokedAt=None
-        )],
-        Sources=sources,
-        Packages=packages,
-        ActiveTheme=None,
-        ActiveFont=None
-    )
-    write_readonly("appearance.json", json.dumps(registry, indent=2).encode())
+        packages.add(slug, manifest, {})
+    packages.finish(now - timedelta(hours=1), now + timedelta(days=30), None, None, None, indent=2)
 PY
 fi
 
@@ -288,7 +243,73 @@ if (( seed_demo )); then
 
   has_articles=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.article")
   if [[ "$has_articles" == "0" ]]; then
-    "${psql_db[@]}" >/dev/null <<'SQL'
+    # Feed both publications to the same transaction in their original identity order.
+    write_demo_publication() {
+      local ordinal=$1 age=$2 summary=$3 category=$4 tags=$5
+      local article="a$ordinal" revision="r$ordinal" command="c$ordinal" publication="p$ordinal"
+      cat <<SQL
+WITH owner AS (
+  SELECT id FROM public.admin_principal WHERE handle = 'dev-admin'
+),
+$article AS (
+  INSERT INTO public.article (owner_id, revision, title, body, published_revision, publication_count, deleted, created_at, updated_at)
+  SELECT id, 1,
+SQL
+      cat
+      cat <<SQL
+         1, 1, false, now() - interval '$age', now() - interval '$age'
+  FROM owner RETURNING id, owner_id, title, body, created_at
+),
+$revision AS (
+  INSERT INTO public.article_revision (article_id, revision, title, body, happened_at, author_summary)
+  SELECT id, 1, title, body, created_at, '$summary' FROM $article
+  RETURNING article_id, revision, happened_at
+),
+$command AS (
+  INSERT INTO public.article_command (actor_id, command_id, fingerprint, article_id, revision, title, body, published)
+  SELECT $article.owner_id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-$article-r1', 'UTF8')), $article.id, 1, $article.title, $article.body, true FROM $article
+  RETURNING actor_id, command_id, article_id, revision
+),
+$publication AS (
+  INSERT INTO public.article_publication (article_id, revision, publication_no, published_at)
+  SELECT article_id, revision, 1, happened_at FROM $revision
+  RETURNING article_id, publication_id, revision, publication_no, published_at
+),
+h$ordinal AS (
+  INSERT INTO public.article_publication_history (article_id, event_no, revision, publication_no, publication_id, kind, reason, happened_at, actor_id, command_id)
+  SELECT $publication.article_id, 1, $publication.revision, $publication.publication_no, $publication.publication_id, 'publish', 'author-published', $publication.published_at, $command.actor_id, $command.command_id
+  FROM $publication JOIN $command ON $command.article_id = $publication.article_id
+),
+o$ordinal AS (
+  INSERT INTO public.blog_outbox (article_id, revision, kind, created_at, processed_at)
+  SELECT article_id, revision, 'publish', published_at, published_at FROM $publication
+),
+rr$ordinal AS (
+  INSERT INTO public.article_revision_rights (article_id, revision, enabled, license_type, copyright_holder, copyright_year, rights_statement, attribution_template, copy_policy, max_excerpt_chars, allow_code_copy, show_public_badge, proof_binding_enabled)
+  SELECT article_id, revision, true, 'CC-BY-4.0', 'FsusBlog Dev', 2026, 'Licensed under CC-BY-4.0.', '{title}', 'append-attribution', 300, true, true, false FROM $revision
+),
+pr$ordinal AS (
+  INSERT INTO public.article_publication_rights (article_id, publication_id, revision)
+  SELECT article_id, publication_id, revision FROM $publication
+),
+cat$ordinal AS (
+  INSERT INTO public.article_revision_category (article_id, revision, category_id)
+  SELECT $revision.article_id, $revision.revision, cat.id FROM $revision, public.category cat WHERE cat.name = '$category'
+),
+tag$ordinal AS (
+  INSERT INTO public.article_revision_tag (article_id, revision, tag_id)
+  SELECT $revision.article_id, $revision.revision, t.id FROM $revision, public.tag t WHERE t.name IN ($tags)
+),
+cw$ordinal AS (
+  INSERT INTO public.comment_public_write (article_id) SELECT id FROM $article
+)
+SELECT 1;
+
+SQL
+    }
+
+    {
+      cat <<'SQL'
 BEGIN;
 
 INSERT INTO public.category (name, description) VALUES
@@ -304,118 +325,20 @@ INSERT INTO public.tag (name, description) VALUES
 INSERT INTO public.tag_url_name (name_key, tag_id)
 SELECT lower(name), id FROM public.tag;
 
-WITH owner AS (
-  SELECT id FROM public.admin_principal WHERE handle = 'dev-admin'
-),
-a1 AS (
-  INSERT INTO public.article (owner_id, revision, title, body, published_revision, publication_count, deleted, created_at, updated_at)
-  SELECT id, 1,
+SQL
+      write_demo_publication 1 '3 days' \
+        '介绍 FsusBlog v2 本地开发架构、Vite HMR 联动 FsusUI 与 AEDS 帧调试方式。' \
+        Engineering "'dotnet', 'postgresql', 'aeds'" <<'ARTICLE'
          'FsusBlog v2 本地开发与 AEDS 二进制协议导览',
          E'## 欢迎使用 FsusBlog v2\n\n这是一篇用于本地热重载与调试的示例文章。\n\n- 后端运行在 `.NET 10` + `PostgreSQL 18`\n- 前端通过 Vite HMR 直连相邻 `../FsusUI` 源码\n- 全部运行时业务接口均采用 `AEDS v2` 二进制帧\n\n```ts\n// 在浏览器控制台开启 AEDS 二进制帧调试日志\nwindow.__fsusDebug?.aeds(true)\n```\n',
-         1, 1, false, now() - interval '3 days', now() - interval '3 days'
-  FROM owner RETURNING id, owner_id, title, body, created_at
-),
-r1 AS (
-  INSERT INTO public.article_revision (article_id, revision, title, body, happened_at, author_summary)
-  SELECT id, 1, title, body, created_at, '介绍 FsusBlog v2 本地开发架构、Vite HMR 联动 FsusUI 与 AEDS 帧调试方式。' FROM a1
-  RETURNING article_id, revision, happened_at
-),
-c1 AS (
-  INSERT INTO public.article_command (actor_id, command_id, fingerprint, article_id, revision, title, body, published)
-  SELECT a1.owner_id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-a1-r1', 'UTF8')), a1.id, 1, a1.title, a1.body, true FROM a1
-  RETURNING actor_id, command_id, article_id, revision
-),
-p1 AS (
-  INSERT INTO public.article_publication (article_id, revision, publication_no, published_at)
-  SELECT article_id, revision, 1, happened_at FROM r1
-  RETURNING article_id, publication_id, revision, publication_no, published_at
-),
-h1 AS (
-  INSERT INTO public.article_publication_history (article_id, event_no, revision, publication_no, publication_id, kind, reason, happened_at, actor_id, command_id)
-  SELECT p1.article_id, 1, p1.revision, p1.publication_no, p1.publication_id, 'publish', 'author-published', p1.published_at, c1.actor_id, c1.command_id
-  FROM p1 JOIN c1 ON c1.article_id = p1.article_id
-),
-o1 AS (
-  INSERT INTO public.blog_outbox (article_id, revision, kind, created_at, processed_at)
-  SELECT article_id, revision, 'publish', published_at, published_at FROM p1
-),
-rr1 AS (
-  INSERT INTO public.article_revision_rights (article_id, revision, enabled, license_type, copyright_holder, copyright_year, rights_statement, attribution_template, copy_policy, max_excerpt_chars, allow_code_copy, show_public_badge, proof_binding_enabled)
-  SELECT article_id, revision, true, 'CC-BY-4.0', 'FsusBlog Dev', 2026, 'Licensed under CC-BY-4.0.', '{title}', 'append-attribution', 300, true, true, false FROM r1
-),
-pr1 AS (
-  INSERT INTO public.article_publication_rights (article_id, publication_id, revision)
-  SELECT article_id, publication_id, revision FROM p1
-),
-cat1 AS (
-  INSERT INTO public.article_revision_category (article_id, revision, category_id)
-  SELECT r1.article_id, r1.revision, cat.id FROM r1, public.category cat WHERE cat.name = 'Engineering'
-),
-tag1 AS (
-  INSERT INTO public.article_revision_tag (article_id, revision, tag_id)
-  SELECT r1.article_id, r1.revision, t.id FROM r1, public.tag t WHERE t.name IN ('dotnet', 'postgresql', 'aeds')
-),
-cw1 AS (
-  INSERT INTO public.comment_public_write (article_id) SELECT id FROM a1
-)
-SELECT 1;
-
-WITH owner AS (
-  SELECT id FROM public.admin_principal WHERE handle = 'dev-admin'
-),
-a2 AS (
-  INSERT INTO public.article (owner_id, revision, title, body, published_revision, publication_count, deleted, created_at, updated_at)
-  SELECT id, 1,
+ARTICLE
+      write_demo_publication 2 '1 day' \
+        'Notes on reading typography, FsusUI token discipline, and live local iteration.' \
+        Essays "'vue'" <<'ARTICLE'
          'Designing for Quiet Restraint in Reading Interfaces',
          E'## Intellectual Minimalism\n\nGood editorial software stays out of the reader''s way. Clear hierarchy, crisp spacing, and deterministic interactions matter more than ornamental chrome.\n\n### Local Live Editing\n\nEdit any file under `src/Web/src/` or sibling `../FsusUI/vue/packages/` and watch Vite HMR update the page instantaneously.\n',
-         1, 1, false, now() - interval '1 day', now() - interval '1 day'
-  FROM owner RETURNING id, owner_id, title, body, created_at
-),
-r2 AS (
-  INSERT INTO public.article_revision (article_id, revision, title, body, happened_at, author_summary)
-  SELECT id, 1, title, body, created_at, 'Notes on reading typography, FsusUI token discipline, and live local iteration.' FROM a2
-  RETURNING article_id, revision, happened_at
-),
-c2 AS (
-  INSERT INTO public.article_command (actor_id, command_id, fingerprint, article_id, revision, title, body, published)
-  SELECT a2.owner_id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-a2-r1', 'UTF8')), a2.id, 1, a2.title, a2.body, true FROM a2
-  RETURNING actor_id, command_id, article_id, revision
-),
-p2 AS (
-  INSERT INTO public.article_publication (article_id, revision, publication_no, published_at)
-  SELECT article_id, revision, 1, happened_at FROM r2
-  RETURNING article_id, publication_id, revision, publication_no, published_at
-),
-h2 AS (
-  INSERT INTO public.article_publication_history (article_id, event_no, revision, publication_no, publication_id, kind, reason, happened_at, actor_id, command_id)
-  SELECT p2.article_id, 1, p2.revision, p2.publication_no, p2.publication_id, 'publish', 'author-published', p2.published_at, c2.actor_id, c2.command_id
-  FROM p2 JOIN c2 ON c2.article_id = p2.article_id
-),
-o2 AS (
-  INSERT INTO public.blog_outbox (article_id, revision, kind, created_at, processed_at)
-  SELECT article_id, revision, 'publish', published_at, published_at FROM p2
-),
-rr2 AS (
-  INSERT INTO public.article_revision_rights (article_id, revision, enabled, license_type, copyright_holder, copyright_year, rights_statement, attribution_template, copy_policy, max_excerpt_chars, allow_code_copy, show_public_badge, proof_binding_enabled)
-  SELECT article_id, revision, true, 'CC-BY-4.0', 'FsusBlog Dev', 2026, 'Licensed under CC-BY-4.0.', '{title}', 'append-attribution', 300, true, true, false FROM r2
-),
-pr2 AS (
-  INSERT INTO public.article_publication_rights (article_id, publication_id, revision)
-  SELECT article_id, publication_id, revision FROM p2
-),
-cat2 AS (
-  INSERT INTO public.article_revision_category (article_id, revision, category_id)
-  SELECT r2.article_id, r2.revision, cat.id FROM r2, public.category cat WHERE cat.name = 'Essays'
-),
-tag2 AS (
-  INSERT INTO public.article_revision_tag (article_id, revision, tag_id)
-  SELECT r2.article_id, r2.revision, t.id FROM r2, public.tag t WHERE t.name IN ('vue')
-),
-cw2 AS (
-  INSERT INTO public.comment_public_write (article_id) SELECT id FROM a2
-)
-SELECT 1;
-
+ARTICLE
+      cat <<'SQL'
 -- Seed one unpublished draft visible inside /admin/articles.
 WITH owner AS (
   SELECT id FROM public.admin_principal WHERE handle = 'dev-admin'
@@ -503,6 +426,7 @@ WHERE c.last_message_id IS NULL;
 
 COMMIT;
 SQL
+    } | "${psql_db[@]}" >/dev/null
     "$dotnet_bin" "$cli_dll" verify >/dev/null
   fi
 

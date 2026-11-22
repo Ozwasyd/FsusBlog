@@ -1,4 +1,3 @@
-import hashlib
 import io
 import json
 import os
@@ -10,8 +9,8 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 
-def digest(value):
-    return hashlib.sha256(value).hexdigest()
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'tools'))
+from fixture_signing import digest, fixture_signature, generate_key
 
 
 def encoded(value):
@@ -84,17 +83,7 @@ def archive(entries, linked=None, extra=None):
 
 def sign(key, path):
     der = subprocess.check_output(["openssl", "dgst", "-sha256", "-sign", str(key), str(path)])
-    assert der[0] == 0x30 and der[1] == len(der) - 2
-    offset = 2
-    parts = []
-    for _ in range(2):
-        assert der[offset] == 2
-        width = der[offset + 1]
-        offset += 2
-        parts.append(int.from_bytes(der[offset:offset + width], "big").to_bytes(32, "big"))
-        offset += width
-    assert offset == len(der)
-    return b"".join(parts)
+    return fixture_signature(der)
 
 
 def main(dll):
@@ -104,8 +93,7 @@ def main(dll):
         operator = root / "operator"
         operator.mkdir(mode=0o700)
         private_key = operator / "publisher.key"
-        subprocess.run(["openssl", "ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", str(private_key)], check=True)
-        spki = subprocess.check_output(["openssl", "pkey", "-in", str(private_key), "-pubout", "-outform", "DER"])
+        spki = generate_key(private_key)
         trust_path = operator / "trust.json"
         archive_path = root / "minimal-ink.fstheme"
         signature_path = root / "signature.raw"

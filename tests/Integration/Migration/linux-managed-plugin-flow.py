@@ -78,8 +78,7 @@ def main(assembly):
     with TemporaryDirectory(prefix="fsus-linux-signed-hook-") as raw:
         base = Path(raw).resolve(strict=True)
         key = base / "signer.pem"
-        subprocess.run(["openssl", "ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", str(key)], check=True)
-        public = subprocess.check_output(["openssl", "pkey", "-in", str(key), "-pubout", "-outform", "DER"])
+        public = FIXTURE["generate_key"](key)
 
         def approve(name, script, **kwargs):
             root = base / name

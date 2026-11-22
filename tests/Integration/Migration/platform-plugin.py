@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from datetime import datetime, timedelta, timezone
 from fcntl import flock, LOCK_EX, LOCK_NB
-from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
 import json
@@ -15,32 +14,18 @@ from tempfile import TemporaryDirectory
 from zipfile import ZipFile
 
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'tools'))
+from fixture_signing import digest as sha, fixture_signature as p1363, generate_key
+
+
 PLUGIN = 'fixture.site.render'
 HOOK = 'article.beforeRenderMarkdown'
-
-
-def sha(data):
-    return sha256(data).hexdigest()
 
 
 def write(path, data, mode):
     with path.open('xb') as stream:
         stream.write(data)
     path.chmod(mode)
-
-
-def p1363(der):
-    assert der[0] == 48 and der[1] == len(der) - 2
-    offset = 2
-    scalars = []
-    for _ in range(2):
-        assert der[offset] == 2
-        size = der[offset + 1]
-        offset += 2
-        scalars.append(int.from_bytes(der[offset:offset+size], 'big').to_bytes(32, 'big'))
-        offset += size
-    assert offset == len(der)
-    return b''.join(scalars)
 
 
 def fixture(root, private_key, public_key, script, *, enabled=True, bad_signature=False, network=False, revoked=False):
@@ -84,8 +69,7 @@ def main(assembly):
     with TemporaryDirectory(prefix='fsus-platform-hook-') as raw:
         base = Path(raw).resolve(strict=True)
         key = base / 'signer.pem'
-        subprocess.run(['openssl', 'ecparam', '-name', 'prime256v1', '-genkey', '-noout', '-out', str(key)], check=True)
-        public_key = subprocess.check_output(['openssl', 'pkey', '-in', str(key), '-pubout', '-outform', 'DER'])
+        public_key = generate_key(key)
 
         def run(name, source, expected, output=b'', options=None, payload='原稿 📝\r\nAbc\n'.encode()):
             root = base / name

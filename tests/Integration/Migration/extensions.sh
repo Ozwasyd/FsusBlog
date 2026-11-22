@@ -59,21 +59,15 @@ path.chmod(0o400)
 PY
 
 openssl dgst -sha256 -sign "$scratch/publisher.key" -out "$scratch/signature.der" "$scratch/package.zip"
-python3 - "$scratch" <<'PY'
+python3 -B - "$scratch" "$(dirname -- "${BASH_SOURCE[0]}")/../../../tools" <<'PY'
 from pathlib import Path
 import sys
 
-base = Path(sys.argv[1]); der = (base / "signature.der").read_bytes()
-assert der[0] == 0x30 and der[1] == len(der)-2
-index = 2; scalars = []
-for _ in range(2):
-    assert der[index] == 0x02
-    width = der[index+1]
-    index += 2
-    scalars.append(int.from_bytes(der[index:index+width], "big").to_bytes(32, "big"))
-    index += width
-assert index == len(der)
-(base / "signature.raw").write_bytes(b"".join(scalars))
+sys.path.insert(0, sys.argv[2])
+from fixture_signing import fixture_signature
+
+base = Path(sys.argv[1])
+(base / "signature.raw").write_bytes(fixture_signature((base / "signature.der").read_bytes()))
 PY
 
 extension() { dotnet "$project" extension "$@"; }
