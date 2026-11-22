@@ -238,10 +238,9 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', whenVisible)
 })
 
-const links = computed(() => [
-  ...(splitAdminHost ? [] : [{ to: '/', label: t('nav.publicSite') }]),
-  ...adminWorkspacePages.map(({ path, label }) => ({ to: path, label: t(label) })),
-])
+const links = computed(() =>
+  adminWorkspacePages.map(({ path, label }) => ({ to: path, label: t(label) })),
+)
 
 function handleSessionLoss(error: unknown): boolean {
   if (!(error instanceof ApiError) || error.status !== 401) return false
@@ -385,7 +384,7 @@ function logOut() {
 </script>
 
 <template>
-  <AccountWorkspace v-if="authority?.status === 'active'" home="/admin/site" :label="t('admin.menu')" :links="links"
+  <AccountWorkspace v-if="authority?.status === 'active'" :home="splitAdminHost ? '/admin/site' : '/'" :label="t('admin.menu')" :links="links"
     surface="task" :theme-mode="themeMode" @theme="emit('theme', $event)">
     <template #actions="{ drawer }">
       <ElButton :text="!drawer" native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>

@@ -27,15 +27,15 @@ watch(() => route.fullPath, () => { open.value = false })
         </ElButton>
       </template>
     </ElSiteHeader>
-    <div class="account-workspace-frame">
-      <nav class="account-workspace-nav" :aria-label="label">
+    <div class="account-workspace-frame" :class="{ 'is-single-column': !links.length }">
+      <nav v-if="links.length" class="account-workspace-nav" :aria-label="label">
         <RouterLink v-for="link in links" :key="link.to" :to="link.to">{{ link.label }}</RouterLink>
       </nav>
       <div class="account-workspace-content" tabindex="-1"><slot /></div>
     </div>
     <ElDrawer v-model="open" :title="label" direction="rtl" size="clamp(min(18.5rem, calc(100vw - 24px)), 80vw, 20rem)" append-to-body>
       <div class="account-workspace-drawer">
-        <nav class="account-workspace-drawer-nav" :aria-label="label">
+        <nav v-if="links.length" class="account-workspace-drawer-nav" :aria-label="label">
           <RouterLink v-for="link in links" :key="link.to" :to="link.to" @click="open = false">{{ link.label }}</RouterLink>
         </nav>
         <div class="account-workspace-drawer-section">
@@ -60,11 +60,18 @@ watch(() => route.fullPath, () => { open.value = false })
   margin-inline: auto;
   padding-inline: var(--fsusblog-page-gutter);
 }
+.account-workspace-frame.is-single-column {
+  grid-template-columns: minmax(0, 1fr);
+}
 .account-workspace-nav, .account-workspace-drawer-nav { display: grid; align-content: start; gap: .25rem; }
 .account-workspace-drawer { display: grid; align-content: start; gap: 1rem; }
 .account-workspace-drawer-section {
   padding-block-start: 1rem;
   border-block-start: 1px solid var(--el-border-color-lighter);
+}
+.account-workspace-drawer-section:first-child {
+  padding-block-start: 0;
+  border-block-start: 0;
 }
 .account-workspace-drawer-actions {
   display: grid;

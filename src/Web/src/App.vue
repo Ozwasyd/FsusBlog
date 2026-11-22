@@ -98,14 +98,11 @@ function navigatePublic(event: MouseEvent) {
 const adminArea = computed(() => route.meta.adminSection !== undefined)
 const adminAuthoringArea = computed(() => route.path.startsWith('/admin/') && route.meta.adminSection === undefined && route.name !== 'missing')
 const accountArea = computed(() => route.path.startsWith('/user/') && route.name !== 'missing')
-const accountLinks = computed(() => [
-  { to: '/', label: t('nav.publicSite') },
-  ...(currentSession.value ? [
-    { to: '/user/messagebox', label: t('nav.messages') },
-    { to: '/user/comments', label: t('page.own-comments') },
-    { to: '/user/identity/mfa', label: t('nav.security') },
-  ] : []),
-])
+const accountLinks = computed(() => currentSession.value ? [
+  { to: '/user/messagebox', label: t('nav.messages') },
+  { to: '/user/comments', label: t('page.own-comments') },
+  { to: '/user/identity/mfa', label: t('nav.security') },
+] : [])
 const authHref = computed(() => (currentSession.value || currentAuthorSession.value) ? '' : '/login')
 const authLabel = computed(() => t('nav.login'))
 watch(() => route.path, () => {
@@ -296,7 +293,7 @@ async function leave() {
     <component :is="Component" :theme-mode="themeMode" @theme="useTheme" />
   </RouterView>
   <RouterView v-else-if="adminAuthoringArea" />
-  <AccountWorkspace v-else-if="accountArea" home="/user" :label="t('nav.accountMenu')" :links="accountLinks"
+  <AccountWorkspace v-else-if="accountArea" home="/" :label="t('nav.accountMenu')" :links="accountLinks"
     :surface="route.name === 'security' || route.name === 'messages' || route.name === 'own-comments' ? 'task' : 'account'" :theme-mode="themeMode" @theme="useTheme">
     <template #actions="{ drawer }">
       <ElButton v-if="currentSession || logoutFailure" :text="!drawer" @click="leave">{{ t('nav.logout') }}</ElButton>
