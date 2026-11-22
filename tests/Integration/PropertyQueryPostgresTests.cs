@@ -180,8 +180,11 @@ public sealed class PropertyQueryPostgresTests
             RequestId = Guid.NewGuid(), CollectionRevision = 1, Name = "RÉVISION" }), HttpStatusCode.Conflict);
         var saved = Wire.DecodeSavedViewCatalog(await Saved(WireRoutes.SavedViews));
         Assert.Equal(new SavedViewSummary(viewId, 1, "Révision"), Assert.Single(saved.Views));
-        var started = Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute,
-            Wire.EncodeSavedViewExecute(new(viewId, 1, ""))));
+        var openView = Wire.EncodeSavedViewExecute(new(viewId, 1, ""));
+        await Send(WireRoutes.SavedViews, null, null, HttpStatusCode.Unauthorized);
+        await Send(WireRoutes.SavedViewPlacement, null, null, HttpStatusCode.Unauthorized);
+        await Send(WireRoutes.SavedViewExecute, openView, null, HttpStatusCode.Unauthorized);
+        var started = Wire.DecodePropertyArticlePage(await Saved(WireRoutes.SavedViewExecute, openView));
         Assert.Equal(groupPage.Rows.Select(row => row.Id), started.Rows.Select(row => row.Id));
         var continuation = Wire.EncodeSavedViewExecute(new(viewId, 1, started.NextCursor));
         await Saved(WireRoutes.SavedViewExecute, Wire.EncodeSavedViewExecute(new(viewId, 1, groupPage.NextCursor)), HttpStatusCode.BadRequest);
