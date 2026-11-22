@@ -79,7 +79,7 @@ try {
   browser = await chromium.launch({ executablePath: chrome, headless: true, args: [`--ignore-certificate-errors-spki-list=${pins}`] })
   interrupted.signal.throwIfAborted()
   witness.chromium = browser.version()
-  const context = await browser.newContext({ viewport: { width: 375, height: 850 }, serviceWorkers: 'block' })
+  const context = await browser.newContext({ locale: 'en-US', viewport: { width: 375, height: 850 }, serviceWorkers: 'block' })
   context.on('request', request => {
     const entry = observeCall(request)
     if (entry) requests.push(entry)
@@ -104,6 +104,7 @@ try {
   const broadStart = performance.now()
   assert.equal(await page.goto(searchPath(oracle.broad.term, oracle.broad.page)).then(response => response.status()), 200)
   const deepCards = await readCards(page, oracle.broad.items)
+  assert.equal(await page.locator('html').getAttribute('lang'), 'en')
   const nav = page.getByRole('navigation', { name: 'Search result pages' })
   assert.equal(await nav.locator('span[aria-current="page"]').textContent(), `Page ${oracle.broad.page}`)
   assert.equal(await nav.getByRole('link', { name: 'Previous', exact: true }).count(), 1)
