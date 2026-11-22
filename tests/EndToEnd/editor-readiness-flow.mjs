@@ -3,18 +3,19 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
 import { button, chromium, expect, holdResponse, observePageErrors, readDraft } from './browser-authoring-fixture.mjs'
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
-const ticket = process.env.FSUSBLOG_TEST_TICKET
+const bootstrap = process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
-assert(ticket && evidence)
+assert(bootstrap && evidence)
 await mkdir(evidence, { recursive: true })
 
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, hasTouch: true })
 const diagnostics = []
 const observations = []
-const writeUrl = `${origin}/user/manage/article/write`
+const writeUrl = `${origin}/admin/articles/write`
 const heading = page => roleWithExactName(page, 'heading', 'New article')
 const titleInput = page => exactLabel(page, 'Title')
 const bodyInput = page => exactLabel(page, 'Body')
@@ -42,16 +43,15 @@ async function saveAndVerify(page, title, body) {
   ])
   const draft = await readDraft(response)
   assert.deepEqual({ title: draft.title, body: draft.body }, { title, body })
-  await expect(page).toHaveURL(`${origin}/user/manage/article/edit/${draft.id}`)
+  await expect(page).toHaveURL(`${origin}/admin/articles/edit/${draft.id}`)
   return draft.id
 }
 
 try {
   const desktop = await openPage()
+  await signInFreshAdmin(desktop, origin, bootstrap)
   const scope = await holdScopeResponse(desktop)
-  await desktop.goto(`${origin}/login`)
-  await desktop.getByLabel('Owner access key').fill(ticket)
-  await button(desktop, 'Log in').click()
+  await desktop.goto(writeUrl)
   await expect(heading(desktop)).toBeVisible()
   assert.equal(await scope.status(), 200)
   assert.equal(await titleInput(desktop).isEnabled(), false, 'The title became editable before the verified local recovery scan')
