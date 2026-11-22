@@ -148,7 +148,8 @@ const renderedMessages = computed<readonly InboxRenderedMessage[]>(() => {
 const threadKey = computed(() => {
   const current = state.thread
   if (!current) return ''
-  return `${current.conversation.id}-${current.repliesEnabled ? 'r' : 'n'}-${current.version ? 'v' : 'x'}-${current.conversation.status}`
+  const closed = current.conversation.status === 2
+  return `${current.conversation.id}-${current.repliesEnabled ? 'r' : 'n'}-${current.version ? 'v' : 'x'}-${closed}`
 })
 
 function openThread(id: bigint, before: string | null = null, event?: MouseEvent) {

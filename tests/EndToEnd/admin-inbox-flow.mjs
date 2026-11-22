@@ -239,7 +239,9 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       await exactText(accountThread, 'Pending').waitFor()
       assert.equal(await exactText(accountThread, reason).count(), 0)
       if (peerThread && peerQueue && peerDraft) {
-        await exactText(peerThread, 'Pending · Account ticket').waitFor()
+        const updatedThread = roleWithExactName(peerThread, 'region', 'Inbox QA support case')
+        await exactText(updatedThread, 'Pending').waitFor()
+        await exactText(updatedThread, 'Account ticket').waitFor()
         await exactButton(peerQueue, 'Inbox QA support case').waitFor({ state: 'hidden' })
         assert.equal(await peerDraft.inputValue(), 'Unsaved reply in another administrator tab')
         assert(await peerDraft.evaluate(node => document.activeElement === node))
@@ -429,9 +431,9 @@ async function verifyDefaultQueueUpdates(page, panel, context, adminOrigin, site
   await captureInboxSocket(page, `^${wakeUrl.pathname}$`)
   try {
     await reader.goto(`${siteOrigin}/user/messagebox`)
-    await exactButton(reader, '提交工单').click()
-    await exactLabel(reader, '主题（选填）').fill(subject)
-    await exactLabel(reader, '工单内容').fill(body)
+    await exactButton(reader, 'Create ticket').click()
+    await exactLabel(reader, 'Subject (optional)').fill(subject)
+    await exactLabel(reader, 'Ticket content').fill(body)
 
     await page.bringToFront()
     await roleWithExactName(page, 'tab', 'Support inbox').click()
@@ -474,11 +476,11 @@ async function verifyDefaultQueueUpdates(page, panel, context, adminOrigin, site
     const [challenge, created] = await Promise.all([
       reader.waitForResponse(response => post(response, WireRoutes.InboxCreatePowChallenge)),
       reader.waitForResponse(response => post(response, WireRoutes.InboxList)),
-      exactButton(reader, '发送工单').click(),
+      exactButton(reader, 'Send ticket').click(),
     ])
     assertStatus(challenge, 200)
     assertStatus(created, 200)
-    await exactText(reader, '工单已提交。').waitFor()
+    await exactText(reader, 'Ticket submitted.').waitFor()
     await page.bringToFront()
   }
 }
@@ -547,15 +549,15 @@ async function verifyOpenedThreadUpdates(page, panel, context, wakeEndpoint, sit
   }
 
   async function sendAccountReply(body) {
-    await exactLabel(reader, '回复内容').fill(body)
+    await exactLabel(reader, 'Reply content').fill(body)
     const challenge = waitForUrlResponse(reader, () => siteOrigin +
       WireRoutes.InboxReplyPowChallenge.replace('{id:long}', id), 'POST')
     const reply = waitForUrlResponse(reader, () => siteOrigin +
       WireRoutes.InboxReply.replace('{id:long}', id), 'POST')
-    await exactButton(reader, '发送回复').click()
+    await exactButton(reader, 'Send reply').click()
     assertStatus(await challenge, 200)
     assertStatus(await reply, 200)
-    await exactText(reader, '回复已发送。').waitFor()
+    await exactText(reader, 'Reply sent.').waitFor()
     await page.bringToFront()
   }
 
