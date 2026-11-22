@@ -2,41 +2,39 @@
 import { siteLocale, t } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
-  ElAlert, ElButton, ElConversationContextBar, ElConversationList, ElEmptySelectionState,
-  ElInboxEmptyState, ElInboxLayout, ElInput, ElMessageBubble, ElMessageTimeline,
-  ElOption, ElReplyComposerShell, ElSelect, ElSkeleton, ElTag, ElThreadPanel,
+  ElAlert,
+  ElButton,
+  ElDialog,
+  ElInlineActions,
+  ElInput,
+  ElOption,
+  ElSelect,
+  ElTag,
 } from '@ozwasyd/element-plus'
 import { isNoticeRecipient } from '../../../Contracts/admin-inbox-notice'
-import type { AdminInboxStatus, AdminInboxThread } from '../../../Contracts/admin-inbox'
+import InboxSplitWorkspace from '../components/InboxSplitWorkspace.vue'
 import {
   AdminInboxController,
   adminInboxStatusTransitions as transitions,
   type AdminInboxState,
 } from '../admin/adminInboxController'
 import { useDelayedBusy } from '../delayedBusy'
+import {
+  createInboxTimeFormatter,
+  inboxBubbleVariant,
+  inboxStatusTagType,
+  type InboxRenderedMessage,
+} from '../inboxPresentation'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ sessionLost: [error: unknown] }>()
 
-const title = ref<HTMLElement>()
-const threadPanel = ref<HTMLElement>()
-const queue = ref<HTMLElement>()
+const workspace = ref<InstanceType<typeof InboxSplitWorkspace>>()
 const statuses = ['admin.inbox.m6', 'admin.inbox.m7', 'admin.inbox.m8'] as const
 const senders = ['admin.inbox.m30', 'admin.inbox.m31', 'admin.inbox.m32'] as const
-const statusTagTypes = ['', 'warning', 'info'] as const
+const timeFormat = computed(() => createInboxTimeFormatter(siteLocale.value))
 
 let opener: HTMLElement | undefined
-
-function statusTagType(status: AdminInboxStatus) {
-  return statusTagTypes[status]
-}
-
-function messageVariant(message: AdminInboxThread['messages'][number]): 'other' | 'self' | 'system' | 'muted' {
-  if (message.internal) return 'muted'
-  if (message.sender === 1) return 'self'
-  if (message.sender === 2) return 'system'
-  return 'other'
-}
 
 const controller = new AdminInboxController({
   hooks: {
@@ -44,7 +42,7 @@ const controller = new AdminInboxController({
     onReset: () => { opener = undefined },
     onThreadOpened: async () => {
       await nextTick()
-      title.value?.focus({ preventScroll: true })
+      workspace.value?.focusThreadHeading()
     },
     onThreadRefreshed: () => nextTick(),
     onThreadClosed: () => {
@@ -54,25 +52,23 @@ const controller = new AdminInboxController({
     },
     onBeforeApplyLatestThread: conversationId => {
       const focus = document.activeElement
-      const focusedInThread = focus && threadPanel.value?.contains(focus)
-      if (!focusedInThread) return
+      if (!workspace.value?.containsThreadFocus(focus)) return
       return () => {
         void nextTick(() => {
           if (!props.sessionSignal.aborted && thread.value?.conversation.id === conversationId &&
-              !focus.isConnected && document.activeElement === document.body) {
-            title.value?.focus({ preventScroll: true })
+              focus && !focus.isConnected && document.activeElement === document.body) {
+            workspace.value?.focusThreadHeading()
           }
         })
       }
     },
     onBeforeApplyLiveQueuePage: () => {
       const focus = document.activeElement
-      const focusedInQueue = focus && queue.value?.contains(focus)
-      if (!focusedInQueue) return
+      if (!workspace.value?.containsListFocus(focus)) return
       return () => {
         void nextTick(() => {
-          if (!props.sessionSignal.aborted && !focus.isConnected && document.activeElement === document.body) {
-            queue.value?.focus({ preventScroll: true })
+          if (!props.sessionSignal.aborted && focus && !focus.isConnected && document.activeElement === document.body) {
+            workspace.value?.focusList()
           }
         })
       }
@@ -190,18 +186,24 @@ const noticeBody = computed({
   set: value => controller.setNoticeBody(value),
 })
 
-const renderedMessages = computed(() => {
+const renderedMessages = computed<readonly InboxRenderedMessage[]>(() => {
   const current = thread.value
   if (!current) return []
-  const locale = siteLocale.value
+  const formatter = timeFormat.value
   const internalLabel = t('admin.inbox.m49')
   return current.messages.map(message => ({
     id: String(message.id),
-    variant: messageVariant(message),
+    variant: inboxBubbleVariant(message.sender, 'admin', message.internal),
     author: `${t(senders[message.sender])}${message.internal ? ` · ${internalLabel}` : ''}`,
-    meta: new Date(message.at).toLocaleString(locale),
+    meta: formatter.full(message.at),
     body: message.body,
   }))
+})
+
+const threadKey = computed(() => {
+  const current = thread.value
+  if (!current) return ''
+  return `${current.conversation.id}-${current.repliesEnabled ? 'r' : 'n'}-${current.version ? 'v' : 'x'}-${current.conversation.status}`
 })
 
 function openThread(id: bigint, before: string | null = null, event?: MouseEvent) {
@@ -216,7 +218,9 @@ const loadQueue = (cursor: string | null = null, action: 'refresh' | 'more' | nu
   void controller.loadQueue(cursor)
 }
 const retryRead = () => { void controller.retryRead() }
-const clearNotice = () => controller.clearNotice()
+const clearNotice = () => {
+  if (!noticePending.value) controller.clearNotice()
+}
 const sendNotice = () => { void controller.sendNotice() }
 const sendReply = () => { void controller.sendReply() }
 const saveStatus = () => { void controller.saveStatus() }
@@ -242,224 +246,231 @@ onBeforeUnmount(() => {
 <template>
   <section class="inbox-admin" aria-labelledby="admin-inbox-title">
     <h2 id="admin-inbox-title" class="inbox-admin-sr-title">{{ t('admin.inbox.m1') }}</h2>
-    <ElAlert v-if="failed" :title="t(failed)" type="error" :closable="false" />
+    <ElAlert v-if="failed && !composeNotice" :title="t(failed)" type="error" :closable="false" show-icon />
+    <ElAlert v-if="notice" :title="t(notice)" type="success" :closable="false" show-icon />
 
-    <ElInboxLayout
-      class="inbox-admin-shell"
-      :selected="Boolean(thread)"
-      :mobile-pane="thread ? 'detail' : 'list'"
-      density="compact"
+    <InboxSplitWorkspace
+      ref="workspace"
+      :has-selection="Boolean(thread)"
+      :has-thread="Boolean(thread)"
+      :list-label="t('admin.inbox.m1')"
+      :detail-label="t('admin.inbox.m1')"
+      :list-busy="queuePending"
+      :list-empty="rows.length === 0"
+      :list-error="Boolean(failed)"
+      :empty-list-title="t('admin.inbox.m21')"
+      :has-more="Boolean(next)"
+      :more-loading="queueMoreLoading"
+      :more-label="t('admin.inbox.m24')"
+      :thread-key="threadKey"
+      :thread-title="thread?.conversation.subject ?? ''"
+      thread-title-tag="h3"
+      :thread-busy="threadPending || replyPending || statusPending"
+      show-back
+      :back-disabled="replyPending || statusPending"
+      :back-label="t('admin.inbox.m25')"
+      :has-earlier="Boolean(thread?.previous)"
+      :earlier-loading="threadEarlierLoading"
+      :earlier-label="t('admin.inbox.m29')"
+      :messages="renderedMessages"
+      :reply-enabled="Boolean(thread && thread.repliesEnabled && thread.conversation.status !== 2)"
+      reply-input-id="admin-inbox-reply"
+      :reply-label="t('admin.inbox.m33')"
+      v-model:reply-model="reply"
+      :reply-disabled="replyPending"
+      :reply-pending="replyPending"
+      :reply-submit-label="t('admin.inbox.m34')"
+      :has-composer-extra="Boolean(thread?.version)"
+      :empty-selection-title="t('admin.inbox.m1')"
+      @load-more="loadQueue(next)"
+      @back="closeThread"
+      @load-earlier="thread && thread.previous && openThread(thread.conversation.id, thread.previous)"
+      @submit-reply="sendReply"
     >
-        <template #list>
-          <div ref="queue" class="inbox-admin-queue" tabindex="-1" :aria-busy="queuePending">
-            <div class="inbox-admin-toolbar">
-              <div class="inbox-admin-filters">
-                <ElSelect v-model="filter" :ariaLabel="t('admin.inbox.m4')">
-                  <ElOption :label="t('admin.inbox.m5')" value="" />
-                  <ElOption :label="t('admin.inbox.m6')" value="open" />
-                  <ElOption :label="t('admin.inbox.m7')" value="pending" />
-                  <ElOption :label="t('admin.inbox.m8')" value="closed" />
-                  <ElOption v-if="sharedRead" :label="t('admin.inbox.m9')" value="unread" />
-                  <ElOption v-if="sharedRead" :label="t('admin.inbox.m10')" value="system" />
-                </ElSelect>
-                <ElSelect v-if="activityAvailable" v-model="order" :ariaLabel="t('admin.inbox.m11')">
-                  <ElOption :label="t('admin.inbox.m12')" value="created" />
-                  <ElOption :label="t('admin.inbox.m13')" value="activity" />
-                </ElSelect>
-              </div>
-              <div class="inbox-admin-toolbar-actions">
-                <ElButton native-type="button" text :loading="queueRefreshLoading" @click="loadQueue()">{{ t('admin.inbox.m14') }}</ElButton>
-                <ElButton v-if="noticesEnabled && !composeNotice" native-type="button" :disabled="noticePending"
-                  @click="composeNotice = true">{{ t('admin.inbox.m15') }}</ElButton>
-              </div>
-            </div>
+      <template #list-toolbar>
+        <div class="inbox-admin-filters">
+          <ElSelect v-model="filter" :ariaLabel="t('admin.inbox.m4')">
+            <ElOption :label="t('admin.inbox.m5')" value="" />
+            <ElOption :label="t('admin.inbox.m6')" value="open" />
+            <ElOption :label="t('admin.inbox.m7')" value="pending" />
+            <ElOption :label="t('admin.inbox.m8')" value="closed" />
+            <ElOption v-if="sharedRead" :label="t('admin.inbox.m9')" value="unread" />
+            <ElOption v-if="sharedRead" :label="t('admin.inbox.m10')" value="system" />
+          </ElSelect>
+          <ElSelect v-if="activityAvailable" v-model="order" :ariaLabel="t('admin.inbox.m11')">
+            <ElOption :label="t('admin.inbox.m12')" value="created" />
+            <ElOption :label="t('admin.inbox.m13')" value="activity" />
+          </ElSelect>
+        </div>
+        <div class="inbox-admin-toolbar-actions">
+          <ElButton native-type="button" text :loading="queueRefreshLoading" @click="loadQueue()">
+            {{ t('admin.inbox.m14') }}
+          </ElButton>
+          <ElButton
+            v-if="noticesEnabled"
+            native-type="button"
+            type="primary"
+            :disabled="noticePending"
+            @click="composeNotice = true"
+          >{{ t('admin.inbox.m15') }}</ElButton>
+        </div>
+      </template>
 
-            <form v-if="noticesEnabled && composeNotice" class="inbox-admin-notice-form" @submit.prevent="sendNotice">
-              <div class="inbox-admin-field">
-                <label for="admin-notice-account">{{ t('admin.inbox.m16') }}</label>
-                <ElInput id="admin-notice-account" v-model="recipient" :disabled="noticePending" />
-              </div>
-              <div class="inbox-admin-field">
-                <label for="admin-notice-subject">{{ t('admin.inbox.m17') }}</label>
-                <ElInput id="admin-notice-subject" v-model="noticeSubject" :disabled="noticePending" />
-              </div>
-              <div class="inbox-admin-field">
-                <label for="admin-notice-body">{{ t('admin.inbox.m18') }}</label>
-                <ElInput id="admin-notice-body" v-model="noticeBody" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" :disabled="noticePending" />
-              </div>
-              <div class="inbox-admin-notice-actions">
-                <ElButton native-type="submit" type="primary" :loading="noticePending"
-                  :disabled="!isNoticeRecipient(recipient.trim()) || !noticeBody.trim()">{{ t('admin.inbox.m19') }}</ElButton>
-                <ElButton native-type="button" :disabled="noticePending" @click="clearNotice">{{ t('admin.inbox.m20') }}</ElButton>
-              </div>
-            </form>
-
-            <ElSkeleton v-if="queuePending && rows.length === 0" :rows="4" class="inbox-admin-skeleton" />
-            <ElInboxEmptyState
-              v-else-if="!queuePending && !failed && rows.length === 0"
-              :title="t('admin.inbox.m21')"
-            />
-            <ElConversationList v-if="rows.length" class="inbox-admin-list">
-              <div
-                v-for="item in rows"
-                :key="String(item.id)"
-                class="inbox-admin-item"
-                :class="{ 'is-selected': thread?.conversation.id === item.id }"
-                role="listitem"
-              >
-                <button
-                  type="button"
-                  class="inbox-admin-subject"
-                  @click="openThread(item.id, null, $event)"
-                >{{ item.subject }}</button>
-                <div class="inbox-admin-item-meta">
-                  <ElTag size="small" :type="statusTagType(item.status)">{{ t(statuses[item.status]) }}</ElTag>
-                  <small>{{ t(item.system ? 'admin.inbox.m22' : 'admin.inbox.m23') }}</small>
-                  <small v-if="item.unread" class="inbox-admin-unread">{{ t('admin.inbox.m47', { count: item.unread }) }}</small>
-                </div>
-              </div>
-            </ElConversationList>
-
-            <div v-if="next" class="inbox-admin-more">
-              <ElButton native-type="button" text :loading="queueMoreLoading" @click="loadQueue(next)">{{ t('admin.inbox.m24') }}</ElButton>
-            </div>
+      <template #list-items>
+        <div
+          v-for="item in rows"
+          :key="String(item.id)"
+          class="inbox-admin-item"
+          :class="{ 'is-selected': thread?.conversation.id === item.id }"
+          role="listitem"
+        >
+          <button
+            type="button"
+            class="inbox-admin-subject"
+            @click="openThread(item.id, null, $event)"
+          >{{ item.subject }}</button>
+          <div class="inbox-admin-item-meta">
+            <ElTag size="small" :type="inboxStatusTagType(item.status)" disable-transitions>
+              {{ t(statuses[item.status]) }}
+            </ElTag>
+            <small>{{ t(item.system ? 'admin.inbox.m22' : 'admin.inbox.m23') }}</small>
+            <small v-if="item.unread" class="inbox-admin-unread">
+              {{ t('admin.inbox.m47', { count: item.unread }) }}
+            </small>
+            <small class="inbox-admin-time">{{ timeFormat.compact(item.updated) }}</small>
           </div>
-        </template>
+        </div>
+      </template>
 
-        <template #detail>
-          <div v-if="thread" ref="threadPanel" class="inbox-admin-thread" :aria-busy="threadPending || replyPending || statusPending">
-            <ElThreadPanel class="inbox-admin-thread-panel" title-tag="h3" density="compact">
-              <template #back>
-                <ElButton native-type="button" text @click="closeThread">{{ t('admin.inbox.m25') }}</ElButton>
-              </template>
-              <template #title>
-                <span id="admin-inbox-thread" ref="title" tabindex="-1">{{ thread.conversation.subject }}</span>
-              </template>
-              <template #actions>
-                <ElButton
-                  v-if="thread.version || thread.liveEnabled || needsRefresh"
-                  native-type="button"
-                  text
-                  :loading="threadReloadLoading"
-                  @click="reloadThread"
-                >{{ t('admin.inbox.m26') }}</ElButton>
-              </template>
-              <template #context>
-                <ElConversationContextBar>
-                  <ElTag size="small" :type="statusTagType(thread.conversation.status)">{{ t(statuses[thread.conversation.status]) }}</ElTag>
-                  <span>{{ t(thread.conversation.system ? 'admin.inbox.m22' : 'admin.inbox.m23') }}</span>
-                  <span class="inbox-admin-account">{{ t('admin.inbox.m48', { account: thread.conversation.account }) }}</span>
-                  <ElTag v-if="thread.conversation.unread" size="small" type="info">{{ t('admin.inbox.m47', { count: thread.conversation.unread }) }}</ElTag>
-                </ElConversationContextBar>
-                <div v-if="unreadAckFailed" class="inbox-admin-alert-row">
-                  <ElAlert :title="t('admin.inbox.m27')" type="warning" :closable="false" />
-                  <ElButton native-type="button" :loading="readPending" @click="retryRead">{{ t('admin.inbox.m28') }}</ElButton>
-                </div>
-              </template>
-              <template #messages>
-                <div v-if="thread.previous" class="inbox-admin-earlier">
-                  <ElButton native-type="button" text :loading="threadEarlierLoading"
-                    @click="openThread(thread.conversation.id, thread.previous)">{{ t('admin.inbox.m29') }}</ElButton>
-                </div>
-                <ElMessageTimeline>
-                  <ElMessageBubble
-                    v-for="message in renderedMessages"
-                    :key="message.id"
-                    :variant="message.variant"
-                    :author="message.author"
-                    :meta="message.meta"
-                  >{{ message.body }}</ElMessageBubble>
-                </ElMessageTimeline>
-              </template>
-              <template v-if="(thread.repliesEnabled && thread.conversation.status !== 2) || thread.version" #composer>
-                <div class="inbox-admin-composer-stack">
-                  <form v-if="thread.repliesEnabled && thread.conversation.status !== 2" @submit.prevent="sendReply">
-                    <ElReplyComposerShell :title="t('admin.inbox.m33')" density="compact">
-                      <template #input>
-                        <ElInput
-                          id="admin-inbox-reply"
-                          v-model="reply"
-                          type="textarea"
-                          v-bind="{ 'aria-label': t('admin.inbox.m33') }"
-                          :autosize="{ minRows: 2, maxRows: 5 }"
-                          :disabled="replyPending"
-                        />
-                      </template>
-                      <template #actions>
-                        <ElButton native-type="submit" type="primary" :loading="replyPending" :disabled="!reply.trim()">{{ t('admin.inbox.m34') }}</ElButton>
-                      </template>
-                    </ElReplyComposerShell>
-                  </form>
-                  <form v-if="thread.version" class="inbox-admin-status-form" @submit.prevent="saveStatus">
-                    <div class="inbox-admin-field inbox-admin-status-select">
-                      <span class="inbox-admin-field-label" aria-hidden="true">{{ t('admin.inbox.m35') }}</span>
-                      <ElSelect v-model="destination" :ariaLabel="t('admin.inbox.m35')" :placeholder="t('admin.inbox.m36')" :disabled="statusPending">
-                        <ElOption v-for="option in transitions[thread.conversation.status]" :key="option" :label="t(statuses[option])" :value="option" />
-                      </ElSelect>
-                    </div>
-                    <div class="inbox-admin-field inbox-admin-status-reason">
-                      <label for="admin-inbox-status-reason">{{ t('admin.inbox.m37') }}</label>
-                      <ElInput id="admin-inbox-status-reason" v-model="reason" :disabled="statusPending" />
-                    </div>
-                    <div class="inbox-admin-status-actions">
-                      <ElButton native-type="submit" :loading="statusPending"
-                        :disabled="replyPending || destination === undefined || !reason.trim() || reason.trim().length > 256">{{ t('admin.inbox.m38') }}</ElButton>
-                    </div>
-                  </form>
-                </div>
-              </template>
-            </ElThreadPanel>
+      <template #thread-actions>
+        <ElButton
+          v-if="thread && (thread.version || thread.liveEnabled || needsRefresh)"
+          native-type="button"
+          text
+          :loading="threadReloadLoading"
+          @click="reloadThread"
+        >{{ t('admin.inbox.m26') }}</ElButton>
+      </template>
+
+      <template v-if="thread" #thread-context>
+        <ElTag size="small" :type="inboxStatusTagType(thread.conversation.status)" disable-transitions>
+          {{ t(statuses[thread.conversation.status]) }}
+        </ElTag>
+        <span>{{ t(thread.conversation.system ? 'admin.inbox.m22' : 'admin.inbox.m23') }}</span>
+        <span class="inbox-admin-account">{{ t('admin.inbox.m48', { account: thread.conversation.account }) }}</span>
+        <ElTag v-if="thread.conversation.unread" size="small" disable-transitions>
+          {{ t('admin.inbox.m47', { count: thread.conversation.unread }) }}
+        </ElTag>
+      </template>
+
+      <template v-if="unreadAckFailed" #thread-context-extra>
+        <div class="inbox-admin-alert-row">
+          <ElAlert :title="t('admin.inbox.m27')" type="warning" :closable="false" show-icon />
+          <ElButton native-type="button" :loading="readPending" @click="retryRead">{{ t('admin.inbox.m28') }}</ElButton>
+        </div>
+      </template>
+
+      <template v-if="thread?.version" #composer-extra>
+        <form class="inbox-admin-status-form" @submit.prevent="saveStatus">
+          <div class="inbox-admin-field inbox-admin-status-select">
+            <span class="inbox-admin-field-label" aria-hidden="true">{{ t('admin.inbox.m35') }}</span>
+            <ElSelect v-model="destination" :ariaLabel="t('admin.inbox.m35')" :placeholder="t('admin.inbox.m36')" :disabled="statusPending">
+              <ElOption v-for="option in transitions[thread.conversation.status]" :key="option" :label="t(statuses[option])" :value="option" />
+            </ElSelect>
           </div>
-          <ElEmptySelectionState v-else :title="t('admin.inbox.m1')" />
-        </template>
-      </ElInboxLayout>
+          <div class="inbox-admin-field inbox-admin-status-reason">
+            <label for="admin-inbox-status-reason">{{ t('admin.inbox.m37') }}</label>
+            <ElInput id="admin-inbox-status-reason" v-model="reason" :disabled="statusPending" />
+          </div>
+          <div class="inbox-admin-status-actions">
+            <ElButton
+              native-type="submit"
+              :loading="statusPending"
+              :disabled="replyPending || destination === undefined || !reason.trim() || reason.trim().length > 256"
+            >{{ t('admin.inbox.m38') }}</ElButton>
+          </div>
+        </form>
+      </template>
+    </InboxSplitWorkspace>
 
-    <p v-if="notice" class="inbox-admin-notice" role="status">{{ t(notice) }}</p>
+    <ElDialog
+      v-if="noticesEnabled"
+      :model-value="composeNotice"
+      :title="t('admin.inbox.m15')"
+      :append-to-body="false"
+      width="min(32rem, calc(100vw - 2rem))"
+      :close-on-press-escape="!noticePending"
+      :close-on-click-modal="!noticePending"
+      :show-close="!noticePending"
+      @update:model-value="open => { if (!open) clearNotice() }"
+    >
+      <form id="admin-inbox-notice-form" class="inbox-admin-notice-form" @submit.prevent="sendNotice">
+        <ElAlert v-if="failed" :title="t(failed)" type="error" :closable="false" show-icon />
+        <div class="inbox-admin-field">
+          <label for="admin-notice-account">{{ t('admin.inbox.m16') }}</label>
+          <ElInput id="admin-notice-account" v-model="recipient" :disabled="noticePending" />
+        </div>
+        <div class="inbox-admin-field">
+          <label for="admin-notice-subject">{{ t('admin.inbox.m17') }}</label>
+          <ElInput id="admin-notice-subject" v-model="noticeSubject" :disabled="noticePending" />
+        </div>
+        <div class="inbox-admin-field">
+          <label for="admin-notice-body">{{ t('admin.inbox.m18') }}</label>
+          <ElInput
+            id="admin-notice-body"
+            v-model="noticeBody"
+            type="textarea"
+            :autosize="{ minRows: 3, maxRows: 8 }"
+            :disabled="noticePending"
+          />
+        </div>
+      </form>
+      <template #footer>
+        <ElInlineActions density="compact">
+          <ElButton native-type="button" :disabled="noticePending" @click="clearNotice">
+            {{ t('admin.inbox.m20') }}
+          </ElButton>
+          <ElButton
+            native-type="submit"
+            type="primary"
+            v-bind="{ form: 'admin-inbox-notice-form' }"
+            :loading="noticePending"
+            :disabled="!isNoticeRecipient(recipient.trim()) || !noticeBody.trim()"
+          >{{ t('admin.inbox.m19') }}</ElButton>
+        </ElInlineActions>
+      </template>
+    </ElDialog>
   </section>
 </template>
 
 <style scoped>
 .inbox-admin {
   display: grid;
-  gap: var(--fsus-space-2, 12px);
+  gap: var(--fsus-space-3);
+  min-inline-size: 0;
 }
 
 .inbox-admin-sr-title {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inline-size: 1px;
+  block-size: 1px;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
 }
 
-.inbox-admin-queue {
-  display: grid;
-  align-content: start;
-  min-width: 0;
-}
-
-.inbox-admin-toolbar {
-  display: grid;
-  gap: 8px;
-  padding: 12px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-  background: var(--fsus-color-surface-raised, var(--el-fill-color-blank));
-}
-
 .inbox-admin-filters {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+  gap: var(--fsus-space-2);
 }
 
 .inbox-admin-toolbar-actions,
-.inbox-admin-notice-actions,
 .inbox-admin-status-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+  gap: var(--fsus-space-2);
+  align-items: safe center;
 }
 
 .inbox-admin-toolbar-actions {
@@ -468,17 +479,14 @@ onBeforeUnmount(() => {
 
 .inbox-admin-notice-form {
   display: grid;
-  gap: 12px;
-  padding: 12px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
-  background: var(--el-bg-color);
+  gap: var(--fsus-space-4);
 }
 
 .inbox-admin-status-form {
   display: grid;
   gap: 10px;
   padding: 10px 12px;
-  border-top: 1px solid var(--el-border-color-lighter);
+  border-block-start: 1px solid var(--el-border-color-lighter);
   background: var(--el-bg-color);
 }
 
@@ -496,21 +504,16 @@ onBeforeUnmount(() => {
   line-height: 1.4;
 }
 
-.inbox-admin-skeleton {
-  padding: 12px;
-}
-
 .inbox-admin-item {
   display: grid;
   gap: 6px;
-  padding: 12px;
-  border-left: 3px solid transparent;
+  padding: 10px 12px;
   background: transparent;
-  transition: background-color 140ms ease, border-color 140ms ease;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
 }
 
 .inbox-admin-item + .inbox-admin-item {
-  border-top: 1px solid var(--el-border-color-lighter);
+  border-block-start: 1px solid var(--el-border-color-lighter);
 }
 
 .inbox-admin-item:hover {
@@ -518,79 +521,61 @@ onBeforeUnmount(() => {
 }
 
 .inbox-admin-item.is-selected {
-  border-left-color: var(--el-color-primary);
+  box-shadow: inset 3px 0 0 var(--fsus-scholarly-blue, #2a599c);
   background: var(--fsus-state-selected-bg, var(--el-fill-color-light));
 }
 
 .inbox-admin-subject {
   display: block;
-  width: 100%;
-  min-height: 44px;
-  padding: 6px 0;
+  inline-size: 100%;
+  min-block-size: 44px;
+  padding-block: 6px;
+  padding-inline: 0;
   border: 0;
   background: transparent;
   color: var(--el-text-color-primary);
   font: inherit;
   font-size: var(--el-font-size-base);
-  font-weight: 600;
-  line-height: 1.4;
-  text-align: left;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: start;
   cursor: pointer;
   overflow-wrap: anywhere;
 }
 
 .inbox-admin-subject:focus-visible {
-  outline: 2px solid var(--el-color-primary);
+  outline: 2px solid var(--fsus-scholarly-blue, #2a599c);
   outline-offset: 2px;
-  border-radius: var(--fsus-radius-control, 4px);
+  border-radius: var(--fsus-radius-control-small, 4px);
 }
 
 .inbox-admin-item-meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  align-items: safe center;
+  gap: var(--fsus-space-2);
   color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
+  font-size: var(--el-font-size-extra-small);
 }
 
 .inbox-admin-unread {
-  color: var(--el-color-primary);
+  color: var(--fsus-scholarly-blue, #2a599c);
   font-weight: 600;
 }
 
-.inbox-admin-more,
-.inbox-admin-earlier {
-  display: flex;
-  justify-content: center;
-  padding: 8px 12px;
-}
-
-.inbox-admin-thread {
-  display: grid;
-  min-width: 0;
-  min-height: 100%;
+.inbox-admin-time {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
 }
 
 .inbox-admin-alert-row {
   display: grid;
-  gap: 8px;
+  gap: var(--fsus-space-2);
   padding: 8px 16px 12px;
-}
-
-.inbox-admin-composer-stack {
-  display: grid;
-  container: inbox-composer / inline-size;
 }
 
 .inbox-admin-account {
   overflow-wrap: anywhere;
-}
-
-.inbox-admin-notice {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
 }
 
 @container inbox-composer (inline-size >= 34rem) {
@@ -600,21 +585,9 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (min-width: 761px) {
-  .inbox-admin-shell {
-    block-size: clamp(28rem, calc(100dvh - 15rem), 56rem);
-    grid-template-rows: minmax(0, 1fr);
-  }
-
-  .inbox-admin-thread {
-    block-size: 100%;
-    min-block-size: 0;
-    grid-template-rows: minmax(0, 1fr);
-  }
-
-  .inbox-admin-thread-panel {
-    block-size: 100%;
-    min-block-size: 0;
+@media (prefers-reduced-motion: reduce) {
+  .inbox-admin-item {
+    transition: none;
   }
 }
 </style>
