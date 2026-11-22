@@ -206,6 +206,11 @@ if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_LIVE:-0} == 1 ]]; then
 else
   export FSUSBLOG_ADMIN_INBOX_LIVE=false
 fi
+set_inbox_feature() {
+  local enabled=false
+  if [[ $2 == 1 ]]; then enabled=true; fi
+  export "$1=$enabled"
+}
 if [[ ${FSUSBLOG_TEST_ADMIN_INBOX:-0} == 1 ]]; then
   "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -f tests/EndToEnd/admin-inbox-fixture.sql > "$evidence/admin-inbox-fixture.log"
   shasum -a 256 tests/EndToEnd/admin-inbox-fixture.sql >> "$evidence/run.txt"
@@ -214,45 +219,31 @@ if [[ ${FSUSBLOG_TEST_ADMIN_INBOX:-0} == 1 ]]; then
   else
     export FSUSBLOG_ADMIN_INBOX_REPLIES=false
   fi
-  if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_STATUS:-0} == 1 ]]; then
-    export FSUSBLOG_ADMIN_INBOX_STATUS=true
-  else
-    export FSUSBLOG_ADMIN_INBOX_STATUS=false
-  fi
-  if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_NOTICE:-0} == 1 ]]; then
-    export FSUSBLOG_ADMIN_INBOX_NOTICE=true
-  else
-    export FSUSBLOG_ADMIN_INBOX_NOTICE=false
-  fi
-  if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_SHARED:-0} == 1 ]]; then
-    export FSUSBLOG_ADMIN_INBOX_SHARED_READ=true
-  else
-    export FSUSBLOG_ADMIN_INBOX_SHARED_READ=false
-  fi
-  if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_ACTIVITY:-0} == 1 ]]; then
-    export FSUSBLOG_ADMIN_INBOX_ACTIVITY_ORDER=true
-  else
-    export FSUSBLOG_ADMIN_INBOX_ACTIVITY_ORDER=false
-  fi
+  set_inbox_feature FSUSBLOG_ADMIN_INBOX_STATUS "${FSUSBLOG_TEST_ADMIN_INBOX_STATUS:-0}"
+  set_inbox_feature FSUSBLOG_ADMIN_INBOX_NOTICE "${FSUSBLOG_TEST_ADMIN_INBOX_NOTICE:-0}"
+  set_inbox_feature FSUSBLOG_ADMIN_INBOX_SHARED_READ "${FSUSBLOG_TEST_ADMIN_INBOX_SHARED:-0}"
+  set_inbox_feature FSUSBLOG_ADMIN_INBOX_ACTIVITY_ORDER "${FSUSBLOG_TEST_ADMIN_INBOX_ACTIVITY:-0}"
 fi
 FSUSBLOG_TEST_ADMIN_TICKET=$("$dotnet" "$migrate" admin-identity bootstrap tls-admin-fixture)
 export FSUSBLOG_TEST_SITE_TICKET FSUSBLOG_TEST_ADMIN_TICKET
 export FSUSBLOG_TEST_TLS_DOTNET="$dotnet" FSUSBLOG_TEST_TLS_CLI="$migrate"
+write_fixture() {
+  local path=$1
+  {
+    printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail'
+    cat
+  } > "$path"
+  chmod 700 "$path"
+}
 export FSUSBLOG_TEST_ADMIN_REVOKE="$scratch/revoke-admin"
-cat > "$FSUSBLOG_TEST_ADMIN_REVOKE" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
+write_fixture "$FSUSBLOG_TEST_ADMIN_REVOKE" <<'EOF'
 "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_CLI" admin-identity revoke-all tls-admin-fixture
 EOF
-chmod 700 "$FSUSBLOG_TEST_ADMIN_REVOKE"
 permission_fixture() {
   local path=$1 action=$2 capability=$3
-  cat > "$path" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
+  write_fixture "$path" <<EOF
 "\$FSUSBLOG_TEST_TLS_DOTNET" "\$FSUSBLOG_TEST_TLS_CLI" admin-identity $action tls-admin-fixture $capability
 EOF
-  chmod 700 "$path"
 }
 if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 ]]; then
   export FSUSBLOG_RECOVERY_KEY_PEPPER_HEX="$(openssl rand -hex 32)" FSUSBLOG_TOTP_KEY_HEX="$(openssl rand -hex 32)"
@@ -260,9 +251,7 @@ if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 ]]; then
   export FSUSBLOG_TEST_SITE_RECOVERY_PEER_TICKET
   export FSUSBLOG_TEST_SITE_RECOVERY_DATABASE="$database"
   export FSUSBLOG_TEST_SITE_RECOVERY_PROBE="$scratch/recovery-reservation"
-  cat > "$FSUSBLOG_TEST_SITE_RECOVERY_PROBE" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
+  write_fixture "$FSUSBLOG_TEST_SITE_RECOVERY_PROBE" <<'EOF'
 [[ $FSUSBLOG_TEST_SITE_RECOVERY_DATABASE =~ ^fsusv2_admin_tls_[a-f0-9]{24}$ ]]
 exec "${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}psql" -X -w -v ON_ERROR_STOP=1 -d "$FSUSBLOG_TEST_SITE_RECOVERY_DATABASE" -Atc "
   select count(*) from public.site_recovery_key k
@@ -272,16 +261,13 @@ exec "${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}psql" -X -w -v ON_ERROR_STOP=1 -d "$FSUSB
     and r.completed_at is null and u.generation=r.generation
 "
 EOF
-  chmod 700 "$FSUSBLOG_TEST_SITE_RECOVERY_PROBE"
 elif [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
   export FSUSBLOG_SITE_PERSISTENT_REFRESH=true FSUSBLOG_TOTP_KEY_HEX="$(openssl rand -hex 32)"
   FSUSBLOG_TEST_SITE_REFRESH_PEER_TICKET=$("$dotnet" "$migrate" operator tls-site-refresh-peer)
   export FSUSBLOG_TEST_SITE_REFRESH_PEER_TICKET
   export FSUSBLOG_TEST_SITE_REFRESH_DATABASE="$database"
   export FSUSBLOG_TEST_SITE_REFRESH_PROBE="$scratch/refresh-boundary"
-  cat > "$FSUSBLOG_TEST_SITE_REFRESH_PROBE" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
+  write_fixture "$FSUSBLOG_TEST_SITE_REFRESH_PROBE" <<'EOF'
 [[ $FSUSBLOG_TEST_SITE_REFRESH_DATABASE =~ ^fsusv2_admin_tls_[a-f0-9]{24}$ ]]
 case $1 in
   expire-access)
@@ -313,7 +299,6 @@ esac
 exec "${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}psql" -X -w -v ON_ERROR_STOP=1 \
   -d "$FSUSBLOG_TEST_SITE_REFRESH_DATABASE" -Atc "$statement"
 EOF
-  chmod 700 "$FSUSBLOG_TEST_SITE_REFRESH_PROBE"
 elif [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 || ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
   export FSUSBLOG_ADMIN_ARTICLE_ROLLBACK=true
@@ -414,14 +399,11 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_TAXONOMY:-0} == 1 ]]; then
   export FSUSBLOG_TEST_ADMIN_TAXONOMY_DATABASE="$database"
   permission_fixture "$FSUSBLOG_TEST_ADMIN_TAXONOMY_GRANT" grant article.write
   permission_fixture "$FSUSBLOG_TEST_ADMIN_TAXONOMY_REVOKE" revoke article.write
-  cat > "$FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
+  write_fixture "$FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED" <<'EOF'
 [[ $FSUSBLOG_TEST_ADMIN_TAXONOMY_DATABASE =~ ^fsusv2_admin_tls_[a-f0-9]{24}$ ]]
 exec "${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}psql" -X -w -v ON_ERROR_STOP=1 -d "$FSUSBLOG_TEST_ADMIN_TAXONOMY_DATABASE" \
   -f tests/EndToEnd/admin-taxonomy-fixture.sql
 EOF
-  chmod 700 "$FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED"
 elif [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
   export FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true
@@ -444,30 +426,21 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
     FSUSBLOG_TEST_REPLY_AUTHOR_TICKET=$("$dotnet" "$migrate" "${reply_operator[@]}")
     export FSUSBLOG_TEST_REPLY_AUTHOR_TICKET
     export FSUSBLOG_TEST_REPLY_PARENT_TICKET="$scratch/issue-reply-parent-ticket"
-    cat > "$FSUSBLOG_TEST_REPLY_PARENT_TICKET" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
+    write_fixture "$FSUSBLOG_TEST_REPLY_PARENT_TICKET" <<'EOF'
 exec "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_CLI" ticket tls-moderation-fixture
 EOF
-    chmod 700 "$FSUSBLOG_TEST_REPLY_PARENT_TICKET"
   fi
   if [[ ${FSUSBLOG_TEST_COMMENT_APPEAL:-0} == 1 ]]; then
     FSUSBLOG_TEST_APPEAL_REVIEWER_TICKET=$("$dotnet" "$migrate" admin-identity bootstrap tls-appeal-reviewer)
     export FSUSBLOG_TEST_APPEAL_REVIEWER_TICKET
     export FSUSBLOG_TEST_APPEAL_OWNER_TICKET="$scratch/issue-appeal-owner-ticket"
-    cat > "$FSUSBLOG_TEST_APPEAL_OWNER_TICKET" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
+    write_fixture "$FSUSBLOG_TEST_APPEAL_OWNER_TICKET" <<'EOF'
 exec "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_CLI" ticket tls-moderation-fixture
 EOF
-    chmod 700 "$FSUSBLOG_TEST_APPEAL_OWNER_TICKET"
   fi
-  cat > "$FSUSBLOG_TEST_ADMIN_MODERATOR_SEED" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
+  write_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_SEED" <<'EOF'
 exec node tests/EndToEnd/admin-moderation-seed.mjs
 EOF
-  chmod 700 "$FSUSBLOG_TEST_ADMIN_MODERATOR_SEED"
 else
   unset FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE \
     FSUSBLOG_TEST_ADMIN_MODERATOR_SEED FSUSBLOG_TEST_ADMIN_MODERATOR_BODY \
