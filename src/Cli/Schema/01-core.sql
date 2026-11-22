@@ -294,6 +294,33 @@ CREATE TABLE public.admin_reader_governance_audit (
 );
 CREATE INDEX admin_reader_governance_audit_user ON public.admin_reader_governance_audit (user_id, id DESC);
 
+CREATE TABLE public.admin_handle_step_up (
+    digest bytea PRIMARY KEY CHECK (octet_length(digest) = 32),
+    principal_id uuid NOT NULL REFERENCES public.admin_principal (id),
+    session_digest bytea NOT NULL REFERENCES public.admin_session (digest) ON DELETE CASCADE
+        CHECK (octet_length(session_digest) = 32),
+    generation bigint NOT NULL CHECK (generation > 0),
+    action integer NOT NULL CHECK (action = 14),
+    body_digest bytea NOT NULL CHECK (octet_length(body_digest) = 32),
+    options text CHECK (octet_length(options) BETWEEN 1 AND 8192),
+    expires_at timestamptz NOT NULL,
+    kind smallint NOT NULL,
+    UNIQUE (session_digest, kind),
+    CHECK ((kind = 1 AND options IS NOT NULL) OR (kind = 2 AND options IS NULL))
+);
+
+CREATE TABLE public.admin_handle_rename_audit (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    principal_id uuid NOT NULL REFERENCES public.admin_principal (id),
+    command_id uuid NOT NULL,
+    fingerprint bytea NOT NULL CHECK (octet_length(fingerprint) = 32),
+    previous_handle text NOT NULL CHECK (previous_handle ~ '^[a-z][a-z0-9_.-]{0,63}$'),
+    next_handle text NOT NULL CHECK (next_handle ~ '^[a-z][a-z0-9_.-]{0,63}$'),
+    happened_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    UNIQUE (principal_id, command_id),
+    CHECK (previous_handle <> next_handle)
+);
+
 CREATE TABLE public.article (
     id integer GENERATED ALWAYS AS IDENTITY CONSTRAINT article_pk PRIMARY KEY,
     owner_id uuid NOT NULL CONSTRAINT article_owner_fk REFERENCES public.admin_principal (id),

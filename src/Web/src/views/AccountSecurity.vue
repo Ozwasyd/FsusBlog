@@ -21,6 +21,7 @@ import { ApiError } from '../../../Contracts/client'
 import { proveMfaSetup } from '../../../Contracts/passkey'
 import { currentSession, identityEpoch, refreshSession } from '../session'
 import { announceSiteAuthChange, readSiteAuthority, withSiteAuthMutation } from '../site-refresh-coordination'
+import SiteDisplayName from './SiteDisplayName.vue'
 import SitePasskeys from './SitePasskeys.vue'
 import SiteRecoveryKey from './SiteRecoveryKey.vue'
 import SiteSessions from './SiteSessions.vue'
@@ -201,6 +202,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
     </ElEmptyState>
 
     <div v-else class="account-security-sections">
+      <SiteDisplayName />
       <ElSettingsSection
         ariaLabelledby="account-mfa-heading"
         :description="profile?.verifiedAt ? t('account.message5') : undefined"

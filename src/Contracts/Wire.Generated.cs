@@ -77,7 +77,11 @@ public enum FrameType : ushort
     SitePasskeyManagement = 33055,
     SitePasskeyRename = 33056,
     SitePasskeyRemove = 33057,
+    SiteDisplayNameState = 33077,
+    SiteDisplayNameCommand = 33078,
     AdminSessionSnapshot = 32830,
+    AdminHandleCommand = 33079,
+    AdminHandleReceipt = 33080,
     AdminOperationsStatus = 32850,
     AdminRiskReadiness = 32851,
     AdminRootCommentPowPolicy = 33008,
@@ -340,6 +344,10 @@ public static class WireLimits
     public const int AdminReaderReasonChars = 500;
     public const int AdminReaderReasonBytes = 2000;
     public const int AdminReaderStatusCommandFrameBytes = 2100;
+    public const int AdminHandleBytes = 64;
+    public const int AdminHandleCommandFrameBytes = 256;
+    public const int SiteDisplayNameChars = 64;
+    public const int SiteDisplayNameFrameBytes = 448;
     public const int PageContentChars = 200000;
     public const int PageContentBytes = 600000;
     public const int AdminSitePageDigestBytes = 64;
@@ -750,6 +758,7 @@ public static class WireRoutes
     public const string SiteRefreshRotate = "/api/v2/identity/refresh/rotate.aeds";
     public const string SiteRefreshSignOut = "/api/v2/identity/refresh/sign-out.aeds";
     public const string SiteSessions = "/api/v2/identity/sessions.aeds";
+    public const string SiteDisplayName = "/api/v2/identity/display-name.aeds";
     public const string SitePasskeys = "/api/v2/identity/passkeys.aeds";
     public const string SitePasskeyManagement = "/api/v2/identity/passkeys/manage.aeds";
     public const string SitePasskeyRenameBegin = "/api/v2/identity/passkeys/rename/begin.aeds";
@@ -766,6 +775,9 @@ public static class WireRoutes
     public const string AdminPasskeyBegin = "/api/v2/admin/identity/passkey/begin.aeds";
     public const string AdminPasskeyComplete = "/api/v2/admin/identity/passkey/complete.aeds";
     public const string AdminSession = "/api/v2/admin/identity/session.aeds";
+    public const string AdminHandleStepUpBegin = "/api/v2/admin/identity/handle/step-up/begin.aeds";
+    public const string AdminHandleStepUpComplete = "/api/v2/admin/identity/handle/step-up/complete.aeds";
+    public const string AdminHandleExecute = "/api/v2/admin/identity/handle/execute.aeds";
     public const string AdminSignInHistory = "/api/v2/admin/identity/sessions/history.aeds";
     public const string AdminSiteTraffic = "/api/v2/admin/identity/site-traffic.aeds";
     public const string AdminReaderAccounts = "/api/v2/admin/identity/readers.aeds";
@@ -1015,6 +1027,10 @@ public sealed record AdminSignInHistorySnapshot(long Generation, IReadOnlyList<A
 public sealed record AdminReaderAccountPage(int Total, int EnabledTotal, int DisabledTotal, bool HasMore, int NextCursorAccountId, Guid NextCursorUserId, IReadOnlyList<AdminReaderAccount> Items);
 public sealed record AdminReaderStatusCommand(Guid UserId, long ExpectedGeneration, bool TargetEnabled, Guid IdempotencyKey, string Reason);
 public sealed record AdminReaderStatusReceipt(Guid UserId, bool Enabled, long Generation, int RevokedSessionCount, long HappenedAtUnixMs, bool Replayed);
+public sealed record SiteDisplayNameState(string DisplayName);
+public sealed record SiteDisplayNameCommand(string DisplayName);
+public sealed record AdminHandleCommand(string ExpectedHandle, string NewHandle, Guid IdempotencyKey);
+public sealed record AdminHandleReceipt(string Handle, long HappenedAtUnixMs, bool Replayed);
 public sealed record AdminArticleRollbackIntent(int ArticleId, long ExpectedRevision, long ExpectedPublicationId, long SourceRevision, Guid IdempotencyKey, string Reason);
 public sealed record AdminArticleRollbackPreview(int ArticleId, long CurrentRevision, long CurrentPublicationId, long SourceRevision, long SourcePublicationId, string SourceTitle, bool PackageComplete, int BlockingReason);
 public sealed record AdminArticleRollbackReceipt(int ArticleId, long Revision, long SourceRevision, long PreviousPublicationId, long PublicationId, int PublicationNo, long PublishedUnixMs, long RightsSnapshotId, long ResponsibilitySnapshotId);
@@ -1367,6 +1383,50 @@ public static partial class Wire
     public static AdminReaderStatusReceipt DecodeAdminReaderStatusReceipt(ReadOnlySpan<byte> frame) =>
         DecodeRecord<AdminReaderStatusReceipt>(FrameType.AdminReaderStatusReceipt, frame, static (ref Reader reader) =>
             new AdminReaderStatusReceipt(reader.Uuid(), reader.Bool(), reader.I64(), reader.I32(), reader.I64(), reader.Bool()), Validate);
+
+    public static byte[] EncodeSiteDisplayNameState(SiteDisplayNameState value) =>
+        EncodeRecord(FrameType.SiteDisplayNameState, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.DisplayName, WireLimits.PublicCommentHandleBytes);
+        });
+
+    public static SiteDisplayNameState DecodeSiteDisplayNameState(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<SiteDisplayNameState>(FrameType.SiteDisplayNameState, frame, static (ref Reader reader) =>
+            new SiteDisplayNameState(reader.Text(WireLimits.PublicCommentHandleBytes)), Validate);
+
+    public static byte[] EncodeSiteDisplayNameCommand(SiteDisplayNameCommand value) =>
+        EncodeRecord(FrameType.SiteDisplayNameCommand, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.DisplayName, WireLimits.PublicCommentHandleBytes);
+        });
+
+    public static SiteDisplayNameCommand DecodeSiteDisplayNameCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<SiteDisplayNameCommand>(FrameType.SiteDisplayNameCommand, frame, static (ref Reader reader) =>
+            new SiteDisplayNameCommand(reader.Text(WireLimits.PublicCommentHandleBytes)), Validate);
+
+    public static byte[] EncodeAdminHandleCommand(AdminHandleCommand value) =>
+        EncodeRecord(FrameType.AdminHandleCommand, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.ExpectedHandle, WireLimits.AdminHandleBytes);
+            writer.Text(record.NewHandle, WireLimits.AdminHandleBytes);
+            writer.Uuid(record.IdempotencyKey);
+        });
+
+    public static AdminHandleCommand DecodeAdminHandleCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminHandleCommand>(FrameType.AdminHandleCommand, frame, static (ref Reader reader) =>
+            new AdminHandleCommand(reader.Text(WireLimits.AdminHandleBytes), reader.Text(WireLimits.AdminHandleBytes), reader.Uuid()), Validate);
+
+    public static byte[] EncodeAdminHandleReceipt(AdminHandleReceipt value) =>
+        EncodeRecord(FrameType.AdminHandleReceipt, value, Validate, static (writer, record) =>
+        {
+            writer.Text(record.Handle, WireLimits.AdminHandleBytes);
+            writer.I64(record.HappenedAtUnixMs);
+            writer.Bool(record.Replayed);
+        });
+
+    public static AdminHandleReceipt DecodeAdminHandleReceipt(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminHandleReceipt>(FrameType.AdminHandleReceipt, frame, static (ref Reader reader) =>
+            new AdminHandleReceipt(reader.Text(WireLimits.AdminHandleBytes), reader.I64(), reader.Bool()), Validate);
 
     public static byte[] EncodeAdminArticleRollbackIntent(AdminArticleRollbackIntent value) =>
         EncodeRecord(FrameType.AdminArticleRollbackIntent, value, Validate, static (writer, record) =>

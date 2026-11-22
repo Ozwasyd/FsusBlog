@@ -9,6 +9,8 @@ import { adminWorkspacePages } from '../adminWorkspaceRoutes'
 import {
   ElAlert,
   ElButton,
+  ElDialog,
+  ElInlineActions,
   ElInput,
   ElKeyValueGrid,
   ElKeyValueItem,
@@ -38,6 +40,13 @@ import {
   type AdminAuthority,
   type AdminSession,
 } from '../../../Contracts/admin-identity'
+import {
+  executeAdminHandleRename,
+  requestAdminHandleProof,
+  validAdminHandle,
+  type AdminHandleCommand,
+} from '../../../Contracts/admin-handle'
+import { WireLimits } from '../../../Contracts/wire.generated'
 
 defineProps<{ themeMode?: ThemeMode }>()
 const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
@@ -57,10 +66,27 @@ const canUsePasskeys = globalThis.isSecureContext && typeof PublicKeyCredential 
 const busy = ref(false)
 const failure = ref<MessageKey | ''>('')
 const notice = ref<MessageKey | ''>('')
+const handleNotice = ref('')
+const handleDialogOpen = ref(false)
+const nextHandle = ref('')
+const nextHandleTouched = ref(false)
+const handleSubmitting = ref(false)
+const handleFailure = ref<MessageKey | ''>('')
+const handleRetryCommand = shallowRef<AdminHandleCommand | null>(null)
 const sessionAuthority = shallowRef(new AbortController())
 const sessionEpoch = ref(0)
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 let revalidateRequest: AbortController | undefined
+let handleRequest: AbortController | undefined
+
+const trimmedNextHandle = computed(() => nextHandle.value.trim())
+const nextHandleValid = computed(() => validAdminHandle(trimmedNextHandle.value))
+const nextHandleChanged = computed(() =>
+  authority.value?.status === 'active' && trimmedNextHandle.value !== authority.value.session.handle)
+const nextHandleInvalid = computed(() =>
+  nextHandleTouched.value && trimmedNextHandle.value.length > 0 && (!nextHandleValid.value || !nextHandleChanged.value))
+const canSubmitHandle = computed(() =>
+  !handleSubmitting.value && nextHandleValid.value && nextHandleChanged.value)
 
 function sameAdminAuthority(a: AdminAuthority | null, b: AdminAuthority | null): boolean {
   if (a === b) return true
@@ -89,6 +115,8 @@ function scheduleExpiry(session: AdminSession) {
 }
 
 function resetSessionScope() {
+  closeHandleRename(true)
+  handleNotice.value = ''
   sessionAuthority.value.abort()
   sessionAuthority.value = new AbortController()
   sessionEpoch.value++
@@ -254,6 +282,90 @@ function logIn() {
   }, 'admin.passkeyLoginFailed')
 }
 
+function openHandleRename() {
+  if (authority.value?.status !== 'active' || busy.value || handleSubmitting.value) return
+  handleNotice.value = ''
+  nextHandle.value = authority.value.session.handle
+  nextHandleTouched.value = false
+  handleFailure.value = ''
+  handleRetryCommand.value = null
+  handleDialogOpen.value = true
+}
+
+function closeHandleRename(force = false) {
+  if (handleSubmitting.value && !force) return
+  handleRequest?.abort()
+  handleRequest = undefined
+  handleDialogOpen.value = false
+  nextHandle.value = ''
+  nextHandleTouched.value = false
+  handleFailure.value = ''
+  handleRetryCommand.value = null
+  handleSubmitting.value = false
+}
+
+function onHandleInput() {
+  handleFailure.value = ''
+  handleRetryCommand.value = null
+}
+
+async function submitHandleRename() {
+  if (authority.value?.status !== 'active' || handleSubmitting.value || sessionAuthority.value.signal.aborted) return
+  const activeSession = authority.value.session
+  nextHandleTouched.value = true
+  const candidate = trimmedNextHandle.value
+  if (!validAdminHandle(candidate) || candidate === activeSession.handle) return
+
+  const pending = handleRetryCommand.value
+  const command: AdminHandleCommand = pending ?? {
+    expectedHandle: activeSession.handle,
+    newHandle: candidate,
+    idempotencyKey: crypto.randomUUID(),
+  }
+
+  handleRequest?.abort()
+  const current = handleRequest = new AbortController()
+  const signal = AbortSignal.any([current.signal, sessionAuthority.value.signal, lifetime.signal])
+  handleSubmitting.value = true
+  handleFailure.value = ''
+  let submitted = Boolean(pending)
+  try {
+    const proof = pending ? undefined : await requestAdminHandleProof(command, signal)
+    signal.throwIfAborted()
+    submitted = true
+    const receipt = await executeAdminHandleRename(activeSession, command, proof, signal)
+    if (signal.aborted) return
+    if (authority.value?.status === 'active' && authority.value.session.permissionSession === activeSession.permissionSession) {
+      authority.value = { status: 'active', session: { ...authority.value.session, handle: receipt.handle } }
+    }
+    closeHandleRename(true)
+    handleNotice.value = receipt.handle
+  } catch (cause) {
+    if (signal.aborted) return
+    if (cause instanceof ApiError && cause.status === 401) {
+      closeHandleRename(true)
+      handleSessionLoss(cause)
+    } else if (cause instanceof ApiError && cause.status === 409) {
+      handleRetryCommand.value = null
+      handleFailure.value = 'admin.renameHandleConflict'
+      void revalidateOnVisible()
+    } else if (cause instanceof ApiError && cause.status === 428) {
+      handleRetryCommand.value = null
+      handleFailure.value = 'admin.renameHandleProofRequired'
+    } else if (submitted && (!(cause instanceof ApiError) || cause.status >= 500)) {
+      handleRetryCommand.value = command
+      handleFailure.value = 'admin.renameHandleUnconfirmed'
+    } else if (cause instanceof DOMException && cause.name === 'NotAllowedError') {
+      handleFailure.value = 'admin.renameHandleCanceled'
+    } else {
+      handleFailure.value = 'admin.renameHandleFailed'
+    }
+  } finally {
+    if (handleRequest === current) handleRequest = undefined
+    handleSubmitting.value = false
+  }
+}
+
 function logOut() {
   if (authority.value?.status !== 'active') return
   return run(async () => {
@@ -294,8 +406,20 @@ function logOut() {
         >
           <template #title><span id="admin-session-heading">{{ t('admin.session') }}</span></template>
           <template #actions>
-            <ElTag size="small" type="success">{{ t('admin.sessionActive') }}</ElTag>
+            <ElInlineActions class="admin-session-actions" density="compact">
+              <ElTag size="small" type="success">{{ t('admin.sessionActive') }}</ElTag>
+              <ElButton v-if="canUsePasskeys" native-type="button" text :disabled="busy" @click="openHandleRename">
+                {{ t('admin.renameHandle') }}
+              </ElButton>
+            </ElInlineActions>
           </template>
+          <ElAlert
+            v-if="handleNotice"
+            :title="t('admin.renameHandleSuccess', { handle: handleNotice })"
+            type="success"
+            :closable="false"
+            show-icon
+          />
           <ElKeyValueGrid density="compact">
             <ElKeyValueItem :label="t('admin.handle')" :value="authority.session.handle" monospace />
             <ElKeyValueItem :label="t('admin.sessionGeneration')" :value="authority.session.generation.toString()" monospace />
@@ -304,6 +428,60 @@ function logOut() {
             </ElKeyValueItem>
           </ElKeyValueGrid>
         </ElSettingsSection>
+        <ElDialog
+          v-if="section.section === 'identity'"
+          :model-value="handleDialogOpen"
+          :title="t('admin.renameHandleDialogTitle')"
+          append-to-body
+          width="min(30rem, calc(100vw - 2rem))"
+          :close-on-press-escape="!handleSubmitting"
+          :close-on-click-modal="!handleSubmitting"
+          :show-close="!handleSubmitting"
+          @update:model-value="open => { if (!open) closeHandleRename() }"
+        >
+          <form id="admin-handle-rename-form" class="admin-handle-dialog-body" @submit.prevent="submitHandleRename">
+            <ElAlert v-if="handleFailure" :title="t(handleFailure)" type="error" :closable="false" show-icon />
+            <p class="admin-handle-desc">{{ t('admin.renameHandlePasskeyNote') }}</p>
+            <div class="admin-handle-field">
+              <label for="admin-handle-rename-input">{{ t('admin.renameHandleLabel') }}</label>
+              <ElInput
+                id="admin-handle-rename-input"
+                v-model="nextHandle"
+                :disabled="handleSubmitting"
+                :placeholder="authority.session.handle"
+                v-bind="{
+                  maxlength: WireLimits.AdminHandleBytes,
+                  autocorrect: 'off',
+                  autocapitalize: 'none',
+                  spellcheck: 'false',
+                  'aria-describedby': 'admin-handle-rename-hint',
+                  'aria-invalid': nextHandleInvalid ? 'true' : undefined,
+                }"
+                @input="onHandleInput"
+                @blur="nextHandleTouched = true"
+              />
+              <p id="admin-handle-rename-hint" :class="nextHandleInvalid ? 'admin-handle-validation' : 'admin-handle-hint'">
+                {{ t(nextHandleInvalid && !nextHandleValid ? 'admin.renameHandleInvalid' : 'admin.renameHandleHint') }}
+              </p>
+            </div>
+          </form>
+          <template #footer>
+            <ElInlineActions density="compact">
+              <ElButton native-type="button" :disabled="handleSubmitting" @click="closeHandleRename()">
+                {{ t('admin.renameHandleCancel') }}
+              </ElButton>
+              <ElButton
+                native-type="submit"
+                type="primary"
+                v-bind="{ form: 'admin-handle-rename-form' }"
+                :loading="handleSubmitting"
+                :disabled="!canSubmitHandle"
+              >
+                {{ t(handleRetryCommand ? 'admin.renameHandleRetry' : 'admin.renameHandleConfirm') }}
+              </ElButton>
+            </ElInlineActions>
+          </template>
+        </ElDialog>
         <AdminSessionHistory v-if="section.section === 'identity'" :key="sessionEpoch" :session="authority.session"
           :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
         <AdminInteractionWorkspace
@@ -421,5 +599,39 @@ function logOut() {
 }
 .admin-setup-button {
   margin-inline-start: 0;
+}
+.admin-session-actions {
+  align-items: center;
+}
+.admin-handle-dialog-body {
+  display: grid;
+  gap: var(--fsus-space-3);
+}
+.admin-handle-desc {
+  margin: 0;
+  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-small);
+  line-height: 1.55;
+}
+.admin-handle-field {
+  display: grid;
+  gap: 6px;
+}
+.admin-handle-field label {
+  color: var(--el-text-color-regular);
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+}
+.admin-handle-hint,
+.admin-handle-validation {
+  margin: 0;
+  font-size: var(--el-font-size-small);
+  line-height: 1.5;
+}
+.admin-handle-hint {
+  color: var(--el-text-color-secondary);
+}
+.admin-handle-validation {
+  color: var(--el-color-danger);
 }
 </style>

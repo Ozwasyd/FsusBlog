@@ -484,7 +484,8 @@ internal static partial class CurrentSchema
                                                       'admin_article_rollback_step_up',
                                                       'admin_appearance_step_up', 'comment_appeal_admin_step_up',
                                                       'admin_comment_batch_step_up', 'admin_root_comment_pow_step_up',
-                                                      'admin_article_trash_step_up', 'admin_reader_governance_step_up')
+                                                      'admin_article_trash_step_up', 'admin_reader_governance_step_up',
+                                                      'admin_handle_step_up')
                                          AND target.relname = 'admin_session')
                                      OR (c.relname = 'site_session_refresh_tombstone' AND target.relname = 'site_session_refresh')
                                      OR (c.relname = 'author_document_export' AND target.relname IN ('admin_principal', 'article_revision'))

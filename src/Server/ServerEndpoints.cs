@@ -33,6 +33,7 @@ internal static class ServerEndpoints
         bootstrap.Appearance?.Map(app);
         PasskeyEndpoints.Map(app, ServerHttp.SessionCookie, ServerHttp.ReadFrame, capabilities);
         SiteSessionEndpoints.Map(app, ServerHttp.SessionCookie, capabilities.SitePersistentRefresh);
+        SiteDisplayNameEndpoints.Map(app, ServerHttp.SessionCookie, ServerHttp.ReadFrame);
         InboxEndpoints.Map(app, ServerHttp.SessionCookie, ServerHttp.ReadFrame, capabilities);
         InboxStreamEndpoints.Map(app, ServerHttp.SessionCookie);
         IdentitySessionEndpoints.Map(app, ServerHttp.SessionCookie, authorCookie, capabilities.SitePersistentRefresh);

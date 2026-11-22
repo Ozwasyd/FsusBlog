@@ -76,7 +76,11 @@ export const FrameType = {
   SitePasskeyManagement: 33055,
   SitePasskeyRename: 33056,
   SitePasskeyRemove: 33057,
+  SiteDisplayNameState: 33077,
+  SiteDisplayNameCommand: 33078,
   AdminSessionSnapshot: 32830,
+  AdminHandleCommand: 33079,
+  AdminHandleReceipt: 33080,
   AdminOperationsStatus: 32850,
   AdminRiskReadiness: 32851,
   AdminRootCommentPowPolicy: 33008,
@@ -330,6 +334,10 @@ export const WireLimits = {
   AdminReaderReasonChars: 500,
   AdminReaderReasonBytes: 2000,
   AdminReaderStatusCommandFrameBytes: 2100,
+  AdminHandleBytes: 64,
+  AdminHandleCommandFrameBytes: 256,
+  SiteDisplayNameChars: 64,
+  SiteDisplayNameFrameBytes: 448,
   PageContentChars: 200000,
   PageContentBytes: 600000,
   AdminSitePageDigestBytes: 64,
@@ -738,6 +746,7 @@ export const WireRoutes = {
   SiteRefreshRotate: "/api/v2/identity/refresh/rotate.aeds",
   SiteRefreshSignOut: "/api/v2/identity/refresh/sign-out.aeds",
   SiteSessions: "/api/v2/identity/sessions.aeds",
+  SiteDisplayName: "/api/v2/identity/display-name.aeds",
   SitePasskeys: "/api/v2/identity/passkeys.aeds",
   SitePasskeyManagement: "/api/v2/identity/passkeys/manage.aeds",
   SitePasskeyRenameBegin: "/api/v2/identity/passkeys/rename/begin.aeds",
@@ -754,6 +763,9 @@ export const WireRoutes = {
   AdminPasskeyBegin: "/api/v2/admin/identity/passkey/begin.aeds",
   AdminPasskeyComplete: "/api/v2/admin/identity/passkey/complete.aeds",
   AdminSession: "/api/v2/admin/identity/session.aeds",
+  AdminHandleStepUpBegin: "/api/v2/admin/identity/handle/step-up/begin.aeds",
+  AdminHandleStepUpComplete: "/api/v2/admin/identity/handle/step-up/complete.aeds",
+  AdminHandleExecute: "/api/v2/admin/identity/handle/execute.aeds",
   AdminSignInHistory: "/api/v2/admin/identity/sessions/history.aeds",
   AdminSiteTraffic: "/api/v2/admin/identity/site-traffic.aeds",
   AdminReaderAccounts: "/api/v2/admin/identity/readers.aeds",
@@ -1189,6 +1201,34 @@ const adminReaderStatusReceiptFields = {
 };
 export interface AdminReaderStatusReceipt extends PodValue<typeof adminReaderStatusReceiptFields> {}
 export const [encodeAdminReaderStatusReceipt, decodeAdminReaderStatusReceipt] = /* @__PURE__ */ definePodRecord<AdminReaderStatusReceipt>(adminReaderStatusReceiptFields);
+
+const siteDisplayNameStateFields = {
+  displayName: podField.text(WireLimits.PublicCommentHandleBytes),
+};
+export interface SiteDisplayNameState extends PodValue<typeof siteDisplayNameStateFields> {}
+export const [encodeSiteDisplayNameState, decodeSiteDisplayNameState] = /* @__PURE__ */ definePodRecord<SiteDisplayNameState>(siteDisplayNameStateFields);
+
+const siteDisplayNameCommandFields = {
+  displayName: podField.text(WireLimits.PublicCommentHandleBytes),
+};
+export interface SiteDisplayNameCommand extends PodValue<typeof siteDisplayNameCommandFields> {}
+export const [encodeSiteDisplayNameCommand, decodeSiteDisplayNameCommand] = /* @__PURE__ */ definePodRecord<SiteDisplayNameCommand>(siteDisplayNameCommandFields);
+
+const adminHandleCommandFields = {
+  expectedHandle: podField.text(WireLimits.AdminHandleBytes),
+  newHandle: podField.text(WireLimits.AdminHandleBytes),
+  idempotencyKey: podField.uuid,
+};
+export interface AdminHandleCommand extends PodValue<typeof adminHandleCommandFields> {}
+export const [encodeAdminHandleCommand, decodeAdminHandleCommand] = /* @__PURE__ */ definePodRecord<AdminHandleCommand>(adminHandleCommandFields);
+
+const adminHandleReceiptFields = {
+  handle: podField.text(WireLimits.AdminHandleBytes),
+  happenedAtUnixMs: podField.i64,
+  replayed: podField.bool,
+};
+export interface AdminHandleReceipt extends PodValue<typeof adminHandleReceiptFields> {}
+export const [encodeAdminHandleReceipt, decodeAdminHandleReceipt] = /* @__PURE__ */ definePodRecord<AdminHandleReceipt>(adminHandleReceiptFields);
 
 const adminArticleRollbackIntentFields = {
   articleId: podField.i32,

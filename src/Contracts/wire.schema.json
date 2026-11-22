@@ -88,7 +88,11 @@
     "SitePasskeyManagement": 33055,
     "SitePasskeyRename": 33056,
     "SitePasskeyRemove": 33057,
+    "SiteDisplayNameState": 33077,
+    "SiteDisplayNameCommand": 33078,
     "AdminSessionSnapshot": 32830,
+    "AdminHandleCommand": 33079,
+    "AdminHandleReceipt": 33080,
     "AdminOperationsStatus": 32850,
     "AdminRiskReadiness": 32851,
     "AdminRootCommentPowPolicy": 33008,
@@ -334,6 +338,7 @@
     "SiteRefreshRotate": "/api/v2/identity/refresh/rotate.aeds",
     "SiteRefreshSignOut": "/api/v2/identity/refresh/sign-out.aeds",
     "SiteSessions": "/api/v2/identity/sessions.aeds",
+    "SiteDisplayName": "/api/v2/identity/display-name.aeds",
     "SitePasskeys": "/api/v2/identity/passkeys.aeds",
     "SitePasskeyManagement": "/api/v2/identity/passkeys/manage.aeds",
     "SitePasskeyRenameBegin": "/api/v2/identity/passkeys/rename/begin.aeds",
@@ -350,6 +355,9 @@
     "AdminPasskeyBegin": "/api/v2/admin/identity/passkey/begin.aeds",
     "AdminPasskeyComplete": "/api/v2/admin/identity/passkey/complete.aeds",
     "AdminSession": "/api/v2/admin/identity/session.aeds",
+    "AdminHandleStepUpBegin": "/api/v2/admin/identity/handle/step-up/begin.aeds",
+    "AdminHandleStepUpComplete": "/api/v2/admin/identity/handle/step-up/complete.aeds",
+    "AdminHandleExecute": "/api/v2/admin/identity/handle/execute.aeds",
     "AdminSignInHistory": "/api/v2/admin/identity/sessions/history.aeds",
     "AdminSiteTraffic": "/api/v2/admin/identity/site-traffic.aeds",
     "AdminReaderAccounts": "/api/v2/admin/identity/readers.aeds",
@@ -648,6 +656,10 @@
     "AdminReaderReasonChars": 500,
     "AdminReaderReasonBytes": 2000,
     "AdminReaderStatusCommandFrameBytes": 2100,
+    "AdminHandleBytes": 64,
+    "AdminHandleCommandFrameBytes": 256,
+    "SiteDisplayNameChars": 64,
+    "SiteDisplayNameFrameBytes": 448,
     "PageContentChars": 200000,
     "PageContentBytes": 600000,
     "AdminSitePageDigestBytes": 64,
@@ -1134,6 +1146,30 @@
         ["Enabled", "bool"],
         ["Generation", "i64"],
         ["RevokedSessionCount", "i32"],
+        ["HappenedAtUnixMs", "i64"],
+        ["Replayed", "bool"]
+      ]
+    },
+    "SiteDisplayNameState": {
+      "fields": [
+        ["DisplayName", "text", "PublicCommentHandleBytes"]
+      ]
+    },
+    "SiteDisplayNameCommand": {
+      "fields": [
+        ["DisplayName", "text", "PublicCommentHandleBytes"]
+      ]
+    },
+    "AdminHandleCommand": {
+      "fields": [
+        ["ExpectedHandle", "text", "AdminHandleBytes"],
+        ["NewHandle", "text", "AdminHandleBytes"],
+        ["IdempotencyKey", "uuid"]
+      ]
+    },
+    "AdminHandleReceipt": {
+      "fields": [
+        ["Handle", "text", "AdminHandleBytes"],
         ["HappenedAtUnixMs", "i64"],
         ["Replayed", "bool"]
       ]

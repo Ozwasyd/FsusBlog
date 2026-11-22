@@ -90,6 +90,10 @@ inline constexpr uint32_t AdminReaderKeywordChars = 128;
 inline constexpr uint32_t AdminReaderReasonChars = 500;
 inline constexpr uint32_t AdminReaderReasonBytes = 2000;
 inline constexpr uint32_t AdminReaderStatusCommandFrameBytes = 2100;
+inline constexpr uint32_t AdminHandleBytes = 64;
+inline constexpr uint32_t AdminHandleCommandFrameBytes = 256;
+inline constexpr uint32_t SiteDisplayNameChars = 64;
+inline constexpr uint32_t SiteDisplayNameFrameBytes = 448;
 inline constexpr uint32_t PageContentChars = 200000;
 inline constexpr uint32_t PageContentBytes = 600000;
 inline constexpr uint32_t AdminSitePageDigestBytes = 64;
@@ -494,7 +498,11 @@ enum class FrameType : uint16_t {
     SitePasskeyManagement = 33055,
     SitePasskeyRename = 33056,
     SitePasskeyRemove = 33057,
+    SiteDisplayNameState = 33077,
+    SiteDisplayNameCommand = 33078,
     AdminSessionSnapshot = 32830,
+    AdminHandleCommand = 33079,
+    AdminHandleReceipt = 33080,
     AdminOperationsStatus = 32850,
     AdminRiskReadiness = 32851,
     AdminRootCommentPowPolicy = 33008,
@@ -714,7 +722,7 @@ inline constexpr FrameRange frameRanges[] = {
     {33032, 33049},
     {33055, 33066},
     {33068, 33068},
-    {33070, 33076},
+    {33070, 33080},
 };
 }
 
