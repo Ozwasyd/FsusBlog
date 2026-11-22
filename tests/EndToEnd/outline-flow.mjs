@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const { expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const outlineName = 'Article outline'
@@ -34,18 +35,18 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
   monitor(editor, 'outline')
   const editPath = id => `${origin}/user/manage/article/edit/${id}`
   const body = () => editor.locator('#article-body')
-  const launcher = () => editor.getByRole('button', { name: 'Outline', exact: true })
-  const moreActions = () => editor.getByRole('button', { name: 'More actions', exact: true })
-  const desktop = () => editor.getByRole('complementary', { name: outlineName, exact: true })
-  const mobile = () => editor.getByRole('dialog', { name: outlineName, exact: true })
-  const heading = (panel, name) => panel.getByRole('button', { name, exact: true })
+  const launcher = () => exactButton(editor, 'Outline')
+  const moreActions = () => exactButton(editor, 'More actions')
+  const desktop = () => roleWithExactName(editor, 'complementary', outlineName)
+  const mobile = () => roleWithExactName(editor, 'dialog', outlineName)
+  const heading = (panel, name) => exactButton(panel, name)
   const current = panel => panel.locator('[aria-current="location"]')
   const editorHandles = []
 
   async function open(panel, compact = false) {
     if (compact) {
       await moreActions().click()
-      await editor.getByRole('menuitem', { name: 'Outline', exact: true }).click()
+      await roleWithExactName(editor, 'menuitem', 'Outline').click()
       await expect(panel).toBeVisible()
       return
     }
@@ -153,10 +154,10 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
     await open(sidebar)
     await expect(repeated.nth(1)).toHaveAttribute('aria-current', 'location')
     await moreActions().click()
-    await editor.getByRole('menuitem', { name: 'Workspace & open…', exact: true }).click()
-    const workspaceDialog = editor.getByRole('dialog', { name: 'Workspace & open article', exact: true })
+    await roleWithExactName(editor, 'menuitem', 'Workspace & open…').click()
+    const workspaceDialog = roleWithExactName(editor, 'dialog', 'Workspace & open article')
     await workspaceDialog.getByLabel('Article ID', { exact: true }).fill(String(second.id))
-    await workspaceDialog.getByRole('button', { name: 'Open in other group', exact: true }).click()
+    await exactButton(workspaceDialog, 'Open in other group').click()
     await expect(editor).toHaveURL(editPath(second.id))
     await expect(sidebar).toBeHidden()
     await expect(body()).toBeEditable()
@@ -175,7 +176,7 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
     assert.deepEqual(await editorA.evaluate(element => ({ connected: element.isConnected, value: element.value,
       start: element.selectionStart, end: element.selectionEnd })),
     { connected: true, value: renderedSource, start: secondRepeat, end: secondRepeat })
-    await editor.getByRole('tab', { name: `${first.title} · Preview`, exact: true }).click()
+    await roleWithExactName(editor, 'tab', `${first.title} · Preview`).click()
     await expect(editor).toHaveURL(editPath(first.id))
     await expectCaret(secondRepeat)
     assert.equal(await body().evaluate((live, original) => live === original, editorA), true)

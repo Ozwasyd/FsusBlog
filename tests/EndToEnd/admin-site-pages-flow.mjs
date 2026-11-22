@@ -9,6 +9,7 @@ import { adminClusterFlow } from './admin-cluster-flow.mjs'
 import { adminRiskReadinessFlow, verifyRootCommentPowPolicy } from './admin-risk-readiness-flow.mjs'
 import { decodeSitePage } from '../../src/Contracts/site-pages.ts'
 import { decodeAdminSitePageRevision, encodeAdminSitePagePublish, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 export async function verifyAdminSitePages({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
   priorCookie, grant, revoke, logIn, probe, readCookie, evidence }) {
@@ -18,7 +19,7 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
     siteCookie, priorCookie, probe, evidence, expected: JSON.parse(riskFixture) }) : null
   const openRiskControls = async () => {
     await visitAdminWorkspace(page, '/admin/interaction')
-    await page.getByRole('tab', { name: 'Risk controls', exact: true }).click()
+    await roleWithExactName(page, 'tab', 'Risk controls').click()
   }
   await visitAdminWorkspace(page, '/admin/site')
   await cluster.denied()
@@ -30,8 +31,8 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   const legacy = '/api/binary/system/admin/page/about'
   const overview = adminOrigin.origin + WireRoutes.AdminSitePages
   const detail = WireRoutes.AdminSitePage.replace('{slug}', 'about')
-  const section = page.getByRole('region', { name: 'Site pages', exact: true })
-  const button = section.getByRole('button', { name: 'Refresh', exact: true })
+  const section = roleWithExactName(page, 'region', 'Site pages')
+  const button = exactButton(section, 'Refresh')
   const check = async () => (await Promise.all([
     page.waitForResponse(response => response.url() === overview && response.request().method() === 'GET'), button.click(),
   ]))[0]
@@ -69,7 +70,7 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   assert.equal(allowed.headers()[WireHeaders.AdminSitePageEditor.toLowerCase()], editor ? '1' : undefined)
   let displayed
   if (!editor) {
-    await section.getByRole('button', { name: 'View about content', exact: true }).click()
+    await exactButton(section, 'View about content').click()
     displayed = section.getByLabel('about Markdown')
     await displayed.waitFor()
     assert.match(await displayed.textContent(), /# Verified about\n\n<script>literal<\/script>/)
@@ -93,7 +94,7 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
 
   const grantCookie = await readCookie(context, adminOrigin.origin + detail, adminCookieName)
   if (editor) await verifyEditor({ page, section, context, adminOrigin, siteOrigin, adminCookieName, grantCookie, probe, legacy, evidence })
-  else assert.equal(await section.getByRole('button', { name: 'Edit about content', exact: true }).count(), 0)
+  else assert.equal(await exactButton(section, 'Edit about content').count(), 0)
   const revokeAndObserve = async () => {
     await visitAdminWorkspace(page, '/admin/site')
     await promisify(execFile)(revoke, [], { timeout: 8_000 })
@@ -202,7 +203,7 @@ async function verifyEditor({ page, section, context, adminOrigin, siteOrigin, a
     await route.fulfill({ response: published })
   }
   await page.route(commandPath, intercept)
-  await section.getByRole('button', { name: 'Edit about content', exact: true }).click()
+  await exactButton(section, 'Edit about content').click()
   const textarea = section.getByRole('textbox', { name: 'about Markdown editor' })
   await textarea.fill(markdown)
   const publish = section.getByRole('button', { name: 'Publish with Passkey' })

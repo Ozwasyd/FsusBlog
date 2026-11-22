@@ -2,13 +2,14 @@ import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 export async function exerciseDraftRevision({ page, origin, articleId, sourceRevision, originalBody, publicArticle, screenshot, observations,
   pdfEnabled, pdfFixture }) {
   const currentBody = `${originalBody}\nNewer saved revision.`
   assert.equal(await page.getByLabel('Body', { exact: true }).inputValue(), currentBody)
   const pane = page.getByRole('complementary', { name: 'Article inspector' })
-  await page.getByRole('button', { name: 'Inspector', exact: true }).click()
+  await exactButton(page, 'Inspector').click()
   await pane.getByText('Revision history', { exact: true }).click()
   const comparePath = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(articleId))
     .replace('{sourceRevision:long}', String(sourceRevision))
@@ -20,17 +21,17 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   const stale = await page.request.get(`${origin}${comparePath}?revision=${staleBase}`)
   assert.equal(stale.status(), 409)
   assert.equal(decodeFrame(await stale.body()).type, FrameType.ApiError)
-  const choose = pane.getByRole('button', { name: `Compare revision ${sourceRevision}`, exact: true })
+  const choose = exactButton(pane, `Compare revision ${sourceRevision}`)
   // Run the view's request against that mismatched coordinate without altering the server's response.
   await page.route(url => url.pathname === comparePath, route =>
     route.continue({ url: `${origin}${comparePath}?revision=${staleBase}` }), { times: 1 })
   await choose.click()
-  const comparison = page.getByRole('dialog', { name: 'Revision comparison', exact: true })
+  const comparison = roleWithExactName(page, 'dialog', 'Revision comparison')
   await comparison.getByText('The saved draft changed. Load its current revision and compare again.', { exact: true }).waitFor()
   assert.equal(await comparison.locator('pre').count(), 0)
   await page.keyboard.press('Escape')
   await comparison.waitFor({ state: 'hidden' })
-  await pane.getByRole('button', { name: 'Reload revisions', exact: true }).click()
+  await exactButton(pane, 'Reload revisions').click()
   await choose.click()
   const earlier = comparison.getByLabel('Earlier revision Markdown', { exact: true })
   const current = comparison.getByLabel('Current saved revision Markdown', { exact: true })
@@ -49,7 +50,7 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   assert(wide)
   await page.setViewportSize({ width: 375, height: 850 })
   await page.waitForFunction(() => matchMedia('(max-width: 740px)').matches)
-  const drawer = page.getByRole('dialog', { name: 'Article inspector', exact: true })
+  const drawer = roleWithExactName(page, 'dialog', 'Article inspector')
   await drawer.waitFor({ state: 'hidden' })
   const earlierNarrow = await earlier.boundingBox()
   const currentNarrow = await current.boundingBox()
@@ -57,10 +58,10 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
     'Narrow comparison must stack the exact sources without hiding either')
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
   await comparison.getByRole('button', { name: 'Download revision Markdown' }).click({ trial: true })
-  await verifyOfflineHtmlDownload(page, comparison.getByRole('button', { name: 'Download revision HTML', exact: true }),
+  await verifyOfflineHtmlDownload(page, exactButton(comparison, 'Download revision HTML'),
     savedBefore.title, 'Draft milestone', 'Newer saved revision.')
-  await readEpubDownload(page, comparison.getByRole('button', { name: 'Download revision EPUB', exact: true }))
-  const revisionPdf = comparison.getByRole('button', { name: 'Download revision PDF', exact: true })
+  await readEpubDownload(page, exactButton(comparison, 'Download revision EPUB'))
+  const revisionPdf = exactButton(comparison, 'Download revision PDF')
   if (pdfEnabled) {
     const pdf = await readPdfDownload(page, revisionPdf, articleId, savedBefore.revision, sourceRevision)
     if (pdfFixture) await pdf.saveAs(pdfFixture)
@@ -77,7 +78,7 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   // A compare opened from an existing compact Drawer owns Escape before the Inspector.
   await page.setViewportSize({ width: 375, height: 850 })
   await drawer.waitFor()
-  const chooseCompact = drawer.getByRole('button', { name: `Compare revision ${sourceRevision}`, exact: true })
+  const chooseCompact = exactButton(drawer, `Compare revision ${sourceRevision}`)
   await chooseCompact.click()
   await earlier.waitFor()
   await earlier.focus()
@@ -97,8 +98,8 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   await earlier.waitFor()
   const attachment = await readMarkdownDownload(page, comparison.getByRole('button', { name: 'Download revision Markdown' }), originalBody)
   assert.equal(attachment.revision, sourceRevision)
-  await readWordDownload(page, comparison.getByRole('button', { name: 'Download revision Word', exact: true }))
-  const restore = comparison.getByRole('button', { name: 'Restore as new draft', exact: true })
+  await readWordDownload(page, exactButton(comparison, 'Download revision Word'))
+  const restore = exactButton(comparison, 'Restore as new draft')
   assert.equal(await restore.isDisabled(), true)
   const reason = 'Restore the initial published content as a draft.'
   await comparison.getByLabel('Reason for restoring this draft').fill(reason)
@@ -118,6 +119,6 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   const publicAfter = await publicArticle(articleId)
   assert.equal(publicAfter.revision, sourceRevision)
   assert.equal(publicAfter.body, originalBody)
-  await pane.getByRole('button', { name: 'Close', exact: true }).click()
+  await exactButton(pane, 'Close').click()
   observations.push('The Inspector compares two saved revisions, records the reason, restores a new private draft, and preserves the prior public revision.')
 }

@@ -9,6 +9,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAppearanceHistory } from '../../src/Contracts/admin-appearance.ts'
 import { decodeAdminAppearanceFontDetail, decodeAdminAppearanceState, encodeAdminAppearanceCommand,
   FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 export async function verifyAppearanceActivation({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
   priorCookie, grant, revoke, logIn, probe, readCookie, evidence }) {
@@ -30,8 +31,8 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   const registry = legacyFont ? JSON.parse(await readFile(join(fixtureRoot, 'appearance.json'), 'utf8')) : null
   const legacyFontDigest = registry?.Packages.find(entry => entry.Format === 'fsfont-v1')?.ArchiveSha256
   const fontDetailUrl = legacyFontDigest && admin(fontDetailPath(legacyFontDigest))
-  const section = page.getByRole('region', { name: 'Site appearance', exact: true })
-  const check = () => section.getByRole('button', { name: 'Check active appearance', exact: true }).click()
+  const section = roleWithExactName(page, 'region', 'Site appearance')
+  const check = () => exactButton(section, 'Check active appearance').click()
   assert.equal(await page.locator('link[href^="/site-appearance/"]').count(), 0)
   await probe(stateUrl, adminCookieName, siteCookie.value, 401)
   await probe(historyUrl, adminCookieName, siteCookie.value, 401)
@@ -53,7 +54,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await promisify(execFile)(grant, [], { timeout: 8_000 })
   await probe(stateUrl, adminCookieName, priorCookie.value, 401)
   await page.reload()
-  await page.getByRole('button', { name: 'Log in as administrator', exact: true }).waitFor()
+  await exactButton(page, 'Log in as administrator').waitFor()
   await logIn(page)
   await check()
   await section.getByText(`Active theme: fixture.theme · Active font: ${fontName}`).waitFor()
@@ -62,8 +63,8 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
     await verifyFontDetails({ page, section, context, fontDetailUrl, fontName, legacyFontDigest, themeDigest,
       detailUrl: digest => admin(fontDetailPath(digest)), fixtureRoot })
   }
-  const history = section.getByRole('region', { name: 'Appearance history', exact: true })
-  const checkHistory = () => section.getByRole('button', { name: 'Check appearance history', exact: true }).click()
+  const history = roleWithExactName(section, 'region', 'Appearance history')
+  const checkHistory = () => exactButton(section, 'Check appearance history').click()
   await checkHistory()
   await history.getByText('No appearance changes recorded.', { exact: true }).waitFor()
 
@@ -118,9 +119,9 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   assert.equal((await submit(rejectedFrame)).status(), 400)
   assert.equal((await submit(rejectedFrame, { Origin: siteOrigin.origin })).status(), 403)
 
-  const theme = section.getByRole('combobox', { name: 'Theme', exact: true })
+  const theme = roleWithExactName(section, 'combobox', 'Theme')
   await theme.click()
-  await page.getByRole('option', { name: legacyThemeDigest ? 'fsusblog.theme.fixture 1.0.0' : 'fixture.alternate 1.0', exact: true }).click()
+  await roleWithExactName(page, 'option', legacyThemeDigest ? 'fsusblog.theme.fixture 1.0.0' : 'fixture.alternate 1.0').click()
   let observations = []
   const intercept = async route => {
     const request = route.request()
@@ -152,7 +153,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
         root.getPropertyValue('--fsus-color-action-primary-hover').trim() === alternate
     }, [accent, hover])
     await readTokens('#663322', '#774433')
-    const skipLink = sites.getByRole('link', { name: 'Skip to content', exact: true })
+    const skipLink = roleWithExactName(sites, 'link', 'Skip to content')
     await skipLink.waitFor({ state: 'attached' })
     await sites.keyboard.press('Tab')
     const focusedSkipLink = () => skipLink.evaluate(element => {
@@ -215,7 +216,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await checkHistory()
   await history.getByText('Rolled back · revision 2', { exact: true }).waitFor()
   await history.getByText('Applied · revision 1', { exact: true }).waitFor()
-  assert.equal(await history.getByRole('heading', { name: 'Appearance history', exact: true })
+  assert.equal(await roleWithExactName(history, 'heading', 'Appearance history')
     .evaluate(element => element === document.activeElement), true)
 
   await writeFile(join(evidence, 'appearance-rollback-url.txt'), restored.css)
@@ -227,7 +228,7 @@ export async function verifyAppearanceActivation({ page, context, adminOrigin, s
   await probe(historyUrl, adminCookieName, cookie.value, 401)
   if (fontDetailUrl) await probe(fontDetailUrl, adminCookieName, cookie.value, 401)
   await check()
-  await page.getByRole('button', { name: 'Log in as administrator', exact: true }).waitFor()
+  await exactButton(page, 'Log in as administrator').waitFor()
   await logIn(page)
   assert.equal((await context.request.get(stateUrl)).status(), 403)
   assert.equal((await context.request.get(catalogUrl)).status(), 403)
@@ -250,11 +251,11 @@ async function verifyFontDetails({ page, section, context, fontDetailUrl, fontNa
   assert.equal((await context.request.get(detailUrl(themeDigest))).status(), 404)
   assert.equal((await context.request.get(detailUrl('A'.repeat(64)))).status(), 400)
 
-  const font = section.getByRole('combobox', { name: 'Font', exact: true })
+  const font = roleWithExactName(section, 'combobox', 'Font')
   await font.click()
-  await page.getByRole('option', { name: `${fontName} 1.0.0`, exact: true }).click()
+  await roleWithExactName(page, 'option', `${fontName} 1.0.0`).click()
   const served = page.waitForResponse(response => response.url() === fontDetailUrl && response.request().method() === 'GET')
-  await section.getByRole('button', { name: 'Font details', exact: true }).click()
+  await exactButton(section, 'Font details').click()
   const response = await served
   assert.equal(response.status(), 200)
   assert.equal(response.headers()['cache-control'], 'no-store')
@@ -280,7 +281,7 @@ async function verifyFontDetails({ page, section, context, fontDetailUrl, fontNa
   for (const [field, value] of Object.entries(expected)) assert.equal(detail[field], value, field)
 
   const panel = section.locator('section[aria-labelledby="admin-font-details"]')
-  await panel.getByRole('heading', { name: 'Font details', exact: true }).waitFor()
+  await roleWithExactName(panel, 'heading', 'Font details').waitFor()
   assert.equal(await panel.locator('pre').textContent(), licenseText)
   const displayed = await panel.textContent()
   for (const value of [expected.family, expected.licenseName, expected.unicodeRange, expected.sourcePackage, expected.sourceUpstream])

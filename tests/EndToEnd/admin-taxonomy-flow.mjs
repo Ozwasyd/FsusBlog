@@ -13,6 +13,7 @@ import {
   decodeDraft, decodeDraftTaxonomy, encodeArticleCommand, encodeArticleScheduleCommand, encodeTaxonomyAssignment,
   FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const run = promisify(execFile)
 
@@ -21,9 +22,9 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   await visitAdminWorkspace(page, '/admin/articles')
   const categoryEndpoint = adminOrigin.origin + WireRoutes.AdminCategories
   const tagEndpoint = adminOrigin.origin + WireRoutes.AdminTags
-  const panel = page.getByRole('region', { name: 'Taxonomy usage', exact: true })
-  const categories = page.getByRole('tab', { name: 'Categories', exact: true })
-  const tags = page.getByRole('tab', { name: 'Tags', exact: true })
+  const panel = roleWithExactName(page, 'region', 'Taxonomy usage')
+  const categories = roleWithExactName(page, 'tab', 'Categories')
+  const tags = roleWithExactName(page, 'tab', 'Tags')
   const revoked = page.getByRole('alert').filter({ hasText: 'Your administrator session expired or was revoked. Log in again.' })
   const generation = (await snapshot(context)).principal.generation
 
@@ -60,7 +61,7 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   await assertRow('Category usage', 'Taxonomy QA category', ['0', '1', '1', '0', '1', '3'])
   if (process.env.FSUSBLOG_TEST_ADMIN_CATEGORY_METADATA !== '1') {
     assert.equal((await context.request.get(adminOrigin.origin + WireRoutes.AdminCategoryMetadataAvailability)).status(), 404)
-    assert.equal(await panel.getByRole('button', { name: 'Create category', exact: true }).count(), 0)
+    assert.equal(await exactButton(panel, 'Create category').count(), 0)
   }
   const referencedTag = {
     id: 2, name: 'Taxonomy QA tag', published: 0, drafts: 0, scheduled: 1,
@@ -72,21 +73,21 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   })
   await expectPage(await read(tags, tagEndpoint), [referencedTag, ...Array.from({ length: 23 }, (_, index) => spareTag(index + 3))], 25)
   await assertRow('Tag usage', 'Taxonomy QA tag', ['0', '0', '1', '0', '0', '2'])
-  await expectPage(await read(panel.getByRole('button', { name: 'Next page', exact: true }), `${tagEndpoint}?after=25`), [spareTag(26)])
+  await expectPage(await read(exactButton(panel, 'Next page'), `${tagEndpoint}?after=25`), [spareTag(26)])
   await panel.getByText('Page 2', { exact: true }).waitFor()
   await assertRow('Tag usage', 'Taxonomy QA filler 26', ['0', '0', '0', '0', '0', '0'])
-  await read(panel.getByRole('button', { name: 'Previous page', exact: true }), tagEndpoint)
+  await read(exactButton(panel, 'Previous page'), tagEndpoint)
   await assertRow('Tag usage', 'Taxonomy QA tag', ['0', '0', '1', '0', '0', '2'])
   assert.equal(await panel.getByRole('button', { name: /delete|remove/i }).count(), 0)
-  const scrollRegion = panel.getByRole('region', { name: 'Taxonomy usage table', exact: true })
+  const scrollRegion = roleWithExactName(panel, 'region', 'Taxonomy usage table')
   assert(await scrollRegion.evaluate(element => element.scrollWidth <= element.clientWidth), 'Desktop must show all taxonomy columns without scrolling.')
-  await panel.getByRole('heading', { name: 'Taxonomy usage', exact: true }).evaluate(heading => heading.scrollIntoView({ block: 'start' }))
+  await roleWithExactName(panel, 'heading', 'Taxonomy usage').evaluate(heading => heading.scrollIntoView({ block: 'start' }))
   await page.screenshot({ path: join(evidence, 'administrator-taxonomy.png'), animations: 'disabled' })
   await page.setViewportSize({ width: 375, height: 812 })
   await assertRow('Tag usage', 'Taxonomy QA tag', ['0', '0', '1', '0', '0', '2'])
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Taxonomy table must scroll inside the mobile panel.')
   assert(await scrollRegion.evaluate(element => element.scrollWidth > element.clientWidth), 'Narrow taxonomy tables must expose horizontal scrolling.')
-  await panel.getByRole('heading', { name: 'Taxonomy usage', exact: true }).evaluate(heading => heading.scrollIntoView({ block: 'start' }))
+  await roleWithExactName(panel, 'heading', 'Taxonomy usage').evaluate(heading => heading.scrollIntoView({ block: 'start' }))
   await page.screenshot({ path: join(evidence, 'administrator-taxonomy-mobile.png'), animations: 'disabled' })
   await inspectReferences('Tag', tagEndpoint, 2, 'Taxonomy QA tag', [1, 1, 0], process.env.FSUSBLOG_TEST_ADMIN_TAG_METADATA === '1')
   await inspectReferences('Tag', tagEndpoint, 3, 'Taxonomy QA filler 3', [0, 0, 0], process.env.FSUSBLOG_TEST_ADMIN_TAG_METADATA === '1')
@@ -113,7 +114,7 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
 
   async function read(button, endpoint) {
     const selectedTab = await button.getAttribute('role') === 'tab' && await button.getAttribute('aria-selected') === 'true'
-    const trigger = selectedTab ? panel.getByRole('button', { name: 'Refresh list', exact: true }) : button
+    const trigger = selectedTab ? exactButton(panel, 'Refresh list') : button
     const [response] = await Promise.all([
       page.waitForResponse(value => value.url() === endpoint && value.request().method() === 'GET'),
       trigger.click(),
@@ -122,21 +123,21 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
   }
 
   async function assertRow(caption, name, values) {
-    const row = panel.getByRole('table', { name: caption, exact: true }).getByRole('row').filter({ hasText: name })
-    await row.getByRole('rowheader', { name, exact: true }).waitFor()
+    const row = roleWithExactName(panel, 'table', caption).getByRole('row').filter({ hasText: name })
+    await roleWithExactName(row, 'rowheader', name).waitFor()
     assert.deepEqual(await row.getByRole('cell').allTextContents(), values)
   }
   async function inspectReferences(kind, endpoint, id, name, counts, writable) {
-    const inspect = panel.getByRole('button', { name: 'Inspect references', exact: true })
-    const details = panel.getByRole('region', { name: 'Taxonomy references', exact: true })
-    const picker = panel.getByRole('combobox', { name: `${kind} to ${writable ? 'edit' : 'inspect'}`, exact: true })
+    const inspect = exactButton(panel, 'Inspect references')
+    const details = roleWithExactName(panel, 'region', 'Taxonomy references')
+    const picker = roleWithExactName(panel, 'combobox', `${kind} to ${writable ? 'edit' : 'inspect'}`)
     const blocked = details.getByText('Physical deletion is blocked by existing references or reserved aliases.', { exact: true })
     if (!writable) {
-      assert.equal(await panel.getByRole('button', { name: `Create ${kind.toLowerCase()}`, exact: true }).count(), 0)
-      assert.equal(await panel.getByRole('button', { name: `Edit selected ${kind.toLowerCase()}`, exact: true }).count(), 0)
+      assert.equal(await exactButton(panel, `Create ${kind.toLowerCase()}`).count(), 0)
+      assert.equal(await exactButton(panel, `Edit selected ${kind.toLowerCase()}`).count(), 0)
     }
     await picker.click()
-    await page.getByRole('option', { name, exact: true }).click()
+    await roleWithExactName(page, 'option', name).click()
     const received = await read(inspect, `${endpoint}?dependency=${id}`)
     assert.equal(received.status(), 200)
     assert((await received.headerValue('Cache-Control'))?.includes('no-store'))
@@ -153,7 +154,7 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     assert.equal(await panel.getByRole('button', { name: /delete|remove/i }).count(), 0)
     if (kind === 'Category')
       await page.screenshot({ path: join(evidence, 'administrator-taxonomy-references-mobile.png'), animations: 'disabled' })
-    await details.getByRole('button', { name: 'Close reference details', exact: true }).click()
+    await exactButton(details, 'Close reference details').click()
     await details.waitFor({ state: 'hidden' })
     await inspect.and(page.locator(':focus')).waitFor()
   }
@@ -164,7 +165,7 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     const [challenge, accepted] = await Promise.all([
       page.waitForResponse(response => response.url() === proof && response.request().method() === 'POST'),
       page.waitForResponse(response => response.url() === endpoint && response.request().method() === method),
-      form.getByRole('button', { name: buttonName, exact: true }).click(),
+      exactButton(form, buttonName).click(),
     ])
     assert.equal(challenge.status(), 200)
     assert.equal(accepted.status(), 200)
@@ -224,8 +225,8 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
       return raw.headers()[generationHeader]
     }
 
-    await panel.getByRole('button', { name: 'Create category', exact: true }).click()
-    const create = panel.getByRole('region', { name: 'Create category', exact: true })
+    await exactButton(panel, 'Create category').click()
+    const create = roleWithExactName(panel, 'region', 'Create category')
     await create.getByLabel('Category name', { exact: true }).fill(`  ${createdName}  `)
     await create.getByLabel('Category description', { exact: true }).fill(createdDescription)
     const frames = [FrameType.AdminCategoryMetadataCommand, FrameType.AdminCategoryMetadata]
@@ -242,14 +243,14 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
 
     const editPath = route(WireRoutes.AdminCategoryMetadata, 1)
     const editPow = route(WireRoutes.AdminCategoryMetadataPow, 1)
-    await panel.getByRole('combobox', { name: 'Category to edit', exact: true }).click()
-    await page.getByRole('option', { name: original, exact: true }).click()
-    const loaded = await read(panel.getByRole('button', { name: 'Edit selected category', exact: true }), adminOrigin.origin + editPath)
+    await roleWithExactName(panel, 'combobox', 'Category to edit').click()
+    await roleWithExactName(page, 'option', original).click()
+    const loaded = await read(exactButton(panel, 'Edit selected category'), adminOrigin.origin + editPath)
     assert.equal(loaded.status(), 200)
     const current = await decodeMetadata(loaded, FrameType.AdminCategoryMetadata)
     assert.deepEqual({ id: current.id, name: current.name, description: current.description, changed: current.changed },
       { id: 1, name: original, description: '', changed: false })
-    const editor = panel.getByRole('region', { name: 'Edit category metadata', exact: true })
+    const editor = roleWithExactName(panel, 'region', 'Edit category metadata')
     await editor.getByLabel('Category name', { exact: true }).fill(renamed)
     await editor.getByLabel('Category description', { exact: true }).fill(renamedDescription)
     const updated = await writeMetadata(editor, 'PUT', editPath, editPow, 'Save category metadata', ...frames)
@@ -281,15 +282,15 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     assert(generation)
     const authorization = await context.request.get(adminOrigin.origin + WireRoutes.AdminTagMetadataAvailability)
     assert.equal(authorization.status(), 204)
-    await panel.getByRole('combobox', { name: 'Tag to edit', exact: true }).click()
-    await page.getByRole('option', { name: current, exact: true }).click()
-    await panel.getByRole('button', { name: 'Edit selected tag', exact: true }).click()
-    const editor = panel.getByRole('region', { name: 'Edit tag metadata', exact: true })
+    await roleWithExactName(panel, 'combobox', 'Tag to edit').click()
+    await roleWithExactName(page, 'option', current).click()
+    await exactButton(panel, 'Edit selected tag').click()
+    const editor = roleWithExactName(panel, 'region', 'Edit tag metadata')
     const name = editor.getByLabel('Tag name', { exact: true })
     await name.fill(renamed)
     await editor.getByLabel('Tag description', { exact: true }).fill('Verified for an unused tag.')
     const saved = page.waitForResponse(response => new URL(response.url()).pathname === state && response.request().method() === 'PUT')
-    await editor.getByRole('button', { name: 'Save tag metadata', exact: true }).click()
+    await exactButton(editor, 'Save tag metadata').click()
     assert.equal((await saved).status(), 200)
     await panel.getByText('Tag metadata saved.', { exact: true }).waitFor()
     await assertRow('Tag usage', renamed, ['0', '0', '0', '0', '0', '0'])
@@ -303,8 +304,8 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     assert.notEqual(html.headers()[generationHeader], generation)
     await page.screenshot({ path: join(evidence, 'administrator-tag-metadata-mobile.png'), animations: 'disabled' })
 
-    await panel.getByRole('button', { name: 'Create tag', exact: true }).click()
-    const create = panel.getByRole('region', { name: 'Create tag', exact: true })
+    await exactButton(panel, 'Create tag').click()
+    const create = roleWithExactName(panel, 'region', 'Create tag')
     const createdName = 'Taxonomy new Café tag'
     const description = 'Created by the scoped tag editor.'
     await create.getByLabel('Tag name', { exact: true }).fill('  Taxonomy new Cafe\u0301 tag  ')
@@ -314,7 +315,7 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     assert(created.id > 26 && created.revision > 0n)
     assert.deepEqual([created.name, created.description, created.changed], [createdName, description, true])
     await panel.getByText('Tag created.', { exact: true }).waitFor()
-    await read(panel.getByRole('button', { name: 'Next page', exact: true }), `${tagEndpoint}?after=25`)
+    await read(exactButton(panel, 'Next page'), `${tagEndpoint}?after=25`)
     await assertRow('Tag usage', createdName, ['0', '0', '0', '0', '0', '0'])
 
     const alias = '/tag/' + encodeURIComponent('Taxonomy new CAFE\u0301 tag') + '?page=2'

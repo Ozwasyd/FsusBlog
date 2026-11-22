@@ -28,6 +28,7 @@ import { exerciseAuthorTextPropertyFacet } from './author-text-property-facet-fl
 import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 import { exerciseMarkdownImport } from './markdown-import-flow.mjs'
 import { exerciseDocumentExportTasks } from './document-export-task-flow.mjs'
+import { exactButton as button, roleWithExactName } from './role-locators.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium } = tools('@playwright/test')
@@ -118,13 +119,12 @@ monitor(publisher, 'publisher')
 monitor(visitor, 'visitor')
 const visible = async locator => locator.waitFor({ state: 'visible' })
 const hidden = async locator => locator.waitFor({ state: 'hidden' })
-const button = (page, name) => page.getByRole('button', { name, exact: true })
 const screen = (page, name) => page.screenshot({ path: join(config.evidence, `${name}.png`) })
 
 async function search(page, value) {
   await page.goto(`${origin}/search`)
   await page.getByRole('textbox', { name: 'Search articles' }).fill(value)
-  await page.locator('form.search-form').getByRole('button', { name: 'Search', exact: true }).click()
+  await button(page.locator('form.search-form'), 'Search').click()
 }
 
 async function articleCommand(path, id, revision, title = '', body = '', expected = FrameType.Draft) {
@@ -143,7 +143,7 @@ async function exercisePropertyBatch(publisher, observations) {
   const page = await publisher.context().newPage()
   monitor(page, 'property-batch')
   const editor = `${origin}/user/manage/article/edit/${article.id}`
-  const panel = page.getByRole('region', { name: 'Properties', exact: true })
+  const panel = roleWithExactName(page, 'region', 'Properties')
   const control = name => button(panel, name)
   const textLabel = 'Article subtitle'
   const numberLabel = 'Editorial score'
@@ -241,7 +241,7 @@ async function exercisePropertyBatch(publisher, observations) {
     await stageText(numberLabel, staleNumber)
     await staged.waitFor()
     await page.setViewportSize({ width: 375, height: 850 })
-    await page.getByRole('dialog', { name: 'Article inspector', exact: true }).waitFor()
+    await roleWithExactName(page, 'dialog', 'Article inspector').waitFor()
     await staged.waitFor()
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
     const stagedValues = panel.getByRole('list', { name: 'Staged property changes' })
@@ -342,31 +342,31 @@ let failure
 try {
   if (config.publicFixture) {
     await visitor.goto(`${origin}/`)
-    await visible(visitor.getByRole('link', { name: 'Browser fixture 12', exact: true }))
-    await visitor.getByRole('link', { name: 'Next', exact: true }).click()
+    await visible(roleWithExactName(visitor, 'link', 'Browser fixture 12'))
+    await roleWithExactName(visitor, 'link', 'Next').click()
     await visible(visitor.getByText('Page 2', { exact: true }))
-    await visible(visitor.getByRole('link', { name: 'Browser fixture 2', exact: true }))
+    await visible(roleWithExactName(visitor, 'link', 'Browser fixture 2'))
     stalePageUrl = visitor.url()
     const cursor = new URL(stalePageUrl).searchParams.get('cursor')
     assert(cursor, 'Page 2 needs the server-issued cursor')
-    await visitor.getByRole('link', { name: 'Previous', exact: true }).click()
-    await visible(visitor.getByRole('link', { name: 'Browser fixture 12', exact: true }))
-    await visitor.getByRole('link', { name: 'Web engineering', exact: true }).click()
-    await visible(visitor.getByRole('heading', { name: 'Web engineering', exact: true }))
+    await roleWithExactName(visitor, 'link', 'Previous').click()
+    await visible(roleWithExactName(visitor, 'link', 'Browser fixture 12'))
+    await roleWithExactName(visitor, 'link', 'Web engineering').click()
+    await visible(roleWithExactName(visitor, 'heading', 'Web engineering'))
     await visible(visitor.getByText('Published implementation notes.', { exact: true }))
-    await visible(visitor.getByRole('link', { name: 'Browser fixture 12', exact: true }))
-    await hidden(visitor.getByRole('link', { name: 'Browser fixture 11', exact: true }))
+    await visible(roleWithExactName(visitor, 'link', 'Browser fixture 12'))
+    await hidden(roleWithExactName(visitor, 'link', 'Browser fixture 11'))
     await screen(visitor, 'taxonomy-mobile')
     await visitor.goto(`${origin}/category/2`)
-    await visible(visitor.getByRole('heading', { name: 'Empty category', exact: true }))
+    await visible(roleWithExactName(visitor, 'heading', 'Empty category'))
     await visible(visitor.getByText('There are no published articles here yet.', { exact: true }))
     const alias = await nativeFetch(`${origin}/tag/ancienne`, { redirect: 'manual' })
     assert.equal(alias.status, 301)
     assert.equal(alias.headers.get('location'), '/tag/4')
     await visitor.goto(`${origin}/tag/ancienne`)
     await visitor.waitForURL(`${origin}/tag/4`)
-    await visible(visitor.getByRole('heading', { name: 'Café', exact: true }))
-    await visible(visitor.getByRole('link', { name: 'Browser fixture 12', exact: true }))
+    await visible(roleWithExactName(visitor, 'heading', 'Café'))
+    await visible(roleWithExactName(visitor, 'link', 'Browser fixture 12'))
     observations.push('Signed home cursor traverses forward and back. Category data and empty state render. The old tag URL redirects to the numeric page.')
   }
   await visitor.goto(`${origin}/user/manage/article/write`)
@@ -375,7 +375,7 @@ try {
   observations.push('Anonymous write route hides the draft and exposes login.')
 
   await publisher.goto(`${origin}/login`)
-  await visible(publisher.getByRole('heading', { name: 'Log in', exact: true }))
+  await visible(roleWithExactName(publisher, 'heading', 'Log in'))
   assert.match(await publisher.title(), /Log in/)
   await screen(publisher, 'login-desktop')
   await publisher.getByLabel('Owner access key').fill(config.ticket)
@@ -389,7 +389,7 @@ try {
   }
 
   // Try leaving once; the registered draft should survive the cancel.
-  await publisher.getByRole('link', { name: 'Back', exact: true }).click()
+  await roleWithExactName(publisher, 'link', 'Back').click()
   await visible(publisher.getByText('Discard unsaved changes?', { exact: true }))
   await button(publisher, 'Keep writing').click()
   assert.equal(await publisher.getByLabel('Title', { exact: true }).inputValue(), title)
@@ -417,7 +417,7 @@ try {
     observations.push('The saved draft downloads the same private PDF bytes returned by the exact revision endpoint.')
   } else assert.equal(await savedPdf.count(), 0)
   await verifyOfflineHtmlDownload(publisher, button(publisher, 'Download saved HTML'), title, bodyTerm)
-  await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
+  await button(publisher.getByRole('complementary', { name: 'Article inspector' }), 'Close').click()
   observations.push('The saved editor downloads byte-exact Markdown and an HTML attachment that renders offline without resource requests.')
   observations.push('The saved editor downloads an EPUB whose bytes and first uncompressed mimetype entry match the private attachment.')
   assert(!(await api.publicIndex()).items.some(item => item.id === writtenId))
@@ -466,12 +466,12 @@ try {
   await exerciseArticleRights(publisher, observations)
 
   if (config.publicFixture) {
-    await publisher.getByRole('combobox', { name: 'Category', exact: true }).click()
-    await publisher.getByRole('option', { name: 'Web engineering', exact: true }).click()
-    await publisher.getByRole('heading', { name: 'Classification', exact: true }).click()
-    await publisher.getByRole('combobox', { name: 'Tags', exact: true }).and(publisher.locator(':not([readonly])')).click()
-    await publisher.getByRole('option', { name: 'Café', exact: true }).click()
-    await publisher.getByRole('heading', { name: 'Classification', exact: true }).click()
+    await roleWithExactName(publisher, 'combobox', 'Category').click()
+    await roleWithExactName(publisher, 'option', 'Web engineering').click()
+    await roleWithExactName(publisher, 'heading', 'Classification').click()
+    await roleWithExactName(publisher, 'combobox', 'Tags').and(publisher.locator(':not([readonly])')).click()
+    await roleWithExactName(publisher, 'option', 'Café').click()
+    await roleWithExactName(publisher, 'heading', 'Classification').click()
     await button(publisher, 'Save classification').click()
     await visible(publisher.getByText('Classification saved.', { exact: true }))
     assert(!(await api.publicIndex()).items.some(item => item.id === writtenId))
@@ -491,7 +491,7 @@ try {
   await publisher.getByLabel('Property label').fill('Editorial score')
   await publisher.getByLabel('Property key').fill('editorial-score')
   await publisher.getByRole('combobox', { name: 'Property type' }).click()
-  await publisher.getByRole('option', { name: 'Number', exact: true }).click()
+  await roleWithExactName(publisher, 'option', 'Number').click()
   await button(publisher, 'Create property').click()
   await button(publisher, 'Edit Editorial score').click()
   const exactScore = '12345678901234567890.12345678'
@@ -503,12 +503,12 @@ try {
   await publisher.getByLabel('Property label').fill('Editorial approval')
   await publisher.getByLabel('Property key').fill('editorial-approval')
   await publisher.getByRole('combobox', { name: 'Property type' }).click()
-  await publisher.getByRole('option', { name: 'Boolean', exact: true }).click()
+  await roleWithExactName(publisher, 'option', 'Boolean').click()
   await button(publisher, 'Create property').click()
   await button(publisher, 'Edit Editorial approval').click()
   const approval = publisher.getByRole('radiogroup', { name: 'Editorial approval value' })
   await approval.getByText('False', { exact: true }).click()
-  assert.equal(await approval.getByRole('radio', { name: 'False', exact: true }).isChecked(), true)
+  assert.equal(await roleWithExactName(approval, 'radio', 'False').isChecked(), true)
   await button(publisher, 'Save property').click()
   await visible(publisher.getByText('False', { exact: true }))
   await exerciseInspectorDate(publisher, observations)
@@ -522,7 +522,7 @@ try {
   await screen(publisher, 'editor-properties')
   observations.push('The editor reloads a private text value, an exact decimal and a false Boolean without coercion.')
 
-  await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
+  await button(publisher.getByRole('complementary', { name: 'Article inspector' }), 'Close').click()
   await exercisePropertyFilter(publisher, origin, { id: writtenId, title }, exactScore, observations, articleCommand)
   await exerciseAuthorTextSearch({ publisher, origin, article: { id: writtenId, title }, bodyTerm, monitor, observations, articleCommand,
     publicFixture: config.publicFixture })
@@ -579,7 +579,7 @@ try {
   await saveSummary('')
   await summaryInput.fill(publishedSummary)
   await saveSummary(publishedSummary)
-  await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
+  await button(publisher.getByRole('complementary', { name: 'Article inspector' }), 'Close').click()
 
   await button(publisher, 'Publish article').click()
   await visible(publisher.getByText('Article published.', { exact: false }))
@@ -607,8 +607,8 @@ try {
   if (stalePageUrl) {
     await visitor.goto(stalePageUrl)
     await visible(visitor.getByText('This page link has expired.', { exact: false }))
-    await visitor.getByRole('link', { name: 'First page', exact: true }).click()
-    await visible(visitor.getByRole('link', { name: title, exact: true }))
+    await roleWithExactName(visitor, 'link', 'First page').click()
+    await visible(roleWithExactName(visitor, 'link', title))
     observations.push('Public generation changes invalidate old page cursors and offer a working first-page recovery link.')
   }
 
@@ -617,21 +617,21 @@ try {
   assert(!homeHtml.includes(`Private subtitle ${token}`))
   await visitor.goto(`${origin}/`)
   await visible(visitor.getByRole('heading', { name: 'Latest posts' }))
-  await visible(visitor.getByRole('link', { name: title, exact: true }))
+  await visible(roleWithExactName(visitor, 'link', title))
   assert.equal(await visitor.locator('vite-error-overlay').count(), 0)
-  await visitor.getByRole('button', { name: 'Menu', exact: true }).click()
+  await button(visitor, 'Menu').click()
   await visitor.getByRole('button', { name: /Theme mode/ }).click()
-  await visitor.getByRole('menuitemradio', { name: 'Dark', exact: true }).click()
+  await roleWithExactName(visitor, 'menuitemradio', 'Dark').click()
   await visitor.waitForFunction(() => document.documentElement.classList.contains('dark'))
   assert.equal(await visitor.evaluate(() => document.documentElement.scrollWidth), 375)
   await screen(visitor, 'home-mobile-dark')
-  await visitor.getByRole('link', { name: title, exact: true }).click()
-  await visible(visitor.getByRole('heading', { name: title, exact: true }))
+  await roleWithExactName(visitor, 'link', title).click()
+  await visible(roleWithExactName(visitor, 'heading', title))
   await hidden(visitor.getByRole('complementary', { name: 'Article rights' }))
-  await hidden(visitor.getByRole('button', { name: 'Verify publication', exact: true }))
+  await hidden(button(visitor, 'Verify publication'))
   await hidden(visitor.getByText(`Private subtitle ${token}`, { exact: true }))
   if (config.requireNative) {
-    await visible(visitor.getByRole('heading', { name: 'Draft milestone', exact: true }))
+    await visible(roleWithExactName(visitor, 'heading', 'Draft milestone'))
     await hidden(visitor.getByText('Formatted view unavailable.', { exact: false }))
   } else {
     await visible(visitor.getByText(token, { exact: false }))
@@ -646,12 +646,12 @@ try {
   await screen(visitor, 'article-mobile-dark')
 
   await search(visitor, 'release note')
-  await visible(visitor.getByRole('link', { name: title, exact: true }))
+  await visible(roleWithExactName(visitor, 'link', title))
   assert(!indexEntry.summary.includes(bodyTerm), 'The full-text term must fall outside the index summary')
   const corpusResponse = mobile.waitForEvent('response', response => new URL(response.url()).pathname === WireRoutes.PublicSearchCorpus && response.request().method() === 'GET')
   const generationCheck = visitor.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PublicSearchCorpus && response.request().method() === 'HEAD')
   await search(visitor, bodyTerm)
-  await visible(visitor.getByRole('link', { name: title, exact: true }))
+  await visible(roleWithExactName(visitor, 'link', title))
   const corpus = await corpusResponse
   assert.equal(corpus.status(), 200)
   const corpusBytes = await nativeFetch(corpus.url()).then(response => response.arrayBuffer())
@@ -708,7 +708,7 @@ try {
     page: visitor, origin, articleTitle: title, firstQuery: bodyTerm, repeatQuery: bodyTerm.toUpperCase(),
     withdraw: async () => {
       await button(publisher, 'More actions').click()
-      await publisher.getByRole('menuitem', { name: 'Withdraw', exact: true }).click()
+      await roleWithExactName(publisher, 'menuitem', 'Withdraw').click()
       await visible(publisher.getByText('Article withdrawn.', { exact: true }))
     },
     observations,
@@ -747,7 +747,7 @@ try {
   await button(publisher, 'Log out').click()
   assert.equal((await signOut).status(), 200)
   await publisher.waitForURL(`${origin}/`)
-  await visible(publisher.getByRole('link', { name: 'Log in', exact: true }))
+  await visible(roleWithExactName(publisher, 'link', 'Log in'))
   assert.equal((await publisher.request.get(`${origin}${WireRoutes.Session}`)).status(), 401)
   observations.push('CAS rejects stale edit, reload reads the durable winner, withdrawal removes public access and index entry, logout returns to anonymous shell.')
   assert(responses.some(response => response.path === WireRoutes.Save && response.status === 409))

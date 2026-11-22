@@ -21,6 +21,7 @@ import {
   decodeAdminModerationClaim, decodeAdminModerationDecision, decodeAdminModerationIntent, decodeAdminOperationsStatus, decodeAdminSessionSnapshot,
   encodeAdminModerationIntent, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const packages = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium, request } = packages('@playwright/test')
@@ -145,7 +146,7 @@ try {
     assert.equal(await admin.evaluate(() => window.isSecureContext), true)
     checks.realHttpsWebAuthnContext = true
   }
-  await admin.getByRole('heading', { name: 'Administrator access', exact: true }).waitFor()
+  await roleWithExactName(admin, 'heading', 'Administrator access').waitFor()
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
   assert.equal((await context.request.get(adminOrigin.origin + operationsStatus)).status(), 401)
   assert.equal((await context.request.get(siteOrigin.origin + operationsStatus)).status(), 404)
@@ -154,7 +155,7 @@ try {
   await credentialProbe(adminOrigin.origin + operationsStatus, siteCookieName, siteCookie.value, 401)
   await credentialProbe(adminOrigin.origin + operationsStatus, adminCookieName, siteCookie.value, 401)
   await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, siteCookie.value, 401)
-  await admin.getByRole('button', { name: 'Set up administrator Passkey', exact: true }).click()
+  await exactButton(admin, 'Set up administrator Passkey').click()
   await admin.getByLabel('One-time administrator bootstrap key', { exact: true }).fill(adminTicket)
   const registrationBegin = waitPost(admin, adminOrigin, bootstrapBegin)
   const registration = await clickAndWait(admin, adminOrigin, bootstrapComplete, 'Create administrator Passkey')
@@ -175,13 +176,13 @@ try {
   const firstLogin = await logIn(admin)
   const initial = await snapshot(context)
   await visitAdminWorkspace(admin, '/admin/site')
-  await admin.getByRole('heading', { name: 'Service & version', exact: true }).waitFor()
+  await roleWithExactName(admin, 'heading', 'Service & version').waitFor()
   await visitAdminWorkspace(admin, '/admin/interaction')
-  await admin.getByRole('tab', { name: 'Moderation queue', exact: true }).waitFor()
-  await admin.getByRole('tab', { name: 'Support inbox', exact: true }).click()
-  await admin.getByRole('heading', { name: 'Support inbox', exact: true }).waitFor()
+  await roleWithExactName(admin, 'tab', 'Moderation queue').waitFor()
+  await roleWithExactName(admin, 'tab', 'Support inbox').click()
+  await roleWithExactName(admin, 'heading', 'Support inbox').waitFor()
   await visitAdminWorkspace(admin, '/admin/identity')
-  await admin.getByRole('button', { name: 'Reload administrator access', exact: true }).waitFor({ state: 'detached' })
+  await exactButton(admin, 'Reload administrator access').waitFor({ state: 'detached' })
   checks.unifiedAdministratorAccessesWorkspaceSections = true
   const oldCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
   assert.equal(oldCookie.httpOnly, true)
@@ -339,7 +340,7 @@ try {
   // Seed the site credential into the admin host only in this test to detect a shared cookie-clearing helper.
   await context.addCookies([{ ...siteCookie, domain: adminOrigin.hostname }])
   await assertEmpty(await clickAndWait(admin, adminOrigin, adminLogout, 'Log out of administrator session'))
-  await admin.getByRole('button', { name: 'Log in as administrator', exact: true }).waitFor()
+  await exactButton(admin, 'Log in as administrator').waitFor()
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
   await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, finalCookie.value, 401)
   assert.equal((await context.request.get(adminOrigin.origin + operationsStatus)).status(), 401)
@@ -379,7 +380,7 @@ async function logIn(page) {
   assert.equal(await frameType(await beginning), FrameType.PasskeyLoginBegin)
   await assertEmpty(completed)
   await visitAdminWorkspace(page, '/admin/identity')
-  await page.getByRole('heading', { name: 'Administrator session', exact: true }).waitFor()
+  await roleWithExactName(page, 'heading', 'Administrator session').waitFor()
   await visitAdminWorkspace(page, destination)
   return completed
 }
@@ -413,15 +414,15 @@ function waitPost(page, origin, path) {
 }
 
 async function expectPanelHidden(page, heading) {
-  assert.equal(await page.getByRole('heading', { name: heading, exact: true }).count(), 0,
+  assert.equal(await roleWithExactName(page, 'heading', heading).count(), 0,
     `Panel "${heading}" must remain hidden.`)
 }
 
 async function verifyOperationsStatus(page, context, siteCookie, priorCookie, revoke) {
   await visitAdminWorkspace(page, '/admin/site')
   const endpoint = adminOrigin.origin + operationsStatus
-  const operationsSection = page.getByRole('region', { name: 'Service & version', exact: true })
-  const statusButton = operationsSection.getByRole('button', { name: 'Re-check', exact: true })
+  const operationsSection = roleWithExactName(page, 'region', 'Service & version')
+  const statusButton = exactButton(operationsSection, 'Re-check')
   const waitOperationsIdle = async () => {
     await statusButton.waitFor()
     await operationsSection.locator('button.is-loading').waitFor({ state: 'detached' })
@@ -454,7 +455,7 @@ async function verifyOperationsStatus(page, context, siteCookie, priorCookie, re
   assert.equal(observed.snapshotReady, true, 'This running fixture must report its published snapshot.')
   assert(observed.publicationWatermark >= 0n && observed.pendingPublicationEvents >= 0n)
   assert(observed.pendingPublicationEvents === 0n ? observed.oldestPendingAt === 0n : observed.oldestPendingAt > 0n)
-  await operationsSection.getByRole('heading', { name: 'Service & version', exact: true }).waitFor()
+  await roleWithExactName(operationsSection, 'heading', 'Service & version').waitFor()
   for (const name of ['Content sync', 'Version', 'Process started'])
     await operationsSection.getByText(name, { exact: true }).waitFor()
 
@@ -522,8 +523,8 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   } finally { await anonymous.dispose() }
 
   const endpoint = adminOrigin.origin + moderationQueue
-  const section = page.getByRole('region', { name: 'Moderation queue', exact: true })
-  const load = section.getByRole('button', { name: 'Load moderation queue', exact: true })
+  const section = roleWithExactName(page, 'region', 'Moderation queue')
+  const load = exactButton(section, 'Load moderation queue')
   const checkQueue = async () => (await Promise.all([
     page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'GET'),
     load.click(),
@@ -625,7 +626,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
       ])
       assert.equal(revisions.status(), 200)
       assert.equal(await revisions.headerValue('cache-control'), 'no-store')
-      const heading = history.getByRole('heading', { name: 'Saved comment revisions', exact: true })
+      const heading = roleWithExactName(history, 'heading', 'Saved comment revisions')
       await heading.waitFor()
       assert(await heading.evaluate(element => element === document.activeElement))
       assert.deepEqual(await entries.locator('strong').allTextContents(), ['Revision 2', 'Revision 1'])
@@ -695,7 +696,7 @@ async function verifyOnlineModeration(page, context, section, publicRoute, expec
   await applyModerationDecision(page, context, approveCard, reclaimed, 1, 'Approve with Passkey', 'Comment approved.')
   await approveCard.waitFor({ state: 'hidden' })
   assert.equal((await checkQueue()).status(), 200)
-  await rejectCard.getByRole('button', { name: claimButton, exact: true }).waitFor()
+  await exactButton(rejectCard, claimButton).waitFor()
   const rejected = await readClaim(await clickModeration(page, rejectCard, moderationClaim, claimButton))
   await applyModerationDecision(page, context, rejectCard, rejected, 2, 'Reject with Passkey', 'Comment rejected.')
   await rejectCard.waitFor({ state: 'hidden' })
@@ -746,7 +747,7 @@ async function applyModerationDecision(page, context, card, claim, targetState, 
 async function clickModeration(page, card, path, name) {
   const [response] = await Promise.all([
     waitPost(page, adminOrigin, path),
-    card.getByRole('button', { name, exact: true }).click(),
+    exactButton(card, name).click(),
   ])
   return response
 }
@@ -858,7 +859,7 @@ function readModerationFixture(frame, articleId) {
 async function clickAndWait(page, origin, path, label) {
   const [response] = await Promise.all([
     waitPost(page, origin, path),
-    page.getByRole('button', { name: label, exact: true }).click(),
+    exactButton(page, label).click(),
   ])
   return response
 }

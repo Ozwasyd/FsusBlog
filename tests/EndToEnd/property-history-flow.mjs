@@ -10,6 +10,7 @@ import {
   encodeSignIn, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { chromium, expect, observePageErrors, postReceipt } from './browser-authoring-fixture.mjs'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const { FSUSBLOG_TEST_URL: url, FSUSBLOG_TEST_TICKET: ticket, FSUSBLOG_TEST_OUTSIDER_TICKET: outsiderTicket,
   FSUSBLOG_TEST_EVIDENCE: evidence, FSUSBLOG_TEST_CHROME: executablePath } = process.env
@@ -129,12 +130,12 @@ try {
   page.on('request', request => { if (historyRead(request)) requests++ })
   await page.goto(`${origin}/user/manage/article/edit/${initial.id}`)
   await expect(page.getByLabel('Body', { exact: true })).toHaveValue(current.body)
-  await page.getByRole('button', { name: 'Inspector', exact: true }).click()
-  const inspector = page.getByRole('complementary', { name: 'Article inspector', exact: true })
+  await exactButton(page, 'Inspector').click()
+  const inspector = roleWithExactName(page, 'complementary', 'Article inspector')
   await inspector.getByText('Revision history', { exact: true }).click()
-  const compare = inspector.getByRole('button', { name: `Compare revision ${earlier.revision}`, exact: true })
+  const compare = exactButton(inspector, `Compare revision ${earlier.revision}`)
   await compare.click()
-  const modal = page.getByRole('dialog', { name: 'Revision comparison', exact: true })
+  const modal = roleWithExactName(page, 'dialog', 'Revision comparison')
   const metadataLink = modal.getByText('Saved summary and classification', { exact: true })
   const [fields] = await Promise.all([
     page.waitForResponse(response => response.url() === historyPath(earlier.revision).replace('map=properties', 'map=metadata')),
@@ -171,8 +172,8 @@ try {
       valueRevision, nextKey: firstFields.at(-1).machineKey, fields: [{ definitionId, definitionRevision: definition.revision,
         machineKey, label, deprecated: false, kind: 'text', options: [], value: { kind: 'text', value } }, ...firstFields] })
   }
-  const earlierPanel = modal.getByRole('region', { name: 'Earlier saved properties', exact: true })
-  const currentPanel = modal.getByRole('region', { name: 'Current saved properties', exact: true })
+  const earlierPanel = roleWithExactName(modal, 'region', 'Earlier saved properties')
+  const currentPanel = roleWithExactName(modal, 'region', 'Current saved properties')
   await expect(earlierPanel.getByText(beforeLabel, { exact: true })).toBeVisible()
   await expect(earlierPanel.getByText(savedBefore, { exact: true })).toBeVisible()
   await expect(currentPanel.getByText(afterLabel, { exact: true })).toBeVisible()
@@ -185,7 +186,7 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
   assert.equal(requests, 2)
   const next = page.waitForResponse(response => response.url() === historyPath(earlier.revision) + `&offset=${WireLimits.PropertyPageSize}`)
-  await earlierPanel.getByRole('button', { name: 'Next', exact: true }).press('Enter')
+  await exactButton(earlierPanel, 'Next').press('Enter')
   const nextResponse = await next
   assert.equal(nextResponse.status(), 200)
   const second = decodePropertyEditor(decodeFrame(await nextResponse.body(), FrameType.PropertyEditor).payload)
@@ -194,8 +195,8 @@ try {
   await expect(earlierPanel.getByRole('heading')).toBeFocused()
   await expect(earlierPanel.locator('dt')).toHaveText([extra.at(-1).label])
   await expect(currentPanel.locator('dt')).toHaveCount(WireLimits.PropertyPageSize)
-  await expect(earlierPanel.getByRole('button', { name: 'Next', exact: true })).toBeDisabled()
-  await earlierPanel.getByRole('button', { name: 'Previous', exact: true }).press('Enter')
+  await expect(exactButton(earlierPanel, 'Next')).toBeDisabled()
+  await exactButton(earlierPanel, 'Previous').press('Enter')
   await expect(earlierPanel.getByText(savedBefore, { exact: true })).toBeVisible()
   assert.equal(requests, 4)
   await page.screenshot({ path: join(evidence, 'property-history-mobile.png') })
@@ -218,7 +219,7 @@ try {
   assert.deepEqual(decodeDraft(decodeFrame(beforeComparison, FrameType.Draft).payload), current)
   await page.setViewportSize({ width: 1280, height: 850 })
   await expect(inspector).toBeVisible()
-  const compareEditor = modal.getByRole('checkbox', { name: 'Compare with current editor', exact: true })
+  const compareEditor = roleWithExactName(modal, 'checkbox', 'Compare with current editor')
   const currentEditor = modal.getByLabel('Current editor Markdown', { exact: true })
   const currentSaved = modal.getByLabel('Current saved revision Markdown', { exact: true })
   async function openEditorMetadata() {
@@ -239,15 +240,15 @@ try {
   assert.deepEqual(await ownerFrame(metadataUrl), beforeMetadata)
   await page.keyboard.press('Escape')
   await expect(modal).toBeHidden()
-  await inspector.getByRole('button', { name: 'Discard summary changes', exact: true }).press('Enter')
+  await exactButton(inspector, 'Discard summary changes').press('Enter')
   await expect(summaryInput).toHaveValue(currentSummary)
 
-  const classification = inspector.getByRole('heading', { name: 'Classification', exact: true })
-  await inspector.getByRole('combobox', { name: 'Category', exact: true }).click()
-  await page.getByRole('option', { name: 'Web engineering', exact: true }).click()
+  const classification = roleWithExactName(inspector, 'heading', 'Classification')
+  await roleWithExactName(inspector, 'combobox', 'Category').click()
+  await roleWithExactName(page, 'option', 'Web engineering').click()
   await classification.click()
-  await inspector.getByRole('combobox', { name: 'Tags', exact: true }).and(page.locator(':not([readonly])')).click()
-  await page.getByRole('option', { name: 'Café', exact: true }).click()
+  await roleWithExactName(inspector, 'combobox', 'Tags').and(page.locator(':not([readonly])')).click()
+  await roleWithExactName(page, 'option', 'Café').click()
   await classification.click()
   await openEditorMetadata()
   await expect(modal.getByText('Summary changed. Category unchanged. Tags unchanged.', { exact: true })).toBeVisible()
@@ -255,7 +256,7 @@ try {
   assert.deepEqual(await ownerFrame(metadataUrl), beforeMetadata)
   await page.keyboard.press('Escape')
   await expect(modal).toBeHidden()
-  const discardClassification = inspector.getByRole('button', { name: 'Discard classification changes', exact: true })
+  const discardClassification = exactButton(inspector, 'Discard classification changes')
   await discardClassification.press('Enter')
   await expect(discardClassification).toBeHidden()
 
@@ -270,7 +271,7 @@ try {
   await expect(modal.getByText(localTitle, { exact: true })).toBeVisible()
   assert.equal(await modal.getByLabel('Earlier revision Markdown', { exact: true }).textContent(), earlier.body)
   await modal.getByLabel('Reason for restoring this draft').fill('A valid reason cannot discard pending edits.')
-  await expect(modal.getByRole('button', { name: 'Restore as new draft', exact: true })).toBeDisabled()
+  await expect(exactButton(modal, 'Restore as new draft')).toBeDisabled()
   await page.setViewportSize({ width: 375, height: 850 })
   await expect(currentEditor).toBeVisible()
   await modal.screenshot({ path: join(evidence, 'revision-current-editor-mobile.png'), animations: 'disabled' })

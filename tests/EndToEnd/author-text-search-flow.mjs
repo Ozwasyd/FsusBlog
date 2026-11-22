@@ -9,6 +9,7 @@ import {
 import { decodeDraft, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { deferResponse } from './browser-authoring-fixture.mjs'
 import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 export async function exerciseAuthorTextSearch({ publisher, origin, article, bodyTerm, monitor, observations, articleCommand, publicFixture }) {
   const page = await publisher.context().newPage()
@@ -19,18 +20,18 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     await recordEditorHistory(page)
     await page.setViewportSize({ width: 375, height: 850 })
     await page.goto(`${origin}/user/manage/article/list`)
-    const inventory = page.getByRole('form', { name: '筛选文章', exact: true })
+    const inventory = roleWithExactName(page, 'form', '筛选文章')
     await inventory.getByLabel('标题或摘要', { exact: true }).fill(bodyTerm)
-    await inventory.getByRole('button', { name: '搜索', exact: true }).click()
-    await page.getByRole('region', { name: '文章列表', exact: true }).getByText('共 0 篇', { exact: true }).waitFor()
+    await exactButton(inventory, '搜索').click()
+    await roleWithExactName(page, 'region', '文章列表').getByText('共 0 篇', { exact: true }).waitFor()
 
     const summary = page.getByText('作者全文搜索', { exact: true })
     await summary.click()
-    const form = page.getByRole('form', { name: '作者全文搜索', exact: true })
+    const form = roleWithExactName(page, 'form', '作者全文搜索')
     const query = form.getByLabel('全文搜索词', { exact: true })
-    const start = form.getByRole('button', { name: '搜索全文', exact: true })
-    const next = form.getByRole('button', { name: '继续搜索', exact: true })
-    const results = page.getByRole('region', { name: '全文搜索结果', exact: true })
+    const start = exactButton(form, '搜索全文')
+    const next = exactButton(form, '继续搜索')
+    const results = roleWithExactName(page, 'region', '全文搜索结果')
     async function search(text, includeHeading = false) {
       await query.fill(text)
       await results.waitFor({ state: 'detached' })
@@ -47,7 +48,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     }
 
     async function verifyBodyMatch() {
-      const link = results.getByRole('link', { name: article.title, exact: true })
+      const link = roleWithExactName(results, 'link', article.title)
       assert.equal(await link.getAttribute('href'), `/user/manage/article/edit/${article.id}`)
       assert.equal(await results.getByRole('listitem').count(), 1)
       await results.getByText('正文', { exact: true }).waitFor()
@@ -78,8 +79,8 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       assert.deepEqual(filtered.categories, [{ id: 1, name: 'Web engineering', count: 1 }])
       assert.deepEqual(filtered.tags, [{ id: 4, name: 'Café', count: 1 }])
       assert.equal(filtered.moreCategories || filtered.moreTags, false)
-      await results.getByRole('region', { name: '分类分面', exact: true }).getByText('Web engineering', { exact: true }).waitFor()
-      await results.getByRole('region', { name: '标签分面', exact: true }).getByText('Café', { exact: true }).waitFor()
+      await roleWithExactName(results, 'region', '分类分面').getByText('Web engineering', { exact: true }).waitFor()
+      await roleWithExactName(results, 'region', '标签分面').getByText('Café', { exact: true }).waitFor()
       const otherCategory = (await search(`${bodyTerm} category:2 tag:4`)).batch
       assert.equal(otherCategory.total, 0)
       assert.deepEqual(otherCategory.categories, [])
@@ -93,10 +94,10 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.equal(await results.count(), 0)
 
     await form.getByText('全文搜索属性条件', { exact: true }).click()
-    await form.getByRole('combobox', { name: '属性字段', exact: true }).click()
-    await page.getByRole('option', { name: 'Editorial date · editorial-date', exact: true }).click()
+    await roleWithExactName(form, 'combobox', '属性字段').click()
+    await roleWithExactName(page, 'option', 'Editorial date · editorial-date').click()
     await form.getByLabel('属性值', { exact: true }).fill('2024-02-29T17:06:01.150Z')
-    await form.getByRole('button', { name: '添加条件', exact: true }).click()
+    await exactButton(form, '添加条件').click()
     const qualified = await search(bodyTerm)
     assert.deepEqual(qualified.batch.rows.map(row => row.id), [article.id])
     assert.equal(qualified.batch.total, 1)
@@ -111,7 +112,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.deepEqual(readSearchQuery(beforeEpoch.response), { ...withProperty, updatedUntilUnixMs: 0n })
     assert.equal(beforeEpoch.batch.total, 0)
     await until.fill('')
-    await form.getByRole('button', { name: '移除第 1 个筛选条件', exact: true }).click()
+    await exactButton(form, '移除第 1 个筛选条件').click()
     const cleared = await search(bodyTerm)
     assert.equal(cleared.batch.total, 1)
     assert.deepEqual(readSearchQuery(cleared.response), {
@@ -133,9 +134,9 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     await results.getByText(`共 ${pagingFixtures.length} 篇`, { exact: true }).waitFor()
     assert.equal(first.rows.length, WireLimits.AuthorTextSearchRows)
     assert(first.nextCursor)
-    const pager = results.getByRole('navigation', { name: '全文搜索分页', exact: true })
-    const previousPage = pager.getByRole('button', { name: '上一页', exact: true })
-    const nextPage = pager.getByRole('button', { name: '下一页', exact: true })
+    const pager = roleWithExactName(results, 'navigation', '全文搜索分页')
+    const previousPage = exactButton(pager, '上一页')
+    const nextPage = exactButton(pager, '下一页')
     const listUrl = page.url()
     const navigatePage = async button => {
       const reply = page.waitForResponse(isSearchReply)
@@ -145,7 +146,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       assert(batch.ready)
       assert.equal(batch.total, first.total)
       assert.deepEqual(batch.stateCounts, first.stateCounts)
-      await results.getByRole('link', { name: batch.rows[0].title, exact: true }).waitFor()
+      await roleWithExactName(results, 'link', batch.rows[0].title).waitFor()
       await page.getByText('正在搜索全文…', { exact: true }).waitFor({ state: 'detached' })
       assert.equal(page.url(), listUrl)
       return { batch, response }
@@ -166,12 +167,12 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert(tailIndex >= 0)
     pagingFixtures[tailIndex] = await articleCommand(WireRoutes.Save, tail.id, tail.revision, tail.title, 'Changed while viewing the second page')
     const stalePageReply = page.waitForResponse(isSearchReply)
-    await results.getByRole('button', { name: '跳到命中位置', exact: true }).press('Enter')
+    await exactButton(results, '跳到命中位置').press('Enter')
     const stalePage = await stalePageReply
     assert.equal(stalePage.status(), 409)
     assert.deepEqual(stalePage.request().postDataBuffer(), again.response.request().postDataBuffer())
     await results.waitFor({ state: 'detached' })
-    const restart = form.getByRole('button', { name: '回到第一页', exact: true })
+    const restart = exactButton(form, '回到第一页')
     await restart.and(page.locator(':focus')).waitFor()
     assert.equal(page.url(), listUrl)
     const restartReply = page.waitForResponse(isSearchReply)
@@ -204,7 +205,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     const list = `${origin}/user/manage/article/list`
     const draftRead = WireRoutes.Draft.replace('{id:int}', String(fixture.id))
     const field = name => page.getByLabel(name, { exact: true })
-    const jump = () => results.getByRole('button', { name: '跳到命中位置', exact: true })
+    const jump = () => exactButton(results, '跳到命中位置')
     const success = page.getByText('Opened the search result at its saved position.', { exact: true })
     const recentSearchCalls = []
     const draftReads = []
@@ -229,7 +230,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
         await results.getByText('章节标题', { exact: true }).waitFor()
         assert.equal(await results.locator('mark').textContent(), word)
       }
-      assert.equal(await results.getByRole('link', { name: savedTitle, exact: true }).getAttribute('href'), new URL(editor).pathname)
+      assert.equal(await roleWithExactName(results, 'link', savedTitle).getAttribute('href'), new URL(editor).pathname)
       const recheck = page.waitForResponse(isSearchReply)
       const loadDraft = page.waitForResponse(isDraftReply)
       await jump().click()
@@ -293,7 +294,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     await search(titleWord)
     const beforeLink = recentSearchCalls.length
     const plainRead = page.waitForResponse(isDraftReply)
-    await results.getByRole('link', { name: savedTitle, exact: true }).click()
+    await roleWithExactName(results, 'link', savedTitle).click()
     await page.waitForURL(editor)
     await expectSavedDraft(await plainRead)
     await field('Title').waitFor()
@@ -322,13 +323,13 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.equal(await field('Title').count(), 0)
     assert.equal(await page.evaluate(key => Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey), false)
 
-    const rebase = page.getByRole('button', { name: '在新修订中重新定位', exact: true })
+    const rebase = exactButton(page, '在新修订中重新定位')
     await rebase.press('Enter')
     await page.getByText('此命中没有可用的跨修订编辑记录，可以查看原保存修订。', { exact: true }).waitFor()
     assert.equal(page.url(), list)
     assert.equal(draftReads.length, beforeStale)
 
-    const viewHistorical = page.getByRole('button', { name: '查看原保存修订的命中位置', exact: true })
+    const viewHistorical = exactButton(page, '查看原保存修订的命中位置')
     await viewHistorical.waitFor()
     const currentAuthority = page.waitForResponse(isSearchReply)
     const currentRead = page.waitForResponse(isDraftReply)
@@ -347,8 +348,8 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     const matchSession = await authority.request().headerValue(WireHeaders.CurrentSession)
     assert(matchSession)
     assert.equal(await compared.request().headerValue(WireHeaders.CurrentSession), matchSession)
-    const historical = page.getByRole('dialog', { name: 'Historical search position', exact: true })
-    const earlierBody = historical.getByRole('textbox', { name: 'Earlier revision Markdown', exact: true })
+    const historical = roleWithExactName(page, 'dialog', 'Historical search position')
+    const earlierBody = roleWithExactName(historical, 'textbox', 'Earlier revision Markdown')
     await earlierBody.and(page.locator(':focus')).waitFor()
     const originalOffset = projected.indexOf(bodyWord)
     assert.deepEqual(await earlierBody.evaluate(control => ({ readOnly: control.readOnly, text: control.value,
@@ -385,7 +386,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
         }
         const saved = writer.waitForResponse(response => response.request().method() === 'POST' &&
           new URL(response.url()).pathname === WireRoutes.Save)
-        await writer.getByRole('button', { name: 'Save draft', exact: true }).click()
+        await exactButton(writer, 'Save draft').click()
         const response = await saved
         assert.equal(response.status(), 200)
         decodeFrame(response.request().postDataBuffer(), frame)
@@ -480,7 +481,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
         await writer.getByTestId('markdown-search-close').click()
         const saveReply = writer.waitForResponse(response => response.request().method() === 'POST' &&
           new URL(response.url()).pathname === WireRoutes.Save)
-        await writer.getByRole('button', { name: 'Save draft', exact: true }).click()
+        await exactButton(writer, 'Save draft').click()
         const saved = await saveReply
         assert.equal(saved.status(), 200)
         decodeFrame(saved.request().postDataBuffer(), FrameType.ArticleBodyEditsCommand)
@@ -621,14 +622,14 @@ export async function exerciseSummarySearchReveal({ publisher, origin, draft, so
     await page.setViewportSize({ width: 375, height: 850 })
     await page.goto(`${origin}/user/manage/article/list`)
     await page.getByText('作者全文搜索', { exact: true }).click()
-    const form = page.getByRole('form', { name: '作者全文搜索', exact: true })
+    const form = roleWithExactName(page, 'form', '作者全文搜索')
     const query = form.getByLabel('全文搜索词', { exact: true })
-    const results = page.getByRole('region', { name: '全文搜索结果', exact: true })
+    const results = roleWithExactName(page, 'region', '全文搜索结果')
     async function search(text) {
       await query.fill(text)
       for (let attempt = 0; attempt < 16; attempt++) {
         const reply = page.waitForResponse(isSearchReply)
-        await form.getByRole('button', { name: attempt === 0 ? '搜索全文' : '继续搜索', exact: true }).click()
+        await exactButton(form, attempt === 0 ? '搜索全文' : '继续搜索').click()
         const response = await reply
         const batch = await readSearchReply(response)
         if (batch.ready) { await results.waitFor(); return { response, batch } }
@@ -646,7 +647,7 @@ export async function exerciseSummarySearchReveal({ publisher, origin, draft, so
     const route = WireRoutes.ArticleSummary.replace('{id:int}', String(draft.id))
     const receipt = page.waitForResponse(response =>
       response.request().method() === 'GET' && new URL(response.url()).pathname === route)
-    await results.getByRole('button', { name: '跳到命中位置', exact: true }).press('Enter')
+    await exactButton(results, '跳到命中位置').press('Enter')
     const checked = await recheck
     assert.deepEqual(checked.request().postDataBuffer(), first.response.request().postDataBuffer())
     assert.deepEqual(exactHit(await readSearchReply(checked), draft, source, 'summary', word), hit)
@@ -661,7 +662,7 @@ export async function exerciseSummarySearchReveal({ publisher, origin, draft, so
 
     const editor = `${origin}/user/manage/article/edit/${draft.id}`
     await page.waitForURL(editor)
-    const inspector = page.getByRole('dialog', { name: 'Article inspector', exact: true })
+    const inspector = roleWithExactName(page, 'dialog', 'Article inspector')
     const textarea = inspector.getByLabel('Summary text', { exact: true })
     await textarea.and(page.locator(':focus')).waitFor()
     assert.deepEqual(await textarea.evaluate(control => ({ start: control.selectionStart, end: control.selectionEnd,
@@ -781,9 +782,9 @@ async function cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw
     assert.equal(page.url(), list)
 
     const trashUrl = new URL('/user/manage/article/trash', list).href
-    await page.getByRole('link', { name: '回收站', exact: true }).click()
+    await roleWithExactName(page, 'link', '回收站').click()
     await page.waitForURL(trashUrl)
-    await page.getByRole('heading', { name: '回收站', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', '回收站').waitFor()
     await summary.waitFor({ state: 'detached' })
     held.release()
     const fulfillmentError = await held.done

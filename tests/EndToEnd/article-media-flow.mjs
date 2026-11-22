@@ -10,6 +10,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodWriter } from '../../src/Contracts/binary.ts'
 import { uploadMedia } from '../../src/Contracts/private-media.ts'
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
@@ -66,12 +67,12 @@ try {
           (item.location().url !== revokedPreviewUrl || !item.text().includes('net::ERR_FILE_NOT_FOUND'))) diagnostics.push(item.text())
       })
       await page.goto(`${origin}/user/manage/article/edit/${draft.id}`)
-      await page.getByRole('button', { name: 'Inspector', exact: true }).click()
+      await exactButton(page, 'Inspector').click()
       await page.getByRole('button', { name: 'Manage private attachments' }).click()
       const choose = page.getByRole('combobox', { name: 'Choose a private image' })
       await choose.focus()
       await page.keyboard.press('Enter')
-      await page.getByRole('option', { name: file, exact: true }).click()
+      await roleWithExactName(page, 'option', file).click()
       await page.getByRole('button', { name: 'Attach image' }).click()
       const preview = page.getByRole('button', { name: `Preview ${file}` })
       await preview.waitFor()
@@ -127,14 +128,14 @@ try {
       assert.deepEqual(execFileSync('unzip', ['-p', await word.download.path(), 'word/media/attachment.png']), previewBytes)
 
       await choose.press('Enter')
-      await page.getByRole('option', { name: 'companion-' + file, exact: true }).click()
+      await roleWithExactName(page, 'option', 'companion-' + file).click()
       await page.getByRole('button', { name: 'Attach image' }).click()
-      await page.getByRole('button', { name: `Use ${file} as draft cover`, exact: true }).waitFor()
+      await exactButton(page, `Use ${file} as draft cover`).waitFor()
       const coverRead = response => new URL(response.url()).pathname === WireRoutes.ArticleMedia.replace('{id:int}', draft.id)
       const [savedCover, attachedCover] = await Promise.all([
         page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.ArticleCoverSave),
         page.waitForResponse(response => coverRead(response) && response.headers()['x-fsus-article-cover'] === asset.id),
-        page.getByRole('button', { name: `Use ${file} as draft cover`, exact: true }).click(),
+        exactButton(page, `Use ${file} as draft cover`).click(),
       ])
       assert.equal(savedCover.status(), 200)
       assert.equal(attachedCover.headers()['cache-control'], 'no-store')
@@ -170,12 +171,12 @@ try {
       await page.screenshot({ path: join(evidence, `article-media-${name}.png`), animations: 'disabled' })
       const [withOtherDetached] = await Promise.all([
         page.waitForResponse(response => coverRead(response) && new URL(response.url()).searchParams.get('revision') === String(covered.revision + 1n)),
-        page.getByRole('button', { name: 'Detach companion-' + file, exact: true }).click(),
+        exactButton(page, 'Detach companion-' + file).click(),
       ])
       assert.equal(withOtherDetached.headers()['x-fsus-article-cover'], asset.id)
       const [cleared] = await Promise.all([
         page.waitForResponse(response => coverRead(response) && response.headers()['x-fsus-article-cover'] === 'none'),
-        page.getByRole('button', { name: 'Remove draft cover', exact: true }).click(),
+        exactButton(page, 'Remove draft cover').click(),
       ])
       const current = BigInt(new URL(cleared.url()).searchParams.get('revision'))
       assert.equal(current, covered.revision + 2n)
@@ -185,8 +186,8 @@ try {
         headers: { ...headers, [WireHeaders.ClientMutationId]: unattachedKey }, data: unattached,
       })).status(), 404)
       await page.getByText('Revision history', { exact: true }).click()
-      await page.getByRole('button', { name: `Compare revision ${covered.revision}`, exact: true }).click()
-      const comparison = page.getByRole('dialog', { name: 'Revision comparison', exact: true })
+      await exactButton(page, `Compare revision ${covered.revision}`).click()
+      const comparison = roleWithExactName(page, 'dialog', 'Revision comparison')
       const [fields] = await Promise.all([
         page.waitForResponse(response => new URL(response.url()).searchParams.get('map') === 'metadata'),
         comparison.getByText('Saved summary and classification', { exact: true }).press('Enter'),
@@ -195,11 +196,11 @@ try {
       assert.equal(fields.headers()['x-fsus-source-article-cover'], asset.id)
       await comparison.getByText(`Private image ${asset.id}`, { exact: true }).waitFor()
       await comparison.getByLabel('Reason for restoring this draft').fill('Restore the selected private cover.')
-      await comparison.getByRole('button', { name: 'Restore as new draft', exact: true }).click()
+      await exactButton(comparison, 'Restore as new draft').click()
       await comparison.waitFor({ state: 'hidden' })
       await page.getByText('Draft cover', { exact: true }).waitFor()
-      await page.getByRole('button', { name: 'Detach companion-' + file, exact: true }).click()
-      await page.getByRole('button', { name: `Detach ${file}`, exact: true }).click()
+      await exactButton(page, 'Detach companion-' + file).click()
+      await exactButton(page, `Detach ${file}`).click()
       await page.getByText('No images are attached to this revision.', { exact: true }).waitFor()
       assert.equal((await author.request.get(previewUrl, { headers: { Authorization: authorization } })).status(), 404)
       revokedPreviewUrl = objectUrl
@@ -233,7 +234,7 @@ function coverFrame(article, revision, key, asset) {
 }
 
 async function downloadAttachment(page, draft, assetId, format, extension = format.toLowerCase()) {
-  const button = page.getByRole('button', { name: `Download saved ${format} with this image`, exact: true })
+  const button = exactButton(page, `Download saved ${format} with this image`)
   const path = `/api/v2/authoring/draft/${draft.id}/export.${extension}`
   const [response, download] = await Promise.all([
     page.waitForResponse(response => new URL(response.url()).pathname === path),
@@ -266,7 +267,7 @@ async function verifyOfflineAttachment(page, draft, assetId, file, previewBytes)
       const offline = await context.newPage()
       await offline.goto(pathToFileURL(filename).href)
       assert.equal(await offline.title(), draft.title)
-      const image = offline.getByRole('img', { name: file, exact: true })
+      const image = roleWithExactName(offline, 'img', file)
       await image.waitFor()
       await offline.waitForFunction(() => document.images.length === 1 &&
         document.images[0].naturalWidth === 160 && document.images[0].naturalHeight === 80)
@@ -304,7 +305,7 @@ async function verifyOfflineEpub(page, draft, assetId, file, previewBytes) {
       const offline = await context.newPage()
       await offline.goto(pathToFileURL(chapter).href)
       assert.equal(await offline.title(), draft.title)
-      const image = offline.getByRole('img', { name: file, exact: true })
+      const image = roleWithExactName(offline, 'img', file)
       assert.equal(await image.getAttribute('src'), path)
       await offline.waitForFunction(() => document.images.length === 1 &&
         document.images[0].naturalWidth === 160 && document.images[0].naturalHeight === 80)

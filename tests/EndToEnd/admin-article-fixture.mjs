@@ -5,6 +5,7 @@ import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { queryCorpusPage, searchTerms } from '../../src/Contracts/local-search.ts'
 import { decodeArticle, decodeSearch } from '../../src/Contracts/public-articles.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
 const articleSource = /Historical Markdown ready for restoration/
@@ -13,8 +14,8 @@ export const sourceTitle = 'Rollback fixture source title'
 export function adminArticleFixture({ page, context, adminOrigin, siteOrigin }) {
   const admin = path => adminOrigin.origin + path
   const site = path => siteOrigin.origin + path
-  const section = page.getByRole('region', { name: 'Restore a published article revision', exact: true })
-  const recoveryTab = page.getByRole('tab', { name: 'Publication recovery', exact: true })
+  const section = roleWithExactName(page, 'region', 'Restore a published article revision')
+  const recoveryTab = roleWithExactName(page, 'tab', 'Publication recovery')
   async function openPublicationRecovery() {
     if (await recoveryTab.getAttribute('aria-selected') !== 'true') await recoveryTab.click()
   }
@@ -33,10 +34,10 @@ export function adminArticleFixture({ page, context, adminOrigin, siteOrigin }) 
 
   async function previewRollback() {
     await openPublicationRecovery()
-    await section.getByRole('textbox', { name: 'Article ID', exact: true }).fill('1')
-    await section.getByRole('textbox', { name: 'Historical revision', exact: true }).fill('1')
-    await section.getByRole('button', { name: 'Preview publication rollback', exact: true }).press('Enter')
-    await section.getByRole('heading', { name: sourceTitle, exact: true }).waitFor()
+    await roleWithExactName(section, 'textbox', 'Article ID').fill('1')
+    await roleWithExactName(section, 'textbox', 'Historical revision').fill('1')
+    await exactButton(section, 'Preview publication rollback').press('Enter')
+    await roleWithExactName(section, 'heading', sourceTitle).waitFor()
   }
 
   async function inspect() {

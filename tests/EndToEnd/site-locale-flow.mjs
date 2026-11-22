@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_URL
 assert(origin, 'Set the isolated test URL')
@@ -54,12 +55,12 @@ try {
     })
     await page.goto(origin + '/login')
     const selector = page.locator('.site-auth-header .site-locale-menu button')
-    await page.getByRole('heading', { name: 'Log in', exact: true }).waitFor()
-    await page.getByRole('button', { name: 'Log in with Passkey', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'Log in').waitFor()
+    await exactButton(page, 'Log in with Passkey').waitFor()
     assert.equal(await page.locator('main input[type=password]').count(), 0)
     await selector.click()
-    await page.getByRole('menuitem', { name: '中文', exact: true }).click()
-    await page.getByRole('heading', { name: '登录', exact: true }).waitFor()
+    await roleWithExactName(page, 'menuitem', '中文').click()
+    await roleWithExactName(page, 'heading', '登录').waitFor()
     assert.match(await page.title(), /^登录/)
     assert.equal(await page.locator('main input[type=password]').count(), 0)
     assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN')
@@ -67,19 +68,19 @@ try {
     await page.waitForURL(origin + '/')
     assert.equal(docs.length, 1)
     if (width < 500) await page.getByText('菜单', { exact: true }).click()
-    const chineseNav = page.getByRole('link', { name: '归档', exact: true }).filter({ visible: true })
+    const chineseNav = roleWithExactName(page, 'link', '归档').filter({ visible: true })
     await chineseNav.click()
     await page.waitForURL(origin + '/archive')
-    await page.getByRole('heading', { name: '归档', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', '归档').waitFor()
     assert.equal(docs.length, 1)
 
     const response = await page.reload()
     assert.equal(response.headers()['content-language'], 'zh-CN')
-    await page.getByRole('heading', { name: '归档', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', '归档').waitFor()
     if (width < 500) await page.getByText('菜单', { exact: true }).click()
-    const languageControl = page.getByRole('radiogroup', { name: '界面语言', exact: true }).filter({ visible: true })
+    const languageControl = roleWithExactName(page, 'radiogroup', '界面语言').filter({ visible: true })
     if (width < 500) {
-      const themeControl = page.getByRole('radiogroup', { name: '主题', exact: true }).filter({ visible: true })
+      const themeControl = roleWithExactName(page, 'radiogroup', '主题').filter({ visible: true })
       await themeControl.waitFor()
       const [languageBox, themeBox] = await Promise.all([languageControl.boundingBox(), themeControl.boundingBox()])
       assert.ok(languageBox && themeBox)
@@ -96,20 +97,20 @@ try {
     if (width < 500) await languageControl.getByText('EN', { exact: true }).click()
     else {
       await page.locator('.site-locale-menu button').click()
-      await page.getByRole('menuitem', { name: 'EN', exact: true }).click()
+      await roleWithExactName(page, 'menuitem', 'EN').click()
     }
     if (width < 500) {
-      const themeControl = page.getByRole('radiogroup', { name: 'Theme mode', exact: true }).filter({ visible: true })
-      assert.equal(await themeControl.getByRole('radio', { name: 'Dark', exact: true }).isChecked(), true)
+      const themeControl = roleWithExactName(page, 'radiogroup', 'Theme mode').filter({ visible: true })
+      assert.equal(await roleWithExactName(themeControl, 'radio', 'Dark').isChecked(), true)
       await themeControl.getByText('System', { exact: true }).click()
       await page.waitForFunction(() => document.documentElement.dataset.themeMode === 'system')
     }
-    await page.getByRole('heading', { name: 'Archive', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'Archive').waitFor()
     assert.match(await page.title(), /^Archive/)
     assert.equal(await page.locator('html').getAttribute('lang'), 'en')
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     await page.goto(origin + '/about')
-    await page.getByRole('heading', { name: 'About', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'About').waitFor()
     assert.equal(await page.locator('[data-site-page-body]').getAttribute('lang'), 'zh-CN')
     const footerLayout = await page.evaluate(() => {
       const footer = document.querySelector('.site-footer')
@@ -154,11 +155,11 @@ try {
     }
     const selectPageTheme = async (mode, label) => {
       if (width < 500) {
-        const control = page.getByRole('radiogroup', { name: 'Theme mode', exact: true }).filter({ visible: true })
+        const control = roleWithExactName(page, 'radiogroup', 'Theme mode').filter({ visible: true })
         await control.getByText(label, { exact: true }).click()
       } else {
         await page.locator('.site-theme-menu button').click()
-        await page.getByRole('menuitem', { name: label, exact: true }).click()
+        await roleWithExactName(page, 'menuitem', label).click()
       }
     }
     const assertPeerTheme = async (mode, label, resolved) => {
@@ -174,8 +175,8 @@ try {
       }))
       assert.deepEqual(classes, { dark: mode === 'dark', light: mode === 'light' })
       if (width < 500) {
-        const control = peer.getByRole('radiogroup', { name: 'Theme mode', exact: true }).filter({ visible: true })
-        assert.equal(await control.getByRole('radio', { name: label, exact: true }).isChecked(), true)
+        const control = roleWithExactName(peer, 'radiogroup', 'Theme mode').filter({ visible: true })
+        assert.equal(await roleWithExactName(control, 'radio', label).isChecked(), true)
       } else {
         assert.equal((await peer.locator('.site-theme-menu button').textContent())?.trim(), label)
       }
@@ -231,7 +232,7 @@ try {
     })
     if (width < 500) {
       await page.getByText('Menu', { exact: true }).click()
-      await page.getByRole('radiogroup', { name: 'Theme mode', exact: true }).waitFor({ state: 'hidden' })
+      await roleWithExactName(page, 'radiogroup', 'Theme mode').waitFor({ state: 'hidden' })
     }
     await peer.close()
 

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const routes = {
   edit: articleId => `/user/manage/article/edit/${articleId}`,
@@ -33,15 +34,15 @@ function inputBody(page) {
 }
 
 function exactTab(page, title, state) {
-  return workspaceList(page).getByRole('tab', { name: `${title} · ${state}`, exact: true })
+  return roleWithExactName(workspaceList(page), 'tab', `${title} · ${state}`)
 }
 
 function workspaceList(page) {
-  return page.getByRole('tablist', { name: 'Open articles', exact: true })
+  return roleWithExactName(page, 'tablist', 'Open articles')
 }
 
 function control(page, name) {
-  return page.getByRole('button', { name, exact: true })
+  return exactButton(page, name)
 }
 
 function gate() {
@@ -61,10 +62,10 @@ async function expectEditor(page, origin, article, body = article.body) {
 }
 
 async function openWorkspaceDialog(page) {
-  const dialog = page.getByRole('dialog', { name: 'Workspace & open article', exact: true })
+  const dialog = roleWithExactName(page, 'dialog', 'Workspace & open article')
   if (await dialog.isVisible()) return dialog
   await control(page, 'More actions').click()
-  await page.getByRole('menuitem', { name: 'Workspace & open…', exact: true }).click()
+  await roleWithExactName(page, 'menuitem', 'Workspace & open…').click()
   await dialog.waitFor()
   return dialog
 }
@@ -186,11 +187,11 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
     assert.equal(await workspaceList(page).count(), 0, 'Mobile must not expose the full desktop tablist')
     await launcher.focus()
     await page.keyboard.press('Space')
-    const overflow = page.getByRole('region', { name: 'Article tabs', exact: true })
+    const overflow = roleWithExactName(page, 'region', 'Article tabs')
     await overflow.waitFor()
-    const current = overflow.getByRole('button', { name: `${primary.title} · Pinned`, exact: true })
+    const current = exactButton(overflow, `${primary.title} · Pinned`)
     await current.and(page.locator(':focus')).waitFor()
-    const switcher = overflow.getByRole('button', { name: `${pinned.title} · Unsaved`, exact: true })
+    const switcher = exactButton(overflow, `${pinned.title} · Unsaved`)
     await page.keyboard.press('ArrowDown')
     await switcher.and(page.locator(':focus')).waitFor()
     await page.keyboard.press('Enter')
@@ -205,7 +206,7 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   await exactTab(page, pinned.title, 'Unsaved').waitFor()
   const close = control(page, `Close ${pinned.title}`)
   const protectedTab = exactTab(page, pinned.title, 'Unsaved')
-  const closeDialog = page.getByRole('dialog', { name: 'Close tabs with unsaved edits?', exact: true })
+  const closeDialog = roleWithExactName(page, 'dialog', 'Close tabs with unsaved edits?')
   await protectedTab.focus()
   await page.keyboard.press('Delete')
   await closeDialog.waitFor()
@@ -216,7 +217,7 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   await close.click()
   const discardOption = 'Discard unsaved edits from this browser'
   await closeDialog.getByText(discardOption, { exact: true }).click()
-  assert.equal(await closeDialog.getByRole('radio', { name: discardOption, exact: true }).isChecked(), true)
+  assert.equal(await roleWithExactName(closeDialog, 'radio', discardOption).isChecked(), true)
   await control(closeDialog, 'Close tabs').click()
   await exactTab(page, pinned.title, 'Unsaved').waitFor({ state: 'detached' })
   assert.equal(await workspaceList(page).getByRole('tab', { name: pinned.title, exact: false }).count(), 0)
@@ -236,7 +237,7 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   const openDialog = await openWorkspaceDialog(page)
   await openDialog.getByLabel('Article ID', { exact: true }).fill(String(primary.id))
   const independent = page.context().waitForEvent('page')
-  await openDialog.getByRole('link', { name: 'Open in browser tab', exact: true }).click()
+  await roleWithExactName(openDialog, 'link', 'Open in browser tab').click()
   await page.keyboard.press('Escape')
   await openDialog.waitFor({ state: 'detached' })
   const separate = await independent

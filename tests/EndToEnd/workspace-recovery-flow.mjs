@@ -8,6 +8,7 @@ import {
   FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { authorFixture, binary, button, chromium, expect, journalContains, submitArticle } from './browser-authoring-fixture.mjs'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -16,7 +17,7 @@ const editUrl = article => `${origin}/user/manage/article/edit/${article.id}`
 const route = WireRoutes.AuthoringWorkspace
 const launch = () => chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
 const tabList = page => page.getByRole('tablist', { name: 'Open articles' })
-const tab = (page, article, status) => tabList(page).getByRole('tab', { name: `${article.title} · ${status}`, exact: true })
+const tab = (page, article, status) => roleWithExactName(tabList(page), 'tab', `${article.title} · ${status}`)
 const bodyInput = page => page.getByLabel('Body', { exact: true })
 const observations = []
 const diagnostics = []
@@ -61,7 +62,7 @@ async function open(page, article) {
   const inlineInput = page.getByLabel('Article ID', { exact: true })
   if (!await inlineInput.isVisible()) {
     await button(page, 'More actions').click()
-    await page.getByRole('menuitem', { name: 'Workspace & open…', exact: true }).click()
+    await roleWithExactName(page, 'menuitem', 'Workspace & open…').click()
   }
   await page.getByLabel('Article ID', { exact: true }).fill(String(article.id))
   await button(page, 'Open article').click()
@@ -121,7 +122,7 @@ try {
 
   const original = monitor(await originContext.newPage())
   await original.goto(workspaceUrl)
-  await expect(original.getByRole('heading', { name: 'Article workspace', exact: true })).toBeVisible()
+  await expect(roleWithExactName(original, 'heading', 'Article workspace')).toBeVisible()
   await open(original, first)
   await button(original, `Pin ${first.title}`).click()
   await open(original, second)
@@ -223,7 +224,7 @@ try {
     await mobileInspector.setViewportSize({ width: 1280, height: 800 })
     const pane = mobileInspector.getByRole('complementary', { name: 'Article inspector' })
     await expect(pane).toBeVisible()
-    await pane.getByRole('button', { name: 'Close', exact: true }).click()
+    await exactButton(pane, 'Close').click()
     await expect(button(mobileInspector, 'Inspector')).toBeFocused()
     await expect.poll(async () => (await inspectorLayout(reopened, session)).inspectorOpen).toBe(false)
     assert.equal((await inspectorLayout(reopened, session)).revision, afterLegacy.revision + 1n)

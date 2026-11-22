@@ -8,6 +8,7 @@ import { decodeInboxThread } from '../../src/Contracts/inbox.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeCommentAuthorEditDetail, decodePublicCommentReply, decodePublicCommentSubmissionResult, decodeSession,
   FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 export async function verifyApprovedReply({ browser, siteOrigin, evidence, articleId, parentId, approve }) {
   const authorTicket = process.env.FSUSBLOG_TEST_REPLY_AUTHOR_TICKET
@@ -32,12 +33,12 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
     await author.bringToFront()
     const articleUrl = `${siteOrigin}/article/${articleId}`
     assert.equal((await author.goto(articleUrl)).status(), 200)
-    await author.getByRole('heading', { name: 'Moderation fixture article', exact: true }).waitFor()
+    await roleWithExactName(author, 'heading', 'Moderation fixture article').waitFor()
     assert.match(await author.title(), /Moderation fixture article/)
     const parent = author.locator(`[id="comment-${parentId}"]`)
-    const reply = parent.getByRole('button', { name: 'Reply', exact: true })
+    const reply = exactButton(parent, 'Reply')
     await reply.click()
-    const composer = author.getByRole('heading', { name: 'Reply to Moderation fixture writer', exact: true })
+    const composer = roleWithExactName(author, 'heading', 'Reply to Moderation fixture writer')
     await composer.waitFor()
     assert.equal(await composer.evaluate(heading => heading.closest('[tabindex="-1"]') === document.activeElement), true)
     const input = author.getByLabel('Reply', { exact: true })
@@ -118,7 +119,7 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
     const page = await context.newPage()
     assert.equal((await page.goto(siteOrigin + '/login')).status(), 200)
     await page.getByLabel('Owner access key').fill(ticket)
-    await page.getByRole('button', { name: 'Log in', exact: true }).click()
+    await exactButton(page, 'Log in').click()
     await page.waitForURL(siteOrigin + '/user/manage/article/write')
     return page
   }
@@ -188,7 +189,7 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
     const otherRows = await otherList
     assert.equal(otherRows.status(), 200)
     noPrivateText(await otherRows.body())
-    await recipient.getByRole('heading', { name: '我的评论', exact: true }).waitFor()
+    await roleWithExactName(recipient, 'heading', '我的评论').waitFor()
 
     await author.bringToFront()
     const own = author.waitForResponse(response => response.url() === ownList && response.request().method() === 'GET')
@@ -201,13 +202,13 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
     const row = text => author.getByRole('listitem').filter({ has: author.getByText(text, { exact: true }) })
     await row(body).getByText('待审核', { exact: true }).waitFor()
     const detail = author.waitForResponse(response => response.url() === detailUrl && response.request().method() === 'GET')
-    await row(body).getByRole('button', { name: '编辑评论', exact: true }).click()
+    await exactButton(row(body), '编辑评论').click()
     const loaded = await detail
     assert.equal(loaded.status(), 200)
     assert.match((await loaded.headerValue('Cache-Control')) ?? '', /no-store/)
     const previous = await readDetail(loaded)
     assert.deepEqual(previous, { articleId, publication, currentVersion: 1n, body })
-    const form = author.getByRole('form', { name: '编辑待审核评论', exact: true })
+    const form = roleWithExactName(author, 'form', '编辑待审核评论')
     const input = form.getByLabel('评论内容', { exact: true })
     await input.waitFor()
     assert.equal(await input.inputValue(), body)
@@ -225,7 +226,7 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
       const [issued] = await Promise.all([
         author.waitForResponse(response => response.url() === challengeUrl && response.request().method() === 'POST'),
         author.waitForRequest(request => request.url() === editUrl && request.method() === 'POST'),
-        form.getByRole('button', { name: '保存修改', exact: true }).click(),
+        exactButton(form, '保存修改').click(),
       ])
       assert.equal(issued.status(), 200)
       assert.equal(readJson(issued.request().postDataBuffer(), FrameType.CommentManagementChallengeRequest).purpose, 'edit')
@@ -308,7 +309,7 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
     assert.equal(await guest.locator(selector(replyId)).getByRole('button', menu).count(), 0)
 
     await recipient.bringToFront()
-    await recipient.locator(selector(replyId)).getByRole('button', { name: 'Reply', exact: true }).click()
+    await exactButton(recipient.locator(selector(replyId)), 'Reply').click()
     await recipient.getByLabel('Reply', { exact: true }).fill(childBody)
     await recipient.getByText('Publish as Moderation fixture writer after review', { exact: true }).click()
     const child = await submitReply(recipient, siteOrigin, recipient.getByRole('button', { name: 'Submit for review' }), replyId)
@@ -332,9 +333,9 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
     assert.equal(publicationResponse.status(), 200)
     const publication = decodeArticle(decodeFrame(await publicationResponse.body(), FrameType.ArticleDetail).payload).publication
     const action = author.locator(selector(replyId)).getByRole('button', menu)
-    const dialog = author.getByRole('dialog', { name: 'Edit your comment', exact: true })
+    const dialog = roleWithExactName(author, 'dialog', 'Edit your comment')
     const input = dialog.getByLabel('Edited comment', { exact: true })
-    const save = dialog.getByRole('button', { name: 'Save for review', exact: true })
+    const save = exactButton(dialog, 'Save for review')
     async function openEditor() {
       const [loaded] = await Promise.all([
         author.waitForResponse(response => response.url() === detailUrl && response.request().method() === 'GET'),
@@ -358,7 +359,7 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
     assert(detail.currentVersion > 0n)
     assert.equal(await save.isDisabled(), true)
     await input.fill('This cancelled edit must never be submitted.')
-    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await exactButton(dialog, 'Cancel').click()
     await dialog.waitFor({ state: 'hidden' })
     assert.deepEqual(writes, [])
     assert.equal((await readContext(replyId)).view.target.content, body)

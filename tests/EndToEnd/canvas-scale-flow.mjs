@@ -11,6 +11,7 @@ import {
   CANVAS_SCALE_ARTICLE_SOURCE, CANVAS_SCALE_FAR_EDGE, CANVAS_SCALE_FAR_NOTE, CANVAS_SCALE_FIRST_EDGE, CANVAS_SCALE_LOCATIONS,
   CANVAS_SCALE_HEADING_ANCHOR, CANVAS_SCALE_NEAR_NOTE, createCanvasScaleCorpus,
 } from './canvas-scale-corpus.mjs'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const binary = 'application/octet-stream'
 const nodeSelector = '.canvas-board__node'
@@ -112,7 +113,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
     planMs, importMs, budget, trials: [], exactExport: null,
   }
   const beforeViewport = page.viewportSize()
-  const button = name => page.getByRole('button', { name, exact: true })
+  const button = name => exactButton(page, name)
   const outline = () => page.getByRole('region', { name: 'Canvas outline' })
   const board = () => page.getByRole('region', { name: 'Interactive Canvas Viewport' })
   const selection = () => page.getByRole('complementary', { name: 'Selected Canvas record' })
@@ -120,7 +121,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
   const footer = revision => page.getByText(
     `Revision ${revision} · ${counts[0]}/${counts[0]} nodes · ${counts[1]}/${counts[1]} edges`, { exact: true },
   )
-  const visibleNote = label => board().getByRole('button', { name: 'Note ' + label, exact: true })
+  const visibleNote = label => exactButton(board(), 'Note ' + label)
   const finder = () => outline().getByRole('searchbox', { name: 'Find loaded records' })
 
   let revision = 1n
@@ -152,7 +153,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
 
   async function pickOutline(label) {
     await finder().fill(label)
-    const result = outline().getByRole('button', { name: label, exact: true })
+    const result = exactButton(outline(), label)
     await result.press('Enter')
     await selection().getByText(label, { exact: true }).waitFor()
     assert.equal(await result.getAttribute('aria-pressed'), 'true')
@@ -164,8 +165,8 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
       const tab = await other.newPage()
       const shell = await tab.goto(pageUrl)
       assert.match(shell.headers()['x-robots-tag'], /noindex/)
-      await tab.getByRole('link', { name: 'Log in to access Canvas', exact: true }).waitFor()
-      assert.equal(await tab.getByRole('heading', { name: corpus.title, exact: true }).count(), 0)
+      await roleWithExactName(tab, 'link', 'Log in to access Canvas').waitFor()
+      assert.equal(await roleWithExactName(tab, 'heading', corpus.title).count(), 0)
       assert.equal((await tab.request.get(origin + graphPath)).status(), 401)
       assert.equal((await tab.request.get(origin + route(WireRoutes.CanvasBundleExport, canvasId) + '?revision=1')).status(), 401)
     } finally {
@@ -181,14 +182,14 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
   async function convertArticleLink() {
     await button('Outline').click()
     await pickOutline(CANVAS_SCALE_FIRST_EDGE)
-    const review = page.getByRole('dialog', { name: 'Review article link', exact: true })
+    const review = roleWithExactName(page, 'dialog', 'Review article link')
     const [beforePublic, beforeTarget] = await Promise.all([fetchPublic(first), fetchPublic(second)])
     const started = performance.now()
     await button('Review article link').click()
     const inserted = `\n\n[${second.title}](/article/${second.id})`
     await review.locator('pre').waitFor()
     assert.equal(await review.locator('pre').textContent(), inserted)
-    await review.getByRole('button', { name: 'Cancel', exact: true }).press('Enter')
+    await exactButton(review, 'Cancel').press('Enter')
     await review.waitFor({ state: 'hidden' })
     assert.deepEqual(await fetchDraft(first), first)
     shape(decodeCanvasGraphPage(await frame(await page.request.get(origin + graphPath), FrameType.CanvasGraphPage)).header,
@@ -222,7 +223,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
     try {
       accepted = await Promise.all([
         committed.promise,
-        review.getByRole('button', { name: 'Confirm link', exact: true }).press('Enter'),
+        exactButton(review, 'Confirm link').press('Enter'),
       ])
     } finally {
       await page.unroute(confirmation, dropConfirmationResponse)
@@ -230,7 +231,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
     const [{ receipt, payload }] = accepted
     assert.deepEqual([receipt.articleId, receipt.articleRevision, receipt.canvasRevision],
       [first.id, first.revision + 1n, revision + 1n])
-    const retry = review.getByRole('button', { name: 'Retry confirmation', exact: true })
+    const retry = exactButton(review, 'Retry confirmation')
     await retry.waitFor()
     const [response] = await Promise.all([
       page.waitForResponse(reply => reply.url() === confirmation && reply.request().method() === 'POST'),
@@ -286,7 +287,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
         await page.setViewportSize({ width: settings.width, height: settings.height })
         await timed(trial, 'firstPage', async () => {
           await page.goto(pageUrl)
-          await page.getByRole('heading', { name: corpus.title, exact: true }).waitFor()
+          await roleWithExactName(page, 'heading', corpus.title).waitFor()
           await button('Load all records').waitFor()
           await board().waitFor()
         })
@@ -326,13 +327,13 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
         if (settings.name === 'desktop-1') {
           await timed(trial, 'resolvePinnedHeading', async () => {
             await finder().fill(CANVAS_SCALE_HEADING_ANCHOR)
-            const heading = outline().getByRole('button', { name: 'Heading reference ' + second.id, exact: true }).first()
+            const heading = exactButton(outline(), 'Heading reference ' + second.id).first()
             await heading.press('Enter')
-            const preview = selection().getByRole('region', { name: 'Canvas reference preview', exact: true })
-            await preview.getByRole('button', { name: 'Resolve reference', exact: true }).press('Enter')
+            const preview = roleWithExactName(selection(), 'region', 'Canvas reference preview')
+            await exactButton(preview, 'Resolve reference').press('Enter')
             await preview.getByRole('status').filter({ hasText: 'Reference resolved.' }).waitFor()
             await preview.getByText('Pinned revision ' + second.revision, { exact: true }).waitFor()
-            await preview.getByRole('heading', { name: second.title, exact: true }).waitFor()
+            await roleWithExactName(preview, 'heading', second.title).waitFor()
             await preview.getByText(/Canvas scale heading/).waitFor()
           })
         }
@@ -363,10 +364,10 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
           const beforeMove = await farNode.evaluate(element => element.getBoundingClientRect().x)
           await write(trial, 'keyboardMove', () => farNode.press('ArrowRight'), viewport)
           assert(Math.abs(await farNode.evaluate(element => element.getBoundingClientRect().x) - beforeMove - 10) < 1)
-          await toolbar().getByRole('button', { name: 'Undo', exact: true }).and(page.locator(':enabled')).waitFor()
+          await exactButton(toolbar(), 'Undo').and(page.locator(':enabled')).waitFor()
           await write(trial, 'undoMove', () => button('Undo').click(), viewport)
           assert(Math.abs(await farNode.evaluate(element => element.getBoundingClientRect().x) - beforeMove) < 1)
-          await toolbar().getByRole('button', { name: 'Redo', exact: true }).and(page.locator(':enabled')).waitFor()
+          await exactButton(toolbar(), 'Redo').and(page.locator(':enabled')).waitFor()
           await write(trial, 'redoMove', () => button('Redo').click(), viewport)
           assert(Math.abs(await farNode.evaluate(element => element.getBoundingClientRect().x) - beforeMove - 10) < 1)
           farNodeX += 800
@@ -392,7 +393,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
       }
     }
     await convertArticleLink()
-    const href = await page.getByRole('link', { name: 'Export Canvas bundle', exact: true }).getAttribute('href')
+    const href = await roleWithExactName(page, 'link', 'Export Canvas bundle').getAttribute('href')
     assert.equal(href, route(WireRoutes.CanvasBundleExport, canvasId) + '?revision=' + revision)
     const exportStarted = performance.now()
     const exported = await page.request.get(origin + href)

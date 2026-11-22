@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { enableAuthenticator, launchIdentityBrowser, readSeed, request, totp } from './site-authentication-fixture.mjs'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_MFA_URL
 const ticket = process.env.FSUSBLOG_TEST_MFA_TICKET
@@ -34,7 +35,7 @@ try {
     response.request().method() === method, { timeout: 9_000 })
   const logout = async () => {
     const confirmed = waitApi('/api/v2/identity/sign-out.aeds')
-    await page.getByRole('button', { name: 'Log out', exact: true }).click()
+    await exactButton(page, 'Log out').click()
     assert.equal((await confirmed).status(), 200)
     await page.waitForURL(origin + '/')
   }
@@ -61,7 +62,7 @@ try {
   const passkey = async () => {
     await page.goto(origin + '/login')
     const completed = waitApi('/api/binary/auth/passkey/login/complete')
-    await page.getByRole('button', { name: 'Log in with Passkey', exact: true }).click()
+    await exactButton(page, 'Log in with Passkey').click()
     const response = await completed
     assert.equal(response.status(), 200)
     return await response.body()
@@ -69,22 +70,22 @@ try {
   const verify = async (code) => {
     const checked = waitApi('/api/binary/auth/mfa/challenge')
     await page.getByLabel('Authenticator or recovery code', { exact: true }).fill(code)
-    await page.getByRole('button', { name: 'Verify and log in', exact: true }).click()
+    await exactButton(page, 'Verify and log in').click()
     return (await checked).status()
   }
 
   await page.goto(origin + '/login')
   await page.getByLabel('Owner access key').fill(ticket)
-  await page.getByRole('button', { name: 'Create Passkey', exact: true }).click()
+  await exactButton(page, 'Create Passkey').click()
   await page.getByText('Passkey created. Log in with your Passkey.', { exact: true }).waitFor({ timeout: 9_000 })
   assert.equal((await passkey())[20], 1)
   await signedIn()
 
   phase = 'setup-and-verify'
-  await page.getByRole('link', { name: 'Account', exact: true }).first().click()
+  await roleWithExactName(page, 'link', 'Account').first().click()
   await page.waitForURL(origin + '/user/identity/mfa')
   assert.equal((await context.request.post(origin + '/api/binary/auth/mfa/setup/start')).status(), 428)
-  await page.getByRole('button', { name: 'Set up authenticator', exact: true }).click()
+  await exactButton(page, 'Set up authenticator').click()
   const seedNode = page.getByTestId('mfa-seed')
   await seedNode.waitFor({ timeout: 9_000 })
   const seed = await seedNode.textContent()
@@ -94,12 +95,12 @@ try {
   const setupCode = totp(secret, step)
   const beforeSetup = await sessionCookie()
   await page.getByLabel('Authenticator code', { exact: true }).fill(setupCode)
-  await page.getByRole('button', { name: 'Enable verification', exact: true }).click()
-  await page.getByRole('heading', { name: 'Recovery codes', exact: true }).waitFor({ timeout: 9_000 })
+  await exactButton(page, 'Enable verification').click()
+  await roleWithExactName(page, 'heading', 'Recovery codes').waitFor({ timeout: 9_000 })
   await verifyRotation(beforeSetup)
   const recovery = await page.getByRole('listitem').filter({ hasText: /^(?:[0-9A-F]{4}-){7}[0-9A-F]{4}$/ }).allTextContents()
   assert.equal(recovery.length, 8)
-  await page.getByRole('button', { name: 'Hide recovery codes', exact: true }).click()
+  await exactButton(page, 'Hide recovery codes').click()
   await page.screenshot({ path: join(evidence, 'mfa-enabled.png') })
   await logout()
 
@@ -120,14 +121,14 @@ try {
   await signedIn()
 
   phase = 'regenerate-recovery-codes'
-  await page.getByRole('link', { name: 'Account', exact: true }).first().click()
+  await roleWithExactName(page, 'link', 'Account').first().click()
   assert.equal((await context.request.post(origin + regeneratePath)).status(), 428)
   const beforeRegeneration = await sessionCookie()
   const recoveryList = page.getByRole('listitem').filter({ hasText: /^(?:[0-9A-F]{4}-){7}[0-9A-F]{4}$/ })
-  await page.getByRole('button', { name: 'Regenerate recovery codes', exact: true }).click()
+  await exactButton(page, 'Regenerate recovery codes').click()
   await page.getByLabel('Authenticator or recovery code to regenerate', { exact: true }).fill(recovery[1])
   const regenerated = waitApi(regeneratePath)
-  await page.getByRole('button', { name: 'Replace recovery codes', exact: true }).click()
+  await exactButton(page, 'Replace recovery codes').click()
   const replacement = await regenerated
   assert.equal(replacement.status(), 200)
   assert.equal(replacement.headers()['cache-control'], 'no-store')
@@ -143,10 +144,10 @@ try {
   assert.equal(newCodes.length, 10)
   assert.equal(new Set(newCodes).size, 10)
   assert(newCodes.every(code => !recovery.includes(code)))
-  await page.getByRole('button', { name: 'Hide recovery codes', exact: true }).click()
-  await page.getByRole('heading', { name: 'Recovery codes', exact: true }).waitFor({ state: 'detached' })
+  await exactButton(page, 'Hide recovery codes').click()
+  await roleWithExactName(page, 'heading', 'Recovery codes').waitFor({ state: 'detached' })
   await page.reload()
-  await page.getByRole('button', { name: 'Regenerate recovery codes', exact: true }).waitFor()
+  await exactButton(page, 'Regenerate recovery codes').waitFor()
   assert.equal(await recoveryList.count(), 0)
   await logout()
   assert.equal((await passkey())[20], 2)
@@ -158,17 +159,17 @@ try {
 
   phase = 'one-use-disable-proof'
   const beforeDisable = await sessionCookie()
-  await page.getByRole('link', { name: 'Account', exact: true }).first().click()
+  await roleWithExactName(page, 'link', 'Account').first().click()
   await page.getByLabel('Authenticator or recovery code', { exact: true }).fill(newCodes[0])
   const usedCode = waitApi('/api/binary/auth/mfa/challenge')
-  await page.getByRole('button', { name: 'Disable authenticator verification', exact: true }).click()
+  await exactButton(page, 'Disable authenticator verification').click()
   assert.equal((await usedCode).status(), 401)
   await page.getByText('Could not verify your request. Use a fresh code and try again.', { exact: true }).waitFor()
   const disabled = waitApi('/api/binary/auth/mfa/disable')
   await page.getByLabel('Authenticator or recovery code', { exact: true }).fill(newCodes[1])
-  await page.getByRole('button', { name: 'Disable authenticator verification', exact: true }).click()
+  await exactButton(page, 'Disable authenticator verification').click()
   assert.equal((await disabled).status(), 200)
-  await page.getByRole('button', { name: 'Set up authenticator', exact: true }).waitFor({ timeout: 9_000 })
+  await exactButton(page, 'Set up authenticator').waitFor({ timeout: 9_000 })
   await verifyRotation(beforeDisable)
   await logout()
   assert.equal((await passkey())[20], 1)

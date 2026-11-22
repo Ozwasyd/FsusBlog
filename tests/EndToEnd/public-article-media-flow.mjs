@@ -9,6 +9,7 @@ import { api } from '../../src/Contracts/client.ts'
 import { decodeMediaItems, uploadMedia } from '../../src/Contracts/private-media.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
@@ -66,14 +67,14 @@ try {
       const fixture = await createDraft(page, author, ticket, title, chosen, galleryFile, privateOnly)
       const articleId = fixture.draft.id
       const articlePath = `${origin}/article/${articleId}`
-      const inspector = page.getByRole('button', { name: 'Inspector', exact: true })
-      const manage = page.getByRole('button', { name: 'Manage private attachments', exact: true })
-      const review = page.getByRole('button', { name: 'Review image publication', exact: true })
-      const confirm = page.getByRole('button', { name: 'Publish article with selected images', exact: true })
-      const confirmation = page.getByRole('heading', { name: 'Publish selected images?', exact: true })
-      const reviewPanel = page.getByRole('region', { name: 'Confirm image publication', exact: true })
-      const gallery = publicPage.getByRole('region', { name: 'Published images', exact: true })
-      const cover = publicPage.getByRole('img', { name: 'Article cover', exact: true })
+      const inspector = exactButton(page, 'Inspector')
+      const manage = exactButton(page, 'Manage private attachments')
+      const review = exactButton(page, 'Review image publication')
+      const confirm = exactButton(page, 'Publish article with selected images')
+      const confirmation = roleWithExactName(page, 'heading', 'Publish selected images?')
+      const reviewPanel = roleWithExactName(page, 'region', 'Confirm image publication')
+      const gallery = roleWithExactName(publicPage, 'region', 'Published images')
+      const cover = roleWithExactName(publicPage, 'img', 'Article cover')
       const attachmentPath = WireRoutes.ArticleMedia.replace('{id:int}', String(articleId))
 
       async function saveCover(name, assetId) {
@@ -81,7 +82,7 @@ try {
           page.waitForResponse(response => response.url() === origin + WireRoutes.ArticleCoverSave && response.request().method() === 'POST'),
           page.waitForResponse(response => new URL(response.url()).pathname === attachmentPath &&
             response.headers()[WireHeaders.ArticleCover.toLowerCase()] === assetId),
-          page.getByRole('button', { name: `Use ${name} as draft cover`, exact: true }).press('Enter'),
+          exactButton(page, `Use ${name} as draft cover`).press('Enter'),
         ])
         assert.equal(saved.status(), 200)
         assert.equal(attachments.status(), 200)
@@ -106,9 +107,9 @@ try {
       const privateCover = await saveCover(privateOnly.name, fixture.privateOnly.id)
 
       phase = `${device}: cancel explicit publication`
-      const choice = page.getByRole('checkbox', { name: `Publish ${chosen.name}`, exact: true })
-      const galleryChoice = page.getByRole('checkbox', { name: `Publish ${galleryFile.name}`, exact: true })
-      const unselected = page.getByRole('checkbox', { name: `Publish ${privateOnly.name}`, exact: true })
+      const choice = roleWithExactName(page, 'checkbox', `Publish ${chosen.name}`)
+      const galleryChoice = roleWithExactName(page, 'checkbox', `Publish ${galleryFile.name}`)
+      const unselected = roleWithExactName(page, 'checkbox', `Publish ${privateOnly.name}`)
       await choice.waitFor({ state: 'attached' })
       await page.getByText(`Publish ${chosen.name}`, { exact: true }).waitFor()
       assert.equal(await choice.isChecked(), false)
@@ -119,7 +120,7 @@ try {
       await review.press('Enter')
       await confirmation.waitFor()
       await page.screenshot({ path: join(evidence, `public-images-choice-${device}.png`), animations: 'disabled' })
-      await page.getByRole('button', { name: 'Cancel image publication', exact: true }).press('Enter')
+      await exactButton(page, 'Cancel image publication').press('Enter')
       await confirmation.waitFor({ state: 'hidden' })
       assert.equal(explicitWrites.length, 0, 'Cancel must not issue a publish-images request.')
       assert.equal((await anonymous.request.get(articlePath)).status(), 404)
@@ -127,7 +128,7 @@ try {
       phase = `${device}: ordinary publication stays private`
       await closeInspector(page)
       const ordinary = page.waitForResponse(response => response.url() === origin + WireRoutes.Publish && response.request().method() === 'POST')
-      await page.getByRole('button', { name: 'Publish article', exact: true }).click()
+      await exactButton(page, 'Publish article').click()
       assert.equal((await ordinary).status(), 200)
       await page.getByText('Article published.', { exact: false }).waitFor()
       const ordinaryRelease = await publicCoordinate(anonymous, articleId)
@@ -144,7 +145,7 @@ try {
       })
       const ordinaryPage = await publicPage.goto(articlePath)
       assert.equal(ordinaryPage.status(), 200)
-      await publicPage.getByRole('heading', { name: title, exact: true }).waitFor()
+      await roleWithExactName(publicPage, 'heading', title).waitFor()
       await publicPage.locator('#app[data-v-app]').waitFor()
       assert.equal(await gallery.count(), 0)
       assert.equal(await cover.count(), 0)
@@ -256,7 +257,7 @@ try {
         assert(!source.includes(asset.name) && !source.includes(asset.id), 'Public HTML must not expose private attachment metadata.')
       }
       assert.equal((await loadedManifest).status(), 200)
-      await publicPage.locator('#app[data-v-app]').getByRole('region', { name: 'Published images', exact: true }).waitFor()
+      await roleWithExactName(publicPage.locator('#app[data-v-app]'), 'region', 'Published images').waitFor()
       assert.deepEqual(manifestReads, [manifestUrl(articleId, online.publication)])
       assert.equal(await cover.count(), 1)
       assert.equal(await gallery.getByRole('img').count(), 1)
@@ -265,7 +266,7 @@ try {
         assert.equal(await publicPage.getByText('Formatted view unavailable.', { exact: false }).count(), 0)
         await publicPage.getByText('The gallery holds only the images selected for this publication.', { exact: true }).waitFor()
       }
-      const publicImage = gallery.getByRole('img', { name: 'Published image 1', exact: true })
+      const publicImage = roleWithExactName(gallery, 'img', 'Published image 1')
       await publicImage.scrollIntoViewIfNeeded()
       await publicPage.waitForFunction(dimensions => Object.entries(dimensions).every(([label, width]) =>
         Array.from(document.images).some(image => image.alt === label && image.naturalWidth === width)),
@@ -279,11 +280,11 @@ try {
         try {
           const staticPage = await serverRendered.newPage()
           assert.equal((await staticPage.goto(articlePath)).status(), 200)
-          const staticImage = staticPage.getByRole('region', { name: 'Published images', exact: true }).getByRole('img')
+          const staticImage = roleWithExactName(staticPage, 'region', 'Published images').getByRole('img')
           await staticImage.scrollIntoViewIfNeeded()
           const bounds = await staticImage.boundingBox()
           assert(bounds && bounds.width > 0 && bounds.width <= viewport.width, 'Server-rendered image must fit a narrow viewport before hydration.')
-          const staticCover = staticPage.getByRole('img', { name: 'Article cover', exact: true })
+          const staticCover = roleWithExactName(staticPage, 'img', 'Article cover')
           await staticCover.waitFor()
           assert.equal(await staticCover.count(), 1)
           assert.equal(new URL(await staticCover.getAttribute('src'), origin).href, publicUrl)
@@ -295,8 +296,8 @@ try {
       phase = `${device}: withdrawal closes only public access`
       await closeInspector(page)
       const retract = page.waitForResponse(response => response.url() === origin + WireRoutes.Retract && response.request().method() === 'POST')
-      await page.getByRole('button', { name: 'More actions', exact: true }).click()
-      await page.getByRole('menuitem', { name: 'Withdraw', exact: true }).click()
+      await exactButton(page, 'More actions').click()
+      await roleWithExactName(page, 'menuitem', 'Withdraw').click()
       assert.equal((await retract).status(), 200)
       await page.getByText('Article withdrawn.', { exact: true }).waitFor()
       const withdrawn = await anonymous.request.get(publicUrl, { headers: { 'If-None-Match': '"' + chosenPreview.digest + '"' } })
@@ -382,7 +383,7 @@ async function uploadWebpInLibrary(page, file) {
   const chooser = page.locator('#private-media-file[accept*="image/webp"]')
   await chooser.setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) })
   const stored = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PrivateMediaUpload)
-  await page.getByRole('button', { name: '上传图片', exact: true }).click()
+  await exactButton(page, '上传图片').click()
   const receipt = await stored
   assert.equal(receipt.status(), 200)
   const frame = decodeFrame(await receipt.body())
@@ -397,20 +398,20 @@ async function uploadWebpInLibrary(page, file) {
 
 async function attach(page, name) {
   await page.getByRole('combobox', { name: 'Choose a private image' }).press('Enter')
-  await page.getByRole('option', { name, exact: true }).click()
-  await page.getByRole('button', { name: 'Attach image', exact: true }).click()
-  await page.getByRole('button', { name: `Preview ${name}`, exact: true }).waitFor()
+  await roleWithExactName(page, 'option', name).click()
+  await exactButton(page, 'Attach image').click()
+  await exactButton(page, `Preview ${name}`).waitFor()
 }
 
 async function preview(page, name, width) {
   const received = page.waitForResponse(response => response.url() === origin + WireRoutes.ArticleMediaPreview)
-  await page.getByRole('button', { name: `Preview ${name}`, exact: true }).press('Enter')
+  await exactButton(page, `Preview ${name}`).press('Enter')
   const response = await received
   assert.equal(response.status(), 200)
   assert.equal(response.headers()['content-type'], name.endsWith('.webp') ? 'image/webp' : 'image/png')
   const authorization = await response.request().headerValue('authorization')
   assert.match(authorization ?? '', /^Bearer [A-Za-z0-9_-]{91}$/)
-  const image = page.getByRole('img', { name, exact: true })
+  const image = roleWithExactName(page, 'img', name)
   await image.waitFor()
   await page.waitForFunction(({ name, width }) => Array.from(document.images).some(image => image.alt === name && image.naturalWidth === width), { name, width })
   assert((await image.getAttribute('src'))?.startsWith('blob:' + origin + '/'))
@@ -418,7 +419,7 @@ async function preview(page, name, width) {
   assert.equal(authorizedBytes.status(), 200)
   const bytes = await authorizedBytes.body()
   assert.equal(bytes.length, Number(response.headers()['content-length']))
-  await page.getByRole('button', { name: 'Close image preview', exact: true }).click()
+  await exactButton(page, 'Close image preview').click()
   return { digest: sha256(bytes), length: bytes.length, authorization }
 }
 

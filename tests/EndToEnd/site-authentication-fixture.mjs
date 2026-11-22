@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
+import { exactButton as button } from './role-locators.mjs'
 import { createHmac } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const { chromium, expect, request } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
-export { expect, request }
+export { expect, request, button }
 
 export function readTlsIdentityFixture(peerTicket, probe, error) {
   const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
@@ -42,10 +43,6 @@ export async function enableAuthenticator(context, page) {
   await cdp.send('WebAuthn.enable')
   const { authenticatorId } = await addAuthenticator(cdp)
   return { cdp, authenticatorId }
-}
-
-export function button(page, name) {
-  return page.getByRole('button', { name, exact: true })
 }
 
 export function recordIdentityResponse(origin, role, responses, faults) {

@@ -7,6 +7,7 @@ import { decodeSitePasskeyManagement, encodeSitePasskeyRemove } from '../../src/
 import { encodeSignIn, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { postFrame } from './browser-authoring-fixture.mjs'
 import { addAuthenticator, enableAuthenticator, expect, launchIdentityBrowser } from './site-authentication-fixture.mjs'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_PASSKEY_URL
 const ticket = process.env.FSUSBLOG_TEST_PASSKEY_TICKET
@@ -49,13 +50,13 @@ try {
 
   phase = 'provision'
   await page.goto(`${origin}/login`)
-  await expect(page.getByRole('button', { name: 'Log in with Passkey', exact: true })).toBeVisible()
+  await expect(exactButton(page, 'Log in with Passkey')).toBeVisible()
   const setupTicket = page.getByLabel('One-time setup ticket', { exact: true })
   await expect(setupTicket).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Create Passkey', exact: true })).toHaveCount(0)
+  await expect(exactButton(page, 'Create Passkey')).toHaveCount(0)
   await page.getByText('Set up your first Passkey', { exact: true }).click()
   await setupTicket.fill(ticket)
-  await page.getByRole('button', { name: 'Create Passkey', exact: true }).click()
+  await exactButton(page, 'Create Passkey').click()
   await page.getByText('Passkey created. Log in with your Passkey.', { exact: true }).waitFor({ timeout: 10_000 })
   assert(!(await context.cookies()).some(cookie => cookie.name === 'fsus-v2-session'))
   await expect(setupTicket).toHaveCount(0)
@@ -64,7 +65,7 @@ try {
 
   phase = 'assertion'
   const assertionStarted = Date.now()
-  await page.getByRole('button', { name: 'Log in with Passkey', exact: true }).click()
+  await exactButton(page, 'Log in with Passkey').click()
   await page.waitForURL(`${origin}/user/manage/article/write`)
   checks.passkeyLoginAfterProvision = true
   await page.getByRole('heading', { name: 'New article' }).waitFor()
@@ -96,8 +97,8 @@ try {
     assert.match(await management.headerValue('Cache-Control') ?? '', /(?:^|,\s*)no-store(?:,|$)/i)
     assert.equal(decodeFrame(await management.body()).type, FrameType.SitePasskeyManagement)
   }
-  const inventoryRegion = page.getByRole('region', { name: 'Passkeys', exact: true })
-  await inventoryRegion.getByRole('heading', { name: 'Passkeys', exact: true }).waitFor()
+  const inventoryRegion = roleWithExactName(page, 'region', 'Passkeys')
+  await roleWithExactName(inventoryRegion, 'heading', 'Passkeys').waitFor()
   const credential = inventoryRegion.getByRole('listitem')
   await credential.getByText('Current session passkey', { exact: true }).waitFor()
   await credential.getByText('Created', { exact: true }).waitFor()
@@ -119,9 +120,9 @@ try {
   if (renameRequired) {
     phase = 'credential-rename'
     assert.equal(management.status(), 200)
-    await credential.getByRole('button', { name: 'Rename Passkey', exact: true }).click()
+    await exactButton(credential, 'Rename Passkey').click()
     const field = credential.getByLabel('Passkey name', { exact: true })
-    const save = credential.getByRole('button', { name: 'Save with Passkey', exact: true })
+    const save = exactButton(credential, 'Save with Passkey')
     assert(await save.isDisabled(), 'A blank name cannot be submitted.')
     await field.fill(friendlyName)
     const mutation = path => page.waitForResponse(response => response.request().method() === 'POST' && response.url() === origin + path)
@@ -141,7 +142,7 @@ try {
     await page.screenshot({ path: join(evidence, 'passkey-renamed.png') })
     checks.renameWithPasskey = true
   } else if (management.status() === 404) {
-    assert.equal(await credential.getByRole('button', { name: 'Rename Passkey', exact: true }).count(), 0)
+    assert.equal(await exactButton(credential, 'Rename Passkey').count(), 0)
   }
 
   if (enrollmentRequired) {
@@ -169,7 +170,7 @@ try {
       ]
       const writes = frames.map(([path]) => page.waitForResponse(response =>
         response.request().method() === 'POST' && response.url() === origin + path))
-      await inventoryRegion.getByRole('button', { name: 'Add Passkey', exact: true }).click()
+      await exactButton(inventoryRegion, 'Add Passkey').click()
       const enrollmentResults = await Promise.all(writes)
       for (const [index, result] of enrollmentResults.entries()) {
         assert.equal(result.status(), 200)
@@ -219,13 +220,13 @@ try {
     const security = await context.newPage()
     monitor(security)
     await security.goto(origin + securityPath)
-    const credentials = security.getByRole('region', { name: 'Passkeys', exact: true })
+    const credentials = roleWithExactName(security, 'region', 'Passkeys')
     await credentials.getByText(renameRequired ? friendlyName : 'Current session passkey', { exact: true }).waitFor()
 
     phase = 'logout'
     const logout = page.waitForResponse(response => response.request().method() === 'POST' &&
       response.url() === `${origin}/api/v2/identity/sign-out.aeds`)
-    await page.getByRole('button', { name: 'Log out', exact: true }).click()
+    await exactButton(page, 'Log out').click()
     await page.waitForURL(`${origin}/`)
     assert.equal((await logout).status(), 200)
     assert.equal((await context.request.get(`${origin}/api/v2/identity/session.aeds`)).status(), 401)
@@ -250,7 +251,7 @@ try {
     await page.goto(origin + '/login')
     const signIn = page.waitForResponse(response => response.request().method() === 'POST' &&
       response.url() === origin + WireRoutes.PasskeyLoginComplete)
-    await page.getByRole('button', { name: 'Log in with Passkey', exact: true }).click()
+    await exactButton(page, 'Log in with Passkey').click()
     await page.waitForURL(`${origin}/user/manage/article/write`)
     assert.equal((await signIn).status(), 200)
     const renewed = await context.request.get(`${origin}/api/v2/identity/session.aeds`)
@@ -271,10 +272,10 @@ try {
       const selected = rows.nth(selectedIndex)
       await rows.first().getByText('Current session passkey', { exact: true }).waitFor()
       const removeLabel = removeCurrent ? 'Remove current Passkey' : 'Remove Passkey'
-      const remove = selected.getByRole('button', { name: removeLabel, exact: true })
-      const confirm = selected.getByRole('button', { name: 'Remove with Passkey', exact: true })
+      const remove = exactButton(selected, removeLabel)
+      const confirm = exactButton(selected, 'Remove with Passkey')
       const confirmation = !removeCurrent && renameRequired ? `Remove ${friendlyName}?` : /^Remove .+\?$/
-      assert.equal(await rows.first().getByRole('button', { name: 'Remove Passkey', exact: true }).count(), 0)
+      assert.equal(await exactButton(rows.first(), 'Remove Passkey').count(), 0)
       const removedCookie = removeCurrent && (await context.cookies(origin)).find(item => item.name === 'fsus-v2-session')
 
       let starts = 0
@@ -284,7 +285,7 @@ try {
       try {
         await remove.click()
         await selected.getByText(confirmation).waitFor()
-        await selected.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await exactButton(selected, 'Cancel').click()
         await confirm.waitFor({ state: 'hidden' })
         assert.equal(starts, 0, 'Opening and canceling confirmation must not start approval.')
         assert.equal(await rows.count(), 2)
@@ -315,8 +316,8 @@ try {
         'Approval must address the selected device and its displayed revision.')
       if (removalRollbackRequired) {
         await inventoryRegion.getByText('Could not confirm Passkey removal. Reload Passkeys to check.', { exact: true }).waitFor()
-        await inventoryRegion.getByRole('button', { name: 'Reload Passkeys', exact: true }).click()
-        await selected.getByRole('button', { name: 'Remove Passkey', exact: true }).waitFor()
+        await exactButton(inventoryRegion, 'Reload Passkeys').click()
+        await exactButton(selected, 'Remove Passkey').waitFor()
         assert.equal(await rows.count(), 2)
       } else if (removeCurrent) {
         await inventoryRegion.waitFor({ state: 'hidden' })
@@ -345,7 +346,7 @@ try {
         assert.equal(repeated.status(), 401, 'The completed removal cannot be used twice.')
         await inventoryRegion.getByRole('status').filter({ hasText: /^Passkey removed\.$/ }).waitFor()
         assert.equal(await rows.count(), 1)
-        assert.equal(await inventoryRegion.getByRole('button', { name: 'Remove Passkey', exact: true }).count(), 0)
+        assert.equal(await exactButton(inventoryRegion, 'Remove Passkey').count(), 0)
         checks.removalReplayDenied = true
       }
       if (!removeCurrent) {

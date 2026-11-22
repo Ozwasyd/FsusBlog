@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const wakeProtocol = 'fsus-inbox-wake.v2'
 const wakePathPattern = new RegExp(`^${WireRoutes.AdminInboxWake.replace('{id:long}', '[1-9]\\d*')}$`)
@@ -18,7 +19,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   await visitAdminWorkspace(page, '/admin/interaction')
   const [defaultPage] = await Promise.all([
     page.waitForResponse(response => isDefaultQueueResponse(response, queue, shared)),
-    page.getByRole('tab', { name: 'Support inbox', exact: true }).click(),
+    roleWithExactName(page, 'tab', 'Support inbox').click(),
   ])
   assert.equal((await context.request.get(siteOrigin + WireRoutes.AdminInboxQueue)).status(), 404)
   await probe(queue, siteCookie.name, siteCookie.value, 401)
@@ -44,7 +45,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
     assert.equal(await first.textContent(), 'Inbox QA closed case')
     await order.click()
     const activityPage = page.waitForResponse(response => new URL(response.url()).searchParams.get('order') === 'activity')
-    await page.getByRole('option', { name: 'Latest visible message', exact: true }).click()
+    await roleWithExactName(page, 'option', 'Latest visible message').click()
     const sorted = await activityPage
     assert.equal(sorted.status(), 200)
     assert.equal(await sorted.headerValue(WireHeaders.AdminInboxActivityOrder), '1')
@@ -73,21 +74,21 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
         wakeUrl.protocol = 'wss:'
         await systemViewer.goto(adminOrigin + '/admin/interaction')
         await captureInboxSocket(systemViewer, `^${wakeUrl.pathname}$`)
-        await systemViewer.getByRole('tab', { name: 'Support inbox', exact: true }).click()
+        await roleWithExactName(systemViewer, 'tab', 'Support inbox').click()
         const socket = systemViewer.waitForEvent('websocket', candidate => candidate.url() === wakeUrl.href)
         const systemPanel = systemViewer.getByRole('region', { name: 'Support inbox' })
         await systemPanel.getByRole('combobox', { name: 'Filter support inbox' }).click()
-        await systemViewer.getByRole('option', { name: 'System notices', exact: true }).click()
+        await roleWithExactName(systemViewer, 'option', 'System notices').click()
         await waitForInboxSocket(systemViewer, wakeUrl.href)
         systemSocket = await socket
-        systemRow = systemPanel.getByRole('button', { name: title, exact: true })
+        systemRow = exactButton(systemPanel, title)
         assert.equal(await systemRow.count(), 0)
       }
       await reader.goto(`${siteOrigin}/user/messagebox`)
       await reader.getByRole('button', { name: /Inbox QA support case/ }).waitFor()
       await page.bringToFront()
-      await panel.getByRole('button', { name: 'Compose system notice', exact: true }).click()
-      const submit = panel.getByRole('button', { name: 'Send system notice', exact: true })
+      await exactButton(panel, 'Compose system notice').click()
+      const submit = exactButton(panel, 'Send system notice')
       assert.equal(await submit.isEnabled(), false)
       await panel.getByLabel('Recipient account UUID').fill(accountId)
       await panel.getByLabel('Notice subject').fill(title)
@@ -111,13 +112,13 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       await reader.screenshot({ path: join(evidence, 'admin-inbox-account-notice.png'), animations: 'disabled' })
     } finally { await Promise.all([reader.close(), systemViewer?.close()]) }
   } else {
-    assert.equal(await panel.getByRole('button', { name: 'Compose system notice', exact: true }).count(), 0)
+    assert.equal(await exactButton(panel, 'Compose system notice').count(), 0)
   }
   const filter = panel.getByRole('combobox', { name: 'Filter support inbox' })
   await filter.click()
   const [filtered] = await Promise.all([
     page.waitForResponse(response => new URL(response.url()).searchParams.get('status') === 'open'),
-    page.getByRole('option', { name: 'Open', exact: true }).click(),
+    roleWithExactName(page, 'option', 'Open').click(),
   ])
   assert.equal(filtered.status(), 200)
   assert.equal(await filtered.headerValue(WireHeaders.AdminInboxLive), live && !activity ? '1' : null)
@@ -140,7 +141,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   await heading.waitFor()
   assert(await heading.evaluate(node => document.activeElement === node))
   if (shared) {
-    const retry = panel.getByRole('button', { name: 'Retry marking as read', exact: true })
+    const retry = exactButton(panel, 'Retry marking as read')
     await retry.waitFor()
     assert.equal(firstReadSnapshot, await detail.headerValue(WireHeaders.AdminInboxReadSnapshot))
     const response = page.waitForResponse(reply => reply.url().endsWith('/read.aeds') && reply.request().method() === 'POST')
@@ -176,7 +177,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       const [reloaded, acknowledged] = await Promise.all([
         page.waitForResponse(response => new URL(response.url()).pathname === detailPath && response.request().method() === 'GET'),
         page.waitForResponse(response => response.url() === readEndpoint && response.request().method() === 'POST'),
-        panel.getByRole('button', { name: 'Reload conversation', exact: true }).click(),
+        exactButton(panel, 'Reload conversation').click(),
       ])
       assert.equal(reloaded.status(), 200)
       assert.equal(acknowledged.status(), 200)
@@ -191,7 +192,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
     await panel.getByLabel('Reply to the account', { exact: true }).fill(reply)
     const proof = page.waitForResponse(response => response.url().endsWith('/reply-pow.aeds') && response.request().method() === 'POST')
     const saved = page.waitForResponse(response => response.url().endsWith('/reply.aeds') && response.request().method() === 'POST')
-    await panel.getByRole('button', { name: 'Send reply', exact: true }).click()
+    await exactButton(panel, 'Send reply').click()
     assert.equal((await proof).status(), 200)
     assert.equal((await saved).status(), 200)
     await panel.getByText('Reply sent to the account.', { exact: true }).waitFor()
@@ -205,13 +206,13 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
     try {
       await reader.goto(`${siteOrigin}/user/messagebox`)
       await reader.getByRole('button', { name: /Inbox QA support case/ }).click()
-      await reader.getByRole('heading', { name: 'Inbox QA support case', exact: true }).waitFor()
+      await roleWithExactName(reader, 'heading', 'Inbox QA support case').waitFor()
       await reader.getByText(reply, { exact: true }).last().waitFor()
       assert.equal(await reader.getByText(marker, { exact: true }).count(), 0)
       await reader.screenshot({ path: join(evidence, 'admin-inbox-account-reply.png'), animations: 'disabled' })
     } finally { await reader.close() }
   } else {
-    assert.equal(await panel.getByRole('button', { name: 'Send reply', exact: true }).count(), 0)
+    assert.equal(await exactButton(panel, 'Send reply').count(), 0)
   }
   if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_STATUS === '1') {
     assert.match(await detail.headerValue(WireHeaders.AdminInboxVersion), /^[1-9][0-9]{0,9}$/)
@@ -233,11 +234,11 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       await accountThread.getByText('进行中', { exact: true }).waitFor()
       await page.bringToFront()
       await panel.getByRole('combobox', { name: 'New conversation status' }).click()
-      await page.getByRole('option', { name: 'Pending', exact: true }).click()
+      await roleWithExactName(page, 'option', 'Pending').click()
       await panel.getByLabel('Reason for changing status', { exact: true }).fill(reason)
       const proof = page.waitForResponse(response => response.url().endsWith('/status-pow.aeds') && response.request().method() === 'POST')
       const saved = page.waitForResponse(response => response.url().endsWith('/status.aeds') && response.request().method() === 'POST')
-      await panel.getByRole('button', { name: 'Save status', exact: true }).click()
+      await exactButton(panel, 'Save status').click()
       assert.equal((await proof).status(), 200)
       assert.equal((await saved).status(), 200)
       await panel.getByText('Conversation status saved.', { exact: true }).waitFor()
@@ -245,13 +246,13 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       assert.equal(await accountThread.getByText(reason, { exact: true }).count(), 0)
       if (peerThread && peerQueue && peerDraft) {
         await peerThread.getByText('Pending · Account ticket', { exact: true }).waitFor()
-        await peerQueue.getByRole('button', { name: 'Inbox QA support case', exact: true }).waitFor({ state: 'hidden' })
+        await exactButton(peerQueue, 'Inbox QA support case').waitFor({ state: 'hidden' })
         assert.equal(await peerDraft.inputValue(), 'Unsaved reply in another administrator tab')
         assert(await peerDraft.evaluate(node => document.activeElement === node))
         const queuePeerPage = peerPages[1]
         await peerQueue.getByRole('combobox', { name: 'Filter support inbox' }).click()
-        await queuePeerPage.getByRole('option', { name: 'Pending', exact: true }).click()
-        await peerQueue.getByRole('button', { name: 'Inbox QA support case', exact: true }).waitFor()
+        await roleWithExactName(queuePeerPage, 'option', 'Pending').click()
+        await exactButton(peerQueue, 'Inbox QA support case').waitFor()
         await peerPages[0].screenshot({ path: join(evidence, 'admin-inbox-peer-status.png'), animations: 'disabled' })
       }
       await reader.screenshot({ path: join(evidence, 'admin-inbox-account-status.png'), animations: 'disabled' })
@@ -267,20 +268,20 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       const endpoint = new URL(openThread ? wakeEndpoint : WireRoutes.AdminInboxQueueWake + '?status=open', adminOrigin)
       endpoint.protocol = 'wss:'
       await captureInboxSocket(peerPage, `^${endpoint.pathname}$`)
-      await peerPage.getByRole('tab', { name: 'Support inbox', exact: true }).click()
+      await roleWithExactName(peerPage, 'tab', 'Support inbox').click()
       const peerPanel = peerPage.getByRole('region', { name: 'Support inbox' })
-      if (openThread) await peerPanel.getByRole('button', { name: 'Inbox QA support case', exact: true }).click()
+      if (openThread) await exactButton(peerPanel, 'Inbox QA support case').click()
       else {
         await peerPanel.getByRole('combobox', { name: 'Filter support inbox' }).click()
-        await peerPage.getByRole('option', { name: 'Open', exact: true }).click()
-        await peerPanel.getByRole('button', { name: 'Inbox QA support case', exact: true }).waitFor()
+        await roleWithExactName(peerPage, 'option', 'Open').click()
+        await exactButton(peerPanel, 'Inbox QA support case').waitFor()
       }
       await waitForInboxSocket(peerPage, endpoint.href)
       return peerPanel
     }
   } else {
     assert.equal(await detail.headerValue(WireHeaders.AdminInboxVersion), null)
-    assert.equal(await panel.getByRole('button', { name: 'Save status', exact: true }).count(), 0)
+    assert.equal(await exactButton(panel, 'Save status').count(), 0)
   }
   for (const [name, viewport] of Object.entries({ desktop: { width: 1280, height: 800 }, mobile: { width: 375, height: 812 } })) {
     await page.setViewportSize(viewport)
@@ -292,7 +293,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_STATUS === '1') {
     await subject.waitFor({ state: 'hidden' })
     await filter.click()
-    await page.getByRole('option', { name: 'Pending', exact: true }).click()
+    await roleWithExactName(page, 'option', 'Pending').click()
   }
   await subject.waitFor()
   if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_STATUS !== '1')
@@ -300,11 +301,11 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   if (shared) {
     await visibleRow.getByText('1 unread by support', { exact: true }).waitFor({ state: 'hidden' })
     await filter.click()
-    await page.getByRole('option', { name: 'Unread by support', exact: true }).click()
+    await roleWithExactName(page, 'option', 'Unread by support').click()
     await closed.waitFor()
     await subject.waitFor({ state: 'hidden' })
   }
-  await page.getByRole('tab', { name: 'Moderation queue', exact: true }).click()
+  await roleWithExactName(page, 'tab', 'Moderation queue').click()
   assert.equal(await panel.getByText(marker, { exact: true }).count(), 0)
   if (live) {
     await verifyDefaultQueueUpdates(page, panel, context, adminOrigin, siteOrigin, subject, shared, sockets, evidence)
@@ -425,15 +426,15 @@ async function verifyDefaultQueueUpdates(page, panel, context, adminOrigin, site
   await captureInboxSocket(page, `^${wakeUrl.pathname}$`)
   try {
     await reader.goto(`${siteOrigin}/user/messagebox`)
-    await reader.getByRole('button', { name: '提交工单', exact: true }).click()
+    await exactButton(reader, '提交工单').click()
     await reader.getByLabel('主题（选填）', { exact: true }).fill(subject)
     await reader.getByLabel('工单内容', { exact: true }).fill(body)
 
     await page.bringToFront()
-    await page.getByRole('tab', { name: 'Support inbox', exact: true }).click()
+    await roleWithExactName(page, 'tab', 'Support inbox').click()
     await existing.waitFor()
     await existing.focus()
-    const createdRow = panel.getByRole('button', { name: subject, exact: true })
+    const createdRow = exactButton(panel, subject)
     assert.equal(await createdRow.count(), 0)
     await waitForInboxSocket(page, wakeUrl.href)
     const socket = sockets.findLast(candidate => candidate.url() === wakeUrl.href)
@@ -459,7 +460,7 @@ async function verifyDefaultQueueUpdates(page, panel, context, adminOrigin, site
     if (shared) await createdRow.locator('..').getByText('1 unread by support', { exact: true }).waitFor()
     assert.equal(await existing.evaluate(node => document.activeElement === node), true)
     await page.screenshot({ path: join(evidence, 'admin-inbox-live-new-ticket.png'), animations: 'disabled' })
-    await page.getByRole('tab', { name: 'Moderation queue', exact: true }).click()
+    await roleWithExactName(page, 'tab', 'Moderation queue').click()
   } finally {
     await page.evaluate(() => window.fsusTestRestoreAdminInboxSocket())
     await reader.close()
@@ -470,7 +471,7 @@ async function verifyDefaultQueueUpdates(page, panel, context, adminOrigin, site
     const [challenge, created] = await Promise.all([
       reader.waitForResponse(response => post(response, WireRoutes.InboxCreatePowChallenge)),
       reader.waitForResponse(response => post(response, WireRoutes.InboxList)),
-      reader.getByRole('button', { name: '发送工单', exact: true }).click(),
+      exactButton(reader, '发送工单').click(),
     ])
     assert.equal(challenge.status(), 200)
     assert.equal(created.status(), 200)
@@ -548,7 +549,7 @@ async function verifyOpenedThreadUpdates(page, panel, context, wakeEndpoint, sit
       WireRoutes.InboxReplyPowChallenge.replace('{id:long}', id) && response.request().method() === 'POST')
     const reply = reader.waitForResponse(response => response.url() === siteOrigin +
       WireRoutes.InboxReply.replace('{id:long}', id) && response.request().method() === 'POST')
-    await reader.getByRole('button', { name: '发送回复', exact: true }).click()
+    await exactButton(reader, '发送回复').click()
     assert.equal((await challenge).status(), 200)
     assert.equal((await reply).status(), 200)
     await reader.getByText('回复已发送。', { exact: true }).waitFor()

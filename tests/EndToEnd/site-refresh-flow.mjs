@@ -8,6 +8,7 @@ import { decodeApiError, decodeFrame, encodeFrame } from '../../src/Contracts/ae
 import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { decodeDraft, decodeSession, encodeArticleCommand, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { assertEmptySuccess, button, enableAuthenticator, expect, launchIdentityBrowser, readTlsIdentityFixture, recordIdentityResponse, request, setupSiteTotp, totp } from './site-authentication-fixture.mjs'
+import { roleWithExactName } from './role-locators.mjs'
 
 const emptySuccess = reply => assertEmptySuccess(reply, 'Authentication response may be stored.')
 const exec = promisify(execFile)
@@ -118,7 +119,7 @@ try {
     checks.concurrentGenerationRejected = concurrent.status()
     const writerObserved = writer.waitForResponse(response => isApi(response, WireRoutes.Session, 'GET') && response.status() === 200)
     rotation.resolve()
-    await Promise.all([first, second].map(page => page.getByRole('link', { name: 'Continue to writing', exact: true }).waitFor()))
+    await Promise.all([first, second].map(page => roleWithExactName(page, 'link', 'Continue to writing').waitFor()))
     assert.equal(fired.length, 1, 'Expected one rotation for both tabs sharing the persistent cookie jar.')
     const fresh = await checkSession(restored, 200)
     assert(fresh.name === active.name && fresh.generation === active.generation && fresh.persistent,
@@ -141,8 +142,7 @@ try {
     checks.sameFamilyRetainedDirtyWorkspaceAndInspector = true
     phase = 'persist-dirty-workspace'
     await writer.bringToFront()
-    await writer.getByRole('complementary', { name: 'Article inspector', exact: true })
-      .getByRole('button', { name: 'Close', exact: true }).click()
+    await button(roleWithExactName(writer, 'complementary', 'Article inspector'), 'Close').click()
     const saved = await saveFromEditor(writer)
     assert.equal(saved.status(), 200)
     const sent = await saved.request().allHeaders()
@@ -240,7 +240,7 @@ async function enroll(page, ticket) {
 
 async function passkey(page, remember, phase) {
   await page.goto(origin + '/login')
-  const choice = page.getByRole('checkbox', { name: 'Keep me signed in', exact: true })
+  const choice = roleWithExactName(page, 'checkbox', 'Keep me signed in')
   const label = page.getByText('Keep me signed in', { exact: true })
   await label.waitFor()
   assert.equal(await choice.isChecked(), false, 'Persistent sign-in must be an explicit choice.')
@@ -342,12 +342,12 @@ async function openDirtyWorkspace(writer, handle) {
 }
 
 async function verifyDirtyWorkspace(writer, workspace) {
-  const selected = writer.getByRole('tablist', { name: 'Open articles', exact: true }).getByRole('tab', { selected: true })
+  const selected = roleWithExactName(writer, 'tablist', 'Open articles').getByRole('tab', { selected: true })
   await expect(selected).toContainText(workspace.title)
   await expect(button(writer, 'Unpin ' + workspace.title)).toHaveAttribute('aria-pressed', 'true')
   await expect(writer.getByLabel('Title', { exact: true })).toHaveValue(workspace.title)
   await expect(writer.getByLabel('Body', { exact: true })).toHaveValue(workspace.body)
-  await expect(writer.getByRole('complementary', { name: 'Article inspector', exact: true })).toBeVisible()
+  await expect(roleWithExactName(writer, 'complementary', 'Article inspector')).toBeVisible()
 }
 
 async function saveFromEditor(page) {

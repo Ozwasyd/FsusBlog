@@ -15,6 +15,7 @@ import {
   encodePropertyWorkspaceRequest, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monitor, observations, articleCommand }) {
   const marker = `facetprobe${randomUUID().replaceAll('-', '').slice(0, 16)}`
@@ -75,7 +76,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
     await page.setViewportSize({ width: 375, height: 850 })
     await page.goto(`${origin}/user/manage/article/list`)
     await page.getByText('作者全文搜索', { exact: true }).click()
-    const form = page.getByRole('form', { name: '作者全文搜索', exact: true })
+    const form = roleWithExactName(page, 'form', '作者全文搜索')
     const catalog = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PropertyFilterCatalog)
     await form.getByText('全文搜索属性条件', { exact: true }).click()
     const catalogReply = await catalog
@@ -86,15 +87,15 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
     assert(handle)
     const query = form.getByLabel('全文搜索词', { exact: true })
     await query.fill(marker)
-    const selector = form.getByRole('combobox', { name: '属性分面字段', exact: true })
-    const results = page.getByRole('region', { name: '全文搜索结果', exact: true })
-    const facet = results.getByRole('region', { name: '属性分面', exact: true })
+    const selector = roleWithExactName(form, 'combobox', '属性分面字段')
+    const results = roleWithExactName(page, 'region', '全文搜索结果')
+    const facet = roleWithExactName(results, 'region', '属性分面')
     const searchReply = response => new URL(response.url()).pathname === WireRoutes.AuthorTextSearch
-    const submit = form.getByRole('button', { name: '搜索全文', exact: true })
+    const submit = exactButton(form, '搜索全文')
     async function search(action = () => submit.click(), { direction, heading = false } = {}) {
       for (let i = 0; i < 16; i++) {
         const request = page.waitForResponse(searchReply)
-        await (i === 0 ? action() : form.getByRole('button', { name: '继续搜索', exact: true }).click())
+        await (i === 0 ? action() : exactButton(form, '继续搜索').click())
         const response = await request
         assert.equal(response.status(), 200)
         const requestBytes = response.request().postDataBuffer()
@@ -122,16 +123,16 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
     async function select(key) {
       const field = fields[key]
       await selector.click()
-      await page.getByRole('option', { name: `${field.label} · ${field.machineKey}`, exact: true }).click()
+      await roleWithExactName(page, 'option', `${field.label} · ${field.machineKey}`).click()
       const measured = await search()
       assert.equal(measured.body.definitionId, field.definitionId)
       assert.equal(measured.body.definitionRevision, field.definitionRevision)
       assert(measured.body.search.schema > 0n)
       assert.equal(measured.reply.search.total, 4)
-      await facet.getByRole('heading', { name: field.label, exact: true }).waitFor()
+      await roleWithExactName(facet, 'heading', field.label).waitFor()
       return measured
     }
-    const bucket = label => facet.getByRole('button', { name: `按此值筛选：${label}`, exact: true })
+    const bucket = label => exactButton(facet, `按此值筛选：${label}`)
     async function counts(values) {
       for (const [label, total] of Object.entries(values)) {
         const row = facet.locator('dl > div').filter({ has: page.getByText(label, { exact: true }) })
@@ -146,22 +147,22 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       definitionRevision: fields.approval.definitionRevision, comparison: 'equal', value: { kind: 'boolean', value: false } }])
     assert.deepEqual(filtered.reply.search.rows.map(row => row.id), [drafts[0].id])
     await counts({ 尚未设置: 0, 显式空值: 0, 否: 1, 是: 0 })
-    await form.getByRole('button', { name: '移除第 1 个筛选条件', exact: true }).click()
+    await exactButton(form, '移除第 1 个筛选条件').click()
 
     await select('stage')
     await counts({ 尚未设置: 1, 显式空值: 1, Ready: 1, 'On hold': 1 })
     await select('topics')
     await counts({ 尚未设置: 1, 显式空值: 1, 空选项集合: 1, Planning: 1, Review: 1 })
     assert.equal(await bucket('空选项集合').count(), 0)
-    const sortSelector = form.getByRole('combobox', { name: '属性排序字段', exact: true })
+    const sortSelector = roleWithExactName(form, 'combobox', '属性排序字段')
     await sortSelector.click()
-    assert.equal(await page.getByRole('option', { name: 'Editorial topics · editorial-topics', exact: true }).count(), 0)
-    await page.getByRole('option', { name: 'Editorial score · editorial-score', exact: true }).click()
+    assert.equal(await roleWithExactName(page, 'option', 'Editorial topics · editorial-topics').count(), 0)
+    await roleWithExactName(page, 'option', 'Editorial score · editorial-score').click()
     const ascending = await search(undefined, { direction: 'ascending' })
     await verifyOrder(ascending, [3, 0, 1, 2])
     await results.getByText(/按\s+Editorial score\s+升序/).waitFor()
-    await form.getByRole('combobox', { name: '属性排序方向', exact: true }).click()
-    await page.getByRole('option', { name: '降序', exact: true }).click()
+    await roleWithExactName(form, 'combobox', '属性排序方向').click()
+    await roleWithExactName(page, 'option', '降序').click()
     await query.fill(`field.heading:${marker}`)
     const descending = { direction: 'descending', heading: true }
     const orderedHeadings = await search(undefined, descending)
@@ -175,7 +176,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       value: { kind: 'multi-select', value: [review.id] } }])
     assert.deepEqual(membership.reply.search.rows.map(row => row.id), [drafts[0].id])
     const recheck = page.waitForResponse(searchReply)
-    await results.getByRole('button', { name: '跳到命中位置', exact: true }).press('Enter')
+    await exactButton(results, '跳到命中位置').press('Enter')
     const replay = await recheck
     assert.equal(replay.status(), 200)
     assert.deepEqual(replay.request().postDataBuffer(), membership.requestBytes)
@@ -187,15 +188,14 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
     await verifyPropertyText()
 
     async function verifyPropertyText() {
-      const scope = form.getByRole('combobox', { name: '搜索来源', exact: true })
-      const inspector = page.getByRole('dialog', { name: 'Article inspector', exact: true })
+      const scope = roleWithExactName(form, 'combobox', '搜索来源')
+      const inspector = roleWithExactName(page, 'dialog', 'Article inspector')
       const fieldInput = inspector.getByLabel('Article subtitle value', { exact: true })
       const success = page.getByText('Opened the search result at its saved property position.', { exact: true })
       const refused = page.getByText('The search position is no longer available. Return to article search and choose a current result.', { exact: true })
       const credential = WireHeaders.CurrentSession.toLowerCase()
       const list = `${origin}/user/manage/article/list`
-      const jump = draft => results.getByRole('listitem').filter({ has: page.getByRole('link', { name: draft.title, exact: true }) })
-        .getByRole('button', { name: '跳到命中位置', exact: true })
+      const jump = draft => exactButton(results.getByRole('listitem').filter({ has: roleWithExactName(page, 'link', draft.title) }), '跳到命中位置')
       let current = await openPropertySearch()
       const lexical = await searchProperty()
       assert.equal(lexical.page.total, 2)
@@ -204,15 +204,15 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       assert.deepEqual(await results.locator('mark').allTextContents(), [textMarker, textMarker])
       await jump(drafts[0]).waitFor()
       await jump(drafts[2]).waitFor()
-      assert.equal(await results.getByRole('link', { name: drafts[0].title, exact: true }).getAttribute('href'),
+      assert.equal(await roleWithExactName(results, 'link', drafts[0].title).getAttribute('href'),
         `/user/manage/article/edit/${drafts[0].id}`)
       assert.equal(new URL(page.url()).search, '')
 
       const from = form.getByLabel('更新起始日期（含）', { exact: true })
       await from.fill('1970-01-01')
-      await form.getByRole('combobox', { name: '属性字段', exact: true }).click()
-      await page.getByRole('option', { name: 'Editorial approval · editorial-approval', exact: true }).click()
-      await form.getByRole('button', { name: '添加条件', exact: true }).click()
+      await roleWithExactName(form, 'combobox', '属性字段').click()
+      await roleWithExactName(page, 'option', 'Editorial approval · editorial-approval').click()
+      await exactButton(form, '添加条件').click()
       const filtered = await searchProperty()
       assert.equal(filtered.query.search.updatedFromUnixMs, 0n)
       assert.deepEqual(filtered.query.search.conditions, [{ definitionId: fields.approval.definitionId,
@@ -220,27 +220,27 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       assert.deepEqual(filtered.page.rows.map(row => row.id), [drafts[0].id])
 
       await from.fill('')
-      await form.getByRole('button', { name: '移除第 1 个筛选条件', exact: true }).click()
+      await exactButton(form, '移除第 1 个筛选条件').click()
       await scope.click()
-      await page.getByRole('option', { name: '文章全文', exact: true }).click()
+      await roleWithExactName(page, 'option', '文章全文').click()
       const ordinary = await submitSearch(FrameType.AuthorTextSummaryPage, decodeAuthorTextSummaryPage)
       assert.deepEqual(ordinary.page.rows.map(row => [row.id, row.field]), [[drafts[1].id, 'body']])
       observations.push('At 375px the explicitly selected Text property matches saved private text without body fallback, retains date/status and Boolean conditions, exposes the normal article link, and returns to ordinary body search when cleared.')
 
       current = await openPropertySearch()
       await selector.click()
-      await page.getByRole('option', { name: 'Editorial approval · editorial-approval', exact: true }).click()
+      await roleWithExactName(page, 'option', 'Editorial approval · editorial-approval').click()
       await sortSelector.click()
-      await page.getByRole('option', { name: 'Editorial score · editorial-score', exact: true }).click()
+      await roleWithExactName(page, 'option', 'Editorial score · editorial-score').click()
       const qualified = await searchProperty(true)
       assert.deepEqual(qualified.query.facet, { definitionId: fields.approval.definitionId, definitionRevision: fields.approval.definitionRevision })
       assert.deepEqual(qualified.query.sort, { definitionId: fields.score.definitionId, definitionRevision: sortable.revision, direction: 'ascending' })
       assert.deepEqual(qualified.page.rows.map(row => row.id), [drafts[0].id, drafts[2].id])
-      await facet.getByRole('heading', { name: 'Editorial approval', exact: true }).waitFor()
+      await roleWithExactName(facet, 'heading', 'Editorial approval').waitFor()
       await counts({ 尚未设置: 1, 显式空值: 0, 否: 1, 是: 0 })
 
       await form.getByText('同时匹配文章字段', { exact: true }).click()
-      assert(await form.getByRole('checkbox', { name: '同时匹配文章字段', exact: true }).isChecked())
+      assert(await roleWithExactName(form, 'checkbox', '同时匹配文章字段').isChecked())
       const mixed = `status:draft field.heading:${marker} field.property:`
       await query.fill(mixed + textMarker)
       const headings = await mixedSearch(mixed + textMarker)
@@ -349,8 +349,8 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
         const session = (await catalog).request().headers()[credential]
         assert(session)
         await scope.click()
-        assert.equal(await page.getByRole('option', { name: 'Editorial score · editorial-score', exact: true }).count(), 0)
-        await page.getByRole('option', { name: 'Article subtitle · article-subtitle', exact: true }).click()
+        assert.equal(await roleWithExactName(page, 'option', 'Editorial score · editorial-score').count(), 0)
+        await roleWithExactName(page, 'option', 'Article subtitle · article-subtitle').click()
         await query.fill(`status:draft ${textMarker}`)
         return session
       }
@@ -447,7 +447,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       async function submitSearch(frame, decode) {
         for (let attempt = 0; attempt < 16; attempt++) {
           const waiting = page.waitForResponse(searchReply)
-          await (attempt ? form.getByRole('button', { name: '继续搜索', exact: true }) : submit).click()
+          await (attempt ? exactButton(form, '继续搜索') : submit).click()
           const response = await waiting
           assert.equal(response.status(), 200)
           assert.equal(response.request().headers()[WireHeaders.CurrentSession.toLowerCase()], current)

@@ -10,6 +10,7 @@ import {
   FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { chromium, expect, observePageErrors, postReceipt } from './browser-authoring-fixture.mjs'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const { FSUSBLOG_TEST_URL: url, FSUSBLOG_TEST_TICKET: ticket, FSUSBLOG_TEST_EVIDENCE: evidence,
   FSUSBLOG_TEST_CHROME: executablePath } = process.env
@@ -94,14 +95,14 @@ async function accessibility(draft, schema, post) {
         assert(bounds.reducedMotion && Math.abs(bounds.dpr / first.dpr - factor) < .01 &&
           Math.abs(bounds.viewport * factor - first.viewport) <= 2 && bounds.scroll === bounds.viewport)
         const inspector = page.getByRole(bounds.viewport <= 1023 ? 'dialog' : 'complementary', { name: 'Article inspector' })
-        await page.getByRole('button', { name: 'Inspector', exact: true }).press('Enter')
-        const properties = inspector.getByRole('region', { name: 'Properties', exact: true })
-        const editButton = properties.getByRole('button', { name: `Edit ${field.label}`, exact: true })
+        await exactButton(page, 'Inspector').press('Enter')
+        const properties = roleWithExactName(inspector, 'region', 'Properties')
+        const editButton = exactButton(properties, `Edit ${field.label}`)
         await expect(properties.getByText(initialValue, { exact: true })).toBeVisible()
         await axNode('region', 'Properties')
         await axNode('button', `Edit ${field.label}`)
         await inspector.getByText('Revision history', { exact: true }).press('Enter')
-        const compare = inspector.getByRole('button', { name: `Compare revision ${earlier.revision}`, exact: true })
+        const compare = exactButton(inspector, `Compare revision ${earlier.revision}`)
         await compare.press('Enter')
         const dialog = page.getByRole('dialog', { name: 'Revision comparison' })
         await dialog.getByText('Saved properties', { exact: true }).press('Enter')
@@ -112,23 +113,23 @@ async function accessibility(draft, schema, post) {
         await page.keyboard.press('Escape')
         await expect(compare).toBeFocused()
         for (const item of fields.slice(0, propertyKinds.length)) {
-          const opener = properties.getByRole('button', { name: `Edit ${item.label}`, exact: true })
+          const opener = exactButton(properties, `Edit ${item.label}`)
           await opener.press('Enter')
           const [role, name] = item.kind === 'boolean' ? ['radio', 'True'] : item.kind === 'single-select' ? ['radio', 'Red']
             : item.kind === 'multi-select' ? ['checkbox', 'Red'] : ['textbox', `${item.label} value`]
           await expect(properties.getByRole(role, { name, exact: true })).toBeFocused({ timeout: 1_500 })
           assert.equal((await axNode(role, name)).properties?.find(p => p.name === 'focused')?.value.value, true)
-          await properties.getByRole('button', { name: 'Cancel', exact: true }).press('Enter')
+          await exactButton(properties, 'Cancel').press('Enter')
           await expect(opener).toBeFocused()
         }
         if (factor === 2 && theme === 'dark') {
-          await properties.getByRole('button', { name: 'Edit multiple properties', exact: true }).press('Enter')
+          await exactButton(properties, 'Edit multiple properties').press('Enter')
           await editButton.press('Enter')
-          await properties.getByRole('textbox', { name: `${field.label} value`, exact: true }).fill('Staged accessibility witness')
-          await properties.getByRole('button', { name: 'Stage property', exact: true }).press('Enter')
+          await roleWithExactName(properties, 'textbox', `${field.label} value`).fill('Staged accessibility witness')
+          await exactButton(properties, 'Stage property').press('Enter')
           await setText('Concurrent accessibility witness', 1n)
           const conflict = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PropertyValueCommand)
-          await properties.getByRole('button', { name: 'Save property changes', exact: true }).press('Enter')
+          await exactButton(properties, 'Save property changes').press('Enter')
           assert.equal((await conflict).status(), 409)
           const message = 'The article properties changed. Reload before editing.'
           await expect(properties.getByRole('alert')).toHaveText(message)
@@ -183,10 +184,9 @@ try {
   const memory = await context.newCDPSession(page)
   let screen = desktop
   const pane = () => page.getByRole(screen === compact ? 'dialog' : 'complementary', { name: 'Article inspector', exact: true })
-  const panel = () => pane().getByRole('region', { name: 'Properties', exact: true })
-  const paging = label => panel().getByRole('navigation', { name: 'Property pages', exact: true })
-    .getByRole('button', { name: label, exact: true })
-  const launcher = page.getByRole('button', { name: 'Inspector', exact: true })
+  const panel = () => roleWithExactName(pane(), 'region', 'Properties')
+  const paging = label => exactButton(roleWithExactName(panel(), 'navigation', 'Property pages'), label)
+  const launcher = exactButton(page, 'Inspector')
 
   async function visiblePage(ordinal) {
     await expect(panel().getByRole('status').filter({ hasText: new RegExp(`^Property page ${ordinal}$`) })).toBeVisible()
@@ -215,7 +215,7 @@ try {
     const expected = await visiblePage(ordinal)
     assert.equal(stored.nextKey, ordinal < pages ? expected.at(-1).machineKey : '')
     assert.deepEqual(stored.fields, expected.map(field => ({ ...field, definitionRevision: 1n, deprecated: false, value: { kind: 'missing' } })))
-    if (checkFocus) await expect(panel().getByRole('heading', { name: 'Properties', exact: true })).toBeFocused()
+    if (checkFocus) await expect(roleWithExactName(panel(), 'heading', 'Properties')).toBeFocused()
     assert.equal(readResponses.length, count + 1)
     assert.equal(readRequests.length, count + 1)
     result.responses.push({ page: ordinal, viewportWidth: screen.width, count: stored.fields.length, bytes: bytes.length,

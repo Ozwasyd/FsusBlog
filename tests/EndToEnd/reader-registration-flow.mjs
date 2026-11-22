@@ -5,6 +5,7 @@ import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeSession, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { postFrame } from './browser-authoring-fixture.mjs'
 import { enableAuthenticator, expect, launchIdentityBrowser } from './site-authentication-fixture.mjs'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_PASSKEY_URL
 assert(origin, 'Provide an isolated reader-registration-enabled origin; no setup ticket is needed.')
@@ -35,9 +36,9 @@ try {
   checks.unboundBeginRejected = true
 
   await page.goto(origin + '/register')
-  await expect(page.getByRole('heading', { name: 'Create a reader account', exact: true })).toBeVisible()
-  const create = page.getByRole('button', { name: 'Create Passkey', exact: true })
-  const consent = page.getByRole('checkbox', { name: 'I have read and agree to the guidelines.', exact: true })
+  await expect(roleWithExactName(page, 'heading', 'Create a reader account')).toBeVisible()
+  const create = exactButton(page, 'Create Passkey')
+  const consent = roleWithExactName(page, 'checkbox', 'I have read and agree to the guidelines.')
   await expect(create).toBeDisabled()
   await expect(consent).not.toBeChecked()
   await expect(page.locator('input:not([type="checkbox"])')).toHaveCount(0)
@@ -46,7 +47,7 @@ try {
   await expect(create).toBeEnabled()
   const [policy] = await Promise.all([
     context.waitForEvent('page'),
-    page.getByRole('link', { name: 'Read the guidelines (opens in a new tab)', exact: true }).click(),
+    roleWithExactName(page, 'link', 'Read the guidelines (opens in a new tab)').click(),
   ])
   await policy.waitForLoadState()
   assert.equal(new URL(policy.url()).pathname, '/guidelines')
@@ -64,9 +65,9 @@ try {
   checks.registrationDoesNotSignIn = true
   await page.screenshot({ path: join(evidence, 'reader-created.png') })
 
-  await page.getByRole('link', { name: 'Log in with Passkey', exact: true }).click()
+  await roleWithExactName(page, 'link', 'Log in with Passkey').click()
   await page.waitForURL(origin + '/login')
-  await page.getByRole('button', { name: 'Log in with Passkey', exact: true }).click()
+  await exactButton(page, 'Log in with Passkey').click()
   await page.waitForURL(origin + '/user/identity/mfa')
   const response = await context.request.get(origin + WireRoutes.Session)
   assert.equal(response.status(), 200)

@@ -8,6 +8,7 @@ import {
   decodeArticleCommand, decodeAuthoringWorkspaceGroups, decodeDraft, encodeDraft, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { authorFixture, button, chromium, expect, holdResponse, readDraft, submitArticle } from './browser-authoring-fixture.mjs'
+import { roleWithExactName } from './role-locators.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -15,11 +16,11 @@ const workspacePath = `${origin}/user/manage/article/workspace`
 const groupsPath = `${origin}${WireRoutes.AuthoringWorkspaceGroups}`
 const editPath = id => `${origin}/user/manage/article/edit/${id}`
 const draftPath = id => `${origin}${WireRoutes.Draft.replace('{id:int}', String(id))}`
-const body = scope => scope.getByRole('textbox', { name: 'Body', exact: true })
-const title = scope => scope.getByRole('textbox', { name: 'Title', exact: true })
-const group = (page, name) => page.getByRole('main').getByRole('region', { name: `${name} article group`, exact: true })
+const body = scope => roleWithExactName(scope, 'textbox', 'Body')
+const title = scope => roleWithExactName(scope, 'textbox', 'Title')
+const group = (page, name) => roleWithExactName(page.getByRole('main'), 'region', `${name} article group`)
 const tabList = page => page.getByRole('tablist', { name: 'Open articles' })
-const tab = (page, draft, state) => tabList(page).getByRole('tab', { name: `${draft.title} · ${state}`, exact: true })
+const tab = (page, draft, state) => roleWithExactName(tabList(page), 'tab', `${draft.title} · ${state}`)
 const selection = locator => locator.evaluate(element => [element.selectionStart, element.selectionEnd])
 const observations = []
 const diagnostics = []
@@ -33,13 +34,13 @@ async function signIn(context, ticket) {
   return session
 }
 
-const workspaceDialog = page => page.getByRole('dialog', { name: 'Workspace & open article', exact: true })
+const workspaceDialog = page => roleWithExactName(page, 'dialog', 'Workspace & open article')
 
 async function openWorkspaceDialog(page) {
   const dialog = workspaceDialog(page)
   if (await dialog.isVisible()) return dialog
   await button(page, 'More actions').click()
-  await page.getByRole('menuitem', { name: 'Workspace & open…', exact: true }).click()
+  await roleWithExactName(page, 'menuitem', 'Workspace & open…').click()
   await expect(dialog).toBeVisible()
   return dialog
 }
@@ -88,7 +89,7 @@ async function expectSameEditor(locator, original) {
     original), true, 'The same native FsusUI textarea must remain mounted for that session')
 }
 
-const separator = page => page.getByRole('separator', { name: 'Resize article groups', exact: true })
+const separator = page => roleWithExactName(page, 'separator', 'Resize article groups')
 
 async function pageWidths(page) {
   const widths = await page.evaluate(() => ({
@@ -299,7 +300,7 @@ function coordinates(snapshot) {
 async function enterSavedWorkspace(page) {
   await page.goto(`${origin}/user/manage/article/list`)
   const response = page.waitForResponse(receipt => receipt.url() === groupsPath && receipt.request().method() === 'GET')
-  await page.getByRole('link', { name: '工作区', exact: true }).click()
+  await roleWithExactName(page, 'link', '工作区').click()
   return decodeSavedGroups(await response)
 }
 
@@ -332,9 +333,9 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
   try {
     const others = button(page, 'Close other tabs')
     const right = button(page, 'Close tabs to the right')
-    const dialog = page.getByRole('dialog', { name: 'Close tabs with unsaved edits?', exact: true })
-    const discard = dialog.getByRole('radio', { name: 'Discard unsaved edits from this browser', exact: true })
-    const listedTabs = dialog.getByRole('list', { name: 'Tabs to close', exact: true }).getByRole('listitem')
+    const dialog = roleWithExactName(page, 'dialog', 'Close tabs with unsaved edits?')
+    const discard = roleWithExactName(dialog, 'radio', 'Discard unsaved edits from this browser')
+    const listedTabs = roleWithExactName(dialog, 'list', 'Tabs to close').getByRole('listitem')
     const confirmedTargets = [`${first.title} (unsaved changes) · Article ${first.id}`, `${tail.title} (up to date) · Article ${tail.id}`]
     await button(page, 'Group actions').click()
     await press(page, others)
@@ -347,7 +348,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expect(tab(page, first, 'Unsaved')).toBeVisible()
     await expect(tab(page, tail, 'Preview')).toBeVisible()
     await expect(tab(page, second, 'Pinned')).toBeVisible()
-    await expect(workspaceDialog(page).getByRole('heading', { name: 'Recently closed', exact: true })).toHaveCount(0)
+    await expect(roleWithExactName(workspaceDialog(page), 'heading', 'Recently closed')).toHaveCount(0)
 
     await press(page, others)
     await expect(listedTabs).toHaveText(confirmedTargets)
@@ -368,7 +369,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expect(page.getByText('Could not verify recovery copies. Save the drafts before closing these tabs.', { exact: true })).toBeVisible()
     await expect(others).toBeFocused()
     await expect(tabList(page).getByRole('tab')).toHaveCount(4)
-    await expect(workspaceDialog(page).getByRole('heading', { name: 'Recently closed', exact: true })).toHaveCount(0)
+    await expect(roleWithExactName(workspaceDialog(page), 'heading', 'Recently closed')).toHaveCount(0)
 
     await press(page, right)
     await expect(tab(page, tail, 'Preview')).toHaveCount(0)
@@ -432,10 +433,10 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await reopenFirst.click()
     await expect(page).toHaveURL(editPath(first.id))
     await expect(body(primary)).toHaveValue(first.body)
-    await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toBeVisible()
+    await expect(roleWithExactName(page, 'heading', 'Recover an unsaved draft')).toBeVisible()
     await button(page, 'Restore draft').click()
     await expect(body(primary)).toHaveValue(localSource)
-    await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toHaveCount(0)
+    await expect(roleWithExactName(page, 'heading', 'Recover an unsaved draft')).toHaveCount(0)
 
     await openWorkspaceDialog(page)
     await button(workspaceDialog(page), `Reopen Article ${tail.id}`).click()
@@ -457,7 +458,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await button(workspaceDialog(page), `Reopen Article ${first.id}`).click()
     await expect(page).toHaveURL(editPath(first.id))
     await expectPane(primary, first, first.body, true)
-    await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toHaveCount(0)
+    await expect(roleWithExactName(page, 'heading', 'Recover an unsaved draft')).toHaveCount(0)
   } finally { await alternateNode.dispose() }
   observations.push({ cancelPreservesMixedBatch: true, abortedRecoveryReadPreservesMixedBatch: true,
     desktopCloseRightPreservesEarlierTabs: true, compactCloseOthersKeepsActiveDraft: true, closeBatchPreservesOtherGroup: true,
@@ -521,13 +522,13 @@ async function exerciseSaveAndClose(author) {
   }
 
   async function chooseSave() {
-    const dialog = page.getByRole('dialog', { name: 'Close tabs with unsaved edits?', exact: true })
+    const dialog = roleWithExactName(page, 'dialog', 'Close tabs with unsaved edits?')
     await expect(dialog).toHaveCount(0)
     if (!await others.isVisible()) await page.getByText('Tab actions', { exact: true }).click()
     await press(page, others)
     const option = 'Save drafts before closing'
     await dialog.getByText(option, { exact: true }).click()
-    await expect(dialog.getByRole('radio', { name: option, exact: true })).toBeChecked()
+    await expect(roleWithExactName(dialog, 'radio', option)).toBeChecked()
     await button(dialog, 'Close tabs').click()
   }
 
@@ -652,7 +653,7 @@ async function exerciseSingleDirtyClose(author) {
   monitor(page)
   const close = button(page, `Close ${victim.title}`)
   const anchorTab = tab(page, anchor, 'Pinned')
-  const dialog = page.getByRole('dialog', { name: 'Close tabs with unsaved edits?', exact: true })
+  const dialog = roleWithExactName(page, 'dialog', 'Close tabs with unsaved edits?')
   const draftCopy = value => hasRecoveryCopy(page, victim.id, value)
   const recent = button(page, `Reopen Article ${victim.id}`)
 
@@ -665,7 +666,7 @@ async function exerciseSingleDirtyClose(author) {
   async function confirmClose(option) {
     await openCloseDialog()
     await dialog.getByText(option, { exact: true }).click()
-    await expect(dialog.getByRole('radio', { name: option, exact: true })).toBeChecked()
+    await expect(roleWithExactName(dialog, 'radio', option)).toBeChecked()
     await button(dialog, 'Close tabs').click()
   }
 
@@ -764,7 +765,7 @@ async function exerciseSingleDirtyClose(author) {
     await expect(page).toHaveURL(editPath(victim.id))
     await expect(title(page)).toHaveValue(victim.title)
     await expect(body(page)).toHaveValue(savedSource)
-    await expect(page.getByRole('heading', { name: 'Recover an unsaved draft', exact: true })).toHaveCount(0)
+    await expect(roleWithExactName(page, 'heading', 'Recover an unsaved draft')).toHaveCount(0)
     await press(page, close)
     await expect(page).toHaveURL(editPath(anchor.id))
     const removed = await submitArticle(author.request, origin + WireRoutes.Delete, {
@@ -863,7 +864,7 @@ async function exerciseGroupActions({ page, readLayout, first, alternate, second
   assert.deepEqual(caret, [secondaryPreview.body.length - 1, secondaryPreview.body.length])
   const wide = page.viewportSize()
   assert(wide)
-  const overflow = page.getByRole('region', { name: 'Article tabs', exact: true })
+  const overflow = roleWithExactName(page, 'region', 'Article tabs')
   async function moveBackground(to, slots, compact = false) {
     const chooser = button(page, compact ? 'Switch article tab' : 'More tabs (4)')
     await press(page, chooser)
@@ -1034,7 +1035,7 @@ async function exerciseSavedWorkspace({ author, session, outsider, outsiderSessi
     await expect(tab(reopened, secondaryPreview, 'Preview')).toHaveCount(0)
     // The normal router leave awaits the layout flush after the network has returned.
     await button(reopened, 'More actions').click()
-    await reopened.getByRole('menuitem', { name: 'Canvases', exact: true }).click()
+    await roleWithExactName(reopened, 'menuitem', 'Canvases').click()
     await expect(reopened).toHaveURL(`${origin}/user/manage/canvas`)
     assert.deepEqual(offlinePosts, [], 'Reconnection and route flush must never replay a local offline layout change')
     assert.deepEqual(await savedGroups(writerContext, session), persisted)
@@ -1083,7 +1084,7 @@ try {
   const page = await author.newPage()
   monitor(page)
   await page.goto(editPath(first.id))
-  await expect(page.getByRole('heading', { name: 'Edit article', exact: true })).toBeVisible()
+  await expect(roleWithExactName(page, 'heading', 'Edit article')).toBeVisible()
   await expect(page.locator('.el-markdown-editor')).toBeVisible()
   await expect(body(page)).toHaveValue(first.body)
   await expect(body(page)).toBeEditable()
@@ -1284,7 +1285,7 @@ try {
   await expectPane(primary, first, localSource, true)
   await expectPane(secondary, savedSecond, savedSecond.body, false)
   await expectSameEditor(body(secondary), secondNode)
-  await expect(page.getByRole('main').getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(2)
+  await expect(roleWithExactName(page.getByRole('main'), 'textbox', 'Body')).toHaveCount(2)
   const tail = await createDraft(author, 'Last primary workspace draft', 'Last primary server source.')
   await exerciseTabClose({ page, first, localSource, alternate, tail, second: savedSecond, secondNode })
   const reopenedFirstNode = await body(primary).elementHandle()
@@ -1299,7 +1300,7 @@ try {
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow')))
   await expect.poll(() => reopenedFirstNode.evaluate(element => element.isConnected)).toBe(false)
   await expect.poll(() => secondNode.evaluate(element => element.isConnected)).toBe(false)
-  await expect(page.getByRole('main').getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(0)
+  await expect(roleWithExactName(page.getByRole('main'), 'textbox', 'Body')).toHaveCount(0)
   await firstNode.dispose()
   await reopenedFirstNode.dispose()
   await secondNode.dispose()

@@ -7,6 +7,7 @@ import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { decodeRecentOpens } from '../../src/Contracts/author-recent-opens.ts'
 import { encodeTaxonomyAssignment, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { authorFixture, button, chromium, expect, holdResponse, postReceipt } from './browser-authoring-fixture.mjs'
+import { roleWithExactName } from './role-locators.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -33,12 +34,12 @@ async function recentOpens(context, handle) {
 async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) {
   const mod = process.platform === 'darwin' ? 'Meta' : 'Control'
   const launcher = button(page, 'Quick switch articles')
-  const dialog = page.getByRole('dialog', { name: 'Quick switch articles', exact: true })
-  const input = dialog.getByRole('combobox', { name: 'Search draft titles', exact: true })
-  const listbox = dialog.getByRole('listbox', { name: 'Articles', exact: true })
+  const dialog = roleWithExactName(page, 'dialog', 'Quick switch articles')
+  const input = roleWithExactName(dialog, 'combobox', 'Search draft titles')
+  const listbox = roleWithExactName(dialog, 'listbox', 'Articles')
   const options = listbox.getByRole('option')
   const openOther = button(dialog, 'Open in other group')
-  const groups = name => page.getByRole('main').getByRole('region', { name: `${name} article group`, exact: true })
+  const groups = name => roleWithExactName(page.getByRole('main'), 'region', `${name} article group`)
   const primary = groups('Primary')
   const secondary = groups('Secondary')
   const selection = scope => body(scope).evaluate(control => [control.selectionStart, control.selectionEnd])
@@ -229,7 +230,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
     await expect(body(primary)).not.toBeEditable()
     assert.equal(await body(primary).evaluate((node, saved) => node === saved, original), true)
     assert.equal(await body(secondary).evaluate((node, saved) => node === saved, other), true)
-    await expect(page.getByRole('main').getByRole('textbox', { name: 'Body', exact: true })).toHaveCount(2)
+    await expect(roleWithExactName(page.getByRole('main'), 'textbox', 'Body')).toHaveCount(2)
     await expect(body(primary)).toHaveValue(dirty)
     await expect(body(secondary)).toHaveValue(changed.body)
     await expect.poll(async () => (await recentOpens(author, handle)).items.map(row => row.articleId))
@@ -239,7 +240,7 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
     await other.dispose()
   }
 
-  await page.getByRole('link', { name: 'Back', exact: true }).click()
+  await roleWithExactName(page, 'link', 'Back').click()
   await page.getByText('Discard unsaved changes?', { exact: true }).waitFor()
   await button(page, 'Discard changes').click()
   await expect(page).toHaveURL(`${origin}/`)
@@ -300,8 +301,8 @@ try {
   await expect(list(pane).getByRole('button')).toHaveCount(WireLimits.AuthorArticlePageSize + 1)
   if (taxonomyFixture) for (const [category, tag, suffix] of [['Web engineering', 'Café', '&category=1&tag=4'], ['All categories', 'All tags', '']]) {
     for (const [label, value] of [['Category', category], ['Tag', tag]]) {
-      await pane.getByRole('combobox', { name: label, exact: true }).click()
-      await page.getByRole('option', { name: value, exact: true }).click()
+      await roleWithExactName(pane, 'combobox', label).click()
+      await roleWithExactName(page, 'option', value).click()
     }
     const response = page.waitForResponse(`${inventory}?scope=active${suffix}`)
     await button(pane, 'Filter articles').click()
@@ -355,7 +356,7 @@ try {
 
   const openMobileMenuItem = async name => {
     await button(page, 'More actions').click()
-    await page.getByRole('menuitem', { name, exact: true }).click()
+    await roleWithExactName(page, 'menuitem', name).click()
   }
 
   await page.setViewportSize({ width: 375, height: 850 })
@@ -409,8 +410,8 @@ try {
   const keyword = 'Identity return witness'
   const staleTitle = `${keyword} before`, freshTitle = `${keyword} after`
   const witness = await create(seeding, staleTitle)
-  const quick = page.getByRole('dialog', { name: 'Quick switch articles', exact: true })
-  const searchInput = quick.getByRole('combobox', { name: 'Search draft titles', exact: true })
+  const quick = roleWithExactName(page, 'dialog', 'Quick switch articles')
+  const searchInput = roleWithExactName(quick, 'combobox', 'Search draft titles')
   await page.evaluate(({ path, keyword }) => {
     const fetch = window.fetch.bind(window)
     let first = true

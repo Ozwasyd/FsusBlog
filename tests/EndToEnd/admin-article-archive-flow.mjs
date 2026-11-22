@@ -14,13 +14,14 @@ import {
 } from '../../src/Contracts/wire.generated.ts'
 import { adminArticleFixture, commitWithLostReceipt, sourceTitle } from './admin-article-fixture.mjs'
 import { readDraft, submitPublicationMutation } from './browser-authoring-fixture.mjs'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 export async function verifyAdminArticleArchive({ page, context, adminOrigin, siteOrigin, grant, logIn, evidence }) {
   await visitAdminWorkspace(page, '/admin/articles')
   const { admin, site, section, send, grantAndSignIn, previewRollback, inspect: content, index,
     expectStaleIndex, expectWithdrawnArticle, expectWithdrawnCorpus } = adminArticleFixture({ page, context, adminOrigin, siteOrigin })
-  const archive = section.getByRole('region', { name: 'Archived articles', exact: true })
-  const inventory = page.getByRole('region', { name: 'Article inventory', exact: true })
+  const archive = roleWithExactName(section, 'region', 'Archived articles')
+  const inventory = roleWithExactName(page, 'region', 'Article inventory')
   const inventoryPath = WireRoutes.AdminArticleInventory
   const sourceBody = 'Historical Markdown ready for restoration\n\n![Never fetched in source preview](https://archive-preview.invalid/from-source.png)\n'
   const availability = WireRoutes.AdminArticleArchiveAvailability
@@ -70,7 +71,7 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   function commitWithLostResponse(button, expected, expectedPublicationNo) {
     return commitWithLostReceipt({
       page, url: admin(execute), button,
-      check: section.getByRole('button', { name: 'Check archive command result', exact: true }),
+      check: exactButton(section, 'Check archive command result'),
       async verifyRequest(request, sent) {
         assert(sent)
         const command = decodeAdminArticleArchiveIntent(decodeFrame(sent, FrameType.AdminArticleArchiveIntent).payload)
@@ -116,23 +117,23 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   await archive.waitFor()
   assert.equal((await context.request.get(admin(availability))).status(), 204)
   assert.deepEqual(await archivedRows(), [])
-  await page.getByRole('tab', { name: 'Articles', exact: true }).click()
+  await roleWithExactName(page, 'tab', 'Articles').click()
   await inventory.getByRole('status').filter({ hasText: '22 active articles' }).waitFor()
   await inventory.getByRole('button', { name: 'Next page' }).press('Enter')
   await inventory.getByText('Inventory draft 1', { exact: true }).waitFor()
   assert.equal(await inventory.getByText('Inventory draft 21', { exact: true }).count(), 0)
-  await page.getByRole('tab', { name: 'Trash', exact: true }).click()
+  await roleWithExactName(page, 'tab', 'Trash').click()
   await inventory.getByText('Inventory draft 22', { exact: true }).waitFor()
   assert.equal(await inventory.locator('tbody tr').count(), 1)
   assert.equal((await context.request.get(admin(WireRoutes.AdminArticleTrashRestoreAvailability))).status(), 204)
   const [unpublished] = await Promise.all([
     trashPreview('23', '1'),
-    inventory.getByRole('button', { name: 'Restore to draft', exact: true }).press('Enter'),
+    exactButton(inventory, 'Restore to draft').press('Enter'),
   ])
   assert.equal(unpublished.status(), 409)
-  const recover = page.getByRole('dialog', { name: 'Restore deleted article', exact: true })
+  const recover = roleWithExactName(page, 'dialog', 'Restore deleted article')
   await recover.getByText('Restore revision 1 of Inventory draft 22 to its author as a private draft.', { exact: true }).waitFor()
-  assert.equal(await recover.getByRole('button', { name: 'Restore former publication with Passkey', exact: true }).count(), 0)
+  assert.equal(await exactButton(recover, 'Restore former publication with Passkey').count(), 0)
   await page.screenshot({ path: join(evidence, 'administrator-article-trash-review.png') })
   const recoveryRoute = WireRoutes.AdminArticleTrashRestoreExecute
   const recoveryFrame = intent => Buffer.from(encodeFrame(FrameType.AdminArticleTrashRestoreIntent, encodeAdminArticleTrashRestoreIntent(intent)))
@@ -165,7 +166,7 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   await conflict.dispose()
   assert.equal((await context.request.get(site(WireRoutes.PublicArticle.replace('{id}', '23')))).status(), 404)
   assert.equal((await context.request.get(site(WireRoutes.Draft.replace('{id:int}', '23')))).status(), 404)
-  await page.getByRole('tab', { name: 'Articles', exact: true }).click()
+  await roleWithExactName(page, 'tab', 'Articles').click()
   await inventory.getByLabel('Title or summary', { exact: true }).fill('Inventory summary 21')
   await inventory.getByRole('button', { name: 'Search articles' }).press('Enter')
   await inventory.getByText('Inventory draft 21', { exact: true }).waitFor()
@@ -184,11 +185,11 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   assert.equal((await send(execute, unsigned)).status(), 403)
   assert.equal((await send(WireRoutes.AdminArticleArchiveStepUpBegin, unsigned, { Origin: siteOrigin.origin })).status(), 403)
   await section.getByLabel('Reason for archiving this revision', { exact: true }).fill(archiveIntent.reason)
-  const withdraw = section.getByRole('button', { name: 'Archive revision and withdraw', exact: true })
+  const withdraw = exactButton(section, 'Archive revision and withdraw')
   assert(await withdraw.isDisabled())
   const archiveConfirmation = 'Create an archived revision and withdraw the current publication'
   await section.getByText(archiveConfirmation, { exact: true }).click()
-  assert(await section.getByRole('checkbox', { name: archiveConfirmation, exact: true }).isChecked())
+  assert(await roleWithExactName(section, 'checkbox', archiveConfirmation).isChecked())
   assert.equal((await content()).publication, 2n)
 
   const archived = await commitWithLostResponse(withdraw, archiveIntent, 3)
@@ -219,15 +220,15 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   }
   await page.screenshot({ path: join(evidence, 'administrator-article-archived.png') })
 
-  await archive.getByRole('button', { name: 'Review for republishing', exact: true }).press('Enter')
-  await section.getByRole('heading', { name: `Republish ${sourceTitle}`, exact: true }).waitFor()
+  await exactButton(archive, 'Review for republishing').press('Enter')
+  await roleWithExactName(section, 'heading', `Republish ${sourceTitle}`).waitFor()
   await section.getByText(`Article 1 · Revision 3 · Private release ${archived.releaseId}`, { exact: true }).waitFor()
   const archivedSourcePath = previewPath(1, 3, archived.releaseId)
   await deniedPreview(admin(previewPath(2, 3, archived.releaseId)), 409)
   await deniedPreview(admin(previewPath(1, 2, archived.releaseId)), 409)
   await deniedPreview(admin(previewPath(1, 3, 2)), 409)
   await deniedPreview(site(archivedSourcePath), 404)
-  const trigger = section.getByRole('button', { name: 'Preview archived source', exact: true })
+  const trigger = exactButton(section, 'Preview archived source')
   const dialog = page.getByRole('dialog', { name: 'Archived Markdown source' })
   const source = dialog.locator('pre[aria-label="Archived Markdown"]')
   const unexpected = []
@@ -260,11 +261,11 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
     reason: 'Republish the exact archived article revision', targetStatus: 2,
   }
   await section.getByLabel('Reason for republishing this revision', { exact: true }).fill(publishIntent.reason)
-  const publish = section.getByRole('button', { name: 'Republish with Passkey', exact: true })
+  const publish = exactButton(section, 'Republish with Passkey')
   assert(await publish.isDisabled())
   const publishConfirmation = 'Publish this exact archived revision'
   await section.getByText(publishConfirmation, { exact: true }).click()
-  assert(await section.getByRole('checkbox', { name: publishConfirmation, exact: true }).isChecked())
+  assert(await roleWithExactName(section, 'checkbox', publishConfirmation).isChecked())
   const republished = await commitWithLostResponse(publish, publishIntent, 4)
   assert.notEqual(republished.rightsSnapshotId, archived.rightsSnapshotId)
   assert.notEqual(republished.responsibilitySnapshotId, archived.responsibilitySnapshotId)
@@ -303,13 +304,13 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   await expectWithdrawnCorpus(trashIndex.generation)
   assert(!trashIndex.items.some(article => article.id === 1))
 
-  await page.getByRole('tab', { name: 'Trash', exact: true }).click()
+  await roleWithExactName(page, 'tab', 'Trash').click()
   await inventory.getByLabel('Title or summary', { exact: true }).fill('')
   await inventory.getByRole('button', { name: 'Search articles' }).press('Enter')
   await inventory.getByText(privateTitle, { exact: true }).waitFor()
   const [former] = await Promise.all([
     trashPreview('1', '6'),
-    inventory.getByRole('button', { name: 'Restore to draft', exact: true }).press('Enter'),
+    exactButton(inventory, 'Restore to draft').press('Enter'),
   ])
   assert.equal(former.status(), 200)
   assert.match(former.headers()['cache-control'], /no-store/)
@@ -325,8 +326,8 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   const publicationRoute = WireRoutes.AdminArticleTrashPublicationExecute
   const publication = await commitWithLostReceipt({
     page, url: admin(publicationRoute),
-    button: recover.getByRole('button', { name: 'Restore former publication with Passkey', exact: true }),
-    check: inventory.getByRole('button', { name: 'Check restore result', exact: true }),
+    button: exactButton(recover, 'Restore former publication with Passkey'),
+    check: exactButton(inventory, 'Check restore result'),
     async verifyRequest(request, sent) {
       const intent = decodeAdminArticleTrashPublicationIntent(decodeFrame(sent, FrameType.AdminArticleTrashPublicationIntent).payload)
       assert.deepEqual([intent.articleId, intent.expectedRevision, intent.sourceRevision, intent.sourcePublicationId, intent.reason],

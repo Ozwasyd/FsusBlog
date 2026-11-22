@@ -8,6 +8,7 @@ import {
   decodeAdminArticleRollbackReceipt, encodeAdminArticleRollbackIntent, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { adminArticleFixture, commitWithLostReceipt, sourceTitle } from './admin-article-fixture.mjs'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 export async function verifyAdminArticleRollback({ page, context, adminOrigin, siteOrigin, grant, logIn, evidence }) {
   await visitAdminWorkspace(page, '/admin/articles')
@@ -41,15 +42,15 @@ export async function verifyAdminArticleRollback({ page, context, adminOrigin, s
   assert.equal((await send(WireRoutes.AdminArticleRollbackStepUpBegin, packed(commandBody), { Origin: siteOrigin.origin })).status(), 403)
 
   await section.getByLabel('Reason for publishing this revision', { exact: true }).fill(reason)
-  const publish = section.getByRole('button', { name: 'Publish revision with Passkey', exact: true })
+  const publish = exactButton(section, 'Publish revision with Passkey')
   assert(await publish.isDisabled())
   const confirmationText = 'Publish a new revision with this historical content, rights, and responsibility'
   await section.getByText(confirmationText, { exact: true }).click()
-  assert(await section.getByRole('checkbox', { name: confirmationText, exact: true }).isChecked())
+  assert(await roleWithExactName(section, 'checkbox', confirmationText).isChecked())
 
   const committed = await commitWithLostReceipt({
     page, url: admin(command), button: publish,
-    check: section.getByRole('button', { name: 'Check publication result', exact: true }),
+    check: exactButton(section, 'Check publication result'),
     async verifyRequest(request) {
       const authorization = await request.headerValue(WireHeaders.MfaProof)
       assert(/^[A-Za-z0-9_-]{43}$/.test(authorization ?? ''), 'The exact command has a live Passkey proof')
@@ -87,21 +88,21 @@ export async function verifyAdminArticleRollback({ page, context, adminOrigin, s
   assert.equal((await send(draftCommand, packedDraft(draftBody))).status(), 403)
   assert.equal((await send(draftCommand, packedDraft({ ...draftBody, targetStatus: 3 }))).status(), 400)
   assert.equal((await send(WireRoutes.AdminArticleDraftRollbackStepUpBegin, packedDraft(draftBody), { Origin: siteOrigin.origin })).status(), 403)
-  await section.getByRole('button', { name: 'Preview publication rollback', exact: true }).press('Enter')
-  await section.getByRole('heading', { name: sourceTitle, exact: true }).waitFor()
+  await exactButton(section, 'Preview publication rollback').press('Enter')
+  await roleWithExactName(section, 'heading', sourceTitle).waitFor()
   await section.getByLabel('Reason for restoring this revision as a draft', { exact: true }).fill(draftReason)
   await section.getByLabel('Reason for publishing this revision', { exact: true }).fill(reason)
-  const withdraw = section.getByRole('button', { name: 'Restore as draft and withdraw', exact: true })
+  const withdraw = exactButton(section, 'Restore as draft and withdraw')
   assert(await withdraw.isDisabled())
   const draftConfirmation = 'Create a private draft from this revision and withdraw the current publication'
   await section.getByText(draftConfirmation, { exact: true }).click()
-  assert(await section.getByRole('checkbox', { name: draftConfirmation, exact: true }).isChecked())
+  assert(await roleWithExactName(section, 'checkbox', draftConfirmation).isChecked())
   assert(await publish.isDisabled(), 'Draft confirmation must never authorize publishing')
   assert.equal((await inspect()).publication, committed.publicationId)
 
   await commitWithLostReceipt({
     page, url: admin(draftCommand), button: withdraw,
-    check: section.getByRole('button', { name: 'Check draft rollback result', exact: true }),
+    check: exactButton(section, 'Check draft rollback result'),
     async verifyRequest(request, sent) {
       const actual = decodeAdminArticleDraftRollbackIntent(decodeFrame(sent, FrameType.AdminArticleDraftRollbackIntent).payload)
       assert.deepEqual(actual, { ...draftBody, idempotencyKey: actual.idempotencyKey })

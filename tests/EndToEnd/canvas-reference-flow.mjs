@@ -5,6 +5,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeCanvasReferenceResolution } from '../../src/Contracts/canvas-graph.ts'
 import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { canvasEditorHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
+import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 export async function exerciseCanvasReferences({ page, origin, createDraft, screenshot, observations }) {
   const viewportBefore = page.viewportSize()
@@ -14,14 +15,14 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     'Duplicate first ^twice\n\nDuplicate second ^twice\n'
   const article = await createDraft(articleTitle, sourceBody)
   assert.equal(article.body, sourceBody)
-  const button = name => page.getByRole('button', { name, exact: true })
+  const button = name => exactButton(page, name)
   const outline = () => page.getByRole('region', { name: 'Canvas outline' })
   const viewport = () => page.getByRole('region', { name: 'Interactive Canvas Viewport' })
   const preview = () => page.getByRole('region', { name: 'Canvas reference preview' })
   const resolved = () => preview().getByRole('status').filter({ hasText: 'Reference resolved.' })
-  const openAction = () => preview().getByRole('button', { name: 'Open in editor', exact: true })
+  const openAction = () => exactButton(preview(), 'Open in editor')
   const nativeEditor = () => page.locator('.el-markdown-editor')
-  const canvasHeading = page.getByRole('heading', { name: title, exact: true })
+  const canvasHeading = roleWithExactName(page, 'heading', title)
   const editorPath = `${origin}/user/manage/article/edit/${article.id}`
   const draftReadPath = id => origin + WireRoutes.Draft.replace('{id:int}', String(id))
   const referencePrefix = WireRoutes.CanvasReference.split('{id:guid}', 1)[0]
@@ -30,7 +31,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
   async function createCanvas(name) {
     await createCanvasThroughUi(page, origin, name)
     await page.waitForURL(url => url.pathname.startsWith('/user/manage/canvas/'))
-    await page.getByRole('heading', { name, exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', name).waitFor()
     await button('Outline').click()
     return page.url()
   }
@@ -47,10 +48,10 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
 
   async function add(kind, options = {}) {
     const dialog = await fillReference(kind, options)
-    await dialog.getByRole('button', { name: 'Save node', exact: true }).click()
+    await exactButton(dialog, 'Save node').click()
     await dialog.waitFor({ state: 'hidden' })
     const nodeName = { 'article-reference': 'Article', 'heading-reference': 'Heading', 'block-reference': 'Block' }[kind]
-    await outline().getByRole('button', { name: `${nodeName} reference ${options.articleId ?? article.id}`, exact: true }).first().waitFor()
+    await exactButton(outline(), `${nodeName} reference ${options.articleId ?? article.id}`).first().waitFor()
   }
 
   async function returnToCanvas(mode = 'canvas') {
@@ -82,7 +83,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
       return response.request().method() === 'GET' && address.origin === origin && address.pathname.startsWith(referencePrefix) &&
         address.pathname.includes('/references/') && address.searchParams.has('revision') && !address.searchParams.has('current')
     })
-    await preview().getByRole('button', { name: 'Resolve reference', exact: true }).click()
+    await exactButton(preview(), 'Resolve reference').click()
     const response = await pending
     return { address: new URL(response.url()), resolution: await readReference(response) }
   }
@@ -162,7 +163,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await page.setViewportSize({ width: 1280, height: 800 })
     await createCanvas(`${title} CRLF`)
     await add('heading-reference', { anchor: 'harbor', articleId: original.id })
-    await outline().getByRole('button', { name: `Heading reference ${original.id}`, exact: true }).click()
+    await exactButton(outline(), `Heading reference ${original.id}`).click()
     const witness = await resolveSelected()
     await resolved().waitFor()
     assert.equal(witness.resolution.sourceOffset, rawCaret)
@@ -179,7 +180,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
 
     const editedTitle = 'CRLF source coordinates renamed'
     await expectProjected(projected, caret)
-    await page.getByRole('textbox', { name: 'Title', exact: true }).fill(editedTitle)
+    await roleWithExactName(page, 'textbox', 'Title').fill(editedTitle)
     const titled = await saveFromEditor(original, editedTitle, raw)
 
     const body = page.locator('#article-body')
@@ -212,7 +213,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     canvasUrl = await createCanvas(title)
 
     await add('article-reference')
-    await outline().getByRole('button', { name: `Article reference ${article.id}`, exact: true }).click()
+    await exactButton(outline(), `Article reference ${article.id}`).click()
     const articleWitness = await resolveSelected()
     await resolved().waitFor()
     assert.equal(articleWitness.resolution.excerpt, null)
@@ -220,7 +221,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await returnToCanvas('outline')
 
     await add('heading-reference', { anchor: 'planning' })
-    await outline().getByRole('button', { name: `Heading reference ${article.id}`, exact: true }).click()
+    await exactButton(outline(), `Heading reference ${article.id}`).click()
     const headingWitness = await resolveSelected()
     await resolved().waitFor()
     await preview().getByRole('heading', { name: /Source coordinates/ }).waitFor()
@@ -232,21 +233,21 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     const rejected = await fillReference('block-reference', { anchor: 'twice' })
     const rejectedWrite = page.waitForResponse(response => response.request().method() === 'POST' &&
       response.url() === origin + WireRoutes.CanvasGraphWrite)
-    await rejected.getByRole('button', { name: 'Save node', exact: true }).click()
+    await exactButton(rejected, 'Save node').click()
     const denied = await rejectedWrite
     assert.equal(denied.status(), 404)
     decodeFrame(await denied.body(), FrameType.ApiError)
     await rejected.getByRole('alert').filter({ hasText: 'Canvas reference is unavailable.' }).waitFor()
-    await rejected.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await exactButton(rejected, 'Cancel').click()
     await rejected.waitFor({ state: 'hidden' })
-    assert.equal(await outline().getByRole('button', { name: `Block reference ${article.id}`, exact: true }).count(), 0)
+    assert.equal(await exactButton(outline(), `Block reference ${article.id}`).count(), 0)
 
     const aging = await createDraft('Anchor from an earlier draft', 'Duplicate first ^twice')
     await add('block-reference', { anchor: 'twice', articleId: aging.id })
     await replaceDraft(aging, 'Duplicate first ^twice\n\nDuplicate second ^twice')
-    await outline().getByRole('button', { name: `Block reference ${aging.id}`, exact: true }).click()
+    await exactButton(outline(), `Block reference ${aging.id}`).click()
     assert.equal(await resolved().count(), 0)
-    await preview().getByRole('button', { name: 'Resolve reference', exact: true }).click()
+    await exactButton(preview(), 'Resolve reference').click()
     await preview().getByRole('status').filter({ hasText: 'The anchor is ambiguous at this revision.' }).waitFor()
     assert.equal(await preview().getByText(/Duplicate (first|second)/).count(), 0)
     assert.equal(await openAction().count(), 0)
@@ -281,7 +282,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     // Commit a new draft after a successful live preflight, while its old result is still held outside the renderer.
     await page.setViewportSize({ width: 1280, height: 800 })
     await button('Outline').click()
-    await outline().getByRole('button', { name: `Heading reference ${article.id}`, exact: true }).click()
+    await exactButton(outline(), `Heading reference ${article.id}`).click()
     const race = await resolveSelected()
     await resolved().waitFor()
     await page.evaluate(() => {

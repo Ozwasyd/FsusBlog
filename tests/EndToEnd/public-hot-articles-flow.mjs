@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticleHot } from '../../src/Contracts/article-hot.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { roleWithExactName } from './role-locators.mjs'
 
 const hotPath = WireRoutes.PublicArticleHot.replace('{size}', '10')
 const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
@@ -106,15 +107,15 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
     }
   }
 
-  const panel = page => page.getByRole('region', { name: 'Popular articles', exact: true })
+  const panel = page => roleWithExactName(page, 'region', 'Popular articles')
   const articleLinks = page => page.locator('ol.article-list h2 a')
   const mounts = page => page.evaluate(() => window.__fsusHotArticleMounts)
-  const next = page => page.getByRole('navigation', { name: 'Article pages', exact: true }).getByRole('link', { name: 'Next', exact: true })
+  const next = page => roleWithExactName(roleWithExactName(page, 'navigation', 'Article pages'), 'link', 'Next')
 
   async function start(page) {
     const result = await page.goto(site + '/')
     assert.equal(result.status(), 200)
-    await page.getByRole('heading', { name: 'Latest posts', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'Latest posts').waitFor()
     await next(page).waitFor()
     assert.equal(await page.locator(marker).count(), enabled ? 1 : 0)
   }
@@ -122,9 +123,9 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
   async function older(page) {
     await next(page).click()
     await page.waitForURL(url => url.pathname === '/' && url.searchParams.get('page') === '2' && !!url.searchParams.get('cursor'))
-    await page.getByRole('navigation', { name: 'Article pages', exact: true }).getByText('Page 2', { exact: true }).waitFor()
+    await roleWithExactName(page, 'navigation', 'Article pages').getByText('Page 2', { exact: true }).waitFor()
     await articleLinks(page).first().waitFor()
-    await page.getByRole('heading', { name: 'Latest posts', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', 'Latest posts').waitFor()
     assert.equal(await panel(page).count(), 0)
   }
 
