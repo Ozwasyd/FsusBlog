@@ -160,11 +160,14 @@ JS
 )
 url="http://localhost:$http_port"
 export FSUSBLOG_ADMIN_ORIGIN="$url" FSUSBLOG_ADMIN_RP_ID=localhost
-if [[ $flow == comment-author-delete || $flow == reader-registration || $flow == passkey || $flow == site-sessions || $flow == mfa ]]; then
-  export FSUSBLOG_PASSKEY_ORIGIN="$url" FSUSBLOG_PASSKEY_RP_ID=localhost
-fi
-if [[ $flow == comment-author-delete || $flow == reader-registration ]]; then
+reader_registration=0
+if [[ $flow == comment-author-delete || $flow == reader-registration ||
+  ( $flow == public-route-transition && ${FSUSBLOG_TEST_AUTH_TRANSITIONS:-0} == 1 ) ]]; then
+  reader_registration=1
   export FSUSBLOG_READER_REGISTRATION=true
+fi
+if [[ $reader_registration == 1 || $flow == passkey || $flow == site-sessions || $flow == mfa ]]; then
+  export FSUSBLOG_PASSKEY_ORIGIN="$url" FSUSBLOG_PASSKEY_RP_ID=localhost
 fi
 if [[ $flow == mfa ]]; then
   FSUSBLOG_TOTP_KEY_HEX=$(openssl rand -hex 32)

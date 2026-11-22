@@ -43,6 +43,8 @@ node tests/EndToEnd/blog-flow.mjs
 
 `FSUSBLOG_TEST_FLOW=canvas-scale bash tests/EndToEnd/run-native.sh` 经当前管理入口和两个独立的管理员 Passkey 验证 10,000 个节点、10,000 条边、匿名与跨账号隔离、原有挂载上限和断连重试。浏览器结束后由 PostgreSQL 独立核对图、文章修订和命令回执。
 
+`FSUSBLOG_TEST_FLOW=public-route-transition FSUSBLOG_TEST_AUTH_TRANSITIONS=1 bash tests/EndToEnd/run-native.sh` 启用读者注册入口，验证公开页、登录和注册之间的客户端导航、浏览器后退、共享页头及减少动态效果设置。默认关闭该开关时仍运行公开导航验证。
+
 `FSUSBLOG_TEST_FLOW=reader-registration bash tests/EndToEnd/run-native.sh` 在隔离 PostgreSQL 中验证读者勾选准则、完成 PoW 与 Passkey 注册、注册后仍需登录，以及读者会话访问当前管理端和创作接口时返回 401。浏览器同时验证当前写作页拒绝读者进入。
 
 `FSUSBLOG_TEST_FLOW=comment-author-delete bash tests/EndToEnd/run-native.sh` 使用统一登录页、管理员 Passkey 和实际注册的读者 Passkey，验证同一读者的两个独立会话、跨账号拒绝、取消与删除确认，以及撤回文章后读者仍能删除自己发表的评论。
