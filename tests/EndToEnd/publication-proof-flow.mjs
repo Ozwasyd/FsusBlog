@@ -6,18 +6,24 @@ import { join, resolve } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { publicationProofPath } from '../../src/Contracts/article-publication-proof.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
-import { encodeSignIn, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { verifyPublicationHead } from '../../tools/verify-publication-head.mjs'
 import { verifyPublicationProof } from '../../tools/verify-publication-proof.mjs'
-import { postFrame, readDraft, submitPublicationMutation } from './browser-authoring-fixture.mjs'
-import { expect, launchIdentityBrowser, readTlsPublicationFixture, request } from './site-authentication-fixture.mjs'
+import { readDraft, submitPublicationMutation } from './browser-authoring-fixture.mjs'
+import { expect, launchIdentityBrowser, readTlsPublicationFixture } from './site-authentication-fixture.mjs'
+import { signInFreshAdmin, signInFreshSite } from './webauthn-fixture.mjs'
 
 const { origin, ticket, pins } = readTlsPublicationFixture(
-  'Use the isolated publication proof HTTPS runner with a disposable site ticket and TLS leaf pins.')
+  'Use the isolated publication proof HTTPS runner with a disposable site ticket and TLS leaf pins.', 'localhost')
+const admin = new URL(process.env.FSUSBLOG_TEST_ADMIN_URL)
+const bootstrap = process.env.FSUSBLOG_TEST_ADMIN_TICKET
+assert(admin.protocol === 'https:' && admin.hostname === 'admin.localhost' && /^[a-f0-9]{64}$/.test(bootstrap ?? ''),
+  'Use the isolated administrator origin and its fixture Passkey setup ticket.')
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/publication-proof-browser')
 await mkdir(evidence, { recursive: true })
 const browser = await launchIdentityBrowser(pins)
-const author = await request.newContext({ baseURL: origin })
+const author = await browser.newContext()
+const reader = await browser.newContext()
 const page = await browser.newPage({ viewport: { width: 1280, height: 840 } })
 const calls = []
 const faults = []
@@ -36,7 +42,7 @@ page.on('console', message => {
   const source = URL.parse(message.location().url)
   const code = /^Failed to load resource: the server responded with a status of (\d+) /.exec(message.text())?.[1]
   if (source?.origin === origin &&
-    ((code === '401' && source.pathname === WireRoutes.Session) ||
+    ((code === '401' && [WireRoutes.Session, WireRoutes.SiteRefreshStatus].includes(source.pathname)) ||
      (code === '404' && [WireRoutes.SiteRefreshStatus, '/favicon.ico'].includes(source.pathname)))) {
     expectedHttp.push({ path: source.pathname, status: Number(code) })
   } else {
@@ -52,7 +58,9 @@ try {
     await response.arrayBuffer()
     checks.anonymousEmptyHeadUnavailable = true
   }
-  await post(WireRoutes.SignIn, FrameType.OperatorSignIn, encodeSignIn({ ticket }), FrameType.OperatorSession)
+  await signInFreshAdmin(await author.newPage(), admin.origin, bootstrap)
+  await signInFreshSite(await reader.newPage(), origin, ticket)
+  assertStatus(await reader.request.get(origin + WireRoutes.Session), 200)
   const title = 'Original Évidence 🐈'
   const draft = await command(WireRoutes.Save, 0, 0n, title, 'Cafe\u0301\r\n\nProof browser fixture.\n')
   const first = await command(WireRoutes.Publish, draft.id, draft.revision)
@@ -100,7 +108,7 @@ try {
   const nextProof = await currentProof(updated.id)
   assert.notEqual(nextProof, firstProof)
   await unavailablePublicProof(firstProof)
-  assertStatus(await author.get(firstProof), 404)
+  assertStatus(await reader.request.get(origin + firstProof), 404)
   checks.staleArticleReplacementDenied = true
 
   await page.setViewportSize({ width: 375, height: 812 })
@@ -117,7 +125,7 @@ try {
   const publicHead = checkHead ? await verifyOpaqueHead(nextProof) : null
   await command(WireRoutes.Retract, updated.id, updated.revision)
   await unavailablePublicProof(nextProof)
-  assertStatus(await author.get(nextProof), 404)
+  assertStatus(await reader.request.get(origin + nextProof), 404)
   checks.withdrawnPublicationReceiptDenied = true
   if (publicHead) {
     const withdrawn = await publicIntegrity(nextProof)
@@ -135,30 +143,23 @@ try {
   await page.screenshot({ path: join(evidence, 'publication-proof-failure.png') }).catch(() => {})
 } finally {
   await browser.close()
-  await author.dispose()
   await writeFile(join(evidence, 'browser-result.json'), JSON.stringify({
     browser: browser.version(), checks, calls, expectedHttp, faults, failure: failure instanceof Error ? failure.message : undefined,
   }, null, 2) + '\n')
 }
 if (failure) throw failure
 
-async function post(path, type, payload, output) {
-  const response = await postFrame(author, path, type, payload)
-  assert.equal(response.status(), 200, path)
-  return decodeFrame(await response.body(), output).payload
-}
-
 async function command(path, id, expectedRevision, title = '', body = '') {
-  return readDraft(await submitPublicationMutation(author, path, id, expectedRevision, title, body), path)
+  return readDraft(await submitPublicationMutation(author.request, admin.origin + path, id, expectedRevision, title, body), path)
 }
 
 async function currentProof(id) {
-  const detail = await author.get(WireRoutes.PublicArticle.replace('{id}', String(id)))
+  const detail = await reader.request.get(origin + WireRoutes.PublicArticle.replace('{id}', String(id)))
   assertStatus(detail, 200)
   const article = decodeArticle(decodeFrame(await detail.body(), FrameType.ArticleDetail).payload)
   const path = publicationProofPath(article)
   await expect.poll(async () => {
-    const response = await author.get(path)
+    const response = await reader.request.get(origin + path)
     return response.status()
   }, { timeout: 12_000 }).toBe(200)
   return path

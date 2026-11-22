@@ -22,7 +22,7 @@
 
 ## 原生 v2 权利签名
 
-此功能默认关闭。现有库先离线运行 `publication-proof schema`，并提供 `FSUSBLOG_PUBLIC_ORIGIN`。设置 `IntegrityProof__Signing__NativeV2Enabled=true` 和 `IntegrityProof__Signing__NativeV2PrivateKeyFile` 后，后台任务在现行公开快照和持久 outbox 都可验证时，绑定真实签发时间并追加 P-256/SHA-256 签名。签发要求已发布策略同时开启权利和证明绑定。处于草稿、已替换、已撤回或删除状态的坐标不提供公开证明。定时文章等实际发布后才有签发资格。
+此功能默认关闭。统一的 CLI `plan` 和 `apply` 初始化签发结构。启用时需提供 `FSUSBLOG_PUBLIC_ORIGIN`。设置 `IntegrityProof__Signing__NativeV2Enabled=true` 和 `IntegrityProof__Signing__NativeV2PrivateKeyFile` 后，后台任务在现行公开快照和持久 outbox 都可验证时，绑定真实签发时间并追加 P-256/SHA-256 签名。签发要求已发布策略同时开启权利和证明绑定。处于草稿、已替换、已撤回或删除状态的坐标不提供公开证明。定时文章等实际发布后才有签发资格。
 
 沿用 `IntegrityProof__Signing__CurrentKeyId` 及 `Keys` 公钥目录。每条记录提供正整数 `Version`、DER SPKI 的无填充 Base64URL `PublicKey`、`Algorithm=ECDSA_P256_SHA256` 和显式 UTC `NotBeforeUtc`、`NotAfterUtc`。当前私钥是同一公钥的 DER PKCS#8 文件，路径绝对、无符号链接，由服务 UID 持有，文件 `0400`，直接父目录 `0700`，远离前端目录、数据库和发布包。部署轮换使用新 ID，重启时保留旧 ID、公钥和时间窗口，只注入新私钥。`RevokedAtUtc` 排除该时刻及之后的签发，`CompromisedAtUtc` 排除该密钥的全部记录。旧键坐标和撤销状态在数据库保留，重启时拒绝换绑、删除或取消已记录的撤销。下载过的签名需用当前可信公钥和状态重新验证。
 
@@ -34,11 +34,11 @@
 
 需要核验时，可从受信任的 HTTPS 来源获取公钥目录与当前签名收据，使用上面的独立验证器。部署中的 CDN 和 Service Worker 须直通 `/integrity/v2/`，避免重放旧密钥状态和收据。核验覆盖指定发布的数据，不证明作者身份或版权归属。
 
-`FSUSBLOG_TEST_PUBLICATION_PROOF=1 tests/EndToEnd/run-admin-tls.sh` 使用独立测试库与密钥验证 HTTPS 签名接口，并检查读者页面不显示入口、不主动请求证明。 [验收脚本](../../tests/EndToEnd/publication-proof-flow.mjs)
+`FSUSBLOG_TEST_PUBLICATION_PROOF=1 tests/EndToEnd/run-admin-tls.sh` 使用独立测试库与密钥验证 HTTPS 签名接口。测试在管理域通过管理员 Passkey 发布，从公开域分别使用匿名请求和已登录读者验证证明可见性，并检查读者页面不显示入口、不主动请求证明。 [验收脚本](../../tests/EndToEnd/publication-proof-flow.mjs)
 
 ## 原生签发日志
 
-停止服务后，运行 `publication-transparency enable` 可为尚未签发任何原生证明的库开启本地签发日志。旧库可先运行 `publication-proof schema`。启用后数据库要求所有原生证明绑定准确的日志条目，重复启用为幂等操作。已有原生签名的库拒绝空起点启用，仍可继续提供这些收据。
+停止服务后，运行 `publication-transparency enable` 可为尚未签发任何原生证明的库开启本地签发日志。启用后数据库要求所有原生证明绑定准确的日志条目，重复启用为幂等操作。已有原生签名的库拒绝空起点启用，仍可继续提供这些收据。
 
 启用后，每个准备完成的原生证明及其日志条目在同一 PostgreSQL 事务和写租约内落盘。每条记录使用整型连续序号，绑定上一条摘要及实际签名。收据摘要为 SHA-256，输入为以 NUL 结束的域名 `fsusblog.integrity.native-transparency-receipt.v2`、规范签名载荷的 SHA-256 和 64 字节 P1363 签名。日志摘要的输入为另一个以 NUL 结束的域名 `fsusblog.integrity.native-transparency-entry.v2`、八字节大端序号、前序摘要和收据摘要。第一条的前序摘要为 32 字节零。日志只保存签发坐标和摘要，草稿、正文、账号及责任清单资料留在各自存储中。 [规范代码](../../src/Contracts/PublicationTransparencyV2.cs)
 
@@ -48,7 +48,7 @@
 
 ## 可选公开日志头
 
-新库包含日志头结构。已有日志库可停服运行 `publication-transparency head-schema`。签名和原生签发日志启用后，可通过 `IntegrityProof__Signing__NativeV2PublicHeadAnchor` 开放同源 HTTPS `GET /integrity/v2/log/head.json`。仅在首次启动且日志为空时使用 `genesis`，后续启动使用另行保留的正数序号和摘要 `SEQ:SHA256`。服务会核对锚点到当前日志头的连续摘要，并验证当时产生的原始日志头签名。锚点落后时，包含该锚点和有效签名头的旧备份仍可能回退到锚点之后的较早位置。需要更严格的恢复下限时，另行更新保留的锚点。
+统一的库结构包含日志头所需的表。签名和原生签发日志启用后，可通过 `IntegrityProof__Signing__NativeV2PublicHeadAnchor` 开放同源 HTTPS `GET /integrity/v2/log/head.json`。仅在首次启动且日志为空时使用 `genesis`，后续启动使用另行保留的正数序号和摘要 `SEQ:SHA256`。服务会核对锚点到当前日志头的连续摘要，并验证当时产生的原始日志头签名。锚点落后时，包含该锚点和有效签名头的旧备份仍可能回退到锚点之后的较早位置。需要更严格的恢复下限时，另行更新保留的锚点。
 
 公开日志头只含站点来源、当前累计序号、摘要、证明时间、公钥坐标及该头本身的签名。公开后可观察到累计签发量和签发节奏。文章撤回或删除后，已有的聚合承诺仍保留，响应字段局限于该日志头。默认关闭，启用后日志为空时返回 404，无法验证已提交日志头或已经失去租约时返回 503。关闭公开投影时继续签发会使后续日志没有对应的公开签名，重新启用也不会替这些历史头补签。
 

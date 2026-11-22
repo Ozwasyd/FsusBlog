@@ -95,11 +95,10 @@ if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 || ${FSUSBLOG_TEST_SITE_REFRESH:-0}
   public_san=DNS:localhost
   admin_san=IP:127.0.0.1
 fi
-if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
+if [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 || ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ||
+  ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} == 1 || ${FSUSBLOG_TEST_PUBLICATION_HEAD:-0} == 1 ]]; then
   public_host=localhost
   public_san=DNS:localhost
-fi
-if [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 || ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   admin_host=admin.localhost
   admin_san=DNS:admin.localhost
 fi
@@ -192,7 +191,8 @@ elif [[ ${FSUSBLOG_TEST_SEARCH_PATCH:-0} == 1 ]]; then
 else
   FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator tls-site-fixture)
   if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} != 1 && ${FSUSBLOG_TEST_SITE_REFRESH:-0} != 1 &&
-    ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} != 1 && ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} != 1 ]]; then
+    ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} != 1 && ${FSUSBLOG_TEST_PUBLICATION_HEAD:-0} != 1 &&
+    ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} != 1 ]]; then
     FSUSBLOG_TEST_SITE_SESSION=$(openssl rand -hex 32)
     "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -v site_session="$FSUSBLOG_TEST_SITE_SESSION" > "$evidence/site-session-seed.log" <<'SQL'
 INSERT INTO public.user_session(digest, user_id, generation, expires_at)
@@ -420,6 +420,7 @@ if [[ ${FSUSBLOG_TEST_PUBLICATION_HEAD:-0} == 1 ]]; then
   export FSUSBLOG_TEST_PUBLICATION_PROOF=1 IntegrityProof__Signing__NativeV2PublicHeadAnchor=genesis
 fi
 if [[ ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} == 1 ]]; then
+  export FSUSBLOG_ARTICLE_READ_PROOF=false
   mkdir -m 700 "$scratch/publication-proof"
   proof_key=$(cd -- "$scratch/publication-proof" && pwd -P)/fixture.pkcs8
   openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 -pkeyopt ec_param_enc:named_curve |
