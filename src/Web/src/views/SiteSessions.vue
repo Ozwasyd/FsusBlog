@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { t } from '../siteLocale'
-import { onUnmounted, ref, shallowRef, watch } from 'vue'
+import { siteLocale, t } from '../siteLocale'
+import { computed, onUnmounted, ref, shallowRef, watch } from 'vue'
 import {
   ElAlert,
   ElButton,
@@ -9,12 +9,12 @@ import {
   ElMetadataRow,
   ElResourceList,
   ElResourceListItem,
-  ElSettingsSection,
   ElSkeleton,
   ElTag,
 } from '@ozwasyd/element-plus'
 import { listSiteSessions, revokeSiteSessions, type SessionList } from '../../../Contracts/site-sessions'
 import { ApiError } from '../../../Contracts/client'
+import SecuritySectionCard from '../components/SecuritySectionCard.vue'
 import { currentSession, identityEpoch } from '../session'
 import { useDelayedBusy } from '../delayedBusy'
 
@@ -23,6 +23,8 @@ const error = ref('')
 const busy = ref(false)
 const actionKind = ref<'load' | 'revoke' | null>(null)
 const refreshLoading = useDelayedBusy(() => busy.value && actionKind.value === 'load')
+const showSkeleton = useDelayedBusy(() => busy.value && !list.value)
+const dateTime = computed(() => new Intl.DateTimeFormat(siteLocale.value, { dateStyle: 'medium', timeStyle: 'short' }))
 let operation: AbortController | undefined
 
 onUnmounted(() => operation?.abort())
@@ -78,24 +80,22 @@ async function run(kind: 'load' | 'revoke', action: (id: string, signal: AbortSi
 </script>
 
 <template>
-  <ElSettingsSection
+  <SecuritySectionCard
     v-if="currentSession?.siteSessionId"
-    class="site-sessions"
-    ariaLabelledby="active-sessions-heading"
-    :description="list?.hasMore ? t('account.message68') : undefined"
-    density="compact"
+    heading-id="active-sessions-heading"
+    :title="t('account.message67')"
+    :description="list?.hasMore ? t('account.message68') : t('account.sessionsSummary')"
+    :flush="!error && !showSkeleton"
+    :has-body="Boolean(error || showSkeleton || list)"
   >
-    <template #title>
-      <span id="active-sessions-heading">{{ t('account.message67') }}</span>
-    </template>
     <template #actions>
       <ElInlineActions density="compact">
         <ElButton native-type="button" text :loading="refreshLoading" @click="load">{{ t('account.message74') }}</ElButton>
         <ElButton
           v-if="list && list.sessions.length > 1"
           native-type="button"
+          text
           type="danger"
-          plain
           :disabled="busy"
           @click="revoke()"
         >{{ t('account.message75') }}</ElButton>
@@ -103,17 +103,16 @@ async function run(kind: 'load' | 'revoke', action: (id: string, signal: AbortSi
     </template>
 
     <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon />
-    <ElSkeleton v-else-if="busy && !list" :rows="2" animated />
+    <ElSkeleton v-else-if="showSkeleton" :rows="2" animated />
 
-    <ElResourceList v-else-if="list" density="compact">
+    <ElResourceList v-else-if="list" divided>
       <ElResourceListItem
         v-for="item in list.sessions"
         :key="item.id"
         :title="item.current ? t('account.message69') : t('account.message70')"
-        density="compact"
       >
         <template v-if="item.current" #badge>
-          <ElTag size="small" type="success">{{ t('account.sessionCurrentBadge') }}</ElTag>
+          <ElTag size="small" type="success" disable-transitions>{{ t('account.sessionCurrentBadge') }}</ElTag>
         </template>
         <template v-if="!item.current" #actions>
           <ElButton native-type="button" text type="danger" :disabled="busy" @click="revoke(item.id)">
@@ -127,16 +126,10 @@ async function run(kind: 'load' | 'revoke', action: (id: string, signal: AbortSi
             :value="item.method === 'ticket' ? t('account.message71') : item.mfa ? t('account.message72') : t('account.message29')"
           />
           <ElMetadataItem :label="t('account.sessionExpiresLabel')">
-            <time :datetime="new Date(item.expiresAt).toISOString()">{{ new Date(item.expiresAt).toLocaleString() }}</time>
+            <time :datetime="new Date(item.expiresAt).toISOString()">{{ dateTime.format(new Date(item.expiresAt)) }}</time>
           </ElMetadataItem>
         </ElMetadataRow>
       </ElResourceListItem>
     </ElResourceList>
-  </ElSettingsSection>
+  </SecuritySectionCard>
 </template>
-
-<style scoped>
-.site-sessions {
-  min-width: 0;
-}
-</style>

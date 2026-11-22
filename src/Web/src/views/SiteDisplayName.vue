@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
-import { ElAlert, ElButton, ElInput, ElSettingsSection, ElSkeleton } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElInput, ElSkeleton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { readSiteDisplayName, updateSiteDisplayName, validSiteDisplayName } from '../../../Contracts/site-display-name'
 import { WireLimits } from '../../../Contracts/wire.generated'
+import SecuritySectionCard from '../components/SecuritySectionCard.vue'
 import { useDelayedBusy } from '../delayedBusy'
 import { currentSession, identityEpoch } from '../session'
 import { t, type MessageKey } from '../siteLocale'
@@ -106,17 +107,13 @@ watch(identityEpoch, () => {
 </script>
 
 <template>
-  <ElSettingsSection
+  <SecuritySectionCard
     v-if="currentSession?.siteSessionId"
-    class="site-display-name"
-    ariaLabelledby="site-display-name-heading"
+    heading-id="site-display-name-heading"
+    :title="t('account.displayNameTitle')"
     :description="t('account.displayNameSummary')"
-    density="compact"
+    :has-body="Boolean(failure || notice || showSkeleton || savedName !== null)"
   >
-    <template #title>
-      <span id="site-display-name-heading">{{ t('account.displayNameTitle') }}</span>
-    </template>
-
     <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
     <p v-if="notice" class="display-name-notice" role="status">{{ t(notice) }}</p>
 
@@ -134,6 +131,7 @@ watch(identityEpoch, () => {
             v-bind="{
               maxlength: WireLimits.SiteDisplayNameChars,
               autocomplete: 'nickname',
+              enterkeyhint: 'done',
               'aria-describedby': 'site-display-name-hint',
               'aria-invalid': showValidation ? 'true' : undefined,
             }"
@@ -152,17 +150,19 @@ watch(identityEpoch, () => {
         </p>
       </div>
     </form>
-  </ElSettingsSection>
+  </SecuritySectionCard>
 </template>
 
 <style scoped>
-.site-display-name {
-  min-width: 0;
-}
 .display-name-notice {
   margin: 0;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--el-color-success) 26%, var(--el-border-color-lighter));
+  border-radius: var(--fsus-radius-control, 6px);
+  background: color-mix(in srgb, var(--el-color-success) 7%, var(--el-bg-color));
   color: var(--el-color-success);
   font-size: var(--el-font-size-small);
+  line-height: 1.5;
 }
 .display-name-form {
   display: grid;
@@ -181,7 +181,7 @@ watch(identityEpoch, () => {
 .display-name-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: safe center;
   gap: var(--fsus-space-2);
 }
 .display-name-hint,

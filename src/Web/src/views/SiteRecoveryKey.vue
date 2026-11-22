@@ -5,15 +5,14 @@ import {
   ElAlert,
   ElButton,
   ElCopyableDetail,
-  ElDestructiveActionPanel,
   ElInlineActions,
   ElInput,
   ElRiskNotice,
-  ElSettingsSection,
   ElTag,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { issueSiteRecoveryKey, removeCurrentSitePasskey, siteRecoveryAvailable, siteRecoveryStatus, validSiteRecoveryKey } from '../../../Contracts/recovery-key'
+import SecuritySectionCard from '../components/SecuritySectionCard.vue'
 import { credentialEpoch, currentSession, identityEpoch, refreshSession } from '../session'
 import { announceSiteAuthChange, readSiteAuthority, withSiteAuthMutation } from '../site-refresh-coordination'
 
@@ -147,40 +146,37 @@ function issue() {
 </script>
 
 <template>
-  <ElSettingsSection
+  <SecuritySectionCard
     v-if="available && currentSession"
-    class="site-recovery-key"
-    ariaLabelledby="site-recovery-key-heading"
-    :description="t('account.message55')"
-    density="compact"
+    heading-id="site-recovery-key-heading"
+    :title="t('account.message54')"
+    :description="active ? t('account.recoveryActiveSummary') : t('account.message55')"
+    :has-body="Boolean(failure || issued || (active && currentSession.siteSessionId))"
   >
-    <template #title>
-      <span id="site-recovery-key-heading">{{ t('account.message54') }}</span>
+    <template v-if="active !== null" #badge>
+      <ElTag size="small" :type="active ? 'success' : 'info'" disable-transitions>
+        {{ t(active ? 'account.recoveryActiveTag' : 'account.recoveryUnsetTag') }}
+      </ElTag>
     </template>
-    <template #actions>
-      <ElInlineActions class="recovery-header-actions" density="compact">
-        <ElTag v-if="active !== null" size="small" :type="active ? 'success' : 'info'">
-          {{ t(active ? 'account.recoveryActiveTag' : 'account.recoveryUnsetTag') }}
-        </ElTag>
-        <ElButton
-          v-if="active !== null && !issued && !removing"
-          type="primary"
-          native-type="button"
-          :loading="busy"
-          @click="issue"
-        >{{ active ? t('account.message61') : t('account.message62') }}</ElButton>
-        <ElButton
-          v-else-if="active === null && failure"
-          native-type="button"
-          :loading="busy"
-          @click="refresh"
-        >{{ t('account.message63') }}</ElButton>
-      </ElInlineActions>
+
+    <template v-if="(active !== null && !issued && !removing) || (active === null && failure)" #actions>
+      <ElButton
+        v-if="active !== null && !issued && !removing"
+        native-type="button"
+        :loading="busy"
+        @click="issue"
+      >{{ active ? t('account.message61') : t('account.message62') }}</ElButton>
+      <ElButton
+        v-else-if="active === null && failure"
+        native-type="button"
+        :loading="busy"
+        @click="refresh"
+      >{{ t('account.message63') }}</ElButton>
     </template>
 
     <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
 
-    <div v-if="issued" class="recovery-key-receipt" aria-live="polite">
+    <div v-if="issued" class="recovery-subpanel" aria-live="polite">
       <ElRiskNotice type="warning">{{ t('account.message56') }}</ElRiskNotice>
       <ElCopyableDetail :value="issued">
         <span data-testid="site-recovery-key">{{ issued }}</span>
@@ -190,74 +186,98 @@ function issue() {
       </ElInlineActions>
     </div>
 
-    <template v-else-if="active">
-      <p class="recovery-hint">{{ t('account.message60') }}</p>
+    <div v-else-if="active && currentSession.siteSessionId" class="recovery-action-block">
+      <div class="recovery-subpanel-row">
+        <div class="recovery-subpanel-head">
+          <h3 id="recovery-remove-heading" class="recovery-subpanel-title">{{ t('account.recoveryRemoveTitle') }}</h3>
+          <p class="recovery-subpanel-copy">{{ t('account.message58') }}</p>
+        </div>
+        <ElButton
+          v-if="!removing"
+          native-type="button"
+          type="danger"
+          plain
+          :disabled="busy"
+          @click="removing = true"
+        >{{ t('account.message43') }}</ElButton>
+      </div>
 
-      <ElDestructiveActionPanel
-        v-if="currentSession.siteSessionId"
-        :title="t('account.message43')"
-        :description="t('account.message58')"
-        density="compact"
-      >
-        <template v-if="!removing" #actions>
-          <ElButton native-type="button" type="danger" plain :disabled="busy" @click="removing = true">
-            {{ t('account.message43') }}
-          </ElButton>
-        </template>
-
-        <form v-if="removing" class="recovery-remove-form" @submit.prevent="removeCurrent">
-          <div class="recovery-field">
-            <label for="site-passkey-removal-key">{{ t('account.message59') }}</label>
-            <ElInput
-              id="site-passkey-removal-key"
-              v-model="removalKey"
-              type="password"
-              autocomplete="off"
-              v-bind="{ autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false' }"
-              :disabled="busy"
-            />
-          </div>
-          <ElInlineActions class="recovery-inline-start" density="compact">
-            <ElButton
-              native-type="submit"
-              type="danger"
-              :loading="busy"
-              :disabled="busy || !validSiteRecoveryKey(removalKey.trim())"
-            >{{ t('account.message41') }}</ElButton>
-            <ElButton native-type="button" :disabled="busy" @click="closeRemoval">{{ t('account.message39') }}</ElButton>
-          </ElInlineActions>
-        </form>
-      </ElDestructiveActionPanel>
-    </template>
-  </ElSettingsSection>
+      <form v-if="removing" class="recovery-remove-form" aria-labelledby="recovery-remove-heading" @submit.prevent="removeCurrent">
+        <div class="recovery-field">
+          <label for="site-passkey-removal-key">{{ t('account.message59') }}</label>
+          <ElInput
+            id="site-passkey-removal-key"
+            v-model="removalKey"
+            type="password"
+            autocomplete="off"
+            v-bind="{ autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false', enterkeyhint: 'done' }"
+            :disabled="busy"
+          />
+        </div>
+        <ElInlineActions class="recovery-inline-start" density="compact">
+          <ElButton
+            native-type="submit"
+            type="danger"
+            :loading="busy"
+            :disabled="busy || !validSiteRecoveryKey(removalKey.trim())"
+          >{{ t('account.message41') }}</ElButton>
+          <ElButton native-type="button" :disabled="busy" @click="closeRemoval">{{ t('account.message39') }}</ElButton>
+        </ElInlineActions>
+      </form>
+    </div>
+  </SecuritySectionCard>
 </template>
 
 <style scoped>
-.site-recovery-key {
-  min-width: 0;
+.recovery-subpanel {
+  display: grid;
+  gap: var(--fsus-space-3);
+  padding: var(--fsus-space-3) var(--fsus-space-4);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-control, 8px);
+  background: var(--el-bg-color-page);
+  min-inline-size: 0;
 }
 
-.recovery-hint {
+.recovery-action-block {
+  display: grid;
+  gap: var(--fsus-space-3);
+  min-inline-size: 0;
+}
+
+.recovery-subpanel-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--fsus-space-3);
+  align-items: safe center;
+  min-inline-size: 0;
+}
+
+.recovery-subpanel-head {
+  display: grid;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.recovery-subpanel-title {
+  margin: 0;
+  font-size: var(--el-font-size-base);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--el-text-color-primary);
+}
+
+.recovery-subpanel-copy {
   margin: 0;
   font-size: var(--el-font-size-small);
-  line-height: 1.6;
+  line-height: 1.55;
   color: var(--el-text-color-secondary);
-}
-
-.recovery-key-receipt {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 10px);
-  background: var(--el-bg-color);
 }
 
 .recovery-remove-form {
   display: grid;
-  gap: 10px;
-  margin-block-start: 10px;
-  max-inline-size: 26rem;
+  gap: var(--fsus-space-3);
+  max-inline-size: 28rem;
 }
 
 .recovery-field {
@@ -277,7 +297,10 @@ function issue() {
   justify-content: flex-start;
 }
 
-.recovery-header-actions {
-  align-items: center;
+@media (max-width: 639px) {
+  .recovery-subpanel-row {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
 }
 </style>

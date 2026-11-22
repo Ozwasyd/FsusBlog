@@ -6,13 +6,10 @@ import {
   ElAlert,
   ElButton,
   ElCopyableDetail,
-  ElDangerZone,
   ElEmptyState,
-  ElFormSection,
   ElInlineActions,
   ElInput,
   ElRiskNotice,
-  ElSettingsSection,
   ElTag,
   ElTaskPageHeader,
 } from '@ozwasyd/element-plus'
@@ -21,6 +18,7 @@ import { ApiError } from '../../../Contracts/client'
 import { proveMfaSetup } from '../../../Contracts/passkey'
 import { currentSession, identityEpoch, refreshSession } from '../session'
 import { announceSiteAuthChange, readSiteAuthority, withSiteAuthMutation } from '../site-refresh-coordination'
+import SecuritySectionCard from '../components/SecuritySectionCard.vue'
 import SiteDisplayName from './SiteDisplayName.vue'
 import SitePasskeys from './SitePasskeys.vue'
 import SiteRecoveryKey from './SiteRecoveryKey.vue'
@@ -195,46 +193,53 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
       density="compact"
     />
 
-    <ElEmptyState v-if="!currentSession" size="compact" :title="t('account.message1')">
-      <p class="security-signed-out">
-        <RouterLink to="/login">{{ t('account.message2') }}</RouterLink> {{ t('account.message3') }}
-      </p>
-    </ElEmptyState>
+    <div v-if="!currentSession" class="security-empty-surface">
+      <ElEmptyState size="compact" :title="t('account.message113')">
+        <p class="security-signed-out">
+          <RouterLink class="security-login-link" to="/login">{{ t('account.message2') }}</RouterLink>
+          {{ ' ' }}{{ t('account.message3') }}
+        </p>
+      </ElEmptyState>
+    </div>
 
     <div v-else class="account-security-sections">
       <SiteDisplayName />
-      <ElSettingsSection
-        ariaLabelledby="account-mfa-heading"
-        :description="profile?.verifiedAt ? t('account.message5') : undefined"
-        density="compact"
+
+      <SecuritySectionCard
+        heading-id="account-mfa-heading"
+        :title="t('account.mfaSection')"
+        :description="profile?.verifiedAt ? t('account.message5') : profile ? t('account.mfaDisabledSummary') : undefined"
+        :has-body="Boolean(error || profile?.verifiedAt || setup || (!profile && !error))"
       >
-        <template #title>
-          <span id="account-mfa-heading">{{ t('account.mfaSection') }}</span>
+        <template #badge>
+          <ElTag v-if="profile?.verifiedAt" size="small" type="success" disable-transitions>
+            {{ t('account.mfaEnabledTag') }}
+          </ElTag>
+          <ElTag v-else-if="profile" size="small" type="info" disable-transitions>
+            {{ t('account.mfaDisabledTag') }}
+          </ElTag>
         </template>
-        <template #actions>
-          <ElInlineActions class="security-header-actions" density="compact">
-            <ElTag v-if="profile?.verifiedAt" size="small" type="success">{{ t('account.mfaEnabledTag') }}</ElTag>
-            <ElButton
-              v-if="profile?.verifiedAt && !regenerateOpen && !regenerated.length"
-              native-type="button"
-              :disabled="busy"
-              @click="regenerateOpen = true"
-            >{{ t('account.message9') }}</ElButton>
-            <ElButton
-              v-else-if="profile && !profile.verifiedAt && !setup"
-              native-type="button"
-              type="primary"
-              :loading="busy"
-              @click="start"
-            >{{ t('account.message20') }}</ElButton>
-          </ElInlineActions>
+
+        <template v-if="(profile?.verifiedAt && !regenerateOpen && !regenerated.length) || (profile && !profile.verifiedAt && !setup)" #actions>
+          <ElButton
+            v-if="profile?.verifiedAt && !regenerateOpen && !regenerated.length"
+            native-type="button"
+            :disabled="busy"
+            @click="regenerateOpen = true"
+          >{{ t('account.message9') }}</ElButton>
+          <ElButton
+            v-else-if="profile && !profile.verifiedAt && !setup"
+            native-type="button"
+            :loading="busy"
+            @click="start"
+          >{{ t('account.message20') }}</ElButton>
         </template>
 
         <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon />
 
         <template v-if="profile?.verifiedAt">
-          <div v-if="recovery.length || regenerated.length" class="security-receipt" aria-live="polite">
-            <h3 class="security-receipt-title">{{ t('account.message6') }}</h3>
+          <div v-if="recovery.length || regenerated.length" class="security-subpanel" aria-live="polite">
+            <h3 class="security-subpanel-title">{{ t('account.message6') }}</h3>
             <ElRiskNotice type="warning">{{ t('account.message7') }}</ElRiskNotice>
             <ul class="recovery-code-grid" role="list">
               <li v-for="item in regenerated.length ? regenerated : recovery" :key="item"><code>{{ item }}</code></li>
@@ -244,7 +249,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
             </ElInlineActions>
           </div>
 
-          <ElFormSection v-if="regenerateOpen" density="compact">
+          <div v-if="regenerateOpen" class="security-subpanel">
             <ElRiskNotice type="warning">{{ t('account.message10') }}</ElRiskNotice>
             <form class="security-form" @submit.prevent="regenerate">
               <div class="security-field">
@@ -254,7 +259,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
                   v-model="regenerateCode"
                   type="password"
                   autocomplete="one-time-code"
-                  v-bind="{ autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false' }"
+                  v-bind="{ autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false', enterkeyhint: 'done' }"
                   :disabled="busy"
                 />
               </div>
@@ -267,30 +272,40 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
                 </ElButton>
               </ElInlineActions>
             </form>
-          </ElFormSection>
+          </div>
 
-          <ElDangerZone :title="t('account.mfaDangerTitle')" title-tag="h3" density="compact">
-            <form class="security-form" @submit.prevent="disable">
+          <div class="security-disable-block">
+            <div class="security-subpanel-head">
+              <h3 id="disable-mfa-heading" class="security-subpanel-title">{{ t('account.mfaDangerTitle') }}</h3>
+              <p id="disable-mfa-hint" class="security-subpanel-copy">{{ t('account.mfaDisableSummary') }}</p>
+            </div>
+            <form class="security-inline-form" aria-labelledby="disable-mfa-heading" @submit.prevent="disable">
               <div class="security-field">
                 <label for="disable-mfa-code">{{ t('account.message14') }}</label>
-                <ElInput
-                  id="disable-mfa-code"
-                  v-model="code"
-                  autocomplete="one-time-code"
-                  v-bind="{ autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false' }"
-                  :disabled="busy"
-                />
+                <div class="security-inline-row">
+                  <ElInput
+                    id="disable-mfa-code"
+                    v-model="code"
+                    autocomplete="one-time-code"
+                    v-bind="{
+                      autocorrect: 'off',
+                      autocapitalize: 'none',
+                      spellcheck: 'false',
+                      enterkeyhint: 'done',
+                      'aria-describedby': 'disable-mfa-hint',
+                    }"
+                    :disabled="busy"
+                  />
+                  <ElButton native-type="submit" type="danger" plain :loading="busy" :disabled="!validMfaFactor(code)">
+                    {{ t('account.message15') }}
+                  </ElButton>
+                </div>
               </div>
-              <ElInlineActions class="security-inline-start" density="compact">
-                <ElButton native-type="submit" type="danger" plain :loading="busy" :disabled="!validMfaFactor(code)">
-                  {{ t('account.message15') }}
-                </ElButton>
-              </ElInlineActions>
             </form>
-          </ElDangerZone>
+          </div>
         </template>
 
-        <ElFormSection v-else-if="setup" density="compact">
+        <div v-else-if="setup" class="security-subpanel">
           <p class="security-hint">{{ t('account.message16') }}</p>
           <ElCopyableDetail :value="setup.seed">
             <span data-testid="mfa-seed">{{ setup.seed }}</span>
@@ -302,7 +317,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
                 id="setup-mfa-code"
                 v-model="code"
                 autocomplete="one-time-code"
-                v-bind="{ inputmode: 'numeric', autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false' }"
+                v-bind="{ inputmode: 'numeric', autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false', enterkeyhint: 'done' }"
                 :disabled="busy"
               />
             </div>
@@ -315,10 +330,10 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
               </ElButton>
             </ElInlineActions>
           </form>
-        </ElFormSection>
+        </div>
 
         <p v-else-if="!profile && !error" class="security-muted">{{ t('account.message21') }}</p>
-      </ElSettingsSection>
+      </SecuritySectionCard>
 
       <SitePasskeys />
       <SiteRecoveryKey />
@@ -330,46 +345,90 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
 <style scoped>
 .account-security {
   display: grid;
-  gap: var(--fsus-space-5);
-  min-width: 0;
+  align-content: start;
+  gap: var(--fsus-space-4);
+  min-inline-size: 0;
 }
 
 .account-security-sections {
   display: grid;
-  gap: var(--fsus-space-5);
-  min-width: 0;
+  gap: var(--fsus-space-4);
+  min-inline-size: 0;
+}
+
+.security-empty-surface {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-panel, 12px);
+  background: var(--el-bg-color);
+  padding: var(--fsus-space-5);
 }
 
 .security-signed-out,
 .security-hint,
 .security-muted {
   margin: 0;
-  font-size: var(--el-font-size-base);
+  font-size: var(--el-font-size-small);
   line-height: 1.6;
   color: var(--el-text-color-secondary);
 }
 
-.security-receipt {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 10px);
-  background: var(--el-bg-color);
+.security-login-link {
+  color: var(--fsus-scholarly-blue);
+  font-weight: 500;
+  text-decoration: none;
 }
 
-.security-receipt-title {
+.security-login-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.security-subpanel {
+  display: grid;
+  gap: var(--fsus-space-3);
+  padding: var(--fsus-space-3) var(--fsus-space-4);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-control, 8px);
+  background: var(--el-bg-color-page);
+  min-inline-size: 0;
+}
+
+.security-disable-block {
+  display: grid;
+  gap: var(--fsus-space-3);
+  min-inline-size: 0;
+}
+
+.security-subpanel + .security-disable-block {
+  padding-block-start: var(--fsus-space-3);
+  border-block-start: 1px solid var(--el-border-color-lighter);
+}
+
+.security-subpanel-head {
+  display: grid;
+  gap: 2px;
+  min-inline-size: 0;
+}
+
+.security-subpanel-title {
   margin: 0;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--el-font-size-base);
+  font-weight: 600;
   line-height: 1.4;
   color: var(--el-text-color-primary);
 }
 
+.security-subpanel-copy {
+  margin: 0;
+  font-size: var(--el-font-size-small);
+  line-height: 1.55;
+  color: var(--el-text-color-secondary);
+}
+
 .recovery-code-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--fsus-space-2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -379,7 +438,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
   padding: 8px 10px;
   border: 1px solid var(--el-border-color-lighter);
   border-radius: var(--fsus-radius-control, 6px);
-  background: var(--el-fill-color-lighter);
+  background: var(--el-bg-color);
   font-family: var(--el-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: var(--el-font-size-small);
   font-variant-numeric: tabular-nums;
@@ -389,8 +448,14 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
 
 .security-form {
   display: grid;
-  gap: 12px;
-  max-inline-size: 26rem;
+  gap: var(--fsus-space-3);
+  max-inline-size: 28rem;
+}
+
+.security-inline-form {
+  display: grid;
+  gap: var(--fsus-space-2);
+  max-inline-size: 32rem;
 }
 
 .security-field {
@@ -406,11 +471,20 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
   line-height: 1.4;
 }
 
+.security-inline-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: safe center;
+  gap: var(--fsus-space-2);
+}
+
 .security-inline-start {
   justify-content: flex-start;
 }
 
-.security-header-actions {
-  align-items: center;
+@media (max-width: 30rem) {
+  .security-inline-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

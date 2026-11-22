@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { t } from '../siteLocale'
+import { siteLocale, t } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import {
   ElAlert,
@@ -11,7 +11,6 @@ import {
   ElResourceList,
   ElResourceListItem,
   ElRiskNotice,
-  ElSettingsSection,
   ElTag,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
@@ -19,6 +18,7 @@ import { enrollSitePasskey } from '../../../Contracts/passkey'
 import { removeSitePasskey, renameSitePasskey, sitePasskeyManagement } from '../../../Contracts/site-passkey-names'
 import { sitePasskeys, type SitePasskey } from '../../../Contracts/site-passkeys'
 import { WireLimits } from '../../../Contracts/wire.generated'
+import SecuritySectionCard from '../components/SecuritySectionCard.vue'
 import { currentSession, identityEpoch, refreshSession } from '../session'
 import { announceSiteAuthChange, readSiteAuthority, withSiteAuthMutation } from '../site-refresh-coordination'
 
@@ -40,6 +40,7 @@ const canAddPasskey = computed(() => {
   return !!entries?.[0]?.reference && entries.length < WireLimits.SitePasskeyListSize
 })
 const sessionId = computed(() => currentSession.value?.siteSessionId)
+const dateTime = computed(() => new Intl.DateTimeFormat(siteLocale.value, { dateStyle: 'medium', timeStyle: 'short' }))
 let request: AbortController | undefined
 let active = false
 
@@ -102,7 +103,7 @@ function openEdit(item: PasskeyEntry, action: Edit['action']) {
   const target = { reference: item.reference, revision: item.revision }
   if (action === 'remove') {
     if ((passkeys.value?.length ?? 0) < 2) return
-    edit.value = { ...target, action, current: item.current, label: item.name || t('account.passkeyCreated', { date: item.createdAt.toLocaleString() }) }
+    edit.value = { ...target, action, current: item.current, label: item.name || t('account.passkeyCreated', { date: dateTime.value.format(item.createdAt) }) }
   } else {
     edit.value = { ...target, action }
     name.value = item.name ?? ''
@@ -215,27 +216,27 @@ async function run(change?: Change | 'enroll') {
 </script>
 
 <template>
-  <ElSettingsSection
+  <SecuritySectionCard
     v-if="passkeys || failed"
-    class="site-passkeys"
-    ariaLabelledby="site-passkeys-heading"
-    density="compact"
+    heading-id="site-passkeys-heading"
+    :title="t('account.message25')"
+    :description="t('account.passkeySummary')"
+    :flush="!failed"
+    :has-body="Boolean(notice || failed || passkeys?.length)"
+    landmark
   >
-    <template #title>
-      <span id="site-passkeys-heading">{{ t('account.message25') }}</span>
-    </template>
-    <template #actions>
+    <template v-if="canAddPasskey" #actions>
       <ElButton
-        v-if="canAddPasskey"
         native-type="button"
-        type="primary"
         :loading="adding"
         :disabled="busy || !!edit"
         @click="addPasskey"
       >{{ t('account.message26') }}</ElButton>
     </template>
 
-    <p v-if="notice" class="passkey-notice" role="status">{{ notice }}</p>
+    <div v-if="notice" :class="{ 'passkey-flush-banner': !failed }">
+      <p class="passkey-notice" role="status">{{ notice }}</p>
+    </div>
 
     <template v-if="failed">
       <ElAlert :title="failed" type="error" :closable="false" show-icon />
@@ -244,15 +245,14 @@ async function run(change?: Change | 'enroll') {
       </ElInlineActions>
     </template>
 
-    <ElResourceList v-else density="compact">
+    <ElResourceList v-else divided>
       <ElResourceListItem
         v-for="(item, index) in passkeys"
         :key="item.reference ?? index"
         :title="item.name || (item.current ? t('account.message28') : t('account.message29'))"
-        density="compact"
       >
         <template v-if="item.name && item.current" #badge>
-          <ElTag size="small" type="success">{{ t('account.message28') }}</ElTag>
+          <ElTag size="small" type="success" disable-transitions>{{ t('account.message28') }}</ElTag>
         </template>
 
         <template v-if="item.reference && edit?.reference !== item.reference" #actions>
@@ -273,10 +273,10 @@ async function run(change?: Change | 'enroll') {
 
         <ElMetadataRow density="compact">
           <ElMetadataItem :label="t('account.message30')">
-            <time :datetime="item.createdAt.toISOString()">{{ item.createdAt.toLocaleString() }}</time>
+            <time :datetime="item.createdAt.toISOString()">{{ dateTime.format(item.createdAt) }}</time>
           </ElMetadataItem>
           <ElMetadataItem :label="t('account.message31')">
-            <time v-if="item.lastUsedAt" :datetime="item.lastUsedAt.toISOString()">{{ item.lastUsedAt.toLocaleString() }}</time>
+            <time v-if="item.lastUsedAt" :datetime="item.lastUsedAt.toISOString()">{{ dateTime.format(item.lastUsedAt) }}</time>
             <span v-else>{{ t('account.message32') }}</span>
           </ElMetadataItem>
           <ElMetadataItem
@@ -299,7 +299,7 @@ async function run(change?: Change | 'enroll') {
             <ElInput
               id="site-passkey-name"
               v-model="name"
-              v-bind="{ maxlength: WireLimits.SitePasskeyNameChars }"
+              v-bind="{ maxlength: WireLimits.SitePasskeyNameChars, enterkeyhint: 'done' }"
               autocomplete="off"
               autofocus
               :disabled="busy"
@@ -334,27 +334,34 @@ async function run(change?: Change | 'enroll') {
         </form>
       </ElResourceListItem>
     </ElResourceList>
-  </ElSettingsSection>
+  </SecuritySectionCard>
 </template>
 
 <style scoped>
-.site-passkeys {
-  min-width: 0;
+.passkey-flush-banner {
+  padding: var(--fsus-space-3) 14px 0;
 }
 
 .passkey-notice {
   margin: 0;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--el-color-success) 26%, var(--el-border-color-lighter));
+  border-radius: var(--fsus-radius-control, 6px);
+  background: color-mix(in srgb, var(--el-color-success) 7%, var(--el-bg-color));
   font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
+  line-height: 1.5;
+  color: var(--el-color-success);
 }
 
 .passkey-inline-form {
   display: grid;
-  gap: 10px;
-  margin-block-start: 10px;
-  padding-block-start: 10px;
-  border-block-start: 1px solid var(--el-border-color-lighter);
-  max-inline-size: 26rem;
+  gap: var(--fsus-space-3);
+  margin-block-start: var(--fsus-space-3);
+  padding: var(--fsus-space-3);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-control, 8px);
+  background: var(--el-bg-color-page);
+  max-inline-size: 28rem;
 }
 
 .passkey-field {
@@ -372,7 +379,7 @@ async function run(change?: Change | 'enroll') {
 
 .passkey-remove-title {
   margin: 0;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--el-text-color-primary);
   overflow-wrap: anywhere;
 }
