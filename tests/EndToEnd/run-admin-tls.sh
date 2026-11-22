@@ -95,7 +95,11 @@ if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 || ${FSUSBLOG_TEST_SITE_REFRESH:-0}
   public_san=DNS:localhost
   admin_san=IP:127.0.0.1
 fi
-if [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
+if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
+  public_host=localhost
+  public_san=DNS:localhost
+fi
+if [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 || ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   admin_host=admin.localhost
   admin_san=DNS:admin.localhost
 fi
@@ -244,12 +248,6 @@ export FSUSBLOG_TEST_ADMIN_REVOKE="$scratch/revoke-admin"
 write_fixture "$FSUSBLOG_TEST_ADMIN_REVOKE" <<'EOF'
 "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_CLI" admin-identity revoke-all tls-admin-fixture
 EOF
-permission_fixture() {
-  local path=$1 action=$2 capability=$3
-  write_fixture "$path" <<EOF
-"\$FSUSBLOG_TEST_TLS_DOTNET" "\$FSUSBLOG_TEST_TLS_CLI" admin-identity $action tls-admin-fixture $capability
-EOF
-}
 if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 ]]; then
   export FSUSBLOG_RECOVERY_KEY_PEPPER_HEX="$(openssl rand -hex 32)" FSUSBLOG_TOTP_KEY_HEX="$(openssl rand -hex 32)"
   FSUSBLOG_TEST_SITE_RECOVERY_PEER_TICKET=$("$dotnet" "$migrate" operator tls-site-recovery-peer)
@@ -384,8 +382,6 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_TAXONOMY:-0} == 1 ]]; then
   if [[ ${FSUSBLOG_TEST_ADMIN_TAG_METADATA:-0} == 1 ]]; then export FSUSBLOG_ADMIN_TAG_METADATA=true; fi
   if [[ ${FSUSBLOG_TEST_ADMIN_CATEGORY_METADATA:-0} == 1 ]]; then export FSUSBLOG_ADMIN_CATEGORY_METADATA=true; fi
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
-  unset FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE \
-    FSUSBLOG_TEST_ADMIN_MODERATOR_SEED FSUSBLOG_TEST_ADMIN_MODERATOR_BODY
   export FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED="$scratch/seed-taxonomy"
   export FSUSBLOG_TEST_ADMIN_TAXONOMY_DATABASE="$database"
   write_fixture "$FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED" <<'EOF'
@@ -395,16 +391,12 @@ exec "${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}psql" -X -w -v ON_ERROR_STOP=1 -d "$FSUSB
 EOF
 elif [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
-  export FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true
+  export FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true FSUSBLOG_ADMIN_COMMENT_BATCH=false FSUSBLOG_ARTICLE_READ_PROOF=false
   FSUSBLOG_TEST_ADMIN_MODERATOR_SITE_TICKET=$("$dotnet" "$migrate" operator tls-moderation-fixture)
-  export FSUSBLOG_TEST_ADMIN_MODERATOR_SITE_TICKET
+  FSUSBLOG_TEST_MODERATION_PUBLISHER=$("$dotnet" "$migrate" admin-identity bootstrap tls-moderation-publisher)
+  export FSUSBLOG_TEST_ADMIN_MODERATOR_SITE_TICKET FSUSBLOG_TEST_MODERATION_PUBLISHER
   export FSUSBLOG_TEST_ADMIN_MODERATOR_DATABASE="$database"
-  export FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT="$scratch/grant-comment-moderate"
-  export FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE="$scratch/revoke-comment-moderate"
-  export FSUSBLOG_TEST_ADMIN_MODERATOR_SEED="$scratch/create-pending-comment"
   export FSUSBLOG_TEST_ADMIN_MODERATOR_BODY='Moderation fixture <strong data-moderation-fixture="1">literal</strong>'
-  permission_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT" grant comment.moderate
-  permission_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE" revoke comment.moderate
   if [[ ${FSUSBLOG_TEST_ADMIN_COMMENT_BATCH:-0} == 1 ]]; then
     export FSUSBLOG_ADMIN_COMMENT_BATCH=true
   fi
@@ -414,26 +406,13 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
     if [[ $comment_edit == 1 || $comment_report == 1 ]]; then reply_operator+=(--reader); fi
     FSUSBLOG_TEST_REPLY_AUTHOR_TICKET=$("$dotnet" "$migrate" "${reply_operator[@]}")
     export FSUSBLOG_TEST_REPLY_AUTHOR_TICKET
-    export FSUSBLOG_TEST_REPLY_PARENT_TICKET="$scratch/issue-reply-parent-ticket"
-    write_fixture "$FSUSBLOG_TEST_REPLY_PARENT_TICKET" <<'EOF'
-exec "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_CLI" ticket tls-moderation-fixture
-EOF
   fi
   if [[ ${FSUSBLOG_TEST_COMMENT_APPEAL:-0} == 1 ]]; then
     FSUSBLOG_TEST_APPEAL_REVIEWER_TICKET=$("$dotnet" "$migrate" admin-identity bootstrap tls-appeal-reviewer)
     export FSUSBLOG_TEST_APPEAL_REVIEWER_TICKET
-    export FSUSBLOG_TEST_APPEAL_OWNER_TICKET="$scratch/issue-appeal-owner-ticket"
-    write_fixture "$FSUSBLOG_TEST_APPEAL_OWNER_TICKET" <<'EOF'
-exec "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_CLI" ticket tls-moderation-fixture
-EOF
   fi
-  write_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_SEED" <<'EOF'
-exec node tests/EndToEnd/admin-moderation-seed.mjs
-EOF
 else
-  unset FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE \
-    FSUSBLOG_TEST_ADMIN_MODERATOR_SEED FSUSBLOG_TEST_ADMIN_MODERATOR_BODY \
-    FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
+  unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
 fi
 
 if [[ ${FSUSBLOG_TEST_PUBLICATION_HEAD:-0} == 1 ]]; then
@@ -464,7 +443,7 @@ server_pid=$!
 proxy_pid=$!
 probe() {
   curl --silent --show-error --max-time 2 --noproxy '*' --cacert "$scratch/ca.pem" \
-    --resolve "localhost:$public_port:127.0.0.1" --output /dev/null --write-out '%{http_code}' "$@"
+    --resolve "$public_host:$public_port:127.0.0.1" --resolve "$admin_host:$public_port:127.0.0.1" --output /dev/null --write-out '%{http_code}' "$@"
 }
 for (( attempt=0; attempt<100; attempt++ )); do
   kill -0 "$server_pid" "$proxy_pid"

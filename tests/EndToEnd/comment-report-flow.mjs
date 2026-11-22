@@ -8,6 +8,7 @@ import { decodeSession, FrameType, WireHeaders, WireRoutes } from '../../src/Con
 
 export async function verifySignedInCommentReport({ browser, author, siteOrigin, articleId, parentId, evidence }) {
   const guestContext = await browser.newContext()
+  await guestContext.addCookies([{ name: 'fsus_locale', value: 'en', url: siteOrigin }])
   const target = String(parentId)
   const route = WireRoutes.CommentReport.replace('{articleId:int}', String(articleId)).replace('{id:long}', target)
   const url = siteOrigin + route

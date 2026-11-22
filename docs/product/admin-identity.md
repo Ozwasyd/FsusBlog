@@ -24,13 +24,13 @@ HTTPS 管理域上的管理员在互动页面（`/admin/interaction`）的「评
 
 候选树 `f27800a4cf80c86f37f728f4ea06441de9a5e15b` 通过 Server、Migrate 和前端构建。首次恢复因系统默认 SDK 版本不符退出，改用仓库固定的 .NET 10.0.404 后通过。同一候选经 Caddy 2.11.9、Chrome 157 和 PostgreSQL 18 分别验收了投稿关闭、仅打开回复开关、仅注册顶层投稿、回复通知表缺失和回复通知表存在五种场景。均验证公共域拒绝、管理员授权、帧类型和会话绑定，以及撤权后丢弃延迟响应。五次均正常清理。 [构建与验收记录](../../artifacts/admin-risk-readiness-validation-f27800a/)
 
-持有 `comment.moderate` 的管理员可在管理页面审核待处理的站点账号投稿。 `GET /api/v2/admin/identity/comments/queue.aeds`（AEDS 帧 32862）按评论 ID 和文章 ID 正序返回投稿，每页最多 24 条。已删除的评论和文章不进入队列，撤回公开发布的文章保留未完成审核。正文只按文本显示。
+持有当前有效会话的管理员可在管理页面审核待处理的站点账号投稿。 `GET /api/v2/admin/identity/comments/queue.aeds`（AEDS 帧 32862）按评论 ID 和文章 ID 正序返回投稿，每页最多 24 条。已删除的评论和文章不进入队列，撤回公开发布的文章保留未完成审核。正文只按文本显示。
 
 领取、续期和释放请求位于 `/api/v2/admin/identity/comments/claim.aeds`、`claim/renew.aeds` 和 `claim/release.aeds`，使用帧 32867 和 32868。系统保存两分钟的领取、领取代次与版本和评论版本。领取绑定当前管理员会话，逾期或会话失效后可由其他有权管理员领取。续期推进领取版本，重新领取推进领取代次和版本。旧收据或评论状态变化返回 409。
 
 在管理页面填写审核理由后，可用 Passkey 批准或拒绝一条待审评论。`comments/step-up/begin.aeds` 检查当前领取，并为帧 32869 的完整决定签发挑战。`step-up/passkey/complete.aeds` 验证已登记的凭据和用户后签发 45 秒一次性证明。客户端在同源请求 `comments/decision.aeds` 中提交证明及原决定。服务端在同个事务内校验权限、领取、评论版本，消费证明，写入决定并记录真实管理员主体及理由。缺失、过期、内容不符或已用过的证明返回 428。原 `step-up/passkey/begin.aeds` 签发的意向证明与领取绑定证明分开验证。 [v1 评论审核端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs) [v1 管理员二次验证](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L338-L401)
 
-批量审核默认关闭。旧部署停机执行 `comment bulk-schema` 后，设 `FSUSBLOG_ADMIN_COMMENT_BATCH=true`。持有 `comment.moderate` 的管理员可在当前页明确选择 2–20 条待审评论，一次领取后逐条复核，再用一个理由和管理员 Passkey 批准或驳回。取消会尝试释放每条领取，暂时不可释放的领取会在两分钟内到期。凭据绑定当前管理员主体、会话及完整批量请求，单条审核和申诉的证明不能提交批次。
+配置管理员来源后默认启用批量审核，可设 `FSUSBLOG_ADMIN_COMMENT_BATCH=false` 关闭。统一的 CLI `plan` 和 `apply` 初始化所需的表。管理员可在当前页明确选择 2–20 条待审评论，一次领取后逐条复核，再用一个理由和管理员 Passkey 批准或驳回。取消会尝试释放每条领取，暂时不可释放的领取会在两分钟内到期。凭据绑定当前管理员主体、会话及完整批量请求，单条审核和申诉的证明不能提交批次。
 
 领取和决定分别以事务执行。每条决定须匹配原待审状态、评论版本、领取密钥、领取代数、领取版本及有效期。批量批准拒绝含当前地区屏蔽记录的评论。任一目标失配时，409 响应按原请求顺序标出冲突项，整个批次保持原状。成功的批次汇总关联所有逐条审核记录，并和相应的私密回复提醒一并提交。同一证明再次提交返回 428。当前范围为待审到批准或驳回。v1 的 90/115 帧、其他历史状态迁移和封禁联动仍待接入。 [固定 v1 批量服务](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs#L307-L471)
 

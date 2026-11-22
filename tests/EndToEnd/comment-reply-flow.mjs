@@ -1,6 +1,6 @@
 import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { signInFreshSite } from './webauthn-fixture.mjs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
@@ -12,18 +12,16 @@ import { decodeCommentAuthorEditDetail, decodePublicCommentReply, decodePublicCo
 import { waitForPathResponse, waitForUrlResponse } from './response-wait-fixture.mjs'
 import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
-export async function verifyApprovedReply({ browser, siteOrigin, evidence, articleId, parentId, approve }) {
+export async function verifyApprovedReply({ recipient, browser, siteOrigin, evidence, articleId, parentId, approve }) {
   const authorTicket = process.env.FSUSBLOG_TEST_REPLY_AUTHOR_TICKET
-  const parentTicket = execFileSync(process.env.FSUSBLOG_TEST_REPLY_PARENT_TICKET, [], { encoding: 'utf8' }).trim()
   assert.match(authorTicket, /^[a-f0-9]{64}$/)
-  assert.match(parentTicket, /^[a-f0-9]{64}$/)
-  const recipientContext = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const authorContext = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true })
   const body = 'Reply fixture validates independent moderation and private delivery.'
   const subject = '收到新的评论回复'
   try {
-    const author = await login(authorContext, authorTicket)
-    const recipient = await login(recipientContext, parentTicket)
+    const author = await authorContext.newPage()
+    await signInFreshSite(author, siteOrigin, authorTicket)
+    await recipient.context().addCookies([{ name: 'fsus_locale', value: 'zh-CN', url: siteOrigin }])
     const errors = []
     for (const page of [author, recipient]) {
       page.on('pageerror', error => errors.push(error.message))
@@ -71,7 +69,12 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
       const pending = await submitReply(author, siteOrigin, send, parentId)
       assert.equal(pending.articleId, articleId)
       assert.notEqual(pending.commentId, receipt.commentId)
-      await verifyPendingEdit({ browser, author, recipient, siteOrigin, evidence, articleId, id: pending.commentId, body: pendingBody })
+      await authorContext.addCookies([{ name: 'fsus_locale', value: 'zh-CN', url: siteOrigin }])
+      try {
+        await verifyPendingEdit({ browser, author, recipient, siteOrigin, evidence, articleId, id: pending.commentId, body: pendingBody })
+      } finally {
+        await authorContext.addCookies([{ name: 'fsus_locale', value: 'en', url: siteOrigin }])
+      }
     }
 
     await recipient.bringToFront()
@@ -79,7 +82,7 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
     assertStatus(await recipient.goto(siteOrigin + '/user/messagebox'), 200)
     await recipient.getByRole('heading', { name: '我的站内信' }).waitFor()
     assertStatus(await before, 200)
-    assert.match(await recipient.title(), /我的站内信/)
+    assert.match(await recipient.title(), /^站内信 · /)
     const notice = recipient.getByRole('button', { name: new RegExp(subject) })
     assert.equal(await notice.count(), 0)
     const publicContext = WireRoutes.CommentContext.replace('{articleId:int}', articleId).replace('{commentId:long}', receipt.commentId)
@@ -102,10 +105,13 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
     await exactText(target, body).waitFor()
     assert.equal(await target.evaluate(element => element === document.activeElement), true)
     assert.equal(await recipient.locator('vite-error-overlay').count(), 0)
-    const edit = process.env.FSUSBLOG_TEST_COMMENT_EDIT === '1'
-      ? await verifyCommentEdit({ browser, author, recipient, siteOrigin, evidence, articleId, parentId, replyId: receipt.commentId,
-        body, permalink, inboxUrl: inboxThread.url(), approve })
-      : undefined
+    let edit
+    if (process.env.FSUSBLOG_TEST_COMMENT_EDIT === '1') {
+      await recipient.context().addCookies([{ name: 'fsus_locale', value: 'en', url: siteOrigin }])
+      assertStatus(await recipient.reload(), 200)
+      edit = await verifyCommentEdit({ browser, author, recipient, siteOrigin, evidence, articleId, parentId,
+        replyId: receipt.commentId, body, permalink, inboxUrl: inboxThread.url(), approve })
+    }
     if (process.env.FSUSBLOG_TEST_COMMENT_REPORT === '1') {
       const { verifySignedInCommentReport } = await import('./comment-report-flow.mjs')
       await verifySignedInCommentReport({ browser, author, siteOrigin, articleId, parentId, evidence })
@@ -114,17 +120,8 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
     return { commentId: receipt.commentId, originalBody: body, editedBody: edit }
   } finally {
     await authorContext.close()
-    await recipientContext.close()
   }
 
-  async function login(context, ticket) {
-    const page = await context.newPage()
-    assertStatus(await page.goto(siteOrigin + '/login'), 200)
-    await page.getByLabel('Owner access key').fill(ticket)
-    await exactButton(page, 'Log in').click()
-    await page.waitForURL(siteOrigin + '/user/manage/article/write')
-    return page
-  }
 }
 
 async function submitReply(page, origin, send, parentId) {
@@ -282,6 +279,7 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
 
 async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evidence, articleId, parentId, replyId, body, permalink, inboxUrl, approve }) {
   const anon = await browser.newContext()
+  await anon.addCookies([{ name: 'fsus_locale', value: 'en', url: siteOrigin }])
   const menu = { name: 'Edit my comment', exact: true }
   const key = (route, id) => siteOrigin + route.replace('{id:long}', String(id))
   const detailUrl = key(WireRoutes.CommentAuthorEditDetail, replyId)

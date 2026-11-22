@@ -15,6 +15,7 @@ import { PodReader } from '../../src/Contracts/binary.ts'
 import { decodeCommentRoots } from '../../src/Contracts/comment-read.ts'
 import { readMfaProof } from '../../src/Contracts/mfa.ts'
 import { verifyTaxonomy } from './admin-taxonomy-flow.mjs'
+import { seedModeration } from './admin-moderation-seed.mjs'
 import { verifyAdminSitePages } from './admin-site-pages-flow.mjs'
 import { verifyAppearanceActivation } from './admin-appearance-flow.mjs'
 import { verifyAdminArticleArchive } from './admin-article-archive-flow.mjs'
@@ -35,9 +36,7 @@ const adminTicket = process.env.FSUSBLOG_TEST_ADMIN_TICKET
 const siteTicket = process.env.FSUSBLOG_TEST_SITE_TICKET
 const siteSessionToken = process.env.FSUSBLOG_TEST_SITE_SESSION
 const revokeExecutable = process.env.FSUSBLOG_TEST_ADMIN_REVOKE
-const moderatorGrant = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT
-const moderatorRevoke = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE
-const moderatorSeed = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_SEED
+const moderationFixture = process.env.FSUSBLOG_TEST_ADMIN_MODERATION === '1'
 const moderatorBody = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_BODY
 const taxonomySeed = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED
 const sitePagesFixture = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGES === '1'
@@ -46,17 +45,15 @@ assert(adminUrl && siteUrl && /^[0-9a-f]{64}$/.test(adminTicket ?? '') && /^[0-9
   'Provide isolated site/admin origins, two unused one-time fixture keys, and a seeded site session token.')
 assert.notEqual(adminTicket, siteTicket, 'Use independent site and administrator fixture keys.')
 assert.notEqual(adminTicket, siteSessionToken, 'Use independent site session and administrator bootstrap credentials.')
-const moderationFixture = [moderatorGrant, moderatorRevoke, moderatorSeed, moderatorBody]
-assert(moderationFixture.every(Boolean) || moderationFixture.every(value => !value),
-  'Provide grant, revoke, seed and test body together for moderation acceptance.')
+assert(!moderationFixture || (moderatorBody && revokeExecutable), 'Provide the moderation body and administrator revocation fixture.')
 assert(!taxonomySeed || revokeExecutable, 'Provide the administrator revocation fixture for taxonomy acceptance.')
 assert(!sitePagesFixture || revokeExecutable, 'Provide the administrator revocation fixture for site-page acceptance.')
-assert([moderatorGrant, taxonomySeed, sitePagesFixture].filter(Boolean).length <= 1,
+assert([moderationFixture, taxonomySeed, sitePagesFixture].filter(Boolean).length <= 1,
   'Run administrator permission scenarios separately to preserve the rate budget.')
 const adminOrigin = new URL(adminUrl)
 const siteOrigin = new URL(siteUrl)
-assert.equal(adminOrigin.hostname, 'localhost', 'The admin WebAuthn fixture uses localhost as its relying party.')
-assert.equal(siteOrigin.hostname, '127.0.0.1', 'The site account fixture uses a different loopback host.')
+assert.equal(adminOrigin.hostname, moderationFixture ? 'admin.localhost' : 'localhost', 'The admin fixture requires its own relying party.')
+assert.equal(siteOrigin.hostname, moderationFixture ? 'localhost' : '127.0.0.1', 'The site account fixture uses a different loopback host.')
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/admin-identity-browser')
 await mkdir(evidence, { recursive: true })
 
@@ -258,7 +255,7 @@ try {
     checks.offlineRevocationRetiresOwnSignIn = true
   }
 
-  const hasSpecializedScenario = Boolean(moderatorGrant || taxonomySeed || sitePagesFixture ||
+  const hasSpecializedScenario = Boolean(moderationFixture || taxonomySeed || sitePagesFixture ||
     process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE === '1' || process.env.FSUSBLOG_TEST_ADMIN_INBOX === '1' ||
     process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE === '1' || process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK === '1')
   if (!hasSpecializedScenario) {
@@ -267,12 +264,20 @@ try {
     checks.operationsStatusBoundToCurrentAdminSession = true
   }
 
-  if (moderatorGrant) {
-    phase = 'moderation-permission'
-    finalCookie = await verifyModerationPermissions(admin, context, siteCookie, finalCookie)
-    checks.moderationRequiresIndependentGrant = true
+  if (moderationFixture) {
+    phase = 'moderation'
+    const reader = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+    try {
+      const author = await reader.newPage()
+      const articleId = await seedModeration({ reader: author, adminOrigin: adminOrigin.origin, siteOrigin: siteOrigin.origin, body: moderatorBody })
+      await admin.bringToFront()
+      finalCookie = await verifyModeration(admin, context, siteCookie, oldCookie, finalCookie, articleId, author)
+    } finally {
+      await reader.close()
+    }
+    checks.moderationRequiresLiveAdministratorSession = true
     checks.moderationBodyIsTextAndPendingIsPrivate = true
-    checks.moderationGrantAndRevokeInvalidateOldSessions = true
+    checks.moderationRevocationInvalidatesOldSessions = true
     checks.adminSensitivePasskeyProofIsScopedAndOneUse = true
     checks.onlineModerationClaimGenerationsAndVisibility = true
     checks.onlineModerationDecisionProofCannotReplay = true
@@ -518,13 +523,8 @@ async function verifyOperationsStatus(page, context, siteCookie, priorCookie, re
   return adminSessionCookie(context)
 }
 
-async function verifyModerationPermissions(page, context, siteCookie, priorCookie) {
+async function verifyModeration(page, context, siteCookie, priorCookie, currentCookie, articleId, author) {
   await visitAdminWorkspace(page, '/admin/interaction')
-  const run = promisify(execFile)
-  const { stdout } = await run(moderatorSeed, [], { timeout: 20_000 })
-  assert(/^[1-9][0-9]*$/.test(stdout.trim()), 'The moderation fixture must output one published article ID.')
-  const articleId = Number(stdout.trim())
-  assert(Number.isSafeInteger(articleId) && articleId <= 2_147_483_647)
   const publicRoute = siteOrigin.origin + commentRoots.replace('{articleId:int}', String(articleId))
   const anonymous = await request.newContext()
   try {
@@ -538,34 +538,22 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
 
   const endpoint = adminOrigin.origin + moderationQueue
   const section = roleWithExactName(page, 'region', 'Moderation queue')
-  const load = exactButton(section, 'Load moderation queue')
+  const load = exactButton(section, 'Refresh')
   const checkQueue = async () => (await Promise.all([
     waitForUrlResponse(page, () => endpoint, 'GET'),
     load.click(),
   ]))[0]
   const revoked = page.getByRole('alert').filter({ hasText: 'Your administrator session expired or was revoked. Log in again.' })
   const bodyText = section.getByText(moderatorBody, { exact: true })
-  const generation = (await snapshot(context)).principal.generation
   assertStatus(await context.request.get(siteOrigin.origin + moderationQueue), 404)
   await rejectSiteCredential(endpoint, siteCookie)
-  assertStatus(await context.request.get(endpoint), 403, 'Administrator access alone must not grant moderation read.')
-  await expectPanelHidden(page, 'Moderation queue')
-  assertStatus(await context.request.get(adminSessionUrl), 200)
-  assertStatus(await postModerationIntent(context.request, moderationIntent(articleId, 1n)), 403)
-
-  await run(moderatorGrant, [], { timeout: 8_000 })
   await probeAdminCookie(endpoint, priorCookie, 401)
-  await page.reload()
-  await logIn(page)
-  const granted = await snapshot(context)
-  assert(granted.principal.generation > generation)
-  const grantedCookie = await adminSessionCookie(context)
-  assert(grantedCookie.value !== priorCookie.value)
+  const active = await snapshot(context)
   const queue = await checkQueue()
   assertStatus(queue, 200)
   assert((await queue.headerValue('Cache-Control'))?.includes('no-store'))
   const payload = await queue.body()
-  assertNoCredential(payload, grantedCookie.value)
+  assertNoCredential(payload, currentCookie.value)
   const row = readModerationFixture(payload, articleId)
   await bodyText.waitFor()
   const displayedComment = section.getByRole('article').filter({ has: page.getByText(moderatorBody, { exact: true }) })
@@ -573,15 +561,20 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   assert.equal(await displayedComment.locator('time').getAttribute('datetime'), new Date(Number(row.createdAt)).toISOString())
   assert.equal(await section.locator('[data-moderation-fixture]').count(), 0, 'Pending markup must render as plain text.')
   await page.screenshot({ path: join(evidence, 'administrator-moderation-queue.png') })
-  const intent = await verifyAdminModerationProof(page, context, siteCookie, priorCookie, grantedCookie, articleId, row, checkQueue)
+  await verifyAdminModerationProof(page, context, siteCookie, priorCookie, currentCookie, articleId, row, checkQueue)
   await verifyOnlineModeration(page, context, section, publicRoute, row, checkQueue)
   const historyPath = WireRoutes.AdminCommentTimeline.replace('{id:long}', row.commentId.toString()) + `?articleId=${articleId}`
   const revisionsPath = WireRoutes.AdminCommentRevisions.replace('{id:long}', row.commentId.toString())
   assertStatus(await context.request.get(siteOrigin.origin + revisionsPath), 404)
   await probeAdminCookie(adminOrigin.origin + revisionsPath, siteCookie, 401)
-  const history = section.getByRole('region', { name: 'Comment moderation history' })
-  const historyArticle = history.getByLabel('Article ID', { exact: true })
-  const historyComment = history.getByLabel('Comment ID', { exact: true })
+  await section.getByText('Look up by article & comment ID', { exact: true }).click()
+  const historyArticle = section.getByLabel('Article ID', { exact: true })
+  const historyComment = section.getByLabel('Comment ID', { exact: true })
+  const history = commentId => roleWithExactName(page, 'dialog', `Comment history & revisions (Article ${articleId} · Comment ${commentId})`)
+  const closeHistory = async dialog => {
+    await exactButton(dialog, 'Close').click()
+    await dialog.waitFor({ state: 'hidden' })
+  }
   assert.equal(await historyComment.getAttribute('inputmode'), 'numeric')
   await historyArticle.fill(String(articleId))
   await historyComment.fill(row.commentId.toString())
@@ -592,20 +585,24 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   assert.equal(await timeline.headerValue('cache-control'), 'no-store')
   assertStatus(await context.request.get(siteOrigin.origin + historyPath), 404)
   assertStatus(await context.request.post(adminOrigin.origin + historyPath), 404)
-  await history.getByRole('status').filter({ hasText: 'Current status: Approved.' }).waitFor()
-  const entries = history.getByRole('listitem')
+  const approvedHistory = history(row.commentId)
+  await approvedHistory.getByRole('status').filter({ hasText: 'Current status: Approved.' }).waitFor()
+  const entries = approvedHistory.locator('ul').getByRole('listitem')
   assert.deepEqual(await entries.locator('strong').allTextContents(), ['Submitted', 'Approved'])
-  assert((await entries.last().textContent()).includes('Moderation integration fixture'))
+  assert((await entries.nth(1).textContent()).includes('Moderation integration fixture'))
   await page.setViewportSize({ width: 375, height: 800 })
-  await history.scrollIntoViewIfNeeded()
-  assert(await history.evaluate(element => element.scrollWidth <= element.clientWidth + 1), 'History must fit the narrow layout.')
-  await history.screenshot({ path: join(evidence, 'administrator-comment-history-375.png') })
-  await historyComment.fill('9007199254740993')
-  assert.equal(await entries.count(), 0, 'Changing the coordinate must clear the previous timeline.')
-  const missingPath = WireRoutes.AdminCommentTimeline.replace('{id:long}', '9007199254740993') + `?articleId=${articleId}`
+  assert(await approvedHistory.evaluate(element => element.scrollWidth <= element.clientWidth + 1), 'History must fit the narrow layout.')
+  await approvedHistory.screenshot({ path: join(evidence, 'administrator-comment-history-375.png') })
+  await closeHistory(approvedHistory)
+  const missingComment = '9007199254740993'
+  await historyComment.fill(missingComment)
+  const missingPath = WireRoutes.AdminCommentTimeline.replace('{id:long}', missingComment) + `?articleId=${articleId}`
   const [missing] = await Promise.all([page.waitForResponse(adminOrigin.origin + missingPath), historyComment.press('Enter')])
   assertStatus(missing, 404)
-  await section.getByRole('alert').filter({ hasText: 'Comment history was not found for these IDs.' }).waitFor()
+  const missingHistory = history(missingComment)
+  await missingHistory.getByRole('alert').filter({ hasText: 'Comment history was not found for these IDs.' }).waitFor()
+  assert.equal(await missingHistory.getByRole('listitem').count(), 0, 'Changing the coordinate must clear the previous timeline.')
+  await closeHistory(missingHistory)
   await page.setViewportSize({ width: 1280, height: 800 })
   checks.commentModerationHistory = true
   if (process.env.FSUSBLOG_TEST_ADMIN_COMMENT_BATCH === '1') {
@@ -618,7 +615,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   let editedHistoryPath
   if (process.env.FSUSBLOG_TEST_COMMENT_REPLY === '1') {
     const { verifyApprovedReply } = await import('./comment-reply-flow.mjs')
-    const edited = await verifyApprovedReply({ browser: context.browser(), siteOrigin: siteOrigin.origin, evidence, articleId, parentId: row.commentId,
+    const edited = await verifyApprovedReply({ recipient: author, browser: context.browser(), siteOrigin: siteOrigin.origin, evidence, articleId, parentId: row.commentId,
       approve: async (body, commentId) => {
         await page.bringToFront()
         assertStatus(await checkQueue(), 200)
@@ -635,44 +632,43 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
       await historyComment.fill(String(edited.commentId))
       const [revisions] = await Promise.all([
         page.waitForResponse(adminOrigin.origin + editedHistoryPath),
-        history.getByRole('button', { name: 'View comment revisions' }).press('Enter'),
+        exactButton(section, 'View comment revisions').press('Enter'),
       ])
       assertStatus(revisions, 200)
       assert.equal(await revisions.headerValue('cache-control'), 'no-store')
-      const heading = roleWithExactName(history, 'heading', 'Saved comment revisions')
-      await heading.waitFor()
-      assert(await heading.evaluate(element => element === document.activeElement))
-      assert.deepEqual(await entries.locator('strong').allTextContents(), ['Revision 2', 'Revision 1'])
-      assert.equal(await entries.first().locator('p').textContent(), edited.editedBody)
-      assert.equal(await entries.last().locator('p').textContent(), edited.originalBody)
-      await entries.last().getByText('Content SHA-256', { exact: true }).click()
-      assert.equal(await entries.last().locator('code').textContent(), createHash('sha256').update(edited.originalBody).digest('hex'))
-      assert(await history.evaluate(element => element.scrollWidth <= element.clientWidth + 1))
-      await history.screenshot({ path: join(evidence, 'administrator-comment-revisions-375.png') })
+      const revisionHistory = history(edited.commentId)
+      await roleWithExactName(revisionHistory, 'heading', 'Saved comment revisions').waitFor()
+      await revisionHistory.and(page.locator(':focus-within')).waitFor()
+      const items = revisionHistory.getByRole('listitem').filter({ has: page.getByText(/^Revision \d+$/, { exact: true }) })
+      assert.deepEqual(await items.locator('strong').allTextContents(), ['Revision 2', 'Revision 1'])
+      assert.equal(await items.first().locator('p').textContent(), edited.editedBody)
+      assert.equal(await items.last().locator('p').textContent(), edited.originalBody)
+      await items.last().getByText('Content SHA-256', { exact: true }).click()
+      assert.equal(await items.last().locator('code').textContent(), createHash('sha256').update(edited.originalBody).digest('hex'))
+      assert(await revisionHistory.evaluate(element => element.scrollWidth <= element.clientWidth + 1))
+      await revisionHistory.screenshot({ path: join(evidence, 'administrator-comment-revisions-375.png') })
+      await closeHistory(revisionHistory)
       await page.setViewportSize({ width: 1280, height: 800 })
       checks.commentRevisionHistory = true
     }
   }
   if (process.env.FSUSBLOG_TEST_COMMENT_APPEAL === '1') {
     const { verifyCommentAppeal } = await import('./comment-appeal-flow.mjs')
-    await verifyCommentAppeal({ page, context, siteOrigin: siteOrigin.origin, adminOrigin: adminOrigin.origin,
-      publicRoute, rejectBody: moderatorBody + ' [reject fixture]', evidence, logIn })
+    await verifyCommentAppeal({ page, context, author, siteOrigin: siteOrigin.origin, adminOrigin: adminOrigin.origin,
+      publicRoute, rejectBody: moderatorBody + ' [reject fixture]', evidence })
   }
 
-  await run(moderatorRevoke, [], { timeout: 8_000 })
-  await probeAdminCookie(adminOrigin.origin + historyPath, grantedCookie, 401)
-  if (editedHistoryPath) await probeAdminCookie(adminOrigin.origin + editedHistoryPath, grantedCookie, 401)
-  await probeAdminCookie(endpoint, grantedCookie, 401)
+  await promisify(execFile)(revokeExecutable, [], { timeout: 8_000 })
+  await probeAdminCookie(adminOrigin.origin + historyPath, currentCookie, 401)
+  if (editedHistoryPath) await probeAdminCookie(adminOrigin.origin + editedHistoryPath, currentCookie, 401)
+  await probeAdminCookie(endpoint, currentCookie, 401)
   assertStatus(await checkQueue(), 401)
   await revoked.waitFor()
   await bodyText.waitFor({ state: 'hidden' })
   await logIn(page)
-  assert((await snapshot(context)).principal.generation > granted.principal.generation)
-  assertStatus(await postModerationIntent(context.request, intent), 403)
-  assertStatus(await context.request.get(endpoint), 403, 'Removing moderation authority must preserve only login.')
-  assertStatus(await context.request.get(adminOrigin.origin + historyPath), 403)
-  await expectPanelHidden(page, 'Moderation queue')
-  assertStatus(await context.request.get(adminSessionUrl), 200)
+  assert((await snapshot(context)).principal.generation > active.principal.generation)
+  assertStatus(await context.request.get(endpoint), 200)
+  assertStatus(await context.request.get(adminOrigin.origin + historyPath), 200)
   return adminSessionCookie(context)
 }
 
@@ -778,7 +774,7 @@ async function expectRepeatedPost(context, original, status, proof) {
   }
 }
 
-async function verifyAdminModerationProof(page, context, siteCookie, priorCookie, grantedCookie, articleId, row, checkQueue) {
+async function verifyAdminModerationProof(page, context, siteCookie, priorCookie, currentCookie, articleId, row, checkQueue) {
   const intent = moderationIntent(articleId, row.commentId)
   const unauthenticated = await request.newContext()
   try {
@@ -791,9 +787,9 @@ async function verifyAdminModerationProof(page, context, siteCookie, priorCookie
 
   // Load the production TypeScript codecs into this browser. Only fixture module requests are intercepted.
   const modulePath = '/assets/test-admin-step-up/'
-  await page.route(adminOrigin.origin + modulePath + '*.ts', async route => {
+  await page.route(url => url.origin === adminOrigin.origin && url.pathname.startsWith(modulePath), async route => {
     const name = new URL(route.request().url()).pathname.slice(modulePath.length)
-    if (!/^[a-z][a-z0-9.-]+\.ts$/.test(name)) return route.abort()
+    if (!/^(?:internal\/)?[a-z][a-z0-9.-]+\.ts$/.test(name)) return route.abort()
     const source = await readFile(new URL('../../src/Contracts/' + name, import.meta.url), 'utf8')
     await route.fulfill({ contentType: 'application/javascript', body: stripTypeScriptTypes(source) })
   })
@@ -813,7 +809,7 @@ async function verifyAdminModerationProof(page, context, siteCookie, priorCookie
   assert((await complete.headerValue('Cache-Control'))?.includes('no-store'))
   const result = decodeFrame(await complete.body(), FrameType.MfaChallengeResult)
   assert(/^[A-Za-z0-9_-]{43}$/.test(readMfaProof(result.payload, 'admin-sensitive', true)))
-  assert((await adminSessionCookie(context)).value === grantedCookie.value,
+  assert((await adminSessionCookie(context)).value === currentCookie.value,
     'Administrator step-up must leave the current login credential unchanged.')
 
   const requestBody = complete.request().postDataBuffer()
@@ -827,7 +823,6 @@ async function verifyAdminModerationProof(page, context, siteCookie, priorCookie
   assertStatus(queueAfterProof, 200)
   assert.equal(readModerationFixture(await queueAfterProof.body(), articleId).commentId, intent.commentId,
     'Issuing a proof must leave the comment pending until a separate authorized transaction.')
-  return intent
 }
 
 function moderationIntent(articleId, commentId) {
