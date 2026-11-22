@@ -7,7 +7,7 @@ const [worktree, mode, failed, promoted, input, receipt] = process.argv.slice(2)
 assert(['write', 'compare', 'rejoin'].includes(mode))
 const request = (url, options) => fetch(url, { ...options, signal: AbortSignal.timeout(4000), redirect: 'error' })
 const { decodeFrame, encodeFrame } = await import(pathToFileURL(worktree + '/src/Contracts/aeds.ts'))
-const { decodeDraft, decodeSession, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireRoutes } =
+const { decodeDraft, decodeSession, encodeArticleCommand, FrameType, WireHeaders, WireRoutes } =
   await import(pathToFileURL(worktree + '/src/Contracts/wire.generated.ts'))
 const { decodeArticle } = await import(pathToFileURL(worktree + '/src/Contracts/public-articles.ts'))
 const binary = 'application/octet-stream'
@@ -43,12 +43,13 @@ const visibility = async (origin, article, status, generation) => {
 const command = (id, revision, title = '', body = '') =>
   encodeArticleCommand({ id, expectedRevision: revision, idempotencyKey: randomUUID(), title, body })
 if (mode === 'write') {
-  const ticket = (await readFile(input, 'utf8')).trim()
-  const login = await write(promoted, WireRoutes.SignIn, FrameType.OperatorSignIn, encodeSignIn({ ticket }), FrameType.OperatorSession)
-  assert(decodeSession(login.payload).canAuthor)
-  token = login.response.headers.get('Set-Cookie').split(';', 1)[0]
-  expectedSession = login.response.headers.get(WireHeaders.CurrentSession)
-  assert(token && expectedSession)
+  token = 'fsus-v2-admin-session=' + (await readFile(input, 'utf8')).trim()
+  const session = await request(promoted + WireRoutes.AuthoringSession, { headers: { Cookie: token } })
+  assert.equal(session.status, 200)
+  const sessionFrame = decodeFrame(new Uint8Array(await session.arrayBuffer()), FrameType.OperatorSession)
+  assert(decodeSession(sessionFrame.payload).canAuthor)
+  expectedSession = session.headers.get(WireHeaders.CurrentSession)
+  assert(expectedSession)
   const save = await write(promoted, WireRoutes.Save, FrameType.ArticleCommand, command(0, 0n, marker, 'PostgreSQL confirms this body.'), FrameType.Draft)
   const draft = decodeDraft(save.payload)
   const publishCommand = command(draft.id, draft.revision)

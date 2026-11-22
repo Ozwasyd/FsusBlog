@@ -98,8 +98,18 @@ start_pg() {
 q() { PGHOST="$1" PGPORT="$port" psql -XAtw -v ON_ERROR_STOP=1 -c "$2"; }
 dsn() { printf 'Host=%s;Port=%s;Database=postgres;Username=fsusqa;SSL Mode=Disable;Timeout=1' "$1" "$port"; }
 run_app() {
+  local http_port
+  http_port=$(node --input-type=module <<'JS'
+import { createServer } from 'node:net'
+const listener = createServer().listen(0, '127.0.0.1', () => {
+  console.log(listener.address().port)
+  listener.close()
+})
+JS
+  )
   exec env -i PATH="$PATH" LC_ALL=C FSUSBLOG_DB="$(dsn "$1")" FSUSBLOG_WEB_DIST="$payload/web" \
-    "$dotnet" "$payload/server/FsusBlog.V2.Server.dll" --urls http://127.0.0.1:0
+    FSUSBLOG_ADMIN_ORIGIN="http://localhost:$http_port" FSUSBLOG_ADMIN_RP_ID=localhost \
+    "$dotnet" "$payload/server/FsusBlog.V2.Server.dll" --urls "http://127.0.0.1:$http_port"
 }
 launch() {
   (run_app "$1") > "$2" 2>&1 &
@@ -108,6 +118,7 @@ launch() {
 wait_ready() {
   for ((attempt=0; attempt<80; attempt++)); do
     launched_origin=$(sed -nE 's/^[[:space:]]*Now listening on: (http:\/\/127\.0\.0\.1:[0-9]+)$/\1/p' "$1")
+    launched_origin=${launched_origin/127.0.0.1/localhost}
     if [[ -n "$launched_origin" ]] && [[ "$(curl -s --max-time 1 -o /dev/null -w '%{http_code}' "$launched_origin/health/ready")" == 204 ]]; then return; fi
     kill -0 "$launched_pid"
     sleep .15
@@ -120,7 +131,20 @@ migrate=(env -i PATH="$PATH" LC_ALL=C FSUSBLOG_DB="$(dsn "$primary_sock")" "$dot
 "${migrate[@]}" plan > "$run/plan.json"
 "${migrate[@]}" apply "$run/plan.json"
 "${migrate[@]}" verify
-"${migrate[@]}" operator standby-fixture-author > "$run/ticket"
+"${migrate[@]}" admin-identity bootstrap standby-fixture-author >/dev/null
+openssl rand -hex 32 > "$run/admin-session"
+PGHOST="$primary_sock" PGPORT="$port" psql -XAtw -v ON_ERROR_STOP=1 \
+  -v "session=$(<"$run/admin-session")" <<'SQL'
+WITH fixture AS (
+  SELECT id,generation FROM public.admin_principal WHERE handle='standby-fixture-author'
+), credential AS (
+  INSERT INTO public.admin_passkey_credential(credential_id,principal_id,public_key,sign_count,backup_eligible,backed_up)
+  SELECT decode('01','hex'),id,decode('01','hex'),0,false,false FROM fixture
+)
+INSERT INTO public.admin_session(digest,principal_id,generation,expires_at)
+SELECT pg_catalog.sha256(decode(:'session','hex')),id,generation,clock_timestamp()+interval '10 minutes'
+FROM fixture;
+SQL
 PGHOST="$primary_sock" PGPORT="$port" pg_basebackup --no-password --checkpoint=fast --pgdata="$run/standby" -R -X stream
 pg_verifybackup "$run/standby"
 start_pg "$run/standby" "$evidence/standby-postgres.log" "$standby_sock"
@@ -147,7 +171,7 @@ launch "$primary_sock" "$evidence/primary-server.log"
 primary_app=$launched_pid
 wait_ready "$evidence/primary-server.log"
 primary_origin=$launched_origin
-node "$fixture/physical-standby.mjs" "$run" write - "$primary_origin" "$run/ticket" "$run/receipt.json"
+node "$fixture/physical-standby.mjs" "$run" write - "$primary_origin" "$run/admin-session" "$run/receipt.json"
 boundary=$(q "$primary_sock" "select pg_current_wal_flush_lsn()")
 [[ $boundary =~ ^[0-9A-F]+/[0-9A-F]+$ ]]
 for ((attempt=0; attempt<80; attempt++)); do
