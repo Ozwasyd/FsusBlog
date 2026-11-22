@@ -380,13 +380,13 @@ internal static partial class CurrentSchema
             .Concat(core.RecoveryScope ? RecoveryScopeConstraints : []).ToArray();
         var webpMedia = await VerifyRelationsAsync(connection, transaction, expectedColumns, expectedConstraints, cancellationToken);
         CheckPresence(authoring.ArticleSummary, hasArticleSummary, "The article author summary");
-        if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
-        if (hasSiteConfigOverride) await VerifySiteConfigOverrideAsync(connection, transaction, cancellationToken);
-        if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, hasAdminCategoryMetadata, cancellationToken);
-        if (hasAppearanceActivation) await VerifyAppearanceActivationAsync(connection, transaction, cancellationToken);
-        if (hasRootCommentPowPolicy) await VerifyRootCommentPowPolicyAsync(connection, transaction, cancellationToken);
-        if (hasArticleRead) await VerifyArticleReadEpochAsync(connection, transaction, cancellationToken);
-        if (hasAuthorTextIndex) await VerifyAuthorTextArticleOwnerIndexAsync(connection, transaction, cancellationToken);
+        if (hasSitePageEditor) await SitePageCoordinates.VerifyAsync(connection, transaction, cancellationToken);
+        if (hasSiteConfigOverride) await SiteConfigOverride.VerifyAsync(connection, transaction, cancellationToken);
+        if (hasAdminTagMetadata) await TaxonomyEpoch(hasAdminCategoryMetadata).VerifyAsync(connection, transaction, cancellationToken);
+        if (hasAppearanceActivation) await AppearanceActivation.VerifyAsync(connection, transaction, cancellationToken);
+        if (hasRootCommentPowPolicy) await RootCommentPowPolicy.VerifyAsync(connection, transaction, cancellationToken);
+        if (hasArticleRead) await ArticleReadEpoch.VerifyAsync(connection, transaction, cancellationToken);
+        if (hasAuthorTextIndex) await AuthorTextArticleOwnerIndex.VerifyAsync(connection, transaction, cancellationToken);
         if (hasDocumentExports) await VerifyDocumentExportIndexesAsync(connection, transaction, cancellationToken);
         return webpMedia;
     }

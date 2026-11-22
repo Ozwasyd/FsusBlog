@@ -52,6 +52,16 @@ internal static partial class CurrentSchema
         return found;
     }
 
+    private readonly struct CatalogInvariant(string sql, string failure)
+    {
+        internal async Task VerifyAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+        {
+            await using var command = new NpgsqlCommand(sql, db, tx);
+            if (await command.ExecuteScalarAsync(ct) is not true)
+                throw new InvalidOperationException(failure);
+        }
+    }
+
     internal static bool Complete(object? count, int expected, string incomplete) => count switch
     {
         0 => false,

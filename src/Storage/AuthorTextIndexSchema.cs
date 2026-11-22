@@ -64,9 +64,8 @@ internal static partial class CurrentSchema
         catalog.HasColumnAndCheck(AuthorTextPostingRelation, "segment",
             "author_text_posting_segment_check", "The author full-text heading index schema is incomplete.", requireLocalValidated: true);
 
-    private static async Task VerifyAuthorTextArticleOwnerIndexAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
+    private static readonly CatalogInvariant AuthorTextArticleOwnerIndex = new(
+        """
             select exists (
                 select from pg_catalog.pg_class rel
                 join pg_catalog.pg_am method on method.oid=rel.relam and method.amname='btree'
@@ -83,8 +82,6 @@ internal static partial class CurrentSchema
                     and idx.indkey[0]=owner_key.attnum and idx.indkey[1]=article_key.attnum
                     and idx.indoption[0]=0 and idx.indoption[1]=0
             )
-            """, db, tx);
-        if (await query.ExecuteScalarAsync(ct) is not true)
-            throw new InvalidOperationException("The author article owner index does not match the current schema.");
-    }
+            """,
+        "The author article owner index does not match the current schema.");
 }

@@ -1,7 +1,4 @@
 using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Npgsql;
 
 namespace FsusBlogV2.Storage;
 
@@ -35,9 +32,8 @@ internal static partial class CurrentSchema
     private static bool HasRootCommentPowPolicy(CatalogPresenceSnapshot catalog) =>
         catalog.HasCompleteRelations("The root comment proof policy schema is partially installed.", RootCommentPowPolicyRelations);
 
-    private static async Task VerifyRootCommentPowPolicyAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand("""
+    private static readonly CatalogInvariant RootCommentPowPolicy = new(
+        """
             with audit as (
               select generation,proof_seconds,previous_seconds,rollback,
                 lag(generation,1,1::bigint) over history as prior_generation,
@@ -52,8 +48,6 @@ internal static partial class CurrentSchema
                   select from audit a where a.generation=p.generation and a.proof_seconds=p.proof_seconds)))
               and not exists (select from audit where generation<>prior_generation+1 or previous_seconds<>prior_seconds
                 or rollback and proof_seconds is distinct from rollback_seconds)
-            """, db, tx);
-        if (await command.ExecuteScalarAsync(ct) is not true)
-            throw new InvalidOperationException("The root comment proof policy activation history is incomplete.");
-    }
+            """,
+        "The root comment proof policy activation history is incomplete.");
 }

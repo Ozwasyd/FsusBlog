@@ -1,7 +1,4 @@
 using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Npgsql;
 
 namespace FsusBlogV2.Storage;
 
@@ -33,16 +30,13 @@ internal static partial class CurrentSchema
     private static bool HasAppearanceActivation(CatalogPresenceSnapshot catalog) =>
         catalog.HasCompleteRelations("Appearance activation schema is partially installed.", AppearanceActivationRelations);
 
-    private static async Task VerifyAppearanceActivationAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand("""
+    private static readonly CatalogInvariant AppearanceActivation = new(
+        """
             select exists (select from public.appearance_activation s where s.singleton and
               s.revision=coalesce((select max(a.revision) from public.appearance_activation_audit a),0)
               and (s.revision=0 and s.theme_digest='' and s.font_digest='' or exists (
                 select from public.appearance_activation_audit a where a.revision=s.revision
                   and a.theme_digest=s.theme_digest and a.font_digest=s.font_digest)))
-            """, db, tx);
-        if (await command.ExecuteScalarAsync(ct) is not true)
-            throw new InvalidOperationException("Appearance activation coordinates are incomplete.");
-    }
+            """,
+        "Appearance activation coordinates are incomplete.");
 }

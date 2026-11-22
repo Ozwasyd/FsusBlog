@@ -56,16 +56,15 @@ internal static partial class CurrentSchema
     private static bool HasAdminCategoryMetadata(CatalogPresenceSnapshot catalog) =>
         catalog.HasCompleteRelations("The administrator category metadata schema is incomplete.", AdminCategoryMetadataRelations);
 
-    private static async Task VerifyTaxonomyEpochAsync(NpgsqlConnection db, NpgsqlTransaction tx, bool category, CancellationToken ct)
+    private static CatalogInvariant TaxonomyEpoch(bool category)
     {
         var categoryHistory = category ? "union all select revision from public.admin_category_metadata_command where changed" : "";
-        await using var query = new NpgsqlCommand($"""
+        return new($"""
             select revision>=coalesce((select max(revision) from (
                 select revision from public.admin_tag_metadata_command where changed
                 {categoryHistory}
             ) as history),0) from public.taxonomy_epoch where singleton
-            """, db, tx);
-        if (await query.ExecuteScalarAsync(ct) is not true)
-            throw new InvalidOperationException("The taxonomy epoch and durable command history do not agree.");
+            """,
+            "The taxonomy epoch and durable command history do not agree.");
     }
 }

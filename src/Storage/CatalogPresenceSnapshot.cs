@@ -84,9 +84,7 @@ internal sealed class CatalogPresenceScope
 // Explicitly retained outside this generic snapshot as dedicated queries:
 //   - HasArticleReadTotalSchemaAsync (pg_index + pg_am + pg_opclass + indkey/indoption DESC btree shape)
 //   - VerifyRelationsAsync (full relation/column/modifier/identity/trigger/constraint shape verifier)
-//   - Specialized post-shape index and business-data invariant checks (VerifySitePageCoordinatesAsync,
-//     VerifyTaxonomyEpochAsync, VerifyAppearanceActivationAsync, VerifyRootCommentPowPolicyAsync,
-//     VerifyArticleReadEpochAsync, VerifyAuthorTextArticleOwnerIndexAsync, VerifyDocumentExportIndexesAsync)
+//   - Post-shape publication coordinates, data invariants and index checks in VerifyCatalogAsync.
 internal sealed class CatalogPresenceSnapshot
 {
     private const string BatchSql = """

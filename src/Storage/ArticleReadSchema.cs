@@ -82,15 +82,12 @@ internal static partial class CurrentSchema
             "Article read totals or their descending btree index do not match the current schema.");
     }
 
-    private static async Task VerifyArticleReadEpochAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand("""
+    private static readonly CatalogInvariant ArticleReadEpoch = new(
+        """
             select last_epoch is not null or (
                 not exists (select from public.article_read_hour)
                 and not exists (select from public.article_read_dwell))
             from public.article_read_epoch where singleton
-            """, db, tx);
-        if (await query.ExecuteScalarAsync(ct) is not true)
-            throw new InvalidOperationException("The article read epoch watermark is missing or inconsistent with the aggregate storage.");
-    }
+            """,
+        "The article read epoch watermark is missing or inconsistent with the aggregate storage.");
 }

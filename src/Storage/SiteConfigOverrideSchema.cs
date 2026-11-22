@@ -40,16 +40,13 @@ internal static partial class CurrentSchema
     private static bool HasSiteConfigOverrideSchema(CatalogPresenceSnapshot catalog) =>
         catalog.HasCompleteRelations("The site configuration override schema is partially installed.", SiteConfigOverrideRelations);
 
-    private static async Task VerifySiteConfigOverrideAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand("""
+    private static readonly CatalogInvariant SiteConfigOverride = new(
+        """
             select exists (select from public.site_config_override s where s.singleton and
               s.revision=coalesce((select max(a.revision) from public.site_config_audit a),0)
               and ((s.revision=0 and s.seo_json is null and s.compliance_json is null)
                 or (s.revision>0 and s.seo_json is not null and s.compliance_json is not null
                     and exists (select from public.site_config_audit a where a.revision=s.revision))))
-            """, db, tx);
-        if (await command.ExecuteScalarAsync(ct) is not true)
-            throw new InvalidOperationException("The site configuration override coordinates are incomplete.");
-    }
+            """,
+        "The site configuration override coordinates are incomplete.");
 }

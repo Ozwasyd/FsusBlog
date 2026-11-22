@@ -1,7 +1,4 @@
 using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Npgsql;
 
 namespace FsusBlogV2.Storage;
 
@@ -35,14 +32,11 @@ internal static partial class CurrentSchema
     private static bool HasSitePageEditorSchema(CatalogPresenceSnapshot catalog) =>
         catalog.HasCompleteRelations("The site page editor schema is partially installed.", SitePageEditorRelations);
 
-    private static async Task VerifySitePageCoordinatesAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var command = new NpgsqlCommand("""
+    private static readonly CatalogInvariant SitePageCoordinates = new(
+        """
             select count(*)=4 and coalesce(bool_and(
                 revision=coalesce((select max(a.revision) from public.site_page_publish_audit a where a.slug=p.slug),0)
             ),false) from public.site_page_content p
-            """, db, tx);
-        if (await command.ExecuteScalarAsync(ct) is not true)
-            throw new InvalidOperationException("The site page editor publication coordinates are incomplete.");
-    }
+            """,
+        "The site page editor publication coordinates are incomplete.");
 }
