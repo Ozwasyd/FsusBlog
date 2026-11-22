@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using FsusBlog.V2.Contracts;
@@ -81,8 +82,7 @@ internal sealed partial class AdminHandleStore(AdminSessionGate gate, AdminStepU
                 """, admin.Id, normalized.IdempotencyKey, fingerprint, previousHandle, normalized.NewHandle))
             await using (var row = await audit.ExecuteReaderAsync(ct))
             {
-                if (!await row.ReadAsync(ct))
-                    throw new InvalidOperationException("Failed to record administrator handle rename audit.");
+                await row.ReadRequired(ct, () => new InvalidOperationException("Failed to record administrator handle rename audit."));
                 happenedAt = row.GetFieldValue<DateTimeOffset>(0);
             }
 
@@ -116,12 +116,8 @@ internal sealed partial class AdminHandleStore(AdminSessionGate gate, AdminStepU
         bool lockPrincipal, CancellationToken ct)
     {
         string currentHandle;
-        await using (var query = Store.Sql(db, tx,
-            "select handle from public.admin_principal where id = $1" + (lockPrincipal ? " for update" : ""),
-            admin.Id))
-        {
-            currentHandle = (await query.ExecuteScalarAsync(ct) as string) ?? throw AdminSessionGate.Denied();
-        }
+        currentHandle = (await SqlCommands.Scalar(db, tx, ct, "select handle from public.admin_principal where id = $1" + (lockPrincipal ? " for update" : ""),
+            admin.Id) as string) ?? throw AdminSessionGate.Denied();
         if (!string.Equals(currentHandle, normalized.ExpectedHandle, StringComparison.Ordinal))
             throw new BusinessException(Rejection.Conflict, "The administrator handle changed before this update completed.");
 

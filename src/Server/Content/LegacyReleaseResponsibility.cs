@@ -31,21 +31,19 @@ internal static class LegacyReleaseResponsibility
         if (!await CurrentSchema.HasLegacyReleaseOriginAsync(connection, null, stopping)) return;
 
         var archive = LegacyHistoricalProof.ReadConfiguration(app.Configuration);
-        app.MapGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/archive.json",
+        app.MapQueryGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/archive.json",
             (HttpContext context, int articleId, int revisionNo) =>
-                ReadAsync(context, database, publications, lease, articleId, revisionNo, historical: true, archive))
-            .RequireRateLimiting("query");
+                ReadAsync(context, database, publications, lease, articleId, revisionNo, historical: true, archive));
 
-        app.MapGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/rights/archive.json",
+        app.MapQueryGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/rights/archive.json",
             (HttpContext context, int articleId, int revisionNo) =>
-                ReadAsync(context, database, publications, lease, articleId, revisionNo, historical: true, archive, rights: true))
-            .RequireRateLimiting("query");
+                ReadAsync(context, database, publications, lease, articleId, revisionNo, historical: true, archive, rights: true));
 
-        app.MapGet("/integrity/article/{articleId:int}/responsibility", (HttpContext context, int articleId) =>
-            ReadAsync(context, database, publications, lease, articleId, null, archive: archive)).RequireRateLimiting("query");
-        app.MapGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/responsibility",
+        app.MapQueryGet("/integrity/article/{articleId:int}/responsibility", (HttpContext context, int articleId) =>
+            ReadAsync(context, database, publications, lease, articleId, null, archive: archive));
+        app.MapQueryGet("/integrity/article/{articleId:int}/revisions/{revisionNo:int}/responsibility",
             (HttpContext context, int articleId, int revisionNo) =>
-                ReadAsync(context, database, publications, lease, articleId, revisionNo, archive: archive)).RequireRateLimiting("query");
+                ReadAsync(context, database, publications, lease, articleId, revisionNo, archive: archive));
     }
 
     private static async Task ReadAsync(HttpContext context, NpgsqlDataSource database, Publications publications,

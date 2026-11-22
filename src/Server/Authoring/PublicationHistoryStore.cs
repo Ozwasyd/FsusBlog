@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using Npgsql;
@@ -35,7 +36,7 @@ internal static class PublicationHistoryStore
             """, articleId))
         await using (var row = await read.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw new InvalidOperationException("Article disappeared inside a locked write.");
+            await row.ReadRequired(ct, () => new InvalidOperationException("Article disappeared inside a locked write."));
             publicationCount = row.GetInt32(0);
             active = row.IsDBNull(1) ? null : new(row.GetInt64(1), row.GetInt64(2), row.GetInt32(3), row.GetDateTime(4));
             eventNo = row.IsDBNull(5) ? 0 : row.GetInt32(5);
@@ -100,9 +101,7 @@ internal static class PublicationHistoryStore
         var release = hidden ? await WithdrawForRollback(db, tx, article, priorPublication, revision, ct)
             : await Publish(db, tx, article, revision, ct);
         await PublicationRightsStore.Attach(db, tx, article, revision, release.Id, ct);
-        await using var rights = SqlCommands.Create(db, tx,
-            "select id from public.article_publication_rights where publication_id=$1", release.Id);
-        var rightsSnapshot = (long)(await rights.ExecuteScalarAsync(ct))!;
+        var rightsSnapshot = (long)(await SqlCommands.Scalar(db, tx, ct, "select id from public.article_publication_rights where publication_id=$1", release.Id))!;
 
         // Copy the explicit historical evidence and record its exact immutable source.
         var administratorReference = $"admin:{administrator:D}";
@@ -199,8 +198,7 @@ internal static class PublicationHistoryStore
             returning nextval('public.article_publication_publication_id_seq'),a.publication_count,clock_timestamp()
             """, article, priorPublication, revision);
         await using var row = await withdraw.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct))
-            throw new BusinessException(Rejection.Conflict, "The publication changed before its withdrawal.");
+        await row.ReadRequired(ct, () => new BusinessException(Rejection.Conflict, "The publication changed before its withdrawal."));
         return new(row.GetInt64(0), revision, row.GetInt32(1), row.GetDateTime(2));
     }
 
@@ -217,7 +215,7 @@ internal static class PublicationHistoryStore
             returning publication_id,publication_no,published_at
             """, articleId, revision);
         await using var row = await publish.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new InvalidOperationException("Could not record the new publication.");
+        await row.ReadRequired(ct, () => new InvalidOperationException("Could not record the new publication."));
         return new(row.GetInt64(0), revision, row.GetInt32(1), row.GetDateTime(2));
     }
 

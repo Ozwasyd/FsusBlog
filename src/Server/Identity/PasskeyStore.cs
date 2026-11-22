@@ -47,7 +47,7 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
             """, digest))
         await using (var row = await user.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Denied();
+            await row.ReadRequired(ct, Denied);
             (userId, generation) = (row.GetGuid(0), row.GetInt64(1));
         }
 
@@ -242,7 +242,7 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
             """, request.RawId, userId))
         await using (var row = await credential.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Denied();
+            await row.ReadRequired(ct, Denied);
             (number, handle, key, counter, backupEligible) =
                 (row.GetInt32(0), row.GetFieldValue<byte[]>(1), row.GetFieldValue<byte[]>(2), checked((uint)row.GetInt64(3)), row.GetBoolean(4));
         }
@@ -309,7 +309,7 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
             returning options,user_id,generation,expires_at
             """, TokenDigest(token), SqlCommands.Optional(NpgsqlDbType.Bytea, binding));
         await using var row = await consume.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw Denied();
+        await row.ReadRequired(ct, Denied);
         return (row.GetString(0), row.IsDBNull(1) ? null : row.GetGuid(1), row.IsDBNull(2) ? null : row.GetInt64(2),
             row.GetFieldValue<DateTimeOffset>(3));
     }

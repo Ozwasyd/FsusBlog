@@ -104,7 +104,7 @@ internal sealed partial class PropertyStore
         var fields = new List<(PropertyDefinition Definition, PropertyValue Value)>();
         await using (var rows = await query.ExecuteReaderAsync(ct))
         {
-            if (!await rows.ReadAsync(ct)) throw SnapshotUnavailable();
+            await rows.ReadRequired(ct, SnapshotUnavailable);
             schemaRevision = rows.GetInt64(0);
             valueRevision = rows.GetInt64(1);
             int fieldCount = rows.GetInt32(3);

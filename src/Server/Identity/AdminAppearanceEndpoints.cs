@@ -11,18 +11,18 @@ internal static class AdminAppearanceEndpoints
 {
     internal static void Map(AdminActionRoutes actions, AdminAppearanceStore store, AppearanceRegistry registry)
     {
-        actions.App.MapGet(WireRoutes.AdminAppearanceState, async (HttpContext ctx, CancellationToken ct) =>
-            Frame(await store.ReadAppearance(actions.Session(ctx), registry, ct))).RequireRateLimiting("query");
-        actions.App.MapGet(WireRoutes.AdminAppearanceCatalog, async (HttpContext ctx, CancellationToken ct) =>
-            Frame(await store.AppearanceCatalog(actions.Session(ctx), registry, ct))).RequireRateLimiting("query");
-        actions.App.MapGet(WireRoutes.AdminAppearanceFontDetail, async (HttpContext ctx, CancellationToken ct) =>
+        actions.App.MapQueryGet(WireRoutes.AdminAppearanceState, async (HttpContext ctx, CancellationToken ct) =>
+            Frame(await store.ReadAppearance(actions.Session(ctx), registry, ct)));
+        actions.App.MapQueryGet(WireRoutes.AdminAppearanceCatalog, async (HttpContext ctx, CancellationToken ct) =>
+            Frame(await store.AppearanceCatalog(actions.Session(ctx), registry, ct)));
+        actions.App.MapQueryGet(WireRoutes.AdminAppearanceFontDetail, async (HttpContext ctx, CancellationToken ct) =>
         {
             ctx.Response.Headers.CacheControl = "no-store";
             var query = ctx.Request.Query;
             var digest = query.Count == 1 && query.TryGetValue("digest", out var digests) && digests.Count == 1 ? digests[0] : null;
             return Frame(await store.AppearanceFontDetail(actions.Session(ctx), registry, digest, ct));
-        }).RequireRateLimiting("query");
-        actions.App.MapGet(WireRoutes.AdminAppearanceHistory, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        actions.App.MapQueryGet(WireRoutes.AdminAppearanceHistory, async (HttpContext ctx, CancellationToken ct) =>
         {
             ctx.Response.Headers.CacheControl = "no-store";
             var query = ctx.Request.Query;
@@ -31,7 +31,7 @@ internal static class AdminAppearanceEndpoints
             var limit = HistoryCoordinate(query, "limit") ?? WireLimits.AdminAppearanceHistoryPageSize;
             if (limit > WireLimits.AdminAppearanceHistoryMaximumItems) throw HistoryQueryError();
             return Frame(await store.AppearanceHistory(actions.Session(ctx), before, (int)limit, ct));
-        }).RequireRateLimiting("query");
+        });
         actions.Complete(WireRoutes.AdminAppearanceStepUpComplete, store.CompleteAppearanceStepUp);
 
         actions.App.MapPost(WireRoutes.AdminAppearanceStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>

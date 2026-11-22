@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -127,7 +128,7 @@ internal sealed partial class PasskeyStore
             order by c.credential_id limit $3
             """, actor.Id, actor.Scope, WireLimits.SitePasskeyListSize);
         await using var reader = await query.ExecuteReaderAsync(ct);
-        if (!await reader.ReadAsync(ct)) throw Denied();
+        await reader.ReadRequired(ct, Denied);
         var handle = reader.GetFieldValue<byte[]>(0);
         var current = reader.GetFieldValue<byte[]>(1);
         var ids = new List<byte[]>();

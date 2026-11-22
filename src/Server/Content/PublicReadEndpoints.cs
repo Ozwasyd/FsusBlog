@@ -12,13 +12,13 @@ internal static class PublicReadEndpoints
 
     internal static void Map(WebApplication app, SiteCapabilities capabilities, Publications publications, bool publicMediaEnabled)
     {
-        app.MapGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) =>
-            PublicList(ctx, publications, "home", page, size)).RequireRateLimiting("query");
-        app.MapGet(WireRoutes.PublicArchive, (HttpContext ctx, int page, int size) =>
-            PublicList(ctx, publications, "archive", page, size)).RequireRateLimiting("query");
+        app.MapQueryGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) =>
+            PublicList(ctx, publications, "home", page, size));
+        app.MapQueryGet(WireRoutes.PublicArchive, (HttpContext ctx, int page, int size) =>
+            PublicList(ctx, publications, "archive", page, size));
         app.MapGet(WireRoutes.PublicArticle, (HttpContext ctx, int id) =>
             PublicDetail(ctx, publications, publicMediaEnabled, id, asHtml: false));
-        app.MapGet(WireRoutes.PublicRelatedReading, (HttpContext ctx, int articleId) =>
+        app.MapQueryGet(WireRoutes.PublicRelatedReading, (HttpContext ctx, int articleId) =>
         {
             var snapshot = ServerHttp.Snapshot(ctx, publications);
             var article = snapshot.Article(articleId);
@@ -31,8 +31,8 @@ internal static class PublicReadEndpoints
             return frame is null
                 ? ServerHttp.Error(ctx, 404, "Article not found.", "article_not_found")
                 : ServerHttp.Frame(frame);
-        }).RequireRateLimiting("query");
-        app.MapGet(WireRoutes.PublicSearch, (HttpContext ctx) =>
+        });
+        app.MapQueryGet(WireRoutes.PublicSearch, (HttpContext ctx) =>
         {
             var keyword = ServerHttp.Query(ctx, "q", 256)?.Trim();
             if (string.IsNullOrEmpty(keyword)) return ServerHttp.Error(ctx, 400, "A search term is required.");
@@ -62,7 +62,7 @@ internal static class PublicReadEndpoints
             var reportedTotal = paginated ? Math.Min(hit.Total, ArticleSearchIndex.MaxPaginatedResults) : hit.Total;
             ctx.Response.Headers[WireHeaders.SearchTotal] = reportedTotal.ToString(CultureInfo.InvariantCulture);
             return ServerHttp.Frame(hit.Bytes);
-        }).RequireRateLimiting("query");
+        });
 
         if (capabilities.WideSearchCorpus)
             WideSearchCorpusEndpoints.Map(app, app.Services.GetRequiredService<PublicProjection>(), app.Services.GetRequiredService<InstanceLease>());

@@ -183,7 +183,7 @@ internal static class ServerServices
             if (hasPublicationProofs)
                 options.AddImmediateConcurrency("publication-proof", 4);
             if (capabilities.ArticleReadProof) ArticleReadEndpoints.AddRateLimit(options);
-            options.AddImmediateConcurrency("query", 32);
+            options.AddImmediateConcurrency(CommandEndpoints.QueryPolicy, 32);
             if (capabilities.WideSearchCorpus)
             {
                 options.AddImmediateConcurrency(WideSearchCorpusEndpoints.ManifestPolicy, 8);

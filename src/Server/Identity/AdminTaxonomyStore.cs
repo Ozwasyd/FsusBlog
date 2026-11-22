@@ -65,8 +65,7 @@ internal sealed class AdminTaxonomyStore(AdminSessionGate gate)
                 group by t.id
                 """, id);
             await using var row = await select.ExecuteReaderAsync(ct);
-            if (!await row.ReadAsync(ct))
-                throw new BusinessException(Rejection.NotFound, "The taxonomy entry was not found.");
+            await row.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "The taxonomy entry was not found."));
             return new AdminTaxonomyDependencies(id, row.GetInt32(0), row.GetInt32(1), row.GetInt32(2));
         }, ct);
 

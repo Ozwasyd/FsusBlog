@@ -11,9 +11,8 @@ internal static class AdminSitePageEditorEndpoints
 {
     internal static void Map(AdminActionRoutes actions, AdminSitePageStore store)
     {
-        actions.App.MapGet(WireRoutes.AdminSitePageRevision, async (HttpContext ctx, SitePages pages, string slug, CancellationToken ct) =>
-            Frame(Wire.EncodeAdminSitePageRevision(await store.CurrentSitePage(actions.Session(ctx), pages, slug, ct))))
-            .RequireRateLimiting("query");
+        actions.App.MapQueryGet(WireRoutes.AdminSitePageRevision, async (HttpContext ctx, SitePages pages, string slug, CancellationToken ct) =>
+            Frame(Wire.EncodeAdminSitePageRevision(await store.CurrentSitePage(actions.Session(ctx), pages, slug, ct))));
 
         actions.App.MapPost(WireRoutes.AdminSitePageStepUpBegin, async (HttpContext ctx, SitePages pages, CancellationToken ct) =>
         {

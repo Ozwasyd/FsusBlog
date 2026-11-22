@@ -205,7 +205,7 @@ internal static class CommentAppeals
         long adverse, version;
         await using (var row = await query.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Missing();
+            await row.ReadRequired(ct, Missing);
             (article, adverse, version) = (row.GetInt32(0), row.GetInt64(1), row.GetInt64(2));
         }
         if (await SqlCommands.Scalar(db, tx, ct, "select 1 from public.comment_appeal where adverse_id=$1", adverse) is not null)

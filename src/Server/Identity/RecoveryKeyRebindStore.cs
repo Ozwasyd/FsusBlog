@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using System.Security.Cryptography;
 using Fido2NetLib;
 using FsusBlog.V2.Contracts;
@@ -32,7 +33,7 @@ internal sealed partial class PasskeyStore
             """, lookup))
         await using (var row = await select.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Denied();
+            await row.ReadRequired(ct, Denied);
             (account, generation) = (row.GetGuid(0), row.GetInt64(1));
         }
         byte[] salt, verifier;
@@ -42,7 +43,7 @@ internal sealed partial class PasskeyStore
             """, account, lookup))
         await using (var row = await select.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Denied();
+            await row.ReadRequired(ct, Denied);
             (salt, verifier) = (row.GetFieldValue<byte[]>(0), row.GetFieldValue<byte[]>(1));
         }
         if (!secret.Verify(key, salt, verifier))
@@ -109,7 +110,7 @@ internal sealed partial class PasskeyStore
             """, account.Id, digest, TokenDigest(request.Token)))
         await using (var row = await select.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Denied();
+            await row.ReadRequired(ct, Denied);
             var generation = row.GetInt64(0);
             if (!row.IsDBNull(1))
             {
@@ -161,7 +162,7 @@ internal sealed partial class PasskeyStore
             ) for update of u
             """, digest);
         await using var row = await select.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw Denied();
+        await row.ReadRequired(ct, Denied);
         return new(row.GetGuid(0), row.GetInt64(1), row.GetFieldValue<byte[]>(2));
     }
 

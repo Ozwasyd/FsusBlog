@@ -139,12 +139,8 @@ internal static partial class AuthorTextIndex
         {
             sourceCharacters += (entry.Title?.Length ?? 0) + (entry.Body?.Length ?? 0) + entry.Summary.Length;
             if (sourceCharacters > BatchSourceCharacters) break;
-            await using (var postings = Store.Sql(db, tx,
-                "delete from public.author_text_posting where owner_id=$1 and article_id=$2", owner, entry.Id))
-                await postings.ExecuteNonQueryAsync(ct);
-            await using (var document = Store.Sql(db, tx,
-                "delete from public.author_text_document where owner_id=$1 and article_id=$2", owner, entry.Id))
-                await document.ExecuteNonQueryAsync(ct);
+            await SqlCommands.Execute(db, tx, ct, "delete from public.author_text_posting where owner_id=$1 and article_id=$2", owner, entry.Id);
+            await SqlCommands.Execute(db, tx, ct, "delete from public.author_text_document where owner_id=$1 and article_id=$2", owner, entry.Id);
             if (entry is { Revision: { } revision, Title: { } title, Body: { } body })
             {
                 var profile = includeHeading ? AuthorTextProfile.HeadingIndexVersion : AuthorTextProfile.SummaryIndexVersion;

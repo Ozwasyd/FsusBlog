@@ -420,9 +420,9 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
             next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution,
                 ct, taxonomyEpoch, mediaProjection, siteConfigRevision, sitePagesMask);
         }
-        await using (var advance = Store.Sql(connection, tx, """
+        await SqlCommands.Execute(connection, tx, ct, """
             update public.blog_outbox set processed_at=now() where processed_at is null
-            """)) await advance.ExecuteNonQueryAsync(ct);
+            """);
         await InstanceLease.CommitProtected(tx, lease, ct);
         _lastProjection = next;
         _projection.Replace(next);
@@ -444,7 +444,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         await using (var command = Store.Sql(connection, tx, sql))
         await using (var row = await command.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw new InvalidOperationException("The public watermarks are missing.");
+            await row.ReadRequired(ct, () => new InvalidOperationException("The public watermarks are missing."));
             articleWatermark = row.GetInt64(0);
             taxonomyEpoch = row.GetInt64(1);
             siteConfigRevision = row.GetInt64(2);

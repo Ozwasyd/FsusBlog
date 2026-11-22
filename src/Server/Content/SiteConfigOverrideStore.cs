@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using System.Text;
 using System.Text.Json;
 using FsusBlog.V2.Contracts;
@@ -38,7 +39,7 @@ internal static class SiteConfigOverrideStore
         if (forUpdate) sql += " for update";
         await using var command = Store.Sql(db, tx, sql);
         await using var row = await command.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new PublicUnavailableException();
+        await row.ReadRequired(ct, () => new PublicUnavailableException());
         var revision = row.GetInt64(0);
         if (revision == 0) return config.Baseline;
         var storedSeo = JsonSerializer.Deserialize<StoredSeo>(row.GetString(1))

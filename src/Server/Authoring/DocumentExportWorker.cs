@@ -54,26 +54,24 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
     private Task<int> InterruptPreviousRun(CancellationToken ct) =>
         InTransaction(async (db, tx) =>
         {
-            await using var update = Store.Sql(db, tx, """
+            return await SqlCommands.Execute(db, tx, ct, """
                 update public.author_document_export
                 set state=case when state=7 then 5 else 4 end,
                     failure=case when state=7 then 0 else 4 end, finished_at=statement_timestamp()
                 where state in (2,7)
                 """);
-            return await update.ExecuteNonQueryAsync(ct);
         }, ct);
 
     private Task<int> RemoveExpired(CancellationToken ct) =>
         InTransaction(async (db, tx) =>
         {
-            await using var delete = Store.Sql(db, tx, """
+            return await SqlCommands.Execute(db, tx, ct, """
                 delete from public.author_document_export e
                 where e.expires_at<=statement_timestamp()
                    or not exists (select from public.admin_principal p where p.id=e.owner_id
                        and p.enabled and p.generation=e.author_generation)
                    or exists (select from public.article a where a.id=e.article_id and a.deleted)
                 """);
-            return await delete.ExecuteNonQueryAsync(ct);
         }, ct);
 
     private Task<Job?> Claim(CancellationToken ct) =>
@@ -184,7 +182,7 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
                 _ => DocumentExportState.Failed
             };
             var digest = output is null ? null : SHA256.HashData(output);
-            await using var finish = Store.Sql(db, tx, """
+            return await SqlCommands.Execute(db, tx, ct, """
                 update public.author_document_export
                 set state=case when state=7 then 5 else $3 end,
                     failure=case when state=7 then 0 else $4 end, finished_at=statement_timestamp(),
@@ -194,17 +192,15 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
                 """, job.Owner, job.Request.Id, (short)state, (short)failure,
                 SqlCommands.Optional(NpgsqlDbType.Bytea, digest),
                 SqlCommands.Optional(NpgsqlDbType.Bytea, output));
-            return await finish.ExecuteNonQueryAsync(ct);
         }, ct);
 
     private static async Task RequireAuthority(NpgsqlConnection db, NpgsqlTransaction tx, Job job, CancellationToken ct)
     {
-        await using var check = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select true from public.admin_principal p
             where p.id=$1 and p.generation=$2 and p.enabled
             for share
-            """, job.Owner, job.Generation);
-        if (await check.ExecuteScalarAsync(ct) is not true)
+            """, job.Owner, job.Generation) is not true)
             throw new BusinessException(Rejection.Forbidden, "Document export author authority changed.");
         await RevisionHistoryStore.LockOwned(db, tx, job.Owner, job.Request.Article, ct);
     }

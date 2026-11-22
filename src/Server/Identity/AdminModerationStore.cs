@@ -46,7 +46,7 @@ internal sealed class AdminModerationStore(AdminSessionGate gate, AdminStepUpSer
             """, target.ArticleId, target.CommentId, admin.Id, admin.Digest, admin.Snapshot.Generation,
             ClaimDigest(token), version, ClaimActive);
         await using var row = await cmd.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.Conflict, "The pending comment is already claimed.");
+        await row.ReadRequired(ct, () => new BusinessException(Rejection.Conflict, "The pending comment is already claimed."));
         return new AdminModerationClaim(target.ArticleId, target.CommentId, version, token, row.GetInt64(0),
             row.GetInt64(1), row.GetUnixMilliseconds(2));
     }
@@ -62,7 +62,7 @@ internal sealed class AdminModerationStore(AdminSessionGate gate, AdminStepUpSer
                 returning claim_version, expires_at
                 """, claim.ArticleId, claim.CommentId);
             await using var row = await cmd.ExecuteReaderAsync(ct);
-            if (!await row.ReadAsync(ct)) throw ModerationChanged();
+            await row.ReadRequired(ct, ModerationChanged);
             return claim with { ClaimVersion = row.GetInt64(0), ExpiresAt = row.GetUnixMilliseconds(1) };
         }, ct);
 

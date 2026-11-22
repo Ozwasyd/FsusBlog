@@ -16,14 +16,14 @@ internal static class AdminArticleRollbackEndpoints
             WireLimits.MaxAdminArticleRollbackFrameBytes, Wire.DecodeAdminArticleRollbackIntent, intent => intent.IdempotencyKey,
             rollback.CheckArticleRollbackAvailability, rollback.BeginArticleRollbackStepUp, rollback.CompleteArticleRollbackStepUp,
             rollback.ExecuteArticleRollback, Wire.EncodeAdminArticleRollbackReceipt);
-        actions.App.MapGet(WireRoutes.AdminArticleRollbackPreview, async (HttpContext ctx, CancellationToken ct) =>
+        actions.App.MapQueryGet(WireRoutes.AdminArticleRollbackPreview, async (HttpContext ctx, CancellationToken ct) =>
         {
             var article = PositiveCoordinate(ctx, "articleId");
             var source = PositiveCoordinate(ctx, "sourceRevision");
             if (article > int.MaxValue) throw InvalidCoordinate();
             var result = await rollback.PreviewArticleRollback(actions.Session(ctx), (int)article, source, ct);
             return Frame(Wire.EncodeAdminArticleRollbackPreview(result));
-        }).RequireRateLimiting("query");
+        });
 
         MapAction<AdminArticleDraftRollbackIntent, AdminArticleDraftRollbackReceipt>(
             WireRoutes.AdminArticleDraftRollbackAvailability, WireRoutes.AdminArticleDraftRollbackStepUpBegin,
@@ -38,21 +38,21 @@ internal static class AdminArticleRollbackEndpoints
             WireLimits.MaxAdminArticleArchiveFrameBytes, Wire.DecodeAdminArticleArchiveIntent, intent => intent.IdempotencyKey,
             archive.CheckArticleArchiveAvailability, archive.BeginArticleArchiveStepUp, archive.CompleteArticleArchiveStepUp,
             archive.ExecuteArticleArchive, Wire.EncodeAdminArticleArchiveReceipt);
-        actions.App.MapGet(WireRoutes.AdminArticleArchivePage, async (HttpContext ctx, CancellationToken ct) =>
+        actions.App.MapQueryGet(WireRoutes.AdminArticleArchivePage, async (HttpContext ctx, CancellationToken ct) =>
         {
             var before = ctx.Request.Query.ContainsKey("before") ? PositiveCoordinate(ctx, "before") : 0;
             if (before > int.MaxValue) throw InvalidCoordinate();
             var page = await archive.ListArchivedArticles(actions.Session(ctx), (int)before, ct);
             return Frame(Wire.EncodeAdminArticleArchivePage(page));
-        }).RequireRateLimiting("query");
-        actions.App.MapGet(WireRoutes.AdminArticleArchivePreview, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        actions.App.MapQueryGet(WireRoutes.AdminArticleArchivePreview, async (HttpContext ctx, CancellationToken ct) =>
         {
             var article = PositiveCoordinate(ctx, "articleId");
             var revision = PositiveCoordinate(ctx, "revision");
             var privateRelease = PositiveCoordinate(ctx, "privateReleaseId");
             if (article > int.MaxValue) throw InvalidCoordinate();
             return Frame(await archive.PreviewArchivedArticle(actions.Session(ctx), (int)article, revision, privateRelease, ct));
-        }).RequireRateLimiting("query");
+        });
 
         void MapAction<TIntent, TReceipt>(string available, string begin, string complete, string execute,
             int maximum, AdminActionRoutes.IntentDecoder<TIntent> decode, Func<TIntent, Guid> idempotencyKey,

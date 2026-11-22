@@ -82,8 +82,7 @@ internal static partial class Cli
               AND w.article_id=$1 AND w.revision=$2
             """, article, revision);
         await using var row = await command.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct))
-            throw new InvalidOperationException("The revision lacks a historical publication with a matching immutable rights snapshot.");
+        await row.ReadRequired(ct, () => new InvalidOperationException("The revision lacks a historical publication with a matching immutable rights snapshot."));
         var publication = row.GetInt64(0);
         if (await row.ReadAsync(ct))
             throw new InvalidOperationException("The historical publication coordinate is ambiguous.");

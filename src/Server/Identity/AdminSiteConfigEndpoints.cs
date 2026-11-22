@@ -8,9 +8,8 @@ internal static class AdminSiteConfigEndpoints
 {
     internal static void Map(AdminActionRoutes actions, AdminSiteConfigStore store, PublicSiteConfiguration config)
     {
-        actions.App.MapGet(WireRoutes.AdminSiteConfig, async (HttpContext ctx, CancellationToken ct) =>
-            AdminActionRoutes.Frame(await store.ReadSiteConfig(actions.Session(ctx), config, ct)))
-            .RequireRateLimiting("query");
+        actions.App.MapQueryGet(WireRoutes.AdminSiteConfig, async (HttpContext ctx, CancellationToken ct) =>
+            AdminActionRoutes.Frame(await store.ReadSiteConfig(actions.Session(ctx), config, ct)));
 
         actions.App.MapPost(WireRoutes.AdminSiteConfigStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
         {

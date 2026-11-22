@@ -80,11 +80,10 @@ internal sealed record DocumentExportInput(string Title, string Body, DateTimeOf
     {
         if (provider is 1 or DocumentExportInput.CurrentProvider) return [];
         var list = provider == DocumentExportInput.ImageListProvider;
-        await using var read = Store.Sql(db, tx, $"""
+        return await SqlCommands.Scalar(db, tx, ct, $"""
             select {(list ? "attachment_ids" : "array[attachment_id]")} from public.author_document_export
             where owner_id=$1 and id=$2 and provider=$3
-            """, owner, id, provider);
-        return await read.ExecuteScalarAsync(ct) is Guid[] assets && assets.All(asset => asset != Guid.Empty) &&
+            """, owner, id, provider) is Guid[] assets && assets.All(asset => asset != Guid.Empty) &&
             assets.Distinct().Count() == assets.Length && DocumentExportInput.ProviderFor(assets) == provider
                 ? assets : throw new PublicUnavailableException();
     }

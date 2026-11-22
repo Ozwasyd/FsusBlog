@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using Npgsql;
@@ -19,7 +20,7 @@ internal static class TaxonomyStore
                    array(select tag_id from public.article_revision_tag where article_id=$1 and revision=$2 order by tag_id)
             """, articleId, revision);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
-        if (!await reader.ReadAsync(ct)) throw new InvalidOperationException("Draft taxonomy query returned no row.");
+        await reader.ReadRequired(ct, () => new InvalidOperationException("Draft taxonomy query returned no row."));
         return new(articleId, revision, reader.GetInt32(0), reader.GetFieldValue<int[]>(1));
     }
 

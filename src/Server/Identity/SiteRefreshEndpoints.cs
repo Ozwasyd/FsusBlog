@@ -17,12 +17,12 @@ internal sealed class SiteRefreshEndpoints(SiteRefreshStore store, string access
             requireHost(ctx);
             return ServerHttp.EmptyFrame();
         });
-        app.MapGet(WireRoutes.SiteRefreshStatus, async (HttpContext ctx, CancellationToken ct) =>
+        app.MapQueryGet(WireRoutes.SiteRefreshStatus, async (HttpContext ctx, CancellationToken ct) =>
         {
             requireHost(ctx);
             return await store.HasCurrent(ctx.Request.Cookies[RefreshCookie], ct)
                 ? ServerHttp.EmptyFrame() : Failure(ctx, 401, "REFRESH_EXPIRED_OR_UNKNOWN");
-        }).RequireRateLimiting("query");
+        });
         app.MapPost(WireRoutes.SiteRefreshRotate, async (HttpContext ctx, CancellationToken ct) =>
         {
             RequirePost(ctx);

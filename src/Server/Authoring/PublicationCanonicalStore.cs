@@ -20,7 +20,7 @@ internal static class PublicationCanonicalStore
             """, article, revision))
         await using (var row = await command.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw new InvalidOperationException("The newly published coordinates cannot be bound to canonical facts.");
+            await row.ReadRequired(ct, () => new InvalidOperationException("The newly published coordinates cannot be bound to canonical facts."));
             binding = PublicationCanonicalFacts.Read(row);
         }
 

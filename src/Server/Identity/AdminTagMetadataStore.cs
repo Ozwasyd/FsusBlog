@@ -157,7 +157,7 @@ internal sealed class AdminTagMetadataStore(AdminSessionGate gate)
                 where h.{entity}_id=t.id and h.changed),0) from public.{entity} t where t.id=$1
             """, id);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
-        if (!await reader.ReadAsync(ct)) throw new BusinessException(Rejection.NotFound, category ? "Category not found." : "Tag not found.");
+        await reader.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, category ? "Category not found." : "Tag not found."));
         return new(id, reader.GetInt64(2), reader.GetString(0), reader.GetString(1), false);
     }
 

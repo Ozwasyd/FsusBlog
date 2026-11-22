@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
@@ -282,7 +283,7 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
             select {Receipt} from public.canvas_document_event e where e.canvas_id=$1 and e.revision=$2
             """, id, revision);
         await using var eventRow = await read.ExecuteReaderAsync(ct);
-        if (!await eventRow.ReadAsync(ct)) throw new InvalidOperationException("Canvas document event is missing.");
+        await eventRow.ReadRequired(ct, () => new InvalidOperationException("Canvas document event is missing."));
         var receipt = ReadReceipt(eventRow);
         if (receipt.Title != title || receipt.Viewport != viewport || receipt.Deleted != deleted || receipt.TouchedAt != touched)
             throw new InvalidOperationException("Canvas document metadata does not match its event.");

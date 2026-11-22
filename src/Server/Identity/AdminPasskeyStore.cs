@@ -155,7 +155,7 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
             """, principal, request.RawId))
         await using (var row = await credential.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw AdminSessionGate.Denied();
+            await row.ReadRequired(ct, AdminSessionGate.Denied);
             (key, counter, backupEligible) = (row.GetFieldValue<byte[]>(0), checked((uint)row.GetInt64(1)), row.GetBoolean(2));
         }
         VerifyAssertionResult verified;
@@ -192,7 +192,7 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
             """ + selector + ") for update", digestOrCredential))
         await using (var row = await cmd.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw AdminSessionGate.Denied();
+            await row.ReadRequired(ct, AdminSessionGate.Denied);
             principal = new(row.GetGuid(0), row.GetString(1), row.GetFieldValue<byte[]>(2), row.GetInt64(3), row.GetFieldValue<DateTimeOffset>(4));
         }
         return principal;
@@ -223,7 +223,7 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
             """, AdminSql.ChallengeDigest(token, null), binding, kind))
         await using (var row = await cmd.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw AdminSessionGate.Denied();
+            await row.ReadRequired(ct, AdminSessionGate.Denied);
             result = new(row.IsDBNull(0) ? null : row.GetGuid(0), row.IsDBNull(1) ? null : row.GetInt64(1), row.GetString(2),
                 row.GetFieldValue<DateTimeOffset>(3));
         }

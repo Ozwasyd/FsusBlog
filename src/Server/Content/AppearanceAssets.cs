@@ -62,14 +62,14 @@ internal sealed class AppearanceAssets(AppearanceRegistry registry, bool online)
         string[] read = [HttpMethods.Get, HttpMethods.Head];
         var source = app.Services.GetRequiredService<NpgsqlDataSource>();
         var lease = app.Services.GetRequiredService<InstanceLease>();
-        app.MapMethods(CurrentStyleRoute, read, (HttpContext ctx, CancellationToken ct) =>
-            Read(ctx, source, lease, null, null, false, ct)).RequireRateLimiting("query");
-        app.MapMethods("/site-appearance/{revision:long}/{digest}.css", read,
+        app.MapQueryMethods(CurrentStyleRoute, read, (HttpContext ctx, CancellationToken ct) =>
+            Read(ctx, source, lease, null, null, false, ct));
+        app.MapQueryMethods("/site-appearance/{revision:long}/{digest}.css", read,
             (HttpContext ctx, long revision, string digest, CancellationToken ct) =>
-                Read(ctx, source, lease, revision, digest, false, ct)).RequireRateLimiting("query");
-        app.MapMethods("/site-appearance/font/{revision:long}/{digest}.woff2", read,
+                Read(ctx, source, lease, revision, digest, false, ct));
+        app.MapQueryMethods("/site-appearance/font/{revision:long}/{digest}.woff2", read,
             (HttpContext ctx, long revision, string digest, CancellationToken ct) =>
-                Read(ctx, source, lease, revision, digest, true, ct)).RequireRateLimiting("query");
+                Read(ctx, source, lease, revision, digest, true, ct));
     }
 
     private async Task<IResult> Read(HttpContext ctx, NpgsqlDataSource source, InstanceLease lease, long? revision,

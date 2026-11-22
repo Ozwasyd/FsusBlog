@@ -164,8 +164,7 @@ internal sealed class AdminArticleArchiveStore(AdminSessionGate gate, AdminStepU
             and archived.article_id=$1
             """, article, includeBody, locking, WireLimits.BodyBytes);
         await using var row = await query.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct))
-            throw new BusinessException(Rejection.Conflict, "The article no longer has a matching archived release.");
+        await row.ReadRequired(ct, () => new BusinessException(Rejection.Conflict, "The article no longer has a matching archived release."));
         if (row.GetInt64(0) != revision || row.GetInt64(1) != privateRelease)
             throw new BusinessException(Rejection.Conflict, "The archived revision or private release changed.");
         if (revision == long.MaxValue || row.GetBoolean(8) || row.GetBoolean(9) ||

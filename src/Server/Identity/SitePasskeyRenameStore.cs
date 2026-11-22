@@ -115,14 +115,10 @@ internal sealed partial class PasskeyStore
         if (target is null || target.Value.Metadata.Current != removingCurrent ||
             (recovery is not null ? rows.Count != intent.DeviceCount : rows.Count < 2) ||
             target.Value.Revision != intent.ExpectedRevision || target.CreatedAtTicks != intent.CreatedAtTicks) return false;
-        await using (var sessions = Store.Sql(db, tx,
-            "delete from public.user_session where user_id=$1 and ($3 or passkey_credential_id=$2)", actor.Id, credential, final))
-            await sessions.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.user_session where user_id=$1 and ($3 or passkey_credential_id=$2)", actor.Id, credential, final);
         // The pending login scope is the 32-byte cookie digest followed by the credential ID.
-        await using (var flows = Store.Sql(db, tx,
-            "delete from public.mfa_flow where user_id=$1 and kind=$2 and substring(scope from 33)=$3",
-            actor.Id, (int)MfaStore.Purpose.Login, credential))
-            await flows.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.mfa_flow where user_id=$1 and kind=$2 and substring(scope from 33)=$3",
+            actor.Id, (int)MfaStore.Purpose.Login, credential);
         await using var remove = Store.Sql(db, tx,
             "delete from public.passkey_credential where user_id=$1 and credential_id=$2", actor.Id, credential);
         if (await remove.ExecuteNonQueryAsync(ct) != 1) throw ChangeConflict(remove: true);

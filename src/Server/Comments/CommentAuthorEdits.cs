@@ -55,7 +55,7 @@ internal static class CommentAuthorEdits
             """, digest, target.Article, id, actor.Id, session, actor.Generation))
         await using (var row = await challenge.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Missing();
+            await row.ReadRequired(ct, Missing);
             if (row.GetInt64(0) != request.ExpectedVersion || target.Version != request.ExpectedVersion ||
                 row.GetInt64(1) != target.Publication) throw Stale();
         }
@@ -86,7 +86,7 @@ internal static class CommentAuthorEdits
             """, target.Article, id, target.Version, body, actor.Id, target.Body, WireLimits.CommentAuthorEditWindowMinutes,
             target.ModerationStatus);
         await using var result = await update.ExecuteReaderAsync(ct);
-        if (!await result.ReadAsync(ct)) throw Stale();
+        await result.ReadRequired(ct, Stale);
         return new(true, "ok", result.GetInt64(0), 0, result.GetDateTime(1));
     }
 
@@ -108,7 +108,7 @@ internal static class CommentAuthorEdits
                 and not exists(select 1 from public.comment_blocked_region b where b.article_id=c.article_id and b.comment_id=c.id)
             """ + (locking ? " for update of c for share of a,p,snapshot,rights" : ""), owner, id, WireLimits.CommentAuthorEditWindowMinutes);
         await using var row = await query.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw Missing();
+        await row.ReadRequired(ct, Missing);
         return new(row.GetInt32(0), row.GetInt64(1), row.GetInt64(2), row.GetInt16(3), row.GetString(4));
     }
 

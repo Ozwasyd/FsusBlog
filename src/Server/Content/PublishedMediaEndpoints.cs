@@ -57,7 +57,7 @@ internal static class PublishedMediaEndpoints
             return ServerHttp.DraftResponse(saved);
         });
 
-        app.MapGet(WireRoutes.PublicArticleMedia, (HttpContext ctx, int id, long publication) =>
+        app.MapQueryGet(WireRoutes.PublicArticleMedia, (HttpContext ctx, int id, long publication) =>
         {
             ctx.Response.Headers.CacheControl = "no-store";
             var snapshot = publications.Snapshot ?? throw new PublicUnavailableException();
@@ -66,7 +66,7 @@ internal static class PublishedMediaEndpoints
             var frame = Wire.EncodePublicArticleMedia(new(id, publication, images));
             if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
             return ServerHttp.Frame(frame);
-        }).RequireRateLimiting("query");
+        });
 
         var proxy = app.Services.GetService<PublishedMediaProxy>();
         app.MapMethods(WireRoutes.PublicArticleMediaFile, [HttpMethods.Get, HttpMethods.Head],

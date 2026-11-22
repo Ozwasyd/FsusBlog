@@ -196,8 +196,7 @@ internal sealed class AdminArticleRollbackStore(AdminSessionGate gate, AdminStep
             where a.id=$1 and not a.deleted
             """, article, sourceRevision, locking);
         await using var row = await inspect.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct))
-            throw new BusinessException(Rejection.NotFound, "The requested historical publication is unavailable for this article.");
+        await row.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "The requested historical publication is unavailable for this article."));
         long? responsibility = row.IsDBNull(5) ? null : row.GetInt64(5);
         var blocker = row.GetBoolean(8) ? AdminArticleRollbackBlock.PendingSchedule :
             row.GetBoolean(9) ? AdminArticleRollbackBlock.UnpublishedDraft :

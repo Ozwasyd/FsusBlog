@@ -160,7 +160,7 @@ internal static class CommentAuthorDeleteEndpoints
             select c.moderation_version,c.moderation_status,c.edited_at from changed c join outbox x on x.comment_id=c.id
             """, target.Article, id, target.Version, actor.Id);
         await using var result = await apply.ExecuteReaderAsync(ct);
-        if (!await result.ReadAsync(ct)) throw Stale();
+        await result.ReadRequired(ct, Stale);
         return new(true, "ok", result.GetInt64(0), result.GetInt16(1), result.IsDBNull(2) ? null : result.GetDateTime(2));
     }
 
@@ -174,7 +174,7 @@ internal static class CommentAuthorDeleteEndpoints
             where o.user_id=$1 and c.id=$2 and not c.deleted and c.author_mode=3 for update of c
             """, owner, id);
         await using var row = await query.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw Missing();
+        await row.ReadRequired(ct, Missing);
         return (row.GetInt32(0), row.GetInt64(1));
     }
 

@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using System.Security.Cryptography;
 using FsusBlog.V2.Core;
 using Npgsql;
@@ -50,8 +51,7 @@ internal sealed class MediaUploadStore(NpgsqlConnection db, NpgsqlTransaction tx
             ON CONFLICT (owner_id,command_id) DO NOTHING RETURNING {Fields}
             """, Guid.NewGuid(), owner, input.Key, input.Name, (short)input.Format, input.Length, input.PartSize, input.Digest);
         await using var inserted = await create.ExecuteReaderAsync(ct);
-        if (!await inserted.ReadAsync(ct))
-            throw new BusinessException(Rejection.Conflict, "Upload staging is full. Cancel another upload or retry later.");
+        await inserted.ReadRequired(ct, () => new BusinessException(Rejection.Conflict, "Upload staging is full. Cancel another upload or retry later."));
         return Read(inserted);
     }
 
@@ -142,11 +142,10 @@ internal sealed class MediaUploadStore(NpgsqlConnection db, NpgsqlTransaction tx
 
     internal async Task Finish(MediaUpload upload, CancellationToken ct)
     {
-        await using var command = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             UPDATE public.private_media_upload SET complete=true,expires_at=greatest(expires_at,clock_timestamp()+interval '1 hour')
             WHERE owner_id=$1 AND id=$2;
             """, owner, upload.Id);
-        await command.ExecuteNonQueryAsync(ct);
         await RemoveParts(upload.Id, ct);
     }
 

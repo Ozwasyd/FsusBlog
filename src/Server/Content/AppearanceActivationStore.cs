@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Extensions;
@@ -16,7 +17,7 @@ internal static class AppearanceActivationStore
         if (locked) sql += " for update";
         await using var cmd = Store.Sql(db, tx, sql);
         await using var row = await cmd.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new PublicUnavailableException();
+        await row.ReadRequired(ct, () => new PublicUnavailableException());
         var revision = row.GetInt64(0);
         return new(revision, revision == 0 ? registry.Default : new(row.GetString(1), row.GetString(2)));
     }
@@ -28,7 +29,7 @@ internal static class AppearanceActivationStore
             select previous_theme_digest,previous_font_digest from public.appearance_activation_audit where revision=$1
             """, revision);
         await using var row = await cmd.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new PublicUnavailableException();
+        await row.ReadRequired(ct, () => new PublicUnavailableException());
         return new(row.GetString(0), row.GetString(1));
     }
 

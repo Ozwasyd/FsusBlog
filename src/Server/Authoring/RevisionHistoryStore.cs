@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using Npgsql;
@@ -32,8 +33,7 @@ internal static class RevisionHistoryStore
             select title,body,happened_at from public.article_revision where article_id=$1 and revision=$2
             """, id, revision);
         await using var row = await read.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct))
-            throw new BusinessException(Rejection.NotFound, "Article revision not found.");
+        await row.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "Article revision not found."));
         return (row.GetString(0), row.GetString(1), row.GetFieldValue<DateTimeOffset>(2));
     }
 

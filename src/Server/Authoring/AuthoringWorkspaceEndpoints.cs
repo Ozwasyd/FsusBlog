@@ -115,8 +115,7 @@ internal static class AuthoringWorkspaceEndpoints
         await using var cmd = format == Groups ? StoreGroupLayout(db, tx, owner, owned, input) :
             StoreLegacyLayout(db, tx, owner, owned, input, format == Inspector, hasGroups);
         await using var row = await cmd.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct))
-            throw new BusinessException(Rejection.Conflict, "The workspace layout changed in another session or uses a newer format.");
+        await row.ReadRequired(ct, () => new BusinessException(Rejection.Conflict, "The workspace layout changed in another session or uses a newer format."));
         return new(Groups, row.GetInt64(0), row.GetUnixMilliseconds(1), owned.ActiveArticleId,
             owned.Tabs, skipped, input.InspectorOpen, owned.SecondaryActiveArticleId, owned.SecondaryTabs, owned.FocusedGroup);
     }

@@ -64,7 +64,7 @@ internal sealed class AdminArticleTrashRestoreStore(AdminSessionGate gate, Admin
         await using (var query = Store.Sql(db, tx, $"select a.owner_id,a.revision,a.title,a.body {TrashArticle}", intent.ArticleId))
         await using (var row = await query.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw TrashRestoreConflict();
+            await row.ReadRequired(ct, TrashRestoreConflict);
             current = new(intent.ArticleId, row.GetGuid(0), row.GetInt64(1), row.GetString(2), row.GetString(3), null, true);
         }
         var draft = Publishing.Restore(current, intent.ExpectedRevision);
@@ -91,8 +91,7 @@ internal sealed class AdminArticleTrashRestoreStore(AdminSessionGate gate, Admin
                 """, articleId))
             await using (var row = await query.ExecuteReaderAsync(ct))
             {
-                if (!await row.ReadAsync(ct))
-                    throw new BusinessException(Rejection.NotFound, "Article not found.");
+                await row.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "Article not found."));
                 revision = row.GetInt64(0);
                 title = row.GetString(1);
                 body = row.GetString(2);

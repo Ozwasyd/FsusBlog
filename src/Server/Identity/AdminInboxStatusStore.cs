@@ -30,8 +30,7 @@ internal sealed class AdminInboxStatusStore(AdminSessionGate gate)
             ConversationStatus observed;
             await using (var row = await find.ExecuteReaderAsync(ct))
             {
-                if (!await row.ReadAsync(ct))
-                    throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
+                await row.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found."));
                 recipient = row.GetGuid(0);
                 observed = (ConversationStatus)row.GetInt16(1);
                 if (issue && observed != target && row.GetString(2) != version)

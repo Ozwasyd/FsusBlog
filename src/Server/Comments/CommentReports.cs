@@ -13,8 +13,8 @@ internal static class CommentReports
 {
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
-        app.MapGet(WireRoutes.CommentReportAvailability, (HttpContext ctx, Store store, CancellationToken ct) =>
-            Run(ctx, store, (_, _, _) => Task.FromResult(Wire.EncodeEmptySuccess()), ct)).RequireRateLimiting("query");
+        app.MapQueryGet(WireRoutes.CommentReportAvailability, (HttpContext ctx, Store store, CancellationToken ct) =>
+            Run(ctx, store, (_, _, _) => Task.FromResult(Wire.EncodeEmptySuccess()), ct));
 
         app.MapCommandPost(WireRoutes.CommentReport, async (HttpContext ctx, Store store, int articleId, long id, CancellationToken ct) =>
         {
@@ -62,14 +62,11 @@ internal static class CommentReports
         {
             var id = BinaryPrimitives.ReadInt64LittleEndian(RandomNumberGenerator.GetBytes(sizeof(long))) & Wire.MaxCommentReportId;
             if (id == 0) continue;
-            await using (var insert = Store.Sql(db, tx, """
+            if (await SqlCommands.Scalar(db, tx, ct, """
                 insert into public.comment_report(id,article_id,comment_id,reporter_id,publication_id,reason_code,detail,created_at)
                 values($1,$2,$3,$4,$5,$6,$7,statement_timestamp()) on conflict do nothing returning id
                 """, id, article, comment, reporter, publication, request.ReasonCode,
-                SqlCommands.Optional(NpgsqlDbType.Text, request.Detail)))
-            {
-                if (await insert.ExecuteScalarAsync(ct) is long added) return new(true, "ok", added, false);
-            }
+                SqlCommands.Optional(NpgsqlDbType.Text, request.Detail)) is long added) return new(true, "ok", added, false);
 
             // A conflicting transaction may commit after INSERT's statement snapshot.
             if (await SqlCommands.Scalar(db, tx, ct, """

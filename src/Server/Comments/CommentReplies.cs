@@ -35,8 +35,7 @@ internal static class CommentReplies
         Parent target;
         await using (var row = await query.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct))
-                throw new BusinessException(Rejection.NotFound, "This comment cannot accept a reply.");
+            await row.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "This comment cannot accept a reply."));
             target = new(row.GetInt64(0), row.GetInt32(1));
         }
         if (await SqlCommands.Scalar(db, tx, ct, """

@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
@@ -21,7 +22,7 @@ internal static class SitePagePublicationStore
         if (forUpdate) sql += " for update";
         await using var command = Store.Sql(db, tx, sql, baseline.Slug);
         await using var row = await command.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new PublicUnavailableException();
+        await row.ReadRequired(ct, () => new PublicUnavailableException());
         var revision = row.GetInt64(0);
         if (revision == 0) return baseline;
         var markdown = row.GetString(1);

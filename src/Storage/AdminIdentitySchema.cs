@@ -130,7 +130,7 @@ internal static partial class CurrentSchema
     {
         await using var command = new NpgsqlCommand("select version from public.admin_identity_schema", db, tx);
         await using var row = await command.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new InvalidOperationException("Expected a single admin identity schema marker.");
+        await row.ReadRequired(ct, () => new InvalidOperationException("Expected a single admin identity schema marker."));
         var version = row.GetInt32(0);
         if (await row.ReadAsync(ct)) throw new InvalidOperationException("Expected a single admin identity schema marker.");
         return version;

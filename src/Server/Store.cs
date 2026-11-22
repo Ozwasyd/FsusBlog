@@ -28,7 +28,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             """, ticket))
         await using (var row = await cmd.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Unauthenticated();
+            await row.ReadRequired(ct, Unauthenticated);
             (id, name, generation) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2));
         }
         if (await CurrentSchema.RequiresSiteRecoveryAsync(db, tx, id, ct)) throw Unauthenticated();
@@ -79,7 +79,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
                 """ + (lockAccount ? " for update of s" : " for share of u,s"), digest))
             await using (var row = await cmd.ExecuteReaderAsync(ct))
             {
-                if (!await row.ReadAsync(ct)) throw Unauthenticated();
+                await row.ReadRequired(ct, Unauthenticated);
                 actor = new(row.GetGuid(0), row.GetString(1), row.GetInt64(2), false, row.GetFieldValue<DateTimeOffset>(3));
             }
         }
@@ -101,7 +101,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             """, digest))
         await using (var row = await cmd.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Unauthenticated();
+            await row.ReadRequired(ct, Unauthenticated);
             (principal, handle, generation) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2));
         }
         var expiresAt = await SqlCommands.Scalar(db, tx, ct, """
@@ -139,7 +139,7 @@ internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null
             {owned} and {ArchivedArticleAuthority.Available}
             """, id, includeDeleted);
         await using var row = await cmd.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.NotFound, "Article not found.");
+        await row.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "Article not found."));
         return new(id, actor.Id, row.GetInt64(0), row.GetString(1), row.GetString(2),
             row.IsDBNull(3) ? null : row.GetInt64(3), row.GetBoolean(4));
     }

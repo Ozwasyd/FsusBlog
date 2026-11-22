@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using Fido2NetLib;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
@@ -16,9 +17,7 @@ internal sealed partial class PasskeyStore
         await using var db = await _source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         var actor = await MfaStore.RequireSession(db, tx, session, ct);
-        await using var query = Store.Sql(db, tx,
-            "select exists (select from public.site_recovery_key where user_id=$1 and used_at is null)", actor.Id);
-        var active = await query.ExecuteScalarAsync(ct) is true;
+        var active = await SqlCommands.Scalar(db, tx, ct, "select exists (select from public.site_recovery_key where user_id=$1 and used_at is null)", actor.Id) is true;
         await InstanceLease.CommitProtected(tx, _lease, ct);
         return active;
     }
@@ -53,7 +52,7 @@ internal sealed partial class PasskeyStore
                 """, MfaStore.FlowDigest(request.Token), original.Id, original.Generation, original.Scope, RecoveryAssertion))
             await using (var row = await select.ExecuteReaderAsync(ct))
             {
-                if (!await row.ReadAsync(ct)) throw Denied();
+                await row.ReadRequired(ct, Denied);
                 (operation, options) = (row.GetInt16(0), row.GetString(1));
             }
             await InstanceLease.CommitProtected(consume, _lease, ct);

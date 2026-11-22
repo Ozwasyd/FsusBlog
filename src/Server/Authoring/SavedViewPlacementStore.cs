@@ -64,10 +64,10 @@ internal sealed partial class SavedViewStore
         switch (input.Action)
         {
             case SavedViewPlacementAction.Default:
-                await using (var set = Store.Sql(db, tx, """
+                await SqlCommands.Execute(db, tx, ct, """
                     insert into public.author_saved_view_default values($1,$2,$3)
                     on conflict (site_id,owner_id) do update set view_id=excluded.view_id
-                    """, site, actor.Id, input.Id)) await set.ExecuteNonQueryAsync(ct);
+                    """, site, actor.Id, input.Id);
                 break;
             case SavedViewPlacementAction.ClearDefault:
                 if (await SqlCommands.Execute(db, tx, ct, """

@@ -37,9 +37,7 @@ internal sealed partial class PasskeyStore
         await SqlCommands.Execute(db, tx, ct, """
             insert into public.blog_user(id,name,enabled,generation) values($1,$2,true,1)
             """, id, "reader-" + id.ToString("N"));
-        await using (var subject = Store.Sql(db, tx,
-            "insert into public.passkey_subject(user_id,user_handle) values($1,$2)", id, options.User.Id))
-            await subject.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "insert into public.passkey_subject(user_id,user_handle) values($1,$2)", id, options.User.Id);
         await RegisterCredential(db, tx, id, request, options, ct);
         await InstanceLease.CommitProtected(tx, _lease, ct);
     }

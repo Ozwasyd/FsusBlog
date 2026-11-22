@@ -30,6 +30,14 @@ internal static class PageShellEndpoints
             return rebuilt;
         }
 
+        void MapLocalized(string path, Func<ShellSet, bool, byte[]> body) =>
+            app.MapGet(path, (HttpContext ctx) =>
+            {
+                ServerHttp.NoStore(ctx);
+                var shells = CurrentShells();
+                return Results.Bytes(body(shells, SiteLocale.Select(ctx) == "en"), ServerHttp.HtmlContentType);
+            });
+
         app.MapGet("/", (HttpContext ctx) =>
         {
             var snapshot = ServerHttp.Snapshot(ctx, publications);
@@ -39,36 +47,16 @@ internal static class PageShellEndpoints
         });
         app.MapGet("/article/{id:int}", (HttpContext ctx, int id) =>
             PublicReadEndpoints.PublicDetail(ctx, publications, publicMediaEnabled, id, asHtml: true));
-        app.MapGet("/archive", (HttpContext ctx) =>
-        {
-            ServerHttp.NoStore(ctx);
-            var shells = CurrentShells();
-            return Results.Bytes(SiteLocale.Select(ctx) == "en" ? shells.EnglishArchive : shells.Archive, ServerHttp.HtmlContentType);
-        });
+        MapLocalized("/archive", static (shells, english) => english ? shells.EnglishArchive : shells.Archive);
         app.MapGet("/user/comments", (HttpContext ctx) =>
         {
             ServerHttp.NoStore(ctx);
             ctx.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
             return Results.Bytes(CurrentShells().Shell, ServerHttp.HtmlContentType);
         });
-        app.MapGet("/search", (HttpContext ctx) =>
-        {
-            ServerHttp.NoStore(ctx);
-            var shells = CurrentShells();
-            return Results.Bytes(SiteLocale.Select(ctx) == "en" ? shells.EnglishSearch : shells.Search, ServerHttp.HtmlContentType);
-        });
-        app.MapGet("/login", (HttpContext ctx) =>
-        {
-            ServerHttp.NoStore(ctx);
-            var shells = CurrentShells();
-            return Results.Bytes(SiteLocale.Select(ctx) == "en" ? shells.EnglishLogin : shells.Login, ServerHttp.HtmlContentType);
-        });
-        app.MapGet("/register", (HttpContext ctx) =>
-        {
-            ServerHttp.NoStore(ctx);
-            var shells = CurrentShells();
-            return Results.Bytes(SiteLocale.Select(ctx) == "en" ? shells.EnglishRegister : shells.Register, ServerHttp.HtmlContentType);
-        });
+        MapLocalized("/search", static (shells, english) => english ? shells.EnglishSearch : shells.Search);
+        MapLocalized("/login", static (shells, english) => english ? shells.EnglishLogin : shells.Login);
+        MapLocalized("/register", static (shells, english) => english ? shells.EnglishRegister : shells.Register);
         app.MapGet("/user", (HttpContext ctx) =>
         {
             ServerHttp.NoStore(ctx);

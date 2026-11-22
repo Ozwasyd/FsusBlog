@@ -12,4 +12,12 @@ internal static class CommandEndpoints
 
     internal static RouteHandlerBuilder MapCommandPut(this IEndpointRouteBuilder routes, string pattern, Delegate handler) =>
         routes.MapPut(pattern, handler).RequireRateLimiting(Policy);
+
+    internal const string QueryPolicy = "query";
+
+    internal static RouteHandlerBuilder MapQueryGet(this IEndpointRouteBuilder routes, string pattern, Delegate handler) =>
+        routes.MapGet(pattern, handler).RequireRateLimiting(QueryPolicy);
+
+    internal static RouteHandlerBuilder MapQueryMethods(this IEndpointRouteBuilder routes, string pattern, IEnumerable<string> methods, Delegate handler) =>
+        routes.MapMethods(pattern, methods, handler).RequireRateLimiting(QueryPolicy);
 }

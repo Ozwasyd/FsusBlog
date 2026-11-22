@@ -16,12 +16,12 @@ internal static class ReaderRegistrationEndpoints
     {
         var pow = app.Services.GetRequiredService<ScopedPow>();
         var acceptance = Wire.EncodeEmptySuccess();
-        app.MapGet(Base + "/status.aeds", (HttpContext ctx) =>
+        app.MapQueryGet(Base + "/status.aeds", (HttpContext ctx) =>
         {
             NoStore(ctx);
             requireHost(ctx);
             return ServerHttp.Frame(acceptance);
-        }).RequireRateLimiting("query");
+        });
         app.MapPost(Base + "/pow.aeds", (HttpContext ctx, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
             {

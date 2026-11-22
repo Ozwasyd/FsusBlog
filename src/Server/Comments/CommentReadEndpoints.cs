@@ -13,23 +13,23 @@ internal static class CommentReadEndpoints
         FsusBlog.V2.Server.Operations.SiteCapabilities capabilities)
     {
         CommentReports.Map(app, cookie, readFrame);
-        app.MapGet(WireRoutes.CommentRoots, (HttpContext ctx, CommentReadStore store, int articleId, CancellationToken ct) =>
+        app.MapQueryGet(WireRoutes.CommentRoots, (HttpContext ctx, CommentReadStore store, int articleId, CancellationToken ct) =>
             ReadWithWriteHeader(ctx, publications, articleId, Cursor(ctx),
                 cursor => store.RootsWithWriteStatus(articleId, cursor, Limit(ctx, 10, 50), capabilities.PublicCommentSubmissions, ct),
-                () => CommentReadWire.Roots([], null))).RequireRateLimiting("query");
+                () => CommentReadWire.Roots([], null)));
 
-        app.MapGet(WireRoutes.CommentChildren, (HttpContext ctx, CommentReadStore store, int articleId, long parentId, CancellationToken ct) =>
+        app.MapQueryGet(WireRoutes.CommentChildren, (HttpContext ctx, CommentReadStore store, int articleId, long parentId, CancellationToken ct) =>
             Read(publications, articleId, Cursor(ctx), cursor => store.Children(articleId, parentId, cursor, Limit(ctx, 20, 100), ct),
-                () => CommentReadWire.Children(parentId, 0, [], null))).RequireRateLimiting("query");
+                () => CommentReadWire.Children(parentId, 0, [], null)));
 
-        app.MapGet(WireRoutes.CommentContext, (HttpContext ctx, CommentReadStore store, int articleId, long commentId, int? window, CancellationToken ct) =>
+        app.MapQueryGet(WireRoutes.CommentContext, (HttpContext ctx, CommentReadStore store, int articleId, long commentId, int? window, CancellationToken ct) =>
             ReadWithWriteHeader(ctx, publications, articleId, null,
                 _ => store.ContextWithWriteStatus(articleId, commentId, Math.Clamp(window ?? 6, 2, 20), capabilities.PublicCommentSubmissions, ct),
-                () => CommentReadWire.Context(null, [], []))).RequireRateLimiting("query");
+                () => CommentReadWire.Context(null, [], [])));
 
-        app.MapGet(WireRoutes.CommentThread, (HttpContext ctx, CommentReadStore store, int articleId, long rootId, CancellationToken ct) =>
+        app.MapQueryGet(WireRoutes.CommentThread, (HttpContext ctx, CommentReadStore store, int articleId, long rootId, CancellationToken ct) =>
             Read(publications, articleId, Cursor(ctx), cursor => store.Thread(articleId, rootId, cursor, Limit(ctx, 20, 100), ct),
-                () => CommentReadWire.Thread(rootId, [], null))).RequireRateLimiting("query");
+                () => CommentReadWire.Thread(rootId, [], null)));
 
         if (capabilities.PublicCommentSubmissions)
         {

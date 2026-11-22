@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
@@ -79,7 +80,7 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
             """, id, actor.Id, sessionDigest, actor.Generation))
         await using (var row = await read.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Missing();
+            await row.ReadRequired(ct, Missing);
             saved = new(new(row.GetGuid(0), row.GetGuid(1), row.GetInt64(2), row.GetInt64(3),
                 row.GetInt64(4), row.GetInt32(5)), row.GetFieldValue<byte[]>(6), row.GetBoolean(7),
                 row.IsDBNull(8) ? null : new(id, row.GetInt32(8), row.GetInt64(9), row.GetInt64(10)));

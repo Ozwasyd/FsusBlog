@@ -95,7 +95,7 @@ internal sealed class AdminArticleTrashPublicationStore(AdminSessionGate gate, A
                 and not exists(select from public.article_schedule where article_id=a.id)
             """, article, revision, locking);
         await using var row = await query.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.Conflict, "No verified previous publication is available for this trash item.");
+        await row.ReadRequired(ct, () => new BusinessException(Rejection.Conflict, "No verified previous publication is available for this trash item."));
         return new(new(article, revision, row.GetInt64(1), row.GetInt64(2), row.GetString(3)), row.GetGuid(0),
             row.GetString(4), row.IsDBNull(5) ? null : row.GetInt64(5), row.GetInt32(6));
     }

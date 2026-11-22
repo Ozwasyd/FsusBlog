@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -24,7 +25,7 @@ internal sealed record RootCommentPowPolicy(long Generation, int ProofSeconds)
             select generation, proof_seconds from public.root_comment_pow_policy where singleton
             """ + (update ? " for update" : " for share"));
         await using var row = await query.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new PublicUnavailableException();
+        await row.ReadRequired(ct, () => new PublicUnavailableException());
         var policy = new RootCommentPowPolicy(row.GetInt64(0), row.GetInt32(1));
         if (policy.Generation <= 0 || !Wire.IsRootCommentPowLifetime(policy.ProofSeconds))
             throw new PublicUnavailableException();

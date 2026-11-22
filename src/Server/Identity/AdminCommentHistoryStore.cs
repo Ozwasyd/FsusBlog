@@ -68,8 +68,7 @@ internal sealed class AdminCommentHistoryStore(AdminSessionGate gate)
                     e.source,e.event_id limit {{CommentTimelineEvents + 1}}
                 """, article is int coordinates ? [id, coordinates] : [id]);
             await using var rows = await select.ExecuteReaderAsync(ct);
-            if (!await rows.ReadAsync(ct))
-                throw new BusinessException(Rejection.NotFound, "Comment moderation history is unavailable.");
+            await rows.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "Comment moderation history is unavailable."));
             var targetArticle = rows.GetInt32(0);
             var current = rows.GetInt16(1);
             var currentVersion = rows.GetInt64(2);

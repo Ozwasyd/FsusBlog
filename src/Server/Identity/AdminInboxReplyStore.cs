@@ -65,7 +65,7 @@ internal sealed class AdminInboxReplyStore(AdminSessionGate gate)
     {
         await using var query = Store.Sql(db, tx, "SELECT account_id,status FROM public.inbox_conversation WHERE id=$1", id);
         await using var row = await query.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
+        await row.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found."));
         if ((ConversationStatus)row.GetInt16(1) == ConversationStatus.Closed)
             throw new BusinessException(Rejection.Conflict, "The conversation is closed.");
         return row.GetGuid(0);

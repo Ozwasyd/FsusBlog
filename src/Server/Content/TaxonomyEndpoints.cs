@@ -24,10 +24,10 @@ internal static class TaxonomyEndpoints
             var id = current.Taxonomy.TagByName(query(ctx, "name", 256)) ?? throw Missing(true);
             return Metadata(ctx, current, true, id);
         });
-        app.MapMethods(WireRoutes.CategoryArticles, ReadMethods, (HttpContext ctx, int id, int page, int size) =>
-            List(ctx, false, id, page, size)).RequireRateLimiting("query");
-        app.MapMethods(WireRoutes.TagArticles, ReadMethods, (HttpContext ctx, int id, int page, int size) =>
-            List(ctx, true, id, page, size)).RequireRateLimiting("query");
+        app.MapQueryMethods(WireRoutes.CategoryArticles, ReadMethods, (HttpContext ctx, int id, int page, int size) =>
+            List(ctx, false, id, page, size));
+        app.MapQueryMethods(WireRoutes.TagArticles, ReadMethods, (HttpContext ctx, int id, int page, int size) =>
+            List(ctx, true, id, page, size));
 
         app.MapCommandGet(WireRoutes.DraftTaxonomy, async (HttpContext ctx, int id, Store store, CancellationToken ct) =>
         {

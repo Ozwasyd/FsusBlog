@@ -111,9 +111,7 @@ internal sealed class AuthorTextRebuildWorker(NpgsqlDataSource source, InstanceL
         }
 
         await AuthorTextIndex.LockRebuild(db, tx, job.Owner, ct);
-        await using (var current = Store.Sql(db, tx,
-            $"select exists(select from public.author_text_rebuild_job where {MatchJob})", job.Arguments()))
-            if (await current.ExecuteScalarAsync(ct) is not true) return;
+        if (await SqlCommands.Scalar(db, tx, ct, $"select exists(select from public.author_text_rebuild_job where {MatchJob})", job.Arguments()) is not true) return;
 
         await tx.SaveAsync(WorkSavepoint, ct);
         try

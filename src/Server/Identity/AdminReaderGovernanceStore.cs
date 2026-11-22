@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -198,20 +199,17 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
 
             var previousEnabled = await CheckTarget(db, tx, normalized, forUpdate: true, ct);
             long nextGeneration;
-            await using (var update = Store.Sql(db, tx, """
+            nextGeneration = (long)(await SqlCommands.Scalar(db, tx, ct, """
                 update public.blog_user
                 set enabled = $2, generation = generation + 1
                 where id = $1
                 returning generation
-                """, normalized.UserId, normalized.TargetEnabled))
-            {
-                nextGeneration = (long)(await update.ExecuteScalarAsync(ct) ?? throw TargetNotFound());
-            }
+                """, normalized.UserId, normalized.TargetEnabled) ?? throw TargetNotFound());
 
             var revokedSessions = 0;
             if (!normalized.TargetEnabled)
             {
-                await using (var dropSessions = Store.Sql(db, tx, """
+                revokedSessions = (int)(await SqlCommands.Scalar(db, tx, ct, """
                     with deleted as (
                         delete from public.user_session
                         where user_id = $1
@@ -219,10 +217,7 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
                     )
                     select count(*) filter (where generation = $2 and expires_at > clock_timestamp())::int
                     from deleted
-                    """, normalized.UserId, normalized.ExpectedGeneration))
-                {
-                    revokedSessions = (int)(await dropSessions.ExecuteScalarAsync(ct) ?? 0);
-                }
+                    """, normalized.UserId, normalized.ExpectedGeneration) ?? 0);
                 foreach (var sql in new[]
                 {
                     "delete from public.login_ticket where user_id = $1",
@@ -256,8 +251,7 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
                 revokedSessions, normalized.Reason))
             await using (var row = await audit.ExecuteReaderAsync(ct))
             {
-                if (!await row.ReadAsync(ct))
-                    throw new InvalidOperationException("Failed to record reader governance audit.");
+                await row.ReadRequired(ct, () => new InvalidOperationException("Failed to record reader governance audit."));
                 happenedAt = row.GetFieldValue<DateTimeOffset>(0);
             }
 
@@ -279,7 +273,7 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
         await using var query = Store.Sql(db, tx,
             $"select enabled, generation from public.blog_user where id = $1{suffix}", command.UserId);
         await using var row = await query.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw TargetNotFound();
+        await row.ReadRequired(ct, TargetNotFound);
         var enabled = row.GetBoolean(0);
         var generation = row.GetInt64(1);
         if (generation != command.ExpectedGeneration || enabled == command.TargetEnabled)

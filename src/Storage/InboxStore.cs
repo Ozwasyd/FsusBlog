@@ -242,7 +242,7 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         long message;
         await using (var row = await query.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.NotFound, "Conversation not found.");
+            await row.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "Conversation not found."));
             before = (ConversationStatus)row.GetInt16(0);
             if (before == target) return (before, false);
             if (row.GetString(1) != expected) throw new BusinessException(Rejection.Conflict, "The conversation changed. Reload it.");

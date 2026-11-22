@@ -105,7 +105,7 @@ internal sealed class AdminCommentAppealStore(AdminSessionGate gate, AdminStepUp
         long comment, version;
         await using (var row = await select.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw AppealChanged();
+            await row.ReadRequired(ct, AppealChanged);
             if (reviewer == row.GetGuid(3))
                 throw new BusinessException(Rejection.Forbidden, "The original moderator cannot decide this appeal.");
             (article, comment, version) = (row.GetInt32(0), row.GetInt64(1), row.GetInt64(2));

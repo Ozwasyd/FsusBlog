@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using Npgsql;
@@ -14,11 +15,10 @@ internal static class ArticleScheduleStore
         long expected, CancellationToken ct)
     {
         var published = await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
-        await using var cmd = SqlCommands.Create(db, tx, """
+        return new(id, expected, Milliseconds(await SqlCommands.Scalar(db, tx, ct, """
             select s.due_at from public.article_schedule s join public.admin_principal p on p.id=s.actor_id and p.generation=s.generation
             where s.article_id=$1 and s.revision=$2 and s.actor_id=$3
-            """, id, expected, actor.Id);
-        return new(id, expected, Milliseconds(await cmd.ExecuteScalarAsync(ct)), published);
+            """, id, expected, actor.Id)), published);
     }
 
     internal static async Task Validate(NpgsqlConnection db, NpgsqlTransaction tx, ArticleState current,
@@ -64,7 +64,7 @@ internal static class ArticleScheduleStore
             select due_at,published_revision from public.article_schedule_receipt where actor_id=$1 and command_id=$2
             """, actor, command);
         await using var row = await read.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new InvalidOperationException("Schedule receipt missing.");
+        await row.ReadRequired(ct, () => new InvalidOperationException("Schedule receipt missing."));
         return new(draft.Id, draft.Revision, row.IsDBNull(0) ? 0 : Milliseconds(row.GetDateTime(0)), row.GetInt64(1));
     }
 

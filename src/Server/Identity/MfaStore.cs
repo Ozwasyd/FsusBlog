@@ -1,3 +1,4 @@
+using FsusBlogV2.Storage;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
@@ -175,7 +176,7 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
             """, digest, (int)Purpose.Login))
         await using (var row = await query.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Denied();
+            await row.ReadRequired(ct, Denied);
             actor = new(row.GetGuid(0), row.GetInt64(1), row.GetInt32(2), row.GetFieldValue<byte[]>(3));
         }
         if (actor.Scope.Length <= bound.Length || !CryptographicOperations.FixedTimeEquals(actor.Scope.AsSpan(0, bound.Length), bound))
@@ -217,7 +218,7 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         Subject actor;
         await using (var row = await query.ExecuteReaderAsync(ct))
         {
-            if (!await row.ReadAsync(ct)) throw Denied();
+            await row.ReadRequired(ct, Denied);
             actor = new(row.GetGuid(0), row.GetInt64(1), row.GetInt32(2), digest);
         }
         if (await SqlCommands.Scalar(db, tx, ct, """

@@ -50,13 +50,10 @@ internal static class DocumentExportStore
             delete from public.author_document_export
             where expires_at<=statement_timestamp() or (owner_id=$1 and author_generation<>$2)
             """, actor.Id, actor.Generation);
-        await using (var quota = Store.Sql(db, tx, """
+        if (await SqlCommands.Scalar(db, tx, ct, """
             select count(*)<$2 and count(*) filter (where owner_id=$1)<$3 from public.author_document_export
-            """, actor.Id, SiteCapacity, Wire.DocumentExportTasksPerOwner))
-        {
-            if (await quota.ExecuteScalarAsync(ct) is not true)
-                throw new BusinessException(Rejection.Conflict, "The export quota is full. Wait for an export to expire.");
-        }
+            """, actor.Id, SiteCapacity, Wire.DocumentExportTasksPerOwner) is not true)
+            throw new BusinessException(Rejection.Conflict, "The export quota is full. Wait for an export to expire.");
 
         var provider = DocumentExportInput.ProviderFor(assets);
         var assetColumn = assets.Length == 1 ? ",attachment_id" : assets.Length > 1 ? ",attachment_ids" : "";
@@ -125,7 +122,7 @@ internal static class DocumentExportStore
             select output,output_digest from public.author_document_export where {OwnedTask} and state=3
             """, actor.Id, id, actor.Generation);
         await using var row = await read.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw DocumentExportContract.Missing();
+        await row.ReadRequired(ct, DocumentExportContract.Missing);
         var output = row.GetFieldValue<byte[]>(0);
         if (output.Length != task.OutputBytes ||
             !CryptographicOperations.FixedTimeEquals(SHA256.HashData(output), row.GetFieldValue<byte[]>(1)) ||
