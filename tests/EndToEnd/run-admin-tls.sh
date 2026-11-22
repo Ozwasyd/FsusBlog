@@ -261,6 +261,14 @@ write_fixture() {
   } > "$path"
   chmod 700 "$path"
 }
+if [[ ${FSUSBLOG_TEST_SUBSCRIPTION_PREFERENCE:-0} == 1 ]]; then
+  FSUSBLOG_SUBSCRIPTION_HMAC_KEY=$(openssl rand -hex 32)
+  export FSUSBLOG_SUBSCRIPTION_HMAC_KEY
+  export FSUSBLOG_TEST_SUBSCRIPTION_ISSUE="$scratch/issue-subscription-proof"
+  write_fixture "$FSUSBLOG_TEST_SUBSCRIPTION_ISSUE" <<'EOF'
+"$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_CLI" site-subscription issue-cancel "$1"
+EOF
+fi
 export FSUSBLOG_TEST_ADMIN_REVOKE="$scratch/revoke-admin"
 write_fixture "$FSUSBLOG_TEST_ADMIN_REVOKE" <<'EOF'
 "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_CLI" admin-identity revoke-all tls-admin-fixture
@@ -519,6 +527,9 @@ elif [[ ${FSUSBLOG_TEST_READER_GOVERNANCE:-0} == 1 ]]; then
   node tests/EndToEnd/admin-reader-governance-flow.mjs
 elif [[ ${FSUSBLOG_TEST_PUBLIC_SITE_CONFIG:-0} == 1 ]]; then
   node tests/EndToEnd/site-config-flow.mjs
+elif [[ ${FSUSBLOG_TEST_SUBSCRIPTION_PREFERENCE:-0} == 1 ]]; then
+  FSUSBLOG_TEST_SUBSCRIPTION_URL="$FSUSBLOG_TEST_SITE_URL" FSUSBLOG_TEST_TLS_SPKI="$public_spki" \
+    node tests/EndToEnd/subscription-preference-flow.mjs
 elif [[ ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} == 1 ]]; then
   node tests/EndToEnd/publication-proof-flow.mjs
 elif [[ ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} == 1 ]]; then

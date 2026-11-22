@@ -31,6 +31,8 @@ const browser = await chromium.launch({ executablePath, args: pin ? [`--ignore-c
 
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' })
+  context.setDefaultTimeout(15_000)
+  await context.addCookies([{ name: 'fsus_locale', value: 'zh-CN', url: origin }])
   const page = await context.newPage()
   page.on('pageerror', () => errors.push('uncaught-page-error'))
   const landing = await page.goto(url)
@@ -139,10 +141,11 @@ try {
   failure = error
 } finally {
   const version = browser.version()
-  await browser.close()
-  await writeFile(join(evidence, 'subscription-preference-result.json'), JSON.stringify({
-    started, ended: new Date().toISOString(), browser: version, checks, errors, passed: !failure,
-  }, null, 2) + '\n')
+  try {
+    await writeFile(join(evidence, 'subscription-preference-result.json'), JSON.stringify({
+      started, ended: new Date().toISOString(), browser: version, checks, errors, passed: !failure,
+    }, null, 2) + '\n')
+  } finally { await browser.close() }
 }
 if (failure) throw failure
 

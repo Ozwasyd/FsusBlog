@@ -10,4 +10,6 @@
 
 取消请求在 `X-Fsus-Subscription-Proof` 提交凭据。匹配邮箱哈希、渠道和有效凭据的取消，会在同一个事务内停用偏好并清除凭据。包括过期、重复、错配和无记录在内的格式合法请求统一返回空成功帧。缺失或格式非法的凭据返回统一的请求错误。端点按来源 IP 限流，页面和接口响应均采用 `no-store`。取消后停用记录继续保留，匿名请求无法恢复或更改其渠道。
 
+`FSUSBLOG_TEST_SUBSCRIPTION_PREFERENCE=1 bash tests/EndToEnd/run-admin-tls.sh` 使用 Caddy HTTPS 与隔离 PostgreSQL 验证三种 Feed、两个登记渠道、离线签发、统一退订回执和私密字段处理。脚本为本轮生成独立 HMAC 密钥，使用合成邮箱。
+
 v1 使用匿名 `/api/binary/subscriptions`，首次保存和后续匿名写入均可设置渠道或重新启用，退订使用绑定到邮箱哈希和渠道的限时一次性凭据。v2 保留登记和退订偏好，采用原生 v2 AEDS 布局、独立哈希域、数据库原子消费、统一合法格式回执和停用保留策略。 [v1 订阅路由](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Subscriptions.cs) · [v1 订阅与投递边界](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/security.md)
