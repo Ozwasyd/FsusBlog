@@ -9,6 +9,7 @@ using FsusBlog.V2.Server.Operations;
 using FsusBlog.V2.Server.Passkeys;
 using Microsoft.AspNetCore.RateLimiting;
 using Npgsql;
+using static FsusBlog.V2.Server.Administration.AdminActionRoutes;
 
 namespace FsusBlog.V2.Server.Administration;
 
@@ -73,6 +74,8 @@ internal static class AdminIdentityEndpoints
         if (config is null) return;
         var secure = config.Origin.Scheme == "https";
         var session = SessionCookieName(config);
+        var authority = config.Origin.GetLeftPart(UriPartial.Authority);
+        var actions = new AdminActionRoutes(app, authority, session, Limit, readFrame);
         var bootstrap = secure ? "__Host-FsusAdminBootstrap" : "fsus-v2-admin-bootstrap";
         var login = secure ? "__Host-FsusAdminAssertion" : "fsus-v2-admin-assertion";
         var database = app.Services.GetRequiredService<NpgsqlDataSource>();
@@ -186,31 +189,33 @@ internal static class AdminIdentityEndpoints
             .RequireRateLimiting("command");
         AdminClusterEndpoints.Map(app, operations, session, Limit);
         if (secure)
-            AdminRiskReadinessEndpoints.Map(app, config.Origin, operations, commentRisk, session, Limit, commentRoutes,
-                capabilities.TrustLoopbackProxy, readFrame);
-        AdminModerationEndpoints.Map(app, config.Origin, moderation, commentAppeals, moderationBatch, session, Limit, readFrame,
-            capabilities);
-        AdminReaderGovernanceEndpoints.Map(app, config.Origin, readerGovernance, session, Limit, readFrame);
-        AdminHandleEndpoints.Map(app, config.Origin, adminHandle, session, Limit, readFrame);
+            AdminRiskReadinessEndpoints.Map(actions, operations, commentRisk, commentRoutes, capabilities.TrustLoopbackProxy);
+        var fenceVisibleMessages = capabilities.AdminInboxActivityOrder;
+        AdminCommentAppeals.Map(actions, commentAppeals, fenceVisibleMessages);
+        if (moderationBatch is not null)
+            AdminModerationBatchEndpoints.Map(app, authority, moderationBatch, session, Limit, readFrame, fenceVisibleMessages);
+        AdminModerationEndpoints.Map(actions, moderation, fenceVisibleMessages);
+        AdminReaderGovernanceEndpoints.Map(actions, readerGovernance);
+        AdminHandleEndpoints.Map(actions, adminHandle);
         AdminInboxEndpoints.Map(app, gate, session, readFrame, capabilities);
         AdminSitePages.Map(app, sitePageStore, session);
         AdminCommentRevisions.Map(app, commentHistory, session);
-        AdminArticleTrashRestore.Map(app, config.Origin, trashRestore, session, Limit, readFrame);
-        AdminArticleTrashPublication.Map(app, config.Origin, trashPublication, session, Limit, readFrame);
+        AdminArticleTrashRestore.Map(actions, trashRestore);
+        AdminArticleTrashPublication.Map(actions, trashPublication);
         if (capabilities.AdminTagMetadata)
-            AdminTagMetadataEndpoints.Map(app, config.Origin, tagMetadata!, session, readFrame);
+            AdminTagMetadataEndpoints.Map(actions, tagMetadata!);
         if (capabilities.AdminCategoryMetadata)
-            AdminTagMetadataEndpoints.Map(app, config.Origin, tagMetadata!, session, readFrame, category: true);
+            AdminTagMetadataEndpoints.Map(actions, tagMetadata!, category: true);
         if (capabilities.AdminArticleRollback)
-            AdminArticleRollbackEndpoints.Map(app, config.Origin, new AdminArticleRollbackStore(gate, stepUp),
-                new AdminArticleArchiveStore(gate, stepUp), session, Limit, readFrame);
+            AdminArticleRollbackEndpoints.Map(actions, new AdminArticleRollbackStore(gate, stepUp),
+                new AdminArticleArchiveStore(gate, stepUp));
         if (sitePagesService.EditorEnabled)
-            AdminSitePageEditorEndpoints.Map(app, config.Origin, sitePageStore, session, Limit, readFrame);
+            AdminSitePageEditorEndpoints.Map(actions, sitePageStore);
         if (capabilities.SiteConfigEditor)
-            AdminSiteConfigEndpoints.Map(app, config.Origin, new AdminSiteConfigStore(gate, stepUp), session, Limit, readFrame,
+            AdminSiteConfigEndpoints.Map(actions, new AdminSiteConfigStore(gate, stepUp),
                 capabilities.PublicSite);
         if (appearance is { Online: true })
-            AdminAppearanceEndpoints.Map(app, config.Origin, new AdminAppearanceStore(gate, stepUp), session, Limit, readFrame,
+            AdminAppearanceEndpoints.Map(actions, new AdminAppearanceStore(gate, stepUp),
                 appearance.Registry);
         app.MapGet(WireRoutes.AdminCategories, (HttpContext ctx, Publications publications, CancellationToken ct) =>
             Taxonomy(ctx, publications, false, ct))
@@ -234,7 +239,7 @@ internal static class AdminIdentityEndpoints
         }).RequireRateLimiting("command");
         app.MapPost(WireRoutes.AdminArticleDelete, async (HttpContext ctx, int id, Publications publications, CancellationToken ct) =>
         {
-            AdminActionRoutes.RequireOrigin(ctx, config.Origin.GetLeftPart(UriPartial.Authority));
+            actions.RequireOrigin(ctx);
             if (id <= 0) throw new BusinessException(Rejection.Invalid, "Invalid article ID.");
             return Frame(await publications.AdministrativePublication(
                 invalidate => trashRestore.DeleteArticle(ctx.Request.Cookies[session], id, invalidate, ct), ct));
@@ -258,5 +263,4 @@ internal static class AdminIdentityEndpoints
     private static string? BootstrapToken(HttpContext ctx) =>
         ctx.Request.Headers[WireHeaders.AdminBootstrapToken] is { Count: 1 } value ? value[0] : null;
 
-    private static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);
 }

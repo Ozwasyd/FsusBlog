@@ -4,19 +4,24 @@ using FsusBlog.V2.Core;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed class AdminActionRoutes(WebApplication app, string authority, string session,
+internal sealed class AdminActionRoutes(WebApplication app, string authority, string session, string passkeyLimit,
     Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
 {
+    internal WebApplication App { get; } = app;
+    internal string PasskeyLimit { get; } = passkeyLimit;
+    internal string? Session(HttpContext ctx) => ctx.Request.Cookies[session];
+    internal void RequireOrigin(HttpContext ctx) => RequireOrigin(ctx, authority);
+
     internal void Availability(string route, Func<string?, CancellationToken, Task> check) =>
-        app.MapGet(route, async (HttpContext ctx, CancellationToken ct) =>
+        App.MapGet(route, async (HttpContext ctx, CancellationToken ct) =>
         {
-            await check(ctx.Request.Cookies[session], ct);
+            await check(Session(ctx), ct);
             return Results.NoContent();
         }).RequireRateLimiting("command");
 
     internal Task<byte[]> Read(HttpContext ctx, int maximum, CancellationToken ct)
     {
-        RequireOrigin(ctx, authority);
+        RequireOrigin(ctx);
         return readFrame(ctx, maximum, ct);
     }
 
@@ -32,19 +37,24 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
 
     internal RouteHandlerBuilder Post(string route, int maximum,
         Func<string?, byte[], CancellationToken, Task<byte[]>> apply) =>
-        app.MapPost(route, async (HttpContext ctx, CancellationToken ct) =>
+        App.MapPost(route, async (HttpContext ctx, CancellationToken ct) =>
         {
             var frame = await Read(ctx, maximum, ct);
-            return Frame(await apply(ctx.Request.Cookies[session], frame, ct));
+            return Frame(await apply(Session(ctx), frame, ct));
         });
 
-    internal void Complete(string route, string limit,
+    internal void Begin<T>(string route, Func<HttpContext, CancellationToken, Task<T>> readIntent,
+        Func<string?, T, CancellationToken, Task<byte[]>> begin) =>
+        App.MapPost(route, async (HttpContext ctx, CancellationToken ct) =>
+            Frame(await begin(Session(ctx), await readIntent(ctx, ct), ct))).RequireRateLimiting(PasskeyLimit);
+
+    internal void Complete(string route,
         Func<string?, PasskeyLoginRequest, CancellationToken, Task<byte[]>> apply) =>
-        app.MapPost(route, async (HttpContext ctx, CancellationToken ct) =>
+        App.MapPost(route, async (HttpContext ctx, CancellationToken ct) =>
         {
             var assertion = PasskeyWire.ReadLogin(await Read(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
-            return Frame(await apply(ctx.Request.Cookies[session], assertion, ct));
-        }).RequireRateLimiting(limit);
+            return Frame(await apply(Session(ctx), assertion, ct));
+        }).RequireRateLimiting(PasskeyLimit);
 
     internal static void RequireOrigin(HttpContext ctx, string authority)
     {

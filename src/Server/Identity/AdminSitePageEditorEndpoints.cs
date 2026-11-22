@@ -3,38 +3,37 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Security;
+using static FsusBlog.V2.Server.Administration.AdminActionRoutes;
 
 namespace FsusBlog.V2.Server.Administration;
 
 internal static class AdminSitePageEditorEndpoints
 {
-    internal static void Map(WebApplication app, Uri origin, AdminSitePageStore store, string session, string passkeyLimit,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+    internal static void Map(AdminActionRoutes actions, AdminSitePageStore store)
     {
-        var actions = new AdminActionRoutes(app, origin.GetLeftPart(UriPartial.Authority), session, readFrame);
-        app.MapGet(WireRoutes.AdminSitePageRevision, async (HttpContext ctx, SitePages pages, string slug, CancellationToken ct) =>
-            Frame(Wire.EncodeAdminSitePageRevision(await store.CurrentSitePage(ctx.Request.Cookies[session], pages, slug, ct))))
+        actions.App.MapGet(WireRoutes.AdminSitePageRevision, async (HttpContext ctx, SitePages pages, string slug, CancellationToken ct) =>
+            Frame(Wire.EncodeAdminSitePageRevision(await store.CurrentSitePage(actions.Session(ctx), pages, slug, ct))))
             .RequireRateLimiting("query");
 
-        app.MapPost(WireRoutes.AdminSitePageStepUpBegin, async (HttpContext ctx, SitePages pages, CancellationToken ct) =>
+        actions.App.MapPost(WireRoutes.AdminSitePageStepUpBegin, async (HttpContext ctx, SitePages pages, CancellationToken ct) =>
         {
             var frame = await actions.Read(ctx, WireLimits.AdminSitePagePublishFrameBytes, ct);
             var intent = Wire.DecodeAdminSitePagePublish(frame);
-            return Frame(await store.BeginSitePageStepUp(ctx.Request.Cookies[session], pages, intent, ct));
-        }).RequireRateLimiting(passkeyLimit);
-        actions.Complete(WireRoutes.AdminSitePageStepUpComplete, passkeyLimit, store.CompleteSitePageStepUp);
+            return Frame(await store.BeginSitePageStepUp(actions.Session(ctx), pages, intent, ct));
+        }).RequireRateLimiting(actions.PasskeyLimit);
+        actions.Complete(WireRoutes.AdminSitePageStepUpComplete, store.CompleteSitePageStepUp);
 
-        app.MapPost(WireRoutes.AdminSitePagePow, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
+        actions.App.MapPost(WireRoutes.AdminSitePagePow, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
             {
                 var frame = await actions.Read(ctx, WireLimits.AdminSitePagePublishFrameBytes, ct);
                 var intent = Wire.DecodeAdminSitePagePublish(frame);
-                return await store.IssueSitePagePow(ctx.Request.Cookies[session], pages, intent, frame, pow, ctx, ct);
+                return await store.IssueSitePagePow(actions.Session(ctx), pages, intent, frame, pow, ctx, ct);
             }, PowScope.AdminSitePagePublish)).RequireRateLimiting("command");
 
-        app.MapPost(WireRoutes.AdminSitePagePublish, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
+        actions.App.MapPost(WireRoutes.AdminSitePagePublish, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
             Publish(ctx, pages, pow, legacy: false, ct)).RequireRateLimiting("command");
-        app.MapPut(WireRoutes.AdminLegacySitePageUpdate, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
+        actions.App.MapPut(WireRoutes.AdminLegacySitePageUpdate, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
             Publish(ctx, pages, pow, legacy: true, ct)).RequireRateLimiting("command");
 
         async Task<IResult> Publish(HttpContext ctx, SitePages pages, ScopedPow pow, bool legacy, CancellationToken ct)
@@ -46,8 +45,8 @@ internal static class AdminSitePageEditorEndpoints
                     var frame = await actions.Read(ctx, legacy ? SitePageWire.MaxUpdateFrameBytes : WireLimits.AdminSitePagePublishFrameBytes, ct);
                     var intent = legacy ? LegacyIntent(ctx, frame) : Wire.DecodeAdminSitePagePublish(frame);
                     if (legacy) frame = Wire.EncodeAdminSitePagePublish(intent);
-                    var proof = AdminActionRoutes.Proof(ctx);
-                    await store.PublishSitePage(ctx.Request.Cookies[session], pages, intent, frame, proof, pow, ctx, ct);
+                    var proof = Proof(ctx);
+                    await store.PublishSitePage(actions.Session(ctx), pages, intent, frame, proof, pow, ctx, ct);
                     var publications = ctx.RequestServices.GetService<Publications>();
                     if (publications is not null)
                     {
@@ -85,6 +84,4 @@ internal static class AdminSitePageEditorEndpoints
             throw new ProtocolException("Invalid site page ETag");
         return new(update.Slug, revision, suffix[(separator + 1)..].ToString(), update.Markdown);
     }
-
-    private static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);
 }

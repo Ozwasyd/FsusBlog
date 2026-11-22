@@ -1,5 +1,6 @@
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server.Passkeys;
+using static FsusBlog.V2.Server.Administration.AdminActionRoutes;
 
 namespace FsusBlog.V2.Server.Administration;
 
@@ -7,22 +8,20 @@ internal static class AdminArticleRollbackEndpoints
 {
     internal const string Setting = "FSUSBLOG_ADMIN_ARTICLE_ROLLBACK";
 
-    internal static void Map(WebApplication app, Uri origin, AdminArticleRollbackStore rollback, AdminArticleArchiveStore archive,
-        string session, string limit, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+    internal static void Map(AdminActionRoutes actions, AdminArticleRollbackStore rollback, AdminArticleArchiveStore archive)
     {
-        var actions = new AdminActionRoutes(app, origin.GetLeftPart(UriPartial.Authority), session, readFrame);
         MapAction<AdminArticleRollbackIntent, AdminArticleRollbackReceipt>(
             WireRoutes.AdminArticleRollbackAvailability, WireRoutes.AdminArticleRollbackStepUpBegin,
             WireRoutes.AdminArticleRollbackStepUpComplete, WireRoutes.AdminArticleRollbackExecute,
             WireLimits.MaxAdminArticleRollbackFrameBytes, Wire.DecodeAdminArticleRollbackIntent, intent => intent.IdempotencyKey,
             rollback.CheckArticleRollbackAvailability, rollback.BeginArticleRollbackStepUp, rollback.CompleteArticleRollbackStepUp,
             rollback.ExecuteArticleRollback, Wire.EncodeAdminArticleRollbackReceipt);
-        app.MapGet(WireRoutes.AdminArticleRollbackPreview, async (HttpContext ctx, CancellationToken ct) =>
+        actions.App.MapGet(WireRoutes.AdminArticleRollbackPreview, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var article = AdminActionRoutes.PositiveCoordinate(ctx, "articleId");
-            var source = AdminActionRoutes.PositiveCoordinate(ctx, "sourceRevision");
-            if (article > int.MaxValue) throw AdminActionRoutes.InvalidCoordinate();
-            var result = await rollback.PreviewArticleRollback(ctx.Request.Cookies[session], (int)article, source, ct);
+            var article = PositiveCoordinate(ctx, "articleId");
+            var source = PositiveCoordinate(ctx, "sourceRevision");
+            if (article > int.MaxValue) throw InvalidCoordinate();
+            var result = await rollback.PreviewArticleRollback(actions.Session(ctx), (int)article, source, ct);
             return Frame(Wire.EncodeAdminArticleRollbackPreview(result));
         }).RequireRateLimiting("query");
 
@@ -39,20 +38,20 @@ internal static class AdminArticleRollbackEndpoints
             WireLimits.MaxAdminArticleArchiveFrameBytes, Wire.DecodeAdminArticleArchiveIntent, intent => intent.IdempotencyKey,
             archive.CheckArticleArchiveAvailability, archive.BeginArticleArchiveStepUp, archive.CompleteArticleArchiveStepUp,
             archive.ExecuteArticleArchive, Wire.EncodeAdminArticleArchiveReceipt);
-        app.MapGet(WireRoutes.AdminArticleArchivePage, async (HttpContext ctx, CancellationToken ct) =>
+        actions.App.MapGet(WireRoutes.AdminArticleArchivePage, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var before = ctx.Request.Query.ContainsKey("before") ? AdminActionRoutes.PositiveCoordinate(ctx, "before") : 0;
-            if (before > int.MaxValue) throw AdminActionRoutes.InvalidCoordinate();
-            var page = await archive.ListArchivedArticles(ctx.Request.Cookies[session], (int)before, ct);
+            var before = ctx.Request.Query.ContainsKey("before") ? PositiveCoordinate(ctx, "before") : 0;
+            if (before > int.MaxValue) throw InvalidCoordinate();
+            var page = await archive.ListArchivedArticles(actions.Session(ctx), (int)before, ct);
             return Frame(Wire.EncodeAdminArticleArchivePage(page));
         }).RequireRateLimiting("query");
-        app.MapGet(WireRoutes.AdminArticleArchivePreview, async (HttpContext ctx, CancellationToken ct) =>
+        actions.App.MapGet(WireRoutes.AdminArticleArchivePreview, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var article = AdminActionRoutes.PositiveCoordinate(ctx, "articleId");
-            var revision = AdminActionRoutes.PositiveCoordinate(ctx, "revision");
-            var privateRelease = AdminActionRoutes.PositiveCoordinate(ctx, "privateReleaseId");
-            if (article > int.MaxValue) throw AdminActionRoutes.InvalidCoordinate();
-            return Frame(await archive.PreviewArchivedArticle(ctx.Request.Cookies[session], (int)article, revision, privateRelease, ct));
+            var article = PositiveCoordinate(ctx, "articleId");
+            var revision = PositiveCoordinate(ctx, "revision");
+            var privateRelease = PositiveCoordinate(ctx, "privateReleaseId");
+            if (article > int.MaxValue) throw InvalidCoordinate();
+            return Frame(await archive.PreviewArchivedArticle(actions.Session(ctx), (int)article, revision, privateRelease, ct));
         }).RequireRateLimiting("query");
 
         void MapAction<TIntent, TReceipt>(string available, string begin, string complete, string execute,
@@ -64,18 +63,18 @@ internal static class AdminArticleRollbackEndpoints
             Func<TReceipt, byte[]> encode)
         {
             actions.Availability(available, checkAvailability);
-            app.MapPost(begin, async (HttpContext ctx, CancellationToken ct) =>
+            actions.App.MapPost(begin, async (HttpContext ctx, CancellationToken ct) =>
             {
                 var intent = await ReadIntent(ctx, ct);
-                return Frame(await beginStepUp(ctx.Request.Cookies[session], intent, ct));
-            }).RequireRateLimiting(limit);
-            actions.Complete(complete, limit, completeStepUp);
-            app.MapPost(execute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
+                return Frame(await beginStepUp(actions.Session(ctx), intent, ct));
+            }).RequireRateLimiting(actions.PasskeyLimit);
+            actions.Complete(complete, completeStepUp);
+            actions.App.MapPost(execute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
             {
                 var intent = await ReadIntent(ctx, ct);
-                var proof = AdminActionRoutes.Proof(ctx);
+                var proof = Proof(ctx);
                 var receipt = await publications.AdministrativePublication(
-                    invalidate => apply(ctx.Request.Cookies[session], proof, intent, invalidate, ct), ct);
+                    invalidate => apply(actions.Session(ctx), proof, intent, invalidate, ct), ct);
                 return Frame(encode(receipt));
             }).RequireRateLimiting("command");
 
@@ -83,6 +82,4 @@ internal static class AdminArticleRollbackEndpoints
                 actions.ReadIntent(ctx, maximum, decode, idempotencyKey, required: false, ct);
         }
     }
-
-    private static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);
 }
