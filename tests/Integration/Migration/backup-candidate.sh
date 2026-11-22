@@ -47,6 +47,26 @@ export FSUSBLOG_CLI_DLL="src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll"
 migrate=("$DOTNET_BIN" "$FSUSBLOG_CLI_DLL")
 backup=(python3 tools/site-backup.py)
 
+expect_backup_failure() {
+    local unexpected=$1
+    shift
+    if "${backup[@]}" "$@"; then
+        printf '%s\n' "$unexpected" >&2
+        exit 1
+    fi
+}
+
+expect_capture_rejection() {
+    local name=$1 unexpected=$2 expected=$3
+    shift 3
+    if env "$@" "${backup[@]}" capture "$scratch/output" "$name" "$scratch/input" > "$scratch/test-error.log" 2>&1; then
+        printf '%s\n' "$unexpected" >&2
+        exit 1
+    fi
+    rg -F "$expected" "$scratch/test-error.log"
+    test ! -e "$scratch/output/$name"
+}
+
 "${maintenance[@]}" -c "CREATE DATABASE \"$source_db\" TEMPLATE template0"
 created_source=1
 "${maintenance[@]}" -c "CREATE DATABASE \"$restore_db\" TEMPLATE template0"
@@ -102,12 +122,8 @@ rg -F 'Stop the v2 writer before measuring a backup.' "$scratch/test-error.log"
 test ! -e "$scratch/output/live"
 
 for variable in PGDATABASE PGHOST PGPORT PGSERVICE PGHOSTADDR; do
-    if env "$variable=wrong" "${backup[@]}" capture "$scratch/output" wrong-target "$scratch/input" > "$scratch/test-error.log" 2>&1; then
-        printf 'Mismatched libpq endpoint variable unexpectedly accepted: %s\n' "$variable" >&2
-        exit 1
-    fi
-    rg -F 'libpq must use the same source database, host and port as FSUSBLOG_DB.' "$scratch/test-error.log"
-    test ! -e "$scratch/output/wrong-target"
+    expect_capture_rejection wrong-target "Mismatched libpq endpoint variable unexpectedly accepted: $variable" \
+        'libpq must use the same source database, host and port as FSUSBLOG_DB.' "$variable=wrong"
 done
 cat > "$scratch/old-pg-dump" <<'SH'
 #!/usr/bin/env bash
@@ -115,12 +131,8 @@ cat > "$scratch/old-pg-dump" <<'SH'
 printf '%s\n' 'pg_dump (PostgreSQL) 17.0'
 SH
 chmod 700 "$scratch/old-pg-dump"
-if PG_DUMP_BIN="$scratch/old-pg-dump" "${backup[@]}" capture "$scratch/output" wrong-version "$scratch/input" > "$scratch/test-error.log" 2>&1; then
-    printf '%s\n' 'Incompatible pg_dump version unexpectedly accepted.' >&2
-    exit 1
-fi
-rg -F 'pg_dump and source PostgreSQL major versions differ.' "$scratch/test-error.log"
-test ! -e "$scratch/output/wrong-version"
+expect_capture_rejection wrong-version 'Incompatible pg_dump version unexpectedly accepted.' \
+    'pg_dump and source PostgreSQL major versions differ.' PG_DUMP_BIN="$scratch/old-pg-dump"
 
 output=$("${backup[@]}" capture "$scratch/output" candidate "$scratch/input")
 manifest="${output##* }"
@@ -128,22 +140,14 @@ manifest="${output##* }"
 candidate="$scratch/output/candidate"
 "${backup[@]}" verify "$candidate" "$manifest"
 if rg -F 'Fixture private body' "$candidate/manifest.json"; then exit 1; fi
-if "${backup[@]}" capture "$scratch/output" candidate "$scratch/input"; then
-    printf '%s\n' 'Preexisting candidate unexpectedly overwritten.' >&2
-    exit 1
-fi
-if "${backup[@]}" verify "$candidate" "$(printf '%064d' 0)"; then
-    printf '%s\n' 'Wrong manifest digest unexpectedly accepted.' >&2
-    exit 1
-fi
+expect_backup_failure 'Preexisting candidate unexpectedly overwritten.' \
+    capture "$scratch/output" candidate "$scratch/input"
+expect_backup_failure 'Wrong manifest digest unexpectedly accepted.' \
+    verify "$candidate" "$(printf '%064d' 0)"
 
 "${source_sql[@]}" -c 'UPDATE public.private_media SET phase=0'
-if "${backup[@]}" capture "$scratch/output" pending "$scratch/input" > "$scratch/test-error.log" 2>&1; then
-    printf '%s\n' 'Pending media phase unexpectedly captured.' >&2
-    exit 1
-fi
-rg -F 'Settle pending and removing private media before backup.' "$scratch/test-error.log"
-test ! -e "$scratch/output/pending"
+expect_capture_rejection pending 'Pending media phase unexpectedly captured.' \
+    'Settle pending and removing private media before backup.'
 "${source_sql[@]}" -c 'UPDATE public.private_media SET phase=1'
 
 if [[ "$("${source_sql[@]}" -qAtc "SELECT pg_catalog.to_regclass('public.private_media_upload_part') IS NOT NULL")" == t ]]; then
@@ -155,12 +159,8 @@ INSERT INTO public.private_media_upload(id,owner_id,command_id,name,format,lengt
 INSERT INTO public.private_media_upload_part(upload_id,part,digest,bytes)
     VALUES ('20000000-0000-0000-0000-000000000003',0,decode(repeat('00',32),'hex'),decode('00','hex'));
 SQL
-    if "${backup[@]}" capture "$scratch/output" staged "$scratch/input" > "$scratch/test-error.log" 2>&1; then
-        printf '%s\n' 'Live upload part unexpectedly captured.' >&2
-        exit 1
-    fi
-    rg -F 'Finish or cancel staged media parts before backup.' "$scratch/test-error.log"
-    test ! -e "$scratch/output/staged"
+    expect_capture_rejection staged 'Live upload part unexpectedly captured.' \
+        'Finish or cancel staged media parts before backup.'
     "${source_sql[@]}" -c 'DELETE FROM public.private_media_upload_part; DELETE FROM public.private_media_upload'
 fi
 
@@ -172,23 +172,17 @@ export FSUSBLOG_DB="$base;Database=$restore_db"
 "${backup[@]}" verify-restored "$candidate" "$manifest" "$scratch/restored"
 
 "${restore_sql[@]}" -c "UPDATE public.article SET body='different restored row'"
-if "${backup[@]}" verify-restored "$candidate" "$manifest" "$scratch/restored"; then
-    printf '%s\n' 'Different business data unexpectedly verified.' >&2
-    exit 1
-fi
+expect_backup_failure 'Different business data unexpectedly verified.' \
+    verify-restored "$candidate" "$manifest" "$scratch/restored"
 
 chmod 600 "$scratch/input/$media_leaf"
 printf 'bad data\n' > "$scratch/input/$media_leaf"
 export FSUSBLOG_DB="$base;Database=$source_db"
-if "${backup[@]}" capture "$scratch/output" changed "$scratch/input"; then
-    printf '%s\n' 'Changed media unexpectedly captured.' >&2
-    exit 1
-fi
+expect_backup_failure 'Changed media unexpectedly captured.' \
+    capture "$scratch/output" changed "$scratch/input"
 test ! -e "$scratch/output/changed"
 mv "$candidate/media/$media_leaf" "$scratch/outside.media"
 ln -s "$scratch/outside.media" "$candidate/media/$media_leaf"
-if "${backup[@]}" verify "$candidate" "$manifest"; then
-    printf '%s\n' 'Symlink media unexpectedly accepted.' >&2
-    exit 1
-fi
+expect_backup_failure 'Symlink media unexpectedly accepted.' \
+    verify "$candidate" "$manifest"
 printf '%s\n' 'PostgreSQL and media backup candidate drill passed.'
