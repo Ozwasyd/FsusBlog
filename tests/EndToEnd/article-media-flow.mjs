@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -12,7 +12,7 @@ import { uploadMedia } from '../../src/Contracts/private-media.ts'
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
-const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })

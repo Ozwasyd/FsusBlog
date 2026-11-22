@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
@@ -7,7 +7,7 @@ import { validSiteSessionId } from '../../src/Contracts/client.ts'
 import { decodePropertyMatches } from '../../src/Contracts/property-query.ts'
 import { FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
-const { expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
+const { expect } = requireWebPackage('@playwright/test')
 const button = (scope, name) => scope.getByRole('button', { name, exact: true })
 const mode = scope => button(scope, 'Pinned views')
 const pins = scope => scope.getByRole('navigation', { name: 'Pinned saved views', exact: true })

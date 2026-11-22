@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_URL
@@ -7,8 +7,7 @@ const ticket = process.env.FSUSBLOG_TEST_TICKET
 const adminOrigin = process.env.FSUSBLOG_TEST_ADMIN_URL
 assert(origin && ticket, 'Use an isolated test server and a synthetic author ticket')
 
-const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium } = tools('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, args: ['--no-proxy-server'] })
 try {
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1280, height: 860 } })

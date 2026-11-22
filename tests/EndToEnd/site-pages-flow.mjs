@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
@@ -35,8 +35,7 @@ const invalid = await fetch(`${origin}/api/binary/system/page/unrecognized`)
 assert.equal(invalid.status, 404)
 decodeFrame(new Uint8Array(await invalid.arrayBuffer()), FrameType.ApiError)
 
-const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium } = tools('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
 try {
   for (const size of [{ width: 1280, height: 860 }, { width: 390, height: 844 }]) {

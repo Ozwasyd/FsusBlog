@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
@@ -11,7 +11,7 @@ import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
-const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 assert(evidence, 'Provide an evidence directory for the native public image test.')

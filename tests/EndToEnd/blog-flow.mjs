@@ -1,6 +1,6 @@
 import { holdResponse, journalContains } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { spawnSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -30,8 +30,7 @@ import { exerciseMarkdownImport } from './markdown-import-flow.mjs'
 import { exerciseDocumentExportTasks } from './document-export-task-flow.mjs'
 import { exactButton as button, roleWithExactName } from './role-locators.mjs'
 
-const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium } = tools('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 
 const config = {
   origin: process.env.FSUSBLOG_TEST_URL,
@@ -765,7 +764,7 @@ try {
     artifactDigests,
     node: process.version,
     fixture: { articleTitle: title, initialBodyDigest: sha256(body) },
-    chromium: browser.version(), playWright: tools('@playwright/test/package.json').version,
+    chromium: browser.version(), playWright: requireWebPackage('@playwright/test/package.json').version,
     requireNative: config.requireNative, publicFixture: config.publicFixture, observations, diagnostics, responses,
     failure: failure ? String(failure) : undefined,
     cleanup: 'Playwright browser closed. Database and server fixture are owned by the caller.',

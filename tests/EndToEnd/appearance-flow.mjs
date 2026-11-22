@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { createHash } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
-const require = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium } = require('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const origin = process.env.FSUSBLOG_TEST_URL
 const expire = process.env.FSUSBLOG_TEST_APPEARANCE_EXPIRY
 assert(origin && expire, 'Supply a native v2 server with the signed theme and font test fixture.')

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { exactButton as button } from './role-locators.mjs'
 import { randomUUID } from 'node:crypto'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
-const { chromium, expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
+const { chromium, expect } = requireWebPackage('@playwright/test')
 export { chromium, expect, button }
 
 export const binary = { 'Content-Type': 'application/octet-stream' }

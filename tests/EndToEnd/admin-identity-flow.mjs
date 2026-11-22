@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { createRequire, stripTypeScriptTypes } from 'node:module'
+import { stripTypeScriptTypes } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { decodeFrame, decodeSuccess, encodeFrame } from '../../src/Contracts/aeds.ts'
@@ -23,8 +24,7 @@ import {
 } from '../../src/Contracts/wire.generated.ts'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
-const packages = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium, request } = packages('@playwright/test')
+const { chromium, request } = requireWebPackage('@playwright/test')
 const adminUrl = process.env.FSUSBLOG_TEST_ADMIN_URL
 const siteUrl = process.env.FSUSBLOG_TEST_SITE_URL
 const adminTicket = process.env.FSUSBLOG_TEST_ADMIN_TICKET

@@ -2,13 +2,12 @@ import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { join } from 'node:path'
 import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
 import { decodeSubscriptionPreferenceRequest, FrameType, WireHeaders, WireLayouts, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
-const localRequire = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium } = localRequire('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const {
   FSUSBLOG_TEST_SUBSCRIPTION_URL: origin, FSUSBLOG_TEST_SUBSCRIPTION_ISSUE: issuer,
   FSUSBLOG_TEST_EVIDENCE: evidence, FSUSBLOG_TEST_CHROME: executablePath, FSUSBLOG_TEST_TLS_SPKI: pin,

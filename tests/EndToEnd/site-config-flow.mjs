@@ -1,13 +1,12 @@
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeSeoConfig, decodeSiteComplianceConfig } from '../../src/Contracts/site-config.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
-const requireWeb = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium } = requireWeb('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const origin = process.env.FSUSBLOG_TEST_URL
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 assert(origin && evidence, 'Use an isolated v2 server with the test configuration and a new evidence directory.')

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_URL
@@ -39,8 +39,7 @@ const wire = await Promise.all(locales.map(([headers]) => fetch(origin + '/api/b
 assert.ok(wire.every(response => response.ok))
 assert.deepEqual(await wire[0].arrayBuffer(), await wire[1].arrayBuffer())
 
-const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium } = tools('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, args: ['--no-proxy-server'] })
 try {
   for (const width of [1280, 375, 320]) {

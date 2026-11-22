@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { api } from '../../src/Contracts/client.ts'
 
-const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const tickets = [process.env.FSUSBLOG_INBOX_DESKTOP_TICKET, process.env.FSUSBLOG_INBOX_MOBILE_TICKET]

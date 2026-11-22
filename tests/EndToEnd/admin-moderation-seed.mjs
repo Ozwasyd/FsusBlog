@@ -1,15 +1,14 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodePowChallenge, encodePowProof } from '../../src/Contracts/pow.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeDraft, decodePublicCommentSubmissionResult, encodeArticleCommand, encodePublicCommentSubmission, encodeSignIn,
   FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
-const source = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { request } = source('@playwright/test')
+const { request } = requireWebPackage('@playwright/test')
 const { FSUSBLOG_TEST_SITE_URL: origin, FSUSBLOG_TEST_TLS_DOTNET: dotnet, FSUSBLOG_TEST_TLS_CLI: migrate,
   FSUSBLOG_TEST_ADMIN_MODERATOR_SITE_TICKET: ticket, FSUSBLOG_TEST_ADMIN_MODERATOR_DATABASE: database,
   FSUSBLOG_TEST_ADMIN_MODERATOR_BODY: body } = process.env

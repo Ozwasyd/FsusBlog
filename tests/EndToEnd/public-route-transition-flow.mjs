@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_URL
 assert(origin, 'Set the isolated test URL')
-const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, args: ['--no-proxy-server'] })
 try {
   for (const reducedMotion of ['no-preference', 'reduce']) {

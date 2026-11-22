@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { api } from '../../src/Contracts/client.ts'
 
-const { chromium } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const url = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const storage = process.env.FSUSBLOG_PRIVATE_MEDIA_ROOT

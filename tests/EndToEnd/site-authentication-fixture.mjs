@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { exactButton as button } from './role-locators.mjs'
 import { createHmac } from 'node:crypto'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
-const { chromium, expect, request } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
+const { chromium, expect, request } = requireWebPackage('@playwright/test')
 export { expect, request, button }
 
 export function readTlsIdentityFixture(peerTicket, probe, error) {

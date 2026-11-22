@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { createHash, randomUUID } from 'node:crypto'
 import { writeFile, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -8,8 +8,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseCanvasScale } from './canvas-scale-flow.mjs'
 
-const require = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium } = require('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const ticket = process.env.FSUSBLOG_TEST_TICKET
 const evidenceDir = process.env.FSUSBLOG_TEST_EVIDENCE

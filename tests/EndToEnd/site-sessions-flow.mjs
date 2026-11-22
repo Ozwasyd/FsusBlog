@@ -1,14 +1,13 @@
 import assert from 'node:assert/strict'
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { join, resolve } from 'node:path'
 import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
 import { FrameType } from '../../src/Contracts/wire.generated.ts'
 
-const packages = createRequire(new URL('../../src/Web/package.json', import.meta.url))
-const { chromium } = packages('@playwright/test')
+const { chromium } = requireWebPackage('@playwright/test')
 const url = process.env.FSUSBLOG_TEST_SESSIONS_URL
 const ticketInput = process.env.FSUSBLOG_TEST_SESSIONS_TICKETS
 assert(url && ticketInput, 'Provide an isolated v2 URL and four one-use session tickets.')

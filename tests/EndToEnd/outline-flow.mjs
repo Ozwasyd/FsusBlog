@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { createRequire } from 'node:module'
+import { requireWebPackage } from './web-package-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
-const { expect } = createRequire(new URL('../../src/Web/package.json', import.meta.url))('@playwright/test')
+const { expect } = requireWebPackage('@playwright/test')
 const outlineName = 'Article outline'
 const firstHeading = '中文 🧭 section'
 const repeatedHeading = 'Repeated heading'
