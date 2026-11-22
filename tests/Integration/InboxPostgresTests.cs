@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.WebSockets;
@@ -26,24 +28,18 @@ public sealed class InboxPostgresTests
 
         const string key = "ticket:1";
         var create = InboxWire.EncodeCreate("Support request", "I need help.");
-        using var missing = await Send(WireRoutes.InboxList, create, key, aliceSession);
-        Assert.Equal(HttpStatusCode.Unauthorized, missing.StatusCode);
+        using var missing = Expect(Unauthorized, await Send(WireRoutes.InboxList, create, key, aliceSession));
         string proof = await Challenge(WireRoutes.InboxCreatePowChallenge, create, key, aliceSession);
-        using var wrongKey = await Send(WireRoutes.InboxList, create, "ticket:other", aliceSession, proof);
-        Assert.Equal(HttpStatusCode.Unauthorized, wrongKey.StatusCode);
-        using var wrongAccount = await Send(WireRoutes.InboxList, create, key, bobSession, proof);
-        Assert.Equal(HttpStatusCode.Unauthorized, wrongAccount.StatusCode);
-        using var first = await Send(WireRoutes.InboxList, create, key, aliceSession, proof);
-        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        using var wrongKey = Expect(Unauthorized, await Send(WireRoutes.InboxList, create, "ticket:other", aliceSession, proof));
+        using var wrongAccount = Expect(Unauthorized, await Send(WireRoutes.InboxList, create, key, bobSession, proof));
+        using var first = Ok(await Send(WireRoutes.InboxList, create, key, aliceSession, proof));
         byte[] opened = Aeds.Decode(await first.Content.ReadAsByteArrayAsync(ct), FrameType.ConversationDetailV2).ToArray();
         var id = BinaryPrimitives.ReadInt64LittleEndian(opened);
         var snapshot = BinaryPrimitives.ReadInt64LittleEndian(opened.AsSpan(24));
         Assert.Equal(0, opened[34]);
-        using var replay = await Send(WireRoutes.InboxList, create, key, aliceSession, proof);
-        Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
-        using var fresh = await Send(WireRoutes.InboxList, create, key, aliceSession,
-            await Challenge(WireRoutes.InboxCreatePowChallenge, create, key, aliceSession));
-        Assert.Equal(HttpStatusCode.OK, fresh.StatusCode);
+        using var replay = Expect(Unauthorized, await Send(WireRoutes.InboxList, create, key, aliceSession, proof));
+        using var fresh = Ok(await Send(WireRoutes.InboxList, create, key, aliceSession,
+            await Challenge(WireRoutes.InboxCreatePowChallenge, create, key, aliceSession)));
         byte[] retry = Aeds.Decode(await fresh.Content.ReadAsByteArrayAsync(ct), FrameType.ConversationDetailV2).ToArray();
         Assert.Equal(id, BinaryPrimitives.ReadInt64LittleEndian(retry));
         Assert.Equal(1, retry[34]);
@@ -51,16 +47,12 @@ public sealed class InboxPostgresTests
         var replyFrame = InboxWire.EncodeReply(snapshot, "A follow-up.");
         var challengePath = WireRoutes.InboxReplyPowChallenge.Replace("{id:long}", id.ToString(System.Globalization.CultureInfo.InvariantCulture));
         var replyPath = WireRoutes.InboxReply.Replace("{id:long}", id.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        using var foreign = await Send(challengePath, replyFrame, "reply:1", bobSession, issuing: true);
-        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
+        using var foreign = Expect(NotFound, await Send(challengePath, replyFrame, "reply:1", bobSession, issuing: true));
         string replyProof = await Challenge(challengePath, replyFrame, "reply:1", aliceSession);
         string wrongPath = WireRoutes.InboxReply.Replace("{id:long}", (id + 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
-        using var wrongThread = await Send(wrongPath, replyFrame, "reply:1", aliceSession, replyProof);
-        Assert.Equal(HttpStatusCode.Unauthorized, wrongThread.StatusCode);
-        using var changedReply = await Send(replyPath, InboxWire.EncodeReply(snapshot, "Different follow-up."), "reply:1", aliceSession, replyProof);
-        Assert.Equal(HttpStatusCode.Unauthorized, changedReply.StatusCode);
-        using var replied = await Send(replyPath, replyFrame, "reply:1", aliceSession, replyProof);
-        Assert.Equal(HttpStatusCode.OK, replied.StatusCode);
+        using var wrongThread = Expect(Unauthorized, await Send(wrongPath, replyFrame, "reply:1", aliceSession, replyProof));
+        using var changedReply = Expect(Unauthorized, await Send(replyPath, InboxWire.EncodeReply(snapshot, "Different follow-up."), "reply:1", aliceSession, replyProof));
+        using var replied = Ok(await Send(replyPath, replyFrame, "reply:1", aliceSession, replyProof));
         var response = Aeds.Decode(await replied.Content.ReadAsByteArrayAsync(ct), FrameType.ConversationMessage).ToArray();
         Assert.Equal(id, BinaryPrimitives.ReadInt64LittleEndian(response.AsSpan(8)));
         var persisted = await InTransaction(db.DataSource, alice, inbox => inbox.GetAsync(id, null, 50, ct), ct);
@@ -77,8 +69,7 @@ public sealed class InboxPostgresTests
 
         async Task<string> Challenge(string path, byte[] frame, string command, string token)
         {
-            using var result = await Send(path, frame, command, token, issuing: true);
-            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            using var result = Ok(await Send(path, frame, command, token, issuing: true));
             return PowFixture.SolveFrame(await result.Content.ReadAsByteArrayAsync(ct), ClientNonce, ct);
         }
     }
@@ -157,38 +148,31 @@ public sealed class InboxPostgresTests
             new Dictionary<string, string> { ["FSUSBLOG_PRIVATE_INBOX_WRITES"] = "false" });
         var client = server.Client;
 
-        using var missing = await client.GetAsync(WireRoutes.InboxReplay, ct);
-        Assert.Equal(HttpStatusCode.Unauthorized, missing.StatusCode);
-        using var disabled = await InboxGet(client, WireRoutes.InboxWriteAvailability, aliceSession, ct);
-        Assert.Equal(HttpStatusCode.OK, disabled.StatusCode);
+        using var missing = Expect(Unauthorized, await client.GetAsync(WireRoutes.InboxReplay, ct));
+        using var disabled = Ok(await InboxGet(client, WireRoutes.InboxWriteAvailability, aliceSession, ct));
         Assert.Equal("0", Assert.Single(disabled.Headers.GetValues(WireHeaders.InboxWriteEnabled)));
         Assert.Equal(FrameType.EmptySuccess, Kind(await disabled.Content.ReadAsByteArrayAsync(ct)));
-        using var disabledWrite = await client.PostAsync(WireRoutes.InboxList, null, ct);
-        Assert.Equal(HttpStatusCode.NotFound, disabledWrite.StatusCode);
+        using var disabledWrite = Expect(NotFound, await client.PostAsync(WireRoutes.InboxList, null, ct));
         await InTransaction(db.DataSource, alice, inbox => inbox.SendNoticeAsync("before-opening", "Notice", "Already seen", ct), ct);
-        using var list = await InboxGet(client, WireRoutes.InboxList, aliceSession, ct);
-        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
+        using var list = Ok(await InboxGet(client, WireRoutes.InboxList, aliceSession, ct));
         Assert.Equal(FrameType.ConversationList, Kind(await list.Content.ReadAsByteArrayAsync(ct)));
         var cursor = Cursor(list);
 
         var notice = await InTransaction(db.DataSource, alice, inbox => inbox.SendNoticeAsync("after-opening", "Notice", "New notice", ct), ct);
         var replayPath = $"{WireRoutes.InboxReplay}?after={cursor}&limit=1";
-        using var first = await InboxGet(client, replayPath, aliceSession, ct);
-        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        using var first = Ok(await InboxGet(client, replayPath, aliceSession, ct));
         Assert.True(first.Headers.CacheControl?.NoStore);
         var firstPayload = Aeds.Decode(await first.Content.ReadAsByteArrayAsync(ct), FrameType.InboxReplay).ToArray();
         Assert.Equal(1, EventCount(firstPayload));
         Assert.Equal(WireLayouts.InboxReplayHasMore, firstPayload[1]);
         Assert.Equal(notice.Message.Id, BinaryPrimitives.ReadInt64LittleEndian(firstPayload.AsSpan(36)));
 
-        using var second = await InboxGet(client, $"{WireRoutes.InboxReplay}?after={Cursor(first)}", aliceSession, ct);
-        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        using var second = Ok(await InboxGet(client, $"{WireRoutes.InboxReplay}?after={Cursor(first)}", aliceSession, ct));
         var secondPayload = Aeds.Decode(await second.Content.ReadAsByteArrayAsync(ct), FrameType.InboxReplay).ToArray();
         Assert.Equal(1, EventCount(secondPayload));
         Assert.Equal(WireLayouts.InboxMessageAppend, BinaryPrimitives.ReadInt32LittleEndian(secondPayload.AsSpan(24)));
 
-        using var crossAccount = await InboxGet(client, replayPath, bobSession, ct);
-        Assert.Equal(HttpStatusCode.Conflict, crossAccount.StatusCode);
+        using var crossAccount = Expect(Conflict, await InboxGet(client, replayPath, bobSession, ct));
         Assert.Equal(FrameType.ApiError, Kind(await crossAccount.Content.ReadAsByteArrayAsync(ct)));
         using var empty = await InboxGet(client, WireRoutes.InboxReplay, bobSession, ct);
         Assert.Equal(0, EventCount(Aeds.Decode(await empty.Content.ReadAsByteArrayAsync(ct), FrameType.InboxReplay)));
@@ -209,8 +193,7 @@ public sealed class InboxPostgresTests
             revoke.Parameters.AddWithValue(alice);
             Assert.Equal(1, await revoke.ExecuteNonQueryAsync(ct));
         }
-        using var revoked = await InboxGet(client, replayPath, aliceSession, ct);
-        Assert.Equal(HttpStatusCode.Unauthorized, revoked.StatusCode);
+        using var revoked = Expect(Unauthorized, await InboxGet(client, replayPath, aliceSession, ct));
         Assert.False(revoked.Headers.Contains(WireHeaders.InboxReplayCursor));
     }
 

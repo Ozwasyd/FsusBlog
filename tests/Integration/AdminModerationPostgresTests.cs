@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -228,18 +230,14 @@ public sealed partial class AdminModerationPostgresTests
         };
         await using (var disabled = await ServerProcess.Start(fixture.ConnectionString, ct, optIn))
         {
-            using var absent = await Send(disabled, reply, true);
-            Assert.Equal(HttpStatusCode.NotFound, absent.StatusCode);
+            using var absent = Expect(NotFound, await Send(disabled, reply, true));
         }
         optIn.Remove(CommentReplies.Setting);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, optIn);
-        using (var stale = await Send(server, reply, true, current: new string('a', 64)))
-            Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
-        using (var unknown = await Send(server, reply with { ParentId = 98765 }, true))
-            Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+        CheckStatus(Conflict, await Send(server, reply, true, current: new string('a', 64)));
+        CheckStatus(NotFound, await Send(server, reply with { ParentId = 98765 }, true));
         var proof = await Proof(reply);
-        using (var wrong = await Send(server, reply with { ParentId = 98765 }, false, proof))
-            Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+        CheckStatus(Unauthorized, await Send(server, reply with { ParentId = 98765 }, false, proof));
         var pending = await Submit(reply, proof);
         Assert.Equal(0, pending.ModerationStatus);
         Assert.False(pending.Replayed);
@@ -247,8 +245,7 @@ public sealed partial class AdminModerationPostgresTests
         Assert.DoesNotContain(reply.Body, Encoding.UTF8.GetString(await server.Client.GetByteArrayAsync(WireRoutes.CommentRoots
             .Replace("{articleId:int}", "1", StringComparison.Ordinal), ct)), StringComparison.Ordinal);
         await Execute(db, "insert into public.comment_blocked_region values(1,1,'ZZ')", ct);
-        using (var blocked = await Send(server, reply with { IdempotencyKey = Guid.NewGuid() }, true))
-            Assert.Equal(HttpStatusCode.NotFound, blocked.StatusCode);
+        CheckStatus(NotFound, await Send(server, reply with { IdempotencyKey = Guid.NewGuid() }, true));
         await Execute(db, "delete from public.comment_blocked_region", ct);
 
         var (decision, adminProof, adminDigest) = await PrepareDecision(pending.CommentId);
@@ -316,15 +313,13 @@ public sealed partial class AdminModerationPostgresTests
 
         async Task<string> Proof(PublicCommentReply command)
         {
-            using var response = await Send(server, command, true);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var response = Ok(await Send(server, command, true));
             return PowFixture.SolveFrame(await response.Content.ReadAsByteArrayAsync(ct), ClientNonce, ct);
         }
 
         async Task<PublicCommentSubmissionResult> Submit(PublicCommentReply command, string authorization)
         {
-            using var response = await Send(server, command, false, authorization);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var response = Ok(await Send(server, command, false, authorization));
             return Wire.DecodePublicCommentSubmissionResult(await response.Content.ReadAsByteArrayAsync(ct));
         }
 

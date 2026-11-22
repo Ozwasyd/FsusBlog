@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Http.Headers;
@@ -310,8 +312,7 @@ public sealed class ServerCompositionParityTests
         for (var i = 0; i < 12; i++)
         {
             using var req = SameOriginPasskeyRequest("blog.example.test");
-            using var resp = await server.Client.SendAsync(req, ct);
-            Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+            using var resp = Expect(NotFound, await server.Client.SendAsync(req, ct));
             Assert.True(resp.Headers.CacheControl?.NoStore);
             Assert.Equal(ServerHttp.ContentSecurityPolicy, Assert.Single(resp.Headers.GetValues("Content-Security-Policy")));
             var err = DecodeApiError(await resp.Content.ReadAsByteArrayAsync(ct));
@@ -321,8 +322,7 @@ public sealed class ServerCompositionParityTests
         for (var i = 0; i < 4; i++)
         {
             using var req = OriginGet("/admin/articles/write");
-            using var resp = await server.Client.SendAsync(req, ct);
-            Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+            using var resp = Expect(NotFound, await server.Client.SendAsync(req, ct));
             Assert.True(resp.Headers.CacheControl?.NoStore);
         }
 
@@ -345,8 +345,7 @@ public sealed class ServerCompositionParityTests
         foreach (var adminRoute in new[] { "/admin", "/admin/articles/write", "/admin/canvas" })
         {
             using var req = OriginGet(adminRoute, "admin.example.test");
-            using var resp = await server.Client.SendAsync(req, ct);
-            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+            using var resp = Ok(await server.Client.SendAsync(req, ct));
             Assert.True(resp.Headers.CacheControl?.NoStore);
             Assert.Equal("noindex", Assert.Single(resp.Headers.GetValues("X-Robots-Tag")));
             Assert.Equal(ServerHttp.ContentSecurityPolicy, Assert.Single(resp.Headers.GetValues("Content-Security-Policy")));
@@ -360,8 +359,7 @@ public sealed class ServerCompositionParityTests
         // 4. Public / reader / redirect / fallback shells match contract without leaking fsus-public-origin
         using (var homeReq = OriginGet("/"))
         {
-            using var home = await server.Client.SendAsync(homeReq, ct);
-            Assert.Equal(HttpStatusCode.OK, home.StatusCode);
+            using var home = Ok(await server.Client.SendAsync(homeReq, ct));
             Assert.Equal(ServerHttp.ContentSecurityPolicy, Assert.Single(home.Headers.GetValues("Content-Security-Policy")));
             var html = await home.Content.ReadAsStringAsync(ct);
             Assert.Contains("public-initial", html, StringComparison.Ordinal);
@@ -370,23 +368,20 @@ public sealed class ServerCompositionParityTests
 
         using (var commentsReq = OriginGet("/user/comments"))
         {
-            using var comments = await server.Client.SendAsync(commentsReq, ct);
-            Assert.Equal(HttpStatusCode.OK, comments.StatusCode);
+            using var comments = Ok(await server.Client.SendAsync(commentsReq, ct));
             Assert.Equal("noindex, nofollow", Assert.Single(comments.Headers.GetValues("X-Robots-Tag")));
             Assert.DoesNotContain("fsus-public-origin", await comments.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         }
 
         using (var userReq = OriginGet("/user"))
         {
-            using var user = await server.Client.SendAsync(userReq, ct);
-            Assert.Equal(HttpStatusCode.Redirect, user.StatusCode);
+            using var user = Expect(Redirect, await server.Client.SendAsync(userReq, ct));
             Assert.Equal("/user/identity/mfa", user.Headers.Location?.OriginalString);
         }
 
         using (var unknownApiReq = OriginGet("/api/v2/does-not-exist.aeds"))
         {
-            using var unknown = await server.Client.SendAsync(unknownApiReq, ct);
-            Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+            using var unknown = Expect(NotFound, await server.Client.SendAsync(unknownApiReq, ct));
             var err = DecodeApiError(await unknown.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal(404, err.Status);
             Assert.Equal("Unknown API route.", err.Message);
@@ -417,9 +412,8 @@ public sealed class ServerCompositionParityTests
         }
 
         string publishedGeneration;
-        using (var articleResp = await server.Client.GetAsync($"/article/{draft.Id}", ct))
+        using (var articleResp = Ok(await server.Client.GetAsync($"/article/{draft.Id}", ct)))
         {
-            Assert.Equal(HttpStatusCode.OK, articleResp.StatusCode);
             publishedGeneration = Assert.Single(articleResp.Headers.GetValues(WireHeaders.SearchIndexGeneration));
             Assert.Contains("Parity Snapshot Title", await articleResp.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         }
@@ -472,8 +466,7 @@ public sealed class ServerCompositionParityTests
 
         foreach (var path in new[] { "/", "/api/v2/public/articles/1/10.aeds", $"/article/{draft.Id}" })
         {
-            using var resp = await server.Client.GetAsync(path, ct);
-            Assert.Equal(HttpStatusCode.ServiceUnavailable, resp.StatusCode);
+            using var resp = Expect(ServiceUnavailable, await server.Client.GetAsync(path, ct));
             Assert.True(resp.Headers.CacheControl?.NoStore);
         }
     }

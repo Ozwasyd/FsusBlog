@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Http.Headers;
@@ -91,8 +93,7 @@ public sealed class PublicSiteConfigurationPostgresTests
         Assert.DoesNotContain("incorrect-config", html);
         Assert.DoesNotContain("forged.example", html);
 
-        using var manifestResponse = await Request(PublicSiteConfiguration.ManifestPath);
-        Assert.Equal(HttpStatusCode.OK, manifestResponse.StatusCode);
+        using var manifestResponse = Ok(await Request(PublicSiteConfiguration.ManifestPath));
         Assert.True(manifestResponse.Headers.CacheControl!.NoStore);
         Assert.Equal("application/manifest+json", manifestResponse.Content.Headers.ContentType!.MediaType);
         using var manifestDoc = JsonDocument.Parse(await manifestResponse.Content.ReadAsStringAsync(ct));
@@ -108,16 +109,14 @@ public sealed class PublicSiteConfigurationPostgresTests
         Assert.Equal("https://blog.example.test/", json.RootElement.GetProperty("home_page_url").GetString());
         Assert.Equal("Public Author", Assert.Single(json.RootElement.GetProperty("authors").EnumerateArray()).GetProperty("name").GetString());
 
-        using var admin = await Request("/api/binary/system/admin/seo");
-        Assert.Equal(HttpStatusCode.NotFound, admin.StatusCode);
+        using var admin = Expect(NotFound, await Request("/api/binary/system/admin/seo"));
         using var head = await Request(WireRoutes.PublicCompliance, HttpMethod.Head);
         Assert.Equal("application/octet-stream", head.Content.Headers.ContentType!.MediaType);
         Assert.Empty(await head.Content.ReadAsByteArrayAsync(ct));
 
         async Task<byte[]> ReadFrame(string path)
         {
-            using var response = await Request(path);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var response = Ok(await Request(path));
             Assert.True(response.Headers.CacheControl!.NoStore);
             Assert.Equal("application/octet-stream", response.Content.Headers.ContentType!.MediaType);
             return await response.Content.ReadAsByteArrayAsync(ct);
@@ -149,16 +148,14 @@ public sealed class PublicSiteConfigurationPostgresTests
 
         await using (var server = await ServerProcess.Start(database.ConnectionString, ct, baseSettings))
         {
-            using (var sessionResp = await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSession))
+            using (var sessionResp = Ok(await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSession)))
             {
-                Assert.Equal(HttpStatusCode.OK, sessionResp.StatusCode);
                 Assert.Equal("1", sessionResp.Headers.GetValues(WireHeaders.AdminSiteConfigEnabled).Single());
             }
 
             AdminSiteConfigState initial;
-            using (var readResp = await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSiteConfig))
+            using (var readResp = Ok(await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSiteConfig)))
             {
-                Assert.Equal(HttpStatusCode.OK, readResp.StatusCode);
                 initial = Wire.DecodeAdminSiteConfigState(await readResp.Content.ReadAsByteArrayAsync(ct));
             }
             Assert.Equal(0L, initial.Revision);
@@ -181,15 +178,13 @@ public sealed class PublicSiteConfigurationPostgresTests
                 initial.IcpRecordNumber, initial.IcpRecordUrl,
                 initial.PoliceRecordNumber, initial.PoliceRecordUrl, initial.PoliceBadgeIconUrl,
                 initial.OperatorName, initial.ContactEmail);
-            using (var noChangeResp = await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigStepUpBegin,
-                       Wire.EncodeAdminSiteConfigCommand(unchanged)))
-                Assert.Equal(HttpStatusCode.BadRequest, noChangeResp.StatusCode);
+            CheckStatus(BadRequest, await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigStepUpBegin,
+                       Wire.EncodeAdminSiteConfigCommand(unchanged)));
 
             // Invalid input is rejected cleanly.
             var invalidCmd = unchanged with { Title = "   " };
-            using (var badResp = await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigStepUpBegin,
-                       Wire.EncodeAdminSiteConfigCommand(invalidCmd)))
-                Assert.Equal(HttpStatusCode.BadRequest, badResp.StatusCode);
+            CheckStatus(BadRequest, await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigStepUpBegin,
+                       Wire.EncodeAdminSiteConfigCommand(invalidCmd)));
 
             var updatedCmd = new AdminSiteConfigCommand(
                 initial.Revision, initial.Digest,
@@ -208,9 +203,8 @@ public sealed class PublicSiteConfigurationPostgresTests
             var cmdFrame = Wire.EncodeAdminSiteConfigCommand(updatedCmd);
 
             // Begin Passkey Step-Up and verify challenge issuance.
-            using (var stepUpBeginResp = await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigStepUpBegin, cmdFrame))
+            using (var stepUpBeginResp = Ok(await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigStepUpBegin, cmdFrame)))
             {
-                Assert.Equal(HttpStatusCode.OK, stepUpBeginResp.StatusCode);
                 Aeds.Decode(await stepUpBeginResp.Content.ReadAsByteArrayAsync(ct), FrameType.PasskeyLoginBegin);
             }
 
@@ -226,17 +220,15 @@ public sealed class PublicSiteConfigurationPostgresTests
             // Request and solve real 12-bit scoped PoW.
             var clientNonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
             string powProof;
-            using (var powResp = await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigPow, cmdFrame,
-                       extraHeaders: new() { [WireHeaders.PowClientNonce] = clientNonce }))
+            using (var powResp = Ok(await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigPow, cmdFrame,
+                       extraHeaders: new() { [WireHeaders.PowClientNonce] = clientNonce })))
             {
-                Assert.Equal(HttpStatusCode.OK, powResp.StatusCode);
                 powProof = PowFixture.SolveFrame(await powResp.Content.ReadAsByteArrayAsync(ct), clientNonce, ct);
             }
 
-            using (var saveResp = await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigSave, cmdFrame,
-                       extraHeaders: new() { [WireHeaders.MfaProof] = stepUpProof, [WireHeaders.PowProof] = powProof }))
+            using (var saveResp = Ok(await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigSave, cmdFrame,
+                       extraHeaders: new() { [WireHeaders.MfaProof] = stepUpProof, [WireHeaders.PowProof] = powProof })))
             {
-                Assert.Equal(HttpStatusCode.OK, saveResp.StatusCode);
                 Aeds.Decode(await saveResp.Content.ReadAsByteArrayAsync(ct), FrameType.EmptySuccess);
             }
 
@@ -286,8 +278,7 @@ public sealed class PublicSiteConfigurationPostgresTests
                 Assert.Equal("Updated Editorial", feedJson.RootElement.GetProperty("title").GetString());
 
             // Stale revision conflict returns 409.
-            using (var staleResp = await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigStepUpBegin, cmdFrame))
-                Assert.Equal(HttpStatusCode.Conflict, staleResp.StatusCode);
+            CheckStatus(Conflict, await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSiteConfigStepUpBegin, cmdFrame));
 
             // Admin GET returns revision 1.
             using (var readAfter = await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSiteConfig))
@@ -313,13 +304,11 @@ public sealed class PublicSiteConfigurationPostgresTests
             [PublicSiteConfiguration.EditorSetting] = "false"
         }))
         {
-            using (var sessionResp = await AdminRequest(disabled, HttpMethod.Get, WireRoutes.AdminSession))
+            using (var sessionResp = Ok(await AdminRequest(disabled, HttpMethod.Get, WireRoutes.AdminSession)))
             {
-                Assert.Equal(HttpStatusCode.OK, sessionResp.StatusCode);
                 Assert.False(sessionResp.Headers.Contains(WireHeaders.AdminSiteConfigEnabled));
             }
-            using (var routeResp = await AdminRequest(disabled, HttpMethod.Get, WireRoutes.AdminSiteConfig))
-                Assert.Equal(HttpStatusCode.NotFound, routeResp.StatusCode);
+            CheckStatus(NotFound, await AdminRequest(disabled, HttpMethod.Get, WireRoutes.AdminSiteConfig));
             var homeHtml = await disabled.Client.GetStringAsync("/", ct);
             Assert.Contains("<title>Baseline Journal</title>", homeHtml);
         }

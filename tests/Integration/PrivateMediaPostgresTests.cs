@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Buffers.Binary;
 using System.IO.Compression;
 using System.Net;
@@ -33,28 +35,21 @@ public sealed partial class PrivateMediaPostgresTests
             var png = EncodeImage(SKEncodedImageFormat.Png);
             var jpeg = EncodeImage(SKEncodedImageFormat.Jpeg);
             var command = Guid.NewGuid();
-            using var unsupported = await Upload(server.Client, primary, command, "sample.svg", "image/svg+xml", "<svg/>"u8.ToArray(), ct);
-            Assert.Equal(HttpStatusCode.UnsupportedMediaType, unsupported.StatusCode);
-            using var webpBeforeUpgrade = await Upload(server.Client, primary, command, "sample.webp", "image/webp",
-                EncodeImage(SKEncodedImageFormat.Webp), ct);
-            Assert.Equal(HttpStatusCode.UnsupportedMediaType, webpBeforeUpgrade.StatusCode);
-            using var wrongType = await Upload(server.Client, primary, command, "sample.png", "image/png", jpeg, ct);
-            Assert.Equal(HttpStatusCode.BadRequest, wrongType.StatusCode);
-            using var truncated = await Upload(server.Client, primary, command, "sample.png", "image/png", png[..24], ct);
-            Assert.Equal(HttpStatusCode.BadRequest, truncated.StatusCode);
-            using var unable = await Upload(server.Client, reader, command, "sample.png", "image/png", png, ct);
-            Assert.Equal(HttpStatusCode.Unauthorized, unable.StatusCode);
+            using var unsupported = Expect(UnsupportedMediaType, await Upload(server.Client, primary, command, "sample.svg", "image/svg+xml", "<svg/>"u8.ToArray(), ct));
+            using var webpBeforeUpgrade = Expect(UnsupportedMediaType, await Upload(server.Client, primary, command, "sample.webp", "image/webp",
+                EncodeImage(SKEncodedImageFormat.Webp), ct));
+            using var wrongType = Expect(BadRequest, await Upload(server.Client, primary, command, "sample.png", "image/png", jpeg, ct));
+            using var truncated = Expect(BadRequest, await Upload(server.Client, primary, command, "sample.png", "image/png", png[..24], ct));
+            using var unable = Expect(Unauthorized, await Upload(server.Client, reader, command, "sample.png", "image/png", png, ct));
             Assert.Empty(directory.EnumerateFiles());
 
             // Trailing payload/metadata is removed by rendering decoded pixels into a new PNG.
             byte[] source = [.. png, .. "private marker"u8.ToArray()];
-            using var created = await Upload(server.Client, primary, command, "sample.png", "image/png", source, ct);
-            Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+            using var created = Ok(await Upload(server.Client, primary, command, "sample.png", "image/png", source, ct));
             var asset = First(await created.Content.ReadAsByteArrayAsync(ct), 1);
             using var replay = await Upload(server.Client, primary, command, "sample.png", "image/png", source, ct);
             Assert.Equal(asset, First(await replay.Content.ReadAsByteArrayAsync(ct), 1));
-            using var collision = await Upload(server.Client, primary, command, "another.png", "image/png", source, ct);
-            Assert.Equal(HttpStatusCode.Conflict, collision.StatusCode);
+            using var collision = Expect(Conflict, await Upload(server.Client, primary, command, "another.png", "image/png", source, ct));
 
             using var list = await Send(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaList, primary, ct);
             Assert.Equal(asset, First(await list.Content.ReadAsByteArrayAsync(ct), 1));
@@ -69,15 +64,13 @@ public sealed partial class PrivateMediaPostgresTests
             await AssertHidden(server.Client, HttpMethod.Head, raw, reader, ct);
             await AssertHidden(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaRead.Replace("{id}", Guid.NewGuid().ToString("D"), StringComparison.Ordinal), primary, ct);
             await AssertHidden(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaRead.Replace("{id}", "missing", StringComparison.Ordinal), primary, ct);
-            using var content = await Send(server.Client, HttpMethod.Get, raw, primary, ct);
-            Assert.Equal(HttpStatusCode.OK, content.StatusCode);
+            using var content = Ok(await Send(server.Client, HttpMethod.Get, raw, primary, ct));
             Assert.Equal("image/png", content.Content.Headers.ContentType?.MediaType);
             byte[] canonical = await content.Content.ReadAsByteArrayAsync(ct);
             Assert.True(canonical.AsSpan().IndexOf("private marker"u8) < 0);
             using var bitmap = SKBitmap.Decode(canonical);
             Assert.Equal((3, 2), (bitmap.Width, bitmap.Height));
-            using var head = await Send(server.Client, HttpMethod.Head, raw, primary, ct);
-            Assert.Equal(HttpStatusCode.OK, head.StatusCode);
+            using var head = Ok(await Send(server.Client, HttpMethod.Head, raw, primary, ct));
             Assert.Equal(canonical.Length, head.Content.Headers.ContentLength);
             Assert.Empty(await head.Content.ReadAsByteArrayAsync(ct));
 
@@ -85,21 +78,16 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal($"{asset:N}.media", leaf.Name);
             Assert.Equal(UnixFileMode.UserRead, File.GetUnixFileMode(leaf.FullName));
             var remove = WireRoutes.PrivateMediaRemove.Replace("{id}", asset.ToString("D"), StringComparison.Ordinal);
-            using var foreignRemove = await Send(server.Client, HttpMethod.Post, remove, another, ct);
-            Assert.Equal(HttpStatusCode.NotFound, foreignRemove.StatusCode);
-            using var removed = await Send(server.Client, HttpMethod.Post, remove, primary, ct);
-            Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
-            using var repeat = await Send(server.Client, HttpMethod.Post, remove, primary, ct);
-            Assert.Equal(HttpStatusCode.OK, repeat.StatusCode);
+            using var foreignRemove = Expect(NotFound, await Send(server.Client, HttpMethod.Post, remove, another, ct));
+            using var removed = Ok(await Send(server.Client, HttpMethod.Post, remove, primary, ct));
+            using var repeat = Ok(await Send(server.Client, HttpMethod.Post, remove, primary, ct));
             await AssertHidden(server.Client, HttpMethod.Get, raw, primary, ct);
             Assert.Empty(directory.EnumerateFiles());
 
-            using var jpegUpload = await Upload(server.Client, primary, Guid.NewGuid(), "sample.jpeg", "image/jpeg", jpeg, ct);
-            Assert.Equal(HttpStatusCode.OK, jpegUpload.StatusCode);
+            using var jpegUpload = Ok(await Upload(server.Client, primary, Guid.NewGuid(), "sample.jpeg", "image/jpeg", jpeg, ct));
             var jpegId = First(await jpegUpload.Content.ReadAsByteArrayAsync(ct), 1);
             var jpegPath = WireRoutes.PrivateMediaRead.Replace("{id}", jpegId.ToString("D"), StringComparison.Ordinal);
-            using var jpegContent = await Send(server.Client, HttpMethod.Get, jpegPath, primary, ct);
-            Assert.Equal(HttpStatusCode.OK, jpegContent.StatusCode);
+            using var jpegContent = Ok(await Send(server.Client, HttpMethod.Get, jpegPath, primary, ct));
             Assert.Equal("image/jpeg", jpegContent.Content.Headers.ContentType?.MediaType);
             using var jpegBitmap = SKBitmap.Decode(await jpegContent.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal((3, 2), (jpegBitmap.Width, jpegBitmap.Height));
@@ -150,20 +138,16 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.Equal(1, codec.FrameCount);
                 foreach (var invalid in new[] { animated, image[..^1], EncodeImage(SKEncodedImageFormat.Png) })
                 {
-                    using var rejected = await Upload(server.Client, owner, Guid.NewGuid(), "invalid.webp", "image/webp", invalid, ct);
-                    Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+                    using var rejected = Expect(BadRequest, await Upload(server.Client, owner, Guid.NewGuid(), "invalid.webp", "image/webp", invalid, ct));
                 }
-                using var unknown = await Upload(server.Client, owner, Guid.NewGuid(), "missing.png", "image/webp", image, ct);
-                Assert.Equal(HttpStatusCode.UnsupportedMediaType, unknown.StatusCode);
+                using var unknown = Expect(UnsupportedMediaType, await Upload(server.Client, owner, Guid.NewGuid(), "missing.png", "image/webp", image, ct));
                 Assert.Empty(directory.EnumerateFiles());
                 using var animatedUpload = await Begin(server.Client, owner, Guid.NewGuid(), "animated.webp", animated, ct, type: "image/webp");
                 var rejectedUpload = await State(animatedUpload, [], ct);
                 using var animatedPart = await Part(server.Client, owner, rejectedUpload, 0, 0, animated, ct);
                 Assert.Equal(rejectedUpload, await State(animatedPart, [0], ct));
-                using var rejectedFinalize = await Send(server.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, rejectedUpload), owner, ct);
-                Assert.Equal(HttpStatusCode.BadRequest, rejectedFinalize.StatusCode);
-                using var cancelled = await Send(server.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadCancel, rejectedUpload), owner, ct);
-                Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
+                using var rejectedFinalize = Expect(BadRequest, await Send(server.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, rejectedUpload), owner, ct));
+                using var cancelled = Ok(await Send(server.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadCancel, rejectedUpload), owner, ct));
                 Assert.Empty(directory.EnumerateFiles());
                 using var started = await Begin(server.Client, owner, key, "resumable.webp", image, ct, type: "image/webp");
                 upload = await State(started, [], ct);
@@ -176,24 +160,21 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal(upload, await State(retry, [0], ct));
             using var two = await Part(restarted.Client, owner, upload, 1, partSize, image[partSize..], ct);
             Assert.Equal(upload, await State(two, [0, 1], ct));
-            using var completed = await Send(restarted.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, upload), owner, ct);
-            Assert.Equal(HttpStatusCode.OK, completed.StatusCode);
+            using var completed = Ok(await Send(restarted.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, upload), owner, ct));
             var frame = await completed.Content.ReadAsByteArrayAsync(ct);
             var asset = First(frame, 1);
             Assert.Equal(3, BinaryPrimitives.ReadInt32LittleEndian(Aeds.Decode(frame, FrameType.PrivateMediaItems)[25..]));
             var raw = PathFor(WireRoutes.PrivateMediaRead, asset);
             await AssertHidden(restarted.Client, HttpMethod.Get, raw, other, ct);
             await AssertHidden(restarted.Client, HttpMethod.Head, raw, null, ct);
-            using var allowed = await Send(restarted.Client, HttpMethod.Get, raw, owner, ct);
-            Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+            using var allowed = Ok(await Send(restarted.Client, HttpMethod.Get, raw, owner, ct));
             Assert.Equal("image/webp", allowed.Content.Headers.ContentType?.MediaType);
             var canonical = await allowed.Content.ReadAsByteArrayAsync(ct);
             Assert.True(PublishedArticleImage.MatchesFormat(canonical, 3));
             using var native = SKBitmap.Decode(canonical);
             Assert.Equal((320, 320), (native.Width, native.Height));
             Assert.Equal(0, native.GetPixel(0, 0).Alpha);
-            using var deleted = await Send(restarted.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct);
-            Assert.Equal(HttpStatusCode.OK, deleted.StatusCode);
+            using var deleted = Ok(await Send(restarted.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct));
             Assert.Empty(directory.EnumerateFiles());
         }
     }
@@ -228,16 +209,12 @@ public sealed partial class PrivateMediaPostgresTests
             var asset = First(await upload.Content.ReadAsByteArrayAsync(ct), 1);
             using var elsewhere = await Upload(client, outsider, Guid.NewGuid(), "foreign.png", "image/png", png, ct);
             var foreign = First(await elsewhere.Content.ReadAsByteArrayAsync(ct), 1);
-            using var create = await Command(WireRoutes.Save, owner, Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "Attachments", "Original body.")));
-            Assert.Equal(HttpStatusCode.OK, create.StatusCode);
+            using var create = Ok(await Command(WireRoutes.Save, owner, Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "Attachments", "Original body."))));
             var draft = Wire.DecodeDraft(await create.Content.ReadAsByteArrayAsync(ct));
             var input = new ArticleMediaCommand(draft.Id, draft.Revision, Guid.NewGuid(), asset, true);
-            using var crossAsset = await Command(WireRoutes.ArticleMediaCommand, owner, Wire.EncodeArticleMediaCommand(input with { AssetId = foreign }));
-            Assert.Equal(HttpStatusCode.NotFound, crossAsset.StatusCode);
-            using var unauthorized = await Command(WireRoutes.ArticleMediaCommand, outsider, Wire.EncodeArticleMediaCommand(input));
-            Assert.Equal(HttpStatusCode.NotFound, unauthorized.StatusCode);
-            using var attach = await Command(WireRoutes.ArticleMediaCommand, owner, Wire.EncodeArticleMediaCommand(input));
-            Assert.Equal(HttpStatusCode.OK, attach.StatusCode);
+            using var crossAsset = Expect(NotFound, await Command(WireRoutes.ArticleMediaCommand, owner, Wire.EncodeArticleMediaCommand(input with { AssetId = foreign })));
+            using var unauthorized = Expect(NotFound, await Command(WireRoutes.ArticleMediaCommand, outsider, Wire.EncodeArticleMediaCommand(input)));
+            using var attach = Ok(await Command(WireRoutes.ArticleMediaCommand, owner, Wire.EncodeArticleMediaCommand(input)));
             var saved = Wire.DecodeDraft(await attach.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal(draft.Revision + 1, saved.Revision);
             Assert.Equal(draft.Body, saved.Body);
@@ -251,8 +228,7 @@ public sealed partial class PrivateMediaPostgresTests
                 ticket[..^2] + (ticket[^2] == 'b' ? 'A' : 'b') + ticket[^1]);
             await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview + "?extra=unexpected", owner, ct, ticket);
             await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct, ticket, range: true);
-            using var allowed = await Send(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct, ticket);
-            Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+            using var allowed = Ok(await Send(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct, ticket));
             Assert.True(allowed.Headers.CacheControl?.NoStore);
             Assert.Equal("image/png", allowed.Content.Headers.ContentType?.MediaType);
             Assert.Equal("no-referrer", Assert.Single(allowed.Headers.GetValues("Referrer-Policy")));
@@ -266,17 +242,14 @@ public sealed partial class PrivateMediaPostgresTests
             finally { File.Move(held, leaf); }
             await AssertSaturatedPreviewIsHidden(ticket);
 
-            using var cannotRemove = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct);
-            Assert.Equal(HttpStatusCode.Conflict, cannotRemove.StatusCode);
-            using var detach = await Command(WireRoutes.ArticleMediaCommand, owner,
-                Wire.EncodeArticleMediaCommand(input with { ExpectedRevision = saved.Revision, IdempotencyKey = Guid.NewGuid(), Attach = false }));
-            Assert.Equal(HttpStatusCode.OK, detach.StatusCode);
+            using var cannotRemove = Expect(Conflict, await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct));
+            using var detach = Ok(await Command(WireRoutes.ArticleMediaCommand, owner,
+                Wire.EncodeArticleMediaCommand(input with { ExpectedRevision = saved.Revision, IdempotencyKey = Guid.NewGuid(), Attach = false })));
             var detached = Wire.DecodeDraft(await detach.Content.ReadAsByteArrayAsync(ct));
             await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, owner, ct, ticket);
 
-            using (var exported = await ExportHtml(detached.Revision, saved.Revision, owner, asset))
+            using (var exported = Ok(await ExportHtml(detached.Revision, saved.Revision, owner, asset)))
             {
-                Assert.Equal(HttpStatusCode.OK, exported.StatusCode);
                 Assert.True(exported.Headers.CacheControl?.NoStore);
                 Assert.True(exported.Headers.CacheControl?.Private);
                 Assert.Contains("img-src data:", Assert.Single(exported.Headers.GetValues("Content-Security-Policy")));
@@ -289,30 +262,22 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.True(data.Success);
                 Assert.Equal(normalized, Convert.FromBase64String(data.Groups[1].Value));
             }
-            using (var plain = await ExportHtml(detached.Revision, saved.Revision, owner, null))
+            using (var plain = Ok(await ExportHtml(detached.Revision, saved.Revision, owner, null)))
             {
-                Assert.Equal(HttpStatusCode.OK, plain.StatusCode);
                 Assert.DoesNotContain("<img", await plain.Content.ReadAsStringAsync(ct));
                 Assert.DoesNotContain("img-src data:", Assert.Single(plain.Headers.GetValues("Content-Security-Policy")));
             }
-            using (var unlinked = await ExportHtml(detached.Revision, detached.Revision, owner, asset))
-                Assert.Equal(HttpStatusCode.NotFound, unlinked.StatusCode);
-            using (var otherAsset = await ExportHtml(detached.Revision, saved.Revision, owner, foreign))
-                Assert.Equal(HttpStatusCode.NotFound, otherAsset.StatusCode);
-            using (var otherOwner = await ExportHtml(detached.Revision, saved.Revision, outsider, asset))
-                Assert.Equal(HttpStatusCode.NotFound, otherOwner.StatusCode);
-            using (var anonymous = await ExportHtml(detached.Revision, saved.Revision, null, asset))
-                Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
-            using (var stale = await ExportHtml(saved.Revision, saved.Revision, owner, asset))
-                Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
-            using (var wrongHandle = await ExportHtml(detached.Revision, saved.Revision, owner, asset, outsider.SiteSessionId))
-                Assert.Equal(HttpStatusCode.Conflict, wrongHandle.StatusCode);
+            CheckStatus(NotFound, await ExportHtml(detached.Revision, detached.Revision, owner, asset));
+            CheckStatus(NotFound, await ExportHtml(detached.Revision, saved.Revision, owner, foreign));
+            CheckStatus(NotFound, await ExportHtml(detached.Revision, saved.Revision, outsider, asset));
+            CheckStatus(Unauthorized, await ExportHtml(detached.Revision, saved.Revision, null, asset));
+            CheckStatus(Conflict, await ExportHtml(saved.Revision, saved.Revision, owner, asset));
+            CheckStatus(Conflict, await ExportHtml(detached.Revision, saved.Revision, owner, asset, outsider.SiteSessionId));
 
             XNamespace opf = "http://www.idpf.org/2007/opf";
             XNamespace xhtml = "http://www.w3.org/1999/xhtml";
             const string imagePath = "images/attachment.png";
-            using var epub = await Export("epub", detached.Revision, saved.Revision, owner, asset);
-            Assert.Equal(HttpStatusCode.OK, epub.StatusCode);
+            using var epub = Ok(await Export("epub", detached.Revision, saved.Revision, owner, asset));
             Assert.Equal("application/epub+zip", epub.Content.Headers.ContentType?.MediaType);
             Assert.Equal("article.epub", epub.Content.Headers.ContentDisposition?.FileName);
             Assert.True(epub.Headers.CacheControl?.Private);
@@ -332,14 +297,12 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.Equal("figure", image.Parent?.Name.LocalName);
                 Assert.Equal(normalized, await ReadEntry(archive.GetEntry("EPUB/" + imagePath)!));
             }
-            using (var repeatEpub = await Export("epub", detached.Revision, saved.Revision, owner, asset))
+            using (var repeatEpub = Ok(await Export("epub", detached.Revision, saved.Revision, owner, asset)))
             {
-                Assert.Equal(HttpStatusCode.OK, repeatEpub.StatusCode);
                 Assert.Equal(epubBytes, await repeatEpub.Content.ReadAsByteArrayAsync(ct));
             }
-            using (var plainEpub = await Export("epub", detached.Revision, saved.Revision, owner, null))
+            using (var plainEpub = Ok(await Export("epub", detached.Revision, saved.Revision, owner, null)))
             {
-                Assert.Equal(HttpStatusCode.OK, plainEpub.StatusCode);
                 using var archive = new ZipArchive(new MemoryStream(await plainEpub.Content.ReadAsByteArrayAsync(ct)));
                 Assert.Equal(new[] { "mimetype", "META-INF/container.xml", "EPUB/package.opf", "EPUB/nav.xhtml", "EPUB/article.xhtml" },
                     archive.Entries.Select(entry => entry.FullName));
@@ -355,9 +318,8 @@ public sealed partial class PrivateMediaPostgresTests
             await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.Conflict, detached.Revision, saved.Revision, owner, asset, "");
 
             const string wordType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-            using (var word = await Export("docx", detached.Revision, saved.Revision, owner, asset))
+            using (var word = Ok(await Export("docx", detached.Revision, saved.Revision, owner, asset)))
             {
-                Assert.Equal(HttpStatusCode.OK, word.StatusCode);
                 Assert.Equal(wordType, word.Content.Headers.ContentType?.MediaType);
                 Assert.Equal("article.docx", word.Content.Headers.ContentDisposition?.FileName);
                 Assert.True(word.Headers.CacheControl?.Private);
@@ -393,43 +355,35 @@ public sealed partial class PrivateMediaPostgresTests
             changed[^1] ^= 1;
             await MediaFixture.WithReplacedReadOnlyFile(leaf, held, changed, async () =>
             {
-                using var corrupt = await ExportHtml(detached.Revision, saved.Revision, owner, asset);
-                Assert.Equal(HttpStatusCode.ServiceUnavailable, corrupt.StatusCode);
+                using var corrupt = Expect(ServiceUnavailable, await ExportHtml(detached.Revision, saved.Revision, owner, asset));
                 await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.ServiceUnavailable, detached.Revision, saved.Revision, owner, asset);
                 await ExpectExportFailure("docx", wordType, HttpStatusCode.ServiceUnavailable, detached.Revision, saved.Revision, owner, asset);
             }, ct);
 
-            using var historyStillPins = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct);
-            Assert.Equal(HttpStatusCode.Conflict, historyStillPins.StatusCode);
-            using var restore = await Command(WireRoutes.DraftRollback,
-                owner, Wire.EncodeDraftRollback(new(draft.Id, detached.Revision, saved.Revision, Guid.NewGuid(), "Restore the attached revision")));
-            Assert.Equal(HttpStatusCode.OK, restore.StatusCode);
+            using var historyStillPins = Expect(Conflict, await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaRemove, asset), owner, ct));
+            using var restore = Ok(await Command(WireRoutes.DraftRollback,
+                owner, Wire.EncodeDraftRollback(new(draft.Id, detached.Revision, saved.Revision, Guid.NewGuid(), "Restore the attached revision"))));
             var restored = Wire.DecodeDraft(await restore.Content.ReadAsByteArrayAsync(ct));
-            using var restoredBytes = await Send(client, HttpMethod.Head, WireRoutes.ArticleMediaPreview, owner, ct, await Preview(restored.Revision));
-            Assert.Equal(HttpStatusCode.OK, restoredBytes.StatusCode);
-            using var published = await Command(WireRoutes.Publish, owner,
-                Wire.EncodeArticleCommand(new(draft.Id, restored.Revision, Guid.NewGuid(), "", "")));
-            Assert.Equal(HttpStatusCode.OK, published.StatusCode);
+            using var restoredBytes = Ok(await Send(client, HttpMethod.Head, WireRoutes.ArticleMediaPreview, owner, ct, await Preview(restored.Revision)));
+            using var published = Ok(await Command(WireRoutes.Publish, owner,
+                Wire.EncodeArticleCommand(new(draft.Id, restored.Revision, Guid.NewGuid(), "", ""))));
             var publishedDraft = Wire.DecodeDraft(await published.Content.ReadAsByteArrayAsync(ct));
             var publicCandidateTicket = await Preview(publishedDraft.Revision);
             await AssertHidden(client, HttpMethod.Get, WireRoutes.ArticleMediaPreview, null, ct, publicCandidateTicket);
-            using var html = await client.GetAsync($"/article/{draft.Id}", ct);
-            Assert.Equal(HttpStatusCode.OK, html.StatusCode);
+            using var html = Ok(await client.GetAsync($"/article/{draft.Id}", ct));
             Assert.DoesNotContain("draft-preview", await html.Content.ReadAsStringAsync(ct));
             await using var pin = db.DataSource.CreateCommand("SELECT count(*) FROM public.article_revision_media WHERE asset_id=$1");
             pin.Parameters.AddWithValue(asset);
             Assert.Equal(3L, await pin.ExecuteScalarAsync(ct));
 
             var jpeg = pdf ? EncodeImage(SKEncodedImageFormat.Jpeg, 24, 12) : EncodeImage(SKEncodedImageFormat.Jpeg);
-            using var secondUpload = await Upload(client, owner, Guid.NewGuid(), "second.jpg", "image/jpeg", jpeg, ct);
-            Assert.Equal(HttpStatusCode.OK, secondUpload.StatusCode);
+            using var secondUpload = Ok(await Upload(client, owner, Guid.NewGuid(), "second.jpg", "image/jpeg", jpeg, ct));
             var second = First(await secondUpload.Content.ReadAsByteArrayAsync(ct), 1);
             var secondBytes = await File.ReadAllBytesAsync(Path.Combine(root, $"{second:N}.media"), ct);
             var both = await ChangeSecondImage(publishedDraft.Revision, true);
             var single = await ChangeSecondImage(both.Revision, false);
             var selectedPair = $"{second:D},{asset:D}";
-            using var bundle = await Export("html", single.Revision, both.Revision, owner, null, selection: selectedPair);
-            Assert.Equal(HttpStatusCode.OK, bundle.StatusCode);
+            using var bundle = Ok(await Export("html", single.Revision, both.Revision, owner, null, selection: selectedPair));
             var markup = await bundle.Content.ReadAsStringAsync(ct);
             var bodies = new Dictionary<DocumentExportFormat, byte[]> { [DocumentExportFormat.Html] = System.Text.Encoding.UTF8.GetBytes(markup) };
             foreach (var (format, extension, resourceDirectory) in new[]
@@ -438,8 +392,7 @@ public sealed partial class PrivateMediaPostgresTests
                 (DocumentExportFormat.Epub, "epub", "EPUB/images/")
             })
             {
-                using var portable = await Export(extension, single.Revision, both.Revision, owner, null, selection: selectedPair);
-                Assert.Equal(HttpStatusCode.OK, portable.StatusCode);
+                using var portable = Ok(await Export(extension, single.Revision, both.Revision, owner, null, selection: selectedPair));
                 var bytes = bodies[format] = await portable.Content.ReadAsByteArrayAsync(ct);
                 using var archive = new ZipArchive(new MemoryStream(bytes));
                 var images = archive.Entries.Where(entry => entry.FullName.StartsWith(resourceDirectory, StringComparison.Ordinal)).ToArray();
@@ -449,8 +402,7 @@ public sealed partial class PrivateMediaPostgresTests
             }
             if (pdf)
             {
-                using var direct = await Export("pdf", single.Revision, both.Revision, owner, null, selection: selectedPair);
-                Assert.Equal(HttpStatusCode.OK, direct.StatusCode);
+                using var direct = Ok(await Export("pdf", single.Revision, both.Revision, owner, null, selection: selectedPair));
                 bodies.Add(DocumentExportFormat.Pdf, await ReadPdf(direct));
                 await ExpectExportFailure("pdf", "application/pdf", HttpStatusCode.Conflict, both.Revision, both.Revision, owner, null, selection: selectedPair);
                 await ExpectExportFailure("pdf", "application/pdf", HttpStatusCode.NotFound, single.Revision, single.Revision, owner, null, selection: selectedPair);
@@ -474,44 +426,35 @@ public sealed partial class PrivateMediaPostgresTests
             }
             await MediaFixture.WithReplacedReadOnlyFile(leaf, held, changed, async () =>
             {
-                using var badBundle = await Export("html", single.Revision, both.Revision, owner, null, selection: selectedPair);
-                Assert.Equal(HttpStatusCode.ServiceUnavailable, badBundle.StatusCode);
+                using var badBundle = Expect(ServiceUnavailable, await Export("html", single.Revision, both.Revision, owner, null, selection: selectedPair));
                 Assert.DoesNotContain("data:image/", await badBundle.Content.ReadAsStringAsync(ct));
                 if (pdf) await ExpectExportFailure("pdf", "application/pdf", HttpStatusCode.ServiceUnavailable,
                     single.Revision, both.Revision, owner, null, selection: selectedPair);
             }, ct);
 
-            using var saveExternal = await Command(WireRoutes.Save, owner, Wire.EncodeArticleCommand(
-                new(draft.Id, single.Revision, Guid.NewGuid(), "Edited body", "![remote](https://export.invalid/photo.png)")));
-            Assert.Equal(HttpStatusCode.OK, saveExternal.StatusCode);
+            using var saveExternal = Ok(await Command(WireRoutes.Save, owner, Wire.EncodeArticleCommand(
+                new(draft.Id, single.Revision, Guid.NewGuid(), "Edited body", "![remote](https://export.invalid/photo.png)"))));
             var externalDraft = Wire.DecodeDraft(await saveExternal.Content.ReadAsByteArrayAsync(ct));
             await ExpectExportFailure("epub", "application/epub+zip", HttpStatusCode.BadRequest, externalDraft.Revision, externalDraft.Revision, owner, asset);
-            using var priorEpub = await Export("epub", externalDraft.Revision, saved.Revision, owner, asset);
-            Assert.Equal(HttpStatusCode.OK, priorEpub.StatusCode);
+            using var priorEpub = Ok(await Export("epub", externalDraft.Revision, saved.Revision, owner, asset));
             Assert.Equal(epubBytes, await priorEpub.Content.ReadAsByteArrayAsync(ct));
 
             var jobInput = new DocumentExportCreate(Guid.NewGuid(), draft.Id, externalDraft.Revision, saved.Revision, DocumentExportFormat.Html);
             var frame = Wire.EncodeDocumentExportCreate(jobInput);
             await using var gate = await db.DataSource.OpenConnectionAsync(ct);
             await DocumentExportPostgresTests.HoldClaim(gate, jobInput.Id, ct);
-            using var taskCreated = await Command(WireRoutes.DocumentExportCreate, owner, frame, asset);
-            Assert.Equal(HttpStatusCode.OK, taskCreated.StatusCode);
+            using var taskCreated = Ok(await Command(WireRoutes.DocumentExportCreate, owner, frame, asset));
             var receipt = Wire.DecodeDocumentExportTask(await taskCreated.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal((jobInput, (byte)3), (receipt.Request, receipt.Provider));
             Assert.Equal(DocumentExportState.Queued, receipt.State);
-            using var replay = await Command(WireRoutes.DocumentExportCreate, owner, frame, asset);
-            Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
+            using var replay = Ok(await Command(WireRoutes.DocumentExportCreate, owner, frame, asset));
             Assert.Equal(receipt.SourceDigest, Wire.DecodeDocumentExportTask(await replay.Content.ReadAsByteArrayAsync(ct)).SourceDigest);
-            using var changedSelection = await Command(WireRoutes.DocumentExportCreate, owner, frame);
-            Assert.Equal(HttpStatusCode.Conflict, changedSelection.StatusCode);
+            using var changedSelection = Expect(Conflict, await Command(WireRoutes.DocumentExportCreate, owner, frame));
             var plainRequest = jobInput with { Id = Guid.NewGuid() };
-            using var foreignAsset = await Command(WireRoutes.DocumentExportCreate, owner, Wire.EncodeDocumentExportCreate(plainRequest), foreign);
-            Assert.Equal(HttpStatusCode.NotFound, foreignAsset.StatusCode);
-            using var detachedAsset = await Command(WireRoutes.DocumentExportCreate, owner,
-                Wire.EncodeDocumentExportCreate(plainRequest with { SourceRevision = detached.Revision }), asset);
-            Assert.Equal(HttpStatusCode.NotFound, detachedAsset.StatusCode);
-            using var textTask = await Command(WireRoutes.DocumentExportCreate, owner, Wire.EncodeDocumentExportCreate(plainRequest));
-            Assert.Equal(HttpStatusCode.OK, textTask.StatusCode);
+            using var foreignAsset = Expect(NotFound, await Command(WireRoutes.DocumentExportCreate, owner, Wire.EncodeDocumentExportCreate(plainRequest), foreign));
+            using var detachedAsset = Expect(NotFound, await Command(WireRoutes.DocumentExportCreate, owner,
+                Wire.EncodeDocumentExportCreate(plainRequest with { SourceRevision = detached.Revision }), asset));
+            using var textTask = Ok(await Command(WireRoutes.DocumentExportCreate, owner, Wire.EncodeDocumentExportCreate(plainRequest)));
             Assert.Equal(2, Wire.DecodeDocumentExportTask(await textTask.Content.ReadAsByteArrayAsync(ct)).Provider);
 
             // The plain v2 receipt above already proved that no attachment was selected. Free its owner quota.
@@ -524,12 +467,10 @@ public sealed partial class PrivateMediaPostgresTests
             foreach (var task in bundleTasks)
             {
                 var bundleFrame = Wire.EncodeDocumentExportCreate(task);
-                using var queueBundle = await Command(WireRoutes.DocumentExportCreate, owner, bundleFrame, selection: selectedPair);
-                Assert.Equal(HttpStatusCode.OK, queueBundle.StatusCode);
+                using var queueBundle = Ok(await Command(WireRoutes.DocumentExportCreate, owner, bundleFrame, selection: selectedPair));
                 Assert.Equal(4, Wire.DecodeDocumentExportTask(await queueBundle.Content.ReadAsByteArrayAsync(ct)).Provider);
-                using var reordered = await Command(WireRoutes.DocumentExportCreate, owner, bundleFrame,
-                    selection: $"{asset:D},{second:D}");
-                Assert.Equal(HttpStatusCode.Conflict, reordered.StatusCode);
+                using var reordered = Expect(Conflict, await Command(WireRoutes.DocumentExportCreate, owner, bundleFrame,
+                    selection: $"{asset:D},{second:D}"));
             }
 
             var queuedServer = server;
@@ -557,8 +498,7 @@ public sealed partial class PrivateMediaPostgresTests
             foreach (var task in finishedBundles)
             {
                 Assert.Equal(DocumentExportState.Succeeded, task.State);
-                using var deliveredBundle = await Command(WireRoutes.DocumentExportDownload, owner, Wire.EncodeDocumentExportTaskRef(task.Request.Id));
-                Assert.Equal(HttpStatusCode.OK, deliveredBundle.StatusCode);
+                using var deliveredBundle = Ok(await Command(WireRoutes.DocumentExportDownload, owner, Wire.EncodeDocumentExportTaskRef(task.Request.Id)));
                 if (task.Request.Format == DocumentExportFormat.Pdf)
                 {
                     var bytes = await ReadPdf(deliveredBundle);
@@ -586,8 +526,7 @@ public sealed partial class PrivateMediaPostgresTests
             Assert.Equal(new[] { (second, Digest(secondBytes)), (asset, Digest(normalized)) },
                 receiptManifest["assets"]!.AsArray().Select(entry => (entry!["id"]!.GetValue<Guid>(), (string)entry["sha256"]!)));
             var download = Wire.EncodeDocumentExportTaskRef(jobInput.Id);
-            using var rendered = await Command(WireRoutes.DocumentExportDownload, owner, download);
-            Assert.Equal(HttpStatusCode.OK, rendered.StatusCode);
+            using var rendered = Ok(await Command(WireRoutes.DocumentExportDownload, owner, download));
             Assert.True(rendered.Headers.CacheControl?.Private);
             Assert.True(rendered.Headers.CacheControl?.NoStore);
             Assert.Contains("img-src data:", Assert.Single(rendered.Headers.GetValues("Content-Security-Policy")));
@@ -604,13 +543,11 @@ public sealed partial class PrivateMediaPostgresTests
             }
             await MediaFixture.WithReplacedReadOnlyFile(leaf, held, changed, async () =>
             {
-                using var corruptDownload = await Command(WireRoutes.DocumentExportDownload, owner, download);
-                Assert.Equal(HttpStatusCode.ServiceUnavailable, corruptDownload.StatusCode);
+                using var corruptDownload = Expect(ServiceUnavailable, await Command(WireRoutes.DocumentExportDownload, owner, download));
                 await ResultReceipt(HttpStatusCode.ServiceUnavailable);
                 foreach (var task in bundleTasks)
                 {
-                    using var corruptBundle = await Command(WireRoutes.DocumentExportDownload, owner, Wire.EncodeDocumentExportTaskRef(task.Id));
-                    Assert.Equal(HttpStatusCode.ServiceUnavailable, corruptBundle.StatusCode);
+                    using var corruptBundle = Expect(ServiceUnavailable, await Command(WireRoutes.DocumentExportDownload, owner, Wire.EncodeDocumentExportTaskRef(task.Id)));
                     Assert.DoesNotContain("data:image/", await corruptBundle.Content.ReadAsStringAsync(ct));
                 }
             }, ct);
@@ -619,8 +556,7 @@ public sealed partial class PrivateMediaPostgresTests
             await priorServer.DisposeAsync();
             server = await ServerProcess.Start(db.ConnectionString, ct, settings);
             client = server.Client;
-            using var reloaded = await Command(WireRoutes.DocumentExportDownload, owner, download);
-            Assert.Equal(HttpStatusCode.OK, reloaded.StatusCode);
+            using var reloaded = Ok(await Command(WireRoutes.DocumentExportDownload, owner, download));
             Assert.Equal(renderedBytes, await reloaded.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal(batchReceipt, await ResultReceipt(HttpStatusCode.OK));
 
@@ -631,9 +567,8 @@ public sealed partial class PrivateMediaPostgresTests
 
             async Task<Draft> ChangeSecondImage(long current, bool attachImage)
             {
-                using var result = await Command(WireRoutes.ArticleMediaCommand, owner,
-                    Wire.EncodeArticleMediaCommand(new(draft.Id, current, Guid.NewGuid(), second, attachImage)));
-                Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+                using var result = Ok(await Command(WireRoutes.ArticleMediaCommand, owner,
+                    Wire.EncodeArticleMediaCommand(new(draft.Id, current, Guid.NewGuid(), second, attachImage))));
                 return Wire.DecodeDraft(await result.Content.ReadAsByteArrayAsync(ct));
             }
 
@@ -699,8 +634,7 @@ public sealed partial class PrivateMediaPostgresTests
             async Task<string> Preview(long revision)
             {
                 var path = WireRoutes.ArticleMedia.Replace("{id:int}", $"{draft.Id}", StringComparison.Ordinal);
-                using var response = await Send(client, HttpMethod.Get, $"{path}?revision={revision}", owner, ct);
-                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                using var response = Ok(await Send(client, HttpMethod.Get, $"{path}?revision={revision}", owner, ct));
                 var payload = Aeds.Decode(await response.Content.ReadAsByteArrayAsync(ct), FrameType.ArticleMedia);
                 Assert.Equal(1, BinaryPrimitives.ReadInt32LittleEndian(payload[12..]));
                 Assert.Equal(asset, new Guid(payload[16..32], bigEndian: true));
@@ -772,33 +706,24 @@ public sealed partial class PrivateMediaPostgresTests
         {
             await using (var server = await ServerProcess.Start(db.ConnectionString, ct, settings))
             {
-                using var auth = await Begin(server.Client, reader, key, "resumable.png", image, ct);
-                Assert.Equal(HttpStatusCode.Unauthorized, auth.StatusCode);
+                using var auth = Expect(Unauthorized, await Begin(server.Client, reader, key, "resumable.png", image, ct));
                 using var advertised = await Send(server.Client, HttpMethod.Get, WireRoutes.PrivateMediaList, owner, ct);
                 Assert.Equal("1", Assert.Single(advertised.Headers.GetValues(WireHeaders.PrivateMediaResumable)));
-                using var webpBeforeUpgrade = await Begin(server.Client, owner, key, "resumable.webp",
-                    EncodeImage(SKEncodedImageFormat.Webp), ct, type: "image/webp");
-                Assert.Equal(HttpStatusCode.UnsupportedMediaType, webpBeforeUpgrade.StatusCode);
-                using var stale = await Begin(server.Client, foreign, key, "resumable.png", image, ct, owner);
-                Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+                using var webpBeforeUpgrade = Expect(UnsupportedMediaType, await Begin(server.Client, owner, key, "resumable.webp",
+                    EncodeImage(SKEncodedImageFormat.Webp), ct, type: "image/webp"));
+                using var stale = Expect(Conflict, await Begin(server.Client, foreign, key, "resumable.png", image, ct, owner));
                 using var created = await Begin(server.Client, owner, key, "resumable.png", image, ct);
                 upload = await State(created, [], ct);
-                using var conflict = await Begin(server.Client, owner, key, "changed.png", image, ct);
-                Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
-                using var hidden = await Send(server.Client, HttpMethod.Get, PathFor(WireRoutes.PrivateMediaUploadStatus, upload), foreign, ct);
-                Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
-                using var wrongOffset = await Part(server.Client, owner, upload, 1, 0, image[partSize..], ct);
-                Assert.Equal(HttpStatusCode.BadRequest, wrongOffset.StatusCode);
-                using var wrongDigest = await Part(server.Client, owner, upload, 1, partSize, image[partSize..], ct, new byte[32]);
-                Assert.Equal(HttpStatusCode.BadRequest, wrongDigest.StatusCode);
+                using var conflict = Expect(Conflict, await Begin(server.Client, owner, key, "changed.png", image, ct));
+                using var hidden = Expect(NotFound, await Send(server.Client, HttpMethod.Get, PathFor(WireRoutes.PrivateMediaUploadStatus, upload), foreign, ct));
+                using var wrongOffset = Expect(BadRequest, await Part(server.Client, owner, upload, 1, 0, image[partSize..], ct));
+                using var wrongDigest = Expect(BadRequest, await Part(server.Client, owner, upload, 1, partSize, image[partSize..], ct, new byte[32]));
                 using var valid = await Part(server.Client, owner, upload, 1, partSize, image[partSize..], ct);
                 Assert.Equal(upload, await State(valid, [1], ct));
                 using var retry = await Part(server.Client, owner, upload, 1, partSize, image[partSize..], ct);
                 Assert.Equal(upload, await State(retry, [1], ct));
-                using var conflictPart = await Part(server.Client, owner, upload, 1, partSize, Enumerable.Repeat((byte)9, 19).ToArray(), ct);
-                Assert.Equal(HttpStatusCode.Conflict, conflictPart.StatusCode);
-                using var incomplete = await Send(server.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, upload), owner, ct);
-                Assert.Equal(HttpStatusCode.Conflict, incomplete.StatusCode);
+                using var conflictPart = Expect(Conflict, await Part(server.Client, owner, upload, 1, partSize, Enumerable.Repeat((byte)9, 19).ToArray(), ct));
+                using var incomplete = Expect(Conflict, await Send(server.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, upload), owner, ct));
                 Assert.Empty(directory.EnumerateFiles());
             }
 
@@ -809,8 +734,7 @@ public sealed partial class PrivateMediaPostgresTests
             using var finalPart = await Part(client, owner, upload, 0, 0, image[..partSize], ct);
             Assert.Equal(upload, await State(finalPart, [0, 1], ct));
             var finalize = PathFor(WireRoutes.PrivateMediaUploadFinalize, upload);
-            using var wrongOwner = await Send(client, HttpMethod.Post, finalize, foreign, ct);
-            Assert.Equal(HttpStatusCode.NotFound, wrongOwner.StatusCode);
+            using var wrongOwner = Expect(NotFound, await Send(client, HttpMethod.Post, finalize, foreign, ct));
             var approvals = await Task.WhenAll(
                 Send(client, HttpMethod.Post, finalize, owner, ct),
                 Send(client, HttpMethod.Post, finalize, owner, ct));
@@ -820,15 +744,13 @@ public sealed partial class PrivateMediaPostgresTests
             var asset = First(await committed.Content.ReadAsByteArrayAsync(ct), 1);
             Assert.Equal(HttpStatusCode.OK, simultaneous.StatusCode);
             Assert.Equal(asset, First(await simultaneous.Content.ReadAsByteArrayAsync(ct), 1));
-            using var retryFinalize = await Send(client, HttpMethod.Post, finalize, owner, ct);
-            Assert.Equal(HttpStatusCode.OK, retryFinalize.StatusCode);
+            using var retryFinalize = Ok(await Send(client, HttpMethod.Post, finalize, owner, ct));
             Assert.Equal(asset, First(await retryFinalize.Content.ReadAsByteArrayAsync(ct), 1));
             using var completed = await Send(client, HttpMethod.Get, PathFor(WireRoutes.PrivateMediaUploadStatus, upload), owner, ct);
             Assert.Equal(upload, await State(completed, [], ct, asset));
             var raw = PathFor(WireRoutes.PrivateMediaRead, asset);
             await AssertHidden(client, HttpMethod.Get, raw, foreign, ct);
-            using var read = await Send(client, HttpMethod.Get, raw, owner, ct);
-            Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+            using var read = Ok(await Send(client, HttpMethod.Get, raw, owner, ct));
             using var decoded = SKBitmap.Decode(await read.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal((3, 2), (decoded.Width, decoded.Height));
             var leaf = Assert.Single(directory.EnumerateFiles());
@@ -843,10 +765,8 @@ public sealed partial class PrivateMediaPostgresTests
             using var b = await Part(client, owner, other, 1, partSize, image[partSize..], ct);
             Assert.Equal(HttpStatusCode.OK, a.StatusCode);
             Assert.Equal(HttpStatusCode.OK, b.StatusCode);
-            using var mismatch = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, other), owner, ct);
-            Assert.Equal(HttpStatusCode.Conflict, mismatch.StatusCode);
-            using var remove = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadCancel, other), owner, ct);
-            Assert.Equal(HttpStatusCode.OK, remove.StatusCode);
+            using var mismatch = Expect(Conflict, await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, other), owner, ct));
+            using var remove = Ok(await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadCancel, other), owner, ct));
             await using var check = db.DataSource.CreateCommand("SELECT count(*) FROM public.private_media_upload_part");
             Assert.Equal(0L, await check.ExecuteScalarAsync(ct));
 
@@ -856,8 +776,7 @@ public sealed partial class PrivateMediaPostgresTests
                 using var staged = await Begin(client, owner, Guid.NewGuid(), "staged.png", image, ct);
                 held.Add(await State(staged, [], ct));
             }
-            using var overBudget = await Begin(client, owner, Guid.NewGuid(), "held.png", image, ct);
-            Assert.Equal(HttpStatusCode.Conflict, overBudget.StatusCode);
+            using var overBudget = Expect(Conflict, await Begin(client, owner, Guid.NewGuid(), "held.png", image, ct));
             using var willExpire = await Part(client, owner, held[0], 1, partSize, image[partSize..], ct);
             Assert.Equal(held[0], await State(willExpire, [1], ct));
             await using (var expire = db.DataSource.CreateCommand("UPDATE public.private_media_upload SET expires_at=now()-interval '1 second' WHERE id=$1"))
@@ -867,8 +786,7 @@ public sealed partial class PrivateMediaPostgresTests
             }
             using var replacement = await Begin(client, owner, Guid.NewGuid(), "replacement.png", image, ct);
             Assert.NotEqual(held[0], await State(replacement, [], ct));
-            using var expired = await Send(client, HttpMethod.Get, PathFor(WireRoutes.PrivateMediaUploadStatus, held[0]), owner, ct);
-            Assert.Equal(HttpStatusCode.NotFound, expired.StatusCode);
+            using var expired = Expect(NotFound, await Send(client, HttpMethod.Get, PathFor(WireRoutes.PrivateMediaUploadStatus, held[0]), owner, ct));
             Assert.Equal(0L, await check.ExecuteScalarAsync(ct));
             Assert.Single(directory.EnumerateFiles());
         }
@@ -916,16 +834,14 @@ public sealed partial class PrivateMediaPostgresTests
             File.SetUnixFileMode(leaf.FullName, UnixFileMode.UserRead);
             await AssertHidden(server.Client, HttpMethod.Get, raw, owner, ct);
             var remove = WireRoutes.PrivateMediaRemove.Replace("{id}", reserved.ToString("D"), StringComparison.Ordinal);
-            using var blocked = await Send(server.Client, HttpMethod.Post, remove, owner, ct);
-            Assert.Equal(HttpStatusCode.InternalServerError, blocked.StatusCode);
+            using var blocked = Expect(InternalServerError, await Send(server.Client, HttpMethod.Post, remove, owner, ct));
             Assert.Equal(unrelated, await File.ReadAllBytesAsync(leaf.FullName, ct));
             await AssertHidden(server.Client, HttpMethod.Get, raw, owner, ct);
 
             File.SetUnixFileMode(leaf.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite);
             await File.WriteAllBytesAsync(leaf.FullName, original, ct);
             File.SetUnixFileMode(leaf.FullName, UnixFileMode.UserRead);
-            using var retry = await Send(server.Client, HttpMethod.Post, remove, owner, ct);
-            Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
+            using var retry = Ok(await Send(server.Client, HttpMethod.Post, remove, owner, ct));
             Assert.Empty(directory.EnumerateFiles());
         }
     }
@@ -1018,8 +934,7 @@ public sealed partial class PrivateMediaPostgresTests
     private static async Task AssertHidden(HttpClient client, HttpMethod method, string path, MediaFixture.Session? session,
         CancellationToken ct, string? previewTicket = null, bool range = false)
     {
-        using var response = await Send(client, method, path, session, ct, previewTicket, range);
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        using var response = Expect(NotFound, await Send(client, method, path, session, ct, previewTicket, range));
         Assert.Equal(0, response.Content.Headers.ContentLength);
         Assert.Null(response.Content.Headers.ContentType);
         Assert.True(response.Headers.CacheControl?.Private);

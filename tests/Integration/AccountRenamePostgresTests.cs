@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -27,28 +29,24 @@ public sealed class AccountRenamePostgresTests
 
         // Unauthenticated or admin-cookie requests must fail with 401.
         using (var anon = SiteRequest(HttpMethod.Get, WireRoutes.SiteDisplayName, null, currentSessionId))
-        using (var res = await server.Client.SendAsync(anon, ct))
-            Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+        CheckStatus(Unauthorized, await server.Client.SendAsync(anon, ct));
 
         using (var wrongCookie = new HttpRequestMessage(HttpMethod.Get, WireRoutes.SiteDisplayName))
         {
             wrongCookie.Headers.Host = ServerProcess.DefaultAdminHost;
             wrongCookie.Headers.Add("Cookie", $"{ServerProcess.DefaultAdminCookie}={admin.Token}");
             wrongCookie.Headers.Add(WireHeaders.CurrentSession, currentSessionId);
-            using var res = await server.Client.SendAsync(wrongCookie, ct);
-            Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+            using var res = Expect(Unauthorized, await server.Client.SendAsync(wrongCookie, ct));
         }
 
         // Wrong X-Fsus-Current-Session must fail with 409.
         using (var stale = SiteRequest(HttpMethod.Get, WireRoutes.SiteDisplayName, reader.Token, new string('f', 64)))
-        using (var res = await server.Client.SendAsync(stale, ct))
-            Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
+        CheckStatus(Conflict, await server.Client.SendAsync(stale, ct));
 
         // Initial display name is empty for a newly created reader.
         using (var initial = SiteRequest(HttpMethod.Get, WireRoutes.SiteDisplayName, reader.Token, currentSessionId))
-        using (var res = await server.Client.SendAsync(initial, ct))
+        using (var res = Ok(await server.Client.SendAsync(initial, ct)))
         {
-            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             Assert.True(res.Headers.CacheControl?.NoStore);
             var state = Wire.DecodeSiteDisplayNameState(await res.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal("", state.DisplayName);
@@ -57,14 +55,12 @@ public sealed class AccountRenamePostgresTests
         // Cross-origin POST is denied with 403.
         var setFrame = Wire.EncodeSiteDisplayNameCommand(new SiteDisplayNameCommand("林深"));
         using (var cross = SiteRequest(HttpMethod.Post, WireRoutes.SiteDisplayName, reader.Token, currentSessionId, setFrame, origin: "https://evil.example"))
-        using (var res = await server.Client.SendAsync(cross, ct))
-            Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+        CheckStatus(Forbidden, await server.Client.SendAsync(cross, ct));
 
         // Valid POST inserts into comment_public_handle and returns updated name.
         using (var setReq = SiteRequest(HttpMethod.Post, WireRoutes.SiteDisplayName, reader.Token, currentSessionId, setFrame))
-        using (var res = await server.Client.SendAsync(setReq, ct))
+        using (var res = Ok(await server.Client.SendAsync(setReq, ct)))
         {
-            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             Assert.True(res.Headers.CacheControl?.NoStore);
             var state = Wire.DecodeSiteDisplayNameState(await res.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal("林深", state.DisplayName);
@@ -73,16 +69,14 @@ public sealed class AccountRenamePostgresTests
         // Subsequent POST updates existing row in place and GET reflects it.
         var updateFrame = Wire.EncodeSiteDisplayNameCommand(new SiteDisplayNameCommand("Alice Reader"));
         using (var updReq = SiteRequest(HttpMethod.Post, WireRoutes.SiteDisplayName, reader.Token, currentSessionId, updateFrame))
-        using (var res = await server.Client.SendAsync(updReq, ct))
+        using (var res = Ok(await server.Client.SendAsync(updReq, ct)))
         {
-            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             Assert.Equal("Alice Reader", Wire.DecodeSiteDisplayNameState(await res.Content.ReadAsByteArrayAsync(ct)).DisplayName);
         }
 
         using (var after = SiteRequest(HttpMethod.Get, WireRoutes.SiteDisplayName, reader.Token, currentSessionId))
-        using (var res = await server.Client.SendAsync(after, ct))
+        using (var res = Ok(await server.Client.SendAsync(after, ct)))
         {
-            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             Assert.Equal("Alice Reader", Wire.DecodeSiteDisplayNameState(await res.Content.ReadAsByteArrayAsync(ct)).DisplayName);
         }
     }
@@ -107,8 +101,7 @@ public sealed class AccountRenamePostgresTests
         using (var noProof = AdminRequest(HttpMethod.Post, WireRoutes.AdminHandleExecute, admin.Token, frame))
         {
             noProof.Headers.Add(WireHeaders.ClientMutationId, command.IdempotencyKey.ToString("D"));
-            using var res = await server.Client.SendAsync(noProof, ct);
-            Assert.Equal(HttpStatusCode.PreconditionRequired, res.StatusCode);
+            using var res = Expect(PreconditionRequired, await server.Client.SendAsync(noProof, ct));
         }
 
         // Duplicate handle returns HTTP 409 even with valid Step-Up proof.
@@ -118,8 +111,7 @@ public sealed class AccountRenamePostgresTests
         {
             collision.Headers.Add(WireHeaders.ClientMutationId, collisionCmd.IdempotencyKey.ToString("D"));
             collision.Headers.Add(WireHeaders.MfaProof, collisionProof);
-            using var res = await server.Client.SendAsync(collision, ct);
-            Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
+            using var res = Expect(Conflict, await server.Client.SendAsync(collision, ct));
         }
 
         // Valid Step-Up proof renames handle, writes audit, keeps session alive, and returns 200 receipt.
@@ -128,8 +120,7 @@ public sealed class AccountRenamePostgresTests
         {
             execute.Headers.Add(WireHeaders.ClientMutationId, command.IdempotencyKey.ToString("D"));
             execute.Headers.Add(WireHeaders.MfaProof, proof);
-            using var res = await server.Client.SendAsync(execute, ct);
-            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+            using var res = Ok(await server.Client.SendAsync(execute, ct));
             Assert.True(res.Headers.CacheControl?.NoStore);
             Assert.Equal(expectedPermissionSession, Assert.Single(res.Headers.GetValues(WireHeaders.AdminPermissionSession)));
             var receipt = Wire.DecodeAdminHandleReceipt(await res.Content.ReadAsByteArrayAsync(ct));
@@ -141,8 +132,7 @@ public sealed class AccountRenamePostgresTests
         using (var replay = AdminRequest(HttpMethod.Post, WireRoutes.AdminHandleExecute, admin.Token, frame))
         {
             replay.Headers.Add(WireHeaders.ClientMutationId, command.IdempotencyKey.ToString("D"));
-            using var res = await server.Client.SendAsync(replay, ct);
-            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+            using var res = Ok(await server.Client.SendAsync(replay, ct));
             var receipt = Wire.DecodeAdminHandleReceipt(await res.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal("renamed-admin", receipt.Handle);
             Assert.True(receipt.Replayed);
@@ -150,9 +140,8 @@ public sealed class AccountRenamePostgresTests
 
         // Session snapshot immediately reflects the renamed handle without revoking the session.
         using (var sessionReq = AdminRequest(HttpMethod.Get, WireRoutes.AdminSession, admin.Token))
-        using (var res = await server.Client.SendAsync(sessionReq, ct))
+        using (var res = Ok(await server.Client.SendAsync(sessionReq, ct)))
         {
-            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             var snapshot = Wire.DecodeAdminSessionSnapshot(await res.Content.ReadAsByteArrayAsync(ct));
             Assert.Equal("renamed-admin", snapshot.Handle);
         }

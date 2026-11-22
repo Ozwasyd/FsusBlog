@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -30,21 +32,18 @@ public sealed class SitePagesOnlinePostgresTests
         await using (var server = await ServerProcess.Start(database.ConnectionString, ct, settings))
         {
             // Initial overview: zero disk files => all 4 pages unconfigured (mask 0), editor header = 1.
-            using (var overviewResp = await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePages))
+            using (var overviewResp = Ok(await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePages)))
             {
-                Assert.Equal(HttpStatusCode.OK, overviewResp.StatusCode);
                 Assert.Equal("1", Assert.Single(overviewResp.Headers.GetValues(WireHeaders.AdminSitePageEditor)));
                 var overview = Wire.DecodeAdminSitePages(await overviewResp.Content.ReadAsByteArrayAsync(ct));
                 Assert.Equal(0, overview.ConfiguredMask);
             }
 
             // Unconfigured page returns 404 on admin content read and unconfigured + noindex on public HTML.
-            using (var unconfiguredAdmin = await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePage.Replace("{slug}", "about")))
-                Assert.Equal(HttpStatusCode.NotFound, unconfiguredAdmin.StatusCode);
+            CheckStatus(NotFound, await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePage.Replace("{slug}", "about")));
 
-            using (var publicBefore = await server.Client.GetAsync("/about", ct))
+            using (var publicBefore = Ok(await server.Client.GetAsync("/about", ct)))
             {
-                Assert.Equal(HttpStatusCode.OK, publicBefore.StatusCode);
                 Assert.True(publicBefore.Headers.TryGetValues("X-Robots-Tag", out var robots) &&
                     robots.Any(v => v.Contains("noindex", StringComparison.OrdinalIgnoreCase)));
                 var html = await publicBefore.Content.ReadAsStringAsync(ct);
@@ -53,9 +52,8 @@ public sealed class SitePagesOnlinePostgresTests
 
             // Editor revision endpoint returns empty revision 0 baseline ready for first creation.
             AdminSitePageRevision initial;
-            using (var revResp = await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePageRevision.Replace("{slug}", "about")))
+            using (var revResp = Ok(await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePageRevision.Replace("{slug}", "about"))))
             {
-                Assert.Equal(HttpStatusCode.OK, revResp.StatusCode);
                 initial = Wire.DecodeAdminSitePageRevision(await revResp.Content.ReadAsByteArrayAsync(ct));
             }
             Assert.Equal("about", initial.Slug);
@@ -68,9 +66,8 @@ public sealed class SitePagesOnlinePostgresTests
             var intent = new AdminSitePagePublish("about", initial.Revision, initial.Digest, publishedMd);
             var frame = Wire.EncodeAdminSitePagePublish(intent);
 
-            using (var beginResp = await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSitePageStepUpBegin, frame))
+            using (var beginResp = Ok(await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSitePageStepUpBegin, frame)))
             {
-                Assert.Equal(HttpStatusCode.OK, beginResp.StatusCode);
                 Aeds.Decode(await beginResp.Content.ReadAsByteArrayAsync(ct), FrameType.PasskeyLoginBegin);
             }
 
@@ -84,39 +81,34 @@ public sealed class SitePagesOnlinePostgresTests
 
             var clientNonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
             string powProof;
-            using (var powResp = await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSitePagePow, frame,
-                       new() { [WireHeaders.PowClientNonce] = clientNonce }))
+            using (var powResp = Ok(await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSitePagePow, frame,
+                       new() { [WireHeaders.PowClientNonce] = clientNonce })))
             {
-                Assert.Equal(HttpStatusCode.OK, powResp.StatusCode);
                 powProof = PowFixture.SolveFrame(await powResp.Content.ReadAsByteArrayAsync(ct), clientNonce, ct);
             }
 
-            using (var publishResp = await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSitePagePublish, frame,
-                       new() { [WireHeaders.MfaProof] = stepUpProof, [WireHeaders.PowProof] = powProof }))
+            using (var publishResp = Ok(await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSitePagePublish, frame,
+                       new() { [WireHeaders.MfaProof] = stepUpProof, [WireHeaders.PowProof] = powProof })))
             {
-                Assert.Equal(HttpStatusCode.OK, publishResp.StatusCode);
                 Aeds.Decode(await publishResp.Content.ReadAsByteArrayAsync(ct), FrameType.EmptySuccess);
             }
 
             // Overview mask immediately flips bit 0 ("about") to configured!
-            using (var overviewAfter = await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePages))
+            using (var overviewAfter = Ok(await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePages)))
             {
-                Assert.Equal(HttpStatusCode.OK, overviewAfter.StatusCode);
                 var overview = Wire.DecodeAdminSitePages(await overviewAfter.Content.ReadAsByteArrayAsync(ct));
                 Assert.Equal(1, overview.ConfiguredMask);
             }
 
             // Admin content read and public HTML + AEDS frame + sitemap immediately serve the new published page!
-            using (var adminContent = await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePage.Replace("{slug}", "about")))
+            using (var adminContent = Ok(await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePage.Replace("{slug}", "about"))))
             {
-                Assert.Equal(HttpStatusCode.OK, adminContent.StatusCode);
                 var payload = Aeds.Decode(await adminContent.Content.ReadAsByteArrayAsync(ct), FrameType.PageContent);
                 Assert.Equal(publishedMd, Encoding.UTF8.GetString(payload[WireLayouts.PageContentBlobOffset..]));
             }
 
-            using (var publicAfter = await server.Client.GetAsync("/about", ct))
+            using (var publicAfter = Ok(await server.Client.GetAsync("/about", ct)))
             {
-                Assert.Equal(HttpStatusCode.OK, publicAfter.StatusCode);
                 Assert.False(publicAfter.Headers.Contains("X-Robots-Tag"));
                 var html = await publicAfter.Content.ReadAsStringAsync(ct);
                 Assert.Contains("data-state=\"published\"", html);
@@ -133,9 +125,8 @@ public sealed class SitePagesOnlinePostgresTests
         // Cold restart with online editor enabled recovers published /about and sitemap automatically!
         await using (var restarted = await ServerProcess.Start(database.ConnectionString, ct, settings))
         {
-            using (var overviewResp = await AdminRequest(restarted, HttpMethod.Get, WireRoutes.AdminSitePages))
+            using (var overviewResp = Ok(await AdminRequest(restarted, HttpMethod.Get, WireRoutes.AdminSitePages)))
             {
-                Assert.Equal(HttpStatusCode.OK, overviewResp.StatusCode);
                 var overview = Wire.DecodeAdminSitePages(await overviewResp.Content.ReadAsByteArrayAsync(ct));
                 Assert.Equal(1, overview.ConfiguredMask);
             }
@@ -152,20 +143,17 @@ public sealed class SitePagesOnlinePostgresTests
         };
         await using (var disabled = await ServerProcess.Start(database.ConnectionString, ct, disabledSettings))
         {
-            using (var overviewResp = await AdminRequest(disabled, HttpMethod.Get, WireRoutes.AdminSitePages))
+            using (var overviewResp = Ok(await AdminRequest(disabled, HttpMethod.Get, WireRoutes.AdminSitePages)))
             {
-                Assert.Equal(HttpStatusCode.OK, overviewResp.StatusCode);
                 Assert.False(overviewResp.Headers.Contains(WireHeaders.AdminSitePageEditor));
                 var overview = Wire.DecodeAdminSitePages(await overviewResp.Content.ReadAsByteArrayAsync(ct));
                 Assert.Equal(0, overview.ConfiguredMask);
             }
 
-            using (var revResp = await AdminRequest(disabled, HttpMethod.Get, WireRoutes.AdminSitePageRevision.Replace("{slug}", "about")))
-                Assert.Equal(HttpStatusCode.NotFound, revResp.StatusCode);
+            CheckStatus(NotFound, await AdminRequest(disabled, HttpMethod.Get, WireRoutes.AdminSitePageRevision.Replace("{slug}", "about")));
 
-            using (var publicDisabled = await disabled.Client.GetAsync("/about", ct))
+            using (var publicDisabled = Ok(await disabled.Client.GetAsync("/about", ct)))
             {
-                Assert.Equal(HttpStatusCode.OK, publicDisabled.StatusCode);
                 Assert.True(publicDisabled.Headers.Contains("X-Robots-Tag"));
                 Assert.Contains("data-state=\"unconfigured\"", await publicDisabled.Content.ReadAsStringAsync(ct));
             }

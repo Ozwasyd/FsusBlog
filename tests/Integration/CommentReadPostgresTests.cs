@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Buffers.Binary;
 using System.Net;
 using System.Security.Cryptography;
@@ -79,8 +81,7 @@ public sealed class CommentReadPostgresTests
             ($"/api/binary/comment/2/context/{Start + 12}", unavailable),
         })
         {
-            using var response = await server.Client.GetAsync(path, ct);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var response = Ok(await server.Client.GetAsync(path, ct));
             Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
             Assert.True(response.Headers.CacheControl?.NoStore);
             Assert.Equal(frame, await response.Content.ReadAsByteArrayAsync(ct));
@@ -125,35 +126,26 @@ public sealed class CommentReadPostgresTests
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct,
             new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS"] = "true" });
         var input = new PublicCommentSubmission(1, 1, Guid.NewGuid(), true, "Public Handle", "pending submission body");
-        using (var unauthenticated = await Send(input, authenticated: false))
-            Assert.Equal(HttpStatusCode.Unauthorized, unauthenticated.StatusCode);
-        using (var missing = await Send(input))
-            Assert.Equal(HttpStatusCode.Unauthorized, missing.StatusCode);
-        using (var invalid = await Send(input, proof: "bad!"))
-            Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
-        using (var stale = await Send(input with { Publication = 9000 }, challenge: true))
-            Assert.Equal(HttpStatusCode.Forbidden, stale.StatusCode);
-        using (var mismatch = await Send(input with { DisplayName = "Changed public handle" }, challenge: true))
-            Assert.Equal(HttpStatusCode.Conflict, mismatch.StatusCode);
-        using (var missingHeader = await Send(input, keyHeader: false))
-            Assert.Equal(HttpStatusCode.BadRequest, missingHeader.StatusCode);
+        CheckStatus(Unauthorized, await Send(input, authenticated: false));
+        CheckStatus(Unauthorized, await Send(input));
+        CheckStatus(BadRequest, await Send(input, proof: "bad!"));
+        CheckStatus(Forbidden, await Send(input with { Publication = 9000 }, challenge: true));
+        CheckStatus(Conflict, await Send(input with { DisplayName = "Changed public handle" }, challenge: true));
+        CheckStatus(BadRequest, await Send(input, keyHeader: false));
         using (var request = new HttpRequestMessage(HttpMethod.Get, "/api/v2/comments/eligibility/1.aeds?publication=1"))
         {
             request.Headers.Add("Cookie", $"fsus-v2-session={token}");
-            using var eligible = await server.Client.SendAsync(request, ct);
-            Assert.Equal(HttpStatusCode.OK, eligible.StatusCode);
+            using var eligible = Ok(await server.Client.SendAsync(request, ct));
             Assert.Equal("Public Handle", Wire.DecodePublicCommentEligibility(await eligible.Content.ReadAsByteArrayAsync(ct)).DisplayName);
         }
         var sameProof = await ObtainProof(input);
-        using (var changed = await Send(input with { Body = "different body" }, proof: sameProof))
-            Assert.Equal(HttpStatusCode.Unauthorized, changed.StatusCode);
+        CheckStatus(Unauthorized, await Send(input with { Body = "different body" }, proof: sameProof));
         var anotherToken = Convert.ToHexStringLower(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
         await FixtureSql.ExecuteAsync(db, null, ct, """
             insert into public.user_session(digest,user_id,generation,expires_at)
             values($1,$2,1,now()+interval '5 minutes')
             """, Store.TokenDigest(anotherToken)!, AccountId);
-        using (var wrongSession = await Send(input, proof: sameProof, sessionToken: anotherToken))
-            Assert.Equal(HttpStatusCode.Unauthorized, wrongSession.StatusCode);
+        CheckStatus(Unauthorized, await Send(input, proof: sameProof, sessionToken: anotherToken));
         var concurrent = await Task.WhenAll(Send(input, proof: sameProof), Send(input, proof: sameProof));
         Assert.Single(concurrent, response => response.StatusCode == HttpStatusCode.Unauthorized);
         using var replayDenied = concurrent.Single(response => response.StatusCode == HttpStatusCode.Unauthorized);
@@ -171,13 +163,11 @@ public sealed class CommentReadPostgresTests
         Assert.Single(receipts, receipt => receipt.Replayed);
         Assert.All(receipts, receipt => Assert.Equal(0, receipt.ModerationStatus));
         Assert.Equal(receipts[0].CommentId, receipts[1].CommentId);
-        using (var conflict = await Send(input with { Body = "different body" }, challenge: true))
-            Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+        CheckStatus(Conflict, await Send(input with { Body = "different body" }, challenge: true));
         var rootFrame = await server.Client.GetByteArrayAsync("/api/binary/comment/1", ct);
         Assert.DoesNotContain("pending submission body", Encoding.UTF8.GetString(rootFrame), StringComparison.Ordinal);
         await FixtureSql.ExecuteAsync(db, null, ct, "delete from public.comment_public_write where article_id=1");
-        using (var policyClosed = await Send(input with { IdempotencyKey = Guid.NewGuid() }, challenge: true))
-            Assert.Equal(HttpStatusCode.Forbidden, policyClosed.StatusCode);
+        CheckStatus(Forbidden, await Send(input with { IdempotencyKey = Guid.NewGuid() }, challenge: true));
         using (var lateRetry = await Send(input, proof: await ObtainProof(input)))
             Assert.True(Wire.DecodePublicCommentSubmissionResult(await lateRetry.Content.ReadAsByteArrayAsync(ct)).Replayed);
         Assert.Equal(1L, await FixtureSql.ScalarAsync(db, null, ct, "select count(*) from public.comment_submit_command"));
@@ -185,8 +175,7 @@ public sealed class CommentReadPostgresTests
 
         async Task<string> ObtainProof(PublicCommentSubmission command)
         {
-            using var response = await Send(command, challenge: true);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var response = Ok(await Send(command, challenge: true));
             Assert.True(response.Headers.CacheControl?.NoStore);
             return PowFixture.SolveFrame(await response.Content.ReadAsByteArrayAsync(ct), ClientNonce, ct);
         }
@@ -409,31 +398,26 @@ public sealed class CommentReadPostgresTests
 
         await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct))
         {
-            using var openRoots = await server.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "1", StringComparison.Ordinal), ct);
-            Assert.Equal(HttpStatusCode.OK, openRoots.StatusCode);
+            using var openRoots = Ok(await server.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "1", StringComparison.Ordinal), ct));
             Assert.True(openRoots.Headers.TryGetValues(WireHeaders.PublicCommentWriteEnabled, out var openValues));
             Assert.Equal(["1"], openValues);
 
-            using var openContext = await server.Client.GetAsync(
-                WireRoutes.CommentContext.Replace("{articleId:int}", "1", StringComparison.Ordinal).Replace("{commentId:long}", (Start + 13).ToString(), StringComparison.Ordinal), ct);
-            Assert.Equal(HttpStatusCode.OK, openContext.StatusCode);
+            using var openContext = Ok(await server.Client.GetAsync(
+                WireRoutes.CommentContext.Replace("{articleId:int}", "1", StringComparison.Ordinal).Replace("{commentId:long}", (Start + 13).ToString(), StringComparison.Ordinal), ct));
             Assert.True(openContext.Headers.TryGetValues(WireHeaders.PublicCommentWriteEnabled, out var contextValues));
             Assert.Equal(["1"], contextValues);
 
-            using var closedRoots = await server.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "3", StringComparison.Ordinal), ct);
-            Assert.Equal(HttpStatusCode.OK, closedRoots.StatusCode);
+            using var closedRoots = Ok(await server.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "3", StringComparison.Ordinal), ct));
             Assert.False(closedRoots.Headers.Contains(WireHeaders.PublicCommentWriteEnabled));
 
-            using var privateRoots = await server.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "2", StringComparison.Ordinal), ct);
-            Assert.Equal(HttpStatusCode.OK, privateRoots.StatusCode);
+            using var privateRoots = Ok(await server.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "2", StringComparison.Ordinal), ct));
             Assert.False(privateRoots.Headers.Contains(WireHeaders.PublicCommentWriteEnabled));
         }
 
         await using (var disabledServer = await ServerProcess.Start(fixture.ConnectionString, ct,
             new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS"] = "false" }))
         {
-            using var disabledRoots = await disabledServer.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "1", StringComparison.Ordinal), ct);
-            Assert.Equal(HttpStatusCode.OK, disabledRoots.StatusCode);
+            using var disabledRoots = Ok(await disabledServer.Client.GetAsync(WireRoutes.CommentRoots.Replace("{articleId:int}", "1", StringComparison.Ordinal), ct));
             Assert.False(disabledRoots.Headers.Contains(WireHeaders.PublicCommentWriteEnabled));
         }
     }

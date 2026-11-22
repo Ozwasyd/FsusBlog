@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -57,13 +59,10 @@ public sealed class PublicationProofPostgresTests
                 await VerifyIndependently(server, firstProof);
                 var originalSignature = (byte[])(await Scalar("select signature from public.article_publication_proof"))!;
                 await Scalar("update public.article_publication_proof set signature=$1", new byte[64]);
-                using (var tampered = await Send(server, HttpMethod.Get, firstUrl))
-                    Assert.Equal(HttpStatusCode.NotFound, tampered.StatusCode);
+                CheckStatus(NotFound, await Send(server, HttpMethod.Get, firstUrl));
                 await Scalar("update public.article_publication_proof set signature=$1", originalSignature);
-                using var wrongHost = await Send(server, HttpMethod.Get, firstUrl, "other.example.test");
-                Assert.Equal(HttpStatusCode.NotFound, wrongHost.StatusCode);
-                using var nonexistent = await Send(server, HttpMethod.Get, firstUrl.Replace("/rights.json", "000/rights.json", StringComparison.Ordinal));
-                Assert.Equal(HttpStatusCode.NotFound, nonexistent.StatusCode);
+                using var wrongHost = Expect(NotFound, await Send(server, HttpMethod.Get, firstUrl, "other.example.test"));
+                using var nonexistent = Expect(NotFound, await Send(server, HttpMethod.Get, firstUrl.Replace("/rights.json", "000/rights.json", StringComparison.Ordinal)));
                 await Edit(server, WireRoutes.Save, new(first.Id, first.Revision, Guid.NewGuid(), "Private revision", "New unpublished body"));
                 Assert.Equal(firstProof, await WaitProof(server, firstUrl));
             }
@@ -95,32 +94,27 @@ public sealed class PublicationProofPostgresTests
                 else
                     second = await Edit(server, WireRoutes.Publish, new(second.Id, successor.Revision, Guid.NewGuid(), "", ""));
                 secondUrl = await PublicationFixture.ProofPath(db, second.Id, ct);
-                using (var replaced = await Send(server, HttpMethod.Get, previousUrl))
-                    Assert.Equal(HttpStatusCode.NotFound, replaced.StatusCode);
+                CheckStatus(NotFound, await Send(server, HttpMethod.Get, previousUrl));
                 var replacementProof = await WaitProof(server, secondUrl);
                 if (coverDigest is not null) await AssertCoverProof(server, second, replacementProof, coverDigest);
                 await VerifyIndependently(server, replacementProof);
                 var denied = await Edit(server, WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Do not sign", "Visible without proof"));
                 var policy = new ArticleRightsCommand(denied.Id, denied.Revision, Guid.NewGuid(), true, "CC0-1.0", "", 0, "", "", "disabled", 0, false, false, false);
-                using var updated = await Send(server, HttpMethod.Post, WireRoutes.DraftRightsCommand, body: Wire.EncodeArticleRightsCommand(policy));
-                Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
+                using var updated = Ok(await Send(server, HttpMethod.Post, WireRoutes.DraftRightsCommand, body: Wire.EncodeArticleRightsCommand(policy)));
                 var revision = Wire.DecodeArticleRightsPolicy(await updated.Content.ReadAsByteArrayAsync(ct)).Revision;
                 var visible = await Edit(server, WireRoutes.Publish, new(denied.Id, revision, Guid.NewGuid(), "", ""));
-                using var notSigned = await Send(server, HttpMethod.Get, await PublicationFixture.ProofPath(db, visible.Id, ct));
-                Assert.Equal(HttpStatusCode.NotFound, notSigned.StatusCode);
+                using var notSigned = Expect(NotFound, await Send(server, HttpMethod.Get, await PublicationFixture.ProofPath(db, visible.Id, ct)));
             }
 
             var compromise = Settings + "Keys__a__CompromisedAtUtc";
             settings[compromise] = "2026-11-15T00:00:00.000000Z";
             await using (var server = await Start())
             {
-                using var old = await Send(server, HttpMethod.Get, firstUrl);
-                Assert.Equal(HttpStatusCode.NotFound, old.StatusCode);
+                using var old = Expect(NotFound, await Send(server, HttpMethod.Get, firstUrl));
                 await VerifyIndependently(server, firstProof, success: false);
                 await VerifyIndependently(server, await WaitProof(server, secondUrl));
                 await Edit(server, WireRoutes.Retract, new(second.Id, second.Revision, Guid.NewGuid(), "", ""));
-                using var withdrawn = await Send(server, HttpMethod.Get, secondUrl);
-                Assert.Equal(HttpStatusCode.NotFound, withdrawn.StatusCode);
+                using var withdrawn = Expect(NotFound, await Send(server, HttpMethod.Get, secondUrl));
                 Assert.Equal("3", (await Scalar("select count(*) from public.article_publication_proof"))?.ToString());
                 Assert.True((bool)(await Scalar("""
                     select pg_terminate_backend(l.pid, 5000) from pg_locks l
@@ -144,8 +138,7 @@ public sealed class PublicationProofPostgresTests
 
             async Task<Draft> Edit(ServerProcess server, string route, ArticleCommand input)
             {
-                using var response = await Send(server, HttpMethod.Post, route, body: Wire.EncodeArticleCommand(input));
-                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                using var response = Ok(await Send(server, HttpMethod.Post, route, body: Wire.EncodeArticleCommand(input)));
                 return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
             }
 
@@ -174,24 +167,20 @@ public sealed class PublicationProofPostgresTests
                 upload.Headers.Add(WireHeaders.ClientMutationId, Guid.NewGuid().ToString("D"));
                 upload.Content = new ByteArrayContent(image);
                 upload.Content.Headers.ContentType = new("image/png");
-                using var uploaded = await server.Client.SendAsync(upload, ct);
-                Assert.Equal(HttpStatusCode.OK, uploaded.StatusCode);
+                using var uploaded = Ok(await server.Client.SendAsync(upload, ct));
                 var asset = MediaFixture.FirstListedAsset(await uploaded.Content.ReadAsByteArrayAsync(ct), 1);
                 var digest = (string)(await Scalar("select encode(content_hash,'hex') from public.private_media where id=$1", asset))!;
                 var key = Guid.NewGuid();
-                using var attached = await Send(server, HttpMethod.Post, WireRoutes.ArticleMediaCommand,
-                    body: Wire.EncodeArticleMediaCommand(new(draft.Id, draft.Revision, key, asset, true)), mutation: key);
-                Assert.Equal(HttpStatusCode.OK, attached.StatusCode);
+                using var attached = Ok(await Send(server, HttpMethod.Post, WireRoutes.ArticleMediaCommand,
+                    body: Wire.EncodeArticleMediaCommand(new(draft.Id, draft.Revision, key, asset, true)), mutation: key));
                 draft = Wire.DecodeDraft(await attached.Content.ReadAsByteArrayAsync(ct));
                 key = Guid.NewGuid();
-                using var covered = await Send(server, HttpMethod.Post, WireRoutes.ArticleCoverSave,
-                    body: Wire.EncodeArticleCoverCommand(new(draft.Id, draft.Revision, key, asset)), mutation: key);
-                Assert.Equal(HttpStatusCode.OK, covered.StatusCode);
+                using var covered = Ok(await Send(server, HttpMethod.Post, WireRoutes.ArticleCoverSave,
+                    body: Wire.EncodeArticleCoverCommand(new(draft.Id, draft.Revision, key, asset)), mutation: key));
                 draft = Wire.DecodeDraft(await covered.Content.ReadAsByteArrayAsync(ct));
                 key = Guid.NewGuid();
-                using var published = await Send(server, HttpMethod.Post, WireRoutes.ArticlePublishImages,
-                    body: Wire.EncodeArticlePublishImages(new(draft.Id, draft.Revision, key, [asset])), mutation: key);
-                Assert.Equal(HttpStatusCode.OK, published.StatusCode);
+                using var published = Ok(await Send(server, HttpMethod.Post, WireRoutes.ArticlePublishImages,
+                    body: Wire.EncodeArticlePublishImages(new(draft.Id, draft.Revision, key, [asset])), mutation: key));
                 return (Wire.DecodeDraft(await published.Content.ReadAsByteArrayAsync(ct)), digest);
             }
 
@@ -200,8 +189,7 @@ public sealed class PublicationProofPostgresTests
                 var claim = JsonNode.Parse(proof)!;
                 Assert.Equal(3, claim["canonicalVersion"]!.GetValue<int>());
                 var publicationId = long.Parse(claim["publicationId"]!.GetValue<string>(), CultureInfo.InvariantCulture);
-                using var image = await Send(server, HttpMethod.Get, PublishedArticleImage.FilePath(draft.Id, publicationId, coverDigest));
-                Assert.Equal(HttpStatusCode.OK, image.StatusCode);
+                using var image = Ok(await Send(server, HttpMethod.Get, PublishedArticleImage.FilePath(draft.Id, publicationId, coverDigest)));
                 var digest = Convert.ToHexStringLower(SHA256.HashData(await image.Content.ReadAsByteArrayAsync(ct)));
                 Assert.Equal(coverDigest, digest);
                 var payload = string.Create(CultureInfo.InvariantCulture, $"""
@@ -233,8 +221,7 @@ public sealed class PublicationProofPostgresTests
 
             async Task VerifyIndependently(ServerProcess server, string proof, bool success = true)
             {
-                using var response = await Send(server, HttpMethod.Get, Registry);
-                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                using var response = Ok(await Send(server, HttpMethod.Get, Registry));
                 var proofPath = Path.Combine(scratch.FullName, "proof.json");
                 var keysPath = Path.Combine(scratch.FullName, "keys.json");
                 await File.WriteAllTextAsync(proofPath, proof, ct);

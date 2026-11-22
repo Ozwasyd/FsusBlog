@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Net;
 using System.Text.Json;
 using System.Xml.Linq;
@@ -82,13 +84,11 @@ public sealed class DistributionPostgresTests
         });
         foreach (var path in FeedPaths.Append("/sitemap/1.xml"))
         {
-            using var response = await Read(server.Client, path, ct);
-            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+            using var response = Expect(ServiceUnavailable, await Read(server.Client, path, ct));
             Assert.True(response.Headers.CacheControl?.NoStore);
             Assert.False(response.Headers.Contains(WireHeaders.SearchIndexGeneration));
         }
-        using var robots = await Read(server.Client, "/robots.txt", ct);
-        Assert.Equal(HttpStatusCode.OK, robots.StatusCode);
+        using var robots = Ok(await Read(server.Client, "/robots.txt", ct));
         Assert.Equal("User-agent: *\nDisallow: /\n", await robots.Content.ReadAsStringAsync(ct));
         Assert.DoesNotContain("canonical", await server.Client.GetStringAsync("/", ct));
     }
@@ -162,16 +162,13 @@ public sealed class DistributionPostgresTests
             var robots = await Artifact("/robots.txt", "text/plain", generation);
             Assert.Contains("Disallow: /api/", robots);
             Assert.Contains($"Sitemap: {Origin}/sitemap.xml", robots);
-            using var noPage = await Read(client, "/sitemap/1.xml", ct);
-            Assert.Equal(HttpStatusCode.NotFound, noPage.StatusCode);
-            using var head = await Read(client, "/feed/rss.xml", ct, head: true);
-            Assert.Equal(HttpStatusCode.OK, head.StatusCode);
+            using var noPage = Expect(NotFound, await Read(client, "/sitemap/1.xml", ct));
+            using var head = Ok(await Read(client, "/feed/rss.xml", ct, head: true));
             Assert.Equal(generation, Assert.Single(head.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
             Assert.Empty(await head.Content.ReadAsByteArrayAsync(ct));
             foreach (var pathUnderOrigin in new[] { "/", "/archive", "/about", articlePath, "/tag/41", "/category/11" })
             {
-                using var response = await Read(client, pathUnderOrigin, ct);
-                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                using var response = Ok(await Read(client, pathUnderOrigin, ct));
                 var html = await response.Content.ReadAsStringAsync(ct);
                 Assert.Contains($"rel=\"canonical\" href=\"{Origin}{pathUnderOrigin}\"", html);
                 Assert.Contains("type=\"application/rss+xml\"", html);
@@ -192,8 +189,7 @@ public sealed class DistributionPostgresTests
             var after = await client.GetStringAsync("/sitemap.xml", ct);
             Assert.DoesNotContain("/category/11", after);
             Assert.DoesNotContain("/tag/41", after);
-            using var gone = await Read(client, articlePath, ct);
-            Assert.Equal(HttpStatusCode.NotFound, gone.StatusCode);
+            using var gone = Expect(NotFound, await Read(client, articlePath, ct));
 
             await using (var lease = Store.Sql(connection, null, """
                 select pg_terminate_backend(pid, 3000) from pg_locks
@@ -208,8 +204,7 @@ public sealed class DistributionPostgresTests
             }
             foreach (var route in FeedPaths.Append("/robots.txt"))
             {
-                using var response = await Read(client, route, ct);
-                Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+                using var response = Expect(ServiceUnavailable, await Read(client, route, ct));
                 Assert.True(response.Headers.CacheControl?.NoStore);
                 Assert.False(response.Headers.Contains(WireHeaders.SearchIndexGeneration));
             }
@@ -237,15 +232,13 @@ public sealed class DistributionPostgresTests
 
             async Task<string> CurrentGeneration()
             {
-                using var response = await Read(client, WireRoutes.PublicIndex, ct);
-                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                using var response = Ok(await Read(client, WireRoutes.PublicIndex, ct));
                 return Assert.Single(response.Headers.GetValues(WireHeaders.SearchIndexGeneration));
             }
 
             async Task<string> Artifact(string route, string mediaType, string expectedGeneration)
             {
-                using var response = await Read(client, route, ct);
-                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                using var response = Ok(await Read(client, route, ct));
                 Assert.True(response.Headers.CacheControl?.NoStore);
                 Assert.Equal(mediaType, response.Content.Headers.ContentType!.MediaType);
                 Assert.Equal(expectedGeneration, Assert.Single(response.Headers.GetValues(WireHeaders.SearchIndexGeneration)));

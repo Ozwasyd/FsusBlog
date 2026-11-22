@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Diagnostics;
 using System.Net;
 using FsusBlog.V2.Contracts;
@@ -454,8 +456,7 @@ public sealed class SiteCapabilitiesTests
             using (var homeReq = new HttpRequestMessage(HttpMethod.Get, "/"))
             {
                 AttachPublicHttps(homeReq);
-                using var home = await enabled.Client.SendAsync(homeReq, ct);
-                Assert.Equal(HttpStatusCode.OK, home.StatusCode);
+                using var home = Ok(await enabled.Client.SendAsync(homeReq, ct));
                 var html = await home.Content.ReadAsStringAsync(ct);
                 Assert.Contains(PublicHotArticles.PageMarker, html, StringComparison.Ordinal);
                 Assert.Contains(ArticleReadEndpoints.PageMarker, html, StringComparison.Ordinal);
@@ -472,8 +473,7 @@ public sealed class SiteCapabilitiesTests
             {
                 using var req = new HttpRequestMessage(HttpMethod.Get, route);
                 AttachPublicHttps(req);
-                using var resp = await enabled.Client.SendAsync(req, ct);
-                Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+                using var resp = Ok(await enabled.Client.SendAsync(req, ct));
             }
 
             // Public hot articles endpoint becomes 200 (may transiently warm up with 503)
@@ -494,8 +494,7 @@ public sealed class SiteCapabilitiesTests
             {
                 AttachPublicHttps(inboxAvail);
                 inboxAvail.Headers.Add("Cookie", $"fsus-v2-session={readerToken}");
-                using var resp = await enabled.Client.SendAsync(inboxAvail, ct);
-                Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+                using var resp = Ok(await enabled.Client.SendAsync(inboxAvail, ct));
                 Assert.Equal("1", Assert.Single(resp.Headers.GetValues(WireHeaders.InboxWriteEnabled)));
             }
 
@@ -503,8 +502,7 @@ public sealed class SiteCapabilitiesTests
             using (var adminDoc = new HttpRequestMessage(HttpMethod.Get, "/admin"))
             {
                 AttachHttps(adminDoc, "198.51.100.10", "admin.example.test");
-                using var resp = await enabled.Client.SendAsync(adminDoc, ct);
-                Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+                using var resp = Ok(await enabled.Client.SendAsync(adminDoc, ct));
             }
         }
 
@@ -527,8 +525,7 @@ public sealed class SiteCapabilitiesTests
             using (var homeReq = new HttpRequestMessage(HttpMethod.Get, "/"))
             {
                 AttachPublicHttps(homeReq);
-                using var home = await disabled.Client.SendAsync(homeReq, ct);
-                Assert.Equal(HttpStatusCode.OK, home.StatusCode);
+                using var home = Ok(await disabled.Client.SendAsync(homeReq, ct));
                 var html = await home.Content.ReadAsStringAsync(ct);
                 Assert.DoesNotContain(PublicHotArticles.PageMarker, html, StringComparison.Ordinal);
                 Assert.DoesNotContain(ArticleReadEndpoints.PageMarker, html, StringComparison.Ordinal);
@@ -547,8 +544,7 @@ public sealed class SiteCapabilitiesTests
             {
                 using var req = new HttpRequestMessage(HttpMethod.Get, route);
                 AttachPublicHttps(req);
-                using var resp = await disabled.Client.SendAsync(req, ct);
-                Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+                using var resp = Expect(NotFound, await disabled.Client.SendAsync(req, ct));
             }
 
             // Inbox write availability reports disabled ("0") and write endpoint returns 404
@@ -556,15 +552,13 @@ public sealed class SiteCapabilitiesTests
             {
                 AttachPublicHttps(inboxAvail);
                 inboxAvail.Headers.Add("Cookie", $"fsus-v2-session={readerToken}");
-                using var resp = await disabled.Client.SendAsync(inboxAvail, ct);
-                Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+                using var resp = Ok(await disabled.Client.SendAsync(inboxAvail, ct));
                 Assert.Equal("0", Assert.Single(resp.Headers.GetValues(WireHeaders.InboxWriteEnabled)));
             }
             using (var inboxWrite = new HttpRequestMessage(HttpMethod.Post, WireRoutes.InboxCreatePowChallenge))
             {
                 AttachPublicHttps(inboxWrite);
-                using var resp = await disabled.Client.SendAsync(inboxWrite, ct);
-                Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+                using var resp = Expect(NotFound, await disabled.Client.SendAsync(inboxWrite, ct));
             }
         }
     }

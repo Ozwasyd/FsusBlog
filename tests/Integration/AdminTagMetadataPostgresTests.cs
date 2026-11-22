@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -210,8 +212,7 @@ public sealed class AdminTagMetadataPostgresTests
             foreach (var path in new[] { WireRoutes.AdminTagMetadataAvailability, WireRoutes.AdminCategoryMetadataAvailability })
             {
                 using var check = AdminRequest(HttpMethod.Get, path);
-                using var resp = await server.Client.SendAsync(check, ct);
-                Assert.Equal(HttpStatusCode.NoContent, resp.StatusCode);
+                using var resp = Expect(NoContent, await server.Client.SendAsync(check, ct));
             }
 
             // 1. Tag: create -> edit -> reject cross-origin delete -> delete (AEDS EmptySuccess) -> 404.
@@ -231,13 +232,11 @@ public sealed class AdminTagMetadataPostgresTests
 
             var tagDeletePath = WireRoutes.AdminTagDelete.Replace("{id:int}", createdTag.Id.ToString(CultureInfo.InvariantCulture));
             using (var noOrigin = AdminRequest(HttpMethod.Post, tagDeletePath, includeOrigin: false))
-            using (var forbidden = await server.Client.SendAsync(noOrigin, ct))
-                Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+            CheckStatus(Forbidden, await server.Client.SendAsync(noOrigin, ct));
 
             using (var delTag = AdminRequest(HttpMethod.Post, tagDeletePath))
-            using (var resp = await server.Client.SendAsync(delTag, ct))
+            using (var resp = Ok(await server.Client.SendAsync(delTag, ct)))
             {
-                Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
                 Assert.Equal(Aeds.ContentType, resp.Content.Headers.ContentType?.MediaType);
                 var payload = Aeds.Decode(await resp.Content.ReadAsByteArrayAsync(ct), FrameType.EmptySuccess);
                 Assert.Equal([1, 0, 0, 0], payload.ToArray());
@@ -245,8 +244,7 @@ public sealed class AdminTagMetadataPostgresTests
 
             using (var readDeleted = AdminRequest(HttpMethod.Get,
                 WireRoutes.AdminTagMetadata.Replace("{id:int}", createdTag.Id.ToString(CultureInfo.InvariantCulture))))
-            using (var resp = await server.Client.SendAsync(readDeleted, ct))
-                Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+            CheckStatus(NotFound, await server.Client.SendAsync(readDeleted, ct));
 
             // 2. Category: create -> edit -> conflict while referenced -> delete unreferenced (AEDS EmptySuccess).
             var usedCategory = await SubmitTaxonomy(server.Client, WireRoutes.AdminCategoryCreatePow, WireRoutes.AdminCategoryCreate,
@@ -271,8 +269,7 @@ public sealed class AdminTagMetadataPostgresTests
 
             using (var blockedDel = AdminRequest(HttpMethod.Post,
                 WireRoutes.AdminCategoryDelete.Replace("{id:int}", usedCategory.Id.ToString(CultureInfo.InvariantCulture))))
-            using (var resp = await server.Client.SendAsync(blockedDel, ct))
-                Assert.Equal(HttpStatusCode.Conflict, resp.StatusCode);
+            CheckStatus(Conflict, await server.Client.SendAsync(blockedDel, ct));
 
             var freeCategory = await SubmitTaxonomy(server.Client, WireRoutes.AdminCategoryCreatePow, WireRoutes.AdminCategoryCreate,
                 HttpMethod.Post, Wire.EncodeAdminCategoryMetadataCommand(
@@ -287,9 +284,8 @@ public sealed class AdminTagMetadataPostgresTests
 
             using (var delCat = AdminRequest(HttpMethod.Post,
                 WireRoutes.AdminCategoryDelete.Replace("{id:int}", freeCategory.Id.ToString(CultureInfo.InvariantCulture))))
-            using (var resp = await server.Client.SendAsync(delCat, ct))
+            using (var resp = Ok(await server.Client.SendAsync(delCat, ct)))
             {
-                Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
                 Assert.Equal(Aeds.ContentType, resp.Content.Headers.ContentType?.MediaType);
                 var payload = Aeds.Decode(await resp.Content.ReadAsByteArrayAsync(ct), FrameType.EmptySuccess);
                 Assert.Equal([1, 0, 0, 0], payload.ToArray());
@@ -302,8 +298,7 @@ public sealed class AdminTagMetadataPostgresTests
         await using (var restarted = await ServerProcess.Start(fixture.ConnectionString, ct))
         {
             using var req = AdminRequest(HttpMethod.Get, WireRoutes.AdminCategories);
-            using var resp = await restarted.Client.SendAsync(req, ct);
-            Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+            using var resp = Ok(await restarted.Client.SendAsync(req, ct));
         }
 
         HttpRequestMessage AdminRequest(HttpMethod method, string path, bool includeOrigin = true)
@@ -326,16 +321,14 @@ public sealed class AdminTagMetadataPostgresTests
                 powReq.Headers.Add(WireHeaders.PowClientNonce, nonce);
                 powReq.Content = new ByteArrayContent(frame);
                 powReq.Content.Headers.ContentType = new(Aeds.ContentType);
-                using var powResp = await client.SendAsync(powReq, ct);
-                Assert.Equal(HttpStatusCode.OK, powResp.StatusCode);
+                using var powResp = Ok(await client.SendAsync(powReq, ct));
                 challengeFrame = await powResp.Content.ReadAsByteArrayAsync(ct);
             }
             using var mutReq = AdminRequest(method, mutationPath);
             mutReq.Headers.Add(WireHeaders.PowProof, PowFixture.SolveFrame(challengeFrame, nonce, ct));
             mutReq.Content = new ByteArrayContent(frame);
             mutReq.Content.Headers.ContentType = new(Aeds.ContentType);
-            using var mutResp = await client.SendAsync(mutReq, ct);
-            Assert.Equal(HttpStatusCode.OK, mutResp.StatusCode);
+            using var mutResp = Ok(await client.SendAsync(mutReq, ct));
             Assert.Equal(Aeds.ContentType, mutResp.Content.Headers.ContentType?.MediaType);
             return decode(await mutResp.Content.ReadAsByteArrayAsync(ct));
         }

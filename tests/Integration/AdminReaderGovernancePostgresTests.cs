@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -303,24 +305,20 @@ public sealed class AdminReaderGovernancePostgresTests
         {
             wrongHost.Headers.Host = "other.localhost";
             wrongHost.Headers.Add("Cookie", $"{ServerProcess.DefaultAdminCookie}={admin.Token}");
-            using var res = await server.Client.SendAsync(wrongHost, ct);
-            Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
+            using var res = Expect(NotFound, await server.Client.SendAsync(wrongHost, ct));
         }
 
         // Unauthenticated and reader-cookie requests on admin host return 401.
         using (var anon = AdminRequest(HttpMethod.Get, WireRoutes.AdminReaderAccounts, null))
-        using (var res = await server.Client.SendAsync(anon, ct))
-            Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+        CheckStatus(Unauthorized, await server.Client.SendAsync(anon, ct));
 
         using (var readerCookie = AdminRequest(HttpMethod.Get, WireRoutes.AdminReaderAccounts, reader.Token))
-        using (var res = await server.Client.SendAsync(readerCookie, ct))
-            Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+        CheckStatus(Unauthorized, await server.Client.SendAsync(readerCookie, ct));
 
         // Live admin session reads page with no-store and exact X-Fsus-Admin-Permission-Session binding.
         using (var listReq = AdminRequest(HttpMethod.Get, $"{WireRoutes.AdminReaderAccounts}?keyword=http-target-reader", admin.Token))
-        using (var res = await server.Client.SendAsync(listReq, ct))
+        using (var res = Ok(await server.Client.SendAsync(listReq, ct)))
         {
-            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
             Assert.True(res.Headers.CacheControl?.NoStore);
             Assert.Equal(expectedPermissionSession, Assert.Single(res.Headers.GetValues(WireHeaders.AdminPermissionSession)));
             var page = Wire.DecodeAdminReaderAccountPage(await res.Content.ReadAsByteArrayAsync(ct));
@@ -336,16 +334,14 @@ public sealed class AdminReaderGovernancePostgresTests
         using (var noOrigin = AdminRequest(HttpMethod.Post, WireRoutes.AdminReaderStatusExecute, admin.Token, frame, includeOrigin: false))
         {
             noOrigin.Headers.Add(WireHeaders.ClientMutationId, command.IdempotencyKey.ToString("D"));
-            using var res = await server.Client.SendAsync(noOrigin, ct);
-            Assert.Equal(HttpStatusCode.Forbidden, res.StatusCode);
+            using var res = Expect(Forbidden, await server.Client.SendAsync(noOrigin, ct));
         }
 
         // Missing Step-Up proof returns HTTP 428 Precondition Required.
         using (var noProof = AdminRequest(HttpMethod.Post, WireRoutes.AdminReaderStatusExecute, admin.Token, frame))
         {
             noProof.Headers.Add(WireHeaders.ClientMutationId, command.IdempotencyKey.ToString("D"));
-            using var res = await server.Client.SendAsync(noProof, ct);
-            Assert.Equal(HttpStatusCode.PreconditionRequired, res.StatusCode);
+            using var res = Expect(PreconditionRequired, await server.Client.SendAsync(noProof, ct));
         }
 
         // With valid Step-Up proof, returns HTTP 200 receipt and immediately revokes reader's live HTTP session.
@@ -354,8 +350,7 @@ public sealed class AdminReaderGovernancePostgresTests
         {
             execute.Headers.Add(WireHeaders.ClientMutationId, command.IdempotencyKey.ToString("D"));
             execute.Headers.Add(WireHeaders.MfaProof, proof);
-            using var res = await server.Client.SendAsync(execute, ct);
-            Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+            using var res = Ok(await server.Client.SendAsync(execute, ct));
             Assert.True(res.Headers.CacheControl?.NoStore);
             Assert.Equal(expectedPermissionSession, Assert.Single(res.Headers.GetValues(WireHeaders.AdminPermissionSession)));
             var receipt = Wire.DecodeAdminReaderStatusReceipt(await res.Content.ReadAsByteArrayAsync(ct));
@@ -371,8 +366,7 @@ public sealed class AdminReaderGovernancePostgresTests
         {
             checkReader.Headers.Host = ServerProcess.DefaultAdminHost;
             checkReader.Headers.Add("Cookie", $"fsus-v2-session={reader.Token}");
-            using var res = await server.Client.SendAsync(checkReader, ct);
-            Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+            using var res = Expect(Unauthorized, await server.Client.SendAsync(checkReader, ct));
         }
     }
 

@@ -1,3 +1,5 @@
+using static System.Net.HttpStatusCode;
+using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Net;
@@ -48,8 +50,7 @@ public sealed class WideSearchCorpusHttpPostgresTests
         using (var ranged = new HttpRequestMessage(HttpMethod.Get, PagePath(1) + current.Pin))
         {
             ranged.Headers.Range = new RangeHeaderValue(0, 0);
-            using var response = await client.SendAsync(ranged, ct);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var response = Ok(await client.SendAsync(ranged, ct));
             Assert.Null(response.Content.Headers.ContentRange);
             AssertHeaders(response, current);
             Assert.Equal(first.Bytes, await response.Content.ReadAsByteArrayAsync(ct));
@@ -60,8 +61,7 @@ public sealed class WideSearchCorpusHttpPostgresTests
         using (var retract = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract,
             Wire.EncodeArticleCommand(new(ArticleCount, 1, Guid.NewGuid(), "", "")), token, handle: null))
         {
-            using var response = await client.SendAsync(retract, ct);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var response = Ok(await client.SendAsync(retract, ct));
             Assert.Equal(new Draft(ArticleCount, 2, "Quiet", "boundaryrank", false),
                 Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct)));
         }
@@ -87,8 +87,7 @@ public sealed class WideSearchCorpusHttpPostgresTests
         await ExpectGet(client, PagePath(1) + Pin(current.Generation, replacement.Digest), HttpStatusCode.Conflict, ct);
         await ExpectGet(client, PagePath(1) + Pin(replacement.Generation, current.Digest), HttpStatusCode.Conflict, ct);
         using var oldHead = new HttpRequestMessage(HttpMethod.Head, WireRoutes.PublicSearchWideManifest + current.Pin);
-        using var rejectedHead = await client.SendAsync(oldHead, ct);
-        Assert.Equal(HttpStatusCode.Conflict, rejectedHead.StatusCode);
+        using var rejectedHead = Expect(Conflict, await client.SendAsync(oldHead, ct));
         Assert.True(rejectedHead.Headers.CacheControl?.NoStore);
         Assert.False(rejectedHead.Headers.Contains(WireHeaders.SearchIndexGeneration));
         AssertNoWideHeaders(rejectedHead);
@@ -107,8 +106,7 @@ public sealed class WideSearchCorpusHttpPostgresTests
             HttpStatusCode.BadRequest, ct);
         await ExpectGet(client, PagePath(current.Pages.Length + 1) + current.Pin, HttpStatusCode.NotFound, ct);
         using var missingPins = new HttpRequestMessage(HttpMethod.Head, WireRoutes.PublicSearchWideManifest);
-        using var response = await client.SendAsync(missingPins, ct);
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var response = Expect(BadRequest, await client.SendAsync(missingPins, ct));
         Assert.Empty(await response.Content.ReadAsByteArrayAsync(ct));
     }
 
@@ -178,8 +176,7 @@ public sealed class WideSearchCorpusHttpPostgresTests
     private static async Task<(Page Descriptor, string Validator, byte[] Bytes)> GetPage(HttpClient client, Manifest manifest,
         int page, CancellationToken ct)
     {
-        using var response = await client.GetAsync(PagePath(page) + manifest.Pin, ct);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var response = Ok(await client.GetAsync(PagePath(page) + manifest.Pin, ct));
         AssertHeaders(response, manifest);
         Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
         var descriptor = manifest.Pages[page - 1];
@@ -221,8 +218,7 @@ public sealed class WideSearchCorpusHttpPostgresTests
     private static async Task AssertHead(HttpClient client, Manifest manifest, CancellationToken ct)
     {
         using var request = new HttpRequestMessage(HttpMethod.Head, WireRoutes.PublicSearchWideManifest + manifest.Pin);
-        using var response = await client.SendAsync(request, ct);
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        using var response = Expect(NoContent, await client.SendAsync(request, ct));
         AssertHeaders(response, manifest);
         Assert.Empty(await response.Content.ReadAsByteArrayAsync(ct));
     }
@@ -231,8 +227,7 @@ public sealed class WideSearchCorpusHttpPostgresTests
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, PagePath(1) + manifest.Pin);
         request.Headers.IfNoneMatch.Add(EntityTagHeaderValue.Parse(validator));
-        using var response = await client.SendAsync(request, ct);
-        Assert.Equal(HttpStatusCode.NotModified, response.StatusCode);
+        using var response = Expect(NotModified, await client.SendAsync(request, ct));
         Assert.Equal(validator, response.Headers.ETag?.ToString());
         AssertHeaders(response, manifest);
         Assert.Empty(await response.Content.ReadAsByteArrayAsync(ct));
