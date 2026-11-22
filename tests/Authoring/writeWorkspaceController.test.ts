@@ -105,6 +105,10 @@ function createHarness(options: HarnessOptions = {}) {
     return saved
   }
 
+  function revisedDraft(id: number, revision: bigint): Draft {
+    return { ...(drafts.get(id) ?? makeDraft({ id })), revision: revision + 1n }
+  }
+
   const defaultTransport: WriteCommandTransportPort = {
     readDraft: async (id, _signal, handle) => {
       events.push(`readDraft:${id}:${handle.slice(0, 4)}`)
@@ -138,25 +142,17 @@ function createHarness(options: HarnessOptions = {}) {
       return saveBody(input)
     },
     assignTaxonomy: async input => ({ id: input.id, revision: input.expectedRevision + 1n }),
-    rollbackDraft: async input => ({
-      ...(drafts.get(input.id) ?? makeDraft({ id: input.id })),
-      revision: input.expectedRevision + 1n,
-    }),
+    rollbackDraft: async input => revisedDraft(input.id, input.expectedRevision),
     setArticleSchedule: async input => ({ revision: input.expectedRevision + 1n, publishedRevision: 0n }),
     setDraftRights: async input => ({ revision: input.expectedRevision + 1n }),
-    editArticleMedia: async (id, revision) => ({
-      ...(drafts.get(id) ?? makeDraft({ id })),
-      revision: revision + 1n,
-    }),
+    editArticleMedia: async (id, revision) => revisedDraft(id, revision),
     saveDraftSummary: async (input, handle) => {
       events.push(`summary:${input.id}:${handle.slice(0, 4)}`)
-      const existing = drafts.get(input.id) ?? makeDraft({ id: input.id })
-      return { ...existing, revision: input.expectedRevision + 1n }
+      return revisedDraft(input.id, input.expectedRevision)
     },
     publishArticleImages: async (id, revision, _key, _assets, handle) => {
       events.push(`publishImages:${id}:${handle.slice(0, 4)}`)
-      const existing = drafts.get(id) ?? makeDraft({ id })
-      return { ...existing, revision: revision + 1n, published: true }
+      return { ...revisedDraft(id, revision), published: true }
     },
     ...options.transport,
   }
@@ -279,6 +275,13 @@ function createHarness(options: HarnessOptions = {}) {
     discardedArticles,
     recheckCalls,
     routerCalls,
+    assertOriginal(title: string, body: string) {
+      assert.equal(controller.snapshot().original?.title, title)
+      assert.equal(controller.snapshot().original?.body, body)
+    },
+    editCurrent(field: 'body' | 'title', value: string) {
+      return controller.edit(controller.snapshot().sourcePanes[0]!, field, value)
+    },
     getSession: () => currentSession,
     setSession(next: Session | null, bumpIdentity = false, bumpCredential = false) {
       currentSession = next
@@ -376,7 +379,7 @@ test('dirty state, metadata guards, IME composition, delta/full save, and CAS 40
   await createHarnessObj.controller.syncRoute(articleRoute(0))
   const newPane = createHarnessObj.controller.snapshot().sourcePanes[0]!
   createHarnessObj.controller.edit(newPane, 'title', 'Fresh Title')
-  createHarnessObj.controller.edit(createHarnessObj.controller.snapshot().sourcePanes[0]!, 'body', 'Fresh Body')
+  createHarnessObj.editCurrent('body', 'Fresh Body')
   await createHarnessObj.controller.submit('save')
   assert.equal(createHarnessObj.controller.snapshot().original?.id, 99)
   assert.deepEqual(createHarnessObj.routerCalls, ['replace:99:false'])
@@ -387,13 +390,12 @@ test('critical timing 1: cancelling leave or protected close preserves user inpu
   await h.controller.syncRoute(articleRoute(10))
   const pane = h.controller.snapshot().sourcePanes[0]!
   h.controller.edit(pane, 'title', 'Keep This Title')
-  h.controller.edit(h.controller.snapshot().sourcePanes[0]!, 'body', 'Keep This Body')
+  h.editCurrent('body', 'Keep This Body')
 
   // Cancel route leave.
   h.setLeaveDecision(false)
   assert.equal(await h.controller.beforeRouteLeave(), false)
-  assert.equal(h.controller.snapshot().original?.title, 'Keep This Title')
-  assert.equal(h.controller.snapshot().original?.body, 'Keep This Body')
+  h.assertOriginal('Keep This Title', 'Keep This Body')
   assert.equal(h.controller.flags().articleDirty, true)
   assert.equal(h.discardedArticles.length, 0)
   assert.equal(h.events.includes('persistence:flush'), false)
@@ -403,8 +405,7 @@ test('critical timing 1: cancelling leave or protected close preserves user inpu
   const closeResult = await h.controller.closeTab(h.controller.snapshot().tab!)
   assert.equal(closeResult.outcome, 'cancelled')
   assert.equal(closeResult.focusAction, 'restore-trigger')
-  assert.equal(h.controller.snapshot().original?.title, 'Keep This Title')
-  assert.equal(h.controller.snapshot().original?.body, 'Keep This Body')
+  h.assertOriginal('Keep This Title', 'Keep This Body')
 
   // Confirm leave discards and flushes persistence.
   h.setLeaveDecision(true)
@@ -420,12 +421,12 @@ test('critical timing 2: delayed recovery or late load/layout responses cannot o
   // Recovery initially guards input while checking.
   h.setRecoveryState([], true)
   assert.equal(h.controller.flags().recoveryBlocked, true)
-  assert.equal(h.controller.edit(h.controller.snapshot().sourcePanes[0]!, 'title', 'Blocked'), false)
+  assert.equal(h.editCurrent('title', 'Blocked'), false)
 
   // Recovery times out -> guard clears -> user enters new draft.
   h.setRecoveryState([], false)
-  assert.equal(h.controller.edit(h.controller.snapshot().sourcePanes[0]!, 'title', 'New User Title'), true)
-  assert.equal(h.controller.edit(h.controller.snapshot().sourcePanes[0]!, 'body', 'New User Body'), true)
+  assert.equal(h.editCurrent('title', 'New User Title'), true)
+  assert.equal(h.editCurrent('body', 'New User Body'), true)
 
   // A delayed recovery candidate arrives later; restoreDraft must refuse to overwrite dirty edits.
   const lateCandidate: RecoveryCandidate = {
@@ -439,27 +440,25 @@ test('critical timing 2: delayed recovery or late load/layout responses cannot o
   }
   h.setRecoveryState([lateCandidate], false)
   assert.equal(await h.controller.restoreDraft(lateCandidate), false)
-  assert.equal(h.controller.snapshot().original?.title, 'New User Title')
-  assert.equal(h.controller.snapshot().original?.body, 'New User Body')
+  h.assertOriginal('New User Title', 'New User Body')
 
   // Late syncRoute draft load after route superseded cannot overwrite current state.
   let resolveSlowDraft!: (draft: Draft) => void
-  let markSlowStarted!: () => void
-  const slowStarted = new Promise<void>(resolve => { markSlowStarted = resolve })
+  const slowStarted = Promise.withResolvers<void>()
   const lateHarness = createHarness({
     initialArticleId: 10,
     transport: {
       readDraft: id => id === 10
         ? new Promise<Draft>(resolve => {
             resolveSlowDraft = resolve
-            markSlowStarted()
+            slowStarted.resolve()
           })
         : Promise.resolve(makeDraft({ id: 11, revision: 5n, title: 'Fast 11', body: 'Fast body' })),
     },
   })
   let firstValid = true
   const slowLoad = lateHarness.controller.syncRoute({ articleId: 10, identity: 1, isValid: () => firstValid })
-  await slowStarted
+  await slowStarted.promise
   firstValid = false
   lateHarness.setRoute(11)
   await lateHarness.controller.syncRoute(articleRoute(11))
@@ -510,8 +509,8 @@ test('critical timing 3: automatic session renewal rebinds handle without rebuil
   const originalTab = h.controller.snapshot().tab!
   h.controller.togglePin(originalTab)
   h.controller.setInspectorOpen(true)
-  h.controller.edit(h.controller.snapshot().sourcePanes[0]!, 'title', 'Unsaved Across Renewal')
-  h.controller.edit(h.controller.snapshot().sourcePanes[0]!, 'body', 'Unsaved body across renewal')
+  h.editCurrent('title', 'Unsaved Across Renewal')
+  h.editCurrent('body', 'Unsaved body across renewal')
   h.events.length = 0
 
   // Session automatically renews within the SAME identity epoch with a rotated handle and later expiry.
@@ -525,8 +524,7 @@ test('critical timing 3: automatic session renewal rebinds handle without rebuil
   assert.ok(h.events.includes('persistence:rebind:bbbb'))
   assert.equal(h.controller.snapshot().tab?.sessionId, originalTab.sessionId)
   assert.equal(h.controller.snapshot().inspectorOpen, true)
-  assert.equal(h.controller.snapshot().original?.title, 'Unsaved Across Renewal')
-  assert.equal(h.controller.snapshot().original?.body, 'Unsaved body across renewal')
+  h.assertOriginal('Unsaved Across Renewal', 'Unsaved body across renewal')
 
   // Saving after renewal submits using the rotated credential handle.
   await h.controller.submit('save')
@@ -590,8 +588,8 @@ test('critical timing 4: switching accounts rejects old draft handles and cross-
     mismatchHarness.setSession(null, true, true)
   })
   await mismatchHarness.controller.syncRoute(articleRoute(0))
-  mismatchHarness.controller.edit(mismatchHarness.controller.snapshot().sourcePanes[0]!, 'title', 'Stale Create')
-  mismatchHarness.controller.edit(mismatchHarness.controller.snapshot().sourcePanes[0]!, 'body', 'Stale Body')
+  mismatchHarness.editCurrent('title', 'Stale Create')
+  mismatchHarness.editCurrent('body', 'Stale Body')
   await mismatchHarness.controller.submit('save')
   assert.equal(mismatchHarness.recheckCalls.length, 1)
   assert.equal(mismatchHarness.controller.flags().hasConflict, false)
@@ -638,22 +636,21 @@ test('abort and dispose clean up lifetime, recovery, persistence, registry, and 
   unsubscribe()
 
   // Dispose during an in-flight save aborts the save signal and suppresses route/notice updates.
-  let markSaveStarted!: () => void
-  const saveStarted = new Promise<void>(resolve => { markSaveStarted = resolve })
+  const saveStarted = Promise.withResolvers<void>()
   const savingHarness = createHarness({
     initialArticleId: 10,
     transport: {
       articleAction: (_action, _input, signal) => new Promise<Draft>(resolve => {
         signal.addEventListener('abort', () => { saveAborted = true })
         resolveSave = resolve
-        markSaveStarted()
+        saveStarted.resolve()
       }),
     },
   })
   await savingHarness.controller.syncRoute(articleRoute(10))
-  savingHarness.controller.edit(savingHarness.controller.snapshot().sourcePanes[0]!, 'title', 'Saving Before Unmount')
+  savingHarness.editCurrent('title', 'Saving Before Unmount')
   const pendingSave = savingHarness.controller.submit('save')
-  await saveStarted
+  await saveStarted.promise
   savingHarness.controller.dispose()
   assert.equal(saveAborted, true)
   resolveSave(makeDraft({ id: 10, revision: 4n, title: 'Saving Before Unmount', body: 'Body 10' }))

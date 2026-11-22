@@ -8,53 +8,34 @@ import {
   minimumEditorWidthRem,
   resolveKeyboardResize,
   splitterWidthRem,
+  type SplitPointerStart,
+  type SplitResizeStartContext,
 } from '../../src/Web/src/authoring/splitLayoutModel.ts'
 
 test('split layout metrics enforce 29rem minimums, 30% clamp, and wide-area threshold', () => {
-  const narrow = computeSplitLayoutMetrics({
-    width: 900,
-    rem: 16,
-    preferredPrimaryWidth: defaultPrimaryWidth,
-    twoSources: true,
-    comparisonReady: true,
-  })
+  function measure(width: number, preferredPrimaryWidth: number, comparisonReady = true) {
+    return computeSplitLayoutMetrics({ width, rem: 16, preferredPrimaryWidth, twoSources: true, comparisonReady })
+  }
+  const narrow = measure(900, defaultPrimaryWidth)
   assert.equal(narrow.trackWidth, 900 - splitterWidthRem * 16)
   assert.equal(narrow.minimumShare, Math.ceil(100 * minimumEditorWidthRem * 16 / (900 - 16)))
   assert.equal(narrow.wideEditorArea, false)
   assert.equal(narrow.showComparison, false)
   assert.equal(narrow.splitColumns, undefined)
 
-  const exactWide = computeSplitLayoutMetrics({
-    width: (2 * minimumEditorWidthRem + splitterWidthRem) * 16,
-    rem: 16,
-    preferredPrimaryWidth: 50,
-    twoSources: true,
-    comparisonReady: true,
-  })
+  const exactWide = measure((2 * minimumEditorWidthRem + splitterWidthRem) * 16, 50)
   assert.equal(exactWide.minimumShare, 50)
   assert.equal(exactWide.wideEditorArea, true)
   assert.equal(exactWide.showComparison, true)
   assert.equal(exactWide.primaryWidth, 50)
   assert.equal(exactWide.splitColumns, 'minmax(0, 50fr) 1rem minmax(0, 50fr)')
 
-  const ultraWide = computeSplitLayoutMetrics({
-    width: 2400,
-    rem: 16,
-    preferredPrimaryWidth: 10,
-    twoSources: true,
-    comparisonReady: true,
-  })
+  const ultraWide = measure(2400, 10)
   assert.equal(ultraWide.minimumShare, 30)
   assert.equal(ultraWide.primaryWidth, 30)
   assert.equal(ultraWide.splitColumns, 'minmax(0, 30fr) 1rem minmax(0, 70fr)')
 
-  const unready = computeSplitLayoutMetrics({
-    width: 1440,
-    rem: 16,
-    preferredPrimaryWidth: 50,
-    twoSources: true,
-    comparisonReady: false,
-  })
+  const unready = measure(1440, 50, false)
   assert.equal(unready.wideEditorArea, true)
   assert.equal(unready.showComparison, false)
   assert.equal(unready.splitColumns, undefined)
@@ -62,55 +43,41 @@ test('split layout metrics enforce 29rem minimums, 30% clamp, and wide-area thre
 
 test('pointer resize controller validates primary left button, tracks LTR/RTL drag, clamps, and cancels cleanly', () => {
   const controller = createSplitResizeController()
+  function start(pointerId: number, pointer: Partial<SplitPointerStart> = {}, track: Partial<SplitResizeStartContext> = {}) {
+    return controller.start({ pointerId, isPrimary: true, button: 0, clientX: 500, ...pointer },
+      { showComparison: true, primaryWidth: 50, direction: 1, trackWidth: 1000, ...track })
+  }
+  function move(pointerId: number, clientX: number, minimumShare: number) {
+    return controller.move({ pointerId, clientX }, { showComparison: true, minimumShare })
+  }
   assert.equal(controller.isActive(), false)
 
   // Rejects non-primary, secondary mouse button, hidden comparison, or invalid track width.
-  assert.equal(controller.start(
-    { pointerId: 1, isPrimary: false, button: 0, clientX: 500 },
-    { showComparison: true, primaryWidth: 50, direction: 1, trackWidth: 1000 },
-  ), false)
-  assert.equal(controller.start(
-    { pointerId: 1, isPrimary: true, button: 2, clientX: 500 },
-    { showComparison: true, primaryWidth: 50, direction: 1, trackWidth: 1000 },
-  ), false)
-  assert.equal(controller.start(
-    { pointerId: 1, isPrimary: true, button: 0, clientX: 500 },
-    { showComparison: false, primaryWidth: 50, direction: 1, trackWidth: 1000 },
-  ), false)
-  assert.equal(controller.start(
-    { pointerId: 1, isPrimary: true, button: 0, clientX: 500 },
-    { showComparison: true, primaryWidth: 50, direction: 1, trackWidth: 0 },
-  ), false)
+  assert.equal(start(1, { isPrimary: false }), false)
+  assert.equal(start(1, { button: 2 }), false)
+  assert.equal(start(1, {}, { showComparison: false }), false)
+  assert.equal(start(1, {}, { trackWidth: 0 }), false)
 
   // LTR drag starts, ignores concurrent second pointer, clamps within [38, 62].
-  assert.equal(controller.start(
-    { pointerId: 7, isPrimary: true, button: 0, clientX: 500 },
-    { showComparison: true, primaryWidth: 50, direction: 1, trackWidth: 1000 },
-  ), true)
+  assert.equal(start(7), true)
   assert.equal(controller.isActive(), true)
-  assert.equal(controller.start(
-    { pointerId: 8, isPrimary: true, button: 0, clientX: 500 },
-    { showComparison: true, primaryWidth: 50, direction: 1, trackWidth: 1000 },
-  ), false)
-  assert.equal(controller.move({ pointerId: 8, clientX: 600 }, { showComparison: true, minimumShare: 38 }), undefined)
-  assert.equal(controller.move({ pointerId: 7, clientX: 580 }, { showComparison: true, minimumShare: 38 }), 58)
-  assert.equal(controller.move({ pointerId: 7, clientX: 900 }, { showComparison: true, minimumShare: 38 }), 62)
-  assert.equal(controller.move({ pointerId: 7, clientX: 100 }, { showComparison: true, minimumShare: 38 }), 38)
+  assert.equal(start(8), false)
+  assert.equal(move(8, 600, 38), undefined)
+  assert.equal(move(7, 580, 38), 58)
+  assert.equal(move(7, 900, 38), 62)
+  assert.equal(move(7, 100, 38), 38)
   assert.equal(controller.end(8), false)
   assert.equal(controller.isActive(), true)
   assert.equal(controller.end(7), true)
   assert.equal(controller.isActive(), false)
-  assert.equal(controller.move({ pointerId: 7, clientX: 600 }, { showComparison: true, minimumShare: 38 }), undefined)
+  assert.equal(move(7, 600, 38), undefined)
 
   // RTL drag inverts delta sign and cancel clears active pointer on layout collapse.
-  assert.equal(controller.start(
-    { pointerId: 9, isPrimary: true, button: 0, clientX: 500 },
-    { showComparison: true, primaryWidth: 50, direction: -1, trackWidth: 1000 },
-  ), true)
-  assert.equal(controller.move({ pointerId: 9, clientX: 400 }, { showComparison: true, minimumShare: 35 }), 60)
+  assert.equal(start(9, {}, { direction: -1 }), true)
+  assert.equal(move(9, 400, 35), 60)
   controller.cancel()
   assert.equal(controller.isActive(), false)
-  assert.equal(controller.move({ pointerId: 9, clientX: 350 }, { showComparison: true, minimumShare: 35 }), undefined)
+  assert.equal(move(9, 350, 35), undefined)
 })
 
 test('keyboard resize handles arrows, Home, End, LTR/RTL direction, and rejects modified keys', () => {

@@ -31,6 +31,10 @@ const header = (overrides: Partial<CanvasGraphHeader> = {}): CanvasGraphHeader =
   touchedAt: 1_700_000_000_000,
   ...overrides,
 })
+function documentHeader(revision: bigint, nodeCount: number, edgeCount = 0): CanvasGraphHeader {
+  return header({ id: uuid(1), revision, nodeCount, edgeCount })
+}
+
 const noteNode = (n: number, text = `Note ${n}`, x = 1000, y = 2000): CanvasNode => ({
   id: uuid(n),
   kind: 'plain-text-note',
@@ -45,20 +49,15 @@ const articleRef = (n: number, articleId: number, pinnedRevision: bigint | null 
   pinnedRevision,
 })
 
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res
-    reject = rej
-  })
-  return { promise, resolve, reject }
-}
-
 const flushMicrotasks = async () => {
   await Promise.resolve()
   await Promise.resolve()
   await Promise.resolve()
+}
+
+function syncAndFlush(controller: CanvasController, context: Parameters<CanvasController['syncContext']>[0]) {
+  controller.syncContext(context)
+  return flushMicrotasks()
 }
 
 function identity(name = 'alice', overrides: Partial<CanvasIdentity> = {}): CanvasIdentity {
@@ -189,7 +188,7 @@ test('initial hydration uses preloaded documents once and boundary page fetches 
     order: 0,
     label: 'Edge 1',
   }
-  const docHeader = header({ id: uuid(1), revision: 4n, nodeCount: 2, edgeCount: 1 })
+  const docHeader = documentHeader(4n, 2, 1)
   const { controller } = createHarness({
     list: async () => {
       listCalls++
@@ -210,15 +209,13 @@ test('initial hydration uses preloaded documents once and boundary page fetches 
   assert.equal(listCalls, 0)
   assert.deepEqual(controller.state.documents, preloaded)
 
-  controller.syncContext({ ...canvasContext(uuid(1)), initialDocuments: preloaded })
-  await flushMicrotasks()
+  await syncAndFlush(controller, { ...canvasContext(uuid(1)), initialDocuments: preloaded })
   assert.deepEqual(pageOffsets, [0, 2])
   assert.equal(controller.state.nodes.length, 2)
   assert.equal(controller.state.edges.length, 1)
   assert.equal(controller.state.offset, null)
 
-  controller.syncContext({ ...canvasContext(''), initialDocuments: preloaded })
-  await flushMicrotasks()
+  await syncAndFlush(controller, { ...canvasContext(''), initialDocuments: preloaded })
   assert.equal(listCalls, 1)
   assert.equal(controller.state.documents[0]?.title, 'From API')
 })
@@ -227,7 +224,7 @@ test('loadAll tracks progress, rejects mismatched counts, and resets completeGra
   const n1 = noteNode(10)
   const n2 = noteNode(11)
   const n3 = noteNode(12)
-  const docHeader = header({ id: uuid(1), revision: 2n, nodeCount: 3, edgeCount: 0 })
+  const docHeader = documentHeader(2n, 3)
   let mismatch = false
   const { controller } = createHarness({
     page: async (_id, pos) => {
@@ -238,8 +235,7 @@ test('loadAll tracks progress, rejects mismatched counts, and resets completeGra
     },
   })
 
-  controller.syncContext(canvasContext(uuid(1)))
-  await flushMicrotasks()
+  await syncAndFlush(controller, canvasContext(uuid(1)))
   assert.equal(controller.state.nodes.length, 1)
   assert.equal(controller.state.offset, 1)
 
@@ -264,7 +260,7 @@ test('viewport transforms, optimistic node moves, and showNode focus requests ke
   const n2 = noteNode(11, 'Node 2', 8000, 9000)
   let pageReads = 0
   const commands: CanvasGraphCommand[] = []
-  let currentHeader = header({ id: uuid(1), revision: 2n, nodeCount: 2, edgeCount: 0 })
+  let currentHeader = documentHeader(2n, 2)
 
   const { controller } = createHarness({
     page: async () => {
@@ -278,8 +274,7 @@ test('viewport transforms, optimistic node moves, and showNode focus requests ke
     },
   })
 
-  controller.syncContext(canvasContext(uuid(1)))
-  await flushMicrotasks()
+  await syncAndFlush(controller, canvasContext(uuid(1)))
   assert.equal(pageReads, 1)
 
   // No-op viewport save sends no network request.
@@ -311,8 +306,7 @@ test('viewport transforms, optimistic node moves, and showNode focus requests ke
       return currentPagedHeader
     },
   })
-  h2.controller.syncContext(canvasContext(uuid(2)))
-  await flushMicrotasks()
+  await syncAndFlush(h2.controller, canvasContext(uuid(2)))
   await h2.controller.loadAll()
   assert.equal(pagedReads, 2)
   assert.equal(h2.controller.state.completeGraph, true)
@@ -341,7 +335,7 @@ test('viewport transforms, optimistic node moves, and showNode focus requests ke
 test('uncertain save preserves exact retry commandId and payload while 409 marks stale and clears retry', async () => {
   const sent: CanvasGraphCommand[] = []
   let mode: 'fail-network' | 'ok' | 'conflict' = 'fail-network'
-  const currentHeader = header({ id: uuid(1), revision: 2n, nodeCount: 1, edgeCount: 0 })
+  const currentHeader = documentHeader(2n, 1)
   const n1 = noteNode(10)
 
   const { controller } = createHarness({
@@ -354,8 +348,7 @@ test('uncertain save preserves exact retry commandId and payload while 409 marks
     },
   })
 
-  controller.syncContext(canvasContext(uuid(1)))
-  await flushMicrotasks()
+  await syncAndFlush(controller, canvasContext(uuid(1)))
 
   controller.openTitleForm()
   controller.updateForm({ title: 'Updated title' })
@@ -389,10 +382,10 @@ test('uncertain save preserves exact retry commandId and payload while 409 marks
 })
 
 test('late responses after reset or revision change never overwrite current graph or history state', async () => {
-  const firstPage = deferred<CanvasGraphPage>()
-  const secondPage = deferred<CanvasGraphPage>()
-  const oldHistory = deferred<CanvasGraphHistory>()
-  const newHistory = deferred<CanvasGraphHistory>()
+  const firstPage = Promise.withResolvers<CanvasGraphPage>()
+  const secondPage = Promise.withResolvers<CanvasGraphPage>()
+  const oldHistory = Promise.withResolvers<CanvasGraphHistory>()
+  const newHistory = Promise.withResolvers<CanvasGraphHistory>()
   let pageCall = 0
   let historyCall = 0
   const doc1Rev1 = header({ id: uuid(1), revision: 1n, title: 'Doc 1 Rev 1' })
@@ -438,8 +431,7 @@ test('late responses after reset or revision change never overwrite current grap
     },
     write: async () => doc1Rev2,
   })
-  h2.controller.syncContext(canvasContext(uuid(1)))
-  await flushMicrotasks()
+  await syncAndFlush(h2.controller, canvasContext(uuid(1)))
   await h2.controller.zoom(250)
   newHistory.resolve({ revision: 2n, undoRevision: 1n, redoRevision: null })
   await flushMicrotasks()
@@ -455,7 +447,7 @@ test('late responses after reset or revision change never overwrite current grap
 
 test('account switch, sign-out, expiry, and 401 abort active work and block submitting old context', async () => {
   let currentTime = 1000
-  const pendingWrite = deferred<CanvasGraphHeader>()
+  const pendingWrite = Promise.withResolvers<CanvasGraphHeader>()
   const signals: AbortSignal[] = []
   const writes: CanvasGraphCommand[] = []
   const docA = header({ id: uuid(1), revision: 3n, title: 'Alice Canvas' })
@@ -476,8 +468,7 @@ test('account switch, sign-out, expiry, and 401 abort active work and block subm
   const alice = identity('alice', { expiresAt: 5000 })
   const bob = identity('bob', { generation: 2n, expiresAt: 9000, siteSessionId: 'b'.repeat(64), credentialEpoch: 2 })
 
-  controller.syncContext(canvasContext(uuid(1), 1, alice))
-  await flushMicrotasks()
+  await syncAndFlush(controller, canvasContext(uuid(1), 1, alice))
   assert.equal(controller.state.nodes.length, 1)
 
   // Fail a write so Alice has a pending retry command, then capture it.
@@ -490,8 +481,7 @@ test('account switch, sign-out, expiry, and 401 abort active work and block subm
   assert.equal(controller.state.retry, undefined)
   assert.equal(await controller.send(aliceRetry), false)
 
-  controller.syncContext(canvasContext(uuid(1), 3, alice))
-  await flushMicrotasks()
+  await syncAndFlush(controller, canvasContext(uuid(1), 3, alice))
   assert.equal(await controller.send(aliceRetry), false)
   assert.equal(writes.length, 1)
 
@@ -529,8 +519,7 @@ test('account switch, sign-out, expiry, and 401 abort active work and block subm
   const h401 = createHarness({
     page: async () => { throw new ApiError('Unauthorized', 401) },
   })
-  h401.controller.syncContext(canvasContext(uuid(1), 1, alice))
-  await flushMicrotasks()
+  await syncAndFlush(h401.controller, canvasContext(uuid(1), 1, alice))
   assert.equal(h401.invalidated, 1)
   assert.equal(h401.controller.state.authorized, false)
   assert.equal(h401.controller.state.document, undefined)
@@ -547,7 +536,7 @@ test('undo and redo travel commands check history revision, update graph, and re
   const { controller } = createHarness({
     page: async (_id, pos) => {
       const rev = pos.revision ?? revision
-      return graphPage(header({ id: uuid(1), revision: rev, nodeCount: 1, edgeCount: 0 }), {
+      return graphPage(documentHeader(rev, 1), {
         nodes: [rev === 2n ? nodeRev2 : nodeRev1],
       })
     },
@@ -560,12 +549,11 @@ test('undo and redo travel commands check history revision, update graph, and re
     write: async cmd => {
       actions.push(cmd.action)
       revision = cmd.expectedRevision + 1n
-      return header({ id: uuid(1), revision, nodeCount: 1, edgeCount: 0 })
+      return documentHeader(revision, 1)
     },
   })
 
-  controller.syncContext(canvasContext(uuid(1)))
-  await flushMicrotasks()
+  await syncAndFlush(controller, canvasContext(uuid(1)))
   assert.deepEqual(controller.state.historyActionAvailable, { undo: true, redo: false })
 
   // Opening a form disables undo/redo shortcuts.
@@ -595,7 +583,7 @@ test('undo and redo travel commands check history revision, update graph, and re
 test('reference resolution clears on viewport or selection changes and verifies live preflight before editor handoff', async () => {
   const refA = articleRef(10, 41)
   const refB = articleRef(11, 42, 7n)
-  let currentHeader = header({ id: uuid(1), revision: 1n, nodeCount: 2, edgeCount: 0 })
+  let currentHeader = documentHeader(1n, 2)
   let preflightResult: CanvasReferenceResolution = {
     canvasId: uuid(1),
     nodeId: refA.id,
@@ -635,8 +623,7 @@ test('reference resolution clears on viewport or selection changes and verifies 
     { openEditor: async () => openShouldSucceed },
   )
 
-  controller.syncContext(canvasContext(uuid(1)))
-  await flushMicrotasks()
+  await syncAndFlush(controller, canvasContext(uuid(1)))
 
   controller.chooseNode(refA.id)
   await controller.resolveReference()
@@ -684,7 +671,7 @@ test('article link preview preserves visual-only choice, unconfirmed retry plan,
   let confirmMode: 'uncertain' | 'conflict' | 'ok' = 'uncertain'
 
   const { controller } = createHarness({
-    page: async () => graphPage(header({ id: uuid(1), revision: 1n, nodeCount: 2, edgeCount: 1 }), {
+    page: async () => graphPage(documentHeader(1n, 2, 1), {
       nodes: [n1, n2], edges: [visualEdge],
     }),
     previewLink: async (input, _host, _target, _signal, visualOnly) => {
@@ -709,8 +696,7 @@ test('article link preview preserves visual-only choice, unconfirmed retry plan,
     },
   })
 
-  controller.syncContext(canvasContext(uuid(1)))
-  await flushMicrotasks()
+  await syncAndFlush(controller, canvasContext(uuid(1)))
 
   controller.chooseEdge(visualEdge.id)
   assert.ok(controller.state.activeLink)

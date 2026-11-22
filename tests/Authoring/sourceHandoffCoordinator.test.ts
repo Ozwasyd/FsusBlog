@@ -19,7 +19,7 @@ function coordinatorForToken(initialToken: string, clocks: Pick<SourceHandoffCoo
   return createSourceHandoffCoordinator({ initialToken, initialArticleId: 42, accept: acceptEditorSourceHandoff, ...clocks })
 }
 
-function activationContext() {
+function activationContext(handle: string, readLiveState: () => SourceHandoffLiveState) {
   return {
     sessionId: 10,
     witnessedRevision: 7n,
@@ -27,6 +27,11 @@ function activationContext() {
     recoveryWorking: false,
     revisionComparisonActive: false,
     isRouteCurrent: () => true,
+    handle,
+    persistentWorkspace: true,
+    activeEditSequence: 0,
+    readLiveState,
+    setInspectorOpen: (_open: boolean) => {},
   }
 }
 
@@ -109,11 +114,8 @@ test('search summary handoff opens inspector, enforces 6s window and edit guard,
   const inspectorStates: boolean[] = []
   const activated = coordinator.activateTarget({
     source: resolved.source,
-    ...activationContext(),
-    handle: 'handle-1',
-    persistentWorkspace: true,
+    ...activationContext('handle-1', () => live),
     activeEditSequence: 3,
-    readLiveState: () => live,
     setInspectorOpen: open => {
       inspectorStates.push(open)
       live = { ...live, inspectorOpen: open }
@@ -161,11 +163,8 @@ test('search summary handoff opens inspector, enforces 6s window and edit guard,
   const secondInspector: boolean[] = []
   second.activateTarget({
     source: resolved2.source,
-    ...activationContext(),
-    handle: 'handle-1',
-    persistentWorkspace: true,
+    ...activationContext('handle-1', () => live),
     activeEditSequence: 3,
-    readLiveState: () => live,
     setInspectorOpen: open => secondInspector.push(open),
   })
   // Non-summary search explicitly closes inspector before focusing source caret.
@@ -198,12 +197,7 @@ test('historical and property seeks stay isolated across activity changes, crede
   const live = makeLiveState({ originalRevision: 7n })
   historyCoord.activateTarget({
     source: historyResolved.source,
-    ...activationContext(),
-    handle: 'handle-h',
-    persistentWorkspace: true,
-    activeEditSequence: 0,
-    readLiveState: () => live,
-    setInspectorOpen: () => {},
+    ...activationContext('handle-h', () => live),
   })
   const historical = historyCoord.snapshot().historicalSeek!
   // Historical seek is not bounded by the 6s reveal timer and stays open while comparing revisions.
@@ -238,12 +232,7 @@ test('historical and property seeks stay isolated across activity changes, crede
   if (propResolved.kind !== 'ready') return
   propCoord.activateTarget({
     source: propResolved.source,
-    ...activationContext(),
-    handle: 'handle-p',
-    persistentWorkspace: true,
-    activeEditSequence: 0,
-    readLiveState: () => live,
-    setInspectorOpen: () => {},
+    ...activationContext('handle-p', () => live),
   })
   assert.ok(propCoord.snapshot().propertySeek)
   assert.deepEqual(propCoord.onActivityChange({ busy: false, comparing: true }), {
@@ -261,12 +250,8 @@ test('canvas handoff reports canvas failure notice and clears on article id or c
   if (resolved.kind !== 'ready') return
   coord.activateTarget({
     source: resolved.source,
-    ...activationContext(),
-    handle: 'h1',
+    ...activationContext('h1', () => makeLiveState()),
     persistentWorkspace: false,
-    activeEditSequence: 0,
-    readLiveState: () => makeLiveState(),
-    setInspectorOpen: () => {},
   })
   const canvasSeek = coord.snapshot().sourceSeek!
   assert.equal(canvasSeek.kind, 'canvas')

@@ -41,10 +41,21 @@ function setup(transport: Partial<EditorTransport<Draft>> = {}, capacity?: numbe
   return registry
 }
 
-function deferred<T>() {
-  let resolve!: (result: T) => void
-  const promise = new Promise<T>(done => { resolve = done })
-  return { promise, resolve }
+function tabIds(registry: WorkspaceRegistry<Draft>) {
+  return registry.tabs.map(tab => tab.articleId)
+}
+
+function editorSessions(registry: WorkspaceRegistry<Draft>) {
+  return registry.sourcePanes.map(pane => pane.tab.sessionId)
+}
+
+function paneArticleIds(registry: WorkspaceRegistry<Draft>) {
+  return registry.sourcePanes.map(pane => pane.draft.id)
+}
+
+function splitLayout(tabs: number[], activeArticleId: number, secondaryTabs: number[],
+  secondaryActiveArticleId: number, options: Partial<Pick<SavedWorkspaceLayout, 'focusedGroup' | 'inspectorOpen'>> = {}): SavedWorkspaceLayout {
+  return { ...emptyLayout, tabs, activeArticleId, secondaryTabs, secondaryActiveArticleId, ...options }
 }
 
 async function activate(registry: WorkspaceRegistry<Draft>, id: number, group?: WorkspaceGroup): Promise<WorkspaceTab> {
@@ -162,7 +173,7 @@ test('an article selection rechecks its saved revision while retaining its exist
 })
 
 test('saved layout restores only ready drafts, retaining order, preview and selected article', async () => {
-  const held = deferred<DraftLoad<Draft>>()
+  const held = Promise.withResolvers<DraftLoad<Draft>>()
   const registry = setup({ load: async id => id === 2 ? held.promise : id === 3
     ? { kind: 'blocked', reason: 'forbidden' } : loadedDraft(id) })
   const pending = restoreLayout(registry, { ...emptyLayout, tabs: [1, 3, -2], activeArticleId: 2 })
@@ -175,7 +186,7 @@ test('saved layout restores only ready drafts, retaining order, preview and sele
 })
 
 test('layout hydration loses authority on identity changes even if its draft request completes', async () => {
-  const held = deferred<DraftLoad<Draft>>()
+  const held = Promise.withResolvers<DraftLoad<Draft>>()
   const registry = setup({ load: () => held.promise })
   const pending = restoreLayout(registry, { ...emptyLayout, tabs: [1], activeArticleId: 1 })
   registry.setIdentity({ ...author, principalId: 'other-author' })
@@ -208,7 +219,7 @@ test('a transient failed read does not turn a recoverable layout into an authori
 })
 
 test('duplicate entrypoints await one ready receipt and activate the original group', async () => {
-  const pending = deferred<DraftLoad<Draft>>()
+  const pending = Promise.withResolvers<DraftLoad<Draft>>()
   let loads = 0
   const registry = setup({ load: () => { loads++; return pending.promise } })
   const rail = registry.openOrActivate(12, 'main')
@@ -228,7 +239,7 @@ test('duplicate entrypoints await one ready receipt and activate the original gr
 })
 
 test('crossed route navigation cancels old readiness and never creates a ghost tab', async () => {
-  const pending = deferred<DraftLoad<Draft>>()
+  const pending = Promise.withResolvers<DraftLoad<Draft>>()
   let signal: AbortSignal | undefined
   const registry = setup({
     load: (id, candidate) => {
@@ -248,14 +259,14 @@ test('crossed route navigation cancels old readiness and never creates a ghost t
   assert.equal(signal?.aborted, true)
   assert.deepEqual(await second, { kind: 'superseded' })
   pending.resolve(loadedDraft(2))
-  assert.deepEqual(registry.tabs.map(tab => tab.articleId), [1])
+  assert.deepEqual(tabIds(registry), [1])
 })
 
 test('clean preview replaces only after readiness while edits pin and stay isolated', async () => {
   const registry = setup()
   const first = await activate(registry, 1)
   await activate(registry, 2)
-  assert.deepEqual(registry.tabs.map(tab => tab.articleId), [2])
+  assert.deepEqual(tabIds(registry), [2])
   assert.equal(registry.updateDraft(first, draft(1, 1n, 'stale')), false)
   const second = registry.activeTab!
   assert.equal(registry.updateDraft(second, draft(2, 1n, 'working text')), true)
@@ -279,11 +290,11 @@ test('confirmation planning is atomic and a later edit invalidates an earlier pl
   registry.updateDraft(second, draft(2, 1n, 'new content'))
   assert.deepEqual(registry.applyClose(plan), { kind: 'stale' })
   assert.deepEqual(registry.applyClose(registry.planClose([first, second])!), { kind: 'protected' })
-  assert.deepEqual(registry.tabs.map(tab => tab.articleId), [1, 2])
+  assert.deepEqual(tabIds(registry), [1, 2])
 })
 
 test('save handles edits during persistence, retaining newer text at the returned revision', async () => {
-  const pending = deferred<DraftSave<Draft>>()
+  const pending = Promise.withResolvers<DraftSave<Draft>>()
   let submitted: Draft | undefined
   const registry = setup({ save: item => { submitted = item; return pending.promise } })
   const tab = await activate(registry, 1)
@@ -384,7 +395,7 @@ test('a rejected draft keeps local edits and allows a corrected request with a n
 })
 
 test('publication rejects dirty and unsaved drafts, and fences edits while writing', async () => {
-  const pending = deferred<DraftSave<Draft>>()
+  const pending = Promise.withResolvers<DraftSave<Draft>>()
   const registry = setup()
   const tab = await activate(registry, 1)
   const publish = registry.commit(tab, 'publish', () => pending.promise)
@@ -400,7 +411,7 @@ test('publication rejects dirty and unsaved drafts, and fences edits while writi
 })
 
 test('identity A to B to A cannot publish an old result or accept an old session reference', async () => {
-  const pending = deferred<DraftSave<Draft>>()
+  const pending = Promise.withResolvers<DraftSave<Draft>>()
   let saveSignal: AbortSignal | undefined
   const registry = setup({ save: (_item, signal) => { saveSignal = signal; return pending.promise } })
   const old = await activate(registry, 1)
@@ -422,7 +433,7 @@ test('identity A to B to A cannot publish an old result or accept an old session
 
 test('observed expiry revokes pending operations and is sticky even if the clock regresses', async () => {
   let time = 4
-  const pending = deferred<DraftLoad<Draft>>()
+  const pending = Promise.withResolvers<DraftLoad<Draft>>()
   const registry = setup({ load: () => pending.promise }, 100, () => time)
   const identity = { ...author, expiresAt: 5 }
   registry.setIdentity(identity)
@@ -461,7 +472,7 @@ test('extending the current authority retains dirty content and the same retry r
 })
 
 test('revoking a session hides its content and ignores an old save result', async () => {
-  const pending = deferred<DraftSave<Draft>>()
+  const pending = Promise.withResolvers<DraftSave<Draft>>()
   const registry = setup({ save: () => pending.promise })
   const tab = await activate(registry, 1)
   registry.updateDraft(tab, draft(1, 1n, 'local text'))
@@ -512,7 +523,7 @@ test('returning to an inactive session rechecks authority without overwriting di
 })
 
 test('a superseded route guard cannot replace the existing preview', async () => {
-  const pending = deferred<DraftLoad<Draft>>()
+  const pending = Promise.withResolvers<DraftLoad<Draft>>()
   const registry = setup({ load: async id => id === 2 ? pending.promise : loadedDraft(id) })
   await activate(registry, 1)
   let admissible = true
@@ -520,7 +531,7 @@ test('a superseded route guard cannot replace the existing preview', async () =>
   admissible = false
   pending.resolve(loadedDraft(2))
   assert.deepEqual(await activation, { kind: 'superseded' })
-  assert.deepEqual(registry.tabs.map(tab => tab.articleId), [1])
+  assert.deepEqual(tabIds(registry), [1])
   assert.equal(registry.activeTab?.articleId, 1)
 })
 
@@ -583,7 +594,7 @@ test('both groups expose exactly their selected sessions while the credentialed 
   assert.equal(registry.tabs.length, 2)
   assert.equal(registry.requestClose(secondary).kind, 'closed')
   assert.equal(registry.hasSecondaryGroup, false)
-  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), [primary.sessionId])
+  assert.deepEqual(editorSessions(registry), [primary.sessionId])
 })
 
 test('reexposing the comparison rechecks permission and retains dirty text across revision conflict', async () => {
@@ -602,12 +613,12 @@ test('reexposing the comparison rechecks permission and retains dirty text acros
   assert.equal(registry.activeTab?.sessionId, second.sessionId)
   permission = false
   assert.equal(await registry.recheckComparison(first, signal), false)
-  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), [second.sessionId])
+  assert.deepEqual(editorSessions(registry), [second.sessionId])
   assert.equal(registry.tabs.find(tab => tab.sessionId === first.sessionId)?.risk, 'blocked')
 })
 
 test('the comparison cannot restore a response after authority changes', async () => {
-  const pending = deferred<DraftLoad<Draft>>()
+  const pending = Promise.withResolvers<DraftLoad<Draft>>()
   let delayed = false
   const registry = setup({ load: async id => delayed && id === 1 ? pending.promise : loadedDraft(id) })
   const first = await activate(registry, 1)
@@ -624,24 +635,22 @@ test('the comparison cannot restore a response after authority changes', async (
 
 test('saved groups restore only current authorized drafts in their exact group, selection and order', async () => {
   const registry = setup()
-  const layout: SavedWorkspaceLayout = { activeArticleId: 1, tabs: [1, -4], inspectorOpen: true,
-    secondaryActiveArticleId: 2, secondaryTabs: [-3, 2], focusedGroup: 1 }
+  const layout = splitLayout([1, -4], 1, [-3, 2], 2, { focusedGroup: 1, inspectorOpen: true })
   assert.equal(await restoreLayout(registry, layout), 0)
   assert.deepEqual(registry.savedLayout, layout)
   assert.deepEqual(registry.tabs.map(tab => [tab.articleId, tab.group, tab.active]), [[1, 'main', false], [4, 'main', false],
     [3, 'secondary', false], [2, 'secondary', true]])
-  assert.deepEqual(registry.sourcePanes.map(pane => pane.draft.id), [1, 2])
+  assert.deepEqual(paneArticleIds(registry), [1, 2])
   assert.equal((await activate(registry, 1, 'secondary')).group, 'main')
   assert.deepEqual(registry.savedLayout, { ...layout, focusedGroup: 0 })
 })
 
 test('restoring missing selected drafts only falls back to a surviving selected record', async () => {
   const registry = setup({ load: async id => id === 2 ? { kind: 'blocked', reason: 'missing' } : loadedDraft(id) })
-  const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1], activeArticleId: 1,
-    secondaryActiveArticleId: 2, secondaryTabs: [2, -3], focusedGroup: 1 }
+  const layout = splitLayout([1], 1, [2, -3], 2, { focusedGroup: 1 })
   assert.equal(await restoreLayout(registry, layout), 1)
   assert.equal(registry.activeTab?.articleId, 1)
-  assert.deepEqual(registry.sourcePanes.map(pane => pane.draft.id), [1])
+  assert.deepEqual(paneArticleIds(registry), [1])
   assert.deepEqual(registry.savedLayout, { ...layout, secondaryActiveArticleId: 0, secondaryTabs: [-3], focusedGroup: 0 })
 })
 
@@ -663,11 +672,10 @@ test('malformed multi-group layouts fail before reading content', async () => {
 
 test('moving a focused preview appends its exact session, protects both editors and rejects a stale repeat', async () => {
   const registry = setup()
-  const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1, -2], activeArticleId: 2,
-    secondaryTabs: [3, -4], secondaryActiveArticleId: 4, focusedGroup: 1 }
+  const layout = splitLayout([1, -2], 2, [3, -4], 4, { focusedGroup: 1 })
   assert.equal(await restoreLayout(registry, layout), 0)
   const focused = registry.activeTab!
-  const liveEditors = registry.sourcePanes.map(pane => pane.tab.sessionId)
+  const liveEditors = editorSessions(registry)
   const revision = registry.revision
   const moved = registry.moveActiveTab(focused, 'main', revision)
   assert.equal(moved.kind, 'changed')
@@ -675,7 +683,7 @@ test('moving a focused preview appends its exact session, protects both editors 
   assert.equal(registry.activeDraft?.revision, 1n)
   assert.deepEqual(registry.savedLayout, { ...layout, tabs: [1, -2, 4], activeArticleId: 4,
     secondaryTabs: [3], secondaryActiveArticleId: 0, focusedGroup: 0 })
-  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), liveEditors)
+  assert.deepEqual(editorSessions(registry), liveEditors)
   assert.equal(registry.sourcePanes[0].selected, false)
   assert.deepEqual(registry.moveActiveTab(focused, 'secondary', revision), { kind: 'stale' })
   assert.deepEqual(registry.moveActiveTab(moved.tab, 'main', registry.revision), { kind: 'unchanged' })
@@ -687,13 +695,12 @@ test('moving a focused preview appends its exact session, protects both editors 
 
 test('moving a background tab preserves both selected sessions and rejects old layout or identity', async () => {
   const registry = setup()
-  const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1, 2], activeArticleId: 1,
-    secondaryTabs: [3, -4], secondaryActiveArticleId: 3 }
+  const layout = splitLayout([1, 2], 1, [3, -4], 3)
   assert.equal(await restoreLayout(registry, layout), 0)
   const draftToMove = await activate(registry, 2, 'main')
   assert(registry.updateDraft(draftToMove, draft(2, 1n, 'background local source')))
   const focused = await activate(registry, 1, 'main')
-  const editors = registry.sourcePanes.map(pane => pane.tab.sessionId)
+  const editors = editorSessions(registry)
   const revision = registry.revision
   const secondary = registry.tabs.find(tab => tab.articleId === 3)!
   assert.equal(registry.canMoveBackgroundTab(secondary), false)
@@ -703,7 +710,7 @@ test('moving a background tab preserves both selected sessions and rejects old l
   assert.deepEqual([moved.tab.sessionId, moved.tab.group, moved.tab.risk], [draftToMove.sessionId, 'secondary', 'dirty'])
   assert.deepEqual(registry.savedLayout, { ...layout, tabs: [1], secondaryTabs: [3, -4, 2] })
   assert.equal(registry.activeTab?.sessionId, focused.sessionId)
-  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), editors)
+  assert.deepEqual(editorSessions(registry), editors)
   assert.deepEqual(registry.moveBackgroundTab(draftToMove, 'main', revision), { kind: 'stale' })
   const restored = await activate(registry, 2, 'main')
   assert.equal(restored.group, 'secondary')
@@ -714,13 +721,12 @@ test('moving a background tab preserves both selected sessions and rejects old l
 })
 
 test('merging groups keeps order and pending server commands on the same focused editor', async () => {
-  const pending = deferred<DraftSave<Draft>>()
+  const pending = Promise.withResolvers<DraftSave<Draft>>()
   const registry = setup({ save: () => pending.promise })
-  const layout: SavedWorkspaceLayout = { ...emptyLayout, tabs: [1, -2], activeArticleId: 2,
-    secondaryTabs: [-3, 4], secondaryActiveArticleId: 4, focusedGroup: 1 }
+  const layout = splitLayout([1, -2], 2, [-3, 4], 4, { focusedGroup: 1 })
   await restoreLayout(registry, layout)
   const focused = registry.activeTab!
-  const liveEditors = registry.sourcePanes.map(pane => pane.tab.sessionId)
+  const liveEditors = editorSessions(registry)
   assert.equal(registry.updateDraft(focused, draft(4, 1n, 'dirty secondary source')), true)
   const save = registry.save(focused)
   const merged = registry.mergeGroups(focused, registry.revision)
@@ -730,14 +736,14 @@ test('merging groups keeps order and pending server commands on the same focused
   assert.equal(merged.tab.risk, 'saving')
   assert.equal(registry.activeDraft?.body, 'dirty secondary source')
   assert.deepEqual(registry.savedLayout, { ...emptyLayout, tabs: [1, -2, 3, 4], activeArticleId: 4 })
-  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), liveEditors)
+  assert.deepEqual(editorSessions(registry), liveEditors)
   assert.equal(registry.sourcePanes[0].selected, false)
 
   pending.resolve(savedDraft(draft(4, 2n, 'dirty secondary source')))
   assert.deepEqual(await save, { kind: 'saved', articleId: 4, revision: 2n })
   const previousSelection = await activate(registry, 2)
   assert.equal(previousSelection.sessionId, liveEditors[0])
-  assert.deepEqual(registry.sourcePanes.map(pane => pane.tab.sessionId), liveEditors)
+  assert.deepEqual(editorSessions(registry), liveEditors)
   registry.setIdentity({ ...author, generation: 2n })
   assert.deepEqual(registry.sourcePanes, [])
   assert.deepEqual(registry.mergeGroups(focused, registry.revision), { kind: 'stale' })
