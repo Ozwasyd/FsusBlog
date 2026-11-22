@@ -1,3 +1,4 @@
+import { createSessionExpiry, createSessionRead } from './sessionLifecycle'
 import { computed, shallowRef } from 'vue'
 import { api, ApiError, type Session } from '../../Contracts/client'
 import { bootstrapAdminPasskey, validAdminBootstrapToken } from '../../Contracts/admin-identity'
@@ -13,8 +14,6 @@ const authority = shallowRef<{ session: Session | null; identity: number; creden
 let requestEpoch = 0
 let mutation: number | undefined
 let pendingMfa: string | undefined
-let expiryTimer: ReturnType<typeof setTimeout> | undefined
-let sessionRead: { completion: Promise<void>; signal?: AbortSignal } | undefined
 
 export const currentSession = computed(() => authority.value.session)
 export const identityEpoch = computed(() => authority.value.identity)
@@ -36,16 +35,7 @@ function updateSession(value: Session | null, newLogin = false) {
     identity: observed.identity + Number(changed),
     credential: observed.credential + Number(changed || replacedCredential),
   }
-  clearTimeout(expiryTimer)
-  if (next) {
-    const expire = () => {
-      if (authority.value.session !== next) return
-      const remaining = next.expiresAt - Date.now()
-      if (remaining > 0) expiryTimer = setTimeout(expire, Math.min(remaining, 2_147_483_647))
-      else invalidateSession()
-    }
-    expire()
-  }
+  scheduleExpiry(next)
 }
 
 export function invalidateSession() {
@@ -58,32 +48,19 @@ export function invalidateSession() {
   }
 }
 
+const scheduleExpiry = createSessionExpiry(() => authority.value.session, invalidateSession)
+export const refreshSession = createSessionRead({
+  blocked: () => mutation !== undefined || pendingMfa !== undefined,
+  begin: () => ++requestEpoch,
+  current: request => request === requestEpoch,
+  session: () => authority.value.session,
+  update: updateSession,
+  read: (signal, rotate, admissible) => rotate ? refreshSiteAuthority(admissible, signal) : readSiteAuthority(signal),
+})
+
 export async function recheckCredential(handle: string, signal: AbortSignal): Promise<void> {
   if (signal.aborted || handle !== authority.value.session?.siteSessionId) return
   await refreshSession(signal, false).catch(() => {})
-}
-
-export async function refreshSession(signal?: AbortSignal, rotate = true): Promise<void> {
-  if (mutation !== undefined || pendingMfa !== undefined || signal?.aborted) return
-  if (sessionRead && !sessionRead.signal?.aborted) {
-    if (rotate) return sessionRead.completion
-    await sessionRead.completion.catch(() => {})
-    if (mutation !== undefined || pendingMfa !== undefined || signal?.aborted) return
-  }
-  const request = ++requestEpoch
-  const admissible = () => request === requestEpoch && mutation === undefined && pendingMfa === undefined && !signal?.aborted
-  const completion = (async () => {
-    try {
-      const value = rotate ? await refreshSiteAuthority(admissible, signal) : await readSiteAuthority(signal)
-      if (admissible()) updateSession(value)
-    } catch (error) {
-      if (admissible() && (authority.value.session?.expiresAt ?? 0) <= Date.now()) updateSession(null)
-      throw error
-    }
-  })()
-  sessionRead = { completion, signal }
-  try { await completion }
-  finally { if (sessionRead?.completion === completion) sessionRead = undefined }
 }
 
 export async function signIn(ticket: string, signal?: AbortSignal) {

@@ -44,6 +44,8 @@ function makeTransport(overrides: Partial<WriteCommandTransportPort> = {}): Writ
   }
 }
 
+function bodyEdit(offset: number, removedLength: number, insert: string) { return {offset,removedLength,insert} }
+
 test('selectSaveTransport chooses full save, single insertion, multiple insertions, body edits, and empty publish/retract payloads', () => {
   const full = selectSaveTransport('save', baseDraft, 'k-full')
   assert.equal(full.kind, 'full')
@@ -52,7 +54,7 @@ test('selectSaveTransport chooses full save, single insertion, multiple insertio
   assert.equal(full.input.body, 'Hello world')
 
   const single = selectSaveTransport('save', baseDraft, 'k-single', [
-    { offset: 5, removedLength: 0, insert: ' brave' },
+    bodyEdit(5, 0, ' brave'),
   ])
   assert.equal(single.kind, 'body-insertion')
   assert.equal(single.input.offset, 5)
@@ -60,8 +62,8 @@ test('selectSaveTransport chooses full save, single insertion, multiple insertio
   assert.equal(single.input.title, 'Draft Title')
 
   const multi = selectSaveTransport('save', baseDraft, 'k-multi', [
-    { offset: 5, removedLength: 0, insert: ' A' },
-    { offset: 13, removedLength: 0, insert: ' B' },
+    bodyEdit(5, 0, ' A'),
+    bodyEdit(13, 0, ' B'),
   ])
   assert.equal(multi.kind, 'body-insertions')
   assert.deepEqual(multi.input.insertions, [
@@ -70,14 +72,14 @@ test('selectSaveTransport chooses full save, single insertion, multiple insertio
   ])
 
   const edited = selectSaveTransport('save', baseDraft, 'k-edits', [
-    { offset: 5, removedLength: 0, insert: ' A' },
-    { offset: 0, removedLength: 5, insert: 'Hi' },
+    bodyEdit(5, 0, ' A'),
+    bodyEdit(0, 5, 'Hi'),
   ])
   assert.equal(edited.kind, 'body-edits')
   assert.equal(edited.input.edits.length, 2)
 
   const publish = selectSaveTransport('publish', baseDraft, 'k-pub', [
-    { offset: 0, removedLength: 0, insert: 'ignored' },
+    bodyEdit(0, 0, 'ignored'),
   ])
   assert.equal(publish.kind, 'full')
   assert.equal(publish.action, 'publish')
@@ -107,12 +109,12 @@ test('writeCommandAdapter dispatches exact delta/full transport and rejects mism
   const signal = new AbortController().signal
   const save = adapter.articleCommand('save')
   assert.equal((await save(baseDraft, signal, 'k1')).kind, 'saved')
-  assert.equal((await save(baseDraft, signal, 'k2', [{ offset: 5, removedLength: 0, insert: '!' }])).kind, 'saved')
+  assert.equal((await save(baseDraft, signal, 'k2', [bodyEdit(5, 0, '!')])).kind, 'saved')
   assert.equal((await save(baseDraft, signal, 'k3', [
-    { offset: 0, removedLength: 0, insert: 'a' },
-    { offset: 1, removedLength: 0, insert: 'b' },
+    bodyEdit(0, 0, 'a'),
+    bodyEdit(1, 0, 'b'),
   ])).kind, 'saved')
-  assert.equal((await save(baseDraft, signal, 'k4', [{ offset: 0, removedLength: 2, insert: 'Hi' }])).kind, 'saved')
+  assert.equal((await save(baseDraft, signal, 'k4', [bodyEdit(0, 2, 'Hi')])).kind, 'saved')
   assert.deepEqual(calls, ['full:save', 'insertion:5:1', 'insertions:2', 'edits:1'])
 
   const tampered = authenticatedAdapter('handle-a', {

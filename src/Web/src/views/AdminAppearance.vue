@@ -245,7 +245,9 @@ watchAdminSessionClear(() => props.sessionSignal, clear, () => lifetime.abort())
   </ElSettingsSection>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../shared-fields' as fields;
+
 .appearance-status,
 .appearance-active {
   margin: 0;
@@ -270,9 +272,8 @@ watchAdminSessionClear(() => props.sessionSignal, clear, () => lifetime.abort())
 }
 
 .appearance-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
+
+  @include fields.admin-label;
 }
 
 .font-license-text {

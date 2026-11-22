@@ -270,7 +270,9 @@ onMounted(async () => {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../shared-fields' as fields;
+
 .admin-archive {
   display: grid;
   gap: 16px;
@@ -298,9 +300,8 @@ onMounted(async () => {
 }
 
 .archive-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
+
+  @include fields.admin-label;
 }
 
 .archive-preview-title {

@@ -337,7 +337,9 @@ async function run(change?: Change | 'enroll') {
   </SecuritySectionCard>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../shared-fields' as fields;
+
 .passkey-flush-banner {
   padding: var(--fsus-space-3) 14px 0;
 }
@@ -365,16 +367,13 @@ async function run(change?: Change | 'enroll') {
 }
 
 .passkey-field {
-  display: grid;
-  gap: 6px;
-  min-inline-size: 0;
+
+  @include fields.account-field;
 }
 
 .passkey-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
-  line-height: 1.4;
+
+  @include fields.account-label;
 }
 
 .passkey-remove-title {

@@ -121,6 +121,8 @@ function batchConflict(error: unknown, targets: readonly AdminCommentCursor[]): 
  * Owns single/batch moderation claims, batch selection, expiry timers,
  * conflict resolution, history loading, cancellation, and idempotent disposal.
  */
+type ClaimExpiry = { generation: number; timer?: TimerHandle }
+
 export class AdminModerationController {
   private readonly transport: AdminModerationTransport
   private readonly clock: AdminClock
@@ -145,10 +147,8 @@ export class AdminModerationController {
   private _history: ModerationTimeline | null = null
   private _revisions: CommentRevisionPage | null = null
   private cursor: AdminCommentCursor | null = null
-  private claimTimer: TimerHandle | undefined
-  private claimTimerGeneration = 0
-  private batchTimer: TimerHandle | undefined
-  private batchTimerGeneration = 0
+  private readonly claimExpiry: ClaimExpiry = { generation: 0 }
+  private readonly batchTimerSlot: ClaimExpiry = { generation: 0 }
   private _snapshot: AdminModerationState
 
   constructor(options: AdminModerationControllerOptions = {}) {
@@ -561,82 +561,56 @@ export class AdminModerationController {
     return released
   }
 
-  private clearClaimTimer(): void {
-    this.claimTimerGeneration++
-    if (this.claimTimer !== undefined) {
-      this.clock.clearTimeout(this.claimTimer)
-      this.claimTimer = undefined
+  private clearExpiry(slot: ClaimExpiry): void {
+    slot.generation++
+    if (slot.timer !== undefined) {
+      this.clock.clearTimeout(slot.timer)
+      slot.timer = undefined
     }
   }
 
-  private clearBatchTimer(): void {
-    this.batchTimerGeneration++
-    if (this.batchTimer !== undefined) {
-      this.clock.clearTimeout(this.batchTimer)
-      this.batchTimer = undefined
+  private scheduleExpiry(slot: ClaimExpiry, until: number, current: () => boolean, expired: () => void): void {
+    const expectedEpoch = this.scope.sessionEpoch
+    const generation = slot.generation
+    const expire = () => {
+      if (generation !== slot.generation || !this.scope.isSessionCurrent(expectedEpoch) || !current()) return
+      const remaining = until - this.clock.now()
+      if (remaining > 0) {
+        slot.timer = this.clock.setTimeout(() => {
+          slot.timer = undefined
+          expire()
+        }, Math.min(remaining, MAX_TIMEOUT_MS))
+      } else expired()
     }
+    expire()
   }
 
   private setClaimInternal(next: AdminModerationClaim | null, options: Readonly<{ preserveReason?: boolean }> = {}): void {
-    this.clearClaimTimer()
+    this.clearExpiry(this.claimExpiry)
     if (!options.preserveReason && (!next || !this.isClaimed(next))) this._reason = ''
     this._claim = next
     if (!next) return
 
-    const until = Number(next.expiresAt)
-    const expectedEpoch = this.scope.sessionEpoch
-    const generation = this.claimTimerGeneration
-
-    const expire = () => {
-      if (generation !== this.claimTimerGeneration || !this.scope.isSessionCurrent(expectedEpoch) || this._claim !== next) {
-        return
-      }
-      const remaining = until - this.clock.now()
-      if (remaining > 0) {
-        this.claimTimer = this.clock.setTimeout(() => {
-          this.claimTimer = undefined
-          expire()
-        }, Math.min(remaining, MAX_TIMEOUT_MS))
-      } else {
-        this.setClaimInternal(null)
-        this._failure = 'admin.moderation.m10'
-        this.emitChange()
-      }
-    }
-
-    expire()
+    this.scheduleExpiry(this.claimExpiry, Number(next.expiresAt), () => this._claim === next, () => {
+      this.setClaimInternal(null)
+      this._failure = 'admin.moderation.m10'
+      this.emitChange()
+    })
   }
 
   private scheduleBatchExpiry(receipts: readonly AdminModerationClaim[]): void {
-    this.clearBatchTimer()
+    this.clearExpiry(this.batchTimerSlot)
     if (receipts.length === 0) return
 
-    const until = Math.min(...receipts.map(row => Number(row.expiresAt)))
-    const expectedEpoch = this.scope.sessionEpoch
-    const generation = this.batchTimerGeneration
-
-    const expire = () => {
-      if (generation !== this.batchTimerGeneration || !this.scope.isSessionCurrent(expectedEpoch) || this._batchClaims !== receipts) {
-        return
-      }
-      const remaining = until - this.clock.now()
-      if (remaining > 0) {
-        this.batchTimer = this.clock.setTimeout(() => {
-          this.batchTimer = undefined
-          expire()
-        }, Math.min(remaining, MAX_TIMEOUT_MS))
-      } else {
-        this.clearBatchInternal()
-        this._failure = 'admin.moderation.m27'
-        this.emitChange()
-      }
-    }
-
-    expire()
+    this.scheduleExpiry(this.batchTimerSlot, Math.min(...receipts.map(row => Number(row.expiresAt))), () => this._batchClaims === receipts, () => {
+      this.clearBatchInternal()
+      this._failure = 'admin.moderation.m27'
+      this.emitChange()
+    })
   }
 
   private clearBatchInternal(): void {
-    this.clearBatchTimer()
+    this.clearExpiry(this.batchTimerSlot)
     this._batchClaims = null
     this._selected = new Set()
     this._batchReason = ''

@@ -14,6 +14,7 @@ const fixture = new Map([
   ['/src/Web/src/authoring/draftJournal.ts', '../../src/Web/src/authoring/draftJournal.ts'],
   ['/src/Contracts/wire.generated.ts', '../../src/Contracts/wire.generated.ts'],
   ['/src/Contracts/binary.ts', '../../src/Contracts/binary.ts'],
+  ['/src/Contracts/pod-record.ts', '../../src/Contracts/pod-record.ts'],
 ])
 
 test('IndexedDB recovery after browser restart, local writer isolation, expiry and cleanup', async () => {

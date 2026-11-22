@@ -675,7 +675,9 @@ onBeforeUnmount(() => {
   </main>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../shared-fields' as fields;
+
 .inbox-page {
   display: grid;
   gap: var(--fsus-space-4);
@@ -727,15 +729,12 @@ onBeforeUnmount(() => {
 }
 
 .inbox-dialog-field {
-  display: grid;
-  gap: 6px;
-  min-inline-size: 0;
+
+  @include fields.account-field;
 }
 
 .inbox-dialog-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
-  line-height: 1.4;
+
+  @include fields.account-label;
 }
 </style>

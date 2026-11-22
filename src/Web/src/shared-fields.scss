@@ -1,0 +1,18 @@
+@mixin admin-label {
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+
+@mixin account-field {
+  display: grid;
+  gap: 6px;
+  min-inline-size: 0;
+}
+
+@mixin account-label {
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+  line-height: 1.4;
+}

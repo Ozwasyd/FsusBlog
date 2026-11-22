@@ -164,7 +164,9 @@ onMounted(() => { void check(false) })
   </ElSettingsSection>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../shared-fields' as fields;
+
 .risk-policy-field {
   display: grid;
   gap: 6px;
@@ -172,9 +174,8 @@ onMounted(() => { void check(false) })
 }
 
 .risk-policy-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
+
+  @include fields.admin-label;
 }
 
 .policy-digest {

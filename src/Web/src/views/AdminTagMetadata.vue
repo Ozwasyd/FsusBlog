@@ -115,7 +115,9 @@ onScopeDispose(() => lifetime.abort())
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../shared-fields' as fields;
+
 .tag-metadata-editor,
 .tag-metadata-form,
 .tag-metadata-field {
@@ -128,8 +130,7 @@ onScopeDispose(() => lifetime.abort())
 }
 
 .tag-metadata-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
+
+  @include fields.admin-label;
 }
 </style>

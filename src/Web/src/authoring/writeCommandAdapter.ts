@@ -223,6 +223,10 @@ export function createWriteCommandAdapter(ports: Readonly<{
     }, signal)
   }
 
+  const coordinates = (draft: Draft, idempotencyKey: string) => ({
+    id: draft.id, expectedRevision: draft.revision, idempotencyKey,
+  })
+
   const saveTaxonomy = (selection: TaxonomySelection) => (
     draft: Draft,
     signal: AbortSignal,
@@ -230,9 +234,7 @@ export function createWriteCommandAdapter(ports: Readonly<{
   ): Promise<DraftSave<Draft>> =>
     mutationResult(async () => {
       const stored = await transport.assignTaxonomy({
-        id: draft.id,
-        expectedRevision: draft.revision,
-        idempotencyKey,
+        ...coordinates(draft, idempotencyKey),
         categoryId: selection.categoryId,
         tagIds: selection.tagIds.slice(),
       }, signal)
@@ -245,9 +247,7 @@ export function createWriteCommandAdapter(ports: Readonly<{
     idempotencyKey: string,
   ): Promise<DraftSave<Draft>> =>
     mutationResult(() => transport.rollbackDraft({
-      id: draft.id,
-      expectedRevision: draft.revision,
-      idempotencyKey,
+      ...coordinates(draft, idempotencyKey),
       ...selection,
     }, signal), signal)
 
@@ -258,9 +258,7 @@ export function createWriteCommandAdapter(ports: Readonly<{
   ): Promise<DraftSave<Draft>> =>
     mutationResult(async () => {
       const result = await transport.setArticleSchedule({
-        id: draft.id,
-        expectedRevision: draft.revision,
-        idempotencyKey,
+        ...coordinates(draft, idempotencyKey),
         dueUnixMs,
       }, signal)
       return { ...draft, revision: result.revision, published: result.publishedRevision !== 0n }
@@ -274,53 +272,31 @@ export function createWriteCommandAdapter(ports: Readonly<{
     mutationResult(async () => {
       const result = await transport.setDraftRights({
         ...policy,
-        id: draft.id,
-        expectedRevision: draft.revision,
-        idempotencyKey,
+        ...coordinates(draft, idempotencyKey),
       }, signal)
       return { ...draft, revision: result.revision }
     }, signal)
 
-  const updateAttachment = (edit: AttachmentEdit) => (
-    draft: Draft,
-    signal: AbortSignal,
-    key: string,
-  ): Promise<DraftSave<Draft>> => {
-    const handle = session.currentHandle()
-    if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
-    return mutationResult(() => transport.editArticleMedia(draft.id, draft.revision, key, edit, handle, signal), signal)
-  }
+  const withCredential = (run: (draft: Draft, signal: AbortSignal, key: string, handle: string) => Promise<Draft>) =>
+    (draft: Draft, signal: AbortSignal, key: string): Promise<DraftSave<Draft>> => {
+      const handle = session.currentHandle()
+      if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
+      return mutationResult(() => run(draft, signal, key, handle), signal)
+    }
 
-  const updateSummary = (text: string) => (
-    draft: Draft,
-    signal: AbortSignal,
-    idempotencyKey: string,
-  ): Promise<DraftSave<Draft>> => {
-    const handle = session.currentHandle()
-    if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
-    return mutationResult(async () => {
-      const stored = await transport.saveDraftSummary({
-        id: draft.id,
-        expectedRevision: draft.revision,
-        idempotencyKey,
-        text,
-      }, handle, signal)
-      if (stored.title !== draft.title || stored.body !== draft.body) {
-        throw new Error('The summary reply changed the draft source.')
-      }
-      return stored
-    }, signal)
-  }
+  const updateAttachment = (edit: AttachmentEdit) =>
+    withCredential((draft, signal, key, handle) => transport.editArticleMedia(draft.id, draft.revision, key, edit, handle, signal))
 
-  const publishImages = (assets: readonly string[]) => (
-    draft: Draft,
-    signal: AbortSignal,
-    key: string,
-  ): Promise<DraftSave<Draft>> => {
-    const handle = session.currentHandle()
-    if (!handle || signal.aborted) return Promise.resolve({ kind: 'blocked', reason: 'unavailable' })
-    return mutationResult(() => transport.publishArticleImages(draft.id, draft.revision, key, assets, handle, signal), signal)
-  }
+  const updateSummary = (text: string) => withCredential(async (draft, signal, key, handle) => {
+    const stored = await transport.saveDraftSummary({ ...coordinates(draft, key), text }, handle, signal)
+    if (stored.title !== draft.title || stored.body !== draft.body) {
+      throw new Error('The summary reply changed the draft source.')
+    }
+    return stored
+  })
+
+  const publishImages = (assets: readonly string[]) =>
+    withCredential((draft, signal, key, handle) => transport.publishArticleImages(draft.id, draft.revision, key, assets, handle, signal))
 
   return {
     loadDraft,

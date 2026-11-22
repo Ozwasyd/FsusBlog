@@ -340,7 +340,9 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
   </main>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../shared-fields' as fields;
+
 .account-security {
   display: grid;
   align-content: start;
@@ -457,16 +459,13 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
 }
 
 .security-field {
-  display: grid;
-  gap: 6px;
-  min-inline-size: 0;
+
+  @include fields.account-field;
 }
 
 .security-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
-  line-height: 1.4;
+
+  @include fields.account-label;
 }
 
 .security-inline-row {

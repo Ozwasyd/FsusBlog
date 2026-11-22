@@ -280,18 +280,9 @@ export class DraftJournal {
       store.delete(record.key)
       return false
     }))
-    const candidates: RecoveryCandidate[] = []
-    for (const record of records) {
-      if (record.digest !== await sourceDigest(record) || record.expiresAt <= Date.now()) continue
-      candidates.push(Object.freeze({
-        writer: record.writer, baseRevision: record.baseRevision, editSequence: record.editSequence,
-        updatedAt: record.updatedAt, expiresAt: record.expiresAt, title: record.title, body: record.body,
-        relationship: record.baseRevision === durable.revision ? 'restore' : 'compare',
-      }))
-    }
-    if (this.#closed || candidates.length === 0) return []
-    const active = await transaction(this.#database, this.#scope, (_store, _records, generation) => this.#generation === generation)
-    return this.#closed || !active ? [] : Object.freeze(candidates.sort((a, b) => b.updatedAt - a.updatedAt))
+    return this.#readCandidates(records, record => ({
+      relationship: record.baseRevision === durable.revision ? 'restore' : 'compare',
+    }))
   }
 
   async inspectNew(): Promise<readonly RecoveryCandidate[]> {
@@ -300,13 +291,20 @@ export class DraftJournal {
       this.#closed || this.#generation !== generation ? [] : live.filter(record =>
         this.#matches(undefined, record) && record.baseRevision === 0n &&
         record.document.startsWith('draft:') && uuid.test(record.document.slice(6))))
+    return this.#readCandidates(records, record => ({
+      relationship: 'restore', target: Object.freeze({ createDraftId: record.document.slice(6) }),
+    }))
+  }
+
+  async #readCandidates(records: readonly RecoveryRecord[],
+    describe: (record: RecoveryRecord) => Pick<RecoveryCandidate, 'relationship' | 'target'>): Promise<readonly RecoveryCandidate[]> {
     const candidates: RecoveryCandidate[] = []
     for (const record of records) {
       if (record.digest !== await sourceDigest(record) || record.expiresAt <= Date.now()) continue
       candidates.push(Object.freeze({
-        writer: record.writer, baseRevision: 0n, editSequence: record.editSequence,
+        writer: record.writer, baseRevision: record.baseRevision, editSequence: record.editSequence,
         updatedAt: record.updatedAt, expiresAt: record.expiresAt, title: record.title, body: record.body,
-        relationship: 'restore', target: Object.freeze({ createDraftId: record.document.slice(6) }),
+        ...describe(record),
       }))
     }
     if (this.#closed || candidates.length === 0) return []

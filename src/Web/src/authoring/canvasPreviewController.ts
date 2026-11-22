@@ -133,6 +133,27 @@ export class CanvasPreviewController {
     this.#linkUnconfirmed = false
   }
 
+  #beginReference(ctx: CanvasPreviewContext, current: CanvasPreviewContext['document'], node: CanvasPreviewContext['selectedReference'],
+    stillAllowed?: (latest: CanvasPreviewContext) => boolean) {
+    const request = new AbortController()
+    this.#referenceRequest = request
+    this.#referenceLoading = true
+    this.#referenceOpenNotice = undefined
+    this.#host.notify()
+    return { request, isLatest: () => {
+      const latest = this.#host.current()
+      return ctx.scoped(ctx.signal) && request === this.#referenceRequest && !request.signal.aborted &&
+        latest.document === current && latest.selectedReference === node && (!stillAllowed || stillAllowed(latest))
+    } }
+  }
+
+  #finishReference(request: AbortController) {
+    if (this.#referenceRequest !== request) return
+    this.#referenceLoading = false
+    this.#referenceRequest = undefined
+    this.#host.notify()
+  }
+
   async resolveReference(): Promise<void> {
     const ctx = this.#host.current()
     const current = ctx.document
@@ -140,19 +161,7 @@ export class CanvasPreviewController {
     const signal = ctx.signal
     if (!current || !node || ctx.disabled || !ctx.scoped(signal) || this.#referenceLoading) return
     this.clearReference(false)
-    const request = new AbortController()
-    this.#referenceRequest = request
-    this.#referenceLoading = true
-    this.#host.notify()
-
-    const isLatest = () => {
-      const latest = this.#host.current()
-      return ctx.scoped(signal) &&
-        request === this.#referenceRequest &&
-        !request.signal.aborted &&
-        latest.document === current &&
-        latest.selectedReference === node
-    }
+    const { request, isLatest } = this.#beginReference(ctx, current, node)
 
     try {
       const result = await this.#transport.resolveReference(current.id, node.id, current.revision, request.signal)
@@ -176,11 +185,7 @@ export class CanvasPreviewController {
         this.#host.notify()
       }
     } finally {
-      if (this.#referenceRequest === request) {
-        this.#referenceLoading = false
-        this.#referenceRequest = undefined
-        this.#host.notify()
-      }
+      this.#finishReference(request)
     }
   }
 
@@ -197,22 +202,7 @@ export class CanvasPreviewController {
       return false
     }
 
-    const request = new AbortController()
-    this.#referenceRequest = request
-    this.#referenceLoading = true
-    this.#referenceOpenNotice = undefined
-    this.#host.notify()
-
-    const isLatest = () => {
-      const latest = this.#host.current()
-      return ctx.scoped(signal) &&
-        request === this.#referenceRequest &&
-        !request.signal.aborted &&
-        latest.document === canvas &&
-        latest.selectedReference === node &&
-        latest.credentialEpoch === epoch &&
-        latest.canNavigate()
-    }
+    const { request, isLatest } = this.#beginReference(ctx, canvas, node, latest => latest.credentialEpoch === epoch && latest.canNavigate())
 
     let token: string | undefined
     try {
@@ -249,11 +239,7 @@ export class CanvasPreviewController {
       }
       return false
     } finally {
-      if (this.#referenceRequest === request) {
-        this.#referenceLoading = false
-        this.#referenceRequest = undefined
-        this.#host.notify()
-      }
+      this.#finishReference(request)
     }
   }
 

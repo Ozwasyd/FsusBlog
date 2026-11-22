@@ -4,7 +4,7 @@ import messages from '../../Contracts/site-locales.json' with { type: 'json' }
 import type workspaceCatalog from './workspace-locales.json'
 
 type PublicKey = keyof typeof messages.en
-type WorkspaceKey = keyof typeof workspaceCatalog.en
+type WorkspaceKey = keyof typeof workspaceCatalog.en | keyof typeof workspaceCatalog.aliases
 let workspaceMessages: typeof workspaceCatalog | undefined
 let workspaceLoad: Promise<void> | undefined
 
@@ -59,9 +59,15 @@ window.addEventListener('pageshow', event => {
   if (saved) activeLocale.value = saved
 })
 
+function workspaceText(locale: SiteLocale, key: MessageKey) {
+  if (!workspaceMessages) return
+  const source = workspaceMessages.aliases[key as keyof typeof workspaceCatalog.aliases] ?? key
+  return workspaceMessages[locale][source as keyof typeof workspaceCatalog.en]
+}
+
 export function t(key: MessageKey, params?: Readonly<Record<string, string | number>>): string {
   const locale = activeLocale.value
-  const text = messages[locale][key as PublicKey] ?? workspaceMessages?.[locale][key as WorkspaceKey] ?? key
+  const text = messages[locale][key as PublicKey] ?? workspaceText(locale, key) ?? key
   return params ? text.replace(/\{([A-Za-z][A-Za-z0-9_]*)\}/g, (token, name: string) =>
     Object.hasOwn(params, name) ? String(params[name]) : token) : text
 }

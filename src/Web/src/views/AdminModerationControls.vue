@@ -334,7 +334,9 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
   </section>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../shared-fields' as fields;
+
 .admin-moderation {
   display: grid;
   gap: var(--fsus-space-2, 12px);
@@ -399,9 +401,8 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
 }
 
 .moderation-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
+
+  @include fields.admin-label;
 }
 
 .moderation-status,

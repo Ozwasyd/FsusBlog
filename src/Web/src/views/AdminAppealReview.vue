@@ -128,7 +128,9 @@ function decide(id: string, decision: 'granted' | 'denied') {
   </section>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../shared-fields' as fields;
+
 .appeal-review {
   display: grid;
   gap: var(--fsus-space-2, 12px);
@@ -182,9 +184,8 @@ function decide(id: string, decision: 'granted' | 'denied') {
 }
 
 .appeal-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
+
+  @include fields.admin-label;
 }
 
 .appeal-more {

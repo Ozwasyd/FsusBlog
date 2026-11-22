@@ -280,7 +280,9 @@ onScopeDispose(() => lifetime.abort())
   </ElSettingsSection>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../shared-fields' as fields;
+
 .rollback-lookup-form,
 .rollback-preview,
 .rollback-field {
@@ -295,9 +297,8 @@ onScopeDispose(() => lifetime.abort())
 }
 
 .rollback-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
+
+  @include fields.admin-label;
 }
 
 .rollback-preview h3 {

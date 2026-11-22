@@ -6,6 +6,8 @@ import { hasUniformCrlf, normalizeCrlf, restoreCrlf, textareaSourceRange, verify
 const raw = '导言 🧭\r\nCafe\u0301\r\n# Heading ^harbor\r\n'
 const expectedEditor = '导言 🧭\nCafe\u0301\n# Heading ^harbor\n'
 
+function sourceRange(source: string, displayed: string, start: number, end: number, ...mode: [] | ['native']) { return textareaSourceRange(source, displayed, {start, end}, ...mode) }
+
 test('only uniform CRLF sources use a reversible LF editor projection', () => {
   assert.equal(hasUniformCrlf(raw), true)
   for (const unsupported of ['', expectedEditor, 'A\rB', 'A\r\nB\nC', 'A\r\nB\rC']) {
@@ -20,23 +22,23 @@ test('raw span boundaries map to exact UTF-16 positions across CRLF without chan
   const start = raw.indexOf('🧭')
   const end = raw.indexOf('^')
   const expectedEnd = expectedEditor.indexOf('^')
-  assert.deepEqual(textareaSourceRange(raw, expectedEditor, { start, end }), { start, end: expectedEnd })
-  assert.deepEqual(textareaSourceRange(raw, expectedEditor, { start: end, end }), { start: expectedEnd, end: expectedEnd })
-  assert.deepEqual(textareaSourceRange(raw, expectedEditor, { start: 0, end: raw.length }), { start: 0, end: expectedEditor.length })
-  assert.deepEqual(textareaSourceRange(expectedEditor, expectedEditor, { start, end: expectedEnd }), { start, end: expectedEnd })
+  assert.deepEqual(sourceRange(raw, expectedEditor, start, end), { start, end: expectedEnd })
+  assert.deepEqual(sourceRange(raw, expectedEditor, end, end), { start: expectedEnd, end: expectedEnd })
+  assert.deepEqual(sourceRange(raw, expectedEditor, 0, raw.length), { start: 0, end: expectedEditor.length })
+  assert.deepEqual(sourceRange(expectedEditor, expectedEditor, start, expectedEnd), { start, end: expectedEnd })
 })
 
 test('the entire textarea must match and neither boundary can split a CRLF pair or a surrogate', () => {
   const marker = raw.indexOf('^')
   for (const offset of [-1, raw.indexOf('\r\n') + 1, raw.indexOf('🧭') + 1, marker + 0.5, raw.length + 1]) {
-    assert.equal(textareaSourceRange(raw, expectedEditor, { start: offset, end: offset }), undefined)
+    assert.equal(sourceRange(raw, expectedEditor, offset, offset), undefined)
   }
-  assert.equal(textareaSourceRange(raw, expectedEditor, { start: 0, end: raw.indexOf('\r\n') + 1 }), undefined)
-  assert.equal(textareaSourceRange(raw, expectedEditor, { start: marker, end: marker - 1 }), undefined)
-  assert.equal(textareaSourceRange(raw, expectedEditor + 'changed suffix', { start: marker, end: marker }), undefined)
-  assert.equal(textareaSourceRange(raw, expectedEditor.normalize(), { start: marker, end: marker }), undefined)
-  assert.equal(textareaSourceRange('A\r\nB\n', 'A\nB\n', { start: 3, end: 3 }), undefined)
-  assert.equal(textareaSourceRange('A\rB', 'A\nB', { start: 2, end: 2 }), undefined)
+  assert.equal(sourceRange(raw, expectedEditor, 0, raw.indexOf('\r\n') + 1), undefined)
+  assert.equal(sourceRange(raw, expectedEditor, marker, marker - 1), undefined)
+  assert.equal(sourceRange(raw, expectedEditor + 'changed suffix', marker, marker), undefined)
+  assert.equal(sourceRange(raw, expectedEditor.normalize(), marker, marker), undefined)
+  assert.equal(sourceRange('A\r\nB\n', 'A\nB\n', 3, 3), undefined)
+  assert.equal(sourceRange('A\rB', 'A\nB', 2, 2), undefined)
 })
 
 test('the summary textarea can normalize mixed native newlines without weakening source checks', () => {
@@ -44,12 +46,12 @@ test('the summary textarea can normalize mixed native newlines without weakening
   const displayed = '前言 🧭\nLine two\nCafe\u0301\nLine four\nHit'
   const start = mixed.indexOf('Cafe')
   const end = mixed.length
-  assert.deepEqual(textareaSourceRange(mixed, displayed, { start, end }, 'native'), {
+  assert.deepEqual(sourceRange(mixed, displayed, start, end, 'native'), {
     start: displayed.indexOf('Cafe'), end: displayed.length,
   })
-  assert.equal(textareaSourceRange(mixed, displayed, { start, end }), undefined)
-  assert.equal(textareaSourceRange(mixed, displayed.normalize(), { start, end }, 'native'), undefined)
-  assert.equal(textareaSourceRange(mixed, displayed, { start: mixed.indexOf('\n'), end }, 'native'), undefined)
+  assert.equal(sourceRange(mixed, displayed, start, end), undefined)
+  assert.equal(sourceRange(mixed, displayed.normalize(), start, end, 'native'), undefined)
+  assert.equal(sourceRange(mixed, displayed, mixed.indexOf('\n'), end, 'native'), undefined)
 })
 
 test('a search match must have the exact raw coordinates, text, and whole-source digest', async () => {

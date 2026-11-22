@@ -228,7 +228,9 @@ function issue() {
   </SecuritySectionCard>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../shared-fields' as fields;
+
 .recovery-subpanel {
   display: grid;
   gap: var(--fsus-space-3);
@@ -281,16 +283,13 @@ function issue() {
 }
 
 .recovery-field {
-  display: grid;
-  gap: 6px;
-  min-inline-size: 0;
+
+  @include fields.account-field;
 }
 
 .recovery-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
-  line-height: 1.4;
+
+  @include fields.account-label;
 }
 
 .recovery-inline-start {

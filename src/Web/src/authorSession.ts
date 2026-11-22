@@ -1,3 +1,4 @@
+import { createSessionExpiry, createSessionRead } from './sessionLifecycle'
 import { computed, shallowRef } from 'vue'
 import { api, ApiError, type Session } from '../../Contracts/client'
 import { purgeVerifiedDraftScope, verifyDraftScope } from './authoring/draftScope'
@@ -22,8 +23,6 @@ const authority = shallowRef<{ session: Session | null; identity: number; creden
 })
 let requestEpoch = 0
 let mutation: number | undefined
-let expiryTimer: ReturnType<typeof setTimeout> | undefined
-let sessionRead: { completion: Promise<void>; signal?: AbortSignal } | undefined
 let channel: BroadcastChannel | undefined
 
 export const currentSession = computed(() => authority.value.session)
@@ -42,16 +41,7 @@ function updateSession(value: Session | null) {
     credential: observed.credential + Number(changed),
   }
   markAdminSessionHint(next !== null)
-  clearTimeout(expiryTimer)
-  if (next) {
-    const expire = () => {
-      if (authority.value.session !== next) return
-      const remaining = next.expiresAt - Date.now()
-      if (remaining > 0) expiryTimer = setTimeout(expire, Math.min(remaining, 2_147_483_647))
-      else invalidateSession()
-    }
-    expire()
-  }
+  scheduleExpiry(next)
 }
 
 export function invalidateSession() {
@@ -59,37 +49,20 @@ export function invalidateSession() {
   updateSession(null)
 }
 
+const scheduleExpiry = createSessionExpiry(() => authority.value.session, invalidateSession)
+export const refreshSession = createSessionRead({
+  blocked: () => mutation !== undefined,
+  begin: () => ++requestEpoch,
+  current: request => request === requestEpoch,
+  session: () => authority.value.session,
+  update: updateSession,
+  read: signal => api.authoringSession(signal),
+  allowUnauthorized: true,
+})
+
 export async function recheckCredential(handle: string, signal: AbortSignal): Promise<void> {
   if (signal.aborted || handle !== authority.value.session?.siteSessionId) return
   await refreshSession(signal, false).catch(() => {})
-}
-
-export async function refreshSession(signal?: AbortSignal, reuseInFlight = true): Promise<void> {
-  if (mutation !== undefined || signal?.aborted) return
-  if (sessionRead && !sessionRead.signal?.aborted) {
-    if (reuseInFlight) return sessionRead.completion
-    await sessionRead.completion.catch(() => {})
-    if (mutation !== undefined || signal?.aborted) return
-  }
-  const request = ++requestEpoch
-  const admissible = () => request === requestEpoch && mutation === undefined && !signal?.aborted
-  const completion = (async () => {
-    try {
-      let value: Session | null
-      try { value = await api.authoringSession(signal) }
-      catch (error) {
-        if (error instanceof ApiError && error.status === 401) value = null
-        else throw error
-      }
-      if (admissible()) updateSession(value)
-    } catch (error) {
-      if (admissible() && (authority.value.session?.expiresAt ?? 0) <= Date.now()) updateSession(null)
-      throw error
-    }
-  })()
-  sessionRead = { completion, signal }
-  try { await completion }
-  finally { if (sessionRead?.completion === completion) sessionRead = undefined }
 }
 
 export async function clearAuthorSession(signal?: AbortSignal): Promise<void> {

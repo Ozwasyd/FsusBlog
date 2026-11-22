@@ -57,14 +57,19 @@ function makeLiveState(overrides: Partial<SourceHandoffLiveState> = {}): SourceH
   }
 }
 
+function resolveVerified(coordinator: ReturnType<typeof coordinatorForToken>, epoch: number, handle: string) {
+  coordinator.markSessionVerified()
+  const resolved = coordinator.resolveArrival(42, epoch, handle)
+  assert.equal(resolved.kind, 'ready')
+  return resolved
+}
+
+function searchTarget(revision: bigint, field: 'body' | 'summary', start: number, end: number, match: string) {
+  return {articleId: 42, revision, field, ...searchRange(start,end), match}
+}
+
 test('arrival handoff waits for verified session, resolves once, and handles activation failures distinctly', () => {
-  const token = offerSearchEditorHandoff({
-    articleId: 42,
-    revision: 7n,
-    field: 'body',
-    ...searchRange(2, 6),
-    match: 'word',
-  }, 3, 'session-a')
+  const token = offerSearchEditorHandoff(searchTarget(7n, 'body', 2, 6, 'word'), 3, 'session-a')
 
   const coordinator = coordinatorForToken(token)
   assert.equal(coordinator.hasArrival(), true)
@@ -74,9 +79,7 @@ test('arrival handoff waits for verified session, resolves once, and handles act
   assert.equal(coordinator.snapshot().sourceInspectorPending, false)
 
   // Once verified with matching credential and handle, the one-use handoff resolves cleanly.
-  coordinator.markSessionVerified()
-  const resolved = coordinator.resolveArrival(42, 3, 'session-a')
-  assert.equal(resolved.kind, 'ready')
+  const resolved = resolveVerified(coordinator, 3, 'session-a')
   if (resolved.kind === 'ready') {
     assert.equal(resolved.requiredRevision, 7n)
     assert.equal(resolved.source.kind, 'search')
@@ -95,19 +98,10 @@ test('arrival handoff waits for verified session, resolves once, and handles act
 test('search summary handoff opens inspector, enforces 6s window and edit guard, and cancels on inspector close', () => {
   let perfNow = 1_000
   let wallNow = 10_000
-  const token = offerSearchEditorHandoff({
-    articleId: 42,
-    revision: 7n,
-    field: 'summary',
-    ...searchRange(0, 4),
-    match: 'note',
-    precision: 'rebased',
-  }, 5, 'handle-1')
+  const token = offerSearchEditorHandoff({ ...searchTarget(7n, 'summary', 0, 4, 'note'), precision: 'rebased' }, 5, 'handle-1')
 
   const coordinator = coordinatorForToken(token, { now: () => perfNow, nowMs: () => wallNow })
-  coordinator.markSessionVerified()
-  const resolved = coordinator.resolveArrival(42, 5, 'handle-1')
-  assert.equal(resolved.kind, 'ready')
+  const resolved = resolveVerified(coordinator, 5, 'handle-1')
   if (resolved.kind !== 'ready') return
 
   let live = makeLiveState({ activeEditSequence: 3, inspectorOpen: false })
@@ -147,18 +141,9 @@ test('search summary handoff opens inspector, enforces 6s window and edit guard,
   assert.equal(coordinator.snapshot().sourceSeek, undefined)
 
   // Re-activating a fresh search seek verifies rebased success notice and recent-open record.
-  const token2 = offerSearchEditorHandoff({
-    articleId: 42,
-    revision: 7n,
-    field: 'body',
-    ...searchRange(0, 4),
-    match: 'note',
-    precision: 'rebased',
-  }, 5, 'handle-1')
+  const token2 = offerSearchEditorHandoff({ ...searchTarget(7n, 'body', 0, 4, 'note'), precision: 'rebased' }, 5, 'handle-1')
   const second = coordinatorForToken(token2, { now: () => perfNow, nowMs: () => wallNow })
-  second.markSessionVerified()
-  const resolved2 = second.resolveArrival(42, 5, 'handle-1')
-  assert.equal(resolved2.kind, 'ready')
+  const resolved2 = resolveVerified(second, 5, 'handle-1')
   if (resolved2.kind !== 'ready') return
   const secondInspector: boolean[] = []
   second.activateTarget({
@@ -180,17 +165,9 @@ test('search summary handoff opens inspector, enforces 6s window and edit guard,
 
 test('historical and property seeks stay isolated across activity changes, credential rotation, and close', () => {
   let perfNow = 100
-  const historyToken = offerHistoricalSearchEditorHandoff({
-    articleId: 42,
-    revision: 4n,
-    field: 'body',
-    ...searchRange(0, 4),
-    match: 'hist',
-  }, 7n, 2, 'handle-h')
+  const historyToken = offerHistoricalSearchEditorHandoff(searchTarget(4n, 'body', 0, 4, 'hist'), 7n, 2, 'handle-h')
   const historyCoord = coordinatorForToken(historyToken, { now: () => perfNow, nowMs: () => 1_000 })
-  historyCoord.markSessionVerified()
-  const historyResolved = historyCoord.resolveArrival(42, 2, 'handle-h')
-  assert.equal(historyResolved.kind, 'ready')
+  const historyResolved = resolveVerified(historyCoord, 2, 'handle-h')
   if (historyResolved.kind !== 'ready') return
   assert.equal(historyResolved.requiredRevision, 7n)
 
@@ -226,9 +203,7 @@ test('historical and property seeks stay isolated across activity changes, crede
     match: 'val',
   }, 2, 'handle-p')
   const propCoord = coordinatorForToken(propToken, { now: () => perfNow, nowMs: () => 1_000 })
-  propCoord.markSessionVerified()
-  const propResolved = propCoord.resolveArrival(42, 2, 'handle-p')
-  assert.equal(propResolved.kind, 'ready')
+  const propResolved = resolveVerified(propCoord, 2, 'handle-p')
   if (propResolved.kind !== 'ready') return
   propCoord.activateTarget({
     source: propResolved.source,
@@ -244,9 +219,7 @@ test('historical and property seeks stay isolated across activity changes, crede
 test('canvas handoff reports canvas failure notice and clears on article id or credential change', () => {
   const token = offerCanvasEditorHandoff({ articleId: 42, revision: 7n, sourceOffset: 15 }, 4)
   const coord = coordinatorForToken(token)
-  coord.markSessionVerified()
-  const resolved = coord.resolveArrival(42, 4, 'h1')
-  assert.equal(resolved.kind, 'ready')
+  const resolved = resolveVerified(coord, 4, 'h1')
   if (resolved.kind !== 'ready') return
   coord.activateTarget({
     source: resolved.source,
