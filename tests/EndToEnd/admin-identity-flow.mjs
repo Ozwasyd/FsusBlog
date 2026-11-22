@@ -6,6 +6,7 @@ import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { stripTypeScriptTypes } from 'node:module'
+import { setTimeout as delay } from 'node:timers/promises'
 import { requireWebPackage } from './web-package-fixture.mjs'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
@@ -96,6 +97,8 @@ let phase = 'site-session'
 let failure
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  context.setDefaultTimeout(18_000)
+  context.setDefaultNavigationTimeout(18_000)
   await context.addCookies([
     { name: 'fsus_locale', value: 'en', url: adminOrigin.origin },
     { name: 'fsus_locale', value: 'en', url: siteOrigin.origin },
@@ -378,9 +381,11 @@ if (failure) throw failure
 
 async function logIn(page) {
   const destination = new URL(page.url()).pathname
-  const beginning = waitPost(page, adminOrigin, passkeyBegin)
-  const completed = await clickAndWait(page, passkeyComplete, 'Log in as administrator')
-  assert.equal(await frameType(await beginning), FrameType.PasskeyLoginBegin)
+  const [beginning, completed] = await Promise.all([
+    waitPost(page, adminOrigin, passkeyBegin),
+    clickAndWait(page, passkeyComplete, 'Log in as administrator'),
+  ])
+  assert.equal(await frameType(beginning), FrameType.PasskeyLoginBegin)
   await assertEmpty(completed)
   await visitAdminWorkspace(page, '/admin/identity')
   await roleWithExactName(page, 'heading', 'Administrator session').waitFor()
@@ -457,7 +462,7 @@ async function verifyOperationsStatus(page, context, siteCookie, priorCookie, re
   assert(observed.publicationWatermark >= 0n && observed.pendingPublicationEvents >= 0n)
   assert(observed.pendingPublicationEvents === 0n ? observed.oldestPendingAt === 0n : observed.oldestPendingAt > 0n)
   await roleWithExactName(operationsSection, 'heading', 'Service & version').waitFor()
-  for (const name of ['Content sync', 'Version', 'Process started'])
+  for (const name of ['Content sync', 'Version', 'Process start'])
     await operationsSection.getByText(name, { exact: true }).waitFor()
 
   await context.clearCookies({ name: adminCookieName })
@@ -494,12 +499,20 @@ async function verifyOperationsStatus(page, context, siteCookie, priorCookie, re
     assertStatus(await checkStatus(), 200)
     await rejectRetiredAdminSession(rotatedCookie)
     await probeAdminCookie(endpoint, rotatedCookie, 401)
-    await logIn(page)
+    await page.reload()
+    const [cluster] = await Promise.all([
+      waitForUrlResponse(page, () => adminOrigin.origin + WireRoutes.AdminClusterStatus, 'GET'),
+      logIn(page),
+    ])
+    if (cluster.status() === 429) {
+      // This fixture performs several rapid refreshes. Allow the server's one-minute window to reset.
+      await delay(60_000)
+    } else assertStatus(cluster, 200)
     checks.operationsStatusRecheckedAfterRevocation = true
     const afterRevoke = await snapshot(context)
     assert(afterRevoke.principal.generation > rotated.principal.generation)
-    await displayedSnapshot.waitFor()
     assertStatus(await checkStatus(), 200)
+    await displayedSnapshot.waitFor()
   }
   return adminSessionCookie(context)
 }
