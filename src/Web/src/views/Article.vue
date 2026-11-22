@@ -14,6 +14,7 @@ import ArticleNeighbors from '../components/ArticleNeighbors.vue'
 const route = useRoute()
 const article = shallowRef<Awaited<ReturnType<typeof api.publicArticle>>>()
 const readBody = ref<HTMLElement | null>(null)
+const markdown = ref<InstanceType<typeof ElMarkdownRenderer>>()
 const renderedArticle = shallowRef<typeof article.value>()
 const images = shallowRef<readonly PublicArticleImage[]>()
 const failedImages = shallowRef<ReadonlySet<string>>(new Set())
@@ -33,6 +34,19 @@ useArticleReadProof(readBody, () => {
   const current = article.value
   return current?.id === Number(route.params.id) && (!nativeMarkdown || renderedArticle.value === current) ? current : undefined
 })
+
+watch([() => route.hash, renderedArticle, markdown], ([hash, rendered, renderer], _, cleanup) => {
+  if (!renderer || !rendered || rendered !== article.value || rendered.id !== Number(route.params.id) ||
+      !hash || hash === '#page-content' || hash === '#article-comments-title' || /^#comment-[1-9][0-9]{0,18}$/.test(hash)) return
+
+  // Let route scrolling settle before revealing the block from the rendered article.
+  const frame = requestAnimationFrame(() => { void renderer.revealFragment(hash, { behavior: 'instant' }) })
+  cleanup(() => {
+    cancelAnimationFrame(frame)
+    // A later reveal cancels work for an unmounted chunk, even when the new target is empty.
+    void renderer.revealFragment('')
+  })
+}, { flush: 'post' })
 
 function imageUnavailable(image: PublicArticleImage) {
   if (images.value?.includes(image)) failedImages.value = new Set([...failedImages.value, image.digest])
@@ -99,7 +113,7 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
     </header>
     <ElAlert v-if="!nativeMarkdown" :title="t('reading.formatUnavailable')" type="info" :closable="false" />
     <div ref="readBody" class="blog-markdown blog-markdown--article" v-bind="{ 'data-fsus-article-read-body': '' }">
-      <ElMarkdownRenderer v-if="nativeMarkdown" :key="`${article.id}:${article.publication}`" :content="article.body"
+      <ElMarkdownRenderer v-if="nativeMarkdown" ref="markdown" :key="`${article.id}:${article.publication}`" :content="article.body"
         :content-version="article.publication.toString()" mode="article" @render-complete="renderedArticle = article" />
       <pre v-else class="article-source">{{ article.body }}</pre>
     </div>

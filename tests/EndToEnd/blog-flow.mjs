@@ -31,7 +31,7 @@ import { exerciseMarkdownImport } from './markdown-import-flow.mjs'
 import { exerciseDocumentExportTasks } from './document-export-task-flow.mjs'
 import { exactButton as button, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
-const { chromium } = requireWebPackage('@playwright/test')
+const { chromium, expect } = requireWebPackage('@playwright/test')
 
 const config = {
   origin: process.env.FSUSBLOG_TEST_URL,
@@ -159,6 +159,48 @@ async function articleCommand(path, id, revision, title = '', body = '', expecte
   assertStatus(response, 200)
   const frame = decodeFrame(await response.body(), expected)
   return expected === FrameType.Draft ? decodeDraft(frame.payload) : undefined
+}
+
+async function exercisePublicFragments() {
+  const spacer = Array.from({ length: 45 }, (_, index) => `Reading paragraph ${index + 1} before the next target.`).join('\n\n')
+  const source = [spacer, '## Heading witness ^harbor', '[Jump to paragraph](#detail)', spacer,
+    'An explicit *paragraph* ^detail', 'First ^collision', 'Second ^collision', spacer].join('\n\n')
+  const draft = await articleCommand(WireRoutes.Save, 0, 0n, 'Public fragment witness', source)
+  const published = await articleCommand(WireRoutes.Publish, draft.id, draft.revision)
+  const url = `${origin}/article/${draft.id}`
+  const reader = await browser.newPage({ viewport: { width: 1280, height: 800 }, colorScheme: 'light' })
+  monitor(reader, 'desktop-public-fragments')
+  try {
+    for (const page of [reader, visitor]) {
+      assertStatus(await page.goto(url + '#harbor'), 200)
+      const heading = roleWithExactName(page, 'heading', 'Heading witness')
+      await expect(heading).toHaveAttribute('id', 'harbor')
+      await expect(heading).toBeInViewport({ ratio: 0.1 })
+      const [linked] = await Promise.all([
+        page.context().waitForEvent('page'),
+        roleWithExactName(page, 'link', 'Jump to paragraph').click(),
+      ])
+      try {
+        monitor(linked, 'linked-public-fragment')
+        await expect(linked).toHaveURL(url + '#detail')
+        await expect(linked.locator('p#detail')).toBeInViewport({ ratio: 0.1 })
+      } finally {
+        await linked.close()
+      }
+      assert.equal(await page.goto(url + '#detail'), null)
+      await expect(page.locator('p#detail')).toBeInViewport({ ratio: 0.1 })
+      await page.goBack()
+      await expect(page).toHaveURL(url + '#harbor')
+      await expect(heading).toBeInViewport({ ratio: 0.1 })
+      assert.equal(await page.goto(url + '#collision'), null)
+      await expect(heading).toBeAttached()
+      await expect(page.locator('#collision')).toHaveCount(0)
+    }
+    observations.push('Public Markdown heading and paragraph fragments scroll into view on desktop and mobile. Back returns to the heading and duplicate anchors have no target.')
+  } finally {
+    await reader.close()
+    await articleCommand(WireRoutes.Retract, draft.id, published.revision)
+  }
 }
 
 async function exercisePropertyBatch(publisher, observations) {
@@ -763,6 +805,7 @@ try {
     }
   }
   await exercisePropertyBatch(publisher, observations)
+  if (config.requireNative) await exercisePublicFragments()
   await publisher.goto(`${origin}/admin/identity`)
   const signOut = waitForPathResponse(publisher, () => WireRoutes.AdminSignOut)
   await button(publisher, 'Log out of administrator session').click()

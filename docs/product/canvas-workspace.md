@@ -28,4 +28,6 @@
 
 ## 待验收的公开片段定位
 
-标题和块链接的候选转换会用当前公开修订生成标准 Markdown 片段。服务端实库回归已覆盖私有修订隔离、发布漂移和精确追加。该候选保留在独立分支。375px 匿名 Chrome 复验中，固定 FsusUI 渲染出的标题、段落和代码块均无对应规范片段目标。正文定位待上游修复后复验。 [FsusUI #1082 的复现评论](https://github.com/Ozwasyd/FsusUI/issues/1082#issuecomment-6898820348) · [匿名 Chrome](../../artifacts/targeted-delivery-82d0180/public-fragment/public-fragment-result.json) · [实库回归](../../artifacts/canvas-public-anchor-749b9ba/native/integration.txt)
+标题和块链接的候选转换会用当前公开修订生成标准 Markdown 片段。服务端实库回归已覆盖私有修订隔离、发布漂移和精确追加。该候选保留在独立分支。早期 375px 匿名 Chrome 复验中，当时的 FsusUI 渲染缺少标题、段落和代码块的规范片段目标。 [FsusUI #1082 的复现评论](https://github.com/Ozwasyd/FsusUI/issues/1082#issuecomment-6898820348) · [匿名 Chrome](../../artifacts/targeted-delivery-82d0180/public-fragment/public-fragment-result.json) · [实库回归](../../artifacts/canvas-public-anchor-749b9ba/native/integration.txt)
+
+FsusUI #1082 已补齐片段输出和定位接口。公开文章在正文渲染完成后用该接口定位标题和段落。语法高亮仍会移除围栏代码块原有的片段 ID。独立 FsusUI 浏览器复现确认此失败发生在高亮激活之后。 [FsusUI #1123 的复现评论](https://github.com/Ozwasyd/FsusUI/issues/1123#issuecomment-7083549619)
