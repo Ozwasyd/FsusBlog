@@ -9,6 +9,8 @@ import sys
 import tempfile
 import unittest
 
+from fhs2_fixture import assemble_shard, encode_terms, posting_vector
+
 
 TOOL = pathlib.Path(__file__).resolve().parents[2] / "tools/fspt-patch.py"
 spec = importlib.util.spec_from_file_location("fspt_patch", TOOL)
@@ -78,24 +80,9 @@ def digest(data):
 
 
 def membership_shard(role, documents=(), terms=()):
-    postings = bytearray()
-    term_rows = bytearray()
-    for term, ids in terms:
-        encoded = bytes([len(ids)]) + b"".join(
-            bytes((article - previous, 0, 0, 1, 0))
-            for previous, article in zip((0, *ids), ids)
-        )
-        term_rows.extend(struct.pack("<IfIIII", term, 1.0, len(postings), len(encoded), 0, 0))
-        postings.extend(encoded)
+    term_rows, postings = encode_terms((term, posting_vector(ids), 0) for term, ids in terms)
     doc_rows = b"".join(struct.pack("<I16xI52x", article, 1) for article in documents)
-    docs_at = 72 + len(term_rows)
-    sections_at = (docs_at + len(doc_rows) + 7) & ~7
-    header = struct.pack(
-        "<4s16If", b"FHS2", 4, role, int(role == 0), len(terms), len(documents),
-        0, 0, 0, 72, docs_at, sections_at, sections_at, sections_at, sections_at,
-        sections_at, len(postings), 1.0,
-    )
-    return header + term_rows + doc_rows + bytes(sections_at - docs_at - len(doc_rows)) + postings
+    return assemble_shard(role, int(role == 0), len(terms), len(documents), term_rows, doc_rows, postings)
 
 
 def write_catalog(directory, shards, *, patch=None, base_prefix=None, generation=None):

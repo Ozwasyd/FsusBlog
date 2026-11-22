@@ -9,6 +9,8 @@ import sys
 import tempfile
 import unittest
 
+from fhs2_fixture import assemble_shard, encode_terms, posting_vector
+
 
 TOOL = pathlib.Path(__file__).resolve().parents[2] / "tools/fspt-patch.py"
 spec = importlib.util.spec_from_file_location("fspt_patch", TOOL)
@@ -37,41 +39,14 @@ def patch_vector(tombstone_bytes, count, appended=b""):
     )
 
 
-def posting_vector(article_ids):
-    # All IDs in this fixture have one-byte deltas. Each row has body TF 1
-    # and zero positions.
-    return bytes([len(article_ids)]) + b"".join(
-        bytes((article_id - previous, 0, 0, 1, 0))
-        for previous, article_id in zip((0, *article_ids), article_ids)
-    )
-
-
 def shard_vector(documents, terms, role=RECENT):
-    # The pinned FHS2 v4 writer uses a 72-byte header, 24-byte term rows
-    # and 76-byte document rows. Body-only roles have no string or taxonomy rows.
-    term_table = bytearray()
-    posting_data = bytearray()
-    for term_hash, postings, positions in terms:
-        term_table.extend(struct.pack(
-            "<IfIIII", term_hash, 1.0, len(posting_data), len(postings), positions, 0,
-        ))
-        posting_data.extend(postings)
-
+    term_table, posting_data = encode_terms(terms)
     rows = bytearray(76 * len(documents))
     for index, article_id in enumerate(documents):
         struct.pack_into("<I", rows, 76 * index, article_id)
         struct.pack_into("<I", rows, 76 * index + 20, 1)
 
-    terms_at = 72
-    documents_at = terms_at + len(term_table)
-    document_end = documents_at + len(rows)
-    empty_sections_at = (document_end + 7) & ~7
-    header = struct.pack(
-        "<4s16If", b"FHS2", 4, role, 0, len(terms), len(documents), 0, 0, 0,
-        terms_at, documents_at, empty_sections_at, empty_sections_at, empty_sections_at,
-        empty_sections_at, empty_sections_at, len(posting_data), 1.0,
-    )
-    return header + term_table + rows + bytes(empty_sections_at - document_end) + posting_data
+    return assemble_shard(role, 0, len(terms), len(documents), term_table, rows, posting_data)
 
 
 def changed_u32(data, offset, value):
