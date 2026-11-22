@@ -17,50 +17,24 @@ if [[ $profile == articles-million ]]; then
     [[ $http_probe == false ]] || { printf 'The million-article profile is an offline article fixture.\n' >&2; exit 2; }
     million_articles=true
 fi
-checkpoint_pilot=false
-case "${FSUSBLOG_TEST_C11_CHECKPOINT_PILOT:-0}" in
-    0) ;;
-    1)
-        [[ $profile == pilot && $http_probe == false ]] || {
-            printf 'The checkpoint witness requires pilot without --http.\n' >&2; exit 2;
-        }
-        checkpoint_pilot=true
-        ;;
-    *) printf 'Set FSUSBLOG_TEST_C11_CHECKPOINT_PILOT to 0 or 1.\n' >&2; exit 2 ;;
-esac
-wide_browser=false
-case "${FSUSBLOG_TEST_C11_WIDE_BROWSER:-0}" in
-    0) ;;
-    1)
-        [[ $profile == nightly && $http_probe == true ]] || {
-            printf 'The wide browser witness requires nightly with --http.\n' >&2; exit 2;
-        }
-        wide_browser=true
-        ;;
-    *) printf 'Set FSUSBLOG_TEST_C11_WIDE_BROWSER to 0 or 1.\n' >&2; exit 2 ;;
-esac
-list_taxonomy=false
-case "${FSUSBLOG_TEST_C11_LIST_TAXONOMY:-0}" in
-    0) ;;
-    1)
-        [[ $profile == nightly && $http_probe == true ]] || {
-            printf 'The list/taxonomy witness requires nightly with --http.\n' >&2; exit 2;
-        }
-        list_taxonomy=true
-        ;;
-    *) printf 'Set FSUSBLOG_TEST_C11_LIST_TAXONOMY to 0 or 1.\n' >&2; exit 2 ;;
-esac
-comment_probe=false
-case "${FSUSBLOG_TEST_C11_COMMENTS:-0}" in
-    0) ;;
-    1)
-        [[ $profile == nightly && $http_probe == true ]] || {
-            printf 'The comment witness requires nightly with --http.\n' >&2; exit 2;
-        }
-        comment_probe=true
-        ;;
-    *) printf 'Set FSUSBLOG_TEST_C11_COMMENTS to 0 or 1.\n' >&2; exit 2 ;;
-esac
+witness_enabled() {
+    local setting=FSUSBLOG_TEST_C11_$1
+    case "${!setting:-0}" in
+        0) echo false ;;
+        1)
+            if [[ $profile != "$2" || $http_probe != "$3" ]]; then
+                printf '%s\n' "$4" >&2
+                return 2
+            fi
+            echo true
+            ;;
+        *) printf 'Set %s to 0 or 1.\n' "$setting" >&2; return 2 ;;
+    esac
+}
+checkpoint_pilot=$(witness_enabled CHECKPOINT_PILOT pilot false 'The checkpoint witness requires pilot without --http.')
+wide_browser=$(witness_enabled WIDE_BROWSER nightly true 'The wide browser witness requires nightly with --http.')
+list_taxonomy=$(witness_enabled LIST_TAXONOMY nightly true 'The list/taxonomy witness requires nightly with --http.')
+comment_probe=$(witness_enabled COMMENTS nightly true 'The comment witness requires nightly with --http.')
 case "$profile" in
     nightly) articles=100000 nightly=true ;;
     articles-million) articles=1000000 nightly=false ;;
@@ -240,6 +214,21 @@ source_commit=$(git rev-parse HEAD)
     uname -a
     df -k "$scratch"
 } > "$evidence/run.txt"
+verify_witness_inputs() {
+    local label=$1 input
+    shift
+    for input in "$@"; do
+        git cat-file -e "$source_commit:$input" || {
+            printf '%s inputs must exist in the selected source commit.\n' "$label" >&2; exit 1;
+        }
+    done
+    if ! git diff --quiet "$source_commit" -- "$@"; then
+        printf '%s inputs must match the selected source commit.\n' "$label" >&2
+        exit 1
+    fi
+    shasum -a 256 "$@" >> "$evidence/run.txt"
+}
+
 if [[ $http_probe == true ]]; then
     stage=http-release-binding
     decoders=(src/Contracts/{aeds,binary,public-articles,wire.generated}.ts)
@@ -248,29 +237,11 @@ if [[ $http_probe == true ]]; then
         exit 1
     fi
     if [[ $list_taxonomy == true ]]; then
-        list_inputs=(tests/Performance/nightly-list-taxonomy-{oracle.sql,probe.mjs})
-        for input in "${list_inputs[@]}"; do
-            git cat-file -e "$source_commit:$input" || {
-                printf 'List/taxonomy inputs must exist in the selected source commit.\n' >&2; exit 1;
-            }
-        done
-        if ! git diff --quiet "$source_commit" -- "${list_inputs[@]}"; then
-            printf 'List/taxonomy inputs must match the selected source commit.\n' >&2; exit 1
-        fi
-        shasum -a 256 "${list_inputs[@]}" >> "$evidence/run.txt"
+        verify_witness_inputs 'List/taxonomy' tests/Performance/nightly-list-taxonomy-{oracle.sql,probe.mjs}
     fi
     if [[ $comment_probe == true ]]; then
-        comment_inputs=(tests/Performance/nightly-comment-{oracle.sql,probe.mjs,plans.mjs}
-            src/Contracts/{client,comment-read}.ts src/Server/{Store.cs,Comments/CommentReadStore.cs})
-        for input in "${comment_inputs[@]}"; do
-            git cat-file -e "$source_commit:$input" || {
-                printf 'Comment witness inputs must exist in the selected source commit.\n' >&2; exit 1;
-            }
-        done
-        if ! git diff --quiet "$source_commit" -- "${comment_inputs[@]}"; then
-            printf 'Comment witness inputs must match the selected source commit.\n' >&2; exit 1;
-        fi
-        shasum -a 256 "${comment_inputs[@]}" >> "$evidence/run.txt"
+        verify_witness_inputs 'Comment witness' tests/Performance/nightly-comment-{oracle.sql,probe.mjs,plans.mjs} \
+            src/Contracts/{client,comment-read}.ts src/Server/{Store.cs,Comments/CommentReadStore.cs}
     fi
     stage_http_release "$4" "$5" "$6" > "$evidence/http-release-binding.json" 2> "$evidence/http-release-binding.log"
     cli_dll="$scratch/release/cli/FsusBlog.V2.Cli.dll"
