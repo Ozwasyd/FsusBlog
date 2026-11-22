@@ -44,25 +44,18 @@ public static partial class Wire
         return Aeds.Encode(FrameType.SitePasskeyManagement, writer.Written);
     }
 
-    public static byte[] EncodeSitePasskeyRename(SitePasskeyRename value)
-    {
-        ValidateSitePasskeyRename(value);
-        var writer = new Writer();
-        writer.FixedBytes(Convert.FromHexString(value.Reference));
-        writer.I64(value.ExpectedRevision);
-        writer.Text(value.Name, WireLimits.SitePasskeyNameBytes);
-        return Aeds.Encode(FrameType.SitePasskeyRename, writer.Written);
-    }
+    public static byte[] EncodeSitePasskeyRename(SitePasskeyRename value) =>
+        EncodeRecord(FrameType.SitePasskeyRename, value, ValidateSitePasskeyRename, static (writer, record) =>
+        {
+            writer.FixedBytes(Convert.FromHexString(record.Reference));
+            writer.I64(record.ExpectedRevision);
+            writer.Text(record.Name, WireLimits.SitePasskeyNameBytes);
+        });
 
-    public static SitePasskeyRename DecodeSitePasskeyRename(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.SitePasskeyRename));
-        var value = new SitePasskeyRename(Convert.ToHexStringLower(reader.FixedBytes(WireLimits.SitePasskeyReferenceBytes)),
-            reader.I64(), reader.Text(WireLimits.SitePasskeyNameBytes));
-        reader.Finish();
-        ValidateSitePasskeyRename(value);
-        return value;
-    }
+    public static SitePasskeyRename DecodeSitePasskeyRename(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<SitePasskeyRename>(FrameType.SitePasskeyRename, frame, static (ref Reader reader) =>
+            new(Convert.ToHexStringLower(reader.FixedBytes(WireLimits.SitePasskeyReferenceBytes)),
+                reader.I64(), reader.Text(WireLimits.SitePasskeyNameBytes)), ValidateSitePasskeyRename);
 
     public static byte[] EncodeSitePasskeyRemove(SitePasskeyRemove value)
     {

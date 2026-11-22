@@ -14,13 +14,8 @@ public static partial class Wire
     private const int DocumentExportTaskSize = 140;
     private static readonly byte[] AbsentDocumentExportDigest = new byte[32];
 
-    public static byte[] EncodeDocumentExportCreate(DocumentExportCreate request)
-    {
-        ValidateDocumentExport(request);
-        var writer = new Writer();
-        WriteDocumentExportRequest(writer, request);
-        return Aeds.Encode(FrameType.DocumentExportCreate, writer.Written);
-    }
+    public static byte[] EncodeDocumentExportCreate(DocumentExportCreate request) =>
+        EncodeRecord(FrameType.DocumentExportCreate, request, ValidateDocumentExport, WriteDocumentExportRequest);
 
     public static DocumentExportCreate DecodeDocumentExportCreate(ReadOnlySpan<byte> frame)
     {

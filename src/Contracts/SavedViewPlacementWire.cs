@@ -8,27 +8,21 @@ public sealed record SavedViewPlacement(long CollectionRevision, SavedViewSummar
 
 public static partial class Wire
 {
-    public static byte[] EncodeSavedViewPlacementCommand(SavedViewPlacementCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.I32((int)value.Action);
-        writer.Uuid(value.Id);
-        writer.I64(value.Revision);
-        writer.I64(value.CollectionRevision);
-        writer.Uuid(value.RequestId);
-        writer.Uuid(value.BeforeId);
-        return Aeds.Encode(FrameType.SavedViewPlacementCommand, writer.Written);
-    }
+    public static byte[] EncodeSavedViewPlacementCommand(SavedViewPlacementCommand value) =>
+        EncodeRecord(FrameType.SavedViewPlacementCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I32((int)record.Action);
+            writer.Uuid(record.Id);
+            writer.I64(record.Revision);
+            writer.I64(record.CollectionRevision);
+            writer.Uuid(record.RequestId);
+            writer.Uuid(record.BeforeId);
+        });
 
-    public static SavedViewPlacementCommand DecodeSavedViewPlacementCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.SavedViewPlacementCommand));
-        var value = new SavedViewPlacementCommand((SavedViewPlacementAction)reader.I32(), reader.Uuid(), reader.I64(), reader.I64(), reader.Uuid(), reader.Uuid());
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
+    public static SavedViewPlacementCommand DecodeSavedViewPlacementCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<SavedViewPlacementCommand>(FrameType.SavedViewPlacementCommand, frame, static (ref Reader reader) =>
+            new((SavedViewPlacementAction)reader.I32(), reader.Uuid(), reader.I64(), reader.I64(),
+                reader.Uuid(), reader.Uuid()), Validate);
 
     public static byte[] EncodeSavedViewPlacement(SavedViewPlacement value)
     {

@@ -7,25 +7,18 @@ public sealed record ArticleCoverCommand(int Id, long ExpectedRevision, Guid Ide
 
 public static partial class Wire
 {
-    public static byte[] EncodeArticleCoverCommand(ArticleCoverCommand value)
-    {
-        ValidateCover(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.ExpectedRevision);
-        writer.Uuid(value.IdempotencyKey);
-        writer.Uuid(value.AssetId);
-        return Aeds.Encode(FrameType.ArticleCoverCommand, writer.Written);
-    }
+    public static byte[] EncodeArticleCoverCommand(ArticleCoverCommand value) =>
+        EncodeRecord(FrameType.ArticleCoverCommand, value, ValidateCover, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.ExpectedRevision);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Uuid(record.AssetId);
+        });
 
-    public static ArticleCoverCommand DecodeArticleCoverCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleCoverCommand));
-        var value = new ArticleCoverCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Uuid());
-        reader.Finish();
-        ValidateCover(value);
-        return value;
-    }
+    public static ArticleCoverCommand DecodeArticleCoverCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<ArticleCoverCommand>(FrameType.ArticleCoverCommand, frame, static (ref Reader reader) =>
+            new(reader.I32(), reader.I64(), reader.Uuid(), reader.Uuid()), ValidateCover);
 
     private static void ValidateCover(ArticleCoverCommand value)
     {

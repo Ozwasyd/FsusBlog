@@ -18,13 +18,9 @@ public sealed record AuthorTextFacetedPage(bool Ready, string NextCursor, int To
 
 public static partial class Wire
 {
-    public static byte[] EncodeAuthorTextSearchQuery(string value)
-    {
-        ValidateAuthorTextQuery(value);
-        var writer = new Writer();
-        writer.Text(value, WireLimits.AuthorTextSearchQueryBytes);
-        return Aeds.Encode(FrameType.AuthorTextSearchQuery, writer.Written);
-    }
+    public static byte[] EncodeAuthorTextSearchQuery(string value) =>
+        EncodeRecord(FrameType.AuthorTextSearchQuery, value, ValidateAuthorTextQuery,
+            static (writer, query) => writer.Text(query, WireLimits.AuthorTextSearchQueryBytes));
 
     public static string DecodeAuthorTextSearchQuery(ReadOnlySpan<byte> frame)
     {

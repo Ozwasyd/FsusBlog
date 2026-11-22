@@ -111,24 +111,17 @@ public static partial class Wire
         return new(revision, next, views);
     }
 
-    public static byte[] EncodeSavedViewExecute(SavedViewExecute value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.Id);
-        writer.I64(value.Revision);
-        writer.Text(value.Cursor, WireLimits.PropertyQueryCursorChars);
-        return Aeds.Encode(FrameType.SavedViewExecute, writer.Written);
-    }
+    public static byte[] EncodeSavedViewExecute(SavedViewExecute value) =>
+        EncodeRecord(FrameType.SavedViewExecute, value, Validate, static (writer, record) =>
+        {
+            writer.Uuid(record.Id);
+            writer.I64(record.Revision);
+            writer.Text(record.Cursor, WireLimits.PropertyQueryCursorChars);
+        });
 
-    public static SavedViewExecute DecodeSavedViewExecute(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.SavedViewExecute));
-        var result = new SavedViewExecute(reader.Uuid(), reader.I64(), reader.Text(WireLimits.PropertyQueryCursorChars));
-        reader.Finish();
-        Validate(result);
-        return result;
-    }
+    public static SavedViewExecute DecodeSavedViewExecute(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<SavedViewExecute>(FrameType.SavedViewExecute, frame, static (ref Reader reader) =>
+            new(reader.Uuid(), reader.I64(), reader.Text(WireLimits.PropertyQueryCursorChars)), Validate);
 
     public static byte[] EncodeSavedViewDefinition(IReadOnlyList<SavedViewCondition> conditions, string keyword = "")
     {

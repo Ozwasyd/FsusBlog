@@ -9,26 +9,19 @@ public sealed record ArticleMediaEntry(Guid Id, string Ticket);
 
 public static partial class Wire
 {
-    public static byte[] EncodeArticleMediaCommand(ArticleMediaCommand value)
-    {
-        ValidateMedia(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.ExpectedRevision);
-        writer.Uuid(value.IdempotencyKey);
-        writer.Uuid(value.AssetId);
-        writer.Bool(value.Attach);
-        return Aeds.Encode(FrameType.ArticleMediaCommand, writer.Written);
-    }
+    public static byte[] EncodeArticleMediaCommand(ArticleMediaCommand value) =>
+        EncodeRecord(FrameType.ArticleMediaCommand, value, ValidateMedia, static (writer, record) =>
+        {
+            writer.I32(record.Id);
+            writer.I64(record.ExpectedRevision);
+            writer.Uuid(record.IdempotencyKey);
+            writer.Uuid(record.AssetId);
+            writer.Bool(record.Attach);
+        });
 
-    public static ArticleMediaCommand DecodeArticleMediaCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.ArticleMediaCommand));
-        var command = new ArticleMediaCommand(reader.I32(), reader.I64(), reader.Uuid(), reader.Uuid(), reader.Bool());
-        reader.Finish();
-        ValidateMedia(command);
-        return command;
-    }
+    public static ArticleMediaCommand DecodeArticleMediaCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<ArticleMediaCommand>(FrameType.ArticleMediaCommand, frame, static (ref Reader reader) =>
+            new(reader.I32(), reader.I64(), reader.Uuid(), reader.Uuid(), reader.Bool()), ValidateMedia);
 
     public static byte[] EncodeArticleMedia(int article, long revision, IReadOnlyList<ArticleMediaEntry> entries)
     {
