@@ -83,7 +83,7 @@ FSUSBLOG_TEST_TICKET=$("${migrate[@]}" operator browser-author)
 export FSUSBLOG_TEST_TICKET
 flow=${FSUSBLOG_TEST_FLOW:-blog}
 if [[ $flow == blog || $flow == canvas-keyboard || $flow == editor-readiness ||
-      $flow == workspace-recovery || ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
+      $flow == workspace-recovery || $flow == workspace-locale || ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap browser-author)
   export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
 fi
