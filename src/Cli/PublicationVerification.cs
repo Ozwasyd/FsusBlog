@@ -97,11 +97,8 @@ internal static partial class Cli
             throw new InvalidOperationException($"Article {article} has inconsistent publication media metadata.");
     }
 
-    private static async Task VerifyPublicationHistoryAsync(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct,
-        bool hasArticleSchedule = true)
+    private static async Task VerifyPublicationHistoryAsync(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct)
     {
-        var scheduleJoin = hasArticleSchedule ? "public.article_schedule_receipt" :
-            "(select null::uuid actor_id,null::uuid command_id,null::timestamptz due_at where false)";
         bool hasAdminRollback = await CurrentSchema.HasAdminArticleRollbackSchemaAsync(connection, tx, ct);
         bool hasAdminDraftRollback = hasAdminRollback &&
             await CurrentSchema.HasAdminArticleDraftRollbackSchemaAsync(connection, tx, ct);
@@ -223,9 +220,9 @@ internal static partial class Cli
             coalesce(h.next_revision=h.revision+1 and h.next_kind='publish'
                 and h.next_reason='administrator-trash-republished', false)
             """ : "false";
-        var archivedSchedule = hasArticleSchedule ? """
+        const string archivedSchedule = """
                     or exists(select from public.article_schedule pending where pending.article_id=h.article_id)
-            """ : "";
+            """;
         var archiveVerification = hasArchive ? $"""
                or (h.previous_reason='administrator-rollback-archived' and
                     (h.admin_actor_id is null or h.reason<>'administrator-archive-republished'))
@@ -311,7 +308,7 @@ internal static partial class Cli
             join public.article a on a.id=h.article_id
             left join public.article_publication p on p.article_id=h.article_id
             left join public.article_command c on c.actor_id=h.actor_id and c.command_id=h.command_id
-            left join {scheduleJoin} s on s.actor_id=h.actor_id and s.command_id=h.command_id
+            left join public.article_schedule_receipt s on s.actor_id=h.actor_id and s.command_id=h.command_id
             left join lifecycle_outbox o on (o.article_id,o.revision)=(h.article_id,h.revision)
             {adminJoin}
             where h.event_no<>h.previous_event+1 or h.revision<=h.previous_revision

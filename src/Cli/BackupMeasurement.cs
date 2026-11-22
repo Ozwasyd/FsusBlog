@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -73,10 +74,9 @@ internal static partial class Cli
             """, token);
 
     private static async Task<(List<BackupRelation> Relations, List<BackupMedia> Media)> ReadBackupSiteAsync(
-        NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken token, string? excludedSchema = null)
+        NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken token)
     {
-        var relations = (await RelationsAsync(connection, transaction, token))
-            .Where(relation => relation.Schema != excludedSchema).ToList();
+        var relations = await RelationsAsync(connection, transaction, token);
         if (relations.Count > BackupRelationLimit || relations.Any(row => row.Kind is not ("r" or "S") || row.Schema != "public"))
             throw new InvalidOperationException("Backup measurement needs only supported public tables and sequences.");
         await RejectUnmeasuredDatabaseStateAsync(connection, transaction, token);
@@ -127,7 +127,7 @@ internal static partial class Cli
     {
         using var names = new NpgsqlCommandBuilder();
         var qualified = names.QuoteIdentifier(relation.Schema) + "." + names.QuoteIdentifier(relation.Name);
-        await using var keys = new NpgsqlCommand("""
+        await using var keys = ForRelation(connection, transaction, relation, """
             SELECT a.attname
             FROM pg_constraint pk JOIN pg_class c ON c.oid=pk.conrelid
             JOIN pg_namespace ns ON ns.oid=c.relnamespace
@@ -135,9 +135,7 @@ internal static partial class Cli
             JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum=key.attnum
             WHERE pk.contype='p' AND ns.nspname=$1 AND c.relname=$2
             ORDER BY key.position
-            """, connection, transaction);
-        keys.Parameters.Add(new NpgsqlParameter<string> { TypedValue = relation.Schema });
-        keys.Parameters.Add(new NpgsqlParameter<string> { TypedValue = relation.Name });
+            """);
         var order = new List<string>();
         await using (var cursor = await keys.ExecuteReaderAsync(token))
         {
@@ -153,27 +151,29 @@ internal static partial class Cli
             : $"SELECT {render} FROM {qualified} t ORDER BY {string.Join(", ", order)} LIMIT {BackupRowsPerRelation + 1}";
         await using var rows = new NpgsqlCommand(sql, connection, transaction);
         await using var read = await rows.ExecuteReaderAsync(System.Data.CommandBehavior.SequentialAccess, token);
-        return await MeasureBackupRowsAsync(relation.Name, relation.Kind, read, token);
-    }
-
-    private static async Task<BackupRelation> MeasureBackupRowsAsync(string name, string kind,
-        NpgsqlDataReader read, CancellationToken token, List<string>? retained = null)
-    {
         using var digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        AppendBackupValue(digest, name);
-        AppendBackupValue(digest, kind);
+        AppendBackupString(digest, relation.Name);
+        AppendBackupString(digest, relation.Kind);
         long count = 0;
         while (await read.ReadAsync(token))
         {
             if (++count > BackupRowsPerRelation)
-                throw new InvalidOperationException($"Backup relation {name} exceeds the measurement row budget.");
+                throw new InvalidOperationException($"Backup relation {relation.Name} exceeds the measurement row budget.");
             if (await read.IsDBNullAsync(0, token))
-                throw new InvalidOperationException($"Backup relation {name} contains a row outside the measurement byte budget.");
-            var content = read.GetString(0);
-            AppendBackupValue(digest, content);
-            retained?.Add(content);
+                throw new InvalidOperationException($"Backup relation {relation.Name} contains a row outside the measurement byte budget.");
+            AppendBackupString(digest, read.GetString(0));
         }
-        return new BackupRelation(name, kind, count, Convert.ToHexStringLower(digest.GetHashAndReset()));
+        return new BackupRelation(relation.Name, relation.Kind, count, Convert.ToHexStringLower(digest.GetHashAndReset()));
+    }
+
+    private static void AppendBackupString(IncrementalHash digest, string text)
+    {
+        var bytes = StrictUtf8.GetBytes(text);
+        Span<byte> prefix = stackalloc byte[5];
+        prefix[0] = (byte)'s';
+        BinaryPrimitives.WriteInt32BigEndian(prefix[1..], bytes.Length);
+        digest.AppendData(prefix);
+        digest.AppendData(bytes);
     }
 
     private static async Task<List<BackupMedia>> BackupMediaAsync(NpgsqlConnection connection,

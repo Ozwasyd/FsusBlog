@@ -22,15 +22,6 @@ internal static partial class Cli
         WriteIndented = true
     };
 
-    private static readonly IReadOnlyDictionary<(string Command, string? Subcommand),
-        Func<NpgsqlConnection, CancellationToken, Task>> FixedDatabaseCommands =
-        new Dictionary<(string, string?), Func<NpgsqlConnection, CancellationToken, Task>>
-        {
-            [("plan", null)] = PlanAsync,
-            [("media-webp", "schema")] = UpgradeMediaFormatsAsync,
-            [("publication-transparency", "enable")] = EnablePublicationTransparencyAsync,
-        };
-
     internal static async Task<int> RunAsync(string[] arguments)
     {
         if (arguments is ["help"] or ["--help"] or [])
@@ -127,94 +118,44 @@ internal static partial class Cli
             var token = cancelled.Token;
             await using var connection = new NpgsqlConnection(connectionString);
             await connection.OpenAsync(token);
-            var fixedHandler = arguments switch
+            await (arguments switch
             {
-                [var command] => FixedDatabaseCommands.GetValueOrDefault((command, null)),
-                [var command, var subcommand] => FixedDatabaseCommands.GetValueOrDefault((command, subcommand)),
-                _ => null
-            };
-            if (fixedHandler is not null)
-            {
-                await fixedHandler(connection, token);
-                return 0;
-            }
-
-            switch (arguments)
-            {
-                case ["inventory"]:
-                    await WriteInventoryAsync(connection, countRows: false, token);
-                    break;
-                case ["inventory", "--counts"]:
-                    await WriteInventoryAsync(connection, countRows: true, token);
-                    break;
-                case ["apply", var path]:
-                    await ApplyAsync(connection, path, token);
-                    break;
-                case ["verify"]:
-                    await CurrentSchema.VerifyAsync(connection, token);
-                    await VerifyPublicationsAsync(connection, token);
-                    Console.WriteLine($"Verified FsusBlog V2 schema version {CurrentSchema.Version}.");
-                    break;
-                case ["publication-canonical", "verify"]:
-                    await VerifyPublicationCanonicalAsync(connection, null, token);
-                    break;
-                case ["publication-canonical", "verify", var canonicalPublication]:
-                    await VerifyPublicationCanonicalAsync(connection, canonicalPublication, token);
-                    break;
-                case ["publication-transparency", "checkpoint-release", .. var checkpointArgs]:
-                    await CreatePublicationCheckpointAsync(connection, checkpointArgs, PublicationCheckpointKind.Release, token);
-                    break;
-                case ["publication-transparency", "checkpoint-daily", .. var dailyCheckpointArgs]:
-                    await CreatePublicationCheckpointAsync(connection, dailyCheckpointArgs, PublicationCheckpointKind.Daily, token);
-                    break;
-                case ["publication-transparency", "checkpoint-daily-auto", .. var automaticCheckpointArgs]:
-                    await SealDailyPublicationCheckpointAsync(connection, automaticCheckpointArgs, token);
-                    break;
-                case ["publication-transparency", "verify", var transparencyOrigin, var transparencyKeys, .. var transparencyAnchor]:
-                    await VerifyPublicationTransparencyAsync(connection, transparencyOrigin, transparencyKeys, transparencyAnchor, token);
-                    break;
-                case ["article-responsibility", "record", var responsibilityArticle, var responsibilityRevision]:
-                    await RecordArticleResponsibilityAsync(connection, responsibilityArticle, responsibilityRevision, token);
-                    break;
-                case ["article-public-media", var mediaOperation, var mediaSite, var privateMediaRoot, var publicMediaRoot, var mediaWebRoot]
-                    when mediaOperation is "verify" or "rebuild":
-                    await VerifyOrRebuildPublicationMediaAsync(connection, mediaOperation == "rebuild", mediaSite,
-                        privateMediaRoot, publicMediaRoot, mediaWebRoot, token);
-                    break;
-                case ["site-subscription", "issue-cancel", var channel]:
-                    await IssueSubscriptionCancelAsync(connection, channel, token);
-                    break;
-                case ["admin-identity", .. var adminArguments]:
-                    await AdminIdentityAsync(connection, adminArguments, token);
-                    break;
-                case ["operator", var name]:
-                    await IssueAsync(connection, name, create: true, token);
-                    break;
-                case ["operator", var name, "--reader"]:
-                    await IssueAsync(connection, name, create: true, token);
-                    break;
-                case ["ticket", var name]:
-                    await IssueAsync(connection, name, create: false, token);
-                    break;
-                case ["revoke", var name]:
-                    await RevokeAsync(connection, name, token);
-                    break;
-                case ["notify", var recipient, var eventId]:
-                    await NotifyAsync(connection, recipient, eventId, Console.OpenStandardInput(), token);
-                    break;
-                case ["comment", "handle", var account, var displayName]:
-                    await CommentMaintenance.AssignHandle(connection, account, displayName, token);
-                    break;
-                case ["comment", "policy", var article, var state]:
-                    await CommentMaintenance.SetArticlePolicy(connection, article, state, token);
-                    break;
-                case ["comment", "moderate", var article, var comment, var expected, var decision, var reason]:
-                    await CommentMaintenance.Moderate(connection, article, comment, expected, decision, reason, token);
-                    break;
-                default:
-                    throw new ArgumentException("Unrecognized arguments. Run with --help for usage.");
-            }
-
+                ["plan"] => PlanAsync(connection, token),
+                ["media-webp", "schema"] => UpgradeMediaFormatsAsync(connection, token),
+                ["publication-transparency", "enable"] => EnablePublicationTransparencyAsync(connection, token),
+                ["inventory"] => WriteInventoryAsync(connection, countRows: false, token),
+                ["inventory", "--counts"] => WriteInventoryAsync(connection, countRows: true, token),
+                ["apply", var path] => ApplyAsync(connection, path, token),
+                ["verify"] => VerifyAsync(connection, token),
+                ["publication-canonical", "verify"] => VerifyPublicationCanonicalAsync(connection, null, token),
+                ["publication-canonical", "verify", var publication] => VerifyPublicationCanonicalAsync(connection, publication, token),
+                ["publication-transparency", "checkpoint-release", .. var args] =>
+                    CreatePublicationCheckpointAsync(connection, args, PublicationCheckpointKind.Release, token),
+                ["publication-transparency", "checkpoint-daily", .. var args] =>
+                    CreatePublicationCheckpointAsync(connection, args, PublicationCheckpointKind.Daily, token),
+                ["publication-transparency", "checkpoint-daily-auto", .. var args] =>
+                    SealDailyPublicationCheckpointAsync(connection, args, token),
+                ["publication-transparency", "verify", var origin, var keys, .. var anchor] =>
+                    VerifyPublicationTransparencyAsync(connection, origin, keys, anchor, token),
+                ["article-responsibility", "record", var article, var revision] =>
+                    RecordArticleResponsibilityAsync(connection, article, revision, token),
+                ["article-public-media", var operation, var site, var privateRoot, var publicRoot, var webRoot]
+                    when operation is "verify" or "rebuild" =>
+                    VerifyOrRebuildPublicationMediaAsync(connection, operation == "rebuild", site, privateRoot, publicRoot, webRoot, token),
+                ["site-subscription", "issue-cancel", var channel] => IssueSubscriptionCancelAsync(connection, channel, token),
+                ["admin-identity", .. var args] => AdminIdentityAsync(connection, args, token),
+                ["operator", var name] => IssueAsync(connection, name, create: true, token),
+                ["operator", var name, "--reader"] => IssueAsync(connection, name, create: true, token),
+                ["ticket", var name] => IssueAsync(connection, name, create: false, token),
+                ["revoke", var name] => RevokeAsync(connection, name, token),
+                ["notify", var recipient, var eventId] => NotifyAsync(connection, recipient, eventId, Console.OpenStandardInput(), token),
+                ["comment", "handle", var account, var displayName] =>
+                    CommentMaintenance.AssignHandle(connection, account, displayName, token),
+                ["comment", "policy", var article, var state] => CommentMaintenance.SetArticlePolicy(connection, article, state, token),
+                ["comment", "moderate", var article, var comment, var expected, var decision, var reason] =>
+                    CommentMaintenance.Moderate(connection, article, comment, expected, decision, reason, token),
+                _ => throw new ArgumentException("Unrecognized arguments. Run with --help for usage.")
+            });
             return 0;
         }
         catch (OperationCanceledException) when (cancelled.IsCancellationRequested)
@@ -237,6 +178,13 @@ internal static partial class Cli
         {
             Console.CancelKeyPress -= cancel;
         }
+    }
+
+    private static async Task VerifyAsync(NpgsqlConnection connection, CancellationToken token)
+    {
+        await CurrentSchema.VerifyAsync(connection, token);
+        await VerifyPublicationsAsync(connection, token);
+        Console.WriteLine($"Verified FsusBlog V2 schema version {CurrentSchema.Version}.");
     }
 
     private static async Task PlanAsync(NpgsqlConnection connection, CancellationToken token)
