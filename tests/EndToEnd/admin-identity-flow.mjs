@@ -315,7 +315,12 @@ try {
     phase = 'support-inbox'
     if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_LIVE === '1')
       assert(checks.adminInboxWakeRechecksRevocationAndRejectsClientMessages, 'Live administrator inbox acceptance requires the revocation fixture.')
-    await verifyAdminInbox(admin, context, adminOrigin.origin, siteOrigin.origin, siteCookie, adminCookieName, credentialProbe, evidence)
+    const viewport = admin.viewportSize()
+    try {
+      await verifyAdminInbox(admin, context, adminOrigin.origin, siteOrigin.origin, siteCookie, adminCookieName, credentialProbe, evidence)
+    } finally {
+      if (viewport) await admin.setViewportSize(viewport)
+    }
     checks.adminInboxOnlyShowsPrivateThreadsToCurrentAdmin = true
   }
 
