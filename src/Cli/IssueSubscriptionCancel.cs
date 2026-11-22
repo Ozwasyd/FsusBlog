@@ -44,22 +44,16 @@ internal static partial class Cli
             handoff.Parameters.AddWithValue(PublicationLocks.HandoffObject);
             await handoff.ExecuteNonQueryAsync(ct);
 
-            await using var target = new NpgsqlCommand("""
+            await using var target = ParameterizedCommand(connection, tx, """
                 select 1 from public.site_subscription where email_key=$1 and channel=$2 and enabled for update
-                """, connection, tx);
-            target.Parameters.AddWithValue(emailKey);
-            target.Parameters.AddWithValue(channel);
+                """, emailKey, channel);
             if (await target.ExecuteScalarAsync(ct) is not 1)
                 throw new InvalidOperationException("A cancellation proof could not be issued for the provided preference.");
 
-            await using var grant = new NpgsqlCommand("""
+            await using var grant = ParameterizedCommand(connection, tx, """
                 update public.site_subscription set proof_digest=$3, proof_expires_at=clock_timestamp()+$4
                 where email_key=$1 and channel=$2 and enabled
-                """, connection, tx);
-            grant.Parameters.AddWithValue(emailKey);
-            grant.Parameters.AddWithValue(channel);
-            grant.Parameters.AddWithValue(SHA256.HashData(secret));
-            grant.Parameters.AddWithValue(SubscriptionIdentity.ProofLifetime);
+                """, emailKey, channel, SHA256.HashData(secret), SubscriptionIdentity.ProofLifetime);
             if (await grant.ExecuteNonQueryAsync(ct) != 1)
                 throw new InvalidOperationException("A cancellation proof could not be issued for the provided preference.");
             await tx.CommitAsync(ct);

@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -32,7 +33,7 @@ internal static partial class Cli
             throw new ArgumentException("The checkpoint or inclusion range exceeds the pinned native prefix limits.");
 
         var (current, keys) = await ReadTransparencyKeysAsync(args[1], ct);
-        try
+        using (keys)
         {
             var configuredCurrent = Environment.GetEnvironmentVariable("IntegrityProof__Signing__CurrentKeyId")?.Trim();
             if (configuredCurrent != current)
@@ -42,11 +43,8 @@ internal static partial class Cli
             await PrepareStoppedOperationAsync(db, tx, ct);
             if (await CurrentSchema.PublicationTransparencyStateAsync(db, tx, ct) is not true)
                 throw new InvalidOperationException("Native publication transparency is inactive.");
-            var headKey = await RequireCheckpointKey(db, tx, keys, head.Claim.KeyId, head.Claim.AttestedAt, ct);
-            if (headKey.Version != head.Claim.KeyVersion || !headKey.Fingerprint.AsSpan().SequenceEqual(head.Claim.KeySha256) ||
-                !headKey.PublicKey.VerifyData(head.Claim.Payload(), head.Signature, HashAlgorithmName.SHA256,
-                    DSASignatureFormat.IeeeP1363FixedFieldConcatenation))
-                throw new InvalidOperationException("The independently retained native head signature is invalid.");
+            await VerifyCheckpointHead(db, tx, keys, head.Claim, head.Signature,
+                static () => new InvalidOperationException("The independently retained native head signature is invalid."), ct);
 
             var entries = daily ? await ReadDailyCheckpointEntries(db, tx, midnight, head.Claim, ct) :
                 await ReadCheckpointRange(db, tx, from, to, head.Claim, ct);
@@ -72,10 +70,6 @@ internal static partial class Cli
                 inclusion = EncodeCheckpointInclusion(checkpoint.Inclusion, daily),
             }));
         }
-        finally
-        {
-            foreach (var key in keys.Values) key.PublicKey.Dispose();
-        }
     }
 
     private static object SignPublicationCheckpoint(PublicationCheckpointV2 claim, ECDsa key) =>
@@ -91,7 +85,7 @@ internal static partial class Cli
         headSequence = DecimalSequence(claim.HeadSequence), headEntrySha256 = Convert.ToHexStringLower(claim.HeadEntrySha256),
         keyId = claim.KeyId, keyVersion = claim.KeyVersion, keySha256 = Convert.ToHexStringLower(claim.KeySha256),
         attestedAtUtc = ArticlePublicationProofPayloadV2.Time(claim.AttestedAt),
-        signature = CanonicalBase64Url(signature),
+        signature = Base64Url.EncodeToString(signature),
     };
 
     private static byte[] SignPublicationAttestation(byte[] payload, ECDsa key) =>
@@ -149,11 +143,10 @@ internal static partial class Cli
         if (!keys.TryGetValue(id, out var key) || key.Compromised || at < key.Before || at > key.After ||
             (key.Revoked.HasValue && key.Revoked.Value <= at))
             throw UntrustedCheckpointKey();
-        await using var command = new NpgsqlCommand("""
+        await using var command = ParameterizedCommand(db, tx, """
             select version,spki_sha256,not_before,not_after,revoked_at,compromised_at
             from public.publication_proof_key where key_id=$1
-            """, db, tx);
-        command.Parameters.AddWithValue(id);
+            """, id);
         await using var row = await command.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct) || row.GetInt32(0) != key.Version || !key.Fingerprint.AsSpan().SequenceEqual(row.GetFieldValue<byte[]>(1)) ||
             key.Before != row.GetDateTime(2) || key.After != row.GetDateTime(3) || !row.IsDBNull(5) ||
@@ -168,12 +161,10 @@ internal static partial class Cli
     private static async Task<List<PublicationCheckpointEntry>> ReadCheckpointRange(NpgsqlConnection db, NpgsqlTransaction tx, long from, long to,
         PublicationTransparencyHeadV2 head, CancellationToken ct)
     {
-        await using var query = new NpgsqlCommand("""
+        await using var query = ParameterizedCommand(db, tx, """
             select seq,prev_sha256,receipt_sha256,entry_sha256
             from public.article_publication_transparency where seq between $1 and $2 order by seq
-            """, db, tx);
-        query.Parameters.AddWithValue(from);
-        query.Parameters.AddWithValue(head.Sequence);
+            """, from, head.Sequence);
         await using var row = await query.ExecuteReaderAsync(ct);
         var selected = new List<PublicationCheckpointEntry>((int)(to - from + 1));
         var sequence = from - 1;

@@ -24,7 +24,7 @@ internal static partial class Cli
         });
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
 
-        await using (var locked = ResponsibilitySql(connection, tx, """
+        await using (var locked = ParameterizedCommand(connection, tx, """
             SELECT id FROM public.article WHERE id=$1 AND NOT deleted FOR UPDATE
             """, article))
             if (await locked.ExecuteScalarAsync(ct) is null)
@@ -41,7 +41,7 @@ internal static partial class Cli
         }
         else
         {
-            await using var insert = ResponsibilitySql(connection, tx, """
+            await using var insert = ParameterizedCommand(connection, tx, """
                 INSERT INTO public.article_revision_responsibility
                     (article_id,revision,responsible_party,basis,reference,recorded_by)
                 VALUES ($1,$2,$3,$4,$5,current_user::text)
@@ -49,7 +49,7 @@ internal static partial class Cli
                 """, article, revision, evidence.ResponsibleParty, evidence.Basis, evidence.Reference);
             snapshot = (long)(await insert.ExecuteScalarAsync(ct) ??
                 throw new InvalidOperationException("Could not record historical responsibility."));
-            await using var bind = ResponsibilitySql(connection, tx, """
+            await using var bind = ParameterizedCommand(connection, tx, """
                 INSERT INTO public.article_publication_responsibility(publication_id,article_id,revision,snapshot_id)
                 VALUES ($1,$2,$3,$4)
                 """, publication, article, revision, snapshot);
@@ -66,7 +66,7 @@ internal static partial class Cli
     private static async Task<long> ReadResponsibilityPublicationAsync(NpgsqlConnection db, NpgsqlTransaction tx,
         int article, long revision, CancellationToken ct)
     {
-        await using var command = ResponsibilitySql(db, tx, """
+        await using var command = ParameterizedCommand(db, tx, """
             WITH publications AS (
                 SELECT h.publication_id
                 FROM public.article_publication_history h
@@ -93,7 +93,7 @@ internal static partial class Cli
     private static async Task<(long Snapshot, long Publication, HistoricalResponsibility Evidence)?> ReadExistingResponsibilityAsync(
         NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, CancellationToken ct)
     {
-        await using var command = ResponsibilitySql(db, tx, """
+        await using var command = ParameterizedCommand(db, tx, """
             SELECT r.id,p.publication_id,r.responsible_party,r.basis,r.reference
             FROM public.article_revision_responsibility r
             LEFT JOIN public.article_publication_responsibility p ON p.snapshot_id=r.id AND p.article_id=r.article_id AND p.revision=r.revision
@@ -109,12 +109,7 @@ internal static partial class Cli
 
     private static async Task<HistoricalResponsibility> ReadArticleResponsibilityAsync(Stream input, CancellationToken ct)
     {
-        const int maximum = 64 * 1024;
-        var bytes = new byte[maximum + 1];
-        var used = await input.ReadAtLeastAsync(bytes, bytes.Length, false, ct);
-        if (used > maximum)
-            throw new ArgumentException("Historical responsibility input exceeds 64 KiB.");
-        using var document = JsonDocument.Parse(bytes.AsMemory(0, used), new JsonDocumentOptions { MaxDepth = 2 });
+        using var document = await ReadInputJsonAsync(input, 64 * 1024, "Historical responsibility input exceeds 64 KiB.", ct);
         if (document.RootElement.ValueKind != JsonValueKind.Object)
             throw new ArgumentException("Provide a JSON object with responsibleParty, basis and reference strings.");
         var fields = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -132,12 +127,12 @@ internal static partial class Cli
         return new HistoricalResponsibility(fields["responsibleParty"], fields["basis"], fields["reference"]);
     }
 
-    private static NpgsqlCommand ResponsibilitySql(NpgsqlConnection db, NpgsqlTransaction tx, string text, params object[] args)
+    private static async Task<JsonDocument> ReadInputJsonAsync(Stream input, int maximum, string limitError, CancellationToken ct)
     {
-        var command = new NpgsqlCommand(text, db, tx);
-        foreach (var arg in args)
-            command.Parameters.AddWithValue(arg);
-        return command;
+        var bytes = new byte[maximum + 1];
+        var used = await input.ReadAtLeastAsync(bytes, bytes.Length, throwOnEndOfStream: false, ct);
+        if (used > maximum) throw new ArgumentException(limitError);
+        return JsonDocument.Parse(bytes.AsMemory(0, used), new JsonDocumentOptions { MaxDepth = 2 });
     }
 
     private sealed record HistoricalResponsibility(string ResponsibleParty, string Basis, string Reference);

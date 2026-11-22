@@ -26,7 +26,7 @@ internal static partial class Cli
 
         var signerId = Environment.GetEnvironmentVariable("IntegrityProof__CheckpointSigning__KeyId");
         var (current, keys) = await ReadTransparencyKeysAsync(args[1], ct);
-        try
+        using (keys)
         {
             if (signerId is null || !keys.TryGetValue(signerId, out var standaloneKey) || signerId == current ||
                 standaloneKey.Fingerprint.AsSpan().SequenceEqual(keys[current].Fingerprint))
@@ -44,7 +44,7 @@ internal static partial class Cli
             if (midnight.AddDays(1) > at) throw new InvalidOperationException("The requested UTC day is still open.");
             await CurrentSchema.VerifyPublicationCheckpointSchemaAsync(db, tx, ct);
             var latest = await ReadExactDailyTail(db, tx, args[0], at, ct);
-            await VerifyAutomaticHead(db, tx, keys, latest.Claim, latest.Signature, ct);
+            await VerifyCheckpointHead(db, tx, keys, latest.Claim, latest.Signature, BadCheckpointPrefix, ct);
             if (latest.Claim.KeySha256.AsSpan().SequenceEqual(standaloneKey.Fingerprint))
                 throw new InvalidOperationException("The automatic checkpoint key must differ from the native head signer.");
 
@@ -74,7 +74,7 @@ internal static partial class Cli
             }
             else
             {
-                var key = await VerifyAutomaticHead(db, tx, keys, head, retained.HeadSignature, ct);
+                var key = await VerifyCheckpointHead(db, tx, keys, head, retained.HeadSignature, BadCheckpointPrefix, ct);
                 if (!VerifyPublicationAttestation(key, claim.Payload(), retained.CheckpointSignature))
                     throw new InvalidOperationException("The retained daily checkpoint signature does not match the ledger.");
                 bytes = EncodeAutomaticArchive(head, retained.HeadSignature, EncodePublicationCheckpoint(claim, retained.CheckpointSignature));
@@ -90,10 +90,6 @@ internal static partial class Cli
                 scopeKey = scope, path, sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes)),
                 anchor = DecimalSequence(head.Sequence) + ":" + Convert.ToHexStringLower(head.EntrySha256),
             }));
-        }
-        finally
-        {
-            foreach (var key in keys.Values) key.PublicKey.Dispose();
         }
     }
 
@@ -115,12 +111,13 @@ internal static partial class Cli
             row.GetFieldValue<byte[]>(5), row.GetDateTime(6)), row.GetFieldValue<byte[]>(7));
     }
 
-    private static async Task<TransparencyAuditKey> VerifyAutomaticHead(NpgsqlConnection db, NpgsqlTransaction tx,
-        IReadOnlyDictionary<string, TransparencyAuditKey> keys, PublicationTransparencyHeadV2 head, byte[] signature, CancellationToken ct)
+    private static async Task<TransparencyAuditKey> VerifyCheckpointHead(NpgsqlConnection db, NpgsqlTransaction tx,
+        IReadOnlyDictionary<string, TransparencyAuditKey> keys, PublicationTransparencyHeadV2 head, byte[] signature,
+        Func<InvalidOperationException> invalidSignature, CancellationToken ct)
     {
         var key = await RequireCheckpointKey(db, tx, keys, head.KeyId, head.AttestedAt, ct);
         if (key.Version != head.KeyVersion || !key.Fingerprint.AsSpan().SequenceEqual(head.KeySha256) ||
-            !VerifyPublicationAttestation(key, head.Payload(), signature)) throw BadCheckpointPrefix();
+            !VerifyPublicationAttestation(key, head.Payload(), signature)) throw invalidSignature();
         return key;
     }
 

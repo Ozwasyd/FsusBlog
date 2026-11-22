@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -42,14 +43,14 @@ internal static partial class Cli
         if (pin.Length != 0)
         {
             if (pin.Length != 2 || !long.TryParse(pin[0], NumberStyles.None, CultureInfo.InvariantCulture, out var sequence) ||
-                sequence <= 0 || sequence.ToString(CultureInfo.InvariantCulture) != pin[0] || !AuditSha256(pin[1]))
+                sequence <= 0 || DecimalSequence(sequence) != pin[0] || !AuditSha256(pin[1]))
                 throw new ArgumentException("Supply a positive prefix sequence and a lowercase SHA-256 digest.");
             prefix = sequence;
             expected = Convert.FromHexString(pin[1]);
         }
 
         var (_, keys) = await ReadTransparencyKeysAsync(keyPath, ct);
-        try
+        using (keys)
         {
             await CurrentSchema.VerifyAsync(connection, ct);
             await using var tx = await BeginReadOnlyAsync(connection, ct);
@@ -116,16 +117,12 @@ internal static partial class Cli
             Console.WriteLine(JsonSerializer.Serialize(new
             {
                 version = 2, kind = "native-publication-transparency", origin,
-                sequence = sequence.ToString(CultureInfo.InvariantCulture),
+                sequence = DecimalSequence(sequence),
                 entrySha256 = Convert.ToHexStringLower(head), chainVerified = true, prefixVerified = expected is not null,
                 trustStatus = sequence == 0 ? "empty" : revoked + compromised == 0 ? "trusted" : "withheld",
                 trustedSignatures = trusted, retiredEligibleSignatures = retired,
                 revokedSignatures = revoked, compromisedSignatures = compromised,
             }));
-        }
-        finally
-        {
-            foreach (var key in keys.Values) key.PublicKey.Dispose();
         }
     }
 
@@ -137,10 +134,10 @@ internal static partial class Cli
             row.GetDateTime(9), row.GetInt64(10), row.GetInt64(11), row.GetFieldValue<byte[]>(12), row.GetFieldValue<byte[]>(13),
             row.GetString(14), row.GetInt32(15), row.GetFieldValue<byte[]>(16), row.GetDateTime(17), row.GetInt32(19));
 
-    private static async Task<(string Current, Dictionary<string, TransparencyAuditKey> Keys)> ReadTransparencyKeysAsync(string path,
+    private static async Task<(string Current, TransparencyKeys Keys)> ReadTransparencyKeysAsync(string path,
         CancellationToken ct)
     {
-        var keys = new Dictionary<string, TransparencyAuditKey>(StringComparer.Ordinal);
+        var keys = new TransparencyKeys();
         try
         {
             using var document = await ReadIntegrityJsonAsync(path, 65_536, ct);
@@ -187,7 +184,7 @@ internal static partial class Cli
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or FormatException or
             CryptographicException or KeyNotFoundException or InvalidOperationException or ArgumentException)
         {
-            foreach (var key in keys.Values) key.PublicKey.Dispose();
+            keys.Dispose();
             throw new InvalidOperationException("The supplied native publication public key manifest is invalid.");
         }
     }
@@ -204,12 +201,9 @@ internal static partial class Cli
     {
         if (value.Length < minimumCharacters || value.Length > maximumCharacters) throw new FormatException();
         var bytes = Convert.FromBase64String(value.Replace('-', '+').Replace('_', '/').PadRight((value.Length + 3) / 4 * 4, '='));
-        if (CanonicalBase64Url(bytes) != value) throw new FormatException();
+        if (Base64Url.EncodeToString(bytes) != value) throw new FormatException();
         return bytes;
     }
-
-    private static string CanonicalBase64Url(byte[] bytes) =>
-        Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     private static DateTimeOffset? TransparencyKeyTime(JsonElement entry, string field)
     {
@@ -222,7 +216,15 @@ internal static partial class Cli
     }
 
     private static bool AuditSha256(string value) => value.Length == 64 &&
-        value.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
+        value.All(char.IsAsciiHexDigitLower);
+
+    private sealed class TransparencyKeys() : Dictionary<string, TransparencyAuditKey>(StringComparer.Ordinal), IDisposable
+    {
+        public void Dispose()
+        {
+            foreach (var key in Values) key.PublicKey.Dispose();
+        }
+    }
 
     private sealed record TransparencyAuditKey(int Version, byte[] Fingerprint, ECDsa PublicKey, DateTimeOffset Before, DateTimeOffset After,
         DateTimeOffset? Revoked, bool Compromised);

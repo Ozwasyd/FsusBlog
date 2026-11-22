@@ -34,14 +34,14 @@ internal static partial class Cli
         }
         else
         {
-            await using (var actor = Command("select id from public.admin_principal where handle=$1 and enabled for update", handle))
+            await using (var actor = ParameterizedCommand(connection, tx, "select id from public.admin_principal where handle=$1 and enabled for update", handle))
             {
                 if (await actor.ExecuteScalarAsync(ct) is not Guid id)
                     throw new InvalidOperationException("Enabled administrator principal not found.");
                 principal = id;
             }
 
-            await using (var advance = Command("""
+            await using (var advance = ParameterizedCommand(connection, tx, """
                 update public.admin_principal set generation=generation+1,generation_changed_at=pg_catalog.clock_timestamp(),enabled=$2
                 where id=$1 returning generation
                 """, principal, action != "disable"))
@@ -81,16 +81,9 @@ internal static partial class Cli
                 : "Revoked administrator sessions and invitations.");
         }
 
-        NpgsqlCommand Command(string sql, params object[] values)
-        {
-            var command = new NpgsqlCommand(sql, connection, tx);
-            foreach (var value in values) command.Parameters.Add(new NpgsqlParameter { Value = value });
-            return command;
-        }
-
         async Task<int> RunAsync(string sql, params object[] values)
         {
-            await using var command = Command(sql, values);
+            await using var command = ParameterizedCommand(connection, tx, sql, values);
             return await command.ExecuteNonQueryAsync(ct);
         }
     }

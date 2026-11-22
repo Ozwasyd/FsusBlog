@@ -8,7 +8,7 @@ internal static partial class Cli
         (long Sequence, byte[] Hash)? anchor = null, PublicationTransparencyHeadV2? selectedHead = null, DateTime? observedAt = null)
     {
         var until = utcMidnight.AddDays(1);
-        await using var query = new NpgsqlCommand("""
+        await using var query = ParameterizedCommand(db, tx, """
             select l.seq,l.prev_sha256,l.receipt_sha256,l.entry_sha256,
                    p.origin,c.article_id,c.revision,p.publication_id,c.publication_no,c.published_at,c.rights_snapshot_id,
                    c.outbox_id,c.content_sha256,c.policy_sha256,p.key_id,p.key_version,p.key_sha256,p.issued_at,p.signature,
@@ -18,8 +18,7 @@ internal static partial class Cli
             join public.article_publication_canonical c on c.publication_id=p.publication_id
             join public.blog_outbox o on o.id=c.outbox_id
             where l.seq <= $1 order by l.seq
-            """, db, tx);
-        query.Parameters.AddWithValue(head.Sequence);
+            """, head.Sequence);
         await using var row = await query.ExecuteReaderAsync(ct);
         long sequence = 0;
         var previous = new byte[32];
