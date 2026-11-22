@@ -11,9 +11,9 @@ import {
 import { adminArticleFixture, commitWithLostReceipt, sourceTitle } from './admin-article-fixture.mjs'
 import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
-export async function verifyAdminArticleRollback({ page, context, adminOrigin, siteOrigin, grant, logIn, evidence }) {
+export async function verifyAdminArticleRollback({ page, context, adminOrigin, siteOrigin, owner, adminCookieName, siteCookie, probe, evidence }) {
   await visitAdminWorkspace(page, '/admin/articles')
-  const { admin, section, send, grantAndSignIn, previewRollback, inspect, index,
+  const { admin, section, send, openPublicationRecovery, previewRollback, inspect, index,
     expectStaleIndex, expectWithdrawnArticle, expectWithdrawnCorpus } = adminArticleFixture({ page, context, adminOrigin, siteOrigin })
   const availability = WireRoutes.AdminArticleRollbackAvailability
   const draftAvailability = WireRoutes.AdminArticleDraftRollbackAvailability
@@ -22,12 +22,11 @@ export async function verifyAdminArticleRollback({ page, context, adminOrigin, s
   assert.deepEqual([before.revision, before.publication, before.title, before.rights?.copyrightHolder],
     [2n, 2n, 'Rollback fixture current title', 'Current fixture rights'])
 
-  assertStatus(await context.request.get(admin(availability)), 403)
+  await probe(admin(availability), adminCookieName, siteCookie.value, 401)
   assertStatus(await context.request.get(siteOrigin.origin + availability), 404)
-  assertStatus(await context.request.get(admin(draftAvailability)), 403)
+  await probe(admin(draftAvailability), adminCookieName, siteCookie.value, 401)
   assertStatus(await context.request.get(siteOrigin.origin + draftAvailability), 404)
-  assert.equal(await section.count(), 0)
-  await grantAndSignIn(grant, logIn)
+  await openPublicationRecovery()
   await section.waitFor()
   assertStatus(await context.request.get(admin(draftAvailability)), 204)
   await previewRollback()
@@ -136,14 +135,14 @@ export async function verifyAdminArticleRollback({ page, context, adminOrigin, s
   assert(!hiddenIndex.items.some(article => article.id === 1))
   await expectWithdrawnCorpus(hiddenIndex.generation)
 
-  const ownerDraft = await context.request.get(siteOrigin.origin + WireRoutes.Draft.replace('{id:int}', '1'))
+  const ownerDraft = await owner.request.get(admin(WireRoutes.Draft.replace('{id:int}', '1')))
   assertStatus(ownerDraft, 200)
   const draft = decodeDraft(decodeFrame(await ownerDraft.body(), FrameType.Draft).payload)
   assert.deepEqual([draft.id, draft.revision, draft.title, draft.body, draft.published],
     [1, 4n, 'Rollback fixture source title',
       'Historical Markdown ready for restoration\n\n![Never fetched in source preview](https://archive-preview.invalid/from-source.png)\n', false])
   await ownerDraft.dispose()
-  const inventory = await context.request.get(siteOrigin.origin + WireRoutes.AuthorArticles + '?scope=active&article=1&state=draft')
+  const inventory = await owner.request.get(admin(WireRoutes.AuthorArticles + '?scope=active&article=1&state=draft'))
   assertStatus(inventory, 200)
   const inventoryRows = decodeAuthorArticlePage(decodeFrame(await inventory.body(), FrameType.AuthorArticlePage).payload).items
   assert.deepEqual(inventoryRows.map(item => [item.id, item.revision, item.state]), [[1, 4n, 'draft']])

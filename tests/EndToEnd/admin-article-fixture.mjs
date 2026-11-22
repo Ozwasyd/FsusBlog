@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { queryCorpusPage, searchTerms } from '../../src/Contracts/local-search.ts'
 import { decodeArticle, decodeSearch } from '../../src/Contracts/public-articles.ts'
@@ -25,13 +23,6 @@ export function adminArticleFixture({ page, context, adminOrigin, siteOrigin }) 
   const send = (path, data, headers = {}) => context.request.post(admin(path), {
     headers: { Origin: adminOrigin.origin, 'Content-Type': 'application/octet-stream', ...headers }, data,
   })
-
-  async function grantAndSignIn(grant, logIn) {
-    await promisify(execFile)(grant, [], { timeout: 8_000 })
-    await page.reload()
-    await logIn(page)
-    await openPublicationRecovery()
-  }
 
   async function previewRollback() {
     await openPublicationRecovery()
@@ -87,7 +78,7 @@ export function adminArticleFixture({ page, context, adminOrigin, siteOrigin }) 
     } finally { await corpus.dispose() }
   }
 
-  return { admin, site, section, send, grantAndSignIn, previewRollback, inspect, index,
+  return { admin, site, section, send, openPublicationRecovery, previewRollback, inspect, index,
     expectStaleIndex, expectWithdrawnArticle, expectWithdrawnCorpus }
 }
 

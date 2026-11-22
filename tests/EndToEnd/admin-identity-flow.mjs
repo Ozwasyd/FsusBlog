@@ -26,7 +26,7 @@ import {
   encodeAdminModerationIntent, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
-import { enableAuthenticator } from './webauthn-fixture.mjs'
+import { enableAuthenticator, signInFreshAdmin } from './webauthn-fixture.mjs'
 
 const { chromium, request } = requireWebPackage('@playwright/test')
 const adminUrl = process.env.FSUSBLOG_TEST_ADMIN_URL
@@ -322,18 +322,23 @@ try {
     checks.adminInboxOnlyShowsPrivateThreadsToCurrentAdmin = true
   }
 
-  if (process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE === '1') {
-    phase = 'article-archive'
-    await verifyAdminArticleArchive({ ...adminWorkspace,
-      grant: process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT, logIn, evidence })
+  const archive = process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE === '1'
+  if (archive || process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK === '1') {
+    phase = archive ? 'article-archive' : 'article-rollback'
+    const bootstrap = process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_OWNER
+    assert(bootstrap, 'Provide a separate administrator Passkey bootstrap for the article owner.')
+    const owner = await browser.newContext()
+    try {
+      await signInFreshAdmin(await owner.newPage(), adminOrigin.origin, bootstrap)
+      const verify = archive ? verifyAdminArticleArchive : verifyAdminArticleRollback
+      await verify({ ...permissionFixture, owner, probe: credentialProbe, evidence })
+      await assertEmpty(await owner.request.post(adminOrigin.origin + adminLogout, { headers: { Origin: adminOrigin.origin } }))
+    } finally {
+      await owner.close()
+    }
     finalCookie = await adminSessionCookie(context)
-    checks.articleArchiveAndRepublicationUseIndependentAdminAndStableReceipts = true
-  } else if (process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK === '1') {
-    phase = 'article-rollback'
-    await verifyAdminArticleRollback({ ...adminWorkspace,
-      grant: process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT, logIn, evidence })
-    finalCookie = await adminSessionCookie(context)
-    checks.articleRollbackUsesIndependentAdminAndStableReceipt = true
+    if (archive) checks.articleArchiveAndRepublicationUseIndependentAdminAndStableReceipts = true
+    else checks.articleRollbackUsesIndependentAdminAndStableReceipt = true
   }
 
   await visitAdminWorkspace(admin, '/admin/identity')

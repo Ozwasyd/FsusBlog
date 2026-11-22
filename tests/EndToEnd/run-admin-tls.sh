@@ -309,16 +309,12 @@ EOF
 elif [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 || ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
   export FSUSBLOG_ADMIN_ARTICLE_ROLLBACK=true
-  export FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT="$scratch/grant-article-rollback"
-  permission_fixture "$FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT" grant article.write
-  "$dotnet" "$migrate" admin-article-rollback schema > "$evidence/admin-article-rollback-migration.log"
-  "$dotnet" "$migrate" admin-article-trash-restore schema > "$evidence/admin-article-trash-restore-migration.log"
-  "$dotnet" "$migrate" admin-article-trash-restore schema >> "$evidence/admin-article-trash-restore-migration.log"
-  "$dotnet" "$migrate" property-snapshots >> "$evidence/admin-article-trash-restore-migration.log"
+  FSUSBLOG_TEST_ADMIN_ARTICLE_OWNER=$("$dotnet" "$migrate" admin-identity bootstrap tls-archive-article-owner)
+  export FSUSBLOG_TEST_ADMIN_ARTICLE_OWNER
   "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -f tests/EndToEnd/admin-article-rollback-fixture.sql > "$evidence/admin-article-rollback-fixture.log"
   printf '%s\n' '{"responsibleParty":"Historical publisher","basis":"Recorded original publication approval","reference":"fixture-review-2026-001"}' |
-    "$dotnet" "$migrate" article-responsibility record 1 1 >> "$evidence/admin-article-rollback-migration.log"
-  "$dotnet" "$migrate" verify >> "$evidence/admin-article-rollback-migration.log"
+    "$dotnet" "$migrate" article-responsibility record 1 1 > "$evidence/article-responsibility-fixture.log"
+  "$dotnet" "$migrate" verify >> "$evidence/schema.log"
   shasum -a 256 tests/EndToEnd/admin-article-rollback-fixture.sql >> "$evidence/run.txt"
 elif [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
@@ -632,14 +628,14 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 && ${FSUSBLOG_TEST_ADMIN_A
     select 'exact_admin_rollback=' || count(*) from public.admin_article_rollback r
       join public.admin_principal p on p.id=r.principal_id
       join public.article a on a.id=r.article_id
-      join public.blog_user u on u.id=a.owner_id
+      join public.admin_principal owner on owner.id=a.owner_id
       join public.article_publication_history h on h.article_id=r.article_id and h.revision=r.revision
         and h.publication_id=r.publication_id and h.kind='replace'
       join public.article_revision_responsibility n on n.id=r.responsibility_snapshot_id
       join public.article_revision_responsibility s on s.id=n.source_snapshot_id
       join public.article_revision restored on restored.article_id=r.article_id and restored.revision=r.revision
       join public.article_revision source on source.article_id=r.article_id and source.revision=r.source_revision
-      where p.handle='tls-admin-fixture' and u.name='tls-site-fixture'
+      where p.handle='tls-admin-fixture' and owner.handle='tls-archive-article-owner'
         and h.admin_actor_id=p.id and h.admin_command_id=r.command_id and h.actor_id is null
         and n.responsible_party=s.responsible_party and n.basis=s.basis and n.reference=s.reference
         and r.destination=2 and r.source_revision=1 and r.previous_revision=2 and r.revision=3 and restored.body=source.body
@@ -654,7 +650,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 && ${FSUSBLOG_TEST_ADMIN_A
     select 'exact_admin_draft_rollback=' || count(*) from public.admin_article_rollback r
       join public.admin_principal p on p.id=r.principal_id
       join public.article a on a.id=r.article_id and a.revision=r.revision and a.published_revision is null
-      join public.blog_user u on u.id=a.owner_id
+      join public.admin_principal owner on owner.id=a.owner_id
       join public.admin_article_rollback prior on prior.article_id=r.article_id and prior.publication_id=r.previous_publication_id
       join public.article_publication_history h on h.article_id=r.article_id and h.revision=r.revision
         and h.publication_id is null and h.supersedes_id=r.previous_publication_id
@@ -665,7 +661,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 && ${FSUSBLOG_TEST_ADMIN_A
       join public.article_publication_rights w on w.id=r.rights_snapshot_id and w.article_id=r.article_id
         and w.revision=r.revision and w.publication_id=r.publication_id
       join public.article_revision_rights policy on policy.article_id=w.article_id and policy.revision=w.revision
-      where p.handle='tls-admin-fixture' and u.name='tls-site-fixture'
+      where p.handle='tls-admin-fixture' and owner.handle='tls-archive-article-owner'
         and h.admin_actor_id=p.id and h.admin_command_id=r.command_id and h.actor_id is null
         and n.responsible_party=s.responsible_party and n.basis=s.basis and n.reference=s.reference
         and policy.copyright_holder='Historical fixture rights' and a.title=source.title and a.body=source.body
@@ -703,7 +699,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
     select 'exact_admin_republication=' || count(*) from public.admin_article_rollback r
       join public.admin_principal p on p.id=r.principal_id
       join public.article a on a.id=r.article_id
-      join public.blog_user u on u.id=a.owner_id
+      join public.admin_principal owner on owner.id=a.owner_id
       join public.article_revision republished on republished.article_id=r.article_id and republished.revision=r.revision
       join public.admin_article_rollback archived on archived.article_id=r.article_id and archived.revision=r.previous_revision
         and archived.publication_id=r.previous_publication_id and archived.destination=3 and not archived.from_archive
@@ -717,7 +713,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
       join public.article_publication_canonical c on c.article_id=r.article_id and c.revision=r.revision
         and c.publication_id=r.publication_id and c.rights_snapshot_id=r.rights_snapshot_id and c.transition='publish'
       join public.blog_outbox e on e.id=c.outbox_id and e.kind='publish' and e.processed_at is not null
-      where p.handle='tls-admin-fixture' and u.name='tls-site-fixture' and r.destination=2 and r.from_archive
+      where p.handle='tls-admin-fixture' and owner.handle='tls-archive-article-owner' and r.destination=2 and r.from_archive
         and r.article_id=1 and r.previous_revision=3 and r.revision=4 and r.publication_no=4
         and r.source_revision=archived.source_revision and r.source_publication_id=archived.source_publication_id
         and (republished.title,republished.body)=(archived_source.title,archived_source.body)
@@ -726,7 +722,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
       join public.admin_principal p on p.id=r.principal_id
       join public.article a on a.id=r.article_id and not a.deleted and a.revision=r.revision and a.published_revision=r.revision
         and a.publication_count=r.publication_no
-      join public.blog_user u on u.id=a.owner_id
+      join public.admin_principal owner on owner.id=a.owner_id
       join public.article_publication active on active.article_id=a.id and active.revision=r.revision
         and active.publication_id=r.publication_id and active.publication_no=r.publication_no
       join public.article_publication_history h on h.article_id=a.id and h.revision=r.revision
@@ -746,7 +742,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
       join public.article_publication_canonical c on c.article_id=a.id and c.revision=r.revision
         and c.publication_id=r.publication_id and c.rights_snapshot_id=r.rights_snapshot_id and c.transition='publish'
       join public.blog_outbox e on e.id=c.outbox_id and e.kind='publish' and e.processed_at is not null
-      where p.handle='tls-admin-fixture' and u.name='tls-site-fixture' and r.destination=2 and r.from_trash and not r.from_archive
+      where p.handle='tls-admin-fixture' and owner.handle='tls-archive-article-owner' and r.destination=2 and r.from_trash and not r.from_archive
         and r.article_id=1 and r.previous_revision=6 and r.source_revision=4 and r.revision=7 and r.publication_no=5
         and r.previous_publication_id=r.source_publication_id and r.publication_id<>r.source_publication_id
         and r.rights_snapshot_id<>former.rights_snapshot_id
@@ -766,7 +762,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
     select 'exact_trash_restore=' || count(*) from public.admin_article_trash_restore t
       join public.admin_principal p on p.id=t.principal_id
       join public.article a on a.id=t.article_id and a.revision=t.revision
-      join public.blog_user u on u.id=a.owner_id
+      join public.admin_principal owner on owner.id=a.owner_id
       join public.article_revision prior on prior.article_id=a.id and prior.revision=t.previous_revision
       join public.article_revision draft on draft.article_id=a.id and draft.revision=t.revision
       join public.article_revision_media m on m.article_id=a.id and m.revision=t.revision
@@ -776,7 +772,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE:-0} == 1 ]]; then
       join public.article_revision_property_snapshot s on s.article_id=a.id and s.revision=t.revision
       join public.article_property_snapshot_field f on (f.article_id,f.schema_revision,f.value_revision)=(s.article_id,s.schema_revision,s.value_revision)
       where a.id=23 and t.previous_revision=1 and t.revision=2 and not a.deleted and a.published_revision is null
-        and p.handle='tls-admin-fixture' and u.name='tls-other-inventory-author' and f.data='\"Private restored property\"'::jsonb
+        and p.handle='tls-admin-fixture' and owner.handle='tls-other-inventory-author' and f.data='\"Private restored property\"'::jsonb
         and (draft.title,draft.body,draft.author_summary)=(prior.title,prior.body,prior.author_summary)
         and not exists (select from public.article_publication where article_id=a.id)
         and not exists (select from public.article_command where article_id=a.id and revision=2)

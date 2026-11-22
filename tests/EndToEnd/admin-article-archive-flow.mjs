@@ -17,12 +17,13 @@ import { adminArticleFixture, commitWithLostReceipt, sourceTitle } from './admin
 import { readDraft, submitPublicationMutation } from './browser-authoring-fixture.mjs'
 import { exactButton, roleWithExactName, exactText, exactLabel } from './role-locators.mjs'
 
-export async function verifyAdminArticleArchive({ page, context, adminOrigin, siteOrigin, grant, logIn, evidence }) {
+export async function verifyAdminArticleArchive({ page, context, adminOrigin, siteOrigin, owner, adminCookieName, siteCookie, probe, evidence }) {
   await visitAdminWorkspace(page, '/admin/articles')
-  const { admin, site, section, send, grantAndSignIn, previewRollback, inspect: content, index,
+  const { admin, site, section, send, openPublicationRecovery, previewRollback, inspect: content, index,
     expectStaleIndex, expectWithdrawnArticle, expectWithdrawnCorpus } = adminArticleFixture({ page, context, adminOrigin, siteOrigin })
   const archive = roleWithExactName(section, 'region', 'Archived articles')
   const inventory = roleWithExactName(page, 'region', 'Article inventory')
+  const inventoryRows = inventory.getByRole('row').filter({ has: page.getByRole('cell') })
   const inventoryPath = WireRoutes.AdminArticleInventory
   const sourceBody = 'Historical Markdown ready for restoration\n\n![Never fetched in source preview](https://archive-preview.invalid/from-source.png)\n'
   const availability = WireRoutes.AdminArticleArchiveAvailability
@@ -102,19 +103,20 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   assert.deepEqual([before.revision, before.publication, before.title], [2n, 2n, 'Rollback fixture current title'])
   const beforeIndex = await index()
   assert(beforeIndex.items.some(article => article.id === 1 && article.revision === 2n && article.publication === 2n))
-  assertStatus(await context.request.get(admin(availability)), 403)
-  assertStatus(await context.request.get(admin(archivePage)), 403)
-  assertStatus(await context.request.get(admin(inventoryPath)), 403)
-  assertStatus(await context.request.get(admin(WireRoutes.AdminArticleTrashRestoreAvailability)), 403)
+  await probe(admin(availability), adminCookieName, siteCookie.value, 401)
+  await probe(admin(archivePage), adminCookieName, siteCookie.value, 401)
+  await probe(admin(inventoryPath), adminCookieName, siteCookie.value, 401)
+  await probe(admin(WireRoutes.AdminArticleTrashRestoreAvailability), adminCookieName, siteCookie.value, 401)
   const unpublishedPreview = `${WireRoutes.AdminArticleTrashPublicationPreview}?articleId=23&revision=1`
-  assertStatus(await context.request.get(admin(unpublishedPreview)), 403)
+  await probe(admin(unpublishedPreview), adminCookieName, siteCookie.value, 401)
   assertStatus(await context.request.get(site(unpublishedPreview)), 404)
   assertStatus(await context.request.get(site(inventoryPath)), 404)
-  await deniedPreview(admin(previewPath(1, 3, 3)), 403)
+  const denied = await probe(admin(previewPath(1, 3, 3)), adminCookieName, siteCookie.value, 401, true)
+  assert.doesNotMatch(denied.toString('utf8'), /Historical Markdown ready for restoration/)
+  decodeFrame(denied, FrameType.ApiError)
   await deniedPreview(site(previewPath(1, 3, 3)), 404)
   assertStatus(await context.request.get(site(availability)), 404)
-  assert.equal(await archive.count(), 0)
-  await grantAndSignIn(grant, logIn)
+  await openPublicationRecovery()
   await archive.waitFor()
   assertStatus(await context.request.get(admin(availability)), 204)
   assert.deepEqual(await archivedRows(), [])
@@ -125,7 +127,7 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   assert.equal(await exactText(inventory, 'Inventory draft 21').count(), 0)
   await roleWithExactName(page, 'tab', 'Trash').click()
   await exactText(inventory, 'Inventory draft 22').waitFor()
-  assert.equal(await inventory.locator('tbody tr').count(), 1)
+  assert.equal(await inventoryRows.count(), 1)
   assertStatus(await context.request.get(admin(WireRoutes.AdminArticleTrashRestoreAvailability)), 204)
   const [unpublished] = await Promise.all([
     trashPreview('23', '1'),
@@ -171,7 +173,7 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   await exactLabel(inventory, 'Title or summary').fill('Inventory summary 21')
   await inventory.getByRole('button', { name: 'Search articles' }).press('Enter')
   await exactText(inventory, 'Inventory draft 21').waitFor()
-  assert.equal(await inventory.locator('tbody tr').count(), 1)
+  assert.equal(await inventoryRows.count(), 1)
   await page.setViewportSize({ width: 375, height: 800 })
   assert(await inventory.evaluate(element => element.scrollWidth <= element.clientWidth + 1))
   await inventory.screenshot({ path: join(evidence, 'administrator-article-inventory.png') })
@@ -206,14 +208,14 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
   assert(!hiddenIndex.items.some(article => article.id === 1))
   await expectStaleIndex(beforeIndex.generation)
   await expectWithdrawnCorpus(hiddenIndex.generation)
-  const ownerBody = await context.request.get(site(WireRoutes.Draft.replace('{id:int}', '1')))
+  const ownerBody = await owner.request.get(admin(WireRoutes.Draft.replace('{id:int}', '1')))
   assertStatus(ownerBody, 404)
   const deniedBody = await ownerBody.body()
   decodeFrame(deniedBody, FrameType.ApiError)
   assert.doesNotMatch(deniedBody.toString('utf8'), /Historical Markdown ready for restoration/)
   await ownerBody.dispose()
   for (const scope of ['active', 'trash']) {
-    const ownerInventory = await context.request.get(site(`${WireRoutes.AuthorArticles}?scope=${scope}&article=1`))
+    const ownerInventory = await owner.request.get(admin(`${WireRoutes.AuthorArticles}?scope=${scope}&article=1`))
     assertStatus(ownerInventory, 200)
     const rows = decodeAuthorArticlePage(decodeFrame(await ownerInventory.body(), FrameType.AuthorArticlePage).payload)
     assert.deepEqual(rows.items, [])
@@ -289,12 +291,12 @@ export async function verifyAdminArticleArchive({ page, context, adminOrigin, si
 
   const privateTitle = 'Never published fixture title'
   const privateBody = 'neverpublictrashrestoremarker'
-  const saved = await submitPublicationMutation(context.request, site(WireRoutes.Save), 1, 4n, privateTitle, privateBody)
+  const saved = await submitPublicationMutation(owner.request, admin(WireRoutes.Save), 1, 4n, privateTitle, privateBody)
   try {
     const draft = await readDraft(saved)
     assert.deepEqual([draft.id, draft.revision, draft.title, draft.body], [1, 5n, privateTitle, privateBody])
   } finally { await saved.dispose() }
-  const deleted = await submitPublicationMutation(context.request, site(WireRoutes.Delete), 1, 5n, '', '')
+  const deleted = await submitPublicationMutation(owner.request, admin(WireRoutes.Delete), 1, 5n, '', '')
   try {
     assertStatus(deleted, 200)
     decodeFrame(await deleted.body(), FrameType.EmptySuccess)

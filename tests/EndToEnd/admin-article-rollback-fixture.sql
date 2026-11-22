@@ -1,8 +1,8 @@
--- Retained publications in a disposable database, owned by a site account.
+-- Retained publications in a disposable database, owned by an administrator distinct from the recovery operator.
 BEGIN;
 INSERT INTO public.article (owner_id, revision, title, body, published_revision, publication_count, deleted)
 SELECT id,2,'Rollback fixture current title','The current public Markdown',2,2,false
-FROM public.blog_user WHERE name='tls-site-fixture';
+FROM public.admin_principal WHERE handle='tls-archive-article-owner';
 INSERT INTO public.article_revision(article_id,revision,title,body,happened_at) VALUES
     (1,1,'Rollback fixture source title',E'Historical Markdown ready for restoration\n\n![Never fetched in source preview](https://archive-preview.invalid/from-source.png)\n',now()-interval '2 days'),
     (1,2,'Rollback fixture current title','The current public Markdown',now()-interval '1 day');
@@ -40,7 +40,7 @@ WITH added AS (
     INSERT INTO public.article (owner_id,revision,title,body,deleted)
     SELECT CASE WHEN n=1 THEN u.id ELSE 'a8e91b13-7706-4c71-8ead-61b201df1f7b'::uuid END,
            1,'Inventory draft '||n,'Inventory summary '||n,n=22
-    FROM generate_series(1,22) n CROSS JOIN public.blog_user u WHERE u.name='tls-site-fixture'
+    FROM generate_series(1,22) n CROSS JOIN public.admin_principal u WHERE u.handle='tls-archive-article-owner'
     ORDER BY n RETURNING *
 )
 INSERT INTO public.article_revision (article_id,revision,title,body,happened_at)
