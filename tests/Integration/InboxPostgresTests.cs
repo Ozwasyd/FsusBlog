@@ -238,21 +238,17 @@ public sealed class InboxPostgresTests
         Assert.Empty((await InTransaction(db.DataSource, bob, inbox => inbox.ListAsync(null, 20, null, ct), ct)).Conversations);
         Assert.Null(await InTransaction(db.DataSource, bob, inbox => inbox.GetAsync(opening.ConversationId, null, 50, ct), ct));
 
-        var invalidRead = await Assert.ThrowsAsync<BusinessException>(() => InTransaction(db.DataSource, alice,
+        await BusinessAssert.Denied(Rejection.Invalid, () => InTransaction(db.DataSource, alice,
             inbox => inbox.MarkReadAsync(opening.ConversationId, notice.Message.Id, ct), ct));
-        Assert.Equal(Rejection.Invalid, invalidRead.Rejection);
-        var wrongAccount = await Assert.ThrowsAsync<BusinessException>(() => InTransaction(db.DataSource, bob,
+        await BusinessAssert.Denied(Rejection.NotFound, () => InTransaction(db.DataSource, bob,
             inbox => inbox.MarkReadAsync(opening.ConversationId, opening.Id, ct), ct));
-        Assert.Equal(Rejection.NotFound, wrongAccount.Rejection);
         var internalId = await AddInternalMessage(db.DataSource, opening.ConversationId, ct);
-        var internalRead = await Assert.ThrowsAsync<BusinessException>(() => InTransaction(db.DataSource, alice,
+        await BusinessAssert.Denied(Rejection.Invalid, () => InTransaction(db.DataSource, alice,
             inbox => inbox.MarkReadAsync(opening.ConversationId, internalId, ct), ct));
-        Assert.Equal(Rejection.Invalid, internalRead.Rejection);
 
         var reply = await InTransaction(db.DataSource, alice, inbox => inbox.ReplyAsync(opening.ConversationId, opening.Id, "reply-1", "Follow up", ct), ct);
-        var conflicting = await Assert.ThrowsAsync<BusinessException>(() => InTransaction(db.DataSource, alice,
+        await BusinessAssert.Denied(Rejection.Conflict, () => InTransaction(db.DataSource, alice,
             inbox => inbox.ReplyAsync(opening.ConversationId, opening.Id, "reply-1", "Other text", ct), ct));
-        Assert.Equal(Rejection.Conflict, conflicting.Rejection);
         var current = await InTransaction(db.DataSource, alice, inbox => inbox.GetAsync(opening.ConversationId, null, 50, ct), ct);
         Assert.NotNull(current);
         Assert.Equal([opening.Id, reply.Message.Id], current.Messages.Select(message => message.Id));

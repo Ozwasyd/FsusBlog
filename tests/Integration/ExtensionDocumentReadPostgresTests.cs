@@ -29,11 +29,9 @@ public sealed class ExtensionDocumentReadPostgresTests
         var custodian = new ExtensionSavedDocumentCustodian(store, author.Token, author.Handle);
         var owner = await custodian.ResolveOwnerAsync(saved.Id, saved.Revision, ct);
         var wrongSession = new ExtensionSavedDocumentCustodian(store, author.Token, peer.Handle);
-        var switched = await Assert.ThrowsAsync<BusinessException>(() => wrongSession.ResolveOwnerAsync(saved.Id, saved.Revision, ct));
-        Assert.Equal(Rejection.Conflict, switched.Rejection);
+        await BusinessAssert.Denied(Rejection.Conflict, () => wrongSession.ResolveOwnerAsync(saved.Id, saved.Revision, ct));
         var peerCustodian = new ExtensionSavedDocumentCustodian(store, peer.Token, peer.Handle);
-        var foreign = await Assert.ThrowsAsync<BusinessException>(() => peerCustodian.ResolveOwnerAsync(saved.Id, saved.Revision, ct));
-        Assert.Equal(Rejection.NotFound, foreign.Rejection);
+        await BusinessAssert.Denied(Rejection.NotFound, () => peerCustodian.ResolveOwnerAsync(saved.Id, saved.Revision, ct));
 
         var root = Directory.CreateTempSubdirectory("fsus-extension-read-");
         if (OperatingSystem.IsMacOS() && root.FullName.StartsWith("/var/", StringComparison.Ordinal))
@@ -107,14 +105,12 @@ public sealed class ExtensionDocumentReadPostgresTests
 
             using var stale = NewRange(owner, grant, 1, 3);
             var latest = await Save(saved.Id, saved.Revision, "Newest private source");
-            var conflict = await Assert.ThrowsAsync<BusinessException>(() => broker.ReadRangeAsync(stale, ct).AsTask());
-            Assert.Equal(Rejection.Conflict, conflict.Rejection);
+            await BusinessAssert.Denied(Rejection.Conflict, () => broker.ReadRangeAsync(stale, ct).AsTask());
             var currentOwner = await custodian.ResolveOwnerAsync(latest.Id, latest.Revision, ct);
             installations.SetOwner(currentOwner);
             using var ended = NewRange(currentOwner, Issue(currentOwner), 1, 3);
             await db.SignOutAdmin(author.Token, ct);
-            var signedOut = await Assert.ThrowsAsync<BusinessException>(() => broker.ReadRangeAsync(ended, ct).AsTask());
-            Assert.Equal(Rejection.Unauthorized, signedOut.Rejection);
+            await BusinessAssert.Denied(Rejection.Unauthorized, () => broker.ReadRangeAsync(ended, ct).AsTask());
             installations.Deactivate("fixture.extension");
 
             Guid Issue(ExtensionOwner target, ExtensionCapability capability = ExtensionCapability.DocumentRangeRead) =>

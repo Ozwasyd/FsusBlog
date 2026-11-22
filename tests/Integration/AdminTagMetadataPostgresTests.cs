@@ -35,7 +35,7 @@ public sealed class AdminTagMetadataPostgresTests
         Assert.Equal(0L, baseline.TaxonomyEpoch);
         Assert.Equal(1, baseline.Taxonomy.TagByName("Ancienne"));
         var siteUser = await fixture.SignInSiteUser("tag-site-user", ct);
-        Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(() => admin.ReadTagMetadata(siteUser.Token, 1, ct))).Rejection);
+        await BusinessAssert.Denied(Rejection.Unauthorized, () => admin.ReadTagMetadata(siteUser.Token, 1, ct));
 
         var pow = new ScopedPow(TimeProvider.System);
         var first = new AdminTagMetadataCommand(1, 0, Guid.NewGuid(), "Cafe\u0301 nouveau", " Changed description. ");
@@ -155,11 +155,10 @@ public sealed class AdminTagMetadataPostgresTests
         {
             var duplicate = create with { RequestId = Guid.NewGuid(), Name = existing };
             var proof = await Proof(duplicate);
-            var conflict = await Assert.ThrowsAsync<BusinessException>(() => Execute(duplicate, proof));
-            Assert.Equal(Rejection.Conflict, conflict.Rejection);
+            await BusinessAssert.Denied(Rejection.Conflict, () => Execute(duplicate, proof));
         }
         var reusedKey = create with { Name = "Different tag" };
-        Assert.Equal(Rejection.Conflict, (await Assert.ThrowsAsync<BusinessException>(() => Execute(reusedKey, null))).Rejection);
+        await BusinessAssert.Denied(Rejection.Conflict, () => Execute(reusedKey, null));
         Assert.Same(after, publications.Snapshot);
         Assert.Equal(4, after.Taxonomy.TagByName("Retired topic"));
         Assert.Equal(70, after.Taxonomy.TagByName("cafe\u0301 existant"));

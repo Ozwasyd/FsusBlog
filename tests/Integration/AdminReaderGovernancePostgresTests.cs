@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
 using Npgsql;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -415,7 +416,4 @@ public sealed class AdminReaderGovernancePostgresTests
 
     private static async Task<T> Scalar<T>(NpgsqlConnection db, CancellationToken ct, string sql, params object[] parameters) =>
         (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, parameters))!;
-
-    private static async Task Denied(Rejection expected, Func<Task> action) =>
-        Assert.Equal(expected, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
 }

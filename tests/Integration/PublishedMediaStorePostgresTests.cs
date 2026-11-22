@@ -9,6 +9,7 @@ using FsusBlog.V2.Server.Sessions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using SkiaSharp;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -44,14 +45,14 @@ public sealed class PublishedMediaStorePostgresTests
         var unpublished = await media.State(draft.Id, key, ct);
         Assert.Equal(new DatabaseState(draft.Revision, null, null, 0, 0, 0, 0), unpublished);
 
-        await Reject(Rejection.Conflict, () => media.Publish(author, original, key, [first.Id], ct));
-        await Reject(Rejection.Conflict, () => media.Publish(author, draft, key, [first.Id], ct, outsider.SessionId));
-        await Reject(Rejection.NotFound, () => media.Publish(outsider, draft, key, [first.Id], ct));
-        await Reject(Rejection.NotFound, () => media.Publish(author, draft, key, [unattached.Id], ct));
-        await Reject(Rejection.NotFound, () => media.Publish(author, draft, key, [foreign.Id], ct));
-        await Reject(Rejection.Invalid, () => media.Publish(author, draft, key, [], ct));
-        await Reject(Rejection.Invalid, () => media.Publish(author, draft, key, [first.Id, first.Id], ct));
-        await Reject(Rejection.Conflict, () => media.Publish(author, draft, key, [first.Id, duplicate.Id], ct));
+        await Denied(Rejection.Conflict, () => media.Publish(author, original, key, [first.Id], ct));
+        await Denied(Rejection.Conflict, () => media.Publish(author, draft, key, [first.Id], ct, outsider.SessionId));
+        await Denied(Rejection.NotFound, () => media.Publish(outsider, draft, key, [first.Id], ct));
+        await Denied(Rejection.NotFound, () => media.Publish(author, draft, key, [unattached.Id], ct));
+        await Denied(Rejection.NotFound, () => media.Publish(author, draft, key, [foreign.Id], ct));
+        await Denied(Rejection.Invalid, () => media.Publish(author, draft, key, [], ct));
+        await Denied(Rejection.Invalid, () => media.Publish(author, draft, key, [first.Id, first.Id], ct));
+        await Denied(Rejection.Conflict, () => media.Publish(author, draft, key, [first.Id, duplicate.Id], ct));
         Assert.Equal(unpublished, await media.State(draft.Id, key, ct));
         Assert.Null(media.Publications.Snapshot!.Article(draft.Id));
         Assert.Empty(media.PublishedEntries());
@@ -87,9 +88,9 @@ public sealed class PublishedMediaStorePostgresTests
         var replay = await media.Publish(author, draft, key, [first.Id, second.Id], ct);
         Assert.False(replay.Changed);
         Assert.Equal(published.Article, replay.Article);
-        await Reject(Rejection.Conflict, () => media.Publish(author, draft, key, [first.Id, second.Id], ct, outsider.SessionId));
-        await Reject(Rejection.Conflict, () => media.Publish(author, draft, key, [first.Id], ct));
-        await Reject(Rejection.Conflict, () => media.Publications.Command(media.AuthorStore, author.Token, ArticleAction.Publish,
+        await Denied(Rejection.Conflict, () => media.Publish(author, draft, key, [first.Id, second.Id], ct, outsider.SessionId));
+        await Denied(Rejection.Conflict, () => media.Publish(author, draft, key, [first.Id], ct));
+        await Denied(Rejection.Conflict, () => media.Publications.Command(media.AuthorStore, author.Token, ArticleAction.Publish,
             new(draft.Id, draft.Revision, key, "", ""), ct));
         Assert.Equal(state, await media.State(draft.Id, key, ct));
 
@@ -182,9 +183,6 @@ public sealed class PublishedMediaStorePostgresTests
             await media.VerifyPublicBytes(first, ct);
         }
     }
-
-    private static async Task Reject(Rejection rejection, Func<Task> attempt) =>
-        Assert.Equal(rejection, (await Assert.ThrowsAsync<BusinessException>(attempt)).Rejection);
 
     private static void Verify(ManifestRow row, Asset asset, long revision)
     {

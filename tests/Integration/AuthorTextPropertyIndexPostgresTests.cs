@@ -21,8 +21,7 @@ public sealed class AuthorTextPropertyIndexPostgresTests
         var id = Guid.NewGuid();
         var created = await Transaction(tx => new PropertyStore(db, tx, actor).Change(
             new PropertyDefinitionCommand(1, id, Guid.NewGuid(), 0, 0, "evidence", "Evidence"), ct));
-        var unavailable = await Assert.ThrowsAsync<BusinessException>(() => Reconcile(created));
-        Assert.Equal(Rejection.NotFound, unavailable.Rejection);
+        await BusinessAssert.Denied(Rejection.NotFound, () => Reconcile(created));
         var enabled = await SetEligibility(created, true);
         var articles = new List<ArticleState>();
         for (var index = 0; index < 10; index++)
@@ -64,7 +63,7 @@ public sealed class AuthorTextPropertyIndexPostgresTests
         Assert.Equal(8L, await CountDocuments());
         Assert.NotEqual(Convert.ToHexString(complete), Convert.ToHexString(Assert.IsType<byte[]>(await Generation())));
         var disabled = await SetEligibility(enabled, false);
-        Assert.Equal(Rejection.NotFound, (await Assert.ThrowsAsync<BusinessException>(() => Reconcile(disabled))).Rejection);
+        await BusinessAssert.Denied(Rejection.NotFound, () => Reconcile(disabled));
 
         Task<PropertyCommandReceipt> SetEligibility(PropertyCommandReceipt expected, bool eligible) =>
             Transaction(tx => new PropertyStore(db, tx, actor).Change(

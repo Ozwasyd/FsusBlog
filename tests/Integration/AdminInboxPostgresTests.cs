@@ -33,8 +33,7 @@ public sealed class AdminInboxPostgresTests
         var accountStore = new Store(fixture.DataSource);
         var adminStore = new AdminInboxStore(new AdminSessionGate(fixture.DataSource, null));
         Assert.Empty(await adminStore.InboxQueuePosition(adminToken, -1, false, ct));
-        var denied = await Assert.ThrowsAsync<BusinessException>(() => adminStore.InboxQueuePosition(firstToken, -1, false, ct));
-        Assert.Equal(Rejection.Unauthorized, denied.Rejection);
+        await BusinessAssert.Denied(Rejection.Unauthorized, () => adminStore.InboxQueuePosition(firstToken, -1, false, ct));
 
         var allocated = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

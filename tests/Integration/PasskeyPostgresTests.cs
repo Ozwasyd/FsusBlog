@@ -11,6 +11,7 @@ using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Operations;
 using FsusBlog.V2.Server.Passkeys;
 using Microsoft.AspNetCore.WebUtilities;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -35,21 +36,21 @@ public sealed class PasskeyPostgresTests
 
         var registration = await service.BeginProvision(ticket, ct);
         var token = ReadToken(registration.Frame, FrameType.PasskeyRegisterBegin, WireLayouts.PasskeyRegisterBeginTokenOffset);
-        await ExpectUnauthorized(() => service.BeginProvision(ticket, ct));
-        await ExpectUnauthorized(() => new Store(fixture.DataSource).SignIn(ticket, ct));
+        await Denied(() => service.BeginProvision(ticket, ct));
+        await Denied(() => new Store(fixture.DataSource).SignIn(ticket, ct));
 
         // These are invalid bytes. Verification can never create a credential or session from this request.
         var rawId = new byte[] { 42 };
         var completion = new PasskeyProvisionRequest(token, "Kg", rawId, [1], [1], []);
-        await ExpectUnauthorized(() => service.CompleteProvision(completion, null, ct));
-        await ExpectUnauthorized(() => service.CompleteProvision(completion, new string('A', 43), ct));
+        await Denied(() => service.CompleteProvision(completion, null, ct));
+        await Denied(() => service.CompleteProvision(completion, new string('A', 43), ct));
         await using (var count = Store.Sql(db, null, "select count(*) from public.passkey_challenge where user_id=$1", id))
             Assert.Equal(1L, await count.ExecuteScalarAsync(ct));
 
         await using (var revoke = Store.Sql(db, null, "update public.blog_user set generation=generation+1 where id=$1", id))
             await revoke.ExecuteNonQueryAsync(ct);
-        await ExpectUnauthorized(() => service.CompleteProvision(completion, registration.Binding, ct));
-        await ExpectUnauthorized(() => service.CompleteProvision(completion, registration.Binding, ct));
+        await Denied(() => service.CompleteProvision(completion, registration.Binding, ct));
+        await Denied(() => service.CompleteProvision(completion, registration.Binding, ct));
         await using var remaining = Store.Sql(db, null, """
             select (select count(*) from public.passkey_challenge where user_id=$1)
                 + (select count(*) from public.passkey_credential where user_id=$1)
@@ -265,12 +266,6 @@ public sealed class PasskeyPostgresTests
             offset += fields[i].Length;
         }
         return Aeds.Encode(FrameType.PasskeyLoginCompleteRequest, payload);
-    }
-
-    private static async Task ExpectUnauthorized(Func<Task> action)
-    {
-        var error = await Assert.ThrowsAsync<BusinessException>(action);
-        Assert.Equal(Rejection.Unauthorized, error.Rejection);
     }
 
     private static string ReadToken(byte[] frame, FrameType type, int offset) =>

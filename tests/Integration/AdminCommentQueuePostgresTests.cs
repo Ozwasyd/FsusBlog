@@ -10,6 +10,7 @@ using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -148,7 +149,4 @@ public sealed class AdminCommentQueuePostgresTests
     }
 
     private static string Secret() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-
-    private static async Task Denied(Rejection expected, Func<Task> action) =>
-        Assert.Equal(expected, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
 }

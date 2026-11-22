@@ -292,6 +292,6 @@ public sealed class SiteRefreshPostgresTests
     private static Task<Identity> ReadOwner(Store access, string token, CancellationToken ct) =>
         access.WithSession(token, false, (_, _, actor) => Task.FromResult(actor), ct);
 
-    private static async Task NoAccess(Store access, string token, CancellationToken ct) =>
-        Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(() => ReadOwner(access, token, ct))).Rejection);
+    private static Task NoAccess(Store access, string token, CancellationToken ct) =>
+        BusinessAssert.Denied(Rejection.Unauthorized, () => ReadOwner(access, token, ct));
 }

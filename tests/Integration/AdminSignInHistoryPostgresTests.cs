@@ -7,6 +7,7 @@ using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
 using Npgsql;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -201,7 +202,4 @@ public sealed class AdminSignInHistoryPostgresTests
         await using var command = Store.Sql(db, tx, sql, args);
         await command.ExecuteNonQueryAsync(ct);
     }
-
-    private static async Task Denied(Func<Task> action) =>
-        Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
 }

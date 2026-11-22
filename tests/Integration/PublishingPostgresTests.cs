@@ -361,9 +361,8 @@ public sealed class PublishingPostgresTests
         var replay = await publications.Command(store, session.Token, ArticleAction.Save, command, ct);
         Assert.Equal(saved.Article, replay.Article);
         Assert.False(replay.Changed);
-        var mismatch = await Assert.ThrowsAsync<BusinessException>(() =>
+        await BusinessAssert.Denied(Rejection.Conflict, () =>
             publications.Command(store, session.Token, ArticleAction.Save, command with { Body = "different request" }, ct));
-        Assert.Equal(Rejection.Conflict, mismatch.Rejection);
     }
 
     [PostgresFact]
@@ -388,11 +387,8 @@ public sealed class PublishingPostgresTests
         await AssertDenied(expiringAdmin.Token, Rejection.Unauthorized);
         Assert.Equal(0L, await FixtureSql.ScalarAsync(db, null, ct, "select count(*) from public.article"));
 
-        async Task AssertDenied(string? session, Rejection expected)
-        {
-            var denial = await Assert.ThrowsAsync<BusinessException>(() => publications.Command(store, session, ArticleAction.Save, edit, ct));
-            Assert.Equal(expected, denial.Rejection);
-        }
+        Task AssertDenied(string? session, Rejection expected) => BusinessAssert.Denied(expected,
+            () => publications.Command(store, session, ArticleAction.Save, edit, ct));
     }
 
     [PostgresFact]
@@ -406,9 +402,8 @@ public sealed class PublishingPostgresTests
         var handle = first.Handle;
         var edit = new Edit(0, 0, Guid.NewGuid(), "Private draft", "Owner-only content.");
 
-        var conflict = await Assert.ThrowsAsync<BusinessException>(() =>
+        await BusinessAssert.Denied(Rejection.Conflict, () =>
             publications.Command(store, second.Token, ArticleAction.Save, edit, ct, handle));
-        Assert.Equal(Rejection.Conflict, conflict.Rejection);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await using (var verify = Store.Sql(db, null, """
             select (select count(*) from public.article) + (select count(*) from public.article_command)
@@ -461,7 +456,7 @@ public sealed class PublishingPostgresTests
         await publications.Refresh(ct);
         var issue = await fixture.IssueTicket("site reader ticket", ct, canAuthor: false, minutes: 1);
         await store.SignIn(issue.Ticket, ct);
-        Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(() => store.SignIn(issue.Ticket, ct))).Rejection);
+        await BusinessAssert.Denied(Rejection.Unauthorized, () => store.SignIn(issue.Ticket, ct));
         var session = await fixture.SignIn("original owner", ct, canAuthor: true, minutes: 1);
         var command = new Edit(0, 0, Guid.NewGuid(), "Saved title", "Saved Markdown body");
         var first = publications.Command(store, session.Token, ArticleAction.Save, command, ct);
@@ -473,18 +468,18 @@ public sealed class PublishingPostgresTests
         var next = new Edit(saved.Id, saved.Revision, Guid.NewGuid(), "Published title", "Published Markdown body");
         var newDraft = (await publications.Command(store, session.Token, ArticleAction.Save, next, ct)).Article;
         var oldPublication = new Edit(saved.Id, saved.Revision, Guid.NewGuid(), "", "");
-        Assert.Equal(Rejection.Conflict, (await Assert.ThrowsAsync<BusinessException>(() =>
-            publications.Command(store, session.Token, ArticleAction.Publish, oldPublication, ct))).Rejection);
+        await BusinessAssert.Denied(Rejection.Conflict, () =>
+            publications.Command(store, session.Token, ArticleAction.Publish, oldPublication, ct));
         var publish = oldPublication with { ExpectedRevision = newDraft.Revision };
         var published = (await publications.Command(store, session.Token, ArticleAction.Publish, publish, ct)).Article;
         Assert.Equal(published.Revision, publications.Snapshot!.Article(saved.Id)!.Revision);
 
         var readOnlyAdmin = await fixture.SignIn("read-only admin", ct, canAuthor: false, minutes: 1);
         var retract = new Edit(saved.Id, published.Revision, Guid.NewGuid(), "", "");
-        Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(() =>
-            publications.Command(store, readOnlyAdmin.Token, ArticleAction.Retract, retract, ct))).Rejection);
-        Assert.Equal(Rejection.NotFound, (await Assert.ThrowsAsync<BusinessException>(() =>
-            publications.Command(store, session.Token, ArticleAction.Retract, retract with { Id = 999_999 }, ct))).Rejection);
+        await BusinessAssert.Denied(Rejection.Unauthorized, () =>
+            publications.Command(store, readOnlyAdmin.Token, ArticleAction.Retract, retract, ct));
+        await BusinessAssert.Denied(Rejection.NotFound, () =>
+            publications.Command(store, session.Token, ArticleAction.Retract, retract with { Id = 999_999 }, ct));
         await publications.Command(store, session.Token, ArticleAction.Retract, retract, ct);
         Assert.Null(publications.Snapshot!.Article(saved.Id));
         await using var connection = await fixture.DataSource.OpenConnectionAsync(ct);

@@ -3,6 +3,7 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Sessions;
 using Npgsql;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -125,7 +126,4 @@ public sealed class SiteSessionsPostgresTests
     private static Task<(string Token, string Id, byte[] Digest)> AddSession(NpgsqlConnection db, Guid account,
         DateTimeOffset expiry, CancellationToken ct, long generation = 1, byte[]? credential = null, bool mfa = false) =>
         FixtureSql.SiteSessionAsync(db, account, expiry, ct, generation, credential, mfa);
-
-    private static async Task Denied(Rejection expected, Func<Task> action) =>
-        Assert.Equal(expected, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
 }

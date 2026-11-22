@@ -4,6 +4,7 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Passkeys;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -138,7 +139,4 @@ public sealed class AdminEffectivePermissionsPostgresTests
     }
 
     private static string NewToken() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-
-    private static async Task Denied(Func<Task> action, Rejection reason = Rejection.Unauthorized) =>
-        Assert.Equal(reason, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
 }

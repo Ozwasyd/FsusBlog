@@ -5,6 +5,7 @@ using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Administration;
 using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -64,7 +65,4 @@ public sealed class AdminOperationsPostgresTests
         Task Execute(string sql, params object[] arguments) =>
             FixtureSql.ExecuteAsync(db, null, ct, sql, arguments);
     }
-
-    private static async Task Denied(Rejection expected, Func<Task> action) =>
-        Assert.Equal(expected, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
 }

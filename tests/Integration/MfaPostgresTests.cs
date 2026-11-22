@@ -5,6 +5,7 @@ using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Passkeys;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -63,7 +64,7 @@ public sealed class MfaPostgresTests
         var invalid = Code(seed, now - 5);
         while (Enumerable.Range(-2, 5).Any(i => Code(seed, now + i) == invalid))
             invalid = ((int.Parse(invalid) + 1) % 1_000_000).ToString("D6");
-        Assert.Equal(Rejection.Invalid, (await Assert.ThrowsAsync<BusinessException>(() => store.CompleteSetup(firstToken, invalid, ct))).Rejection);
+        await Denied(Rejection.Invalid, () => store.CompleteSetup(firstToken, invalid, ct));
         var (result, newToken, expiry) = await store.CompleteSetup(firstToken, valid, ct);
         Assert.Equal(FrameType.MfaSetupVerify, DecodeType(result));
         Assert.Equal(earlierExpiry, expiry.UtcDateTime);
@@ -89,9 +90,6 @@ public sealed class MfaPostgresTests
         Aeds.Decode(frame, out var type);
         return type;
     }
-
-    private static async Task Denied(Func<Task> action) =>
-        Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
 
     private static string Code(byte[] seed, long step)
     {

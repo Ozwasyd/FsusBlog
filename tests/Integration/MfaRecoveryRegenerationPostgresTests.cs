@@ -9,6 +9,7 @@ using FsusBlog.V2.Server.Passkeys;
 using FsusBlog.V2.Server.Sessions;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -34,13 +35,13 @@ public sealed class MfaRecoveryRegenerationPostgresTests
             MfaWire.Disable, verified: true);
         await Assert.ThrowsAsync<MfaProofRequiredException>(() => mfa.RegenerateRecoveryCodes(owner.Session.Access, disableProof, ct));
 
-        await Rejected(Rejection.Conflict, () => mfa.BeginRecoveryRegeneration(owner.Session.Access, ct, siblingHandle));
+        await Denied(Rejection.Conflict, () => mfa.BeginRecoveryRegeneration(owner.Session.Access, ct, siblingHandle));
         var challenge = ReadToken(await mfa.BeginRecoveryRegeneration(owner.Session.Access, ct, ownerHandle), MfaWire.Regenerate, verified: false);
         var attempt = Attempt(challenge, MfaWire.Regenerate, owner.Codes[1]);
         await Denied(() => mfa.VerifyDisable(owner.Session.Access, Attempt(challenge, MfaWire.Disable, owner.Codes[1]), ct));
         await Denied(() => mfa.VerifyRecoveryRegeneration(sibling.Access, attempt, ct));
         await Denied(() => mfa.VerifyRecoveryRegeneration(foreign.Session.Access, attempt, ct));
-        await Rejected(Rejection.Conflict, () => mfa.VerifyRecoveryRegeneration(owner.Session.Access, attempt, ct, siblingHandle));
+        await Denied(Rejection.Conflict, () => mfa.VerifyRecoveryRegeneration(owner.Session.Access, attempt, ct, siblingHandle));
         var proof = ReadToken(await mfa.VerifyRecoveryRegeneration(owner.Session.Access, attempt, ct, ownerHandle), MfaWire.Regenerate, verified: true);
         await using (var digest = Store.Sql(db, null, """
             select exists (select 1 from public.mfa_flow where digest=$2 and options=$3)
@@ -52,7 +53,7 @@ public sealed class MfaRecoveryRegenerationPostgresTests
         await Assert.ThrowsAsync<MfaProofRequiredException>(() => mfa.RegenerateRecoveryCodes(sibling.Access, proof, ct));
         await Assert.ThrowsAsync<MfaProofRequiredException>(() => mfa.RegenerateRecoveryCodes(foreign.Session.Access, proof, ct));
         await Assert.ThrowsAsync<MfaProofRequiredException>(() => mfa.RegenerateRecoveryCodes(owner.Session.Access, null, ct));
-        await Rejected(Rejection.Conflict, () => mfa.RegenerateRecoveryCodes(owner.Session.Access, proof, ct, siblingHandle));
+        await Denied(Rejection.Conflict, () => mfa.RegenerateRecoveryCodes(owner.Session.Access, proof, ct, siblingHandle));
 
         var before = await sessions.WithSession(owner.Session.Access, false, (_, _, actor) => Task.FromResult(actor), ct);
         var profile = await mfa.Profile(owner.Session.Access, ct);
@@ -214,9 +215,4 @@ public sealed class MfaRecoveryRegenerationPostgresTests
 
     private static string ReadFixed(ReadOnlySpan<byte> bytes) => Encoding.ASCII.GetString(bytes).TrimEnd('\0');
     private static string RecoveryDigest(string code) => Convert.ToHexString(SHA256.HashData(Convert.FromHexString(code.Replace("-", "", StringComparison.Ordinal))));
-
-    private static Task Denied(Func<Task> action) => Rejected(Rejection.Unauthorized, action);
-
-    private static async Task Rejected(Rejection reason, Func<Task> action) =>
-        Assert.Equal(reason, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
 }

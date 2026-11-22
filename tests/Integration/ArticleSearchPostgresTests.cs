@@ -125,7 +125,7 @@ public sealed class ArticleSearchPostgresTests
             };
             await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, config);
             var client = server.Client;
-            var before = await Mark("measure-before");
+            var before = await Mark(evidence, output, "measure-before", ct);
             var (needle, generation) = await Search("  ＮＥＥＤＬＥ needle\t ");
             Assert.Equal([1, 4, 5, 2, 3], needle.Select(item => item.Id));
             Assert.Equal(new Hit(1, 1, 1, 10_001, 1), needle[0]);
@@ -159,7 +159,7 @@ public sealed class ArticleSearchPostgresTests
             var (commonTail, _, commonTotal) = await SearchPage("common", "relevance", 21, 10);
             Assert.Equal(205, commonTotal);
             Assert.Equal(Enumerable.Range(1001, 5).Reverse(), commonTail.Select(item => item.Id));
-            var after = await Mark("measure-after");
+            var after = await Mark(evidence, output, "measure-after", ct);
             Assert.Equal(16, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
             Assert.Equal(Count(before, "dbCommandStarts"), Count(after, "dbCommandStarts"));
             Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(after, "dbPhysicalOpenStarts"));
@@ -215,22 +215,6 @@ public sealed class ArticleSearchPostgresTests
                 using var request = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract, retract, token, handle: null);
                 using var response = await client.SendAsync(request, ct);
                 Assert.Equal(status, response.StatusCode);
-            }
-
-            async Task<JsonElement> Mark(string name)
-            {
-                var request = Path.Combine(evidence.FullName, "runtime.mark");
-                var staging = Path.Combine(evidence.FullName, "stage");
-                await File.WriteAllTextAsync(staging, name, ct);
-                File.Move(staging, request);
-                while (!File.Exists(Path.Combine(evidence.FullName, name + ".ack"))) await Task.Delay(20, ct);
-                var matches = new List<JsonElement>();
-                foreach (var line in await File.ReadAllLinesAsync(output, ct))
-                {
-                    using var row = JsonDocument.Parse(line);
-                    if (row.RootElement.GetProperty("mark").GetString() == name) matches.Add(row.RootElement.Clone());
-                }
-                return Assert.Single(matches);
             }
         }
         finally
@@ -325,7 +309,7 @@ public sealed class ArticleSearchPostgresTests
                 ["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] = output
             });
             var client = server.Client;
-            var before = await Mark("measure-before");
+            var before = await Mark(evidence, output, "measure-before", ct);
 
             var (rel, relTotal) = await Query("needle", "relevance", 1, 10);
             Assert.Equal(3, relTotal);
@@ -355,7 +339,7 @@ public sealed class ArticleSearchPostgresTests
             Assert.Equal(205, commonTotal);
             Assert.Equal([1005, 1004, 1003, 1002, 1001], commonPage21.Select(item => item.Id));
 
-            var after = await Mark("measure-after");
+            var after = await Mark(evidence, output, "measure-after", ct);
             Assert.Equal(7, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
             Assert.Equal(Count(before, "dbCommandStarts"), Count(after, "dbCommandStarts"));
             Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(after, "dbPhysicalOpenStarts"));
@@ -385,27 +369,27 @@ public sealed class ArticleSearchPostgresTests
                 return (ReadHits(await response.Content.ReadAsByteArrayAsync(ct)),
                     int.Parse(Assert.Single(response.Headers.GetValues(WireHeaders.SearchTotal))));
             }
-
-            async Task<JsonElement> Mark(string name)
-            {
-                var request = Path.Combine(evidence.FullName, "runtime.mark");
-                var staging = Path.Combine(evidence.FullName, "stage");
-                await File.WriteAllTextAsync(staging, name, ct);
-                File.Move(staging, request);
-                while (!File.Exists(Path.Combine(evidence.FullName, name + ".ack"))) await Task.Delay(20, ct);
-                var matches = new List<JsonElement>();
-                foreach (var line in await File.ReadAllLinesAsync(output, ct))
-                {
-                    using var row = JsonDocument.Parse(line);
-                    if (row.RootElement.GetProperty("mark").GetString() == name) matches.Add(row.RootElement.Clone());
-                }
-                return Assert.Single(matches);
-            }
         }
         finally
         {
             evidence.Delete(recursive: true);
         }
+    }
+
+    private static async Task<JsonElement> Mark(DirectoryInfo evidence, string output, string name, CancellationToken ct)
+    {
+        var request = Path.Combine(evidence.FullName, "runtime.mark");
+        var staging = Path.Combine(evidence.FullName, "stage");
+        await File.WriteAllTextAsync(staging, name, ct);
+        File.Move(staging, request);
+        while (!File.Exists(Path.Combine(evidence.FullName, name + ".ack"))) await Task.Delay(20, ct);
+        var matches = new List<JsonElement>();
+        foreach (var line in await File.ReadAllLinesAsync(output, ct))
+        {
+            using var row = JsonDocument.Parse(line);
+            if (row.RootElement.GetProperty("mark").GetString() == name) matches.Add(row.RootElement.Clone());
+        }
+        return Assert.Single(matches);
     }
 
     private static string PathFor(string keyword) => $"{WireRoutes.PublicSearch}?q={Uri.EscapeDataString(keyword)}";

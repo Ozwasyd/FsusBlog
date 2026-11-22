@@ -41,10 +41,8 @@ public sealed class AdminCategoryMetadataPostgresTests
         var pow = new ScopedPow(TimeProvider.System);
         var create = new AdminTagMetadataCommand(0, 0, Guid.NewGuid(), " Café topics ", " Original category description. ");
         var siteUser = await fixture.SignInSiteUser("category-site-user", ct);
-        var denied = await Assert.ThrowsAsync<BusinessException>(() => admin.ReadCategoryMetadata(siteUser.Token, 1, ct));
-        Assert.Equal(Rejection.Unauthorized, denied.Rejection);
-        denied = await Assert.ThrowsAsync<BusinessException>(() => Challenge(create, MakeNonce(), siteUser.Token));
-        Assert.Equal(Rejection.Unauthorized, denied.Rejection);
+        await BusinessAssert.Denied(Rejection.Unauthorized, () => admin.ReadCategoryMetadata(siteUser.Token, 1, ct));
+        await BusinessAssert.Denied(Rejection.Unauthorized, () => Challenge(create, MakeNonce(), siteUser.Token));
 
         var createFrame = await Execute(create, await Proof(create));
         var created = Wire.DecodeAdminCategoryMetadata(createFrame);
@@ -61,12 +59,10 @@ public sealed class AdminCategoryMetadataPostgresTests
         Assert.Same(initialCategory, publications.Snapshot);
 
         var reusedRequest = create with { Name = "Another category" };
-        var conflict = await Assert.ThrowsAsync<BusinessException>(() => Execute(reusedRequest, null));
-        Assert.Equal(Rejection.Conflict, conflict.Rejection);
+        await BusinessAssert.Denied(Rejection.Conflict, () => Execute(reusedRequest, null));
         var duplicate = create with { RequestId = Guid.NewGuid(), Name = "Café topics" };
         var duplicateProof = await Proof(duplicate);
-        conflict = await Assert.ThrowsAsync<BusinessException>(() => Execute(duplicate, duplicateProof));
-        Assert.Equal(Rejection.Conflict, conflict.Rejection);
+        await BusinessAssert.Denied(Rejection.Conflict, () => Execute(duplicate, duplicateProof));
         Assert.Same(initialCategory, publications.Snapshot);
 
         var draft = await Edit(ArticleAction.Save, 0, 0, "Public category article", "A public source tied to the category ID.");
@@ -116,12 +112,10 @@ public sealed class AdminCategoryMetadataPostgresTests
         Assert.Equal(renameFrame, await Execute(rename, null));
         var stale = rename with { RequestId = Guid.NewGuid(), Name = "Stale change" };
         var staleProof = await Proof(stale);
-        conflict = await Assert.ThrowsAsync<BusinessException>(() => Execute(stale, staleProof));
-        Assert.Equal(Rejection.Conflict, conflict.Rejection);
+        await BusinessAssert.Denied(Rejection.Conflict, () => Execute(stale, staleProof));
         var collidingRename = rename with { RequestId = Guid.NewGuid(), ExpectedRevision = renamed.Revision, Name = "Imported category" };
         var collisionProof = await Proof(collidingRename);
-        conflict = await Assert.ThrowsAsync<BusinessException>(() => Execute(collidingRename, collisionProof));
-        Assert.Equal(Rejection.Conflict, conflict.Rejection);
+        await BusinessAssert.Denied(Rejection.Conflict, () => Execute(collidingRename, collisionProof));
         Assert.Same(after, publications.Snapshot);
         Assert.Equal(2L, await Number("select count(*) from public.admin_category_metadata_command"));
         Assert.Equal(2L, await Number("select count(*) from public.scoped_pow_consumed"));
@@ -139,8 +133,7 @@ public sealed class AdminCategoryMetadataPostgresTests
         Assert.Equal(after.Generation, restarted.Snapshot!.Generation);
         Assert.Equal(new TaxonomyName(created.Id, "Renamed category"), restarted.Snapshot.Article(draft.Id)!.Category);
         await Sql("update public.admin_principal set generation=generation+1 where id=$1", adminId);
-        denied = await Assert.ThrowsAsync<BusinessException>(() => Execute(rename, null));
-        Assert.Equal(Rejection.Unauthorized, denied.Rejection);
+        await BusinessAssert.Denied(Rejection.Unauthorized, () => Execute(rename, null));
 
         Publications Project() => new(fixture.DataSource, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance, lease);
 

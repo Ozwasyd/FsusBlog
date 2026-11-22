@@ -7,6 +7,7 @@ using FsusBlog.V2.Server.Passkeys;
 using FsusBlog.V2.Server.Sessions;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -178,9 +179,8 @@ public sealed class SiteRecoveryKeyPostgresTests
         var pendingSession = await AddSession(db, other.Id, ct);
         Assert.True(await service.RecoveryKeyStatus(pendingSession, ct));
         var proof = await SeedIssueProof(db, other.Id, pendingSession, ct);
-        var pendingRotation = await Assert.ThrowsAsync<BusinessException>(() =>
+        await Denied(Rejection.Conflict, () =>
             service.IssueRecoveryKey(secrets, pendingSession, new(2), proof, ct));
-        Assert.Equal(Rejection.Conflict, pendingRotation.Rejection);
         Assert.Equal(true, await Scalar(db, "select used_at is null from public.site_recovery_key where user_id=$1", ct, other.Id));
         Assert.Equal(1L, await Scalar(db, "select version from public.site_recovery_key where user_id=$1", ct, other.Id));
         await Denied(() => service.RecoveryKeyStatus(ticket, ct));
@@ -246,9 +246,6 @@ public sealed class SiteRecoveryKeyPostgresTests
 
     private static Task Execute(NpgsqlConnection db, string sql, CancellationToken ct, params object[] values) =>
         FixtureSql.ExecuteAsync(db, null, ct, sql, values);
-
-    private static async Task Denied(Func<Task> operation) =>
-        Assert.Equal(Rejection.Unauthorized, (await Assert.ThrowsAsync<BusinessException>(operation)).Rejection);
 
     private sealed record Account(Guid Id, string Key);
 }

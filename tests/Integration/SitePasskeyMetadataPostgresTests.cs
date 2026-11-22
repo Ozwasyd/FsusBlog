@@ -6,6 +6,7 @@ using FsusBlog.V2.Server.Passkeys;
 using FsusBlog.V2.Server.Sessions;
 using Npgsql;
 using NpgsqlTypes;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -221,7 +222,4 @@ public sealed class SitePasskeyMetadataPostgresTests
         var (token, id, _) = await FixtureSql.SiteSessionAsync(db, owner, expiry, ct, generation, credential);
         return (token, id);
     }
-
-    private static async Task Denied(Rejection expected, Func<Task> action) =>
-        Assert.Equal(expected, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
 }

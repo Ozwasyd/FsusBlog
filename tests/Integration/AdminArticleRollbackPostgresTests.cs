@@ -10,6 +10,7 @@ using FsusBlog.V2.Server.Passkeys;
 using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -388,9 +389,6 @@ public sealed partial class AdminArticleRollbackPostgresTests
     {
         return (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, parameters))!;
     }
-
-    private static async Task Denied(Rejection expected, Func<Task> action) =>
-        Assert.Equal(expected, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
 
     private static AdminArticleRollbackStore CreateStore(ScratchDatabase fixture)
     {

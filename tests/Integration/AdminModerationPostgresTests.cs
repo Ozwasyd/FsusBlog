@@ -13,6 +13,7 @@ using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
 using Npgsql;
+using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -746,9 +747,6 @@ public sealed partial class AdminModerationPostgresTests
 
     private static Task Execute(NpgsqlConnection db, string sql, CancellationToken ct, params object[] parameters) =>
         FixtureSql.ExecuteAsync(db, null, ct, sql, parameters);
-
-    private static async Task Denied(Rejection expected, Func<Task> action) =>
-        Assert.Equal(expected, (await Assert.ThrowsAsync<BusinessException>(action)).Rejection);
 
     private sealed record Moderator(Guid Id, string Token, byte[] Digest);
     private sealed record ClaimAttempt(Moderator Admin, AdminModerationClaim? Claim, Rejection? Denied);
