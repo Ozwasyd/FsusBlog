@@ -2,7 +2,6 @@ using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.IO.Compression;
 using System.Text;
-using System.Text.Json;
 using static FsusBlog.V2.Core.Extensions.ExtensionManifestReader;
 using static FsusBlog.V2.Core.Extensions.ExtensionPackageVerifier;
 
@@ -29,7 +28,7 @@ public sealed partial class AppearanceRegistry
     {
         ArgumentNullException.ThrowIfNull(readFile);
         ArgumentNullException.ThrowIfNull(clock);
-        var configuration = Decode<Registry>(ReadBounded(readFile, "appearance.json", 128 * 1024));
+        var configuration = Decode<Registry>(ReadBounded(readFile, "appearance.json", 128 * 1024), Json, "appearance-json-shape");
         if (configuration.Packages.IsDefault || configuration.Packages.Length > 16 || configuration.Keys.IsDefault ||
             configuration.Keys.Length > 16 || configuration.Sources.IsDefault || configuration.Sources.Length > 16 ||
             configuration.ActiveTheme is not null && !IsIdentifier(configuration.ActiveTheme) ||
@@ -123,20 +122,17 @@ public sealed partial class AppearanceRegistry
 
     private static Entry Read(byte[] bytes, SignedArchiveTrust trust, bool legacyFont)
     {
-        try
+        return ExtensionArchive.Read<Entry>(bytes, "appearance-archive-invalid", "appearance-archive-invalid", archive =>
         {
-            using var archive = new ZipArchive(new MemoryStream(bytes, writable: false), ZipArchiveMode.Read);
             if (legacyFont) return ReadLegacyFont(archive, trust);
             if (archive.Entries.Count is not (1 or 3)) throw Reject("appearance-package-entries");
             var entries = new Dictionary<string, ZipArchiveEntry>(StringComparer.Ordinal);
             foreach (var entry in archive.Entries)
             {
-                var unixType = (entry.ExternalAttributes >> 16) & 0xf000;
-                if (entry.FullName is not ("manifest.json" or "font.woff2" or "LICENSE.txt") || unixType is not (0 or 0x8000) ||
-                    (entry.ExternalAttributes & ((int)FileAttributes.ReparsePoint | (int)FileAttributes.Directory)) != 0 ||
+                if (entry.FullName is not ("manifest.json" or "font.woff2" or "LICENSE.txt") || !ExtensionArchive.IsRegularFile(entry) ||
                     !entries.TryAdd(entry.FullName, entry)) throw Reject("appearance-entry-shape");
             }
-            var manifest = Decode<Manifest>(ReadEntry(entries, "manifest.json", MaxTheme));
+            var manifest = Decode<Manifest>(ReadEntry(entries, "manifest.json", MaxTheme), Json, "appearance-json-shape");
             if (manifest.Format != 1 || !IsIdentifier(manifest.Id) || !IsVersion(manifest.Version) ||
                 manifest.Publisher != trust.Source.Publisher || manifest.SignatureReference != trust.Source.SignatureReference ||
                 manifest.TrustPolicyReference != trust.Source.TrustPolicyReference) throw Reject("appearance-manifest");
@@ -153,11 +149,7 @@ public sealed partial class AppearanceRegistry
             if (Digest(license) != font.LicenseSha256) throw Reject("appearance-font-provenance");
             var licenseText = ValidateFontPayload(license, content, font.FontSha256);
             return new Font(manifest.Id, manifest.Version, trust, font.FontSha256, content, font.License, licenseText);
-        }
-        catch (Exception error) when (error is IOException or InvalidDataException or DecoderFallbackException or NotSupportedException)
-        {
-            throw Reject("appearance-archive-invalid");
-        }
+        });
     }
 
     private static string ValidateFontPayload(byte[] license, byte[] content, string expectedDigest)
@@ -206,19 +198,11 @@ public sealed partial class AppearanceRegistry
         html:root .fsus-prose{font-family:var(--el-font-family)}
         """;
 
-    private static T Decode<T>(byte[] bytes, JsonSerializerOptions? options = null) where T : class
-    {
-        try { return JsonSerializer.Deserialize<T>(bytes, options ?? Json) ?? throw Reject("appearance-json-shape"); }
-        catch (JsonException) { throw Reject("appearance-json-shape"); }
-    }
-
     private static byte[] ReadEntry(Dictionary<string, ZipArchiveEntry> entries, string name, int limit)
     {
         if (!entries.TryGetValue(name, out var entry) || entry.Length <= 0 || entry.Length > limit) throw Reject("appearance-entry-size");
         return ExtensionArchive.ReadExact(entry, "appearance-entry-size");
     }
-
-    private static ExtensionRejectedException Reject(string code) => new(code);
 
     private sealed record Registry(ImmutableArray<ExtensionPublisherKey> Keys, ImmutableArray<ApprovedExtensionSource> Sources,
         ImmutableArray<Descriptor> Packages, string? ActiveTheme, string? ActiveFont);

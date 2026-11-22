@@ -54,12 +54,42 @@ internal static partial class ExtensionManifestReader
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
     };
 
+    internal static readonly JsonSerializerOptions LegacyJson = new(Json) { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private static readonly Version LegacyBaseline = new(1, 3, 0);
+
+    internal static T Decode<T>(ReadOnlySpan<byte> bytes, JsonSerializerOptions options, string invalid, string? absent = null) where T : class
+    {
+        try { return JsonSerializer.Deserialize<T>(bytes, options) ?? throw Reject(absent ?? invalid); }
+        catch (JsonException) { throw Reject(invalid); }
+    }
+
+    internal static bool AllowsLegacyBaseline(string spec, Regex? syntax = null, int maximumClauses = int.MaxValue)
+    {
+        var clauses = spec.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (clauses.Length == 0 || clauses.Length > maximumClauses) return false;
+        foreach (var clause in clauses)
+        {
+            if (syntax is not null && !syntax.IsMatch(clause)) return false;
+            var width = clause.StartsWith(">=", StringComparison.Ordinal) || clause.StartsWith("<=", StringComparison.Ordinal) ? 2 : 1;
+            if (clause.Length <= width || !Version.TryParse(clause[width..], out var bound)) return false;
+            var accepts = clause[..width] switch
+            {
+                ">=" => LegacyBaseline >= bound,
+                ">" => LegacyBaseline > bound,
+                "<=" => LegacyBaseline <= bound,
+                "<" => LegacyBaseline < bound,
+                "=" => LegacyBaseline == bound,
+                _ => false
+            };
+            if (!accepts) return false;
+        }
+        return true;
+    }
+
     internal static ExtensionManifest Read(ReadOnlySpan<byte> json, ExtensionPlatform platform)
     {
         if (json.IsEmpty || json.Length > ManifestBytes) throw Reject("manifest-size");
-        ExtensionManifest manifest;
-        try { manifest = JsonSerializer.Deserialize<ExtensionManifest>(json, Json) ?? throw Reject("manifest-absent"); }
-        catch (JsonException) { throw Reject("manifest-shape"); }
+        var manifest = Decode<ExtensionManifest>(json, Json, "manifest-shape", "manifest-absent");
 
         if (manifest.SchemaVersion != 1 || manifest.RegistryVersion != 1 || manifest.AllowExecutionFallback ||
             !IsIdentifier(manifest.Id) || !IsIdentifier(manifest.Publisher) ||
@@ -118,7 +148,7 @@ internal static partial class ExtensionManifestReader
         IsIdentifier(value[prefix.Length..]);
 
     private static bool IsReference(string value) => value.Length <= 128 && Reference().IsMatch(value);
-    private static ExtensionRejectedException Reject(string code) => new(code);
+    internal static ExtensionRejectedException Reject(string code) => new(code);
 
     [GeneratedRegex("\\A[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*\\z", RegexOptions.CultureInvariant)]
     private static partial Regex Identifier();

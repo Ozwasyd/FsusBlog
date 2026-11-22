@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.Globalization;
-using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using static FsusBlog.V2.Core.Extensions.ExtensionManifestReader;
@@ -147,10 +146,8 @@ public sealed class ExtensionPackageVerifier
 
     private static ExtensionManifest VerifyEntries(byte[] data, ExtensionPlatform platform, CancellationToken ct)
     {
-        try
+        return ExtensionArchive.Read(data, "archive-invalid", null, zip =>
         {
-            using var stream = new MemoryStream(data, writable: false);
-            using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
             if (zip.Entries.Count is < 2 or > MaxEntries + 1) throw new ExtensionRejectedException("archive-entry-count");
 
             var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -158,9 +155,7 @@ public sealed class ExtensionPackageVerifier
             foreach (var entry in zip.Entries)
             {
                 ct.ThrowIfCancellationRequested();
-                var unixType = (entry.ExternalAttributes >> 16) & 0xf000;
-                if (!IsPackagePath(entry.FullName) || !paths.Add(entry.FullName) || unixType is not (0 or 0x8000) ||
-                    (entry.ExternalAttributes & ((int)FileAttributes.ReparsePoint | (int)FileAttributes.Directory)) != 0 ||
+                if (!IsPackagePath(entry.FullName) || !paths.Add(entry.FullName) || !ExtensionArchive.IsRegularFile(entry) ||
                     entry.Length < 0 || entry.Length > (entry.FullName == "manifest.json" ? ManifestBytes : MaxEntryBytes))
                     throw new ExtensionRejectedException("archive-entry-shape");
                 expanded += entry.Length;
@@ -196,11 +191,7 @@ public sealed class ExtensionPackageVerifier
                 RequireDigest(digest, contribution.Entrypoint.ContentSha256, "entrypoint-digest");
             }
             return manifest;
-        }
-        catch (Exception error) when (error is InvalidDataException or IOException or NotSupportedException)
-        {
-            throw new ExtensionRejectedException("archive-invalid");
-        }
+        });
     }
 
     private static void RequireDigest(ReadOnlySpan<byte> digest, string expected, string failure)

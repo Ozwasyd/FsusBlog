@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.IO.Compression;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using static FsusBlog.V2.Core.Extensions.ExtensionManifestReader;
@@ -10,8 +9,6 @@ namespace FsusBlog.V2.Core.Extensions;
 
 public sealed partial class AppearanceRegistry
 {
-    private static readonly JsonSerializerOptions LegacyFontJson = new(Json) { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-    private static readonly Version LegacyFontVersion = new(1, 3, 0);
     private const string LegacyFontPrefix = @"fsusblog\.font\.";
     private const string LegacyLicense = "license/LICENSE.txt";
     private const string LegacyLicenseSource = "license/source.json";
@@ -19,7 +16,7 @@ public sealed partial class AppearanceRegistry
     private static Font ReadLegacyFont(ZipArchive archive, SignedArchiveTrust trust)
     {
         var entries = LegacyFontEntries(archive);
-        var manifest = Decode<LegacyFontManifest>(ReadEntry(entries, "manifest.json", MaxTheme), LegacyFontJson);
+        var manifest = Decode<LegacyFontManifest>(ReadEntry(entries, "manifest.json", MaxTheme), LegacyJson, "appearance-json-shape");
         if (manifest.Id is not { } id || !LegacyFontId().IsMatch(id) || id.Length > 128 ||
             !FontVersion(manifest.Version) || !FontAllowsBaseline(manifest.FsusBlog) || manifest.Type != "font" ||
             manifest.Category != "ui-sans" || !FontMetadata(manifest.Name) || !FontMetadata(manifest.Family) ||
@@ -34,7 +31,7 @@ public sealed partial class AppearanceRegistry
             throw Reject("appearance-fsfont-unsupported");
 
         if (entries.Count != 4 || !entries.ContainsKey(file)) throw Reject("appearance-entry-shape");
-        var source = Decode<AppearanceFontSource>(ReadEntry(entries, LegacyLicenseSource, 2048), LegacyFontJson);
+        var source = Decode<AppearanceFontSource>(ReadEntry(entries, LegacyLicenseSource, 2048), LegacyJson, "appearance-json-shape");
         if (source != manifest.Source || source.Kind is not ("local-vendored" or "npm-fontsource") ||
             !FontVersion(source.Version) || !FontMetadata(source.Package) || !FontMetadata(source.Upstream) ||
             source.Package.Contains(':') || source.Package.StartsWith('/') || source.Upstream.Contains(':') ||
@@ -65,8 +62,7 @@ public sealed partial class AppearanceRegistry
                 continue;
             }
             if (name is not ("manifest.json" or LegacyLicense or LegacyLicenseSource) && !FontFile().IsMatch(name) ||
-                unixType is not (0 or 0x8000) || (unixMode & 0x49) != 0 ||
-                (entry.ExternalAttributes & (int)FileAttributes.Directory) != 0)
+                !ExtensionArchive.IsRegularFile(entry) || (unixMode & 0x49) != 0)
                 throw Reject("appearance-entry-shape");
             files.Add(name, entry);
         }
@@ -78,29 +74,8 @@ public sealed partial class AppearanceRegistry
     private static bool FontMetadata(string? value) => value is { Length: > 0 and <= 128 } &&
         !string.IsNullOrWhiteSpace(value) && value.All(character => !char.IsControl(character) && character != '\\');
 
-    private static bool FontAllowsBaseline(string? value)
-    {
-        if (value is not { Length: > 0 and <= 128 }) return false;
-        var constraints = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (constraints.Length is < 1 or > 8) return false;
-        foreach (var constraint in constraints)
-        {
-            var width = constraint.StartsWith(">=", StringComparison.Ordinal) || constraint.StartsWith("<=", StringComparison.Ordinal) ? 2 : 1;
-            if (constraint.Length <= width || !Version.TryParse(constraint[width..], out var target)) return false;
-            var comparison = LegacyFontVersion.CompareTo(target);
-            var matched = constraint[..width] switch
-            {
-                ">=" => comparison >= 0,
-                "<=" => comparison <= 0,
-                ">" => comparison > 0,
-                "<" => comparison < 0,
-                "=" => comparison == 0,
-                _ => false
-            };
-            if (!matched) return false;
-        }
-        return true;
-    }
+    private static bool FontAllowsBaseline(string? value) =>
+        value is { Length: > 0 and <= 128 } && AllowsLegacyBaseline(value, maximumClauses: 8);
 
     private static bool ValidUnicodeRange(string? value)
     {

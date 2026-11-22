@@ -1,6 +1,5 @@
 using System.IO.Compression;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using static FsusBlog.V2.Core.Extensions.ExtensionManifestReader;
@@ -18,9 +17,7 @@ internal static partial class LegacyThemeInspection
     private const string ThemePath = "styles/theme.css";
     private const string PreviewPath = "assets/preview.png";
     private const string SchemaPath = "config/schema.json";
-    private static readonly Version Baseline = new(1, 3, 0);
     private static readonly UTF8Encoding Utf8 = new(false, true);
-    private static readonly JsonSerializerOptions Options = new(Json) { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
     internal static Report Inspect(byte[] archive, byte[] signature, string source,
         IEnumerable<ExtensionPublisherKey> keys, IEnumerable<ApprovedExtensionSource> sources,
@@ -37,15 +34,14 @@ internal static partial class LegacyThemeInspection
     internal static Package ReadVerified(byte[] archive, SignedArchiveTrust trust, CancellationToken cancellationToken)
     {
         if (archive.Length is < 1 or > MaximumArchiveBytes) throw Reject("fstheme-archive-size");
-        try
+        return ExtensionArchive.Read<Package>(archive, "fstheme-archive-invalid", "fstheme-css-encoding", zip =>
         {
-            using var zip = new ZipArchive(new MemoryStream(archive, writable: false), ZipArchiveMode.Read);
             var entries = Index(zip);
             var manifestBytes = Read(entries[ManifestPath]);
-            var manifest = Decode<Manifest>(manifestBytes, "fstheme-manifest");
+            var manifest = Decode<Manifest>(manifestBytes, LegacyJson, "fstheme-manifest");
             var styles = Validate(manifest, entries);
             var schema = Read(entries[SchemaPath]);
-            var config = Config(Decode<ConfigSchema>(schema, "fstheme-config"));
+            var config = Config(Decode<ConfigSchema>(schema, LegacyJson, "fstheme-config"));
             var inspected = new List<PackageEntry>(entries.Count);
             string? tokenCss = null;
             string? themeCss = null;
@@ -74,12 +70,7 @@ internal static partial class LegacyThemeInspection
                 styles.Order(StringComparer.Ordinal).ToArray(), new SortedDictionary<string, string>(manifest.Assets, StringComparer.Ordinal), config, inspected);
             return new(report, tokenCss ?? throw Reject("fstheme-required-entry"), themeCss ?? throw Reject("fstheme-required-entry"),
                 manifest.Budgets.MaxSelectors);
-        }
-        catch (DecoderFallbackException) { throw Reject("fstheme-css-encoding"); }
-        catch (Exception error) when (error is IOException or InvalidDataException or NotSupportedException)
-        {
-            throw Reject("fstheme-archive-invalid");
-        }
+        });
     }
 
     private static Dictionary<string, ZipArchiveEntry> Index(ZipArchive zip)
@@ -90,10 +81,8 @@ internal static partial class LegacyThemeInspection
         long expanded = 0;
         foreach (var entry in zip.Entries)
         {
-            var unixType = (entry.ExternalAttributes >> 16) & 0xf000;
             if (!IsPackagePath(entry.FullName) || entry.FullName.EndsWith('/') || !names.Add(entry.FullName) ||
-                unixType is not (0 or 0x8000) ||
-                (entry.ExternalAttributes & ((int)FileAttributes.ReparsePoint | (int)FileAttributes.Directory)) != 0)
+                !ExtensionArchive.IsRegularFile(entry))
                 throw Reject("fstheme-entry-shape");
             if (entry.Length < 0 || entry.Length > MaximumExpandedBytes - expanded) throw Reject("fstheme-expanded-size");
             expanded += entry.Length;
@@ -155,31 +144,7 @@ internal static partial class LegacyThemeInspection
         }).ToArray();
     }
 
-    private static bool AllowsBaseline(string spec)
-    {
-        if (!Text(spec, 128)) return false;
-        var constraints = spec.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return constraints.All(constraint =>
-        {
-            var match = Boundary().Match(constraint);
-            if (!match.Success || !Version.TryParse(match.Groups["version"].Value, out var bound)) return false;
-            return match.Groups["operator"].Value switch
-            {
-                ">=" => Baseline >= bound,
-                ">" => Baseline > bound,
-                "<=" => Baseline <= bound,
-                "<" => Baseline < bound,
-                "=" => Baseline == bound,
-                _ => false
-            };
-        });
-    }
-
-    private static T Decode<T>(byte[] bytes, string code) where T : class
-    {
-        try { return JsonSerializer.Deserialize<T>(bytes, Options) ?? throw Reject(code); }
-        catch (JsonException) { throw Reject(code); }
-    }
+    private static bool AllowsBaseline(string spec) => Text(spec, 128) && AllowsLegacyBaseline(spec, Boundary());
 
     private static byte[] Read(ZipArchiveEntry entry)
     {
@@ -202,8 +167,6 @@ internal static partial class LegacyThemeInspection
 
     private static bool Text(string value, int limit) => value.Length <= limit &&
         !string.IsNullOrWhiteSpace(value) && value.All(character => !char.IsControl(character));
-
-    private static ExtensionRejectedException Reject(string code) => new(code);
 
     [GeneratedRegex(@"\Afsusblog\.theme\.[a-z0-9](?:[a-z0-9.-]{0,94}[a-z0-9])?\z", RegexOptions.CultureInvariant)]
     private static partial Regex ThemeId();
