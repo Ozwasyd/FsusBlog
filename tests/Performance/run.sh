@@ -343,6 +343,15 @@ read -r postgres_pid < "$run/pg/postmaster.pid"
 ) > "$evidence/server-process.csv" &
 sampler_pid=$!
 
+run_load() {
+  printf '%q ' "${supplier_env[@]}" load "$@" >> "$evidence/commands.txt"
+  printf '\n' >> "$evidence/commands.txt"
+  "${supplier_env[@]}" "$run/load" "$@" > "$evidence/$stage.log" 2>&1 &
+  load_pid=$!
+  wait "$load_pid"
+  load_pid=
+}
+
 measure() {
   stage=$1
   local rate=$2 seconds=$3 warm_seconds=${4:-0}
@@ -357,13 +366,18 @@ measure() {
   if ((warm_seconds != 0)); then args+=(-shared-warmup-seconds "$warm_seconds"); fi
   if [[ "$runtime_evidence" == true && "$stage" != warmup-* ]]; then args+=(-runtime-control "$run"); fi
   if [[ "$slow_requests" == true ]]; then args+=(-slow-requests); fi
-  printf '%q ' "${supplier_env[@]}" load "${args[@]}" >> "$evidence/commands.txt"
-  printf '\n' >> "$evidence/commands.txt"
-  "${supplier_env[@]}" "$run/load" "${args[@]}" > "$evidence/$stage.log" 2>&1 &
-  load_pid=$!
-  wait "$load_pid"
-  load_pid=
+  run_load "${args[@]}"
   if [[ "$runtime_evidence" == true && "$stage" != warmup-* ]]; then runtime_report "$stage"; fi
+}
+
+measure_with_warmup() {
+  local name=$1 rate=$2 seconds=$3 warmup_name=$4 warmup_seconds=$5
+  if [[ "$shared_warmup" == true ]]; then
+    measure "$name" "$rate" "$seconds" "$warmup_seconds"
+  else
+    measure "$warmup_name" 2000 "$warmup_seconds"
+    measure "$name" "$rate" "$seconds"
+  fi
 }
 
 if [[ "$runtime_evidence" == true ]]; then
@@ -373,12 +387,7 @@ fi
 case "$mode" in
   smoke|proxy-smoke)
     if [[ "$runtime_evidence" == true ]]; then
-      if [[ "$shared_warmup" == true ]]; then
-        measure "$mode" 2000 10 3
-      else
-        measure warmup-runtime-smoke 2000 3
-        measure "$mode" 2000 10
-      fi
+      measure_with_warmup "$mode" 2000 10 warmup-runtime-smoke 3
     else
       measure "$mode" 100 3
     fi
@@ -390,23 +399,13 @@ case "$mode" in
     cold_args=(-target "$origin" -fixture "$evidence/fixture.json" -wire "$run/source/src/Contracts/wire.schema.json"
       -cold-log "$evidence/server.log" -out "$evidence/cold.json")
     if [[ "${FSUSBLOG_PERF_COLD_PRESSURE:-}" == 1 ]]; then cold_args+=(-cold-pressure); fi
-    printf '%q ' "${supplier_env[@]}" load "${cold_args[@]}" >> "$evidence/commands.txt"
-    printf '\n' >> "$evidence/commands.txt"
-    "${supplier_env[@]}" "$run/load" "${cold_args[@]}" > "$evidence/cold.log" 2>&1 &
-    load_pid=$!
-    wait "$load_pid"
-    load_pid=
+    run_load "${cold_args[@]}"
     ;;
   direct|proxy)
     first=1
     for rate in 2000 5000 8000 10500; do
       if ((first)); then first=0; else sleep 15; fi
-      if [[ "$shared_warmup" == true ]]; then
-        measure "$mode-$rate" "$rate" 60 30
-      else
-        measure "warmup-$rate" 2000 30
-        measure "$mode-$rate" "$rate" 60
-      fi
+      measure_with_warmup "$mode-$rate" "$rate" 60 "warmup-$rate" 30
     done
     ;;
   peak|proxy-peak)
@@ -416,12 +415,7 @@ case "$mode" in
     measure "$mode-11000" 11000 60 30
     ;;
   soak)
-    if [[ "$shared_warmup" == true ]]; then
-      measure direct-soak 8000 900 30
-    else
-      measure warmup-soak 2000 30
-      measure direct-soak 8000 900
-    fi
+    measure_with_warmup direct-soak 8000 900 warmup-soak 30
     ;;
 esac
 stage=finished
