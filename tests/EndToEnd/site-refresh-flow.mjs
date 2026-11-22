@@ -10,6 +10,7 @@ import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { decodeDraft, decodeSession, encodeArticleCommand, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { assertEmptySuccess, button, enableAuthenticator, expect, launchIdentityBrowser, readTlsIdentityFixture, recordIdentityResponse, request, secureLoginProtocol, setupSiteTotp, completeSiteTotp, siteApi } from './site-authentication-fixture.mjs'
 import { roleWithExactName, exactText, exactLabel } from './role-locators.mjs'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
 
 const emptySuccess = reply => assertEmptySuccess(reply, 'Authentication response may be stored.')
 const exec = promisify(execFile)
@@ -17,6 +18,11 @@ const peerTicket = process.env.FSUSBLOG_TEST_SITE_REFRESH_PEER_TICKET
 const probe = process.env.FSUSBLOG_TEST_SITE_REFRESH_PROBE
 const { origin, ownerTicket, pins } = readTlsIdentityFixture(peerTicket, probe,
   'Provide the isolated native TLS runner with two separate accounts and the PostgreSQL fixture probe.')
+const adminOrigin = new URL(process.env.FSUSBLOG_TEST_ADMIN_URL).origin
+const adminBootstrap = process.env.FSUSBLOG_TEST_ADMIN_TICKET
+const adminPeerBootstrap = process.env.FSUSBLOG_TEST_SITE_REFRESH_ADMIN_PEER
+assert(adminOrigin !== origin && adminBootstrap && adminPeerBootstrap)
+const englishLocale = { name: 'fsus_locale', value: 'en', url: origin }
 const { isApi, waitApi, clickApi } = siteApi(origin, (target, predicate) =>
   target.waitForEvent('response', { predicate, timeout: 12_000 }))
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/site-refresh-browser')
@@ -35,7 +41,7 @@ const startedAt = new Date().toISOString()
 const checks = {}
 const responses = []
 const faults = []
-const sensitive = [ownerTicket, peerTicket]
+const sensitive = [ownerTicket, peerTicket, adminBootstrap, adminPeerBootstrap]
 let phase = 'configure-mfa'
 let failure
 try {
@@ -87,21 +93,20 @@ try {
   persisted.cookies = persisted.cookies.filter(cookie => cookie.expires > Date.now() / 1000)
   await owner.context.close()
   const restored = await browser.newContext({ storageState: persisted })
+  await restored.addCookies([englishLocale])
   observe(restored, 'restored')
   const writer = await restored.newPage()
+  await writer.bringToFront()
+  await signInFreshAdmin(writer, adminOrigin, adminBootstrap)
+  const authoringHandle = await currentAuthoringHandle(restored)
+  const workspace = await openDirtyWorkspace(writer, authoringHandle)
   const first = await restored.newPage()
   const second = await restored.newPage()
-  const workspace = await openDirtyWorkspace(writer, active.handle)
   const stale = await request.newContext({ storageState: { cookies: [oldAccess, oldRefresh], origins: [] } })
   await probeRow('expire-access')
   await checkSession(restored, 401)
   assert((await cookie(restored, 'refresh')).value === oldRefresh.value, 'Reopened browser did not retain its persistent credential.')
   await holdBothExpiredReads(first, second)
-  const rotation = Promise.withResolvers()
-  await writer.route(origin + WireRoutes.Session, async route => {
-    await rotation.promise
-    await route.continue()
-  })
   const fired = []
   restored.on('response', response => {
     if (isApi(response, rotate, 'POST')) fired.push(response)
@@ -115,9 +120,7 @@ try {
     await refreshError(concurrent, 409, 'REFRESH_ROTATION_CONFLICT')
     assert(!concurrent.headers()['set-cookie'], 'A concurrent request changed browser credentials.')
     checks.concurrentGenerationRejected = concurrent.status()
-    const writerObserved = writer.waitForResponse(response => isApi(response, WireRoutes.Session, 'GET') && response.status() === 200)
-    rotation.resolve()
-    await Promise.all([first, second].map(page => roleWithExactName(page, 'link', 'Continue to writing').waitFor()))
+    await Promise.all([first, second].map(page => roleWithExactName(page, 'link', 'Account').waitFor()))
     assert.equal(fired.length, 1, 'Expected one rotation for both tabs sharing the persistent cookie jar.')
     const fresh = await checkSession(restored, 200)
     assert(fresh.name === active.name && fresh.generation === active.generation && fresh.persistent,
@@ -132,27 +135,25 @@ try {
       'Rotation did not replace both opaque credential values.')
     checks.twoTabsRestoredViaOneRotation = true
 
-    phase = 'same-family-editor-continuity'
-    const writerSession = await writerObserved
-    assert((await writerSession.allHeaders())[WireHeaders.CurrentSession.toLowerCase()] === fresh.handle,
-      'The open workspace did not fetch the newly rotated credential.')
+    phase = 'reader-rotation-preserves-editor'
+    assert.equal(await currentAuthoringHandle(restored), authoringHandle)
     await verifyDirtyWorkspace(writer, workspace)
-    checks.sameFamilyRetainedDirtyWorkspaceAndInspector = true
+    checks.readerRotationRetainedDirtyWorkspaceAndInspector = true
     phase = 'persist-dirty-workspace'
     await writer.bringToFront()
     await button(roleWithExactName(writer, 'complementary', 'Article inspector'), 'Close').click()
     const saved = await saveFromEditor(writer)
     assertStatus(saved, 200)
     const sent = await saved.request().allHeaders()
-    assert(sent[WireHeaders.CurrentSession.toLowerCase()] === fresh.handle,
-      'The preserved workspace did not write using the rotated credential identifier.')
+    assert(sent[WireHeaders.CurrentSession.toLowerCase()] === authoringHandle,
+      'The preserved workspace must continue using its separate administrator credential.')
     const retained = decodeDraft(decodeFrame(await saved.body(), FrameType.Draft).payload)
     assert(retained.title === workspace.title && retained.body === workspace.body,
       'The preserved dirty inputs were not saved byte for byte.')
-    checks.dirtyWorkspaceSavedUsingRotatedCredential = true
+    checks.dirtyWorkspaceSavedUsingIndependentAdminCredential = true
 
     phase = 'stale-editor-create-rejected'
-    await rejectStaleDraftCreate([newAccess, newRefresh], fresh.handle, peer, peerCookie)
+    await rejectStaleDraftCreate(await restored.storageState(), authoringHandle)
     checks.staleCreateRejectedAfterAccountSwitch = true
 
     phase = 'rotation-replay'
@@ -163,7 +164,6 @@ try {
     assertStatus(await rotateVia(restored.request), 401)
     checks.retiredTokenReplayRevokedFamily = true
   } finally {
-    rotation.resolve()
     await stale.dispose()
   }
   const peerAfter = await checkSession(peer.context, 200)
@@ -205,12 +205,14 @@ if (failure) throw new Error(`${phase}: ${failure}`)
 
 function observe(context, role) {
   context.setDefaultTimeout(12_000)
+  context.setDefaultNavigationTimeout(12_000)
   context.on('page', page => page.on('pageerror', () => faults.push({ role, kind: 'uncaught-page-error' })))
   context.on('response', recordIdentityResponse(origin, role, responses, faults))
 }
 
 async function openBrowser(role) {
   const context = await browser.newContext()
+  await context.addCookies([englishLocale])
   observe(context, role)
   const page = await context.newPage()
   await enableAuthenticator(context, page)
@@ -218,7 +220,8 @@ async function openBrowser(role) {
 }
 
 async function enroll(page, ticket) {
-  await page.getByLabel('Owner access key').fill(ticket)
+  await button(page, 'Set up your first Passkey').click()
+  await exactLabel(page, 'One-time setup ticket').fill(ticket)
   await emptySuccess(await clickApi(page, WireRoutes.PasskeyProvisionComplete, 'Create Passkey'))
   await exactText(page, 'Passkey created. Log in with your Passkey.').waitFor()
 }
@@ -237,7 +240,7 @@ async function passkey(page, remember, phase) {
   assertStatus(reply, 200)
   const login = decodeFrame(await reply.body(), FrameType.AuthLoginFlow)
   assert.equal(login.payload[4], phase)
-  if (phase === 1) await page.waitForURL(origin + '/user/manage/article/write')
+  if (phase === 1) await page.waitForURL(origin + '/user/identity/mfa')
 }
 
 async function checkSession(context, status) {
@@ -305,18 +308,22 @@ async function openDirtyWorkspace(writer, handle) {
   const draft = encodeFrame(FrameType.ArticleCommand, encodeArticleCommand({
     id: 0, expectedRevision: 0n, idempotencyKey: randomUUID(), title: savedTitle, body: 'Saved Markdown.',
   }))
-  const stored = await writer.context().request.post(origin + WireRoutes.Save, {
-    headers: { 'Content-Type': 'application/octet-stream', Origin: origin, [WireHeaders.CurrentSession]: handle },
+  const stored = await writer.context().request.post(adminOrigin + WireRoutes.Save, {
+    headers: { 'Content-Type': 'application/octet-stream', Origin: adminOrigin, [WireHeaders.CurrentSession]: handle },
     data: Buffer.from(draft),
   })
   assertStatus(stored, 200)
   const { id } = decodeDraft(decodeFrame(await stored.body(), FrameType.Draft).payload)
-  await writer.goto(origin + '/user/manage/article/workspace')
-  await exactLabel(writer, 'Article ID').fill(String(id))
-  await button(writer, 'Open article').click()
-  await writer.waitForURL(origin + '/user/manage/article/edit/' + id)
+  await writer.goto(adminOrigin + '/admin/articles/workspace')
+  await button(writer, 'More actions').click()
+  await roleWithExactName(writer, 'menuitem', 'Workspace & open…').click()
+  const workspace = roleWithExactName(writer, 'dialog', 'Workspace & open article')
+  await exactLabel(workspace, 'Article ID').fill(String(id))
+  await button(workspace, 'Open article').click()
+  await writer.waitForURL(adminOrigin + '/admin/articles/edit/' + id)
+  await expect(workspace).toBeHidden()
   await expect(exactLabel(writer, 'Title')).toHaveValue(savedTitle)
-  await button(writer, 'Pin ' + savedTitle).click()
+  await button(roleWithExactName(writer, 'tablist', 'Open articles'), 'Pin ' + savedTitle).click()
   const title = 'Unsaved title spanning session rotation'
   const body = 'Unsaved Markdown spanning session rotation.\n\nSecond paragraph.'
   await exactLabel(writer, 'Title').fill(title)
@@ -329,7 +336,7 @@ async function openDirtyWorkspace(writer, handle) {
 async function verifyDirtyWorkspace(writer, workspace) {
   const selected = roleWithExactName(writer, 'tablist', 'Open articles').getByRole('tab', { selected: true })
   await expect(selected).toContainText(workspace.title)
-  await expect(button(writer, 'Unpin ' + workspace.title)).toHaveAttribute('aria-pressed', 'true')
+  await expect(button(roleWithExactName(writer, 'tablist', 'Open articles'), 'Unpin ' + workspace.title)).toHaveAttribute('aria-pressed', 'true')
   await expect(exactLabel(writer, 'Title')).toHaveValue(workspace.title)
   await expect(exactLabel(writer, 'Body')).toHaveValue(workspace.body)
   await expect(roleWithExactName(writer, 'complementary', 'Article inspector')).toBeVisible()
@@ -339,30 +346,48 @@ async function saveFromEditor(page) {
   await page.bringToFront()
   const save = button(page, 'Save draft')
   await expect(save).toBeEnabled()
-  return clickApi(page, WireRoutes.Save, 'Save draft')
+  const [saved] = await Promise.all([
+    page.waitForResponse(response => response.url() === adminOrigin + WireRoutes.Save && response.request().method() === 'POST'),
+    save.click(),
+  ])
+  return saved
 }
 
-async function rejectStaleDraftCreate(cookies, handle, peer, peerCookie) {
-  const swapped = await browser.newContext({ storageState: { cookies, origins: [] } })
+async function currentAuthoringHandle(context) {
+  const response = await context.request.get(adminOrigin + WireRoutes.AuthoringSession)
+  try {
+    assertStatus(response, 200)
+    const handle = response.headers()[WireHeaders.CurrentSession.toLowerCase()]
+    assert.match(handle, /^[a-f0-9]{64}$/)
+    return handle
+  } finally { await response.dispose() }
+}
+
+async function rejectStaleDraftCreate(storageState, handle) {
+  const swapped = await browser.newContext({ storageState })
+  const peer = await browser.newContext()
   observe(swapped, 'stale-writer')
   const page = await swapped.newPage()
   const title = 'Stale author cross-account fixture'
   try {
-    await page.goto(origin + '/user/manage/article/write')
+    await signInFreshAdmin(await peer.newPage(), adminOrigin, adminPeerBootstrap)
+    const peerHandle = await currentAuthoringHandle(peer)
+    assert.notEqual(peerHandle, handle)
+    const peerCookies = await peer.cookies(adminOrigin)
+    await page.goto(adminOrigin + '/admin/articles/write')
     await exactLabel(page, 'Title').fill(title)
     await exactLabel(page, 'Body').fill('This draft belongs to the originally authenticated account.')
     const submitted = Promise.withResolvers()
-    await page.route(origin + WireRoutes.Save, async route => {
+    await page.route(adminOrigin + WireRoutes.Save, async route => {
       try {
         const outgoing = route.request()
         const headers = await outgoing.allHeaders()
         assert(headers[WireHeaders.CurrentSession.toLowerCase()] === handle,
           'The editor did not submit its original credential identifier.')
-        await swapped.clearCookies({ name: cookieNames.refresh })
-        await swapped.addCookies([peerCookie])
+        await swapped.addCookies(peerCookies)
         const response = await swapped.request.post(outgoing.url(), {
           headers: {
-            Origin: origin, 'Content-Type': headers['content-type'],
+            Origin: adminOrigin, 'Content-Type': headers['content-type'],
             [WireHeaders.CurrentSession]: headers[WireHeaders.CurrentSession.toLowerCase()],
           },
           data: outgoing.postDataBuffer(),
@@ -376,13 +401,14 @@ async function rejectStaleDraftCreate(cookies, handle, peer, peerCookie) {
     }, { times: 1 })
     const [rejected] = await Promise.all([saveFromEditor(page), submitted.promise])
     await refreshError(rejected, 409, 'The current browser session changed. Reload before making changes.')
-    assert((await checkSession(swapped, 200)).name === (await checkSession(peer.context, 200)).name,
+    assert(await currentAuthoringHandle(swapped) === peerHandle,
       'The stale write fixture was not using the peer account’s actual access credential.')
-    const inventory = await peer.context.request.get(origin + WireRoutes.AuthorArticles, { params: { keyword: title } })
+    const inventory = await peer.request.get(adminOrigin + WireRoutes.AuthorArticles, { params: { keyword: title } })
     assertStatus(inventory, 200)
     assert.equal(decodeAuthorArticlePage(decodeFrame(await inventory.body(), FrameType.AuthorArticlePage).payload).total, 0,
       'A cross-account write created an article in the peer inventory.')
   } finally {
+    await peer.close()
     await swapped.close()
   }
 }

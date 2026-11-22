@@ -95,6 +95,10 @@ if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 || ${FSUSBLOG_TEST_SITE_REFRESH:-0}
   public_san=DNS:localhost
   admin_san=IP:127.0.0.1
 fi
+if [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
+  admin_host=admin.localhost
+  admin_san=DNS:admin.localhost
+fi
 export FSUSBLOG_PUBLIC_ADDRESS="https://$public_host:$public_port"
 export FSUSBLOG_ADMIN_ADDRESS="https://$admin_host:$public_port"
 export FSUSBLOG_PROXY_BIND=127.0.0.1 FSUSBLOG_UPSTREAM_PORT="$upstream_port"
@@ -266,7 +270,8 @@ EOF
 elif [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
   export FSUSBLOG_SITE_PERSISTENT_REFRESH=true FSUSBLOG_TOTP_KEY_HEX="$(openssl rand -hex 32)"
   FSUSBLOG_TEST_SITE_REFRESH_PEER_TICKET=$("$dotnet" "$migrate" operator tls-site-refresh-peer)
-  export FSUSBLOG_TEST_SITE_REFRESH_PEER_TICKET
+  FSUSBLOG_TEST_SITE_REFRESH_ADMIN_PEER=$("$dotnet" "$migrate" admin-identity bootstrap tls-refresh-admin-peer)
+  export FSUSBLOG_TEST_SITE_REFRESH_PEER_TICKET FSUSBLOG_TEST_SITE_REFRESH_ADMIN_PEER
   export FSUSBLOG_TEST_SITE_REFRESH_DATABASE="$database"
   export FSUSBLOG_TEST_SITE_REFRESH_PROBE="$scratch/refresh-boundary"
   write_fixture "$FSUSBLOG_TEST_SITE_REFRESH_PROBE" <<'EOF'
