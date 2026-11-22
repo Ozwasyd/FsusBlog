@@ -2,17 +2,21 @@ import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { assertEmptySuccess, enableAuthenticator, expect, launchIdentityBrowser } from './site-authentication-fixture.mjs'
+import { assertEmptySuccess, expect, launchIdentityBrowser } from './site-authentication-fixture.mjs'
+import { signInFreshAdmin, signInFreshSite } from './webauthn-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { waitForPathResponse } from './response-wait-fixture.mjs'
 
 const admin = new URL(process.env.FSUSBLOG_TEST_ADMIN_URL ?? 'http://invalid.test')
 const ticket = process.env.FSUSBLOG_TEST_ADMIN_TICKET
-const readerCookie = process.env.FSUSBLOG_TEST_READER_COOKIE
+const site = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
+const readerTicket = process.env.FSUSBLOG_TEST_SITE_TICKET
 const readerName = process.env.FSUSBLOG_TEST_READER_NAME ?? 'alice-reader'
 const readerDisplay = process.env.FSUSBLOG_TEST_READER_DISPLAY ?? 'Alice Reader'
-assert.equal(admin.hostname, 'localhost')
+assert(admin.protocol === 'https:' && admin.hostname === 'admin.localhost')
+assert(site.protocol === 'https:' && site.hostname === 'localhost' && site.port === admin.port)
 assert(/^[0-9a-f]{64}$/.test(ticket ?? ''), 'Supply one unused synthetic administrator bootstrap ticket.')
-assert(readerCookie && readerCookie.length >= 32, 'Supply an active reader session cookie for live revocation verification.')
+assert(/^[0-9a-f]{64}$/.test(readerTicket ?? ''), 'Supply one unused synthetic reader setup ticket.')
 
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/admin-reader-governance')
 await mkdir(evidence, { recursive: true })
@@ -24,24 +28,22 @@ let failure
 try {
   const adminContext = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const readerContext = await browser.newContext({ viewport: { width: 1280, height: 800 } })
-  await adminContext.addCookies([{ name: 'fsus_locale', value: 'en', url: admin.origin }])
-  await readerContext.addCookies([{ name: 'fsus-v2-session', value: readerCookie, url: admin.origin }])
+  await signInFreshSite(await readerContext.newPage(), site.origin, readerTicket)
 
   // Verify reader session is live before governance action.
-  const readerBefore = await readerContext.request.get(admin.origin + WireRoutes.Session)
-  assert.equal(readerBefore.status(), 200, 'Seeded reader session must be active before banning.')
+  const readerBefore = await readerContext.request.get(site.origin + WireRoutes.Session)
+  assert.equal(readerBefore.status(), 200, 'Reader Passkey session must be active before banning.')
   checks.readerSessionInitiallyActive = true
 
   const page = await adminContext.newPage()
   page.on('pageerror', error => faults.push(error.message))
-  await enableAuthenticator(adminContext, page)
-
-  // Bootstrap and sign in as administrator using virtual WebAuthn Passkey.
-  await page.goto(admin.origin + '/admin/identity')
-  await exactButton(page, 'Set up administrator Passkey').click()
-  await page.getByLabel('One-time administrator bootstrap key', { exact: true }).fill(ticket)
-  await clickEmptyMutation(WireRoutes.AdminBootstrapComplete, 'Create administrator Passkey')
-  await clickEmptyMutation(WireRoutes.AdminPasskeyComplete, 'Log in as administrator')
+  await Promise.all([
+    ...[WireRoutes.AdminBootstrapComplete, WireRoutes.AdminPasskeyComplete].map(async path => {
+      const response = await waitForPathResponse(page, () => path, 'POST')
+      await assertEmptySuccess(response, 'Administrator mutation must not be cached.')
+    }),
+    signInFreshAdmin(page, admin.origin, ticket),
+  ])
   await expect(page.locator('.account-workspace')).toBeVisible()
   checks.adminSignedIn = true
 
@@ -93,7 +95,7 @@ try {
   checks.banWithPasskeyStepUpSucceeded = true
 
   // Verify the banned reader's live HTTP session is immediately dead.
-  const readerAfterBan = await readerContext.request.get(admin.origin + WireRoutes.Session)
+  const readerAfterBan = await readerContext.request.get(site.origin + WireRoutes.Session)
   assert.equal(readerAfterBan.status(), 401, 'Banned reader session must be revoked immediately.')
   checks.readerSessionImmediatelyRevoked = true
 
@@ -151,12 +153,6 @@ try {
   }
   checks.mobileZeroOverflowAcross375And320 = true
   assert.deepEqual(faults, [])
-
-  async function clickEmptyMutation(path, name) {
-    const response = page.waitForResponse(value => value.request().method() === 'POST' && value.url() === admin.origin + path)
-    await exactButton(page, name).click()
-    await assertEmptySuccess(await response, 'Administrator mutation must not be cached.')
-  }
 } catch (error) {
   failure = error
 } finally {

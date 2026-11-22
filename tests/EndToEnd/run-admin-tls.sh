@@ -96,7 +96,8 @@ if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 || ${FSUSBLOG_TEST_SITE_REFRESH:-0}
   admin_san=IP:127.0.0.1
 fi
 if [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 || ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ||
-  ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} == 1 || ${FSUSBLOG_TEST_PUBLICATION_HEAD:-0} == 1 ]]; then
+  ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} == 1 || ${FSUSBLOG_TEST_PUBLICATION_HEAD:-0} == 1 ||
+  ${FSUSBLOG_TEST_READER_GOVERNANCE:-0} == 1 ]]; then
   public_host=localhost
   public_san=DNS:localhost
   admin_host=admin.localhost
@@ -189,10 +190,16 @@ elif [[ ${FSUSBLOG_TEST_SEARCH_PATCH:-0} == 1 ]]; then
     -f tests/EndToEnd/public-fixture.sql -f tests/Fixtures/publication-rights.sql > "$evidence/search-patch-fixture.log"
   shasum -a 256 tests/EndToEnd/public-fixture.sql tests/Fixtures/publication-rights.sql >> "$evidence/run.txt"
 else
-  FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator tls-site-fixture)
+  if [[ ${FSUSBLOG_TEST_READER_GOVERNANCE:-0} == 1 ]]; then
+    FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator alice-reader --reader)
+    reader_id=$("${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "SELECT id FROM public.blog_user WHERE name='alice-reader'")
+    "$dotnet" "$migrate" comment handle "$reader_id" 'Alice Reader' >> "$evidence/schema.log"
+  else
+    FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator tls-site-fixture)
+  fi
   if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} != 1 && ${FSUSBLOG_TEST_SITE_REFRESH:-0} != 1 &&
     ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} != 1 && ${FSUSBLOG_TEST_PUBLICATION_HEAD:-0} != 1 &&
-    ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} != 1 ]]; then
+    ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} != 1 && ${FSUSBLOG_TEST_READER_GOVERNANCE:-0} != 1 ]]; then
     FSUSBLOG_TEST_SITE_SESSION=$(openssl rand -hex 32)
     "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -v site_session="$FSUSBLOG_TEST_SITE_SESSION" > "$evidence/site-session-seed.log" <<'SQL'
 INSERT INTO public.user_session(digest, user_id, generation, expires_at)
@@ -498,6 +505,8 @@ if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 ]]; then
   done
 elif [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
   node tests/EndToEnd/site-refresh-flow.mjs
+elif [[ ${FSUSBLOG_TEST_READER_GOVERNANCE:-0} == 1 ]]; then
+  node tests/EndToEnd/admin-reader-governance-flow.mjs
 elif [[ ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} == 1 ]]; then
   node tests/EndToEnd/publication-proof-flow.mjs
 elif [[ ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} == 1 ]]; then

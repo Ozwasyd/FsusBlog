@@ -46,6 +46,8 @@ PostgreSQL 回归覆盖逐条冲突、独立证明、两名收件账号的通知
 - **Passkey 二次验证（Step-Up）与原子执行**：状态变更使用 `POST /api/v2/admin/readers/status/step-up/begin.aeds`、`complete.aeds`（动作码 12，独立表 `public.admin_reader_governance_step_up`，签发 45 秒一次性证明）及 `POST /api/v2/admin/readers/status.aeds`（请求帧 `AdminReaderStatusCommand` 33073，回执帧 `AdminReaderStatusReceipt` 33074）。所有写请求强制要求同源 `Origin` 与 `X-Fsus-Idempotency-Key`；缺失、过期或命令指纹不匹配的证明返回 HTTP 428。
 - **实时吊销、幂等与不可变审计**：同一 PostgreSQL 事务内按 `ExpectedGeneration` 与目标状态执行 CAS 校验，递增 `blog_user.generation` 并更新 `enabled`；封禁时立即清空该读者全部 `user_session`（级联清理 `site_session_refresh`）以及 `login_ticket`、`passkey_challenge`、`mfa_setup`、`mfa_flow`、`site_recovery_flow`、`site_recovery_rebind`，使读者在线会话瞬时失效（返回 401）；同时写入 `public.admin_reader_governance_audit` 不可变审计记录（含 `revoked_session_count` 与 1–500 字治理理由），相同 `(principal_id, command_id)` 与相同命令指纹重试时无需重复验证证明即可安全回放原回执，参数冲突返回 409。
 
+通过 `FSUSBLOG_TEST_READER_GOVERNANCE=1 bash tests/EndToEnd/run-admin-tls.sh` 在隔离 PostgreSQL 和双站点 HTTPS 下复验。读者和管理员分别注册 Passkey，浏览器检查按名称检索、封禁立即吊销读者会话、按状态筛选、解封后的审计说明和窄屏布局。
+
 ## 在线账号更名（读者公开昵称与管理员标识）
 
 - **读者公开昵称（`/user/identity/mfa`）**：已登录读者可通过 `GET` / `POST /api/v2/identity/display-name.aeds`（AEDS 帧 `SiteDisplayNameState` 33077 / `SiteDisplayNameCommand` 33078，`Cache-Control: private, no-store`，绑定 `X-Fsus-Current-Session` 及同源 `Origin` 校验）读写 `public.comment_public_handle.display_name`（1–64 个不含控制字符的有效字符，≤ 384 字节）。该操作不改动底层 `blog_user.name`、Passkey 绑定或活跃会话；新自助注册的读者设置昵称后即可参与开启评论的文章讨论。
