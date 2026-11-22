@@ -96,29 +96,25 @@ fi
 rg -q 'different request' "$evidence/notice-conflict.log"
 "$dotnet" "$migrate" verify >> "$evidence/schema.log"
 
+# shellcheck source=tests/Performance/proxy.sh
+source tests/Performance/proxy.sh
+port=$(choose_loopback_port)
+origin="http://127.0.0.1:$port"
+target="http://localhost:$port"
 if [[ ${FSUSBLOG_TEST_INBOX_TLS:-0} == 1 ]]; then
   caddy=${CADDY_BIN:-caddy}
-  for executable in "$caddy" python3 openssl lsof; do command -v "$executable" >/dev/null; done
+  for executable in "$caddy" openssl lsof; do command -v "$executable" >/dev/null; done
   run=$(mktemp -d /tmp/fsusv2-inbox-tls.XXXXXXXX)
   curl_flags=(--http1.1)
   load_flags=()
-  # shellcheck source=tests/Performance/proxy.sh
-  source tests/Performance/proxy.sh
-  export FSUSBLOG_TRUST_LOOPBACK_PROXY=true
+  target="https://localhost:$(choose_loopback_port)"
+  export FSUSBLOG_TRUST_LOOPBACK_PROXY=true FSUSBLOG_PUBLIC_ORIGIN="$target"
   "$caddy" version >> "$evidence/run.txt"
 fi
-"$dotnet" "$server" --urls http://127.0.0.1:0 > "$evidence/server.log" 2>&1 &
+export FSUSBLOG_PASSKEY_ORIGIN="$target" FSUSBLOG_PASSKEY_RP_ID=localhost
+"$dotnet" "$server" --urls "$origin" > "$evidence/server.log" 2>&1 &
 server_pid=$!
-for (( attempt=0; attempt<100; attempt++ )); do
-  origin=$(sed -nE 's/^[[:space:]]*Now listening on: (http:\/\/127\.0\.0\.1:[0-9]+)$/\1/p' "$evidence/server.log")
-  if [[ -n $origin ]]; then break; fi
-  own_child "$server_pid"
-  sleep 0.2
-done
-[[ -n $origin ]]
-target=$origin
 if [[ -n $run ]]; then
-  target="https://127.0.0.1:$(choose_loopback_port)"
   start_proxy "$repo/deploy/Caddyfile"
   export NODE_EXTRA_CA_CERTS="$proxy_ca"
   FSUSBLOG_TEST_TLS_SPKI=$(openssl x509 -in "$FSUSBLOG_TLS_CERTIFICATE" -noout -pubkey |
@@ -127,7 +123,13 @@ if [[ -n $run ]]; then
   export FSUSBLOG_TEST_TLS_SPKI
   shasum -a 256 deploy/Caddyfile >> "$evidence/run.txt"
 else
-  curl --silent --fail "$origin/health/ready" >/dev/null
+  curl_flags=(--http1.1)
+  for (( attempt=0; attempt<100; attempt++ )); do
+    if [[ $(readiness 2>/dev/null) == 204 ]]; then break; fi
+    own_child "$server_pid"
+    sleep 0.2
+  done
+  [[ $(readiness) == 204 ]]
 fi
 export FSUSBLOG_TEST_URL=$target
 export FSUSBLOG_INBOX_CLI_DLL=$migrate

@@ -14,8 +14,10 @@ import { X509Certificate } from 'node:crypto';
 
 const [certificate, origin] = process.argv.slice(2);
 const host = new URL(origin).hostname.replace(/^\[|\]$/g, '');
-if (!new X509Certificate(readFileSync(certificate)).checkIP(host)) {
-  console.error('Generated TLS leaf does not cover the expected proxy IP.');
+const leaf = new X509Certificate(readFileSync(certificate));
+const matched = host === 'localhost' ? leaf.checkHost(host, { subject: 'never' }) : leaf.checkIP(host);
+if (!matched) {
+  console.error('Generated TLS leaf does not cover the expected proxy host.');
   process.exitCode = 1;
 }
 JS
@@ -23,6 +25,8 @@ JS
 
 start_proxy() {
   local port=${target##*:} ready config=${1:-$run/source/deploy/Caddyfile}
+  local san=IP:127.0.0.1
+  if [[ $target == https://localhost:* ]]; then san=DNS:localhost; fi
   proxy_ca="$run/ca.pem"
   export FSUSBLOG_PUBLIC_ADDRESS="$target" FSUSBLOG_PROXY_BIND=127.0.0.1
   export FSUSBLOG_UPSTREAM_PORT="${origin##*:}"
@@ -35,7 +39,7 @@ prompt = no
 [dn]
 CN = FsusBlogV2 benchmark endpoint
 EOF
-  cat > "$run/cert.cnf" <<'EOF'
+  cat > "$run/cert.cnf" <<EOF
 [req]
 distinguished_name = dn
 prompt = no
@@ -48,7 +52,7 @@ keyUsage = critical,keyCertSign,cRLSign
 basicConstraints = critical,CA:FALSE
 keyUsage = critical,digitalSignature
 extendedKeyUsage = serverAuth
-subjectAltName = IP:127.0.0.1
+subjectAltName = $san
 EOF
   {
     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$run/ca.key"

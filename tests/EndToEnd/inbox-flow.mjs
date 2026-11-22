@@ -5,7 +5,8 @@ import { execFileSync } from 'node:child_process'
 import { requireWebPackage } from './web-package-fixture.mjs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { api } from '../../src/Contracts/client.ts'
+import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { signInFreshSite } from './webauthn-fixture.mjs'
 
 const { chromium } = requireWebPackage('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
@@ -14,7 +15,6 @@ const tickets = [process.env.FSUSBLOG_INBOX_DESKTOP_TICKET, process.env.FSUSBLOG
 const recipients = [process.env.FSUSBLOG_INBOX_DESKTOP_ID, process.env.FSUSBLOG_INBOX_MOBILE_ID]
 assert(evidence && tickets.every(Boolean) && recipients.every(Boolean), 'Set local inbox fixture identities, tickets and evidence directory')
 assert(/(?:^|;)Database=fsusv2_inbox_[a-f0-9]{32}(?:;|$)/.test(process.env.FSUSBLOG_DB ?? ''), 'Expected an owned disposable inbox database')
-const fetchAt = globalThis.fetch
 await mkdir(evidence, { recursive: true })
 
 const tlsPin = process.env.FSUSBLOG_TEST_TLS_SPKI
@@ -26,15 +26,6 @@ let failure
 try {
   for (const [index, viewport] of [{ width: 1280, height: 800 }, { width: 375, height: 850 }].entries()) {
     const name = index === 0 ? 'desktop' : 'mobile'
-    let session
-    // The fixture issues a real one-use access key. Authenticate through the real API and carry its HttpOnly cookie into Chrome.
-    globalThis.fetch = async (path, options) => {
-      const response = await fetchAt(new URL(path, origin), options)
-      session = response.headers.get('set-cookie')?.match(/\bfsus-v2-session=([a-f0-9]{64})\b/)?.[1]
-      return response
-    }
-    try { await api.signIn(tickets[index]) } finally { globalThis.fetch = fetchAt }
-    assert(session)
     const context = await browser.newContext({ viewport, colorScheme: index === 0 ? 'light' : 'dark' })
     await context.addInitScript(() => {
       const NativeSocket = window.WebSocket
@@ -47,35 +38,45 @@ try {
     })
     try {
       const page = await context.newPage()
-      const ready = page.getByRole('heading', { name: '我的站内信' })
+      await context.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
+      const ready = page.getByRole('heading', { name: 'My messages' })
       const anonymous = await page.goto(`${origin}/user/messagebox`)
       assertStatus(anonymous, 200)
       await ready.waitFor()
-      await exactText(page, '请先登录').waitFor()
+      await exactText(page, 'Please log in').waitFor()
       assert.equal(await exactText(page, 'Integration fixture notice').count(), 0)
+      await signInFreshSite(page, origin, tickets[index])
+      assertStatus(await context.request.get(origin + WireRoutes.Session), 200)
       const browserErrors = []
       const challenges = []
+      const disabledAccountRoutes = new Set([WireRoutes.MfaProfile, WireRoutes.RecoveryKeyAvailability])
       page.on('pageerror', error => browserErrors.push(error.message))
-      page.on('console', message => { if (message.type() === 'error') browserErrors.push(message.text()) })
+      page.on('console', message => {
+        if (message.type() !== 'error') return
+        const source = URL.parse(message.location().url)
+        // The Passkey enrollment redirect can still be probing these disabled account features.
+        if (source?.origin === origin && disabledAccountRoutes.has(source.pathname) &&
+          /^Failed to load resource: the server responded with a status of 404\b/.test(message.text())) return
+        browserErrors.push({ path: source?.pathname, message: message.text() })
+      })
       page.on('response', response => {
         const path = new URL(response.url()).pathname
         if (response.status() === 500 || (response.status() >= 400 && path.startsWith('/assets/')))
           browserErrors.push(`${response.status()} ${path}`)
         if (path.includes('/pow-') && response.request().method() === 'POST') challenges.push([path, response.status()])
       })
-      await context.addCookies([{ name: 'fsus-v2-session', value: session, url: origin, httpOnly: true, sameSite: 'Strict' }])
       const wakePath = '/api/v2/notifications/inbox/wake'
       const socketOpening = page.waitForEvent('websocket', { predicate: socket => new URL(socket.url()).pathname === wakePath })
-      await page.reload()
+      assertStatus(await page.goto(origin + '/user/messagebox'), 200)
       const socket = await socketOpening
       const wakeFrame = socket.waitForEvent('framereceived')
       await page.waitForFunction(() => window.fsusTestInboxSocket?.readyState === WebSocket.OPEN)
       const row = page.getByRole('button', { name: /Integration fixture notice/ })
       await row.waitFor()
-      assert.match(await page.title(), /我的站内信/)
+      assert.match(await page.title(), /^Messages · /)
       assert.equal(new URL(page.url()).pathname, '/user/messagebox')
       assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex')
-      assert.equal(await exactText(row, '1 条未读').count(), 1)
+      assert.equal(await exactText(row, '1 unread').count(), 1)
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
       await page.screenshot({ path: join(evidence, `inbox-${name}-list.png`) })
       const accountMenu = page.getByRole('button', { name: 'Account menu' })
@@ -118,26 +119,26 @@ try {
       assert.equal(await heading.evaluate(element => element === document.activeElement), true)
       await exactText(page, 'Integration fixture private body').last().waitFor()
       const marked = page.waitForResponse(response => response.url().endsWith('/read') && response.request().method() === 'POST')
-      await page.getByRole('button', { name: '标记已读' }).click()
+      await page.getByRole('button', { name: 'Mark as read' }).click()
       assertStatus(await marked, 200)
-      await page.getByRole('button', { name: '标记已读' }).waitFor({ state: 'hidden' })
+      await page.getByRole('button', { name: 'Mark as read' }).waitFor({ state: 'hidden' })
       await page.screenshot({ path: join(evidence, `inbox-${name}-read.png`) })
       if (index === 1) {
-        await page.getByRole('button', { name: '返回消息列表' }).click()
+        await page.getByRole('button', { name: 'Back to message list' }).click()
         await row.waitFor()
         assert.equal(await row.evaluate(element => element === document.activeElement), true)
       }
-      assert.equal(await exactText(row, '1 条未读').count(), 0)
+      assert.equal(await exactText(row, '1 unread').count(), 0)
       const subject = `Native support ${name}`
-      await page.getByRole('button', { name: '提交工单' }).click()
-      await exactLabel(page, '主题（选填）').fill(subject)
-      await exactLabel(page, '工单内容').fill('Native proof sent this ticket.')
-      await page.getByRole('button', { name: '发送工单' }).click()
-      await exactText(page, '工单已提交。').waitFor()
+      await page.getByRole('button', { name: 'Create ticket' }).click()
+      await exactLabel(page, 'Subject (optional)').fill(subject)
+      await exactLabel(page, 'Ticket content').fill('Native proof sent this ticket.')
+      await page.getByRole('button', { name: 'Send ticket' }).click()
+      await exactText(page, 'Ticket submitted.').waitFor()
       await roleWithExactName(page, 'heading', subject).waitFor()
-      await exactLabel(page, '回复内容').fill('Native proof sent this reply.')
-      await page.getByRole('button', { name: '发送回复' }).click()
-      await exactText(page, '回复已发送。').waitFor()
+      await exactLabel(page, 'Reply content').fill('Native proof sent this reply.')
+      await page.getByRole('button', { name: 'Send reply' }).click()
+      await exactText(page, 'Reply sent.').waitFor()
       await exactText(page.getByRole('region', { name: subject }), 'Native proof sent this reply.').waitFor()
       assert.equal(challenges.length, 2)
       assert.deepEqual(challenges.map(([path, status]) => [path.split('/').at(-1), status]), [['pow-create.aeds', 200], ['pow-reply.aeds', 200]])
