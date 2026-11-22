@@ -1,7 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
 import { type Draft } from './client.ts';
-import { getWithSession, postWithSession } from './internal/http-methods.ts';
+import { sessionGet, sessionPost } from './internal/http.ts';
 import {
   decodeDraft, decodeDraftRevisionBodyInsertion, encodeArticleBodyInsertionCommand,
   FrameType, WireHeader, WireLimits, WireRoutes, type ArticleCommand, type ArticleBodyInsertionCommand, type DraftRevisionBodyInsertion,
@@ -17,7 +17,7 @@ export function saveWithBodyInsertion(input: ArticleBodyInsertionCommand, sessio
 
 export function readBodyInsertion(id: number, revision: bigint, sourceRevision: bigint, session: string,
   signal: AbortSignal): Promise<DraftRevisionBodyInsertion> {
-  return getWithSession(bodyRevisionPath(id, revision, sourceRevision, 'body-insertion'), FrameType.DraftRevisionBodyInsertion, payload => {
+  return sessionGet(bodyRevisionPath(id, revision, sourceRevision, 'body-insertion'), FrameType.DraftRevisionBodyInsertion, payload => {
     const map = decodeDraftRevisionBodyInsertion(payload);
     if (map.id !== id || map.revision !== revision || map.sourceRevision !== sourceRevision)
       throw new ProtocolError('Invalid revision body map coordinates');
@@ -73,7 +73,7 @@ export function saveWithBodyInsertions(input: ArticleBodyInsertionsCommand, sess
 
 export function readBodyInsertionChain(id: number, revision: bigint, sourceRevision: bigint, session: string,
   signal: AbortSignal): Promise<DraftRevisionBodyInsertionChain> {
-  return getWithSession(bodyRevisionPath(id, revision, sourceRevision, 'body-chain'), FrameType.DraftRevisionBodyInsertionChain, payload => {
+  return sessionGet(bodyRevisionPath(id, revision, sourceRevision, 'body-chain'), FrameType.DraftRevisionBodyInsertionChain, payload => {
     const chain = decodeDraftRevisionBodyInsertionChain(payload);
     if (chain.id !== id || chain.revision !== revision || chain.sourceRevision !== sourceRevision) throw invalidChain();
     return chain;
@@ -154,7 +154,7 @@ export function saveWithBodyEdits(input: ArticleBodyEditsCommand, session: strin
 
 export function readBodyEditChain(id: number, revision: bigint, sourceRevision: bigint, session: string,
   signal: AbortSignal): Promise<DraftRevisionBodyEditChain> {
-  return getWithSession(bodyRevisionPath(id, revision, sourceRevision, 'body-edit'), FrameType.DraftRevisionBodyEditChain, payload => {
+  return sessionGet(bodyRevisionPath(id, revision, sourceRevision, 'body-edit'), FrameType.DraftRevisionBodyEditChain, payload => {
     const chain = decodeDraftRevisionBodyEditChain(payload);
     if (chain.id !== id || chain.revision !== revision || chain.sourceRevision !== sourceRevision) throw invalidEdits();
     return chain;
@@ -247,7 +247,7 @@ function readArticleBodyCommand(reader: PodReader): ArticleCommand {
 
 function saveBodyChanges(input: ArticleCommand, frame: Uint8Array<ArrayBuffer>, invalid: () => ProtocolError,
   session: string, signal: AbortSignal, matchBody = true) {
-  return postWithSession(WireRoutes.Save, FrameType.Draft, payload => {
+  return sessionPost(WireRoutes.Save, FrameType.Draft, payload => {
     const draft = decodeDraft(payload);
     if (draft.id !== input.id || draft.revision !== input.expectedRevision + 1n || (matchBody && draft.body !== input.body)) throw invalid();
     return draft;

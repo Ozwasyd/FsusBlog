@@ -1,7 +1,7 @@
 import { encodeFrame } from './aeds.ts';
 import { PodReader, PodWriter, ProtocolError, decodeUtf8 } from './binary.ts';
-import { ApiError, request, validSiteSessionId } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { ApiError, validSiteSessionId } from './client.ts';
+import { post, request } from './internal/http.ts';
 import { decodeCommentAuthorEditDetail, FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
 const positiveId = /^[1-9][0-9]{0,18}$/;

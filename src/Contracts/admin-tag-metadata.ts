@@ -1,7 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
-import { request } from './client.ts'
-import { post } from './internal/http-methods.ts'
+import { post, request } from './internal/http.ts'
 import { requestWithScopedPow } from './pow.ts'
 import { FrameType, WireLimits, WireRoutes } from './wire.generated.ts'
 

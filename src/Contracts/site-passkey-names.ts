@@ -1,7 +1,7 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
-import { request, validSiteSessionId } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { validSiteSessionId } from './client.ts';
+import { post, request } from './internal/http.ts';
 import { requestPasskeyAssertion } from './passkey.ts';
 import { readSitePasskeyRow, type SitePasskey } from './site-passkeys.ts';
 import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';

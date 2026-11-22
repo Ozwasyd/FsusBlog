@@ -1,8 +1,7 @@
 import { encodeFrame } from './aeds.ts';
 import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { PodReader, ProtocolError, decodeUtf8 } from './binary.ts';
-import { request } from './client.ts';
-import { getWithSession, post, postWithSession } from './internal/http-methods.ts';
+import { sessionGet, post, sessionPost, request } from './internal/http.ts';
 import { requestCommentAuthorChallenge } from './comment-author.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
@@ -27,7 +26,7 @@ export function appealReason(value: string) {
 }
 
 export function readAuthorAppeals(before: string | null, session: string, signal: AbortSignal, filter?: AuthorCommentQuery) {
-  return getWithSession(ownedPage(WireRoutes.CommentAuthorAppeals, before, filter), FrameType.CommentAuthorAppeals, (payload, headers) => {
+  return sessionGet(ownedPage(WireRoutes.CommentAuthorAppeals, before, filter), FrameType.CommentAuthorAppeals, (payload, headers) => {
     const result = page(payload, reader => {
       const article = reader.i32();
       const comment = id(reader.i64());
@@ -51,7 +50,7 @@ export async function submitAuthorAppeal(comment: string, reason: string, sessio
   signal.throwIfAborted();
   const frame = encodeFrame(FrameType.CommentAuthorAppealRequest,
     new TextEncoder().encode(JSON.stringify({ reason: reason.trim(), challenge })));
-  return postWithSession(WireRoutes.CommentAuthorAppeal.replace('{id:long}', comment), FrameType.CommentAuthorMutationResult, payload => {
+  return sessionPost(WireRoutes.CommentAuthorAppeal.replace('{id:long}', comment), FrameType.CommentAuthorMutationResult, payload => {
     const value = json(payload);
     if (value.success !== true || value.code !== 'ok' || value.moderationStatus !== 0 ||
         value.currentVersion !== 0 || value.editedAtUtc !== null) throw invalid();

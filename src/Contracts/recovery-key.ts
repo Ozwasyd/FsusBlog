@@ -1,6 +1,6 @@
 import { ApiError, decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
-import { request, validSiteSessionId } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { validSiteSessionId } from './client.ts';
+import { post, request } from './internal/http.ts';
 import { readMfaProof } from './mfa.ts';
 import { requestPasskeyAssertion, requestPasskeyAttestation } from './passkey.ts';
 import { requestWithScopedPow } from './pow.ts';

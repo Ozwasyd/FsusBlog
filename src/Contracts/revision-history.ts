@@ -1,7 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader } from './binary.ts';
-import { request } from './client.ts';
-import { getWithSession, post } from './internal/http-methods.ts';
+import { sessionGet, post, request } from './internal/http.ts';
 import type { ArticleTaxonomy } from './author-articles.ts';
 import { decodeArticleCover } from './article-media.ts';
 import {
@@ -71,7 +70,7 @@ export function compareDraftRevision(id: number, revision: bigint, sourceRevisio
   session?: string): Promise<RevisionComparison> {
   const path = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(id))
     .replace('{sourceRevision:long}', String(sourceRevision));
-  return getWithSession(`${path}?revision=${revision}`, FrameType.RevisionComparison, payload => {
+  return sessionGet(`${path}?revision=${revision}`, FrameType.RevisionComparison, payload => {
     const pair = decodeRevisionComparison(payload);
     if (id <= 0 || pair.id !== id || pair.revision !== revision || pair.sourceRevision !== sourceRevision ||
       sourceRevision <= 0n || sourceRevision >= revision || !pair.title || !pair.sourceTitle)
@@ -82,7 +81,7 @@ export function compareDraftRevision(id: number, revision: bigint, sourceRevisio
 
 export function compareRevisionMetadata(id: number, revision: bigint, sourceRevision: bigint, session: string, signal: AbortSignal) {
   const path = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(id)).replace('{sourceRevision:long}', String(sourceRevision));
-  return getWithSession(`${path}?revision=${revision}&map=metadata`, FrameType.RevisionMetadataComparison, (payload, headers) => {
+  return sessionGet(`${path}?revision=${revision}&map=metadata`, FrameType.RevisionMetadataComparison, (payload, headers) => {
     const reader = new PodReader(payload);
     const invalid = () => new ProtocolError('Invalid saved revision metadata');
     if (reader.i32() !== id || reader.i64() !== revision || reader.i64() !== sourceRevision) throw invalid();

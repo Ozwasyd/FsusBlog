@@ -1,6 +1,6 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
-import { ApiError, request } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { ApiError } from './client.ts';
+import { post, request } from './internal/http.ts';
 import { requestPasskeyAttestation } from './passkey.ts';
 import { powProofHeaders, proveScopedPow } from './pow.ts';
 import { FrameType } from './wire.generated.ts';

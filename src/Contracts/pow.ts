@@ -1,6 +1,5 @@
 import { decodeUtf8, ProtocolError } from './binary.ts';
-import { request } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { post, request } from './internal/http.ts';
 import { FrameType, WireHeaders, WireLayouts, WireLimits } from './wire.generated.ts';
 
 export type PowChallenge = { salt: string; signature: string; difficulty: number; timestamp: number };

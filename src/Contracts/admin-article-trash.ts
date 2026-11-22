@@ -1,8 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { readAdminAvailability } from './admin-identity.ts';
 import { optionalAdminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
-import { request } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { post, request } from './internal/http.ts';
 import { decodeAdminArticleTrashRestoreReceipt, encodeAdminArticleTrashRestoreIntent, decodeAdminArticleTrashPublicationPreview,
   decodeAdminArticleTrashPublicationReceipt, encodeAdminArticleTrashPublicationIntent,
   FrameType, WireHeaders, WireRoutes, type AdminArticleTrashRestoreIntent, type AdminArticleTrashPublicationIntent } from './wire.generated.ts';

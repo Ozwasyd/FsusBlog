@@ -1,7 +1,7 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { decodeUtf8 } from './binary.ts';
-import { api, ApiError, request, validSiteSessionId, type Session } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { api, ApiError, validSiteSessionId, type Session } from './client.ts';
+import { post, request } from './internal/http.ts';
 import { mfaAction, mfaStartData, readMfaProof } from './mfa.ts';
 import { encodeSignIn, FrameType, WireHeader, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 

@@ -1,6 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader } from './binary.ts'
-import { post } from './internal/http-methods.ts'
+import { post } from './internal/http.ts'
 import {
   decodePropertyCommandReceipt, encodePropertyDefinitionCommand, encodePropertyTextCommand,
   encodePropertyWorkspaceRequest, FrameType, WireLimits, WireRoutes,

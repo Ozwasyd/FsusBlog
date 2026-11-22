@@ -1,7 +1,7 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import type { AdminCommentCursor } from './admin-identity.ts';
 import { adminProofHeaders } from './admin-step-up.ts';
-import { post } from './internal/http-methods.ts';
+import { post } from './internal/http.ts';
 import {
   decodeAdminModerationClaim,
   encodeAdminModerationClaim,

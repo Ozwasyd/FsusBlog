@@ -1,7 +1,6 @@
 import { ApiError, encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
-import { request, siteSessionHeader } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { post, request, siteSessionHeader } from './internal/http.ts';
 import { consumeBounded } from './bounded-stream.ts';
 import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 

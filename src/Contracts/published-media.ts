@@ -1,7 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { PodWriter } from './binary.ts';
-import { request, validSiteSessionId, type Draft } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { validSiteSessionId, type Draft } from './client.ts';
+import { post, request } from './internal/http.ts';
 import { decodeDraft, FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
 import type { Article } from './public-articles.ts';

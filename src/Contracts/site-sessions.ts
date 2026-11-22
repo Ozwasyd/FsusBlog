@@ -1,7 +1,7 @@
 import { decodeSuccess } from './aeds.ts';
 import { PodReader } from './binary.ts';
-import { ProtocolError, request, validSiteSessionId } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { ProtocolError, validSiteSessionId } from './client.ts';
+import { post, request } from './internal/http.ts';
 import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
 type SessionRow = Readonly<{ id: string; expiresAt: number; current: boolean; method: 'ticket' | 'passkey'; mfa: boolean }>;

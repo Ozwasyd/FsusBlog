@@ -3,8 +3,7 @@ import { isValidAdminArticleRollbackReason } from './admin-article-rollback.ts';
 import { readAdminAvailability } from './admin-identity.ts';
 import { optionalAdminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { PodReader } from './binary.ts';
-import { request } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { post, request } from './internal/http.ts';
 import {
   decodeAdminArticleArchivePreview, decodeAdminArticleArchiveReceipt, encodeAdminArticleArchiveIntent,
   FrameType, WireLimits, WireRoutes, type AdminArticleArchiveIntent, type AdminArticleArchivePreview, type AdminArticleArchiveReceipt,

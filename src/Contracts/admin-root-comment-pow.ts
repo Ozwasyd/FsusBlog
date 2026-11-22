@@ -1,8 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { assertAdminPermissionSession, type AdminSession } from './admin-identity.ts';
 import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
-import { request } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { post, request } from './internal/http.ts';
 import { decodeAdminRootCommentPowPolicy, encodeAdminRootCommentPowCommand, FrameType, WireLimits, WireRoutes,
   type AdminRootCommentPowCommand, type AdminRootCommentPowPolicy } from './wire.generated.ts';
 

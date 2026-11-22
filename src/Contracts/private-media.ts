@@ -1,7 +1,7 @@
 import { decodeSuccess, ProtocolError } from './aeds.ts';
 import { PodReader } from './binary.ts';
 import { validSiteSessionId } from './client.ts';
-import { getWithSession, post } from './internal/http-methods.ts';
+import { sessionGet, post } from './internal/http.ts';
 import { FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
 const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
@@ -64,7 +64,7 @@ export function decodeMediaItems(payload: Uint8Array): MediaPage {
 
 export function listMedia(before?: PrivateMediaItem, signal?: AbortSignal, current?: string): Promise<MediaPage & { resumable: boolean; webp: boolean }> {
   const query = before ? `?${new URLSearchParams({ before: String(before.ticks), beforeId: before.id })}` : '';
-  return getWithSession(WireRoutes.PrivateMediaList + query, FrameType.PrivateMediaItems, (payload, headers) => {
+  return sessionGet(WireRoutes.PrivateMediaList + query, FrameType.PrivateMediaItems, (payload, headers) => {
     const flag = headers.get(WireHeaders.PrivateMediaResumable);
     const webp = headers.get(WireHeaders.PrivateMediaWebp);
     if ((flag !== null && flag !== '1') || (webp !== null && webp !== '1')) throw invalid();

@@ -1,5 +1,5 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
-import { post } from './internal/http-methods.ts'
+import { post } from './internal/http.ts'
 import {
   decodeCanvasLinkPlan, decodeCanvasLinked, encodeCanvasConfirm, encodeCanvasPreview,
   FrameType, WireRoutes, type CanvasLinkPlan, type CanvasPreview,

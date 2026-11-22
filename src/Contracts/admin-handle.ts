@@ -1,7 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { assertAdminPermissionSession, type AdminSession } from './admin-identity.ts';
 import { optionalAdminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
-import { post } from './internal/http-methods.ts';
+import { post } from './internal/http.ts';
 import {
   decodeAdminHandleReceipt,
   encodeAdminHandleCommand,

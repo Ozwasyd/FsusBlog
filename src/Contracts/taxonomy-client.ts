@@ -1,7 +1,6 @@
 import { ProtocolError } from './binary.ts';
 import { encodeFrame } from './aeds.ts';
-import { request } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { post, request } from './internal/http.ts';
 import { decodeArticleList } from './public-articles.ts';
 import { decodeTaxonomyList, decodeTaxonomyMetadata, type TaxonomyKind } from './taxonomy.ts';
 import {

@@ -1,6 +1,5 @@
 import { ApiError, decodeSuccess } from './aeds.ts';
-import { request } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { post, request } from './internal/http.ts';
 import { FrameType, WireRoutes } from './wire.generated.ts';
 
 export function siteRefreshAvailable(signal?: AbortSignal): Promise<boolean> {

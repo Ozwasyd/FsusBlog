@@ -1,7 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
 import { validSiteSessionId, type Draft } from './client.ts';
-import { getWithSession, post } from './internal/http-methods.ts';
+import { sessionGet, post } from './internal/http.ts';
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
 export interface ArticleAttachment { readonly id: string; readonly ticket: string }
@@ -15,7 +15,7 @@ export interface ArticleMediaState {
 
 export function articleMedia(id: number, revision: bigint, current: string, signal?: AbortSignal): Promise<ArticleMediaState> {
   const path = WireRoutes.ArticleMedia.replace('{id:int}', String(id)) + `?revision=${revision}`;
-  return getWithSession(path, FrameType.ArticleMedia, (payload, headers) => {
+  return sessionGet(path, FrameType.ArticleMedia, (payload, headers) => {
     const reader = new PodReader(payload);
     if (id <= 0 || revision <= 0n || reader.i32() !== id || reader.i64() !== revision) throw invalid();
     const count = reader.i32();

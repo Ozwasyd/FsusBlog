@@ -1,7 +1,7 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { decodeUtf8 } from './binary.ts';
-import { api, request, siteSessionHeader } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { api } from './client.ts';
+import { post, request, siteSessionHeader } from './internal/http.ts';
 import { FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
 export const mfaAction = {

@@ -1,7 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
 import { type CanvasGraphHeader, decodeCanvasGraphReceipt } from './canvas-graph.ts'
-import { post } from './internal/http-methods.ts'
+import { post } from './internal/http.ts'
 import { FrameType, WireHeader, WireLimits, WireRoutes } from './wire.generated.ts'
 
 const referenceKinds = ['article-reference', 'heading-reference', 'block-reference'] as const

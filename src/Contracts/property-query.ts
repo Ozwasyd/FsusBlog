@@ -1,7 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
-import { siteSessionHeader } from './client.ts'
-import { getWithSession, post } from './internal/http-methods.ts'
+import { sessionGet, post, siteSessionHeader } from './internal/http.ts'
 import { propertyKinds, readPropertyOperand, writeValue, type PropertyKind, type PropertyOption, type PropertyValue } from './property-values.ts'
 import {
   decodePropertyCommandReceipt, encodePropertyFilterabilityCommand, FrameType, WireLimits, WireRoutes,
@@ -33,7 +32,7 @@ export function propertyFilterCatalog(signal?: AbortSignal, after?: { key: strin
   if (projection) params.set('projection', '1')
   const url = `${WireRoutes.PropertyFilterCatalog}${params.size ? `?${params}` : ''}`
   const frame = projection ? FrameType.PropertyProjectionCatalog : FrameType.PropertyFilterCatalog
-  return getWithSession(url, frame, bytes => {
+  return sessionGet(url, frame, bytes => {
     const input = new PodReader(bytes)
     const revision = input.i64(), nextKey = input.text(WireLimits.PropertyKeyBytes), count = input.i32()
     if (revision < 0n || (after && after.schema !== revision) || count < 0 || count > WireLimits.PropertyPageSize)

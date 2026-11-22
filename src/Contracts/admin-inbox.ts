@@ -1,6 +1,6 @@
 import { decodeSuccess, encodeFrame } from './aeds.ts';
-import { ProtocolError, request } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { ProtocolError } from './client.ts';
+import { post, request } from './internal/http.ts';
 import { PodReader, PodWriter } from './binary.ts';
 import { decodeInboxReplied } from './inbox.ts';
 import { watchInboxWake } from './inbox-wake.ts';

@@ -2,8 +2,7 @@ import { encodeFrame, ProtocolError } from './aeds.ts';
 import { readAdminAvailability } from './admin-identity.ts';
 import { optionalAdminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { decodeUtf8 } from './binary.ts';
-import { request } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { post, request } from './internal/http.ts';
 import {
   decodeAdminArticleDraftRollbackReceipt, encodeAdminArticleDraftRollbackIntent,
   decodeAdminArticleRollbackPreview, decodeAdminArticleRollbackReceipt, encodeAdminArticleRollbackIntent,

@@ -1,7 +1,6 @@
 import { ApiError, decodeSuccess, ProtocolError } from './aeds.ts';
 import { PodReader } from './binary.ts';
-import { request } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { post, request } from './internal/http.ts';
 import { requestPasskeyAssertion, requestPasskeyAttestation } from './passkey.ts';
 import {
   decodeAdminOperationsStatus,

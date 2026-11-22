@@ -1,13 +1,13 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { decodeUtf8 } from './binary.ts';
-import { getWithSession, postWithSession } from './internal/http-methods.ts';
+import { sessionGet, sessionPost } from './internal/http.ts';
 import { FrameType, WireLimits, WireRoutes } from './wire.generated.ts';
 
 export const commentReportReasons = ['spam', 'harassment', 'hate', 'privacy', 'illegal', 'misinformation', 'other'] as const;
 export type CommentReportReason = typeof commentReportReasons[number];
 
 export function commentReportingAvailable(session: string, signal: AbortSignal) {
-  return getWithSession(WireRoutes.CommentReportAvailability, FrameType.EmptySuccess, decodeSuccess,
+  return sessionGet(WireRoutes.CommentReportAvailability, FrameType.EmptySuccess, decodeSuccess,
     signal, session);
 }
 
@@ -22,7 +22,7 @@ export function reportComment(article: number, comment: string, reasonCode: Comm
   const frame = encodeFrame(FrameType.CommentReportRequest, payload);
   if (frame.length > WireLimits.CommentReportFrameBytes) throw new ProtocolError('Comment report exceeds its frame limit.');
   const path = WireRoutes.CommentReport.replace('{articleId:int}', String(article)).replace('{id:long}', comment);
-  return postWithSession(path, FrameType.CommentReportResult, bytes => {
+  return sessionPost(path, FrameType.CommentReportResult, bytes => {
     let result: unknown;
     try { result = JSON.parse(decodeUtf8(bytes)); }
     catch { throw new ProtocolError('Invalid comment report receipt.'); }

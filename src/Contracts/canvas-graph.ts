@@ -1,7 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
-import { request } from './client.ts'
-import { getWithSession, post } from './internal/http-methods.ts'
+import { sessionGet, post, request } from './internal/http.ts'
 import { FrameType, WireHeader, WireLimits, WireRoutes } from './wire.generated.ts'
 
 export type CanvasGeometry = { x: number; y: number; width: number; height: number }
@@ -414,7 +413,7 @@ export const canvasGraph = {
     check(revision > 0n && BigInt.asIntN(64, revision) === revision, 'reference revision')
     const path = WireRoutes.CanvasReference.replace('{id:guid}', canvas).replace('{nodeId:guid}', node)
     const current = currentSession === undefined ? '' : '&current=1'
-    return getWithSession(`${path}?revision=${revision}${current}`, FrameType.CanvasReferenceResolution, payload => {
+    return sessionGet(`${path}?revision=${revision}${current}`, FrameType.CanvasReferenceResolution, payload => {
       const resolution = decodeCanvasReferenceResolution(payload)
       check(resolution.canvasId === canvas && resolution.nodeId === node && resolution.canvasRevision === revision, 'reference response coordinates')
       return resolution

@@ -1,7 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
-import { siteSessionHeader } from './client.ts'
-import { getWithSession, post, postWithSession } from './internal/http-methods.ts'
+import { sessionGet, post, sessionPost, siteSessionHeader } from './internal/http.ts'
 import { encodePropertyTextHitRequest, type PropertyTextHitRequest } from './property-text-hit.ts'
 import {
   decodePropertyCommandReceipt, decodePropertyValueBatchReceipt, encodePropertyWorkspaceRequest, FrameType, WireLimits, WireRoutes,
@@ -382,14 +381,14 @@ export const propertyApi = {
     const path = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(input.articleId))
       .replace('{sourceRevision:long}', String(input.sourceRevision))
     const cursor = offset === 0 ? '' : `&offset=${offset}`
-    return getWithSession(`${path}?revision=${input.articleRevision}&map=properties${cursor}`, FrameType.PropertyEditor, payload => {
+    return sessionGet(`${path}?revision=${input.articleRevision}&map=properties${cursor}`, FrameType.PropertyEditor, payload => {
       const page = decodePropertyEditor(payload)
       requireProperty(page.articleId === input.articleId && page.articleRevision === input.sourceRevision, 'saved property response')
       return page
     }, signal, credential)
   },
   textHit(input: PropertyTextHitRequest, credential: string, signal?: AbortSignal): Promise<PropertyWorkspace> {
-    return postWithSession(WireRoutes.PropertyEditor, FrameType.PropertyEditor, payload => {
+    return sessionPost(WireRoutes.PropertyEditor, FrameType.PropertyEditor, payload => {
       const response = decodePropertyEditor(payload)
       const [field] = response.fields
       requireProperty(response.articleId === input.articleId && response.articleRevision === input.articleRevision &&

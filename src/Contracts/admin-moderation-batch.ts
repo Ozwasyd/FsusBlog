@@ -3,7 +3,7 @@ import type { AdminCommentCursor } from './admin-identity.ts';
 import { validModerationReason } from './admin-moderation.ts';
 import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { PodReader, PodWriter } from './binary.ts';
-import { post } from './internal/http-methods.ts';
+import { post } from './internal/http.ts';
 import { FrameType, WireLimits, WireRoutes, type AdminModerationClaim } from './wire.generated.ts';
 
 export type AdminModerationBatchItem = Readonly<Omit<AdminModerationClaim, 'expiresAt'> & { expectedStatus: 0 }>;

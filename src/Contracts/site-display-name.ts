@@ -1,6 +1,5 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
-import { request } from './client.ts';
-import { post } from './internal/http-methods.ts';
+import { post, request } from './internal/http.ts';
 import {
   decodeSiteDisplayNameState,
   encodeSiteDisplayNameCommand,

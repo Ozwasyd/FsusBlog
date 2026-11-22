@@ -1,6 +1,6 @@
 import { encodeFrame } from './aeds.ts';
 import { PodReader, ProtocolError } from './binary.ts';
-import { getWithSession, postWithSession } from './internal/http-methods.ts';
+import { sessionGet, sessionPost } from './internal/http.ts';
 import {
   decodeAuthorRecentOpenReceipt, encodeAuthorRecentOpenCommand, FrameType, WireLimits, WireRoutes,
   type AuthorRecentOpenCommand,
@@ -12,7 +12,7 @@ export type RecentOpenCursor = Readonly<{ revision: bigint; token: string }>;
 
 export async function listRecentOpens(session: string, signal: AbortSignal, cursor?: RecentOpenCursor) {
   const query = cursor ? `?cursor=${encodeURIComponent(cursor.token)}` : '';
-  return getWithSession(WireRoutes.AuthorRecentOpens + query, FrameType.AuthorRecentOpenPage, payload => {
+  return sessionGet(WireRoutes.AuthorRecentOpens + query, FrameType.AuthorRecentOpenPage, payload => {
     const page = decodeRecentOpens(payload);
     if (cursor && page.revision !== cursor.revision)
       throw new ProtocolError('Recent opens cursor did not match the response');
@@ -22,7 +22,7 @@ export async function listRecentOpens(session: string, signal: AbortSignal, curs
 
 export async function recordRecentOpen(session: string, signal: AbortSignal, action: Omit<AuthorRecentOpenCommand, 'schemaVersion'>) {
   const command = encodeAuthorRecentOpenCommand({ ...action, schemaVersion: 1 });
-  return postWithSession(WireRoutes.AuthorRecentOpens, FrameType.AuthorRecentOpenReceipt, payload => {
+  return sessionPost(WireRoutes.AuthorRecentOpens, FrameType.AuthorRecentOpenReceipt, payload => {
     const receipt = decodeAuthorRecentOpenReceipt(payload);
     if (receipt.schemaVersion !== 1 || receipt.revision !== action.expectedRevision + 1n || receipt.requestId !== action.requestId ||
         receipt.articleId !== action.articleId || receipt.articleRevision !== action.articleRevision || receipt.openedAtUnixMs <= 0n)

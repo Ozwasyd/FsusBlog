@@ -1,5 +1,5 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
-import { post } from './internal/http-methods.ts';
+import { post } from './internal/http.ts';
 import { readMfaProof } from './mfa.ts';
 import { requestPasskeyAssertion } from './passkey.ts';
 import { encodeAdminModerationDecision, encodeAdminModerationIntent, FrameType, WireHeaders, WireRoutes,
