@@ -547,19 +547,7 @@ public sealed class LocalSearchCorpusReuseTests
                        timestamptz '2024-01-01 UTC' + id * interval '1 minute',timestamptz '2024-01-01 UTC' + id * interval '1 minute'
                 from generate_series(1, 220) id
                 """, author);
-            await FixtureSql.ExecuteAsync(db, tx, ct, """
-                insert into public.article_revision(article_id,revision,title,body,happened_at)
-                    select id,revision,title,body,created_at from public.article;
-                insert into public.article_publication(article_id,revision,publication_id,published_at)
-                    select id,revision,10000+id,created_at from public.article;
-                insert into public.article_revision_rights (
-                    article_id,revision,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,
-                    copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled)
-                    select article_id,revision,true,'all-rights-reserved','',0,'','','append-attribution',300,true,true,true
-                    from public.article_publication;
-                insert into public.article_publication_rights (article_id,publication_id,revision)
-                    select article_id,publication_id,revision from public.article_publication;
-                """);
+            await FixtureSql.ExecuteAsync(db, tx, ct, PublicationFixture.AllCurrentArticlesWithDefaultRights);
             await tx.CommitAsync(ct);
         }
 
