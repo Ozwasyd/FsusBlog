@@ -1,7 +1,7 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import type { AdminCommentCursor } from './admin-identity.ts';
 import { adminProofHeaders } from './admin-step-up.ts';
-import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import {
   decodeAdminModerationClaim,
   encodeAdminModerationClaim,
@@ -26,24 +26,24 @@ export function validModerationReason(reason: string): boolean {
 
 export function claimComment(target: AdminCommentCursor, signal: AbortSignal): Promise<AdminModerationClaim> {
   const body = encodeFrame(FrameType.AdminModerationClaimRequest, encodeAdminModerationClaimRequest(target));
-  return request(WireRoutes.AdminModerationClaim, FrameType.AdminModerationClaim,
-    payload => readClaim(payload, target), signal, 'POST', body);
+  return post(WireRoutes.AdminModerationClaim, FrameType.AdminModerationClaim,
+    payload => readClaim(payload, target), signal, body);
 }
 
 export function renewCommentClaim(claim: AdminModerationClaim, signal: AbortSignal): Promise<AdminModerationClaim> {
   const body = encodeFrame(FrameType.AdminModerationClaim, encodeAdminModerationClaim(claim));
-  return request(WireRoutes.AdminModerationRenew, FrameType.AdminModerationClaim,
-    payload => readClaim(payload, claim), signal, 'POST', body);
+  return post(WireRoutes.AdminModerationRenew, FrameType.AdminModerationClaim,
+    payload => readClaim(payload, claim), signal, body);
 }
 
 export function releaseCommentClaim(claim: AdminModerationClaim, signal: AbortSignal): Promise<void> {
   const body = encodeFrame(FrameType.AdminModerationClaim, encodeAdminModerationClaim(claim));
-  return request(WireRoutes.AdminModerationRelease, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', body);
+  return post(WireRoutes.AdminModerationRelease, FrameType.EmptySuccess, decodeSuccess, signal, body);
 }
 
 export function decideComment(decision: AdminModerationDecision, proof: string, signal: AbortSignal): Promise<void> {
   const body = encodeFrame(FrameType.AdminModerationDecision, encodeAdminModerationDecision(decision));
-  return request(WireRoutes.AdminModerationDecision, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', body,
+  return post(WireRoutes.AdminModerationDecision, FrameType.EmptySuccess, decodeSuccess, signal, body,
     adminProofHeaders(proof));
 }
 

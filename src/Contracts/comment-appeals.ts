@@ -1,7 +1,8 @@
 import { encodeFrame } from './aeds.ts';
 import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { PodReader, ProtocolError, decodeUtf8 } from './binary.ts';
-import { request, siteSessionHeader } from './client.ts';
+import { request } from './client.ts';
+import { getWithSession, post, postWithSession } from './internal/http-methods.ts';
 import { requestCommentAuthorChallenge } from './comment-author.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
@@ -26,7 +27,7 @@ export function appealReason(value: string) {
 }
 
 export function readAuthorAppeals(before: string | null, session: string, signal: AbortSignal, filter?: AuthorCommentQuery) {
-  return request(ownedPage(WireRoutes.CommentAuthorAppeals, before, filter), FrameType.CommentAuthorAppeals, (payload, headers) => {
+  return getWithSession(ownedPage(WireRoutes.CommentAuthorAppeals, before, filter), FrameType.CommentAuthorAppeals, (payload, headers) => {
     const result = page(payload, reader => {
       const article = reader.i32();
       const comment = id(reader.i64());
@@ -41,7 +42,7 @@ export function readAuthorAppeals(before: string | null, session: string, signal
       return { article, comment, body, status, appeal, decisionReason, editable } as AuthorAppeal;
     });
     return { ...result, editEnabled: headers.get(WireHeaders.CommentAuthorEditEnabled) === '1' };
-  }, signal, 'GET', undefined, siteSessionHeader(session));
+  }, signal, session);
 }
 
 export async function submitAuthorAppeal(comment: string, reason: string, session: string, signal: AbortSignal) {
@@ -50,11 +51,11 @@ export async function submitAuthorAppeal(comment: string, reason: string, sessio
   signal.throwIfAborted();
   const frame = encodeFrame(FrameType.CommentAuthorAppealRequest,
     new TextEncoder().encode(JSON.stringify({ reason: reason.trim(), challenge })));
-  return request(WireRoutes.CommentAuthorAppeal.replace('{id:long}', comment), FrameType.CommentAuthorMutationResult, payload => {
+  return postWithSession(WireRoutes.CommentAuthorAppeal.replace('{id:long}', comment), FrameType.CommentAuthorMutationResult, payload => {
     const value = json(payload);
     if (value.success !== true || value.code !== 'ok' || value.moderationStatus !== 0 ||
         value.currentVersion !== 0 || value.editedAtUtc !== null) throw invalid();
-  }, signal, 'POST', frame, siteSessionHeader(session));
+  }, signal, frame, session);
 }
 
 export function readAdminAppeals(before: string | null, signal: AbortSignal) {
@@ -78,11 +79,11 @@ export async function decideAdminAppeal(appeal: string, decision: 'granted' | 'd
     begin: WireRoutes.AdminAppealStepUpBegin.replace('{id:long}', appeal),
     complete: WireRoutes.AdminAppealStepUpComplete,
   }, frame, signal);
-  return request(WireRoutes.AdminAppealDecision.replace('{id:long}', appeal), FrameType.CommentAppealDecisionResult, payload => {
+  return post(WireRoutes.AdminAppealDecision.replace('{id:long}', appeal), FrameType.CommentAppealDecisionResult, payload => {
     const value = json(payload);
     if (value.success !== true || value.code !== 'ok' || !Number.isSafeInteger(value.appealId) || String(value.appealId) !== appeal)
       throw invalid();
-  }, signal, 'POST', frame, adminProofHeaders(proof));
+  }, signal, frame, adminProofHeaders(proof));
 }
 
 function appealPage(path: string, before: string | null) {

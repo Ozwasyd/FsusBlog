@@ -1,6 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
-import { request, siteSessionHeader } from './client.ts'
+import { siteSessionHeader } from './client.ts'
+import { getWithSession, post } from './internal/http-methods.ts'
 import { propertyKinds, readPropertyOperand, writeValue, type PropertyKind, type PropertyOption, type PropertyValue } from './property-values.ts'
 import {
   decodePropertyCommandReceipt, encodePropertyFilterabilityCommand, FrameType, WireLimits, WireRoutes,
@@ -32,7 +33,7 @@ export function propertyFilterCatalog(signal?: AbortSignal, after?: { key: strin
   if (projection) params.set('projection', '1')
   const url = `${WireRoutes.PropertyFilterCatalog}${params.size ? `?${params}` : ''}`
   const frame = projection ? FrameType.PropertyProjectionCatalog : FrameType.PropertyFilterCatalog
-  return request(url, frame, bytes => {
+  return getWithSession(url, frame, bytes => {
     const input = new PodReader(bytes)
     const revision = input.i64(), nextKey = input.text(WireLimits.PropertyKeyBytes), count = input.i32()
     if (revision < 0n || (after && after.schema !== revision) || count < 0 || count > WireLimits.PropertyPageSize)
@@ -62,12 +63,12 @@ export function propertyFilterCatalog(signal?: AbortSignal, after?: { key: strin
     if (nextKey && (count !== WireLimits.PropertyPageSize || nextKey !== previous))
       throw new ProtocolError('Invalid property catalog continuation')
     return { revision, nextKey, fields }
-  }, signal, 'GET', undefined, siteSessionHeader(session))
+  }, signal, session)
 }
 
 export function setPropertyFilterable(input: PropertyFilterabilityCommand, signal?: AbortSignal) {
-  return request(WireRoutes.PropertyFilterability, FrameType.PropertyCommandReceipt, decodePropertyCommandReceipt, signal,
-    'POST', encodeFrame(FrameType.PropertyFilterabilityCommand, encodePropertyFilterabilityCommand(input)))
+  return post(WireRoutes.PropertyFilterability, FrameType.PropertyCommandReceipt, decodePropertyCommandReceipt, signal,
+    encodeFrame(FrameType.PropertyFilterabilityCommand, encodePropertyFilterabilityCommand(input)))
 }
 
 export function encodePropertyQuery(query: PropertyQuery) {
@@ -186,6 +187,6 @@ export function decodePropertyMatches(bytes: Uint8Array): PropertyMatches {
 }
 
 export function queryPropertyArticles(query: PropertyQuery, signal?: AbortSignal, session?: string): Promise<PropertyMatches> {
-  return request(WireRoutes.PropertyArticleQuery, FrameType.PropertyArticlePage, decodePropertyMatches,
-    signal, 'POST', encodePropertyQuery(query), query.keyword ? siteSessionHeader(session) : undefined)
+  return post(WireRoutes.PropertyArticleQuery, FrameType.PropertyArticlePage, decodePropertyMatches,
+    signal, encodePropertyQuery(query), query.keyword ? siteSessionHeader(session) : undefined)
 }

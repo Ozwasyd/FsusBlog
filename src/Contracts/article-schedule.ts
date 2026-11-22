@@ -1,5 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import {
   decodeArticleSchedule, encodeArticleScheduleCommand, FrameType, WireHeaders, WireRoutes,
   type ArticleSchedule, type ArticleScheduleCommand,
@@ -13,8 +14,8 @@ export function readArticleSchedule(id: number, revision: bigint, signal?: Abort
 }
 
 export function setArticleSchedule(input: ArticleScheduleCommand, signal?: AbortSignal): Promise<ArticleSchedule> {
-  return request(WireRoutes.DraftScheduleCommand, FrameType.ArticleSchedule,
-    revisionResponse(input.id, input.expectedRevision + 1n), signal, 'POST',
+  return post(WireRoutes.DraftScheduleCommand, FrameType.ArticleSchedule,
+    revisionResponse(input.id, input.expectedRevision + 1n), signal,
     encodeFrame(FrameType.ArticleScheduleCommand, encodeArticleScheduleCommand(input)),
     { [WireHeaders.ClientMutationId]: input.idempotencyKey });
 }

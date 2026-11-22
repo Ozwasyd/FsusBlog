@@ -1,5 +1,6 @@
 import { ApiError, decodeSuccess } from './aeds.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { FrameType, WireRoutes } from './wire.generated.ts';
 
 export function siteRefreshAvailable(signal?: AbortSignal): Promise<boolean> {
@@ -11,11 +12,11 @@ export function hasSiteRefreshCookie(signal?: AbortSignal): Promise<boolean> {
 }
 
 export function rotateSiteRefresh(signal?: AbortSignal): Promise<void> {
-  return request(WireRoutes.SiteRefreshRotate, FrameType.EmptySuccess, decodeSuccess, signal, 'POST');
+  return post(WireRoutes.SiteRefreshRotate, FrameType.EmptySuccess, decodeSuccess, signal);
 }
 
 export function signOutSiteRefresh(signal?: AbortSignal): Promise<void> {
-  return request(WireRoutes.SiteRefreshSignOut, FrameType.EmptySuccess, decodeSuccess, signal, 'POST');
+  return post(WireRoutes.SiteRefreshSignOut, FrameType.EmptySuccess, decodeSuccess, signal);
 }
 
 async function readFlag(path: string, signal?: AbortSignal): Promise<boolean> {

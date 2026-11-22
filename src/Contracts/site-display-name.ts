@@ -1,5 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import {
   decodeSiteDisplayNameState,
   encodeSiteDisplayNameCommand,
@@ -32,9 +33,9 @@ export async function updateSiteDisplayName(currentSessionId: string, displayNam
   const trimmed = displayName.trim();
   if (!validSiteDisplayName(trimmed)) throw new ProtocolError('Invalid site display name.');
   const body = encodeFrame(FrameType.SiteDisplayNameCommand, encodeSiteDisplayNameCommand({ displayName: trimmed }));
-  return request(WireRoutes.SiteDisplayName, FrameType.SiteDisplayNameState, payload => {
+  return post(WireRoutes.SiteDisplayName, FrameType.SiteDisplayNameState, payload => {
     const state = decodeSiteDisplayNameState(payload);
     if (state.displayName !== trimmed) throw new ProtocolError('Unexpected site display name response.');
     return state.displayName;
-  }, signal, 'POST', body, { [WireHeaders.CurrentSession]: currentSessionId });
+  }, signal, body, { [WireHeaders.CurrentSession]: currentSessionId });
 }

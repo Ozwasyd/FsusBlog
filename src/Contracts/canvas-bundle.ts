@@ -1,7 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
 import { type CanvasGraphHeader, decodeCanvasGraphReceipt } from './canvas-graph.ts'
-import { request } from './client.ts'
+import { post } from './internal/http-methods.ts'
 import { FrameType, WireHeader, WireLimits, WireRoutes } from './wire.generated.ts'
 
 const referenceKinds = ['article-reference', 'heading-reference', 'block-reference'] as const
@@ -109,20 +109,20 @@ export const canvasBundle = {
     const body = encodeFrame(FrameType.CanvasBundleIntake, bytes(bundle))
     const hash = await crypto.subtle.digest('SHA-256', body.subarray(WireHeader.HeaderSize))
     const expected = Array.from(new Uint8Array(hash), part => part.toString(16).padStart(2, '0')).join('')
-    return request(WireRoutes.CanvasBundlePlan, FrameType.CanvasBundlePlan, payload => {
+    return post(WireRoutes.CanvasBundlePlan, FrameType.CanvasBundlePlan, payload => {
       const plan = decodeCanvasBundlePlan(payload)
       check(plan.digest === expected, 'plan digest')
       return plan
-    }, signal, 'POST', body)
+    }, signal, body)
   },
 
   import(command: CanvasBundleExecute, signal?: AbortSignal): Promise<CanvasGraphHeader> {
     const canvasId = uuid(command.canvasId)
     const body = encodeFrame(FrameType.CanvasBundleExecute, encodeCanvasBundleExecute(command))
-    return request(WireRoutes.CanvasBundleExecute, FrameType.CanvasGraphReceipt, payload => {
+    return post(WireRoutes.CanvasBundleExecute, FrameType.CanvasGraphReceipt, payload => {
       const receipt = decodeCanvasGraphReceipt(payload)
       check(receipt.id === canvasId && receipt.revision === 1n && !receipt.deleted, 'import receipt')
       return receipt
-    }, signal, 'POST', body)
+    }, signal, body)
   },
 }

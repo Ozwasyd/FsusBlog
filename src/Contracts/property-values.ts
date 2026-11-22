@@ -1,6 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
-import { request, siteSessionHeader } from './client.ts'
+import { siteSessionHeader } from './client.ts'
+import { getWithSession, post, postWithSession } from './internal/http-methods.ts'
 import { encodePropertyTextHitRequest, type PropertyTextHitRequest } from './property-text-hit.ts'
 import {
   decodePropertyCommandReceipt, decodePropertyValueBatchReceipt, encodePropertyWorkspaceRequest, FrameType, WireLimits, WireRoutes,
@@ -381,14 +382,14 @@ export const propertyApi = {
     const path = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(input.articleId))
       .replace('{sourceRevision:long}', String(input.sourceRevision))
     const cursor = offset === 0 ? '' : `&offset=${offset}`
-    return request(`${path}?revision=${input.articleRevision}&map=properties${cursor}`, FrameType.PropertyEditor, payload => {
+    return getWithSession(`${path}?revision=${input.articleRevision}&map=properties${cursor}`, FrameType.PropertyEditor, payload => {
       const page = decodePropertyEditor(payload)
       requireProperty(page.articleId === input.articleId && page.articleRevision === input.sourceRevision, 'saved property response')
       return page
-    }, signal, 'GET', undefined, siteSessionHeader(credential))
+    }, signal, credential)
   },
   textHit(input: PropertyTextHitRequest, credential: string, signal?: AbortSignal): Promise<PropertyWorkspace> {
-    return request(WireRoutes.PropertyEditor, FrameType.PropertyEditor, payload => {
+    return postWithSession(WireRoutes.PropertyEditor, FrameType.PropertyEditor, payload => {
       const response = decodePropertyEditor(payload)
       const [field] = response.fields
       requireProperty(response.articleId === input.articleId && response.articleRevision === input.articleRevision &&
@@ -397,13 +398,13 @@ export const propertyApi = {
         response.fields.length === 1 && field.definitionId === input.definitionId && field.definitionRevision === input.definitionRevision &&
         field.kind === 'text' && !field.deprecated && field.value.kind === 'text', 'saved Text hit response')
       return response
-    }, signal, 'POST', encodePropertyTextHitRequest(input), siteSessionHeader(credential))
+    }, signal, encodePropertyTextHitRequest(input), credential)
   },
   workspace(input: PropertyWorkspaceRequest, signal?: AbortSignal) {
     requireProperty(input.articleId > 0 && input.articleRevision > 0n && input.schemaRevision >= 0n && input.valueRevision >= 0n &&
       (input.afterKey ? machineKey.test(input.afterKey) : input.schemaRevision === 0n && input.valueRevision === 0n), 'workspace request')
     const body = encodeFrame(FrameType.PropertyWorkspaceRequest, encodePropertyWorkspaceRequest(input))
-    return request(WireRoutes.PropertyEditor, FrameType.PropertyEditor, payload => {
+    return post(WireRoutes.PropertyEditor, FrameType.PropertyEditor, payload => {
       const response = decodePropertyEditor(payload)
       requireProperty(response.articleId === input.articleId && response.articleRevision === input.articleRevision,
         'workspace response article')
@@ -412,33 +413,33 @@ export const propertyApi = {
           response.fields.every(field => field.machineKey > input.afterKey), 'workspace response continuation')
       }
       return response
-    }, signal, 'POST', body)
+    }, signal, body)
   },
   definition(input: PropertySchemaCommand, signal?: AbortSignal) {
     const body = encodeFrame(FrameType.PropertySchemaCommand, encodePropertySchemaCommand(input))
-    return request(WireRoutes.PropertySchemaCommand, FrameType.PropertyCommandReceipt, payload => {
+    return post(WireRoutes.PropertySchemaCommand, FrameType.PropertyCommandReceipt, payload => {
       const receipt = readReceipt(payload)
       requireProperty(receipt.definitionId === uuid(input.definitionId) &&
         receipt.schemaRevision === input.schemaRevision + 1n && receipt.revision === input.definitionRevision + 1n, 'definition receipt')
       return receipt
-    }, signal, 'POST', body)
+    }, signal, body)
   },
   value(input: PropertyValueCommand, signal?: AbortSignal) {
     const body = encodeFrame(FrameType.PropertyValueCommand, encodePropertyValueCommand(input))
-    return request(WireRoutes.PropertyValueCommand, FrameType.PropertyCommandReceipt, payload => {
+    return post(WireRoutes.PropertyValueCommand, FrameType.PropertyCommandReceipt, payload => {
       const receipt = readReceipt(payload)
       requireProperty(receipt.definitionId === uuid(input.definitionId) &&
         receipt.schemaRevision === input.schemaRevision && receipt.revision === input.valueRevision + 1n, 'value receipt')
       return receipt
-    }, signal, 'POST', body)
+    }, signal, body)
   },
   values(input: PropertyValueBatchCommand, signal?: AbortSignal, credential?: string) {
     const body = encodeFrame(FrameType.PropertyValueBatchCommand, encodePropertyValueBatch(input))
-    return request(WireRoutes.PropertyValueCommand, FrameType.PropertyValueBatchReceipt, payload => {
+    return post(WireRoutes.PropertyValueCommand, FrameType.PropertyValueBatchReceipt, payload => {
       const receipt = decodePropertyValueBatchReceipt(payload)
       requireProperty(receipt.articleId === input.articleId && receipt.schemaRevision === input.schemaRevision &&
         receipt.valueRevision === input.valueRevision + 1n && receipt.requestId === uuid(input.requestId), 'batch receipt')
       return receipt
-    }, signal, 'POST', body, credential === undefined ? undefined : siteSessionHeader(credential))
+    }, signal, body, credential === undefined ? undefined : siteSessionHeader(credential))
   },
 }

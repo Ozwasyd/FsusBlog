@@ -3,7 +3,7 @@ import type { AdminCommentCursor } from './admin-identity.ts';
 import { validModerationReason } from './admin-moderation.ts';
 import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { PodReader, PodWriter } from './binary.ts';
-import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { FrameType, WireLimits, WireRoutes, type AdminModerationClaim } from './wire.generated.ts';
 
 export type AdminModerationBatchItem = Readonly<Omit<AdminModerationClaim, 'expiresAt'> & { expectedStatus: 0 }>;
@@ -24,8 +24,8 @@ export function claimModerationBatch(items: readonly AdminCommentCursor[], signa
   const writer = new PodWriter();
   writeTargets(writer, targets);
   const frame = encodeFrame(FrameType.AdminModerationBatchTargets, writer.finish());
-  return request(WireRoutes.AdminModerationBatchClaim, FrameType.AdminModerationBatchClaims,
-    payload => decodeClaims(payload, targets), signal, 'POST', frame);
+  return post(WireRoutes.AdminModerationBatchClaim, FrameType.AdminModerationBatchClaims,
+    payload => decodeClaims(payload, targets), signal, frame);
 }
 
 export async function proveAndDecideModerationBatch(decision: AdminModerationBatchDecision, signal: AbortSignal): Promise<AdminModerationBatchReceipt> {
@@ -35,8 +35,8 @@ export async function proveAndDecideModerationBatch(decision: AdminModerationBat
     begin: WireRoutes.AdminModerationBatchStepUpBegin,
     complete: WireRoutes.AdminModerationBatchStepUpComplete,
   }, frame, signal);
-  return request(WireRoutes.AdminModerationBatchDecision, FrameType.AdminModerationBatchReceipt,
-    payload => decodeModerationBatchReceipt(payload, count), signal, 'POST', frame, adminProofHeaders(proof));
+  return post(WireRoutes.AdminModerationBatchDecision, FrameType.AdminModerationBatchReceipt,
+    payload => decodeModerationBatchReceipt(payload, count), signal, frame, adminProofHeaders(proof));
 }
 
 export function encodeModerationBatchDecision(value: AdminModerationBatchDecision): Uint8Array<ArrayBuffer> {

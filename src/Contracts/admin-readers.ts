@@ -2,6 +2,7 @@ import { encodeFrame, ProtocolError } from './aeds.ts';
 import { assertAdminPermissionSession, type AdminSession } from './admin-identity.ts';
 import { optionalAdminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import {
   decodeAdminReaderAccountPage,
   decodeAdminReaderStatusReceipt,
@@ -71,7 +72,7 @@ export async function executeReaderStatusChange(
   signal: AbortSignal,
 ): Promise<AdminReaderStatusReceipt> {
   const normalized = normalizeCommand(command);
-  return request(WireRoutes.AdminReaderStatusExecute, FrameType.AdminReaderStatusReceipt, (payload, headers) => {
+  return post(WireRoutes.AdminReaderStatusExecute, FrameType.AdminReaderStatusReceipt, (payload, headers) => {
     assertAdminPermissionSession(session, headers);
     const receipt = decodeAdminReaderStatusReceipt(payload);
     if (receipt.userId !== normalized.userId || receipt.enabled !== normalized.targetEnabled ||
@@ -79,7 +80,7 @@ export async function executeReaderStatusChange(
         receipt.revokedSessionCount < 0 || receipt.happenedAtUnixMs <= 0n || receipt.happenedAtUnixMs > maxDate)
       throw new ProtocolError('Invalid administrator reader status receipt.');
     return receipt;
-  }, signal, 'POST', commandFrame(normalized), {
+  }, signal, commandFrame(normalized), {
     ...optionalAdminProofHeaders(proof),
     [WireHeaders.ClientMutationId]: normalized.idempotencyKey,
   });

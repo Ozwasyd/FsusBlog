@@ -2,6 +2,7 @@ import { encodeFrame, ProtocolError } from './aeds.ts';
 import { assertAdminPermissionSession, type AdminSession } from './admin-identity.ts';
 import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { decodeAdminRootCommentPowPolicy, encodeAdminRootCommentPowCommand, FrameType, WireLimits, WireRoutes,
   type AdminRootCommentPowCommand, type AdminRootCommentPowPolicy } from './wire.generated.ts';
 
@@ -29,10 +30,10 @@ export async function applyRootCommentPowPolicy(session: AdminSession, command: 
     begin: WireRoutes.AdminRootCommentPowBegin,
     complete: WireRoutes.AdminRootCommentPowComplete,
   }, frame, signal);
-  return await request(WireRoutes.AdminRootCommentPowApply, FrameType.AdminRootCommentPowPolicy, (payload, headers) => {
+  return await post(WireRoutes.AdminRootCommentPowApply, FrameType.AdminRootCommentPowPolicy, (payload, headers) => {
     const current = policyState(payload, headers, session);
     if (current.generation !== command.expectedGeneration + 1n || current.proofSeconds !== command.proofSeconds)
       throw new ProtocolError('Invalid root comment proof policy receipt.');
     return current;
-  }, signal, 'POST', frame, adminProofHeaders(proof));
+  }, signal, frame, adminProofHeaders(proof));
 }

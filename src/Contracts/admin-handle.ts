@@ -1,7 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { assertAdminPermissionSession, type AdminSession } from './admin-identity.ts';
 import { optionalAdminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
-import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import {
   decodeAdminHandleReceipt,
   encodeAdminHandleCommand,
@@ -39,14 +39,14 @@ export async function executeAdminHandleRename(
   signal: AbortSignal,
 ): Promise<AdminHandleReceipt> {
   const normalized = normalizeCommand(command);
-  return request(WireRoutes.AdminHandleExecute, FrameType.AdminHandleReceipt, (payload, headers) => {
+  return post(WireRoutes.AdminHandleExecute, FrameType.AdminHandleReceipt, (payload, headers) => {
     assertAdminPermissionSession(session, headers);
     const receipt = decodeAdminHandleReceipt(payload);
     if (receipt.handle !== normalized.newHandle ||
         receipt.happenedAtUnixMs <= 0n || receipt.happenedAtUnixMs > maxDate)
       throw new ProtocolError('Invalid administrator handle receipt.');
     return receipt;
-  }, signal, 'POST', commandFrame(normalized), {
+  }, signal, commandFrame(normalized), {
     ...optionalAdminProofHeaders(proof),
     [WireHeaders.ClientMutationId]: normalized.idempotencyKey,
   });

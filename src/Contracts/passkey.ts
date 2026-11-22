@@ -1,6 +1,7 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { decodeUtf8 } from './binary.ts';
 import { api, ApiError, request, validSiteSessionId, type Session } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { mfaAction, mfaStartData, readMfaProof } from './mfa.ts';
 import { encodeSignIn, FrameType, WireHeader, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
@@ -26,22 +27,22 @@ export type PasskeyLogin =
 
 export async function loginWithPasskey(signal?: AbortSignal, rememberMe = false): Promise<PasskeyLogin> {
   const assertion = await requestPasskeyAssertion(WireRoutes.PasskeyLoginBegin, signal, undefined, false, rememberMe);
-  const flow = await request(WireRoutes.PasskeyLoginComplete, FrameType.AuthLoginFlow, decodeLoginFlow, signal, 'POST', assertion);
+  const flow = await post(WireRoutes.PasskeyLoginComplete, FrameType.AuthLoginFlow, decodeLoginFlow, signal, assertion);
   if (flow.kind === 'admin') return { status: 'signed-in', role: 'admin' };
   return flow.pending ? { status: 'mfa', token: flow.pending } : { status: 'signed-in', role: 'reader', session: await api.session(signal) };
 }
 
 export async function requestPasskeyAssertion(beginPath: string, signal?: AbortSignal, body?: Uint8Array<ArrayBuffer>,
   restricted = false, rememberMe = false, headers?: HeadersInit) {
-  const { token, options } = await request(beginPath, FrameType.PasskeyLoginBegin,
-    payload => decodeLoginBegin(payload, restricted), signal, 'POST', body, headers);
+  const { token, options } = await post(beginPath, FrameType.PasskeyLoginBegin,
+    payload => decodeLoginBegin(payload, restricted), signal, body, headers);
   return getAssertion(token, options, signal, rememberMe);
 }
 
 export async function proveMfaSetup(signal?: AbortSignal): Promise<string> {
   const assertion = await requestPasskeyAssertion(WireRoutes.PasskeyStepUpBegin, signal, mfaStartData(mfaAction.setup), true);
-  return request(WireRoutes.PasskeyStepUpComplete, FrameType.MfaChallengeResult,
-    payload => readMfaProof(payload, mfaAction.setup, true), signal, 'POST', assertion);
+  return post(WireRoutes.PasskeyStepUpComplete, FrameType.MfaChallengeResult,
+    payload => readMfaProof(payload, mfaAction.setup, true), signal, assertion);
 }
 
 async function getAssertion(token: string, options: PublicKeyCredentialRequestOptions, signal?: AbortSignal, rememberMe = false) {
@@ -60,13 +61,13 @@ async function getAssertion(token: string, options: PublicKeyCredentialRequestOp
 }
 
 export async function beginPasskeyProvision(ticket: string, signal?: AbortSignal) {
-  return request(WireRoutes.PasskeyProvisionBegin, FrameType.PasskeyRegisterBegin, decodeProvisionBegin, signal, 'POST',
+  return post(WireRoutes.PasskeyProvisionBegin, FrameType.PasskeyRegisterBegin, decodeProvisionBegin, signal,
     encodeFrame(FrameType.OperatorSignIn, encodeSignIn({ ticket })));
 }
 
 export async function completePasskeyProvision(begin: { token: string; options: PublicKeyCredentialCreationOptions }, signal?: AbortSignal): Promise<void> {
   const attestation = await getAttestation(begin.token, begin.options, signal);
-  await request(WireRoutes.PasskeyProvisionComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', attestation);
+  await post(WireRoutes.PasskeyProvisionComplete, FrameType.EmptySuccess, decodeSuccess, signal, attestation);
 }
 
 export async function provisionPasskey(ticket: string, signal?: AbortSignal): Promise<void> {
@@ -78,16 +79,16 @@ export async function enrollSitePasskey(expectedSession: string, signal?: AbortS
   if (!validSiteSessionId(expectedSession)) throw invalid();
   const headers = { [WireHeaders.CurrentSession]: expectedSession };
   const assertion = await requestPasskeyAssertion(WireRoutes.SitePasskeyEnrollBegin, signal, undefined, true, false, headers);
-  const { token, options } = await request(WireRoutes.SitePasskeyEnrollApprove, FrameType.PasskeyRegisterBegin,
-    decodeEnrollmentBegin, signal, 'POST', assertion, headers);
+  const { token, options } = await post(WireRoutes.SitePasskeyEnrollApprove, FrameType.PasskeyRegisterBegin,
+    decodeEnrollmentBegin, signal, assertion, headers);
   const attestation = await getAttestation(token, options, signal);
-  await request(WireRoutes.SitePasskeyEnrollComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', attestation, headers);
+  await post(WireRoutes.SitePasskeyEnrollComplete, FrameType.EmptySuccess, decodeSuccess, signal, attestation, headers);
 }
 
 export async function requestPasskeyAttestation(beginPath: string, signal?: AbortSignal,
   body?: Uint8Array<ArrayBuffer>, headers?: HeadersInit) {
-  const { token, options } = await request(beginPath, FrameType.PasskeyRegisterBegin,
-    decodeProvisionBegin, signal, 'POST', body, headers);
+  const { token, options } = await post(beginPath, FrameType.PasskeyRegisterBegin,
+    decodeProvisionBegin, signal, body, headers);
   return getAttestation(token, options, signal);
 }
 

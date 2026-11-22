@@ -1,5 +1,6 @@
 import { decodeUtf8, ProtocolError } from './binary.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { FrameType, WireHeaders, WireLayouts, WireLimits } from './wire.generated.ts';
 
 export type PowChallenge = { salt: string; signature: string; difficulty: number; timestamp: number };
@@ -126,8 +127,8 @@ export async function proveScopedPow(
   const challengeHeaders = withHeaders(headers);
   challengeHeaders.delete(WireHeaders.PowProof);
   challengeHeaders.set(WireHeaders.PowClientNonce, clientNonce);
-  const challenge = await request(challengePath, FrameType.PowChallenge, decodePowChallenge,
-    signal, 'POST', body, challengeHeaders);
+  const challenge = await post(challengePath, FrameType.PowChallenge, decodePowChallenge,
+    signal, body, challengeHeaders);
   signal.throwIfAborted();
   const nonce = await solveScopedPow(challenge, clientNonce, signal);
   signal.throwIfAborted();

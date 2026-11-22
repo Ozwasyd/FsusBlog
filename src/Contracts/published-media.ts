@@ -1,6 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { PodWriter } from './binary.ts';
 import { request, validSiteSessionId, type Draft } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { decodeDraft, FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
 import type { Article } from './public-articles.ts';
@@ -46,11 +47,11 @@ export function publishArticleImages(id: number, revision: bigint, key: string, 
   writer.i32(selected.length);
   for (const asset of selected) writer.uuid(asset);
   const frame = encodeFrame(FrameType.ArticlePublishImages, writer.finish());
-  return request(WireRoutes.ArticlePublishImages, FrameType.Draft, payload => {
+  return post(WireRoutes.ArticlePublishImages, FrameType.Draft, payload => {
     const result = decodeDraft(payload);
     if (result.id !== id || result.revision !== revision + 1n || !result.published) throw invalid();
     return result;
-  }, signal, 'POST', frame, { [WireHeaders.CurrentSession]: current, [WireHeaders.ClientMutationId]: key });
+  }, signal, frame, { [WireHeaders.CurrentSession]: current, [WireHeaders.ClientMutationId]: key });
 }
 
 export function fetchPublicArticleMedia(id: number, publication: bigint, signal?: AbortSignal): Promise<readonly PublicArticleImage[]> {

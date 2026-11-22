@@ -4,6 +4,7 @@ import { readAdminAvailability } from './admin-identity.ts';
 import { optionalAdminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { PodReader } from './binary.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import {
   decodeAdminArticleArchivePreview, decodeAdminArticleArchiveReceipt, encodeAdminArticleArchiveIntent,
   FrameType, WireLimits, WireRoutes, type AdminArticleArchiveIntent, type AdminArticleArchivePreview, type AdminArticleArchiveReceipt,
@@ -57,7 +58,7 @@ export async function requestAdminArticleArchiveProof(intent: AdminArticleArchiv
 
 export function executeAdminArticleArchive(intent: AdminArticleArchiveIntent, proof: string | undefined,
   signal: AbortSignal): Promise<AdminArticleArchiveReceipt> {
-  return request(WireRoutes.AdminArticleArchiveExecute, FrameType.AdminArticleArchiveReceipt, payload => {
+  return post(WireRoutes.AdminArticleArchiveExecute, FrameType.AdminArticleArchiveReceipt, payload => {
     const result = decodeAdminArticleArchiveReceipt(payload);
     if (result.articleId !== intent.articleId || result.revision !== intent.expectedRevision + 1n ||
         result.sourceRevision !== intent.sourceRevision || result.previousReleaseId !== intent.expectedReleaseId ||
@@ -67,7 +68,7 @@ export function executeAdminArticleArchive(intent: AdminArticleArchiveIntent, pr
       throw new ProtocolError('Invalid administrator article archive receipt');
     }
     return result;
-  }, signal, 'POST', intentFrame(intent), optionalAdminProofHeaders(proof));
+  }, signal, intentFrame(intent), optionalAdminProofHeaders(proof));
 }
 
 function decodeArchivePage(payload: Uint8Array, before: number | undefined): AdminArchivedArticles {

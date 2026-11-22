@@ -1,6 +1,7 @@
 import { decodeSuccess } from './aeds.ts';
 import { PodReader } from './binary.ts';
 import { ProtocolError, request, validSiteSessionId } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
 type SessionRow = Readonly<{ id: string; expiresAt: number; current: boolean; method: 'ticket' | 'passkey'; mfa: boolean }>;
@@ -14,7 +15,7 @@ export function listSiteSessions(current: string, signal?: AbortSignal): Promise
 export function revokeSiteSessions(current: string, target: string | undefined, signal?: AbortSignal): Promise<void> {
   if (target !== undefined && !validSiteSessionId(target)) throw invalid();
   const path = target === undefined ? WireRoutes.SiteSessionsRevokeOthers : WireRoutes.SiteSessionRevoke.replace('{id}', target);
-  return request(path, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', undefined, currentHeader(current));
+  return post(path, FrameType.EmptySuccess, decodeSuccess, signal, undefined, currentHeader(current));
 }
 
 function currentHeader(current: string): HeadersInit {

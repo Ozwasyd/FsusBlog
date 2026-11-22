@@ -1,6 +1,7 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { decodeUtf8 } from './binary.ts';
 import { api, request, siteSessionHeader } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
 export const mfaAction = {
@@ -33,30 +34,30 @@ export async function mfaProfile(signal?: AbortSignal) {
 }
 
 export function beginMfaSetup(proof: string, signal?: AbortSignal) {
-  return request(WireRoutes.MfaSetupStart, FrameType.MfaSetupStart, payload => {
+  return post(WireRoutes.MfaSetupStart, FrameType.MfaSetupStart, payload => {
     if (payload.length < WireLayouts.MfaSetupStartBytes + 4 || payload.subarray(0, 4).some(Boolean)) throw invalid();
     const [seed, uri, issuer, account] = fields(payload, 4, [32, 512, 64, 64]);
     if (!/^[A-Z2-7]{32}$/.test(seed)) throw invalid();
     return { seed, uri, issuer, account };
-  }, signal, 'POST', undefined, { [WireHeaders.MfaProof]: proof });
+  }, signal, undefined, { [WireHeaders.MfaProof]: proof });
 }
 
 export function completeMfaSetup(code: string, signal?: AbortSignal): Promise<string[]> {
-  return request(WireRoutes.MfaSetupVerify, FrameType.MfaSetupVerify, payload => recoveryCodes(payload, WireLimits.MfaCodeCount),
-    signal, 'POST', encoded(FrameType.MfaSetupVerifyRequest, [code]));
+  return post(WireRoutes.MfaSetupVerify, FrameType.MfaSetupVerify, payload => recoveryCodes(payload, WireLimits.MfaCodeCount),
+    signal, encoded(FrameType.MfaSetupVerifyRequest, [code]));
 }
 
 export async function completeMfaLogin(token: string, factor: Factor, signal?: AbortSignal) {
-  await request(WireRoutes.MfaChallengeVerify, FrameType.MfaChallengeResult, payload => {
+  await post(WireRoutes.MfaChallengeVerify, FrameType.MfaChallengeResult, payload => {
     challengeResult(payload, mfaAction.login, true, true);
-  }, signal, 'POST', attempt(token, mfaAction.login, factor));
+  }, signal, attempt(token, mfaAction.login, factor));
   return api.session(signal);
 }
 
 export async function disableMfa(factor: Factor, signal?: AbortSignal) {
   const proof = await proveMfaAction(mfaAction.disable, factor, signal);
-  await request(WireRoutes.MfaDisable, FrameType.EmptySuccess, decodeSuccess, signal,
-    'POST', undefined, { [WireHeaders.MfaProof]: proof });
+  await post(WireRoutes.MfaDisable, FrameType.EmptySuccess, decodeSuccess, signal,
+    undefined, { [WireHeaders.MfaProof]: proof });
 }
 
 export async function regenerateMfaRecoveryCodes(factor: Factor, expected: string, signal?: AbortSignal): Promise<string[]> {
@@ -64,15 +65,15 @@ export async function regenerateMfaRecoveryCodes(factor: Factor, expected: strin
   const proof = await proveMfaAction(mfaAction.regenerate, factor, signal, headers);
   signal?.throwIfAborted();
   headers.set(WireHeaders.MfaProof, proof);
-  return request(WireRoutes.MfaRecoveryRegenerate, FrameType.MfaSetupVerify,
-    payload => recoveryCodes(payload, WireLimits.MfaRegeneratedCodeCount), signal, 'POST', undefined, headers);
+  return post(WireRoutes.MfaRecoveryRegenerate, FrameType.MfaSetupVerify,
+    payload => recoveryCodes(payload, WireLimits.MfaRegeneratedCodeCount), signal, undefined, headers);
 }
 
 async function proveMfaAction(action: string, factor: Factor, signal?: AbortSignal, headers?: HeadersInit): Promise<string> {
-  const token = await request(WireRoutes.MfaChallengeStart, FrameType.MfaChallengeResult,
-    payload => readMfaProof(payload, action, false), signal, 'POST', mfaStartData(action), headers);
-  return request(WireRoutes.MfaChallengeVerify, FrameType.MfaChallengeResult,
-    payload => readMfaProof(payload, action, true), signal, 'POST', attempt(token, action, factor), headers);
+  const token = await post(WireRoutes.MfaChallengeStart, FrameType.MfaChallengeResult,
+    payload => readMfaProof(payload, action, false), signal, mfaStartData(action), headers);
+  return post(WireRoutes.MfaChallengeVerify, FrameType.MfaChallengeResult,
+    payload => readMfaProof(payload, action, true), signal, attempt(token, action, factor), headers);
 }
 
 export function validMfaFactor(text: string): Factor | null {

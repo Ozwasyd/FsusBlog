@@ -1,6 +1,6 @@
 import { encodeFrame } from './aeds.ts';
 import { PodReader, ProtocolError } from './binary.ts';
-import { request, siteSessionHeader } from './client.ts';
+import { getWithSession, postWithSession } from './internal/http-methods.ts';
 import {
   decodeAuthorRecentOpenReceipt, encodeAuthorRecentOpenCommand, FrameType, WireLimits, WireRoutes,
   type AuthorRecentOpenCommand,
@@ -12,23 +12,23 @@ export type RecentOpenCursor = Readonly<{ revision: bigint; token: string }>;
 
 export async function listRecentOpens(session: string, signal: AbortSignal, cursor?: RecentOpenCursor) {
   const query = cursor ? `?cursor=${encodeURIComponent(cursor.token)}` : '';
-  return request(WireRoutes.AuthorRecentOpens + query, FrameType.AuthorRecentOpenPage, payload => {
+  return getWithSession(WireRoutes.AuthorRecentOpens + query, FrameType.AuthorRecentOpenPage, payload => {
     const page = decodeRecentOpens(payload);
     if (cursor && page.revision !== cursor.revision)
       throw new ProtocolError('Recent opens cursor did not match the response');
     return page;
-  }, signal, 'GET', undefined, siteSessionHeader(session));
+  }, signal, session);
 }
 
 export async function recordRecentOpen(session: string, signal: AbortSignal, action: Omit<AuthorRecentOpenCommand, 'schemaVersion'>) {
   const command = encodeAuthorRecentOpenCommand({ ...action, schemaVersion: 1 });
-  return request(WireRoutes.AuthorRecentOpens, FrameType.AuthorRecentOpenReceipt, payload => {
+  return postWithSession(WireRoutes.AuthorRecentOpens, FrameType.AuthorRecentOpenReceipt, payload => {
     const receipt = decodeAuthorRecentOpenReceipt(payload);
     if (receipt.schemaVersion !== 1 || receipt.revision !== action.expectedRevision + 1n || receipt.requestId !== action.requestId ||
         receipt.articleId !== action.articleId || receipt.articleRevision !== action.articleRevision || receipt.openedAtUnixMs <= 0n)
       throw new ProtocolError('Recent opens receipt did not match the command');
     return receipt;
-  }, signal, 'POST', encodeFrame(FrameType.AuthorRecentOpenCommand, command), siteSessionHeader(session));
+  }, signal, encodeFrame(FrameType.AuthorRecentOpenCommand, command), session);
 }
 
 export function decodeRecentOpens(payload: Uint8Array): RecentOpens {

@@ -3,6 +3,7 @@ import { readAdminAvailability } from './admin-identity.ts';
 import { optionalAdminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { decodeUtf8 } from './binary.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import {
   decodeAdminArticleDraftRollbackReceipt, encodeAdminArticleDraftRollbackIntent,
   decodeAdminArticleRollbackPreview, decodeAdminArticleRollbackReceipt, encodeAdminArticleRollbackIntent,
@@ -80,23 +81,23 @@ export async function requestAdminArticleDraftRollbackProof(intent: AdminArticle
 export function executeAdminArticleRollback(intent: AdminArticleRollbackIntent, proof: string | undefined,
   signal: AbortSignal): Promise<AdminArticleRollbackReceipt> {
   const headers = optionalAdminProofHeaders(proof);
-  return request(WireRoutes.AdminArticleRollbackExecute, FrameType.AdminArticleRollbackReceipt, payload => {
+  return post(WireRoutes.AdminArticleRollbackExecute, FrameType.AdminArticleRollbackReceipt, payload => {
     const receipt = decodeAdminArticleRollbackReceipt(payload);
     if (!matchesReceipt(receipt, intent, receipt.publicationId, receipt.publishedUnixMs))
       throw new ProtocolError('Invalid administrator article rollback receipt');
     return receipt;
-  }, signal, 'POST', intentFrame(intent), headers);
+  }, signal, intentFrame(intent), headers);
 }
 
 export function executeAdminArticleDraftRollback(intent: AdminArticleDraftRollbackIntent, proof: string | undefined,
   signal: AbortSignal): Promise<AdminArticleDraftRollbackReceipt> {
   const headers = optionalAdminProofHeaders(proof);
-  return request(WireRoutes.AdminArticleDraftRollbackExecute, FrameType.AdminArticleDraftRollbackReceipt, payload => {
+  return post(WireRoutes.AdminArticleDraftRollbackExecute, FrameType.AdminArticleDraftRollbackReceipt, payload => {
     const receipt = decodeAdminArticleDraftRollbackReceipt(payload);
     if (receipt.targetStatus !== 0 || !matchesReceipt(receipt, intent, receipt.privateReleaseId, receipt.transitionedUnixMs))
       throw new ProtocolError('Invalid administrator article draft rollback receipt');
     return receipt;
-  }, signal, 'POST', draftIntentFrame(intent), headers);
+  }, signal, draftIntentFrame(intent), headers);
 }
 
 export async function rollbackAdminArticle(intent: AdminArticleRollbackIntent, signal: AbortSignal): Promise<AdminArticleRollbackReceipt> {

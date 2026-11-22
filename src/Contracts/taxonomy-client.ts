@@ -1,6 +1,7 @@
 import { ProtocolError } from './binary.ts';
 import { encodeFrame } from './aeds.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { decodeArticleList } from './public-articles.ts';
 import { decodeTaxonomyList, decodeTaxonomyMetadata, type TaxonomyKind } from './taxonomy.ts';
 import {
@@ -48,8 +49,8 @@ export function draftTaxonomy(id: number, revision: bigint, signal?: AbortSignal
 export function assignTaxonomy(input: TaxonomyAssignmentInput, signal?: AbortSignal): Promise<DraftTaxonomy> {
   const value = { ...input, categoryId: input.categoryId ?? 0 };
   const frame = encodeFrame(FrameType.TaxonomyAssignment, encodeTaxonomyAssignment(value));
-  return request(WireRoutes.TaxonomyAssignment, FrameType.DraftTaxonomy,
-    payload => readDraftTaxonomy(payload, input.id, input.expectedRevision + 1n), signal, 'POST', frame);
+  return post(WireRoutes.TaxonomyAssignment, FrameType.DraftTaxonomy,
+    payload => readDraftTaxonomy(payload, input.id, input.expectedRevision + 1n), signal, frame);
 }
 
 function readDraftTaxonomy(payload: Uint8Array, id: number, revision: bigint): DraftTaxonomy {

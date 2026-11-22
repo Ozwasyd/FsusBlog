@@ -1,5 +1,6 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { ApiError, request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { requestPasskeyAttestation } from './passkey.ts';
 import { powProofHeaders, proveScopedPow } from './pow.ts';
 import { FrameType } from './wire.generated.ts';
@@ -36,5 +37,5 @@ export async function registerReaderPasskey(signal: AbortSignal): Promise<void> 
   // A new reader has no existing credentials to exclude: preserve the provision decoder's zero-exclusion contract.
   const attestation = await requestPasskeyAttestation(routes.begin, signal, consent, powProofHeaders(proof));
   signal.throwIfAborted();
-  await request(routes.complete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', attestation);
+  await post(routes.complete, FrameType.EmptySuccess, decodeSuccess, signal, attestation);
 }

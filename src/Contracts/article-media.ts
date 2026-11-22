@@ -1,6 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
-import { request, siteSessionHeader, validSiteSessionId, type Draft } from './client.ts';
+import { validSiteSessionId, type Draft } from './client.ts';
+import { getWithSession, post } from './internal/http-methods.ts';
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
 export interface ArticleAttachment { readonly id: string; readonly ticket: string }
@@ -14,7 +15,7 @@ export interface ArticleMediaState {
 
 export function articleMedia(id: number, revision: bigint, current: string, signal?: AbortSignal): Promise<ArticleMediaState> {
   const path = WireRoutes.ArticleMedia.replace('{id:int}', String(id)) + `?revision=${revision}`;
-  return request(path, FrameType.ArticleMedia, (payload, headers) => {
+  return getWithSession(path, FrameType.ArticleMedia, (payload, headers) => {
     const reader = new PodReader(payload);
     if (id <= 0 || revision <= 0n || reader.i32() !== id || reader.i64() !== revision) throw invalid();
     const count = reader.i32();
@@ -33,7 +34,7 @@ export function articleMedia(id: number, revision: bigint, current: string, sign
     if (cover && !known.has(cover)) throw invalid();
     return { entries, cover, publishImages: headers.get(WireHeaders.ArticlePublishImagesEnabled) === '1',
       publishCover: headers.get(WireHeaders.ArticlePublishCoverEnabled) === '1' };
-  }, signal, 'GET', undefined, siteSessionHeader(current));
+  }, signal, current);
 }
 
 export function editArticleMedia(id: number, revision: bigint, key: string, edit: AttachmentEdit, current: string,
@@ -48,11 +49,11 @@ export function editArticleMedia(id: number, revision: bigint, key: string, edit
   writer.uuid(cover ? edit.cover ?? empty : edit.assetId);
   if (!cover) writer.bool(edit.attach);
   const frame = encodeFrame(cover ? FrameType.ArticleCoverCommand : FrameType.ArticleMediaCommand, writer.finish());
-  return request(cover ? WireRoutes.ArticleCoverSave : WireRoutes.ArticleMediaCommand, FrameType.Draft, payload => {
+  return post(cover ? WireRoutes.ArticleCoverSave : WireRoutes.ArticleMediaCommand, FrameType.Draft, payload => {
     const draft = decodeDraft(payload);
     if (draft.id !== id || draft.revision !== revision + 1n) throw invalid();
     return draft;
-  }, signal, 'POST', frame, { [WireHeaders.CurrentSession]: current, [WireHeaders.ClientMutationId]: key });
+  }, signal, frame, { [WireHeaders.CurrentSession]: current, [WireHeaders.ClientMutationId]: key });
 }
 
 export async function privateArticlePreview(ticket: string, signal?: AbortSignal): Promise<Blob> {

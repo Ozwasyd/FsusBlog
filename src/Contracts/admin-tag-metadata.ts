@@ -1,6 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
 import { request } from './client.ts'
+import { post } from './internal/http-methods.ts'
 import { requestWithScopedPow } from './pow.ts'
 import { FrameType, WireLimits, WireRoutes } from './wire.generated.ts'
 
@@ -98,7 +99,7 @@ export function deleteTaxonomy(kind: AdminMetadataKind, id: number, signal?: Abo
   if (!Number.isInteger(id) || id <= 0 || id > 0x7fffffff)
     throw new ProtocolError(`Invalid ${kind} ID.`)
   const path = (kind === 'tag' ? WireRoutes.AdminTagDelete : WireRoutes.AdminCategoryDelete).replace('{id:int}', String(id))
-  return request(path, FrameType.EmptySuccess, bytes => {
+  return post(path, FrameType.EmptySuccess, bytes => {
     if (bytes.length !== 4) throw new ProtocolError(`Invalid ${kind} delete response.`)
-  }, signal, 'POST')
+  }, signal)
 }

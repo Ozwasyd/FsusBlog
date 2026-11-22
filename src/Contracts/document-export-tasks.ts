@@ -1,6 +1,7 @@
 import { ApiError, encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
 import { request, siteSessionHeader } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { consumeBounded } from './bounded-stream.ts';
 import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
@@ -173,22 +174,22 @@ export function createDocumentExportTask(input: DocumentExportCreate, session: s
   const { id, article, revision, sourceRevision, format } = input;
   const headers = new Headers(exportHeaders(session));
   if (attachment !== undefined) headers.set(WireHeaders.HtmlExportAttachment, attachment);
-  return request(WireRoutes.DocumentExportCreate, FrameType.DocumentExportTask, payload => {
+  return post(WireRoutes.DocumentExportCreate, FrameType.DocumentExportTask, payload => {
     const task = decodeDocumentExportTask(payload);
     if (task.id !== id.toLowerCase() || task.article !== article || task.revision !== revision ||
         task.sourceRevision !== sourceRevision || task.format !== format ||
         (attachment === undefined ? task.provider > 2 : task.provider !== (attachment.includes(',') ? 4 : 3)))
       throw new ProtocolError('Unexpected document export task');
     return task;
-  }, signal, 'POST', encodeDocumentExportCreate(input), headers);
+  }, signal, encodeDocumentExportCreate(input), headers);
 }
 
 export function cancelDocumentExportTask(id: string, session: string, signal: AbortSignal): Promise<DocumentExportTask> {
-  return request(WireRoutes.DocumentExportCancel, FrameType.DocumentExportTask, payload => {
+  return post(WireRoutes.DocumentExportCancel, FrameType.DocumentExportTask, payload => {
     const task = decodeDocumentExportTask(payload);
     if (task.id !== id.toLowerCase()) throw new ProtocolError('Unexpected document export task');
     return task;
-  }, signal, 'POST', encodeDocumentExportTaskRef(id), exportHeaders(session));
+  }, signal, encodeDocumentExportTaskRef(id), exportHeaders(session));
 }
 
 const receiptType = 'application/vnd.fsus.document-export-receipt+json';

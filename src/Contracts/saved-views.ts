@@ -1,6 +1,7 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader, PodWriter } from './binary.ts'
 import { request, validSiteSessionId } from './client.ts'
+import { post } from './internal/http-methods.ts'
 import { decodePropertyMatches, encodePropertyQuery, type PropertyQuery } from './property-query.ts'
 import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts'
 
@@ -54,14 +55,14 @@ export function changeSavedView(session: string, change: SavedViewChange, signal
   writer.uuid(change.requestId)
   writer.text(change.action === 'retire' ? '' : change.name, WireLimits.SavedViewNameBytes)
   writer.bytes(change.action === 'save' ? encodePropertyQuery({ ...change.query, cursor: '' }) : new Uint8Array(0))
-  return request(WireRoutes.SavedViews, FrameType.SavedViewReceipt, bytes => {
+  return post(WireRoutes.SavedViews, FrameType.SavedViewReceipt, bytes => {
     const input = new PodReader(bytes)
     const id = input.uuid(), revision = input.i64(), collectionRevision = input.i64(), retired = input.bool()
     input.finish()
     if (id !== change.id || revision !== change.revision + 1n || collectionRevision !== change.collectionRevision + 1n ||
         retired !== (change.action === 'retire')) throw new ProtocolError('Invalid saved view receipt')
     return { id, revision, collectionRevision, retired }
-  }, signal, 'POST', encodeFrame(FrameType.SavedViewCommand, writer.finish()), sessionHeaders(session))
+  }, signal, encodeFrame(FrameType.SavedViewCommand, writer.finish()), sessionHeaders(session))
 }
 
 export function runSavedView(session: string, view: SavedView, cursor: string, signal?: AbortSignal) {
@@ -69,7 +70,7 @@ export function runSavedView(session: string, view: SavedView, cursor: string, s
   writer.uuid(view.id)
   writer.i64(view.revision)
   writer.text(cursor, WireLimits.PropertyQueryCursorChars)
-  return request(WireRoutes.SavedViewExecute, FrameType.PropertyArticlePage, decodePropertyMatches, signal, 'POST',
+  return post(WireRoutes.SavedViewExecute, FrameType.PropertyArticlePage, decodePropertyMatches, signal,
     encodeFrame(FrameType.SavedViewExecute, writer.finish()), sessionHeaders(session))
 }
 
@@ -110,11 +111,11 @@ export function placeSavedView(session: string, change: PlacementChange, signal?
   writer.i64(change.revision)
   writer.uuid(change.requestId)
   writer.uuid(change.before ?? emptyId)
-  return request(WireRoutes.SavedViewPlacement, FrameType.SavedViewReceipt, bytes => {
+  return post(WireRoutes.SavedViewPlacement, FrameType.SavedViewReceipt, bytes => {
     const input = new PodReader(bytes)
     const id = input.uuid(), revision = input.i64(), collection = input.i64(), retired = input.bool()
     input.finish()
     if (id !== change.view.id || revision !== change.view.revision || collection !== change.revision + 1n || retired)
       throw new ProtocolError('Invalid saved view placement receipt')
-  }, signal, 'POST', encodeFrame(FrameType.SavedViewPlacementCommand, writer.finish()), sessionHeaders(session))
+  }, signal, encodeFrame(FrameType.SavedViewPlacementCommand, writer.finish()), sessionHeaders(session))
 }

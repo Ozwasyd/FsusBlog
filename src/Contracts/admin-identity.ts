@@ -1,6 +1,7 @@
 import { ApiError, decodeSuccess, ProtocolError } from './aeds.ts';
 import { PodReader } from './binary.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { requestPasskeyAssertion, requestPasskeyAttestation } from './passkey.ts';
 import {
   decodeAdminOperationsStatus,
@@ -51,19 +52,19 @@ export async function bootstrapAdminPasskey(ticket: string, signal?: AbortSignal
   if (!validAdminBootstrapToken(ticket)) throw new ProtocolError('Invalid administrator bootstrap key.');
   const headers = { [WireHeaders.AdminBootstrapToken]: ticket };
   const attestation = await requestPasskeyAttestation(WireRoutes.AdminBootstrapBegin, signal, undefined, headers);
-  await request(WireRoutes.AdminBootstrapComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', attestation, headers);
+  await post(WireRoutes.AdminBootstrapComplete, FrameType.EmptySuccess, decodeSuccess, signal, attestation, headers);
 }
 
 export async function signInAdmin(signal?: AbortSignal): Promise<AdminSession> {
   const assertion = await requestPasskeyAssertion(WireRoutes.AdminPasskeyBegin, signal);
-  await request(WireRoutes.AdminPasskeyComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', assertion);
+  await post(WireRoutes.AdminPasskeyComplete, FrameType.EmptySuccess, decodeSuccess, signal, assertion);
   const authority = await readAdminAuthority(signal);
   if (authority.status !== 'active') throw new ProtocolError('The administrator session is unavailable.');
   return authority.session;
 }
 
 export async function signOutAdmin(signal?: AbortSignal): Promise<void> {
-  await request(WireRoutes.AdminSignOut, FrameType.EmptySuccess, decodeSuccess, signal, 'POST');
+  await post(WireRoutes.AdminSignOut, FrameType.EmptySuccess, decodeSuccess, signal);
 }
 
 const permissionSessionPattern = /^[a-f0-9]{64}$/;
@@ -146,9 +147,9 @@ export function adminDeleteArticle(id: number, signal?: AbortSignal): Promise<vo
   if (!Number.isInteger(id) || id <= 0 || id > 0x7fffffff)
     throw new ProtocolError('Invalid article ID.');
   const path = WireRoutes.AdminArticleDelete.replace('{id:int}', String(id));
-  return request(path, FrameType.EmptySuccess, bytes => {
+  return post(path, FrameType.EmptySuccess, bytes => {
     if (bytes.length !== 4) throw new ProtocolError('Invalid article delete response.');
-  }, signal, 'POST');
+  }, signal);
 }
 
 function readPermissionSession(headers: Headers): string | undefined {

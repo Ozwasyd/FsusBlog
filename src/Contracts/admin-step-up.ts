@@ -1,5 +1,5 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
-import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { readMfaProof } from './mfa.ts';
 import { requestPasskeyAssertion } from './passkey.ts';
 import { encodeAdminModerationDecision, encodeAdminModerationIntent, FrameType, WireHeaders, WireRoutes,
@@ -24,8 +24,8 @@ export async function proveAdminStepUp(routes: AdminStepUpRoutes, intent: Uint8A
   signal?.throwIfAborted();
   const assertion = await requestPasskeyAssertion(routes.begin, signal, intent, true, false, beginHeaders);
   signal?.throwIfAborted();
-  const proof = await request(routes.complete, FrameType.MfaChallengeResult,
-    payload => readMfaProof(payload, 'admin-sensitive', true), signal, 'POST', assertion);
+  const proof = await post(routes.complete, FrameType.MfaChallengeResult,
+    payload => readMfaProof(payload, 'admin-sensitive', true), signal, assertion);
   signal?.throwIfAborted();
   return proof;
 }

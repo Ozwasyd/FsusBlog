@@ -1,6 +1,6 @@
 import { encodeFrame } from './aeds.ts';
 import { PodReader, PodWriter, ProtocolError } from './binary.ts';
-import { request, siteSessionHeader } from './client.ts';
+import { postWithSession } from './internal/http-methods.ts';
 import { readPropertyConditions, writePropertyConditions, type PropertyCondition, type PropertyQueryOperand } from './property-query.ts';
 import { propertyKinds } from './property-values.ts';
 import { FrameType, WireHeader, WireLimits, WireRoutes } from './wire.generated.ts';
@@ -103,8 +103,8 @@ export function encodeAuthorTextSearchQuery(query: string): Uint8Array<ArrayBuff
 }
 
 export function authorTextSearch(query: string, session: string, signal: AbortSignal): Promise<AuthorTextSearchPage> {
-  return request(WireRoutes.AuthorTextSearch, FrameType.AuthorTextSearchPage, decodeAuthorTextSearchPage, signal, 'POST',
-    encodeAuthorTextSearchQuery(query), siteSessionHeader(session));
+  return postWithSession(WireRoutes.AuthorTextSearch, FrameType.AuthorTextSearchPage, decodeAuthorTextSearchPage, signal,
+    encodeAuthorTextSearchQuery(query), session);
 }
 
 export function decodeAuthorTextSearchPage(payload: Uint8Array): AuthorTextSearchPage {

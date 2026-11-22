@@ -1,5 +1,6 @@
 import { ApiError, decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { request, validSiteSessionId } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { readMfaProof } from './mfa.ts';
 import { requestPasskeyAssertion, requestPasskeyAttestation } from './passkey.ts';
 import { requestWithScopedPow } from './pow.ts';
@@ -39,15 +40,15 @@ export async function issueSiteRecoveryKey(operation: KeyOperation, signal: Abor
   const command = encodeFrame(FrameType.RecoveryKeyOperation, encodeRecoveryKeyOperation({ operation }));
   const action = operation === 1 ? 'recovery-key.create' : 'recovery-key.rotate';
   const assertion = await requestPasskeyAssertion(WireRoutes.RecoveryKeyStepUpBegin, signal, command, true);
-  const proof = await request(WireRoutes.RecoveryKeyStepUpComplete, FrameType.MfaChallengeResult,
-    payload => readMfaProof(payload, action, true), signal, 'POST', assertion);
+  const proof = await post(WireRoutes.RecoveryKeyStepUpComplete, FrameType.MfaChallengeResult,
+    payload => readMfaProof(payload, action, true), signal, assertion);
   signal.throwIfAborted();
-  return request(WireRoutes.RecoveryKeyIssue, FrameType.RecoveryKeyIssued, payload => {
+  return post(WireRoutes.RecoveryKeyIssue, FrameType.RecoveryKeyIssued, payload => {
     const issued = decodeRecoveryKeyIssued(payload);
     if (!validSiteRecoveryKey(issued.key) || issued.version <= 0n || issued.createdAt <= 0n)
       throw new ProtocolError('Invalid Recovery Key confirmation.');
     return issued.key;
-  }, signal, 'POST', command, { [WireHeaders.MfaProof]: proof });
+  }, signal, command, { [WireHeaders.MfaProof]: proof });
 }
 
 export async function verifySiteRecoveryKey(key: string, signal: AbortSignal): Promise<void> {
@@ -73,7 +74,7 @@ export async function removeCurrentSitePasskey(key: string, expectedSession: str
   await verifySiteRecoveryKey(key, signal);
   signal.throwIfAborted();
   const assertion = await requestPasskeyAssertion(WireRoutes.SitePasskeyRemoveCurrentBegin, signal, undefined, true, false, headers);
-  await request(WireRoutes.SitePasskeyRemoveCurrentComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', assertion, headers);
+  await post(WireRoutes.SitePasskeyRemoveCurrentComplete, FrameType.EmptySuccess, decodeSuccess, signal, assertion, headers);
 }
 
 export function beginSitePasskeyReplacement(signal: AbortSignal): Promise<Uint8Array<ArrayBuffer>> {
@@ -81,5 +82,5 @@ export function beginSitePasskeyReplacement(signal: AbortSignal): Promise<Uint8A
 }
 
 export function completeSitePasskeyReplacement(attestation: Uint8Array<ArrayBuffer>, signal: AbortSignal): Promise<void> {
-  return request(WireRoutes.RecoveryKeyRebindComplete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', attestation);
+  return post(WireRoutes.RecoveryKeyRebindComplete, FrameType.EmptySuccess, decodeSuccess, signal, attestation);
 }

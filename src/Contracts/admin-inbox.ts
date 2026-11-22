@@ -1,5 +1,6 @@
 import { decodeSuccess, encodeFrame } from './aeds.ts';
 import { ProtocolError, request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { PodReader, PodWriter } from './binary.ts';
 import { decodeInboxReplied } from './inbox.ts';
 import { watchInboxWake } from './inbox-wake.ts';
@@ -101,13 +102,13 @@ export function acknowledgeAdminInboxRead(id: bigint, snapshot: NonNullable<Admi
   const fields = new PodWriter();
   fields.i64(snapshot.through);
   const path = WireRoutes.AdminInboxAcknowledge.replace('{id:long}', String(id));
-  return request(path, FrameType.EmptySuccess, (payload, headers) => {
+  return post(path, FrameType.EmptySuccess, (payload, headers) => {
     decodeSuccess(payload);
     const raw = headers.get(WireHeaders.AdminInboxUnread);
     if (raw === null || !/^(0|[1-9][0-9]{0,9})$/.test(raw) || Number(raw) > 0x7fffffff)
       throw invalid();
     return Number(raw);
-  }, signal, 'POST', encodeFrame(FrameType.ConversationReadRequest, fields.finish()), { [WireHeaders.AdminInboxReadSnapshot]: snapshot.token });
+  }, signal, encodeFrame(FrameType.ConversationReadRequest, fields.finish()), { [WireHeaders.AdminInboxReadSnapshot]: snapshot.token });
 }
 
 export function adminReplyFrame(body: string) {

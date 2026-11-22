@@ -2,6 +2,7 @@ import { encodeFrame, ProtocolError } from './aeds.ts';
 import { readAdminAvailability } from './admin-identity.ts';
 import { optionalAdminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { decodeAdminArticleTrashRestoreReceipt, encodeAdminArticleTrashRestoreIntent, decodeAdminArticleTrashPublicationPreview,
   decodeAdminArticleTrashPublicationReceipt, encodeAdminArticleTrashPublicationIntent,
   FrameType, WireHeaders, WireRoutes, type AdminArticleTrashRestoreIntent, type AdminArticleTrashPublicationIntent } from './wire.generated.ts';
@@ -34,14 +35,14 @@ export function requestTrashPublicationProof(intent: AdminArticleTrashPublicatio
 }
 
 export function executeTrashPublication(intent: AdminArticleTrashPublicationIntent, proof: string | undefined, signal: AbortSignal) {
-  return request(WireRoutes.AdminArticleTrashPublicationExecute, FrameType.AdminArticleTrashPublicationReceipt, payload => {
+  return post(WireRoutes.AdminArticleTrashPublicationExecute, FrameType.AdminArticleTrashPublicationReceipt, payload => {
     const receipt = decodeAdminArticleTrashPublicationReceipt(payload);
     if (receipt.articleId !== intent.articleId || receipt.revision !== intent.expectedRevision + 1n ||
         receipt.sourceRevision !== intent.sourceRevision || receipt.sourcePublicationId !== intent.sourcePublicationId ||
         receipt.publicationId <= 0n || receipt.publicationId === receipt.sourcePublicationId)
       throw new ProtocolError('Invalid administrator publication restore receipt.');
     return receipt;
-  }, signal, 'POST', publicationFrame(intent), { ...optionalAdminProofHeaders(proof), [WireHeaders.ClientMutationId]: intent.idempotencyKey });
+  }, signal, publicationFrame(intent), { ...optionalAdminProofHeaders(proof), [WireHeaders.ClientMutationId]: intent.idempotencyKey });
 }
 
 function publicationFrame(intent: AdminArticleTrashPublicationIntent) {
@@ -56,12 +57,12 @@ export function requestTrashRestoreProof(intent: AdminArticleTrashRestoreIntent,
 }
 
 export function executeTrashRestore(intent: AdminArticleTrashRestoreIntent, proof: string | undefined, signal: AbortSignal) {
-  return request(WireRoutes.AdminArticleTrashRestoreExecute, FrameType.AdminArticleTrashRestoreReceipt, payload => {
+  return post(WireRoutes.AdminArticleTrashRestoreExecute, FrameType.AdminArticleTrashRestoreReceipt, payload => {
     const receipt = decodeAdminArticleTrashRestoreReceipt(payload);
     if (receipt.articleId !== intent.articleId || receipt.revision !== intent.expectedRevision + 1n)
       throw new ProtocolError('Invalid administrator trash restore receipt.');
     return receipt;
-  }, signal, 'POST', frame(intent), { ...optionalAdminProofHeaders(proof), [WireHeaders.ClientMutationId]: intent.idempotencyKey });
+  }, signal, frame(intent), { ...optionalAdminProofHeaders(proof), [WireHeaders.ClientMutationId]: intent.idempotencyKey });
 }
 
 function frame(intent: AdminArticleTrashRestoreIntent) {

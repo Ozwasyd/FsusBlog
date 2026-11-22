@@ -1,5 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts';
 import { request } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import {
   decodeArticleRightsPolicy, encodeArticleRightsCommand, FrameType, WireHeaders, WireRoutes,
   type ArticleRightsCommand, type ArticleRightsPolicy,
@@ -13,8 +14,8 @@ export function draftRights(id: number, revision: bigint, signal?: AbortSignal):
 }
 
 export function setDraftRights(input: ArticleRightsCommand, signal?: AbortSignal): Promise<ArticleRightsPolicy> {
-  return request(WireRoutes.DraftRightsCommand, FrameType.ArticleRightsPolicy, receipt(input.id, input.expectedRevision + 1n),
-    signal, 'POST', encodeFrame(FrameType.ArticleRightsCommand, encodeArticleRightsCommand(input)),
+  return post(WireRoutes.DraftRightsCommand, FrameType.ArticleRightsPolicy, receipt(input.id, input.expectedRevision + 1n),
+    signal, encodeFrame(FrameType.ArticleRightsCommand, encodeArticleRightsCommand(input)),
     { [WireHeaders.ClientMutationId]: input.idempotencyKey });
 }
 

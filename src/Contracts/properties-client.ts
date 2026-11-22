@@ -1,6 +1,6 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
 import { PodReader } from './binary.ts'
-import { request } from './client.ts'
+import { post } from './internal/http-methods.ts'
 import {
   decodePropertyCommandReceipt, encodePropertyDefinitionCommand, encodePropertyTextCommand,
   encodePropertyWorkspaceRequest, FrameType, WireLimits, WireRoutes,
@@ -74,15 +74,15 @@ function readReceipt(payload: Uint8Array) {
 
 export const propertyApi = {
   workspace(input: PropertyWorkspaceRequest, signal?: AbortSignal) {
-    return request(WireRoutes.PropertyWorkspace, FrameType.PropertyWorkspace, decodePropertyWorkspace,
-      signal, 'POST', encodeFrame(FrameType.PropertyWorkspaceRequest, encodePropertyWorkspaceRequest(input)))
+    return post(WireRoutes.PropertyWorkspace, FrameType.PropertyWorkspace, decodePropertyWorkspace,
+      signal, encodeFrame(FrameType.PropertyWorkspaceRequest, encodePropertyWorkspaceRequest(input)))
   },
   definition(input: PropertyDefinitionCommand, signal?: AbortSignal) {
-    return request(WireRoutes.PropertyDefinitionCommand, FrameType.PropertyCommandReceipt, readReceipt,
-      signal, 'POST', encodeFrame(FrameType.PropertyDefinitionCommand, encodePropertyDefinitionCommand(input)))
+    return post(WireRoutes.PropertyDefinitionCommand, FrameType.PropertyCommandReceipt, readReceipt,
+      signal, encodeFrame(FrameType.PropertyDefinitionCommand, encodePropertyDefinitionCommand(input)))
   },
   text(input: PropertyTextCommand, signal?: AbortSignal) {
-    return request(WireRoutes.PropertyTextCommand, FrameType.PropertyCommandReceipt, readReceipt,
-      signal, 'POST', encodeFrame(FrameType.PropertyTextCommand, encodePropertyTextCommand(input)))
+    return post(WireRoutes.PropertyTextCommand, FrameType.PropertyCommandReceipt, readReceipt,
+      signal, encodeFrame(FrameType.PropertyTextCommand, encodePropertyTextCommand(input)))
   },
 }

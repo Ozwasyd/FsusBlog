@@ -1,6 +1,7 @@
 import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { PodReader, PodWriter } from './binary.ts';
 import { request, validSiteSessionId } from './client.ts';
+import { post } from './internal/http-methods.ts';
 import { requestPasskeyAssertion } from './passkey.ts';
 import { readSitePasskeyRow, type SitePasskey } from './site-passkeys.ts';
 import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
@@ -33,7 +34,7 @@ export async function removeSitePasskey(reference: string, expectedRevision: big
 async function confirmSitePasskeyChange(begin: string, complete: string, intent: Uint8Array<ArrayBuffer>,
   headers: HeadersInit, signal?: AbortSignal): Promise<void> {
   const assertion = await requestPasskeyAssertion(begin, signal, intent, true, false, headers);
-  await request(complete, FrameType.EmptySuccess, decodeSuccess, signal, 'POST', assertion, headers);
+  await post(complete, FrameType.EmptySuccess, decodeSuccess, signal, assertion, headers);
 }
 
 export function encodeSitePasskeyRename(reference: string, expectedRevision: bigint, name: string): Uint8Array<ArrayBuffer> {
