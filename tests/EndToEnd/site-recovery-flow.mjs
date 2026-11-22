@@ -252,6 +252,7 @@ async function siteBrowser(role) {
   const context = await browser.newContext({ locale: 'en-US' })
   await context.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
   context.setDefaultTimeout(18_000)
+  context.setDefaultNavigationTimeout(18_000)
   const page = await context.newPage()
   page.on('pageerror', () => faults.push({ role, kind: 'uncaught-page-error' }))
   page.on('response', recordIdentityResponse(origin, role, responses, faults))
@@ -321,8 +322,8 @@ async function session(context, status) {
 }
 
 async function signedIn(page) {
-  await page.waitForURL(origin + '/user/manage/article/write')
-  await roleWithExactName(page, 'heading', 'New article').waitFor()
+  await page.waitForURL(origin + '/user/identity/mfa')
+  await roleWithExactName(page, 'heading', 'Account').waitFor()
 }
 
 async function enrollPasskey(page, ticket) {
