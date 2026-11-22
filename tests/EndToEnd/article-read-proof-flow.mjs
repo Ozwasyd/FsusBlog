@@ -6,20 +6,23 @@ import { join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { decodeApiError, decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
-import { decodeDraft, encodeSignIn, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 import { binary, postFrame, submitPublicationMutation } from './browser-authoring-fixture.mjs'
 import { expect, launchIdentityBrowser, readTlsPublicationFixture, request } from './site-authentication-fixture.mjs'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
 
 // Run after the performance matrix releases the host. The disposable TLS fixture
-// must provision the optional read-proof schema and configure its PostgreSQL
+// must initialize the schema and configure its PostgreSQL
 // connection to suppress bind-parameter logging, including on errors.
-const fixtureError = 'Use the disposable admin TLS fixture with its read-proof database, operator ticket and TLS leaf pins.'
-const { url, origin, ticket: operatorTicket, pins } = readTlsPublicationFixture(fixtureError)
+const fixtureError = 'Use the disposable admin TLS fixture with its read-proof database, administrator bootstrap and TLS leaf pins.'
+const { url, origin, pins } = readTlsPublicationFixture(fixtureError)
+const adminOrigin = new URL(process.env.FSUSBLOG_TEST_ADMIN_URL).origin
+const bootstrap = process.env.FSUSBLOG_TEST_ADMIN_TICKET
 const database = process.env.FSUSBLOG_TEST_READ_PROOF_DATABASE
 const runtimeControl = process.env.FSUSBLOG_RUNTIME_EVIDENCE_CONTROL
 const runtimeOutput = process.env.FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT
-assert(url.port && /^fsusv2_admin_tls_[0-9a-f]{24}$/.test(database ?? '') && runtimeControl && runtimeOutput &&
+assert(bootstrap && url.port && /^fsusv2_admin_tls_[0-9a-f]{24}$/.test(database ?? '') && runtimeControl && runtimeOutput &&
   process.env.PGHOST && process.env.PGPORT && process.env.PGUSER, fixtureError)
 
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/article-read-proof-browser')
@@ -115,15 +118,17 @@ async function runtimeMark(mark) {
   return sample
 }
 
-const author = await request.newContext({ baseURL: origin })
 const reader = await request.newContext({ baseURL: origin, userAgent: logProbeAgent })
 const checks = {}
 let browser
+let author
 let failure
 try {
-  assert.equal((await author.get('/health/ready')).status(), 204)
-  await payload(await post(author, WireRoutes.SignIn, FrameType.OperatorSignIn,
-    encodeSignIn({ ticket: operatorTicket })), FrameType.OperatorSession)
+  assert.equal((await reader.get('/health/ready')).status(), 204)
+  browser = await launchIdentityBrowser(pins)
+  const authorContext = await browser.newContext()
+  await signInFreshAdmin(await authorContext.newPage(), adminOrigin, bootstrap)
+  author = authorContext.request
   const wireArticle = await publish('Read proof direct protocol')
   const browserArticle = await publish('Read proof visible browser')
   const wireChallenge = wirePath(wireArticle, 'challenge')
@@ -174,7 +179,6 @@ try {
   const replacementTicket = await dwellTicket(await post(reader, wirePath(replacement, 'challenge'), challengeRequest,
     Buffer.alloc(0), requestHeaders))
 
-  browser = await launchIdentityBrowser(pins)
   const page = await browser.newPage({ viewport: { width: 1280, height: 840 } })
   const faults = []
   page.on('pageerror', error => faults.push(error.message))
@@ -197,7 +201,7 @@ try {
   const isPost = (path, response) => response.url() === origin + path && response.request().method() === 'POST'
   await page.addStyleTag({ content: '[data-fsus-article-read-body] { margin-top: 140vh; }' })
   await entry.click()
-  assert.equal(page.url(), origin + `/article/${browserArticle.id}`)
+  await page.waitForURL(origin + `/article/${browserArticle.id}`)
   await expect(page.getByRole('heading', { name: browserArticle.title, exact: true })).toBeVisible()
   const readingBody = page.locator('[data-fsus-article-read-body]')
   await expect(readingBody).not.toBeInViewport()
@@ -288,7 +292,6 @@ try {
   failure = error
 } finally {
   await browser?.close()
-  await author.dispose()
   await reader.dispose()
   await writeFile(join(evidence, 'article-read-proof-browser-result.json'), JSON.stringify({
     browser: browser?.version(), checks, failure: failure instanceof Error ? failure.message : undefined,
@@ -309,6 +312,6 @@ async function publish(label, previous) {
 }
 
 async function command(path, id, expectedRevision, title = '', body = '') {
-  const response = await submitPublicationMutation(author, path, id, expectedRevision, title, body)
+  const response = await submitPublicationMutation(author, adminOrigin + path, id, expectedRevision, title, body)
   return decodeDraft(await payload(response, FrameType.Draft))
 }

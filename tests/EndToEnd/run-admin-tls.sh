@@ -205,7 +205,6 @@ if [[ ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} == 1 ]]; then
   "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" \
     -c "ALTER DATABASE $database SET log_parameter_max_length = 0" \
     -c "ALTER DATABASE $database SET log_parameter_max_length_on_error = 0" > "$evidence/article-read-proof-postgres.log"
-  "$dotnet" "$migrate" article read-proof-schema >> "$evidence/article-read-proof-postgres.log"
 fi
 if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_LIVE:-0} == 1 ]]; then
   export FSUSBLOG_TEST_ADMIN_INBOX=1 FSUSBLOG_ADMIN_INBOX_LIVE=true FSUSBLOG_PRIVATE_INBOX_WRITES=true
