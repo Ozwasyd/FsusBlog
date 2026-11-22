@@ -28,7 +28,7 @@ public sealed class LocalSearchCorpusReuseTests
         var initial = Enumerable.Range(1, DocumentsPerPage + 1)
             .Select(id => MakeArticle(id))
             .ToArray();
-        var baseline = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(initial));
+        var baseline = BuildCorpus(initial);
         AssertMatchesFullEncoder(initial, baseline);
         Assert.Equal(2, baseline.Pages.Count);
         Assert.Equal(0, baseline.ReusedPageCount);
@@ -68,7 +68,7 @@ public sealed class LocalSearchCorpusReuseTests
         {
             var mutated = (Article[])initial.Clone();
             mutated[lastIndex] = mutate(mutated[lastIndex]);
-            var next = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(mutated, baseline));
+            var next = BuildCorpus(mutated, baseline);
             AssertMatchesFullEncoder(mutated, next, name);
             Assert.Equal(1, next.ReusedPageCount);
             Assert.Equal(0, next.ReusedFromPageIndex(0));
@@ -80,17 +80,17 @@ public sealed class LocalSearchCorpusReuseTests
         // Category null vs empty-name category must never be treated as equal.
         var nullCat = (Article[])initial.Clone();
         nullCat[lastIndex] = nullCat[lastIndex] with { Category = null };
-        var nullCatSnap = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(nullCat, baseline));
+        var nullCatSnap = BuildCorpus(nullCat, baseline);
         var emptyNameCat = (Article[])initial.Clone();
         emptyNameCat[lastIndex] = emptyNameCat[lastIndex] with { Category = new TaxonomyName(7, "") };
-        var emptyNameSnap = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(emptyNameCat, nullCatSnap));
+        var emptyNameSnap = BuildCorpus(emptyNameCat, nullCatSnap);
         AssertMatchesFullEncoder(emptyNameCat, emptyNameSnap, "null category vs empty-name category");
         Assert.Equal(-1, emptyNameSnap.ReusedFromPageIndex(1));
 
         // Equivalent null vs empty representations and equivalent UTC instants must reuse all pages.
         var equivalent = (Article[])initial.Clone();
         equivalent[lastIndex] = equivalent[lastIndex] with { Summary = null, Tags = null };
-        var eqBase = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(equivalent));
+        var eqBase = BuildCorpus(equivalent);
         var equivalent2 = (Article[])equivalent.Clone();
         equivalent2[lastIndex] = equivalent2[lastIndex] with
         {
@@ -101,7 +101,7 @@ public sealed class LocalSearchCorpusReuseTests
             UpdatedAt = equivalent2[lastIndex].UpdatedAt.AddDays(4),
             CoverMediaDigest = new string('a', 64),
         };
-        var eqNext = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(equivalent2, eqBase));
+        var eqNext = BuildCorpus(equivalent2, eqBase);
         AssertMatchesFullEncoder(equivalent2, eqNext, "equivalent normalized inputs");
         Assert.Equal(2, eqNext.ReusedPageCount);
         Assert.Same(eqBase.Pages[0], eqNext.Pages[0]);
@@ -113,12 +113,12 @@ public sealed class LocalSearchCorpusReuseTests
     {
         var mutableTags = new List<TaxonomyName> { new(11, "Alpha"), new(12, "Beta") };
         var article = BaseArticle with { Id = 1, Tags = mutableTags };
-        var snap1 = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot([article]));
+        var snap1 = BuildCorpus([article]);
         var expectedBefore = LocalSearchCorpus.Build([article with { Tags = [new(11, "Alpha"), new(12, "Beta")] }])![0];
         Assert.Equal(expectedBefore, snap1.Pages[0]);
 
         mutableTags[0] = new TaxonomyName(11, "Gamma");
-        var snap2 = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot([article], snap1));
+        var snap2 = BuildCorpus([article], snap1);
         Assert.Equal(0, snap2.ReusedPageCount);
         Assert.NotSame(snap1.Pages[0], snap2.Pages[0]);
         Assert.Equal(expectedBefore, snap1.Pages[0]);
@@ -133,21 +133,16 @@ public sealed class LocalSearchCorpusReuseTests
             .ToArray();
         var cursor = new PublicListCursor(TimeProvider.System);
         var snap0 = CreateSnapshot(1, initial, previous: null, cursor);
-        Assert.Equal(4, snap0.CorpusPageCount);
-        Assert.Equal(0, snap0.ReusedCorpusPageCount);
+        AssertPageCounts(snap0, 4, 0);
         AssertSnapshotCorpusMatchesFullEncoder(initial, snap0);
 
         // 1. Edit last article (#601 on page 4): reuses pages 1..3 + ETags.
         var editLast = (Article[])initial.Clone();
         editLast[^1] = editLast[^1] with { Revision = 11, RevisionNo = 2, Publication = 200, PublicationNo = 2, Body = editLast[^1].Body + " updated601" };
         var snapEditLast = CreateSnapshot(2, editLast, snap0, cursor);
-        Assert.Equal(4, snapEditLast.CorpusPageCount);
-        Assert.Equal(3, snapEditLast.ReusedCorpusPageCount);
+        AssertPageCounts(snapEditLast, 4, 3);
         for (var p = 1; p <= 3; p++)
-        {
-            Assert.Same(snap0.Corpus(p), snapEditLast.Corpus(p));
-            Assert.Same(snap0.CorpusTag(p), snapEditLast.CorpusTag(p));
-        }
+            AssertReusedPage(snap0, snapEditLast, p);
         Assert.NotSame(snap0.Corpus(4), snapEditLast.Corpus(4));
         Assert.NotEqual(snap0.Generation, snapEditLast.Generation);
         AssertSnapshotCorpusMatchesFullEncoder(editLast, snapEditLast);
@@ -163,22 +158,17 @@ public sealed class LocalSearchCorpusReuseTests
         var editFirst = (Article[])editLast.Clone();
         editFirst[0] = editFirst[0] with { Revision = 12, RevisionNo = 2, Publication = 201, PublicationNo = 2, Title = "Edited first article" };
         var snapEditFirst = CreateSnapshot(3, editFirst, snapEditLast, cursor);
-        Assert.Equal(4, snapEditFirst.CorpusPageCount);
-        Assert.Equal(3, snapEditFirst.ReusedCorpusPageCount);
+        AssertPageCounts(snapEditFirst, 4, 3);
         Assert.NotSame(snapEditLast.Corpus(1), snapEditFirst.Corpus(1));
         for (var p = 2; p <= 4; p++)
-        {
-            Assert.Same(snapEditLast.Corpus(p), snapEditFirst.Corpus(p));
-            Assert.Same(snapEditLast.CorpusTag(p), snapEditFirst.CorpusTag(p));
-        }
+            AssertReusedPage(snapEditLast, snapEditFirst, p);
         AssertSnapshotCorpusMatchesFullEncoder(editFirst, snapEditFirst);
 
         // 3. Edit middle article (#250 on page 2): reuses pages 1, 3, 4 + ETags, emits FSPT patch for page 2.
         var editMiddle = (Article[])editFirst.Clone();
         editMiddle[249] = editMiddle[249] with { Revision = 13, RevisionNo = 2, Publication = 202, PublicationNo = 2, Body = editMiddle[249].Body + "!" };
         var snapEditMiddle = CreateSnapshot(4, editMiddle, snapEditFirst, cursor);
-        Assert.Equal(4, snapEditMiddle.CorpusPageCount);
-        Assert.Equal(3, snapEditMiddle.ReusedCorpusPageCount);
+        AssertPageCounts(snapEditMiddle, 4, 3);
         Assert.Same(snapEditFirst.Corpus(1), snapEditMiddle.Corpus(1));
         Assert.NotSame(snapEditFirst.Corpus(2), snapEditMiddle.Corpus(2));
         Assert.Same(snapEditFirst.Corpus(3), snapEditMiddle.Corpus(3));
@@ -191,8 +181,7 @@ public sealed class LocalSearchCorpusReuseTests
         // 4. Rename category across all 601 articles: reuses 0 of 4 pages.
         var renamedCategory = editMiddle.Select(a => a with { Category = new TaxonomyName(7, "RenamedLab") }).ToArray();
         var snapRenamed = CreateSnapshot(5, renamedCategory, snapEditMiddle, cursor);
-        Assert.Equal(4, snapRenamed.CorpusPageCount);
-        Assert.Equal(0, snapRenamed.ReusedCorpusPageCount);
+        AssertPageCounts(snapRenamed, 4, 0);
         for (var p = 1; p <= 4; p++)
             Assert.NotSame(snapEditMiddle.Corpus(p), snapRenamed.Corpus(p));
         AssertSnapshotCorpusMatchesFullEncoder(renamedCategory, snapRenamed);
@@ -200,10 +189,8 @@ public sealed class LocalSearchCorpusReuseTests
         // 5. Withdraw middle article (#201): 600 articles -> 3 pages, page 1 reused, pages 2..3 shifted & rebuilt.
         var withdrawMid = renamedCategory.Where(a => a.Id != 201).ToArray();
         var snapWithdrawMid = CreateSnapshot(6, withdrawMid, snapRenamed, cursor);
-        Assert.Equal(3, snapWithdrawMid.CorpusPageCount);
-        Assert.Equal(1, snapWithdrawMid.ReusedCorpusPageCount);
-        Assert.Same(snapRenamed.Corpus(1), snapWithdrawMid.Corpus(1));
-        Assert.Same(snapRenamed.CorpusTag(1), snapWithdrawMid.CorpusTag(1));
+        AssertPageCounts(snapWithdrawMid, 3, 1);
+        AssertReusedPage(snapRenamed, snapWithdrawMid, 1);
         Assert.NotSame(snapRenamed.Corpus(2), snapWithdrawMid.Corpus(2));
         Assert.NotSame(snapRenamed.Corpus(3), snapWithdrawMid.Corpus(3));
         Assert.False(snapWithdrawMid.HasArticle(201));
@@ -212,21 +199,16 @@ public sealed class LocalSearchCorpusReuseTests
         // 6. Withdraw last article (#601 from 601-article set): 600 articles -> 3 pages, ALL 3 pages reused.
         var withdrawLast = renamedCategory[..^1];
         var snapWithdrawLast = CreateSnapshot(7, withdrawLast, snapRenamed, cursor);
-        Assert.Equal(3, snapWithdrawLast.CorpusPageCount);
-        Assert.Equal(3, snapWithdrawLast.ReusedCorpusPageCount);
+        AssertPageCounts(snapWithdrawLast, 3, 3);
         for (var p = 1; p <= 3; p++)
-        {
-            Assert.Same(snapRenamed.Corpus(p), snapWithdrawLast.Corpus(p));
-            Assert.Same(snapRenamed.CorpusTag(p), snapWithdrawLast.CorpusTag(p));
-        }
+            AssertReusedPage(snapRenamed, snapWithdrawLast, p);
         Assert.NotEqual(snapRenamed.Generation, snapWithdrawLast.Generation);
         AssertSnapshotCorpusMatchesFullEncoder(withdrawLast, snapWithdrawLast);
 
         // 7. Insert article #602: 602 articles -> 4 pages, pages 1..3 reused, page 4 rebuilt.
         var inserted = renamedCategory.Append(MakeArticle(602) with { Category = new TaxonomyName(7, "RenamedLab") }).ToArray();
         var snapInserted = CreateSnapshot(8, inserted, snapRenamed, cursor);
-        Assert.Equal(4, snapInserted.CorpusPageCount);
-        Assert.Equal(3, snapInserted.ReusedCorpusPageCount);
+        AssertPageCounts(snapInserted, 4, 3);
         for (var p = 1; p <= 3; p++)
             Assert.Same(snapRenamed.Corpus(p), snapInserted.Corpus(p));
         Assert.NotSame(snapRenamed.Corpus(4), snapInserted.Corpus(4));
@@ -251,10 +233,7 @@ public sealed class LocalSearchCorpusReuseTests
         Assert.Equal(withCover[0].CoverMediaDigest, snapCover.Article(1)!.CoverMediaDigest);
         Assert.Null(snapCover.CorpusPatch(2, snap1.GenerationHeader, snap1.CorpusTag(2).Tag.ToString()));
         for (var p = 1; p <= snap1.CorpusPageCount; p++)
-        {
-            Assert.Same(snap1.Corpus(p), snapCover.Corpus(p));
-            Assert.Same(snap1.CorpusTag(p), snapCover.CorpusTag(p));
-        }
+            AssertReusedPage(snap1, snapCover, p);
         AssertSnapshotCorpusMatchesFullEncoder(withCover, snapCover);
 
         // TaxonomyEpoch change without article changes also reuses all corpus pages while advancing Generation.
@@ -263,10 +242,7 @@ public sealed class LocalSearchCorpusReuseTests
         Assert.NotEqual(snapCover.Generation, snapEpoch.Generation);
         Assert.Equal(11, snapEpoch.TaxonomyEpoch);
         for (var p = 1; p <= snapCover.CorpusPageCount; p++)
-        {
-            Assert.Same(snapCover.Corpus(p), snapEpoch.Corpus(p));
-            Assert.Same(snapCover.CorpusTag(p), snapEpoch.CorpusTag(p));
-        }
+            AssertReusedPage(snapCover, snapEpoch, p);
     }
 
     [Fact]
@@ -280,17 +256,14 @@ public sealed class LocalSearchCorpusReuseTests
         var heavy5 = MakeHeavyArticle(5, seed: 500);
         Article[] initial = [heavy1, heavy2, heavy3, heavy4, heavy5];
 
-        var snap0 = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(initial));
+        var snap0 = BuildCorpus(initial);
         AssertMatchesFullEncoder(initial, snap0, "byte-bounded initial");
         // Verify page 1 is byte-bounded (< 200 docs) and splits into 3 pages: [1,2], [3,4], [5].
-        Assert.Equal(3, snap0.Pages.Count);
-        Assert.Equal(2, DocumentCountOf(snap0.Pages[0]));
-        Assert.Equal(2, DocumentCountOf(snap0.Pages[1]));
-        Assert.Equal(1, DocumentCountOf(snap0.Pages[2]));
+        AssertPageDocumentCounts(snap0, [2, 2, 1]);
 
         // Case A: Edit article 5 on page 3 -> byte-bounded pages 1 and 2 are BOTH reused!
         Article[] editPage3 = [heavy1, heavy2, heavy3, heavy4, heavy5 with { Title = "Heavy 5 updated" }];
-        var snapA = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(editPage3, snap0));
+        var snapA = BuildCorpus(editPage3, snap0);
         AssertMatchesFullEncoder(editPage3, snapA, "byte-bounded edit page 3");
         Assert.Equal(3, snapA.Pages.Count);
         Assert.Equal(2, snapA.ReusedPageCount);
@@ -301,7 +274,7 @@ public sealed class LocalSearchCorpusReuseTests
         // Case B: Edit article 3 (first of page 2) while keeping it heavy so it STILL overflows page 1 -> page 1 reused!
         var heavy3Edited = heavy3 with { Title = "Heavy 3 revised" };
         Article[] editBoundaryStillSplits = [heavy1, heavy2, heavy3Edited, heavy4, heavy5];
-        var snapB = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(editBoundaryStillSplits, snap0));
+        var snapB = BuildCorpus(editBoundaryStillSplits, snap0);
         AssertMatchesFullEncoder(editBoundaryStillSplits, snapB, "byte-bounded boundary holds on edited next");
         Assert.Equal(3, snapB.Pages.Count);
         Assert.Equal(2, snapB.ReusedPageCount);
@@ -312,21 +285,17 @@ public sealed class LocalSearchCorpusReuseTests
         // Case C: Shrink article 3 so it NOW fits on page 1 -> page 1 MUST NOT be reused, absorbs article 3!
         var tiny3 = MakeArticle(3) with { Body = "tiny body" };
         Article[] boundaryMerged = [heavy1, heavy2, tiny3, heavy4, heavy5];
-        var snapC = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(boundaryMerged, snap0));
+        var snapC = BuildCorpus(boundaryMerged, snap0);
         AssertMatchesFullEncoder(boundaryMerged, snapC, "byte-bounded boundary merged on shrink");
-        Assert.Equal(2, snapC.Pages.Count);
-        Assert.Equal(3, DocumentCountOf(snapC.Pages[0])); // [1, 2, 3]
-        Assert.Equal(2, DocumentCountOf(snapC.Pages[1])); // [4, 5]
+        AssertPageDocumentCounts(snapC, [3, 2]); // [1, 2, 3], [4, 5]
         Assert.Equal(0, snapC.ReusedPageCount);
 
         // Case D: Retract article 3 and replace with tiny article 3b (id=4 tiny) -> page 1 absorbs tiny surviving article!
         var tiny4 = MakeArticle(4) with { Body = "small survivor" };
         Article[] withdrawAndAbsorb = [heavy1, heavy2, tiny4, heavy5];
-        var snapD = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(withdrawAndAbsorb, snap0));
+        var snapD = BuildCorpus(withdrawAndAbsorb, snap0);
         AssertMatchesFullEncoder(withdrawAndAbsorb, snapD, "byte-bounded retract and absorb");
-        Assert.Equal(2, snapD.Pages.Count);
-        Assert.Equal(3, DocumentCountOf(snapD.Pages[0])); // [1, 2, 4]
-        Assert.Equal(1, DocumentCountOf(snapD.Pages[1])); // [5]
+        AssertPageDocumentCounts(snapD, [3, 1]); // [1, 2, 4], [5]
         Assert.Equal(1, snapD.ReusedPageCount);
         Assert.Equal(2, snapD.ReusedFromPageIndex(1));
         Assert.Same(snap0.Pages[2], snapD.Pages[1]);
@@ -334,19 +303,14 @@ public sealed class LocalSearchCorpusReuseTests
         // Case E: Page 1 splits into 2 pages because tiny articles 3 & 4 grow heavy, shifting old page 2 ([5,6]) -> new page 3!
         var heavy6 = MakeHeavyArticle(6, seed: 600);
         Article[] startShift = [heavy1, heavy2, MakeArticle(3), MakeArticle(4), heavy5, heavy6];
-        var snapShift0 = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(startShift));
+        var snapShift0 = BuildCorpus(startShift);
         AssertMatchesFullEncoder(startShift, snapShift0, "page split start");
-        Assert.Equal(2, snapShift0.Pages.Count);
-        Assert.Equal(4, DocumentCountOf(snapShift0.Pages[0])); // [1, 2, 3, 4]
-        Assert.Equal(2, DocumentCountOf(snapShift0.Pages[1])); // [5, 6]
+        AssertPageDocumentCounts(snapShift0, [4, 2]); // [1, 2, 3, 4], [5, 6]
 
         Article[] afterShift = [heavy1, heavy2, heavy3, heavy4, heavy5, heavy6];
-        var snapShift1 = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(afterShift, snapShift0));
+        var snapShift1 = BuildCorpus(afterShift, snapShift0);
         AssertMatchesFullEncoder(afterShift, snapShift1, "page split shifts later unchanged page");
-        Assert.Equal(3, snapShift1.Pages.Count);
-        Assert.Equal(2, DocumentCountOf(snapShift1.Pages[0])); // [1, 2]
-        Assert.Equal(2, DocumentCountOf(snapShift1.Pages[1])); // [3, 4]
-        Assert.Equal(2, DocumentCountOf(snapShift1.Pages[2])); // [5, 6]
+        AssertPageDocumentCounts(snapShift1, [2, 2, 2]); // [1, 2], [3, 4], [5, 6]
         Assert.Equal(1, snapShift1.ReusedPageCount);
         Assert.Equal(1, snapShift1.ReusedFromPageIndex(2));
         Assert.Same(snapShift0.Pages[1], snapShift1.Pages[2]);
@@ -356,16 +320,16 @@ public sealed class LocalSearchCorpusReuseTests
     public void OrderingEmptyDuplicatesBudgetsValidationAndCancellationMatchFullEncoder()
     {
         // Empty collection reuse and transitions.
-        var empty1 = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot([]));
+        var empty1 = BuildCorpus([]);
         AssertMatchesFullEncoder([], empty1, "empty initial");
-        var empty2 = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot([], empty1));
+        var empty2 = BuildCorpus([], empty1);
         Assert.Equal(1, empty2.ReusedPageCount);
         Assert.Same(empty1.Pages[0], empty2.Pages[0]);
         var one = MakeArticle(10);
-        var nonEmpty = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot([one], empty2));
+        var nonEmpty = BuildCorpus([one], empty2);
         Assert.Equal(0, nonEmpty.ReusedPageCount);
         AssertMatchesFullEncoder([one], nonEmpty, "empty -> non-empty");
-        var backToEmpty = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot([], nonEmpty));
+        var backToEmpty = BuildCorpus([], nonEmpty);
         Assert.Equal(0, backToEmpty.ReusedPageCount);
         AssertMatchesFullEncoder([], backToEmpty, "non-empty -> empty");
 
@@ -373,9 +337,9 @@ public sealed class LocalSearchCorpusReuseTests
         var asc = Enumerable.Range(1, DocumentsPerPage + 5).Select(id => MakeArticle(id)).ToArray();
         var desc = asc.Reverse().ToArray();
         var shuffled = asc.OrderBy(a => (a.Id * 37) % 101).ToArray();
-        var fromAsc = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(asc));
-        var fromDesc = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(desc, fromAsc));
-        var fromShuffled = Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(shuffled, fromDesc));
+        var fromAsc = BuildCorpus(asc);
+        var fromDesc = BuildCorpus(desc, fromAsc);
+        var fromShuffled = BuildCorpus(shuffled, fromDesc);
         Assert.Equal(2, fromDesc.ReusedPageCount);
         Assert.Equal(2, fromShuffled.ReusedPageCount);
         Assert.Same(fromAsc.Pages[0], fromDesc.Pages[0]);
@@ -485,8 +449,7 @@ public sealed class LocalSearchCorpusReuseTests
         var newSnapshot = CreateSnapshot(2, updated, oldSnapshot, cursor);
 
         Assert.Equal(4, oldSnapshot.CorpusPageCount);
-        Assert.Equal(3, newSnapshot.CorpusPageCount);
-        Assert.Equal(2, newSnapshot.ReusedCorpusPageCount);
+        AssertPageCounts(newSnapshot, 3, 2);
         Assert.Same(oldSnapshot.Corpus(1), newSnapshot.Corpus(1));
         Assert.Same(oldSnapshot.Corpus(3), newSnapshot.Corpus(3));
         Assert.NotSame(oldSnapshot.Corpus(2), newSnapshot.Corpus(2));
@@ -725,6 +688,28 @@ public sealed class LocalSearchCorpusReuseTests
         PublicSnapshot? previous, PublicListCursor cursor, long taxonomyEpoch = 0) =>
         new(watermark, articles, new([], [], []), EmptyPages, cursor, previous, NullLogger.Instance,
             null, null, CancellationToken.None, taxonomyEpoch);
+
+    private static LocalSearchCorpusSnapshot BuildCorpus(IReadOnlyList<Article> articles, LocalSearchCorpusSnapshot? previous = null) =>
+        Assert.IsType<LocalSearchCorpusSnapshot>(LocalSearchCorpus.BuildSnapshot(articles, previous));
+
+    private static void AssertReusedPage(PublicSnapshot previous, PublicSnapshot current, int page)
+    {
+        Assert.Same(previous.Corpus(page), current.Corpus(page));
+        Assert.Same(previous.CorpusTag(page), current.CorpusTag(page));
+    }
+
+    private static void AssertPageCounts(PublicSnapshot snapshot, int total, int reused)
+    {
+        Assert.Equal(total, snapshot.CorpusPageCount);
+        Assert.Equal(reused, snapshot.ReusedCorpusPageCount);
+    }
+
+    private static void AssertPageDocumentCounts(LocalSearchCorpusSnapshot snapshot, ReadOnlySpan<int> counts)
+    {
+        Assert.Equal(counts.Length, snapshot.Pages.Count);
+        for (var i = 0; i < counts.Length; i++)
+            Assert.Equal(counts[i], DocumentCountOf(snapshot.Pages[i]));
+    }
 
     private static void AssertMatchesFullEncoder(IReadOnlyList<Article> articles, LocalSearchCorpusSnapshot actual, string? context = null)
     {
