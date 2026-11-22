@@ -37,6 +37,7 @@ const outlineLauncherSlot = ref<HTMLElement>()
 const moreTrigger = ref<ComponentPublicInstance & { ref?: HTMLButtonElement }>()
 const dialogArticleInput = ref<InstanceType<typeof ElInput>>()
 const workspaceDialogOpen = ref(false)
+let workspaceDialogFocus: (() => void) | undefined
 const explicitTabStrip = ref(false)
 const compactViewport = ref(false)
 const paneRefs = new Map<number, InstanceType<typeof WorkspaceSourcePane>>()
@@ -260,6 +261,7 @@ const cannotPinActiveTab = computed(() => {
 })
 
 watch(identityEpoch, () => {
+  workspaceDialogFocus = undefined
   workspaceDialogOpen.value = false
   explicitTabStrip.value = false
 })
@@ -275,7 +277,14 @@ function togglePinFromDialog() {
 }
 
 function openWorkspaceDialog() {
+  workspaceDialogFocus = undefined
   workspaceDialogOpen.value = true
+}
+
+function finishWorkspaceDialogClose() {
+  const focus = workspaceDialogFocus
+  workspaceDialogFocus = undefined
+  if (!workspaceDialogOpen.value) focus?.()
 }
 
 function focusDialogArticleInput() {
@@ -288,8 +297,8 @@ function submitOpenArticle(splitGroup = false) {
 }
 
 function runArrangeGroups(destination?: WorkspaceGroup) {
+  workspaceDialogFocus = arrangeGroups(destination)
   workspaceDialogOpen.value = false
-  arrangeGroups(destination)
 }
 
 function runEqualizeGroups() {
@@ -298,11 +307,13 @@ function runEqualizeGroups() {
 
 async function runCloseGroupTabs(event: MouseEvent, onlyRight: boolean) {
   const beforeCount = workspaceTabs.value.length
+  const epoch = identityEpoch.value
+  const sessionId = tab.value?.sessionId
+  const current = () => epoch === identityEpoch.value && sessionId === tab.value?.sessionId
   await closeGroupTabs(event, onlyRight)
-  if (workspaceTabs.value.length !== beforeCount) {
+  if (workspaceDialogOpen.value && workspaceTabs.value.length !== beforeCount && current()) {
+    workspaceDialogFocus = () => { if (current()) tabsControl.value?.focusActive() }
     workspaceDialogOpen.value = false
-    await nextTick()
-    tabsControl.value?.focusActive()
   }
 }
 
@@ -675,6 +686,7 @@ function onMoreCommand(command: unknown) {
       destroy-on-close
       width="min(34rem, calc(100vw - 2rem))"
       @opened="focusDialogArticleInput"
+      @closed="finishWorkspaceDialogClose"
     >
       <div class="workspace-dialog">
         <ElSettingsSection density="compact" title-tag="h3" :title="t('author.write.openArticle')">

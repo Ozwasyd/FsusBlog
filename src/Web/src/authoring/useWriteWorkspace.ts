@@ -356,11 +356,12 @@ export function useWriteWorkspace() {
     return router.resolve(articleRouteDestination(articleId)).href
   }
 
-  function arrangeGroups(destination?: WorkspaceGroup): void {
+  function arrangeGroups(destination?: WorkspaceGroup): (() => void) | undefined {
     const moved = controller.arrangeGroups(destination)
     if (!moved) return
     deferredFocus = undefined
-    void focusSource(moved, identityEpoch.value)
+    const epoch = identityEpoch.value
+    return () => { void focusSource(moved, epoch) }
   }
 
   async function loadImportedDraft(pane: WorkspaceSource<Draft>, imported: DraftMarkdown): Promise<void> {

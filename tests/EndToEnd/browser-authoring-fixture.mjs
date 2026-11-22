@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { exactButton as button } from './role-locators.mjs'
 import { randomUUID } from 'node:crypto'
 import { requireWebPackage } from './web-package-fixture.mjs'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, encodeArticleCommand, encodeSignIn, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
@@ -103,7 +104,27 @@ export function authorFixture(origin, diagnostics) {
     { id: draft.id, expectedRevision: draft.revision, title: draft.title, body }))
   const createDraft = (context, title, body) => saveDraft(context, { id: 0, revision: 0n, title }, body)
   const monitor = page => observePageErrors(page, diagnostics)
-  return { signIn, saveDraft, createDraft, monitor }
+
+  async function signInWithPasskey(context, bootstrap) {
+    assert(bootstrap)
+    const page = monitor(await context.newPage())
+    try {
+      await signInFreshAdmin(page, origin, bootstrap)
+      const response = await context.request.get(origin + WireRoutes.AuthoringSession)
+      try {
+        assert.equal(response.status(), 200)
+        const session = response.headers()[WireHeaders.CurrentSession.toLowerCase()]
+        assert(session)
+        return session
+      } finally {
+        await response.dispose()
+      }
+    } finally {
+      await page.close()
+    }
+  }
+
+  return { signIn, signInWithPasskey, saveDraft, createDraft, monitor }
 }
 
 export async function journalContains(page, body) {

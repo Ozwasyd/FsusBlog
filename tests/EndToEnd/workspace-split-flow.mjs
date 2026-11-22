@@ -14,9 +14,9 @@ import { roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
-const workspacePath = `${origin}/user/manage/article/workspace`
+const workspacePath = `${origin}/admin/articles/workspace`
 const groupsPath = `${origin}${WireRoutes.AuthoringWorkspaceGroups}`
-const editPath = id => `${origin}/user/manage/article/edit/${id}`
+const editPath = id => `${origin}/admin/articles/edit/${id}`
 const draftPath = id => `${origin}${WireRoutes.Draft.replace('{id:int}', String(id))}`
 const body = scope => roleWithExactName(scope, 'textbox', 'Body')
 const title = scope => roleWithExactName(scope, 'textbox', 'Title')
@@ -27,14 +27,7 @@ const selection = locator => locator.evaluate(element => [element.selectionStart
 const observations = []
 const diagnostics = []
 
-const { signIn: issueSession, createDraft, saveDraft, monitor } = authorFixture(origin, diagnostics)
-
-async function signIn(context, ticket) {
-  assert(ticket, 'A scratch author ticket is required')
-  const session = await issueSession(context, ticket)
-  assert(session, 'Sign-in must bind workspace reads to the issued authoring session')
-  return session
-}
+const { createDraft, saveDraft, monitor, signInWithPasskey } = authorFixture(origin, diagnostics)
 
 const workspaceDialog = page => roleWithExactName(page, 'dialog', 'Workspace & open article')
 
@@ -67,10 +60,12 @@ async function pinArticle(page, draft) {
 }
 
 async function openById(page, id, command = 'Open in other group') {
-  const inlineInput = exactLabel(page, 'Article ID')
-  const scope = await inlineInput.isVisible() ? page : await openWorkspaceDialog(page)
+  const main = page.getByRole('main')
+  const inlineInput = exactLabel(main, 'Article ID')
+  const scope = await inlineInput.isVisible() ? main : await openWorkspaceDialog(page)
   await exactLabel(scope, 'Article ID').fill(String(id))
   await button(scope, command).click()
+  await expect(workspaceDialog(page)).toBeHidden()
 }
 
 async function openDraft(page, draft, command) {
@@ -86,11 +81,12 @@ async function editInGroup(page, pane, draft) {
 async function reopenDraft(page, draft) {
   await openWorkspaceDialog(page)
   await button(workspaceDialog(page), `Reopen Article ${draft.id}`).click()
+  await expect(workspaceDialog(page)).toBeHidden()
   await expect(page).toHaveURL(editPath(draft.id))
 }
 
 function expectWorkspaceMessage(page, message) {
-  return expect(exactText(page, message)).toBeVisible()
+  return expect(exactText(page.locator('main'), message)).toBeVisible()
 }
 
 async function expectPane(pane, draft, source, writable) {
@@ -319,9 +315,8 @@ function coordinates(snapshot) {
 }
 
 async function enterSavedWorkspace(page) {
-  await page.goto(`${origin}/user/manage/article/list`)
   const response = waitForUrlResponse(page, () => groupsPath, 'GET')
-  await roleWithExactName(page, 'link', '工作区').click()
+  await page.goto(workspacePath)
   return decodeSavedGroups(await response)
 }
 
@@ -415,6 +410,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
       await expect(switcher).toBeVisible()
       await openWorkspaceDialog(page)
       await press(page, others)
+      await expect(workspaceDialog(page)).toBeHidden()
       await expect(switcher).toBeFocused()
       await expect(page).toHaveURL(editPath(first.id))
       await expect(body(primary)).toHaveValue(localSource)
@@ -438,16 +434,13 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expect(listedTabs).toHaveText(confirmedTargets)
     await button(dialog, 'Close tabs').click()
     await expectWorkspaceMessage(page, 'Closed 2 tabs.')
+    await expect(workspaceDialog(page)).toBeHidden()
     await expect(tabList(page).getByRole('tab')).toHaveCount(2)
     await expect(tab(page, first, 'Unsaved')).toHaveCount(0)
     await expect(tab(page, tail, 'Preview')).toHaveCount(0)
     await expect(tab(page, alternate, 'Pinned')).toBeFocused()
     await expectSameEditor(body(secondary), secondNode)
-    await openWorkspaceDialog(page)
-    const reopenFirst = button(workspaceDialog(page), `Reopen Article ${first.id}`)
-    await expect(reopenFirst).toBeVisible()
-    await reopenFirst.click()
-    await expect(page).toHaveURL(editPath(first.id))
+    await reopenDraft(page, first)
     await expect(body(primary)).toHaveValue(first.body)
     await expect(roleWithExactName(page, 'heading', 'Recover an unsaved draft')).toBeVisible()
     await button(page, 'Restore draft').click()
@@ -465,6 +458,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expect(discard).toBeChecked()
     await button(dialog, 'Close tabs').click()
     await expectWorkspaceMessage(page, 'Closed 2 tabs.')
+    await expect(workspaceDialog(page)).toBeHidden()
     await expect(tabList(page).getByRole('tab')).toHaveCount(2)
     await expect(tab(page, alternate, 'Pinned')).toBeFocused()
     await expectSameEditor(body(secondary), secondNode)
@@ -565,6 +559,7 @@ async function exerciseSaveAndClose(author) {
     await editPairAndReturn(first, second)
     await chooseSave()
     await expectWorkspaceMessage(page, 'Closed 2 tabs.')
+    await expect(workspaceDialog(page)).toBeHidden()
     await expect(tabs).toHaveCount(1)
     await expect(anchorTab).toBeFocused()
     await expect(page).toHaveURL(editPath(anchor.id))
@@ -589,6 +584,7 @@ async function exerciseSaveAndClose(author) {
 
     await chooseSave()
     await expectWorkspaceMessage(page, 'Closed 2 tabs.')
+    await expect(workspaceDialog(page)).toBeHidden()
     await expect(tabs).toHaveCount(1)
     await expect(anchorTab).toBeFocused()
     await expect(page).toHaveURL(editPath(anchor.id))
@@ -1033,7 +1029,7 @@ async function exerciseSavedWorkspace({ author, session, outsider, outsiderSessi
     // The normal router leave awaits the layout flush after the network has returned.
     await button(reopened, 'More actions').click()
     await roleWithExactName(reopened, 'menuitem', 'Canvases').click()
-    await expect(reopened).toHaveURL(`${origin}/user/manage/canvas`)
+    await expect(reopened).toHaveURL(`${origin}/admin/canvas`)
     assert.deepEqual(offlinePosts, [], 'Reconnection and route flush must never replay a local offline layout change')
     assert.deepEqual(await savedGroups(writerContext, session), persisted)
     const verified = await verificationContext.newPage()
@@ -1069,13 +1065,24 @@ const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TES
 try {
   const author = await browser.newContext({ viewport: { width: 1366, height: 900 } })
   const outsider = await browser.newContext()
-  const session = await signIn(author, process.env.FSUSBLOG_TEST_TICKET)
-  const outsiderSession = await signIn(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_TICKET)
+  const session = await signInWithPasskey(author, process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP)
+  const outsiderSession = await signInWithPasskey(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP)
   const first = await createDraft(author, 'Primary workspace draft', 'Primary server source.')
   const second = await createDraft(author, 'Secondary workspace draft', '# Secondary first heading\n\nSecondary server source.\n\n## Secondary last heading')
   const nativePageZoom = await exerciseNativePageZoom(author, first, second)
   const alternate = await createDraft(author, 'Another primary workspace draft', 'Another primary server source.')
-  const foreign = await createDraft(outsider, 'Private draft from another author', 'Private source from another author.')
+  const unavailable = await createDraft(outsider, 'Draft from another administrator', 'Private source before deletion.')
+  const visitor = await browser.newContext()
+  try {
+    assertStatus(await visitor.request.get(draftPath(unavailable.id)), 401)
+  } finally {
+    await visitor.close()
+  }
+  assert.equal((await readDraft(await author.request.get(draftPath(unavailable.id)))).body, unavailable.body)
+  const deletion = await submitArticle(outsider.request, origin + WireRoutes.Delete, {
+    id: unavailable.id, expectedRevision: unavailable.revision, title: '', body: '',
+  })
+  assertStatus(deletion, 200)
   const localSuffix = ' Local unsaved source.'
   const localSource = first.body + localSuffix
   const page = await author.newPage()
@@ -1096,8 +1103,8 @@ try {
 
   const primary = group(page, 'Primary')
   const secondary = group(page, 'Secondary')
-  const denied = waitForUrlResponse(page, () => draftPath(foreign.id))
-  await openById(page, foreign.id)
+  const denied = waitForUrlResponse(page, () => draftPath(unavailable.id))
+  await openById(page, unavailable.id)
   assertStatus(await denied, 404)
   await expectWorkspaceMessage(page, 'The article is unavailable.')
   await expect(page).toHaveURL(editPath(first.id))
@@ -1159,6 +1166,7 @@ try {
   await press(page, button(page.getByRole('complementary', { name: 'Article outline' }), 'Close'))
   await expect(headings).toBeHidden()
   await expect(button(secondary, 'Outline')).toHaveAttribute('aria-expanded', 'false')
+  await expect(button(secondary, 'Outline')).toBeFocused()
   observations.push({ mountedGroupOutlineAndHeadingRetained: true, groupActivationKeepsEditorFocus: true })
 
   await editInGroup(page, primary, first)
@@ -1281,19 +1289,32 @@ try {
   await exerciseSaveAndClose(author)
   await exerciseSingleDirtyClose(author)
 
-  // Replacing the current credential must invalidate both hosts, including the unfocused one.
+  // An administrator can reopen the saved draft, but the old session's editors and local recovery are private.
+  await body(primary).fill(localSource)
+  await expect.poll(() => hasRecoveryCopy(page, first.id, localSource)).toBe(true)
   await author.addCookies(await outsider.cookies())
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow')))
   await expect.poll(() => reopenedFirstNode.evaluate(element => element.isConnected)).toBe(false)
   await expect.poll(() => secondNode.evaluate(element => element.isConnected)).toBe(false)
-  await expect(roleWithExactName(page.getByRole('main'), 'textbox', 'Body')).toHaveCount(0)
+  const currentBodies = roleWithExactName(page.getByRole('main'), 'textbox', 'Body')
+  await expect(currentBodies).toHaveCount(1)
+  await expect(currentBodies).toHaveValue(first.body)
+  await expect(roleWithExactName(page, 'heading', 'Recover an unsaved draft')).toHaveCount(0)
+  const replacementSession = await author.request.get(origin + WireRoutes.AuthoringSession)
+  try {
+    assertStatus(replacementSession, 200)
+    assert.equal(replacementSession.headers()[WireHeaders.CurrentSession.toLowerCase()], outsiderSession)
+  } finally {
+    await replacementSession.dispose()
+  }
   await firstNode.dispose()
   await reopenedFirstNode.dispose()
   await secondNode.dispose()
 
   observations.push({ realDeniedDraft: true, waitsForRealReceipt: true, twoDistinctSourceEditors: true,
     exactEditorNodesAcrossFocusAndCollapse: true, focusedOnlyWrites: true, selectionAndIndependentUndo: true,
-    exactFocusedSaveReceipt: true, duplicateKeepsOwningGroup: true, keyboardCompactSwitch: true, identityInvalidatesBothEditors: true,
+    exactFocusedSaveReceipt: true, duplicateKeepsOwningGroup: true, keyboardCompactSwitch: true,
+    identityInvalidatesBothEditors: true, replacementSessionReadsOnlySavedDraft: true,
     wideViewport: 1366, compactViewport: 375, paneWidths: [left.width, right.width],
     splitter: { ...splitter, clampedPercentAt1040: checkedViewports.find(check => check.viewport === 1040).primaryPercent,
       restoredPaneWidths: [restored.left.width, restored.right.width], checkedViewports, nativePageZoom } })

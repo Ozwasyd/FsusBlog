@@ -9,7 +9,6 @@ import {
 } from '../../src/Contracts/wire.generated.ts'
 import { authorFixture, binary, button, chromium, expect, journalContains, submitArticle } from './browser-authoring-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
-import { signInFreshAdmin } from './webauthn-fixture.mjs'
 import { openById } from './workspace-flow.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
@@ -25,26 +24,8 @@ const observations = []
 const diagnostics = []
 await mkdir(evidence, { recursive: true })
 
-const { createDraft, monitor } = authorFixture(origin, diagnostics)
+const { createDraft, monitor, signInWithPasskey } = authorFixture(origin, diagnostics)
 
-async function signIn(context, bootstrap) {
-  assert(bootstrap)
-  const page = monitor(await context.newPage())
-  try {
-    await signInFreshAdmin(page, origin, bootstrap)
-    const response = await context.request.get(origin + WireRoutes.AuthoringSession)
-    try {
-      assert.equal(response.status(), 200)
-      const session = response.headers()[WireHeaders.CurrentSession.toLowerCase()]
-      assert(session)
-      return session
-    } finally {
-      await response.dispose()
-    }
-  } finally {
-    await page.close()
-  }
-}
 const create = (context, title) => createDraft(context, title, `Saved private draft for ${title}`)
 
 function layoutResponse(response) {
@@ -128,8 +109,8 @@ let browser = await launch()
 try {
   const originContext = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const outsider = await browser.newContext()
-  const session = await signIn(originContext, process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP)
-  const outsiderSession = await signIn(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP)
+  const session = await signInWithPasskey(originContext, process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP)
+  const outsiderSession = await signInWithPasskey(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP)
   const first = await create(originContext, 'Pinned private article')
   const second = await create(originContext, 'Active private article')
   const removed = await create(originContext, 'Article deleted before restart')
