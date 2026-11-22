@@ -599,6 +599,33 @@ COMMIT;
 SQL
     "$dotnet_bin" "$cli_dll" verify >/dev/null
   fi
+
+  has_site_pages=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.site_page_content WHERE revision > 0")
+  if [[ "$has_site_pages" == "0" ]]; then
+    "${psql_db[@]}" >/dev/null <<'SQL'
+BEGIN;
+
+WITH p AS (
+  SELECT id FROM public.admin_principal WHERE handle = 'dev-admin' LIMIT 1
+), seeded(slug, markdown) AS (
+  VALUES
+    ('about', E'这是一个运行在 **FsusBlog V2** 上的本地演示站点，面向长期写作、可验证发布与极简阅读体验。\n\n## 技术特点\n\n- **AEDS v2 二进制协议**：前后端全链路使用强类型二进制帧传输，无冗余 JSON 兼容层。\n- **Fail-Closed 安全设计**：Passkey Step-Up、Scoped PoW 与严格 CSP 默认启用。\n- **即时在线编辑**：站点配置与固定页面可在 `/admin/site` 经 Passkey 验证后热刷新生效。\n\n> 提示：你现在就可以在管理后台的「站点页面」里修改本页内容，并实时预览 Markdown 渲染效果。\n'),
+    ('privacy', E'本站坚持最小化数据收集原则，不嵌入第三方广告或跨站追踪脚本。\n\n## 数据处理说明\n\n1. **公开阅读**：浏览公开文章与归档无需注册，也不写入个人身份 Cookie。\n2. **通行密钥与会话**：仅在主动登录时保存必要的安全会话凭据。\n3. **评论与站内信**：仅用于站点互动展示及必要的反滥用防护。\n')
+), updated AS (
+  UPDATE public.site_page_content AS target
+  SET revision = 1, markdown = seeded.markdown
+  FROM seeded
+  WHERE target.slug = seeded.slug AND target.revision = 0
+  RETURNING target.slug, target.revision, target.markdown
+)
+INSERT INTO public.site_page_publish_audit (slug, revision, principal_id, previous_digest, next_digest, happened_at)
+SELECT updated.slug, updated.revision, p.id, pg_catalog.sha256(''::bytea), pg_catalog.sha256(convert_to(updated.markdown, 'UTF8')), clock_timestamp()
+FROM updated CROSS JOIN p;
+
+COMMIT;
+SQL
+    "$dotnet_bin" "$cli_dll" verify >/dev/null
+  fi
 fi
 
 # Opt-in local dev admin session (purely database-level fixture for dev-admin; zero server auth bypass).

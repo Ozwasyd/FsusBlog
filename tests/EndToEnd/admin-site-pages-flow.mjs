@@ -24,7 +24,7 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   const overview = adminOrigin.origin + WireRoutes.AdminSitePages
   const detail = WireRoutes.AdminSitePage.replace('{slug}', 'about')
   const section = page.getByRole('region', { name: 'Site pages', exact: true })
-  const button = section.getByRole('button', { name: 'Check site pages', exact: true })
+  const button = section.getByRole('button', { name: 'Refresh', exact: true })
   const check = async () => (await Promise.all([
     page.waitForResponse(response => response.url() === overview && response.request().method() === 'GET'), button.click(),
   ]))[0]
@@ -55,11 +55,16 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   assert.equal(overviewFrame.payload.length, 4)
   assert.equal(new DataView(overviewFrame.payload.buffer, overviewFrame.payload.byteOffset, 4).getInt32(0, true), 15)
   assert.equal(await section.getByText('Configured', { exact: true }).count(), 4)
-  await section.getByRole('button', { name: 'View about content', exact: true }).click()
-  const displayed = section.getByLabel('about Markdown')
-  await displayed.waitFor()
-  assert.match(await displayed.textContent(), /# Verified about\n\n<script>literal<\/script>/)
-  assert.equal(await section.locator('script').count(), 0)
+  const editor = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGE_EDITOR === '1'
+  assert.equal(allowed.headers()[WireHeaders.AdminSitePageEditor.toLowerCase()], editor ? '1' : undefined)
+  let displayed
+  if (!editor) {
+    await section.getByRole('button', { name: 'View about content', exact: true }).click()
+    displayed = section.getByLabel('about Markdown')
+    await displayed.waitFor()
+    assert.match(await displayed.textContent(), /# Verified about\n\n<script>literal<\/script>/)
+    assert.equal(await section.locator('script').count(), 0)
+  }
 
   const canonical = await context.request.get(adminOrigin.origin + legacy)
   const versioned = await context.request.get(adminOrigin.origin + detail)
@@ -77,8 +82,6 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   await page.screenshot({ path: join(evidence, 'administrator-site-page.png') })
 
   const grantCookie = await readCookie(context, adminOrigin.origin + detail, adminCookieName)
-  const editor = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGE_EDITOR === '1'
-  assert.equal(allowed.headers()[WireHeaders.AdminSitePageEditor.toLowerCase()], editor ? '1' : undefined)
   if (editor) await verifyEditor({ page, section, context, adminOrigin, siteOrigin, adminCookieName, grantCookie, probe, legacy, evidence })
   else assert.equal(await section.getByRole('button', { name: 'Edit about content', exact: true }).count(), 0)
   const revokeAndObserve = async () => {
@@ -98,7 +101,7 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
     assert.equal(new URL(page.url()).pathname, '/admin/site')
   }
   else await revokeAndObserve()
-  await displayed.waitFor({ state: 'hidden' })
+  if (displayed) await displayed.waitFor({ state: 'hidden' })
   await cluster.cleared(grantCookie)
   await logIn(page)
   assert.equal((await context.request.get(overview)).status(), 403)
