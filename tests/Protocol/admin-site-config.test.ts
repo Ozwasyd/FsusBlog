@@ -66,6 +66,10 @@ function sampleState(): AdminSiteConfigState {
   };
 }
 
+function stateFrame(state: AdminSiteConfigState) {
+  return encodeFrame(FrameType.AdminSiteConfigState, encodeAdminSiteConfigState(state));
+}
+
 function sampleCommand(): AdminSiteConfigCommand {
   const { revision, digest, origin: _origin, ...fields } = sampleState();
   return { expectedRevision: revision, expectedDigest: digest, ...fields };
@@ -73,7 +77,7 @@ function sampleCommand(): AdminSiteConfigCommand {
 
 test('AdminSiteConfigState and AdminSiteConfigCommand roundtrip cleanly', () => {
   const state = sampleState();
-  const decodedState = decodeAdminSiteConfigState(decodeFrame(encodeFrame(FrameType.AdminSiteConfigState, encodeAdminSiteConfigState(state)), FrameType.AdminSiteConfigState).payload);
+  const decodedState = decodeAdminSiteConfigState(decodeFrame(stateFrame(state), FrameType.AdminSiteConfigState).payload);
   deepEqual(decodedState, state);
 
   const command = sampleCommand();
@@ -115,21 +119,24 @@ test('Site configuration client validators match server safety boundaries', () =
   equal(validCopyrightStartYear(2027, 2026), 'invalidYear');
 });
 
-test('readAdminSiteConfig decodes valid state and rejects invalid digest or region', async (t: TestContext) => {
+function restoreFetchAfter(t: TestContext) {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
+}
+
+test('readAdminSiteConfig decodes valid state and rejects invalid digest or region', async (t: TestContext) => {
+  restoreFetchAfter(t);
 
   const state = sampleState();
-  globalThis.fetch = async () => frameResponse(encodeFrame(FrameType.AdminSiteConfigState, encodeAdminSiteConfigState(state)));
+  globalThis.fetch = async () => frameResponse(stateFrame(state));
   deepEqual(await readAdminSiteConfig(new AbortController().signal), state);
 
-  globalThis.fetch = async () => frameResponse(encodeFrame(FrameType.AdminSiteConfigState, encodeAdminSiteConfigState({ ...state, digest: 'BAD' })));
+  globalThis.fetch = async () => frameResponse(stateFrame({ ...state, digest: 'BAD' }));
   await rejects(() => readAdminSiteConfig(new AbortController().signal), ProtocolError);
 });
 
 test('saveAdminSiteConfig runs Step-Up then scoped PoW before submitting', async (t: TestContext) => {
-  const originalFetch = globalThis.fetch;
-  t.after(() => { globalThis.fetch = originalFetch; });
+  restoreFetchAfter(t);
 
   const proof = 'P'.repeat(43);
   const calls: string[] = [];

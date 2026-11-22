@@ -98,6 +98,17 @@ function installControlledWorker(
   return control;
 }
 
+function requestUrl(input: string | URL | Request) {
+  return typeof input === 'string' ? input : input.toString();
+}
+
+function requestEmpty(signal?: AbortSignal) {
+  return requestWithScopedPow({
+    challengePath: '/pow', submitPath: '/submit', expected: FrameType.EmptySuccess,
+    decode: () => {}, body: emptySuccessFrame(), signal: signal ?? new AbortController().signal,
+  });
+}
+
 function metadataReceiptFrame(kind: 'tag' | 'category', id: number, revision: bigint, name: string, description: string, changed: boolean): Uint8Array<ArrayBuffer> {
   const w = new PodWriter();
   w.i32(id);
@@ -193,7 +204,7 @@ test('proveScopedPow and requestWithScopedPow handle success, header isolation, 
   const sampleBody = emptySuccessFrame();
 
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : input.toString();
+    const url = requestUrl(input);
     const headers = new Headers(init?.headers);
     const body = init?.body ? new Uint8Array(init.body as Uint8Array) : new Uint8Array();
     requests.push({ url, method: init?.method ?? 'GET', headers, body });
@@ -268,7 +279,7 @@ test('malformed or unsupported challenges reject before spawning a Worker or sub
   let nextFrame = powChallengeFrame();
 
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
-    const url = typeof input === 'string' ? input : input.toString();
+    const url = requestUrl(input);
     if (url === '/submit') {
       submitCalled = true;
       return frameResponse(emptySuccessFrame());
@@ -285,10 +296,7 @@ test('malformed or unsupported challenges reject before spawning a Worker or sub
 
   for (const frame of badFrames) {
     nextFrame = frame;
-    await rejects(() => requestWithScopedPow({
-      challengePath: '/pow', submitPath: '/submit', expected: FrameType.EmptySuccess,
-      decode: () => {}, body: emptySuccessFrame(), signal: new AbortController().signal,
-    }), ProtocolError);
+    await rejects(() => requestEmpty(), ProtocolError);
   }
   equal(worker.spawns, 0);
   equal(submitCalled, false);
@@ -301,8 +309,9 @@ test('solveScopedPow runs asynchronously via Worker and handles Worker failure, 
   const challenge: PowChallenge = {
     salt: validSalt, signature: validSignature, difficulty: WireLimits.PowChallengeDifficulty, timestamp: 1_794_680_000,
   };
+  const solve = () => solveScopedPow(challenge, createPowClientNonce(), new AbortController().signal);
   let resolvedSync = false;
-  const pendingPromise = solveScopedPow(challenge, createPowClientNonce(), new AbortController().signal)
+  const pendingPromise = solve()
     .then(value => { resolvedSync = true; return value; });
   equal(resolvedSync, false);
   equal(workerCtrl.spawns, 1);
@@ -313,19 +322,19 @@ test('solveScopedPow runs asynchronously via Worker and handles Worker failure, 
 
   // 2. Worker onerror rejects & terminates
   installControlledWorker(t, w => queueMicrotask(() => w.onerror?.()));
-  await rejects(() => solveScopedPow(challenge, createPowClientNonce(), new AbortController().signal),
+  await rejects(solve,
     { message: 'The security challenge could not be solved' });
 
   // 3. Invalid nonces (non-digit, empty, >10 digits) reject & terminate
   for (const badNonce of ['', 'abc', '12345678901', 42]) {
     installControlledWorker(t, w => queueMicrotask(() => w.onmessage?.({ data: badNonce } as MessageEvent<unknown>)));
-    await rejects(() => solveScopedPow(challenge, createPowClientNonce(), new AbortController().signal),
+    await rejects(solve,
       { message: 'The security challenge could not be solved' });
   }
 
   // 4. Synchronous postMessage throw cleans up and propagates
   const boomCtrl = installControlledWorker(t, () => { throw new Error('postMessage failed'); });
-  await rejects(() => solveScopedPow(challenge, createPowClientNonce(), new AbortController().signal),
+  await rejects(solve,
     { message: 'postMessage failed' });
   equal(boomCtrl.terminated, 1);
 
@@ -333,7 +342,7 @@ test('solveScopedPow runs asynchronously via Worker and handles Worker failure, 
   t.mock.timers.enable({ apis: ['setTimeout'] });
   let hungWorker: FakeControllableWorker | null = null;
   const timeoutCtrl = installControlledWorker(t, w => { hungWorker = w; });
-  const timedOut = rejects(() => solveScopedPow(challenge, createPowClientNonce(), new AbortController().signal),
+  const timedOut = rejects(solve,
     { message: 'The security challenge timed out' });
   t.mock.timers.tick(WireLimits.PowWorkerMilliseconds);
   await timedOut;
@@ -350,7 +359,7 @@ test('abort during challenge or Worker solving terminates Worker, ignores late r
   const challengeAbort = new AbortController();
 
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : input.toString();
+    const url = requestUrl(input);
     if (url === '/submit') {
       submitCalls++;
       return frameResponse(emptySuccessFrame());
@@ -361,10 +370,7 @@ test('abort during challenge or Worker solving terminates Worker, ignores late r
     });
   });
 
-  const abortedAtChallenge = requestWithScopedPow({
-    challengePath: '/pow', submitPath: '/submit', expected: FrameType.EmptySuccess,
-    decode: () => {}, body: emptySuccessFrame(), signal: challengeAbort.signal,
-  });
+  const abortedAtChallenge = requestEmpty(challengeAbort.signal);
   challengeAbort.abort(new DOMException('stopped at challenge', 'AbortError'));
   await rejects(() => abortedAtChallenge, { name: 'AbortError' });
   equal(workerCtrl.spawns, 0);
@@ -375,7 +381,7 @@ test('abort during challenge or Worker solving terminates Worker, ignores late r
   let solvingWorker: FakeControllableWorker | null = null;
   const stageBCtrl = installControlledWorker(t, w => { solvingWorker = w; });
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
-    const url = typeof input === 'string' ? input : input.toString();
+    const url = requestUrl(input);
     if (url === '/submit') {
       submitCalls++;
       return frameResponse(emptySuccessFrame());
@@ -384,10 +390,7 @@ test('abort during challenge or Worker solving terminates Worker, ignores late r
   });
 
   const workerAbort = new AbortController();
-  const abortedInWorker = requestWithScopedPow({
-    challengePath: '/pow', submitPath: '/submit', expected: FrameType.EmptySuccess,
-    decode: () => {}, body: emptySuccessFrame(), signal: workerAbort.signal,
-  });
+  const abortedInWorker = requestEmpty(workerAbort.signal);
   // Flush microtask so challenge resolves and Worker receives postMessage
   await new Promise(resolve => setTimeout(resolve, 10));
   equal(stageBCtrl.spawns, 1);
@@ -408,27 +411,21 @@ test('HTTP errors (401/403/409/429) on challenge or submit propagate verbatim wi
   for (const status of [401, 403, 409, 429]) {
     calls = [];
     t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
-      const url = typeof input === 'string' ? input : input.toString();
+      const url = requestUrl(input);
       calls.push(url);
       return apiErrorResponse(status, `pow_fail_${status}`);
     });
-    await rejects(() => requestWithScopedPow({
-      challengePath: '/pow', submitPath: '/submit', expected: FrameType.EmptySuccess,
-      decode: () => {}, body: emptySuccessFrame(), signal: new AbortController().signal,
-    }), (err: unknown) => err instanceof ApiError && err.status === status && err.details === `pow_fail_${status}`);
+    await rejects(() => requestEmpty(), (err: unknown) => err instanceof ApiError && err.status === status && err.details === `pow_fail_${status}`);
     deepEqual(calls, ['/pow']);
 
     calls = [];
     t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
-      const url = typeof input === 'string' ? input : input.toString();
+      const url = requestUrl(input);
       calls.push(url);
       if (url === '/pow') return frameResponse(powChallengeFrame());
       return apiErrorResponse(status, `submit_fail_${status}`);
     });
-    await rejects(() => requestWithScopedPow({
-      challengePath: '/pow', submitPath: '/submit', expected: FrameType.EmptySuccess,
-      decode: () => {}, body: emptySuccessFrame(), signal: new AbortController().signal,
-    }), (err: unknown) => err instanceof ApiError && err.status === status && err.details === `submit_fail_${status}`);
+    await rejects(() => requestEmpty(), (err: unknown) => err instanceof ApiError && err.status === status && err.details === `submit_fail_${status}`);
     deepEqual(calls, ['/pow', '/submit']);
   }
 });
@@ -443,7 +440,7 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
   const installFetch = (responder: (url: string, init?: RequestInit) => Response) => {
     calls = [];
     t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : input.toString();
+      const url = requestUrl(input);
       const headers = new Headers(init?.headers);
       const body = init?.body ? new Uint8Array(init.body as Uint8Array) : new Uint8Array();
       calls.push({ url, method: init?.method ?? 'GET', headers, body });
@@ -470,169 +467,135 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
     }
   };
 
+  function mockPow(challenge: string, receipt: () => Uint8Array<ArrayBuffer>) {
+    installFetch(url => frameResponse(url === challenge ? powChallengeFrame() : receipt()));
+  }
+  function checkExchange(challenge: string, submit: string, method: string, header?: [string, string]) {
+    equal(calls.length, 2);
+    equal(calls[0].url, challenge);
+    equal(calls[1].url, submit);
+    assertPowPair(calls[0], calls[1], method, header);
+  }
+  function mockStepUp(begin: string, complete: string, challenge: string) {
+    installFetch(url => {
+      if (url === begin) return frameResponse(loginBeginFrame());
+      if (url === complete) return frameResponse(mfaChallengeResultFrame());
+      if (url === challenge) return frameResponse(powChallengeFrame());
+      return frameResponse(emptySuccessFrame());
+    });
+  }
+  function checkStepUp(routes: string[]) {
+    deepEqual(calls.map(c => c.url), routes);
+    assertPowPair(calls[2], calls[3]);
+    equal(calls[2].headers.get(WireHeaders.MfaProof), null);
+    equal(calls[3].headers.get(WireHeaders.MfaProof), validProof);
+  }
+  function commentReceipt(commentId: bigint) {
+    return encodeFrame(FrameType.PublicCommentSubmissionResult,
+      encodePublicCommentSubmissionResult({ articleId: 5, commentId, moderationStatus: 0, replayed: false }));
+  }
+
   // 1a. admin-tag-metadata (tag create -> POST)
-  installFetch(url => url === WireRoutes.AdminTagCreatePow
-    ? frameResponse(powChallengeFrame())
-    : frameResponse(metadataReceiptFrame('tag', 15, 1n, 'Rust', 'Systems', true)));
+  mockPow(WireRoutes.AdminTagCreatePow, () => metadataReceiptFrame('tag', 15, 1n, 'Rust', 'Systems', true));
   const createdTag = await changeTaxonomyMetadata('tag', {
     id: 0, expectedRevision: 0n, requestId: '11111111-1111-4111-8111-111111111111', name: 'Rust', description: 'Systems',
   }, new AbortController().signal);
   equal(createdTag.id, 15);
-  equal(calls.length, 2);
-  equal(calls[0].url, WireRoutes.AdminTagCreatePow);
-  equal(calls[1].url, WireRoutes.AdminTagCreate);
-  assertPowPair(calls[0], calls[1], 'POST');
+  checkExchange(WireRoutes.AdminTagCreatePow, WireRoutes.AdminTagCreate, 'POST');
 
   // 1b. admin-tag-metadata (category update -> PUT)
-  installFetch(url => url === WireRoutes.AdminCategoryMetadataPow.replace('{id:int}', '7')
-    ? frameResponse(powChallengeFrame())
-    : frameResponse(metadataReceiptFrame('category', 7, 3n, 'Notes', 'Updated', true)));
+  mockPow(WireRoutes.AdminCategoryMetadataPow.replace('{id:int}', '7'),
+    () => metadataReceiptFrame('category', 7, 3n, 'Notes', 'Updated', true));
   const updatedCategory = await changeTaxonomyMetadata('category', {
     id: 7, expectedRevision: 2n, requestId: '22222222-2222-4222-8222-222222222222', name: 'Notes', description: 'Updated',
   }, new AbortController().signal);
   equal(updatedCategory.revision, 3n);
-  equal(calls.length, 2);
-  equal(calls[0].url, WireRoutes.AdminCategoryMetadataPow.replace('{id:int}', '7'));
-  equal(calls[1].url, WireRoutes.AdminCategoryMetadata.replace('{id:int}', '7'));
-  assertPowPair(calls[0], calls[1], 'PUT');
+  checkExchange(WireRoutes.AdminCategoryMetadataPow.replace('{id:int}', '7'),
+    WireRoutes.AdminCategoryMetadata.replace('{id:int}', '7'), 'PUT');
 
   // 2. admin-inbox: adminReply
-  installFetch(url => url === WireRoutes.AdminInboxReplyPow.replace('{id:long}', '42')
-    ? frameResponse(powChallengeFrame())
-    : frameResponse(inboxMessageFrame(501n, 42n, 1, 'Admin response body')));
+  mockPow(WireRoutes.AdminInboxReplyPow.replace('{id:long}', '42'),
+    () => inboxMessageFrame(501n, 42n, 1, 'Admin response body'));
   const replied = await adminReply(42n, 'Admin response body', 'reply-key-1', new AbortController().signal);
   equal(replied.id, 501n);
-  equal(calls.length, 2);
-  equal(calls[0].url, WireRoutes.AdminInboxReplyPow.replace('{id:long}', '42'));
-  equal(calls[1].url, WireRoutes.AdminInboxReply.replace('{id:long}', '42'));
-  assertPowPair(calls[0], calls[1], 'POST', [WireHeaders.ClientMutationId, 'reply-key-1']);
+  checkExchange(WireRoutes.AdminInboxReplyPow.replace('{id:long}', '42'),
+    WireRoutes.AdminInboxReply.replace('{id:long}', '42'), 'POST',
+    [WireHeaders.ClientMutationId, 'reply-key-1']);
 
   // 3. admin-inbox: adminChangeStatus
-  installFetch(url => url === WireRoutes.AdminInboxStatusPow.replace('{id:long}', '42')
-    ? frameResponse(powChallengeFrame())
-    : frameResponse(statusMutationFrame(0, 2)));
+  mockPow(WireRoutes.AdminInboxStatusPow.replace('{id:long}', '42'), () => statusMutationFrame(0, 2));
   const statusRes = await adminChangeStatus(42n, '19', 2, 'Resolved issue', new AbortController().signal);
   deepEqual(statusRes, { previous: 0, current: 2, changed: true });
-  equal(calls.length, 2);
-  equal(calls[0].url, WireRoutes.AdminInboxStatusPow.replace('{id:long}', '42'));
-  equal(calls[1].url, WireRoutes.AdminInboxStatus.replace('{id:long}', '42'));
-  assertPowPair(calls[0], calls[1], 'POST', [WireHeaders.AdminInboxVersion, '19']);
+  checkExchange(WireRoutes.AdminInboxStatusPow.replace('{id:long}', '42'),
+    WireRoutes.AdminInboxStatus.replace('{id:long}', '42'), 'POST', [WireHeaders.AdminInboxVersion, '19']);
 
   // 4. admin-inbox-notice: adminSendNotice
   const recipient = '33333333-3333-4333-8333-333333333333';
-  installFetch(url => url === WireRoutes.AdminInboxSendNoticePow
-    ? frameResponse(powChallengeFrame())
-    : frameResponse(systemNoticeFrame(88n, 'Security alert', 901n, 'Notice content')));
+  mockPow(WireRoutes.AdminInboxSendNoticePow,
+    () => systemNoticeFrame(88n, 'Security alert', 901n, 'Notice content'));
   const noticeThread = await adminSendNotice(recipient, 'Security alert', 'Notice content', 777n, new AbortController().signal);
   equal(noticeThread.id, 88n);
-  equal(calls.length, 2);
-  equal(calls[0].url, WireRoutes.AdminInboxSendNoticePow);
-  equal(calls[1].url, WireRoutes.AdminInboxSendNotice);
-  assertPowPair(calls[0], calls[1], 'POST', [WireHeaders.SourceEventId, '777']);
+  checkExchange(WireRoutes.AdminInboxSendNoticePow, WireRoutes.AdminInboxSendNotice, 'POST', [WireHeaders.SourceEventId, '777']);
 
   // 5. admin-appearance: Step-Up -> PoW (no MfaProof) -> Apply (MfaProof + PowProof)
   const appearanceCmd = {
     expectedRevision: 4n, currentTheme: 'e'.repeat(64), currentFont: 'f'.repeat(64),
     theme: '1'.repeat(64), font: '2'.repeat(64), rollback: false,
   };
-  installFetch(url => {
-    if (url === WireRoutes.AdminAppearanceStepUpBegin) return frameResponse(loginBeginFrame());
-    if (url === WireRoutes.AdminAppearanceStepUpComplete) return frameResponse(mfaChallengeResultFrame());
-    if (url === WireRoutes.AdminAppearancePow) return frameResponse(powChallengeFrame());
-    return frameResponse(emptySuccessFrame());
-  });
+  mockStepUp(WireRoutes.AdminAppearanceStepUpBegin, WireRoutes.AdminAppearanceStepUpComplete, WireRoutes.AdminAppearancePow);
   await applyAppearance(appearanceCmd, new AbortController().signal);
-  deepEqual(calls.map(c => c.url), [
-    WireRoutes.AdminAppearanceStepUpBegin,
-    WireRoutes.AdminAppearanceStepUpComplete,
-    WireRoutes.AdminAppearancePow,
-    WireRoutes.AdminAppearanceApply,
-  ]);
-  assertPowPair(calls[2], calls[3]);
-  equal(calls[2].headers.get(WireHeaders.MfaProof), null);
-  equal(calls[3].headers.get(WireHeaders.MfaProof), validProof);
+  checkStepUp([WireRoutes.AdminAppearanceStepUpBegin, WireRoutes.AdminAppearanceStepUpComplete,
+    WireRoutes.AdminAppearancePow, WireRoutes.AdminAppearanceApply]);
   deepEqual(decodeAdminAppearanceCommand(decodeFrame(calls[3].body, FrameType.AdminAppearanceCommand).payload), appearanceCmd);
 
   // 6. admin-site-pages: Step-Up -> PoW (no MfaProof) -> Publish (MfaProof + PowProof)
   const pageIntent = { slug: 'about', expectedRevision: 2n, expectedDigest: 'd'.repeat(64), markdown: '# Hello\n' };
-  installFetch(url => {
-    if (url === WireRoutes.AdminSitePageStepUpBegin) return frameResponse(loginBeginFrame());
-    if (url === WireRoutes.AdminSitePageStepUpComplete) return frameResponse(mfaChallengeResultFrame());
-    if (url === WireRoutes.AdminSitePagePow) return frameResponse(powChallengeFrame());
-    return frameResponse(emptySuccessFrame());
-  });
+  mockStepUp(WireRoutes.AdminSitePageStepUpBegin, WireRoutes.AdminSitePageStepUpComplete, WireRoutes.AdminSitePagePow);
   await publishAdminSitePage(pageIntent, new AbortController().signal);
-  deepEqual(calls.map(c => c.url), [
-    WireRoutes.AdminSitePageStepUpBegin,
-    WireRoutes.AdminSitePageStepUpComplete,
-    WireRoutes.AdminSitePagePow,
-    WireRoutes.AdminSitePagePublish,
-  ]);
-  assertPowPair(calls[2], calls[3]);
-  equal(calls[2].headers.get(WireHeaders.MfaProof), null);
-  equal(calls[3].headers.get(WireHeaders.MfaProof), validProof);
+  checkStepUp([WireRoutes.AdminSitePageStepUpBegin, WireRoutes.AdminSitePageStepUpComplete,
+    WireRoutes.AdminSitePagePow, WireRoutes.AdminSitePagePublish]);
   deepEqual(decodeAdminSitePagePublish(decodeFrame(calls[3].body, FrameType.AdminSitePagePublish).payload), pageIntent);
 
   // 7a. comment-write: anonymous root comment
   const rootCommentKey = '44444444-4444-4444-8444-444444444444';
-  installFetch(url => url === WireRoutes.PublicCommentPowChallenge
-    ? frameResponse(powChallengeFrame())
-    : frameResponse(encodeFrame(FrameType.PublicCommentSubmissionResult, encodePublicCommentSubmissionResult({
-        articleId: 5, commentId: 101n, moderationStatus: 0, replayed: false,
-      }))));
+  mockPow(WireRoutes.PublicCommentPowChallenge, () => commentReceipt(101n));
   const rootRes = await submitPublicComment(5, 3n, 'Reader', 'Comment text', rootCommentKey, new AbortController().signal);
   equal(rootRes.commentId, 101n);
-  equal(calls.length, 2);
-  equal(calls[0].url, WireRoutes.PublicCommentPowChallenge);
-  equal(calls[1].url, WireRoutes.SubmitPublicComment);
-  assertPowPair(calls[0], calls[1], 'POST', [WireHeaders.ClientMutationId, rootCommentKey]);
+  checkExchange(WireRoutes.PublicCommentPowChallenge,
+    WireRoutes.SubmitPublicComment, 'POST', [WireHeaders.ClientMutationId, rootCommentKey]);
   equal(calls[0].headers.get(WireHeaders.CurrentSession), null);
   equal(decodePublicCommentSubmission(decodeFrame(calls[1].body, FrameType.PublicCommentSubmission).payload).articleId, 5);
 
   // 7b. comment-write: signed-in reply
   const replyCommentKey = '55555555-5555-4555-8555-555555555555';
-  installFetch(url => url === WireRoutes.PublicCommentReplyPow
-    ? frameResponse(powChallengeFrame())
-    : frameResponse(encodeFrame(FrameType.PublicCommentSubmissionResult, encodePublicCommentSubmissionResult({
-        articleId: 5, commentId: 102n, moderationStatus: 0, replayed: false,
-      }))));
+  mockPow(WireRoutes.PublicCommentReplyPow, () => commentReceipt(102n));
   const replyRes = await submitPublicComment(5, 3n, 'Reader', 'Reply text', replyCommentKey, new AbortController().signal, {
     parent: '101', session: validSiteSession,
   });
   equal(replyRes.commentId, 102n);
-  equal(calls.length, 2);
-  equal(calls[0].url, WireRoutes.PublicCommentReplyPow);
-  equal(calls[1].url, WireRoutes.SubmitPublicCommentReply);
-  assertPowPair(calls[0], calls[1], 'POST', [WireHeaders.CurrentSession, validSiteSession]);
+  checkExchange(WireRoutes.PublicCommentReplyPow,
+    WireRoutes.SubmitPublicCommentReply, 'POST', [WireHeaders.CurrentSession, validSiteSession]);
   equal(calls[1].headers.get(WireHeaders.ClientMutationId), replyCommentKey);
   equal(decodePublicCommentReply(decodeFrame(calls[1].body, FrameType.PublicCommentReply).payload).parentId, 101n);
 
   // 8a. inbox-write: createInboxConversation
   const createdConversation = Uint8Array.from(hexFixture('conversation-detail-v2.hex', 'strip'));
-  installFetch(url => url === WireRoutes.InboxCreatePowChallenge
-    ? frameResponse(powChallengeFrame())
-    : frameResponse(createdConversation));
+  mockPow(WireRoutes.InboxCreatePowChallenge, () => createdConversation);
   const createdId = await createInboxConversation('Appeal', 'Body', 'inbox-create-key', new AbortController().signal, validSiteSession);
   equal(createdId > 0n, true);
-  equal(calls.length, 2);
-  equal(calls[0].url, WireRoutes.InboxCreatePowChallenge);
-  equal(calls[1].url, WireRoutes.InboxList);
-  assertPowPair(calls[0], calls[1], 'POST', [WireHeaders.CurrentSession, validSiteSession]);
+  checkExchange(WireRoutes.InboxCreatePowChallenge, WireRoutes.InboxList, 'POST', [WireHeaders.CurrentSession, validSiteSession]);
   equal(calls[1].headers.get(WireHeaders.ClientMutationId), 'inbox-create-key');
 
   // 8b. inbox-write: replyInboxConversation
   const repliedMessage = Uint8Array.from(hexFixture('conversation-message-frame.hex', 'strip'));
   const replyPayload = decodeFrame(repliedMessage, FrameType.ConversationMessage).payload;
   const replyConvId = new DataView(replyPayload.buffer, replyPayload.byteOffset).getBigInt64(8, true);
-  installFetch(url => url === WireRoutes.InboxReplyPowChallenge.replace('{id:long}', String(replyConvId))
-    ? frameResponse(powChallengeFrame())
-    : frameResponse(repliedMessage));
+  mockPow(WireRoutes.InboxReplyPowChallenge.replace('{id:long}', String(replyConvId)), () => repliedMessage);
   const replyMsgId = await replyInboxConversation(replyConvId, 1n, 'Follow-up', 'inbox-reply-key', new AbortController().signal, validSiteSession);
   equal(replyMsgId > 0n, true);
-  equal(calls.length, 2);
-  equal(calls[0].url, WireRoutes.InboxReplyPowChallenge.replace('{id:long}', String(replyConvId)));
-  equal(calls[1].url, WireRoutes.InboxReply.replace('{id:long}', String(replyConvId)));
-  assertPowPair(calls[0], calls[1], 'POST', [WireHeaders.CurrentSession, validSiteSession]);
+  checkExchange(WireRoutes.InboxReplyPowChallenge.replace('{id:long}', String(replyConvId)),
+    WireRoutes.InboxReply.replace('{id:long}', String(replyConvId)), 'POST',
+    [WireHeaders.CurrentSession, validSiteSession]);
 
   // 9. reader-registration: Pow -> Begin (PowProof only, no PowClientNonce) -> Complete (no PowProof)
   const provisionBegin = Uint8Array.from(hexFixture('site-passkey-bootstrap.hex', 'strip'));
@@ -653,9 +616,7 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
 
   // 10. recovery-key: verifySiteRecoveryKey zeroes key buffer on completion and on failure
   const recoveryKey = `frk_${'a'.repeat(32)}_${'B'.repeat(43)}`;
-  installFetch(url => url === WireRoutes.RecoveryKeyPow
-    ? frameResponse(powChallengeFrame())
-    : frameResponse(emptySuccessFrame()));
+  mockPow(WireRoutes.RecoveryKeyPow, () => emptySuccessFrame());
   await verifySiteRecoveryKey(recoveryKey, new AbortController().signal);
   equal(calls.length, 2);
   equal(calls[0].url, WireRoutes.RecoveryKeyPow);
@@ -671,7 +632,7 @@ test('recovery-key zeros its sensitive frame buffer on abort and session-change 
   installControlledWorker(t, w => { workerInstance = w; });
 
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, init?: RequestInit) => {
-    const url = typeof input === 'string' ? input : input.toString();
+    const url = requestUrl(input);
     if (url === WireRoutes.RecoveryKeyPow) {
       // Keep direct reference (not copied) to verify body.fill(0) ran in finally
       heldBody = init?.body as Uint8Array;
@@ -692,7 +653,7 @@ test('recovery-key zeros its sensitive frame buffer on abort and session-change 
   // Session-change abort blocks inbox write mid-Worker before final POST
   let inboxSubmitCalled = false;
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
-    const url = typeof input === 'string' ? input : input.toString();
+    const url = requestUrl(input);
     if (url === WireRoutes.InboxCreatePowChallenge) return frameResponse(powChallengeFrame());
     inboxSubmitCalled = true;
     return frameResponse(emptySuccessFrame());

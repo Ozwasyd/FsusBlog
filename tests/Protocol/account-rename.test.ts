@@ -1,8 +1,8 @@
 import { equal, rejects } from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
+import { adminSessionFixture, altPermissionSession, permissionHeader, validPermissionSession, validProof } from './admin-permission-fixture.ts';
 import { frameResponse } from './fixture-source.ts';
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
-import type { AdminSession } from '../../src/Contracts/admin-identity.ts';
 import {
   executeAdminHandleRename,
   validAdminHandle,
@@ -25,21 +25,9 @@ import {
 } from '../../src/Contracts/wire.generated.ts';
 
 const sessionId = 'c'.repeat(64);
-const validProof = 'P'.repeat(43);
-const validPermissionSession = 'a'.repeat(64);
-const altPermissionSession = 'b'.repeat(64);
 const commandId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 
-function activeSession(permissionSession = validPermissionSession): AdminSession {
-  return {
-    handle: 'dev-admin',
-    generation: 2n,
-    expiresAt: Date.now() + 60_000,
-    appearanceEnabled: true,
-    siteConfigEnabled: true,
-    permissionSession,
-  };
-}
+const activeSession = adminSessionFixture('dev-admin', 2n);
 
 function mockFetch(
   t: TestContext,
@@ -118,7 +106,7 @@ test('executeAdminHandleRename binds permission session, idempotency key, and re
       handle: 'chief-editor',
       happenedAtUnixMs: 1_795_000_000_000n,
       replayed: false,
-    })), { [WireHeaders.AdminPermissionSession]: validPermissionSession });
+    })), permissionHeader(validPermissionSession));
   });
 
   const receipt = await executeAdminHandleRename(activeSession(), command, validProof, new AbortController().signal);

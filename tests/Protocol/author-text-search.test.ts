@@ -22,6 +22,27 @@ import {
 import type { FilterField } from '../../src/Contracts/property-query.ts';
 import { FrameType, WireHeader, WireLimits } from '../../src/Contracts/wire.generated.ts';
 
+function assertFramePayload(frame: Uint8Array, type: FrameType, expected: Uint8Array) {
+  deepEqual(Buffer.from(decodeFrame(frame, type).payload), expected);
+}
+
+function rejectWrongLength(decode: (payload: Uint8Array) => unknown, payload: Uint8Array) {
+  throws(() => decode(payload.subarray(0, -1)), ProtocolError);
+  throws(() => decode(appendByte(payload, 0)), ProtocolError);
+}
+
+function rejectInvalidFlags(decode: (payload: Uint8Array) => unknown, payload: Uint8Array, offsets: number[]) {
+  for (const offset of offsets) {
+    const invalid = Buffer.from(payload);
+    invalid[offset] = 2;
+    throws(() => decode(invalid), ProtocolError);
+  }
+}
+
+function appendByte(payload: Uint8Array, value: number) {
+  return Buffer.concat([payload, Uint8Array.of(value)]);
+}
+
 const row: AuthorTextSearchRow = {
   id: 4, revision: 23n, title: 'Harbor', field: 'body', snippet: 'a 🧭 b',
   highlightStart: 2, highlightEnd: 4, sourceStart: 12, sourceEnd: 14,
@@ -61,7 +82,7 @@ test('faceted requests have the same payload as ranked requests and a distinct f
   equal(FrameType.AuthorTextFacetedPage, 33014);
   deepEqual(faceted, ranked);
   deepEqual(decodeAuthorTextFacetedQuery(faceted), query);
-  throws(() => decodeAuthorTextFacetedQuery(Buffer.concat([faceted, Uint8Array.of(0)])), ProtocolError);
+  throws(() => decodeAuthorTextFacetedQuery(appendByte(faceted, 0)), ProtocolError);
   throws(() => encodeAuthorTextFacetedQuery({ ...query, cursor: 'a\r' }), ProtocolError);
 });
 
@@ -102,8 +123,7 @@ test('qualified query keeps existing typed operand bytes and signed UTC millisec
     if (offset === 70) changed.fill(255, 71, 74); // Unavailable is a response-only value.
     throws(() => decodeAuthorTextQualifiedQuery(changed), ProtocolError);
   }
-  throws(() => decodeAuthorTextQualifiedQuery(golden.subarray(0, -1)), ProtocolError);
-  throws(() => decodeAuthorTextQualifiedQuery(Buffer.concat([golden, Uint8Array.of(0)])), ProtocolError);
+  rejectWrongLength(decodeAuthorTextQualifiedQuery, golden);
   throws(() => decodeAuthorTextQualifiedQuery(
     new Uint8Array(WireLimits.MaxAuthorTextQualifiedQueryFrameBytes - WireHeader.HeaderSize + 1)), ProtocolError);
 });
@@ -187,19 +207,24 @@ test('faceted pages decode independent wire bytes with exact state and taxonomy 
   const invalidReady = Buffer.from(payload);
   invalidReady[0] = 2;
   throws(() => decodeAuthorTextFacetedPage(invalidReady), ProtocolError);
-  throws(() => decodeAuthorTextFacetedPage(Buffer.concat([payload, Uint8Array.of(0)])), ProtocolError);
+  throws(() => decodeAuthorTextFacetedPage(appendByte(payload, 0)), ProtocolError);
 });
+
+function i32(value: number) {
+  const bytes = Buffer.alloc(4);
+  bytes.writeInt32LE(value);
+  return bytes;
+}
+
+function pendingPagePayload() {
+  return facetedPayload({ ready: false, total: 0, states: [0, 0, 0, 0], rows: [] });
+}
 
 function facetedPayload({
   ready = true, nextCursor = '', total = 2, states = [2, 0, 0, 0],
   moreCategories = false, categories = [] as AuthorTextTaxonomyFacet[],
   moreTags = false, tags = [] as AuthorTextTaxonomyFacet[], rows = [row],
 } = {}) {
-  function i32(value: number) {
-    const bytes = Buffer.alloc(4);
-    bytes.writeInt32LE(value);
-    return bytes;
-  }
   function text(value: string) {
     const bytes = Buffer.from(value, 'utf8');
     return Buffer.concat([i32(bytes.length), bytes]);
@@ -387,7 +412,7 @@ test('property facet response preserves false, zero true, missing and null separ
     invalid[offset] = value;
     throws(() => decodeAuthorTextPropertyFacetPage(invalid), ProtocolError);
   }
-  const pending = facetedPayload({ ready: false, total: 0, states: [0, 0, 0, 0], rows: [] });
+  const pending = pendingPagePayload();
   equal(decodeAuthorTextPropertyFacetPage(pending).facet, null);
   throws(() => decodeAuthorTextPropertyFacetPage(golden.subarray(0, pending.length)), ProtocolError);
   throws(() => decodeAuthorTextPropertyFacetPage(Buffer.concat([pending, golden.subarray(pending.length)])), ProtocolError);
@@ -395,17 +420,12 @@ test('property facet response preserves false, zero true, missing and null separ
 
 test('property facet response counts overlapping multi-select options under exact stable identities', () => {
   const uuid = (id: string) => Buffer.from(id.replaceAll('-', ''), 'hex');
-  function integer(value: number) {
-    const bytes = Buffer.alloc(4);
-    bytes.writeInt32LE(value);
-    return bytes;
-  }
   function selectedPayload(kind: number, empty: number, counts: readonly number[], options: readonly string[]) {
     const revision = Buffer.alloc(8);
     revision.writeBigInt64LE(3n);
     return Buffer.concat([facetedPayload({ total: 5, states: [5, 0, 0, 0], rows: [] }),
-      uuid(propertyFacetQuery.definitionId), revision, integer(kind), integer(1), integer(1), integer(empty), integer(counts.length),
-      ...counts.flatMap((count, index) => [uuid(options[index]), integer(count)]),
+      uuid(propertyFacetQuery.definitionId), revision, i32(kind), i32(1), i32(1), i32(empty), i32(counts.length),
+      ...counts.flatMap((count, index) => [uuid(options[index]), i32(count)]),
     ]);
   }
   const optionIds = Array.from({ length: 33 }, (_, index) => `aaaaaaaa-aaaa-4aaa-8aaa-${(index + 1).toString(16).padStart(12, '0')}`);
@@ -455,11 +475,7 @@ test('property sort binds both selected revisions, direction and heading mode in
 
   const filtered = decodeFrame(encodeAuthorTextPropertySortQuery({ ...propertySortQuery, search: qualified })).payload;
   deepEqual(filtered.subarray(0, -51), decodeFrame(encodeAuthorTextQualifiedQuery(qualified)).payload);
-  for (const offset of [27, 52, 53]) {
-    const invalid = Buffer.from(golden);
-    invalid[offset] = 2;
-    throws(() => decodeAuthorTextPropertySortQuery(invalid), ProtocolError);
-  }
+  rejectInvalidFlags(decodeAuthorTextPropertySortQuery, golden, [27, 52, 53]);
   throws(() => decodeAuthorTextPropertySortQuery(golden.subarray(0, -1)), ProtocolError);
   for (const invalid of [
     { ...propertySortQuery, search: { ...propertySortQuery.search, schema: 0n } },
@@ -476,7 +492,7 @@ test('property sort page retains existing row bytes and exposes only the optiona
     'hex');
   const base = facetedPayload({ total: 4, states: [4, 0, 0, 0], rows: [row, { ...row, id: 17 }] });
   equal(FrameType.AuthorTextPropertySortPage, 33027);
-  const absent = Buffer.concat([base, Uint8Array.of(0)]);
+  const absent = appendByte(base, 0);
   const present = Buffer.concat([base, Uint8Array.of(1), facetBytes]);
   const expected = decodeAuthorTextFacetedPage(base);
   deepEqual(decodeAuthorTextPropertySortPage(absent, false, false), { search: expected, facet: null });
@@ -486,12 +502,12 @@ test('property sort page retains existing row bytes and exposes only the optiona
   throws(() => decodeAuthorTextPropertySortPage(present, false, false), ProtocolError);
   throws(() => decodeAuthorTextPropertySortPage(absent, false, true), ProtocolError);
   throws(() => decodeAuthorTextPropertyFacetPage(present), ProtocolError);
-  throws(() => decodeAuthorTextPropertySortPage(Buffer.concat([base, Uint8Array.of(2)])), ProtocolError);
+  throws(() => decodeAuthorTextPropertySortPage(appendByte(base, 2)), ProtocolError);
   throws(() => decodeAuthorTextPropertySortPage(base), ProtocolError);
 
-  const pending = facetedPayload({ ready: false, total: 0, states: [0, 0, 0, 0], rows: [] });
+  const pending = pendingPagePayload();
   equal(decodeAuthorTextPropertySortPage(pending, false, true).facet, null);
-  throws(() => decodeAuthorTextPropertySortPage(Buffer.concat([pending, Uint8Array.of(0)])), ProtocolError);
+  throws(() => decodeAuthorTextPropertySortPage(appendByte(pending, 0)), ProtocolError);
 
   const heading = Buffer.from(absent);
   heading.writeInt32LE(4, 61); // First row field code follows the six-byte title.
@@ -500,20 +516,19 @@ test('property sort page retains existing row bytes and exposes only the optiona
 });
 
 
+const propertyTextQueryHex = '050000004f726269740000000000000a0000000000000000000000111111111111411181111111111111110300000000000000';
+
 test('property text query carries its exact definition coordinates under the existing qualified schema', () => {
-  const golden = Buffer.from(
-    '050000004f726269740000000000000a0000000000000000000000111111111111411181111111111111110300000000000000',
-    'hex');
+  const golden = Buffer.from(propertyTextQueryHex, 'hex');
   const query: AuthorTextPropertyTextQuery = {
     search: propertyFacetQuery.search, definitionId: propertyFacetQuery.definitionId, definitionRevision: 3n,
   };
   const frame = encodeAuthorTextPropertyTextQuery(query);
   equal(FrameType.AuthorTextPropertyTextQuery, 33029);
-  deepEqual(Buffer.from(decodeFrame(frame, FrameType.AuthorTextPropertyTextQuery).payload), golden);
+  assertFramePayload(frame, FrameType.AuthorTextPropertyTextQuery, golden);
   deepEqual(decodeAuthorTextPropertyTextQuery(golden), query);
   throws(() => decodeFrame(frame, FrameType.AuthorTextPropertySortQuery), ProtocolError);
-  throws(() => decodeAuthorTextPropertyTextQuery(golden.subarray(0, -1)), ProtocolError);
-  throws(() => decodeAuthorTextPropertyTextQuery(Buffer.concat([golden, Uint8Array.of(0)])), ProtocolError);
+  rejectWrongLength(decodeAuthorTextPropertyTextQuery, golden);
 
   const filtered = decodeFrame(encodeAuthorTextPropertyTextQuery({ ...query, search: qualified })).payload;
   deepEqual(filtered.subarray(0, -24), decodeFrame(encodeAuthorTextQualifiedQuery(qualified)).payload);
@@ -543,7 +558,7 @@ test('property text page uses closed field 5 with independent UTF-16 and UTF-8 s
   }]);
   throws(() => decodeAuthorTextHeadingPage(payload), ProtocolError);
   throws(() => decodeAuthorTextPropertyFacetPage(payload), ProtocolError);
-  throws(() => decodeAuthorTextPropertySortPage(Buffer.concat([payload, Uint8Array.of(0)])), ProtocolError);
+  throws(() => decodeAuthorTextPropertySortPage(appendByte(payload, 0)), ProtocolError);
   throws(() => encodeAuthorTextRankedPage({ ready: true, nextCursor: '', rows: page.rows }), ProtocolError);
   const body = Buffer.from(payload);
   body.writeInt32LE(2, 61);
@@ -555,7 +570,7 @@ test('property text page uses closed field 5 with independent UTF-16 and UTF-8 s
     invalid.writeInt32LE(limit + 1, start + 4);
     throws(() => decodeAuthorTextPropertyTextPage(invalid), ProtocolError);
   }
-  const pending = facetedPayload({ ready: false, total: 0, states: [0, 0, 0, 0], rows: [] });
+  const pending = pendingPagePayload();
   equal(decodeAuthorTextPropertyTextPage(pending).ready, false);
 });
 
@@ -568,9 +583,7 @@ const propertyTextQualifiedQuery: AuthorTextPropertyTextQualifiedQuery = {
 };
 
 test('qualified property text query appends independent facet and sort selectors to the exact lexical request', () => {
-  const lexical = Buffer.from(
-    '050000004f726269740000000000000a0000000000000000000000111111111111411181111111111111110300000000000000',
-    'hex');
+  const lexical = Buffer.from(propertyTextQueryHex, 'hex');
   const facet = Buffer.from('01aaaaaaaaaaaa4aaa8aaa0000000000070400000000000000', 'hex');
   const sort = Buffer.from('0112345678123440009000123456789abc050000000000000001', 'hex');
   const withBoth = Buffer.concat([lexical, facet, sort]);
@@ -588,14 +601,14 @@ test('qualified property text query appends independent facet and sort selectors
     [sortOnly, Buffer.concat([lexical, Uint8Array.of(0), sortAscending])],
   ] as const) {
     const frame = encodeAuthorTextPropertyTextQualifiedQuery(query);
-    deepEqual(Buffer.from(decodeFrame(frame, FrameType.AuthorTextPropertyTextQualifiedQuery).payload), bytes);
+    assertFramePayload(frame, FrameType.AuthorTextPropertyTextQualifiedQuery, bytes);
     deepEqual(decodeAuthorTextPropertyTextQualifiedQuery(bytes), query);
   }
 
   const { search, definitionId, definitionRevision } = propertyTextQualifiedQuery;
   const original = { search, definitionId, definitionRevision };
   const oldFrame = encodeAuthorTextPropertyTextQuery(original);
-  deepEqual(Buffer.from(decodeFrame(oldFrame, FrameType.AuthorTextPropertyTextQuery).payload), lexical);
+  assertFramePayload(oldFrame, FrameType.AuthorTextPropertyTextQuery, lexical);
   throws(() => decodeFrame(oldFrame, FrameType.AuthorTextPropertyTextQualifiedQuery), ProtocolError);
   throws(() => decodeFrame(encodeAuthorTextPropertyTextQualifiedQuery(propertyTextQualifiedQuery),
     FrameType.AuthorTextPropertyTextQuery), ProtocolError);
@@ -605,21 +618,17 @@ test('qualified property text query appends independent facet and sort selectors
   const filteredPrefix = decodeFrame(encodeAuthorTextPropertyTextQuery({ ...original, search: qualified })).payload;
   const filtered = Buffer.concat([filteredPrefix, facet, sort]);
   const filteredFrame = encodeAuthorTextPropertyTextQualifiedQuery({ ...propertyTextQualifiedQuery, search: qualified });
-  deepEqual(Buffer.from(decodeFrame(filteredFrame, FrameType.AuthorTextPropertyTextQualifiedQuery).payload), filtered);
+  assertFramePayload(filteredFrame, FrameType.AuthorTextPropertyTextQualifiedQuery, filtered);
   deepEqual(decodeAuthorTextPropertyTextQualifiedQuery(filtered).search, decodeAuthorTextQualifiedQuery(
     decodeFrame(encodeAuthorTextQualifiedQuery(qualified)).payload));
 
-  for (const offset of [51, 76, 101]) {
-    const invalid = Buffer.from(withBoth);
-    invalid[offset] = 2;
-    throws(() => decodeAuthorTextPropertyTextQualifiedQuery(invalid), ProtocolError);
-  }
+  rejectInvalidFlags(decodeAuthorTextPropertyTextQualifiedQuery, withBoth, [51, 76, 101]);
   for (const offset of [43, 68, 93]) {
     const invalid = Buffer.from(withBoth);
     invalid.writeBigInt64LE(11n, offset);
     throws(() => decodeAuthorTextPropertyTextQualifiedQuery(invalid), ProtocolError);
   }
-  for (const malformed of [withBoth.subarray(0, -1), Buffer.concat([withBoth, Uint8Array.of(0)]),
+  for (const malformed of [withBoth.subarray(0, -1), appendByte(withBoth, 0),
     Buffer.concat([lexical, Uint8Array.of(0, 0)])])
     throws(() => decodeAuthorTextPropertyTextQualifiedQuery(malformed), ProtocolError);
 
@@ -639,7 +648,7 @@ test('qualified property text page accepts only lexical field rows and exact req
   const facet = Buffer.from(
     'aaaaaaaaaaaa4aaa8aaa0000000000070400000000000000020000000000000000000000000000000200000000010000000100000000',
     'hex');
-  const absent = Buffer.concat([base, Uint8Array.of(0)]);
+  const absent = appendByte(base, 0);
   const present = Buffer.concat([base, Uint8Array.of(1), facet]);
   const expectedSearch = decodeAuthorTextPropertyTextPage(new Uint8Array(base));
   equal(FrameType.AuthorTextPropertyTextQualifiedPage, 33036);
@@ -661,28 +670,26 @@ test('qualified property text page accepts only lexical field rows and exact req
   throws(() => decodeAuthorTextPropertyTextQualifiedPage(absent, true), ProtocolError);
   throws(() => decodeAuthorTextPropertyTextQualifiedPage(base, false), ProtocolError);
   throws(() => decodeAuthorTextPropertyTextQualifiedPage(present.subarray(0, -1), true), ProtocolError);
-  throws(() => decodeAuthorTextPropertyTextQualifiedPage(Buffer.concat([present, Uint8Array.of(0)]), true), ProtocolError);
-  throws(() => decodeAuthorTextPropertyTextQualifiedPage(Buffer.concat([base, Uint8Array.of(2)]), false), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextQualifiedPage(appendByte(present, 0), true), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextQualifiedPage(appendByte(base, 2), false), ProtocolError);
 
   const body = Buffer.from(absent);
   body.writeInt32LE(2, 61);
   equal(decodeAuthorTextPropertySortPage(body, false, false).search.rows[0].field, 'body');
   throws(() => decodeAuthorTextPropertyTextQualifiedPage(body, false), ProtocolError);
 
-  const pending = facetedPayload({ ready: false, total: 0, states: [0, 0, 0, 0], rows: [] });
+  const pending = pendingPagePayload();
   for (const expectFacet of [false, true]) {
     deepEqual(decodeAuthorTextPropertyTextQualifiedPage(pending, expectFacet), {
       search: decodeAuthorTextPropertyTextPage(pending), facet: null,
     });
-    throws(() => decodeAuthorTextPropertyTextQualifiedPage(Buffer.concat([pending, Uint8Array.of(0)]), expectFacet), ProtocolError);
+    throws(() => decodeAuthorTextPropertyTextQualifiedPage(appendByte(pending, 0), expectFacet), ProtocolError);
     throws(() => decodeAuthorTextPropertyTextQualifiedPage(Buffer.concat([pending, Uint8Array.of(1), facet]), expectFacet), ProtocolError);
   }
 });
 
 test('mixed property text request adds heading mode before the existing optional selector bytes', () => {
-  const lexical = Buffer.from(
-    '050000004f726269740000000000000a0000000000000000000000111111111111411181111111111111110300000000000000',
-    'hex');
+  const lexical = Buffer.from(propertyTextQueryHex, 'hex');
   const selectors = Buffer.from(
     '01aaaaaaaaaaaa4aaa8aaa00000000000704000000000000000112345678123440009000123456789abc050000000000000001',
     'hex');
@@ -693,7 +700,7 @@ test('mixed property text request adds heading mode before the existing optional
   equal(FrameType.AuthorTextPropertyTextMixedQuery, 33040);
   for (const [query, bytes] of [[both, golden], [neither, Buffer.concat([lexical, Uint8Array.of(0, 0, 0)])]] as const) {
     const frame = encodeAuthorTextPropertyTextMixedQuery(query);
-    deepEqual(Buffer.from(decodeFrame(frame, FrameType.AuthorTextPropertyTextMixedQuery).payload), bytes);
+    assertFramePayload(frame, FrameType.AuthorTextPropertyTextMixedQuery, bytes);
     deepEqual(decodeAuthorTextPropertyTextMixedQuery(bytes), query);
     throws(() => decodeFrame(frame, FrameType.AuthorTextPropertyTextQualifiedQuery), ProtocolError);
   }
@@ -702,13 +709,8 @@ test('mixed property text request adds heading mode before the existing optional
   throws(() => decodeFrame(old, FrameType.AuthorTextPropertyTextMixedQuery), ProtocolError);
   throws(() => decodeAuthorTextPropertyTextMixedQuery(lexical), ProtocolError);
   throws(() => decodeAuthorTextPropertyTextQualifiedQuery(golden), ProtocolError);
-  for (const offset of [51, 52, 77, 102]) {
-    const invalid = Buffer.from(golden);
-    invalid[offset] = 2;
-    throws(() => decodeAuthorTextPropertyTextMixedQuery(invalid), ProtocolError);
-  }
-  throws(() => decodeAuthorTextPropertyTextMixedQuery(golden.subarray(0, -1)), ProtocolError);
-  throws(() => decodeAuthorTextPropertyTextMixedQuery(Buffer.concat([golden, Uint8Array.of(0)])), ProtocolError);
+  rejectInvalidFlags(decodeAuthorTextPropertyTextMixedQuery, golden, [51, 52, 77, 102]);
+  rejectWrongLength(decodeAuthorTextPropertyTextMixedQuery, golden);
 });
 
 test('mixed property text page admits headings only with heading mode and retains the optional facet shape', () => {
@@ -752,7 +754,7 @@ test('mixed property text page admits headings only with heading mode and retain
   throws(() => decodeAuthorTextPropertyTextQualifiedPage(withoutHeading, false), ProtocolError);
   throws(() => decodeFrame(frame, FrameType.AuthorTextPropertyTextQualifiedPage), ProtocolError);
 
-  const pending = facetedPayload({ ready: false, total: 0, states: [0, 0, 0, 0], rows: [] });
+  const pending = pendingPagePayload();
   equal(decodeAuthorTextPropertyTextMixedPage(pending, true, true).search.ready, false);
-  throws(() => decodeAuthorTextPropertyTextMixedPage(Buffer.concat([pending, Uint8Array.of(0)]), true, true), ProtocolError);
+  throws(() => decodeAuthorTextPropertyTextMixedPage(appendByte(pending, 0), true, true), ProtocolError);
 });

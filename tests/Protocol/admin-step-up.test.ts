@@ -1,5 +1,6 @@
 import { deepEqual, equal, match, rejects, throws } from 'node:assert/strict';
 import { test } from 'node:test';
+import { adminSessionFixture, altPermissionSession, permissionHeader, validPermissionSession, validProof } from './admin-permission-fixture.ts';
 import { frameResponse } from './fixture-source.ts';
 import {
   apiErrorResponse, emptySuccessFrame, installPasskeyEnvironment, installPowWorker, loginBeginFrame, mfaChallengeResultFrame, powChallengeFrame,
@@ -17,7 +18,7 @@ import {
 } from '../../src/Contracts/admin-article-trash.ts';
 import { readAdminCluster } from '../../src/Contracts/admin-cluster.ts';
 import {
-  assertAdminPermissionSession, readAdminAvailability, readAdminCommentQueue, readAdminOperations, type AdminSession,
+  assertAdminPermissionSession, readAdminAvailability, readAdminCommentQueue, readAdminOperations,
 } from '../../src/Contracts/admin-identity.ts';
 import { decideComment } from '../../src/Contracts/admin-moderation.ts';
 import { encodeModerationBatchDecision, proveAndDecideModerationBatch } from '../../src/Contracts/admin-moderation-batch.ts';
@@ -33,30 +34,18 @@ import { readAdminTaxonomy } from '../../src/Contracts/admin-taxonomy.ts';
 import { PodWriter } from '../../src/Contracts/binary.ts';
 import { decideAdminAppeal, readAdminAppeals } from '../../src/Contracts/comment-appeals.ts';
 import {
-  encodeAdminAppearanceCommand, encodeAdminArticleArchiveIntent, encodeAdminArticleArchiveReceipt,
-  encodeAdminArticleDraftRollbackIntent, encodeAdminArticleRollbackIntent, encodeAdminArticleTrashPublicationIntent,
-  encodeAdminArticleTrashPublicationReceipt, encodeAdminArticleTrashRestoreIntent, encodeAdminArticleTrashRestoreReceipt,
+  encodeAdminAppearanceCommand, encodeAdminArticleArchiveReceipt,
+  encodeAdminArticleTrashPublicationIntent,
+  encodeAdminArticleTrashPublicationReceipt, encodeAdminArticleTrashRestoreReceipt,
   encodeAdminClusterStatus, encodeAdminModerationDecision, encodeAdminModerationIntent, encodeAdminOperationsStatus,
   encodeAdminRiskReadiness, encodeAdminRootCommentPowCommand, encodeAdminRootCommentPowPolicy, encodeAdminSitePagePublish,
   encodeAdminSitePages, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts';
 
-const validProof = 'P'.repeat(43);
 const altProof = 'Q'.repeat(43);
-const validPermissionSession = 'a'.repeat(64);
-const altPermissionSession = 'b'.repeat(64);
 const encoder = new TextEncoder();
 
-function activeSession(permissionSession: string | null = validPermissionSession): AdminSession {
-  return {
-    handle: 'admin-fixture',
-    generation: 5n,
-    expiresAt: Date.now() + 60_000,
-    appearanceEnabled: true,
-    siteConfigEnabled: true,
-    ...(permissionSession !== null ? { permissionSession } : {}),
-  };
-}
+const activeSession = adminSessionFixture('admin-fixture', 5n);
 
 function sessionHistoryFrame(generation: bigint): Uint8Array<ArrayBuffer> {
   const payload = new Uint8Array(12 + 25);
@@ -97,35 +86,29 @@ test('assertAdminPermissionSession enforces binding across all six bound admin r
 
   const boundCases = [
     {
-      name: 'readAdminOperations',
       frame: encodeFrame(FrameType.AdminOperationsStatus, encodeAdminOperationsStatus(operationsStatus)),
-      run: (target: AdminSession, signal: AbortSignal) => readAdminOperations(target, signal),
+      run: readAdminOperations,
     },
     {
-      name: 'readAdminCluster',
       frame: encodeFrame(FrameType.AdminClusterStatus, encodeAdminClusterStatus(clusterStatus)),
-      run: (target: AdminSession, signal: AbortSignal) => readAdminCluster(target, signal),
+      run: readAdminCluster,
     },
     {
-      name: 'readAdminRiskReadiness',
       frame: encodeFrame(FrameType.AdminRiskReadiness, encodeAdminRiskReadiness(riskStatus)),
-      run: (target: AdminSession, signal: AbortSignal) => readAdminRiskReadiness(target, signal),
+      run: readAdminRiskReadiness,
     },
     {
-      name: 'readAdminSiteTraffic',
       frame: encodeFrame(FrameType.AdminSiteTraffic, trafficPayload),
-      run: (target: AdminSession, signal: AbortSignal) => readAdminSiteTraffic(target, signal),
+      run: readAdminSiteTraffic,
     },
     {
-      name: 'readAdminSessionHistory',
       frame: sessionHistoryFrame(session.generation),
-      run: (target: AdminSession, signal: AbortSignal) => readAdminSessionHistory(target, signal),
+      run: readAdminSessionHistory,
       message: 'Administrator history session changed.',
     },
     {
-      name: 'readRootCommentPowPolicy',
       frame: encodeFrame(FrameType.AdminRootCommentPowPolicy, encodeAdminRootCommentPowPolicy(rootPolicy)),
-      run: (target: AdminSession, signal: AbortSignal) => readRootCommentPowPolicy(target, signal),
+      run: readRootCommentPowPolicy,
     },
   ];
 
@@ -134,29 +117,30 @@ test('assertAdminPermissionSession enforces binding across all six bound admin r
   t.mock.method(globalThis, 'fetch', async () => frameResponse(responseBody, responseHeaders));
 
   for (const item of boundCases) {
+    const read = (target = session) => item.run(target, new AbortController().signal);
     responseBody = item.frame;
-    responseHeaders = { [WireHeaders.AdminPermissionSession]: validPermissionSession };
-    await item.run(session, new AbortController().signal);
+    responseHeaders = permissionHeader(validPermissionSession);
+    await read();
 
     // Missing header
     responseHeaders = {};
-    await rejects(() => item.run(session, new AbortController().signal), ProtocolError);
+    await rejects(() => read(), ProtocolError);
 
     // Cross-session / late response header mismatch
-    responseHeaders = { [WireHeaders.AdminPermissionSession]: altPermissionSession };
-    await rejects(() => item.run(session, new AbortController().signal),
+    responseHeaders = permissionHeader(altPermissionSession);
+    await rejects(() => read(),
       error => error instanceof ProtocolError && (!item.message || error.message === item.message));
 
     // Malformed response header
     for (const malformed of ['', 'not-hex', 'A'.repeat(64), '0'.repeat(63)]) {
-      responseHeaders = { [WireHeaders.AdminPermissionSession]: malformed };
-      await rejects(() => item.run(session, new AbortController().signal), ProtocolError);
+      responseHeaders = permissionHeader(malformed);
+      await rejects(() => read(), ProtocolError);
     }
 
     // Empty / missing / malformed session permissionSession
     for (const badSession of [activeSession(null), activeSession(''), activeSession('not-hex')]) {
-      responseHeaders = badSession.permissionSession ? { [WireHeaders.AdminPermissionSession]: badSession.permissionSession } : {};
-      await rejects(() => item.run(badSession, new AbortController().signal), ProtocolError);
+      responseHeaders = badSession.permissionSession ? permissionHeader(badSession.permissionSession) : {};
+      await rejects(() => read(badSession), ProtocolError);
     }
   }
 
@@ -319,7 +303,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   installPasskeyEnvironment(t);
   installPowWorker(t);
 
-  const calls: { url: string; method: string; headers: Headers; body: Uint8Array }[] = [];
+  const calls: string[] = [];
   const signal = new AbortController().signal;
   const session = activeSession();
 
@@ -328,7 +312,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
     const url = String(path);
     const body = init?.body ? new Uint8Array(init.body as Uint8Array) : new Uint8Array();
     const headers = new Headers(init?.headers);
-    calls.push({ url, method: init?.method ?? 'GET', headers, body });
+    calls.push(url);
     const handler = handlers.get(url);
     if (!handler) throw new Error(`Unexpected fetch: ${url}`);
     return handler(headers, body);
@@ -346,15 +330,42 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
     });
   };
 
+  function resetRoutes() {
+    calls.length = 0;
+    handlers.clear();
+  }
+
+  function mockPowMutation(pow: string, apply: string, frame: Uint8Array, proof: string) {
+    handlers.set(pow, (headers, body) => {
+      equal(headers.get(WireHeaders.MfaProof), null);
+      match(headers.get(WireHeaders.PowClientNonce) ?? '', /^[a-f0-9]{32}$/);
+      deepEqual(body, frame);
+      return frameResponse(powChallengeFrame({ salt: 'f'.repeat(32) }));
+    });
+    handlers.set(apply, (headers, body) => {
+      equal(headers.get(WireHeaders.MfaProof), proof);
+      equal(typeof headers.get(WireHeaders.PowProof), 'string');
+      deepEqual(body, frame);
+      return frameResponse(emptySuccessFrame());
+    });
+  }
+
+  async function checkReplay<I, R>(
+    intent: I, receipt: R, prove: (value: I, signal: AbortSignal) => Promise<string>,
+    execute: (value: I, proof: string | undefined, signal: AbortSignal) => Promise<R>,
+  ) {
+    const proof = await prove(intent, signal);
+    deepEqual(await execute(intent, proof, signal), receipt);
+    deepEqual(await execute(intent, undefined, signal), receipt);
+  }
+
   // 1. Moderation intent & decision
-  calls.length = 0;
-  handlers.clear();
+  resetRoutes();
   stepUpPair(WireRoutes.AdminStepUpBegin, WireRoutes.AdminStepUpComplete, FrameType.AdminModerationIntent);
   equal(await proveAdminModeration({ articleId: 1, commentId: 2n, expectedStatus: 0, decision: 1, reason: 'Valid reason' }, signal), validProof);
-  deepEqual(calls.map(c => c.url), [WireRoutes.AdminStepUpBegin, WireRoutes.AdminStepUpComplete]);
+  deepEqual(calls, [WireRoutes.AdminStepUpBegin, WireRoutes.AdminStepUpComplete]);
 
-  calls.length = 0;
-  handlers.clear();
+  resetRoutes();
   stepUpPair(WireRoutes.AdminModerationStepUpBegin, WireRoutes.AdminStepUpComplete, FrameType.AdminModerationDecision, altProof);
   handlers.set(WireRoutes.AdminModerationDecision, (headers, body) => {
     equal(headers.get(WireHeaders.MfaProof), altProof);
@@ -371,8 +382,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   throws(() => decideComment(modDecision, 'invalid-proof', signal), ProtocolError);
 
   // 2. Rollback proof helpers
-  calls.length = 0;
-  handlers.clear();
+  resetRoutes();
   const rollbackIntent = {
     articleId: 7, expectedRevision: 3n, expectedPublicationId: 8n, sourceRevision: 1n,
     idempotencyKey: '00000000-0011-4222-8333-445566778899', reason: 'Restore approved article content',
@@ -381,7 +391,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   stepUpPair(WireRoutes.AdminArticleDraftRollbackStepUpBegin, WireRoutes.AdminArticleDraftRollbackStepUpComplete, FrameType.AdminArticleDraftRollbackIntent, altProof);
   equal(await requestAdminArticleRollbackProof(rollbackIntent, signal), validProof);
   equal(await requestAdminArticleDraftRollbackProof({ ...rollbackIntent, targetStatus: 0 }, signal), altProof);
-  deepEqual(calls.map(c => c.url), [
+  deepEqual(calls, [
     WireRoutes.AdminArticleRollbackStepUpBegin, WireRoutes.AdminArticleRollbackStepUpComplete,
     WireRoutes.AdminArticleDraftRollbackStepUpBegin, WireRoutes.AdminArticleDraftRollbackStepUpComplete,
   ]);
@@ -390,8 +400,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   throws(() => executeAdminArticleDraftRollback({ ...rollbackIntent, targetStatus: 0 }, 'bad', signal), ProtocolError);
 
   // 3. Archive proof + execute + replay + availability
-  calls.length = 0;
-  handlers.clear();
+  resetRoutes();
   const archiveIntent = {
     articleId: 7, expectedRevision: 3n, expectedReleaseId: 8n, sourceRevision: 1n,
     idempotencyKey: '00000000-0011-4222-8333-445566778899', reason: 'Archive article cleanly', targetStatus: 3,
@@ -406,17 +415,21 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
     equal(headers.get(WireHeaders.MfaProof), sent);
     return frameResponse(encodeFrame(FrameType.AdminArticleArchiveReceipt, encodeAdminArticleArchiveReceipt(archiveReceipt)));
   });
-  const archiveProof = await requestAdminArticleArchiveProof(archiveIntent, signal);
-  deepEqual(await executeAdminArticleArchive(archiveIntent, archiveProof, signal), archiveReceipt);
-  deepEqual(await executeAdminArticleArchive(archiveIntent, undefined, signal), archiveReceipt);
+  await checkReplay(archiveIntent, archiveReceipt, requestAdminArticleArchiveProof, executeAdminArticleArchive);
   handlers.set(WireRoutes.AdminArticleArchiveExecute, () =>
     frameResponse(encodeFrame(FrameType.AdminArticleArchiveReceipt, encodeAdminArticleArchiveReceipt({ ...archiveReceipt, targetStatus: 2 }))));
   await rejects(() => executeAdminArticleArchive(archiveIntent, undefined, signal), ProtocolError);
 
   // 4. Trash publication & trash restore (beginHeaders sent to begin ONLY)
-  calls.length = 0;
-  handlers.clear();
+  resetRoutes();
   const trashKey = '11111111-1111-4111-8111-111111111111';
+  function trashExecute(path: string, proof: string, receipt: () => Uint8Array<ArrayBuffer>) {
+    handlers.set(path, headers => {
+      equal(headers.get(WireHeaders.ClientMutationId), trashKey);
+      equal(headers.get(WireHeaders.MfaProof), calls.length === 3 ? proof : null);
+      return frameResponse(receipt());
+    });
+  }
   const trashPubIntent = {
     articleId: 9, expectedRevision: 5n, sourceRevision: 2n, sourcePublicationId: 4n,
     idempotencyKey: trashKey, reason: 'Republish trashed article cleanly',
@@ -426,31 +439,18 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   };
   stepUpPair(WireRoutes.AdminArticleTrashPublicationBegin, WireRoutes.AdminArticleTrashPublicationComplete,
     FrameType.AdminArticleTrashPublicationIntent, validProof, trashKey);
-  handlers.set(WireRoutes.AdminArticleTrashPublicationExecute, headers => {
-    equal(headers.get(WireHeaders.ClientMutationId), trashKey);
-    equal(headers.get(WireHeaders.MfaProof), calls.length === 3 ? validProof : null);
-    return frameResponse(encodeFrame(FrameType.AdminArticleTrashPublicationReceipt,
-      encodeAdminArticleTrashPublicationReceipt(trashPubReceipt)));
-  });
-  const trashPubProof = await requestTrashPublicationProof(trashPubIntent, signal);
-  deepEqual(await executeTrashPublication(trashPubIntent, trashPubProof, signal), trashPubReceipt);
-  deepEqual(await executeTrashPublication(trashPubIntent, undefined, signal), trashPubReceipt);
+  trashExecute(WireRoutes.AdminArticleTrashPublicationExecute, validProof, () =>
+    encodeFrame(FrameType.AdminArticleTrashPublicationReceipt, encodeAdminArticleTrashPublicationReceipt(trashPubReceipt)));
+  await checkReplay(trashPubIntent, trashPubReceipt, requestTrashPublicationProof, executeTrashPublication);
 
-  calls.length = 0;
-  handlers.clear();
+  resetRoutes();
   const trashRestoreIntent = { articleId: 9, expectedRevision: 5n, idempotencyKey: trashKey };
   const trashRestoreReceipt = { articleId: 9, revision: 6n };
   stepUpPair(WireRoutes.AdminArticleTrashRestoreBegin, WireRoutes.AdminArticleTrashRestoreComplete,
     FrameType.AdminArticleTrashRestoreIntent, altProof, trashKey);
-  handlers.set(WireRoutes.AdminArticleTrashRestoreExecute, headers => {
-    equal(headers.get(WireHeaders.ClientMutationId), trashKey);
-    equal(headers.get(WireHeaders.MfaProof), calls.length === 3 ? altProof : null);
-    return frameResponse(encodeFrame(FrameType.AdminArticleTrashRestoreReceipt,
-      encodeAdminArticleTrashRestoreReceipt(trashRestoreReceipt)));
-  });
-  const trashRestoreProof = await requestTrashRestoreProof(trashRestoreIntent, signal);
-  deepEqual(await executeTrashRestore(trashRestoreIntent, trashRestoreProof, signal), trashRestoreReceipt);
-  deepEqual(await executeTrashRestore(trashRestoreIntent, undefined, signal), trashRestoreReceipt);
+  trashExecute(WireRoutes.AdminArticleTrashRestoreExecute, altProof, () =>
+    encodeFrame(FrameType.AdminArticleTrashRestoreReceipt, encodeAdminArticleTrashRestoreReceipt(trashRestoreReceipt)));
+  await checkReplay(trashRestoreIntent, trashRestoreReceipt, requestTrashRestoreProof, executeTrashRestore);
 
   // Availability helpers
   handlers.set(WireRoutes.AdminArticleArchiveAvailability, () => new Response(null, { status: 204 }));
@@ -463,8 +463,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   await rejects(() => readAdminAvailability('/bad-availability', signal), ProtocolError);
 
   // 5. Moderation batch
-  calls.length = 0;
-  handlers.clear();
+  resetRoutes();
   const batchDecision = {
     decision: 1 as const,
     reason: 'Batch approval fixture',
@@ -485,34 +484,22 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
     return frameResponse(encodeFrame(FrameType.AdminModerationBatchReceipt, w.finish()));
   });
   deepEqual(await proveAndDecideModerationBatch(batchDecision, signal), { batchId: 55n, count: 2 });
-  deepEqual(calls.map(c => c.url), [
+  deepEqual(calls, [
     WireRoutes.AdminModerationBatchStepUpBegin,
     WireRoutes.AdminModerationBatchStepUpComplete,
     WireRoutes.AdminModerationBatchDecision,
   ]);
 
   // 6. Appearance (Step-Up -> PoW challenge without MfaProof -> Apply with both)
-  calls.length = 0;
-  handlers.clear();
+  resetRoutes();
   const appearanceCmd = {
     expectedRevision: 1n, currentTheme: '', currentFont: '', theme: 'd'.repeat(64), font: '', rollback: false,
   };
   const appearanceFrame = encodeFrame(FrameType.AdminAppearanceCommand, encodeAdminAppearanceCommand(appearanceCmd));
   stepUpPair(WireRoutes.AdminAppearanceStepUpBegin, WireRoutes.AdminAppearanceStepUpComplete, FrameType.AdminAppearanceCommand);
-  handlers.set(WireRoutes.AdminAppearancePow, (headers, body) => {
-    equal(headers.get(WireHeaders.MfaProof), null);
-    match(headers.get(WireHeaders.PowClientNonce) ?? '', /^[a-f0-9]{32}$/);
-    deepEqual(body, appearanceFrame);
-    return frameResponse(powChallengeFrame({ salt: 'f'.repeat(32) }));
-  });
-  handlers.set(WireRoutes.AdminAppearanceApply, (headers, body) => {
-    equal(headers.get(WireHeaders.MfaProof), validProof);
-    equal(typeof headers.get(WireHeaders.PowProof), 'string');
-    deepEqual(body, appearanceFrame);
-    return frameResponse(emptySuccessFrame());
-  });
+  mockPowMutation(WireRoutes.AdminAppearancePow, WireRoutes.AdminAppearanceApply, appearanceFrame, validProof);
   await applyAppearance(appearanceCmd, signal);
-  deepEqual(calls.map(c => c.url), [
+  deepEqual(calls, [
     WireRoutes.AdminAppearanceStepUpBegin,
     WireRoutes.AdminAppearanceStepUpComplete,
     WireRoutes.AdminAppearancePow,
@@ -520,25 +507,13 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   ]);
 
   // 7. Site pages (Step-Up -> PoW challenge without MfaProof -> Publish with both)
-  calls.length = 0;
-  handlers.clear();
+  resetRoutes();
   const pageIntent = { slug: 'about', expectedRevision: 1n, expectedDigest: 'e'.repeat(64), markdown: '# Updated about\n' };
   const pageFrame = encodeFrame(FrameType.AdminSitePagePublish, encodeAdminSitePagePublish(pageIntent));
   stepUpPair(WireRoutes.AdminSitePageStepUpBegin, WireRoutes.AdminSitePageStepUpComplete, FrameType.AdminSitePagePublish, altProof);
-  handlers.set(WireRoutes.AdminSitePagePow, (headers, body) => {
-    equal(headers.get(WireHeaders.MfaProof), null);
-    match(headers.get(WireHeaders.PowClientNonce) ?? '', /^[a-f0-9]{32}$/);
-    deepEqual(body, pageFrame);
-    return frameResponse(powChallengeFrame({ salt: 'f'.repeat(32) }));
-  });
-  handlers.set(WireRoutes.AdminSitePagePublish, (headers, body) => {
-    equal(headers.get(WireHeaders.MfaProof), altProof);
-    equal(typeof headers.get(WireHeaders.PowProof), 'string');
-    deepEqual(body, pageFrame);
-    return frameResponse(emptySuccessFrame());
-  });
+  mockPowMutation(WireRoutes.AdminSitePagePow, WireRoutes.AdminSitePagePublish, pageFrame, altProof);
   await publishAdminSitePage(pageIntent, signal);
-  deepEqual(calls.map(c => c.url), [
+  deepEqual(calls, [
     WireRoutes.AdminSitePageStepUpBegin,
     WireRoutes.AdminSitePageStepUpComplete,
     WireRoutes.AdminSitePagePow,
@@ -546,8 +521,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   ]);
 
   // 8. Root comment PoW policy (Step-Up + AdminPermissionSession + receipt check)
-  calls.length = 0;
-  handlers.clear();
+  resetRoutes();
   const powCmd = { expectedGeneration: 1n, expectedDigest: 'c'.repeat(64), proofSeconds: 90, rollback: false };
   const powFrame = encodeFrame(FrameType.AdminRootCommentPowCommand, encodeAdminRootCommentPowCommand(powCmd));
   stepUpPair(WireRoutes.AdminRootCommentPowBegin, WireRoutes.AdminRootCommentPowComplete, FrameType.AdminRootCommentPowCommand);
@@ -557,7 +531,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
     deepEqual(body, powFrame);
     return frameResponse(encodeFrame(FrameType.AdminRootCommentPowPolicy, encodeAdminRootCommentPowPolicy({
       generation: 2n, digest: 'd'.repeat(64), proofSeconds: 90, previousSeconds: 120,
-    })), (applyPermissionHeader !== null ? { [WireHeaders.AdminPermissionSession]: applyPermissionHeader } : {}));
+    })), (applyPermissionHeader !== null ? permissionHeader(applyPermissionHeader) : {}));
   });
   const savedPolicy = await applyRootCommentPowPolicy(session, powCmd, signal);
   equal(savedPolicy.generation, 2n);
@@ -565,8 +539,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   await rejects(() => applyRootCommentPowPolicy(session, powCmd, signal), ProtocolError);
 
   // 9. Comment appeals (parameterized route + Step-Up + appealId receipt binding)
-  calls.length = 0;
-  handlers.clear();
+  resetRoutes();
   const appealId = '77';
   stepUpPair(WireRoutes.AdminAppealStepUpBegin.replace('{id:long}', appealId),
     WireRoutes.AdminAppealStepUpComplete, FrameType.CommentAppealDecisionRequest);
@@ -577,7 +550,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
       encoder.encode(JSON.stringify({ success: true, code: 'ok', appealId: 77 }))));
   });
   await decideAdminAppeal(appealId, 'granted', 'Valid appeal explanation', signal);
-  deepEqual(calls.map(c => c.url), [
+  deepEqual(calls, [
     WireRoutes.AdminAppealStepUpBegin.replace('{id:long}', appealId),
     WireRoutes.AdminAppealStepUpComplete,
     WireRoutes.AdminAppealDecision.replace('{id:long}', appealId),

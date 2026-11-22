@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { hexFixture } from './fixture-source.ts'
+import { framedFixture, frameResponse, hexFixture } from './fixture-source.ts'
 import { test } from 'node:test'
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts'
 import {
@@ -13,7 +13,7 @@ import {
 } from '../../src/Contracts/property-text-hit.ts'
 
 // Independently assembled with Python struct/UUID and bitwise CRC, without the production codec.
-function fixture(name: string): Uint8Array {
+function fixture(name: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(hexFixture(`${name}.hex`))
 }
 
@@ -21,6 +21,18 @@ const definitionId = '00000000-0000-4000-8000-000000000006'
 const requestId = '0a0b0c0d-1111-4000-8000-010203040506'
 const red = { id: 'af970001-2222-4000-8000-112233445566', label: 'Red' }
 const blue = { id: 'af970002-2222-4000-8000-112233445566', label: '蓝色' }
+
+function filterField(kind: FilterField['kind'], machineKey: string, label: string, options: FilterField['options'] = []): FilterField {
+  return { id: definitionId, revision: 2n, kind, machineKey, label, enabled: true, deprecated: false, options }
+}
+
+// First value tag follows the workspace header, two bounded strings and empty options collection.
+const firstValueTag = 36 + 16 + 8 + 4 + 'article'.length + 4 + 'Reference'.length + 1 + 4 + 4
+
+function typedEditorPayload() {
+  return framedFixture('property-editor-typed.hex', FrameType.PropertyEditor)
+}
+
 const valueCommand = {
   articleId: 17, articleRevision: 9007199254740993n, schemaRevision: 10n, valueRevision: 8n,
   definitionId, definitionRevision: 1n, requestId, value: { kind: 'number', value: '-9007199254740993.000000000001' },
@@ -31,7 +43,7 @@ const schemaCommand = {
 } satisfies PropertySchemaCommand
 
 test('typed editor decodes eight exact variants and preserves null and missing', () => {
-  const workspace = decodePropertyEditor(decodeFrame(fixture('property-editor-typed'), FrameType.PropertyEditor).payload)
+  const workspace = decodePropertyEditor(typedEditorPayload())
   assert.equal(workspace.articleId, 17)
   assert.equal(workspace.articleRevision, 9007199254740993n)
   assert.equal(workspace.schemaRevision, 10n)
@@ -53,28 +65,25 @@ test('typed editor decodes eight exact variants and preserves null and missing',
 })
 
 test('typed editor rejects payload truncation, trailing bytes, and mismatched kinds', () => {
-  const payload = decodeFrame(fixture('property-editor-typed'), FrameType.PropertyEditor).payload
+  const payload = typedEditorPayload()
   assert.throws(() => decodePropertyEditor(payload.subarray(0, -1)), ProtocolError)
   assert.throws(() => decodePropertyEditor(Uint8Array.of(...payload, 0)), ProtocolError)
 
-  // First value tag follows the workspace header, two bounded strings and empty options collection.
-  const tag = 36 + 16 + 8 + 4 + 'article'.length + 4 + 'Reference'.length + 1 + 4 + 4
   const changed = Uint8Array.from(payload)
-  new DataView(changed.buffer).setInt32(tag, 5, true)
+  new DataView(changed.buffer).setInt32(firstValueTag, 5, true)
   assert.throws(() => decodePropertyEditor(changed), /definition\/value kind mismatch/)
-  new DataView(changed.buffer).setInt32(tag, 99, true)
+  new DataView(changed.buffer).setInt32(firstValueTag, 99, true)
   assert.throws(() => decodePropertyEditor(changed), /kind/)
 })
 
 test('unavailable references reveal no IDs and cannot be encoded as an edit', () => {
-  const published = decodeFrame(fixture('property-editor-typed'), FrameType.PropertyEditor).payload
-  const tag = 36 + 16 + 8 + 4 + 'article'.length + 4 + 'Reference'.length + 1 + 4 + 4
+  const published = typedEditorPayload()
   // Replace the reference tag and its count + two IDs with the read-only availability marker.
-  const unavailable = Uint8Array.of(...published.subarray(0, tag), 0xfd, 0xff, 0xff, 0xff, ...published.subarray(tag + 16))
+  const unavailable = Uint8Array.of(...published.subarray(0, firstValueTag), 0xfd, 0xff, 0xff, 0xff, ...published.subarray(firstValueTag + 16))
   assert.deepEqual(decodePropertyEditor(unavailable).fields[0]?.value, { kind: 'unavailable' })
 
   const incompatibleKind = Uint8Array.from(unavailable)
-  new DataView(incompatibleKind.buffer).setInt32(tag - 8, 0, true)
+  new DataView(incompatibleKind.buffer).setInt32(firstValueTag - 8, 0, true)
   assert.throws(() => decodePropertyEditor(incompatibleKind), /unavailable reference/)
   assert.throws(() => encodePropertyValueCommand({
     ...valueCommand,
@@ -109,7 +118,7 @@ test('property batch uses fixed mixed-value bytes and binds the receipt to the c
     assert.equal(init.method, 'POST')
     assert.equal(new Headers(init.headers).get(WireHeaders.CurrentSession), credential)
     assert.deepEqual(init.body, fixture('property-value-batch'))
-    return new Response(returned, { headers: { 'content-type': 'application/octet-stream' } })
+    return frameResponse(returned)
   })
   assert.deepEqual(await propertyApi.values(batch, undefined, credential), {
     articleId: 17, schemaRevision: 10n, valueRevision: 9n, requestId,
@@ -122,14 +131,12 @@ test('property batch uses fixed mixed-value bytes and binds the receipt to the c
 })
 
 test('the AND request preserves independent decimal and UTC comparison bytes', async t => {
-  const base: FilterField = { id: definitionId, revision: 2n, kind: 'number', machineKey: 'score', label: 'Score',
-    enabled: true, deprecated: false, options: [] }
+  const base = filterField('number', 'score', 'Score')
   const fetch = t.mock.method(globalThis, 'fetch', async (path: string, init: RequestInit) => {
     assert.equal(path, WireRoutes.PropertyArticleQuery)
     assert.equal(init.method, 'POST')
     assert.deepEqual(init.body, fixture('property-query-group'))
-    return new Response(encodeFrame(FrameType.PropertyArticlePage, new Uint8Array(8)),
-      { headers: { 'content-type': 'application/octet-stream' } })
+    return frameResponse(encodeFrame(FrameType.PropertyArticlePage, new Uint8Array(8)))
   })
   assert.deepEqual(await queryPropertyArticles({ schema: 10n, cursor: '', conditions: [
     { field: base, comparison: 'at-least', value: valueCommand.value },
@@ -140,8 +147,7 @@ test('the AND request preserves independent decimal and UTC comparison bytes', a
 })
 
 test('property presence uses the operand-free comparison bytes', () => {
-  const field: FilterField = { id: definitionId, revision: 2n, kind: 'number', machineKey: 'score', label: 'Score',
-    enabled: true, deprecated: false, options: [] }
+  const field = filterField('number', 'score', 'Score')
   const query = { schema: 10n, cursor: '' }
   assert.deepEqual(encodePropertyQuery({ ...query, conditions: [{ field, comparison: 'is-present', value: { kind: 'missing' } }] }),
     fixture('property-query-presence'))
@@ -150,8 +156,7 @@ test('property presence uses the operand-free comparison bytes', () => {
 })
 
 test('same-field alternatives preserve independent bytes and reject mixed and repeated operands', () => {
-  const field: FilterField = { id: definitionId, revision: 2n, kind: 'number', machineKey: 'score', label: 'Score',
-    enabled: true, deprecated: false, options: [] }
+  const field = filterField('number', 'score', 'Score')
   const zero = { field, comparison: 'equal', value: { kind: 'number', value: '0' }, anyOf: true } as const
   const higher = { ...zero, value: { kind: 'number', value: '19.75' } } as const
   const query = { schema: 10n, cursor: '' }
@@ -161,8 +166,7 @@ test('same-field alternatives preserve independent bytes and reject mixed and re
 })
 
 test('title or summary keyword has its own exact frame and current-session witness', async t => {
-  const field: FilterField = { id: definitionId, revision: 2n, kind: 'number', machineKey: 'score', label: 'Score',
-    enabled: true, deprecated: false, options: [] }
+  const field = filterField('number', 'score', 'Score')
   const query = { schema: 10n, cursor: '', keyword: '%_雪',
     conditions: [{ field, comparison: 'is-present', value: { kind: 'missing' } }] } as const
   const bytes = fixture('property-query-keyword')
@@ -175,16 +179,14 @@ test('title or summary keyword has its own exact frame and current-session witne
   const fetch = t.mock.method(globalThis, 'fetch', async (_url, init) => {
     assert.equal(new Headers(init?.headers).get(WireHeaders.CurrentSession), session)
     assert.deepEqual(new Uint8Array(await new Response(init?.body).arrayBuffer()), bytes)
-    return new Response(encodeFrame(FrameType.PropertyArticlePage, new Uint8Array(8)),
-      { headers: { 'content-type': 'application/octet-stream' } })
+    return frameResponse(encodeFrame(FrameType.PropertyArticlePage, new Uint8Array(8)))
   })
   assert.deepEqual(await queryPropertyArticles(query, undefined, session), { nextCursor: '', rows: [] })
   assert.equal(fetch.mock.callCount(), 1)
 })
 
 test('multi-select alternatives preserve independent query bytes', () => {
-  const field: FilterField = { id: definitionId, revision: 2n, kind: 'multi-select', machineKey: 'tag', label: 'Tag',
-    enabled: true, deprecated: false, options: [red, blue] }
+  const field = filterField('multi-select', 'tag', 'Tag', [red, blue])
   const condition = { field, comparison: 'multi-select-any-of', value: { kind: 'multi-select', value: [blue.id, red.id] } } as const
   const query = { schema: 10n, cursor: '', conditions: [condition] }
   assert.deepEqual(encodePropertyQuery(query), fixture('property-query-multi-select-any-of'))
@@ -194,8 +196,7 @@ test('multi-select alternatives preserve independent query bytes', () => {
 })
 
 test('single-select filters encode nonempty UUID alternatives without changing stored values', () => {
-  const field: FilterField = { id: definitionId, revision: 2n, kind: 'single-select', machineKey: 'tag', label: 'Tag',
-    enabled: true, deprecated: false, options: [red, blue] }
+  const field = filterField('single-select', 'tag', 'Tag', [red, blue])
   const condition = { field, comparison: 'single-select-any-of', value: { kind: 'multi-select', value: [blue.id, red.id] } } as const
   const query = { schema: 10n, cursor: '', conditions: [condition] }
   assert.deepEqual(encodePropertyQuery(query), fixture('property-query-single-select-any-of'))
@@ -206,8 +207,7 @@ test('single-select filters encode nonempty UUID alternatives without changing s
 })
 
 test('reference alternatives encode the bounded existing article reference carrier', () => {
-  const field: FilterField = { id: definitionId, revision: 2n, kind: 'article-reference', machineKey: 'reference',
-    label: 'Reference', enabled: true, deprecated: false, options: [] }
+  const field = filterField('article-reference', 'reference', 'Reference')
   const condition = { field, comparison: 'reference-any-of', value: { kind: 'article-reference', value: [42, 17] } } as const
   const query = { schema: 10n, cursor: '', conditions: [condition] }
   assert.deepEqual(encodePropertyQuery(query), fixture('property-query-reference-any-of'))
@@ -224,10 +224,14 @@ test('typed writers reject unsupported identity, dates, and exact decimal overfl
   for (const invalid of ['1e4', '1\n', '1,000', '79228162514264337593543950336', '0.00000000000000000000000000001']) {
     assert.throws(() => normalizePropertyDecimal(invalid), ProtocolError)
   }
-  assert.throws(() => encodePropertyValueCommand({ ...valueCommand, value: { kind: 'number', value: '1.0' } }), ProtocolError)
-  assert.throws(() => encodePropertyValueCommand({ ...valueCommand, value: { kind: 'date', value: '2023-02-29T14:12:06.015Z' } }), ProtocolError)
-  assert.throws(() => encodePropertyValueCommand({ ...valueCommand, value: { kind: 'article-reference', value: [2, 2] } }), ProtocolError)
-  assert.throws(() => encodePropertyValueCommand({ ...valueCommand, value: { kind: 'article-reference', value: [2147483648] } }), ProtocolError)
+  const invalidValues: PropertyValueCommand['value'][] = [
+    { kind: 'number', value: '1.0' },
+    { kind: 'date', value: '2023-02-29T14:12:06.015Z' },
+    { kind: 'article-reference', value: [2, 2] },
+    { kind: 'article-reference', value: [2147483648] },
+  ]
+  for (const value of invalidValues)
+    assert.throws(() => encodePropertyValueCommand({ ...valueCommand, value }), ProtocolError)
   assert.throws(() => encodePropertySchemaCommand({ ...schemaCommand, options: [red, { ...red, id: red.id.toUpperCase() }] }),
     ProtocolError)
 })
@@ -237,7 +241,7 @@ test('typed client only accepts workspace and receipts bound to the submitted re
   let body: Uint8Array = fixture('property-editor-typed')
   t.mock.method(globalThis, 'fetch', async (path: string, init: RequestInit) => {
     calls.push({ path, method: init.method })
-    return new Response(Uint8Array.from(body), { headers: { 'content-type': 'application/octet-stream' } })
+    return frameResponse(Uint8Array.from(body))
   })
   await propertyApi.workspace({ articleId: 17, articleRevision: 9007199254740993n, schemaRevision: 0n, valueRevision: 0n, afterKey: '' })
   await assert.rejects(propertyApi.workspace({

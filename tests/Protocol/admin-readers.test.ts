@@ -1,11 +1,11 @@
 import { deepEqual, equal, rejects } from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
+import { adminSessionFixture, altPermissionSession, permissionHeader, validPermissionSession, validProof } from './admin-permission-fixture.ts';
 import { frameResponse } from './fixture-source.ts';
 import {
   installPasskeyEnvironment, loginBeginFrame, mfaChallengeResultFrame,
 } from './step-up-fixture.ts';
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
-import type { AdminSession } from '../../src/Contracts/admin-identity.ts';
 import {
   executeReaderStatusChange,
   readAdminReaderAccounts,
@@ -13,6 +13,7 @@ import {
   validReaderGovernanceReason,
   type AdminReaderAccount,
   type AdminReaderAccountPage,
+  type AdminReaderQuery,
   type AdminReaderStatusCommand,
   type AdminReaderStatusReceipt,
 } from '../../src/Contracts/admin-readers.ts';
@@ -26,23 +27,11 @@ import {
   WireRoutes,
 } from '../../src/Contracts/wire.generated.ts';
 
-const validProof = 'P'.repeat(43);
-const validPermissionSession = 'a'.repeat(64);
-const altPermissionSession = 'b'.repeat(64);
 const zeroUuid = '00000000-0000-0000-0000-000000000000';
 const userId = '11111111-2222-4333-8444-555555555555';
 const commandId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 
-function activeSession(permissionSession = validPermissionSession): AdminSession {
-  return {
-    handle: 'admin-fixture',
-    generation: 3n,
-    expiresAt: Date.now() + 60_000,
-    appearanceEnabled: true,
-    siteConfigEnabled: true,
-    permissionSession,
-  };
-}
+const activeSession = adminSessionFixture('admin-fixture', 3n);
 
 function sampleAccount(overrides: Partial<AdminReaderAccount> = {}): AdminReaderAccount {
   return {
@@ -77,6 +66,14 @@ function samplePage(overrides: Partial<AdminReaderAccountPage> = {}): AdminReade
     items: [sampleAccount()],
     ...overrides,
   };
+}
+
+function readerPageResponse(page: AdminReaderAccountPage, binding = validPermissionSession) {
+  return frameResponse(encodeFrame(FrameType.AdminReaderAccountPage, encodeAdminReaderAccountPage(page)), permissionHeader(binding));
+}
+
+function readerReceiptResponse(receipt: AdminReaderStatusReceipt) {
+  return frameResponse(encodeFrame(FrameType.AdminReaderStatusReceipt, encodeAdminReaderStatusReceipt(receipt)), permissionHeader(validPermissionSession));
 }
 
 function sampleCommand(overrides: Partial<AdminReaderStatusCommand> = {}): AdminReaderStatusCommand {
@@ -122,6 +119,7 @@ test('validReaderGovernanceReason enforces length, UTF-8 byte budget, and contro
 });
 
 test('readAdminReaderAccounts encodes query params, enforces permission session, and validates response invariants', async t => {
+  const read = (query: AdminReaderQuery = {}) => readAdminReaderAccounts(activeSession(), query, new AbortController().signal);
   const seenUrls: string[] = [];
   const expected = samplePage({
     hasMore: true,
@@ -131,28 +129,25 @@ test('readAdminReaderAccounts encodes query params, enforces permission session,
 
   mockFetch(t, async input => {
     seenUrls.push(String(input));
-    return frameResponse(encodeFrame(FrameType.AdminReaderAccountPage, encodeAdminReaderAccountPage(expected)), { [WireHeaders.AdminPermissionSession]: validPermissionSession });
+    return readerPageResponse(expected);
   });
 
-  const page = await readAdminReaderAccounts(activeSession(), {
+  const page = await read({
     status: 'disabled',
     keyword: '  alice  ',
     after: { accountId: 99, userId },
-  }, new AbortController().signal);
+  });
   deepEqual(page, expected);
   equal(
     seenUrls[0],
     `${WireRoutes.AdminReaderAccounts}?status=disabled&keyword=alice&afterAccountId=99&afterUserId=${userId}`,
   );
 
-  await readAdminReaderAccounts(activeSession(), { status: 'all', keyword: '   ' }, new AbortController().signal);
+  await read({ status: 'all', keyword: '   ' });
   equal(seenUrls[1], WireRoutes.AdminReaderAccounts);
 
-  mockFetch(t, async () => frameResponse(encodeFrame(FrameType.AdminReaderAccountPage, encodeAdminReaderAccountPage(samplePage())), { [WireHeaders.AdminPermissionSession]: altPermissionSession }));
-  await rejects(
-    readAdminReaderAccounts(activeSession(), {}, new AbortController().signal),
-    ProtocolError,
-  );
+  mockFetch(t, async () => readerPageResponse(samplePage(), altPermissionSession));
+  await rejects(read(), ProtocolError);
 
   const malformedPages: AdminReaderAccountPage[] = [
     samplePage({ total: 5, enabledTotal: 1, disabledTotal: 1 }),
@@ -162,11 +157,8 @@ test('readAdminReaderAccounts encodes query params, enforces permission session,
     samplePage({ items: [sampleAccount({ lastGovernanceAtUnixMs: 1_794_684_000_000n, lastGovernanceReason: '' })] }),
   ];
   for (const invalid of malformedPages) {
-    mockFetch(t, async () => frameResponse(encodeFrame(FrameType.AdminReaderAccountPage, encodeAdminReaderAccountPage(invalid)), { [WireHeaders.AdminPermissionSession]: validPermissionSession }));
-    await rejects(
-      readAdminReaderAccounts(activeSession(), {}, new AbortController().signal),
-      ProtocolError,
-    );
+    mockFetch(t, async () => readerPageResponse(invalid));
+    await rejects(read(), ProtocolError);
   }
 });
 
@@ -209,20 +201,21 @@ test('requestReaderStatusProof binds trimmed command and idempotency key to Step
 });
 
 test('executeReaderStatusChange sends proof and idempotency headers, supports proof-less replay, and validates receipts', async t => {
+  const execute = (proof?: string) => executeReaderStatusChange(activeSession(), sampleCommand(), proof, new AbortController().signal);
   const seenHeaders: Headers[] = [];
   const receipt = sampleReceipt();
   mockFetch(t, async (input, init) => {
     equal(String(input), WireRoutes.AdminReaderStatusExecute);
     seenHeaders.push(new Headers(init?.headers));
-    return frameResponse(encodeFrame(FrameType.AdminReaderStatusReceipt, encodeAdminReaderStatusReceipt(receipt)), { [WireHeaders.AdminPermissionSession]: validPermissionSession });
+    return readerReceiptResponse(receipt);
   });
 
-  const first = await executeReaderStatusChange(activeSession(), sampleCommand(), validProof, new AbortController().signal);
+  const first = await execute(validProof);
   deepEqual(first, receipt);
   equal(seenHeaders[0].get(WireHeaders.MfaProof), validProof);
   equal(seenHeaders[0].get(WireHeaders.ClientMutationId), commandId);
 
-  const replayed = await executeReaderStatusChange(activeSession(), sampleCommand(), undefined, new AbortController().signal);
+  const replayed = await execute(undefined);
   deepEqual(replayed, receipt);
   equal(seenHeaders[1].get(WireHeaders.MfaProof), null);
   equal(seenHeaders[1].get(WireHeaders.ClientMutationId), commandId);
@@ -233,10 +226,7 @@ test('executeReaderStatusChange sends proof and idempotency headers, supports pr
     sampleReceipt({ revokedSessionCount: -1 }),
     sampleReceipt({ userId: commandId }),
   ]) {
-    mockFetch(t, async () => frameResponse(encodeFrame(FrameType.AdminReaderStatusReceipt, encodeAdminReaderStatusReceipt(badReceipt)), { [WireHeaders.AdminPermissionSession]: validPermissionSession }));
-    await rejects(
-      executeReaderStatusChange(activeSession(), sampleCommand(), validProof, new AbortController().signal),
-      ProtocolError,
-    );
+    mockFetch(t, async () => readerReceiptResponse(badReceipt));
+    await rejects(execute(validProof), ProtocolError);
   }
 });
