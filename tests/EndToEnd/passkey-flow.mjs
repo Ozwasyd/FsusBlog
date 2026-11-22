@@ -35,6 +35,7 @@ let failure
 const browser = await launchIdentityBrowser()
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
+  context.setDefaultTimeout(30_000)
   await context.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
   const page = await context.newPage()
   monitor(page)
@@ -67,9 +68,9 @@ try {
   phase = 'assertion'
   const assertionStarted = Date.now()
   await exactButton(page, 'Log in with Passkey').click()
-  await page.waitForURL(`${origin}/user/manage/article/write`)
+  await page.waitForURL(origin + securityPath)
   checks.passkeyLoginAfterProvision = true
-  await page.getByRole('heading', { name: 'New article' }).waitFor()
+  await roleWithExactName(page, 'heading', 'Account').waitFor()
   const cookie = (await context.cookies()).find(cookie => cookie.name === 'fsus-v2-session')
   assert(cookie?.httpOnly && cookie.sameSite === 'Strict' && cookie.expires === -1)
   const session = await context.request.get(`${origin}/api/v2/identity/session.aeds`)
@@ -253,7 +254,7 @@ try {
     const signIn = page.waitForResponse(response => response.request().method() === 'POST' &&
       response.url() === origin + WireRoutes.PasskeyLoginComplete)
     await exactButton(page, 'Log in with Passkey').click()
-    await page.waitForURL(`${origin}/user/manage/article/write`)
+    await page.waitForURL(origin + securityPath)
     assertStatus(await signIn, 200)
     const renewed = await context.request.get(`${origin}/api/v2/identity/session.aeds`)
     assertStatus(renewed, 200)

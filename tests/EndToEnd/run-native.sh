@@ -160,8 +160,10 @@ JS
 )
 url="http://localhost:$http_port"
 export FSUSBLOG_ADMIN_ORIGIN="$url" FSUSBLOG_ADMIN_RP_ID=localhost
-if [[ $flow == comment-author-delete || $flow == reader-registration ]]; then
+if [[ $flow == comment-author-delete || $flow == reader-registration || $flow == passkey ]]; then
   export FSUSBLOG_PASSKEY_ORIGIN="$url" FSUSBLOG_PASSKEY_RP_ID=localhost
+fi
+if [[ $flow == comment-author-delete || $flow == reader-registration ]]; then
   export FSUSBLOG_READER_REGISTRATION=true
 fi
 dotnet "$scratch/server/FsusBlog.V2.Server.dll" --urls "http://127.0.0.1:$http_port" > "$evidence/server.log" 2>&1 &
@@ -188,6 +190,9 @@ case ${FSUSBLOG_TEST_FLOW:-blog} in
     ;;
   reader-registration)
     FSUSBLOG_TEST_PASSKEY_URL="$url" node tests/EndToEnd/reader-registration-flow.mjs
+    ;;
+  passkey)
+    FSUSBLOG_TEST_PASSKEY_URL="$url" FSUSBLOG_TEST_PASSKEY_TICKET="$FSUSBLOG_TEST_TICKET" node tests/EndToEnd/passkey-flow.mjs
     ;;
   public-hot-articles) node tests/EndToEnd/run-public-hot-articles.mjs ;;
   property-inspector-scale) node tests/EndToEnd/property-inspector-scale.mjs ;;

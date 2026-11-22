@@ -22,4 +22,6 @@ V2 的站点账号可以通过可发现的 Passkey 登录。现有 `/api/binary/
 
 迁移旧凭据应保留原 `AccountId`、32 字节 user handle、凭据 ID、公钥、签名计数和备份元数据，并验证 RP 一致。`passkey_subject.account_id` 可由离线迁移明确写入旧值。导入后必须同步 identity 序列以防碰撞。旧库映射脚本尚未实现。
 
-实测环境为 .NET SDK 10.0.404、PostgreSQL 18、Chrome 157 及真实 Vite 生产构建。`tests/EndToEnd/passkey-flow.mjs` 通过 Chrome 的虚拟 CTAP2 认证器执行真实 WebAuthn 注册和断言，验证独立首次绑定、已签名登录、写作页、服务端注销和清除 cookie。`tests/Integration/PasskeyPostgresTests.cs` 检查错误浏览器绑定、票据重用和账号代次变更时的数据库拒绝，数据库记录确认没有意外的凭据或会话。实际实体认证器和受控生产 TLS 部署留待验收。
+实测环境为 .NET SDK 10.0.404、PostgreSQL 18、Chrome 157 及真实 Vite 生产构建。`FSUSBLOG_TEST_FLOW=passkey bash tests/EndToEnd/run-native.sh` 通过 Chrome 的虚拟 CTAP2 认证器执行真实 WebAuthn 注册和断言，验证独立首次绑定、已签名登录后进入账号页、服务端注销和清除 cookie。分别设置 `FSUSBLOG_TEST_PASSKEY_REMOVE=1` 或 `FSUSBLOG_TEST_PASSKEY_REMOVE_CURRENT=1` 可复验第二个 Passkey 的登记、登录和两类移除。`tests/Integration/PasskeyPostgresTests.cs` 检查错误浏览器绑定、票据重用和账号代次变更时的数据库拒绝，数据库记录确认没有意外的凭据或会话。实际实体认证器和受控生产 TLS 部署留待验收。
+
+`FSUSBLOG_TEST_PASSKEY_RENAME=1` 的改名请求成功，浏览器显示新名称，但当前 Passkey 的徽标未出现。浏览器验收保留徽标的可见性断言。 [FsusUI #1127](https://github.com/Ozwasyd/FsusUI/issues/1127)
