@@ -7,10 +7,12 @@ import AdminModerationControls from './AdminModerationControls.vue'
 import AdminAppealReview from './AdminAppealReview.vue'
 import AdminInbox from './AdminInbox.vue'
 import AdminReaderGovernance from './AdminReaderGovernance.vue'
+import AdminRiskReadiness from './AdminRiskReadiness.vue'
 
 defineProps<{
   session: AdminSession
   sessionSignal: AbortSignal
+  showRiskControls?: boolean
 }>()
 const emit = defineEmits<{ 'session-lost': [error: unknown] }>()
 const selected = ref<string | number>('queue')
@@ -39,6 +41,14 @@ const selected = ref<string | number>('queue')
     </ElTabPane>
     <ElTabPane name="readers" :label="t('admin.readers.tab')" lazy>
       <AdminReaderGovernance
+        :session="session"
+        :session-signal="sessionSignal"
+        @session-lost="emit('session-lost', $event)"
+      />
+    </ElTabPane>
+    <ElTabPane v-if="showRiskControls" name="protection" :label="t('admin.riskControls')" lazy>
+      <AdminRiskReadiness
+        v-if="selected === 'protection'"
         :session="session"
         :session-signal="sessionSignal"
         @session-lost="emit('session-lost', $event)"

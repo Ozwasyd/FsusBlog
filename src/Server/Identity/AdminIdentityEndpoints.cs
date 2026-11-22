@@ -18,7 +18,7 @@ internal static class AdminIdentityEndpoints
     private const string RpSetting = "FSUSBLOG_ADMIN_RP_ID";
     private const string ApiPath = "/api/v2/admin/identity";
     private static readonly string[] DocumentPaths =
-        ["/admin", "/admin/articles", "/admin/articles/write", "/admin/articles/workspace", "/admin/canvas", "/admin/assets", "/admin/interaction", "/admin/site", "/admin/system", "/admin/identity"];
+        ["/admin", "/admin/articles", "/admin/articles/write", "/admin/articles/workspace", "/admin/canvas", "/admin/assets", "/admin/interaction", "/admin/site", "/admin/identity"];
     private static readonly string[] ParameterizedDocumentPaths =
         ["/admin/articles/edit/{id:int}", "/admin/canvas/{id:guid}"];
     private const string Limit = "admin-passkey";

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { siteLocale, t, type MessageKey } from '../siteLocale'
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-import { useDelayedBusy } from '../delayedBusy'
+import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { ThemeMode } from '@ozwasyd/element-plus/theme'
 import AccountWorkspace from '../AccountWorkspace.vue'
@@ -24,8 +23,7 @@ import AdminSiteTraffic from './AdminSiteTraffic.vue'
 import AdminSiteConfig from './AdminSiteConfig.vue'
 import AdminSitePages from './AdminSitePages.vue'
 import AdminSessionHistory from './AdminSessionHistory.vue'
-import AdminCluster from './AdminCluster.vue'
-import AdminRiskReadiness from './AdminRiskReadiness.vue'
+import AdminSystemDiagnostics from './AdminSystemDiagnostics.vue'
 import AdminAppearance from './AdminAppearance.vue'
 import { ApiError } from '../../../Contracts/aeds'
 import { passkeyAvailable } from '../../../Contracts/passkey'
@@ -34,12 +32,10 @@ import { readInitialAdminEntry } from '../workspacePreload'
 import {
   bootstrapAdminPasskey,
   readAdminAuthority,
-  readAdminOperations,
   signInAdmin,
   signOutAdmin,
   validAdminBootstrapToken,
   type AdminAuthority,
-  type AdminOperationsStatus,
   type AdminSession,
 } from '../../../Contracts/admin-identity'
 
@@ -47,7 +43,7 @@ defineProps<{ themeMode?: ThemeMode }>()
 const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
 const route = useRoute()
 const router = useRouter()
-const section = computed(() => adminWorkspacePages.find(page => page.name === route.name) ?? adminWorkspacePages[4])
+const section = computed(() => adminWorkspacePages.find(page => page.name === route.name) ?? adminWorkspacePages.at(-1)!)
 const adminUsesHttps = globalThis.location?.protocol === 'https:'
 const configuredPublicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
 const splitAdminHost = Boolean(configuredPublicOrigin && configuredPublicOrigin !== globalThis.location?.origin)
@@ -61,14 +57,9 @@ const canUsePasskeys = globalThis.isSecureContext && typeof PublicKeyCredential 
 const busy = ref(false)
 const failure = ref<MessageKey | ''>('')
 const notice = ref<MessageKey | ''>('')
-const operations = shallowRef<AdminOperationsStatus | null>(null)
-const operationsBusy = ref(false)
-const operationsLoading = useDelayedBusy(() => operationsBusy.value)
-const operationsFailure = ref<MessageKey | ''>('')
 const sessionAuthority = shallowRef(new AbortController())
 const sessionEpoch = ref(0)
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
-let operationsRequest: AbortController | undefined
 let revalidateRequest: AbortController | undefined
 
 function sameAdminAuthority(a: AdminAuthority | null, b: AdminAuthority | null): boolean {
@@ -98,7 +89,6 @@ function scheduleExpiry(session: AdminSession) {
 }
 
 function resetSessionScope() {
-  clearOperations()
   sessionAuthority.value.abort()
   sessionAuthority.value = new AbortController()
   sessionEpoch.value++
@@ -224,56 +214,6 @@ const links = computed(() => [
   ...(splitAdminHost ? [] : [{ to: '/', label: t('nav.publicSite') }]),
   ...adminWorkspacePages.map(({ path, label }) => ({ to: path, label: t(label) })),
 ])
-watch([() => authority.value, () => section.value.section], ([current, currentSection]) => {
-  if (currentSection !== 'system') {
-    clearOperations()
-    return
-  }
-  if (current?.status === 'active') void checkOperations(false)
-}, { immediate: true })
-
-function clearOperations() {
-  operationsRequest?.abort()
-  operationsRequest = undefined
-  operations.value = null
-  operationsBusy.value = false
-  operationsFailure.value = ''
-}
-
-async function checkOperations(force = true) {
-  const active = authority.value
-  if (active?.status !== 'active' || (force && busy.value) || (!force && operationsBusy.value)) return
-  clearOperations()
-  const check = new AbortController()
-  operationsRequest = check
-  operationsBusy.value = true
-  const live = () => authority.value === active && !check.signal.aborted
-  const same = (observed: AdminAuthority) => observed.status === 'active' &&
-    observed.session.permissionSession === active.session.permissionSession
-  try {
-    const status = await readAdminOperations(active.session, check.signal)
-    if (!live()) return
-    const observed = await readAdminAuthority(check.signal)
-    if (!live()) return
-    if (!same(observed)) setAuthority(observed)
-    else operations.value = status
-  } catch (error) {
-    if (!live()) return
-    if (error instanceof ApiError && error.status === 401) {
-      const observed = await readAdminAuthority(check.signal).catch(() => null)
-      if (!live()) return
-      if (observed?.status === 'signed-out') { handleSessionLoss(error); return }
-      if (observed && !same(observed)) { setAuthority(observed); return }
-    }
-    if (!force && error instanceof ApiError && error.status === 403) return
-    operationsFailure.value = 'admin.operationsFailed'
-  } finally {
-    if (operationsRequest === check) {
-      operationsRequest = undefined
-      operationsBusy.value = false
-    }
-  }
-}
 
 function handleSessionLoss(error: unknown): boolean {
   if (!(error instanceof ApiError) || error.status !== 401) return false
@@ -341,7 +281,7 @@ function logOut() {
     <main class="admin-workspace">
       <ElTaskPageHeader
         :title="t(section.label)"
-        :description="section.section === 'identity' ? t('admin.accountSummary') : section.section === 'system' ? t('admin.systemSummary') : undefined"
+        :description="section.section === 'identity' ? t('admin.accountSummary') : undefined"
         density="compact"
       />
       <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
@@ -371,32 +311,9 @@ function logOut() {
           :key="sessionEpoch"
           :session="authority.session"
           :session-signal="sessionAuthority.signal"
+          :show-risk-controls="adminUsesHttps"
           @session-lost="handleSessionLoss"
         />
-        <ElSettingsSection v-if="section.section === 'system'" class="admin-operations"
-          ariaLabelledby="admin-operations-heading" :description="t('admin.operationsSummary')"
-          v-bind="{ 'aria-busy': operationsBusy }" density="compact">
-          <template #title><span id="admin-operations-heading">{{ t('admin.operationsStatus') }}</span></template>
-          <template #actions>
-            <ElButton native-type="button" text :disabled="busy" :loading="operationsLoading" @click="checkOperations(true)">{{ t('admin.checkOperations') }}</ElButton>
-          </template>
-          <ElAlert v-if="operationsFailure" :title="t(operationsFailure)" type="error" :closable="false" show-icon />
-          <div class="admin-operations-body" aria-live="polite">
-            <ElKeyValueGrid v-if="operations" density="compact">
-              <ElKeyValueItem :label="t('admin.publicSnapshot')">
-                <ElTag :type="operations.snapshotReady ? 'success' : 'warning'" size="small">
-                  {{ operations.snapshotReady ? t('admin.ready') : t('admin.notReady') }}
-                </ElTag>
-              </ElKeyValueItem>
-              <ElKeyValueItem :label="t('admin.publicationWatermark')" :value="operations.publicationWatermark.toString()" monospace />
-              <ElKeyValueItem :label="t('admin.pendingEvents')" :value="operations.pendingPublicationEvents.toString()" monospace />
-              <ElKeyValueItem v-if="operations.oldestPendingAt !== null" :label="t('admin.oldestPendingEvent')">
-                <time :datetime="new Date(operations.oldestPendingAt).toISOString()">{{ new Date(operations.oldestPendingAt).toLocaleString(siteLocale) }}</time>
-              </ElKeyValueItem>
-            </ElKeyValueGrid>
-            <ElSkeleton v-else-if="operationsLoading && !operationsFailure" :rows="1" animated />
-          </div>
-        </ElSettingsSection>
         <AdminArticlesWorkspace v-if="section.section === 'articles'" :key="sessionEpoch"
           :session-signal="sessionAuthority.signal" :can-rollback="canUsePasskeys" @session-lost="handleSessionLoss" />
         <AdminSiteTraffic v-if="section.section === 'site'" :key="sessionEpoch"
@@ -405,11 +322,10 @@ function logOut() {
           :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
         <AdminAppearance v-if="section.section === 'site' && authority.session.appearanceEnabled" :key="sessionEpoch"
           :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
-        <AdminCluster v-if="section.section === 'system'" :key="sessionEpoch"
-          :session="authority.session" :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
-        <AdminRiskReadiness v-if="section.section === 'system' && adminUsesHttps" :key="sessionEpoch"
-          :session="authority.session" :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
         <AdminSitePages v-if="section.section === 'site'" :key="sessionEpoch" :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
+        <AdminSystemDiagnostics v-if="section.section === 'site'" :key="sessionEpoch"
+          :session="authority.session" :session-signal="sessionAuthority.signal"
+          @session-lost="handleSessionLoss" @authority-changed="setAuthority" />
       </div>
     </main>
   </AccountWorkspace>
@@ -460,9 +376,6 @@ function logOut() {
 }
 .admin-sections > :deep(*) {
   margin-block: 0;
-}
-.admin-operations-body {
-  min-block-size: 3.5rem;
 }
 .admin-status-skeleton {
   display: grid;

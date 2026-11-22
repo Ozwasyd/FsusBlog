@@ -14,9 +14,9 @@
 
 管理员可查看自己最近 50 次成功的管理员登录。`GET /api/v2/admin/identity/sessions/history.aeds`（AEDS 帧 32963）只接受独立管理来源的当前管理员会话，响应绑定该会话和权限代次。记录按数据库签发顺序排列，包含登录时间、预计到期时间和状态。替换、退出或撤权会在同一事务结束旧会话及其记录。到期记录使用原有效期，新登录时清理最旧超限记录。升级前会话和旧库隔离候选缺少可信的登录时间，历史从新组件首次成功登录开始。v1 帧 170 另含会话 ID、设备指纹、User-Agent、最后活动时间和空闲到期；当前 v2 历史仅呈现上述时间和状态。 [v1 管理员会话管理](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L436-L496)
 
-管理员进入系统页面时自动查询运行状态（也可手动重新检查），或直接读取 `GET /api/v2/admin/identity/operations/status.aeds`（AEDS 帧 32850）。接口返回当前公开投影是否就绪、投影水位、待处理发布事件数，以及最旧待处理事件时间。数值来自当前服务进程和 PostgreSQL 账本。无当前管理员会话返回 401。v1 的 `/api/binary/author/ops/health` 另含更多依赖检查、固定来源限流和在线查看审计，当前 v2 接口仅覆盖公开投影与待处理事件。 [v1 运维端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs)
+管理员进入站点页面（`/admin/site`）底部的「服务与版本」区域时自动查询运行与进程诊断状态（也可手动重新检查），或直接读取 `GET /api/v2/admin/identity/operations/status.aeds`（AEDS 帧 32850）与 `GET /api/v2/admin/identity/operations/cluster.aeds`（AEDS 帧 32962）。页面首层呈现服务健康、公开快照就绪、内容同步、当前版本与启动时间，并将已同步事件序号、主库租约确认及完整构建版本/实例 ID 收纳在默认折叠的「底层进程与发布诊断」中；原独立一级路由 `/admin/system` 已精简移除。无当前管理员会话返回 401。v1 的 `/api/binary/author/ops/health` 另含更多依赖检查、固定来源限流和在线查看审计，当前 v2 接口仅覆盖公开投影与待处理事件。 [v1 运维端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs)
 
-HTTPS 管理域上的管理员进入系统页面时自动查询已安装的风险控制（也可手动重新检查）。 `GET /api/v2/admin/identity/operations/risk-readiness.aeds` 返回 AEDS 帧 32851，响应使用 `no-store` 并绑定当前权限会话。公共域拒绝此路径。无效管理员会话返回 401。
+HTTPS 管理域上的管理员在互动页面（`/admin/interaction`）的「评论防护」页签可查看已安装的风险控制并调整顶层评论 PoW 策略（也可手动重新检查）。 `GET /api/v2/admin/identity/operations/risk-readiness.aeds` 返回 AEDS 帧 32851，响应使用 `no-store` 并绑定当前权限会话。公共域拒绝此路径。无效管理员会话返回 401。
 
 该读接口按启动时实际注册的端点显示公开评论的固定查询并发控制、顶层登录投稿的 Classic PoW 路由及登录回复的 Classic PoW 路由。回复路由已注册时，接口在同一个授权事务中报告 PostgreSQL 的回复通知表是否存在。账号、文章、出版物及目标评论的资格由实际提交入口检查。代理字段表示应用实际使用可信环回代理的转发地址，或使用连接对端地址。“Dynamic risk policy”对应完整风险评分运行时。强匿名运行时有独立范围。 [固定 v1 风险与强匿名范围](../issues/risk-strong-anonymous.md)
 

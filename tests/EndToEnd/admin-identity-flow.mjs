@@ -174,8 +174,8 @@ try {
   phase = 'admin-login'
   const firstLogin = await logIn(admin)
   const initial = await snapshot(context)
-  await visitAdminWorkspace(admin, '/admin/system')
-  await admin.getByRole('heading', { name: 'Operations status', exact: true }).waitFor()
+  await visitAdminWorkspace(admin, '/admin/site')
+  await admin.getByRole('heading', { name: 'Service & version', exact: true }).waitFor()
   await visitAdminWorkspace(admin, '/admin/interaction')
   await admin.getByRole('tab', { name: 'Moderation queue', exact: true }).waitFor()
   await admin.getByRole('tab', { name: 'Support inbox', exact: true }).click()
@@ -418,10 +418,10 @@ async function expectPanelHidden(page, heading) {
 }
 
 async function verifyOperationsStatus(page, context, siteCookie, priorCookie, revoke) {
-  await visitAdminWorkspace(page, '/admin/system')
+  await visitAdminWorkspace(page, '/admin/site')
   const endpoint = adminOrigin.origin + operationsStatus
-  const operationsSection = page.getByRole('region', { name: 'Operations status', exact: true })
-  const statusButton = operationsSection.getByRole('button', { name: 'Check operations status', exact: true })
+  const operationsSection = page.getByRole('region', { name: 'Service & version', exact: true })
+  const statusButton = operationsSection.getByRole('button', { name: 'Re-check', exact: true })
   const waitOperationsIdle = async () => {
     await statusButton.waitFor()
     await operationsSection.locator('button.is-loading').waitFor({ state: 'detached' })
@@ -435,7 +435,7 @@ async function verifyOperationsStatus(page, context, siteCookie, priorCookie, re
   }
   const revokedMessage = 'Your administrator session expired or was revoked. Log in again.'
   const alert = text => page.getByRole('alert').filter({ hasText: text })
-  const displayedSnapshot = operationsSection.getByText('Public snapshot', { exact: true })
+  const displayedSnapshot = operationsSection.getByText('Public snapshot ready', { exact: true })
 
   assert.equal((await context.request.get(siteOrigin.origin + operationsStatus)).status(), 404)
   await credentialProbe(endpoint, siteCookieName, siteCookie.value, 401)
@@ -454,8 +454,8 @@ async function verifyOperationsStatus(page, context, siteCookie, priorCookie, re
   assert.equal(observed.snapshotReady, true, 'This running fixture must report its published snapshot.')
   assert(observed.publicationWatermark >= 0n && observed.pendingPublicationEvents >= 0n)
   assert(observed.pendingPublicationEvents === 0n ? observed.oldestPendingAt === 0n : observed.oldestPendingAt > 0n)
-  await operationsSection.getByRole('heading', { name: 'Operations status', exact: true }).waitFor()
-  for (const name of ['Public snapshot', 'Publication watermark', 'Pending publication events'])
+  await operationsSection.getByRole('heading', { name: 'Service & version', exact: true }).waitFor()
+  for (const name of ['Content sync', 'Version', 'Process started'])
     await operationsSection.getByText(name, { exact: true }).waitFor()
 
   await context.clearCookies({ name: adminCookieName })
@@ -467,13 +467,15 @@ async function verifyOperationsStatus(page, context, siteCookie, priorCookie, re
   const rotatedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
   assert(rotatedCookie.value !== priorCookie.value)
   const rotated = await snapshot(context)
-  const unavailable = alert('Could not check operations status. Try again.')
+  const unavailable = alert('Could not check service and version status. Try again.')
   for (const [code, payload] of [[200, body], [401, expired]]) {
     await page.route(endpoint, route => route.fulfill({ status: code, body: payload, contentType: 'application/octet-stream',
       headers: { [association]: active.binding } }), { times: 1 })
     assert.equal((await checkStatus()).status(), code)
-    await unavailable.or(displayedSnapshot).or(alert(revokedMessage)).first().waitFor()
+    await unavailable.waitFor()
+    await displayedSnapshot.waitFor({ state: 'hidden' })
     assert(await unavailable.isVisible(), 'A retired session response must not render or sign out the current administrator.')
+    assert.equal(await alert(revokedMessage).count(), 0)
   }
   assert.equal((await checkStatus()).headers()[association], rotated.binding)
   await displayedSnapshot.waitFor()

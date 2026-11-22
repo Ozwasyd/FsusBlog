@@ -19,7 +19,6 @@ public sealed class AdminDocumentRouteTests
     [InlineData("/admin/assets")]
     [InlineData("/admin/interaction")]
     [InlineData("/admin/site")]
-    [InlineData("/admin/system")]
     [InlineData("/admin/identity")]
     public void DocumentsRequireConfiguredAdministratorOrigin(string path)
     {
@@ -54,6 +53,7 @@ public sealed class AdminDocumentRouteTests
     [InlineData("/api/v2/authoring/session.aeds")]
     [InlineData("/api/v2/authoring/save.aeds")]
     [InlineData("/api/v2/media/upload.aeds")]
+    [InlineData("/admin/system")]
     [InlineData("/admin/unknown")]
     [InlineData("/admin/articles/extra")]
     public void AdministratorAndAuthoringRoutesFailClosedOutsideConfiguredOrigin(string path)

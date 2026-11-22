@@ -12,7 +12,7 @@ assert.equal(site.hostname, '127.0.0.1')
 assert(/^[0-9a-f]{64}$/.test(ticket ?? ''), 'Supply one unused synthetic administrator bootstrap ticket.')
 const routes = [
   ['/admin/articles', 'Articles'], ['/admin/interaction', 'Interaction'],
-  ['/admin/site', 'Site'], ['/admin/system', 'System'], ['/admin/identity', 'Account'],
+  ['/admin/site', 'Site'], ['/admin/identity', 'Account'],
 ]
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/admin-workspace-navigation')
 await mkdir(evidence, { recursive: true })
@@ -26,7 +26,7 @@ try {
   const page = await context.newPage()
   page.on('pageerror', error => faults.push(error.message))
   await enableAuthenticator(context, page)
-  for (const [path] of [['/admin'], ...routes]) {
+  for (const [path] of [['/admin'], ['/admin/system'], ...routes]) {
     const response = await context.request.get(site.origin + path, { maxRedirects: 0 })
     assert.equal(response.status(), 404, `Public origin must refuse ${path}`)
   }
@@ -80,7 +80,7 @@ try {
     }
   }
   await shell.dispose()
-  checks.allFiveRoutesReuseAuthenticatedShell = true
+  checks.allFourRoutesReuseAuthenticatedShell = true
   await page.screenshot({ path: join(evidence, 'admin-workspace.png') })
 
   for (const width of [375, 320]) {
