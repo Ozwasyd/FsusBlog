@@ -1,5 +1,3 @@
-using System;
-
 namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema

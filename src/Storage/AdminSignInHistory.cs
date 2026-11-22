@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using FsusBlog.V2.Contracts;
 using Npgsql;
 using NpgsqlTypes;

@@ -1,5 +1,3 @@
-using System;
-
 namespace FsusBlogV2.Storage;
 
 // Grouped immutable configuration for CurrentSchema.VerifyCatalogAsync.
