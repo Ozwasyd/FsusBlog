@@ -174,13 +174,11 @@ export function adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin,
   }
 
   return {
-    async denied() {
+    async verifyIsolation() {
       await probe(siteOrigin.origin + path, adminCookieName, priorCookie.value, 404)
       await probe(endpoint, adminCookieName, siteCookie.value, 401)
-      assertStatus(await context.request.get(endpoint, { maxRedirects: 0 }), 403)
-      await section.waitFor({ state: 'detached' })
     },
-    async granted() {
+    async verifyAvailable() {
       const commentRoutes = [
         [WireRoutes.PublicCommentPowChallenge, expected.rootWriteMode],
         [WireRoutes.SubmitPublicComment, expected.rootWriteMode],
@@ -194,8 +192,7 @@ export function adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin,
         assert.equal(response.status(), installed ? 415 : 404)
       }
 
-      await button.waitFor()
-      await observation.waitFor({ state: 'detached' })
+      await displayed()
       const response = await check()
       const body = await response.body()
       const { binding, payload } = readObservation(response, body)
@@ -222,7 +219,7 @@ export function adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin,
       await displayed()
       await page.screenshot({ path: join(evidence, 'administrator-risk-readiness.png') })
     },
-    cleared,
+    waitForObservation: displayed,
     async duringRevocation(staleCookie, revokeAndObserveSessionLoss) {
       const started = Promise.withResolvers()
       const release = Promise.withResolvers()

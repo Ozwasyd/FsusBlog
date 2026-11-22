@@ -40,8 +40,7 @@ const moderatorRevoke = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE
 const moderatorSeed = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_SEED
 const moderatorBody = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_BODY
 const taxonomySeed = process.env.FSUSBLOG_TEST_ADMIN_TAXONOMY_SEED
-const sitePagesGrant = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGES_GRANT
-const sitePagesRevoke = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGES_REVOKE
+const sitePagesFixture = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGES === '1'
 assert(adminUrl && siteUrl && /^[0-9a-f]{64}$/.test(adminTicket ?? '') && /^[0-9a-f]{64}$/.test(siteTicket ?? '') &&
   /^[0-9a-f]{64}$/.test(siteSessionToken ?? ''),
   'Provide isolated site/admin origins, two unused one-time fixture keys, and a seeded site session token.')
@@ -51,8 +50,8 @@ const moderationFixture = [moderatorGrant, moderatorRevoke, moderatorSeed, moder
 assert(moderationFixture.every(Boolean) || moderationFixture.every(value => !value),
   'Provide grant, revoke, seed and test body together for moderation acceptance.')
 assert(!taxonomySeed || revokeExecutable, 'Provide the administrator revocation fixture for taxonomy acceptance.')
-assert(Boolean(sitePagesGrant) === Boolean(sitePagesRevoke), 'Provide both offline site-page permission executables.')
-assert([moderatorGrant, taxonomySeed, sitePagesGrant].filter(Boolean).length <= 1,
+assert(!sitePagesFixture || revokeExecutable, 'Provide the administrator revocation fixture for site-page acceptance.')
+assert([moderatorGrant, taxonomySeed, sitePagesFixture].filter(Boolean).length <= 1,
   'Run administrator permission scenarios separately to preserve the rate budget.')
 const adminOrigin = new URL(adminUrl)
 const siteOrigin = new URL(siteUrl)
@@ -259,7 +258,7 @@ try {
     checks.offlineRevocationRetiresOwnSignIn = true
   }
 
-  const hasSpecializedScenario = Boolean(moderatorGrant || taxonomySeed || sitePagesGrant ||
+  const hasSpecializedScenario = Boolean(moderatorGrant || taxonomySeed || sitePagesFixture ||
     process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE === '1' || process.env.FSUSBLOG_TEST_ADMIN_INBOX === '1' ||
     process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE === '1' || process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK === '1')
   if (!hasSpecializedScenario) {
@@ -300,11 +299,11 @@ try {
     checks.signedAppearanceActivationAndRollbackEvictSupersededAssets = true
   }
 
-  if (sitePagesGrant) {
-    phase = 'site-page-permission'
+  if (sitePagesFixture) {
+    phase = 'site-pages'
     finalCookie = await verifyAdminSitePages({ ...permissionFixture,
-      priorCookie: finalCookie, grant: sitePagesGrant, revoke: sitePagesRevoke, ...permissionChecks })
-    checks.pageReadsRequireIndependentSystemConfig = true
+      priorCookie: finalCookie, revoke: revokeExecutable, ...permissionChecks })
+    checks.pageReadsRequireLiveAdministratorSession = true
     checks.pageReadsMatchPublicAedsAndExcludeSiteHostAndWrites = true
     if (process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGE_EDITOR === '1')
       checks.pagePublishUsesPasskeyPowAndVersionedPublicRepresentations = true

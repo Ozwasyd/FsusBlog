@@ -6,12 +6,12 @@
 
 未配置目录时，合法路径显示 v1 的“页面内容正在准备中，请稍后再试。”状态，并发送 noindex。其他 slug 不会读取目录文件并返回 404。HTML 的 Markdown 渲染沿用公开文章的安全渲染器，禁用原始 HTML 并限制 URL 协议。SPA 在站内跳转时消费同源的已渲染页面片段。读者界面使用实际 FsusUI 公共布局和组件。
 
-独立管理员页面的 **Site pages** 区域提供配置概览和 Markdown 查看。先停止服务并运行 `admin-identity schema` 将管理员组件从 v6 升到 v7。数据库操作员通过 `admin-identity grant HANDLE system.config` 和 `admin-identity revoke HANDLE system.config` 管理该权限。权限变更撤销旧会话并记录数据库操作者。网站作者、仅有 `admin.manage` 的管理员以及 `audit.read`、`article.write` 和 `comment.moderate` 角色不会因此得到读取能力。
+独立管理员页面的 **Site pages** 区域提供配置概览和 Markdown 查看。站点页面所需的表由统一的 CLI `plan` 和 `apply` 初始化。读取要求当前有效的管理员会话。读者会话无法读取这些管理接口。使用 `admin-identity revoke-all HANDLE` 撤销旧管理员会话后，管理员须重新通过 Passkey 登录。
 
 管理员专用域的 `GET /api/binary/system/admin/page/{slug}` 与 v1 一样返回 `PageContent` AEDS 帧。`GET /api/v2/admin/identity/site-pages/{slug}.aeds` 供管理员工作区读取同一内容，包括本机 HTTP 的窄 cookie 路径。公开域访问这两个管理员读取路由返回 404，未配置的页也返回 404。`GET /api/v2/admin/identity/site-pages.aeds` 返回 v2 `AdminSitePages` 单个四位掩码，顺序固定为关于、隐私政策、用户守则、版权声明。管理员读取均为 `no-store`。
 
 在线发布默认在配置了安全管理员源（HTTPS 公开+管理员源，或本机 Loopback 管理员源）后自动启用，不再强制要求磁盘先存在四页基线文件（也可通过 `FSUSBLOG_SITE_PAGE_EDITOR=false` 静默关闭）。当配置了 `FSUSBLOG_SITE_PAGES`（或数据目录下 `site-pages/`）四页文件时，首次编辑以部署文件的版本 0 和正文 SHA-256 为基线；未配置磁盘文件时，四页以空内容（版本 0、对外显示未配置占位并发送 `noindex`）作为基线，管理员在后台直接创建并发布后该页立即切换为已配置公开页并纳入 `/sitemap.xml`。关闭开关并重启即恢复磁盘基线或未配置占位；数据库版本和审计保留，重新启用时恢复。页面仍沿用同一安全 Markdown 渲染器与固定 URL。页面内容可为空，超出字符或字节上限的请求直接拒绝。
 
-拥有 `system.config` 的管理员可以点击 **Edit**，确认替换公开页后使用其管理员 Passkey 发布。更新精确绑定 slug、当前版本、当前正文摘要和新 Markdown。旧版本请求返回 409，界面保留操作员输入供复制。Passkey 和 PoW 都限定为本次发布操作。事务内写入下一版本和审计行，审计记录管理员 ID、版本、正文修改前后摘要和时间。成功返回 AEDS `EmptySuccess`。公开 HTML 和 v1 AEDS GET 从同一已提交版本提供，分别发送强 ETag 和 `no-store`。相同 ETag 的条件读返回 304，仅带日期的请求重新返回当前内容。v2 发布接口使用带 CAS 的 `/api/v2/admin/identity/site-pages/*` 路由。
+已登录的管理员可以在启用在线编辑时点击 **Edit**，确认替换公开页后使用其管理员 Passkey 发布。更新精确绑定 slug、当前版本、当前正文摘要和新 Markdown。旧版本请求返回 409，界面保留操作员输入供复制。Passkey 和 PoW 都限定为本次发布操作。事务内写入下一版本和审计行，审计记录管理员 ID、版本、正文修改前后摘要和时间。成功返回 AEDS `EmptySuccess`。公开 HTML 和 v1 AEDS GET 从同一已提交版本提供，分别发送强 ETag 和 `no-store`。相同 ETag 的条件读返回 304，仅带日期的请求重新返回当前内容。v2 发布接口使用带 CAS 的 `/api/v2/admin/identity/site-pages/*` 路由。
 
 启用在线编辑时，管理员 HTTPS 源也接收 `PUT /api/binary/system/page` 的 v1 AEDS `PageContentUpdateRequest` 帧（36）。客户端从对应管理员 GET 取得强 ETag，再用同一页名、修订、摘要和新 Markdown 完成 v2 Passkey 与 PoW 流程。PUT 带原样的 `If-Match` 和这两个证明，复用同一个发布事务。缺少 `If-Match` 返回 428，修订或摘要已变化返回 412。旧客户端需更新验证流程。公开读取在事务提交后自动切换到新修订，历史人工刷新入口仍未映射。 [固定 v1 路由](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs#L205-L267) · [真实双 HTTPS 结果](../../artifacts/legacy-site-page-e75ccdf/native/legacy-site-page-result.json)

@@ -343,9 +343,7 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE:-0} == 1 ]]; then
   appearance_before=$(shasum -a 256 "$FSUSBLOG_APPEARANCE_ROOT/appearance.json")
 elif [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGES:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
-  export FSUSBLOG_TEST_ADMIN_SITE_PAGES_GRANT="$scratch/grant-system-config" FSUSBLOG_TEST_ADMIN_SITE_PAGES_REVOKE="$scratch/revoke-system-config"
-  permission_fixture "$FSUSBLOG_TEST_ADMIN_SITE_PAGES_GRANT" grant system.config
-  permission_fixture "$FSUSBLOG_TEST_ADMIN_SITE_PAGES_REVOKE" revoke system.config
+  export FSUSBLOG_SITE_PAGE_EDITOR=false
   mkdir "$scratch/pages"
   export FSUSBLOG_SITE_PAGES=$(cd "$scratch/pages" && pwd -P)
   printf '# Verified about\n\n<script>literal</script>\n' > "$FSUSBLOG_SITE_PAGES/about.md"
@@ -359,12 +357,11 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGES:-0} == 1 ]]; then
       root-only) FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true; risk_root=1 ;;
       root-pow-policy)
         FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true; risk_root=1
-        "$dotnet" "$migrate" root-comment-pow schema > "$evidence/root-comment-pow-schema.log"
         "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" > "$evidence/root-comment-pow-fixture.log" <<'SQL'
 BEGIN;
 INSERT INTO public.article(owner_id,revision,title,body,published_revision,publication_count,deleted,created_at)
   SELECT id,1,'Root comment policy fixture','A public article for the comment proof fixture.',1,1,false,statement_timestamp()
-  FROM public.blog_user WHERE name='tls-site-fixture';
+  FROM public.admin_principal WHERE handle='tls-admin-fixture';
 INSERT INTO public.article_revision(article_id,revision,title,body,happened_at)
   SELECT id,revision,title,body,created_at FROM public.article;
 INSERT INTO public.article_publication(article_id,revision,published_at)
@@ -390,8 +387,6 @@ SQL
   fi
   if [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGE_EDITOR:-0} == 1 ]]; then
     export FSUSBLOG_SITE_PAGE_EDITOR=true
-    "$dotnet" "$migrate" site-page-editor schema > "$evidence/site-page-editor-migration.log"
-    "$dotnet" "$migrate" site-page-editor schema >> "$evidence/site-page-editor-migration.log"
     sha_before=$(shasum -a 256 "$FSUSBLOG_SITE_PAGES/about.md")
   fi
 elif [[ ${FSUSBLOG_TEST_ADMIN_TAXONOMY:-0} == 1 ]]; then

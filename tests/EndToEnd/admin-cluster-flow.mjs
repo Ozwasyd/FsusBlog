@@ -4,7 +4,7 @@ import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAdminClusterStatus, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { waitForUrlResponse } from './response-wait-fixture.mjs'
 
-export function adminClusterFlow({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie, priorCookie,
+export function adminClusterFlow({ page, adminOrigin, siteOrigin, adminCookieName, siteCookie, priorCookie,
   probe, evidence }) {
   const endpoint = adminOrigin.origin + WireRoutes.AdminClusterStatus
   const section = page.getByRole('region', { name: 'Service & version', exact: true })
@@ -21,13 +21,11 @@ export function adminClusterFlow({ page, context, adminOrigin, siteOrigin, admin
   }
 
   return {
-    async denied() {
+    async verifyIsolation() {
       await probe(siteOrigin.origin + WireRoutes.AdminClusterStatus, adminCookieName, priorCookie.value, 404)
       await probe(endpoint, adminCookieName, siteCookie.value, 401)
-      assert.equal((await context.request.get(endpoint)).status(), 403)
-      await instance.waitFor({ state: 'hidden' })
     },
-    async granted() {
+    async verifyAvailable() {
       const response = await check()
       assert.equal(response.status(), 200)
       assert.match(response.headers()['cache-control'], /no-store/)
