@@ -81,7 +81,7 @@ try {
   await signedIn()
 
   phase = 'setup-and-verify'
-  await page.getByRole('link', { name: 'Account security', exact: true }).first().click()
+  await page.getByRole('link', { name: 'Account', exact: true }).first().click()
   await page.waitForURL(origin + '/user/identity/mfa')
   assert.equal((await context.request.post(origin + '/api/binary/auth/mfa/setup/start')).status(), 428)
   await page.getByRole('button', { name: 'Set up authenticator', exact: true }).click()
@@ -120,7 +120,7 @@ try {
   await signedIn()
 
   phase = 'regenerate-recovery-codes'
-  await page.getByRole('link', { name: 'Account security', exact: true }).first().click()
+  await page.getByRole('link', { name: 'Account', exact: true }).first().click()
   assert.equal((await context.request.post(origin + regeneratePath)).status(), 428)
   const beforeRegeneration = await sessionCookie()
   const recoveryList = page.getByRole('listitem').filter({ hasText: /^(?:[0-9A-F]{4}-){7}[0-9A-F]{4}$/ })
@@ -158,7 +158,7 @@ try {
 
   phase = 'one-use-disable-proof'
   const beforeDisable = await sessionCookie()
-  await page.getByRole('link', { name: 'Account security', exact: true }).first().click()
+  await page.getByRole('link', { name: 'Account', exact: true }).first().click()
   await page.getByLabel('Authenticator or recovery code', { exact: true }).fill(newCodes[0])
   const usedCode = waitApi('/api/binary/auth/mfa/challenge')
   await page.getByRole('button', { name: 'Disable authenticator verification', exact: true }).click()

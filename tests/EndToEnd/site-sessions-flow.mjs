@@ -197,7 +197,7 @@ async function signIn(name, ticket, viewport) {
 
 async function openSecurity(session) {
   await session.page.goto(origin + securityPath)
-  await session.page.getByRole('heading', { name: 'Account security', exact: true }).waitFor()
+  await session.page.getByRole('heading', { name: 'Account', exact: true }).waitFor()
   await session.page.getByRole('heading', { name: 'Active sessions', exact: true }).waitFor()
   await session.page.getByText('This browser', { exact: true }).waitFor()
 }

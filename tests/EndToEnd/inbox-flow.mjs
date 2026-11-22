@@ -85,7 +85,7 @@ try {
         await accountMenu.focus()
         await page.keyboard.press('Enter')
         const dialog = page.getByRole('dialog', { name: 'Account menu' })
-        await dialog.getByRole('link', { name: 'Account security' }).waitFor()
+        await dialog.getByRole('link', { name: 'Account' }).waitFor()
         await dialog.getByRole('button', { name: 'Log out' }).waitFor()
         await page.screenshot({ path: join(evidence, 'inbox-mobile-account-menu.png'), animations: 'disabled' })
         await page.keyboard.press('Escape')
@@ -93,7 +93,7 @@ try {
         await page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'Account menu')
       } else {
         assert.equal(await accountMenu.count(), 0)
-        await page.getByRole('link', { name: 'Account security' }).waitFor()
+        await page.getByRole('link', { name: 'Account' }).waitFor()
       }
       appendFixtureNotice(recipients[index])
       const { payload } = await wakeFrame

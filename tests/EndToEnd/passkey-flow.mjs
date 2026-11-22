@@ -229,7 +229,7 @@ try {
     await page.waitForURL(`${origin}/`)
     assert.equal((await logout).status(), 200)
     assert.equal((await context.request.get(`${origin}/api/v2/identity/session.aeds`)).status(), 401)
-    await security.getByText('to manage account security.', { exact: false }).waitFor()
+    await security.getByText('to manage your account.', { exact: false }).waitFor()
     assert.equal(await credentials.count(), 0, 'The open tab must clear its passkey inventory after sign-out.')
     assert.equal(await security.getByText(friendlyName, { exact: true }).count(), 0)
     const signedOut = await context.request.get(origin + inventoryPath, { headers: { [WireHeaders.CurrentSession]: current } })

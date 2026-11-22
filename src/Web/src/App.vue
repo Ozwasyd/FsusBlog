@@ -99,9 +99,9 @@ const adminArea = computed(() => route.meta.adminSection !== undefined)
 const adminAuthoringArea = computed(() => route.path.startsWith('/admin/') && route.meta.adminSection === undefined && route.name !== 'missing')
 const accountArea = computed(() => route.path.startsWith('/user/') && route.name !== 'missing')
 const accountLinks = computed(() => currentSession.value ? [
+  { to: '/user/identity/mfa', label: t('nav.security') },
   { to: '/user/messagebox', label: t('nav.messages') },
   { to: '/user/comments', label: t('page.own-comments') },
-  { to: '/user/identity/mfa', label: t('nav.security') },
 ] : [])
 const authHref = computed(() => (currentSession.value || currentAuthorSession.value) ? '' : '/login')
 const authLabel = computed(() => t('nav.login'))
@@ -354,13 +354,11 @@ async function leave() {
       <template #desktop-actions>
         <SiteHeaderPreferences :theme-mode="themeMode" @theme="useTheme" />
         <RouterLink v-if="currentAuthorSession" class="site-header-text-action" to="/admin/site">{{ t('nav.admin') }}</RouterLink>
-        <RouterLink v-if="currentSession" class="site-header-text-action" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'security'" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
+        <RouterLink v-if="currentSession" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
       </template>
       <template #mobile-primary-actions>
         <RouterLink v-if="currentAuthorSession" class="site-header-text-action" to="/admin/site">{{ t('nav.admin') }}</RouterLink>
-        <RouterLink v-if="currentSession" class="site-header-text-action" to="/user/messagebox">{{ t('nav.messages') }}</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'security'" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
+        <RouterLink v-if="currentSession" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
         <div class="public-menu-preferences">
           <SiteHeaderPreferences mobile :theme-mode="themeMode" @theme="useTheme" />
         </div>
