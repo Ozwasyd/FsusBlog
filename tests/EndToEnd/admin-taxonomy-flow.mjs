@@ -1,3 +1,4 @@
+import { waitForPathResponse, waitForUrlResponse } from './response-wait-fixture.mjs'
 import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
@@ -116,7 +117,7 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     const selectedTab = await button.getAttribute('role') === 'tab' && await button.getAttribute('aria-selected') === 'true'
     const trigger = selectedTab ? exactButton(panel, 'Refresh list') : button
     const [response] = await Promise.all([
-      page.waitForResponse(value => value.url() === endpoint && value.request().method() === 'GET'),
+      waitForUrlResponse(page, () => endpoint, 'GET'),
       trigger.click(),
     ])
     return response
@@ -163,7 +164,7 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     const endpoint = adminOrigin.origin + path
     const proof = adminOrigin.origin + powPath
     const [challenge, accepted] = await Promise.all([
-      page.waitForResponse(response => response.url() === proof && response.request().method() === 'POST'),
+      waitForUrlResponse(page, () => proof, 'POST'),
       page.waitForResponse(response => response.url() === endpoint && response.request().method() === method),
       exactButton(form, buttonName).click(),
     ])
@@ -289,7 +290,7 @@ export async function verifyTaxonomy({ page, context, adminOrigin, siteOrigin, a
     const name = editor.getByLabel('Tag name', { exact: true })
     await name.fill(renamed)
     await editor.getByLabel('Tag description', { exact: true }).fill('Verified for an unused tag.')
-    const saved = page.waitForResponse(response => new URL(response.url()).pathname === state && response.request().method() === 'PUT')
+    const saved = waitForPathResponse(page, () => state, 'PUT')
     await exactButton(editor, 'Save tag metadata').click()
     assert.equal((await saved).status(), 200)
     await panel.getByText('Tag metadata saved.', { exact: true }).waitFor()

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { waitForPathResponse, waitForUrlResponse } from './response-wait-fixture.mjs'
 import { exercisePinnedViewRail, verifyUnpinnedViewRail } from './pinned-view-rail-flow.mjs'
 import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
@@ -22,7 +23,7 @@ export async function exercisePropertyFilter(publisher, origin, article, exactSc
     await page.getByRole('button', { name: '停用此字段的筛选' }).waitFor()
     await exactLabel(page, '属性值').fill(exactScore)
     const result = page.getByRole('region', { name: '属性筛选结果' })
-    const response = page.waitForResponse(item => new URL(item.url()).pathname === WireRoutes.PropertyArticleQuery)
+    const response = waitForPathResponse(page, () => WireRoutes.PropertyArticleQuery)
     await exactButton(page, '筛选属性').click()
     assert.equal((await response).status(), 200)
     await roleWithExactName(result, 'link', article.title).waitFor()
@@ -363,8 +364,7 @@ async function verifySavedView(page, article, observations) {
     await linked.waitForURL(inventoryView.href)
     await peerHeading.waitFor()
     await control('移除保存视图').click()
-    const retire = linked.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.SavedViews &&
-      response.request().method() === 'POST')
+    const retire = waitForPathResponse(linked, () => WireRoutes.SavedViews, 'POST')
     await control('确认移除视图').click()
     assert.equal((await retire).status(), 200)
     await editorRail.refresh(orderedPins.slice(1))
@@ -376,7 +376,7 @@ async function verifySavedView(page, article, observations) {
     assert.equal(await output.count(), 0)
     const beforeRetiredSearch = executions.length
     const placementPath = WireRoutes.SavedViewPlacement + searchView.search
-    const unavailable = linked.waitForResponse(response => response.url() === origin + placementPath && response.request().method() === 'GET')
+    const unavailable = waitForUrlResponse(linked, () => origin + placementPath, 'GET')
     await linked.goto(searchView.href)
     assert.equal((await unavailable).status(), 404)
     await exactText(linked, 'Saved view is unavailable.').waitFor()
@@ -392,8 +392,7 @@ async function verifySavedView(page, article, observations) {
     await control('清除默认视图').click()
     await control('设为默认视图').waitFor()
     await control('移除保存视图').click()
-    const retireDefault = linked.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.SavedViews &&
-      response.request().method() === 'POST')
+    const retireDefault = waitForPathResponse(linked, () => WireRoutes.SavedViews, 'POST')
     await control('确认移除视图').click()
     assert.equal((await retireDefault).status(), 200)
     await editorRail.refresh([])

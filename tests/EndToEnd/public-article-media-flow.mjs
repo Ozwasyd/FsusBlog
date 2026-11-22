@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
+import { waitForPathResponse, waitForUrlResponse } from './response-wait-fixture.mjs'
 import { requireWebPackage } from './web-package-fixture.mjs'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
@@ -83,7 +84,7 @@ try {
       }
 
       function waitForPost(path) {
-        return page.waitForResponse(response => response.url() === origin + path && response.request().method() === 'POST')
+        return waitForUrlResponse(page, () => origin + path, 'POST')
       }
 
       async function saveCover(name, assetId) {
@@ -256,7 +257,7 @@ try {
       await assertNotPublic(rawUrl(articleId, online.publication, privatePreview.digest))
       await assertNotPublic(manifestUrl(articleId, ordinaryRelease.publication))
 
-      const loadedManifest = publicPage.waitForResponse(response => response.url() === manifestUrl(articleId, online.publication))
+      const loadedManifest = waitForUrlResponse(publicPage, () => manifestUrl(articleId, online.publication))
       const publicHtml = await publicPage.goto(articlePath)
       assert.equal(publicHtml.status(), 200)
       const source = await publicHtml.text()
@@ -373,14 +374,14 @@ async function createDraft(page, context, ticket, title, chosen, galleryFile, pr
 }
 
 async function uploadWebpInLibrary(page, file) {
-  const listed = page.waitForResponse(response => response.url() === origin + WireRoutes.PrivateMediaList)
+  const listed = waitForUrlResponse(page, () => origin + WireRoutes.PrivateMediaList)
   await page.goto(origin + '/user/manage/assets')
   const listing = await listed
   assert.equal(listing.status(), 200)
   assert.equal(listing.headers()[WireHeaders.PrivateMediaWebp.toLowerCase()], '1')
   const chooser = page.locator('#private-media-file[accept*="image/webp"]')
   await chooser.setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) })
-  const stored = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PrivateMediaUpload)
+  const stored = waitForPathResponse(page, () => WireRoutes.PrivateMediaUpload)
   await exactButton(page, '上传图片').click()
   const receipt = await stored
   assert.equal(receipt.status(), 200)
@@ -402,7 +403,7 @@ async function attach(page, name) {
 }
 
 async function preview(page, name, width) {
-  const received = page.waitForResponse(response => response.url() === origin + WireRoutes.ArticleMediaPreview)
+  const received = waitForUrlResponse(page, () => origin + WireRoutes.ArticleMediaPreview)
   await exactButton(page, `Preview ${name}`).press('Enter')
   const response = await received
   assert.equal(response.status(), 200)

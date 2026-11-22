@@ -7,6 +7,7 @@ import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import {
   decodeArticleCommand, decodeAuthoringWorkspaceGroups, encodeDraft, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
+import { waitForUrlResponse } from './response-wait-fixture.mjs'
 import { authorFixture, button, chromium, expect, holdResponse, readDraft, submitArticle } from './browser-authoring-fixture.mjs'
 import { roleWithExactName } from './role-locators.mjs'
 
@@ -318,7 +319,7 @@ function coordinates(snapshot) {
 
 async function enterSavedWorkspace(page) {
   await page.goto(`${origin}/user/manage/article/list`)
-  const response = page.waitForResponse(receipt => receipt.url() === groupsPath && receipt.request().method() === 'GET')
+  const response = waitForUrlResponse(page, () => groupsPath, 'GET')
   await roleWithExactName(page, 'link', '工作区').click()
   return decodeSavedGroups(await response)
 }
@@ -741,7 +742,7 @@ async function exerciseSingleDirtyClose(author) {
     const failure = `Could not confirm the save for ${victim.title}. Retry the same save from its tab. The tabs are still open.`
     for (const expected of [1, 2]) {
       const [reply] = await Promise.all([
-        page.waitForResponse(response => response.url() === savePath && response.request().method() === 'POST'),
+        waitForUrlResponse(page, () => savePath, 'POST'),
         confirmClose(option),
       ])
       const returned = await readDraft(reply)
@@ -777,7 +778,7 @@ async function exerciseSingleDirtyClose(author) {
     assert.equal(removed.status(), 200)
     decodeFrame(await removed.body(), FrameType.EmptySuccess)
     if (!await recent.isVisible()) await openWorkspaceDialog(page)
-    const denied = page.waitForResponse(response => response.url() === draftPath(victim.id))
+    const denied = waitForUrlResponse(page, () => draftPath(victim.id))
     await press(page, recent)
     assert.equal((await denied).status(), 404)
     await expectWorkspaceMessage(page, 'The article is unavailable.')
@@ -800,7 +801,7 @@ async function changeGroupLayout(page, readLayout, before, command, expected) {
   const sameGroup = before.focusedGroup === 0 ? 'Move to primary group' : 'Move to secondary group'
   await expect(button(page, sameGroup)).toBeDisabled()
   await expect(action).toBeEnabled()
-  const receiptPromise = page.waitForResponse(response => response.url() === groupsPath && response.request().method() === 'POST')
+  const receiptPromise = waitForUrlResponse(page, () => groupsPath, 'POST')
   await press(page, action)
   const receipt = await decodeSavedGroups(await receiptPromise)
   assert.equal(receipt.revision, before.revision + 1n)
@@ -874,7 +875,7 @@ async function exerciseGroupActions({ page, readLayout, first, alternate, second
     if (compact) assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
     const action = button(overflow, `Move ${alternate.title} to ${to} group`)
     await expect(action).toBeEnabled()
-    const pending = page.waitForResponse(response => response.url() === groupsPath && response.request().method() === 'POST')
+    const pending = waitForUrlResponse(page, () => groupsPath, 'POST')
     await press(page, action)
     const receipt = await decodeSavedGroups(await pending)
     assert.equal(receipt.revision, saved.revision + 1n)
@@ -1096,7 +1097,7 @@ try {
 
   const primary = group(page, 'Primary')
   const secondary = group(page, 'Secondary')
-  const denied = page.waitForResponse(response => response.url() === draftPath(foreign.id))
+  const denied = waitForUrlResponse(page, () => draftPath(foreign.id))
   await openById(page, foreign.id)
   assert.equal((await denied).status(), 404)
   await expectWorkspaceMessage(page, 'The article is unavailable.')
@@ -1249,8 +1250,7 @@ try {
   await expect.poll(() => selection(body(secondary))).toEqual([second.body.length, second.body.length])
   await page.keyboard.insertText(savedSecondSuffix)
   await expect(body(secondary)).toHaveValue(second.body + savedSecondSuffix)
-  const save = page.waitForResponse(response => response.url() === `${origin}${WireRoutes.Save}` &&
-    response.request().method() === 'POST')
+  const save = waitForUrlResponse(page, () => `${origin}${WireRoutes.Save}`, 'POST')
   await button(page, 'Save draft').click()
   const receipt = await save
   const savedSecond = await readDraft(receipt)

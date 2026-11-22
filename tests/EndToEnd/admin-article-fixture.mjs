@@ -5,6 +5,7 @@ import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { queryCorpusPage, searchTerms } from '../../src/Contracts/local-search.ts'
 import { decodeArticle, decodeSearch } from '../../src/Contracts/public-articles.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { waitForUrlResponse } from './response-wait-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
@@ -117,7 +118,7 @@ export async function commitWithLostReceipt({ page, url, button, check, verifyRe
 
   await check.waitFor()
   const [retry] = await Promise.all([
-    page.waitForResponse(response => response.url() === url && response.request().method() === 'POST'),
+    waitForUrlResponse(page, () => url, 'POST'),
     check.press('Enter'),
   ])
   assert.equal(retry.status(), 200)

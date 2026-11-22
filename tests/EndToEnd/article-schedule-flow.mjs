@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { waitForPathResponse } from './response-wait-fixture.mjs'
 
 export async function exerciseArticleSchedule(page, screenshot, observations) {
   const inspector = page.getByRole('complementary', { name: 'Article inspector' })
@@ -9,8 +10,7 @@ export async function exerciseArticleSchedule(page, screenshot, observations) {
   const newerDue = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
   async function writeSchedule(value, action) {
     if (value) await input.fill(value)
-    const sent = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.DraftScheduleCommand &&
-      response.request().method() === 'POST')
+    const sent = waitForPathResponse(page, () => WireRoutes.DraftScheduleCommand, 'POST')
     await inspector.getByRole('button', { name: action, exact: true }).click()
     assert.equal((await sent).status(), 200)
     await page.getByRole('status').filter({ hasText: 'Publication schedule updated.' }).waitFor()

@@ -1,3 +1,4 @@
+import { waitForPathResponse, waitForUrlResponse } from './response-wait-fixture.mjs'
 import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
@@ -175,8 +176,8 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       const detailPath = new URL(detail.url()).pathname
       const readEndpoint = adminOrigin + WireRoutes.AdminInboxAcknowledge.replace('{id:long}', id)
       const [reloaded, acknowledged] = await Promise.all([
-        page.waitForResponse(response => new URL(response.url()).pathname === detailPath && response.request().method() === 'GET'),
-        page.waitForResponse(response => response.url() === readEndpoint && response.request().method() === 'POST'),
+        waitForPathResponse(page, () => detailPath, 'GET'),
+        waitForUrlResponse(page, () => readEndpoint, 'POST'),
         exactButton(panel, 'Reload conversation').click(),
       ])
       assert.equal(reloaded.status(), 200)
@@ -546,10 +547,10 @@ async function verifyOpenedThreadUpdates(page, panel, context, wakeEndpoint, sit
 
   async function sendAccountReply(body) {
     await reader.getByLabel('回复内容', { exact: true }).fill(body)
-    const challenge = reader.waitForResponse(response => response.url() === siteOrigin +
-      WireRoutes.InboxReplyPowChallenge.replace('{id:long}', id) && response.request().method() === 'POST')
-    const reply = reader.waitForResponse(response => response.url() === siteOrigin +
-      WireRoutes.InboxReply.replace('{id:long}', id) && response.request().method() === 'POST')
+    const challenge = waitForUrlResponse(reader, () => siteOrigin +
+      WireRoutes.InboxReplyPowChallenge.replace('{id:long}', id), 'POST')
+    const reply = waitForUrlResponse(reader, () => siteOrigin +
+      WireRoutes.InboxReply.replace('{id:long}', id), 'POST')
     await exactButton(reader, '发送回复').click()
     assert.equal((await challenge).status(), 200)
     assert.equal((await reply).status(), 200)

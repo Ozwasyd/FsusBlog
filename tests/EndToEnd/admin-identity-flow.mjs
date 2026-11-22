@@ -1,6 +1,7 @@
 import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { assertEmpty, assertStatus } from './response-status-fixture.mjs'
+import { waitForUrlResponse } from './response-wait-fixture.mjs'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -406,8 +407,7 @@ async function revokeDuringLogin(page, executable) {
 }
 
 function waitPost(page, origin, path) {
-  return page.waitForResponse(response => response.url() === origin.origin + path && response.request().method() === 'POST',
-    { timeout: 12_000 })
+  return waitForUrlResponse(page, () => origin.origin + path, 'POST', { timeout: 12_000 })
 }
 
 async function expectPanelHidden(page, heading) {
@@ -427,7 +427,7 @@ async function verifyOperationsStatus(page, context, siteCookie, priorCookie, re
   const checkStatus = async () => {
     await waitOperationsIdle()
     return (await Promise.all([
-      page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'GET'),
+      waitForUrlResponse(page, () => endpoint, 'GET'),
       statusButton.click(),
     ]))[0]
   }
@@ -521,7 +521,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   const section = roleWithExactName(page, 'region', 'Moderation queue')
   const load = exactButton(section, 'Load moderation queue')
   const checkQueue = async () => (await Promise.all([
-    page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'GET'),
+    waitForUrlResponse(page, () => endpoint, 'GET'),
     load.click(),
   ]))[0]
   const revoked = page.getByRole('alert').filter({ hasText: 'Your administrator session expired or was revoked. Log in again.' })

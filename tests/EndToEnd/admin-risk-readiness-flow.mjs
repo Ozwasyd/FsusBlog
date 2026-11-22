@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { decodeApiError, decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAdminRiskReadiness, decodeAdminRootCommentPowPolicy, encodeAdminRootCommentPowCommand, FrameType,
   WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { waitForUrlResponse } from './response-wait-fixture.mjs'
 
 const path = '/api/v2/admin/identity/operations/risk-readiness.aeds'
 const bindingHeader = WireHeaders.AdminPermissionSession.toLowerCase()
@@ -36,7 +37,7 @@ export async function verifyRootCommentPowPolicy({ page, context, adminOrigin, s
 
   async function change(label, generation, proofSeconds) {
     const [response] = await Promise.all([
-      page.waitForResponse(value => value.url() === apply && value.request().method() === 'POST', { timeout: 15_000 }),
+      waitForUrlResponse(page, () => apply, 'POST', { timeout: 15_000 }),
       policy.getByRole('button', { name: label, exact: true }).click({ timeout: 12_000 }),
     ])
     assert.equal(response.status(), 200)
@@ -78,7 +79,7 @@ export async function verifyRootCommentPowPolicy({ page, context, adminOrigin, s
     const restored = await read(3n, 120, 60)
     assert.equal(restored.digest, initial.digest)
 
-    const refusal = site.waitForResponse(value => value.url() === submit && value.request().method() === 'POST', { timeout: 15_000 })
+    const refusal = waitForUrlResponse(site, () => submit, 'POST', { timeout: 15_000 })
     release.resolve()
     const old = await refusal
     assert.equal(old.status(), 401)
@@ -87,7 +88,7 @@ export async function verifyRootCommentPowPolicy({ page, context, adminOrigin, s
     await site.getByRole('alert').filter({ hasText: 'Public comment submission is unavailable.' }).waitFor()
     await site.bringToFront()
     const [fresh] = await Promise.all([
-      site.waitForResponse(response => response.url() === submit && response.request().method() === 'POST'),
+      waitForUrlResponse(site, () => submit, 'POST'),
       send.click(),
     ])
     assert.equal(fresh.status(), 200)
@@ -116,7 +117,7 @@ export function adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin,
   const observation = section.locator('dl')
   const failure = section.getByRole('alert').filter({ hasText: 'Could not check risk controls. Try again.' })
   const check = async () => (await Promise.all([
-    page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'GET'),
+    waitForUrlResponse(page, () => endpoint, 'GET'),
     button.click(),
   ]))[0]
 

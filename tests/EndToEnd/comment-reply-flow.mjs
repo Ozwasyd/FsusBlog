@@ -8,6 +8,7 @@ import { decodeInboxThread } from '../../src/Contracts/inbox.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeCommentAuthorEditDetail, decodePublicCommentReply, decodePublicCommentSubmissionResult, decodeSession,
   FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { waitForPathResponse, waitForUrlResponse } from './response-wait-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 export async function verifyApprovedReply({ browser, siteOrigin, evidence, articleId, parentId, approve }) {
@@ -73,7 +74,7 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
     }
 
     await recipient.bringToFront()
-    const before = recipient.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.InboxList)
+    const before = waitForPathResponse(recipient, () => WireRoutes.InboxList)
     assert.equal((await recipient.goto(siteOrigin + '/user/messagebox')).status(), 200)
     await recipient.getByRole('heading', { name: '我的站内信' }).waitFor()
     assert.equal((await before).status(), 200)
@@ -127,8 +128,8 @@ export async function verifyApprovedReply({ browser, siteOrigin, evidence, artic
 
 async function submitReply(page, origin, send, parentId) {
   const [challenge, submitted] = await Promise.all([
-    page.waitForResponse(response => response.url() === origin + WireRoutes.PublicCommentReplyPow),
-    page.waitForResponse(response => response.url() === origin + WireRoutes.SubmitPublicCommentReply),
+    waitForUrlResponse(page, () => origin + WireRoutes.PublicCommentReplyPow),
+    waitForUrlResponse(page, () => origin + WireRoutes.SubmitPublicCommentReply),
     send.click(),
   ])
   assert.equal(challenge.status(), 200)
@@ -184,7 +185,7 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
     const deniedDetail = await recipient.request.get(detailUrl, { headers: peerHeaders })
     assert.equal(deniedDetail.status(), 404)
     noPrivateText(await deniedDetail.body())
-    const otherList = recipient.waitForResponse(response => response.url() === ownList && response.request().method() === 'GET')
+    const otherList = waitForUrlResponse(recipient, () => ownList, 'GET')
     assert.equal((await recipient.goto(comments)).status(), 200)
     const otherRows = await otherList
     assert.equal(otherRows.status(), 200)
@@ -192,7 +193,7 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
     await roleWithExactName(recipient, 'heading', '我的评论').waitFor()
 
     await author.bringToFront()
-    const own = author.waitForResponse(response => response.url() === ownList && response.request().method() === 'GET')
+    const own = waitForUrlResponse(author, () => ownList, 'GET')
     assert.equal((await author.goto(comments)).status(), 200)
     const listed = await own
     assert.equal(listed.status(), 200)
@@ -201,7 +202,7 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
     assert.match(handle, /^[a-f0-9]{64}$/)
     const row = text => author.getByRole('listitem').filter({ has: author.getByText(text, { exact: true }) })
     await row(body).getByText('待审核', { exact: true }).waitFor()
-    const detail = author.waitForResponse(response => response.url() === detailUrl && response.request().method() === 'GET')
+    const detail = waitForUrlResponse(author, () => detailUrl, 'GET')
     await exactButton(row(body), '编辑评论').click()
     const loaded = await detail
     assert.equal(loaded.status(), 200)
@@ -224,7 +225,7 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
     let applied
     try {
       const [issued] = await Promise.all([
-        author.waitForResponse(response => response.url() === challengeUrl && response.request().method() === 'POST'),
+        waitForUrlResponse(author, () => challengeUrl, 'POST'),
         author.waitForRequest(request => request.url() === editUrl && request.method() === 'POST'),
         exactButton(form, '保存修改').click(),
       ])
@@ -241,7 +242,7 @@ async function verifyPendingEdit({ browser, author, recipient, siteOrigin, evide
         headers: { ...peerHeaders, 'Content-Type': 'application/octet-stream', Origin: siteOrigin } })
       assert.equal(deniedEdit.status(), 404)
       noPrivateText(await deniedEdit.body())
-      const commit = author.waitForResponse(response => response.url() === editUrl && response.request().method() === 'POST')
+      const commit = waitForUrlResponse(author, () => editUrl, 'POST')
       resume.resolve()
       applied = await commit
     } finally {
@@ -338,7 +339,7 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
     const save = exactButton(dialog, 'Save for review')
     async function openEditor() {
       const [loaded] = await Promise.all([
-        author.waitForResponse(response => response.url() === detailUrl && response.request().method() === 'GET'),
+        waitForUrlResponse(author, () => detailUrl, 'GET'),
         action.click(),
       ])
       assert.equal(loaded.status(), 200)
@@ -370,8 +371,8 @@ async function verifyCommentEdit({ browser, author, recipient, siteOrigin, evide
     assert.equal(await author.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
     await author.screenshot({ path: join(evidence, 'comment-edit-before-save-mobile.png'), animations: 'disabled' })
     const [grant, applied] = await Promise.all([
-      author.waitForResponse(response => response.url() === challengeUrl && response.request().method() === 'POST'),
-      author.waitForResponse(response => response.url() === editUrl && response.request().method() === 'POST'),
+      waitForUrlResponse(author, () => challengeUrl, 'POST'),
+      waitForUrlResponse(author, () => editUrl, 'POST'),
       save.click(),
     ])
     assert.equal(grant.status(), 200)

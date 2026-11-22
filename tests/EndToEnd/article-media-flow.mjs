@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { waitForPathResponse, waitForUrlResponse } from './response-wait-fixture.mjs'
 import { requireWebPackage } from './web-package-fixture.mjs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -67,7 +68,7 @@ try {
       await preview.focus()
       const previewUrl = origin + WireRoutes.ArticleMediaPreview
       const [previewResponse] = await Promise.all([
-        page.waitForResponse(response => response.url() === previewUrl),
+        waitForUrlResponse(page, () => previewUrl),
         page.keyboard.press('Enter'),
       ])
       assert.equal(previewResponse.status(), 200)
@@ -94,7 +95,7 @@ try {
       const taskWithImage = process.env.FSUSBLOG_DOCUMENT_EXPORT_TASKS === 'true'
       if (taskWithImage) {
         const [queued] = await Promise.all([
-          page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.DocumentExportCreate),
+          waitForPathResponse(page, () => WireRoutes.DocumentExportCreate),
           page.getByRole('button', { name: 'Queue HTML with this image' }).click(),
         ])
         assert.equal(queued.status(), 200)
@@ -121,7 +122,7 @@ try {
       await exactButton(page, `Use ${file} as draft cover`).waitFor()
       const coverRead = response => new URL(response.url()).pathname === WireRoutes.ArticleMedia.replace('{id:int}', draft.id)
       const [savedCover, attachedCover] = await Promise.all([
-        page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.ArticleCoverSave),
+        waitForPathResponse(page, () => WireRoutes.ArticleCoverSave),
         page.waitForResponse(response => coverRead(response) && response.headers()['x-fsus-article-cover'] === asset.id),
         exactButton(page, `Use ${file} as draft cover`).click(),
       ])
@@ -153,7 +154,7 @@ try {
       await page.getByText('Draft cover', { exact: true }).waitFor()
 
       const [selection, images] = await Promise.all([
-        page.waitForResponse(response => new URL(response.url()).pathname === `/api/v2/authoring/draft/${draft.id}/export.html`),
+        waitForPathResponse(page, () => `/api/v2/authoring/draft/${draft.id}/export.html`),
         page.waitForEvent('download'), page.getByRole('button', { name: 'Download saved HTML with these images' }).click(),
       ])
       assert.equal(selection.status(), 200)
@@ -227,7 +228,7 @@ async function downloadAttachment(page, draft, assetId, format, extension = form
   const button = exactButton(page, `Download saved ${format} with this image`)
   const path = `/api/v2/authoring/draft/${draft.id}/export.${extension}`
   const [response, download] = await Promise.all([
-    page.waitForResponse(response => new URL(response.url()).pathname === path),
+    waitForPathResponse(page, () => path),
     page.waitForEvent('download'),
     button.click(),
   ])

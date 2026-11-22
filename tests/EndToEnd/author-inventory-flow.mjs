@@ -3,6 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { waitForUrlResponse } from './response-wait-fixture.mjs'
 import { chromium, submitArticle } from './browser-authoring-fixture.mjs'
 import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
@@ -42,7 +43,7 @@ function monitor(page) {
 
 async function signIn(page, ticket) {
   await page.goto(new URL('/login', origin).href)
-  const accepted = page.waitForResponse(response => response.url() === new URL(WireRoutes.SignIn, origin).href && response.request().method() === 'POST')
+  const accepted = waitForUrlResponse(page, () => new URL(WireRoutes.SignIn, origin).href, 'POST')
   await page.getByLabel('Owner access key').fill(ticket)
   await exactButton(page, 'Log in').click()
   assert.equal((await accepted).status(), 200)
@@ -57,7 +58,7 @@ async function readyInventory(page, path, title) {
 }
 
 function mutationResponse(page, path) {
-  return page.waitForResponse(response => response.url() === new URL(path, origin).href && response.request().method() === 'POST')
+  return waitForUrlResponse(page, () => new URL(path, origin).href, 'POST')
 }
 
 try {

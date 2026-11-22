@@ -1,3 +1,4 @@
+import { waitForUrlResponse } from './response-wait-fixture.mjs'
 import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
@@ -34,7 +35,7 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
   const section = roleWithExactName(page, 'region', 'Site pages')
   const button = exactButton(section, 'Refresh')
   const check = async () => (await Promise.all([
-    page.waitForResponse(response => response.url() === overview && response.request().method() === 'GET'), button.click(),
+    waitForUrlResponse(page, () => overview, 'GET'), button.click(),
   ]))[0]
   await probe(adminOrigin.origin + legacy, adminCookieName, siteCookie.value, 401)
   await probe(siteOrigin.origin + legacy, adminCookieName, priorCookie.value, 404)

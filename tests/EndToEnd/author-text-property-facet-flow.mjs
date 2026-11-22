@@ -15,6 +15,7 @@ import {
   encodePropertyWorkspaceRequest, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
+import { waitForPathResponse } from './response-wait-fixture.mjs'
 import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monitor, observations, articleCommand }) {
@@ -77,7 +78,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
     await page.goto(`${origin}/user/manage/article/list`)
     await exactText(page, '作者全文搜索').click()
     const form = roleWithExactName(page, 'form', '作者全文搜索')
-    const catalog = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PropertyFilterCatalog)
+    const catalog = waitForPathResponse(page, () => WireRoutes.PropertyFilterCatalog)
     await exactText(form, '全文搜索属性条件').click()
     const catalogReply = await catalog
     assert.equal(catalogReply.status(), 200)
@@ -344,7 +345,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       async function openPropertySearch() {
         await page.goto(list)
         await exactText(page, '作者全文搜索').click()
-        const catalog = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PropertyFilterCatalog)
+        const catalog = waitForPathResponse(page, () => WireRoutes.PropertyFilterCatalog)
         await exactText(form, '全文搜索属性条件').click()
         const session = (await catalog).request().headers()[credential]
         assert(session)

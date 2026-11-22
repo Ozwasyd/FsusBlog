@@ -11,6 +11,7 @@ import {
   CANVAS_SCALE_ARTICLE_SOURCE, CANVAS_SCALE_FAR_EDGE, CANVAS_SCALE_FAR_NOTE, CANVAS_SCALE_FIRST_EDGE, CANVAS_SCALE_LOCATIONS,
   CANVAS_SCALE_HEADING_ANCHOR, CANVAS_SCALE_NEAR_NOTE, createCanvasScaleCorpus,
 } from './canvas-scale-corpus.mjs'
+import { waitForPathResponse, waitForUrlResponse } from './response-wait-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const binary = 'application/octet-stream'
@@ -137,8 +138,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
   async function write(trial, name, action, expectedViewport) {
     return timed(trial, name, async () => {
       const [response] = await Promise.all([
-        page.waitForResponse(reply =>
-          new URL(reply.url()).pathname === WireRoutes.CanvasGraphWrite && reply.request().method() === 'POST'),
+        waitForPathResponse(page, () => WireRoutes.CanvasGraphWrite, 'POST'),
         action(),
       ])
       const receipt = decodeCanvasGraphReceipt(await frame(response, FrameType.CanvasGraphReceipt))
@@ -234,7 +234,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
     const retry = exactButton(review, 'Retry confirmation')
     await retry.waitFor()
     const [response] = await Promise.all([
-      page.waitForResponse(reply => reply.url() === confirmation && reply.request().method() === 'POST'),
+      waitForUrlResponse(page, () => confirmation, 'POST'),
       retry.press('Enter'),
     ])
     assert.deepEqual(response.request().postDataBuffer(), payload)

@@ -1,3 +1,4 @@
+import { waitForPathResponse } from './response-wait-fixture.mjs'
 import { holdResponse, journalContains } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
 import { requireWebPackage } from './web-package-fixture.mjs'
@@ -542,8 +543,7 @@ try {
     await visible(summaryInput)
   }
   async function saveSummary(text) {
-    const saved = publisher.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.ArticleSummarySave &&
-      response.request().method() === 'POST')
+    const saved = waitForPathResponse(publisher, () => WireRoutes.ArticleSummarySave, 'POST')
     const reread = publisher.waitForResponse(readSummary)
     await button(publisher, 'Save summary').click()
     const response = await saved
@@ -648,7 +648,7 @@ try {
   await visible(roleWithExactName(visitor, 'link', title))
   assert(!indexEntry.summary.includes(bodyTerm), 'The full-text term must fall outside the index summary')
   const corpusResponse = mobile.waitForEvent('response', response => new URL(response.url()).pathname === WireRoutes.PublicSearchCorpus && response.request().method() === 'GET')
-  const generationCheck = visitor.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PublicSearchCorpus && response.request().method() === 'HEAD')
+  const generationCheck = waitForPathResponse(visitor, () => WireRoutes.PublicSearchCorpus, 'HEAD')
   await search(visitor, bodyTerm)
   await visible(roleWithExactName(visitor, 'link', title))
   const corpus = await corpusResponse
@@ -742,7 +742,7 @@ try {
     }
   }
   await exercisePropertyBatch(publisher, observations)
-  const signOut = publisher.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.SignOut)
+  const signOut = waitForPathResponse(publisher, () => WireRoutes.SignOut)
   await button(publisher, 'Log out').click()
   assert.equal((await signOut).status(), 200)
   await publisher.waitForURL(`${origin}/`)

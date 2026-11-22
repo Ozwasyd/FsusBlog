@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAdminClusterStatus, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { waitForUrlResponse } from './response-wait-fixture.mjs'
 
 export function adminClusterFlow({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie, priorCookie,
   probe, evidence }) {
@@ -10,7 +11,7 @@ export function adminClusterFlow({ page, context, adminOrigin, siteOrigin, admin
   const button = section.getByRole('button', { name: 'Re-check', exact: true })
   const detailsToggle = section.locator('summary', { hasText: 'Runtime & publication diagnostics' })
   const check = async () => (await Promise.all([
-    page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'GET'), button.click(),
+    waitForUrlResponse(page, () => endpoint, 'GET'), button.click(),
   ]))[0]
   const instance = section.getByText('Instance ID', { exact: true })
   const expandDetails = async () => {

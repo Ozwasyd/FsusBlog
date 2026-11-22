@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { waitForPathResponse } from './response-wait-fixture.mjs'
 
 export async function exerciseArticleRights(page, observations) {
   const inspector = page.getByRole('complementary', { name: 'Article inspector' })
@@ -7,8 +8,7 @@ export async function exerciseArticleRights(page, observations) {
   await inspector.getByLabel('Copyright holder', { exact: true }).fill('Browser fixture owner & Co')
   await inspector.getByLabel('Copyright year', { exact: true }).fill('2026')
   await inspector.getByLabel('Rights statement', { exact: true }).fill('Publication rights browser statement.')
-  const sent = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.DraftRightsCommand &&
-    response.request().method() === 'POST')
+  const sent = waitForPathResponse(page, () => WireRoutes.DraftRightsCommand, 'POST')
   await inspector.getByRole('button', { name: 'Save publication rights', exact: true }).click()
   assert.equal((await sent).status(), 200)
   await page.getByRole('status').filter({ hasText: 'Publication rights saved.' }).waitFor()

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { assertEmpty, assertStatus } from './response-status-fixture.mjs'
+import { waitForUrlResponse } from './response-wait-fixture.mjs'
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { requireWebPackage } from './web-package-fixture.mjs'
@@ -172,8 +173,7 @@ async function signIn(name, ticket, viewport = { width: 1280, height: 800 }) {
       diagnostics.push({ name, kind: 'response', path, status: response.status() })
   })
   await page.goto(origin + '/login')
-  const signedIn = page.waitForResponse(response =>
-    response.url() === origin + identity + '/sign-in.aeds' && response.request().method() === 'POST')
+  const signedIn = waitForUrlResponse(page, () => origin + identity + '/sign-in.aeds', 'POST')
   await page.getByLabel('Owner access key').fill(ticket)
   await page.getByRole('button', { name: 'Log in', exact: true }).click()
   const response = await signedIn

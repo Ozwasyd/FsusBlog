@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDocumentExportTask } from '../../src/Contracts/document-export-tasks.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { waitForPathResponse } from './response-wait-fixture.mjs'
 
 export async function exerciseDocumentExportTasks(page, article, revision, visibleBody, pdfEnabled) {
   const open = async () => {
@@ -14,8 +15,7 @@ export async function exerciseDocumentExportTasks(page, article, revision, visib
     await panel.getByText(`Source revision ${revision}`, { exact: true }).waitFor()
     return panel
   }
-  const receipt = (route) => page.waitForResponse(response =>
-    new URL(response.url()).pathname === route && response.request().method() === 'POST')
+  const receipt = (route) => waitForPathResponse(page, () => route, 'POST')
   const download = async (panel, label, format) => {
     const entry = panel.getByRole('listitem').filter({ hasText: `${label} · Revision ${revision}` })
     await entry.getByText('Ready', { exact: true }).waitFor()
@@ -47,8 +47,7 @@ export async function exerciseDocumentExportTasks(page, article, revision, visib
   await panel.getByText('No export tasks for this article.', { exact: true }).waitFor()
   await create(panel, 'html')
   await panel.getByText('Ready', { exact: true }).waitFor()
-  const reload = page.waitForResponse(response =>
-    new URL(response.url()).pathname === WireRoutes.DocumentExportTaskList.replace('{id:int}', String(article)))
+  const reload = waitForPathResponse(page, () => WireRoutes.DocumentExportTaskList.replace('{id:int}', String(article)))
   await page.reload()
   panel = await open()
   assert.equal((await reload).status(), 200)

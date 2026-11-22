@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { waitForPathResponse } from './response-wait-fixture.mjs'
 import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
@@ -104,8 +105,7 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   const reason = 'Restore the initial published content as a draft.'
   await comparison.getByLabel('Reason for restoring this draft').fill(reason)
   await screenshot(page, 'editor-revision-comparison')
-  const completed = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.DraftRollback &&
-    response.request().method() === 'POST')
+  const completed = waitForPathResponse(page, () => WireRoutes.DraftRollback, 'POST')
   await restore.click()
   assert.equal((await completed).status(), 200)
   await page.getByRole('status').filter({ hasText: 'Revision restored to a new draft.' }).waitFor()

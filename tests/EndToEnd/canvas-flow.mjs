@@ -1,3 +1,4 @@
+import { waitForPathResponse } from './response-wait-fixture.mjs'
 import { createCanvasThroughUi } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
@@ -72,8 +73,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     await client.mouse.move(box.x + 20, box.y + 20)
     await client.mouse.down()
     await client.mouse.move(box.x + 72, box.y + 55, { steps: 5 })
-    const moved = client.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.CanvasGraphWrite &&
-      response.request().method() === 'POST')
+    const moved = waitForPathResponse(client, () => WireRoutes.CanvasGraphWrite, 'POST')
     await client.mouse.up()
     assert.equal((await moved).status(), 200)
     await client.getByText('Revision 3 · 1/1 nodes · 0/0 edges', { exact: true }).waitFor()
@@ -154,7 +154,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     const visualInsertion = await review.locator('pre').textContent()
     assert(visualInsertion.endsWith(`](/article/${targetArticle.id})`))
     assert.equal((await draft()).body, linked.body)
-    const visualConfirm = client.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.CanvasConfirm)
+    const visualConfirm = waitForPathResponse(client, () => WireRoutes.CanvasConfirm)
     await exactButton(review, 'Confirm link').click()
     assert.equal((await visualConfirm).status(), 200)
     await review.waitFor({ state: 'hidden' })
@@ -180,8 +180,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     await heading(title).waitFor()
     await viewport().getByRole('button', { name: /Private spatial note/ }).waitFor()
     await viewport().focus()
-    const panned = client.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.CanvasGraphWrite &&
-      response.request().method() === 'POST')
+    const panned = waitForPathResponse(client, () => WireRoutes.CanvasGraphWrite, 'POST')
     await client.keyboard.press('ArrowRight')
     assert.equal((await panned).status(), 200)
     await client.getByRole('status').filter({ hasText: 'Canvas saved.' }).waitFor()
