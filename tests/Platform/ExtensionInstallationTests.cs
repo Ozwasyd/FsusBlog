@@ -1,20 +1,13 @@
-using System.Buffers.Binary;
-using System.IO.Compression;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using FsusBlog.V2.Core.Extensions;
 using FsusBlog.V2.Platform.Extensions;
+using static FsusBlog.V2.Tests.SignedExtensionFixture;
 
 namespace FsusBlog.V2.Platform.Tests;
 
 public sealed class ExtensionInstallationTests
 {
-    private const string PathInArchive = "bin/worker.wasm";
-    private const string Source = "approved-source/fixture";
-    private static readonly DateTimeOffset Now = new(2026, 11, 14, 12, 0, 0, TimeSpan.Zero);
-
     [Fact]
     public void InstalledPackageRestartsWithItsVersionFloorAndAnExclusiveWriter()
     {
@@ -380,7 +373,7 @@ public sealed class ExtensionInstallationTests
         if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
         using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var stagingDisk = new InstallationDisk();
-        var (authority, owner, _, _) = Host(publisher);
+        var (authority, owner, _) = Host(publisher, "provenance/fixture");
         var grant = authority.RecordConsent(Consent(owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
         using var operation = authority.Begin(owner, "fixture.read", "preview", new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3));
         var executed = false;
@@ -475,74 +468,8 @@ public sealed class ExtensionInstallationTests
         }
     }
 
-    private static void AssertRejected(string code, Action act) => Assert.Equal(code, Assert.Throws<ExtensionRejectedException>(act).Code);
-
-    private static (ExtensionAuthority, ExtensionOwner, Clock, ExtensionPackageVerifier) Host(ECDsa key)
-    {
-        var clock = new Clock();
-        var archive = MakeArchive();
-        var verifier = new ExtensionPackageVerifier([Key(key)], [Catalog("fixture", archive)], clock);
-        var authority = new ExtensionAuthority(verifier, clock);
-        authority.Activate(Source, archive, Sign(key, archive), ExtensionPlatform.ServerLinux);
-        var owner = NewOwner();
-        authority.SetOwner(owner);
-        return (authority, owner, clock, verifier);
-    }
-
     private static ExtensionAuthority.Operation BeginRead(ExtensionInstallationStore store, ExtensionOwner owner, Guid grant) =>
         store.Begin(owner, "fixture.read", "preview", new ExtensionProposal.ReadRange(Guid.NewGuid(), grant, 1, 2));
-
-    private static ExtensionOwner NewOwner() => new(Guid.NewGuid(), Guid.NewGuid(), 1, Guid.NewGuid(), 17, 1);
-
-    private static ExtensionConsent Consent(ExtensionOwner owner, ExtensionCapability capability, string? root = null, int bytes = 0) =>
-        new("fixture.extension", "fixture.read", owner, "preview", capability, root, bytes, Now.AddMinutes(2));
-
-    private static ExtensionPublisherKey Key(ECDsa publisher) =>
-        new("fixture.publisher", "first", [.. publisher.ExportSubjectPublicKeyInfo()], Now.AddHours(-1), Now.AddHours(1));
-
-    private static ApprovedExtensionSource Catalog(string name, byte[] archive) =>
-        new($"approved-source/{name}", $"provenance/{name}", "fixture.publisher", "first", Hash(archive), "signature/first", "trust/policy");
-
-    private static byte[] Sign(ECDsa key, byte[] archive) => key.SignData(archive, HashAlgorithmName.SHA256,
-        DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
-
-    private static byte[] MakeArchive(Func<string, string>? change = null, string path = PathInArchive)
-    {
-        byte[] module = [0, 97, 115, 109, 1, 0, 0, 0];
-        var name = Framed(Encoding.UTF8.GetBytes(path));
-        var content = Hash([.. name, .. SHA256.HashData(module)]);
-        var payload = Hash([.. "fsusblog.authoring-package.payload.v1\0"u8, .. name, .. Framed(module)]);
-        var manifest = new ExtensionManifest(1, 1, "fixture.extension", "1.0", payload, content,
-            "fixture.publisher", "signature/first", "trust/policy", new(1, 1), [ExtensionPlatform.ServerLinux],
-            [new("fixture.read", 1, 1, new(1, path, Hash(module)), [ExtensionCapability.DocumentRangeRead, ExtensionCapability.FileSystemRootProposeWrite])],
-            new(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), 4096, 1024, 1024, 1, 8, 4, 0, 0, 1024, 0), 1, 1, 0, 0, 0, false);
-        var json = JsonSerializer.Serialize(manifest);
-        using var output = new MemoryStream();
-        using (var zip = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            using (var file = zip.CreateEntry("manifest.json").Open()) file.Write(Encoding.UTF8.GetBytes(change?.Invoke(json) ?? json));
-            using var member = zip.CreateEntry(path).Open();
-            member.Write(module);
-        }
-        return output.ToArray();
-    }
-
-    private static byte[] Framed(byte[] bytes)
-    {
-        var result = new byte[4 + bytes.Length];
-        BinaryPrimitives.WriteInt32BigEndian(result, bytes.Length);
-        bytes.CopyTo(result, 4);
-        return result;
-    }
-
-    private static string Hash(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
-
-    private sealed class Clock : TimeProvider
-    {
-        private int _reads;
-        public DateTimeOffset? Next { get; set; }
-        public override DateTimeOffset GetUtcNow() => _reads++ == 0 ? Now : Next ?? Now;
-    }
 
     private sealed class FaultingStream(CancellationTokenSource cancellation) : MemoryStream
     {
