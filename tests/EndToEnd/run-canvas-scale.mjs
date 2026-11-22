@@ -7,12 +7,14 @@ import { cpus } from 'node:os'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseCanvasScale } from './canvas-scale-flow.mjs'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
 
 const { chromium } = requireWebPackage('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
-const ticket = process.env.FSUSBLOG_TEST_TICKET
+const bootstrap = process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
+const otherBootstrap = process.env.FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP
 const evidenceDir = process.env.FSUSBLOG_TEST_EVIDENCE
-assert(ticket && evidenceDir)
+assert(bootstrap && otherBootstrap && evidenceDir)
 const startedAt = new Date().toISOString()
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 } })
@@ -22,6 +24,8 @@ const observations = []
 const diagnostics = []
 let failure
 let result
+let served
+let harnessDigests
 
 function monitor(tab) {
   tab.on('pageerror', error => diagnostics.push(error.message))
@@ -30,27 +34,25 @@ function monitor(tab) {
   })
 }
 monitor(page)
-// Artifacts contain hashes of served resources and non-secret machine/version metadata.
-const htmlResponse = await page.request.get(origin + '/user/manage/canvas')
-assert.equal(htmlResponse.status(), 200)
-const html = await htmlResponse.text()
-const jsAsset = html.match(/<script type="module"[^>]*src="([^"]+)"/)?.[1]
-assert(jsAsset)
-const js = await page.request.get(new URL(jsAsset, origin).href)
-assert.equal(js.status(), 200)
-const digest = value => createHash('sha256').update(value).digest('hex')
-const served = { html: digest(html), [jsAsset]: digest(await js.body()) }
-const sourceFiles = [
-  'tests/EndToEnd/run-canvas-scale.mjs', 'tests/EndToEnd/canvas-scale-flow.mjs',
-  'tests/EndToEnd/canvas-scale-corpus.mjs', 'tests/EndToEnd/canvas-scale-verify.sql', 'tests/EndToEnd/run-native.sh',
-]
-const harnessDigests = Object.fromEntries(await Promise.all(sourceFiles.map(async path => [path, digest(await readFile(path))])))
-
 try {
-  await page.goto(origin + '/login')
-  await page.getByLabel('Owner access key', { exact: true }).fill(ticket)
-  await page.getByRole('button', { name: 'Log in', exact: true }).click()
-  await page.waitForURL('**/user/manage/article/write')
+  // Artifacts contain hashes of served resources and non-secret machine/version metadata.
+  const htmlResponse = await page.request.get(origin + '/admin/canvas')
+  assert.equal(htmlResponse.status(), 200)
+  const html = await htmlResponse.text()
+  const jsAsset = html.match(/<script type="module"[^>]*src="([^"]+)"/)?.[1]
+  assert(jsAsset)
+  const js = await page.request.get(new URL(jsAsset, origin).href)
+  assert.equal(js.status(), 200)
+  const digest = value => createHash('sha256').update(value).digest('hex')
+  served = { html: digest(html), [jsAsset]: digest(await js.body()) }
+  const sourceFiles = [
+    'tests/EndToEnd/run-canvas-scale.mjs', 'tests/EndToEnd/canvas-scale-flow.mjs',
+    'tests/EndToEnd/canvas-scale-corpus.mjs', 'tests/EndToEnd/canvas-scale-verify.sql', 'tests/EndToEnd/run-native.sh',
+    'tests/EndToEnd/webauthn-fixture.mjs',
+  ]
+  harnessDigests = Object.fromEntries(await Promise.all(sourceFiles.map(async path => [path, digest(await readFile(path))])))
+
+  await signInFreshAdmin(page, origin, bootstrap)
 
   async function article(action, draft) {
     const body = encodeFrame(FrameType.ArticleCommand, encodeArticleCommand({
@@ -71,10 +73,7 @@ try {
       const outsider = await browserContext.newPage()
       monitor(outsider)
       try {
-        await outsider.goto(origin + '/login')
-        await outsider.getByLabel('Owner access key', { exact: true }).fill(process.env.FSUSBLOG_TEST_OUTSIDER_TICKET)
-        await outsider.getByRole('button', { name: 'Log in', exact: true }).click()
-        await outsider.waitForURL('**/user/manage/article/write')
+        await signInFreshAdmin(outsider, origin, otherBootstrap)
         return { request: outsider.request, close: () => browserContext.close() }
       } catch (cause) {
         await browserContext.close()

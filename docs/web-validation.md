@@ -41,4 +41,6 @@ node tests/EndToEnd/blog-flow.mjs
 
 `FSUSBLOG_TEST_FLOW=property-inspector-scale bash tests/EndToEnd/run-native.sh` 使用当前编辑器遍历 1,000 个属性定义。附加 `FSUSBLOG_TEST_PROPERTY_ACCESSIBILITY=1` 可复验明暗主题在 100%、150%、200% 浏览器缩放下的键盘焦点和 Chromium 无障碍树。
 
+`FSUSBLOG_TEST_FLOW=canvas-scale bash tests/EndToEnd/run-native.sh` 经当前管理入口和两个独立的管理员 Passkey 验证 10,000 个节点、10,000 条边、匿名与跨账号隔离、原有挂载上限和断连重试。浏览器结束后由 PostgreSQL 独立核对图、文章修订和命令回执。
+
 后续在当前 FsusUI checkout 用 Emscripten 5.0.4 重建原生资源，清除 `FSUSBLOG_FSUSUI_WASM_DIST` 后重新运行 V2 的严格检查和构建；六个新生成的本地资源都进入成品。在 1280×800 和 375×850 重跑真实 Chrome Markdown 编辑/预览探针，两种视口均通过且无诊断。见 [构建和摘要](fsusui.md)。

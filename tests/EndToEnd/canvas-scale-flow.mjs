@@ -98,7 +98,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
 
   const canvasId = randomUUID()
   const graphPath = route(WireRoutes.CanvasGraphPage, canvasId)
-  const pageUrl = origin + '/user/manage/canvas/' + canvasId
+  const pageUrl = origin + '/admin/canvas/' + canvasId
   const startedImport = performance.now()
   const created = await post(page, origin, WireRoutes.CanvasBundleExecute, FrameType.CanvasBundleExecute,
     encodeCanvasBundleExecute({
@@ -161,6 +161,7 @@ export async function exerciseCanvasScale({ page, origin, screenshot, observatio
   async function verifyAnonymous() {
     const other = await page.context().browser().newContext()
     try {
+      await other.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
       const tab = await other.newPage()
       const shell = await tab.goto(pageUrl)
       assert.match(shell.headers()['x-robots-tag'], /noindex/)

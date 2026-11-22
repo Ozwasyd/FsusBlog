@@ -86,18 +86,15 @@ media_flow=0
 case "$flow" in
   private-media|article-media|public-article-media) media_flow=1 ;;
 esac
-if [[ $flow == blog || $flow == canvas-keyboard || $flow == editor-readiness ||
+if [[ $flow == blog || $flow == canvas-keyboard || $flow == canvas-scale || $flow == editor-readiness ||
       $flow == workspace-recovery || $flow == workspace-split || $flow == workspace-locale ||
       $flow == article-library || $flow == property-history || $flow == property-inspector-scale || $media_flow == 1 ||
       ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap browser-author)
   export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
 fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
-  FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator canvas-scale-outsider)
-  export FSUSBLOG_TEST_OUTSIDER_TICKET
-fi
-if [[ $flow == workspace-recovery || $flow == workspace-split || $flow == article-library || $flow == property-history ]]; then
+if [[ $flow == workspace-recovery || $flow == workspace-split || $flow == article-library ||
+      $flow == property-history || $flow == canvas-scale ]]; then
   FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap "$flow-outsider")
   export FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP
 fi
