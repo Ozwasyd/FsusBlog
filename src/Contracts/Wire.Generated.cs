@@ -106,6 +106,8 @@ public enum FrameType : ushort
     RevisionMetadataComparison = 33068,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
+    AdminSiteConfigState = 33075,
+    AdminSiteConfigCommand = 33076,
     AdminAppearanceState = 32936,
     AdminAppearanceCatalog = 32937,
     AdminAppearanceCommand = 32938,
@@ -343,6 +345,17 @@ public static class WireLimits
     public const int AdminSitePageDigestBytes = 64;
     public const int AdminSitePageSlugBytes = 10;
     public const int AdminSitePagePublishFrameBytes = 600110;
+    public const int AdminSiteConfigDigestBytes = 64;
+    public const int AdminSiteConfigFrameBytes = 32768;
+    public const int SiteConfigTitleBytes = 256;
+    public const int SiteConfigDescriptionBytes = 4096;
+    public const int SiteConfigAuthorBytes = 64;
+    public const int SiteConfigUrlBytes = 256;
+    public const int SiteConfigShortTextBytes = 128;
+    public const int SiteConfigColorBytes = 7;
+    public const int SiteConfigRegionBytes = 32;
+    public const int SiteConfigCopyrightTextBytes = 2048;
+    public const int SiteConfigRecordNumberBytes = 64;
     public const int AdminAppearanceDigestBytes = 64;
     public const int AdminAppearanceIdBytes = 128;
     public const int AdminAppearanceVersionBytes = 64;
@@ -806,6 +819,11 @@ public static class WireRoutes
     public const string AdminSitePageStepUpComplete = "/api/v2/admin/identity/site-pages/step-up/complete.aeds";
     public const string AdminSitePagePow = "/api/v2/admin/identity/site-pages/pow.aeds";
     public const string AdminSitePagePublish = "/api/v2/admin/identity/site-pages/publish.aeds";
+    public const string AdminSiteConfig = "/api/v2/admin/identity/site-config.aeds";
+    public const string AdminSiteConfigStepUpBegin = "/api/v2/admin/identity/site-config/step-up/begin.aeds";
+    public const string AdminSiteConfigStepUpComplete = "/api/v2/admin/identity/site-config/step-up/complete.aeds";
+    public const string AdminSiteConfigPow = "/api/v2/admin/identity/site-config/pow.aeds";
+    public const string AdminSiteConfigSave = "/api/v2/admin/identity/site-config/save.aeds";
     public const string AdminAppearanceState = "/api/v2/admin/identity/appearance.aeds";
     public const string AdminAppearanceCatalog = "/api/v2/admin/identity/appearance/catalog.aeds";
     public const string AdminAppearanceHistory = "/api/v2/admin/identity/appearance/history.aeds";
@@ -971,6 +989,7 @@ public static class WireHeaders
     public const string SiteSessionContinuity = "X-Fsus-Site-Session-Continuity";
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
     public const string AdminSitePageEditor = "X-Fsus-Admin-Site-Page-Editor";
+    public const string AdminSiteConfigEnabled = "X-Fsus-Admin-Site-Config";
     public const string AdminPermissionSession = "X-Fsus-Admin-Permission-Session";
     public const string AdminAppearanceEnabled = "X-Fsus-Admin-Appearance";
     public const string AdminRootCommentPowPolicy = "X-Fsus-Admin-Root-Comment-Pow-Policy";
@@ -1012,6 +1031,8 @@ public sealed record AdminArticleTrashPublicationReceipt(int ArticleId, long Rev
 public sealed record AdminSitePages(int ConfiguredMask);
 public sealed record AdminSitePageRevision(string Slug, long Revision, string Digest, string Markdown);
 public sealed record AdminSitePagePublish(string Slug, long ExpectedRevision, string ExpectedDigest, string Markdown);
+public sealed record AdminSiteConfigState(long Revision, string Digest, string Origin, string Title, string Description, string Author, string OgImage, string FaviconSvgUrl, string FaviconIcoUrl, string FaviconPngUrl, string AppleTouchIconUrl, string ManifestName, string ManifestShortName, string PwaIcon192Url, string PwaIcon512Url, string PwaMaskableIconUrl, string ThemeColor, string BackgroundColor, string SiteLogoUrl, string SiteLogoDarkUrl, string SiteWordmarkUrl, bool ComplianceEnabled, string RegionMode, int CopyrightStartYear, string CopyrightOwner, string CopyrightText, string ContentLicenseName, string ContentLicenseUrl, string IcpRecordNumber, string IcpRecordUrl, string PoliceRecordNumber, string PoliceRecordUrl, string PoliceBadgeIconUrl, string OperatorName, string ContactEmail);
+public sealed record AdminSiteConfigCommand(long ExpectedRevision, string ExpectedDigest, string Title, string Description, string Author, string OgImage, string FaviconSvgUrl, string FaviconIcoUrl, string FaviconPngUrl, string AppleTouchIconUrl, string ManifestName, string ManifestShortName, string PwaIcon192Url, string PwaIcon512Url, string PwaMaskableIconUrl, string ThemeColor, string BackgroundColor, string SiteLogoUrl, string SiteLogoDarkUrl, string SiteWordmarkUrl, bool ComplianceEnabled, string RegionMode, int CopyrightStartYear, string CopyrightOwner, string CopyrightText, string ContentLicenseName, string ContentLicenseUrl, string IcpRecordNumber, string IcpRecordUrl, string PoliceRecordNumber, string PoliceRecordUrl, string PoliceBadgeIconUrl, string OperatorName, string ContactEmail);
 public sealed record AuthoringWorkspaceSnapshot(int SchemaVersion, long Revision, long UpdatedAtUnixMs, int ActiveArticleId, IReadOnlyList<int> Tabs, int Skipped);
 public sealed record AuthoringWorkspaceCommand(int SchemaVersion, long ExpectedRevision, int ActiveArticleId, IReadOnlyList<int> Tabs);
 public sealed record AuthoringWorkspaceLayout(int SchemaVersion, long Revision, long UpdatedAtUnixMs, int ActiveArticleId, IReadOnlyList<int> Tabs, int Skipped, bool InspectorOpen);
@@ -1582,6 +1603,93 @@ public static partial class Wire
     public static AdminSitePagePublish DecodeAdminSitePagePublish(ReadOnlySpan<byte> frame) =>
         DecodeRecord<AdminSitePagePublish>(FrameType.AdminSitePagePublish, frame, static (ref Reader reader) =>
             new AdminSitePagePublish(reader.Text(WireLimits.AdminSitePageSlugBytes), reader.I64(), reader.Text(WireLimits.AdminSitePageDigestBytes), reader.Text(WireLimits.PageContentBytes)), Validate);
+
+    public static byte[] EncodeAdminSiteConfigState(AdminSiteConfigState value) =>
+        EncodeRecord(FrameType.AdminSiteConfigState, value, Validate, static (writer, record) =>
+        {
+            writer.I64(record.Revision);
+            writer.Text(record.Digest, WireLimits.AdminSiteConfigDigestBytes);
+            writer.Text(record.Origin, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.Title, WireLimits.SiteConfigTitleBytes);
+            writer.Text(record.Description, WireLimits.SiteConfigDescriptionBytes);
+            writer.Text(record.Author, WireLimits.SiteConfigAuthorBytes);
+            writer.Text(record.OgImage, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.FaviconSvgUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.FaviconIcoUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.FaviconPngUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.AppleTouchIconUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.ManifestName, WireLimits.SiteConfigShortTextBytes);
+            writer.Text(record.ManifestShortName, WireLimits.SiteConfigShortTextBytes);
+            writer.Text(record.PwaIcon192Url, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.PwaIcon512Url, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.PwaMaskableIconUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.ThemeColor, WireLimits.SiteConfigColorBytes);
+            writer.Text(record.BackgroundColor, WireLimits.SiteConfigColorBytes);
+            writer.Text(record.SiteLogoUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.SiteLogoDarkUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.SiteWordmarkUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Bool(record.ComplianceEnabled);
+            writer.Text(record.RegionMode, WireLimits.SiteConfigRegionBytes);
+            writer.I32(record.CopyrightStartYear);
+            writer.Text(record.CopyrightOwner, WireLimits.SiteConfigShortTextBytes);
+            writer.Text(record.CopyrightText, WireLimits.SiteConfigCopyrightTextBytes);
+            writer.Text(record.ContentLicenseName, WireLimits.SiteConfigShortTextBytes);
+            writer.Text(record.ContentLicenseUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.IcpRecordNumber, WireLimits.SiteConfigRecordNumberBytes);
+            writer.Text(record.IcpRecordUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.PoliceRecordNumber, WireLimits.SiteConfigRecordNumberBytes);
+            writer.Text(record.PoliceRecordUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.PoliceBadgeIconUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.OperatorName, WireLimits.SiteConfigShortTextBytes);
+            writer.Text(record.ContactEmail, WireLimits.SiteConfigShortTextBytes);
+        });
+
+    public static AdminSiteConfigState DecodeAdminSiteConfigState(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminSiteConfigState>(FrameType.AdminSiteConfigState, frame, static (ref Reader reader) =>
+            new AdminSiteConfigState(reader.I64(), reader.Text(WireLimits.AdminSiteConfigDigestBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigTitleBytes), reader.Text(WireLimits.SiteConfigDescriptionBytes), reader.Text(WireLimits.SiteConfigAuthorBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigShortTextBytes), reader.Text(WireLimits.SiteConfigShortTextBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigColorBytes), reader.Text(WireLimits.SiteConfigColorBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Bool(), reader.Text(WireLimits.SiteConfigRegionBytes), reader.I32(), reader.Text(WireLimits.SiteConfigShortTextBytes), reader.Text(WireLimits.SiteConfigCopyrightTextBytes), reader.Text(WireLimits.SiteConfigShortTextBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigRecordNumberBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigRecordNumberBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigShortTextBytes), reader.Text(WireLimits.SiteConfigShortTextBytes)), Validate);
+
+    public static byte[] EncodeAdminSiteConfigCommand(AdminSiteConfigCommand value) =>
+        EncodeRecord(FrameType.AdminSiteConfigCommand, value, Validate, static (writer, record) =>
+        {
+            writer.I64(record.ExpectedRevision);
+            writer.Text(record.ExpectedDigest, WireLimits.AdminSiteConfigDigestBytes);
+            writer.Text(record.Title, WireLimits.SiteConfigTitleBytes);
+            writer.Text(record.Description, WireLimits.SiteConfigDescriptionBytes);
+            writer.Text(record.Author, WireLimits.SiteConfigAuthorBytes);
+            writer.Text(record.OgImage, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.FaviconSvgUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.FaviconIcoUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.FaviconPngUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.AppleTouchIconUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.ManifestName, WireLimits.SiteConfigShortTextBytes);
+            writer.Text(record.ManifestShortName, WireLimits.SiteConfigShortTextBytes);
+            writer.Text(record.PwaIcon192Url, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.PwaIcon512Url, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.PwaMaskableIconUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.ThemeColor, WireLimits.SiteConfigColorBytes);
+            writer.Text(record.BackgroundColor, WireLimits.SiteConfigColorBytes);
+            writer.Text(record.SiteLogoUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.SiteLogoDarkUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.SiteWordmarkUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Bool(record.ComplianceEnabled);
+            writer.Text(record.RegionMode, WireLimits.SiteConfigRegionBytes);
+            writer.I32(record.CopyrightStartYear);
+            writer.Text(record.CopyrightOwner, WireLimits.SiteConfigShortTextBytes);
+            writer.Text(record.CopyrightText, WireLimits.SiteConfigCopyrightTextBytes);
+            writer.Text(record.ContentLicenseName, WireLimits.SiteConfigShortTextBytes);
+            writer.Text(record.ContentLicenseUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.IcpRecordNumber, WireLimits.SiteConfigRecordNumberBytes);
+            writer.Text(record.IcpRecordUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.PoliceRecordNumber, WireLimits.SiteConfigRecordNumberBytes);
+            writer.Text(record.PoliceRecordUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.PoliceBadgeIconUrl, WireLimits.SiteConfigUrlBytes);
+            writer.Text(record.OperatorName, WireLimits.SiteConfigShortTextBytes);
+            writer.Text(record.ContactEmail, WireLimits.SiteConfigShortTextBytes);
+        });
+
+    public static AdminSiteConfigCommand DecodeAdminSiteConfigCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AdminSiteConfigCommand>(FrameType.AdminSiteConfigCommand, frame, static (ref Reader reader) =>
+            new AdminSiteConfigCommand(reader.I64(), reader.Text(WireLimits.AdminSiteConfigDigestBytes), reader.Text(WireLimits.SiteConfigTitleBytes), reader.Text(WireLimits.SiteConfigDescriptionBytes), reader.Text(WireLimits.SiteConfigAuthorBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigShortTextBytes), reader.Text(WireLimits.SiteConfigShortTextBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigColorBytes), reader.Text(WireLimits.SiteConfigColorBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Bool(), reader.Text(WireLimits.SiteConfigRegionBytes), reader.I32(), reader.Text(WireLimits.SiteConfigShortTextBytes), reader.Text(WireLimits.SiteConfigCopyrightTextBytes), reader.Text(WireLimits.SiteConfigShortTextBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigRecordNumberBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigRecordNumberBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigUrlBytes), reader.Text(WireLimits.SiteConfigShortTextBytes), reader.Text(WireLimits.SiteConfigShortTextBytes)), Validate);
 
     public static byte[] EncodeAuthoringWorkspaceSnapshot(AuthoringWorkspaceSnapshot value) =>
         EncodeRecord(FrameType.AuthoringWorkspaceSnapshot, value, Validate, static (writer, record) =>

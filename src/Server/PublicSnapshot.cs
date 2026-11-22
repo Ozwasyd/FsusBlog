@@ -31,6 +31,7 @@ internal sealed class PublicSnapshot
     internal string GenerationHeader { get; }
     internal long Watermark { get; }
     internal long TaxonomyEpoch { get; }
+    internal long SiteConfigRevision { get; }
     internal byte[] Home { get; }
     internal byte[] EnglishHome { get; }
     internal TaxonomyProjection Taxonomy { get; }
@@ -44,10 +45,11 @@ internal sealed class PublicSnapshot
 
     internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
         PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, DistributionSettings? distribution, CancellationToken cancellationToken,
-        long taxonomyEpoch = 0, PublishedMediaProjection? media = null)
+        long taxonomyEpoch = 0, PublishedMediaProjection? media = null, long siteConfigRevision = 0)
     {
         Watermark = watermark;
         TaxonomyEpoch = taxonomyEpoch;
+        SiteConfigRevision = siteConfigRevision;
         _corpus = LocalSearchCorpus.BuildSnapshot(articles, previous?._corpus, cancellationToken);
         _corpusTags = _corpus is null ? [] : CorpusTags(_corpus, previous, cancellationToken);
         _search = ArticleSearchIndex.Build(articles, cancellationToken);
@@ -58,7 +60,7 @@ internal sealed class PublicSnapshot
         _byId = articles.ToFrozenDictionary(article => article.Id);
         _corpusDelta = BuildCorpusDelta(previous, cancellationToken);
         _media = media;
-        _details = new PublicArticleCache(_byId, pages, Generation, log, evidence, media);
+        _details = new PublicArticleCache(_byId, pages, Generation, log, evidence, media, siteConfigRevision);
         _details.Warm(articles.Take(1200), previous?._details, cancellationToken);
         _listing = new PublicListProjection(Generation, articles, cursor);
         var first = articles.Take(10).ToArray();
@@ -236,13 +238,14 @@ internal sealed class PublicSnapshot
 
 internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log, InstanceLease? lease = null,
     RuntimeEvidence? evidence = null, DistributionSettings? distribution = null, PublishedMediaStore? media = null,
-    PublicProjection? projection = null)
+    PublicProjection? projection = null, bool siteConfigOverrideActive = false)
 {
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
     private readonly PublicProjection _projection = projection ?? new();
     private PublicSnapshot? _lastProjection;
     private bool? _taxonomyEpochInstalled;
+    private bool? _siteConfigOverrideInstalled;
     internal PublicSnapshot? Snapshot => lease?.IsCurrent is false ? null : _projection.Current?.Source;
     internal bool LeaseCurrent => lease?.IsCurrent is not false;
 
@@ -357,9 +360,10 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         ct = stop?.Token ?? ct;
         await using var connection = await db.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(connection, lease, ct, System.Data.IsolationLevel.RepeatableRead);
-        var (maxEvent, taxonomyEpoch) = await ReadWatermarks(connection, tx, ct);
+        var (maxEvent, taxonomyEpoch, siteConfigRevision) = await ReadWatermarks(connection, tx, ct);
         var next = Snapshot;
-        var rebuilt = next is null || next.Watermark != maxEvent || next.TaxonomyEpoch != taxonomyEpoch;
+        var rebuilt = next is null || next.Watermark != maxEvent || next.TaxonomyEpoch != taxonomyEpoch ||
+            next.SiteConfigRevision != siteConfigRevision;
         if (rebuilt)
         {
             var taxonomy = await TaxonomyStore.Read(connection, tx, ct);
@@ -412,7 +416,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                     row.GetFieldValue<DateTimeOffset>(7), summary, category, tags, rights, mediaProjection?.CoverDigest(id, publication)));
             }
             next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution,
-                ct, taxonomyEpoch, mediaProjection);
+                ct, taxonomyEpoch, mediaProjection, siteConfigRevision);
         }
         await using (var advance = Store.Sql(connection, tx, """
             update public.blog_outbox set processed_at=now() where processed_at is null
@@ -423,15 +427,29 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         evidence?.CountRefresh(rebuilt);
     }
 
-    private async Task<(long Article, long Taxonomy)> ReadWatermarks(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct)
+    private async Task<(long Article, long Taxonomy, long SiteConfig)> ReadWatermarks(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct)
     {
         _taxonomyEpochInstalled ??= await CurrentSchema.HasAdminTagMetadataAsync(connection, tx, ct);
+        var siteConfig = siteConfigOverrideActive ? (pages.SiteConfig ?? distribution?.Site) : null;
+        if (siteConfig is not null)
+            _siteConfigOverrideInstalled ??= await CurrentSchema.HasSiteConfigOverrideSchemaAsync(connection, tx, ct);
+        var readSiteConfig = siteConfig is not null && _siteConfigOverrideInstalled == true;
         const string articles = "select coalesce(max(id),0) from public.blog_outbox where kind in ('publish','retract','delete')";
-        var sql = _taxonomyEpochInstalled.Value ? "select (" + articles + "),(select revision from public.taxonomy_epoch where singleton)" : articles;
-        await using var command = Store.Sql(connection, tx, sql);
-        await using var row = await command.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) throw new InvalidOperationException("The public watermarks are missing.");
-        return (row.GetInt64(0), _taxonomyEpochInstalled.Value ? row.GetInt64(1) : 0);
+        var taxonomyExpr = _taxonomyEpochInstalled.Value ? "(select revision from public.taxonomy_epoch where singleton)" : "0::bigint";
+        var siteConfigExpr = readSiteConfig ? "(select revision from public.site_config_override where singleton)" : "0::bigint";
+        var sql = $"select ({articles}), {taxonomyExpr}, {siteConfigExpr}";
+        long articleWatermark, taxonomyEpoch, siteConfigRevision;
+        await using (var command = Store.Sql(connection, tx, sql))
+        await using (var row = await command.ExecuteReaderAsync(ct))
+        {
+            if (!await row.ReadAsync(ct)) throw new InvalidOperationException("The public watermarks are missing.");
+            articleWatermark = row.GetInt64(0);
+            taxonomyEpoch = row.GetInt64(1);
+            siteConfigRevision = row.GetInt64(2);
+        }
+        if (readSiteConfig && siteConfig!.Revision != siteConfigRevision)
+            await SiteConfigOverrideStore.SyncAsync(connection, tx, siteConfig, ct);
+        return (articleWatermark, taxonomyEpoch, siteConfigRevision);
     }
 }
 

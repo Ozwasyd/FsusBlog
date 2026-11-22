@@ -97,6 +97,7 @@ internal static class ServerServices
             }
 
             if (appearance is not null) builder.Services.AddSingleton(appearance);
+            builder.Services.AddSingleton(publicSite);
             builder.Services.AddSingleton(new WebPages(template, publicSite, appearance));
             builder.Services.AddSingleton(services => new SitePages(capabilities.SitePagesRoot,
                 services.GetRequiredService<WebPages>(), services.GetRequiredService<NpgsqlDataSource>(),
@@ -105,7 +106,16 @@ internal static class ServerServices
                 services.GetRequiredService<SitePages>().ConfiguredPaths));
             builder.Services.AddSingleton<Store>();
             builder.Services.AddSingleton<PublicProjection>();
-            builder.Services.AddSingleton<Publications>();
+            builder.Services.AddSingleton(services => new Publications(
+                services.GetRequiredService<NpgsqlDataSource>(),
+                services.GetRequiredService<WebPages>(),
+                services.GetRequiredService<ILogger<Publications>>(),
+                services.GetService<InstanceLease>(),
+                services.GetService<RuntimeEvidence>(),
+                services.GetService<DistributionSettings>(),
+                services.GetService<PublishedMediaStore>(),
+                services.GetService<PublicProjection>(),
+                capabilities.SiteConfigOverrideActive));
 
             if (capabilities.WideSearchCorpus)
             {
@@ -199,6 +209,7 @@ internal static class ServerServices
         AdminInboxReply: capabilities.AdminInboxReplies ? true : null,
         SiteRefresh: capabilities.SitePersistentRefresh ? true : null,
         SitePageEditor: capabilities.SitePageEditor ? true : null,
+        SiteConfigEditor: capabilities.SiteConfigEditor ? true : null,
         AdminArticleRollback: capabilities.AdminArticleRollback ? true : null,
         AppearanceActivation: capabilities.OnlineAppearance ? true : null,
         AdminTagMetadata: capabilities.AdminTagMetadata ? true : null,

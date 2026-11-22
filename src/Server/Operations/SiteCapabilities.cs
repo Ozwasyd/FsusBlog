@@ -64,6 +64,8 @@ internal sealed class SiteCapabilities
     internal bool AdminTagMetadata { get; }
     internal bool AdminCategoryMetadata { get; }
     internal bool SitePageEditor { get; }
+    internal bool SiteConfigEditor { get; }
+    internal bool SiteConfigOverrideActive { get; }
     internal bool OnlineAppearance { get; }
 
     private SiteCapabilities(
@@ -168,6 +170,12 @@ internal sealed class SiteCapabilities
             throw new InvalidOperationException("The site page editor requires HTTPS administrator and public origins or a loopback administrator origin.");
         if (SitePageEditor && string.IsNullOrWhiteSpace(SitePagesRoot))
             throw new InvalidOperationException("The site page editor requires the four deployment baseline files.");
+
+        var requestedSiteConfigEditor = ReadOptionalBool(configuration, PublicSiteConfiguration.EditorSetting);
+        SiteConfigEditor = requestedSiteConfigEditor ?? siteAndAdminReady;
+        if (SiteConfigEditor && !siteAndAdminReady)
+            throw new InvalidOperationException("The site configuration editor requires HTTPS administrator and public origins or a loopback administrator origin.");
+        SiteConfigOverrideActive = requestedSiteConfigEditor ?? true;
 
         OnlineAppearance = ReadOptionalBool(configuration, AppearanceAssets.OnlineSetting) ??
             (AppearanceRoot is not null && siteAndAdminReady);

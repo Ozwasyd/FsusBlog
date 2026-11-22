@@ -7,6 +7,7 @@ internal readonly record struct SchemaAdmission(
     bool? AdminInboxReply = null,
     bool? SiteRefresh = null,
     bool? SitePageEditor = null,
+    bool? SiteConfigEditor = null,
     bool? AdminArticleRollback = null,
     bool? AdminInboxStatus = null,
     bool? AdminInboxNotice = null,

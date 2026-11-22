@@ -63,6 +63,8 @@ public sealed class SiteCapabilitiesTests
         Assert.False(capabilities.AdminTagMetadata);
         Assert.False(capabilities.AdminCategoryMetadata);
         Assert.False(capabilities.SitePageEditor);
+        Assert.False(capabilities.SiteConfigEditor);
+        Assert.True(capabilities.SiteConfigOverrideActive);
         Assert.False(capabilities.OnlineAppearance);
     }
 
@@ -97,6 +99,7 @@ public sealed class SiteCapabilitiesTests
         Assert.True(capabilities.AdminArticleRollback);
         Assert.True(capabilities.AdminTagMetadata);
         Assert.True(capabilities.AdminCategoryMetadata);
+        Assert.True(capabilities.SiteConfigEditor);
 
         // No FSUSBLOG_DATA_DIR / site-pages / appearance yet -> cleanly false
         Assert.False(capabilities.PrivateMediaResumable);
@@ -136,6 +139,7 @@ public sealed class SiteCapabilitiesTests
             Assert.True(capabilities.AdminTagMetadata);
             Assert.True(capabilities.AdminCategoryMetadata);
             Assert.True(capabilities.SitePageEditor);
+            Assert.True(capabilities.SiteConfigEditor);
             Assert.True(capabilities.OnlineAppearance);
 
             // Explicit FSUSBLOG_ADMIN_ORIGIN="" disables all admin capabilities fail-closed on a public-only node
@@ -154,6 +158,7 @@ public sealed class SiteCapabilitiesTests
             Assert.False(publicOnly.AdminTagMetadata);
             Assert.False(publicOnly.AdminCategoryMetadata);
             Assert.False(publicOnly.SitePageEditor);
+            Assert.False(publicOnly.SiteConfigEditor);
             Assert.False(publicOnly.OnlineAppearance);
         }
         finally
@@ -403,6 +408,7 @@ public sealed class SiteCapabilitiesTests
             Assert.True(capabilities.AdminCategoryMetadata);
             Assert.True(capabilities.AdminArticleRollback);
             Assert.True(capabilities.SitePageEditor);
+            Assert.True(capabilities.SiteConfigEditor);
             Assert.True(capabilities.OnlineAppearance);
         }
         finally

@@ -342,6 +342,7 @@ internal static partial class CurrentSchema
             AuthoringWorkspaceRelation,
             ..SiteRefreshRelations,
             ..SitePageEditorRelations,
+            ..SiteConfigOverrideRelations,
             ..AppearanceActivationRelations,
             ..RootCommentPowPolicyRelations,
             ..SavedViewRelations,

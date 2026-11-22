@@ -95,6 +95,17 @@ inline constexpr uint32_t PageContentBytes = 600000;
 inline constexpr uint32_t AdminSitePageDigestBytes = 64;
 inline constexpr uint32_t AdminSitePageSlugBytes = 10;
 inline constexpr uint32_t AdminSitePagePublishFrameBytes = 600110;
+inline constexpr uint32_t AdminSiteConfigDigestBytes = 64;
+inline constexpr uint32_t AdminSiteConfigFrameBytes = 32768;
+inline constexpr uint32_t SiteConfigTitleBytes = 256;
+inline constexpr uint32_t SiteConfigDescriptionBytes = 4096;
+inline constexpr uint32_t SiteConfigAuthorBytes = 64;
+inline constexpr uint32_t SiteConfigUrlBytes = 256;
+inline constexpr uint32_t SiteConfigShortTextBytes = 128;
+inline constexpr uint32_t SiteConfigColorBytes = 7;
+inline constexpr uint32_t SiteConfigRegionBytes = 32;
+inline constexpr uint32_t SiteConfigCopyrightTextBytes = 2048;
+inline constexpr uint32_t SiteConfigRecordNumberBytes = 64;
 inline constexpr uint32_t AdminAppearanceDigestBytes = 64;
 inline constexpr uint32_t AdminAppearanceIdBytes = 128;
 inline constexpr uint32_t AdminAppearanceVersionBytes = 64;
@@ -512,6 +523,8 @@ enum class FrameType : uint16_t {
     RevisionMetadataComparison = 33068,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
+    AdminSiteConfigState = 33075,
+    AdminSiteConfigCommand = 33076,
     AdminAppearanceState = 32936,
     AdminAppearanceCatalog = 32937,
     AdminAppearanceCommand = 32938,
@@ -701,7 +714,7 @@ inline constexpr FrameRange frameRanges[] = {
     {33032, 33049},
     {33055, 33066},
     {33068, 33068},
-    {33070, 33074},
+    {33070, 33076},
 };
 }
 

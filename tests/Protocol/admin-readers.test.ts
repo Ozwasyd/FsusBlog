@@ -38,6 +38,7 @@ function activeSession(permissionSession = validPermissionSession): AdminSession
     generation: 3n,
     expiresAt: Date.now() + 60_000,
     appearanceEnabled: true,
+    siteConfigEnabled: true,
     permissionSession,
   };
 }

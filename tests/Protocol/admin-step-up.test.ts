@@ -50,6 +50,7 @@ function activeSession(permissionSession: string | null = validPermissionSession
     generation: 5n,
     expiresAt: Date.now() + 60_000,
     appearanceEnabled: true,
+    siteConfigEnabled: true,
     ...(permissionSession !== null ? { permissionSession } : {}),
   };
 }

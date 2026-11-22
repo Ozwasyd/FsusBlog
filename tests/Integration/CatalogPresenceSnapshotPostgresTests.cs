@@ -11,7 +11,7 @@ public sealed class CatalogPresenceSnapshotPostgresTests
     public void CatalogProbeScopeIsExplicitlyBoundedAndRejectsOutOfScopeLookups()
     {
         var scope = CurrentSchema.CatalogProbeScope;
-        Assert.Equal(82, scope.RelationNames.Length);
+        Assert.Equal(85, scope.RelationNames.Length);
         Assert.Equal(9, scope.ColumnRelationNames.Length);
         Assert.Equal(5, scope.CheckRelationNames.Length);
 
@@ -47,9 +47,9 @@ public sealed class CatalogPresenceSnapshotPostgresTests
         Assert.False(await CurrentSchema.VerifyAsync(connection, ct));
         var verifyAsyncCommands = recorder.SnapshotCommands();
         // 3 preamble (SET READ ONLY, SHOW session_replication_role, fsus_legacy_candidate)
-        // + 10 VerifyCatalogAsync (1 batched snapshot, 1 HasArticleReadTotalSchemaAsync, 1 VerifyRelationsAsync, 7 post-shape verifiers)
-        // + 3 postamble (admin_identity_schema, recovery site_id, v2_schema) = 16 commands total.
-        Assert.Equal(16, verifyAsyncCommands.Count);
+        // + 11 VerifyCatalogAsync (1 batched snapshot, 1 HasArticleReadTotalSchemaAsync, 1 VerifyRelationsAsync, 8 post-shape verifiers)
+        // + 3 postamble (admin_identity_schema, recovery site_id, v2_schema) = 17 commands total.
+        Assert.Equal(17, verifyAsyncCommands.Count);
 
         // Measure actual Npgsql command executions during VerifyCatalogAsync directly in a read-only RepeatableRead tx.
         await using (var tx = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct))
@@ -60,15 +60,15 @@ public sealed class CatalogPresenceSnapshotPostgresTests
             recorder.Reset();
             Assert.False(await CurrentSchema.VerifyCatalogAsync(connection, tx, ct));
             var catalogCommands = recorder.SnapshotCommands();
-            // 1 batched snapshot + 1 retained HasArticleReadTotalSchemaAsync + 1 VerifyRelationsAsync + 7 specialized post-shape verifiers.
-            Assert.Equal(10, catalogCommands.Count);
+            // 1 batched snapshot + 1 retained HasArticleReadTotalSchemaAsync + 1 VerifyRelationsAsync + 8 specialized post-shape verifiers.
+            Assert.Equal(11, catalogCommands.Count);
 
             // Inspect bounded snapshot row counts directly.
             var snapshot = await CurrentSchema.LoadCatalogPresenceSnapshotAsync(connection, tx, ct);
-            Assert.Equal(82, snapshot.ScopedRelationCount);
+            Assert.Equal(85, snapshot.ScopedRelationCount);
             Assert.Equal(9, snapshot.ScopedColumnRelationCount);
             Assert.Equal(5, snapshot.ScopedCheckRelationCount);
-            Assert.InRange(snapshot.ObservedRelationCount, 75, 82);
+            Assert.InRange(snapshot.ObservedRelationCount, 78, 85);
             Assert.InRange(snapshot.ObservedColumnCount, 1, 150);
             Assert.InRange(snapshot.ObservedCheckCount, 1, 60);
             await tx.CommitAsync(ct);

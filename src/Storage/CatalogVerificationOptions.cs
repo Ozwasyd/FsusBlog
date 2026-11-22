@@ -17,6 +17,7 @@ internal sealed record CatalogVerificationOptions
             RecoveryKey = admission.RecoveryKey,
             Refresh = admission.SiteRefresh,
             PageEditor = admission.SitePageEditor,
+            ConfigEditor = admission.SiteConfigEditor,
             AppearanceActivation = admission.AppearanceActivation
         },
         AdminInbox = new()
@@ -130,6 +131,7 @@ internal sealed record SiteCatalogOptions
     internal bool? RecoveryKey { get; init; }
     internal bool? Refresh { get; init; }
     internal bool? PageEditor { get; init; }
+    internal bool? ConfigEditor { get; init; }
     internal bool? AppearanceActivation { get; init; }
 }
 

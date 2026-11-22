@@ -44,6 +44,8 @@ internal sealed partial class WebPages(string template, PublicSiteConfiguration?
         "fsus-site-title"
     ];
 
+    internal PublicSiteConfiguration? SiteConfig => site;
+    internal long SiteConfigRevision => site?.Revision ?? 0;
     internal string SiteTitle => site?.Seo.Title ?? PublicSiteConfiguration.DefaultTitle;
 
     internal static string ResolveWebDist(IConfiguration configuration, IHostEnvironment environment)
@@ -132,18 +134,37 @@ internal sealed partial class WebPages(string template, PublicSiteConfiguration?
     internal byte[] PublicPage(string content = "", string? title = null, string? description = null,
         bool noIndex = false, string? publicPath = null, bool contentDriven = false, string locale = SiteLocale.Default)
     {
+        var currentSeo = site?.Seo;
         var flow = contentDriven ? " data-content-flow=\"content-driven\"" : "";
         var searchLink = publicPath == "/search" ? "" : $"""<a href="/search">{SiteLocale.Html(locale, "nav.search")}</a>""";
         var shell = $"""
             <div class="public-initial">
             <a class="skip-link" href="#page-content">{SiteLocale.Html(locale, "nav.skip")}</a>
             <header class="public-initial-header"><div class="public-initial-bar">
-            <div class="public-initial-brand-nav"><a class="public-initial-brand" href="/">{HtmlEncoder.Default.Encode(SiteTitle)}</a>
+            <div class="public-initial-brand-nav"><a class="public-initial-brand" href="/">{RenderBrandHtml(currentSeo)}</a>
             <nav aria-label="{SiteLocale.Html(locale, "nav.primary")}">{PublicNavigation.Render(publicPath, locale)}</nav></div>
             <div class="public-initial-actions">{searchLink}<a href="/login">{SiteLocale.Html(locale, "nav.login")}</a>{SiteLocale.Selector(locale)}</div>
             </div></header><main id="page-content" tabindex="-1" data-fsus-public-content{flow}>{content}</main></div>
             """;
-        return RenderPage(shell, title, description, locale, noIndex, publicPath, useAppearance: true, locale: locale, publicOrigin: null);
+        return RenderPage(shell, title, description, locale, noIndex, publicPath, useAppearance: true, locale: locale, publicOrigin: null, currentSeo: currentSeo);
+    }
+
+    private static string RenderBrandHtml(Contracts.SiteSeo? seo)
+    {
+        var encoder = HtmlEncoder.Default;
+        var title = encoder.Encode(seo?.Title ?? PublicSiteConfiguration.DefaultTitle);
+        var logo = seo?.SiteLogoUrl ?? "";
+        var wordmark = seo?.SiteWordmarkUrl ?? "";
+        if (wordmark.Length > 0)
+        {
+            var logoTag = logo.Length > 0
+                ? $"<img class=\"site-brand-logo\" src=\"{encoder.Encode(logo)}\" alt=\"\" aria-hidden=\"true\" referrerpolicy=\"no-referrer\">"
+                : "";
+            return $"{logoTag}<img class=\"site-brand-wordmark\" src=\"{encoder.Encode(wordmark)}\" alt=\"{title}\" referrerpolicy=\"no-referrer\">";
+        }
+        if (logo.Length > 0)
+            return $"<img class=\"site-brand-logo\" src=\"{encoder.Encode(logo)}\" alt=\"\" aria-hidden=\"true\" referrerpolicy=\"no-referrer\"><span>{title}</span>";
+        return title;
     }
 
     internal byte[] PublicListingPage(string titleKey, string locale, string path) => PublicPage(
@@ -176,11 +197,13 @@ internal sealed partial class WebPages(string template, PublicSiteConfiguration?
         publicPath: null, useAppearance: true, locale: locale, publicOrigin: null);
 
     private byte[] RenderPage(string content, string? title, string? description, string? language,
-        bool noIndex, string? publicPath, bool useAppearance, string? locale, string? publicOrigin)
+        bool noIndex, string? publicPath, bool useAppearance, string? locale, string? publicOrigin, Contracts.SiteSeo? currentSeo = null)
     {
+        var seo = currentSeo ?? site?.Seo;
+        var currentTitle = seo?.Title ?? PublicSiteConfiguration.DefaultTitle;
         var encoder = HtmlEncoder.Default;
         var document = template;
-        var titleText = title is null ? SiteTitle : $"{title} · {SiteTitle}";
+        var titleText = title is null ? currentTitle : $"{title} · {currentTitle}";
         document = ReplaceFirst(document, DefaultTitleTag, $"<title>{encoder.Encode(titleText)}</title>");
         if (language is not null)
             document = ReplaceFirst(document, DefaultHtmlLangTag, $"<html lang=\"{encoder.Encode(language)}\">");
@@ -201,7 +224,7 @@ internal sealed partial class WebPages(string template, PublicSiteConfiguration?
 
             var canonical = publicPath is not null && !noIndex && site?.Origin is { } origin ? origin + publicPath : null;
             if (publicPath is not null && !noIndex)
-                description = string.IsNullOrWhiteSpace(description) ? site?.Seo.Description : description;
+                description = string.IsNullOrWhiteSpace(description) ? seo?.Description : description;
             if (!string.IsNullOrWhiteSpace(description) && existingMetaNames.Add("description"))
                 head.Append($"<meta name=\"description\" content=\"{encoder.Encode(description)}\">");
 
@@ -218,19 +241,20 @@ internal sealed partial class WebPages(string template, PublicSiteConfiguration?
                     """).Append('\n');
             }
 
-            if (site is not null)
+            if (site is not null && seo is not null)
             {
                 if (existingMetaNames.Add("fsus-site-title"))
-                    head.Append($"<meta name=\"fsus-site-title\" content=\"{encoder.Encode(SiteTitle)}\">");
+                    head.Append($"<meta name=\"fsus-site-title\" content=\"{encoder.Encode(currentTitle)}\">");
                 if (publicPath is not null && !noIndex)
                 {
-                    Meta("author", site.Seo.Author);
-                    Meta("theme-color", site.Seo.ThemeColor);
-                    Meta("og:image", site.Seo.OgImage, "property");
-                    Link("icon", site.Seo.FaviconSvgUrl, "image/svg+xml");
-                    Link("icon", site.Seo.FaviconIcoUrl, "image/x-icon");
-                    Link("icon", site.Seo.FaviconPngUrl, "image/png");
-                    Link("apple-touch-icon", site.Seo.AppleTouchIconUrl, null);
+                    head.Append($"<link rel=\"manifest\" href=\"{PublicSiteConfiguration.ManifestPath}\">");
+                    Meta("author", seo.Author);
+                    Meta("theme-color", seo.ThemeColor);
+                    Meta("og:image", seo.OgImage, "property");
+                    Link("icon", seo.FaviconSvgUrl, "image/svg+xml");
+                    Link("icon", seo.FaviconIcoUrl, "image/x-icon");
+                    Link("icon", seo.FaviconPngUrl, "image/png");
+                    Link("apple-touch-icon", seo.AppleTouchIconUrl, null);
                 }
 
                 void Meta(string name, string value, string attribute = "name")

@@ -126,6 +126,7 @@ public sealed class CatalogVerificationOptionsPostgresTests
             AdminInboxReply: true,
             SiteRefresh: false,
             SitePageEditor: true,
+            SiteConfigEditor: true,
             AdminArticleRollback: false,
             AdminInboxStatus: true,
             AdminInboxNotice: false,
@@ -145,6 +146,7 @@ public sealed class CatalogVerificationOptionsPostgresTests
         Assert.Equal(true, mixed.AdminInbox.Reply);
         Assert.Equal(false, mixed.Site.Refresh);
         Assert.Equal(true, mixed.Site.PageEditor);
+        Assert.Equal(true, mixed.Site.ConfigEditor);
         Assert.Equal(false, mixed.AdminContent.ArticleRollback);
         Assert.Equal(true, mixed.AdminInbox.Status);
         Assert.Equal(false, mixed.AdminInbox.Notice);
@@ -177,7 +179,7 @@ public sealed class CatalogVerificationOptionsPostgresTests
         Assert.False(await VerifyInReadOnlyTx(db, null, ct));
         Assert.False(await VerifyInReadOnlyTx(db, new CatalogVerificationOptions
         {
-            Site = new() { Subscription = true, RecoveryKey = true, Refresh = true, PageEditor = true, AppearanceActivation = true },
+            Site = new() { Subscription = true, RecoveryKey = true, Refresh = true, PageEditor = true, ConfigEditor = true, AppearanceActivation = true },
             AdminInbox = new() { Reply = true, Status = true, Notice = true, Read = true },
             AdminContent = new() { TagMetadata = true, CategoryMetadata = true, ArticleRollback = true, ArticleTrashRestore = true },
             Comments = new() { RootPowPolicy = true, AuthorEdit = true, Report = true, Appeal = true, Replies = true, AdminBatch = true },

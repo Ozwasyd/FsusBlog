@@ -17,6 +17,7 @@ export type AdminSession = Readonly<{
   generation: bigint;
   expiresAt: number;
   appearanceEnabled: boolean;
+  siteConfigEnabled: boolean;
   permissionSession?: string;
 }>;
 export type AdminAuthority = { status: 'unavailable' } | { status: 'signed-out' } | { status: 'active'; session: AdminSession };
@@ -137,6 +138,7 @@ function readAdminSession(payload: Uint8Array, headers: Headers): AdminSession {
       expiresAt <= 0 || expiresAt > 8.64e15) throw new ProtocolError('Invalid administrator session.');
   const permissionSession = readPermissionSession(headers);
   return { ...snapshot, expiresAt, appearanceEnabled: headers.get(WireHeaders.AdminAppearanceEnabled) === '1',
+    siteConfigEnabled: headers.get(WireHeaders.AdminSiteConfigEnabled) === '1',
     ...(permissionSession ? { permissionSession } : {}) };
 }
 

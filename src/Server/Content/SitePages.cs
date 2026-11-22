@@ -23,7 +23,7 @@ internal sealed class SitePages
     private static readonly (string Slug, string Title)[] Definitions =
         [("about", "关于"), ("privacy", "隐私政策"), ("guidelines", "用户守则"), ("copyright", "版权声明")];
 
-    private sealed record Page(AdminSitePageRevision Revision, byte[] Html, byte[] Frame, bool Configured,
+    private sealed record Page(AdminSitePageRevision Revision, long SiteConfigRevision, byte[] Html, byte[] Frame, bool Configured,
         EntityTagHeaderValue HtmlTag, EntityTagHeaderValue FrameTag, byte[] EnglishHtml, EntityTagHeaderValue EnglishHtmlTag);
 
     private readonly FrozenDictionary<string, Page> current;
@@ -115,21 +115,36 @@ internal sealed class SitePages
 
     private async Task<Page> PublicPage(Page baseline, CancellationToken ct)
     {
-        if (!EditorEnabled) return baseline;
+        var siteConfigRevision = renderer.SiteConfigRevision;
+        if (!EditorEnabled)
+        {
+            if (baseline.SiteConfigRevision == siteConfigRevision) return baseline;
+            if (published.TryGetValue(baseline.Revision.Slug, out var cached) &&
+                cached.Revision.Revision == 0 && cached.SiteConfigRevision == siteConfigRevision)
+                return cached;
+            var refreshed = Build(Definitions.Single(spec => spec.Slug == baseline.Revision.Slug), baseline.Revision, baseline.Configured);
+            published[baseline.Revision.Slug] = refreshed;
+            return refreshed;
+        }
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         var revision = await SitePagePublicationStore.Read(db, tx, baseline.Revision, ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
-        if (revision.Revision == 0) return baseline;
-        if (published.TryGetValue(revision.Slug, out var ready) && ready.Revision.Revision == revision.Revision)
+        if (revision.Revision == 0 && baseline.SiteConfigRevision == siteConfigRevision) return baseline;
+        if (published.TryGetValue(revision.Slug, out var ready) &&
+            ready.Revision.Revision == revision.Revision && ready.SiteConfigRevision == siteConfigRevision)
             return ready;
         var page = Build(Definitions.Single(spec => spec.Slug == revision.Slug), revision, configured: true);
-        published.AddOrUpdate(revision.Slug, page, (_, previous) => previous.Revision.Revision > revision.Revision ? previous : page);
+        published.AddOrUpdate(revision.Slug, page, (_, previous) =>
+            previous.Revision.Revision > revision.Revision ||
+            (previous.Revision.Revision == revision.Revision && previous.SiteConfigRevision > page.SiteConfigRevision)
+                ? previous : page);
         return page;
     }
 
     private Page Build((string Slug, string Title) spec, AdminSitePageRevision revision, bool configured)
     {
+        var siteConfigRevision = renderer.SiteConfigRevision;
         var frame = SitePageWire.Encode(spec.Slug, revision.Markdown);
         var state = configured ? "published" : "unconfigured";
         var body = PublicArticleHtml.RenderMarkdown(revision.Markdown);
@@ -142,7 +157,7 @@ internal sealed class SitePages
         }
         var html = HtmlFor(SiteLocale.Default);
         var englishHtml = HtmlFor("en");
-        return new(revision, html, frame, configured, StrongTag(html), StrongTag(frame), englishHtml, StrongTag(englishHtml));
+        return new(revision, siteConfigRevision, html, frame, configured, StrongTag(html), StrongTag(frame), englishHtml, StrongTag(englishHtml));
     }
 
     private static EntityTagHeaderValue StrongTag(byte[] contents) => new("\"" + Convert.ToHexStringLower(SHA256.HashData(contents)) + "\"");

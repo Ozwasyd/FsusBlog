@@ -160,6 +160,9 @@ internal static partial class CurrentSchema
         var hasSitePageEditor = HasSitePageEditorSchema(catalog);
         RequireSchemaPresence(site.PageEditor, hasSitePageEditor,
             "The site page editor schema presence does not match the requested operation.");
+        var hasSiteConfigOverride = HasSiteConfigOverrideSchema(catalog);
+        RequireSchemaPresence(site.ConfigEditor, hasSiteConfigOverride,
+            "The site configuration override schema presence does not match the requested operation.");
         var hasAppearanceActivation = HasAppearanceActivation(catalog);
         RequireSchemaPresence(site.AppearanceActivation, hasAppearanceActivation,
             "The signed appearance schema presence does not match the requested operation.");
@@ -323,6 +326,7 @@ internal static partial class CurrentSchema
             .Concat(hasRecoveryKey ? SiteRecoveryKeyColumns : [])
             .Concat(hasSiteRefresh ? SiteRefreshColumns : [])
             .Concat(hasSitePageEditor ? SitePageEditorColumns : [])
+            .Concat(hasSiteConfigOverride ? SiteConfigOverrideColumns : [])
             .Concat(hasAppearanceActivation ? AppearanceActivationColumns : [])
             .Concat(hasRootCommentPowPolicy ? RootCommentPowPolicyColumns : [])
             .Concat(hasSavedViews ? SavedViewColumns : [])
@@ -377,6 +381,7 @@ internal static partial class CurrentSchema
             .Concat(hasRecoveryKey ? SiteRecoveryKeyConstraints : [])
             .Concat(hasSiteRefresh ? SiteRefreshConstraints : [])
             .Concat(hasSitePageEditor ? SitePageEditorConstraints : [])
+            .Concat(hasSiteConfigOverride ? SiteConfigOverrideConstraints : [])
             .Concat(hasAppearanceActivation ? AppearanceActivationConstraints : [])
             .Concat(hasRootCommentPowPolicy ? RootCommentPowPolicyConstraints : [])
             .Concat(hasSavedViews ? SavedViewConstraints : [])
@@ -420,6 +425,7 @@ internal static partial class CurrentSchema
         RequireSchemaPresence(authoring.ArticleSummary, hasArticleSummary,
             "The article author summary schema presence does not match the requested operation.");
         if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
+        if (hasSiteConfigOverride) await VerifySiteConfigOverrideAsync(connection, transaction, cancellationToken);
         if (hasAdminTagMetadata) await VerifyTaxonomyEpochAsync(connection, transaction, hasAdminCategoryMetadata, cancellationToken);
         if (hasAppearanceActivation) await VerifyAppearanceActivationAsync(connection, transaction, cancellationToken);
         if (hasRootCommentPowPolicy) await VerifyRootCommentPowPolicyAsync(connection, transaction, cancellationToken);
@@ -474,7 +480,8 @@ internal static partial class CurrentSchema
                          CASE WHEN k.confmatchtype <> 's' THEN ' unexpected-action'
                               WHEN k.confdeltype = 'a' AND k.confupdtype = 'a' THEN ''
                               WHEN k.confdeltype = 'c' AND k.confupdtype = 'a' AND n.nspname = 'public'
-                                   AND ((c.relname IN ('admin_step_up', 'admin_site_page_step_up', 'admin_article_rollback_step_up',
+                                   AND ((c.relname IN ('admin_step_up', 'admin_site_page_step_up', 'admin_site_config_step_up',
+                                                      'admin_article_rollback_step_up',
                                                       'admin_appearance_step_up', 'comment_appeal_admin_step_up',
                                                       'admin_comment_batch_step_up', 'admin_root_comment_pow_step_up',
                                                       'admin_article_trash_step_up', 'admin_reader_governance_step_up')

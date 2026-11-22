@@ -1,4 +1,4 @@
--- FsusBlog V2 Operations Schema: appearance activation, site page editor, article reads, and site traffic.
+-- FsusBlog V2 Operations Schema: appearance activation, site page editor, site config override, article reads, and site traffic.
 
 CREATE TABLE public.appearance_activation (
     singleton boolean PRIMARY KEY CHECK (singleton),
@@ -60,6 +60,38 @@ CREATE TABLE public.admin_site_page_step_up (
         CHECK (octet_length(session_digest) = 32),
     generation bigint NOT NULL CHECK (generation > 0),
     action integer NOT NULL CHECK (action = 2),
+    body_digest bytea NOT NULL CHECK (octet_length(body_digest) = 32),
+    options text CHECK (octet_length(options) BETWEEN 1 AND 8192),
+    expires_at timestamptz NOT NULL,
+    kind smallint NOT NULL,
+    UNIQUE (session_digest, kind),
+    CHECK ((kind = 1 AND options IS NOT NULL) OR (kind = 2 AND options IS NULL))
+);
+
+CREATE TABLE public.site_config_override (
+    singleton boolean PRIMARY KEY CHECK (singleton),
+    revision bigint NOT NULL CHECK (revision >= 0),
+    seo_json text CHECK (octet_length(seo_json) <= 16384),
+    compliance_json text CHECK (octet_length(compliance_json) <= 16384),
+    CHECK ((revision = 0 AND seo_json IS NULL AND compliance_json IS NULL) OR (revision > 0 AND seo_json IS NOT NULL AND compliance_json IS NOT NULL))
+);
+INSERT INTO public.site_config_override (singleton, revision) VALUES (true, 0);
+
+CREATE TABLE public.site_config_audit (
+    revision bigint PRIMARY KEY CHECK (revision > 0),
+    principal_id uuid NOT NULL REFERENCES public.admin_principal (id),
+    previous_digest bytea NOT NULL CHECK (octet_length(previous_digest) = 32),
+    next_digest bytea NOT NULL CHECK (octet_length(next_digest) = 32),
+    happened_at timestamptz NOT NULL
+);
+
+CREATE TABLE public.admin_site_config_step_up (
+    digest bytea PRIMARY KEY CHECK (octet_length(digest) = 32),
+    principal_id uuid NOT NULL REFERENCES public.admin_principal (id),
+    session_digest bytea NOT NULL REFERENCES public.admin_session (digest) ON DELETE CASCADE
+        CHECK (octet_length(session_digest) = 32),
+    generation bigint NOT NULL CHECK (generation > 0),
+    action integer NOT NULL CHECK (action = 13),
     body_digest bytea NOT NULL CHECK (octet_length(body_digest) = 32),
     options text CHECK (octet_length(options) BETWEEN 1 AND 8192),
     expires_at timestamptz NOT NULL,

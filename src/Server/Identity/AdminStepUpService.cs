@@ -19,7 +19,8 @@ internal enum AdminStepUpAction
     ActivateRootCommentPow = 9,
     RestoreArticleTrash = 10,
     RestoreDeletedPublication = 11,
-    ChangeReaderStatus = 12
+    ChangeReaderStatus = 12,
+    UpdateSiteConfig = 13
 }
 
 // Manages administrator Step-Up challenges and single-use proof consumption inside the live session transaction.
@@ -175,6 +176,7 @@ internal sealed class AdminStepUpService(AdminSessionGate gate, AdminPasskeyStor
         AdminStepUpAction.ActivateRootCommentPow => "public.admin_root_comment_pow_step_up",
         AdminStepUpAction.RestoreArticleTrash => "public.admin_article_trash_step_up",
         AdminStepUpAction.ChangeReaderStatus => "public.admin_reader_governance_step_up",
+        AdminStepUpAction.UpdateSiteConfig => "public.admin_site_config_step_up",
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 }

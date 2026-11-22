@@ -288,6 +288,7 @@ internal static partial class Cli
                 RecoveryKey = true,
                 Refresh = true,
                 PageEditor = true,
+                ConfigEditor = true,
                 AppearanceActivation = true
             },
             AdminInbox = new()

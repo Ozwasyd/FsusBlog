@@ -117,6 +117,8 @@
     "RevisionMetadataComparison": 33068,
     "AdminSitePageRevision": 32915,
     "AdminSitePagePublish": 32916,
+    "AdminSiteConfigState": 33075,
+    "AdminSiteConfigCommand": 33076,
     "AdminAppearanceState": 32936,
     "AdminAppearanceCatalog": 32937,
     "AdminAppearanceCommand": 32938,
@@ -401,6 +403,11 @@
     "AdminSitePageStepUpComplete": "/api/v2/admin/identity/site-pages/step-up/complete.aeds",
     "AdminSitePagePow": "/api/v2/admin/identity/site-pages/pow.aeds",
     "AdminSitePagePublish": "/api/v2/admin/identity/site-pages/publish.aeds",
+    "AdminSiteConfig": "/api/v2/admin/identity/site-config.aeds",
+    "AdminSiteConfigStepUpBegin": "/api/v2/admin/identity/site-config/step-up/begin.aeds",
+    "AdminSiteConfigStepUpComplete": "/api/v2/admin/identity/site-config/step-up/complete.aeds",
+    "AdminSiteConfigPow": "/api/v2/admin/identity/site-config/pow.aeds",
+    "AdminSiteConfigSave": "/api/v2/admin/identity/site-config/save.aeds",
     "AdminAppearanceState": "/api/v2/admin/identity/appearance.aeds",
     "AdminAppearanceCatalog": "/api/v2/admin/identity/appearance/catalog.aeds",
     "AdminAppearanceHistory": "/api/v2/admin/identity/appearance/history.aeds",
@@ -564,6 +571,7 @@
     "SiteSessionContinuity": "X-Fsus-Site-Session-Continuity",
     "AdminBootstrapToken": "X-Fsus-Admin-Bootstrap-Token",
     "AdminSitePageEditor": "X-Fsus-Admin-Site-Page-Editor",
+    "AdminSiteConfigEnabled": "X-Fsus-Admin-Site-Config",
     "AdminPermissionSession": "X-Fsus-Admin-Permission-Session",
     "AdminAppearanceEnabled": "X-Fsus-Admin-Appearance",
     "AdminRootCommentPowPolicy": "X-Fsus-Admin-Root-Comment-Pow-Policy"
@@ -645,6 +653,17 @@
     "AdminSitePageDigestBytes": 64,
     "AdminSitePageSlugBytes": 10,
     "AdminSitePagePublishFrameBytes": 600110,
+    "AdminSiteConfigDigestBytes": 64,
+    "AdminSiteConfigFrameBytes": 32768,
+    "SiteConfigTitleBytes": 256,
+    "SiteConfigDescriptionBytes": 4096,
+    "SiteConfigAuthorBytes": 64,
+    "SiteConfigUrlBytes": 256,
+    "SiteConfigShortTextBytes": 128,
+    "SiteConfigColorBytes": 7,
+    "SiteConfigRegionBytes": 32,
+    "SiteConfigCopyrightTextBytes": 2048,
+    "SiteConfigRecordNumberBytes": 64,
     "AdminAppearanceDigestBytes": 64,
     "AdminAppearanceIdBytes": 128,
     "AdminAppearanceVersionBytes": 64,
@@ -1006,7 +1025,41 @@
     "AdminArticleRollbackIntentFields": [["ArticleId", "i32"], ["ExpectedRevision", "i64"], ["ExpectedPublicationId", "i64"], ["SourceRevision", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"]],
     "AuthoringWorkspaceGroupPresentation": [["InspectorOpen", "bool"], ["SecondaryActiveArticleId", "i32"], ["SecondaryTabs", "i32s", "AuthoringWorkspaceTabs"], ["FocusedGroup", "i32"]],
     "AdminArticleTrashPublicationCoordinates": [["ArticleId", "i32"], ["ExpectedRevision", "i64"], ["SourceRevision", "i64"], ["SourcePublicationId", "i64"]],
-    "AdminModerationClaimWitness": [["CommentVersion", "i64"], ["ClaimToken", "text", "AdminModerationClaimTokenBytes"], ["ClaimGeneration", "i64"], ["ClaimVersion", "i64"]]
+    "AdminModerationClaimWitness": [["CommentVersion", "i64"], ["ClaimToken", "text", "AdminModerationClaimTokenBytes"], ["ClaimGeneration", "i64"], ["ClaimVersion", "i64"]],
+    "AdminSiteConfigFields": [
+      ["Title", "text", "SiteConfigTitleBytes"],
+      ["Description", "text", "SiteConfigDescriptionBytes"],
+      ["Author", "text", "SiteConfigAuthorBytes"],
+      ["OgImage", "text", "SiteConfigUrlBytes"],
+      ["FaviconSvgUrl", "text", "SiteConfigUrlBytes"],
+      ["FaviconIcoUrl", "text", "SiteConfigUrlBytes"],
+      ["FaviconPngUrl", "text", "SiteConfigUrlBytes"],
+      ["AppleTouchIconUrl", "text", "SiteConfigUrlBytes"],
+      ["ManifestName", "text", "SiteConfigShortTextBytes"],
+      ["ManifestShortName", "text", "SiteConfigShortTextBytes"],
+      ["PwaIcon192Url", "text", "SiteConfigUrlBytes"],
+      ["PwaIcon512Url", "text", "SiteConfigUrlBytes"],
+      ["PwaMaskableIconUrl", "text", "SiteConfigUrlBytes"],
+      ["ThemeColor", "text", "SiteConfigColorBytes"],
+      ["BackgroundColor", "text", "SiteConfigColorBytes"],
+      ["SiteLogoUrl", "text", "SiteConfigUrlBytes"],
+      ["SiteLogoDarkUrl", "text", "SiteConfigUrlBytes"],
+      ["SiteWordmarkUrl", "text", "SiteConfigUrlBytes"],
+      ["ComplianceEnabled", "bool"],
+      ["RegionMode", "text", "SiteConfigRegionBytes"],
+      ["CopyrightStartYear", "i32"],
+      ["CopyrightOwner", "text", "SiteConfigShortTextBytes"],
+      ["CopyrightText", "text", "SiteConfigCopyrightTextBytes"],
+      ["ContentLicenseName", "text", "SiteConfigShortTextBytes"],
+      ["ContentLicenseUrl", "text", "SiteConfigUrlBytes"],
+      ["IcpRecordNumber", "text", "SiteConfigRecordNumberBytes"],
+      ["IcpRecordUrl", "text", "SiteConfigUrlBytes"],
+      ["PoliceRecordNumber", "text", "SiteConfigRecordNumberBytes"],
+      ["PoliceRecordUrl", "text", "SiteConfigUrlBytes"],
+      ["PoliceBadgeIconUrl", "text", "SiteConfigUrlBytes"],
+      ["OperatorName", "text", "SiteConfigShortTextBytes"],
+      ["ContactEmail", "text", "SiteConfigShortTextBytes"]
+    ]
   },
   "records": {
     "RecoveryKeyOperation": {
@@ -1132,6 +1185,12 @@
     },
     "AdminSitePagePublish": {
       "fields": [["Slug", "text", "AdminSitePageSlugBytes"], ["ExpectedRevision", "i64"], ["ExpectedDigest", "text", "AdminSitePageDigestBytes"], ["Markdown", "text", "PageContentBytes"]]
+    },
+    "AdminSiteConfigState": {
+      "fields": [["Revision", "i64"], ["Digest", "text", "AdminSiteConfigDigestBytes"], ["Origin", "text", "SiteConfigUrlBytes"], {"group": "AdminSiteConfigFields"}]
+    },
+    "AdminSiteConfigCommand": {
+      "fields": [["ExpectedRevision", "i64"], ["ExpectedDigest", "text", "AdminSiteConfigDigestBytes"], {"group": "AdminSiteConfigFields"}]
     },
     "AuthoringWorkspaceSnapshot": {
       "fields": [{"group": "AuthoringWorkspaceSnapshotBase"}]

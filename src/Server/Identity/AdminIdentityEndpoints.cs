@@ -99,13 +99,21 @@ internal static class AdminIdentityEndpoints
             : null;
         var appearance = app.Services.GetService<AppearanceAssets>();
 
-        var document = app.Services.GetRequiredService<WebPages>().AdminPage(capabilities.PublicSite.Origin);
+        var webPages = app.Services.GetRequiredService<WebPages>();
+        var adminDocument = Tuple.Create(webPages.SiteConfigRevision, webPages.AdminPage(capabilities.PublicSite.Origin));
         foreach (var path in DocumentPaths.Concat(ParameterizedDocumentPaths))
             app.MapGet(path, (HttpContext ctx) =>
             {
                 ctx.Response.Headers.CacheControl = "no-store";
                 ctx.Response.Headers["X-Robots-Tag"] = "noindex";
-                return Results.Bytes(document, ServerHttp.HtmlContentType);
+                var currentRevision = webPages.SiteConfigRevision;
+                var cached = Volatile.Read(ref adminDocument);
+                if (cached.Item1 != currentRevision)
+                {
+                    cached = Tuple.Create(currentRevision, webPages.AdminPage(capabilities.PublicSite.Origin));
+                    Volatile.Write(ref adminDocument, cached);
+                }
+                return Results.Bytes(cached.Item2, ServerHttp.HtmlContentType);
             });
         app.MapPost(WireRoutes.AdminBootstrapBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
@@ -138,6 +146,7 @@ internal static class AdminIdentityEndpoints
         {
             var active = await gate.SessionWithPermissionBinding(ctx.Request.Cookies[session], ct);
             if (appearance is { Online: true }) ctx.Response.Headers[WireHeaders.AdminAppearanceEnabled] = "1";
+            if (capabilities.SiteConfigEditor) ctx.Response.Headers[WireHeaders.AdminSiteConfigEnabled] = "1";
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = active.PermissionSession;
             return Frame(Wire.EncodeAdminSessionSnapshot(active.Snapshot));
         }).RequireRateLimiting("command");
@@ -195,6 +204,9 @@ internal static class AdminIdentityEndpoints
                 new AdminArticleArchiveStore(gate, stepUp), session, Limit, readFrame);
         if (sitePagesService.EditorEnabled)
             AdminSitePageEditorEndpoints.Map(app, config.Origin, sitePageStore, session, Limit, readFrame);
+        if (capabilities.SiteConfigEditor)
+            AdminSiteConfigEndpoints.Map(app, config.Origin, new AdminSiteConfigStore(gate, stepUp), session, Limit, readFrame,
+                capabilities.PublicSite);
         if (appearance is { Online: true })
             AdminAppearanceEndpoints.Map(app, config.Origin, new AdminAppearanceStore(gate, stepUp), session, Limit, readFrame,
                 appearance.Registry);
