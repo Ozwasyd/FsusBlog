@@ -39,16 +39,13 @@ internal static partial class CurrentSchema
             "c challenge_digest,challenge_expires_at (challenge_digestISNULL)=(challenge_expires_atISNULL)",
             "c request_digest,completed_at (request_digestISNULL)=(completed_atISNULL)"));
 
-    private static readonly string[] SiteRecoveryKeyRelations =
-        ["public.site_recovery_key", "public.site_recovery_flow", "public.site_recovery_rebind"];
+    private static readonly RelationGroup SiteRecoveryKeyRelations = new(
+        "The site Recovery Key schema is partially installed.",
+        "public.site_recovery_key", "public.site_recovery_flow", "public.site_recovery_rebind");
 
     internal static Task<bool> HasSiteRecoveryKeySchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         CancellationToken ct) =>
-        HasCompleteRelationsAsync(connection, transaction, ct, "The site Recovery Key schema is partially installed.",
-            SiteRecoveryKeyRelations);
-
-    private static bool HasSiteRecoveryKeySchema(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("The site Recovery Key schema is partially installed.", SiteRecoveryKeyRelations);
+        SiteRecoveryKeyRelations.IsPresentAsync(connection, transaction, ct);
 
     // An issued Recovery Key is durable evidence that this account passed Passkey enrollment.
     internal static async Task<bool> RequiresSiteRecoveryAsync(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, CancellationToken ct)

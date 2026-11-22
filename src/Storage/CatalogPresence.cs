@@ -14,15 +14,43 @@ internal static partial class CurrentSchema
         return await query.ExecuteScalarAsync(ct) is true;
     }
 
-    private static async Task<bool> HasCompleteRelationsAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,
-        string incomplete, params string[] relations)
+    private sealed class TableProbe(string name, string invalid)
     {
-        await using var query = new NpgsqlCommand("""
-            select count(*)::integer from pg_catalog.unnest($1::text[]) as names(name)
-            where pg_catalog.to_regclass(name) is not null
-            """, db, tx);
-        query.Parameters.AddWithValue(relations);
-        return Complete(await query.ExecuteScalarAsync(ct), relations.Length, incomplete);
+        private readonly string _sql = $"select relkind::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('{name}')";
+
+        internal Task<bool> IsPresentAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+            MatchesOptionalScalarAsync(db, tx, _sql, "r", invalid, ct);
+
+        internal bool IsPresent(CatalogPresenceSnapshot catalog) => MatchesOptional(catalog.GetRelationKind(name), 'r', invalid);
+    }
+
+    private static async Task<bool> MatchesOptionalScalarAsync(NpgsqlConnection db, NpgsqlTransaction tx,
+        string sql, object expected, string invalid, CancellationToken ct)
+    {
+        await using var command = new NpgsqlCommand(sql, db, tx);
+        return MatchesOptional(await command.ExecuteScalarAsync(ct), expected, invalid);
+    }
+
+    private static bool MatchesOptional(object? actual, object expected, string invalid) =>
+        actual is not null && RequireMatch(actual.Equals(expected), invalid);
+
+    private static bool RequireMatch(bool matches, string invalid) => matches ? true : throw new InvalidOperationException(invalid);
+
+    private sealed class RelationGroup(string incomplete, params string[] names)
+    {
+        internal string[] Names { get; } = names;
+
+        internal bool IsPresent(CatalogPresenceSnapshot catalog) => catalog.HasCompleteRelations(incomplete, Names);
+
+        internal async Task<bool> IsPresentAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct)
+        {
+            await using var query = new NpgsqlCommand("""
+                select count(*)::integer from pg_catalog.unnest($1::text[]) as names(name)
+                where pg_catalog.to_regclass(name) is not null
+                """, db, tx);
+            query.Parameters.AddWithValue(Names);
+            return Complete(await query.ExecuteScalarAsync(ct), Names.Length, incomplete);
+        }
     }
 
     private static async Task<bool> HasColumnAndCheckAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,

@@ -39,69 +39,33 @@ internal static partial class CurrentSchema
 
     private const string ArticleBodyInsertionRelation = "public.article_body_insertion";
 
-    internal static async Task<bool> HasArticleBodyEditsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    private static readonly BodyArrayColumn BodyEditTexts = new("edit_texts", "text", "Invalid article body edit text column.");
+    private static readonly BodyArrayColumn BodyInsertionOperations = new("operations", "int4", "Invalid article body insertion operations column.");
+    private static readonly TableProbe BodyInsertionTable = new(ArticleBodyInsertionRelation, "Invalid article body insertion relation.");
+
+    internal static Task<bool> HasArticleBodyEditsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        BodyEditTexts.IsPresentAsync(db, tx, ct);
+
+    internal static Task<bool> HasArticleBodyInsertionOperationsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        BodyInsertionOperations.IsPresentAsync(db, tx, ct);
+
+    internal static Task<bool> HasArticleBodyInsertionAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        BodyInsertionTable.IsPresentAsync(db, tx, ct);
+
+    private sealed class BodyArrayColumn(string name, string elementType, string invalid)
     {
-        await using var read = new NpgsqlCommand("""
-            select atttypid='pg_catalog.text[]'::regtype
-            from pg_catalog.pg_attribute where attrelid=pg_catalog.to_regclass('public.article_body_insertion')
-                and attname='edit_texts' and attnum>0 and not attisdropped
-            """, db, tx);
-        return await read.ExecuteScalarAsync(ct) switch
-        {
-            null => false,
-            true => true,
-            _ => throw new InvalidOperationException("Invalid article body edit text column.")
-        };
+        private readonly string _catalogType = $"pg_catalog._{elementType}";
+        private readonly string _sql = $"""
+            select atttypid='pg_catalog.{elementType}[]'::regtype
+            from pg_catalog.pg_attribute where attrelid=pg_catalog.to_regclass('{ArticleBodyInsertionRelation}')
+                and attname='{name}' and attnum>0 and not attisdropped
+            """;
+
+        internal Task<bool> IsPresentAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+            MatchesOptionalScalarAsync(db, tx, _sql, true, invalid, ct);
+
+        internal bool IsPresent(CatalogPresenceSnapshot catalog) =>
+            catalog.TryGetColumn(ArticleBodyInsertionRelation, name, out var column) &&
+            RequireMatch(column.TypeName == _catalogType, invalid);
     }
-
-    private static bool HasArticleBodyEdits(CatalogPresenceSnapshot catalog) =>
-        catalog.TryGetColumn(ArticleBodyInsertionRelation, "edit_texts", out var column)
-            ? column.TypeName == "pg_catalog._text"
-                ? true
-                : throw new InvalidOperationException("Invalid article body edit text column.")
-            : false;
-
-    internal static async Task<bool> HasArticleBodyInsertionOperationsAsync(NpgsqlConnection db, NpgsqlTransaction tx,
-        CancellationToken ct)
-    {
-        await using var read = new NpgsqlCommand("""
-            select atttypid='pg_catalog.int4[]'::regtype
-            from pg_catalog.pg_attribute where attrelid=pg_catalog.to_regclass('public.article_body_insertion')
-                and attname='operations' and attnum>0 and not attisdropped
-            """, db, tx);
-        return await read.ExecuteScalarAsync(ct) switch
-        {
-            null => false,
-            true => true,
-            _ => throw new InvalidOperationException("Invalid article body insertion operations column.")
-        };
-    }
-
-    private static bool HasArticleBodyInsertionOperations(CatalogPresenceSnapshot catalog) =>
-        catalog.TryGetColumn(ArticleBodyInsertionRelation, "operations", out var column)
-            ? column.TypeName == "pg_catalog._int4"
-                ? true
-                : throw new InvalidOperationException("Invalid article body insertion operations column.")
-            : false;
-
-    internal static async Task<bool> HasArticleBodyInsertionAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var read = new NpgsqlCommand(
-            "select relkind::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('public.article_body_insertion')",
-            db, tx);
-        return await read.ExecuteScalarAsync(ct) switch
-        {
-            null => false,
-            "r" => true,
-            _ => throw new InvalidOperationException("Invalid article body insertion relation.")
-        };
-    }
-
-    private static bool HasArticleBodyInsertion(CatalogPresenceSnapshot catalog) =>
-        catalog.GetRelationKind(ArticleBodyInsertionRelation) switch
-        {
-            null => false,
-            'r' => true,
-            _ => throw new InvalidOperationException("Invalid article body insertion relation.")
-        };
 }

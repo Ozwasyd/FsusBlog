@@ -35,9 +35,7 @@ internal static partial class CurrentSchema
         "article_revision_media_import c alt_text char_length(alt_text)<=256",
     ];
 
-    private static readonly string[] PrivateMediaImportRelations =
-        ["public.private_media_import", "public.article_revision_media_import"];
-
-    private static bool HasPrivateMediaImportOrigin(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("The imported private media origin schema is incomplete.", PrivateMediaImportRelations);
+    private static readonly RelationGroup PrivateMediaImportRelations = new(
+        "The imported private media origin schema is incomplete.",
+        "public.private_media_import", "public.article_revision_media_import");
 }

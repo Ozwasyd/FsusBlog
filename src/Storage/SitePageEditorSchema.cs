@@ -24,11 +24,9 @@ internal static partial class CurrentSchema
             ..StepUpConstraints("admin_site_page_step_up", "action=2")
         ]);
 
-    private static readonly string[] SitePageEditorRelations =
-        ["public.site_page_content", "public.site_page_publish_audit", "public.admin_site_page_step_up"];
-
-    private static bool HasSitePageEditorSchema(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("The site page editor schema is partially installed.", SitePageEditorRelations);
+    private static readonly RelationGroup SitePageEditorRelations = new(
+        "The site page editor schema is partially installed.",
+        "public.site_page_content", "public.site_page_publish_audit", "public.admin_site_page_step_up");
 
     private static readonly CatalogInvariant SitePageCoordinates = new(
         """

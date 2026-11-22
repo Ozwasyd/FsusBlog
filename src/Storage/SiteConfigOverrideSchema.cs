@@ -28,15 +28,12 @@ internal static partial class CurrentSchema
             ..StepUpConstraints("admin_site_config_step_up", "action=13")
         ]);
 
-    private static readonly string[] SiteConfigOverrideRelations =
-        ["public.site_config_override", "public.site_config_audit", "public.admin_site_config_step_up"];
+    private static readonly RelationGroup SiteConfigOverrideRelations = new(
+        "The site configuration override schema is partially installed.",
+        "public.site_config_override", "public.site_config_audit", "public.admin_site_config_step_up");
 
     internal static Task<bool> HasSiteConfigOverrideSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasCompleteRelationsAsync(db, tx, ct, "The site configuration override schema is partially installed.",
-            SiteConfigOverrideRelations);
-
-    private static bool HasSiteConfigOverrideSchema(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("The site configuration override schema is partially installed.", SiteConfigOverrideRelations);
+        SiteConfigOverrideRelations.IsPresentAsync(db, tx, ct);
 
     private static readonly CatalogInvariant SiteConfigOverride = new(
         """

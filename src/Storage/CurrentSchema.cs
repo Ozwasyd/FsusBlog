@@ -132,12 +132,12 @@ internal static partial class CurrentSchema
             "The saved article cover");
         if (hasArticleCover && !hasArticleMedia)
             throw new InvalidOperationException("Saved article covers require the article attachment schema.");
-        var hasPrivateMediaImportOrigin = HasPrivateMediaImportOrigin(catalog);
+        var hasPrivateMediaImportOrigin = PrivateMediaImportRelations.IsPresent(catalog);
         var hasLegacyReleaseOrigin = catalog.HasRelation(LegacyReleaseOriginRelation);
         if (hasPrivateMediaImportOrigin && !hasArticleMedia)
             throw new InvalidOperationException("Imported private media requires the article attachment schema.");
         var hasSubscription = site.Subscription ?? catalog.HasRelation(SiteSubscriptionRelation);
-        var hasRecoveryKey = CheckPresence(site.RecoveryKey, HasSiteRecoveryKeySchema(catalog),
+        var hasRecoveryKey = CheckPresence(site.RecoveryKey, SiteRecoveryKeyRelations.IsPresent(catalog),
             "The site Recovery Key");
         var hasAdminInboxReply = CheckPresence(adminInbox.Reply, catalog.HasRelation(AdminInboxReplyRelation),
             "The administrator inbox reply");
@@ -148,23 +148,23 @@ internal static partial class CurrentSchema
         var hasAdminInboxRead = CheckPresence(adminInbox.Read, catalog.HasRelation(AdminInboxReadRelation),
             "The shared administrator inbox read");
         var hasAuthoringWorkspace = authoring.Workspace ?? catalog.HasRelation(AuthoringWorkspaceRelation);
-        var hasSiteRefresh = CheckPresence(site.Refresh, HasSiteRefreshSchema(catalog),
+        var hasSiteRefresh = CheckPresence(site.Refresh, SiteRefreshRelations.IsPresent(catalog),
             "The site refresh");
-        var hasSitePageEditor = CheckPresence(site.PageEditor, HasSitePageEditorSchema(catalog),
+        var hasSitePageEditor = CheckPresence(site.PageEditor, SitePageEditorRelations.IsPresent(catalog),
             "The site page editor");
-        var hasSiteConfigOverride = CheckPresence(site.ConfigEditor, HasSiteConfigOverrideSchema(catalog),
+        var hasSiteConfigOverride = CheckPresence(site.ConfigEditor, SiteConfigOverrideRelations.IsPresent(catalog),
             "The site configuration override");
-        var hasAppearanceActivation = CheckPresence(site.AppearanceActivation, HasAppearanceActivation(catalog),
+        var hasAppearanceActivation = CheckPresence(site.AppearanceActivation, AppearanceActivationRelations.IsPresent(catalog),
             "The signed appearance");
-        var hasRootCommentPowPolicy = CheckPresence(comments.RootPowPolicy, HasRootCommentPowPolicy(catalog),
+        var hasRootCommentPowPolicy = CheckPresence(comments.RootPowPolicy, RootCommentPowPolicyRelations.IsPresent(catalog),
             "The root comment proof policy", prerequisitesMet: core.AdminIdentity);
-        var hasSavedViews = CheckPresence(authoring.SavedViews, HasSavedViews(catalog),
+        var hasSavedViews = CheckPresence(authoring.SavedViews, SavedViewRelations.IsPresent(catalog),
             "The saved views");
-        var hasSavedViewPlacement = CheckPresence(authoring.SavedViewPlacement, HasSavedViewPlacement(catalog),
+        var hasSavedViewPlacement = CheckPresence(authoring.SavedViewPlacement, SavedViewPlacementRelations.IsPresent(catalog),
             "The saved view placement", prerequisitesMet: hasSavedViews);
-        var hasAdminTagMetadata = CheckPresence(adminContent.TagMetadata, HasAdminTagMetadata(catalog),
+        var hasAdminTagMetadata = CheckPresence(adminContent.TagMetadata, AdminTagMetadataRelations.IsPresent(catalog),
             "The administrator tag metadata");
-        var hasAdminCategoryMetadata = HasAdminCategoryMetadata(catalog);
+        var hasAdminCategoryMetadata = AdminCategoryMetadataRelations.IsPresent(catalog);
         if (hasAdminCategoryMetadata && !hasAdminTagMetadata)
             throw new InvalidOperationException("The administrator category metadata schema requires the taxonomy epoch.");
         if (adminContent.CategoryMetadata is bool requiredCategoryMetadata && requiredCategoryMetadata != hasAdminCategoryMetadata)
@@ -177,30 +177,30 @@ internal static partial class CurrentSchema
             HasAdminArticleArchiveSchema(catalog);
         var hasAdminArticleTrashPublication = hasAdminArticleArchive &&
             HasAdminArticleTrashPublicationSchema(catalog);
-        var hasAdminArticleTrashRestore = HasAdminArticleTrashRestore(catalog);
+        var hasAdminArticleTrashRestore = AdminArticleTrashRestoreRelations.IsPresent(catalog);
         if (hasAdminArticleTrashRestore && !core.AdminIdentity)
             throw new InvalidOperationException("Administrator trash restoration requires independent administrator identity.");
         CheckPresence(adminContent.ArticleTrashRestore, hasAdminArticleTrashRestore, "The administrator trash restore");
         var requireModerationVersion = core.AdminIdentity;
-        var hasCommentAuthorDelete = HasCommentAuthorDeleteSchema(catalog);
+        var hasCommentAuthorDelete = CommentAuthorDeleteRelations.IsPresent(catalog);
         if (hasCommentAuthorDelete && !requireModerationVersion)
             throw new InvalidOperationException("Comment author deletion requires the current comment version column.");
-        var hasCommentAuthorEdit = CheckPresence(comments.AuthorEdit, HasCommentAuthorEditSchema(catalog),
+        var hasCommentAuthorEdit = CheckPresence(comments.AuthorEdit, CommentAuthorEditRelations.IsPresent(catalog),
             "Comment author edit", prerequisitesMet: hasCommentAuthorDelete);
         string[] commentAuthorEditConstraints = hasCommentAuthorEdit
             ? ReadCommentAuthorEditConstraints(catalog) : [];
         var hasCommentReport = CheckPresence(comments.Report, catalog.HasRelation(CommentReportRelation),
             "Comment report");
-        var hasCommentAppeal = CheckPresence(comments.Appeal, HasCommentAppealSchema(catalog),
+        var hasCommentAppeal = CheckPresence(comments.Appeal, CommentAppealRelations.IsPresent(catalog),
             "Comment appeal", prerequisitesMet: hasCommentAuthorDelete);
         var hasCommentReplies = CheckPresence(comments.Replies, catalog.HasRelation(CommentReplyRelation),
             "Comment reply notice", prerequisitesMet: hasCommentAuthorDelete);
-        var hasAdminCommentBatch = CheckPresence(comments.AdminBatch, HasAdminCommentBatchSchema(catalog),
+        var hasAdminCommentBatch = CheckPresence(comments.AdminBatch, AdminCommentBatchRelations.IsPresent(catalog),
             "Administrator comment batch", prerequisitesMet: requireModerationVersion);
         var hasWorkspaceLayout = hasAuthoringWorkspace && HasAuthoringWorkspaceLayout(catalog);
         var hasWorkspaceGroups = CheckPresence(authoring.WorkspaceGroups, hasAuthoringWorkspace && HasAuthoringWorkspaceGroups(catalog),
             "The authoring workspace group", prerequisitesMet: hasWorkspaceLayout);
-        var hasAuthorRecentOpens = CheckPresence(authoring.RecentOpens, HasAuthorRecentOpens(catalog),
+        var hasAuthorRecentOpens = CheckPresence(authoring.RecentOpens, AuthorRecentOpenRelations.IsPresent(catalog),
             "The author recent opens", prerequisitesMet: core.RecoveryScope);
         var hasAuthorTextIndex = CheckPresence(authorText.Index, HasAuthorTextIndex(catalog),
             "The author full-text index");
@@ -229,11 +229,11 @@ internal static partial class CurrentSchema
         var exportImageScope = hasExportImageList
             ? ReadExportImageScope(catalog) : ExportImageScope.Html;
         CheckPresence(authoring.DocumentExports, hasDocumentExports, "The document export");
-        var hasArticleBodyInsertion = HasArticleBodyInsertion(catalog);
+        var hasArticleBodyInsertion = BodyInsertionTable.IsPresent(catalog);
         var hasArticleBodyInsertionOperations = hasArticleBodyInsertion &&
-            HasArticleBodyInsertionOperations(catalog);
+            BodyInsertionOperations.IsPresent(catalog);
         var hasArticleBodyEdits = hasArticleBodyInsertionOperations &&
-            HasArticleBodyEdits(catalog);
+            BodyEditTexts.IsPresent(catalog);
         var hasPublicationCanonical = CheckPresence(publication.Canonical, catalog.HasRelation(PublicationCanonicalRelation),
             "The native publication canonical", prerequisitesMet: core.PublicationHistory && core.PublicationRights);
         var hasPublicationMedia = CheckPresence(media.PublicationMedia, catalog.HasRelation(PublicationMediaRelation),
@@ -242,7 +242,7 @@ internal static partial class CurrentSchema
         if (hasPublicationCover && (!hasPublicationMedia || !hasPublicationCanonical || !hasArticleCover))
             throw new InvalidOperationException("Public article covers require author covers, selected publication media, and canonical storage.");
         CheckPresence(media.PublicationCover, hasPublicationCover, "The public article cover");
-        var hasPublicationProof = CheckPresence(publication.Proof, HasPublicationProof(catalog),
+        var hasPublicationProof = CheckPresence(publication.Proof, PublicationProofRelations.IsPresent(catalog),
             "The native publication proof", prerequisitesMet: hasPublicationCanonical);
         var publicationTransparency = PublicationTransparencyState(catalog);
         var hasPublicationTransparency = CheckPresence(publication.Transparency, publicationTransparency.HasValue,
@@ -250,12 +250,12 @@ internal static partial class CurrentSchema
         var hasPublicationHead = CheckPresence(publication.Head, catalog.HasRelation(PublicationHeadRelation),
             "The native publication head", prerequisitesMet: hasPublicationTransparency);
         var hasSiteTraffic = catalog.HasRelation(SiteTrafficRelation);
-        var hasArticleRead = CheckPresence(publication.ArticleRead, HasArticleReadSchema(catalog),
+        var hasArticleRead = CheckPresence(publication.ArticleRead, ArticleReadRelations.IsPresent(catalog),
             "The article read aggregate");
         // Retained as a dedicated index/opclass/sort-order probe rather than folded into CatalogPresenceSnapshot.
         var hasArticleReadTotal = CheckPresence(publication.ArticleReadTotal, await HasArticleReadTotalSchemaAsync(connection, transaction, cancellationToken),
             "The article read total", prerequisitesMet: hasArticleRead);
-        var hasPropertySnapshots = HasPropertySnapshots(catalog);
+        var hasPropertySnapshots = PropertySnapshotTable.IsPresent(catalog);
         var hasSitePasskeyNames = catalog.HasRelation(SitePasskeyNameRelation);
         SchemaFacts?[] features =
         [

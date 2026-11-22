@@ -24,11 +24,9 @@ internal static partial class CurrentSchema
             ..StepUpConstraints("admin_root_comment_pow_step_up", "action=9")
         ]);
 
-    private static readonly string[] RootCommentPowPolicyRelations =
-        ["public.root_comment_pow_policy", "public.root_comment_pow_policy_audit", "public.admin_root_comment_pow_step_up"];
-
-    private static bool HasRootCommentPowPolicy(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("The root comment proof policy schema is partially installed.", RootCommentPowPolicyRelations);
+    private static readonly RelationGroup RootCommentPowPolicyRelations = new(
+        "The root comment proof policy schema is partially installed.",
+        "public.root_comment_pow_policy", "public.root_comment_pow_policy_audit", "public.admin_root_comment_pow_step_up");
 
     private static readonly CatalogInvariant RootCommentPowPolicy = new(
         """

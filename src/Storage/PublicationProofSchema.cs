@@ -26,13 +26,10 @@ internal static partial class CurrentSchema
     ];
 
     private const string PublicationProofRelation = "public.article_publication_proof";
-    private static readonly string[] PublicationProofRelations =
-        [PublicationProofRelation, "public.publication_proof_key"];
+    private static readonly RelationGroup PublicationProofRelations = new(
+        "Native publication proof schema is incomplete.",
+        PublicationProofRelation, "public.publication_proof_key");
 
     internal static Task<bool> HasPublicationProofAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasCompleteRelationsAsync(db, tx, ct, "Native publication proof schema is incomplete.",
-            PublicationProofRelations);
-
-    private static bool HasPublicationProof(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("Native publication proof schema is incomplete.", PublicationProofRelations);
+        PublicationProofRelations.IsPresentAsync(db, tx, ct);
 }

@@ -27,24 +27,8 @@ internal static partial class CurrentSchema
 
     private const string PropertySnapshotRelation = "public.article_revision_property_snapshot";
 
-    internal static async Task<bool> HasPropertySnapshotsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var query = new NpgsqlCommand(
-            "select relkind::text from pg_catalog.pg_class where oid=pg_catalog.to_regclass('public.article_revision_property_snapshot')",
-            db, tx);
-        return await query.ExecuteScalarAsync(ct) switch
-        {
-            null => false,
-            "r" => true,
-            _ => throw new InvalidOperationException("Invalid saved property snapshot relation.")
-        };
-    }
+    private static readonly TableProbe PropertySnapshotTable = new(PropertySnapshotRelation, "Invalid saved property snapshot relation.");
 
-    private static bool HasPropertySnapshots(CatalogPresenceSnapshot catalog) =>
-        catalog.GetRelationKind(PropertySnapshotRelation) switch
-        {
-            null => false,
-            'r' => true,
-            _ => throw new InvalidOperationException("Invalid saved property snapshot relation.")
-        };
+    internal static Task<bool> HasPropertySnapshotsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
+        PropertySnapshotTable.IsPresentAsync(db, tx, ct);
 }

@@ -32,13 +32,10 @@ internal static partial class CurrentSchema
             "c event_type event_type='CommentDeleted'::text",
             "f article_id,comment_id public.comment_author_deleted:article_id,comment_id"));
 
-    private static readonly string[] CommentAuthorDeleteRelations =
-        ["public.comment_account_owner", "public.comment_author_delete_challenge", "public.comment_author_deleted", "public.comment_author_delete_outbox"];
+    private static readonly RelationGroup CommentAuthorDeleteRelations = new(
+        "Comment author deletion storage is incomplete.",
+        "public.comment_account_owner", "public.comment_author_delete_challenge", "public.comment_author_deleted", "public.comment_author_delete_outbox");
 
     internal static Task<bool> HasCommentAuthorDeleteSchemaAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken ct) =>
-        HasCompleteRelationsAsync(connection, transaction, ct, "Comment author deletion storage is incomplete.",
-            CommentAuthorDeleteRelations);
-
-    private static bool HasCommentAuthorDeleteSchema(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("Comment author deletion storage is incomplete.", CommentAuthorDeleteRelations);
+        CommentAuthorDeleteRelations.IsPresentAsync(connection, transaction, ct);
 }

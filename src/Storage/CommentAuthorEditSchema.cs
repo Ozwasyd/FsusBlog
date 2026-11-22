@@ -42,15 +42,12 @@ internal static partial class CurrentSchema
     ];
 
     private const string CommentAuthorEditedRelation = "public.comment_author_edited";
-    private static readonly string[] CommentAuthorEditRelations =
-        ["public.comment_author_edit_challenge", CommentAuthorEditedRelation, "public.comment_author_edit_outbox"];
+    private static readonly RelationGroup CommentAuthorEditRelations = new(
+        "Comment author edit storage is incomplete.",
+        "public.comment_author_edit_challenge", CommentAuthorEditedRelation, "public.comment_author_edit_outbox");
 
     internal static Task<bool> HasCommentAuthorEditSchemaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasCompleteRelationsAsync(db, tx, ct, "Comment author edit storage is incomplete.",
-            CommentAuthorEditRelations);
-
-    private static bool HasCommentAuthorEditSchema(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("Comment author edit storage is incomplete.", CommentAuthorEditRelations);
+        CommentAuthorEditRelations.IsPresentAsync(db, tx, ct);
 
     internal static async Task<bool> SupportsPendingCommentAuthorEditAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
         await ReadCommentAuthorEditStatusAsync(db, tx, ct) == PendingCommentAuthorEditStatus;

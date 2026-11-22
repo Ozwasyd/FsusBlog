@@ -20,13 +20,10 @@ internal static partial class CurrentSchema
             ..StepUpConstraints("admin_article_trash_step_up", "action=10")
         ]);
 
-    private static readonly string[] AdminArticleTrashRestoreRelations =
-        ["public.admin_article_trash_restore", "public.admin_article_trash_step_up"];
+    private static readonly RelationGroup AdminArticleTrashRestoreRelations = new(
+        "The administrator trash restore schema is incomplete.",
+        "public.admin_article_trash_restore", "public.admin_article_trash_step_up");
 
     internal static Task<bool> HasAdminArticleTrashRestoreAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasCompleteRelationsAsync(db, tx, ct, "The administrator trash restore schema is incomplete.",
-            AdminArticleTrashRestoreRelations);
-
-    private static bool HasAdminArticleTrashRestore(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("The administrator trash restore schema is incomplete.", AdminArticleTrashRestoreRelations);
+        AdminArticleTrashRestoreRelations.IsPresentAsync(db, tx, ct);
 }

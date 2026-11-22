@@ -26,13 +26,10 @@ internal static partial class CurrentSchema
             "c action action>=1ANDaction<=3",
             "c fingerprint octet_length(fingerprint)=32"));
 
-    private static readonly string[] SavedViewRelations =
-        ["public.author_saved_view_collection", "public.author_saved_view", "public.author_saved_view_command"];
+    private static readonly RelationGroup SavedViewRelations = new(
+        "The saved views schema is incomplete.",
+        "public.author_saved_view_collection", "public.author_saved_view", "public.author_saved_view_command");
 
     internal static Task<bool> HasSavedViewsAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasCompleteRelationsAsync(db, tx, ct, "The saved views schema is incomplete.",
-            SavedViewRelations);
-
-    private static bool HasSavedViews(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("The saved views schema is incomplete.", SavedViewRelations);
+        SavedViewRelations.IsPresentAsync(db, tx, ct);
 }

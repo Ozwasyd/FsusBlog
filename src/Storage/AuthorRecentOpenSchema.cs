@@ -25,13 +25,10 @@ internal static partial class CurrentSchema
             "c article_revision article_revision>0",
             "c sequence sequence>0"));
 
-    private static readonly string[] AuthorRecentOpenRelations =
-        ["public.author_recent_open_collection", "public.author_recent_open", "public.author_recent_open_receipt"];
+    private static readonly RelationGroup AuthorRecentOpenRelations = new(
+        "The author recent opens schema is incomplete.",
+        "public.author_recent_open_collection", "public.author_recent_open", "public.author_recent_open_receipt");
 
     internal static Task<bool> HasAuthorRecentOpensAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct) =>
-        HasCompleteRelationsAsync(db, tx, ct, "The author recent opens schema is incomplete.",
-            AuthorRecentOpenRelations);
-
-    private static bool HasAuthorRecentOpens(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("The author recent opens schema is incomplete.", AuthorRecentOpenRelations);
+        AuthorRecentOpenRelations.IsPresentAsync(db, tx, ct);
 }

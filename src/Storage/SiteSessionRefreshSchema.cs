@@ -20,9 +20,7 @@ internal static partial class CurrentSchema
             "c generation generation>=0",
             "c used_at,expires_at used_at<expires_at"));
 
-    private static readonly string[] SiteRefreshRelations =
-        ["public.site_session_refresh", "public.site_session_refresh_tombstone"];
-
-    private static bool HasSiteRefreshSchema(CatalogPresenceSnapshot catalog) =>
-        catalog.HasCompleteRelations("The site refresh schema is partially installed.", SiteRefreshRelations);
+    private static readonly RelationGroup SiteRefreshRelations = new(
+        "The site refresh schema is partially installed.",
+        "public.site_session_refresh", "public.site_session_refresh_tombstone");
 }
