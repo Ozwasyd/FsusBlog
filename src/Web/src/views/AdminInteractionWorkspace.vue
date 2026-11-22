@@ -32,6 +32,7 @@ const selected = ref<string | number>('queue')
     </ElTabPane>
     <ElTabPane name="inbox" :label="t('admin.inbox.m1')" lazy>
       <AdminInbox
+        v-if="selected === 'inbox'"
         :session-signal="sessionSignal"
         @session-lost="emit('session-lost', $event)"
       />

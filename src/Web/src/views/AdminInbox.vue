@@ -43,12 +43,12 @@ const controller = new AdminInboxController({
     onReset: () => { opener = undefined },
     onThreadOpened: async () => {
       await nextTick()
-      title.value?.focus()
+      title.value?.focus({ preventScroll: true })
     },
     onThreadRefreshed: () => nextTick(),
     onThreadClosed: () => {
       void nextTick(() => {
-        if (opener?.isConnected) opener.focus()
+        if (opener?.isConnected) opener.focus({ preventScroll: true })
       })
     },
     onBeforeApplyLatestThread: conversationId => {
@@ -59,7 +59,7 @@ const controller = new AdminInboxController({
         void nextTick(() => {
           if (!props.sessionSignal.aborted && thread.value?.conversation.id === conversationId &&
               !focus.isConnected && document.activeElement === document.body) {
-            title.value?.focus()
+            title.value?.focus({ preventScroll: true })
           }
         })
       }
@@ -71,7 +71,7 @@ const controller = new AdminInboxController({
       return () => {
         void nextTick(() => {
           if (!props.sessionSignal.aborted && !focus.isConnected && document.activeElement === document.body) {
-            queue.value?.focus()
+            queue.value?.focus({ preventScroll: true })
           }
         })
       }
@@ -87,7 +87,6 @@ const thread = shallowRef(initial.thread)
 const next = ref(initial.next)
 const filterValue = ref(initial.filter)
 const orderValue = ref(initial.order)
-const expanded = ref(initial.expanded)
 const queuePending = ref(initial.queuePending)
 const threadPending = ref(initial.threadPending)
 const readPending = ref(initial.readPending)
@@ -115,7 +114,6 @@ function syncSnapshot(snap: AdminInboxState) {
   if (next.value !== snap.next) next.value = snap.next
   if (filterValue.value !== snap.filter) filterValue.value = snap.filter
   if (orderValue.value !== snap.order) orderValue.value = snap.order
-  if (expanded.value !== snap.expanded) expanded.value = snap.expanded
   if (queuePending.value !== snap.queuePending) queuePending.value = snap.queuePending
   if (threadPending.value !== snap.threadPending) threadPending.value = snap.threadPending
   if (readPending.value !== snap.readPending) readPending.value = snap.readPending
@@ -206,14 +204,13 @@ const sendNotice = () => { void controller.sendNotice() }
 const sendReply = () => { void controller.sendReply() }
 const saveStatus = () => { void controller.saveStatus() }
 const reloadThread = () => { void controller.reloadThread() }
-const toggle = () => controller.toggle()
 
 watch(() => props.sessionSignal, signal => {
   controller.bindSession(signal, { autoLoad: true })
 }, { flush: 'sync' })
 
 onMounted(() => {
-  if (expanded.value && !props.sessionSignal.aborted) loadQueue()
+  if (!props.sessionSignal.aborted) loadQueue()
 })
 
 onBeforeUnmount(() => {
@@ -225,18 +222,14 @@ onBeforeUnmount(() => {
 <template>
   <section class="inbox-admin" aria-labelledby="admin-inbox-title">
     <h2 id="admin-inbox-title" class="inbox-admin-sr-title">{{ t('admin.inbox.m1') }}</h2>
-    <div class="inbox-admin-panel-actions">
-      <ElButton native-type="button" @click="toggle">{{ t(expanded ? 'admin.inbox.m2' : 'admin.inbox.m3') }}</ElButton>
-    </div>
+    <ElAlert v-if="failed" :title="t(failed)" type="error" :closable="false" />
 
-    <template v-if="expanded">
-      <ElAlert v-if="failed" :title="t(failed)" type="error" :closable="false" />
-
-      <ElInboxLayout
-        :selected="Boolean(thread)"
-        :mobile-pane="thread ? 'detail' : 'list'"
-        density="compact"
-      >
+    <ElInboxLayout
+      class="inbox-admin-shell"
+      :selected="Boolean(thread)"
+      :mobile-pane="thread ? 'detail' : 'list'"
+      density="compact"
+    >
         <template #list>
           <div ref="queue" class="inbox-admin-queue" tabindex="-1" :aria-busy="queuePending">
             <div class="inbox-admin-toolbar">
@@ -315,7 +308,7 @@ onBeforeUnmount(() => {
 
         <template #detail>
           <div v-if="thread" ref="threadPanel" class="inbox-admin-thread" :aria-busy="threadPending || replyPending || statusPending">
-            <ElThreadPanel title-tag="h3" density="compact">
+            <ElThreadPanel class="inbox-admin-thread-panel" title-tag="h3" density="compact">
               <template #back>
                 <ElButton native-type="button" text @click="closeThread">{{ t('admin.inbox.m25') }}</ElButton>
               </template>
@@ -368,7 +361,7 @@ onBeforeUnmount(() => {
                           v-model="reply"
                           type="textarea"
                           v-bind="{ 'aria-label': t('admin.inbox.m33') }"
-                          :autosize="{ minRows: 3, maxRows: 8 }"
+                          :autosize="{ minRows: 2, maxRows: 5 }"
                           :disabled="replyPending"
                         />
                       </template>
@@ -378,14 +371,15 @@ onBeforeUnmount(() => {
                     </ElReplyComposerShell>
                   </form>
                   <form v-if="thread.version" class="inbox-admin-status-form" @submit.prevent="saveStatus">
-                    <div class="inbox-admin-status-row">
+                    <div class="inbox-admin-field inbox-admin-status-select">
+                      <span class="inbox-admin-field-label" aria-hidden="true">{{ t('admin.inbox.m35') }}</span>
                       <ElSelect v-model="destination" :ariaLabel="t('admin.inbox.m35')" :placeholder="t('admin.inbox.m36')" :disabled="statusPending">
                         <ElOption v-for="option in transitions[thread.conversation.status]" :key="option" :label="t(statuses[option])" :value="option" />
                       </ElSelect>
-                      <div class="inbox-admin-field">
-                        <label for="admin-inbox-status-reason">{{ t('admin.inbox.m37') }}</label>
-                        <ElInput id="admin-inbox-status-reason" v-model="reason" type="textarea" :autosize="{ minRows: 2, maxRows: 5 }" :disabled="statusPending" />
-                      </div>
+                    </div>
+                    <div class="inbox-admin-field inbox-admin-status-reason">
+                      <label for="admin-inbox-status-reason">{{ t('admin.inbox.m37') }}</label>
+                      <ElInput id="admin-inbox-status-reason" v-model="reason" :disabled="statusPending" />
                     </div>
                     <div class="inbox-admin-status-actions">
                       <ElButton native-type="submit" :loading="statusPending"
@@ -400,8 +394,7 @@ onBeforeUnmount(() => {
         </template>
       </ElInboxLayout>
 
-      <p v-if="notice" class="inbox-admin-notice" role="status">{{ t(notice) }}</p>
-    </template>
+    <p v-if="notice" class="inbox-admin-notice" role="status">{{ t(notice) }}</p>
   </section>
 </template>
 
@@ -420,11 +413,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.inbox-admin-panel-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .inbox-admin-queue {
   display: grid;
   align-content: start;
@@ -439,7 +427,12 @@ onBeforeUnmount(() => {
   background: var(--fsus-color-surface-raised, var(--el-fill-color-blank));
 }
 
-.inbox-admin-filters,
+.inbox-admin-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
 .inbox-admin-toolbar-actions,
 .inbox-admin-notice-actions,
 .inbox-admin-status-actions {
@@ -449,8 +442,11 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
-.inbox-admin-notice-form,
-.inbox-admin-status-form {
+.inbox-admin-toolbar-actions {
+  justify-content: space-between;
+}
+
+.inbox-admin-notice-form {
   display: grid;
   gap: 12px;
   padding: 12px;
@@ -459,19 +455,25 @@ onBeforeUnmount(() => {
 }
 
 .inbox-admin-status-form {
-  border-bottom: 0;
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
   border-top: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color);
 }
 
 .inbox-admin-field {
   display: grid;
   gap: 6px;
+  min-inline-size: 0;
 }
 
-.inbox-admin-field label {
+.inbox-admin-field label,
+.inbox-admin-field-label {
   font-size: var(--el-font-size-small);
   font-weight: 500;
   color: var(--el-text-color-regular);
+  line-height: 1.4;
 }
 
 .inbox-admin-skeleton {
@@ -558,11 +560,7 @@ onBeforeUnmount(() => {
 
 .inbox-admin-composer-stack {
   display: grid;
-}
-
-.inbox-admin-status-row {
-  display: grid;
-  gap: 10px;
+  container: inbox-composer / inline-size;
 }
 
 .inbox-admin-account {
@@ -573,5 +571,30 @@ onBeforeUnmount(() => {
   margin: 0;
   font-size: var(--el-font-size-small);
   color: var(--el-text-color-secondary);
+}
+
+@container inbox-composer (inline-size >= 34rem) {
+  .inbox-admin-status-form {
+    grid-template-columns: minmax(9.5rem, 11rem) minmax(0, 1fr) auto;
+    align-items: end;
+  }
+}
+
+@media (min-width: 761px) {
+  .inbox-admin-shell {
+    block-size: clamp(28rem, calc(100dvh - 15rem), 56rem);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .inbox-admin-thread {
+    block-size: 100%;
+    min-block-size: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .inbox-admin-thread-panel {
+    block-size: 100%;
+    min-block-size: 0;
+  }
 }
 </style>

@@ -15,9 +15,10 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   const live = process.env.FSUSBLOG_TEST_ADMIN_INBOX_LIVE === '1'
   const shared = process.env.FSUSBLOG_TEST_ADMIN_INBOX_SHARED === '1'
   const panel = page.getByRole('region', { name: 'Support inbox' })
+  await visitAdminWorkspace(page, '/admin/interaction')
   const [defaultPage] = await Promise.all([
     page.waitForResponse(response => isDefaultQueueResponse(response, queue, shared)),
-    visitAdminWorkspace(page, '/admin/interaction'),
+    page.getByRole('tab', { name: 'Support inbox', exact: true }).click(),
   ])
   assert.equal((await context.request.get(siteOrigin + WireRoutes.AdminInboxQueue)).status(), 404)
   await probe(queue, siteCookie.name, siteCookie.value, 401)
@@ -72,6 +73,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
         wakeUrl.protocol = 'wss:'
         await systemViewer.goto(adminOrigin + '/admin/interaction')
         await captureInboxSocket(systemViewer, `^${wakeUrl.pathname}$`)
+        await systemViewer.getByRole('tab', { name: 'Support inbox', exact: true }).click()
         const socket = systemViewer.waitForEvent('websocket', candidate => candidate.url() === wakeUrl.href)
         const systemPanel = systemViewer.getByRole('region', { name: 'Support inbox' })
         await systemPanel.getByRole('combobox', { name: 'Filter support inbox' }).click()
@@ -265,6 +267,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       const endpoint = new URL(openThread ? wakeEndpoint : WireRoutes.AdminInboxQueueWake + '?status=open', adminOrigin)
       endpoint.protocol = 'wss:'
       await captureInboxSocket(peerPage, `^${endpoint.pathname}$`)
+      await peerPage.getByRole('tab', { name: 'Support inbox', exact: true }).click()
       const peerPanel = peerPage.getByRole('region', { name: 'Support inbox' })
       if (openThread) await peerPanel.getByRole('button', { name: 'Inbox QA support case', exact: true }).click()
       else {
@@ -301,7 +304,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
     await closed.waitFor()
     await subject.waitFor({ state: 'hidden' })
   }
-  await panel.getByRole('button', { name: 'Close support inbox' }).click()
+  await page.getByRole('tab', { name: 'Moderation queue', exact: true }).click()
   assert.equal(await panel.getByText(marker, { exact: true }).count(), 0)
   if (live) {
     await verifyDefaultQueueUpdates(page, panel, context, adminOrigin, siteOrigin, subject, shared, sockets, evidence)
@@ -427,7 +430,7 @@ async function verifyDefaultQueueUpdates(page, panel, context, adminOrigin, site
     await reader.getByLabel('工单内容', { exact: true }).fill(body)
 
     await page.bringToFront()
-    await panel.getByRole('button', { name: 'Open support inbox' }).click()
+    await page.getByRole('tab', { name: 'Support inbox', exact: true }).click()
     await existing.waitFor()
     await existing.focus()
     const createdRow = panel.getByRole('button', { name: subject, exact: true })
@@ -456,7 +459,7 @@ async function verifyDefaultQueueUpdates(page, panel, context, adminOrigin, site
     if (shared) await createdRow.locator('..').getByText('1 unread by support', { exact: true }).waitFor()
     assert.equal(await existing.evaluate(node => document.activeElement === node), true)
     await page.screenshot({ path: join(evidence, 'admin-inbox-live-new-ticket.png'), animations: 'disabled' })
-    await panel.getByRole('button', { name: 'Close support inbox' }).click()
+    await page.getByRole('tab', { name: 'Moderation queue', exact: true }).click()
   } finally {
     await page.evaluate(() => window.fsusTestRestoreAdminInboxSocket())
     await reader.close()
