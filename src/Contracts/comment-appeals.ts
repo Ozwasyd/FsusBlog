@@ -5,7 +5,7 @@ import { request, siteSessionHeader } from './client.ts';
 import { requestCommentAuthorChallenge } from './comment-author.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
-export type AuthorAppeal = { article: number; comment: string; body: string; status: number; appeal: number; decisionReason: string };
+export type AuthorAppeal = { article: number; comment: string; body: string; status: number; appeal: number; decisionReason: string; editable: boolean };
 export type PendingAppeal = { id: string; article: number; comment: string; body: string; reason: string };
 export type AuthorCommentStatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'hidden';
 export type AuthorCommentQuery = { q?: string; status?: AuthorCommentStatusFilter };
@@ -34,9 +34,11 @@ export function readAuthorAppeals(before: string | null, session: string, signal
       const status = reader.i32();
       const appeal = reader.i32();
       const decisionReason = reader.text(4000);
+      const editable = reader.bool();
       if (article <= 0 || status < 0 || status > 3 || appeal < 0 || appeal > 5 ||
-          (appeal === 3 || appeal === 4) !== Boolean(decisionReason)) throw invalid();
-      return { article, comment, body, status, appeal, decisionReason } as AuthorAppeal;
+          (appeal === 3 || appeal === 4) !== Boolean(decisionReason) ||
+          (editable && (!body || status !== 0 || appeal !== 0))) throw invalid();
+      return { article, comment, body, status, appeal, decisionReason, editable } as AuthorAppeal;
     });
     return { ...result, editEnabled: headers.get(WireHeaders.CommentAuthorEditEnabled) === '1' };
   }, signal, 'GET', undefined, siteSessionHeader(session));

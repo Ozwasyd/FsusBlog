@@ -56,9 +56,10 @@ internal static class CommentAuthorDeleteEndpoints
         app.MapGet(WireRoutes.CommentAuthorAppeals, (HttpContext ctx, Store store, CancellationToken ct) =>
             Run(ctx, store, async (db, tx, actor, _) =>
             {
-                var page = await CommentAppeals.ReadOwned(db, tx, actor.Id, ctx.Request.Query, ct);
+                var pendingEditEnabled = await CurrentSchema.SupportsPendingCommentAuthorEditAsync(db, tx, ct);
+                var page = await CommentAppeals.ReadOwned(db, tx, actor.Id, ctx.Request.Query, pendingEditEnabled, ct);
                 ctx.Response.Headers.CacheControl = "private, no-store";
-                if (await CurrentSchema.SupportsPendingCommentAuthorEditAsync(db, tx, ct))
+                if (pendingEditEnabled)
                     ctx.Response.Headers[WireHeaders.CommentAuthorEditEnabled] = "1";
                 return page;
             }, ct))

@@ -86,7 +86,7 @@ internal static class CommentAppeals
     }
 
     internal static async Task<byte[]> ReadOwned(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
-        IQueryCollection query, CancellationToken ct)
+        IQueryCollection query, bool pendingEditEnabled, CancellationToken ct)
     {
         await RequireSchema(db, tx, ct);
         var (before, keyword, status) = ParseOwnedQuery(query);
@@ -97,7 +97,21 @@ internal static class CommentAppeals
                         or latest.id is distinct from a.adverse_id then 5 else 2 end
                      when latest.next_status=2 and latest.comment_version=c.moderation_version-1 and not c.deleted
                          and c.moderation_status=2 then 1 else 0 end,
-                d.reason,c.deleted
+                d.reason,c.deleted,
+                ($6 and not c.deleted and c.moderation_status=0 and a.id is null
+                    and c.created_at+$7*interval '1 minute'>=clock_timestamp()
+                    and pub.publication_id is not null
+                    and exists(
+                        select 1 from public.article_publication_rights apr
+                        join public.article_revision_rights arr
+                            on arr.article_id=apr.article_id and arr.revision=apr.revision
+                        where apr.article_id=pub.article_id and apr.revision=pub.revision
+                            and apr.publication_id=pub.publication_id
+                    )
+                    and not exists(
+                        select 1 from public.comment_blocked_region b
+                        where b.article_id=c.article_id and b.comment_id=c.id
+                    )) as editable
             from public.comment_account_owner o
             join public.comment c on c.article_id=o.article_id and c.id=o.comment_id and c.author_mode=3
             left join public.article art on art.id=c.article_id and not art.deleted and art.published_revision is not null
@@ -118,14 +132,15 @@ internal static class CommentAppeals
                     or (d.reason is not null and strpos(lower(d.reason), $5) > 0)
                     or (pub_rev.title is not null and strpos(lower(pub_rev.title), $5) > 0))
             order by c.id desc limit $3
-            """, owner, before, Wire.CommentAppealPageSize + 1, status, keyword);
+            """, owner, before, Wire.CommentAppealPageSize + 1, status, keyword, pendingEditEnabled,
+            WireLimits.CommentAuthorEditWindowMinutes);
         await using var row = await find.ExecuteReaderAsync(ct);
         List<AuthorAppealRow> rows = [];
         while (await row.ReadAsync(ct))
         {
             if (rows.Count == Wire.CommentAppealPageSize) return Wire.EncodeAuthorAppeals(rows, true);
             rows.Add(new(row.GetInt32(0), row.GetInt64(1), row.GetBoolean(6) ? "" : row.GetString(2), row.GetInt16(3),
-                row.GetInt32(4), row.IsDBNull(5) ? null : row.GetString(5)));
+                row.GetInt32(4), row.IsDBNull(5) ? null : row.GetString(5), row.GetBoolean(7)));
         }
         return Wire.EncodeAuthorAppeals(rows, false);
     }

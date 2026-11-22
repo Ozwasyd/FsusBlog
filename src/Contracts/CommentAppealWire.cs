@@ -6,7 +6,8 @@ namespace FsusBlog.V2.Contracts;
 public sealed record AuthorAppealInput(string? Reason, string? Challenge);
 public sealed record AdminAppealInput(string? Decision, string? Reason);
 public sealed record AdminAppealResult(bool Success, string Code, long? AppealId);
-public sealed record AuthorAppealRow(int Article, long Comment, string Body, int Status, int Appeal, string? DecisionReason);
+public sealed record AuthorAppealRow(int Article, long Comment, string Body, int Status, int Appeal, string? DecisionReason,
+    bool Editable);
 public sealed record AdminAppealRow(long Appeal, int Article, long Comment, string Body, string Reason);
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
@@ -61,6 +62,7 @@ public static partial class Wire
             writer.I32(row.Status);
             writer.I32(row.Appeal);
             writer.Text(row.DecisionReason ?? "", 4000);
+            writer.Bool(row.Editable);
         }
         return Aeds.Encode(FrameType.CommentAuthorAppeals, writer.Written);
     }

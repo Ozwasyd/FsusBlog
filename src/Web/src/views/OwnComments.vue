@@ -211,7 +211,7 @@ async function submit(comment: string) {
 }
 
 function canEdit(row: AuthorAppeal) {
-  return editEnabled.value && row.status === 0 && row.appeal === 0 && !!row.body
+  return editEnabled.value && row.editable && row.status === 0 && row.appeal === 0 && !!row.body
 }
 
 function canDelete(row: AuthorAppeal) {

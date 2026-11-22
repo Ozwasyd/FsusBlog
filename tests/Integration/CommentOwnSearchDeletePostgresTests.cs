@@ -39,6 +39,7 @@ public sealed class CommentOwnSearchDeletePostgresTests
         await SeedOwnedComment(db, ct, reader.Id, publishedArticle, 3, 2, false, "Rejected off-topic remark.", admin.Id, "Decision note mentions unique-appeal-marker.");
         await SeedOwnedComment(db, ct, reader.Id, draftArticle, 4, 1, false, "Comment on draft article.");
         await SeedOwnedComment(db, ct, reader.Id, publishedArticle, 5, 2, true, "Deleted secret body should never match search.", admin.Id, "Retained appeal decision.");
+        await SeedOwnedComment(db, ct, reader.Id, publishedArticle, 6, 0, false, "Expired pending note outside 30m window.", ageMinutes: 31);
 
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
 
@@ -62,7 +63,7 @@ public sealed class CommentOwnSearchDeletePostgresTests
 
         // Keyword search matches published article title, but NEVER unpublished draft article title or deleted comment body.
         var pubTitleMatches = await FetchOwned(server.Client, reader.Token, currentSessionId, "?q=Binary%20Architecture", ct);
-        Assert.Equal([5L, 3L, 2L, 1L], pubTitleMatches.Select(r => r.CommentId).ToArray());
+        Assert.Equal([6L, 5L, 3L, 2L, 1L], pubTitleMatches.Select(r => r.CommentId).ToArray());
 
         var draftTitleMatches = await FetchOwned(server.Client, reader.Token, currentSessionId, "?q=Secret%20Draft", ct);
         Assert.Empty(draftTitleMatches);
@@ -73,9 +74,13 @@ public sealed class CommentOwnSearchDeletePostgresTests
         var deletedBodyMatches = await FetchOwned(server.Client, reader.Token, currentSessionId, "?q=Deleted%20secret%20body", ct);
         Assert.Empty(deletedBodyMatches);
 
-        // Status filter combines cleanly with keyword search and before cursor.
+        // Status filter combines cleanly with keyword search, editability window, and before cursor.
         var pendingOnly = await FetchOwned(server.Client, reader.Token, currentSessionId, "?status=pending", ct);
-        Assert.Equal([2L], pendingOnly.Select(r => r.CommentId).ToArray());
+        Assert.Equal([6L, 2L], pendingOnly.Select(r => r.CommentId).ToArray());
+        // Fresh pending comment #2 is editable; >30m expired pending comment #6 is NOT editable.
+        Assert.False(pendingOnly.Single(r => r.CommentId == 6L).Editable);
+        Assert.True(pendingOnly.Single(r => r.CommentId == 2L).Editable);
+        Assert.False(bodyMatches.Single().Editable);
 
         var rejectedBefore = await FetchOwned(server.Client, reader.Token, currentSessionId, "?status=rejected&before=5", ct);
         Assert.Equal([3L], rejectedBefore.Select(r => r.CommentId).ToArray());
@@ -100,7 +105,7 @@ public sealed class CommentOwnSearchDeletePostgresTests
             Assert.Equal(HttpStatusCode.OK, res.StatusCode);
 
         var pendingAfterDelete = await FetchOwned(server.Client, reader.Token, currentSessionId, "?status=pending", ct);
-        Assert.Empty(pendingAfterDelete);
+        Assert.Equal([6L], pendingAfterDelete.Select(r => r.CommentId).ToArray());
     }
 
     private static async Task<int> SeedArticle(NpgsqlConnection db, CancellationToken ct, Guid ownerId, string title, bool published)
@@ -118,23 +123,34 @@ public sealed class CommentOwnSearchDeletePostgresTests
             """, id, title);
         if (published)
         {
-            await FixtureSql.ExecuteAsync(db, tx, ct, """
+            var pubId = (long)(await FixtureSql.ScalarAsync(db, tx, ct, """
                 insert into public.article_publication (article_id, revision, publication_no, published_at)
                 values ($1, 1, 1, now())
+                returning publication_id
+                """, id))!;
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
+                insert into public.article_revision_rights
+                    (article_id, revision, enabled, license_type, copyright_holder, copyright_year, rights_statement,
+                     attribution_template, copy_policy, max_excerpt_chars, allow_code_copy, show_public_badge, proof_binding_enabled)
+                values ($1, 1, true, 'CC-BY-4.0', 'FsusBlog', 2026, 'Attribution required', '', 'excerpt', 500, true, true, false)
                 """, id);
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
+                insert into public.article_publication_rights (article_id, publication_id, revision)
+                values ($1, $2, 1)
+                """, id, pubId);
         }
         await tx.CommitAsync(ct);
         return id;
     }
 
     private static async Task SeedOwnedComment(NpgsqlConnection db, CancellationToken ct, Guid userId, int articleId,
-        long id, short status, bool deleted, string body, Guid? moderatorId = null, string? decisionReason = null)
+        long id, short status, bool deleted, string body, Guid? moderatorId = null, string? decisionReason = null, int ageMinutes = 0)
     {
         await FixtureSql.ExecuteAsync(db, null, ct, """
             insert into public.comment
                 (article_id, id, root_id, depth, moderation_status, deleted, body, author_mode, display_name, display_language, created_at, moderation_version)
-            values ($1, $2, $2, 0, $3, $4, $5, 3, 'Reader', 'zh-CN', now(), 2)
-            """, articleId, id, status, deleted, body);
+            values ($1, $2, $2, 0, $3, $4, $5, 3, 'Reader', 'zh-CN', now() - make_interval(mins => $6), 2)
+            """, articleId, id, status, deleted, body, ageMinutes);
         await FixtureSql.ExecuteAsync(db, null, ct, """
             insert into public.comment_account_owner (article_id, comment_id, user_id) values ($1, $2, $3)
             """, articleId, id, userId);
@@ -163,7 +179,7 @@ public sealed class CommentOwnSearchDeletePostgresTests
         }
     }
 
-    private static async Task<List<(int ArticleId, long CommentId, string Body, int Status, int Appeal, string Reason)>> FetchOwned(
+    private static async Task<List<(int ArticleId, long CommentId, string Body, int Status, int Appeal, string Reason, bool Editable)>> FetchOwned(
         HttpClient client, string cookie, string sessionId, string query, CancellationToken ct)
     {
         using var req = SiteRequest(HttpMethod.Get, WireRoutes.CommentAuthorAppeals + query, cookie, sessionId);
@@ -174,10 +190,10 @@ public sealed class CommentOwnSearchDeletePostgresTests
         var pos = 0;
         _ = ReadByte(payload, ref pos);
         var count = ReadI32(payload, ref pos);
-        var rows = new List<(int, long, string, int, int, string)>(count);
+        var rows = new List<(int, long, string, int, int, string, bool)>(count);
         for (var i = 0; i < count; i++)
             rows.Add((ReadI32(payload, ref pos), ReadI64(payload, ref pos), ReadText(payload, ref pos),
-                ReadI32(payload, ref pos), ReadI32(payload, ref pos), ReadText(payload, ref pos)));
+                ReadI32(payload, ref pos), ReadI32(payload, ref pos), ReadText(payload, ref pos), ReadByte(payload, ref pos) == 1));
         Assert.Equal(payload.Length, pos);
         return rows;
 
