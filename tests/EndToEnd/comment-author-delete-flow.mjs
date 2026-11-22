@@ -1,4 +1,4 @@
-import { roleWithExactName, exactText } from './role-locators.mjs'
+import { roleWithExactName, exactText, exactButton, exactLabel } from './role-locators.mjs'
 import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
@@ -8,13 +8,15 @@ import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodePowChallenge, encodePowProof } from '../../src/Contracts/pow.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
-import { decodeDraft, decodePublicCommentSubmissionResult, encodeArticleCommand, encodePublicCommentSubmission, encodeSignIn,
+import { decodeDraft, decodePublicCommentSubmissionResult, decodeSession, encodeArticleCommand, encodePublicCommentSubmission,
   FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { binary, chromium, expect, observePageErrors, postFrame } from './browser-authoring-fixture.mjs'
+import { enableAuthenticator } from './webauthn-fixture.mjs'
 
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const socket = process.env.FSUSBLOG_TEST_COMMENT_DELETE_DB
+const englishLocale = { name: 'fsus_locale', value: 'en', url: origin }
 assert(socket?.startsWith('/tmp/fsusv2-e2e.') && socket.endsWith('/socket'))
 const observations = []
 const diagnostics = []
@@ -35,12 +37,50 @@ async function post(context, path, type, payload, expected, headers = {}, status
   return expected === undefined ? response : decodeFrame(await response.body(), expected).payload
 }
 
-async function signIn(context, ticket) {
-  assert.match(ticket, /^[a-f0-9]{64}$/)
-  const response = await post(context, WireRoutes.SignIn, FrameType.OperatorSignIn, encodeSignIn({ ticket }))
-  const handle = response.headers()[WireHeaders.CurrentSession.toLowerCase()]
-  assert.match(handle, /^[a-f0-9]{64}$/)
-  return { [WireHeaders.CurrentSession]: handle }
+async function readerPasskeyLogin(page) {
+  await page.context().addCookies([englishLocale])
+  await page.goto(origin + '/login')
+  await exactButton(page, 'Log in with Passkey').click()
+  await page.waitForURL(origin + '/user/identity/mfa')
+  const response = await page.request.get(origin + WireRoutes.Session)
+  try {
+    assertStatus(response, 200)
+    const handle = response.headers()[WireHeaders.CurrentSession.toLowerCase()]
+    const session = decodeSession(decodeFrame(await response.body(), FrameType.OperatorSession).payload)
+    assert.equal(session.canAuthor, false)
+    assert.match(handle, /^[a-f0-9]{64}$/)
+    return { name: session.name, handle }
+  } finally { await response.dispose() }
+}
+
+async function registerReader(page) {
+  await enableAuthenticator(page.context(), page)
+  await page.context().addCookies([englishLocale])
+  await page.goto(origin + '/register')
+  await exactText(page, 'I have read and agree to the guidelines.').click()
+  await exactButton(page, 'Create Passkey').click()
+  await roleWithExactName(page, 'link', 'Log in with Passkey').waitFor()
+  return readerPasskeyLogin(page)
+}
+
+async function publisherPasskeyLogin(page, bootstrap) {
+  assert(bootstrap)
+  await enableAuthenticator(page.context(), page)
+  await page.context().addCookies([englishLocale])
+  await page.goto(origin + '/login?redirect=/admin/identity')
+  await exactButton(page, 'Set up your first Passkey').click()
+  await exactLabel(page, 'One-time setup ticket').fill(bootstrap)
+  await exactButton(page, 'Create Passkey').click()
+  await exactText(page, 'Passkey created. Log in with your Passkey.').waitFor()
+  await exactButton(page, 'Log in with Passkey').click()
+  await page.waitForURL(origin + '/admin/identity')
+  const response = await page.request.get(origin + WireRoutes.AuthoringSession)
+  try {
+    assertStatus(response, 200)
+    const handle = response.headers()[WireHeaders.CurrentSession.toLowerCase()]
+    assert.match(handle, /^[a-f0-9]{64}$/)
+    return { [WireHeaders.CurrentSession]: handle }
+  } finally { await response.dispose() }
 }
 
 async function comment(context, articleId, publication, body) {
@@ -89,14 +129,25 @@ const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TES
 let failure
 try {
   const publisher = await browser.newContext()
-  const commenter = await browser.newContext({ viewport: { width: 375, height: 850 } })
   const secondSession = await browser.newContext()
   const outsider = await browser.newContext()
   const reader = await browser.newContext()
-  const publisherAuth = await signIn(publisher, process.env.FSUSBLOG_TEST_TICKET)
-  const commenterAuth = await signIn(commenter, process.env.FSUSBLOG_TEST_COMMENTER_TICKET)
-  const secondAuth = await signIn(secondSession, process.env.FSUSBLOG_TEST_COMMENTER_SECOND_TICKET)
-  const outsiderAuth = await signIn(outsider, process.env.FSUSBLOG_TEST_OUTSIDER_TICKET)
+  const publisherAuth = await publisherPasskeyLogin(observePageErrors(await publisher.newPage(), diagnostics),
+    process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP)
+  const enrolled = observePageErrors(await secondSession.newPage(), diagnostics)
+  const owner = await registerReader(enrolled)
+  const commenter = await browser.newContext({ storageState: await secondSession.storageState(), viewport: { width: 375, height: 850 } })
+  // Keep the first server session alive while the registered authenticator opens an independent session.
+  await secondSession.clearCookies()
+  const second = await readerPasskeyLogin(enrolled)
+  assert.equal(second.name, owner.name)
+  assert.notEqual(second.handle, owner.handle)
+  const foreign = await registerReader(observePageErrors(await outsider.newPage(), diagnostics))
+  assert.notEqual(foreign.name, owner.name)
+  await reader.addCookies([englishLocale])
+  const commenterAuth = { [WireHeaders.CurrentSession]: owner.handle }
+  const secondAuth = { [WireHeaders.CurrentSession]: second.handle }
+  const outsiderAuth = { [WireHeaders.CurrentSession]: foreign.handle }
   const draft = decodeDraft(await post(publisher, WireRoutes.Save, FrameType.ArticleCommand, encodeArticleCommand({ id: 0, expectedRevision: 0n,
     idempotencyKey: randomUUID(), title: 'Comment ownership fixture article', body: 'Public article for signed-in deletion.' }), FrameType.Draft))
   await post(publisher, WireRoutes.Publish, FrameType.ArticleCommand, encodeArticleCommand({ id: draft.id, expectedRevision: draft.revision,
@@ -106,7 +157,7 @@ try {
   const { publication } = decodeArticle(decodeFrame(await view.body(), FrameType.ArticleDetail).payload)
   sql(`insert into public.comment_public_write(article_id) values(:article);
        insert into public.comment_public_handle(user_id,display_name) select id,'Shared display label' from public.blog_user
-       where name in ('comment-delete-owner','comment-delete-outsider');`, { article: draft.id })
+       where name in (:'owner', :'outsider');`, { article: draft.id, owner: owner.name, outsider: foreign.name })
   const parentText = 'Author-owned root removed after a public reply.'
   const childText = 'Other author public reply remains visible.'
   const root = await comment(commenter, draft.id, publication, parentText)
@@ -120,7 +171,7 @@ try {
 
   await challenge(reader, {}, root, 401)
   await challenge(outsider, outsiderAuth, root, 404)
-  await challenge(publisher, publisherAuth, root, 404)
+  await challenge(publisher, publisherAuth, root, 401)
   await challenge(commenter, commenterAuth, 9007199254740993n, 404)
   await challenge(commenter, commenterAuth, root, 400, 'status')
   await challenge(commenter, outsiderAuth, root, 409)

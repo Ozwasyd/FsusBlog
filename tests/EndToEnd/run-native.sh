@@ -88,7 +88,8 @@ case "$flow" in
 esac
 if [[ $flow == blog || $flow == canvas-keyboard || $flow == canvas-scale || $flow == editor-readiness ||
       $flow == workspace-recovery || $flow == workspace-split || $flow == workspace-locale ||
-      $flow == article-library || $flow == property-history || $flow == property-inspector-scale || $media_flow == 1 ||
+      $flow == article-library || $flow == property-history || $flow == property-inspector-scale ||
+      $flow == comment-author-delete || $media_flow == 1 ||
       ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap browser-author)
   export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
@@ -98,12 +99,9 @@ if [[ $flow == workspace-recovery || $flow == workspace-split || $flow == articl
   FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap "$flow-outsider")
   export FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP
 fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == comment-author-delete ]]; then
-  FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator comment-delete-outsider --reader)
-  FSUSBLOG_TEST_COMMENTER_TICKET=$("${migrate[@]}" operator comment-delete-owner --reader)
-  FSUSBLOG_TEST_COMMENTER_SECOND_TICKET=$("${migrate[@]}" ticket comment-delete-owner)
+if [[ $flow == comment-author-delete ]]; then
   FSUSBLOG_TEST_COMMENT_DELETE_DB="$scratch/socket"
-  export FSUSBLOG_TEST_OUTSIDER_TICKET FSUSBLOG_TEST_COMMENTER_TICKET FSUSBLOG_TEST_COMMENTER_SECOND_TICKET FSUSBLOG_TEST_COMMENT_DELETE_DB
+  export FSUSBLOG_TEST_COMMENT_DELETE_DB
   export FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true
 fi
 if [[ $media_flow == 1 ]]; then
@@ -162,6 +160,10 @@ JS
 )
 url="http://localhost:$http_port"
 export FSUSBLOG_ADMIN_ORIGIN="$url" FSUSBLOG_ADMIN_RP_ID=localhost
+if [[ $flow == comment-author-delete ]]; then
+  export FSUSBLOG_PASSKEY_ORIGIN="$url" FSUSBLOG_PASSKEY_RP_ID=localhost
+  export FSUSBLOG_READER_REGISTRATION=true
+fi
 dotnet "$scratch/server/FsusBlog.V2.Server.dll" --urls "http://127.0.0.1:$http_port" > "$evidence/server.log" 2>&1 &
 server_pid=$!
 for (( attempt=0; attempt<100; attempt++ )); do
