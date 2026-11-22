@@ -23,13 +23,13 @@ async function loadHistory() {
   const session = props.session
   const signal = AbortSignal.any([lifetime.signal, props.sessionSignal])
   loading.value = true
-  history.value = null
   failure.value = false
   try {
     const records = await readAdminSessionHistory(session, signal)
     if (!signal.aborted && props.session === session && session.expiresAt > Date.now()) history.value = records
   } catch (error) {
     if (signal.aborted) return
+    history.value = null
     if (error instanceof ApiError && error.status === 401) emit('sessionLost', error)
     else failure.value = true
   } finally {
@@ -39,7 +39,12 @@ async function loadHistory() {
 </script>
 
 <template>
-  <ElSettingsSection class="admin-session-history" ariaLabelledby="admin-session-history-heading" density="compact">
+  <ElSettingsSection
+    class="admin-session-history"
+    ariaLabelledby="admin-session-history-heading"
+    :description="t('admin.sessionHistorySummary')"
+    density="compact"
+  >
     <template #title><span id="admin-session-history-heading">{{ t('admin.sessionHistory') }}</span></template>
     <template #actions>
       <ElButton native-type="button" text :loading="loading" @click="loadHistory">{{ t('admin.refreshSessionHistory') }}</ElButton>

@@ -297,7 +297,7 @@ async function leave() {
   </RouterView>
   <RouterView v-else-if="adminAuthoringArea" />
   <AccountWorkspace v-else-if="accountArea" home="/user" :label="t('nav.accountMenu')" :links="accountLinks"
-    :theme-mode="themeMode" @theme="useTheme">
+    :surface="route.name === 'security' ? 'task' : 'account'" :theme-mode="themeMode" @theme="useTheme">
     <template #actions="{ drawer }">
       <ElButton v-if="currentSession || logoutFailure" :text="!drawer" @click="leave">{{ t('nav.logout') }}</ElButton>
       <RouterLink v-else class="site-header-text-action" to="/login">{{ t('nav.login') }}</RouterLink>

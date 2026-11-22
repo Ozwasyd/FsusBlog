@@ -39,6 +39,7 @@ import {
   validAdminBootstrapToken,
   type AdminAuthority,
   type AdminOperationsStatus,
+  type AdminSession,
 } from '../../../Contracts/admin-identity'
 
 defineProps<{ themeMode?: ThemeMode }>()
@@ -66,6 +67,33 @@ const sessionAuthority = shallowRef(new AbortController())
 const sessionEpoch = ref(0)
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 let operationsRequest: AbortController | undefined
+let revalidateRequest: AbortController | undefined
+
+function sameAdminAuthority(a: AdminAuthority | null, b: AdminAuthority | null): boolean {
+  if (a === b) return true
+  if (!a || !b || a.status !== b.status) return false
+  if (a.status !== 'active' || b.status !== 'active') return true
+  return a.session.handle === b.session.handle &&
+    a.session.generation === b.session.generation &&
+    a.session.permissionSession === b.session.permissionSession &&
+    a.session.appearanceEnabled === b.session.appearanceEnabled &&
+    a.session.siteConfigEnabled === b.session.siteConfigEnabled
+}
+
+function scheduleExpiry(session: AdminSession) {
+  clearTimeout(expiryTimer)
+  const remaining = session.expiresAt - Date.now()
+  if (remaining <= 0) {
+    markAdminSessionHint(false)
+    setAuthority({ status: 'signed-out' })
+    return
+  }
+  expiryTimer = setTimeout(() => {
+    if (authority.value?.status === 'active' && authority.value.session === session) {
+      scheduleExpiry(session)
+    }
+  }, Math.min(remaining, 2_147_483_647))
+}
 
 function resetSessionScope() {
   clearOperations()
@@ -75,18 +103,21 @@ function resetSessionScope() {
 }
 
 function setAuthority(next: AdminAuthority | null) {
+  revalidateRequest?.abort()
+  revalidateRequest = undefined
   clearTimeout(expiryTimer)
   resetSessionScope()
   if (next?.status === 'active') {
-    const remaining = next.session.expiresAt - Date.now()
-    if (remaining <= 0) {
+    if (next.session.expiresAt <= Date.now()) {
       markAdminSessionHint(false)
       authority.value = { status: 'signed-out' }
       return
     }
     markAdminSessionHint(true)
-    expiryTimer = setTimeout(() => setAuthority(next), Math.min(remaining, 2_147_483_647))
+    authority.value = next
+    scheduleExpiry(next.session)
     closeBootstrap()
+    return
   } else if (next?.status === 'signed-out' || next?.status === 'unavailable') {
     markAdminSessionHint(false)
   }
@@ -127,8 +158,44 @@ function refresh() {
   }, 'admin.accessCheckFailed')
 }
 
+async function revalidateOnVisible() {
+  if (busy.value || lifetime.signal.aborted || revalidateRequest) return
+  if (authority.value?.status !== 'active') {
+    void refresh()
+    return
+  }
+  const check = new AbortController()
+  revalidateRequest = check
+  const signal = AbortSignal.any([lifetime.signal, check.signal])
+  try {
+    const next = await readAdminAuthority(signal)
+    if (signal.aborted || revalidateRequest !== check) return
+    if (next.status === 'signed-out') {
+      if (await redirectToUnifiedLogin()) return
+      setAuthority(next)
+      return
+    }
+    if (next.status === 'active' && sameAdminAuthority(authority.value, next)) {
+      if (authority.value.session.expiresAt !== next.session.expiresAt) {
+        authority.value = next
+        scheduleExpiry(next.session)
+      }
+      return
+    }
+    setAuthority(next)
+    if (next.status === 'active') void resolveUnifiedLogin()
+  } catch {
+    if (signal.aborted || revalidateRequest !== check) return
+    if (authority.value?.status === 'active' && authority.value.session.expiresAt <= Date.now()) {
+      setAuthority({ status: 'signed-out' })
+    }
+  } finally {
+    if (revalidateRequest === check) revalidateRequest = undefined
+  }
+}
+
 function whenVisible() {
-  if (document.visibilityState === 'visible') void refresh()
+  if (document.visibilityState === 'visible') void revalidateOnVisible()
 }
 
 const initialAdmin = readInitialAdminEntry()
@@ -143,6 +210,8 @@ onMounted(() => {
   document.addEventListener('visibilitychange', whenVisible)
 })
 onUnmounted(() => {
+  revalidateRequest?.abort()
+  revalidateRequest = undefined
   lifetime.abort()
   clearTimeout(expiryTimer)
   resetSessionScope()
@@ -268,13 +337,26 @@ function logOut() {
       <ElButton :text="!drawer" native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
     </template>
     <main class="admin-workspace">
-      <ElTaskPageHeader :title="t(section.label)" density="compact" />
+      <ElTaskPageHeader
+        :title="t(section.label)"
+        :description="section.section === 'identity' ? t('admin.accountSummary') : undefined"
+        density="compact"
+      />
       <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
       <div class="admin-sections">
-        <ElSettingsSection v-if="section.section === 'identity'" ariaLabelledby="admin-session-heading" density="compact">
+        <ElSettingsSection
+          v-if="section.section === 'identity'"
+          ariaLabelledby="admin-session-heading"
+          :description="t('admin.sessionSummary')"
+          density="compact"
+        >
           <template #title><span id="admin-session-heading">{{ t('admin.session') }}</span></template>
+          <template #actions>
+            <ElTag size="small" type="success">{{ t('admin.sessionActive') }}</ElTag>
+          </template>
           <ElKeyValueGrid density="compact">
             <ElKeyValueItem :label="t('admin.handle')" :value="authority.session.handle" monospace />
+            <ElKeyValueItem :label="t('admin.sessionGeneration')" :value="authority.session.generation.toString()" monospace />
             <ElKeyValueItem :label="t('admin.expires')">
               <time :datetime="new Date(authority.session.expiresAt).toISOString()">{{ new Date(authority.session.expiresAt).toLocaleString() }}</time>
             </ElKeyValueItem>

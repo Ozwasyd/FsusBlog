@@ -28,6 +28,9 @@ function updateSession(value: Session | null, newLogin = false) {
     previous?.canAuthor !== next?.canAuthor || previous?.siteRefresh !== next?.siteRefresh ||
     (previous?.siteSessionContinuity ?? previous?.siteSessionId) !== (next?.siteSessionContinuity ?? next?.siteSessionId)
   const replacedCredential = previous?.siteSessionId !== next?.siteSessionId
+  if (!changed && !replacedCredential && previous?.expiresAt === next?.expiresAt && (previous === null) === (next === null)) {
+    return
+  }
   authority.value = {
     session: next,
     identity: observed.identity + Number(changed),
