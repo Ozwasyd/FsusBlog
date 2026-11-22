@@ -47,7 +47,7 @@ internal sealed partial class AdminHandleStore(AdminSessionGate gate, AdminStepU
                         throw new BusinessException(Rejection.Conflict, "This administrator command key is already in use.");
                     var replayed = new AdminHandleReceipt(
                         existing.GetString(1),
-                        existing.GetFieldValue<DateTimeOffset>(2).ToUnixTimeMilliseconds(),
+                        existing.GetUnixMilliseconds(2),
                         Replayed: true);
                     return (replayed, permissionSession);
                 }

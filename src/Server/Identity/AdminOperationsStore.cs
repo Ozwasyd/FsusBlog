@@ -23,7 +23,7 @@ internal sealed class AdminOperationsStore(AdminSessionGate gate)
             await using var result = await query.ExecuteReaderAsync(ct);
             await result.ReadAsync(ct);
             var pending = result.GetInt64(0);
-            var oldest = result.IsDBNull(1) ? 0 : result.GetFieldValue<DateTimeOffset>(1).ToUnixTimeMilliseconds();
+            var oldest = result.IsDBNull(1) ? 0 : result.GetUnixMilliseconds(1);
             var snapshot = publications.Snapshot;
             return (new AdminOperationsStatus(snapshot is not null, snapshot?.Watermark ?? 0, pending, oldest),
                 AdminSessionGate.PermissionBinding(admin.Digest));

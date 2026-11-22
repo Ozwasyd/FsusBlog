@@ -51,7 +51,7 @@ internal static class RevisionHistoryStore
         await using var rows = await read.ExecuteReaderAsync(ct);
         while (await rows.ReadAsync(ct))
         {
-            revisions.Add(new(rows.GetInt64(0), rows.GetString(1), rows.GetFieldValue<DateTimeOffset>(2).ToUnixTimeMilliseconds(),
+            revisions.Add(new(rows.GetInt64(0), rows.GetString(1), rows.GetUnixMilliseconds(2),
                 rows.IsDBNull(3) ? 0 : rows.GetInt64(3), rows.IsDBNull(4) ? "" : rows.GetString(4)));
         }
         return revisions;

@@ -15,6 +15,9 @@ internal static class SqlCommands
         return command;
     }
 
+    internal static long GetUnixMilliseconds(this NpgsqlDataReader reader, int column) =>
+        reader.GetFieldValue<DateTimeOffset>(column).ToUnixTimeMilliseconds();
+
     internal static NpgsqlParameter Optional(NpgsqlDbType type, object? value) =>
         new() { NpgsqlDbType = type, Value = value ?? DBNull.Value };
 

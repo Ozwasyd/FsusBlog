@@ -150,5 +150,5 @@ internal static class DocumentExportStore
         row.Timestamp(11), row.GetFieldValue<byte[]>(12), row.IsDBNull(13) ? null : row.GetFieldValue<byte[]>(13), row.GetInt32(14));
 
     private static long Timestamp(this NpgsqlDataReader row, int column) =>
-        row.IsDBNull(column) ? 0 : row.GetFieldValue<DateTimeOffset>(column).ToUnixTimeMilliseconds();
+        row.IsDBNull(column) ? 0 : row.GetUnixMilliseconds(column);
 }

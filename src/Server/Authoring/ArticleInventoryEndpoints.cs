@@ -109,8 +109,8 @@ internal static class ArticleInventoryEndpoints
             var tags = rows.IsDBNull(9) ? [] : rows.GetFieldValue<int[]>(9).Zip(rows.GetFieldValue<string[]>(10),
                 (id, name) => new TaxonomyName(id, name)).ToArray();
             list.Add(new(rows.GetInt32(1), rows.GetInt64(2), rows.GetString(3), (AuthorArticleState)rows.GetInt32(8),
-                rows.GetFieldValue<DateTimeOffset>(4).ToUnixTimeMilliseconds(),
-                rows.IsDBNull(7) ? 0 : rows.GetFieldValue<DateTimeOffset>(7).ToUnixTimeMilliseconds(), category, tags));
+                rows.GetUnixMilliseconds(4),
+                rows.IsDBNull(7) ? 0 : rows.GetUnixMilliseconds(7), category, tags));
         }
         return new(total, more ? list[^1].Id : 0, list);
     }

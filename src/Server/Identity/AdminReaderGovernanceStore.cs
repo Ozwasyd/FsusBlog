@@ -136,9 +136,9 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
                     HasTotp: rows.GetBoolean(11),
                     ActiveSessionCount: rows.GetInt32(12),
                     CommentCount: rows.GetInt32(13),
-                    RegisteredAtUnixMs: rows.IsDBNull(14) ? 0 : rows.GetFieldValue<DateTimeOffset>(14).ToUnixTimeMilliseconds(),
-                    LastUsedAtUnixMs: rows.IsDBNull(15) ? 0 : rows.GetFieldValue<DateTimeOffset>(15).ToUnixTimeMilliseconds(),
-                    LastGovernanceAtUnixMs: rows.IsDBNull(16) ? 0 : rows.GetFieldValue<DateTimeOffset>(16).ToUnixTimeMilliseconds(),
+                    RegisteredAtUnixMs: rows.IsDBNull(14) ? 0 : rows.GetUnixMilliseconds(14),
+                    LastUsedAtUnixMs: rows.IsDBNull(15) ? 0 : rows.GetUnixMilliseconds(15),
+                    LastGovernanceAtUnixMs: rows.IsDBNull(16) ? 0 : rows.GetUnixMilliseconds(16),
                     LastGovernanceActor: rows.GetString(17),
                     LastGovernanceReason: rows.GetString(18)));
             }
@@ -187,7 +187,7 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
                         existing.GetBoolean(2),
                         existing.GetInt64(3),
                         existing.GetInt32(4),
-                        existing.GetFieldValue<DateTimeOffset>(5).ToUnixTimeMilliseconds(),
+                        existing.GetUnixMilliseconds(5),
                         Replayed: true);
                     return (replayed, permissionSession);
                 }

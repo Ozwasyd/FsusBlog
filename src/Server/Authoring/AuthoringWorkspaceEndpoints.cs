@@ -83,7 +83,7 @@ internal static class AuthoringWorkspaceEndpoints
         {
             if (!await row.ReadAsync(ct)) return new(Groups, 0, 0, 0, [], 0, false, 0, [], 0);
             if (row.GetInt32(0) != Legacy) throw InvalidLayout();
-            saved = new(Groups, row.GetInt64(1), row.GetFieldValue<DateTimeOffset>(2).ToUnixTimeMilliseconds(),
+            saved = new(Groups, row.GetInt64(1), row.GetUnixMilliseconds(2),
                 row.GetInt32(3), row.GetFieldValue<int[]>(4), 0, row.GetBoolean(5), row.GetInt32(6),
                 row.GetFieldValue<int[]>(7), row.GetInt32(8));
         }
@@ -120,7 +120,7 @@ internal static class AuthoringWorkspaceEndpoints
         await using var row = await cmd.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct))
             throw new BusinessException(Rejection.Conflict, "The workspace layout changed in another session or uses a newer format.");
-        return new(Groups, row.GetInt64(0), row.GetFieldValue<DateTimeOffset>(1).ToUnixTimeMilliseconds(), owned.ActiveArticleId,
+        return new(Groups, row.GetInt64(0), row.GetUnixMilliseconds(1), owned.ActiveArticleId,
             owned.Tabs, skipped, input.InspectorOpen, owned.SecondaryActiveArticleId, owned.SecondaryTabs, owned.FocusedGroup);
     }
 

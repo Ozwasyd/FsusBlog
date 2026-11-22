@@ -48,7 +48,7 @@ internal sealed class AdminModerationStore(AdminSessionGate gate, AdminStepUpSer
         await using var row = await cmd.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.Conflict, "The pending comment is already claimed.");
         return new AdminModerationClaim(target.ArticleId, target.CommentId, version, token, row.GetInt64(0),
-            row.GetInt64(1), row.GetFieldValue<DateTimeOffset>(2).ToUnixTimeMilliseconds());
+            row.GetInt64(1), row.GetUnixMilliseconds(2));
     }
 
     internal Task<AdminModerationClaim> RenewCommentClaim(string? session, AdminModerationClaim claim, CancellationToken ct) =>
@@ -63,7 +63,7 @@ internal sealed class AdminModerationStore(AdminSessionGate gate, AdminStepUpSer
                 """, claim.ArticleId, claim.CommentId);
             await using var row = await cmd.ExecuteReaderAsync(ct);
             if (!await row.ReadAsync(ct)) throw ModerationChanged();
-            return claim with { ClaimVersion = row.GetInt64(0), ExpiresAt = row.GetFieldValue<DateTimeOffset>(1).ToUnixTimeMilliseconds() };
+            return claim with { ClaimVersion = row.GetInt64(0), ExpiresAt = row.GetUnixMilliseconds(1) };
         }, ct);
 
     internal Task ReleaseCommentClaim(string? session, AdminModerationClaim claim, CancellationToken ct) =>

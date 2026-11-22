@@ -29,8 +29,8 @@ internal static class SitePasskeys
             while (await reader.ReadAsync(ct))
             {
                 if (rows.Count == WireLimits.SitePasskeyListSize) throw new PublicUnavailableException();
-                rows.Add(new(reader.GetFieldValue<DateTimeOffset>(0).ToUnixTimeMilliseconds(),
-                    reader.IsDBNull(1) ? null : reader.GetFieldValue<DateTimeOffset>(1).ToUnixTimeMilliseconds(),
+                rows.Add(new(reader.GetUnixMilliseconds(0),
+                    reader.IsDBNull(1) ? null : reader.GetUnixMilliseconds(1),
                     reader.GetBoolean(2), reader.GetBoolean(3), reader.GetBoolean(4)));
             }
 
@@ -70,7 +70,7 @@ internal static class SitePasskeys
             var reference = Convert.ToHexStringLower(HMACSHA256.HashData(sessionDigest.AsSpan(), [.. "FsusBlog v2 site passkey management v1"u8, .. id]));
             var createdAt = reader.GetFieldValue<DateTimeOffset>(1);
             var flags = new SitePasskeyRow(createdAt.ToUnixTimeMilliseconds(),
-                reader.IsDBNull(2) ? null : reader.GetFieldValue<DateTimeOffset>(2).ToUnixTimeMilliseconds(),
+                reader.IsDBNull(2) ? null : reader.GetUnixMilliseconds(2),
                 reader.GetBoolean(3), reader.GetBoolean(4), reader.GetBoolean(5));
             rows.Add(new(id, createdAt.UtcTicks, new(reference, reader.GetInt64(6), reader.GetString(7), flags)));
         }

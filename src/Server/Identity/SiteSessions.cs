@@ -29,7 +29,7 @@ internal static class SiteSessions
             {
                 if (rows.Count == WireLimits.SiteSessionListSize) return new SiteSessionList(rows, true);
                 var row = reader.GetFieldValue<byte[]>(0);
-                rows.Add(new(Id(actor.Id, row), reader.GetFieldValue<DateTimeOffset>(1).ToUnixTimeMilliseconds(),
+                rows.Add(new(Id(actor.Id, row), reader.GetUnixMilliseconds(1),
                     row.AsSpan().SequenceEqual(digest), reader.GetBoolean(2) ? 2 : 1, reader.GetBoolean(3)));
             }
             return new SiteSessionList(rows, false);

@@ -78,7 +78,7 @@ internal static class AuthorRecentOpenEndpoints
                 break;
             }
             entries.Add(new(rows.GetInt32(1), rows.GetInt64(2), rows.GetInt64(3),
-                rows.GetFieldValue<DateTimeOffset>(4).ToUnixTimeMilliseconds(), rows.GetString(5)));
+                rows.GetUnixMilliseconds(4), rows.GetString(5)));
         }
         return new(revision, more ? AuthorRecentOpenCursor.Encode(site, owner, session, revision, entries[^1].Sequence) : "", entries);
     }
@@ -111,7 +111,7 @@ internal static class AuthorRecentOpenEndpoints
                 if (row.GetInt32(0) != input.ArticleId || row.GetInt64(1) != input.ArticleRevision ||
                     row.GetInt64(2) != input.ExpectedRevision + 1) throw Conflict();
                 return new(1, row.GetInt64(2), input.RequestId, input.ArticleId, input.ArticleRevision,
-                    row.GetFieldValue<DateTimeOffset>(3).ToUnixTimeMilliseconds());
+                    row.GetUnixMilliseconds(3));
             }
         }
 

@@ -18,12 +18,12 @@ internal sealed class AdminSignInHistoryStore(AdminSessionGate gate)
             var signIns = new List<AdminSignIn>();
             while (await reader.ReadAsync(ct))
             {
-                var started = reader.GetFieldValue<DateTimeOffset>(0).ToUnixTimeMilliseconds();
-                var expires = reader.GetFieldValue<DateTimeOffset>(1).ToUnixTimeMilliseconds();
+                var started = reader.GetUnixMilliseconds(0);
+                var expires = reader.GetUnixMilliseconds(1);
                 var current = reader.GetBoolean(3);
                 if (current != reader.IsDBNull(2) || (current && expires != admin.Snapshot.ExpiresAt))
                     throw new PublicUnavailableException();
-                var ended = current ? 0 : reader.GetFieldValue<DateTimeOffset>(2).ToUnixTimeMilliseconds();
+                var ended = current ? 0 : reader.GetUnixMilliseconds(2);
                 var state = current ? AdminSignInState.Current : ended == expires ? AdminSignInState.Expired : AdminSignInState.Ended;
                 signIns.Add(new(started, expires, ended, state));
             }

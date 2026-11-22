@@ -105,7 +105,7 @@ internal sealed partial class PasskeyStore
         await using (var row = await insert.ExecuteReaderAsync(ct))
         {
             await row.ReadAsync(ct);
-            receipt = new(key.Key, row.GetInt64(0), row.GetFieldValue<DateTimeOffset>(1).ToUnixTimeMilliseconds());
+            receipt = new(key.Key, row.GetInt64(0), row.GetUnixMilliseconds(1));
         }
         await InstanceLease.CommitProtected(tx, _lease, ct);
         return receipt;

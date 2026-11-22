@@ -27,7 +27,7 @@ internal sealed class AdminCommentQueueStore(AdminSessionGate gate)
             while (await rows.ReadAsync(ct))
             {
                 if (page.Count == WireLimits.AdminCommentQueueSize) return new AdminCommentQueue(page, true);
-                page.Add(new(rows.GetInt32(0), rows.GetInt64(1), rows.GetFieldValue<DateTimeOffset>(2).ToUnixTimeMilliseconds(),
+                page.Add(new(rows.GetInt32(0), rows.GetInt64(1), rows.GetUnixMilliseconds(2),
                     rows.GetString(3), rows.GetString(4)));
             }
             return new AdminCommentQueue(page, false);

@@ -103,7 +103,7 @@ internal sealed class AdminInboxStore(AdminSessionGate gate)
                     break;
                 }
                 items.Add(new(rows.GetInt64(6), rows.GetInt16(7), rows.GetBoolean(8),
-                    rows.GetFieldValue<DateTimeOffset>(9).ToUnixTimeMilliseconds(), rows.GetString(10)));
+                    rows.GetUnixMilliseconds(9), rows.GetString(10)));
             }
             if (conversation is null) throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
             items.Reverse();
@@ -113,7 +113,7 @@ internal sealed class AdminInboxStore(AdminSessionGate gate)
         }, ct);
 
     internal static AdminInboxRow InboxRow(NpgsqlDataReader row, int unread) => new(row.GetInt64(0), row.GetGuid(1),
-        row.GetString(2), row.GetInt16(3), row.GetBoolean(4), row.GetFieldValue<DateTimeOffset>(5).ToUnixTimeMilliseconds(),
+        row.GetString(2), row.GetInt16(3), row.GetBoolean(4), row.GetUnixMilliseconds(5),
         AdminInboxReadStore.CountInboxUnread(row.GetInt64(unread)));
 
     private static AdminInboxCursor? InboxPosition(string? value, byte[] session, byte scope) => value is null ? null :
