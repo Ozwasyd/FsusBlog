@@ -4,30 +4,26 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    private static readonly SchemaFacts AuthorTextPropertyIndexShape = new(
-        Columns: [
-            "author_text_property_document owner_id:uuid definition_id:uuid article_id:int4 definition_revision:int8 value_revision:int8 source_digest:bytea",
-            "author_text_property_posting owner_id:uuid definition_id:uuid article_id:int4 ordinal:int4 term:bytea start_u16:int4 end_u16:int4 start_u8:int4 end_u8:int4"
-        ],
-        Constraints: [
-            "author_text_property_document p owner_id,definition_id,article_id",
-            "author_text_property_document f owner_id,definition_id public.property_definition:owner_id,id",
-            "author_text_property_document f article_id,owner_id public.property_article:article_id,owner_id",
-            "author_text_property_document c definition_revision definition_revision>0",
-            "author_text_property_document c value_revision value_revision>0",
-            "author_text_property_document c source_digest octet_length(source_digest)=32",
-            "author_text_property_posting p owner_id,definition_id,term,article_id,ordinal",
-            "author_text_property_posting u owner_id,definition_id,article_id,ordinal",
-            "author_text_property_posting f owner_id,definition_id,article_id public.author_text_property_document:owner_id,definition_id,article_id",
-            "author_text_property_posting c ordinal ordinal>=0ANDordinal<=16383",
-            "author_text_property_posting c term octet_length(term)>=1ANDoctet_length(term)<=512",
-            "author_text_property_posting c start_u16 start_u16>=0",
-            "author_text_property_posting c end_u16 end_u16<=16384",
-            "author_text_property_posting c start_u8 start_u8>=0",
-            "author_text_property_posting c end_u8 end_u8<=65536",
-            "author_text_property_posting c start_u16,end_u16 start_u16<end_u16",
-            "author_text_property_posting c start_u8,end_u8 start_u8<end_u8"
-        ]);
+    private static readonly SchemaFacts AuthorTextPropertyIndexShape = Tables(
+        Table("author_text_property_document owner_id:uuid definition_id:uuid article_id:int4 definition_revision:int8 value_revision:int8 source_digest:bytea",
+            "p owner_id,definition_id,article_id",
+            "f owner_id,definition_id public.property_definition:owner_id,id",
+            "f article_id,owner_id public.property_article:article_id,owner_id",
+            "c definition_revision definition_revision>0",
+            "c value_revision value_revision>0",
+            "c source_digest octet_length(source_digest)=32"),
+        Table("author_text_property_posting owner_id:uuid definition_id:uuid article_id:int4 ordinal:int4 term:bytea start_u16:int4 end_u16:int4 start_u8:int4 end_u8:int4",
+            "p owner_id,definition_id,term,article_id,ordinal",
+            "u owner_id,definition_id,article_id,ordinal",
+            "f owner_id,definition_id,article_id public.author_text_property_document:owner_id,definition_id,article_id",
+            "c ordinal ordinal>=0ANDordinal<=16383",
+            "c term octet_length(term)>=1ANDoctet_length(term)<=512",
+            "c start_u16 start_u16>=0",
+            "c end_u16 end_u16<=16384",
+            "c start_u8 start_u8>=0",
+            "c end_u8 end_u8<=65536",
+            "c start_u16,end_u16 start_u16<end_u16",
+            "c start_u8,end_u8 start_u8<end_u8"));
 
     private static readonly (string Relation, char Kind)[] AuthorTextPropertyIndexRelations =
         [("public.author_text_property_document", 'r'), ("public.author_text_property_posting", 'r')];

@@ -7,38 +7,32 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    private static readonly SchemaFacts ArticleReadShape = new(
-        Columns: [
-            "article_read_hour article_id:int4 hour_utc:timestamptz count:int8",
-            "article_read_dwell article_id:int4 day_utc:date bucket:int4 count:int8",
-            "article_read_epoch singleton:bool last_epoch:int8?"
-        ],
-        Constraints: [
-            "article_read_hour p article_id,hour_utc",
-            "article_read_hour f article_id public.article:id",
-            "article_read_hour c article_id article_id>0",
-            "article_read_hour c hour_utc isfinite(hour_utc)",
-            "article_read_hour c hour_utc hour_utc=date_trunc('hour'::text,hour_utc,'UTC'::text)",
-            "article_read_hour c count count>0",
-            "article_read_dwell p article_id,day_utc,bucket",
-            "article_read_dwell f article_id public.article:id",
-            "article_read_dwell c article_id article_id>0",
-            "article_read_dwell c day_utc isfinite(day_utc)",
-            "article_read_dwell c bucket bucket>=0ANDbucket<=3",
-            "article_read_dwell c count count>0",
-            "article_read_epoch p singleton",
-            "article_read_epoch c singleton singleton",
-            "article_read_epoch c last_epoch last_epoch>=0"
-        ]);
+    private static readonly SchemaFacts ArticleReadShape = Tables(
+        Table("article_read_hour article_id:int4 hour_utc:timestamptz count:int8",
+            "p article_id,hour_utc",
+            "f article_id public.article:id",
+            "c article_id article_id>0",
+            "c hour_utc isfinite(hour_utc)",
+            "c hour_utc hour_utc=date_trunc('hour'::text,hour_utc,'UTC'::text)",
+            "c count count>0"),
+        Table("article_read_dwell article_id:int4 day_utc:date bucket:int4 count:int8",
+            "p article_id,day_utc,bucket",
+            "f article_id public.article:id",
+            "c article_id article_id>0",
+            "c day_utc isfinite(day_utc)",
+            "c bucket bucket>=0ANDbucket<=3",
+            "c count count>0"),
+        Table("article_read_epoch singleton:bool last_epoch:int8?",
+            "p singleton",
+            "c singleton singleton",
+            "c last_epoch last_epoch>=0"));
 
-    private static readonly SchemaFacts ArticleReadTotalShape = new(
-        Columns: ["article_read_total article_id:int4 views:int4"],
-        Constraints: [
-            "article_read_total p article_id",
-            "article_read_total f article_id public.article:id",
-            "article_read_total c article_id article_id>0",
-            "article_read_total c views views>0"
-        ]);
+    private static readonly SchemaFacts ArticleReadTotalShape = Table(
+        "article_read_total article_id:int4 views:int4",
+        "p article_id",
+        "f article_id public.article:id",
+        "c article_id article_id>0",
+        "c views views>0");
 
     private static readonly string[] ArticleReadRelations =
         ["public.article_read_hour", "public.article_read_dwell", "public.article_read_epoch"];

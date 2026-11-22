@@ -7,14 +7,10 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    private static readonly SchemaFacts RecoveryScopeShape = new(
-        Columns: [
-            "authoring_recovery_site singleton:bool site_id:uuid"
-        ],
-        Constraints: [
-            "authoring_recovery_site p singleton",
-            "authoring_recovery_site c singleton singleton"
-        ]);
+    private static readonly SchemaFacts RecoveryScopeShape = Table(
+        "authoring_recovery_site singleton:bool site_id:uuid",
+        "p singleton",
+        "c singleton singleton");
 
     internal static async Task<Guid> ReadRecoverySiteIdAsync(
         NpgsqlConnection database, NpgsqlTransaction transaction, CancellationToken cancellationToken)
