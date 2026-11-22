@@ -43,6 +43,10 @@ node tests/EndToEnd/blog-flow.mjs
 
 `FSUSBLOG_TEST_FLOW=canvas-scale bash tests/EndToEnd/run-native.sh` 经当前管理入口和两个独立的管理员 Passkey 验证 10,000 个节点、10,000 条边、匿名与跨账号隔离、原有挂载上限和断连重试。浏览器结束后由 PostgreSQL 独立核对图、文章修订和命令回执。
 
+`FSUSBLOG_TEST_FLOW=reader-registration bash tests/EndToEnd/run-native.sh` 在隔离 PostgreSQL 中验证读者勾选准则、完成 PoW 与 Passkey 注册、注册后仍需登录，以及读者会话访问当前管理端和创作接口时返回 401。浏览器同时验证当前写作页拒绝读者进入。
+
 `FSUSBLOG_TEST_FLOW=comment-author-delete bash tests/EndToEnd/run-native.sh` 使用统一登录页、管理员 Passkey 和实际注册的读者 Passkey，验证同一读者的两个独立会话、跨账号拒绝、取消与删除确认，以及撤回文章后读者仍能删除自己发表的评论。
+
+管理员工作区的双站点 HTTPS 浏览器检查已验证桌面四个导航入口共用同一管理工作区。320px 下，站点设置页的复选框长标签在打开菜单之前就产生横向滚动。窄屏无溢出断言保留，等待上游修复。 [FsusUI #1126 及复现](https://github.com/Ozwasyd/FsusUI/issues/1126)
 
 后续在当前 FsusUI checkout 用 Emscripten 5.0.4 重建原生资源，清除 `FSUSBLOG_FSUSUI_WASM_DIST` 后重新运行 V2 的严格检查和构建；六个新生成的本地资源都进入成品。在 1280×800 和 375×850 重跑真实 Chrome Markdown 编辑/预览探针，两种视口均通过且无诊断。见 [构建和摘要](fsusui.md)。

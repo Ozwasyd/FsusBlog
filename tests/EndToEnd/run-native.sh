@@ -160,7 +160,7 @@ JS
 )
 url="http://localhost:$http_port"
 export FSUSBLOG_ADMIN_ORIGIN="$url" FSUSBLOG_ADMIN_RP_ID=localhost
-if [[ $flow == comment-author-delete ]]; then
+if [[ $flow == comment-author-delete || $flow == reader-registration ]]; then
   export FSUSBLOG_PASSKEY_ORIGIN="$url" FSUSBLOG_PASSKEY_RP_ID=localhost
   export FSUSBLOG_READER_REGISTRATION=true
 fi
@@ -185,6 +185,9 @@ case ${FSUSBLOG_TEST_FLOW:-blog} in
     node tests/EndToEnd/run-canvas-scale.mjs
     "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
       -f tests/EndToEnd/canvas-scale-verify.sql > "$evidence/canvas-scale-database.txt"
+    ;;
+  reader-registration)
+    FSUSBLOG_TEST_PASSKEY_URL="$url" node tests/EndToEnd/reader-registration-flow.mjs
     ;;
   public-hot-articles) node tests/EndToEnd/run-public-hot-articles.mjs ;;
   property-inspector-scale) node tests/EndToEnd/property-inspector-scale.mjs ;;

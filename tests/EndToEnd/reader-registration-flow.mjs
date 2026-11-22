@@ -77,9 +77,10 @@ try {
   assert(!calls.includes(WireRoutes.SignIn))
   checks.passkeySignsInReaderOnly = true
 
-  const articles = await context.request.get(origin + WireRoutes.AuthorArticles)
-  assertStatus(articles, 403)
-  await page.goto(origin + '/user/manage/article/write')
+  for (const path of [WireRoutes.AdminSession, WireRoutes.AuthoringSession, WireRoutes.AuthorArticles]) {
+    assertStatus(await context.request.get(origin + path), 401)
+  }
+  await page.goto(origin + '/admin/articles/write')
   await expect(exactText(page, 'Log in with an author account to write an article.')).toBeVisible()
   await expect(page.locator('#workspace-editor, .workspace-actions')).toHaveCount(0)
   checks.authorApiAndEditorDenied = true
