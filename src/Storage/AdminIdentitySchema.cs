@@ -4,7 +4,6 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    internal const string AdminIdentityMarker = "public.admin_identity_schema";
     internal const int AdminIdentityVersion = 8;
 
     private static SchemaFacts StepUpShape(string table, string action) =>

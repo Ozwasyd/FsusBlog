@@ -34,7 +34,6 @@ internal static partial class CurrentSchema
         "author_document_export c state,output_digest (state=3)=(output_digestISNOTNULL)"
     ];
 
-    internal const string LegacyDocumentExportProviderConstraint = "CHECK (provider = 1)";
     internal const string CurrentDocumentExportProviderConstraint = "CHECK (provider >= 1 AND provider <= 2)";
     internal const string SingleAttachmentProviderConstraint = "CHECK (provider >= 1 AND provider <= 3)";
 

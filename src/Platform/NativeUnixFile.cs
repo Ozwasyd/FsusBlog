@@ -140,11 +140,6 @@ internal static class NativeUnixFile
             : OpenAtCreate(directory, leaf, flags, mode);
     }
 
-    internal static int RenameExclusiveAt(SafeFileHandle directory, string source, string destination) =>
-        OperatingSystem.IsMacOS()
-            ? RenameDarwin(directory, source, directory, destination, 4) // RENAME_EXCL
-            : RenameLinux(directory, source, directory, destination, 1); // RENAME_NOREPLACE
-
     private const int WriteOnly = 1;
     private static int ExclusiveCreate => OperatingSystem.IsMacOS() ? 0xa00 : 0xc0;
 
@@ -186,18 +181,10 @@ internal static class NativeUnixFile
     [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
     private static extern int OpenAtDarwinArm64(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf,
         int flags, uint register3, uint register4, uint register5, uint register6, uint register7, uint mode);
-    [DllImport("libc", EntryPoint = "mkdirat", SetLastError = true)]
-    internal static extern int MakeDirectoryAt(SafeFileHandle parent, [MarshalAs(UnmanagedType.LPUTF8Str)] string leaf, uint mode);
     [DllImport("libc", EntryPoint = "fchmod", SetLastError = true)]
     internal static extern int SetMode(SafeFileHandle handle, uint mode);
     [DllImport("libc", EntryPoint = "fsync", SetLastError = true)]
     internal static extern int Sync(SafeFileHandle handle);
-    [DllImport("libc", EntryPoint = "renameatx_np", SetLastError = true)]
-    private static extern int RenameDarwin(SafeFileHandle source, [MarshalAs(UnmanagedType.LPUTF8Str)] string from,
-        SafeFileHandle destination, [MarshalAs(UnmanagedType.LPUTF8Str)] string to, uint flags);
-    [DllImport("libc", EntryPoint = "renameat2", SetLastError = true)]
-    private static extern int RenameLinux(SafeFileHandle source, [MarshalAs(UnmanagedType.LPUTF8Str)] string from,
-        SafeFileHandle destination, [MarshalAs(UnmanagedType.LPUTF8Str)] string to, uint flags);
     [DllImport("libc", EntryPoint = "geteuid")]
     internal static extern uint EffectiveUid();
     [DllImport("libc", EntryPoint = "fstat", SetLastError = true)]

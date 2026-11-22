@@ -2,7 +2,6 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    internal const string PublicationRightsRelation = "public.article_publication_rights";
 
     private static readonly SchemaFacts PublicationRightsShape = Tables(
         Table("article_revision_rights article_id:int4 revision:int8 enabled:bool license_type:text copyright_holder:text copyright_year:int4 rights_statement:text attribution_template:text copy_policy:text max_excerpt_chars:int4 allow_code_copy:bool show_public_badge:bool proof_binding_enabled:bool",

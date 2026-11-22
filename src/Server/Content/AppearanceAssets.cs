@@ -44,12 +44,6 @@ internal sealed class AppearanceAssets(AppearanceRegistry registry, bool online)
     internal string? StylesheetLink =>
         StylesheetPath is { } path ? $"<link rel=\"stylesheet\" href=\"{path}\">" : null;
 
-    internal string WithStylesheet(string template)
-    {
-        return StylesheetLink is not { } link ? template
-            : template.Replace("</head>", link + "</head>", StringComparison.Ordinal);
-    }
-
     internal void Map(WebApplication app)
     {
         if (Online)

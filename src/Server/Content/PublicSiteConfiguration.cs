@@ -35,9 +35,7 @@ internal sealed class PublicSiteConfiguration
     internal Snapshot Baseline { get; }
     private volatile Snapshot _current;
 
-    internal Snapshot Current => _current;
     internal long Revision => _current.Revision;
-    internal string Digest => _current.Digest;
     internal SiteSeo Seo => _current.Seo;
     internal SiteCompliance Compliance => _current.Compliance;
 

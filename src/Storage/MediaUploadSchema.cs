@@ -2,7 +2,6 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    internal const string MediaUploadRelation = "public.private_media_upload";
     private static readonly SchemaFacts MediaUploadShape = new(
         Columns: [
             "private_media_upload id:uuid owner_id:uuid command_id:uuid name:text format:int2 length:int4 part_size:int4 digest:bytea expires_at:timestamptz asset_id:uuid? complete:bool=false",

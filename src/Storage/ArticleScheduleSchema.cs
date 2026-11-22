@@ -2,7 +2,6 @@ namespace FsusBlogV2.Storage;
 
 internal static partial class CurrentSchema
 {
-    internal const string ArticleScheduleRelation = "public.article_schedule";
 
     private static readonly SchemaFacts ArticleScheduleShape = Tables(
         Table("article_schedule_receipt actor_id:uuid command_id:uuid due_at:timestamptz? published_revision:int8",
