@@ -10,7 +10,7 @@ internal static class ArticleSummaryEndpoints
 {
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
-        app.MapGet(WireRoutes.ArticleSummary, async (HttpContext context, Store store, int id, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.ArticleSummary, async (HttpContext context, Store store, int id, CancellationToken ct) =>
         {
             var token = context.Request.Cookies[cookie];
             var expected = SiteSessions.Requested(context);
@@ -31,9 +31,9 @@ internal static class ArticleSummaryEndpoints
                 return Wire.EncodeArticleSummary(new(id, selected, text));
             }, ct);
             return Results.Bytes(frame, Aeds.ContentType);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapPost(WireRoutes.ArticleSummarySave, async (HttpContext context, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.ArticleSummarySave, async (HttpContext context, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeArticleSummaryCommand(await readFrame(context, WireLimits.MaxArticleSummaryCommandFrameBytes, ct));
             ClientMutationHeader.Require(context, input.IdempotencyKey);
@@ -45,7 +45,7 @@ internal static class ArticleSummaryEndpoints
                 return Wire.EncodeDraft(new(saved.Id, saved.Revision, saved.Title, saved.Body, saved.PublishedRevision is not null));
             }, ct);
             return Results.Bytes(frame, Aeds.ContentType);
-        }).RequireRateLimiting("command");
+        });
     }
 
     private static bool TryRevision(StringValues values, out long revision)

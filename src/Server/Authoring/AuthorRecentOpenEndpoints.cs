@@ -14,7 +14,7 @@ internal static class AuthorRecentOpenEndpoints
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> read,
         Func<HttpContext, string, int, string?> query)
     {
-        app.MapGet(WireRoutes.AuthorRecentOpens, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AuthorRecentOpens, (HttpContext ctx, Store store, CancellationToken ct) =>
             Run(ctx, store, async (db, tx, site, owner, session) =>
             {
                 var raw = query(ctx, "cursor", WireLimits.AuthorRecentOpenCursorChars);
@@ -22,14 +22,14 @@ internal static class AuthorRecentOpenEndpoints
                 if (raw is not null && !cursor.HasValue)
                     throw new BusinessException(Rejection.Invalid, "Invalid recent opens cursor.");
                 return Wire.EncodeAuthorRecentOpenPage(await Read(db, tx, site, owner, session, cursor, ct));
-            }, ct)).RequireRateLimiting("command");
+            }, ct));
 
-        app.MapPost(WireRoutes.AuthorRecentOpens, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.AuthorRecentOpens, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeAuthorRecentOpenCommand(await read(ctx, WireLimits.MaxAuthorRecentOpenCommandFrameBytes, ct));
             return await Run(ctx, store, async (db, tx, site, owner, _) =>
                 Wire.EncodeAuthorRecentOpenReceipt(await Record(db, tx, site, owner, input, ct)), ct);
-        }).RequireRateLimiting("command");
+        });
 
         Task<IResult> Run(HttpContext ctx, Store store, Func<NpgsqlConnection, NpgsqlTransaction, Guid, Guid, byte[], Task<byte[]>> process,
             CancellationToken ct)

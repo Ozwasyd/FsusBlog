@@ -35,7 +35,7 @@ internal static class CommentReadEndpoints
         {
             var replies = capabilities.SignedInCommentReplies;
             CommentSubmissionEndpoints.Map(app, cookie, readFrame, replies, rootPowPolicy);
-            app.MapGet(WireRoutes.PublicCommentEligibility, async (HttpContext ctx, int articleId, Store store, CancellationToken ct) =>
+            app.MapCommandGet(WireRoutes.PublicCommentEligibility, async (HttpContext ctx, int articleId, Store store, CancellationToken ct) =>
             {
                 if (!long.TryParse(ctx.Request.Query["publication"].FirstOrDefault(), NumberStyles.None,
                     CultureInfo.InvariantCulture, out var publication) || publication <= 0)
@@ -49,7 +49,7 @@ internal static class CommentReadEndpoints
                         return eligibility;
                     }, ct);
                 return Results.Bytes(Wire.EncodePublicCommentEligibility(result), Aeds.ContentType);
-            }).RequireRateLimiting("command");
+            });
             return new(RootSubmission: true, SignedInReply: replies, RootPowPolicy: rootPowPolicy);
         }
         return new(RootSubmission: false, SignedInReply: false, RootPowPolicy: false);

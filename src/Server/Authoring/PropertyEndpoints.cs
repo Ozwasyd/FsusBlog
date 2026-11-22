@@ -58,15 +58,15 @@ internal static class PropertyEndpoints
         Map(WireRoutes.PropertyFilterability, async (store, frame, ct) =>
             Wire.EncodePropertyCommandReceipt(await store.SetFilterable(Wire.DecodePropertyFilterabilityCommand(frame), ct)));
 
-        app.MapGet(WireRoutes.PropertySchemaCommand, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.PropertySchemaCommand, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             if (!Guid.TryParseExact(query(ctx, "definition", 36), "D", out var id) || id == Guid.Empty)
                 throw new BusinessException(Rejection.Invalid, "Invalid property definition.");
             return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 Results.Bytes(Wire.EncodePropertyDefinitionProjection(await new PropertyStore(db, tx, actor).ReadProjection(id, ct)),
                     Aeds.ContentType), ct);
-        }).RequireRateLimiting("command");
-        app.MapGet(WireRoutes.PropertyFilterCatalog, (HttpContext ctx, Store store, CancellationToken ct) =>
+        });
+        app.MapCommandGet(WireRoutes.PropertyFilterCatalog, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var token = ctx.Request.Cookies[cookie];
             var projection = query(ctx, "projection", 1) switch
@@ -93,7 +93,7 @@ internal static class PropertyEndpoints
                 SiteSessions.IfCurrent(actor.Id, token, expected);
                 return Results.Bytes(catalog, Aeds.ContentType);
             }, ct);
-        }).RequireRateLimiting("command");
+        });
         MapSession(WireRoutes.PropertyArticleQuery, async (store, actor, ctx, frame, session, ct) =>
         {
             var input = Wire.DecodePropertyArticleQueryGroup(frame);
@@ -108,7 +108,7 @@ internal static class PropertyEndpoints
         void MapSession(string path, Func<PropertyStore, Identity, HttpContext, byte[], string, CancellationToken, Task<byte[]>> operation,
             int frameBytes = WireLimits.PropertyMaxCommandBytes)
         {
-            app.MapPost(path, async (HttpContext ctx, Store store, CancellationToken ct) =>
+            app.MapCommandPost(path, async (HttpContext ctx, Store store, CancellationToken ct) =>
             {
                 var frame = await readFrame(ctx, frameBytes, ct);
                 var session = ctx.Request.Cookies[cookie];
@@ -129,7 +129,7 @@ internal static class PropertyEndpoints
                         : "The property definition changed or cannot be updated.";
                     throw new BusinessException(Rejection.Conflict, message);
                 }
-            }).RequireRateLimiting("command");
+            });
         }
     }
 }

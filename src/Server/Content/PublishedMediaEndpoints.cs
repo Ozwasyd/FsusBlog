@@ -47,7 +47,7 @@ internal static class PublishedMediaEndpoints
     internal static void Map(WebApplication app, string cookie, Publications publications, PublishedMediaStore media,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
-        app.MapPost(WireRoutes.ArticlePublishImages, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.ArticlePublishImages, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeArticlePublishImages(await readFrame(ctx, ArticlePublishImages.MaxFrameBytes, ct));
             ClientMutationHeader.Require(ctx, input.IdempotencyKey);
@@ -56,7 +56,7 @@ internal static class PublishedMediaEndpoints
             var saved = result.Article;
             return Results.Bytes(Wire.EncodeDraft(new(saved.Id, saved.Revision, saved.Title, saved.Body,
                 saved.PublishedRevision is not null)), Aeds.ContentType);
-        }).RequireRateLimiting("command");
+        });
 
         app.MapGet(WireRoutes.PublicArticleMedia, (HttpContext ctx, int id, long publication) =>
         {

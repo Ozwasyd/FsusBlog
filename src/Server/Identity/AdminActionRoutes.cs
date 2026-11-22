@@ -13,11 +13,11 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
     internal void RequireOrigin(HttpContext ctx) => RequireOrigin(ctx, authority);
 
     internal void Availability(string route, Func<string?, CancellationToken, Task> check) =>
-        App.MapGet(route, async (HttpContext ctx, CancellationToken ct) =>
+        App.MapCommandGet(route, async (HttpContext ctx, CancellationToken ct) =>
         {
             await check(Session(ctx), ct);
             return Results.NoContent();
-        }).RequireRateLimiting("command");
+        });
 
     internal Task<byte[]> Read(HttpContext ctx, int maximum, CancellationToken ct)
     {

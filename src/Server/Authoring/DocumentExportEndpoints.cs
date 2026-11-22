@@ -16,7 +16,7 @@ internal static class DocumentExportEndpoints
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         var media = app.Services.GetService<MediaFiles>();
-        app.MapPost(WireRoutes.DocumentExportCreate, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.DocumentExportCreate, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var request = Wire.DecodeDocumentExportCreate(await readFrame(ctx, WireLimits.MaxDocumentExportCreateFrameBytes, ct));
             return await Session(ctx, store, async (db, tx, actor) =>
@@ -26,18 +26,18 @@ internal static class DocumentExportEndpoints
                 var task = await DocumentExportStore.Create(db, tx, actor, request, pdf?.ToolDigest, media, assets, ct);
                 return Results.Bytes(Wire.EncodeDocumentExportTask(task), Aeds.ContentType);
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapGet(WireRoutes.DocumentExportTaskList, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.DocumentExportTaskList, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
             Session(ctx, store, async (db, tx, actor) =>
             {
                 if (id < 1) throw DocumentExportContract.Missing();
                 await RevisionHistoryStore.LockOwned(db, tx, actor.Id, id, ct);
                 var tasks = await DocumentExportStore.List(db, tx, actor, id, ct);
                 return Results.Bytes(Wire.EncodeDocumentExportTaskList(tasks), Aeds.ContentType);
-            }, ct)).RequireRateLimiting("command");
+            }, ct));
 
-        app.MapPost(WireRoutes.DocumentExportCancel, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.DocumentExportCancel, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var id = await ReadTaskRef(ctx, ct);
             return await Session(ctx, store, async (db, tx, actor) =>
@@ -45,7 +45,7 @@ internal static class DocumentExportEndpoints
                 var task = await DocumentExportStore.Cancel(db, tx, actor, id, ct);
                 return Results.Bytes(Wire.EncodeDocumentExportTask(task), Aeds.ContentType);
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
         app.MapPost(WireRoutes.DocumentExportDownload, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {

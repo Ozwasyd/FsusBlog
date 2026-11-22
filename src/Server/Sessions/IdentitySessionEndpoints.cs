@@ -26,19 +26,19 @@ internal static class IdentitySessionEndpoints
             }, ct);
         });
 
-        app.MapGet(WireRoutes.AuthoringSession, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AuthoringSession, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var adminToken = ctx.Request.Cookies[authorCookie];
             return store.WithSession(adminToken, true, (_, _, actor) => Task.FromResult(ServerHttp.SessionResponse(ctx, actor, adminToken!)), ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapPost(WireRoutes.SignOut, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.SignOut, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             await store.SignOut(ctx.Request.Cookies[readerCookie], ct);
             ctx.Response.Cookies.Delete(readerCookie, ServerHttp.CookieSettings(ctx));
             if (persistentSite)
                 SiteRefreshEndpoints.ClearRefreshCookie(ctx);
             return Results.Bytes(Wire.EncodeEmptySuccess(), ServerHttp.BinaryContentType);
-        }).RequireRateLimiting("command");
+        });
     }
 }

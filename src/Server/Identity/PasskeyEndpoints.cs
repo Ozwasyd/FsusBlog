@@ -52,19 +52,19 @@ internal static class PasskeyEndpoints
             RequireHost(ctx);
             return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
         });
-        app.MapGet(WireRoutes.SitePasskeys, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.SitePasskeys, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             RequireHost(ctx);
             var rows = await SitePasskeys.List(store, ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), ct);
             return Results.Bytes(Wire.EncodeSitePasskeys(rows), Aeds.ContentType);
-        }).RequireRateLimiting("command");
-        app.MapGet(WireRoutes.SitePasskeyManagement, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        });
+        app.MapCommandGet(WireRoutes.SitePasskeyManagement, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             RequireHost(ctx);
             ctx.Response.Headers.CacheControl = "private, no-store";
             var rows = await SitePasskeys.Manage(store, ctx.Request.Cookies[sessionCookie], SiteSessions.Requested(ctx), ct);
             return Results.Bytes(Wire.EncodeSitePasskeyManagement(rows), Aeds.ContentType);
-        }).RequireRateLimiting("command");
+        });
         var management = new SiteMfaPostRoutes(app, RequireManagementOrigin);
         management.Post(WireRoutes.SitePasskeyRenameBegin, async (ctx, ct) =>
         {

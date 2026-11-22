@@ -22,7 +22,7 @@ internal static class CommentSubmissionEndpoints
         void MapRoute(string route, bool isReply, bool issue)
         {
             var scope = isReply ? PowScope.PublicCommentReply : PowScope.PublicCommentSubmit;
-            app.MapPost(route, (HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) =>
+            app.MapCommandPost(route, (HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) =>
                 ScopedPow.Protect(ctx, async () =>
                 {
                     var frame = await readFrame(ctx, isReply ? WireLimits.PublicCommentReplyFrameBytes : WireLimits.PublicCommentFrameBytes, ct);
@@ -46,7 +46,7 @@ internal static class CommentSubmissionEndpoints
                         await pow.Consume(db, tx, scope, context, session!, source, frame, proof!, ct, policy);
                         return Wire.EncodePublicCommentSubmissionResult(await CommentWriteStore.Submit(db, tx, actor, input, ct, parent));
                     }, ct);
-                }, scope)).RequireRateLimiting("command");
+                }, scope));
         }
     }
 

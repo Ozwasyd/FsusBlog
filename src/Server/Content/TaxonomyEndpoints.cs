@@ -30,7 +30,7 @@ internal static class TaxonomyEndpoints
         app.MapMethods(WireRoutes.TagArticles, ReadMethods, (HttpContext ctx, int id, int page, int size) =>
             List(ctx, true, id, page, size)).RequireRateLimiting("query");
 
-        app.MapGet(WireRoutes.DraftTaxonomy, async (HttpContext ctx, int id, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.DraftTaxonomy, async (HttpContext ctx, int id, Store store, CancellationToken ct) =>
         {
             var revision = DraftRevisionQuery.Read(ctx, id, query);
 
@@ -42,9 +42,9 @@ internal static class TaxonomyEndpoints
                 return await TaxonomyStore.ReadDraft(db, tx, id, revision, ct);
             }, ct);
             return Results.Bytes(Wire.EncodeDraftTaxonomy(taxonomy), Binary);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapPost(WireRoutes.TaxonomyAssignment, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.TaxonomyAssignment, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeTaxonomyAssignment(await readFrame(ctx, WireLimits.TaxonomyAssignmentFrameBytes, ct));
             ClientMutationHeader.Require(ctx, input.IdempotencyKey);
@@ -53,7 +53,7 @@ internal static class TaxonomyEndpoints
             var taxonomy = await store.WithSession(ctx.Request.Cookies[cookie], true,
                 (db, tx, actor) => Store.AssignTaxonomy(db, tx, actor, input, ct), ct);
             return Results.Bytes(Wire.EncodeDraftTaxonomy(taxonomy), Binary);
-        }).RequireRateLimiting("command");
+        });
 
         app.MapMethods("/category/{id:int}", ReadMethods, (HttpContext ctx, int id) => Metadata(ctx, snapshot(ctx), false, id, asHtml: true));
         app.MapMethods("/tag/{id:int}", ReadMethods, (HttpContext ctx, int id) => Metadata(ctx, snapshot(ctx), true, id, asHtml: true));

@@ -31,24 +31,24 @@ internal sealed class DraftMutationRoutes(WebApplication app, string cookie,
 
     private void Get<T>(string route, Func<HttpContext, string, int, string?> query,
         Func<NpgsqlConnection, NpgsqlTransaction, Identity, int, long, CancellationToken, Task<T>> read, Func<T, byte[]> encode) =>
-        app.MapGet(route, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
+        app.MapCommandGet(route, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
         {
             var revision = DraftRevisionQuery.Read(ctx, id, query);
             return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 Frame(encode(await read(db, tx, actor, id, revision, ct))), ct);
-        }).RequireRateLimiting("command");
+        });
 
     private delegate T Decode<T>(ReadOnlySpan<byte> frame);
 
     private void Post<T, TResult>(string route, int maximumBytes, Decode<T> decode, Func<T, Guid> key,
         Func<NpgsqlConnection, NpgsqlTransaction, Identity, T, CancellationToken, Task<TResult>> apply, Func<TResult, IResult> respond) =>
-        app.MapPost(route, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(route, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var input = decode(await readFrame(ctx, maximumBytes, ct));
             ClientMutationHeader.Require(ctx, key(input));
             return await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 respond(await apply(db, tx, actor, input, ct)), ct);
-        }).RequireRateLimiting("command");
+        });
 
     private static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);
 }

@@ -7,7 +7,7 @@ internal static class RecoveryScopeEndpoints
 {
     internal static void Map(WebApplication app, string cookie)
     {
-        app.MapGet(WireRoutes.DraftRecoveryScope, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.DraftRecoveryScope, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var token = ctx.Request.Cookies[cookie];
             var expected = FsusBlog.V2.Server.Sessions.SiteSessions.Requested(ctx);
@@ -17,6 +17,6 @@ internal static class RecoveryScopeEndpoints
                 var site = await CurrentSchema.ReadRecoverySiteIdAsync(db, tx, ct);
                 return Results.Bytes(Wire.EncodeDraftRecoveryScope(new(site, actor.Id)), Aeds.ContentType);
             }, ct);
-        }).RequireRateLimiting("command");
+        });
     }
 }

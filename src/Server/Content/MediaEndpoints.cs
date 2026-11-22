@@ -24,7 +24,7 @@ internal static class MediaEndpoints
     internal static void Map(WebApplication app, string cookie, SiteCapabilities capabilities)
     {
         var resumable = capabilities.PrivateMediaResumable;
-        app.MapGet(WireRoutes.PrivateMediaList, async (HttpContext ctx, Store store, MediaStore media, InstanceLease lease, CancellationToken token) =>
+        app.MapCommandGet(WireRoutes.PrivateMediaList, async (HttpContext ctx, Store store, MediaStore media, InstanceLease lease, CancellationToken token) =>
         {
             var boundary = Position(ctx);
             var session = ctx.Request.Cookies[cookie];
@@ -37,7 +37,7 @@ internal static class MediaEndpoints
             if (resumable) ctx.Response.Headers[WireHeaders.PrivateMediaResumable] = "1";
             if (lease.WebpMedia) ctx.Response.Headers[WireHeaders.PrivateMediaWebp] = "1";
             return Results.Bytes(Wire.EncodePrivateMedia(rows.Take(50).Select(Contract).ToArray(), more), Aeds.ContentType);
-        }).RequireRateLimiting("command");
+        });
 
         app.MapPost(WireRoutes.PrivateMediaUpload, async (HttpContext ctx, Store store, MediaStore media, InstanceLease lease, CancellationToken token) =>
         {
@@ -65,7 +65,7 @@ internal static class MediaEndpoints
             }
         }).RequireRateLimiting(WritePolicy);
 
-        app.MapPost(WireRoutes.PrivateMediaRemove, async (string id, HttpContext ctx, Store store, MediaStore media, CancellationToken token) =>
+        app.MapCommandPost(WireRoutes.PrivateMediaRemove, async (string id, HttpContext ctx, Store store, MediaStore media, CancellationToken token) =>
         {
             var asset = Key(id);
             var session = ctx.Request.Cookies[cookie];
@@ -78,7 +78,7 @@ internal static class MediaEndpoints
                 return true;
             }, token);
             return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
-        }).RequireRateLimiting("command");
+        });
 
         app.MapMethods(WireRoutes.PrivateMediaRead, [HttpMethods.Get, HttpMethods.Head], async (
             string id, HttpContext ctx, Store store, MediaStore media, CancellationToken token) =>

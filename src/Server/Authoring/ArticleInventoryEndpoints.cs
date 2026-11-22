@@ -11,7 +11,7 @@ internal static class ArticleInventoryEndpoints
 {
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query)
     {
-        app.MapGet(WireRoutes.AuthorArticles, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AuthorArticles, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var token = ctx.Request.Cookies[cookie];
             return store.WithSession(token, true, async (db, tx, actor) =>
@@ -19,7 +19,7 @@ internal static class ArticleInventoryEndpoints
                 SiteSessions.IfCurrent(actor.Id, token, SiteSessions.Requested(ctx));
                 return await ReadPage(ctx, query, db, tx, actor, ct);
             }, ct);
-        }).RequireRateLimiting("command");
+        });
     }
 
     internal static async Task<IResult> ReadPage(HttpContext ctx, Func<HttpContext, string, int, string?> query,

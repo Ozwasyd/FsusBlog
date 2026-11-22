@@ -13,7 +13,7 @@ internal static class SavedViewEndpoints
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame,
         Func<HttpContext, string, int, string?> query)
     {
-        app.MapGet(WireRoutes.SavedViews, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.SavedViews, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var after = query(ctx, "after", 36);
             var version = query(ctx, "revision", 19);
@@ -24,21 +24,21 @@ internal static class SavedViewEndpoints
                 after is null && version is not null)
                 throw new BusinessException(Rejection.Invalid, "Invalid saved view catalog page.");
             return Run(ctx, store, async (view, _, token) => Wire.EncodeSavedViewCatalog(await view.List(id, revision, token)), ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapPost(WireRoutes.SavedViews, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.SavedViews, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var command = Wire.DecodeSavedViewCommand(await readFrame(ctx, WireLimits.SavedViewKeywordCommandFrameBytes, ct));
             return await Run(ctx, store, async (view, _, token) => Wire.EncodeSavedViewReceipt(await view.Change(command, token)), ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapPost(WireRoutes.SavedViewExecute, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.SavedViewExecute, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var command = Wire.DecodeSavedViewExecute(await readFrame(ctx, WireLimits.SavedViewExecuteFrameBytes, ct));
             return await Run(ctx, store, async (view, session, token) => Wire.EncodePropertyArticlePage(await view.Open(command, session, token)), ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapGet(WireRoutes.SavedViewPlacement, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.SavedViewPlacement, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var view = query(ctx, "view", 36);
             var schema = query(ctx, "viewSchema", 9);
@@ -57,14 +57,14 @@ internal static class SavedViewEndpoints
                 throw new BusinessException(Rejection.Invalid, "Invalid saved view link or placement page.");
             return Run(ctx, store, async (saved, _, token) => Wire.EncodeSavedViewPlacement(await saved.Placement(id, offset, revision, token)), ct,
                 placement: true);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapPost(WireRoutes.SavedViewPlacement, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.SavedViewPlacement, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var command = Wire.DecodeSavedViewPlacementCommand(await readFrame(ctx, WireLimits.SavedViewPlacementFrameBytes, ct));
             return await Run(ctx, store, async (view, _, token) => Wire.EncodeSavedViewReceipt(await view.ChangePlacement(command, token)), ct,
                 placement: true);
-        }).RequireRateLimiting("command");
+        });
 
         Task<IResult> Run(HttpContext ctx, Store store, Func<SavedViewStore, string, CancellationToken, Task<byte[]>> operation, CancellationToken ct,
             bool placement = false)

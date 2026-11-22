@@ -23,18 +23,18 @@ internal static class AdminSitePageEditorEndpoints
         }).RequireRateLimiting(actions.PasskeyLimit);
         actions.Complete(WireRoutes.AdminSitePageStepUpComplete, store.CompleteSitePageStepUp);
 
-        actions.App.MapPost(WireRoutes.AdminSitePagePow, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
+        actions.App.MapCommandPost(WireRoutes.AdminSitePagePow, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
             {
                 var frame = await actions.Read(ctx, WireLimits.AdminSitePagePublishFrameBytes, ct);
                 var intent = Wire.DecodeAdminSitePagePublish(frame);
                 return await store.IssueSitePagePow(actions.Session(ctx), pages, intent, frame, pow, ctx, ct);
-            }, PowScope.AdminSitePagePublish)).RequireRateLimiting("command");
+            }, PowScope.AdminSitePagePublish));
 
-        actions.App.MapPost(WireRoutes.AdminSitePagePublish, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
-            Publish(ctx, pages, pow, legacy: false, ct)).RequireRateLimiting("command");
-        actions.App.MapPut(WireRoutes.AdminLegacySitePageUpdate, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
-            Publish(ctx, pages, pow, legacy: true, ct)).RequireRateLimiting("command");
+        actions.App.MapCommandPost(WireRoutes.AdminSitePagePublish, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
+            Publish(ctx, pages, pow, legacy: false, ct));
+        actions.App.MapCommandPut(WireRoutes.AdminLegacySitePageUpdate, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
+            Publish(ctx, pages, pow, legacy: true, ct));
 
         async Task<IResult> Publish(HttpContext ctx, SitePages pages, ScopedPow pow, bool legacy, CancellationToken ct)
         {

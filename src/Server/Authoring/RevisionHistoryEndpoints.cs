@@ -11,7 +11,7 @@ internal static class RevisionHistoryEndpoints
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query,
         DraftMutationRoutes mutations)
     {
-        app.MapGet(WireRoutes.DraftRevisionHistory, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.DraftRevisionHistory, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
         {
             var expected = DraftRevisionQuery.Read(ctx, id, query);
             var cursor = query(ctx, "cursor", WireLimits.RevisionHistoryCursorChars);
@@ -32,9 +32,9 @@ internal static class RevisionHistoryEndpoints
                 var page = new RevisionHistoryPage(id, expected, published, next, items);
                 return Results.Bytes(Wire.EncodeRevisionHistory(page), Aeds.ContentType);
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapGet(WireRoutes.DraftRevisionComparison, (HttpContext ctx, Store store, int id, long sourceRevision, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.DraftRevisionComparison, (HttpContext ctx, Store store, int id, long sourceRevision, CancellationToken ct) =>
         {
             var expected = DraftRevisionQuery.Read(ctx, id, query);
             var map = query(ctx, "map", 16);
@@ -83,7 +83,7 @@ internal static class RevisionHistoryEndpoints
                     return Results.Bytes(encode(data), Aeds.ContentType);
                 }
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
         mutations.MapRollback();
     }

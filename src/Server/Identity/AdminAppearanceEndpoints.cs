@@ -40,21 +40,21 @@ internal static class AdminAppearanceEndpoints
             return Frame(await store.BeginAppearanceStepUp(actions.Session(ctx), registry, command, ct));
         }).RequireRateLimiting(actions.PasskeyLimit);
 
-        actions.App.MapPost(WireRoutes.AdminAppearancePow, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+        actions.App.MapCommandPost(WireRoutes.AdminAppearancePow, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
             {
                 var (frame, command) = await Decode(ctx, ct);
                 return await store.IssueAppearancePow(actions.Session(ctx), registry, command, frame, pow, ctx, ct);
-            }, PowScope.AdminAppearance)).RequireRateLimiting("command");
+            }, PowScope.AdminAppearance));
 
-        actions.App.MapPost(WireRoutes.AdminAppearanceApply, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+        actions.App.MapCommandPost(WireRoutes.AdminAppearanceApply, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
             {
                 var (frame, command) = await Decode(ctx, ct);
                 var proof = Proof(ctx);
                 await store.ApplyAppearance(actions.Session(ctx), registry, command, frame, proof, pow, ctx, ct);
                 return Wire.EncodeEmptySuccess();
-            }, PowScope.AdminAppearance)).RequireRateLimiting("command");
+            }, PowScope.AdminAppearance));
 
         async Task<(byte[], AdminAppearanceCommand)> Decode(HttpContext ctx, CancellationToken ct)
         {

@@ -21,15 +21,15 @@ internal static class AdminSiteConfigEndpoints
 
         actions.Complete(WireRoutes.AdminSiteConfigStepUpComplete, store.CompleteSiteConfigStepUp);
 
-        actions.App.MapPost(WireRoutes.AdminSiteConfigPow, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+        actions.App.MapCommandPost(WireRoutes.AdminSiteConfigPow, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
             {
                 var frame = await actions.Read(ctx, WireLimits.AdminSiteConfigFrameBytes, ct);
                 var command = Wire.DecodeAdminSiteConfigCommand(frame);
                 return await store.IssueSiteConfigPow(actions.Session(ctx), config, command, frame, pow, ctx, ct);
-            }, PowScope.AdminSiteConfig)).RequireRateLimiting("command");
+            }, PowScope.AdminSiteConfig));
 
-        actions.App.MapPost(WireRoutes.AdminSiteConfigSave, (HttpContext ctx, Publications publications, ScopedPow pow, CancellationToken ct) =>
+        actions.App.MapCommandPost(WireRoutes.AdminSiteConfigSave, (HttpContext ctx, Publications publications, ScopedPow pow, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
             {
                 var frame = await actions.Read(ctx, WireLimits.AdminSiteConfigFrameBytes, ct);
@@ -37,6 +37,6 @@ internal static class AdminSiteConfigEndpoints
                 var proof = AdminActionRoutes.Proof(ctx);
                 await store.SaveSiteConfig(actions.Session(ctx), config, publications, command, frame, proof, pow, ctx, ct);
                 return Wire.EncodeEmptySuccess();
-            }, PowScope.AdminSiteConfig)).RequireRateLimiting("command");
+            }, PowScope.AdminSiteConfig));
     }
 }

@@ -35,7 +35,7 @@ internal static class AdminInboxEndpoints
         var noticeStore = notice ? new AdminInboxNoticeStore(gate) : null;
         var readStore = sharedRead ? new AdminInboxReadStore(gate) : null;
 
-        app.MapGet(WireRoutes.AdminInboxQueue, async (HttpContext ctx, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AdminInboxQueue, async (HttpContext ctx, CancellationToken ct) =>
         {
             var shared = Shared(ctx);
             var filter = Query(ctx.Request.Query, "status", 7) switch
@@ -60,9 +60,9 @@ internal static class AdminInboxEndpoints
             if (activityOrder) ctx.Response.Headers[WireHeaders.AdminInboxActivityOrder] = "1";
             if (live && (filter <= 2 || filter == 4) && cursor is null && !activity) ctx.Response.Headers[WireHeaders.AdminInboxLive] = "1";
             return Results.Bytes(Wire.EncodeAdminInboxPage(page, shared), Aeds.ContentType);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapGet(WireRoutes.AdminInboxThread, async (long id, HttpContext ctx, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AdminInboxThread, async (long id, HttpContext ctx, CancellationToken ct) =>
         {
             if (id <= 0) throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
             var shared = Shared(ctx);
@@ -72,7 +72,7 @@ internal static class AdminInboxEndpoints
             if (status) ctx.Response.Headers[WireHeaders.AdminInboxVersion] = thread.Version;
             if (thread.ReadSnapshot is not null) ctx.Response.Headers[WireHeaders.AdminInboxReadSnapshot] = thread.ReadSnapshot;
             return Results.Bytes(Wire.EncodeAdminInboxThread(thread, shared), Aeds.ContentType);
-        }).RequireRateLimiting("command");
+        });
 
         if (live)
         {
@@ -104,28 +104,28 @@ internal static class AdminInboxEndpoints
 
         if (replyStore is not null)
         {
-            app.MapPost(WireRoutes.AdminInboxReplyPow, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
-                Reply(id, ctx, pow, true, ct)).RequireRateLimiting("command");
-            app.MapPost(WireRoutes.AdminInboxReply, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
-                Reply(id, ctx, pow, false, ct)).RequireRateLimiting("command");
+            app.MapCommandPost(WireRoutes.AdminInboxReplyPow, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+                Reply(id, ctx, pow, true, ct));
+            app.MapCommandPost(WireRoutes.AdminInboxReply, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+                Reply(id, ctx, pow, false, ct));
         }
         if (statusStore is not null)
         {
-            app.MapPost(WireRoutes.AdminInboxStatusPow, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
-                ChangeStatus(id, ctx, pow, true, ct)).RequireRateLimiting("command");
-            app.MapPost(WireRoutes.AdminInboxStatus, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
-                ChangeStatus(id, ctx, pow, false, ct)).RequireRateLimiting("command");
+            app.MapCommandPost(WireRoutes.AdminInboxStatusPow, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+                ChangeStatus(id, ctx, pow, true, ct));
+            app.MapCommandPost(WireRoutes.AdminInboxStatus, (long id, HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+                ChangeStatus(id, ctx, pow, false, ct));
         }
         if (noticeStore is not null)
         {
-            app.MapPost(WireRoutes.AdminInboxSendNoticePow, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
-                SendNotice(ctx, pow, true, ct)).RequireRateLimiting("command");
-            app.MapPost(WireRoutes.AdminInboxSendNotice, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
-                SendNotice(ctx, pow, false, ct)).RequireRateLimiting("command");
+            app.MapCommandPost(WireRoutes.AdminInboxSendNoticePow, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+                SendNotice(ctx, pow, true, ct));
+            app.MapCommandPost(WireRoutes.AdminInboxSendNotice, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+                SendNotice(ctx, pow, false, ct));
         }
         if (readStore is not null)
         {
-            app.MapPost(WireRoutes.AdminInboxAcknowledge, async (long id, HttpContext ctx, CancellationToken ct) =>
+            app.MapCommandPost(WireRoutes.AdminInboxAcknowledge, async (long id, HttpContext ctx, CancellationToken ct) =>
             {
                 if (id <= 0) throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
                 if (!ctx.Request.Headers.TryGetValue(WireHeaders.AdminInboxReadSnapshot, out var header) || header.Count != 1 ||
@@ -135,7 +135,7 @@ internal static class AdminInboxEndpoints
                 var unread = await readStore.AcknowledgeInboxRead(ctx.Request.Cookies[session], id, through, snapshot, ct);
                 ctx.Response.Headers[WireHeaders.AdminInboxUnread] = unread.ToString(CultureInfo.InvariantCulture);
                 return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
-            }).RequireRateLimiting("command");
+            });
         }
 
         bool Shared(HttpContext ctx) => Query(ctx.Request.Query, "shared", 1) switch

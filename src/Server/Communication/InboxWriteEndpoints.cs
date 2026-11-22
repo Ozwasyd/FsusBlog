@@ -17,27 +17,23 @@ internal static class InboxWriteEndpoints
     {
         var enabled = capabilities.PrivateInboxWrites;
         var fenceVisibleMessages = capabilities.AdminInboxActivityOrder;
-        app.MapGet(WireRoutes.InboxWriteAvailability, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.InboxWriteAvailability, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var packet = await store.WithSession(ctx.Request.Cookies[cookie], false,
                 (_, _, _) => Task.FromResult(Wire.EncodeEmptySuccess()), ct);
             ctx.Response.Headers[WireHeaders.InboxWriteEnabled] = enabled ? "1" : "0";
             return Results.Bytes(packet, Aeds.ContentType);
-        }).RequireRateLimiting("command");
+        });
         if (!enabled) return;
 
-        app.MapPost(WireRoutes.InboxCreatePowChallenge,
-            (HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) => Run(ctx, store, pow, null, issue: true, ct))
-            .RequireRateLimiting("command");
-        app.MapPost(WireRoutes.InboxReplyPowChallenge,
-            (long id, HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) => Run(ctx, store, pow, id, issue: true, ct))
-            .RequireRateLimiting("command");
-        app.MapPost(WireRoutes.InboxList,
-            (HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) => Run(ctx, store, pow, null, issue: false, ct))
-            .RequireRateLimiting("command");
-        app.MapPost(WireRoutes.InboxReply,
-            (long id, HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) => Run(ctx, store, pow, id, issue: false, ct))
-            .RequireRateLimiting("command");
+        app.MapCommandPost(WireRoutes.InboxCreatePowChallenge,
+            (HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) => Run(ctx, store, pow, null, issue: true, ct));
+        app.MapCommandPost(WireRoutes.InboxReplyPowChallenge,
+            (long id, HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) => Run(ctx, store, pow, id, issue: true, ct));
+        app.MapCommandPost(WireRoutes.InboxList,
+            (HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) => Run(ctx, store, pow, null, issue: false, ct));
+        app.MapCommandPost(WireRoutes.InboxReply,
+            (long id, HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) => Run(ctx, store, pow, id, issue: false, ct));
 
         Task<IResult> Run(HttpContext ctx, Store store, ScopedPow pow, long? conversation, bool issue, CancellationToken ct)
         {

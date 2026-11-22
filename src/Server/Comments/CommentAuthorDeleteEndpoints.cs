@@ -10,7 +10,7 @@ internal static class CommentAuthorDeleteEndpoints
 {
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> frame)
     {
-        app.MapPost(WireRoutes.CommentAuthorEligibility, async (HttpContext ctx, Store store, int articleId, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.CommentAuthorEligibility, async (HttpContext ctx, Store store, int articleId, CancellationToken ct) =>
         {
             if (articleId <= 0) throw new ProtocolException("Invalid comment article.");
             var ids = Wire.DecodeCommentAuthorEligibilityRequest(await frame(ctx,
@@ -22,7 +22,7 @@ internal static class CommentAuthorDeleteEndpoints
                     ctx.Response.Headers[WireHeaders.CommentAuthorEditEnabled] = "1";
                 return Wire.EncodeCommentAuthorEligibility(eligible);
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
         app.MapPost(WireRoutes.CommentAuthorChallenge, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
@@ -37,23 +37,23 @@ internal static class CommentAuthorDeleteEndpoints
                 }), ct);
         }).RequireRateLimiting("comment-author-challenge");
 
-        app.MapGet(WireRoutes.CommentAuthorEditDetail, (HttpContext ctx, Store store, long id, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.CommentAuthorEditDetail, (HttpContext ctx, Store store, long id, CancellationToken ct) =>
             Run(ctx, store, async (db, tx, actor, _) =>
             {
                 var query = ctx.Request.Query;
                 var pendingOnly = query.Count == 1 && query["state"] is { Count: 1 } state && state[0] == "pending";
                 if (!pendingOnly && query.Count != 0) throw new ProtocolException("Invalid comment edit state.");
                 return Wire.EncodeCommentAuthorEditDetail(await CommentAuthorEdits.Detail(db, tx, actor.Id, id, ct, pendingOnly));
-            }, ct)).RequireRateLimiting("command");
+            }, ct));
 
-        app.MapPost(WireRoutes.CommentAuthorEdit, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.CommentAuthorEdit, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
             var request = Wire.DecodeCommentAuthorEditRequest(await frame(ctx, WireLimits.CommentAuthorEditFrameBytes, ct));
             return await Run(ctx, store, async (db, tx, actor, digest) =>
                 Wire.EncodeCommentAuthorMutation(await CommentAuthorEdits.Apply(db, tx, actor, digest, id, request, ct)), ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapGet(WireRoutes.CommentAuthorAppeals, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.CommentAuthorAppeals, (HttpContext ctx, Store store, CancellationToken ct) =>
             Run(ctx, store, async (db, tx, actor, _) =>
             {
                 var pendingEditEnabled = await CurrentSchema.SupportsPendingCommentAuthorEditAsync(db, tx, ct);
@@ -62,10 +62,9 @@ internal static class CommentAuthorDeleteEndpoints
                 if (pendingEditEnabled)
                     ctx.Response.Headers[WireHeaders.CommentAuthorEditEnabled] = "1";
                 return page;
-            }, ct))
-            .RequireRateLimiting("command");
+            }, ct));
 
-        app.MapPost(WireRoutes.CommentAuthorAppeal, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.CommentAuthorAppeal, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
             var request = Wire.DecodeAuthorAppeal(await frame(ctx, Wire.CommentAppealFrameBytes, ct));
             return await Run(ctx, store, async (db, tx, actor, digest) =>
@@ -73,14 +72,14 @@ internal static class CommentAuthorDeleteEndpoints
                 await CommentAppeals.Submit(db, tx, actor, digest, id, request, ct);
                 return Wire.EncodeCommentAuthorMutation(new(true, "ok", 0, 0, null));
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapPost(WireRoutes.CommentAuthorDelete, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.CommentAuthorDelete, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
             var secret = Wire.ReadCommentAuthorDeleteRequest(await frame(ctx, WireLimits.CommentAuthorProofFrameBytes, ct));
             return await Run(ctx, store, async (db, tx, actor, digest) =>
                 Wire.EncodeCommentAuthorMutation(await Delete(db, tx, actor, digest, id, secret, ct)), ct);
-        }).RequireRateLimiting("command");
+        });
 
         Task<IResult> Run(HttpContext ctx, Store store,
             Func<NpgsqlConnection, NpgsqlTransaction, Identity, byte[], Task<byte[]>> action, CancellationToken ct)

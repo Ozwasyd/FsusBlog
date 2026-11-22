@@ -10,7 +10,7 @@ internal static class CanvasGraphEndpoints
 {
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
-        app.MapGet(WireRoutes.CanvasBundleExport, (HttpContext ctx, Store store, Guid id, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.CanvasBundleExport, (HttpContext ctx, Store store, Guid id, CancellationToken ct) =>
         {
             long revision = Coordinate(ctx, "revision", long.MaxValue);
             return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
@@ -18,16 +18,16 @@ internal static class CanvasGraphEndpoints
                 var bytes = await new CanvasGraphStore(db, tx, actor).ExportBundle(id, revision, ct);
                 return Results.File(bytes, Wire.CanvasBundleContentType, "canvas.fsuscanvas");
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapPost(WireRoutes.CanvasBundlePlan, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.CanvasBundlePlan, (HttpContext ctx, Store store, CancellationToken ct) =>
             store.WithSession(ctx.Request.Cookies[cookie], true, async (_, _, _) =>
             {
                 var frame = await readFrame(ctx, WireLimits.CanvasBundleBytes + Aeds.HeaderSize, ct);
                 return Frame(Wire.EncodeCanvasBundlePlan(CanvasBundleStore.Plan(Wire.DecodeCanvasBundleIntake(frame))));
-            }, ct)).RequireRateLimiting("command");
+            }, ct));
 
-        app.MapPost(WireRoutes.CanvasBundleExecute, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.CanvasBundleExecute, (HttpContext ctx, Store store, CancellationToken ct) =>
             store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
             {
                 var frame = await readFrame(ctx, WireLimits.CanvasBundleExecuteFrameBytes, ct);
@@ -35,22 +35,21 @@ internal static class CanvasGraphEndpoints
                 ClientMutationHeader.Require(ctx, input.CommandId);
                 var result = await new CanvasGraphStore(db, tx, actor).ImportBundle(input, SHA256.HashData(frame), ct);
                 return Frame(Wire.EncodeCanvasGraphReceipt(result));
-            }, ct)).RequireRateLimiting("command");
+            }, ct));
 
-        app.MapGet(WireRoutes.CanvasGraphList, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.CanvasGraphList, (HttpContext ctx, Store store, CancellationToken ct) =>
             store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
-                Frame(Wire.EncodeCanvasGraphList(await new CanvasGraphStore(db, tx, actor).List(ct))), ct))
-            .RequireRateLimiting("command");
+                Frame(Wire.EncodeCanvasGraphList(await new CanvasGraphStore(db, tx, actor).List(ct))), ct));
 
-        app.MapGet(WireRoutes.CanvasGraphPage, (HttpContext ctx, Store store, Guid id, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.CanvasGraphPage, (HttpContext ctx, Store store, Guid id, CancellationToken ct) =>
         {
             long revision = Coordinate(ctx, "revision", long.MaxValue);
             int offset = (int)Coordinate(ctx, "offset", 20_000);
             return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 Frame(Wire.EncodeCanvasGraphPage(await new CanvasGraphStore(db, tx, actor).Page(id, revision, offset, ct))), ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapGet(WireRoutes.CanvasReference, (HttpContext ctx, Store store, Guid id, Guid nodeId, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.CanvasReference, (HttpContext ctx, Store store, Guid id, Guid nodeId, CancellationToken ct) =>
         {
             long revision = Coordinate(ctx, "revision", long.MaxValue);
             bool requireCurrent = ctx.Request.Query.TryGetValue("current", out var current);
@@ -64,16 +63,16 @@ internal static class CanvasGraphEndpoints
                 var resolved = await new CanvasGraphStore(db, tx, actor).Resolve(id, nodeId, revision, requireCurrent, ct);
                 return Frame(Wire.EncodeCanvasReferenceResolution(resolved));
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapGet(WireRoutes.CanvasGraphHistory, (HttpContext ctx, Store store, Guid id, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.CanvasGraphHistory, (HttpContext ctx, Store store, Guid id, CancellationToken ct) =>
         {
             long revision = Coordinate(ctx, "revision", long.MaxValue);
             return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 Frame(Wire.EncodeCanvasGraphHistory(await new CanvasGraphStore(db, tx, actor).History(id, revision, ct))), ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapPost(WireRoutes.CanvasGraphWrite, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.CanvasGraphWrite, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             byte[] frame = await readFrame(ctx, WireLimits.CanvasGraphCommandBytes, ct);
             var command = Wire.DecodeCanvasGraphCommand(frame);
@@ -81,7 +80,7 @@ internal static class CanvasGraphEndpoints
             byte[] fingerprint = SHA256.HashData(frame);
             return await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 Frame(Wire.EncodeCanvasGraphReceipt(await new CanvasGraphStore(db, tx, actor).Write(command, fingerprint, ct))), ct);
-        }).RequireRateLimiting("command");
+        });
     }
 
     private static long Coordinate(HttpContext context, string name, long max)

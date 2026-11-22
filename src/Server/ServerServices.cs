@@ -171,7 +171,7 @@ internal static class ServerServices
             options.AddPolicy("mfa", context => RateLimitPartition.GetFixedWindowLimiter(
                 (context.Connection.RemoteIpAddress, (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(1) }));
-            options.AddImmediateConcurrency("command", 32);
+            options.AddImmediateConcurrency(CommandEndpoints.Policy, 32);
             if (capabilities.DocumentExportTasks)
                 options.AddImmediateConcurrency("document-export-download", 4);
             if (capabilities.PluginPreview is not null)

@@ -26,12 +26,12 @@ internal static class AdminRiskReadinessEndpoints
             return Frame(await commentRisk.BeginRootCommentPowStepUp(actions.Session(ctx), intent, ct));
         }).RequireRateLimiting(actions.PasskeyLimit);
         actions.Complete(WireRoutes.AdminRootCommentPowComplete, commentRisk.CompleteRootCommentPowStepUp);
-        actions.App.MapPost(WireRoutes.AdminRootCommentPowApply, async (HttpContext ctx, CancellationToken ct) =>
+        actions.App.MapCommandPost(WireRoutes.AdminRootCommentPowApply, async (HttpContext ctx, CancellationToken ct) =>
         {
             var intent = await ReadIntent(ctx, ct);
             var proof = Proof(ctx);
             return State(ctx, await commentRisk.ApplyRootCommentPowPolicy(actions.Session(ctx), intent, proof, ct));
-        }).RequireRateLimiting("command");
+        });
 
         async Task<AdminRootCommentPowCommand> ReadIntent(HttpContext ctx, CancellationToken ct)
         {

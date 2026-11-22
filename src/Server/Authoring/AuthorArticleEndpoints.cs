@@ -9,7 +9,7 @@ internal static class AuthorArticleEndpoints
 {
     internal static void Map(WebApplication app, string authorCookie, Publications publications)
     {
-        app.MapGet(WireRoutes.Draft, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.Draft, (HttpContext ctx, Store store, int id, CancellationToken ct) =>
         {
             var token = ctx.Request.Cookies[authorCookie];
             var expected = SiteSessions.Requested(ctx);
@@ -18,7 +18,7 @@ internal static class AuthorArticleEndpoints
                 SiteSessions.IfCurrent(actor.Id, token, expected);
                 return ServerHttp.DraftResponse(await Store.Find(db, tx, actor, id, false, ct));
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
         MapMutation(app, authorCookie, publications, WireRoutes.Save, ArticleAction.Save);
         MapMutation(app, authorCookie, publications, WireRoutes.Publish, ArticleAction.Publish);
@@ -29,7 +29,7 @@ internal static class AuthorArticleEndpoints
 
     private static void MapMutation(WebApplication app, string authorCookie, Publications publications, string path, ArticleAction action)
     {
-        app.MapPost(path, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(path, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var frame = await ServerHttp.ReadFrame(ctx, action == ArticleAction.Save ? WireLimits.MaxArticleBodyEditsCommandFrameBytes :
                 WireLimits.MaxCommandFrameBytes, ct);
@@ -53,6 +53,6 @@ internal static class AuthorArticleEndpoints
             return action == ArticleAction.Delete
                 ? Results.Bytes(Wire.EncodeEmptySuccess(), ServerHttp.BinaryContentType)
                 : ServerHttp.DraftResponse(result.Article);
-        }).RequireRateLimiting("command");
+        });
     }
 }

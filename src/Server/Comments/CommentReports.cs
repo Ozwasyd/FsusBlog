@@ -16,12 +16,12 @@ internal static class CommentReports
         app.MapGet(WireRoutes.CommentReportAvailability, (HttpContext ctx, Store store, CancellationToken ct) =>
             Run(ctx, store, (_, _, _) => Task.FromResult(Wire.EncodeEmptySuccess()), ct)).RequireRateLimiting("query");
 
-        app.MapPost(WireRoutes.CommentReport, async (HttpContext ctx, Store store, int articleId, long id, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.CommentReport, async (HttpContext ctx, Store store, int articleId, long id, CancellationToken ct) =>
         {
             var request = Wire.DecodeCommentReportRequest(await readFrame(ctx, WireLimits.CommentReportFrameBytes, ct));
             return await Run(ctx, store, async (db, tx, reporter) =>
                 Wire.EncodeCommentReportResult(await Submit(db, tx, reporter, articleId, id, request, ct)), ct);
-        }).RequireRateLimiting("command");
+        });
 
         Task<IResult> Run(HttpContext ctx, Store store,
             Func<NpgsqlConnection, NpgsqlTransaction, Guid, Task<byte[]>> action, CancellationToken ct)

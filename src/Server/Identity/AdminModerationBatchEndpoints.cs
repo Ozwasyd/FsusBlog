@@ -10,11 +10,11 @@ internal static class AdminModerationBatchEndpoints
     internal static void Map(WebApplication app, string origin, AdminModerationBatchStore store, string session, string passkeyLimit,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, bool fenceVisibleMessages)
     {
-        app.MapPost(WireRoutes.AdminModerationBatchClaim, (HttpContext ctx, CancellationToken ct) => Run(ctx, origin, async () =>
+        app.MapCommandPost(WireRoutes.AdminModerationBatchClaim, (HttpContext ctx, CancellationToken ct) => Run(ctx, origin, async () =>
         {
             var targets = Wire.DecodeAdminModerationBatchTargets(await readFrame(ctx, WireLimits.AdminModerationBatchTargetsFrameBytes, ct));
             return Wire.EncodeAdminModerationBatchClaims(await store.AcquireModerationBatch(ctx.Request.Cookies[session], targets, ct));
-        })).RequireRateLimiting("command");
+        }));
 
         app.MapPost(WireRoutes.AdminModerationBatchStepUpBegin, (HttpContext ctx, CancellationToken ct) => Run(ctx, origin, async () =>
         {
@@ -28,13 +28,13 @@ internal static class AdminModerationBatchEndpoints
             return await store.CompleteModerationBatchStepUp(ctx.Request.Cookies[session], PasskeyWire.ReadLogin(frame, discoverable: false), ct);
         })).RequireRateLimiting(passkeyLimit);
 
-        app.MapPost(WireRoutes.AdminModerationBatchDecision, (HttpContext ctx, CancellationToken ct) => Run(ctx, origin, async () =>
+        app.MapCommandPost(WireRoutes.AdminModerationBatchDecision, (HttpContext ctx, CancellationToken ct) => Run(ctx, origin, async () =>
         {
             var frame = await readFrame(ctx, WireLimits.AdminModerationBatchDecisionFrameBytes, ct);
             var proof = AdminActionRoutes.Proof(ctx);
             var receipt = await store.DecideModerationBatch(ctx.Request.Cookies[session], proof, frame, fenceVisibleMessages, ct);
             return Wire.EncodeAdminModerationBatchReceipt(receipt);
-        })).RequireRateLimiting("command");
+        }));
     }
 
     private static async Task<IResult> Run(HttpContext ctx, string origin, Func<Task<byte[]>> apply)

@@ -9,18 +9,18 @@ internal static class AdminModerationEndpoints
     {
         actions.Post(WireRoutes.AdminModerationClaim, WireLimits.AdminModerationClaimRequestFrameBytes, async (cookie, frame, ct) =>
             Wire.EncodeAdminModerationClaim(await store.AcquireCommentClaim(cookie, Wire.DecodeAdminModerationClaimRequest(frame), ct)))
-            .RequireRateLimiting("command");
+            .RequireRateLimiting(CommandEndpoints.Policy);
         actions.Post(WireRoutes.AdminModerationRenew, WireLimits.AdminModerationClaimFrameBytes, async (cookie, frame, ct) =>
             Wire.EncodeAdminModerationClaim(await store.RenewCommentClaim(cookie, Wire.DecodeAdminModerationClaim(frame), ct)))
-            .RequireRateLimiting("command");
+            .RequireRateLimiting(CommandEndpoints.Policy);
         actions.Post(WireRoutes.AdminModerationRelease, WireLimits.AdminModerationClaimFrameBytes, async (cookie, frame, ct) =>
         {
             await store.ReleaseCommentClaim(cookie, Wire.DecodeAdminModerationClaim(frame), ct);
             return Wire.EncodeEmptySuccess();
-        }).RequireRateLimiting("command");
+        }).RequireRateLimiting(CommandEndpoints.Policy);
         actions.Post(WireRoutes.AdminModerationStepUpBegin, WireLimits.AdminModerationDecisionFrameBytes, (cookie, frame, ct) =>
             store.BeginModerationDecisionStepUp(cookie, Wire.DecodeAdminModerationDecision(frame), ct)).RequireRateLimiting(actions.PasskeyLimit);
-        actions.App.MapPost(WireRoutes.AdminModerationDecision, async (HttpContext ctx, CancellationToken ct) =>
+        actions.App.MapCommandPost(WireRoutes.AdminModerationDecision, async (HttpContext ctx, CancellationToken ct) =>
         {
             var frame = await actions.Read(ctx, WireLimits.AdminModerationDecisionFrameBytes, ct);
             var proof = Proof(ctx);
@@ -34,6 +34,6 @@ internal static class AdminModerationEndpoints
             {
                 return ProofRequired(ctx);
             }
-        }).RequireRateLimiting("command");
+        });
     }
 }

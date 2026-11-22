@@ -12,7 +12,7 @@ internal static class InboxEndpoints
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame,
         FsusBlog.V2.Server.Operations.SiteCapabilities capabilities)
     {
-        app.MapGet(WireRoutes.InboxList, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.InboxList, (HttpContext ctx, Store store, CancellationToken ct) =>
             Account(ctx, store, cookie, async inbox =>
             {
                 var size = QueryInt(ctx, "size") ?? 20;
@@ -27,9 +27,9 @@ internal static class InboxEndpoints
                     new InboxPreviewRecord((int)c.LastSender, c.LastMessageAt, c.Preview, Name(c.LastSender)))).ToArray();
                 var next = page.Next is { } n ? InboxWire.EncodeCursor(new(n.SnapshotMessageId, n.LastMessageAt, n.ConversationId)) : null;
                 return new Response(InboxWire.EncodeList(items, Count(page.Total), next), Cursor: cursor is null ? page.ReplayPosition : null);
-            }, ct)).RequireRateLimiting("command");
+            }, ct));
 
-        app.MapGet(WireRoutes.InboxDetail, (long id, HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.InboxDetail, (long id, HttpContext ctx, Store store, CancellationToken ct) =>
             Account(ctx, store, cookie, async inbox =>
             {
                 var before = QueryInt(ctx, "beforeMessageId");
@@ -44,17 +44,17 @@ internal static class InboxEndpoints
                     detail.LastMessageAt, detail.ReadSnapshot, detail.IsSystem, detail.Status != ConversationStatus.Closed,
                     detail.Messages.Select(m => new InboxMessageRecord(m.Id, m.ConversationId, (int)m.Sender, m.SentAt,
                         m.Body, Name(m.Sender))).ToArray(), detail.Previous)));
-            }, ct)).RequireRateLimiting("command");
+            }, ct));
 
-        app.MapPost(WireRoutes.InboxRead, (long id, HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.InboxRead, (long id, HttpContext ctx, Store store, CancellationToken ct) =>
             Account(ctx, store, cookie, async inbox =>
             {
                 var readThrough = InboxWire.DecodeRead(await readFrame(ctx, Aeds.HeaderSize + sizeof(long), ct));
                 await inbox.MarkReadAsync(id, readThrough, ct);
                 return new Response(Wire.EncodeEmptySuccess());
-            }, ct)).RequireRateLimiting("command");
+            }, ct));
 
-        app.MapGet(WireRoutes.InboxReplay, (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.InboxReplay, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var encoded = Query(ctx, "after", WireLimits.InboxReplayCursorChars);
             var limit = QueryInt(ctx, "limit") ?? 100;
@@ -71,7 +71,7 @@ internal static class InboxEndpoints
                 var packet = InboxReplayWire.Encode(page.RequiresResync ? 0 : page.Next, page.HasMore, page.RequiresResync, events);
                 return new Response(packet, page.RequiresResync ? null : page.Next);
             }, ct);
-        }).RequireRateLimiting("command");
+        });
         InboxWriteEndpoints.Map(app, cookie, readFrame, capabilities);
     }
 

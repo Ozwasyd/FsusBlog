@@ -10,7 +10,7 @@ internal static class ArticleMediaEndpoints
 {
     internal static void Map(WebApplication app, string cookie, bool publishedMedia)
     {
-        app.MapGet(WireRoutes.ArticleMedia, async (int id, HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.ArticleMedia, async (int id, HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var revision = Revision(ctx);
             var session = ctx.Request.Cookies[cookie];
@@ -32,9 +32,9 @@ internal static class ArticleMediaEndpoints
                 }
                 return Results.Bytes(Wire.EncodeArticleMedia(id, revision, entries), Aeds.ContentType);
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapPost(WireRoutes.ArticleMediaCommand, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.ArticleMediaCommand, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var session = ctx.Request.Cookies[cookie];
             if (ctx.Request.ContentType != Aeds.ContentType || ctx.Request.ContentLength != ArticleMediaCommand.FrameBytes)
@@ -51,9 +51,9 @@ internal static class ArticleMediaEndpoints
                 var saved = await Store.SetPrivateAttachment(db, tx, actor, command, ct);
                 return Results.Bytes(Wire.EncodeDraft(new(saved.Id, saved.Revision, saved.Title, saved.Body, saved.PublishedRevision is not null)), Aeds.ContentType);
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapPost(WireRoutes.ArticleCoverSave, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.ArticleCoverSave, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             if (ctx.Request.ContentType != Aeds.ContentType || ctx.Request.ContentLength != ArticleCoverCommand.FrameBytes)
                 throw new BusinessException(Rejection.Invalid, "Expected a bounded saved cover command.");
@@ -68,7 +68,7 @@ internal static class ArticleMediaEndpoints
                 var saved = await Store.SetCover(db, tx, actor, command, ct);
                 return Results.Bytes(Wire.EncodeDraft(new(saved.Id, saved.Revision, saved.Title, saved.Body, saved.PublishedRevision is not null)), Aeds.ContentType);
             }, ct);
-        }).RequireRateLimiting("command");
+        });
 
         app.MapMethods(WireRoutes.ArticleMediaPreview, [HttpMethods.Get, HttpMethods.Head], async (
             HttpContext ctx, Store store, MediaStore media, CancellationToken ct) =>

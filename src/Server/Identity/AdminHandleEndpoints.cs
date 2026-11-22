@@ -10,7 +10,7 @@ internal static class AdminHandleEndpoints
 
         actions.Complete(WireRoutes.AdminHandleStepUpComplete, store.CompleteRenameStepUp);
 
-        actions.App.MapPost(WireRoutes.AdminHandleExecute, async (HttpContext ctx, CancellationToken ct) =>
+        actions.App.MapCommandPost(WireRoutes.AdminHandleExecute, async (HttpContext ctx, CancellationToken ct) =>
         {
             ctx.Response.Headers.CacheControl = "no-store";
             var command = await Command(ctx, ct);
@@ -24,7 +24,7 @@ internal static class AdminHandleEndpoints
             {
                 return AdminActionRoutes.ProofRequired(ctx);
             }
-        }).RequireRateLimiting("command");
+        });
 
         Task<AdminHandleCommand> Command(HttpContext ctx, CancellationToken ct) =>
             actions.ReadIntent(ctx, WireLimits.AdminHandleCommandFrameBytes, Wire.DecodeAdminHandleCommand,

@@ -146,20 +146,20 @@ internal static class AdminIdentityEndpoints
             ctx.Response.Cookies.Append(session, token, Cookie("/"));
             return Frame(Wire.EncodeEmptySuccess());
         }).RequireRateLimiting(Limit);
-        app.MapGet(WireRoutes.AdminSession, async (HttpContext ctx, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AdminSession, async (HttpContext ctx, CancellationToken ct) =>
         {
             var active = await gate.SessionWithPermissionBinding(ctx.Request.Cookies[session], ct);
             if (appearance is { Online: true }) ctx.Response.Headers[WireHeaders.AdminAppearanceEnabled] = "1";
             if (capabilities.SiteConfigEditor) ctx.Response.Headers[WireHeaders.AdminSiteConfigEnabled] = "1";
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = active.PermissionSession;
             return Frame(Wire.EncodeAdminSessionSnapshot(active.Snapshot));
-        }).RequireRateLimiting("command");
-        app.MapGet(WireRoutes.AdminSignInHistory, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        app.MapCommandGet(WireRoutes.AdminSignInHistory, async (HttpContext ctx, CancellationToken ct) =>
         {
             var scope = await signInHistory.RecentSignIns(ctx.Request.Cookies[session], ct);
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = scope.PermissionSession;
             return Frame(Wire.EncodeAdminSignInHistorySnapshot(scope.History));
-        }).RequireRateLimiting("command");
+        });
         app.MapPost(WireRoutes.AdminStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
             var intent = Wire.DecodeAdminModerationIntent(await readFrame(ctx, WireLimits.AdminModerationFrameBytes, ct));
@@ -170,23 +170,22 @@ internal static class AdminIdentityEndpoints
             var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
             return Frame(await stepUp.CompleteModerationStepUp(ctx.Request.Cookies[session], input, ct));
         }).RequireRateLimiting(Limit);
-        app.MapGet(WireRoutes.AdminOperationsStatus, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AdminOperationsStatus, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
         {
             var result = await operations.OperationsStatus(ctx.Request.Cookies[session], publications, ct);
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
             return Frame(Wire.EncodeAdminOperationsStatus(result.Status));
-        }).RequireRateLimiting("command");
-        app.MapGet(WireRoutes.AdminSiteTraffic, async (HttpContext ctx, SiteTraffic traffic, CancellationToken ct) =>
+        });
+        app.MapCommandGet(WireRoutes.AdminSiteTraffic, async (HttpContext ctx, SiteTraffic traffic, CancellationToken ct) =>
         {
             var result = await operations.ReadSiteTraffic(ctx.Request.Cookies[session], traffic, ct);
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
             return Frame(Wire.EncodeAdminSiteTraffic(result.Traffic));
-        }).RequireRateLimiting("command");
+        });
         var batchModeration = capabilities.AdminCommentBatch;
-        app.MapGet(WireRoutes.AdminCommentQueue, async (HttpContext ctx, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AdminCommentQueue, async (HttpContext ctx, CancellationToken ct) =>
             Frame(Wire.EncodeAdminCommentQueue(await commentQueue.CommentQueue(ctx.Request.Cookies[session], ctx.Request.Query, ct,
-                batchModeration ? () => ctx.Response.Headers[WireHeaders.AdminModerationBatchEnabled] = "1" : null))))
-            .RequireRateLimiting("command");
+                batchModeration ? () => ctx.Response.Headers[WireHeaders.AdminModerationBatchEnabled] = "1" : null))));
         AdminClusterEndpoints.Map(app, operations, session, Limit);
         if (secure)
             AdminRiskReadinessEndpoints.Map(actions, operations, commentRisk, commentRoutes, capabilities.TrustLoopbackProxy);
@@ -217,12 +216,10 @@ internal static class AdminIdentityEndpoints
         if (appearance is { Online: true })
             AdminAppearanceEndpoints.Map(actions, new AdminAppearanceStore(gate, stepUp),
                 appearance.Registry);
-        app.MapGet(WireRoutes.AdminCategories, (HttpContext ctx, Publications publications, CancellationToken ct) =>
-            Taxonomy(ctx, publications, false, ct))
-            .RequireRateLimiting("command");
-        app.MapGet(WireRoutes.AdminTags, (HttpContext ctx, Publications publications, CancellationToken ct) =>
-            Taxonomy(ctx, publications, true, ct))
-            .RequireRateLimiting("command");
+        app.MapCommandGet(WireRoutes.AdminCategories, (HttpContext ctx, Publications publications, CancellationToken ct) =>
+            Taxonomy(ctx, publications, false, ct));
+        app.MapCommandGet(WireRoutes.AdminTags, (HttpContext ctx, Publications publications, CancellationToken ct) =>
+            Taxonomy(ctx, publications, true, ct));
         async Task<IResult> Taxonomy(HttpContext ctx, Publications publications, bool tags, CancellationToken ct)
         {
             var token = ctx.Request.Cookies[session];
@@ -231,25 +228,25 @@ internal static class AdminIdentityEndpoints
                 ? Wire.EncodeAdminTaxonomyDependencies(await taxonomy.TaxonomyDependencies(token, tags, input, ct))
                 : Wire.EncodeAdminTaxonomyPage(await taxonomy.Taxonomy(token, tags, input, publications, ct)));
         }
-        app.MapGet(WireRoutes.AdminArticleInventory, (HttpContext ctx, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AdminArticleInventory, (HttpContext ctx, CancellationToken ct) =>
         {
             ctx.Response.Headers.CacheControl = "no-store";
             return gate.WithSession(ctx.Request.Cookies[session],
                 (db, tx, _) => ArticleInventoryEndpoints.ReadPage(ctx, query, db, tx, null, ct), ct);
-        }).RequireRateLimiting("command");
-        app.MapPost(WireRoutes.AdminArticleDelete, async (HttpContext ctx, int id, Publications publications, CancellationToken ct) =>
+        });
+        app.MapCommandPost(WireRoutes.AdminArticleDelete, async (HttpContext ctx, int id, Publications publications, CancellationToken ct) =>
         {
             actions.RequireOrigin(ctx);
             if (id <= 0) throw new BusinessException(Rejection.Invalid, "Invalid article ID.");
             return Frame(await publications.AdministrativePublication(
                 invalidate => trashRestore.DeleteArticle(ctx.Request.Cookies[session], id, invalidate, ct), ct));
-        }).RequireRateLimiting("command");
-        app.MapPost(WireRoutes.AdminSignOut, async (HttpContext ctx, CancellationToken ct) =>
+        });
+        app.MapCommandPost(WireRoutes.AdminSignOut, async (HttpContext ctx, CancellationToken ct) =>
         {
             await gate.SignOut(ctx.Request.Cookies[session], ct);
             ctx.Response.Cookies.Delete(session, Cookie("/"));
             return Frame(Wire.EncodeEmptySuccess());
-        }).RequireRateLimiting("command");
+        });
 
         CookieOptions Cookie(string path) => new() { HttpOnly = true, Secure = secure, SameSite = SameSiteMode.Strict, Path = secure ? "/" : path };
         CookieOptions Ceremony(string path)

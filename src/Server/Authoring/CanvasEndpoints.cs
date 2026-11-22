@@ -16,14 +16,14 @@ internal static class CanvasEndpoints
             await store.Confirm(Wire.DecodeCanvasConfirm(frame).PlanId, ct)));
 
         void Map(string path, Func<HttpContext, CanvasStore, byte[], CancellationToken, Task<byte[]>> operation) =>
-            app.MapPost(path, async (HttpContext ctx, Store store, CancellationToken ct) =>
+            app.MapCommandPost(path, async (HttpContext ctx, Store store, CancellationToken ct) =>
             {
                 var frame = await readFrame(ctx, WireLimits.CanvasRequestBytes, ct);
                 var token = ctx.Request.Cookies[cookie];
                 var result = await store.WithSession(token, true,
                     (db, tx, actor) => operation(ctx, new CanvasStore(db, tx, actor, Store.TokenDigest(token)!), frame, ct), ct);
                 return Results.Bytes(result, Aeds.ContentType);
-            }).RequireRateLimiting("command");
+            });
     }
 
     private static bool SelectVisualEdge(HttpContext context)

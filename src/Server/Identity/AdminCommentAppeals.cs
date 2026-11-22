@@ -7,8 +7,8 @@ internal static class AdminCommentAppeals
 {
     internal static void Map(AdminActionRoutes actions, AdminCommentAppealStore store, bool fenceVisibleMessages)
     {
-        actions.App.MapGet(WireRoutes.AdminCommentAppeals, async (HttpContext ctx, CancellationToken ct) =>
-            Frame(await store.ReadAppeals(actions.Session(ctx), ctx.Request.Query, ct))).RequireRateLimiting("command");
+        actions.App.MapCommandGet(WireRoutes.AdminCommentAppeals, async (HttpContext ctx, CancellationToken ct) =>
+            Frame(await store.ReadAppeals(actions.Session(ctx), ctx.Request.Query, ct)));
 
         actions.App.MapPost(WireRoutes.AdminAppealStepUpBegin, async (long id, HttpContext ctx, CancellationToken ct) =>
         {
@@ -19,7 +19,7 @@ internal static class AdminCommentAppeals
         actions.Post(WireRoutes.AdminAppealStepUpComplete, WireLimits.MaxPasskeyFrameBytes, (cookie, frame, ct) =>
             store.CompleteAppealStepUp(cookie, PasskeyWire.ReadLogin(frame, discoverable: false), ct)).RequireRateLimiting(actions.PasskeyLimit);
 
-        actions.App.MapPost(WireRoutes.AdminAppealDecision, async (long id, HttpContext ctx, CancellationToken ct) =>
+        actions.App.MapCommandPost(WireRoutes.AdminAppealDecision, async (long id, HttpContext ctx, CancellationToken ct) =>
         {
             var frame = await actions.Read(ctx, Wire.CommentAppealFrameBytes, ct);
             var proof = Proof(ctx);
@@ -28,6 +28,6 @@ internal static class AdminCommentAppeals
             {
                 return ProofRequired(ctx);
             }
-        }).RequireRateLimiting("command");
+        });
     }
 }

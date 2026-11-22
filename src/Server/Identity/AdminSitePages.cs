@@ -21,24 +21,22 @@ internal static class AdminSitePages
 
     internal static void Map(WebApplication app, AdminSitePageStore store, string session)
     {
-        app.MapGet(WireRoutes.AdminSitePages, async (HttpContext ctx, SitePages pages, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AdminSitePages, async (HttpContext ctx, SitePages pages, CancellationToken ct) =>
         {
             var frame = await store.SitePagesOverview(ctx.Request.Cookies[session], pages, ct);
             if (pages.EditorEnabled) ctx.Response.Headers[WireHeaders.AdminSitePageEditor] = "1";
             return Results.Bytes(frame, Aeds.ContentType);
-        })
-            .RequireRateLimiting("command");
-        app.MapGet(WireRoutes.AdminSitePage, async (HttpContext ctx, SitePages pages, string slug, CancellationToken ct) =>
-            Results.Bytes(await store.SitePage(ctx.Request.Cookies[session], pages, slug, ct), Aeds.ContentType))
-            .RequireRateLimiting("command");
+        });
+        app.MapCommandGet(WireRoutes.AdminSitePage, async (HttpContext ctx, SitePages pages, string slug, CancellationToken ct) =>
+            Results.Bytes(await store.SitePage(ctx.Request.Cookies[session], pages, slug, ct), Aeds.ContentType));
 
-        app.MapGet(LegacyPrefix + "/{slug}", async (HttpContext ctx, SitePages pages, string slug, CancellationToken ct) =>
+        app.MapCommandGet(LegacyPrefix + "/{slug}", async (HttpContext ctx, SitePages pages, string slug, CancellationToken ct) =>
         {
             var token = ctx.Request.Cookies[session];
             if (!pages.EditorEnabled) return Results.Bytes(await store.SitePage(token, pages, slug, ct), Aeds.ContentType);
             var page = await store.CurrentSitePage(token, pages, slug, ct);
             ctx.Response.Headers.ETag = FormattableString.Invariant($"\"{page.Slug}.{page.Revision}.{page.Digest}\"");
             return Results.Bytes(SitePageWire.Encode(page.Slug, page.Markdown), Aeds.ContentType);
-        }).RequireRateLimiting("command");
+        });
     }
 }

@@ -69,14 +69,14 @@ internal static class AdminArticleRollbackEndpoints
                 return Frame(await beginStepUp(actions.Session(ctx), intent, ct));
             }).RequireRateLimiting(actions.PasskeyLimit);
             actions.Complete(complete, completeStepUp);
-            actions.App.MapPost(execute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
+            actions.App.MapCommandPost(execute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
             {
                 var intent = await ReadIntent(ctx, ct);
                 var proof = Proof(ctx);
                 var receipt = await publications.AdministrativePublication(
                     invalidate => apply(actions.Session(ctx), proof, intent, invalidate, ct), ct);
                 return Frame(encode(receipt));
-            }).RequireRateLimiting("command");
+            });
 
             Task<TIntent> ReadIntent(HttpContext ctx, CancellationToken ct) =>
                 actions.ReadIntent(ctx, maximum, decode, idempotencyKey, required: false, ct);

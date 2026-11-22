@@ -14,30 +14,27 @@ internal static class AuthoringWorkspaceEndpoints
 
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
-        app.MapGet(WireRoutes.AuthoringWorkspace, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Legacy, ct))
-            .RequireRateLimiting("command");
-        app.MapPost(WireRoutes.AuthoringWorkspace, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AuthoringWorkspace, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Legacy, ct));
+        app.MapCommandPost(WireRoutes.AuthoringWorkspace, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeAuthoringWorkspaceCommand(await readFrame(ctx, WireLimits.MaxAuthoringWorkspaceFrameBytes, ct));
             return await Run(ctx, store, Legacy, ct, new(Groups, input.ExpectedRevision, input.ActiveArticleId, input.Tabs, false, 0, [], 0));
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapGet(WireRoutes.AuthoringWorkspaceLayout, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Inspector, ct))
-            .RequireRateLimiting("command");
-        app.MapPost(WireRoutes.AuthoringWorkspaceLayout, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AuthoringWorkspaceLayout, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Inspector, ct));
+        app.MapCommandPost(WireRoutes.AuthoringWorkspaceLayout, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeAuthoringWorkspaceLayoutCommand(await readFrame(ctx, WireLimits.MaxAuthoringWorkspaceLayoutCommandFrameBytes, ct));
             return await Run(ctx, store, Inspector, ct, new(Groups, input.ExpectedRevision, input.ActiveArticleId, input.Tabs,
                 input.InspectorOpen, 0, [], 0));
-        }).RequireRateLimiting("command");
+        });
 
-        app.MapGet(WireRoutes.AuthoringWorkspaceGroups, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Groups, ct))
-            .RequireRateLimiting("command");
-        app.MapPost(WireRoutes.AuthoringWorkspaceGroups, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        app.MapCommandGet(WireRoutes.AuthoringWorkspaceGroups, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Groups, ct));
+        app.MapCommandPost(WireRoutes.AuthoringWorkspaceGroups, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var input = Wire.DecodeAuthoringWorkspaceGroupsCommand(await readFrame(ctx, WireLimits.MaxAuthoringWorkspaceGroupsCommandFrameBytes, ct));
             return await Run(ctx, store, Groups, ct, input);
-        }).RequireRateLimiting("command");
+        });
 
         Task<IResult> Run(HttpContext ctx, Store store, int format, CancellationToken ct, AuthoringWorkspaceGroupsCommand? input = null)
         {

@@ -11,7 +11,7 @@ internal static class AuthorTextSearchEndpoints
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
         var cursors = new AuthorTextCursor(TimeProvider.System);
-        app.MapPost(WireRoutes.AuthorTextSearch, async (HttpContext context, Store store, AuthorTextRebuildWorker rebuild, CancellationToken ct) =>
+        app.MapCommandPost(WireRoutes.AuthorTextSearch, async (HttpContext context, Store store, AuthorTextRebuildWorker rebuild, CancellationToken ct) =>
         {
             var frame = await readFrame(context, WireLimits.MaxAuthorTextPropertyTextMixedQueryFrameBytes, ct);
             var token = context.Request.Cookies[cookie];
@@ -169,6 +169,6 @@ internal static class AuthorTextSearchEndpoints
                 }
             }, ct);
             return Results.Bytes(payload, Aeds.ContentType);
-        }).RequireRateLimiting("command");
+        });
     }
 }

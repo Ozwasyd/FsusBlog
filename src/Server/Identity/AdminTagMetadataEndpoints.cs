@@ -17,25 +17,25 @@ internal static class AdminTagMetadataEndpoints
         actions.Availability(category ? WireRoutes.AdminCategoryMetadataAvailability : WireRoutes.AdminTagMetadataAvailability,
             store.TagMetadataAvailable);
 
-        actions.App.MapGet(route, async (HttpContext ctx, int id, CancellationToken ct) =>
+        actions.App.MapCommandGet(route, async (HttpContext ctx, int id, CancellationToken ct) =>
         {
             var cookie = actions.Session(ctx);
             return AdminActionRoutes.Frame(category
                 ? Wire.EncodeAdminCategoryMetadata(await store.ReadCategoryMetadata(cookie, id, ct))
                 : Wire.EncodeAdminTagMetadata(await store.ReadTagMetadata(cookie, id, ct)));
-        }).RequireRateLimiting("command");
-        actions.App.MapPost(proof, (HttpContext ctx, int id, ScopedPow pow, CancellationToken ct) =>
-            Protect(ctx, id, pow, null, false, ct)).RequireRateLimiting("command");
-        actions.App.MapPut(route, (HttpContext ctx, int id, ScopedPow pow, Publications publications, CancellationToken ct) =>
-            Protect(ctx, id, pow, publications, false, ct)).RequireRateLimiting("command");
+        });
+        actions.App.MapCommandPost(proof, (HttpContext ctx, int id, ScopedPow pow, CancellationToken ct) =>
+            Protect(ctx, id, pow, null, false, ct));
+        actions.App.MapCommandPut(route, (HttpContext ctx, int id, ScopedPow pow, Publications publications, CancellationToken ct) =>
+            Protect(ctx, id, pow, publications, false, ct));
 
-        actions.App.MapPost(category ? WireRoutes.AdminCategoryCreatePow : WireRoutes.AdminTagCreatePow,
+        actions.App.MapCommandPost(category ? WireRoutes.AdminCategoryCreatePow : WireRoutes.AdminTagCreatePow,
             (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
-                Protect(ctx, 0, pow, null, true, ct)).RequireRateLimiting("command");
-        actions.App.MapPost(category ? WireRoutes.AdminCategoryCreate : WireRoutes.AdminTagCreate,
+                Protect(ctx, 0, pow, null, true, ct));
+        actions.App.MapCommandPost(category ? WireRoutes.AdminCategoryCreate : WireRoutes.AdminTagCreate,
             (HttpContext ctx, ScopedPow pow, Publications publications, CancellationToken ct) =>
-                Protect(ctx, 0, pow, publications, true, ct)).RequireRateLimiting("command");
-        actions.App.MapPost(category ? WireRoutes.AdminCategoryDelete : WireRoutes.AdminTagDelete,
+                Protect(ctx, 0, pow, publications, true, ct));
+        actions.App.MapCommandPost(category ? WireRoutes.AdminCategoryDelete : WireRoutes.AdminTagDelete,
             async (HttpContext ctx, int id, Publications publications, CancellationToken ct) =>
             {
                 actions.RequireOrigin(ctx);
@@ -43,7 +43,7 @@ internal static class AdminTagMetadataEndpoints
                     throw new BusinessException(Rejection.Invalid, category ? "Invalid category ID." : "Invalid tag ID.");
                 return AdminActionRoutes.Frame(await publications.AdministrativePublication(
                     invalidate => store.DeleteTaxonomy(actions.Session(ctx), id, category, invalidate, ct), ct));
-            }).RequireRateLimiting("command");
+            });
 
         Task<IResult> Protect(HttpContext ctx, int id, ScopedPow pow, Publications? publications, bool create, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
