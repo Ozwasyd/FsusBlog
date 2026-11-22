@@ -160,11 +160,15 @@ JS
 )
 url="http://localhost:$http_port"
 export FSUSBLOG_ADMIN_ORIGIN="$url" FSUSBLOG_ADMIN_RP_ID=localhost
-if [[ $flow == comment-author-delete || $flow == reader-registration || $flow == passkey || $flow == site-sessions ]]; then
+if [[ $flow == comment-author-delete || $flow == reader-registration || $flow == passkey || $flow == site-sessions || $flow == mfa ]]; then
   export FSUSBLOG_PASSKEY_ORIGIN="$url" FSUSBLOG_PASSKEY_RP_ID=localhost
 fi
 if [[ $flow == comment-author-delete || $flow == reader-registration ]]; then
   export FSUSBLOG_READER_REGISTRATION=true
+fi
+if [[ $flow == mfa ]]; then
+  FSUSBLOG_TOTP_KEY_HEX=$(openssl rand -hex 32)
+  export FSUSBLOG_TOTP_KEY_HEX
 fi
 dotnet "$scratch/server/FsusBlog.V2.Server.dll" --urls "http://127.0.0.1:$http_port" > "$evidence/server.log" 2>&1 &
 server_pid=$!
@@ -198,6 +202,9 @@ case ${FSUSBLOG_TEST_FLOW:-blog} in
     foreign_ticket=$("${migrate[@]}" operator standalone-session-reader --reader)
     FSUSBLOG_TEST_SESSIONS_URL="$url" FSUSBLOG_TEST_SESSIONS_TICKETS=$(printf '["%s","%s"]' "$FSUSBLOG_TEST_TICKET" "$foreign_ticket") \
       node tests/EndToEnd/site-sessions-flow.mjs
+    ;;
+  mfa)
+    FSUSBLOG_TEST_MFA_URL="$url" FSUSBLOG_TEST_MFA_TICKET="$FSUSBLOG_TEST_TICKET" node tests/EndToEnd/mfa-flow.mjs
     ;;
   public-hot-articles) node tests/EndToEnd/run-public-hot-articles.mjs ;;
   property-inspector-scale) node tests/EndToEnd/property-inspector-scale.mjs ;;

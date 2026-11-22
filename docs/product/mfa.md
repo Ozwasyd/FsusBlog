@@ -8,7 +8,7 @@
 
 运行时设置 `FSUSBLOG_PASSKEY_ORIGIN`、`FSUSBLOG_PASSKEY_RP_ID`，并从独立的密钥存储注入 `FSUSBLOG_TOTP_KEY_HEX`。该值为随机 32 字节密钥的十六进制编码。TOTP seed 使用 AES-256-GCM 与账号关联数据加密，数据库备份和密钥须分别保管并成对进行恢复演练。配置缺少密钥时，已经启用二次验证的账号无法通过仅有 Passkey 的登录。当前格式含封装版本，生产密钥轮换和 v1 现存 TOTP 凭据迁移仍需离线实现。
 
-原生 PostgreSQL 18 验证覆盖旧时间步和恢复码重放、动作与会话绑定、代次撤销、密文认证、轮换写入失败回滚和并发证明兑换。Chrome 157 使用虚拟 CTAP2 认证器跑通首次绑定、Passkey 与 TOTP 登录、恢复码轮换、旧码失效和新码登录、二次验证停用和停用后的 Passkey 登录。用例见 `tests/EndToEnd/mfa-flow.mjs`，需隔离测试实例及新的一次性 Passkey 绑定票据。测试截图省略 seed 和恢复码。RFC 6238 的标准 SHA-1 向量在 `tests/Core/TotpTests.cs` 复验。
+原生 PostgreSQL 18 验证覆盖旧时间步和恢复码重放、动作与会话绑定、代次撤销、密文认证、轮换写入失败回滚和并发证明兑换。Chrome 157 使用虚拟 CTAP2 认证器跑通首次绑定、Passkey 与 TOTP 登录、恢复码轮换、旧码失效和新码登录、二次验证停用和停用后的 Passkey 登录。通过 `FSUSBLOG_TEST_FLOW=mfa bash tests/EndToEnd/run-native.sh` 复验。脚本建立隔离数据库，并为本轮签发独立 TOTP 密钥和一次性 Passkey 绑定票据。测试截图省略 seed 和恢复码。RFC 6238 的标准 SHA-1 向量在 `tests/Core/TotpTests.cs` 复验。
 
 本地迁移命令在空库建立当前 schema。旧版 v2 若缺少 TOTP 的表和列，需要专门的升级脚本。已安装 TOTP 结构的库无需迁移即可使用恢复码轮换。启用时若响应丢失，用户可以用已绑定的认证器重新登录。
 

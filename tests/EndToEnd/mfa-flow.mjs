@@ -2,8 +2,12 @@ import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { enableAuthenticator, launchIdentityBrowser, readSeed, request, totp } from './site-authentication-fixture.mjs'
+import { launchIdentityBrowser, readSeed, request, totp } from './site-authentication-fixture.mjs'
 import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
+import { signInFreshSite } from './webauthn-fixture.mjs'
+import { decodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeLoginFlow } from '../../src/Contracts/passkey.ts'
+import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const origin = process.env.FSUSBLOG_TEST_MFA_URL
 const ticket = process.env.FSUSBLOG_TEST_MFA_TICKET
@@ -22,6 +26,7 @@ let rotations = 0
 let recoveryRegenerated = false
 try {
   const context = await browser.newContext()
+  context.setDefaultTimeout(15_000)
   const page = await context.newPage()
   assertStatus(await context.request.post(origin + regeneratePath), 401)
   page.on('pageerror', error => faults.push(error.message))
@@ -31,7 +36,6 @@ try {
     responses.push([url.pathname, response.status()])
     if (response.status() >= 500) faults.push(url.pathname + ' returned ' + response.status())
   })
-  await enableAuthenticator(context, page)
   const waitApi = (path, method = 'POST') => page.waitForResponse(response => response.url() === origin + path &&
     response.request().method() === method, { timeout: 9_000 })
   const logout = async () => {
@@ -41,8 +45,8 @@ try {
     await page.waitForURL(origin + '/')
   }
   const signedIn = async () => {
-    await page.waitForURL(origin + '/user/manage/article/write')
-    await page.getByRole('heading', { name: 'New article' }).waitFor({ timeout: 9_000 })
+    await page.waitForURL(origin + '/user/identity/mfa')
+    await roleWithExactName(page, 'heading', 'Account').waitFor({ timeout: 9_000 })
     assertStatus(await context.request.get(origin + '/api/v2/identity/session.aeds'), 200)
     assertions++
   }
@@ -62,11 +66,15 @@ try {
   }
   const passkey = async () => {
     await page.goto(origin + '/login')
-    const completed = waitApi('/api/binary/auth/passkey/login/complete')
+    const completed = waitApi(WireRoutes.PasskeyLoginComplete)
     await exactButton(page, 'Log in with Passkey').click()
-    const response = await completed
+    return readerNeedsTotp(await completed)
+  }
+  const readerNeedsTotp = async response => {
     assertStatus(response, 200)
-    return await response.body()
+    const flow = decodeLoginFlow(decodeFrame(await response.body(), FrameType.AuthLoginFlow).payload)
+    assert.equal(flow.kind, 'reader')
+    return flow.pending !== null
   }
   const verify = async (code) => {
     const checked = waitApi('/api/binary/auth/mfa/challenge')
@@ -75,16 +83,14 @@ try {
     return (await checked).status()
   }
 
-  await page.goto(origin + '/login')
-  await page.getByLabel('Owner access key').fill(ticket)
-  await exactButton(page, 'Create Passkey').click()
-  await exactText(page, 'Passkey created. Log in with your Passkey.').waitFor({ timeout: 9_000 })
-  assert.equal((await passkey())[20], 1)
+  const [initialLogin] = await Promise.all([
+    waitApi(WireRoutes.PasskeyLoginComplete),
+    signInFreshSite(page, origin, ticket),
+  ])
+  assert.equal(await readerNeedsTotp(initialLogin), false)
   await signedIn()
 
   phase = 'setup-and-verify'
-  await roleWithExactName(page, 'link', 'Account').first().click()
-  await page.waitForURL(origin + '/user/identity/mfa')
   assertStatus(await context.request.post(origin + '/api/binary/auth/mfa/setup/start'), 428)
   await exactButton(page, 'Set up authenticator').click()
   const seedNode = page.getByTestId('mfa-seed')
@@ -106,7 +112,7 @@ try {
   await logout()
 
   phase = 'totp-login'
-  assert.equal((await passkey())[20], 2)
+  assert.equal(await passkey(), true)
   assertStatus(await context.request.get(origin + '/api/v2/identity/session.aeds'), 401)
   await page.screenshot({ path: join(evidence, 'mfa-pending.png') })
   assert.equal(await verify(setupCode), 401)
@@ -117,12 +123,11 @@ try {
   await logout()
 
   phase = 'recovery-login'
-  assert.equal((await passkey())[20], 2)
+  assert.equal(await passkey(), true)
   assert.equal(await verify(recovery[0]), 200)
   await signedIn()
 
   phase = 'regenerate-recovery-codes'
-  await roleWithExactName(page, 'link', 'Account').first().click()
   assertStatus(await context.request.post(origin + regeneratePath), 428)
   const beforeRegeneration = await sessionCookie()
   const recoveryList = page.getByRole('listitem').filter({ hasText: /^(?:[0-9A-F]{4}-){7}[0-9A-F]{4}$/ })
@@ -151,7 +156,7 @@ try {
   await exactButton(page, 'Regenerate recovery codes').waitFor()
   assert.equal(await recoveryList.count(), 0)
   await logout()
-  assert.equal((await passkey())[20], 2)
+  assert.equal(await passkey(), true)
   assert.equal(await verify(recovery[2]), 401)
   await page.getByText('Verification failed. Use a fresh code or start a new login.').waitFor()
   assert.equal(await verify(newCodes[0]), 200)
@@ -160,7 +165,6 @@ try {
 
   phase = 'one-use-disable-proof'
   const beforeDisable = await sessionCookie()
-  await roleWithExactName(page, 'link', 'Account').first().click()
   await exactLabel(page, 'Authenticator or recovery code').fill(newCodes[0])
   const usedCode = waitApi('/api/binary/auth/mfa/challenge')
   await exactButton(page, 'Disable authenticator verification').click()
@@ -173,7 +177,7 @@ try {
   await exactButton(page, 'Set up authenticator').waitFor({ timeout: 9_000 })
   await verifyRotation(beforeDisable)
   await logout()
-  assert.equal((await passkey())[20], 1)
+  assert.equal(await passkey(), false)
   await signedIn()
   await logout()
   assert.deepEqual(faults, [])
@@ -181,10 +185,11 @@ try {
 } catch (error) {
   failure = error
 } finally {
-  await browser.close()
-  await writeFile(join(evidence, 'mfa-result.json'), JSON.stringify({
-    start, end: new Date().toISOString(), origin, chromium: browser.version(), phase, validSessions: assertions, rotations,
-    responses, faults, recoveryRegenerated, exitCode: failure ? 1 : 0,
-  }, null, 2))
+  try {
+    await writeFile(join(evidence, 'mfa-result.json'), JSON.stringify({
+      start, end: new Date().toISOString(), origin, chromium: browser.version(), phase, validSessions: assertions, rotations,
+      responses, faults, recoveryRegenerated, exitCode: failure ? 1 : 0,
+    }, null, 2))
+  } finally { await browser.close() }
 }
 if (failure) throw failure
