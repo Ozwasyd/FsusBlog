@@ -147,8 +147,7 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         var receipt = transition.Receipt;
         if (!transition.Replayed)
         {
-            await using (var initialize = SqlCommands.Create(db, tx, "insert into public.property_schema(owner_id,revision) values($1,0) on conflict do nothing", ownerId))
-                await initialize.ExecuteNonQueryAsync(ct);
+            await SqlCommands.Execute(db, tx, ct, "insert into public.property_schema(owner_id,revision) values($1,0) on conflict do nothing", ownerId);
             var definition = transition.Schema.Find(command.Change.DefinitionId)!;
             await using var write = SqlCommands.Create(db, tx, """
                 insert into public.property_definition(owner_id,id,machine_key,revision,digest,shape)
@@ -164,9 +163,8 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
                 ownerId, receipt.SchemaRevision, command.ExpectedSchemaRevision);
             if (await advance.ExecuteNonQueryAsync(ct) != 1) throw Conflict();
 
-            await using var journal = SqlCommands.Create(db, tx, "insert into public.property_schema_command(owner_id,request_id,receipt) values($1,$2,$3)",
+            await SqlCommands.Execute(db, tx, ct, "insert into public.property_schema_command(owner_id,request_id,receipt) values($1,$2,$3)",
                 ownerId, receipt.RequestId, Json(receipt));
-            await journal.ExecuteNonQueryAsync(ct);
         }
         return new(receipt.DefinitionId, receipt.SchemaRevision, receipt.DefinitionRevision);
     }
@@ -252,18 +250,16 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         {
             if (value is not null)
             {
-                await using var upsert = SqlCommands.Create(db, tx, """
+                await SqlCommands.Execute(db, tx, ct, """
                     insert into public.property_value(article_id,owner_id,definition_id,data,references_ids) values($1,$2,$3,$4,$5)
                     on conflict(article_id,definition_id) do update set data=excluded.data,references_ids=excluded.references_ids
                     """, input.ArticleId, ownerId, definition.Id, Json(value), ReferenceIds(value));
-                await upsert.ExecuteNonQueryAsync(ct);
             }
             else
             {
-                await using var remove = SqlCommands.Create(db, tx, """
+                await SqlCommands.Execute(db, tx, ct, """
                     delete from public.property_value where article_id=$1 and owner_id=$2 and definition_id=$3
                     """, input.ArticleId, ownerId, definition.Id);
-                await remove.ExecuteNonQueryAsync(ct);
             }
         }
 

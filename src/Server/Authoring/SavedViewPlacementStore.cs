@@ -85,8 +85,7 @@ internal sealed partial class SavedViewStore
             """, site, actor.Id, revision);
         if (await advance.ExecuteNonQueryAsync(ct) != 1) throw Changed();
 
-        var before = new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Uuid,
-            Value = input.BeforeId == Guid.Empty ? DBNull.Value : input.BeforeId };
+        var before = SqlCommands.Optional(NpgsqlDbType.Uuid, input.BeforeId == Guid.Empty ? null : input.BeforeId);
         await using var journal = Store.Sql(db, tx, """
             insert into public.author_saved_view_placement_command values($1,$2,$3,$4,$5,$6,$7,$8,$9,clock_timestamp())
             """, site, actor.Id, input.RequestId, input.Id, view.Revision, revision + 1, (int)input.Action, before, fingerprint);
@@ -119,16 +118,14 @@ internal sealed partial class SavedViewStore
         await RemovePin(input.Id, ct);
         if (input.Action != SavedViewPlacementAction.Unpin)
         {
-            await using var put = Store.Sql(db, tx, "insert into public.author_saved_view_pin values($1,$2,$3,$4)",
+            await SqlCommands.Execute(db, tx, ct, "insert into public.author_saved_view_pin values($1,$2,$3,$4)",
                 site, actor.Id, input.Id, pinned.IndexOf(input.Id) + 1);
-            await put.ExecuteNonQueryAsync(ct);
         }
-        await using var reorder = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             update public.author_saved_view_pin p set pin_order=desired.position::integer
             from unnest($3::uuid[]) with ordinality desired(id,position)
             where p.site_id=$1 and p.owner_id=$2 and p.view_id=desired.id and p.pin_order<>desired.position
             """, site, actor.Id, pinned.ToArray());
-        await reorder.ExecuteNonQueryAsync(ct);
     }
 
     private async Task RemovePlacement(Guid id, CancellationToken ct)
@@ -151,8 +148,7 @@ internal sealed partial class SavedViewStore
 
     private async Task RemovePin(Guid id, CancellationToken ct)
     {
-        await using var remove = Store.Sql(db, tx, "delete from public.author_saved_view_pin where site_id=$1 and owner_id=$2 and view_id=$3", site, actor.Id, id);
-        await remove.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.author_saved_view_pin where site_id=$1 and owner_id=$2 and view_id=$3", site, actor.Id, id);
     }
 
     private async Task<(SavedViewSummary View, bool Pinned)?> ReadSummary(Guid id, CancellationToken ct)

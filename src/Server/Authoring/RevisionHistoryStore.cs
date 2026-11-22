@@ -89,10 +89,9 @@ internal static class RevisionHistoryStore
     internal static async Task RecordRollback(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, long newRevision,
         DraftRollback input, CancellationToken ct)
     {
-        await using var record = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_rollback(article_id,revision,previous_revision,source_revision,actor_id,command_id,reason)
             values($1,$2,$3,$4,$5,$6,$7)
             """, input.Id, newRevision, input.ExpectedRevision, input.SourceRevision, actor.Id, input.IdempotencyKey, input.Reason);
-        await record.ExecuteNonQueryAsync(ct);
     }
 }

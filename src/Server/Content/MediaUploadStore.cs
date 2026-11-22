@@ -24,8 +24,7 @@ internal sealed class MediaUploadStore(NpgsqlConnection db, NpgsqlTransaction tx
     internal async Task<MediaUpload> Begin(MediaUploadInput input, CancellationToken ct)
     {
         // A short transaction serializes admission and keeps reserved staging at 16 * 20 MiB maximum.
-        await using (var admission = Store.Sql(db, tx, "SELECT pg_catalog.pg_advisory_xact_lock(4815262471654073043)"))
-            await admission.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "SELECT pg_catalog.pg_advisory_xact_lock(4815262471654073043)");
         await Sweep(ct);
 
         await using (var existing = Store.Sql(db, tx, $"""
@@ -68,10 +67,8 @@ internal sealed class MediaUploadStore(NpgsqlConnection db, NpgsqlTransaction tx
             while (await rows.ReadAsync(ct)) ids.Add(rows.GetGuid(0));
         if (ids.Count == 0) return;
         var batch = ids.ToArray();
-        await using (var parts = Store.Sql(db, tx, "DELETE FROM public.private_media_upload_part WHERE upload_id=ANY($1)", batch))
-            await parts.ExecuteNonQueryAsync(ct);
-        await using var uploads = Store.Sql(db, tx, "DELETE FROM public.private_media_upload WHERE id=ANY($1)", batch);
-        await uploads.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "DELETE FROM public.private_media_upload_part WHERE upload_id=ANY($1)", batch);
+        await SqlCommands.Execute(db, tx, ct, "DELETE FROM public.private_media_upload WHERE id=ANY($1)", batch);
     }
 
     internal async Task<MediaUpload> Find(Guid id, bool locking, CancellationToken ct)
@@ -141,9 +138,8 @@ internal sealed class MediaUploadStore(NpgsqlConnection db, NpgsqlTransaction tx
 
     internal async Task Reserve(MediaUpload upload, Guid asset, CancellationToken ct)
     {
-        await using var command = Store.Sql(db, tx, "UPDATE public.private_media_upload SET asset_id=$3 WHERE owner_id=$1 AND id=$2 AND asset_id IS NULL",
+        await SqlCommands.Execute(db, tx, ct, "UPDATE public.private_media_upload SET asset_id=$3 WHERE owner_id=$1 AND id=$2 AND asset_id IS NULL",
             owner, upload.Id, asset);
-        await command.ExecuteNonQueryAsync(ct);
     }
 
     internal async Task Finish(MediaUpload upload, CancellationToken ct)
@@ -159,14 +155,12 @@ internal sealed class MediaUploadStore(NpgsqlConnection db, NpgsqlTransaction tx
     internal async Task Cancel(MediaUpload upload, CancellationToken ct)
     {
         await RemoveParts(upload.Id, ct);
-        await using var command = Store.Sql(db, tx, "DELETE FROM public.private_media_upload WHERE owner_id=$1 AND id=$2", owner, upload.Id);
-        await command.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "DELETE FROM public.private_media_upload WHERE owner_id=$1 AND id=$2", owner, upload.Id);
     }
 
     private async Task RemoveParts(Guid id, CancellationToken ct)
     {
-        await using var command = Store.Sql(db, tx, "DELETE FROM public.private_media_upload_part WHERE upload_id=$1", id);
-        await command.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "DELETE FROM public.private_media_upload_part WHERE upload_id=$1", id);
     }
 
     private static MediaUpload Read(NpgsqlDataReader row) => new(row.GetGuid(0),

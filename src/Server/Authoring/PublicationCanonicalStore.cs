@@ -24,13 +24,12 @@ internal static class PublicationCanonicalStore
             binding = PublicationCanonicalFacts.Read(row);
         }
 
-        await using var insert = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_publication_canonical
                 (publication_id,article_id,revision,publication_no,published_at,transition,rights_snapshot_id,outbox_id,
                  outbox_kind,canonical_version,content_sha256,policy_sha256)
             values($1,$2,$3,$4,$5,$6,$7,$8,'publish',$9,$10,$11)
             """, binding.Publication, binding.Article, binding.Revision, binding.Number, binding.PublishedAt,
             binding.Transition, binding.RightsSnapshot, outbox, binding.Version, binding.Content, binding.Policy);
-        await insert.ExecuteNonQueryAsync(ct);
     }
 }

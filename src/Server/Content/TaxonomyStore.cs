@@ -63,7 +63,7 @@ internal static class TaxonomyStore
     internal static async Task CarryForward(NpgsqlConnection db, NpgsqlTransaction tx, int articleId, long sourceRevision,
         long nextRevision, CancellationToken ct)
     {
-        await using var cmd = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             with category_copied as (
                 insert into public.article_revision_category(article_id,revision,category_id)
                 select article_id,$3,category_id from public.article_revision_category where article_id=$1 and revision=$2
@@ -71,7 +71,6 @@ internal static class TaxonomyStore
             insert into public.article_revision_tag(article_id,revision,tag_id)
             select article_id,$3,tag_id from public.article_revision_tag where article_id=$1 and revision=$2
             """, articleId, sourceRevision, nextRevision);
-        await cmd.ExecuteNonQueryAsync(ct);
     }
 
     private static async Task<List<TaxonomyMetadata>> Metadata(NpgsqlDataReader reader, CancellationToken ct)

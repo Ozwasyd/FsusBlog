@@ -71,7 +71,8 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
                        publication_proof_key.not_after)=(excluded.version,excluded.spki_sha256,excluded.not_before,excluded.not_after)
                     and (publication_proof_key.revoked_at is null or publication_proof_key.revoked_at is not distinct from excluded.revoked_at)
                     and (publication_proof_key.compromised_at is null or publication_proof_key.compromised_at is not distinct from excluded.compromised_at)
-                """, key.Id, key.Version, key.Fingerprint, key.NotBefore, key.NotAfter, Timestamp(key.Revoked), Timestamp(key.Compromised));
+                """, key.Id, key.Version, key.Fingerprint, key.NotBefore, key.NotAfter,
+                SqlCommands.Optional(NpgsqlDbType.TimestampTz, key.Revoked), SqlCommands.Optional(NpgsqlDbType.TimestampTz, key.Compromised));
             if (await command.ExecuteNonQueryAsync(ct) != 1)
                 throw new InvalidOperationException("An existing native publication signing key cannot be rebound or unrevoked.");
         }
@@ -277,7 +278,6 @@ internal sealed class PublicationProofs(NpgsqlDataSource db, InstanceLease lease
     });
 
     private static string Decimal(long value) => value.ToString(CultureInfo.InvariantCulture);
-    private static NpgsqlParameter Timestamp(DateTimeOffset? value) => new() { NpgsqlDbType = NpgsqlDbType.TimestampTz, Value = (object?)value ?? DBNull.Value };
 
     private sealed record Binding(int Article, long Revision, long Publication, int Number, DateTime PublishedAt, long Rules,
         long Outbox, byte[] Content, byte[] Policy, int Version)

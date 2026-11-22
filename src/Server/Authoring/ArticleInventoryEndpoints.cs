@@ -89,7 +89,7 @@ internal static class ArticleInventoryEndpoints
                 where link.article_id=p.id and link.revision=p.revision
             ) t on true
             order by p.id desc
-            """, new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Uuid, Value = (object?)author?.Id ?? DBNull.Value },
+            """, SqlCommands.Optional(NpgsqlDbType.Uuid, author?.Id),
                 author?.Generation ?? 0L, trash, keyword, categoryId, tagId, (int?)state ?? 0, beforeId,
                 WireLimits.AuthorArticlePageSize + 1, articleId, summary);
         var list = new List<AuthorArticleRow>(WireLimits.AuthorArticlePageSize);

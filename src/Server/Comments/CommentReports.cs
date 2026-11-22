@@ -66,7 +66,7 @@ internal static class CommentReports
                 insert into public.comment_report(id,article_id,comment_id,reporter_id,publication_id,reason_code,detail,created_at)
                 values($1,$2,$3,$4,$5,$6,$7,statement_timestamp()) on conflict do nothing returning id
                 """, id, article, comment, reporter, publication, request.ReasonCode,
-                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Text, Value = (object?)request.Detail ?? DBNull.Value }))
+                SqlCommands.Optional(NpgsqlDbType.Text, request.Detail)))
             {
                 if (await insert.ExecuteScalarAsync(ct) is long added) return new(true, "ok", added, false);
             }

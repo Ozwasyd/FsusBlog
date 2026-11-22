@@ -77,10 +77,9 @@ internal static class CommentWriteStore
         var id = (long)(await insert.ExecuteScalarAsync(ct))!;
         if (await CurrentSchema.HasCommentAuthorDeleteSchemaAsync(db, tx, ct))
         {
-            await using var binding = Store.Sql(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.comment_account_owner(article_id,comment_id,user_id) values($1,$2,$3)
                 """, input.ArticleId, id, actor.Id);
-            await binding.ExecuteNonQueryAsync(ct);
         }
         return new(input.ArticleId, id, 0, false);
     }

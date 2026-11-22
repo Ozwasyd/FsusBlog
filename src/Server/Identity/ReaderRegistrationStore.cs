@@ -34,10 +34,9 @@ internal sealed partial class PasskeyStore
         var options = CredentialCreateOptions.FromJson(challenge.Options);
         var id = Guid.NewGuid();
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
-        await using (var user = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.blog_user(id,name,enabled,generation) values($1,$2,true,1)
-            """, id, "reader-" + id.ToString("N")))
-            await user.ExecuteNonQueryAsync(ct);
+            """, id, "reader-" + id.ToString("N"));
         await using (var subject = Store.Sql(db, tx,
             "insert into public.passkey_subject(user_id,user_handle) values($1,$2)", id, options.User.Id))
             await subject.ExecuteNonQueryAsync(ct);

@@ -63,12 +63,11 @@ internal static class ArticleBodyInsertionStore
             return;
         }
         if (!await CurrentSchema.HasArticleBodyInsertionAsync(db, tx, ct)) return;
-        await using var write = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_body_insertion
                 (article_id,revision,source_revision,offset_utf16,length_utf16,source_digest,body_digest)
             values ($1,$2,$3,$4,$5,$6,$7)
             """, id, revision, source, witness.Offset, witness.Length, witness.SourceDigest, witness.BodyDigest);
-        await write.ExecuteNonQueryAsync(ct);
     }
 
     internal static async Task<DraftRevisionBodyInsertion> Read(NpgsqlConnection db, NpgsqlTransaction tx, int id,

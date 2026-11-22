@@ -71,7 +71,7 @@ internal sealed class AdminModerationBatchStore(AdminSessionGate gate, AdminStep
                 catch (BusinessException error) when (error.Rejection == Rejection.Conflict)
                 { throw new ModerationBatchConflictException(1 << index); }
             }
-            await AdminSql.Execute(db, tx, ct, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.admin_comment_batch_item(batch_id,moderation_id)
                 select $1, audit_id from unnest($2::bigint[]) as audit_id
                 """, batch, audits.ToArray());

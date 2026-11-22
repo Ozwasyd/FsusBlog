@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using Npgsql;
+using NpgsqlTypes;
 
 namespace FsusBlog.V2.Server;
 
@@ -14,6 +15,15 @@ internal static class SqlCommands
         return command;
     }
 
+    internal static NpgsqlParameter Optional(NpgsqlDbType type, object? value) =>
+        new() { NpgsqlDbType = type, Value = value ?? DBNull.Value };
+
+    internal static async Task Execute(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct, string sql, params object[] parameters)
+    {
+        await using var command = Create(db, tx, sql, parameters);
+        await command.ExecuteNonQueryAsync(ct);
+    }
+
     internal static async Task LockCommand(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid commandKey, CancellationToken ct)
     {
         var scope = new byte[32];
@@ -23,5 +33,4 @@ internal static class SqlCommands
         await using var serialize = Create(db, tx, "select pg_advisory_xact_lock($1)", dedupeLock);
         await serialize.ExecuteNonQueryAsync(ct);
     }
-
 }

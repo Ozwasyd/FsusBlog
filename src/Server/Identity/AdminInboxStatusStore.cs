@@ -45,11 +45,10 @@ internal sealed class AdminInboxStatusStore(AdminSessionGate gate)
             var (previous, changed) = await new InboxStore(db, tx, recipient).ChangeAdministratorStatus(id, version, target, ct);
             if (changed)
             {
-                await using var audit = Store.Sql(db, tx, """
+                await SqlCommands.Execute(db, tx, ct, """
                     INSERT INTO public.inbox_admin_status (conversation_id,principal_id,session_reference,previous_status,current_status,reason,happened_at)
                     VALUES ($1,$2,$3,$4,$5,$6,clock_timestamp())
                     """, id, admin.Id, SHA256.HashData(admin.Digest), (short)previous, (short)target, reason);
-                await audit.ExecuteNonQueryAsync(ct);
             }
             return InboxWire.EncodeAdminStatusResult((int)previous, (int)target);
         }, ct);

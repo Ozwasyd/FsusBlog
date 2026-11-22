@@ -99,8 +99,8 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
                 """,
                 filter.Keyword,
                 likePattern,
-                AdminSql.Optional(NpgsqlDbType.Integer, accountIdFilter),
-                AdminSql.Optional(NpgsqlDbType.Boolean, filter.Enabled),
+                SqlCommands.Optional(NpgsqlDbType.Integer, accountIdFilter),
+                SqlCommands.Optional(NpgsqlDbType.Boolean, filter.Enabled),
                 filter.HasCursor,
                 filter.AfterAccountId,
                 filter.AfterUserId,
@@ -233,13 +233,13 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
                     "delete from public.site_recovery_rebind where user_id = $1"
                 })
                 {
-                    await AdminSql.Execute(db, tx, ct, sql, normalized.UserId);
+                    await SqlCommands.Execute(db, tx, ct, sql, normalized.UserId);
                 }
             }
             else
             {
-                await AdminSql.Execute(db, tx, ct, "delete from public.login_ticket where user_id = $1", normalized.UserId);
-                await AdminSql.Execute(db, tx, ct, "delete from public.passkey_challenge where user_id = $1", normalized.UserId);
+                await SqlCommands.Execute(db, tx, ct, "delete from public.login_ticket where user_id = $1", normalized.UserId);
+                await SqlCommands.Execute(db, tx, ct, "delete from public.passkey_challenge where user_id = $1", normalized.UserId);
             }
 
             DateTimeOffset happenedAt;

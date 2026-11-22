@@ -358,8 +358,8 @@ internal static partial class AuthorTextIndex
             left join public.author_text_document d on d.owner_id=$1 and d.article_id=p.article_id and d.revision=p.revision
             order by {ordering}
             """, [.. MatchArguments(owner, input), WireLimits.AuthorTextSearchRows + 1, ranked,
-                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)expectedGeneration ?? DBNull.Value },
-                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Integer, Value = (object?)after?.PhraseRank ?? DBNull.Value },
+                SqlCommands.Optional(NpgsqlDbType.Bytea, expectedGeneration),
+                SqlCommands.Optional(NpgsqlDbType.Integer, after?.PhraseRank),
                 after?.FieldRank ?? 0, after?.UpdatedAtUnixMs ?? 0, after?.Id ?? 0]))
         {
             query.CommandTimeout = 3;
@@ -476,8 +476,8 @@ internal static partial class AuthorTextIndex
         byte[]? generation = null;
 
         List<object> parameters = [.. MatchArguments(actor.Id, input.Text), WireLimits.AuthorTextSearchRows + 1,
-            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)expectedGeneration ?? DBNull.Value },
-            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Integer, Value = (object?)after?.PhraseRank ?? DBNull.Value },
+            SqlCommands.Optional(NpgsqlDbType.Bytea, expectedGeneration),
+            SqlCommands.Optional(NpgsqlDbType.Integer, after?.PhraseRank),
             after?.FieldRank ?? 0, after?.UpdatedAtUnixMs ?? 0, after?.Id ?? 0, actor.Generation,
             (int?)input.Status ?? 0, input.CategoryId ?? 0, input.TagId ?? 0];
         var filter = new StringBuilder();
@@ -683,7 +683,7 @@ internal static partial class AuthorTextIndex
         // and ranking state in a new statement even when a ranked result has zero rows.
         var scope = facetAuthorityGeneration.HasValue ? "owner_scope" : "eligible";
         var parameters = new List<object> { owner, ids, matches.Select(row => row.Match.Revision).ToArray(),
-            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)generation ?? DBNull.Value } };
+            SqlCommands.Optional(NpgsqlDbType.Bytea, generation) };
         if (facetAuthorityGeneration.HasValue) parameters.Add(facetAuthorityGeneration.Value);
         var text = AddPropertyTextParameters(parameters, qualification?.PropertyText);
         var mixed = qualification?.MixedText == true;

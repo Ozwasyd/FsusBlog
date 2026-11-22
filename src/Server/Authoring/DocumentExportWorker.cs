@@ -192,8 +192,8 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
                     output=case when state=7 then null else $6 end
                 where owner_id=$1 and id=$2 and state in (2,7) and expires_at>statement_timestamp()
                 """, job.Owner, job.Request.Id, (short)state, (short)failure,
-                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)digest ?? DBNull.Value },
-                new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)output ?? DBNull.Value });
+                SqlCommands.Optional(NpgsqlDbType.Bytea, digest),
+                SqlCommands.Optional(NpgsqlDbType.Bytea, output));
             return await finish.ExecuteNonQueryAsync(ct);
         }, ct);
 

@@ -19,8 +19,7 @@ internal static class DocumentExportStore
     internal static async Task<DocumentExportTask> Create(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         DocumentExportCreate request, byte[]? pdfToolDigest, MediaFiles? media, Guid[] assets, CancellationToken ct)
     {
-        await using (var guard = Store.Sql(db, tx, "select pg_advisory_xact_lock(hashtextextended('fsus-author-document-export',0))"))
-            await guard.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "select pg_advisory_xact_lock(hashtextextended('fsus-author-document-export',0))");
         var prior = await Owned(db, tx, actor, request.Id, ct);
         if (prior is not null)
         {
@@ -47,11 +46,10 @@ internal static class DocumentExportStore
         }
         var input = await DocumentExportInput.Read(db, tx, request.Article, request.SourceRevision, media, actor.Id, assets, ct);
 
-        await using (var remove = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             delete from public.author_document_export
             where expires_at<=statement_timestamp() or (owner_id=$1 and author_generation<>$2)
-            """, actor.Id, actor.Generation))
-            await remove.ExecuteNonQueryAsync(ct);
+            """, actor.Id, actor.Generation);
         await using (var quota = Store.Sql(db, tx, """
             select count(*)<$2 and count(*) filter (where owner_id=$1)<$3 from public.author_document_export
             """, actor.Id, SiteCapacity, Wire.DocumentExportTasksPerOwner))

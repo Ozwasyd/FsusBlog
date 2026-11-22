@@ -135,20 +135,18 @@ internal static class AuthorRecentOpenEndpoints
         var timestamp = (DateTime)(await cmd.ExecuteScalarAsync(ct))!;
         if (next > RetainedEntries)
         {
-            await using var prune = Store.Sql(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 delete from public.author_recent_open where site_id=$1 and owner_id=$2 and sequence < (
                     select sequence from public.author_recent_open where site_id=$1 and owner_id=$2
                     order by sequence desc offset $3 limit 1
                 )
                 """, site, owner, RetainedEntries - 1);
-            await prune.ExecuteNonQueryAsync(ct);
         }
         if (next > RetainedReceipts)
         {
-            await using var prune = Store.Sql(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 delete from public.author_recent_open_receipt where site_id=$1 and owner_id=$2 and sequence <= $3
                 """, site, owner, next - RetainedReceipts);
-            await prune.ExecuteNonQueryAsync(ct);
         }
         return new(1, next, input.RequestId, input.ArticleId, input.ArticleRevision, new DateTimeOffset(timestamp).ToUnixTimeMilliseconds());
     }

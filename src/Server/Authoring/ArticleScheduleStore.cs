@@ -51,13 +51,12 @@ internal static class ArticleScheduleStore
             await Clear(db, tx, current.Id, ct);
             return;
         }
-        await using var set = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_schedule(article_id,revision,actor_id,generation,command_id,due_at)
             values($1,$2,$3,$4,$5,$6)
             on conflict (article_id) do update set revision=excluded.revision,actor_id=excluded.actor_id,
                 generation=excluded.generation,command_id=excluded.command_id,due_at=excluded.due_at
             """, current.Id, current.Revision, actor.Id, actor.Generation, input.IdempotencyKey, Due(input));
-        await set.ExecuteNonQueryAsync(ct);
     }
 
     internal static async Task<ArticleSchedule> ReadReceipt(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid command,
@@ -73,8 +72,7 @@ internal static class ArticleScheduleStore
 
     internal static async Task Clear(NpgsqlConnection db, NpgsqlTransaction tx, int id, CancellationToken ct)
     {
-        await using var clear = SqlCommands.Create(db, tx, "delete from public.article_schedule where article_id=$1", id);
-        await clear.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.article_schedule where article_id=$1", id);
     }
 
     // The one-shot clock is an internal integration seam. Production always reads the database clock inside this transaction.

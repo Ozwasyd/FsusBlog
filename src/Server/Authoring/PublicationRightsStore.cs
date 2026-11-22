@@ -33,7 +33,7 @@ internal static class PublicationRightsStore
     {
         Wire.Validate(policy);
         if (!policy.Present) throw new InvalidOperationException("Cannot persist an absent rights policy.");
-        await using var add = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_revision_rights
                 (article_id,revision,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,
                  copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled)
@@ -41,18 +41,16 @@ internal static class PublicationRightsStore
             """, policy.Id, policy.Revision, policy.Enabled, policy.LicenseType, policy.CopyrightHolder, policy.CopyrightYear,
             policy.RightsStatement, policy.AttributionTemplate, policy.CopyPolicy, policy.MaxExcerptChars, policy.AllowCodeCopy,
             policy.ShowPublicBadge, policy.ProofBindingEnabled);
-        await add.ExecuteNonQueryAsync(ct);
     }
 
     internal static async Task CarryForward(NpgsqlConnection db, NpgsqlTransaction tx, int article, long source, long target, CancellationToken ct)
     {
-        await using var copy = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_revision_rights
             select article_id,$3,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,
                    copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled
             from public.article_revision_rights where article_id=$1 and revision=$2
             """, article, source, target);
-        await copy.ExecuteNonQueryAsync(ct);
     }
 
     internal static async Task Require(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, CancellationToken ct)
@@ -63,9 +61,8 @@ internal static class PublicationRightsStore
 
     internal static async Task Attach(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, long publication, CancellationToken ct)
     {
-        await using var add = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_publication_rights(article_id,publication_id,revision) values($1,$2,$3)
             """, article, publication, revision);
-        await add.ExecuteNonQueryAsync(ct);
     }
 }

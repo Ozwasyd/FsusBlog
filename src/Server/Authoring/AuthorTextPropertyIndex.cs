@@ -104,10 +104,9 @@ internal sealed partial class PropertyStore
         foreach (var entry in pending)
         {
             ct.ThrowIfCancellationRequested();
-            await using (var delete = SqlCommands.Create(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 delete from public.author_text_property_posting where owner_id=$1 and definition_id=$2 and article_id=$3
-                """, ownerId, scope.Definition.Id, entry.ArticleId))
-                await delete.ExecuteNonQueryAsync(ct);
+                """, ownerId, scope.Definition.Id, entry.ArticleId);
             if (entry.ValueRevision is not long valueRevision)
             {
                 await using var remove = SqlCommands.Create(db, tx, """
@@ -118,14 +117,13 @@ internal sealed partial class PropertyStore
             }
 
             var text = entry.Text ?? "";
-            await using (var document = SqlCommands.Create(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.author_text_property_document(owner_id,definition_id,article_id,definition_revision,value_revision,source_digest)
                 values ($1,$2,$3,$4,$5,$6)
                 on conflict (owner_id,definition_id,article_id) do update
                     set definition_revision=excluded.definition_revision,value_revision=excluded.value_revision,source_digest=excluded.source_digest
                 """, ownerId, scope.Definition.Id, entry.ArticleId, scope.Definition.Revision, valueRevision,
-                SHA256.HashData(PropertyTextUtf8.GetBytes(text))))
-                await document.ExecuteNonQueryAsync(ct);
+                SHA256.HashData(PropertyTextUtf8.GetBytes(text)));
             if (text.Length == 0) continue;
 
             await using var copy = await db.BeginBinaryImportAsync("""

@@ -123,18 +123,16 @@ internal sealed class SiteTraffic : BackgroundService
         if (batch.Length == 0 && pruned == today) return;
         await using var db = await database.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        await using (var prune = SqlCommands.Create(db, tx, "delete from public.site_traffic_daily where day < (now() at time zone 'UTC')::date-29"))
-            await prune.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.site_traffic_daily where day < (now() at time zone 'UTC')::date-29");
         if (batch.Length > 0)
         {
-            await using var save = SqlCommands.Create(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.site_traffic_daily as totals(day,region,views)
                 select day,region,views from unnest($1::date[],$2::text[],$3::bigint[]) incoming(day,region,views)
                 where day >= (now() at time zone 'UTC')::date-29 and day <= (now() at time zone 'UTC')::date
                 on conflict(day,region) do update
                 set views=least(totals.views::numeric+excluded.views,9223372036854775807)::bigint
                 """, batch.Select(item => item.Key.Day).ToArray(), batch.Select(item => item.Key.Region).ToArray(), batch.Select(item => item.Value).ToArray());
-            await save.ExecuteNonQueryAsync(ct);
         }
         await InstanceLease.CommitProtected(tx, lease, ct);
         lock (gate)

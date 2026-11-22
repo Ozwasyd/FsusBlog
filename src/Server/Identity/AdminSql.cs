@@ -1,14 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
-using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.WebUtilities;
-using Npgsql;
-using NpgsqlTypes;
 
 namespace FsusBlog.V2.Server.Administration;
 
-// Stateless token and command helpers shared by the administrator identity, Step-Up, and domain stores.
+// Stateless token helpers shared by the administrator identity, Step-Up, and domain stores.
 internal static class AdminSql
 {
     internal static string Token() => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
@@ -33,13 +30,5 @@ internal static class AdminSql
     internal static void RequireCredentialId(string text, byte[] raw)
     {
         if (WebEncoders.Base64UrlEncode(raw) != text) throw AdminSessionGate.Denied();
-    }
-
-    internal static NpgsqlParameter Optional(NpgsqlDbType type, object? value) => new() { NpgsqlDbType = type, Value = value ?? DBNull.Value };
-
-    internal static async Task Execute(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct, string sql, params object[] parameters)
-    {
-        await using var cmd = Store.Sql(db, tx, sql, parameters);
-        await cmd.ExecuteNonQueryAsync(ct);
     }
 }

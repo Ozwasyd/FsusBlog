@@ -125,12 +125,10 @@ internal sealed class AdminTagMetadataStore(AdminSessionGate gate)
 
             if (!category)
             {
-                await using var delAliases = Store.Sql(db, tx, "delete from public.tag_url_name where tag_id=$1", id);
-                await delAliases.ExecuteNonQueryAsync(ct);
+                await SqlCommands.Execute(db, tx, ct, "delete from public.tag_url_name where tag_id=$1", id);
             }
 
-            await using (var delAudit = Store.Sql(db, tx, $"delete from public.admin_{entity}_metadata_command where {entity}_id=$1", id))
-                await delAudit.ExecuteNonQueryAsync(ct);
+            await SqlCommands.Execute(db, tx, ct, $"delete from public.admin_{entity}_metadata_command where {entity}_id=$1", id);
 
             await using (var delEntity = Store.Sql(db, tx, $"delete from public.{entity} where id=$1", id))
                 if (await delEntity.ExecuteNonQueryAsync(ct) != 1)

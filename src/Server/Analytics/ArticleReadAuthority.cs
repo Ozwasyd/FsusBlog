@@ -172,11 +172,10 @@ internal sealed class ArticleReadAuthority(string connectionString, InstanceLeas
             """;
         await using var count = Store.Sql(db, tx, trackTotals ? incrementHourAndTotal : incrementHour, id, hour);
         await count.ExecuteNonQueryAsync(ct);
-        await using var dwell = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_read_dwell(article_id,day_utc,bucket,count) values($1,$2,$3,1)
             on conflict(article_id,day_utc,bucket) do update set count=article_read_dwell.count+1
             """, id, DateOnly.FromDateTime(utc.UtcDateTime), dwellBucket);
-        await dwell.ExecuteNonQueryAsync(ct);
     }
 
     private async Task Retire()

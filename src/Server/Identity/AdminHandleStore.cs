@@ -87,7 +87,7 @@ internal sealed partial class AdminHandleStore(AdminSessionGate gate, AdminStepU
                 happenedAt = row.GetFieldValue<DateTimeOffset>(0);
             }
 
-            await AdminSql.Execute(db, tx, ct, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.admin_identity_audit (principal_id, action, happened_at, actor)
                 values ($1, 'rename-handle', $2, $3)
                 """, admin.Id, happenedAt, $"{previousHandle}->{normalized.NewHandle}");

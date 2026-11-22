@@ -156,14 +156,14 @@ internal sealed class AdminStepUpService(AdminSessionGate gate, AdminPasskeyStor
 
     private static Task SaveStepUp(NpgsqlConnection db, NpgsqlTransaction tx, AdminLiveSession admin, string token,
         AdminStepUpAction action, short kind, byte[] bodyDigest, string? options, int seconds, CancellationToken ct) =>
-        AdminSql.Execute(db, tx, ct, $"""
+        SqlCommands.Execute(db, tx, ct, $"""
             insert into {StepUpTable(action)}(digest,principal_id,session_digest,generation,action,body_digest,options,expires_at,kind)
             values($1,$2,$3,$4,$5,$6,$7,clock_timestamp()+$8 * interval '1 second',$9)
             on conflict (session_digest,kind) do update
                 set digest=excluded.digest,action=excluded.action,body_digest=excluded.body_digest,
                     options=excluded.options,expires_at=excluded.expires_at
             """, AdminSql.ChallengeDigest(token, null), admin.Id, admin.Digest, admin.Snapshot.Generation, (int)action, bodyDigest,
-            AdminSql.Optional(NpgsqlTypes.NpgsqlDbType.Text, options), seconds, kind);
+            SqlCommands.Optional(NpgsqlTypes.NpgsqlDbType.Text, options), seconds, kind);
 
     private static string StepUpTable(AdminStepUpAction action) => action switch
     {

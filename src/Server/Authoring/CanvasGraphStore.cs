@@ -307,13 +307,12 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
     private async Task Record(CanvasGraphReceipt current, Guid key, int kind, byte[] fingerprint, CancellationToken ct)
     {
         var viewport = current.Viewport;
-        await using var record = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.canvas_document_event(canvas_id,revision,actor_id,command_id,command_kind,fingerprint,
                 title,viewport_x,viewport_y,viewport_zoom,deleted,node_count,edge_count,touched_at)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
             """, current.Id, current.Revision, actor.Id, key, kind, fingerprint, current.Title, viewport.X, viewport.Y,
             viewport.Zoom, current.Deleted, current.NodeCount, current.EdgeCount, current.TouchedAt);
-        await record.ExecuteNonQueryAsync(ct);
     }
 
     private async Task CheckReferences(IReadOnlyList<CanvasNode> nodes, CancellationToken ct, bool requireResolved = true)
@@ -375,44 +374,40 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
     private async Task DeleteIds(Guid id, string sql, Guid[] removed, CancellationToken ct)
     {
         if (removed.Length == 0) return;
-        await using var command = Store.Sql(db, tx, sql, id, removed);
-        await command.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, sql, id, removed);
     }
 
     private async Task DeleteGraph(Guid id, CancellationToken ct)
     {
         await using var edges = Store.Sql(db, tx, "delete from public.canvas_edge where canvas_id=$1", id);
         await edges.ExecuteNonQueryAsync(ct);
-        await using var nodes = Store.Sql(db, tx, "delete from public.canvas_node where canvas_id=$1", id);
-        await nodes.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.canvas_node where canvas_id=$1", id);
     }
 
     private async Task StoreNode(Guid canvas, CanvasNode node, CancellationToken ct)
     {
         var g = node.Geometry;
-        await using var upsert = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.canvas_node(canvas_id,id,kind,x,y,width,height,article_id,anchor,pinned_revision,note,member_ids)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
             on conflict (canvas_id,id) do update set x=excluded.x,y=excluded.y,width=excluded.width,height=excluded.height,
                 article_id=excluded.article_id,anchor=excluded.anchor,pinned_revision=excluded.pinned_revision,
                 note=excluded.note,member_ids=excluded.member_ids
             """, canvas, node.Id, (int)node.Kind, g.X, g.Y, g.Width, g.Height,
-            Optional(NpgsqlDbType.Integer, node.ArticleId), Optional(NpgsqlDbType.Text, node.Anchor),
-            Optional(NpgsqlDbType.Bigint, node.PinnedRevision), Optional(NpgsqlDbType.Text, node.Text),
+            SqlCommands.Optional(NpgsqlDbType.Integer, node.ArticleId), SqlCommands.Optional(NpgsqlDbType.Text, node.Anchor),
+            SqlCommands.Optional(NpgsqlDbType.Bigint, node.PinnedRevision), SqlCommands.Optional(NpgsqlDbType.Text, node.Text),
             node.MemberIds.IsDefault ? Array.Empty<Guid>() : node.MemberIds.ToArray());
-        await upsert.ExecuteNonQueryAsync(ct);
     }
 
     private async Task StoreEdge(Guid canvas, CanvasGraphEdge edge, CancellationToken ct)
     {
-        await using var upsert = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.canvas_edge(canvas_id,id,source_node_id,target_node_id,explicit_reference,sort_order,label)
             values($1,$2,$3,$4,$5,$6,$7)
             on conflict (canvas_id,id) do update set source_node_id=excluded.source_node_id,target_node_id=excluded.target_node_id,
                 explicit_reference=excluded.explicit_reference,sort_order=excluded.sort_order,label=excluded.label
             """, canvas, edge.Id, edge.SourceNodeId, edge.TargetNodeId, edge.Kind == CanvasGraphEdgeKind.ExplicitReferenceNote,
-            edge.Order, Optional(NpgsqlDbType.Text, edge.Label));
-        await upsert.ExecuteNonQueryAsync(ct);
+            edge.Order, SqlCommands.Optional(NpgsqlDbType.Text, edge.Label));
     }
 
     private static CanvasGraph Apply(CanvasGraph before, IReadOnlyList<CanvasChangeFrame> changes)
@@ -444,11 +439,6 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
     private static CanvasGraphReceipt ReadReceipt(NpgsqlDataReader row) => new(row.GetGuid(0), row.GetInt64(1),
         row.GetString(2), new(row.GetInt32(3), row.GetInt32(4), row.GetInt32(5)), row.GetBoolean(6),
         row.GetInt32(7), row.GetInt32(8), row.GetFieldValue<DateTimeOffset>(9));
-
-    private static NpgsqlParameter Optional(NpgsqlDbType type, object? value) => new()
-    {
-        NpgsqlDbType = type, Value = value ?? DBNull.Value
-    };
 
     private static int NextOffset(CanvasGraphReceipt document, int first, int count) =>
         first + count < document.NodeCount + document.EdgeCount ? first + count : -1;

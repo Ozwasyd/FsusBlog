@@ -68,12 +68,11 @@ internal sealed partial class PropertyStore
         long source, long revision, CancellationToken ct)
     {
         if (!await CurrentSchema.HasPropertySnapshotsAsync(db, tx, ct)) return;
-        await using var copy = SqlCommands.Create(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.article_revision_property_snapshot(article_id,revision,schema_revision,value_revision)
             select article_id,$3,schema_revision,value_revision from public.article_revision_property_snapshot
             where article_id=$1 and revision=$2
             """, article, source, revision);
-        await copy.ExecuteNonQueryAsync(ct);
     }
 
     internal async Task<PropertyEditorWorkspace> ReadSnapshot(int article, long source, int offset, CancellationToken ct)

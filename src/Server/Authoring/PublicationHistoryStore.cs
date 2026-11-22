@@ -78,14 +78,13 @@ internal static class PublicationHistoryStore
         async Task Append(long revision, int number, int publications, long? publication, long? supersedes,
             string kind, string reason, DateTime? at, Guid? author, Guid? commandId)
         {
-            await using var insert = SqlCommands.Create(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.article_publication_history
                     (article_id,event_no,revision,publication_no,publication_id,supersedes_id,kind,reason,happened_at,actor_id,command_id)
                 values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-                """, articleId, number, revision, publications, Optional(NpgsqlDbType.Bigint, publication),
-                Optional(NpgsqlDbType.Bigint, supersedes), kind, reason, Optional(NpgsqlDbType.TimestampTz, at),
-                Optional(NpgsqlDbType.Uuid, author), Optional(NpgsqlDbType.Uuid, commandId));
-            await insert.ExecuteNonQueryAsync(ct);
+                """, articleId, number, revision, publications, SqlCommands.Optional(NpgsqlDbType.Bigint, publication),
+                SqlCommands.Optional(NpgsqlDbType.Bigint, supersedes), kind, reason, SqlCommands.Optional(NpgsqlDbType.TimestampTz, at),
+                SqlCommands.Optional(NpgsqlDbType.Uuid, author), SqlCommands.Optional(NpgsqlDbType.Uuid, commandId));
         }
     }
 
@@ -119,7 +118,7 @@ internal static class PublicationHistoryStore
             select article_id,$2,responsible_party,basis,reference,recorded_by,id
             from public.article_revision_responsibility where article_id=$1 and revision=$3 and id=$4
             returning id
-            """, article, revision, sourceRevision, Optional(NpgsqlDbType.Bigint, sourceResponsibility));
+            """, article, revision, sourceRevision, SqlCommands.Optional(NpgsqlDbType.Bigint, sourceResponsibility));
         if (await responsibility.ExecuteScalarAsync(ct) is not long responsibilitySnapshot)
             throw new BusinessException(Rejection.Conflict, "The historical responsibility snapshot is unavailable.");
         await using var responsibilityLink = SqlCommands.Create(db, tx, """
@@ -154,17 +153,16 @@ internal static class PublicationHistoryStore
             insert into public.article_publication_history(article_id,event_no,revision,publication_no,publication_id,supersedes_id,
                 kind,reason,happened_at,admin_actor_id,admin_command_id)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-            """, article, checked(eventNo + 1), revision, release.Number, Optional(NpgsqlDbType.Bigint, hidden ? null : release.Id),
-            Optional(NpgsqlDbType.Bigint, restored is not null ? null : priorPublication), kind, eventReason,
+            """, article, checked(eventNo + 1), revision, release.Number, SqlCommands.Optional(NpgsqlDbType.Bigint, hidden ? null : release.Id),
+            SqlCommands.Optional(NpgsqlDbType.Bigint, restored is not null ? null : priorPublication), kind, eventReason,
             release.PublishedAt, administrator, command);
         await append.ExecuteNonQueryAsync(ct);
 
         if (hidden)
         {
-            await using var retract = SqlCommands.Create(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.blog_outbox(article_id,revision,kind) values($1,$2,'retract')
                 """, article, revision);
-            await retract.ExecuteNonQueryAsync(ct);
         }
         else
         {
@@ -240,7 +238,4 @@ internal static class PublicationHistoryStore
         await PublicationCanonicalStore.Record(db, tx, article, revision, id, ct);
         return id;
     }
-
-    private static NpgsqlParameter Optional(NpgsqlDbType type, object? value) =>
-        new() { NpgsqlDbType = type, Value = value ?? DBNull.Value };
 }

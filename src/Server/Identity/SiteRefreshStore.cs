@@ -138,11 +138,10 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
     {
         var (access, accessDigest) = NewToken();
         var (refresh, refreshDigest) = NewToken();
-        await using (var tombstone = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.site_session_refresh_tombstone(refresh_digest,family_id,generation,used_at,expires_at)
             values($1,$2,$3,statement_timestamp(),statement_timestamp()+interval '720 hours')
-            """, family.Refresh, family.Id, family.Generation))
-            await tombstone.ExecuteNonQueryAsync(ct);
+            """, family.Refresh, family.Id, family.Generation);
         DateTimeOffset idleExpires;
         await using (var rotate = Store.Sql(db, tx, """
             update public.site_session_refresh set refresh_digest=$2,previous_access_digest=$3,generation=generation+1,
@@ -171,8 +170,7 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
 
     private static async Task Delete(NpgsqlConnection db, NpgsqlTransaction tx, byte[] access, CancellationToken ct)
     {
-        await using var delete = Store.Sql(db, tx, "delete from public.user_session where digest=$1", access);
-        await delete.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.user_session where digest=$1", access);
     }
 
     private static (string Token, byte[] Digest) NewToken()

@@ -87,7 +87,7 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
 
         try
         {
-            await AdminSql.Execute(db, tx, ct, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.admin_passkey_credential(credential_id,principal_id,public_key,sign_count,backup_eligible,backed_up)
                 values($1,$2,$3,$4,$5,$6)
                 """, verified.Id, principal.Id, verified.PublicKey, (long)verified.SignCount, verified.IsBackupEligible, verified.IsBackedUp);
@@ -97,10 +97,10 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
             delete from public.admin_invitation where principal_id=$1 and digest=$2 and generation=$3 and expires_at>clock_timestamp()
             """, principal.Id, digest, principal.Generation))
             if (await consume.ExecuteNonQueryAsync(ct) != 1) throw AdminSessionGate.Denied();
-        await AdminSql.Execute(db, tx, ct, """
+        await SqlCommands.Execute(db, tx, ct, """
             update public.admin_principal set generation=generation+1,generation_changed_at=clock_timestamp() where id=$1
             """, principal.Id);
-        await AdminSql.Execute(db, tx, ct, "delete from public.admin_challenge where principal_id=$1", principal.Id);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.admin_challenge where principal_id=$1", principal.Id);
         await InstanceLease.CommitProtected(tx, lease, ct);
     }
 
@@ -184,7 +184,7 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
         }
         catch (Fido2VerificationException) { throw AdminSessionGate.Denied(); }
         if (((request.AuthenticatorData[32] & 0x08) != 0) != backupEligible) throw AdminSessionGate.Denied();
-        await AdminSql.Execute(db, tx, ct, """
+        await SqlCommands.Execute(db, tx, ct, """
             update public.admin_passkey_credential set sign_count=$2,backed_up=$3 where credential_id=$1
             """, request.RawId, (long)verified.SignCount, verified.IsBackedUp);
     }
@@ -221,15 +221,15 @@ internal sealed class AdminPasskeyStore(NpgsqlDataSource source, InstanceLease? 
     private static async Task SaveChallenge(NpgsqlConnection db, NpgsqlTransaction tx, string token, byte[] binding, int kind,
         Principal? principal, string options, CancellationToken ct)
     {
-        await AdminSql.Execute(db, tx, ct, "select pg_catalog.pg_advisory_xact_lock($1)", ChallengeLock);
-        await AdminSql.Execute(db, tx, ct, "delete from public.admin_challenge where expires_at<=clock_timestamp() or principal_id=$1",
-            AdminSql.Optional(NpgsqlDbType.Uuid, principal?.Id));
+        await SqlCommands.Execute(db, tx, ct, "select pg_catalog.pg_advisory_xact_lock($1)", ChallengeLock);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.admin_challenge where expires_at<=clock_timestamp() or principal_id=$1",
+            SqlCommands.Optional(NpgsqlDbType.Uuid, principal?.Id));
         await using var cmd = Store.Sql(db, tx, """
             insert into public.admin_challenge(digest,principal_id,generation,binding_digest,kind,options,expires_at,started_at)
             select $1,$2,$3,$4,$5,$6,statement_timestamp()+interval '2 minutes',statement_timestamp()
             where (select count(*) from public.admin_challenge)<$7
-            """, AdminSql.ChallengeDigest(token, null), AdminSql.Optional(NpgsqlDbType.Uuid, principal?.Id),
-            AdminSql.Optional(NpgsqlDbType.Bigint, principal?.Generation), binding, kind, options, ChallengeLimit);
+            """, AdminSql.ChallengeDigest(token, null), SqlCommands.Optional(NpgsqlDbType.Uuid, principal?.Id),
+            SqlCommands.Optional(NpgsqlDbType.Bigint, principal?.Generation), binding, kind, options, ChallengeLimit);
         if (await cmd.ExecuteNonQueryAsync(ct) != 1) throw new PublicUnavailableException();
     }
 

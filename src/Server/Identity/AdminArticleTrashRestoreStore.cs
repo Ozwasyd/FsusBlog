@@ -69,7 +69,7 @@ internal sealed class AdminArticleTrashRestoreStore(AdminSessionGate gate, Admin
         }
         var draft = Publishing.Restore(current, intent.ExpectedRevision);
         await Store.WriteRecoveredDraft(db, tx, draft, intent.ExpectedRevision, ct);
-        await AdminSql.Execute(db, tx, ct, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.admin_article_trash_restore(principal_id,command_id,fingerprint,article_id,previous_revision,revision)
             values($1,$2,$3,$4,$5,$6)
             """, admin.Id, intent.IdempotencyKey, fingerprint, draft.Id, intent.ExpectedRevision, draft.Revision);

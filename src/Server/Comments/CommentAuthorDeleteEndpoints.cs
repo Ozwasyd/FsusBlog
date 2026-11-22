@@ -182,13 +182,12 @@ internal static class CommentAuthorDeleteEndpoints
 
     private static async Task Prune(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
-        await using var cleanup = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             delete from public.comment_author_delete_challenge where digest in (
                 select digest from public.comment_author_delete_challenge where expires_at<=clock_timestamp()
                 order by expires_at limit 64 for update skip locked
             )
             """);
-        await cleanup.ExecuteNonQueryAsync(ct);
     }
 
     private static BusinessException Missing() => new(Rejection.NotFound, "comment_management_not_found");

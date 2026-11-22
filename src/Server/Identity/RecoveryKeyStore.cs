@@ -122,7 +122,7 @@ internal sealed partial class PasskeyStore
             on conflict(user_id,purpose,kind) do update set digest=excluded.digest,generation=excluded.generation,
                 session_digest=excluded.session_digest,options=excluded.options,expires_at=excluded.expires_at
             """, TokenDigest(token), actor.Id, actor.Generation, actor.Scope, purpose, kind,
-            new NpgsqlParameter { NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Text, Value = (object?)options ?? DBNull.Value }, seconds);
+            SqlCommands.Optional(NpgsqlTypes.NpgsqlDbType.Text, options), seconds);
         await save.ExecuteNonQueryAsync(ct);
         return token;
     }

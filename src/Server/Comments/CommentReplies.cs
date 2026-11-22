@@ -94,10 +94,9 @@ internal static class CommentReplies
             $"{notice.Name} 回复了您的评论：{excerpt}。定位：/article/{notice.Article}#comment-{notice.Reply}");
         var inbox = new InboxStore(db, tx, notice.Recipient, fenceVisibleMessages);
         var delivered = await inbox.SendAttributedNotice("收到新的评论回复", text, ct);
-        await using var record = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.comment_reply_notice(article_id,reply_id,recipient_id,conversation_id,message_id,moderation_version,delivered_at)
             values($1,$2,$3,$4,$5,$6,$7)
             """, notice.Article, notice.Reply, notice.Recipient, delivered.ConversationId, delivered.Id, notice.Version, delivered.SentAt);
-        await record.ExecuteNonQueryAsync(ct);
     }
 }

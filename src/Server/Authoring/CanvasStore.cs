@@ -40,10 +40,9 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
         var intent = new CanvasLinkIntent(input.CanvasId, input.EdgeId, input.CanvasRevision, input.HostRevision,
             input.TargetRevision, input.SourceOffset, visualOnly);
         var change = Build(edge, intent, articles.Host, articles.Target, actor);
-        await using (var clean = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             delete from public.canvas_link_plan where canvas_id=$1 and applied_revision is null and expires_at<=clock_timestamp()
-            """, edge.CanvasId))
-            await clean.ExecuteNonQueryAsync(ct);
+            """, edge.CanvasId);
         await using (var budget = Store.Sql(db, tx, """
             select count(*) from public.canvas_link_plan where canvas_id=$1 and applied_revision is null
             """, edge.CanvasId))

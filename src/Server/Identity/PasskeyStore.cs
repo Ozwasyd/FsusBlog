@@ -61,10 +61,9 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
             """, userId, digest))
             if (await consume.ExecuteNonQueryAsync(ct) != 1) throw Denied();
 
-        await using (var ensureSubject = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.passkey_subject(user_id,user_handle) values ($1,$2) on conflict (user_id) do nothing
-            """, userId, RandomNumberGenerator.GetBytes(WireLimits.PasskeyUserHandleBytes)))
-            await ensureSubject.ExecuteNonQueryAsync(ct);
+            """, userId, RandomNumberGenerator.GetBytes(WireLimits.PasskeyUserHandleBytes));
         byte[] userHandle;
         await using (var subject = Store.Sql(db, tx, "select user_handle from public.passkey_subject where user_id=$1", userId))
             userHandle = (byte[])(await subject.ExecuteScalarAsync(ct))!;
@@ -97,12 +96,9 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
         await RegisterCredential(db, tx, accountId, request, options, ct);
 
         // Fail stale credential-attachment challenges and retire bootstrap sessions atomically.
-        await using (var revoke = Store.Sql(db, tx, "update public.blog_user set generation=generation+1 where id=$1", accountId))
-            await revoke.ExecuteNonQueryAsync(ct);
-        await using (var revoke = Store.Sql(db, tx, "delete from public.login_ticket where user_id=$1", accountId))
-            await revoke.ExecuteNonQueryAsync(ct);
-        await using (var revoke = Store.Sql(db, tx, "delete from public.user_session where user_id=$1", accountId))
-            await revoke.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "update public.blog_user set generation=generation+1 where id=$1", accountId);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.login_ticket where user_id=$1", accountId);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.user_session where user_id=$1", accountId);
         await InstanceLease.CommitProtected(tx, _lease, ct);
     }
 
@@ -229,11 +225,10 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
 
         try
         {
-            await using var insert = Store.Sql(db, tx, """
+            await SqlCommands.Execute(db, tx, ct, """
                 insert into public.passkey_credential(credential_id,user_id,public_key,sign_count,backup_eligible,backed_up)
                 values ($1,$2,$3,$4,$5,$6)
                 """, credential.Id, user, credential.PublicKey, (long)credential.SignCount, credential.IsBackupEligible, credential.IsBackedUp);
-            await insert.ExecuteNonQueryAsync(ct);
         }
         catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.UniqueViolation) { throw Denied(); }
         return credential.Id;
@@ -296,11 +291,10 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
 
         // The flag is covered by the verified authenticator data. Backup eligibility is immutable.
         if (((request.AuthenticatorData[32] & 0x08) != 0) != backupEligible) throw Denied();
-        await using (var update = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             update public.passkey_credential set sign_count=$2,backed_up=$3,last_used_at=clock_timestamp()
             where credential_id=$1
-            """, request.RawId, (long)verification.SignCount, verification.IsBackedUp))
-            await update.ExecuteNonQueryAsync(ct);
+            """, request.RawId, (long)verification.SignCount, verification.IsBackedUp);
         return number;
     }
 
@@ -316,16 +310,14 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
     private static async Task SaveChallenge(NpgsqlConnection db, NpgsqlTransaction tx, string token,
         string options, Guid? userId, long? generation, byte[]? binding, CancellationToken ct, int lifetimeSeconds = 300)
     {
-        await using (var limit = Store.Sql(db, tx, "select pg_advisory_xact_lock($1)", ChallengeBudgetLock))
-            await limit.ExecuteNonQueryAsync(ct);
-        await using (var prune = Store.Sql(db, tx, "delete from public.passkey_challenge where expires_at<=clock_timestamp()"))
-            await prune.ExecuteNonQueryAsync(ct);
+        await SqlCommands.Execute(db, tx, ct, "select pg_advisory_xact_lock($1)", ChallengeBudgetLock);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.passkey_challenge where expires_at<=clock_timestamp()");
         await using var insert = Store.Sql(db, tx, """
             insert into public.passkey_challenge(digest,user_id,generation,options,expires_at,binding_digest)
             select $1,$2,$3,$4,clock_timestamp()+$7 * interval '1 second',$5
             where (select count(*) from public.passkey_challenge)<$6
-            """, TokenDigest(token), new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Uuid, Value = (object?)userId ?? DBNull.Value },
-            new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bigint, Value = (object?)generation ?? DBNull.Value }, options, NullableBytes(binding), ChallengeCapacity, lifetimeSeconds);
+            """, TokenDigest(token), SqlCommands.Optional(NpgsqlDbType.Uuid, userId),
+            SqlCommands.Optional(NpgsqlDbType.Bigint, generation), options, SqlCommands.Optional(NpgsqlDbType.Bytea, binding), ChallengeCapacity, lifetimeSeconds);
         if (await insert.ExecuteNonQueryAsync(ct) != 1) throw new PublicUnavailableException();
     }
 
@@ -345,15 +337,12 @@ internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfi
             delete from public.passkey_challenge
             where digest=$1 and expires_at>clock_timestamp() and binding_digest is not distinct from $2
             returning options,user_id,generation,expires_at
-            """, TokenDigest(token), NullableBytes(binding));
+            """, TokenDigest(token), SqlCommands.Optional(NpgsqlDbType.Bytea, binding));
         await using var row = await consume.ExecuteReaderAsync(ct);
         if (!await row.ReadAsync(ct)) throw Denied();
         return (row.GetString(0), row.IsDBNull(1) ? null : row.GetGuid(1), row.IsDBNull(2) ? null : row.GetInt64(2),
             row.GetFieldValue<DateTimeOffset>(3));
     }
-
-    private static NpgsqlParameter NullableBytes(byte[]? bytes) =>
-        new() { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)bytes ?? DBNull.Value };
 
     private static string NewToken() => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
     private static byte[] TokenDigest(string token) => SHA256.HashData(Encoding.ASCII.GetBytes(token));

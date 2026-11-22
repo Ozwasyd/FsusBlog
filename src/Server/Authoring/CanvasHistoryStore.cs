@@ -57,14 +57,13 @@ internal sealed class CanvasHistoryStore(NpgsqlConnection db, NpgsqlTransaction 
         long[] discarded = await DeleteBranch(id, onlyRedo: true, ct);
         var bytes = JsonSerializer.SerializeToUtf8Bytes(payload, Json);
         if (bytes.Length > MaxBytes) throw new InvalidOperationException("Canvas history entry exceeds the retained document budget.");
-        await using (var insert = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.canvas_history_patch(canvas_id,edit_revision,undone,moved_at_revision,payload,digest)
             values($1,$2,false,$2,$3,$4)
-            """, id, revision, bytes, Digest(id, revision, bytes)))
-            await insert.ExecuteNonQueryAsync(ct);
+            """, id, revision, bytes, Digest(id, revision, bytes));
 
         // Retain one contiguous suffix. Dropping only older undo entries never creates a jump.
-        await using (var trim = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             with newest as (
                 select edit_revision,
                     row_number() over latest as position,
@@ -75,8 +74,7 @@ internal sealed class CanvasHistoryStore(NpgsqlConnection db, NpgsqlTransaction 
             )
             delete from public.canvas_history_patch p using newest n
             where p.canvas_id=$1 and p.edit_revision=n.edit_revision and (n.position>$2 or n.bytes>$3)
-            """, id, MaxDepth, MaxBytes))
-            await trim.ExecuteNonQueryAsync(ct);
+            """, id, MaxDepth, MaxBytes);
 
         await Record(id, revision, null, discarded, ct);
     }
@@ -114,11 +112,10 @@ internal sealed class CanvasHistoryStore(NpgsqlConnection db, NpgsqlTransaction 
 
     private async Task Record(Guid id, long revision, long? target, long[] discarded, CancellationToken ct)
     {
-        await using var insert = Store.Sql(db, tx, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.canvas_history_transition(canvas_id,revision,target_revision,discarded_redo)
             values($1,$2,$3,$4)
             """, id, revision, new NpgsqlParameter<long?> { TypedValue = target, NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Bigint }, discarded);
-        await insert.ExecuteNonQueryAsync(ct);
     }
 
     private static byte[] Digest(Guid id, long revision, byte[] data)

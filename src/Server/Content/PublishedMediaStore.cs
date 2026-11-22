@@ -180,10 +180,9 @@ internal sealed class PublishedMediaStore(MediaFiles privateFiles, string public
             await insert.ExecuteNonQueryAsync(ct);
             if (image.IsCover)
             {
-                await using var cover = SqlCommands.Create(db, tx, """
+                await SqlCommands.Execute(db, tx, ct, """
                     INSERT INTO public.article_publication_cover (article_id,publication_id,asset_id) VALUES ($1,$2,$3)
                     """, articleId, publicationId, image.AssetId);
-                await cover.ExecuteNonQueryAsync(ct);
             }
         }
     }

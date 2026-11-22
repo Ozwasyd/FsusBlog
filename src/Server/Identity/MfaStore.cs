@@ -69,17 +69,17 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         var matched = Match(actor.Id, envelope, code, -1);
         if (!matched.HasValue)
         {
-            await Execute(db, tx, ct, "update public.mfa_setup set failed_count=failed_count+1 where user_id=$1", actor.Id);
+            await SqlCommands.Execute(db, tx, ct, "update public.mfa_setup set failed_count=failed_count+1 where user_id=$1", actor.Id);
             await InstanceLease.CommitProtected(tx, lease, ct);
             throw new BusinessException(Rejection.Invalid, "Invalid authenticator verification code.");
         }
 
-        await Execute(db, tx, ct, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.mfa_totp(user_id,sealed_seed,last_step,verified_at,retry_after,failed_count)
             values($1,$2,$3,clock_timestamp(),clock_timestamp(),0)
             """, actor.Id, envelope, matched.Value);
         var recovery = await IssueRecoveryCodes(db, tx, actor.Id, WireLimits.MfaCodeCount, ct);
-        await Execute(db, tx, ct, "delete from public.mfa_setup where user_id=$1", actor.Id);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.mfa_setup where user_id=$1", actor.Id);
         var (token, expiry) = await RotateSession(db, tx, actor, mfa: true, ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
         return (MfaWire.EncodeSetupVerified(recovery), token, expiry);
@@ -136,8 +136,8 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         var actor = await RequireSession(db, tx, session, ct);
         await ConsumeProof(db, tx, actor, Purpose.FactorProof, proof, ct, FactorScope(MfaWire.Disable));
-        await Execute(db, tx, ct, "delete from public.mfa_recovery_code where user_id=$1", actor.Id);
-        await Execute(db, tx, ct, "delete from public.mfa_totp where user_id=$1", actor.Id);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.mfa_recovery_code where user_id=$1", actor.Id);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.mfa_totp where user_id=$1", actor.Id);
         var result = await RotateSession(db, tx, actor, mfa: false, ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
         return result;
@@ -155,7 +155,7 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
             await InstanceLease.CommitProtected(tx, lease, ct);
             throw new BusinessException(Rejection.Invalid, "Authenticator verification is not enabled.");
         }
-        await Execute(db, tx, ct, "delete from public.mfa_recovery_code where user_id=$1", actor.Id);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.mfa_recovery_code where user_id=$1", actor.Id);
         var recovery = await IssueRecoveryCodes(db, tx, actor.Id, WireLimits.MfaRegeneratedCodeCount, ct);
         var frame = MfaWire.EncodeSetupVerified(recovery);
         await InstanceLease.CommitProtected(tx, lease, ct);
@@ -242,9 +242,9 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         Purpose kind, string options, CancellationToken ct)
     {
         var token = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-        await Execute(db, tx, ct, "delete from public.mfa_flow where user_id=$1 and (kind=$2 or expires_at<=clock_timestamp())",
+        await SqlCommands.Execute(db, tx, ct, "delete from public.mfa_flow where user_id=$1 and (kind=$2 or expires_at<=clock_timestamp())",
             actor.Id, (int)kind);
-        await Execute(db, tx, ct, """
+        await SqlCommands.Execute(db, tx, ct, """
             insert into public.mfa_flow(digest,user_id,generation,kind,scope,options,expires_at)
             values($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '5 minutes')
             """, FlowDigest(token, options), actor.Id, actor.Generation, (int)kind, actor.Scope, options);
@@ -286,7 +286,7 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
             {
                 var text = Convert.ToHexString(raw);
                 recovery[i] = string.Join('-', Enumerable.Range(0, 8).Select(index => text.Substring(index * 4, 4)));
-                await Execute(db, tx, ct, "insert into public.mfa_recovery_code(user_id,digest) values($1,$2)", user, SHA256.HashData(raw));
+                await SqlCommands.Execute(db, tx, ct, "insert into public.mfa_recovery_code(user_id,digest) values($1,$2)", user, SHA256.HashData(raw));
             }
             finally { CryptographicOperations.ZeroMemory(raw); }
         }
@@ -315,7 +315,7 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
             await using var consume = Store.Sql(db, tx, "delete from public.mfa_recovery_code where user_id=$1 and digest=$2", id, recovery);
             verified = await consume.ExecuteNonQueryAsync(ct) == 1;
         }
-        await Execute(db, tx, ct, """
+        await SqlCommands.Execute(db, tx, ct, """
             update public.mfa_totp set last_step=$2,failed_count=$3,
                 retry_after=case when $3>=5 then clock_timestamp()+interval '5 minutes' else clock_timestamp() end
             where user_id=$1
@@ -352,7 +352,7 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         NpgsqlTransaction tx, Subject actor, bool mfa, CancellationToken ct)
     {
         var (token, digest) = NewSession();
-        await Execute(db, tx, ct, "update public.blog_user set generation=generation+1 where id=$1", actor.Id);
+        await SqlCommands.Execute(db, tx, ct, "update public.blog_user set generation=generation+1 where id=$1", actor.Id);
         DateTime expiry;
         await using (var replace = Store.Sql(db, tx, """
             insert into public.user_session(digest,user_id,generation,expires_at,passkey_credential_id,totp_verified_at)
@@ -362,8 +362,8 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
             returning expires_at
             """, digest, mfa, actor.Scope))
             expiry = await replace.ExecuteScalarAsync(ct) is DateTime expiresAt ? expiresAt : throw Denied();
-        await Execute(db, tx, ct, "delete from public.user_session where user_id=$1 and digest<>$2", actor.Id, digest);
-        await Execute(db, tx, ct, "delete from public.mfa_flow where user_id=$1", actor.Id);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.user_session where user_id=$1 and digest<>$2", actor.Id, digest);
+        await SqlCommands.Execute(db, tx, ct, "delete from public.mfa_flow where user_id=$1", actor.Id);
         return (token, expiry);
     }
 
@@ -372,12 +372,6 @@ internal sealed class MfaStore(NpgsqlDataSource source, TotpSecret secrets, Inst
         var secret = RandomNumberGenerator.GetBytes(32);
         try { return (Convert.ToHexStringLower(secret), SHA256.HashData(secret)); }
         finally { CryptographicOperations.ZeroMemory(secret); }
-    }
-
-    private static async Task Execute(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct, string sql, params object[] args)
-    {
-        await using var query = Store.Sql(db, tx, sql, args);
-        await query.ExecuteNonQueryAsync(ct);
     }
 
     internal static BusinessException Denied() => new(Rejection.Unauthorized, "MFA verification failed or expired.");
