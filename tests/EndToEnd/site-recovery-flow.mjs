@@ -1,17 +1,19 @@
 import assert from 'node:assert/strict'
+import { assertStatus } from './response-status-fixture.mjs'
 import { execFile } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeSession, encodeRecoveryKeyOperation, FrameType, WireHeaders, WireLayouts, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { assertEmptySuccess, button, enableAuthenticator, launchIdentityBrowser, readTlsIdentityFixture, recordIdentityResponse, request, setupSiteTotp, totp } from './site-authentication-fixture.mjs'
+import { assertEmptySuccess, button, enableAuthenticator, launchIdentityBrowser, readTlsIdentityFixture, recordIdentityResponse, request, secureLoginProtocol, setupSiteTotp, completeSiteTotp, siteApi } from './site-authentication-fixture.mjs'
 
 const peerTicket = process.env.FSUSBLOG_TEST_SITE_RECOVERY_PEER_TICKET
 const probeReservation = process.env.FSUSBLOG_TEST_SITE_RECOVERY_PROBE
 const removeCurrent = process.env.FSUSBLOG_TEST_SITE_RECOVERY_REMOVE_CURRENT === '1'
 const { origin, ownerTicket, pins } = readTlsIdentityFixture(peerTicket, probeReservation,
   'Provide a scratch HTTPS localhost site, two separate fixture accounts, the reservation probe and the local leaf certificate pins.')
+const { isApi, waitApi, clickApi } = siteApi(origin, (page, predicate) => page.waitForResponse(predicate))
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/site-recovery-browser')
 await mkdir(evidence, { recursive: true })
 
@@ -41,10 +43,8 @@ try {
   const peerCookie = await siteCookie(peer.context)
 
   const initialPage = await owner.page.goto(origin + '/login')
-  const security = await initialPage?.securityDetails()
-  assert(security?.protocol.startsWith('TLS') && await owner.page.evaluate(() => window.isSecureContext),
+  checks.tlsWebAuthn = await secureLoginProtocol(owner.page, initialPage,
     'Recovery acceptance must use a real TLS browser context.')
-  checks.tlsWebAuthn = security.protocol
   await enrollPasskey(owner.page, ownerTicket)
   const initialLogin = await passkey(owner.page)
   const originalIdentity = await authLogin(initialLogin, 1)
@@ -63,7 +63,7 @@ try {
   const unproved = await owner.context.request.post(origin + WireRoutes.RecoveryKeyIssue, {
     headers: { 'Content-Type': 'application/octet-stream', Origin: origin }, data: Buffer.from(command),
   })
-  assert.equal(unproved.status(), 428)
+  assertStatus(unproved, 428)
   await button(owner.page, 'Create Recovery Key').waitFor()
   await setVerified(owner, false)
   const rejectedUv = owner.page.waitForResponse(response =>
@@ -71,7 +71,7 @@ try {
     if (error.name !== 'TimeoutError') throw error
     return 'no browser submission'
   })
-  assert.equal((await clickApi(owner.page, WireRoutes.RecoveryKeyStepUpBegin, 'Create Recovery Key')).status(), 200)
+  assertStatus(await clickApi(owner.page, WireRoutes.RecoveryKeyStepUpBegin, 'Create Recovery Key'), 200)
   const browserBlocked = await rejectedUv
   const noIssuance = await owner.page.getByTestId('site-recovery-key').count() === 0
   assert(noIssuance && [401, 403, 'no browser submission'].includes(browserBlocked),
@@ -94,7 +94,7 @@ try {
   phase = 'retired-key'
   await openRecovery(replacement.page, first)
   const retired = await verifyRecovery(replacement.page)
-  assert.equal(retired.status(), 401)
+  assertStatus(retired, 401)
   checks.rotatedKeyRejected = retired.status()
   await replacement.page.getByText(recoveryFailed, { exact: true }).waitFor()
   await session(owner.context, 200)
@@ -103,19 +103,19 @@ try {
     phase = 'remove-final-passkey'
     const { page, context } = owner
     const authority = await context.request.get(origin + WireRoutes.Session)
-    assert.equal(authority.status(), 200)
+    assertStatus(authority, 200)
     const handle = authority.headers()[WireHeaders.CurrentSession.toLowerCase()]
     assert(/^[0-9a-f]{64}$/.test(handle), 'The current session handle is required.')
     const headers = { [WireHeaders.CurrentSession]: handle }
     const inventory = await context.request.get(origin + WireRoutes.SitePasskeys, { headers })
-    assert.equal(inventory.status(), 200)
+    assertStatus(inventory, 200)
     const list = decodeFrame(await inventory.body(), FrameType.SitePasskeys).payload
     assert.equal(new DataView(list.buffer, list.byteOffset, list.byteLength).getInt32(0, true), 1)
 
     const deniedBegin = await context.request.post(origin + WireRoutes.SitePasskeyRemoveCurrentBegin, {
       headers: { ...headers, Origin: origin },
     })
-    assert.equal(deniedBegin.status(), 401)
+    assertStatus(deniedBegin, 401)
     await session(context, 200)
     checks.removalWithoutRecoveryDenied = true
 
@@ -126,7 +126,7 @@ try {
       clickApi(page, WireRoutes.RecoveryKeyVerify, 'Remove with Passkey'), waitApi(page, WireRoutes.RecoveryKeyPow),
     ])
     await assertRecoveryProof(invalid, invalidProof)
-    assert.equal(invalid.status(), 401)
+    assertStatus(invalid, 401)
     await session(context, 200)
     checks.removalWithRotatedKeyDenied = true
 
@@ -140,7 +140,7 @@ try {
     await emptySuccess(keyReply)
     await assertRecoveryProof(keyReply, powReply)
     assertRecoveryCookie(await keyReply.headerValue('set-cookie'))
-    assert.equal(began.status(), 200)
+    assertStatus(began, 200)
     assert((await began.headerValue('cache-control'))?.includes('no-store'))
     decodeFrame(await began.body(), FrameType.PasskeyLoginBegin)
     await emptySuccess(complete)
@@ -190,7 +190,7 @@ try {
   await emptySuccess(verification)
   await assertRecoveryProof(verification, challenge)
   assertRecoveryCookie(await verification.headerValue('set-cookie'))
-  assert.equal(beginReply.status(), 200)
+  assertStatus(beginReply, 200)
   checks.sameKeyRetriedAfterLostVerification = true
   checks.committedDespiteLostResponse = true
   const repeated = await clickApi(replacement.page, WireRoutes.RecoveryKeyRebindComplete, 'Retry Passkey replacement')
@@ -205,15 +205,15 @@ try {
 
   phase = 'retire-old-identity'
   const stale = await request.newContext({ storageState: { cookies: [cookieBeforeRebind], origins: [] } })
-  try { assert.equal((await stale.get(origin + WireRoutes.Session)).status(), 401) }
+  try { assertStatus(await stale.get(origin + WireRoutes.Session), 401) }
   finally { await stale.dispose() }
   checks.oldSessionRevoked = true
   await owner.context.clearCookies({ name: siteCookieName })
-  assert.equal((await passkey(owner.page)).status(), 401)
+  assertStatus(await passkey(owner.page), 401)
   checks.oldPasskeyRejected = true
   await openRecovery(owner.page, second)
   const spent = await verifyRecovery(owner.page)
-  assert.equal(spent.status(), 401)
+  assertStatus(spent, 401)
   checks.usedKeyRejected = spent.status()
 
   phase = 'authenticate-replacement-with-mfa'
@@ -221,11 +221,7 @@ try {
   assert.equal(await authLogin(login, 2), originalIdentity)
   await session(replacement.context, 401)
   await replacement.page.getByLabel('Authenticator or recovery code', { exact: true }).waitFor()
-  const freshStep = Math.max(setupStep + 1, Math.floor(Date.now() / 30_000))
-  const challengeCode = totp(secret, freshStep)
-  secrets.push(challengeCode)
-  await replacement.page.getByLabel('Authenticator or recovery code', { exact: true }).fill(challengeCode)
-  assert.equal((await clickApi(replacement.page, WireRoutes.MfaChallengeVerify, 'Verify and log in')).status(), 200)
+  await completeSiteTotp(replacement.page, clickApi, secrets, secret, setupStep)
   await signedIn(replacement.page)
   const newState = await session(replacement.context, 200)
   assert(newState.name === originalState.name && newState.generation > preRecoveryState.generation,
@@ -264,19 +260,6 @@ async function siteBrowser(role) {
 
 function setVerified(fixture, isUserVerified) {
   return fixture.cdp.send('WebAuthn.setUserVerified', { authenticatorId: fixture.authenticatorId, isUserVerified })
-}
-
-function isApi(response, path, method) {
-  return response.url() === origin + path && response.request().method() === method
-}
-
-function waitApi(page, path) {
-  return page.waitForResponse(response => isApi(response, path, 'POST'))
-}
-
-async function clickApi(page, path, name) {
-  const [reply] = await Promise.all([waitApi(page, path), button(page, name).click()])
-  return reply
 }
 
 function assertNoSessionGrant(header) {
@@ -332,7 +315,7 @@ async function siteCookie(context) {
 
 async function session(context, status) {
   const reply = await context.request.get(origin + WireRoutes.Session)
-  assert.equal(reply.status(), status)
+  assertStatus(reply, status)
   if (status === 200) return decodeSession(decodeFrame(await reply.body(), FrameType.OperatorSession).payload)
 }
 
@@ -344,7 +327,7 @@ async function signedIn(page) {
 async function enrollPasskey(page, ticket) {
   await button(page, 'Set up your first Passkey').click()
   await page.getByLabel('One-time setup ticket', { exact: true }).fill(ticket)
-  assert.equal((await clickApi(page, WireRoutes.PasskeyProvisionComplete, 'Create Passkey')).status(), 200)
+  assertStatus(await clickApi(page, WireRoutes.PasskeyProvisionComplete, 'Create Passkey'), 200)
   await page.getByText('Passkey created. Log in with your Passkey.', { exact: true }).waitFor()
 }
 
@@ -354,7 +337,7 @@ async function passkey(page) {
 }
 
 async function authLogin(response, expectedPhase) {
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   const payload = decodeFrame(await response.body(), FrameType.AuthLoginFlow).payload
   assert.equal(payload[4], expectedPhase)
   const account = new DataView(payload.buffer, payload.byteOffset, payload.byteLength).getInt32(0, true)
@@ -365,9 +348,9 @@ async function authLogin(response, expectedPhase) {
 async function issue(page, label) {
   const verified = waitApi(page, WireRoutes.RecoveryKeyStepUpComplete)
   const [verification, result] = await Promise.all([verified, clickApi(page, WireRoutes.RecoveryKeyIssue, label)])
-  assert.equal(verification.status(), 200)
+  assertStatus(verification, 200)
   assertWebAuthnUv(verification.request().postDataBuffer())
-  assert.equal(result.status(), 200)
+  assertStatus(result, 200)
   assert(Boolean((await result.request().allHeaders())[WireHeaders.MfaProof.toLowerCase()]), 'Key issuance omitted the step-up proof.')
   const keyNode = page.getByTestId('site-recovery-key')
   const key = await keyNode.textContent()
@@ -404,7 +387,7 @@ async function verifyRecovery(page) {
 }
 
 async function assertRecoveryProof(reply, challenge) {
-  assert.equal(challenge.status(), 200)
+  assertStatus(challenge, 200)
   assert(Boolean((await reply.request().allHeaders())[WireHeaders.PowProof.toLowerCase()]),
     'The browser recovery request did not include its scoped proof of work.')
 }

@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import {
-  decodeArticleCommand, decodeAuthoringWorkspaceGroups, decodeDraft, encodeDraft, FrameType, WireHeaders, WireRoutes,
+  decodeArticleCommand, decodeAuthoringWorkspaceGroups, encodeDraft, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { authorFixture, button, chromium, expect, holdResponse, readDraft, submitArticle } from './browser-authoring-fixture.mjs'
 import { roleWithExactName } from './role-locators.mjs'
@@ -69,6 +69,26 @@ async function openById(page, id, command = 'Open in other group') {
   const scope = await inlineInput.isVisible() ? page : await openWorkspaceDialog(page)
   await scope.getByLabel('Article ID', { exact: true }).fill(String(id))
   await button(scope, command).click()
+}
+
+async function openDraft(page, draft, command) {
+  await openById(page, draft.id, command)
+  await expect(page).toHaveURL(editPath(draft.id))
+}
+
+async function editInGroup(page, pane, draft) {
+  await press(page, button(pane, 'Edit in this group'))
+  await expect(page).toHaveURL(editPath(draft.id))
+}
+
+async function reopenDraft(page, draft) {
+  await openWorkspaceDialog(page)
+  await button(workspaceDialog(page), `Reopen Article ${draft.id}`).click()
+  await expect(page).toHaveURL(editPath(draft.id))
+}
+
+function expectWorkspaceMessage(page, message) {
+  return expect(page.getByText(message, { exact: true })).toBeVisible()
 }
 
 async function expectPane(pane, draft, source, writable) {
@@ -218,8 +238,7 @@ async function exerciseNativePageZoom(author, first, second) {
         monitor(page)
         await page.goto(editPath(first.id))
         await expectPane(group(page, 'Primary'), first, first.body, true)
-        await openById(page, second.id)
-        await expect(page).toHaveURL(editPath(second.id))
+        await openDraft(page, second)
         await expectPane(group(page, 'Secondary'), second, second.body, true)
         const primary = group(page, 'Primary')
         if (factor === 1) {
@@ -323,8 +342,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
   await expect(page).toHaveURL(editPath(alternate.id))
   await button(page, `Pin ${alternate.title}`).click()
   await expect(tab(page, alternate, 'Pinned')).toBeVisible()
-  await openById(page, tail.id, 'Open article')
-  await expect(page).toHaveURL(editPath(tail.id))
+  await openDraft(page, tail, 'Open article')
   await press(page, tab(page, alternate, 'Pinned'))
   await expect(page).toHaveURL(editPath(alternate.id))
   await expectPane(primary, alternate, alternate.body, true)
@@ -366,14 +384,14 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     })
     await button(dialog, 'Close tabs').click()
     await expect(page.locator('html')).toHaveAttribute('data-recovery-read-aborted', '1')
-    await expect(page.getByText('Could not verify recovery copies. Save the drafts before closing these tabs.', { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(page, 'Could not verify recovery copies. Save the drafts before closing these tabs.')
     await expect(others).toBeFocused()
     await expect(tabList(page).getByRole('tab')).toHaveCount(4)
     await expect(roleWithExactName(workspaceDialog(page), 'heading', 'Recently closed')).toHaveCount(0)
 
     await press(page, right)
     await expect(tab(page, tail, 'Preview')).toHaveCount(0)
-    await expect(page.getByText('Closed 1 tab.', { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(page, 'Closed 1 tab.')
     await expect(tab(page, alternate, 'Pinned')).toBeFocused()
     await expect(tab(page, first, 'Unsaved')).toBeVisible()
     await openWorkspaceDialog(page)
@@ -408,12 +426,8 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
       await expectSameEditor(body(secondary), secondNode)
     } finally { await activeNode.dispose() }
 
-    await openWorkspaceDialog(page)
-    await button(workspaceDialog(page), `Reopen Article ${alternate.id}`).click()
-    await expect(page).toHaveURL(editPath(alternate.id))
-    await openWorkspaceDialog(page)
-    await button(workspaceDialog(page), `Reopen Article ${tail.id}`).click()
-    await expect(page).toHaveURL(editPath(tail.id))
+    await reopenDraft(page, alternate)
+    await reopenDraft(page, tail)
     await press(page, tab(page, alternate, 'Pinned'))
     await expect(page).toHaveURL(editPath(alternate.id))
     await expectPane(primary, alternate, alternate.body, true)
@@ -421,7 +435,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await press(page, others)
     await expect(listedTabs).toHaveText(confirmedTargets)
     await button(dialog, 'Close tabs').click()
-    await expect(page.getByText('Closed 2 tabs.', { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(page, 'Closed 2 tabs.')
     await expect(tabList(page).getByRole('tab')).toHaveCount(2)
     await expect(tab(page, first, 'Unsaved')).toHaveCount(0)
     await expect(tab(page, tail, 'Preview')).toHaveCount(0)
@@ -438,9 +452,7 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await expect(body(primary)).toHaveValue(localSource)
     await expect(roleWithExactName(page, 'heading', 'Recover an unsaved draft')).toHaveCount(0)
 
-    await openWorkspaceDialog(page)
-    await button(workspaceDialog(page), `Reopen Article ${tail.id}`).click()
-    await expect(page).toHaveURL(editPath(tail.id))
+    await reopenDraft(page, tail)
     await press(page, tab(page, alternate, 'Pinned'))
     await expect(page).toHaveURL(editPath(alternate.id))
     await openWorkspaceDialog(page)
@@ -450,13 +462,11 @@ async function exerciseTabClose({ page, first, localSource, alternate, tail, sec
     await dialog.getByText('Discard unsaved edits from this browser', { exact: true }).click()
     await expect(discard).toBeChecked()
     await button(dialog, 'Close tabs').click()
-    await expect(page.getByText('Closed 2 tabs.', { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(page, 'Closed 2 tabs.')
     await expect(tabList(page).getByRole('tab')).toHaveCount(2)
     await expect(tab(page, alternate, 'Pinned')).toBeFocused()
     await expectSameEditor(body(secondary), secondNode)
-    await openWorkspaceDialog(page)
-    await button(workspaceDialog(page), `Reopen Article ${first.id}`).click()
-    await expect(page).toHaveURL(editPath(first.id))
+    await reopenDraft(page, first)
     await expectPane(primary, first, first.body, true)
     await expect(roleWithExactName(page, 'heading', 'Recover an unsaved draft')).toHaveCount(0)
   } finally { await alternateNode.dispose() }
@@ -514,8 +524,7 @@ async function exerciseSaveAndClose(author) {
   const tabs = tabList(page).getByRole('tab')
 
   async function edit(draft) {
-    await openById(page, draft.id, 'Open article')
-    await expect(page).toHaveURL(editPath(draft.id))
+    await openDraft(page, draft, 'Open article')
     await expect(body(page)).toBeEditable()
     await body(page).fill(localText(draft))
     await expect(tab(page, draft, 'Unsaved')).toBeVisible()
@@ -549,7 +558,7 @@ async function exerciseSaveAndClose(author) {
     await press(page, anchorTab)
     await expect(page).toHaveURL(editPath(anchor.id))
     await chooseSave()
-    await expect(page.getByText('Closed 2 tabs.', { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(page, 'Closed 2 tabs.')
     await expect(tabs).toHaveCount(1)
     await expect(anchorTab).toBeFocused()
     await expect(page).toHaveURL(editPath(anchor.id))
@@ -565,8 +574,7 @@ async function exerciseSaveAndClose(author) {
 
     await chooseSave()
     await expect(page.locator('html')).toHaveAttribute('data-save-cleanup-aborted', '1')
-    await expect(page.getByText(`Saved ${first.title}. Recovery cleanup for ${first.title} could not be confirmed. The tabs are still open.`,
-      { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(page, `Saved ${first.title}. Recovery cleanup for ${first.title} could not be confirmed. The tabs are still open.`)
     await expect(page).toHaveURL(editPath(anchor.id))
     await expect(others).toBeFocused()
     await expect(tabs).toHaveCount(3)
@@ -577,7 +585,7 @@ async function exerciseSaveAndClose(author) {
     await expectStored(second, second.body, second.revision)
 
     await chooseSave()
-    await expect(page.getByText('Closed 2 tabs.', { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(page, 'Closed 2 tabs.')
     await expect(tabs).toHaveCount(1)
     await expect(anchorTab).toBeFocused()
     await expect(page).toHaveURL(editPath(anchor.id))
@@ -607,8 +615,7 @@ async function exerciseSaveAndClose(author) {
     await expect(button(page, `Close ${anchor.title}`)).toBeDisabled()
     await expect(tabs).toHaveCount(3)
     releaseLostReply.resolve()
-    await expect(page.getByText(`Could not confirm the save for ${interrupted.title}. Retry the same save from its tab. The tabs are still open.`,
-      { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(page, `Could not confirm the save for ${interrupted.title}. Retry the same save from its tab. The tabs are still open.`)
     await expect(body(page)).toBeEditable()
     await expect(page).toHaveURL(editPath(anchor.id))
     await expect(tab(page, interrupted, 'Recovery needed')).toBeVisible()
@@ -627,8 +634,7 @@ async function exerciseSaveAndClose(author) {
     assert.equal(command(requests[0]).id, interrupted.id)
     assert.equal(requests.length, 3)
     assert.deepEqual(requests[1], requests[0], 'A lost receipt must replay the identical command and idempotency key')
-    await expect(page.getByText(`Saved ${interrupted.title}. ${conflicting.title} changed on the server. Reload its revision before saving. The tabs are still open.`,
-      { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(page, `Saved ${interrupted.title}. ${conflicting.title} changed on the server. Reload its revision before saving. The tabs are still open.`)
     await expect(page).toHaveURL(editPath(anchor.id))
     await expect(others).toBeFocused()
     await expect(tabs).toHaveCount(3)
@@ -683,8 +689,7 @@ async function exerciseSingleDirtyClose(author) {
     await page.goto(editPath(anchor.id))
     await expect(body(page)).toBeEditable()
     await pinArticle(page, anchor)
-    await openById(page, victim.id, 'Open article')
-    await expect(page).toHaveURL(editPath(victim.id))
+    await openDraft(page, victim, 'Open article')
     await expect(body(page)).toBeEditable()
     await body(page).fill(local)
     await expect.poll(() => draftCopy(local)).toBe(true)
@@ -698,7 +703,7 @@ async function exerciseSingleDirtyClose(author) {
     const discard = 'Discard unsaved edits from this browser'
     await confirmClose(discard)
     await expect(page.locator('html')).toHaveAttribute('data-save-cleanup-aborted', '1')
-    await expect(page.getByText('Could not discard the recovery copies. The tabs are still open.', { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(page, 'Could not discard the recovery copies. The tabs are still open.')
     await assertStillOpen('Unsaved', local)
 
     await confirmClose(discard)
@@ -721,8 +726,7 @@ async function exerciseSingleDirtyClose(author) {
       saves.push(route.request().postDataBuffer())
       if (saves.length > 2) return route.continue()
       const real = await route.fetch({ maxRetries: 0, maxRedirects: 0 })
-      assert.equal(real.status(), 200)
-      const stored = decodeDraft(decodeFrame(await real.body(), FrameType.Draft).payload)
+      const stored = await readDraft(real)
       assert.equal(stored.title, victim.title)
       assert.equal(stored.body, savedSource)
       assert.equal(stored.revision, victim.revision + 1n)
@@ -740,13 +744,12 @@ async function exerciseSingleDirtyClose(author) {
         page.waitForResponse(response => response.url() === savePath && response.request().method() === 'POST'),
         confirmClose(option),
       ])
-      assert.equal(reply.status(), 200)
-      const returned = decodeDraft(decodeFrame(await reply.body(), FrameType.Draft).payload)
+      const returned = await readDraft(reply)
       assert.deepEqual(returned, { ...victim, revision: victim.revision + 1n,
         title: expected === 1 ? `${victim.title} incorrect` : victim.title,
         body: expected === 1 ? savedSource : 'Incorrect source.' })
       assert.equal(saves.length, expected)
-      await expect(page.getByText(failure, { exact: true })).toBeVisible()
+      await expectWorkspaceMessage(page, failure)
       await assertStillOpen('Recovery needed', savedSource)
     }
     await confirmClose(option)
@@ -777,7 +780,7 @@ async function exerciseSingleDirtyClose(author) {
     const denied = page.waitForResponse(response => response.url() === draftPath(victim.id))
     await press(page, recent)
     assert.equal((await denied).status(), 404)
-    await expect(page.getByText('The article is unavailable.', { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(page, 'The article is unavailable.')
     await expect(recent).toHaveCount(0)
     await expect(page).toHaveURL(editPath(anchor.id))
     await expect(body(page)).toHaveValue(anchor.body)
@@ -956,8 +959,7 @@ async function exerciseGroupActions({ page, readLayout, first, alternate, second
   await expectSameEditor(body(primary), movingEditor)
   await expectHiddenEditor(previewEditor)
   const storedDraft = await page.request.get(draftPath(secondaryPreview.id))
-  assert.equal(storedDraft.status(), 200)
-  assert.deepEqual(decodeDraft(decodeFrame(await storedDraft.body(), FrameType.Draft).payload), secondaryPreview)
+  assert.deepEqual(await readDraft(storedDraft), secondaryPreview)
   await capture(page, 'workspace-split-merged')
   await previewEditor.dispose()
   await movingEditor.dispose()
@@ -980,19 +982,15 @@ async function exerciseSavedWorkspace({ author, session, outsider, outsiderSessi
     const writer = await writerContext.newPage()
     monitor(writer)
     await writer.goto(workspacePath)
-    await expect(writer.getByText('Open an article or start a new draft.', { exact: true })).toBeVisible()
-    await openById(writer, first.id, 'Open article')
-    await expect(writer).toHaveURL(editPath(first.id))
+    await expectWorkspaceMessage(writer, 'Open an article or start a new draft.')
+    await openDraft(writer, first, 'Open article')
     await button(writer, `Pin ${first.title}`).click()
-    await openById(writer, alternate.id, 'Open article')
-    await expect(writer).toHaveURL(editPath(alternate.id))
+    await openDraft(writer, alternate, 'Open article')
     await tab(writer, first, 'Pinned').click()
     await expect(writer).toHaveURL(editPath(first.id))
-    await openById(writer, second.id)
-    await expect(writer).toHaveURL(editPath(second.id))
+    await openDraft(writer, second)
     await button(writer, `Pin ${second.title}`).click()
-    await openById(writer, secondaryPreview.id, 'Open article')
-    await expect(writer).toHaveURL(editPath(secondaryPreview.id))
+    await openDraft(writer, secondaryPreview, 'Open article')
     await tab(writer, second, 'Pinned').click()
     await expect(writer).toHaveURL(editPath(second.id))
 
@@ -1027,8 +1025,7 @@ async function exerciseSavedWorkspace({ author, session, outsider, outsiderSessi
     await reopened.waitForFunction(() => !navigator.onLine)
     await button(reopened, `Close ${secondaryPreview.title}`).click()
     await expect(tab(reopened, secondaryPreview, 'Preview')).toHaveCount(0)
-    await expect(reopened.getByText('Layout changes stay in this tab while offline. Reload the workspace to resume saving layouts.',
-      { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(reopened, 'Layout changes stay in this tab while offline. Reload the workspace to resume saving layouts.')
     assert.deepEqual(await savedGroups(writerContext, session), persisted)
     await reopenedContext.setOffline(false)
     await reopened.waitForFunction(() => navigator.onLine)
@@ -1053,7 +1050,7 @@ async function exerciseSavedWorkspace({ author, session, outsider, outsiderSessi
     assert.deepEqual(coordinates(otherLayout), { primary: [], secondary: [], primaryActive: 0, secondaryActive: 0, focusedGroup: 0 })
     assert.deepEqual(await enterSavedWorkspace(other), otherLayout)
     await expect(other).toHaveURL(workspacePath)
-    await expect(other.getByText('Open an article or start a new draft.', { exact: true })).toBeVisible()
+    await expectWorkspaceMessage(other, 'Open an article or start a new draft.')
     await expect(other.locator('.el-markdown-editor')).toHaveCount(0)
     await expect(tabList(other)).toHaveCount(0)
     await other.close()
@@ -1102,7 +1099,7 @@ try {
   const denied = page.waitForResponse(response => response.url() === draftPath(foreign.id))
   await openById(page, foreign.id)
   assert.equal((await denied).status(), 404)
-  await expect(page.getByText('The article is unavailable.', { exact: true })).toBeVisible()
+  await expectWorkspaceMessage(page, 'The article is unavailable.')
   await expect(page).toHaveURL(editPath(first.id))
   await expect(secondary).toHaveCount(0)
   await expect(separator(page)).toHaveCount(0)
@@ -1152,12 +1149,10 @@ try {
   await expect(button(headings, 'Secondary first heading')).toBeVisible()
   await page.keyboard.press('End')
   await expect(lastHeading).toBeFocused()
-  await press(page, button(primary, 'Edit in this group'))
-  await expect(page).toHaveURL(editPath(first.id))
+  await editInGroup(page, primary, first)
   await expect(headings).toBeHidden()
   await expect(button(primary, 'Outline')).toHaveAttribute('aria-expanded', 'false')
-  await press(page, button(secondary, 'Edit in this group'))
-  await expect(page).toHaveURL(editPath(second.id))
+  await editInGroup(page, secondary, second)
   await expect(lastHeading).toBeVisible()
   await expect(lastHeading).toHaveAttribute('tabindex', '0')
   await expect(body(secondary)).toBeFocused()
@@ -1166,8 +1161,7 @@ try {
   await expect(button(secondary, 'Outline')).toHaveAttribute('aria-expanded', 'false')
   observations.push({ mountedGroupOutlineAndHeadingRetained: true, groupActivationKeepsEditorFocus: true })
 
-  await press(page, button(primary, 'Edit in this group'))
-  await expect(page).toHaveURL(editPath(first.id))
+  await editInGroup(page, primary, first)
   await expectPane(primary, first, localSource, true)
   await expectPane(secondary, second, second.body, false)
   await expect(body(primary)).toBeFocused()
@@ -1238,8 +1232,7 @@ try {
     assert(Math.abs(width - splitter.pointerPaneWidths[index]) <= 1)
   assert.deepEqual(await selection(body(secondary)), secondSelection)
 
-  await press(page, button(primary, 'Edit in this group'))
-  await expect(page).toHaveURL(editPath(first.id))
+  await editInGroup(page, primary, first)
   await expect(body(primary)).toBeFocused()
   assert.deepEqual(await selection(body(primary)), firstSelection)
   await body(primary).press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z')
@@ -1247,8 +1240,7 @@ try {
   await body(primary).press(process.platform === 'darwin' ? 'Meta+Shift+z' : 'Control+Shift+z')
   await expect(body(primary)).toHaveValue(localSource)
   await expect(body(secondary)).toHaveValue(second.body)
-  await press(page, button(secondary, 'Edit in this group'))
-  await expect(page).toHaveURL(editPath(second.id))
+  await editInGroup(page, secondary, second)
   await expect(body(secondary)).toBeFocused()
   assert.deepEqual(await selection(body(secondary)), secondSelection)
 
@@ -1261,8 +1253,7 @@ try {
     response.request().method() === 'POST')
   await button(page, 'Save draft').click()
   const receipt = await save
-  assert.equal(receipt.status(), 200)
-  const savedSecond = decodeDraft(decodeFrame(await receipt.body(), FrameType.Draft).payload)
+  const savedSecond = await readDraft(receipt)
   assert.equal(savedSecond.id, second.id)
   assert(savedSecond.revision > second.revision)
   assert.equal(savedSecond.body, second.body + savedSecondSuffix)
@@ -1270,18 +1261,14 @@ try {
   await expectPane(secondary, savedSecond, savedSecond.body, true)
   await expectSameEditor(body(secondary), secondNode)
   const storedFirst = await author.request.get(draftPath(first.id))
-  assert.equal(storedFirst.status(), 200)
-  assert.deepEqual(decodeDraft(decodeFrame(await storedFirst.body(), FrameType.Draft).payload), first)
+  assert.deepEqual(await readDraft(storedFirst), first)
 
   // An inactive tab already owned by the primary group must reopen there despite the opposite target.
-  await press(page, button(primary, 'Edit in this group'))
-  await expect(page).toHaveURL(editPath(first.id))
-  await openById(page, alternate.id, 'Open article')
-  await expect(page).toHaveURL(editPath(alternate.id))
+  await editInGroup(page, primary, first)
+  await openDraft(page, alternate, 'Open article')
   await expectPane(primary, alternate, alternate.body, true)
   await expectPane(secondary, savedSecond, savedSecond.body, false)
-  await openById(page, first.id)
-  await expect(page).toHaveURL(editPath(first.id))
+  await openDraft(page, first)
   await expectPane(primary, first, localSource, true)
   await expectPane(secondary, savedSecond, savedSecond.body, false)
   await expectSameEditor(body(secondary), secondNode)

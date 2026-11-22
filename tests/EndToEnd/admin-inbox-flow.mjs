@@ -190,11 +190,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   if (live || process.env.FSUSBLOG_TEST_ADMIN_INBOX_REPLY === '1') {
     const reply = 'Inbox QA reply sent by the current administrator.'
     await panel.getByLabel('Reply to the account', { exact: true }).fill(reply)
-    const proof = page.waitForResponse(response => response.url().endsWith('/reply-pow.aeds') && response.request().method() === 'POST')
-    const saved = page.waitForResponse(response => response.url().endsWith('/reply.aeds') && response.request().method() === 'POST')
-    await exactButton(panel, 'Send reply').click()
-    assert.equal((await proof).status(), 200)
-    assert.equal((await saved).status(), 200)
+    await submitInboxAction(page, panel, '/reply-pow.aeds', '/reply.aeds', 'Send reply')
     await panel.getByText('Reply sent to the account.', { exact: true }).waitFor()
     await panel.getByText(reply, { exact: true }).waitFor()
     const publicOrigin = await context.request.get(siteOrigin + path)
@@ -236,11 +232,7 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
       await panel.getByRole('combobox', { name: 'New conversation status' }).click()
       await roleWithExactName(page, 'option', 'Pending').click()
       await panel.getByLabel('Reason for changing status', { exact: true }).fill(reason)
-      const proof = page.waitForResponse(response => response.url().endsWith('/status-pow.aeds') && response.request().method() === 'POST')
-      const saved = page.waitForResponse(response => response.url().endsWith('/status.aeds') && response.request().method() === 'POST')
-      await exactButton(panel, 'Save status').click()
-      assert.equal((await proof).status(), 200)
-      assert.equal((await saved).status(), 200)
+      await submitInboxAction(page, panel, '/status-pow.aeds', '/status.aeds', 'Save status')
       await panel.getByText('Conversation status saved.', { exact: true }).waitFor()
       await accountThread.getByText('待处理', { exact: true }).waitFor()
       assert.equal(await accountThread.getByText(reason, { exact: true }).count(), 0)
@@ -359,6 +351,15 @@ export async function prepareAdminInboxWakeProbe(context, adminOrigin) {
       if (sendBody) socket.send(new Uint8Array(1))
     }, { url: wakeUrl.href, protocol: wakeProtocol, sendBody })
   }
+}
+
+async function submitInboxAction(page, panel, proofPath, commandPath, button) {
+  const waitForPost = path => page.waitForResponse(response => response.url().endsWith(path) && response.request().method() === 'POST')
+  const proof = waitForPost(proofPath)
+  const saved = waitForPost(commandPath)
+  await exactButton(panel, button).click()
+  assert.equal((await proof).status(), 200)
+  assert.equal((await saved).status(), 200)
 }
 
 function upgradeStatus(endpoint, origin, cookie) {

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { chromium, submitArticle } from './browser-authoring-fixture.mjs'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_URL
 const firstTicket = process.env.FSUSBLOG_TEST_TICKET
@@ -68,7 +68,7 @@ try {
   const second = await mobile.newPage()
   const errors = [monitor(owner), monitor(second), monitor(anonymous)]
   await readyInventory(anonymous, inventoryPath, '文章管理')
-  await anonymous.getByText('请先登录作者账号', { exact: true }).waitFor()
+  await exactText(anonymous, '请先登录作者账号').waitFor()
   assert.equal(await anonymous.getByRole('form', { name: '筛选文章' }).count(), 0)
   assert.equal((await anonymous.request.get(new URL(`${WireRoutes.AuthorArticles}?scope=active`, origin).href)).status(), 401)
   await signIn(owner, firstTicket)
@@ -89,20 +89,20 @@ try {
   await draft(mobile, secondTitle, summaryNeedle)
 
   await readyInventory(owner, inventoryPath, '文章管理')
-  await owner.getByText('共 22 篇', { exact: true }).waitFor()
+  await exactText(owner, '共 22 篇').waitFor()
   await roleWithExactName(owner, 'heading', articles.at(-1).title).waitFor()
   assert.equal(await roleWithExactName(owner, 'heading', articles[0].title).count(), 0)
-  assert.equal(await owner.getByText(secondTitle, { exact: true }).count(), 0)
-  await owner.getByRole('region', { name: '文章列表' }).getByText('草稿', { exact: true }).first().waitFor()
+  assert.equal(await exactText(owner, secondTitle).count(), 0)
+  await exactText(owner.getByRole('region', { name: '文章列表' }), '草稿').first().waitFor()
   await owner.screenshot({ path: join(evidence, 'author-inventory-desktop.png'), animations: 'disabled' })
   await owner.getByRole('button', { name: '下一页' }).click()
-  await owner.getByText('第 2 页', { exact: true }).waitFor()
+  await exactText(owner, '第 2 页').waitFor()
   await roleWithExactName(owner, 'heading', articles[0].title).waitFor()
-  const keyword = owner.getByLabel('标题或摘要', { exact: true })
+  const keyword = exactLabel(owner, '标题或摘要')
   const search = exactButton(owner.getByRole('form', { name: '筛选文章' }), '搜索')
   await keyword.fill(articles[10].title)
   await search.click()
-  await owner.getByText('共 1 篇', { exact: true }).waitFor()
+  await exactText(owner, '共 1 篇').waitFor()
   await roleWithExactName(owner, 'heading', articles[10].title).waitFor()
   await keyword.fill(summaryNeedle)
   const summaryResult = owner.waitForResponse(response => {
@@ -114,7 +114,7 @@ try {
   const summaryResponse = await summaryResult
   assert.equal(summaryResponse.status(), 200)
   assert.equal((await summaryResponse.body()).includes(Buffer.from(summaryNeedle)), false)
-  await owner.getByText('共 1 篇', { exact: true }).waitFor()
+  await exactText(owner, '共 1 篇').waitFor()
   assert.equal(await roleWithExactName(owner, 'heading', secondTitle).count(), 0)
   const summaryArticle = articles[12]
   const edit = roleWithExactName(owner, 'link', `编辑 ${summaryArticle.title}`)
@@ -128,7 +128,7 @@ try {
   const deleteButton = exactButton(owner, `移至回收站 ${published.title}`)
   const deleteDialog = roleWithExactName(owner, 'dialog', '移至回收站')
   await deleteButton.click()
-  await deleteDialog.getByText(`「${published.title}」`, { exact: true }).waitFor()
+  await exactText(deleteDialog, `「${published.title}」`).waitFor()
   await exactButton(deleteDialog, '取消').click()
   await deleteDialog.waitFor({ state: 'hidden' })
   assert.equal((await anonymous.request.get(publicUrl)).status(), 200)
@@ -139,15 +139,15 @@ try {
   const staleDelete = mutationResponse(owner, WireRoutes.Delete)
   await exactButton(deleteDialog, '移至回收站').click()
   assert.equal((await staleDelete).status(), 409)
-  await owner.getByText('文章状态已变更。请在更新后的列表中确认后再操作。', { exact: true }).waitFor()
+  await exactText(owner, '文章状态已变更。请在更新后的列表中确认后再操作。').waitFor()
   assert.equal((await anonymous.request.get(publicApi)).status(), 200)
 
   await deleteButton.click()
   const acceptedDelete = mutationResponse(owner, WireRoutes.Delete)
   await exactButton(deleteDialog, '移至回收站').click()
   assert.equal((await acceptedDelete).status(), 200)
-  await owner.getByText('文章已移至回收站。', { exact: true }).waitFor()
-  await owner.getByText('共 21 篇', { exact: true }).waitFor()
+  await exactText(owner, '文章已移至回收站。').waitFor()
+  await exactText(owner, '共 21 篇').waitFor()
   assert.equal(await roleWithExactName(owner, 'heading', published.title).count(), 0)
   assert.equal((await anonymous.request.get(publicUrl)).status(), 404)
   assert.equal((await anonymous.request.get(publicApi)).status(), 404)
@@ -160,22 +160,22 @@ try {
 
   await readyInventory(second, inventoryPath, '文章管理')
   await roleWithExactName(second, 'heading', secondTitle).waitFor()
-  await second.getByText('共 1 篇', { exact: true }).waitFor()
-  assert.equal(await second.getByText(articles.at(-1).title, { exact: true }).count(), 0)
+  await exactText(second, '共 1 篇').waitFor()
+  assert.equal(await exactText(second, articles.at(-1).title).count(), 0)
   const fit = await second.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
   assert.equal(fit, true, 'Narrow inventory must fit without page overflow.')
-  await second.getByRole('region', { name: '文章列表' }).getByText('草稿', { exact: true }).waitFor()
+  await exactText(second.getByRole('region', { name: '文章列表' }), '草稿').waitFor()
   await second.screenshot({ path: join(evidence, 'author-inventory-mobile.png'), animations: 'disabled' })
   await roleWithExactName(second, 'link', '回收站').click()
-  await second.getByText('回收站没有匹配的文章', { exact: true }).waitFor()
-  assert.equal(await second.getByText(published.title, { exact: true }).count(), 0)
+  await exactText(second, '回收站没有匹配的文章').waitFor()
+  assert.equal(await exactText(second, published.title).count(), 0)
   const foreignRestore = await submitCommand(mobile, WireRoutes.Restore, { id: published.id,
     expectedRevision: updated.revision + 1n, title: '', body: '' })
   assert.equal(foreignRestore.status(), 404)
 
   await exactButton(owner, `恢复文章 ${published.title}`).click()
   const restoreDialog = roleWithExactName(owner, 'dialog', '恢复文章')
-  await restoreDialog.getByText('恢复后可继续编辑，文章保持非公开状态。', { exact: true }).waitFor()
+  await exactText(restoreDialog, '恢复后可继续编辑，文章保持非公开状态。').waitFor()
   await owner.screenshot({ path: join(evidence, 'author-inventory-restore.png'), animations: 'disabled' })
   const acceptedRestore = mutationResponse(owner, WireRoutes.Restore)
   await exactButton(restoreDialog, '恢复文章').click()
@@ -187,11 +187,11 @@ try {
   assert.equal(recovered.revision, updated.revision + 2n)
   assert.equal(recovered.body, updated.body)
   assert.equal(recovered.published, false)
-  await owner.getByText('回收站没有匹配的文章', { exact: true }).waitFor()
+  await exactText(owner, '回收站没有匹配的文章').waitFor()
   await roleWithExactName(owner, 'link', '文章列表').click()
   await roleWithExactName(owner, 'link', `编辑 ${published.title}`).waitFor()
   const restoredRow = owner.locator('li').filter({ has: roleWithExactName(owner, 'heading', published.title) })
-  await restoredRow.getByText('已撤回', { exact: true }).waitFor()
+  await exactText(restoredRow, '已撤回').waitFor()
   assert.equal((await anonymous.request.get(publicUrl)).status(), 404)
   assert.equal((await anonymous.request.get(publicApi)).status(), 404)
 

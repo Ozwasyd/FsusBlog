@@ -6,3 +6,11 @@ export function roleWithExactName(scope, role, name) {
 export function exactButton(scope, name) {
   return roleWithExactName(scope, 'button', name)
 }
+
+export function exactText(scope, text) {
+  return scope.getByText(text, { exact: true })
+}
+
+export function exactLabel(scope, label) {
+  return scope.getByLabel(label, { exact: true })
+}

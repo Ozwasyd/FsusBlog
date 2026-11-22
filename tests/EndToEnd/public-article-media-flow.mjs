@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
 import { api } from '../../src/Contracts/client.ts'
+import { withMediaSession } from './media-session-fixture.mjs'
 import { decodeMediaItems, uploadMedia } from '../../src/Contracts/private-media.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
@@ -77,9 +78,17 @@ try {
       const cover = roleWithExactName(publicPage, 'img', 'Article cover')
       const attachmentPath = WireRoutes.ArticleMedia.replace('{id:int}', String(articleId))
 
+      async function assertNotPublic(url) {
+        assert.equal((await anonymous.request.get(url)).status(), 404)
+      }
+
+      function waitForPost(path) {
+        return page.waitForResponse(response => response.url() === origin + path && response.request().method() === 'POST')
+      }
+
       async function saveCover(name, assetId) {
         const [saved, attachments] = await Promise.all([
-          page.waitForResponse(response => response.url() === origin + WireRoutes.ArticleCoverSave && response.request().method() === 'POST'),
+          waitForPost(WireRoutes.ArticleCoverSave),
           page.waitForResponse(response => new URL(response.url()).pathname === attachmentPath &&
             response.headers()[WireHeaders.ArticleCover.toLowerCase()] === assetId),
           exactButton(page, `Use ${name} as draft cover`).press('Enter'),
@@ -123,11 +132,11 @@ try {
       await exactButton(page, 'Cancel image publication').press('Enter')
       await confirmation.waitFor({ state: 'hidden' })
       assert.equal(explicitWrites.length, 0, 'Cancel must not issue a publish-images request.')
-      assert.equal((await anonymous.request.get(articlePath)).status(), 404)
+      await assertNotPublic(articlePath)
 
       phase = `${device}: ordinary publication stays private`
       await closeInspector(page)
-      const ordinary = page.waitForResponse(response => response.url() === origin + WireRoutes.Publish && response.request().method() === 'POST')
+      const ordinary = waitForPost(WireRoutes.Publish)
       await exactButton(page, 'Publish article').click()
       assert.equal((await ordinary).status(), 200)
       await page.getByText('Article published.', { exact: false }).waitFor()
@@ -137,7 +146,7 @@ try {
       assert.equal(ordinaryRelease.cover, '')
       const ordinaryManifest = await readManifest(anonymous, articleId, ordinaryRelease.publication)
       assert.deepEqual(ordinaryManifest.images, [])
-      assert.equal((await anonymous.request.get(rawUrl(articleId, ordinaryRelease.publication, chosenPreview.digest))).status(), 404)
+      await assertNotPublic(rawUrl(articleId, ordinaryRelease.publication, chosenPreview.digest))
       const manifestReads = []
       publicPage.on('request', request => {
         if (request.method() === 'GET' && request.url().startsWith(origin + '/api/v2/public/articles/') && request.url().endsWith('/media.aeds'))
@@ -165,7 +174,7 @@ try {
         await confirmation.waitFor()
         assert.equal(await reviewPanel.getByText('Article cover', { exact: false }).count(), asCover ? 1 : 0)
         const [receipt] = await Promise.all([
-          page.waitForResponse(response => response.url() === origin + publishPath && response.request().method() === 'POST'),
+          waitForPost(publishPath),
           confirm.press('Enter'),
         ])
         assert.equal(receipt.status(), 200)
@@ -193,7 +202,7 @@ try {
       assert.equal(omitted.cover, '')
       assert.equal(omitted.media, '1')
       assert.equal((await readManifest(anonymous, articleId, omitted.publication)).images[0].digest, chosenPreview.digest)
-      assert.equal((await anonymous.request.get(rawUrl(articleId, omitted.publication, privatePreview.digest))).status(), 404)
+      await assertNotPublic(rawUrl(articleId, omitted.publication, privatePreview.digest))
 
       phase = `${device}: the explicit cover matches the published media coordinate`
       const selectedCover = await saveCover(chosen.name, fixture.chosen.id)
@@ -223,7 +232,7 @@ try {
       const publicUrl = rawUrl(articleId, online.publication, chosenPreview.digest)
       const galleryUrl = rawUrl(articleId, online.publication, galleryPreview.digest)
       assert.equal(online.cover, new URL(publicUrl).pathname)
-      assert.equal((await anonymous.request.get(rawUrl(articleId, omitted.publication, chosenPreview.digest))).status(), 404)
+      await assertNotPublic(rawUrl(articleId, omitted.publication, chosenPreview.digest))
       const raw = await anonymous.request.get(publicUrl)
       assert.equal(raw.status(), 200)
       assert.equal(raw.headers()['cache-control'], 'no-store')
@@ -244,8 +253,8 @@ try {
         assert.equal(head.headers()[header], raw.headers()[header])
       }
       assert.equal((await head.body()).length, 0)
-      assert.equal((await anonymous.request.get(rawUrl(articleId, online.publication, privatePreview.digest))).status(), 404)
-      assert.equal((await anonymous.request.get(manifestUrl(articleId, ordinaryRelease.publication))).status(), 404)
+      await assertNotPublic(rawUrl(articleId, online.publication, privatePreview.digest))
+      await assertNotPublic(manifestUrl(articleId, ordinaryRelease.publication))
 
       const loadedManifest = publicPage.waitForResponse(response => response.url() === manifestUrl(articleId, online.publication))
       const publicHtml = await publicPage.goto(articlePath)
@@ -271,8 +280,8 @@ try {
       await publicPage.waitForFunction(dimensions => Object.entries(dimensions).every(([label, width]) =>
         Array.from(document.images).some(image => image.alt === label && image.naturalWidth === width)),
       { 'Article cover': imageWidth, 'Published image 1': galleryWidth })
-      assert.equal(new URL(await publicImage.getAttribute('src'), origin).href, galleryUrl)
-      assert.equal(new URL(await cover.getAttribute('src'), origin).href, publicUrl)
+      await assertImageSource(publicImage, galleryUrl)
+      await assertImageSource(cover, publicUrl)
       assert.equal(await publicPage.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
       await publicPage.screenshot({ path: join(evidence, `public-images-gallery-${device}.png`), animations: 'disabled' })
       if (device === 'mobile') {
@@ -287,15 +296,15 @@ try {
           const staticCover = roleWithExactName(staticPage, 'img', 'Article cover')
           await staticCover.waitFor()
           assert.equal(await staticCover.count(), 1)
-          assert.equal(new URL(await staticCover.getAttribute('src'), origin).href, publicUrl)
-          assert.equal(new URL(await staticImage.getAttribute('src'), origin).href, galleryUrl)
+          await assertImageSource(staticCover, publicUrl)
+          await assertImageSource(staticImage, galleryUrl)
           assert.equal(await staticPage.locator('#app[data-v-app]').count(), 0)
         } finally { await serverRendered.close() }
       }
 
       phase = `${device}: withdrawal closes only public access`
       await closeInspector(page)
-      const retract = page.waitForResponse(response => response.url() === origin + WireRoutes.Retract && response.request().method() === 'POST')
+      const retract = waitForPost(WireRoutes.Retract)
       await exactButton(page, 'More actions').click()
       await roleWithExactName(page, 'menuitem', 'Withdraw').click()
       assert.equal((await retract).status(), 200)
@@ -305,9 +314,9 @@ try {
       assert.equal(withdrawn.headers()['cache-control'], 'no-store')
       assert.equal((await withdrawn.body()).length, 0)
       assert.equal((await anonymous.request.head(publicUrl)).status(), 404)
-      assert.equal((await anonymous.request.get(galleryUrl)).status(), 404)
-      assert.equal((await anonymous.request.get(manifestUrl(articleId, online.publication))).status(), 404)
-      assert.equal((await anonymous.request.get(articlePath)).status(), 404)
+      await assertNotPublic(galleryUrl)
+      await assertNotPublic(manifestUrl(articleId, online.publication))
+      await assertNotPublic(articlePath)
       await inspector.click()
       if (await manage.isVisible()) await manage.click()
       const stillPrivate = await preview(page, privateOnly.name, 100)
@@ -352,18 +361,7 @@ async function imageFixture(page, name, width, height, background, accent, type 
 }
 
 async function createDraft(page, context, ticket, title, chosen, galleryFile, privateOnly) {
-  let cookie
-  const native = globalThis.fetch
-  globalThis.fetch = async (path, options) => {
-    const headers = new Headers(options.headers)
-    if (cookie) headers.set('Cookie', `fsus-v2-session=${cookie}`)
-    const response = await native(new URL(path, origin), { ...options, headers })
-    cookie ??= response.headers.get('set-cookie')?.match(/\bfsus-v2-session=([a-f0-9]{64})\b/)?.[1]
-    return response
-  }
-  try {
-    const session = await api.signIn(ticket)
-    assert(cookie)
+  return withMediaSession(origin, ticket, async (cookie, session) => {
     await context.addCookies([{ name: 'fsus-v2-session', value: cookie, url: origin, httpOnly: true, sameSite: 'Strict', secure: origin.startsWith('https:') }])
     const selectedAsset = webp ? await uploadWebpInLibrary(page, chosen) : await uploadMedia(chosen, crypto.randomUUID())
     const galleryAsset = await uploadMedia(galleryFile, crypto.randomUUID())
@@ -371,7 +369,7 @@ async function createDraft(page, context, ticket, title, chosen, galleryFile, pr
     const draft = await api.save({ id: 0, expectedRevision: 0n, idempotencyKey: crypto.randomUUID(), title,
       body: 'The gallery holds only the images selected for this publication.' }, undefined, session.siteSessionId)
     return { draft, chosen: selectedAsset, gallery: galleryAsset, privateOnly: unselectedAsset }
-  } finally { globalThis.fetch = native }
+  })
 }
 
 async function uploadWebpInLibrary(page, file) {
@@ -421,6 +419,10 @@ async function preview(page, name, width) {
   assert.equal(bytes.length, Number(response.headers()['content-length']))
   await exactButton(page, 'Close image preview').click()
   return { digest: sha256(bytes), length: bytes.length, authorization }
+}
+
+async function assertImageSource(image, expected) {
+  assert.equal(new URL(await image.getAttribute('src'), origin).href, expected)
 }
 
 async function closeInspector(page) {

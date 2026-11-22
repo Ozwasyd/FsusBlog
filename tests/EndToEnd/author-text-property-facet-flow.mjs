@@ -15,7 +15,7 @@ import {
   encodePropertyWorkspaceRequest, FrameType, WireHeaders, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monitor, observations, articleCommand }) {
   const marker = `facetprobe${randomUUID().replaceAll('-', '').slice(0, 16)}`
@@ -75,17 +75,17 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
     monitor(page, 'author-property-facet')
     await page.setViewportSize({ width: 375, height: 850 })
     await page.goto(`${origin}/user/manage/article/list`)
-    await page.getByText('作者全文搜索', { exact: true }).click()
+    await exactText(page, '作者全文搜索').click()
     const form = roleWithExactName(page, 'form', '作者全文搜索')
     const catalog = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PropertyFilterCatalog)
-    await form.getByText('全文搜索属性条件', { exact: true }).click()
+    await exactText(form, '全文搜索属性条件').click()
     const catalogReply = await catalog
     assert.equal(catalogReply.status(), 200)
     assert.equal(new URL(catalogReply.url()).searchParams.get('projection'), '1')
     decodeFrame(await catalogReply.body(), FrameType.PropertyProjectionCatalog)
     const handle = catalogReply.request().headers()[WireHeaders.CurrentSession.toLowerCase()]
     assert(handle)
-    const query = form.getByLabel('全文搜索词', { exact: true })
+    const query = exactLabel(form, '全文搜索词')
     await query.fill(marker)
     const selector = roleWithExactName(form, 'combobox', '属性分面字段')
     const results = roleWithExactName(page, 'region', '全文搜索结果')
@@ -135,7 +135,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
     const bucket = label => exactButton(facet, `按此值筛选：${label}`)
     async function counts(values) {
       for (const [label, total] of Object.entries(values)) {
-        const row = facet.locator('dl > div').filter({ has: page.getByText(label, { exact: true }) })
+        const row = facet.locator('dl > div').filter({ has: exactText(page, label) })
         assert.equal(await row.locator('dd').textContent(), String(total), label)
       }
     }
@@ -181,7 +181,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
     assert.equal(replay.status(), 200)
     assert.deepEqual(replay.request().postDataBuffer(), membership.requestBytes)
     await page.waitForURL(`${origin}/user/manage/article/edit/${drafts[0].id}`)
-    await page.getByText('Opened the search result at its saved position.', { exact: true }).waitFor()
+    await exactText(page, 'Opened the search result at its saved position.').waitFor()
     assert.equal(new URL(page.url()).search, '')
     observations.push('At 375px, real author search counts unset, explicit null, false and empty sets separately, uses current catalog labels, and applies exact Boolean and option predicates.')
     observations.push('Typed score sorting orders 2 and 10 numerically in both directions with null and missing last, retains option counts for heading results, and rechecks the identical sorted facet request before revealing saved source.')
@@ -190,9 +190,9 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
     async function verifyPropertyText() {
       const scope = roleWithExactName(form, 'combobox', '搜索来源')
       const inspector = roleWithExactName(page, 'dialog', 'Article inspector')
-      const fieldInput = inspector.getByLabel('Article subtitle value', { exact: true })
-      const success = page.getByText('Opened the search result at its saved property position.', { exact: true })
-      const refused = page.getByText('The search position is no longer available. Return to article search and choose a current result.', { exact: true })
+      const fieldInput = exactLabel(inspector, 'Article subtitle value')
+      const success = exactText(page, 'Opened the search result at its saved property position.')
+      const refused = exactText(page, 'The search position is no longer available. Return to article search and choose a current result.')
       const credential = WireHeaders.CurrentSession.toLowerCase()
       const list = `${origin}/user/manage/article/list`
       const jump = draft => exactButton(results.getByRole('listitem').filter({ has: roleWithExactName(page, 'link', draft.title) }), '跳到命中位置')
@@ -200,7 +200,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       const lexical = await searchProperty()
       assert.equal(lexical.page.total, 2)
       assert.deepEqual(new Set(lexical.page.rows.map(row => row.id)), new Set([drafts[0].id, drafts[2].id]))
-      assert.equal(await results.getByText('Article subtitle', { exact: true }).count(), 2)
+      assert.equal(await exactText(results, 'Article subtitle').count(), 2)
       assert.deepEqual(await results.locator('mark').allTextContents(), [textMarker, textMarker])
       await jump(drafts[0]).waitFor()
       await jump(drafts[2]).waitFor()
@@ -208,7 +208,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
         `/user/manage/article/edit/${drafts[0].id}`)
       assert.equal(new URL(page.url()).search, '')
 
-      const from = form.getByLabel('更新起始日期（含）', { exact: true })
+      const from = exactLabel(form, '更新起始日期（含）')
       await from.fill('1970-01-01')
       await roleWithExactName(form, 'combobox', '属性字段').click()
       await roleWithExactName(page, 'option', 'Editorial approval · editorial-approval').click()
@@ -239,7 +239,7 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
       await roleWithExactName(facet, 'heading', 'Editorial approval').waitFor()
       await counts({ 尚未设置: 1, 显式空值: 0, 否: 1, 是: 0 })
 
-      await form.getByText('同时匹配文章字段', { exact: true }).click()
+      await exactText(form, '同时匹配文章字段').click()
       assert(await roleWithExactName(form, 'checkbox', '同时匹配文章字段').isChecked())
       const mixed = `status:draft field.heading:${marker} field.property:`
       await query.fill(mixed + textMarker)
@@ -343,9 +343,9 @@ export async function exerciseAuthorTextPropertyFacet({ publisher, origin, monit
 
       async function openPropertySearch() {
         await page.goto(list)
-        await page.getByText('作者全文搜索', { exact: true }).click()
+        await exactText(page, '作者全文搜索').click()
         const catalog = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.PropertyFilterCatalog)
-        await form.getByText('全文搜索属性条件', { exact: true }).click()
+        await exactText(form, '全文搜索属性条件').click()
         const session = (await catalog).request().headers()[credential]
         assert(session)
         await scope.click()

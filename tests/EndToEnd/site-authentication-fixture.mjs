@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { assertStatus } from './response-status-fixture.mjs'
 import { exactButton as button } from './role-locators.mjs'
 import { createHmac } from 'node:crypto'
 import { requireWebPackage } from './web-package-fixture.mjs'
@@ -16,6 +17,26 @@ export function readTlsIdentityFixture(peerTicket, probe, error) {
   assert(url.hostname === 'localhost' && url.protocol === 'https:' && ownerTicket && peerTicket &&
     ownerTicket !== peerTicket && probe && /^[A-Za-z0-9+/]{43}=,[A-Za-z0-9+/]{43}=$/.test(pins), error)
   return { origin: url.origin, ownerTicket, pins }
+}
+
+export function siteApi(origin, waitForResponse) {
+  function isApi(response, path, method) {
+    return response.url() === origin + path && response.request().method() === method
+  }
+  function waitApi(target, path, method = 'POST') {
+    return waitForResponse(target, response => isApi(response, path, method))
+  }
+  async function clickApi(page, path, label) {
+    const [reply] = await Promise.all([waitApi(page, path), button(page, label).click()])
+    return reply
+  }
+  return { isApi, waitApi, clickApi }
+}
+
+export async function secureLoginProtocol(page, response, message) {
+  const security = await response?.securityDetails()
+  assert(security?.protocol.startsWith('TLS') && await page.evaluate(() => window.isSecureContext), message)
+  return security.protocol
 }
 
 export function readTlsPublicationFixture(error) {
@@ -61,6 +82,13 @@ export async function setupSiteTotp(page, clickApi, secrets, missingSeed) {
   assert.equal((await clickApi(page, WireRoutes.MfaSetupVerify, 'Enable verification')).status(), 200)
   await button(page, 'Hide recovery codes').click()
   return { secret, setupStep }
+}
+
+export async function completeSiteTotp(page, clickApi, secrets, secret, setupStep) {
+  const code = totp(secret, Math.max(setupStep + 1, Math.floor(Date.now() / 30_000)))
+  secrets.push(code)
+  await page.getByLabel('Authenticator or recovery code', { exact: true }).fill(code)
+  assertStatus(await clickApi(page, WireRoutes.MfaChallengeVerify, 'Verify and log in'), 200)
 }
 
 export function readSeed(seed) {

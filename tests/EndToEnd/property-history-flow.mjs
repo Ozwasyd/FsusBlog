@@ -10,7 +10,7 @@ import {
   encodeSignIn, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { chromium, expect, observePageErrors, postReceipt } from './browser-authoring-fixture.mjs'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 const { FSUSBLOG_TEST_URL: url, FSUSBLOG_TEST_TICKET: ticket, FSUSBLOG_TEST_OUTSIDER_TICKET: outsiderTicket,
   FSUSBLOG_TEST_EVIDENCE: evidence, FSUSBLOG_TEST_CHROME: executablePath } = process.env
@@ -129,14 +129,14 @@ try {
   let requests = 0
   page.on('request', request => { if (historyRead(request)) requests++ })
   await page.goto(`${origin}/user/manage/article/edit/${initial.id}`)
-  await expect(page.getByLabel('Body', { exact: true })).toHaveValue(current.body)
+  await expect(exactLabel(page, 'Body')).toHaveValue(current.body)
   await exactButton(page, 'Inspector').click()
   const inspector = roleWithExactName(page, 'complementary', 'Article inspector')
-  await inspector.getByText('Revision history', { exact: true }).click()
+  await exactText(inspector, 'Revision history').click()
   const compare = exactButton(inspector, `Compare revision ${earlier.revision}`)
   await compare.click()
   const modal = roleWithExactName(page, 'dialog', 'Revision comparison')
-  const metadataLink = modal.getByText('Saved summary and classification', { exact: true })
+  const metadataLink = exactText(modal, 'Saved summary and classification')
   const [fields] = await Promise.all([
     page.waitForResponse(response => response.url() === historyPath(earlier.revision).replace('map=properties', 'map=metadata')),
     metadataLink.press('Enter'),
@@ -145,7 +145,7 @@ try {
   assert.equal(fields.headers()['cache-control'], 'no-store')
   assert.equal(fields.request().headers()[WireHeaders.CurrentSession.toLowerCase()], credential)
   assert.equal(decodeFrame(await fields.body()).type, FrameType.RevisionMetadataComparison)
-  await expect(modal.getByText('Summary changed. Category changed. Tags changed.', { exact: true })).toBeVisible()
+  await expect(exactText(modal, 'Summary changed. Category changed. Tags changed.')).toBeVisible()
   await expect(modal.locator('dd')).toHaveText([earlierSummary, 'Web engineering', 'Café', currentSummary, 'Empty category', 'No tags'])
   await page.setViewportSize({ width: 375, height: 850 })
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
@@ -153,7 +153,7 @@ try {
   await metadataLink.press('Enter')
   await expect(modal.locator('dd')).toHaveCount(0)
   await page.setViewportSize({ width: 1280, height: 850 })
-  const disclosure = modal.getByText('Saved properties', { exact: true })
+  const disclosure = exactText(modal, 'Saved properties')
   await expect(disclosure).toBeVisible()
   assert.equal(requests, 0)
   const requestsForPair = [earlier.revision, current.revision].map(revision =>
@@ -174,10 +174,10 @@ try {
   }
   const earlierPanel = roleWithExactName(modal, 'region', 'Earlier saved properties')
   const currentPanel = roleWithExactName(modal, 'region', 'Current saved properties')
-  await expect(earlierPanel.getByText(beforeLabel, { exact: true })).toBeVisible()
-  await expect(earlierPanel.getByText(savedBefore, { exact: true })).toBeVisible()
-  await expect(currentPanel.getByText(afterLabel, { exact: true })).toBeVisible()
-  await expect(currentPanel.getByText(savedAfter, { exact: true })).toBeVisible()
+  await expect(exactText(earlierPanel, beforeLabel)).toBeVisible()
+  await expect(exactText(earlierPanel, savedBefore)).toBeVisible()
+  await expect(exactText(currentPanel, afterLabel)).toBeVisible()
+  await expect(exactText(currentPanel, savedAfter)).toBeVisible()
   assert.equal(await earlierPanel.getByRole('textbox').count(), 0)
   assert.equal(await currentPanel.getByRole('textbox').count(), 0)
   await page.setViewportSize({ width: 375, height: 850 })
@@ -197,7 +197,7 @@ try {
   await expect(currentPanel.locator('dt')).toHaveCount(WireLimits.PropertyPageSize)
   await expect(exactButton(earlierPanel, 'Next')).toBeDisabled()
   await exactButton(earlierPanel, 'Previous').press('Enter')
-  await expect(earlierPanel.getByText(savedBefore, { exact: true })).toBeVisible()
+  await expect(exactText(earlierPanel, savedBefore)).toBeVisible()
   assert.equal(requests, 4)
   await page.screenshot({ path: join(evidence, 'property-history-mobile.png') })
   await page.keyboard.press('Escape')
@@ -220,23 +220,23 @@ try {
   await page.setViewportSize({ width: 1280, height: 850 })
   await expect(inspector).toBeVisible()
   const compareEditor = roleWithExactName(modal, 'checkbox', 'Compare with current editor')
-  const currentEditor = modal.getByLabel('Current editor Markdown', { exact: true })
-  const currentSaved = modal.getByLabel('Current saved revision Markdown', { exact: true })
+  const currentEditor = exactLabel(modal, 'Current editor Markdown')
+  const currentSaved = exactLabel(modal, 'Current saved revision Markdown')
   async function openEditorMetadata() {
     await compare.press('Enter')
     await compareEditor.press('Space')
-    await modal.getByText('Summary and classification', { exact: true }).press('Enter')
+    await exactText(modal, 'Summary and classification').press('Enter')
   }
 
   const localSummary = 'Unsaved summary visible in this browser only'
-  await inspector.getByText('Article summary', { exact: true }).press('Enter')
-  const summaryInput = inspector.getByLabel('Summary text', { exact: true })
+  await exactText(inspector, 'Article summary').press('Enter')
+  const summaryInput = exactLabel(inspector, 'Summary text')
   await expect(summaryInput).toHaveValue(currentSummary)
   await summaryInput.fill(localSummary)
   await openEditorMetadata()
-  await expect(modal.getByText(localSummary, { exact: true })).toBeVisible()
-  await expect(modal.getByText(earlierSummary, { exact: true })).toBeVisible()
-  await expect(modal.getByText(currentSummary, { exact: true })).toHaveCount(0)
+  await expect(exactText(modal, localSummary)).toBeVisible()
+  await expect(exactText(modal, earlierSummary)).toBeVisible()
+  await expect(exactText(modal, currentSummary)).toHaveCount(0)
   assert.deepEqual(await ownerFrame(metadataUrl), beforeMetadata)
   await page.keyboard.press('Escape')
   await expect(modal).toBeHidden()
@@ -251,7 +251,7 @@ try {
   await roleWithExactName(page, 'option', 'Café').click()
   await classification.click()
   await openEditorMetadata()
-  await expect(modal.getByText('Summary changed. Category unchanged. Tags unchanged.', { exact: true })).toBeVisible()
+  await expect(exactText(modal, 'Summary changed. Category unchanged. Tags unchanged.')).toBeVisible()
   await expect(modal.locator('dd')).toHaveText([earlierSummary, 'Web engineering', 'Café', currentSummary, 'Web engineering', 'Café'])
   assert.deepEqual(await ownerFrame(metadataUrl), beforeMetadata)
   await page.keyboard.press('Escape')
@@ -260,16 +260,16 @@ try {
   await discardClassification.press('Enter')
   await expect(discardClassification).toBeHidden()
 
-  await page.getByLabel('Title', { exact: true }).fill(localTitle)
-  await page.getByLabel('Body', { exact: true }).fill(localBody)
+  await exactLabel(page, 'Title').fill(localTitle)
+  await exactLabel(page, 'Body').fill(localBody)
   await compare.press('Enter')
   await expect(currentSaved).toBeVisible()
   assert.equal(await currentSaved.textContent(), current.body)
   await compareEditor.press('Space')
   await expect(currentEditor).toBeVisible()
   assert.equal(await currentEditor.textContent(), localBody)
-  await expect(modal.getByText(localTitle, { exact: true })).toBeVisible()
-  assert.equal(await modal.getByLabel('Earlier revision Markdown', { exact: true }).textContent(), earlier.body)
+  await expect(exactText(modal, localTitle)).toBeVisible()
+  assert.equal(await exactLabel(modal, 'Earlier revision Markdown').textContent(), earlier.body)
   await modal.getByLabel('Reason for restoring this draft').fill('A valid reason cannot discard pending edits.')
   await expect(exactButton(modal, 'Restore as new draft')).toBeDisabled()
   await page.setViewportSize({ width: 375, height: 850 })
@@ -281,8 +281,8 @@ try {
   await page.keyboard.press('Escape')
   await expect(modal).toBeHidden()
   await page.setViewportSize({ width: 1280, height: 850 })
-  await expect(page.getByLabel('Title', { exact: true })).toHaveValue(localTitle)
-  await expect(page.getByLabel('Body', { exact: true })).toHaveValue(localBody)
+  await expect(exactLabel(page, 'Title')).toHaveValue(localTitle)
+  await expect(exactLabel(page, 'Body')).toHaveValue(localBody)
   assert.deepEqual(await ownerFrame(draftUrl), beforeComparison)
 
   for (const path of [`/article/${initial.id}`, WireRoutes.PublicArticle.replace('{id}', String(initial.id))]) {

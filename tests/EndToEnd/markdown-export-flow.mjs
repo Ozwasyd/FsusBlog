@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { readFile } from 'node:fs/promises'
+import { inspectDownloadedFile, inspectOfflinePage } from './media-export-fixture.mjs'
 
 export async function readMarkdownDownload(page, button, body) {
   const download = page.waitForEvent('download')
@@ -83,22 +81,10 @@ export async function verifyOfflineHtmlDownload(page, button, title, text, exclu
   assert.equal(response.headers()['cache-control'], 'private, no-store')
   const result = await download
   assert.equal(result.suggestedFilename(), 'article.html')
-  const scratch = await mkdtemp(join(tmpdir(), 'fsusv2-html-download-'))
-  try {
-    const destination = join(scratch, 'article.html')
-    await result.saveAs(destination)
-    assert.deepEqual(await readFile(destination), await response.body())
+  await inspectDownloadedFile(result, response, 'fsusv2-html-download-', 'article.html', async destination => {
     const browser = page.context().browser()
     assert(browser)
-    const context = await browser.newContext({ offline: true, serviceWorkers: 'block', viewport: page.viewportSize() })
-    try {
-      const network = []
-      context.on('request', request => {
-        if (/^https?:/u.test(request.url())) network.push(request.url())
-      })
-      const offline = await context.newPage()
-      const url = pathToFileURL(destination).href
-      await offline.goto(url)
+    await inspectOfflinePage(browser, page, destination, async (offline, url) => {
       assert.equal(offline.url(), url)
       assert.equal(await offline.title(), title)
       await offline.getByRole('heading', { name: title, level: 1, exact: true }).waitFor()
@@ -108,11 +94,6 @@ export async function verifyOfflineHtmlDownload(page, button, title, text, exclu
       assert.equal(await offline.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content'), policy)
       assert.equal(await offline.locator('script, style, link, iframe, object, embed, form, [href], [src]').count(), 0)
       assert.equal(await offline.evaluate(() => performance.getEntriesByType('resource').length), 0)
-      assert.deepEqual(network, [])
-    } finally {
-      await context.close()
-    }
-  } finally {
-    await rm(scratch, { recursive: true })
-  }
+    })
+  })
 }

@@ -9,7 +9,7 @@ import {
 import { decodeDraft, FrameType, WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { deferResponse } from './browser-authoring-fixture.mjs'
 import { editorSourceHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
 
 export async function exerciseAuthorTextSearch({ publisher, origin, article, bodyTerm, monitor, observations, articleCommand, publicFixture }) {
   const page = await publisher.context().newPage()
@@ -21,14 +21,14 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     await page.setViewportSize({ width: 375, height: 850 })
     await page.goto(`${origin}/user/manage/article/list`)
     const inventory = roleWithExactName(page, 'form', '筛选文章')
-    await inventory.getByLabel('标题或摘要', { exact: true }).fill(bodyTerm)
+    await exactLabel(inventory, '标题或摘要').fill(bodyTerm)
     await exactButton(inventory, '搜索').click()
-    await roleWithExactName(page, 'region', '文章列表').getByText('共 0 篇', { exact: true }).waitFor()
+    await exactText(roleWithExactName(page, 'region', '文章列表'), '共 0 篇').waitFor()
 
-    const summary = page.getByText('作者全文搜索', { exact: true })
+    const summary = exactText(page, '作者全文搜索')
     await summary.click()
     const form = roleWithExactName(page, 'form', '作者全文搜索')
-    const query = form.getByLabel('全文搜索词', { exact: true })
+    const query = exactLabel(form, '全文搜索词')
     const start = exactButton(form, '搜索全文')
     const next = exactButton(form, '继续搜索')
     const results = roleWithExactName(page, 'region', '全文搜索结果')
@@ -51,13 +51,13 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       const link = roleWithExactName(results, 'link', article.title)
       assert.equal(await link.getAttribute('href'), `/user/manage/article/edit/${article.id}`)
       assert.equal(await results.getByRole('listitem').count(), 1)
-      await results.getByText('正文', { exact: true }).waitFor()
+      await exactText(results, '正文').waitFor()
       assert.equal(await results.locator('mark').textContent(), bodyTerm)
     }
 
     const unfiltered = (await search(bodyTerm.toUpperCase())).batch
     assert.equal(unfiltered.total, 1)
-    await results.getByText('共 1 篇', { exact: true }).waitFor()
+    await exactText(results, '共 1 篇').waitFor()
     await verifyBodyMatch()
     const quotedHeading = String.raw`"literal \" field.heading:scopeprobe"`
     const quoted = await search(quotedHeading)
@@ -68,7 +68,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     const noPhrase = (await search(`"博客搜索 ${bodyTerm}"`)).batch
     assert.equal(noPhrase.total, 0)
     assert.deepEqual(noPhrase.stateCounts, [0, 0, 0, 0])
-    await results.getByText('没有匹配的文章。', { exact: true }).waitFor()
+    await exactText(results, '没有匹配的文章。').waitFor()
     assert.equal(new URL(page.url()).search, '')
     observations.push('At 375px before publication, author full-text finds and highlights a saved body word beyond the inventory summary, folds its case, and matches the quoted mixed-script phrase only in source order.')
 
@@ -79,8 +79,8 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       assert.deepEqual(filtered.categories, [{ id: 1, name: 'Web engineering', count: 1 }])
       assert.deepEqual(filtered.tags, [{ id: 4, name: 'Café', count: 1 }])
       assert.equal(filtered.moreCategories || filtered.moreTags, false)
-      await roleWithExactName(results, 'region', '分类分面').getByText('Web engineering', { exact: true }).waitFor()
-      await roleWithExactName(results, 'region', '标签分面').getByText('Café', { exact: true }).waitFor()
+      await exactText(roleWithExactName(results, 'region', '分类分面'), 'Web engineering').waitFor()
+      await exactText(roleWithExactName(results, 'region', '标签分面'), 'Café').waitFor()
       const otherCategory = (await search(`${bodyTerm} category:2 tag:4`)).batch
       assert.equal(otherCategory.total, 0)
       assert.deepEqual(otherCategory.categories, [])
@@ -90,13 +90,13 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     const invalidFilter = page.waitForResponse(isSearchReply)
     await start.press('Enter')
     assert.equal((await invalidFilter).status(), 400)
-    await page.getByText('搜索词格式无效。请检查关键词、引号和筛选条件。', { exact: true }).waitFor()
+    await exactText(page, '搜索词格式无效。请检查关键词、引号和筛选条件。').waitFor()
     assert.equal(await results.count(), 0)
 
-    await form.getByText('全文搜索属性条件', { exact: true }).click()
+    await exactText(form, '全文搜索属性条件').click()
     await roleWithExactName(form, 'combobox', '属性字段').click()
     await roleWithExactName(page, 'option', 'Editorial date · editorial-date').click()
-    await form.getByLabel('属性值', { exact: true }).fill('2024-02-29T17:06:01.150Z')
+    await exactLabel(form, '属性值').fill('2024-02-29T17:06:01.150Z')
     await exactButton(form, '添加条件').click()
     const qualified = await search(bodyTerm)
     assert.deepEqual(qualified.batch.rows.map(row => row.id), [article.id])
@@ -106,7 +106,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.equal(withProperty.conditions.length, 1)
     assert.equal(withProperty.updatedUntilUnixMs, null)
 
-    const until = form.getByLabel('更新截止日期（不含）', { exact: true })
+    const until = exactLabel(form, '更新截止日期（不含）')
     await until.fill('1970-01-01')
     const beforeEpoch = await search(bodyTerm)
     assert.deepEqual(readSearchQuery(beforeEpoch.response), { ...withProperty, updatedUntilUnixMs: 0n })
@@ -131,7 +131,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     const first = (await search(`${pagingWord} status:draft`)).batch
     assert.equal(first.total, pagingFixtures.length)
     assert.deepEqual(first.stateCounts, [pagingFixtures.length, 0, 0, 0])
-    await results.getByText(`共 ${pagingFixtures.length} 篇`, { exact: true }).waitFor()
+    await exactText(results, `共 ${pagingFixtures.length} 篇`).waitFor()
     assert.equal(first.rows.length, WireLimits.AuthorTextSearchRows)
     assert(first.nextCursor)
     const pager = roleWithExactName(results, 'navigation', '全文搜索分页')
@@ -147,7 +147,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       assert.equal(batch.total, first.total)
       assert.deepEqual(batch.stateCounts, first.stateCounts)
       await roleWithExactName(results, 'link', batch.rows[0].title).waitFor()
-      await page.getByText('正在搜索全文…', { exact: true }).waitFor({ state: 'detached' })
+      await exactText(page, '正在搜索全文…').waitFor({ state: 'detached' })
       assert.equal(page.url(), listUrl)
       return { batch, response }
     }
@@ -204,9 +204,9 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     const editor = `${origin}/user/manage/article/edit/${fixture.id}`
     const list = `${origin}/user/manage/article/list`
     const draftRead = WireRoutes.Draft.replace('{id:int}', String(fixture.id))
-    const field = name => page.getByLabel(name, { exact: true })
+    const field = name => exactLabel(page, name)
     const jump = () => exactButton(results, '跳到命中位置')
-    const success = page.getByText('Opened the search result at its saved position.', { exact: true })
+    const success = exactText(page, 'Opened the search result at its saved position.')
     const recentSearchCalls = []
     const draftReads = []
     page.on('request', request => {
@@ -227,7 +227,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       assert.equal(readSearchQuery(response, heading).query, text)
       const row = exactHit(batch, fixture, source, kind, word)
       if (heading) {
-        await results.getByText('章节标题', { exact: true }).waitFor()
+        await exactText(results, '章节标题').waitFor()
         assert.equal(await results.locator('mark').textContent(), word)
       }
       assert.equal(await roleWithExactName(results, 'link', savedTitle).getAttribute('href'), new URL(editor).pathname)
@@ -316,7 +316,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     await focus.press('Enter')
     const moved = exactHit(await readSearchReply(await staleCheck), fixture, revisedRaw, 'body', bodyWord)
     assert(moved.sourceStart > prior.sourceStart)
-    await page.getByText('原命中已变化或不可用。搜索结果已更新，请重新选择。', { exact: true }).waitFor()
+    await exactText(page, '原命中已变化或不可用。搜索结果已更新，请重新选择。').waitFor()
     await focus.and(page.locator(':focus')).waitFor()
     assert.equal(page.url(), list)
     assert.equal(draftReads.length, beforeStale)
@@ -325,7 +325,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
 
     const rebase = exactButton(page, '在新修订中重新定位')
     await rebase.press('Enter')
-    await page.getByText('此命中没有可用的跨修订编辑记录，可以查看原保存修订。', { exact: true }).waitFor()
+    await exactText(page, '此命中没有可用的跨修订编辑记录，可以查看原保存修订。').waitFor()
     assert.equal(page.url(), list)
     assert.equal(draftReads.length, beforeStale)
 
@@ -361,6 +361,23 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     await field('Title').waitFor()
     await backToSearch()
 
+    async function recheckBodyHit(previous) {
+      await prepareCurrentIndex(page, previous, fixture.revision)
+      const reply = page.waitForResponse(isSearchReply)
+      await jump().press('Enter')
+      return exactHit(await readSearchReply(await reply), fixture, revisedRaw, 'body', bodyWord)
+    }
+
+    async function saveInEditor(writer, frame) {
+      const reply = writer.waitForResponse(response => response.request().method() === 'POST' &&
+        new URL(response.url()).pathname === WireRoutes.Save)
+      await exactButton(writer, 'Save draft').click()
+      const saved = await reply
+      assert.equal(saved.status(), 200)
+      decodeFrame(saved.request().postDataBuffer(), frame)
+      return decodeDraft(decodeFrame(await saved.body(), FrameType.Draft).payload)
+    }
+
     const beforeInsertion = await search(bodyWord)
     const parentHit = exactHit(beforeInsertion.batch, fixture, revisedRaw, 'body', bodyWord)
     async function saveInsertions(anchors, frame) {
@@ -369,7 +386,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
         monitor(writer, 'author-saved-body-insertion')
         await writer.setViewportSize({ width: 375, height: 850 })
         await writer.goto(editor)
-        const control = writer.getByLabel('Body', { exact: true })
+        const control = exactLabel(writer, 'Body')
         await control.waitFor()
         const waitForModel = value => writer.waitForFunction(
           expected => [...document.querySelectorAll('textarea')].some(text => text.value === expected), value)
@@ -384,13 +401,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
           expected = expected.slice(0, rawOffset) + '**text**' + expected.slice(rawOffset)
           await waitForModel(expected.replaceAll('\r\n', '\n'))
         }
-        const saved = writer.waitForResponse(response => response.request().method() === 'POST' &&
-          new URL(response.url()).pathname === WireRoutes.Save)
-        await exactButton(writer, 'Save draft').click()
-        const response = await saved
-        assert.equal(response.status(), 200)
-        decodeFrame(response.request().postDataBuffer(), frame)
-        const updated = decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
+        const updated = await saveInEditor(writer, frame)
         assert.equal(updated.revision, fixture.revision + 1n)
         assert.equal(updated.body, expected)
         revisedRaw = expected
@@ -400,10 +411,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
       }
     }
     await saveInsertions([''], FrameType.ArticleBodyInsertionCommand)
-    await prepareCurrentIndex(page, beforeInsertion.response, fixture.revision)
-    const refreshed = page.waitForResponse(isSearchReply)
-    await jump().press('Enter')
-    const insertionHit = exactHit(await readSearchReply(await refreshed), fixture, revisedRaw, 'body', bodyWord)
+    const insertionHit = await recheckBodyHit(beforeInsertion.response)
     assert.equal(insertionHit.sourceStart - parentHit.sourceStart, '**text**'.length)
     const mapped = page.waitForResponse(response => response.request().method() === 'GET' &&
       new URL(response.url()).searchParams.get('map') === 'body-insertion')
@@ -413,7 +421,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.equal(receipt.status(), 200)
     decodeFrame(await receipt.body(), FrameType.DraftRevisionBodyInsertion)
     await expectSavedDraft(await currentAfterMap)
-    await page.getByText('Opened the search result at its verified position in the newer revision.', { exact: true }).waitFor()
+    await exactText(page, 'Opened the search result at its verified position in the newer revision.').waitFor()
     const shifted = revisedRaw.replaceAll('\r\n', '\n').indexOf(bodyWord)
     const rebasedCaret = await field('Body').and(page.locator(':focus')).evaluate(input => [input.selectionStart, input.selectionEnd])
     assert.deepEqual(rebasedCaret, [shifted, shifted])
@@ -430,10 +438,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     fixture = unchanged
     await saveInsertions(['博客搜索'], FrameType.ArticleBodyInsertionCommand)
     assert.equal(fixture.revision, chainSource.revision + 3n)
-    await prepareCurrentIndex(page, beforeChain.response, fixture.revision)
-    const chainCheck = page.waitForResponse(isSearchReply)
-    await jump().press('Enter')
-    const currentHit = exactHit(await readSearchReply(await chainCheck), fixture, revisedRaw, 'body', bodyWord)
+    const currentHit = await recheckBodyHit(beforeChain.response)
     assert.equal(currentHit.sourceStart, chainHit.sourceStart + 2 * '**text**'.length)
     const chainReply = page.waitForResponse(response => response.request().method() === 'GET' &&
       new URL(response.url()).searchParams.get('map') === 'body-chain')
@@ -445,7 +450,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.equal(chain.request().headers()[WireHeaders.CurrentSession.toLowerCase()],
       beforeChain.response.request().headers()[WireHeaders.CurrentSession.toLowerCase()])
     await expectSavedDraft(await draftAfterChain)
-    await page.getByText('Opened the search result at its verified position in the newer revision.', { exact: true }).waitFor()
+    await exactText(page, 'Opened the search result at its verified position in the newer revision.').waitFor()
     const chainCaret = revisedRaw.replaceAll('\r\n', '\n').indexOf(bodyWord)
     assert.deepEqual(await field('Body').and(page.locator(':focus')).evaluate(input => [input.selectionStart, input.selectionEnd]),
       [chainCaret, chainCaret])
@@ -462,30 +467,25 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
         monitor(writer, 'author-saved-body-edit')
         await writer.setViewportSize({ width: 375, height: 850 })
         await writer.goto(editor)
-        const control = writer.getByLabel('Body', { exact: true })
+        const control = exactLabel(writer, 'Body')
         await control.waitFor()
         const waitForModel = rawBody => writer.waitForFunction(value => document.getElementById('article-body')?.value === value,
           rawBody.replaceAll('\r\n', '\n'))
+        async function replaceCurrent(query, replacement) {
+          await writer.getByTestId('markdown-search-query').fill(query)
+          await writer.getByTestId('markdown-search-replace').fill(replacement)
+          await writer.getByTestId('markdown-search-replace-current').click()
+        }
         await waitForModel(revisedRaw)
         await control.press(process.platform === 'darwin' ? 'Meta+h' : 'Control+h')
-        await writer.getByTestId('markdown-search-query').fill(removed)
-        await writer.getByTestId('markdown-search-replace').fill(inserted)
-        await writer.getByTestId('markdown-search-replace-current').click()
+        await replaceCurrent(removed, inserted)
         await waitForModel(changed)
         if (restoreBeforeSave) {
-          await writer.getByTestId('markdown-search-query').fill(inserted)
-          await writer.getByTestId('markdown-search-replace').fill(removed)
-          await writer.getByTestId('markdown-search-replace-current').click()
+          await replaceCurrent(inserted, removed)
           await waitForModel(revisedRaw)
         }
         await writer.getByTestId('markdown-search-close').click()
-        const saveReply = writer.waitForResponse(response => response.request().method() === 'POST' &&
-          new URL(response.url()).pathname === WireRoutes.Save)
-        await exactButton(writer, 'Save draft').click()
-        const saved = await saveReply
-        assert.equal(saved.status(), 200)
-        decodeFrame(saved.request().postDataBuffer(), FrameType.ArticleBodyEditsCommand)
-        const updated = decodeDraft(decodeFrame(await saved.body(), FrameType.Draft).payload)
+        const updated = await saveInEditor(writer, FrameType.ArticleBodyEditsCommand)
         const expected = restoreBeforeSave ? revisedRaw : changed
         assert.equal(updated.revision, fixture.revision + 1n)
         assert.equal(updated.body, expected)
@@ -515,10 +515,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     const deleteOffset = revisedRaw.indexOf(deleted)
     await saveBodyEdit(deleted, '')
     assert.equal(fixture.revision, editedSource.revision + 2n)
-    await prepareCurrentIndex(page, beforeEdits.response, fixture.revision)
-    const editCheck = page.waitForResponse(isSearchReply)
-    await jump().press('Enter')
-    const editedHit = exactHit(await readSearchReply(await editCheck), fixture, revisedRaw, 'body', bodyWord)
+    const editedHit = await recheckBodyHit(beforeEdits.response)
     assert.equal(editedHit.sourceStart - oldEditHit.sourceStart, newPrefix.length - oldPrefix.length - deleted.length)
     assert.equal(editedHit.sourceByteStart - oldEditHit.sourceByteStart,
       Buffer.byteLength(newPrefix) - Buffer.byteLength(oldPrefix) - Buffer.byteLength(deleted))
@@ -539,7 +536,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert(currentHandle)
     assert.equal(await verifiedEdit.request().headerValue(WireHeaders.CurrentSession), currentHandle)
     await expectSavedDraft(await draftAfterEdits)
-    await page.getByText('Opened the search result at its verified position in the newer revision.', { exact: true }).waitFor()
+    await exactText(page, 'Opened the search result at its verified position in the newer revision.').waitFor()
     const editedModel = revisedRaw.replaceAll('\r\n', '\n')
     const editedCaret = editedModel.indexOf(bodyWord)
     assert.deepEqual(await field('Body').and(page.locator(':focus')).evaluate(input =>
@@ -558,10 +555,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert(lineEnd > overlappingHit.sourceEnd)
     const overlapReplacement = '改写原命中 🪶'
     await saveBodyEdit(revisedRaw.slice(overlappingHit.sourceStart, lineEnd), overlapReplacement)
-    await prepareCurrentIndex(page, beforeOverlap.response, fixture.revision)
-    const overlapCheck = page.waitForResponse(isSearchReply)
-    await jump().press('Enter')
-    const survivingHit = exactHit(await readSearchReply(await overlapCheck), fixture, revisedRaw, 'body', bodyWord)
+    const survivingHit = await recheckBodyHit(beforeOverlap.response)
     assert(survivingHit.sourceStart > overlappingHit.sourceStart)
     const overlapMap = bodyEditReceipt(overlapSource.revision)
     const readsBeforeOverlap = draftReads.length
@@ -575,7 +569,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.deepEqual(overlapProof.edges.map(edge => edge.edits), [[{
       offset: overlappingHit.sourceStart, removedLength: lineEnd - overlappingHit.sourceStart, insert: overlapReplacement,
     }]])
-    await page.getByText('此命中没有可用的跨修订编辑记录，可以查看原保存修订。', { exact: true }).waitFor()
+    await exactText(page, '此命中没有可用的跨修订编辑记录，可以查看原保存修订。').waitFor()
     assert.equal(page.url(), list)
     assert.equal(draftReads.length, readsBeforeOverlap)
     assert.equal(await page.evaluate(key => Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey), false)
@@ -592,7 +586,7 @@ export async function exerciseAuthorTextSearch({ publisher, origin, article, bod
     assert.equal(roundTripReply.status(), 200)
     assert.equal(decodeDraftRevisionBodyEditChain(
       decodeFrame(await roundTripReply.body(), FrameType.DraftRevisionBodyEditChain).payload).available, false)
-    await page.getByText('此命中没有可用的跨修订编辑记录，可以查看原保存修订。', { exact: true }).waitFor()
+    await exactText(page, '此命中没有可用的跨修订编辑记录，可以查看原保存修订。').waitFor()
 
     await search(bodyWord.toUpperCase())
     await cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw, bodyWord, summary })
@@ -621,9 +615,9 @@ export async function exerciseSummarySearchReveal({ publisher, origin, draft, so
     await recordEditorHistory(page)
     await page.setViewportSize({ width: 375, height: 850 })
     await page.goto(`${origin}/user/manage/article/list`)
-    await page.getByText('作者全文搜索', { exact: true }).click()
+    await exactText(page, '作者全文搜索').click()
     const form = roleWithExactName(page, 'form', '作者全文搜索')
-    const query = form.getByLabel('全文搜索词', { exact: true })
+    const query = exactLabel(form, '全文搜索词')
     const results = roleWithExactName(page, 'region', '全文搜索结果')
     async function search(text) {
       await query.fill(text)
@@ -640,7 +634,7 @@ export async function exerciseSummarySearchReveal({ publisher, origin, draft, so
     const first = await search(`field.summary:${word}`)
     assert.equal(first.batch.total, 1)
     const hit = exactHit(first.batch, draft, source, 'summary', word)
-    await results.getByText('摘要', { exact: true }).waitFor()
+    await exactText(results, '摘要').waitFor()
     assert.equal(await results.locator('mark').textContent(), word)
 
     const recheck = page.waitForResponse(isSearchReply)
@@ -663,12 +657,12 @@ export async function exerciseSummarySearchReveal({ publisher, origin, draft, so
     const editor = `${origin}/user/manage/article/edit/${draft.id}`
     await page.waitForURL(editor)
     const inspector = roleWithExactName(page, 'dialog', 'Article inspector')
-    const textarea = inspector.getByLabel('Summary text', { exact: true })
+    const textarea = exactLabel(inspector, 'Summary text')
     await textarea.and(page.locator(':focus')).waitFor()
     assert.deepEqual(await textarea.evaluate(control => ({ start: control.selectionStart, end: control.selectionEnd,
       value: control.value, node: control.tagName })),
     { start: hit.sourceStart, end: hit.sourceEnd, value: source, node: 'TEXTAREA' })
-    await page.getByText('Opened the search result at its saved position.', { exact: true }).waitFor()
+    await exactText(page, 'Opened the search result at its saved position.').waitFor()
     await page.waitForFunction(key => !Object.hasOwn(history.state ?? {}, key), editorSourceHandoffKey)
     const entries = await page.evaluate(path => window.__authorSearchHistory.filter(item => new URL(item.url).pathname === path),
       new URL(editor).pathname)
@@ -777,7 +771,7 @@ async function cancelRecheck({ page, jump, list, draftReads, fixture, revisedRaw
     const entered = page.waitForRequest(request => request.method() === 'POST' && target(new URL(request.url())))
     await jump().click()
     await entered
-    await page.getByText('正在复查正文命中位置…', { exact: true }).waitFor()
+    await exactText(page, '正在复查正文命中位置…').waitFor()
     exactHit(await readSearchReply(await held.response), fixture, revisedRaw, 'body', bodyWord)
     assert.equal(page.url(), list)
 

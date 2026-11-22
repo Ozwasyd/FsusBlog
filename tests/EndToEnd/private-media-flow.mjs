@@ -9,6 +9,7 @@ const url = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const storage = process.env.FSUSBLOG_PRIVATE_MEDIA_ROOT
 const tickets = [process.env.FSUSBLOG_TEST_TICKET, process.env.FSUSBLOG_TEST_MOBILE_TICKET]
+const resumableRoute = '**/api/v2/media/resumable/**'
 const resumable = process.env.FSUSBLOG_TEST_RESUMABLE_MEDIA === '1'
 assert(evidence && storage && tickets.every(Boolean))
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })
@@ -117,60 +118,70 @@ finally {
 if (failure) throw failure
 console.log('Private PNG upload, authorized image read and file removal verified in desktop and mobile Chrome.')
 
+function beginMutation(requests) {
+  return requests.find(([path]) => path.endsWith('/begin.aeds'))[1]
+}
+
+async function submitInterruptedUpload(page, choose, submit, file) {
+  await choose.setInputFiles(file)
+  await submit.click()
+  await page.getByText('上传未完成。可以重试，已确认的分片会保留。', { exact: true }).waitFor()
+}
+
+async function completeResumableUpload(page, choose, submit, file) {
+  const requests = []
+  await page.route(resumableRoute, async route => {
+    const request = route.request()
+    requests.push([new URL(request.url()).pathname, request.headers()['x-fsus-client-mutation-id']])
+    await route.continue()
+  })
+  await choose.setInputFiles(file)
+  await submit.click()
+  await page.getByText('图片已保存。', { exact: true }).waitFor()
+  await page.unroute(resumableRoute)
+  return requests
+}
+
 async function verifyContinuation(page, file, name) {
   const resumeUi = page.getByText(/当前标签页重新选择/)
   await resumeUi.waitFor()
-  const all = '**/api/v2/media/resumable/**'
   const submit = page.getByRole('button', { name: '上传图片' })
   const choose = page.getByLabel('选择图片')
   const first = []
-  await page.route(all, async route => {
+  await page.route(resumableRoute, async route => {
     const request = route.request()
     const path = new URL(request.url()).pathname
     first.push([path, request.headers()['x-fsus-client-mutation-id']])
     if (path.endsWith('/parts/1.aeds')) await route.abort('failed')
     else await route.continue()
   })
-  await choose.setInputFiles(file)
-  await submit.click()
-  await page.getByText('上传未完成。可以重试，已确认的分片会保留。', { exact: true }).waitFor()
+  await submitInterruptedUpload(page, choose, submit, file)
   await page.getByText('1 / 2 个分片已确认', { exact: true }).waitFor()
   assert.equal(await page.getByRole('button', { name: '取消上传' }).count(), 1)
   await page.screenshot({ path: join(evidence, `private-media-${name}-interrupted.png`), animations: 'disabled' })
-  await page.unroute(all)
+  await page.unroute(resumableRoute)
   await page.reload()
   await resumeUi.waitFor()
-  const expected = first.find(([path]) => path.endsWith('/begin.aeds'))[1]
+  const expected = beginMutation(first)
   if (name === 'mobile') {
     const changed = Buffer.from(file.buffer)
     changed[changed.length - 1] ^= 1
     let differentKey
-    await page.route(all, async route => {
+    await page.route(resumableRoute, async route => {
       const request = route.request()
       const path = new URL(request.url()).pathname
       if (path.endsWith('/begin.aeds')) differentKey = request.headers()['x-fsus-client-mutation-id']
       if (path.endsWith('/parts/1.aeds')) await route.abort('failed')
       else await route.continue()
     })
-    await choose.setInputFiles({ ...file, buffer: changed })
-    await submit.click()
-    await page.getByText('上传未完成。可以重试，已确认的分片会保留。', { exact: true }).waitFor()
+    await submitInterruptedUpload(page, choose, submit, { ...file, buffer: changed })
     assert(differentKey && differentKey !== expected)
     await page.getByRole('button', { name: '取消上传' }).click()
     await page.getByText('已取消上传。', { exact: true }).waitFor()
-    await page.unroute(all)
+    await page.unroute(resumableRoute)
   }
-  const second = []
-  await page.route(all, async route => {
-    const request = route.request()
-    second.push([new URL(request.url()).pathname, request.headers()['x-fsus-client-mutation-id']])
-    await route.continue()
-  })
-  await choose.setInputFiles(file)
-  await submit.click()
-  await page.getByText('图片已保存。', { exact: true }).waitFor()
-  await page.unroute(all)
-  assert.equal(second.find(([path]) => path.endsWith('/begin.aeds'))[1], expected)
+  const second = await completeResumableUpload(page, choose, submit, file)
+  assert.equal(beginMutation(second), expected)
   assert.deepEqual(second.filter(([path]) => path.includes('/parts/')).map(([path]) => path.split('/').at(-1)), ['1.aeds'])
   assert.equal(await page.evaluate(() => Object.keys(sessionStorage).some(key => key.startsWith('fsus.private-media.resume.v1:'))), false)
 
@@ -179,7 +190,6 @@ async function verifyContinuation(page, file, name) {
 
 async function verifyAccountSwitch(page, uploadFile, context) {
   // Use a second real author in the same tab after one confirmed part. Exactly the original bytes select a new owner key.
-  const all = '**/api/v2/media/resumable/**'
   const submit = page.getByRole('button', { name: '上传图片' })
   const choose = page.getByLabel('选择图片')
   const resumeUi = page.getByText(/当前标签页重新选择/)
@@ -196,7 +206,7 @@ async function verifyAccountSwitch(page, uploadFile, context) {
   finally { globalThis.fetch = nativeFetch }
   assert(foreignCookie)
   const switched = []
-  await page.route(all, async route => {
+  await page.route(resumableRoute, async route => {
     const request = route.request()
     const path = new URL(request.url()).pathname
     switched.push([path, request.headers()['x-fsus-client-mutation-id']])
@@ -205,39 +215,26 @@ async function verifyAccountSwitch(page, uploadFile, context) {
       await route.abort('failed')
     } else await route.continue()
   })
-  await choose.setInputFiles(uploadFile)
-  await submit.click()
-  await page.getByText('上传未完成。可以重试，已确认的分片会保留。', { exact: true }).waitFor()
-  const original = switched.find(([path]) => path.endsWith('/begin.aeds'))[1]
-  await page.unroute(all)
+  await submitInterruptedUpload(page, choose, submit, uploadFile)
+  const original = beginMutation(switched)
+  await page.unroute(resumableRoute)
   const savedCookie = await context.cookies().then(cookies => cookies.find(cookie => cookie.name === 'fsus-v2-session'))
   assert.equal(savedCookie.value, foreignCookie)
   await page.reload()
   await resumeUi.waitFor()
-  const received = []
-  await page.route(all, async route => {
-    const request = route.request()
-    received.push([new URL(request.url()).pathname, request.headers()['x-fsus-client-mutation-id']])
-    await route.continue()
-  })
-  await choose.setInputFiles(uploadFile)
-  await submit.click()
-  await page.getByText('图片已保存。', { exact: true }).waitFor()
-  await page.unroute(all)
-  assert.notEqual(received.find(([path]) => path.endsWith('/begin.aeds'))[1], original)
+  const received = await completeResumableUpload(page, choose, submit, uploadFile)
+  assert.notEqual(beginMutation(received), original)
   assert.equal(received.filter(([path]) => path.includes('/parts/')).length, 2)
   await page.getByRole('button', { name: `删除 ${uploadFile.name}` }).click()
   await page.getByRole('button', { name: '删除图片', exact: true }).click()
   await page.getByText('图片已删除。', { exact: true }).waitFor()
   await context.addCookies([oldCookie])
-  await page.route(all, route => new URL(route.request().url()).pathname.endsWith('/parts/1.aeds') ? route.abort('failed') : route.continue())
+  await page.route(resumableRoute, route => new URL(route.request().url()).pathname.endsWith('/parts/1.aeds') ? route.abort('failed') : route.continue())
   await page.reload()
   await resumeUi.waitFor()
-  await choose.setInputFiles(uploadFile)
-  await submit.click()
-  await page.getByText('上传未完成。可以重试，已确认的分片会保留。', { exact: true }).waitFor()
+  await submitInterruptedUpload(page, choose, submit, uploadFile)
   await page.getByText('1 / 2 个分片已确认', { exact: true }).waitFor()
   await page.getByRole('button', { name: '取消上传' }).click()
   await page.getByText('已取消上传。', { exact: true }).waitFor()
-  await page.unroute(all)
+  await page.unroute(resumableRoute)
 }

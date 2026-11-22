@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { requireWebPackage } from './web-package-fixture.mjs'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { inspectDownloadedFile, inspectOfflinePage } from './media-export-fixture.mjs'
+import { withMediaSession } from './media-session-fixture.mjs'
 import { api } from '../../src/Contracts/client.ts'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodWriter } from '../../src/Contracts/binary.ts'
@@ -38,25 +38,13 @@ try {
       }), 'base64'))
       const file = `private-attachment-${name}.png`
       const ticket = index ? process.env.FSUSBLOG_TEST_MOBILE_TICKET : process.env.FSUSBLOG_TEST_TICKET
-      let cookie
-      const native = globalThis.fetch
-      globalThis.fetch = async (path, options) => {
-        const headers = new Headers(options.headers)
-        if (cookie) headers.set('Cookie', `fsus-v2-session=${cookie}`)
-        const result = await native(new URL(path, origin), { ...options, headers })
-        cookie ??= result.headers.get('set-cookie')?.match(/\bfsus-v2-session=([a-f0-9]{64})\b/)?.[1]
-        return result
-      }
-      let draft
-      let asset, second
-      try {
-        await api.signIn(ticket)
-        assert(cookie)
-        asset = await uploadMedia(new File([bytes], file, { type: 'image/png' }), crypto.randomUUID())
-        second = await uploadMedia(new File([bytes], 'companion-' + file, { type: 'image/png' }), crypto.randomUUID())
-        draft = await api.save({ id: 0, expectedRevision: 0n, idempotencyKey: crypto.randomUUID(),
+      const { cookie, asset, second, draft } = await withMediaSession(origin, ticket, async cookie => {
+        const asset = await uploadMedia(new File([bytes], file, { type: 'image/png' }), crypto.randomUUID())
+        const second = await uploadMedia(new File([bytes], 'companion-' + file, { type: 'image/png' }), crypto.randomUUID())
+        const draft = await api.save({ id: 0, expectedRevision: 0n, idempotencyKey: crypto.randomUUID(),
           title: `Private attachments ${name}`, body: 'Public text remains independent of private attachments.' })
-      } finally { globalThis.fetch = native }
+        return { cookie, asset, second, draft }
+      })
       await author.addCookies([{ name: 'fsus-v2-session', value: cookie, url: origin, httpOnly: true, sameSite: 'Strict' }])
 
       const diagnostics = []
@@ -150,13 +138,17 @@ try {
       }
       const data = command.postDataBuffer()
       const postCover = origin + WireRoutes.ArticleCoverSave
+      async function assertCoverRejected(header, value, data, status) {
+        const response = await author.request.post(postCover, { headers: { ...headers, [header]: value }, data })
+        assert.equal(response.status(), status)
+      }
       const replay = await author.request.post(postCover, { headers, data })
       assert.equal(replay.status(), 200)
       assert.deepEqual(await replay.body(), await savedCover.body())
-      assert.equal((await author.request.post(postCover, { headers: { ...headers, [WireHeaders.CurrentSession]: 'invalid' }, data })).status(), 409)
+      await assertCoverRejected(WireHeaders.CurrentSession, 'invalid', data, 409)
       const staleKey = crypto.randomUUID()
       const staleData = coverFrame(draft.id, covered.revision - 1n, staleKey, second.id)
-      assert.equal((await author.request.post(postCover, { headers: { ...headers, [WireHeaders.ClientMutationId]: staleKey }, data: staleData })).status(), 409)
+      await assertCoverRejected(WireHeaders.ClientMutationId, staleKey, staleData, 409)
       assert.equal((await fetch(postCover, { method: 'POST', headers, body: data })).status, 401)
       await page.getByText('Draft cover', { exact: true }).waitFor()
 
@@ -182,9 +174,7 @@ try {
       assert.equal(current, covered.revision + 2n)
       const unattachedKey = crypto.randomUUID()
       const unattached = coverFrame(draft.id, current, unattachedKey, second.id)
-      assert.equal((await author.request.post(postCover, {
-        headers: { ...headers, [WireHeaders.ClientMutationId]: unattachedKey }, data: unattached,
-      })).status(), 404)
+      await assertCoverRejected(WireHeaders.ClientMutationId, unattachedKey, unattached, 404)
       await page.getByText('Revision history', { exact: true }).click()
       await exactButton(page, `Compare revision ${covered.revision}`).click()
       const comparison = roleWithExactName(page, 'dialog', 'Revision comparison')
@@ -255,17 +245,8 @@ async function verifyOfflineAttachment(page, draft, assetId, file, previewBytes)
   const policy = "default-src 'none'; base-uri 'none'; form-action 'none'; img-src data:"
   assert.equal(response.headers()['content-security-policy'], policy + "; frame-ancestors 'none'")
 
-  const scratch = await mkdtemp(join(tmpdir(), 'fsusv2-attachment-html-'))
-  try {
-    const filename = join(scratch, 'article.html')
-    await download.saveAs(filename)
-    assert.deepEqual(await readFile(filename), await response.body())
-    const context = await browser.newContext({ offline: true, serviceWorkers: 'block', viewport: page.viewportSize() })
-    try {
-      const network = []
-      context.on('request', request => { if (/^https?:/u.test(request.url())) network.push(request.url()) })
-      const offline = await context.newPage()
-      await offline.goto(pathToFileURL(filename).href)
+  await inspectDownloadedFile(download, response, 'fsusv2-attachment-html-', 'article.html', async filename => {
+    await inspectOfflinePage(browser, page, filename, async offline => {
       assert.equal(await offline.title(), draft.title)
       const image = roleWithExactName(offline, 'img', file)
       await image.waitFor()
@@ -273,23 +254,14 @@ async function verifyOfflineAttachment(page, draft, assetId, file, previewBytes)
         document.images[0].naturalWidth === 160 && document.images[0].naturalHeight === 80)
       assert.equal(await image.getAttribute('src'), 'data:image/png;base64,' + previewBytes.toString('base64'))
       assert.equal(await offline.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content'), policy)
-      assert.deepEqual(network, [])
-    } finally {
-      await context.close()
-    }
-  } finally {
-    await rm(scratch, { recursive: true })
-  }
+    })
+  })
 }
 
 async function verifyOfflineEpub(page, draft, assetId, file, previewBytes) {
   const { response, download } = await downloadAttachment(page, draft, assetId, 'EPUB')
   assert.equal(response.headers()['content-type'], 'application/epub+zip')
-  const scratch = await mkdtemp(join(tmpdir(), 'fsusv2-attachment-epub-'))
-  try {
-    const epub = join(scratch, 'article.epub')
-    await download.saveAs(epub)
-    assert.deepEqual(await readFile(epub), await response.body())
+  await inspectDownloadedFile(download, response, 'fsusv2-attachment-epub-', 'article.epub', async (epub, scratch) => {
     const extract = entry => execFileSync('unzip', ['-p', epub, entry], { maxBuffer: 2 * 1024 * 1024 })
     const path = 'images/attachment.png'
     const picture = extract('EPUB/' + path)
@@ -298,22 +270,12 @@ async function verifyOfflineEpub(page, draft, assetId, file, previewBytes) {
     await writeFile(join(scratch, path), picture)
     const chapter = join(scratch, 'article.xhtml')
     await writeFile(chapter, extract('EPUB/article.xhtml'))
-    const context = await browser.newContext({ offline: true, serviceWorkers: 'block', viewport: page.viewportSize() })
-    try {
-      const network = []
-      context.on('request', request => { if (/^https?:/u.test(request.url())) network.push(request.url()) })
-      const offline = await context.newPage()
-      await offline.goto(pathToFileURL(chapter).href)
+    await inspectOfflinePage(browser, page, chapter, async offline => {
       assert.equal(await offline.title(), draft.title)
       const image = roleWithExactName(offline, 'img', file)
       assert.equal(await image.getAttribute('src'), path)
       await offline.waitForFunction(() => document.images.length === 1 &&
         document.images[0].naturalWidth === 160 && document.images[0].naturalHeight === 80)
-      assert.deepEqual(network, [])
-    } finally {
-      await context.close()
-    }
-  } finally {
-    await rm(scratch, { recursive: true })
-  }
+    })
+  })
 }

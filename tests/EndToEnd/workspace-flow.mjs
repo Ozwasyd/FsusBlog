@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { readDraft, submitArticle } from './browser-authoring-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const routes = {
@@ -10,19 +9,10 @@ const routes = {
   draft: articleId => WireRoutes.Draft.replace('{id:int}', String(articleId)),
 }
 
-function draft(bytes) {
-  return decodeDraft(decodeFrame(bytes, FrameType.Draft).payload)
-}
-
 async function createDraft(page, origin, title) {
   const body = `Private seed for ${title}.`
-  const command = encodeArticleCommand({ id: 0, expectedRevision: 0n, idempotencyKey: randomUUID(), title, body })
-  const response = await page.request.post(`${origin}${WireRoutes.Save}`, {
-    data: Buffer.from(encodeFrame(FrameType.ArticleCommand, command)),
-    headers: { 'Content-Type': 'application/octet-stream' },
-  })
-  assert.equal(response.status(), 200, 'Workspace fixture draft must exist in PostgreSQL')
-  const saved = draft(await response.body())
+  const response = await submitArticle(page.request, origin + WireRoutes.Save, { id: 0, expectedRevision: 0n, title, body })
+  const saved = await readDraft(response, 'Workspace fixture draft must exist in PostgreSQL')
   assert.equal(saved.title, title)
   assert.equal(saved.body, body)
   assert.equal(saved.published, false)
@@ -41,16 +31,6 @@ function workspaceList(page) {
   return roleWithExactName(page, 'tablist', 'Open articles')
 }
 
-function control(page, name) {
-  return exactButton(page, name)
-}
-
-function gate() {
-  let release
-  const wait = new Promise(resolve => { release = resolve })
-  return { wait, release }
-}
-
 async function expectEditor(page, origin, article, body = article.body) {
   await page.waitForURL(`${origin}${routes.edit(article.id)}`)
   const panel = page.locator('#workspace-editor')
@@ -64,7 +44,7 @@ async function expectEditor(page, origin, article, body = article.body) {
 async function openWorkspaceDialog(page) {
   const dialog = roleWithExactName(page, 'dialog', 'Workspace & open article')
   if (await dialog.isVisible()) return dialog
-  await control(page, 'More actions').click()
+  await exactButton(page, 'More actions').click()
   await roleWithExactName(page, 'menuitem', 'Workspace & open…').click()
   await dialog.waitFor()
   return dialog
@@ -74,21 +54,21 @@ async function openById(page, articleId) {
   const inlineInput = page.getByLabel('Article ID', { exact: true })
   const scope = await inlineInput.isVisible() ? page : await openWorkspaceDialog(page)
   await scope.getByLabel('Article ID', { exact: true }).fill(String(articleId))
-  await control(scope, 'Open article').click()
+  await exactButton(scope, 'Open article').click()
 }
 
 async function openWithDelayedResponse(page, origin, current, target) {
-  const seen = gate()
-  const pending = gate()
+  const seen = Promise.withResolvers()
+  const pending = Promise.withResolvers()
   const ordered = `${origin}${routes.draft(target.id)}`
   const routeBound = async route => {
     try {
       const real = await route.fetch({ maxRetries: 0, maxRedirects: 0 })
-      seen.release(real.status())
-      await pending.wait
+      seen.resolve(real.status())
+      await pending.promise
       await route.fulfill({ response: real })
     } catch (error) {
-      seen.release(error)
+      seen.resolve(error)
       throw error
     }
   }
@@ -97,7 +77,7 @@ async function openWithDelayedResponse(page, origin, current, target) {
   try {
     await openById(page, target.id)
     assert.equal(await Promise.race([
-      seen.wait,
+      seen.promise,
       delay(10_000, 'no draft request', { signal: timer.signal }),
     ]), 200, 'Expected the real authenticated draft response before release')
     assert.equal(page.url(), `${origin}${routes.edit(current.id)}`, 'URL must stay on the ready editor until the target is ready')
@@ -105,7 +85,7 @@ async function openWithDelayedResponse(page, origin, current, target) {
     assert.equal(await workspaceList(page).getByRole('tab', { name: target.title, exact: false }).count(), 0, 'No target tab before a valid draft')
     assert.equal(await inputBody(page).inputValue(), current.body)
   } finally {
-    pending.release()
+    pending.resolve()
     timer.abort()
   }
   await expectEditor(page, origin, target)
@@ -121,12 +101,12 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
 
   await expectEditor(page, origin, primary)
   if (!await exactTab(page, primary.title, 'Pinned').count()) {
-    const pinButton = control(page, `Pin ${primary.title}`)
+    const pinButton = exactButton(page, `Pin ${primary.title}`)
     if (await pinButton.isVisible()) {
       await pinButton.click()
     } else {
       const dialog = await openWorkspaceDialog(page)
-      await control(dialog, `Pin ${primary.title}`).click()
+      await exactButton(dialog, `Pin ${primary.title}`).click()
       await page.keyboard.press('Escape')
       await dialog.waitFor({ state: 'detached' })
     }
@@ -134,7 +114,7 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   await exactTab(page, primary.title, 'Pinned').waitFor()
 
   await openWithDelayedResponse(page, origin, primary, pinned)
-  await control(page, `Pin ${pinned.title}`).click()
+  await exactButton(page, `Pin ${pinned.title}`).click()
   await exactTab(page, pinned.title, 'Pinned').waitFor()
   await inputBody(page).fill(local)
   await exactTab(page, pinned.title, 'Unsaved').waitFor()
@@ -204,13 +184,13 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   }
 
   await exactTab(page, pinned.title, 'Unsaved').waitFor()
-  const close = control(page, `Close ${pinned.title}`)
+  const close = exactButton(page, `Close ${pinned.title}`)
   const protectedTab = exactTab(page, pinned.title, 'Unsaved')
   const closeDialog = roleWithExactName(page, 'dialog', 'Close tabs with unsaved edits?')
   await protectedTab.focus()
   await page.keyboard.press('Delete')
   await closeDialog.waitFor()
-  await control(closeDialog, 'Keep writing').click()
+  await exactButton(closeDialog, 'Keep writing').click()
   await expectEditor(page, origin, pinned, local)
   await protectedTab.and(page.locator(':focus')).waitFor({ timeout: 3000 })
   await closeDialog.waitFor({ state: 'detached' })
@@ -218,16 +198,15 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   const discardOption = 'Discard unsaved edits from this browser'
   await closeDialog.getByText(discardOption, { exact: true }).click()
   assert.equal(await roleWithExactName(closeDialog, 'radio', discardOption).isChecked(), true)
-  await control(closeDialog, 'Close tabs').click()
+  await exactButton(closeDialog, 'Close tabs').click()
   await exactTab(page, pinned.title, 'Unsaved').waitFor({ state: 'detached' })
   assert.equal(await workspaceList(page).getByRole('tab', { name: pinned.title, exact: false }).count(), 0)
   await exactTab(page, primary.title, 'Pinned').click()
   await expectEditor(page, origin, primary)
   const persisted = await page.request.get(`${origin}${routes.draft(pinned.id)}`)
-  assert.equal(persisted.status(), 200)
-  assert.deepEqual(draft(await persisted.body()), pinned, 'Tab discard must leave the persistent private draft untouched')
+  assert.deepEqual(await readDraft(persisted), pinned, 'Tab discard must leave the persistent private draft untouched')
   const recentDialog = await openWorkspaceDialog(page)
-  const reopen = control(recentDialog, `Reopen Article ${pinned.id}`)
+  const reopen = exactButton(recentDialog, `Reopen Article ${pinned.id}`)
   await reopen.click()
   await expectEditor(page, origin, pinned)
   await exactTab(page, pinned.title, 'Pinned').waitFor()
@@ -246,7 +225,7 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
     await expectEditor(separate, origin, primary)
     assert.equal(await workspaceList(separate).count(), 0, 'A single-article browser tab starts without the multi-tab strip')
     const separateDialog = await openWorkspaceDialog(separate)
-    await control(separateDialog, `Close ${primary.title}`).click()
+    await exactButton(separateDialog, `Close ${primary.title}`).click()
     await separate.waitForURL(`${origin}/user/manage/article/workspace`)
     await separate.getByText('Open an article or start a new draft.', { exact: true }).waitFor()
     assert.equal(await separate.locator('#article-body').count(), 0)

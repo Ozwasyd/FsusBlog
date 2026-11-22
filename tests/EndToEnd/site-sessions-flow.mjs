@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
+import { assertEmpty, assertStatus } from './response-status-fixture.mjs'
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { requireWebPackage } from './web-package-fixture.mjs'
 import { join, resolve } from 'node:path'
-import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
+import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
-import { FrameType } from '../../src/Contracts/wire.generated.ts'
 
 const { chromium } = requireWebPackage('@playwright/test')
 const url = process.env.FSUSBLOG_TEST_SESSIONS_URL
@@ -34,10 +34,10 @@ const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TES
 let phase = 'sign-in'
 let failure
 try {
-  const primary = await signIn('primary', tickets[0], { width: 1280, height: 800 })
+  const primary = await signIn('primary', tickets[0])
   const peer = await signIn('peer', tickets[1], { width: 375, height: 850 })
-  const remaining = await signIn('remaining', tickets[2], { width: 1280, height: 800 })
-  const foreign = await signIn('foreign', tickets[3], { width: 1280, height: 800 })
+  const remaining = await signIn('remaining', tickets[2])
+  const foreign = await signIn('foreign', tickets[3])
   const allSessions = [primary, peer, remaining, foreign]
   assert.equal(new Set(allSessions.map(session => session.handle)).size, 4)
   const ownedSessions = [primary.handle, peer.handle, remaining.handle]
@@ -56,24 +56,23 @@ try {
   checks.rawCredentialsAbsent = true
 
   phase = 'mutation-authorization'
-  let response = await primary.context.request.post(origin + revokePath(foreign.handle), { headers: current(primary) })
-  assert.equal(response.status(), 404, 'A foreign session must be indistinguishable from an unknown session.')
-  response = await primary.context.request.post(origin + revokePath(randomBytes(32).toString('hex')), {
-    headers: current(primary),
-  })
-  assert.equal(response.status(), 404, 'Unknown sessions must return the same status as foreign sessions.')
-  response = await primary.context.request.post(origin + revokePath(primary.handle), { headers: current(primary) })
-  assert.equal(response.status(), 409, 'The current browser session has its own sign-out action.')
-  response = await primary.context.request.post(origin + bulkPath, {
+  const rejectRevocation = async (handle, status, message) => {
+    const reply = await primary.context.request.post(origin + revokePath(handle), { headers: current(primary) })
+    assertStatus(reply, status, message)
+  }
+  await rejectRevocation(foreign.handle, 404, 'A foreign session must be indistinguishable from an unknown session.')
+  await rejectRevocation(randomBytes(32).toString('hex'), 404, 'Unknown sessions must return the same status as foreign sessions.')
+  await rejectRevocation(primary.handle, 409, 'The current browser session has its own sign-out action.')
+  let response = await primary.context.request.post(origin + bulkPath, {
     headers: { ...current(primary), Origin: 'https://cross-origin.invalid' },
   })
-  assert.equal(response.status(), 403, 'Session mutations must reject a foreign origin.')
+  assertStatus(response, 403, 'Session mutations must reject a foreign origin.')
   response = await primary.context.request.post(origin + bulkPath)
   assert(response.status() >= 400 && response.status() < 500, 'Mutations require a current-session precondition.')
   const anonymous = await browser.newContext()
   try {
     response = await anonymous.request.get(origin + listPath, { headers: current(primary) })
-    assert.equal(response.status(), 401, 'A session handle alone does not authenticate.')
+    assertStatus(response, 401, 'A session handle alone does not authenticate.')
   } finally {
     await anonymous.close()
   }
@@ -86,7 +85,7 @@ try {
     await primary.context.clearCookies({ name: sessionCookie })
     await primary.context.addCookies([replacement.cookie])
     response = await clickMutation(primary.page, bulkButton(primary.page), path => path === bulkPath)
-    assert.equal(response.status(), 409, 'A page pinned to its prior browser session must reject a replacement cookie.')
+    assertStatus(response, 409, 'A page pinned to its prior browser session must reject a replacement cookie.')
     await primary.page.getByRole('alert').filter({ hasText: 'The current browser session changed. Reload this page.' }).waitFor()
     assert.equal(await revokeButtons(primary.page).count(), 0)
     await primary.context.clearCookies({ name: sessionCookie })
@@ -100,25 +99,23 @@ try {
   phase = 'single-revocation'
   response = await clickMutation(primary.page, revokeButtons(primary.page).first(),
     path => path.startsWith(identity + '/sessions/') && path.endsWith('/revoke.aeds'))
-  assert.equal(response.status(), 200)
-  decodeSuccess(decodeFrame(await response.body(), FrameType.EmptySuccess).payload)
+  await assertEmpty(response)
   const target = new URL(response.url()).pathname.split('/').at(-2)
   const revoked = [peer, remaining].find(session => session.handle === target)
   assert(revoked, 'The UI must address one of the other sessions for this account.')
   const survivor = revoked === peer ? remaining : peer
-  assert.equal((await revoked.context.request.get(origin + currentPath)).status(), 401)
-  assert.equal((await survivor.context.request.get(origin + currentPath)).status(), 200)
+  assertStatus(await revoked.context.request.get(origin + currentPath), 401)
+  assertStatus(await survivor.context.request.get(origin + currentPath), 200)
   await revokeButtons(primary.page).nth(1).waitFor({ state: 'hidden' })
   assert.equal(await revokeButtons(primary.page).count(), 1)
   checks.individualCookieRevoked = true
 
   phase = 'bulk-revocation'
   response = await clickMutation(primary.page, bulkButton(primary.page), path => path === bulkPath)
-  assert.equal(response.status(), 200)
-  decodeSuccess(decodeFrame(await response.body(), FrameType.EmptySuccess).payload)
-  assert.equal((await survivor.context.request.get(origin + currentPath)).status(), 401)
-  assert.equal((await foreign.context.request.get(origin + currentPath)).status(), 200)
-  assert.equal((await primary.context.request.get(origin + currentPath)).status(), 200)
+  await assertEmpty(response)
+  assertStatus(await survivor.context.request.get(origin + currentPath), 401)
+  assertStatus(await foreign.context.request.get(origin + currentPath), 200)
+  assertStatus(await primary.context.request.get(origin + currentPath), 200)
   assert.deepEqual((await getSessions(primary, allSessions)).map(row => row.id), [primary.handle])
   await revokeButtons(primary.page).first().waitFor({ state: 'hidden' })
   await primary.page.getByText('This browser', { exact: true }).waitFor({ state: 'visible' })
@@ -126,7 +123,7 @@ try {
   checks.bulkPreservedCurrentAndForeign = true
 
   for (const session of [primary, foreign])
-    assert.equal((await session.context.request.post(origin + identity + '/sign-out.aeds')).status(), 200)
+    assertStatus(await session.context.request.post(origin + identity + '/sign-out.aeds'), 200)
   assert.deepEqual(diagnostics, [])
   phase = 'passed'
 } catch (error) {
@@ -157,7 +154,7 @@ function bulkButton(page) {
   return page.getByRole('button', { name: 'Revoke other sessions', exact: true })
 }
 
-async function signIn(name, ticket, viewport) {
+async function signIn(name, ticket, viewport = { width: 1280, height: 800 }) {
   const context = await browser.newContext({ viewport })
   const page = await context.newPage()
   page.on('pageerror', error => diagnostics.push({ name, kind: 'uncaught', message: clean(error.message) }))
@@ -180,12 +177,12 @@ async function signIn(name, ticket, viewport) {
   await page.getByLabel('Owner access key').fill(ticket)
   await page.getByRole('button', { name: 'Log in', exact: true }).click()
   const response = await signedIn
-  assert.equal(response.status(), 200, 'One-use fixture ticket was not accepted.')
+  assertStatus(response, 200, 'One-use fixture ticket was not accepted.')
   await page.waitForURL(origin + '/user/manage/article/write')
   const cookie = (await context.cookies(origin)).find(cookie => cookie.name === sessionCookie)
   assert(cookie && cookie.httpOnly, 'The authenticated browser cookie must remain HttpOnly.')
   const snapshot = await context.request.get(origin + currentPath)
-  assert.equal(snapshot.status(), 200)
+  assertStatus(snapshot, 200)
   assert(snapshot.headers()['cache-control']?.includes('no-store'), 'The session response must not be cached.')
   const handle = snapshot.headers()[currentHeader.toLowerCase()]
   assert(handleFormat.test(handle), 'The session response must supply an opaque handle.')
@@ -203,7 +200,7 @@ async function openSecurity(session) {
 
 async function getSessions(session, fixtures) {
   const response = await session.context.request.get(origin + listPath, { headers: current(session) })
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   assert(response.headers()['cache-control']?.includes('no-store'), 'The session list must not be cached.')
   const body = await response.body()
   assertNotCredential(body, fixtures)

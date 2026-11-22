@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { assertStatus } from './response-status-fixture.mjs'
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -7,7 +8,7 @@ import { promisify } from 'node:util'
 import { decodeApiError, decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { decodeDraft, decodeSession, encodeArticleCommand, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { assertEmptySuccess, button, enableAuthenticator, expect, launchIdentityBrowser, readTlsIdentityFixture, recordIdentityResponse, request, setupSiteTotp, totp } from './site-authentication-fixture.mjs'
+import { assertEmptySuccess, button, enableAuthenticator, expect, launchIdentityBrowser, readTlsIdentityFixture, recordIdentityResponse, request, secureLoginProtocol, setupSiteTotp, completeSiteTotp, siteApi } from './site-authentication-fixture.mjs'
 import { roleWithExactName } from './role-locators.mjs'
 
 const emptySuccess = reply => assertEmptySuccess(reply, 'Authentication response may be stored.')
@@ -16,6 +17,8 @@ const peerTicket = process.env.FSUSBLOG_TEST_SITE_REFRESH_PEER_TICKET
 const probe = process.env.FSUSBLOG_TEST_SITE_REFRESH_PROBE
 const { origin, ownerTicket, pins } = readTlsIdentityFixture(peerTicket, probe,
   'Provide the isolated native TLS runner with two separate accounts and the PostgreSQL fixture probe.')
+const { isApi, waitApi, clickApi } = siteApi(origin, (target, predicate) =>
+  target.waitForEvent('response', { predicate, timeout: 12_000 }))
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/site-refresh-browser')
 await mkdir(evidence, { recursive: true })
 
@@ -39,18 +42,16 @@ try {
   const owner = await openBrowser('owner')
   const peer = await openBrowser('peer')
   const document = await owner.page.goto(origin + '/login')
-  const security = await document?.securityDetails()
-  assert(security?.protocol.startsWith('TLS') && await owner.page.evaluate(() => window.isSecureContext),
+  checks.tlsWebAuthn = await secureLoginProtocol(owner.page, document,
     'Persistent session acceptance requires a real TLS browser context.')
-  checks.tlsWebAuthn = security.protocol
-  assert.equal((await owner.context.request.get(origin + refreshAvailability)).status(), 200)
-  assert.equal((await owner.context.request.get(origin + refreshStatus)).status(), 401)
+  assertStatus(await owner.context.request.get(origin + refreshAvailability), 200)
+  assertStatus(await owner.context.request.get(origin + refreshStatus), 401)
   await enroll(owner.page, ownerTicket)
   await passkey(owner.page, false, 1)
   const original = await checkSession(owner.context, 200)
   await owner.page.goto(origin + '/user/identity/mfa')
   const { secret, setupStep } = await setupSiteTotp(owner.page, clickApi, sensitive, 'The fixture authenticator seed was unavailable.')
-  assert.equal((await clickApi(owner.page, WireRoutes.SignOut, 'Log out')).status(), 200)
+  assertStatus(await clickApi(owner.page, WireRoutes.SignOut, 'Log out'), 200)
   await owner.page.waitForURL(origin + '/')
 
   phase = 'ordinary-browser-session'
@@ -61,23 +62,20 @@ try {
   const peerCookie = await cookie(peer.context, 'access')
   assert(peerState.name !== original.name && !peerState.persistent && peerCookie.expires === -1,
     'The separate non-opted-in Passkey session should be a browser cookie.')
-  assert.equal((await peer.context.request.get(origin + refreshStatus)).status(), 401)
-  assert.equal((await rotateVia(peer.context.request)).status(), 401)
+  assertStatus(await peer.context.request.get(origin + refreshStatus), 401)
+  assertStatus(await rotateVia(peer.context.request), 401)
   await checkSession(peer.context, 200)
   checks.nonOptedInOwnSession = true
 
   phase = 'persistent-mfa'
   await passkey(owner.page, true, 2)
   await checkSession(owner.context, 401)
-  assert.equal((await owner.context.request.get(origin + refreshStatus)).status(), 401)
+  assertStatus(await owner.context.request.get(origin + refreshStatus), 401)
   assert(!(await cookie(owner.context, 'refresh', false)), 'MFA-pending login received a persistent credential.')
-  const loginCode = totp(secret, Math.max(setupStep + 1, Math.floor(Date.now() / 30_000)))
-  sensitive.push(loginCode)
-  await owner.page.getByLabel('Authenticator or recovery code', { exact: true }).fill(loginCode)
-  assert.equal((await clickApi(owner.page, WireRoutes.MfaChallengeVerify, 'Verify and log in')).status(), 200)
+  await completeSiteTotp(owner.page, clickApi, sensitive, secret, setupStep)
   const active = await checkSession(owner.context, 200)
   assert(active.name === original.name && active.persistent, 'MFA completion did not establish the same account’s persistent session.')
-  assert.equal((await owner.context.request.get(origin + refreshStatus)).status(), 200)
+  assertStatus(await owner.context.request.get(origin + refreshStatus), 200)
   const oldAccess = await cookie(owner.context, 'access')
   const oldRefresh = await cookie(owner.context, 'refresh')
   assertCookieOptions(oldAccess, oldRefresh)
@@ -144,7 +142,7 @@ try {
     await writer.bringToFront()
     await button(roleWithExactName(writer, 'complementary', 'Article inspector'), 'Close').click()
     const saved = await saveFromEditor(writer)
-    assert.equal(saved.status(), 200)
+    assertStatus(saved, 200)
     const sent = await saved.request().allHeaders()
     assert(sent[WireHeaders.CurrentSession.toLowerCase()] === fresh.handle,
       'The preserved workspace did not write using the rotated credential identifier.')
@@ -162,7 +160,7 @@ try {
     const replay = await rotateVia(stale)
     await refreshError(replay, 401, 'REFRESH_FAMILY_COMPROMISED')
     await checkSession(restored, 401)
-    assert.equal((await rotateVia(restored.request)).status(), 401)
+    assertStatus(await rotateVia(restored.request), 401)
     checks.retiredTokenReplayRevokedFamily = true
   } finally {
     rotation.resolve()
@@ -188,8 +186,8 @@ try {
     storageState: { cookies: [signedOutAccess, signedOutRefresh], origins: [] },
   })
   try {
-    assert.equal((await beforeLogout.get(origin + WireRoutes.Session)).status(), 401)
-    assert.equal((await rotateVia(beforeLogout)).status(), 401)
+    assertStatus(await beforeLogout.get(origin + WireRoutes.Session), 401)
+    assertStatus(await rotateVia(beforeLogout), 401)
   } finally { await beforeLogout.dispose() }
   checks.persistentSignOutRevokedBothCredentials = true
   assert.deepEqual(faults, [])
@@ -219,19 +217,6 @@ async function openBrowser(role) {
   return { context, page }
 }
 
-function isApi(reply, path, method) {
-  return reply.url() === origin + path && reply.request().method() === method
-}
-
-function waitApi(target, path, method) {
-  return target.waitForEvent('response', { predicate: reply => isApi(reply, path, method), timeout: 12_000 })
-}
-
-async function clickApi(page, path, label) {
-  const [reply] = await Promise.all([waitApi(page, path, 'POST'), button(page, label).click()])
-  return reply
-}
-
 async function enroll(page, ticket) {
   await page.getByLabel('Owner access key').fill(ticket)
   await emptySuccess(await clickApi(page, WireRoutes.PasskeyProvisionComplete, 'Create Passkey'))
@@ -249,7 +234,7 @@ async function passkey(page, remember, phase) {
     assert.equal(await choice.isChecked(), true)
   }
   const reply = await clickApi(page, WireRoutes.PasskeyLoginComplete, 'Log in with Passkey')
-  assert.equal(reply.status(), 200)
+  assertStatus(reply, 200)
   const login = decodeFrame(await reply.body(), FrameType.AuthLoginFlow)
   assert.equal(login.payload[4], phase)
   if (phase === 1) await page.waitForURL(origin + '/user/manage/article/write')
@@ -257,7 +242,7 @@ async function passkey(page, remember, phase) {
 
 async function checkSession(context, status) {
   const reply = await context.request.get(origin + WireRoutes.Session)
-  assert.equal(reply.status(), status)
+  assertStatus(reply, status)
   if (status === 200) {
     const headers = reply.headers()
     const expiresAt = Date.parse(headers[WireHeaders.AccessExpiresAtUtc.toLowerCase()])
@@ -293,7 +278,7 @@ function rotateVia(api) {
 }
 
 async function refreshError(reply, status, message) {
-  assert.equal(reply.status(), status)
+  assertStatus(reply, status)
   const frame = decodeFrame(await reply.body(), FrameType.ApiError)
   assert.equal(decodeApiError(frame.payload, status).message, message)
 }
@@ -324,7 +309,7 @@ async function openDirtyWorkspace(writer, handle) {
     headers: { 'Content-Type': 'application/octet-stream', Origin: origin, [WireHeaders.CurrentSession]: handle },
     data: Buffer.from(draft),
   })
-  assert.equal(stored.status(), 200)
+  assertStatus(stored, 200)
   const { id } = decodeDraft(decodeFrame(await stored.body(), FrameType.Draft).payload)
   await writer.goto(origin + '/user/manage/article/workspace')
   await writer.getByLabel('Article ID', { exact: true }).fill(String(id))
@@ -394,7 +379,7 @@ async function rejectStaleDraftCreate(cookies, handle, peer, peerCookie) {
     assert((await checkSession(swapped, 200)).name === (await checkSession(peer.context, 200)).name,
       'The stale write fixture was not using the peer account’s actual access credential.')
     const inventory = await peer.context.request.get(origin + WireRoutes.AuthorArticles, { params: { keyword: title } })
-    assert.equal(inventory.status(), 200)
+    assertStatus(inventory, 200)
     assert.equal(decodeAuthorArticlePage(decodeFrame(await inventory.body(), FrameType.AuthorArticlePage).payload).total, 0,
       'A cross-account write created an article in the peer inventory.')
   } finally {

@@ -1,5 +1,6 @@
 import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
+import { assertEmpty, assertStatus } from './response-status-fixture.mjs'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -7,7 +8,7 @@ import { stripTypeScriptTypes } from 'node:module'
 import { requireWebPackage } from './web-package-fixture.mjs'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { decodeFrame, decodeSuccess, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
 import { decodeCommentRoots } from '../../src/Contracts/comment-read.ts'
 import { readMfaProof } from '../../src/Contracts/mfa.ts'
@@ -81,6 +82,7 @@ if (pins !== undefined) {
   assert(secureAdmin && siteOrigin.protocol === 'https:' &&
     /^[A-Za-z0-9+/]{43}=,[A-Za-z0-9+/]{43}=$/.test(pins), 'TLS fixtures need two SHA-256 leaf public-key pins.')
 }
+const adminSessionUrl = adminOrigin.origin + adminSession
 const adminCookieName = secureAdmin ? '__Host-FsusAdminSession' : 'fsus-v2-admin-session'
 const siteCookieName = 'fsus-v2-session'
 const checks = {}
@@ -116,7 +118,7 @@ try {
     headers: { 'Content-Type': 'application/octet-stream', Origin: siteOrigin.origin },
     data: Buffer.alloc(0),
   })
-  assert.equal(rejectedTicketSignIn.status(), 401, 'Raw ticket sign-in must fail closed with passkey_required.')
+  assertStatus(rejectedTicketSignIn, 401, 'Raw ticket sign-in must fail closed with passkey_required.')
   await context.addCookies([{
     name: siteCookieName,
     value: siteSessionToken,
@@ -129,10 +131,9 @@ try {
   assert.equal(siteCookie.httpOnly, true)
   assert.equal(siteCookie.secure, siteOrigin.protocol === 'https:')
   const siteState = await context.request.get(siteOrigin.origin + siteSession)
-  assert.equal(siteState.status(), 200)
+  assertStatus(siteState, 200)
   assert.equal(decodeFrame(await siteState.body()).type, FrameType.OperatorSession)
-  await credentialProbe(adminOrigin.origin + adminSession, siteCookieName, siteCookie.value, 401)
-  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, siteCookie.value, 401)
+  await rejectSiteCredential(adminSessionUrl, siteCookie)
   checks.siteSessionCannotAuthorizeAdmin = true
 
   phase = 'bootstrap'
@@ -143,22 +144,21 @@ try {
     checks.realHttpsWebAuthnContext = true
   }
   await roleWithExactName(admin, 'heading', 'Administrator access').waitFor()
-  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
-  assert.equal((await context.request.get(adminOrigin.origin + operationsStatus)).status(), 401)
-  assert.equal((await context.request.get(siteOrigin.origin + operationsStatus)).status(), 404)
-  assert.equal((await context.request.get(adminOrigin.origin + signInHistory)).status(), 401)
-  assert.equal((await context.request.get(siteOrigin.origin + signInHistory)).status(), 404)
-  await credentialProbe(adminOrigin.origin + operationsStatus, siteCookieName, siteCookie.value, 401)
-  await credentialProbe(adminOrigin.origin + operationsStatus, adminCookieName, siteCookie.value, 401)
-  await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, siteCookie.value, 401)
+  assertStatus(await context.request.get(adminSessionUrl), 401)
+  assertStatus(await context.request.get(adminOrigin.origin + operationsStatus), 401)
+  assertStatus(await context.request.get(siteOrigin.origin + operationsStatus), 404)
+  assertStatus(await context.request.get(adminOrigin.origin + signInHistory), 401)
+  assertStatus(await context.request.get(siteOrigin.origin + signInHistory), 404)
+  await rejectSiteCredential(adminOrigin.origin + operationsStatus, siteCookie)
+  await probeAdminCookie(adminOrigin.origin + signInHistory, siteCookie, 401)
   await exactButton(admin, 'Set up administrator Passkey').click()
   await admin.getByLabel('One-time administrator bootstrap key', { exact: true }).fill(adminTicket)
   const registrationBegin = waitPost(admin, adminOrigin, bootstrapBegin)
-  const registration = await clickAndWait(admin, adminOrigin, bootstrapComplete, 'Create administrator Passkey')
+  const registration = await clickAndWait(admin, bootstrapComplete, 'Create administrator Passkey')
   assert.equal(await frameType(await registrationBegin), FrameType.PasskeyRegisterBegin)
   await assertEmpty(registration)
   await admin.getByText('Administrator Passkey created. Log in with it to continue.', { exact: true }).waitFor()
-  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
+  assertStatus(await context.request.get(adminSessionUrl), 401)
   assert(!(await context.cookies(adminOrigin.origin + adminSession)).some(cookie => cookie.name === adminCookieName))
   await rejectReplay(context, registration)
   const reusedTicket = await context.request.post(adminOrigin.origin + bootstrapBegin, {
@@ -180,7 +180,7 @@ try {
   await visitAdminWorkspace(admin, '/admin/identity')
   await exactButton(admin, 'Reload administrator access').waitFor({ state: 'detached' })
   checks.unifiedAdministratorAccessesWorkspaceSections = true
-  const oldCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  const oldCookie = await adminSessionCookie(context)
   assert.equal(oldCookie.httpOnly, true)
   assert.equal(oldCookie.sameSite, 'Strict')
   assert.equal(oldCookie.path, secureAdmin ? '/' : adminPath)
@@ -192,19 +192,19 @@ try {
   const [initialSignIn] = await expectSignInHistory({ page: admin, context, origin: adminOrigin.origin,
     generation: initial.principal.generation, currentCookie: oldCookie.value, expected: ['Current'] })
   await rejectReplay(context, firstLogin)
-  assert((await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)).value === oldCookie.value,
+  assert((await adminSessionCookie(context)).value === oldCookie.value,
     'A replay must leave the current admin browser credential unchanged.')
   const wrongHost = await context.request.get(siteOrigin.origin + adminSession)
-  assert.equal(wrongHost.status(), 404, 'Admin endpoints are unavailable on the site host.')
-  assert.equal((await context.request.get(adminOrigin.origin + siteSession)).status(), 404,
+  assertStatus(wrongHost, 404, 'Admin endpoints are unavailable on the site host.')
+  assertStatus(await context.request.get(adminOrigin.origin + siteSession), 404,
     'The dedicated admin origin does not expose site identity routes.')
-  assert.equal((await context.request.get(adminOrigin.origin + '/')).status(), 404,
+  assertStatus(await context.request.get(adminOrigin.origin + '/'), 404,
     'The dedicated admin origin does not serve the public home page.')
-  await credentialProbe(siteOrigin.origin + siteSession, adminCookieName, oldCookie.value, 401)
+  await probeAdminCookie(siteOrigin.origin + siteSession, oldCookie, 401)
   await credentialProbe(siteOrigin.origin + siteSession, siteCookieName, oldCookie.value, 401)
   const crossOriginLogout = await context.request.post(adminOrigin.origin + adminLogout, { headers: { Origin: siteOrigin.origin } })
-  assert.equal(crossOriginLogout.status(), 403)
-  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, oldCookie.value, 200)
+  assertStatus(crossOriginLogout, 403)
+  await probeAdminCookie(adminSessionUrl, oldCookie, 200)
   checks.adminSessionCannotAuthorizeSite = true
   checks.dedicatedOriginRoutesAreIsolated = true
   checks.assertionReplayDoesNotRotateSession = true
@@ -213,16 +213,15 @@ try {
   phase = 'rotation'
   // Removing the local cookie leaves its server-side session active until fresh WebAuthn succeeds.
   await context.clearCookies({ name: adminCookieName })
-  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, oldCookie.value, 200)
+  await probeAdminCookie(adminSessionUrl, oldCookie, 200)
   await admin.reload()
   await logIn(admin)
   const renewed = await snapshot(context)
-  const newCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  const newCookie = await adminSessionCookie(context)
   assert(newCookie.value !== oldCookie.value, 'Fresh administrator authentication must issue a different session credential.')
   assert.equal(renewed.principal.handle, initial.principal.handle)
   assert(renewed.principal.generation >= initial.principal.generation)
-  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, oldCookie.value, 401)
-  await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, oldCookie.value, 401)
+  await rejectRetiredAdminSession(oldCookie)
   assertNoCredential(renewed.body, newCookie.value)
   const [, retiredSignIn] = await expectSignInHistory({ page: admin, context, origin: adminOrigin.origin,
     generation: renewed.principal.generation, currentCookie: newCookie.value, expected: ['Current', 'Ended'] })
@@ -238,20 +237,19 @@ try {
     const checkWakeRevocation = liveInbox ? await prepareAdminInboxWakeProbe(context, adminOrigin.origin) : undefined
     if (checkWakeRevocation) await admin.bringToFront()
     await context.clearCookies({ name: adminCookieName })
-    await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, newCookie.value, 200)
+    await probeAdminCookie(adminSessionUrl, newCookie, 200)
     await admin.reload()
     await revokeDuringLogin(admin, revokeExecutable)
     if (checkWakeRevocation) {
       await checkWakeRevocation()
       checks.adminInboxWakeRechecksRevocationAndRejectsClientMessages = true
     }
-    assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
-    await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, newCookie.value, 401)
-    await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, newCookie.value, 401)
+    assertStatus(await context.request.get(adminSessionUrl), 401)
+    await rejectRetiredAdminSession(newCookie)
 
     await logIn(admin)
     const fresh = await snapshot(context)
-    finalCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+    finalCookie = await adminSessionCookie(context)
     assert.equal(fresh.principal.handle, renewed.principal.handle)
     assert(fresh.principal.generation > renewed.principal.generation, 'A new challenge must see the advanced generation.')
     assert(finalCookie.value !== newCookie.value, 'A new challenge must establish a different session credential.')
@@ -281,9 +279,12 @@ try {
     checks.onlineModerationDecisionProofCannotReplay = true
   }
 
+  const adminWorkspace = { page: admin, context, adminOrigin, siteOrigin }
+  const permissionChecks = { logIn, probe: credentialProbe, readCookie, evidence }
+  const permissionFixture = { ...adminWorkspace, adminCookieName, siteCookie }
   if (taxonomyGrant) {
     phase = 'taxonomy-permission'
-    finalCookie = await verifyTaxonomy({ page: admin, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
+    finalCookie = await verifyTaxonomy({ ...permissionFixture,
       priorCookie: finalCookie, grant: taxonomyGrant, revoke: taxonomyRevoke, seed: taxonomySeed, logIn,
       probe: credentialProbe, snapshot, readCookie, evidence })
     checks.taxonomyRequiresIndependentGrant = true
@@ -293,16 +294,16 @@ try {
 
   if (process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE === '1') {
     phase = 'appearance-activation'
-    finalCookie = await verifyAppearanceActivation({ page: admin, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
+    finalCookie = await verifyAppearanceActivation({ ...permissionFixture,
       priorCookie: finalCookie, grant: process.env.FSUSBLOG_TEST_APPEARANCE_GRANT, revoke: process.env.FSUSBLOG_TEST_APPEARANCE_REVOKE,
-      logIn, probe: credentialProbe, readCookie, evidence })
+      ...permissionChecks })
     checks.signedAppearanceActivationAndRollbackEvictSupersededAssets = true
   }
 
   if (sitePagesGrant) {
     phase = 'site-page-permission'
-    finalCookie = await verifyAdminSitePages({ page: admin, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
-      priorCookie: finalCookie, grant: sitePagesGrant, revoke: sitePagesRevoke, logIn, probe: credentialProbe, readCookie, evidence })
+    finalCookie = await verifyAdminSitePages({ ...permissionFixture,
+      priorCookie: finalCookie, grant: sitePagesGrant, revoke: sitePagesRevoke, ...permissionChecks })
     checks.pageReadsRequireIndependentSystemConfig = true
     checks.pageReadsMatchPublicAedsAndExcludeSiteHostAndWrites = true
     if (process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGE_EDITOR === '1')
@@ -319,15 +320,15 @@ try {
 
   if (process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE === '1') {
     phase = 'article-archive'
-    await verifyAdminArticleArchive({ page: admin, context, adminOrigin, siteOrigin,
+    await verifyAdminArticleArchive({ ...adminWorkspace,
       grant: process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT, logIn, evidence })
-    finalCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+    finalCookie = await adminSessionCookie(context)
     checks.articleArchiveAndRepublicationUseIndependentAdminAndStableReceipts = true
   } else if (process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK === '1') {
     phase = 'article-rollback'
-    await verifyAdminArticleRollback({ page: admin, context, adminOrigin, siteOrigin,
+    await verifyAdminArticleRollback({ ...adminWorkspace,
       grant: process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT, logIn, evidence })
-    finalCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+    finalCookie = await adminSessionCookie(context)
     checks.articleRollbackUsesIndependentAdminAndStableReceipt = true
   }
 
@@ -335,19 +336,19 @@ try {
   phase = 'logout'
   // Seed the site credential into the admin host only in this test to detect a shared cookie-clearing helper.
   await context.addCookies([{ ...siteCookie, domain: adminOrigin.hostname }])
-  await assertEmpty(await clickAndWait(admin, adminOrigin, adminLogout, 'Log out of administrator session'))
+  await assertEmpty(await clickAndWait(admin, adminLogout, 'Log out of administrator session'))
   await exactButton(admin, 'Log in as administrator').waitFor()
-  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 401)
-  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, finalCookie.value, 401)
-  assert.equal((await context.request.get(adminOrigin.origin + operationsStatus)).status(), 401)
-  await credentialProbe(adminOrigin.origin + operationsStatus, adminCookieName, finalCookie.value, 401)
-  await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, finalCookie.value, 401)
+  assertStatus(await context.request.get(adminSessionUrl), 401)
+  await probeAdminCookie(adminSessionUrl, finalCookie, 401)
+  assertStatus(await context.request.get(adminOrigin.origin + operationsStatus), 401)
+  await probeAdminCookie(adminOrigin.origin + operationsStatus, finalCookie, 401)
+  await probeAdminCookie(adminOrigin.origin + signInHistory, finalCookie, 401)
   if (process.env.FSUSBLOG_TEST_ADMIN_ARTICLE_ARCHIVE === '1') {
-    await credentialProbe(adminOrigin.origin + adminPath + '/articles.aeds', adminCookieName, finalCookie.value, 401)
+    await probeAdminCookie(adminOrigin.origin + adminPath + '/articles.aeds', finalCookie, 401)
     await expectPanelHidden(admin, 'Article inventory')
   }
   const stillSignedIn = await context.request.get(siteOrigin.origin + siteSession)
-  assert.equal(stillSignedIn.status(), 200)
+  assertStatus(stillSignedIn, 200)
   assert((await readCookie(context, siteOrigin.origin + siteSession, siteCookieName)).value === siteCookie.value,
     'Administrator logout must preserve the existing site cookie.')
   assert((await readCookie(context, adminOrigin.origin + siteSession, siteCookieName)).value === siteCookie.value,
@@ -372,7 +373,7 @@ if (failure) throw failure
 async function logIn(page) {
   const destination = new URL(page.url()).pathname
   const beginning = waitPost(page, adminOrigin, passkeyBegin)
-  const completed = await clickAndWait(page, adminOrigin, passkeyComplete, 'Log in as administrator')
+  const completed = await clickAndWait(page, passkeyComplete, 'Log in as administrator')
   assert.equal(await frameType(await beginning), FrameType.PasskeyLoginBegin)
   await assertEmpty(completed)
   await visitAdminWorkspace(page, '/admin/identity')
@@ -397,10 +398,10 @@ async function revokeDuringLogin(page, executable) {
     }
   }, { times: 1 })
   const [response] = await Promise.all([
-    clickAndWait(page, adminOrigin, passkeyComplete, 'Log in as administrator'),
+    clickAndWait(page, passkeyComplete, 'Log in as administrator'),
     offlineRevocation.promise,
   ])
-  assert.equal(response.status(), 401, 'An assertion begun before the offline revocation must not establish a session.')
+  assertStatus(response, 401, 'An assertion begun before the offline revocation must not establish a session.')
   await page.getByRole('alert').filter({ hasText: 'Could not log in with this administrator Passkey. Try again.' }).waitFor()
 }
 
@@ -434,15 +435,14 @@ async function verifyOperationsStatus(page, context, siteCookie, priorCookie, re
   const alert = text => page.getByRole('alert').filter({ hasText: text })
   const displayedSnapshot = operationsSection.getByText('Public snapshot ready', { exact: true })
 
-  assert.equal((await context.request.get(siteOrigin.origin + operationsStatus)).status(), 404)
-  await credentialProbe(endpoint, siteCookieName, siteCookie.value, 401)
-  await credentialProbe(endpoint, adminCookieName, siteCookie.value, 401)
+  assertStatus(await context.request.get(siteOrigin.origin + operationsStatus), 404)
+  await rejectSiteCredential(endpoint, siteCookie)
 
   const active = await snapshot(context)
   const association = WireHeaders.AdminPermissionSession.toLowerCase()
   await displayedSnapshot.waitFor()
   const status = await checkStatus()
-  assert.equal(status.status(), 200)
+  assertStatus(status, 200)
   assert((await status.headerValue('Cache-Control'))?.includes('no-store'))
   assert(active.binding && status.headers()[association] === active.binding)
   const body = await status.body()
@@ -460,15 +460,15 @@ async function verifyOperationsStatus(page, context, siteCookie, priorCookie, re
   await logIn(page)
   await displayedSnapshot.waitFor()
   await waitOperationsIdle()
-  const expired = await credentialProbe(endpoint, adminCookieName, priorCookie.value, 401, true)
-  const rotatedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  const expired = await probeAdminCookie(endpoint, priorCookie, 401, true)
+  const rotatedCookie = await adminSessionCookie(context)
   assert(rotatedCookie.value !== priorCookie.value)
   const rotated = await snapshot(context)
   const unavailable = alert('Could not check service and version status. Try again.')
   for (const [code, payload] of [[200, body], [401, expired]]) {
     await page.route(endpoint, route => route.fulfill({ status: code, body: payload, contentType: 'application/octet-stream',
       headers: { [association]: active.binding } }), { times: 1 })
-    assert.equal((await checkStatus()).status(), code)
+    assertStatus(await checkStatus(), code)
     await unavailable.waitFor()
     await displayedSnapshot.waitFor({ state: 'hidden' })
     assert(await unavailable.isVisible(), 'A retired session response must not render or sign out the current administrator.')
@@ -486,18 +486,17 @@ async function verifyOperationsStatus(page, context, siteCookie, priorCookie, re
       await promisify(execFile)(revoke, [], { timeout: 8_000 })
       await route.fulfill({ response: issued })
     }, { times: 1 })
-    assert.equal((await checkStatus()).status(), 200)
-    await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, rotatedCookie.value, 401)
-    await credentialProbe(adminOrigin.origin + signInHistory, adminCookieName, rotatedCookie.value, 401)
-    await credentialProbe(endpoint, adminCookieName, rotatedCookie.value, 401)
+    assertStatus(await checkStatus(), 200)
+    await rejectRetiredAdminSession(rotatedCookie)
+    await probeAdminCookie(endpoint, rotatedCookie, 401)
     await logIn(page)
     checks.operationsStatusRecheckedAfterRevocation = true
     const afterRevoke = await snapshot(context)
     assert(afterRevoke.principal.generation > rotated.principal.generation)
     await displayedSnapshot.waitFor()
-    assert.equal((await checkStatus()).status(), 200)
+    assertStatus(await checkStatus(), 200)
   }
-  return readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  return adminSessionCookie(context)
 }
 
 async function verifyModerationPermissions(page, context, siteCookie, priorCookie) {
@@ -511,9 +510,9 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   const anonymous = await request.newContext()
   try {
     const publicArticle = await anonymous.get(siteOrigin.origin + '/article/' + articleId)
-    assert.equal(publicArticle.status(), 200, 'The pending comment requires a genuinely published article.')
+    assertStatus(publicArticle, 200, 'The pending comment requires a genuinely published article.')
     const publicComments = await anonymous.get(publicRoute)
-    assert.equal(publicComments.status(), 200)
+    assertStatus(publicComments, 200)
     const publicFrame = decodeFrame(await publicComments.body(), FrameType.CommentTreeRootCursor)
     assert(!Buffer.from(publicFrame.payload).includes(moderatorBody), 'A pending comment must stay hidden publicly.')
   } finally { await anonymous.dispose() }
@@ -528,24 +527,23 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   const revoked = page.getByRole('alert').filter({ hasText: 'Your administrator session expired or was revoked. Log in again.' })
   const bodyText = section.getByText(moderatorBody, { exact: true })
   const generation = (await snapshot(context)).principal.generation
-  assert.equal((await context.request.get(siteOrigin.origin + moderationQueue)).status(), 404)
-  await credentialProbe(endpoint, siteCookieName, siteCookie.value, 401)
-  await credentialProbe(endpoint, adminCookieName, siteCookie.value, 401)
-  assert.equal((await context.request.get(endpoint)).status(), 403, 'Administrator access alone must not grant moderation read.')
+  assertStatus(await context.request.get(siteOrigin.origin + moderationQueue), 404)
+  await rejectSiteCredential(endpoint, siteCookie)
+  assertStatus(await context.request.get(endpoint), 403, 'Administrator access alone must not grant moderation read.')
   await expectPanelHidden(page, 'Moderation queue')
-  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
-  assert.equal((await postModerationIntent(context.request, moderationIntent(articleId, 1n))).status(), 403)
+  assertStatus(await context.request.get(adminSessionUrl), 200)
+  assertStatus(await postModerationIntent(context.request, moderationIntent(articleId, 1n)), 403)
 
   await run(moderatorGrant, [], { timeout: 8_000 })
-  await credentialProbe(endpoint, adminCookieName, priorCookie.value, 401)
+  await probeAdminCookie(endpoint, priorCookie, 401)
   await page.reload()
   await logIn(page)
   const granted = await snapshot(context)
   assert(granted.principal.generation > generation)
-  const grantedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  const grantedCookie = await adminSessionCookie(context)
   assert(grantedCookie.value !== priorCookie.value)
   const queue = await checkQueue()
-  assert.equal(queue.status(), 200)
+  assertStatus(queue, 200)
   assert((await queue.headerValue('Cache-Control'))?.includes('no-store'))
   const payload = await queue.body()
   assertNoCredential(payload, grantedCookie.value)
@@ -560,8 +558,8 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   await verifyOnlineModeration(page, context, section, publicRoute, row, checkQueue)
   const historyPath = WireRoutes.AdminCommentTimeline.replace('{id:long}', row.commentId.toString()) + `?articleId=${articleId}`
   const revisionsPath = WireRoutes.AdminCommentRevisions.replace('{id:long}', row.commentId.toString())
-  assert.equal((await context.request.get(siteOrigin.origin + revisionsPath)).status(), 404)
-  await credentialProbe(adminOrigin.origin + revisionsPath, adminCookieName, siteCookie.value, 401)
+  assertStatus(await context.request.get(siteOrigin.origin + revisionsPath), 404)
+  await probeAdminCookie(adminOrigin.origin + revisionsPath, siteCookie, 401)
   const history = section.getByRole('region', { name: 'Comment moderation history' })
   const historyArticle = history.getByLabel('Article ID', { exact: true })
   const historyComment = history.getByLabel('Comment ID', { exact: true })
@@ -571,10 +569,10 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   const [timeline] = await Promise.all([
     page.waitForResponse(adminOrigin.origin + historyPath), historyComment.press('Enter'),
   ])
-  assert.equal(timeline.status(), 200)
+  assertStatus(timeline, 200)
   assert.equal(await timeline.headerValue('cache-control'), 'no-store')
-  assert.equal((await context.request.get(siteOrigin.origin + historyPath)).status(), 404)
-  assert.equal((await context.request.post(adminOrigin.origin + historyPath)).status(), 404)
+  assertStatus(await context.request.get(siteOrigin.origin + historyPath), 404)
+  assertStatus(await context.request.post(adminOrigin.origin + historyPath), 404)
   await history.getByRole('status').filter({ hasText: 'Current status: Approved.' }).waitFor()
   const entries = history.getByRole('listitem')
   assert.deepEqual(await entries.locator('strong').allTextContents(), ['Submitted', 'Approved'])
@@ -587,7 +585,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   assert.equal(await entries.count(), 0, 'Changing the coordinate must clear the previous timeline.')
   const missingPath = WireRoutes.AdminCommentTimeline.replace('{id:long}', '9007199254740993') + `?articleId=${articleId}`
   const [missing] = await Promise.all([page.waitForResponse(adminOrigin.origin + missingPath), historyComment.press('Enter')])
-  assert.equal(missing.status(), 404)
+  assertStatus(missing, 404)
   await section.getByRole('alert').filter({ hasText: 'Comment history was not found for these IDs.' }).waitFor()
   await page.setViewportSize({ width: 1280, height: 800 })
   checks.commentModerationHistory = true
@@ -596,7 +594,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
     await verifyAdminModerationBatch({ page, context, section, adminOrigin: adminOrigin.origin, publicRoute, evidence })
   } else {
     assert.equal(await section.getByRole('button', { name: 'Claim selected comments' }).count(), 0)
-    assert.equal((await context.request.post(adminOrigin.origin + WireRoutes.AdminModerationBatchClaim)).status(), 404)
+    assertStatus(await context.request.post(adminOrigin.origin + WireRoutes.AdminModerationBatchClaim), 404)
   }
   let editedHistoryPath
   if (process.env.FSUSBLOG_TEST_COMMENT_REPLY === '1') {
@@ -604,9 +602,9 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
     const edited = await verifyApprovedReply({ browser: context.browser(), siteOrigin: siteOrigin.origin, evidence, articleId, parentId: row.commentId,
       approve: async (body, commentId) => {
         await page.bringToFront()
-        assert.equal((await checkQueue()).status(), 200)
+        assertStatus(await checkQueue(), 200)
         const card = section.getByRole('article').filter({ has: page.getByText(body, { exact: true }) })
-        const claim = await readClaim(await clickModeration(page, card, moderationClaim, 'Claim comment for review'))
+        const claim = await readClaim(await clickAndWait(page, moderationClaim, 'Claim comment for review', card))
         assert.equal(claim.commentId, commentId)
         await applyModerationDecision(page, context, card, claim, 1, 'Approve with Passkey', 'Comment approved.')
       } })
@@ -620,7 +618,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
         page.waitForResponse(adminOrigin.origin + editedHistoryPath),
         history.getByRole('button', { name: 'View comment revisions' }).press('Enter'),
       ])
-      assert.equal(revisions.status(), 200)
+      assertStatus(revisions, 200)
       assert.equal(await revisions.headerValue('cache-control'), 'no-store')
       const heading = roleWithExactName(history, 'heading', 'Saved comment revisions')
       await heading.waitFor()
@@ -643,20 +641,20 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   }
 
   await run(moderatorRevoke, [], { timeout: 8_000 })
-  await credentialProbe(adminOrigin.origin + historyPath, adminCookieName, grantedCookie.value, 401)
-  if (editedHistoryPath) await credentialProbe(adminOrigin.origin + editedHistoryPath, adminCookieName, grantedCookie.value, 401)
-  await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401)
-  assert.equal((await checkQueue()).status(), 401)
+  await probeAdminCookie(adminOrigin.origin + historyPath, grantedCookie, 401)
+  if (editedHistoryPath) await probeAdminCookie(adminOrigin.origin + editedHistoryPath, grantedCookie, 401)
+  await probeAdminCookie(endpoint, grantedCookie, 401)
+  assertStatus(await checkQueue(), 401)
   await revoked.waitFor()
   await bodyText.waitFor({ state: 'hidden' })
   await logIn(page)
   assert((await snapshot(context)).principal.generation > granted.principal.generation)
-  assert.equal((await postModerationIntent(context.request, intent)).status(), 403)
-  assert.equal((await context.request.get(endpoint)).status(), 403, 'Removing moderation authority must preserve only login.')
-  assert.equal((await context.request.get(adminOrigin.origin + historyPath)).status(), 403)
+  assertStatus(await postModerationIntent(context.request, intent), 403)
+  assertStatus(await context.request.get(endpoint), 403, 'Removing moderation authority must preserve only login.')
+  assertStatus(await context.request.get(adminOrigin.origin + historyPath), 403)
   await expectPanelHidden(page, 'Moderation queue')
-  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
-  return readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  assertStatus(await context.request.get(adminSessionUrl), 200)
+  return adminSessionCookie(context)
 }
 
 async function verifyOnlineModeration(page, context, section, publicRoute, expectedComment, checkQueue) {
@@ -665,13 +663,13 @@ async function verifyOnlineModeration(page, context, section, publicRoute, expec
   const rejectBody = moderatorBody + ' [reject fixture]'
   const rejectCard = card(rejectBody)
   const claimButton = 'Claim comment for review'
-  const firstResponse = await clickModeration(page, approveCard, moderationClaim, claimButton)
+  const firstResponse = await clickAndWait(page, moderationClaim, claimButton, approveCard)
   const first = await readClaim(firstResponse)
   assert.equal(first.commentId, expectedComment.commentId)
   await approveCard.getByText('Claimed for review', { exact: true }).waitFor()
   await expectRepeatedPost(context, firstResponse, 409)
 
-  const renewal = await clickModeration(page, approveCard, moderationRenew, 'Renew claim')
+  const renewal = await clickAndWait(page, moderationRenew, 'Renew claim', approveCard)
   const renewed = await readClaim(renewal)
   assert.equal(renewed.commentId, first.commentId)
   assert.equal(renewed.commentVersion, first.commentVersion)
@@ -679,10 +677,10 @@ async function verifyOnlineModeration(page, context, section, publicRoute, expec
   assert(renewed.claimVersion > first.claimVersion && renewed.expiresAt > first.expiresAt)
   await expectRepeatedPost(context, renewal, 409)
 
-  const release = await clickModeration(page, approveCard, moderationRelease, 'Release claim')
+  const release = await clickAndWait(page, moderationRelease, 'Release claim', approveCard)
   await assertEmpty(release)
   await expectRepeatedPost(context, release, 409)
-  const reclaimed = await readClaim(await clickModeration(page, approveCard, moderationClaim, claimButton))
+  const reclaimed = await readClaim(await clickAndWait(page, moderationClaim, claimButton, approveCard))
   assert.equal(reclaimed.commentId, first.commentId)
   assert(reclaimed.claimGeneration > renewed.claimGeneration)
   assert(reclaimed.claimToken !== renewed.claimToken, 'Reacquisition must replace the original claim credential.')
@@ -691,19 +689,19 @@ async function verifyOnlineModeration(page, context, section, publicRoute, expec
 
   await applyModerationDecision(page, context, approveCard, reclaimed, 1, 'Approve with Passkey', 'Comment approved.')
   await approveCard.waitFor({ state: 'hidden' })
-  assert.equal((await checkQueue()).status(), 200)
+  assertStatus(await checkQueue(), 200)
   await exactButton(rejectCard, claimButton).waitFor()
-  const rejected = await readClaim(await clickModeration(page, rejectCard, moderationClaim, claimButton))
+  const rejected = await readClaim(await clickAndWait(page, moderationClaim, claimButton, rejectCard))
   await applyModerationDecision(page, context, rejectCard, rejected, 2, 'Reject with Passkey', 'Comment rejected.')
   await rejectCard.waitFor({ state: 'hidden' })
-  assert.equal((await checkQueue()).status(), 200)
+  assertStatus(await checkQueue(), 200)
   if (process.env.FSUSBLOG_TEST_ADMIN_COMMENT_BATCH !== '1')
     await section.getByText('No comments are waiting for moderation.', { exact: true }).waitFor()
 
   const anonymous = await request.newContext()
   try {
     const publicComments = await anonymous.get(publicRoute)
-    assert.equal(publicComments.status(), 200)
+    assertStatus(publicComments, 200)
     const comments = decodeCommentRoots(decodeFrame(await publicComments.body(), FrameType.CommentTreeRootCursor).payload)
     assert(comments.items.some(row => row.node.id === first.commentId.toString() && row.node.content === moderatorBody),
       'The online approval must make the original comment visible publicly.')
@@ -717,7 +715,7 @@ async function applyModerationDecision(page, context, card, claim, targetState, 
   const [begin, complete, applied] = await Promise.all([
     waitPost(page, adminOrigin, moderationStepUpBegin),
     waitPost(page, adminOrigin, stepUpComplete),
-    clickModeration(page, card, moderationDecision, label),
+    clickAndWait(page, moderationDecision, label, card),
   ])
   assert.equal(await frameType(begin), FrameType.PasskeyLoginBegin)
   assert.equal(await frameType(complete), FrameType.MfaChallengeResult)
@@ -740,16 +738,8 @@ async function applyModerationDecision(page, context, card, claim, targetState, 
   await expectRepeatedPost(context, applied, 428)
 }
 
-async function clickModeration(page, card, path, name) {
-  const [response] = await Promise.all([
-    waitPost(page, adminOrigin, path),
-    exactButton(card, name).click(),
-  ])
-  return response
-}
-
 async function readClaim(response) {
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   const claim = decodeAdminModerationClaim(decodeFrame(await response.body(), FrameType.AdminModerationClaim).payload)
   assert(claim.articleId > 0 && claim.commentId > 0n && claim.commentVersion > 0n && claim.claimGeneration > 0n && claim.claimVersion > 0n)
   assert(claim.expiresAt > BigInt(Date.now()) && /^[A-Za-z0-9_-]{43}$/.test(claim.claimToken))
@@ -762,7 +752,7 @@ async function expectRepeatedPost(context, original, status, proof) {
       ...(proof ? { [WireHeaders.MfaProof]: proof } : {}) },
     data: original.request().postDataBuffer(),
   })
-  assert.equal(response.status(), status)
+  assertStatus(response, status)
   if (status === 428) {
     const error = decodeFrame(await response.body(), FrameType.ApiError)
     assert(Buffer.from(error.payload).includes('MFA_PROOF_REQUIRED'), 'Invalid or missing proof must return MFA_PROOF_REQUIRED.')
@@ -773,11 +763,11 @@ async function verifyAdminModerationProof(page, context, siteCookie, priorCookie
   const intent = moderationIntent(articleId, row.commentId)
   const unauthenticated = await request.newContext()
   try {
-    assert.equal((await postModerationIntent(unauthenticated, intent, siteCookie.value)).status(), 401)
-    assert.equal((await postModerationIntent(unauthenticated, intent, priorCookie.value)).status(), 401)
+    assertStatus(await postModerationIntent(unauthenticated, intent, siteCookie.value), 401)
+    assertStatus(await postModerationIntent(unauthenticated, intent, priorCookie.value), 401)
   } finally { await unauthenticated.dispose() }
   const wrongTarget = { ...intent, commentId: BigInt('9223372036854775807') }
-  assert.equal((await postModerationIntent(context.request, wrongTarget)).status(), 404,
+  assertStatus(await postModerationIntent(context.request, wrongTarget), 404,
     'A proof challenge needs a real pending moderation target.')
 
   // Load the production TypeScript codecs into this browser. Only fixture module requests are intercepted.
@@ -800,11 +790,11 @@ async function verifyAdminModerationProof(page, context, siteCookie, priorCookie
   assert.equal(issued, true, 'The production browser codec must accept a signed administrator proof.')
   assert.equal(await frameType(begin), FrameType.PasskeyLoginBegin)
   assert.deepEqual(decodeAdminModerationIntent(decodeFrame(begin.request().postDataBuffer(), FrameType.AdminModerationIntent).payload), intent)
-  assert.equal(complete.status(), 200)
+  assertStatus(complete, 200)
   assert((await complete.headerValue('Cache-Control'))?.includes('no-store'))
   const result = decodeFrame(await complete.body(), FrameType.MfaChallengeResult)
   assert(/^[A-Za-z0-9_-]{43}$/.test(readMfaProof(result.payload, 'admin-sensitive', true)))
-  assert((await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)).value === grantedCookie.value,
+  assert((await adminSessionCookie(context)).value === grantedCookie.value,
     'Administrator step-up must leave the current login credential unchanged.')
 
   const requestBody = complete.request().postDataBuffer()
@@ -813,9 +803,9 @@ async function verifyAdminModerationProof(page, context, siteCookie, priorCookie
   const replay = await context.request.post(adminOrigin.origin + stepUpComplete, {
     headers: { 'Content-Type': 'application/octet-stream', ...(cookies ? { Cookie: cookies } : {}) }, data: requestBody,
   })
-  assert.equal(replay.status(), 401, 'A completed administrator assertion must be one-use.')
+  assertStatus(replay, 401, 'A completed administrator assertion must be one-use.')
   const queueAfterProof = await checkQueue()
-  assert.equal(queueAfterProof.status(), 200)
+  assertStatus(queueAfterProof, 200)
   assert.equal(readModerationFixture(await queueAfterProof.body(), articleId).commentId, intent.commentId,
     'Issuing a proof must leave the comment pending until a separate authorized transaction.')
   return intent
@@ -852,22 +842,17 @@ function readModerationFixture(frame, articleId) {
   return fixture
 }
 
-async function clickAndWait(page, origin, path, label) {
+async function clickAndWait(page, path, label, scope = page) {
   const [response] = await Promise.all([
-    waitPost(page, origin, path),
-    exactButton(page, label).click(),
+    waitPost(page, adminOrigin, path),
+    exactButton(scope, label).click(),
   ])
   return response
 }
 
 async function frameType(response) {
-  assert.equal(response.status(), 200)
+  assertStatus(response, 200)
   return decodeFrame(await response.body()).type
-}
-
-async function assertEmpty(response) {
-  assert.equal(response.status(), 200)
-  decodeSuccess(decodeFrame(await response.body(), FrameType.EmptySuccess).payload)
 }
 
 async function rejectReplay(context, original) {
@@ -882,13 +867,31 @@ async function rejectReplay(context, original) {
   assert(replay.status() >= 400 && replay.status() < 500, 'A completed browser ceremony must be one-use.')
 }
 
+async function rejectSiteCredential(url, siteCookie) {
+  await credentialProbe(url, siteCookieName, siteCookie.value, 401)
+  await probeAdminCookie(url, siteCookie, 401)
+}
+
+async function rejectRetiredAdminSession(cookie) {
+  await probeAdminCookie(adminSessionUrl, cookie, 401)
+  await probeAdminCookie(adminOrigin.origin + signInHistory, cookie, 401)
+}
+
+function probeAdminCookie(url, cookie, expectedStatus, ...capture) {
+  return credentialProbe(url, adminCookieName, cookie.value, expectedStatus, ...capture)
+}
+
 async function credentialProbe(url, name, value, expectedStatus, capture = false) {
   const probe = await request.newContext()
   try {
     const response = await probe.get(url, { headers: { Cookie: name + '=' + value }, maxRedirects: 0 })
-    assert.equal(response.status(), expectedStatus, 'The explicitly selected credential must have its own scoped authority.')
+    assertStatus(response, expectedStatus, 'The explicitly selected credential must have its own scoped authority.')
     if (capture) return await response.body()
   } finally { await probe.dispose() }
+}
+
+function adminSessionCookie(context) {
+  return readCookie(context, adminSessionUrl, adminCookieName)
 }
 
 async function readCookie(context, url, name) {
@@ -898,8 +901,8 @@ async function readCookie(context, url, name) {
 }
 
 async function snapshot(context) {
-  const response = await context.request.get(adminOrigin.origin + adminSession)
-  assert.equal(response.status(), 200)
+  const response = await context.request.get(adminSessionUrl)
+  assertStatus(response, 200)
   assert(response.headers()['cache-control']?.includes('no-store'))
   const body = await response.body()
   const principal = decodeAdminSessionSnapshot(decodeFrame(body, FrameType.AdminSessionSnapshot).payload)
