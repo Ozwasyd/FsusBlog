@@ -9,10 +9,8 @@ internal static class RelatedReadingVectors
              Item(11, 1779105600000, "Hydration notes", null, "全文关键词")],
             Item(9, 1778932800000, "Previous article", "previous summary", "上一篇"),
             Item(12, 1779192000000, "Next article", null, "下一篇"));
-        var path = Path.Combine(fixtures, "article-related-reading-v1.hex");
-        var source = Convert.FromHexString(string.Concat(File.ReadAllLines(path)));
-        if (!source.AsSpan().SequenceEqual(RelatedReadingWire.Encode(related)))
-            throw new InvalidOperationException("Related reading writer differs from the pinned v1 frame");
+        VectorFixture.Equal(VectorFixture.MultilineHex(fixtures, "article-related-reading-v1.hex"), RelatedReadingWire.Encode(related),
+            "Related reading writer differs from the pinned v1 frame");
 
         var payload = Aeds.Decode(RelatedReadingWire.Encode(new([], null, null)), FrameType.ArticleRelatedReading);
         if (payload.Length != 12 || payload.ContainsAnyExcept((byte)0))

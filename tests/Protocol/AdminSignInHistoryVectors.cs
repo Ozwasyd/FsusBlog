@@ -7,7 +7,6 @@ internal static class AdminSignInHistoryVectors
 
     internal static void Run(string fixtures)
     {
-        byte[] Fixture(string name) => Convert.FromHexString(File.ReadAllText(Path.Combine(fixtures, name)).Trim());
         var vectors = new (string Name, AdminSignInHistorySnapshot Value)[]
         {
             ("admin-sign-in-history.hex", Typical),
@@ -16,7 +15,7 @@ internal static class AdminSignInHistoryVectors
         };
         foreach (var (name, value) in vectors)
         {
-            var expected = Fixture(name);
+            var expected = VectorFixture.Hex(fixtures, name);
             if (!Wire.EncodeAdminSignInHistorySnapshot(value).AsSpan().SequenceEqual(expected))
                 throw new InvalidOperationException($"Administrator sign-in history differs from independent vector {name}");
             var decoded = Wire.DecodeAdminSignInHistorySnapshot(expected);
@@ -63,7 +62,7 @@ internal static class AdminSignInHistoryVectors
             Reject(() => Wire.DecodeAdminSignInHistorySnapshot(frame));
         }
 
-        var typicalFrame = Fixture("admin-sign-in-history.hex");
+        var typicalFrame = VectorFixture.Hex(fixtures, "admin-sign-in-history.hex");
         for (var length = 0; length < typicalFrame.Length; length++)
             Reject(() => Wire.DecodeAdminSignInHistorySnapshot(typicalFrame.AsSpan(0, length)));
 

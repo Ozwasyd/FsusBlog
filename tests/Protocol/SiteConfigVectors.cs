@@ -31,12 +31,8 @@ internal static class SiteConfigVectors
         if (compliance.Length != WireLayouts.SiteComplianceBlobOffset || compliance[0] != 0)
             throw new InvalidOperationException("Disabled compliance does not retain the v1 POD shape");
 
-        void Equal(string name, byte[] actual)
-        {
-            var expected = Convert.FromHexString(string.Concat(File.ReadAllLines(Path.Combine(fixtures, name))));
-            if (!actual.AsSpan().SequenceEqual(expected))
-                throw new InvalidOperationException($"Site config bytes differ for {name}");
-        }
+        void Equal(string name, byte[] actual) =>
+            VectorFixture.Equal(VectorFixture.MultilineHex(fixtures, name), actual, $"Site config bytes differ for {name}");
 
         static void Reject(Action encode) =>
             ProtocolRejection.Assert(encode, "Invalid site config encoded");

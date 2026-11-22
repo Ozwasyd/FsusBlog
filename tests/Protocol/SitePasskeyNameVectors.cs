@@ -48,12 +48,9 @@ internal static class SitePasskeyNameVectors
             "020000007b505c18a3010000db535c18a301000001010162545c18a30100000000000000000000000000")))
             throw new InvalidOperationException("Original Site Passkey list payload changed");
 
-        byte[] Fixture(string name) => Convert.FromHexString(File.ReadAllText(Path.Combine(fixtures, name + ".hex")).Trim());
-        void Equal(string name, byte[] actual)
-        {
-            if (!actual.AsSpan().SequenceEqual(Fixture(name)))
-                throw new InvalidOperationException("Site Passkey AEDS bytes differ from independent vector");
-        }
+        byte[] Fixture(string name) => VectorFixture.Hex(fixtures, name + ".hex");
+        void Equal(string name, byte[] actual) =>
+            VectorFixture.Equal(Fixture(name), actual, "Site Passkey AEDS bytes differ from independent vector");
     }
 
     private static void Reject(Action action) =>

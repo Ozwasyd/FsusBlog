@@ -5,8 +5,7 @@ internal static class InboxVectors
 {
     public static void Run(string fixtures)
     {
-        byte[] Fixture(string name) => Convert.FromHexString(string.Concat(
-            File.ReadAllLines(Path.Combine(fixtures, name + ".hex"))));
+        byte[] Fixture(string name) => VectorFixture.MultilineHex(fixtures, name + ".hex");
 
         // The list and message fixtures come directly from pinned v1. Current detail and
         // request fixtures use independent field packing from the pinned v1 POD layouts.
@@ -52,11 +51,8 @@ internal static class InboxVectors
         Reject(() => InboxWire.DecodeRead(Aeds.Encode(FrameType.ConversationReadRequest, new byte[9])));
     }
 
-    private static void Equal(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual)
-    {
-        if (!expected.SequenceEqual(actual))
-            throw new InvalidOperationException("Inbox AEDS differs from its reference vector");
-    }
+    private static void Equal(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual) =>
+        VectorFixture.Equal(expected, actual, "Inbox AEDS differs from its reference vector");
 
     private static void Reject(Action run) =>
         ProtocolRejection.Assert(run, "Invalid inbox AEDS accepted");

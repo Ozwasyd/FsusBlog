@@ -6,7 +6,7 @@ internal static class ArticleHotVectors
     internal static void Run(string directory)
     {
         // Independent literal AEDS v2 vectors from the frozen ArticleHot POD layout.
-        var frame = Fixture("article-hot-v1.hex");
+        var frame = VectorFixture.Hex(directory, "article-hot-v1.hex");
         ArticleHotItem[] expected =
         [
             new(42, 0, "雪 🐈"),
@@ -16,7 +16,7 @@ internal static class ArticleHotVectors
         if ((int)FrameType.ArticleHot != 3 || WireRoutes.PublicArticleHot != "/api/binary/article/hot/{size}.aeds" ||
             !frame.AsSpan().SequenceEqual(ArticleHotWire.Encode(expected)) || !expected.SequenceEqual(ArticleHotWire.Decode(frame)))
             throw new InvalidOperationException("ArticleHot differs from the frozen vector");
-        var empty = Fixture("article-hot-empty-v1.hex");
+        var empty = VectorFixture.Hex(directory, "article-hot-empty-v1.hex");
         if (!empty.AsSpan().SequenceEqual(ArticleHotWire.Encode([])) || ArticleHotWire.Decode(empty).Length != 0)
             throw new InvalidOperationException("ArticleHot empty vector differs");
 
@@ -48,8 +48,6 @@ internal static class ArticleHotVectors
         Reject(() => ArticleHotWire.DecodePayload([.. payload, 0]));
         payload[8] = 0xff;
         Reject(() => ArticleHotWire.DecodePayload(payload));
-
-        byte[] Fixture(string name) => Convert.FromHexString(File.ReadAllText(Path.Combine(directory, name)).Trim());
     }
 
     private static void Reject(Action decode) =>

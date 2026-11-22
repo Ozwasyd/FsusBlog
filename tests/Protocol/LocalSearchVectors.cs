@@ -12,9 +12,8 @@ internal static class LocalSearchVectors
         if (first is not { Count: 1 })
             throw new InvalidOperationException("Local search did not produce one complete FSPK page");
 
-        var expected = Convert.FromHexString(File.ReadAllText(Path.Combine(fixtures, "search-fspk-v4.hex")).Trim());
-        if (!first[0].AsSpan().SequenceEqual(expected))
-            throw new InvalidOperationException("FSPK writer differs from the independently constructed search corpus");
+        VectorFixture.Equal(VectorFixture.Hex(fixtures, "search-fspk-v4.hex"), first[0],
+            "FSPK writer differs from the independently constructed search corpus");
 
         // Independent Murmur3 vectors include every tail width, NFKC, four-byte UTF-8, and ASCII prefix/camelCase subwords.
         var tokenArticle = article with { Title = "A aB ABc ＡＢＣＤ abcDE ABCDEFGHI é 雪 𠀀 29",
@@ -47,9 +46,8 @@ internal static class LocalSearchVectors
 
         var dictionaryArticle = tokenArticle with { Title = "ABC", Body = "博客搜索的公开页" };
         var dictionary = LocalSearchCorpus.Build([dictionaryArticle])![0];
-        var dictionaryFixture = File.ReadAllText(Path.Combine(fixtures, "search-cjk-v4.hex")).Trim();
-        if (!dictionary.AsSpan().SequenceEqual(Convert.FromHexString(dictionaryFixture)))
-            throw new InvalidOperationException("FSPK dictionary frequencies or positions differ from the independent fixture");
+        VectorFixture.Equal(VectorFixture.Hex(fixtures, "search-cjk-v4.hex"), dictionary,
+            "FSPK dictionary frequencies or positions differ from the independent fixture");
 
         VerifyLongCjkPostings(dictionaryArticle);
 

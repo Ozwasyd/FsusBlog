@@ -11,28 +11,27 @@ internal static class NativePublicationProofVectors
             publication, 9007199254742999, 9007199254743999,
             Convert.FromHexString("24239fad08e881ba50750f3d8d5ced03746a398201e9e68e7036eefdb9c25bb2"),
             Convert.FromHexString("c2bfe4d5c0d344bae54fc17049ee5d4375f3141601d8f60597b8d1ccabd7689a"),
-            "rotate-1", 7, Enumerable.Repeat((byte)0x3a, 32).ToArray(), issue);
+            "rotate-1", 7, Repeat(0x3a), issue);
         var actual = ArticlePublicationProofPayloadV2.Build(proof);
-        if (!File.ReadAllBytes(Path.Combine(fixtures, "article-publication-proof-v2.txt")).AsSpan().SequenceEqual(actual) ||
-            Convert.ToHexStringLower(SHA256.HashData(actual)) != "8169f3b97e599c57fed6d9180d5de33b781766b03d006995a01832b3c0392ce2")
-            throw new InvalidOperationException("Native signing transcript differs from the independent vector.");
+        CheckTranscript(fixtures, "article-publication-proof-v2.txt", actual,
+            "8169f3b97e599c57fed6d9180d5de33b781766b03d006995a01832b3c0392ce2",
+            "Native signing transcript differs from the independent vector.");
         var covered = ArticlePublicationProofPayloadV2.Build(proof with
         {
             CanonicalVersion = 3,
             ContentSha256 = Convert.FromHexString("cffdeb6306ca41ebdccb54630566de12d19d3f6e0602afa1aea47942553b2be1"),
             PolicySha256 = Convert.FromHexString("71bf0b9f49605076ce0c60099358f77d241c63f2fcbb265ffd5d4a7d8a4c0dff"),
         });
-        if (!File.ReadAllBytes(Path.Combine(fixtures, "article-publication-proof-canonical-v3.txt")).AsSpan().SequenceEqual(covered) ||
-            Convert.ToHexStringLower(SHA256.HashData(covered)) != "49094228337db15d32c64529d8dfd1d020582387c2c1678fd1ea75888b16923d")
-            throw new InvalidOperationException("The managed cover signing transcript differs from the independent vector.");
+        CheckTranscript(fixtures, "article-publication-proof-canonical-v3.txt", covered,
+            "49094228337db15d32c64529d8dfd1d020582387c2c1678fd1ea75888b16923d",
+            "The managed cover signing transcript differs from the independent vector.");
         VerifyTransparency(actual);
         var head = new PublicationTransparencyHeadV2("https://proof.example.test", 9007199254741001,
             Convert.FromHexString("7fa4d9ff96c8a5324a9f912e1012a2ef686a92ac0308cee6b089191b54c6ddb3"), "rotate-1", 7,
-            Enumerable.Repeat((byte)0x3a, 32).ToArray(), issue);
-        var headPayload = head.Payload();
-        if (!File.ReadAllBytes(Path.Combine(fixtures, "article-transparency-head-v2.txt")).AsSpan().SequenceEqual(headPayload) ||
-            Convert.ToHexStringLower(SHA256.HashData(headPayload)) != "5119fe2b46a5a796b86ec648b49fd22457ddab7b4363c04a4516835e6de6c040")
-            throw new InvalidOperationException("Native public head signing bytes differ from the independent vector.");
+            Repeat(0x3a), issue);
+        CheckTranscript(fixtures, "article-transparency-head-v2.txt", head.Payload(),
+            "5119fe2b46a5a796b86ec648b49fd22457ddab7b4363c04a4516835e6de6c040",
+            "Native public head signing bytes differ from the independent vector.");
         VerifyCheckpoint(fixtures, issue.AddTicks(10));
         VerifyDailyCheckpoint(fixtures, issue.AddTicks(10));
         foreach (var invalid in new[] { proof with { IssuedAt = issue.AddTicks(1) }, proof with { IssuedAt = publication.AddTicks(-10) },
@@ -62,7 +61,7 @@ internal static class NativePublicationProofVectors
     private static void VerifyCheckpoint(string fixtures, DateTimeOffset issued)
     {
         const long start = 9007199254741001;
-        var entries = new byte[] { 0x11, 0x22, 0x33 }.Select(value => Enumerable.Repeat(value, 32).ToArray()).ToArray();
+        var entries = new byte[] { 0x11, 0x22, 0x33 }.Select(Repeat).ToArray();
         var tree = PublicationCheckpointTreeV2.Build(start, entries, start + 2);
         if (Convert.ToHexStringLower(tree.RootSha256) != "963380bd8bc6cfe8fd61281c1a4938fc94e04666fd3372b74b319d0c6f9f4840" ||
             tree.Inclusion is not { Siblings.Count: 2 } witness ||
@@ -72,11 +71,10 @@ internal static class NativePublicationProofVectors
             throw new InvalidOperationException("Native checkpoint odd-node inclusion differs from the independent vector.");
         var claim = new PublicationCheckpointV2("https://proof.example.test", "release-2026.11", start, start + 2, 3,
             tree.RootSha256, start + 2, entries[2], "rotate-1", 7,
-            Enumerable.Repeat((byte)0x3a, 32).ToArray(), issued);
-        var payload = claim.Payload();
-        if (!File.ReadAllBytes(Path.Combine(fixtures, "publication-release-checkpoint-v2.txt")).AsSpan().SequenceEqual(payload) ||
-            Convert.ToHexStringLower(SHA256.HashData(payload)) != "76c256ab3594588f01df569b09a7bd3dd472554850fb23230e52fae6246e2b0c")
-            throw new InvalidOperationException("Native checkpoint transcript differs from the independent vector.");
+            Repeat(0x3a), issued);
+        CheckTranscript(fixtures, "publication-release-checkpoint-v2.txt", claim.Payload(),
+            "76c256ab3594588f01df569b09a7bd3dd472554850fb23230e52fae6246e2b0c",
+            "Native checkpoint transcript differs from the independent vector.");
     }
 
     private static void VerifyDailyCheckpoint(string fixtures, DateTimeOffset issued)
@@ -89,17 +87,21 @@ internal static class NativePublicationProofVectors
             throw new InvalidOperationException("The discontiguous daily checkpoint membership path differs from the independent vector.");
         var daily = new PublicationCheckpointV2("https://proof.example.test", "2026-11-14", 1, 5, 3, tree.RootSha256,
             6, Repeat(0x66), "rotate-1", 7, Repeat(0x3a), issued, PublicationCheckpointKind.Daily);
-        CheckTranscript(daily, "discontiguous", "58392c7f7f092980e009f199edeb4b0d5ab88d4aed95ed39ff5a1b30a26d3545");
-        CheckTranscript(daily with { FromSequence = 0, ToSequence = 0, EntryCount = 0, RootSha256 = PublicationCheckpointTreeV2.EmptyDailyRoot() },
+        CheckDaily(daily, "discontiguous", "58392c7f7f092980e009f199edeb4b0d5ab88d4aed95ed39ff5a1b30a26d3545");
+        CheckDaily(daily with { FromSequence = 0, ToSequence = 0, EntryCount = 0, RootSha256 = PublicationCheckpointTreeV2.EmptyDailyRoot() },
             "empty", "fc7a7138e69120a53ef7222f4f6072c2f945104809e153b6f14b3eb19cfcb096");
 
-        static byte[] Repeat(byte value) => Enumerable.Repeat(value, 32).ToArray();
-        void CheckTranscript(PublicationCheckpointV2 value, string fixture, string sha256)
-        {
-            var payload = value.Payload();
-            if (!File.ReadAllBytes(Path.Combine(fixtures, $"publication-daily-checkpoint-{fixture}-v2.txt")).AsSpan().SequenceEqual(payload) ||
-                Convert.ToHexStringLower(SHA256.HashData(payload)) != sha256)
-                throw new InvalidOperationException("Native daily checkpoint transcript differs from the independent vector.");
-        }
+        void CheckDaily(PublicationCheckpointV2 value, string fixture, string sha256) =>
+            CheckTranscript(fixtures, $"publication-daily-checkpoint-{fixture}-v2.txt", value.Payload(), sha256,
+                "Native daily checkpoint transcript differs from the independent vector.");
+    }
+
+    private static byte[] Repeat(byte value) => Enumerable.Repeat(value, 32).ToArray();
+
+    private static void CheckTranscript(string fixtures, string file, byte[] payload, string sha256, string message)
+    {
+        if (!File.ReadAllBytes(Path.Combine(fixtures, file)).AsSpan().SequenceEqual(payload) ||
+            Convert.ToHexStringLower(SHA256.HashData(payload)) != sha256)
+            throw new InvalidOperationException(message);
     }
 }

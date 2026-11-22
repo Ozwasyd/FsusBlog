@@ -5,7 +5,14 @@ internal static class PropertyValueVectors
 {
     internal static void Run(string fixtures)
     {
-        byte[] Fixture(string name) => Convert.FromHexString(File.ReadAllText(Path.Combine(fixtures, name + ".hex")).Trim());
+        byte[] Fixture(string name) => VectorFixture.Hex(fixtures, name + ".hex");
+
+        void CheckAnyOf(string name, PropertyCondition condition)
+        {
+            var frame = Fixture(name);
+            BytesEqual(frame, Wire.EncodePropertyArticleQueryGroup(new(10, [condition], "")));
+            BytesEqual(frame, Wire.EncodePropertyArticleQueryGroup(Wire.DecodePropertyArticleQueryGroup(frame)));
+        }
 
         var red = new PropertyFieldOption(Guid.Parse("af970001-2222-4000-8000-112233445566"), "Red");
         var blue = new PropertyFieldOption(Guid.Parse("af970002-2222-4000-8000-112233445566"), "蓝色");
@@ -86,16 +93,11 @@ internal static class PropertyValueVectors
             new SavedViewCondition(item.DefinitionId, PropertyFieldKind.Number, item.Comparison, item.Value, item.AnyOf)).ToArray();
         BytesEqual(Wire.EncodeSavedViewDefinition(savedAlternatives), Wire.EncodeSavedViewDefinition(savedAlternatives.Reverse().ToArray()));
         var invalidGroup = Aeds.Decode(groupBytes, FrameType.PropertyArticleQueryGroup).ToArray();
-        invalidGroup[36] = 9;
-        Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
-        invalidGroup[36] = 5;
-        Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
-        invalidGroup[36] = 6;
-        Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
-        invalidGroup[36] = 7;
-        Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
-        invalidGroup[36] = 8;
-        Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
+        foreach (byte comparison in new byte[] { 9, 5, 6, 7, 8 })
+        {
+            invalidGroup[36] = comparison;
+            Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyArticleQueryGroup, invalidGroup)));
+        }
 
         var presence = new PropertyCondition(value.DefinitionId, 2, PropertyComparison.IsPresent, new PropertyFieldValue.Missing());
         var presenceBytes = Fixture("property-query-presence");
@@ -108,17 +110,13 @@ internal static class PropertyValueVectors
         VerifyStoredDefinition(2, saved);
         var alternatives = new PropertyFieldValue.MultiSelect([blue.Id, red.Id]);
         var overlap = new PropertyCondition(value.DefinitionId, 2, PropertyComparison.MultiSelectAnyOf, alternatives);
-        var overlapBytes = Fixture("property-query-multi-select-any-of");
-        BytesEqual(overlapBytes, Wire.EncodePropertyArticleQueryGroup(new(10, [overlap], "")));
-        BytesEqual(overlapBytes, Wire.EncodePropertyArticleQueryGroup(Wire.DecodePropertyArticleQueryGroup(overlapBytes)));
+        CheckAnyOf("property-query-multi-select-any-of", overlap);
         var anotherField = saved with { DefinitionId = group.Conditions[1].DefinitionId };
         VerifyStoredOverlap(3, new(overlap.DefinitionId, PropertyFieldKind.MultiSelect, overlap.Comparison, overlap.Value), anotherField,
             "03000000010000000000000000004000800000000000000605000000060000000500000002000000af970001222240008000112233445566af970002222240008000112233445566");
 
         var single = overlap with { Comparison = PropertyComparison.SingleSelectAnyOf };
-        var singleBytes = Fixture("property-query-single-select-any-of");
-        BytesEqual(singleBytes, Wire.EncodePropertyArticleQueryGroup(new(10, [single], "")));
-        BytesEqual(singleBytes, Wire.EncodePropertyArticleQueryGroup(Wire.DecodePropertyArticleQueryGroup(singleBytes)));
+        CheckAnyOf("property-query-single-select-any-of", single);
         Reject(() => Wire.EncodePropertyArticleQueryGroup(new(10, [single with { Value = new PropertyFieldValue.MultiSelect([]) }], "")));
         var empty = Wire.EncodePropertyArticleQueryGroup(new(10, [overlap with { Value = new PropertyFieldValue.MultiSelect([]) }], ""));
         var emptySingle = Aeds.Decode(empty, FrameType.PropertyArticleQueryGroup).ToArray();
@@ -129,19 +127,17 @@ internal static class PropertyValueVectors
 
         var referenceAnyOf = new PropertyCondition(value.DefinitionId, 2, PropertyComparison.ReferenceAnyOf,
             new PropertyFieldValue.ArticleReference([42, 17]));
-        var referenceBytes = Fixture("property-query-reference-any-of");
-        BytesEqual(referenceBytes, Wire.EncodePropertyArticleQueryGroup(new(10, [referenceAnyOf], "")));
-        BytesEqual(referenceBytes, Wire.EncodePropertyArticleQueryGroup(Wire.DecodePropertyArticleQueryGroup(referenceBytes)));
+        CheckAnyOf("property-query-reference-any-of", referenceAnyOf);
         var referenceView = new SavedViewCondition(value.DefinitionId, PropertyFieldKind.ArticleReference,
             referenceAnyOf.Comparison, referenceAnyOf.Value);
         var referenceDefinition = Wire.EncodeSavedViewDefinition([referenceView]);
         BytesEqual(Convert.FromHexString("05000000010000000000000000004000800000000000000606000000080000000600000002000000110000002a000000"),
             referenceDefinition);
-        var decodedReference = Wire.DecodeSavedViewDefinition(referenceDefinition, SHA256.HashData(referenceDefinition));
+        var decodedReference = DecodeStored(referenceDefinition);
         BytesEqual(referenceDefinition, Wire.EncodeSavedViewDefinition(decodedReference.Conditions, decodedReference.Keyword));
         Reject(() => Wire.EncodeSavedViewDefinition([referenceView with { Kind = PropertyFieldKind.MultiSelect }]));
         referenceDefinition[0] = 4;
-        Reject(() => Wire.DecodeSavedViewDefinition(referenceDefinition, SHA256.HashData(referenceDefinition)));
+        Reject(() => DecodeStored(referenceDefinition));
 
         const string keyword = "%_雪";
         var keywordBytes = Fixture("property-query-keyword");
@@ -154,21 +150,19 @@ internal static class PropertyValueVectors
         var invalidKeyword = Aeds.Decode(presenceBytes, FrameType.PropertyArticleQueryGroup).ToArray().ToList();
         invalidKeyword.InsertRange(8, new byte[4]);
         Reject(() => Wire.DecodePropertyArticleQueryGroup(Aeds.Encode(FrameType.PropertyKeywordQuery, invalidKeyword.ToArray())));
-        Reject(() => Wire.EncodePropertyArticleQueryGroup(keywordQuery with { Keyword = " " + keyword }));
-        Reject(() => Wire.EncodePropertyArticleQueryGroup(keywordQuery with { Keyword = new string('雪', 129) }));
-        Reject(() => Wire.EncodePropertyArticleQueryGroup(keywordQuery with { Keyword = "a\u0085b" }));
-        Reject(() => Wire.EncodePropertyArticleQueryGroup(keywordQuery with { Keyword = "\ud800" }));
+        foreach (var invalid in new[] { " " + keyword, new string('雪', 129), "a\u0085b", "\ud800" })
+            Reject(() => Wire.EncodePropertyArticleQueryGroup(keywordQuery with { Keyword = invalid }));
         var storedKeyword = Wire.EncodeSavedViewDefinition([saved], keyword);
         BytesEqual(Convert.FromHexString("0600000005000000255fe99baa01000000000000000000400080000000000000060100000005000000feffffff"),
             storedKeyword);
-        var decodedStoredKeyword = Wire.DecodeSavedViewDefinition(storedKeyword, SHA256.HashData(storedKeyword));
+        var decodedStoredKeyword = DecodeStored(storedKeyword);
         if (decodedStoredKeyword.Keyword != keyword || decodedStoredKeyword.Conditions.Single() != saved)
             throw new InvalidOperationException("Stored v6 saved view lost its search or property condition.");
         var invalidStoredKeyword = Wire.EncodeSavedViewDefinition([saved]).ToList();
         invalidStoredKeyword[0] = 6;
         invalidStoredKeyword.InsertRange(4, new byte[4]);
         var storedWithoutKeyword = invalidStoredKeyword.ToArray();
-        Reject(() => Wire.DecodeSavedViewDefinition(storedWithoutKeyword, SHA256.HashData(storedWithoutKeyword)));
+        Reject(() => DecodeStored(storedWithoutKeyword));
 
         var schemaBytes = Fixture("property-definition-options");
         var schema = new PropertySchemaInput(new(1, Guid.Parse("00000000-0000-4000-8000-000000000004"), requestId,
@@ -181,6 +175,9 @@ internal static class PropertyValueVectors
         Reject(() => Wire.DecodePropertyEditor(editorBytes.AsSpan(0, editorBytes.Length - 1)));
     }
 
+    private static SavedViewDefinition DecodeStored(byte[] bytes) =>
+        Wire.DecodeSavedViewDefinition(bytes, SHA256.HashData(bytes));
+
     private static void VerifyStoredDefinition(byte version, SavedViewCondition condition)
     {
         var definition = Wire.EncodeSavedViewDefinition([condition]);
@@ -188,13 +185,13 @@ internal static class PropertyValueVectors
         expected[0] = version;
         expected[28] = (byte)condition.Comparison;
         BytesEqual(expected, definition);
-        var decoded = Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition));
+        var decoded = DecodeStored(definition);
         if (decoded.Keyword != "" || decoded.Conditions.Single() != condition)
             throw new InvalidOperationException("Stored saved view lost its original comparison.");
         definition[0] = 3;
-        Reject(() => Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition)));
+        Reject(() => DecodeStored(definition));
         definition[0] = version == 1 ? (byte)2 : (byte)1;
-        Reject(() => Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition)));
+        Reject(() => DecodeStored(definition));
     }
 
     private static void VerifyStoredOverlap(byte version, SavedViewCondition overlap, SavedViewCondition presence, string hex)
@@ -202,29 +199,26 @@ internal static class PropertyValueVectors
         var expected = Convert.FromHexString(hex);
         var definition = Wire.EncodeSavedViewDefinition([overlap]);
         BytesEqual(expected, definition);
-        var decoded = Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition));
+        var decoded = DecodeStored(definition);
         BytesEqual(expected, Wire.EncodeSavedViewDefinition(decoded.Conditions, decoded.Keyword));
         var mixed = Wire.EncodeSavedViewDefinition([overlap, presence]);
-        if (mixed[0] != version || Wire.DecodeSavedViewDefinition(mixed, SHA256.HashData(mixed)).Conditions.Count != 2)
+        if (mixed[0] != version || DecodeStored(mixed).Conditions.Count != 2)
             throw new InvalidOperationException("Mixed comparisons did not use the overlap definition revision.");
         var otherKind = overlap.Kind == PropertyFieldKind.SingleSelect ? PropertyFieldKind.MultiSelect : PropertyFieldKind.SingleSelect;
         Reject(() => Wire.EncodeSavedViewDefinition([overlap with { Kind = otherKind }]));
         definition[0] = (byte)(version - 1);
-        Reject(() => Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition)));
+        Reject(() => DecodeStored(definition));
         definition[0] = (byte)(version + 1);
-        Reject(() => Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition)));
+        Reject(() => DecodeStored(definition));
         definition[0] = version;
         var reversed = definition[56..];
         definition.AsSpan(40, 16).CopyTo(definition.AsSpan(56));
         reversed.CopyTo(definition, 40);
-        Reject(() => Wire.DecodeSavedViewDefinition(definition, SHA256.HashData(definition)));
+        Reject(() => DecodeStored(definition));
     }
 
-    private static void BytesEqual(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual)
-    {
-        if (!expected.SequenceEqual(actual))
-            throw new InvalidOperationException("Typed properties differ from the independent byte vector.");
-    }
+    private static void BytesEqual(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual) =>
+        VectorFixture.Equal(expected, actual, "Typed properties differ from the independent byte vector.");
 
     private static void Reject(Action action) =>
         ProtocolRejection.Assert(action, "Invalid typed property input was accepted.");

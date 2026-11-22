@@ -24,23 +24,10 @@ internal static class PublicArticleVectors
             article with { Title = "padding\0title" },
             article with { Title = new string('雪', 86) }
         })
-        {
-            try
-            {
-                PublicArticles.EncodeDetail(invalid);
-            }
-            catch (ProtocolException)
-            {
-                continue;
-            }
-            throw new InvalidOperationException("Invalid article accepted");
-        }
+            ProtocolRejection.Assert(() => PublicArticles.EncodeDetail(invalid), "Invalid article accepted");
 
-        void AssertFixture(string name, byte[] actual)
-        {
-            byte[] expected = Convert.FromHexString(File.ReadAllText(Path.Combine(fixtures, name + ".hex")).Trim());
-            if (!actual.AsSpan().SequenceEqual(expected))
-                throw new InvalidOperationException($"Public article frame differs from independent fixture {name}");
-        }
+        void AssertFixture(string name, byte[] actual) =>
+            VectorFixture.Equal(VectorFixture.Hex(fixtures, name + ".hex"), actual,
+                $"Public article frame differs from independent fixture {name}");
     }
 }

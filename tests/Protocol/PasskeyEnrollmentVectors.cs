@@ -29,12 +29,9 @@ internal static class PasskeyEnrollmentVectors
         byte[] Encode(byte[][] ids) => PasskeyWire.EnrollmentBegin(token, 120_000, "example.test", "FsusBlog", "site-account",
             "Primary", user, challenge, algorithms, ids);
 
-        void Compare(string name, byte[] actual)
-        {
-            var expected = Convert.FromHexString(File.ReadAllText(Path.Combine(fixtures, name + ".hex")).Trim());
-            if (!expected.AsSpan().SequenceEqual(actual))
-                throw new InvalidOperationException("Passkey registration options differ from the independent vector");
-        }
+        void Compare(string name, byte[] actual) =>
+            VectorFixture.Equal(VectorFixture.Hex(fixtures, name + ".hex"), actual,
+                "Passkey registration options differ from the independent vector");
     }
 
     private static void Reject(Action action) =>

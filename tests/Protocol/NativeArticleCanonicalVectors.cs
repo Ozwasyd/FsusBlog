@@ -33,11 +33,8 @@ internal static class NativeArticleCanonicalVectors
         if (replacedCoverContent.AsSpan().SequenceEqual(coveredContent))
             throw new InvalidOperationException("The managed publication cover did not change the canonical SHA-256.");
         foreach (var invalid in new byte[][] { [], new byte[31], new byte[33] })
-        {
-            try { ArticleCanonicalHashesV2.ContentDigest(covered with { CoverMediaSha256 = invalid }); }
-            catch (ProtocolException) { continue; }
-            throw new InvalidOperationException("An invalid managed cover digest was accepted.");
-        }
+            ProtocolRejection.Assert(() => ArticleCanonicalHashesV2.ContentDigest(covered with { CoverMediaSha256 = invalid }),
+                "An invalid managed cover digest was accepted.");
 
         void Equal(string file, byte[] actual)
         {

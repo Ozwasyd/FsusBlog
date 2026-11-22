@@ -1,13 +1,10 @@
 using FsusBlog.V2.Contracts;
 
 string fixtures = args.Length == 1 ? args[0] : throw new ArgumentException("Supply the fixture directory");
-byte[] Fixture(string name) => Convert.FromHexString(File.ReadAllText(Path.Combine(fixtures, name)).Trim());
+byte[] Fixture(string name) => VectorFixture.Hex(fixtures, name);
 
-void Equal(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual)
-{
-    if (!expected.SequenceEqual(actual))
-        throw new InvalidOperationException("AEDS bytes differ from independent vector");
-}
+void Equal(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual) =>
+    VectorFixture.Equal(expected, actual, "AEDS bytes differ from independent vector");
 
 void Reject(Action run) =>
     ProtocolRejection.Assert(run, "Invalid AEDS data accepted");
@@ -51,11 +48,11 @@ Reject(() => Wire.DecodeArticleCommand(Aeds.Encode(FrameType.ArticleCommand, [..
 PublicArticleVectors.Run(fixtures);
 PublishedArticleMediaVectors.Run();
 Equal(
-    Convert.FromHexString(string.Concat(File.ReadAllLines(Path.Combine(fixtures, "pow-challenge-v1.hex")))),
+    VectorFixture.MultilineHex(fixtures, "pow-challenge-v1.hex"),
     PowWire.EncodeChallenge(new("salt-value", 4, 1778290000L, "signature-value")));
 CommentReadVectors.Run(fixtures);
-byte[] CategoryFixture() => Convert.FromHexString(string.Concat(File.ReadAllLines(Path.Combine(fixtures, "category-list-v1.hex"))));
-Equal(CategoryFixture(), TaxonomyWire.EncodeList(FrameType.CategoryList, [new(1, "Tech", 2), new(2, "Life", 0)]));
+Equal(VectorFixture.MultilineHex(fixtures, "category-list-v1.hex"),
+    TaxonomyWire.EncodeList(FrameType.CategoryList, [new(1, "Tech", 2), new(2, "Life", 0)]));
 Equal(Fixture("taxonomy-exact-metadata.hex"), TaxonomyWire.EncodeMetadata(new(34, "Étoile", "旧名不可占用")));
 var assignment = new TaxonomyAssignment(42, 9_007_199_254_740_993, Guid.Parse("01020304-0506-4040-8080-000000000003"), 3, [101, 105]);
 var taxonomyVector = Fixture("taxonomy-assignment.hex");
@@ -86,8 +83,9 @@ NativeArticleCanonicalVectors.Run(fixtures);
 NativePublicationProofVectors.Run(fixtures);
 var cluster = new AdminClusterStatus(1, "lab-a", Guid.Parse("bd978cbd-7565-44ed-876d-d734cbe45c79"), "2.0.0+ca32",
     1794680000000, 1794680040012, 349, true);
-Equal(Fixture("admin-cluster-status-v2.hex"), Wire.EncodeAdminClusterStatus(cluster));
-if (Wire.DecodeAdminClusterStatus(Fixture("admin-cluster-status-v2.hex")) != cluster)
+var clusterFrame = Fixture("admin-cluster-status-v2.hex");
+Equal(clusterFrame, Wire.EncodeAdminClusterStatus(cluster));
+if (Wire.DecodeAdminClusterStatus(clusterFrame) != cluster)
     throw new InvalidOperationException("Standalone deployment differs from the independent vector");
 Reject(() => Wire.EncodeAdminClusterStatus(cluster with { LeaseAgeMs = 1000 }));
 Reject(() => Wire.EncodeAdminClusterStatus(cluster with { NodeId = "lab-a\n" }));

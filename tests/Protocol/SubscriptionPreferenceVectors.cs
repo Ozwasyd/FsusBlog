@@ -5,7 +5,7 @@ internal static class SubscriptionPreferenceVectors
 {
     internal static void Run(string fixtures)
     {
-        var expected = Convert.FromHexString(File.ReadAllText(Path.Combine(fixtures, "subscription-preference.hex")).Trim());
+        var expected = VectorFixture.Hex(fixtures, "subscription-preference.hex");
         var preference = new SubscriptionPreferenceRequest("news+brief@example.test", WireLayouts.SubscriptionEmailChannel);
         if (!Wire.EncodeSubscriptionPreferenceRequest(preference).AsSpan().SequenceEqual(expected) ||
             Wire.DecodeSubscriptionPreferenceRequest(expected) != preference ||

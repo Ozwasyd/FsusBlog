@@ -36,11 +36,8 @@ internal static class PublishedArticleMediaVectors
             FrameType.PublicArticleMedia), "Empty current publication manifest");
     }
 
-    private static void Equal(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual, string what)
-    {
-        if (!expected.SequenceEqual(actual))
-            throw new InvalidOperationException($"{what} differs from its pinned wire layout.");
-    }
+    private static void Equal(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual, string what) =>
+        VectorFixture.Equal(expected, actual, $"{what} differs from its pinned wire layout.");
 
     private static void Reject(Action action) =>
         ProtocolRejection.Assert(action, "Invalid published media data was accepted.");

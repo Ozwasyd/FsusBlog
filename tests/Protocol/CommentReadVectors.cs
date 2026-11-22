@@ -14,14 +14,9 @@ internal static class CommentReadVectors
         Check("root", CommentReadWire.Roots([new(root, [reply])], null));
         Check("children", CommentReadWire.Children(rootId, rootId, [reply], null));
         Check("context", CommentReadWire.Context(reply, [root], []));
-        return;
 
-        void Check(string label, byte[] actual)
-        {
-            var path = Path.Combine(fixtures, $"comment-{label}-current.hex");
-            var expected = Convert.FromHexString(File.ReadAllText(path).Trim());
-            if (!actual.AsSpan().SequenceEqual(expected))
-                throw new InvalidOperationException($"Comment {label} wire bytes differ from the independent vector.");
-        }
+        void Check(string label, byte[] actual) =>
+            VectorFixture.Equal(VectorFixture.Hex(fixtures, $"comment-{label}-current.hex"), actual,
+                $"Comment {label} wire bytes differ from the independent vector.");
     }
 }
