@@ -1,6 +1,9 @@
 import { deepEqual, equal, match, notEqual, rejects, throws } from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test, type TestContext } from 'node:test';
+import {
+  apiErrorResponse, emptySuccessFrame, installPasskeyEnvironment, loginBeginFrame, mfaChallengeResultFrame, powChallengeFrame, replaceProperty,
+} from './step-up-fixture.ts';
 import { ApiError, decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import { applyAppearance } from '../../src/Contracts/admin-appearance.ts';
 import { adminChangeStatus, adminReply } from '../../src/Contracts/admin-inbox.ts';
@@ -21,39 +24,14 @@ import {
   decodePublicCommentSubmission, decodeRecoveryKeyVerify, encodePublicCommentSubmissionResult,
   FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts';
-import { hexFixture } from './fixture-source.ts';
+import { frameResponse, hexFixture } from './fixture-source.ts';
 
-const aedsHeaders = { 'Content-Type': 'application/octet-stream' };
 const encoder = new TextEncoder();
 const validSalt = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
 const validSignature = 'S'.repeat(43);
 const validProof = 'P'.repeat(43);
 const validSiteSession = 'a'.repeat(64);
 const altSiteSession = 'b'.repeat(64);
-
-function emptySuccessFrame(): Uint8Array<ArrayBuffer> {
-  return encodeFrame(FrameType.EmptySuccess, Uint8Array.of(1, 0, 0, 0));
-}
-
-function powChallengeFrame({
-  salt = validSalt,
-  signature = validSignature,
-  difficulty = WireLimits.PowChallengeDifficulty,
-  timestamp = 1_794_680_000n,
-}: {
-  salt?: string;
-  signature?: string;
-  difficulty?: number;
-  timestamp?: bigint;
-} = {}): Uint8Array<ArrayBuffer> {
-  const payload = new Uint8Array(WireLayouts.PowChallengeBytes);
-  const view = new DataView(payload.buffer);
-  payload.set(encoder.encode(salt).subarray(0, WireLayouts.PowChallengeSaltBytes), 0);
-  view.setInt32(WireLayouts.PowChallengeSaltBytes, difficulty, true);
-  view.setBigInt64(WireLayouts.PowChallengeTimestampOffset, timestamp, true);
-  payload.set(encoder.encode(signature).subarray(0, 64), WireLayouts.PowChallengeSignatureOffset);
-  return encodeFrame(FrameType.PowChallenge, payload);
-}
 
 function decodePowHeader(encoded: string) {
   const bytes = Uint8Array.from(atob(encoded), ch => ch.charCodeAt(0));
@@ -71,111 +49,6 @@ function decodePowHeader(encoded: string) {
   }
   equal(offset, bytes.length);
   return { difficulty, timestamp, salt: parts[0], nonce: parts[1], signature: parts[2], clientNonce: parts[3] };
-}
-
-function apiErrorResponse(status: number, details: string, message = 'Request failed'): Response {
-  const payload = new Uint8Array(WireLayouts.ErrorBytes);
-  const view = new DataView(payload.buffer);
-  payload[0] = 1;
-  payload[1] = 1;
-  view.setInt32(WireLayouts.ErrorStatusOffset, status, true);
-  payload.set(encoder.encode(message).subarray(0, 255), WireLayouts.ErrorMessageOffset);
-  payload.set(encoder.encode(details).subarray(0, 255), WireLayouts.ErrorDetailsOffset);
-  return new Response(encodeFrame(FrameType.ApiError, payload), { status, headers: aedsHeaders });
-}
-
-function loginBeginFrame(): Uint8Array<ArrayBuffer> {
-  const token = 'T'.repeat(43);
-  const rp = encoder.encode('localhost');
-  const challenge = new Uint8Array(WireLimits.PasskeyChallengeBytes).fill(7);
-  const credId = Uint8Array.of(1, 2, 3, 4);
-  const descriptorBytes = WireLayouts.PasskeyCredentialDescriptorSize;
-  const blobStart = WireLayouts.PasskeyLoginBeginSize + descriptorBytes + 4;
-  const payload = new Uint8Array(blobStart + rp.length + challenge.length + credId.length);
-  const view = new DataView(payload.buffer);
-  view.setBigUint64(0, 60_000n, true);
-  view.setInt32(8, 1, true);
-  payload.set(encoder.encode(token), WireLayouts.PasskeyLoginBeginTokenOffset);
-  const rpRef = WireLayouts.PasskeyLoginBeginTokenOffset + WireLayouts.PasskeyTokenSize;
-  view.setInt32(rpRef, 0, true);
-  view.setInt32(rpRef + 4, rp.length, true);
-  view.setInt32(rpRef + WireLayouts.PasskeySliceSize, rp.length, true);
-  view.setInt32(rpRef + WireLayouts.PasskeySliceSize + 4, challenge.length, true);
-  const credRef = WireLayouts.PasskeyLoginBeginSize;
-  view.setInt32(credRef + 8, rp.length + challenge.length, true);
-  view.setInt32(credRef + 12, credId.length, true);
-  payload.set(credId, blobStart + rp.length + challenge.length);
-  view.setInt32(blobStart - 4, rp.length + challenge.length + credId.length, true);
-  payload.set(rp, blobStart);
-  payload.set(challenge, blobStart + rp.length);
-  return encodeFrame(FrameType.PasskeyLoginBegin, payload);
-}
-
-function mfaChallengeResultFrame(): Uint8Array<ArrayBuffer> {
-  const payload = new Uint8Array(WireLayouts.MfaChallengeResultBytes);
-  const view = new DataView(payload.buffer);
-  view.setInt32(0, 0, true);
-  payload[4] = 1;
-  payload[5] = 1;
-  payload.set(encoder.encode('admin-sensitive'), WireLayouts.MfaChallengeActionOffset);
-  payload.set(encoder.encode(validProof), WireLayouts.MfaChallengeProofOffset);
-  return encodeFrame(FrameType.MfaChallengeResult, payload);
-}
-
-function installPasskeyEnvironment(t: TestContext) {
-  class FakeAssertionResponse {}
-  class FakeAttestationResponse {
-    clientDataJSON = Uint8Array.of(10, 11).buffer;
-    attestationObject = Uint8Array.of(12, 13, 14).buffer;
-    getTransports() { return ['internal']; }
-  }
-  class FakeCredential {
-    id = 'cred-id';
-    rawId = Uint8Array.of(9, 8, 7).buffer;
-    response: FakeAssertionResponse | FakeAttestationResponse;
-    constructor(response: FakeAssertionResponse | FakeAttestationResponse) {
-      this.response = response;
-    }
-  }
-  const prevSecure = Object.getOwnPropertyDescriptor(globalThis, 'isSecureContext');
-  const prevCredential = Object.getOwnPropertyDescriptor(globalThis, 'PublicKeyCredential');
-  const prevAssertion = Object.getOwnPropertyDescriptor(globalThis, 'AuthenticatorAssertionResponse');
-  const prevAttestation = Object.getOwnPropertyDescriptor(globalThis, 'AuthenticatorAttestationResponse');
-  const prevCredentials = Object.getOwnPropertyDescriptor(globalThis.navigator, 'credentials');
-
-  Object.defineProperty(globalThis, 'isSecureContext', { configurable: true, value: true });
-  Object.defineProperty(globalThis, 'PublicKeyCredential', { configurable: true, value: FakeCredential });
-  Object.defineProperty(globalThis, 'AuthenticatorAssertionResponse', { configurable: true, value: FakeAssertionResponse });
-  Object.defineProperty(globalThis, 'AuthenticatorAttestationResponse', { configurable: true, value: FakeAttestationResponse });
-  Object.defineProperty(globalThis.navigator, 'credentials', {
-    configurable: true,
-    value: {
-      async get() {
-        return new FakeCredential(Object.assign(new FakeAssertionResponse(), {
-          clientDataJSON: Uint8Array.of(1, 2).buffer,
-          authenticatorData: Uint8Array.of(3, 4).buffer,
-          signature: Uint8Array.of(5, 6).buffer,
-          userHandle: null,
-        }));
-      },
-      async create() {
-        return new FakeCredential(new FakeAttestationResponse());
-      },
-    },
-  });
-
-  t.after(() => {
-    if (prevSecure) Object.defineProperty(globalThis, 'isSecureContext', prevSecure);
-    else delete (globalThis as Record<string, unknown>).isSecureContext;
-    if (prevCredential) Object.defineProperty(globalThis, 'PublicKeyCredential', prevCredential);
-    else delete (globalThis as Record<string, unknown>).PublicKeyCredential;
-    if (prevAssertion) Object.defineProperty(globalThis, 'AuthenticatorAssertionResponse', prevAssertion);
-    else delete (globalThis as Record<string, unknown>).AuthenticatorAssertionResponse;
-    if (prevAttestation) Object.defineProperty(globalThis, 'AuthenticatorAttestationResponse', prevAttestation);
-    else delete (globalThis as Record<string, unknown>).AuthenticatorAttestationResponse;
-    if (prevCredentials) Object.defineProperty(globalThis.navigator, 'credentials', prevCredentials);
-    else delete (globalThis.navigator as unknown as Record<string, unknown>).credentials;
-  });
 }
 
 type WorkerControl = {
@@ -215,18 +88,13 @@ function installControlledWorker(
     queueMicrotask(() => worker.onmessage?.({ data: '12345' } as MessageEvent<unknown>));
   },
 ): WorkerControl {
-  const prevWorker = Object.getOwnPropertyDescriptor(globalThis, 'Worker');
   const control: WorkerControl = { spawns: 0, terminated: 0, posted: [], last: null };
   class BoundWorker extends FakeControllableWorker {
     constructor() {
       super(control, onPost);
     }
   }
-  Object.defineProperty(globalThis, 'Worker', { configurable: true, value: BoundWorker });
-  t.after(() => {
-    if (prevWorker) Object.defineProperty(globalThis, 'Worker', prevWorker);
-    else delete (globalThis as Record<string, unknown>).Worker;
-  });
+  replaceProperty(t, globalThis, 'Worker', BoundWorker);
   return control;
 }
 
@@ -329,8 +197,8 @@ test('proveScopedPow and requestWithScopedPow handle success, header isolation, 
     const headers = new Headers(init?.headers);
     const body = init?.body ? new Uint8Array(init.body as Uint8Array) : new Uint8Array();
     requests.push({ url, method: init?.method ?? 'GET', headers, body });
-    if (url === '/pow') return new Response(powChallengeFrame(), { headers: aedsHeaders });
-    if (url === '/submit') return new Response(emptySuccessFrame(), { headers: aedsHeaders });
+    if (url === '/pow') return frameResponse(powChallengeFrame());
+    if (url === '/submit') return frameResponse(emptySuccessFrame());
     throw new Error(`Unexpected URL ${url}`);
   });
 
@@ -403,9 +271,9 @@ test('malformed or unsupported challenges reject before spawning a Worker or sub
     const url = typeof input === 'string' ? input : input.toString();
     if (url === '/submit') {
       submitCalled = true;
-      return new Response(emptySuccessFrame(), { headers: aedsHeaders });
+      return frameResponse(emptySuccessFrame());
     }
-    return new Response(nextFrame, { headers: aedsHeaders });
+    return frameResponse(nextFrame);
   });
 
   const badFrames = [
@@ -485,11 +353,11 @@ test('abort during challenge or Worker solving terminates Worker, ignores late r
     const url = typeof input === 'string' ? input : input.toString();
     if (url === '/submit') {
       submitCalls++;
-      return new Response(emptySuccessFrame(), { headers: aedsHeaders });
+      return frameResponse(emptySuccessFrame());
     }
     return await new Promise<Response>((resolve, reject) => {
       init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
-      releaseChallenge = () => resolve(new Response(powChallengeFrame(), { headers: aedsHeaders }));
+      releaseChallenge = () => resolve(frameResponse(powChallengeFrame()));
     });
   });
 
@@ -510,9 +378,9 @@ test('abort during challenge or Worker solving terminates Worker, ignores late r
     const url = typeof input === 'string' ? input : input.toString();
     if (url === '/submit') {
       submitCalls++;
-      return new Response(emptySuccessFrame(), { headers: aedsHeaders });
+      return frameResponse(emptySuccessFrame());
     }
-    return new Response(powChallengeFrame(), { headers: aedsHeaders });
+    return frameResponse(powChallengeFrame());
   });
 
   const workerAbort = new AbortController();
@@ -554,7 +422,7 @@ test('HTTP errors (401/403/409/429) on challenge or submit propagate verbatim wi
     t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
       const url = typeof input === 'string' ? input : input.toString();
       calls.push(url);
-      if (url === '/pow') return new Response(powChallengeFrame(), { headers: aedsHeaders });
+      if (url === '/pow') return frameResponse(powChallengeFrame());
       return apiErrorResponse(status, `submit_fail_${status}`);
     });
     await rejects(() => requestWithScopedPow({
@@ -566,7 +434,7 @@ test('HTTP errors (401/403/409/429) on challenge or submit propagate verbatim wi
 });
 
 test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact routes, bytes, headers, and counts', async t => {
-  installPasskeyEnvironment(t);
+  installPasskeyEnvironment(t, { registration: true });
   installControlledWorker(t);
 
   type CallRecord = { url: string; method: string; headers: Headers; body: Uint8Array };
@@ -604,8 +472,8 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
 
   // 1a. admin-tag-metadata (tag create -> POST)
   installFetch(url => url === WireRoutes.AdminTagCreatePow
-    ? new Response(powChallengeFrame(), { headers: aedsHeaders })
-    : new Response(metadataReceiptFrame('tag', 15, 1n, 'Rust', 'Systems', true), { headers: aedsHeaders }));
+    ? frameResponse(powChallengeFrame())
+    : frameResponse(metadataReceiptFrame('tag', 15, 1n, 'Rust', 'Systems', true)));
   const createdTag = await changeTaxonomyMetadata('tag', {
     id: 0, expectedRevision: 0n, requestId: '11111111-1111-4111-8111-111111111111', name: 'Rust', description: 'Systems',
   }, new AbortController().signal);
@@ -617,8 +485,8 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
 
   // 1b. admin-tag-metadata (category update -> PUT)
   installFetch(url => url === WireRoutes.AdminCategoryMetadataPow.replace('{id:int}', '7')
-    ? new Response(powChallengeFrame(), { headers: aedsHeaders })
-    : new Response(metadataReceiptFrame('category', 7, 3n, 'Notes', 'Updated', true), { headers: aedsHeaders }));
+    ? frameResponse(powChallengeFrame())
+    : frameResponse(metadataReceiptFrame('category', 7, 3n, 'Notes', 'Updated', true)));
   const updatedCategory = await changeTaxonomyMetadata('category', {
     id: 7, expectedRevision: 2n, requestId: '22222222-2222-4222-8222-222222222222', name: 'Notes', description: 'Updated',
   }, new AbortController().signal);
@@ -630,8 +498,8 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
 
   // 2. admin-inbox: adminReply
   installFetch(url => url === WireRoutes.AdminInboxReplyPow.replace('{id:long}', '42')
-    ? new Response(powChallengeFrame(), { headers: aedsHeaders })
-    : new Response(inboxMessageFrame(501n, 42n, 1, 'Admin response body'), { headers: aedsHeaders }));
+    ? frameResponse(powChallengeFrame())
+    : frameResponse(inboxMessageFrame(501n, 42n, 1, 'Admin response body')));
   const replied = await adminReply(42n, 'Admin response body', 'reply-key-1', new AbortController().signal);
   equal(replied.id, 501n);
   equal(calls.length, 2);
@@ -641,8 +509,8 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
 
   // 3. admin-inbox: adminChangeStatus
   installFetch(url => url === WireRoutes.AdminInboxStatusPow.replace('{id:long}', '42')
-    ? new Response(powChallengeFrame(), { headers: aedsHeaders })
-    : new Response(statusMutationFrame(0, 2), { headers: aedsHeaders }));
+    ? frameResponse(powChallengeFrame())
+    : frameResponse(statusMutationFrame(0, 2)));
   const statusRes = await adminChangeStatus(42n, '19', 2, 'Resolved issue', new AbortController().signal);
   deepEqual(statusRes, { previous: 0, current: 2, changed: true });
   equal(calls.length, 2);
@@ -653,8 +521,8 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
   // 4. admin-inbox-notice: adminSendNotice
   const recipient = '33333333-3333-4333-8333-333333333333';
   installFetch(url => url === WireRoutes.AdminInboxSendNoticePow
-    ? new Response(powChallengeFrame(), { headers: aedsHeaders })
-    : new Response(systemNoticeFrame(88n, 'Security alert', 901n, 'Notice content'), { headers: aedsHeaders }));
+    ? frameResponse(powChallengeFrame())
+    : frameResponse(systemNoticeFrame(88n, 'Security alert', 901n, 'Notice content')));
   const noticeThread = await adminSendNotice(recipient, 'Security alert', 'Notice content', 777n, new AbortController().signal);
   equal(noticeThread.id, 88n);
   equal(calls.length, 2);
@@ -668,10 +536,10 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
     theme: '1'.repeat(64), font: '2'.repeat(64), rollback: false,
   };
   installFetch(url => {
-    if (url === WireRoutes.AdminAppearanceStepUpBegin) return new Response(loginBeginFrame(), { headers: aedsHeaders });
-    if (url === WireRoutes.AdminAppearanceStepUpComplete) return new Response(mfaChallengeResultFrame(), { headers: aedsHeaders });
-    if (url === WireRoutes.AdminAppearancePow) return new Response(powChallengeFrame(), { headers: aedsHeaders });
-    return new Response(emptySuccessFrame(), { headers: aedsHeaders });
+    if (url === WireRoutes.AdminAppearanceStepUpBegin) return frameResponse(loginBeginFrame());
+    if (url === WireRoutes.AdminAppearanceStepUpComplete) return frameResponse(mfaChallengeResultFrame());
+    if (url === WireRoutes.AdminAppearancePow) return frameResponse(powChallengeFrame());
+    return frameResponse(emptySuccessFrame());
   });
   await applyAppearance(appearanceCmd, new AbortController().signal);
   deepEqual(calls.map(c => c.url), [
@@ -688,10 +556,10 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
   // 6. admin-site-pages: Step-Up -> PoW (no MfaProof) -> Publish (MfaProof + PowProof)
   const pageIntent = { slug: 'about', expectedRevision: 2n, expectedDigest: 'd'.repeat(64), markdown: '# Hello\n' };
   installFetch(url => {
-    if (url === WireRoutes.AdminSitePageStepUpBegin) return new Response(loginBeginFrame(), { headers: aedsHeaders });
-    if (url === WireRoutes.AdminSitePageStepUpComplete) return new Response(mfaChallengeResultFrame(), { headers: aedsHeaders });
-    if (url === WireRoutes.AdminSitePagePow) return new Response(powChallengeFrame(), { headers: aedsHeaders });
-    return new Response(emptySuccessFrame(), { headers: aedsHeaders });
+    if (url === WireRoutes.AdminSitePageStepUpBegin) return frameResponse(loginBeginFrame());
+    if (url === WireRoutes.AdminSitePageStepUpComplete) return frameResponse(mfaChallengeResultFrame());
+    if (url === WireRoutes.AdminSitePagePow) return frameResponse(powChallengeFrame());
+    return frameResponse(emptySuccessFrame());
   });
   await publishAdminSitePage(pageIntent, new AbortController().signal);
   deepEqual(calls.map(c => c.url), [
@@ -708,10 +576,10 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
   // 7a. comment-write: anonymous root comment
   const rootCommentKey = '44444444-4444-4444-8444-444444444444';
   installFetch(url => url === WireRoutes.PublicCommentPowChallenge
-    ? new Response(powChallengeFrame(), { headers: aedsHeaders })
-    : new Response(encodeFrame(FrameType.PublicCommentSubmissionResult, encodePublicCommentSubmissionResult({
+    ? frameResponse(powChallengeFrame())
+    : frameResponse(encodeFrame(FrameType.PublicCommentSubmissionResult, encodePublicCommentSubmissionResult({
         articleId: 5, commentId: 101n, moderationStatus: 0, replayed: false,
-      })), { headers: aedsHeaders }));
+      }))));
   const rootRes = await submitPublicComment(5, 3n, 'Reader', 'Comment text', rootCommentKey, new AbortController().signal);
   equal(rootRes.commentId, 101n);
   equal(calls.length, 2);
@@ -724,10 +592,10 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
   // 7b. comment-write: signed-in reply
   const replyCommentKey = '55555555-5555-4555-8555-555555555555';
   installFetch(url => url === WireRoutes.PublicCommentReplyPow
-    ? new Response(powChallengeFrame(), { headers: aedsHeaders })
-    : new Response(encodeFrame(FrameType.PublicCommentSubmissionResult, encodePublicCommentSubmissionResult({
+    ? frameResponse(powChallengeFrame())
+    : frameResponse(encodeFrame(FrameType.PublicCommentSubmissionResult, encodePublicCommentSubmissionResult({
         articleId: 5, commentId: 102n, moderationStatus: 0, replayed: false,
-      })), { headers: aedsHeaders }));
+      }))));
   const replyRes = await submitPublicComment(5, 3n, 'Reader', 'Reply text', replyCommentKey, new AbortController().signal, {
     parent: '101', session: validSiteSession,
   });
@@ -742,8 +610,8 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
   // 8a. inbox-write: createInboxConversation
   const createdConversation = Uint8Array.from(hexFixture('conversation-detail-v2.hex', 'strip'));
   installFetch(url => url === WireRoutes.InboxCreatePowChallenge
-    ? new Response(powChallengeFrame(), { headers: aedsHeaders })
-    : new Response(createdConversation, { headers: aedsHeaders }));
+    ? frameResponse(powChallengeFrame())
+    : frameResponse(createdConversation));
   const createdId = await createInboxConversation('Appeal', 'Body', 'inbox-create-key', new AbortController().signal, validSiteSession);
   equal(createdId > 0n, true);
   equal(calls.length, 2);
@@ -757,8 +625,8 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
   const replyPayload = decodeFrame(repliedMessage, FrameType.ConversationMessage).payload;
   const replyConvId = new DataView(replyPayload.buffer, replyPayload.byteOffset).getBigInt64(8, true);
   installFetch(url => url === WireRoutes.InboxReplyPowChallenge.replace('{id:long}', String(replyConvId))
-    ? new Response(powChallengeFrame(), { headers: aedsHeaders })
-    : new Response(repliedMessage, { headers: aedsHeaders }));
+    ? frameResponse(powChallengeFrame())
+    : frameResponse(repliedMessage));
   const replyMsgId = await replyInboxConversation(replyConvId, 1n, 'Follow-up', 'inbox-reply-key', new AbortController().signal, validSiteSession);
   equal(replyMsgId > 0n, true);
   equal(calls.length, 2);
@@ -769,9 +637,9 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
   // 9. reader-registration: Pow -> Begin (PowProof only, no PowClientNonce) -> Complete (no PowProof)
   const provisionBegin = Uint8Array.from(hexFixture('site-passkey-bootstrap.hex', 'strip'));
   installFetch(url => {
-    if (url === '/api/v2/identity/reader-registration/pow.aeds') return new Response(powChallengeFrame(), { headers: aedsHeaders });
-    if (url === '/api/v2/identity/reader-registration/begin.aeds') return new Response(provisionBegin, { headers: aedsHeaders });
-    return new Response(emptySuccessFrame(), { headers: aedsHeaders });
+    if (url === '/api/v2/identity/reader-registration/pow.aeds') return frameResponse(powChallengeFrame());
+    if (url === '/api/v2/identity/reader-registration/begin.aeds') return frameResponse(provisionBegin);
+    return frameResponse(emptySuccessFrame());
   });
   await registerReaderPasskey(new AbortController().signal);
   deepEqual(calls.map(c => c.url), [
@@ -786,8 +654,8 @@ test('all 9 migrated Scoped PoW business modules (10 call sites) preserve exact 
   // 10. recovery-key: verifySiteRecoveryKey zeroes key buffer on completion and on failure
   const recoveryKey = `frk_${'a'.repeat(32)}_${'B'.repeat(43)}`;
   installFetch(url => url === WireRoutes.RecoveryKeyPow
-    ? new Response(powChallengeFrame(), { headers: aedsHeaders })
-    : new Response(emptySuccessFrame(), { headers: aedsHeaders }));
+    ? frameResponse(powChallengeFrame())
+    : frameResponse(emptySuccessFrame()));
   await verifySiteRecoveryKey(recoveryKey, new AbortController().signal);
   equal(calls.length, 2);
   equal(calls[0].url, WireRoutes.RecoveryKeyPow);
@@ -807,7 +675,7 @@ test('recovery-key zeros its sensitive frame buffer on abort and session-change 
     if (url === WireRoutes.RecoveryKeyPow) {
       // Keep direct reference (not copied) to verify body.fill(0) ran in finally
       heldBody = init?.body as Uint8Array;
-      return new Response(powChallengeFrame(), { headers: aedsHeaders });
+      return frameResponse(powChallengeFrame());
     }
     throw new Error(`Unexpected submit call to ${url}`);
   });
@@ -825,9 +693,9 @@ test('recovery-key zeros its sensitive frame buffer on abort and session-change 
   let inboxSubmitCalled = false;
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request) => {
     const url = typeof input === 'string' ? input : input.toString();
-    if (url === WireRoutes.InboxCreatePowChallenge) return new Response(powChallengeFrame(), { headers: aedsHeaders });
+    if (url === WireRoutes.InboxCreatePowChallenge) return frameResponse(powChallengeFrame());
     inboxSubmitCalled = true;
-    return new Response(emptySuccessFrame(), { headers: aedsHeaders });
+    return frameResponse(emptySuccessFrame());
   });
   let currentSession = validSiteSession;
   const sessionAbort = new AbortController();

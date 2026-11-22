@@ -1,5 +1,6 @@
 import { equal, rejects } from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
+import { frameResponse } from './fixture-source.ts';
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import type { AdminSession } from '../../src/Contracts/admin-identity.ts';
 import {
@@ -23,7 +24,6 @@ import {
   WireRoutes,
 } from '../../src/Contracts/wire.generated.ts';
 
-const aedsHeaders = { 'Content-Type': 'application/octet-stream' };
 const sessionId = 'c'.repeat(64);
 const validProof = 'P'.repeat(43);
 const validPermissionSession = 'a'.repeat(64);
@@ -82,16 +82,10 @@ test('readSiteDisplayName and updateSiteDisplayName round-trip AEDS frames with 
       const frame = decodeFrame(new Uint8Array(init.body as ArrayBufferLike), FrameType.SiteDisplayNameCommand);
       const command = decodeSiteDisplayNameCommand(frame.payload);
       lastRequest = { url, method: init.method, session: headers.get(WireHeaders.CurrentSession) ?? undefined, decoded: command.displayName };
-      return new Response(encodeFrame(FrameType.SiteDisplayNameState, encodeSiteDisplayNameState({ displayName: command.displayName })), {
-        status: 200,
-        headers: aedsHeaders,
-      });
+      return frameResponse(encodeFrame(FrameType.SiteDisplayNameState, encodeSiteDisplayNameState({ displayName: command.displayName })));
     }
     lastRequest = { url, method: init?.method, session: headers.get(WireHeaders.CurrentSession) ?? undefined };
-    return new Response(encodeFrame(FrameType.SiteDisplayNameState, encodeSiteDisplayNameState({ displayName: '' })), {
-      status: 200,
-      headers: aedsHeaders,
-    });
+    return frameResponse(encodeFrame(FrameType.SiteDisplayNameState, encodeSiteDisplayNameState({ displayName: '' })));
   });
 
   const initial = await readSiteDisplayName(sessionId, new AbortController().signal);
@@ -120,14 +114,11 @@ test('executeAdminHandleRename binds permission session, idempotency key, and re
     seenHeaders = new Headers(init?.headers);
     const frame = decodeFrame(new Uint8Array(init?.body as ArrayBufferLike), FrameType.AdminHandleCommand);
     seenDecoded = decodeAdminHandleCommand(frame.payload);
-    return new Response(encodeFrame(FrameType.AdminHandleReceipt, encodeAdminHandleReceipt({
+    return frameResponse(encodeFrame(FrameType.AdminHandleReceipt, encodeAdminHandleReceipt({
       handle: 'chief-editor',
       happenedAtUnixMs: 1_795_000_000_000n,
       replayed: false,
-    })), {
-      status: 200,
-      headers: { ...aedsHeaders, [WireHeaders.AdminPermissionSession]: validPermissionSession },
-    });
+    })), { [WireHeaders.AdminPermissionSession]: validPermissionSession });
   });
 
   const receipt = await executeAdminHandleRename(activeSession(), command, validProof, new AbortController().signal);

@@ -13,68 +13,13 @@ import {
   AdminInboxController,
   type AdminInboxTransport,
 } from '../../src/Web/src/admin/adminInboxController.ts'
-import type { AdminClock } from '../../src/Web/src/admin/adminOperationCoordinator.ts'
-
-class FakeClock implements AdminClock {
-  currentTime: number
-  private nextId = 1
-  private readonly timers = new Map<number, { dueAt: number; callback: () => void }>()
-  readonly scheduledDelays: number[] = []
-
-  constructor(startMs = 1_700_000_000_000) {
-    this.currentTime = startMs
-  }
-
-  now(): number {
-    return this.currentTime
-  }
-
-  setTimeout(callback: () => void, delayMs: number): number {
-    const id = this.nextId++
-    this.scheduledDelays.push(delayMs)
-    this.timers.set(id, { dueAt: this.currentTime + Math.max(0, delayMs), callback })
-    return id
-  }
-
-  clearTimeout(handle: unknown): void {
-    if (typeof handle === 'number') this.timers.delete(handle)
-  }
-
-  get activeTimerCount(): number {
-    return this.timers.size
-  }
-
-  advance(deltaMs: number): void {
-    const target = this.currentTime + deltaMs
-    while (true) {
-      let earliestId: number | undefined
-      let earliestDue = Infinity
-      for (const [id, entry] of this.timers) {
-        if (entry.dueAt <= target && entry.dueAt < earliestDue) {
-          earliestDue = entry.dueAt
-          earliestId = id
-        }
-      }
-      if (earliestId === undefined) break
-      const entry = this.timers.get(earliestId)!
-      this.timers.delete(earliestId)
-      this.currentTime = Math.max(this.currentTime, entry.dueAt)
-      entry.callback()
-    }
-    this.currentTime = target
-  }
-}
+import { FakeClock } from './fakeClock.ts'
 
 interface FakeWakeSubscription {
   readonly scope: bigint | AdminInboxLiveStatus
   readonly signal: AbortSignal
   readonly wake: () => void
   readonly onRevoked: () => void
-}
-
-function deferred<T = void>() {
-  const { promise, resolve, reject } = Promise.withResolvers<T>()
-  return { promise, resolve, reject }
 }
 
 async function flushMicrotasks(): Promise<void> {
@@ -399,7 +344,7 @@ test('live refresh coordinates pending deferral, overlap merge, keepReadSnapshot
   const clock = new FakeClock(1_000_000)
   const wakes: FakeWakeSubscription[] = []
   const sessionLostErrors: unknown[] = []
-  const replyGate = deferred<{ id: bigint; conversationId: bigint; sender: 1; createdAt: number; body: string }>()
+  const replyGate = Promise.withResolvers<{ id: bigint; conversationId: bigint; sender: 1; createdAt: number; body: string }>()
   let liveThreadMode: 'merge' | 'fail500' | 'fail403' | 'fail401' = 'merge'
   let threadFetchCount = 0
   const retainedSnapshot = { token: 'k'.repeat(64), through: 10n }
@@ -519,7 +464,7 @@ test('cross-session isolation, explicit cancel, and idempotent dispose block sta
   const clock = new FakeClock(1_000_000)
   const wakes: FakeWakeSubscription[] = []
   const sessionLostErrors: unknown[] = []
-  const staleQueueGate = deferred<AdminInboxPage>()
+  const staleQueueGate = Promise.withResolvers<AdminInboxPage>()
   let activeSession = 'A'
 
   const controller = new AdminInboxController({
@@ -675,11 +620,11 @@ test('toggle collapse/expand, queue live 429 retry + focus hook, unchanged statu
 })
 
 test('fine-grained channels, latest-wins thread/filter switching, non-blocking read ack, and stable version during mutations', async () => {
-  const threadAGate = deferred<AdminInboxThread>()
-  const threadBGate = deferred<AdminInboxThread>()
-  const ackGate = deferred<number>()
-  const filterGate = deferred<AdminInboxPage>()
-  const refreshGate = deferred<AdminInboxThread>()
+  const threadAGate = Promise.withResolvers<AdminInboxThread>()
+  const threadBGate = Promise.withResolvers<AdminInboxThread>()
+  const ackGate = Promise.withResolvers<number>()
+  const filterGate = Promise.withResolvers<AdminInboxPage>()
+  const refreshGate = Promise.withResolvers<AdminInboxThread>()
   let threadFetches: bigint[] = []
   let openHookCalls = 0
   let filterCallCount = 0

@@ -1,0 +1,148 @@
+import type { TestContext } from 'node:test';
+import { encodeFrame } from '../../src/Contracts/aeds.ts';
+import { FrameType, WireLayouts, WireLimits } from '../../src/Contracts/wire.generated.ts';
+
+const encoder = new TextEncoder();
+
+export function emptySuccessFrame(): Uint8Array<ArrayBuffer> {
+  return encodeFrame(FrameType.EmptySuccess, Uint8Array.of(1, 0, 0, 0));
+}
+
+export function apiErrorResponse(status: number, details: string, message = 'Request failed'): Response {
+  const payload = new Uint8Array(WireLayouts.ErrorBytes);
+  const view = new DataView(payload.buffer);
+  payload[0] = 1;
+  payload[1] = 1;
+  view.setInt32(WireLayouts.ErrorStatusOffset, status, true);
+  payload.set(encoder.encode(message).subarray(0, 255), WireLayouts.ErrorMessageOffset);
+  payload.set(encoder.encode(details).subarray(0, 255), WireLayouts.ErrorDetailsOffset);
+  return new Response(encodeFrame(FrameType.ApiError, payload), { status, headers: { 'Content-Type': 'application/octet-stream' } });
+}
+
+export function loginBeginFrame(allowCredentialsCount = 1): Uint8Array<ArrayBuffer> {
+  const token = 'T'.repeat(43);
+  const rp = encoder.encode('localhost');
+  const challenge = new Uint8Array(WireLimits.PasskeyChallengeBytes).fill(7);
+  const credId = Uint8Array.of(1, 2, 3, 4);
+  const descriptorBytes = allowCredentialsCount * WireLayouts.PasskeyCredentialDescriptorSize;
+  const blobStart = WireLayouts.PasskeyLoginBeginSize + descriptorBytes + 4;
+  const blobSize = rp.length + challenge.length + allowCredentialsCount * credId.length;
+  const payload = new Uint8Array(blobStart + blobSize);
+  const view = new DataView(payload.buffer);
+  view.setBigUint64(0, 60_000n, true);
+  view.setInt32(8, allowCredentialsCount, true);
+  payload.set(encoder.encode(token), WireLayouts.PasskeyLoginBeginTokenOffset);
+  const rpRef = WireLayouts.PasskeyLoginBeginTokenOffset + WireLayouts.PasskeyTokenSize;
+  view.setInt32(rpRef, 0, true);
+  view.setInt32(rpRef + 4, rp.length, true);
+  view.setInt32(rpRef + WireLayouts.PasskeySliceSize, rp.length, true);
+  view.setInt32(rpRef + WireLayouts.PasskeySliceSize + 4, challenge.length, true);
+  let pos = rp.length + challenge.length;
+  for (let i = 0; i < allowCredentialsCount; i++) {
+    const ref = WireLayouts.PasskeyLoginBeginSize + i * WireLayouts.PasskeyCredentialDescriptorSize;
+    view.setInt32(ref + 8, pos, true);
+    view.setInt32(ref + 12, credId.length, true);
+    payload.set(credId, blobStart + pos);
+    pos += credId.length;
+  }
+  view.setInt32(blobStart - 4, blobSize, true);
+  payload.set(rp, blobStart);
+  payload.set(challenge, blobStart + rp.length);
+  return encodeFrame(FrameType.PasskeyLoginBegin, payload);
+}
+
+export function mfaChallengeResultFrame({
+  action = 'admin-sensitive',
+  verified = true,
+  withUser = false,
+  proof = 'P'.repeat(43),
+} = {}): Uint8Array<ArrayBuffer> {
+  const payload = new Uint8Array(WireLayouts.MfaChallengeResultBytes);
+  const view = new DataView(payload.buffer);
+  view.setInt32(0, withUser ? 1 : 0, true);
+  payload[4] = Number(verified);
+  payload[5] = Number(!withUser);
+  payload[6] = Number(withUser);
+  payload[7] = Number(withUser);
+  if (withUser) payload.set(encoder.encode('anonymous_account'), 8);
+  payload.set(encoder.encode(action), WireLayouts.MfaChallengeActionOffset);
+  if (!withUser) payload.set(encoder.encode(proof), WireLayouts.MfaChallengeProofOffset);
+  return encodeFrame(FrameType.MfaChallengeResult, payload);
+}
+
+export function powChallengeFrame({
+  salt = 'a1b2c3d4e5f60718293a4b5c6d7e8f90',
+  signature = 'S'.repeat(43),
+  difficulty = WireLimits.PowChallengeDifficulty,
+  timestamp = 1_794_680_000n,
+}: {
+  salt?: string;
+  signature?: string;
+  difficulty?: number;
+  timestamp?: bigint;
+} = {}): Uint8Array<ArrayBuffer> {
+  const payload = new Uint8Array(WireLayouts.PowChallengeBytes);
+  const view = new DataView(payload.buffer);
+  payload.set(encoder.encode(salt).subarray(0, WireLayouts.PowChallengeSaltBytes), 0);
+  view.setInt32(WireLayouts.PowChallengeSaltBytes, difficulty, true);
+  view.setBigInt64(WireLayouts.PowChallengeTimestampOffset, timestamp, true);
+  payload.set(encoder.encode(signature).subarray(0, 64), WireLayouts.PowChallengeSignatureOffset);
+  return encodeFrame(FrameType.PowChallenge, payload);
+}
+
+export function replaceProperty(t: TestContext, target: object, key: string, value: unknown) {
+  const previous = Object.getOwnPropertyDescriptor(target, key);
+  Object.defineProperty(target, key, { configurable: true, value });
+  t.after(() => {
+    if (previous) Object.defineProperty(target, key, previous);
+    else Reflect.deleteProperty(target, key);
+  });
+}
+
+export function installPasskeyEnvironment(
+  t: TestContext, options: { onGet?: (request: CredentialRequestOptions | undefined) => void; registration?: boolean } = {},
+) {
+  class FakeAssertionResponse {}
+  class FakeCredential {
+    id = 'cred-id';
+    rawId = Uint8Array.of(9, 8, 7).buffer;
+    response: object;
+    constructor(response: object) { this.response = response; }
+  }
+  const credentials = {
+    async get(request?: CredentialRequestOptions) {
+      options.onGet?.(request);
+      return new FakeCredential(Object.assign(new FakeAssertionResponse(), {
+        clientDataJSON: Uint8Array.of(1, 2).buffer,
+        authenticatorData: Uint8Array.of(3, 4).buffer,
+        signature: Uint8Array.of(5, 6).buffer,
+        userHandle: null,
+      }));
+    },
+  };
+  replaceProperty(t, globalThis, 'PublicKeyCredential', FakeCredential);
+  replaceProperty(t, globalThis, 'AuthenticatorAssertionResponse', FakeAssertionResponse);
+  if (options.registration) {
+    class FakeAttestationResponse {
+      clientDataJSON = Uint8Array.of(10, 11).buffer;
+      attestationObject = Uint8Array.of(12, 13, 14).buffer;
+      getTransports() { return ['internal']; }
+    }
+    replaceProperty(t, globalThis, 'isSecureContext', true);
+    replaceProperty(t, globalThis, 'AuthenticatorAttestationResponse', FakeAttestationResponse);
+    Object.assign(credentials, { async create() { return new FakeCredential(new FakeAttestationResponse()); } });
+  }
+  replaceProperty(t, globalThis.navigator, 'credentials', credentials);
+}
+
+export function installPowWorker(t: TestContext) {
+  class FakeWorker {
+    onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
+    onerror: (() => void) | null = null;
+    postMessage() {
+      queueMicrotask(() => this.onmessage?.({ data: '42' } as MessageEvent<unknown>));
+    }
+    terminate() {}
+  }
+  replaceProperty(t, globalThis, 'Worker', FakeWorker);
+}

@@ -5,11 +5,6 @@ import {
   AdminSessionScope,
 } from '../../src/Web/src/admin/adminOperationCoordinator.ts'
 
-function deferred<T = void>() {
-  const { promise, resolve, reject } = Promise.withResolvers<T>()
-  return { promise, resolve, reject }
-}
-
 test('single channel blocks overlapping runs while separate channels run independently', async () => {
   const scope = new AdminSessionScope()
   const session = new AbortController()
@@ -19,8 +14,8 @@ test('single channel blocks overlapping runs while separate channels run indepen
   const main = new AdminOperationChannel(scope, pending => pendingStates.push(pending))
   const secondary = new AdminOperationChannel(scope)
 
-  const gate1 = deferred()
-  const gate2 = deferred()
+  const gate1 = Promise.withResolvers<void>()
+  const gate2 = Promise.withResolvers<void>()
   let mainStarts = 0
   let secondaryStarts = 0
 
@@ -58,9 +53,9 @@ test('cancelling operations isolates late completions and errors without clearin
   scope.bindSession(session.signal)
   const channel = new AdminOperationChannel(scope)
 
-  const staleSuccess = deferred()
-  const staleError = deferred()
-  const freshRun = deferred()
+  const staleSuccess = Promise.withResolvers<void>()
+  const staleError = Promise.withResolvers<void>()
+  const freshRun = Promise.withResolvers<void>()
   const errors: unknown[] = []
   let staleSignal!: AbortSignal
   let staleCurrentAfterResolve: boolean | undefined
@@ -117,7 +112,7 @@ test('switching sessions detaches previous session abort listeners and isolates 
   scope.bindSession(sessionA.signal)
   assert.equal(resetCount, 1)
 
-  const staleTask = deferred()
+  const staleTask = Promise.withResolvers<void>()
   const errors: unknown[] = []
   let signalA!: AbortSignal
   const runA = channel.run(async ctx => {
@@ -137,7 +132,7 @@ test('switching sessions detaches previous session abort listeners and isolates 
   assert.equal(abortedCount, 0)
   assert.equal(scope.active, true)
 
-  const freshTask = deferred()
+  const freshTask = Promise.withResolvers<void>()
   const runB = channel.run(async ctx => {
     await freshTask.promise
     assert.equal(ctx.isCurrent(), true)
@@ -169,7 +164,7 @@ test('dispose is idempotent and prevents any subsequent session binding or opera
   scope.bindSession(session.signal)
   assert.equal(resetCount, 1)
 
-  const gate = deferred()
+  const gate = Promise.withResolvers<void>()
   let capturedSignal!: AbortSignal
   const running = channel.run(async ctx => {
     capturedSignal = ctx.signal

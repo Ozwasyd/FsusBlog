@@ -1,5 +1,9 @@
 import { deepEqual, equal, match, rejects, throws } from 'node:assert/strict';
-import { test, type TestContext } from 'node:test';
+import { test } from 'node:test';
+import { frameResponse } from './fixture-source.ts';
+import {
+  apiErrorResponse, emptySuccessFrame, installPasskeyEnvironment, installPowWorker, loginBeginFrame, mfaChallengeResultFrame, powChallengeFrame,
+} from './step-up-fixture.ts';
 import { ApiError, decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import { applyAppearance } from '../../src/Contracts/admin-appearance.ts';
 import { executeAdminArticleArchive, readAdminArticleArchiveAvailability, requestAdminArticleArchiveProof } from '../../src/Contracts/admin-article-archive.ts';
@@ -34,10 +38,9 @@ import {
   encodeAdminArticleTrashPublicationReceipt, encodeAdminArticleTrashRestoreIntent, encodeAdminArticleTrashRestoreReceipt,
   encodeAdminClusterStatus, encodeAdminModerationDecision, encodeAdminModerationIntent, encodeAdminOperationsStatus,
   encodeAdminRiskReadiness, encodeAdminRootCommentPowCommand, encodeAdminRootCommentPowPolicy, encodeAdminSitePagePublish,
-  encodeAdminSitePages, FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes,
+  encodeAdminSitePages, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts';
 
-const aedsHeaders = { 'Content-Type': 'application/octet-stream' };
 const validProof = 'P'.repeat(43);
 const altProof = 'Q'.repeat(43);
 const validPermissionSession = 'a'.repeat(64);
@@ -55,72 +58,6 @@ function activeSession(permissionSession: string | null = validPermissionSession
   };
 }
 
-function emptySuccessFrame(): Uint8Array<ArrayBuffer> {
-  return encodeFrame(FrameType.EmptySuccess, Uint8Array.of(1, 0, 0, 0));
-}
-
-function apiErrorResponse(status: number, details: string, message = 'Request failed'): Response {
-  const payload = new Uint8Array(WireLayouts.ErrorBytes);
-  const view = new DataView(payload.buffer);
-  payload[0] = 1;
-  payload[1] = 1;
-  view.setInt32(WireLayouts.ErrorStatusOffset, status, true);
-  payload.set(encoder.encode(message).subarray(0, 255), WireLayouts.ErrorMessageOffset);
-  payload.set(encoder.encode(details).subarray(0, 255), WireLayouts.ErrorDetailsOffset);
-  return new Response(encodeFrame(FrameType.ApiError, payload), { status, headers: aedsHeaders });
-}
-
-function loginBeginFrame(allowCredentialsCount = 1): Uint8Array<ArrayBuffer> {
-  const token = 'T'.repeat(43);
-  const rp = encoder.encode('localhost');
-  const challenge = new Uint8Array(WireLimits.PasskeyChallengeBytes).fill(7);
-  const credId = Uint8Array.of(1, 2, 3, 4);
-  const descriptorBytes = allowCredentialsCount * WireLayouts.PasskeyCredentialDescriptorSize;
-  const blobStart = WireLayouts.PasskeyLoginBeginSize + descriptorBytes + 4;
-  const blobSize = rp.length + challenge.length + allowCredentialsCount * credId.length;
-  const payload = new Uint8Array(blobStart + blobSize);
-  const view = new DataView(payload.buffer);
-  view.setBigUint64(0, 60_000n, true);
-  view.setInt32(8, allowCredentialsCount, true);
-  payload.set(encoder.encode(token), WireLayouts.PasskeyLoginBeginTokenOffset);
-  const rpRef = WireLayouts.PasskeyLoginBeginTokenOffset + WireLayouts.PasskeyTokenSize;
-  view.setInt32(rpRef, 0, true);
-  view.setInt32(rpRef + 4, rp.length, true);
-  view.setInt32(rpRef + WireLayouts.PasskeySliceSize, rp.length, true);
-  view.setInt32(rpRef + WireLayouts.PasskeySliceSize + 4, challenge.length, true);
-  let pos = rp.length + challenge.length;
-  for (let i = 0; i < allowCredentialsCount; i++) {
-    const ref = WireLayouts.PasskeyLoginBeginSize + i * WireLayouts.PasskeyCredentialDescriptorSize;
-    view.setInt32(ref + 8, pos, true);
-    view.setInt32(ref + 12, credId.length, true);
-    payload.set(credId, blobStart + pos);
-    pos += credId.length;
-  }
-  view.setInt32(blobStart - 4, blobSize, true);
-  payload.set(rp, blobStart);
-  payload.set(challenge, blobStart + rp.length);
-  return encodeFrame(FrameType.PasskeyLoginBegin, payload);
-}
-
-function mfaChallengeResultFrame({
-  action = 'admin-sensitive',
-  verified = true,
-  withUser = false,
-  proof = validProof,
-} = {}): Uint8Array<ArrayBuffer> {
-  const payload = new Uint8Array(WireLayouts.MfaChallengeResultBytes);
-  const view = new DataView(payload.buffer);
-  view.setInt32(0, withUser ? 1 : 0, true);
-  payload[4] = Number(verified);
-  payload[5] = Number(!withUser);
-  payload[6] = Number(withUser);
-  payload[7] = Number(withUser);
-  if (withUser) payload.set(encoder.encode('anonymous_account'), 8);
-  payload.set(encoder.encode(action), WireLayouts.MfaChallengeActionOffset);
-  if (!withUser) payload.set(encoder.encode(proof), WireLayouts.MfaChallengeProofOffset);
-  return encodeFrame(FrameType.MfaChallengeResult, payload);
-}
-
 function sessionHistoryFrame(generation: bigint): Uint8Array<ArrayBuffer> {
   const payload = new Uint8Array(12 + 25);
   const view = new DataView(payload.buffer);
@@ -131,75 +68,6 @@ function sessionHistoryFrame(generation: bigint): Uint8Array<ArrayBuffer> {
   view.setBigInt64(28, 0n, true);
   payload[36] = 1;
   return encodeFrame(FrameType.AdminSignInHistory, payload);
-}
-
-function powChallengeFrame(): Uint8Array<ArrayBuffer> {
-  const payload = new Uint8Array(WireLayouts.PowChallengeBytes);
-  const view = new DataView(payload.buffer);
-  payload.set(encoder.encode('f'.repeat(32)), 0);
-  view.setInt32(WireLayouts.PowChallengeSaltBytes, WireLimits.PowChallengeDifficulty, true);
-  view.setBigInt64(WireLayouts.PowChallengeTimestampOffset, 1_794_680_000n, true);
-  payload.set(encoder.encode('S'.repeat(43)), WireLayouts.PowChallengeSignatureOffset);
-  return encodeFrame(FrameType.PowChallenge, payload);
-}
-
-function installPasskeyEnvironment(t: TestContext, onGet?: (options: CredentialRequestOptions | undefined) => void) {
-  class FakeAssertionResponse {}
-  class FakeCredential {
-    id = 'cred-id';
-    rawId = Uint8Array.of(9, 8, 7).buffer;
-    response: FakeAssertionResponse;
-    constructor(response: FakeAssertionResponse) {
-      this.response = response;
-    }
-  }
-  const prevCredential = Object.getOwnPropertyDescriptor(globalThis, 'PublicKeyCredential');
-  const prevAssertion = Object.getOwnPropertyDescriptor(globalThis, 'AuthenticatorAssertionResponse');
-  const prevCredentials = Object.getOwnPropertyDescriptor(globalThis.navigator, 'credentials');
-
-  Object.defineProperty(globalThis, 'PublicKeyCredential', { configurable: true, value: FakeCredential });
-  Object.defineProperty(globalThis, 'AuthenticatorAssertionResponse', { configurable: true, value: FakeAssertionResponse });
-  Object.defineProperty(globalThis.navigator, 'credentials', {
-    configurable: true,
-    value: {
-      async get(options?: CredentialRequestOptions) {
-        onGet?.(options);
-        const response = Object.assign(new FakeAssertionResponse(), {
-          clientDataJSON: Uint8Array.of(1, 2).buffer,
-          authenticatorData: Uint8Array.of(3, 4).buffer,
-          signature: Uint8Array.of(5, 6).buffer,
-          userHandle: null,
-        });
-        return new FakeCredential(response);
-      },
-    },
-  });
-
-  t.after(() => {
-    if (prevCredential) Object.defineProperty(globalThis, 'PublicKeyCredential', prevCredential);
-    else delete (globalThis as Record<string, unknown>).PublicKeyCredential;
-    if (prevAssertion) Object.defineProperty(globalThis, 'AuthenticatorAssertionResponse', prevAssertion);
-    else delete (globalThis as Record<string, unknown>).AuthenticatorAssertionResponse;
-    if (prevCredentials) Object.defineProperty(globalThis.navigator, 'credentials', prevCredentials);
-    else delete (globalThis.navigator as unknown as Record<string, unknown>).credentials;
-  });
-}
-
-function installPowWorker(t: TestContext) {
-  const prevWorker = Object.getOwnPropertyDescriptor(globalThis, 'Worker');
-  class FakeWorker {
-    onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
-    onerror: (() => void) | null = null;
-    postMessage() {
-      queueMicrotask(() => this.onmessage?.({ data: '42' } as MessageEvent<unknown>));
-    }
-    terminate() {}
-  }
-  Object.defineProperty(globalThis, 'Worker', { configurable: true, value: FakeWorker });
-  t.after(() => {
-    if (prevWorker) Object.defineProperty(globalThis, 'Worker', prevWorker);
-    else delete (globalThis as Record<string, unknown>).Worker;
-  });
 }
 
 test('assertAdminPermissionSession enforces binding across all six bound admin routes without adding it to unbound routes', async t => {
@@ -263,7 +131,7 @@ test('assertAdminPermissionSession enforces binding across all six bound admin r
 
   let responseHeaders: Record<string, string> = {};
   let responseBody: Uint8Array<ArrayBuffer> = new Uint8Array();
-  t.mock.method(globalThis, 'fetch', async () => new Response(responseBody, { headers: { ...aedsHeaders, ...responseHeaders } }));
+  t.mock.method(globalThis, 'fetch', async () => frameResponse(responseBody, responseHeaders));
 
   for (const item of boundCases) {
     responseBody = item.frame;
@@ -319,10 +187,10 @@ test('assertAdminPermissionSession enforces binding across all six bound admin r
 test('proveAdminStepUp enforces route order, restricted assertion, begin-only headers, and proof validation', async t => {
   const calls: { url: string; method: string; headers: Headers; body: Uint8Array }[] = [];
   let assertionCount = 0;
-  installPasskeyEnvironment(t, options => {
+  installPasskeyEnvironment(t, { onGet: options => {
     assertionCount++;
     equal(options?.publicKey?.allowCredentials?.length, 1);
-  });
+  } });
 
   const intent = encodeFrame(FrameType.AdminModerationIntent, encodeAdminModerationIntent({
     articleId: 3, commentId: 9n, expectedStatus: 0, decision: 1, reason: 'Approve step-up fixture',
@@ -334,11 +202,11 @@ test('proveAdminStepUp enforces route order, restricted assertion, begin-only he
     const body = new Uint8Array(init?.body as Uint8Array);
     const headers = new Headers(init?.headers);
     calls.push({ url, method: init?.method ?? 'GET', headers, body });
-    if (url === routes.begin) return new Response(loginBeginFrame(1), { headers: aedsHeaders });
+    if (url === routes.begin) return frameResponse(loginBeginFrame(1));
     if (url === routes.complete) {
       const completePayload = decodeFrame(body, FrameType.PasskeyLoginCompleteRequest).payload;
       equal(completePayload[0], 0, 'rememberMe must remain false for administrator Step-Up');
-      return new Response(mfaChallengeResultFrame({ proof: validProof }), { headers: aedsHeaders });
+      return frameResponse(mfaChallengeResultFrame({ proof: validProof }));
     }
     throw new Error(`Unexpected route ${url}`);
   });
@@ -368,7 +236,7 @@ test('proveAdminStepUp enforces route order, restricted assertion, begin-only he
   await rejects(() => proveAdminStepUp({ begin: '', complete: '/c' }, intent), ProtocolError);
 
   // Reject unrestricted begin (0 allowCredentials)
-  fake.mock.mockImplementation(async () => new Response(loginBeginFrame(0), { headers: aedsHeaders }));
+  fake.mock.mockImplementation(async () => frameResponse(loginBeginFrame(0)));
   await rejects(() => proveAdminStepUp(routes, intent), ProtocolError);
   equal(assertionCount, 1);
 
@@ -380,8 +248,8 @@ test('proveAdminStepUp enforces route order, restricted assertion, begin-only he
     mfaChallengeResultFrame({ proof: 'bad!' }),
   ]) {
     fake.mock.mockImplementation(async (path: string | URL | Request) => String(path) === routes.begin
-      ? new Response(loginBeginFrame(1), { headers: aedsHeaders })
-      : new Response(badResult, { headers: aedsHeaders }));
+      ? frameResponse(loginBeginFrame(1))
+      : frameResponse(badResult));
     await rejects(() => proveAdminStepUp(routes, intent), ProtocolError);
   }
 });
@@ -390,17 +258,17 @@ test('proveAdminStepUp propagates abort, Passkey cancellation, and HTTP errors w
   let getBehavior: 'ok' | 'cancel' | 'abort-during' = 'ok';
   let abortController = new AbortController();
   let getCalls = 0;
-  installPasskeyEnvironment(t, () => {
+  installPasskeyEnvironment(t, { onGet: () => {
     getCalls++;
     if (getBehavior === 'cancel') throw new DOMException('User canceled', 'NotAllowedError');
     if (getBehavior === 'abort-during') abortController.abort(new DOMException('Aborted', 'AbortError'));
-  });
+  } });
 
   const intent = emptySuccessFrame();
   const routes = { begin: '/begin.aeds', complete: '/complete.aeds' };
   let fetchCalls: string[] = [];
-  let beginResponse: () => Response = () => new Response(loginBeginFrame(1), { headers: aedsHeaders });
-  let completeResponse: () => Response = () => new Response(mfaChallengeResultFrame(), { headers: aedsHeaders });
+  let beginResponse: () => Response = () => frameResponse(loginBeginFrame(1));
+  let completeResponse: () => Response = () => frameResponse(mfaChallengeResultFrame());
   t.mock.method(globalThis, 'fetch', async (path: string | URL | Request) => {
     const url = String(path);
     fetchCalls.push(url);
@@ -425,7 +293,7 @@ test('proveAdminStepUp propagates abort, Passkey cancellation, and HTTP errors w
   // Passkey cancellation propagates NotAllowedError without calling complete or retrying.
   fetchCalls = [];
   getBehavior = 'cancel';
-  beginResponse = () => new Response(loginBeginFrame(1), { headers: aedsHeaders });
+  beginResponse = () => frameResponse(loginBeginFrame(1));
   await rejects(() => proveAdminStepUp(routes, intent, new AbortController().signal), { name: 'NotAllowedError' });
   deepEqual(fetchCalls, [routes.begin]);
   equal(getCalls, 1);
@@ -470,11 +338,11 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
     handlers.set(begin, (headers, body) => {
       decodeFrame(body, expectedFrame);
       equal(headers.get(WireHeaders.ClientMutationId), expectMutation ?? null);
-      return new Response(loginBeginFrame(1), { headers: aedsHeaders });
+      return frameResponse(loginBeginFrame(1));
     });
     handlers.set(complete, headers => {
       equal(headers.get(WireHeaders.ClientMutationId), null);
-      return new Response(mfaChallengeResultFrame({ proof }), { headers: aedsHeaders });
+      return frameResponse(mfaChallengeResultFrame({ proof }));
     });
   };
 
@@ -491,7 +359,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   handlers.set(WireRoutes.AdminModerationDecision, (headers, body) => {
     equal(headers.get(WireHeaders.MfaProof), altProof);
     decodeFrame(body, FrameType.AdminModerationDecision);
-    return new Response(emptySuccessFrame(), { headers: aedsHeaders });
+    return frameResponse(emptySuccessFrame());
   });
   const modDecision = {
     articleId: 1, commentId: 2n, expectedStatus: 0, decision: 1, reason: 'Moderation reason',
@@ -536,13 +404,13 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   handlers.set(WireRoutes.AdminArticleArchiveExecute, headers => {
     const sent = calls.length === 3 ? validProof : null;
     equal(headers.get(WireHeaders.MfaProof), sent);
-    return new Response(encodeFrame(FrameType.AdminArticleArchiveReceipt, encodeAdminArticleArchiveReceipt(archiveReceipt)), { headers: aedsHeaders });
+    return frameResponse(encodeFrame(FrameType.AdminArticleArchiveReceipt, encodeAdminArticleArchiveReceipt(archiveReceipt)));
   });
   const archiveProof = await requestAdminArticleArchiveProof(archiveIntent, signal);
   deepEqual(await executeAdminArticleArchive(archiveIntent, archiveProof, signal), archiveReceipt);
   deepEqual(await executeAdminArticleArchive(archiveIntent, undefined, signal), archiveReceipt);
   handlers.set(WireRoutes.AdminArticleArchiveExecute, () =>
-    new Response(encodeFrame(FrameType.AdminArticleArchiveReceipt, encodeAdminArticleArchiveReceipt({ ...archiveReceipt, targetStatus: 2 })), { headers: aedsHeaders }));
+    frameResponse(encodeFrame(FrameType.AdminArticleArchiveReceipt, encodeAdminArticleArchiveReceipt({ ...archiveReceipt, targetStatus: 2 }))));
   await rejects(() => executeAdminArticleArchive(archiveIntent, undefined, signal), ProtocolError);
 
   // 4. Trash publication & trash restore (beginHeaders sent to begin ONLY)
@@ -561,8 +429,8 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   handlers.set(WireRoutes.AdminArticleTrashPublicationExecute, headers => {
     equal(headers.get(WireHeaders.ClientMutationId), trashKey);
     equal(headers.get(WireHeaders.MfaProof), calls.length === 3 ? validProof : null);
-    return new Response(encodeFrame(FrameType.AdminArticleTrashPublicationReceipt,
-      encodeAdminArticleTrashPublicationReceipt(trashPubReceipt)), { headers: aedsHeaders });
+    return frameResponse(encodeFrame(FrameType.AdminArticleTrashPublicationReceipt,
+      encodeAdminArticleTrashPublicationReceipt(trashPubReceipt)));
   });
   const trashPubProof = await requestTrashPublicationProof(trashPubIntent, signal);
   deepEqual(await executeTrashPublication(trashPubIntent, trashPubProof, signal), trashPubReceipt);
@@ -577,8 +445,8 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   handlers.set(WireRoutes.AdminArticleTrashRestoreExecute, headers => {
     equal(headers.get(WireHeaders.ClientMutationId), trashKey);
     equal(headers.get(WireHeaders.MfaProof), calls.length === 3 ? altProof : null);
-    return new Response(encodeFrame(FrameType.AdminArticleTrashRestoreReceipt,
-      encodeAdminArticleTrashRestoreReceipt(trashRestoreReceipt)), { headers: aedsHeaders });
+    return frameResponse(encodeFrame(FrameType.AdminArticleTrashRestoreReceipt,
+      encodeAdminArticleTrashRestoreReceipt(trashRestoreReceipt)));
   });
   const trashRestoreProof = await requestTrashRestoreProof(trashRestoreIntent, signal);
   deepEqual(await executeTrashRestore(trashRestoreIntent, trashRestoreProof, signal), trashRestoreReceipt);
@@ -614,7 +482,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
     const w = new PodWriter();
     w.i64(55n);
     w.i32(2);
-    return new Response(encodeFrame(FrameType.AdminModerationBatchReceipt, w.finish()), { headers: aedsHeaders });
+    return frameResponse(encodeFrame(FrameType.AdminModerationBatchReceipt, w.finish()));
   });
   deepEqual(await proveAndDecideModerationBatch(batchDecision, signal), { batchId: 55n, count: 2 });
   deepEqual(calls.map(c => c.url), [
@@ -635,13 +503,13 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
     equal(headers.get(WireHeaders.MfaProof), null);
     match(headers.get(WireHeaders.PowClientNonce) ?? '', /^[a-f0-9]{32}$/);
     deepEqual(body, appearanceFrame);
-    return new Response(powChallengeFrame(), { headers: aedsHeaders });
+    return frameResponse(powChallengeFrame({ salt: 'f'.repeat(32) }));
   });
   handlers.set(WireRoutes.AdminAppearanceApply, (headers, body) => {
     equal(headers.get(WireHeaders.MfaProof), validProof);
     equal(typeof headers.get(WireHeaders.PowProof), 'string');
     deepEqual(body, appearanceFrame);
-    return new Response(emptySuccessFrame(), { headers: aedsHeaders });
+    return frameResponse(emptySuccessFrame());
   });
   await applyAppearance(appearanceCmd, signal);
   deepEqual(calls.map(c => c.url), [
@@ -661,13 +529,13 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
     equal(headers.get(WireHeaders.MfaProof), null);
     match(headers.get(WireHeaders.PowClientNonce) ?? '', /^[a-f0-9]{32}$/);
     deepEqual(body, pageFrame);
-    return new Response(powChallengeFrame(), { headers: aedsHeaders });
+    return frameResponse(powChallengeFrame({ salt: 'f'.repeat(32) }));
   });
   handlers.set(WireRoutes.AdminSitePagePublish, (headers, body) => {
     equal(headers.get(WireHeaders.MfaProof), altProof);
     equal(typeof headers.get(WireHeaders.PowProof), 'string');
     deepEqual(body, pageFrame);
-    return new Response(emptySuccessFrame(), { headers: aedsHeaders });
+    return frameResponse(emptySuccessFrame());
   });
   await publishAdminSitePage(pageIntent, signal);
   deepEqual(calls.map(c => c.url), [
@@ -687,14 +555,9 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   handlers.set(WireRoutes.AdminRootCommentPowApply, (headers, body) => {
     equal(headers.get(WireHeaders.MfaProof), validProof);
     deepEqual(body, powFrame);
-    return new Response(encodeFrame(FrameType.AdminRootCommentPowPolicy, encodeAdminRootCommentPowPolicy({
+    return frameResponse(encodeFrame(FrameType.AdminRootCommentPowPolicy, encodeAdminRootCommentPowPolicy({
       generation: 2n, digest: 'd'.repeat(64), proofSeconds: 90, previousSeconds: 120,
-    })), {
-      headers: {
-        ...aedsHeaders,
-        ...(applyPermissionHeader !== null ? { [WireHeaders.AdminPermissionSession]: applyPermissionHeader } : {}),
-      },
-    });
+    })), (applyPermissionHeader !== null ? { [WireHeaders.AdminPermissionSession]: applyPermissionHeader } : {}));
   });
   const savedPolicy = await applyRootCommentPowPolicy(session, powCmd, signal);
   equal(savedPolicy.generation, 2n);
@@ -710,8 +573,8 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
   handlers.set(WireRoutes.AdminAppealDecision.replace('{id:long}', appealId), (headers, body) => {
     equal(headers.get(WireHeaders.MfaProof), validProof);
     decodeFrame(body, FrameType.CommentAppealDecisionRequest);
-    return new Response(encodeFrame(FrameType.CommentAppealDecisionResult,
-      encoder.encode(JSON.stringify({ success: true, code: 'ok', appealId: 77 }))), { headers: aedsHeaders });
+    return frameResponse(encodeFrame(FrameType.CommentAppealDecisionResult,
+      encoder.encode(JSON.stringify({ success: true, code: 'ok', appealId: 77 }))));
   });
   await decideAdminAppeal(appealId, 'granted', 'Valid appeal explanation', signal);
   deepEqual(calls.map(c => c.url), [
@@ -720,7 +583,7 @@ test('all migrated administrator Step-Up actions preserve exact routes, bytes, h
     WireRoutes.AdminAppealDecision.replace('{id:long}', appealId),
   ]);
   handlers.set(WireRoutes.AdminAppealDecision.replace('{id:long}', appealId), () =>
-    new Response(encodeFrame(FrameType.CommentAppealDecisionResult,
-      encoder.encode(JSON.stringify({ success: true, code: 'ok', appealId: 78 }))), { headers: aedsHeaders }));
+    frameResponse(encodeFrame(FrameType.CommentAppealDecisionResult,
+      encoder.encode(JSON.stringify({ success: true, code: 'ok', appealId: 78 })))));
   await rejects(() => decideAdminAppeal(appealId, 'denied', 'Valid appeal explanation', signal), ProtocolError);
 });
