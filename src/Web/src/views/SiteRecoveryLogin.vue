@@ -145,17 +145,26 @@ async function replacePasskey() {
       {{ t('login.recovery.open') }}
     </ElButton>
     <ElAlert v-else-if="stage === 'finished'" :title="t('login.recovery.finished')" type="success" :closable="false" show-icon />
-    <form v-else-if="stage !== 'closed'" class="recovery-login-form" @submit.prevent="replacePasskey">
-      <p>{{ t('login.recovery.explanation') }}</p>
-      <template v-if="stage === 'key'">
+    <form v-else-if="stage !== 'closed'" class="recovery-login-form auth-secondary-panel" @submit.prevent="replacePasskey">
+      <p class="auth-secondary-hint">{{ t('login.recovery.explanation') }}</p>
+      <div v-if="stage === 'key'" class="auth-secondary-field">
         <label for="site-recovery-login-key">{{ t('login.recovery.key') }}</label>
-        <ElInput id="site-recovery-login-key" v-model="key" type="password" autocomplete="off" :disabled="busy || disabled" />
-      </template>
+        <ElInput
+          id="site-recovery-login-key"
+          v-model="key"
+          type="password"
+          autocomplete="off"
+          v-bind="{ autocorrect: 'off', autocapitalize: 'none', spellcheck: false }"
+          :disabled="busy || disabled"
+        />
+      </div>
       <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
-      <ElButton type="primary" native-type="submit" :loading="busy" :disabled="disabled || (stage === 'key' && !keyValid && !busy)">
-        {{ t(stage === 'complete' && failure ? 'login.recovery.retry' : 'login.recovery.replace') }}
-      </ElButton>
-      <ElButton class="recovery-cancel" native-type="button" @click="clearRecovery">{{ t('login.recovery.cancel') }}</ElButton>
+      <div class="auth-secondary-actions">
+        <ElButton type="primary" native-type="submit" :loading="busy" :disabled="disabled || (stage === 'key' && !keyValid && !busy)">
+          {{ t(stage === 'complete' && failure ? 'login.recovery.retry' : 'login.recovery.replace') }}
+        </ElButton>
+        <ElButton class="recovery-cancel" native-type="button" @click="clearRecovery">{{ t('login.recovery.cancel') }}</ElButton>
+      </div>
     </form>
   </section>
 </template>
@@ -163,7 +172,5 @@ async function replacePasskey() {
 <style scoped>
 .site-recovery-login { margin-block: 1.5rem; }
 .site-recovery-login.is-embedded { margin-block: 0 1.5rem; }
-.recovery-login-form { display: grid; gap: 0.75rem; }
-.recovery-login-form p { margin-block: .25rem; }
 .recovery-cancel { margin-inline-start: 0; }
 </style>

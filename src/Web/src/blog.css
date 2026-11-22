@@ -367,7 +367,38 @@ p { line-height: 1.65; }
 .site-locale-select:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: 2px; }
 .site-auth-main.auth-page { margin-inline: auto; }
 .auth-heading p { color: var(--fsus-color-text-muted); margin-block: 0; }
-.auth-form { display: grid; gap: .75rem; margin-block: 3.25rem 2.25rem; }
+.auth-form { display: grid; gap: .75rem; margin-block: 2.25rem 1.25rem; }
+.auth-secondary-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: var(--fsus-radius-panel, 10px);
+  background: var(--el-bg-color);
+}
+.auth-secondary-hint {
+  margin: 0;
+  font-size: var(--el-font-size-small);
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
+}
+.auth-secondary-field {
+  display: grid;
+  gap: 6px;
+}
+.auth-secondary-field label {
+  font-size: var(--el-font-size-small);
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+.auth-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .625rem;
+  padding-block-start: .25rem;
+}
+.auth-secondary-actions .el-button + .el-button { margin-inline-start: 0; }
 .auth-footer { border-block-start: 1px solid var(--fsus-border); padding-block-start: 1.5rem; }
 .workspace-brand { font-size: 1.25rem; font-weight: 700; text-decoration: none; }
 .editor-shell-error { padding-inline: var(--fsusblog-page-gutter); }

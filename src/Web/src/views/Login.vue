@@ -205,14 +205,28 @@ function cancelFactor() {
       :initial-available="initialLogin?.recoveryAvailable"
       @busy="recoveryBusy = $event" @available="recoveryAvailable = $event" @open="recoveryOpen = $event" />
     <div v-if="hasPasskeys && !registered && setupOpen" class="passkey-setup">
-      <form class="passkey-setup-form" @submit.prevent="usePasskey(true)">
-        <p>{{ t('login.setupHelp') }}</p>
-        <label for="passkey-setup-ticket">{{ t('login.setupTicket') }}</label>
-        <ElInput id="passkey-setup-ticket" v-model="ticket" type="password" autocomplete="off" :disabled="busy || recoveryBusy" />
+      <form class="passkey-setup-form auth-secondary-panel" @submit.prevent="usePasskey(true)">
+        <p class="auth-secondary-hint">{{ t('login.setupHelp') }}</p>
+        <div class="auth-secondary-field">
+          <label for="passkey-setup-ticket">{{ t('login.setupTicket') }}</label>
+          <ElInput
+            id="passkey-setup-ticket"
+            v-model="ticket"
+            type="password"
+            autocomplete="off"
+            v-bind="{ autocorrect: 'off', autocapitalize: 'none', spellcheck: false }"
+            :disabled="busy || recoveryBusy"
+          />
+        </div>
         <ElAlert v-if="failure === 'login.createFailed'" :title="t(failure)" type="error" :closable="false" show-icon />
-        <ElButton native-type="submit" type="primary" :loading="busy" :disabled="!validTicket || recoveryBusy">
-          {{ t('login.createPasskey') }}
-        </ElButton>
+        <div class="auth-secondary-actions">
+          <ElButton native-type="submit" type="primary" :loading="busy" :disabled="!validTicket || recoveryBusy">
+            {{ t('login.createPasskey') }}
+          </ElButton>
+          <ElButton native-type="button" :disabled="busy || recoveryBusy" @click="toggleSetup">
+            {{ t('comment.close') }}
+          </ElButton>
+        </div>
       </form>
     </div>
   </template>
@@ -234,11 +248,21 @@ function cancelFactor() {
   justify-content: space-between;
   align-items: center;
   gap: .25rem 1rem;
-  margin-block: 1rem 1.25rem;
+  margin-block: .5rem 1rem;
 }
 .login-secondary-actions :deep(.el-button + .el-button) { margin-inline-start: 0; }
-.login-secondary-trigger { min-block-size: 44px; padding-inline: .5rem; margin-inline: -.5rem; }
+.login-secondary-trigger {
+  min-block-size: 44px;
+  padding-inline: .5rem;
+  margin-inline: -.5rem;
+  color: var(--el-text-color-secondary);
+}
+.login-secondary-trigger[aria-expanded='true'] {
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 1.5px;
+}
 .passkey-setup { margin-block: 0 1.5rem; }
-.passkey-setup-form { display: grid; gap: .75rem; }
-.passkey-setup-form p { margin-block: .25rem; }
 </style>
