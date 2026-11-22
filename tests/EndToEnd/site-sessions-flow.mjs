@@ -1,7 +1,7 @@
 import { exactText, roleWithExactName } from './role-locators.mjs'
+import { enableAuthenticator, signInFreshSite, signInWithSitePasskey } from './webauthn-fixture.mjs'
 import assert from 'node:assert/strict'
 import { assertEmpty, assertStatus } from './response-status-fixture.mjs'
-import { waitForUrlResponse } from './response-wait-fixture.mjs'
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { requireWebPackage } from './web-package-fixture.mjs'
@@ -12,12 +12,13 @@ import { PodReader } from '../../src/Contracts/binary.ts'
 const { chromium } = requireWebPackage('@playwright/test')
 const url = process.env.FSUSBLOG_TEST_SESSIONS_URL
 const ticketInput = process.env.FSUSBLOG_TEST_SESSIONS_TICKETS
-assert(url && ticketInput, 'Provide an isolated v2 URL and four one-use session tickets.')
+assert(url && ticketInput, 'Provide an isolated v2 URL and two one-use Passkey setup tickets.')
 const origin = new URL(url).origin
+assert.equal(new URL(origin).hostname, 'localhost', 'This fixture uses only generated localhost Passkeys.')
 const tickets = JSON.parse(ticketInput)
 const handleFormat = /^[0-9a-f]{64}$/
-assert(Array.isArray(tickets) && tickets.length === 4 && tickets.every(ticket => handleFormat.test(ticket)) &&
-  new Set(tickets).size === 4, 'Provide three unused tickets for one account and an unused ticket for a different account.')
+assert(Array.isArray(tickets) && tickets.length === 2 && tickets.every(ticket => handleFormat.test(ticket)) &&
+  new Set(tickets).size === 2, 'Provide one unused setup ticket per reader account.')
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/site-sessions-browser')
 await mkdir(evidence, { recursive: true })
 
@@ -36,10 +37,10 @@ const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TES
 let phase = 'sign-in'
 let failure
 try {
-  const primary = await signIn('primary', tickets[0])
-  const peer = await signIn('peer', tickets[1], { width: 375, height: 850 })
-  const remaining = await signIn('remaining', tickets[2])
-  const foreign = await signIn('foreign', tickets[3])
+  const primary = await signIn('primary', { ticket: tickets[0] })
+  const peer = await signIn('peer', { device: primary.authenticator }, { width: 375, height: 850 })
+  const remaining = await signIn('remaining', { device: peer.authenticator })
+  const foreign = await signIn('foreign', { ticket: tickets[1] })
   const allSessions = [primary, peer, remaining, foreign]
   assert.equal(new Set(allSessions.map(session => session.handle)).size, 4)
   const ownedSessions = [primary.handle, peer.handle, remaining.handle]
@@ -132,11 +133,12 @@ try {
   failure = error
 } finally {
   const chromiumVersion = browser.version()
-  await browser.close()
-  await writeFile(join(evidence, 'site-sessions-result.json'), JSON.stringify({
-    origin, startedAt, endedAt: new Date().toISOString(), chromium: chromiumVersion, phase,
-    checks, responses, diagnostics, exitCode: failure ? 1 : 0,
-  }, null, 2))
+  try {
+    await writeFile(join(evidence, 'site-sessions-result.json'), JSON.stringify({
+      origin, startedAt, endedAt: new Date().toISOString(), chromium: chromiumVersion, phase,
+      checks, responses, diagnostics, exitCode: failure ? 1 : 0,
+    }, null, 2))
+  } finally { await browser.close() }
 }
 if (failure) throw failure
 
@@ -156,8 +158,9 @@ function bulkButton(page) {
   return roleWithExactName(page, 'button', 'Revoke other sessions')
 }
 
-async function signIn(name, ticket, viewport = { width: 1280, height: 800 }) {
+async function signIn(name, { ticket, device }, viewport = { width: 1280, height: 800 }) {
   const context = await browser.newContext({ viewport })
+  context.setDefaultTimeout(15_000)
   const page = await context.newPage()
   page.on('pageerror', error => diagnostics.push({ name, kind: 'uncaught', message: clean(error.message) }))
   page.on('console', message => {
@@ -173,13 +176,22 @@ async function signIn(name, ticket, viewport = { width: 1280, height: 800 }) {
     if (path.startsWith('/api/') && response.status() >= 500 || path.startsWith('/assets/') && response.status() >= 400)
       diagnostics.push({ name, kind: 'response', path, status: response.status() })
   })
-  await page.goto(origin + '/login')
-  const signedIn = waitForUrlResponse(page, () => origin + identity + '/sign-in.aeds', 'POST')
-  await page.getByLabel('Owner access key').fill(ticket)
-  await roleWithExactName(page, 'button', 'Log in').click()
-  const response = await signedIn
-  assertStatus(response, 200, 'One-use fixture ticket was not accepted.')
-  await page.waitForURL(origin + '/user/manage/article/write')
+  let authenticator
+  if (ticket) {
+    authenticator = await signInFreshSite(page, origin, ticket)
+  } else {
+    authenticator = await enableAuthenticator(context, page)
+    const { credentials } = await device.cdp.send('WebAuthn.getCredentials', { authenticatorId: device.authenticatorId })
+    assert.equal(credentials.length, 1)
+    assert.equal(credentials[0].rpId, 'localhost')
+    // Pass the test authenticator to another browser context with its latest assertion counter.
+    await authenticator.cdp.send('WebAuthn.addCredential', {
+      authenticatorId: authenticator.authenticatorId, credential: credentials[0],
+    })
+    await context.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
+    assertStatus(await page.goto(origin + '/login'), 200)
+    await signInWithSitePasskey(page, origin)
+  }
   const cookie = (await context.cookies(origin)).find(cookie => cookie.name === sessionCookie)
   assert(cookie && cookie.httpOnly, 'The authenticated browser cookie must remain HttpOnly.')
   const snapshot = await context.request.get(origin + currentPath)
@@ -187,9 +199,11 @@ async function signIn(name, ticket, viewport = { width: 1280, height: 800 }) {
   assert(snapshot.headers()['cache-control']?.includes('no-store'), 'The session response must not be cached.')
   const handle = snapshot.headers()[currentHeader.toLowerCase()]
   assert(handleFormat.test(handle), 'The session response must supply an opaque handle.')
-  assert(handle === await response.headerValue(currentHeader), 'The handle must remain stable for this session.')
+  const repeated = await context.request.get(origin + currentPath)
+  assertStatus(repeated, 200)
+  assert.equal(repeated.headers()[currentHeader.toLowerCase()], handle, 'The handle must remain stable for this session.')
   assertNotCredential(Buffer.from(handle), [{ cookie }])
-  return { context, page, cookie, handle }
+  return { context, page, cookie, handle, authenticator }
 }
 
 async function openSecurity(session) {
@@ -216,7 +230,7 @@ async function getSessions(session, fixtures) {
   }))
   reader.finish()
   assert.deepEqual(rows.filter(row => row.current).map(row => row.id), [session.handle])
-  assert(rows.every(row => handleFormat.test(row.id) && row.expiresAt > BigInt(Date.now()) && row.method === 1 && !row.mfa))
+  assert(rows.every(row => handleFormat.test(row.id) && row.expiresAt > BigInt(Date.now()) && row.method === 2 && !row.mfa))
   return rows
 }
 
