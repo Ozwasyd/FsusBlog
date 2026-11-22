@@ -282,60 +282,27 @@ public static class LocalSearchCorpus
         internal ArticleInput[] Documents { get; } = documents;
     }
 
-    internal readonly struct ArticleInput(
-        int id,
-        long revision,
-        long publication,
-        int revisionNo,
-        int publicationNo,
-        long publishedAtMs,
-        string title,
-        string summary,
-        string body,
-        TaxonomyName? category,
-        TaxonomyName[] tags,
-        int estimatedBytes)
+    internal readonly struct ArticleInput(Article article, TaxonomyName[] tags, int estimatedBytes)
     {
-        internal readonly int Id = id;
-        internal readonly long Revision = revision;
-        internal readonly long Publication = publication;
-        internal readonly int RevisionNo = revisionNo;
-        internal readonly int PublicationNo = publicationNo;
-        internal readonly long PublishedAtMs = publishedAtMs;
-        internal readonly string Title = title;
-        internal readonly string Summary = summary;
-        internal readonly string Body = body;
-        internal readonly TaxonomyName? Category = category;
+        internal readonly int Id = article.Id;
+        internal readonly long Revision = article.Revision;
+        internal readonly long Publication = article.Publication;
+        internal readonly int RevisionNo = article.RevisionNo;
+        internal readonly int PublicationNo = article.PublicationNo;
+        internal readonly long PublishedAtMs = article.PublishedAt.ToUnixTimeMilliseconds();
+        internal readonly string Title = article.Title;
+        internal readonly string Summary = article.Summary ?? string.Empty;
+        internal readonly string Body = article.Body;
+        internal readonly TaxonomyName? Category = article.Category;
         internal readonly TaxonomyName[] Tags = tags;
         internal readonly int EstimatedBytes = estimatedBytes;
 
         internal static ArticleInput Capture(Article article, int estimatedBytes)
         {
-            var sourceTags = article.Tags;
-            TaxonomyName[] tags;
-            if (sourceTags is null || sourceTags.Count == 0)
-            {
-                tags = [];
-            }
-            else
-            {
-                tags = new TaxonomyName[sourceTags.Count];
-                for (var i = 0; i < tags.Length; i++) tags[i] = sourceTags[i];
-            }
-
-            return new ArticleInput(
-                article.Id,
-                article.Revision,
-                article.Publication,
-                article.RevisionNo,
-                article.PublicationNo,
-                article.PublishedAt.ToUnixTimeMilliseconds(),
-                article.Title,
-                article.Summary ?? string.Empty,
-                article.Body,
-                article.Category,
-                tags,
-                estimatedBytes);
+            var source = article.Tags;
+            var tags = source is null || source.Count == 0 ? [] : new TaxonomyName[source.Count];
+            for (var i = 0; i < tags.Length; i++) tags[i] = source![i];
+            return new ArticleInput(article, tags, estimatedBytes);
         }
 
         internal bool Matches(Article candidate, out bool sameReferences)
@@ -350,19 +317,7 @@ public static class LocalSearchCorpus
                 return false;
 
             var candidateCategory = candidate.Category;
-            bool categorySameRef;
-            if (Category is null)
-            {
-                if (candidateCategory is not null) return false;
-                categorySameRef = true;
-            }
-            else
-            {
-                if (candidateCategory is null || Category.Id != candidateCategory.Id ||
-                    !string.Equals(Category.Name, candidateCategory.Name, StringComparison.Ordinal))
-                    return false;
-                categorySameRef = ReferenceEquals(Category, candidateCategory);
-            }
+            if (Category != candidateCategory) return false;
 
             var candidateTags = candidate.Tags;
             var candidateTagCount = candidateTags?.Count ?? 0;
@@ -383,7 +338,7 @@ public static class LocalSearchCorpus
             if (!string.Equals(Summary, candidateSummary, StringComparison.Ordinal)) return false;
             if (!string.Equals(Body, candidate.Body, StringComparison.Ordinal)) return false;
 
-            sameReferences = categorySameRef && tagsSameRef &&
+            sameReferences = ReferenceEquals(Category, candidateCategory) && tagsSameRef &&
                 ReferenceEquals(Title, candidate.Title) &&
                 ReferenceEquals(Summary, candidateSummary) &&
                 ReferenceEquals(Body, candidate.Body);
