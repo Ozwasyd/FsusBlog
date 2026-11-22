@@ -11,6 +11,10 @@ export function hexFixture(name: string, whitespace: 'trim' | 'strip' = 'trim'):
   return Buffer.from(whitespace === 'strip' ? source.replace(/\s/g, '') : source.trim(), 'hex');
 }
 
+export function fixtureBytes(name: string): Uint8Array<ArrayBuffer> {
+  return Uint8Array.from(hexFixture(name));
+}
+
 export function framedFixture(name: string, type: FrameType, whitespace?: 'trim' | 'strip'): Uint8Array {
   return decodeFrame(Uint8Array.from(hexFixture(name, whitespace)), type).payload;
 }

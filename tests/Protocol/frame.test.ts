@@ -1,16 +1,11 @@
 import { deepStrictEqual, equal, throws } from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { fixtureBytes } from './fixture-source.ts';
 import { test } from 'node:test';
 import { decodeApiError, decodeFrame, decodeSuccess, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import { decodeArticleCommand, encodeArticleCommand, FrameType } from '../../src/Contracts/wire.generated.ts';
 
-function fixture(name: string): Uint8Array {
-  const hex = readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8').trim();
-  return Uint8Array.from(Buffer.from(hex, 'hex'));
-}
-
 test('reads the pinned v1 ApiError with its HTTP semantics', () => {
-  const frame = decodeFrame(fixture('api-error-v1.hex'), FrameType.ApiError);
+  const frame = decodeFrame(fixtureBytes('api-error-v1.hex'), FrameType.ApiError);
   const error = decodeApiError(frame.payload, 403);
   equal(error.message, '权限不足');
   equal(error.details, 'role_required');
@@ -22,7 +17,7 @@ test('reads the pinned v1 ApiError with its HTTP semantics', () => {
 });
 
 test('matches the independently assembled C# and TypeScript command vector', () => {
-  const expected = fixture('article-command.hex');
+  const expected = fixtureBytes('article-command.hex');
   const command = {
     id: 0,
     expectedRevision: 0n,
@@ -35,7 +30,7 @@ test('matches the independently assembled C# and TypeScript command vector', () 
 });
 
 test('rejects all one-bit mutations and truncated inputs across the frame', () => {
-  const bytes = fixture('article-command.hex');
+  const bytes = fixtureBytes('article-command.hex');
   for (let offset = 0; offset < bytes.length; offset++) {
     throws(() => decodeFrame(bytes.subarray(0, offset), FrameType.ArticleCommand), ProtocolError);
     for (let bit = 0; bit < 8; bit++) {
@@ -47,7 +42,7 @@ test('rejects all one-bit mutations and truncated inputs across the frame', () =
 });
 
 test('checks command payload even inside a valid frame', () => {
-  const payload = decodeFrame(fixture('article-command.hex'), FrameType.ArticleCommand).payload;
+  const payload = decodeFrame(fixtureBytes('article-command.hex'), FrameType.ArticleCommand).payload;
   payload[32] = 255;
   const frame = encodeFrame(FrameType.ArticleCommand, payload);
   throws(() => decodeArticleCommand(decodeFrame(frame).payload), ProtocolError);

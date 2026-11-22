@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { hexFixture } from './fixture-source.ts'
+import { fixtureBytes, frameResponse } from './fixture-source.ts'
 import { test } from 'node:test'
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts'
 import { PodWriter } from '../../src/Contracts/binary.ts'
@@ -12,13 +12,16 @@ const digest = '1b784b422a40ce408a17deb133dcb419f5d1528b906ab1b97f72a9a87364fdc8
 const raw = new TextEncoder().encode('{"kind":"authoring-canvas","demo":"检验"}\n')
 const sourceRevision = 9_007_199_254_740_993n
 
-// Packed independently with Python struct, hashlib and bitwise CRC.
-function fixture(name: string): Uint8Array<ArrayBuffer> {
-  return Uint8Array.from(hexFixture(`${name}.hex`))
+function bundleCommand() {
+  return { canvasId, commandId, digest, bundle: raw, mappings: [
+    { slot: 1, articleId: 17, pinnedRevision: null },
+    { slot: 2, articleId: 21, pinnedRevision: sourceRevision + 1n },
+  ] }
 }
 
+// Packed independently with Python struct, hashlib and bitwise CRC.
 test('bundle plan and execution preserve exact reference slots, pins and intake bytes', () => {
-  const { payload } = decodeFrame(fixture('canvas-bundle-plan'), FrameType.CanvasBundlePlan)
+  const { payload } = decodeFrame(fixtureBytes('canvas-bundle-plan.hex'), FrameType.CanvasBundlePlan)
   assert.deepEqual(decodeCanvasBundlePlan(payload), {
     digest, sourceRevision, title: 'Private notes 猫', nodeCount: 3, edgeCount: 1,
     references: [
@@ -32,11 +35,8 @@ test('bundle plan and execution preserve exact reference slots, pins and intake 
   new DataView(invalid.buffer).setInt32(firstSlotOffset, 2, true)
   assert.throws(() => decodeCanvasBundlePlan(invalid), /bundle reference/)
 
-  const command = { canvasId, commandId, digest, bundle: raw, mappings: [
-    { slot: 1, articleId: 17, pinnedRevision: null },
-    { slot: 2, articleId: 21, pinnedRevision: sourceRevision + 1n },
-  ] }
-  assert.deepEqual(encodeFrame(FrameType.CanvasBundleExecute, encodeCanvasBundleExecute(command)), fixture('canvas-bundle-execute'))
+  const command = bundleCommand()
+  assert.deepEqual(encodeFrame(FrameType.CanvasBundleExecute, encodeCanvasBundleExecute(command)), fixtureBytes('canvas-bundle-execute.hex'))
   assert.throws(() => encodeCanvasBundleExecute({ ...command, mappings: command.mappings.slice(1) }), /bundle mapping/)
   assert.throws(() => encodeCanvasBundleExecute({ ...command, digest: digest.toUpperCase() }), /bundle digest/)
   assert.throws(() => encodeCanvasBundleExecute({ ...command, bundle: new Uint8Array(0) }), /bundle byte length/)
@@ -44,7 +44,7 @@ test('bundle plan and execution preserve exact reference slots, pins and intake 
 })
 
 test('preflight compares plan digest to the transmitted bytes and keeps revision exact in download URLs', async t => {
-  const plan = fixture('canvas-bundle-plan')
+  const plan = fixtureBytes('canvas-bundle-plan.hex')
   const signal = new AbortController().signal
   const posts: Uint8Array[] = []
   t.mock.method(globalThis, 'fetch', async (path: string, init: RequestInit) => {
@@ -53,10 +53,10 @@ test('preflight compares plan digest to the transmitted bytes and keeps revision
     assert.equal(init.method, 'POST')
     assert.ok(init.body instanceof Uint8Array)
     posts.push(init.body)
-    return new Response(plan, { headers: { 'content-type': 'application/octet-stream' } })
+    return frameResponse(plan)
   })
   assert.equal((await canvasBundle.plan(raw, signal)).digest, digest)
-  assert.deepEqual(posts[0], fixture('canvas-bundle-intake'))
+  assert.deepEqual(posts[0], fixtureBytes('canvas-bundle-intake.hex'))
   await assert.rejects(canvasBundle.plan(Uint8Array.of(42), signal), /bundle plan digest/)
   assert.equal(canvasBundle.downloadHref(canvasId, sourceRevision),
     `${WireRoutes.CanvasBundleExport.replace('{id:guid}', canvasId)}?revision=${sourceRevision}`)
@@ -64,16 +64,13 @@ test('preflight compares plan digest to the transmitted bytes and keeps revision
 })
 
 test('bundle import accepts only the fresh authorized canvas receipt', async t => {
-  const command = { canvasId, commandId, digest, bundle: raw, mappings: [
-    { slot: 1, articleId: 17, pinnedRevision: null },
-    { slot: 2, articleId: 21, pinnedRevision: sourceRevision + 1n },
-  ] }
+  const command = bundleCommand()
   let receiptId = canvasId
   let receiptRevision = 1n
   t.mock.method(globalThis, 'fetch', async (path: string, init: RequestInit) => {
     assert.equal(path, WireRoutes.CanvasBundleExecute)
     assert.equal(init.method, 'POST')
-    assert.deepEqual(init.body, fixture('canvas-bundle-execute'))
+    assert.deepEqual(init.body, fixtureBytes('canvas-bundle-execute.hex'))
     const receipt = new PodWriter()
     receipt.uuid(receiptId)
     receipt.i64(receiptRevision)
@@ -85,7 +82,7 @@ test('bundle import accepts only the fresh authorized canvas receipt', async t =
     receipt.i32(3)
     receipt.i32(1)
     receipt.i64(1_700_000_000_000n)
-    return new Response(encodeFrame(FrameType.CanvasGraphReceipt, receipt.finish()), { headers: { 'content-type': 'application/octet-stream' } })
+    return frameResponse(encodeFrame(FrameType.CanvasGraphReceipt, receipt.finish()))
   })
   assert.equal((await canvasBundle.import(command)).revision, 1n)
   receiptRevision = 2n

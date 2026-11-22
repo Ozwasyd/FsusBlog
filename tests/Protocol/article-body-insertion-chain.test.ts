@@ -1,5 +1,5 @@
 import { deepEqual, equal, throws } from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { hash, i32, i64, text } from './body-chain-fixture.ts';
 import { test } from 'node:test';
 import { decodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import {
@@ -35,22 +35,6 @@ test('ordered body insertion save carries sequential UTF-16 coordinates', () => 
 
 test('saved insertion chain validates available edges, identity, length, and contiguous digest order', () => {
   // This packs the response independently of the production codec.
-  const hash = (text: string) => createHash('sha256').update(text).digest('hex');
-  function i32(value: number) {
-    const bytes = Buffer.alloc(4);
-    bytes.writeInt32LE(value);
-    return bytes;
-  }
-  function i64(value: bigint) {
-    const bytes = Buffer.alloc(8);
-    bytes.writeBigInt64LE(value);
-    return bytes;
-  }
-  function text(value: string) {
-    const bytes = Buffer.from(value, 'utf8');
-    return Buffer.concat([i32(bytes.length), bytes]);
-  }
-
   const identity = { sourceDigest: hash(sourceBody), digest: hash(sourceBody), insertions: [] };
   const changed = { sourceDigest: identity.digest, digest: hash(body), insertions };
   const encode = (edges = [identity, changed], revision = 13n, available = true, from = sourceBody, to = body) =>

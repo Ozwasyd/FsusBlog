@@ -1,5 +1,5 @@
 import { deepEqual, equal, throws } from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { hash, i32, i64, text } from './body-chain-fixture.ts';
 import { test } from 'node:test';
 import { decodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import {
@@ -37,21 +37,6 @@ test('body edit commands encode exact deletion and replacement without changing 
 test('body edit chains accept unchanged data and preserve the exact order of written splices', () => {
   // Packs one identity edge and an edit edge outside the production codec.
   const sourceBody = 'dropXother';
-  const hash = (text: string) => createHash('sha256').update(text).digest('hex');
-  const i32 = (value: number) => {
-    const bytes = Buffer.alloc(4);
-    bytes.writeInt32LE(value);
-    return bytes;
-  };
-  const i64 = (value: bigint) => {
-    const bytes = Buffer.alloc(8);
-    bytes.writeBigInt64LE(value);
-    return bytes;
-  };
-  function text(value: string) {
-    const bytes = Buffer.from(value, 'utf8');
-    return Buffer.concat([i32(bytes.length), bytes]);
-  }
   const from = hash(sourceBody);
   const to = hash(input.body);
   const payload = Buffer.concat([i32(17), i64(13n), i64(11n), Uint8Array.of(1), text(sourceBody), text(input.body), i32(2),

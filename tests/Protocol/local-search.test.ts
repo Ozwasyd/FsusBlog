@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { hexFixture } from './fixture-source.ts';
-import { test } from 'node:test';
+import { test, type TestContext } from 'node:test';
 import { ProtocolError, encodeFrame } from '../../src/Contracts/aeds.ts';
 import {
   createCorpusSearch, decodeCorpusDocuments, decodeLocalSearchResult, encodeLocalSearchResult, normalizeLocalSearchQuery,
   normalizePublicSearchSort, queryCorpusPage, scoreAdmittedCorpusPage, searchCorpus, searchShortAsciiPrefixes,
-  searchTerms, verifySearchGeneration, type CompactSearchStorage, type PersistedCompactCorpus,
+  searchTerms, verifySearchGeneration, type CompactSearchStorage, type CorpusSearch, type PersistedCompactCorpus,
 } from '../../src/Contracts/local-search.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireRoutes } from '../../src/Contracts/wire.generated.ts';
 
@@ -195,6 +195,10 @@ test('FSR4 empty pages preserve the distinction between no tokens, no matches, a
   assert.deepEqual(calls, ['HEAD ?generation=710', 'HEAD ?generation=710']);
 });
 
+function resultIds(frame: Uint8Array) {
+  return decodeLocalSearchResult(frame).items.map(article => article.id);
+}
+
 function pageWithId(id: number) {
   const result = packageBytes.slice();
   const shard = new DataView(result.buffer, L.SearchPackagePayloadOffset);
@@ -207,76 +211,86 @@ function pageWithId(id: number) {
   return result;
 }
 
-test('route worker cache reuses only fully admitted pages of the confirmed generation', async (t) => {
-  let generation = '800';
-  let corpus = [packageBytes, pageWithId(43)];
-  let available = true;
-  let corruptValidator = false;
-  let invalid304Bytes = false;
+const corpusETag = (bytes: Uint8Array) => `"${createHash('sha256').update(bytes).digest('hex')}"`;
+
+function mockCorpus(t: TestContext, state: () => { generation: string; corpus: Uint8Array<ArrayBuffer>[]; available: boolean },
+  notModified = (headers: Record<string, string>, etag: string) => new Response(null, { status: 304, headers: { ...headers, ETag: etag } })) {
   const calls: string[] = [];
   const bodies: number[] = [];
-  const tag = (bytes: Uint8Array) => `"${createHash('sha256').update(bytes).digest('hex')}"`;
+
   t.mock.method(globalThis, 'fetch', (path: string, init: RequestInit) => {
+    const { generation, corpus, available } = state();
     const url = new URL(path, 'http://localhost');
-    const expected = url.searchParams.get('generation');
+    const pinned = url.searchParams.get('generation');
     const page = Number(url.searchParams.get('page'));
-    calls.push(`${init.method}:${expected ?? 'current'}:${page || '-'}`);
+    calls.push(`${init.method}:${pinned ?? 'current'}:${page || '-'}`);
     const headers = {
       'Content-Type': 'application/octet-stream',
       [WireHeaders.SearchIndexPages]: String(corpus.length),
       [WireHeaders.SearchIndexGeneration]: generation,
     };
     if (!available) return new Response(null, { status: 503 });
-    if (expected !== null && expected !== generation) return new Response(null, { status: 409 });
+    if (pinned !== null && pinned !== generation) return new Response(null, { status: 409 });
     if (!page) return new Response(null, { status: 204, headers });
     const bytes = corpus[page - 1];
-    const etag = tag(bytes);
+    const etag = corpusETag(bytes);
     if (new Headers(init.headers).get('If-None-Match') === etag) {
-      const response = new Response(null, { status: 304, headers: { ...headers, ETag: corruptValidator ? tag(pageWithId(99)) : etag } });
-      Object.defineProperty(response, 'body', { value: new ReadableStream({
-        start(stream) {
-          if (invalid304Bytes) stream.enqueue(Uint8Array.of(1));
-          stream.close();
-        },
-      }) });
-      return response;
+      return notModified(headers, etag);
     }
     bodies.push(page);
     return new Response(bytes.slice(), { headers: { ...headers, ETag: etag } });
+  });
+  function expectTraffic(requests: string[], pages: number[]) {
+    assert.deepEqual(calls.splice(0), requests);
+    assert.deepEqual(bodies.splice(0), pages);
+  }
+  return { calls, bodies, expectTraffic };
+}
+
+test('route worker cache reuses only fully admitted pages of the confirmed generation', async (t) => {
+  let generation = '800';
+  let corpus = [packageBytes, pageWithId(43)];
+  let available = true;
+  let corruptValidator = false;
+  let invalid304Bytes = false;
+  const { calls, bodies, expectTraffic } = mockCorpus(t, () => ({ generation, corpus, available }), (headers, etag) => {
+    const response = new Response(null, { status: 304, headers: { ...headers, ETag: corruptValidator ? corpusETag(pageWithId(99)) : etag } });
+    Object.defineProperty(response, 'body', { value: new ReadableStream({
+      start(stream) {
+        if (invalid304Bytes) stream.enqueue(Uint8Array.of(1));
+        stream.close();
+      },
+    }) });
+    return response;
   });
 
   const search = createCorpusSearch();
   const ids = async (query: string) => {
     const result = await search(query);
     await verifySearchGeneration(result.generation!);
-    return decodeLocalSearchResult(result.frame).items.map(article => article.id);
+    return resultIds(result.frame);
   };
   assert.deepEqual(await ids('needle'), [43, 42]);
-  assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:800:2', 'HEAD:800:-']);
-  assert.deepEqual(bodies.splice(0), [1, 2]);
+  expectTraffic(['GET:current:1', 'GET:800:2', 'HEAD:800:-'], [1, 2]);
   assert.deepEqual(await ids('needle 雪'), [43, 42]);
-  assert.deepEqual(calls.splice(0), ['HEAD:800:-', 'HEAD:800:-']);
-  assert.deepEqual(bodies.splice(0), []);
+  expectTraffic(['HEAD:800:-', 'HEAD:800:-'], []);
 
   generation = '801';
   corpus = [packageBytes, pageWithId(44)];
   assert.deepEqual(await ids('needle'), [44, 42]);
-  assert.deepEqual(calls.splice(0), ['HEAD:800:-', 'GET:current:1', 'GET:801:2', 'HEAD:801:-']);
-  assert.deepEqual(bodies.splice(0), [2]);
+  expectTraffic(['HEAD:800:-', 'GET:current:1', 'GET:801:2', 'HEAD:801:-'], [2]);
 
   available = false;
   await assert.rejects(ids('needle'), { status: 503 });
   assert.deepEqual(calls.splice(0), ['HEAD:801:-']);
   available = true;
   assert.deepEqual(await ids('needle'), [44, 42]);
-  assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:801:2', 'HEAD:801:-']);
-  assert.deepEqual(bodies.splice(0), [1, 2]);
+  expectTraffic(['GET:current:1', 'GET:801:2', 'HEAD:801:-'], [1, 2]);
 
   generation = '802';
   corruptValidator = true;
   await assert.rejects(ids('needle'), /corpus page validator/);
-  assert.deepEqual(calls.splice(0), ['HEAD:801:-', 'GET:current:1']);
-  assert.deepEqual(bodies.splice(0), []);
+  expectTraffic(['HEAD:801:-', 'GET:current:1'], []);
   corruptValidator = false;
   await ids('needle');
   calls.length = 0;
@@ -284,8 +298,7 @@ test('route worker cache reuses only fully admitted pages of the confirmed gener
   generation = '803';
   invalid304Bytes = true;
   await assert.rejects(ids('needle'), /exceeds its byte limit/);
-  assert.deepEqual(calls.splice(0), ['HEAD:802:-', 'GET:current:1']);
-  assert.deepEqual(bodies.splice(0), []);
+  expectTraffic(['HEAD:802:-', 'GET:current:1'], []);
   invalid304Bytes = false;
   corpus = [pageWithId(44), pageWithId(44)];
   await assert.rejects(ids('needle'), /duplicate corpus article/);
@@ -417,15 +430,14 @@ test('admitted binary-search scoring and lazy decode match full shard parsing bi
     }
   }
   // 1-2 char ASCII matches metadata word prefixes (Title/note/Lab/ABC), not body-only or mid-word substrings.
-  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('t'), searchShortAsciiPrefixes('t')).length, 1);
-  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('ti'), searchShortAsciiPrefixes('ti')).length, 1);
-  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('no'), searchShortAsciiPrefixes('no')).length, 1);
-  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('la'), searchShortAsciiPrefixes('la')).length, 1);
-  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('ne'), searchShortAsciiPrefixes('ne')).length, 0);
-  assert.equal(scoreAdmittedCorpusPage(packageBytes, searchTerms('it'), searchShortAsciiPrefixes('it')).length, 0);
-  assert.equal(scoreAdmittedCorpusPage(dictionary, searchTerms('a'), searchShortAsciiPrefixes('a')).length, 1);
-  assert.equal(scoreAdmittedCorpusPage(dictionary, searchTerms('ab'), searchShortAsciiPrefixes('ab')).length, 1);
-  assert.equal(scoreAdmittedCorpusPage(dictionary, searchTerms('bc'), searchShortAsciiPrefixes('bc')).length, 0);
+  function expectPrefixes(bytes: Uint8Array, queries: string[], count: number) {
+    for (const query of queries)
+      assert.equal(scoreAdmittedCorpusPage(bytes, searchTerms(query), searchShortAsciiPrefixes(query)).length, count);
+  }
+  expectPrefixes(packageBytes, ['t', 'ti', 'no', 'la'], 1);
+  expectPrefixes(packageBytes, ['ne', 'it'], 0);
+  expectPrefixes(dictionary, ['a', 'ab'], 1);
+  expectPrefixes(dictionary, ['bc'], 0);
 });
 
 test('persistent compact storage reuses across sessions, refreshes via 304, discards corruption, and supports latest sort', async (t) => {
@@ -465,31 +477,7 @@ test('persistent compact storage reuses across sessions, refreshes via 304, disc
   let generation = '900';
   let available = true;
   let corpus = [olderHigher, newerLower];
-  const calls: string[] = [];
-  const bodies: number[] = [];
-  const tag = (bytes: Uint8Array) => `"${createHash('sha256').update(bytes).digest('hex')}"`;
-
-  t.mock.method(globalThis, 'fetch', (path: string, init: RequestInit) => {
-    const url = new URL(path, 'http://localhost');
-    const pinned = url.searchParams.get('generation');
-    const page = Number(url.searchParams.get('page'));
-    calls.push(`${init.method}:${pinned ?? 'current'}:${page || '-'}`);
-    const headers = {
-      'Content-Type': 'application/octet-stream',
-      [WireHeaders.SearchIndexPages]: String(corpus.length),
-      [WireHeaders.SearchIndexGeneration]: generation,
-    };
-    if (!available) return new Response(null, { status: 503 });
-    if (pinned !== null && pinned !== generation) return new Response(null, { status: 409 });
-    if (!page) return new Response(null, { status: 204, headers });
-    const bytes = corpus[page - 1];
-    const etag = tag(bytes);
-    if (new Headers(init.headers).get('If-None-Match') === etag) {
-      return new Response(null, { status: 304, headers: { ...headers, ETag: etag } });
-    }
-    bodies.push(page);
-    return new Response(bytes.slice(), { headers: { ...headers, ETag: etag } });
-  });
+  const { calls, expectTraffic } = mockCorpus(t, () => ({ generation, corpus, available }));
 
   let stored: PersistedCompactCorpus | undefined;
   const discards: string[] = [];
@@ -502,54 +490,46 @@ test('persistent compact storage reuses across sessions, refreshes via 304, disc
     },
   };
 
+  function expectIds(result: Awaited<ReturnType<CorpusSearch>>, ids: number[]) {
+    assert.deepEqual(resultIds(result.frame), ids);
+  }
+
   // First session: cold download saves to persistent storage; relevance puts olderHigher (42) before newerLower (43).
   const firstSession = createCorpusSearch({ storage });
-  const rel1 = await firstSession('needle', undefined, 1, 10, 'relevance');
-  assert.deepEqual(decodeLocalSearchResult(rel1.frame).items.map(a => a.id), [42, 43]);
+  expectIds(await firstSession('needle', undefined, 1, 10, 'relevance'), [42, 43]);
   assert.equal(stored?.generation, '900');
-  assert.deepEqual(calls.splice(0), ['GET:current:1', 'GET:900:2']);
-  assert.deepEqual(bodies.splice(0), [1, 2]);
+  expectTraffic(['GET:current:1', 'GET:900:2'], [1, 2]);
 
   // Same session warm RAM hit with sort='latest' puts newerLower (43) before olderHigher (42) with zero page GETs.
-  const lat1 = await firstSession('needle', undefined, 1, 10, 'latest');
-  assert.deepEqual(decodeLocalSearchResult(lat1.frame).items.map(a => a.id), [43, 42]);
-  assert.deepEqual(calls.splice(0), ['HEAD:900:-']);
-  assert.deepEqual(bodies.splice(0), []);
+  expectIds(await firstSession('needle', undefined, 1, 10, 'latest'), [43, 42]);
+  expectTraffic(['HEAD:900:-'], []);
 
   // Second session (simulating reload / return to /search / second tab): reuses persisted storage with ZERO page GETs.
   const secondSession = createCorpusSearch({ storage });
-  const rel2 = await secondSession('needle', undefined, 1, 10, 'relevance');
-  assert.deepEqual(decodeLocalSearchResult(rel2.frame).items.map(a => a.id), [42, 43]);
-  assert.deepEqual(calls.splice(0), ['HEAD:900:-']);
-  assert.deepEqual(bodies.splice(0), []);
+  expectIds(await secondSession('needle', undefined, 1, 10, 'relevance'), [42, 43]);
+  expectTraffic(['HEAD:900:-'], []);
 
   // Subsequent query in second session uses promoted RAM fast path for 'latest'.
-  const lat2 = await secondSession('needle', undefined, 1, 10, 'latest');
-  assert.deepEqual(decodeLocalSearchResult(lat2.frame).items.map(a => a.id), [43, 42]);
-  assert.deepEqual(calls.splice(0), ['HEAD:900:-']);
-  assert.deepEqual(bodies.splice(0), []);
+  expectIds(await secondSession('needle', undefined, 1, 10, 'latest'), [43, 42]);
+  expectTraffic(['HEAD:900:-'], []);
 
   // Third session after generation advances: persisted page 1 hits 304, only page 2 downloads, storage updates to 901.
   generation = '901';
   corpus = [olderHigher, pageWith(44, 1700172800000n, false)];
   const thirdSession = createCorpusSearch({ storage });
-  const lat3 = await thirdSession('needle', undefined, 1, 10, 'latest');
-  assert.deepEqual(decodeLocalSearchResult(lat3.frame).items.map(a => a.id), [44, 42]);
+  expectIds(await thirdSession('needle', undefined, 1, 10, 'latest'), [44, 42]);
   assert.equal(stored?.generation, '901');
-  assert.deepEqual(calls.splice(0), ['HEAD:900:-', 'GET:current:1', 'GET:901:2']);
-  assert.deepEqual(bodies.splice(0), [2]);
+  expectTraffic(['HEAD:900:-', 'GET:current:1', 'GET:901:2'], [2]);
 
   // Corrupted persisted storage is detected, discarded, and cleanly refetched from network.
   const corruptedPage = stored!.pages[0].slice();
   corruptedPage[4] ^= 0xff;
   stored = { generation: '901', pages: [corruptedPage, stored!.pages[1]] };
   const fourthSession = createCorpusSearch({ storage });
-  const rel4 = await fourthSession('needle', undefined, 1, 10, 'relevance');
-  assert.deepEqual(decodeLocalSearchResult(rel4.frame).items.map(a => a.id), [42, 44]);
+  expectIds(await fourthSession('needle', undefined, 1, 10, 'relevance'), [42, 44]);
   assert.deepEqual(discards.splice(0), ['901']);
   assert.equal(stored?.generation, '901');
-  assert.deepEqual(calls.splice(0), ['HEAD:901:-', 'GET:current:1', 'GET:901:2']);
-  assert.deepEqual(bodies.splice(0), [1, 2]);
+  expectTraffic(['HEAD:901:-', 'GET:current:1', 'GET:901:2'], [1, 2]);
 
   // 503 on HEAD against persisted storage discards obsolete compact cache.
   available = false;

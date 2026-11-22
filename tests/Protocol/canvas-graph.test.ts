@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { hexFixture } from './fixture-source.ts'
+import { fixtureBytes, frameResponse } from './fixture-source.ts'
 import { test } from 'node:test'
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts'
 import {
@@ -26,24 +26,21 @@ const commands = {
 } satisfies CanvasGraphCommand
 
 // Packed independently with Python struct and bitwise AEDS CRC.
-function fixture(name: string): Uint8Array {
-  return Uint8Array.from(hexFixture(`${name}.hex`))
-}
-
 test('graph command preserves exact wire bytes for all five nodes and stable typed edges', () => {
   const bytes = encodeFrame(FrameType.CanvasGraphCommand, encodeCanvasGraphCommand(commands))
-  assert.deepEqual(bytes, fixture('canvas-graph-command'))
-  assert.throws(() => encodeCanvasGraphCommand({ ...commands, expectedRevision: 0n }), ProtocolError)
-  assert.throws(() => encodeCanvasGraphCommand({ ...commands, action: 'delete' }), ProtocolError)
-  assert.throws(() => encodeCanvasGraphCommand({ ...commands, title: 'line\nbreak' }), ProtocolError)
-  assert.throws(() => encodeCanvasGraphCommand({ ...commands, title: '<markup>' }), ProtocolError)
+  assert.deepEqual(bytes, fixtureBytes('canvas-graph-command.hex'))
+  const invalidEdits: Partial<CanvasGraphCommand>[] = [
+    { expectedRevision: 0n }, { action: 'delete' }, { title: 'line\nbreak' }, { title: '<markup>' },
+  ]
+  for (const edit of invalidEdits)
+    assert.throws(() => encodeCanvasGraphCommand({ ...commands, ...edit }), ProtocolError)
   assert.throws(() => encodeCanvasGraphCommand({
     ...commands, changes: [{ kind: 'upsert-node', node: { id: id(3), kind: 'group-frame', text: 'Frame', geometry, memberIds: [id(3)] } }],
   }), ProtocolError)
 })
 
 test('paged Canvas response binds exact scope, revision, membership, and combined sequential offset', () => {
-  const payload = decodeFrame(fixture('canvas-graph-page-node'), FrameType.CanvasGraphPage).payload
+  const payload = decodeFrame(fixtureBytes('canvas-graph-page-node.hex'), FrameType.CanvasGraphPage).payload
   const first = decodeCanvasGraphPage(payload)
   assert.equal(first.header.id, id(1))
   assert.equal(first.header.revision, revision)
@@ -57,7 +54,7 @@ test('paged Canvas response binds exact scope, revision, membership, and combine
   assert.throws(() => decodeCanvasGraphPage(payload.subarray(0, -1)), ProtocolError)
   assert.throws(() => decodeCanvasGraphPage(payload, 1), ProtocolError)
 
-  const last = decodeFrame(fixture('canvas-graph-page-edge'), FrameType.CanvasGraphPage).payload
+  const last = decodeFrame(fixtureBytes('canvas-graph-page-edge.hex'), FrameType.CanvasGraphPage).payload
   assert.throws(() => decodeCanvasGraphPage(last, 1), ProtocolError)
   assert.throws(() => decodeCanvasGraphPage(last, 3), /page offset/)
   assert.equal(decodeCanvasGraphPage(last, 2).nextOffset, null)
@@ -68,7 +65,7 @@ test('graph fetch preserves loaded page coordinates and rejects cross-document r
   const calls: string[] = []
   t.mock.method(globalThis, 'fetch', async (path: string) => {
     calls.push(path)
-    return new Response(fixture('canvas-graph-page-edge'), { headers: { 'content-type': 'application/octet-stream' } })
+    return frameResponse(fixtureBytes('canvas-graph-page-edge.hex'))
   })
   const page = await canvasGraph.page(id(1), { revision, offset: 2 })
   assert.equal(page.header.revision, revision)
@@ -83,16 +80,15 @@ test('undo and redo preserve their command envelopes and reject edit fields', ()
   const actions = ['undo', 'redo'] as const
   for (const action of actions) {
     const command = { ...commands, action, title: '', viewport: null, changes: [] }
-    assert.deepEqual(encodeFrame(FrameType.CanvasGraphCommand, encodeCanvasGraphCommand(command)), fixture(`canvas-graph-${action}`))
-    assert.throws(() => encodeCanvasGraphCommand({ ...command, title: 'x' }), /history command shape/)
-    assert.throws(() => encodeCanvasGraphCommand({ ...command, viewport }), /history command shape/)
-    assert.throws(() => encodeCanvasGraphCommand({ ...command, changes: commands.changes }), /history command shape/)
+    assert.deepEqual(encodeFrame(FrameType.CanvasGraphCommand, encodeCanvasGraphCommand(command)), fixtureBytes(`canvas-graph-${action}.hex`))
+    for (const edit of [{ title: 'x' }, { viewport }, { changes: commands.changes }])
+      assert.throws(() => encodeCanvasGraphCommand({ ...command, ...edit }), /history command shape/)
     assert.throws(() => encodeCanvasGraphCommand({ ...command, expectedRevision: 0n }), /command revision or action/)
   }
 })
 
 test('history reads exact revision echoes and rejects malformed optional revisions', async t => {
-  const bytes = fixture('canvas-graph-history')
+  const bytes = fixtureBytes('canvas-graph-history.hex')
   const { payload } = decodeFrame(bytes, FrameType.CanvasGraphHistory)
   const expected = { revision, undoRevision: revision, redoRevision: null }
   assert.deepEqual(decodeCanvasGraphHistory(payload), expected)
@@ -108,17 +104,18 @@ test('history reads exact revision echoes and rejects malformed optional revisio
   const mocked = t.mock.method(globalThis, 'fetch', async (path: string, init: RequestInit) => {
     assert.equal(init.signal, signal)
     assert.match(path, new RegExp(`/${id(1)}/history\\.aeds\\?revision=\\d+$`))
-    return new Response(bytes, { headers: { 'content-type': 'application/octet-stream' } })
+    return frameResponse(bytes)
   })
-  assert.deepEqual(await canvasGraph.history(id(1), revision, signal), expected)
-  await assert.rejects(canvasGraph.history(id(1), revision + 1n, signal), /history revision/)
-  assert.throws(() => canvasGraph.history(id(1), 0n, signal), /history revision/)
-  assert.throws(() => canvasGraph.history(id(1), 1n << 63n, signal), /history revision/)
+  const read = (at: bigint) => canvasGraph.history(id(1), at, signal)
+  assert.deepEqual(await read(revision), expected)
+  await assert.rejects(read(revision + 1n), /history revision/)
+  assert.throws(() => read(0n), /history revision/)
+  assert.throws(() => read(1n << 63n), /history revision/)
   assert.equal(mocked.mock.callCount(), 2)
 })
 
 test('reference resolution preserves authorized metadata, offset zero and redacted states', () => {
-  const payload = (name: string) => decodeFrame(fixture(`canvas-reference-${name}`), FrameType.CanvasReferenceResolution).payload
+  const payload = (name: string) => decodeFrame(fixtureBytes(`canvas-reference-${name}.hex`), FrameType.CanvasReferenceResolution).payload
   const expected = {
     canvasId: id(1), nodeId: id(6), canvasRevision: revision, state: 'resolved', articleId: 17, articleRevision: revision + 1n,
     pinned: true, title: 'Draft title 猫', excerpt: 'Heading\nPlain excerpt', sourceOffset: 0,
@@ -148,20 +145,21 @@ test('reference resolution preserves authorized metadata, offset zero and redact
 })
 
 test('reference fetch requires exact canvas, node and revision response echoes', async t => {
-  const bytes = fixture('canvas-reference-resolved')
+  const bytes = fixtureBytes('canvas-reference-resolved.hex')
   const requests: string[] = []
   const signal = new AbortController().signal
   t.mock.method(globalThis, 'fetch', async (path: string, init: RequestInit) => {
     assert.equal(init.signal, signal)
     requests.push(path)
-    return new Response(bytes, { headers: { 'content-type': 'application/octet-stream' } })
+    return frameResponse(bytes)
   })
   const path = WireRoutes.CanvasReference.replace('{id:guid}', id(1)).replace('{nodeId:guid}', id(6))
-  assert.equal((await canvasGraph.resolve(id(1), id(6), revision, signal)).title, 'Draft title 猫')
+  const resolve = (canvas: number, node: number, at: bigint) => canvasGraph.resolve(id(canvas), id(node), at, signal)
+  assert.equal((await resolve(1, 6, revision)).title, 'Draft title 猫')
   assert.equal(requests[0], `${path}?revision=${revision}`)
-  await assert.rejects(canvasGraph.resolve(id(2), id(6), revision, signal), /reference response coordinates/)
-  await assert.rejects(canvasGraph.resolve(id(1), id(7), revision, signal), /reference response coordinates/)
-  await assert.rejects(canvasGraph.resolve(id(1), id(6), revision + 1n, signal), /reference response coordinates/)
-  assert.throws(() => canvasGraph.resolve(id(1), id(6), 0n, signal), /reference revision/)
+  await assert.rejects(resolve(2, 6, revision), /reference response coordinates/)
+  await assert.rejects(resolve(1, 7, revision), /reference response coordinates/)
+  await assert.rejects(resolve(1, 6, revision + 1n), /reference response coordinates/)
+  assert.throws(() => resolve(1, 6, 0n), /reference revision/)
   assert.equal(requests.length, 4)
 })

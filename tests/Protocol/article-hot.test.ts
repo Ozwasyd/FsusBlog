@@ -5,14 +5,10 @@ import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aed
 import { decodeArticleHot, encodeArticleHot, type PopularArticle } from '../../src/Contracts/article-hot.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
-function fixture(name: string): Buffer {
-  return hexFixture(name)
-}
-
 test('ArticleHot matches independently encoded fixed v1 AEDS bytes', () => {
   equal(FrameType.ArticleHot, 3)
   equal(WireRoutes.PublicArticleHot, '/api/binary/article/hot/{size}.aeds')
-  const frame = fixture('article-hot-v1.hex')
+  const frame = hexFixture('article-hot-v1.hex')
   const items: PopularArticle[] = [
     { id: 42, views: 0, title: '雪 🐈' },
     { id: 7, views: 0x7fffffff, title: '' },
@@ -20,7 +16,7 @@ test('ArticleHot matches independently encoded fixed v1 AEDS bytes', () => {
   ]
   deepStrictEqual(Buffer.from(encodeFrame(FrameType.ArticleHot, encodeArticleHot(items))), frame)
   deepStrictEqual(decodeArticleHot(decodeFrame(frame, FrameType.ArticleHot).payload), items)
-  const empty = fixture('article-hot-empty-v1.hex')
+  const empty = hexFixture('article-hot-empty-v1.hex')
   deepStrictEqual(Buffer.from(encodeFrame(FrameType.ArticleHot, encodeArticleHot([]))), empty)
   deepStrictEqual(decodeArticleHot(decodeFrame(empty, FrameType.ArticleHot).payload), [])
 })
@@ -43,7 +39,7 @@ test('ArticleHot enforces count, identities, signed int32 views and UTF-8 byte l
 })
 
 test('ArticleHot rejects invalid rows, unclaimed blob bytes, and truncated or trailing payload', () => {
-  const frame = fixture('article-hot-v1.hex')
+  const frame = hexFixture('article-hot-v1.hex')
   const { payload } = decodeFrame(frame, FrameType.ArticleHot)
   const recordsAt = 8 + 17
   for (const [position, value] of [

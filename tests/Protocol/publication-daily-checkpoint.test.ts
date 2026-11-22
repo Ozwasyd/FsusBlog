@@ -4,24 +4,15 @@ import { publicationSigner } from './publication-signing-fixture.ts'
 import { verifyPublicationCheckpoint } from '../../tools/verify-publication-checkpoint.mjs'
 
 test('verifies opaque daily checkpoint coverage and ordered inclusion against an independently retained head', () => {
-  const origin = 'https://proof.example.test'
   const day = '2026-11-14'
-  const { spki, fingerprint, signed } = publicationSigner()
-  const head = {
-    origin, headVersion: 2, kind: 'native-publication-log-head', algorithm: 'ECDSA_P256_SHA256',
-    sequence: '6', entrySha256: '66'.repeat(32), keyId: 'rotate-1', keyVersion: 7,
-    keySha256: fingerprint, attestedAtUtc: '2026-11-15T08:10:00.000001Z', signature: '',
-  }
+  const { origin, fingerprint, signed, head: makeHead, keyManifest } = publicationSigner()
+  const head = makeHead('6', '66'.repeat(32), '')
   const signedHead = (value: typeof head) => ({ ...value, signature: signed('article-transparency-head-v2', input => input
     .replace(/^sequence:i:.+$/m, `sequence:i:${value.sequence}`).replace(/^entrySha256:h:.+$/m, `entrySha256:h:${value.entrySha256}`)
     .replace(/^attestedAt:t:.+$/m, `attestedAt:t:${value.attestedAtUtc}`)) })
   const pin = signedHead(head)
-  const key = {
-    keyId: head.keyId, keyVersion: head.keyVersion, keySha256: fingerprint, publicKey: spki.toString('base64url'),
-    notBeforeUtc: '2026-11-14T00:00:00.000000Z', notAfterUtc: '2026-11-15T08:10:00.000020Z',
-    revokedAtUtc: '2026-11-15T08:10:00.000003Z', compromisedAtUtc: null,
-  }
-  const keys = { manifestVersion: 2, kind: 'native-publication-proof-keys', algorithm: head.algorithm, keys: [key] }
+  const keys = keyManifest(head, '2026-11-14T00:00:00.000000Z', '2026-11-15T08:10:00.000020Z', '2026-11-15T08:10:00.000003Z')
+  const [key] = keys.keys
   const checkpoint = {
     checkpointVersion: 2, kind: 'native-publication-checkpoint', checkpointKind: 'daily', algorithm: head.algorithm,
     origin, scopeKey: day, fromSequence: '1', toSequence: '5', entryCount: 3,
@@ -45,10 +36,14 @@ test('verifies opaque daily checkpoint coverage and ordered inclusion against an
   assert.throws(() => verify({ ...bundle, checkpoint: { ...checkpoint, headSequence: '16385' } },
     signedHead({ ...head, sequence: '16385' })), /signed range/)
   assert.throws(() => verify({ ...bundle, checkpoint: { ...checkpoint, entryCount: 4097 } }), /checkpoint/)
-  assert.throws(() => verify({ ...bundle, inclusion: { ...inclusion, sequence: '4' } }), /position/)
-  assert.throws(() => verify({ ...bundle, inclusion: { ...inclusion, position: 0 } }), /position/)
-  assert.throws(() => verify({ ...bundle, inclusion: { ...inclusion, entrySha256: '33'.repeat(32) } }), /expected ledger entry/)
-  assert.throws(() => verify({ ...bundle, inclusion: { ...inclusion, siblings: inclusion.siblings.toReversed() } }), /odd sibling/)
+  for (const [changed, error] of [
+    [{ sequence: '4' }, /position/],
+    [{ position: 0 }, /position/],
+    [{ entrySha256: '33'.repeat(32) }, /expected ledger entry/],
+    [{ siblings: inclusion.siblings.toReversed() }, /odd sibling/],
+  ] as const) {
+    assert.throws(() => verify({ ...bundle, inclusion: { ...inclusion, ...changed } }), error)
+  }
   assert.throws(() => verifyPublicationCheckpoint(bundle, keys, pin, origin, day), /release checkpoint/)
   assert.throws(() => verify(bundle, pin, day, expected, { ...keys, keys: [{ ...key, compromisedAtUtc: key.revokedAtUtc }] }), /ineligible/)
 
