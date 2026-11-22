@@ -80,7 +80,11 @@ def verify_payload(archive: Path, expected: dict[str, str]) -> dict[str, str]:
         raise ValueError("Missing or invalid release commit coordinates")
     if coordinates.get("web") != "web/" or "web/index.html" not in seen:
         raise ValueError("Missing built web entry point")
-    for key in ("server", "migrate", "dictionary"):
+    cli_path = coordinates.get("cli")
+    if cli_path is not None and cli_path != "cli/FsusBlog.V2.Cli.dll":
+        raise ValueError("Invalid release CLI coordinates")
+    cli_key = "cli" if cli_path is not None else "migrate"
+    for key in ("server", cli_key, "dictionary"):
         if key == "dictionary" and key not in coordinates:
             continue
         if coordinates.get(key) not in seen:

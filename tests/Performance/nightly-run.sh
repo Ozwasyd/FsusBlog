@@ -138,7 +138,7 @@ stage = Path(sys.argv[4])
 commit = sys.argv[5]
 root = server.parent.parent
 server_name = "server/FsusBlog.V2.Server.dll"
-migrate_name = "cli/FsusBlog.V2.Cli.dll"
+cli_name = "cli/FsusBlog.V2.Cli.dll"
 if server != root / server_name or web != root / "web":
     raise SystemExit("Server and web must belong to one extracted release payload.")
 verify = runpy.run_path("tools/verify-release.py")
@@ -146,15 +146,15 @@ stage.mkdir()
 sealed_manifest = stage / "payload.sha256"
 shutil.copyfile(manifest, sealed_manifest)
 entries = verify["read_manifest"](sealed_manifest, "./")
-trees = ("server", "migrate", "web")
+trees = ("server", "cli", "web")
 metadata = {"release.txt"}
 if sys.argv[6] == "true":
     metadata.add("Caddyfile")
 expected = {name for name in entries if name.startswith(tuple(tree + "/" for tree in trees))}
 expected.update(metadata)
-required = {server_name, migrate_name, "web/index.html"} | metadata
+required = {server_name, cli_name, "web/index.html"} | metadata
 if not required <= entries.keys():
-    raise SystemExit("Payload manifest is missing a required server, migrate, web, or release entry.")
+    raise SystemExit("Payload manifest is missing a required server, CLI, web, or release entry.")
 present = metadata.copy()
 for tree in trees:
     directory = root / tree
@@ -167,7 +167,7 @@ for tree in trees:
                 raise SystemExit(f"Unexpected entry in release: {entry.relative_to(root)}")
         present.update((Path(parent) / name).relative_to(root).as_posix() for name in files)
 if present != expected:
-    raise SystemExit("Extracted server, migrate and web files differ from the release manifest.")
+    raise SystemExit("Extracted server, CLI and web files differ from the release manifest.")
 for name in sorted(expected):
     source = root / name
     if source.is_symlink() or not source.is_file():
@@ -188,14 +188,14 @@ for line in release.read_text(encoding="ascii").splitlines():
         raise SystemExit("Invalid release coordinate.")
     coordinates[key] = value
 if (coordinates.get("fsusblog_commit") != commit or coordinates.get("server") != server_name
-    or coordinates.get("migrate") != migrate_name or coordinates.get("web") != "web/"
+    or coordinates.get("cli") != cli_name or coordinates.get("web") != "web/"
     or not re.fullmatch(r"[0-9a-f]{40}", coordinates.get("fsusui_commit", ""))):
     raise SystemExit("The extracted release does not match the nightly source or expected layout.")
 with sealed_manifest.open("rb") as data:
     manifest_digest = verify["file_sha256"](data)
 print(json.dumps({"fsusblogCommit": commit, "fsusuiCommit": coordinates["fsusui_commit"],
                   "payloadManifestSha256": manifest_digest, "verifiedFiles": len(expected),
-                  "serverSha256": entries[server_name], "migrateSha256": entries[migrate_name]}, sort_keys=True))
+                  "serverSha256": entries[server_name], "migrateSha256": entries[cli_name]}, sort_keys=True))
 PY
 }
 
