@@ -247,6 +247,28 @@ export function compileSchema(schema) {
     '}', '',
   ].join('\n');
 
+  const emittedGroups = new Set();
+  const tsMember = field => `  ${camel(field[0])}: ${tsFieldExpr(field)},`;
+  const groupName = field => `_group${field.group}`;
+  function tsRecord(name, fields, embedded) {
+    const declarations = [];
+    const members = fields.map(field => {
+      if (Array.isArray(field)) return tsMember(field);
+      const group = groupName(field);
+      if (!emittedGroups.has(group)) {
+        declarations.push(`const ${group} = {`, ...fieldGroups[field.group].map(tsMember), '};');
+        emittedGroups.add(group);
+      }
+      return `  ...${group},`;
+    });
+    let layout = `${camel(name)}Fields`;
+    if (fields.length === 1 && !Array.isArray(fields[0])) layout = groupName(fields[0]);
+    else declarations.push(`const ${layout} = {`, ...members, '};');
+    return [...declarations, `export interface ${name} extends PodValue<typeof ${layout}> {}`,
+      embedded ? `const ${camel(name)}Field = /* @__PURE__ */ podField.record<${name}>(${layout});` :
+        `export const [encode${name}, decode${name}] = /* @__PURE__ */ definePodRecord<${name}>(${layout});`, ''];
+  }
+
   const ts = [notice,
     `import { definePodRecord, podField, type PodValue } from './pod-record.ts';`, '',
     ...[['FrameType', frameTypes], ...surface].flatMap(([name, values, strings]) => [
@@ -261,29 +283,8 @@ export function compileSchema(schema) {
       '} as const;', '',
       `export type ${name} = typeof ${name}[keyof typeof ${name}];`, '',
     ]),
-    ...embeddedOrder.flatMap(([name, fields]) => {
-      const layout = `${camel(name)}Fields`;
-      const fieldName = `${camel(name)}Field`;
-      return [
-        `const ${layout} = {`,
-        ...fields.map(field => `  ${camel(field[0])}: ${tsFieldExpr(field)},`),
-        '};',
-        `export interface ${name} extends PodValue<typeof ${layout}> {}`,
-        `const ${fieldName} = /* @__PURE__ */ podField.record<${name}>(${layout});`,
-        '',
-      ];
-    }),
-    ...methods.flatMap(([name, { fields }]) => {
-      const layout = `${camel(name)}Fields`;
-      return [
-        `const ${layout} = {`,
-        ...fields.map(field => `  ${camel(field[0])}: ${tsFieldExpr(field)},`),
-        '};',
-        `export interface ${name} extends PodValue<typeof ${layout}> {}`,
-        `export const [encode${name}, decode${name}] = /* @__PURE__ */ definePodRecord<${name}>(${layout});`,
-        '',
-      ];
-    }),
+    ...embeddedOrder.flatMap(([name]) => tsRecord(name, embeddedRecords[name].fields, true)),
+    ...methods.flatMap(([name]) => tsRecord(name, records[name].fields, false)),
   ].join('\n');
 
   const frameRanges = [];

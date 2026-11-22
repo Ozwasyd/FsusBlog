@@ -1067,41 +1067,37 @@ const adminModerationClaimRequestFields = {
 export interface AdminModerationClaimRequest extends PodValue<typeof adminModerationClaimRequestFields> {}
 export const [encodeAdminModerationClaimRequest, decodeAdminModerationClaimRequest] = /* @__PURE__ */ definePodRecord<AdminModerationClaimRequest>(adminModerationClaimRequestFields);
 
-const adminModerationClaimFields = {
-  articleId: podField.i32,
-  commentId: podField.i64,
+const _groupAdminModerationClaimWitness = {
   commentVersion: podField.i64,
   claimToken: podField.text(WireLimits.AdminModerationClaimTokenBytes),
   claimGeneration: podField.i64,
   claimVersion: podField.i64,
+};
+const adminModerationClaimFields = {
+  articleId: podField.i32,
+  commentId: podField.i64,
+  ..._groupAdminModerationClaimWitness,
   expiresAt: podField.i64,
 };
 export interface AdminModerationClaim extends PodValue<typeof adminModerationClaimFields> {}
 export const [encodeAdminModerationClaim, decodeAdminModerationClaim] = /* @__PURE__ */ definePodRecord<AdminModerationClaim>(adminModerationClaimFields);
 
-const adminModerationDecisionFields = {
+const _groupAdminModerationIntentFields = {
   articleId: podField.i32,
   commentId: podField.i64,
   expectedStatus: podField.i32,
   decision: podField.i32,
   reason: podField.text(WireLimits.AdminModerationReasonBytes),
-  commentVersion: podField.i64,
-  claimToken: podField.text(WireLimits.AdminModerationClaimTokenBytes),
-  claimGeneration: podField.i64,
-  claimVersion: podField.i64,
+};
+const adminModerationDecisionFields = {
+  ..._groupAdminModerationIntentFields,
+  ..._groupAdminModerationClaimWitness,
 };
 export interface AdminModerationDecision extends PodValue<typeof adminModerationDecisionFields> {}
 export const [encodeAdminModerationDecision, decodeAdminModerationDecision] = /* @__PURE__ */ definePodRecord<AdminModerationDecision>(adminModerationDecisionFields);
 
-const adminModerationIntentFields = {
-  articleId: podField.i32,
-  commentId: podField.i64,
-  expectedStatus: podField.i32,
-  decision: podField.i32,
-  reason: podField.text(WireLimits.AdminModerationReasonBytes),
-};
-export interface AdminModerationIntent extends PodValue<typeof adminModerationIntentFields> {}
-export const [encodeAdminModerationIntent, decodeAdminModerationIntent] = /* @__PURE__ */ definePodRecord<AdminModerationIntent>(adminModerationIntentFields);
+export interface AdminModerationIntent extends PodValue<typeof _groupAdminModerationIntentFields> {}
+export const [encodeAdminModerationIntent, decodeAdminModerationIntent] = /* @__PURE__ */ definePodRecord<AdminModerationIntent>(_groupAdminModerationIntentFields);
 
 const adminSessionSnapshotFields = {
   handle: podField.text(WireLimits.NameBytes),
@@ -1230,7 +1226,7 @@ const adminHandleReceiptFields = {
 export interface AdminHandleReceipt extends PodValue<typeof adminHandleReceiptFields> {}
 export const [encodeAdminHandleReceipt, decodeAdminHandleReceipt] = /* @__PURE__ */ definePodRecord<AdminHandleReceipt>(adminHandleReceiptFields);
 
-const adminArticleRollbackIntentFields = {
+const _groupAdminArticleRollbackIntentFields = {
   articleId: podField.i32,
   expectedRevision: podField.i64,
   expectedPublicationId: podField.i64,
@@ -1238,8 +1234,8 @@ const adminArticleRollbackIntentFields = {
   idempotencyKey: podField.uuid,
   reason: podField.text(WireLimits.RollbackReasonBytes),
 };
-export interface AdminArticleRollbackIntent extends PodValue<typeof adminArticleRollbackIntentFields> {}
-export const [encodeAdminArticleRollbackIntent, decodeAdminArticleRollbackIntent] = /* @__PURE__ */ definePodRecord<AdminArticleRollbackIntent>(adminArticleRollbackIntentFields);
+export interface AdminArticleRollbackIntent extends PodValue<typeof _groupAdminArticleRollbackIntentFields> {}
+export const [encodeAdminArticleRollbackIntent, decodeAdminArticleRollbackIntent] = /* @__PURE__ */ definePodRecord<AdminArticleRollbackIntent>(_groupAdminArticleRollbackIntentFields);
 
 const adminArticleRollbackPreviewFields = {
   articleId: podField.i32,
@@ -1269,12 +1265,7 @@ export interface AdminArticleRollbackReceipt extends PodValue<typeof adminArticl
 export const [encodeAdminArticleRollbackReceipt, decodeAdminArticleRollbackReceipt] = /* @__PURE__ */ definePodRecord<AdminArticleRollbackReceipt>(adminArticleRollbackReceiptFields);
 
 const adminArticleDraftRollbackIntentFields = {
-  articleId: podField.i32,
-  expectedRevision: podField.i64,
-  expectedPublicationId: podField.i64,
-  sourceRevision: podField.i64,
-  idempotencyKey: podField.uuid,
-  reason: podField.text(WireLimits.RollbackReasonBytes),
+  ..._groupAdminArticleRollbackIntentFields,
   targetStatus: podField.i32,
 };
 export interface AdminArticleDraftRollbackIntent extends PodValue<typeof adminArticleDraftRollbackIntentFields> {}
@@ -1347,21 +1338,21 @@ const adminArticleTrashRestoreReceiptFields = {
 export interface AdminArticleTrashRestoreReceipt extends PodValue<typeof adminArticleTrashRestoreReceiptFields> {}
 export const [encodeAdminArticleTrashRestoreReceipt, decodeAdminArticleTrashRestoreReceipt] = /* @__PURE__ */ definePodRecord<AdminArticleTrashRestoreReceipt>(adminArticleTrashRestoreReceiptFields);
 
-const adminArticleTrashPublicationPreviewFields = {
+const _groupAdminArticleTrashPublicationCoordinates = {
   articleId: podField.i32,
   expectedRevision: podField.i64,
   sourceRevision: podField.i64,
   sourcePublicationId: podField.i64,
+};
+const adminArticleTrashPublicationPreviewFields = {
+  ..._groupAdminArticleTrashPublicationCoordinates,
   title: podField.text(WireLimits.TitleBytes),
 };
 export interface AdminArticleTrashPublicationPreview extends PodValue<typeof adminArticleTrashPublicationPreviewFields> {}
 export const [encodeAdminArticleTrashPublicationPreview, decodeAdminArticleTrashPublicationPreview] = /* @__PURE__ */ definePodRecord<AdminArticleTrashPublicationPreview>(adminArticleTrashPublicationPreviewFields);
 
 const adminArticleTrashPublicationIntentFields = {
-  articleId: podField.i32,
-  expectedRevision: podField.i64,
-  sourceRevision: podField.i64,
-  sourcePublicationId: podField.i64,
+  ..._groupAdminArticleTrashPublicationCoordinates,
   idempotencyKey: podField.uuid,
   reason: podField.text(WireLimits.RollbackReasonBytes),
 };
@@ -1402,10 +1393,7 @@ const adminSitePagePublishFields = {
 export interface AdminSitePagePublish extends PodValue<typeof adminSitePagePublishFields> {}
 export const [encodeAdminSitePagePublish, decodeAdminSitePagePublish] = /* @__PURE__ */ definePodRecord<AdminSitePagePublish>(adminSitePagePublishFields);
 
-const adminSiteConfigStateFields = {
-  revision: podField.i64,
-  digest: podField.text(WireLimits.AdminSiteConfigDigestBytes),
-  origin: podField.text(WireLimits.SiteConfigUrlBytes),
+const _groupAdminSiteConfigFields = {
   title: podField.text(WireLimits.SiteConfigTitleBytes),
   description: podField.text(WireLimits.SiteConfigDescriptionBytes),
   author: podField.text(WireLimits.SiteConfigAuthorBytes),
@@ -1438,6 +1426,12 @@ const adminSiteConfigStateFields = {
   policeBadgeIconUrl: podField.text(WireLimits.SiteConfigUrlBytes),
   operatorName: podField.text(WireLimits.SiteConfigShortTextBytes),
   contactEmail: podField.text(WireLimits.SiteConfigShortTextBytes),
+};
+const adminSiteConfigStateFields = {
+  revision: podField.i64,
+  digest: podField.text(WireLimits.AdminSiteConfigDigestBytes),
+  origin: podField.text(WireLimits.SiteConfigUrlBytes),
+  ..._groupAdminSiteConfigFields,
 };
 export interface AdminSiteConfigState extends PodValue<typeof adminSiteConfigStateFields> {}
 export const [encodeAdminSiteConfigState, decodeAdminSiteConfigState] = /* @__PURE__ */ definePodRecord<AdminSiteConfigState>(adminSiteConfigStateFields);
@@ -1445,43 +1439,12 @@ export const [encodeAdminSiteConfigState, decodeAdminSiteConfigState] = /* @__PU
 const adminSiteConfigCommandFields = {
   expectedRevision: podField.i64,
   expectedDigest: podField.text(WireLimits.AdminSiteConfigDigestBytes),
-  title: podField.text(WireLimits.SiteConfigTitleBytes),
-  description: podField.text(WireLimits.SiteConfigDescriptionBytes),
-  author: podField.text(WireLimits.SiteConfigAuthorBytes),
-  ogImage: podField.text(WireLimits.SiteConfigUrlBytes),
-  faviconSvgUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  faviconIcoUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  faviconPngUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  appleTouchIconUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  manifestName: podField.text(WireLimits.SiteConfigShortTextBytes),
-  manifestShortName: podField.text(WireLimits.SiteConfigShortTextBytes),
-  pwaIcon192Url: podField.text(WireLimits.SiteConfigUrlBytes),
-  pwaIcon512Url: podField.text(WireLimits.SiteConfigUrlBytes),
-  pwaMaskableIconUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  themeColor: podField.text(WireLimits.SiteConfigColorBytes),
-  backgroundColor: podField.text(WireLimits.SiteConfigColorBytes),
-  siteLogoUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  siteLogoDarkUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  siteWordmarkUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  complianceEnabled: podField.bool,
-  regionMode: podField.text(WireLimits.SiteConfigRegionBytes),
-  copyrightStartYear: podField.i32,
-  copyrightOwner: podField.text(WireLimits.SiteConfigShortTextBytes),
-  copyrightText: podField.text(WireLimits.SiteConfigCopyrightTextBytes),
-  contentLicenseName: podField.text(WireLimits.SiteConfigShortTextBytes),
-  contentLicenseUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  icpRecordNumber: podField.text(WireLimits.SiteConfigRecordNumberBytes),
-  icpRecordUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  policeRecordNumber: podField.text(WireLimits.SiteConfigRecordNumberBytes),
-  policeRecordUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  policeBadgeIconUrl: podField.text(WireLimits.SiteConfigUrlBytes),
-  operatorName: podField.text(WireLimits.SiteConfigShortTextBytes),
-  contactEmail: podField.text(WireLimits.SiteConfigShortTextBytes),
+  ..._groupAdminSiteConfigFields,
 };
 export interface AdminSiteConfigCommand extends PodValue<typeof adminSiteConfigCommandFields> {}
 export const [encodeAdminSiteConfigCommand, decodeAdminSiteConfigCommand] = /* @__PURE__ */ definePodRecord<AdminSiteConfigCommand>(adminSiteConfigCommandFields);
 
-const authoringWorkspaceSnapshotFields = {
+const _groupAuthoringWorkspaceSnapshotBase = {
   schemaVersion: podField.i32,
   revision: podField.i64,
   updatedAtUnixMs: podField.i64,
@@ -1489,64 +1452,48 @@ const authoringWorkspaceSnapshotFields = {
   tabs: podField.i32s(WireLimits.AuthoringWorkspaceTabs),
   skipped: podField.i32,
 };
-export interface AuthoringWorkspaceSnapshot extends PodValue<typeof authoringWorkspaceSnapshotFields> {}
-export const [encodeAuthoringWorkspaceSnapshot, decodeAuthoringWorkspaceSnapshot] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceSnapshot>(authoringWorkspaceSnapshotFields);
+export interface AuthoringWorkspaceSnapshot extends PodValue<typeof _groupAuthoringWorkspaceSnapshotBase> {}
+export const [encodeAuthoringWorkspaceSnapshot, decodeAuthoringWorkspaceSnapshot] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceSnapshot>(_groupAuthoringWorkspaceSnapshotBase);
 
-const authoringWorkspaceCommandFields = {
+const _groupAuthoringWorkspaceCommandBase = {
   schemaVersion: podField.i32,
   expectedRevision: podField.i64,
   activeArticleId: podField.i32,
   tabs: podField.i32s(WireLimits.AuthoringWorkspaceTabs),
 };
-export interface AuthoringWorkspaceCommand extends PodValue<typeof authoringWorkspaceCommandFields> {}
-export const [encodeAuthoringWorkspaceCommand, decodeAuthoringWorkspaceCommand] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceCommand>(authoringWorkspaceCommandFields);
+export interface AuthoringWorkspaceCommand extends PodValue<typeof _groupAuthoringWorkspaceCommandBase> {}
+export const [encodeAuthoringWorkspaceCommand, decodeAuthoringWorkspaceCommand] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceCommand>(_groupAuthoringWorkspaceCommandBase);
 
 const authoringWorkspaceLayoutFields = {
-  schemaVersion: podField.i32,
-  revision: podField.i64,
-  updatedAtUnixMs: podField.i64,
-  activeArticleId: podField.i32,
-  tabs: podField.i32s(WireLimits.AuthoringWorkspaceTabs),
-  skipped: podField.i32,
+  ..._groupAuthoringWorkspaceSnapshotBase,
   inspectorOpen: podField.bool,
 };
 export interface AuthoringWorkspaceLayout extends PodValue<typeof authoringWorkspaceLayoutFields> {}
 export const [encodeAuthoringWorkspaceLayout, decodeAuthoringWorkspaceLayout] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceLayout>(authoringWorkspaceLayoutFields);
 
 const authoringWorkspaceLayoutCommandFields = {
-  schemaVersion: podField.i32,
-  expectedRevision: podField.i64,
-  activeArticleId: podField.i32,
-  tabs: podField.i32s(WireLimits.AuthoringWorkspaceTabs),
+  ..._groupAuthoringWorkspaceCommandBase,
   inspectorOpen: podField.bool,
 };
 export interface AuthoringWorkspaceLayoutCommand extends PodValue<typeof authoringWorkspaceLayoutCommandFields> {}
 export const [encodeAuthoringWorkspaceLayoutCommand, decodeAuthoringWorkspaceLayoutCommand] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceLayoutCommand>(authoringWorkspaceLayoutCommandFields);
 
-const authoringWorkspaceGroupsFields = {
-  schemaVersion: podField.i32,
-  revision: podField.i64,
-  updatedAtUnixMs: podField.i64,
-  activeArticleId: podField.i32,
-  tabs: podField.i32s(WireLimits.AuthoringWorkspaceTabs),
-  skipped: podField.i32,
+const _groupAuthoringWorkspaceGroupPresentation = {
   inspectorOpen: podField.bool,
   secondaryActiveArticleId: podField.i32,
   secondaryTabs: podField.i32s(WireLimits.AuthoringWorkspaceTabs),
   focusedGroup: podField.i32,
 };
+const authoringWorkspaceGroupsFields = {
+  ..._groupAuthoringWorkspaceSnapshotBase,
+  ..._groupAuthoringWorkspaceGroupPresentation,
+};
 export interface AuthoringWorkspaceGroups extends PodValue<typeof authoringWorkspaceGroupsFields> {}
 export const [encodeAuthoringWorkspaceGroups, decodeAuthoringWorkspaceGroups] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceGroups>(authoringWorkspaceGroupsFields);
 
 const authoringWorkspaceGroupsCommandFields = {
-  schemaVersion: podField.i32,
-  expectedRevision: podField.i64,
-  activeArticleId: podField.i32,
-  tabs: podField.i32s(WireLimits.AuthoringWorkspaceTabs),
-  inspectorOpen: podField.bool,
-  secondaryActiveArticleId: podField.i32,
-  secondaryTabs: podField.i32s(WireLimits.AuthoringWorkspaceTabs),
-  focusedGroup: podField.i32,
+  ..._groupAuthoringWorkspaceCommandBase,
+  ..._groupAuthoringWorkspaceGroupPresentation,
 };
 export interface AuthoringWorkspaceGroupsCommand extends PodValue<typeof authoringWorkspaceGroupsCommandFields> {}
 export const [encodeAuthoringWorkspaceGroupsCommand, decodeAuthoringWorkspaceGroupsCommand] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceGroupsCommand>(authoringWorkspaceGroupsCommandFields);
@@ -1688,10 +1635,13 @@ const draftTaxonomyFields = {
 export interface DraftTaxonomy extends PodValue<typeof draftTaxonomyFields> {}
 export const [encodeDraftTaxonomy, decodeDraftTaxonomy] = /* @__PURE__ */ definePodRecord<DraftTaxonomy>(draftTaxonomyFields);
 
-const taxonomyAssignmentFields = {
+const _groupArticleMutationIdentity = {
   id: podField.i32,
   expectedRevision: podField.i64,
   idempotencyKey: podField.uuid,
+};
+const taxonomyAssignmentFields = {
+  ..._groupArticleMutationIdentity,
   categoryId: podField.i32,
   tagIds: podField.i32s(WireLimits.TaxonomyTagCount),
 };
@@ -1732,10 +1682,7 @@ const draftRollbackFields = {
 export interface DraftRollback extends PodValue<typeof draftRollbackFields> {}
 export const [encodeDraftRollback, decodeDraftRollback] = /* @__PURE__ */ definePodRecord<DraftRollback>(draftRollbackFields);
 
-const articleRightsPolicyFields = {
-  id: podField.i32,
-  revision: podField.i64,
-  present: podField.bool,
+const _groupArticleRightsSettings = {
   enabled: podField.bool,
   licenseType: podField.text(WireLimits.ArticleRightsTokenBytes),
   copyrightHolder: podField.text(WireLimits.ArticleRightsHolderBytes),
@@ -1748,24 +1695,18 @@ const articleRightsPolicyFields = {
   showPublicBadge: podField.bool,
   proofBindingEnabled: podField.bool,
 };
+const articleRightsPolicyFields = {
+  id: podField.i32,
+  revision: podField.i64,
+  present: podField.bool,
+  ..._groupArticleRightsSettings,
+};
 export interface ArticleRightsPolicy extends PodValue<typeof articleRightsPolicyFields> {}
 export const [encodeArticleRightsPolicy, decodeArticleRightsPolicy] = /* @__PURE__ */ definePodRecord<ArticleRightsPolicy>(articleRightsPolicyFields);
 
 const articleRightsCommandFields = {
-  id: podField.i32,
-  expectedRevision: podField.i64,
-  idempotencyKey: podField.uuid,
-  enabled: podField.bool,
-  licenseType: podField.text(WireLimits.ArticleRightsTokenBytes),
-  copyrightHolder: podField.text(WireLimits.ArticleRightsHolderBytes),
-  copyrightYear: podField.i32,
-  rightsStatement: podField.text(WireLimits.ArticleRightsTextBytes),
-  attributionTemplate: podField.text(WireLimits.ArticleRightsTextBytes),
-  copyPolicy: podField.text(WireLimits.ArticleRightsTokenBytes),
-  maxExcerptChars: podField.i32,
-  allowCodeCopy: podField.bool,
-  showPublicBadge: podField.bool,
-  proofBindingEnabled: podField.bool,
+  ..._groupArticleMutationIdentity,
+  ..._groupArticleRightsSettings,
 };
 export interface ArticleRightsCommand extends PodValue<typeof articleRightsCommandFields> {}
 export const [encodeArticleRightsCommand, decodeArticleRightsCommand] = /* @__PURE__ */ definePodRecord<ArticleRightsCommand>(articleRightsCommandFields);
@@ -1780,9 +1721,7 @@ export interface ArticleSchedule extends PodValue<typeof articleScheduleFields> 
 export const [encodeArticleSchedule, decodeArticleSchedule] = /* @__PURE__ */ definePodRecord<ArticleSchedule>(articleScheduleFields);
 
 const articleScheduleCommandFields = {
-  id: podField.i32,
-  expectedRevision: podField.i64,
-  idempotencyKey: podField.uuid,
+  ..._groupArticleMutationIdentity,
   dueUnixMs: podField.i64,
 };
 export interface ArticleScheduleCommand extends PodValue<typeof articleScheduleCommandFields> {}
@@ -1801,9 +1740,7 @@ export interface RevisionComparison extends PodValue<typeof revisionComparisonFi
 export const [encodeRevisionComparison, decodeRevisionComparison] = /* @__PURE__ */ definePodRecord<RevisionComparison>(revisionComparisonFields);
 
 const articleCommandFields = {
-  id: podField.i32,
-  expectedRevision: podField.i64,
-  idempotencyKey: podField.uuid,
+  ..._groupArticleMutationIdentity,
   title: podField.text(WireLimits.TitleBytes),
   body: podField.text(WireLimits.BodyBytes),
 };
@@ -1811,9 +1748,7 @@ export interface ArticleCommand extends PodValue<typeof articleCommandFields> {}
 export const [encodeArticleCommand, decodeArticleCommand] = /* @__PURE__ */ definePodRecord<ArticleCommand>(articleCommandFields);
 
 const articleBodyInsertionCommandFields = {
-  id: podField.i32,
-  expectedRevision: podField.i64,
-  idempotencyKey: podField.uuid,
+  ..._groupArticleMutationIdentity,
   title: podField.text(WireLimits.TitleBytes),
   body: podField.text(WireLimits.BodyBytes),
   offset: podField.i32,
@@ -1894,12 +1829,15 @@ const canvasLinkedFields = {
 export interface CanvasLinked extends PodValue<typeof canvasLinkedFields> {}
 export const [encodeCanvasLinked, decodeCanvasLinked] = /* @__PURE__ */ definePodRecord<CanvasLinked>(canvasLinkedFields);
 
-const propertyDefinitionCommandFields = {
-  operation: podField.i32,
+const _groupPropertyDefinitionMutationIdentity = {
   definitionId: podField.uuid,
   requestId: podField.uuid,
   schemaRevision: podField.i64,
   definitionRevision: podField.i64,
+};
+const propertyDefinitionCommandFields = {
+  operation: podField.i32,
+  ..._groupPropertyDefinitionMutationIdentity,
   machineKey: podField.text(WireLimits.PropertyKeyBytes),
   label: podField.text(WireLimits.PropertyLabelBytes),
 };
@@ -1917,20 +1855,14 @@ export interface PropertyWorkspaceRequest extends PodValue<typeof propertyWorksp
 export const [encodePropertyWorkspaceRequest, decodePropertyWorkspaceRequest] = /* @__PURE__ */ definePodRecord<PropertyWorkspaceRequest>(propertyWorkspaceRequestFields);
 
 const propertyFilterabilityCommandFields = {
-  definitionId: podField.uuid,
-  requestId: podField.uuid,
-  schemaRevision: podField.i64,
-  definitionRevision: podField.i64,
+  ..._groupPropertyDefinitionMutationIdentity,
   enabled: podField.bool,
 };
 export interface PropertyFilterabilityCommand extends PodValue<typeof propertyFilterabilityCommandFields> {}
 export const [encodePropertyFilterabilityCommand, decodePropertyFilterabilityCommand] = /* @__PURE__ */ definePodRecord<PropertyFilterabilityCommand>(propertyFilterabilityCommandFields);
 
 const propertyDefinitionProjectionCommandFields = {
-  definitionId: podField.uuid,
-  requestId: podField.uuid,
-  schemaRevision: podField.i64,
-  definitionRevision: podField.i64,
+  ..._groupPropertyDefinitionMutationIdentity,
   searchEligible: podField.bool,
   sortable: podField.bool,
 };
