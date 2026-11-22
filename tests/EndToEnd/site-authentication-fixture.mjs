@@ -7,6 +7,7 @@ import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const { chromium, expect, request } = requireWebPackage('@playwright/test')
 export { expect, request, button }
+export { addAuthenticator, enableAuthenticator } from './webauthn-fixture.mjs'
 
 export function readTlsIdentityFixture(peerTicket, probe, error) {
   const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
@@ -29,20 +30,6 @@ export function readTlsPublicationFixture(error) {
 export function launchIdentityBrowser(pins) {
   return chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true,
     args: pins ? [`--ignore-certificate-errors-spki-list=${pins}`] : undefined })
-}
-
-export function addAuthenticator(cdp) {
-  return cdp.send('WebAuthn.addVirtualAuthenticator', { options: {
-    protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
-    isUserVerified: true, automaticPresenceSimulation: true,
-  } })
-}
-
-export async function enableAuthenticator(context, page) {
-  const cdp = await context.newCDPSession(page)
-  await cdp.send('WebAuthn.enable')
-  const { authenticatorId } = await addAuthenticator(cdp)
-  return { cdp, authenticatorId }
 }
 
 export function recordIdentityResponse(origin, role, responses, faults) {

@@ -23,6 +23,7 @@ import {
   encodeAdminModerationIntent, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { enableAuthenticator } from './webauthn-fixture.mjs'
 
 const { chromium, request } = requireWebPackage('@playwright/test')
 const adminUrl = process.env.FSUSBLOG_TEST_ADMIN_URL
@@ -105,12 +106,7 @@ try {
   const site = await context.newPage()
   const admin = await context.newPage()
   for (const page of [site, admin]) page.on('pageerror', () => faults.push({ kind: 'uncaught-page-error' }))
-  const authenticator = await context.newCDPSession(admin)
-  await authenticator.send('WebAuthn.enable')
-  await authenticator.send('WebAuthn.addVirtualAuthenticator', { options: {
-    protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
-    isUserVerified: true, automaticPresenceSimulation: true,
-  } })
+  await enableAuthenticator(context, admin)
 
   const rejectedSiteTicket = await context.request.post(adminOrigin.origin + bootstrapBegin, {
     headers: { [WireHeaders.AdminBootstrapToken]: siteTicket },

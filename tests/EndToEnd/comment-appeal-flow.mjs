@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { enableAuthenticator } from './webauthn-fixture.mjs'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 
@@ -32,12 +33,7 @@ export async function verifyCommentAppeal({ page, context, siteOrigin, adminOrig
     await original.getByRole('button', { name: 'Load appeal queue', exact: true }).click()
     await original.getByText('No appeals are waiting for your review.', { exact: true }).waitFor()
     const second = await independent.newPage()
-    const webauthn = await independent.newCDPSession(second)
-    await webauthn.send('WebAuthn.enable')
-    await webauthn.send('WebAuthn.addVirtualAuthenticator', { options: {
-      protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true,
-      isUserVerified: true, automaticPresenceSimulation: true,
-    } })
+    await enableAuthenticator(independent, second)
     await second.goto(adminOrigin + '/admin/identity')
     await second.getByRole('button', { name: 'Set up administrator Passkey', exact: true }).click()
     await second.getByLabel('One-time administrator bootstrap key', { exact: true }).fill(reviewerTicket)
