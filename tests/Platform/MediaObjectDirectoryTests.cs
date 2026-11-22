@@ -8,7 +8,7 @@ public sealed class MediaObjectDirectoryTests
     public async Task EnforcesExclusiveLockPermissionsDigestSymlinksAndCancellation()
     {
         if (OperatingSystem.IsWindows() || !NativeUnixFile.Supported) return;
-        using var scratch = new Scratch();
+        using var scratch = new PlatformScratchDirectory("fsus-media-dir-");
         var root = Directory.CreateDirectory(Path.Combine(scratch.FullName, "media"));
         var sibling = Directory.CreateDirectory(Path.Combine(scratch.FullName, "web"));
         File.SetUnixFileMode(root.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
@@ -63,20 +63,5 @@ public sealed class MediaObjectDirectoryTests
         // After Dispose releases the flock, reopening succeeds
         using var reopened = new MediaObjectDirectory(root.FullName, 1024, [sibling.FullName]);
         Assert.Equal(root.FullName, reopened.Root);
-    }
-
-    private sealed class Scratch : IDisposable
-    {
-        public string FullName { get; }
-
-        public Scratch()
-        {
-            var root = Directory.CreateTempSubdirectory("fsus-media-dir-");
-            FullName = OperatingSystem.IsMacOS() && root.FullName.StartsWith("/var/", StringComparison.Ordinal)
-                ? "/private" + root.FullName
-                : root.FullName;
-        }
-
-        public void Dispose() => Directory.Delete(FullName, recursive: true);
     }
 }

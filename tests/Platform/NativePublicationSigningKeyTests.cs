@@ -8,7 +8,7 @@ public sealed class NativePublicationSigningKeyTests
     public void OpensPrivateKeyOnlyWhenOwned0700Directory0400RegularFileAndMatchingPublicKey()
     {
         if (OperatingSystem.IsWindows() || !NativeUnixFile.Supported) return;
-        using var scratch = new Scratch();
+        using var scratch = new PlatformScratchDirectory("fsus-signing-key-");
         using var generated = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var other = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var expectedSpki = generated.ExportSubjectPublicKeyInfo();
@@ -54,20 +54,5 @@ public sealed class NativePublicationSigningKeyTests
             UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
             UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
         Assert.Throws<InvalidOperationException>(() => NativePublicationSigningKey.Open(keyFile, expectedSpki));
-    }
-
-    private sealed class Scratch : IDisposable
-    {
-        public string FullName { get; }
-
-        public Scratch()
-        {
-            var root = Directory.CreateTempSubdirectory("fsus-signing-key-");
-            FullName = OperatingSystem.IsMacOS() && root.FullName.StartsWith("/var/", StringComparison.Ordinal)
-                ? "/private" + root.FullName
-                : root.FullName;
-        }
-
-        public void Dispose() => Directory.Delete(FullName, recursive: true);
     }
 }

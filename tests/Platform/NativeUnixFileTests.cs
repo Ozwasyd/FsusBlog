@@ -9,7 +9,7 @@ public sealed class NativeUnixFileTests
     public void RefusesLinksAndKeepsAnAlreadyOpenedDirectory()
     {
         if (OperatingSystem.IsWindows() || !NativeUnixFile.Supported) return;
-        using var scratch = TemporaryDirectory();
+        using var scratch = new PlatformScratchDirectory("fsus-native-file-");
         var published = Directory.CreateDirectory(Path.Combine(scratch.FullName, "publish"));
         var input = Path.Combine(published.FullName, "input");
         File.WriteAllText(input, "first");
@@ -38,7 +38,7 @@ public sealed class NativeUnixFileTests
     public void InspectsTypeAndPermissionsEvenWhenThePathChanges()
     {
         if (OperatingSystem.IsWindows() || !NativeUnixFile.Supported) return;
-        using var scratch = TemporaryDirectory();
+        using var scratch = new PlatformScratchDirectory("fsus-native-file-");
         var input = Path.Combine(scratch.FullName, "input");
         File.WriteAllText(input, "original");
         File.SetUnixFileMode(input, UnixFileMode.UserRead);
@@ -55,18 +55,6 @@ public sealed class NativeUnixFileTests
         using var special = NativeUnixFile.OpenFile(directory, pipe, NativeUnixFile.FileReadFlags, out _);
         Assert.NotNull(special);
         Assert.False(NativeUnixFile.IsRegular(special));
-    }
-
-    private static Scratch TemporaryDirectory()
-    {
-        var root = Directory.CreateTempSubdirectory("fsus-native-file-");
-        return new(OperatingSystem.IsMacOS() && root.FullName.StartsWith("/var/", StringComparison.Ordinal)
-            ? "/private" + root.FullName : root.FullName);
-    }
-
-    private sealed record Scratch(string FullName) : IDisposable
-    {
-        public void Dispose() => Directory.Delete(FullName, recursive: true);
     }
 
     [DllImport("libc", EntryPoint = "mkfifo", SetLastError = true)]
