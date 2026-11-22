@@ -293,7 +293,8 @@ public sealed class MarkdownExportPostgresTests
         var reader = (await fixture.SignIn("PDF reader", ct, canAuthor: false)).Token;
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
 
-        using (var shell = await server.Client.GetAsync("/user/manage/article/write", ct))
+        using (var request = SiteAedsFixture.AdminRequest(HttpMethod.Get, "/admin/articles/write", owner))
+        using (var shell = await server.Client.SendAsync(request, ct))
         {
             shell.EnsureSuccessStatusCode();
             Assert.Contains("name=\"fsus-pdf-export\"", await shell.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
