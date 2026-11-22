@@ -36,7 +36,7 @@ internal static class MediaEndpoints
             var more = rows.Count == 51;
             if (resumable) ctx.Response.Headers[WireHeaders.PrivateMediaResumable] = "1";
             if (lease.WebpMedia) ctx.Response.Headers[WireHeaders.PrivateMediaWebp] = "1";
-            return Results.Bytes(Wire.EncodePrivateMedia(rows.Take(50).Select(Contract).ToArray(), more), Aeds.ContentType);
+            return ServerHttp.Frame(Wire.EncodePrivateMedia(rows.Take(50).Select(Contract).ToArray(), more));
         });
 
         app.MapPost(WireRoutes.PrivateMediaUpload, async (HttpContext ctx, Store store, MediaStore media, InstanceLease lease, CancellationToken token) =>
@@ -57,7 +57,7 @@ internal static class MediaEndpoints
                     (db, tx, actor) => media.Reserve(db, tx, actor.Id, key, image, deadline.Token), deadline.Token);
                 var record = await store.WithSession(session, true,
                     (db, tx, actor) => media.Activate(db, tx, actor.Id, id, image, deadline.Token), deadline.Token);
-                return Results.Bytes(Wire.EncodePrivateMedia([Contract(record)]), Aeds.ContentType);
+                return ServerHttp.Frame(Wire.EncodePrivateMedia([Contract(record)]));
             }
             catch (OperationCanceledException) when (!token.IsCancellationRequested)
             {
@@ -77,7 +77,7 @@ internal static class MediaEndpoints
                 await media.FinishRemoval(db, tx, actor.Id, asset, token);
                 return true;
             }, token);
-            return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
+            return ServerHttp.EmptyFrame();
         });
 
         app.MapMethods(WireRoutes.PrivateMediaRead, [HttpMethods.Get, HttpMethods.Head], async (

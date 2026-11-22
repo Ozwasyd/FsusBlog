@@ -60,7 +60,7 @@ internal static class AuthoringWorkspaceEndpoints
                         snapshot.ActiveArticleId, snapshot.Tabs, snapshot.Skipped, snapshot.InspectorOpen)),
                     _ => Wire.EncodeAuthoringWorkspaceGroups(snapshot)
                 };
-                return Results.Bytes(frame, Aeds.ContentType);
+                return ServerHttp.Frame(frame);
             }, ct);
         }
     }

@@ -40,7 +40,7 @@ internal static class AuthorRecentOpenEndpoints
                 if (!await CurrentSchema.HasAuthorRecentOpensAsync(db, tx, ct))
                     throw new BusinessException(Rejection.NotFound, "Recent opens are unavailable.");
                 var site = await CurrentSchema.ReadRecoverySiteIdAsync(db, tx, ct);
-                return Results.Bytes(await process(db, tx, site, actor.Id, session), Aeds.ContentType);
+                return ServerHttp.Frame(await process(db, tx, site, actor.Id, session));
             }, ct);
         }
     }

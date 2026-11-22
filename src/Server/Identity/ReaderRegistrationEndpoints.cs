@@ -20,7 +20,7 @@ internal static class ReaderRegistrationEndpoints
         {
             NoStore(ctx);
             requireHost(ctx);
-            return Results.Bytes(acceptance, Aeds.ContentType);
+            return ServerHttp.Frame(acceptance);
         }).RequireRateLimiting("query");
         app.MapPost(Base + "/pow.aeds", (HttpContext ctx, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
@@ -53,7 +53,7 @@ internal static class ReaderRegistrationEndpoints
             var request = PasskeyWire.ReadProvision(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
             ctx.Response.Cookies.Delete(BrowserCookie, cookie(Base));
             await store.CompleteReaderRegistration(request, binding, ct);
-            return Results.Bytes(acceptance, Aeds.ContentType);
+            return ServerHttp.Frame(acceptance);
         }).RequireRateLimiting("reader-registration");
 
         void RequirePost(HttpContext ctx) { NoStore(ctx); requireOrigin(ctx); }

@@ -48,7 +48,7 @@ internal static class ArticleInventoryEndpoints
         };
         var page = await Read(db, tx, author, scope, state, keyword, summary, Number("category"), Number("tag"),
             Number("before"), Number("article"), ct);
-        return Results.Bytes(Wire.EncodeAuthorArticlePage(page), Aeds.ContentType);
+        return ServerHttp.Frame(Wire.EncodeAuthorArticlePage(page));
 
         int Number(string name)
         {

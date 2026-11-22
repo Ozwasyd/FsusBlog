@@ -30,7 +30,7 @@ internal static class ArticleMediaEndpoints
                     if (await CurrentSchema.HasPublicationCoverAsync(db, tx, ct))
                         ctx.Response.Headers[WireHeaders.ArticlePublishCoverEnabled] = "1";
                 }
-                return Results.Bytes(Wire.EncodeArticleMedia(id, revision, entries), Aeds.ContentType);
+                return ServerHttp.Frame(Wire.EncodeArticleMedia(id, revision, entries));
             }, ct);
         });
 
@@ -49,7 +49,7 @@ internal static class ArticleMediaEndpoints
                 SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(session)!,
                     MediaEndpoints.Only(ctx.Request.Headers[WireHeaders.CurrentSession], WireLimits.SiteSessionIdBytes));
                 var saved = await Store.SetPrivateAttachment(db, tx, actor, command, ct);
-                return Results.Bytes(Wire.EncodeDraft(new(saved.Id, saved.Revision, saved.Title, saved.Body, saved.PublishedRevision is not null)), Aeds.ContentType);
+                return ServerHttp.DraftResponse(saved);
             }, ct);
         });
 
@@ -66,7 +66,7 @@ internal static class ArticleMediaEndpoints
             return await SiteSessions.WithCurrentAuthor(store, ctx.Request.Cookies[cookie], SiteSessions.Requested(ctx), async (db, tx, actor, _) =>
             {
                 var saved = await Store.SetCover(db, tx, actor, command, ct);
-                return Results.Bytes(Wire.EncodeDraft(new(saved.Id, saved.Revision, saved.Title, saved.Body, saved.PublishedRevision is not null)), Aeds.ContentType);
+                return ServerHttp.DraftResponse(saved);
             }, ct);
         });
 

@@ -15,7 +15,7 @@ internal static class RecoveryScopeEndpoints
             {
                 FsusBlog.V2.Server.Sessions.SiteSessions.IfCurrent(actor.Id, token, expected);
                 var site = await CurrentSchema.ReadRecoverySiteIdAsync(db, tx, ct);
-                return Results.Bytes(Wire.EncodeDraftRecoveryScope(new(site, actor.Id)), Aeds.ContentType);
+                return ServerHttp.Frame(Wire.EncodeDraftRecoveryScope(new(site, actor.Id)));
             }, ct);
         });
     }

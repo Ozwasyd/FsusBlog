@@ -17,13 +17,12 @@ internal static class AdminCommentRevisions
                 var scope = result.Article == 0 ? "" : FormattableString.Invariant($"&articleId={result.Article}");
                 context.Response.Headers.Link = FormattableString.Invariant($"</api/binary/author/comments/{id}/revisions?before={version}{scope}>; rel=\"next\"");
             }
-            return Results.Bytes(result.Frame, Aeds.ContentType);
+            return ServerHttp.Frame(result.Frame);
         });
         app.MapCommandGet(WireRoutes.AdminCommentTimeline, async (long id, HttpContext context, CancellationToken ct) =>
         {
             context.Response.Headers.CacheControl = "no-store";
-            return Results.Bytes(await store.CommentTimeline(context.Request.Cookies[session], id, context.Request.Query, ct),
-                Aeds.ContentType);
+            return ServerHttp.Frame(await store.CommentTimeline(context.Request.Cookies[session], id, context.Request.Query, ct));
         });
     }
 

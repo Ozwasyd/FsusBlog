@@ -51,7 +51,7 @@ internal static class AuthorArticleEndpoints
             var result = await publications.Command(store, ctx.Request.Cookies[authorCookie], action, edit, ct,
                 SiteSessions.Requested(ctx), insertion, insertions, bodyEdits);
             return action == ArticleAction.Delete
-                ? Results.Bytes(Wire.EncodeEmptySuccess(), ServerHttp.BinaryContentType)
+                ? ServerHttp.EmptyFrame()
                 : ServerHttp.DraftResponse(result.Article);
         });
     }

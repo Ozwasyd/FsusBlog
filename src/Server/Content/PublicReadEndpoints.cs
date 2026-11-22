@@ -30,7 +30,7 @@ internal static class PublicReadEndpoints
             ServerHttp.RequireCurrentSnapshot(ctx, publications, snapshot);
             return frame is null
                 ? ServerHttp.Error(ctx, 404, "Article not found.", "article_not_found")
-                : Results.Bytes(frame, ServerHttp.BinaryContentType);
+                : ServerHttp.Frame(frame);
         }).RequireRateLimiting("query");
         app.MapGet(WireRoutes.PublicSearch, (HttpContext ctx) =>
         {
@@ -61,7 +61,7 @@ internal static class PublicReadEndpoints
             if (result is not { } hit) return ServerHttp.Error(ctx, 503, "The article search projection is unavailable.");
             var reportedTotal = paginated ? Math.Min(hit.Total, ArticleSearchIndex.MaxPaginatedResults) : hit.Total;
             ctx.Response.Headers[WireHeaders.SearchTotal] = reportedTotal.ToString(CultureInfo.InvariantCulture);
-            return Results.Bytes(hit.Bytes, ServerHttp.BinaryContentType);
+            return ServerHttp.Frame(hit.Bytes);
         }).RequireRateLimiting("query");
 
         if (capabilities.WideSearchCorpus)
@@ -83,7 +83,7 @@ internal static class PublicReadEndpoints
                 var ranking = hotArticles.Read(snapshot, count) ?? throw new PublicUnavailableException();
                 ServerHttp.RequireCurrentSnapshot(ctx, publications, snapshot);
                 ctx.Response.Headers.ETag = ranking.Tag;
-                return head ? Results.NoContent() : Results.Bytes(ranking.Bytes, ServerHttp.BinaryContentType);
+                return head ? Results.NoContent() : ServerHttp.Frame(ranking.Bytes);
             });
         }
 
@@ -99,7 +99,7 @@ internal static class PublicReadEndpoints
             ServerHttp.RequireCurrentSnapshot(ctx, publications, snapshot);
             ctx.Response.Headers[WireHeaders.SearchIndexPages] = snapshot.IndexPageCount.ToString(CultureInfo.InvariantCulture);
             return snapshot.Index(page is null ? 1 : int.Parse(page, CultureInfo.InvariantCulture)) is { } index
-                ? Results.Bytes(index, ServerHttp.BinaryContentType) : ServerHttp.Error(ctx, 404, "Index page not found.");
+                ? ServerHttp.Frame(index) : ServerHttp.Error(ctx, 404, "Index page not found.");
         });
 
         app.MapMethods(WireRoutes.PublicSearchCorpus, ReadMethods, (HttpContext ctx) =>

@@ -17,24 +17,24 @@ internal static class MfaEndpoints
         app.MapGet(WireRoutes.MfaProfile, async (HttpContext ctx, CancellationToken ct) =>
         {
             origin(ctx);
-            return Frame(await store.Profile(Session(ctx), ct));
+            return ServerHttp.Frame(await store.Profile(Session(ctx), ct));
         });
         post.Post(WireRoutes.PasskeyStepUpBegin, async (ctx, ct) =>
         {
             var action = MfaWire.ReadSingle(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaChallengeStartRequest, 64);
             if (action != MfaWire.Setup) throw Forbidden();
-            return Frame(await passkeys.BeginSetupProof(Session(ctx), ct));
+            return ServerHttp.Frame(await passkeys.BeginSetupProof(Session(ctx), ct));
         });
         post.Post(WireRoutes.PasskeyStepUpComplete, async (ctx, ct) =>
         {
             var request = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
-            return Frame(await passkeys.CompleteSetupProof(Session(ctx), request, ct));
+            return ServerHttp.Frame(await passkeys.CompleteSetupProof(Session(ctx), request, ct));
         });
 
         post.Post(WireRoutes.MfaSetupStart, async (ctx, ct) =>
         {
             if (Proof(ctx) is not { } proof) return Precondition(ctx);
-            try { return Frame(await store.BeginSetup(Session(ctx), proof, ct)); }
+            try { return ServerHttp.Frame(await store.BeginSetup(Session(ctx), proof, ct)); }
             catch (MfaProofRequiredException) { return Precondition(ctx); }
         });
         post.Post(WireRoutes.MfaSetupVerify, async (ctx, ct) =>
@@ -44,7 +44,7 @@ internal static class MfaEndpoints
             {
                 var (frame, token, expiry) = await store.CompleteSetup(Session(ctx), code, ct);
                 issueSession(ctx, new(token, expiry));
-                return Frame(frame);
+                return ServerHttp.Frame(frame);
             }
             catch (BusinessException error) when (error.Rejection == Rejection.Invalid)
             {
@@ -57,8 +57,8 @@ internal static class MfaEndpoints
             var action = MfaWire.ReadSingle(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaChallengeStartRequest, 64);
             return action switch
             {
-                MfaWire.Disable => Frame(await store.BeginDisable(Session(ctx), ct)),
-                MfaWire.Regenerate => Frame(await store.BeginRecoveryRegeneration(Session(ctx), ct, SiteSessions.Requested(ctx))),
+                MfaWire.Disable => ServerHttp.Frame(await store.BeginDisable(Session(ctx), ct)),
+                MfaWire.Regenerate => ServerHttp.Frame(await store.BeginRecoveryRegeneration(Session(ctx), ct, SiteSessions.Requested(ctx))),
                 _ => throw Forbidden()
             };
         });
@@ -66,14 +66,14 @@ internal static class MfaEndpoints
         {
             var attempt = MfaWire.ReadAttempt(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct));
             if (attempt.Action == MfaWire.Disable)
-                return Frame(await store.VerifyDisable(Session(ctx), attempt, ct));
+                return ServerHttp.Frame(await store.VerifyDisable(Session(ctx), attempt, ct));
             if (attempt.Action == MfaWire.Regenerate)
-                return Frame(await store.VerifyRecoveryRegeneration(Session(ctx), attempt, ct, SiteSessions.Requested(ctx)));
+                return ServerHttp.Frame(await store.VerifyRecoveryRegeneration(Session(ctx), attempt, ct, SiteSessions.Requested(ctx)));
             if (attempt.Action != MfaWire.Login) throw Forbidden();
             var (session, number) = await store.FinishLogin(attempt, ctx.Request.Cookies[LoginCookie], persistentEnabled, ct);
             ctx.Response.Cookies.Delete(LoginCookie, cookie(WireRoutes.MfaChallengeVerify));
             issueSession(ctx, session);
-            return Frame(MfaWire.EncodeChallenge(true, MfaWire.Login, account: number));
+            return ServerHttp.Frame(MfaWire.EncodeChallenge(true, MfaWire.Login, account: number));
         });
         post.Post(WireRoutes.MfaDisable, async (ctx, ct) =>
         {
@@ -82,7 +82,7 @@ internal static class MfaEndpoints
             {
                 var (token, expiry) = await store.Disable(Session(ctx), proof, ct);
                 issueSession(ctx, new(token, expiry));
-                return Frame(Wire.EncodeEmptySuccess());
+                return ServerHttp.EmptyFrame();
             }
             catch (MfaProofRequiredException) { return Precondition(ctx); }
         });
@@ -90,7 +90,7 @@ internal static class MfaEndpoints
         {
             if (ctx.Features.Get<IHttpRequestBodyDetectionFeature>() is { CanHaveBody: true })
                 throw new BusinessException(Rejection.Invalid, "This operation does not accept a body.");
-            try { return Frame(await store.RegenerateRecoveryCodes(Session(ctx), Proof(ctx), ct, SiteSessions.Requested(ctx))); }
+            try { return ServerHttp.Frame(await store.RegenerateRecoveryCodes(Session(ctx), Proof(ctx), ct, SiteSessions.Requested(ctx))); }
             catch (MfaProofRequiredException) { return Precondition(ctx); }
             catch (BusinessException error) when (error.Rejection == Rejection.Invalid)
             {
@@ -107,6 +107,6 @@ internal static class MfaEndpoints
         Error(ctx, StatusCodes.Status428PreconditionRequired, "ANONYMOUS_MFA_STEP_UP_REQUIRED");
     private static IResult Error(HttpContext ctx, int status, string message) =>
         new AedsError(status, Wire.EncodeError(status, message, traceId: ctx.TraceIdentifier));
-    private static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);
+
     private static BusinessException Forbidden() => new(Rejection.Forbidden, "This MFA action is not supported.");
 }

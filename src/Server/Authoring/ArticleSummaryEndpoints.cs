@@ -30,7 +30,7 @@ internal static class ArticleSummaryEndpoints
                 if (selected != revision) SiteSessions.RequireCurrent(actor.Id, digest, expected);
                 return Wire.EncodeArticleSummary(new(id, selected, text));
             }, ct);
-            return Results.Bytes(frame, Aeds.ContentType);
+            return ServerHttp.Frame(frame);
         });
 
         app.MapCommandPost(WireRoutes.ArticleSummarySave, async (HttpContext context, Store store, CancellationToken ct) =>
@@ -44,7 +44,7 @@ internal static class ArticleSummaryEndpoints
                 var saved = await Store.SetSummary(db, tx, actor, input, ct);
                 return Wire.EncodeDraft(new(saved.Id, saved.Revision, saved.Title, saved.Body, saved.PublishedRevision is not null));
             }, ct);
-            return Results.Bytes(frame, Aeds.ContentType);
+            return ServerHttp.Frame(frame);
         });
     }
 

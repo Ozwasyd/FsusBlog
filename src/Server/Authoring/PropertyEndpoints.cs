@@ -63,8 +63,7 @@ internal static class PropertyEndpoints
             if (!Guid.TryParseExact(query(ctx, "definition", 36), "D", out var id) || id == Guid.Empty)
                 throw new BusinessException(Rejection.Invalid, "Invalid property definition.");
             return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
-                Results.Bytes(Wire.EncodePropertyDefinitionProjection(await new PropertyStore(db, tx, actor).ReadProjection(id, ct)),
-                    Aeds.ContentType), ct);
+                ServerHttp.Frame(Wire.EncodePropertyDefinitionProjection(await new PropertyStore(db, tx, actor).ReadProjection(id, ct))), ct);
         });
         app.MapCommandGet(WireRoutes.PropertyFilterCatalog, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
@@ -91,7 +90,7 @@ internal static class PropertyEndpoints
                     : Wire.EncodePropertyFilterCatalog(await properties.Catalog(after, version, ct));
                 ct.ThrowIfCancellationRequested();
                 SiteSessions.IfCurrent(actor.Id, token, expected);
-                return Results.Bytes(catalog, Aeds.ContentType);
+                return ServerHttp.Frame(catalog);
             }, ct);
         });
         MapSession(WireRoutes.PropertyArticleQuery, async (store, actor, ctx, frame, session, ct) =>
@@ -116,7 +115,7 @@ internal static class PropertyEndpoints
                 {
                     var result = await store.WithSession(session, true,
                         (db, tx, actor) => operation(new PropertyStore(db, tx, actor), actor, ctx, frame, session!, ct), ct);
-                    return Results.Bytes(result, Aeds.ContentType);
+                    return ServerHttp.Frame(result);
                 }
                 catch (PropertyValidationException)
                 {

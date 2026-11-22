@@ -28,7 +28,7 @@ internal static class AdminModerationEndpoints
             {
                 await store.DecideComment(actions.Session(ctx), proof, Wire.DecodeAdminModerationDecision(frame), ct,
                     fenceVisibleMessages);
-                return Frame(Wire.EncodeEmptySuccess());
+                return ServerHttp.EmptyFrame();
             }
             catch (ModerationProofRequiredException)
             {

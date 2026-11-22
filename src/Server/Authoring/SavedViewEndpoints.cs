@@ -79,7 +79,7 @@ internal static class SavedViewEndpoints
                     throw new BusinessException(Rejection.NotFound, PlacementUnavailable);
                 var site = await CurrentSchema.ReadRecoverySiteIdAsync(db, tx, ct);
                 var data = await operation(new SavedViewStore(db, tx, actor, site), expected!, ct);
-                return Results.Bytes(data, Aeds.ContentType);
+                return ServerHttp.Frame(data);
             }, ct);
         }
     }

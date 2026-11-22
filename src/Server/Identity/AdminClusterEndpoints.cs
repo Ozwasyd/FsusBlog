@@ -15,7 +15,7 @@ internal static class AdminClusterEndpoints
         {
             var result = await store.ClusterStatus(ctx.Request.Cookies[session], identity, lease, publications, ct);
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
-            return Results.Bytes(Wire.EncodeAdminClusterStatus(result.Status), Aeds.ContentType);
+            return ServerHttp.Frame(Wire.EncodeAdminClusterStatus(result.Status));
         }).RequireRateLimiting(rateLimit);
     }
 }

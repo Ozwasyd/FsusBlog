@@ -168,7 +168,7 @@ internal static class AuthorTextSearchEndpoints
                         throw new BusinessException(Rejection.NotFound, "Install or upgrade the private article index with author-search.");
                 }
             }, ct);
-            return Results.Bytes(payload, Aeds.ContentType);
+            return ServerHttp.Frame(payload);
         });
     }
 }

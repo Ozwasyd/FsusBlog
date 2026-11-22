@@ -87,5 +87,5 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
         return new AedsError(status, Wire.EncodeError(status, "MFA_PROOF_REQUIRED", traceId: ctx.TraceIdentifier));
     }
 
-    internal static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);
+    internal static IResult Frame(byte[] frame) => ServerHttp.Frame(frame);
 }

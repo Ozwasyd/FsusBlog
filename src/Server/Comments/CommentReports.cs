@@ -32,7 +32,7 @@ internal static class CommentReports
             {
                 SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expected);
                 if (!await CurrentSchema.HasCommentReportSchemaAsync(db, tx, ct)) throw Missing();
-                return Results.Bytes(await action(db, tx, actor.Id), Aeds.ContentType);
+                return ServerHttp.Frame(await action(db, tx, actor.Id));
             }, ct);
         }
     }

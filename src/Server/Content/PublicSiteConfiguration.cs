@@ -195,8 +195,8 @@ internal sealed class PublicSiteConfiguration
     internal void Map(WebApplication app)
     {
         string[] methods = [HttpMethods.Get, HttpMethods.Head];
-        app.MapMethods(WireRoutes.PublicSeo, methods, () => Results.Bytes(_current.SeoFrame, Aeds.ContentType));
-        app.MapMethods(WireRoutes.PublicCompliance, methods, () => Results.Bytes(_current.ComplianceFrame, Aeds.ContentType));
+        app.MapMethods(WireRoutes.PublicSeo, methods, () => ServerHttp.Frame(_current.SeoFrame));
+        app.MapMethods(WireRoutes.PublicCompliance, methods, () => ServerHttp.Frame(_current.ComplianceFrame));
         app.MapMethods(ManifestPath, methods, (HttpContext ctx) =>
         {
             ctx.Response.Headers.CacheControl = "no-store";

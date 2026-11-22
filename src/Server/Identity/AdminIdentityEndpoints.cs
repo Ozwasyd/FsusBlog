@@ -130,7 +130,7 @@ internal static class AdminIdentityEndpoints
             var input = PasskeyWire.ReadProvision(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
             await passkeys.CompleteBootstrap(input, ctx.Request.Cookies[bootstrap], BootstrapToken(ctx), ct);
             ctx.Response.Cookies.Delete(bootstrap, Cookie(WireRoutes.AdminBootstrapComplete));
-            return Frame(Wire.EncodeEmptySuccess());
+            return ServerHttp.EmptyFrame();
         }).RequireRateLimiting(Limit);
         app.MapPost(WireRoutes.AdminPasskeyBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
@@ -144,7 +144,7 @@ internal static class AdminIdentityEndpoints
             var token = await passkeys.CompleteLogin(input, ctx.Request.Cookies[login], ct);
             ctx.Response.Cookies.Delete(login, Cookie(WireRoutes.AdminPasskeyComplete));
             ctx.Response.Cookies.Append(session, token, Cookie("/"));
-            return Frame(Wire.EncodeEmptySuccess());
+            return ServerHttp.EmptyFrame();
         }).RequireRateLimiting(Limit);
         app.MapCommandGet(WireRoutes.AdminSession, async (HttpContext ctx, CancellationToken ct) =>
         {
@@ -245,7 +245,7 @@ internal static class AdminIdentityEndpoints
         {
             await gate.SignOut(ctx.Request.Cookies[session], ct);
             ctx.Response.Cookies.Delete(session, Cookie("/"));
-            return Frame(Wire.EncodeEmptySuccess());
+            return ServerHttp.EmptyFrame();
         });
 
         CookieOptions Cookie(string path) => new() { HttpOnly = true, Secure = secure, SameSite = SameSiteMode.Strict, Path = secure ? "/" : path };

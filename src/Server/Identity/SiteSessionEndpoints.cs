@@ -17,7 +17,7 @@ internal static class SiteSessionEndpoints
         async Task<IResult> Revoke(HttpContext ctx, Store store, string? target, CancellationToken ct)
         {
             await SiteSessions.Revoke(store, ctx.Request.Cookies[sessionName], Current(ctx), target, ct, persistent);
-            return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
+            return ServerHttp.EmptyFrame();
         }
     }
 

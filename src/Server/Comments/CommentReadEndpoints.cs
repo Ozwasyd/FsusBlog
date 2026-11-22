@@ -48,7 +48,7 @@ internal static class CommentReadEndpoints
                             ctx.Response.Headers[WireHeaders.CommentReplyEnabled] = "1";
                         return eligibility;
                     }, ct);
-                return Results.Bytes(Wire.EncodePublicCommentEligibility(result), Aeds.ContentType);
+                return ServerHttp.Frame(Wire.EncodePublicCommentEligibility(result));
             });
             return new(RootSubmission: true, SignedInReply: replies, RootPowPolicy: rootPowPolicy);
         }
@@ -60,7 +60,7 @@ internal static class CommentReadEndpoints
         var snapshot = publications.Snapshot ?? throw new PublicUnavailableException();
         var bytes = snapshot.Article(article) is not null ? await fetch(cursor) : hidden();
         if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
-        return Results.Bytes(bytes, Aeds.ContentType);
+        return ServerHttp.Frame(bytes);
     }
 
     private static async Task<IResult> ReadWithWriteHeader(HttpContext ctx, Publications publications, int article, long? cursor,
@@ -70,7 +70,7 @@ internal static class CommentReadEndpoints
         var result = snapshot.Article(article) is not null ? await fetch(cursor) : (Frame: hidden(), WriteEnabled: false);
         if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
         if (result.WriteEnabled) ctx.Response.Headers[WireHeaders.PublicCommentWriteEnabled] = "1";
-        return Results.Bytes(result.Frame, Aeds.ContentType);
+        return ServerHttp.Frame(result.Frame);
     }
 
     private static long? Cursor(HttpContext ctx)

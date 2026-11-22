@@ -72,7 +72,7 @@ internal static class SubscriptionEndpoints
                     """, emailKey, channel, proof);
             await write.ExecuteNonQueryAsync(ct);
             await InstanceLease.CommitProtected(tx, lease, ct);
-            return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
+            return ServerHttp.EmptyFrame();
         }).RequireRateLimiting(RatePolicy);
     }
 

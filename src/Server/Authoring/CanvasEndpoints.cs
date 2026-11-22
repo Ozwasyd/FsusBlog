@@ -22,7 +22,7 @@ internal static class CanvasEndpoints
                 var token = ctx.Request.Cookies[cookie];
                 var result = await store.WithSession(token, true,
                     (db, tx, actor) => operation(ctx, new CanvasStore(db, tx, actor, Store.TokenDigest(token)!), frame, ct), ct);
-                return Results.Bytes(result, Aeds.ContentType);
+                return ServerHttp.Frame(result);
             });
     }
 

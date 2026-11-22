@@ -20,7 +20,7 @@ internal static class WideSearchCorpusEndpoints
             var binding = Capture(projection, lease);
             var state = binding.State;
             var wide = head ? RequirePins(ctx, state) : RequireReady(state);
-            var result = head ? Results.NoContent() : Results.Bytes(wide.ManifestFrame, Aeds.ContentType);
+            var result = head ? Results.NoContent() : ServerHttp.Frame(wide.ManifestFrame);
             return new CurrentResponse(binding, wide, result);
         }).RequireRateLimiting(ManifestPolicy);
         app.MapGet(WireRoutes.PublicSearchWidePage, (HttpContext ctx, string page, CancellationToken ct) =>

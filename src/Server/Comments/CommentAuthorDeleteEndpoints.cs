@@ -91,7 +91,7 @@ internal static class CommentAuthorDeleteEndpoints
                 var digest = Store.TokenDigest(token)!;
                 SiteSessions.RequireCurrent(actor.Id, digest, expected);
                 if (!await CurrentSchema.HasCommentAuthorDeleteSchemaAsync(db, tx, ct)) throw Missing();
-                return Results.Bytes(await action(db, tx, actor, digest), Aeds.ContentType);
+                return ServerHttp.Frame(await action(db, tx, actor, digest));
             }, ct);
         }
     }

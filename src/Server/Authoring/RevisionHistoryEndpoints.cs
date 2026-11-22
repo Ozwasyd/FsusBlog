@@ -30,7 +30,7 @@ internal static class RevisionHistoryEndpoints
                     next = RevisionHistoryCursor.Encode(token!, id, expected, items[^1].Revision);
                 }
                 var page = new RevisionHistoryPage(id, expected, published, next, items);
-                return Results.Bytes(Wire.EncodeRevisionHistory(page), Aeds.ContentType);
+                return ServerHttp.Frame(Wire.EncodeRevisionHistory(page));
             }, ct);
         });
 
@@ -80,7 +80,7 @@ internal static class RevisionHistoryEndpoints
                 IResult Reply<T>(T data, Func<T, byte[]> encode)
                 {
                     if (requireCurrent) SiteSessions.RequireCurrent(actor.Id, digest!, handle);
-                    return Results.Bytes(encode(data), Aeds.ContentType);
+                    return ServerHttp.Frame(encode(data));
                 }
             }, ct);
         });

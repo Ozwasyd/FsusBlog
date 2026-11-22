@@ -112,7 +112,7 @@ internal static class MediaUploadEndpoints
                     await uploader.Finish(upload, deadline);
                     return ready;
                 }, deadline);
-                return Results.Bytes(Wire.EncodePrivateMedia([MediaEndpoints.Contract(record)]), Aeds.ContentType);
+                return ServerHttp.Frame(Wire.EncodePrivateMedia([MediaEndpoints.Contract(record)]));
             }, ct)).RequireRateLimiting(MediaEndpoints.WritePolicy);
 
         app.MapPost(WireRoutes.PrivateMediaUploadCancel, async (string id, HttpContext ctx, Store store, MediaStore media, CancellationToken ct) =>
@@ -131,14 +131,14 @@ internal static class MediaUploadEndpoints
                     await media.FinishRemoval(db, tx, actor.Id, asset, ct);
                 }
                 await uploader.Cancel(upload, ct);
-                return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
+                return ServerHttp.EmptyFrame();
             }, ct);
         }).RequireRateLimiting(MediaEndpoints.WritePolicy);
     }
 
-    private static IResult State(MediaUpload upload, List<int> received) => Results.Bytes(Wire.EncodePrivateMediaUpload(
+    private static IResult State(MediaUpload upload, List<int> received) => ServerHttp.Frame(Wire.EncodePrivateMediaUpload(
         upload.Id, upload.Input.Length, upload.Input.PartSize, upload.ExpiresAt.ToUnixTimeMilliseconds(), upload.AssetId.HasValue,
-        upload.Complete ? upload.AssetId : null, received), Aeds.ContentType);
+        upload.Complete ? upload.AssetId : null, received));
 
     private static async Task<IResult> WithDeadline(Func<CancellationToken, Task<IResult>> operation, CancellationToken client)
     {

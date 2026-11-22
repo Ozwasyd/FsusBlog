@@ -54,8 +54,7 @@ internal static class PublishedMediaEndpoints
             var result = await publications.PublishWithImages(store, ctx.Request.Cookies[cookie], SiteSessions.Requested(ctx),
                 media, input.ArticleId, input.ExpectedRevision, input.IdempotencyKey, input.AssetIds, ct);
             var saved = result.Article;
-            return Results.Bytes(Wire.EncodeDraft(new(saved.Id, saved.Revision, saved.Title, saved.Body,
-                saved.PublishedRevision is not null)), Aeds.ContentType);
+            return ServerHttp.DraftResponse(saved);
         });
 
         app.MapGet(WireRoutes.PublicArticleMedia, (HttpContext ctx, int id, long publication) =>
@@ -66,7 +65,7 @@ internal static class PublishedMediaEndpoints
             if (images is null) return Results.NotFound();
             var frame = Wire.EncodePublicArticleMedia(new(id, publication, images));
             if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
-            return Results.Bytes(frame, Aeds.ContentType);
+            return ServerHttp.Frame(frame);
         }).RequireRateLimiting("query");
 
         var proxy = app.Services.GetService<PublishedMediaProxy>();

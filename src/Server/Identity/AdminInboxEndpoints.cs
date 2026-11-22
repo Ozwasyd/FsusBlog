@@ -59,7 +59,7 @@ internal static class AdminInboxEndpoints
             if (sharedRead) ctx.Response.Headers[WireHeaders.AdminInboxSharedRead] = "1";
             if (activityOrder) ctx.Response.Headers[WireHeaders.AdminInboxActivityOrder] = "1";
             if (live && (filter <= 2 || filter == 4) && cursor is null && !activity) ctx.Response.Headers[WireHeaders.AdminInboxLive] = "1";
-            return Results.Bytes(Wire.EncodeAdminInboxPage(page, shared), Aeds.ContentType);
+            return ServerHttp.Frame(Wire.EncodeAdminInboxPage(page, shared));
         });
 
         app.MapCommandGet(WireRoutes.AdminInboxThread, async (long id, HttpContext ctx, CancellationToken ct) =>
@@ -71,7 +71,7 @@ internal static class AdminInboxEndpoints
             if (live && !thread.Conversation.System) ctx.Response.Headers[WireHeaders.AdminInboxLive] = "1";
             if (status) ctx.Response.Headers[WireHeaders.AdminInboxVersion] = thread.Version;
             if (thread.ReadSnapshot is not null) ctx.Response.Headers[WireHeaders.AdminInboxReadSnapshot] = thread.ReadSnapshot;
-            return Results.Bytes(Wire.EncodeAdminInboxThread(thread, shared), Aeds.ContentType);
+            return ServerHttp.Frame(Wire.EncodeAdminInboxThread(thread, shared));
         });
 
         if (live)
@@ -134,7 +134,7 @@ internal static class AdminInboxEndpoints
                 var through = InboxWire.DecodeRead(await readFrame(ctx, Aeds.HeaderSize + sizeof(long), ct));
                 var unread = await readStore.AcknowledgeInboxRead(ctx.Request.Cookies[session], id, through, snapshot, ct);
                 ctx.Response.Headers[WireHeaders.AdminInboxUnread] = unread.ToString(CultureInfo.InvariantCulture);
-                return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
+                return ServerHttp.EmptyFrame();
             });
         }
 

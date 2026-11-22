@@ -24,7 +24,7 @@ internal static class DocumentExportEndpoints
                 var assets = DocumentExportAttachment.ReadSelections(ctx, DocumentExportAttachment.MaximumImages);
                 if (assets.Length > 0 && !DocumentExportAttachment.PrivateTransport(ctx)) throw DocumentExportContract.Missing();
                 var task = await DocumentExportStore.Create(db, tx, actor, request, pdf?.ToolDigest, media, assets, ct);
-                return Results.Bytes(Wire.EncodeDocumentExportTask(task), Aeds.ContentType);
+                return ServerHttp.Frame(Wire.EncodeDocumentExportTask(task));
             }, ct);
         });
 
@@ -34,7 +34,7 @@ internal static class DocumentExportEndpoints
                 if (id < 1) throw DocumentExportContract.Missing();
                 await RevisionHistoryStore.LockOwned(db, tx, actor.Id, id, ct);
                 var tasks = await DocumentExportStore.List(db, tx, actor, id, ct);
-                return Results.Bytes(Wire.EncodeDocumentExportTaskList(tasks), Aeds.ContentType);
+                return ServerHttp.Frame(Wire.EncodeDocumentExportTaskList(tasks));
             }, ct));
 
         app.MapCommandPost(WireRoutes.DocumentExportCancel, async (HttpContext ctx, Store store, CancellationToken ct) =>
@@ -43,7 +43,7 @@ internal static class DocumentExportEndpoints
             return await Session(ctx, store, async (db, tx, actor) =>
             {
                 var task = await DocumentExportStore.Cancel(db, tx, actor, id, ct);
-                return Results.Bytes(Wire.EncodeDocumentExportTask(task), Aeds.ContentType);
+                return ServerHttp.Frame(Wire.EncodeDocumentExportTask(task));
             }, ct);
         });
 

@@ -6,7 +6,6 @@ namespace FsusBlog.V2.Server.Content;
 
 internal static class TaxonomyEndpoints
 {
-    private const string Binary = "application/octet-stream";
     private const string Html = "text/html; charset=utf-8";
     private static readonly string[] ReadMethods = [HttpMethods.Get, HttpMethods.Head];
 
@@ -41,7 +40,7 @@ internal static class TaxonomyEndpoints
                     throw new BusinessException(Rejection.Conflict, "The article changed. Reload its current revision.");
                 return await TaxonomyStore.ReadDraft(db, tx, id, revision, ct);
             }, ct);
-            return Results.Bytes(Wire.EncodeDraftTaxonomy(taxonomy), Binary);
+            return ServerHttp.Frame(Wire.EncodeDraftTaxonomy(taxonomy));
         });
 
         app.MapCommandPost(WireRoutes.TaxonomyAssignment, async (HttpContext ctx, Store store, CancellationToken ct) =>
@@ -52,7 +51,7 @@ internal static class TaxonomyEndpoints
 
             var taxonomy = await store.WithSession(ctx.Request.Cookies[cookie], true,
                 (db, tx, actor) => Store.AssignTaxonomy(db, tx, actor, input, ct), ct);
-            return Results.Bytes(Wire.EncodeDraftTaxonomy(taxonomy), Binary);
+            return ServerHttp.Frame(Wire.EncodeDraftTaxonomy(taxonomy));
         });
 
         app.MapMethods("/category/{id:int}", ReadMethods, (HttpContext ctx, int id) => Metadata(ctx, snapshot(ctx), false, id, asHtml: true));
@@ -72,13 +71,13 @@ internal static class TaxonomyEndpoints
         Task Summary(HttpContext ctx, bool tag)
         {
             var current = snapshot(ctx);
-            return Send(ctx, current, Results.Bytes(tag ? current.Taxonomy.Tags : current.Taxonomy.Categories, Binary));
+            return Send(ctx, current, ServerHttp.Frame(tag ? current.Taxonomy.Tags : current.Taxonomy.Categories));
         }
 
         Task Metadata(HttpContext ctx, PublicSnapshot current, bool tag, int id, bool asHtml = false)
         {
             var page = current.Taxonomy.ById(tag, id) ?? throw Missing(tag);
-            return Send(ctx, current, asHtml ? Results.Bytes(SiteLocale.Select(ctx) == "en" ? page.EnglishHtml ?? page.Html : page.Html, Html) : Results.Bytes(page.Wire, Binary));
+            return Send(ctx, current, asHtml ? Results.Bytes(SiteLocale.Select(ctx) == "en" ? page.EnglishHtml ?? page.Html : page.Html, Html) : ServerHttp.Frame(page.Wire));
         }
 
         Task List(HttpContext ctx, bool tag, int id, int page, int size)
@@ -89,7 +88,7 @@ internal static class TaxonomyEndpoints
             bool Match(Article article) => tag ? article.Tags?.Any(value => value.Id == id) is true : article.Category?.Id == id;
             var bytes = current.List(scope, page, size, query(ctx, "keyword", 256),
                 query(ctx, "sort", 20), cursor(ctx), ctx.RequestAborted, Match);
-            return Send(ctx, current, Results.Bytes(bytes, Binary));
+            return Send(ctx, current, ServerHttp.Frame(bytes));
         }
 
         Task Send(HttpContext ctx, PublicSnapshot current, IResult result)

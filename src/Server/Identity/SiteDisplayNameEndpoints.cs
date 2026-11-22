@@ -11,7 +11,7 @@ internal static class SiteDisplayNameEndpoints
         {
             ctx.Response.Headers.CacheControl = "private, no-store";
             var state = await SiteDisplayNames.Read(store, ctx.Request.Cookies[sessionName], Current(ctx), ct);
-            return Results.Bytes(Wire.EncodeSiteDisplayNameState(state), Aeds.ContentType);
+            return ServerHttp.Frame(Wire.EncodeSiteDisplayNameState(state));
         });
 
         app.MapCommandPost(WireRoutes.SiteDisplayName, async (HttpContext ctx, Store store, CancellationToken ct) =>
@@ -19,7 +19,7 @@ internal static class SiteDisplayNameEndpoints
             ctx.Response.Headers.CacheControl = "private, no-store";
             var command = Wire.DecodeSiteDisplayNameCommand(await readFrame(ctx, WireLimits.SiteDisplayNameFrameBytes, ct));
             var state = await SiteDisplayNames.Update(store, ctx.Request.Cookies[sessionName], Current(ctx), command, ct);
-            return Results.Bytes(Wire.EncodeSiteDisplayNameState(state), Aeds.ContentType);
+            return ServerHttp.Frame(Wire.EncodeSiteDisplayNameState(state));
         });
     }
 

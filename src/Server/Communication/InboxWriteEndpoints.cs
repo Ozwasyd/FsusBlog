@@ -22,7 +22,7 @@ internal static class InboxWriteEndpoints
             var packet = await store.WithSession(ctx.Request.Cookies[cookie], false,
                 (_, _, _) => Task.FromResult(Wire.EncodeEmptySuccess()), ct);
             ctx.Response.Headers[WireHeaders.InboxWriteEnabled] = enabled ? "1" : "0";
-            return Results.Bytes(packet, Aeds.ContentType);
+            return ServerHttp.Frame(packet);
         });
         if (!enabled) return;
 

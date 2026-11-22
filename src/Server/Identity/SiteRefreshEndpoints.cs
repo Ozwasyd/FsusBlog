@@ -15,13 +15,13 @@ internal sealed class SiteRefreshEndpoints(SiteRefreshStore store, string access
         app.MapGet(WireRoutes.SiteRefreshAvailability, (HttpContext ctx) =>
         {
             requireHost(ctx);
-            return Empty();
+            return ServerHttp.EmptyFrame();
         });
         app.MapGet(WireRoutes.SiteRefreshStatus, async (HttpContext ctx, CancellationToken ct) =>
         {
             requireHost(ctx);
             return await store.HasCurrent(ctx.Request.Cookies[RefreshCookie], ct)
-                ? Empty() : Failure(ctx, 401, "REFRESH_EXPIRED_OR_UNKNOWN");
+                ? ServerHttp.EmptyFrame() : Failure(ctx, 401, "REFRESH_EXPIRED_OR_UNKNOWN");
         }).RequireRateLimiting("query");
         app.MapPost(WireRoutes.SiteRefreshRotate, async (HttpContext ctx, CancellationToken ct) =>
         {
@@ -30,7 +30,7 @@ internal sealed class SiteRefreshEndpoints(SiteRefreshStore store, string access
             if (result.Cookies is { } issued)
             {
                 Issue(ctx, issued);
-                return Empty();
+                return ServerHttp.EmptyFrame();
             }
             if (result.Kind == SiteRefreshStore.ResultKind.Contention) return Failure(ctx, 409, "REFRESH_ROTATION_CONFLICT");
             return Failure(ctx, 401,
@@ -45,7 +45,7 @@ internal sealed class SiteRefreshEndpoints(SiteRefreshStore store, string access
             await accessStore.SignOut(access, ct);
             ctx.Response.Cookies.Delete(accessCookie, cookie("/"));
             ctx.Response.Cookies.Delete(RefreshCookie, cookie(Scope));
-            return Empty();
+            return ServerHttp.EmptyFrame();
         }).RequireRateLimiting("mfa");
     }
 
@@ -86,8 +86,6 @@ internal sealed class SiteRefreshEndpoints(SiteRefreshStore store, string access
             string.Equals(origin[0], expected, StringComparison.OrdinalIgnoreCase)) return;
         throw new BusinessException(Rejection.Forbidden, "A same-origin refresh request is required.");
     }
-
-    private static IResult Empty() => Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
 
     private static IResult Failure(HttpContext ctx, int status, string code) =>
         new AedsError(status, Wire.EncodeError(status, code, traceId: ctx.TraceIdentifier));

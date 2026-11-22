@@ -91,7 +91,7 @@ internal static class InboxEndpoints
         ctx.Response.Headers[WireHeaders.AccessExpiresAtUtc] = expiresAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
         if (response.Cursor is long next)
             ctx.Response.Headers[WireHeaders.InboxReplayCursor] = InboxReplayCursor.Encode(token!, next);
-        return Results.Bytes(response.Frame, Aeds.ContentType);
+        return ServerHttp.Frame(response.Frame);
     }
 
     private static string? Query(HttpContext ctx, string field, int maximum)

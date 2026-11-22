@@ -38,7 +38,7 @@ internal static class IdentitySessionEndpoints
             ctx.Response.Cookies.Delete(readerCookie, ServerHttp.CookieSettings(ctx));
             if (persistentSite)
                 SiteRefreshEndpoints.ClearRefreshCookie(ctx);
-            return Results.Bytes(Wire.EncodeEmptySuccess(), ServerHttp.BinaryContentType);
+            return ServerHttp.EmptyFrame();
         });
     }
 }

@@ -39,7 +39,7 @@ internal static class ArticleReadEndpoints
                     return Error(ctx, 409, "The article publication changed.");
                 var ticket = await authority.Challenge(id, publication, address, agent, ct);
                 return ticket is null ? Error(ctx, 409, "The article publication changed.")
-                    : Results.Bytes(Wire.EncodeArticleReadChallenge(ticket), Aeds.ContentType);
+                    : ServerHttp.Frame(Wire.EncodeArticleReadChallenge(ticket));
             }
             catch (ArticleReadUnavailableException) { return Unavailable(ctx); }
         }).RequireRateLimiting(RatePolicy);
@@ -53,7 +53,7 @@ internal static class ArticleReadEndpoints
             try
             {
                 var counted = await authority.Submit(id, publication, address, agent, ticket, dwellMs, ct);
-                return Results.Bytes(Wire.EncodeArticleReadReceipt(counted), Aeds.ContentType);
+                return ServerHttp.Frame(Wire.EncodeArticleReadReceipt(counted));
             }
             catch (ArticleReadUnavailableException) { return Unavailable(ctx); }
         }).RequireRateLimiting(RatePolicy);

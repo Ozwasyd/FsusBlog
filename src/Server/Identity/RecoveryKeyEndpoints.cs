@@ -22,19 +22,19 @@ internal static class RecoveryKeyEndpoints
         app.MapGet(WireRoutes.RecoveryKeyAvailability, (HttpContext ctx) =>
         {
             requireHost(ctx);
-            return Frame(Wire.EncodeEmptySuccess());
+            return ServerHttp.EmptyFrame();
         });
         app.MapGet(WireRoutes.RecoveryKeyStatus, async (HttpContext ctx, CancellationToken ct) =>
         {
             requireHost(ctx);
-            return Frame(Wire.EncodeRecoveryKeyStatus(new(await store.RecoveryKeyStatus(Session(ctx), ct))));
+            return ServerHttp.Frame(Wire.EncodeRecoveryKeyStatus(new(await store.RecoveryKeyStatus(Session(ctx), ct))));
         }).RequireRateLimiting("mfa");
         post.Post(WireRoutes.RecoveryKeyStepUpBegin, async (ctx, ct) =>
-            Frame(await store.BeginRecoveryKeyStepUp(Session(ctx), await Operation(ctx, ct), ct)));
+            ServerHttp.Frame(await store.BeginRecoveryKeyStepUp(Session(ctx), await Operation(ctx, ct), ct)));
         post.Post(WireRoutes.RecoveryKeyStepUpComplete, async (ctx, ct) =>
         {
             var frame = await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct);
-            return Frame(await store.CompleteRecoveryKeyStepUp(Session(ctx), PasskeyWire.ReadLogin(frame, discoverable: false), ct));
+            return ServerHttp.Frame(await store.CompleteRecoveryKeyStepUp(Session(ctx), PasskeyWire.ReadLogin(frame, discoverable: false), ct));
         });
         post.Post(WireRoutes.RecoveryKeyIssue, async (ctx, ct) =>
         {
@@ -43,7 +43,7 @@ internal static class RecoveryKeyEndpoints
             try
             {
                 var issued = await store.IssueRecoveryKey(secret, Session(ctx), operation, proof, ct);
-                return Frame(Wire.EncodeRecoveryKeyIssued(issued));
+                return ServerHttp.Frame(Wire.EncodeRecoveryKeyIssued(issued));
             }
             catch (RecoveryKeyProofRequiredException)
             {
@@ -87,7 +87,7 @@ internal static class RecoveryKeyEndpoints
         {
             if (ctx.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody != false)
                 throw new BusinessException(Rejection.Invalid, "Passkey removal begins without a body.");
-            return Frame(await store.BeginSitePasskeyRemoveCurrent(Session(ctx), SiteSessions.Requested(ctx), ctx.Request.Cookies[RebindCookie], ct));
+            return ServerHttp.Frame(await store.BeginSitePasskeyRemoveCurrent(Session(ctx), SiteSessions.Requested(ctx), ctx.Request.Cookies[RebindCookie], ct));
         });
         post.Post(WireRoutes.SitePasskeyRemoveCurrentComplete, async (ctx, ct) =>
         {
@@ -96,16 +96,16 @@ internal static class RecoveryKeyEndpoints
             ctx.Response.Cookies.Delete(sessionCookie, cookie("/"));
             ctx.Response.Cookies.Delete(RebindCookie, cookie(RebindPath));
             SiteRefreshEndpoints.ClearRefreshCookie(ctx);
-            return Frame(Wire.EncodeEmptySuccess());
+            return ServerHttp.EmptyFrame();
         });
         post.Post(WireRoutes.RecoveryKeyRebindBegin, async (ctx, ct) =>
-            Frame(await store.BeginRecoveryRebind(ctx.Request.Cookies[RebindCookie], ct)));
+            ServerHttp.Frame(await store.BeginRecoveryRebind(ctx.Request.Cookies[RebindCookie], ct)));
         post.Post(WireRoutes.RecoveryKeyRebindComplete, async (ctx, ct) =>
         {
             var frame = await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct);
             await store.CompleteRecoveryRebind(ctx.Request.Cookies[RebindCookie], PasskeyWire.ReadProvision(frame),
                 SHA256.HashData(frame), ct);
-            return Frame(Wire.EncodeEmptySuccess());
+            return ServerHttp.EmptyFrame();
         });
 
         string? Session(HttpContext ctx) => ctx.Request.Cookies[sessionCookie];
@@ -121,6 +121,4 @@ internal static class RecoveryKeyEndpoints
             throw new BusinessException(Rejection.Forbidden, "A same-origin recovery request is required.");
         }
     }
-
-    private static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);
 }

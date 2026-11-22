@@ -94,15 +94,19 @@ internal static class ServerHttp
         HttpOnly = true, Secure = ctx.Request.IsHttps, SameSite = SameSiteMode.Strict, Path = "/", Expires = expiresAt
     };
 
+    internal static IResult Frame(byte[] frame) => Results.Bytes(frame, Aeds.ContentType);
+
+    internal static IResult EmptyFrame() => Frame(Wire.EncodeEmptySuccess());
+
     internal static IResult SessionResponse(HttpContext ctx, Identity actor, string token)
     {
         ctx.Response.Headers[WireHeaders.AccessExpiresAtUtc] = actor.ExpiresAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
         ctx.Response.Headers[WireHeaders.CurrentSession] = SiteSessions.Id(actor.Id, Store.TokenDigest(token)!);
-        return Results.Bytes(Wire.EncodeSession(new(actor.Name, actor.Generation, actor.CanAuthor)), BinaryContentType);
+        return Frame(Wire.EncodeSession(new(actor.Name, actor.Generation, actor.CanAuthor)));
     }
 
     internal static IResult DraftResponse(ArticleState state) =>
-        Results.Bytes(Wire.EncodeDraft(new(state.Id, state.Revision, state.Title, state.Body, state.PublishedRevision is not null)), BinaryContentType);
+        Frame(Wire.EncodeDraft(new(state.Id, state.Revision, state.Title, state.Body, state.PublishedRevision is not null)));
 
     internal static (int Status, string Message, string? Details) MapException(Exception ex) => ex switch
     {

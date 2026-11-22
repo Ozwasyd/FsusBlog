@@ -14,7 +14,7 @@ internal static class AdminRiskReadinessEndpoints
             var result = await operations.RiskReadiness(actions.Session(ctx), commentRoutes, trustLoopbackProxy, ct);
             ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
             if (commentRoutes.RootPowPolicy) ctx.Response.Headers[WireHeaders.AdminRootCommentPowPolicy] = "1";
-            return Results.Bytes(Wire.EncodeAdminRiskReadiness(result.Controls), Aeds.ContentType);
+            return ServerHttp.Frame(Wire.EncodeAdminRiskReadiness(result.Controls));
         }).RequireRateLimiting(actions.PasskeyLimit);
 
         if (!commentRoutes.RootPowPolicy || commentRisk is null) return;

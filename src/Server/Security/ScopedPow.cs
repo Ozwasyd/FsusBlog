@@ -157,7 +157,7 @@ internal sealed class ScopedPow(TimeProvider time)
     internal static async Task<IResult> Protect(HttpContext ctx, Func<Task<byte[]>> run,
         PowScope scope = PowScope.PublicCommentSubmit)
     {
-        try { return Results.Bytes(await run(), Aeds.ContentType); }
+        try { return ServerHttp.Frame(await run()); }
         catch (ScopedPowFailure rejection)
         {
             var details = scope is PowScope.PublicCommentSubmit or PowScope.PublicCommentReply ? "comment_" + rejection.Details : rejection.Details;
