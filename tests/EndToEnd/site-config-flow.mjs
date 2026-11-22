@@ -1,13 +1,12 @@
 import assert from 'node:assert/strict'
-import { requireWebPackage } from './web-package-fixture.mjs'
+import { launchIdentityBrowser } from './site-authentication-fixture.mjs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeSeoConfig, decodeSiteComplianceConfig } from '../../src/Contracts/site-config.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
-const { chromium } = requireWebPackage('@playwright/test')
-const origin = process.env.FSUSBLOG_TEST_URL
+const origin = process.env.FSUSBLOG_TEST_SITE_URL ?? process.env.FSUSBLOG_TEST_URL
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 assert(origin && evidence, 'Use an isolated v2 server with the test configuration and a new evidence directory.')
 const started = new Date().toISOString()
@@ -22,15 +21,16 @@ const read = async (path, type, decode) => {
 const seo = await read(WireRoutes.PublicSeo, FrameType.SeoConfig, decodeSeoConfig)
 const legal = await read(WireRoutes.PublicCompliance, FrameType.SiteComplianceConfig, decodeSiteComplianceConfig)
 assert.equal(seo.title, 'North & <South>')
-assert.equal(seo.baseUrl, 'https://blog.example.test')
+assert.equal(seo.baseUrl, process.env.FSUSBLOG_TEST_SITE_URL ?? 'https://blog.example.test')
 assert.equal(legal.enabled, true)
 assert.equal(legal.icpRecordNumber, 'Fixture registration')
 assert.equal(legal.contactEmail, 'info@example.test')
 await mkdir(evidence, { recursive: true })
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
+const browser = await launchIdentityBrowser(process.env.FSUSBLOG_TEST_TLS_SPKI)
 try {
   const viewport = { width: 375, height: 812 }
   const page = await browser.newPage({ viewport, locale: 'en-US' })
+  page.setDefaultTimeout(15_000)
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   const response = await page.goto(origin, { waitUntil: 'domcontentloaded' })
@@ -39,7 +39,7 @@ try {
   await footer.locator('strong').getByText('North & <South>', { exact: true }).waitFor()
   await footer.locator('p').getByText(/North Company/).waitFor()
   assert.equal(await page.title(), seo.title)
-  assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'), 'https://blog.example.test/')
+  assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'), seo.baseUrl + '/')
   assert.equal(await footer.getByRole('link', { name: 'Fixture registration' }).getAttribute('href'), 'https://beian.miit.gov.cn/')
   assert.equal(await footer.getByRole('link', { name: 'CC BY 4.0' }).getAttribute('href'), 'https://creativecommons.org/licenses/by/4.0/')
   assert.equal(await footer.getByRole('link', { name: 'info@example.test' }).getAttribute('href'), 'mailto:info@example.test')

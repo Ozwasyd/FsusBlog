@@ -24,6 +24,8 @@ SEO 节还接受 `OgImage`、`FaviconSvgUrl`、`FaviconIcoUrl`、`FaviconPngUrl`
 
 固定 v1 SEO 和合规 POD 分别为 5,000 和 1,709 字节，随后是四字节 blob 长度和文本。协议样本按冻结的字段顺序独立打包，C# 编码做整帧字节比对，TypeScript 做字段与错误边界验证。参考 [v1 二进制路由](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs)、[v1 POD](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/shared/Contracts/Models/SystemPods.cs)和[v1 编解码](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/core/Cache/PodBinaryCodec.System.cs)。
 
+`FSUSBLOG_TEST_PUBLIC_SITE_CONFIG=1 bash tests/EndToEnd/run-admin-tls.sh` 使用隔离 PostgreSQL 和 Caddy HTTPS，复验 SEO 与合规 AEDS 帧、窄屏页脚、首页标题和 canonical，以及站内切换到关于页后清除首页 canonical。
+
 ## 在线管理覆写与热刷新
 
 当配置了 HTTPS 管理员源与公开源（或本机 Loopback 管理员源）时，管理后台「站点」工作区默认启用在线站点配置编辑器（可通过 `FSUSBLOG_SITE_CONFIG_EDITOR=false` 静默关闭）。

@@ -116,6 +116,16 @@ export FSUSBLOG_TEST_SITE_URL="$FSUSBLOG_PUBLIC_ADDRESS" FSUSBLOG_TEST_ADMIN_URL
 export FSUSBLOG_DB="${FSUSBLOG_TEST_DB%;};Database=$database"
 export NODE_EXTRA_CA_CERTS="$scratch/ca.pem"
 
+if [[ ${FSUSBLOG_TEST_PUBLIC_SITE_CONFIG:-0} == 1 ]]; then
+  export FSUSBLOG_PUBLIC_SEO__Title='North & <South>'
+  export FSUSBLOG_PUBLIC_COMPLIANCE__Enabled=true FSUSBLOG_PUBLIC_COMPLIANCE__RegionMode=mainland-cn
+  export FSUSBLOG_PUBLIC_COMPLIANCE__CopyrightOwner='North Company' FSUSBLOG_PUBLIC_COMPLIANCE__CopyrightStartYear=2024
+  export FSUSBLOG_PUBLIC_COMPLIANCE__IcpRecordNumber='Fixture registration'
+  export FSUSBLOG_PUBLIC_COMPLIANCE__ContentLicenseName='CC BY 4.0'
+  export FSUSBLOG_PUBLIC_COMPLIANCE__ContentLicenseUrl=https://creativecommons.org/licenses/by/4.0/
+  export FSUSBLOG_PUBLIC_COMPLIANCE__ContactEmail=info@example.test
+fi
+
 {
   printf 'start=%s\npublic=%s\nadmin=%s\n' "$(date -u +%FT%TZ)" "$FSUSBLOG_PUBLIC_ADDRESS" "$FSUSBLOG_ADMIN_ADDRESS"
   git rev-parse HEAD
@@ -507,6 +517,8 @@ elif [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
   node tests/EndToEnd/site-refresh-flow.mjs
 elif [[ ${FSUSBLOG_TEST_READER_GOVERNANCE:-0} == 1 ]]; then
   node tests/EndToEnd/admin-reader-governance-flow.mjs
+elif [[ ${FSUSBLOG_TEST_PUBLIC_SITE_CONFIG:-0} == 1 ]]; then
+  node tests/EndToEnd/site-config-flow.mjs
 elif [[ ${FSUSBLOG_TEST_PUBLICATION_PROOF:-0} == 1 ]]; then
   node tests/EndToEnd/publication-proof-flow.mjs
 elif [[ ${FSUSBLOG_TEST_ARTICLE_READ_PROOF:-0} == 1 ]]; then
