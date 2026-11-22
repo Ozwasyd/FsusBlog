@@ -49,11 +49,11 @@ async function loadHistory() {
   >
     <template #title><span id="admin-session-history-heading">{{ t('admin.sessionHistory') }}</span></template>
     <template #actions>
-      <ElButton native-type="button" text :loading="refreshLoading" @click="loadHistory">{{ t('admin.refreshSessionHistory') }}</ElButton>
+      <ElButton text :loading="refreshLoading" @click="loadHistory">{{ t('admin.refreshSessionHistory') }}</ElButton>
     </template>
     <ElAlert v-if="failure" :title="t('admin.sessionHistoryFailed')" type="error" :closable="false" show-icon />
     <ElSkeleton v-else-if="loading && !history" :rows="2" animated />
-    <ElEmptyState v-else-if="history?.length === 0" size="inline" :title="t('admin.noSessionHistory')" role="status" />
+    <ElEmptyState v-else-if="history?.length === 0" :title="t('admin.noSessionHistory')" role="status" />
     <ElResourceList v-else-if="history" density="compact">
       <ElResourceListItem
         v-for="(row, index) in history"

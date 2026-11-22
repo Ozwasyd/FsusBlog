@@ -88,12 +88,12 @@ function decide(id: string, decision: 'granted' | 'denied') {
   <section class="appeal-review" aria-labelledby="admin-appeal-heading">
     <h2 id="admin-appeal-heading" class="appeal-sr-title">{{ t('admin.appeals.m1') }}</h2>
     <div class="appeal-panel-actions">
-      <ElButton native-type="button" text :loading="refreshLoading" @click="load()">{{ t('admin.appeals.refresh') }}</ElButton>
+      <ElButton text :loading="refreshLoading" @click="load()">{{ t('admin.appeals.refresh') }}</ElButton>
     </div>
     <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" />
     <p v-if="notice" class="appeal-status" role="status">{{ t(notice) }}</p>
     <ElSkeleton v-if="busy && list === null" :rows="2" animated />
-    <ElEmptyState v-else-if="list?.length === 0" size="inline" :title="t('admin.appeals.m3')" role="status" />
+    <ElEmptyState v-else-if="list?.length === 0" :title="t('admin.appeals.m3')" role="status" />
     <ElResourceList v-else-if="list" class="appeal-review-list" density="compact">
       <ElResourceListItem
         v-for="item in list"
@@ -103,7 +103,7 @@ function decide(id: string, decision: 'granted' | 'denied') {
         <p class="appeal-text">{{ item.body }}</p>
         <p class="appeal-text appeal-reason">{{ item.reason }}</p>
         <template v-if="selected !== item.id" #actions>
-          <ElButton native-type="button" :disabled="busy"
+          <ElButton :disabled="busy"
             @click="selected = item.id; reason = ''">{{ t('admin.appeals.m4') }}</ElButton>
         </template>
         <div v-if="selected === item.id" class="appeal-form">
@@ -112,18 +112,18 @@ function decide(id: string, decision: 'granted' | 'denied') {
             <ElInput :id="`appeal-review-${item.id}`" v-model="reason" type="textarea" :disabled="busy" />
           </div>
           <ElInlineActions>
-            <ElButton native-type="button" type="primary" :disabled="busy || !appealReason(reason)"
+            <ElButton type="primary" :disabled="busy || !appealReason(reason)"
               @click="decide(item.id, 'granted')">{{ t('admin.appeals.m6') }}</ElButton>
-            <ElButton native-type="button" :disabled="busy || !appealReason(reason)"
+            <ElButton :disabled="busy || !appealReason(reason)"
               @click="decide(item.id, 'denied')">{{ t('admin.appeals.m7') }}</ElButton>
-            <ElButton native-type="button" text :disabled="busy"
+            <ElButton text :disabled="busy"
               @click="selected = undefined; reason = ''">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
           </ElInlineActions>
         </div>
       </ElResourceListItem>
     </ElResourceList>
     <div v-if="more" class="appeal-more">
-      <ElButton native-type="button" :loading="moreLoading" text @click="load(true)">{{ t('admin.appeals.m8') }}</ElButton>
+      <ElButton :loading="moreLoading" text @click="load(true)">{{ t('admin.appeals.m8') }}</ElButton>
     </div>
   </section>
 </template>

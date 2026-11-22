@@ -284,10 +284,10 @@ onBeforeUnmount(() => {
           </ElRadioButton>
         </ElRadioGroup>
         <ElInlineActions>
-          <ElButton v-if="appliedKeyword || statusFilter !== 'all'" native-type="button" text :disabled="submitting" @click="clearSearch">
+          <ElButton v-if="appliedKeyword || statusFilter !== 'all'" text :disabled="submitting" @click="clearSearch">
             {{ t('admin.readers.resetFilters') }}
           </ElButton>
-          <ElButton native-type="button" text :loading="refreshLoading" :disabled="submitting" @click="load(false, 'refresh')">
+          <ElButton text :loading="refreshLoading" :disabled="submitting" @click="load(false, 'refresh')">
             {{ t('admin.readers.refresh') }}
           </ElButton>
         </ElInlineActions>
@@ -302,7 +302,6 @@ onBeforeUnmount(() => {
       <p class="readers-summary" role="status">{{ t('admin.readers.countSummary', { count: page.total }) }}</p>
       <ElEmptyState
         v-if="items.length === 0"
-        size="inline"
         :title="t(appliedKeyword || statusFilter !== 'all' ? 'admin.readers.emptyFiltered' : 'admin.readers.empty')"
         role="status"
       />
@@ -344,7 +343,6 @@ onBeforeUnmount(() => {
           <template #actions>
             <ElButton
               v-if="item.enabled"
-              native-type="button"
               text
               type="danger"
               :disabled="submitting"
@@ -352,7 +350,6 @@ onBeforeUnmount(() => {
             >{{ t('admin.readers.disableAction') }}</ElButton>
             <ElButton
               v-else
-              native-type="button"
               text
               :disabled="submitting"
               @click="openAction(item, true)"
@@ -362,7 +359,7 @@ onBeforeUnmount(() => {
       </ElResourceList>
 
       <div v-if="page.hasMore" class="readers-more">
-        <ElButton native-type="button" text :loading="moreLoading" :disabled="submitting" @click="load(true, 'more')">
+        <ElButton text :loading="moreLoading" :disabled="submitting" @click="load(true, 'more')">
           {{ t('admin.readers.loadMore') }}
         </ElButton>
       </div>
@@ -408,7 +405,7 @@ onBeforeUnmount(() => {
       </form>
       <template #footer>
         <ElInlineActions>
-          <ElButton native-type="button" :disabled="submitting" @click="closeDialog()">
+          <ElButton :disabled="submitting" @click="closeDialog()">
             {{ t('admin.readers.cancel') }}
           </ElButton>
           <ElButton

@@ -223,13 +223,11 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
         <template v-if="(profile?.verifiedAt && !regenerateOpen && !regenerated.length) || (profile && !profile.verifiedAt && !setup)" #actions>
           <ElButton
             v-if="profile?.verifiedAt && !regenerateOpen && !regenerated.length"
-            native-type="button"
             :disabled="busy"
             @click="regenerateOpen = true"
           >{{ t('account.message9') }}</ElButton>
           <ElButton
             v-else-if="profile && !profile.verifiedAt && !setup"
-            native-type="button"
             :loading="busy"
             @click="start"
           >{{ t('account.message20') }}</ElButton>
@@ -245,7 +243,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
               <li v-for="item in regenerated.length ? regenerated : recovery" :key="item"><code>{{ item }}</code></li>
             </ul>
             <ElInlineActions class="security-inline-start" density="compact">
-              <ElButton native-type="button" @click="hideRecoveryCodes">{{ t('account.message8') }}</ElButton>
+              <ElButton @click="hideRecoveryCodes">{{ t('account.message8') }}</ElButton>
             </ElInlineActions>
           </div>
 
@@ -267,7 +265,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
                 <ElButton type="primary" native-type="submit" :loading="busy" :disabled="!validMfaFactor(regenerateCode)">
                   {{ t('account.message12') }}
                 </ElButton>
-                <ElButton native-type="button" :disabled="busy" @click="closeRegeneration">
+                <ElButton :disabled="busy" @click="closeRegeneration">
                   {{ t('account.message13') }}
                 </ElButton>
               </ElInlineActions>
@@ -325,7 +323,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
               <ElButton native-type="submit" type="primary" :loading="busy" :disabled="!/^\d{6}$/.test(code.trim())">
                 {{ t('account.message18') }}
               </ElButton>
-              <ElButton native-type="button" :disabled="busy" @click="setup = null; code = ''">
+              <ElButton :disabled="busy" @click="setup = null; code = ''">
                 {{ t('account.message19') }}
               </ElButton>
             </ElInlineActions>

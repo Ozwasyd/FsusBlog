@@ -387,7 +387,7 @@ function logOut() {
   <AccountWorkspace v-if="authority?.status === 'active'" :home="splitAdminHost ? '/admin/site' : '/'" :label="t('admin.menu')" :links="links"
     surface="task" :theme-mode="themeMode" @theme="emit('theme', $event)">
     <template #actions="{ drawer }">
-      <ElButton :text="!drawer" native-type="button" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
+      <ElButton :text="!drawer" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
     </template>
     <main class="admin-workspace">
       <ElTaskPageHeader
@@ -407,7 +407,7 @@ function logOut() {
           <template #actions>
             <ElInlineActions class="admin-session-actions" density="compact">
               <ElTag size="small" type="success">{{ t('admin.sessionActive') }}</ElTag>
-              <ElButton v-if="canUsePasskeys" native-type="button" text :disabled="busy" @click="openHandleRename">
+              <ElButton v-if="canUsePasskeys" text :disabled="busy" @click="openHandleRename">
                 {{ t('admin.renameHandle') }}
               </ElButton>
             </ElInlineActions>
@@ -466,7 +466,7 @@ function logOut() {
           </form>
           <template #footer>
             <ElInlineActions density="compact">
-              <ElButton native-type="button" :disabled="handleSubmitting" @click="closeHandleRename()">
+              <ElButton :disabled="handleSubmitting" @click="closeHandleRename()">
                 {{ t('admin.renameHandleCancel') }}
               </ElButton>
               <ElButton
@@ -516,8 +516,8 @@ function logOut() {
         <ElAlert v-if="!canUsePasskeys" :title="t('admin.securePasskeyRequired')" type="warning" :closable="false" show-icon />
         <div v-else class="admin-login-panel">
           <div class="admin-login-actions">
-            <ElButton native-type="button" type="primary" :loading="busy" @click="logIn">{{ t('admin.login') }}</ElButton>
-            <ElButton v-if="!bootstrapOpen" class="admin-setup-button" native-type="button" :disabled="busy" @click="bootstrapOpen = true">
+            <ElButton type="primary" :loading="busy" @click="logIn">{{ t('admin.login') }}</ElButton>
+            <ElButton v-if="!bootstrapOpen" class="admin-setup-button" :disabled="busy" @click="bootstrapOpen = true">
               {{ t('admin.setupPasskey') }}
             </ElButton>
           </div>
@@ -526,7 +526,7 @@ function logOut() {
             <ElInput id="admin-bootstrap-key" v-model="ticket" type="password" autocomplete="off" :disabled="busy" />
             <div class="admin-login-actions">
               <ElButton native-type="submit" type="primary" :loading="busy" :disabled="!ticketValid">{{ t('admin.createPasskey') }}</ElButton>
-              <ElButton native-type="button" :disabled="busy" @click="closeBootstrap">{{ t('admin.cancelSetup') }}</ElButton>
+              <ElButton :disabled="busy" @click="closeBootstrap">{{ t('admin.cancelSetup') }}</ElButton>
             </div>
           </form>
         </div>
@@ -535,7 +535,7 @@ function logOut() {
         <ElSkeleton :rows="2" animated />
         <p class="admin-status-text" role="status">{{ t('admin.checkingAccess') }}</p>
       </div>
-      <ElButton v-else-if="authority === null" native-type="button" @click="refresh">{{ t('admin.reloadAccess') }}</ElButton>
+      <ElButton v-else-if="authority === null" @click="refresh">{{ t('admin.reloadAccess') }}</ElButton>
     </div>
   </SiteAuthLayout>
 </template>

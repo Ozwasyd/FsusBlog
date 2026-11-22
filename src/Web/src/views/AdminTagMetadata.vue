@@ -101,16 +101,16 @@ onScopeDispose(() => lifetime.abort())
       </div>
       <ElAlert v-if="!normalized" :title="warning" type="warning" :closable="false" />
       <ElInlineActions>
-        <ElButton native-type="button" :disabled="busy" @click="emit('close')">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
-        <ElButton v-if="!creating && (stale || !current)" native-type="button" :disabled="busy" @click="load">{{ t('admin.tagMetadata.m18', { kind: kindLabel }) }}</ElButton>
+        <ElButton :disabled="busy" @click="emit('close')">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
+        <ElButton v-if="!creating && (stale || !current)" :disabled="busy" @click="load">{{ t('admin.tagMetadata.m18', { kind: kindLabel }) }}</ElButton>
         <ElButton v-if="!stale" native-type="submit" type="primary" :disabled="!normalized || busy" :loading="busy">
           {{ submitLabel }}
         </ElButton>
       </ElInlineActions>
     </form>
     <ElInlineActions v-else>
-      <ElButton native-type="button" :disabled="busy" @click="emit('close')">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
-      <ElButton v-if="!creating && (stale || !current)" native-type="button" :disabled="busy" @click="load">{{ t('admin.tagMetadata.m18', { kind: kindLabel }) }}</ElButton>
+      <ElButton :disabled="busy" @click="emit('close')">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
+      <ElButton v-if="!creating && (stale || !current)" :disabled="busy" @click="load">{{ t('admin.tagMetadata.m18', { kind: kindLabel }) }}</ElButton>
     </ElInlineActions>
   </div>
 </template>

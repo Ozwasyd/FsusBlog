@@ -77,7 +77,7 @@ onMounted(() => { void load() })
     </template>
     <template #description>{{ t('admin.traffic.period') }}</template>
     <template #actions>
-      <ElButton native-type="button" :loading="refreshLoading" @click="load">{{ t('admin.traffic.refresh') }}</ElButton>
+      <ElButton :loading="refreshLoading" @click="load">{{ t('admin.traffic.refresh') }}</ElButton>
     </template>
 
     <div v-if="busy && !observation" class="traffic-loading" role="status">
@@ -85,7 +85,7 @@ onMounted(() => { void load() })
       <ElSkeleton :rows="4" />
     </div>
     <ElAlert v-else-if="error" :title="t(error)" type="error" :closable="false" />
-    <ElEmptyState v-else-if="observation && !observation.enabled" size="inline" :title="t('admin.traffic.disabled')" :description="t('admin.traffic.disabledHint')" role="status" />
+    <ElEmptyState v-else-if="observation && !observation.enabled" :title="t('admin.traffic.disabled')" :description="t('admin.traffic.disabledHint')" role="status" />
     <template v-else-if="observation">
       <ElKpiGroup density="compact">
         <ElStatistic class="traffic-total" :title="t('admin.traffic.total')" :value="total" :formatter="number" />
@@ -93,7 +93,7 @@ onMounted(() => { void load() })
       <div class="traffic-grid">
         <section class="traffic-card" aria-labelledby="traffic-trend-heading">
           <h3 id="traffic-trend-heading">{{ t('admin.traffic.trend') }}</h3>
-          <ElEmptyState v-if="total === 0" size="inline" :title="t('admin.traffic.empty')" role="status" />
+          <ElEmptyState v-if="total === 0" :title="t('admin.traffic.empty')" role="status" />
           <template v-else>
             <svg class="traffic-chart" viewBox="0 0 300 100" role="img" :aria-label="t('admin.traffic.chart')">
               <line x1="0" y1="90" x2="300" y2="90" class="traffic-axis" />
@@ -113,8 +113,8 @@ onMounted(() => { void load() })
         </section>
         <section class="traffic-card" aria-labelledby="traffic-regions-heading">
           <h3 id="traffic-regions-heading">{{ t('admin.traffic.regions') }}</h3>
-          <ElEmptyState v-if="!observation.regionsConfigured" size="inline" :title="t('admin.traffic.regionsUnconfigured')" role="status" />
-          <ElEmptyState v-else-if="!regions.length" size="inline" :title="t('admin.traffic.regionsEmpty')" role="status" />
+          <ElEmptyState v-if="!observation.regionsConfigured" :title="t('admin.traffic.regionsUnconfigured')" role="status" />
+          <ElEmptyState v-else-if="!regions.length" :title="t('admin.traffic.regionsEmpty')" role="status" />
           <ElDistributionList v-else density="compact">
             <ElDistributionBarRow
               v-for="row in regions"

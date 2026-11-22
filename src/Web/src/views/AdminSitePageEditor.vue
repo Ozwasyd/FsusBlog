@@ -207,7 +207,6 @@ onScopeDispose(() => {
             <span class="site-page-budget" :class="{ 'site-page-budget--over': !valid }">{{ byteBudgetLabel }}</span>
             <ElButton
               v-if="canInsertTemplate"
-              native-type="button"
               text
               size="small"
               :disabled="busy"
@@ -284,7 +283,6 @@ onScopeDispose(() => {
           <ElInlineActions>
             <ElButton
               v-if="!stale"
-              native-type="button"
               type="primary"
               :loading="busy"
               :disabled="!canPublish"
@@ -292,19 +290,18 @@ onScopeDispose(() => {
             >{{ t('admin.publishPasskey') }}</ElButton>
             <ElButton
               v-if="dirty && !stale"
-              native-type="button"
               :disabled="busy"
               @click="discardChanges"
             >{{ t('admin.sitePages.discard') }}</ElButton>
-            <ElButton v-if="stale" native-type="button" :loading="busy" @click="load">{{ t('admin.reloadPublished') }}</ElButton>
-            <ElButton native-type="button" :disabled="busy" @click="emit('close')">{{ t('admin.closeEditor') }}</ElButton>
+            <ElButton v-if="stale" :loading="busy" @click="load">{{ t('admin.reloadPublished') }}</ElButton>
+            <ElButton :disabled="busy" @click="emit('close')">{{ t('admin.closeEditor') }}</ElButton>
           </ElInlineActions>
         </div>
       </template>
 
       <ElInlineActions v-else-if="!busy">
-        <ElButton native-type="button" @click="load">{{ t('admin.reloadPublished') }}</ElButton>
-        <ElButton native-type="button" @click="emit('close')">{{ t('admin.closeEditor') }}</ElButton>
+        <ElButton @click="load">{{ t('admin.reloadPublished') }}</ElButton>
+        <ElButton @click="emit('close')">{{ t('admin.closeEditor') }}</ElButton>
       </ElInlineActions>
     </ElFormSection>
   </section>

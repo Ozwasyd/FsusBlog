@@ -137,12 +137,12 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
   <section class="admin-moderation" aria-labelledby="admin-moderation-heading">
     <h2 id="admin-moderation-heading" class="moderation-sr-title">{{ t('admin.moderation.m32') }}</h2>
     <div class="moderation-panel-actions">
-      <ElButton native-type="button" text :disabled="Boolean(claim || batchClaims)" :loading="refreshLoading" @click="load()">{{ t('admin.moderation.refresh') }}</ElButton>
+      <ElButton text :disabled="Boolean(claim || batchClaims)" :loading="refreshLoading" @click="load()">{{ t('admin.moderation.refresh') }}</ElButton>
     </div>
 
     <ElAlert v-if="failure" :title="displayMessage(failure)" type="error" :closable="false" show-icon />
     <ElAlert v-if="notice" :title="displayMessage(notice)" type="success" :closable="false" show-icon />
-    <ElSkeleton v-if="busy && !queue" :rows="3" animated />
+    <ElSkeleton v-if="busy && !queue" animated />
 
     <template v-if="queue">
       <div v-if="batchAvailable" class="moderation-batch-panel">
@@ -159,17 +159,17 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
           </div>
           <p v-if="trimmedBatchReason && !batchReasonValid" class="moderation-validation">{{ t('admin.moderation.m47') }}</p>
           <ElInlineActions>
-            <ElButton native-type="button" type="primary" :disabled="busy || !batchReasonValid" @click="decideBatch(1)">
+            <ElButton type="primary" :disabled="busy || !batchReasonValid" @click="decideBatch(1)">
               {{ t('admin.moderation.m48') }}
             </ElButton>
-            <ElButton native-type="button" :disabled="busy || !batchReasonValid" @click="decideBatch(2)">
+            <ElButton :disabled="busy || !batchReasonValid" @click="decideBatch(2)">
               {{ t('admin.moderation.m49') }}
             </ElButton>
-            <ElButton native-type="button" :disabled="busy" @click="cancelBatch">{{ t('admin.moderation.m50') }}</ElButton>
+            <ElButton :disabled="busy" @click="cancelBatch">{{ t('admin.moderation.m50') }}</ElButton>
           </ElInlineActions>
         </template>
         <div v-else class="moderation-batch-bar">
-          <ElButton native-type="button"
+          <ElButton
             :disabled="busy || selected.size < WireLimits.AdminModerationBatchMinimum" @click="startBatch">{{ t('admin.moderation.m51') }}</ElButton>
           <p class="moderation-status" role="status">
             {{ t('admin.moderation.m70', { count: selected.size, min: WireLimits.AdminModerationBatchMinimum, max: WireLimits.AdminModerationBatchCount }) }}
@@ -177,7 +177,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
         </div>
       </div>
 
-      <ElEmptyState v-if="queue.comments.length === 0" size="inline" :title="t('admin.moderation.m52')" role="status" />
+      <ElEmptyState v-if="queue.comments.length === 0" :title="t('admin.moderation.m52')" role="status" />
       <ElResourceList v-else class="moderation-comments" density="compact">
         <div v-for="item in visibleComments" :key="`${item.articleId}-${item.commentId}`" class="moderation-comment-row" role="listitem">
           <article class="moderation-comment-card">
@@ -211,24 +211,22 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
                 </div>
                 <p v-if="trimmedReason && !reasonValid" class="moderation-validation">{{ t('admin.moderation.m47') }}</p>
                 <ElInlineActions>
-                  <ElButton native-type="button" type="primary" :disabled="busy || !reasonValid" @click="decide(1)">
+                  <ElButton type="primary" :disabled="busy || !reasonValid" @click="decide(1)">
                     {{ t('admin.moderation.m56') }}
                   </ElButton>
-                  <ElButton native-type="button" :disabled="busy || !reasonValid" @click="decide(2)">
+                  <ElButton :disabled="busy || !reasonValid" @click="decide(2)">
                     {{ t('admin.moderation.m57') }}
                   </ElButton>
-                  <ElButton native-type="button" :disabled="busy" @click="renew">{{ t('admin.moderation.m58') }}</ElButton>
-                  <ElButton native-type="button" :disabled="busy" @click="release">{{ t('admin.moderation.m59') }}</ElButton>
+                  <ElButton :disabled="busy" @click="renew">{{ t('admin.moderation.m58') }}</ElButton>
+                  <ElButton :disabled="busy" @click="release">{{ t('admin.moderation.m59') }}</ElButton>
                 </ElInlineActions>
               </div>
               <ElInlineActions v-else-if="!batchClaims">
                 <ElButton
-                  native-type="button"
                   :disabled="busy || Boolean(claim) || selected.size > 0"
                   @click="claimForReview(item)"
                 >{{ t('admin.moderation.m60') }}</ElButton>
                 <ElButton
-                  native-type="button"
                   text
                   :disabled="busy"
                   @click="openCommentHistory(item)"
@@ -240,7 +238,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
       </ElResourceList>
 
       <div v-if="queue.next" class="moderation-more">
-        <ElButton native-type="button" text :disabled="busy || Boolean(claim || batchClaims)" @click="load(queue.next)">{{ t('admin.moderation.m61') }}</ElButton>
+        <ElButton text :disabled="busy || Boolean(claim || batchClaims)" @click="load(queue.next)">{{ t('admin.moderation.m61') }}</ElButton>
       </div>
     </template>
 
@@ -259,7 +257,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
         </div>
         <ElInlineActions>
           <ElButton native-type="submit" :disabled="!canReadHistory">{{ t('admin.moderation.m37') }}</ElButton>
-          <ElButton native-type="button" :disabled="!canReadHistory" @click="loadRevisions()">{{ t('admin.moderation.m38') }}</ElButton>
+          <ElButton :disabled="!canReadHistory" @click="loadRevisions()">{{ t('admin.moderation.m38') }}</ElButton>
         </ElInlineActions>
       </form>
     </details>
@@ -271,7 +269,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
       @update:model-value="visible => { if (!visible) historyDialogOpen = false }"
     >
       <div class="moderation-history-dialog">
-        <ElSkeleton v-if="historyLoading" :rows="3" animated />
+        <ElSkeleton v-if="historyLoading" animated />
         <ElAlert v-else-if="historyError" :title="t(historyError)" type="error" :closable="false" />
         <template v-else>
           <template v-if="history">
@@ -279,7 +277,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
               {{ t('admin.moderation.m67', { status: t(history.deleted ? 'admin.moderation.m7' : statuses[history.currentStatus]) }) }}
             </p>
             <ElAlert v-if="!history.consistent" :title="t('admin.moderation.m39')" type="warning" :closable="false" />
-            <ElEmptyState v-if="history.events.length === 0" size="inline" :title="t('admin.moderation.m40')" />
+            <ElEmptyState v-if="history.events.length === 0" :title="t('admin.moderation.m40')" />
             <ElTimeline v-else class="moderation-timeline">
               <ElTimelineItem
                 v-for="(event, index) in history.events"
@@ -322,14 +320,14 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
               </ElResourceListItem>
             </ElResourceList>
             <ElInlineActions v-if="revisions.next">
-              <ElButton native-type="button" :disabled="!canReadHistory" @click="loadRevisions(revisions.next)">{{ t('admin.moderation.m43') }}</ElButton>
+              <ElButton :disabled="!canReadHistory" @click="loadRevisions(revisions.next)">{{ t('admin.moderation.m43') }}</ElButton>
             </ElInlineActions>
           </template>
         </template>
       </div>
       <template #footer>
         <ElInlineActions>
-          <ElButton native-type="button" @click="historyDialogOpen = false">{{ t('admin.moderation.closeHistory') }}</ElButton>
+          <ElButton @click="historyDialogOpen = false">{{ t('admin.moderation.closeHistory') }}</ElButton>
         </ElInlineActions>
       </template>
     </ElDialog>

@@ -104,7 +104,7 @@ onMounted(() => { void check(false) })
       <span id="admin-risk-controls-heading">{{ t('admin.riskControls') }}</span>
     </template>
     <template #actions>
-      <ElButton native-type="button" text :loading="checkLoading" @click="check(true)">{{ t('admin.checkRisk') }}</ElButton>
+      <ElButton text :loading="checkLoading" @click="check(true)">{{ t('admin.checkRisk') }}</ElButton>
     </template>
     <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" show-icon />
     <div aria-live="polite">
@@ -150,14 +150,12 @@ onMounted(() => { void check(false) })
       </div>
       <ElInlineActions>
         <ElButton
-          native-type="button"
           type="primary"
           :disabled="busy || !validRootCommentPowSeconds(Number(seconds)) || Number(seconds) === rootPolicy.proofSeconds"
           @click="change(false)"
         >{{ t('admin.applyProofLifetime') }}</ElButton>
         <ElButton
           v-if="rootPolicy.previousSeconds > 0"
-          native-type="button"
           :disabled="busy"
           @click="change(true)"
         >{{ t('admin.restoreProofLifetime') }}</ElButton>

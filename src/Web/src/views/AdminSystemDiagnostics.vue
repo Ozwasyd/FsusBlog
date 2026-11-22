@@ -131,7 +131,7 @@ onMounted(() => { void check(false) })
       <span id="admin-runtime-heading">{{ t('admin.runtimeTitle') }}</span>
     </template>
     <template #actions>
-      <ElButton native-type="button" text :loading="checkLoading" @click="check(true)">
+      <ElButton text :loading="checkLoading" @click="check(true)">
         {{ t('admin.runtimeRecheck') }}
       </ElButton>
     </template>

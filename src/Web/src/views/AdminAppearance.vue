@@ -133,7 +133,7 @@ watchAdminSessionClear(() => props.sessionSignal, clear, () => lifetime.abort())
       <span id="admin-appearance">{{ t('admin.siteAppearance') }}</span>
     </template>
     <template #actions>
-      <ElButton :loading="busy" native-type="button" @click="run(read)">{{ t('admin.checkAppearance') }}</ElButton>
+      <ElButton :loading="busy" @click="run(read)">{{ t('admin.checkAppearance') }}</ElButton>
     </template>
 
     <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" />
@@ -165,14 +165,14 @@ watchAdminSessionClear(() => props.sessionSignal, clear, () => lifetime.abort())
           </div>
         </div>
         <ElInlineActions>
-          <ElButton type="primary" :disabled="busy || !canApply" native-type="button" @click="apply(false)">{{ t('admin.applyAppearance') }}</ElButton>
-          <ElButton v-if="state.canRollback" :disabled="busy" native-type="button" @click="apply(true)">
+          <ElButton type="primary" :disabled="busy || !canApply" @click="apply(false)">{{ t('admin.applyAppearance') }}</ElButton>
+          <ElButton v-if="state.canRollback" :disabled="busy" @click="apply(true)">
             {{ t('admin.restoreAppearance', { theme: name(state.previousTheme), font: name(state.previousFont) }) }}
           </ElButton>
-          <ElButton v-if="selectedFont" :disabled="busy" native-type="button" @click="readFontDetail(selectedFont.archive)">
+          <ElButton v-if="selectedFont" :disabled="busy" @click="readFontDetail(selectedFont.archive)">
             {{ t('admin.fontDetails') }}
           </ElButton>
-          <ElButton :disabled="busy" native-type="button" @click="readHistory()">
+          <ElButton :disabled="busy" @click="readHistory()">
             {{ historyBefore === undefined ? t('admin.checkAppearanceHistory') : t('admin.latestAppearance') }}
           </ElButton>
         </ElInlineActions>
@@ -212,7 +212,7 @@ watchAdminSessionClear(() => props.sessionSignal, clear, () => lifetime.abort())
         <template #title>
           <span id="admin-appearance-history" ref="historyHeading" tabindex="-1">{{ t('admin.appearanceHistory') }}</span>
         </template>
-        <ElEmptyState v-if="history.items.length === 0" size="inline" :title="t('admin.noAppearanceHistory')" />
+        <ElEmptyState v-if="history.items.length === 0" :title="t('admin.noAppearanceHistory')" />
         <ElResourceList v-else class="appearance-history" density="compact">
           <ElResourceListItem
             v-for="change in history.items"
@@ -236,7 +236,7 @@ watchAdminSessionClear(() => props.sessionSignal, clear, () => lifetime.abort())
           </ElResourceListItem>
         </ElResourceList>
         <div v-if="history.nextBefore" class="appearance-history-more">
-          <ElButton :disabled="busy" native-type="button" @click="readHistory(history.nextBefore ?? undefined)">
+          <ElButton :disabled="busy" @click="readHistory(history.nextBefore ?? undefined)">
             {{ t('admin.earlierAppearance') }}
           </ElButton>
         </div>

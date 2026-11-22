@@ -303,12 +303,11 @@ onBeforeUnmount(() => {
           </ElSelect>
         </div>
         <div class="inbox-admin-toolbar-actions">
-          <ElButton native-type="button" text :loading="queueRefreshLoading" @click="loadQueue()">
+          <ElButton text :loading="queueRefreshLoading" @click="loadQueue()">
             {{ t('admin.inbox.m14') }}
           </ElButton>
           <ElButton
             v-if="noticesEnabled"
-            native-type="button"
             type="primary"
             :disabled="noticePending"
             @click="composeNotice = true"
@@ -345,7 +344,6 @@ onBeforeUnmount(() => {
       <template #thread-actions>
         <ElButton
           v-if="thread && (thread.version || thread.liveEnabled || needsRefresh)"
-          native-type="button"
           text
           :loading="threadReloadLoading"
           @click="reloadThread"
@@ -366,7 +364,7 @@ onBeforeUnmount(() => {
       <template v-if="unreadAckFailed" #thread-context-extra>
         <div class="inbox-admin-alert-row">
           <ElAlert :title="t('admin.inbox.m27')" type="warning" :closable="false" show-icon />
-          <ElButton native-type="button" :loading="readPending" @click="retryRead">{{ t('admin.inbox.m28') }}</ElButton>
+          <ElButton :loading="readPending" @click="retryRead">{{ t('admin.inbox.m28') }}</ElButton>
         </div>
       </template>
 
@@ -427,7 +425,7 @@ onBeforeUnmount(() => {
       </form>
       <template #footer>
         <ElInlineActions density="compact">
-          <ElButton native-type="button" :disabled="noticePending" @click="clearNotice">
+          <ElButton :disabled="noticePending" @click="clearNotice">
             {{ t('admin.inbox.m20') }}
           </ElButton>
           <ElButton

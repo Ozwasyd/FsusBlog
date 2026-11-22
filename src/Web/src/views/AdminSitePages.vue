@@ -140,7 +140,7 @@ onMounted(() => { void readOverview(false) })
       <span id="admin-site-pages-heading">{{ t('admin.sitePages') }}</span>
     </template>
     <template #actions>
-      <ElButton native-type="button" :loading="refreshLoading" @click="readOverview(true)">{{ t('admin.sitePages.refresh') }}</ElButton>
+      <ElButton :loading="refreshLoading" @click="readOverview(true)">{{ t('admin.sitePages.refresh') }}</ElButton>
     </template>
 
     <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" show-icon />
@@ -175,7 +175,6 @@ onMounted(() => { void readOverview(false) })
               <ElButton
                 :type="!page.configured && editor !== page.slug ? 'primary' : undefined"
                 :disabled="busy"
-                native-type="button"
                 text
                 v-bind="{
                   'aria-label': editor === page.slug ? t('admin.closeEditor') : t('admin.editPageContent', { slug: page.slug }),
@@ -190,7 +189,6 @@ onMounted(() => { void readOverview(false) })
               <ElButton
                 :loading="readingSlug === page.slug"
                 :disabled="busy"
-                native-type="button"
                 text
                 v-bind="{
                   'aria-label': selected?.slug === page.slug ? t('admin.sitePages.close') : t('admin.viewPageContent', { slug: page.slug }),
@@ -224,7 +222,7 @@ onMounted(() => { void readOverview(false) })
             <ElRadioButton value="source">{{ t('admin.sitePages.modeSource') }}</ElRadioButton>
             <ElRadioButton value="preview">{{ t('admin.sitePages.modePreview') }}</ElRadioButton>
           </ElRadioGroup>
-          <ElButton native-type="button" text size="small" @click="selected = undefined">{{ t('admin.sitePages.close') }}</ElButton>
+          <ElButton text size="small" @click="selected = undefined">{{ t('admin.sitePages.close') }}</ElButton>
         </div>
       </div>
       <div v-if="nativeMarkdown && readOnlyMode === 'preview'" class="site-page-readonly-rendered blog-markdown">

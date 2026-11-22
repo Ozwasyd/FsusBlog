@@ -221,7 +221,7 @@ onBeforeUnmount(() => {
       <span :id="`admin-taxonomy-heading-${kind}`" ref="heading" tabindex="-1">{{ t('admin.taxonomy.m3') }}</span>
     </template>
     <template #actions>
-      <ElButton class="taxonomy-refresh" native-type="button" text :disabled="pending || edited !== undefined" @click="load(pageNumber)">{{ t('admin.articles.refresh') }}</ElButton>
+      <ElButton class="taxonomy-refresh" text :disabled="pending || edited !== undefined" @click="load(pageNumber)">{{ t('admin.articles.refresh') }}</ElButton>
     </template>
 
     <p v-if="notice" class="taxonomy-status" role="status">
@@ -229,9 +229,9 @@ onBeforeUnmount(() => {
         ? t(notice.key, { kind: t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2'), name: notice.name })
         : t(notice.key, { label: t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2') }) }}
     </p>
-    <ElSkeleton v-if="pending" :rows="3" animated />
+    <ElSkeleton v-if="pending" animated />
     <ElAlert v-else-if="failure === 'request'" :title="t('admin.taxonomy.m8')" type="error" :closable="false" show-icon>
-      <ElButton native-type="button" text @click="load(pageNumber)">{{ t('admin.taxonomy.m9') }}</ElButton>
+      <ElButton text @click="load(pageNumber)">{{ t('admin.taxonomy.m9') }}</ElButton>
     </ElAlert>
     <template v-else-if="page">
       <div class="taxonomy-toolbar">
@@ -244,7 +244,6 @@ onBeforeUnmount(() => {
         />
         <ElButton
           v-if="canEditMetadata"
-          native-type="button"
           type="primary"
           :disabled="edited !== undefined"
           @click="openEditor(0, $event)"
@@ -253,8 +252,8 @@ onBeforeUnmount(() => {
         </ElButton>
       </div>
 
-      <ElEmptyState v-if="page.items.length === 0" size="inline" :title="kind === 'categories' ? t('admin.taxonomy.m10') : t('admin.taxonomy.m11')" />
-      <ElEmptyState v-else-if="filteredItems.length === 0" size="inline" :title="t('admin.taxonomy.noSearchMatch', { kind: kindLabel })" />
+      <ElEmptyState v-if="page.items.length === 0" :title="kind === 'categories' ? t('admin.taxonomy.m10') : t('admin.taxonomy.m11')" />
+      <ElEmptyState v-else-if="filteredItems.length === 0" :title="t('admin.taxonomy.noSearchMatch', { kind: kindLabel })" />
       <div v-else class="taxonomy-table-scroll" tabindex="0" role="region" :aria-label="t('admin.taxonomy.m12')" :aria-describedby="`taxonomy-count-notes-${kind}`">
         <table>
           <thead>
@@ -271,7 +270,6 @@ onBeforeUnmount(() => {
               <td>
                 <ElButton
                   v-if="item.published > 0"
-                  native-type="button"
                   text
                   size="small"
                   class="taxonomy-count-link"
@@ -284,13 +282,13 @@ onBeforeUnmount(() => {
               <td class="taxonomy-other-states">{{ formatOtherStates(item) }}</td>
               <td class="taxonomy-row-actions">
                 <ElInlineActions>
-                  <ElButton native-type="button" text size="small" @click="viewLinkedArticles(item)">
+                  <ElButton text size="small" @click="viewLinkedArticles(item)">
                     {{ t('admin.taxonomy.viewArticles') }}
                   </ElButton>
-                  <ElButton v-if="canEditMetadata" native-type="button" text size="small" :disabled="edited !== undefined" @click="openEditor(item.id, $event)">
+                  <ElButton v-if="canEditMetadata" text size="small" :disabled="edited !== undefined" @click="openEditor(item.id, $event)">
                     {{ t('admin.taxonomy.edit') }}
                   </ElButton>
-                  <ElButton v-if="canEditMetadata" native-type="button" text size="small" type="danger" :disabled="deleting" @click="openDelete(item, $event)">
+                  <ElButton v-if="canEditMetadata" text size="small" type="danger" :disabled="deleting" @click="openDelete(item, $event)">
                     {{ t('admin.taxonomy.delete') }}
                   </ElButton>
                 </ElInlineActions>
@@ -307,9 +305,9 @@ onBeforeUnmount(() => {
 
       <nav v-if="pageNumber > 0 || page.nextId !== null" class="taxonomy-actions" :aria-label="t('admin.taxonomy.m30')">
         <ElInlineActions>
-          <ElButton native-type="button" :disabled="pageNumber === 0" @click="load(pageNumber - 1)">{{ t('admin.taxonomy.m31') }}</ElButton>
+          <ElButton :disabled="pageNumber === 0" @click="load(pageNumber - 1)">{{ t('admin.taxonomy.m31') }}</ElButton>
           <span class="taxonomy-page-status" role="status">{{ t('admin.taxonomy.m45', { page: pageNumber + 1 }) }}</span>
-          <ElButton native-type="button" :disabled="page.nextId === null" @click="next">{{ t('admin.taxonomy.m32') }}</ElButton>
+          <ElButton :disabled="page.nextId === null" @click="next">{{ t('admin.taxonomy.m32') }}</ElButton>
         </ElInlineActions>
       </nav>
     </template>
@@ -353,10 +351,9 @@ onBeforeUnmount(() => {
       </div>
       <template #footer>
         <ElInlineActions>
-          <ElButton native-type="button" :disabled="deleting" @click="closeDelete">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
+          <ElButton :disabled="deleting" @click="closeDelete">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
           <ElButton
             v-if="deleteTarget && deleteTarget.retainedArticles > 0"
-            native-type="button"
             type="primary"
             @click="viewLinkedArticles(deleteTarget)"
           >
@@ -364,7 +361,6 @@ onBeforeUnmount(() => {
           </ElButton>
           <ElButton
             v-else-if="deleteTarget"
-            native-type="button"
             type="danger"
             :loading="deleting"
             @click="confirmDelete"
