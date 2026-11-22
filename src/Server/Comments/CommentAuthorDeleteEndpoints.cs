@@ -57,6 +57,7 @@ internal static class CommentAuthorDeleteEndpoints
             Run(ctx, store, async (db, tx, actor, _) =>
             {
                 var page = await CommentAppeals.ReadOwned(db, tx, actor.Id, ctx.Request.Query, ct);
+                ctx.Response.Headers.CacheControl = "private, no-store";
                 if (await CurrentSchema.SupportsPendingCommentAuthorEditAsync(db, tx, ct))
                     ctx.Response.Headers[WireHeaders.CommentAuthorEditEnabled] = "1";
                 return page;

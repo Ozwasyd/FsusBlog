@@ -31,6 +31,9 @@ internal static class CommentAppeals
         return reason;
     }
 
+    private const int OwnedSearchMaxChars = 100;
+    private const int OwnedSearchMaxBytes = 400;
+
     internal static long Before(IQueryCollection query)
     {
         if (query.Count == 0) return 0;
@@ -40,10 +43,53 @@ internal static class CommentAppeals
         throw new BusinessException(Rejection.Invalid, "Invalid comment appeal position.");
     }
 
+    internal static (long Before, string Keyword, short Status) ParseOwnedQuery(IQueryCollection query)
+    {
+        long before = 0;
+        var keyword = "";
+        short status = -1;
+        foreach (var pair in query)
+        {
+            if (pair.Value.Count != 1)
+                throw new BusinessException(Rejection.Invalid, "Invalid comment query.");
+            var raw = pair.Value[0] ?? "";
+            switch (pair.Key)
+            {
+                case "before":
+                    if (!long.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out before) || before <= 0)
+                        throw new BusinessException(Rejection.Invalid, "Invalid comment appeal position.");
+                    break;
+                case "q":
+                    var trimmed = raw.Trim();
+                    if (trimmed.Length > OwnedSearchMaxChars ||
+                        System.Text.Encoding.UTF8.GetByteCount(trimmed) > OwnedSearchMaxBytes ||
+                        trimmed.Any(char.IsControl))
+                        throw new BusinessException(Rejection.Invalid, "Invalid comment search keyword.");
+                    keyword = trimmed.ToLowerInvariant();
+                    break;
+                case "status":
+                    status = raw switch
+                    {
+                        "" or "all" => -1,
+                        "pending" => 0,
+                        "approved" => 1,
+                        "rejected" => 2,
+                        "hidden" => 3,
+                        _ => throw new BusinessException(Rejection.Invalid, "Invalid comment status filter.")
+                    };
+                    break;
+                default:
+                    throw new BusinessException(Rejection.Invalid, "Invalid comment query.");
+            }
+        }
+        return (before, keyword, status);
+    }
+
     internal static async Task<byte[]> ReadOwned(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
         IQueryCollection query, CancellationToken ct)
     {
         await RequireSchema(db, tx, ct);
+        var (before, keyword, status) = ParseOwnedQuery(query);
         await using var find = Store.Sql(db, tx, """
             select c.article_id,c.id,c.body,c.moderation_status,
                 case when a.id is not null then case when d.granted then 3 when not d.granted then 4
@@ -54,6 +100,9 @@ internal static class CommentAppeals
                 d.reason,c.deleted
             from public.comment_account_owner o
             join public.comment c on c.article_id=o.article_id and c.id=o.comment_id and c.author_mode=3
+            left join public.article art on art.id=c.article_id and not art.deleted and art.published_revision is not null
+            left join public.article_publication pub on pub.article_id=art.id and pub.revision=art.published_revision and pub.published_at<=statement_timestamp()
+            left join public.article_revision pub_rev on pub_rev.article_id=pub.article_id and pub_rev.revision=pub.revision
             left join lateral (
                 select id,next_status,comment_version from public.admin_comment_moderation
                 where article_id=c.article_id and comment_id=c.id order by id desc limit 1
@@ -64,8 +113,12 @@ internal static class CommentAppeals
             ) a on true
             left join public.comment_appeal_decision d on d.appeal_id=a.id
             where o.user_id=$1 and ($2=0 or c.id<$2) and (not c.deleted or a.id is not null)
+                and ($4 < 0 or c.moderation_status = $4)
+                and ($5 = '' or (not c.deleted and strpos(lower(c.body), $5) > 0)
+                    or (d.reason is not null and strpos(lower(d.reason), $5) > 0)
+                    or (pub_rev.title is not null and strpos(lower(pub_rev.title), $5) > 0))
             order by c.id desc limit $3
-            """, owner, Before(query), Wire.CommentAppealPageSize + 1);
+            """, owner, before, Wire.CommentAppealPageSize + 1, status, keyword);
         await using var row = await find.ExecuteReaderAsync(ct);
         List<AuthorAppealRow> rows = [];
         while (await row.ReadAsync(ct))
