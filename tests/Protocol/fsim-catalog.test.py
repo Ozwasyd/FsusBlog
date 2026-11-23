@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import hashlib
-import importlib.util
 import json
 import pathlib
 import struct
@@ -9,14 +8,13 @@ import sys
 import tempfile
 import unittest
 
+from tool_module_fixture import load_tool_module
+
 from fhs2_fixture import assemble_shard, encode_terms, posting_vector
 
 
 TOOL = pathlib.Path(__file__).resolve().parents[2] / "tools/fspt-patch.py"
-spec = importlib.util.spec_from_file_location("fspt_patch", TOOL)
-fspt = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = fspt
-spec.loader.exec_module(fspt)
+fspt = load_tool_module("fspt_patch", TOOL)
 
 TICKS = 638879616000000007
 GENERATION = "3a56b79c124de80f"

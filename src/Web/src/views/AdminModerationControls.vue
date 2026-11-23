@@ -485,11 +485,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
 }
 
 .moderation-comment-header h3 {
-  margin: 0;
-  font-size: var(--el-font-size-base);
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  overflow-wrap: anywhere;
+  @include layout.review-item-heading;
 }
 
 .moderation-comment-controls {

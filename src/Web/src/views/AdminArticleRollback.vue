@@ -281,6 +281,7 @@ onScopeDispose(() => lifetime.abort())
 </template>
 
 <style scoped lang="scss">
+@use '../review-panel' as layout;
 @use '../shared-fields' as fields;
 
 .rollback-lookup-form,
@@ -302,10 +303,6 @@ onScopeDispose(() => lifetime.abort())
 }
 
 .rollback-preview h3 {
-  margin: 0;
-  font-size: var(--el-font-size-base);
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  overflow-wrap: anywhere;
+  @include layout.review-item-heading;
 }
 </style>

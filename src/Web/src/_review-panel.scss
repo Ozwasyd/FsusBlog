@@ -25,3 +25,11 @@
     overflow: hidden;
   }
 }
+
+@mixin review-item-heading {
+  margin: 0;
+  font-size: var(--el-font-size-base);
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  overflow-wrap: anywhere;
+}

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { requireWebPackage } from './web-package-fixture.mjs'
+import { launchIsolatedChromium, restrictBrowserOrigins } from './isolated-browser-fixture.mjs'
 import { exactButton, roleWithExactName } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_URL
@@ -39,12 +39,11 @@ const wire = await Promise.all(locales.map(([headers]) => fetch(origin + '/api/b
 assert.ok(wire.every(response => response.ok))
 assert.deepEqual(await wire[0].arrayBuffer(), await wire[1].arrayBuffer())
 
-const { chromium } = requireWebPackage('@playwright/test')
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, args: ['--no-proxy-server'] })
+const browser = await launchIsolatedChromium()
 try {
   for (const width of [1280, 375, 320]) {
     const context = await browser.newContext({ locale: 'en-US', viewport: { width, height: 800 }, serviceWorkers: 'block' })
-    await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort())
+    await restrictBrowserOrigins(context, origin)
     const page = await context.newPage()
     const errors = []
     const docs = []

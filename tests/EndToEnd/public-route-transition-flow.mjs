@@ -1,15 +1,14 @@
 import { roleWithExactName } from './role-locators.mjs'
 import assert from 'node:assert/strict'
-import { requireWebPackage } from './web-package-fixture.mjs'
+import { launchIsolatedChromium, restrictBrowserOrigins } from './isolated-browser-fixture.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_URL
 assert(origin, 'Set the isolated test URL')
-const { chromium } = requireWebPackage('@playwright/test')
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, args: ['--no-proxy-server'] })
+const browser = await launchIsolatedChromium()
 try {
   for (const reducedMotion of ['no-preference', 'reduce']) {
     const context = await browser.newContext({ locale: 'en-US', reducedMotion, viewport: { width: 1280, height: 800 } })
-    await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort())
+    await restrictBrowserOrigins(context, origin)
     await context.addInitScript(() => {
       window.routeTransitions = []
       window.localeTransitions = []
@@ -121,7 +120,7 @@ try {
   // Verify pure-opacity fallback when document.startViewTransition is unavailable
   {
     const context = await browser.newContext({ locale: 'en-US', reducedMotion: 'no-preference', viewport: { width: 1280, height: 800 } })
-    await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort())
+    await restrictBrowserOrigins(context, origin)
     await context.addInitScript(() => {
       Object.defineProperty(document, 'startViewTransition', { value: undefined, configurable: true, writable: true })
       window.fallbackFades = []
