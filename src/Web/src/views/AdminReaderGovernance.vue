@@ -425,19 +425,17 @@ onBeforeUnmount(() => {
   </section>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../admin-collection' as collection;
+@use '../shared-fields' as fields;
+
 .admin-readers {
   display: grid;
   gap: var(--fsus-space-3);
   min-width: 0;
 }
 .readers-sr-title {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  @include collection.sr-title;
 }
 .readers-toolbar {
   display: grid;
@@ -455,16 +453,10 @@ onBeforeUnmount(() => {
 }
 .readers-search-form label,
 .readers-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
+  @include fields.admin-label;
 }
 .readers-filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  @include collection.toolbar;
 }
 .readers-status-group {
   max-inline-size: 100%;

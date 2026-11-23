@@ -331,17 +331,20 @@ async function confirmDelete() {
   </section>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../admin-collection' as collection;
+@use '../shared-fields' as fields;
+
 .inventory-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.inventory-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.inventory-toolbar {
+  @include collection.toolbar;
+}
 .inventory-search { display: grid; grid-template-columns: auto minmax(12rem, 30rem) auto; align-items: center; justify-content: start; gap: 10px; flex: 1 1 20rem; }
 .inventory-write-link, .inventory-action-link { text-decoration: none; }
 .inventory-filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .inventory-search label,
 .inventory-field label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
+  @include fields.admin-label;
 }
 .inventory-record { display: grid; gap: 4px; min-width: 0; white-space: normal; }
 .inventory-record-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }

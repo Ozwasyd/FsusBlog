@@ -373,18 +373,16 @@ onBeforeUnmount(() => {
   </ElSettingsSection>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '../admin-collection' as collection;
+
 .admin-taxonomy h2 {
   font-size: var(--el-font-size-large);
   margin: 0;
 }
 
 .taxonomy-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  @include collection.toolbar;
 }
 
 .taxonomy-search-input {

@@ -388,6 +388,8 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
+@use '../admin-collection' as collection;
+
 @use '../shared-fields' as fields;
 
 .inbox-admin {
@@ -397,12 +399,7 @@ onBeforeUnmount(() => {
 }
 
 .inbox-admin-sr-title {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  @include collection.sr-title;
 }
 
 .inbox-admin-filters {
