@@ -94,14 +94,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
         Assert.Equal(0L, await Scalar<long>("select count(*) from public.admin_article_rollback_step_up where kind=2"));
         Assert.Equal(author, await Scalar<Guid>("select owner_id from public.article where id=1"));
         Assert.Equal(admin.Id, await Scalar<Guid>("select admin_actor_id from public.article_publication_history where revision=3 and actor_id is null"));
-        Assert.Equal(1L, await Scalar<long>("""
-            select count(*) from public.admin_article_rollback b
-              join public.article_publication_rights w on w.id=b.rights_snapshot_id and w.publication_id=b.publication_id
-              join public.article_revision_rights r on r.article_id=w.article_id and r.revision=w.revision
-              join public.article_revision_responsibility d on d.id=b.responsibility_snapshot_id and d.source_snapshot_id=1
-              join public.article_publication_responsibility p on p.publication_id=b.publication_id and p.snapshot_id=d.id
-              join public.article_revision_category c on c.article_id=b.article_id and c.revision=b.revision and c.category_id=10
-              join public.article_revision_tag t on t.article_id=b.article_id and t.revision=b.revision and t.tag_id=11
+        Assert.Equal(1L, await Scalar<long>(RollbackSnapshotQuery + "\n" + """
             where b.principal_id=$1 and b.command_id=$2 and b.reason=$3
                and r.copyright_holder='Original holder' and d.responsible_party='Historical claimant'
             """, admin.Id, intent.IdempotencyKey, intent.Reason));
@@ -238,14 +231,7 @@ public sealed partial class AdminArticleRollbackPostgresTests
               and supersedes_id=2 and kind='retract' and reason='administrator-rollback-draft'
               and actor_id is null and admin_actor_id=$1 and admin_command_id=$2
             """, admin.Id, intent.IdempotencyKey));
-        Assert.Equal(1L, await Scalar<long>("""
-            select count(*) from public.admin_article_rollback b
-              join public.article_publication_rights w on w.id=b.rights_snapshot_id and w.publication_id=b.publication_id
-              join public.article_revision_rights r on r.article_id=w.article_id and r.revision=w.revision
-              join public.article_revision_responsibility d on d.id=b.responsibility_snapshot_id and d.source_snapshot_id=1
-              join public.article_publication_responsibility p on p.publication_id=b.publication_id and p.snapshot_id=d.id
-              join public.article_revision_category c on c.article_id=b.article_id and c.revision=b.revision and c.category_id=10
-              join public.article_revision_tag t on t.article_id=b.article_id and t.revision=b.revision and t.tag_id=11
+        Assert.Equal(1L, await Scalar<long>(RollbackSnapshotQuery + "\n" + """
             where b.principal_id=$1 and b.command_id=$2 and b.reason=$3 and b.destination=0
               and b.publication_id=$4 and b.rights_snapshot_id=$5 and b.responsibility_snapshot_id=$6
               and r.copyright_holder='Original holder' and r.license_type='CC-BY-4.0' and d.responsible_party='Historical claimant'
@@ -284,6 +270,16 @@ public sealed partial class AdminArticleRollbackPostgresTests
         Task Execute(string sql, params object[] parameters) => ExecuteSql(db, ct, sql, parameters);
         Task<T> Scalar<T>(string sql, params object[] parameters) => ScalarSql<T>(db, ct, sql, parameters);
     }
+
+    private const string RollbackSnapshotQuery = """
+        select count(*) from public.admin_article_rollback b
+          join public.article_publication_rights w on w.id=b.rights_snapshot_id and w.publication_id=b.publication_id
+          join public.article_revision_rights r on r.article_id=w.article_id and r.revision=w.revision
+          join public.article_revision_responsibility d on d.id=b.responsibility_snapshot_id and d.source_snapshot_id=1
+          join public.article_publication_responsibility p on p.publication_id=b.publication_id and p.snapshot_id=d.id
+          join public.article_revision_category c on c.article_id=b.article_id and c.revision=b.revision and c.category_id=10
+          join public.article_revision_tag t on t.article_id=b.article_id and t.revision=b.revision and t.tag_id=11
+        """;
 
     private static async Task AssertSearchCount(HttpClient client, int count, CancellationToken ct)
     {

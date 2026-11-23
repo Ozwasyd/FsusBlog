@@ -1,5 +1,6 @@
+import { withBrowserEvidence } from './isolated-browser-fixture.mjs'
 import assert from 'node:assert/strict'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import {
@@ -104,9 +105,8 @@ async function saveBesideInspector(page, width, article) {
 }
 
 
-let failure
 let browser = await launch()
-try {
+await withBrowserEvidence(browser, evidence, 'workspace-recovery-result.json', { observations, diagnostics }, async () => {
   const originContext = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const outsider = await browser.newContext()
   const session = await signInWithPasskey(originContext, process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP)
@@ -245,12 +245,4 @@ try {
     await reopenedBrowser.close()
   }
   assert.deepEqual(diagnostics, [])
-} catch (error) {
-  failure = error
-} finally {
-  await browser.close()
-  await writeFile(join(evidence, 'workspace-recovery-result.json'), JSON.stringify({ observations, diagnostics,
-    ...(failure && { failure: String(failure) }) }, null, 2))
-}
-
-if (failure) throw failure
+})

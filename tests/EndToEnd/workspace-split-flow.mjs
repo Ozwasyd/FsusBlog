@@ -1,3 +1,4 @@
+import { withBrowserEvidence } from './isolated-browser-fixture.mjs'
 import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
@@ -1060,9 +1061,8 @@ async function exerciseSavedWorkspace({ author, session, outsider, outsiderSessi
   }
 }
 
-let failure
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
-try {
+await withBrowserEvidence(browser, evidence, 'workspace-split-result.json', { observations, diagnostics }, async () => {
   const author = await browser.newContext({ viewport: { width: 1366, height: 900 } })
   const outsider = await browser.newContext()
   const session = await signInWithPasskey(author, process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP)
@@ -1319,11 +1319,4 @@ try {
     splitter: { ...splitter, clampedPercentAt1040: checkedViewports.find(check => check.viewport === 1040).primaryPercent,
       restoredPaneWidths: [restored.left.width, restored.right.width], checkedViewports, nativePageZoom } })
   assert.deepEqual(diagnostics, [])
-} catch (error) {
-  failure = error
-} finally {
-  await browser.close()
-  await writeFile(join(evidence, 'workspace-split-result.json'), JSON.stringify({ observations, diagnostics,
-    ...(failure && { failure: String(failure) }) }, null, 2))
-}
-if (failure) throw failure
+})

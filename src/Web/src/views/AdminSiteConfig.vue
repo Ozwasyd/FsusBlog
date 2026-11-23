@@ -324,6 +324,10 @@ const previewDarkLogo = computed(() => {
   const url = safeBrandAssetUrl(form.siteLogoDarkUrl) || safeBrandAssetUrl(form.siteLogoUrl)
   return url && !brokenPreviewUrls.value[url] ? url : ''
 })
+const brandPreviews = {
+  light: { label: 'admin.siteConfig.previewLight', logo: previewLightLogo },
+  dark: { label: 'admin.siteConfig.previewDark', logo: previewDarkLogo },
+} as const
 const previewWordmark = computed(() => {
   const url = safeBrandAssetUrl(form.siteWordmarkUrl)
   return url && !brokenPreviewUrls.value[url] ? url : ''
@@ -657,21 +661,12 @@ onScopeDispose(() => {
             <aside class="site-config-preview-col" :aria-label="t('admin.siteConfig.brandPreview')">
               <div class="preview-card">
                 <h3 class="preview-card-title">{{ t('admin.siteConfig.brandPreview') }}</h3>
-                <div class="brand-preview-strip brand-preview-strip--light">
-                  <span class="brand-preview-tag">{{ t('admin.siteConfig.previewLight') }}</span>
+                <div v-for="({ label, logo }, mode) in brandPreviews" :key="mode"
+                  class="brand-preview-strip" :class="`brand-preview-strip--${mode}`">
+                  <span class="brand-preview-tag">{{ t(label) }}</span>
                   <div class="site-brand-mark">
-                    <img v-if="previewLightLogo" class="site-brand-logo" :src="previewLightLogo" alt="" decoding="async" referrerpolicy="no-referrer"
-                      @error="markPreviewBroken(previewLightLogo)">
-                    <img v-if="previewWordmark" class="site-brand-wordmark" :src="previewWordmark" :alt="form.title.trim() || 'Site'" decoding="async" referrerpolicy="no-referrer"
-                      @error="markPreviewBroken(previewWordmark)">
-                    <strong v-else class="brand-preview-text">{{ form.title.trim() || "Fsu's Blog" }}</strong>
-                  </div>
-                </div>
-                <div class="brand-preview-strip brand-preview-strip--dark">
-                  <span class="brand-preview-tag">{{ t('admin.siteConfig.previewDark') }}</span>
-                  <div class="site-brand-mark">
-                    <img v-if="previewDarkLogo" class="site-brand-logo" :src="previewDarkLogo" alt="" decoding="async" referrerpolicy="no-referrer"
-                      @error="markPreviewBroken(previewDarkLogo)">
+                    <img v-if="logo.value" class="site-brand-logo" :src="logo.value" alt="" decoding="async" referrerpolicy="no-referrer"
+                      @error="markPreviewBroken(logo.value)">
                     <img v-if="previewWordmark" class="site-brand-wordmark" :src="previewWordmark" :alt="form.title.trim() || 'Site'" decoding="async" referrerpolicy="no-referrer"
                       @error="markPreviewBroken(previewWordmark)">
                     <strong v-else class="brand-preview-text">{{ form.title.trim() || "Fsu's Blog" }}</strong>

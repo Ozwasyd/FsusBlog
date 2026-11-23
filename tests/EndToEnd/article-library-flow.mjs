@@ -1,7 +1,7 @@
+import { withBrowserEvidence } from './isolated-browser-fixture.mjs'
 import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
@@ -258,9 +258,8 @@ async function exerciseQuickSwitcher({ page, author, active, foreign, handle }) 
   return [changed.id, active.id]
 }
 
-let failure
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
-try {
+await withBrowserEvidence(browser, evidence, 'article-library-result.json', { observations, diagnostics }, async () => {
   const author = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const outsider = await browser.newContext()
   const handle = await signInWithPasskey(author, process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP)
@@ -456,10 +455,4 @@ try {
     boundedPages: true, routeWaitsForOwnedDraft: true, separateBrowserTab: true, editorWidthBefore: width, editorWidthAfter: openWidth,
     mobileDrawerAndFocusReturn: true, latePreviousAccountReadSuppressed: true, exactDurableRecentOpens: true })
   assert.deepEqual(diagnostics, [])
-} catch (error) {
-  failure = error
-} finally {
-  await browser.close()
-  await writeFile(join(evidence, 'article-library-result.json'), JSON.stringify({ observations, diagnostics, ...(failure && { failure: String(failure) }) }, null, 2))
-}
-if (failure) throw failure
+})

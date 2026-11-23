@@ -1,9 +1,9 @@
+import { withBrowserEvidence } from './isolated-browser-fixture.mjs'
 import { roleWithExactName, exactText, exactButton, exactLabel } from './role-locators.mjs'
 import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
-import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodePowChallenge, encodePowProof } from '../../src/Contracts/pow.ts'
@@ -126,8 +126,7 @@ const remove = async (context, auth, id, grant, status = 200) => {
 }
 
 const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
-let failure
-try {
+await withBrowserEvidence(browser, evidence, 'comment-author-delete-result.json', { observations, diagnostics }, async () => {
   const publisher = await browser.newContext()
   const secondSession = await browser.newContext()
   const outsider = await browser.newContext()
@@ -257,11 +256,4 @@ try {
   observations.push({ mobileConfirmation: true, cancellingDidNotIssueProof: true, tombstoneRedactsRootAndPreservesReply: true,
     anonymousDeletedPermalinkUnavailable: true, authorCanDeleteAfterArticleWithdrawal: true, durableCounts: counts })
   assert.deepEqual(diagnostics, [])
-} catch (error) {
-  failure = error
-} finally {
-  await browser.close()
-  await writeFile(join(evidence, 'comment-author-delete-result.json'), JSON.stringify({ observations, diagnostics,
-    ...(failure && { failure: String(failure) }) }, null, 2))
-}
-if (failure) throw failure
+})
