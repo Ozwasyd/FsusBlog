@@ -1,9 +1,4 @@
-\set ON_ERROR_STOP on
-\set QUIET 1
-BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
-SET LOCAL search_path TO pg_catalog, pg_temp;
-SET LOCAL TIME ZONE 'UTC';
-SET LOCAL statement_timeout TO '120s';
+\ir nightly-oracle-session.sql
 
 SELECT current_database() = :'database_name' AND current_database() ~ '^fsusv2_nightly_[0-9a-f]{32}$'
     AND current_setting('data_directory') = :'data_directory'
