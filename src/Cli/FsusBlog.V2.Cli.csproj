@@ -14,7 +14,5 @@
     <EmbeddedResource Include="Schema/*.sql" LogicalName="FsusBlog.V2.Cli.Schema.%(Filename)%(Extension)" />
     <EmbeddedResource Include="OptionalSchema/private-media-import-origin.sql"
                       LogicalName="FsusBlog.V2.Cli.OptionalSchema.private-media-import-origin.sql" />
-    <EmbeddedResource Include="OptionalSchema/legacy-release-origin.sql"
-                      LogicalName="FsusBlog.V2.Cli.OptionalSchema.legacy-release-origin.sql" />
   </ItemGroup>
 </Project>
