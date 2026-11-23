@@ -9,6 +9,7 @@
 **/TestResults/
 artifacts/
 .dev-data/
+.idea/
 *.user
 *.tsbuildinfo
 *.log
