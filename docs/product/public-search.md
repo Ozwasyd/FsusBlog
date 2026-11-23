@@ -1,49 +1,41 @@
-# 本地全文检索
+# 公开本地全文检索与宽语料分片
 
-公开快照的 FSPK v4 页面使用固定 v1 核心词表、领域词表和停用词表。三份词表合并为一份仓库数据，C# 索引和浏览器 Worker 使用同一份输入。两端先做 NFKC，再按同一权重在中文、日文和韩文连续字段内选择分词。ASCII 字母数字按原有规则分组并转换 ASCII 大写；构建 FSPK 索引时，还额外为 ASCII 词元发出 3–12 字符前缀及驼峰、大小写缩写、字母数字边界子词（至少 2 字符）的无位置衍生词元，不改变文档长度和精确词短语位置；查询侧保持精确分词，并对 1–2 字符的短 ASCII 查询词元在标题、摘要与分类标签上补充低权重词前缀/子词前缀召回（不扫描正文、不膨胀倒排索引）。补充平面文字仍按 Unicode 标量处理。连续超过 4,096 个中日韩字符时，索引保留每个单字和在词库最大宽度内逐位置命中的完整词。 [固定词表源码](https://github.com/Ozwasyd/FsusBlog/tree/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Dictionaries/Search)
+> **角色**：功能契约
+> **适用对象**：站点部署者、前后端与搜索维护者
+> **权威依据**：默认模式与开关以 [`SiteCapabilities.cs`](../../src/Server/Operations/SiteCapabilities.cs) 为准；编解码与浏览器检索以 [`src/Contracts/ArticleSearchIndex.cs`](../../src/Contracts/ArticleSearchIndex.cs)、[`src/Web/src/search.worker.ts`](../../src/Web/src/search.worker.ts)、[`src/Web/src/compactSearchStorage.ts`](../../src/Web/src/compactSearchStorage.ts) 与 [`src/Web/src/wideSearch.ts`](../../src/Web/src/wideSearch.ts) 为准。
 
-词典词、词内可识别子词和单字证据共用原文字段的位置。词长随 FSPK v4 位置编码。短语必须按位置顺序在同一字段连续命中，支持重复词。停用词保留普通匹配频次，跳过短语位置。查询有词典词时优先按词匹配，查询单字及部分新词时仍能查询单字证据。 [固定 v1 服务端分词](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.Dictionary.cs)
+## 1. 搜索模式与默认配置
 
-公开代次同时绑定已发布文章坐标、分类标签状态和按顺序编码的完整索引页。旧编码生成的代次不能与新页混用，携带旧代次的 HEAD 和续页均返回 `409`。未变动的快照重启后仍返回相同字节和代次。浏览器在复用缓存及显示结果前分别确认代次，撤回后不会继续展示旧词条。
+- `FSUSBLOG_PUBLIC_SEARCH_MODE` 控制公开检索路由策略，支持 `auto`（默认）、`local` 与 `server`（非法值启动即失败）：
+  - **`auto`（默认）**：中小语料优先使用紧凑档 FSPK v4 本地分片；紧凑档超出预算返回 `503` 时自动切换至已启用的宽语料分片；宽语料未启用或存储不可用时，在当前 `/search` 周期内无缝回落至零数据库查询的服务端 FAS4 并释放 Worker（但宽档数据损坏或撤回 `409` 严格 fail-closed 拒绝，绝不静默回落）。
+  - **`local`**：强制仅走客户端分片检索路径。
+  - **`server`**：通过 `<meta name="fsus-public-search-mode" content="server">` 指示前端直连服务端 FAS4，不启动浏览器搜索 Worker（详见 [公开 FAS4 服务端检索](fas4-search.md)）。
+- `FSUSBLOG_WIDE_SEARCH_CORPUS` **默认开启**（可显式设为 `false` 关闭），为 25,601 至 100,000 篇公开文章构建离线暂存宽语料分片。
 
-公开代次变化时，Worker 使用当前页的强 ETag 检查内存里相同页码的分片。服务端从完整分片字节计算 SHA-256。页字节一致时返回 304，变化的页返回完整 200。Worker 以新代次重新校验跨页文章和结果有效性，全程保留 `Cache-Control: no-store`。
+## 2. 分词、词表与短语评分
 
-Chrome 157 用 220 篇实库文章验证两个分片。发布和撤回第 221 篇时，第一片的 40,205 字节均由 Worker 保留，第二片分别从网络读取 4,522 和 4,260 字节。两次查询均先收到旧代次 409，最后收到当前代次 204，再显示正确的 FsusUI 列表。首次运行发现 Chromium 把 HTTP 304 暴露为空流。验证器加入零字节上限后复跑通过，错误 ETag 和非空流仍拒绝。
+- C# 索引构建器与浏览器 Worker 共享同一份合并词表（核心词表、领域词表、停用词表），同时随发布包产出标准 FSDL v2 词典 `search-lexicon.fsdl`（见 [`tools/fsdl-dictionary.py`](../../tools/fsdl-dictionary.py)）。
+- 两端先执行 NFKC 规范化，按统一权重对 CJK 连续字段分词并合并 ASCII 字母数字（小写化）；连续超过 4,096 个 CJK 字符时退化为单字加最大词宽内逐位置命中。词典词、子词与单字共享原文字段位置与跨度。
+- 浏览器 Worker 计算页内 BM25 并结合短语位置加分（短语须在同一字段按查询顺序连续命中，停用词计入普通频次但跳过短语位置，每页位置表上限 200 KiB），跨页支持 `relevance`（默认：得分、发布时间、ID 降序）与 `latest`（发布时间、得分、ID 降序），输出 FSR4 结果；已准入页面评分走有序二分查找并仅延迟解码当前展示页卡片。
 
-独立 FSPK 向量验证中文词频、停用词频次、单字和多字位置。PostgreSQL 及 Kestrel 用例验证产物重启稳定、编码切换拒绝及公开表示的同一代次。浏览器覆盖 375 像素下的 NFKC 与中英文混合词序，另验证撤回竞态。
+## 3. 紧凑档分片、缓存复用与 FSPT 增量补丁
 
-发布包附带 `search-lexicon.fsdl`，由同一份仓库词表生成 v1 FSDL v2 格式。节点、边、条目及字符串区按冻结格式生成，保留 UTF-8 排序、标量位置、权重及停用词标志。离线工具支持导出至新路径，或复验已有文件的完整字节。实际 C# 索引和浏览器 Worker 继续从共享词表构建和查询。固定十六进制向量、独立的 trie 读取器及 CLI 用例随原协议测试运行。独立从固定 v1 三份文本重建的 74 个词条和 217 个节点与发布字典逐字节一致，共 6,839 字节。 [FSDL 工具](../../tools/fsdl-dictionary.py) [冻结编译器](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.Dictionary.cs#L469)
+- **容量预算**：单页上限 200 篇 / 8 MiB，紧凑档上限 128 页 / 64 MiB。
+- **代次绑定与抗撤回泄漏**：公开代次同时绑定已发布文章坐标、分类标签状态与按序编码的分片页；旧代次 `HEAD` 与续页均返回 `409`，未变动快照重启后字节与代次保持一致。浏览器在复用缓存前及展示结果前分别通过 `HEAD` 复核当前代次。
+- **缓存与增量更新**：紧凑档在 Worker 内存及安全上下文的同源 IndexedDB（`fsusblog-v2-compact-search-v1`，由 Web Lock 串行协调并附逐页 SHA-256）保留一代完整 FSPK 页。离开 `/search` 终止 Worker；重返、刷新或跨标签页可经代次 `HEAD` 复用封存页。代次变化时，以已存页摘要发送 `If-None-Match`（未变页返回空体 `304`，全路径保留 `Cache-Control: no-store`）并支持 FSPT v4 增量补丁刷新，损坏或失配时立即清除缓存重取。
 
-专用 FAS4 HTTP 查询已使用当前不可变快照的 BM25 倒排索引，回传前 200 条匹配。真实 PostgreSQL 与 Kestrel 验证排序、撤回和请求内零数据库调用。旧公开浏览计数和手工摘要暂未迁入，可能改变历史并列排序和摘要词权重。浏览器本地 FSR4 路径计算短语位置加分。 [FAS4 实现与验收](fas4-search.md) · [固定 v1 Wasm](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/wasm/search/src/search_index.cpp)
+## 4. 宽语料暂存与 HTTP 分发（25,601–100,000 篇）
 
-离线工具验证固定 v1 FSIM、FSPT 和三个完整角色分片，可复现通过固定摘要认证的补丁。在线补丁传输、固定浏览器 Wasm 的原始分页和排名仍待验收。
+- **服务端暂存所有权**：宽语料编码与紧凑档共用逐页生产者，构建于 PostgreSQL 写门外，在独占 `0700` 目录内以 `0600`、`CreateNew` 创建并 unlink 路径后仅凭文件句柄读写（`WideSearchCorpusStage` 独占所有权、`PageRead` 借用计数关闭）。单实例最多持有 2 个文件句柄槽位（候选/活动/退役待排空），封存后随当前快照与租约原子挂载；文章发布不阻塞旧文件读取。
+- **HTTP 端点**：
+  - `GET /api/v2/public/search-corpus/wide/v1/manifest.aeds`（AEDS `33004`）：返回当前代次、总篇数、页数、总字节数、内容摘要及每页范围/偏移/长度/SHA-256。
+  - `HEAD` / `GET /api/v2/public/search-corpus/wide/v1/pages/{page}?generation=…&digest=…`：`HEAD` 校验当前代次返回 `204`；`GET` 返回原始 FSPK 与强 ETag（`no-store`，并发限 2 路无排队）；已知代次失效返回 `409`，完整语料不可用返回 `503`。
+- **客户端宽档缓存**：独立同源 IndexedDB 经 Web Lock 串行协调，上限 512 页 / 256 MiB；全页下载校验与封存前 `HEAD` 全部通过后才开放查询，损坏页或失效代次立即清空缓存。
 
-## 大语料
+## 5. 验证入口
 
-生产搜索由 TypeScript Worker 生成 FSR4，页内使用原浮点 IDF、平均长度和位置数据，跨页支持 `relevance`（默认，按得分、发布时间和 ID 降序）与 `latest`（按发布时间、得分和 ID 降序）两种排序合并。短语计算每页最多保留 200 KiB 的位置范围表，并合并所查询词的有序位置。紧凑档在 Worker 内存及安全上下文的独立 IndexedDB（`fsusblog-v2-compact-search-v1`，由同源 Web Lock 协调并附逐页 SHA-256 摘要）保留一代完整 FSPK 页；离开 `/search` 仍终止 Worker，重返 `/search`、刷新或跨标签页可经两次代次 HEAD 复验直接复用封存页，代次变化时以封存页作为 `If-None-Match`（304）与 FSPT v4 增量刷新基线，确认失效或损坏时立即清除关联缓存。已准入的 FSPK v4 页（紧凑档热内存页及宽档经服务端清单 SHA-256 校验的封存页）评分走有序词项与文档二分查找并仅延迟解码当前展示页命中的行，冷准入仍执行完整结构校验。
-
-服务配置 `FSUSBLOG_PUBLIC_SEARCH_MODE` 支持 `auto`（默认）、`local` 和 `server`（非法值启动即失败）。`auto` 模式下，紧凑档返回 503 时优先使用已启用且具备存储条件的宽档，宽档未启用或不可用时无缝回落到零数据库查询的服务端 FAS4，并在当前 `/search` 访问周期内直连 FAS4 且释放 Worker（宽档损坏或撤回 409 仍严格拒绝，不静默回落）；`server` 模式通过 `<meta name="fsus-public-search-mode" content="server">` 指示前端直连服务端 FAS4（不启动 Worker）；`local` 模式保持严格本地路径。 [当前 Worker](../../src/Web/src/search.worker.ts) · [紧凑档存储](../../src/Web/src/compactSearchStorage.ts) · [短语差分](../../tests/Protocol/local-search-positions.test.ts) · [同一 core 分片的差分](../../tests/Protocol/v1-search-ranking-differential.test.mjs)
-
-FSPK 编码器使用同一逐页生产者服务现有内存收集器与诊断暂存目标。每次输出包含页号、文章数、首末文章 ID 和完整原始页。单页仍最多 200 篇和 8 MiB，现有 HTTP 路径仍最多 128 页和 64 MiB。暂存调用显式给出界限，最多接受 512 页和 256 MiB，这组上限供独立测量使用。预算未满足、取消或暂存方拒绝时丢弃全部暂存页。
-
-以同一组生成器输入运行两个独立 CLR 进程。每次均编码 85,000 篇公开文章及其发布坐标，得到字节相同的 425 页。单程原始载荷为 136,868,326 字节，约 130.5 MiB。最大页为 323,645 字节。含逐页校验、摘要、文件写入和同步的两次运行分别用时 2.896 和 2.910 秒。单次暂存文件实际占用最多 151,392,256 字节。进程峰值 RSS 约 808 MB，包含输入语料。每次累计分配约 2.73 GB 托管内存，密集发布下的重建开销仍需单独测量。原始暂存文件均已清理，C# 和 Node 相关用例分别通过 17 项和 7 项。
-
-内部暂存组件在 Linux 和 macOS 的独占 0700 目录内以 0600 和 `CreateNew` 创建文件。成功移除文件路径与临时目录后再写入正文，后续操作限于同一文件句柄。完成时封存总篇数、总长度以及每页连续偏移、文章范围、长度和 SHA-256。内容身份使用固定字节布局和独立的 v1 摘要域。失败或取消后关闭暂存句柄。退役组件停止接收新的页读取，已借用的读取完成或取消后释放句柄。定位读取核对封存长度及摘要。
-
-`WideSearchCorpusStage` 是暂存文件的唯一所有者，`PageRead` 只持有一次读取借用。退役后不再发放新借用；已有借用在读取成功、取消、失败或主动释放时只归还一次。退役和归还共用同一个关闭条件：已退役且没有读者。条件满足时在锁内取走文件，在锁外关闭；`Closed` 只在实际关闭成功后正常完成。
-
-架构图将两者归入同一个「暂存文件所有权」模块；类型调用图保留借出与归还的环。这是模块内部的资源生命周期，不是跨模块依赖。
-
-以 macOS 普通用户和 `022` 掩码执行真实文件系统测试。锁定 Release 构建通过，共 17 项通过，其中 5 项直接验证了清单、定位读取、取消和退役后的句柄释放。临时目录清理完成。首次构建的 Unix 平台判断触发 CA1416，改用显式平台守卫后通过。
-
-`FSUSBLOG_WIDE_SEARCH_CORPUS=true` 为 25,601 至 100,000 篇公开文章启用宽语料构建，默认关闭。构建在 PostgreSQL 写入门外进行，最多持有两个实际文件句柄，涵盖候选、活动及仍被读者持有的退役代。达到上限时处理合并后的最新快照，等待一个已确认关闭的槽位。封存后以当前快照引用和租约原子挂载。文章发布不会等待读取旧文件。清单失败时当前宽语料保持不可用，普通公开路由和原 FSPK 预算沿用既有契约。
-
-`GET /api/v2/public/search-corpus/wide/v1/manifest.aeds` 以 AEDS 33004 返回当前完整清单。清单包含公开代次、总篇数、页数、总字节数和内容摘要，随后列出每页范围、偏移、长度和 SHA-256。相同入口的 `HEAD` 与 `GET /api/v2/public/search-corpus/wide/v1/pages/{page}` 都要求精确的 `generation` 和 `digest` 查询参数。当前 HEAD 返回空体 204。每页 GET 返回原始 FSPK 和强 ETag，使用 `no-store`。只有封存代次匹配时才发送代次和摘要标头，已知代次失效返回 409，当前完整语料不可用返回 503。读取校验后释放文件借用，并在响应开始前重新核对原快照和实例租约。页面请求使用两路无排队并发限制。
-
-macOS PostgreSQL 18.7 和 Debian ARM64 PostgreSQL 17.12 各通过 26 项宽语料及回归验证。两端运行的托管程序集 SHA-256 一致。40,002 篇实库用例核对了清单、首中末页、HEAD 和撤回后的旧代次。撤回前后字节及 ETag 相同的页面仍拒绝旧代次。受控竞态也验证了最终响应检查和双文件槽位。两端的临时库、暂存文件均已清理，Debian 虚拟机已停止。GNU tar 解包时忽略了 macOS 文件来源扩展属性，程序集校验通过。
-
-紧凑档返回 503 时，浏览器可读取已启用的宽档。Worker 按清单顺序下载一代原始页，核对每页字节、强 ETag、SHA-256 和文章范围。独立的 IndexedDB 使用同源 Web Lock 串行协调，最多持有 512 页和 256 MiB 原始 FSPK。全部页和封存前的 HEAD 通过后才允许查询。换词和翻页复用同一下载，页号和顺序由清单决定。排序后只缓存一组结果位置，从同代本地数据解码当前页所需卡片。窗口在显示前用代次和摘要执行最终 HEAD。损坏页或已确认失效的代次会清除关联缓存。 [浏览器协调](../../src/Web/src/wideSearch.ts) · [浏览器存储](../../src/Web/src/wideSearchStorage.ts)
-
-Chromium 157 经 Caddy 2.11.9 HTTPS 使用 26,002 篇实库文章验证第 2,601 页。快速换词和第二标签页共用一次 131 页下载，共 5,286,112 字节。新 Worker 复用封存缓存时没有宽档原始页 GET。人为改动第 66 页一个字节后，查询拒绝显示并清空缓存，显式重试才再次下载。真实撤回触发窗口最终 HEAD 409，旧结果和缓存均清除。新代次的 131 页共 5,285,917 字节。严格 TypeScript、Vite 和 14 项 Node 用例通过，临时数据库和监听器已清理。前两次浏览器执行的夹具分别因单页上下文和分页读数选择器失败，修正夹具后复跑通过。
-
-冻结包 `ab432b2` 在同一 C11 PostgreSQL 语料的 85,000 篇公开文章上通过 Caddy HTTPS 与 Chromium 实测。首次正文查询下载 425 页、共 136,868,326 字节，并核对文章 90,000 的修订 3、发布 85,000 和完整正文摘要。375 像素视口从开始导航到结果 4.478 秒。重新导航到常见词第 8,500 页用时 1.875 秒，十条结果与独立 SQL 顺序一致，沿用同一个封存 IndexedDB，宽档原始页 GET 为零。浏览器报告该源 IndexedDB 占用约 59.6 MB，封存原始页仍为 136,868,326 字节。本地时间和存储估算仅适用于该次运行。首次满档在 SQL 预期脚本调用不存在的 `ends_with` 时退出，更正为标准后缀比较后复跑通过。两次临时资源均已清理。
+```bash
+./tools/protocol-test.sh
+node --test tests/Protocol/local-search.test.ts tests/Protocol/local-search-positions.test.ts tests/Protocol/v1-search-ranking-differential.test.mjs
+dotnet test tests/Integration/FsusBlog.V2.Integration.Tests.csproj -c Release --filter "ArticleSearch"
+```

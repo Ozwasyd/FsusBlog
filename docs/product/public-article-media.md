@@ -1,57 +1,40 @@
 # 公开文章图片发布
 
-本切片实现文章发布时对私有附件的显式公开。固定 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 将 `/uploads` 绑定到 `PublicAssetRoot` 的静态文件 provider，`/uploads/illustration` 对应其 `illustration` 子目录。上传流程会将图片物化到该公开根，图片 URL 的访问条件由静态路径决定，业务引用账本负责资产身份与清理。此切片承接已采用的独立 AssetId、公开资产隔离和真实投递验证要求，拟定单独的 v2 公开路线。 [v1 公开路由](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs#L207-L228) · [v1 资产引用](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/architecture/article-asset-reference-lifecycle.md)
+> **角色**：功能契约
+> **适用对象**：站点部署者、创作者与后端维护者
+> **权威依据**：目录发现与能力解析以 [`SiteCapabilities.cs`](../../src/Server/Operations/SiteCapabilities.cs) 为准；端点与事务以 `src/Server/Content/PublishedMediaEndpoints.cs` 与 `src/Cli/Schema/02-authoring.sql` 为准。
 
-## 作者选择与发布
+## 1. 启用前提与目录隔离
 
-沿用 FsusUI 私有附件检查器。在启用独立公开媒体存储的站点，作者可从当前已保存修订所附的图片中勾选最多 32 张，再确认“发布文章及所选图片”。选择初始为空，切换修订、账号或会话后清空。确认界面标明将公开图片字节，并说明撤回会阻止后续下载，已下载的副本仍由接收者持有。作者提交前可以取消，现有私有预览和附件管理继续独立工作。普通发布、定时发布、历史恢复、管理员回滚及既有媒体导入的附件公开集合默认为空。
+- 配置 `FSUSBLOG_DATA_DIR` 后，服务端自动在其中初始化 `0700` 权限的 `private-media/` 与 `public-media/` 并启用公开文章图片能力；也可通过绝对路径 `FSUSBLOG_PRIVATE_MEDIA_ROOT` 与 `FSUSBLOG_PUBLIC_MEDIA_ROOT` 单独覆盖（均须与 Web 静态目录、外观目录及彼此互斥，由服务用户独占持有；显式设 `FSUSBLOG_PUBLIC_MEDIA_ROOT=""` 可单独关闭公开图片）。
+- 所有公开图片与封面表结构均随 `FsusBlog.V2.Cli` 统一的 `plan` / `apply` 初始化。
 
-作者把某张私有附件设为草稿封面后，可将它纳入本次公开选图。确认列表标出将作为封面的选项。普通发布以及只选其他图片的发布保持无公开封面。公开详情、无 JavaScript 首屏和水合页面都从同一次发布的获准媒体生成封面 URL。封面仍在公开媒体清单中，在页面上单独展示一次。撤回后，原封面 URL 与同次发布的其他图片一起停止交付。
+## 2. 显式选择、封面与发布事务
 
-新库包含公开封面存储。旧库先停止服务并备份，安装已有的 `article-cover schema`、`article-public-media` 和 `publication-canonical schema` 后运行 `article-public-cover schema`。管理员从垃圾箱明确恢复以前的公开版本时，只恢复前次公开获准的图片和封面角色。v1 原有 URL 迁移需要独立的来源核验。
+- **显式授权公开**：在编辑器私有附件检查器中，作者可从当前已保存修订的私有图片中显式勾选最多 **32 张**随本次发布公开（也可将其中一张草稿封面纳入公开选图）。默认勾选集为空；普通发布、定时发布、历史恢复与管理员回滚不会隐式公开未选中的私有附件。
+- **格式与配额**：仅接受已规范化的 PNG、JPEG 或（启用 WebP 约束后的）静态 WebP；单张上限 20 MiB，单次发布合计上限 40 MiB。
+- **原子事务与幂等**：服务端校验作者所有权、`ready` 状态、已存 SHA-256 及大小限制后，以内容 SHA-256 命名经目录描述符排他原子落盘至公开对象根，并在同一 PostgreSQL 事务中提交新修订、发布坐标、不可变公开图片清单 `article_publication_media`、幂等命令回执与 outbox 事件。同命令键与同输入可安全重放，修改资产集合或修订返回 `409`。
+- **撤回与恢复语义**：撤回文章后原公开图片与封面 URL 立即失效（已传输或已下载至客户端的副本无法远程擦除）；管理员从回收站恢复历史公开版本时，仅恢复前次已显式获准公开的图片与封面角色。
 
-新增独立的 AEDS 发布命令，字段包括文章 ID、确切已保存修订、命令 UUID 和经规范化的资产 ID 集合。以当前会话证明及文章已有发布权限验证提交者，使用现有文章 CAS、幂等和 `Publications` 写入边界。相同命令键与相同输入可重放，若资产集合或修订改变则返回冲突。发布者须拥有每个所选资产，资产须为 `ready` 并已附加于该命令绑定的修订。可物化源采用规范化的 PNG、JPEG，或已升级数据库的静态 WebP。单张图片上限 20 MiB，单次合计 40 MiB，依次核对已存 SHA-256 后物化。限制校验先于读文件。文章的新修订、确切发布坐标、所选图片清单、命令记录和 outbox 在同一事务提交。
+## 3. 公开读取、限流与防缓存泄漏
 
-## 文件与清单
+- **公开坐标**：清单路径 `/api/v2/public/articles/{articleId}/{publicationId}/media.aeds`，文件对象路径 `/public-media/{articleId}/{publicationId}/{sha256}`；不暴露内部私有资产 UUID、原始文件名或磁盘路径。
+- **热快照一致性**：`PublicSnapshot` 在一致性视图中批量加载当前公开文章的图片元数据；文章列表/详情热读不增加额外数据库或磁盘查询。
+- **文件交付与限流**：文件端点仅接受 `GET` / `HEAD`（`Range` 返回 `416`，其他方法返回 `405`），先校验限流与当前 `PublicSnapshot` 授权，再读取完整有界对象核对长度与 SHA-256，发送前再次复核快照与租约，输出标准图片 MIME、`X-Content-Type-Options: nosniff` 与 `Cache-Control: no-store`（不返回延长旧对象生命的 `304`）。
+  - 直连/兜底限流：每 IP 每分钟 600 次，最多 4 个已准入响应同时持有缓冲；
+  - 可信回环代理模式：按单跳转发真实 IP 实施每 IP 10 次/秒 + 突发 30 准入（超限返回 `429` + `Retry-After`），长 GET 首送 1 MiB 后按最高 8 MiB/s 逐段流式发送。
 
-- 新增独立、受约束的公开图片对象根，目录由实例独占持有，且与前端静态、私有媒体、上传暂存根互斥。对象以经校验的内容 SHA-256 命名，通过目录描述符打开。沿用先验证格式、长度及摘要，再用排他原子落盘和目录同步的模型。任何 HTTP 静态 provider 都不挂载此根。字节物化后提交引用；数据库回滚或提交结果未知时，可能留有可信但不可访问的对象。清理时以已提交引用重新判断，初次切片可留待受控离线清理。
-- `article_publication_media` 只记录明确公开的已提交图片。每条记录绑定 `article_id`、`publication_id`、`revision`、发布内序号、对象摘要、类型及大小，并保留内部私有来源 AssetId 供审计。引用绑定不可变的发布历史，约束三项发布坐标一致。现有 `article_revision_media` 继续作为私有引用权威，既有引用不会被批量转成公开权限。发布清单不可编辑，新的图片选择产生新的发布坐标。
-- 构建 `PublicSnapshot` 时在同一 PostgreSQL 一致性视图内批量读取当前公开坐标对应的图片元数据。只装入核准的发布坐标和引用，图片字节在单独媒体 GET 读取。正文、首页、列表和详情 AEDS 热请求只消费快照中的既有数据，不为图片增加 PostgreSQL 或文件读取。主页、详情和检索的公开状态校验沿用同一快照。
+## 4. 离线核验与重建及验证入口
 
-## 读面与撤回
+公开对象缺失时可经离线 CLI 从受保护私有原件核验或重建：
 
-公开详情在快照中生成可见附件的清单。首屏 HTML 直接渲染已授权图片，现有详情缓存复用时校验相同发布及其附件清单。水合后的文章页以文章 ID 和发布 ID 读取同一有界清单，在 FsusUI 阅读页显示图片。初次切片使用独立图片列表，Markdown 和原有正文 AEDS 载荷保持现有语义。清单和图片路径可采用 `/api/v2/public/articles/{articleId}/{publicationId}/media.aeds` 与 `/public-media/{articleId}/{publicationId}/{sha256}`。路径中的摘要为小写十六进制，资源坐标只公开文章、发布与对象摘要。私有资产 UUID、来源文件名、存储路径和预览票据不进入公开响应。
-
-图片文件入口处理 GET 和 HEAD。在打开文件前复核限制、格式和当前 `Publications.Snapshot` 是否明确包含该坐标。读取完整有界对象并核对长度/摘要后，再检查同一快照和实例租约，才送标准图片类型、`nosniff` 和实际 `Content-Length`，HEAD 无正文。正常和错误均使用 `no-store`，启动、失权和投影不明时失败闭合。旧发布、无授权、缺失或损坏对象不会返回旧文件，也不返回可延长旧对象寿命的 `304`。同一摘要在另一当前文章中可以独立公开，已撤回链接仍按其自己的发布坐标拒绝。对已开始传输的响应与客户已经保存的副本，撤回无从撤销。新读请求须复核当前状态。
-
-对象不可变与 HTTP 缓存寿命分别验证。本切片的发布 URL 有撤回语义，使用 `no-store` 保证代理和客户端在重新访问时回源。已采用 #1780 关于长期不可变 HTTP 缓存、直连每 IP 600 次/分钟，以及网关 10 次/秒、突发 30、20 连接和传输首个 1 MiB 后 8 MiB/s 的验收继续保留。拒绝 Range、方法和限流应在打开文件前处理。Kestrel 和网关均应具备显式拒绝响应，无 SPA 回退，并验证 CORP 与 `Referer` 无关的授权。
-
-## 实施与验证范围
-
-本地实现包含离线 `article-public-media` schema、带当前会话证明的显式发布事务和独立对象根。事务在接受所选私有图片并完成有界校验、原子物化后，才写入公开发布与不可变图片清单。清单可随普通发布历史审计。相同摘要跨发布复用对象；同一发布拒绝重复内容。写入失败时清理该次操作独占创建的临时文件，最终对象留给受控离线核验，防止误删共享或提交状态不明的对象。
-
-配置独立且已存在的绝对路径 `FSUSBLOG_PRIVATE_MEDIA_ROOT` 和 `FSUSBLOG_PUBLIC_MEDIA_ROOT`。两个目录及公开媒体根与 Web 构建、静态子目录和已配置外观根均不能交叠。目录由服务用户持有，模式为 0700。已有库在停止服务后通过离线迁移工具执行 `article-public-media`。新库由正常的 `plan` 和 `apply` 创建所需数据表。服务启用时验证完整目录及 schema，后台读取快照后再进入就绪状态。
-
-编辑器沿用本地 FsusUI 附件检查器。已保存修订的作者可以选图及复核，命令绑定所见文章、修订和会话。公开详情以同一发布坐标提供首屏和水合后的图片，清单与文件使用独立 URL。站点未配置公开媒体时仍可使用现有私有媒体和普通发布。Kestrel 图片路由按远端 IP 采用每分钟 600 次固定窗口，最多四个已准入的文件响应同时持有核验后数据。文件入口只接受 GET 和 HEAD，带 Range、其他方法及过量请求分别返回 416、405 和 429。
-
-生产 Caddy 路由将每 IP 突发和图片响应节流委托给已验证单跳地址的 Kestrel。Caddy 侧独立执行的客户端连接数和带宽限制仍待验收。原生 PostgreSQL 和 Kestrel 验证了图片路由的 600 次每分钟限额与配置关闭后的文章 AEDS 字节一致性。Chrome 在直连和生产配置 Caddy TLS 上分别验证了桌面与窄屏选图、公开投递和撤回。本地证据位于 `artifacts/public-article-media/`。
-
-Caddy 2.11.9 的原生 TLS HTTP/2 测试在 18.5 ms 内记录同一地址的 31 次准入与下一次 429，改变请求自带的转发头不能切换分区。取消四个进行中响应之一后，HEAD 在 37.7 ms 内重新准入。实测公开图片为 14,499,603 字节，首 1 MiB 为 4.0 ms，其余字节为 1,991.0 ms，按 8 MiB/s 折算的下界为 1,603.5 ms。GET 的 SHA-256 与已提交源一致，HEAD 保留类型和长度且无正文。传输中撤回中断该响应，后续 HEAD 返回 404。此轮四项用例通过且资源已清理。本地证据为 `artifacts/public-article-media/proxy-shaping-9c72cd4.log`。
-
-## 离线核验与重建
-
-恢复候选使用已验证备份中的 PostgreSQL 数据和私有媒体文件，再以独立公开目录重建。停止服务，等发布写入交接结束，使用对应恢复库的 `FSUSBLOG_DB` 和备份的持久站点 UUID。公开、私有和 Web 路径均须为现存绝对路径。公开根可以是新建且由运行用户持有的 0700 空目录。
-
-```sh
-dotnet cli/FsusBlog.V2.Cli.dll article-public-media rebuild "$site_uuid" "$private_root" "$public_root" "$web_root"
-dotnet cli/FsusBlog.V2.Cli.dll article-public-media verify "$site_uuid" "$private_root" "$public_root" "$web_root"
+```bash
+dotnet FsusBlog.V2.Cli.dll article-public-media verify SITE_UUID PRIVATE_ROOT PUBLIC_ROOT WEB_ROOT
+dotnet FsusBlog.V2.Cli.dll article-public-media rebuild SITE_UUID PRIVATE_ROOT PUBLIC_ROOT WEB_ROOT
 ```
 
-两个操作锁定当前数据库持有者交接及两个目录，校验真实站点、发布和源文件。核验覆盖当前和历史已提交图片，逐个检查所引用的私有源和去重后的公开对象。重建只物化缺失的摘要对象，原子写入后读取校验。现存对象摘要冲突时命令失败并保留原对象。命令报告核验的私有源、公开对象和重建数量。文章当前可见性仍由服务启动后的公开快照决定。孤儿对象清扫另行验收。
+端到端浏览器验证：
 
-原生 PostgreSQL 18.7 恢复用例从真实作者写入生成当前和历史图片，将数据库转储到新库并复制已校验的私有源。报告先核验 2 个源并重建 2 个摘要对象，重复执行重建数量为 0。已验证错误站点、在线写者、源或目标缺失及目标校验冲突。其中目标冲突保留原文件，恢复后的 Kestrel 返回与原站逐字节相同的当前公开清单和图片，历史坐标返回 404。9 项原生回归全部通过，临时 PostgreSQL 与文件夹已清理。本地证据为 `artifacts/public-article-media/native-recovery-5aa78ec.log`。
-
-1. 在原生 PostgreSQL、真实图片和实际 Kestrel 下覆盖普通发布无图片、显式选择公开、未选及跨作者附件无法读取、同键回放、旧修订冲突、定时和管理员路径的空默认。检查持久清单与实际发布历史坐标、内容摘要及源图格式一致。
-2. 以真实 HTTP 覆盖 GET/HEAD、匿名、猜测摘要、同摘要双发布、替换后旧 URL、撤回后条件请求、Range/方法、丢失或被替换对象、重启及失去租约。用受控失败区分物化后提交失败、出站投影失败、快照切换与文件读取重叠，并核对孤儿对象不会经 HTTP 可达。
-3. 在真实 Caddy TLS 和本地 FsusUI Chrome 运行桌面及窄屏。验证选择和确认区域可键盘操作，取消不产生发布，匿名浏览器看到确切图片，文章撤回后重新请求失败，原私有入口仍以现有会话授权。记录二进制摘要、缓存头和响应体。
-4. 对既有四条热读和公开发布投影分别记录头、正确字节与 PostgreSQL/文件 I/O 证据。未配置公开媒体的部署应继续以原样返回现有响应。开启功能时只有发布写入、投影构建及独立图片读取承担新增工作。
+```bash
+FSUSBLOG_TEST_FLOW=public-article-media bash tests/EndToEnd/run-native.sh
+```

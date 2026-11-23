@@ -1,27 +1,36 @@
-# Passkey 登录与首次绑定
+# Passkey 登录、注册与凭据管理
 
-V2 的站点账号可以通过可发现的 Passkey 登录。现有 `/api/binary/auth/passkey/login/begin` 和 `/api/binary/auth/passkey/login/complete` 使用 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 的 POST 路径与当前 AEDS 帧 64、67 和 18。完成响应返回正整数 `AccountId` 和 `anonymous_account`。普通会话使用浏览器会话 Cookie，服务端限八小时。启用持久策略后，登录页允许选择保持登录。 [站点账号保持登录](site-persistent-refresh.md) · [独立管理员身份](admin-identity.md) · [站点账号 Recovery Key](site-recovery-key.md)
+> **角色**：功能契约
+> **适用对象**：站点部署者、安全维护者
+> **权威依据**：读者 Passkey 配置推导与默认开关见 [`PasskeyConfiguration.cs`](../../src/Server/Identity/PasskeyConfiguration.cs) 与 [`SiteCapabilities.cs`](../../src/Server/Operations/SiteCapabilities.cs)。
 
-在应用环境配置 `FSUSBLOG_PASSKEY_ORIGIN` 和 `FSUSBLOG_PASSKEY_RP_ID` 后启用。RP ID 使用来源的 DNS 主机名，来源包含实际端口。生产来源必须使用 HTTPS。仅接受直接配置的来源与请求地址，部署于 TLS 代理后时应先接入可信代理配置。开发验证使用 `FSUSBLOG_PASSKEY_ORIGIN=http://localhost:54822` 和 `FSUSBLOG_PASSKEY_RP_ID=localhost`。
+## 1. 启用与单源自动推导
 
-正常登录只接受 Passkey（可按账号要求继续完成 MFA）。旧的票据直登入口固定返回 `401 / passkey_required`，不会消费票据、签发 Cookie 或创建会话。运维票据只用于「设置首枚 Passkey」。绑定成功后另用新 Passkey 登录；已绑定账号无法用运维票据重设。
+- 配置 `FSUSBLOG_PUBLIC_ORIGIN`（HTTPS）后，读者 Passkey 自动复用同一 Origin 与主机名作为 RP ID；也可通过 `FSUSBLOG_PASSKEY_ORIGIN` 与 `FSUSBLOG_PASSKEY_RP_ID` 显式覆盖（生产必须 HTTPS，显式提供不匹配 RP ID 启动即失败；显式设为 `""` 静默关闭读者 Passkey 并同步关闭读者自助注册与持久续期）。
+- 统一单域名模式下，普通读者与管理员共用 `/login` Passkey 登录页，服务端按凭据归属表（`passkey_credential` vs `admin_passkey_credential`）自动分流签发隔离会话 Cookie（`fsus-v2-session` vs `__Host-FsusAdminSession`）。管理员身份规则见 [独立管理员身份](admin-identity.md)。
 
-显式配置 `FSUSBLOG_READER_REGISTRATION=true` 且已配置 Passkey 来源/RP 时，普通读者可在 `/register` 确认用户守则并创建 Passkey，无需运维票据。注册使用独立工作量证明和限量、短期、与浏览器绑定的挑战。成功仅创建读者账户（`can_author=false`），不发登录会话，不授予写作或管理员权限；用户随后自行用 Passkey 登录。恢复密钥从「无法使用 Passkey？」进入，仅用于重绑。
+## 2. 登录、首枚绑定与自助注册
 
-使用 FIDO2 .NET Library 4.0.1 验证来源、RP、签名、用户验证和计数器。数据库为每个账号保存随机的稳定 WebAuthn user handle。设备提示使用统一账号元数据，不提交内部账号名。登录在持有账号及凭据锁时复核有效状态，再提交计数器、备份状态和会话。挑战分别绑定用途、容量和期限，使用后消耗。站点验证在 Fido2 验签成功后复核已锁定的凭据计数。双零表示凭据不支持计数，正向递增正常。正计数回退至零按普通未获授权拒绝，既有会话、计数和最后使用时间保持原值。此检查涵盖站点登录及复用同一校验的账号操作。独立管理员使用自己的验证路径。v1 可配的会话撤销、计数异常审计和事件投影仍待实现。
+- **可发现 Passkey 登录**：`POST /api/binary/auth/passkey/login/begin` 与 `complete` 沿用 AEDS 帧 `64`、`67`、`18`；普通会话有效期上限 8 小时（支持勾选「Keep me signed in」建立持久刷新会话，见 [站点账号保持登录](site-persistent-refresh.md)）。
+- **一次性运维票据仅用于首枚绑定**：旧票据直登入口固定返回 `401 / passkey_required`（不消费票据、不建会话）。由 `FsusBlog.V2.Cli operator NAME` / `ticket NAME` 签发的 10 分钟票据仅用于「设置首枚 Passkey」，已绑定 Passkey 的账号不可用票据重设。
+- **读者自助注册（`/register`）**：启用站点 Passkey 后，`FSUSBLOG_READER_REGISTRATION` **默认自动开启**（可显式设为 `false` 关闭）。读者确认站点准则并完成独立 PoW 与浏览器绑定短期挑战后创建普通读者账号（`blog_user`）；注册本身不签发会话，不授予任何创作或管理权限，随后需自行使用 Passkey 登录。
+- **WebAuthn 校验与防克隆计数**：采用 FIDO2 .NET Library 校验 Origin、RP ID、签名、用户验证（UV）与单调计数。锁定账号与凭据行复核状态后提交计数器与备份标记；双零表示认证器不支持计数，正计数回退或归零一律拒绝并保持原会话与计数不变。
 
-账号安全页的 Passkeys 区域读取当前站点账号自己的凭据元数据。请求 `GET /api/v2/identity/passkeys.aeds` 携带浏览器当前的 `X-Fsus-Current-Session`，服务器在同一事务检查当前有效的 Passkey 会话和账号归属。响应为不缓存的 V2 AEDS 帧 32980，包含创建时间、最近一次通过签名验证的时间、备份资格、备份状态以及当前会话使用标记。备份状态表示认证器在最近一次成功验证时报告的值。响应省略凭据 ID、计数器、公钥、设备标识和账号 user handle。固定 v1 的帧 65 依赖正整数凭据行 ID，V2 目前使用独立路径与投影。
+## 3. 已登录凭据管理（`/user/identity/mfa`）
 
-账号持有人还可在同一面板修改通行密钥名称。管理列表使用 AEDS 33055，为每项提供当前访问会话的专用引用、名称和修订号。引用随登录会话变化，旧的 32980 元数据列表保留原有字节。已有数据库停服运行迁移 `site-passkey-names` 后可使用管理列表，新库初始化时直接安装名称表。
+所需表结构均随 `FsusBlog.V2.Cli` 统一的 `plan` / `apply` 初始化；所有管理操作均需同源 `Origin` 与当前会话头 `X-Fsus-Current-Session`：
 
-重命名由 AEDS 33056 启动同源 WebAuthn 确认。服务端的一次性挑战绑定具体凭据、目标准确名称、期望修订、账号代次和当前会话。浏览器使用当前会话的通行密钥完成用户验证后才写入名称。名称去除首尾空白，限制为 64 个 UTF-16 单元，已更新的修订提示重载。管理列表与命令使用会话专用引用，WebAuthn 仪式仍使用标准凭据选择器。已知 v1 约束参考固定 [重命名端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L1978) 和 [名称保存](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Security/PasskeyService.cs#L1579)。
+- **凭据清单**：`GET /api/v2/identity/passkeys.aeds`（AEDS `32980`，`no-store`）返回创建时间、最近验签时间、备份资格/状态与当前会话标记（省略凭据 ID、公钥、计数器与 user handle）；管理视图使用 AEDS `33055` 提供会话绑定的临时引用、名称与修订号。
+- **重命名凭据**：通过 AEDS `33056` 触发当前会话 Passkey 的同源 WebAuthn 确认（绑定具体凭据、新名称 ≤ 64 UTF-16 码元、期望修订 CAS、账号代次与会话）。
+- **添加第二设备（Add Passkey）**：先经当前会话 Passkey 验证，再在同一 RP 下创建新凭据（帧 `63` 排除已有凭据，2 分钟单窗口，每账号最多 16 枚凭据），保留原设备与活跃会话。
+- **移除设备（Remove Passkey）**：非当前凭据可通过 AEDS `33057` 经当前会话 Passkey 确认移除，并在同事务撤销目标会话、持久刷新链与待完成 MFA 流程；移除当前或最后一枚凭据须在 Recovery Key 面板组合恢复密钥与当前 Passkey 确认（见 [站点账号 Recovery Key](site-recovery-key.md)）。
 
-**Add Passkey** 用于在已登录账号中增加一个设备。浏览器先用当前会话使用的通行密钥完成用户验证，再在同一已配置的 RP 上创建新通行密钥。创建选项通过帧 63 将账号已有的凭据列为排除项。创建挑战仅供当前会话和账号代次使用，窗口为两分钟，使用后消耗。一个账号同时准入一个创建窗口，最多保留 16 项凭据。成功注册保留原设备、活跃会话和恢复状态，新凭据可用于下次登录。 [固定 v1 账号注册入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L1701)
+## 4. 验证入口
 
-**Remove Passkey** 只显示在非当前凭据旁。用户确认指定设备，再用当前会话的通行密钥完成独立的 WebAuthn 确认。AEDS 33057 绑定所选凭据及其名称修订，服务再检查实际凭据创建坐标和剩余凭据数。服务在同一事务撤销目标、目标会话、持久刷新链和等待 MFA 的目标登录。当前或最后一枚凭据可在 Recovery Key 面板用有效恢复密钥与当前 Passkey 确认移除。 [恢复流程](site-recovery-key.md) · [固定 v1 删除端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L1947)
+```bash
+FSUSBLOG_TEST_FLOW=passkey bash tests/EndToEnd/run-native.sh
+FSUSBLOG_TEST_FLOW=reader-registration bash tests/EndToEnd/run-native.sh
+# 可附加 FSUSBLOG_TEST_PASSKEY_REMOVE=1 / FSUSBLOG_TEST_PASSKEY_REMOVE_CURRENT=1 / FSUSBLOG_TEST_PASSKEY_RENAME=1
+```
 
-迁移旧凭据应保留原 `AccountId`、32 字节 user handle、凭据 ID、公钥、签名计数和备份元数据，并验证 RP 一致。`passkey_subject.account_id` 可由离线迁移明确写入旧值。导入后必须同步 identity 序列以防碰撞。旧库映射脚本尚未实现。
-
-实测环境为 .NET SDK 10.0.404、PostgreSQL 18、Chrome 157 及真实 Vite 生产构建。`FSUSBLOG_TEST_FLOW=passkey bash tests/EndToEnd/run-native.sh` 通过 Chrome 的虚拟 CTAP2 认证器执行真实 WebAuthn 注册和断言，验证独立首次绑定、已签名登录后进入账号页、服务端注销和清除 cookie。分别设置 `FSUSBLOG_TEST_PASSKEY_REMOVE=1` 或 `FSUSBLOG_TEST_PASSKEY_REMOVE_CURRENT=1` 可复验第二个 Passkey 的登记、登录和两类移除。`tests/Integration/PasskeyPostgresTests.cs` 检查错误浏览器绑定、票据重用和账号代次变更时的数据库拒绝，数据库记录确认没有意外的凭据或会话。实际实体认证器和受控生产 TLS 部署留待验收。
-
-`FSUSBLOG_TEST_PASSKEY_RENAME=1` 的改名请求成功，浏览器显示新名称，但当前 Passkey 的徽标未出现。浏览器验收保留徽标的可见性断言。 [FsusUI #1127](https://github.com/Ozwasyd/FsusUI/issues/1127)
+已知上游界面跟进：Passkey 改名后当前设备徽标显示依赖 [FsusUI #1127](https://github.com/Ozwasyd/FsusUI/issues/1127)。

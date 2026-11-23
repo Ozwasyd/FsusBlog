@@ -1,58 +1,91 @@
-# v2 PostgreSQL 离线维护
+# PostgreSQL 离线维护与备份恢复
 
-首次新建空库使用独立的 `FsusBlog.V2.Cli`。服务启动只读取当前版本标记和约定的关系、列及约束，遇到未预置或部分预置的数据库会中止。迁移和应用服务使用各自的数据库身份。服务身份需要读取 catalog 和 `public.v2_schema`，执行业务所需 DML，以及使用 identity 序列。
+> **角色**：运维操作手册
+> **适用对象**：站点部署者与数据库管理员
+> **权威依据**：子命令定义以 [`src/Cli/Program.cs`](../src/Cli/Program.cs) 为准，建表 SQL 以 `src/Cli/Schema/01..04*.sql` 为准，启动只读校验以 [`src/Storage/CurrentSchema.cs`](../src/Storage/CurrentSchema.cs) 为准。
 
-建表 SQL 只嵌入 `FsusBlog.V2.Cli`。服务启动准入与 CLI `verify` 共用 `src/Storage/FsusBlog.V2.Storage.csproj` 编译出的同一份形态校验程序集 `FsusBlog.V2.Storage.dll`，两边都通过工程引用携带，不再各自编译源码副本。
+## 1. 在线服务与离线 CLI 隔离
 
-`FSUSBLOG_DB` 是含显式数据库名的 Npgsql 连接串。凭据从环境或连接配置注入，命令行只传入操作和文件路径。
+- 建表 SQL 仅嵌入独立离线维护工具 `FsusBlog.V2.Cli`（`src/Cli/Schema/01-core.sql` 至 `04-operations.sql`）。
+- 在线服务 `FsusBlog.V2.Server` 与 CLI 通过工程引用共享同一份形态校验程序集 `FsusBlog.V2.Storage.dll`。服务启动只以 DML-only 账号只读核验 `public.v2_schema` 版本标记、表结构、列与约束，遇到未初始化或漂移数据库立即 fail-closed 中止，绝不在线执行 DDL。
+- 生产环境应为 `Server` 与 `Cli` 分配分离的数据库账号；`Server` 账号仅需 catalog 与 `public.v2_schema` 读权限、业务表 DML 与 identity 序列权限。
+- 凭据通过 `FSUSBLOG_DB`（含显式数据库名的 Npgsql 连接串）从环境注入，命令行只传入操作与文件路径。
+
+## 2. 空库初始化与结构核验
 
 ```bash
 dotnet restore src/Cli/FsusBlog.V2.Cli.csproj --configfile NuGet.Config --locked-mode
-dotnet build src/Cli/FsusBlog.V2.Cli.csproj --no-restore
-migrate=(dotnet src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll)
-"${migrate[@]}" inventory
-"${migrate[@]}" plan > plan.json
-"${migrate[@]}" apply plan.json
-"${migrate[@]}" verify
+dotnet build src/Cli/FsusBlog.V2.Cli.csproj -c Release --no-restore
+cli=(dotnet src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll)
+
+"${cli[@]}" inventory
+"${cli[@]}" plan > plan.json
+"${cli[@]}" apply plan.json
+"${cli[@]}" verify
 ```
 
-`inventory` 在只读快照中记录库标识、服务版本、关系、列和键。`inventory --counts` 还会扫描普通表和分区表以获取精确行数，分区父表包含整个子树。使用具有完整可见性的专用只读身份盘点源库。报告中没有业务行内容。`plan` 绑定当前空库的 host、port、库名、库 OID、PostgreSQL 启动时间及组合 SQL 的 SHA-256。`apply` 在同一事务中检查目标和 schema，创建表及约束，提交版本标记。失败时事务回滚，应用中断后先用 `verify` 或 `inventory` 确认结果。换库或 PostgreSQL 重启后需要重新生成计划。
+- `inventory`：只读事务盘点目标库标识、版本、关系、列与键（不输出业务数据）；`inventory --counts` 附加精确行数统计。
+- `plan`：绑定空库的 host、port、库名、OID、PostgreSQL 启动时间与组合建表 SQL 的 SHA-256。换库或 PostgreSQL 重启后须重新生成计划。
+- `apply PLAN.json`：在单事务中加锁校验目标库为空并原子执行全部 `01..04*.sql`，校验完整目录形态后写入 `public.v2_schema` 版本标记；失败自动回滚。
+- `verify`：校验当前 Schema 版本标记、形态签名与文章当前发布坐标一致性。
 
-`operator NAME` 创建一个本地作者账号并打印 10 分钟有效的单次登录票据，`operator NAME --reader` 创建无写入能力的账号。已有启用账号使用 `ticket NAME` 申请新票据。票据输出只交给该用户。执行 `revoke NAME` 会推进会话代次并删除未使用票据和已有会话。V1 账号及数据迁移工具已退役；现行工具不迁入旧凭据或会话。
+> **Pre-release 策略说明**：FsusBlog v2 处于预发布阶段，所有表结构统一由 `plan` / `apply` 一次性初始化；不再维护零散的单表增量 schema 补丁命令（仅保留已停服运行的可选 `media-webp schema` 约束扩展与 `publication-transparency enable` 账本初始化）。V1 离线数据迁移工具已退役移除，切勿对 v1 数据库执行 `FsusBlog.V2.Cli`。
 
-早期开发库缺少 `authoring_recovery_site` 时，需要停服务、核验备份，再由离线工具执行 `recovery-scope`。命令仅接受其余表结构完全匹配当前签名、版本正确且没有服务租约的库。一旦分配，重跑保留原 UUID。其他旧开发结构需要独立的数据迁移或一次新的空库部署。预先存在的浏览器记录保持原键及到期规则，新数据库 UUID 不会接管旧记录。完整备份恢复保留站点 UUID。
+## 3. 密钥生成与账号/运维常用子命令
 
-## v2 数据库备份恢复
+完整子命令清单可通过 `dotnet FsusBlog.V2.Cli.dll --help` 查看，核心运维操作如下：
 
-`tools/site-backup.py` 可生成供离线恢复演练使用的 PostgreSQL 和私有媒体候选。先停止站点及该数据库的离线写入工具，等待上传和删除结束。指定两个绝对路径，备份父目录和源媒体目录均由当前用户持有、模式为 0700，且互相隔离。无媒体时提供独立的空目录。显式设置 `PGDATABASE`、`PGHOST` 和 `PGPORT`，它们须与 `FSUSBLOG_DB` 指向同一源库。使用与服务器同主版本的 `pg_dump` 和受控连接凭据。使用已构建的 CLI DLL，可用 `FSUSBLOG_CLI_DLL` 和 `DOTNET_BIN` 定位。
+| 子命令 | 作用 |
+| --- | --- |
+| `init-secrets` | 使用 CSPRNG 一次性生成三组独立 32 字节十六进制部署密钥（`FSUSBLOG_TOTP_KEY_HEX`、`FSUSBLOG_RECOVERY_KEY_PEPPER_HEX`、`FSUSBLOG_SUBSCRIPTION_HMAC_KEY`） |
+| `admin-identity bootstrap HANDLE` | 创建统一管理员主体（集成全部创作与站点管理能力）并输出 10 分钟有效的一次性 Passkey 引导密钥 |
+| `admin-identity rotate-passkey HANDLE` | 撤销管理员现有凭据与会话，签发替换 Passkey 引导密钥 |
+| `admin-identity revoke-all HANDLE` / `disable HANDLE` | 强制结束管理员会话与待用邀请，或禁用主体并移除凭据 |
+| `operator NAME [--reader]` / `ticket NAME` / `revoke NAME` | 创建普通读者账号（`blog_user`）并签发 10 分钟有效一次性首枚 Passkey 绑定票据；续发票据或吊销读者全部会话与未用票据 |
+| `notify ACCOUNT_ID EVENT_ID` | 从 stdin 读取 UTF-8 JSON（`{"subject":"…","body":"…"}`），向指定启用账号幂等发送系统通知 |
+| `comment handle` / `policy` / `moderate` | 为读者配置公开评论昵称、开关单篇文章评论投稿，或以可信数据库角色身份执行离线审核并记入审计 |
+| `site-subscription issue-cancel rss\|email` | 从 stdin 读取邮箱并签发 15 分钟有效的一次性退订证明 |
+| `article-public-media verify\|rebuild ...` | 核验公开文章历史图片对象，或从保留私有字节重建缺失的公开派生图片 |
+| `publication-canonical verify` / `publication-transparency ...` | 重算规范发布摘要、初始化/核验透明日志以及签发发布与每日 Merkle 检查点 |
+| `backup measure` / `extension --help` / `platform-plugin --help` | 离线站点备份指纹采集、签名扩展存储维护及纯 Markdown 离线插件执行 |
+
+## 4. 数据库与私有媒体备份恢复
+
+[`tools/site-backup.py`](../tools/site-backup.py) 生成并校验供离线恢复使用的 PostgreSQL 与私有媒体候选包：
+
+1. 操作前停止在线服务与同库离线写进程，确保上传/删除完全结束；
+2. 备份父目录与源媒体目录须为当前用户持有的绝对路径、`0700` 权限且互相隔离（无媒体时传独立空目录）；
+3. 显式设置 `PGDATABASE`、`PGHOST`、`PGPORT` 并与 `FSUSBLOG_DB` 指向同一源库，使用同主版本 `pg_dump`；可通过 `FSUSBLOG_CLI_DLL` 和 `DOTNET_BIN` 定位已构建的 CLI。
 
 ```bash
 python3 tools/site-backup.py capture "$private_backup_parent" "$new_candidate_name" "$source_media_root"
 python3 tools/site-backup.py verify "$candidate" "$manifest_sha256"
+
+# 仅恢复至新建的隔离空库与新建 0700 媒体目录
 pg_restore --no-password --single-transaction --exit-on-error --no-owner --no-privileges \
   --dbname "$new_isolated_restore_db" "$candidate/database.dump"
 FSUSBLOG_DB="$restore_dsn" python3 tools/site-backup.py verify-restored \
   "$candidate" "$manifest_sha256" "$isolated_restored_media_root"
 ```
 
-备份期间核验当前结构，锁定 v2 数据库写者和媒体目录。统计业务表、identity 序列和已提交的媒体长度与摘要。原生 `pg_dump` 导入同一个导出快照，复制媒体时核验数据库记录。目录和文件使用已打开的目录句柄约束，拒绝符号链接、共享硬链接和非专用私有权限。输出新目录包含 `database.dump`、`media/` 和最后写入的 `manifest.json`。将打印的清单 SHA-256 保存到受独立保护的记录中。
+- **校验机制**：备份期锁定数据库写者与媒体目录句柄（拒绝符号链接、硬链接与非私有权限），统计业务表、identity 序列与已提交媒体摘要，输出 `database.dump`、`media/` 与 `manifest.json` 并打印清单 SHA-256（需独立保管）。
+- **安全与边界**：候选包包含明文数据库与媒体字节，须存于加密离线介质；完整生产恢复还需成对恢复外部部署密钥（如 `FSUSBLOG_TOTP_KEY_HEX`、签名私钥等）与反代配置。恢复后禁止并行对同一逻辑站点开放两个写端。
 
-验证通过后只向新建的隔离库恢复可信的 dump，并把候选媒体文件复制到新建的 0700 恢复目录。恢复库和媒体目录由命令独立回读比对；候选及恢复目录需要保持隔离冻结。候选包含明文数据库与媒体，须在加密保护的离线存储中使用。当前范围是 PostgreSQL 和私有媒体的可恢复性，不包含 v1 的认证加密信封、密钥轮换、外部对象存储、扩展包仓库、运行密钥、角色 ACL 或生产切换。未解决的媒体阶段、额外数据库扩展或大对象会阻塞。
-
-2026-11-14 23:52，.NET SDK 10.0.404 与 PostgreSQL 18.7 上的原生演练退出码为 0。真实恢复的表、序列和媒体均匹配。当前数据库写者、待落盘媒体、暂存上传分片、不同来源连接、错误主版本、已存在候选名、错误清单摘要、媒体符号链接和恢复后业务数据变更均被拒绝。两个临时库和媒体目录已独立确认清理。[演练入口](../tests/Integration/Migration/backup-candidate.sh)，本地原始证据 `artifacts/native-migration/backup-20261114T155233.log`。
-
-用已提供的 PostgreSQL 客户端在受控目录备份。操作前为 `pg_dump` 及 `pg_restore` 设置对应连接环境和权限。恢复到独立、新建的空库。数据库归属和权限应使用验证过的原配置重新设置。
+基础手工 `pg_dump` / `pg_restore` 核验模板：
 
 ```bash
 umask 077
 pg_dump --no-password --format=custom --dbname "$source_db" --file "$backup_file"
 shasum -a 256 "$backup_file"
 pg_restore --no-password --single-transaction --exit-on-error --dbname "$restore_db" "$backup_file"
-FSUSBLOG_DB="$restore_dsn" "${migrate[@]}" verify
+FSUSBLOG_DB="$restore_dsn" "${cli[@]}" verify
 ```
 
-记录时保存 dump 摘要、工具版本、工作树 Git 提交、数据库快照时间、预期行数和恢复校验结果。恢复核验也要比较业务数据、附件及对应密钥。当前 `verify` 可以检查关系、列、约束和文章当前发布坐标。前台站点的完整恢复验收还包括站点外的配置和对象。恢复后禁止并行对同一逻辑站点开放两个写端。
+## 5. 验证入口
 
-[本机 PostgreSQL 用例](../tests/Integration/Migration/verify.sh) 需要专用测试集群。提供用于同一集群的 `FSUSBLOG_TEST_DB`、`PGHOST`、`PGPORT`、`PGUSER`，libpq 密码使用 `PGPASSFILE` 或已有受控设置。需要 CREATEDB 权限和 `psql`、`pg_dump`、`pg_restore`、`openssl`、`xxd`、`rg`。脚本只创建并删除本次运行随机命名的两个数据库，检查空库拒绝、错误目标、当前结构、重复 apply、签发和撤销、错误版本、引用失配和备份恢复，保留原始退出码并报告清理失败。
+使用专用测试 PostgreSQL 18 集群（配置 `FSUSBLOG_TEST_DB`、`PGHOST`、`PGPORT`、`PGUSER` 与受控 `PGPASSFILE`，脚本按次创建并清理随机临时数据库）：
 
-2026-11-14 21:18 在 macOS arm64 的独立 PostgreSQL 18.7 实例上通过上述用例，SDK 为 10.0.302，运行库为 10.0.10，退出码为 0。候选含站内信、分类标签和 Canvas 表。真实备份恢复保留了同一篇文章不同的公开修订和草稿，以及发布计数和序号。两种发布坐标失配均被拒绝，服务端设置只读时验证成功。确认两个临时数据库均已删除，临时备份文件已清理。工作树基准提交为 `6f10e0a4d7d9b07ae7df4511bd8f4049a3d26037`，候选工作树文件摘要和原始输出在本地 `artifacts/native-migration/run-20261114T131849.log`。v1 数据转换和生产恢复仍需验收。Docker 测试留给指定环境。
+```bash
+bash tests/Integration/Migration/verify.sh
+bash tests/Integration/Migration/backup-candidate.sh
+```
