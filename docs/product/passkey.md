@@ -32,5 +32,3 @@ FSUSBLOG_TEST_FLOW=passkey bash tests/EndToEnd/run-native.sh
 FSUSBLOG_TEST_FLOW=reader-registration bash tests/EndToEnd/run-native.sh
 # 可附加 FSUSBLOG_TEST_PASSKEY_REMOVE=1 / FSUSBLOG_TEST_PASSKEY_REMOVE_CURRENT=1 / FSUSBLOG_TEST_PASSKEY_RENAME=1
 ```
-
-已知上游界面跟进：Passkey 改名后当前设备徽标显示依赖 [FsusUI #1127](https://github.com/Ozwasyd/FsusUI/issues/1127)。

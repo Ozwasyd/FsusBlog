@@ -139,8 +139,10 @@ try {
     await inventoryRegion.getByRole('status').filter({ hasText: /^Passkey name saved\.$/ }).waitFor()
     await exactText(credential, friendlyName).waitFor()
     await exactText(credential, 'Current session passkey').waitFor()
+    await page.screenshot({ path: join(evidence, 'passkey-renamed-live.png') })
     await page.reload()
     await exactText(credential, friendlyName).waitFor()
+    await exactText(credential, 'Current session passkey').waitFor()
     await page.screenshot({ path: join(evidence, 'passkey-renamed.png') })
     checks.renameWithPasskey = true
   } else if (management.status() === 404) {

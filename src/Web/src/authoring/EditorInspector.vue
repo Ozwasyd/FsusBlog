@@ -238,6 +238,7 @@ onBeforeUnmount(() => {
 }
 .inspector-content {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-inline-size: 0;
 }
 .inspector-content > :deep(:first-child) {

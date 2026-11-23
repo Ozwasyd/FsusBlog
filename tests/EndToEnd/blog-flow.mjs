@@ -163,8 +163,10 @@ async function articleCommand(path, id, revision, title = '', body = '', expecte
 
 async function exercisePublicFragments() {
   const spacer = Array.from({ length: 45 }, (_, index) => `Reading paragraph ${index + 1} before the next target.`).join('\n\n')
-  const source = [spacer, '## Heading witness ^harbor', '[Jump to paragraph](#detail)', spacer,
-    'An explicit *paragraph* ^detail', 'First ^collision', 'Second ^collision', spacer].join('\n\n')
+  const source = [spacer, '## Heading witness ^harbor', '[Jump to paragraph](#detail)', '[Jump to code](#sample)', spacer,
+    'An explicit *paragraph* ^detail', spacer,
+    '```typescript\nconst answer = 42\n```\n^sample',
+    'First ^collision', 'Second ^collision', spacer].join('\n\n')
   const draft = await articleCommand(WireRoutes.Save, 0, 0n, 'Public fragment witness', source)
   const published = await articleCommand(WireRoutes.Publish, draft.id, draft.revision)
   const url = `${origin}/article/${draft.id}`
@@ -176,6 +178,8 @@ async function exercisePublicFragments() {
       const heading = roleWithExactName(page, 'heading', 'Heading witness')
       await expect(heading).toHaveAttribute('id', 'harbor')
       await expect(heading).toBeInViewport({ ratio: 0.1 })
+      const code = page.locator('pre#sample')
+      await expect(code).toHaveAttribute('data-code-highlighted', 'shiki')
       const [linked] = await Promise.all([
         page.context().waitForEvent('page'),
         roleWithExactName(page, 'link', 'Jump to paragraph').click(),
@@ -187,7 +191,26 @@ async function exercisePublicFragments() {
       } finally {
         await linked.close()
       }
+      const [linkedCode] = await Promise.all([
+        page.context().waitForEvent('page'),
+        roleWithExactName(page, 'link', 'Jump to code').click(),
+      ])
+      try {
+        monitor(linkedCode, 'linked-public-code-fragment')
+        await expect(linkedCode).toHaveURL(url + '#sample')
+        const linkedPre = linkedCode.locator('pre#sample')
+        await expect(linkedPre).toHaveAttribute('data-code-highlighted', 'shiki')
+        await expect(linkedPre).toBeInViewport({ ratio: 0.1 })
+      } finally {
+        await linkedCode.close()
+      }
       assert.equal(await page.goto(url + '#detail'), null)
+      await expect(page.locator('p#detail')).toBeInViewport({ ratio: 0.1 })
+      assert.equal(await page.goto(url + '#sample'), null)
+      await expect(code).toHaveAttribute('data-code-highlighted', 'shiki')
+      await expect(code).toBeInViewport({ ratio: 0.1 })
+      await page.goBack()
+      await expect(page).toHaveURL(url + '#detail')
       await expect(page.locator('p#detail')).toBeInViewport({ ratio: 0.1 })
       await page.goBack()
       await expect(page).toHaveURL(url + '#harbor')
@@ -196,7 +219,7 @@ async function exercisePublicFragments() {
       await expect(heading).toBeAttached()
       await expect(page.locator('#collision')).toHaveCount(0)
     }
-    observations.push('Public Markdown heading and paragraph fragments scroll into view on desktop and mobile. Back returns to the heading and duplicate anchors have no target.')
+    observations.push('Public Markdown heading, paragraph, and Shiki-highlighted fenced code fragments scroll into view on desktop and mobile. Back returns to previous targets and duplicate anchors have no target.')
   } finally {
     await reader.close()
     await articleCommand(WireRoutes.Retract, draft.id, published.revision)

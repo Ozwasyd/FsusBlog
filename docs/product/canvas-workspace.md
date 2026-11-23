@@ -24,6 +24,6 @@
 
 浏览器渲染与大纲采取视口虚拟化上限（同时最多挂载 100 个节点、200 条边与 100 条大纲项）。通过 `FSUSBLOG_TEST_FLOW=canvas-scale bash tests/EndToEnd/run-native.sh` 在隔离 PostgreSQL 与 Chrome 上复验 10,000 节点、10,000 边与显式文章链接事务、断连幂等重试、撤销/重做及跨账号隔离。相关事务契约见 [Canvas 文章链接事务](canvas-transaction.md)。
 
-## 已知上游片段定位跟进
+## 公开片段定位
 
-FsusUI #1082 已补齐标题与段落的规范片段定位接口；语法高亮仍会移除围栏代码块原有的片段 ID，跟进上游 [FsusUI #1123](https://github.com/Ozwasyd/FsusUI/issues/1123#issuecomment-7083549619)。
+FsusUI `1.6.0-preview.10`（#1082、#1123）已补齐标题、段落与 Shiki 语法高亮围栏代码块的规范片段 ID 保留及 `revealFragment` 定位接口。公开文章阅读页通过 `FSUSBLOG_TEST_REQUIRE_NATIVE=1 bash tests/EndToEnd/run-native.sh` 在桌面与 375px 下验证标题、段落与高亮围栏代码块的锚点定位及浏览器后退。

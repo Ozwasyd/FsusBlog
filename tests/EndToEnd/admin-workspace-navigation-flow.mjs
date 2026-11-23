@@ -130,6 +130,15 @@ try {
     } else {
       await page.keyboard.press('Escape')
       await expect(drawer).toBeHidden()
+      await expect(page.locator('.site-config-form')).toBeVisible()
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false,
+        'Site configuration SEO tab must not overflow horizontally at 320px')
+      await page.screenshot({ path: join(evidence, 'admin-site-320-seo.png'), fullPage: true })
+      await roleWithExactName(page, 'tab', 'Compliance & Footer').click()
+      await expect(page.getByText('Enable public footer compliance & license block', { exact: true })).toBeVisible()
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false,
+        'Site configuration Compliance tab must not overflow horizontally at 320px')
+      await page.screenshot({ path: join(evidence, 'admin-site-320-compliance.png'), fullPage: true })
     }
   }
   checks.mobileDrawerNavigationAndPreferences = true

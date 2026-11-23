@@ -52,7 +52,3 @@ FSUSBLOG_TEST_CHROME='/Applications/Google Chrome.app/Contents/MacOS/Google Chro
 FSUSBLOG_TEST_REQUIRE_NATIVE=1 \
 node tests/EndToEnd/blog-flow.mjs
 ```
-
-## 3. 已知上游界面跟进
-
-- 320px 超窄屏下站点设置页长复选框标签的横向溢出跟进上游 [FsusUI #1126](https://github.com/Ozwasyd/FsusUI/issues/1126)，窄屏无溢出断言保持不降级。

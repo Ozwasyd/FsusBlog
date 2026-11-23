@@ -897,7 +897,13 @@ onScopeDispose(() => {
 
 .site-config-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+  min-inline-size: 0;
+}
+
+.site-config-tabs {
+  min-inline-size: 0;
 }
 
 .site-config-tab-label {

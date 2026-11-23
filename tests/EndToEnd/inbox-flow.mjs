@@ -118,6 +118,12 @@ try {
       await heading.waitFor()
       assert.equal(await heading.evaluate(element => element === document.activeElement), true)
       await exactText(page, 'Integration fixture private body').last().waitFor()
+      if (index === 1) {
+        const headingBox = await heading.boundingBox()
+        assert(headingBox && headingBox.width >= 140, `Narrow ElThreadPanel heading must wrap cleanly instead of crushing (got ${headingBox?.width}px)`)
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
+        await page.screenshot({ path: join(evidence, 'inbox-mobile-unread-header.png') })
+      }
       const marked = page.waitForResponse(response => response.url().endsWith('/read') && response.request().method() === 'POST')
       await page.getByRole('button', { name: 'Mark as read' }).click()
       assertStatus(await marked, 200)

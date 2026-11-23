@@ -17,4 +17,5 @@
 
 ### 变更与移除
 
+- **FsusUI `v1.6.0-preview.10` 对齐与复验**：同步相邻 `../FsusUI` `v1.6.0-preview.10` 基线（`#1123` 高亮围栏代码块片段 ID 保留、`#1125` 窄屏 `ElThreadPanel` 页头换行、`#1126` 窄屏 `ElCheckbox` 标签换行、`#1127` 原语具名插槽响应更新）；移除 `ArticleMedia.vue` 私有 `:deep(.el-checkbox*)` 覆写，补齐 `AdminSiteConfig.vue` 与 `EditorInspector.vue` 网格列 `minmax(0, 1fr)` 收缩约束，并补全对应原生浏览器回归断言与活跃文档状态。
 - **V1 退役与旧迁移移除**：FsusBlog v1 正式退役并仅作只读历史参考，仓库已移除 V1 离线数据迁移命令与转换工具。

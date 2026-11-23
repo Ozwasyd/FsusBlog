@@ -281,10 +281,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .media-toggle { display: flex; }
-.attachment-list { padding: 0; list-style: none; }
-.attachment-list li, .attachment-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; overflow-wrap: anywhere; }
-.attachment-list :deep(.el-checkbox) { max-inline-size: 100%; height: auto; }
-.attachment-list :deep(.el-checkbox__label) { white-space: normal; overflow-wrap: anywhere; }
+.attachment-list { padding: 0; list-style: none; min-inline-size: 0; max-inline-size: 100%; }
+.attachment-list li, .attachment-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; min-inline-size: 0; overflow-wrap: anywhere; }
 .attachment-actions > *:first-child { min-width: min(14rem, 100%); }
 .attachment-preview { display: grid; justify-items: start; gap: .5rem; }
 .attachment-preview img { max-width: 100%; max-height: 45vh; object-fit: contain; }

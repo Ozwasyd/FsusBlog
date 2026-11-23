@@ -17,6 +17,7 @@ FsusBlog v2 业务代码仅从 `@ozwasyd/element-plus` 及其公开子路径导�
 
 - 构建配置同时解析 FsusUI 内部依赖 `@element-plus/*`（图标位于 `icons-vue/src/index.ts`，Wasm 包装位于 `wasm/index.ts`）以支持源码直编；Blog 业务代码不得直接导入这些内部路径。
 - Vite 将主题入口解析至 `theme-chalk/src/fsus.scss` 由 Sass 实时编译，并去除重复 Vue 副本；开发时 `./tools/dev.sh` 支持联动修改 `../FsusUI` 源码热更新。
+- 当前对齐的相邻 FsusUI 源码基线为 `v1.6.0-preview.10`（包含 `#1123` 语法高亮代码块片段 ID 保留、`#1125` 窄屏 `ElThreadPanel` 页头换行、`#1126` 窄屏 `ElCheckbox` 标签换行及 `#1127` 设置/站内信原语具名插槽响应式更新）。
 
 ## 2. 原生 Markdown Wasm 构建与指纹校验
 
