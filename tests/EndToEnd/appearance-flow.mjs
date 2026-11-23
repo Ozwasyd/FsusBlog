@@ -19,7 +19,7 @@ const tests = []
 try {
   for (const profile of [{ width: 1280, height: 800, colorScheme: 'light' }, { width: 375, height: 850, colorScheme: 'dark' }]) {
     const { width, height, colorScheme } = profile
-    const page = await browser.newPage({ baseURL: origin, viewport: { width, height }, colorScheme })
+    const page = await browser.newPage({ baseURL: origin, viewport: { width, height }, colorScheme, locale: 'en-US' })
     page.on('pageerror', error => failures.push(error.message))
     page.on('console', event => { if (/Failed to decode downloaded font|OTS parsing error/.test(event.text())) failures.push(event.text()) })
     const fontLoaded = page.waitForResponse(r => /\/site-appearance\/font\/\w{64}\.woff2$/.test(r.url()))
@@ -61,7 +61,7 @@ try {
   const wait = Date.parse(expire) - Date.now() + 600
   assert(wait < 30000, 'Use a near-term fixture cutoff.')
   if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait))
-  const page = await browser.newPage({ baseURL: origin })
+  const page = await browser.newPage({ baseURL: origin, locale: 'en-US' })
   await page.goto(origin)
   await roleWithExactName(page, 'heading', 'Latest posts').waitFor()
   assertStatus(await page.request.get(tests[0].css), 404)

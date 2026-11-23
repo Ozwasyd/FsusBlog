@@ -91,12 +91,17 @@ internal static class PlatformPluginCommand
         var framework = new DirectoryInfo(Path.GetDirectoryName(typeof(object).Assembly.Location)!);
         if (framework.Parent is not { Name: "Microsoft.NETCore.App", Parent: { Name: "shared", Parent: { } dotnet } shared } appReference)
             throw Deny("plugin-worker-host");
+        var aspNetFramework = new DirectoryInfo(Path.GetDirectoryName(typeof(Microsoft.AspNetCore.Http.HttpContext).Assembly.Location)!);
+        if (aspNetFramework.Parent is not { Name: "Microsoft.AspNetCore.App", Parent: { } aspNetShared } aspNetReference ||
+            !string.Equals(aspNetShared.FullName, shared.FullName, StringComparison.Ordinal))
+            throw Deny("plugin-worker-host");
         var dotnetRoot = dotnet.FullName;
         var executable = Path.Combine(dotnetRoot, "dotnet");
         if (!File.Exists(executable)) throw Deny("plugin-worker-host");
         string[] runtimeDirectories = ["/System/Library", "/usr/lib", Path.Combine(dotnetRoot, "host", "fxr"), framework.FullName,
-            Path.GetDirectoryName(assembly)!];
-        string[] metadataDirectories = [dotnetRoot, Path.Combine(dotnetRoot, "host"), shared.FullName, appReference.FullName];
+            aspNetFramework.FullName, Path.GetDirectoryName(assembly)!];
+        string[] metadataDirectories = [dotnetRoot, Path.Combine(dotnetRoot, "host"), shared.FullName, appReference.FullName,
+            aspNetReference.FullName];
         var readRules = string.Join(' ', runtimeDirectories.Distinct(StringComparer.Ordinal).Select(directory =>
             "(subpath " + PathLiteral(directory) + ")"));
         var metadata = string.Join(' ', metadataDirectories.Select(directory => "(literal " + PathLiteral(directory) + ")"));
