@@ -4,13 +4,13 @@
 
 `DraftJournal` 已接入编辑页。服务端通过仅作者可读的 `/api/v2/authoring/recovery-scope.aeds` 确认稳定的账户 UUID 与数据库站点 UUID。站点 UUID 随离线安装生成，重启和完整数据库备份恢复后保留。浏览器 IndexedDB 以明文保存尚未确认的标题及正文，最长 168 小时。能访问同源浏览器资料的主体可以读取存储。各标签写入独立记录，账户范围的清理会原子推进代次，阻止旧标签复写。已保存文章按文章 ID 查找，尚未保存的新文章使用独立草稿 UUID。恢复前显示服务器和本机版本，作者可以恢复或丢弃。确认保存后清理对应编辑序号，后来的编辑继续保留。存储不可用时可直接保存到服务器。 [#1813](https://github.com/Ozwasyd/FsusBlog/issues/1813)
 
-真实 Chrome 已验证在已登录编辑器关闭页面后重新打开、显式恢复、保存并确认对应 journal 已清理。独立浏览器测试验证有序退出及重启、过期边界和跨标签注销隔离。崩溃终止和操作系统重启仍待完整验收。 [编辑器浏览器证据](../../artifacts/native-e2e-fsusv2-e2e.ZDTHdh/browser-result.json)
+真实 Chrome 已验证在已登录编辑器关闭页面后重新打开、显式恢复、保存并确认对应 journal 已清理。独立浏览器测试验证有序退出及重启、过期边界和跨标签注销隔离。崩溃终止和操作系统重启仍待完整验收。
 
-`EditorInspector` 在桌面非模态侧栏和 1023px 以下的实际 FsusUI Drawer 之间移动同一棵内容树。分类和属性表单保持原组件与原输入。一个焦点所有者处理宿主切换与关闭，旧宿主的回调失效，Escape 关闭后优先恢复可用的原触发按钮，否则聚焦当前外部按钮。真实 Chrome 与 PostgreSQL 验证覆盖双向断点切换、同一输入保留、Escape 焦点回归、桌面按钮关闭、日期保存与重新加载。修订历史在同一侧栏显示，确认后通过现有工作区命令生成新的私有草稿，保留公开修订。 [浏览器证据](../../artifacts/native-inspector-revision/run-3/browser-result.json) · [修订历史](article-revision-history.md) · [#4537](https://github.com/Ozwasyd/FsusBlog/issues/4537)
+`EditorInspector` 在桌面非模态侧栏和 1023px 以下的实际 FsusUI Drawer 之间移动同一棵内容树。分类和属性表单保持原组件与原输入。一个焦点所有者处理宿主切换与关闭，旧宿主的回调失效，Escape 关闭后优先恢复可用的原触发按钮，否则聚焦当前外部按钮。真实 Chrome 与 PostgreSQL 验证覆盖双向断点切换、同一输入保留、Escape 焦点回归、桌面按钮关闭、日期保存与重新加载。修订历史在同一侧栏显示，确认后通过现有工作区命令生成新的私有草稿，保留公开修订。 [修订历史](article-revision-history.md) [#4537](https://github.com/Ozwasyd/FsusBlog/issues/4537)
 
 八种封闭属性类型已接入数据库、授权 API 和编辑页。服务端校验稳定字段与选项 ID、schema 及定义版本、引用和约束。文章管理可按已保存的等值、数值及日期条件最多四项取交集。作者可保存、打开、设为默认或排序固定视图，稳定深链接只解析该作者仍可访问的视图。复杂逻辑组合、规模矩阵和 v1 导入仍待交付。 [文章属性](properties.md) · [个人保存视图](author-saved-views.md) · [#2322](https://github.com/Ozwasyd/FsusBlog/issues/2322)
 
-Canvas 的创建、分页读取、顺序编辑、CAS、删除和显式文章链接确认共用同一份 PostgreSQL 文档及修订号。真实 HTTP 验证覆盖权限、同请求重试、老修订分页、边与成员清理、故障回滚和链接转换。作者可在真实图形工作区与大纲间切换，使用五种节点和两种边。撤销与重做由同一数据库事务提交，支持刷新后继续、新编辑关闭旧重做分支。文章、标题和块引用解析绑定作者及确切目标修订，关系查询和精确坐标跳转仍待交付。 [Canvas 工作区](canvas-workspace.md) · [Canvas 事务](canvas-transaction.md) · [原生测试](../../artifacts/canvas-graph-20261114/verification.log) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
+Canvas 的创建、分页读取、顺序编辑、CAS、删除和显式文章链接确认共用同一份 PostgreSQL 文档及修订号。真实 HTTP 验证覆盖权限、同请求重试、老修订分页、边与成员清理、故障回滚和链接转换。作者可在真实图形工作区与大纲间切换，使用五种节点和两种边。撤销与重做由同一数据库事务提交，支持刷新后继续、新编辑关闭旧重做分支。文章、标题和块引用解析绑定作者及确切目标修订，关系查询和精确坐标跳转仍待交付。 [Canvas 工作区](canvas-workspace.md) [Canvas 事务](canvas-transaction.md) [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
 
 ```sh
 node --test tests/Authoring/*.test.ts

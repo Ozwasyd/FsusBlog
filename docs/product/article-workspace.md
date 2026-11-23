@@ -12,17 +12,17 @@
 
 已打开一篇文章时，可在「Article ID」输入另一篇文章并选择「Open in other group」。已有文章会回到原组。空间充足时，两组并排显示各自的 Markdown 源码，只有焦点组可以编辑。可以拖动分隔条，也可以用左右方向键调整比例，用 Home 和 End 调到当前可用的边界。每组至少保留 29 rem。空间不足时收起另一组，仍可从「Article groups」切换。宽度恢复时先重新校验另一组的草稿权限，再恢复可容纳的比例。比例保留在当前挂载的工作区内，切换身份或刷新后从一半开始。两组保留原编辑器实例，焦点切换和视口收起不会重新挂载。 [#1855](https://github.com/Ozwasyd/FsusBlog/issues/1855) · [#2299](https://github.com/Ozwasyd/FsusBlog/issues/2299)
 
-原生 Chrome 在六种宽度和实际 100%、150%、200% 页面缩放下验证了分隔条、窄屏焦点交接、选区与撤销保留，以及页面没有横向溢出。 [分隔条浏览器证据](../../artifacts/workspace-splitter-2ec1b97/run-4-zoom/workspace-split-result.json)
+原生 Chrome 在六种宽度和实际 100%、150%、200% 页面缩放下验证了分隔条、窄屏焦点交接、选区与撤销保留，以及页面没有横向溢出。
 
 「Group actions」可以把当前稿件移到另一组或合并两组。两组并排时，「Equalize group widths」将分隔条恢复到 50%。移动把稿件追加到目标组。合并把次组标签按原顺序追加到主组。预览位置冲突时固定移入的预览，两个标签都保留。操作保留焦点稿件的路由、修订、未保存内容和已经挂载的编辑器。另一组已挂载的编辑器可暂时隐藏，工作区仍最多挂载两个。 [#2300](https://github.com/Ozwasyd/FsusBlog/issues/2300)
 
-已有两组选中编辑器时，桌面溢出或窄屏切换菜单可将后台标签移至另一组。移动复用工作区布局版本校验，保留活动路由、两组选中会话、编辑器实例和选区。实测包括桌面移动及 375px 移回。 [浏览器验收](../../artifacts/targeted-delivery-967805c/background-tabs/chromium-3/workspace-split-result.json)
+已有两组选中编辑器时，桌面溢出或窄屏切换菜单可将后台标签移至另一组。移动复用工作区布局版本校验，保留活动路由、两组选中会话、编辑器实例和选区。实测包括桌面移动及 375px 移回。
 
 离线期间的布局变化保留在当前浏览器标签，恢复联网后仍需重新加载已保存的工作区才继续同步。未确认的草稿内容继续由草稿恢复处理。双组提供源码编辑和普通粘贴。标签拖放、双组富预览、Rail 布局偏好、Inspector 内部视图和完整编辑器挂起仍待交付。
 
 固定 v1 提交的标签栏位于编辑区之前，窄屏只显示当前标题和切换入口，标签不展示文章详情。v2 保留这些关系和交互。 [v1 标签组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/admin/article/ArticleWorkspaceTabStrip.vue) · [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) · [#2296](https://github.com/Ozwasyd/FsusBlog/issues/2296)
 
-「Quick switch articles」或 Ctrl/Cmd+O 打开 FsusUI 对话框。默认列出最近打开的文章，输入标题后读取第一页授权结果。可以用方向键、Home、End 或 Page Up/Down 选择。Enter 在当前工作区激活原所属组或打开文章，Ctrl/Cmd+Enter 在独立浏览器标签打开。「Open in other group」可将尚未打开的结果放入另一编辑组，已经打开的结果仍回到原标签。提交前复核当前会话、权限和修订，已打开编辑器保留未保存内容。取消或账号发生变化会中止尚未完成的激活。离线模式和完整无障碍矩阵仍待验收。 [#2233](https://github.com/Ozwasyd/FsusBlog/issues/2233) · [真实浏览器验收](../../artifacts/workspace-quick-switcher-e75ccdf/chromium-1/article-library-result.json)
+「Quick switch articles」或 Ctrl/Cmd+O 打开 FsusUI 对话框。默认列出最近打开的文章，输入标题后读取第一页授权结果。可以用方向键、Home、End 或 Page Up/Down 选择。Enter 在当前工作区激活原所属组或打开文章，Ctrl/Cmd+Enter 在独立浏览器标签打开。「Open in other group」可将尚未打开的结果放入另一编辑组，已经打开的结果仍回到原标签。提交前复核当前会话、权限和修订，已打开编辑器保留未保存内容。取消或账号发生变化会中止尚未完成的激活。离线模式和完整无障碍矩阵仍待验收。 [#2233](https://github.com/Ozwasyd/FsusBlog/issues/2233)
 
 编辑页的「Article library」使用与作者文章管理相同的权限查询，每页取 20 条元数据。可按标题、发布状态、分类和标签合取筛选。活动文章按文章 ID 标记，即使不在当前结果页也会单独查找并显示。双向箭头和 Home、End 在结果间移动焦点。Enter 使用当前工作区的同一打开命令，Ctrl 或 ⌘+Enter 在独立浏览器标签打开。桌面面板不会改变正文宽度，窄屏使用本地 FsusUI Drawer。关闭后焦点返回入口。全文模糊排序、布局偏好持久化及 10,000 篇浏览器规模验证仍待完成。 [#1853](https://github.com/Ozwasyd/FsusBlog/issues/1853) · [#2231](https://github.com/Ozwasyd/FsusBlog/issues/2231)
 
@@ -36,8 +36,8 @@
 
 活动编辑器正文旁的「Find in body」打开本地 FsusUI 的查找栏。可展开替换，按 Escape 返回同一正文。替换与直接编辑共用未保存状态和保存流程。 [#2234](https://github.com/Ozwasyd/FsusBlog/issues/2234)
 
-原生 Chrome 验证桌面编辑宽度、重复标题的键盘顺序、代码围栏排除、375px Drawer 关闭与回焦，以及相同正文跨组切换时分别保留各自的光标和编辑器。首轮在切换视口后立即打开时读到了旧布局状态。修正后以同一流程复测。 [浏览器结果](../../artifacts/article-outline-browser/run-2/browser-result.json)
+原生 Chrome 验证桌面编辑宽度、重复标题的键盘顺序、代码围栏排除、375px Drawer 关闭与回焦，以及相同正文跨组切换时分别保留各自的光标和编辑器。首轮在切换视口后立即打开时读到了旧布局状态。修正后以同一流程复测。
 
 Registry 单元验证覆盖 100 会话、组内预览替换、异步加载失效、跨身份退回、权限撤销、远端修订冲突及最近关闭容量。单独使用 Chrome 验证了 33 条标签投影的桌面和溢出上限、键盘焦点、固定和窄屏切换。当前环境未提供 Browser 技能，本机测试使用项目的 Playwright 和已安装的 Chrome。
 
-原生 PostgreSQL、Kestrel 与 Chrome 联合测试通过实际延迟草稿响应、找不到文章、预览替换、固定标签保留未保存文字、键盘与浏览器历史、375px 窄屏、取消关闭后焦点、最近关闭重开及独立浏览器标签。服务与数据库清理通过。 [本机浏览器证据](../../artifacts/workspace-combined-20261114-scoped/browser-result.json)
+原生 PostgreSQL、Kestrel 与 Chrome 联合测试通过实际延迟草稿响应、找不到文章、预览替换、固定标签保留未保存文字、键盘与浏览器历史、375px 窄屏、取消关闭后焦点、最近关闭重开及独立浏览器标签。服务与数据库清理通过。

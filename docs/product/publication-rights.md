@@ -89,7 +89,7 @@ jq -n --slurpfile head head.json --slurpfile day day.json \
 
 归档未启用或日期未收录时返回 404，日期格式错误时返回 400。配置启用而归档缺失、损坏、不可信或时钟不足时，公开归档返回 503，普通站点仍可提供服务。响应使用 `no-store` 和原生 v2 检查点格式。 [归档读取器](../../src/Server/Content/PublicationCheckpointArchive.cs)
 
-随包 Caddy 配置通过原生 TLS 和 HTTP/2 验证。匿名读取返回原签名日检查点和日志头，经过独立 Node 验签。错误日期、未收录日期和无关锚点分别返回 400、404 和 503，均使用 `no-store`。 [原生 TLS 集成结果](../../artifacts/checkpoint-archive-tls-6a02786/native/integration.txt)
+随包 Caddy 配置通过原生 TLS 和 HTTP/2 验证。匿名读取返回原签名日检查点和日志头，经过独立 Node 验签。错误日期、未收录日期和无关锚点分别返回 400、404 和 503，均使用 `no-store`。
 
 ## 当前公开文章的日成员证明
 

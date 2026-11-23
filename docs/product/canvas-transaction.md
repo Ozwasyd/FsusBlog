@@ -26,7 +26,7 @@ Canvas 文档与链接确认共用同一份数据及修订号。站点范围由�
 
 默认预览入口只处理显式引用边。作者可以另外选择「Review visual connection」，使用 `?edge=visual-only` 为当前选择的普通文章视觉边请求计划。预览窗口提示这条边将用于生成正文链接，需再次确认。计划摘要同时绑定视觉选择和插入字节，确认时在原事务内复核当前边、文档及文章修订。视觉边仍保留在 Canvas，普通连线操作本身不会生成正文链接。
 
-8 项原生 Canvas 集成测试和 Chrome 真机流程已通过。视觉边用例检查默认拒绝、重复选择参数拒绝、边类型变化后旧计划不可写、同一计划精确重试、取消零写入及确认后原视觉边仍保留。 [PostgreSQL](../../artifacts/canvas-visual-conversion/native.log) · [Chrome](../../artifacts/canvas-visual-conversion/chromium-retry/browser-result.json)
+8 项原生 Canvas 集成测试和 Chrome 真机流程已通过。视觉边用例检查默认拒绝、重复选择参数拒绝、边类型变化后旧计划不可写、同一计划精确重试、取消零写入及确认后原视觉边仍保留。
 
 确认只接受计划 ID。服务器锁定 Canvas、边与两篇文章，复核原会话、版本、源位置、公开目标及插入摘要。通过后调用现有文章保存事务。文章草稿、不可变修订、分类与标签承接、命令记录、outbox、Canvas 修订和回执一次提交。已有公开版本与边本身保持原样。Canvas、引用边及文章仍可访问时，原会话重试同一成功计划返回原回执。其他会话、过期计划、修订冲突或提交失败不会追加正文。链接在作者后续单独发布新修订后生效。
 
@@ -38,13 +38,13 @@ Canvas 文档与链接确认共用同一份数据及修订号。站点范围由�
 
 `GET /api/v2/authoring/canvas/documents/{id}/references/{nodeId}.aeds?revision=...` 接受 Canvas ID、节点 ID 和当前文档修订。服务器在现有作者会话和文档锁下读取节点保存的目标，只查询同一作者未删除的文章。固定引用读取对应不可变修订，未固定引用读取当时的当前草稿修订。普通文章引用只取标题。标题或块引用检查该版本中的唯一 FsusUI `^anchor-id`，并返回最多 256 UTF-16 单元的纯文本上下文和 caret 偏移。标题引用要求 v1 所用的列首 ATX 标题。重复或缺失锚点没有上下文，删除、越权或不可读修订没有文章信息。
 
-该路径最多读取一篇目标修订的 Markdown，受 200,000 UTF-16 单元和 1 MiB 字节上限约束。引用解析请求只读，其结果绑定该时刻的文档、节点与修订。切换选择或图形视图、改变已提交视口、刷新文档及撤销身份会清除预览。全量批处理、接入编辑器的精确跳转和 10,000 节点往返仍待交付。 [v1 固定契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/architecture/authoring-canvas-document-boundary.md) · [PostgreSQL 测试](../../artifacts/canvas-reference-evidence/postgres.log)
+该路径最多读取一篇目标修订的 Markdown，受 200,000 UTF-16 单元和 1 MiB 字节上限约束。引用解析请求只读，其结果绑定该时刻的文档、节点与修订。切换选择或图形视图、改变已提交视口、刷新文档及撤销身份会清除预览。全量批处理、接入编辑器的精确跳转和 10,000 节点往返仍待交付。 [v1 固定契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/architecture/authoring-canvas-document-boundary.md)
 
 ## 撤销与重做
 
 作者会话可通过 `GET /api/v2/authoring/canvas/documents/{id}/history.aeds?revision=...` 查看当前可撤销和重做的修订。按钮提交原有文档命令，携带当前修订和重试键。服务器锁定文档后从对应栈顶恢复前后配对的节点、边、标题及视口；先核对配对事实，再提交图形和历史。一个普通编辑批次、一次撤销或一次重做各增加一个修订。重复命令返回原回执，新编辑关闭旧重做分支。恢复文章引用时再次校验当前作者及对应文章。
 
-每份文档最多保留 100 个可重放编辑和 32 MiB 历史负载，以先达到的界限为准。载荷只保存被修改的 Canvas 记录，摘要绑定文档及原修订。每个新动作保留精简的操作结果。删除文档时清除可重放载荷。创建文档、删除文档及显式文章链接转换属于独立事务，撤销和重做只修改 Canvas，文章修订、发布和 outbox 保持原样。已安装图形布局用离线 `canvas-graph apply-empty` 增加历史表，保留原文档和修订；升级前的操作没有配对记录，不能重放。 [PostgreSQL 历史测试](../../artifacts/canvas-history-evidence/postgres.log) · [升级测试](../../artifacts/canvas-history-upgrade/run.log)
+每份文档最多保留 100 个可重放编辑和 32 MiB 历史负载，以先达到的界限为准。载荷只保存被修改的 Canvas 记录，摘要绑定文档及原修订。每个新动作保留精简的操作结果。删除文档时清除可重放载荷。创建文档、删除文档及显式文章链接转换属于独立事务，撤销和重做只修改 Canvas，文章修订、发布和 outbox 保持原样。已安装图形布局用离线 `canvas-graph apply-empty` 增加历史表，保留原文档和修订；升级前的操作没有配对记录，不能重放。
 
 ## 已知开发预览 Canvas
 
@@ -52,4 +52,4 @@ Canvas 文档与链接确认共用同一份数据及修订号。站点范围由�
 
 使用 `canvas-graph apply-empty` 时须先停止服务。命令取得现有数据库公开快照租约和事务排空锁，然后独占锁定三个 Canvas 表。在核对旧布局为空后，同一事务重建 Canvas 表并复查新布局；已升级数据库可安全重复执行。若存在外部 PostgreSQL 表依赖或形状不相符，事务回滚。含旧文档、边或计划的已知预览数据库只报告保留范围并拒绝修改，因为旧版没有节点几何、视口及完整操作回执。该诊断不会合成历史或删除现存数据。
 
-独立 PostgreSQL 18.7 试验验证空表升级、重复执行、外部依赖回滚、活动服务租约拒绝、未知列拒绝及旧计划回执逐字节摘要相同。 [原生测试](../../artifacts/canvas-preview-migration-evidence/run.log)
+独立 PostgreSQL 18.7 试验验证空表升级、重复执行、外部依赖回滚、活动服务租约拒绝、未知列拒绝及旧计划回执逐字节摘要相同。

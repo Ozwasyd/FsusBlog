@@ -1,6 +1,6 @@
 # 公开文章图片发布
 
-本切片实现文章发布时对私有附件的显式公开。固定 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 将 `/uploads` 绑定到 `PublicAssetRoot` 的静态文件 provider，`/uploads/illustration` 对应其 `illustration` 子目录。上传流程会将图片物化到该公开根，图片 URL 的访问条件由静态路径决定，业务引用账本负责资产身份与清理。此切片承接已采用的独立 AssetId、公开资产隔离和真实投递验证要求，拟定单独的 v2 公开路线。 [v1 公开路由](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs#L207-L228) · [v1 资产引用](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/architecture/article-asset-reference-lifecycle.md) · [已采用资产需求](../issues/risk-assets.tsv)
+本切片实现文章发布时对私有附件的显式公开。固定 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 将 `/uploads` 绑定到 `PublicAssetRoot` 的静态文件 provider，`/uploads/illustration` 对应其 `illustration` 子目录。上传流程会将图片物化到该公开根，图片 URL 的访问条件由静态路径决定，业务引用账本负责资产身份与清理。此切片承接已采用的独立 AssetId、公开资产隔离和真实投递验证要求，拟定单独的 v2 公开路线。 [v1 公开路由](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs#L207-L228) · [v1 资产引用](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/architecture/article-asset-reference-lifecycle.md) · [已采用资产需求（归档）](../archive/v1-baseline/issues/risk-assets.tsv)
 
 ## 作者选择与发布
 
@@ -24,7 +24,7 @@
 
 图片文件入口处理 GET 和 HEAD。在打开文件前复核限制、格式和当前 `Publications.Snapshot` 是否明确包含该坐标。读取完整有界对象并核对长度/摘要后，再检查同一快照和实例租约，才送标准图片类型、`nosniff` 和实际 `Content-Length`，HEAD 无正文。正常和错误均使用 `no-store`，启动、失权和投影不明时失败闭合。旧发布、无授权、缺失或损坏对象不会返回旧文件，也不返回可延长旧对象寿命的 `304`。同一摘要在另一当前文章中可以独立公开，已撤回链接仍按其自己的发布坐标拒绝。对已开始传输的响应与客户已经保存的副本，撤回无从撤销。新读请求须复核当前状态。
 
-对象不可变与 HTTP 缓存寿命分别验证。本切片的发布 URL 有撤回语义，使用 `no-store` 保证代理和客户端在重新访问时回源。已采用 #1780 关于长期不可变 HTTP 缓存、直连每 IP 600 次/分钟，以及网关 10 次/秒、突发 30、20 连接和传输首个 1 MiB 后 8 MiB/s 的验收继续保留。拒绝 Range、方法和限流应在打开文件前处理。Kestrel 和网关均应具备显式拒绝响应，无 SPA 回退，并验证 CORP 与 `Referer` 无关的授权。 [#1780 验收](../issues/review-1541-1799.tsv) · [#2075 验收](../issues/review-2074-2220.tsv)
+对象不可变与 HTTP 缓存寿命分别验证。本切片的发布 URL 有撤回语义，使用 `no-store` 保证代理和客户端在重新访问时回源。已采用 #1780 关于长期不可变 HTTP 缓存、直连每 IP 600 次/分钟，以及网关 10 次/秒、突发 30、20 连接和传输首个 1 MiB 后 8 MiB/s 的验收继续保留。拒绝 Range、方法和限流应在打开文件前处理。Kestrel 和网关均应具备显式拒绝响应，无 SPA 回退，并验证 CORP 与 `Referer` 无关的授权。 [#1780 验收（归档）](../archive/v1-baseline/issues/review-1541-1799.tsv) · [#2075 验收（归档）](../archive/v1-baseline/issues/review-2074-2220.tsv)
 
 ## 实施与验证范围
 

@@ -24,6 +24,6 @@
 
 2026-11-15 在 PostgreSQL 18.7、SDK 10.0.404 和 Chrome 157 经 Caddy HTTPS 双域验证。真实管理员 Passkey 完成用户验证；修改命令后证明被拒绝；丢失已提交的响应后，同一命令返回原回执。公开 HTML 与 AEDS 均显示新发布并读取历史权利。原生集成确认待发布作者草稿保留、outbox 写失败时整笔回滚及两个并发重试返回相同发布。临时库与监听器已清理。
 
-后续使用同一实际 HTTPS 流程公开恢复修订 3，再回滚到私有草稿修订 4。该流程使用不同的 Passkey 操作，核对丢失提交响应后的逐字节回执、旧公开 HTML/AEDS/索引失效、原作者草稿和清理。实库故障测试确认 outbox 写入失败时保持原可见快照、原数据库状态和未消费证明。独立数据库以旧发行包建库，新迁移工具两次执行升级并通过结构与数据核验。 [原生测试](../../artifacts/admin-article-draft-rollback/native.log) · [HTTPS 事务核对](../../artifacts/admin-article-draft-rollback/tls/admin-article-rollback-counts.txt) · [旧库升级](../../artifacts/admin-article-draft-rollback/older-catalog.log)
+后续使用同一实际 HTTPS 流程公开恢复修订 3，再回滚到私有草稿修订 4。该流程使用不同的 Passkey 操作，核对丢失提交响应后的逐字节回执、旧公开 HTML/AEDS/索引失效、原作者草稿和清理。实库故障测试确认 outbox 写入失败时保持原可见快照、原数据库状态和未消费证明。独立数据库以旧发行包建库，新迁移工具两次执行升级并通过结构与数据核验。
 
-归档验收使用同一独立管理域，以真实 Passkey 完成公开修订 2 至归档修订 3、再至公开修订 4 的两次确认。两次写入均模拟提交响应丢失，精确重试返回逐字节相同的回执。归档期间公开详情、搜索语料和索引撤下文章，作者正文及列表不可访问。重新公开恢复历史内容与权利。PostgreSQL 集成测试在两个方向分别注入 outbox 错误并核对原状态与证明；实际旧包建库后重复升级保留现有发布与责任记录。 [原生测试](../../artifacts/admin-article-archive/native.log) · [HTTPS 事务核对](../../artifacts/admin-article-archive/tls/admin-article-archive-counts.txt) · [旧库升级](../../artifacts/admin-article-archive/old-catalog.log)
+归档验收使用同一独立管理域，以真实 Passkey 完成公开修订 2 至归档修订 3、再至公开修订 4 的两次确认。两次写入均模拟提交响应丢失，精确重试返回逐字节相同的回执。归档期间公开详情、搜索语料和索引撤下文章，作者正文及列表不可访问。重新公开恢复历史内容与权利。PostgreSQL 集成测试在两个方向分别注入 outbox 错误并核对原状态与证明；实际旧包建库后重复升级保留现有发布与责任记录。

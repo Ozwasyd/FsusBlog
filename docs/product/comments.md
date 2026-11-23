@@ -26,7 +26,7 @@ PostgreSQL 查询要求文章当前发布且评论已审核。必要祖先可以
 
 已送达的消息作为私密历史保存。评论永久链接每次均沿用当前公开查询的可见性规则。旧版匿名回复、v1 提交帧、运营广播和对外邮件仍待接入。 [v1 回复收件人规则](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/CommentService.cs#L671) · [v1 通知投递](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Background/CommentMutationOutboxWorker.cs#L387)
 
-原生 PostgreSQL 回归验证默认关闭、错误会话与父评论拒绝、待审隔离、审核与通知一并回滚、原命令重试和本人回复免通知。Chrome 经 Caddy TLS 验证 390px 回复操作、独立管理员 Passkey 审核、桌面站内信实时出现以及另一已登录账号无法读取同一会话。停机迁移验证旧结构、重复执行及损坏外键拒绝。[本地验证记录](../../artifacts/comment-reply/)
+原生 PostgreSQL 回归验证默认关闭、错误会话与父评论拒绝、待审隔离、审核与通知一并回滚、原命令重试和本人回复免通知。Chrome 经 Caddy TLS 验证 390px 回复操作、独立管理员 Passkey 审核、桌面站内信实时出现以及另一已登录账号无法读取同一会话。停机迁移验证旧结构、重复执行及损坏外键拒绝。
 
 ### 登录作者删除
 
@@ -44,11 +44,11 @@ PostgreSQL 查询要求文章当前发布且评论已审核。必要祖先可以
 
 固定 v1 按内容、地区和模型审核决定初态，并允许配置编辑窗口。v2 的已批准及待审登录评论编辑后交给现有人工审核队列，窗口从原创建时刻计算。待审编辑保持审核状态并递增版本，管理员时间线按同一评论坐标追加编辑事件。待审期间公开 API 不输出旧正文或新正文，已批准的后代继续经占位可达。通过后沿用原坐标显示新正文及 Edited 标记。同一回复的历史站内通知保留原凭据。驳回及隐藏状态继续走现有审核或申诉流程。 [v1 编辑事务](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/CommentAuthorManagementService.cs#L434) · [v1 编辑交互](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/composables/useArticleDetailView.ts#L1075)
 
-原生 PostgreSQL 验证一次性证明的版本、会话、代次、期限和出版边界，以及 outbox 写入失败回滚和并发兑换。390px Chrome 经 Caddy TLS 验证普通账号加载原文、取消、编辑后隐藏、子回复继续公开，以及 Passkey 重新批准后保留原链接和一条历史通知。 [原生测试](../../artifacts/comment-author-edit-initial/native.log) · [浏览器与数据库记录](../../artifacts/comment-author-edit-caddy-retry/caddy/)
+原生 PostgreSQL 验证一次性证明的版本、会话、代次、期限和出版边界，以及 outbox 写入失败回滚和并发兑换。390px Chrome 经 Caddy TLS 验证普通账号加载原文、取消、编辑后隐藏、子回复继续公开，以及 Passkey 重新批准后保留原链接和一条历史通知。
 
-管理员专用源可通过 v1 的 `GET /api/binary/author/comments/{commentId}/revisions` 读取当前站点已证明归属的登录评论修订。需要活动管理会话及 `comment.moderate`。返回 AEDS 222，按最新到最旧列出原文、编辑和作者删除快照及 SHA-256。内容版本独立于审核版本；首次编辑前的原文来自事务保留的上一版本。每页至多 64 条，较旧记录沿响应 `Link` 翻页。历史字节、摘要或当前状态不一致时拒绝读出受影响的结果。旧库缺少所需存储或无法证明归属时该请求不可用。 [真实 PostgreSQL 和 Kestrel](../../artifacts/admin-comment-revisions-9ebbbeb/final/combined-native.log)
+管理员专用源可通过 v1 的 `GET /api/binary/author/comments/{commentId}/revisions` 读取当前站点已证明归属的登录评论修订。需要活动管理会话及 `comment.moderate`。返回 AEDS 222，按最新到最旧列出原文、编辑和作者删除快照及 SHA-256。内容版本独立于审核版本；首次编辑前的原文来自事务保留的上一版本。每页至多 64 条，较旧记录沿响应 `Link` 翻页。历史字节、摘要或当前状态不一致时拒绝读出受影响的结果。旧库缺少所需存储或无法证明归属时该请求不可用。
 
-管理员专用源同样可用 v1 的 `GET /api/binary/author/comments/{commentId}/moderation-timeline` 读取 AEDS 225。可加 `articleId` 精确限定同一文章。省略文章时按已验证的唯一登录账号归属定位。时间线投影保存实际提交、审核、编辑、删除、申诉和独立裁决，保留原事件的来源、审核版本、管理员 UUID 或数据库角色。没有当前版本凭证的记录仍可显示，但一致性检查为 false。一次请求最多返回 128 个完整事件，超出时返回不可用。实库验证了审核和编辑顺序、通过及驳回申诉、离线记录、公开域和撤权拒绝。 [真实 PostgreSQL 和 Kestrel](../../artifacts/moderation-timeline-a7fd1df/first/combined-native.log)
+管理员专用源同样可用 v1 的 `GET /api/binary/author/comments/{commentId}/moderation-timeline` 读取 AEDS 225。可加 `articleId` 精确限定同一文章。省略文章时按已验证的唯一登录账号归属定位。时间线投影保存实际提交、审核、编辑、删除、申诉和独立裁决，保留原事件的来源、审核版本、管理员 UUID 或数据库角色。没有当前版本凭证的记录仍可显示，但一致性检查为 false。一次请求最多返回 128 个完整事件，超出时返回不可用。实库验证了审核和编辑顺序、通过及驳回申诉、离线记录、公开域和撤权拒绝。
 
 在管理页的 **Comment moderation history** 输入文章和评论 ID，可用键盘读取待审或已处理记录。页面显示当前状态、事件顺序、操作者类别和已记录的原因。更换坐标或管理员权限代次时清空旧记录。事件链无法建立当前状态时，页面标明该情况。
 
@@ -60,7 +60,7 @@ PostgreSQL 查询要求文章当前发布且评论已审核。必要祖先可以
 
 持有 `comment.moderate` 的另一名独立管理员可使用当前 Passkey 复核，原审核人不能裁决。确认时重新检查原驳回版本和待复核状态，授权、裁决、审计和事件同事务提交。通过后公开评论读取按现有文章、地区及线程可见性恢复正文。驳回后保留原审核状态。理由和审核身份留在授权范围内。当前没有采用线上独立凭据的隐藏操作，旧数据库角色审核及强匿名评论无法使用本流程。申诉结果的专门通知、对外通用审核时间线和管理员广播待接入。 [固定 v1 治理实现](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/CommentGovernanceService.cs#L75)
 
-PostgreSQL 验证两名管理员授权、挑战与评论版本绑定、并发裁决、拒绝复核和审计失败回滚。Chrome 经 Caddy TLS 验证作者提交、原审核人看不到待复核项、独立管理员使用 Passkey 通过，以及作者与访客各自读取结果。停机迁移可重跑，并拒绝不完整的表集合。[本地验证记录](../../artifacts/comment-appeal/)
+PostgreSQL 验证两名管理员授权、挑战与评论版本绑定、并发裁决、拒绝复核和审计失败回滚。Chrome 经 Caddy TLS 验证作者提交、原审核人看不到待复核项、独立管理员使用 Passkey 通过，以及作者与访客各自读取结果。停机迁移可重跑，并拒绝不完整的表集合。
 
 ### 登录账号举报
 
@@ -68,4 +68,4 @@ PostgreSQL 验证两名管理员授权、挑战与评论版本绑定、并发裁
 
 `POST /api/v2/comments/{articleId}/{id}/report.aeds` 沿用 v1 的 AEDS JSON 223→224。PostgreSQL 以评论坐标与举报账号去重，保留第一份报告。对仍公开的同一评论重复提交时，当前账号取得原报告编号及重复标记。编号为安全整数范围内的随机值。已隐藏、待审、已删、地区受限或已撤回文章上的评论统一按不可举报处理。举报的独立记录保存原因、说明和出版坐标，评论公开状态与审核决定仍由原有流程维护。 [v1 重复回执](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/CommentGovernanceService.cs#L156)
 
-原生 PostgreSQL 验证并发去重、同评论 ID 的跨文章隔离、不同账号以及不可见目标拒绝。390px Chrome 经 Caddy TLS 验证普通账号取消和提交、访客和旧会话拒绝、重复回执相同及公开评论字节一致。停机验证确认旧库可缺少该表，补装可重跑，损坏的去重约束会被拒绝。 [原生测试](../../artifacts/comment-report-retry/native.log) · [浏览器记录](../../artifacts/comment-report-retry/caddy/comment-report-result.json) · [迁移记录](../../artifacts/comment-report-old-catalog/catalog.log)
+原生 PostgreSQL 验证并发去重、同评论 ID 的跨文章隔离、不同账号以及不可见目标拒绝。390px Chrome 经 Caddy TLS 验证普通账号取消和提交、访客和旧会话拒绝、重复回执相同及公开评论字节一致。停机验证确认旧库可缺少该表，补装可重跑，损坏的去重约束会被拒绝。

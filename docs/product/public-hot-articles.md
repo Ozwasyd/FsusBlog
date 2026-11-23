@@ -6,4 +6,4 @@
 
 首页第一页在最新文章列表上方显示热门文章（桌面端最多五项，窄屏移动端最多三项，避免挤占最新文章首屏），使用实际 FsusUI 链接。浏览器收到 GET 后用同一路径的 HEAD 检查发布代次与强 ETag，再显示列表。旧代次返回 409。验证窗口内发生撤回或排名更新时，不显示未经确认的原列表。后续分页没有热门请求。
 
-PostgreSQL 与 Kestrel 测试核对次数并列顺序、私有稿件排除、零次补位、精确摘要、撤回及热门 GET/HEAD 归因数据库调用为零。Chrome 对启用和关闭分别运行，验证五个链接、稳定主列表、取消旧请求、实际撤回及 ETag 不匹配。首次专项构建修正了测试的数组长度调用，第二次修正了测试观察器标记，第三次保持产品代码并通过。 [原生用例](../../artifacts/public-article-popularity/native.log) · [启用浏览器证据](../../artifacts/public-article-popularity/chromium-1/public-hot-articles.json) · [关闭浏览器证据](../../artifacts/public-article-popularity/chromium-0/public-hot-articles.json)
+PostgreSQL 与 Kestrel 测试核对次数并列顺序、私有稿件排除、零次补位、精确摘要、撤回及热门 GET/HEAD 归因数据库调用为零。Chrome 对启用和关闭分别运行，验证五个链接、稳定主列表、取消旧请求、实际撤回及 ETag 不匹配。首次专项构建修正了测试的数组长度调用，第二次修正了测试观察器标记，第三次保持产品代码并通过。

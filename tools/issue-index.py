@@ -254,7 +254,7 @@ def review_queue(issues, edges, coverage):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=Path("docs/issues"))
+    parser.add_argument("--input", type=Path, default=Path("docs/archive/v1-baseline/issues"))
     parser.add_argument("--independent-rest", type=Path)
     args = parser.parse_args()
     repository, issues = verify(args.input, args.independent_rest)

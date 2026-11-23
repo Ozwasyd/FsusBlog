@@ -188,6 +188,6 @@ query($owner:String!, $name:String!, $after:String, $first:Int!) {
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", default="Ozwasyd/FsusBlog")
-    parser.add_argument("--output", type=Path, default=Path("docs/issues"))
+    parser.add_argument("--output", type=Path, default=Path("docs/archive/v1-baseline/issues"))
     parser.add_argument("--page-size", type=int, choices=range(1, 101), metavar="1..100", default=40)
     collect(parser.parse_args())

@@ -18,13 +18,13 @@ FsusBlog Server 使用独立的非连接池 PostgreSQL 会话持有数据库独�
 tests/Integration/Migration/physical-standby.sh RELEASE_DIRECTORY NEW_EVIDENCE_DIRECTORY
 ```
 
-`32880a1` 的真实发布包完成此演练。尚在恢复模式的备库拒绝应用启动。实际发布成功后，备库追到该事务已落盘的 WAL 坐标 `0/301D380`。停止并确认原主库退出、原应用就绪探针返回 `503` 后，备库升为时间线 2。新 Kestrel 从同一公开代次恢复文章，并用原命令字节重放。撤回只产生一条新修订及事件，HTML、AEDS 和旧索引代次随后拒绝。原应用保持运行以证明读写均已拒绝，测试结束后两套数据库和应用均已清理。 [过程证据](../artifacts/native-physical-standby-32880a1/run.log) · [HTTP 结果](../artifacts/native-physical-standby-32880a1/http-result.json)
+`32880a1` 的真实发布包完成此演练。尚在恢复模式的备库拒绝应用启动。实际发布成功后，备库追到该事务已落盘的 WAL 坐标 `0/301D380`。停止并确认原主库退出、原应用就绪探针返回 `503` 后，备库升为时间线 2。新 Kestrel 从同一公开代次恢复文章，并用原命令字节重放。撤回只产生一条新修订及事件，HTML、AEDS 和旧索引代次随后拒绝。原应用保持运行以证明读写均已拒绝，测试结束后两套数据库和应用均已清理。
 
 演练只覆盖停写且已达到回放坐标的计划切换。灾难场景的恢复点取决于实际回放进度。生产操作仍需由外部仲裁隔离原主库，并单独验证私有媒体和其他节点事实。
 
 `physical-standby.sh` 可用第三个参数 `--rejoin` 复验原主库入组。封存候选 `f303f5c` 完成真实 WAL 分叉、`pg_rewind` 及时间线 2 的流复制。测试在备库追平公开写入后先暂停备库，仅在仍是唯一主库的旧库写入隔离标记，再干净停机。首次因旧时间线 WAL 已回收失败，现场保留。第二轮为夹具保留所需 WAL，回卷后核对标记已消失、接收端与发送端归属，以及原应用进程在 socket 恢复后仍拒绝读写。连接新备库的应用在监听前被拒绝。
 
-升主后的应用继续发布并重放原命令。原文章保持撤回，旧进程仍返回 503，两库在回放到新事务落盘坐标后，文章、版本、发布、权利、命令及 outbox 事实逐字节一致。演练完成后清理了所用进程和文件。生产实际需要独立确认旧主库停机、同集群身份和时间线历史，并保留回卷点所需 WAL。 [通过记录](../artifacts/native-physical-rejoin-f303f5c-retry/run.log) · [首次失败](../artifacts/native-physical-rejoin-f303f5c/rewind.log) · [回卷工具](https://www.postgresql.org/docs/18/app-pgrewind.html) · [WAL 接收归属](https://www.postgresql.org/docs/18/monitoring-stats.html#MONITORING-PG-STAT-WAL-RECEIVER-VIEW)
+升主后的应用继续发布并重放原命令。原文章保持撤回，旧进程仍返回 503，两库在回放到新事务落盘坐标后，文章、版本、发布、权利、命令及 outbox 事实逐字节一致。演练完成后清理了所用进程和文件。生产实际需要独立确认旧主库停机、同集群身份和时间线历史，并保留回卷点所需 WAL。 [回卷工具](https://www.postgresql.org/docs/18/app-pgrewind.html) [WAL 接收归属](https://www.postgresql.org/docs/18/monitoring-stats.html#MONITORING-PG-STAT-WAL-RECEIVER-VIEW)
 
 ## 管理域部署状态
 

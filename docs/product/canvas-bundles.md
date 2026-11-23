@@ -14,6 +14,6 @@ Canvas 工作区可以下载当前精确修订的 `.fsuscanvas` 文件。文件�
 
 每个包最多 3,500,000 字节、10,000 个节点、10,000 条边和 100,000 条分组成员关系，沿用现有字段上限。最多读取 64 个锚点来源坐标，每个最多 64 个不同锚点，并限制请求总扫描量。定向映射可用于其他站点，原站点标识不参与匹配。覆盖已有 Canvas、保留未解析节点、跳过节点、ZIP 和全量无回读式流解析仍未实现。
 
-本机 PostgreSQL 18.7 实际往返 10,000 节点和 10,000 条边，包大小 884,277 字节，导入 1,185 ms，导出 801 ms。重新导出逐字节一致，这是隔离测试的单次观测。另以真实 Chrome 验证下载、篡改拒绝、零写入取消、窄屏映射后导入，以及两篇文章草稿保持原样。 [数据库结果](../../artifacts/canvas-bundle-evidence/postgres.log) · [浏览器结果](../../artifacts/canvas-bundle-browser/run-1/browser-result.json)
+本机 PostgreSQL 18.7 实际往返 10,000 节点和 10,000 条边，包大小 884,277 字节，导入 1,185 ms，导出 801 ms。重新导出逐字节一致，这是隔离测试的单次观测。另以真实 Chrome 验证下载、篡改拒绝、零写入取消、窄屏映射后导入，以及两篇文章草稿保持原样。
 
 [Canvas 事务](canvas-transaction.md) · [包格式需求 #2491](https://github.com/Ozwasyd/FsusBlog/issues/2491) · [导入需求 #2495](https://github.com/Ozwasyd/FsusBlog/issues/2495) · [界面需求 #2496](https://github.com/Ozwasyd/FsusBlog/issues/2496)

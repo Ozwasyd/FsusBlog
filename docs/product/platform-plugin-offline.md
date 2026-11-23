@@ -14,7 +14,7 @@
 
 使用 `python3 tests/Integration/Migration/platform-plugin.py /absolute/path/FsusBlog.V2.Cli.dll` 测试。夹具用 OpenSSL 创建新的密钥和签名包，执行程序需使用独立的框架依赖 .NET 发布目录，目录只放程序和依赖。通用在线 Hook 分发、SQL 注册表、站点用户批准、集群协调、Lua 和可调用 IO broker 仍待完成。依据固定 v1 的 `docs/architecture/plugin-foundation.md`、`docs/architecture/plugin-hook-dispatcher.md` 和 `docs/plugins/typescript-sdk.md`。
 
-本机 macOS 使用 .NET SDK 10.0.404、Jint 4.13.0 和锁定的 Acornima 1.6.2 运行测试。原生进程测试覆盖签名转换、信任撤销、脚本环境无宿主句柄、执行与字节上限、登记文件并发变更时拒绝结果、锁争用、包篡改和 FIFO 拒绝。测试暂停本次调用的子进程，确认父进程超时终止并回收子进程。系统日志记录了子进程读取 `/private/etc/hosts` 被拒绝。 [验证日志](../../artifacts/offline-platform-plugin/native.log)
+本机 macOS 使用 .NET SDK 10.0.404、Jint 4.13.0 和锁定的 Acornima 1.6.2 运行测试。原生进程测试覆盖签名转换、信任撤销、脚本环境无宿主句柄、执行与字节上限、登记文件并发变更时拒绝结果、锁争用、包篡改和 FIFO 拒绝。测试暂停本次调用的子进程，确认父进程超时终止并回收子进程。系统日志记录了子进程读取 `/private/etc/hosts` 被拒绝。
 
 ## Linux ARM64 隔离能力检查
 
@@ -25,7 +25,7 @@ cc -std=c11 -O2 -Wall -Wextra -Werror -static tests/Integration/Migration/linux-
 python3 tests/Integration/Migration/linux-plugin-isolation.py /tmp/fsus-plugin-probe
 ```
 
-实测环境为 Debian 13 ARM64，内核 6.12.115、Bubblewrap 0.12.0、GCC 14.2 和 glibc 2.41。默认及 Python 优化模式均通过。探针核对根挂载、程序和 procfs 均为只读，确认有效及环境 capabilities 为零，并验证直接进入探针分支时会拒绝运行。 [原生日志](../../artifacts/linux-plugin-isolation/native.log)
+实测环境为 Debian 13 ARM64，内核 6.12.115、Bubblewrap 0.12.0、GCC 14.2 和 glibc 2.41。默认及 Python 优化模式均通过。探针核对根挂载、程序和 procfs 均为只读，确认有效及环境 capabilities 为零，并验证直接进入探针分支时会拒绝运行。
 
 该白名单适用于无依赖的探针。静态探针用于独立核对宿主的隔离能力。下文的托管 worker 使用不同的系统调用允许列表。 [内核 cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)
 
@@ -39,7 +39,7 @@ python3 tests/Integration/Migration/linux-plugin-cgroups.py /tmp/fsus-plugin-pro
 
 工作进程在收到测试控制器的许可前等待。控制器先核对本次 systemd 服务的主 PID、实际内核 cgroup 归属、48 MiB 内存上限、禁用交换空间、8 个任务及 25% 的单 CPU 配额。测试用不匹配的内存上限验证启动拒绝，并读取 `pids.events`、`memory.events` 与 `cpu.stat` 记录的内核事件。主动取消和启动客户端被强制退出两种场景分别验证。子进程被暂停后，通过管理器状态、原进程的 pidfd 和 cgroup 清空确认整组回收。 [systemd v257 服务期限](https://www.freedesktop.org/software/systemd/man/257/systemd.service.html) · [cgroup v2 文件](https://docs.kernel.org/admin-guide/cgroup-v2.html)
 
-Debian 13 ARM64 实测使用 systemd 257.13 和用户会话总线。固定负载触发一次任务数量拒绝、一次组内 OOM 终止和 13 次 CPU 节流。主动取消耗时 0.389 秒，启动客户端被强制退出后的整组回收耗时 4.516 秒。结束后确认临时服务和 cgroup 已移除。这组限额用于宿主探针，托管工作进程使用下文的独立限额。 [原生验证及清理日志](../../artifacts/linux-plugin-cgroups)
+Debian 13 ARM64 实测使用 systemd 257.13 和用户会话总线。固定负载触发一次任务数量拒绝、一次组内 OOM 终止和 13 次 CPU 节流。主动取消耗时 0.389 秒，启动客户端被强制退出后的整组回收耗时 4.516 秒。结束后确认临时服务和 cgroup 已移除。这组限额用于宿主探针，托管工作进程使用下文的独立限额。
 
 ## 离线 Linux ARM64 工作进程
 
@@ -62,7 +62,7 @@ printf 'Markdown content\n' | dotnet FsusBlog.V2.Cli.dll platform-plugin render 
 
 宿主在工作进程启动前检查安装清单和经签名的包。临时 systemd 服务使用 128 MiB 内存、零交换、24 个任务和 100% 的单 CPU 配额。Bubblewrap 从专用只读目录启动 .NET，清空继承环境及额外描述符，隔离网络与 IPC，并加载第一个 seccomp 过滤器。工作进程再把禁止重新执行程序的过滤器同步到 CLR 线程，完成后回报就绪。宿主核对实际 cgroup 限额，只在就绪后传送输入。结果发布前核对进程组退出、已安装字节和包审批。管理器在启动客户端消失后仍实施独立的运行期限。 [内核系统调用过滤和线程同步](https://docs.kernel.org/userspace-api/seccomp_filter.html) · [内核 cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html)
 
-安装测试环境后，通过 `python3 tests/Integration/Migration/linux-managed-plugin-flow.py /absolute/FsusBlog.V2.Cli.dll` 复现签名工作流。Debian 13 ARM64 原生测试核对了 206 个安装文件。12 个用例覆盖实际转换、错签名、撤销、输入输出限制、在途批准变化、宿主期限及宿主被强制退出后的回收。测试安装和临时单元已清理。标准站点发行包仍由原发布脚本生成，Linux 工作进程另行部署。 [原生验证](../../artifacts/linux-plugin-managed/signed-guest-native.log) · [清理日志](../../artifacts/linux-plugin-managed/signed-guest-cleanup.log)
+安装测试环境后，通过 `python3 tests/Integration/Migration/linux-managed-plugin-flow.py /absolute/FsusBlog.V2.Cli.dll` 复现签名工作流。Debian 13 ARM64 原生测试核对了 206 个安装文件。12 个用例覆盖实际转换、错签名、撤销、输入输出限制、在途批准变化、宿主期限及宿主被强制退出后的回收。测试安装和临时单元已清理。标准站点发行包仍由原发布脚本生成，Linux 工作进程另行部署。
 
 ## Linux ARM64 站点作者预览
 
@@ -74,4 +74,4 @@ printf 'Markdown content\n' | dotnet FsusBlog.V2.Cli.dll platform-plugin render 
 
 成功响应是 `text/plain; charset=utf-8`，禁止缓存。Inspector 使用本地 FsusUI Markdown Wasm，按允许的语义元素展示结果。链接和图片以惰性文字展示，预览不会请求嵌入资源。该请求只读取当前修订，不保存转换结果，不触发发布流水线。运维批准继续由原有私有目录管理。配置批准一个既有 `article.render` 包后，只有本来可编辑自己文章的账号能够触发预览。 [冻结的 #3665 范围](https://github.com/Fsu0413/FsusBlog/issues/3665)
 
-原生 Debian ARM64 通过真实 PostgreSQL、证书固定的 Kestrel HTTPS 和签名工作进程验证默认关闭、转换、批准失效、越权和旧修订。375px Chrome 经本机 HTTPS 转发连接到实际 worker，验证键盘审核、取消和明确确认后的呈递。发布 Hook、其他用户授权类型和通用 IO broker 仍待验收。 [Debian 实测](../../artifacts/plugin-user-consent-967805c/debian-native.log) · [Chrome 实测](../../artifacts/plugin-user-consent-967805c/chromium-3/plugin-consent-chrome.json)
+原生 Debian ARM64 通过真实 PostgreSQL、证书固定的 Kestrel HTTPS 和签名工作进程验证默认关闭、转换、批准失效、越权和旧修订。375px Chrome 经本机 HTTPS 转发连接到实际 worker，验证键盘审核、取消和明确确认后的呈递。发布 Hook、其他用户授权类型和通用 IO broker 仍待验收。

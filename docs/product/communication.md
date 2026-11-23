@@ -22,7 +22,7 @@ v2 私有回放入口是 `GET /api/v2/notifications/private.aeds`。首张会话
 
 设置 `FSUSBLOG_ADMIN_INBOX_LIVE=true` 后，管理员可以收到当前账号工单已提交变动的唤醒。管理员专用的 `/api/v2/admin/identity/inbox/{id}/wake` 复用现有 `InboxWake` 和 `fsus-inbox-wake.v2`。服务检查管理员来源、独立会话和 `admin.manage` 后，只发送固定 AEDS 成功帧。连接最多四条，无排队。浏览器打开或重连后读取当前工单详情，保留正在编辑的草稿和焦点。历史分页仍可继续读取，共享已读位置仍由打开工单或主动重新加载触发。默认关闭，无需数据库迁移。冻结 v1 将账号新回复和状态变化投递给管理端，管理端在投影缺失时补读当前工单。 [v1 投递](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/NotificationStream/MessageCenterService.DeliveryOutbox.cs#L55-L113) · [v1 补读](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/composables/useAdminMessageCenter.ts#L505-L539)
 
-候选 `13bf4fc` 通过 PostgreSQL 18.7、Caddy 2.11.9 独立 HTTPS 来源及 Chrome 157 验收。启用实时流和共享已读时，验证了账号经 PoW 新建和回复、管理员首屏和打开的工单各自更新、工单断线重连补读，以及草稿、焦点和共享未读位置保留。错误来源、站点会话和客户端发给唤醒连接的消息被拒绝，管理员会话撤销后连接关闭。单独以默认关闭设置重跑，队列和工单唤醒均返回 404，普通查阅仍可用。两次运行均清理 PostgreSQL、服务和代理。 [实时验收](../../artifacts/admin-inbox-live-13bf4fc/live/admin-identity-result.json) · [默认关闭验收](../../artifacts/admin-inbox-live-13bf4fc/default/admin-identity-result.json) · [浏览器断言](../../tests/EndToEnd/admin-inbox-flow.mjs)
+候选 `13bf4fc` 通过 PostgreSQL 18.7、Caddy 2.11.9 独立 HTTPS 来源及 Chrome 157 验收。启用实时流和共享已读时，验证了账号经 PoW 新建和回复、管理员首屏和打开的工单各自更新、工单断线重连补读，以及草稿、焦点和共享未读位置保留。错误来源、站点会话和客户端发给唤醒连接的消息被拒绝，管理员会话撤销后连接关闭。单独以默认关闭设置重跑，队列和工单唤醒均返回 404，普通查阅仍可用。两次运行均清理 PostgreSQL、服务和代理。 [浏览器断言](../../tests/EndToEnd/admin-inbox-flow.mjs)
 
 同一开关让按创建编号排序的「全部」「进行中」「待处理」「已关闭」首屏，在新工单、公开回复或状态变动后读回当前结果。队列唤醒核对实际首屏及分页边界，所以较小编号较晚提交时也能被发现。工单详情跟随账号或管理员回复与状态变动。两个入口共享四条连接上限，唤醒帧只提示重新读取对应的已授权快照。被关闭工单移除焦点控件时，焦点回到工单标题，回复草稿仍留在当前页面。启用共享未读时，新工单显示一条未读。未读筛选、系统筛选、活动排序、后续页和管理员逐事件历史回放仍待接入。 [v1 创建与管理员投递](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/NotificationStream/MessageCenterService.MessageCommand.cs#L125-L141)
 
@@ -38,7 +38,7 @@ v2 私有回放入口是 `GET /api/v2/notifications/private.aeds`。首张会话
 
 设置 `FSUSBLOG_ADMIN_INBOX_ACTIVITY_ORDER=true` 后，管理员队列可切换为按最后一条非内部消息时间和会话 ID 倒序。队列默认按会话创建编号倒序。活动游标绑定管理员会话、筛选、投影和首屏已提交消息上界。后续页沿用该上界，回复和新工单下次刷新才改变顺序。状态和共享未读筛选仍读取当前值。内部注记仍可在授权详情读取。启用后，在线投递与同版本的离线 `notify` 在分配消息编号前取得共享事务锁。首屏短暂取得独占锁以确认已提交上界，分页查询在释放后运行。部署时更新与该数据库写入同一收件箱的离线工具。
 
-PostgreSQL 回归覆盖微秒级排序、同时间工单、乱序提交、首屏后新消息和内部注记。Chrome 经 Caddy TLS 验证了活动排序与共享未读同时可用，默认隐藏排序入口。[验证记录](../../artifacts/admin-inbox-activity/)
+PostgreSQL 回归覆盖微秒级排序、同时间工单、乱序提交、首屏后新消息和内部注记。Chrome 经 Caddy TLS 验证了活动排序与共享未读同时可用，默认隐藏排序入口。
 
 适应性 PoW、精确旧管理端路径、专用状态事件和管理员广播、其他公开及管理员事件、握手 PoW 与签发授权、历史迁移和自动生产者仍待接入。v2 账号沿用事件 12 刷新当前会话。
 

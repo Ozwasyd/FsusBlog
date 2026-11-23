@@ -18,11 +18,11 @@
 
 HTTPS 管理域上的管理员在互动页面（`/admin/interaction`）的「评论防护」页签可查看已安装的风险控制并调整顶层评论 PoW 策略（也可手动重新检查）。 `GET /api/v2/admin/identity/operations/risk-readiness.aeds` 返回 AEDS 帧 32851，响应使用 `no-store` 并绑定当前权限会话。公共域拒绝此路径。无效管理员会话返回 401。
 
-该读接口按启动时实际注册的端点显示公开评论的固定查询并发控制、顶层登录投稿的 Classic PoW 路由及登录回复的 Classic PoW 路由。回复路由已注册时，接口在同一个授权事务中报告 PostgreSQL 的回复通知表是否存在。账号、文章、出版物及目标评论的资格由实际提交入口检查。代理字段表示应用实际使用可信环回代理的转发地址，或使用连接对端地址。“Dynamic risk policy”对应完整风险评分运行时。强匿名运行时有独立范围。 [固定 v1 风险与强匿名范围](../issues/risk-strong-anonymous.md)
+该读接口按启动时实际注册的端点显示公开评论的固定查询并发控制、顶层登录投稿的 Classic PoW 路由及登录回复的 Classic PoW 路由。回复路由已注册时，接口在同一个授权事务中报告 PostgreSQL 的回复通知表是否存在。账号、文章、出版物及目标评论的资格由实际提交入口检查。代理字段表示应用实际使用可信环回代理的转发地址，或使用连接对端地址。“Dynamic risk policy”对应完整风险评分运行时。强匿名运行时有独立范围。 [固定 v1 风险与强匿名范围（归档）](../archive/v1-baseline/issues/risk-strong-anonymous.md)
 
 安装根评论证明策略且启用顶层登录投稿后，同一管理区域可查看当前代次和配置摘要。管理员通过专用于这项变更的 Passkey 证明，将现行 12 位 Classic PoW 的有效期设为 60 至 120 秒。初值是 120 秒。策略更新按读取的代次和摘要进行 CAS，更新与审计在一个 PostgreSQL 事务内提交。回滚从持久审计恢复上一设置，并分配新代次。签发和消费均锁定当前策略，因此已签发未使用的旧代证明在恢复旧时限之后仍无效。回复和其他动作继续使用各自的现行证明约束。统一的 CLI `plan` 和 `apply` 初始化策略及审计表。 [策略实现](../../src/Server/Security/RootCommentPowPolicy.cs) · [验收入口](../../tests/EndToEnd/admin-risk-readiness-flow.mjs)
 
-候选树 `f27800a4cf80c86f37f728f4ea06441de9a5e15b` 通过 Server、Migrate 和前端构建。首次恢复因系统默认 SDK 版本不符退出，改用仓库固定的 .NET 10.0.404 后通过。同一候选经 Caddy 2.11.9、Chrome 157 和 PostgreSQL 18 分别验收了投稿关闭、仅打开回复开关、仅注册顶层投稿、回复通知表缺失和回复通知表存在五种场景。均验证公共域拒绝、管理员授权、帧类型和会话绑定，以及撤权后丢弃延迟响应。五次均正常清理。 [构建与验收记录](../../artifacts/admin-risk-readiness-validation-f27800a/)
+候选树 `f27800a4cf80c86f37f728f4ea06441de9a5e15b` 通过 Server、Migrate 和前端构建。首次恢复因系统默认 SDK 版本不符退出，改用仓库固定的 .NET 10.0.404 后通过。同一候选经 Caddy 2.11.9、Chrome 157 和 PostgreSQL 18 分别验收了投稿关闭、仅打开回复开关、仅注册顶层投稿、回复通知表缺失和回复通知表存在五种场景。均验证公共域拒绝、管理员授权、帧类型和会话绑定，以及撤权后丢弃延迟响应。五次均正常清理。
 
 持有当前有效会话的管理员可在管理页面审核待处理的站点账号投稿。 `GET /api/v2/admin/identity/comments/queue.aeds`（AEDS 帧 32862）按评论 ID 和文章 ID 正序返回投稿，每页最多 24 条。已删除的评论和文章不进入队列，撤回公开发布的文章保留未完成审核。正文只按文本显示。
 
@@ -34,7 +34,7 @@ HTTPS 管理域上的管理员在互动页面（`/admin/interaction`）的「评
 
 领取和决定分别以事务执行。每条决定须匹配原待审状态、评论版本、领取密钥、领取代数、领取版本及有效期。批量批准拒绝含当前地区屏蔽记录的评论。任一目标失配时，409 响应按原请求顺序标出冲突项，整个批次保持原状。成功的批次汇总关联所有逐条审核记录，并和相应的私密回复提醒一并提交。同一证明再次提交返回 428。当前范围为待审到批准或驳回。v1 的 90/115 帧、其他历史状态迁移和封禁联动仍待接入。 [固定 v1 批量服务](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs#L307-L471)
 
-PostgreSQL 回归覆盖逐条冲突、独立证明、两名收件账号的通知与审核共同回滚，以及收件顺序相反的并发批次。Chrome 经 Caddy HTTPS 验证 390px 管理页面的选择、领取、取消、重新领取和 Passkey 批准与驳回。停机迁移可重复执行，并拒绝用途约束被移除的结构。 [验证记录](../../artifacts/admin-comment-batch/)
+PostgreSQL 回归覆盖逐条冲突、独立证明、两名收件账号的通知与审核共同回滚，以及收件顺序相反的并发批次。Chrome 经 Caddy HTTPS 验证 390px 管理页面的选择、领取、取消、重新领取和 Passkey 批准与驳回。停机迁移可重复执行，并拒绝用途约束被移除的结构。
 
 认证接口位于 `/api/v2/admin/identity/`。WebAuthn 复用 AEDS 帧 63、64、66、67，当前管理员会话查询使用 v2 帧 32830。v1 还有 JWT 轮换、长时会话、敏感动作的独立验证与其他业务权限。现有内容接口继续使用各自的权限判断。 [v1 管理认证契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/api/contracts.md#independent-admin-principal-aeds-endpoints)
 

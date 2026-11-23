@@ -110,6 +110,7 @@ def classify(path, suffix, source):
     # test baselines, and rules (including artifacts/change-contract) stay in scope.
     if suffix == '.json' and (
         path.startswith('docs/reports/')
+        or (path.startswith('docs/archive/') and not path.endswith('.schema.json'))
         or (path.startswith('docs/baseline-') and not path.endswith('.schema.json'))
         or (path.startswith('docs/issues/') and not path.endswith('.schema.json'))
     ):

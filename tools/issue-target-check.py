@@ -235,7 +235,7 @@ def capture(repository, targets, rest_targets):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=Path("docs/issues"))
+    parser.add_argument("--input", type=Path, default=Path("docs/archive/v1-baseline/issues"))
     parser.add_argument("--capture", action="store_true", help="requery GitHub instead of rebuilding offline")
     parser.add_argument("--rest-check", type=int, action="append", default=[])
     args = parser.parse_args()

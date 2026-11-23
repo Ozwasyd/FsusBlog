@@ -1,6 +1,6 @@
 # FsusBlog v2
 
-这是从空目录建立的新实现，以 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 为静态参考。当前仓库仍在实施 [验收计划](docs/status.md)。实际协议、界面和数据库支持范围以对应证据为准。
+这是从空目录建立的新实现，以 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 为静态参考。文档总导航见 [文档总索引](docs/index.md)，早期阶段性记录保留在 [执行状态归档](docs/archive/dev-logs/status.md)。实际协议、界面和数据库支持范围以对应证据为准。
 
 - 后端和独立维护工具使用 .NET SDK `10.0.404`、运行库 `10.0.15`、C# 14、`net10.0` 和 ASP.NET Core Minimal APIs。纯领域模型与策略位于 `src/Core/`，POSIX/PInvoke、文件描述符、签名密钥与媒体目录 I/O、扩展磁盘存储及 Linux Worker 执行边界位于独立工程 `src/Platform/`（严格单向依赖 `Platform -> Core`）。
 - 数据：PostgreSQL / Npgsql，服务启动只检查当前 schema。离线工具负责初始化和验证。
