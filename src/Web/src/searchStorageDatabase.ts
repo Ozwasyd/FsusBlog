@@ -23,6 +23,15 @@ export function isFixedBuffer(value: unknown): value is ArrayBuffer {
   return value instanceof ArrayBuffer && (!('resizable' in value) || value.resizable === false)
 }
 
+export function exactPageBuffer(bytes: Uint8Array): ArrayBuffer {
+  const { buffer, byteOffset, byteLength } = bytes
+  // IndexedDB can clone the entire backing buffer of a typed array view.
+  if (isFixedBuffer(buffer) && byteOffset === 0 && byteLength === buffer.byteLength) return buffer
+  const copy = new Uint8Array(byteLength)
+  copy.set(bytes)
+  return copy.buffer
+}
+
 export function validGeneration(value: unknown): value is string {
   return typeof value === 'string' && generationPattern.test(value) && BigInt(value) <= maxInt64
 }

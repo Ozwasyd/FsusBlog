@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict'
-import { requireWebPackage } from './web-package-fixture.mjs'
+import { chromium, observePageErrors } from './browser-authoring-fixture.mjs'
 import { readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { currentMediaSession, mediaBootstraps } from './media-session-fixture.mjs'
 import { signInFreshAdmin } from './webauthn-fixture.mjs'
 import { assertStatus } from './response-status-fixture.mjs'
 
-const { chromium } = requireWebPackage('@playwright/test')
 const url = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const storage = process.env.FSUSBLOG_PRIVATE_MEDIA_ROOT
@@ -23,10 +22,7 @@ try {
     const page = await context.newPage()
     const diagnostics = []
     const name = index ? 'mobile' : 'desktop'
-    page.on('pageerror', error => diagnostics.push(error.message))
-    page.on('console', info => {
-      if (info.type() === 'error' && !info.text().startsWith('Failed to load resource:')) diagnostics.push(info.text())
-    })
+    observePageErrors(page, diagnostics)
     page.on('response', response => {
       if (response.status() >= 500 || response.status() >= 400 && new URL(response.url()).pathname.startsWith('/assets/')) {
         diagnostics.push(`${response.status()} ${new URL(response.url()).pathname}`)

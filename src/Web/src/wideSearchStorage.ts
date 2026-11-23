@@ -92,7 +92,7 @@ export async function withWideSearchStorage<T>(signal: AbortSignal,
             throw new ProtocolError('Invalid wide search page sequence or size')
           const next = { ...loading, writtenPages: number, writtenBytes: loading.writtenBytes + length }
           if (!validProgress(next)) throw new ProtocolError('Wide search storage budget exceeded')
-          pages.add({ owner, length, body: exactBuffer(bytes, length) }, number)
+          pages.add({ owner, length, body: corpusDb.exactPageBuffer(bytes) }, number)
           metadata.put(next, corpusDb.stateKey)
           complete(undefined)
         })
@@ -248,13 +248,4 @@ function validProgress(state: State): boolean {
 
 function completeProgress(state: State): boolean {
   return state.writtenPages === state.pageCount && state.writtenBytes === state.byteCount
-}
-
-function exactBuffer(bytes: Uint8Array, length: number): ArrayBuffer {
-  const { buffer, byteOffset } = bytes
-  // IndexedDB can clone the entire backing buffer of a typed array view.
-  if (corpusDb.isFixedBuffer(buffer) && byteOffset === 0 && length === buffer.byteLength) return buffer
-  const owned = new Uint8Array(length)
-  owned.set(bytes.subarray(0, length))
-  return owned.buffer
 }

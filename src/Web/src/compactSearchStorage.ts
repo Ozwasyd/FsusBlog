@@ -21,14 +21,6 @@ async function sha256Hex(buffer: ArrayBuffer): Promise<string> {
   return Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
-function exactBuffer(bytes: Uint8Array): ArrayBuffer {
-  const { buffer, byteOffset, byteLength } = bytes
-  if (corpusDb.isFixedBuffer(buffer) && byteOffset === 0 && byteLength === buffer.byteLength) return buffer
-  const copy = new Uint8Array(byteLength)
-  copy.set(bytes)
-  return copy.buffer
-}
-
 function validPageLength(length: number): boolean {
   return Number.isInteger(length) && length >= corpusDb.minimumPageBytes && length <= WireLimits.SearchCorpusPageBytes
 }
@@ -192,7 +184,7 @@ export const compactSearchStorage: CompactSearchStorage = {
       if (!validPageLength(page.byteLength)) return
       totalBytes += page.byteLength
       if (totalBytes > WireLimits.SearchCorpusTotalBytes) return
-      const buffer = exactBuffer(page)
+      const buffer = corpusDb.exactPageBuffer(page)
       buffers.push(buffer)
       digests.push(await sha256Hex(buffer))
     }

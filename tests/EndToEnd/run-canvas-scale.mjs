@@ -1,15 +1,13 @@
 import assert from 'node:assert/strict'
-import { requireWebPackage } from './web-package-fixture.mjs'
-import { createHash, randomUUID } from 'node:crypto'
+import { chromium, observePageErrors, readDraft, submitArticle } from './browser-authoring-fixture.mjs'
+import { createHash } from 'node:crypto'
 import { writeFile, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { cpus } from 'node:os'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseCanvasScale } from './canvas-scale-flow.mjs'
 import { signInFreshAdmin } from './webauthn-fixture.mjs'
 
-const { chromium } = requireWebPackage('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const bootstrap = process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
 const otherBootstrap = process.env.FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP
@@ -27,12 +25,7 @@ let result
 let served
 let harnessDigests
 
-function monitor(tab) {
-  tab.on('pageerror', error => diagnostics.push(error.message))
-  tab.on('console', message => {
-    if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) diagnostics.push(message.text())
-  })
-}
+const monitor = tab => { observePageErrors(tab, diagnostics) }
 monitor(page)
 try {
   // Artifacts contain hashes of served resources and non-secret machine/version metadata.
@@ -48,22 +41,18 @@ try {
   const sourceFiles = [
     'tests/EndToEnd/run-canvas-scale.mjs', 'tests/EndToEnd/canvas-scale-flow.mjs',
     'tests/EndToEnd/canvas-scale-corpus.mjs', 'tests/EndToEnd/canvas-scale-verify.sql', 'tests/EndToEnd/run-native.sh',
-    'tests/EndToEnd/webauthn-fixture.mjs',
+    'tests/EndToEnd/webauthn-fixture.mjs', 'tests/EndToEnd/browser-authoring-fixture.mjs',
   ]
   harnessDigests = Object.fromEntries(await Promise.all(sourceFiles.map(async path => [path, digest(await readFile(path))])))
 
   await signInFreshAdmin(page, origin, bootstrap)
 
   async function article(action, draft) {
-    const body = encodeFrame(FrameType.ArticleCommand, encodeArticleCommand({
-      id: draft.id ?? 0, expectedRevision: draft.revision ?? 0n, idempotencyKey: randomUUID(),
+    const response = await submitArticle(page.request, origin + WireRoutes[action], {
+      id: draft.id ?? 0, expectedRevision: draft.revision ?? 0n,
       title: draft.title ?? '', body: draft.body ?? '',
-    }))
-    const response = await page.request.post(origin + WireRoutes[action], {
-      data: Buffer.from(body), headers: { 'Content-Type': 'application/octet-stream' },
     })
-    assert.equal(response.status(), 200)
-    return decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
+    return readDraft(response)
   }
 
   result = await exerciseCanvasScale({
