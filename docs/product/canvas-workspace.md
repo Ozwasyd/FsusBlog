@@ -20,14 +20,10 @@
 
 可以下载当前精确修订的可移植包，再显式映射到本地文章后导入为新 Canvas。 [Canvas 可移植包](canvas-bundles.md)
 
-固定语料包含 10,000 个节点、10,000 条边和 6,000 个显式文章引用映射。安装包 `08d7040`（SHA-256 `04944cbde35a759feb7695c33b6c1144c8044b288a879e595b039fccb2224fee`）在真实 PostgreSQL 18.7 和 Chrome 上运行桌面、375px、桌面三轮。首屏分别为 110.4、69.1 和 65.4 ms。每轮访问 470 页才读完同一修订，耗时分别为 3.319、2.328 和 2.332 秒。三轮均验证了最远的节点与边、空间定位、缩放、拖动视口和键盘焦点，桌面首轮额外验证固定标题解析、移动、撤销和重做。浏览器分别最多挂载 100 个节点、200 条边和 100 个大纲条目。最终修订 16 的 20,000 条记录都与确定语料及唯一一次持久化节点移动相符，重复导出字节一致，两个文章修订保持原样。授权外的会话不可读取。首次重复测试发现同一视口定位的焦点丢失，修复后复测通过。数字为同机回环单次三轮观测，未约定吞吐或延迟目标。
+## 大规模与验证入口
 
-使用 `db53a07` 解包产物补验万级显式文章链接。作者在完整加载的 10,000 节点和 10,000 边上先取消预览，再确认一个新计划。真实服务提交后，测试丢弃首次网络响应。浏览器以完全相同的请求字节重试并取得原始回执。独立 PostgreSQL 复核只增加一次草稿和 Canvas 修订、一次命令及一次 outbox，两个公开版本与 Canvas 两种边全部保留。
+浏览器渲染与大纲采取视口虚拟化上限（同时最多挂载 100 个节点、200 条边与 100 条大纲项）。通过 `FSUSBLOG_TEST_FLOW=canvas-scale bash tests/EndToEnd/run-native.sh` 在隔离 PostgreSQL 与 Chrome 上复验 10,000 节点、10,000 边与显式文章链接事务、断连幂等重试、撤销/重做及跨账号隔离。相关事务契约见 [Canvas 文章链接事务](canvas-transaction.md)。
 
-图形工作区仍缺导入覆盖既有文档、有数据的旧开发数据库转换、更广的标题与块转换、CPU、RSS 和完整无障碍审计。 [事务与原生 API](canvas-transaction.md) · [#2488](https://github.com/Ozwasyd/FsusBlog/issues/2488) · [#2489](https://github.com/Ozwasyd/FsusBlog/issues/2489) · [#3736](https://github.com/Ozwasyd/FsusBlog/issues/3736)
+## 已知上游片段定位跟进
 
-## 待验收的公开片段定位
-
-标题和块链接的候选转换会用当前公开修订生成标准 Markdown 片段。服务端实库回归已覆盖私有修订隔离、发布漂移和精确追加。该候选保留在独立分支。早期 375px 匿名 Chrome 复验中，当时的 FsusUI 渲染缺少标题、段落和代码块的规范片段目标。 [FsusUI #1082 的复现评论](https://github.com/Ozwasyd/FsusUI/issues/1082#issuecomment-6898820348)
-
-FsusUI #1082 已补齐片段输出和定位接口。公开文章在正文渲染完成后用该接口定位标题和段落。语法高亮仍会移除围栏代码块原有的片段 ID。独立 FsusUI 浏览器复现确认此失败发生在高亮激活之后。 [FsusUI #1123 的复现评论](https://github.com/Ozwasyd/FsusUI/issues/1123#issuecomment-7083549619)
+FsusUI #1082 已补齐标题与段落的规范片段定位接口；语法高亮仍会移除围栏代码块原有的片段 ID，跟进上游 [FsusUI #1123](https://github.com/Ozwasyd/FsusUI/issues/1123#issuecomment-7083549619)。

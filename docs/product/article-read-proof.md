@@ -23,6 +23,4 @@
 
 让统计会话的 `log_parameter_max_length` 和 `log_parameter_max_length_on_error` 都等于 `0`。若启用了 `pgaudit` 或 `auto_explain`，同时禁止它们输出绑定参数。应用拒绝向不满足这些条件的会话写入摘要。运行环境应排除该入口的请求体和鉴权头转储、原始地址记录、主机核心转储和原始数据盘或内存快照。临时表可在 PostgreSQL 主机产生临时文件，常规 `pg_dump` 与 `pg_basebackup` 不备份临时数据。对持久介质有更严格要求的部署须验证易失表空间和主机转储设置。 [PostgreSQL 参数日志](https://www.postgresql.org/docs/18/runtime-config-logging.html#GUC-LOG-PARAMETER-MAX-LENGTH) · [物理备份排除](https://www.postgresql.org/docs/18/protocol-replication.html)
 
-由 `FSUSBLOG_TEST_ARTICLE_READ_PROOF=1 tests/EndToEnd/run-admin-tls.sh` 运行独立 PostgreSQL、Caddy 和 Chromium 用例。测试使用环回 TLS 和临时数据库。保留期与长期站点容量需要单独验收，当前聚合不会自动清除历史小时或日记录。
-
-2026-11-15 的 PostgreSQL 18.7、Caddy 2.11.9 与 Chrome 157 用例通过。正文离屏 8 秒没有发起请求，滚入视口后只累计一次小时与短停留档。普通 HTML 和 AEDS 详情热读分别观察到零数据库命令、零物理连接。重放、旧发布和撤回均无新增。实际 `pg_dump` 包含聚合表，省略活动临时表。另有 4 个 .NET 验收通过，其中故障用例截断 PostgreSQL 的 COMMIT 应答，独立连接仍读回单次聚合。新统计会话拒绝在占用窗内启用旧票。 [浏览器验收](../../tests/EndToEnd/article-read-proof-flow.mjs) · [事务故障验收](../../tests/Integration/ArticleReadAuthorityPostgresTests.cs)
+由 `FSUSBLOG_TEST_ARTICLE_READ_PROOF=1 tests/EndToEnd/run-admin-tls.sh` 运行独立 PostgreSQL、Caddy 和 Chromium 用例。测试使用环回 TLS 和临时数据库；保留期与长期站点容量需按部署规模另行评估，当前聚合不会自动清除历史小时或日记录。 [浏览器验收](../../tests/EndToEnd/article-read-proof-flow.mjs) · [事务故障验收](../../tests/Integration/ArticleReadAuthorityPostgresTests.cs)

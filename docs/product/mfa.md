@@ -6,10 +6,6 @@
 
 启用 TOTP 后可用当前验证码或尚未使用的恢复码重新生成恢复码。页面先完成 `mfa_recovery_regenerate` 的专用验证，再向 `POST /api/binary/auth/mfa/recovery/regenerate` 提交绑定当前账号、会话、代次和动作的五分钟一次性证明。服务在一个事务内消费证明、作废全部旧码并保存 10 个新码的摘要。AEDS 帧 49 只在这次成功响应返回新码，使用相同证明重试返回 428。会话和认证器保留，页面离开、切换身份或确认隐藏后不再显示明文。若成功响应丢失，仍可用认证器重新验证并再生成一组。 [v1 恢复码轮换](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs#L994-L1051)
 
-运行时设置 `FSUSBLOG_PASSKEY_ORIGIN`、`FSUSBLOG_PASSKEY_RP_ID`，并从独立的密钥存储注入 `FSUSBLOG_TOTP_KEY_HEX`。该值为随机 32 字节密钥的十六进制编码。TOTP seed 使用 AES-256-GCM 与账号关联数据加密，数据库备份和密钥须分别保管并成对进行恢复演练。配置缺少密钥时，已经启用二次验证的账号无法通过仅有 Passkey 的登录。当前格式含封装版本，生产密钥轮换和 v1 现存 TOTP 凭据迁移仍需离线实现。
+运行时配置站点 Passkey 来源（自动推导自 `FSUSBLOG_PUBLIC_ORIGIN` 或由 `FSUSBLOG_PASSKEY_ORIGIN` / `FSUSBLOG_PASSKEY_RP_ID` 显式指定），并从独立密钥存储注入 64 位十六进制 `FSUSBLOG_TOTP_KEY_HEX`（可通过 `dotnet FsusBlog.V2.Cli.dll init-secrets` 生成）。TOTP seed 使用 AES-256-GCM 与账号关联数据加密，数据库备份和密钥须分别保管并成对演练恢复。配置缺少密钥时，已启用二次验证的账号无法仅凭 Passkey 登录。
 
-原生 PostgreSQL 18 验证覆盖旧时间步和恢复码重放、动作与会话绑定、代次撤销、密文认证、轮换写入失败回滚和并发证明兑换。Chrome 157 使用虚拟 CTAP2 认证器跑通首次绑定、Passkey 与 TOTP 登录、恢复码轮换、旧码失效和新码登录、二次验证停用和停用后的 Passkey 登录。通过 `FSUSBLOG_TEST_FLOW=mfa bash tests/EndToEnd/run-native.sh` 复验。脚本建立隔离数据库，并为本轮签发独立 TOTP 密钥和一次性 Passkey 绑定票据。测试截图省略 seed 和恢复码。RFC 6238 的标准 SHA-1 向量在 `tests/Core/TotpTests.cs` 复验。
-
-本地迁移命令在空库建立当前 schema。旧版 v2 若缺少 TOTP 的表和列，需要专门的升级脚本。已安装 TOTP 结构的库无需迁移即可使用恢复码轮换。启用时若响应丢失，用户可以用已绑定的认证器重新登录。
-
-其余范围包括 MFA 重绑、过期绑定记录清理、独立管理员、v1 风险控制、迁入的真实密钥恢复及硬件认证验收。
+所需表结构随 `FsusBlog.V2.Cli` 统一的 `plan` / `apply` 初始化。验证入口：`FSUSBLOG_TEST_FLOW=mfa bash tests/EndToEnd/run-native.sh` 与 `tests/Core/TotpTests.cs`（RFC 6238 SHA-1 标准向量）。
