@@ -12,7 +12,5 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Using Include="Microsoft.Extensions.Configuration" />
     <EmbeddedResource Include="Schema/*.sql" LogicalName="FsusBlog.V2.Cli.Schema.%(Filename)%(Extension)" />
-    <EmbeddedResource Include="OptionalSchema/private-media-import-origin.sql"
-                      LogicalName="FsusBlog.V2.Cli.OptionalSchema.private-media-import-origin.sql" />
   </ItemGroup>
 </Project>
