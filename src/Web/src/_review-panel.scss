@@ -1,0 +1,27 @@
+@mixin review-panel($panel, $heading, $actions, $list) {
+  #{$panel} {
+    display: grid;
+    gap: var(--fsus-space-2, 12px);
+  }
+
+  #{$heading} {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  #{$actions} {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  #{$list} {
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: var(--fsus-radius-panel, 12px);
+    background: var(--el-bg-color);
+    overflow: hidden;
+  }
+}

@@ -129,33 +129,10 @@ function decide(id: string, decision: 'granted' | 'denied') {
 </template>
 
 <style scoped lang="scss">
+@use '../review-panel' as layout;
 @use '../shared-fields' as fields;
 
-.appeal-review {
-  display: grid;
-  gap: var(--fsus-space-2, 12px);
-}
-
-.appeal-sr-title {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.appeal-panel-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.appeal-review-list {
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 12px);
-  background: var(--el-bg-color);
-  overflow: hidden;
-}
+@include layout.review-panel('.appeal-review', '.appeal-sr-title', '.appeal-panel-actions', '.appeal-review-list');
 
 .appeal-status {
   margin: 0;

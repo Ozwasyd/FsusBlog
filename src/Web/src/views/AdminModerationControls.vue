@@ -335,33 +335,10 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
 </template>
 
 <style scoped lang="scss">
+@use '../review-panel' as layout;
 @use '../shared-fields' as fields;
 
-.admin-moderation {
-  display: grid;
-  gap: var(--fsus-space-2, 12px);
-}
-
-.moderation-sr-title {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.moderation-panel-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.moderation-comments {
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 12px);
-  background: var(--el-bg-color);
-  overflow: hidden;
-}
+@include layout.review-panel('.admin-moderation', '.moderation-sr-title', '.moderation-panel-actions', '.moderation-comments');
 
 .moderation-lookup-details {
   border: 1px solid var(--el-border-color-lighter);

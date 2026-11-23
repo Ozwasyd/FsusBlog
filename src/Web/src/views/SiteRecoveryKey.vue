@@ -229,23 +229,10 @@ function issue() {
 </template>
 
 <style scoped lang="scss">
+@use '../security-panels' as panels;
 @use '../shared-fields' as fields;
 
-.recovery-subpanel {
-  display: grid;
-  gap: var(--fsus-space-3);
-  padding: var(--fsus-space-3) var(--fsus-space-4);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-control, 8px);
-  background: var(--el-bg-color-page);
-  min-inline-size: 0;
-}
-
-.recovery-action-block {
-  display: grid;
-  gap: var(--fsus-space-3);
-  min-inline-size: 0;
-}
+@include panels.surface('.recovery-subpanel', '.recovery-action-block');
 
 .recovery-subpanel-row {
   display: grid;
@@ -255,26 +242,7 @@ function issue() {
   min-inline-size: 0;
 }
 
-.recovery-subpanel-head {
-  display: grid;
-  gap: 2px;
-  min-inline-size: 0;
-}
-
-.recovery-subpanel-title {
-  margin: 0;
-  font-size: var(--el-font-size-base);
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--el-text-color-primary);
-}
-
-.recovery-subpanel-copy {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  line-height: 1.55;
-  color: var(--el-text-color-secondary);
-}
+@include panels.headings('.recovery-subpanel');
 
 .recovery-remove-form {
   display: grid;

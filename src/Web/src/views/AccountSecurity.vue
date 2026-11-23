@@ -341,6 +341,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
 </template>
 
 <style scoped lang="scss">
+@use '../security-panels' as panels;
 @use '../shared-fields' as fields;
 
 .account-security {
@@ -383,47 +384,14 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
   text-underline-offset: 4px;
 }
 
-.security-subpanel {
-  display: grid;
-  gap: var(--fsus-space-3);
-  padding: var(--fsus-space-3) var(--fsus-space-4);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-control, 8px);
-  background: var(--el-bg-color-page);
-  min-inline-size: 0;
-}
-
-.security-disable-block {
-  display: grid;
-  gap: var(--fsus-space-3);
-  min-inline-size: 0;
-}
+@include panels.surface('.security-subpanel', '.security-disable-block');
 
 .security-subpanel + .security-disable-block {
   padding-block-start: var(--fsus-space-3);
   border-block-start: 1px solid var(--el-border-color-lighter);
 }
 
-.security-subpanel-head {
-  display: grid;
-  gap: 2px;
-  min-inline-size: 0;
-}
-
-.security-subpanel-title {
-  margin: 0;
-  font-size: var(--el-font-size-base);
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--el-text-color-primary);
-}
-
-.security-subpanel-copy {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  line-height: 1.55;
-  color: var(--el-text-color-secondary);
-}
+@include panels.headings('.security-subpanel');
 
 .recovery-code-grid {
   display: grid;
