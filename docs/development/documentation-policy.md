@@ -6,16 +6,15 @@
 
 每份文档只承担一种核心角色与生命周期。禁止把现行行为契约、单次测试过程日志和历史研究底稿混写在同一篇文档中。
 
-## 1. 四层文档结构与权威优先级
+## 1. 三层文档结构与权威优先级
 
-按权威从高到低分为四层；下层可以解释或指引上层，但不得重新定义或推翻上层：
+按权威从高到低分为三层；下层可以解释或指引上层，但不得重新定义或推翻上层：
 
 | 层级 | 角色 | 典型路径 | 写作口径 |
 | --- | --- | --- | --- |
 | 1 | 契约与技术参考 | `docs/protocol.md`、`docs/reference/`、`docs/architecture/`、`docs/product/` | 描述当前系统的确定行为、接口、配置与安全边界 |
 | 2 | 部署、运维与开发指南 | `README.md`、`deploy/README.md`、`docs/migration.md`、`docs/fsusui.md`、`docs/web-validation.md`、`docs/development/`、`CONTRIBUTING.md`、`SECURITY.md` | 面向部署者与开发者，按可执行任务流组织 |
 | 3 | 发布治理与变更记录 | `docs/releases/`、`CHANGELOG.md` | 精炼呈现当前发布就绪状态、剩余阻断项与版本变更 |
-| 4 | 历史基线与研发归档 | `docs/archive/` | 只读留档 v1 基线与早期开发过程记录，不作现行事实依据 |
 
 ## 2. 语言与术语规范
 
@@ -25,9 +24,9 @@
 
 ## 3. 目录归属与防蔓延规则
 
-- `docs/` 根目录保持稳定，**禁止**随意新增平铺的 `docs/*.md`；新增文档按角色放入 `docs/architecture/`、`docs/reference/`、`docs/product/`、`docs/development/`、`docs/releases/` 或 `docs/archive/`，并同步更新 [文档总索引](../index.md)。
-- **禁止将本地测试证据目录 `artifacts/` 写入现行文档的 Markdown 链接**：`artifacts/` 属于 `.gitignore` 忽略的本地产物，在仓库或远端不可访问。验证方式应指向仓内真实可复现的测试脚本或命令。
-- 历史记录与阶段流水账统一归档至 `docs/archive/`，不要按单次提交、日期或实验轮次不断在契约文档末尾追加日记。
+- `docs/` 根目录保持稳定，**禁止**随意新增平铺的 `docs/*.md`；新增文档按角色放入 `docs/architecture/`、`docs/reference/`、`docs/product/`、`docs/development/` 或 `docs/releases/`，并同步更新 [文档总索引](../index.md)。
+- **禁止将本地测试证据目录 `artifacts/` 写入文档的 Markdown 链接**：`artifacts/` 属于 `.gitignore` 忽略的本地产物，在仓库或远端不可访问。验证方式应指向仓内真实可复现的测试脚本或命令。
+- **禁止向仓库提交按日测试流水账或一次性采集快照**（例如带日期后缀的临时性能日志或已退役版本的 issue 转储）；历史过程由 Git 历史自然留存。
 
 ## 4. 现行文档标准格式
 

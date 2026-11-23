@@ -2,7 +2,7 @@
 
 > **角色**：版本变更记录
 > **适用对象**：部署者、站点管理员与维护者
-> **权威依据**：本文件按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录面向发布的重要变更；更早期的逐提交研发与验收流水账保留在 [执行状态归档](docs/archive/dev-logs/status.md) 与 [历史发布验收边界归档](docs/archive/dev-logs/release-readiness.md)。
+> **权威依据**：本文件按 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格记录面向发布的重要变更；当前发布门槛与已知剩余边界见 [发布就绪矩阵](docs/releases/readiness.md)。
 
 ## [Unreleased]
 
@@ -13,7 +13,7 @@
 - **跨栈 AEDS v2 协议与全文检索**：实现基于 `wire.schema.json` 的 C#/TS/C++ 代码生成与跨语言向量/Wasm 差分验证；支持公开搜索三模式（`auto`/`local`/`server`），涵盖本地 FSPK v4 分片、IndexedDB 复用、FSPT 增量补丁、宽语料暂存分片与零数据库查询服务端 FAS4。
 - **统一单域名部署与双身份安全模型**：默认单域名 HTTPS 架构（提供 Nginx 与 Caddy 配置模板，并保留独立管理域名或纯只读公开节点选项）；严格隔离读者与管理员表/Passkey/Cookie/会话接口，支持 TOTP MFA、Recovery Key、持久会话续期、Passkey Step-Up、Scoped PoW 与 CSPRNG 密钥一键生成（`init-secrets`）。
 - **创作工作区、社区互动与完整性证明**：实现基于本地 `../FsusUI` 源码的持久双栏编辑器、IndexedDB 草稿日志、八种封闭属性、保存视图、作者全文检索、万节点 Canvas、多格式异步导出（HTML/Markdown/DOCX/EPUB/PDF）、评论全生命周期与双人申诉复核、站内信/实时唤醒、公开验证密钥、透明日志与每日 Merkle 检查点归档。
-- **文档体系正式化与 MIT 许可**：采用 MIT 开源协议（[`LICENSE`](LICENSE)），补齐 [`docs/index.md`](docs/index.md)、[系统架构总览](docs/architecture/overview.md)、[运行与部署配置参考](docs/reference/configuration.md)、[发布就绪矩阵](docs/releases/readiness.md)、[`SECURITY.md`](SECURITY.md)、[`CONTRIBUTING.md`](CONTRIBUTING.md)、文档治理规范及自动化校验门禁 `tools/check-docs.py`，并将 v1 基线与早期过程台账归档至 [`docs/archive/`](docs/archive/README.md)。
+- **文档体系正式化与 MIT 许可**：采用 MIT 开源协议（[`LICENSE`](LICENSE)），补齐 [`docs/index.md`](docs/index.md)、[系统架构总览](docs/architecture/overview.md)、[运行与部署配置参考](docs/reference/configuration.md)、[发布就绪矩阵](docs/releases/readiness.md)、[`SECURITY.md`](SECURITY.md)、[`CONTRIBUTING.md`](CONTRIBUTING.md)、文档治理规范及自动化校验门禁 `tools/check-docs.py`，并清理历史过渡基线与过期过程日记。
 
 ### 变更与移除
 

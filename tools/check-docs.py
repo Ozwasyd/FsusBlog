@@ -79,14 +79,7 @@ def iter_active_docs() -> list[pathlib.Path]:
         if p.exists():
             docs.append(p)
     for p in sorted((ROOT / "docs").rglob("*.md")):
-        rel = p.relative_to(ROOT).as_posix()
-        if rel.startswith("docs/archive/"):
-            continue
         docs.append(p)
-    # Archive entrypoint itself stays valid as an active signpost.
-    archive_readme = ROOT / "docs/archive/README.md"
-    if archive_readme.exists():
-        docs.append(archive_readme)
     return docs
 
 
@@ -130,7 +123,7 @@ def check_docs_root_hygiene() -> list[str]:
             if p.name not in ALLOWED_DOCS_ROOT_FILES:
                 errors.append(
                     f"docs/{p.name}: unexpected root-level docs/*.md; place under docs/architecture, "
-                    "docs/reference, docs/product, docs/development, docs/releases, or docs/archive"
+                    "docs/reference, docs/product, docs/development, or docs/releases"
                 )
     return errors
 
@@ -181,7 +174,7 @@ def check_index_coverage(active_docs: list[pathlib.Path]) -> list[str]:
     errors: list[str] = []
     for doc in active_docs:
         rel = doc.relative_to(ROOT).as_posix()
-        if not rel.startswith("docs/") or rel in {"docs/index.md", "docs/archive/README.md"}:
+        if not rel.startswith("docs/") or rel == "docs/index.md":
             continue
         if doc.resolve() not in indexed:
             errors.append(f"docs/index.md: missing link to active document: {rel}")

@@ -48,8 +48,7 @@
 
 ### 创作工作区、Canvas 与导出
 
-- [文章工作区](product/article-workspace.md)
-- [创作模块实现与验收边界](product/authoring-implementation.md)
+- [文章工作区与本地草稿恢复](product/article-workspace.md)
 - [作者文章列表与回收站](product/author-article-inventory.md)
 - [作者全文搜索](product/author-full-text-search.md)
 - [作者保存视图](product/author-saved-views.md)
@@ -77,8 +76,7 @@
 - [站点账号二次验证（TOTP MFA）](product/mfa.md)
 - [站点账号 Recovery Key](product/site-recovery-key.md)
 - [独立管理员身份与安全防护](product/admin-identity.md)
-- [管理员分类与标签目录](product/admin-taxonomy.md)
-- [管理员标签元数据](product/admin-tag-metadata.md)
+- [管理员分类与标签管理](product/admin-taxonomy.md)
 - [管理员文章回滚与归档](product/admin-article-rollback.md)
 - [创作扩展包与操作授权](product/extension-authority.md)
 - [离线平台插件执行](product/platform-plugin-offline.md)
@@ -87,7 +85,3 @@
 
 - [公开验证密钥](product/integrity-keys.md)
 - [发布权利快照、透明日志与日检查点](product/publication-rights.md)
-
-## 历史归档（只读）
-
-- [历史文档归档说明](archive/README.md)（包含 v1 基线与开放议题快照 `archive/v1-baseline/`、早期研发流水账 `archive/dev-logs/`）

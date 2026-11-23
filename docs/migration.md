@@ -18,7 +18,7 @@ migrate=(dotnet src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll)
 
 `inventory` 在只读快照中记录库标识、服务版本、关系、列和键。`inventory --counts` 还会扫描普通表和分区表以获取精确行数，分区父表包含整个子树。使用具有完整可见性的专用只读身份盘点源库。报告中没有业务行内容。`plan` 绑定当前空库的 host、port、库名、库 OID、PostgreSQL 启动时间及组合 SQL 的 SHA-256。`apply` 在同一事务中检查目标和 schema，创建表及约束，提交版本标记。失败时事务回滚，应用中断后先用 `verify` 或 `inventory` 确认结果。换库或 PostgreSQL 重启后需要重新生成计划。
 
-`operator NAME` 创建一个本地作者账号并打印 10 分钟有效的单次登录票据，`operator NAME --reader` 创建无写入能力的账号。已有启用账号使用 `ticket NAME` 申请新票据。票据输出只交给该用户。执行 `revoke NAME` 会推进会话代次并删除未使用票据和已有会话。V1 账号及数据迁移工具已退役；现行工具不迁入旧凭据或会话。见[退役说明（归档）](archive/v1-baseline/migration-source.md)。
+`operator NAME` 创建一个本地作者账号并打印 10 分钟有效的单次登录票据，`operator NAME --reader` 创建无写入能力的账号。已有启用账号使用 `ticket NAME` 申请新票据。票据输出只交给该用户。执行 `revoke NAME` 会推进会话代次并删除未使用票据和已有会话。V1 账号及数据迁移工具已退役；现行工具不迁入旧凭据或会话。
 
 早期开发库缺少 `authoring_recovery_site` 时，需要停服务、核验备份，再由离线工具执行 `recovery-scope`。命令仅接受其余表结构完全匹配当前签名、版本正确且没有服务租约的库。一旦分配，重跑保留原 UUID。其他旧开发结构需要独立的数据迁移或一次新的空库部署。预先存在的浏览器记录保持原键及到期规则，新数据库 UUID 不会接管旧记录。完整备份恢复保留站点 UUID。
 

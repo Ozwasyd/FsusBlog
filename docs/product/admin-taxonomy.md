@@ -1,19 +1,37 @@
-# 管理员分类与标签目录
+# 管理员分类与标签管理
 
-在管理源（HTTPS 或本机 Loopback）使用管理员 Passkey 登录后，可在 `/admin/articles` 的「分类」与「标签」标签页查看并管理分类与标签目录。普通读者会话无法读取该目录。列表显示名称、已发布与各状态汇总数量，并提供关联文章筛选、创建、编辑与无引用删除操作。
+> **角色**：功能契约
+> **适用对象**：站点管理员与维护者
+> **权威依据**：分类与标签管理接口以 `src/Server/Identity/AdminTaxonomy*.cs`、`AdminTagMetadata*.cs` 与 [`SiteCapabilities.cs`](../../src/Server/Operations/SiteCapabilities.cs) 为准。
 
-`GET /api/v2/admin/identity/taxonomy/categories.aeds` 与 `GET /api/v2/admin/identity/taxonomy/tags.aeds` 使用 AEDS `32864`，按 ID 升序返回每页最多 24 项，使用可选 `after` 继续浏览。接口按管理员会话授权，并发送 `Cache-Control: no-store`。公开数量来自带权利快照验证的现行发布投影，按公开版本的分类和标签计算。服务核对该投影与同一次 PostgreSQL 查询中的发布水位。投影暂不可用时返回 503。
+## 1. 启用前提与权限边界
 
-草稿、排期、撤回和软删除数量按文章当前修订统计。已有公开版本且尚有有效新修订排期时，两列均可计入同一篇。保留文章数按各分类或标签在任何保留修订中的关联文章去重，涵盖历史关联。管理界面允许重新读取当前页的数据。
+- 配置合法管理员源（默认单域名 HTTPS、独立 HTTPS 管理源或本机 Loopback 管理源）后，`FSUSBLOG_ADMIN_CATEGORY_METADATA` 与 `FSUSBLOG_ADMIN_TAG_METADATA` 均默认自动开启（可分别显式设为 `false` 静默关闭）。
+- 所需表结构随 `FsusBlog.V2.Cli` 统一的 `plan` / `apply` 初始化。
+- 权限沿用统一管理员身份模型（不再区分 `article.write` / `admin.manage` 子权限）：登录后的管理员可在 `/admin/articles` 的「分类」与「标签」标签页及文章编辑器侧边栏管理分类与标签；普通读者会话访问一律返回 `401`。
 
-新库初始化独立管理员结构 v4。已有管理员 v1、v2 或 v3 的安装应在停服务后运行离线迁移工具的 `admin-identity schema`，校验旧结构后在同一事务中升级。`admin-identity grant HANDLE article.write` 和 `admin-identity revoke HANDLE article.write` 在权限实际变更时递增该管理员的会话代次，撤销旧会话及邀约。`admin.manage` 仍通过 bootstrap 发放。见 [管理员身份与操作](admin-identity.md)。
+## 2. 目录读取与引用依赖检查
 
-管理员可选中一项检查引用。两个目录读取路径加 `?dependency=ID` 返回 AEDS 33070，四个小端 Int32 依次为 ID、活跃引用文章数、仅保留引用文章数、已保留的标签别名数。活跃引用对未删除文章的编辑头和当前发布修订取并集，每篇最多计一次。仅保留引用包含只出现在历史修订或已删除文章上的关联。标签别名按登记行统计。无引用结果只陈述当次读取的事实，删除仍受审计回执外键及此后的写入约束。
+- **目录分页**：`GET /api/v2/admin/identity/taxonomy/categories.aeds` 与 `GET /api/v2/admin/identity/taxonomy/tags.aeds` 返回 AEDS `32864`（`Cache-Control: no-store`），按 ID 升序每页最多 24 项，支持 `after` 游标续页。
+- **状态统计**：公开数量来自带权利快照验证的当前发布投影并核对同次查询发布水位（投影不可用返回 `503`）；草稿、排期、撤回与软删除按文章当前修订统计；保留文章数按任意保留修订去重统计。
+- **引用依赖查询**：上述两条目录路径附带 `?dependency=ID` 返回 AEDS `33070`（4 个小端 Int32：ID、活跃引用文章数、仅保留引用文章数、已保留标签别名数）。该结果仅反映当次读取事实，实际删除仍受数据库外键与并发写入约束。
 
-v1 同类读取通过 `/api/binary/author/taxonomy/categories` 和 `/api/binary/author/taxonomy/tags`，独立管理员需要 `article.write`。归档数统计关联的已归档文章。v1 分类与标签删除入口物理移除数据，v2 此处只读取依赖。 [v1 授权与目录入口](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.WorkflowRoutes.cs) · [v1 目录统计](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/AuthoringEndpoints.cs) · [v1 物理删除](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Taxonomy.cs#L287)
+## 3. 分类创建、编辑与删除
 
-配置合法管理员源后，`FSUSBLOG_ADMIN_CATEGORY_METADATA` 默认自动开启（可通过 `=false` 显式关闭）。管理员可在后台目录页创建分类、改名、编辑描述或通过 `POST /api/v2/admin/identity/taxonomy/categories/{id}/delete.aeds` 删除无任何修订引用的分类，也可在文章编辑器的「分类与标签」侧边栏直接新建分类并自动选中。
+- **端点与帧**：
+  - `POST /api/v2/admin/identity/taxonomy/categories/create.aeds`（AEDS `33058` → `33059`，创建时固定零 ID 与零修订）
+  - `GET` / `PUT /api/v2/admin/identity/taxonomy/categories/{id}/metadata.aeds`（读取与编辑元数据，校验期望修订 CAS）
+  - `POST /api/v2/admin/identity/taxonomy/categories/{id}/delete.aeds`（物理删除无任何修订引用的分类；仍存在历史或当前修订引用时返回 `409`）
+- **约束与防重放**：各写入前需在同管理源调用对应 `pow.aeds` 签发绑定当前会话、请求帧、目标与来源的证明；名称去除首尾空白并保留大小写（≤ 128 UTF-8 字节，不生成别名），描述最多 500 个 Unicode 标量。
 
-分类名称按 v1 去除首尾空白并保留大小写，不创建名称别名。有效名称限制为 128 UTF‑8 字节，描述最多 500 个 Unicode 标量。创建分配新的正整数 ID，改名保留所有历史及当前修订中的分类 ID。分类与标签共用永久 `taxonomy_epoch`，有变化时在同一事务更新元数据、请求回执及公开代次。空操作或幂等重试不增加代次。
+## 4. 标签创建、编辑、历史别名与删除
 
-分类编辑使用 `33058` 命令和 `33059` 回执。独立管理源的 `categories/create.aeds` 通过 POST 创建，`categories/{id}/metadata.aeds` 通过 GET 读取以及 PUT 编辑。各写入的 `pow.aeds` 入口签发绑定当前管理员会话、请求帧、目标与来源的安全证明。编辑使用期望修订，创建使用零坐标和独立请求 UUID。原标签路由和帧继续有效。
+- **端点与帧**：
+  - `POST /api/v2/admin/identity/taxonomy/tags/create.aeds`（AEDS `33060` → `32945`，搭配 `tags/create/pow.aeds`）
+  - `GET` / `PUT /api/v2/admin/identity/taxonomy/tags/{id}/metadata.aeds`（AEDS `32944` → `32945`，搭配 `tags/{id}/metadata/pow.aeds`）
+  - `POST /api/v2/admin/identity/taxonomy/tags/{id}/delete.aeds`（物理删除无任何已保存修订引用的标签，同时清理保留别名与元数据命令审计；仍有引用返回 `409`）
+- **名称与别名规则**：名称去除首尾空白并按 NFC 规范化（≤ 128 UTF-8 字节），拒绝 ASCII 纯数字与路径分隔符；描述最多 500 个 Unicode 标量。改名时稳定数字 ID 不变，历史名称在同一事务保留并使旧链接单跳 `301` 重定向至数字页（保留查询参数）；跨标签重用活跃名或历史别名返回冲突。
+
+## 5. 公开快照联动（`taxonomy_epoch`）
+
+分类与标签共享持久 `taxonomy_epoch`：发生实质变更时在同一 PostgreSQL 事务内提交元数据、幂等审计回执并递增 `taxonomy_epoch`，与文章 outbox 水位共同触发 `PublicSnapshot` 重建（无文章引用的分类/标签或仅描述变更亦可即时刷新公开页面与旧链接；空操作与幂等重试不递增代次）。关闭管理编辑开关后仍保留读取已提交 `taxonomy_epoch`。

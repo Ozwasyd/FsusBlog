@@ -3,7 +3,7 @@
 FsusBlog v2 是一个面向自托管与可验证部署的模块化单体内容系统，基于 **.NET 10**（C# 14、ASP.NET Core Minimal APIs）、**PostgreSQL 18**（Npgsql）与 **Vue 3 / TypeScript** 构建，跨栈通信统一使用 **AEDS v2** 二进制线协议。
 
 - 完整文档导航见 [文档总索引](docs/index.md)，当前发布范围与剩余阻断项见 [发布就绪矩阵](docs/releases/readiness.md)。
-- 历史参考说明：FsusBlog v1 已归档退役，相关基线与早期过程台账保存在 [`docs/archive/`](docs/archive/README.md)。
+- 历史参考说明：FsusBlog v1 已归档退役，仓库不再维护 v1 迁移工具或历史采集底稿（历史记录可经 Git 提交历史追溯）。
 
 ## 核心特性
 

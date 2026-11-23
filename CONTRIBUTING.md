@@ -33,7 +33,7 @@
 - **Pre-release Schema 策略**：v2 处于预发布开发期，直接维护最终建表脚本 `src/Cli/Schema/01..04*.sql` 与 `src/Storage/`，通过 `FsusBlog.V2.Cli plan` / `apply` 重建开发库；不新增开发期单表增量补丁命令或 v1 数据迁移代码。
 - **AEDS v2 线协议生成**：所有线协议变更必须修改 [`src/Contracts/wire.schema.json`](src/Contracts/wire.schema.json)，并运行 `node tools/protocol-generate.mjs` 同步生成 C#、TypeScript 与 C++ 代码，切勿手改生成文件。
 - **模块单向依赖**：`src/Core/` 保持无 HTTP/存储/OS 依赖，`src/Platform/` 严格单向依赖 `src/Core/`（由 `CorePlatformBoundaryGuardTests` 守门）。
-- **文档同步**：修改公共契约、环境变量、Schema、CLI 子命令或目录结构时，同步更新对应现行文档并通过 `python3 tools/check-docs.py` 检查；不要手工编辑 `docs/archive/` 中的历史记录，也不要在现行文档中链接本地 `artifacts/` 目录。
+- **文档同步**：修改公共契约、环境变量、Schema、CLI 子命令或目录结构时，同步更新对应现行文档并通过 `python3 tools/check-docs.py` 检查；不要在文档中堆砌单次测试流水账或链接本地 `artifacts/` 目录。
 
 ## 4. 分级验证矩阵
 

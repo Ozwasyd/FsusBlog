@@ -1,3 +1,0 @@
-sourceIssue	sourceComment	sourceUpdatedAt	decision	note	acceptanceLinks
-https://github.com/Ozwasyd/FsusBlog/issues/2227	https://github.com/Ozwasyd/FsusBlog/issues/2227#issuecomment-6053418439	2026-10-08T05:58:42Z	仅吸收教训	先以真实签名清单、浏览器和精确清理、恢复验证新发布路径，再判定旧兼容凭据何时失去用途。局部测试未提供物理发布和浏览器证据。	V2S-2227
-https://github.com/Ozwasyd/FsusBlog/issues/2394	https://github.com/Ozwasyd/FsusBlog/issues/2394#issuecomment-5996969762	2026-10-05T14:52:43Z	旧工程限定，不适用	纠正 v1 历史范围的提交格式门禁，未改变冻结选择、当前修订或原子业务行为。	V2S-2394

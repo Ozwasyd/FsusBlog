@@ -1,6 +1,6 @@
 # 公开文章阅读统计
 
-统一的 CLI `plan` 和 `apply` 初始化阅读统计表。配置 `FSUSBLOG_PUBLIC_ORIGIN` 的 HTTPS 地址后，站点通过该公开入口提供阅读统计。可设 `FSUSBLOG_ARTICLE_READ_PROOF=false` 关闭。服务仍可在统计表缺失、临时会话不可用或统计事务失败时提供公开文章。 [固定 v1 契约和设计依据（归档）](../archive/v1-baseline/issues/risk-human-read.md)
+统一的 CLI `plan` 和 `apply` 初始化阅读统计表。配置 `FSUSBLOG_PUBLIC_ORIGIN` 的 HTTPS 地址后，站点通过该公开入口提供阅读统计。可设 `FSUSBLOG_ARTICLE_READ_PROOF=false` 关闭。服务仍可在统计表缺失、临时会话不可用或统计事务失败时提供公开文章。
 
 浏览器只在实际正文处于视口且标签页处于前台后请求挑战。收到响应后开始累计正文可见时长。累计可见与服务端实际经过时间均至少达到 8 秒，才可计数。切换文章、替换发布版本或离开页面会取消当前观察。协议使用专用 POST，浏览器省略凭据；普通 HTML、AEDS 详情与 HEAD 请求不触发统计。
 
