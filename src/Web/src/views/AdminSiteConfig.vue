@@ -93,6 +93,10 @@ const pwaIcons = {
   pwaMaskableIconUrl: '/assets/icon-maskable-512.png',
 } as const
 const primaryFields = { title: 'organization', author: 'name' } as const
+const manifestColors = {
+  themeColor: { fallback: '#1f4e79', manifestKey: 'theme_color' },
+  backgroundColor: { fallback: '#ffffff', manifestKey: 'background_color' },
+} as const
 const manifestNames = ['manifestName', 'manifestShortName'] as const
 const registrations = [
   { number: 'icpRecordNumber', url: 'icpRecordUrl', hint: 'admin.siteConfig.icpUrlHint', placeholder: 'https://beian.miit.gov.cn/' },
@@ -623,35 +627,20 @@ onScopeDispose(() => {
                       @blur="onBlur(field)" @input="onInput(field)" />
                     <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
                   </div>
-                  <div class="config-field">
-                    <label for="site-config-field-themeColor">{{ t('admin.siteConfig.themeColor') }}</label>
-                    <span id="site-config-hint-themeColor" class="config-hint">{{ t('admin.siteConfig.colorHint') }}</span>
+                  <div v-for="({ fallback }, field) in manifestColors" :key="field" class="config-field">
+                    <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }}</label>
+                    <span :id="`site-config-hint-${field}`" class="config-hint">{{ t('admin.siteConfig.colorHint') }}</span>
                     <div class="config-color-row">
-                      <input class="config-color-picker" type="color" :value="pickerColor(form.themeColor, '#1f4e79')"
-                        :aria-label="t('admin.siteConfig.themeColor')" :disabled="saving" @input="onColorPicker('themeColor', $event)">
-                      <ElInput id="site-config-field-themeColor" v-model="form.themeColor" placeholder="#1f4e79" :disabled="saving"
-                        v-bind="fieldInputBind('themeColor', { hintId: 'site-config-hint-themeColor', identifier: true })"
-                        @blur="onBlur('themeColor')" @input="onInput('themeColor')" />
-                      <ElButton v-if="form.themeColor" native-type="button" text :disabled="saving" @click="clearColor('themeColor')">
+                      <input class="config-color-picker" type="color" :value="pickerColor(form[field], fallback)"
+                        :aria-label="t(fieldLabel(field))" :disabled="saving" @input="onColorPicker(field, $event)">
+                      <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :placeholder="fallback" :disabled="saving"
+                        v-bind="fieldInputBind(field, { hintId: `site-config-hint-${field}`, identifier: true })"
+                        @blur="onBlur(field)" @input="onInput(field)" />
+                      <ElButton v-if="form[field]" native-type="button" text :disabled="saving" @click="clearColor(field)">
                         {{ t('admin.siteConfig.clearColor') }}
                       </ElButton>
                     </div>
-                    <p v-if="visibleError('themeColor')" id="site-config-error-themeColor" class="config-error">{{ errorMessage(visibleError('themeColor')!) }}</p>
-                  </div>
-                  <div class="config-field">
-                    <label for="site-config-field-backgroundColor">{{ t('admin.siteConfig.backgroundColor') }}</label>
-                    <span id="site-config-hint-backgroundColor" class="config-hint">{{ t('admin.siteConfig.colorHint') }}</span>
-                    <div class="config-color-row">
-                      <input class="config-color-picker" type="color" :value="pickerColor(form.backgroundColor, '#ffffff')"
-                        :aria-label="t('admin.siteConfig.backgroundColor')" :disabled="saving" @input="onColorPicker('backgroundColor', $event)">
-                      <ElInput id="site-config-field-backgroundColor" v-model="form.backgroundColor" placeholder="#ffffff" :disabled="saving"
-                        v-bind="fieldInputBind('backgroundColor', { hintId: 'site-config-hint-backgroundColor', identifier: true })"
-                        @blur="onBlur('backgroundColor')" @input="onInput('backgroundColor')" />
-                      <ElButton v-if="form.backgroundColor" native-type="button" text :disabled="saving" @click="clearColor('backgroundColor')">
-                        {{ t('admin.siteConfig.clearColor') }}
-                      </ElButton>
-                    </div>
-                    <p v-if="visibleError('backgroundColor')" id="site-config-error-backgroundColor" class="config-error">{{ errorMessage(visibleError('backgroundColor')!) }}</p>
+                    <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
                   </div>
                 </div>
 
@@ -701,20 +690,15 @@ onScopeDispose(() => {
                     <dt>short_name</dt>
                     <dd>{{ manifestPreviewShortName }}</dd>
                   </div>
-                  <div v-if="form.themeColor.trim()">
-                    <dt>theme_color</dt>
-                    <dd class="manifest-swatch-val">
-                      <span class="manifest-swatch" :style="{ backgroundColor: pickerColor(form.themeColor, '#1f4e79') }" aria-hidden="true" />
-                      <code>{{ form.themeColor.trim() }}</code>
-                    </dd>
-                  </div>
-                  <div v-if="form.backgroundColor.trim()">
-                    <dt>background_color</dt>
-                    <dd class="manifest-swatch-val">
-                      <span class="manifest-swatch" :style="{ backgroundColor: pickerColor(form.backgroundColor, '#ffffff') }" aria-hidden="true" />
-                      <code>{{ form.backgroundColor.trim() }}</code>
-                    </dd>
-                  </div>
+                  <template v-for="({ fallback, manifestKey }, field) in manifestColors" :key="field">
+                    <div v-if="form[field].trim()">
+                      <dt>{{ manifestKey }}</dt>
+                      <dd class="manifest-swatch-val">
+                        <span class="manifest-swatch" :style="{ backgroundColor: pickerColor(form[field], fallback) }" aria-hidden="true" />
+                        <code>{{ form[field].trim() }}</code>
+                      </dd>
+                    </div>
+                  </template>
                 </dl>
                 <p class="manifest-meta">{{ t('admin.siteConfig.manifestIconsCount', { count: String(manifestIconCount) }) }}</p>
                 <a class="manifest-link" href="/manifest.webmanifest" target="_blank" rel="noopener">{{ t('admin.siteConfig.viewManifest') }}</a>
