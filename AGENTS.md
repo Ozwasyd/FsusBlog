@@ -15,12 +15,14 @@ Read only the entry points, source files, and tests relevant to the current task
 
 | Task involves | Entry point |
 | --- | --- |
-| Build, SDK lock, release bundle, docs index | [`README.md`](README.md), [`docs/index.md`](docs/index.md) |
+| Build, SDK lock, release bundle, readiness | [`README.md`](README.md), [`docs/index.md`](docs/index.md), [`docs/releases/readiness.md`](docs/releases/readiness.md) |
+| Architecture, lease, runtime configuration | [`docs/architecture/overview.md`](docs/architecture/overview.md), [`docs/reference/configuration.md`](docs/reference/configuration.md) |
 | AEDS v2 wire protocol, POD, code generation | [`docs/protocol.md`](docs/protocol.md), [`src/Contracts/wire.schema.json`](src/Contracts/wire.schema.json) |
 | PostgreSQL schema, `FsusBlog.V2.Cli`, backup/restore | [`docs/migration.md`](docs/migration.md), [`src/Cli/Schema/`](src/Cli/Schema/), [`src/Storage/CurrentSchema.cs`](src/Storage/CurrentSchema.cs) |
 | FsusUI local source alias & Wasm runtime | [`docs/fsusui.md`](docs/fsusui.md), [`src/Web/vite.config.ts`](src/Web/vite.config.ts) |
 | Observable UI, interaction, visual acceptance | [`.agents/skills/fsusblog-design-conformance/SKILL.md`](.agents/skills/fsusblog-design-conformance/SKILL.md), [`docs/web-validation.md`](docs/web-validation.md) |
 | Deployment, TLS, origins, product contracts | [`deploy/README.md`](deploy/README.md), [`docs/product/`](docs/product/) |
+| Documentation structure, links, config parity | [`docs/development/documentation-policy.md`](docs/development/documentation-policy.md), [`tools/check-docs.py`](tools/check-docs.py) |
 
 ## Technical boundaries that must not be bypassed
 
@@ -28,7 +30,7 @@ Read only the entry points, source files, and tests relevant to the current task
 - **Online Server vs. Offline CLI isolation**: `FsusBlog.V2.Server` assumes a DML-only database role and validates the database read-only fail-closed via `CurrentSchema.VerifyAsync` at startup; it must never mutate schema on startup or expose break-glass operations over HTTP. DDL initialization (`plan`/`apply`/`verify`), secret generation, admin break-glass (`admin-identity`), backup measurement, media recovery, and offline integrity checkpoints live exclusively in `src/Cli/` (`FsusBlog.V2.Cli`), configured via `FSUSBLOG_CLI_DLL` / `FSUSBLOG_TEST_CLI_DLL`.
 - **Fail-closed security invariants**: Preserve canonical origin enforcement (`FSUSBLOG_PUBLIC_ORIGIN`, with `FSUSBLOG_ADMIN_ORIGIN` auto-derived for unified single-origin deployment or explicitly overridden/disabled), strict CSP and XSS sanitization, reader vs. admin cookie/Passkey/endpoint separation (`/api/v2/identity/session.aeds` vs. `/api/v2/admin/identity/session.aeds` & `/api/v2/authoring/session.aeds`), session/credential/generation checks, `X-Fsus-*` and `X-Fsus-Admin-Permission-Session` bindings, scoped PoW, Passkey Step-Up, and dual-control moderation/appeal enforcement. Never weaken or bypass security checks for test or compatibility convenience.
 - **Layer & sibling repository ownership**: `src/Contracts/` owns cross-stack wire contracts; `src/Core/` stays HTTP-, storage-, and OS-implementation-agnostic; `src/Platform/` owns POSIX/PInvoke, file-descriptor/disk I/O (signing keys, media directories, extension disk/installation/staging, appearance directory loader), and Linux worker/cgroup execution boundaries with strict one-way `Platform -> Core` dependency (guarded by `tests/Core/CorePlatformBoundaryGuardTests.cs`); `src/Storage/` owns schema shape verification shared by `Server` and `Cli`. `src/Web/` consumes sibling `../FsusUI` strictly via local source aliases (`@ozwasyd/element-plus*`); never switch silently to npm packages, never edit `../FsusUI` or `../FsusBlogV1` during a V2 task, and never mask FsusUI defects with private selectors or forged tokens.
-- **Active docs vs. historical/generated surfaces**: Synchronize active docs (`README.md`, `docs/index.md`, `docs/*.md`, `docs/product/*.md`, `deploy/README.md`) when public contracts, schema behavior, or CLI usage changes, and verify with `python3 tools/check-docs.py`. Treat `docs/archive/*` and `artifacts/*` as historical/evidence records — do not hand-edit them or dump routine scratch files into `artifacts/`.
+- **Active docs vs. historical/generated surfaces**: Synchronize active docs (`README.md`, `docs/index.md`, `docs/architecture/`, `docs/reference/`, `docs/releases/`, `docs/*.md`, `docs/product/*.md`, `deploy/README.md`) when public contracts, configuration keys, schema behavior, or CLI usage changes, and verify with `python3 tools/check-docs.py`. Follow [`docs/development/documentation-policy.md`](docs/development/documentation-policy.md). Treat `docs/archive/*` and `artifacts/*` as historical/evidence records — do not hand-edit them or dump routine scratch files into `artifacts/`.
 
 ## Risk-tiered verification and delivery
 
@@ -38,6 +40,7 @@ Run checks proportional to the blast radius before each phase commit and push:
 - **Wire / `src/Contracts/` changes**: `node tools/protocol-generate.mjs --check` and `./tools/protocol-test.sh`.
 - **Frontend / `src/Web/` changes**: `cd src/Web && pnpm run typecheck && pnpm run build`, plus real rendered browser inspection (Chromium/Playwright across desktop + mobile and light + dark) for observable UI changes per [`.agents/skills/fsusblog-design-conformance/SKILL.md`](.agents/skills/fsusblog-design-conformance/SKILL.md).
 - **`src/Server/`, `src/Storage/`, or `src/Cli/` changes**: Run affected real PostgreSQL 18 integration tests (`tests/Integration/`) and CLI shell suites (`tests/Integration/Migration/`). Widen to the full PG 18 integration suite when changing schema, authentication, or core storage.
+- **Docs / configuration / governance changes**: `python3 tools/check-docs.py`.
 
 Always execute PostgreSQL and browser checks against isolated, disposable databases and directories with guaranteed cleanup (`trap ... EXIT`); never target V1 or production data. Never weaken tests, fixtures, or thresholds to force a pass, and never present compilation, static checks, mocks, or historical screenshots as current end-to-end or visual acceptance.
 

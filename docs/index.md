@@ -4,20 +4,29 @@
 > **适用对象**：部署者、站点管理员、贡献者与自动化 Agent
 > **权威依据**：本页仅用于路由查找，不重复定义契约；文档分层与写作约束见 [文档架构与写作规范](development/documentation-policy.md)。
 
-## 部署与运维
+## 仓库标准入口
 
 - [项目总览与快速开始](../README.md)
+- [贡献指南](../CONTRIBUTING.md)
+- [安全策略](../SECURITY.md)
+- [变更日志](../CHANGELOG.md)
+- [开源许可证（MIT）](../LICENSE)
+
+## 架构与技术参考
+
+- [系统架构总览](architecture/overview.md)
+- [运行与部署配置参考](reference/configuration.md)
+- [AEDS v2 二进制协议](protocol.md)
+- [单机数据库租约与交接](publication-lease.md)
+- [FsusUI 本地源码接入](fsusui.md)
+
+## 部署、运维与验证
+
 - [单域名 TLS 反代部署（Nginx / Caddy）](../deploy/README.md)
 - [PostgreSQL 离线维护与备份恢复](migration.md)
-- [单机数据库租约与交接](publication-lease.md)
-- [站点能力默认开启与静默覆盖](product/site-capabilities.md)
-
-## 协议、前端集成与验证
-
-- [AEDS v2 二进制协议](protocol.md)
-- [FsusUI 本地源码接入](fsusui.md)
 - [Web 构建与端到端验证](web-validation.md)
 - [本机公开读取负载与压测说明](../tests/Performance/README.md)
+- [发布就绪矩阵](releases/readiness.md)
 - [文档架构与写作规范](development/documentation-policy.md)
 
 ## 功能契约（按业务域分组）
