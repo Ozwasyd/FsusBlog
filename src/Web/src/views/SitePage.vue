@@ -21,9 +21,15 @@ watch([slug, retry], async ([value], _, cleanup) => {
   }
   const cached = consumeInitialSitePage(value)
   if (cached) {
-    page.value = cached
-    state.value = 'ready'
-    updateSitePageRobots(cached.configured)
+    if (cached.ok) {
+      page.value = cached.page
+      state.value = 'ready'
+      updateSitePageRobots(cached.page.configured)
+    } else {
+      page.value = undefined
+      state.value = 'failed'
+      updateSitePageRobots(false)
+    }
     return
   }
   page.value = undefined

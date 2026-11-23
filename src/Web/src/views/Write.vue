@@ -393,7 +393,7 @@ function onMoreCommand(command: unknown) {
             @activated="focusQuickResult"
           />
         </template>
-        <ElTag v-if="editable && id !== undefined && !compactViewport" size="small" :type="statusTagType">{{ statusLabel }}</ElTag>
+        <ElTag v-if="editable && id !== undefined && !compactViewport" class="studio-desktop-only" size="small" :type="statusTagType" disable-transitions>{{ statusLabel }}</ElTag>
       </div>
       <div class="studio-topbar__right">
         <template v-if="editable && id !== undefined">
@@ -774,7 +774,9 @@ function onMoreCommand(command: unknown) {
 
 <style scoped>
 .editor-page {
+  position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto minmax(0, 1fr);
   inline-size: 100%;
   block-size: 100dvh;
@@ -1076,6 +1078,7 @@ function onMoreCommand(command: unknown) {
     gap: var(--fsus-space-1);
   }
   .studio-topbar__right {
+    flex: 0 1 auto;
     gap: var(--fsus-space-1);
     max-inline-size: calc(100% - 2.5rem);
     overflow-x: auto;

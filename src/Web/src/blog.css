@@ -117,7 +117,7 @@ p { line-height: 1.65; }
   .search-toolbar { align-items: center; padding-block-end: .25rem; }
   .public-initial-actions { gap: .5rem; }
 }
-.visually-hidden { position: absolute; inline-size: 1px; block-size: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.visually-hidden { position: absolute; inset-inline-start: 0; inline-size: 1px; block-size: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .editorial-rule { padding-block-end: .75rem; border-block-end: 1px solid var(--fsus-border); }
 .site-footer-shell { container: site-footer / inline-size; }
 .site-footer {

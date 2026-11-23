@@ -1,8 +1,11 @@
 import { isSitePageSlug, sitePages, type SitePageSlug } from '../../Contracts/site-pages'
 
 type SitePage = Readonly<{ slug: SitePageSlug; body: string; configured: boolean; bodyLanguage?: string }>
+type SitePagePreload =
+  | Readonly<{ slug: SitePageSlug; ok: true; page: SitePage }>
+  | Readonly<{ slug: SitePageSlug; ok: false }>
 
-let initial: SitePage | undefined
+let initial: SitePagePreload | undefined
 
 function read(root: ParentNode, slug: SitePageSlug): SitePage | undefined {
   const article = root.querySelector('#app [data-fsus-public-content] > article[data-site-page]')
@@ -22,10 +25,12 @@ function readFragment(html: string, slug: SitePageSlug): SitePage | undefined {
 }
 
 export function captureInitialSitePage(slug: unknown): void {
-  if (isSitePageSlug(slug)) initial = read(document, slug)
+  if (!isSitePageSlug(slug)) return
+  const page = read(document, slug)
+  initial = page ? { slug, ok: true, page } : undefined
 }
 
-export function consumeInitialSitePage(slug: SitePageSlug): SitePage | undefined {
+export function consumeInitialSitePage(slug: SitePageSlug): SitePagePreload | undefined {
   if (initial?.slug !== slug) return undefined
   const cached = initial
   initial = undefined
@@ -36,15 +41,15 @@ export async function preloadSitePage(slug: SitePageSlug, signal: AbortSignal): 
   initial = undefined
   try {
     const page = await readSitePage(slug, signal)
-    if (!signal.aborted) initial = page
+    if (!signal.aborted) initial = { slug, ok: true, page }
   } catch {
-    // The route view owns loading, error, and retry states on slow or failed fetches.
+    if (!signal.aborted) initial = { slug, ok: false }
   }
 }
 
 export async function readSitePage(slug: SitePageSlug, signal: AbortSignal): Promise<SitePage> {
   const cached = consumeInitialSitePage(slug)
-  if (cached) return cached
+  if (cached?.ok) return cached.page
   const response = await fetch('/' + slug, {
     signal, redirect: 'error', credentials: 'omit', headers: { Accept: 'text/html' },
   })

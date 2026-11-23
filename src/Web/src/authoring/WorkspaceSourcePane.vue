@@ -399,6 +399,7 @@ defineExpose({
 }
 .workspace-source__meta-left,
 .workspace-source__meta-right {
+  position: relative;
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;

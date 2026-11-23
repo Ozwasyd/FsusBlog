@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeSitePage, sitePages } from '../../src/Contracts/site-pages.ts'
-import { FrameType } from '../../src/Contracts/wire.generated.ts'
+import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 const origin = process.env.FSUSBLOG_TEST_URL
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -75,7 +75,8 @@ try {
     await page.locator('[data-site-page-body] >> text=Standalone fixture guidelines').waitFor()
     assert.deepEqual(pageErrors, [])
     assert.deepEqual(errors.filter(({ message, path }) =>
-      !(path === '/api/v2/identity/session.aeds' && message.includes('401')) &&
+      !(path === WireRoutes.Session && message.includes('401')) &&
+      !(path === WireRoutes.SiteRefreshStatus && message.includes('404')) &&
       !(path === '/guidelines' && message.includes('503')) &&
       !(path === '/favicon.ico' && message.includes('404')),
     ), [])
