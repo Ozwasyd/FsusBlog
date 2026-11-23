@@ -2,20 +2,21 @@
 
 > **角色**：前端开发与测试指南
 > **适用对象**：前端与全栈维护者
-> **权威依据**：本地 alias 配置见 [`src/Web/vite.config.ts`](../src/Web/vite.config.ts)，视觉与交互验收规则见 [`.agents/skills/fsusblog-design-conformance/SKILL.md`](../.agents/skills/fsusblog-design-conformance/SKILL.md)。
+> **权威依据**：依赖锁定与构建配置见 [`src/Web/package.json`](../src/Web/package.json) 与 [`src/Web/vite.config.ts`](../src/Web/vite.config.ts)，视觉与交互验收规则见 [`.agents/skills/fsusblog-design-conformance/SKILL.md`](../.agents/skills/fsusblog-design-conformance/SKILL.md)。
 
 ## 1. 离线恢复、类型检查与构建
 
-前端依赖锁定于 `src/Web/pnpm-lock.yaml`（Node 24 / pnpm 10 / Playwright），通过本地源码 alias 直接消费相邻 `../FsusUI` 仓库与 Sass 主题（见 [FsusUI 本地源码接入](fsusui.md)）：
+前端依赖锁定于 `src/Web/pnpm-lock.yaml`（Node 24 / pnpm 10 / Playwright / `@ozwasyd/element-plus`），直接消费 GitHub Packages 发布的 `@ozwasyd/element-plus` npm 包及其内置原生 Wasm（见 [FsusUI 接入与原生组件契约](fsusui.md)）：
 
 ```sh
-pnpm --dir src/Web install --offline --frozen-lockfile --ignore-scripts
-pnpm --dir src/Web typecheck
-pnpm --dir src/Web build
+cd src/Web
+pnpm install --offline --frozen-lockfile --ignore-scripts
+pnpm run typecheck
+pnpm run build
 ```
 
-- `typecheck` 启用 Vue 严格模板检查，覆盖全部 `src/Web/` 源码、`src/Contracts/` TypeScript 协议客户端与真实 FsusUI 组件类型。
-- 预构建的 FsusUI 原生 Wasm 可通过 `FSUSBLOG_FSUSUI_WASM_DIST` 指定（严格校验 `.native-artifact-fingerprint`）；缺资源或指纹不匹配时拒绝启动构建。
+- `typecheck` 启用 Vue 严格模板检查，覆盖全部 `src/Web/` 源码、`src/Contracts/` TypeScript 协议客户端与 `@ozwasyd/element-plus` 公开组件类型。
+- 构建启动前 fail-closed 核验 `@ozwasyd/element-plus` 内置的 6 个原生 Wasm 产物完整存在；缺文件时拒绝启动构建。
 
 ## 2. 一键隔离端到端浏览器套件
 

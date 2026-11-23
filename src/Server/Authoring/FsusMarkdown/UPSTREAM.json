@@ -1,0 +1,18 @@
+{
+  "repository": "https://github.com/Ozwasyd/FsusUI",
+  "package": "@ozwasyd/element-plus",
+  "version": "1.6.0-preview.10",
+  "tag": "v1.6.0-preview.10",
+  "commit": "7482bf29bf31cc00d8545b70cb4f3216e14a1d8b",
+  "sourceRoot": "vue/packages/wasm/markdown",
+  "files": {
+    "include/markdown_contract.hpp": "a2c943c2fc5ccacd546f18a85946873bfff8548cef84fcb273c0fdb582707486",
+    "src/markdown_contract.cpp": "fa4cd8baebf437fbc558dd0732bb945c069d24593806dc634477fea01ca6b225",
+    "src/markdown_latex.hpp": "ecc91e1658a9a2c05ab0ae89b2e04192eca18b2b0e62bc9dc26f4e0d819074ea",
+    "src/markdown_latex.cpp": "5d64e255d4dda99cdbe6100ad582fdef181f715d4bfe74e6468c0e94067c44b9",
+    "src/markdown_mermaid.hpp": "8ff601e968346be3bb8ee96780df1dd892d14d86556924e5572f19c59a6153c6",
+    "src/markdown_mermaid.cpp": "b925a219010f01b6d37c09a5a103460428a4f5d6a7115ca4339aa47b912aa7a6",
+    "src/markdown_syntax_export.cpp": "aa578407ab474ef47e810da5c3322224f58ffc8bb097a9c722ae0d700cce5d23",
+    "LICENSE": "0790118bb4d66681db1d63181f72ef68e632d632f6db0373ef87cf328561af27"
+  }
+}

@@ -150,7 +150,7 @@ async function reviewPublication() {
 async function cancelPublication() {
   confirmation.value = undefined
   await nextTick()
-  reviewButton.value?.ref?.focus()
+  if (reviewButton.value?.$el instanceof HTMLElement) reviewButton.value.$el.focus()
 }
 
 function publishSelection() {

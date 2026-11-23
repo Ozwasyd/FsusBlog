@@ -11,7 +11,7 @@ FsusBlog v2 默认采用**统一单域名架构**：公开站点（`/`、`/archi
 
 ## 最小应用配置
 
-带作者章节标题搜索的发布包包含从旁边检出的 FsusUI 源码编译的本机 Markdown 解析器。用 `tools/build-release.sh` 在与部署环境兼容的系统和 CPU 架构上构建，构建机需要支持 C++23 的 C++ 编译器。`release.txt` 中的 `server_rid` 标记目标运行时。Linux 部署请使用对应 Linux 包，macOS 部署请使用对应 macOS 包。
+带作者章节标题搜索的发布包包含从本仓内嵌源码（`src/Server/Authoring/FsusMarkdown/`）编译的本机 Markdown 解析器。用 `tools/build-release.sh` 在与部署环境兼容的系统和 CPU 架构上构建，构建机需要支持 C++23 的 C++ 编译器。`release.txt` 中的 `server_rid` 标记目标运行时。Linux 部署请使用对应 Linux 包，macOS 部署请使用对应 macOS 包。
 
 Kestrel 仅监听本机回环地址 `127.0.0.1:5080`，由同机 Nginx 或 Caddy 终结 TLS。最小单域名配置如下（未显式设置 `FSUSBLOG_PASSKEY_ORIGIN` / `FSUSBLOG_ADMIN_ORIGIN` 时，自动从 `FSUSBLOG_PUBLIC_ORIGIN` 推导对应的 Origin 与 RP ID）：
 

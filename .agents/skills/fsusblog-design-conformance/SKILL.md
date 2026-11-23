@@ -5,7 +5,7 @@ description: Use for FsusBlog visual or interaction changes, rendered UI reviews
 
 # FsusBlog Design Conformance
 
-Use this Skill as a consumer adapter, not a second design system. Design truth belongs to the active sibling FsusUI checkout ([`docs/fsusui.md`](../../../docs/fsusui.md), [`../FsusUI/docs/design.md`](../../../../FsusUI/docs/design.md)) and the relevant current FsusBlog documents.
+Use this Skill as a consumer adapter, not a second design system. Design truth belongs to the pinned `@ozwasyd/element-plus` (FsusUI) baseline ([`docs/fsusui.md`](../../../docs/fsusui.md), upstream FsusUI `docs/design.md`) and the relevant current FsusBlog documents.
 
 This Skill owns Blog-specific design and UX facts:
 

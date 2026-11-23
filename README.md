@@ -11,7 +11,7 @@ FsusBlog v2 是一个面向自托管与可验证部署的模块化单体内容�
 - **单机独占租约与热读零库访问**：由 PostgreSQL 独占 advisory lock 守卫不可变 `PublicSnapshot`，HTML、AEDS、Feed 与搜索分片共享同一公开代次，撤回后旧代次立即可拒绝。
 - **跨栈 AEDS v2 协议**：业务接口统一承载二进制帧（`application/octet-stream`），无 JSON 业务回退；由 `src/Contracts/wire.schema.json` 自动生成 C#、TypeScript 与 C++ 构件。
 - **纵深安全与统一单域名部署**：默认单域名 HTTPS 拓扑（支持可选拆分管理域名或纯公开只读模式），读者与管理员在数据库表、Passkey、Cookie 与会话接口上严格隔离，辅以严格 CSP、Passkey Step-Up、Scoped PoW 与双人申诉复核。
-- **创作、搜索与内容完整性**：消费相邻 `../FsusUI` 本地源码提供双栏工作区、属性筛选、万节点 Canvas、多格式导出、本地分片/宽语料/服务端 FAS4 三模式搜索，以及公开验证密钥、透明日志与每日 Merkle 检查点。
+- **创作、搜索与内容完整性**：消费 `@ozwasyd/element-plus`（FsusUI）提供双栏工作区、属性筛选、万节点 Canvas、多格式导出、本地分片/宽语料/服务端 FAS4 三模式搜索，以及公开验证密钥、透明日志与每日 Merkle 检查点。
 
 ## 解决方案分层
 
@@ -24,13 +24,13 @@ FsusBlog v2 是一个面向自托管与可验证部署的模块化单体内容�
 | `src/Server/` | 在线 HTTP/AEDS 服务、公开快照、租约与身份权限执行 |
 | `src/Cli/` | 离线运维 CLI（`FsusBlog.V2.Cli`）与最终建表 SQL（`src/Cli/Schema/01..04*.sql`） |
 | `src/PluginWorker/` | Linux ARM64 专用离线签名纯 Markdown 插件隔离执行宿主 |
-| `src/Web/` | Vue 3 / TypeScript 前端，通过本地源码 alias 消费相邻 `../FsusUI`（不安装 npm 发布包） |
+| `src/Web/` | Vue 3 / TypeScript 前端，通过 GitHub Packages 锁定消费 `@ozwasyd/element-plus` npm 发布包与内置原生 Wasm |
 
 更完整的架构说明见 [系统架构总览](docs/architecture/overview.md)。
 
 ## 快速开始（本地开发）
 
-日常开发推荐使用一键脚本 `tools/dev.sh`，自动拉起 `.dev-data/` 下的独立持久化 PostgreSQL 18、初始化 Schema 并并行启动后端（`dotnet watch`）与前端（Vite HMR，支持联动修改相邻 `../FsusUI` 实时热更新）：
+日常开发推荐使用一键脚本 `tools/dev.sh`，自动拉起 `.dev-data/` 下的独立持久化 PostgreSQL 18、初始化 Schema 并并行启动后端（`dotnet watch`）与前端（Vite HMR）：
 
 ```sh
 # 首次启动并灌入示例文章、分类标签、阅读计数、待审评论与支持工单
@@ -76,7 +76,7 @@ python3 tools/check-docs.py
 
 ## 发布构建与生产部署
 
-发布包从干净的 `FsusBlog` 与相邻 `../FsusUI` 检出、锁定依赖及原生 Wasm 构建（可用 `DOTNET_BIN` 指定锁定的 SDK 命令），同时生成框架依赖的后端、CLI、Web 产物、完整可达 Git 历史 bundle 与摘要清单：
+发布包从干净的 `FsusBlog` 检出、锁定依赖（含 `@ozwasyd/element-plus` 内置原生 Wasm 与本仓内嵌 C++ 标题解析器）构建（可用 `DOTNET_BIN` 指定锁定的 SDK 命令），同时生成框架依赖的后端、CLI、Web 产物、完整可达 Git 历史 bundle 与摘要清单：
 
 ```sh
 tools/build-release.sh artifacts/fsusblog-v2-release
@@ -103,7 +103,7 @@ dotnet /srv/fsusblog/server/FsusBlog.V2.Server.dll --urls http://127.0.0.1:5080
 | --- | --- |
 | 全部文档总目录 | [文档总索引](docs/index.md) |
 | 系统架构与模块边界 | [系统架构总览](docs/architecture/overview.md)、[单机数据库租约与交接](docs/publication-lease.md) |
-| 协议、配置与前端接入 | [AEDS v2 二进制协议](docs/protocol.md)、[运行与部署配置参考](docs/reference/configuration.md)、[FsusUI 本地源码接入](docs/fsusui.md) |
+| 协议、配置与前端接入 | [AEDS v2 二进制协议](docs/protocol.md)、[运行与部署配置参考](docs/reference/configuration.md)、[FsusUI 接入与原生组件契约](docs/fsusui.md) |
 | 发布状态与变更记录 | [发布就绪矩阵](docs/releases/readiness.md)、[变更日志](CHANGELOG.md) |
 | 协作、安全与文档规范 | [贡献指南](CONTRIBUTING.md)、[安全策略](SECURITY.md)、[文档架构与写作规范](docs/development/documentation-policy.md) |
 

@@ -32,7 +32,7 @@ async function cancel() {
   title.value = ''
   error.value = ''
   await nextTick()
-  if (!open.value) launcher.value?.ref?.focus()
+  if (!open.value && launcher.value?.$el instanceof HTMLElement) launcher.value.$el.focus()
 }
 
 function paste(value: string) {

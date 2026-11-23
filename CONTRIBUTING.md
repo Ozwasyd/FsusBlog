@@ -10,7 +10,7 @@
 
 - **.NET SDK**：按 [`global.json`](global.json) 锁定版本（`10.0.404` / 运行库 `10.0.15`）；仓库配置 [`NuGet.Config`](NuGet.Config) 使用离线锁定依赖（`--locked-mode`）。
 - **PostgreSQL**：本地开发与集成测试需要 PostgreSQL 18（仅面向独立临时数据库，切勿连接生产库或 v1 数据库）。
-- **前端与相邻 FsusUI 仓库**：Node 24 + pnpm 10；`src/Web/` 通过本地源码 alias 消费相邻的 `../FsusUI` 检出，请勿切换为 npm 发布包或在此仓库任务中直接改动 `../FsusUI`。详见 [FsusUI 本地源码接入](docs/fsusui.md)。
+- **前端与 FsusUI 依赖**：Node 24 + pnpm 10；`src/Web/` 通过 GitHub Packages 锁定安装 `@ozwasyd/element-plus` npm 发布包及其内置原生 Wasm，后端章节标题解析器源码内嵌于 `src/Server/Authoring/FsusMarkdown/`，不要求相邻 `../FsusUI` 检出。详见 [FsusUI 接入与原生组件契约](docs/fsusui.md)。
 - **可选本机工具**：跨栈协议测试需 Clang / `wasm-ld`（见 `./tools/protocol-test.sh`）；端到端浏览器测试需本机 Chromium/Chrome。
 
 ## 2. 日常本地开发

@@ -186,14 +186,13 @@ print(h.hexdigest())'
 }
 commit=$(git rev-parse HEAD)
 candidate=$(source_hash)
-ui_commit=$(git -C ../FsusUI rev-parse HEAD)
-ui_tree=$(git -C ../FsusUI rev-parse 'HEAD^{tree}')
-ui_status=$(git -C ../FsusUI status --porcelain)
+ui_pkg="$repo/src/Web/node_modules/@ozwasyd/element-plus"
+ui_package=$(node -p "const p = require('$ui_pkg/package.json'); p.name + '@' + p.version")
 {
   printf 'command=tests/Performance/run.sh %q %q\n' "$mode" "$output_arg"
   printf 'shared_warmup=%s\n' "$shared_warmup"
   printf 'commit=%s\nsource_sha256=%s\n' "$commit" "$candidate"
-  printf 'fsusui_commit=%s\nfsusui_tree=%s\nfsusui_status=%s\n' "$ui_commit" "$ui_tree" "$ui_status"
+  printf 'fsusui_package=%s\n' "$ui_package"
   uname -srm
   if command -v sw_vers >/dev/null; then
     sw_vers
@@ -219,10 +218,8 @@ git ls-files -c -o --exclude-standard -z -- '*lock.json' '*lock.yaml' 'global.js
   xargs -0 shasum -a 256 > "$evidence/locks.sha256"
 ui_inputs() {
   (
-    cd ../FsusUI
-    shasum -a 256 pnpm-lock.yaml vue/packages/wasm/dist/{ep_wasm.mjs,ep_wasm.wasm,markdown_basic.js,markdown_basic.wasm,markdown_simd.js,markdown_simd.wasm}
-    printf 'tracked_changes_sha256='
-    git diff --binary HEAD -- | shasum -a 256 | awk '{ print $1 }'
+    cd "$ui_pkg"
+    shasum -a 256 package.json es/wasm/dist/{ep_wasm.mjs,ep_wasm.wasm,markdown_basic.js,markdown_basic.wasm,markdown_simd.js,markdown_simd.wasm}
   )
 }
 ui_inputs > "$evidence/fsusui-inputs.sha256"
@@ -236,7 +233,6 @@ cp tests/Fixtures/publication-rights.sql "$run/source/tests/Fixtures/"
 cp deploy/Caddyfile "$run/source/deploy/"
 shasum -a 256 "$run/source/deploy/Caddyfile" > "$evidence/caddyfile.sha256"
 ln -s "$repo/src/Web/node_modules" "$run/source/src/Web/node_modules"
-ln -s "$(cd ../FsusUI && pwd -P)" "$run/FsusUI"
 [[ "$(source_hash)" == "$candidate" && "$(git rev-parse HEAD)" == "$commit" ]] || { echo 'Candidate changed while copying inputs.' >&2; exit 1; }
 {
   cd "$run/source"
@@ -248,10 +244,7 @@ ln -s "$(cd ../FsusUI && pwd -P)" "$run/FsusUI"
   go build -trimpath -o "$run/load" tests/Performance/{load,cold}.go
   cd "$repo"
 } > "$evidence/build.log" 2>&1
-[[ "$(git -C ../FsusUI rev-parse HEAD)" == "$ui_commit" && "$(git -C ../FsusUI status --porcelain)" == "$ui_status" ]] || {
-  echo 'FsusUI changed during preparation.' >&2; exit 1;
-}
-ui_inputs | cmp -s "$evidence/fsusui-inputs.sha256" - || { echo 'FsusUI native artifacts changed during build.' >&2; exit 1; }
+ui_inputs | cmp -s "$evidence/fsusui-inputs.sha256" - || { echo 'FsusUI package artifacts changed during build.' >&2; exit 1; }
 (cd "$run" && find server migrate web load -type f -print0 | xargs -0 shasum -a 256 | LC_ALL=C sort -k2) > "$evidence/build.sha256"
 
 stage=database

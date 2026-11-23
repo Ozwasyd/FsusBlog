@@ -14,7 +14,7 @@ Usage: ./tools/dev.sh [options]
 Starts an isolated local development stack with hot reload:
   - Persistent PostgreSQL 18 cluster in .dev-data/pgdata (port 55432 by default)
   - FsusBlog.V2.Server via dotnet watch (http://127.0.0.1:5080 by default)
-  - Vite HMR dev server consuming ../FsusUI source (unified single-origin http://localhost:5173)
+  - Vite HMR dev server consuming @ozwasyd/element-plus (unified single-origin http://localhost:5173)
 
 Options:
   --reset          Wipe .dev-data/ and initialize a fresh database before starting
@@ -330,13 +330,13 @@ SQL
         '介绍 FsusBlog v2 本地开发架构、Vite HMR 联动 FsusUI 与 AEDS 帧调试方式。' \
         Engineering "'dotnet', 'postgresql', 'aeds'" <<'ARTICLE'
          'FsusBlog v2 本地开发与 AEDS 二进制协议导览',
-         E'## 欢迎使用 FsusBlog v2\n\n这是一篇用于本地热重载与调试的示例文章。\n\n- 后端运行在 `.NET 10` + `PostgreSQL 18`\n- 前端通过 Vite HMR 直连相邻 `../FsusUI` 源码\n- 全部运行时业务接口均采用 `AEDS v2` 二进制帧\n\n```ts\n// 在浏览器控制台开启 AEDS 二进制帧调试日志\nwindow.__fsusDebug?.aeds(true)\n```\n',
+         E'## 欢迎使用 FsusBlog v2\n\n这是一篇用于本地热重载与调试的示例文章。\n\n- 后端运行在 `.NET 10` + `PostgreSQL 18`\n- 前端通过 Vite HMR 消费 `@ozwasyd/element-plus` 组件与原生 Markdown Wasm\n- 全部运行时业务接口均采用 `AEDS v2` 二进制帧\n\n```ts\n// 在浏览器控制台开启 AEDS 二进制帧调试日志\nwindow.__fsusDebug?.aeds(true)\n```\n',
 ARTICLE
       write_demo_publication 2 '1 day' \
         'Notes on reading typography, FsusUI token discipline, and live local iteration.' \
         Essays "'vue'" <<'ARTICLE'
          'Designing for Quiet Restraint in Reading Interfaces',
-         E'## Intellectual Minimalism\n\nGood editorial software stays out of the reader''s way. Clear hierarchy, crisp spacing, and deterministic interactions matter more than ornamental chrome.\n\n### Local Live Editing\n\nEdit any file under `src/Web/src/` or sibling `../FsusUI/vue/packages/` and watch Vite HMR update the page instantaneously.\n',
+         E'## Intellectual Minimalism\n\nGood editorial software stays out of the reader''s way. Clear hierarchy, crisp spacing, and deterministic interactions matter more than ornamental chrome.\n\n### Local Live Editing\n\nEdit any file under `src/Web/src/` and watch Vite HMR update the page instantaneously.\n',
 ARTICLE
       cat <<'SQL'
 -- Seed one unpublished draft visible inside /admin/articles.

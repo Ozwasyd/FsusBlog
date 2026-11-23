@@ -4,7 +4,7 @@
 > **适用对象**：维护者、站点部署者与协议实现方
 > **权威依据**：工程依赖以 [`FsusBlog.V2.slnx`](../../FsusBlog.V2.slnx) 与各 `.csproj` 为准；边界约束以 [`tests/Core/CorePlatformBoundaryGuardTests.cs`](../../tests/Core/CorePlatformBoundaryGuardTests.cs) 和 [`AGENTS.md`](../../AGENTS.md) 为准。
 
-FsusBlog v2 是一个面向自托管与可验证部署的模块化单体内容系统：后端基于 .NET 10（C# 14、ASP.NET Core Minimal APIs）与 PostgreSQL 18（Npgsql），前端基于 Vue 3 + TypeScript 并通过本地源码 alias 消费相邻 `../FsusUI` 仓库，跨栈业务通信统一采用 AEDS v2 二进制帧协议，数据初始化与高危离线维护集中在独立 CLI 工具 `FsusBlog.V2.Cli`。
+FsusBlog v2 是一个面向自托管与可验证部署的模块化单体内容系统：后端基于 .NET 10（C# 14、ASP.NET Core Minimal APIs）与 PostgreSQL 18（Npgsql），前端基于 Vue 3 + TypeScript 并消费 GitHub Packages 锁定的 `@ozwasyd/element-plus`（FsusUI）npm 包与内置原生 Wasm，跨栈业务通信统一采用 AEDS v2 二进制帧协议，数据初始化与高危离线维护集中在独立 CLI 工具 `FsusBlog.V2.Cli`。
 
 ---
 
@@ -12,7 +12,7 @@ FsusBlog v2 是一个面向自托管与可验证部署的模块化单体内容�
 
 ```mermaid
 flowchart TD
-    Web["src/Web (Vue 3 / TypeScript)"] -->|"本地源码 alias"| FsusUI["../FsusUI (组件、主题与 Wasm)"]
+    Web["src/Web (Vue 3 / TypeScript)"] -->|"锁定 npm 依赖"| FsusUI["@ozwasyd/element-plus (组件、主题与 Wasm)"]
     Web -->|"AEDS v2 二进制帧"| Server["src/Server (在线 Web/API 服务)"]
     Server --> Storage["src/Storage (共享只读 Schema 校验)"]
     Server --> Platform["src/Platform (OS/FD/媒体与 Worker 边界)"]

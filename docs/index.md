@@ -18,7 +18,7 @@
 - [运行与部署配置参考](reference/configuration.md)
 - [AEDS v2 二进制协议](protocol.md)
 - [单机数据库租约与交接](publication-lease.md)
-- [FsusUI 本地源码接入](fsusui.md)
+- [FsusUI 接入与原生组件契约](fsusui.md)
 
 ## 部署、运维与验证
 

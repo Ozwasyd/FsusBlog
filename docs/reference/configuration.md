@@ -105,7 +105,6 @@ export FSUSBLOG_TRUST_LOOPBACK_PROXY=true
 | `FSUSBLOG_SITE_PAGES` | Server | 静态站点页目录（需含 `about.md`、`privacy.md`、`guidelines.md`、`copyright.md`） |
 | `FSUSBLOG_APPEARANCE_ROOT` | Server / Cli | 签名外观注册表目录（需含 `appearance.json`） |
 | `FSUSBLOG_SITE_TRAFFIC_REGIONS` | Server | 离线 CIDR 地区映射 JSON 文件路径（最多 1 MiB / 4,096 条，最长前缀匹配） |
-| `FSUSBLOG_FSUSUI_WASM_DIST` | Web 构建（Vite） | 显式指定预构建的 FsusUI 原生 Wasm 资源目录（构建时严格核验 `.native-artifact-fingerprint`） |
 
 ---
 

@@ -62,7 +62,7 @@ trap 'exit 143' TERM
   printf 'started=%s\n' "$(date -u +%FT%TZ)"
   git rev-parse HEAD
   git status --porcelain
-  git -C "${FSUSBLOG_LOCAL_FSUSUI_ROOT:-$repo/../FsusUI}" rev-parse HEAD
+  node -p "const p = require('$repo/src/Web/node_modules/@ozwasyd/element-plus/package.json'); p.name + '@' + p.version"
   "$dotnet" --version
   node --version
   shasum -a 256 "$dist/index.html" "$server" "$migrate" src/Web/pnpm-lock.yaml

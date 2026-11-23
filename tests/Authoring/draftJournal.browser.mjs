@@ -6,8 +6,8 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import test from 'node:test'
 
-const requireFsusUi = createRequire(new URL('../../../FsusUI/package.json', import.meta.url))
-const { chromium } = requireFsusUi('playwright')
+const requireWeb = createRequire(new URL('../../src/Web/package.json', import.meta.url))
+const { chromium } = requireWeb('@playwright/test')
 const chrome = process.env.FSUSBLOG_CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 
 const fixture = new Map([

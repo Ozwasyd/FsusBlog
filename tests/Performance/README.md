@@ -29,7 +29,7 @@
 
 ## 2. 本机运行命令
 
-在仓库根目录执行（先离线恢复 `src/Web` 依赖与 FsusUI 构建输入）：
+在仓库根目录执行（先离线恢复 `src/Web` 锁定依赖，含 `@ozwasyd/element-plus`）：
 
 ```bash
 export DOTNET_BIN=/absolute/path/to/dotnet

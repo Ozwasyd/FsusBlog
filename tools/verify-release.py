@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 
 SUM = re.compile(r"([a-f0-9]{64})  (.+)")
 COMMIT = re.compile(r"[a-f0-9]{40}")
+PACKAGE_ID = re.compile(r"@ozwasyd/element-plus@[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?")
 PACKAGE = "fsusblog-v2.tar.gz"
 HISTORY = "history.bundle"
 
@@ -76,8 +77,12 @@ def verify_payload(archive: Path, expected: dict[str, str]) -> dict[str, str]:
                 raise ValueError(f"Payload checksum mismatch: {name}")
     if missing := expected.keys() - seen:
         raise ValueError(f"Package is missing {min(missing)}")
-    if any(not COMMIT.fullmatch(coordinates.get(key, "")) for key in ("fsusblog_commit", "fsusui_commit")):
+    if not COMMIT.fullmatch(coordinates.get("fsusblog_commit", "")):
         raise ValueError("Missing or invalid release commit coordinates")
+    has_ui_pkg = PACKAGE_ID.fullmatch(coordinates.get("fsusui_package", "")) is not None
+    has_ui_commit = COMMIT.fullmatch(coordinates.get("fsusui_commit", "")) is not None
+    if not (has_ui_pkg or has_ui_commit):
+        raise ValueError("Missing or invalid FsusUI release coordinates")
     if coordinates.get("web") != "web/" or "web/index.html" not in seen:
         raise ValueError("Missing built web entry point")
     cli_path = coordinates.get("cli")
@@ -146,8 +151,12 @@ def main() -> None:
         commits = verify_history(directory / HISTORY, coordinates["fsusblog_commit"])
     except (OSError, ValueError, tarfile.TarError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"{error}\n")
-    print(json.dumps({"fsusblogCommit": coordinates["fsusblog_commit"], "fsusuiCommit": coordinates["fsusui_commit"],
-                      "payloadFiles": len(payload), "gitCommits": commits}, indent=2))
+    summary = {"fsusblogCommit": coordinates["fsusblog_commit"], "payloadFiles": len(payload), "gitCommits": commits}
+    if "fsusui_package" in coordinates:
+        summary["fsusuiPackage"] = coordinates["fsusui_package"]
+    if "fsusui_commit" in coordinates:
+        summary["fsusuiCommit"] = coordinates["fsusui_commit"]
+    print(json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":
