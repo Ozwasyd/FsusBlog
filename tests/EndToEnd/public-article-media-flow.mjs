@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
 import { api } from '../../src/Contracts/client.ts'
-import { mediaBootstraps, withMediaSession } from './media-session-fixture.mjs'
+import { canvasDataUrl, mediaBootstraps, withMediaSession } from './media-session-fixture.mjs'
 import { decodeMediaItems, uploadMedia } from '../../src/Contracts/private-media.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
@@ -348,17 +348,7 @@ if (failure) throw failure
 console.log('Explicit public article images, withdrawal, and private attachment access passed in desktop and narrow Chrome.')
 
 async function imageFixture(page, name, width, height, background, accent, type = 'image/png') {
-  const data = await page.evaluate(({ width, height, background, accent, type }) => {
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const context = canvas.getContext('2d')
-    context.fillStyle = background
-    context.fillRect(0, 0, width, height)
-    context.fillStyle = accent
-    context.fillRect(18, 12, 39, 25)
-    return canvas.toDataURL(type)
-  }, { width, height, background, accent, type })
+  const data = await canvasDataUrl(page, [width, height], [background, accent], [18, 12, 39, 25], type)
   assert(data.startsWith(`data:${type};base64,`))
   return new File([Buffer.from(data.split(',')[1], 'base64')], name, { type })
 }

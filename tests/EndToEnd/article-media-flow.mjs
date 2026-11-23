@@ -6,7 +6,7 @@ import { requireWebPackage } from './web-package-fixture.mjs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { inspectDownloadedFile, inspectOfflinePage } from './media-export-fixture.mjs'
-import { mediaBootstraps, withMediaSession } from './media-session-fixture.mjs'
+import { canvasDataUrl, mediaBootstraps, withMediaSession } from './media-session-fixture.mjs'
 import { api } from '../../src/Contracts/client.ts'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodWriter } from '../../src/Contracts/binary.ts'
@@ -27,17 +27,8 @@ try {
     try {
       const page = await author.newPage()
       await page.goto(`${origin}/login`)
-      const bytes = Uint8Array.from(Buffer.from(await page.evaluate(() => {
-        const fixture = document.createElement('canvas')
-        fixture.width = 160
-        fixture.height = 80
-        const ctx = fixture.getContext('2d')
-        ctx.fillStyle = '#2f5d96'
-        ctx.fillRect(0, 0, 160, 80)
-        ctx.fillStyle = '#e7aa70'
-        ctx.fillRect(24, 20, 78, 34)
-        return fixture.toDataURL('image/png').split(',')[1]
-      }), 'base64'))
+      const imageData = await canvasDataUrl(page, [160, 80], ['#2f5d96', '#e7aa70'], [24, 20, 78, 34])
+      const bytes = Uint8Array.from(Buffer.from(imageData.split(',')[1], 'base64'))
       const file = `private-attachment-${name}.png`
       const { asset, second, draft } = await withMediaSession(page, origin, mediaBootstraps[index], async current => {
         const asset = await uploadMedia(new File([bytes], file, { type: 'image/png' }), crypto.randomUUID())

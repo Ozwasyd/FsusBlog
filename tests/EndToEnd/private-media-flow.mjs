@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { chromium, observePageErrors } from './browser-authoring-fixture.mjs'
 import { readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { currentMediaSession, mediaBootstraps } from './media-session-fixture.mjs'
+import { canvasDataUrl, currentMediaSession, mediaBootstraps } from './media-session-fixture.mjs'
 import { signInFreshAdmin } from './webauthn-fixture.mjs'
 import { assertStatus } from './response-status-fixture.mjs'
 
@@ -44,17 +44,8 @@ try {
     await page.screenshot({ path: join(evidence, `private-media-${name}-empty.png`) })
 
     const fileName = `integration-${name}.png`
-    const imageBytes = Buffer.from(await page.evaluate(() => {
-      const canvas = document.createElement('canvas')
-      canvas.width = 180
-      canvas.height = 90
-      const draw = canvas.getContext('2d')
-      draw.fillStyle = '#374f6b'
-      draw.fillRect(0, 0, 180, 90)
-      draw.fillStyle = '#cddfef'
-      draw.fillRect(25, 20, 80, 50)
-      return canvas.toDataURL('image/png').split(',')[1]
-    }), 'base64')
+    const data = await canvasDataUrl(page, [180, 90], ['#374f6b', '#cddfef'], [25, 20, 80, 50])
+    const imageBytes = Buffer.from(data.split(',')[1], 'base64')
     let continuation
     if (resumable) {
       const file = { name: fileName, mimeType: 'image/png', buffer: Buffer.concat([imageBytes, Buffer.alloc(512 * 1024, 1)]) }

@@ -33,3 +33,17 @@ export async function withMediaSession(page, origin, bootstrap, prepare) {
     return await prepare(current)
   } finally { globalThis.fetch = native }
 }
+
+export function canvasDataUrl(page, size, palette, rect, type = 'image/png') {
+  return page.evaluate(([[width, height], [background, accent], rect, type]) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    context.fillStyle = background
+    context.fillRect(0, 0, width, height)
+    context.fillStyle = accent
+    context.fillRect(...rect)
+    return canvas.toDataURL(type)
+  }, [size, palette, rect, type])
+}
