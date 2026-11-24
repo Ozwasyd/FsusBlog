@@ -10,6 +10,20 @@ internal static class SignedExtensionFixture
 
     internal static void AssertRejected(string code, Action act) => Assert.Equal(code, Assert.Throws<ExtensionRejectedException>(act).Code);
 
+    internal static async Task AssertRejectedAsync(string code, Func<Task> act) =>
+        Assert.Equal(code, (await Assert.ThrowsAsync<ExtensionRejectedException>(act)).Code);
+
+    internal static byte[] FlipLast(byte[] bytes)
+    {
+        var copy = bytes.ToArray();
+        copy[^1] ^= 1;
+        return copy;
+    }
+
+    internal static ExtensionProposal.ReadRange ReadRequest(Guid grant, int start = 1, int end = 2) => new(Guid.NewGuid(), grant, start, end);
+
+    internal static ExtensionProposal.StageFile StageRequest(Guid grant) => new(Guid.NewGuid(), grant, "scratch", 3);
+
     internal static (ExtensionAuthority, ExtensionOwner, ExtensionPackageVerifier) Host(ECDsa key, string provenance)
     {
         var clock = new Clock();
@@ -51,16 +65,9 @@ internal static class SignedExtensionFixture
             [new("fixture.read", 1, 1, new(1, path, Hash(module)), [ExtensionCapability.DocumentRangeRead, ExtensionCapability.FileSystemRootProposeWrite])],
             new(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), 4096, 1024, 1024, 1, 8, 4, 0, 0, 1024, 0), 1, 1, 0, 0, 0, false);
         var json = JsonSerializer.Serialize(manifest);
-        using var output = new MemoryStream();
-        using (var zip = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            using (var file = zip.CreateEntry("manifest.json").Open()) file.Write(Encoding.UTF8.GetBytes(change?.Invoke(json) ?? json));
-            var entry = zip.CreateEntry(path);
-            if (symlink) entry.ExternalAttributes = unchecked((int)0xa1ff0000);
-            using var member = entry.Open();
-            member.Write(module);
-        }
-        return output.ToArray();
+        return AppearancePackageStore.MakeZip(
+            ("manifest.json", Encoding.UTF8.GetBytes(change?.Invoke(json) ?? json), false),
+            (path, module, symlink));
     }
 
     private static byte[] Framed(byte[] bytes)

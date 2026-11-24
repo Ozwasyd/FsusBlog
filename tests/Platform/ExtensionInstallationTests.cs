@@ -1,43 +1,67 @@
-using System.Runtime.Versioning;
+using static FsusBlog.V2.Platform.Tests.PlatformScratchDirectory;
 using static FsusBlog.V2.Tests.SignedExtensionFixture;
 
 namespace FsusBlog.V2.Platform.Tests;
 
-public sealed class ExtensionInstallationTests
+public sealed class ExtensionInstallationTests : IDisposable
 {
+    private readonly PlatformScratchDirectory _root = new("fsus-installed-extension-", restrictMode: true);
+    private readonly List<ExtensionInstallationStore> _stores = [];
+    private PlatformScratchDirectory? _staging;
+    private readonly Guid _id = Guid.NewGuid();
+    private readonly byte[] _mac = RandomNumberGenerator.GetBytes(32);
+    private readonly ECDsa _publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+    private readonly ExtensionPublisherKey _publisherKey;
+    private readonly byte[] _archive = MakeArchive();
+    private readonly byte[] _signature;
+    private readonly ApprovedExtensionSource _approved;
+    private readonly Clock _clock = new();
+    private readonly ExtensionOwner _owner = NewOwner();
+
+    private DirectoryInfo StagingDir => (_staging ??= new("fsus-stage-", restrictMode: true)).Info;
+
+    public ExtensionInstallationTests()
+    {
+        _publisherKey = Key(_publisher);
+        _signature = Sign(_publisher, _archive);
+        _approved = Catalog("fixture", _archive);
+    }
+
+    public void Dispose()
+    {
+        foreach (var store in _stores) store.Dispose();
+        _publisher.Dispose();
+        _staging?.Dispose();
+        _root.Dispose();
+    }
+
     [Fact]
     public void InstalledPackageRestartsWithItsVersionFloorAndAnExclusiveWriter()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var disk = new InstallationDisk();
-        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var older = MakeArchive();
+        if (!IsPosix) return;
         var current = MakeArchive(json => json.Replace("\"Version\":\"1.0\"", "\"Version\":\"2.0\"", StringComparison.Ordinal));
-        var clock = new Clock();
+        var signature = Sign(_publisher, current);
         ExtensionCheckpoint checkpoint;
-        var signature = Sign(publisher, current);
-        var owner = NewOwner();
         Guid staleGrant;
-        using (var store = disk.Create(Key(publisher), [Catalog("current", current), Catalog("older", older)], clock))
+        using (var store = Create([Catalog("current", current), Catalog("older", _archive)]))
         {
-            Assert.ThrowsAny<IOException>(() => disk.Open(clock));
+            Assert.ThrowsAny<IOException>(() => Open());
             var installed = store.InstallAndActivate("approved-source/current", current, signature, ExtensionPlatform.ServerLinux);
             Assert.Equal("2.0", installed.Manifest.Version);
             checkpoint = store.Checkpoint;
             Assert.Equal(2, checkpoint.Sequence);
             store.InstallAndActivate("approved-source/current", current, signature, ExtensionPlatform.ServerLinux);
             Assert.Equal(checkpoint, store.Checkpoint);
-            store.SetOwner(owner);
-            staleGrant = store.RecordConsent(Consent(owner, ExtensionCapability.DocumentRangeRead));
+            store.SetOwner(_owner);
+            staleGrant = GrantRead(store);
         }
 
-        using (var recovered = disk.Open(clock, checkpoint))
+        using (var recovered = Open(checkpoint))
         {
             Assert.Equal(checkpoint, recovered.Checkpoint);
-            recovered.SetOwner(owner);
-            AssertRejected("unknown-consent", () => BeginRead(recovered, owner, staleGrant));
-            var newGrant = recovered.RecordConsent(Consent(owner, ExtensionCapability.DocumentRangeRead));
-            using var operation = BeginRead(recovered, owner, newGrant);
+            recovered.SetOwner(_owner);
+            AssertRejected("unknown-consent", () => BeginRead(recovered, staleGrant));
+            using var operation = BeginRead(recovered, GrantRead(recovered));
             var published = false;
             operation.Complete(() => published = true);
             Assert.True(published);
@@ -45,10 +69,10 @@ public sealed class ExtensionInstallationTests
             checkpoint = recovered.Checkpoint;
         }
 
-        using var final = disk.Open(clock, checkpoint);
-        final.SetOwner(owner);
-        AssertRejected("consent-owner-or-package", () => final.RecordConsent(Consent(owner, ExtensionCapability.DocumentRangeRead)));
-        AssertRejected("package-version-switch", () => final.InstallAndActivate("approved-source/older", older, Sign(publisher, older), ExtensionPlatform.ServerLinux));
+        using var final = Open(checkpoint);
+        final.SetOwner(_owner);
+        AssertRejected("consent-owner-or-package", () => GrantRead(final));
+        AssertRejected("package-version-switch", () => final.InstallAndActivate("approved-source/older", _archive, _signature, ExtensionPlatform.ServerLinux));
         Assert.Equal(checkpoint, final.Checkpoint);
     }
 
@@ -57,261 +81,171 @@ public sealed class ExtensionInstallationTests
     [InlineData(false, "installed-signature-digest")]
     public void DiskTamperingRejectsAnInFlightResultAndAReopenedActivation(bool tamperArchive, string expectedCode)
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var disk = new InstallationDisk();
-        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var archive = MakeArchive();
-        var signature = Sign(publisher, archive);
-        var clock = new Clock();
-        using (var store = disk.Create(Key(publisher), [Catalog("fixture", archive)], clock))
+        if (!IsPosix) return;
+        using (var store = OpenActive())
         {
-            store.InstallAndActivate(Source, archive, signature, ExtensionPlatform.ServerLinux);
-            var owner = NewOwner();
-            store.SetOwner(owner);
-            var grant = store.RecordConsent(Consent(owner, ExtensionCapability.DocumentRangeRead));
-            using var operation = BeginRead(store, owner, grant);
-            var original = tamperArchive ? archive : signature;
-            var tampered = original.ToArray();
-            tampered[^1] ^= 1;
-            var path = $"{Hash(original)}.{(tamperArchive ? "zip" : "signature")}";
-            disk.Replace(path, tampered);
-            var published = false;
-            AssertRejected(expectedCode, () => operation.Complete(() => published = true));
-            Assert.False(published);
-            AssertRejected("unknown-consent", () => BeginRead(store, owner, grant));
+            var grant = GrantRead(store);
+            using var operation = BeginRead(store, grant);
+            var original = tamperArchive ? _archive : _signature;
+            Replace($"{Hash(original)}.{(tamperArchive ? "zip" : "signature")}", FlipLast(original));
+            AssertNotCompleted(operation, expectedCode);
+            AssertRejected("unknown-consent", () => BeginRead(store, grant));
         }
-        AssertRejected(expectedCode, () => disk.Open(clock));
+        AssertRejected(expectedCode, () => Open());
     }
 
     [Fact]
     public void TrustRotationPersistsAndOldLedgerRequiresTheExternalCheckpoint()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var disk = new InstallationDisk();
-        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var archive = MakeArchive();
-        var signature = Sign(publisher, archive);
-        var clock = new Clock();
-        var approved = Catalog("fixture", archive);
-        var owner = NewOwner();
+        if (!IsPosix) return;
         ExtensionCheckpoint checkpoint;
-        byte[] old;
-        byte[] current;
-        using (var store = disk.Create(Key(publisher), [approved], clock))
+        byte[] old, current;
+        using (var store = OpenActive())
         {
-            store.InstallAndActivate(Source, archive, signature, ExtensionPlatform.ServerLinux);
-            old = disk.ReadLedger();
-            store.SetOwner(owner);
-            var grant = store.RecordConsent(Consent(owner, ExtensionCapability.DocumentRangeRead));
-            using var operation = BeginRead(store, owner, grant);
-            store.ReplaceTrust([Key(publisher) with { RevokedAt = Now }], [approved]);
+            old = ReadLedger();
+            using var operation = BeginRead(store, GrantRead(store));
+            store.ReplaceTrust([_publisherKey with { RevokedAt = Now }], [_approved]);
             checkpoint = store.Checkpoint;
-            current = disk.ReadLedger();
+            current = ReadLedger();
             AssertRejected("operation-no-longer-current", () => operation.Complete(() => throw new InvalidOperationException()));
-            disk.Replace("activation.v1", old);
+            Replace("activation.v1", old);
             AssertRejected("activation-ledger-drift", () => _ = store.Checkpoint);
-            disk.Replace("activation.v1", current);
+            Replace("activation.v1", current);
             AssertRejected("installation-store-unavailable", () => _ = store.Checkpoint);
         }
 
-        disk.Replace("activation.v1", old);
-        AssertRejected("activation-checkpoint-mismatch", () => disk.Open(clock, checkpoint));
-        disk.Replace("activation.v1", current);
-        using (var recovered = disk.Open(clock, checkpoint))
+        Replace("activation.v1", old);
+        AssertRejected("activation-checkpoint-mismatch", () => Open(checkpoint));
+        Replace("activation.v1", current);
+        using (var recovered = Open(checkpoint))
         {
-            recovered.SetOwner(owner);
-            AssertRejected("consent-owner-or-package", () => recovered.RecordConsent(Consent(owner, ExtensionCapability.DocumentRangeRead)));
-            AssertRejected("publisher-key-not-current", () => recovered.InstallAndActivate(Source, archive, signature, ExtensionPlatform.ServerLinux));
+            recovered.SetOwner(_owner);
+            AssertRejected("consent-owner-or-package", () => GrantRead(recovered));
+            AssertRejected("publisher-key-not-current", () => Install(recovered));
         }
-        var edited = current.ToArray();
-        edited[^1] ^= 1;
-        disk.Replace("activation.v1", edited);
-        AssertRejected("activation-ledger-authentication", () => disk.Open(clock));
+        Replace("activation.v1", FlipLast(current));
+        AssertRejected("activation-ledger-authentication", () => Open());
     }
 
     [Fact]
     public void RestartAfterKeyExpiryAdmitsTrustMaintenanceButIssuesNoConsent()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var disk = new InstallationDisk();
-        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var archive = MakeArchive();
-        var clock = new Clock();
-        var key = Key(publisher);
-        var signature = Sign(publisher, archive);
-        var approved = Catalog("fixture", archive);
-        using (var store = disk.Create(key, [approved], clock))
-            store.InstallAndActivate(Source, archive, signature, ExtensionPlatform.ServerLinux);
-        clock.Next = key.ValidUntil;
-        using var recovered = disk.Open(clock);
-        var owner = NewOwner();
-        recovered.SetOwner(owner);
-        AssertRejected("consent-owner-or-package", () => recovered.RecordConsent(Consent(owner, ExtensionCapability.DocumentRangeRead)));
-        recovered.ReplaceTrust([key with { ValidUntil = key.ValidUntil.AddHours(1) }], [approved]);
-        recovered.InstallAndActivate(Source, archive, signature, ExtensionPlatform.ServerLinux);
-        Assert.NotEqual(Guid.Empty, recovered.RecordConsent(Consent(owner, ExtensionCapability.DocumentRangeRead) with { ExpiresAt = key.ValidUntil.AddMinutes(2) }));
+        if (!IsPosix) return;
+        using (OpenActive()) { }
+        _clock.Next = _publisherKey.ValidUntil;
+        using var recovered = Open();
+        recovered.SetOwner(_owner);
+        AssertRejected("consent-owner-or-package", () => GrantRead(recovered));
+        recovered.ReplaceTrust([_publisherKey with { ValidUntil = _publisherKey.ValidUntil.AddHours(1) }], [_approved]);
+        Install(recovered);
+        Assert.NotEqual(Guid.Empty, recovered.RecordConsent(
+            Consent(_owner, ExtensionCapability.DocumentRangeRead) with { ExpiresAt = _publisherKey.ValidUntil.AddMinutes(2) }));
     }
 
     [Fact]
     public void EnrollmentPreservesAnExistingDigestPathAndLeavesTheLedgerUnchanged()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var disk = new InstallationDisk();
-        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var archive = MakeArchive();
-        var signed = Sign(publisher, archive);
-        var key = Key(publisher);
-        var clock = new Clock();
-        var approved = Catalog("fixture", archive);
-        AssertRejected("approved-source-catalog-shape", () => disk.Create(key, [approved with { KeyId = "unknown" }], clock));
-        using var store = disk.Create(key, [approved], clock);
+        if (!IsPosix) return;
+        AssertRejected("approved-source-catalog-shape", () => Create([_approved with { KeyId = "unknown" }]));
+        using var store = Create();
         var checkpoint = store.Checkpoint;
-        var conflicting = archive.ToArray();
-        conflicting[^1] ^= 1;
-        var name = $"{Hash(archive)}.zip";
-        disk.Replace(name, conflicting);
-        AssertRejected("installed-file-digest", () => store.InstallAndActivate(Source, archive, signed, ExtensionPlatform.ServerLinux));
-        Assert.Equal(conflicting, disk.Read(name));
+        var conflicting = FlipLast(_archive);
+        var name = $"{Hash(_archive)}.zip";
+        Replace(name, conflicting);
+        AssertRejected("installed-file-digest", () => Install(store));
+        Assert.Equal(conflicting, Read(name));
         Assert.Equal(checkpoint, store.Checkpoint);
-        Assert.Throws<FileNotFoundException>(() => disk.Read($"{Hash(signed)}.signature"));
+        Assert.Throws<FileNotFoundException>(() => Read($"{Hash(_signature)}.signature"));
     }
 
     [Fact]
     public void QuarantineRequiresMatchingReceiptAndExplicitOfflineApprovalAcrossRestart()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var disk = new InstallationDisk();
-        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var archive = MakeArchive();
-        var signed = Sign(publisher, archive);
-        var clock = new Clock();
-        var owner = NewOwner();
+        if (!IsPosix) return;
         ExtensionCheckpoint before;
-        using (var store = disk.Create(Key(publisher), [Catalog("fixture", archive)], clock))
+        using (var store = OpenActive())
         {
-            store.InstallAndActivate(Source, archive, signed, ExtensionPlatform.ServerLinux);
-            store.SetOwner(owner);
-            var grant = store.RecordConsent(Consent(owner, ExtensionCapability.DocumentRangeRead));
-            using var operation = BeginRead(store, owner, grant);
+            using var operation = BeginRead(store, GrantRead(store));
             before = store.Checkpoint;
             store.Quarantine("fixture.extension", "operator-investigation");
             AssertRejected("operation-no-longer-current", () => operation.Complete(() => throw new InvalidOperationException()));
         }
 
-        var status = disk.Status(clock);
-        var quarantined = Assert.Single(status.Installations);
+        var status = Status();
+        var quarantined = Single(status);
         Assert.Equal("quarantined", quarantined.State);
         var receipt = Assert.IsType<ExtensionQuarantine>(quarantined.Quarantine).Receipt;
-        AssertRejected("activation-checkpoint-mismatch", () => disk.OpenMaintenance(clock, before));
-        using (var store = disk.OpenMaintenance(clock, status.Checkpoint))
+        AssertRejected("activation-checkpoint-mismatch", () => OpenMaintenance(before));
+        using (var store = OpenMaintenance(status.Checkpoint))
         {
-            AssertRejected("installation-store-maintenance-only", () => store.SetOwner(owner));
-            AssertRejected("extension-quarantined", () => store.InstallAndActivate(Source, archive, signed, ExtensionPlatform.ServerLinux));
+            AssertRejected("installation-store-maintenance-only", () => store.SetOwner(_owner));
+            AssertRejected("extension-quarantined", () => Install(store));
             AssertRejected("quarantine-approval", () => store.ClearQuarantine("fixture.extension", Guid.NewGuid(), Guid.NewGuid()));
             AssertRejected("quarantine-approval", () => store.ClearQuarantine("fixture.extension", receipt, receipt));
             store.ClearQuarantine("fixture.extension", receipt, Guid.NewGuid());
         }
-        status = disk.Status(clock);
-        Assert.Equal("inactive", Assert.Single(status.Installations).State);
-        using (var store = disk.OpenMaintenance(clock, status.Checkpoint))
-            store.InstallAndActivate(Source, archive, signed, ExtensionPlatform.ServerLinux);
-        status = disk.Status(clock);
-        Assert.Equal("active-verified", Assert.Single(status.Installations).State);
-        Assert.NotNull(Assert.Single(status.Installations).Quarantine?.ReleaseApproval);
+        status = Status();
+        Assert.Equal("inactive", Single(status).State);
+        using (var store = OpenMaintenance(status.Checkpoint)) Install(store);
+        var active = Single(Status());
+        Assert.Equal("active-verified", active.State);
+        Assert.NotNull(active.Quarantine?.ReleaseApproval);
     }
 
     [Fact]
     public void MaintenanceCanQuarantineAnAuthenticatedActivationWithCorruptArchive()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var disk = new InstallationDisk();
-        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var archive = MakeArchive();
-        var clock = new Clock();
-        using (var store = disk.Create(Key(publisher), [Catalog("fixture", archive)], clock))
-            store.InstallAndActivate(Source, archive, Sign(publisher, archive), ExtensionPlatform.ServerLinux);
-        var different = archive.ToArray();
-        different[^1] ^= 1;
-        disk.Replace($"{Hash(archive)}.zip", different);
-        var originalLedger = disk.ReadLedger();
-        var status = disk.Status(clock);
-        var item = Assert.Single(status.Installations);
-        Assert.Equal("active-blocked", item.State);
-        Assert.Equal("archive-digest", item.VerificationIssue);
-        Assert.Equal(originalLedger, disk.ReadLedger());
-        AssertRejected("archive-digest", () => disk.Open(clock));
-        using (var store = disk.OpenMaintenance(clock, status.Checkpoint))
-            store.Quarantine("fixture.extension", "archive-digest");
-        Assert.Equal("quarantined", Assert.Single(disk.Status(clock).Installations).State);
-        using var reopened = disk.Open(clock);
+        if (!IsPosix) return;
+        using (OpenActive()) { }
+        ReplaceArchive(FlipLast(_archive));
+        var originalLedger = ReadLedger();
+        var status = Status();
+        var item = Single(status);
+        Assert.Equal(("active-blocked", "archive-digest"), (item.State, item.VerificationIssue));
+        Assert.Equal(originalLedger, ReadLedger());
+        AssertRejected("archive-digest", () => Open());
+        using (var store = OpenMaintenance(status.Checkpoint)) store.Quarantine("fixture.extension", "archive-digest");
+        Assert.Equal("quarantined", Single(Status()).State);
+        using var reopened = Open();
         reopened.SetOwner(NewOwner());
     }
 
     [Fact]
     public async Task StagePreservesExistingFileAndClosesOnlyTheHandleItCreated()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        using var disk = new InstallationDisk();
-        using var authority = OpenStagingStore(disk, key, out var owner);
-        var grant = authority.RecordConsent(Consent(owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
-        var root = Directory.CreateTempSubdirectory("fsus-extension-check-");
-        // Resolve macOS /var when the OS gives the conventional symlink rather than /private/var.
-        if (OperatingSystem.IsMacOS() && root.FullName.StartsWith("/var/", StringComparison.Ordinal)) root = new DirectoryInfo("/private" + root.FullName);
-        try
-        {
-            File.SetUnixFileMode(root.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            var staging = authority.BindStaging("scratch", root);
-            var collision = NewOperation();
-            var existing = Path.Combine(root.FullName, $"{collision.Proposal.RequestId:N}.stage");
-            await File.WriteAllTextAsync(existing, "earlier request owns this");
-            await Assert.ThrowsAnyAsync<IOException>(() => staging.Stage(collision, new MemoryStream("abc"u8.ToArray())));
-            Assert.Equal("earlier request owns this", await File.ReadAllTextAsync(existing));
+        if (!IsPosix) return;
+        var (authority, grant, staging) = OpenStaging();
+        var collision = BeginStage(authority, grant);
+        var existing = Path.Combine(StagingDir.FullName, $"{collision.Proposal.RequestId:N}.stage");
+        await File.WriteAllTextAsync(existing, "earlier request owns this");
+        await Assert.ThrowsAnyAsync<IOException>(() => staging.Stage(collision, Abc()));
+        Assert.Equal("earlier request owns this", await File.ReadAllTextAsync(existing));
 
-            var accepted = await staging.Stage(NewOperation(), new MemoryStream("abc"u8.ToArray()));
-            Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", accepted);
-            var rejection = await Assert.ThrowsAsync<ExtensionRejectedException>(() => staging.Stage(NewOperation(), new MemoryStream("abcd"u8.ToArray())));
-            Assert.Equal("staging-length", rejection.Code);
+        Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            await staging.Stage(BeginStage(authority, grant), Abc()));
+        await AssertRejectedAsync("staging-length", () => staging.Stage(BeginStage(authority, grant), new MemoryStream("abcd"u8.ToArray())));
 
-            using var canceled = new CancellationTokenSource();
-            var failed = await Assert.ThrowsAsync<IOException>(() => staging.Stage(NewOperation(), new FaultingStream(canceled), canceled.Token));
-            Assert.Equal("first write input failure", failed.Message);
-            Assert.Equal(existing, Assert.Single(Directory.GetFiles(root.FullName)));
-        }
-        finally { root.Delete(recursive: true); }
-
-        ExtensionAuthority.Operation NewOperation() => authority.Begin(owner, "fixture.read", "preview",
-            new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3));
+        using var canceled = new CancellationTokenSource();
+        var failed = await Assert.ThrowsAsync<IOException>(() => staging.Stage(BeginStage(authority, grant), new FaultingStream(canceled), canceled.Token));
+        Assert.Equal("first write input failure", failed.Message);
+        Assert.Equal(existing, Assert.Single(Directory.GetFiles(StagingDir.FullName)));
     }
 
     [Fact]
     public async Task StagingOwnsOneHandleAndRevocationWhileAwaitingInputRejectsItsReceipt()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        using var disk = new InstallationDisk();
-        using var authority = OpenStagingStore(disk, key, out var owner);
-        var grant = authority.RecordConsent(Consent(owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
-        using var operation = authority.Begin(owner, "fixture.read", "preview", new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3));
-        var root = Directory.CreateTempSubdirectory("fsus-extension-revoke-");
-        if (OperatingSystem.IsMacOS() && root.FullName.StartsWith("/var/", StringComparison.Ordinal)) root = new DirectoryInfo("/private" + root.FullName);
-        try
-        {
-            File.SetUnixFileMode(root.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            var staging = authority.BindStaging("scratch", root);
-            using var input = new PausedStream();
-            var pending = staging.Stage(operation, input);
-            await input.Waiting.Task.WaitAsync(TimeSpan.FromSeconds(2));
-            var concurrent = await Assert.ThrowsAsync<ExtensionRejectedException>(() => staging.Stage(operation, Stream.Null));
-            Assert.Equal("staging-already-started", concurrent.Code);
-            AssertRejected("installation-store-broker-busy", () => authority.Deactivate("fixture.extension"));
-            authority.RevokeConsent(grant);
-            input.Resume.SetResult();
-            var revoked = await Assert.ThrowsAsync<ExtensionRejectedException>(() => pending);
-            Assert.Equal("operation-no-longer-current", revoked.Code);
-            Assert.Empty(Directory.GetFileSystemEntries(root.FullName));
-        }
-        finally { root.Delete(recursive: true); }
+        if (!IsPosix) return;
+        var (authority, grant, staging) = OpenStaging();
+        using var operation = BeginStage(authority, grant);
+        using var input = new PausedStream();
+        var pending = staging.Stage(operation, input);
+        await input.Waiting.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await AssertRejectedAsync("staging-already-started", () => staging.Stage(operation, Stream.Null));
+        AssertRejected("installation-store-broker-busy", () => authority.Deactivate("fixture.extension"));
+        authority.RevokeConsent(grant);
+        input.Resume.SetResult();
+        await AssertRejectedAsync("operation-no-longer-current", () => pending);
+        AssertStagingEmpty();
     }
 
     [Theory]
@@ -319,123 +253,133 @@ public sealed class ExtensionInstallationTests
     [InlineData(true)]
     public async Task PendingStageRetainsTheOriginalStoreAndQuotaAcrossDisposal(bool closeOperationFirst)
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var disk = new InstallationDisk();
-        using var stagingDisk = new InstallationDisk();
-        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        using var store = OpenStagingStore(disk, publisher, out var owner);
-        var grant = store.RecordConsent(Consent(owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
-        var request = new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3);
-        using var operation = store.Begin(owner, "fixture.read", "preview", request);
-        var staging = store.BindStaging("scratch", stagingDisk.Root);
+        if (!IsPosix) return;
+        var (store, grant, staging) = OpenStaging();
+        var request = StageRequest(grant);
+        using var operation = Begin(store, request);
         using var input = new PausedStream();
         var pending = staging.Stage(operation, input);
         try
         {
             await input.Waiting.Task.WaitAsync(TimeSpan.FromSeconds(2));
             var before = store.Checkpoint;
-            var archive = MakeArchive();
-            var source = Catalog("fixture", archive);
-            AssertRejected("installation-store-broker-busy", () =>
-                store.InstallAndActivate(Source, archive, Sign(publisher, archive), ExtensionPlatform.ServerLinux));
-            AssertRejected("installation-store-broker-busy", () => store.ReplaceTrust([Key(publisher)], [source]));
-            AssertRejected("installation-store-broker-busy", () => store.Deactivate("fixture.extension"));
-            AssertRejected("installation-store-broker-busy", () => store.Quarantine("fixture.extension", "new-reason"));
-            AssertRejected("installation-store-broker-busy", () => store.ClearQuarantine("fixture.extension", Guid.NewGuid(), Guid.NewGuid()));
+            foreach (var action in new Action[]
+            {
+                () => Install(store),
+                () => store.ReplaceTrust([_publisherKey], [_approved]),
+                () => store.Deactivate("fixture.extension"),
+                () => store.Quarantine("fixture.extension", "new-reason"),
+                () => store.ClearQuarantine("fixture.extension", Guid.NewGuid(), Guid.NewGuid()),
+            }) AssertRejected("installation-store-broker-busy", action);
             Assert.Equal(before, store.Checkpoint);
 
             if (closeOperationFirst) operation.Dispose();
-            AssertRejected("proposal-scope", () => store.Begin(owner, "fixture.read", "preview",
-                new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3)));
+            AssertRejected("proposal-scope", () => BeginStage(store, grant));
             store.Dispose();
-            Assert.ThrowsAny<IOException>(() => disk.Open(new Clock()));
+            Assert.ThrowsAny<IOException>(() => Open());
         }
         finally { input.Resume.TrySetResult(); }
 
-        if (closeOperationFirst)
-        {
-            var failure = await Assert.ThrowsAsync<ExtensionRejectedException>(() => pending);
-            Assert.Equal("operation-closed", failure.Code);
-        }
+        if (closeOperationFirst) await AssertRejectedAsync("operation-closed", () => pending);
         else await Assert.ThrowsAsync<ObjectDisposedException>(() => pending);
-        Assert.Empty(stagingDisk.Root.EnumerateFileSystemInfos());
-        using var reopened = disk.Open(new Clock());
-        AssertRejected("unknown-consent", () => reopened.Begin(owner, "fixture.read", "preview", request));
+        AssertStagingEmpty();
+        using var reopened = Open();
+        AssertRejected("unknown-consent", () => Begin(reopened, request));
         reopened.Deactivate("fixture.extension");
     }
 
     [Fact]
     public async Task StagingCannotPublishThroughAnInMemoryScopeOrAGenericCompletion()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        using var stagingDisk = new InstallationDisk();
-        var (authority, owner, _) = Host(publisher, "provenance/fixture");
+        if (!IsPosix) return;
+        var (authority, owner, _) = Host(_publisher, "provenance/fixture");
         var grant = authority.RecordConsent(Consent(owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
-        using var operation = authority.Begin(owner, "fixture.read", "preview", new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3));
-        var executed = false;
-        AssertRejected("staging-broker-required", () => operation.Complete(() => executed = true));
-        Assert.False(executed);
-        var staging = new ExtensionStaging("scratch", stagingDisk.Root);
-        using var content = new MemoryStream("abc"u8.ToArray());
-        var failure = await Assert.ThrowsAsync<ExtensionRejectedException>(() => staging.Stage(operation, content));
-        Assert.Equal("staging-installed-scope-required", failure.Code);
+        using var operation = authority.Begin(owner, "fixture.read", "preview", StageRequest(grant));
+        AssertNotCompleted(operation, "staging-broker-required");
+        var staging = new ExtensionStaging("scratch", StagingDir);
+        using var content = Abc();
+        await AssertRejectedAsync("staging-installed-scope-required", () => staging.Stage(operation, content));
         Assert.Equal(0, content.Position);
-        Assert.Empty(stagingDisk.Root.EnumerateFileSystemInfos());
+        AssertStagingEmpty();
     }
 
     [Fact]
     public async Task OnlyTheBoundStagingBrokerCanUseTheApprovedRootLabel()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        using var disk = new InstallationDisk();
-        using var stagingDisk = new InstallationDisk();
-        using var otherDisk = new InstallationDisk();
-        using var store = OpenStagingStore(disk, publisher, out var owner);
-        var grant = store.RecordConsent(Consent(owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
-        var original = store.BindStaging("scratch", stagingDisk.Root);
-        AssertRejected("staging-broker-already-bound", () => store.BindStaging("scratch", otherDisk.Root));
-        var foreign = new ExtensionStaging("scratch", otherDisk.Root);
-        var request = new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3);
-        using var operation = store.Begin(owner, "fixture.read", "preview", request);
-        using var content = new MemoryStream("abc"u8.ToArray());
-        var error = await Assert.ThrowsAsync<ExtensionRejectedException>(() => foreign.Stage(operation, content));
-        Assert.Equal("staging-broker-not-bound", error.Code);
+        if (!IsPosix) return;
+        using var otherDir = new PlatformScratchDirectory("fsus-stage-other-", restrictMode: true);
+        var (store, grant, original) = OpenStaging();
+        AssertRejected("staging-broker-already-bound", () => store.BindStaging("scratch", otherDir.Info));
+        var foreign = new ExtensionStaging("scratch", otherDir.Info);
+        var request = StageRequest(grant);
+        using var operation = Begin(store, request);
+        using var content = Abc();
+        await AssertRejectedAsync("staging-broker-not-bound", () => foreign.Stage(operation, content));
         Assert.Equal(0, content.Position);
-        Assert.Empty(otherDisk.Root.EnumerateFileSystemInfos());
-        AssertRejected("proposal-scope", () => store.Begin(owner, "fixture.read", "preview", request));
-        using var fresh = store.Begin(owner, "fixture.read", "preview",
-            new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3));
+        Assert.Empty(otherDir.Info.EnumerateFileSystemInfos());
+        AssertRejected("proposal-scope", () => Begin(store, request));
+        using var fresh = BeginStage(store, grant);
         Assert.Equal(Hash("abc"u8.ToArray()), await original.Stage(fresh, content));
     }
 
     [Fact]
     public async Task StageRechecksTheExactInstalledArchiveBeforeIssuingAReceipt()
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
-        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        using var disk = new InstallationDisk();
-        using var stagingDisk = new InstallationDisk();
-        var archive = MakeArchive();
-        using var store = disk.Create(Key(publisher), [Catalog("fixture", archive)], new Clock());
-        store.InstallAndActivate(Source, archive, Sign(publisher, archive), ExtensionPlatform.ServerLinux);
-        var owner = NewOwner();
-        store.SetOwner(owner);
-        var grant = store.RecordConsent(Consent(owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
-        using var operation = store.Begin(owner, "fixture.read", "preview", new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3));
-        using var stream = new AtEndStream(() =>
-        {
-            if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
-            disk.Replace($"{Hash(archive)}.zip", "invalid fixture bytes"u8.ToArray());
-        });
-        var staging = store.BindStaging("scratch", stagingDisk.Root);
-        var failure = await Assert.ThrowsAsync<ExtensionRejectedException>(() => staging.Stage(operation, stream));
-        Assert.Equal("archive-digest", failure.Code);
-        Assert.Empty(stagingDisk.Root.EnumerateFileSystemInfos());
-        AssertRejected("unknown-consent", () => store.Begin(owner, "fixture.read", "preview",
-            new ExtensionProposal.StageFile(Guid.NewGuid(), grant, "scratch", 3)));
+        if (!IsPosix) return;
+        var (store, grant, staging) = OpenStaging();
+        using var operation = BeginStage(store, grant);
+        using var stream = new AtEndStream(() => ReplaceArchive("invalid fixture bytes"u8.ToArray()));
+        await AssertRejectedAsync("archive-digest", () => staging.Stage(operation, stream));
+        AssertStagingEmpty();
+        AssertRejected("unknown-consent", () => BeginStage(store, grant));
         store.Deactivate("fixture.extension");
+    }
+
+    private ExtensionInstallationStore Create(ApprovedExtensionSource[]? sources = null) =>
+        ExtensionInstallationStore.Create(_root.Info, _id, _mac, [_publisherKey], sources ?? [_approved], _clock);
+
+    private ExtensionInstallationStore OpenActive()
+    {
+        var store = Create();
+        Install(store);
+        store.SetOwner(_owner);
+        return store;
+    }
+
+    private ExtensionInstallationStore Open(ExtensionCheckpoint? checkpoint = null) =>
+        ExtensionInstallationStore.Open(_root.Info, _id, _mac, _clock, checkpoint);
+
+    private ExtensionInstallationStore OpenMaintenance(ExtensionCheckpoint checkpoint) =>
+        ExtensionInstallationStore.OpenForMaintenance(_root.Info, _id, _mac, _clock, checkpoint);
+
+    private ExtensionStoreStatus Status() => ExtensionInstallationStore.Inspect(_root.Info, _id, _mac, _clock);
+    private static ExtensionInstallationStatus Single(ExtensionStoreStatus status) => Assert.Single(status.Installations);
+    private void AssertStagingEmpty() => Assert.Empty(StagingDir.EnumerateFileSystemInfos());
+    private void Install(ExtensionInstallationStore store) => store.InstallAndActivate(Source, _archive, _signature, ExtensionPlatform.ServerLinux);
+    private Guid GrantRead(ExtensionInstallationStore store) => store.RecordConsent(Consent(_owner, ExtensionCapability.DocumentRangeRead));
+    private Guid GrantStage(ExtensionInstallationStore store) => store.RecordConsent(Consent(_owner, ExtensionCapability.FileSystemRootProposeWrite, "scratch", 3));
+    private ExtensionAuthority.Operation Begin(ExtensionInstallationStore store, ExtensionProposal proposal) => store.Begin(_owner, "fixture.read", "preview", proposal);
+    private ExtensionAuthority.Operation BeginRead(ExtensionInstallationStore store, Guid grant) => Begin(store, ReadRequest(grant));
+    private ExtensionAuthority.Operation BeginStage(ExtensionInstallationStore store, Guid grant) => Begin(store, StageRequest(grant));
+    private byte[] Read(string name) => File.ReadAllBytes(Path.Combine(_root.FullName, name));
+    private byte[] ReadLedger() => Read("activation.v1");
+    private void Replace(string name, byte[] content) => WriteReadOnly(_root.FullName, name, content);
+    private void ReplaceArchive(byte[] content) => Replace($"{Hash(_archive)}.zip", content);
+
+    private (ExtensionInstallationStore Store, Guid Grant, ExtensionStaging Staging) OpenStaging()
+    {
+        var store = OpenActive();
+        _stores.Add(store);
+        return (store, GrantStage(store), store.BindStaging("scratch", StagingDir));
+    }
+
+    private static MemoryStream Abc() => new("abc"u8.ToArray());
+
+    private static void AssertNotCompleted(ExtensionAuthority.Operation operation, string code)
+    {
+        var executed = false;
+        AssertRejected(code, () => operation.Complete(() => executed = true));
+        Assert.False(executed);
     }
 
     private sealed class AtEndStream(Action atEnd) : MemoryStream("abc"u8.ToArray())
@@ -446,27 +390,6 @@ public sealed class ExtensionInstallationTests
             return base.ReadAsync(buffer, cancellationToken);
         }
     }
-
-    private static ExtensionInstallationStore OpenStagingStore(InstallationDisk disk, ECDsa publisher, out ExtensionOwner owner)
-    {
-        var archive = MakeArchive();
-        var store = disk.Create(Key(publisher), [Catalog("fixture", archive)], new Clock());
-        try
-        {
-            store.InstallAndActivate(Source, archive, Sign(publisher, archive), ExtensionPlatform.ServerLinux);
-            owner = NewOwner();
-            store.SetOwner(owner);
-            return store;
-        }
-        catch
-        {
-            store.Dispose();
-            throw;
-        }
-    }
-
-    private static ExtensionAuthority.Operation BeginRead(ExtensionInstallationStore store, ExtensionOwner owner, Guid grant) =>
-        store.Begin(owner, "fixture.read", "preview", new ExtensionProposal.ReadRange(Guid.NewGuid(), grant, 1, 2));
 
     private sealed class FaultingStream(CancellationTokenSource cancellation) : MemoryStream
     {
@@ -488,48 +411,5 @@ public sealed class ExtensionInstallationTests
             await Resume.Task.WaitAsync(cancellationToken);
             return await base.ReadAsync(buffer, cancellationToken);
         }
-    }
-
-    private sealed class InstallationDisk : IDisposable
-    {
-        private readonly DirectoryInfo _root;
-        private readonly Guid _id = Guid.NewGuid();
-        private readonly byte[] _mac = RandomNumberGenerator.GetBytes(32);
-
-        [UnsupportedOSPlatform("windows")]
-        public InstallationDisk()
-        {
-            _root = Directory.CreateTempSubdirectory("fsus-installed-extension-");
-            if (OperatingSystem.IsMacOS() && _root.FullName.StartsWith("/var/", StringComparison.Ordinal)) _root = new DirectoryInfo("/private" + _root.FullName);
-            File.SetUnixFileMode(_root.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        }
-
-        public ExtensionInstallationStore Create(ExtensionPublisherKey key, ApprovedExtensionSource[] sources, TimeProvider clock) =>
-            ExtensionInstallationStore.Create(_root, _id, _mac, [key], sources, clock);
-
-        public ExtensionInstallationStore Open(TimeProvider clock, ExtensionCheckpoint? checkpoint = null) =>
-            ExtensionInstallationStore.Open(_root, _id, _mac, clock, checkpoint);
-
-        public ExtensionInstallationStore OpenMaintenance(TimeProvider clock, ExtensionCheckpoint checkpoint) =>
-            ExtensionInstallationStore.OpenForMaintenance(_root, _id, _mac, clock, checkpoint);
-
-        public ExtensionStoreStatus Status(TimeProvider clock) => ExtensionInstallationStore.Inspect(_root, _id, _mac, clock);
-
-        public DirectoryInfo Root => _root;
-
-        public byte[] Read(string name) => File.ReadAllBytes(Path.Combine(_root.FullName, name));
-        public byte[] ReadLedger() => Read("activation.v1");
-
-        [UnsupportedOSPlatform("windows")]
-        public void Replace(string name, byte[] content)
-        {
-            var path = Path.Combine(_root.FullName, name);
-            var temporary = path + ".test";
-            File.WriteAllBytes(temporary, content);
-            File.SetUnixFileMode(temporary, UnixFileMode.UserRead);
-            File.Move(temporary, path, overwrite: true);
-        }
-
-        public void Dispose() => _root.Delete(recursive: true);
     }
 }

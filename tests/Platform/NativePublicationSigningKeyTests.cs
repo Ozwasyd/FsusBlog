@@ -1,3 +1,5 @@
+using static FsusBlog.V2.Platform.Tests.PlatformScratchDirectory;
+
 namespace FsusBlog.V2.Platform.Tests;
 
 public sealed class NativePublicationSigningKeyTests
@@ -10,13 +12,10 @@ public sealed class NativePublicationSigningKeyTests
         using var generated = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var other = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var expectedSpki = generated.ExportSubjectPublicKeyInfo();
-        var pkcs8 = generated.ExportPkcs8PrivateKey();
 
-        var keyDir = Directory.CreateDirectory(Path.Combine(scratch.FullName, "keys"));
-        File.SetUnixFileMode(keyDir.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var keyDir = scratch.CreatePrivateSubdirectory("keys");
+        WriteReadOnly(keyDir.FullName, "signing.der", generated.ExportPkcs8PrivateKey());
         var keyFile = Path.Combine(keyDir.FullName, "signing.der");
-        File.WriteAllBytes(keyFile, pkcs8);
-        File.SetUnixFileMode(keyFile, UnixFileMode.UserRead);
 
         using (var opened = NativePublicationSigningKey.Open(keyFile, expectedSpki))
         {
@@ -25,32 +24,20 @@ public sealed class NativePublicationSigningKeyTests
             Assert.True(generated.VerifyData(payload, sig, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
         }
 
-        // Wrong expected public key
-        Assert.Throws<InvalidOperationException>(() => NativePublicationSigningKey.Open(keyFile, other.ExportSubjectPublicKeyInfo()));
-
-        // Relative or non-canonical path
-        Assert.Throws<InvalidOperationException>(() => NativePublicationSigningKey.Open("signing.der", expectedSpki));
-        Assert.Throws<InvalidOperationException>(() => NativePublicationSigningKey.Open(Path.Combine(keyDir.FullName, "..", "keys", "signing.der"), expectedSpki));
-
-        // Symlink file or symlink directory
+        // Wrong expected public key, non-canonical paths, and symlinks
         var linkedFile = Path.Combine(keyDir.FullName, "linked.der");
         File.CreateSymbolicLink(linkedFile, keyFile);
-        Assert.Throws<InvalidOperationException>(() => NativePublicationSigningKey.Open(linkedFile, expectedSpki));
-
         var linkedDir = Path.Combine(scratch.FullName, "linked-keys");
         Directory.CreateSymbolicLink(linkedDir, keyDir.FullName);
-        Assert.Throws<InvalidOperationException>(() => NativePublicationSigningKey.Open(Path.Combine(linkedDir, "signing.der"), expectedSpki));
+        Assert.Throws<InvalidOperationException>(() => NativePublicationSigningKey.Open(keyFile, other.ExportSubjectPublicKeyInfo()));
+        foreach (var badPath in new[] { "signing.der", Path.Combine(keyDir.FullName, "..", "keys", "signing.der"), linkedFile, Path.Combine(linkedDir, "signing.der") })
+            Assert.Throws<InvalidOperationException>(() => NativePublicationSigningKey.Open(badPath, expectedSpki));
 
-        // Permissive file mode (0600)
+        // Permissive file mode (0600) and permissive directory mode (0755)
         File.SetUnixFileMode(keyFile, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         Assert.Throws<InvalidOperationException>(() => NativePublicationSigningKey.Open(keyFile, expectedSpki));
         File.SetUnixFileMode(keyFile, UnixFileMode.UserRead);
-
-        // Permissive directory mode (0755)
-        File.SetUnixFileMode(keyDir.FullName,
-            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
-            UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
-            UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        File.SetUnixFileMode(keyDir.FullName, Mode0700 | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
         Assert.Throws<InvalidOperationException>(() => NativePublicationSigningKey.Open(keyFile, expectedSpki));
     }
 }

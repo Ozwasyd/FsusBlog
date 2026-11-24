@@ -1,17 +1,19 @@
 using FsusBlog.V2.Tests;
 using static FsusBlog.V2.Tests.AppearancePackageStore;
 
-public sealed class AppearanceRegistryTests
+public sealed class AppearanceRegistryTests : IDisposable
 {
+    private readonly AppearanceMemoryStore _store = new();
+    private readonly ECDsa _signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+    private readonly TestClock _clock = new();
+
+    public void Dispose() => _signer.Dispose();
+
     [Fact]
     public void SignedThemeIsImmutableAndKnownKeyExpiryLatchesAcrossClockRollback()
     {
-        var store = new AppearanceMemoryStore();
-        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var clock = new TestClock();
-        var source = store.Add(signer, Theme(), "summer");
-        store.Configure(signer, [source], "summer", Now.AddSeconds(1));
-        var registry = AppearanceRegistry.Load(store.Read, clock);
+        Configure(Theme(), "summer", activeTheme: "summer", cutoff: Now.AddSeconds(1));
+        var registry = Load();
         var digest = Assert.IsType<string>(registry.StyleDigest);
         var style = Assert.IsType<byte[]>(registry.ReadStyle(digest));
         Assert.Equal(Hash(style), digest);
@@ -19,9 +21,9 @@ public sealed class AppearanceRegistryTests
         style[0] ^= 0xff;
         Assert.Equal(digest, Hash(registry.ReadStyle(digest)!));
         Assert.Null(registry.ReadStyle(new string('0', 64)));
-        clock.Now = Now.AddSeconds(1);
+        _clock.Now = Now.AddSeconds(1);
         Assert.Null(registry.ReadStyle(digest));
-        clock.Now = Now;
+        _clock.Now = Now;
         Assert.Null(registry.ReadStyle(digest));
     }
 
@@ -32,38 +34,27 @@ public sealed class AppearanceRegistryTests
     [InlineData("#225533", "appearance-entry-shape", "manifest.json", true)]
     public void MalformedSignedThemesCannotIntroduceStylesheetContent(string color, string expected, string? member = null, bool link = false)
     {
-        var store = new AppearanceMemoryStore();
-        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var source = store.Add(signer, Theme(color, member, link), "summer");
-        store.Configure(signer, [source], "summer");
-        Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, new TestClock())).Code);
+        Configure(Theme(color, member, link), "summer", activeTheme: "summer");
+        AssertLoadRejected(expected);
     }
 
     [Fact]
     public void ActivationAndApprovedSignerComeFromTheHostConfiguration()
     {
-        var store = new AppearanceMemoryStore();
-        using var original = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var wrong = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var source = store.Add(original, Theme(), "summer");
-        store.Configure(original, [source], null);
-        var clock = new TestClock();
-        Assert.Null(AppearanceRegistry.Load(store.Read, clock).StyleDigest);
-        store.Configure(wrong, [source], "summer");
-        Assert.Equal("archive-signature", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, clock)).Code);
-        store.Configure(original, [source], "winter");
-        Assert.Equal("appearance-active-reference", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, clock)).Code);
+        var source = Configure(Theme(), "summer");
+        Assert.Null(Load().StyleDigest);
+        _store.Configure(wrong, [source], "summer");
+        AssertLoadRejected("archive-signature");
+        _store.Configure(_signer, [source], "winter");
+        AssertLoadRejected("appearance-active-reference");
     }
 
     [Fact]
     public void OnlineSelectionUsesThePublishedArchiveDigestAndNeverRevivesAnExpiredSelection()
     {
-        var store = new AppearanceMemoryStore();
-        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var source = store.Add(signer, Theme(), "summer");
-        store.Configure(signer, [source], null);
-        var clock = new TestClock();
-        var registry = AppearanceRegistry.Load(store.Read, clock);
+        var source = Configure(Theme(), "summer");
+        var registry = Load();
         var option = Assert.Single(registry.Available());
         Assert.Equal(new AppearancePackage("summer", "1.0", source.ArchiveSha256, false), option);
         Assert.Null(registry.FontDetail(option.ArchiveDigest));
@@ -72,9 +63,9 @@ public sealed class AppearanceRegistryTests
         var selection = new AppearanceSelection(option.ArchiveDigest);
         Assert.Contains("#225533", Encoding.UTF8.GetString(registry.SelectedStyle(selection, 1)!));
         Assert.Null(registry.SelectedStyle(new AppearanceSelection(FontDigest: option.ArchiveDigest), 1));
-        clock.Now = Now.AddHours(2);
+        _clock.Now = Now.AddHours(2);
         Assert.Null(registry.SelectedStyle(selection, 1));
-        clock.Now = Now;
+        _clock.Now = Now;
         Assert.False(registry.IsCurrent(selection));
         Assert.Empty(registry.Available());
         Assert.True(registry.IsCurrent(registry.Default));
@@ -83,29 +74,24 @@ public sealed class AppearanceRegistryTests
     [Fact]
     public void LegacyFontUsesApprovedArchiveAndExactFaceBytes()
     {
-        var store = new AppearanceMemoryStore();
-        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var font = LegacyFontBytes();
-        var descriptor = store.Add(signer, LegacyFont(font), "legacy", "fsfont-v1");
-        store.Configure(signer, [descriptor], null, activeFont: "fsusblog.font.fixture");
-        var clock = new TestClock();
-        var registry = AppearanceRegistry.Load(store.Read, clock);
-        var listed = Assert.Single(registry.Available());
-        Assert.Equal(new AppearancePackage("fsusblog.font.fixture", "1.0.0", descriptor.ArchiveSha256, true), listed);
+        var descriptor = Configure(LegacyFont(font), "legacy", "fsfont-v1", activeFont: "fsusblog.font.fixture");
+        var registry = Load();
+        Assert.Equal(new AppearancePackage("fsusblog.font.fixture", "1.0.0", descriptor.ArchiveSha256, true), Assert.Single(registry.Available()));
         Assert.Equal(font, registry.ReadFont(Hash(font)));
         Assert.Equal(new AppearanceFontDetail("fsusblog.font.fixture", "1.0.0", descriptor.ArchiveSha256, "Fixture Sans", "Fixture Sans",
             "OFL-1.1", "Fixture license.", 400, "normal", Hash(font), font.Length, "U+0000-00FF",
             new("npm-fontsource", "@fontsource/google-sans", "5.2.1", "Google Fonts")), registry.FontDetail(descriptor.ArchiveSha256));
         Assert.Null(registry.FontDetail(Hash(font)));
-        var style = Assert.IsType<byte[]>(registry.SelectedStyle(registry.Default, 7));
-        Assert.Contains("unicode-range:U+0000-00FF", Encoding.UTF8.GetString(style));
-        Assert.Contains("/font/7/" + Hash(font), Encoding.UTF8.GetString(style));
+        var css = Encoding.UTF8.GetString(Assert.IsType<byte[]>(registry.SelectedStyle(registry.Default, 7)));
+        Assert.Contains("unicode-range:U+0000-00FF", css);
+        Assert.Contains("/font/7/" + Hash(font), css);
 
-        store.Tamper(descriptor.ArchiveSha256 + ".fsfont");
-        Assert.Equal("archive-digest", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, clock)).Code);
-        clock.Now = Now.AddHours(2);
+        _store.Tamper(descriptor.ArchiveSha256 + ".fsfont");
+        AssertLoadRejected("archive-digest");
+        _clock.Now = Now.AddHours(2);
         Assert.Null(registry.FontDetail(descriptor.ArchiveSha256));
-        clock.Now = Now;
+        _clock.Now = Now;
         Assert.Null(registry.FontDetail(descriptor.ArchiveSha256));
     }
 
@@ -123,24 +109,17 @@ public sealed class AppearanceRegistryTests
     [InlineData("budget", "appearance-entry-size")]
     public void SignedLegacyFontRejectsUnsupportedOrMismatchedContents(string variation, string expected)
     {
-        var store = new AppearanceMemoryStore();
-        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var source = store.Add(signer, LegacyFont(LegacyFontBytes(), variation), "legacy", "fsfont-v1");
-        store.Configure(signer, [source], null);
-        Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, new TestClock())).Code);
+        Configure(LegacyFont(LegacyFontBytes(), variation), "legacy", "fsfont-v1");
+        AssertLoadRejected(expected);
     }
 
     [Fact]
     public void SignedLegacyPaletteKeepsTheOriginalArchiveCoordinateAndEmitsTheSameV2Tokens()
     {
-        var store = new AppearanceMemoryStore();
-        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var differentSigner = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var archive = LegacyTheme();
-        var source = store.Add(signer, archive, "legacy-theme", "fstheme-v1-palette");
-        var clock = new TestClock();
-        store.Configure(signer, [source], null);
-        var registry = AppearanceRegistry.Load(store.Read, clock);
+        var source = Configure(archive, "legacy-theme", "fstheme-v1-palette");
+        var registry = Load();
         Assert.Null(registry.StyleDigest);
         var choice = Assert.Single(registry.Available());
         Assert.Equal(new AppearancePackage("fsusblog.theme.fixture", "1.0.0", Hash(archive), false), choice);
@@ -150,12 +129,12 @@ public sealed class AppearanceRegistryTests
         Assert.Contains("html:root.dark{--fsus-color-action-primary:#eecc99;--fsus-color-action-primary-hover:#ffddcc}", css);
         Assert.DoesNotContain("data-theme", css);
         Assert.DoesNotContain("preview", css);
-        clock.Now = Now.AddHours(1);
+        _clock.Now = Now.AddHours(1);
         Assert.Null(registry.SelectedStyle(selection, 1));
-        clock.Now = Now;
+        _clock.Now = Now;
         Assert.False(registry.IsCurrent(selection));
-        store.Configure(differentSigner, [source], null);
-        Assert.Equal("archive-signature", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, clock)).Code);
+        _store.Configure(differentSigner, [source], null);
+        AssertLoadRejected("archive-signature");
     }
 
     [Theory]
@@ -171,12 +150,19 @@ public sealed class AppearanceRegistryTests
     [InlineData("contrast", "appearance-palette-contrast")]
     public void SignedLegacyPaletteRejectsUnsupportedThemeSemantics(string variation, string expected)
     {
-        var store = new AppearanceMemoryStore();
-        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        var source = store.Add(signer, LegacyTheme(variation), "legacy-theme", "fstheme-v1-palette");
-        store.Configure(signer, [source], null);
-        Assert.Equal(expected, Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(store.Read, new TestClock())).Code);
+        Configure(LegacyTheme(variation), "legacy-theme", "fstheme-v1-palette");
+        AssertLoadRejected(expected);
     }
+
+    private Descriptor Configure(byte[] archive, string id, string? format = null, string? activeTheme = null, DateTimeOffset? cutoff = null, string? activeFont = null)
+    {
+        var descriptor = _store.Add(_signer, archive, id, format);
+        _store.Configure(_signer, [descriptor], activeTheme, cutoff, activeFont);
+        return descriptor;
+    }
+
+    private AppearanceRegistry Load() => AppearanceRegistry.Load(_store.Read, _clock);
+    private void AssertLoadRejected(string code) => SignedExtensionFixture.AssertRejected(code, () => Load());
 
     private static byte[] LegacyTheme(string variation = "")
     {
@@ -197,46 +183,38 @@ public sealed class AppearanceRegistryTests
             :root[data-theme="{{id}}"] { --fsus-color-action-primary: #663322; --fsus-color-action-primary-hover: #774433; }
             :root[data-theme="{{id}}"][data-color-scheme="dark"] { --fsus-color-action-primary: #eecc99; --fsus-color-action-primary-hover: #ffddcc; }
             """;
-        tokens = variation switch
+        var replacement = variation switch
         {
-            "wrong-scope" => tokens.Replace("[data-color-scheme=\"dark\"]", "[data-color-scheme=\"light\"]", StringComparison.Ordinal),
-            "unknown-role" => tokens.Replace("--fsus-color-action-primary:", "--fsus-color-action-primary-bg:", StringComparison.Ordinal),
-            "duplicate" => tokens.Replace("#663322;", "#663322; --fsus-color-action-primary:#123443;", StringComparison.Ordinal),
-            "css-url" => tokens.Replace("#663322;", "url(https://untrusted.invalid);", StringComparison.Ordinal),
-            "contrast" => tokens.Replace("#663322;", "#aaaaff;", StringComparison.Ordinal),
-            _ => tokens
+            "wrong-scope" => ("[data-color-scheme=\"dark\"]", "[data-color-scheme=\"light\"]"),
+            "unknown-role" => ("--fsus-color-action-primary:", "--fsus-color-action-primary-bg:"),
+            "duplicate" => ("#663322;", "#663322; --fsus-color-action-primary:#123443;"),
+            "css-url" => ("#663322;", "url(https://untrusted.invalid);"),
+            "contrast" => ("#663322;", "#aaaaff;"),
+            _ => default((string Old, string New)?)
         };
+        if (replacement is var (oldText, newText)) tokens = tokens.Replace(oldText, newText, StringComparison.Ordinal);
         var style = minimalInk ? $$"""[data-theme="{{id}}"] .fsus-theme-scope { background: var(--fsus-color-page-bg); }"""
             : variation == "theme-css" ? "@import url('unsafe');" : "\n";
         var properties = minimalInk ? "\"fontScale\":{\"type\":\"number\"},\"showAuthor\":{\"type\":\"boolean\"}"
             : variation == "configuration" ? "\"fontScale\":{\"type\":\"number\"}" : "";
         const string pixel = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNoAAAAggCBd81ytgAAAABJRU5ErkJggg==";
-        using var output = new MemoryStream();
-        using (var zip = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            Write("manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest));
-            Write("styles/tokens.css", Encoding.UTF8.GetBytes(tokens));
-            Write("styles/theme.css", Encoding.UTF8.GetBytes(style));
-            Write("assets/preview.png", minimalInk ? [0x89, 0x50, 0x4e, 0x47] : Convert.FromBase64String(pixel));
-            Write("config/schema.json", Encoding.UTF8.GetBytes($$$"""
-                {"type":"object","additionalProperties":false,"properties":{ {{{properties}}} }}
-                """));
-            if (variation == "extra-asset") Write("docs/README.md", "extra"u8);
-
-            void Write(string name, ReadOnlySpan<byte> content)
-            {
-                using var stream = zip.CreateEntry(name).Open();
-                stream.Write(content);
-            }
-        }
-        return output.ToArray();
+        List<(string, byte[], bool)> entries =
+        [
+            ("manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest), false),
+            ("styles/tokens.css", Encoding.UTF8.GetBytes(tokens), false),
+            ("styles/theme.css", Encoding.UTF8.GetBytes(style), false),
+            ("assets/preview.png", minimalInk ? [0x89, 0x50, 0x4e, 0x47] : Convert.FromBase64String(pixel), false),
+            ("config/schema.json", Encoding.UTF8.GetBytes($$$"""{"type":"object","additionalProperties":false,"properties":{ {{{properties}}} }}"""), false),
+        ];
+        if (variation == "extra-asset") entries.Add(("docs/README.md", "extra"u8.ToArray(), false));
+        return MakeZip([.. entries]);
     }
 
     private static byte[] LegacyFontBytes()
     {
         var bytes = new byte[48];
         "wOF2"u8.CopyTo(bytes);
-        bytes[5] = 1;  // SFNT flavor 0x00010000.
+        bytes[5] = 1;
         bytes[11] = 48;
         bytes[13] = 1;
         return bytes;
@@ -258,32 +236,22 @@ public sealed class AppearanceRegistryTests
             source, budgets = new { criticalBytes = 0, totalBytes = variation == "budget" ? 4 : 1_048_576, maxFaces = 1 },
             loading = new { display = "swap", preload = variation == "preload" ? new[] { "400" } : [], defer = Array.Empty<string>() }
         };
-        using var output = new MemoryStream();
-        using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            if (variation != "extra") Add("fonts/", []);
-            Add("license/", []);
-            Add("manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest));
-            Add("license/LICENSE.txt", "Fixture license."u8);
-            Add("license/source.json", JsonSerializer.SerializeToUtf8Bytes(variation == "source" ? source with { upstream = "Other" } : source));
-            Add(path, font, link: variation == "link");
-            if (variation == "extra") Add("fonts/other.woff2", []);
-
-            void Add(string name, ReadOnlySpan<byte> bytes, bool link = false)
-            {
-                var entry = archive.CreateEntry(name);
-                if (link) entry.ExternalAttributes = unchecked((int)0xa1ff0000);
-                using var stream = entry.Open();
-                stream.Write(bytes);
-            }
-        }
-        return output.ToArray();
+        List<(string, byte[], bool)> entries =
+        [
+            ("license/", [], false),
+            ("manifest.json", JsonSerializer.SerializeToUtf8Bytes(manifest), false),
+            ("license/LICENSE.txt", "Fixture license."u8.ToArray(), false),
+            ("license/source.json", JsonSerializer.SerializeToUtf8Bytes(variation == "source" ? source with { upstream = "Other" } : source), false),
+            (path, font, variation == "link"),
+        ];
+        if (variation != "extra") entries.Insert(0, ("fonts/", [], false));
+        else entries.Add(("fonts/other.woff2", [], false));
+        return MakeZip([.. entries]);
     }
 
     private sealed class AppearanceMemoryStore : AppearancePackageStore
     {
         private readonly Dictionary<string, byte[]> _files = new(StringComparer.Ordinal);
-
         protected override void Put(string name, byte[] bytes) => _files[name] = bytes.ToArray();
 
         internal void Tamper(string name)
