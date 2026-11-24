@@ -1,8 +1,7 @@
-import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
-import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
+import { encodeFrame, ProtocolError } from './aeds.ts';
+import { proveAndSubmitAdminPow } from './admin-step-up.ts';
 import { PodReader } from './binary.ts';
 import { request } from './client.ts';
-import { requestWithScopedPow } from './pow.ts';
 import { decodeAdminAppearanceFontDetail, decodeAdminAppearanceState, encodeAdminAppearanceCommand, FrameType, WireLimits, WireRoutes,
   type AdminAppearanceCommand } from './wire.generated.ts';
 
@@ -108,19 +107,11 @@ export function decodeAppearanceHistory(payload: Uint8Array, before?: bigint,
   return { nextBefore: nextBefore || null, items };
 }
 
-export async function applyAppearance(input: AdminAppearanceCommand, signal: AbortSignal) {
-  const frame = encodeFrame(FrameType.AdminAppearanceCommand, encodeAdminAppearanceCommand(input));
-  const proof = await proveAdminStepUp({
+export function applyAppearance(input: AdminAppearanceCommand, signal: AbortSignal) {
+  return proveAndSubmitAdminPow({
     begin: WireRoutes.AdminAppearanceStepUpBegin,
     complete: WireRoutes.AdminAppearanceStepUpComplete,
-  }, frame, signal);
-  await requestWithScopedPow({
-    challengePath: WireRoutes.AdminAppearancePow,
-    submitPath: WireRoutes.AdminAppearanceApply,
-    expected: FrameType.EmptySuccess,
-    decode: decodeSuccess,
-    body: frame,
-    signal,
-    submitHeaders: adminProofHeaders(proof),
-  });
+    pow: WireRoutes.AdminAppearancePow,
+    submit: WireRoutes.AdminAppearanceApply,
+  }, encodeFrame(FrameType.AdminAppearanceCommand, encodeAdminAppearanceCommand(input)), signal);
 }

@@ -279,9 +279,9 @@ export function compileSchema(schema) {
     let layout = `${camel(name)}Fields`;
     if (fields.length === 1 && !Array.isArray(fields[0])) layout = groupName(fields[0]);
     else declarations.push(`const ${layout} = {`, ...members, '};');
-    return [...declarations, `export interface ${name} extends PodValue<typeof ${layout}> {}`,
-      embedded ? `const ${camel(name)}Field = /* @__PURE__ */ podField.record<${name}>(${layout});` :
-        `export const [encode${name}, decode${name}] = /* @__PURE__ */ definePodRecord<${name}>(${layout});`, ''];
+    return [...declarations, `export type ${name} = PodValue<typeof ${layout}>;`,
+      embedded ? `const ${camel(name)}Field = /* @__PURE__ */ podField.record(${layout});` :
+        `export const [encode${name}, decode${name}] = /* @__PURE__ */ definePodRecord(${layout});`, ''];
   }
 
   const ts = [notice,

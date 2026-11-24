@@ -1,7 +1,6 @@
-import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
-import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
+import { encodeFrame, ProtocolError } from './aeds.ts';
+import { proveAndSubmitAdminPow } from './admin-step-up.ts';
 import { request } from './client.ts';
-import { requestWithScopedPow } from './pow.ts';
 import {
   decodeAdminSiteConfigState,
   encodeAdminSiteConfigCommand,
@@ -104,23 +103,14 @@ export function readAdminSiteConfig(signal: AbortSignal): Promise<AdminSiteConfi
   }, signal);
 }
 
-export async function saveAdminSiteConfig(command: AdminSiteConfigCommand, signal: AbortSignal): Promise<void> {
+export function saveAdminSiteConfig(command: AdminSiteConfigCommand, signal: AbortSignal): Promise<void> {
   if (command.expectedRevision < 0n || !hexDigestPattern.test(command.expectedDigest) ||
       (command.regionMode !== 'global' && command.regionMode !== 'mainland-cn'))
     throw new ProtocolError('Invalid administrator site configuration command');
-  const frame = encodeFrame(FrameType.AdminSiteConfigCommand, encodeAdminSiteConfigCommand(command));
-  const passkey = await proveAdminStepUp({
+  return proveAndSubmitAdminPow({
     begin: WireRoutes.AdminSiteConfigStepUpBegin,
     complete: WireRoutes.AdminSiteConfigStepUpComplete,
-  }, frame, signal);
-
-  await requestWithScopedPow({
-    challengePath: WireRoutes.AdminSiteConfigPow,
-    submitPath: WireRoutes.AdminSiteConfigSave,
-    expected: FrameType.EmptySuccess,
-    decode: decodeSuccess,
-    body: frame,
-    signal,
-    submitHeaders: adminProofHeaders(passkey),
-  });
+    pow: WireRoutes.AdminSiteConfigPow,
+    submit: WireRoutes.AdminSiteConfigSave,
+  }, encodeFrame(FrameType.AdminSiteConfigCommand, encodeAdminSiteConfigCommand(command)), signal);
 }
