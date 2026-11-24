@@ -25,7 +25,8 @@ enum class token_kind : std::uint8_t {
   rparen = 7,
   underscore = 8,
   caret = 9,
-  end = 10
+  end = 10,
+  invalid = 11
 };
 
 struct token final {
@@ -70,9 +71,15 @@ public:
       case '/':
       case '<':
       case '>':
+      case ',':
+      case ':':
+      case ';':
+      case '[':
+      case ']':
+      case '|':
         return { token_kind::op, std::string(1, ch) };
       default:
-        return { token_kind::end, {} };
+        return { token_kind::invalid, {} };
     }
   }
 
@@ -95,12 +102,19 @@ private:
 
   [[nodiscard]] token consume_command() {
     ++index_;
+    if (index_ >= source_.size()) {
+      return { token_kind::invalid, {} };
+    }
     const std::size_t start = index_;
     while (index_ < source_.size() && std::isalpha(static_cast<unsigned char>(source_[index_])) != 0) {
       ++index_;
     }
     if (start == index_) {
-      return { token_kind::end, {} };
+      const char sym = source_[index_++];
+      if (sym == ',' || sym == ':' || sym == ';' || sym == '!' || sym == ' ') {
+        return { token_kind::command, std::string(1, sym) };
+      }
+      return { token_kind::invalid, {} };
     }
     return { token_kind::command, std::string(source_.substr(start, index_ - start)) };
   }
@@ -270,6 +284,22 @@ private:
       return "<msqrt>" + content + "</msqrt>";
     }
 
+    if (name == ",") {
+      return "<mspace width=\"0.167em\"></mspace>";
+    }
+    if (name == ":") {
+      return "<mspace width=\"0.222em\"></mspace>";
+    }
+    if (name == ";") {
+      return "<mspace width=\"0.278em\"></mspace>";
+    }
+    if (name == "!") {
+      return "<mspace width=\"-0.167em\"></mspace>";
+    }
+    if (name == " ") {
+      return "<mspace width=\"0.25em\"></mspace>";
+    }
+
     const auto command_operator = command_operators().find(name);
     if (command_operator != command_operators().end()) {
       return "<mo>" + command_operator->second + "</mo>";
@@ -298,6 +328,7 @@ private:
       advance();
       std::string value = parse_script_atom();
       if (!ok_ || value.empty()) {
+        ok_ = false;
         return {};
       }
       if (script_kind == token_kind::underscore) {
