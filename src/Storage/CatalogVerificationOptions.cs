@@ -51,59 +51,17 @@ internal sealed record CatalogVerificationOptions
         }
     };
 
-    internal CoreCatalogOptions Core
-    {
-        get;
-        init => field = value ?? throw new ArgumentNullException(nameof(Core));
-    } = CoreCatalogOptions.Default;
+    private static T Require<T>(T value, string name) => value ?? throw new ArgumentNullException(name);
 
-    internal SiteCatalogOptions Site
-    {
-        get;
-        init => field = value ?? throw new ArgumentNullException(nameof(Site));
-    } = SiteCatalogOptions.Default;
-
-    internal AdminInboxCatalogOptions AdminInbox
-    {
-        get;
-        init => field = value ?? throw new ArgumentNullException(nameof(AdminInbox));
-    } = AdminInboxCatalogOptions.Default;
-
-    internal AdminContentCatalogOptions AdminContent
-    {
-        get;
-        init => field = value ?? throw new ArgumentNullException(nameof(AdminContent));
-    } = AdminContentCatalogOptions.Default;
-
-    internal CommentCatalogOptions Comments
-    {
-        get;
-        init => field = value ?? throw new ArgumentNullException(nameof(Comments));
-    } = CommentCatalogOptions.Default;
-
-    internal AuthoringCatalogOptions Authoring
-    {
-        get;
-        init => field = value ?? throw new ArgumentNullException(nameof(Authoring));
-    } = AuthoringCatalogOptions.Default;
-
-    internal AuthorTextCatalogOptions AuthorText
-    {
-        get;
-        init => field = value ?? throw new ArgumentNullException(nameof(AuthorText));
-    } = AuthorTextCatalogOptions.Default;
-
-    internal MediaCatalogOptions Media
-    {
-        get;
-        init => field = value ?? throw new ArgumentNullException(nameof(Media));
-    } = MediaCatalogOptions.Default;
-
-    internal PublicationCatalogOptions Publication
-    {
-        get;
-        init => field = value ?? throw new ArgumentNullException(nameof(Publication));
-    } = PublicationCatalogOptions.Default;
+    internal CoreCatalogOptions Core { get; init => field = Require(value, nameof(Core)); } = CoreCatalogOptions.Default;
+    internal SiteCatalogOptions Site { get; init => field = Require(value, nameof(Site)); } = SiteCatalogOptions.Default;
+    internal AdminInboxCatalogOptions AdminInbox { get; init => field = Require(value, nameof(AdminInbox)); } = AdminInboxCatalogOptions.Default;
+    internal AdminContentCatalogOptions AdminContent { get; init => field = Require(value, nameof(AdminContent)); } = AdminContentCatalogOptions.Default;
+    internal CommentCatalogOptions Comments { get; init => field = Require(value, nameof(Comments)); } = CommentCatalogOptions.Default;
+    internal AuthoringCatalogOptions Authoring { get; init => field = Require(value, nameof(Authoring)); } = AuthoringCatalogOptions.Default;
+    internal AuthorTextCatalogOptions AuthorText { get; init => field = Require(value, nameof(AuthorText)); } = AuthorTextCatalogOptions.Default;
+    internal MediaCatalogOptions Media { get; init => field = Require(value, nameof(Media)); } = MediaCatalogOptions.Default;
+    internal PublicationCatalogOptions Publication { get; init => field = Require(value, nameof(Publication)); } = PublicationCatalogOptions.Default;
 }
 
 internal sealed record CoreCatalogOptions

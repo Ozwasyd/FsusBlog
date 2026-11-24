@@ -74,20 +74,12 @@ internal static partial class CurrentSchema
             await protect.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        await using (var role = new NpgsqlCommand("SHOW session_replication_role", connection, transaction))
-        {
-            if (await role.ExecuteScalarAsync(cancellationToken) is not "origin")
-            {
-                throw new InvalidOperationException("The PostgreSQL session must enforce local integrity triggers.");
-            }
-        }
+        if (await ScalarAsync(connection, transaction, cancellationToken, "SHOW session_replication_role") is not "origin")
+            throw new InvalidOperationException("The PostgreSQL session must enforce local integrity triggers.");
 
-        await using (var import = new NpgsqlCommand(
-            "SELECT EXISTS (SELECT FROM pg_catalog.pg_namespace WHERE nspname='fsus_legacy_candidate')", connection, transaction))
-        {
-            if (await import.ExecuteScalarAsync(cancellationToken) is true)
-                throw new InvalidOperationException("The database is an isolated legacy import candidate and cannot serve.");
-        }
+        if (await ScalarAsync(connection, transaction, cancellationToken,
+                "SELECT EXISTS (SELECT FROM pg_catalog.pg_namespace WHERE nspname='fsus_legacy_candidate')") is true)
+            throw new InvalidOperationException("The database is an isolated legacy import candidate and cannot serve.");
 
         var webpMedia = await VerifyCatalogAsync(connection, transaction, cancellationToken,
             CatalogVerificationOptions.FromAdmission(admission));
