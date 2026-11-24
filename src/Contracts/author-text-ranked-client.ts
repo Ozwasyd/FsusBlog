@@ -15,76 +15,36 @@ import {
 } from './author-text-search.ts';
 import { FrameType, WireRoutes } from './wire.generated.ts';
 
-export function authorTextRankedSearch(
-  input: AuthorTextRankedQuery, session: string, signal: AbortSignal,
-): Promise<AuthorTextRankedPage> {
-  return sessionPost(WireRoutes.AuthorTextSearch, FrameType.AuthorTextRankedPage, decodeAuthorTextRankedPage, signal,
-    encodeAuthorTextRankedQuery(input), session);
+function authorTextPost<Input, Output>(
+  expected: FrameType,
+  encode: (input: Input) => Uint8Array<ArrayBuffer>,
+  decode: (payload: Uint8Array, input: Input) => Output,
+) {
+  return (input: Input, session: string, signal: AbortSignal): Promise<Output> =>
+    sessionPost(WireRoutes.AuthorTextSearch, expected, payload => decode(payload, input), signal, encode(input), session);
 }
 
-export function authorTextFacetedSearch(
-  input: AuthorTextRankedQuery, session: string, signal: AbortSignal,
-): Promise<AuthorTextFacetedPage> {
-  return sessionPost(WireRoutes.AuthorTextSearch, FrameType.AuthorTextFacetedPage, decodeAuthorTextFacetedPage, signal,
-    encodeAuthorTextFacetedQuery(input), session);
-}
-
-export function authorTextQualifiedSearch(
-  input: AuthorTextQualifiedQuery, session: string, signal: AbortSignal,
-): Promise<AuthorTextFacetedPage> {
-  return sessionPost(WireRoutes.AuthorTextSearch, FrameType.AuthorTextFacetedPage, decodeAuthorTextFacetedPage, signal,
-    encodeAuthorTextQualifiedQuery(input), session);
-}
-
-export function authorTextSummarySearch(
-  input: AuthorTextQualifiedQuery, session: string, signal: AbortSignal,
-): Promise<AuthorTextFacetedPage> {
-  return sessionPost(WireRoutes.AuthorTextSearch, FrameType.AuthorTextSummaryPage, decodeAuthorTextSummaryPage, signal,
-    encodeAuthorTextSummaryQuery(input), session);
-}
-
-export function authorTextHeadingSearch(
-  input: AuthorTextQualifiedQuery, session: string, signal: AbortSignal,
-): Promise<AuthorTextFacetedPage> {
-  return sessionPost(WireRoutes.AuthorTextSearch, FrameType.AuthorTextHeadingPage, decodeAuthorTextHeadingPage, signal,
-    encodeAuthorTextHeadingQuery(input), session);
-}
-
-export function authorTextPropertyFacetSearch(
-  input: AuthorTextPropertyFacetQuery, session: string, signal: AbortSignal,
-): Promise<AuthorTextPropertyFacetPage> {
-  return sessionPost(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertyFacetPage,
-    payload => decodeAuthorTextPropertyFacetPage(payload, input.includeHeading), signal,
-    encodeAuthorTextPropertyFacetQuery(input), session);
-}
-
-export function authorTextPropertySortSearch(
-  input: AuthorTextPropertySortQuery, session: string, signal: AbortSignal,
-): Promise<AuthorTextPropertySortPage> {
-  return sessionPost(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertySortPage,
-    payload => decodeAuthorTextPropertySortPage(payload, input.includeHeading, input.facet !== null), signal,
-    encodeAuthorTextPropertySortQuery(input), session);
-}
-
-export function authorTextPropertyTextSearch(
-  input: AuthorTextPropertyTextQuery, session: string, signal: AbortSignal,
-): Promise<AuthorTextFacetedPage> {
-  return sessionPost(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertyTextPage, decodeAuthorTextPropertyTextPage,
-    signal, encodeAuthorTextPropertyTextQuery(input), session);
-}
-
-export function authorTextPropertyTextQualifiedSearch(
-  input: AuthorTextPropertyTextQualifiedQuery, session: string, signal: AbortSignal,
-): Promise<AuthorTextPropertySortPage> {
-  return sessionPost(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertyTextQualifiedPage,
-    payload => decodeAuthorTextPropertyTextQualifiedPage(payload, input.facet !== null), signal,
-    encodeAuthorTextPropertyTextQualifiedQuery(input), session);
-}
-
-export function authorTextPropertyTextMixedSearch(
-  input: AuthorTextPropertyTextMixedQuery, session: string, signal: AbortSignal,
-): Promise<AuthorTextPropertySortPage> {
-  return sessionPost(WireRoutes.AuthorTextSearch, FrameType.AuthorTextPropertyTextMixedPage,
-    payload => decodeAuthorTextPropertyTextMixedPage(payload, input.includeHeading, input.facet !== null), signal,
-    encodeAuthorTextPropertyTextMixedQuery(input), session);
-}
+export const authorTextRankedSearch = authorTextPost<AuthorTextRankedQuery, AuthorTextRankedPage>(
+  FrameType.AuthorTextRankedPage, encodeAuthorTextRankedQuery, decodeAuthorTextRankedPage);
+export const authorTextFacetedSearch = authorTextPost<AuthorTextRankedQuery, AuthorTextFacetedPage>(
+  FrameType.AuthorTextFacetedPage, encodeAuthorTextFacetedQuery, decodeAuthorTextFacetedPage);
+export const authorTextQualifiedSearch = authorTextPost<AuthorTextQualifiedQuery, AuthorTextFacetedPage>(
+  FrameType.AuthorTextFacetedPage, encodeAuthorTextQualifiedQuery, decodeAuthorTextFacetedPage);
+export const authorTextSummarySearch = authorTextPost<AuthorTextQualifiedQuery, AuthorTextFacetedPage>(
+  FrameType.AuthorTextSummaryPage, encodeAuthorTextSummaryQuery, decodeAuthorTextSummaryPage);
+export const authorTextHeadingSearch = authorTextPost<AuthorTextQualifiedQuery, AuthorTextFacetedPage>(
+  FrameType.AuthorTextHeadingPage, encodeAuthorTextHeadingQuery, decodeAuthorTextHeadingPage);
+export const authorTextPropertyFacetSearch = authorTextPost<AuthorTextPropertyFacetQuery, AuthorTextPropertyFacetPage>(
+  FrameType.AuthorTextPropertyFacetPage, encodeAuthorTextPropertyFacetQuery,
+  (payload, input) => decodeAuthorTextPropertyFacetPage(payload, input.includeHeading));
+export const authorTextPropertySortSearch = authorTextPost<AuthorTextPropertySortQuery, AuthorTextPropertySortPage>(
+  FrameType.AuthorTextPropertySortPage, encodeAuthorTextPropertySortQuery,
+  (payload, input) => decodeAuthorTextPropertySortPage(payload, input.includeHeading, input.facet !== null));
+export const authorTextPropertyTextSearch = authorTextPost<AuthorTextPropertyTextQuery, AuthorTextFacetedPage>(
+  FrameType.AuthorTextPropertyTextPage, encodeAuthorTextPropertyTextQuery, decodeAuthorTextPropertyTextPage);
+export const authorTextPropertyTextQualifiedSearch = authorTextPost<AuthorTextPropertyTextQualifiedQuery, AuthorTextPropertySortPage>(
+  FrameType.AuthorTextPropertyTextQualifiedPage, encodeAuthorTextPropertyTextQualifiedQuery,
+  (payload, input) => decodeAuthorTextPropertyTextQualifiedPage(payload, input.facet !== null));
+export const authorTextPropertyTextMixedSearch = authorTextPost<AuthorTextPropertyTextMixedQuery, AuthorTextPropertySortPage>(
+  FrameType.AuthorTextPropertyTextMixedPage, encodeAuthorTextPropertyTextMixedQuery,
+  (payload, input) => decodeAuthorTextPropertyTextMixedPage(payload, input.includeHeading, input.facet !== null));
