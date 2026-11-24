@@ -253,8 +253,7 @@ internal static class AdminSitePageEditorEndpoints
             }
             catch (BusinessException problem) when (legacy && problem.Rejection == Rejection.Conflict)
             {
-                const int status = StatusCodes.Status412PreconditionFailed;
-                return new AedsError(status, Wire.EncodeError(status, problem.Message, traceId: ctx.TraceIdentifier));
+                return ServerHttp.ErrorFrame(ctx, StatusCodes.Status412PreconditionFailed, problem.Message);
             }
         }
     }

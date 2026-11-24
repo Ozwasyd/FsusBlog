@@ -12,8 +12,7 @@ internal static class SubscriptionEndpoints
                 PermitLimit = 8, Window = TimeSpan.FromMinutes(1), QueueLimit = 0
             }));
 
-    internal static void Map(WebApplication app, SubscriptionIdentity identity, string origin,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+    internal static void Map(WebApplication app, SubscriptionIdentity identity, string origin)
     {
         app.MapGet(PagePath, (HttpContext ctx) =>
         {
@@ -32,7 +31,7 @@ internal static class SubscriptionEndpoints
         {
             CheckOrigin(ctx, origin);
             if (ctx.Request.QueryString.HasValue) throw Invalid();
-            var input = Wire.DecodeSubscriptionPreferenceRequest(await readFrame(ctx, WireLimits.MaxSubscriptionPreferenceFrameBytes, ct));
+            var input = Wire.DecodeSubscriptionPreferenceRequest(await ServerHttp.ReadFrame(ctx, WireLimits.MaxSubscriptionPreferenceFrameBytes, ct));
             if (input.Channel is not (SubscriptionIdentity.RssChannel or SubscriptionIdentity.EmailChannel) ||
                 identity.EmailKey(input.Email) is not { } emailKey) throw Invalid();
             var channel = (short)input.Channel;
@@ -44,27 +43,28 @@ internal static class SubscriptionEndpoints
             }
             else if (header.Count != 0) throw Invalid();
 
-            await using var db = await source.OpenConnectionAsync(ct);
-            await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-            if (proof is not null)
+            await InstanceLease.RunProtected(source, lease, async (db, tx) =>
             {
-                // Check expiry after admission to the matching row, including time spent waiting for its lock.
-                await SqlCommands.Scalar(db, tx, ct, """
-                    select 1 from public.site_subscription
-                    where email_key=$1 and channel=$2 and enabled and proof_digest=$3 for update
-                    """, emailKey, channel, proof);
-            }
-            await using var write = proof is null
-                ? Store.Sql(db, tx, """
-                    insert into public.site_subscription(email_key,channel,enabled,created_at)
-                    values($1,$2,true,clock_timestamp()) on conflict(email_key) do nothing
-                    """, emailKey, channel)
-                : Store.Sql(db, tx, """
-                    update public.site_subscription set enabled=false,unsubscribed_at=clock_timestamp(),proof_digest=null,proof_expires_at=null
-                    where email_key=$1 and channel=$2 and enabled and proof_digest=$3 and proof_expires_at>clock_timestamp()
-                    """, emailKey, channel, proof);
-            await write.ExecuteNonQueryAsync(ct);
-            await InstanceLease.CommitProtected(tx, lease, ct);
+                if (proof is not null)
+                {
+                    // Check expiry after admission to the matching row, including time spent waiting for its lock.
+                    await SqlCommands.Scalar(db, tx, ct, """
+                        select 1 from public.site_subscription
+                        where email_key=$1 and channel=$2 and enabled and proof_digest=$3 for update
+                        """, emailKey, channel, proof);
+                    await SqlCommands.Execute(db, tx, ct, """
+                        update public.site_subscription set enabled=false,unsubscribed_at=clock_timestamp(),proof_digest=null,proof_expires_at=null
+                        where email_key=$1 and channel=$2 and enabled and proof_digest=$3 and proof_expires_at>clock_timestamp()
+                        """, emailKey, channel, proof);
+                }
+                else
+                {
+                    await SqlCommands.Execute(db, tx, ct, """
+                        insert into public.site_subscription(email_key,channel,enabled,created_at)
+                        values($1,$2,true,clock_timestamp()) on conflict(email_key) do nothing
+                        """, emailKey, channel);
+                }
+            }, ct);
             return ServerHttp.EmptyFrame();
         }).RequireRateLimiting(RatePolicy);
     }

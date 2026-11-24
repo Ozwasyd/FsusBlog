@@ -2,12 +2,12 @@ namespace FsusBlog.V2.Server.Comments;
 
 internal static class CommentAuthorDeleteEndpoints
 {
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> frame)
+    internal static void Map(WebApplication app, string cookie)
     {
         app.MapCommandPost(WireRoutes.CommentAuthorEligibility, async (HttpContext ctx, Store store, int articleId, CancellationToken ct) =>
         {
             if (articleId <= 0) throw new ProtocolException("Invalid comment article.");
-            var ids = Wire.DecodeCommentAuthorEligibilityRequest(await frame(ctx,
+            var ids = Wire.DecodeCommentAuthorEligibilityRequest(await ServerHttp.ReadFrame(ctx,
                 WireHeader.HeaderSize + sizeof(int) + WireLimits.CommentAuthorBatchSize * sizeof(long), ct));
             return await Run(ctx, store, async (db, tx, actor, _) =>
             {
@@ -20,7 +20,7 @@ internal static class CommentAuthorDeleteEndpoints
 
         app.MapPost(WireRoutes.CommentAuthorChallenge, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
-            var purpose = Wire.ReadCommentAuthorChallengePurpose(await frame(ctx, WireLimits.CommentAuthorProofFrameBytes, ct),
+            var purpose = Wire.ReadCommentAuthorChallengePurpose(await ServerHttp.ReadFrame(ctx, WireLimits.CommentAuthorProofFrameBytes, ct),
                 allowAppeal: true, allowEdit: true);
             return await Run(ctx, store, async (db, tx, actor, digest) =>
                 Wire.EncodeCommentAuthorChallenge(purpose switch
@@ -42,7 +42,7 @@ internal static class CommentAuthorDeleteEndpoints
 
         app.MapCommandPost(WireRoutes.CommentAuthorEdit, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
-            var request = Wire.DecodeCommentAuthorEditRequest(await frame(ctx, WireLimits.CommentAuthorEditFrameBytes, ct));
+            var request = Wire.DecodeCommentAuthorEditRequest(await ServerHttp.ReadFrame(ctx, WireLimits.CommentAuthorEditFrameBytes, ct));
             return await Run(ctx, store, async (db, tx, actor, digest) =>
                 Wire.EncodeCommentAuthorMutation(await CommentAuthorEdits.Apply(db, tx, actor, digest, id, request, ct)), ct);
         });
@@ -60,7 +60,7 @@ internal static class CommentAuthorDeleteEndpoints
 
         app.MapCommandPost(WireRoutes.CommentAuthorAppeal, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
-            var request = Wire.DecodeAuthorAppeal(await frame(ctx, Wire.CommentAppealFrameBytes, ct));
+            var request = Wire.DecodeAuthorAppeal(await ServerHttp.ReadFrame(ctx, Wire.CommentAppealFrameBytes, ct));
             return await Run(ctx, store, async (db, tx, actor, digest) =>
             {
                 await CommentAppeals.Submit(db, tx, actor, digest, id, request, ct);
@@ -70,7 +70,7 @@ internal static class CommentAuthorDeleteEndpoints
 
         app.MapCommandPost(WireRoutes.CommentAuthorDelete, async (HttpContext ctx, Store store, long id, CancellationToken ct) =>
         {
-            var secret = Wire.ReadCommentAuthorDeleteRequest(await frame(ctx, WireLimits.CommentAuthorProofFrameBytes, ct));
+            var secret = Wire.ReadCommentAuthorDeleteRequest(await ServerHttp.ReadFrame(ctx, WireLimits.CommentAuthorProofFrameBytes, ct));
             return await Run(ctx, store, async (db, tx, actor, digest) =>
                 Wire.EncodeCommentAuthorMutation(await Delete(db, tx, actor, digest, id, secret, ct)), ct);
         });
@@ -79,7 +79,7 @@ internal static class CommentAuthorDeleteEndpoints
             Func<NpgsqlConnection, NpgsqlTransaction, Identity, byte[], Task<byte[]>> action, CancellationToken ct)
         {
             var token = ctx.Request.Cookies[cookie];
-            var expected = ctx.Request.Headers[WireHeaders.CurrentSession] is { Count: 1 } header ? header[0] : null;
+            var expected = SiteSessions.Requested(ctx);
             return store.WithSession<IResult>(token, false, async (db, tx, actor) =>
             {
                 var digest = Store.TokenDigest(token)!;
@@ -90,22 +90,16 @@ internal static class CommentAuthorDeleteEndpoints
         }
     }
 
-    private static async Task<List<long>> ReadEligible(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, int article,
-        long[] candidates, CancellationToken ct)
-    {
-        await using var query = Store.Sql(db, tx, """
+    private static Task<List<long>> ReadEligible(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, int article,
+        long[] candidates, CancellationToken ct) =>
+        SqlCommands.QueryList(db, tx, ct, """
             select c.id from public.comment_account_owner o join public.comment c on c.article_id=o.article_id and c.id=o.comment_id
             join public.article a on a.id=c.article_id and not a.deleted
             join public.article_publication p on p.article_id=a.id and p.revision=a.published_revision and p.published_at<=statement_timestamp()
             where o.user_id=$1 and c.article_id=$2 and c.id=any($3) and not c.deleted and c.moderation_status=1 and c.author_mode=3
                 and not exists(select 1 from public.comment_blocked_region blocked where blocked.article_id=c.article_id and blocked.comment_id=c.id)
             order by c.id
-            """, owner, article, candidates);
-        var ids = new List<long>();
-        await using var row = await query.ExecuteReaderAsync(ct);
-        while (await row.ReadAsync(ct)) ids.Add(row.GetInt64(0));
-        return ids;
-    }
+            """, row => row.GetInt64(0), owner, article, candidates);
 
     private static async Task<CommentAuthorChallenge> Issue(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor,
         byte[] session, long id, CancellationToken ct)

@@ -2,7 +2,7 @@ namespace FsusBlog.V2.Server.Authoring;
 
 internal static class ArticleInventoryEndpoints
 {
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query)
+    internal static void Map(WebApplication app, string cookie)
     {
         app.MapCommandGet(WireRoutes.AuthorArticles, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
@@ -10,19 +10,19 @@ internal static class ArticleInventoryEndpoints
             return store.WithSession(token, true, async (db, tx, actor) =>
             {
                 SiteSessions.IfCurrent(actor.Id, token, SiteSessions.Requested(ctx));
-                return await ReadPage(ctx, query, db, tx, actor, ct);
+                return await ReadPage(ctx, db, tx, actor, ct);
             }, ct);
         });
     }
 
-    internal static async Task<IResult> ReadPage(HttpContext ctx, Func<HttpContext, string, int, string?> query,
+    internal static async Task<IResult> ReadPage(HttpContext ctx,
         NpgsqlConnection db, NpgsqlTransaction tx, Identity? author, CancellationToken ct)
     {
-        var scope = query(ctx, "scope", 6) switch
+        var scope = ServerHttp.Query(ctx, "scope", 6) switch
         {
             null or "active" => false, "trash" => true, _ => throw Invalid()
         };
-        var state = query(ctx, "state", 9) switch
+        var state = ServerHttp.Query(ctx, "state", 9) switch
         {
             null => (AuthorArticleState?)null,
             "draft" when !scope => AuthorArticleState.Draft,
@@ -31,9 +31,9 @@ internal static class ArticleInventoryEndpoints
             "retracted" when !scope => AuthorArticleState.Retracted,
             _ => throw Invalid()
         };
-        var keyword = query(ctx, "keyword", WireLimits.AuthorArticleKeywordChars)?.Trim() ?? "";
+        var keyword = ServerHttp.Query(ctx, "keyword", WireLimits.AuthorArticleKeywordChars)?.Trim() ?? "";
         if (!Wire.IsCanonicalAuthorArticleKeyword(keyword)) throw Invalid();
-        var summary = query(ctx, "match", 13) switch
+        var summary = ServerHttp.Query(ctx, "match", 13) switch
         {
             null or "title" => false,
             "title-summary" => true,
@@ -45,7 +45,7 @@ internal static class ArticleInventoryEndpoints
 
         int Number(string name)
         {
-            if (query(ctx, name, 10) is not { } raw) return 0;
+            if (ServerHttp.Query(ctx, name, 10) is not { } raw) return 0;
             if (int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value > 0) return value;
             throw Invalid();
         }

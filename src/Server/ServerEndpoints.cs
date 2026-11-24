@@ -21,10 +21,10 @@ internal static class ServerEndpoints
     {
         var capabilities = bootstrap.Capabilities;
         bootstrap.Appearance?.Map(app);
-        PasskeyEndpoints.Map(app, ServerHttp.SessionCookie, ServerHttp.ReadFrame, capabilities);
+        PasskeyEndpoints.Map(app, ServerHttp.SessionCookie, capabilities);
         SiteSessionEndpoints.Map(app, ServerHttp.SessionCookie, capabilities.SitePersistentRefresh);
-        SiteDisplayNameEndpoints.Map(app, ServerHttp.SessionCookie, ServerHttp.ReadFrame);
-        InboxEndpoints.Map(app, ServerHttp.SessionCookie, ServerHttp.ReadFrame, capabilities);
+        SiteDisplayNameEndpoints.Map(app, ServerHttp.SessionCookie);
+        InboxEndpoints.Map(app, ServerHttp.SessionCookie, capabilities);
         InboxStreamEndpoints.Map(app, ServerHttp.SessionCookie);
         IdentitySessionEndpoints.Map(app, ServerHttp.SessionCookie, authorCookie, capabilities.SitePersistentRefresh);
     }
@@ -39,7 +39,7 @@ internal static class ServerEndpoints
             ArticleMediaEndpoints.Map(app, authorCookie, bootstrap.PublicMediaEnabled);
         }
         if (app.Services.GetService<PublishedMediaStore>() is { } publishedMedia)
-            PublishedMediaEndpoints.Map(app, authorCookie, publications, publishedMedia, ServerHttp.ReadFrame);
+            PublishedMediaEndpoints.Map(app, authorCookie, publications, publishedMedia);
     }
 
     private static async Task MapPublicContentEndpointsAsync(WebApplication app, ServerBootstrapContext bootstrap,
@@ -57,9 +57,9 @@ internal static class ServerEndpoints
         bootstrap.CheckpointArchive?.Map(app);
         capabilities.PublicSite.Map(app);
         if (capabilities.Subscription is { } subscription)
-            SubscriptionEndpoints.Map(app, subscription, capabilities.PublicSite.Origin!, ServerHttp.ReadFrame);
+            SubscriptionEndpoints.Map(app, subscription, capabilities.PublicSite.Origin!);
         if (capabilities.ArticleReadProof)
-            ArticleReadEndpoints.Map(app, capabilities.PublicSite.Origin!, publications, ServerHttp.ReadFrame);
+            ArticleReadEndpoints.Map(app, capabilities.PublicSite.Origin!, publications);
         DistributionEndpoints.Map(app, publications, app.Services.GetRequiredService<DistributionSettings>());
         PublicReadEndpoints.Map(app, capabilities, publications, bootstrap.PublicMediaEnabled);
     }
@@ -67,33 +67,31 @@ internal static class ServerEndpoints
     private static void MapAuthoringEndpoints(WebApplication app, SiteCapabilities capabilities,
         Publications publications, string authorCookie)
     {
-        CanvasEndpoints.Map(app, authorCookie, ServerHttp.ReadFrame);
-        PropertyEndpoints.Map(app, authorCookie, ServerHttp.ReadFrame, ServerHttp.Query);
-        AuthorTextSearchEndpoints.Map(app, authorCookie, ServerHttp.ReadFrame);
-        ArticleSummaryEndpoints.Map(app, authorCookie, ServerHttp.ReadFrame);
-        SavedViewEndpoints.Map(app, authorCookie, ServerHttp.ReadFrame, ServerHttp.Query);
-        RecoveryScopeEndpoints.Map(app, authorCookie);
-        AuthoringWorkspaceEndpoints.Map(app, authorCookie, ServerHttp.ReadFrame);
-        AuthorRecentOpenEndpoints.Map(app, authorCookie, ServerHttp.ReadFrame, ServerHttp.Query);
-        var draftMutations = new DraftMutationRoutes(app, authorCookie, ServerHttp.ReadFrame);
-        RevisionHistoryEndpoints.Map(app, authorCookie, ServerHttp.Query, draftMutations);
-        draftMutations.MapRights(ServerHttp.Query);
-        ArticleInventoryEndpoints.Map(app, authorCookie, ServerHttp.Query);
-        draftMutations.MapSchedule(ServerHttp.Query);
-        MarkdownExportEndpoints.Map(app, authorCookie, ServerHttp.Query, capabilities.PdfExport);
+        CanvasEndpoints.Map(app, authorCookie);
+        PropertyEndpoints.Map(app, authorCookie);
+        AuthorTextSearchEndpoints.Map(app, authorCookie);
+        SavedViewEndpoints.Map(app, authorCookie);
+        AuthoringWorkspaceEndpoints.Map(app, authorCookie);
+        AuthorRecentOpenEndpoints.Map(app, authorCookie);
+        var draftMutations = new DraftMutationRoutes(app, authorCookie);
+        RevisionHistoryEndpoints.Map(app, authorCookie, draftMutations);
+        draftMutations.MapRights();
+        ArticleInventoryEndpoints.Map(app, authorCookie);
+        draftMutations.MapSchedule();
+        MarkdownExportEndpoints.Map(app, authorCookie, capabilities.PdfExport);
         if (capabilities.DocumentExportTasks)
-            DocumentExportEndpoints.Map(app, authorCookie, capabilities.PdfExport, ServerHttp.ReadFrame);
-        capabilities.PluginPreview?.Map(app, authorCookie, ServerHttp.Query);
+            DocumentExportEndpoints.Map(app, authorCookie, capabilities.PdfExport);
+        capabilities.PluginPreview?.Map(app, authorCookie);
         AuthorArticleEndpoints.Map(app, authorCookie, publications);
     }
 
     private static void MapCommentsAndAdministrationEndpoints(WebApplication app, SiteCapabilities capabilities,
         Publications publications, InstanceLease lease)
     {
-        var commentRoutes = CommentReadEndpoints.Map(app, publications, ServerHttp.SessionCookie, ServerHttp.ReadFrame,
+        var commentRoutes = CommentReadEndpoints.Map(app, publications, ServerHttp.SessionCookie,
             lease.RootCommentPowPolicyInstalled, capabilities);
         if (capabilities.AdminIdentity is not null)
-            AdminIdentityEndpoints.Map(app, capabilities, ServerHttp.ReadFrame, commentRoutes, ServerHttp.Query);
-        CommentAuthorDeleteEndpoints.Map(app, ServerHttp.SessionCookie, ServerHttp.ReadFrame);
+            AdminIdentityEndpoints.Map(app, capabilities, commentRoutes);
+        CommentAuthorDeleteEndpoints.Map(app, ServerHttp.SessionCookie);
     }
 }

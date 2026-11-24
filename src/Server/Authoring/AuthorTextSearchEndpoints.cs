@@ -2,12 +2,12 @@ namespace FsusBlog.V2.Server.Authoring;
 
 internal static class AuthorTextSearchEndpoints
 {
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+    internal static void Map(WebApplication app, string cookie)
     {
         var cursors = new AuthorTextCursor(TimeProvider.System);
         app.MapCommandPost(WireRoutes.AuthorTextSearch, async (HttpContext context, Store store, AuthorTextRebuildWorker rebuild, CancellationToken ct) =>
         {
-            var frame = await readFrame(context, WireLimits.MaxAuthorTextPropertyTextMixedQueryFrameBytes, ct);
+            var frame = await ServerHttp.ReadFrame(context, WireLimits.MaxAuthorTextPropertyTextMixedQueryFrameBytes, ct);
             var token = context.Request.Cookies[cookie];
             var expected = SiteSessions.Requested(context);
             var payload = await SiteSessions.WithCurrentAuthor(store, token, expected, async (db, tx, actor, digest) =>

@@ -55,16 +55,14 @@ internal static class AdminIdentityEndpoints
         return new(derived, derived.IdnHost);
     }
 
-    internal static void Map(WebApplication app, SiteCapabilities capabilities,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, InstalledCommentRoutes commentRoutes,
-        Func<HttpContext, string, int, string?> query)
+    internal static void Map(WebApplication app, SiteCapabilities capabilities, InstalledCommentRoutes commentRoutes)
     {
         var config = capabilities.AdminIdentity;
         if (config is null) return;
         var secure = config.Origin.Scheme == "https";
         var session = SessionCookieName(config);
         var authority = config.Origin.GetLeftPart(UriPartial.Authority);
-        var actions = new AdminActionRoutes(app, authority, session, Limit, readFrame);
+        var actions = new AdminActionRoutes(app, authority, session, Limit);
         var bootstrap = secure ? "__Host-FsusAdminBootstrap" : "fsus-v2-admin-bootstrap";
         var login = secure ? "__Host-FsusAdminAssertion" : "fsus-v2-admin-assertion";
         var database = app.Services.GetRequiredService<NpgsqlDataSource>();
@@ -116,7 +114,7 @@ internal static class AdminIdentityEndpoints
         }).RequireRateLimiting(Limit);
         app.MapPost(WireRoutes.AdminBootstrapComplete, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var input = PasskeyWire.ReadProvision(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
+            var input = PasskeyWire.ReadProvision(await ServerHttp.ReadFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
             await passkeys.CompleteBootstrap(input, ctx.Request.Cookies[bootstrap], BootstrapToken(ctx), ct);
             ctx.Response.Cookies.Delete(bootstrap, Cookie(WireRoutes.AdminBootstrapComplete));
             return ServerHttp.EmptyFrame();
@@ -129,7 +127,7 @@ internal static class AdminIdentityEndpoints
         }).RequireRateLimiting(Limit);
         app.MapPost(WireRoutes.AdminPasskeyComplete, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
+            var input = PasskeyWire.ReadLogin(await ServerHttp.ReadFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
             var token = await passkeys.CompleteLogin(input, ctx.Request.Cookies[login], ct);
             ctx.Response.Cookies.Delete(login, Cookie(WireRoutes.AdminPasskeyComplete));
             ctx.Response.Cookies.Append(session, token, Cookie("/"));
@@ -151,12 +149,12 @@ internal static class AdminIdentityEndpoints
         });
         app.MapPost(WireRoutes.AdminStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var intent = Wire.DecodeAdminModerationIntent(await readFrame(ctx, WireLimits.AdminModerationFrameBytes, ct));
+            var intent = Wire.DecodeAdminModerationIntent(await ServerHttp.ReadFrame(ctx, WireLimits.AdminModerationFrameBytes, ct));
             return Frame(await stepUp.BeginModerationStepUp(ctx.Request.Cookies[session], intent, ct));
         }).RequireRateLimiting(Limit);
         app.MapPost(WireRoutes.AdminStepUpComplete, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
+            var input = PasskeyWire.ReadLogin(await ServerHttp.ReadFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
             return Frame(await stepUp.CompleteModerationStepUp(ctx.Request.Cookies[session], input, ct));
         }).RequireRateLimiting(Limit);
         app.MapCommandGet(WireRoutes.AdminOperationsStatus, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
@@ -181,11 +179,11 @@ internal static class AdminIdentityEndpoints
         var fenceVisibleMessages = capabilities.AdminInboxActivityOrder;
         AdminCommentAppeals.Map(actions, commentAppeals, fenceVisibleMessages);
         if (moderationBatch is not null)
-            AdminModerationBatchEndpoints.Map(app, authority, moderationBatch, session, Limit, readFrame, fenceVisibleMessages);
+            AdminModerationBatchEndpoints.Map(actions, moderationBatch, fenceVisibleMessages);
         AdminModerationEndpoints.Map(actions, moderation, fenceVisibleMessages);
         AdminReaderGovernanceEndpoints.Map(actions, readerGovernance);
         AdminHandleEndpoints.Map(actions, adminHandle);
-        AdminInboxEndpoints.Map(app, gate, session, readFrame, capabilities);
+        AdminInboxEndpoints.Map(app, gate, session, capabilities);
         AdminSitePages.Map(app, sitePageStore, session);
         AdminCommentRevisions.Map(app, commentHistory, session);
         AdminArticleTrashRestore.Map(actions, trashRestore);
@@ -221,7 +219,7 @@ internal static class AdminIdentityEndpoints
         {
             ctx.Response.Headers.CacheControl = "no-store";
             return gate.WithSession(ctx.Request.Cookies[session],
-                (db, tx, _) => ArticleInventoryEndpoints.ReadPage(ctx, query, db, tx, null, ct), ct);
+                (db, tx, _) => ArticleInventoryEndpoints.ReadPage(ctx, db, tx, null, ct), ct);
         });
         app.MapCommandPost(WireRoutes.AdminArticleDelete, async (HttpContext ctx, int id, Publications publications, CancellationToken ct) =>
         {

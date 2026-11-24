@@ -6,13 +6,12 @@ internal static class DocumentExportEndpoints
     private const string ReceiptType = "application/vnd.fsus.document-export-receipt+json";
     private const string FormattingReceiptType = "application/vnd.fsus.document-export-receipt.v2+json";
     internal const string Marker = "<meta name=\"fsus-document-export-tasks\" content=\"1\">";
-    internal static void Map(WebApplication app, string cookie, PdfDocumentExport? pdf,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+    internal static void Map(WebApplication app, string cookie, PdfDocumentExport? pdf)
     {
         var media = app.Services.GetService<MediaFiles>();
         app.MapCommandPost(WireRoutes.DocumentExportCreate, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var request = Wire.DecodeDocumentExportCreate(await readFrame(ctx, WireLimits.MaxDocumentExportCreateFrameBytes, ct));
+            var request = Wire.DecodeDocumentExportCreate(await ServerHttp.ReadFrame(ctx, WireLimits.MaxDocumentExportCreateFrameBytes, ct));
             return await Session(ctx, store, async (db, tx, actor) =>
             {
                 var assets = DocumentExportAttachment.ReadSelections(ctx, DocumentExportAttachment.MaximumImages);
@@ -62,7 +61,7 @@ internal static class DocumentExportEndpoints
         }).RequireRateLimiting("document-export-download");
 
         async Task<Guid> ReadTaskRef(HttpContext ctx, CancellationToken ct) =>
-            Wire.DecodeDocumentExportTaskRef(await readFrame(ctx, WireLimits.MaxDocumentExportTaskRefFrameBytes, ct));
+            Wire.DecodeDocumentExportTaskRef(await ServerHttp.ReadFrame(ctx, WireLimits.MaxDocumentExportTaskRefFrameBytes, ct));
 
         async Task<T> Session<T>(HttpContext ctx, Store store,
             Func<NpgsqlConnection, NpgsqlTransaction, Identity, Task<T>> operation, CancellationToken ct)

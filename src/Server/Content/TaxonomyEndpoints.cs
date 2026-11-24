@@ -27,7 +27,7 @@ internal static class TaxonomyEndpoints
 
         app.MapCommandGet(WireRoutes.DraftTaxonomy, async (HttpContext ctx, int id, Store store, CancellationToken ct) =>
         {
-            var revision = DraftRevisionQuery.Read(ctx, id, query);
+            var revision = DraftRevisionQuery.Read(ctx, id);
 
             var taxonomy = await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
             {

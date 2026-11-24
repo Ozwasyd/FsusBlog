@@ -10,8 +10,7 @@ internal static class AdminInboxEndpoints
     internal const string LivePolicy = "admin-inbox-live";
     internal sealed class LiveSocket;
 
-    internal static void Map(WebApplication app, AdminSessionGate gate, string session,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, SiteCapabilities capabilities)
+    internal static void Map(WebApplication app, AdminSessionGate gate, string session, SiteCapabilities capabilities)
     {
         var store = new AdminInboxStore(gate);
         var replies = capabilities.AdminInboxReplies;
@@ -122,7 +121,7 @@ internal static class AdminInboxEndpoints
                 if (!ctx.Request.Headers.TryGetValue(WireHeaders.AdminInboxReadSnapshot, out var header) || header.Count != 1 ||
                     header[0] is not { Length: 64 } snapshot)
                     throw new BusinessException(Rejection.Invalid, "An administrator read snapshot is required.");
-                var through = InboxWire.DecodeRead(await readFrame(ctx, Aeds.HeaderSize + sizeof(long), ct));
+                var through = InboxWire.DecodeRead(await ServerHttp.ReadFrame(ctx, Aeds.HeaderSize + sizeof(long), ct));
                 var unread = await readStore.AcknowledgeInboxRead(ctx.Request.Cookies[session], id, through, snapshot, ct);
                 ctx.Response.Headers[WireHeaders.AdminInboxUnread] = unread.ToString(CultureInfo.InvariantCulture);
                 return ServerHttp.EmptyFrame();
@@ -145,7 +144,7 @@ internal static class AdminInboxEndpoints
                     header[0] is not { Length: <= 128 } value)
                     throw new BusinessException(Rejection.Invalid, "Invalid inbox command key.");
                 var key = InboxRules.CommandId(value);
-                var frame = await readFrame(ctx, InboxWire.MaxRequestFrameBytes, ct);
+                var frame = await ServerHttp.ReadFrame(ctx, InboxWire.MaxRequestFrameBytes, ct);
                 var body = InboxRules.Body(InboxWire.DecodeAdminReply(frame));
                 var context = string.Create(CultureInfo.InvariantCulture, $"{id}:{key}");
                 return await replyStore!.ReplyInbox(ctx.Request.Cookies[session], id, key, body, frame, pow, context, ctx, issue,
@@ -161,7 +160,7 @@ internal static class AdminInboxEndpoints
                     !uint.TryParse(version, NumberStyles.None, CultureInfo.InvariantCulture, out var xid) || xid == 0 ||
                     version != xid.ToString(CultureInfo.InvariantCulture))
                     throw new BusinessException(Rejection.Invalid, "Invalid administrator inbox version.");
-                var frame = await readFrame(ctx, InboxWire.MaxAdminStatusFrameBytes, ct);
+                var frame = await ServerHttp.ReadFrame(ctx, InboxWire.MaxAdminStatusFrameBytes, ct);
                 var (target, reason) = InboxWire.DecodeAdminStatus(frame);
                 return await statusStore!.ChangeInboxStatus(ctx.Request.Cookies[session], id, version, (ConversationStatus)target,
                     reason, frame, pow, ctx, issue, ct);
@@ -174,7 +173,7 @@ internal static class AdminInboxEndpoints
                     header[0] is not { Length: > 0 and <= 19 } value ||
                     !long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var eventId) || eventId <= 0)
                     throw new BusinessException(Rejection.Invalid, "Set a positive source event ID.");
-                var frame = await readFrame(ctx, Wire.MaxAdminInboxNoticeFrameBytes, ct);
+                var frame = await ServerHttp.ReadFrame(ctx, Wire.MaxAdminInboxNoticeFrameBytes, ct);
                 return await noticeStore!.SendInboxNotice(ctx.Request.Cookies[session], eventId, Wire.DecodeAdminInboxNotice(frame),
                     frame, pow, ctx, issue, activityOrder, ct);
             }, PowScope.AdminInboxNotice);

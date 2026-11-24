@@ -7,17 +7,13 @@ internal sealed record TaxonomyRows(
 
 internal static class TaxonomyStore
 {
-    internal static async Task<DraftTaxonomy> ReadDraft(NpgsqlConnection db, NpgsqlTransaction tx, int articleId,
-        long revision, CancellationToken ct)
-    {
-        await using var cmd = SqlCommands.Create(db, tx, """
+    internal static Task<DraftTaxonomy> ReadDraft(NpgsqlConnection db, NpgsqlTransaction tx, int articleId,
+        long revision, CancellationToken ct) =>
+        SqlCommands.QueryRequired(db, tx, ct, """
             select coalesce((select category_id from public.article_revision_category where article_id=$1 and revision=$2),0),
                    array(select tag_id from public.article_revision_tag where article_id=$1 and revision=$2 order by tag_id)
-            """, articleId, revision);
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        await reader.ReadRequired(ct, () => new InvalidOperationException("Draft taxonomy query returned no row."));
-        return new(articleId, revision, reader.GetInt32(0), reader.GetFieldValue<int[]>(1));
-    }
+            """, reader => new DraftTaxonomy(articleId, revision, reader.GetInt32(0), reader.GetFieldValue<int[]>(1)),
+            () => new InvalidOperationException("Draft taxonomy query returned no row."), articleId, revision);
 
     internal static async Task Replace(NpgsqlConnection db, NpgsqlTransaction tx, int articleId, long revision,
         int category, IReadOnlyList<int> tags, CancellationToken ct)

@@ -6,19 +6,19 @@ internal static class AuthoringWorkspaceEndpoints
     private const int Inspector = 2;
     private const int Groups = 3;
 
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+    internal static void Map(WebApplication app, string cookie)
     {
         app.MapCommandGet(WireRoutes.AuthoringWorkspace, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Legacy, ct));
         app.MapCommandPost(WireRoutes.AuthoringWorkspace, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var input = Wire.DecodeAuthoringWorkspaceCommand(await readFrame(ctx, WireLimits.MaxAuthoringWorkspaceFrameBytes, ct));
+            var input = Wire.DecodeAuthoringWorkspaceCommand(await ServerHttp.ReadFrame(ctx, WireLimits.MaxAuthoringWorkspaceFrameBytes, ct));
             return await Run(ctx, store, Legacy, ct, new(Groups, input.ExpectedRevision, input.ActiveArticleId, input.Tabs, false, 0, [], 0));
         });
 
         app.MapCommandGet(WireRoutes.AuthoringWorkspaceLayout, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Inspector, ct));
         app.MapCommandPost(WireRoutes.AuthoringWorkspaceLayout, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var input = Wire.DecodeAuthoringWorkspaceLayoutCommand(await readFrame(ctx, WireLimits.MaxAuthoringWorkspaceLayoutCommandFrameBytes, ct));
+            var input = Wire.DecodeAuthoringWorkspaceLayoutCommand(await ServerHttp.ReadFrame(ctx, WireLimits.MaxAuthoringWorkspaceLayoutCommandFrameBytes, ct));
             return await Run(ctx, store, Inspector, ct, new(Groups, input.ExpectedRevision, input.ActiveArticleId, input.Tabs,
                 input.InspectorOpen, 0, [], 0));
         });
@@ -26,7 +26,7 @@ internal static class AuthoringWorkspaceEndpoints
         app.MapCommandGet(WireRoutes.AuthoringWorkspaceGroups, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Groups, ct));
         app.MapCommandPost(WireRoutes.AuthoringWorkspaceGroups, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var input = Wire.DecodeAuthoringWorkspaceGroupsCommand(await readFrame(ctx, WireLimits.MaxAuthoringWorkspaceGroupsCommandFrameBytes, ct));
+            var input = Wire.DecodeAuthoringWorkspaceGroupsCommand(await ServerHttp.ReadFrame(ctx, WireLimits.MaxAuthoringWorkspaceGroupsCommandFrameBytes, ct));
             return await Run(ctx, store, Groups, ct, input);
         });
 
@@ -65,19 +65,16 @@ internal static class AuthoringWorkspaceEndpoints
     private static async Task<AuthoringWorkspaceGroups> Read(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner,
         int format, bool hasGroups, CancellationToken ct)
     {
-        AuthoringWorkspaceGroups saved;
-        await using (var cmd = Store.Sql(db, tx, "select schema_version,revision,updated_at,active_article_id,tabs," +
+        var saved = await SqlCommands.QueryOne(db, tx, ct, "select schema_version,revision,updated_at,active_article_id,tabs," +
             (format >= Inspector ? "inspector_open" : "false") + "," +
             (hasGroups ? "secondary_active_article_id,secondary_tabs,focused_group" : "0,'{}'::integer[],0") +
-            " from public.authoring_workspace where user_id=$1", owner))
-        await using (var row = await cmd.ExecuteReaderAsync(ct))
-        {
-            if (!await row.ReadAsync(ct)) return new(Groups, 0, 0, 0, [], 0, false, 0, [], 0);
-            if (row.GetInt32(0) != Legacy) throw InvalidLayout();
-            saved = new(Groups, row.GetInt64(1), row.GetUnixMilliseconds(2),
-                row.GetInt32(3), row.GetFieldValue<int[]>(4), 0, row.GetBoolean(5), row.GetInt32(6),
-                row.GetFieldValue<int[]>(7), row.GetInt32(8));
-        }
+            " from public.authoring_workspace where user_id=$1", row =>
+            row.GetInt32(0) == Legacy
+                ? new AuthoringWorkspaceGroups(Groups, row.GetInt64(1), row.GetUnixMilliseconds(2),
+                    row.GetInt32(3), row.GetFieldValue<int[]>(4), 0, row.GetBoolean(5), row.GetInt32(6),
+                    row.GetFieldValue<int[]>(7), row.GetInt32(8))
+                : throw InvalidLayout(), owner);
+        if (saved is null) return new(Groups, 0, 0, 0, [], 0, false, 0, [], 0);
 
         // A legacy reader must not flatten a stored split, including when every secondary article is no longer visible.
         if (format < Groups && saved.SecondaryTabs.Count != 0)
@@ -153,13 +150,10 @@ internal static class AuthoringWorkspaceEndpoints
     {
         var requested = input.Tabs.Concat(input.SecondaryTabs).Select(Math.Abs).ToArray();
         if (requested.Length == 0) return (new(0, Array.Empty<int>(), 0, Array.Empty<int>(), 0), 0);
-        await using var query = Store.Sql(db, tx, $"""
+        var allowed = (await SqlCommands.QueryList(db, tx, ct, $"""
             select a.id from public.article a
             where a.owner_id=$1 and not a.deleted and a.id=any($2) and {ArchivedArticleAuthority.Available}
-            """, owner, requested);
-        await using var rows = await query.ExecuteReaderAsync(ct);
-        var allowed = new HashSet<int>();
-        while (await rows.ReadAsync(ct)) allowed.Add(rows.GetInt32(0));
+            """, r => r.GetInt32(0), owner, requested)).ToHashSet();
         var primary = input.Tabs.Where(tab => allowed.Contains(Math.Abs(tab))).ToArray();
         var secondary = input.SecondaryTabs.Where(tab => allowed.Contains(Math.Abs(tab))).ToArray();
         var active = allowed.Contains(input.ActiveArticleId) ? input.ActiveArticleId : 0;

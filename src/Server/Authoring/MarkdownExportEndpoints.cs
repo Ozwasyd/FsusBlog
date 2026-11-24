@@ -7,8 +7,7 @@ internal static class MarkdownExportEndpoints
     internal const string ContentType = "text/markdown; charset=utf-8";
     internal const int MaxBytes = WireLimits.BodyBytes + WireLimits.TitleBytes * 6 + 128;
 
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query,
-        PdfDocumentExport? pdf)
+    internal static void Map(WebApplication app, string cookie, PdfDocumentExport? pdf)
     {
         Attach(Route, ContentType, DownloadName, (title, body, revision, _, _, _) => Task.FromResult(Encode(title, body, revision)));
         AttachDocument(DocumentExportFormat.Docx);
@@ -82,8 +81,8 @@ internal static class MarkdownExportEndpoints
         {
             app.MapGet(route, async (HttpContext ctx, Store store, int id, CancellationToken ct) =>
             {
-                var expected = DraftRevisionQuery.Read(query(ctx, "revision", 19));
-                var selected = DraftRevisionQuery.Read(query(ctx, "sourceRevision", 19));
+                var expected = DraftRevisionQuery.Read(ServerHttp.Query(ctx, "revision", 19));
+                var selected = DraftRevisionQuery.Read(ServerHttp.Query(ctx, "sourceRevision", 19));
                 if (id <= 0 || selected > expected)
                     throw new BusinessException(Rejection.Invalid, "A valid source revision is required.");
 

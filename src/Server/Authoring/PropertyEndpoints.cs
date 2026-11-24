@@ -2,8 +2,7 @@ namespace FsusBlog.V2.Server.Authoring;
 
 internal static class PropertyEndpoints
 {
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame,
-        Func<HttpContext, string, int, string?> query)
+    internal static void Map(WebApplication app, string cookie)
     {
         Map(WireRoutes.PropertyWorkspace, async (store, frame, ct) =>
             Wire.EncodePropertyWorkspace(await store.Read(Wire.DecodePropertyWorkspaceRequest(frame), ct)));
@@ -54,7 +53,7 @@ internal static class PropertyEndpoints
 
         app.MapCommandGet(WireRoutes.PropertySchemaCommand, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            if (!Guid.TryParseExact(query(ctx, "definition", 36), "D", out var id) || id == Guid.Empty)
+            if (!Guid.TryParseExact(ServerHttp.Query(ctx, "definition", 36), "D", out var id) || id == Guid.Empty)
                 throw new BusinessException(Rejection.Invalid, "Invalid property definition.");
             return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 ServerHttp.Frame(Wire.EncodePropertyDefinitionProjection(await new PropertyStore(db, tx, actor).ReadProjection(id, ct))), ct);
@@ -62,15 +61,15 @@ internal static class PropertyEndpoints
         app.MapCommandGet(WireRoutes.PropertyFilterCatalog, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
             var token = ctx.Request.Cookies[cookie];
-            var projection = query(ctx, "projection", 1) switch
+            var projection = ServerHttp.Query(ctx, "projection", 1) switch
             {
                 null => false,
                 "1" => true,
                 _ => throw new BusinessException(Rejection.Invalid, "Invalid property catalog mode."),
             };
             var expected = SiteSessions.Requested(ctx) ?? (projection ? "" : null);
-            var after = query(ctx, "after", WireLimits.PropertyKeyBytes);
-            var schema = query(ctx, "schema", 19);
+            var after = ServerHttp.Query(ctx, "after", WireLimits.PropertyKeyBytes);
+            var schema = ServerHttp.Query(ctx, "schema", 19);
             long version = 0;
             if (after is not null && (after.Length == 0 ||
                 !long.TryParse(schema, NumberStyles.None, CultureInfo.InvariantCulture, out version) || version <= 0) ||
@@ -103,7 +102,7 @@ internal static class PropertyEndpoints
         {
             app.MapCommandPost(path, async (HttpContext ctx, Store store, CancellationToken ct) =>
             {
-                var frame = await readFrame(ctx, frameBytes, ct);
+                var frame = await ServerHttp.ReadFrame(ctx, frameBytes, ct);
                 var session = ctx.Request.Cookies[cookie];
                 try
                 {

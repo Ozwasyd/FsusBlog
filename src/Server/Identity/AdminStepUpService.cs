@@ -116,6 +116,13 @@ internal sealed class AdminStepUpService(AdminSessionGate gate, AdminPasskeyStor
 
     internal static byte[] IntentDigest(AdminModerationIntent intent) => SHA256.HashData(Wire.EncodeAdminModerationIntent(intent));
 
+    internal async Task RequireProofAsync(NpgsqlConnection db, NpgsqlTransaction tx, AdminLiveSession admin,
+        string? proof, byte[] bodyDigest, CancellationToken ct, AdminStepUpAction action, string forbiddenMessage)
+    {
+        if (!await ConsumeProofAsync(db, tx, admin, proof, bodyDigest, ct, action))
+            throw new BusinessException(Rejection.Forbidden, forbiddenMessage);
+    }
+
     internal async Task<bool> ConsumeProofAsync(NpgsqlConnection db, NpgsqlTransaction tx, AdminLiveSession admin,
         string? proof, byte[] bodyDigest, CancellationToken ct, AdminStepUpAction action = AdminStepUpAction.ModerateComment)
     {

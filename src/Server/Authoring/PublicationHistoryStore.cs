@@ -213,3 +213,81 @@ internal static class PublicationHistoryStore
         return id;
     }
 }
+
+internal static class PublicationCanonicalStore
+{
+    internal static async Task Record(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, long outbox, CancellationToken ct)
+    {
+        if (!await CurrentSchema.HasPublicationCanonicalAsync(db, tx, ct)) return;
+        var hasCover = await CurrentSchema.HasPublicationCoverAsync(db, tx, ct);
+        var binding = await SqlCommands.QueryRequired(db, tx, ct, $"""
+            select {PublicationCanonicalFacts.Columns},{PublicationCanonicalFacts.CoverColumn(hasCover)}
+            from public.article_publication p join public.article_publication_history h
+              on h.publication_id=p.publication_id and h.article_id=p.article_id and h.revision=p.revision
+              and h.publication_no=p.publication_no and h.happened_at=p.published_at
+            {PublicationCanonicalFacts.RevisionJoins}
+            where p.article_id=$1 and p.revision=$2
+            """, PublicationCanonicalFacts.Read,
+            () => new InvalidOperationException("The newly published coordinates cannot be bound to canonical facts."), article, revision);
+        await SqlCommands.Execute(db, tx, ct, """
+            insert into public.article_publication_canonical
+                (publication_id,article_id,revision,publication_no,published_at,transition,rights_snapshot_id,outbox_id,
+                 outbox_kind,canonical_version,content_sha256,policy_sha256)
+            values($1,$2,$3,$4,$5,$6,$7,$8,'publish',$9,$10,$11)
+            """, binding.Publication, binding.Article, binding.Revision, binding.Number, binding.PublishedAt,
+            binding.Transition, binding.RightsSnapshot, outbox, binding.Version, binding.Content, binding.Policy);
+    }
+}
+
+internal static class PublicationRightsStore
+{
+    internal static async Task<ArticleRightsPolicy> Read(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, CancellationToken ct) =>
+        await SqlCommands.QueryOne(db, tx, ct, """
+            select enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,
+                   copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled
+            from public.article_revision_rights where article_id=$1 and revision=$2
+            """, row => ReadPolicy(row, 0, article, revision), article, revision) ?? Wire.MissingRights(article, revision);
+
+    internal static ArticleRightsPolicy ReadPolicy(NpgsqlDataReader row, int offset, int article, long revision)
+    {
+        var value = new ArticleRightsPolicy(article, revision, true, row.GetBoolean(offset), row.GetString(offset + 1),
+            row.GetString(offset + 2), row.GetInt32(offset + 3), row.GetString(offset + 4), row.GetString(offset + 5),
+            row.GetString(offset + 6), row.GetInt32(offset + 7), row.GetBoolean(offset + 8),
+            row.GetBoolean(offset + 9), row.GetBoolean(offset + 10));
+        Wire.Validate(value);
+        return value;
+    }
+
+    internal static async Task Insert(NpgsqlConnection db, NpgsqlTransaction tx, ArticleRightsPolicy policy, CancellationToken ct)
+    {
+        Wire.Validate(policy);
+        if (!policy.Present) throw new InvalidOperationException("Cannot persist an absent rights policy.");
+        await SqlCommands.Execute(db, tx, ct, """
+            insert into public.article_revision_rights
+                (article_id,revision,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,
+                 copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled)
+            values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            """, policy.Id, policy.Revision, policy.Enabled, policy.LicenseType, policy.CopyrightHolder, policy.CopyrightYear,
+            policy.RightsStatement, policy.AttributionTemplate, policy.CopyPolicy, policy.MaxExcerptChars, policy.AllowCodeCopy,
+            policy.ShowPublicBadge, policy.ProofBindingEnabled);
+    }
+
+    internal static Task CarryForward(NpgsqlConnection db, NpgsqlTransaction tx, int article, long source, long target, CancellationToken ct) =>
+        SqlCommands.Execute(db, tx, ct, """
+            insert into public.article_revision_rights
+            select article_id,$3,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,
+                   copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled
+            from public.article_revision_rights where article_id=$1 and revision=$2
+            """, article, source, target);
+
+    internal static async Task Require(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, CancellationToken ct)
+    {
+        if (!(await Read(db, tx, article, revision, ct)).Present)
+            throw new BusinessException(Rejection.Conflict, "Save an explicit rights policy before publishing this revision.");
+    }
+
+    internal static Task Attach(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, long publication, CancellationToken ct) =>
+        SqlCommands.Execute(db, tx, ct,
+            "insert into public.article_publication_rights(article_id,publication_id,revision) values($1,$2,$3)",
+            article, publication, revision);
+}

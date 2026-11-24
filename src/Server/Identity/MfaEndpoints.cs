@@ -5,8 +5,8 @@ internal static class MfaEndpoints
     internal const string LoginCookie = "fsus-v2-mfa-login";
 
     internal static void Map(WebApplication app, MfaStore store, PasskeyStore passkeys, string sessionName,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, Action<HttpContext> origin,
-        Action<HttpContext, SiteRefreshStore.Issued> issueSession, Func<string, CookieOptions> cookie, bool persistentEnabled)
+        Action<HttpContext> origin, Action<HttpContext, SiteRefreshStore.Issued> issueSession,
+        Func<string, CookieOptions> cookie, bool persistentEnabled)
     {
         var post = new SiteMfaPostRoutes(app, origin);
         app.MapGet(WireRoutes.MfaProfile, async (HttpContext ctx, CancellationToken ct) =>
@@ -16,13 +16,13 @@ internal static class MfaEndpoints
         });
         post.Post(WireRoutes.PasskeyStepUpBegin, async (ctx, ct) =>
         {
-            var action = MfaWire.ReadSingle(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaChallengeStartRequest, 64);
+            var action = MfaWire.ReadSingle(await ServerHttp.ReadFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaChallengeStartRequest, 64);
             if (action != MfaWire.Setup) throw Forbidden();
             return ServerHttp.Frame(await passkeys.BeginSetupProof(Session(ctx), ct));
         });
         post.Post(WireRoutes.PasskeyStepUpComplete, async (ctx, ct) =>
         {
-            var request = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
+            var request = PasskeyWire.ReadLogin(await ServerHttp.ReadFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
             return ServerHttp.Frame(await passkeys.CompleteSetupProof(Session(ctx), request, ct));
         });
 
@@ -34,7 +34,7 @@ internal static class MfaEndpoints
         });
         post.Post(WireRoutes.MfaSetupVerify, async (ctx, ct) =>
         {
-            var code = MfaWire.ReadSingle(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaSetupVerifyRequest, 6);
+            var code = MfaWire.ReadSingle(await ServerHttp.ReadFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaSetupVerifyRequest, 6);
             try
             {
                 var (frame, token, expiry) = await store.CompleteSetup(Session(ctx), code, ct);
@@ -43,13 +43,13 @@ internal static class MfaEndpoints
             }
             catch (BusinessException error) when (error.Rejection == Rejection.Invalid)
             {
-                return Error(ctx, StatusCodes.Status422UnprocessableEntity, error.Message);
+                return ServerHttp.ErrorFrame(ctx, StatusCodes.Status422UnprocessableEntity, error.Message);
             }
         });
 
         post.Post(WireRoutes.MfaChallengeStart, async (ctx, ct) =>
         {
-            var action = MfaWire.ReadSingle(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaChallengeStartRequest, 64);
+            var action = MfaWire.ReadSingle(await ServerHttp.ReadFrame(ctx, WireLimits.MaxMfaFrameBytes, ct), FrameType.MfaChallengeStartRequest, 64);
             return action switch
             {
                 MfaWire.Disable => ServerHttp.Frame(await store.BeginDisable(Session(ctx), ct)),
@@ -59,7 +59,7 @@ internal static class MfaEndpoints
         });
         post.Post(WireRoutes.MfaChallengeVerify, async (ctx, ct) =>
         {
-            var attempt = MfaWire.ReadAttempt(await readFrame(ctx, WireLimits.MaxMfaFrameBytes, ct));
+            var attempt = MfaWire.ReadAttempt(await ServerHttp.ReadFrame(ctx, WireLimits.MaxMfaFrameBytes, ct));
             if (attempt.Action == MfaWire.Disable)
                 return ServerHttp.Frame(await store.VerifyDisable(Session(ctx), attempt, ct));
             if (attempt.Action == MfaWire.Regenerate)
@@ -89,7 +89,7 @@ internal static class MfaEndpoints
             catch (MfaProofRequiredException) { return Precondition(ctx); }
             catch (BusinessException error) when (error.Rejection == Rejection.Invalid)
             {
-                return Error(ctx, StatusCodes.Status422UnprocessableEntity, error.Message);
+                return ServerHttp.ErrorFrame(ctx, StatusCodes.Status422UnprocessableEntity, error.Message);
             }
         });
 
@@ -99,9 +99,14 @@ internal static class MfaEndpoints
     private static string? Proof(HttpContext ctx) =>
         ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
     private static IResult Precondition(HttpContext ctx) =>
-        Error(ctx, StatusCodes.Status428PreconditionRequired, "ANONYMOUS_MFA_STEP_UP_REQUIRED");
-    private static IResult Error(HttpContext ctx, int status, string message) =>
-        new AedsError(status, Wire.EncodeError(status, message, traceId: ctx.TraceIdentifier));
+        ServerHttp.ErrorFrame(ctx, StatusCodes.Status428PreconditionRequired, "ANONYMOUS_MFA_STEP_UP_REQUIRED");
 
     private static BusinessException Forbidden() => new(Rejection.Forbidden, "This MFA action is not supported.");
+}
+
+internal sealed class SiteMfaPostRoutes(WebApplication app, Action<HttpContext> requireOrigin)
+{
+    internal void Post(string route, Func<HttpContext, CancellationToken, Task<IResult>> handle) =>
+        app.MapPost(route, (HttpContext ctx, CancellationToken ct) => { requireOrigin(ctx); return handle(ctx, ct); })
+            .RequireRateLimiting("mfa");
 }

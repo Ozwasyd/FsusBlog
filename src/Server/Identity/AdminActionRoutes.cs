@@ -2,8 +2,7 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal abstract class ProofRequiredException : Exception;
 
-internal sealed class AdminActionRoutes(WebApplication app, string authority, string session, string passkeyLimit,
-    Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+internal sealed class AdminActionRoutes(WebApplication app, string authority, string session, string passkeyLimit)
 {
     internal WebApplication App { get; } = app;
     internal string PasskeyLimit { get; } = passkeyLimit;
@@ -20,7 +19,7 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
     internal Task<byte[]> Read(HttpContext ctx, int maximum, CancellationToken ct)
     {
         RequireOrigin(ctx);
-        return readFrame(ctx, maximum, ct);
+        return ServerHttp.ReadFrame(ctx, maximum, ct);
     }
 
     internal delegate T IntentDecoder<T>(ReadOnlySpan<byte> frame);
@@ -128,11 +127,8 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
     internal static string? Proof(HttpContext ctx) =>
         ctx.Request.Headers[WireHeaders.MfaProof] is { Count: 1 } value ? value[0] : null;
 
-    internal static IResult ProofRequired(HttpContext ctx)
-    {
-        const int status = StatusCodes.Status428PreconditionRequired;
-        return new AedsError(status, Wire.EncodeError(status, "MFA_PROOF_REQUIRED", traceId: ctx.TraceIdentifier));
-    }
+    internal static IResult ProofRequired(HttpContext ctx) =>
+        ServerHttp.ErrorFrame(ctx, StatusCodes.Status428PreconditionRequired, "MFA_PROOF_REQUIRED");
 
     internal static IResult Frame(byte[] frame) => ServerHttp.Frame(frame);
 }

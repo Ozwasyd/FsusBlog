@@ -11,7 +11,11 @@ internal sealed class AdminSessionGate(NpgsqlDataSource source, InstanceLease? l
 
     internal Task<(AdminSessionSnapshot Snapshot, string PermissionSession)> SessionWithPermissionBinding(
         string? token, CancellationToken ct) =>
-        WithLiveAdmin(token, (_, _, admin) => Task.FromResult((admin.Snapshot, PermissionBinding(admin.Digest))), ct);
+        WithLiveAdminPermission(token, (_, _, admin) => Task.FromResult(admin.Snapshot), ct);
+
+    internal Task<(T Value, string PermissionSession)> WithLiveAdminPermission<T>(string? token,
+        Func<NpgsqlConnection, NpgsqlTransaction, AdminLiveSession, Task<T>> use, CancellationToken ct) =>
+        WithLiveAdmin(token, async (db, tx, admin) => (await use(db, tx, admin), PermissionBinding(admin.Digest)), ct);
 
     internal static string PermissionBinding(byte[] digest)
     {

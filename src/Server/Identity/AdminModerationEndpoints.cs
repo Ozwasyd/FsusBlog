@@ -32,40 +32,37 @@ internal static class AdminModerationBatchEndpoints
 {
     internal const string Setting = "FSUSBLOG_ADMIN_COMMENT_BATCH";
 
-    internal static void Map(WebApplication app, string origin, AdminModerationBatchStore store, string session, string passkeyLimit,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, bool fenceVisibleMessages)
+    internal static void Map(AdminActionRoutes actions, AdminModerationBatchStore store, bool fenceVisibleMessages)
     {
-        app.MapCommandPost(WireRoutes.AdminModerationBatchClaim, (HttpContext ctx, CancellationToken ct) => Run(ctx, origin, async () =>
+        actions.App.MapCommandPost(WireRoutes.AdminModerationBatchClaim, (HttpContext ctx, CancellationToken ct) => Run(ctx, async () =>
         {
-            var targets = Wire.DecodeAdminModerationBatchTargets(await readFrame(ctx, WireLimits.AdminModerationBatchTargetsFrameBytes, ct));
-            return Wire.EncodeAdminModerationBatchClaims(await store.AcquireModerationBatch(ctx.Request.Cookies[session], targets, ct));
+            var targets = Wire.DecodeAdminModerationBatchTargets(await actions.Read(ctx, WireLimits.AdminModerationBatchTargetsFrameBytes, ct));
+            return Wire.EncodeAdminModerationBatchClaims(await store.AcquireModerationBatch(actions.Session(ctx), targets, ct));
         }));
-        app.MapPost(WireRoutes.AdminModerationBatchStepUpBegin, (HttpContext ctx, CancellationToken ct) => Run(ctx, origin, async () =>
-            await store.BeginModerationBatchStepUp(ctx.Request.Cookies[session], await readFrame(ctx, WireLimits.AdminModerationBatchDecisionFrameBytes, ct), ct)))
-            .RequireRateLimiting(passkeyLimit);
-        app.MapPost(WireRoutes.AdminModerationBatchStepUpComplete, (HttpContext ctx, CancellationToken ct) => Run(ctx, origin, async () =>
-            await store.CompleteModerationBatchStepUp(ctx.Request.Cookies[session],
-                PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false), ct)))
-            .RequireRateLimiting(passkeyLimit);
-        app.MapCommandPost(WireRoutes.AdminModerationBatchDecision, (HttpContext ctx, CancellationToken ct) => Run(ctx, origin, async () =>
+        actions.App.MapPost(WireRoutes.AdminModerationBatchStepUpBegin, (HttpContext ctx, CancellationToken ct) => Run(ctx, async () =>
+            await store.BeginModerationBatchStepUp(actions.Session(ctx), await actions.Read(ctx, WireLimits.AdminModerationBatchDecisionFrameBytes, ct), ct)))
+            .RequireRateLimiting(actions.PasskeyLimit);
+        actions.App.MapPost(WireRoutes.AdminModerationBatchStepUpComplete, (HttpContext ctx, CancellationToken ct) => Run(ctx, async () =>
+            await store.CompleteModerationBatchStepUp(actions.Session(ctx),
+                PasskeyWire.ReadLogin(await actions.Read(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false), ct)))
+            .RequireRateLimiting(actions.PasskeyLimit);
+        actions.App.MapCommandPost(WireRoutes.AdminModerationBatchDecision, (HttpContext ctx, CancellationToken ct) => Run(ctx, async () =>
         {
-            var frame = await readFrame(ctx, WireLimits.AdminModerationBatchDecisionFrameBytes, ct);
+            var frame = await actions.Read(ctx, WireLimits.AdminModerationBatchDecisionFrameBytes, ct);
             return Wire.EncodeAdminModerationBatchReceipt(
-                await store.DecideModerationBatch(ctx.Request.Cookies[session], Proof(ctx), frame, fenceVisibleMessages, ct));
+                await store.DecideModerationBatch(actions.Session(ctx), Proof(ctx), frame, fenceVisibleMessages, ct));
         }));
-    }
 
-    private static async Task<IResult> Run(HttpContext ctx, string origin, Func<Task<byte[]>> apply)
-    {
-        RequireOrigin(ctx, origin);
-        try { return Frame(await apply()); }
-        catch (ModerationBatchConflictException error)
+        static async Task<IResult> Run(HttpContext ctx, Func<Task<byte[]>> apply)
         {
-            const int status = StatusCodes.Status409Conflict;
-            var details = $"moderation_batch_conflicts:{error.Positions.ToString("x5", CultureInfo.InvariantCulture)}";
-            return new AedsError(status, Wire.EncodeError(status, "Selected comments or their claims changed.", details, traceId: ctx.TraceIdentifier));
+            try { return Frame(await apply()); }
+            catch (ModerationBatchConflictException error)
+            {
+                var details = $"moderation_batch_conflicts:{error.Positions.ToString("x5", CultureInfo.InvariantCulture)}";
+                return ServerHttp.ErrorFrame(ctx, StatusCodes.Status409Conflict, "Selected comments or their claims changed.", details);
+            }
+            catch (ProofRequiredException) { return ProofRequired(ctx); }
         }
-        catch (ProofRequiredException) { return ProofRequired(ctx); }
     }
 }
 
