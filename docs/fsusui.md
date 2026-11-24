@@ -6,7 +6,7 @@
 
 ## 1. 前端 npm 包接入（GitHub Packages）
 
-FsusBlog v2 前端通过锁定版本的 GitHub Packages npm 包 `@ozwasyd/element-plus`（当前锁定 `1.6.0-preview.10`）消费 FsusUI 组件、主题与原生 Markdown Wasm 运行时，不再依赖相邻 `../FsusUI` 本地源码检出；业务代码仅从以下公开入口导入，**不得复制 FsusUI token 或以私有选择器掩盖上游缺陷**：
+FsusBlog v2 前端通过锁定版本的 GitHub Packages npm 包 `@ozwasyd/element-plus`（当前锁定 `1.6.0-preview.11`）消费 FsusUI 组件、主题与原生 Markdown Wasm 运行时，不再依赖相邻 `../FsusUI` 本地源码检出；业务代码仅从以下公开入口导入，**不得复制 FsusUI token 或以私有选择器掩盖上游缺陷**：
 
 | 公开消费入口 | 用途 |
 | --- | --- |
@@ -34,7 +34,7 @@ pnpm run typecheck
 pnpm run build
 ```
 
-- 说明：`@ozwasyd/element-plus@1.6.0-preview.10` 发布包在运行时已完整导出 `ElSelect`、`ElOption` 与 `icons-vue/ArrowDown`，但其 `.d.ts` 产物遗漏了 `es/components/select/index.d.ts`、`es/components/select/src/select.vue.d.ts` 与 `es/icons-vue/**/*.d.ts`；[`src/Web/src/fsusui-published-types.d.ts`](../src/Web/src/fsusui-published-types.d.ts) 仅针对这两处缺失声明做最小补齐，待上游补全声明产物后移除。
+- `@ozwasyd/element-plus@1.6.0-preview.11` 已完整发布全部组件、`icons-vue` 与 `defineExpose` 类型声明，前端不再需要任何临时本地 `.d.ts` 补丁。
 
 ## 2. 内置原生 Markdown Wasm 校验
 
@@ -47,7 +47,7 @@ pnpm run build
 
 作者章节标题搜索依赖的 C++23 原生动态库 `libfsus_author_heading`（macOS `.dylib` / Linux `.so`）由 [`src/Server/FsusBlog.V2.Server.csproj`](../src/Server/FsusBlog.V2.Server.csproj) 直接编译本仓内嵌目录 [`src/Server/Authoring/FsusMarkdown/`](../src/Server/Authoring/FsusMarkdown/) 下的 7 个源码/头文件，随发布产物输出 MIT 许可 `licenses/FsusUI-MIT.txt`。
 
-- 来源版本、精确提交 SHA 与逐文件 SHA-256 记录于 [`src/Server/Authoring/FsusMarkdown/UPSTREAM.json`](../src/Server/Authoring/FsusMarkdown/UPSTREAM.json)（当前与 `@ozwasyd/element-plus@1.6.0-preview.10` 同源）。
+- 来源版本、精确提交 SHA 与逐文件 SHA-256 记录于 [`src/Server/Authoring/FsusMarkdown/UPSTREAM.json`](../src/Server/Authoring/FsusMarkdown/UPSTREAM.json)（当前与 `@ozwasyd/element-plus@1.6.0-preview.11` 同源）。
 - 升级 `@ozwasyd/element-plus` 版本时，若上游 `vue/packages/wasm/markdown/` C++ 语法解析源码有变更，须同步更新 `src/Server/Authoring/FsusMarkdown/` 与 `UPSTREAM.json`，并运行 `dotnet build` 与作者搜索集成测试核验一致性。
 
 前端构建与浏览器验收入口见 [Web 构建与端到端验证](web-validation.md)。

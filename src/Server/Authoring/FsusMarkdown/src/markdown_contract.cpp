@@ -1957,6 +1957,8 @@ std::string render_document_v2(
     child_line_anchors.clear();
   };
 
+  std::size_t mermaid_diagram_index = 0;
+
   auto flush_code = [&](std::size_t closing_line) {
     if (code_buffer.empty()) {
       return;
@@ -1966,7 +1968,7 @@ std::string render_document_v2(
     const std::string_view code_view = code_buffer;
     const bool is_mermaid = language == "mermaid";
     std::string block_html = (is_mermaid && request.allow_mermaid)
-      ? mermaid::render_block(code_view)
+      ? mermaid::render_block(code_view, mermaid_diagram_index++)
       : escape_and_wrap_code(code_view, language);
     attach_following_anchor(closing_line, block_html);
     html.append(block_html);
@@ -2172,7 +2174,7 @@ std::string render_document_v2(
       }
 
       std::string mermaid_html = request.allow_mermaid
-        ? mermaid::render_block(mermaid_buffer)
+        ? mermaid::render_block(mermaid_buffer, mermaid_diagram_index++)
         : escape_and_wrap_code(mermaid_buffer, "mermaid");
       attach_following_anchor(mermaid_index, mermaid_html);
       html.append(mermaid_html);

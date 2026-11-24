@@ -331,7 +331,24 @@ struct parsed_node_token final {
   return !graph.nodes.empty();
 }
 
-[[nodiscard]] std::string render_svg(const graph_spec& graph) {
+[[nodiscard]] std::string format_marker_id(std::string_view source, std::size_t diagram_index) {
+  std::uint32_t hash = 2166136261u;
+  for (const unsigned char ch : source) {
+    hash ^= static_cast<std::uint32_t>(ch);
+    hash *= 16777619u;
+  }
+  constexpr char kHex[] = "0123456789abcdef";
+  std::string id = "mermaid-arrow-";
+  id.reserve(32);
+  for (int shift = 28; shift >= 0; shift -= 4) {
+    id.push_back(kHex[(hash >> shift) & 0x0fu]);
+  }
+  id.push_back('-');
+  id.append(std::to_string(diagram_index));
+  return id;
+}
+
+[[nodiscard]] std::string render_svg(const graph_spec& graph, std::string_view marker_id) {
   constexpr int node_height = 56;
   constexpr int horizontal_gap = 52;
   constexpr int vertical_gap = 48;
@@ -391,7 +408,9 @@ struct parsed_node_token final {
   out.append("\" height=\"");
   out.append(std::to_string(height));
   out.append("\" preserveAspectRatio=\"xMidYMid meet\" role=\"img\" aria-label=\"Mermaid diagram\">");
-  out.append("<defs><marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\"><path d=\"M 0 0 L 10 5 L 0 10 z\" fill=\"#71717a\" /></marker></defs>");
+  out.append("<defs><marker id=\"");
+  out.append(marker_id);
+  out.append("\" viewBox=\"0 0 10 10\" refX=\"9\" refY=\"5\" markerWidth=\"7\" markerHeight=\"7\" orient=\"auto-start-reverse\"><path class=\"mermaid-arrow\" d=\"M 0 0 L 10 5 L 0 10 z\" fill=\"var(--el-text-color-secondary, #71717a)\" /></marker></defs>");
 
   for (const auto& edge : graph.edges) {
     const auto from_it = node_boxes.find(edge.from_key);
@@ -407,7 +426,7 @@ struct parsed_node_token final {
     const int x2 = horizontal ? to.x : to.center_x;
     const int y2 = horizontal ? to.center_y : to.y;
 
-    out.append("<line x1=\"");
+    out.append("<line class=\"mermaid-edge\" x1=\"");
     out.append(std::to_string(x1));
     out.append("\" y1=\"");
     out.append(std::to_string(y1));
@@ -415,14 +434,16 @@ struct parsed_node_token final {
     out.append(std::to_string(x2));
     out.append("\" y2=\"");
     out.append(std::to_string(y2));
-    out.append("\" stroke=\"#71717a\" stroke-width=\"2\" marker-end=\"url(#arrow)\" />");
+    out.append("\" stroke=\"var(--el-text-color-secondary, #71717a)\" stroke-width=\"2\" marker-end=\"url(#");
+    out.append(marker_id);
+    out.append(")\" />");
   }
 
   for (std::size_t index = 0; index < count; ++index) {
     const node_layout& box = node_boxes.at(graph.nodes[index].key);
     const std::string label = escape_html(graph.nodes[index].label);
 
-    out.append("<rect x=\"");
+    out.append("<rect class=\"mermaid-node\" x=\"");
     out.append(std::to_string(box.x));
     out.append("\" y=\"");
     out.append(std::to_string(box.y));
@@ -430,12 +451,12 @@ struct parsed_node_token final {
     out.append(std::to_string(box.width));
     out.append("\" height=\"");
     out.append(std::to_string(box.height));
-    out.append("\" rx=\"16\" fill=\"#ffffff\" stroke=\"#d4d4d8\" stroke-width=\"1.5\" />");
-    out.append("<text x=\"");
+    out.append("\" rx=\"16\" fill=\"var(--el-bg-color-overlay, #ffffff)\" stroke=\"var(--el-border-color, #d4d4d8)\" stroke-width=\"1.5\" />");
+    out.append("<text class=\"mermaid-label\" x=\"");
     out.append(std::to_string(box.center_x));
     out.append("\" y=\"");
     out.append(std::to_string(box.center_y));
-    out.append("\" text-anchor=\"middle\" dominant-baseline=\"middle\" fill=\"#18181b\" font-size=\"14\" font-family=\"Google Sans, Noto Sans SC, system-ui, sans-serif\">");
+    out.append("\" text-anchor=\"middle\" dominant-baseline=\"middle\" fill=\"var(--el-text-color-primary, #18181b)\" font-size=\"14\" font-family=\"Google Sans, Noto Sans SC, system-ui, sans-serif\">");
     out.append(label);
     out.append("</text>");
   }
@@ -446,13 +467,13 @@ struct parsed_node_token final {
 
 } // namespace
 
-std::string render_block(std::string_view source) {
+std::string render_block(std::string_view source, std::size_t diagram_index) {
   graph_spec graph;
   if (!parse_graph(source, graph) || graph.edges.empty()) {
     return render_placeholder(source);
   }
 
-  return render_svg(graph);
+  return render_svg(graph, format_marker_id(source, diagram_index));
 }
 
 } // namespace fsusblog::wasm::markdown::mermaid

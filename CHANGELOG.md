@@ -17,6 +17,7 @@
 
 ### 变更与移除
 
-- **切换 FsusUI 为独立 npm 发布包与内嵌 C++ 标题解析器**：前端 `src/Web/` 切换为 GitHub Packages 锁定的 `@ozwasyd/element-plus@1.6.0-preview.10` npm 包及其内置 6 个原生 Wasm 产物，移除对相邻 `../FsusUI` 检出的 Vite/TS alias、测试与发布脚本依赖；后端作者章节搜索所用的同版本 C++23 标题解析器源码内嵌至 `src/Server/Authoring/FsusMarkdown/`（附 MIT 许可与 `UPSTREAM.json` 校验清单），实现本仓独立构建与发布。
+- **升级 FsusUI 至 `v1.6.0-preview.11`**：前端升级至 GitHub Packages 锁定的 `@ozwasyd/element-plus@1.6.0-preview.11`，同步更新 `src/Server/Authoring/FsusMarkdown/` 中 4 个上游 C++23 源码文件与 `UPSTREAM.json`；随上游修复 `#1129`（发布 `.d.ts` 缺失与 `icons-vue` 自引用循环）、`#1130`（Wasm LaTeX MathML 分词截断）、`#1131`（Wasm Mermaid 暗色主题与全局箭头 ID 冲突）与 `#1132`（`ElMarkdownEditor` 响应 `ElConfigProvider` locale），移除临时类型声明补丁 `src/Web/src/fsusui-published-types.d.ts`。
+- **切换 FsusUI 为独立 npm 发布包与内嵌 C++ 标题解析器**：前端 `src/Web/` 切换为 GitHub Packages 锁定的 `@ozwasyd/element-plus` npm 包及其内置 6 个原生 Wasm 产物，移除对相邻 `../FsusUI` 检出的 Vite/TS alias、测试与发布脚本依赖；后端作者章节搜索所用的同版本 C++23 标题解析器源码内嵌至 `src/Server/Authoring/FsusMarkdown/`（附 MIT 许可与 `UPSTREAM.json` 校验清单），实现本仓独立构建与发布。
 - **FsusUI `v1.6.0-preview.10` 对齐与复验**：同步 FsusUI `v1.6.0-preview.10` 基线（`#1123` 高亮围栏代码块片段 ID 保留、`#1125` 窄屏 `ElThreadPanel` 页头换行、`#1126` 窄屏 `ElCheckbox` 标签换行、`#1127` 原语具名插槽响应更新）；移除 `ArticleMedia.vue` 私有 `:deep(.el-checkbox*)` 覆写，补齐 `AdminSiteConfig.vue` 与 `EditorInspector.vue` 网格列 `minmax(0, 1fr)` 收缩约束，并补全对应原生浏览器回归断言与活跃文档状态。
 - **V1 退役与旧迁移移除**：FsusBlog v1 正式退役并仅作只读历史参考，仓库已移除 V1 离线数据迁移命令与转换工具。
