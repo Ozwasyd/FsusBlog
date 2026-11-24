@@ -1,16 +1,15 @@
 // Use the same exact accessible-name matching for selectors on pages and nested locators.
-export function roleWithExactName(scope, role, name) {
-  return scope.getByRole(role, { name, exact: true })
-}
-
-export function exactButton(scope, name) {
-  return roleWithExactName(scope, 'button', name)
-}
-
-export function exactText(scope, text) {
-  return scope.getByText(text, { exact: true })
-}
-
-export function exactLabel(scope, label) {
-  return scope.getByLabel(label, { exact: true })
-}
+export const roleWithExactName = (scope, role, name) => scope.getByRole(role, { name, exact: true })
+export const exactButton = (scope, name) => roleWithExactName(scope, 'button', name)
+export const exactHeading = (scope, name) => roleWithExactName(scope, 'heading', name)
+export const exactDialog = (scope, name) => roleWithExactName(scope, 'dialog', name)
+export const exactRegion = (scope, name) => roleWithExactName(scope, 'region', name)
+export const exactLink = (scope, name) => roleWithExactName(scope, 'link', name)
+export const exactTab = (scope, name) => roleWithExactName(scope, 'tab', name)
+export const exactOption = (scope, name) => roleWithExactName(scope, 'option', name)
+export const exactMenuItem = (scope, name) => roleWithExactName(scope, 'menuitem', name)
+export const exactCheckbox = (scope, name) => roleWithExactName(scope, 'checkbox', name)
+export const exactRadio = (scope, name) => roleWithExactName(scope, 'radio', name)
+export const exactCombobox = (scope, name) => roleWithExactName(scope, 'combobox', name)
+export const exactText = (scope, text) => scope.getByText(text, { exact: true })
+export const exactLabel = (scope, label) => scope.getByLabel(label, { exact: true })

@@ -1,5 +1,4 @@
 using System.Data;
-using Npgsql;
 
 namespace FsusBlogV2.Storage;
 
@@ -7,100 +6,47 @@ internal static partial class CurrentSchema
 {
     internal const int Version = 1;
 
-    private static readonly string[] Columns =
-    [
-        "v2_schema singleton:bool version:int4",
-        "blog_user id:uuid name:text enabled:bool generation:int8",
-        "admin_principal id:uuid handle:text user_handle:bytea enabled:bool generation:int8 generation_changed_at:timestamptz=clock_timestamp",
-        "login_ticket digest:bytea user_id:uuid expires_at:timestamptz",
-        "user_session digest:bytea user_id:uuid generation:int8 expires_at:timestamptz passkey_credential_id:bytea? totp_verified_at:timestamptz?",
-        "article id:int4:a owner_id:uuid revision:int8 title:text body:text published_revision:int8? publication_count:int4=0 deleted:bool created_at:timestamptz=now updated_at:timestamptz=now",
-        ArticleRevisionColumns,
-        "article_command actor_id:uuid command_id:uuid fingerprint:bytea article_id:int4 revision:int8 title:text body:text published:bool",
-        "article_publication article_id:int4 publication_id:int8:d revision:int8 publication_no:int4=1 published_at:timestamptz",
-        "blog_outbox id:int8:a article_id:int4 revision:int8 kind:text created_at:timestamptz=now processed_at:timestamptz?"
-    ];
+    private static SchemaFacts GetCoreShape(bool hasArticleSummary) => Tables(
+        Singleton("v2_schema singleton:bool version:int4"),
+        Table("blog_user id:uuid name:text enabled:bool generation:int8", "p id", "u name", Pos("generation")),
+        Table("admin_principal id:uuid handle:text user_handle:bytea enabled:bool generation:int8 generation_changed_at:timestamptz=clock_timestamp",
+            "p id", "u handle", "c handle handle~'^[a-z][a-z0-9_.-]{0,63}$'::text", "u user_handle", Bytes32("user_handle"), Pos("generation")),
+        Table("login_ticket digest:bytea user_id:uuid expires_at:timestamptz",
+            "p digest", Bytes32("digest"), "f user_id public.blog_user:id"),
+        Table("user_session digest:bytea user_id:uuid generation:int8 expires_at:timestamptz passkey_credential_id:bytea? totp_verified_at:timestamptz?",
+            "p digest", Bytes32("digest"), Pos("generation"), "f user_id public.blog_user:id"),
+        Table("article id:int4:a owner_id:uuid revision:int8 title:text body:text published_revision:int8? publication_count:int4=0 deleted:bool created_at:timestamptz=now updated_at:timestamptz=now",
+            "p id", Pos("revision"), NonNeg("publication_count"), "f owner_id public.admin_principal:id",
+            "f id,revision public.article_revision:article_id,revision deferred",
+            "f id,published_revision public.article_revision:article_id,revision deferred"),
+        Table("article_revision article_id:int4 revision:int8 title:text body:text happened_at:timestamptz" + (hasArticleSummary ? " author_summary:text?" : ""),
+            "p article_id,revision", Pos("revision"), "f article_id public.article:id",
+            If(hasArticleSummary, "c author_summary char_length(author_summary)>=1ANDchar_length(author_summary)<=512" )),
+        Table("article_command actor_id:uuid command_id:uuid fingerprint:bytea article_id:int4 revision:int8 title:text body:text published:bool",
+            "p actor_id,command_id", Bytes32("fingerprint"), "f actor_id public.admin_principal:id",
+            "f article_id public.article:id", "f article_id,revision public.article_revision:article_id,revision"),
+        Table("article_publication article_id:int4 publication_id:int8:d revision:int8 publication_no:int4=1 published_at:timestamptz",
+            "p article_id", "u publication_id", Pos("publication_no"), "f article_id public.article:id",
+            "f article_id,revision public.article_revision:article_id,revision"),
+        Table("blog_outbox id:int8:a article_id:int4 revision:int8 kind:text created_at:timestamptz=now processed_at:timestamptz?",
+            "p id", "f article_id public.article:id", "f article_id,revision public.article_revision:article_id,revision"));
 
-    private static readonly string[] Constraints =
-    [
-        "v2_schema p singleton",
-        "v2_schema c singleton singleton",
-        "blog_user p id",
-        "blog_user u name",
-        "blog_user c generation generation>0",
-        "admin_principal p id",
-        "admin_principal u handle",
-        "admin_principal c handle handle~'^[a-z][a-z0-9_.-]{0,63}$'::text",
-        "admin_principal u user_handle",
-        "admin_principal c user_handle octet_length(user_handle)=32",
-        "admin_principal c generation generation>0",
-        "login_ticket p digest",
-        "login_ticket c digest octet_length(digest)=32",
-        "login_ticket f user_id public.blog_user:id",
-        "user_session p digest",
-        "user_session c digest octet_length(digest)=32",
-        "user_session c generation generation>0",
-        "user_session f user_id public.blog_user:id",
-        "article p id",
-        "article c revision revision>0",
-        "article c publication_count publication_count>=0",
-        "article f owner_id public.admin_principal:id",
-        "article f id,revision public.article_revision:article_id,revision deferred",
-        "article f id,published_revision public.article_revision:article_id,revision deferred",
-        "article_revision p article_id,revision",
-        "article_revision c revision revision>0",
-        "article_revision f article_id public.article:id",
-        "article_command p actor_id,command_id",
-        "article_command c fingerprint octet_length(fingerprint)=32",
-        "article_command f actor_id public.admin_principal:id",
-        "article_command f article_id public.article:id",
-        "article_command f article_id,revision public.article_revision:article_id,revision",
-        "article_publication p article_id",
-        "article_publication u publication_id",
-        "article_publication c publication_no publication_no>0",
-        "article_publication f article_id public.article:id",
-        "article_publication f article_id,revision public.article_revision:article_id,revision",
-        "blog_outbox p id",
-        "blog_outbox f article_id public.article:id",
-        "blog_outbox f article_id,revision public.article_revision:article_id,revision"
-    ];
-
-    internal static async Task<bool> VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
-        SchemaAdmission admission = default)
+    internal static async Task<bool> VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken, SchemaAdmission admission = default)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
-        await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
-        {
-            await protect.ExecuteNonQueryAsync(cancellationToken);
-        }
+        await ExecuteAsync(connection, transaction, cancellationToken, "SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog");
 
-        await using (var role = new NpgsqlCommand("SHOW session_replication_role", connection, transaction))
-        {
-            if (await role.ExecuteScalarAsync(cancellationToken) is not "origin")
-            {
-                throw new InvalidOperationException("The PostgreSQL session must enforce local integrity triggers.");
-            }
-        }
+        if (await ScalarAsync(connection, transaction, cancellationToken, "SHOW session_replication_role") is not "origin")
+            throw new InvalidOperationException("The PostgreSQL session must enforce local integrity triggers.");
+        if (await ScalarAsync(connection, transaction, cancellationToken, "SELECT EXISTS (SELECT FROM pg_catalog.pg_namespace WHERE nspname='fsus_legacy_candidate')") is true)
+            throw new InvalidOperationException("The database is an isolated legacy import candidate and cannot serve.");
 
-        await using (var import = new NpgsqlCommand(
-            "SELECT EXISTS (SELECT FROM pg_catalog.pg_namespace WHERE nspname='fsus_legacy_candidate')", connection, transaction))
-        {
-            if (await import.ExecuteScalarAsync(cancellationToken) is true)
-                throw new InvalidOperationException("The database is an isolated legacy import candidate and cannot serve.");
-        }
-
-        var webpMedia = await VerifyCatalogAsync(connection, transaction, cancellationToken,
-            CatalogVerificationOptions.FromAdmission(admission));
+        var webpMedia = await VerifyCatalogAsync(connection, transaction, cancellationToken, CatalogVerificationOptions.FromAdmission(admission));
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
-        await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
-        await using (var row = await marker.ExecuteReaderAsync(cancellationToken))
-        {
-            if (!await row.ReadAsync(cancellationToken) || row.GetInt32(0) != Version || await row.ReadAsync(cancellationToken))
-            {
-                throw new InvalidOperationException($"Expected a single FsusBlog V2 schema marker at version {Version}.");
-            }
-        }
+        var markerError = $"Expected a single FsusBlog V2 schema marker at version {Version}.";
+        if (await ReadSingleVersionAsync(connection, transaction, "SELECT version FROM public.v2_schema", markerError, cancellationToken) != Version)
+            throw new InvalidOperationException(markerError);
 
         await transaction.CommitAsync(cancellationToken);
         return webpMedia;
@@ -110,239 +56,153 @@ internal static partial class CurrentSchema
         CancellationToken cancellationToken, CatalogVerificationOptions? options = null)
     {
         options ??= CatalogVerificationOptions.Default;
-        var core = options.Core;
-        var site = options.Site;
-        var adminInbox = options.AdminInbox;
-        var adminContent = options.AdminContent;
-        var comments = options.Comments;
-        var authoring = options.Authoring;
-        var authorText = options.AuthorText;
-        var media = options.Media;
-        var publication = options.Publication;
-
+        var (core, site, adminInbox, adminContent) = (options.Core, options.Site, options.AdminInbox, options.AdminContent);
+        var (comments, authoring, authorText, media, publication) = (options.Comments, options.Authoring, options.AuthorText, options.Media, options.Publication);
         var catalog = await LoadCatalogPresenceSnapshotAsync(connection, transaction, cancellationToken);
 
+        List<SchemaFacts> shapes = [];
+        void AddIf(bool condition, SchemaFacts shape) { if (condition) shapes.Add(shape); }
+        bool Optional(bool? required, bool found, string feature, SchemaFacts shape, bool prerequisitesMet = true)
+        {
+            if (!CheckPresence(required, found, feature, prerequisitesMet)) return false;
+            shapes.Add(shape);
+            return true;
+        }
+
+        var hasArticleSummary = HasArticleSummary(catalog);
         var hasArticleMedia = media.ArticleMedia ?? catalog.HasRelation(ArticleMediaRelation);
-        var hasArticleCover = CheckPresence(media.ArticleCover, catalog.HasRelation(ArticleCoverRelation),
-            "The saved article cover");
+        var hasArticleCover = Optional(media.ArticleCover, catalog.HasRelation(ArticleCoverRelation), "The saved article cover", ArticleCoverShape);
         if (hasArticleCover && !hasArticleMedia)
             throw new InvalidOperationException("Saved article covers require the article attachment schema.");
         var hasPrivateMediaImportOrigin = PrivateMediaImportRelations.IsPresent(catalog);
-        var hasLegacyReleaseOrigin = catalog.HasRelation(LegacyReleaseOriginRelation);
         if (hasPrivateMediaImportOrigin && !hasArticleMedia)
             throw new InvalidOperationException("Imported private media requires the article attachment schema.");
-        var hasSubscription = site.Subscription ?? catalog.HasRelation(SiteSubscriptionRelation);
-        var hasRecoveryKey = CheckPresence(site.RecoveryKey, SiteRecoveryKeyRelations.IsPresent(catalog),
-            "The site Recovery Key");
-        var hasAdminInboxReply = CheckPresence(adminInbox.Reply, catalog.HasRelation(AdminInboxReplyRelation),
-            "The administrator inbox reply");
-        var hasAdminInboxStatus = CheckPresence(adminInbox.Status, catalog.HasRelation(AdminInboxStatusRelation),
-            "The administrator inbox status");
-        var hasAdminInboxNotice = CheckPresence(adminInbox.Notice, catalog.HasRelation(AdminInboxNoticeRelation),
-            "The administrator inbox notice");
-        var hasAdminInboxRead = CheckPresence(adminInbox.Read, catalog.HasRelation(AdminInboxReadRelation),
-            "The shared administrator inbox read");
-        var hasAuthoringWorkspace = authoring.Workspace ?? catalog.HasRelation(AuthoringWorkspaceRelation);
-        var hasSiteRefresh = CheckPresence(site.Refresh, SiteRefreshRelations.IsPresent(catalog),
-            "The site refresh");
-        var hasSitePageEditor = CheckPresence(site.PageEditor, SitePageEditorRelations.IsPresent(catalog),
-            "The site page editor");
-        var hasSiteConfigOverride = CheckPresence(site.ConfigEditor, SiteConfigOverrideRelations.IsPresent(catalog),
-            "The site configuration override");
-        var hasAppearanceActivation = CheckPresence(site.AppearanceActivation, AppearanceActivationRelations.IsPresent(catalog),
-            "The signed appearance");
-        var hasRootCommentPowPolicy = CheckPresence(comments.RootPowPolicy, RootCommentPowPolicyRelations.IsPresent(catalog),
-            "The root comment proof policy", prerequisitesMet: core.AdminIdentity);
-        var hasSavedViews = CheckPresence(authoring.SavedViews, SavedViewRelations.IsPresent(catalog),
-            "The saved views");
-        var hasSavedViewPlacement = CheckPresence(authoring.SavedViewPlacement, SavedViewPlacementRelations.IsPresent(catalog),
-            "The saved view placement", prerequisitesMet: hasSavedViews);
-        var hasAdminTagMetadata = CheckPresence(adminContent.TagMetadata, AdminTagMetadataRelations.IsPresent(catalog),
-            "The administrator tag metadata");
+
+        shapes.AddRange([GetCoreShape(hasArticleSummary), CommunicationShape, TaxonomyShape, core.LegacyCanvas ? LegacyCanvasShape : CanvasShape,
+            PropertyShape, PasskeyShape, MfaShape, GetCommentShape(core.AdminIdentity), GetMediaShape(hasPrivateMediaImportOrigin)]);
+        AddIf(hasArticleMedia, ArticleMediaShape);
+        AddIf(PropertySnapshotTable.IsPresent(catalog), PropertySnapshotShape);
+        AddIf(catalog.HasRelation(SitePasskeyNameRelation), SitePasskeyNameShape);
+        AddIf(catalog.HasRelation(LegacyReleaseOriginRelation), LegacyReleaseOriginShape);
+        AddIf(core.RevisionHistory, RevisionHistoryShape);
+        AddIf(core.AdminIdentity, AdminIdentityShape);
+        AddIf(core.ArticleSchedule, ArticleScheduleShape);
+        AddIf(core.MediaUpload, MediaUploadShape);
+        AddIf(core.PublicationRights, PublicationRightsShape);
+        AddIf(!core.LegacyCanvas && core.CanvasHistory, CanvasHistoryShape);
+        AddIf(core.RecoveryScope, RecoveryScopeShape);
+        AddIf(site.Subscription ?? catalog.HasRelation(SiteSubscriptionRelation), SiteSubscriptionShape);
+        AddIf(catalog.HasRelation(SiteTrafficRelation), SiteTrafficShape);
+
+        Optional(site.RecoveryKey, SiteRecoveryKeyRelations.IsPresent(catalog), "The site Recovery Key", SiteRecoveryKeyShape);
+        Optional(adminInbox.Reply, catalog.HasRelation(AdminInboxReplyRelation), "The administrator inbox reply", AdminInboxReplyShape);
+        Optional(adminInbox.Status, catalog.HasRelation(AdminInboxStatusRelation), "The administrator inbox status", AdminInboxStatusShape);
+        Optional(adminInbox.Notice, catalog.HasRelation(AdminInboxNoticeRelation), "The administrator inbox notice", AdminInboxNoticeShape);
+        Optional(adminInbox.Read, catalog.HasRelation(AdminInboxReadRelation), "The shared administrator inbox read", AdminInboxReadShape);
+        Optional(site.Refresh, SiteRefreshRelations.IsPresent(catalog), "The site refresh", SiteRefreshShape);
+        var hasSitePageEditor = Optional(site.PageEditor, SitePageEditorRelations.IsPresent(catalog), "The site page editor", SitePageEditorShape);
+        var hasSiteConfigOverride = Optional(site.ConfigEditor, SiteConfigOverrideRelations.IsPresent(catalog), "The site configuration override", SiteConfigOverrideShape);
+        var hasAppearanceActivation = Optional(site.AppearanceActivation, AppearanceActivationRelations.IsPresent(catalog), "The signed appearance", AppearanceActivationShape);
+        var hasRootCommentPowPolicy = Optional(comments.RootPowPolicy, RootCommentPowPolicyRelations.IsPresent(catalog), "The root comment proof policy", RootCommentPowPolicyShape, core.AdminIdentity);
+        var hasSavedViews = Optional(authoring.SavedViews, SavedViewRelations.IsPresent(catalog), "The saved views", SavedViewShape);
+        Optional(authoring.SavedViewPlacement, SavedViewPlacementRelations.IsPresent(catalog), "The saved view placement", SavedViewPlacementShape, hasSavedViews);
+        var hasAdminTagMetadata = Optional(adminContent.TagMetadata, AdminTagMetadataRelations.IsPresent(catalog), "The administrator tag metadata", AdminTagMetadataShape);
+
         var hasAdminCategoryMetadata = AdminCategoryMetadataRelations.IsPresent(catalog);
         if (hasAdminCategoryMetadata && !hasAdminTagMetadata)
             throw new InvalidOperationException("The administrator category metadata schema requires the taxonomy epoch.");
         if (adminContent.CategoryMetadata is bool requiredCategoryMetadata && requiredCategoryMetadata != hasAdminCategoryMetadata)
             throw new InvalidOperationException("The administrator category metadata schema is unavailable. Run category-metadata with the server stopped.");
-        var hasAdminArticleRollback = CheckPresence(adminContent.ArticleRollback, HasAdminArticleRollbackSchema(catalog),
-            "The administrator article rollback");
-        var hasAdminArticleDraftRollback = hasAdminArticleRollback &&
-            HasAdminArticleDraftRollbackSchema(catalog);
-        var hasAdminArticleArchive = hasAdminArticleDraftRollback &&
-            HasAdminArticleArchiveSchema(catalog);
-        var hasAdminArticleTrashPublication = hasAdminArticleArchive &&
-            HasAdminArticleTrashPublicationSchema(catalog);
+        AddIf(hasAdminCategoryMetadata, AdminCategoryMetadataShape);
+
+        var hasAdminArticleRollback = CheckPresence(adminContent.ArticleRollback, HasAdminArticleRollbackSchema(catalog), "The administrator article rollback");
+        if (hasAdminArticleRollback)
+        {
+            var draft = HasAdminArticleDraftRollbackSchema(catalog);
+            var archive = draft && HasAdminArticleArchiveSchema(catalog);
+            shapes.Add(GetAdminArticleRollbackShape(draft, archive, archive && HasAdminArticleTrashPublicationSchema(catalog)));
+        }
+        if (core.PublicationHistory) shapes.Add(GetPublicationHistoryShape(hasAdminArticleRollback));
+
         var hasAdminArticleTrashRestore = AdminArticleTrashRestoreRelations.IsPresent(catalog);
         if (hasAdminArticleTrashRestore && !core.AdminIdentity)
             throw new InvalidOperationException("Administrator trash restoration requires independent administrator identity.");
-        CheckPresence(adminContent.ArticleTrashRestore, hasAdminArticleTrashRestore, "The administrator trash restore");
-        var requireModerationVersion = core.AdminIdentity;
+        Optional(adminContent.ArticleTrashRestore, hasAdminArticleTrashRestore, "The administrator trash restore", AdminArticleTrashRestoreShape);
+
         var hasCommentAuthorDelete = CommentAuthorDeleteRelations.IsPresent(catalog);
-        if (hasCommentAuthorDelete && !requireModerationVersion)
+        if (hasCommentAuthorDelete && !core.AdminIdentity)
             throw new InvalidOperationException("Comment author deletion requires the current comment version column.");
-        var hasCommentAuthorEdit = CheckPresence(comments.AuthorEdit, CommentAuthorEditRelations.IsPresent(catalog),
-            "Comment author edit", prerequisitesMet: hasCommentAuthorDelete);
-        string[] commentAuthorEditConstraints = hasCommentAuthorEdit
-            ? ReadCommentAuthorEditConstraints(catalog) : [];
-        var hasCommentReport = CheckPresence(comments.Report, catalog.HasRelation(CommentReportRelation),
-            "Comment report");
-        var hasCommentAppeal = CheckPresence(comments.Appeal, CommentAppealRelations.IsPresent(catalog),
-            "Comment appeal", prerequisitesMet: hasCommentAuthorDelete);
-        var hasCommentReplies = CheckPresence(comments.Replies, catalog.HasRelation(CommentReplyRelation),
-            "Comment reply notice", prerequisitesMet: hasCommentAuthorDelete);
-        var hasAdminCommentBatch = CheckPresence(comments.AdminBatch, AdminCommentBatchRelations.IsPresent(catalog),
-            "Administrator comment batch", prerequisitesMet: requireModerationVersion);
+        AddIf(hasCommentAuthorDelete, CommentAuthorDeleteShape);
+        if (CheckPresence(comments.AuthorEdit, CommentAuthorEditRelations.IsPresent(catalog), "Comment author edit", hasCommentAuthorDelete))
+            shapes.Add(ReadCommentAuthorEditShape(catalog));
+        Optional(comments.Report, catalog.HasRelation(CommentReportRelation), "Comment report", CommentReportShape);
+        Optional(comments.Appeal, CommentAppealRelations.IsPresent(catalog), "Comment appeal", CommentAppealShape, hasCommentAuthorDelete);
+        Optional(comments.Replies, catalog.HasRelation(CommentReplyRelation), "Comment reply notice", CommentReplyShape, hasCommentAuthorDelete);
+        Optional(comments.AdminBatch, AdminCommentBatchRelations.IsPresent(catalog), "Administrator comment batch", AdminCommentBatchShape, core.AdminIdentity);
+
+        var hasAuthoringWorkspace = authoring.Workspace ?? catalog.HasRelation(AuthoringWorkspaceRelation);
         var hasWorkspaceLayout = hasAuthoringWorkspace && HasAuthoringWorkspaceLayout(catalog);
         var hasWorkspaceGroups = CheckPresence(authoring.WorkspaceGroups, hasAuthoringWorkspace && HasAuthoringWorkspaceGroups(catalog),
-            "The authoring workspace group", prerequisitesMet: hasWorkspaceLayout);
-        var hasAuthorRecentOpens = CheckPresence(authoring.RecentOpens, AuthorRecentOpenRelations.IsPresent(catalog),
-            "The author recent opens", prerequisitesMet: core.RecoveryScope);
-        var hasAuthorTextIndex = CheckPresence(authorText.Index, HasAuthorTextIndex(catalog),
-            "The author full-text index");
-        var hasAuthorTextSummaryIndex = hasAuthorTextIndex &&
-            HasAuthorTextSummaryIndex(catalog);
+            "The authoring workspace group", hasWorkspaceLayout);
+        if (hasAuthoringWorkspace) shapes.Add(GetAuthoringWorkspaceShape(hasWorkspaceLayout, hasWorkspaceGroups));
+        Optional(authoring.RecentOpens, AuthorRecentOpenRelations.IsPresent(catalog), "The author recent opens", AuthorRecentOpenShape, core.RecoveryScope);
+
+        var hasAuthorTextIndex = CheckPresence(authorText.Index, HasAuthorTextIndex(catalog), "The author full-text index");
+        var hasAuthorTextSummaryIndex = hasAuthorTextIndex && HasAuthorTextSummaryIndex(catalog);
         if (authorText.SummaryIndex && !hasAuthorTextSummaryIndex)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install summary indexing.");
-        var hasAuthorTextHeadingIndex = hasAuthorTextIndex &&
-            HasAuthorTextHeadingIndex(catalog);
+        var hasAuthorTextHeadingIndex = hasAuthorTextIndex && HasAuthorTextHeadingIndex(catalog);
         if (hasAuthorTextHeadingIndex && !hasAuthorTextSummaryIndex || authorText.HeadingIndex && !hasAuthorTextHeadingIndex)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install heading indexing.");
+        if (hasAuthorTextIndex) shapes.Add(GetAuthorTextIndexShape(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex));
         var hasAuthorTextPropertyIndex = HasAuthorTextPropertyIndex(catalog);
         if (hasAuthorTextPropertyIndex && !hasAuthorTextHeadingIndex || authorText.PropertyIndex && !hasAuthorTextPropertyIndex)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install text property indexing.");
+        AddIf(hasAuthorTextPropertyIndex, AuthorTextPropertyIndexShape);
         var hasAuthorTextRebuild = catalog.HasRelation(AuthorTextRebuildRelation);
         if (hasAuthorTextRebuild && !hasAuthorTextPropertyIndex || authorText.Rebuild && !hasAuthorTextRebuild)
             throw new InvalidOperationException("Run the author-search migration with the server stopped to install autonomous indexing.");
-        var hasArticleSummary = HasArticleSummary(catalog);
-        var hasDocumentExports = catalog.HasRelation(DocumentExportsRelation);
-        var currentDocumentExportProvider = hasDocumentExports &&
-            HasCurrentDocumentExportProvider(catalog);
-        var hasDocumentExportAttachments = hasDocumentExports &&
-            HasDocumentExportAttachments(catalog);
-        var hasExportImageList = hasDocumentExportAttachments &&
-            HasDocumentExportAttachments(catalog, list: true);
-        var exportImageScope = hasExportImageList
-            ? ReadExportImageScope(catalog) : ExportImageScope.Html;
-        CheckPresence(authoring.DocumentExports, hasDocumentExports, "The document export");
-        var hasArticleBodyInsertion = BodyInsertionTable.IsPresent(catalog);
-        var hasArticleBodyInsertionOperations = hasArticleBodyInsertion &&
-            BodyInsertionOperations.IsPresent(catalog);
-        var hasArticleBodyEdits = hasArticleBodyInsertionOperations &&
-            BodyEditTexts.IsPresent(catalog);
+        AddIf(hasAuthorTextRebuild, AuthorTextRebuildShape);
+
+        var hasDocumentExports = CheckPresence(authoring.DocumentExports, catalog.HasRelation(DocumentExportsRelation), "The document export");
+        if (hasDocumentExports)
+        {
+            var attachments = HasDocumentExportAttachments(catalog);
+            var imageList = attachments && HasDocumentExportAttachments(catalog, list: true);
+            shapes.Add(DocumentExportShape(attachments, imageList, HasCurrentDocumentExportProvider(catalog),
+                imageList ? ReadExportImageScope(catalog) : ExportImageScope.Html));
+        }
+
+        if (BodyInsertionTable.IsPresent(catalog))
+        {
+            var ops = BodyInsertionOperations.IsPresent(catalog);
+            shapes.Add(GetArticleBodyInsertionShape(ops, ops && BodyEditTexts.IsPresent(catalog)));
+        }
+
         var hasPublicationCanonical = CheckPresence(publication.Canonical, catalog.HasRelation(PublicationCanonicalRelation),
-            "The native publication canonical", prerequisitesMet: core.PublicationHistory && core.PublicationRights);
-        var hasPublicationMedia = CheckPresence(media.PublicationMedia, catalog.HasRelation(PublicationMediaRelation),
-            "The article publication media", prerequisitesMet: core.PublicationHistory && hasArticleMedia);
+            "The native publication canonical", core.PublicationHistory && core.PublicationRights);
+        var hasPublicationMedia = Optional(media.PublicationMedia, catalog.HasRelation(PublicationMediaRelation),
+            "The article publication media", PublicationMediaShape, core.PublicationHistory && hasArticleMedia);
         var hasPublicationCover = catalog.HasRelation(PublicationCoverRelation);
         if (hasPublicationCover && (!hasPublicationMedia || !hasPublicationCanonical || !hasArticleCover))
             throw new InvalidOperationException("Public article covers require author covers, selected publication media, and canonical storage.");
-        CheckPresence(media.PublicationCover, hasPublicationCover, "The public article cover");
+        Optional(media.PublicationCover, hasPublicationCover, "The public article cover", PublicationCoverShape);
+        if (hasPublicationCanonical) shapes.Add(GetPublicationCanonicalShape(hasPublicationCover));
+
         var hasPublicationProof = CheckPresence(publication.Proof, PublicationProofRelations.IsPresent(catalog),
-            "The native publication proof", prerequisitesMet: hasPublicationCanonical);
+            "The native publication proof", hasPublicationCanonical);
         var publicationTransparency = PublicationTransparencyState(catalog);
-        var hasPublicationTransparency = CheckPresence(publication.Transparency, publicationTransparency.HasValue,
-            "The native publication transparency", prerequisitesMet: hasPublicationProof);
-        var hasPublicationHead = CheckPresence(publication.Head, catalog.HasRelation(PublicationHeadRelation),
-            "The native publication head", prerequisitesMet: hasPublicationTransparency);
-        var hasSiteTraffic = catalog.HasRelation(SiteTrafficRelation);
-        var hasArticleRead = CheckPresence(publication.ArticleRead, ArticleReadRelations.IsPresent(catalog),
-            "The article read aggregate");
-        // Retained as a dedicated index/opclass/sort-order probe rather than folded into CatalogPresenceSnapshot.
-        var hasArticleReadTotal = CheckPresence(publication.ArticleReadTotal, await HasArticleReadTotalSchemaAsync(connection, transaction, cancellationToken),
-            "The article read total", prerequisitesMet: hasArticleRead);
-        var hasPropertySnapshots = PropertySnapshotTable.IsPresent(catalog);
-        var hasSitePasskeyNames = catalog.HasRelation(SitePasskeyNameRelation);
-        SchemaFacts?[] features =
-        [
-            new(Columns.Select(column => hasArticleSummary && column == ArticleRevisionColumns
-                    ? ArticleRevisionColumns + " author_summary:text?" : column), Constraints),
-            hasArticleSummary ? new([], [ArticleSummaryConstraint]) : null,
-            CommunicationShape,
-            TaxonomyShape,
-            core.LegacyCanvas ? LegacyCanvasShape : CanvasShape,
-            PropertyShape,
-            hasPropertySnapshots ? PropertySnapshotShape : null,
-            PasskeyShape,
-            hasSitePasskeyNames ? SitePasskeyNameShape : null,
-            MfaShape,
-            new(GetCommentColumns(requireModerationVersion), GetCommentConstraints(requireModerationVersion)),
-            new(hasPrivateMediaImportOrigin ? PrivateMediaImportColumns : MediaColumns, MediaConstraints),
-            hasPrivateMediaImportOrigin ? new([], PrivateMediaImportConstraints) : null,
-            hasLegacyReleaseOrigin ? LegacyReleaseOriginShape : null,
-            hasCommentAuthorDelete ? CommentAuthorDeleteShape : null,
-            hasCommentAuthorEdit ? new(CommentAuthorEditColumns, commentAuthorEditConstraints) : null,
-            hasCommentReport ? CommentReportShape : null,
-            hasCommentAppeal ? CommentAppealShape : null,
-            hasCommentReplies ? CommentReplyShape : null,
-            hasAdminCommentBatch ? AdminCommentBatchShape : null,
-            core.RevisionHistory ? RevisionHistoryShape : null,
-            core.AdminIdentity ? AdminIdentityShape : null,
-            core.PublicationHistory
-                ? new(hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns,
-                    PublicationHistoryConstraints)
-                : null,
-            hasPublicationMedia ? PublicationMediaShape : null,
-            hasPublicationCover ? new(PublicationCoverColumns, []) : null,
-            hasAdminArticleRollback ? new([], PublicationHistoryAdminRollbackConstraints) : null,
-            core.ArticleSchedule ? ArticleScheduleShape : null,
-            core.MediaUpload ? MediaUploadShape : null,
-            hasArticleMedia ? ArticleMediaShape : null,
-            hasArticleCover ? ArticleCoverShape : null,
-            hasSubscription ? SiteSubscriptionShape : null,
-            hasRecoveryKey ? SiteRecoveryKeyShape : null,
-            hasSiteRefresh ? SiteRefreshShape : null,
-            hasSitePageEditor ? SitePageEditorShape : null,
-            hasSiteConfigOverride ? SiteConfigOverrideShape : null,
-            hasAppearanceActivation ? AppearanceActivationShape : null,
-            hasRootCommentPowPolicy ? RootCommentPowPolicyShape : null,
-            hasSavedViews ? SavedViewShape : null,
-            hasSavedViewPlacement ? SavedViewPlacementShape : null,
-            hasAdminTagMetadata ? AdminTagMetadataShape : null,
-            hasAdminCategoryMetadata ? AdminCategoryMetadataShape : null,
-            hasAdminArticleRollback
-                ? new(GetAdminArticleRollbackColumns(hasAdminArticleDraftRollback, hasAdminArticleArchive, hasAdminArticleTrashPublication),
-                    GetAdminArticleRollbackConstraints(hasAdminArticleDraftRollback, hasAdminArticleArchive, hasAdminArticleTrashPublication))
-                : null,
-            hasAdminArticleTrashRestore ? AdminArticleTrashRestoreShape : null,
-            hasAuthoringWorkspace
-                ? new(GetAuthoringWorkspaceColumns(hasWorkspaceLayout, hasWorkspaceGroups), AuthoringWorkspaceConstraints)
-                : null,
-            hasWorkspaceGroups ? new([], AuthoringWorkspaceGroupsConstraints) : null,
-            hasAuthorRecentOpens ? AuthorRecentOpenShape : null,
-            hasArticleBodyInsertion
-                ? new([ArticleBodyInsertionColumns(hasArticleBodyInsertionOperations, hasArticleBodyEdits)],
-                    ArticleBodyInsertionConstraints(hasArticleBodyInsertionOperations, hasArticleBodyEdits))
-                : null,
-            hasDocumentExports
-                ? DocumentExportShape(hasDocumentExportAttachments, hasExportImageList, currentDocumentExportProvider, exportImageScope)
-                : null,
-            hasAuthorTextIndex
-                ? new(AuthorTextIndexColumns(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex),
-                    AuthorTextIndexConstraints(hasAuthorTextSummaryIndex, hasAuthorTextHeadingIndex))
-                : null,
-            hasAuthorTextPropertyIndex ? AuthorTextPropertyIndexShape : null,
-            hasAuthorTextRebuild ? AuthorTextRebuildShape : null,
-            hasAdminInboxReply ? AdminInboxReplyShape : null,
-            hasAdminInboxStatus ? AdminInboxStatusShape : null,
-            hasAdminInboxNotice ? AdminInboxNoticeShape : null,
-            hasAdminInboxRead ? AdminInboxReadShape : null,
-            core.PublicationRights ? PublicationRightsShape : null,
-            hasPublicationCanonical
-                ? new(PublicationCanonicalColumns, PublicationCanonicalConstraints.Append(PublicationCanonicalVersionConstraint(hasPublicationCover)))
-                : null,
-            hasPublicationCover ? new([], PublicationCoverConstraints) : null,
-            hasPublicationProof ? new(GetPublicationProofColumns(publicationTransparency), PublicationProofConstraints) : null,
-            hasPublicationTransparency ? new(PublicationTransparencyColumns, PublicationTransparencyConstraints) : null,
-            hasPublicationHead ? new(PublicationHeadColumns, PublicationHeadConstraints) : null,
-            hasSiteTraffic ? SiteTrafficShape : null,
-            hasArticleRead ? ArticleReadShape : null,
-            hasArticleReadTotal ? ArticleReadTotalShape : null,
-            !core.LegacyCanvas && core.CanvasHistory ? CanvasHistoryShape : null,
-            core.RecoveryScope ? RecoveryScopeShape : null
-        ];
-        var expectedColumns = features.SelectMany(feature => feature?.Columns ?? []).ToArray();
-        var expectedConstraints = features.SelectMany(feature => feature?.Constraints ?? []).ToArray();
-        var webpMedia = await VerifyRelationsAsync(connection, transaction, expectedColumns, expectedConstraints, cancellationToken);
+        var hasPublicationTransparency = Optional(publication.Transparency, publicationTransparency.HasValue,
+            "The native publication transparency", PublicationTransparencyShape, hasPublicationProof);
+        if (hasPublicationProof) shapes.Add(GetPublicationProofShape(publicationTransparency));
+        Optional(publication.Head, catalog.HasRelation(PublicationHeadRelation), "The native publication head", PublicationHeadShape, hasPublicationTransparency);
+
+        var hasArticleRead = Optional(publication.ArticleRead, ArticleReadRelations.IsPresent(catalog), "The article read aggregate", ArticleReadShape);
+        Optional(publication.ArticleReadTotal, await HasArticleReadTotalSchemaAsync(connection, transaction, cancellationToken),
+            "The article read total", ArticleReadTotalShape, hasArticleRead);
+
+        var webpMedia = await VerifyRelationsAsync(connection, transaction,
+            shapes.SelectMany(s => s.Columns).ToArray(), shapes.SelectMany(s => s.Constraints).ToArray(), cancellationToken);
         CheckPresence(authoring.ArticleSummary, hasArticleSummary, "The article author summary");
         if (hasSitePageEditor) await SitePageCoordinates.VerifyAsync(connection, transaction, cancellationToken);
         if (hasSiteConfigOverride) await SiteConfigOverride.VerifyAsync(connection, transaction, cancellationToken);
@@ -356,27 +216,6 @@ internal static partial class CurrentSchema
     }
 
     private sealed record SchemaFacts(IEnumerable<string> Columns, IEnumerable<string> Constraints);
-
-    private static SchemaFacts DocumentExportShape(
-        bool attachments, bool imageList, bool currentProvider, ExportImageScope scope)
-    {
-        var columns = DocumentExportColumns + (attachments ? " attachment_id:uuid?" : "") + (imageList ? " attachment_ids:_uuid?" : "");
-        var constraints = DocumentExportConstraints.ToList();
-        if (attachments)
-        {
-            constraints.Add($"author_document_export c provider provider>=1ANDprovider<={(imageList ? 4 : 3)}");
-            constraints.Add("author_document_export c provider,attachment_id (provider=3)=(attachment_idISNOTNULL)");
-        }
-        else
-            constraints.Add(currentProvider ? "author_document_export c provider provider>=1ANDprovider<=2"
-                : "author_document_export c provider provider=1");
-        if (imageList)
-        {
-            constraints.Add("author_document_export c provider,attachment_ids (provider=4)=(attachment_idsISNOTNULL)");
-            constraints.Add($"author_document_export c attachment_ids,format {ExportImageListCondition(scope)}");
-        }
-        return new([columns], constraints);
-    }
 
     private static async Task<bool> VerifyRelationsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         string[] expectedColumns, string[] expectedConstraints, CancellationToken cancellationToken)
@@ -452,17 +291,11 @@ internal static partial class CurrentSchema
             WHERE k.contype <> 'n'
             """;
         await using var command = new NpgsqlCommand(sql, connection, transaction);
-        command.Parameters.Add(new NpgsqlParameter<string[]>
-        {
-            TypedValue = expectedColumns.Select(column => column.Split(' ', 2)[0]).ToArray()
-        });
-        var columns = new List<string>();
-        var constraints = new List<string>();
+        command.Parameters.Add(new NpgsqlParameter<string[]> { TypedValue = expectedColumns.Select(c => c.Split(' ', 2)[0]).ToArray() });
+        List<string> columns = [], constraints = [];
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken))
-        {
             while (await reader.ReadAsync(cancellationToken))
                 (reader.GetString(0) == "column" ? columns : constraints).Add(reader.GetString(1));
-        }
 
         var webpMedia = constraints.Contains("private_media c format format>=1ANDformat<=3", StringComparer.Ordinal);
         if (webpMedia) expectedConstraints = expectedConstraints.Select(WithWebpFormat).ToArray();
@@ -473,11 +306,7 @@ internal static partial class CurrentSchema
 
     private static void AssertShape(string kind, string[] expected, List<string> observed)
     {
-        if (expected.Order(StringComparer.Ordinal).SequenceEqual(observed.Order(StringComparer.Ordinal)))
-        {
-            return;
-        }
-
+        if (expected.Order(StringComparer.Ordinal).SequenceEqual(observed.Order(StringComparer.Ordinal))) return;
         var missing = string.Join("; ", expected.Except(observed, StringComparer.Ordinal));
         var unexpected = string.Join("; ", observed.Except(expected, StringComparer.Ordinal));
         throw new InvalidOperationException($"FsusBlog V2 {kind} shape mismatch. Missing [{missing}]. Unexpected [{unexpected}].");

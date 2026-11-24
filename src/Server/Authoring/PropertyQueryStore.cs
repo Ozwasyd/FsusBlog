@@ -1,13 +1,3 @@
-using System.Buffers.Binary;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Core.Authoring;
-using Microsoft.AspNetCore.WebUtilities;
-using Npgsql;
-using NpgsqlTypes;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal sealed partial class PropertyStore
@@ -202,11 +192,8 @@ internal sealed partial class PropertyStore
         }
         AppendConditions(sql, parameters, conditions);
         sql.Append(" order by a.id desc limit $3");
-        await using var query = SqlCommands.Create(db, tx, sql.ToString(), parameters.ToArray());
-        var matches = new List<PropertyArticleRow>(WireLimits.PropertyPageSize + 1);
-        await using var reader = await query.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
-            matches.Add(new(reader.GetInt32(0), reader.GetInt64(1), reader.GetString(2)));
+        var matches = await SqlCommands.QueryList(db, tx, ct, sql.ToString(),
+            r => new PropertyArticleRow(r.GetInt32(0), r.GetInt64(1), r.GetString(2)), parameters.ToArray());
         var more = matches.Count > WireLimits.PropertyPageSize;
         if (more) matches.RemoveAt(matches.Count - 1);
         return new(more ? Cursor(binding, matches[^1].Id) : "", matches);

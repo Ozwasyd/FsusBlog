@@ -1,17 +1,10 @@
-using System.Net;
-using System.Security.Cryptography;
-using System.Text.Json;
 using FsusBlog.V2.Core.Integrity;
-using FsusBlog.V2.Server.Content;
-using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Configuration;
 
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class IntegrityKeysTests
 {
-    private const string Prefix = "IntegrityProof:Signing";
-    private const string Algorithm = "ECDSA_P256_SHA256";
+    private const string Prefix = "IntegrityProof:Signing", Algorithm = "ECDSA_P256_SHA256";
 
     [Fact]
     public void EmitsOnlyValidatedPublicKeysInWireOrder()
@@ -34,28 +27,23 @@ public sealed class IntegrityKeysTests
         })));
         var root = manifest.RootElement;
         Assert.Equal(new[] { "manifestVersion", "kind", "hashAlgorithm", "currentKeyId", "keys" }, root.EnumerateObject().Select(p => p.Name));
-        Assert.Equal(1, root.GetProperty("manifestVersion").GetInt32());
-        Assert.Equal("integrity-key-registry", root.GetProperty("kind").GetString());
-        Assert.Equal("sha256", root.GetProperty("hashAlgorithm").GetString());
-        Assert.Equal("new-key", root.GetProperty("currentKeyId").GetString());
+        Assert.Equal((1, "integrity-key-registry", "sha256", "new-key"),
+            (root.GetProperty("manifestVersion").GetInt32(), root.GetProperty("kind").GetString(),
+                root.GetProperty("hashAlgorithm").GetString(), root.GetProperty("currentKeyId").GetString()));
         var rows = root.GetProperty("keys").EnumerateArray().ToArray();
         Assert.Equal(new[] { "new-key", "prior-key" }, rows.Select(row => row.GetProperty("keyId").GetString()));
         Assert.Equal(new[] { "keyId", "algorithm", "version", "publicKey" }, rows[0].EnumerateObject().Select(p => p.Name));
-        Assert.Equal(2, rows[0].GetProperty("version").GetInt32());
-        Assert.Equal(Algorithm, rows[1].GetProperty("algorithm").GetString());
-        Assert.Equal("2026-09-01T00:00:00Z", rows[1].GetProperty("revokedAtUtc").GetString());
-        Assert.Equal("2026-09-01T12:00:00.0000000+00:00", rows[1].GetProperty("compromisedAtUtc").GetString());
+        Assert.Equal((2, spki, Algorithm, "2026-09-01T00:00:00Z", "2026-09-01T12:00:00.0000000+00:00"),
+            (rows[0].GetProperty("version").GetInt32(), rows[0].GetProperty("publicKey").GetString(),
+                rows[1].GetProperty("algorithm").GetString(), rows[1].GetProperty("revokedAtUtc").GetString(),
+                rows[1].GetProperty("compromisedAtUtc").GetString()));
         Assert.False(root.GetRawText().Contains(sensitive, StringComparison.Ordinal), "The manifest included private key material.");
-        Assert.Equal(spki, rows[0].GetProperty("publicKey").GetString());
     }
 
     [Fact]
     public void EmptyRegistryOmitsAnUnresolvableCurrentId()
     {
-        using var result = JsonDocument.Parse(IntegrityKeys.ReadManifest(Configuration(new()
-        {
-            [$"{Prefix}:CurrentKeyId"] = "missing",
-        })));
+        using var result = JsonDocument.Parse(IntegrityKeys.ReadManifest(Configuration(new() { [$"{Prefix}:CurrentKeyId"] = "missing" })));
         Assert.False(result.RootElement.TryGetProperty("currentKeyId", out _));
         Assert.Equal(0, result.RootElement.GetProperty("keys").GetArrayLength());
     }
@@ -64,26 +52,21 @@ public sealed class IntegrityKeysTests
     public void InvalidPublicMaterialCannotBecomeVerificationAuthority()
     {
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP384);
-        var p384 = WebEncoders.Base64UrlEncode(key.ExportSubjectPublicKeyInfo());
         using var p256 = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var publicBytes = p256.ExportSubjectPublicKeyInfo();
-        var privateBytes = p256.ExportPkcs8PrivateKey();
-        var publicKey = $"{Prefix}:Keys:site:PublicKey";
-        var algorithm = $"{Prefix}:Keys:site:Algorithm";
-        var settings = new Dictionary<string, string?> { [algorithm] = Algorithm, [publicKey] = p384 };
-        Reject();
-        settings[publicKey] = WebEncoders.Base64UrlEncode([.. publicBytes, 0]);
-        Reject();
-        settings[publicKey] = WebEncoders.Base64UrlEncode(privateBytes);
-        Reject();
-        settings[publicKey] = WebEncoders.Base64UrlEncode(publicBytes);
-        settings[$"{Prefix}:Keys:site:RevokedAtUtc"] = "junk";
-        Reject();
-
-        void Reject()
+        var (publicKey, algorithm) = ($"{Prefix}:Keys:site:PublicKey", $"{Prefix}:Keys:site:Algorithm");
+        foreach (var (pk, revoked) in new[]
         {
-            var error = Assert.Throws<InvalidOperationException>(() => IntegrityKeys.ReadManifest(Configuration(settings)));
-            Assert.Equal("Invalid public integrity verification key configuration.", error.Message);
+            (WebEncoders.Base64UrlEncode(key.ExportSubjectPublicKeyInfo()), (string?)null),
+            (WebEncoders.Base64UrlEncode([.. publicBytes, 0]), null),
+            (WebEncoders.Base64UrlEncode(p256.ExportPkcs8PrivateKey()), null),
+            (WebEncoders.Base64UrlEncode(publicBytes), "junk"),
+        })
+        {
+            var settings = new Dictionary<string, string?> { [algorithm] = Algorithm, [publicKey] = pk };
+            if (revoked is not null) settings[$"{Prefix}:Keys:site:RevokedAtUtc"] = revoked;
+            Assert.Equal("Invalid public integrity verification key configuration.",
+                Assert.Throws<InvalidOperationException>(() => IntegrityKeys.ReadManifest(Configuration(settings))).Message);
         }
     }
 
@@ -102,23 +85,20 @@ public sealed class IntegrityKeysTests
             ["IntegrityProof__Signing__Keys__live__PublicKey"] = spki,
             ["IntegrityProof__Signing__Keys__live__PrivateKey"] = pkcs,
         });
-        using var response = await server.Client.GetAsync("/integrity/keys.json", ct);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("utf-8", response.Content.Headers.ContentType?.CharSet);
-        Assert.Equal(TimeSpan.FromSeconds(60), response.Headers.CacheControl?.MaxAge);
+        using var response = Ok(await server.Client.GetAsync("/integrity/keys.json", ct));
+        Assert.Equal(("application/json", "utf-8", TimeSpan.FromSeconds(60), false),
+            (response.Content.Headers.ContentType?.MediaType, response.Content.Headers.ContentType?.CharSet,
+                response.Headers.CacheControl?.MaxAge, response.Headers.Contains("Set-Cookie")));
         Assert.Contains("Accept-Encoding", response.Headers.Vary);
-        Assert.False(response.Headers.Contains("Set-Cookie"));
         var json = await response.Content.ReadAsStringAsync(ct);
         Assert.False(json.Contains(pkcs, StringComparison.Ordinal), "The HTTP response included private key material.");
         using var manifest = JsonDocument.Parse(json);
-        var key = manifest.RootElement.GetProperty("keys")[0].GetProperty("publicKey").GetString()!;
         using var verifier = ECDsa.Create();
-        verifier.ImportSubjectPublicKeyInfo(WebEncoders.Base64UrlDecode(key), out _);
+        verifier.ImportSubjectPublicKeyInfo(WebEncoders.Base64UrlDecode(manifest.RootElement.GetProperty("keys")[0].GetProperty("publicKey").GetString()!), out _);
         var payload = SiteProofPayload.Canonicalize("article-rights-proof", "article:1:revision:2:rights:3",
             Convert.ToHexString(SHA256.HashData("Synthetic test proof"u8)), DateTimeOffset.UnixEpoch,
             new Dictionary<string, string> { ["publishProofId"] = "4" });
-        var signature = signer.SignData(payload, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        var signature = PublicationFixture.SignP256(signer, payload);
         Assert.True(verifier.VerifyData(payload, signature, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
         Assert.False(verifier.VerifyData("Different proof"u8, signature, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
     }

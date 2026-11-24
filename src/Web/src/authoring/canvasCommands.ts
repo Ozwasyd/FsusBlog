@@ -8,30 +8,10 @@ import {
   type CanvasNode,
   type CanvasViewport,
 } from '../../../Contracts/canvas-graph.ts'
+import type { MessageKey } from '../siteLocale.ts'
 import { CANVAS_MAX_COORDINATE, CANVAS_SHOW_NODE_OFFSET } from './canvasViewport.ts'
 
-export type CanvasMessageKey =
-  | 'author.canvas.canvas_change_undone'
-  | 'author.canvas.canvas_change_redone'
-  | 'author.canvas.canvas_saved'
-  | 'author.canvas.canvas_is_unavailable'
-  | 'author.canvas.the_canvas_changed_reload_the_current_revision'
-  | 'author.canvas.could_not_load_canvas_history'
-  | 'author.canvas.could_not_load_the_canvas'
-  | 'author.canvas.could_not_load_all_canvas_records'
-  | 'author.canvas.could_not_load_all_canvas_records_try_again'
-  | 'author.canvas.could_not_verify_your_session'
-  | 'author.canvas.could_not_resolve_the_reference'
-  | 'author.canvas.the_pinned_revision_cannot_be_opened_as_the_current_draft'
-  | 'author.canvas.could_not_open_this_reference_at_its_resolved_position_resolve_it_again'
-  | 'author.canvas.the_editor_could_not_be_opened_try_again'
-  | 'author.canvas.the_editor_could_not_be_opened_resolve_the_reference_again'
-  | 'author.canvas.check_the_canvas_text_reference_and_size_limits'
-  | 'author.canvas.could_not_confirm_the_change_retry_the_same_request'
-  | 'author.canvas.enter_a_valid_article_id_and_optional_pinned_revision'
-  | 'author.canvas.could_not_prepare_the_article_link'
-  | 'author.canvas.link_added_to_a_new_article_draft'
-  | 'author.canvas.the_outcome_is_uncertain_retry_the_same_link_confirmation'
+export type CanvasMessageKey = MessageKey
 
 export type CanvasNotice =
   | Readonly<{ kind: 'key'; key: CanvasMessageKey }>
@@ -63,64 +43,41 @@ export type CanvasActiveLinkPair = Readonly<{
 export const OUTLINE_PAGE_SIZE = 50
 export const CHOICE_CAP = 256
 
-export function createCanvasCommand(title: string, canvasId: string, commandId: string): CanvasGraphCommand {
-  return {
-    id: canvasId,
-    commandId,
-    expectedRevision: 0n,
-    action: 'create',
-    title,
-    viewport: null,
-    changes: [],
-  }
-}
+type CanvasDocumentRef = Pick<CanvasGraphHeader, 'id' | 'revision'>
 
-export function editCanvasCommand(
-  document: Pick<CanvasGraphHeader, 'id' | 'revision'>,
+const canvasCommand = (
+  id: string,
+  commandId: string,
+  expectedRevision: bigint,
+  action: CanvasGraphCommand['action'],
+  options: { changes?: readonly CanvasGraphChange[]; title?: string; viewport?: CanvasViewport | null } = {},
+): CanvasGraphCommand => ({
+  id,
+  commandId,
+  expectedRevision,
+  action,
+  title: options.title ?? '',
+  viewport: options.viewport ?? null,
+  changes: options.changes ?? [],
+})
+
+export const createCanvasCommand = (title: string, canvasId: string, commandId: string): CanvasGraphCommand =>
+  canvasCommand(canvasId, commandId, 0n, 'create', { title })
+
+export const editCanvasCommand = (
+  document: CanvasDocumentRef,
   commandId: string,
   options: { changes?: readonly CanvasGraphChange[]; title?: string; viewport?: CanvasViewport | null } = {},
-): CanvasGraphCommand {
-  return {
-    id: document.id,
-    commandId,
-    expectedRevision: document.revision,
-    action: 'edit',
-    title: options.title ?? '',
-    viewport: options.viewport ?? null,
-    changes: options.changes ?? [],
-  }
-}
+): CanvasGraphCommand => canvasCommand(document.id, commandId, document.revision, 'edit', options)
 
-export function historyTravelCommand(
-  document: Pick<CanvasGraphHeader, 'id' | 'revision'>,
+export const historyTravelCommand = (
+  document: CanvasDocumentRef,
   action: 'undo' | 'redo',
   commandId: string,
-): CanvasGraphCommand {
-  return {
-    id: document.id,
-    commandId,
-    expectedRevision: document.revision,
-    action,
-    title: '',
-    viewport: null,
-    changes: [],
-  }
-}
+): CanvasGraphCommand => canvasCommand(document.id, commandId, document.revision, action)
 
-export function deleteCanvasCommand(
-  document: Pick<CanvasGraphHeader, 'id' | 'revision'>,
-  commandId: string,
-): CanvasGraphCommand {
-  return {
-    id: document.id,
-    commandId,
-    expectedRevision: document.revision,
-    action: 'delete',
-    title: '',
-    viewport: null,
-    changes: [],
-  }
-}
+export const deleteCanvasCommand = (document: CanvasDocumentRef, commandId: string): CanvasGraphCommand =>
+  canvasCommand(document.id, commandId, document.revision, 'delete')
 
 export function validateCanvasCommand(command: CanvasGraphCommand): boolean {
   try {

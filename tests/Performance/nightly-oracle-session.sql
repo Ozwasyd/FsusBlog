@@ -1,0 +1,6 @@
+\set ON_ERROR_STOP on
+\set QUIET 1
+BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SET LOCAL search_path TO pg_catalog, pg_temp;
+SET LOCAL TIME ZONE 'UTC';
+SET LOCAL statement_timeout TO '120s';

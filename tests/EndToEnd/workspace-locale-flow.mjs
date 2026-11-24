@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { requireWebPackage } from './web-package-fixture.mjs'
+import { launchIsolatedChromium, restrictBrowserOrigins } from './isolated-browser-fixture.mjs'
 import { exactButton, exactLabel, roleWithExactName } from './role-locators.mjs'
 import { signInFreshAdmin } from './webauthn-fixture.mjs'
 
@@ -14,11 +14,10 @@ async function chooseLanguage(page, currentLabel, option, language) {
   await page.waitForFunction(value => document.documentElement.lang === value, language)
 }
 
-const { chromium } = requireWebPackage('@playwright/test')
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, args: ['--no-proxy-server'] })
+const browser = await launchIsolatedChromium()
 try {
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1280, height: 860 } })
-  await context.route('**/*', route => [origin, adminOrigin].filter(Boolean).some(url => route.request().url().startsWith(url + '/')) ? route.continue() : route.abort())
+  await restrictBrowserOrigins(context, origin, adminOrigin)
   const page = await context.newPage()
   const errors = []
   const localeCatalogRequests = []

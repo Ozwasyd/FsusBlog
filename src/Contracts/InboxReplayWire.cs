@@ -1,5 +1,3 @@
-using System.Buffers.Binary;
-
 namespace FsusBlog.V2.Contracts;
 
 public readonly record struct InboxReplayRecord(long Sequence, int Kind, long ConversationId, long MessageId, DateTimeOffset OccurredAt);

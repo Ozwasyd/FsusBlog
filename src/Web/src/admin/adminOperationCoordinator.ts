@@ -14,19 +14,15 @@ export const systemAdminClock: AdminClock = {
   clearTimeout: handle => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>),
 }
 
-export interface AdminOperationContext {
-  readonly signal: AbortSignal
-  readonly sessionEpoch: number
-  readonly scopeEpoch: number
-  readonly runId: number
-  isCurrent(): boolean
-}
-
 export interface DerivedAdminSignal {
   readonly signal: AbortSignal
   readonly sessionEpoch: number
   readonly scopeEpoch: number
   isCurrent(): boolean
+}
+
+export interface AdminOperationContext extends DerivedAdminSignal {
+  readonly runId: number
 }
 
 export interface AdminOperationHandlers {
@@ -99,30 +95,14 @@ export class AdminSessionScope {
 
     this.detachSessionListener?.()
     this.detachSessionListener = null
-
-    this._sessionEpoch++
-    this._scopeEpoch++
-    this.rotateScopeController()
     this.currentSessionSignal = signal
-    const boundEpoch = this._sessionEpoch
-
-    this.resetChannels()
-    this.onResetCallback?.()
-
-    if (signal.aborted) {
-      this.scopeController.abort()
-      return { active: false, sessionEpoch: boundEpoch }
-    }
+    const boundEpoch = this.advanceSession(signal.aborted)
+    if (signal.aborted) return { active: false, sessionEpoch: boundEpoch }
 
     const handleAbort = () => {
       if (this._disposed || this._sessionEpoch !== boundEpoch) return
       this.detachSessionListener = null
-      this._sessionEpoch++
-      this._scopeEpoch++
-      this.rotateScopeController()
-      this.scopeController.abort()
-      this.resetChannels()
-      this.onResetCallback?.()
+      this.advanceSession(true)
       this.onSessionAbortedCallback?.()
     }
 
@@ -130,6 +110,16 @@ export class AdminSessionScope {
     this.detachSessionListener = () => signal.removeEventListener('abort', handleAbort)
 
     return { active: true, sessionEpoch: boundEpoch }
+  }
+
+  private advanceSession(abortScope: boolean): number {
+    this._sessionEpoch++
+    this._scopeEpoch++
+    this.rotateScopeController()
+    if (abortScope) this.scopeController.abort()
+    this.resetChannels()
+    this.onResetCallback?.()
+    return this._sessionEpoch
   }
 
   cancelOperations(): number {

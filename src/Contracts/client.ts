@@ -1,7 +1,6 @@
-import { ApiError, decodeApiError, decodeFrame, decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
+import { ApiError, decodeApiError, decodeFrame, decodeSuccess, encodeFrame, encodePod, ProtocolError } from './aeds.ts';
 import { decodeInboxReplay, validReplayCursor } from './inbox-replay.ts';
 import { decodeInboxList, decodeInboxThread, type InboxFilter } from './inbox.ts';
-import { PodWriter } from './binary.ts';
 import { collectBounded } from './bounded-stream.ts';
 import { decodeArticle, decodeArticleList, decodeSearch } from './public-articles.ts';
 import {
@@ -225,10 +224,8 @@ export const api = {
 
   inboxRead(id: bigint, through: bigint, signal?: AbortSignal, session?: string) {
     const path = WireRoutes.InboxRead.replace('{id:long}', String(id));
-    const fields = new PodWriter();
-    fields.i64(through);
     return request(path, FrameType.EmptySuccess, decodeSuccess, signal, 'POST',
-      encodeFrame(FrameType.ConversationReadRequest, fields.finish()), siteSessionHeader(session));
+      encodePod(FrameType.ConversationReadRequest, f => f.i64(through)), siteSessionHeader(session));
   },
 
   signIn(ticket: string, signal?: AbortSignal): Promise<Session> {

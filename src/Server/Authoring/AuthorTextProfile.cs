@@ -1,8 +1,3 @@
-using System.Collections.Frozen;
-using System.Globalization;
-using System.Text;
-using FsusBlog.V2.Contracts;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal enum AuthorTextField { Any = 0, Title = 1, MarkdownBody = 2, Summary = 3, Heading = 4, PropertyText = 5 }

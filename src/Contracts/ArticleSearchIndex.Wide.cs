@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Runtime.CompilerServices;
 
 namespace FsusBlog.V2.Contracts;
@@ -71,18 +70,7 @@ public sealed partial class ArticleSearchIndex
             }
 
             var byteCount = 0;
-            foreach (var links in references.Values)
-            {
-                ct.ThrowIfCancellationRequested();
-                var previous = 0;
-                for (var i = 0; i < links.Count; i++)
-                {
-                    if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
-                    var link = links[i];
-                    byteCount += VarintWidth(link - previous);
-                    previous = link;
-                }
-            }
+            foreach (var links in references.Values) EncodeDeltas(links, [], ref byteCount, ct);
             if ((long)references.Count * Unsafe.SizeOf<WideAlias>() + byteCount > availableBytes) return null;
 
             var sources = new byte[byteCount];
@@ -91,19 +79,24 @@ public sealed partial class ArticleSearchIndex
             var index = 0;
             foreach (var hash in references.Keys.Order())
             {
-                ct.ThrowIfCancellationRequested();
                 aliases[index++] = new WideAlias(hash, offset);
+                EncodeDeltas(references[hash], sources, ref offset, ct);
+            }
+            return new WideIndex(blocks, aliases, sources);
+
+            static void EncodeDeltas(List<int> links, Span<byte> target, ref int pos, CancellationToken ct)
+            {
+                ct.ThrowIfCancellationRequested();
                 var previous = 0;
-                var links = references[hash];
                 for (var i = 0; i < links.Count; i++)
                 {
                     if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
-                    var link = links[i];
-                    WriteVarint(sources, ref offset, link - previous);
-                    previous = link;
+                    var delta = links[i] - previous;
+                    previous = links[i];
+                    if (target.IsEmpty) pos += VarintWidth(delta);
+                    else WriteVarint(target, ref pos, delta);
                 }
             }
-            return new WideIndex(blocks, aliases, sources);
 
             void Add(uint hash, int link)
             {
@@ -154,44 +147,43 @@ public sealed partial class ArticleSearchIndex
         // Measure before allocating so the compressed byte budget also bounds the writer's output buffer.
         foreach (var (hash, bucket) in builder.Heads)
         {
-            ct.ThrowIfCancellationRequested();
             terms[index++] = new Term(hash, byteCount, bucket.Count);
-            var previous = count;
-            for (int entry = bucket.Head, i = 0; entry >= 0; entry = builder.Pending[entry].Previous, i++)
-            {
-                if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
-                var posting = builder.Pending[entry].Value;
-                var delta = (previous - posting.Ordinal) * 2;
-                // Only odd field weights need an adjustment when a source is used as an alias.
-                var adjustment = builder.OddWeights.GetValueOrDefault(entry);
-                byteCount += VarintWidth(delta + (adjustment != 0 ? 1 : 0)) + VarintWidth(posting.Weight);
-                if (adjustment != 0) byteCount += VarintWidth(adjustment);
-                if (byteCount > availableBytes) return null;
-                previous = posting.Ordinal;
-            }
+            if (!EncodeBucket(builder, bucket, count, [], ref byteCount, availableBytes, ct)) return null;
         }
 
         var bytes = new byte[byteCount];
         var offset = 0;
-        foreach (var term in terms)
+        foreach (var term in terms) EncodeBucket(builder, builder.Heads[term.Hash], count, bytes, ref offset, byteCount, ct);
+        Array.Sort(terms, Term.ByHash);
+        return new WideBlock(first, count, terms, bytes);
+
+        static bool EncodeBucket(PostingBuilder builder, Bucket bucket, int count, Span<byte> target,
+            ref int pos, int limit, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            var bucket = builder.Heads[term.Hash];
             var previous = count;
             for (int entry = bucket.Head, i = 0; entry >= 0; entry = builder.Pending[entry].Previous, i++)
             {
                 if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
                 var posting = builder.Pending[entry].Value;
-                var delta = (previous - posting.Ordinal) * 2;
+                // Only odd field weights need an adjustment when a source is used as an alias.
                 var adjustment = builder.OddWeights.GetValueOrDefault(entry);
-                WriteVarint(bytes, ref offset, delta + (adjustment != 0 ? 1 : 0));
-                WriteVarint(bytes, ref offset, posting.Weight);
-                if (adjustment != 0) WriteVarint(bytes, ref offset, adjustment);
+                var delta = (previous - posting.Ordinal) * 2 + (adjustment != 0 ? 1 : 0);
+                if (target.IsEmpty)
+                {
+                    pos += VarintWidth(delta) + VarintWidth(posting.Weight) + (adjustment != 0 ? VarintWidth(adjustment) : 0);
+                    if (pos > limit) return false;
+                }
+                else
+                {
+                    WriteVarint(target, ref pos, delta);
+                    WriteVarint(target, ref pos, posting.Weight);
+                    if (adjustment != 0) WriteVarint(target, ref pos, adjustment);
+                }
                 previous = posting.Ordinal;
             }
+            return true;
         }
-        Array.Sort(terms, Term.ByHash);
-        return new WideBlock(first, count, terms, bytes);
     }
 
     private sealed class WideQueryTerm

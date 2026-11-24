@@ -2,9 +2,47 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Server/FsusBlog.V2.Server.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+    <PackageReference Include="System.Formats.Cbor" Version="[10.0.15]" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
     <Using Include="Xunit" />
+    <Using Include="Xunit.Abstractions" />
+    <Using Include="System.Buffers.Binary" />
+    <Using Include="System.Diagnostics" />
+    <Using Include="System.Globalization" />
+    <Using Include="System.Net" />
+    <Using Include="System.Net.Http.Headers" />
+    <Using Include="System.Security.Cryptography" />
+    <Using Include="System.Text" />
+    <Using Include="System.Text.Json" />
+    <Using Include="System.Text.Json.Nodes" />
+    <Using Include="System.Xml.Linq" />
+    <Using Include="Microsoft.AspNetCore.Http" />
+    <Using Include="Microsoft.AspNetCore.WebUtilities" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.Logging.Abstractions" />
+    <Using Include="FsusBlog.V2.Contracts" />
+    <Using Include="FsusBlog.V2.Core" />
+    <Using Include="FsusBlog.V2.Integration.Tests" />
+    <Using Include="FsusBlog.V2.Server" />
+    <Using Include="FsusBlog.V2.Server.Administration" />
+    <Using Include="FsusBlog.V2.Server.Analytics" />
+    <Using Include="FsusBlog.V2.Server.Authoring" />
+    <Using Include="FsusBlog.V2.Server.Comments" />
+    <Using Include="FsusBlog.V2.Server.Communication" />
+    <Using Include="FsusBlog.V2.Server.Content" />
+    <Using Include="FsusBlog.V2.Server.Operations" />
+    <Using Include="FsusBlog.V2.Server.Passkeys" />
+    <Using Include="FsusBlog.V2.Server.Security" />
+    <Using Include="FsusBlog.V2.Server.Sessions" />
+    <Using Include="FsusBlogV2.Storage" />
+    <Using Include="Npgsql" />
+    <Using Include="SkiaSharp" />
+    <Using Include="System.Net.HttpStatusCode" Static="true" />
+    <Using Include="FsusBlog.V2.Integration.Tests.BusinessAssert" Static="true" />
+    <Using Include="FsusBlog.V2.Integration.Tests.HttpResponseAssert" Static="true" />
+    <Using Include="FsusBlog.V2.Contracts.AuthorTextFacetedPage" Alias="AuthorTextFacetedPage" />
+    <Using Include="FsusBlog.V2.Contracts.AuthorTextRankedPage" Alias="AuthorTextRankedPage" />
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="Migration/**/*.cs" />

@@ -1,56 +1,18 @@
-using FsusBlogV2.Storage;
-using Npgsql;
-
 internal static partial class Cli
 {
     private static async Task VerifyPublicationsAsync(NpgsqlConnection connection, CancellationToken token)
     {
         await using var transaction = await BeginReadOnlyAsync(connection, token);
         await VerifyActivePublicationsAsync(connection, transaction, token);
-        await ReportMissingPublicationRights(connection, transaction, token);
-        await VerifyPublicationHistoryAsync(connection, transaction, token);
-        await VerifyArticleScheduleAsync(connection, transaction, token);
-        await VerifyPublicationMediaAsync(connection, transaction, token);
-        await using (var pending = new NpgsqlCommand("""
-            select count(*) from public.article a where a.publication_count>0 and not exists (
-                select from public.article_publication_history h where h.article_id=a.id
-            )
-            """, connection, transaction))
-            if (await pending.ExecuteScalarAsync(token) is long count && count != 0)
-                Console.WriteLine($"Publication history has {count} articles missing retained history entries.");
-        await transaction.CommitAsync(token);
-    }
-
-    private static async Task VerifyActivePublicationsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        CancellationToken token)
-    {
-        await using var command = new NpgsqlCommand("""
-            SELECT a.id
-            FROM public.article a LEFT JOIN public.article_publication p ON a.id = p.article_id
-            WHERE a.published_revision IS DISTINCT FROM p.revision
-               OR (p.publication_id IS NOT NULL AND p.publication_no <> a.publication_count)
-               OR (a.deleted AND p.article_id IS NOT NULL)
-            LIMIT 1
-            """, connection, transaction);
-        if (await command.ExecuteScalarAsync(token) is int id)
-            throw new InvalidOperationException($"Article {id} has inconsistent publication coordinates.");
-    }
-
-    private static async Task ReportMissingPublicationRights(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var cmd = new NpgsqlCommand("""
+        if (await ScalarAsync(connection, transaction, """
             select count(*) from public.article_publication p where not exists (
                 select from public.article_publication_rights s
                 where s.article_id=p.article_id and s.publication_id=p.publication_id and s.revision=p.revision
             )
-            """, connection, tx);
-        if (await cmd.ExecuteScalarAsync(ct) is long count && count != 0)
-            Console.WriteLine($"Publication rights: {count} active coordinates have no exact rights snapshot and are excluded from public reads.");
-    }
-
-    private static async Task VerifyArticleScheduleAsync(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct)
-    {
-        await using var verify = new NpgsqlCommand("""
+            """, token) is long missingRights && missingRights != 0)
+            Console.WriteLine($"Publication rights: {missingRights} active coordinates have no exact rights snapshot and are excluded from public reads.");
+        await VerifyPublicationHistoryAsync(connection, transaction, token);
+        if (await ScalarAsync(connection, transaction, """
             select p.article_id from public.article_schedule p
             join public.article a on a.id=p.article_id
             join public.article_schedule_receipt r on r.actor_id=p.actor_id and r.command_id=p.command_id
@@ -59,41 +21,51 @@ internal static partial class Cli
                 or p.revision<>c.revision or p.article_id<>c.article_id or p.due_at is distinct from r.due_at
                 or coalesce(a.published_revision,0)<>r.published_revision
             limit 1
-            """, connection, tx);
-        if (await verify.ExecuteScalarAsync(ct) is int id)
-            throw new InvalidOperationException($"Article {id} has inconsistent pending publication coordinates.");
+            """, token) is int scheduleId)
+            throw new InvalidOperationException($"Article {scheduleId} has inconsistent pending publication coordinates.");
+        await VerifyPublicationMediaAsync(connection, transaction, token);
+        if (await ScalarAsync(connection, transaction, """
+            select count(*) from public.article a where a.publication_count>0 and not exists (
+                select from public.article_publication_history h where h.article_id=a.id
+            )
+            """, token) is long count && count != 0)
+            Console.WriteLine($"Publication history has {count} articles missing retained history entries.");
+        await transaction.CommitAsync(token);
+    }
+
+    private static async Task VerifyActivePublicationsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        CancellationToken token)
+    {
+        if (await ScalarAsync(connection, transaction, """
+            SELECT a.id FROM public.article a LEFT JOIN public.article_publication p ON a.id = p.article_id
+            WHERE a.published_revision IS DISTINCT FROM p.revision
+               OR (p.publication_id IS NOT NULL AND p.publication_no <> a.publication_count)
+               OR (a.deleted AND p.article_id IS NOT NULL)
+            LIMIT 1
+            """, token) is int id)
+            throw new InvalidOperationException($"Article {id} has inconsistent publication coordinates.");
     }
 
     private static async Task VerifyPublicationMediaAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         if (!await CurrentSchema.HasPublicationMediaAsync(db, tx, ct)) return;
-
-        await using var command = new NpgsqlCommand("""
-            SELECT m.article_id
-            FROM public.article_publication_media m
+        if (await ScalarAsync(db, tx, """
+            SELECT m.article_id FROM public.article_publication_media m
             JOIN public.article_publication_history h USING (article_id, publication_id, revision)
             JOIN public.article a ON a.id=m.article_id
             JOIN public.private_media p ON p.id=m.asset_id
-            WHERE h.actor_id IS DISTINCT FROM a.owner_id
-               OR h.kind NOT IN ('publish','replace')
-               OR EXISTS (SELECT FROM public.article_schedule_receipt s
-                          WHERE s.actor_id=h.actor_id AND s.command_id=h.command_id)
+            WHERE h.actor_id IS DISTINCT FROM a.owner_id OR h.kind NOT IN ('publish','replace')
+               OR EXISTS (SELECT FROM public.article_schedule_receipt s WHERE s.actor_id=h.actor_id AND s.command_id=h.command_id)
                OR p.owner_id IS DISTINCT FROM a.owner_id OR p.phase<>1
-               OR (p.content_hash,p.format,p.length,p.width,p.height)
-                    IS DISTINCT FROM (m.content_hash,m.format,m.length,m.width,m.height)
+               OR (p.content_hash,p.format,p.length,p.width,p.height) IS DISTINCT FROM (m.content_hash,m.format,m.length,m.width,m.height)
             UNION ALL
-            SELECT article_id FROM public.article_publication_media
-            GROUP BY article_id,publication_id
+            SELECT article_id FROM public.article_publication_media GROUP BY article_id,publication_id
             HAVING max(ordinal)<>count(*) OR sum(length)>$1
             UNION ALL
-            SELECT min(article_id) FROM public.article_publication_media
-            GROUP BY content_hash
-            HAVING min(format)<>max(format) OR min(length)<>max(length)
-                OR min(width)<>max(width) OR min(height)<>max(height)
+            SELECT min(article_id) FROM public.article_publication_media GROUP BY content_hash
+            HAVING min(format)<>max(format) OR min(length)<>max(length) OR min(width)<>max(width) OR min(height)<>max(height)
             LIMIT 1
-            """, db, tx);
-        command.Parameters.AddWithValue(CurrentSchema.PublicationMediaMaximumBytes);
-        if (await command.ExecuteScalarAsync(ct) is int article)
+            """, ct, CurrentSchema.PublicationMediaMaximumBytes) is int article)
             throw new InvalidOperationException($"Article {article} has inconsistent publication media metadata.");
     }
 

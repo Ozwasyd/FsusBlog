@@ -1,50 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")/../../.."
-if [[ -z "${FSUSBLOG_TEST_DB:-}" || -z "${PGHOST:-}" || -z "${PGUSER:-}" ]]; then
-    printf '%s\n' 'Set FSUSBLOG_TEST_DB and libpq variables to the same isolated PostgreSQL cluster.' >&2
-    exit 2
-fi
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+cd "$script_dir/../../.."
+source "$script_dir/pg-fixture.sh"
+pg_fixture_init fsusv2-backup 0 'Set FSUSBLOG_TEST_DB and libpq variables to the same isolated PostgreSQL cluster.'
+pg_fixture_cleanup_message='Owned backup media, files and both test databases removed.'
+pg_fixture_build_cli
 
-dotnet_bin="${DOTNET_BIN:-dotnet}"
-if [[ -n "${PG_TOOLS_DIR:-}" ]]; then PATH="$PG_TOOLS_DIR:$PATH"; fi
-umask 077
-scratch="$(mktemp -d /tmp/fsusv2-backup.XXXXXXXX)"
-scratch="$(cd "$scratch" && pwd -P)"
 source_db="fsusv2_backup_$(openssl rand -hex 12)"
 restore_db="${source_db}_restore"
-base="${FSUSBLOG_TEST_DB%;}"
-maintenance=(psql -X --no-password -v ON_ERROR_STOP=1 -d postgres)
-created_source=0
-created_restore=0
+base="$settings"
 media_id=78787a8a12344323875b28dbf8ed16a9
 media_leaf="$media_id.media"
-
-cleanup() {
-    local code=$?
-    if [[ "$created_restore" == 1 ]] && ! "${maintenance[@]}" -c "DROP DATABASE \"$restore_db\""; then
-        printf 'Failed to drop owned scratch restore database %s\n' "$restore_db" >&2
-        if [[ "$code" == 0 ]]; then code=1; fi
-    fi
-    if [[ "$created_source" == 1 ]] && ! "${maintenance[@]}" -c "DROP DATABASE \"$source_db\""; then
-        printf 'Failed to drop owned scratch source database %s\n' "$source_db" >&2
-        if [[ "$code" == 0 ]]; then code=1; fi
-    fi
-    if ! find "$scratch" -depth -delete; then
-        printf 'Failed to remove owned scratch files %s\n' "$scratch" >&2
-        if [[ "$code" == 0 ]]; then code=1; fi
-    fi
-    if [[ "$code" == 0 ]]; then printf '%s\n' 'Owned backup media, files and both test databases removed.'; fi
-    exit "$code"
-}
-trap cleanup EXIT
-
-cli_project="src/Cli/FsusBlog.V2.Cli.csproj"
-"$dotnet_bin" restore "$cli_project" --configfile NuGet.Config --locked-mode
-"$dotnet_bin" build "$cli_project" --no-restore
-export DOTNET_BIN="$dotnet_bin"
-export FSUSBLOG_CLI_DLL="src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll"
-migrate=("$DOTNET_BIN" "$FSUSBLOG_CLI_DLL")
+migrate=("${cli[@]}")
 backup=(python3 tools/site-backup.py)
 
 expect_backup_failure() {
@@ -59,18 +27,12 @@ expect_backup_failure() {
 expect_capture_rejection() {
     local name=$1 unexpected=$2 expected=$3
     shift 3
-    if env "$@" "${backup[@]}" capture "$scratch/output" "$name" "$scratch/input" > "$scratch/test-error.log" 2>&1; then
-        printf '%s\n' "$unexpected" >&2
-        exit 1
-    fi
-    rg -F "$expected" "$scratch/test-error.log"
+    pg_fixture_expect_failure "$scratch/test-error.log" "$expected" "$unexpected" env "$@" "${backup[@]}" capture "$scratch/output" "$name" "$scratch/input"
     test ! -e "$scratch/output/$name"
 }
 
-"${maintenance[@]}" -c "CREATE DATABASE \"$source_db\" TEMPLATE template0"
-created_source=1
-"${maintenance[@]}" -c "CREATE DATABASE \"$restore_db\" TEMPLATE template0"
-created_restore=1
+pg_fixture_create_db "$source_db"
+pg_fixture_create_db "$restore_db"
 export FSUSBLOG_DB="$base;Database=$source_db"
 export PGDATABASE="$source_db"
 "${migrate[@]}" plan > "$scratch/plan.json"

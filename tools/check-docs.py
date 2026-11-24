@@ -43,26 +43,14 @@ ENV_RE = re.compile(r"\bFSUSBLOG_[A-Z0-9_]+\b")
 def strip_code_blocks_and_inline_code(text: str) -> str:
     """Replace fenced code blocks and inline code spans with blanks while preserving line numbers."""
     out_lines: list[str] = []
-    in_fence = False
-    fence_marker = ""
+    fence_marker: str | None = None
     for line in text.splitlines():
-        m = FENCE_RE.match(line)
-        if m:
-            marker = m.group(1)
-            if not in_fence:
-                in_fence = True
-                fence_marker = marker
-                out_lines.append("")
-                continue
-            if marker == fence_marker:
-                in_fence = False
-                fence_marker = ""
-                out_lines.append("")
-                continue
-        if in_fence:
+        match = FENCE_RE.match(line)
+        if match and (fence_marker is None or match[1] == fence_marker):
+            fence_marker = match[1] if fence_marker is None else None
             out_lines.append("")
         else:
-            out_lines.append(re.sub(r"`[^`]*`", "", line))
+            out_lines.append("" if fence_marker else re.sub(r"`[^`]*`", "", line))
     return "\n".join(out_lines)
 
 

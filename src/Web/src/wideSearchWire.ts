@@ -1,4 +1,5 @@
 import { ApiError, decodeApiError, decodeFrame, ProtocolError } from '../../Contracts/aeds.ts'
+import { toHex } from '../../Contracts/binary.ts'
 import { FrameType, WireHeader, WireHeaders, WireLayouts as L, WireLimits as Limit, WireRoutes } from '../../Contracts/wire.generated.ts'
 
 export type WideSearchIdentity = Readonly<{ generation: string; digest: string; pageCount: number }>
@@ -131,10 +132,6 @@ async function readExact(response: Response, size: number, signal?: AbortSignal)
   } finally {
     reader.releaseLock()
   }
-}
-
-function toHex(bytes: Uint8Array) {
-  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
 async function sha256(bytes: Uint8Array<ArrayBuffer>, signal?: AbortSignal) {

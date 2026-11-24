@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,9 +12,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
-	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -68,16 +65,12 @@ func readCacheEvents(path string) ([]cacheEvent, error) {
 	defer file.Close()
 	events := []cacheEvent{}
 	scanner := bufio.NewScanner(file)
+	atoi := func(s string) int { v, _ := strconv.Atoi(s); return v }
 	for scanner.Scan() {
 		match := cacheEventLine.FindStringSubmatch(scanner.Text())
-		if match == nil {
-			continue
+		if match != nil {
+			events = append(events, cacheEvent{match[1], atoi(match[2]), match[3], atoi(match[4]), atoi(match[5]), atoi(match[6])})
 		}
-		id, _ := strconv.Atoi(match[2])
-		pending, _ := strconv.Atoi(match[4])
-		active, _ := strconv.Atoi(match[5])
-		elapsed, _ := strconv.Atoi(match[6])
-		events = append(events, cacheEvent{match[1], id, match[3], pending, active, elapsed})
 	}
 	return events, scanner.Err()
 }
@@ -85,13 +78,7 @@ func readCacheEvents(path string) ([]cacheEvent, error) {
 // The server initially materializes the 1,200 newest articles by creation time.
 // The fixture includes the dedicated withdrawal cases in the published ordering.
 func coldRounds(w workload, pressure bool) ([]coldRound, [][]expectation, error) {
-	byCreation := append([]article(nil), w.articles[:len(w.articles)-20]...)
-	sort.Slice(byCreation, func(i, j int) bool {
-		if byCreation[i].CreatedAt.Equal(byCreation[j].CreatedAt) {
-			return byCreation[i].ID > byCreation[j].ID
-		}
-		return byCreation[i].CreatedAt.After(byCreation[j].CreatedAt)
-	})
+	byCreation := sortArticlesDesc(w.articles[:len(w.articles)-20], func(a article) time.Time { return a.CreatedAt })
 	cold := []article{}
 	for _, entry := range byCreation[hotDetails:] {
 		if entry.State == "public" {
@@ -101,45 +88,37 @@ func coldRounds(w workload, pressure bool) ([]coldRound, [][]expectation, error)
 	selected := make(map[int]bool)
 	rounds := []coldRound{}
 	paths := [][]expectation{}
-	for _, size := range []int{2048, 8192, 32768} {
+	addRound := func(name string, size, count int, missing string) error {
+		var picked []article
 		for _, entry := range cold {
-			if entry.BodyBytes == size {
-				selected[entry.ID] = true
-				rounds = append(rounds, coldRound{Name: fmt.Sprintf("same-key-%d-bytes", size)})
-				paths = append(paths, coldPaths(w, []article{entry}))
-				break
-			}
-		}
-	}
-	if len(rounds) != 3 {
-		return nil, nil, errors.New("cold fixture does not contain all three body sizes")
-	}
-	// Use the largest standard bodies to expose parallel rendering without an artificial delay.
-	addDistinct := func(name string, count int, missing string) error {
-		var distinct []article
-		for _, entry := range cold {
-			if entry.BodyBytes == 32768 && !selected[entry.ID] {
-				distinct = append(distinct, entry)
-				if len(distinct) == count {
+			if entry.BodyBytes == size && !selected[entry.ID] {
+				picked = append(picked, entry)
+				if len(picked) == count {
 					break
 				}
 			}
 		}
-		if len(distinct) != count {
+		if len(picked) != count {
 			return errors.New(missing)
 		}
-		for _, entry := range distinct {
+		for _, entry := range picked {
 			selected[entry.ID] = true
 		}
 		rounds = append(rounds, coldRound{Name: name})
-		paths = append(paths, coldPaths(w, distinct))
+		paths = append(paths, coldPaths(w, picked))
 		return nil
 	}
-	if err := addDistinct("distinct-keys-32768-bytes", coldFanOut, "cold fixture does not contain 64 distinct large entries"); err != nil {
+	for _, size := range []int{2048, 8192, 32768} {
+		if err := addRound(fmt.Sprintf("same-key-%d-bytes", size), size, 1, "cold fixture does not contain all three body sizes"); err != nil {
+			return nil, nil, err
+		}
+	}
+	// Use the largest standard bodies to expose parallel rendering without an artificial delay.
+	if err := addRound("distinct-keys-32768-bytes", 32768, coldFanOut, "cold fixture does not contain 64 distinct large entries"); err != nil {
 		return nil, nil, err
 	}
 	if pressure {
-		if err := addDistinct("overload-256-distinct-keys-with-client-aborts", maxInFlight, "cold fixture does not contain 256 additional distinct large entries"); err != nil {
+		if err := addRound("overload-256-distinct-keys-with-client-aborts", 32768, maxInFlight, "cold fixture does not contain 256 additional distinct large entries"); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -149,13 +128,11 @@ func coldRounds(w workload, pressure bool) ([]coldRound, [][]expectation, error)
 func coldPaths(w workload, articles []article) []expectation {
 	paths := make([]expectation, max(coldFanOut, len(articles)))
 	for index := range paths {
-		id := articles[index%len(articles)].ID
-		path, class := "/article/"+strconv.Itoa(id), detailHTML
+		class := detailHTML
 		if index%2 == 1 {
-			path = strings.Replace(w.wire.Routes["PublicArticle"], "{id}", strconv.Itoa(id), 1)
 			class = detailAEDS
 		}
-		paths[index] = expectation{class: class, path: path, id: id}
+		paths[index] = w.detailExpectation(class, articles[index%len(articles)].ID)
 	}
 	return paths
 }
@@ -186,28 +163,16 @@ func validateColdResponse(w workload, target expectation, response *http.Respons
 	if kind != "application/octet-stream" {
 		return errors.New("temporary response is not an AEDS frame")
 	}
-	payload, err := w.parseFrame(body, "ApiError")
-	if err != nil {
-		return err
-	}
-	if len(payload) != number(w.wire.Layouts, "ErrorBytes") ||
-		u32(payload, number(w.wire.Layouts, "ErrorStatusOffset")) != response.StatusCode {
-		return errors.New("AEDS error status differs")
-	}
-	return nil
+	_, err = w.parseApiError(body, response.StatusCode)
+	return err
 }
 
 func releaseColdRound(ctx context.Context, origin *url.URL, w workload, round *coldRound, jobs []expectation, pressure bool) error {
-	clients := make([]connection, len(jobs))
+	clients := loadConnections(origin, nil, len(jobs))
+	defer closePool(clients)
 	round.Offered = len(jobs)
-	dialer := net.Dialer{Timeout: requestLimit}
-	for index := range clients {
-		socket, err := dialer.DialContext(ctx, "tcp", origin.Host)
-		if err != nil {
-			return err
-		}
-		clients[index] = connection{origin: origin, conn: socket, reader: bufio.NewReaderSize(socket, 8192)}
-		defer clients[index].close()
+	if err := connectPool(ctx, clients, "cold connection"); err != nil {
+		return err
 	}
 	responses := make([]coldResponse, len(jobs))
 	gate := make(chan struct{})
@@ -261,12 +226,11 @@ func abortColdRequest(client *connection, path string, deadline time.Time) error
 	if err := conn.SetLinger(0); err != nil {
 		return err
 	}
-	req, err := http.NewRequest("GET", client.origin.String()+path, nil)
+	req, err := encodeRequest(client.origin, path)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Accept-Encoding", "identity")
-	if err := req.Write(conn); err != nil {
+	if _, err := conn.Write(req); err != nil {
 		return err
 	}
 	// Keep the request pending long enough for Kestrel to start admission in a
@@ -279,11 +243,10 @@ func abortColdRequest(client *connection, path string, deadline time.Time) error
 func millis(value time.Duration) float64 { return float64(value) / float64(time.Millisecond) }
 
 func summarizeColdRound(round *coldRound, selected []expectation, events []cacheEvent, generation string, pressure bool) error {
-	known := map[int]bool{}
+	known, aborted := map[int]bool{}, map[int]bool{}
 	for _, entry := range selected {
 		known[entry.id] = true
 	}
-	aborted := map[int]bool{}
 	eventKind := "cache"
 	if pressure {
 		eventKind = "cold pressure"
@@ -297,19 +260,19 @@ func summarizeColdRound(round *coldRound, selected []expectation, events []cache
 	admitted, finished, ready := map[int]int{}, map[int]int{}, map[int]int{}
 	active, rejected := map[int]bool{}, map[int]bool{}
 	var invalid []error
+	addErr := func(format string, args ...any) { invalid = append(invalid, fmt.Errorf(format, args...)) }
 	for _, event := range events {
 		round.Events = append(round.Events, event)
 		round.CacheActions[event.Event]++
-		round.ActiveMax = max(round.ActiveMax, event.Active)
-		round.PendingMax = max(round.PendingMax, event.Pending)
+		round.ActiveMax, round.PendingMax = max(round.ActiveMax, event.Active), max(round.PendingMax, event.Pending)
 		if !known[event.ID] || event.Generation != generation {
-			invalid = append(invalid, fmt.Errorf("unexpected %s event for article %d or generation %s", eventKind, event.ID, event.Generation))
+			addErr("unexpected %s event for article %d or generation %s", eventKind, event.ID, event.Generation)
 		}
 		switch event.Event {
 		case "admitted":
 			admitted[event.ID]++
 			if pressure && active[event.ID] {
-				invalid = append(invalid, fmt.Errorf("article %d had simultaneous admissions", event.ID))
+				addErr("article %d had simultaneous admissions", event.ID)
 			}
 			active[event.ID] = true
 		case "finished":
@@ -318,52 +281,49 @@ func summarizeColdRound(round *coldRound, selected []expectation, events []cache
 		case "started":
 			round.ColdStarts[event.ID]++
 			if event.ElapsedUS > 750_000 {
-				invalid = append(invalid, fmt.Errorf("article %d began rendering outside the 750 ms budget", event.ID))
+				addErr("article %d began rendering outside the 750 ms budget", event.ID)
 			}
 		case "ready":
 			ready[event.ID]++
 			if event.ElapsedUS > 2_000_000 {
-				invalid = append(invalid, fmt.Errorf("article %d became ready outside the 2 s budget", event.ID))
+				addErr("article %d became ready outside the 2 s budget", event.ID)
 			}
 		case "admission-rejected":
 			if pressure && event.Pending != 64 {
-				invalid = append(invalid, fmt.Errorf("article %d refused before 64 pending keys", event.ID))
+				addErr("article %d refused before 64 pending keys", event.ID)
 			}
 			rejected[event.ID] = true
 		case "wait-timeout", "worker-timeout", "render-timeout":
 			rejected[event.ID] = true
 		case "wait-cancelled":
 			if pressure && !aborted[event.ID] {
-				invalid = append(invalid, fmt.Errorf("uncancelled client unexpectedly lost article %d", event.ID))
+				addErr("uncancelled client unexpectedly lost article %d", event.ID)
 			}
 		}
 	}
 	drained := len(events) > 0 && events[len(events)-1].Pending == 0 && events[len(events)-1].Active == 0 &&
 		round.PendingMax <= 64 && round.ActiveMax <= 4
+	if !drained || (pressure && len(active) != 0) {
+		addErr("cache counters did not satisfy the concurrency or drain bounds")
+	}
 	if pressure {
-		if !drained || len(active) != 0 {
-			invalid = append(invalid, errors.New("overload did not satisfy cache limits or drain"))
-		}
 		for id, count := range round.ColdStarts {
 			if count != 1 {
-				invalid = append(invalid, fmt.Errorf("article %d rendered %d times", id, count))
+				addErr("article %d rendered %d times", id, count)
 			}
 		}
 	} else {
 		for id := range known {
 			if admitted[id] != 1 || finished[id] != 1 || ready[id] != 1 || round.ColdStarts[id] != 1 {
-				invalid = append(invalid, fmt.Errorf("article %d did not complete exactly one cold render", id))
+				addErr("article %d did not complete exactly one cold render", id)
 			}
-		}
-		if !drained {
-			invalid = append(invalid, errors.New("cache counters did not satisfy the concurrency or drain bounds"))
 		}
 	}
 	var timings histogram
 	measured := 0
 	for _, response := range round.Responses {
 		if response.Error != "" {
-			invalid = append(invalid, fmt.Errorf("GET %s (%d): %s", response.Path, response.Status, response.Error))
+			addErr("GET %s (%d): %s", response.Path, response.Status, response.Error)
 		}
 		if pressure && response.Aborted {
 			continue
@@ -375,16 +335,15 @@ func summarizeColdRound(round *coldRound, selected []expectation, events []cache
 			continue
 		}
 		if pressure && (response.Status == 200 && round.ColdStarts[response.ID] != 1 || response.Status == 503 && !rejected[response.ID]) {
-			invalid = append(invalid, fmt.Errorf("GET %s (%d) has no matching cache result", response.Path, response.Status))
+			addErr("GET %s (%d) has no matching cache result", response.Path, response.Status)
 		}
 		if response.LatencyMS > 750 {
-			invalid = append(invalid, fmt.Errorf("GET %s (%d) took %.1f ms end to end", response.Path, response.Status, response.LatencyMS))
+			addErr("GET %s (%d) took %.1f ms end to end", response.Path, response.Status, response.LatencyMS)
 		} else if !pressure && response.Status != http.StatusOK {
-			invalid = append(invalid, fmt.Errorf("GET %s received a valid %d but normal fixture did not succeed", response.Path, response.Status))
+			addErr("GET %s received a valid %d but normal fixture did not succeed", response.Path, response.Status)
 		}
 	}
-	round.P95MS = timings.percentile(measured, 95)
-	round.P99MS = timings.percentile(measured, 99)
+	round.P95MS, round.P99MS = timings.percentile(measured, 95), timings.percentile(measured, 99)
 	return errors.Join(invalid...)
 }
 
@@ -418,10 +377,8 @@ func runCold(ctx context.Context, origin *url.URL, w workload, logPath string, p
 	if err == nil && len(prior) != 0 {
 		err = errors.New("Kestrel had already handled cold cache requests")
 	}
-	observed := len(prior)
-	completed := 0
-	var observedPressure *coldRound
-	var retry *coldRound
+	observed, completed := len(prior), 0
+	var observedPressure, retry *coldRound
 	runRound := func(round *coldRound, jobs []expectation, overload bool, truncated string) error {
 		if err := releaseColdRound(ctx, origin, w, round, jobs, overload); err != nil {
 			return err
@@ -482,19 +439,15 @@ func runCold(ctx context.Context, origin *url.URL, w workload, logPath string, p
 	if err != nil {
 		report["error"], report["measurement"] = err.Error(), "failed"
 	}
-	encoder := json.NewEncoder(out)
-	encoder.SetIndent("", "  ")
-	if writeErr := encoder.Encode(report); writeErr != nil {
-		fmt.Fprintln(os.Stderr, writeErr)
-		return 1
+	fail := func(code int, msg any) int { fmt.Fprintln(os.Stderr, msg); return code }
+	if writeErr := writeIndentedJSON(out, report); writeErr != nil {
+		return fail(1, writeErr)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
+		return fail(1, err)
 	}
 	if inconclusive {
-		fmt.Fprintln(os.Stderr, "Pressure did not produce both an admission rejection and a server-side cancellation.")
-		return 2
+		return fail(2, "Pressure did not produce both an admission rejection and a server-side cancellation.")
 	}
 	return 0
 }

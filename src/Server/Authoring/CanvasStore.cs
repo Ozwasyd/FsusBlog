@@ -1,14 +1,4 @@
-using FsusBlogV2.Storage;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Core.Authoring;
-using Markdig;
 using Markdig.Parsers;
-using Markdig.Syntax;
-using Markdig.Syntax.Inlines;
-using Npgsql;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -71,20 +61,15 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
             c.id=(select p.canvas_id from public.canvas_link_plan p
                   where p.id=$1 and p.session_digest=$3 and p.session_generation=$4) for update of c
             """, id, actor.Id, sessionDigest, actor.Generation) is not Guid) throw Missing();
-        Plan saved;
-        await using (var read = Store.Sql(db, tx, """
+        var saved = await SqlCommands.QueryRequired(db, tx, ct, """
             select p.canvas_id,p.edge_id,p.canvas_revision,p.host_revision,p.target_revision,p.source_offset,p.insert_digest,
                 p.expires_at>clock_timestamp(),p.applied_article_id,p.applied_revision,p.applied_canvas_revision
             from public.canvas_link_plan p join public.authoring_canvas c on c.id=p.canvas_id
             where p.id=$1 and c.owner_id=$2 and p.session_digest=$3 and p.session_generation=$4 for update of p
-            """, id, actor.Id, sessionDigest, actor.Generation))
-        await using (var row = await read.ExecuteReaderAsync(ct))
-        {
-            await row.ReadRequired(ct, Missing);
-            saved = new(new(row.GetGuid(0), row.GetGuid(1), row.GetInt64(2), row.GetInt64(3),
-                row.GetInt64(4), row.GetInt32(5)), row.GetFieldValue<byte[]>(6), row.GetBoolean(7),
-                row.IsDBNull(8) ? null : new(id, row.GetInt32(8), row.GetInt64(9), row.GetInt64(10)));
-        }
+            """, r => new Plan(new(r.GetGuid(0), r.GetGuid(1), r.GetInt64(2), r.GetInt64(3),
+                r.GetInt64(4), r.GetInt32(5)), r.GetFieldValue<byte[]>(6), r.GetBoolean(7),
+                r.IsDBNull(8) ? null : new(id, r.GetInt32(8), r.GetInt64(9), r.GetInt64(10))),
+            Missing, id, actor.Id, sessionDigest, actor.Generation);
         var edge = await ReadEdge(saved.Intent.CanvasId, saved.Intent.EdgeId, ct) ?? throw Missing();
         var articles = await FindArticles(edge.HostArticleId, edge.TargetArticleId, ct);
         if (saved.Receipt is not null) return saved.Receipt;
@@ -107,9 +92,8 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
         return new(id, updated.Article.Id, updated.Article.Revision, revision);
     }
 
-    private async Task<CanvasEdge?> ReadEdge(Guid canvas, Guid edge, CancellationToken ct)
-    {
-        await using var read = Store.Sql(db, tx, """
+    private Task<CanvasEdge?> ReadEdge(Guid canvas, Guid edge, CancellationToken ct) =>
+        SqlCommands.QueryOne(db, tx, ct, """
             select c.revision,s.article_id,t.article_id,e.explicit_reference
             from public.authoring_canvas c join public.canvas_edge e on e.canvas_id=c.id
             join public.canvas_node s on s.canvas_id=c.id and s.id=e.source_node_id
@@ -117,11 +101,8 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
             where c.id=$1 and e.id=$2 and c.owner_id=$3 and not c.deleted
                 and s.kind=0 and t.kind=0 and s.article_id<>t.article_id
                 and s.pinned_revision is null and t.pinned_revision is null for update of c,e,s,t
-            """, canvas, edge, actor.Id);
-        await using var row = await read.ExecuteReaderAsync(ct);
-        return await row.ReadAsync(ct) ? new(canvas, edge, row.GetInt64(0), row.GetInt32(1), row.GetInt32(2),
-            row.GetBoolean(3)) : null;
-    }
+            """, r => new CanvasEdge(canvas, edge, r.GetInt64(0), r.GetInt32(1), r.GetInt32(2), r.GetBoolean(3)),
+            canvas, edge, actor.Id);
 
     private async Task<(ArticleState Host, CanvasTarget Target)> FindArticles(int host, int target, CancellationToken ct)
     {
@@ -131,19 +112,15 @@ internal sealed class CanvasStore(NpgsqlConnection db, NpgsqlTransaction tx, Ide
         return (await Store.Find(db, tx, actor, host, true, ct), linkTarget);
     }
 
-    private async Task<CanvasTarget> FindTarget(int target, CancellationToken ct)
-    {
+    private Task<CanvasTarget> FindTarget(int target, CancellationToken ct) =>
         // Derive the label only from the published coordinate. The latest saved draft can
         // have a different title or body, and neither belongs in the rendered link plan.
-        await using var read = Store.Sql(db, tx, """
+        SqlCommands.QueryRequired(db, tx, ct, """
             select a.owner_id,p.revision,r.title from public.article a
             join public.article_publication p on p.article_id=a.id and p.revision=a.published_revision
             join public.article_revision r on r.article_id=p.article_id and r.revision=p.revision
             where a.id=$1 and a.owner_id=$2 and not a.deleted for share of a
-            """, target, actor.Id);
-        await using var row = await read.ExecuteReaderAsync(ct);
-        return await row.ReadAsync(ct) ? new(target, row.GetGuid(0), row.GetInt64(1), row.GetString(2)) : throw Missing();
-    }
+            """, r => new CanvasTarget(target, r.GetGuid(0), r.GetInt64(1), r.GetString(2)), Missing, target, actor.Id);
 
     internal static (string Inserted, string Body) Build(CanvasEdge edge, CanvasLinkIntent intent, ArticleState host,
         CanvasTarget target, Identity actor)

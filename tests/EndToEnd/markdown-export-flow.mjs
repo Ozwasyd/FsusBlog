@@ -70,17 +70,9 @@ export async function readPdfDownload(page, button, article, current, selected) 
 }
 
 export async function verifyOfflineHtmlDownload(page, button, title, text, excludedText) {
-  const attachment = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/export.html'))
-  const download = page.waitForEvent('download')
-  await button.click()
-  const response = await attachment
-  assert.equal(response.status(), 200)
+  const { result, response } = await readAttachmentDownload(page, button, 'html', 'text/html; charset=utf-8')
   const policy = "default-src 'none'; base-uri 'none'; form-action 'none'"
   assert.equal(response.headers()['content-security-policy'], policy + "; frame-ancestors 'none'")
-  assert.equal(response.headers()['content-type'], 'text/html; charset=utf-8')
-  assert.equal(response.headers()['cache-control'], 'private, no-store')
-  const result = await download
-  assert.equal(result.suggestedFilename(), 'article.html')
   await inspectDownloadedFile(result, response, 'fsusv2-html-download-', 'article.html', async destination => {
     const browser = page.context().browser()
     assert(browser)

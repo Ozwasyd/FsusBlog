@@ -1,8 +1,3 @@
-using System.Net;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 internal sealed class AuthorPropertyFixture(ScratchDatabase database, HttpClient client, CancellationToken ct)
@@ -39,9 +34,15 @@ internal sealed class AuthorPropertyFixture(ScratchDatabase database, HttpClient
         throw new InvalidOperationException(failure);
     }
 
-    internal static async Task<Actor> SignIn(ScratchDatabase database, string name, CancellationToken ct)
+    internal static async Task<Actor> SignIn(ScratchDatabase database, string name, CancellationToken ct, bool canAuthor = true)
     {
-        var (id, token, handle) = await database.SignIn(name, ct);
+        var (id, token, handle) = await database.SignIn(name, ct, canAuthor);
+        return new(id, token, handle);
+    }
+
+    internal static async Task<Actor> SignIn(ScratchDatabase database, Guid id, CancellationToken ct)
+    {
+        var (_, token, handle) = await database.SignIn(id, ct);
         return new(id, token, handle);
     }
 
@@ -50,6 +51,15 @@ internal sealed class AuthorPropertyFixture(ScratchDatabase database, HttpClient
 
     internal Task<Field> Create(Actor actor, string key, PropertyFieldKind kind, Guid? id = null, PropertyFieldOption[]? options = null) =>
         ChangeDefinition(actor, 1, id ?? Guid.NewGuid(), 0, key, key, kind, options);
+
+    internal async Task<Field> Define(Actor actor, string key, PropertyFieldKind kind, bool filterable = false,
+        bool searchable = false, bool sortable = false, Guid? id = null, PropertyFieldOption[]? options = null)
+    {
+        var field = await Create(actor, key, kind, id, options);
+        if (filterable) field = await SetFilterable(actor, field);
+        if (searchable || sortable) field = await SetProjection(actor, field, searchable, sortable);
+        return field;
+    }
 
     internal async Task<Field> ChangeDefinition(Actor actor, int operation, Guid id, long revision, string key = "", string label = "",
         PropertyFieldKind kind = PropertyFieldKind.Text, PropertyFieldOption[]? options = null)
@@ -90,24 +100,45 @@ internal sealed class AuthorPropertyFixture(ScratchDatabase database, HttpClient
         _values[article.Id] = receipt.Revision;
     }
 
+    internal Task PutIfPresent(Actor actor, ArticleState article, Field field, PropertyFieldValue value) =>
+        value is PropertyFieldValue.Missing ? Task.CompletedTask : Put(actor, article, field, value);
+
+    internal static void RequireSource(AuthorTextSearchRow row, int field, string raw, string term)
+    {
+        var start = raw.IndexOf(term, StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        Assert.Equal(field, row.Field);
+        Assert.Equal(term, row.Snippet[row.HighlightStart..row.HighlightEnd]);
+        Assert.Equal((start, start + term.Length), (row.SourceStart, row.SourceEnd));
+        Assert.Equal((Encoding.UTF8.GetByteCount(raw.AsSpan(0, start)), Encoding.UTF8.GetByteCount(raw.AsSpan(0, start + term.Length))),
+            (row.SourceByteStart, row.SourceByteEnd));
+        Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(raw)), row.SourceDigest);
+    }
+
+    internal static void RequireFacet(AuthorTextPropertyFacet? raw, Field field, PropertyFieldKind kind, int missing, int nil,
+        int empty, params AuthorTextPropertyFacetBucket[] buckets)
+    {
+        var facet = Assert.IsType<AuthorTextPropertyFacet>(raw);
+        Assert.Equal((field.Id, field.Revision, kind, missing, nil, empty),
+            (facet.DefinitionId, facet.DefinitionRevision, facet.Kind, facet.Missing, facet.Null, facet.Empty));
+        Assert.Equal(buckets, facet.Buckets);
+    }
+
+    internal static void RequireBoolFacet(AuthorTextPropertyFacet? raw, Field flag, int missing, int nil, int falseCount, int trueCount) =>
+        RequireFacet(raw, flag, PropertyFieldKind.Boolean, missing, nil, 0, BoolFacet(false, falseCount), BoolFacet(true, trueCount));
+
+    internal static AuthorTextPropertyFacetBucket BoolFacet(bool value, int count) => new(new PropertyFieldValue.Boolean(value), count);
+    internal static AuthorTextPropertyFacetBucket ChoiceFacet(Guid id, int count) => new(new PropertyFieldValue.SingleSelect(id), count);
+
     internal Task<ArticleState> Save(Actor actor, string title, string body) =>
         ChangeArticle(actor, ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, body));
 
     internal async Task<ArticleState> ChangeArticle(Actor actor, ArticleAction action, Edit edit) =>
         (await _store.WithSession(actor.Token, true, (db, tx, identity) => Store.Execute(db, tx, identity, action, edit, ct), ct)).Article;
 
-    internal async Task<(long Revision, DateTime Updated)> ArticleStamp(int id)
-    {
-        await using var db = await database.DataSource.OpenConnectionAsync(ct);
-        await using var command = Store.Sql(db, null, "select revision,updated_at from public.article where id=$1", id);
-        await using var row = await command.ExecuteReaderAsync(ct);
-        Assert.True(await row.ReadAsync(ct));
-        return (row.GetInt64(0), row.GetDateTime(1));
-    }
+    internal Task<(long Revision, DateTime Updated)> ArticleStamp(int id) =>
+        database.QueryRowAsync(ct, "select revision,updated_at from public.article where id=$1",
+            row => (row.GetInt64(0), row.GetDateTime(1)), id);
 
-    internal async Task<int> Execute(string sql, params object[] args)
-    {
-        await using var db = await database.DataSource.OpenConnectionAsync(ct);
-        return await FixtureSql.ExecuteAsync(db, null, ct, sql, args);
-    }
+    internal Task<int> Execute(string sql, params object[] args) => database.ExecAsync(ct, sql, args);
 }

@@ -1,6 +1,3 @@
-using System.Buffers.Binary;
-using System.Security.Cryptography;
-
 namespace FsusBlog.V2.Contracts;
 
 public readonly record struct WideSearchCorpusPage(int Number, int DocumentCount, int FirstArticleId, int LastArticleId,

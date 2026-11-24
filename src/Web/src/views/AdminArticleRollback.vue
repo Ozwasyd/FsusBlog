@@ -131,7 +131,7 @@ async function rollback(toDraft: boolean) {
   } catch (cause) {
     if (signal.aborted) return
     if (cause instanceof DOMException && cause.name === 'NotAllowedError') {
-      error.value = 'admin.rollback.passkeyCanceled'
+      error.value = 'admin.archive.passkeyCanceled'
     } else if (cause instanceof ApiError && cause.status === 409) {
       preview.value = undefined
       error.value = 'admin.rollback.changed'
@@ -203,7 +203,7 @@ onScopeDispose(() => lifetime.abort())
       <form class="rollback-lookup-form" @submit.prevent="readPreview">
         <div class="rollback-lookup-fields">
           <div class="rollback-field">
-            <label for="admin-rollback-article">{{ t('admin.rollback.articleId') }}</label>
+            <label for="admin-rollback-article">{{ t('admin.moderation.m35') }}</label>
             <ElInput id="admin-rollback-article" v-model="articleId" v-bind="{ inputmode: 'numeric' }" :disabled="editingLocked" @input="resetPreview" />
           </div>
           <div class="rollback-field">
@@ -281,6 +281,7 @@ onScopeDispose(() => lifetime.abort())
 </template>
 
 <style scoped lang="scss">
+@use '../review-panel' as layout;
 @use '../shared-fields' as fields;
 
 .rollback-lookup-form,
@@ -302,10 +303,6 @@ onScopeDispose(() => lifetime.abort())
 }
 
 .rollback-preview h3 {
-  margin: 0;
-  font-size: var(--el-font-size-base);
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  overflow-wrap: anywhere;
+  @include layout.review-item-heading;
 }
 </style>

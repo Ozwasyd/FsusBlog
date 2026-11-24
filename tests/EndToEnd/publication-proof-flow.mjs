@@ -1,16 +1,15 @@
-import { assertStatus } from './response-status-fixture.mjs'
-import { roleWithExactName, exactText } from './role-locators.mjs'
 import assert from 'node:assert/strict'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { publicationProofPath } from '../../src/Contracts/article-publication-proof.ts'
-import { decodeArticle } from '../../src/Contracts/public-articles.ts'
-import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { verifyPublicationHead } from '../../tools/verify-publication-head.mjs'
 import { verifyPublicationProof } from '../../tools/verify-publication-proof.mjs'
 import { readDraft, submitPublicationMutation } from './browser-authoring-fixture.mjs'
-import { expect, launchIdentityBrowser, readTlsPublicationFixture } from './site-authentication-fixture.mjs'
+import { saveShot, withBrowserEvidence } from './isolated-browser-fixture.mjs'
+import { assertStatus, fetchPublicArticle } from './response-status-fixture.mjs'
+import { exactHeading, exactText } from './role-locators.mjs'
+import { expect, launchIdentityBrowser, readTlsPublicationFixture, secureLoginProtocol } from './site-authentication-fixture.mjs'
 import { signInFreshAdmin, signInFreshSite } from './webauthn-fixture.mjs'
 
 const { origin, ticket, pins } = readTlsPublicationFixture(
@@ -20,42 +19,48 @@ const bootstrap = process.env.FSUSBLOG_TEST_ADMIN_TICKET
 assert(admin.protocol === 'https:' && admin.hostname === 'admin.localhost' && /^[a-f0-9]{64}$/.test(bootstrap ?? ''),
   'Use the isolated administrator origin and its fixture Passkey setup ticket.')
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/publication-proof-browser')
-await mkdir(evidence, { recursive: true })
 const browser = await launchIdentityBrowser(pins)
-const author = await browser.newContext()
-const reader = await browser.newContext()
-const page = await browser.newPage({ viewport: { width: 1280, height: 840 } })
-const calls = []
-const faults = []
-const expectedHttp = []
-const checks = {}
-const keysPath = '/integrity/v2/keys.json'
-const headPath = '/integrity/v2/log/head.json'
+const calls = [], faults = [], expectedHttp = [], checks = {}
+const keysPath = '/integrity/v2/keys.json', headPath = '/integrity/v2/log/head.json'
 const checkHead = process.env.FSUSBLOG_TEST_PUBLICATION_HEAD === '1'
-page.on('request', request => {
-  const path = new URL(request.url()).pathname
-  if (path.startsWith('/integrity/v2/')) calls.push(path)
-})
-page.on('pageerror', error => faults.push(error.message))
-page.on('console', message => {
-  if (message.type() !== 'error') return
-  const source = URL.parse(message.location().url)
-  const code = /^Failed to load resource: the server responded with a status of (\d+) /.exec(message.text())?.[1]
-  if (source?.origin === origin &&
-    ((code === '401' && [WireRoutes.Session, WireRoutes.SiteRefreshStatus].includes(source.pathname)) ||
-     (code === '404' && [WireRoutes.SiteRefreshStatus, '/favicon.ico'].includes(source.pathname)))) {
-    expectedHttp.push({ path: source.pathname, status: Number(code) })
-  } else {
-    faults.push({ path: source?.pathname, message: message.text() })
-  }
-})
+const writeRaw = (file, data) => writeFile(join(evidence, file), data)
+let page
 
-let failure
-try {
+await withBrowserEvidence(browser, evidence, 'browser-result.json', failure => ({
+  browser: browser.version(), checks, calls, expectedHttp, faults, failure: failure instanceof Error ? failure.message : undefined,
+}), async () => {
+  const author = await browser.newContext(), reader = await browser.newContext()
+  page = await browser.newPage({ viewport: { width: 1280, height: 840 } })
+  page.on('request', req => { const path = new URL(req.url()).pathname; if (path.startsWith('/integrity/v2/')) calls.push(path) })
+  page.on('pageerror', error => faults.push(error.message))
+  page.on('console', message => {
+    if (message.type() !== 'error') return
+    const source = URL.parse(message.location().url)
+    const code = /^Failed to load resource: the server responded with a status of (\d+) /.exec(message.text())?.[1]
+    if (source?.origin === origin && ((code === '401' && [WireRoutes.Session, WireRoutes.SiteRefreshStatus].includes(source.pathname)) ||
+      (code === '404' && [WireRoutes.SiteRefreshStatus, '/favicon.ico'].includes(source.pathname)))) {
+      expectedHttp.push({ path: source.pathname, status: Number(code) })
+    } else faults.push({ path: source?.pathname, message: message.text() })
+  })
+
+  const command = async (path, id, expectedRevision, title = '', body = '') =>
+    readDraft(await submitPublicationMutation(author.request, admin.origin + path, id, expectedRevision, title, body), path)
+
+  async function currentProof(id) {
+    const path = publicationProofPath(await fetchPublicArticle(reader.request, origin, id))
+    await expect.poll(async () => (await reader.request.get(origin + path)).status(), { timeout: 12_000 }).toBe(200)
+    return path
+  }
+
+  async function readerHasNoProofUi() {
+    // Assert structure, not translated copy: neither locale should expose these controls.
+    await expect(page.locator('.publication-proof, .article-rights')).toHaveCount(0)
+    await expect(page.locator('a[href^="/integrity/v2/"]')).toHaveCount(0)
+    assert.deepEqual(calls, [])
+  }
+
   if (checkHead) {
-    const response = await publicIntegrity(headPath)
-    assert.equal(response.status, 404)
-    await response.arrayBuffer()
+    await unavailablePublicProof(headPath)
     checks.anonymousEmptyHeadUnavailable = true
   }
   await signInFreshAdmin(await author.newPage(), admin.origin, bootstrap)
@@ -68,38 +73,36 @@ try {
   const articleUrl = `${origin}/article/${first.id}`
   const main = await page.goto(articleUrl)
   assert(main?.ok())
-  const security = await main.securityDetails()
-  assert(security?.protocol.startsWith('TLS') && await page.evaluate(() => window.isSecureContext))
+  checks.tls = await secureLoginProtocol(page, main)
   assert.equal(page.url(), articleUrl)
   await expect(page).toHaveTitle(/^Original Évidence 🐈 · /)
-  await expect(roleWithExactName(page, 'heading', title)).toBeVisible()
+  await expect(exactHeading(page, title)).toBeVisible()
   await expect(exactText(page, 'Proof browser fixture.')).toBeVisible()
   await readerHasNoProofUi()
   assert.deepEqual(calls, [])
-  checks.tls = security.protocol
   checks.zeroProofRequestsOnLoad = true
 
   const manifest = JSON.parse(await publicJsonBytes(keysPath))
   const proof = JSON.parse(await publicJsonBytes(firstProof))
   assert.equal(proof.articleId, first.id)
   verifyPublicationProof(proof, manifest, origin)
-  await page.screenshot({ path: join(evidence, 'publication-proof-desktop.png') })
+  await saveShot(page, evidence, 'publication-proof-desktop.png', {})
   checks.signedCurrentPublicationVerified = true
 
-  assert.throws(() => verifyPublicationProof({
-    ...proof, signature: Buffer.alloc(64).toString('base64url'),
-  }, manifest, origin), /Invalid native publication signature/)
+  assert.throws(() => verifyPublicationProof({ ...proof, signature: Buffer.alloc(64).toString('base64url') }, manifest, origin),
+    /Invalid native publication signature/)
   checks.tamperedSignatureRejected = true
 
-  const compromised = structuredClone(manifest)
-  const signingKey = compromised.keys.find(key => key.keyId === proof.keyId)
-  assert(signingKey)
-  signingKey.compromisedAtUtc = '2026-11-15T00:00:00.000000Z'
-  assert.throws(() => verifyPublicationProof(proof, compromised, origin), /Native proof key is ineligible/)
+  const assertIneligibleKey = (field, value) => {
+    const mutated = structuredClone(manifest)
+    const signingKey = mutated.keys.find(key => key.keyId === proof.keyId)
+    assert(signingKey)
+    signingKey[field] = value
+    assert.throws(() => verifyPublicationProof(proof, mutated, origin), /Native proof key is ineligible/)
+  }
+  assertIneligibleKey('compromisedAtUtc', '2026-11-15T00:00:00.000000Z')
   checks.freshCompromisedRegistryRejected = true
-  const revoked = structuredClone(manifest)
-  revoked.keys.find(key => key.keyId === proof.keyId).revokedAtUtc = proof.issuedAtUtc
-  assert.throws(() => verifyPublicationProof(proof, revoked, origin), /Native proof key is ineligible/)
+  assertIneligibleKey('revokedAtUtc', proof.issuedAtUtc)
   checks.revokedAtIssuanceKeyRejected = true
 
   const nextTitle = 'Replacement Évidence 🌿'
@@ -113,11 +116,10 @@ try {
 
   await page.setViewportSize({ width: 375, height: 812 })
   await page.goto(articleUrl)
-  await expect(roleWithExactName(page, 'heading', nextTitle)).toBeVisible()
+  await expect(exactHeading(page, nextTitle)).toBeVisible()
   await readerHasNoProofUi()
-  verifyPublicationProof(JSON.parse(await publicJsonBytes(nextProof)),
-    JSON.parse(await publicJsonBytes(keysPath)), origin)
-  await page.screenshot({ path: join(evidence, 'publication-proof-mobile.png') })
+  verifyPublicationProof(JSON.parse(await publicJsonBytes(nextProof)), JSON.parse(await publicJsonBytes(keysPath)), origin)
+  await saveShot(page, evidence, 'publication-proof-mobile.png', {})
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
   await readerHasNoProofUi()
   checks.mobileReaderHasNoProofUiOrRequests = true
@@ -128,49 +130,18 @@ try {
   assertStatus(await reader.request.get(origin + nextProof), 404)
   checks.withdrawnPublicationReceiptDenied = true
   if (publicHead) {
-    const withdrawn = await publicIntegrity(nextProof)
-    assert.equal(withdrawn.status, 404)
-    await withdrawn.arrayBuffer()
+    await unavailablePublicProof(nextProof)
     const retained = await publicJsonBytes(headPath)
     assert.deepEqual(retained, publicHead)
-    await writeFile(join(evidence, 'publication-head-after-withdrawal.json'), retained)
+    await writeRaw('publication-head-after-withdrawal.json', retained)
     checks.anonymousWithdrawnProofDeniedAndOpaqueHeadRetained = true
   }
   assert.deepEqual(calls, [])
   assert.deepEqual(faults, [])
-} catch (error) {
-  failure = error
-  await page.screenshot({ path: join(evidence, 'publication-proof-failure.png') }).catch(() => {})
-} finally {
-  await browser.close()
-  await writeFile(join(evidence, 'browser-result.json'), JSON.stringify({
-    browser: browser.version(), checks, calls, expectedHttp, faults, failure: failure instanceof Error ? failure.message : undefined,
-  }, null, 2) + '\n')
-}
-if (failure) throw failure
-
-async function command(path, id, expectedRevision, title = '', body = '') {
-  return readDraft(await submitPublicationMutation(author.request, admin.origin + path, id, expectedRevision, title, body), path)
-}
-
-async function currentProof(id) {
-  const detail = await reader.request.get(origin + WireRoutes.PublicArticle.replace('{id}', String(id)))
-  assertStatus(detail, 200)
-  const article = decodeArticle(decodeFrame(await detail.body(), FrameType.ArticleDetail).payload)
-  const path = publicationProofPath(article)
-  await expect.poll(async () => {
-    const response = await reader.request.get(origin + path)
-    return response.status()
-  }, { timeout: 12_000 }).toBe(200)
-  return path
-}
-
-async function readerHasNoProofUi() {
-  // Assert structure, not translated copy: neither locale should expose these controls.
-  await expect(page.locator('.publication-proof, .article-rights')).toHaveCount(0)
-  await expect(page.locator('a[href^="/integrity/v2/"]')).toHaveCount(0)
-  assert.deepEqual(calls, [])
-}
+}, {
+  mkdir: true, newline: true,
+  onError: () => page && saveShot(page, evidence, 'publication-proof-failure.png', {}).catch(() => {}),
+})
 
 async function unavailablePublicProof(path) {
   const response = await publicIntegrity(path)
@@ -197,19 +168,16 @@ async function publicJsonBytes(path) {
 }
 
 async function verifyOpaqueHead(proofPath) {
-  const registry = await publicJsonBytes(keysPath)
-  const proofBytes = await publicJsonBytes(proofPath)
-  const manifest = JSON.parse(registry)
-  const proof = JSON.parse(proofBytes)
+  const registry = await publicJsonBytes(keysPath), proofBytes = await publicJsonBytes(proofPath)
+  const manifest = JSON.parse(registry), proof = JSON.parse(proofBytes)
   verifyPublicationProof(proof, manifest, origin)
-  const headBytes = await publicJsonBytes(headPath)
-  const head = JSON.parse(headBytes)
+  const headBytes = await publicJsonBytes(headPath), head = JSON.parse(headBytes)
   const anchor = verifyPublicationHead(head, manifest, origin)
   assert.equal(anchor.sequence, '2')
   assert.notEqual(head.signature, proof.signature)
-  await writeFile(join(evidence, 'publication-key-registry.json'), registry)
-  await writeFile(join(evidence, 'publication-rights-before-withdrawal.json'), proofBytes)
-  await writeFile(join(evidence, 'publication-head-before-withdrawal.json'), headBytes)
+  await writeRaw('publication-key-registry.json', registry)
+  await writeRaw('publication-rights-before-withdrawal.json', proofBytes)
+  await writeRaw('publication-head-before-withdrawal.json', headBytes)
   checks.anonymousSignedOpaqueHeadVerified = anchor
   return headBytes
 }

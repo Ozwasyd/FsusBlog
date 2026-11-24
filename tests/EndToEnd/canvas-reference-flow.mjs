@@ -1,12 +1,11 @@
-import { assertStatus } from './response-status-fixture.mjs'
-import { createCanvasThroughUi } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeCanvasReferenceResolution } from '../../src/Contracts/canvas-graph.ts'
-import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { canvasEditorHandoffKey } from '../../src/Web/src/authoring/canvasEditorHandoff.ts'
-import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
+import { clickForResponse } from './admin-workspace-fixture.mjs'
+import * as authoring from './browser-authoring-fixture.mjs'
+import { assertApiError, readFrame } from './response-status-fixture.mjs'
+import { exactButton, exactHeading, exactText, roleWithExactName } from './role-locators.mjs'
 
 export async function exerciseCanvasReferences({ page, origin, createDraft, screenshot, observations }) {
   const viewportBefore = page.viewportSize()
@@ -16,43 +15,33 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     'Duplicate first ^twice\n\nDuplicate second ^twice\n'
   const article = await createDraft(articleTitle, sourceBody)
   assert.equal(article.body, sourceBody)
+  const canvas = authoring.canvasFixture(page, origin)
   const button = name => exactButton(page, name)
-  const outline = () => page.getByRole('region', { name: 'Canvas outline' })
-  const viewport = () => page.getByRole('region', { name: 'Interactive Canvas Viewport' })
   const preview = () => page.getByRole('region', { name: 'Canvas reference preview' })
   const resolved = () => preview().getByRole('status').filter({ hasText: 'Reference resolved.' })
   const openAction = () => exactButton(preview(), 'Open in editor')
   const nativeEditor = () => page.locator('.el-markdown-editor')
-  const canvasHeading = roleWithExactName(page, 'heading', title)
+  const canvasHeading = exactHeading(page, title)
   const editorPath = `${origin}/admin/articles/edit/${article.id}`
   const draftReadPath = id => origin + WireRoutes.Draft.replace('{id:int}', String(id))
   const referencePrefix = WireRoutes.CanvasReference.split('{id:guid}', 1)[0]
+  const readReference = response => readFrame(response, FrameType.CanvasReferenceResolution, decodeCanvasReferenceResolution)
+  const outlineRef = (kind, id) => exactButton(canvas.outline(), `${kind} reference ${id}`)
   let canvasUrl
 
   async function createCanvas(name) {
-    await createCanvasThroughUi(page, origin, name)
+    await authoring.createCanvasThroughUi(page, origin, name)
     await page.waitForURL(url => url.pathname.startsWith('/admin/canvas/'))
-    await roleWithExactName(page, 'heading', name).waitFor()
+    await exactHeading(page, name).waitFor()
     await button('Outline').click()
     return page.url()
   }
 
-  async function fillReference(kind, { anchor, pinned, articleId = article.id } = {}) {
-    await button('Add reference').click()
-    const dialog = page.getByRole('dialog', { name: 'Add node' })
-    await dialog.getByLabel('Reference type').selectOption(kind)
-    await exactLabel(dialog, 'Article ID').fill(String(articleId))
-    if (anchor !== undefined) await dialog.getByLabel('Anchor ID').fill(anchor)
-    if (pinned) await dialog.getByLabel('Pinned revision (optional)').fill(String(pinned))
-    return dialog
-  }
-
   async function add(kind, options = {}) {
-    const dialog = await fillReference(kind, options)
-    await exactButton(dialog, 'Save node').click()
-    await dialog.waitFor({ state: 'hidden' })
+    const articleId = options.articleId ?? article.id
+    await canvas.addReference(kind, { ...options, articleId })
     const nodeName = { 'article-reference': 'Article', 'heading-reference': 'Heading', 'block-reference': 'Block' }[kind]
-    await exactButton(outline(), `${nodeName} reference ${options.articleId ?? article.id}`).first().waitFor()
+    await outlineRef(nodeName, articleId).first().waitFor()
   }
 
   async function returnToCanvas(mode = 'canvas') {
@@ -60,12 +49,12 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await canvasHeading.waitFor()
     if (mode === 'outline') {
       await button('Outline').click()
-      await outline().waitFor()
+      await canvas.outline().waitFor()
     }
   }
 
   async function selectPinnedBlock() {
-    const node = viewport().getByRole('button', { name: /Article #\d+ · detail · Revision/ })
+    const node = canvas.board().getByRole('button', { name: /Article #\d+ · detail · Revision/ })
     await node.waitFor()
     const bounds = await node.boundingBox()
     assert(bounds)
@@ -73,19 +62,15 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await node.click({ position: { x: Math.floor(bounds.width / 2), y: Math.floor(bounds.height - 8) } })
   }
 
-  async function readReference(response) {
-    assertStatus(response, 200)
-    return decodeCanvasReferenceResolution(decodeFrame(await response.body(), FrameType.CanvasReferenceResolution).payload)
-  }
-
   async function resolveSelected() {
-    const pending = page.waitForResponse(response => {
-      const address = new URL(response.url())
-      return response.request().method() === 'GET' && address.origin === origin && address.pathname.startsWith(referencePrefix) &&
-        address.pathname.includes('/references/') && address.searchParams.has('revision') && !address.searchParams.has('current')
-    })
-    await exactButton(preview(), 'Resolve reference').click()
-    const response = await pending
+    const [response] = await Promise.all([
+      page.waitForResponse(res => {
+        const address = new URL(res.url())
+        return res.request().method() === 'GET' && address.origin === origin && address.pathname.startsWith(referencePrefix) &&
+          address.pathname.includes('/references/') && address.searchParams.has('revision') && !address.searchParams.has('current')
+      }),
+      exactButton(preview(), 'Resolve reference').click(),
+    ])
     return { address: new URL(response.url()), resolution: await readReference(response) }
   }
 
@@ -94,6 +79,8 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
       address.searchParams.get('revision') === witness.address.searchParams.get('revision') &&
       address.searchParams.get('current') === '1' && address.searchParams.size === 2
   }
+
+  const waitCurrentRead = witness => page.waitForResponse(res => res.request().method() === 'GET' && currentRead(witness, new URL(res.url())))
 
   async function openResolved(witness, anchor, { draft = article, editorSource = draft.body } = {}) {
     const marker = anchor === undefined ? null : draft.body.indexOf(`^${anchor}`)
@@ -105,14 +92,12 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     assert.equal(witness.resolution.articleId, draft.id)
     assert.equal(witness.resolution.articleRevision, draft.revision)
     assert.equal(witness.resolution.sourceOffset, marker)
-    const pending = page.waitForResponse(response => response.request().method() === 'GET' && currentRead(witness, new URL(response.url())))
+    const pending = waitCurrentRead(witness)
     const readDraft = page.waitForResponse(response => response.request().method() === 'GET' && response.url() === draftReadPath(draft.id))
     await openAction().click()
     assert.deepEqual(await readReference(await pending), witness.resolution, 'Current-only preflight must repeat the exact resolved witness')
     await page.waitForURL(url => url.origin + url.pathname === `${origin}/admin/articles/edit/${draft.id}`)
-    const draftReceipt = await readDraft
-    assertStatus(draftReceipt, 200)
-    assert.deepEqual(decodeDraft(decodeFrame(await draftReceipt.body(), FrameType.Draft).payload), draft)
+    assert.deepEqual(await authoring.readDraft(await readDraft), draft)
     await nativeEditor().waitFor()
     await page.waitForFunction(({ source, titleValue, caret }) => {
       const field = document.querySelector('#article-body')
@@ -123,29 +108,24 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await page.waitForFunction(key => !Object.hasOwn(history.state ?? {}, key), canvasEditorHandoffKey)
   }
 
-  async function replaceDraft(previous, body) {
-    const command = encodeArticleCommand({ id: previous.id, expectedRevision: previous.revision, idempotencyKey: randomUUID(), title: previous.title, body })
-    const response = await page.request.post(`${origin}${WireRoutes.Save}`, {
-      data: Buffer.from(encodeFrame(FrameType.ArticleCommand, command)), headers: { 'Content-Type': 'application/octet-stream' },
-    })
-    assertStatus(response, 200)
-    const updated = decodeDraft(decodeFrame(await response.body(), FrameType.Draft).payload)
-    assert.equal(updated.id, previous.id)
-    assert.equal(updated.revision, previous.revision + 1n)
-    assert.equal(updated.body, body)
-    return updated.revision
-  }
-
-  async function saveFromEditor(previous, titleValue, rawBody) {
-    const planned = page.waitForResponse(response => response.url() === `${origin}${WireRoutes.Save}` && response.request().method() === 'POST')
-    await button('Save draft').click()
-    const receipt = await planned
-    assertStatus(receipt, 200)
-    const saved = decodeDraft(decodeFrame(await receipt.body(), FrameType.Draft).payload)
+  function assertSavedDraft(saved, previous, titleValue, rawBody) {
     assert.equal(saved.id, previous.id)
     assert.equal(saved.revision, previous.revision + 1n)
     assert.equal(saved.title, titleValue)
     assert.equal(saved.body, rawBody)
+    return saved
+  }
+
+  async function replaceDraft(previous, body) {
+    const updated = await authoring.readDraft(await authoring.submitArticle(page.request, origin + WireRoutes.Save,
+      { id: previous.id, expectedRevision: previous.revision, title: previous.title, body }))
+    return assertSavedDraft(updated, previous, previous.title, body).revision
+  }
+
+  async function saveFromEditor(previous, titleValue, rawBody) {
+    const saved = assertSavedDraft(
+      await authoring.readDraft(await clickForResponse(page, origin + WireRoutes.Save, button('Save draft'), 'POST')),
+      previous, titleValue, rawBody)
     await exactText(page, 'Draft saved.').waitFor()
     return saved
   }
@@ -164,20 +144,18 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await page.setViewportSize({ width: 1280, height: 800 })
     await createCanvas(`${title} CRLF`)
     await add('heading-reference', { anchor: 'harbor', articleId: original.id })
-    await exactButton(outline(), `Heading reference ${original.id}`).click()
+    await outlineRef('Heading', original.id).click()
     const witness = await resolveSelected()
     await resolved().waitFor()
     assert.equal(witness.resolution.sourceOffset, rawCaret)
     await openResolved(witness, 'harbor', { draft: original, editorSource: projected })
     await screenshot(page, 'canvas-reference-editor-crlf')
 
-    async function expectProjected(value, position = null) {
-      await page.waitForFunction(({ value, position }) => {
-        const field = document.querySelector('#article-body')
-        return field instanceof HTMLTextAreaElement && !field.disabled && !field.readOnly && field.value === value &&
-          (position === null || field.selectionStart === position && field.selectionEnd === position)
-      }, { value, position })
-    }
+    const expectProjected = (value, position = null) => page.waitForFunction(({ value, position }) => {
+      const field = document.querySelector('#article-body')
+      return field instanceof HTMLTextAreaElement && !field.disabled && !field.readOnly && field.value === value &&
+        (position === null || field.selectionStart === position && field.selectionEnd === position)
+    }, { value, position })
 
     const editedTitle = 'CRLF source coordinates renamed'
     await expectProjected(projected, caret)
@@ -203,9 +181,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await expectProjected(newProjected)
     const edited = await saveFromEditor(reverted, editedTitle, newRaw)
     await expectProjected(newProjected)
-    const stored = await page.request.get(draftReadPath(original.id))
-    assertStatus(stored, 200)
-    assert.deepEqual(decodeDraft(decodeFrame(await stored.body(), FrameType.Draft).payload), edited)
+    assert.deepEqual(await canvas.draft(original.id), edited)
     observations.push('Canvas witnesses the raw UTF-16 caret of a uniform CRLF draft and opens its LF editor projection without normalizing decomposed Unicode. Title-only save, undo, and multiline editing retain the exact CRLF source in the saved draft.')
   }
 
@@ -214,7 +190,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     canvasUrl = await createCanvas(title)
 
     await add('article-reference')
-    await exactButton(outline(), `Article reference ${article.id}`).click()
+    await outlineRef('Article', article.id).click()
     const articleWitness = await resolveSelected()
     await resolved().waitFor()
     assert.equal(articleWitness.resolution.excerpt, null)
@@ -222,7 +198,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await returnToCanvas('outline')
 
     await add('heading-reference', { anchor: 'planning' })
-    await exactButton(outline(), `Heading reference ${article.id}`).click()
+    await outlineRef('Heading', article.id).click()
     const headingWitness = await resolveSelected()
     await resolved().waitFor()
     await preview().getByRole('heading', { name: /Source coordinates/ }).waitFor()
@@ -231,22 +207,17 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await openResolved(headingWitness, 'planning')
     await returnToCanvas('outline')
 
-    const rejected = await fillReference('block-reference', { anchor: 'twice' })
-    const rejectedWrite = page.waitForResponse(response => response.request().method() === 'POST' &&
-      response.url() === origin + WireRoutes.CanvasGraphWrite)
-    await exactButton(rejected, 'Save node').click()
-    const denied = await rejectedWrite
-    assertStatus(denied, 404)
-    decodeFrame(await denied.body(), FrameType.ApiError)
+    const rejected = await canvas.fillReference('block-reference', { articleId: article.id, anchor: 'twice' })
+    await assertApiError(await clickForResponse(page, origin + WireRoutes.CanvasGraphWrite, exactButton(rejected, 'Save node'), 'POST'), 404)
     await rejected.getByRole('alert').filter({ hasText: 'Canvas reference is unavailable.' }).waitFor()
     await exactButton(rejected, 'Cancel').click()
     await rejected.waitFor({ state: 'hidden' })
-    assert.equal(await exactButton(outline(), `Block reference ${article.id}`).count(), 0)
+    assert.equal(await outlineRef('Block', article.id).count(), 0)
 
     const aging = await createDraft('Anchor from an earlier draft', 'Duplicate first ^twice')
     await add('block-reference', { anchor: 'twice', articleId: aging.id })
     await replaceDraft(aging, 'Duplicate first ^twice\n\nDuplicate second ^twice')
-    await exactButton(outline(), `Block reference ${aging.id}`).click()
+    await outlineRef('Block', aging.id).click()
     assert.equal(await resolved().count(), 0)
     await exactButton(preview(), 'Resolve reference').click()
     await preview().getByRole('status').filter({ hasText: 'The anchor is ambiguous at this revision.' }).waitFor()
@@ -283,7 +254,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     // Commit a new draft after a successful live preflight, while its old result is still held outside the renderer.
     await page.setViewportSize({ width: 1280, height: 800 })
     await button('Outline').click()
-    await exactButton(outline(), `Heading reference ${article.id}`).click()
+    await outlineRef('Heading', article.id).click()
     const race = await resolveSelected()
     await resolved().waitFor()
     await page.evaluate(() => {
@@ -329,7 +300,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     await resolved().waitFor()
     assert.equal(historic.resolution.articleRevision, article.revision)
     assert.equal(historic.resolution.excerpt, blockWitness.resolution.excerpt)
-    const historicalRead = page.waitForResponse(response => response.request().method() === 'GET' && currentRead(historic, new URL(response.url())))
+    const historicalRead = waitCurrentRead(historic)
     await openAction().click()
     const refusal = await readReference(await historicalRead)
     const { canvasId, nodeId, canvasRevision } = historic.resolution

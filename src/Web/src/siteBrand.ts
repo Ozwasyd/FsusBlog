@@ -54,3 +54,8 @@ export function applySiteBrand(seo: Pick<SiteSeo, 'title' | 'author' | 'siteLogo
 export function bumpSiteConfigEpoch(): void {
   siteConfigEpoch.value += 1
 }
+
+export function publicOriginBase(): string {
+  const origin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
+  return origin && origin !== globalThis.location?.origin ? origin : ''
+}

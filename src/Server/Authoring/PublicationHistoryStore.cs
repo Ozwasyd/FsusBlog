@@ -1,9 +1,3 @@
-using FsusBlogV2.Storage;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using Npgsql;
-using NpgsqlTypes;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal static class PublicationHistoryStore
@@ -20,10 +14,7 @@ internal static class PublicationHistoryStore
         ArticleAction action, int articleId, long previousRevision, long? publishedRevision, long nextRevision,
         CancellationToken ct, bool scheduled = false, IReadOnlyList<Content.PublishedMediaReference>? selected = null)
     {
-        int publicationCount;
-        int eventNo;
-        ActivePublication? active;
-        await using (var read = SqlCommands.Create(db, tx, """
+        var (publicationCount, active, eventNo) = await SqlCommands.QueryRequired(db, tx, ct, """
             select a.publication_count,p.publication_id,p.revision,p.publication_no,p.published_at,
                    h.event_no,h.publication_no,h.publication_id
             from public.article a
@@ -33,18 +24,17 @@ internal static class PublicationHistoryStore
                 where article_id=a.id order by event_no desc limit 1
             ) h on true
             where a.id=$1
-            """, articleId))
-        await using (var row = await read.ExecuteReaderAsync(ct))
+            """, row =>
         {
-            await row.ReadRequired(ct, () => new InvalidOperationException("Article disappeared inside a locked write."));
-            publicationCount = row.GetInt32(0);
-            active = row.IsDBNull(1) ? null : new(row.GetInt64(1), row.GetInt64(2), row.GetInt32(3), row.GetDateTime(4));
-            eventNo = row.IsDBNull(5) ? 0 : row.GetInt32(5);
+            var count = row.GetInt32(0);
+            var current = row.IsDBNull(1) ? null : new ActivePublication(row.GetInt64(1), row.GetInt64(2), row.GetInt32(3), row.GetDateTime(4));
+            var lastEvent = row.IsDBNull(5) ? 0 : row.GetInt32(5);
             long? tailId = row.IsDBNull(7) ? null : row.GetInt64(7);
-            if (publishedRevision != active?.Revision || (active is not null && active.Number != publicationCount) ||
-                (eventNo != 0 && (row.GetInt32(6) != publicationCount || tailId != active?.Id)))
+            if (publishedRevision != current?.Revision || (current is not null && current.Number != count) ||
+                (lastEvent != 0 && (row.GetInt32(6) != count || tailId != current?.Id)))
                 throw new InvalidOperationException("Active and historical publication coordinates disagree.");
-        }
+            return (count, current, lastEvent);
+        }, () => new InvalidOperationException("Article disappeared inside a locked write."), articleId);
         // Offline upgrade captures every existing lineage. Direct imports can supply the same retained boundary on first write.
         if (eventNo == 0 && publicationCount > 0)
         {
@@ -185,26 +175,22 @@ internal static class PublicationHistoryStore
             : throw new BusinessException(Rejection.Conflict, "The current publication requires a verified historical boundary.");
     }
 
-    private static async Task<ActivePublication> WithdrawForRollback(NpgsqlConnection db, NpgsqlTransaction tx, int article,
-        long priorPublication, long revision, CancellationToken ct)
-    {
+    private static Task<ActivePublication> WithdrawForRollback(NpgsqlConnection db, NpgsqlTransaction tx, int article,
+        long priorPublication, long revision, CancellationToken ct) =>
         // Reserve one release coordinate without creating a row in the public pointer table.
-        await using var withdraw = SqlCommands.Create(db, tx, """
+        SqlCommands.QueryRequired(db, tx, ct, """
             with withdrawn as (
                 delete from public.article_publication where article_id=$1 and publication_id=$2 returning article_id
             )
             update public.article a set publication_count=a.publication_count+1 from withdrawn w
             where a.id=w.article_id and a.revision=$3 and a.published_revision is null
             returning nextval('public.article_publication_publication_id_seq'),a.publication_count,clock_timestamp()
-            """, article, priorPublication, revision);
-        await using var row = await withdraw.ExecuteReaderAsync(ct);
-        await row.ReadRequired(ct, () => new BusinessException(Rejection.Conflict, "The publication changed before its withdrawal."));
-        return new(row.GetInt64(0), revision, row.GetInt32(1), row.GetDateTime(2));
-    }
+            """, r => new ActivePublication(r.GetInt64(0), revision, r.GetInt32(1), r.GetDateTime(2)),
+            () => new BusinessException(Rejection.Conflict, "The publication changed before its withdrawal."),
+            article, priorPublication, revision);
 
-    private static async Task<ActivePublication> Publish(NpgsqlConnection db, NpgsqlTransaction tx, int articleId, long revision, CancellationToken ct)
-    {
-        await using var publish = SqlCommands.Create(db, tx, """
+    private static Task<ActivePublication> Publish(NpgsqlConnection db, NpgsqlTransaction tx, int articleId, long revision, CancellationToken ct) =>
+        SqlCommands.QueryRequired(db, tx, ct, """
             with next_publication as (
                 update public.article set publication_count=publication_count+1 where id=$1 returning publication_count
             )
@@ -213,11 +199,8 @@ internal static class PublicationHistoryStore
             on conflict(article_id) do update set revision=excluded.revision,publication_no=excluded.publication_no,
                 published_at=excluded.published_at,publication_id=excluded.publication_id
             returning publication_id,publication_no,published_at
-            """, articleId, revision);
-        await using var row = await publish.ExecuteReaderAsync(ct);
-        await row.ReadRequired(ct, () => new InvalidOperationException("Could not record the new publication."));
-        return new(row.GetInt64(0), revision, row.GetInt32(1), row.GetDateTime(2));
-    }
+            """, r => new ActivePublication(r.GetInt64(0), revision, r.GetInt32(1), r.GetDateTime(2)),
+            () => new InvalidOperationException("Could not record the new publication."), articleId, revision);
 
     internal static async Task<long> RecordPublishedOutbox(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision,
         CancellationToken ct)
@@ -229,4 +212,82 @@ internal static class PublicationHistoryStore
         await PublicationCanonicalStore.Record(db, tx, article, revision, id, ct);
         return id;
     }
+}
+
+internal static class PublicationCanonicalStore
+{
+    internal static async Task Record(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, long outbox, CancellationToken ct)
+    {
+        if (!await CurrentSchema.HasPublicationCanonicalAsync(db, tx, ct)) return;
+        var hasCover = await CurrentSchema.HasPublicationCoverAsync(db, tx, ct);
+        var binding = await SqlCommands.QueryRequired(db, tx, ct, $"""
+            select {PublicationCanonicalFacts.Columns},{PublicationCanonicalFacts.CoverColumn(hasCover)}
+            from public.article_publication p join public.article_publication_history h
+              on h.publication_id=p.publication_id and h.article_id=p.article_id and h.revision=p.revision
+              and h.publication_no=p.publication_no and h.happened_at=p.published_at
+            {PublicationCanonicalFacts.RevisionJoins}
+            where p.article_id=$1 and p.revision=$2
+            """, PublicationCanonicalFacts.Read,
+            () => new InvalidOperationException("The newly published coordinates cannot be bound to canonical facts."), article, revision);
+        await SqlCommands.Execute(db, tx, ct, """
+            insert into public.article_publication_canonical
+                (publication_id,article_id,revision,publication_no,published_at,transition,rights_snapshot_id,outbox_id,
+                 outbox_kind,canonical_version,content_sha256,policy_sha256)
+            values($1,$2,$3,$4,$5,$6,$7,$8,'publish',$9,$10,$11)
+            """, binding.Publication, binding.Article, binding.Revision, binding.Number, binding.PublishedAt,
+            binding.Transition, binding.RightsSnapshot, outbox, binding.Version, binding.Content, binding.Policy);
+    }
+}
+
+internal static class PublicationRightsStore
+{
+    internal static async Task<ArticleRightsPolicy> Read(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, CancellationToken ct) =>
+        await SqlCommands.QueryOne(db, tx, ct, """
+            select enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,
+                   copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled
+            from public.article_revision_rights where article_id=$1 and revision=$2
+            """, row => ReadPolicy(row, 0, article, revision), article, revision) ?? Wire.MissingRights(article, revision);
+
+    internal static ArticleRightsPolicy ReadPolicy(NpgsqlDataReader row, int offset, int article, long revision)
+    {
+        var value = new ArticleRightsPolicy(article, revision, true, row.GetBoolean(offset), row.GetString(offset + 1),
+            row.GetString(offset + 2), row.GetInt32(offset + 3), row.GetString(offset + 4), row.GetString(offset + 5),
+            row.GetString(offset + 6), row.GetInt32(offset + 7), row.GetBoolean(offset + 8),
+            row.GetBoolean(offset + 9), row.GetBoolean(offset + 10));
+        Wire.Validate(value);
+        return value;
+    }
+
+    internal static async Task Insert(NpgsqlConnection db, NpgsqlTransaction tx, ArticleRightsPolicy policy, CancellationToken ct)
+    {
+        Wire.Validate(policy);
+        if (!policy.Present) throw new InvalidOperationException("Cannot persist an absent rights policy.");
+        await SqlCommands.Execute(db, tx, ct, """
+            insert into public.article_revision_rights
+                (article_id,revision,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,
+                 copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled)
+            values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            """, policy.Id, policy.Revision, policy.Enabled, policy.LicenseType, policy.CopyrightHolder, policy.CopyrightYear,
+            policy.RightsStatement, policy.AttributionTemplate, policy.CopyPolicy, policy.MaxExcerptChars, policy.AllowCodeCopy,
+            policy.ShowPublicBadge, policy.ProofBindingEnabled);
+    }
+
+    internal static Task CarryForward(NpgsqlConnection db, NpgsqlTransaction tx, int article, long source, long target, CancellationToken ct) =>
+        SqlCommands.Execute(db, tx, ct, """
+            insert into public.article_revision_rights
+            select article_id,$3,enabled,license_type,copyright_holder,copyright_year,rights_statement,attribution_template,
+                   copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled
+            from public.article_revision_rights where article_id=$1 and revision=$2
+            """, article, source, target);
+
+    internal static async Task Require(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, CancellationToken ct)
+    {
+        if (!(await Read(db, tx, article, revision, ct)).Present)
+            throw new BusinessException(Rejection.Conflict, "Save an explicit rights policy before publishing this revision.");
+    }
+
+    internal static Task Attach(NpgsqlConnection db, NpgsqlTransaction tx, int article, long revision, long publication, CancellationToken ct) =>
+        SqlCommands.Execute(db, tx, ct,
+            "insert into public.article_publication_rights(article_id,publication_id,revision) values($1,$2,$3)",
+            article, publication, revision);
 }

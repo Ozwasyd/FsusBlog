@@ -8,6 +8,7 @@ import {
   encodeAuthoringWorkspaceLayout, encodeAuthoringWorkspaceSnapshot, FrameType, WireHeaders, WireLimits, WireRoutes,
   type AuthoringWorkspaceGroups,
 } from '../../src/Contracts/wire.generated.ts';
+import { encodedResponse } from './fixture-source.ts';
 
 const session = 'ab'.repeat(32);
 const signal = new AbortController().signal;
@@ -16,14 +17,13 @@ const groups: AuthoringWorkspaceGroups = {
   activeArticleId: 2, tabs: [1, -2], skipped: 0, inspectorOpen: true,
   secondaryActiveArticleId: 4, secondaryTabs: [-3, 4], focusedGroup: 1,
 };
-
 const change: WorkspaceChange = {
   expectedRevision: 4n, activeArticleId: 2, tabs: [1, -2], inspectorOpen: true,
   secondaryActiveArticleId: 4, secondaryTabs: [-3, 4], focusedGroup: 1,
 };
-
-const frame = (type: FrameType, payload: Uint8Array) =>
-  new Response(encodeFrame(type, payload), { headers: { 'Content-Type': 'application/octet-stream' } });
+const groupsReply = (value = groups) => encodedResponse(FrameType.AuthoringWorkspaceGroups, encodeAuthoringWorkspaceGroups(value));
+const layoutReply = () => encodedResponse(FrameType.AuthoringWorkspaceLayout, encodeAuthoringWorkspaceLayout({ ...groups, schemaVersion: 2 }));
+const snapshotReply = () => encodedResponse(FrameType.AuthoringWorkspaceSnapshot, encodeAuthoringWorkspaceSnapshot({ ...groups, schemaVersion: 1 }));
 
 test('reads and writes the same workspace groups format and preserves the exact session header', async t => {
   const methods: (string | undefined)[] = [];
@@ -37,10 +37,10 @@ test('reads and writes the same workspace groups format and preserves the exact 
     if (init.method === 'POST') {
       equal(headers.get('Content-Type'), 'application/octet-stream');
       equal(init.keepalive, true);
-      const payload = decodeFrame(init.body as Uint8Array, FrameType.AuthoringWorkspaceGroupsCommand).payload;
-      deepEqual(decodeAuthoringWorkspaceGroupsCommand(payload), { schemaVersion: 3, ...change });
+      deepEqual(decodeAuthoringWorkspaceGroupsCommand(decodeFrame(init.body as Uint8Array, FrameType.AuthoringWorkspaceGroupsCommand).payload),
+        { schemaVersion: 3, ...change });
     }
-    return frame(FrameType.AuthoringWorkspaceGroups, encodeAuthoringWorkspaceGroups(groups));
+    return groupsReply();
   });
   deepEqual(await authoringWorkspace(session, signal), groups);
   deepEqual(await authoringWorkspace(session, signal, change, 3), groups);
@@ -55,9 +55,7 @@ test('negotiates only unavailable read routes and normalizes both older layouts'
     equal(init.method, 'GET');
     if (path === WireRoutes.AuthoringWorkspaceGroups || (path === WireRoutes.AuthoringWorkspaceLayout && !layoutAvailable))
       return new Response(null, { status: 404 });
-    if (path === WireRoutes.AuthoringWorkspaceLayout)
-      return frame(FrameType.AuthoringWorkspaceLayout, encodeAuthoringWorkspaceLayout({ ...groups, schemaVersion: 2 }));
-    return frame(FrameType.AuthoringWorkspaceSnapshot, encodeAuthoringWorkspaceSnapshot({ ...groups, schemaVersion: 1 }));
+    return path === WireRoutes.AuthoringWorkspaceLayout ? layoutReply() : snapshotReply();
   });
   const primary = { ...groups, secondaryActiveArticleId: 0, secondaryTabs: [], focusedGroup: 0 };
   deepEqual(await authoringWorkspace(session, signal), { ...primary, schemaVersion: 2 });
@@ -70,10 +68,7 @@ test('negotiates only unavailable read routes and normalizes both older layouts'
 test('does not downgrade split writes, failed writes, or failed authorized reads', async t => {
   const calls: string[] = [];
   let status = 404;
-  t.mock.method(globalThis, 'fetch', async (path: string) => {
-    calls.push(path);
-    return new Response(null, { status });
-  });
+  t.mock.method(globalThis, 'fetch', async (path: string) => (calls.push(path), new Response(null, { status })));
   for (const version of [1, 2] as const)
     await rejects(authoringWorkspace(session, signal, change, version), ProtocolError);
   deepEqual(calls, []);
@@ -94,13 +89,13 @@ test('uses the negotiated legacy format for a single-group write', async t => {
     calls.push(path);
     equal(init.method, 'POST');
     if (path === WireRoutes.AuthoringWorkspaceLayout) {
-      const payload = decodeFrame(init.body as Uint8Array, FrameType.AuthoringWorkspaceLayoutCommand).payload;
-      deepEqual(decodeAuthoringWorkspaceLayoutCommand(payload), { schemaVersion: 2, ...primary, inspectorOpen: true });
-      return frame(FrameType.AuthoringWorkspaceLayout, encodeAuthoringWorkspaceLayout({ ...groups, schemaVersion: 2 }));
+      deepEqual(decodeAuthoringWorkspaceLayoutCommand(decodeFrame(init.body as Uint8Array, FrameType.AuthoringWorkspaceLayoutCommand).payload),
+        { schemaVersion: 2, ...primary, inspectorOpen: true });
+      return layoutReply();
     }
-    const payload = decodeFrame(init.body as Uint8Array, FrameType.AuthoringWorkspaceCommand).payload;
-    deepEqual(decodeAuthoringWorkspaceCommand(payload), { schemaVersion: 1, ...primary });
-    return frame(FrameType.AuthoringWorkspaceSnapshot, encodeAuthoringWorkspaceSnapshot({ ...groups, schemaVersion: 1 }));
+    deepEqual(decodeAuthoringWorkspaceCommand(decodeFrame(init.body as Uint8Array, FrameType.AuthoringWorkspaceCommand).payload),
+      { schemaVersion: 1, ...primary });
+    return snapshotReply();
   });
   equal((await authoringWorkspace(session, signal, single, 2)).inspectorOpen, true);
   equal((await authoringWorkspace(session, signal, single, 1)).inspectorOpen, false);
@@ -110,10 +105,7 @@ test('uses the negotiated legacy format for a single-group write', async t => {
 test('rejects mismatched receipts and malformed group coordinates even in valid frames', async t => {
   let value = { ...groups, revision: 6n };
   const calls: string[] = [];
-  t.mock.method(globalThis, 'fetch', async (path: string) => {
-    calls.push(path);
-    return frame(FrameType.AuthoringWorkspaceGroups, encodeAuthoringWorkspaceGroups(value));
-  });
+  t.mock.method(globalThis, 'fetch', async (path: string) => (calls.push(path), groupsReply(value)));
   await rejects(authoringWorkspace(session, signal, change, 3), ProtocolError);
 
   for (const invalid of [

@@ -1,7 +1,3 @@
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-
 namespace FsusBlog.V2.Server.Content;
 
 // This embedded app-owned contract is also imported by the public Vue shell.

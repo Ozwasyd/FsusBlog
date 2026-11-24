@@ -1,22 +1,15 @@
-using System.Globalization;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Sessions;
-using FsusBlogV2.Storage;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal static class SavedViewEndpoints
 {
     internal const string PlacementUnavailable = "Saved view placement storage is unavailable.";
 
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame,
-        Func<HttpContext, string, int, string?> query)
+    internal static void Map(WebApplication app, string cookie)
     {
         app.MapCommandGet(WireRoutes.SavedViews, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var after = query(ctx, "after", 36);
-            var version = query(ctx, "revision", 19);
+            var after = ServerHttp.Query(ctx, "after", 36);
+            var version = ServerHttp.Query(ctx, "revision", 19);
             Guid id = Guid.Empty;
             long revision = 0;
             if (after is not null && (!Guid.TryParseExact(after, "D", out id) || id == Guid.Empty ||
@@ -28,22 +21,22 @@ internal static class SavedViewEndpoints
 
         app.MapCommandPost(WireRoutes.SavedViews, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var command = Wire.DecodeSavedViewCommand(await readFrame(ctx, WireLimits.SavedViewKeywordCommandFrameBytes, ct));
+            var command = Wire.DecodeSavedViewCommand(await ServerHttp.ReadFrame(ctx, WireLimits.SavedViewKeywordCommandFrameBytes, ct));
             return await Run(ctx, store, async (view, _, token) => Wire.EncodeSavedViewReceipt(await view.Change(command, token)), ct);
         });
 
         app.MapCommandPost(WireRoutes.SavedViewExecute, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var command = Wire.DecodeSavedViewExecute(await readFrame(ctx, WireLimits.SavedViewExecuteFrameBytes, ct));
+            var command = Wire.DecodeSavedViewExecute(await ServerHttp.ReadFrame(ctx, WireLimits.SavedViewExecuteFrameBytes, ct));
             return await Run(ctx, store, async (view, session, token) => Wire.EncodePropertyArticlePage(await view.Open(command, session, token)), ct);
         });
 
         app.MapCommandGet(WireRoutes.SavedViewPlacement, (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var view = query(ctx, "view", 36);
-            var schema = query(ctx, "viewSchema", 9);
-            var skip = query(ctx, "offset", 4);
-            var version = query(ctx, "revision", 19);
+            var view = ServerHttp.Query(ctx, "view", 36);
+            var schema = ServerHttp.Query(ctx, "viewSchema", 9);
+            var skip = ServerHttp.Query(ctx, "offset", 4);
+            var version = ServerHttp.Query(ctx, "revision", 19);
             var id = Guid.Empty;
             var offset = 0;
             long revision = 0;
@@ -61,7 +54,7 @@ internal static class SavedViewEndpoints
 
         app.MapCommandPost(WireRoutes.SavedViewPlacement, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var command = Wire.DecodeSavedViewPlacementCommand(await readFrame(ctx, WireLimits.SavedViewPlacementFrameBytes, ct));
+            var command = Wire.DecodeSavedViewPlacementCommand(await ServerHttp.ReadFrame(ctx, WireLimits.SavedViewPlacementFrameBytes, ct));
             return await Run(ctx, store, async (view, _, token) => Wire.EncodeSavedViewReceipt(await view.ChangePlacement(command, token)), ct,
                 placement: true);
         });

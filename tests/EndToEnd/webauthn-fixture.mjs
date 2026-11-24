@@ -35,23 +35,23 @@ export async function signInFreshAdmin(page, origin, bootstrap, onAccess) {
   await roleWithExactName(page, 'heading', 'Administrator session').waitFor()
 }
 
-export async function signInFreshSite(page, origin, ticket) {
+export async function signInFreshSite(page, origin, ticket, redirect) {
   const authenticator = await enableAuthenticator(page.context(), page)
   await page.context().addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
-  assertStatus(await page.goto(origin + '/login'), 200)
+  assertStatus(await page.goto(origin + (redirect ? `/login?redirect=${redirect}` : '/login')), 200)
   await exactButton(page, 'Set up your first Passkey').click()
   await exactLabel(page, 'One-time setup ticket').fill(ticket)
   const registration = waitForPathResponse(page, () => WireRoutes.PasskeyProvisionComplete, 'POST')
   await exactButton(page, 'Create Passkey').click()
   assertStatus(await registration, 200)
   await exactText(page, 'Passkey created. Log in with your Passkey.').waitFor()
-  await signInWithSitePasskey(page, origin)
+  await signInWithSitePasskey(page, origin, redirect)
   return authenticator
 }
 
-export async function signInWithSitePasskey(page, origin) {
+export async function signInWithSitePasskey(page, origin, target = '/user/identity/mfa') {
   const signIn = waitForPathResponse(page, () => WireRoutes.PasskeyLoginComplete, 'POST')
   await exactButton(page, 'Log in with Passkey').click()
   assertStatus(await signIn, 200)
-  await page.waitForURL(origin + '/user/identity/mfa')
+  await page.waitForURL(origin + target)
 }

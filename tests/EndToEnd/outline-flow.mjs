@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict'
-import { requireWebPackage } from './web-package-fixture.mjs'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import { expect, openWorkspaceDialog } from './browser-authoring-fixture.mjs'
+import * as loc from './role-locators.mjs'
 
-const { expect } = requireWebPackage('@playwright/test')
 const outlineName = 'Article outline'
 const firstHeading = '中文 🧭 section'
 const repeatedHeading = 'Repeated heading'
@@ -35,18 +34,18 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
   monitor(editor, 'outline')
   const editPath = id => `${origin}/admin/articles/edit/${id}`
   const body = () => editor.locator('#article-body')
-  const launcher = () => exactButton(editor, 'Outline')
-  const moreActions = () => exactButton(editor, 'More actions')
-  const desktop = () => roleWithExactName(editor, 'complementary', outlineName)
-  const mobile = () => roleWithExactName(editor, 'dialog', outlineName)
-  const heading = (panel, name) => exactButton(panel, name)
+  const launcher = () => loc.exactButton(editor, 'Outline')
+  const moreActions = () => loc.exactButton(editor, 'More actions')
+  const desktop = () => loc.roleWithExactName(editor, 'complementary', outlineName)
+  const mobile = () => loc.exactDialog(editor, outlineName)
+  const heading = (panel, name) => loc.exactButton(panel, name)
   const current = panel => panel.locator('[aria-current="location"]')
   const editorHandles = []
 
   async function open(panel, compact = false) {
     if (compact) {
       await moreActions().click()
-      await roleWithExactName(editor, 'menuitem', 'Outline').click()
+      await loc.exactMenuItem(editor, 'Outline').click()
       await expect(panel).toBeVisible()
       return
     }
@@ -143,7 +142,9 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
     await dismiss(drawer, heading(drawer, firstHeading), secondRepeat, true)
     await open(drawer, true)
     await choose(drawer, heading(drawer, lastHeading), finalHeading, 'Space')
-    assert.equal(await body().evaluate((live, original) => live === original, editorA), true)
+    const assertSameEditor = async (expected = true) =>
+      assert.equal(await body().evaluate((live, original) => live === original, editorA), expected)
+    await assertSameEditor()
     assert.equal(await editor.evaluate(() => document.documentElement.scrollWidth), mobileViewport.width)
 
     // Identical source bytes must not transfer the previous article's heading or editor ownership.
@@ -153,11 +154,9 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
     await choose(sidebar, repeated.nth(1), secondRepeat)
     await open(sidebar)
     await expect(repeated.nth(1)).toHaveAttribute('aria-current', 'location')
-    await moreActions().click()
-    await roleWithExactName(editor, 'menuitem', 'Workspace & open…').click()
-    const workspaceDialog = roleWithExactName(editor, 'dialog', 'Workspace & open article')
-    await workspaceDialog.getByLabel('Article ID', { exact: true }).fill(String(second.id))
-    await exactButton(workspaceDialog, 'Open in other group').click()
+    const workspaceDialog = await openWorkspaceDialog(editor)
+    await loc.exactLabel(workspaceDialog, 'Article ID').fill(String(second.id))
+    await loc.exactButton(workspaceDialog, 'Open in other group').click()
     await expect(editor).toHaveURL(editPath(second.id))
     await expect(sidebar).toBeHidden()
     await expect(body()).toBeEditable()
@@ -167,7 +166,7 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
     const editorB = await body().elementHandle()
     assert(editorB)
     editorHandles.push(editorB)
-    assert.equal(await body().evaluate((live, original) => live !== original, editorA), true)
+    await assertSameEditor(false)
 
     await open(sidebar)
     await expectHeadingOrder(sidebar)
@@ -176,10 +175,10 @@ export async function exerciseArticleOutline({ page, origin, createDraft, screen
     assert.deepEqual(await editorA.evaluate(element => ({ connected: element.isConnected, value: element.value,
       start: element.selectionStart, end: element.selectionEnd })),
     { connected: true, value: renderedSource, start: secondRepeat, end: secondRepeat })
-    await roleWithExactName(editor, 'tab', `${first.title} · Preview`).click()
+    await loc.exactTab(editor, `${first.title} · Preview`).click()
     await expect(editor).toHaveURL(editPath(first.id))
     await expectCaret(secondRepeat)
-    assert.equal(await body().evaluate((live, original) => live === original, editorA), true)
+    await assertSameEditor()
     await expect(sidebar).toBeVisible()
     await expect(repeated.nth(1)).toHaveAttribute('aria-current', 'location')
 

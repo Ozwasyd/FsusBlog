@@ -1,5 +1,5 @@
-import { encodeFrame, ProtocolError } from './aeds.ts';
-import { PodReader, PodWriter } from './binary.ts';
+import { encodeFrame, encodePod, ProtocolError } from './aeds.ts';
+import { decodePod, PodReader, PodWriter, ZERO_UUID } from './binary.ts';
 import { type Draft } from './client.ts';
 import { sessionGet, sessionPost } from './internal/http.ts';
 import {
@@ -39,22 +39,15 @@ export type DraftRevisionBodyInsertionChain = BodyChain<DraftRevisionBodyInserti
 
 export function encodeArticleBodyInsertionsCommand(value: ArticleBodyInsertionsCommand): Uint8Array<ArrayBuffer> {
   validateInsertionsCommand(value);
-  const writer = writeArticleBodyCommand(value);
-  writer.i32(value.insertions.length);
-  for (const { offset, length } of value.insertions) {
-    writer.i32(offset);
-    writer.i32(length);
-  }
-  return encodeFrame(FrameType.ArticleBodyInsertionsCommand, writer.finish());
+  return encodePod(FrameType.ArticleBodyInsertionsCommand, writer => {
+    writeArticleBodyCommand(writer, value).i32(value.insertions.length);
+    for (const { offset, length } of value.insertions) writer.i32(offset).i32(length);
+  });
 }
 
 export function decodeArticleBodyInsertionsCommand(payload: Uint8Array): ArticleBodyInsertionsCommand {
-  if (payload.length > WireLimits.MaxArticleBodyInsertionsCommandFrameBytes - WireHeader.HeaderSize) throw invalidChain();
-  const reader = new PodReader(payload);
-  const value = {
-    ...readArticleBodyCommand(reader), insertions: readInsertions(reader),
-  };
-  reader.finish();
+  const value = decodePod(payload, reader => ({ ...readArticleBodyCommand(reader), insertions: readInsertions(reader) }),
+    WireLimits.MaxArticleBodyInsertionsCommandFrameBytes - WireHeader.HeaderSize, invalidChain);
   validateInsertionsCommand(value);
   return value;
 }
@@ -87,7 +80,7 @@ function readInsertions(reader: PodReader): BodyInsertion[] {
 }
 
 function validateInsertionsCommand(value: ArticleBodyInsertionsCommand): void {
-  if (value.id <= 0 || value.expectedRevision <= 0n || value.idempotencyKey === '00000000-0000-0000-0000-000000000000' ||
+  if (value.id <= 0 || value.expectedRevision <= 0n || value.idempotencyKey === ZERO_UUID ||
       value.insertions.length < 1 || value.insertions.length > WireLimits.ArticleBodyInsertionOperations) throw invalidChain();
   const sourceLength = value.body.length - value.insertions.reduce((total, operation) => total + operation.length, 0);
   if (lengthAfterInsertions(sourceLength, value.insertions) !== value.body.length) throw invalidChain();
@@ -119,23 +112,15 @@ const hexDigest = /^[0-9a-f]{64}$/;
 
 export function encodeArticleBodyEditsCommand(input: ArticleBodyEditsCommand): Uint8Array<ArrayBuffer> {
   validateEditsCommand(input);
-  const writer = writeArticleBodyCommand(input);
-  writer.i32(input.edits.length);
-  for (const edit of input.edits) {
-    writer.i32(edit.offset);
-    writer.i32(edit.removedLength);
-    writer.text(edit.insert, WireLimits.BodyBytes);
-  }
-  return encodeFrame(FrameType.ArticleBodyEditsCommand, writer.finish());
+  return encodePod(FrameType.ArticleBodyEditsCommand, writer => {
+    writeArticleBodyCommand(writer, input).i32(input.edits.length);
+    for (const edit of input.edits) writer.i32(edit.offset).i32(edit.removedLength).text(edit.insert, WireLimits.BodyBytes);
+  });
 }
 
 export function decodeArticleBodyEditsCommand(payload: Uint8Array): ArticleBodyEditsCommand {
-  if (payload.length > WireLimits.MaxArticleBodyEditsCommandFrameBytes - WireHeader.HeaderSize) throw invalidEdits();
-  const reader = new PodReader(payload);
-  const input = {
-    ...readArticleBodyCommand(reader), edits: readEdits(reader),
-  };
-  reader.finish();
+  const input = decodePod(payload, reader => ({ ...readArticleBodyCommand(reader), edits: readEdits(reader) }),
+    WireLimits.MaxArticleBodyEditsCommandFrameBytes - WireHeader.HeaderSize, invalidEdits);
   validateEditsCommand(input);
   return input;
 }
@@ -168,7 +153,7 @@ function readEdits(reader: PodReader): BodyEdit[] {
 }
 
 function validateEditsCommand(input: ArticleBodyEditsCommand): void {
-  if (input.id <= 0 || input.expectedRevision <= 0n || input.idempotencyKey === '00000000-0000-0000-0000-000000000000' ||
+  if (input.id <= 0 || input.expectedRevision <= 0n || input.idempotencyKey === ZERO_UUID ||
       input.edits.length < 1 || input.edits.length > WireLimits.ArticleBodyInsertionOperations) throw invalidEdits();
   const length = input.body.length + input.edits.reduce((total, edit) => total + edit.removedLength - edit.insert.length, 0);
   const state: BodySize = { length, bytesRemaining: WireLimits.BodyBytes };
@@ -206,38 +191,31 @@ function decodeBodyChain<Operation, Edge>(
   payload: Uint8Array, frameLimit: number, invalid: () => ProtocolError, readOperations: (reader: PodReader) => Operation[],
   replayEdge: (sourceDigest: string, digest: string, operations: Operation[], state: BodySize) => Edge,
 ): BodyChain<Edge> {
-  if (payload.length > frameLimit - WireHeader.HeaderSize) throw invalid();
-  const reader = new PodReader(payload);
-  const id = reader.i32(), revision = reader.i64(), sourceRevision = reader.i64(), available = reader.bool();
-  const sourceBody = reader.text(WireLimits.BodyBytes), body = reader.text(WireLimits.BodyBytes), count = reader.i32();
-  if (id <= 0 || sourceRevision <= 0n || sourceRevision >= revision || count < 0 || count > WireLimits.ArticleBodyInsertionChainEdges ||
-      (available ? BigInt(count) !== revision - sourceRevision : count !== 0 || sourceBody !== '' || body !== '')) throw invalid();
-
-  const edges: Edge[] = [];
-  let previousDigest = '';
-  const state: BodySize = { length: sourceBody.length, bytesRemaining: WireLimits.BodyBytes };
-  for (let index = 0; index < count; index++) {
-    const sourceDigest = reader.text(WireLimits.ArticleBodyInsertionDigestBytes);
-    const digest = reader.text(WireLimits.ArticleBodyInsertionDigestBytes);
-    const operations = readOperations(reader);
-    if (!hexDigest.test(sourceDigest) || !hexDigest.test(digest) || (index !== 0 && sourceDigest !== previousDigest) ||
-        (operations.length === 0 && sourceDigest !== digest)) throw invalid();
-    edges.push(replayEdge(sourceDigest, digest, operations, state));
-    previousDigest = digest;
-  }
-  if (state.length !== body.length) throw invalid();
-  reader.finish();
-  return { id, revision, sourceRevision, available, sourceBody, body, edges };
+  return decodePod(payload, reader => {
+    const id = reader.i32(), revision = reader.i64(), sourceRevision = reader.i64(), available = reader.bool();
+    const sourceBody = reader.text(WireLimits.BodyBytes), body = reader.text(WireLimits.BodyBytes), count = reader.i32();
+    if (id <= 0 || sourceRevision <= 0n || sourceRevision >= revision || count < 0 || count > WireLimits.ArticleBodyInsertionChainEdges ||
+        (available ? BigInt(count) !== revision - sourceRevision : count !== 0 || sourceBody !== '' || body !== '')) throw invalid();
+    const edges: Edge[] = [];
+    let previousDigest = '';
+    const state: BodySize = { length: sourceBody.length, bytesRemaining: WireLimits.BodyBytes };
+    for (let index = 0; index < count; index++) {
+      const sourceDigest = reader.text(WireLimits.ArticleBodyInsertionDigestBytes);
+      const digest = reader.text(WireLimits.ArticleBodyInsertionDigestBytes);
+      const operations = readOperations(reader);
+      if (!hexDigest.test(sourceDigest) || !hexDigest.test(digest) || (index !== 0 && sourceDigest !== previousDigest) ||
+          (operations.length === 0 && sourceDigest !== digest)) throw invalid();
+      edges.push(replayEdge(sourceDigest, digest, operations, state));
+      previousDigest = digest;
+    }
+    if (state.length !== body.length) throw invalid();
+    return { id, revision, sourceRevision, available, sourceBody, body, edges };
+  }, frameLimit - WireHeader.HeaderSize, invalid);
 }
 
-function writeArticleBodyCommand(input: ArticleCommand) {
-  const writer = new PodWriter();
-  writer.i32(input.id);
-  writer.i64(input.expectedRevision);
-  writer.uuid(input.idempotencyKey);
-  writer.text(input.title, WireLimits.TitleBytes);
-  writer.text(input.body, WireLimits.BodyBytes);
-  return writer;
+function writeArticleBodyCommand(writer: PodWriter, input: ArticleCommand): PodWriter {
+  return writer.i32(input.id).i64(input.expectedRevision).uuid(input.idempotencyKey)
+    .text(input.title, WireLimits.TitleBytes).text(input.body, WireLimits.BodyBytes);
 }
 
 function readArticleBodyCommand(reader: PodReader): ArticleCommand {

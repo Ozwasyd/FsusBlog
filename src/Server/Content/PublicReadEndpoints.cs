@@ -1,9 +1,3 @@
-using System.Globalization;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Analytics;
-using FsusBlog.V2.Server.Operations;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal static class PublicReadEndpoints

@@ -1,9 +1,3 @@
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server;
 using AuthorTextRebuildProfile = FsusBlog.V2.Server.Authoring.AuthorTextRebuildProfile;
 using static FsusBlog.V2.Integration.Tests.AuthorPropertyFixture;
 
@@ -20,16 +14,11 @@ public sealed class AuthorTextPropertyTextPostgresTests
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var author = new AuthorPropertyFixture(fixture, server.Client, ct);
 
-        var selected = await author.Create(owner, "research", PropertyFieldKind.Text);
-        selected = await EnableText(owner, selected, true);
-        var other = await author.Create(owner, "notes", PropertyFieldKind.Text);
-        other = await EnableText(owner, other, true);
-        var flag = await author.Create(owner, "visible", PropertyFieldKind.Boolean);
-        flag = await author.SetFilterable(owner, flag);
-        var order = await author.Create(owner, "priority", PropertyFieldKind.Number);
-        order = await author.SetProjection(owner, order, searchable: false, sortable: true);
-        var foreignField = await author.Create(stranger, "research", PropertyFieldKind.Text, selected.Id);
-        foreignField = await EnableText(stranger, foreignField, true);
+        var selected = await author.Define(owner, "research", PropertyFieldKind.Text, searchable: true);
+        var other = await author.Define(owner, "notes", PropertyFieldKind.Text, searchable: true);
+        var flag = await author.Define(owner, "visible", PropertyFieldKind.Boolean, filterable: true);
+        var order = await author.Define(owner, "priority", PropertyFieldKind.Number, sortable: true);
+        var foreignField = await author.Define(stranger, "research", PropertyFieldKind.Text, searchable: true, id: selected.Id);
 
         const string prefix = "🙂 ";
         const string canonical = prefix + "Café orbit";
@@ -64,34 +53,28 @@ public sealed class AuthorTextPropertyTextPostgresTests
         // ID in the other scope has saved text and stays cold even when its old job is drained.
         var oldForeignSchema = stranger.SchemaRevision;
         await author.Create(stranger, "other", PropertyFieldKind.Boolean);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        Assert.Equal(1, await FixtureSql.ExecuteAsync(db, null, ct, """
+        Assert.Equal(1, await author.Execute("""
             insert into public.author_text_rebuild_job
                 (owner_id,profile,definition_id,owner_generation,schema_revision,definition_revision,available_at)
             values ($1,$2,$3,1,$4,$5,statement_timestamp())
             """, stranger.Id, (int)AuthorTextRebuildProfile.PropertyText, foreignField.Id, oldForeignSchema, foreignField.Revision));
 
         // Only PostgreSQL observations occur before the next search request.
-        await using (var queued = Store.Sql(db, null, """
-            select exists(select from public.author_text_rebuild_job where owner_id in ($1,$2) and definition_id=$3)
-            """, owner.Id, stranger.Id, selected.Id))
+        for (var attempt = 0; await fixture.ScalarAsync<bool>(ct,
+            "select exists(select from public.author_text_rebuild_job where owner_id in ($1,$2) and definition_id=$3)",
+            owner.Id, stranger.Id, selected.Id); attempt++)
         {
-            for (var attempt = 0; await queued.ExecuteScalarAsync(ct) is true; attempt++)
-            {
-                Assert.True(attempt < 100, "Property search jobs did not drain autonomously within ten seconds.");
-                await Task.Delay(TimeSpan.FromMilliseconds(100), ct);
-            }
+            Assert.True(attempt < 100, "Property search jobs did not drain autonomously within ten seconds.");
+            await Task.Delay(TimeSpan.FromMilliseconds(100), ct);
         }
-        await using (var projected = Store.Sql(db, null, """
+        Assert.Equal(cohort.Count + 1L, await fixture.ScalarAsync<long>(ct, """
             select count(*) from public.author_text_property_document d
             join public.property_article a on a.article_id=d.article_id and a.owner_id=d.owner_id and a.revision=d.value_revision
             where d.owner_id=$1 and d.definition_id=$2 and d.definition_revision=$3 and d.article_id=any($4)
-            """, owner.Id, selected.Id, selected.Revision, cohort.Append(unrelated).Select(article => article.Id).ToArray()))
-            Assert.Equal(cohort.Count + 1L, Assert.IsType<long>(await projected.ExecuteScalarAsync(ct)));
-        await using (var foreignProjection = Store.Sql(db, null, """
-            select count(*) from public.author_text_property_document where owner_id=$1 and definition_id=$2
-            """, stranger.Id, foreignField.Id))
-            Assert.Equal(0L, Assert.IsType<long>(await foreignProjection.ExecuteScalarAsync(ct)));
+            """, owner.Id, selected.Id, selected.Revision, cohort.Append(unrelated).Select(article => article.Id).ToArray()));
+        Assert.Equal(0L, await fixture.ScalarAsync<long>(ct,
+            "select count(*) from public.author_text_property_document where owner_id=$1 and definition_id=$2",
+            stranger.Id, foreignField.Id));
 
         var first = await Read(query, owner);
         Assert.True(first.Ready);
@@ -107,15 +90,7 @@ public sealed class AuthorTextPropertyTextPostgresTests
         var last = Assert.Single(second.Rows);
         var rows = first.Rows.Append(last).ToArray();
         Assert.Equal(cohort.Select(article => article.Id).Order(), rows.Select(row => row.Id).Order());
-        foreach (var row in rows)
-        {
-            Assert.Equal(5, row.Field);
-            Assert.Equal("Café", row.Snippet[row.HighlightStart..row.HighlightEnd]);
-            Assert.Equal((prefix.Length, prefix.Length + "Café".Length), (row.SourceStart, row.SourceEnd));
-            Assert.Equal((Encoding.UTF8.GetByteCount(prefix), Encoding.UTF8.GetByteCount(prefix + "Café")),
-                (row.SourceByteStart, row.SourceByteEnd));
-            Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)), row.SourceDigest);
-        }
+        Assert.All(rows, row => RequireSource(row, 5, canonical, "Café"));
 
         var filtered = query with
         {
@@ -226,8 +201,7 @@ public sealed class AuthorTextPropertyTextPostgresTests
 
         selected = await EnableText(owner, selected, false);
         await Reject(Query(owner, selected, phrase), owner, HttpStatusCode.NotFound);
-        await using var count = Store.Sql(db, null, "select count(*) from public.author_text_document where owner_id=$1", owner.Id);
-        Assert.Equal(0L, Assert.IsType<long>(await count.ExecuteScalarAsync(ct)));
+        Assert.Equal(0L, await fixture.ScalarAsync<long>(ct, "select count(*) from public.author_text_document where owner_id=$1", owner.Id));
 
         selected = await EnableText(owner, selected, true);
         order = await author.SetProjection(owner, order, searchable: false, sortable: true);
@@ -356,27 +330,8 @@ public sealed class AuthorTextPropertyTextPostgresTests
         Task<byte[]> RejectMixed(AuthorTextPropertyTextMixedQuery request, HttpStatusCode status) =>
             author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextMixedQuery(request), owner, status);
 
-        static void RequireSource(AuthorTextSearchRow row, int field, string raw, string term)
-        {
-            var start = raw.IndexOf(term, StringComparison.Ordinal);
-            Assert.True(start >= 0);
-            Assert.Equal(field, row.Field);
-            Assert.Equal(term, row.Snippet[row.HighlightStart..row.HighlightEnd]);
-            Assert.Equal((start, start + term.Length), (row.SourceStart, row.SourceEnd));
-            Assert.Equal((Encoding.UTF8.GetByteCount(raw.AsSpan(0, start)), Encoding.UTF8.GetByteCount(raw.AsSpan(0, start + term.Length))),
-                (row.SourceByteStart, row.SourceByteEnd));
-            Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(raw)), row.SourceDigest);
-        }
-
-        void RequireBooleanFacet(AuthorTextPropertySortPage page, int missing, int falseCount, int trueCount)
-        {
-            var facet = Assert.IsType<AuthorTextPropertyFacet>(page.Facet);
-            Assert.Equal((flag.Id, flag.Revision, PropertyFieldKind.Boolean, missing, 0, 0),
-                (facet.DefinitionId, facet.DefinitionRevision, facet.Kind, facet.Missing, facet.Null, facet.Empty));
-            Assert.Collection(facet.Buckets,
-                bucket => Assert.Equal(new AuthorTextPropertyFacetBucket(new PropertyFieldValue.Boolean(false), falseCount), bucket),
-                bucket => Assert.Equal(new AuthorTextPropertyFacetBucket(new PropertyFieldValue.Boolean(true), trueCount), bucket));
-        }
+        void RequireBooleanFacet(AuthorTextPropertySortPage page, int missing, int falseCount, int trueCount) =>
+            RequireBoolFacet(page.Facet, flag, missing, 0, falseCount, trueCount);
 
         Task<byte[]> ReadHit(PropertyTextHitRequest request, Actor actor, HttpStatusCode status = HttpStatusCode.OK) =>
             author.Send(WireRoutes.PropertyEditor, Wire.EncodePropertyTextHitRequest(request), actor, status);

@@ -1,11 +1,3 @@
-using System.Buffers.Binary;
-using System.Security.Cryptography;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core.Authoring;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 // Called only while the matching authoring_canvas row is locked.
@@ -21,36 +13,27 @@ internal sealed class CanvasHistoryStore(NpgsqlConnection db, NpgsqlTransaction 
         UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow,
     };
 
-    internal async Task<CanvasGraphHistory> Heads(Guid id, long revision, CancellationToken ct)
-    {
-        await using var query = Store.Sql(db, tx, """
+    internal Task<CanvasGraphHistory> Heads(Guid id, long revision, CancellationToken ct) =>
+        SqlCommands.QueryRequired(db, tx, ct, """
             select (select edit_revision from public.canvas_history_patch where canvas_id=$1 and not undone order by edit_revision desc limit 1),
                    (select edit_revision from public.canvas_history_patch where canvas_id=$1 and undone order by moved_at_revision desc limit 1)
-            """, id);
-        await using var row = await query.ExecuteReaderAsync(ct);
-        await row.ReadAsync(ct);
-        return new(revision, row.IsDBNull(0) ? null : row.GetInt64(0), row.IsDBNull(1) ? null : row.GetInt64(1));
-    }
+            """, r => new CanvasGraphHistory(revision, r.IsDBNull(0) ? null : r.GetInt64(0), r.IsDBNull(1) ? null : r.GetInt64(1)), null, id);
 
-    internal async Task<CanvasHistoryEntry?> Read(Guid id, long revision, bool undo, CancellationToken ct)
-    {
-        var order = undo ? "edit_revision" : "moved_at_revision";
-        await using var query = Store.Sql(db, tx, $"""
+    internal Task<CanvasHistoryEntry?> Read(Guid id, long revision, bool undo, CancellationToken ct) =>
+        SqlCommands.QueryOne(db, tx, ct, $"""
             select edit_revision,payload,digest from public.canvas_history_patch
-            where canvas_id=$1 and undone=$2 order by {order} desc limit 1
-            """, id, !undo);
-        await using var row = await query.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) return null;
-        long target = row.GetInt64(0);
-        var bytes = row.GetFieldValue<byte[]>(1);
-        var seal = row.GetFieldValue<byte[]>(2);
-        if (target > revision || !CryptographicOperations.FixedTimeEquals(Digest(id, target, bytes), seal))
-            throw new InvalidOperationException("Canvas history patch seal is invalid.");
-        var payload = JsonSerializer.Deserialize<CanvasHistoryPayload>(bytes, Json);
-        if (payload is not { Version: 1, Before: not null, After: not null, Patch: not null })
-            throw new InvalidOperationException("Canvas history patch is invalid.");
-        return new(target, payload);
-    }
+            where canvas_id=$1 and undone=$2 order by {(undo ? "edit_revision" : "moved_at_revision")} desc limit 1
+            """, row =>
+        {
+            long target = row.GetInt64(0);
+            var bytes = row.GetFieldValue<byte[]>(1);
+            if (target > revision || !CryptographicOperations.FixedTimeEquals(Digest(id, target, bytes), row.GetFieldValue<byte[]>(2)))
+                throw new InvalidOperationException("Canvas history patch seal is invalid.");
+            var payload = JsonSerializer.Deserialize<CanvasHistoryPayload>(bytes, Json);
+            if (payload is not { Version: 1, Before: not null, After: not null, Patch: not null })
+                throw new InvalidOperationException("Canvas history patch is invalid.");
+            return new CanvasHistoryEntry(target, payload);
+        }, id, !undo);
 
     internal async Task Edit(Guid id, long revision, CanvasHistoryPayload payload, CancellationToken ct)
     {
@@ -97,14 +80,11 @@ internal sealed class CanvasHistoryStore(NpgsqlConnection db, NpgsqlTransaction 
 
     private async Task<long[]> DeleteBranch(Guid id, bool onlyRedo, CancellationToken ct)
     {
-        await using var clear = Store.Sql(db, tx, """
+        var discarded = new List<long>();
+        await SqlCommands.ReadAll(db, tx, ct, """
             delete from public.canvas_history_patch where canvas_id=$1 and (not $2 or undone)
             returning edit_revision,undone
-            """, id, onlyRedo);
-        await using var rows = await clear.ExecuteReaderAsync(ct);
-        var discarded = new List<long>();
-        while (await rows.ReadAsync(ct))
-            if (rows.GetBoolean(1)) discarded.Add(rows.GetInt64(0));
+            """, r => { if (r.GetBoolean(1)) discarded.Add(r.GetInt64(0)); }, id, onlyRedo);
         discarded.Sort();
         return discarded.ToArray();
     }

@@ -19,7 +19,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ activated: [id: number] }>()
 type Result = Readonly<{ id: number; title: string; revision?: bigint; state?: AuthorArticleState; at: number }>
-const labels = { get draft() { return t('author.articleQuickSwitcher.draft') }, get scheduled() { return t('author.articleQuickSwitcher.scheduled') }, get published() { return t('author.articleQuickSwitcher.published') }, get retracted() { return t('author.articleQuickSwitcher.withdrawn') }, get deleted() { return t('author.articleQuickSwitcher.deleted') } }
+const labels = { get draft() { return t('admin.taxonomy.m16') }, get scheduled() { return t('author.authorTextSearch.scheduled') }, get published() { return t('admin.taxonomy.m15') }, get retracted() { return t('author.authorTextSearch.withdrawn') }, get deleted() { return t('admin.moderation.m7') } }
 const clock = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 const listId = useId()
 const open = ref(false)
@@ -71,7 +71,7 @@ watch([open, query, retry], ([shown, value], _, cleanup) => {
         const page = await listAuthorArticles({ trash: false, keyword: value }, signal, handle)
         if (!valid()) return
         rows.value = page.items.map(item => ({ id: item.id, title: item.title, revision: item.revision, state: item.state, at: item.modifiedAt }))
-        if (!rows.value.length) message.value = t('author.articleQuickSwitcher.no.matching.articles')
+        if (!rows.value.length) message.value = t('author.savedViewPanel.no.matching.articles')
         else if (page.nextId) message.value = t('author.articleQuickSwitcher.refine.your.search.to.find.more.articles')
       } else {
         const page = await listRecentOpens(handle, signal)
@@ -223,11 +223,11 @@ defineExpose({ show, close })
       v-bind="{ role: 'combobox', 'aria-autocomplete': 'list', 'aria-expanded': rows.length > 0, 'aria-controls': listId,
         'aria-activedescendant': selected ? optionId(selected.id) : undefined, maxlength: WireLimits.AuthorArticleKeywordChars }"
       @keydown="onKeys" />
-    <p v-if="loading" role="status">{{ t('author.articleQuickSwitcher.loading.articles') }}</p>
+    <p v-if="loading" role="status">{{ t('page.loadingArticles') }}</p>
     <p v-else-if="busy" role="status">{{ t('author.articleQuickSwitcher.confirming.article') }}</p>
     <p v-else-if="message" role="status">{{ message }}</p>
     <p v-if="failure" role="alert">{{ failure }}</p>
-    <ul :id="listId" v-show="rows.length" class="quick-results" role="listbox" :aria-label="t('author.articleQuickSwitcher.articles')" :aria-busy="busy">
+    <ul :id="listId" v-show="rows.length" class="quick-results" role="listbox" :aria-label="t('admin.articles.articles')" :aria-busy="busy">
       <li v-for="(row, at) in rows" :id="optionId(row.id)" :key="row.id" role="option" :aria-selected="at === index"
         @mousedown.prevent @click="index = at; void choose(row, 'workspace')">
         <span>{{ row.title }}</span>
@@ -238,7 +238,7 @@ defineExpose({ show, close })
       <ElButton v-if="otherGroup" native-type="button" :disabled="!selected || busy || disabled"
         @click="selected && choose(selected, 'other-group')">{{ t('author.articleQuickSwitcher.open.in.other.group') }}</ElButton>
       <ElButton v-if="failure" native-type="button" text @click="retry++; nextTick(() => search?.focus())">{{ t('author.articleQuickSwitcher.refresh.results') }}</ElButton>
-      <ElButton native-type="button" @click="close">{{ t('author.articleQuickSwitcher.cancel') }}</ElButton>
+      <ElButton native-type="button" @click="close">{{ t('nav.cancel') }}</ElButton>
     </template>
   </ElDialog>
 </template>

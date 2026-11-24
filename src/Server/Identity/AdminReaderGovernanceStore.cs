@@ -1,12 +1,3 @@
-using FsusBlogV2.Storage;
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using Npgsql;
-using NpgsqlTypes;
-
 namespace FsusBlog.V2.Server.Administration;
 
 internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminStepUpService stepUp)
@@ -26,9 +17,12 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
                 ? plainAccountId
                 : null);
 
-        return gate.WithLiveAdmin(session, async (db, tx, admin) =>
+        return gate.WithLiveAdminPermission(session, async (db, tx, _) =>
         {
-            await using var cmd = Store.Sql(db, tx, """
+            var items = new List<AdminReaderAccount>(WireLimits.AdminReaderPageSize);
+            int total = 0, enabledTotal = 0, disabledTotal = 0;
+            var hasMore = false;
+            await SqlCommands.ReadAll(db, tx, ct, """
                 with matched as (
                     select u.id, u.name, u.enabled, u.generation,
                            coalesce(s.account_id, 0) as account_id,
@@ -70,84 +64,39 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
                 from totals t
                 left join page p on true
                 left join lateral (
-                    select count(*)::int as cnt,
-                           min(c.created_at) as registered_at,
-                           max(c.last_used_at) as last_used_at
-                    from public.passkey_credential c
-                    where c.user_id = p.id
+                    select count(*)::int as cnt, min(c.created_at) as registered_at, max(c.last_used_at) as last_used_at
+                    from public.passkey_credential c where c.user_id = p.id
                 ) pk on p.id is not null
                 left join lateral (
-                    select count(*)::int as cnt
-                    from public.user_session us
+                    select count(*)::int as cnt from public.user_session us
                     where us.user_id = p.id and us.generation = p.generation and us.expires_at > clock_timestamp()
                 ) sess on p.id is not null
                 left join lateral (
-                    select count(*)::int as cnt
-                    from public.comment_account_owner co
-                    where co.user_id = p.id
+                    select count(*)::int as cnt from public.comment_account_owner co where co.user_id = p.id
                 ) cm on p.id is not null
                 left join lateral (
-                    select a.happened_at,
-                           ap.handle as actor_handle,
-                           a.reason
+                    select a.happened_at, ap.handle as actor_handle, a.reason
                     from public.admin_reader_governance_audit a
                     join public.admin_principal ap on ap.id = a.principal_id
-                    where a.user_id = p.id
-                    order by a.id desc
-                    limit 1
+                    where a.user_id = p.id order by a.id desc limit 1
                 ) ga on p.id is not null
                 order by p.account_id desc nulls last, p.id desc nulls last
-                """,
-                filter.Keyword,
-                likePattern,
-                SqlCommands.Optional(NpgsqlDbType.Integer, accountIdFilter),
-                SqlCommands.Optional(NpgsqlDbType.Boolean, filter.Enabled),
-                filter.HasCursor,
-                filter.AfterAccountId,
-                filter.AfterUserId,
-                WireLimits.AdminReaderPageSize + 1,
-                exactAccountLookup);
-
-            var items = new List<AdminReaderAccount>(WireLimits.AdminReaderPageSize);
-            var total = 0;
-            var enabledTotal = 0;
-            var disabledTotal = 0;
-            var hasMore = false;
-            await using var rows = await cmd.ExecuteReaderAsync(ct);
-            while (await rows.ReadAsync(ct))
+                """, rows =>
             {
-                total = rows.GetInt32(0);
-                enabledTotal = rows.GetInt32(1);
-                disabledTotal = rows.GetInt32(2);
-                if (rows.IsDBNull(3)) break;
-                if (items.Count == WireLimits.AdminReaderPageSize)
-                {
-                    hasMore = true;
-                    break;
-                }
-                items.Add(new AdminReaderAccount(
-                    UserId: rows.GetGuid(3),
-                    AccountId: rows.GetInt32(4),
-                    Name: rows.GetString(5),
-                    DisplayName: rows.GetString(6),
-                    Enabled: rows.GetBoolean(7),
-                    Generation: rows.GetInt64(8),
-                    PasskeyCount: rows.GetInt32(9),
-                    HasRecoveryKey: rows.GetBoolean(10),
-                    HasTotp: rows.GetBoolean(11),
-                    ActiveSessionCount: rows.GetInt32(12),
-                    CommentCount: rows.GetInt32(13),
-                    RegisteredAtUnixMs: rows.IsDBNull(14) ? 0 : rows.GetUnixMilliseconds(14),
-                    LastUsedAtUnixMs: rows.IsDBNull(15) ? 0 : rows.GetUnixMilliseconds(15),
-                    LastGovernanceAtUnixMs: rows.IsDBNull(16) ? 0 : rows.GetUnixMilliseconds(16),
-                    LastGovernanceActor: rows.GetString(17),
-                    LastGovernanceReason: rows.GetString(18)));
-            }
+                if (hasMore) return;
+                (total, enabledTotal, disabledTotal) = (rows.GetInt32(0), rows.GetInt32(1), rows.GetInt32(2));
+                if (rows.IsDBNull(3)) return;
+                if (items.Count == WireLimits.AdminReaderPageSize) { hasMore = true; return; }
+                items.Add(new(rows.GetGuid(3), rows.GetInt32(4), rows.GetString(5), rows.GetString(6), rows.GetBoolean(7),
+                    rows.GetInt64(8), rows.GetInt32(9), rows.GetBoolean(10), rows.GetBoolean(11), rows.GetInt32(12), rows.GetInt32(13),
+                    rows.IsDBNull(14) ? 0 : rows.GetUnixMilliseconds(14), rows.IsDBNull(15) ? 0 : rows.GetUnixMilliseconds(15),
+                    rows.IsDBNull(16) ? 0 : rows.GetUnixMilliseconds(16), rows.GetString(17), rows.GetString(18)));
+            }, filter.Keyword, likePattern, SqlCommands.Optional(NpgsqlDbType.Integer, accountIdFilter),
+                SqlCommands.Optional(NpgsqlDbType.Boolean, filter.Enabled), filter.HasCursor, filter.AfterAccountId,
+                filter.AfterUserId, WireLimits.AdminReaderPageSize + 1, exactAccountLookup);
 
-            var nextAccountId = hasMore ? items[^1].AccountId : 0;
-            var nextUserId = hasMore ? items[^1].UserId : Guid.Empty;
-            var page = new AdminReaderAccountPage(total, enabledTotal, disabledTotal, hasMore, nextAccountId, nextUserId, items);
-            return (page, AdminSessionGate.PermissionBinding(admin.Digest));
+            return new AdminReaderAccountPage(total, enabledTotal, disabledTotal, hasMore,
+                hasMore ? items[^1].AccountId : 0, hasMore ? items[^1].UserId : Guid.Empty, items);
         }, ct);
     }
 
@@ -168,42 +117,25 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
         var normalized = NormalizeCommand(command);
         var fingerprint = CommandFingerprint(normalized);
 
-        return gate.WithLiveAdmin(session, async (db, tx, admin) =>
+        return gate.WithLiveAdminPermission(session, async (db, tx, admin) =>
         {
-            var permissionSession = AdminSessionGate.PermissionBinding(admin.Digest);
             await Store.LockCommand(db, tx, admin.Id, normalized.IdempotencyKey, ct);
-            await using (var replay = Store.Sql(db, tx, """
+            if (await SqlCommands.QueryOne(db, tx, ct, """
                 select fingerprint, user_id, next_enabled, next_generation, revoked_session_count, happened_at
-                from public.admin_reader_governance_audit
-                where principal_id = $1 and command_id = $2
-                """, admin.Id, normalized.IdempotencyKey))
-            await using (var existing = await replay.ExecuteReaderAsync(ct))
-            {
-                if (await existing.ReadAsync(ct))
-                {
-                    if (!CryptographicOperations.FixedTimeEquals(fingerprint, existing.GetFieldValue<byte[]>(0)))
-                        throw new BusinessException(Rejection.Conflict, "This administrator command key is already in use.");
-                    var replayed = new AdminReaderStatusReceipt(
-                        existing.GetGuid(1),
-                        existing.GetBoolean(2),
-                        existing.GetInt64(3),
-                        existing.GetInt32(4),
-                        existing.GetUnixMilliseconds(5),
-                        Replayed: true);
-                    return (replayed, permissionSession);
-                }
-            }
+                from public.admin_reader_governance_audit where principal_id = $1 and command_id = $2
+                """, r => CryptographicOperations.FixedTimeEquals(fingerprint, r.GetFieldValue<byte[]>(0))
+                    ? new AdminReaderStatusReceipt(r.GetGuid(1), r.GetBoolean(2), r.GetInt64(3), r.GetInt32(4), r.GetUnixMilliseconds(5), Replayed: true)
+                    : throw new BusinessException(Rejection.Conflict, "This administrator command key is already in use."),
+                admin.Id, normalized.IdempotencyKey) is { } replayed)
+                return replayed;
 
             if (!await stepUp.ConsumeProofAsync(db, tx, admin, proof, fingerprint, ct, AdminStepUpAction.ChangeReaderStatus))
                 throw new ReaderGovernanceProofRequiredException();
 
             var previousEnabled = await CheckTarget(db, tx, normalized, forUpdate: true, ct);
-            long nextGeneration;
-            nextGeneration = (long)(await SqlCommands.Scalar(db, tx, ct, """
-                update public.blog_user
-                set enabled = $2, generation = generation + 1
-                where id = $1
-                returning generation
+            var nextGeneration = (long)(await SqlCommands.Scalar(db, tx, ct, """
+                update public.blog_user set enabled = $2, generation = generation + 1
+                where id = $1 returning generation
                 """, normalized.UserId, normalized.TargetEnabled) ?? throw TargetNotFound());
 
             var revokedSessions = 0;
@@ -211,71 +143,39 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
             {
                 revokedSessions = (int)(await SqlCommands.Scalar(db, tx, ct, """
                     with deleted as (
-                        delete from public.user_session
-                        where user_id = $1
-                        returning generation, expires_at
+                        delete from public.user_session where user_id = $1 returning generation, expires_at
                     )
-                    select count(*) filter (where generation = $2 and expires_at > clock_timestamp())::int
-                    from deleted
+                    select count(*) filter (where generation = $2 and expires_at > clock_timestamp())::int from deleted
                     """, normalized.UserId, normalized.ExpectedGeneration) ?? 0);
-                foreach (var sql in new[]
-                {
-                    "delete from public.login_ticket where user_id = $1",
-                    "delete from public.passkey_challenge where user_id = $1",
-                    "delete from public.mfa_setup where user_id = $1",
-                    "delete from public.mfa_flow where user_id = $1",
-                    "delete from public.site_recovery_flow where user_id = $1",
-                    "delete from public.site_recovery_rebind where user_id = $1"
-                })
-                {
-                    await SqlCommands.Execute(db, tx, ct, sql, normalized.UserId);
-                }
             }
-            else
-            {
-                await SqlCommands.Execute(db, tx, ct, "delete from public.login_ticket where user_id = $1", normalized.UserId);
-                await SqlCommands.Execute(db, tx, ct, "delete from public.passkey_challenge where user_id = $1", normalized.UserId);
-            }
+            string[] tables = normalized.TargetEnabled
+                ? ["login_ticket", "passkey_challenge"]
+                : ["login_ticket", "passkey_challenge", "mfa_setup", "mfa_flow", "site_recovery_flow", "site_recovery_rebind"];
+            foreach (var table in tables)
+                await SqlCommands.Execute(db, tx, ct, $"delete from public.{table} where user_id = $1", normalized.UserId);
 
-            DateTimeOffset happenedAt;
-            await using (var audit = Store.Sql(db, tx, """
+            var happenedAt = await SqlCommands.QueryRequired(db, tx, ct, """
                 insert into public.admin_reader_governance_audit
                     (user_id, principal_id, command_id, fingerprint, previous_enabled, next_enabled,
                      previous_generation, next_generation, revoked_session_count, reason)
-                values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                returning happened_at
-                """,
+                values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning happened_at
+                """, r => r.GetFieldValue<DateTimeOffset>(0),
+                () => new InvalidOperationException("Failed to record reader governance audit."),
                 normalized.UserId, admin.Id, normalized.IdempotencyKey, fingerprint,
-                previousEnabled, normalized.TargetEnabled,
-                normalized.ExpectedGeneration, nextGeneration,
-                revokedSessions, normalized.Reason))
-            await using (var row = await audit.ExecuteReaderAsync(ct))
-            {
-                await row.ReadRequired(ct, () => new InvalidOperationException("Failed to record reader governance audit."));
-                happenedAt = row.GetFieldValue<DateTimeOffset>(0);
-            }
+                previousEnabled, normalized.TargetEnabled, normalized.ExpectedGeneration, nextGeneration,
+                revokedSessions, normalized.Reason);
 
-            var receipt = new AdminReaderStatusReceipt(
-                normalized.UserId,
-                normalized.TargetEnabled,
-                nextGeneration,
-                revokedSessions,
-                happenedAt.ToUnixTimeMilliseconds(),
-                Replayed: false);
-            return (receipt, permissionSession);
+            return new AdminReaderStatusReceipt(normalized.UserId, normalized.TargetEnabled, nextGeneration,
+                revokedSessions, happenedAt.ToUnixTimeMilliseconds(), Replayed: false);
         }, ct);
     }
 
     private static async Task<bool> CheckTarget(NpgsqlConnection db, NpgsqlTransaction tx,
         AdminReaderStatusCommand command, bool forUpdate, CancellationToken ct)
     {
-        var suffix = forUpdate ? " for update" : "";
-        await using var query = Store.Sql(db, tx,
-            $"select enabled, generation from public.blog_user where id = $1{suffix}", command.UserId);
-        await using var row = await query.ExecuteReaderAsync(ct);
-        await row.ReadRequired(ct, TargetNotFound);
-        var enabled = row.GetBoolean(0);
-        var generation = row.GetInt64(1);
+        var (enabled, generation) = await SqlCommands.QueryRequired(db, tx, ct,
+            $"select enabled, generation from public.blog_user where id = $1{(forUpdate ? " for update" : "")}",
+            r => (r.GetBoolean(0), r.GetInt64(1)), TargetNotFound, command.UserId);
         if (generation != command.ExpectedGeneration || enabled == command.TargetEnabled)
             throw new BusinessException(Rejection.Conflict, "The reader account state changed. Reload the reader list.");
         return enabled;
@@ -360,4 +260,4 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
         Guid AfterUserId);
 }
 
-internal sealed class ReaderGovernanceProofRequiredException : Exception;
+internal sealed class ReaderGovernanceProofRequiredException : ProofRequiredException;

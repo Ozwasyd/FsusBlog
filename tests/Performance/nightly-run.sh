@@ -78,20 +78,16 @@ stage=preparing
 server_pid=
 http_port=
 
-own_http_child() {
-    [[ -n "$server_pid" && "$(ps -o ppid= -p "$server_pid" 2>/dev/null | tr -d ' ')" == "$$" ]]
-}
+# shellcheck source=tests/Performance/proxy.sh
+source tests/Performance/proxy.sh
 
 stop_http_server() {
     [[ -n "$server_pid" ]] || return 0
     local result=0 forced=no server_exit
-    if own_http_child; then
+    if own_child "$server_pid"; then
         kill -TERM "$server_pid" || result=1
-        for _ in {1..50}; do
-            own_http_child || break
-            sleep 0.1
-        done
-        if own_http_child; then
+        wait_child_exit "$server_pid" 50
+        if own_child "$server_pid"; then
             kill -KILL "$server_pid" || result=1
             forced=yes
         fi
@@ -232,10 +228,8 @@ verify_witness_inputs() {
 if [[ $http_probe == true ]]; then
     stage=http-release-binding
     decoders=(src/Contracts/{aeds,binary,public-articles,wire.generated}.ts)
-    if ! git diff --quiet "$source_commit" -- "${decoders[@]}" tools/verify-release.py; then
-        printf 'HTTP decoders and release manifest reader must match the selected source commit.\n' >&2
-        exit 1
-    fi
+    verify_witness_inputs 'HTTP probe' "${decoders[@]}" tools/verify-release.py \
+        tests/Performance/nightly-{http-oracle.sql,http-probe.mjs,owned-evidence.mjs,oracle-scope.sql}
     if [[ $list_taxonomy == true ]]; then
         verify_witness_inputs 'List/taxonomy' tests/Performance/nightly-list-taxonomy-{oracle.sql,probe.mjs} tests/Performance/nightly-{owned-evidence.mjs,oracle-scope.sql}
     fi
@@ -245,14 +239,13 @@ if [[ $http_probe == true ]]; then
     fi
     stage_http_release "$4" "$5" "$6" > "$evidence/http-release-binding.json" 2> "$evidence/http-release-binding.log"
     cli_dll="$scratch/release/cli/FsusBlog.V2.Cli.dll"
-    shasum -a 256 "${decoders[@]}" tests/Performance/nightly-http-{oracle.sql,probe.mjs} >> "$evidence/run.txt"
     if [[ $wide_browser == true ]]; then
-        shasum -a 256 "$scratch/release/Caddyfile" tests/Performance/proxy.sh \
+        shasum -a 256 "$scratch/release/Caddyfile" tests/Performance/nightly-oracle-scope.sql \
             tests/Performance/nightly-wide-search-{oracle.sql,tls.sh,probe.mjs} >> "$evidence/run.txt"
     fi
 fi
 shasum -a 256 "$cli_dll" "$test_dll" \
-    tests/Performance/{seed.py,nightly-run.sh,nightly-plan.py,nightly-comments.sql,nightly-verify.sql,nightly-verify-article-bytes.py} >> "$evidence/run.txt"
+    tests/Performance/{proxy.sh,seed.py,nightly-run.sh,nightly-plan.py,nightly-comments.sql,nightly-verify.sql,nightly-verify-article-bytes.py} >> "$evidence/run.txt"
 
 phase() {
     local step=$1 started=$SECONDS
@@ -342,9 +335,12 @@ export FSUSBLOG_NIGHTLY_FIXTURE=1 FSUSBLOG_NIGHTLY_FIXTURE_DB="$FSUSBLOG_DB"
 export FSUSBLOG_NIGHTLY_FIXTURE_SITE="$site" FSUSBLOG_NIGHTLY_FIXTURE_ARTICLES="$article_input"
 export FSUSBLOG_NIGHTLY_FIXTURE_COUNT="$articles" FSUSBLOG_NIGHTLY_FIXTURE_DUE_UNIX_MS="$due"
 export FSUSBLOG_NIGHTLY_FIXTURE_DATA_DIR="$data_dir"
-unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256
-unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_MANIFEST_SHA256
-unset FSUSBLOG_NIGHTLY_FIXTURE_ARTICLE_SCALE FSUSBLOG_NIGHTLY_FIXTURE_DEADLINE_UNIX_MS
+fixture_optional_vars=(
+    FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256
+    FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_MANIFEST_SHA256 FSUSBLOG_NIGHTLY_FIXTURE_ARTICLE_SCALE
+    FSUSBLOG_NIGHTLY_FIXTURE_DEADLINE_UNIX_MS
+)
+unset "${fixture_optional_vars[@]}"
 if [[ $checkpoint_pilot == true || $million_articles == true ]]; then
     checkpoint_plan_sha=$(python3 -B -c 'import json,sys; print(json.load(sys.stdin)["articlePlanSha256"])' < "$article_input")
     checkpoint_manifest_sha=$(shasum -a 256 -- "$article_input")
@@ -378,11 +374,9 @@ if [[ $million_articles == true ]]; then
 else
     phase write-articles "${writer[@]}"
 fi
-unset FSUSBLOG_NIGHTLY_FIXTURE FSUSBLOG_NIGHTLY_FIXTURE_DB FSUSBLOG_NIGHTLY_FIXTURE_SITE FSUSBLOG_NIGHTLY_FIXTURE_ARTICLES
-unset FSUSBLOG_NIGHTLY_FIXTURE_COUNT FSUSBLOG_NIGHTLY_FIXTURE_DUE_UNIX_MS FSUSBLOG_NIGHTLY_FIXTURE_DATA_DIR
-unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256
-unset FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_MANIFEST_SHA256
-unset FSUSBLOG_NIGHTLY_FIXTURE_ARTICLE_SCALE FSUSBLOG_NIGHTLY_FIXTURE_DEADLINE_UNIX_MS
+unset FSUSBLOG_NIGHTLY_FIXTURE FSUSBLOG_NIGHTLY_FIXTURE_DB FSUSBLOG_NIGHTLY_FIXTURE_SITE \
+    FSUSBLOG_NIGHTLY_FIXTURE_ARTICLES FSUSBLOG_NIGHTLY_FIXTURE_COUNT \
+    FSUSBLOG_NIGHTLY_FIXTURE_DUE_UNIX_MS FSUSBLOG_NIGHTLY_FIXTURE_DATA_DIR "${fixture_optional_vars[@]}"
 after_articles=$("${sql[@]}" -c 'SELECT pg_current_wal_lsn()')
 record_filesystem after-articles
 after_comments=$after_articles
@@ -457,16 +451,23 @@ if [[ $http_probe == true ]]; then
     read -r readback_sha < "$evidence/readback.sha256"
     oracle=("${sql[@]}" -v database_name="$db" -v data_directory="$data_dir" -v site_id="$site"
         -v profile="$profile" -v due_unix_ms="$due" -v fixture_sha256="$fixture_sha" -v readback_sha256="$readback_sha")
-    "${oracle[@]}" -f tests/Performance/nightly-http-oracle.sql > "$evidence/http-oracle.json" 2> "$evidence/http-oracle.log"
+    run_oracle() {
+        stage=$1
+        "${oracle[@]}" -f "tests/Performance/nightly-$2-oracle.sql" > "$evidence/$3" 2> "$evidence/${3%.*}.log"
+    }
+    verify_oracle_after() {
+        local st=$1 stem=$2 base=$3 ext=$4 proof=$5
+        shift 5
+        run_oracle "$st" "$stem" "$base-after.$ext"
+        cmp "$evidence/$base.$ext" "$evidence/$base-after.$ext"
+        shasum -a 256 "$evidence/$base.$ext" "$evidence/$base-after.$ext" "$@" > "$evidence/$proof"
+    }
+    run_oracle http-oracle-before http http-oracle.json
     if [[ $list_taxonomy == true ]]; then
-        stage=http-list-taxonomy-oracle-before
-        "${oracle[@]}" -f tests/Performance/nightly-list-taxonomy-oracle.sql \
-            > "$evidence/list-taxonomy-oracle.ndjson" 2> "$evidence/list-taxonomy-oracle.log"
+        run_oracle http-list-taxonomy-oracle-before list-taxonomy list-taxonomy-oracle.ndjson
     fi
     if [[ $comment_probe == true ]]; then
-        stage=http-comment-oracle-before
-        "${oracle[@]}" -f tests/Performance/nightly-comment-oracle.sql \
-            > "$evidence/comment-oracle.ndjson" 2> "$evidence/comment-oracle.log"
+        run_oracle http-comment-oracle-before comment comment-oracle.ndjson
     fi
 
     stage=http-start
@@ -489,7 +490,7 @@ if [[ $http_probe == true ]]; then
     finish=$((SECONDS + 120))
     ready=
     while (( SECONDS < finish )); do
-        own_http_child || { printf 'Owned Kestrel exited before HTTP readiness.\n' >&2; exit 1; }
+        own_child "$server_pid" || { printf 'Owned Kestrel exited before HTTP readiness.\n' >&2; exit 1; }
         port=$(sed -nE 's/.*Now listening on: http:\/\/127\.0\.0\.1:([0-9]{1,5})[[:space:]]*$/\1/p' "$evidence/http-server.log" | head -n 1)
         if [[ -n $port ]] && lsof -n -P -a -p "$server_pid" -iTCP@127.0.0.1:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
             http_port=$port
@@ -514,35 +515,23 @@ if [[ $http_probe == true ]]; then
     stage=http-stop
     stop_http_server
     if [[ $comment_probe == true ]]; then
-        stage=http-comment-oracle-after
-        "${oracle[@]}" -f tests/Performance/nightly-comment-oracle.sql \
-            > "$evidence/comment-oracle-after.ndjson" 2> "$evidence/comment-oracle-after.log"
-        cmp "$evidence"/comment-oracle{,-after}.ndjson
-        shasum -a 256 "$evidence"/comment-oracle{,-after}.ndjson "$evidence/comments/actual.ndjson" \
-            "$evidence"/comments/{sql-*.json,native-*.ndjson,*.aeds} > "$evidence/comment-proof.sha256"
+        verify_oracle_after http-comment-oracle-after comment comment-oracle ndjson comment-proof.sha256 \
+            "$evidence/comments/actual.ndjson" "$evidence"/comments/{sql-*.json,native-*.ndjson,*.aeds}
     fi
     if [[ $list_taxonomy == true ]]; then
-        stage=http-list-taxonomy-oracle-after
-        "${oracle[@]}" -f tests/Performance/nightly-list-taxonomy-oracle.sql \
-            > "$evidence/list-taxonomy-oracle-after.ndjson" 2> "$evidence/list-taxonomy-oracle-after.log"
-        cmp "$evidence"/list-taxonomy-oracle{,-after}.ndjson
-        shasum -a 256 "$evidence"/list-taxonomy-oracle{,-after}.ndjson "$evidence/http-actual.ndjson" \
-            "$evidence/http-responses/001-article-list-first-page.aeds" \
+        verify_oracle_after http-list-taxonomy-oracle-after list-taxonomy list-taxonomy-oracle ndjson list-taxonomy-proof.sha256 \
+            "$evidence/http-actual.ndjson" "$evidence/http-responses/001-article-list-first-page.aeds" \
             "$evidence/http-responses/002-article-list-continuation-page-2.aeds" \
-            "$evidence/list-taxonomy/actual.ndjson" "$evidence"/list-taxonomy/*.aeds > "$evidence/list-taxonomy-proof.sha256"
+            "$evidence/list-taxonomy/actual.ndjson" "$evidence"/list-taxonomy/*.aeds
     fi
     if [[ $wide_browser == true ]]; then
-        stage=wide-browser-oracle
-        "${oracle[@]}" -f tests/Performance/nightly-wide-search-oracle.sql > "$evidence/wide-search-oracle.json" 2> "$evidence/wide-search-oracle.log"
+        run_oracle wide-browser-oracle wide-search wide-search-oracle.json
         mkdir "$evidence/wide-browser"
         phase wide-browser bash tests/Performance/nightly-wide-search-tls.sh \
             "$dotnet" "$scratch/release" "$scratch" "$evidence/wide-browser" "$evidence/wide-search-oracle.json"
     fi
-    stage=http-oracle-after
-    "${oracle[@]}" -f tests/Performance/nightly-http-oracle.sql > "$evidence/http-oracle-after.json" 2> "$evidence/http-oracle-after.log"
-    cmp "$evidence/http-oracle.json" "$evidence/http-oracle-after.json"
-    shasum -a 256 "$evidence"/http-oracle{,-after}.json "$evidence/plan.json" "$evidence/article-bytes.json" \
-        "$evidence/http-actual.ndjson" > "$evidence/http-proof.sha256"
+    verify_oracle_after http-oracle-after http http-oracle json http-proof.sha256 \
+        "$evidence/plan.json" "$evidence/article-bytes.json" "$evidence/http-actual.ndjson"
     printf 'Verified the selected same-database HTTP cases with the sealed PostgreSQL oracle.\n'
 fi
 stage=complete

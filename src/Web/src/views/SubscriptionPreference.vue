@@ -81,7 +81,7 @@ onBeforeUnmount(() => request?.abort())
       </ul>
     </section>
     <section class="subscription-section" aria-labelledby="subscription-preference-heading">
-      <h2 id="subscription-preference-heading">{{ t('account.message176') }}</h2>
+      <h2 id="subscription-preference-heading">{{ t('page.subscribe') }}</h2>
       <p>{{ t('account.message177') }}</p>
       <div class="subscription-modes" role="group" :aria-label="t('account.message178')">
         <ElButton native-type="button" :type="removing ? undefined : 'primary'" :disabled="pending"

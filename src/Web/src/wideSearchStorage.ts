@@ -88,7 +88,7 @@ export async function withWideSearchStorage<T>(signal: AbortSignal,
         return run('readwrite', ({ state, metadata, pages }, complete) => {
           const loading = requireOwner(state, owner, 'loading')
           const length = bytes.byteLength
-          if (number !== loading.writtenPages + 1 || number > loading.pageCount || !validPageLength(length))
+          if (number !== loading.writtenPages + 1 || number > loading.pageCount || !corpusDb.validPageLength(length))
             throw new ProtocolError('Invalid wide search page sequence or size')
           const next = { ...loading, writtenPages: number, writtenBytes: loading.writtenBytes + length }
           if (!validProgress(next)) throw new ProtocolError('Wide search storage budget exceeded')
@@ -120,7 +120,7 @@ export async function withWideSearchStorage<T>(signal: AbortSignal,
           request.onsuccess = () => guard(() => {
             const row: unknown = request.result
             if (typeof row !== 'object' || row === null || !('owner' in row) || row.owner !== owner ||
-                !('body' in row) || !corpusDb.isFixedBuffer(row.body) || !validPageLength(row.body.byteLength) ||
+                !('body' in row) || !corpusDb.isFixedBuffer(row.body) || !corpusDb.validPageLength(row.body.byteLength) ||
                 !('length' in row) || row.length !== row.body.byteLength)
               throw new ProtocolError('Wide search stored page is unavailable')
             complete(new Uint8Array(row.body))
@@ -130,10 +130,7 @@ export async function withWideSearchStorage<T>(signal: AbortSignal,
 
       discard(owner) {
         return run('readwrite', ({ state, metadata, pages }, complete) => {
-          if (state?.owner === owner) {
-            pages.clear()
-            metadata.delete(corpusDb.stateKey)
-          }
+          if (state?.owner === owner) corpusDb.clearStores(metadata, pages)
           complete(undefined)
         })
       },
@@ -206,7 +203,7 @@ function copyIdentity(identity: WideSearchStorageIdentity): WideSearchStorageIde
 function validIdentity(value: Partial<WideSearchStorageIdentity>): boolean {
   const { generation, digest, pageCount, byteCount } = value
   return corpusDb.validGeneration(generation) &&
-    typeof digest === 'string' && /^[0-9a-f]{64}$/.test(digest) &&
+    typeof digest === 'string' && corpusDb.digestPattern.test(digest) &&
     typeof pageCount === 'number' && Number.isInteger(pageCount) && pageCount >= 1 &&
     pageCount <= WireLimits.SearchWideCorpusMaxPages &&
     typeof byteCount === 'number' && Number.isInteger(byteCount) && byteCount <= WireLimits.SearchWideCorpusTotalBytes &&
@@ -231,10 +228,6 @@ function requireOwner(state: State | undefined, owner: string, status: State['st
 function sameIdentity(left: WideSearchStorageIdentity, right: WideSearchStorageIdentity): boolean {
   return left.generation === right.generation && left.digest === right.digest &&
     left.pageCount === right.pageCount && left.byteCount === right.byteCount
-}
-
-function validPageLength(length: number): boolean {
-  return length >= corpusDb.minimumPageBytes && length <= WireLimits.SearchCorpusPageBytes
 }
 
 function validProgress(state: State): boolean {

@@ -1,10 +1,3 @@
-using System.Globalization;
-using System.Net;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Authoring;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class PropertySnapshotPostgresTests
@@ -13,7 +6,6 @@ public sealed class PropertySnapshotPostgresTests
     public async Task SavedPropertiesRemainPrivateAndImmutableAcrossPublishRetractAndRestart()
     {
         await using var db = await ScratchDatabase.CreateTimed(out var ct);
-        var store = new Store(db.DataSource);
         var owner = await db.SignIn("Property snapshot owner", ct);
         var outsider = await db.SignIn("Property snapshot outsider", ct);
 
@@ -124,7 +116,14 @@ public sealed class PropertySnapshotPostgresTests
             await Snapshot(saved.Id, published.Revision, saved.Revision, secondSession, HttpStatusCode.Unauthorized);
             owner = await db.SignIn(owner.Id, ct);
 
-            var legacyId = await InsertUncapturedRevision(owner.Id);
+            var legacyId = await db.ScalarAsync<int>(ct, """
+                with legacy as (
+                    insert into public.article(owner_id,revision,title,body,deleted)
+                    values($1,1,'Old article','Old body',false) returning id,title,body
+                )
+                insert into public.article_revision(article_id,revision,title,body,happened_at)
+                select id,1,title,body,now() from legacy returning article_id
+                """, owner.Id);
             await Batch(initial with { ArticleId = legacyId, ArticleRevision = 1, SchemaRevision = rename.SchemaRevision,
                 RequestId = Guid.NewGuid(), Changes = [new(definitions[0], rename.Revision, new PropertyFieldValue.Text("Current legacy value"))] });
             await Snapshot(legacyId, 1, 1, owner, HttpStatusCode.NotFound);
@@ -132,8 +131,7 @@ public sealed class PropertySnapshotPostgresTests
             retracted = await Article(WireRoutes.Retract, new(published.Id, published.Revision, Guid.NewGuid(), "", ""));
             Assert.Equal(savedBytes, await Snapshot(saved.Id, retracted.Revision, saved.Revision, owner));
             Assert.Equal(publishedBytes, await Snapshot(published.Id, retracted.Revision, published.Revision, owner));
-            using var hidden = await client.GetAsync(publicPath, ct);
-            Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+            await CheckStatusAsync(HttpStatusCode.NotFound, client.GetAsync(publicPath, ct));
         }
 
         await using var restarted = await ServerProcess.Start(db.ConnectionString, ct);
@@ -146,13 +144,13 @@ public sealed class PropertySnapshotPostgresTests
         Assert.Equal(saved.Body, restored.Body);
         var restoredSnapshot = Wire.DecodePropertyEditor(await Snapshot(restored.Id, restored.Revision, restored.Revision, owner));
         Assert.Equal(savedBytes, Wire.EncodePropertyEditor(restoredSnapshot with { ArticleRevision = saved.Revision }));
-        Assert.Equal(1L, await Scalar<long>("""
+        Assert.Equal(1L, await db.ScalarAsync<long>(ct, """
             select count(*) from public.article_revision_property_snapshot original
             join public.article_revision_property_snapshot restored using(article_id,schema_revision,value_revision)
             where original.article_id=$1 and original.revision=$2 and restored.revision=$3
             """, saved.Id, saved.Revision, restored.Revision));
 
-        var dbNow = await Scalar<DateTime>("select clock_timestamp()");
+        var dbNow = await db.ScalarAsync<DateTime>(ct, "select clock_timestamp()");
         var due = new DateTimeOffset(dbNow).AddHours(1);
         var scheduleCommand = new ArticleScheduleCommand(restored.Id, restored.Revision, Guid.NewGuid(), due.ToUnixTimeMilliseconds());
         var pending = Wire.DecodeArticleSchedule(await Request(HttpMethod.Post, WireRoutes.DraftScheduleCommand, owner,
@@ -161,7 +159,7 @@ public sealed class PropertySnapshotPostgresTests
         var pendingSnapshot = Wire.DecodePropertyEditor(pendingBytes);
         var pendingText = pendingSnapshot.Fields[0];
         Assert.Equal(UnsavedText, Assert.IsType<PropertyFieldValue.Text>(pendingText.Value).Value);
-        var pendingDigest = await Scalar<string>("""
+        var pendingDigest = await db.ScalarAsync<string>(ct, """
             select s.digest from public.article_revision_property_snapshot r
             join public.article_property_snapshot s using(article_id,schema_revision,value_revision)
             where r.article_id=$1 and r.revision=$2
@@ -173,15 +171,10 @@ public sealed class PropertySnapshotPostgresTests
         var newer = Wire.DecodePropertyCommandReceipt(await Request(HttpMethod.Post, WireRoutes.PropertyValueCommand, owner,
             Wire.EncodePropertyValueInput(afterSchedule)));
         Assert.Equal(pendingSnapshot.ValueRevision + 1, newer.Revision);
-        await using (var dbConnection = await db.DataSource.OpenConnectionAsync(ct))
-        await using (var promotion = await dbConnection.BeginTransactionAsync(ct))
-        {
-            Assert.Equal(1, await ArticleScheduleStore.PublishDue(dbConnection, promotion, ct,
-                DateTimeOffset.FromUnixTimeMilliseconds(scheduleCommand.DueUnixMs).UtcDateTime));
-            await promotion.CommitAsync(ct);
-        }
+        Assert.Equal(1, await db.InTx((c, tx) => ArticleScheduleStore.PublishDue(c, tx, ct,
+            DateTimeOffset.FromUnixTimeMilliseconds(scheduleCommand.DueUnixMs).UtcDateTime), ct));
         Assert.Equal(pendingBytes, await Snapshot(pending.Id, pending.Revision, pending.Revision, owner));
-        Assert.Equal(pendingDigest, await Scalar<string>("""
+        Assert.Equal(pendingDigest, await db.ScalarAsync<string>(ct, """
             select s.digest from public.article_publication p
             join public.article_publication_history h using(article_id,publication_id,revision)
             join public.article_revision_property_snapshot r using(article_id,revision)
@@ -200,7 +193,7 @@ public sealed class PropertySnapshotPostgresTests
                 ? field with { Value = originallySaved.Fields[index].Value } : field).ToArray()
         }));
 
-        Assert.Equal(1, await Scalar<int>("""
+        Assert.Equal(1, await db.ScalarAsync<int>(ct, """
             update public.article_property_snapshot_field set data='{}'::jsonb
             where article_id=$1 and schema_revision=$2 and value_revision=$3 and definition_id=$4 returning 1
             """, pending.Id, pendingSnapshot.SchemaRevision, pendingSnapshot.ValueRevision, pendingText.DefinitionId));
@@ -211,32 +204,13 @@ public sealed class PropertySnapshotPostgresTests
         static (int, long, long, long) Coordinates(PropertyEditorWorkspace snapshot) =>
             (snapshot.ArticleId, snapshot.ArticleRevision, snapshot.SchemaRevision, snapshot.ValueRevision);
 
-        async Task<int> InsertUncapturedRevision(Guid user)
-        {
-            await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            return Assert.IsType<int>(await FixtureSql.ScalarAsync(connection, null, ct, """
-                with legacy as (
-                    insert into public.article(owner_id,revision,title,body,deleted)
-                    values($1,1,'Old article','Old body',false) returning id,title,body
-                )
-                insert into public.article_revision(article_id,revision,title,body,happened_at)
-                select id,1,title,body,now() from legacy returning article_id
-                """, user));
-        }
-
-        async Task<T> Scalar<T>(string sql, params object[] values)
-        {
-            await using var connection = await db.DataSource.OpenConnectionAsync(ct);
-            return Assert.IsType<T>(await FixtureSql.ScalarAsync(connection, null, ct, sql, values));
-        }
-
         Task<byte[]> Snapshot(int id, long current, long selected, (Guid Id, string Token, string Handle)? session,
             HttpStatusCode status = HttpStatusCode.OK, int offset = 0) => Request(HttpMethod.Get,
                 FormattableString.Invariant($"/api/v2/authoring/draft/{id}/revisions/{selected}.aeds?revision={current}&map=properties") +
                 (offset == 0 ? "" : FormattableString.Invariant($"&offset={offset}")), session, status: status);
 
-        async Task<Draft> Article(string path, ArticleCommand command) =>
-            Wire.DecodeDraft(await Request(HttpMethod.Post, path, owner, Wire.EncodeArticleCommand(command)));
+        Task<Draft> Article(string path, ArticleCommand command) =>
+            SiteAedsFixture.ArticleCommand(client, path, owner.Token, owner.Handle, command, ct);
 
         async Task<PropertyCommandReceipt> Define(PropertyDefinitionCommand command, PropertyFieldKind kind, PropertyFieldOption[] choices) =>
             Wire.DecodePropertyCommandReceipt(await Request(HttpMethod.Post, WireRoutes.PropertySchemaCommand, owner,

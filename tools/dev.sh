@@ -62,43 +62,45 @@ site_data="$dev_root/site-data"
 secrets_file="$dev_root/secrets.env"
 db_name="fsusblog_dev"
 
-for cmd in "$dotnet_bin" initdb pg_ctl createdb psql openssl; do
+required_tools=("$dotnet_bin" initdb pg_ctl createdb psql openssl)
+(( db_only )) || required_tools+=(pnpm)
+for cmd in "${required_tools[@]}"; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     printf 'Missing required tool: %s\n' "$cmd" >&2
     exit 1
   fi
 done
-if (( ! db_only )) && ! command -v pnpm >/dev/null 2>&1; then
-  printf 'Missing required tool: pnpm\n' >&2
-  exit 1
-fi
 
 started_pg=0
 server_pid=""
 web_pid=""
 
+stop_pg() {
+  pg_ctl -D "$pg_data" -m fast stop >/dev/null 2>&1 || true
+}
+
+write_secret() {
+  umask 077
+  cat > "$1"
+  chmod 600 "$1"
+}
+
 cleanup() {
-  local code=$?
+  local code=$? pid
   trap - EXIT INT TERM
-  if [[ -n "$web_pid" ]]; then
-    kill "$web_pid" 2>/dev/null || true
-    wait "$web_pid" 2>/dev/null || true
-  fi
-  if [[ -n "$server_pid" ]]; then
-    kill "$server_pid" 2>/dev/null || true
-    wait "$server_pid" 2>/dev/null || true
-  fi
-  if (( started_pg )); then
-    pg_ctl -D "$pg_data" -m fast stop >/dev/null 2>&1 || true
-  fi
+  for pid in "$web_pid" "$server_pid"; do
+    if [[ -n "$pid" ]]; then
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+    fi
+  done
+  if (( started_pg )); then stop_pg; fi
   exit "$code"
 }
 trap cleanup EXIT INT TERM
 
 if (( reset_db )); then
-  if [[ -f "$pg_data/postmaster.pid" ]]; then
-    pg_ctl -D "$pg_data" -m fast stop >/dev/null 2>&1 || true
-  fi
+  if [[ -f "$pg_data/postmaster.pid" ]]; then stop_pg; fi
   chmod -R u+w -- "$dev_root" 2>/dev/null || true
   rm -rf -- "$dev_root"
 fi
@@ -110,25 +112,13 @@ chmod 700 "$dev_root" "$site_data"
 site_pages_dir="$site_data/site-pages"
 if [[ ! -d "$site_pages_dir" ]]; then
   mkdir -p "$site_pages_dir"
-  cat > "$site_pages_dir/about.md" <<'EOF'
-# About
-
-Local FsusBlog v2 development instance.
-EOF
-  cat > "$site_pages_dir/privacy.md" <<'EOF'
-# Privacy
-
-Local development privacy placeholder.
-EOF
-  cat > "$site_pages_dir/guidelines.md" <<'EOF'
-# Guidelines
-
-Local development community guidelines placeholder.
-EOF
-  cat > "$site_pages_dir/copyright.md" <<'EOF'
-# Copyright
-
-Local development copyright notice placeholder.
+  while IFS='|' read -r slug heading body; do
+    printf '# %s\n\n%s\n' "$heading" "$body" > "$site_pages_dir/$slug.md"
+  done <<'EOF'
+about|About|Local FsusBlog v2 development instance.
+privacy|Privacy|Local development privacy placeholder.
+guidelines|Guidelines|Local development community guidelines placeholder.
+copyright|Copyright|Local development copyright notice placeholder.
 EOF
 fi
 
@@ -179,15 +169,14 @@ if [[ ! -f "$repo/src/Cli/obj/project.assets.json" ]] || [[ ! -f "$repo/src/Serv
   "$dotnet_bin" restore FsusBlog.V2.slnx --configfile NuGet.Config --locked-mode >/dev/null
 fi
 printf '[dev] Building FsusBlog.V2.Cli and FsusBlog.V2.Server (Debug)...\n'
-"$dotnet_bin" build src/Cli/FsusBlog.V2.Cli.csproj -c Debug --no-restore -v quiet >/dev/null
-"$dotnet_bin" build src/Server/FsusBlog.V2.Server.csproj -c Debug --no-restore -v quiet >/dev/null
-cli_dll="$repo/src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll"
+for proj in Cli Server; do
+  "$dotnet_bin" build "src/$proj/FsusBlog.V2.$proj.csproj" -c Debug --no-restore -v quiet >/dev/null
+done
+cli=("$dotnet_bin" "$repo/src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll")
 
 # Persist local development secrets across restarts.
 if [[ ! -f "$secrets_file" ]]; then
-  umask 077
-  "$dotnet_bin" "$cli_dll" init-secrets > "$secrets_file"
-  chmod 600 "$secrets_file"
+  "${cli[@]}" init-secrets | write_secret "$secrets_file"
 fi
 # shellcheck disable=SC1090
 source "$secrets_file"
@@ -208,45 +197,59 @@ else
 fi
 
 export FSUSBLOG_DB="Host=127.0.0.1;Port=$pg_port;Username=postgres;Database=$db_name"
-psql_db=(psql -X -q --no-password -h 127.0.0.1 -p "$pg_port" -U postgres -v ON_ERROR_STOP=1 -d "$db_name")
+psql_base=(psql -X -q --no-password -h 127.0.0.1 -p "$pg_port" -U postgres -v ON_ERROR_STOP=1)
+psql_db=("${psql_base[@]}" -d "$db_name")
 
-db_exists=$(psql -X -qAt --no-password -h 127.0.0.1 -p "$pg_port" -U postgres -d postgres \
-  -c "SELECT 1 FROM pg_database WHERE datname = '$db_name'")
+db_exists=$("${psql_base[@]}" -At -d postgres -c "SELECT 1 FROM pg_database WHERE datname = '$db_name'")
 if [[ "$db_exists" != "1" ]]; then
   createdb -h 127.0.0.1 -p "$pg_port" -U postgres -T template0 "$db_name"
   printf '[dev] Applying FsusBlog V2 schema via FsusBlog.V2.Cli...\n'
-  "$dotnet_bin" "$cli_dll" plan > "$dev_root/plan.json"
-  "$dotnet_bin" "$cli_dll" apply "$dev_root/plan.json"
+  "${cli[@]}" plan > "$dev_root/plan.json"
+  "${cli[@]}" apply "$dev_root/plan.json"
 fi
 
-"$dotnet_bin" "$cli_dll" verify >/dev/null
+"${cli[@]}" verify >/dev/null
 
 admin_bootstrap_key=""
 reader_login_ticket=""
 dev_admin_cookie=""
 
+db_empty() {
+  [[ "$("${psql_db[@]}" -Atc "SELECT count(*) FROM $1")" == "0" ]]
+}
+
+ensure_dev_admin() {
+  if db_empty "public.admin_principal WHERE handle = 'dev-admin'"; then
+    admin_bootstrap_key=$("${cli[@]}" admin-identity bootstrap dev-admin)
+  fi
+}
+
+apply_seed_sql() {
+  "${psql_db[@]}" >/dev/null
+  "${cli[@]}" verify >/dev/null
+}
+
 if (( seed_demo )); then
   printf '[dev] Ensuring demo seed data...\n'
-  has_admin=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.admin_principal WHERE handle = 'dev-admin'")
-  if [[ "$has_admin" == "0" ]]; then
-    admin_bootstrap_key=$("$dotnet_bin" "$cli_dll" admin-identity bootstrap dev-admin)
-  fi
+  ensure_dev_admin
 
-  has_reader=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.blog_user WHERE name = 'dev-reader'")
-  if [[ "$has_reader" == "0" ]]; then
-    reader_login_ticket=$("$dotnet_bin" "$cli_dll" operator dev-reader)
+  if db_empty "public.blog_user WHERE name = 'dev-reader'"; then
+    reader_login_ticket=$("${cli[@]}" operator dev-reader)
     reader_id=$("${psql_db[@]}" -Atc "SELECT id FROM public.blog_user WHERE name = 'dev-reader'")
-    "$dotnet_bin" "$cli_dll" comment handle "$reader_id" "Dev Reader" >/dev/null
+    "${cli[@]}" comment handle "$reader_id" "Dev Reader" >/dev/null
   else
-    reader_login_ticket=$("$dotnet_bin" "$cli_dll" ticket dev-reader)
+    reader_login_ticket=$("${cli[@]}" ticket dev-reader)
   fi
 
-  has_articles=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.article")
-  if [[ "$has_articles" == "0" ]]; then
-    # Feed both publications to the same transaction in their original identity order.
-    write_demo_publication() {
-      local ordinal=$1 age=$2 summary=$3 category=$4 tags=$5
+  if db_empty "public.article"; then
+    # Feed publications and the unpublished draft to the same transaction in their original identity order.
+    write_demo_article() {
+      local ordinal=$1 age=$2 summary=${3:-} category=${4:-} tags=${5:-}
       local article="a$ordinal" revision="r$ordinal" command="c$ordinal" publication="p$ordinal"
+      local pub_rev="NULL" pub_count="0" is_pub="false" summary_sql="NULL"
+      if [[ -n "$summary" ]]; then
+        pub_rev="1" pub_count="1" is_pub="true" summary_sql="'$summary'"
+      fi
       cat <<SQL
 WITH owner AS (
   SELECT id FROM public.admin_principal WHERE handle = 'dev-admin'
@@ -257,19 +260,23 @@ $article AS (
 SQL
       cat
       cat <<SQL
-         1, 1, false, now() - interval '$age', now() - interval '$age'
+         $pub_rev, $pub_count, false, now() - interval '$age', now() - interval '$age'
   FROM owner RETURNING id, owner_id, title, body, created_at
 ),
 $revision AS (
   INSERT INTO public.article_revision (article_id, revision, title, body, happened_at, author_summary)
-  SELECT id, 1, title, body, created_at, '$summary' FROM $article
+  SELECT id, 1, title, body, created_at, $summary_sql FROM $article
   RETURNING article_id, revision, happened_at
 ),
 $command AS (
   INSERT INTO public.article_command (actor_id, command_id, fingerprint, article_id, revision, title, body, published)
-  SELECT $article.owner_id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-$article-r1', 'UTF8')), $article.id, 1, $article.title, $article.body, true FROM $article
+  SELECT $article.owner_id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-$article-r1', 'UTF8')), $article.id, 1, $article.title, $article.body, $is_pub FROM $article
   RETURNING actor_id, command_id, article_id, revision
-),
+)
+SQL
+      if [[ -n "$summary" ]]; then
+        cat <<SQL
+,
 $publication AS (
   INSERT INTO public.article_publication (article_id, revision, publication_no, published_at)
   SELECT article_id, revision, 1, happened_at FROM $revision
@@ -303,9 +310,9 @@ tag$ordinal AS (
 cw$ordinal AS (
   INSERT INTO public.comment_public_write (article_id) SELECT id FROM $article
 )
-SELECT 1;
-
 SQL
+      fi
+      printf 'SELECT 1;\n\n'
     }
 
     {
@@ -326,35 +333,24 @@ INSERT INTO public.tag_url_name (name_key, tag_id)
 SELECT lower(name), id FROM public.tag;
 
 SQL
-      write_demo_publication 1 '3 days' \
+      write_demo_article 1 '3 days' \
         '介绍 FsusBlog v2 本地开发架构、Vite HMR 联动 FsusUI 与 AEDS 帧调试方式。' \
         Engineering "'dotnet', 'postgresql', 'aeds'" <<'ARTICLE'
          'FsusBlog v2 本地开发与 AEDS 二进制协议导览',
          E'## 欢迎使用 FsusBlog v2\n\n这是一篇用于本地热重载与调试的示例文章。\n\n- 后端运行在 `.NET 10` + `PostgreSQL 18`\n- 前端通过 Vite HMR 消费 `@ozwasyd/element-plus` 组件与原生 Markdown Wasm\n- 全部运行时业务接口均采用 `AEDS v2` 二进制帧\n\n```ts\n// 在浏览器控制台开启 AEDS 二进制帧调试日志\nwindow.__fsusDebug?.aeds(true)\n```\n',
 ARTICLE
-      write_demo_publication 2 '1 day' \
+      write_demo_article 2 '1 day' \
         'Notes on reading typography, FsusUI token discipline, and live local iteration.' \
         Essays "'vue'" <<'ARTICLE'
          'Designing for Quiet Restraint in Reading Interfaces',
          E'## Intellectual Minimalism\n\nGood editorial software stays out of the reader''s way. Clear hierarchy, crisp spacing, and deterministic interactions matter more than ornamental chrome.\n\n### Local Live Editing\n\nEdit any file under `src/Web/src/` and watch Vite HMR update the page instantaneously.\n',
 ARTICLE
+      # Seed one unpublished draft visible inside /admin/articles.
+      write_demo_article 3 '2 hours' <<'ARTICLE'
+         '未发布草稿：编辑器与 Canvas 调试沙箱',
+         E'这是一篇尚未发布的草稿，可在管理后台 `/admin/articles` 中直接编辑或发布。\n',
+ARTICLE
       cat <<'SQL'
--- Seed one unpublished draft visible inside /admin/articles.
-WITH owner AS (
-  SELECT id FROM public.admin_principal WHERE handle = 'dev-admin'
-),
-a3 AS (
-  INSERT INTO public.article (owner_id, revision, title, body, published_revision, publication_count, deleted, created_at, updated_at)
-  SELECT id, 1, '未发布草稿：编辑器与 Canvas 调试沙箱', E'这是一篇尚未发布的草稿，可在管理后台 `/admin/articles` 中直接编辑或发布。\n',
-         NULL, 0, false, now() - interval '2 hours', now() - interval '2 hours'
-  FROM owner RETURNING id, owner_id, title, body, created_at
-),
-r3 AS (
-  INSERT INTO public.article_revision (article_id, revision, title, body, happened_at)
-  SELECT id, 1, title, body, created_at FROM a3
-)
-INSERT INTO public.article_command (actor_id, command_id, fingerprint, article_id, revision, title, body, published)
-SELECT owner_id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-a3-r1', 'UTF8')), id, 1, title, body, false FROM a3;
 
 -- Seed one approved public comment and one pending comment for /admin/interaction moderation queue.
 WITH first_article AS (
@@ -363,36 +359,24 @@ WITH first_article AS (
 reader AS (
   SELECT id FROM public.blog_user WHERE name = 'dev-reader'
 ),
-approved AS (
+seed_comments(id, status, body, age, mod_ver, tag) AS (
+  VALUES
+    (1::bigint, 1, '本地开发环境跑起来非常丝滑，AEDS 帧调试也清楚多了。', interval '6 hours', 2, 'seed-c1'),
+    (2::bigint, 0, '这是一条待审核测试评论，可在后台 Interaction -> Moderation queue 中体验审核流程。', interval '30 minutes', 1, 'seed-c2')
+),
+inserted AS (
   INSERT INTO public.comment (article_id, id, parent_id, root_id, parent_depth, reply_to_id, depth, moderation_status, deleted, body, author_mode, display_name, display_language, created_at, moderation_version)
-  SELECT first_article.id, 1, NULL, 1, NULL, NULL, 0, 1, false,
-         '本地开发环境跑起来非常丝滑，AEDS 帧调试也清楚多了。', 3, 'Dev Reader', 'zh-CN', now() - interval '6 hours', 2
-  FROM first_article
+  SELECT first_article.id, s.id, NULL, s.id, NULL, NULL, 0, s.status, false, s.body, 3, 'Dev Reader', 'zh-CN', now() - s.age, s.mod_ver
+  FROM first_article CROSS JOIN seed_comments s
   RETURNING article_id, id
 ),
-approved_cmd AS (
+cmds AS (
   INSERT INTO public.comment_submit_command (user_id, command_id, fingerprint, article_id, comment_id)
-  SELECT reader.id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-c1', 'UTF8')), approved.article_id, approved.id
-  FROM reader, approved
-),
-approved_owner AS (
-  INSERT INTO public.comment_account_owner (article_id, comment_id, user_id)
-  SELECT approved.article_id, approved.id, reader.id FROM approved, reader
-),
-pending AS (
-  INSERT INTO public.comment (article_id, id, parent_id, root_id, parent_depth, reply_to_id, depth, moderation_status, deleted, body, author_mode, display_name, display_language, created_at, moderation_version)
-  SELECT first_article.id, 2, NULL, 2, NULL, NULL, 0, 0, false,
-         '这是一条待审核测试评论，可在后台 Interaction -> Moderation queue 中体验审核流程。', 3, 'Dev Reader', 'zh-CN', now() - interval '30 minutes', 1
-  FROM first_article
-  RETURNING article_id, id
-),
-pending_cmd AS (
-  INSERT INTO public.comment_submit_command (user_id, command_id, fingerprint, article_id, comment_id)
-  SELECT reader.id, gen_random_uuid(), pg_catalog.sha256(convert_to('seed-c2', 'UTF8')), pending.article_id, pending.id
-  FROM reader, pending
+  SELECT reader.id, gen_random_uuid(), pg_catalog.sha256(convert_to(s.tag, 'UTF8')), i.article_id, i.id
+  FROM reader CROSS JOIN inserted i JOIN seed_comments s ON s.id = i.id
 )
 INSERT INTO public.comment_account_owner (article_id, comment_id, user_id)
-SELECT pending.article_id, pending.id, reader.id FROM pending, reader;
+SELECT i.article_id, i.id, reader.id FROM inserted i CROSS JOIN reader;
 
 SELECT setval(pg_get_serial_sequence('public.comment', 'id'), (SELECT COALESCE(max(id), 1) FROM public.comment));
 
@@ -426,13 +410,11 @@ WHERE c.last_message_id IS NULL;
 
 COMMIT;
 SQL
-    } | "${psql_db[@]}" >/dev/null
-    "$dotnet_bin" "$cli_dll" verify >/dev/null
+    } | apply_seed_sql
   fi
 
-  has_reads=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.article_read_total")
-  if [[ "$has_reads" == "0" ]]; then
-    "${psql_db[@]}" >/dev/null <<'SQL'
+  if db_empty "public.article_read_total"; then
+    apply_seed_sql <<'SQL'
 BEGIN;
 
 -- Seed consistent verified read counts for the first two published articles so the homepage
@@ -455,13 +437,8 @@ seeded_hours AS (
   SELECT r.id, date_trunc('hour', now(), 'UTC') - make_interval(hours => v.hours_ago), v.cnt
   FROM ranked r
   JOIN (VALUES
-    (1, 26, 21::bigint),
-    (1, 18, 34::bigint),
-    (1,  8, 45::bigint),
-    (1,  2, 28::bigint),
-    (2, 20, 19::bigint),
-    (2, 10, 24::bigint),
-    (2,  3, 31::bigint)
+    (1, 26, 21::bigint), (1, 18, 34::bigint), (1,  8, 45::bigint), (1,  2, 28::bigint),
+    (2, 20, 19::bigint), (2, 10, 24::bigint), (2,  3, 31::bigint)
   ) AS v(seq, hours_ago, cnt) ON v.seq = r.seq
   WHERE EXISTS (SELECT 1 FROM seeded_totals st WHERE st.article_id = r.id)
   ON CONFLICT (article_id, hour_utc) DO NOTHING
@@ -471,22 +448,10 @@ seeded_dwell AS (
   SELECT r.id, ((now() AT TIME ZONE 'UTC')::date - v.days_ago), v.bucket, v.cnt
   FROM ranked r
   JOIN (VALUES
-    (1, 1, 0,  9::bigint),
-    (1, 1, 1, 18::bigint),
-    (1, 1, 2, 19::bigint),
-    (1, 1, 3,  9::bigint),
-    (1, 0, 0, 11::bigint),
-    (1, 0, 1, 22::bigint),
-    (1, 0, 2, 26::bigint),
-    (1, 0, 3, 14::bigint),
-    (2, 1, 0,  4::bigint),
-    (2, 1, 1,  7::bigint),
-    (2, 1, 2,  5::bigint),
-    (2, 1, 3,  3::bigint),
-    (2, 0, 0,  9::bigint),
-    (2, 0, 1, 18::bigint),
-    (2, 0, 2, 17::bigint),
-    (2, 0, 3, 11::bigint)
+    (1, 1, 0,  9::bigint), (1, 1, 1, 18::bigint), (1, 1, 2, 19::bigint), (1, 1, 3,  9::bigint),
+    (1, 0, 0, 11::bigint), (1, 0, 1, 22::bigint), (1, 0, 2, 26::bigint), (1, 0, 3, 14::bigint),
+    (2, 1, 0,  4::bigint), (2, 1, 1,  7::bigint), (2, 1, 2,  5::bigint), (2, 1, 3,  3::bigint),
+    (2, 0, 0,  9::bigint), (2, 0, 1, 18::bigint), (2, 0, 2, 17::bigint), (2, 0, 3, 11::bigint)
   ) AS v(seq, days_ago, bucket, cnt) ON v.seq = r.seq
   WHERE EXISTS (SELECT 1 FROM seeded_totals st WHERE st.article_id = r.id)
   ON CONFLICT (article_id, day_utc, bucket) DO NOTHING
@@ -497,12 +462,10 @@ WHERE singleton AND EXISTS (SELECT 1 FROM seeded_totals);
 
 COMMIT;
 SQL
-    "$dotnet_bin" "$cli_dll" verify >/dev/null
   fi
 
-  has_traffic=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.site_traffic_daily")
-  if [[ "$has_traffic" == "0" ]]; then
-    "${psql_db[@]}" >/dev/null <<'SQL'
+  if db_empty "public.site_traffic_daily"; then
+    apply_seed_sql <<'SQL'
 BEGIN;
 
 -- Seed 7 days of sample site traffic aggregates (visible in /admin/site when HTTPS traffic stats are enabled).
@@ -521,12 +484,10 @@ ON CONFLICT (day, region) DO NOTHING;
 
 COMMIT;
 SQL
-    "$dotnet_bin" "$cli_dll" verify >/dev/null
   fi
 
-  has_site_pages=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.site_page_content WHERE revision > 0")
-  if [[ "$has_site_pages" == "0" ]]; then
-    "${psql_db[@]}" >/dev/null <<'SQL'
+  if db_empty "public.site_page_content WHERE revision > 0"; then
+    apply_seed_sql <<'SQL'
 BEGIN;
 
 WITH p AS (
@@ -548,16 +509,12 @@ FROM updated CROSS JOIN p;
 
 COMMIT;
 SQL
-    "$dotnet_bin" "$cli_dll" verify >/dev/null
   fi
 fi
 
 # Opt-in local dev admin session (purely database-level fixture for dev-admin; zero server auth bypass).
 if (( dev_admin_session )); then
-  has_admin=$("${psql_db[@]}" -Atc "SELECT count(*) FROM public.admin_principal WHERE handle = 'dev-admin'")
-  if [[ "$has_admin" == "0" ]]; then
-    admin_bootstrap_key=$("$dotnet_bin" "$cli_dll" admin-identity bootstrap dev-admin)
-  fi
+  ensure_dev_admin
   dev_admin_cookie=$(openssl rand -hex 32)
   "${psql_db[@]}" -c "
     WITH p AS (
@@ -577,19 +534,20 @@ if (( dev_admin_session )); then
     SELECT pg_catalog.sha256(decode('$dev_admin_cookie', 'hex')), p.id, p.generation, clock_timestamp() + interval '24 hours', si.id
     FROM p JOIN si ON si.principal_id = p.id;
   "
-  umask 077
-  printf '%s\n' "$dev_admin_cookie" > "$dev_root/dev-admin-session.txt"
-  chmod 600 "$dev_root/dev-admin-session.txt"
+  printf '%s\n' "$dev_admin_cookie" | write_secret "$dev_root/dev-admin-session.txt"
 fi
+
+export FSUSBLOG_DATA_DIR="$site_data"
+export FSUSBLOG_ADMIN_ORIGIN="${FSUSBLOG_ADMIN_ORIGIN:-http://localhost:$web_port}"
+export FSUSBLOG_ADMIN_RP_ID="${FSUSBLOG_ADMIN_RP_ID:-localhost}"
+export FSUSBLOG_PASSKEY_ORIGIN="${FSUSBLOG_PASSKEY_ORIGIN:-http://localhost:$web_port}"
+export FSUSBLOG_PASSKEY_RP_ID="${FSUSBLOG_PASSKEY_RP_ID:-localhost}"
 
 if (( db_only )); then
   printf '\n=== FsusBlog V2 Local Dev PostgreSQL Ready ===\n'
-  printf '  FSUSBLOG_DB=%s\n' "$FSUSBLOG_DB"
-  printf '  FSUSBLOG_DATA_DIR=%s\n' "$site_data"
-  printf '  FSUSBLOG_ADMIN_ORIGIN=http://localhost:%s\n' "$web_port"
-  printf '  FSUSBLOG_ADMIN_RP_ID=localhost\n'
-  printf '  FSUSBLOG_PASSKEY_ORIGIN=http://localhost:%s\n' "$web_port"
-  printf '  FSUSBLOG_PASSKEY_RP_ID=localhost\n'
+  for var in FSUSBLOG_DB FSUSBLOG_DATA_DIR FSUSBLOG_ADMIN_ORIGIN FSUSBLOG_ADMIN_RP_ID FSUSBLOG_PASSKEY_ORIGIN FSUSBLOG_PASSKEY_RP_ID; do
+    printf '  %s=%s\n' "$var" "${!var}"
+  done
   [[ -n "$admin_bootstrap_key" ]] && printf '  Admin bootstrap key (dev-admin): %s\n' "$admin_bootstrap_key"
   [[ -n "$reader_login_ticket" ]] && printf '  Reader login ticket (dev-reader): %s\n' "$reader_login_ticket"
   [[ -n "$dev_admin_cookie" ]] && printf '  Dev admin cookie (fsus-v2-admin-session on localhost:%s): %s\n' "$web_port" "$dev_admin_cookie"
@@ -602,26 +560,10 @@ fi
 
 export ASPNETCORE_ENVIRONMENT="Development"
 export ASPNETCORE_URLS="http://127.0.0.1:$api_port"
-export FSUSBLOG_ADMIN_ORIGIN="${FSUSBLOG_ADMIN_ORIGIN:-http://localhost:$web_port}"
-export FSUSBLOG_ADMIN_RP_ID="${FSUSBLOG_ADMIN_RP_ID:-localhost}"
-export FSUSBLOG_PASSKEY_ORIGIN="${FSUSBLOG_PASSKEY_ORIGIN:-http://localhost:$web_port}"
-export FSUSBLOG_PASSKEY_RP_ID="${FSUSBLOG_PASSKEY_RP_ID:-localhost}"
-export FSUSBLOG_DATA_DIR="$site_data"
-if [[ -f "$repo/src/Web/dist/index.html" ]]; then
-  export FSUSBLOG_WEB_DIST="$repo/src/Web/dist"
-else
-  export FSUSBLOG_WEB_DIST="$repo/src/Web"
-fi
-if [[ -n "${FSUSBLOG_PUBLIC_ORIGIN:-}" ]]; then
-  export FSUSBLOG_SUBSCRIPTION_HMAC_KEY
-else
-  unset FSUSBLOG_SUBSCRIPTION_HMAC_KEY
-fi
-if [[ -n "${FSUSBLOG_PASSKEY_ORIGIN:-}" ]]; then
-  export FSUSBLOG_TOTP_KEY_HEX FSUSBLOG_RECOVERY_KEY_PEPPER_HEX
-else
-  unset FSUSBLOG_TOTP_KEY_HEX FSUSBLOG_RECOVERY_KEY_PEPPER_HEX
-fi
+export FSUSBLOG_WEB_DIST="$repo/src/Web"
+[[ -f "$repo/src/Web/dist/index.html" ]] && FSUSBLOG_WEB_DIST="$repo/src/Web/dist"
+[[ -n "${FSUSBLOG_PUBLIC_ORIGIN:-}" ]] && export FSUSBLOG_SUBSCRIPTION_HMAC_KEY || unset FSUSBLOG_SUBSCRIPTION_HMAC_KEY
+[[ -n "${FSUSBLOG_PASSKEY_ORIGIN:-}" ]] && export FSUSBLOG_TOTP_KEY_HEX FSUSBLOG_RECOVERY_KEY_PEPPER_HEX || unset FSUSBLOG_TOTP_KEY_HEX FSUSBLOG_RECOVERY_KEY_PEPPER_HEX
 
 printf '[dev] Starting FsusBlog.V2.Server on http://127.0.0.1:%s (%s)...\n' \
   "$api_port" "$( (( use_watch )) && echo 'dotnet watch' || echo 'dotnet run' )"

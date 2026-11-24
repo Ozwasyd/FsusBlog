@@ -1,8 +1,8 @@
-import { ApiError, encodeFrame, ProtocolError } from './aeds.ts';
+import { ApiError, encodePod, ProtocolError } from './aeds.ts';
 import type { AdminCommentCursor } from './admin-identity.ts';
 import { validModerationReason } from './admin-moderation.ts';
 import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
-import { PodReader, PodWriter } from './binary.ts';
+import { decodePod, PodWriter } from './binary.ts';
 import { post } from './internal/http.ts';
 import { FrameType, WireLimits, WireRoutes, type AdminModerationClaim } from './wire.generated.ts';
 
@@ -21,9 +21,7 @@ export function claimModerationBatch(items: readonly AdminCommentCursor[], signa
   // Callers can change their visible selection while a request is in flight.
   // Compare the response to a value snapshot of what this request actually sent.
   const targets = items.map(({ articleId, commentId }) => ({ articleId, commentId }));
-  const writer = new PodWriter();
-  writeTargets(writer, targets);
-  const frame = encodeFrame(FrameType.AdminModerationBatchTargets, writer.finish());
+  const frame = encodePod(FrameType.AdminModerationBatchTargets, writer => writeTargets(writer, targets));
   return post(WireRoutes.AdminModerationBatchClaim, FrameType.AdminModerationBatchClaims,
     payload => decodeClaims(payload, targets), signal, frame);
 }
@@ -43,30 +41,23 @@ export function encodeModerationBatchDecision(value: AdminModerationBatchDecisio
   if ((value.decision !== 1 && value.decision !== 2) || value.reason.trim() !== value.reason || !validModerationReason(value.reason))
     throw invalid();
   checkTargets(value.rows);
-  const writer = new PodWriter();
-  writer.i32(value.decision);
-  writer.text(value.reason, WireLimits.AdminModerationReasonBytes);
-  writer.i32(value.rows.length);
-  for (const row of value.rows) {
-    checkClaim(row);
-    if (row.expectedStatus !== 0) throw invalid();
-    writeTarget(writer, row);
-    writer.i64(row.commentVersion);
-    writer.text(row.claimToken, WireLimits.AdminModerationClaimTokenBytes);
-    writer.i64(row.claimGeneration);
-    writer.i64(row.claimVersion);
-    writer.i32(row.expectedStatus);
-  }
-  return encodeFrame(FrameType.AdminModerationBatchDecision, writer.finish());
+  return encodePod(FrameType.AdminModerationBatchDecision, writer => {
+    writer.i32(value.decision).text(value.reason, WireLimits.AdminModerationReasonBytes).i32(value.rows.length);
+    for (const row of value.rows) {
+      checkClaim(row);
+      if (row.expectedStatus !== 0) throw invalid();
+      writeTarget(writer, row).i64(row.commentVersion).text(row.claimToken, WireLimits.AdminModerationClaimTokenBytes)
+        .i64(row.claimGeneration).i64(row.claimVersion).i32(row.expectedStatus);
+    }
+  });
 }
 
 export function decodeModerationBatchReceipt(payload: Uint8Array, expectedCount: number): AdminModerationBatchReceipt {
-  const reader = new PodReader(payload);
-  const batchId = reader.i64();
-  const count = reader.i32();
-  reader.finish();
-  if (batchId <= 0n || !validCount(count) || count !== expectedCount) throw invalid();
-  return { batchId, count };
+  return decodePod(payload, reader => {
+    const batchId = reader.i64(), count = reader.i32();
+    if (batchId <= 0n || !validCount(count) || count !== expectedCount) throw invalid();
+    return { batchId, count };
+  });
 }
 
 export function readModerationBatchConflicts(failure: unknown, items: readonly AdminCommentCursor[]): readonly AdminCommentCursor[] | null {
@@ -80,22 +71,21 @@ export function readModerationBatchConflicts(failure: unknown, items: readonly A
 }
 
 function decodeClaims(payload: Uint8Array, targets: readonly AdminCommentCursor[]): AdminModerationClaim[] {
-  const reader = new PodReader(payload);
-  const count = reader.i32();
-  if (!validCount(count) || count !== targets.length) throw invalid();
-  const claims = targets.map(target => {
-    const claim = {
-      articleId: reader.i32(), commentId: reader.i64(), commentVersion: reader.i64(),
-      claimToken: reader.text(WireLimits.AdminModerationClaimTokenBytes),
-      claimGeneration: reader.i64(), claimVersion: reader.i64(), expiresAt: reader.i64(),
-    };
-    if (claim.articleId !== target.articleId || claim.commentId !== target.commentId || claim.expiresAt <= 0n || claim.expiresAt > maxDate)
-      throw invalid();
-    checkClaim(claim);
-    return claim;
+  return decodePod(payload, reader => {
+    const count = reader.i32();
+    if (!validCount(count) || count !== targets.length) throw invalid();
+    return targets.map(target => {
+      const claim = {
+        articleId: reader.i32(), commentId: reader.i64(), commentVersion: reader.i64(),
+        claimToken: reader.text(WireLimits.AdminModerationClaimTokenBytes),
+        claimGeneration: reader.i64(), claimVersion: reader.i64(), expiresAt: reader.i64(),
+      };
+      if (claim.articleId !== target.articleId || claim.commentId !== target.commentId || claim.expiresAt <= 0n || claim.expiresAt > maxDate)
+        throw invalid();
+      checkClaim(claim);
+      return claim;
+    });
   });
-  reader.finish();
-  return claims;
 }
 
 function writeTargets(writer: PodWriter, targets: readonly AdminCommentCursor[]): void {
@@ -104,10 +94,7 @@ function writeTargets(writer: PodWriter, targets: readonly AdminCommentCursor[])
   for (const target of targets) writeTarget(writer, target);
 }
 
-function writeTarget(writer: PodWriter, target: AdminCommentCursor): void {
-  writer.i32(target.articleId);
-  writer.i64(target.commentId);
-}
+const writeTarget = (writer: PodWriter, target: AdminCommentCursor): PodWriter => writer.i32(target.articleId).i64(target.commentId);
 
 function checkTargets(targets: readonly AdminCommentCursor[]): void {
   if (!validCount(targets.length)) throw invalid();

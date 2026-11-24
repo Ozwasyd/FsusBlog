@@ -1,7 +1,3 @@
-using System.Globalization;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-
 namespace FsusBlog.V2.Server.Passkeys;
 
 internal sealed class SiteRefreshEndpoints(SiteRefreshStore store, string accessCookie, bool secure, Action<HttpContext> requireHost,
@@ -87,6 +83,5 @@ internal sealed class SiteRefreshEndpoints(SiteRefreshStore store, string access
         throw new BusinessException(Rejection.Forbidden, "A same-origin refresh request is required.");
     }
 
-    private static IResult Failure(HttpContext ctx, int status, string code) =>
-        new AedsError(status, Wire.EncodeError(status, code, traceId: ctx.TraceIdentifier));
+    private static IResult Failure(HttpContext ctx, int status, string code) => ServerHttp.ErrorFrame(ctx, status, code);
 }

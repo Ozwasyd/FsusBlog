@@ -46,20 +46,7 @@ export type ModerationDisplayMessage =
   | Readonly<{ key: MessageKey; params: Readonly<Record<string, string | number>> }>
   | ModerationConflictMessage
 
-export interface AdminModerationTransport {
-  readAdminCommentQueue(after: AdminCommentCursor | null, signal: AbortSignal): Promise<AdminCommentQueue>
-  claimComment(target: AdminCommentCursor, signal: AbortSignal): Promise<AdminModerationClaim>
-  renewCommentClaim(claim: AdminModerationClaim, signal: AbortSignal): Promise<AdminModerationClaim>
-  releaseCommentClaim(claim: AdminModerationClaim, signal: AbortSignal): Promise<void>
-  proveAdminModerationDecision(command: AdminModerationDecision, signal: AbortSignal): Promise<string>
-  decideComment(command: AdminModerationDecision, proof: string, signal: AbortSignal): Promise<void>
-  claimModerationBatch(targets: readonly AdminCommentCursor[], signal: AbortSignal): Promise<readonly AdminModerationClaim[]>
-  proveAndDecideModerationBatch(command: AdminModerationBatchDecision, signal: AbortSignal): Promise<AdminModerationBatchReceipt>
-  readModerationTimeline(article: string, comment: string, signal: AbortSignal): Promise<ModerationTimeline>
-  readCommentRevisions(article: string, comment: string, before: number | null, signal: AbortSignal): Promise<CommentRevisionPage>
-}
-
-export const defaultAdminModerationTransport: AdminModerationTransport = {
+export const defaultAdminModerationTransport = {
   readAdminCommentQueue,
   claimComment,
   renewCommentClaim,
@@ -71,6 +58,7 @@ export const defaultAdminModerationTransport: AdminModerationTransport = {
   readModerationTimeline,
   readCommentRevisions,
 }
+export type AdminModerationTransport = typeof defaultAdminModerationTransport
 
 export interface AdminModerationHooks {
   onSessionLost?: (error: ApiError) => void
@@ -122,6 +110,14 @@ function batchConflict(error: unknown, targets: readonly AdminCommentCursor[]): 
  * conflict resolution, history loading, cancellation, and idempotent disposal.
  */
 type ClaimExpiry = { generation: number; timer?: TimerHandle }
+type ModerationData = Omit<AdminModerationState, 'busy' | 'historyLoading'>
+type WritableModerationData = { -readonly [K in keyof ModerationData]: ModerationData[K] }
+
+const emptyModerationData = (): WritableModerationData => ({
+  queue: null, claim: null, batchClaims: null, selected: new Set(), reason: '', batchReason: '',
+  failure: '', notice: '', historyArticle: '', historyComment: '', historyDialogOpen: false,
+  historyError: '', history: null, revisions: null,
+})
 
 export class AdminModerationController {
   private readonly transport: AdminModerationTransport
@@ -132,20 +128,7 @@ export class AdminModerationController {
   private readonly historyChannel: AdminOperationChannel
   private readonly listeners = new Set<() => void>()
 
-  private _queue: AdminCommentQueue | null = null
-  private _claim: AdminModerationClaim | null = null
-  private _batchClaims: readonly AdminModerationClaim[] | null = null
-  private _selected: ReadonlySet<string> = new Set()
-  private _reason = ''
-  private _batchReason = ''
-  private _failure: ModerationDisplayMessage | '' = ''
-  private _notice: ModerationDisplayMessage | '' = ''
-  private _historyArticle = ''
-  private _historyComment = ''
-  private _historyDialogOpen = false
-  private _historyError: MessageKey | '' = ''
-  private _history: ModerationTimeline | null = null
-  private _revisions: CommentRevisionPage | null = null
+  private s: WritableModerationData = emptyModerationData()
   private cursor: AdminCommentCursor | null = null
   private readonly claimExpiry: ClaimExpiry = { generation: 0 }
   private readonly batchTimerSlot: ClaimExpiry = { generation: 0 }
@@ -166,124 +149,73 @@ export class AdminModerationController {
     this._snapshot = this.buildSnapshot()
   }
 
-  get state(): AdminModerationState {
-    return this._snapshot
-  }
-
-  get disposed(): boolean {
-    return this.scope.disposed
-  }
-
-  get trimmedReason(): string {
-    return this._reason.trim()
-  }
-
-  get reasonValid(): boolean {
-    return validModerationReason(this.trimmedReason)
-  }
-
-  get trimmedBatchReason(): string {
-    return this._batchReason.trim()
-  }
-
-  get batchReasonValid(): boolean {
-    return validModerationReason(this.trimmedBatchReason)
-  }
-
+  get state(): AdminModerationState { return this._snapshot }
+  get disposed(): boolean { return this.scope.disposed }
+  get trimmedReason(): string { return this.s.reason.trim() }
+  get reasonValid(): boolean { return validModerationReason(this.trimmedReason) }
+  get trimmedBatchReason(): string { return this.s.batchReason.trim() }
+  get batchReasonValid(): boolean { return validModerationReason(this.trimmedBatchReason) }
   get batchExpiry(): number | null {
-    if (!this._batchClaims || this._batchClaims.length === 0) return null
-    return Math.min(...this._batchClaims.map(row => Number(row.expiresAt)))
+    return this.s.batchClaims?.length ? Math.min(...this.s.batchClaims.map(row => Number(row.expiresAt))) : null
   }
-
   get selectedTargets() {
-    return this._queue?.comments.filter(row => this._selected.has(moderationCoordinate(row))) ?? []
+    return this.s.queue?.comments.filter(row => this.s.selected.has(moderationCoordinate(row))) ?? []
   }
-
-  get visibleComments() {
-    return this._batchClaims ? this.selectedTargets : this._queue?.comments ?? []
-  }
-
+  get visibleComments() { return this.s.batchClaims ? this.selectedTargets : this.s.queue?.comments ?? [] }
   get batchAvailable(): boolean {
-    return this._queue?.batchEnabled === true &&
-      this._queue.comments.length >= WireLimits.AdminModerationBatchMinimum &&
-      !this._claim
+    return this.s.queue?.batchEnabled === true &&
+      this.s.queue.comments.length >= WireLimits.AdminModerationBatchMinimum && !this.s.claim
   }
-
   get canReadHistory(): boolean {
-    return !this.historyChannel.pending && validModerationCoordinates(this._historyArticle, this._historyComment)
+    return !this.historyChannel.pending && validModerationCoordinates(this.s.historyArticle, this.s.historyComment)
   }
 
-  snapshot(): AdminModerationState {
-    return this._snapshot
-  }
-
+  snapshot(): AdminModerationState { return this._snapshot }
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
-
   isClaimed(row: AdminCommentCursor): boolean {
-    return this._claim?.articleId === row.articleId && this._claim.commentId === row.commentId
+    return this.s.claim?.articleId === row.articleId && this.s.claim.commentId === row.commentId
   }
 
   bindSession(signal: AbortSignal, options: Readonly<{ autoLoad?: boolean }> = {}): void {
-    const autoLoad = options.autoLoad ?? true
     const { active } = this.scope.bindSession(signal)
-    if (active && autoLoad) void this.load()
+    if (active && (options.autoLoad ?? true)) void this.load()
   }
 
-  cancel(): void {
-    this.scope.cancelOperations()
-  }
+  cancel(): void { this.scope.cancelOperations() }
+  dispose(): void { this.scope.dispose() }
 
-  dispose(): void {
-    this.scope.dispose()
-  }
-
-  setReason(value: string): void {
-    if (this._reason === value) return
-    this._reason = value
+  private setField<K extends 'reason' | 'batchReason' | 'historyDialogOpen'>(key: K, value: WritableModerationData[K]): void {
+    if (this.s[key] === value) return
+    this.s[key] = value
     this.emitChange()
   }
-
-  setBatchReason(value: string): void {
-    if (this._batchReason === value) return
-    this._batchReason = value
-    this.emitChange()
-  }
-
-  setHistoryArticle(value: string): void {
-    if (this._historyArticle === value) return
-    this._historyArticle = value
+  private setHistoryKey(key: 'historyArticle' | 'historyComment', value: string): void {
+    if (this.s[key] === value) return
+    this.s[key] = value
     this.historyChannel.cancel()
     this.clearHistoryInternal()
     this.emitChange()
   }
 
-  setHistoryComment(value: string): void {
-    if (this._historyComment === value) return
-    this._historyComment = value
-    this.historyChannel.cancel()
-    this.clearHistoryInternal()
-    this.emitChange()
-  }
-
-  setHistoryDialogOpen(open: boolean): void {
-    if (this._historyDialogOpen === open) return
-    this._historyDialogOpen = open
-    this.emitChange()
-  }
+  setReason(value: string): void { this.setField('reason', value) }
+  setBatchReason(value: string): void { this.setField('batchReason', value) }
+  setHistoryArticle(value: string): void { this.setHistoryKey('historyArticle', value) }
+  setHistoryComment(value: string): void { this.setHistoryKey('historyComment', value) }
+  setHistoryDialogOpen(open: boolean): void { this.setField('historyDialogOpen', open) }
 
   load(after: AdminCommentCursor | null = null): Promise<boolean> | undefined {
-    if (this._claim || this._batchClaims) return undefined
+    if (this.s.claim || this.s.batchClaims) return undefined
     return this.runMain(async ctx => {
       this.clearBatchInternal()
-      this._queue = null
+      this.s.queue = null
       this.emitChange()
       const response = await this.transport.readAdminCommentQueue(after, ctx.signal)
       if (!ctx.isCurrent()) return
       this.cursor = after
-      this._queue = response
+      this.s.queue = response
       this.emitChange()
     }, () => 'admin.moderation.m12')
   }
@@ -291,78 +223,67 @@ export class AdminModerationController {
   async openCommentHistory(row: AdminCommentCursor): Promise<void> {
     const nextArticle = String(row.articleId)
     const nextComment = row.commentId.toString()
-    const changed = this._historyArticle !== nextArticle || this._historyComment !== nextComment
-    this._historyArticle = nextArticle
-    this._historyComment = nextComment
+    const changed = this.s.historyArticle !== nextArticle || this.s.historyComment !== nextComment
+    this.s.historyArticle = nextArticle
+    this.s.historyComment = nextComment
     if (changed) {
       this.historyChannel.cancel()
       this.clearHistoryInternal()
     }
-    this._historyDialogOpen = true
+    this.s.historyDialogOpen = true
     this.emitChange()
     await this.loadHistoryAndRevisions()
   }
 
-  loadHistory(): void {
-    this._historyDialogOpen = true
-    this.emitChange()
-    void this.loadHistoryAndRevisions()
-  }
-
+  loadHistory(): void { this.loadRevisions(null) }
   loadRevisions(before: number | null = null): void {
-    this._historyDialogOpen = true
+    this.s.historyDialogOpen = true
     this.emitChange()
     void this.loadHistoryAndRevisions(before)
   }
 
   loadHistoryAndRevisions(before: number | null = null): Promise<boolean> | undefined {
-    const article = this._historyArticle
-    const comment = this._historyComment
-    if (!validModerationCoordinates(article, comment) || this.historyChannel.pending || !this.scope.active) {
-      return undefined
-    }
+    const { historyArticle: article, historyComment: comment } = this.s
+    if (!validModerationCoordinates(article, comment) || this.historyChannel.pending || !this.scope.active) return undefined
 
     return this.historyChannel.run(async ctx => {
+      const sameTarget = () => ctx.isCurrent() && article === this.s.historyArticle && comment === this.s.historyComment
       if (before) {
         const page = await this.transport.readCommentRevisions(article, comment, before, ctx.signal)
-        if (!ctx.isCurrent() || article !== this._historyArticle || comment !== this._historyComment) return
-        this._revisions = page
+        if (!sameTarget()) return
+        this.s.revisions = page
         this.emitChange()
       } else {
+        const allow404 = <T>(promise: Promise<T>) => promise.catch(error => {
+          if (error instanceof ApiError && error.status === 404) return null
+          throw error
+        })
         const [timeline, page] = await Promise.all([
-          this.transport.readModerationTimeline(article, comment, ctx.signal).catch(error => {
-            if (error instanceof ApiError && error.status === 404) return null
-            throw error
-          }),
-          this.transport.readCommentRevisions(article, comment, null, ctx.signal).catch(error => {
-            if (error instanceof ApiError && error.status === 404) return null
-            throw error
-          }),
+          allow404(this.transport.readModerationTimeline(article, comment, ctx.signal)),
+          allow404(this.transport.readCommentRevisions(article, comment, null, ctx.signal)),
         ])
-        if (!ctx.isCurrent() || article !== this._historyArticle || comment !== this._historyComment) return
-        this._history = timeline
-        this._revisions = page
-        if (!timeline && !page) this._historyError = 'admin.moderation.m13'
+        if (!sameTarget()) return
+        this.s.history = timeline
+        this.s.revisions = page
+        if (!timeline && !page) this.s.historyError = 'admin.moderation.m13'
         this.emitChange()
       }
     }, {
       onStart: () => {
-        this._historyError = ''
+        this.s.historyError = ''
         if (!before) {
-          this._history = null
-          this._revisions = null
+          this.s.history = null
+          this.s.revisions = null
         }
       },
       onError: error => {
         if (error instanceof ApiError && error.status === 401) {
-          this._historyDialogOpen = false
+          this.s.historyDialogOpen = false
           this.clearReviewInternal()
           this.emitChange()
           this.hooks.onSessionLost?.(error)
         } else {
-          this._historyError = error instanceof ApiError && error.status === 404
-            ? 'admin.moderation.m13'
-            : 'admin.moderation.m14'
+          this.s.historyError = error instanceof ApiError && error.status === 404 ? 'admin.moderation.m13' : 'admin.moderation.m14'
           this.emitChange()
         }
       },
@@ -370,7 +291,7 @@ export class AdminModerationController {
   }
 
   claimForReview(target: AdminCommentCursor): Promise<boolean> | undefined {
-    if (this._claim || this._batchClaims || this._selected.size > 0) return undefined
+    if (this.s.claim || this.s.batchClaims || this.s.selected.size > 0) return undefined
     return this.runMain(async ctx => {
       const receipt = await this.transport.claimComment(target, ctx.signal)
       if (!ctx.isCurrent()) return
@@ -380,105 +301,94 @@ export class AdminModerationController {
   }
 
   renew(): Promise<boolean> | undefined {
-    const receipt = this._claim
+    const receipt = this.s.claim
     if (!receipt) return undefined
-    const preservedReason = this._reason
+    const preservedReason = this.s.reason
     return this.runMain(async ctx => {
       const renewed = await this.transport.renewCommentClaim(receipt, ctx.signal)
       if (!ctx.isCurrent()) return
-      this._failure = ''
+      this.s.failure = ''
       this.setClaimInternal(renewed, { preserveReason: true })
-      if (this._claim === renewed) this._reason = preservedReason
+      if (this.s.claim === renewed) this.s.reason = preservedReason
       this.emitChange()
     }, error => this.claimFailure(error, 'admin.moderation.m19'))
   }
 
   release(): Promise<boolean> | undefined {
-    const receipt = this._claim
+    const receipt = this.s.claim
     if (!receipt) return undefined
     return this.runMain(async ctx => {
       await this.transport.releaseCommentClaim(receipt, ctx.signal)
       if (!ctx.isCurrent()) return
-      this._failure = ''
+      this.s.failure = ''
       this.setClaimInternal(null)
-      this._notice = 'admin.moderation.m20'
+      this.s.notice = 'admin.moderation.m20'
       this.emitChange()
     }, error => this.claimFailure(error, 'admin.moderation.m21'))
   }
 
   decide(decision: 1 | 2): Promise<boolean> | undefined {
-    const receipt = this._claim
+    const receipt = this.s.claim
     if (!receipt || !this.reasonValid) return undefined
-    const command: AdminModerationDecision = {
-      articleId: receipt.articleId,
-      commentId: receipt.commentId,
-      expectedStatus: 0,
-      decision,
-      reason: this.trimmedReason,
-      commentVersion: receipt.commentVersion,
-      claimToken: receipt.claimToken,
-      claimGeneration: receipt.claimGeneration,
-      claimVersion: receipt.claimVersion,
-    }
+    const { expiresAt: _, ...rest } = receipt
+    const command: AdminModerationDecision = { ...rest, expectedStatus: 0, decision, reason: this.trimmedReason }
     return this.runMain(async ctx => {
       const proof = await this.transport.proveAdminModerationDecision(command, ctx.signal)
-      if (!ctx.isCurrent() || this._claim !== receipt) return
+      if (!ctx.isCurrent() || this.s.claim !== receipt) return
       await this.transport.decideComment(command, proof, ctx.signal)
       if (!ctx.isCurrent()) return
       this.setClaimInternal(null)
-      this._queue = null
-      this._notice = decision === 1 ? 'admin.moderation.m23' : 'admin.moderation.m24'
+      this.s.queue = null
+      this.s.notice = decision === 1 ? 'admin.moderation.m23' : 'admin.moderation.m24'
       this.emitChange()
       const updated = await this.transport.readAdminCommentQueue(this.cursor, ctx.signal)
       if (!ctx.isCurrent()) return
-      this._queue = updated
+      this.s.queue = updated
       this.emitChange()
-    }, error => this.claimFailure(error, this._notice ? 'admin.moderation.m25' : 'admin.moderation.m26'))
+    }, error => this.claimFailure(error, this.s.notice ? 'admin.moderation.m25' : 'admin.moderation.m26'))
   }
 
   select(row: AdminCommentCursor, checked: boolean): void {
-    if (!this.batchAvailable || this._batchClaims || this.mainChannel.pending || !this.scope.active) return
+    if (!this.batchAvailable || this.s.batchClaims || this.mainChannel.pending || !this.scope.active) return
     const key = moderationCoordinate(row)
-    const next = new Set(this._selected)
+    const next = new Set(this.s.selected)
     if (!checked) next.delete(key)
     else if (next.size < WireLimits.AdminModerationBatchCount) next.add(key)
-    this._selected = next
+    this.s.selected = next
     this.emitChange()
   }
 
   startBatch(): Promise<boolean> | undefined {
     const targets = this.selectedTargets
-    if (!this.batchAvailable || this._batchClaims || targets.length < WireLimits.AdminModerationBatchMinimum) {
-      return undefined
-    }
+    if (!this.batchAvailable || this.s.batchClaims || targets.length < WireLimits.AdminModerationBatchMinimum) return undefined
     return this.runMain(async ctx => {
       const receipts = await this.transport.claimModerationBatch(targets, ctx.signal)
       if (!ctx.isCurrent()) return
-      this._batchClaims = receipts
+      this.s.batchClaims = receipts
       this.scheduleBatchExpiry(receipts)
       this.emitChange()
-      if (this._batchClaims === receipts && this.hooks.onBatchClaimed) {
-        await this.hooks.onBatchClaimed(() => ctx.isCurrent() && this._batchClaims === receipts)
+      if (this.s.batchClaims === receipts && this.hooks.onBatchClaimed) {
+        await this.hooks.onBatchClaimed(() => ctx.isCurrent() && this.s.batchClaims === receipts)
       }
     }, error => batchConflict(error, targets) ?? 'admin.moderation.m28')
   }
 
   cancelBatch(): Promise<boolean> | undefined {
-    const receipts = this._batchClaims
+    const receipts = this.s.batchClaims
     if (!receipts) return undefined
     return this.runMain(async ctx => {
       this.clearBatchInternal()
       this.emitChange()
       const released = await this.releaseBatchClaims(receipts, ctx)
       if (!ctx.isCurrent()) return
-      if (released) this._notice = 'admin.moderation.m29'
-      else this._failure = 'admin.moderation.m30'
+      if (released) this.s.notice = 'admin.moderation.m29'
+      else this.s.failure = 'admin.moderation.m30'
       this.emitChange()
     }, () => 'admin.moderation.m30')
   }
 
   decideBatch(decision: 1 | 2): Promise<boolean> | undefined {
-    const receipts = this._batchClaims
+    const receipts = this.s.batchClaims
     if (!receipts || !this.batchReasonValid) return undefined
     const rows = receipts.map(({ expiresAt: _, ...receipt }) => ({ ...receipt, expectedStatus: 0 as const }))
     const command: AdminModerationBatchDecision = { decision, reason: this.trimmedBatchReason, rows }
@@ -487,15 +397,13 @@ export class AdminModerationController {
         const receipt = await this.transport.proveAndDecideModerationBatch(command, ctx.signal)
         if (!ctx.isCurrent()) return
         this.clearBatchInternal()
-        this._failure = ''
-        this._queue = null
-        this._notice = decision === 1
-          ? { key: 'admin.moderation.m65', params: { count: receipt.count } }
-          : { key: 'admin.moderation.m66', params: { count: receipt.count } }
+        this.s.failure = ''
+        this.s.queue = null
+        this.s.notice = { key: decision === 1 ? 'admin.moderation.m65' : 'admin.moderation.m66', params: { count: receipt.count } }
         this.emitChange()
         const updated = await this.transport.readAdminCommentQueue(this.cursor, ctx.signal)
         if (!ctx.isCurrent()) return
-        this._queue = updated
+        this.s.queue = updated
         this.emitChange()
       } catch (error) {
         if (!ctx.isCurrent()) return
@@ -505,10 +413,10 @@ export class AdminModerationController {
         this.emitChange()
         const released = await this.releaseBatchClaims(receipts, ctx)
         if (!ctx.isCurrent()) return
-        this._failure = released ? conflict : { ...conflict, key: 'admin.moderation.m64' }
+        this.s.failure = released ? conflict : { ...conflict, key: 'admin.moderation.m64' }
         this.emitChange()
       }
-    }, () => this._notice ? 'admin.moderation.m25' : 'admin.moderation.m31')
+    }, () => this.s.notice ? 'admin.moderation.m25' : 'admin.moderation.m31')
   }
 
   private runMain(
@@ -517,8 +425,8 @@ export class AdminModerationController {
   ): Promise<boolean> {
     return this.mainChannel.run(task, {
       onStart: () => {
-        this._failure = ''
-        this._notice = ''
+        this.s.failure = ''
+        this.s.notice = ''
       },
       onError: error => {
         if (error instanceof ApiError && error.status === 401) {
@@ -527,10 +435,10 @@ export class AdminModerationController {
           this.hooks.onSessionLost?.(error)
         } else if (error instanceof ApiError && error.status === 403) {
           this.clearReviewInternal()
-          this._failure = 'admin.moderation.m11'
+          this.s.failure = 'admin.moderation.m11'
           this.emitChange()
         } else {
-          this._failure = explain(error)
+          this.s.failure = explain(error)
           this.emitChange()
         }
       },
@@ -543,10 +451,7 @@ export class AdminModerationController {
     return 'admin.moderation.m22'
   }
 
-  private async releaseBatchClaims(
-    receipts: readonly AdminModerationClaim[],
-    ctx: AdminOperationContext,
-  ): Promise<boolean> {
+  private async releaseBatchClaims(receipts: readonly AdminModerationClaim[], ctx: AdminOperationContext): Promise<boolean> {
     let released = true
     for (const receipt of receipts) {
       if (!ctx.isCurrent()) return false
@@ -587,13 +492,12 @@ export class AdminModerationController {
 
   private setClaimInternal(next: AdminModerationClaim | null, options: Readonly<{ preserveReason?: boolean }> = {}): void {
     this.clearExpiry(this.claimExpiry)
-    if (!options.preserveReason && (!next || !this.isClaimed(next))) this._reason = ''
-    this._claim = next
+    if (!options.preserveReason && (!next || !this.isClaimed(next))) this.s.reason = ''
+    this.s.claim = next
     if (!next) return
-
-    this.scheduleExpiry(this.claimExpiry, Number(next.expiresAt), () => this._claim === next, () => {
+    this.scheduleExpiry(this.claimExpiry, Number(next.expiresAt), () => this.s.claim === next, () => {
       this.setClaimInternal(null)
-      this._failure = 'admin.moderation.m10'
+      this.s.failure = 'admin.moderation.m10'
       this.emitChange()
     })
   }
@@ -601,59 +505,35 @@ export class AdminModerationController {
   private scheduleBatchExpiry(receipts: readonly AdminModerationClaim[]): void {
     this.clearExpiry(this.batchTimerSlot)
     if (receipts.length === 0) return
-
-    this.scheduleExpiry(this.batchTimerSlot, Math.min(...receipts.map(row => Number(row.expiresAt))), () => this._batchClaims === receipts, () => {
+    this.scheduleExpiry(this.batchTimerSlot, Math.min(...receipts.map(row => Number(row.expiresAt))), () => this.s.batchClaims === receipts, () => {
       this.clearBatchInternal()
-      this._failure = 'admin.moderation.m27'
+      this.s.failure = 'admin.moderation.m27'
       this.emitChange()
     })
   }
 
   private clearBatchInternal(): void {
     this.clearExpiry(this.batchTimerSlot)
-    this._batchClaims = null
-    this._selected = new Set()
-    this._batchReason = ''
+    this.s.batchClaims = null
+    this.s.selected = new Set()
+    this.s.batchReason = ''
   }
 
   private clearHistoryInternal(): void {
-    this._history = null
-    this._revisions = null
-    this._historyError = ''
+    this.s.history = null
+    this.s.revisions = null
+    this.s.historyError = ''
   }
 
   private clearReviewInternal(): void {
-    this.setClaimInternal(null)
-    this.clearBatchInternal()
+    this.clearExpiry(this.claimExpiry)
+    this.clearExpiry(this.batchTimerSlot)
     this.cursor = null
-    this._queue = null
-    this._notice = ''
-    this._failure = ''
-    this._historyArticle = ''
-    this._historyComment = ''
-    this._historyDialogOpen = false
-    this.clearHistoryInternal()
+    this.s = emptyModerationData()
   }
 
   private buildSnapshot(): AdminModerationState {
-    return {
-      queue: this._queue,
-      claim: this._claim,
-      batchClaims: this._batchClaims,
-      selected: this._selected,
-      reason: this._reason,
-      batchReason: this._batchReason,
-      busy: this.mainChannel.pending,
-      failure: this._failure,
-      notice: this._notice,
-      historyArticle: this._historyArticle,
-      historyComment: this._historyComment,
-      historyDialogOpen: this._historyDialogOpen,
-      historyLoading: this.historyChannel.pending,
-      historyError: this._historyError,
-      history: this._history,
-      revisions: this._revisions,
-    }
+    return { ...this.s, busy: this.mainChannel.pending, historyLoading: this.historyChannel.pending }
   }
 
   private emitChange(): void {

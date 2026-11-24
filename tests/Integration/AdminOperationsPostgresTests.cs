@@ -1,12 +1,3 @@
-using System.Security.Cryptography;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Administration;
-using FsusBlog.V2.Server.Passkeys;
-using FsusBlogV2.Storage;
-using static FsusBlog.V2.Integration.Tests.BusinessAssert;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class AdminOperationsPostgresTests
@@ -15,9 +6,7 @@ public sealed class AdminOperationsPostgresTests
     public async Task AuditPermissionKeepsActualPublicationStateInIndependentCurrentAdminSession()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var (admin, key, _) = await FixtureSql.AdminAsync(db, ct, "observer", 10, [1], [2]);
-        var actor = Guid.NewGuid();
+        var (admin, key, _) = await fixture.AdminAsync("observer", 10, [1], [2], ct);
 
         var gate = new AdminSessionGate(fixture.DataSource, null);
         var adminStore = new AdminOperationsStore(gate);
@@ -28,10 +17,7 @@ public sealed class AdminOperationsPostgresTests
         Assert.Equal(new AdminOperationsStatus(false, 0, 0, 0), empty);
 
         var site = new Store(fixture.DataSource);
-        var ticket = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        await Execute("insert into public.blog_user(id,name,enabled,generation) values($1,'reader',true,1)", actor);
-        await Execute("insert into public.login_ticket values($1,$2,clock_timestamp()+interval '5 minutes')", Store.TokenDigest(ticket)!, actor);
-        var (siteToken, _) = await site.SignIn(ticket, ct);
+        var (_, siteToken, _) = await fixture.SignInSiteUser("reader", ct, minutes: 5);
         await Denied(Rejection.Unauthorized, () => adminStore.OperationsStatus(siteToken, publications, ct));
         var (_, authorToken, _) = await fixture.SignIn("owner", ct);
         var (draft, _) = await publications.Command(site, authorToken, ArticleAction.Save,
@@ -39,30 +25,24 @@ public sealed class AdminOperationsPostgresTests
         await publications.Command(site, authorToken, ArticleAction.Publish,
             new Edit(draft.Id, draft.Revision, Guid.NewGuid(), "A fixture article", "A fixture body"), ct);
         var (published, _) = await adminStore.OperationsStatus(key, publications, ct);
-        Assert.True(published.SnapshotReady);
-        Assert.True(published.PublicationWatermark > 0);
+        Assert.True(published.SnapshotReady && published.PublicationWatermark > 0);
         Assert.Equal(0L, published.PendingPublicationEvents);
 
         var queued = DateTimeOffset.UtcNow.AddMinutes(-4);
-        await Execute("""
+        await fixture.Exec("""
             insert into public.blog_outbox(article_id,revision,kind,created_at)
             select id,revision,'retract',$2 from public.article where id=$1
             """, draft.Id, queued);
         var (lagging, _) = await adminStore.OperationsStatus(key, publications, ct);
-        Assert.Equal(published.PublicationWatermark, lagging.PublicationWatermark);
-        Assert.Equal(1L, lagging.PendingPublicationEvents);
-        Assert.Equal(queued.ToUnixTimeMilliseconds(), lagging.OldestPendingAt);
+        Assert.Equal((published.PublicationWatermark, 1L, queued.ToUnixTimeMilliseconds()),
+            (lagging.PublicationWatermark, lagging.PendingPublicationEvents, lagging.OldestPendingAt));
         Assert.Equal(lagging, Wire.DecodeAdminOperationsStatus(Wire.EncodeAdminOperationsStatus(lagging)));
         await publications.Refresh(ct);
         var (caughtUp, _) = await adminStore.OperationsStatus(key, publications, ct);
         Assert.True(caughtUp.PublicationWatermark > lagging.PublicationWatermark);
-        Assert.Equal(0L, caughtUp.PendingPublicationEvents);
-        Assert.Equal(0L, caughtUp.OldestPendingAt);
+        Assert.Equal((0L, 0L), (caughtUp.PendingPublicationEvents, caughtUp.OldestPendingAt));
 
-        await Execute("update public.admin_principal set generation=generation+1 where id=$1", admin);
+        await fixture.Exec("update public.admin_principal set generation=generation+1 where id=$1", admin);
         await Denied(Rejection.Unauthorized, () => adminStore.OperationsStatus(key, publications, ct));
-
-        Task Execute(string sql, params object[] arguments) =>
-            FixtureSql.ExecuteAsync(db, null, ct, sql, arguments);
     }
 }

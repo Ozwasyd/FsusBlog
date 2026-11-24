@@ -1,10 +1,33 @@
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server.Authoring;
-
 public sealed class AuthorTextProfileTests
 {
+    public static TheoryData<string> BadPlainQueries =>
+    [
+        "", "   ", "\rvalue", "\"\"", "\"left\" right", "\"left\" \"right\"", "\"unclosed",
+        "\"escaped\\\" quote\"", "title:foo", "title:\u0301foo", "/(?:foo)/u", "foo AND bar",
+        "foo OR, bar", "NOT foo", "foo NEAR bar", "foo | bar", "foo - bar", "foo -bar",
+        "foo !bar", "foo +bar", "foo.*", "one two three four five six seven eight nine", "x x x x x x x x x",
+    ];
+
+    public static TheoryData<string> BadRankedQueries =>
+    [
+        "", " , . ", "\rvalue", "\"\"", "\"left\"right", "left\"right\"", "\"left\"\"right\"", "\"unclosed",
+        "\"invalid \\n escape\"", "left\\right", "foo \".\" bar", "title:foo", "Field.title:foo", "field.body:foo",
+        "field.summary:foo", "field.title: foo", "field.title:", "field.title:.", "field.title:\"left\"right",
+        "field.title:foo field.title:\"bar baz\"", "field.markdown-body:foo field.markdown-body:bar",
+        "field.markdown-body:AND", "status:published", "updated-at.before:2026-01-01", "property:priority",
+        "/(?:foo)/u", "foo OR, bar", "foo NEAR bar", "foo -bar", "foo.*", "x x x x x x x x x", "foo$",
+        "field.title:x-x-x-x field.markdown-body:\"x x\" \"x x x\"",
+    ];
+
+    public static TheoryData<string> BadFacetedQueries =>
+    [
+        "status:draft category:2 tag:3", "status:draft , .", "status:archived word", "status:deleted word",
+        "status:Draft word", "status:\"draft\" word", "status: draft word", "status:draft status:published word",
+        "category:2 category:02 word", "tag:3 tag:3 word", "category:\"42\" word", "tag:0 word",
+        "category:+1 word", "tag:-1 word", "category:2147483648 word", "tag:١ word", "category:1.0 word",
+        "word tag:", "word updated-at.before:2026-01-01", "word property:priority", "word Tag:42",
+    ];
+
     [Fact]
     public void FoldedTermsKeepTheRawUtf16AndUtf8GraphemeBounds()
     {
@@ -12,28 +35,24 @@ public sealed class AuthorTextProfileTests
         var terms = AuthorTextProfile.Tokenize(source, CancellationToken.None).ToArray();
 
         Assert.Equal(new[] { "café", "中", "文", "𠀀", "선", "가", "👩🏽‍💻", "🇺🇸", "*️⃣" }, terms.Select(term => term.Value));
-        Assert.Equal(new AuthorTextTerm("café", 0, 1, 6, 3, 9), terms[0]);
-        Assert.Equal(new AuthorTextTerm("中", 1, 8, 9, 11, 14), terms[1]);
+        Assert.Equal((new AuthorTextTerm("café", 0, 1, 6, 3, 9), new AuthorTextTerm("中", 1, 8, 9, 11, 14)), (terms[0], terms[1]));
         var raw = new[] { "Cafe\u0301", "中", "文", "𠀀", "선", "가", "👩🏽‍💻", "🇺🇸", "*️⃣" };
         var boundaries = System.Globalization.StringInfo.ParseCombiningCharacters(source).Append(source.Length).ToHashSet();
         var bytes = Encoding.UTF8.GetBytes(source);
         for (var i = 0; i < terms.Length; i++)
         {
             var term = terms[i];
-            Assert.Equal(i, term.Ordinal);
             Assert.Contains(term.Start, boundaries);
             Assert.Contains(term.End, boundaries);
-            Assert.Equal(raw[i], source[term.Start..term.End]);
-            Assert.Equal(raw[i], Encoding.UTF8.GetString(bytes[term.ByteStart..term.ByteEnd]));
-            Assert.Equal(Encoding.UTF8.GetByteCount(source.AsSpan(0, term.Start)), term.ByteStart);
+            Assert.Equal((i, raw[i], raw[i], Encoding.UTF8.GetByteCount(source.AsSpan(0, term.Start))),
+                (term.Ordinal, source[term.Start..term.End], Encoding.UTF8.GetString(bytes[term.ByteStart..term.ByteEnd]), term.ByteStart));
         }
     }
 
     [Fact]
     public void WordsFoldByUnicode17AndPunctuationSeparatesNonCjkRuns()
     {
-        var source = "Café CAFÉ ＡLPHA A Слово سَلَام １２-three's";
-        var terms = AuthorTextProfile.Tokenize(source, CancellationToken.None).Select(term => term.Value);
+        var terms = AuthorTextProfile.Tokenize("Café CAFÉ ＡLPHA A Слово سَلَام １２-three's", CancellationToken.None).Select(term => term.Value);
         Assert.Equal(new[] { "café", "café", "ａlpha", "a", "слово", "سَلَام", "１２", "three", "s" }, terms);
         Assert.Equal("café", Assert.Single(AuthorTextProfile.Parse("Cafe\u0301 CAFÉ Café").Terms));
     }
@@ -43,8 +62,7 @@ public sealed class AuthorTextProfileTests
     {
         using var resource = typeof(AuthorTextProfile).Assembly.GetManifestResourceStream(AuthorTextProfile.CaseFoldingResource);
         Assert.NotNull(resource);
-        Assert.Equal("ff8d8fefbf123574205085d6714c36149eb946d717a0c585c27f0f4ef58c4183",
-            Convert.ToHexStringLower(SHA256.HashData(resource)));
+        Assert.Equal("ff8d8fefbf123574205085d6714c36149eb946d717a0c585c27f0f4ef58c4183", Convert.ToHexStringLower(SHA256.HashData(resource)));
     }
 
     [Theory]
@@ -57,10 +75,8 @@ public sealed class AuthorTextProfileTests
     [InlineData("Cafe\u0301", "café")]
     [InlineData("H\u0331", "\u1e96")]
     [InlineData("\U00016ea0", "\U00016ebb")]
-    public void NormalizationUsesOnlyDefaultSimpleMappings(string raw, string normalized)
-    {
+    public void NormalizationUsesOnlyDefaultSimpleMappings(string raw, string normalized) =>
         Assert.Equal(normalized, AuthorTextProfile.NormalizeTerm(raw));
-    }
 
     [Fact]
     public void BareTermsAreAnIntersectionAndQuotedTermsKeepTheirSequence()
@@ -77,34 +93,9 @@ public sealed class AuthorTextProfileTests
         Assert.Equal(new[] { "bread", "and", "butter" }, AuthorTextProfile.Parse("bread and butter").Terms);
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    [InlineData("\rvalue")]
-    [InlineData("\"\"")]
-    [InlineData("\"left\" right")]
-    [InlineData("\"left\" \"right\"")]
-    [InlineData("\"unclosed")]
-    [InlineData("\"escaped\\\" quote\"")]
-    [InlineData("title:foo")]
-    [InlineData("title:\u0301foo")]
-    [InlineData("/(?:foo)/u")]
-    [InlineData("foo AND bar")]
-    [InlineData("foo OR, bar")]
-    [InlineData("NOT foo")]
-    [InlineData("foo NEAR bar")]
-    [InlineData("foo | bar")]
-    [InlineData("foo - bar")]
-    [InlineData("foo -bar")]
-    [InlineData("foo !bar")]
-    [InlineData("foo +bar")]
-    [InlineData("foo.*")]
-    [InlineData("one two three four five six seven eight nine")]
-    [InlineData("x x x x x x x x x")]
-    public void UnsupportedAndUnboundedQueriesFailClosed(string query)
-    {
+    [Theory, MemberData(nameof(BadPlainQueries))]
+    public void UnsupportedAndUnboundedQueriesFailClosed(string query) =>
         Assert.Throws<ProtocolException>(() => AuthorTextProfile.Parse(query));
-    }
 
     [Fact]
     public void NormalizedQueryOperandBudgetDoesNotChangeSourceOrdinals()
@@ -124,8 +115,7 @@ public sealed class AuthorTextProfileTests
     public void SourceBudgetUnicodeAndCancellationAreChecked()
     {
         var source = new string('中', AuthorTextProfile.MaxSourceChars);
-        var terms = AuthorTextProfile.Tokenize(source, CancellationToken.None);
-        Assert.Equal(AuthorTextProfile.MaxTerms, terms.Count());
+        Assert.Equal(AuthorTextProfile.MaxTerms, AuthorTextProfile.Tokenize(source, CancellationToken.None).Count());
         Assert.Throws<ProtocolException>(() => AuthorTextProfile.Tokenize(source + "文", CancellationToken.None).ToArray());
 
         var invalid = new string('\ud800', 1);
@@ -168,44 +158,9 @@ public sealed class AuthorTextProfileTests
         AssertClause(punctuation.Clauses[^1], AuthorTextField.Any, true, "title", "or", "value");
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData(" , . ")]
-    [InlineData("\rvalue")]
-    [InlineData("\"\"")]
-    [InlineData("\"left\"right")]
-    [InlineData("left\"right\"")]
-    [InlineData("\"left\"\"right\"")]
-    [InlineData("\"unclosed")]
-    [InlineData("\"invalid \\n escape\"")]
-    [InlineData("left\\right")]
-    [InlineData("foo \".\" bar")]
-    [InlineData("title:foo")]
-    [InlineData("Field.title:foo")]
-    [InlineData("field.body:foo")]
-    [InlineData("field.summary:foo")]
-    [InlineData("field.title: foo")]
-    [InlineData("field.title:")]
-    [InlineData("field.title:.")]
-    [InlineData("field.title:\"left\"right")]
-    [InlineData("field.title:foo field.title:\"bar baz\"")]
-    [InlineData("field.markdown-body:foo field.markdown-body:bar")]
-    [InlineData("field.markdown-body:AND")]
-    [InlineData("status:published")]
-    [InlineData("updated-at.before:2026-01-01")]
-    [InlineData("property:priority")]
-    [InlineData("/(?:foo)/u")]
-    [InlineData("foo OR, bar")]
-    [InlineData("foo NEAR bar")]
-    [InlineData("foo -bar")]
-    [InlineData("foo.*")]
-    [InlineData("x x x x x x x x x")]
-    [InlineData("foo$")]
-    [InlineData("field.title:x-x-x-x field.markdown-body:\"x x\" \"x x x\"")]
-    public void UnsupportedAndUnboundedRankedQueriesFailClosed(string query)
-    {
+    [Theory, MemberData(nameof(BadRankedQueries))]
+    public void UnsupportedAndUnboundedRankedQueriesFailClosed(string query) =>
         Assert.Throws<ProtocolException>(() => AuthorTextProfile.ParseRanked(query));
-    }
 
     [Fact]
     public void RankedLimitsCountTheRawPrefixAndTheNormalizedOperandBytes()
@@ -221,9 +176,7 @@ public sealed class AuthorTextProfileTests
     public void FacetsPreserveTheFieldScopedTextAndRemainOutsideItsTokenBudget()
     {
         var query = AuthorTextProfile.ParseFaceted("category:0042 field.title:Release status:published field.markdown-body:\"source map\" tag:2147483647");
-        Assert.Equal(AuthorArticleState.Published, query.Status);
-        Assert.Equal(42, query.CategoryId);
-        Assert.Equal(int.MaxValue, query.TagId);
+        Assert.Equal((AuthorArticleState.Published, 42, int.MaxValue), (query.Status, query.CategoryId, query.TagId));
         Assert.Collection(query.Text.Clauses,
             clause => AssertClause(clause, AuthorTextField.Title, false, "release"),
             clause => AssertClause(clause, AuthorTextField.MarkdownBody, true, "source", "map"));
@@ -246,9 +199,7 @@ public sealed class AuthorTextProfileTests
     {
         var text = "status:" + name + " word";
         var faceted = AuthorTextProfile.ParseFaceted(text);
-        Assert.Equal(expected, faceted.Status);
-        Assert.Null(faceted.CategoryId);
-        Assert.Null(faceted.TagId);
+        Assert.Equal((expected, (int?)null, (int?)null), (faceted.Status, faceted.CategoryId, faceted.TagId));
         AssertClause(Assert.Single(faceted.Text.Clauses), AuthorTextField.Any, false, "word");
         Assert.Throws<ProtocolException>(() => AuthorTextProfile.ParseRanked(text));
         Assert.Throws<ProtocolException>(() => AuthorTextProfile.Parse(text));
@@ -258,43 +209,17 @@ public sealed class AuthorTextProfileTests
     public void QuotedTextContainingFacetSyntaxIsStillText()
     {
         var faceted = AuthorTextProfile.ParseFaceted("\"status:draft\"");
-        Assert.Null(faceted.Status);
-        Assert.Null(faceted.CategoryId);
-        Assert.Null(faceted.TagId);
+        Assert.Equal(((AuthorArticleState?)null, (int?)null, (int?)null), (faceted.Status, faceted.CategoryId, faceted.TagId));
         AssertClause(Assert.Single(faceted.Text.Clauses), AuthorTextField.Any, true, "status", "draft");
     }
 
-    [Theory]
-    [InlineData("status:draft category:2 tag:3")]
-    [InlineData("status:draft , .")]
-    [InlineData("status:archived word")]
-    [InlineData("status:deleted word")]
-    [InlineData("status:Draft word")]
-    [InlineData("status:\"draft\" word")]
-    [InlineData("status: draft word")]
-    [InlineData("status:draft status:published word")]
-    [InlineData("category:2 category:02 word")]
-    [InlineData("tag:3 tag:3 word")]
-    [InlineData("category:\"42\" word")]
-    [InlineData("tag:0 word")]
-    [InlineData("category:+1 word")]
-    [InlineData("tag:-1 word")]
-    [InlineData("category:2147483648 word")]
-    [InlineData("tag:١ word")]
-    [InlineData("category:1.0 word")]
-    [InlineData("word tag:")]
-    [InlineData("word updated-at.before:2026-01-01")]
-    [InlineData("word property:priority")]
-    [InlineData("word Tag:42")]
-    public void InvalidOrFilterOnlyFacetedQueriesFailClosed(string query)
-    {
+    [Theory, MemberData(nameof(BadFacetedQueries))]
+    public void InvalidOrFilterOnlyFacetedQueriesFailClosed(string query) =>
         Assert.Throws<ProtocolException>(() => AuthorTextProfile.ParseFaceted(query));
-    }
 
     private static void AssertClause(AuthorTextClause clause, AuthorTextField field, bool phrase, params string[] terms)
     {
-        Assert.Equal(field, clause.Field);
-        Assert.Equal(phrase, clause.Phrase);
+        Assert.Equal((field, phrase), (clause.Field, clause.Phrase));
         Assert.Equal(terms, clause.Terms);
     }
 }

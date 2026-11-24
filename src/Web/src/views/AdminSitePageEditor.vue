@@ -18,6 +18,8 @@ import { ApiError } from '../../../Contracts/aeds'
 import { publishAdminSitePage, readSitePageRevision, validPageMarkdown } from '../../../Contracts/admin-site-pages'
 import type { SitePageSlug } from '../../../Contracts/site-pages'
 import { WireLimits } from '../../../Contracts/wire.generated'
+import { useMediaQuery } from '../delayedBusy'
+import { isAdminSessionLost } from './adminSessionClear'
 
 type ViewMode = 'split' | 'edit' | 'preview'
 
@@ -48,7 +50,7 @@ const stale = ref(false)
 const error = ref<MessageKey | ''>('')
 const updated = ref(false)
 
-const narrowViewport = ref(typeof window !== 'undefined' && window.matchMedia('(max-width: 860px)').matches)
+const narrowViewport = useMediaQuery('(max-width: 860px)')
 const selectedMode = ref<ViewMode>(narrowViewport.value ? 'edit' : 'split')
 const effectiveMode = computed<ViewMode>(() => (narrowViewport.value && selectedMode.value === 'split' ? 'edit' : selectedMode.value))
 
@@ -150,7 +152,7 @@ async function run(action: () => Promise<void>) {
     await action()
   } catch (cause) {
     if (signal.aborted) return
-    if (cause instanceof ApiError && cause.status === 401 && !cause.details.startsWith('pow_')) {
+    if (isAdminSessionLost(cause)) {
       emit('session-lost', cause)
     } else if (cause instanceof ApiError && cause.status === 409) {
       stale.value = true
@@ -166,25 +168,8 @@ async function run(action: () => Promise<void>) {
   }
 }
 
-let mediaQuery: MediaQueryList | undefined
-function onViewportChange(event: MediaQueryListEvent) {
-  narrowViewport.value = event.matches
-}
-
-onMounted(() => {
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    mediaQuery = window.matchMedia('(max-width: 860px)')
-    narrowViewport.value = mediaQuery.matches
-    if (narrowViewport.value && selectedMode.value === 'split') selectedMode.value = 'edit'
-    mediaQuery.addEventListener('change', onViewportChange)
-  }
-  void load()
-})
-
-onScopeDispose(() => {
-  mediaQuery?.removeEventListener('change', onViewportChange)
-  lifetime.abort()
-})
+onMounted(() => { void load() })
+onScopeDispose(() => lifetime.abort())
 </script>
 
 <template>
@@ -270,7 +255,7 @@ onScopeDispose(() => {
 
         <div class="site-page-commit">
           <div v-if="dirty" class="site-page-dirty-row">
-            <ElTag size="small" type="warning">{{ t('admin.sitePages.unsaved') }}</ElTag>
+            <ElTag size="small" type="warning">{{ t('admin.siteConfig.unsaved') }}</ElTag>
           </div>
           <ElCheckbox
             v-if="!stale"

@@ -10,112 +10,88 @@ import {
   type CanvasMessageKey,
 } from './canvasCommands.ts'
 
-export interface CanvasFormFields {
-  readonly title: string
-  readonly nodeKind: CanvasNode['kind']
-  readonly note: string
-  readonly article: string
-  readonly anchor: string
-  readonly pinned: string
-  readonly endpoint: string
-  readonly choiceFilter: string
-  readonly edgeKind: CanvasGraphEdge['kind']
-  readonly label: string
-}
+const emptyCanvasForm = () => ({
+  form: undefined as 'title' | 'node' | 'edge' | undefined,
+  title: '',
+  nodeKind: 'plain-text-note' as CanvasNode['kind'],
+  note: '',
+  article: '',
+  anchor: '',
+  pinned: '',
+  members: [] as readonly string[],
+  endpoint: '',
+  editingNode: undefined as CanvasNode | undefined,
+  editingEdge: undefined as CanvasGraphEdge | undefined,
+  choiceFilter: '',
+  edgeKind: 'visual-only' as CanvasGraphEdge['kind'],
+  label: '',
+})
 
-export interface CanvasFormState extends CanvasFormFields {
-  readonly form: 'title' | 'node' | 'edge' | undefined
-  readonly members: readonly string[]
-  readonly editingNode: CanvasNode | undefined
-  readonly editingEdge: CanvasGraphEdge | undefined
-}
+type MutableCanvasFormState = ReturnType<typeof emptyCanvasForm>
+export type CanvasFormState = Readonly<MutableCanvasFormState>
+export type CanvasFormFields = Omit<CanvasFormState, 'form' | 'members' | 'editingNode' | 'editingEdge'>
 
 /**
  * Pure form-draft model for Canvas title, node, and edge dialogs.
  */
 export class CanvasFormModel {
-  #form: 'title' | 'node' | 'edge' | undefined
-  #title = ''
-  #nodeKind: CanvasNode['kind'] = 'plain-text-note'
-  #note = ''
-  #article = ''
-  #anchor = ''
-  #pinned = ''
-  #members: readonly string[] = []
-  #endpoint = ''
-  #editingNode: CanvasNode | undefined
-  #editingEdge: CanvasGraphEdge | undefined
-  #choiceFilter = ''
-  #edgeKind: CanvasGraphEdge['kind'] = 'visual-only'
-  #label = ''
+  readonly #s: MutableCanvasFormState = emptyCanvasForm()
 
-  get isOpen(): boolean {
-    return this.#form !== undefined
-  }
-
-  get title(): string {
-    return this.#title
-  }
+  get isOpen(): boolean { return this.#s.form !== undefined }
+  get title(): string { return this.#s.title }
 
   reset(clearTitle = true): void {
-    this.#form = undefined
-    this.#editingNode = undefined
-    this.#editingEdge = undefined
-    if (clearTitle) this.#title = ''
+    this.#s.form = undefined
+    this.#s.editingNode = undefined
+    this.#s.editingEdge = undefined
+    if (clearTitle) this.#s.title = ''
   }
 
-  clearEditing(): void {
-    this.#form = undefined
-    this.#editingNode = undefined
-    this.#editingEdge = undefined
-  }
+  clearEditing(): void { this.reset(false) }
 
   update(patch: Partial<CanvasFormFields>): void {
-    if (patch.title !== undefined) this.#title = patch.title
-    if (patch.nodeKind !== undefined) this.#nodeKind = patch.nodeKind
-    if (patch.note !== undefined) this.#note = patch.note
-    if (patch.article !== undefined) this.#article = patch.article
-    if (patch.anchor !== undefined) this.#anchor = patch.anchor
-    if (patch.pinned !== undefined) this.#pinned = patch.pinned
-    if (patch.endpoint !== undefined) this.#endpoint = patch.endpoint
-    if (patch.choiceFilter !== undefined) this.#choiceFilter = patch.choiceFilter
-    if (patch.edgeKind !== undefined) this.#edgeKind = patch.edgeKind
-    if (patch.label !== undefined) this.#label = patch.label
+    for (const [key, value] of Object.entries(patch)) {
+      if (value !== undefined) (this.#s as Record<string, unknown>)[key] = value
+    }
   }
 
   setFrameMembers(shownChoices: readonly CanvasNode[], selectedOptionIds: readonly string[]): void {
-    this.#members = mergeFrameMembers(this.#members, shownChoices, selectedOptionIds)
+    this.#s.members = mergeFrameMembers(this.#s.members, shownChoices, selectedOptionIds)
   }
 
   openTitle(currentTitle: string | undefined): void {
-    this.#title = currentTitle ?? ''
-    this.#form = 'title'
+    this.#s.title = currentTitle ?? ''
+    this.#s.form = 'title'
   }
 
   openNode(kind: CanvasNode['kind'] = 'plain-text-note', existing?: CanvasNode): void {
-    this.#choiceFilter = ''
-    this.#nodeKind = existing?.kind ?? kind
-    this.#note = existing && 'text' in existing ? existing.text : ''
-    this.#article = existing && 'articleId' in existing ? String(existing.articleId) : ''
-    this.#anchor = existing && 'anchor' in existing ? existing.anchor : ''
-    this.#pinned = existing && 'pinnedRevision' in existing ? existing.pinnedRevision?.toString() ?? '' : ''
-    this.#members = existing?.kind === 'group-frame' ? [...existing.memberIds] : []
-    this.#editingNode = existing
-    this.#form = 'node'
+    Object.assign(this.#s, {
+      choiceFilter: '',
+      nodeKind: existing?.kind ?? kind,
+      note: existing && 'text' in existing ? existing.text : '',
+      article: existing && 'articleId' in existing ? String(existing.articleId) : '',
+      anchor: existing && 'anchor' in existing ? existing.anchor : '',
+      pinned: existing && 'pinnedRevision' in existing ? existing.pinnedRevision?.toString() ?? '' : '',
+      members: existing?.kind === 'group-frame' ? [...existing.memberIds] : [],
+      editingNode: existing,
+      form: 'node' as const,
+    })
   }
 
   openEdge(edge?: CanvasGraphEdge): void {
-    this.#editingEdge = edge
-    this.#endpoint = edge?.targetNodeId ?? ''
-    this.#choiceFilter = ''
-    this.#edgeKind = edge?.kind ?? 'visual-only'
-    this.#label = edge?.label ?? ''
-    this.#form = 'edge'
+    Object.assign(this.#s, {
+      editingEdge: edge,
+      endpoint: edge?.targetNodeId ?? '',
+      choiceFilter: '',
+      edgeKind: edge?.kind ?? 'visual-only',
+      label: edge?.label ?? '',
+      form: 'edge' as const,
+    })
   }
 
   close(locked: boolean): boolean {
-    if (locked || this.#form === undefined) return false
-    this.#form = undefined
+    if (locked || this.#s.form === undefined) return false
+    this.#s.form = undefined
     return true
   }
 
@@ -123,18 +99,12 @@ export class CanvasFormModel {
     canvas: CanvasGraphHeader,
     generatedNodeId: string,
   ): { readonly ok: true; readonly node: CanvasNode } | { readonly ok: false; readonly errorKey: CanvasMessageKey } {
+    const s = this.#s
     return buildCanvasNode(
-      {
-        kind: this.#nodeKind,
-        text: this.#note,
-        article: this.#article,
-        anchor: this.#anchor,
-        pinned: this.#pinned,
-        memberIds: this.#members,
-      },
+      { kind: s.nodeKind, text: s.note, article: s.article, anchor: s.anchor, pinned: s.pinned, memberIds: s.members },
       canvas,
       generatedNodeId,
-      this.#editingNode,
+      s.editingNode,
     )
   }
 
@@ -144,38 +114,12 @@ export class CanvasFormModel {
     edgeCount: number
     generatedEdgeId: string
   }): CanvasGraphEdge | undefined {
+    const s = this.#s
     return buildCanvasEdge(
-      {
-        endpoint: this.#endpoint,
-        kind: this.#edgeKind,
-        label: this.#label,
-      },
-      {
-        prior: this.#editingEdge,
-        selectedNodeId: context.selectedNodeId,
-        byId: context.byId,
-        edgeCount: context.edgeCount,
-        generatedEdgeId: context.generatedEdgeId,
-      },
+      { endpoint: s.endpoint, kind: s.edgeKind, label: s.label },
+      { prior: s.editingEdge, ...context },
     )
   }
 
-  snapshot(): CanvasFormState {
-    return {
-      form: this.#form,
-      title: this.#title,
-      nodeKind: this.#nodeKind,
-      note: this.#note,
-      article: this.#article,
-      anchor: this.#anchor,
-      pinned: this.#pinned,
-      members: this.#members,
-      endpoint: this.#endpoint,
-      editingNode: this.#editingNode,
-      editingEdge: this.#editingEdge,
-      choiceFilter: this.#choiceFilter,
-      edgeKind: this.#edgeKind,
-      label: this.#label,
-    }
-  }
+  snapshot(): CanvasFormState { return { ...this.#s } }
 }

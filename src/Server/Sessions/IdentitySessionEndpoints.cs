@@ -1,6 +1,3 @@
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server.Passkeys;
-
 namespace FsusBlog.V2.Server.Sessions;
 
 internal static class IdentitySessionEndpoints

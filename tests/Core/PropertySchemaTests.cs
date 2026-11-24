@@ -1,6 +1,3 @@
-using System.Collections.Immutable;
-using FsusBlog.V2.Core.Authoring;
-
 public sealed class PropertySchemaTests
 {
     private static readonly Guid Actor = Guid.Parse("e3726967-184d-4714-86e0-cbf84ef45a19");
@@ -27,19 +24,17 @@ public sealed class PropertySchemaTests
 
         foreach (var (settings, value, expected) in cases)
         {
-            var definition = Create(settings).Find(Field)!;
-            var normalized = PropertyValues.Validate(definition, value, 1, _ => new("main", true, false, false, false));
+            var normalized = PropertyValues.Validate(Create(settings).Find(Field)!, value, 1, _ => new("main", true, false, false, false));
             if (normalized is PropertyValue.MultiSelect options)
                 Assert.Equal(((PropertyValue.MultiSelect)expected).OptionIds.ToArray(), options.OptionIds.ToArray());
             else if (normalized is PropertyValue.ArticleReference references)
                 Assert.Equal(((PropertyValue.ArticleReference)expected).ArticleIds.ToArray(), references.ArticleIds.ToArray());
-            else
-                Assert.Equal(expected, normalized);
+            else Assert.Equal(expected, normalized);
         }
 
-        Assert.Throws<PropertyValidationException>(() => Create(new((PropertyKind)8, new())));
+        Invalid(() => Create(new((PropertyKind)8, new())));
         var numeric = Create(new(PropertyKind.Number, new())).Find(Field)!;
-        Assert.Throws<PropertyValidationException>(() => PropertyValues.Validate(numeric, new PropertyValue.Text("12"), 1));
+        Invalid(() => PropertyValues.Validate(numeric, new PropertyValue.Text("12"), 1));
         Assert.True(PropertyValues.SupportsOperator(PropertyKind.Number, "number.between"));
         Assert.False(PropertyValues.SupportsOperator(PropertyKind.Text, "number.between"));
         Assert.False(PropertyValues.SupportsOperator(PropertyKind.Text, "script.run"));
@@ -49,17 +44,15 @@ public sealed class PropertySchemaTests
     public void MissingAndExplicitNullFollowDifferentPolicies()
     {
         var defaultValue = new PropertyValue.Text("default");
-        var definition = Create(new(PropertyKind.Text, new(ApplyDefault: true, Empty: PropertyEmptyPolicy.TreatAsNull),
-            Default: defaultValue)).Find(Field)!;
+        var definition = Create(new(PropertyKind.Text, new(ApplyDefault: true, Empty: PropertyEmptyPolicy.TreatAsNull), Default: defaultValue)).Find(Field)!;
         Assert.Equal(defaultValue, PropertyValues.Validate(definition, null, 1));
         Assert.IsType<PropertyValue.Null>(PropertyValues.Validate(definition, new PropertyValue.Null(), 1));
         Assert.IsType<PropertyValue.Null>(PropertyValues.Validate(definition, new PropertyValue.Text(""), 1));
 
-        var required = Create(new(PropertyKind.Text, new(Required: true, AllowNull: false,
-            Empty: PropertyEmptyPolicy.Reject))).Find(Field)!;
-        Assert.Throws<PropertyValidationException>(() => PropertyValues.Validate(required, null, 1));
-        Assert.Throws<PropertyValidationException>(() => PropertyValues.Validate(required, new PropertyValue.Text(""), 1));
-        Assert.Throws<PropertyValidationException>(() => Create(new(PropertyKind.Boolean, new(), NumberRange: new(0, 1))));
+        var required = Create(new(PropertyKind.Text, new(Required: true, AllowNull: false, Empty: PropertyEmptyPolicy.Reject))).Find(Field)!;
+        Invalid(() => PropertyValues.Validate(required, null, 1));
+        Invalid(() => PropertyValues.Validate(required, new PropertyValue.Text(""), 1));
+        Invalid(() => Create(new(PropertyKind.Boolean, new(), NumberRange: new(0, 1))));
     }
 
     [Fact]
@@ -68,9 +61,8 @@ public sealed class PropertySchemaTests
         var schema = Create(new(PropertyKind.Text, new()));
         var rename = Command(schema, new PropertyChange.Rename(Field, [new("zh-CN", " 新名 ")]));
         var result = schema.Apply(rename);
-        Assert.Equal("topic", result.Schema.Find(Field)!.MachineKey);
-        Assert.Equal(Field, result.Schema.Find(Field)!.Id);
-        Assert.Equal("新名", result.Schema.Find(Field)!.Names.Single().Label);
+        var updated = result.Schema.Find(Field)!;
+        Assert.Equal(("topic", Field, "新名"), (updated.MachineKey, updated.Id, updated.Names.Single().Label));
         Assert.NotEqual(result.Receipt.BeforeDigest, result.Receipt.AfterDigest);
 
         var replay = result.Schema.Apply(rename, replay: result.Receipt);
@@ -79,11 +71,9 @@ public sealed class PropertySchemaTests
         Assert.Same(result.Receipt, replay.Receipt);
 
         var tampered = rename with { Change = new PropertyChange.Rename(Field, [new("en", "different")]) };
-        Assert.Equal("idempotency-conflict", Assert.Throws<PropertySchemaException>(() =>
-            result.Schema.Apply(tampered, replay: result.Receipt)).Code);
-        Assert.Equal("schema-conflict", Assert.Throws<PropertySchemaException>(() => result.Schema.Apply(rename)).Code);
-        Assert.Equal("definition-conflict", Assert.Throws<PropertySchemaException>(() =>
-            result.Schema.Apply(rename with { ExpectedSchemaRevision = result.Schema.Revision })).Code);
+        SchemaError("idempotency-conflict", () => result.Schema.Apply(tampered, replay: result.Receipt));
+        SchemaError("schema-conflict", () => result.Schema.Apply(rename));
+        SchemaError("definition-conflict", () => result.Schema.Apply(rename with { ExpectedSchemaRevision = result.Schema.Revision }));
     }
 
     [Fact]
@@ -91,29 +81,22 @@ public sealed class PropertySchemaTests
     {
         var settings = new PropertySettings(PropertyKind.Text, new());
         var schema = Create(settings);
-        var changeKind = Command(schema, new PropertyChange.ChangeSettings(Field, new(PropertyKind.Number, new())));
-        Assert.Equal("type-migration-required", Assert.Throws<PropertySchemaException>(() =>
-            schema.Apply(changeKind, countAffected: (_, _) => 0)).Code);
+        SchemaError("type-migration-required", () => UpdateSettings(schema, new(PropertyKind.Number, new()), 0));
 
         var constrain = Command(schema, new PropertyChange.ChangeSettings(Field, settings with { TextRange = new(2, 40) }));
-        Assert.Equal("impact-unavailable", Assert.Throws<PropertySchemaException>(() => schema.Apply(constrain)).Code);
+        SchemaError("impact-unavailable", () => schema.Apply(constrain));
         var blocked = Assert.Throws<PropertySchemaException>(() => schema.Apply(constrain, countAffected: (_, _) => 7));
-        Assert.Equal("reconciliation-required", blocked.Code);
-        Assert.Equal(7, blocked.AffectedCount);
+        Assert.Equal(("reconciliation-required", 7), (blocked.Code, blocked.AffectedCount));
         Assert.Null(schema.Find(Field)!.Settings.TextRange);
 
-        var deprecate = Command(schema, new PropertyChange.Deprecate(Field));
-        var archived = schema.Apply(deprecate, countAffected: (_, _) => 7);
-        Assert.Equal(PropertyStatus.Deprecated, archived.Receipt.Status);
-        Assert.Equal(7, archived.Receipt.AffectedCount);
+        var archived = Apply(schema, new PropertyChange.Deprecate(Field), 7);
+        Assert.Equal((PropertyStatus.Deprecated, 7), (archived.Receipt.Status, archived.Receipt.AffectedCount));
         var delete = Command(archived.Schema, new PropertyChange.Delete(Field));
-        Assert.Equal("reconciliation-required", Assert.Throws<PropertySchemaException>(() =>
-            archived.Schema.Apply(delete, countAffected: (_, _) => 7)).Code);
+        SchemaError("reconciliation-required", () => archived.Schema.Apply(delete, countAffected: (_, _) => 7));
         var removed = archived.Schema.Apply(delete, countAffected: (_, _) => 0);
         Assert.Empty(removed.Schema.Page(null));
         Assert.Equal(PropertyStatus.Deleted, removed.Schema.Find(Field)!.Status);
-        Assert.Equal("identity-conflict", Assert.Throws<PropertySchemaException>(() => removed.Schema.Apply(
-            Command(removed.Schema, new PropertyChange.Create(Guid.NewGuid(), "topic", [new("en", "New")], settings)))).Code);
+        SchemaError("identity-conflict", () => Apply(removed.Schema, new PropertyChange.Create(Guid.NewGuid(), "topic", [new("en", "New")], settings)));
     }
 
     [Fact]
@@ -121,43 +104,32 @@ public sealed class PropertySchemaTests
     {
         var settings = new PropertySettings(PropertyKind.SingleSelect, new(), Options: Options());
         var schema = Create(settings);
-        var renamed = settings with { Options = [new(First, "RENAMED", 0), settings.Options[1]] };
-        var change = Command(schema, new PropertyChange.ChangeSettings(Field, renamed));
-        var modified = schema.Apply(change).Schema.Find(Field)!;
+        var modified = UpdateSettings(schema, settings with { Options = [new(First, "RENAMED", 0), settings.Options[1]] }).Find(Field)!;
         var existing = new PropertyValue.SingleSelect(First);
         Assert.Equal(existing, PropertyValues.Validate(modified, existing, 1));
         Assert.Equal("RENAMED", modified.Settings.Options[0].Label);
 
-        Assert.Throws<PropertyValidationException>(() => Create(settings with { Options = [new(First, "A", 0), new(First, "B", 1)] }));
-        var remove = Command(schema, new PropertyChange.ChangeSettings(Field, settings with { Options = [settings.Options[1]] }));
-        Assert.Equal("option-lifecycle", Assert.Throws<PropertySchemaException>(() => schema.Apply(remove)).Code);
+        Invalid(() => Create(settings with { Options = [new(First, "A", 0), new(First, "B", 1)] }));
+        SchemaError("option-lifecycle", () => UpdateSettings(schema, settings with { Options = [settings.Options[1]] }));
 
-        var retire = Command(schema, new PropertyChange.ChangeSettings(Field, settings with
-        {
-            Options = [settings.Options[0] with { Status = PropertyStatus.Deprecated }, settings.Options[1]]
-        }));
-        var retired = schema.Apply(retire, countAffected: (_, _) => 0).Schema.Find(Field)!;
-        Assert.Throws<PropertyValidationException>(() => PropertyValues.Validate(retired, existing, 1));
+        var retired = UpdateSettings(schema, settings with { Options = [settings.Options[0] with { Status = PropertyStatus.Deprecated }, settings.Options[1]] }, 0).Find(Field)!;
+        Invalid(() => PropertyValues.Validate(retired, existing, 1));
     }
 
     [Fact]
     public void MultiSelectAlternativesUseActiveIdentitiesOutsideStoredValueCardinality()
     {
-        var settings = new PropertySettings(PropertyKind.MultiSelect, new(Empty: PropertyEmptyPolicy.Reject),
-            CountRange: new(2, 2), Options: Options(), Filterable: true);
+        var settings = new PropertySettings(PropertyKind.MultiSelect, new(Empty: PropertyEmptyPolicy.Reject), CountRange: new(2, 2), Options: Options(), Filterable: true);
         var schema = Create(settings);
         var definition = schema.Find(Field)!;
         var one = new PropertyValue.MultiSelect([First]);
-        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeFilter(definition, one));
+        Invalid(() => PropertyValues.NormalizeFilter(definition, one));
         Assert.Equal(new[] { First }, PropertyValues.NormalizeSelectionAlternatives(definition, one).OptionIds.ToArray());
         Assert.Empty(PropertyValues.NormalizeSelectionAlternatives(definition, new([])).OptionIds);
         Assert.Equal(new[] { First, Second }, PropertyValues.NormalizeSelectionAlternatives(definition, new([Second, First])).OptionIds.ToArray());
-        var changed = Command(schema, new PropertyChange.ChangeSettings(Field, settings with
-        {
-            Options = [settings.Options[0] with { Status = PropertyStatus.Deprecated }, settings.Options[1] with { Label = "Renamed" }]
-        }));
-        var current = schema.Apply(changed, countAffected: (_, _) => 0).Schema.Find(Field)!;
-        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeSelectionAlternatives(current, one));
+        var current = UpdateSettings(schema, settings with
+            { Options = [settings.Options[0] with { Status = PropertyStatus.Deprecated }, settings.Options[1] with { Label = "Renamed" }] }, 0).Find(Field)!;
+        Invalid(() => PropertyValues.NormalizeSelectionAlternatives(current, one));
         Assert.Equal(new[] { Second }, PropertyValues.NormalizeSelectionAlternatives(current, new([Second])).OptionIds.ToArray());
     }
 
@@ -166,9 +138,8 @@ public sealed class PropertySchemaTests
     {
         var definition = Create(new(PropertyKind.SingleSelect, new(), Options: Options(), Filterable: true)).Find(Field)!;
         Assert.Equal(new[] { First, Second }, PropertyValues.NormalizeSelectionAlternatives(definition, new([Second, First])).OptionIds.ToArray());
-        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeSelectionAlternatives(definition, new([])));
-        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeSelectionAlternatives(definition, new([First, First])));
-        Assert.Throws<PropertyValidationException>(() => PropertyValues.NormalizeSelectionAlternatives(definition, new([First, Guid.NewGuid()])));
+        foreach (var bad in new ImmutableArray<Guid>[] { [], [First, First], [First, Guid.NewGuid()] })
+            Invalid(() => PropertyValues.NormalizeSelectionAlternatives(definition, new(bad)));
     }
 
     [Fact]
@@ -182,29 +153,24 @@ public sealed class PropertySchemaTests
             new("main", true, true, false, false), new("main", true, false, true, false), new("main", true, false, false, true)
         ];
         foreach (var facts in unavailable)
-            Assert.Equal("reference-unavailable", Assert.Throws<PropertyValidationException>(() =>
-                PropertyValues.Validate(reference, value, 1, _ => facts)).Code);
-        Assert.Equal("reference-unavailable", Assert.Throws<PropertyValidationException>(() =>
-            PropertyValues.Validate(reference, value, 2, _ => new("main", true, false, false, false))).Code);
+            Assert.Equal("reference-unavailable", Invalid(() => PropertyValues.Validate(reference, value, 1, _ => facts)).Code);
+        Assert.Equal("reference-unavailable", Invalid(() => PropertyValues.Validate(reference, value, 2, _ => new("main", true, false, false, false))).Code);
 
         var url = Create(new(PropertyKind.Url, new(), Url: new(AllowRelative: true))).Find(Field)!;
         Assert.Equal(new PropertyValue.Url("/article/2"), PropertyValues.Validate(url, new PropertyValue.Url("/article/2"), 1));
         foreach (var invalid in new[] { "javascript:example", "https://user@example.com/", "//example.com/", "http://example.com/" })
-            Assert.Throws<PropertyValidationException>(() => PropertyValues.Validate(url, new PropertyValue.Url(invalid), 1));
+            Invalid(() => PropertyValues.Validate(url, new PropertyValue.Url(invalid), 1));
     }
 
     [Fact]
     public void StoredSchemaMustRoundTripScopeRevisionsAndCanonicalDefinitions()
     {
-        var schema = Create(new(PropertyKind.Text, new()));
-        var renamed = schema.Apply(Command(schema, new PropertyChange.Rename(Field, [new("en", "New title")]))).Schema;
+        var renamed = Apply(Create(new(PropertyKind.Text, new())), new PropertyChange.Rename(Field, [new("en", "New title")])).Schema;
         var definitions = renamed.Page(null);
-        var restored = PropertySchema.Restore(renamed.Scope, renamed.Revision, definitions);
-        Assert.Equal(renamed.Find(Field)!.Digest, restored.Find(Field)!.Digest);
-        Assert.Throws<PropertyValidationException>(() => PropertySchema.Restore(renamed.Scope, 1, definitions));
-        Assert.Throws<PropertyValidationException>(() => PropertySchema.Restore(new("foreign"), 2, definitions));
-        Assert.Throws<PropertyValidationException>(() => PropertySchema.Restore(renamed.Scope, 2,
-            [definitions[0] with { Names = [new("en", " New title ")] }]));
+        Assert.Equal(renamed.Find(Field)!.Digest, PropertySchema.Restore(renamed.Scope, renamed.Revision, definitions).Find(Field)!.Digest);
+        Invalid(() => PropertySchema.Restore(renamed.Scope, 1, definitions));
+        Invalid(() => PropertySchema.Restore(new("foreign"), 2, definitions));
+        Invalid(() => PropertySchema.Restore(renamed.Scope, 2, [definitions[0] with { Names = [new("en", " New title ")] }]));
     }
 
     [Fact]
@@ -213,27 +179,23 @@ public sealed class PropertySchemaTests
         Assert.Empty(new PropertySchema(new("main", Actor)).Page(null));
         var definitions = Enumerable.Range(0, PropertySchema.MaxDefinitions)
             .Select(index => new PropertyDefinition(Guid.NewGuid(), new("main", Actor), $"field-{index:D4}",
-                [new("en", "Field")], new(PropertyKind.Text, new(), Options: []), PropertyStatus.Active, 1))
-            .ToArray();
+                [new("en", "Field")], new(PropertyKind.Text, new(), Options: []), PropertyStatus.Active, 1)).ToArray();
         var schema = PropertySchema.Restore(new("main", Actor), definitions.Length, definitions);
         var firstPage = schema.Page(null);
-        var nextPage = schema.Page(firstPage[^1].MachineKey);
-        Assert.Equal(PropertySchema.MaxPageSize, firstPage.Length);
-        Assert.Equal("field-0100", nextPage[0].MachineKey);
-        Assert.Throws<PropertyValidationException>(() => schema.Page(null, PropertySchema.MaxPageSize + 1));
-        var create = Command(schema, new PropertyChange.Create(Field, "field-1000", [new("en", "Extra")], new(PropertyKind.Text, new())));
-        Assert.Equal("schema-budget", Assert.Throws<PropertySchemaException>(() => schema.Apply(create)).Code);
+        Assert.Equal((PropertySchema.MaxPageSize, "field-0100"), (firstPage.Length, schema.Page(firstPage[^1].MachineKey)[0].MachineKey));
+        Invalid(() => schema.Page(null, PropertySchema.MaxPageSize + 1));
+        SchemaError("schema-budget", () => Apply(schema, new PropertyChange.Create(Field, "field-1000", [new("en", "Extra")], new(PropertyKind.Text, new()))));
     }
 
+    private static PropertyValidationException Invalid(Action act) => Assert.Throws<PropertyValidationException>(act);
+    private static void SchemaError(string code, Action act) => Assert.Equal(code, Assert.Throws<PropertySchemaException>(act).Code);
     private static ImmutableArray<PropertyOption> Options() => [new(First, "One", 0), new(Second, "Two", 1)];
-
-    private static PropertySchema Create(PropertySettings settings)
-    {
-        var empty = new PropertySchema(new("main", Actor));
-        return empty.Apply(Command(empty, new PropertyChange.Create(Field, "Topic", [new("en", "Topic")], settings)),
-            countAffected: (_, _) => 0).Schema;
-    }
-
+    private static PropertySchema Create(PropertySettings settings) =>
+        Apply(new(new("main", Actor)), new PropertyChange.Create(Field, "Topic", [new("en", "Topic")], settings), 0).Schema;
+    private static PropertyTransition Apply(PropertySchema schema, PropertyChange change, int? affected = null) =>
+        schema.Apply(Command(schema, change), countAffected: affected is int count ? (_, _) => count : null);
+    private static PropertySchema UpdateSettings(PropertySchema schema, PropertySettings settings, int? affected = null) =>
+        Apply(schema, new PropertyChange.ChangeSettings(Field, settings), affected).Schema;
     private static PropertyCommand Command(PropertySchema schema, PropertyChange change) =>
         new(Actor, Guid.NewGuid(), schema.Revision, schema.Find(change.DefinitionId)?.Revision ?? 0, change);
 }

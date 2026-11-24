@@ -126,7 +126,7 @@ onScopeDispose(reset)
       v-bind="{ 'aria-controls': regionId }" @click="pending ? reset() : run()">
       {{ pending === 'withdraw' ? t('author.authorPluginPreview.cancelling.access') : pending ? t('author.authorPluginPreview.cancel.preview') : consent ? t('author.authorPluginPreview.run.plugin.preview') : t('author.authorPluginPreview.review.plugin.access') }}
     </ElButton>
-    <ElButton v-if="consent && !pending" native-type="button" text @click="run(true)">{{ t('author.authorPluginPreview.cancel') }}</ElButton>
+    <ElButton v-if="consent && !pending" native-type="button" text @click="run(true)">{{ t('nav.cancel') }}</ElButton>
     <p v-if="disabled">{{ t('author.authorPluginPreview.save.the.current.draft.before.running.the.preview') }}</p>
     <p v-if="failure" role="alert">{{ failure }}</p>
     <p role="status">{{ pending === 'withdraw' ? t('author.authorPluginPreview.cancelling') : pending === 'run' ? t('author.authorPluginPreview.running') :

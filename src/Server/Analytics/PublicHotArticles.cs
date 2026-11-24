@@ -1,8 +1,3 @@
-using System.Security.Cryptography;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server.Operations;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Analytics;
 
 internal sealed class PublicHotArticles(Publications publications, NpgsqlDataSource db, InstanceLease lease,

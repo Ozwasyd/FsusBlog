@@ -1,15 +1,3 @@
-using System.Diagnostics;
-using System.Globalization;
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server;
-using FsusBlogV2.Storage;
-using Npgsql;
-using Xunit.Abstractions;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed partial class DocumentExportPostgresTests
@@ -21,54 +9,44 @@ public sealed partial class DocumentExportPostgresTests
     [MacPdfTaskPostgresFact]
     public async Task CancelsAnOwnedRunningPdfAndReleasesItsRendererBeforeTimeout()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var owner = await Login(fixture, "Running PDF cancellation", canAuthor: true, ct);
         var scratch = Directory.CreateTempSubdirectory("fsusv2-async-pdf-witness-");
-        try
+        using (new MediaFixture.DirectoryCleanup(scratch))
         {
             var (settings, python) = PdfSettings(scratch.FullName);
             await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, settings);
-            var draft = await Save(server.Client, owner, 0, 0, "PDF cancellation 中文", LongPdfSource(), ct);
-            var job = Guid.NewGuid();
             using var beforeRendererDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
             beforeRendererDeadline.CancelAfter(TimeSpan.FromSeconds(10));
+            var exp = new ExportClient(server.Client, owner, ct);
+            var bounded = new ExportClient(server.Client, owner, beforeRendererDeadline.Token);
+            var draft = await exp.Save(0, 0, "PDF cancellation 中文", LongPdfSource());
+            var job = Guid.NewGuid();
             var started = Stopwatch.StartNew();
-            await ReadTask(server.Client, CreateRoute, owner, Create(job, draft.Id, draft.Revision, draft.Revision, format: 2), beforeRendererDeadline.Token);
+            await bounded.CreateTask(job, draft, draft.Revision, DocumentExportFormat.Pdf);
             var renderer = await PauseRenderer(server, scratch.FullName, python, beforeRendererDeadline.Token);
             try
             {
-                var running = Assert.Single(await List(server.Client, owner, draft.Id, beforeRendererDeadline.Token), task => task.Id == job);
-                Assert.Equal(Running, running.State);
-                Assert.Equal(0, running.Length);
-                var stopping = await ReadTask(server.Client, CancelRoute, owner, Reference(job), beforeRendererDeadline.Token);
-                Assert.Equal(Cancelling, stopping.State);
-                var cancelled = await AwaitTask(server.Client, owner, draft.Id, job, Cancelled, beforeRendererDeadline.Token);
-                Assert.Equal(0, cancelled.Length);
-                Assert.All(cancelled.OutputDigest, value => Assert.Equal(0, value));
-                await Reject(server.Client, DownloadRoute, owner, Reference(job), HttpStatusCode.NotFound, beforeRendererDeadline.Token);
+                var running = Assert.Single(await bounded.List(draft.Id), task => task.Request.Id == job);
+                Assert.Equal((DocumentExportState.Running, 0), (running.State, running.OutputBytes));
+                Assert.Equal(DocumentExportState.Cancelling, (await bounded.Cancel(job)).State);
+                var cancelled = await bounded.Await(draft.Id, job, DocumentExportState.Cancelled);
+                Assert.Equal(0, cancelled.OutputBytes);
+                Assert.Null(cancelled.OutputDigest);
+                await bounded.Reject(WireRoutes.DocumentExportDownload, Reference(job), NotFound);
                 await RequireReleased(renderer, beforeRendererDeadline.Token);
                 _evidence.WriteLine($"Owned renderer {renderer.Pid} was stopped before cancel. Receipt 2→7→5, no output, process and scratch released after {started.ElapsedMilliseconds} ms from enqueue.");
             }
-            finally
-            {
-                await ResumeIfStillOwned(server, scratch.FullName, python, renderer);
-            }
+            finally { await ResumeIfStillOwned(server, scratch.FullName, python, renderer); }
 
-            var small = await Save(server.Client, owner, 0, 0, "Small PDF 中文", "An actual PDF after cancellation.\n", ct);
+            var small = await exp.Save(0, 0, "Small PDF 中文", "An actual PDF after cancellation.\n");
             var next = Guid.NewGuid();
-            await ReadTask(server.Client, CreateRoute, owner, Create(next, small.Id, small.Revision, small.Revision, format: 2), ct);
-            var completed = await AwaitTask(server.Client, owner, small.Id, next, Succeeded, ct);
-            var bytes = await Download(server.Client, owner, completed, "application/pdf", "article.pdf", ct);
-            Assert.Equal("%PDF-", Encoding.ASCII.GetString(bytes, 0, 5));
-            Assert.EndsWith("%%EOF", Encoding.ASCII.GetString(bytes[^16..]).TrimEnd(), StringComparison.Ordinal);
+            await exp.CreateTask(next, small, small.Revision, DocumentExportFormat.Pdf);
+            var completed = await exp.Await(small.Id, next, DocumentExportState.Succeeded);
+            var bytes = await exp.Download(completed, "application/pdf", "article.pdf");
+            ExportResponseFixture.AssertPdfBytes(bytes);
             Assert.Empty(scratch.EnumerateDirectories("fsusv2-pdf-*"));
             _evidence.WriteLine($"A subsequent real PDF used the released renderer. {bytes.Length} bytes, SHA-256 {Convert.ToHexStringLower(SHA256.HashData(bytes))}.");
-        }
-        finally
-        {
-            scratch.Delete(recursive: true);
         }
     }
 
@@ -80,13 +58,10 @@ public sealed partial class DocumentExportPostgresTests
 
     private async Task InterruptPdf(bool leaseLoss)
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var owner = await Login(fixture, "Running PDF interruption", canAuthor: true, ct);
         var scratch = Directory.CreateTempSubdirectory("fsusv2-async-pdf-restart-");
-        try
+        using (new MediaFixture.DirectoryCleanup(scratch))
         {
             var (settings, python) = PdfSettings(scratch.FullName);
             var runningId = Guid.NewGuid();
@@ -94,28 +69,28 @@ public sealed partial class DocumentExportPostgresTests
             Draft draft;
             await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct, settings))
             {
-                draft = await Save(server.Client, owner, 0, 0, "PDF interruption 中文", LongPdfSource(leaseLoss ? 80 : 240), ct);
                 using var beforeRendererDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 beforeRendererDeadline.CancelAfter(TimeSpan.FromSeconds(10));
-                await ReadTask(server.Client, CreateRoute, owner, Create(runningId, draft.Id, draft.Revision, draft.Revision, 2), beforeRendererDeadline.Token);
-                var waiting = await ReadTask(server.Client, CreateRoute, owner, Create(queuedId, draft.Id, draft.Revision, draft.Revision, 1),
-                    beforeRendererDeadline.Token);
-                Assert.Equal(Queued, waiting.State);
+                var bounded = new ExportClient(server.Client, owner, beforeRendererDeadline.Token);
+                draft = await new ExportClient(server.Client, owner, ct).Save(0, 0, "PDF interruption 中文", LongPdfSource(leaseLoss ? 80 : 240));
+                await bounded.CreateTask(runningId, draft, draft.Revision, DocumentExportFormat.Pdf);
+                var waiting = await bounded.CreateTask(queuedId, draft, draft.Revision, DocumentExportFormat.Html);
+                Assert.Equal(DocumentExportState.Queued, waiting.State);
                 // A stopped child can delay .NET's SIGCHLD handler on macOS. Graceful shutdown uses a running child.
                 var renderer = leaseLoss
                     ? await PauseRenderer(server, scratch.FullName, python, beforeRendererDeadline.Token)
                     : await WaitForRenderer(server, scratch.FullName, python, beforeRendererDeadline.Token);
                 try
                 {
-                    var pending = await List(server.Client, owner, draft.Id, beforeRendererDeadline.Token);
-                    Assert.Equal(Queued, Assert.Single(pending, task => task.Id == queuedId).State);
-                    Assert.Equal(Running, Assert.Single(pending, task => task.Id == runningId).State);
+                    var pending = await bounded.List(draft.Id);
+                    Assert.Equal(DocumentExportState.Queued, Assert.Single(pending, task => task.Request.Id == queuedId).State);
+                    Assert.Equal(DocumentExportState.Running, Assert.Single(pending, task => task.Request.Id == runningId).State);
                     var interruption = Stopwatch.StartNew();
                     if (leaseLoss)
                     {
-                        await BreakFixtureLease(db, beforeRendererDeadline.Token);
+                        Assert.True(await fixture.TerminateAdvisoryOwner(PublicationLocks.Ownership, ct: beforeRendererDeadline.Token));
                         await RequireReleased(renderer, beforeRendererDeadline.Token);
-                        await RejectList(server.Client, draft.Id, owner, HttpStatusCode.ServiceUnavailable, beforeRendererDeadline.Token);
+                        await bounded.Reject(ListRoute(draft.Id), null, ServiceUnavailable);
                         _evidence.WriteLine($"Lease loss closed task requests and released owned renderer {renderer.Pid} and its scratch after {interruption.ElapsedMilliseconds} ms.");
                     }
                     else
@@ -128,42 +103,20 @@ public sealed partial class DocumentExportPostgresTests
                         _evidence.WriteLine($"SIGTERM released running renderer {renderer.Pid} (state {renderer.State}) and its scratch, and stopped Kestrel after {interruption.ElapsedMilliseconds} ms.");
                     }
                 }
-                catch
-                {
-                    _evidence.WriteLine(server.Logs);
-                    throw;
-                }
-                finally
-                {
-                    if (leaseLoss) await ResumeIfStillOwned(server, scratch.FullName, python, renderer);
-                }
+                catch { _evidence.WriteLine(server.Logs); throw; }
+                finally { if (leaseLoss) await ResumeIfStillOwned(server, scratch.FullName, python, renderer); }
             }
 
             await using var restarted = await ServerProcess.Start(fixture.ConnectionString, ct, settings);
-            var failed = await AwaitTask(restarted.Client, owner, draft.Id, runningId, (byte)DocumentExportState.Failed, ct);
-            Assert.Equal((byte)DocumentExportFailure.Interrupted, failed.Failure);
-            Assert.Equal(0, failed.Length);
-            await Reject(restarted.Client, DownloadRoute, owner, Reference(runningId), HttpStatusCode.NotFound, ct);
-            var completed = await AwaitTask(restarted.Client, owner, draft.Id, queuedId, Succeeded, ct);
-            var html = await Download(restarted.Client, owner, completed, "text/html", "article.html", ct);
+            var exp = new ExportClient(restarted.Client, owner, ct);
+            var failed = await exp.Await(draft.Id, runningId, DocumentExportState.Failed);
+            Assert.Equal((DocumentExportFailure.Interrupted, 0), (failed.Failure, failed.OutputBytes));
+            await exp.Reject(WireRoutes.DocumentExportDownload, Reference(runningId), NotFound);
+            var completed = await exp.Await(draft.Id, queuedId, DocumentExportState.Succeeded);
+            var html = await exp.Download(completed, "text/html", "article.html");
             Assert.Contains("<h2>Renderer section 70</h2>", Encoding.UTF8.GetString(html), StringComparison.Ordinal);
             _evidence.WriteLine("Restart sealed the interrupted PDF as Failed/Interrupted and served the previously queued HTML attachment.");
         }
-        finally
-        {
-            scratch.Delete(recursive: true);
-        }
-    }
-
-    private static async Task BreakFixtureLease(NpgsqlConnection db, CancellationToken ct)
-    {
-        await using var release = Store.Sql(db, null, """
-            select pg_catalog.pg_terminate_backend(l.pid, 5000) from pg_catalog.pg_locks l
-            where l.database=(select oid from pg_catalog.pg_database where datname=current_database())
-              and l.locktype='advisory' and l.mode='ExclusiveLock' and l.granted and l.objsubid=1
-              and ((l.classid::bigint << 32) | l.objid::bigint)=$1
-            """, PublicationLocks.Ownership);
-        Assert.Equal(true, await release.ExecuteScalarAsync(ct));
     }
 
     private static (IReadOnlyDictionary<string, string> Settings, string Python) PdfSettings(string scratch)
@@ -182,10 +135,7 @@ public sealed partial class DocumentExportPostgresTests
         Assert.True(Path.IsPathFullyQualified(python));
         return (new Dictionary<string, string>(Settings)
         {
-            [rootKey] = root,
-            [digestKey] = digest,
-            ["TMPDIR"] = scratch,
-            ["DOTNET_EnableDiagnostics"] = "0",
+            [rootKey] = root, [digestKey] = digest, ["TMPDIR"] = scratch, ["DOTNET_EnableDiagnostics"] = "0",
         }, python);
     }
 
@@ -206,11 +156,7 @@ public sealed partial class DocumentExportPostgresTests
             } while (await timer.WaitForNextTickAsync(ct));
             throw new InvalidOperationException("The owned renderer did not stop.");
         }
-        catch
-        {
-            await ResumeIfStillOwned(server, scratch, python, found);
-            throw;
-        }
+        catch { await ResumeIfStillOwned(server, scratch, python, found); throw; }
     }
 
     private static async Task<Renderer> WaitForRenderer(ServerProcess server, string scratch, string python, CancellationToken ct)
@@ -274,13 +220,9 @@ public sealed partial class DocumentExportPostgresTests
 
     private static async Task<string> RunTool(string executable, string[] arguments, CancellationToken ct)
     {
-        var info = new ProcessStartInfo(executable) { UseShellExecute = false, RedirectStandardOutput = true };
-        foreach (var argument in arguments) info.ArgumentList.Add(argument);
-        using var process = Process.Start(info) ?? throw new InvalidOperationException($"Could not start {executable}.");
-        var output = await process.StandardOutput.ReadToEndAsync(ct);
-        await process.WaitForExitAsync(ct);
-        Assert.Equal(0, process.ExitCode);
-        return output;
+        var result = await FixtureProcess.Run(FixtureProcess.Command(executable, arguments), ct);
+        Assert.Equal(0, result.Code);
+        return result.Output;
     }
 
     private sealed record Renderer(int Pid, DateTime Started, char State, string Scratch)

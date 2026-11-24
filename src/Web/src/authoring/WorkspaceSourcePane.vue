@@ -248,7 +248,7 @@ defineExpose({
       <slot name="before" />
     </div>
     <div class="workspace-source__header">
-      <label class="visually-hidden" :for="titleId">{{ t('author.workspaceSourcePane.title') }}</label>
+      <label class="visually-hidden" :for="titleId">{{ t('author.authorTextSearch.title') }}</label>
       <input
         :id="titleId"
         ref="titleInput"
@@ -266,7 +266,7 @@ defineExpose({
           <span v-if="focus && (pane.tab.articleId === 0 || pane.tab.risk === 'dirty' || pane.tab.risk === 'conflict')" class="workspace-source__hint">{{ t('author.workspaceSourcePane.save.the.draft.before.publishing') }}</span>
         </div>
         <div class="workspace-source__meta-right">
-          <label class="visually-hidden" :for="bodyId">{{ t('author.workspaceSourcePane.body') }}</label>
+          <label class="visually-hidden" :for="bodyId">{{ t('author.authorTextSearch.body') }}</label>
           <ArticleOutlineRail
             v-if="nativeMarkdown"
             ref="outlineRail"
@@ -291,7 +291,7 @@ defineExpose({
     </div>
     <div class="workspace-source__body">
       <ElMarkdownEditor v-if="nativeMarkdown" ref="markdown" class="workspace-source__markdown" :textarea-id="bodyId"
-        :locale-text="{ textarea: { source: t('author.workspaceSourcePane.body'), live: t('author.workspaceSourcePane.body') } }"
+        :locale-text="{ textarea: { source: t('author.authorTextSearch.body'), live: t('author.authorTextSearch.body') } }"
         :model-value="editorSource" @update:model-value="edit('body', $event)" :placeholder="t('author.workspaceSourcePane.start.writing.here')"
         @transaction="editorTransaction" @selection-change="editorSelectionChanged" @mode-change="outlineMode = $event"
         :document-identity="identity" :readonly="!focus" :disabled="focus && blocked" :show-actions="false"

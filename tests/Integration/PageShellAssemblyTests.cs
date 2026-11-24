@@ -1,12 +1,3 @@
-using System.Text;
-using System.Text.RegularExpressions;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Analytics;
-using FsusBlog.V2.Server.Authoring;
-using FsusBlog.V2.Server.Content;
-using FsusBlog.V2.Server.Operations;
-using Microsoft.Extensions.Configuration;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class PageShellAssemblyTests
@@ -21,20 +12,12 @@ public sealed class PageShellAssemblyTests
     {
         var minimal = WebPages.PrepareTemplate(BaselineTemplate, new PageShellCapabilities());
         Assert.Equal(BaselineTemplate, minimal);
-        Assert.DoesNotContain("fsus-public-search-mode", minimal, StringComparison.Ordinal);
-        Assert.DoesNotContain("fsus-author-plugin-preview", minimal, StringComparison.Ordinal);
-        Assert.DoesNotContain("fsus-document-export-tasks", minimal, StringComparison.Ordinal);
-        Assert.DoesNotContain("fsus-pdf-export", minimal, StringComparison.Ordinal);
-        Assert.DoesNotContain("fsus-public-hot-articles", minimal, StringComparison.Ordinal);
-        Assert.DoesNotContain("fsus-article-read-proof", minimal, StringComparison.Ordinal);
+        AssertMarkers(minimal, [], ["fsus-public-search-mode", "fsus-author-plugin-preview",
+            "fsus-document-export-tasks", "fsus-pdf-export", "fsus-public-hot-articles", "fsus-article-read-proof"]);
 
         var enabled = WebPages.PrepareTemplate(BaselineTemplate, new PageShellCapabilities(
-            PublicSearchMode: "server",
-            PluginPreview: true,
-            DocumentExportTasks: true,
-            PdfExport: true,
-            PublicHotArticles: true,
-            ArticleReadProof: true));
+            PublicSearchMode: "server", PluginPreview: true, DocumentExportTasks: true,
+            PdfExport: true, PublicHotArticles: true, ArticleReadProof: true));
 
         var headClose = enabled.IndexOf("</head>", StringComparison.Ordinal);
         Assert.True(headClose > 0);
@@ -43,11 +26,8 @@ public sealed class PageShellAssemblyTests
         string[] expectedMarkers =
         [
             "<meta name=\"fsus-public-search-mode\" content=\"server\">",
-            PluginPreviewEndpoints.Marker,
-            DocumentExportEndpoints.Marker,
-            PdfDocumentExport.PageMarker,
-            PublicHotArticles.PageMarker,
-            ArticleReadEndpoints.PageMarker,
+            PluginPreviewEndpoints.Marker, DocumentExportEndpoints.Marker,
+            PdfDocumentExport.PageMarker, PublicHotArticles.PageMarker, ArticleReadEndpoints.PageMarker,
         ];
 
         var previousIndex = -1;
@@ -80,73 +60,43 @@ public sealed class PageShellAssemblyTests
             .Build());
         var appearance = new AppearanceAssets(null!, online: true);
         var pages = WebPages.Create(BaselineTemplate, new PageShellCapabilities(
-            PublicSearchMode: "local",
-            DocumentExportTasks: true,
-            PublicHotArticles: true,
-            ArticleReadProof: true), site, appearance);
+            PublicSearchMode: "local", DocumentExportTasks: true, PublicHotArticles: true, ArticleReadProof: true), site, appearance);
+
+        const string css = "<link rel=\"stylesheet\" href=\"/site-appearance/current.css\">";
+        const string noIndex = "<meta name=\"robots\" content=\"noindex, follow\">";
 
         // 1. Public indexable shell
-        var publicHtml = Encoding.UTF8.GetString(pages.PublicPage(
-            "<p>Hello</p>", title: "Archive <1>", publicPath: "/archive", locale: "zh-CN"));
-        Assert.Contains("<html lang=\"zh-CN\">", publicHtml, StringComparison.Ordinal);
-        Assert.Contains("<title>Archive &lt;1&gt; &#xB7; Fsu &lt;Blog&gt; &amp; Notes</title>", publicHtml, StringComparison.Ordinal);
-        Assert.Contains("<link rel=\"stylesheet\" href=\"/site-appearance/current.css\">", publicHtml, StringComparison.Ordinal);
-        Assert.Contains("<meta name=\"fsus-locale\" content=\"zh-CN\">", publicHtml, StringComparison.Ordinal);
-        Assert.Contains("<meta name=\"fsus-site-title\" content=\"Fsu &lt;Blog&gt; &amp; Notes\">", publicHtml, StringComparison.Ordinal);
-        Assert.Contains("<meta name=\"description\" content=\"Desc &quot;quoted&quot; &lt;tag&gt;\">", publicHtml, StringComparison.Ordinal);
-        Assert.Contains("<link rel=\"canonical\" href=\"https://blog.example.test/archive\">", publicHtml, StringComparison.Ordinal);
-        Assert.Contains($"href=\"{DistributionSnapshot.RssPath}\"", publicHtml, StringComparison.Ordinal);
-        Assert.Contains("<meta name=\"author\" content=\"Alice &amp; Bob\">", publicHtml, StringComparison.Ordinal);
-        Assert.Contains("<div class=\"public-initial\">", publicHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("name=\"robots\"", publicHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("fsus-public-origin", publicHtml, StringComparison.Ordinal);
+        AssertMarkers(Encoding.UTF8.GetString(pages.PublicPage("<p>Hello</p>", title: "Archive <1>", publicPath: "/archive", locale: "zh-CN")),
+            ["<html lang=\"zh-CN\">", "<title>Archive &lt;1&gt; &#xB7; Fsu &lt;Blog&gt; &amp; Notes</title>", css,
+             "<meta name=\"fsus-locale\" content=\"zh-CN\">", "<meta name=\"fsus-site-title\" content=\"Fsu &lt;Blog&gt; &amp; Notes\">",
+             "<meta name=\"description\" content=\"Desc &quot;quoted&quot; &lt;tag&gt;\">", "<link rel=\"canonical\" href=\"https://blog.example.test/archive\">",
+             $"href=\"{DistributionSnapshot.RssPath}\"", "<meta name=\"author\" content=\"Alice &amp; Bob\">", "<div class=\"public-initial\">"],
+            ["name=\"robots\"", "fsus-public-origin"]);
 
         // 2. Public non-indexable search listing shell
-        var searchHtml = Encoding.UTF8.GetString(pages.PublicListingPage("page.search", "en", "/search"));
-        Assert.Contains("<html lang=\"en\">", searchHtml, StringComparison.Ordinal);
-        Assert.Contains("<meta name=\"robots\" content=\"noindex, follow\">", searchHtml, StringComparison.Ordinal);
-        Assert.Contains("<link rel=\"stylesheet\" href=\"/site-appearance/current.css\">", searchHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("rel=\"canonical\"", searchHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain(DistributionSnapshot.RssPath, searchHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("fsus-public-origin", searchHtml, StringComparison.Ordinal);
+        AssertMarkers(Encoding.UTF8.GetString(pages.PublicListingPage("page.search", "en", "/search")),
+            ["<html lang=\"en\">", noIndex, css],
+            ["rel=\"canonical\"", DistributionSnapshot.RssPath, "fsus-public-origin"]);
 
         // 3. Site Auth shell (/login, /register)
-        var loginHtml = Encoding.UTF8.GetString(pages.SiteLoginPage("en"));
-        Assert.Contains("<header class=\"site-auth-header\">", loginHtml, StringComparison.Ordinal);
-        Assert.Contains("<meta name=\"robots\" content=\"noindex, follow\">", loginHtml, StringComparison.Ordinal);
-        Assert.Contains("<link rel=\"stylesheet\" href=\"/site-appearance/current.css\">", loginHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("public-initial", loginHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("rel=\"canonical\"", loginHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("fsus-public-origin", loginHtml, StringComparison.Ordinal);
+        AssertMarkers(Encoding.UTF8.GetString(pages.SiteLoginPage("en")),
+            ["<header class=\"site-auth-header\">", noIndex, css],
+            ["public-initial", "rel=\"canonical\"", "fsus-public-origin"]);
 
         // 4. Reader workspace app shell (/user/*, /subscribe)
-        var readerHtml = Encoding.UTF8.GetString(pages.Page());
-        Assert.Contains("<link rel=\"stylesheet\" href=\"/site-appearance/current.css\">", readerHtml, StringComparison.Ordinal);
-        Assert.Contains("<meta name=\"fsus-site-title\"", readerHtml, StringComparison.Ordinal);
-        Assert.Contains("<div id=\"app\"></div>", readerHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("public-initial", readerHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("site-auth-header", readerHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("fsus-public-origin", readerHtml, StringComparison.Ordinal);
+        AssertMarkers(Encoding.UTF8.GetString(pages.Page()),
+            [css, "<meta name=\"fsus-site-title\"", "<div id=\"app\"></div>"],
+            ["public-initial", "site-auth-header", "fsus-public-origin"]);
 
         // 5. Admin & authoring shell (/admin*, /admin/articles/write, /admin/canvas, /admin/assets)
-        var adminHtml = Encoding.UTF8.GetString(pages.AdminPage(site.Origin));
-        Assert.Contains("<meta name=\"robots\" content=\"noindex, follow\">", adminHtml, StringComparison.Ordinal);
-        Assert.Contains("<meta name=\"fsus-public-origin\" content=\"https://blog.example.test\">", adminHtml, StringComparison.Ordinal);
-        Assert.Contains("<meta name=\"fsus-site-title\" content=\"Fsu &lt;Blog&gt; &amp; Notes\">", adminHtml, StringComparison.Ordinal);
-        Assert.Contains(DocumentExportEndpoints.Marker, adminHtml, StringComparison.Ordinal);
-        Assert.Contains("<div id=\"app\"></div>", adminHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("/site-appearance/", adminHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("public-initial", adminHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("site-auth-header", adminHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("rel=\"canonical\"", adminHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain(DistributionSnapshot.RssPath, adminHtml, StringComparison.Ordinal);
-        Assert.DoesNotContain("name=\"author\"", adminHtml, StringComparison.Ordinal);
+        AssertMarkers(Encoding.UTF8.GetString(pages.AdminPage(site.Origin)),
+            [noIndex, "<meta name=\"fsus-public-origin\" content=\"https://blog.example.test\">",
+             "<meta name=\"fsus-site-title\" content=\"Fsu &lt;Blog&gt; &amp; Notes\">", DocumentExportEndpoints.Marker, "<div id=\"app\"></div>"],
+            ["/site-appearance/", "public-initial", "site-auth-header", "rel=\"canonical\"", DistributionSnapshot.RssPath, "name=\"author\""]);
 
         // Admin shell without configured public origin omits fsus-public-origin cleanly
-        var adminNoOrigin = Encoding.UTF8.GetString(pages.AdminPage(null));
-        Assert.DoesNotContain("fsus-public-origin", adminNoOrigin, StringComparison.Ordinal);
-        Assert.DoesNotContain("/site-appearance/", adminNoOrigin, StringComparison.Ordinal);
-        Assert.Contains("<meta name=\"robots\" content=\"noindex, follow\">", adminNoOrigin, StringComparison.Ordinal);
+        AssertMarkers(Encoding.UTF8.GetString(pages.AdminPage(null)),
+            [noIndex], ["fsus-public-origin", "/site-appearance/"]);
     }
 
     [Fact]
@@ -171,12 +121,8 @@ public sealed class PageShellAssemblyTests
         // Repeated renders on the same WebPages instance must remain pure and produce identical output
         var pages = WebPages.Create(BaselineTemplate, new PageShellCapabilities(DocumentExportTasks: true), site, appearance);
         var first = Encoding.UTF8.GetString(pages.AdminPage("https://blog.example.test"));
-        var second = Encoding.UTF8.GetString(pages.AdminPage("https://blog.example.test"));
-        Assert.Equal(first, second);
-        Assert.Equal(1, CountOccurrences(first, "fsus-public-origin"));
-        Assert.Equal(1, CountOccurrences(first, "name=\"robots\""));
-        Assert.Equal(1, CountOccurrences(first, "fsus-site-title"));
-        Assert.Equal(1, CountOccurrences(first, DocumentExportEndpoints.Marker));
+        Assert.Equal(first, Encoding.UTF8.GetString(pages.AdminPage("https://blog.example.test")));
+        AssertOnce(first, "fsus-public-origin", "name=\"robots\"", "fsus-site-title", DocumentExportEndpoints.Marker);
 
         // Direct WebPages construction with pre-existing head meta/stylesheet still must not duplicate tags
         var prePopulated = "<!doctype html><html lang=\"en\"><head>" +
@@ -188,21 +134,16 @@ public sealed class PageShellAssemblyTests
             "</head><body><!--fsus-public-content--></body></html>";
         var direct = new WebPages(prePopulated, site, appearance);
         var directPublic = Encoding.UTF8.GetString(direct.PublicPage("hello", noIndex: true, locale: "en"));
-        Assert.Equal(1, CountOccurrences(directPublic, "/site-appearance/current.css"));
-        Assert.Single(Regex.Matches(directPublic, @"name=""robots"""));
-        Assert.Single(Regex.Matches(directPublic, @"name=""fsus-locale"""));
-        Assert.Single(Regex.Matches(directPublic, @"name=""fsus-site-title"""));
+        AssertOnce(directPublic, "/site-appearance/current.css", "name=\"robots\"", "name=\"fsus-locale\"", "name=\"fsus-site-title\"");
 
         var directAdmin = Encoding.UTF8.GetString(direct.AdminPage("https://other.test"));
-        Assert.Single(Regex.Matches(directAdmin, @"name=""fsus-public-origin"""));
-        Assert.Single(Regex.Matches(directAdmin, @"name=""robots"""));
+        AssertOnce(directAdmin, "name=\"fsus-public-origin\"", "name=\"robots\"");
 
         // Content containing </head> or slot marker must not inject head metadata inside body
         var trickyContent = "<pre></head><!--fsus-public-content--></pre>";
         var rendered = Encoding.UTF8.GetString(pages.PublicPage(trickyContent, publicPath: "/", locale: "en"));
         Assert.Contains(trickyContent, rendered, StringComparison.Ordinal);
-        Assert.Equal(1, CountOccurrences(rendered, "name=\"fsus-locale\""));
-        Assert.Equal(1, CountOccurrences(rendered, "name=\"fsus-site-title\""));
+        AssertOnce(rendered, "name=\"fsus-locale\"", "name=\"fsus-site-title\"");
     }
 
     [Theory]
@@ -240,6 +181,15 @@ public sealed class PageShellAssemblyTests
             "img-src 'self' data: blob: https:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
         Assert.Equal(expected, ServerHttp.ContentSecurityPolicy);
     }
+
+    private static void AssertMarkers(string html, string[] present, string[] absent)
+    {
+        Assert.All(present, m => Assert.Contains(m, html, StringComparison.Ordinal));
+        Assert.All(absent, m => Assert.DoesNotContain(m, html, StringComparison.Ordinal));
+    }
+
+    private static void AssertOnce(string html, params string[] tokens) =>
+        Assert.All(tokens, t => Assert.Equal(1, CountOccurrences(html, t)));
 
     private static int CountOccurrences(string text, string value)
     {

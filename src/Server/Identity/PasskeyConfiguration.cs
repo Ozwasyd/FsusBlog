@@ -1,5 +1,3 @@
-using Fido2NetLib;
-
 namespace FsusBlog.V2.Server.Passkeys;
 
 internal sealed record PasskeyConfiguration(Uri Origin, string RpId)

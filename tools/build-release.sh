@@ -19,7 +19,9 @@ ui_pkg="$repo/src/Web/node_modules/@ozwasyd/element-plus"
   exit 2
 }
 wasm="$ui_pkg/es/wasm/dist"
-for f in ep_wasm.mjs ep_wasm.wasm markdown_basic.js markdown_basic.wasm markdown_simd.js markdown_simd.wasm; do
+wasm_stems=(ep_wasm markdown_basic markdown_simd)
+wasm_files=(ep_wasm.mjs ep_wasm.wasm markdown_basic.js markdown_basic.wasm markdown_simd.js markdown_simd.wasm)
+for f in "${wasm_files[@]}"; do
   [[ -s "$wasm/$f" ]] || {
     printf 'Missing bundled @ozwasyd/element-plus Wasm asset: %s\n' "$f" >&2
     exit 2
@@ -57,11 +59,7 @@ ui_pkg_id=$(node -p "const p = require('$ui_pkg/package.json'); p.name + '@' + p
   node --version
   shasum -a 256 global.json NuGet.Config src/Web/pnpm-lock.yaml
   find src -name packages.lock.json -type f -exec shasum -a 256 {} +
-  (
-    cd "$wasm"
-    shasum -a 256 ep_wasm.mjs ep_wasm.wasm \
-      markdown_basic.js markdown_basic.wasm markdown_simd.js markdown_simd.wasm
-  ) > "$release/fsusui-wasm.sha256"
+  (cd "$wasm" && shasum -a 256 "${wasm_files[@]}") > "$release/fsusui-wasm.sha256"
 } > "$release/build.txt"
 
 mkdir "$scratch/source" "$scratch/package"
@@ -70,13 +68,14 @@ git archive "$rev" | tar -xf - -C "$scratch/source"
 ln -s "$repo/src/Web/node_modules" "$scratch/source/src/Web/node_modules"
 (
   cd "$scratch/source"
-  python3 -B tools/fsdl-dictionary.py export "$scratch/package/search-lexicon.fsdl"
-  python3 -B tools/fsdl-dictionary.py verify "$scratch/package/search-lexicon.fsdl"
+  for action in export verify; do
+    python3 -B tools/fsdl-dictionary.py "$action" "$scratch/package/search-lexicon.fsdl"
+  done
   "$dotnet" restore FsusBlog.V2.slnx --locked-mode
-  "$dotnet" publish src/Server/FsusBlog.V2.Server.csproj -c Release --no-restore \
-    --self-contained false -p:UseAppHost=false -o "$scratch/package/server"
-  "$dotnet" publish src/Cli/FsusBlog.V2.Cli.csproj -c Release --no-restore \
-    --self-contained false -p:UseAppHost=false -o "$scratch/package/cli"
+  for pair in Server:server Cli:cli; do
+    "$dotnet" publish "src/${pair%%:*}/FsusBlog.V2.${pair%%:*}.csproj" -c Release --no-restore \
+      --self-contained false -p:UseAppHost=false -o "$scratch/package/${pair##*:}"
+  done
   cd src/Web
   node node_modules/vue-tsc/bin/vue-tsc.js --noEmit
   node node_modules/vite/bin/vite.js build --outDir "$scratch/package/web"
@@ -84,15 +83,14 @@ ln -s "$repo/src/Web/node_modules" "$scratch/source/src/Web/node_modules"
 
 [[ -s "$scratch/package/$heading_parser" ]]
 (cd "$wasm" && shasum -a 256 -c "$release/fsusui-wasm.sha256") >> "$release/build.txt"
-for name in ep_wasm markdown_basic markdown_simd; do
+for name in "${wasm_stems[@]}"; do
   assets=("$scratch/package/web/assets/$name"-*.wasm)
   if [[ ${#assets[@]} != 1 ]] || ! cmp -- "$wasm/$name.wasm" "${assets[0]}"; then
     printf 'Bundled Wasm differs from the checked FsusUI input: %s\n' "$name" >&2
     exit 1
   fi
 done
-cp -- "$scratch/source/deploy/nginx.conf.example" "$scratch/source/deploy/Caddyfile" "$scratch/source/deploy/Caddyfile.admin" "$scratch/source/deploy/README.md" "$scratch/package/"
-cp -- "$scratch/source/deploy/fsusblog-daily-checkpoint.service" "$scratch/source/deploy/fsusblog-daily-checkpoint.timer" "$scratch/package/"
+cp -- "$scratch/source/deploy"/{nginx.conf.example,Caddyfile,Caddyfile.admin,README.md,fsusblog-daily-checkpoint.service,fsusblog-daily-checkpoint.timer} "$scratch/package/"
 {
   printf 'fsusblog_commit=%s\nfsusui_package=%s\n' "$rev" "$ui_pkg_id"
   printf 'server_rid=%s\nheading_parser=%s\n' "$server_rid" "$heading_parser"

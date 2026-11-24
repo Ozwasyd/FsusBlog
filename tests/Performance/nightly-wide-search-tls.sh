@@ -44,9 +44,8 @@ upstream_port=
 public_port=
 stage=starting
 
-own_child() {
-    [[ -n $1 && "$(ps -o ppid= -p "$1" 2>/dev/null | tr -d ' ')" == "$$" ]]
-}
+# shellcheck source=tests/Performance/proxy.sh
+source tests/Performance/proxy.sh
 
 stop_child() {
     local name=$1 pid=$2 status=0 forced=no requested=no
@@ -54,17 +53,11 @@ stop_child() {
     if own_child "$pid"; then
         requested=yes
         kill -TERM "$pid" 2>/dev/null || { ! own_child "$pid" || return 1; }
-        for _ in {1..50}; do
-            own_child "$pid" || break
-            sleep 0.1
-        done
+        wait_child_exit "$pid" 50
         if own_child "$pid"; then
             forced=yes
             kill -KILL "$pid" 2>/dev/null || { ! own_child "$pid" || return 1; }
-            for _ in {1..20}; do
-                own_child "$pid" || break
-                sleep 0.1
-            done
+            wait_child_exit "$pid" 20
         fi
     fi
     if own_child "$pid"; then
@@ -98,15 +91,9 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-read -r public_port upstream_port < <(python3 - <<'PY'
-import socket
-
-with socket.socket() as public, socket.socket() as upstream:
-    public.bind(("127.0.0.1", 0))
-    upstream.bind(("127.0.0.1", 0))
-    print(public.getsockname()[1], upstream.getsockname()[1])
-PY
-)
+public_port=$(choose_loopback_port)
+upstream_port=$(choose_loopback_port)
+while [[ $upstream_port == "$public_port" ]]; do upstream_port=$(choose_loopback_port); done
 target="https://127.0.0.1:$public_port"
 origin="http://127.0.0.1:$upstream_port"
 {
@@ -145,11 +132,11 @@ done
 stage=proxy-start
 curl_flags=(--http1.1)
 load_flags=()
-# shellcheck source=tests/Performance/proxy.sh
-source tests/Performance/proxy.sh
+status_at() {
+    curl --disable --noproxy '*' --silent --show-error --max-time 2 -o /dev/null -w '%{http_code}' "$@"
+}
 readiness() {
-    curl --disable --noproxy '*' --silent --show-error --max-time 1 "${curl_flags[@]}" \
-        -o /dev/null -w '%{http_code}' "$target/health/ready"
+    status_at --max-time 1 "${curl_flags[@]}" "$target/health/ready"
 }
 start_proxy "$config"
 own_child "$server_pid"
@@ -159,9 +146,6 @@ pin=$(openssl x509 -in "$FSUSBLOG_TLS_CERTIFICATE" -noout -pubkey |
 [[ $pin =~ ^[A-Za-z0-9+/]{43}=$ ]]
 
 stage=wide-ready
-status_at() {
-    curl --disable --noproxy '*' --silent --show-error --max-time 2 -o /dev/null -w '%{http_code}' "$@"
-}
 pinned=(--cacert "$proxy_ca" --pinnedpubkey "sha256//$pin")
 health=$(status_at "${pinned[@]}" "$target/health/ready")
 naked=$(status_at -H "Host: 127.0.0.1:$public_port" "$origin/health/ready")

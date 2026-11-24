@@ -1,16 +1,9 @@
-using FsusBlogV2.Storage;
 using System.Collections.Immutable;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Core.Authoring;
-using Npgsql;
-using NpgsqlTypes;
+using static FsusBlog.V2.Server.SqlCommands;
 
 namespace FsusBlog.V2.Server.Authoring;
 
-internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor)
+internal sealed class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor)
 {
     private readonly CanvasHistoryStore history = new(db, tx);
     private const int RetainedDocuments = 4_000;
@@ -22,26 +15,18 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
     private const string Node = "id,kind,x,y,width,height,article_id,anchor,pinned_revision,note,member_ids";
     private const string Edge = "id,explicit_reference,source_node_id,target_node_id,sort_order,label";
 
-    internal async Task<IReadOnlyList<CanvasGraphReceipt>> List(CancellationToken ct)
-    {
-        await using var load = Store.Sql(db, tx, $"""
+    internal async Task<IReadOnlyList<CanvasGraphReceipt>> List(CancellationToken ct) =>
+        await QueryList(db, tx, ct, $"""
             select {Receipt} from public.authoring_canvas c
             join public.canvas_document_event e on e.canvas_id=c.id and e.revision=c.revision
             where c.owner_id=$1 and not c.deleted order by c.touched_at desc, c.id limit $2
-            """, actor.Id, WireLimits.CanvasGraphMaxDocuments);
-        await using var rows = await load.ExecuteReaderAsync(ct);
-        var result = new List<CanvasGraphReceipt>();
-        while (await rows.ReadAsync(ct)) result.Add(ReadReceipt(rows));
-        return result;
-    }
+            """, ReadReceipt, actor.Id, WireLimits.CanvasGraphMaxDocuments);
 
     internal async Task<CanvasGraphPage> Page(Guid id, long revision, int offset, CancellationToken ct)
     {
         if (id == Guid.Empty || revision < 0 || offset < 0 || offset != 0 && revision == 0)
             throw Invalid("Invalid Canvas document page.");
-        var current = await Current(id, write: false, ct) ?? throw Missing();
-        if (current.Deleted) throw Missing();
-        if (revision != 0 && revision != current.Revision) throw Conflict();
+        var current = await RequireLive(id, revision == 0 ? null : revision, ct);
         if (offset >= current.NodeCount + current.EdgeCount && offset != 0)
             throw Invalid("Invalid Canvas document page offset.");
 
@@ -69,18 +54,14 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
     {
         if (id == Guid.Empty || nodeId == Guid.Empty || revision <= 0)
             throw Invalid("A valid Canvas reference coordinate is required.");
-        var current = await Current(id, write: false, ct) ?? throw Missing();
-        if (current.Deleted) throw Missing();
-        if (current.Revision != revision) throw Conflict();
+        var current = await RequireLive(id, revision, ct);
         return await CanvasReferenceStore.Resolve(db, tx, actor.Id, id, nodeId, current.Revision, requireCurrent, ct);
     }
 
     internal async Task<byte[]> ExportBundle(Guid id, long revision, CancellationToken ct)
     {
         if (id == Guid.Empty || revision <= 0) throw Invalid("An exact Canvas revision is required.");
-        var current = await Current(id, write: false, ct) ?? throw Missing();
-        if (current.Deleted) throw Missing();
-        if (current.Revision != revision) throw Conflict();
+        var current = await RequireLive(id, revision, ct);
         var graph = await LoadGraph(current, ct);
         await CheckReferences(graph.Nodes, ct);
         var view = current.Viewport;
@@ -107,9 +88,7 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
     internal async Task<CanvasGraphHistory> History(Guid id, long revision, CancellationToken ct)
     {
         if (id == Guid.Empty || revision <= 0) throw Invalid("A valid Canvas revision is required.");
-        var current = await Current(id, write: false, ct) ?? throw Missing();
-        if (current.Deleted) throw Missing();
-        if (current.Revision != revision) throw Conflict();
+        await RequireLive(id, revision, ct);
         return await history.Heads(id, revision, ct);
     }
 
@@ -158,6 +137,14 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
         return applied;
     }
 
+    private async Task<CanvasGraphReceipt> RequireLive(Guid id, long? revision, CancellationToken ct)
+    {
+        var current = await Current(id, write: false, ct) ?? throw Missing();
+        if (current.Deleted) throw Missing();
+        if (revision.HasValue && current.Revision != revision.Value) throw Conflict();
+        return current;
+    }
+
     private async Task<CanvasGraphReceipt> ReplayHistory(CanvasGraphReceipt current, CanvasGraphCommand command,
         byte[] fingerprint, CancellationToken ct)
     {
@@ -165,8 +152,7 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
         var entry = await history.Read(current.Id, current.Revision, undo, ct)
             ?? throw new BusinessException(Rejection.Conflict, "This Canvas has no retained operation in that direction.");
         var payload = entry.Payload;
-        var expected = undo ? payload.After : payload.Before;
-        var desired = undo ? payload.Before : payload.After;
+        var (expected, desired) = undo ? (payload.After, payload.Before) : (payload.Before, payload.After);
         if (current.Title != expected.Title || current.Viewport != expected.Viewport)
             throw new BusinessException(Rejection.Conflict, "Canvas history does not match its current metadata.");
 
@@ -208,15 +194,11 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
     internal async Task<CanvasGraphReceipt> Create(Guid id, Guid key, int kind, byte[] fingerprint, string title,
         CanvasViewport viewport, CanvasGraph graph, CancellationToken ct)
     {
-        await using (var budget = Store.Sql(db, tx, """
+        var (total, live) = await QueryRequired(db, tx, ct, """
             select count(*), count(*) filter(where not deleted) from public.authoring_canvas where owner_id=$1
-            """, actor.Id))
-        await using (var row = await budget.ExecuteReaderAsync(ct))
-        {
-            await row.ReadAsync(ct);
-            if (row.GetInt64(0) >= RetainedDocuments || row.GetInt64(1) >= WireLimits.CanvasGraphMaxDocuments) throw Conflict();
-        }
-        if (await SqlCommands.Scalar(db, tx, ct, """
+            """, r => (r.GetInt64(0), r.GetInt64(1)), null, actor.Id);
+        if (total >= RetainedDocuments || live >= WireLimits.CanvasGraphMaxDocuments) throw Conflict();
+        if (await Scalar(db, tx, ct, """
             insert into public.authoring_canvas(id,owner_id,revision,title,viewport_x,viewport_y,viewport_zoom,deleted,touched_at)
             values($1,$2,1,$3,$4,$5,$6,false,clock_timestamp()) on conflict do nothing returning touched_at
             """, id, actor.Id, title, viewport.X, viewport.Y, viewport.Zoom) is not DateTime touched) throw Missing();
@@ -244,47 +226,31 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
         return await Advance(current, plan, LinkKind, digest, ct);
     }
 
-    internal async Task<CanvasGraphReceipt?> Replay(Guid id, Guid key, int kind, byte[] fingerprint, CancellationToken ct)
-    {
-        await using var read = Store.Sql(db, tx, $"""
+    internal Task<CanvasGraphReceipt?> Replay(Guid id, Guid key, int kind, byte[] fingerprint, CancellationToken ct) =>
+        QueryOne(db, tx, ct, $"""
             select {Receipt}, e.command_kind,e.fingerprint from public.canvas_document_event e
             where e.canvas_id=$1 and e.actor_id=$2 and e.command_id=$3
-            """, id, actor.Id, key);
-        await using var row = await read.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct)) return null;
-        if (row.GetInt32(10) != kind || !CryptographicOperations.FixedTimeEquals(row.GetFieldValue<byte[]>(11), fingerprint))
-            throw Conflict();
-        return ReadReceipt(row);
-    }
+            """, row =>
+        {
+            if (row.GetInt32(10) != kind || !CryptographicOperations.FixedTimeEquals(row.GetFieldValue<byte[]>(11), fingerprint))
+                throw Conflict();
+            return ReadReceipt(row);
+        }, id, actor.Id, key);
 
     private async Task<CanvasGraphReceipt?> Current(Guid id, bool write, CancellationToken ct)
     {
         // Lock first, then read the matching event using the next READ COMMITTED statement.
         // A concurrent writer may have advanced the row while we waited for its lock.
-        long revision;
-        string title;
-        CanvasViewport viewport;
-        bool deleted;
-        DateTimeOffset touched;
-        await using (var acquire = Store.Sql(db, tx, """
+        var head = await QueryOneValue(db, tx, ct, """
             select revision,title,viewport_x,viewport_y,viewport_zoom,deleted,touched_at
             from public.authoring_canvas where id=$1 and owner_id=$2
-            """ + (write ? " for update" : " for share"), id, actor.Id))
-        await using (var row = await acquire.ExecuteReaderAsync(ct))
-        {
-            if (!await row.ReadAsync(ct)) return null;
-            revision = row.GetInt64(0);
-            title = row.GetString(1);
-            viewport = new(row.GetInt32(2), row.GetInt32(3), row.GetInt32(4));
-            deleted = row.GetBoolean(5);
-            touched = row.GetFieldValue<DateTimeOffset>(6);
-        }
-        await using var read = Store.Sql(db, tx, $"""
+            """ + (write ? " for update" : " for share"),
+            r => (Revision: r.GetInt64(0), Title: r.GetString(1), Viewport: new CanvasViewport(r.GetInt32(2), r.GetInt32(3), r.GetInt32(4)),
+                Deleted: r.GetBoolean(5), Touched: r.GetFieldValue<DateTimeOffset>(6)), id, actor.Id);
+        if (head is not var (revision, title, viewport, deleted, touched)) return null;
+        var receipt = await QueryRequired(db, tx, ct, $"""
             select {Receipt} from public.canvas_document_event e where e.canvas_id=$1 and e.revision=$2
-            """, id, revision);
-        await using var eventRow = await read.ExecuteReaderAsync(ct);
-        await eventRow.ReadRequired(ct, () => new InvalidOperationException("Canvas document event is missing."));
-        var receipt = ReadReceipt(eventRow);
+            """, ReadReceipt, () => new InvalidOperationException("Canvas document event is missing."), id, revision);
         if (receipt.Title != title || receipt.Viewport != viewport || receipt.Deleted != deleted || receipt.TouchedAt != touched)
             throw new InvalidOperationException("Canvas document metadata does not match its event.");
         return receipt;
@@ -293,7 +259,7 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
     private async Task<CanvasGraphReceipt> Advance(CanvasGraphReceipt current, Guid key, int kind, byte[] fingerprint, CancellationToken ct)
     {
         var viewport = current.Viewport;
-        if (await SqlCommands.Scalar(db, tx, ct, """
+        if (await Scalar(db, tx, ct, """
             update public.authoring_canvas set revision=revision+1,title=$3,viewport_x=$4,viewport_y=$5,
                 viewport_zoom=$6,deleted=$7,touched_at=clock_timestamp()
             where id=$1 and revision=$2 returning touched_at
@@ -304,10 +270,10 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
         return receipt;
     }
 
-    private async Task Record(CanvasGraphReceipt current, Guid key, int kind, byte[] fingerprint, CancellationToken ct)
+    private Task Record(CanvasGraphReceipt current, Guid key, int kind, byte[] fingerprint, CancellationToken ct)
     {
         var viewport = current.Viewport;
-        await SqlCommands.Execute(db, tx, ct, """
+        return Execute(db, tx, ct, """
             insert into public.canvas_document_event(canvas_id,revision,actor_id,command_id,command_kind,fingerprint,
                 title,viewport_x,viewport_y,viewport_zoom,deleted,node_count,edge_count,touched_at)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
@@ -322,97 +288,125 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
             .Distinct().OrderBy(reference => reference.Id).ToArray();
         if (references.Length == 0) return;
         var ids = references.Select(reference => reference.Id).ToArray();
-        await using var check = Store.Sql(db, tx, """
+        int verified = 0;
+        await ReadAll(db, tx, ct, """
             select a.id from unnest($1::integer[],$2::bigint[]) ref(id,pin)
             join public.article a on a.id=ref.id
             where not a.deleted and a.owner_id=$3 and
                 (ref.pin=0 or exists(select 1 from public.article_revision r where r.article_id=a.id and r.revision=ref.pin))
             order by a.id for share of a
-            """, ids, references.Select(reference => reference.Pin).ToArray(), actor.Id);
-        int verified = 0;
-        await using (var rows = await check.ExecuteReaderAsync(ct))
-        {
-            while (await rows.ReadAsync(ct)) verified++;
-        }
+            """, _ => verified++, ids, references.Select(reference => reference.Pin).ToArray(), actor.Id);
         if (verified != references.Length || await ArchivedArticleAuthority.AnyLockedArchived(db, tx, ids, ct))
             throw new BusinessException(Rejection.NotFound, "Canvas reference is unavailable.");
         if (requireResolved)
             await CanvasReferenceStore.ValidateLockedAnchors(db, tx, nodes, ct);
     }
 
-    private async Task<List<CanvasNode>> ReadNodes(Guid id, int offset, int limit, CancellationToken ct)
-    {
-        await using var query = Store.Sql(db, tx, $"""
+    private Task<List<CanvasNode>> ReadNodes(Guid id, int offset, int limit, CancellationToken ct) =>
+        QueryList(db, tx, ct, $"""
             select {Node} from public.canvas_node where canvas_id=$1 order by id limit $2 offset $3
-            """, id, limit, offset);
-        await using var rows = await query.ExecuteReaderAsync(ct);
-        var result = new List<CanvasNode>();
-        while (await rows.ReadAsync(ct))
-        {
-            var geometry = new CanvasGeometry(rows.GetInt32(2), rows.GetInt32(3), rows.GetInt32(4), rows.GetInt32(5));
-            result.Add(new(rows.GetGuid(0), (CanvasNodeKind)rows.GetInt32(1), geometry,
-                rows.IsDBNull(6) ? null : rows.GetInt32(6), rows.IsDBNull(7) ? null : rows.GetString(7),
-                rows.IsDBNull(8) ? null : rows.GetInt64(8), rows.IsDBNull(9) ? null : rows.GetString(9),
-                rows.GetFieldValue<Guid[]>(10).ToImmutableArray()));
-        }
-        return result;
-    }
+            """, r => new CanvasNode(r.GetGuid(0), (CanvasNodeKind)r.GetInt32(1),
+                new(r.GetInt32(2), r.GetInt32(3), r.GetInt32(4), r.GetInt32(5)),
+                r.IsDBNull(6) ? null : r.GetInt32(6), r.IsDBNull(7) ? null : r.GetString(7),
+                r.IsDBNull(8) ? null : r.GetInt64(8), r.IsDBNull(9) ? null : r.GetString(9),
+                r.GetFieldValue<Guid[]>(10).ToImmutableArray()), id, limit, offset);
 
-    private async Task<List<CanvasGraphEdge>> ReadEdges(Guid id, int offset, int limit, CancellationToken ct)
-    {
-        await using var query = Store.Sql(db, tx, $"""
+    private Task<List<CanvasGraphEdge>> ReadEdges(Guid id, int offset, int limit, CancellationToken ct) =>
+        QueryList(db, tx, ct, $"""
             select {Edge} from public.canvas_edge where canvas_id=$1 order by sort_order,id limit $2 offset $3
-            """, id, limit, offset);
-        await using var rows = await query.ExecuteReaderAsync(ct);
-        var result = new List<CanvasGraphEdge>();
-        while (await rows.ReadAsync(ct)) result.Add(new(rows.GetGuid(0),
-            rows.GetBoolean(1) ? CanvasGraphEdgeKind.ExplicitReferenceNote : CanvasGraphEdgeKind.VisualOnly,
-            rows.GetGuid(2), rows.GetGuid(3), rows.GetInt32(4), rows.IsDBNull(5) ? null : rows.GetString(5)));
-        return result;
+            """, r => new CanvasGraphEdge(r.GetGuid(0),
+                r.GetBoolean(1) ? CanvasGraphEdgeKind.ExplicitReferenceNote : CanvasGraphEdgeKind.VisualOnly,
+                r.GetGuid(2), r.GetGuid(3), r.GetInt32(4), r.IsDBNull(5) ? null : r.GetString(5)), id, limit, offset);
+
+    private async Task CopySeedNodes(Guid canvas, ImmutableArray<CanvasNode> nodes, CancellationToken ct)
+    {
+        if (nodes.IsEmpty) return;
+        await using var copy = await db.BeginBinaryImportAsync("""
+            copy public.canvas_node(canvas_id,id,kind,x,y,width,height,article_id,anchor,pinned_revision,note,member_ids)
+            from stdin (format binary)
+            """, ct);
+        foreach (var node in nodes)
+        {
+            var g = node.Geometry;
+            await copy.StartRowAsync(ct);
+            await copy.WriteAsync(canvas, NpgsqlDbType.Uuid, ct);
+            await copy.WriteAsync(node.Id, NpgsqlDbType.Uuid, ct);
+            await copy.WriteAsync((int)node.Kind, NpgsqlDbType.Integer, ct);
+            await copy.WriteAsync(g.X, NpgsqlDbType.Integer, ct);
+            await copy.WriteAsync(g.Y, NpgsqlDbType.Integer, ct);
+            await copy.WriteAsync(g.Width, NpgsqlDbType.Integer, ct);
+            await copy.WriteAsync(g.Height, NpgsqlDbType.Integer, ct);
+            await WriteNullable(copy, node.ArticleId, NpgsqlDbType.Integer, ct);
+            await WriteNullable(copy, node.Anchor, NpgsqlDbType.Text, ct);
+            await WriteNullable(copy, node.PinnedRevision, NpgsqlDbType.Bigint, ct);
+            await WriteNullable(copy, node.Text, NpgsqlDbType.Text, ct);
+            await copy.WriteAsync(node.MemberIds.AsSpan().ToArray(), NpgsqlDbType.Array | NpgsqlDbType.Uuid, ct);
+        }
+        await copy.CompleteAsync(ct);
     }
 
-    private async Task DeleteIds(Guid id, string sql, Guid[] removed, CancellationToken ct)
+    private async Task CopySeedEdges(Guid canvas, ImmutableArray<CanvasGraphEdge> edges, CancellationToken ct)
     {
-        if (removed.Length == 0) return;
-        await SqlCommands.Execute(db, tx, ct, sql, id, removed);
+        if (edges.IsEmpty) return;
+        await using var copy = await db.BeginBinaryImportAsync("""
+            copy public.canvas_edge(canvas_id,id,source_node_id,target_node_id,explicit_reference,sort_order,label)
+            from stdin (format binary)
+            """, ct);
+        foreach (var edge in edges)
+        {
+            await copy.StartRowAsync(ct);
+            await copy.WriteAsync(canvas, NpgsqlDbType.Uuid, ct);
+            await copy.WriteAsync(edge.Id, NpgsqlDbType.Uuid, ct);
+            await copy.WriteAsync(edge.SourceNodeId, NpgsqlDbType.Uuid, ct);
+            await copy.WriteAsync(edge.TargetNodeId, NpgsqlDbType.Uuid, ct);
+            await copy.WriteAsync(edge.Kind == CanvasGraphEdgeKind.ExplicitReferenceNote, NpgsqlDbType.Boolean, ct);
+            await copy.WriteAsync(edge.Order, NpgsqlDbType.Integer, ct);
+            await WriteNullable(copy, edge.Label, NpgsqlDbType.Text, ct);
+        }
+        await copy.CompleteAsync(ct);
     }
+
+    private static Task WriteNullable<T>(NpgsqlBinaryImporter copy, T? value, NpgsqlDbType type, CancellationToken ct) where T : struct =>
+        value.HasValue ? copy.WriteAsync(value.Value, type, ct) : copy.WriteNullAsync(ct);
+
+    private static Task WriteNullable(NpgsqlBinaryImporter copy, string? value, NpgsqlDbType type, CancellationToken ct) =>
+        value is not null ? copy.WriteAsync(value, type, ct) : copy.WriteNullAsync(ct);
+
+    private Task DeleteIds(Guid id, string sql, Guid[] removed, CancellationToken ct) =>
+        removed.Length == 0 ? Task.CompletedTask : Execute(db, tx, ct, sql, id, removed);
 
     private async Task DeleteGraph(Guid id, CancellationToken ct)
     {
-        await SqlCommands.Execute(db, tx, ct, "delete from public.canvas_edge where canvas_id=$1", id);
-        await SqlCommands.Execute(db, tx, ct, "delete from public.canvas_node where canvas_id=$1", id);
+        await Execute(db, tx, ct, "delete from public.canvas_edge where canvas_id=$1", id);
+        await Execute(db, tx, ct, "delete from public.canvas_node where canvas_id=$1", id);
     }
 
-    private async Task StoreNode(Guid canvas, CanvasNode node, CancellationToken ct)
+    private Task StoreNode(Guid canvas, CanvasNode node, CancellationToken ct)
     {
         var g = node.Geometry;
-        await SqlCommands.Execute(db, tx, ct, """
+        return Execute(db, tx, ct, """
             insert into public.canvas_node(canvas_id,id,kind,x,y,width,height,article_id,anchor,pinned_revision,note,member_ids)
             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
             on conflict (canvas_id,id) do update set x=excluded.x,y=excluded.y,width=excluded.width,height=excluded.height,
                 article_id=excluded.article_id,anchor=excluded.anchor,pinned_revision=excluded.pinned_revision,
                 note=excluded.note,member_ids=excluded.member_ids
             """, canvas, node.Id, (int)node.Kind, g.X, g.Y, g.Width, g.Height,
-            SqlCommands.Optional(NpgsqlDbType.Integer, node.ArticleId), SqlCommands.Optional(NpgsqlDbType.Text, node.Anchor),
-            SqlCommands.Optional(NpgsqlDbType.Bigint, node.PinnedRevision), SqlCommands.Optional(NpgsqlDbType.Text, node.Text),
+            Optional(NpgsqlDbType.Integer, node.ArticleId), Optional(NpgsqlDbType.Text, node.Anchor),
+            Optional(NpgsqlDbType.Bigint, node.PinnedRevision), Optional(NpgsqlDbType.Text, node.Text),
             node.MemberIds.IsDefault ? Array.Empty<Guid>() : node.MemberIds.ToArray());
     }
 
-    private async Task StoreEdge(Guid canvas, CanvasGraphEdge edge, CancellationToken ct)
-    {
-        await SqlCommands.Execute(db, tx, ct, """
+    private Task StoreEdge(Guid canvas, CanvasGraphEdge edge, CancellationToken ct) =>
+        Execute(db, tx, ct, """
             insert into public.canvas_edge(canvas_id,id,source_node_id,target_node_id,explicit_reference,sort_order,label)
             values($1,$2,$3,$4,$5,$6,$7)
             on conflict (canvas_id,id) do update set source_node_id=excluded.source_node_id,target_node_id=excluded.target_node_id,
                 explicit_reference=excluded.explicit_reference,sort_order=excluded.sort_order,label=excluded.label
             """, canvas, edge.Id, edge.SourceNodeId, edge.TargetNodeId, edge.Kind == CanvasGraphEdgeKind.ExplicitReferenceNote,
-            edge.Order, SqlCommands.Optional(NpgsqlDbType.Text, edge.Label));
-    }
+            edge.Order, Optional(NpgsqlDbType.Text, edge.Label));
 
-    private static CanvasGraph Apply(CanvasGraph before, IReadOnlyList<CanvasChangeFrame> changes)
-    {
-        if (changes.Count == 0) return before;
-        return before.Apply(changes.Select<CanvasChangeFrame, CanvasGraphChange>(change => change switch
+    private static CanvasGraph Apply(CanvasGraph before, IReadOnlyList<CanvasChangeFrame> changes) =>
+        changes.Count == 0 ? before : before.Apply(changes.Select<CanvasChangeFrame, CanvasGraphChange>(change => change switch
         {
             CanvasChangeFrame.PutNode(var node) => new CanvasGraphChange.UpsertNode(new(node.Id, (CanvasNodeKind)node.Kind,
                 new(node.X, node.Y, node.Width, node.Height), node.ArticleId, node.Anchor, node.PinnedRevision, node.Text,
@@ -423,7 +417,6 @@ internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransa
             CanvasChangeFrame.DropEdge(var id) => new CanvasGraphChange.RemoveEdge(id),
             _ => throw Invalid("Invalid Canvas graph edit.")
         }).ToArray());
-    }
 
     private static CanvasNodeFrame ToFrame(CanvasNode node)
     {

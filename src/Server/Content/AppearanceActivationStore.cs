@@ -1,61 +1,40 @@
-using FsusBlogV2.Storage;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Core.Extensions;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal sealed record AppearanceActivation(long Revision, AppearanceSelection Selected);
 
 internal static class AppearanceActivationStore
 {
-    internal static async Task<AppearanceActivation> Read(NpgsqlConnection db, NpgsqlTransaction tx,
-        AppearanceRegistry registry, CancellationToken ct, bool locked = false)
-    {
-        var sql = "select revision, theme_digest, font_digest from public.appearance_activation where singleton";
-        if (locked) sql += " for update";
-        await using var cmd = Store.Sql(db, tx, sql);
-        await using var row = await cmd.ExecuteReaderAsync(ct);
-        await row.ReadRequired(ct, () => new PublicUnavailableException());
-        var revision = row.GetInt64(0);
-        return new(revision, revision == 0 ? registry.Default : new(row.GetString(1), row.GetString(2)));
-    }
+    internal static Task<AppearanceActivation> Read(NpgsqlConnection db, NpgsqlTransaction tx,
+        AppearanceRegistry registry, CancellationToken ct, bool locked = false) =>
+        SqlCommands.QueryRequired(db, tx, ct,
+            "select revision, theme_digest, font_digest from public.appearance_activation where singleton" + (locked ? " for update" : ""),
+            row =>
+            {
+                var revision = row.GetInt64(0);
+                return new AppearanceActivation(revision, revision == 0 ? registry.Default : new(row.GetString(1), row.GetString(2)));
+            }, () => new PublicUnavailableException());
 
-    internal static async Task<AppearanceSelection?> Previous(NpgsqlConnection db, NpgsqlTransaction tx, long revision, CancellationToken ct)
-    {
-        if (revision == 0) return null;
-        await using var cmd = Store.Sql(db, tx, """
-            select previous_theme_digest,previous_font_digest from public.appearance_activation_audit where revision=$1
-            """, revision);
-        await using var row = await cmd.ExecuteReaderAsync(ct);
-        await row.ReadRequired(ct, () => new PublicUnavailableException());
-        return new(row.GetString(0), row.GetString(1));
-    }
+    internal static async Task<AppearanceSelection?> Previous(NpgsqlConnection db, NpgsqlTransaction tx, long revision, CancellationToken ct) =>
+        revision == 0 ? null : await SqlCommands.QueryRequired(db, tx, ct,
+            "select previous_theme_digest,previous_font_digest from public.appearance_activation_audit where revision=$1",
+            row => new AppearanceSelection(row.GetString(0), row.GetString(1)), () => new PublicUnavailableException(), revision);
 
-    internal static async Task<bool> StillActive(NpgsqlConnection db, NpgsqlTransaction tx, long revision, CancellationToken ct)
-    {
-        return await SqlCommands.Scalar(db, tx, ct,
-            "select revision from public.appearance_activation where singleton for share") is long current && current == revision;
-    }
+    internal static async Task<bool> StillActive(NpgsqlConnection db, NpgsqlTransaction tx, long revision, CancellationToken ct) =>
+        await SqlCommands.Scalar(db, tx, ct, "select revision from public.appearance_activation where singleton for share") is long current && current == revision;
 
     internal static async Task<AdminAppearanceHistoryPage> History(NpgsqlConnection db, NpgsqlTransaction tx,
         long? before, int limit, CancellationToken ct)
     {
-        await using var cmd = Store.Sql(db, tx, """
+        var items = await SqlCommands.QueryList(db, tx, ct, """
             select a.revision,a.happened_at,p.handle,a.rollback,a.previous_theme_digest,a.previous_font_digest,a.theme_digest,a.font_digest
             from public.appearance_activation_audit a join public.admin_principal p on p.id=a.principal_id
             where a.revision<=$1 order by a.revision desc limit $2
-            """, before is { } coordinate ? coordinate - 1 : long.MaxValue, limit + 1);
-        await using var rows = await cmd.ExecuteReaderAsync(ct);
-        var items = new List<AdminAppearanceChange>(limit);
-        while (await rows.ReadAsync(ct))
-        {
-            if (items.Count == limit) return new(items[^1].Revision, items);
-            items.Add(new(rows.GetInt64(0), new DateTimeOffset(rows.GetDateTime(1)).ToUnixTimeMilliseconds(), rows.GetString(2),
-                rows.GetBoolean(3), rows.GetString(4), rows.GetString(5), rows.GetString(6), rows.GetString(7)));
-        }
-        return new(0, items);
+            """, rows => new AdminAppearanceChange(rows.GetInt64(0), new DateTimeOffset(rows.GetDateTime(1)).ToUnixTimeMilliseconds(),
+                rows.GetString(2), rows.GetBoolean(3), rows.GetString(4), rows.GetString(5), rows.GetString(6), rows.GetString(7)),
+            before is { } coordinate ? coordinate - 1 : long.MaxValue, limit + 1);
+        var hasMore = items.Count > limit;
+        if (hasMore) items.RemoveAt(limit);
+        return new(hasMore ? items[^1].Revision : 0, items);
     }
 
     internal static async Task Change(NpgsqlConnection db, NpgsqlTransaction tx, AppearanceActivation current,

@@ -1,14 +1,3 @@
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Core.Extensions;
-using FsusBlog.V2.Platform.Extensions;
-using FsusBlog.V2.Server.Operations;
-using FsusBlog.V2.Server.Sessions;
-using Microsoft.AspNetCore.Http.Features;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo registry, LinuxPluginRunner worker, string origin)
@@ -48,7 +37,7 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
             Path.GetRelativePath(parent, candidate).Split(Path.DirectorySeparatorChar, 2)[0] != "..";
     }
 
-    internal void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query)
+    internal void Map(WebApplication app, string cookie)
     {
         app.MapPost(Route, async (HttpContext ctx, Store store, InstanceLease lease, int id, CancellationToken ct) =>
         {
@@ -60,9 +49,9 @@ internal sealed class PluginPreviewEndpoints(string pluginId, DirectoryInfo regi
                 ctx.Request.Headers.Origin is not { Count: 1 } supplied || !string.Equals(supplied[0], origin, StringComparison.OrdinalIgnoreCase))
                 throw new BusinessException(Rejection.Forbidden, "A same-origin HTTPS request is required.");
             if (ctx.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody != false ||
-                id <= 0 || !long.TryParse(query(ctx, "revision", 19), NumberStyles.None, CultureInfo.InvariantCulture, out var revision) || revision <= 0)
+                id <= 0 || !long.TryParse(ServerHttp.Query(ctx, "revision", 19), NumberStyles.None, CultureInfo.InvariantCulture, out var revision) || revision <= 0)
                 throw new BusinessException(Rejection.Invalid, "An empty request and a valid current revision are required.");
-            var action = query(ctx, "consent", 1);
+            var action = ServerHttp.Query(ctx, "consent", 1);
             if (action is not (null or "0" or "1") ||
                 action == "1" && ctx.Request.Headers.ContainsKey(ConsentHeader))
                 throw new BusinessException(Rejection.Invalid, "Invalid plugin consent request.");

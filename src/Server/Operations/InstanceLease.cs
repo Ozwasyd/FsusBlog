@@ -1,7 +1,4 @@
 using System.Data;
-using System.Diagnostics;
-using FsusBlogV2.Storage;
-using Npgsql;
 
 namespace FsusBlog.V2.Server.Operations;
 
@@ -147,6 +144,41 @@ internal sealed class InstanceLease : IAsyncDisposable
         lease?.RequireCurrent();
         await transaction.CommitAsync(ct);
         lease?.RequireCurrent();
+    }
+
+    internal static async Task<T> RunProtected<T>(NpgsqlConnection db, InstanceLease? lease,
+        Func<NpgsqlTransaction, Task<T>> run, CancellationToken ct,
+        IsolationLevel isolation = IsolationLevel.ReadCommitted)
+    {
+        await using var tx = await BeginProtected(db, lease, ct, isolation);
+        var result = await run(tx);
+        await CommitProtected(tx, lease, ct);
+        return result;
+    }
+
+    internal static async Task RunProtected(NpgsqlConnection db, InstanceLease? lease,
+        Func<NpgsqlTransaction, Task> run, CancellationToken ct,
+        IsolationLevel isolation = IsolationLevel.ReadCommitted)
+    {
+        await using var tx = await BeginProtected(db, lease, ct, isolation);
+        await run(tx);
+        await CommitProtected(tx, lease, ct);
+    }
+
+    internal static async Task<T> RunProtected<T>(NpgsqlDataSource source, InstanceLease? lease,
+        Func<NpgsqlConnection, NpgsqlTransaction, Task<T>> run, CancellationToken ct,
+        IsolationLevel isolation = IsolationLevel.ReadCommitted)
+    {
+        await using var db = await source.OpenConnectionAsync(ct);
+        return await RunProtected(db, lease, tx => run(db, tx), ct, isolation);
+    }
+
+    internal static async Task RunProtected(NpgsqlDataSource source, InstanceLease? lease,
+        Func<NpgsqlConnection, NpgsqlTransaction, Task> run, CancellationToken ct,
+        IsolationLevel isolation = IsolationLevel.ReadCommitted)
+    {
+        await using var db = await source.OpenConnectionAsync(ct);
+        await RunProtected(db, lease, tx => run(db, tx), ct, isolation);
     }
 
     internal void Stop()

@@ -1,15 +1,3 @@
-using System.Buffers.Binary;
-using System.Globalization;
-using System.Net;
-using System.Text.Json;
-using System.Xml.Linq;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Integration.Tests;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Authoring;
-using FsusBlog.V2.Server.Content;
-using Npgsql;
-
 public sealed class ArticleSchedulePostgresTests
 {
     private const string PublicOrigin = "https://schedule.example.test";
@@ -20,14 +8,12 @@ public sealed class ArticleSchedulePostgresTests
     public async Task ScheduledDraftKeepsItsPublicPredecessorAndConsumesOnlyItsExactDueCommand()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var (author, token, _) = await fixture.SignIn("Scheduled author", ct);
-        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct,
-            new Dictionary<string, string>
-            {
-                [PublicSiteConfiguration.OriginKey] = PublicOrigin,
-                ["FSUSBLOG_ADMIN_ORIGIN"] = ServerProcess.DefaultAdminOrigin,
-            });
+        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
+        {
+            [PublicSiteConfiguration.OriginKey] = PublicOrigin,
+            ["FSUSBLOG_ADMIN_ORIGIN"] = ServerProcess.DefaultAdminOrigin,
+        });
         var first = await Write(WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Original", "original body"));
         var published = await Write(WireRoutes.Publish, new(first.Id, first.Revision, Guid.NewGuid(), "", ""));
         var original = await ReadPublication(first.Id);
@@ -36,140 +22,122 @@ public sealed class ArticleSchedulePostgresTests
         var originalFeeds = await ReadFeeds(originalGeneration);
         VerifyFeedContent(originalFeeds, first.Id, articleUrl, original, "Original", "original body");
         var draft = await Write(WireRoutes.Save, new(first.Id, published.Revision, Guid.NewGuid(), "Replacement", "replacement body"));
-        var dbNow = await Scalar<DateTime>("select clock_timestamp()");
+        var dbNow = await fixture.Scalar<DateTime>("select clock_timestamp()");
         var future = new DateTimeOffset(dbNow).AddHours(1).ToUnixTimeMilliseconds();
-        var past = new DateTimeOffset(dbNow).AddSeconds(-1).ToUnixTimeMilliseconds();
         var intent = new ArticleScheduleCommand(draft.Id, draft.Revision, Guid.NewGuid(), future);
-        await Submit(intent with { DueUnixMs = past }, HttpStatusCode.BadRequest);
+        await Submit(intent with { DueUnixMs = new DateTimeOffset(dbNow).AddSeconds(-1).ToUnixTimeMilliseconds() }, BadRequest);
         var duplicates = await Task.WhenAll(Submit(intent), Submit(intent));
         Assert.Equal(duplicates[0], duplicates[1]);
         var pending = Wire.DecodeArticleSchedule(duplicates[0]);
         Assert.Equal((draft.Revision + 1, published.Revision, future), (pending.Revision, pending.PublishedRevision, pending.DueUnixMs));
         Assert.Equal(pending, await Read(draft.Id, pending.Revision));
         Assert.Contains("original body", await server.Client.GetStringAsync($"/article/{draft.Id}", ct));
-        await Submit(intent with { DueUnixMs = future + 10 }, HttpStatusCode.Conflict);
-        await Submit(intent with { IdempotencyKey = Guid.NewGuid() }, HttpStatusCode.Conflict);
+        await Submit(intent with { DueUnixMs = future + 10 }, Conflict);
+        await Submit(intent with { IdempotencyKey = Guid.NewGuid() }, Conflict);
         Assert.Equal(0, await Tick(future - 1));
-        Assert.Equal(1L, await Scalar<long>("select count(*) from public.article_publication_canonical where article_id=$1", draft.Id));
+        Assert.Equal(1L, await fixture.Scalar<long>("select count(*) from public.article_publication_canonical where article_id=$1", draft.Id));
         Assert.Equal(originalFeeds, await ReadFeeds(originalGeneration));
 
         var newDue = future + 10_000;
         var replaced = Wire.DecodeArticleSchedule(await Submit(new(draft.Id, pending.Revision, Guid.NewGuid(), newDue)));
         Assert.Equal(0, await Tick(future));
         var cancelled = Wire.DecodeArticleSchedule(await Submit(new(draft.Id, replaced.Revision, Guid.NewGuid(), 0)));
-        Assert.Equal(0L, cancelled.DueUnixMs);
-        Assert.Equal(0, await Tick(newDue));
+        Assert.Equal((0L, 0), (cancelled.DueUnixMs, await Tick(newDue)));
         Assert.Equal(originalFeeds, await ReadFeeds(originalGeneration));
         var obsolete = Wire.DecodeArticleSchedule(await Submit(new(draft.Id, cancelled.Revision, Guid.NewGuid(), newDue)));
         var modified = await Write(WireRoutes.Save, new(draft.Id, obsolete.Revision, Guid.NewGuid(), "Replacement", "replacement body"));
-        Assert.Equal(0L, (await Read(draft.Id, modified.Revision)).DueUnixMs);
-        Assert.Equal(0, await Tick(newDue));
+        Assert.Equal((0L, 0), ((await Read(draft.Id, modified.Revision)).DueUnixMs, await Tick(newDue)));
         Assert.Equal(originalFeeds, await ReadFeeds(originalGeneration));
         var finalCommand = new ArticleScheduleCommand(draft.Id, modified.Revision, Guid.NewGuid(), newDue);
         var final = Wire.DecodeArticleSchedule(await Submit(finalCommand));
 
         // Existing account lock order means a due pass can skip a concurrent account update without deadlocking.
-        await using (var account = await db.BeginTransactionAsync(ct))
+        await fixture.WithConnection(async db =>
         {
+            await using var account = await db.BeginTransactionAsync(ct);
             await FixtureSql.ScalarAsync(db, account, ct, "select id from public.admin_principal where id=$1 for update", author);
             Assert.Equal(0, await Tick(newDue));
             await account.RollbackAsync(ct);
-        }
+        }, ct);
 
-        await Execute("alter table public.blog_outbox add constraint forced_scheduler_failure check (kind <> 'publish') not valid");
+        await fixture.Exec("alter table public.blog_outbox add constraint forced_scheduler_failure check (kind <> 'publish') not valid");
         await Assert.ThrowsAsync<PostgresException>(() => Tick(newDue));
         Assert.Equal(final, await Read(draft.Id, final.Revision));
-        Assert.Equal(original.Id, await Scalar<long>("select publication_id from public.article_publication where article_id=$1", draft.Id));
-        Assert.Equal(1L, await Scalar<long>("select count(*) from public.article_publication_history where article_id=$1", draft.Id));
+        Assert.Equal(original.Id, await fixture.Scalar<long>("select publication_id from public.article_publication where article_id=$1", draft.Id));
+        Assert.Equal(1L, await fixture.Scalar<long>("select count(*) from public.article_publication_history where article_id=$1", draft.Id));
         Assert.Equal(originalGeneration, await WaitForPublication(draft.Id, original));
         Assert.Equal(originalFeeds, await ReadFeeds(originalGeneration));
-        await Execute("alter table public.blog_outbox drop constraint forced_scheduler_failure");
+        await fixture.Exec("alter table public.blog_outbox drop constraint forced_scheduler_failure");
 
-        var batch = await Task.WhenAll(Tick(newDue), Tick(newDue));
-        Assert.Equal(new[] { 0, 1 }, batch.Order());
-        Assert.Equal(final.Revision, await Scalar<long>("select revision from public.article_publication where article_id=$1", draft.Id));
-        Assert.Equal(final.Revision, await Scalar<long>("select revision from public.article where id=$1", draft.Id));
-        Assert.Equal(original.Id, await Scalar<long>("select supersedes_id from public.article_publication_history where article_id=$1 and event_no=2", draft.Id));
-        Assert.Equal("scheduled-replaced", await Scalar<string>("select reason from public.article_publication_history where article_id=$1 and event_no=2", draft.Id));
-        Assert.Equal(finalCommand.IdempotencyKey, await Scalar<Guid>("select command_id from public.article_publication_history where article_id=$1 and event_no=2", draft.Id));
-        Assert.Equal(1L, await Scalar<long>("""
+        Assert.Equal(new[] { 0, 1 }, (await Task.WhenAll(Tick(newDue), Tick(newDue))).Order());
+        Assert.Equal(final.Revision, await fixture.Scalar<long>("select revision from public.article_publication where article_id=$1", draft.Id));
+        Assert.Equal(final.Revision, await fixture.Scalar<long>("select revision from public.article where id=$1", draft.Id));
+        Assert.Equal((original.Id, "scheduled-replaced", finalCommand.IdempotencyKey), await fixture.QueryRow(
+            "select supersedes_id,reason,command_id from public.article_publication_history where article_id=$1 and event_no=2",
+            r => (r.GetInt64(0), r.GetString(1), r.GetGuid(2)), draft.Id));
+        Assert.Equal(1L, await fixture.Scalar<long>("""
             select count(*) from public.article_publication_canonical c
             join public.article_publication p on p.publication_id=c.publication_id and p.published_at=c.published_at
             join public.blog_outbox o on o.id=c.outbox_id and o.kind='publish' and o.revision=p.revision
             where c.article_id=$1 and c.revision=$2 and c.transition='replace'
             """, draft.Id, final.Revision));
         var promoted = await ReadPublication(first.Id);
-        Assert.Equal(final.Revision, promoted.Revision);
+        Assert.Equal((final.Revision, original.Number + 1), (promoted.Revision, promoted.Number));
         Assert.NotEqual(original.Id, promoted.Id);
-        Assert.Equal(original.Number + 1, promoted.Number);
         var promotedGeneration = await WaitForPublication(first.Id, promoted);
         Assert.NotEqual(originalGeneration, promotedGeneration);
         var promotedFeeds = await ReadFeeds(promotedGeneration);
         VerifyFeedContent(promotedFeeds, first.Id, articleUrl, promoted, "Replacement", "replacement body");
-        Assert.True(await Scalar<bool>("select processed_at is not null from public.blog_outbox where id=$1", promoted.OutboxId));
-        Assert.Equal(0, await Tick(newDue + 1));
-        Assert.Equal(0L, (await Read(draft.Id, final.Revision)).DueUnixMs);
+        Assert.True(await fixture.Scalar<bool>("select processed_at is not null from public.blog_outbox where id=$1", promoted.OutboxId));
+        Assert.Equal((0, 0L), (await Tick(newDue + 1), (await Read(draft.Id, final.Revision)).DueUnixMs));
         Assert.Equal(final, Wire.DecodeArticleSchedule(await Submit(finalCommand)));
-        await Submit(new(draft.Id, final.Revision, Guid.NewGuid(), 0), HttpStatusCode.Conflict);
+        await Submit(new(draft.Id, final.Revision, Guid.NewGuid(), 0), Conflict);
         Assert.Equal(promotedFeeds, await ReadFeeds(promotedGeneration));
-        Assert.Equal(1L, await Scalar<long>("""
-            select count(*) from public.blog_outbox where article_id=$1 and revision=$2 and kind='publish'
-            """, draft.Id, final.Revision));
+        Assert.Equal(1L, await fixture.Scalar<long>("select count(*) from public.blog_outbox where article_id=$1 and revision=$2 and kind='publish'", draft.Id, final.Revision));
 
         var neverPublic = await Write(WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Never public", "private"));
         await Submit(new(neverPublic.Id, neverPublic.Revision, Guid.NewGuid(), newDue));
-        await Execute("update public.admin_principal set generation=generation+1 where id=$1", author);
+        await fixture.Exec("update public.admin_principal set generation=generation+1 where id=$1", author);
         Assert.Equal(0, await Tick(newDue));
-        Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_schedule where article_id=$1", neverPublic.Id));
-        Assert.Equal(0L, await Scalar<long>("select count(*) from public.article_publication where article_id=$1", neverPublic.Id));
+        Assert.Equal(0L, await fixture.Scalar<long>("select count(*) from public.article_schedule where article_id=$1", neverPublic.Id));
+        Assert.Equal(0L, await fixture.Scalar<long>("select count(*) from public.article_publication where article_id=$1", neverPublic.Id));
 
         token = (await fixture.SignIn(author, ct)).Token;
         var workerDraft = await Write(WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Real worker", "real worker body"));
-        var realDue = new DateTimeOffset(await Scalar<DateTime>("select clock_timestamp()")).AddSeconds(4).ToUnixTimeMilliseconds();
+        var realDue = new DateTimeOffset(await fixture.Scalar<DateTime>("select clock_timestamp()")).AddSeconds(4).ToUnixTimeMilliseconds();
         var workerReceipt = Wire.DecodeArticleSchedule(await Submit(new(workerDraft.Id, workerDraft.Revision, Guid.NewGuid(), realDue)));
-        using (var hidden = await server.Client.GetAsync($"/article/{workerDraft.Id}", ct))
-            Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
-        using (var hidden = await server.Client.GetAsync(ArticleRoute(workerDraft.Id), ct))
-            Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+        await CheckStatusAsync(NotFound, server.Client.GetAsync($"/article/{workerDraft.Id}", ct));
+        await CheckStatusAsync(NotFound, server.Client.GetAsync(ArticleRoute(workerDraft.Id), ct));
         Assert.Equal(promotedFeeds, await ReadFeeds(promotedGeneration));
         using (var timer = new CancellationTokenSource(TimeSpan.FromSeconds(12)))
         {
             while (true)
             {
                 using var response = await server.Client.GetAsync($"/article/{workerDraft.Id}", timer.Token);
-                if (response.StatusCode == HttpStatusCode.OK)
+                if (response.StatusCode == OK)
                 {
                     Assert.Contains("real worker body", await response.Content.ReadAsStringAsync(timer.Token));
                     break;
                 }
-                Assert.True(response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.ServiceUnavailable);
+                Assert.True(response.StatusCode is NotFound or ServiceUnavailable);
                 await Task.Delay(50, timer.Token);
             }
         }
-        Assert.Equal(workerReceipt.Revision,
-            await Scalar<long>("select revision from public.article_publication where article_id=$1", workerDraft.Id));
-        Assert.Equal("scheduled-published", await Scalar<string>("select reason from public.article_publication_history where article_id=$1",
-            workerDraft.Id));
+        Assert.Equal(workerReceipt.Revision, await fixture.Scalar<long>("select revision from public.article_publication where article_id=$1", workerDraft.Id));
+        Assert.Equal("scheduled-published", await fixture.Scalar<string>("select reason from public.article_publication_history where article_id=$1", workerDraft.Id));
         var workerPublication = await ReadPublication(workerDraft.Id);
         var workerGeneration = await WaitForPublication(workerDraft.Id, workerPublication);
         Assert.NotEqual(promotedGeneration, workerGeneration);
         VerifyFeedContent(await ReadFeeds(workerGeneration), workerDraft.Id, $"{PublicOrigin}/article/{workerDraft.Id}",
             workerPublication, "Real worker", "real worker body", expectedCount: 2);
 
-        async Task<FeedPublication> ReadPublication(int id)
-        {
-            await using var select = Store.Sql(db, null, """
-                select p.revision,p.publication_id,p.publication_no,p.published_at,r.happened_at,c.outbox_id
-                from public.article_publication p
-                join public.article_revision r on (r.article_id,r.revision)=(p.article_id,p.revision)
-                join public.article_publication_canonical c on c.publication_id=p.publication_id
-                where p.article_id=$1
-                """, id);
-            await using var row = await select.ExecuteReaderAsync(ct);
-            Assert.True(await row.ReadAsync(ct));
-            return new(row.GetInt64(0), row.GetInt64(1), row.GetInt32(2), row.GetFieldValue<DateTimeOffset>(3),
-                row.GetFieldValue<DateTimeOffset>(4), row.GetInt64(5));
-        }
+        Task<FeedPublication> ReadPublication(int id) => fixture.QueryRow("""
+            select p.revision,p.publication_id,p.publication_no,p.published_at,r.happened_at,c.outbox_id
+            from public.article_publication p
+            join public.article_revision r on (r.article_id,r.revision)=(p.article_id,p.revision)
+            join public.article_publication_canonical c on c.publication_id=p.publication_id where p.article_id=$1
+            """, r => new FeedPublication(r.GetInt64(0), r.GetInt64(1), r.GetInt32(2), r.GetFieldValue<DateTimeOffset>(3),
+                r.GetFieldValue<DateTimeOffset>(4), r.GetInt64(5)), id);
 
         async Task<string> WaitForPublication(int id, FeedPublication expected)
         {
@@ -178,21 +146,19 @@ public sealed class ArticleSchedulePostgresTests
             while (true)
             {
                 using var response = await server.Client.GetAsync(ArticleRoute(id), deadline.Token);
-                if (response.StatusCode == HttpStatusCode.OK)
+                if (response.StatusCode == OK)
                 {
                     Assert.True(response.Headers.CacheControl?.NoStore);
-                    var frame = await response.Content.ReadAsByteArrayAsync(deadline.Token);
-                    var actual = ReadDetailCoordinates(frame);
+                    var actual = ReadDetailCoordinates(await response.Content.ReadAsByteArrayAsync(deadline.Token));
                     Assert.Equal(id, actual.Article);
                     if (actual.Publication == expected.Id)
                     {
-                        Assert.Equal(expected.Revision, actual.Revision);
-                        Assert.Equal(expected.Number, actual.Number);
-                        Assert.Equal(expected.Published.ToUnixTimeMilliseconds(), actual.PublishedMs);
+                        Assert.Equal((expected.Revision, expected.Number, expected.Published.ToUnixTimeMilliseconds()),
+                            (actual.Revision, actual.Number, actual.PublishedMs));
                         return Assert.Single(response.Headers.GetValues(WireHeaders.SearchIndexGeneration));
                     }
                 }
-                else Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+                else Assert.Equal(ServiceUnavailable, response.StatusCode);
                 await Task.Delay(50, deadline.Token);
             }
         }
@@ -204,54 +170,34 @@ public sealed class ArticleSchedulePostgresTests
 
             async Task<string> ReadArtifact(string path)
             {
-                using var response = await server.Client.GetAsync(path, ct);
-                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                using var response = Ok(await server.Client.GetAsync(path, ct));
                 Assert.True(response.Headers.CacheControl?.NoStore);
                 Assert.Equal(generation, Assert.Single(response.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
                 return await response.Content.ReadAsStringAsync(ct);
             }
         }
 
-        async Task<int> Tick(long now)
-        {
-            await using var connection = await fixture.DataSource.OpenConnectionAsync(ct);
-            await using var tx = await connection.BeginTransactionAsync(ct);
-            var result = await ArticleScheduleStore.PublishDue(connection, tx, ct, DateTimeOffset.FromUnixTimeMilliseconds(now).UtcDateTime);
-            await tx.CommitAsync(ct);
-            return result;
-        }
-        async Task<ArticleSchedule> Read(int id, long revision)
-        {
-            var path = WireRoutes.DraftSchedule.Replace("{id:int}", id.ToString()) + $"?revision={revision}";
-            return Wire.DecodeArticleSchedule(await Request(HttpMethod.Get, path, null, HttpStatusCode.OK));
-        }
+        Task<int> Tick(long now) => fixture.InTx((conn, tx) =>
+            ArticleScheduleStore.PublishDue(conn, tx, ct, DateTimeOffset.FromUnixTimeMilliseconds(now).UtcDateTime), ct);
+        async Task<ArticleSchedule> Read(int id, long revision) => Wire.DecodeArticleSchedule(
+            await Request(HttpMethod.Get, WireRoutes.DraftSchedule.Replace("{id:int}", id.ToString()) + $"?revision={revision}", null, OK));
         async Task<Draft> Write(string route, ArticleCommand command) =>
-            Wire.DecodeDraft(await Request(HttpMethod.Post, route, Wire.EncodeArticleCommand(command), HttpStatusCode.OK));
-        Task<byte[]> Submit(ArticleScheduleCommand input, HttpStatusCode status = HttpStatusCode.OK) =>
+            Wire.DecodeDraft(await Request(HttpMethod.Post, route, Wire.EncodeArticleCommand(command), OK));
+        Task<byte[]> Submit(ArticleScheduleCommand input, HttpStatusCode status = OK) =>
             Request(HttpMethod.Post, WireRoutes.DraftScheduleCommand, Wire.EncodeArticleScheduleCommand(input), status);
         Task<byte[]> Request(HttpMethod method, string route, byte[]? body, HttpStatusCode status) =>
             SiteAedsFixture.ExpectPrivate(server.Client, method, route, body, token, null, status, ct);
-        Task Execute(string sql, params object[] values) =>
-            FixtureSql.ExecuteAsync(db, null, ct, sql, values);
-        async Task<T> Scalar<T>(string sql, params object[] values)
-        {
-            return (T)(await FixtureSql.ScalarAsync(db, null, ct, sql, values))!;
-        }
     }
 
-    private sealed record FeedPublication(long Revision, long Id, int Number, DateTimeOffset Published, DateTimeOffset Edited,
-        long OutboxId);
-
+    private sealed record FeedPublication(long Revision, long Id, int Number, DateTimeOffset Published, DateTimeOffset Edited, long OutboxId);
     private sealed record FeedArtifacts(string Rss, string LegacyRss, string Atom, string Json, string Sitemap);
-
-    private static string ArticleRoute(int id) =>
-        WireRoutes.PublicArticle.Replace("{id}", id.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+    private static string ArticleRoute(int id) => WireRoutes.PublicArticle.Replace("{id}", id.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
 
     private static (int Article, long Revision, long Publication, int Number, long PublishedMs) ReadDetailCoordinates(byte[] frame)
     {
         var payload = Aeds.Decode(frame, FrameType.ArticleDetail);
-        Assert.Equal(WireLayouts.ArticleDetailV5Magic, BinaryPrimitives.ReadInt32LittleEndian(payload));
-        Assert.Equal(WireLayouts.ArticleDetailV5Version, BinaryPrimitives.ReadInt32LittleEndian(payload[4..]));
+        Assert.Equal((WireLayouts.ArticleDetailV5Magic, WireLayouts.ArticleDetailV5Version),
+            (BinaryPrimitives.ReadInt32LittleEndian(payload), BinaryPrimitives.ReadInt32LittleEndian(payload[4..])));
         var record = payload.Slice(WireLayouts.ArticleDetailHeaderSize, WireLayouts.ArticleDetailV5RecordSize);
         var coordinates = record[WireLayouts.ArticleDetailCoordinatesOffset..];
         return (BinaryPrimitives.ReadInt32LittleEndian(record[WireLayouts.ArticleIdOffset..]),
@@ -260,35 +206,28 @@ public sealed class ArticleSchedulePostgresTests
             BinaryPrimitives.ReadInt64LittleEndian(record[WireLayouts.ArticleDetailPublishedAtOffset..]));
     }
 
-    private static void VerifyFeedContent(FeedArtifacts feeds, int article, string url, FeedPublication expected, string title, string body,
-        int expectedCount = 1)
+    private static void VerifyFeedContent(FeedArtifacts feeds, int article, string url, FeedPublication expected, string title, string body, int expectedCount = 1)
     {
         var modified = expected.Edited > expected.Published ? expected.Edited : expected.Published;
         Assert.Equal(feeds.Rss, feeds.LegacyRss);
         var rssItems = XDocument.Parse(feeds.Rss).Descendants("item").ToArray();
         Assert.Equal(expectedCount, rssItems.Length);
         var rss = Assert.Single(rssItems, item => (string?)item.Element("guid") == url);
-        Assert.Equal(title, (string?)rss.Element("title"));
-        Assert.Equal(body, (string?)rss.Element("description"));
-        Assert.Equal(url, (string?)rss.Element("link"));
-        Assert.Equal(expected.Published.ToString("r", CultureInfo.InvariantCulture), (string?)rss.Element("pubDate"));
+        Assert.Equal((title, body, url, expected.Published.ToString("r", CultureInfo.InvariantCulture)),
+            ((string?)rss.Element("title"), (string?)rss.Element("description"), (string?)rss.Element("link"), (string?)rss.Element("pubDate")));
         var atomItems = XDocument.Parse(feeds.Atom).Descendants(Atom + "entry").ToArray();
         Assert.Equal(expectedCount, atomItems.Length);
         var atom = Assert.Single(atomItems, item => (string?)item.Element(Atom + "id") == url);
-        Assert.Equal(title, (string?)atom.Element(Atom + "title"));
-        Assert.Equal(body, (string?)atom.Element(Atom + "summary"));
-        Assert.Equal(url, (string?)atom.Element(Atom + "link")?.Attribute("href"));
-        Assert.Equal(expected.Published.ToString("O", CultureInfo.InvariantCulture), (string?)atom.Element(Atom + "published"));
-        Assert.Equal(modified.ToString("O", CultureInfo.InvariantCulture), (string?)atom.Element(Atom + "updated"));
+        Assert.Equal((title, body, url, expected.Published.ToString("O", CultureInfo.InvariantCulture), modified.ToString("O", CultureInfo.InvariantCulture)),
+            ((string?)atom.Element(Atom + "title"), (string?)atom.Element(Atom + "summary"), (string?)atom.Element(Atom + "link")?.Attribute("href"),
+                (string?)atom.Element(Atom + "published"), (string?)atom.Element(Atom + "updated")));
         using var json = JsonDocument.Parse(feeds.Json);
         var jsonItems = json.RootElement.GetProperty("items");
         Assert.Equal(expectedCount, jsonItems.GetArrayLength());
         var item = Assert.Single(jsonItems.EnumerateArray(), row => row.GetProperty("url").GetString() == url);
-        Assert.Equal(title, item.GetProperty("title").GetString());
-        Assert.Equal(body, item.GetProperty("content_text").GetString());
-        Assert.Equal(article.ToString(CultureInfo.InvariantCulture), item.GetProperty("id").GetString());
-        Assert.Equal(expected.Published, item.GetProperty("date_published").GetDateTimeOffset());
-        Assert.Equal(modified, item.GetProperty("date_modified").GetDateTimeOffset());
+        Assert.Equal((title, body, article.ToString(CultureInfo.InvariantCulture), expected.Published, modified),
+            (item.GetProperty("title").GetString(), item.GetProperty("content_text").GetString(), item.GetProperty("id").GetString(),
+                item.GetProperty("date_published").GetDateTimeOffset(), item.GetProperty("date_modified").GetDateTimeOffset()));
         var sitemap = Assert.Single(XDocument.Parse(feeds.Sitemap).Descendants(Sitemap + "url"), row => (string?)row.Element(Sitemap + "loc") == url);
         Assert.Equal(modified.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), (string?)sitemap.Element(Sitemap + "lastmod"));
     }

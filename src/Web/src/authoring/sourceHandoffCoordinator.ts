@@ -1,3 +1,4 @@
+import type { MessageKey } from '../siteLocale.ts'
 import type {
   EditorSourceSeek,
   EditorSourceTarget,
@@ -6,13 +7,7 @@ import type {
 } from './canvasEditorHandoff.ts'
 import type { Activation } from './workspaceRegistry.ts'
 
-export type SourceHandoffNoticeKey =
-  | 'author.write.theSearchPositionIsNoLongerAvailableReturn'
-  | 'author.write.theCanvasSourcePositionCouldNotBeOpened'
-  | 'author.write.openedTheSearchResultAtItsVerifiedPosition'
-  | 'author.write.openedTheSearchResultAtItsSavedPosition'
-  | 'author.write.openedTheSearchResultInItsEarlierSaved'
-  | 'author.write.openedTheSearchResultAtItsSavedProperty'
+export type SourceHandoffNoticeKey = MessageKey
 
 export type SourceHandoffFailureKind = 'search-unavailable' | 'stale-reference' | 'activation'
 
@@ -227,6 +222,19 @@ export function createSourceHandoffCoordinator(options: SourceHandoffCoordinator
           !live.recoveryBlocked && now() < revealBy
       }
 
+      const unavailable = () => {
+        sourceInspectorPending = false
+        emit()
+        return { kind: 'unavailable' as const, noticeKey: searchPositionUnavailable }
+      }
+      const edit = input.activeEditSequence
+      const isLiveReady = (live: SourceHandoffLiveState, rev: bigint, requireNoCompare: boolean) =>
+        live.canSwitch && live.editable && !live.pending && (!requireNoCompare || !live.revisionComparisonActive) &&
+        live.activeEditSequence === edit && live.originalRevision === rev && live.sessionExpiresAt > nowMs()
+      const persistentUnavailable = (rev: bigint) =>
+        !input.handle || !input.persistentWorkspace || input.witnessedRevision !== rev ||
+        input.recoveryItemsCount > 0 || input.recoveryWorking || input.revisionComparisonActive
+
       if (source.kind === 'canvas' && source.target.sourceOffset !== null) {
         sourceSeek = {
           kind: 'canvas',
@@ -236,12 +244,7 @@ export function createSourceHandoffCoordinator(options: SourceHandoffCoordinator
           current: held,
         }
       } else if (source.kind === 'search') {
-        if (input.witnessedRevision !== source.target.revision || input.recoveryItemsCount > 0) {
-          sourceInspectorPending = false
-          emit()
-          return { kind: 'unavailable', noticeKey: searchPositionUnavailable }
-        }
-        const edit = input.activeEditSequence
+        if (input.witnessedRevision !== source.target.revision || input.recoveryItemsCount > 0) return unavailable()
         const target = source.target
         // A restored mobile drawer must never open before the source caret receives focus.
         setInspectorOpen(target.field === 'summary')
@@ -249,53 +252,32 @@ export function createSourceHandoffCoordinator(options: SourceHandoffCoordinator
           kind: 'search',
           sessionId,
           target,
-          current: () => {
-            const live = readLiveState()
-            return held() && live.canSwitch && live.editable && !live.pending &&
-              !live.revisionComparisonActive && live.activeEditSequence === edit &&
-              live.originalRevision === target.revision && live.sessionExpiresAt > nowMs()
-          },
+          current: () => held() && isLiveReady(readLiveState(), target.revision, true),
         }
       } else if (source.kind === 'search-history') {
         const { currentRevision, target } = source
-        if (!input.handle || !input.persistentWorkspace || input.witnessedRevision !== currentRevision ||
-          input.recoveryItemsCount > 0 || input.recoveryWorking || input.revisionComparisonActive) {
-          sourceInspectorPending = false
-          emit()
-          return { kind: 'unavailable', noticeKey: searchPositionUnavailable }
-        }
-        const edit = input.activeEditSequence
+        if (persistentUnavailable(currentRevision)) return unavailable()
         historicalSeek = {
           target,
           currentRevision,
-          credential: input.handle,
+          credential: input.handle!,
           current: () => {
             const live = readLiveState()
             return isRouteCurrent() && live.activeSessionId === sessionId && live.activeRisk === 'clean' &&
-              !live.recoveryBlocked && live.canSwitch && live.editable && !live.pending &&
-              live.activeEditSequence === edit && live.originalRevision === currentRevision &&
-              live.sessionExpiresAt > nowMs()
+              !live.recoveryBlocked && isLiveReady(live, currentRevision, false)
           },
         }
         setInspectorOpen(true)
       } else if (source.kind === 'property-search') {
         const { target } = source
-        if (!input.handle || !input.persistentWorkspace || input.witnessedRevision !== target.revision ||
-          input.recoveryItemsCount > 0 || input.recoveryWorking || input.revisionComparisonActive) {
-          sourceInspectorPending = false
-          emit()
-          return { kind: 'unavailable', noticeKey: searchPositionUnavailable }
-        }
-        const edit = input.activeEditSequence
+        if (persistentUnavailable(target.revision)) return unavailable()
         const seek: PropertySearchSeek = {
           target,
-          credential: input.handle,
+          credential: input.handle!,
           current: () => {
             const live = readLiveState()
-            return propertySeek === seek && live.inspectorOpen && held() && live.canSwitch && live.editable &&
-              !live.pending && !live.revisionComparisonActive && live.activeEditSequence === edit &&
-              live.originalId === target.articleId && live.originalRevision === target.revision &&
-              live.sessionExpiresAt > nowMs()
+            return propertySeek === seek && live.inspectorOpen && held() &&
+              live.originalId === target.articleId && isLiveReady(live, target.revision, true)
           },
         }
         propertySeek = seek

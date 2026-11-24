@@ -1,15 +1,9 @@
-import { exactText, roleWithExactName } from './role-locators.mjs'
 import assert from 'node:assert/strict'
-import { submitSearch as submit } from './search-form-fixture.mjs'
-import { setTimeout as delay } from 'node:timers/promises'
-import { WireHeaders, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { exactButton } from './role-locators.mjs'
+import * as search from './search-form-fixture.mjs'
 
-const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
-const pagesHeader = WireHeaders.SearchIndexPages.toLowerCase()
 const corpus = (url, origin) => url.origin === origin && url.pathname === WireRoutes.PublicSearchCorpus
-const noMatches = page => exactText(page, 'No articles match your search.')
-const searchWorker = page => page.workers().find(worker => new URL(worker.url()).pathname.includes('/search.worker'))
-
 
 function verifyDownload(responses) {
   const [first] = responses
@@ -35,33 +29,10 @@ function verifyHeads(responses, generation, statuses) {
   }
 }
 
-async function holdHead(context, origin, ordinal) {
-  const entered = Promise.withResolvers()
-  const release = Promise.withResolvers()
-  const timer = new AbortController()
-  const match = url => corpus(url, origin)
+function holdHead(context, origin, ordinal) {
   let heads = 0
-  const handler = async (route, request) => {
-    if (request.method() !== 'HEAD' || ++heads !== ordinal) return route.continue()
-    entered.resolve()
-    await release.promise
-    // Chromium may have already cancelled the intercepted fetch after worker termination.
-    await route.continue().catch(() => {})
-  }
-  await context.route(match, handler)
-  return {
-    async reached() {
-      const seen = await Promise.race([entered.promise.then(() => true), delay(10_000, false, { signal: timer.signal })])
-      timer.abort()
-      assert(seen, `Timed out waiting for HEAD ${ordinal}`)
-    },
-    release: release.resolve,
-    async close() {
-      release.resolve()
-      timer.abort()
-      await context.unroute(match, handler)
-    },
-  }
+  return search.holdRoute(context, url => corpus(url, origin),
+    request => request.method() === 'HEAD' && ++heads === ordinal, 10_000, `Timed out waiting for HEAD ${ordinal}`)
 }
 
 export async function exerciseSearchWorkerReuse({ page, origin, articleTitle, firstQuery, repeatQuery, withdraw, observations }) {
@@ -74,37 +45,37 @@ export async function exerciseSearchWorkerReuse({ page, origin, articleTitle, fi
     received.push({
       method: response.request().method(), page: Number(url.searchParams.get('page')),
       requested: url.searchParams.get('generation'), status: response.status(),
-      generation: headers[generationHeader], count: Number(headers[pagesHeader]),
+      generation: headers[search.generationHeader], count: Number(headers[search.pagesHeader]),
     })
   }
   context.on('response', record)
   const race = await context.newPage()
-  const result = tab => roleWithExactName(tab.locator('ol.article-list'), 'link', articleTitle)
+  const result = tab => search.resultLink(tab, articleTitle)
   try {
     let start = received.length
     await page.goto(`${origin}/search`)
-    await submit(page, firstQuery)
+    await search.submitSearch(page, firstQuery)
     await result(page).waitFor()
     const oldGeneration = verifyDownload(received.slice(start))
-    const worker = searchWorker(page)
+    const worker = search.searchWorker(page)
     assert(worker, 'Search keeps its Worker after returning the first result')
 
     start = received.length
-    await submit(page, repeatQuery)
+    await search.submitSearch(page, repeatQuery)
     await result(page).waitFor()
     verifyHeads(received.slice(start), oldGeneration, [204, 204])
-    assert.equal(searchWorker(page), worker, 'An unchanged search route uses the same Worker')
+    assert.equal(search.searchWorker(page), worker, 'An unchanged search route uses the same Worker')
 
     start = received.length
     await race.goto(`${origin}/search`)
-    await submit(race, firstQuery)
+    await search.submitSearch(race, firstQuery)
     await result(race).waitFor()
     verifyHeads(received.slice(start), oldGeneration, [204, 204])
 
     start = received.length
     const finalHead = await holdHead(context, origin, 2)
     try {
-      await submit(race, repeatQuery)
+      await search.submitSearch(race, repeatQuery)
       await finalHead.reached()
       verifyHeads(received.slice(start), oldGeneration, [204])
       assert.equal(await result(race).count(), 0, 'Previous results clear before revalidation')
@@ -118,8 +89,8 @@ export async function exerciseSearchWorkerReuse({ page, origin, articleTitle, fi
     }
 
     start = received.length
-    await submit(page, firstQuery)
-    await noMatches(page).waitFor()
+    await search.submitSearch(page, firstQuery)
+    await search.noSearchMatches(page).waitFor()
     const replay = received.slice(start)
     verifyHeads(replay.slice(0, 1), oldGeneration, [409])
     const newGeneration = verifyDownload(replay.slice(1))
@@ -127,16 +98,16 @@ export async function exerciseSearchWorkerReuse({ page, origin, articleTitle, fi
     assert.equal(await result(page).count(), 0)
 
     start = received.length
-    await roleWithExactName(race, 'button', 'Retry').click()
-    await noMatches(race).waitFor()
+    await exactButton(race, 'Retry').click()
+    await search.noSearchMatches(race).waitFor()
     verifyHeads(received.slice(start), newGeneration, [204, 204])
     assert.equal(await result(race).count(), 0)
 
-    const currentWorker = searchWorker(page)
+    const currentWorker = search.searchWorker(page)
     assert(currentWorker, 'The search Worker is available before navigation')
     const pendingHead = await holdHead(context, origin, 1)
     try {
-      await submit(page, repeatQuery)
+      await search.submitSearch(page, repeatQuery)
       await pendingHead.reached()
       await Promise.all([
         currentWorker.waitForEvent('close', { timeout: 10_000 }),
@@ -145,7 +116,7 @@ export async function exerciseSearchWorkerReuse({ page, origin, articleTitle, fi
       await page.waitForURL(`${origin}/about`)
       pendingHead.release()
       await page.getByRole('heading', { name: /^(About|关于)$/ }).waitFor()
-      assert.equal(searchWorker(page), undefined)
+      assert.equal(search.searchWorker(page), undefined)
       assert.equal(await result(page).count(), 0)
     } finally {
       await pendingHead.close()
@@ -153,8 +124,8 @@ export async function exerciseSearchWorkerReuse({ page, origin, articleTitle, fi
 
     start = received.length
     await page.goto(`${origin}/search`)
-    await submit(page, firstQuery)
-    await noMatches(page).waitFor()
+    await search.submitSearch(page, firstQuery)
+    await search.noSearchMatches(page).waitFor()
     verifyHeads(received.slice(start), newGeneration, [204, 204])
 
     observations.push(

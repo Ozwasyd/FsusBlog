@@ -162,7 +162,7 @@ onBeforeUnmount(() => {
     >
       <header class="inspector-heading">
         <h2 :id="titleId">{{ title }}</h2>
-        <ElButton native-type="button" text size="small" @click="close(current)">{{ t('author.editorInspector.close') }}</ElButton>
+        <ElButton native-type="button" text size="small" @click="close(current)">{{ t('comment.close') }}</ElButton>
       </header>
       <div ref="pane" class="inspector-pane-content" />
     </aside>

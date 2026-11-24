@@ -1,5 +1,3 @@
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal static partial class AuthorTextIndex

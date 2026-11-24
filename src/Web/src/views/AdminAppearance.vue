@@ -8,12 +8,10 @@ import {
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { applyAppearance, readAdminAppearance, readAppearanceCatalog, readAppearanceFontDetail, readAppearanceHistory } from '../../../Contracts/admin-appearance'
-import { watchAdminSessionClear } from './adminSessionClear'
+import { isAdminSessionLost, useAdminRequests } from './adminSessionClear'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: unknown] }>()
-const lifetime = new AbortController()
-const signal = () => AbortSignal.any([lifetime.signal, props.sessionSignal])
 const state = shallowRef<Awaited<ReturnType<typeof readAdminAppearance>>>()
 const catalog = shallowRef<Awaited<ReturnType<typeof readAppearanceCatalog>>>()
 const history = shallowRef<Awaited<ReturnType<typeof readAppearanceHistory>>>()
@@ -76,7 +74,7 @@ function name(digest: string) {
 async function run(action: (request: AbortSignal) => Promise<void>,
   unavailable: MessageKey = 'admin.appearanceUnavailable') {
   if (busy.value || props.sessionSignal.aborted) return
-  const request = signal()
+  const request = requests.signal()
   busy.value = true
   error.value = ''
   notice.value = ''
@@ -84,18 +82,13 @@ async function run(action: (request: AbortSignal) => Promise<void>,
     await action(request)
   } catch (cause) {
     if (request.aborted) return
-    if (cause instanceof ApiError && cause.status === 401 && !cause.details.startsWith('pow_')) {
-      emit('session-lost', cause)
-    } else if (cause instanceof ApiError && cause.status === 404) {
-      error.value = unavailable
-    } else if (cause instanceof ApiError && cause.status === 403) {
-      error.value = 'admin.appearanceForbidden'
-    } else if (cause instanceof ApiError && cause.status === 409) {
+    if (isAdminSessionLost(cause)) emit('session-lost', cause)
+    else if (cause instanceof ApiError && cause.status === 404) error.value = unavailable
+    else if (cause instanceof ApiError && cause.status === 403) error.value = 'admin.appearanceForbidden'
+    else if (cause instanceof ApiError && cause.status === 409) {
       state.value = undefined
       error.value = 'admin.appearanceChanged'
-    } else {
-      error.value = 'admin.appearanceRequestFailed'
-    }
+    } else error.value = 'admin.appearanceRequestFailed'
   } finally {
     busy.value = false
   }
@@ -113,7 +106,7 @@ function apply(rollback: boolean) {
 }
 
 watch(font, () => { fontDetail.value = undefined }, { flush: 'sync' })
-function clear() {
+const requests = useAdminRequests(() => props.sessionSignal, () => {
   state.value = undefined
   catalog.value = undefined
   history.value = undefined
@@ -123,8 +116,7 @@ function clear() {
   font.value = ''
   notice.value = ''
   error.value = ''
-}
-watchAdminSessionClear(() => props.sessionSignal, clear, () => lifetime.abort())
+})
 </script>
 
 <template>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { t } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch, type ComponentPublicInstance } from 'vue'
-import { ElButton, ElDrawer, type MarkdownEditorOutlineItem } from '@ozwasyd/element-plus'
+import { ElButton, type MarkdownEditorOutlineItem } from '@ozwasyd/element-plus'
+import OutlineShell from './OutlineShell.vue'
 import { focusInspectorOpener } from './inspectorFocus'
 
 const props = defineProps<{
@@ -268,55 +269,11 @@ defineExpose({
         onKeydown: escapePane,
       }"
       @click="toggle"
-    >{{ t('author.articleOutlineRail.outline') }}</ElButton>
+    >{{ t('author.canvas.outline') }}</ElButton>
   </Teleport>
-  <Teleport v-if="surface && !surface.compact" :to="dockTarget ?? 'body'" :disabled="!dockTarget">
-    <aside
-      v-show="foreground"
-      :key="surface.key"
-      class="outline-pane"
-      :class="{ 'outline-pane--docked': Boolean(dockTarget) }"
-      :aria-labelledby="headingId"
-      @keydown="escapePane"
-    >
-      <header class="outline-header">
-        <h2 :id="headingId">{{ panelName }}</h2>
-        <ElButton text size="small" native-type="button" @click="close(surface)">{{ t('author.articleOutlineRail.close') }}</ElButton>
-      </header>
-      <div :id="contentId" ref="content" class="outline-body" tabindex="-1">
-        <p v-if="state === 'loading'" role="status">{{ t('author.articleOutlineRail.loading.the.outline') }}</p>
-        <p v-else-if="state === 'unavailable'" role="status">{{ t('author.articleOutlineRail.the.outline.is.unavailable') }}</p>
-        <p v-else-if="!headings.length" role="status">{{ t('author.articleOutlineRail.this.article.has.no.headings') }}</p>
-        <nav v-else :aria-label="t('author.articleOutlineRail.article.headings')">
-          <ol class="outline-headings" role="list" :start="page * pageSize + 1">
-            <li v-for="(heading, index) in visible" :key="heading.nodeId">
-              <button
-                :id="headingButtonId(heading.nodeId)" class="outline-heading" type="button"
-                :style="{ '--outline-indent': Math.max(0, Math.min(5, heading.depth - 1)) }"
-                :tabindex="tabStop?.nodeId === heading.nodeId ? 0 : -1"
-                :aria-current="active === heading.nodeId ? 'location' : undefined"
-                @focus="focusedId = heading.nodeId" @keydown="navigate($event, index)" @click="choose(heading)"
-              >{{ heading.text || t('author.articleOutlineRail.untitled.heading') }}</button>
-              <p v-if="diagnostics(heading).length" class="outline-diagnostic">{{ diagnostics(heading).join(' · ') }}</p>
-            </li>
-          </ol>
-          <div v-if="lastPage > 0" class="outline-pages">
-            <ElButton text size="small" native-type="button" :disabled="page === 0" @click="goTo((page - 1) * pageSize)">{{ t('author.articleOutlineRail.previous.headings') }}</ElButton>
-            <ElButton text size="small" native-type="button" :disabled="page === lastPage" @click="goTo((page + 1) * pageSize)">{{ t('author.articleOutlineRail.next.headings') }}</ElButton>
-          </div>
-        </nav>
-      </div>
-    </aside>
-  </Teleport>
-  <ElDrawer
-    v-if="surface && surface.compact"
-    :key="surface.key"
-    :model-value="expanded"
-    :title="panelName"
-    direction="ltr"
-    size="min(86vw, 22rem)"
-    append-to-body
-    v-on="surface.events"
+  <OutlineShell
+    :surface="surface" :dock-target="dockTarget" :foreground="foreground" :expanded="expanded"
+    :heading-id="headingId" :panel-name="panelName" @keydown="escapePane" @dismiss="close(surface)"
   >
     <div :id="contentId" ref="content" class="outline-body" tabindex="-1">
       <p v-if="state === 'loading'" role="status">{{ t('author.articleOutlineRail.loading.the.outline') }}</p>
@@ -341,49 +298,10 @@ defineExpose({
         </div>
       </nav>
     </div>
-  </ElDrawer>
+  </OutlineShell>
 </template>
 
 <style scoped>
-.outline-pane {
-  position: fixed;
-  z-index: 30;
-  inset-block: calc(6rem + var(--fsus-space-4)) auto;
-  inset-inline-start: var(--fsus-space-4);
-  display: grid;
-  max-block-size: calc(100dvh - 6rem - 2 * var(--fsus-space-4));
-  inline-size: min(20rem, 30vw);
-  grid-template-rows: auto minmax(0, 1fr);
-  border: 1px solid var(--fsus-border);
-  border-radius: var(--fsus-radius-panel);
-  background: var(--fsus-paper);
-  box-shadow: var(--fsus-shadow-panel);
-}
-.outline-pane--docked {
-  position: static;
-  z-index: auto;
-  inset: auto;
-  inline-size: 17rem;
-  block-size: 100%;
-  max-block-size: none;
-  border: 0;
-  border-inline-end: 1px solid var(--fsus-border);
-  border-radius: 0;
-  box-shadow: none;
-}
-.outline-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--fsus-space-2);
-  padding: var(--fsus-space-3) var(--fsus-space-4);
-  border-block-end: 1px solid var(--fsus-border);
-}
-.outline-header h2 {
-  margin: 0;
-  font-size: var(--fsus-typography-heading-sm-size);
-  font-weight: 600;
-}
 .outline-pane .outline-body {
   min-block-size: 0;
   overflow: auto;

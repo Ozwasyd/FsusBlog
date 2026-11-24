@@ -1,15 +1,14 @@
-import { exactText, roleWithExactName } from './role-locators.mjs'
-import { enableAuthenticator, signInFreshSite, signInWithSitePasskey } from './webauthn-fixture.mjs'
 import assert from 'node:assert/strict'
-import { assertEmpty, assertStatus } from './response-status-fixture.mjs'
-import { createHash, randomBytes } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { requireWebPackage } from './web-package-fixture.mjs'
-import { join, resolve } from 'node:path'
+import { randomBytes } from 'node:crypto'
+import { resolve } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
+import { saveShot, withBrowserEvidence, withTempContext } from './isolated-browser-fixture.mjs'
+import { assertEmpty, assertNoStore, assertStatus } from './response-status-fixture.mjs'
+import { exactButton, exactHeading, exactText } from './role-locators.mjs'
+import * as auth from './site-authentication-fixture.mjs'
+import { enableAuthenticator, signInFreshSite, signInWithSitePasskey } from './webauthn-fixture.mjs'
 
-const { chromium } = requireWebPackage('@playwright/test')
 const url = process.env.FSUSBLOG_TEST_SESSIONS_URL
 const ticketInput = process.env.FSUSBLOG_TEST_SESSIONS_TICKETS
 assert(url && ticketInput, 'Provide an isolated v2 URL and two one-use Passkey setup tickets.')
@@ -20,23 +19,28 @@ const handleFormat = /^[0-9a-f]{64}$/
 assert(Array.isArray(tickets) && tickets.length === 2 && tickets.every(ticket => handleFormat.test(ticket)) &&
   new Set(tickets).size === 2, 'Provide one unused setup ticket per reader account.')
 const evidence = resolve(process.env.FSUSBLOG_TEST_EVIDENCE ?? 'artifacts/site-sessions-browser')
-await mkdir(evidence, { recursive: true })
 
-const identity = '/api/v2/identity'
-const currentPath = identity + '/session.aeds'
-const listPath = identity + '/sessions.aeds'
-const bulkPath = identity + '/sessions/revoke-others.aeds'
-const securityPath = '/user/identity/mfa'
-const currentHeader = 'X-Fsus-Current-Session'
-const sessionCookie = 'fsus-v2-session'
-const diagnostics = []
-const responses = []
-const checks = {}
+const identity = '/api/v2/identity', currentPath = identity + '/session.aeds', listPath = identity + '/sessions.aeds'
+const bulkPath = identity + '/sessions/revoke-others.aeds', securityPath = '/user/identity/mfa'
+const currentHeader = 'X-Fsus-Current-Session', sessionCookie = 'fsus-v2-session'
+const diagnostics = [], responses = [], checks = {}
 const startedAt = new Date().toISOString()
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })
+const browser = await auth.launchIdentityBrowser()
+const chromiumVersion = browser.version()
 let phase = 'sign-in'
-let failure
-try {
+
+const current = session => ({ [currentHeader]: session.handle })
+const revokePath = handle => `${identity}/sessions/${handle}/revoke.aeds`
+const revokeButtons = page => exactButton(page, 'Revoke session')
+const bulkButton = page => exactButton(page, 'Revoke other sessions')
+const clean = text => text.replace(/[0-9a-f]{64}/gi, '[session-coordinate]')
+const assertNotCredential = (artifact, sessions) => auth.assertNoCredentialLeak(artifact, sessions.map(s => s.cookie.value))
+const expectCurrent = async (session, status) => assertStatus(await session.context.request.get(origin + currentPath), status)
+
+await withBrowserEvidence(browser, evidence, 'site-sessions-result.json', failure => ({
+  origin, startedAt, endedAt: new Date().toISOString(), chromium: chromiumVersion, phase, checks, responses, diagnostics,
+  exitCode: failure ? 1 : 0,
+}), async () => {
   const primary = await signIn('primary', { ticket: tickets[0] })
   const peer = await signIn('peer', { device: primary.authenticator }, { width: 375, height: 850 })
   const remaining = await signIn('remaining', { device: peer.authenticator })
@@ -48,21 +52,18 @@ try {
   phase = 'list'
   await openSecurity(primary)
   await openSecurity(peer)
-  const first = await getSessions(primary, allSessions)
-  assert.deepEqual(new Set(first.map(row => row.id)), new Set(ownedSessions))
+  assert.deepEqual(new Set((await getSessions(primary, allSessions)).map(row => row.id)), new Set(ownedSessions))
   assert.deepEqual((await getSessions(foreign, allSessions)).map(row => row.id), [foreign.handle])
   assert.equal(await revokeButtons(primary.page).count(), 2)
   assert.equal(await revokeButtons(peer.page).count(), 2)
-  await primary.page.screenshot({ path: join(evidence, 'desktop-sessions.png') })
-  await peer.page.screenshot({ path: join(evidence, 'mobile-sessions.png') })
+  await saveShot(primary.page, evidence, 'desktop-sessions.png', {})
+  await saveShot(peer.page, evidence, 'mobile-sessions.png', {})
   checks.separateAccountLists = true
   checks.rawCredentialsAbsent = true
 
   phase = 'mutation-authorization'
-  const rejectRevocation = async (handle, status, message) => {
-    const reply = await primary.context.request.post(origin + revokePath(handle), { headers: current(primary) })
-    assertStatus(reply, status, message)
-  }
+  const rejectRevocation = async (handle, status, message) =>
+    assertStatus(await primary.context.request.post(origin + revokePath(handle), { headers: current(primary) }), status, message)
   await rejectRevocation(foreign.handle, 404, 'A foreign session must be indistinguishable from an unknown session.')
   await rejectRevocation(randomBytes(32).toString('hex'), 404, 'Unknown sessions must return the same status as foreign sessions.')
   await rejectRevocation(primary.handle, 409, 'The current browser session has its own sign-out action.')
@@ -72,13 +73,8 @@ try {
   assertStatus(response, 403, 'Session mutations must reject a foreign origin.')
   response = await primary.context.request.post(origin + bulkPath)
   assert(response.status() >= 400 && response.status() < 500, 'Mutations require a current-session precondition.')
-  const anonymous = await browser.newContext()
-  try {
-    response = await anonymous.request.get(origin + listPath, { headers: current(primary) })
-    assertStatus(response, 401, 'A session handle alone does not authenticate.')
-  } finally {
-    await anonymous.close()
-  }
+  await withTempContext(browser, async anonymous =>
+    assertStatus(await anonymous.request.get(origin + listPath, { headers: current(primary) }), 401, 'A session handle alone does not authenticate.'))
   checks.foreignAndCurrentRevocationDenied = true
   checks.crossOriginMutationDenied = true
   checks.sessionHandleIsNotCredential = true
@@ -107,56 +103,27 @@ try {
   const revoked = [peer, remaining].find(session => session.handle === target)
   assert(revoked, 'The UI must address one of the other sessions for this account.')
   const survivor = revoked === peer ? remaining : peer
-  assertStatus(await revoked.context.request.get(origin + currentPath), 401)
-  assertStatus(await survivor.context.request.get(origin + currentPath), 200)
+  await expectCurrent(revoked, 401)
+  await expectCurrent(survivor, 200)
   await revokeButtons(primary.page).nth(1).waitFor({ state: 'hidden' })
   assert.equal(await revokeButtons(primary.page).count(), 1)
   checks.individualCookieRevoked = true
 
   phase = 'bulk-revocation'
-  response = await clickMutation(primary.page, bulkButton(primary.page), path => path === bulkPath)
-  await assertEmpty(response)
-  assertStatus(await survivor.context.request.get(origin + currentPath), 401)
-  assertStatus(await foreign.context.request.get(origin + currentPath), 200)
-  assertStatus(await primary.context.request.get(origin + currentPath), 200)
+  await assertEmpty(await clickMutation(primary.page, bulkButton(primary.page), path => path === bulkPath))
+  await expectCurrent(survivor, 401)
+  await expectCurrent(foreign, 200)
+  await expectCurrent(primary, 200)
   assert.deepEqual((await getSessions(primary, allSessions)).map(row => row.id), [primary.handle])
   await revokeButtons(primary.page).first().waitFor({ state: 'hidden' })
   await exactText(primary.page, 'This browser').waitFor({ state: 'visible' })
-  await primary.page.screenshot({ path: join(evidence, 'after-revocation.png') })
+  await saveShot(primary.page, evidence, 'after-revocation.png', {})
   checks.bulkPreservedCurrentAndForeign = true
 
-  for (const session of [primary, foreign])
-    assertStatus(await session.context.request.post(origin + identity + '/sign-out.aeds'), 200)
+  for (const session of [primary, foreign]) assertStatus(await session.context.request.post(origin + identity + '/sign-out.aeds'), 200)
   assert.deepEqual(diagnostics, [])
   phase = 'passed'
-} catch (error) {
-  failure = error
-} finally {
-  const chromiumVersion = browser.version()
-  try {
-    await writeFile(join(evidence, 'site-sessions-result.json'), JSON.stringify({
-      origin, startedAt, endedAt: new Date().toISOString(), chromium: chromiumVersion, phase,
-      checks, responses, diagnostics, exitCode: failure ? 1 : 0,
-    }, null, 2))
-  } finally { await browser.close() }
-}
-if (failure) throw failure
-
-function current(session) {
-  return { [currentHeader]: session.handle }
-}
-
-function revokePath(handle) {
-  return identity + '/sessions/' + handle + '/revoke.aeds'
-}
-
-function revokeButtons(page) {
-  return roleWithExactName(page, 'button', 'Revoke session')
-}
-
-function bulkButton(page) {
-  return roleWithExactName(page, 'button', 'Revoke other sessions')
-}
+}, { mkdir: true })
 
 async function signIn(name, { ticket, device }, viewport = { width: 1280, height: 800 }) {
   const context = await browser.newContext({ viewport })
@@ -171,52 +138,46 @@ async function signIn(name, { ticket, device }, viewport = { width: 1280, height
     const responseUrl = new URL(response.url())
     if (responseUrl.origin !== origin) return
     const path = clean(responseUrl.pathname)
-    if (path.startsWith(identity + '/'))
-      responses.push({ name, path, method: response.request().method(), status: response.status() })
+    if (path.startsWith(identity + '/')) responses.push({ name, path, method: response.request().method(), status: response.status() })
     if (path.startsWith('/api/') && response.status() >= 500 || path.startsWith('/assets/') && response.status() >= 400)
       diagnostics.push({ name, kind: 'response', path, status: response.status() })
   })
   let authenticator
-  if (ticket) {
-    authenticator = await signInFreshSite(page, origin, ticket)
-  } else {
+  if (ticket) authenticator = await signInFreshSite(page, origin, ticket)
+  else {
     authenticator = await enableAuthenticator(context, page)
     const { credentials } = await device.cdp.send('WebAuthn.getCredentials', { authenticatorId: device.authenticatorId })
     assert.equal(credentials.length, 1)
     assert.equal(credentials[0].rpId, 'localhost')
     // Pass the test authenticator to another browser context with its latest assertion counter.
-    await authenticator.cdp.send('WebAuthn.addCredential', {
-      authenticatorId: authenticator.authenticatorId, credential: credentials[0],
-    })
+    await authenticator.cdp.send('WebAuthn.addCredential', { authenticatorId: authenticator.authenticatorId, credential: credentials[0] })
     await context.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
     assertStatus(await page.goto(origin + '/login'), 200)
     await signInWithSitePasskey(page, origin)
   }
-  const cookie = (await context.cookies(origin)).find(cookie => cookie.name === sessionCookie)
-  assert(cookie && cookie.httpOnly, 'The authenticated browser cookie must remain HttpOnly.')
+  const cookie = (await context.cookies(origin)).find(item => item.name === sessionCookie)
+  assert(cookie?.httpOnly, 'The authenticated browser cookie must remain HttpOnly.')
   const snapshot = await context.request.get(origin + currentPath)
   assertStatus(snapshot, 200)
-  assert(snapshot.headers()['cache-control']?.includes('no-store'), 'The session response must not be cached.')
+  await assertNoStore(snapshot, 'The session response must not be cached.')
   const handle = snapshot.headers()[currentHeader.toLowerCase()]
   assert(handleFormat.test(handle), 'The session response must supply an opaque handle.')
-  const repeated = await context.request.get(origin + currentPath)
-  assertStatus(repeated, 200)
-  assert.equal(repeated.headers()[currentHeader.toLowerCase()], handle, 'The handle must remain stable for this session.')
+  assert.equal(await auth.readSessionHandle(context, origin, currentPath), handle, 'The handle must remain stable for this session.')
   assertNotCredential(Buffer.from(handle), [{ cookie }])
   return { context, page, cookie, handle, authenticator }
 }
 
 async function openSecurity(session) {
   await session.page.goto(origin + securityPath)
-  await roleWithExactName(session.page, 'heading', 'Account').waitFor()
-  await roleWithExactName(session.page, 'heading', 'Active sessions').waitFor()
+  await exactHeading(session.page, 'Account').waitFor()
+  await exactHeading(session.page, 'Active sessions').waitFor()
   await exactText(session.page, 'This browser').waitFor()
 }
 
 async function getSessions(session, fixtures) {
   const response = await session.context.request.get(origin + listPath, { headers: current(session) })
   assertStatus(response, 200)
-  assert(response.headers()['cache-control']?.includes('no-store'), 'The session list must not be cached.')
+  await assertNoStore(response, 'The session list must not be cached.')
   const body = await response.body()
   assertNotCredential(body, fixtures)
   const frame = decodeFrame(body)
@@ -234,26 +195,13 @@ async function getSessions(session, fixtures) {
   return rows
 }
 
-function assertNotCredential(artifact, sessions) {
-  for (const { cookie } of sessions) {
-    const secret = Buffer.from(cookie.value, 'hex')
-    const digest = createHash('sha256').update(secret).digest()
-    assert(!artifact.includes(secret) && !artifact.includes(cookie.value) &&
-      !artifact.includes(digest) && !artifact.includes(digest.toString('hex')),
-      'The session wire exposed a browser credential or its stored digest.')
-    secret.fill(0)
-  }
-}
-
 async function clickMutation(page, button, matches) {
-  const response = page.waitForResponse(candidate => {
-    const url = new URL(candidate.url())
-    return url.origin === origin && candidate.request().method() === 'POST' && matches(url.pathname)
-  })
-  await button.click()
-  return await response
-}
-
-function clean(text) {
-  return text.replace(/[0-9a-f]{64}/gi, '[session-coordinate]')
+  const [response] = await Promise.all([
+    page.waitForResponse(candidate => {
+      const target = new URL(candidate.url())
+      return target.origin === origin && candidate.request().method() === 'POST' && matches(target.pathname)
+    }),
+    button.click(),
+  ])
+  return response
 }

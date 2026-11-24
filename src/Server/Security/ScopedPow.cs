@@ -1,11 +1,3 @@
-using System.Buffers.Text;
-using System.Globalization;
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Security;
 
 /// <summary>Only explicitly mapped, independently authorized operations may request a proof.</summary>
@@ -161,7 +153,7 @@ internal sealed class ScopedPow(TimeProvider time)
         catch (ScopedPowFailure rejection)
         {
             var details = scope is PowScope.PublicCommentSubmit or PowScope.PublicCommentReply ? "comment_" + rejection.Details : rejection.Details;
-            return new AedsError(rejection.Status, Wire.EncodeError(rejection.Status, rejection.Message, details, ctx.TraceIdentifier));
+            return ServerHttp.ErrorFrame(ctx, rejection.Status, rejection.Message, details);
         }
     }
 

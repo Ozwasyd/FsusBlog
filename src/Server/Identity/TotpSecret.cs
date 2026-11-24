@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using FsusBlog.V2.Core.Authentication;
 
 namespace FsusBlog.V2.Server.Passkeys;

@@ -1,48 +1,42 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
-import { lstat, readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
-import { FrameType, WireHeaders, WireLayouts as L, WireLimits as Limit, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { FrameType, WireLayouts as L, WireLimits as Limit, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { HEADERS, HEX64, parseLoopbackOrigin, readBoundedJson, sha256, writePrivate } from './nightly-owned-evidence.mjs'
 
 const argv = process.argv.slice(2)
 assert.equal(argv.length, 3, 'Usage: nightly-wide-search-probe.mjs ORIGIN ORACLE_JSON EVIDENCE_DIR')
 const [origin, oraclePath, evidence] = argv
 const pins = process.env.FSUSBLOG_TEST_TLS_SPKI
 const chrome = process.env.FSUSBLOG_TEST_CHROME
-assert.match(origin, /^https:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/)
-assert.equal(new URL(origin).origin, origin)
+parseLoopbackOrigin(origin, 'https', 1)
 assert(chrome && /^[A-Za-z0-9+/]{43}=$/.test(pins ?? '') && process.env.NODE_EXTRA_CA_CERTS,
   'Use the fixture Chromium, certificate authority, and public TLS leaf pin')
 
 const cacheName = 'fsusblog-v2-wide-search-v1'
 const pagePath = WireRoutes.PublicSearchWidePage.replace('{page}', '')
-const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
-const digestHeader = WireHeaders.SearchCorpusDigest.toLowerCase()
-const pagesHeader = WireHeaders.SearchIndexPages.toLowerCase()
-const sha256 = bytes => createHash('sha256').update(bytes).digest('hex')
-const hex = /^[0-9a-f]{64}$/
 const documents = 85_000
 const pages = documents / Limit.SearchIndexPageSize
 const budgetMs = 180_000
 
-const info = await lstat(oraclePath)
-assert(info.isFile() && info.size > 0 && info.size <= 64 * 1024, 'Expected a bounded independent SQL oracle')
-const oracleBytes = await readFile(oraclePath)
-assert.equal(info.size, oracleBytes.length)
-const oracle = JSON.parse(oracleBytes)
-assert.deepEqual([oracle.version, oracle.profile, oracle.documentCount], [1, 'nightly', documents])
-assert.match(oracle.fixtureSha256, hex)
-assert.match(oracle.readbackSha256, hex)
-assert.deepEqual(
-  [oracle.bodyCanary.term, oracle.bodyCanary.id, oracle.bodyCanary.revision, oracle.bodyCanary.publication],
-  ['c11body090000', 90_000, '3', '85000'])
-assert.match(oracle.bodyCanary.bodySha256, hex)
-assert.deepEqual([oracle.broad.term, oracle.broad.page, oracle.broad.size, oracle.broad.items.length],
-  ['observations', 8500, 10, 10])
+const { bytes: oracleBytes, data: oracle } = readBoundedJson(oraclePath, 64 * 1024, 'Expected a bounded independent SQL oracle')
+assert.equal(oracle.version, 1)
+assert.equal(oracle.profile, 'nightly')
+assert.equal(oracle.documentCount, documents)
+assert.match(oracle.fixtureSha256, HEX64)
+assert.match(oracle.readbackSha256, HEX64)
+assert.equal(oracle.bodyCanary.term, 'c11body090000')
+assert.equal(oracle.bodyCanary.id, 90_000)
+assert.equal(oracle.bodyCanary.revision, '3')
+assert.equal(oracle.bodyCanary.publication, '85000')
+assert.match(oracle.bodyCanary.bodySha256, HEX64)
+assert.equal(oracle.broad.term, 'observations')
+assert.equal(oracle.broad.page, 8500)
+assert.equal(oracle.broad.size, 10)
+assert.equal(oracle.broad.items.length, 10)
 assert.equal(new Set(oracle.broad.items.map(row => row.id)).size, oracle.broad.size)
 for (const row of [oracle.bodyCanary, ...oracle.broad.items]) {
   assert(Number.isInteger(row.id) && (row.id >= 1 && row.id <= 80_000 || row.id >= 85_001 && row.id <= 90_000))
@@ -88,8 +82,8 @@ try {
     const entry = observeCall(response.request())
     if (!entry) return
     const headers = response.headers()
-    responses.push({ ...entry, status: response.status(), generation: headers[generationHeader] ?? null,
-      digest: headers[digestHeader] ?? null, pages: Number(headers[pagesHeader] ?? 0),
+    responses.push({ ...entry, status: response.status(), generation: headers[HEADERS.generation] ?? null,
+      digest: headers[HEADERS.digest] ?? null, pages: Number(headers[HEADERS.pages] ?? 0),
       length: Number(headers['content-length'] ?? 0), cache: headers['cache-control'] ?? null, etag: headers.etag ?? null })
   })
   const page = await context.newPage()
@@ -99,7 +93,7 @@ try {
   witness.cold = { routeAndVisibleMs: elapsed(coldStart), items: bodyCards, ...collect() }
   assertBatch(witness.cold, manifest, true)
   witness.storage = await inspectStorage(page, manifest)
-  witness.bodyDetails = await verifyBodyDetail(api, oracle.bodyCanary, manifest)
+  witness.bodyDetails = await verifyBodyDetail(oracle.bodyCanary, manifest)
 
   const broadStart = performance.now()
   assert.equal(await page.goto(searchPath(oracle.broad.term, oracle.broad.page)).then(response => response.status()), 200)
@@ -123,7 +117,7 @@ try {
   } finally {
     process.removeListener('SIGINT', stop)
     process.removeListener('SIGTERM', stop)
-    await writeFile(join(evidence, 'wide-browser.json'), JSON.stringify(witness, null, 2) + '\n', { flag: 'wx', mode: 0o600 })
+    writePrivate(join(evidence, 'wide-browser.json'), JSON.stringify(witness, null, 2) + '\n')
   }
 }
 
@@ -191,51 +185,62 @@ function assertBatch(batch, manifest, cold) {
   assert.equal(batch.rawBytes, cold ? manifest.bytes : 0)
 }
 
+async function withApiGet(path, handle) {
+  const response = await api.get(path, { maxRedirects: 0 })
+  try {
+    return await handle(response)
+  } finally {
+    await response.dispose()
+  }
+}
+
 async function readManifest() {
   const deadline = performance.now() + budgetMs
   while (performance.now() < deadline) {
-    const response = await api.get(WireRoutes.PublicSearchWideManifest, { maxRedirects: 0 })
-    try {
-      if (response.status() !== 503) {
-        assert.equal(response.status(), 200)
-        const raw = await response.body()
-        const { payload } = decodeFrame(raw, FrameType.PublicSearchWideManifest)
-        const bytes = Buffer.from(payload)
-        assert.equal(bytes.length, L.SearchWideManifestHeaderSize + pages * L.SearchWideManifestPageRecordSize)
-        assert.equal(bytes.readInt32LE(0), L.SearchWideManifestVersion)
-        const generation = String(bytes.readBigInt64LE(4))
-        assert.match(generation, /^(0|[1-9][0-9]{0,18})$/)
-        assert.equal(bytes.readInt32LE(12), documents)
-        assert.equal(bytes.readInt32LE(16), pages)
-        const total = Number(bytes.readBigInt64LE(20))
-        assert(total > Limit.SearchCorpusTotalBytes && total <= Limit.SearchWideCorpusTotalBytes)
-        const digest = bytes.subarray(28, L.SearchWideManifestHeaderSize).toString('hex')
-        assert.equal(digest, createHash('sha256').update('public-search-fspk-manifest-v1\0', 'ascii')
-          .update(bytes.subarray(12, 28)).update(bytes.subarray(L.SearchWideManifestHeaderSize)).digest('hex'))
-        const headers = response.headers()
-        assert.deepEqual([headers[generationHeader], headers[digestHeader], headers[pagesHeader], headers['cache-control']],
-          [generation, digest, String(pages), 'no-store'])
-        let offset = 0
-        const idAt = ordinal => ordinal <= 80_000 ? ordinal : ordinal + 5_000
-        const parts = Array.from({ length: pages }, (_, i) => {
-          const row = L.SearchWideManifestHeaderSize + i * L.SearchWideManifestPageRecordSize
-          const length = bytes.readInt32LE(row + 24)
-          const descriptor = { number: bytes.readInt32LE(row), count: bytes.readInt32LE(row + 4),
-            first: bytes.readInt32LE(row + 8), last: bytes.readInt32LE(row + 12), offset: Number(bytes.readBigInt64LE(row + 16)),
-            length, sha256: bytes.subarray(row + 28, row + L.SearchWideManifestPageRecordSize).toString('hex') }
-          assert.deepEqual([descriptor.number, descriptor.count, descriptor.first, descriptor.last, descriptor.offset],
-            [i + 1, 200, idAt(i * 200 + 1), idAt((i + 1) * 200), offset])
-          assert(length > 0 && length <= Limit.SearchCorpusPageBytes)
-          offset += length
-          return descriptor
-        })
-        assert.equal(offset, total)
-        await writeFile(join(evidence, 'wide-manifest.aeds'), raw, { flag: 'wx', mode: 0o600 })
-        return { generation, digest, bytes: total, parts }
-      }
-    } finally {
-      await response.dispose()
-    }
+    const manifest = await withApiGet(WireRoutes.PublicSearchWideManifest, async response => {
+      if (response.status() === 503) return null
+      assert.equal(response.status(), 200)
+      const raw = await response.body()
+      const { payload } = decodeFrame(raw, FrameType.PublicSearchWideManifest)
+      const bytes = Buffer.from(payload)
+      assert.equal(bytes.length, L.SearchWideManifestHeaderSize + pages * L.SearchWideManifestPageRecordSize)
+      assert.equal(bytes.readInt32LE(0), L.SearchWideManifestVersion)
+      const generation = String(bytes.readBigInt64LE(4))
+      assert.match(generation, /^(0|[1-9][0-9]{0,18})$/)
+      assert.equal(bytes.readInt32LE(12), documents)
+      assert.equal(bytes.readInt32LE(16), pages)
+      const total = Number(bytes.readBigInt64LE(20))
+      assert(total > Limit.SearchCorpusTotalBytes && total <= Limit.SearchWideCorpusTotalBytes)
+      const digest = bytes.subarray(28, L.SearchWideManifestHeaderSize).toString('hex')
+      assert.equal(digest, sha256(Buffer.from('public-search-fspk-manifest-v1\0', 'ascii'),
+        bytes.subarray(12, 28), bytes.subarray(L.SearchWideManifestHeaderSize)))
+      const headers = response.headers()
+      assert.equal(headers[HEADERS.generation], generation)
+      assert.equal(headers[HEADERS.digest], digest)
+      assert.equal(headers[HEADERS.pages], String(pages))
+      assert.equal(headers['cache-control'], 'no-store')
+      let offset = 0
+      const idAt = ordinal => ordinal <= 80_000 ? ordinal : ordinal + 5_000
+      const parts = Array.from({ length: pages }, (_, i) => {
+        const row = L.SearchWideManifestHeaderSize + i * L.SearchWideManifestPageRecordSize
+        const length = bytes.readInt32LE(row + 24)
+        const descriptor = { number: bytes.readInt32LE(row), count: bytes.readInt32LE(row + 4),
+          first: bytes.readInt32LE(row + 8), last: bytes.readInt32LE(row + 12), offset: Number(bytes.readBigInt64LE(row + 16)),
+          length, sha256: bytes.subarray(row + 28, row + L.SearchWideManifestPageRecordSize).toString('hex') }
+        assert.equal(descriptor.number, i + 1)
+        assert.equal(descriptor.count, 200)
+        assert.equal(descriptor.first, idAt(i * 200 + 1))
+        assert.equal(descriptor.last, idAt((i + 1) * 200))
+        assert.equal(descriptor.offset, offset)
+        assert(length > 0 && length <= Limit.SearchCorpusPageBytes)
+        offset += length
+        return descriptor
+      })
+      assert.equal(offset, total)
+      writePrivate(join(evidence, 'wide-manifest.aeds'), raw)
+      return { generation, digest, bytes: total, parts }
+    })
+    if (manifest) return manifest
     await delay(250)
   }
   assert.fail('The server did not seal the full nightly corpus within the readiness budget')
@@ -265,11 +270,10 @@ async function inspectStorage(page, manifest) {
   return { owner, ...state, originStorageEstimate: quota }
 }
 
-async function verifyBodyDetail(api, expected, manifest) {
-  const response = await api.get(WireRoutes.PublicArticle.replace('{id}', String(expected.id)), { maxRedirects: 0 })
-  try {
+async function verifyBodyDetail(expected, manifest) {
+  return withApiGet(WireRoutes.PublicArticle.replace('{id}', String(expected.id)), async response => {
     assert.equal(response.status(), 200)
-    assert.equal(response.headers()[generationHeader], manifest.generation)
+    assert.equal(response.headers()[HEADERS.generation], manifest.generation)
     const raw = await response.body()
     const { payload } = decodeFrame(raw, FrameType.ArticleDetail)
     const row = decodeArticle(payload)
@@ -278,9 +282,7 @@ async function verifyBodyDetail(api, expected, manifest) {
     const { term, ...coordinates } = expected
     assert.deepEqual(actual, coordinates)
     assert(row.body.includes(term) && !row.title.includes(term) && !row.summary.includes(term))
-    await writeFile(join(evidence, 'final-article.aeds'), raw, { flag: 'wx', mode: 0o600 })
+    writePrivate(join(evidence, 'final-article.aeds'), raw)
     return actual
-  } finally {
-    await response.dispose()
-  }
+  })
 }

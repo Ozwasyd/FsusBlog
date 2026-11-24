@@ -1,11 +1,3 @@
-using System.Globalization;
-using System.Text;
-using System.Text.Encodings.Web;
-using FsusBlog.V2.Contracts;
-using Markdig;
-using Markdig.Syntax;
-using Markdig.Syntax.Inlines;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal static class PublicArticleHtml

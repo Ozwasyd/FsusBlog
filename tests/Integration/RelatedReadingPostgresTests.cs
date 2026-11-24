@@ -1,10 +1,3 @@
-using System.Buffers.Binary;
-using System.Net;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Content;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class RelatedReadingPostgresTests
@@ -22,14 +15,12 @@ public sealed class RelatedReadingPostgresTests
         var tiedOlder = At(6, 124, "owl habitat report", 3, [7, 8]);
         var outsideWindow = At(7, 1, "owl habitat report", 3, [7, 8]);
         var fillers = Enumerable.Range(20, 119).Select(id => At(id, 2 + id / 20, $"filler {id}", 3, [])).ToArray();
-        var rows = new[] { source, lateSimilar, newer, sameCategory, sameTag, tiedOlder, outsideWindow }.Concat(fillers).ToArray();
-        var projection = new RelatedReadingProjection(rows, CancellationToken.None);
+        var projection = new RelatedReadingProjection(new[] { source, lateSimilar, newer, sameCategory, sameTag, tiedOlder, outsideWindow }.Concat(fillers).ToArray(), CancellationToken.None);
         var frame = Assert.IsType<byte[]>(projection.Read(source.Id, CancellationToken.None));
         Assert.Same(frame, projection.Read(source.Id, CancellationToken.None));
         var actual = View(frame);
         Assert.Equal(new[] { tiedOlder.Id, lateSimilar.Id, sameCategory.Id, sameTag.Id }, actual.Related[..4]);
-        Assert.Equal(tiedOlder.Id, actual.Previous);
-        Assert.Equal(newer.Id, actual.Next);
+        Assert.Equal((tiedOlder.Id, newer.Id), (actual.Previous, actual.Next));
         Assert.DoesNotContain(outsideWindow.Id, actual.Related);
         Assert.DoesNotContain(newer.Id, actual.Related);
         Assert.Contains("同分类 / 共同标签 / 全文关键词 / 发布时间接近", Encoding.UTF8.GetString(frame));
@@ -43,43 +34,39 @@ public sealed class RelatedReadingPostgresTests
     public async Task EmptyMissingPrivateAndWithdrawnSourcesHaveDistinctAdmittedResponses()
     {
         await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
-        await using var connection = await database.DataSource.OpenConnectionAsync(ct);
-        var (user, token, _) = await database.SignIn("related-author", ct, minutes: 1);
+        var (_, token, _) = await database.SignIn("related-author", ct, minutes: 1);
         await using var server = await ServerProcess.Start(database.ConnectionString, ct);
 
         var article = await Command(WireRoutes.Save, 0, 0, "Published source", "Visible body");
         var privateArticle = await Command(WireRoutes.Save, 0, 0, "Private marker", "DRAFT_ONLY");
         var source = await Command(WireRoutes.Publish, article.Id, article.Revision);
         var empty = await Read(source.Id);
-        Assert.Equal(HttpStatusCode.OK, empty.Status);
+        Assert.Equal(OK, empty.Status);
         var blank = View(empty.Bytes);
         Assert.Empty(blank.Related);
-        Assert.Null(blank.Previous);
-        Assert.Null(blank.Next);
+        Assert.Equal(((int?)null, (int?)null), (blank.Previous, blank.Next));
 
         var hidden = await Read(privateArticle.Id);
         var missing = await Read(2000000000);
-        Assert.Equal(HttpStatusCode.NotFound, hidden.Status);
-        Assert.Equal(hidden.Status, missing.Status);
-        Assert.Equal(FrameType.ApiError, Type(hidden.Bytes));
-        Assert.Equal(FrameType.ApiError, Type(missing.Bytes));
+        Assert.Equal((NotFound, NotFound), (hidden.Status, missing.Status));
+        Aeds.Decode(hidden.Bytes, FrameType.ApiError);
+        Aeds.Decode(missing.Bytes, FrameType.ApiError);
         Assert.DoesNotContain("Private marker", Encoding.UTF8.GetString(hidden.Bytes));
 
         var navigation = await Command(WireRoutes.Publish, privateArticle.Id, privateArticle.Revision);
         var next = await Read(source.Id);
         Assert.NotEqual(empty.Generation, next.Generation);
-        Assert.Equal(navigation.Id, View(next.Bytes).Next);
-        Assert.Equal(source.Id, View((await Read(navigation.Id)).Bytes).Previous);
+        Assert.Equal((navigation.Id, source.Id), (View(next.Bytes).Next, View((await Read(navigation.Id)).Bytes).Previous));
         Assert.Empty(View(next.Bytes).Related);
-        Assert.Equal(HttpStatusCode.Conflict, (await Read(source.Id, "9223372036854775807")).Status);
+        Assert.Equal(Conflict, (await Read(source.Id, "9223372036854775807")).Status);
 
-        _ = await Command(WireRoutes.Retract, navigation.Id, navigation.Revision);
+        await Command(WireRoutes.Retract, navigation.Id, navigation.Revision);
         var after = await Read(source.Id);
         Assert.Equal(empty.Generation, after.Generation); // The visible coordinate set came back to the first state.
         Assert.Equal(empty.Bytes, after.Bytes);
-        Assert.Equal(HttpStatusCode.NotFound, (await Read(navigation.Id)).Status);
-        _ = await Command(WireRoutes.Retract, source.Id, source.Revision);
-        Assert.Equal(HttpStatusCode.NotFound, (await Read(source.Id)).Status);
+        Assert.Equal(NotFound, (await Read(navigation.Id)).Status);
+        await Command(WireRoutes.Retract, source.Id, source.Revision);
+        Assert.Equal(NotFound, (await Read(source.Id)).Status);
 
         async Task<(HttpStatusCode Status, byte[] Bytes, string Generation)> Read(int id, string? publication = null)
         {
@@ -91,21 +78,8 @@ public sealed class RelatedReadingPostgresTests
                 Assert.Single(response.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
         }
 
-        async Task<Draft> Command(string path, int id, long revision, string title = "", string body = "")
-        {
-            var command = new ArticleCommand(id, revision, Guid.NewGuid(), title, body);
-            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, Wire.EncodeArticleCommand(command),
-                token, handle: null);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
-        }
-    }
-
-    private static FrameType Type(byte[] frame)
-    {
-        _ = Aeds.Decode(frame, out var type);
-        return type;
+        Task<Draft> Command(string path, int id, long revision, string title = "", string body = "") =>
+            SiteAedsFixture.ArticleCommand(server.Client, path, token, null, new(id, revision, Guid.NewGuid(), title, body), ct);
     }
 
     private static Article At(int id, int day, string title, int category, int[] tags) =>
@@ -120,15 +94,13 @@ public sealed class RelatedReadingPostgresTests
         var offset = WireLayouts.RelatedReadingHeaderSize;
         for (var index = 0; index < ids.Length; index++, offset += WireLayouts.RelatedReadingItemSize)
             ids[index] = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
-        int? previous = null;
-        int? next = null;
+        int? previous = null, next = null;
         if (payload[WireLayouts.RelatedReadingPreviousOffset] != 0)
         {
             previous = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
             offset += WireLayouts.RelatedReadingItemSize;
         }
-        if (payload[WireLayouts.RelatedReadingNextOffset] != 0)
-            next = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
+        if (payload[WireLayouts.RelatedReadingNextOffset] != 0) next = BinaryPrimitives.ReadInt32LittleEndian(payload[offset..]);
         return (ids, previous, next);
     }
 }

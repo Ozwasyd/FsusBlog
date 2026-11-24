@@ -15,3 +15,17 @@ export function useDelayedBusy(
 
   return visible
 }
+
+export function useMediaQuery(query: string, onChange?: (matches: boolean) => void) {
+  const mql = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia(query) : undefined
+  const matches = ref(mql?.matches ?? false)
+  if (mql) {
+    const sync = (event: MediaQueryListEvent) => {
+      matches.value = event.matches
+      onChange?.(event.matches)
+    }
+    mql.addEventListener('change', sync)
+    onScopeDispose(() => mql.removeEventListener('change', sync))
+  }
+  return matches
+}

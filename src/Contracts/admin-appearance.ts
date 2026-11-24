@@ -1,8 +1,7 @@
-import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
-import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
-import { PodReader } from './binary.ts';
+import { encodeFrame, ProtocolError } from './aeds.ts';
+import { proveAndSubmitAdminPow } from './admin-step-up.ts';
+import { decodePod } from './binary.ts';
 import { request } from './client.ts';
-import { requestWithScopedPow } from './pow.ts';
 import { decodeAdminAppearanceFontDetail, decodeAdminAppearanceState, encodeAdminAppearanceCommand, FrameType, WireLimits, WireRoutes,
   type AdminAppearanceCommand } from './wire.generated.ts';
 
@@ -37,21 +36,16 @@ export function readAdminAppearance(signal: AbortSignal) {
 }
 
 export function readAppearanceCatalog(signal: AbortSignal) {
-  return request(WireRoutes.AdminAppearanceCatalog, FrameType.AdminAppearanceCatalog, payload => {
-    const input = new PodReader(payload);
+  return request(WireRoutes.AdminAppearanceCatalog, FrameType.AdminAppearanceCatalog, payload => decodePod(payload, input => {
     const count = input.i32();
     if (count < 0 || count > WireLimits.AdminAppearanceMaximumItems) throw new ProtocolError('Invalid appearance catalog size');
-    const entries = Array.from({ length: count }, () => {
-      const id = input.text(WireLimits.AdminAppearanceIdBytes);
-      const version = input.text(WireLimits.AdminAppearanceVersionBytes);
-      const archive = input.text(WireLimits.AdminAppearanceDigestBytes);
-      const font = input.bool();
+    return Array.from({ length: count }, () => {
+      const id = input.text(WireLimits.AdminAppearanceIdBytes), version = input.text(WireLimits.AdminAppearanceVersionBytes);
+      const archive = input.text(WireLimits.AdminAppearanceDigestBytes), font = input.bool();
       if (!id || !version || !digest(archive)) throw new ProtocolError('Invalid appearance catalog entry');
       return { id, version, archive, font };
     });
-    input.finish();
-    return entries;
-  }, signal);
+  }), signal);
 }
 
 export function readAppearanceFontDetail(archive: string, signal: AbortSignal) {
@@ -80,47 +74,39 @@ export function readAppearanceHistory(before: bigint | undefined, signal: AbortS
 
 export function decodeAppearanceHistory(payload: Uint8Array, before?: bigint,
   limit: number = WireLimits.AdminAppearanceHistoryPageSize): AdminAppearanceHistoryPage {
-  const input = new PodReader(payload);
-  const nextBefore = input.i64(), count = input.i32();
-  if (!Number.isInteger(limit) || limit < 1 || limit > WireLimits.AdminAppearanceHistoryMaximumItems || count < 0 || count > limit ||
-      nextBefore < 0n || nextBefore > 0n && count !== limit)
-    throw new ProtocolError('Invalid appearance history page');
+  return decodePod(payload, input => {
+    const nextBefore = input.i64(), count = input.i32();
+    if (!Number.isInteger(limit) || limit < 1 || limit > WireLimits.AdminAppearanceHistoryMaximumItems || count < 0 || count > limit ||
+        nextBefore < 0n || nextBefore > 0n && count !== limit)
+      throw new ProtocolError('Invalid appearance history page');
 
-  const items: AdminAppearanceChange[] = [];
-  let previous = before;
-  for (let index = 0; index < count; index++) {
-    const change = {
-      revision: input.i64(), happenedUnixMs: input.i64(), actor: input.text(WireLimits.NameBytes), rollback: input.bool(),
-      previousTheme: input.text(WireLimits.AdminAppearanceDigestBytes), previousFont: input.text(WireLimits.AdminAppearanceDigestBytes),
-      theme: input.text(WireLimits.AdminAppearanceDigestBytes), font: input.text(WireLimits.AdminAppearanceDigestBytes),
-    };
-    if (change.revision <= 0n || previous !== undefined && change.revision >= previous ||
-        change.happenedUnixMs <= 0n || change.happenedUnixMs > 253402300799999n ||
-        change.actor !== change.actor.trim() || !/^[a-z][a-z0-9_.-]{0,63}$/.test(change.actor) ||
-        ![change.previousTheme, change.previousFont, change.theme, change.font].every(selection) ||
-        change.previousTheme === change.theme && change.previousFont === change.font)
-      throw new ProtocolError('Invalid appearance history item');
-    items.push(change);
-    previous = change.revision;
-  }
-  input.finish();
-  if (nextBefore > 0n && nextBefore !== previous) throw new ProtocolError('Invalid next appearance history revision');
-  return { nextBefore: nextBefore || null, items };
+    const items: AdminAppearanceChange[] = [];
+    let previous = before;
+    for (let index = 0; index < count; index++) {
+      const change = {
+        revision: input.i64(), happenedUnixMs: input.i64(), actor: input.text(WireLimits.NameBytes), rollback: input.bool(),
+        previousTheme: input.text(WireLimits.AdminAppearanceDigestBytes), previousFont: input.text(WireLimits.AdminAppearanceDigestBytes),
+        theme: input.text(WireLimits.AdminAppearanceDigestBytes), font: input.text(WireLimits.AdminAppearanceDigestBytes),
+      };
+      if (change.revision <= 0n || previous !== undefined && change.revision >= previous ||
+          change.happenedUnixMs <= 0n || change.happenedUnixMs > 253402300799999n ||
+          change.actor !== change.actor.trim() || !/^[a-z][a-z0-9_.-]{0,63}$/.test(change.actor) ||
+          ![change.previousTheme, change.previousFont, change.theme, change.font].every(selection) ||
+          change.previousTheme === change.theme && change.previousFont === change.font)
+        throw new ProtocolError('Invalid appearance history item');
+      items.push(change);
+      previous = change.revision;
+    }
+    if (nextBefore > 0n && nextBefore !== previous) throw new ProtocolError('Invalid next appearance history revision');
+    return { nextBefore: nextBefore || null, items };
+  });
 }
 
-export async function applyAppearance(input: AdminAppearanceCommand, signal: AbortSignal) {
-  const frame = encodeFrame(FrameType.AdminAppearanceCommand, encodeAdminAppearanceCommand(input));
-  const proof = await proveAdminStepUp({
+export function applyAppearance(input: AdminAppearanceCommand, signal: AbortSignal) {
+  return proveAndSubmitAdminPow({
     begin: WireRoutes.AdminAppearanceStepUpBegin,
     complete: WireRoutes.AdminAppearanceStepUpComplete,
-  }, frame, signal);
-  await requestWithScopedPow({
-    challengePath: WireRoutes.AdminAppearancePow,
-    submitPath: WireRoutes.AdminAppearanceApply,
-    expected: FrameType.EmptySuccess,
-    decode: decodeSuccess,
-    body: frame,
-    signal,
-    submitHeaders: adminProofHeaders(proof),
-  });
+    pow: WireRoutes.AdminAppearancePow,
+    submit: WireRoutes.AdminAppearanceApply,
+  }, encodeFrame(FrameType.AdminAppearanceCommand, encodeAdminAppearanceCommand(input)), signal);
 }

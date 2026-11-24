@@ -1,5 +1,17 @@
 # Sourced by run.sh after creating a private per-attempt directory.
 # shellcheck shell=bash disable=SC2154
+own_child() {
+  [[ -n "$1" && "$(ps -o ppid= -p "$1" 2>/dev/null | tr -d ' ')" == "$$" ]]
+}
+
+wait_child_exit() {
+  local pid=$1 ticks=${2:-50} i
+  for ((i = 0; i < ticks; i++)); do
+    own_child "$pid" || return 0
+    sleep 0.1
+  done
+}
+
 choose_loopback_port() {
   python3 -c 'import socket
 with socket.socket() as listener:
@@ -32,13 +44,6 @@ start_proxy() {
   export FSUSBLOG_UPSTREAM_PORT="${origin##*:}"
   export FSUSBLOG_TLS_CERTIFICATE="$run/leaf.pem" FSUSBLOG_TLS_KEY="$run/leaf.key"
   export XDG_DATA_HOME="$run/caddy-data" XDG_CONFIG_HOME="$run/caddy-config"
-  cat > "$run/leaf.cnf" <<'EOF'
-[req]
-distinguished_name = dn
-prompt = no
-[dn]
-CN = FsusBlogV2 benchmark endpoint
-EOF
   cat > "$run/cert.cnf" <<EOF
 [req]
 distinguished_name = dn
@@ -58,7 +63,7 @@ EOF
     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$run/ca.key"
     openssl req -new -x509 -key "$run/ca.key" -days 1 -sha256 -config "$run/cert.cnf" -extensions ca -out "$proxy_ca"
     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$FSUSBLOG_TLS_KEY"
-    openssl req -new -key "$FSUSBLOG_TLS_KEY" -config "$run/leaf.cnf" -out "$run/leaf.csr"
+    openssl req -new -key "$FSUSBLOG_TLS_KEY" -subj '/CN=FsusBlogV2 benchmark endpoint' -out "$run/leaf.csr"
     openssl x509 -req -in "$run/leaf.csr" -CA "$proxy_ca" -CAkey "$run/ca.key" -CAcreateserial \
       -days 1 -sha256 -extfile "$run/cert.cnf" -extensions leaf -out "$FSUSBLOG_TLS_CERTIFICATE"
     openssl verify -CAfile "$proxy_ca" "$FSUSBLOG_TLS_CERTIFICATE"

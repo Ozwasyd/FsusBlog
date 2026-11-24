@@ -8,7 +8,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"io"
 	"maps"
@@ -16,13 +15,53 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
 )
+
+func loadTestWire(t *testing.T) contract {
+	t.Helper()
+	_, current, _, _ := runtime.Caller(0)
+	wire, err := readWire(filepath.Join(filepath.Dir(current), "../../src/Contracts/wire.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return wire
+}
+
+func mustParseURL(t *testing.T, raw string) *url.URL {
+	t.Helper()
+	origin, err := url.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return origin
+}
+
+func mustEncodeRequest(t *testing.T, origin *url.URL, path string) []byte {
+	t.Helper()
+	request, err := encodeRequest(origin, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return request
+}
+
+func encodeTestFrame(wire contract, frameType string, payload []byte) []byte {
+	offset := wire.header("HeaderSize")
+	packet := make([]byte, offset+len(payload))
+	binary.LittleEndian.PutUint32(packet, uint32(wire.header("Magic")))
+	packet[wire.header("VersionOffset")] = byte(wire.header("Version"))
+	packet[wire.header("LengthOffset")] = byte(offset)
+	binary.LittleEndian.PutUint16(packet[wire.header("TypeOffset"):], uint16(wire.FrameTypes[frameType]))
+	binary.LittleEndian.PutUint32(packet[wire.header("PayloadLengthOffset"):], uint32(len(payload)))
+	copy(packet[offset:], payload)
+	binary.LittleEndian.PutUint16(packet[wire.header("CrcOffset"):], crc16(payload))
+	return packet
+}
 
 func TestLoadTargetRequiresExplicitPrivateLiteral(t *testing.T) {
 	tests := []struct {
@@ -88,26 +127,15 @@ func TestRequestPathsCannotChangeLoadOrigin(t *testing.T) {
 }
 
 func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
-	_, current, _, _ := runtime.Caller(0)
-	encodedWire, err := os.ReadFile(filepath.Join(filepath.Dir(current), "../../src/Contracts/wire.schema.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var wire contract
-	if err := json.Unmarshal(encodedWire, &wire); err != nil {
-		t.Fatal(err)
-	}
+	wire := loadTestWire(t)
 	now := time.Unix(2000, 0)
 	articles := []article{
 		{ID: 1, CreatedAt: now, PublicationID: 11, TagIDs: []int{7}, TagNames: []string{"𠀀"}},
 		{ID: 2, CreatedAt: now, PublicationID: 33, CategoryID: 3, CategoryName: "C"},
 	}
 	for _, scenario := range []struct {
-		name        string
-		generation  string
-		unavailable bool
-		mutate      string
-		legacy      bool
+		name, generation, mutate string
+		unavailable, legacy      bool
 	}{
 		{name: "available", generation: "6218626370617519827"},
 		{name: "unavailable", generation: "7188452516169598208", unavailable: true},
@@ -158,8 +186,7 @@ func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
 					}
 					return
 				}
-				page := r.URL.Query().Get("page")
-				if page == "2" {
+				if r.URL.Query().Get("page") == "2" {
 					if scenario.mutate == "generation" {
 						w.Header().Set(wire.Headers["SearchIndexGeneration"], "70")
 					}
@@ -172,16 +199,12 @@ func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			origin, err := url.Parse(server.URL)
-			if err != nil {
-				t.Fatal(err)
-			}
 			work := workload{wire: wire}
 			if scenario.legacy {
 				work.wire.Limits = maps.Clone(wire.Limits)
 				delete(work.wire.Limits, "SearchFas4Profile")
 			}
-			err = verifyGeneration(context.Background(), origin, &work, articles)
+			err := verifyGeneration(context.Background(), mustParseURL(t, server.URL), &work, articles)
 			if scenario.mutate != "" {
 				if err == nil || work.generation != "" {
 					t.Fatalf("unexpected admission: %+v, %v", work.corpus, err)
@@ -206,22 +229,10 @@ func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
 }
 
 func corpusErrorVector(wire contract, status uint32, message string) []byte {
-	header := wire.Header
-	offset := number(header, "HeaderSize")
-	packet := make([]byte, offset+number(wire.Layouts, "ErrorBytes"))
-	binary.LittleEndian.PutUint32(packet, uint32(number(header, "Magic")))
-	packet[number(header, "VersionOffset")] = byte(number(header, "Version"))
-	packet[number(header, "LengthOffset")] = byte(offset)
-	binary.LittleEndian.PutUint16(packet[number(header, "TypeOffset"):], uint16(wire.FrameTypes["ApiError"]))
-	binary.LittleEndian.PutUint32(packet[number(header, "PayloadLengthOffset"):], uint32(len(packet)-offset))
-	binary.LittleEndian.PutUint32(packet[offset+number(wire.Layouts, "ErrorStatusOffset"):], status)
-	copy(packet[offset+number(wire.Layouts, "ErrorMessageOffset"):], message)
-	crc := uint16(0xffff)
-	for _, value := range packet[offset:] {
-		crc = (crc >> 8) ^ wireTable[byte(crc)^value]
-	}
-	binary.LittleEndian.PutUint16(packet[number(header, "CrcOffset"):], crc)
-	return packet
+	payload := make([]byte, wire.layout("ErrorBytes"))
+	binary.LittleEndian.PutUint32(payload[wire.layout("ErrorStatusOffset"):], status)
+	copy(payload[wire.layout("ErrorMessageOffset"):], message)
+	return encodeTestFrame(wire, "ApiError", payload)
 }
 
 func TestSlowRequestRecordsOrderedBoundariesAndCap(t *testing.T) {
@@ -261,7 +272,7 @@ func TestSlowRequestRecordsOrderedBoundariesAndCap(t *testing.T) {
 func TestSupplyTimelineSeparatesPhasesAndIncludesLateDrain(t *testing.T) {
 	start := time.Now()
 	at := func(ms int) time.Time { return start.Add(time.Duration(ms) * time.Millisecond) }
-	timeline := supplyTimeline{start, 2, make(map[int]*admissionSecond), make(map[int]*transferSecond)}
+	timeline := supplyTimeline{start, 2, make(map[int]*supplySecond), make(map[int]*supplySecond)}
 	timeline.recordAdmission(at(1010), at(920), true, 254)
 	timeline.recordAdmission(at(1015), at(925), false, 256)
 	timeline.recordTransfer(result{planned: at(920), completed: at(2120), bodyCompleted: at(2100),
@@ -289,14 +300,8 @@ func TestSupplyTimelineSeparatesPhasesAndIncludesLateDrain(t *testing.T) {
 }
 
 func TestSocketWriteIsSeparateFromHTTPResponse(t *testing.T) {
-	origin, err := url.Parse("http://127.0.0.1:12345")
-	if err != nil {
-		t.Fatal(err)
-	}
-	request, err := encodeRequest(origin, "/")
-	if err != nil {
-		t.Fatal(err)
-	}
+	origin := mustParseURL(t, "http://127.0.0.1:12345")
+	request := mustEncodeRequest(t, origin, "/")
 	for _, response := range []bool{false, true} {
 		t.Run(fmt.Sprintf("response=%t", response), func(t *testing.T) {
 			client, server := net.Pipe()
@@ -329,31 +334,9 @@ func TestSocketWriteIsSeparateFromHTTPResponse(t *testing.T) {
 
 func TestCancelledScheduleDrainsEveryAttempt(t *testing.T) {
 	html := []byte("ok")
-	_, current, _, _ := runtime.Caller(0)
-	wire, err := os.ReadFile(filepath.Join(filepath.Dir(current), "../../src/Contracts/wire.schema.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var c contract
-	if err := json.Unmarshal(wire, &c); err != nil {
-		t.Fatal(err)
-	}
-	h := c.Header
-	offset := number(c.Layouts, "ArticleListCursorOffset")
-	packet := make([]byte, number(h, "HeaderSize")+offset)
-	pos := func(key string) int { return number(h, key) }
-	binary.LittleEndian.PutUint32(packet, uint32(number(h, "Magic")))
-	packet[pos("VersionOffset")] = byte(number(h, "Version"))
-	packet[pos("LengthOffset")] = byte(number(h, "HeaderSize"))
-	binary.LittleEndian.PutUint16(packet[pos("TypeOffset"):], uint16(c.FrameTypes["ArticleList"]))
-	binary.LittleEndian.PutUint32(packet[pos("PayloadLengthOffset"):], uint32(offset))
-	crc := uint16(0xffff)
-	for i := 0; i < offset; i++ {
-		crc = (crc >> 8) ^ wireTable[byte(crc)]
-	}
-	binary.LittleEndian.PutUint16(packet[pos("CrcOffset"):], crc)
-	const generation = "123"
-	const header = "X-Example-Generation"
+	c := loadTestWire(t)
+	packet := encodeTestFrame(c, "ArticleList", make([]byte, c.layout("ArticleListCursorOffset")))
+	const generation, header = "123", "X-Example-Generation"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		w.Header().Set(header, generation)
 		// A test timing source, isolated from the real benchmark.
@@ -367,22 +350,17 @@ func TestCancelledScheduleDrainsEveryAttempt(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	origin, err := url.Parse(server.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	origin := mustParseURL(t, server.URL)
 	c.Headers["SearchIndexGeneration"] = header
 	w := workload{generation: generation, wire: c}
 	for class := route(0); class < routeCount; class++ {
-		path := "/"
-		body := html
+		path, body := "/", html
 		if class == homeAEDS || class == detailAEDS {
-			path = "/binary"
-			body = packet
+			path, body = "/binary", packet
 		}
-		encoded, err := encodeRequest(origin, path)
-		if err != nil || !bytes.HasPrefix(encoded, []byte("GET ")) {
-			t.Fatalf("invalid test request: %q %v", encoded, err)
+		encoded := mustEncodeRequest(t, origin, path)
+		if !bytes.HasPrefix(encoded, []byte("GET ")) {
+			t.Fatalf("invalid test request: %q", encoded)
 		}
 		keys := 1
 		if class == detailHTML || class == detailAEDS {
@@ -391,7 +369,7 @@ func TestCancelledScheduleDrainsEveryAttempt(t *testing.T) {
 		w.paths[class] = make([]expectation, keys)
 		digest := sha256.Sum256(body)
 		if class == homeAEDS {
-			digest = sha256.Sum256(body[number(h, "HeaderSize"):])
+			digest = sha256.Sum256(body[c.header("HeaderSize"):])
 		}
 		for i := range w.paths[class] {
 			w.paths[class][i] = expectation{class: class, request: encoded, length: len(body), digest: digest}
@@ -399,38 +377,34 @@ func TestCancelledScheduleDrainsEveryAttempt(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Millisecond)
 	defer cancel()
-	pool := loadConnections(origin, nil)
-	defer func() {
-		for i := range pool {
-			pool[i].close()
-		}
-	}()
+	pool := loadConnections(origin, nil, maxInFlight)
+	defer closePool(pool)
 	_, elapsed, counts, rows := measure(ctx, pool, w, 8000, 1, nil)
 	all := counts["all"]
-	var wake, admitted, dropped, written, headers, bodies, finished, correct int
+	var sum supplySecond
 	for _, row := range rows {
-		wake += row.SchedulerAwake
-		admitted += row.Admitted
-		dropped += row.Dropped
-		written += row.SocketWritten
-		headers += row.HeadersRead
-		bodies += row.BodiesRead
-		finished += row.Finished
-		correct += row.Correct
+		sum.SchedulerAwake += row.SchedulerAwake
+		sum.Admitted += row.Admitted
+		sum.Dropped += row.Dropped
+		sum.SocketWritten += row.SocketWritten
+		sum.HeadersRead += row.HeadersRead
+		sum.BodiesRead += row.BodiesRead
+		sum.Finished += row.Finished
+		sum.Correct += row.Correct
 	}
-	if ctx.Err() == nil || wake == 0 || wake >= 8000 || elapsed >= requestLimit {
-		t.Fatalf("expected a partial schedule that drained, elapsed=%v awake=%d", elapsed, wake)
+	if ctx.Err() == nil || sum.SchedulerAwake == 0 || sum.SchedulerAwake >= 8000 || elapsed >= requestLimit {
+		t.Fatalf("expected a partial schedule that drained, elapsed=%v awake=%d", elapsed, sum.SchedulerAwake)
 	}
-	if wake != admitted+dropped || admitted != finished || admitted != all.Sent || dropped != all.Dropped ||
-		written != all.Written || headers != all.Header || bodies != all.Body || correct != all.OK ||
-		written == 0 || headers == 0 || bodies == 0 || correct == 0 {
-		t.Fatalf("totals disagree: %+v, rows %+v, wake %d", all, rows, wake)
+	if sum.SchedulerAwake != sum.Admitted+sum.Dropped || sum.Admitted != sum.Finished || sum.Admitted != all.Sent ||
+		sum.Dropped != all.Dropped || sum.SocketWritten != all.Written || sum.HeadersRead != all.Header ||
+		sum.BodiesRead != all.Body || sum.Correct != all.OK ||
+		sum.SocketWritten == 0 || sum.HeadersRead == 0 || sum.BodiesRead == 0 || sum.Correct == 0 {
+		t.Fatalf("totals disagree: %+v, rows %+v, sum %+v", all, rows, sum)
 	}
 }
 
 func TestWarmupCarriesAnActualConnectionAndDoesNotRetryStaleSocket(t *testing.T) {
-	const header = "X-Example-Generation"
-	const generation = "123"
+	const header, generation = "X-Example-Generation", "123"
 	body := []byte("ok")
 	var peers []string
 	var requests sync.Mutex
@@ -443,18 +417,12 @@ func TestWarmupCarriesAnActualConnectionAndDoesNotRetryStaleSocket(t *testing.T)
 		_, _ = w.Write(body)
 	}))
 	defer server.Close()
-	origin, err := url.Parse(server.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	origin := mustParseURL(t, server.URL)
 	trust := x509.NewCertPool()
 	trust.AddCert(server.Certificate())
 	pool := []connection{{origin: origin, tlsConfig: &tls.Config{RootCAs: trust, MinVersion: tls.VersionTLS12}}}
-	defer pool[0].close()
-	request, err := encodeRequest(origin, "/")
-	if err != nil {
-		t.Fatal(err)
-	}
+	defer closePool(pool)
+	request := mustEncodeRequest(t, origin, "/")
 	w := workload{generation: generation, wire: contract{
 		Headers: map[string]string{"SearchIndexGeneration": header},
 	}}

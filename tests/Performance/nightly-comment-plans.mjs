@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { closeSync, lstatSync, openSync, readSync, renameSync, writeFileSync } from 'node:fs';
+import { closeSync, openSync, readSync, renameSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { setTimeout } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
+import { assertOwnedFile, sha256, writePrivate } from './nightly-owned-evidence.mjs';
 
-const hash = text => createHash('sha256').update(text).digest('hex');
 const maxWindowBytes = 8 * 1024 * 1024;
 const sql = {
   roots: '27c166eba4b866a0d6bec7c79f52c294f05a9593c3ef8732075c6d7094422199',
@@ -44,7 +43,7 @@ function planMetrics(plan) {
   const result = Object.fromEntries(selected.map(name => [name, plan[name]]));
   assert(Object.values(result).every(value => Number.isFinite(value) && value >= 0), 'Missing PostgreSQL ANALYZE or buffer counters.');
   const scans = [];
-  function visit(node) {
+  (function visit(node) {
     assert(typeof node['Node Type'] === 'string');
     if (node['Node Type'].includes('Scan') && node['Actual Loops'] > 0) {
       scans.push({ node: node['Node Type'], relation: node['Relation Name'] ?? null, index: node['Index Name'] ?? null,
@@ -52,49 +51,68 @@ function planMetrics(plan) {
         removedByRecheckPerLoop: node['Rows Removed by Index Recheck'] ?? 0 });
     }
     for (const child of node.Plans ?? []) visit(child);
-  }
-  visit(plan);
+  })(plan);
   return { ...result, scans };
 }
 
 const commentQuery = query => /^(?:\s*)with recursive public_article as \(/i.test(query);
-function isMarker(record, app, marker) {
-  return record.application_name === app && explain(record)?.sql === marker;
-}
+const isMarker = (record, app, marker) => record.application_name === app && explain(record)?.sql === marker;
+const sameSession = (a, b) => a.pid === b.pid && a.session_id === b.session_id && a.vxid === b.vxid;
+const findMarkers = (records, markerApp, text) =>
+  records.reduce((found, record, index) => (isMarker(record, markerApp, text) && found.push(index), found), []);
 
 function correlate(records, app, markerApp, begin, end, commands) {
-  const starts = records.map((record, index) => isMarker(record, markerApp, begin) ? index : -1).filter(index => index >= 0);
-  const finishes = records.map((record, index) => isMarker(record, markerApp, end) ? index : -1).filter(index => index >= 0);
+  const starts = findMarkers(records, markerApp, begin);
+  const finishes = findMarkers(records, markerApp, end);
   assert(starts.length === 1 && finishes.length === 1 && starts[0] < finishes[0], 'Expected one ordered native boundary pair.');
-  const inside = records.slice(starts[0] + 1, finishes[0]);
-  const appRecords = inside.filter(record => record.application_name === app);
+  const appRecords = records.slice(starts[0] + 1, finishes[0]).filter(record => record.application_name === app);
   const plans = appRecords.map(explain).filter(record => record && commentQuery(record.sql));
   assert.equal(plans.length, commands.length, 'Wrong number of actual comment plans in the HTTP window.');
   const session = plans[0].raw;
   assert(Number.isSafeInteger(session.pid) && session.session_id && session.vxid &&
-    plans.every(({ raw }, index) => raw.pid === session.pid && raw.session_id === session.session_id &&
-      raw.vxid === session.vxid && Number.isSafeInteger(raw.line_num) && (index === 0 || raw.line_num > plans[index - 1].raw.line_num)),
+    plans.every(({ raw }, index) => sameSession(raw, session) && Number.isSafeInteger(raw.line_num) &&
+      (index === 0 || raw.line_num > plans[index - 1].raw.line_num)),
   'Comment SQL plans must form a single ordered backend transaction.');
   const executed = appRecords.filter(record => {
     const match = /^execute [^\n]*?: ([\s\S]+)$/.exec(record.message);
     return match && commentQuery(match[1]);
   });
   assert.equal(executed.length, commands.length, 'Wrong number of executed comment commands in the HTTP window.');
-  const evidence = plans.map(({ sql, report, executionMs, raw }, index) => {
+  const evidence = plans.map(({ sql: statement, report, executionMs, raw }, index) => {
     const { name, fingerprint, types, values: expectedValues } = commands[index];
     const execution = executed[index];
-    assert(execution.pid === raw.pid && execution.session_id === raw.session_id && execution.vxid === raw.vxid &&
-      execution.line_num < raw.line_num && (index === 0 || execution.line_num > plans[index - 1].raw.line_num),
+    assert(sameSession(execution, raw) && execution.line_num < raw.line_num &&
+      (index === 0 || execution.line_num > plans[index - 1].raw.line_num),
     'A comment plan does not follow its exact SQL execution.');
-    assert(hash(sql) === fingerprint && hash(execution.message.slice(execution.message.indexOf(': ') + 2).replaceAll('\r\n', '\n')) === fingerprint,
+    assert(sha256(statement) === fingerprint && sha256(execution.message.slice(execution.message.indexOf(': ') + 2).replaceAll('\r\n', '\n')) === fingerprint,
       'Observed SQL differs from the frozen fingerprint for ' + name + '.');
-    const actualValues = values(report, types.length);
-    assert(actualValues.every((value, index) => value === expectedValues[index]), 'Observed bind values differ for ' + name + '.');
+    assert.deepEqual(values(report, types.length), expectedValues, 'Observed bind values differ for ' + name + '.');
     return { ordinal: index + 1, name, fingerprint, parameterTypes: types, parameterTypeEvidence: 'source-contract',
       valueEvidence: 'postgres-bind-output', executionMs, metrics: planMetrics(report.Plan), nativeLine: raw.line_num };
   });
   return { pid: session.pid, sessionId: session.session_id, virtualTransaction: session.vxid, commands: evidence,
     beginLine: records[starts[0]].line_num, endLine: records[finishes[0]].line_num };
+}
+
+function readSlice(path, offset, length) {
+  const fd = openSync(path, 'r');
+  try {
+    const bytes = Buffer.alloc(length);
+    assert.equal(readSync(fd, bytes, 0, length, offset), length);
+    return bytes;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+async function pollUntil(timeoutMs, check, message) {
+  const deadline = performance.now() + timeoutMs;
+  do {
+    const result = check();
+    if (result !== undefined) return result;
+    await setTimeout(25);
+  } while (performance.now() < deadline);
+  throw new Error(message);
 }
 
 export function commentPlans({ directory, runId, database, socket, output }) {
@@ -107,75 +125,48 @@ export function commentPlans({ directory, runId, database, socket, output }) {
   const app = 'fsus-c11-http-' + runId;
   const markerApp = 'fsus-c11-marker-' + runId;
   const uid = process.geteuid();
-  function ownedFile(path) {
-    const info = lstatSync(path);
-    assert(info.isFile() && info.uid === uid && (info.mode & 0o077) === 0, 'Invalid private PG witness file.');
-    return info.size;
-  }
-  const query = command => execFileSync('psql', ['-X', '-qAt', '--no-password', '-v', 'ON_ERROR_STOP=1',
-    '-h', dirname(socket), '-p', port, '-U', 'fsusv2_nightly_qa', '-d', database, '-c', command], {
+  const ownedSize = path => assertOwnedFile(path, uid, 'Invalid private PG witness file.').size;
+  const query = statement => execFileSync('psql', ['-X', '-qAt', '--no-password', '-v', 'ON_ERROR_STOP=1',
+    '-h', dirname(socket), '-p', port, '-U', 'fsusv2_nightly_qa', '-d', database, '-c', statement], {
     env: { PATH: process.env.PATH, LC_ALL: 'C', PGAPPNAME: markerApp, PGCONNECT_TIMEOUT: '3' },
     encoding: 'utf8', timeout: 4000,
   }).trim();
 
   async function setGate(on) {
-    ownedFile(gate);
-    const settings = on ? "auto_explain.log_min_duration = 0\nlog_statement = 'all'\n" :
-      "auto_explain.log_min_duration = -1\nlog_statement = 'none'\n";
-    writeFileSync(gate + '.next', settings, { flag: 'wx', mode: 0o600 });
+    ownedSize(gate);
+    writePrivate(gate + '.next', on ? "auto_explain.log_min_duration = 0\nlog_statement = 'all'\n" : "auto_explain.log_min_duration = -1\nlog_statement = 'none'\n");
     renameSync(gate + '.next', gate);
     assert.equal(query('SELECT pg_reload_conf()'), 't');
-    const expected = on ? '0|all' : '-1|none';
-    const deadline = performance.now() + 3000;
-    do {
-      if (query("SELECT current_setting('auto_explain.log_min_duration'), current_setting('log_statement')") === expected) return;
-      await setTimeout(25);
-    } while (performance.now() < deadline);
-    throw new Error('Owned PostgreSQL did not apply the plan gate.');
+    const target = on ? '0|all' : '-1|none';
+    await pollUntil(3000, () => query("SELECT current_setting('auto_explain.log_min_duration'), current_setting('log_statement')") === target ? true : undefined,
+      'Owned PostgreSQL did not apply the plan gate.');
   }
 
   function windowOffset() {
-    const size = ownedFile(log);
+    const size = ownedSize(log);
     if (size === 0) return 0;
     const offset = Math.max(0, size - 8192);
-    const fd = openSync(log, 'r');
-    try {
-      const tail = Buffer.alloc(size - offset);
-      assert.equal(readSync(fd, tail, 0, tail.length, offset), tail.length);
-      const newline = tail.lastIndexOf(10);
-      assert(newline >= 0 || offset === 0, 'Cannot find a complete owner log line before the window.');
-      return offset + newline + 1;
-    } finally {
-      closeSync(fd);
-    }
+    const newline = readSlice(log, offset, size - offset).lastIndexOf(10);
+    assert(newline >= 0 || offset === 0, 'Cannot find a complete owner log line before the window.');
+    return offset + newline + 1;
   }
 
   function readWindow(offset) {
-    const size = ownedFile(log) - offset;
+    const size = ownedSize(log) - offset;
     assert(size >= 0 && size <= maxWindowBytes, 'Owned PostgreSQL log window changed or exceeded its limit.');
-    const fd = openSync(log, 'r');
-    try {
-      const bytes = Buffer.alloc(size);
-      const read = readSync(fd, bytes, 0, size, offset);
-      assert.equal(read, size);
-      const lastLine = bytes.lastIndexOf(10);
-      if (lastLine < 0) return [];
-      return bytes.subarray(0, lastLine).toString('utf8').split('\n').map(line => ({ line, record: JSON.parse(line) }))
-        .filter(({ record }) => record.dbname === database);
-    } finally {
-      closeSync(fd);
-    }
+    const bytes = readSlice(log, offset, size);
+    const lastLine = bytes.lastIndexOf(10);
+    if (lastLine < 0) return [];
+    return bytes.subarray(0, lastLine).toString('utf8').split('\n').map(line => ({ line, record: JSON.parse(line) }))
+      .filter(({ record }) => record.dbname === database);
   }
 
   async function marker(offset, text) {
     assert.equal(query(text), '1');
-    const deadline = performance.now() + 3000;
-    do {
+    return pollUntil(3000, () => {
       const window = readWindow(offset);
-      if (window.some(({ record }) => isMarker(record, markerApp, text))) return window;
-      await setTimeout(25);
-    } while (performance.now() < deadline);
-    throw new Error('Native auto_explain did not record the owned boundary control.');
+      return window.some(({ record }) => isMarker(record, markerApp, text)) ? window : undefined;
+    }, 'Native auto_explain did not record the owned boundary control.');
   }
 
   function markerSql(number, label) {
@@ -197,25 +188,24 @@ export function commentPlans({ directory, runId, database, socket, output }) {
       }
     },
     async finish({ offset, before }, event) {
-      const after = markerSql(event.number, event.traceId ? 'end-' + hash(event.traceId) : 'end-no-trace');
+      const after = markerSql(event.number, event.traceId ? 'end-' + sha256(event.traceId) : 'end-no-trace');
       try {
         const window = await marker(offset, after);
         const suffix = String(event.number).padStart(4, '0');
         const nativeFile = 'native-' + suffix + '.ndjson';
         const archive = window.map(({ line }) => line).join('\n') + '\n';
-        writeFileSync(join(output, nativeFile), archive, { flag: 'wx', mode: 0o600 });
+        writePrivate(join(output, nativeFile), archive);
         assert(event.traceId && !event.error, 'HTTP did not complete with a verified trace and body.');
         const summary = correlate(window.map(({ record }) => record), app, markerApp, before, after, expected(event));
         const filename = 'sql-' + suffix + '.json';
-        writeFileSync(join(output, filename), JSON.stringify({ caseId: event.caseId, traceId: event.traceId,
-          begin: before, end: after, logByteOffset: offset, nativeFile, nativeSha256: hash(archive), summary }, null, 2) + '\n',
-        { flag: 'wx', mode: 0o600 });
+        writePrivate(join(output, filename), JSON.stringify({ caseId: event.caseId, traceId: event.traceId,
+          begin: before, end: after, logByteOffset: offset, nativeFile, nativeSha256: sha256(archive), summary }, null, 2) + '\n');
         return { file: filename, observer: 'postgres-auto_explain', parameterTypeEvidence: 'source-contract',
           parameterOids: 'not-collected', literalExplainReplay: 'not-run', commands: summary.commands.length };
       } finally {
         await setGate(false);
       }
-    }
+    },
   };
 }
 
@@ -232,13 +222,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   }));
   const observed = [plan(1, markerApp, before), record(11, app, 'execute <unnamed>: ' + statement),
     plan(12, app, statement, "$1 = '1', $2 = '{9007199254740993,9007199254740994}'"), plan(2, markerApp, after)];
-  const commands = [{ name: 'fixture', fingerprint: hash(statement), types: ['int4', 'int8[]'],
+  const commands = [{ name: 'fixture', fingerprint: sha256(statement), types: ['int4', 'int8[]'],
     values: ['1', '{9007199254740993,9007199254740994}'] }];
   assert.equal(correlate(observed, app, markerApp, before, after, commands).commands[0].metrics['Shared Hit Blocks'], 2);
-  assert.throws(() => correlate(observed.slice(0, -1), app, markerApp, before, after, commands));
-  assert.throws(() => correlate([...observed.slice(0, 3), observed[2], observed[3]], app, markerApp, before, after, commands));
-  assert.throws(() => correlate(observed, app, markerApp, before, after, [{ ...commands[0], fingerprint: '0'.repeat(64) }]));
-  assert.throws(() => correlate(observed, app, markerApp, before, after, [{ ...commands[0], values: ['1', '{9007199254740994}'] }]));
+  for (const [rows, cmds] of [
+    [observed.slice(0, -1), commands],
+    [[...observed.slice(0, 3), observed[2], observed[3]], commands],
+    [observed, [{ ...commands[0], fingerprint: '0'.repeat(64) }]],
+    [observed, [{ ...commands[0], values: ['1', '{9007199254740994}'] }]],
+  ]) assert.throws(() => correlate(rows, app, markerApp, before, after, cmds));
   assert.throws(() => values({ 'Query Parameters': "$1 = '1', $2 = '{9007199254'..." }, 2));
   console.log('Native JSON log shape, high-i64 binds, and ambiguous/missing evidence checks passed (synthetic parser only).');
 }

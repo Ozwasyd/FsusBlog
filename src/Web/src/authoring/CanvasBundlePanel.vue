@@ -169,7 +169,7 @@ async function apply() {
         </div>
       </template>
       <div class="bundle-actions">
-        <ElButton :disabled="applying || !!retry" @click="close">{{ t('author.canvasBundle.cancel') }}</ElButton>
+        <ElButton :disabled="applying || !!retry" @click="close">{{ t('nav.cancel') }}</ElButton>
         <ElButton v-if="plan" type="primary" :disabled="applying || (!retry && !canImport)" @click="apply">
           {{ t(retry && !applying ? 'author.canvasBundle.retry' : 'author.canvasBundle.create') }}
         </ElButton>

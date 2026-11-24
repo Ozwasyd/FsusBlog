@@ -1,6 +1,3 @@
-using System.Globalization;
-using System.Text;
-
 namespace FsusBlog.V2.Contracts;
 
 public sealed record ArticlePublicationProofV2(string Origin, int ArticleId, long Revision, long PublicationId, int PublicationNo,

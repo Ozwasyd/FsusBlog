@@ -1,8 +1,22 @@
 import type { TestContext } from 'node:test';
+import type { AdminSession } from '../../src/Contracts/admin-identity.ts';
 import { encodeFrame } from '../../src/Contracts/aeds.ts';
-import { FrameType, WireLayouts, WireLimits } from '../../src/Contracts/wire.generated.ts';
+import { FrameType, WireHeaders, WireLayouts, WireLimits } from '../../src/Contracts/wire.generated.ts';
 
 const encoder = new TextEncoder();
+export const validProof = 'P'.repeat(43);
+export const validPermissionSession = 'a'.repeat(64);
+export const altPermissionSession = 'b'.repeat(64);
+
+export function adminSessionFixture(handle: string, generation: bigint) {
+  return (permissionSession: string | null = validPermissionSession): AdminSession => ({
+    handle, generation, expiresAt: Date.now() + 60_000,
+    appearanceEnabled: true, siteConfigEnabled: true,
+    ...(permissionSession === null ? {} : { permissionSession }),
+  });
+}
+
+export const permissionHeader = (session: string) => ({ [WireHeaders.AdminPermissionSession]: session });
 
 export function emptySuccessFrame(): Uint8Array<ArrayBuffer> {
   return encodeFrame(FrameType.EmptySuccess, Uint8Array.of(1, 0, 0, 0));
@@ -135,14 +149,30 @@ export function installPasskeyEnvironment(
   replaceProperty(t, globalThis.navigator, 'credentials', credentials);
 }
 
-export function installPowWorker(t: TestContext) {
-  class FakeWorker {
+export interface FakePowWorker {
+  onmessage: ((event: MessageEvent<unknown>) => void) | null;
+  onerror: (() => void) | null;
+  terminated: boolean;
+  postMessage(payload: unknown): void;
+  reply(data: unknown): void;
+  terminate(): void;
+}
+
+export function installPowWorker(
+  t: TestContext,
+  onPost: (worker: FakePowWorker, payload: unknown) => void = worker => {
+    queueMicrotask(() => worker.reply('12345'));
+  },
+) {
+  const control = { spawns: 0, terminated: 0, posted: [] as unknown[], last: null as FakePowWorker | null };
+  replaceProperty(t, globalThis, 'Worker', class implements FakePowWorker {
     onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
     onerror: (() => void) | null = null;
-    postMessage() {
-      queueMicrotask(() => this.onmessage?.({ data: '42' } as MessageEvent<unknown>));
-    }
-    terminate() {}
-  }
-  replaceProperty(t, globalThis, 'Worker', FakeWorker);
+    terminated = false;
+    constructor() { control.spawns++; control.last = this; }
+    postMessage(payload: unknown) { control.posted.push(payload); onPost(this, payload); }
+    reply(data: unknown) { this.onmessage?.({ data } as MessageEvent<unknown>); }
+    terminate() { if (!this.terminated) { this.terminated = true; control.terminated++; } }
+  });
+  return control;
 }
