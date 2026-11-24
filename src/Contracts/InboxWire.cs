@@ -28,29 +28,17 @@ public static class InboxWire
     public const int MaxRequestFrameBytes = 20 * 1024;
     public const int MaxAdminStatusFrameBytes = Aeds.HeaderSize + 16 + 1024;
 
-    public static byte[] EncodeCreate(string subject, string body)
-    {
-        var writer = new PodWriter();
-        writer.Text(subject, SubjectBytes);
-        writer.Text(body, BodyBytes);
-        return writer.Frame(FrameType.ConversationCreateRequest);
-    }
+    public static byte[] EncodeCreate(string subject, string body) =>
+        new PodWriter().Text(subject, SubjectBytes).Text(body, BodyBytes).Frame(FrameType.ConversationCreateRequest);
 
     public static byte[] EncodeReply(long readThroughMessageId, string body)
     {
         if (readThroughMessageId <= 0) throw Invalid();
-        var writer = new PodWriter();
-        writer.I64(readThroughMessageId);
-        writer.Text(body, BodyBytes);
-        return writer.Frame(FrameType.AccountConversationReplyRequest);
+        return new PodWriter().I64(readThroughMessageId).Text(body, BodyBytes).Frame(FrameType.AccountConversationReplyRequest);
     }
 
-    public static byte[] EncodeAdminReply(string body)
-    {
-        var writer = new PodWriter();
-        writer.Text(body, BodyBytes);
-        return writer.Frame(FrameType.ConversationReplyRequest);
-    }
+    public static byte[] EncodeAdminReply(string body) =>
+        new PodWriter().Text(body, BodyBytes).Frame(FrameType.ConversationReplyRequest);
 
     public static string DecodeAdminReply(ReadOnlySpan<byte> frame)
     {
@@ -61,10 +49,7 @@ public static class InboxWire
     public static byte[] EncodeAdminStatus(int target, string reason)
     {
         CheckStatus(target);
-        var writer = new PodWriter();
-        writer.I32(target);
-        writer.Text(reason, 1024);
-        return writer.Frame(FrameType.ConversationStatusRequest);
+        return new PodWriter().I32(target).Text(reason, 1024).Frame(FrameType.ConversationStatusRequest);
     }
 
     public static (int Target, string Reason) DecodeAdminStatus(ReadOnlySpan<byte> frame)
@@ -148,40 +133,24 @@ public static class InboxWire
         if (!string.IsNullOrEmpty(nextCursor))
         {
             DecodeCursor(nextCursor);
-            writer.I32(CursorEnvelopeMagic);
-            writer.I32(CursorEnvelopeVersion);
-            writer.Bool(true);
-            writer.Text(nextCursor, 32);
+            writer.I32(CursorEnvelopeMagic).I32(CursorEnvelopeVersion).Bool(true).Text(nextCursor, 32);
         }
-        writer.I32(total);
-        writer.I32(items.Count);
+        writer.I32(total).I32(items.Count);
         foreach (var item in items)
         {
             CheckSummary(item.Id, item.Status, item.UnreadCount);
-            writer.I64(item.Id);
-            writer.I32(item.Status);
-            writer.I32(item.UnreadCount);
-            writer.I64(item.LastMessageAt.ToUnixTimeMilliseconds());
-            writer.I64(item.UpdatedAt.ToUnixTimeMilliseconds());
-            writer.Bool(item.IsSystem);
-            writer.Bool(item.CanReply);
-            writer.Bool(item.LastMessage is not null);
-            writer.Padding(1);
-            writer.Text(item.Subject, SubjectBytes);
+            writer.I64(item.Id).I32(item.Status).I32(item.UnreadCount)
+                .I64(item.LastMessageAt.ToUnixTimeMilliseconds()).I64(item.UpdatedAt.ToUnixTimeMilliseconds())
+                .Bool(item.IsSystem).Bool(item.CanReply).Bool(item.LastMessage is not null).Padding(1)
+                .Text(item.Subject, SubjectBytes);
             if (item.LastMessage is { } last)
             {
                 CheckSender(last.Sender);
-                writer.I32(last.Sender);
-                writer.I64(last.CreatedAt.ToUnixTimeMilliseconds());
-                writer.Bool(!string.IsNullOrWhiteSpace(last.Name));
-                writer.Padding(3);
-                writer.Text(last.Name, SubjectBytes);
-                writer.Text(last.Body, BodyBytes);
+                writer.I32(last.Sender).I64(last.CreatedAt.ToUnixTimeMilliseconds())
+                    .Bool(!string.IsNullOrWhiteSpace(last.Name)).Padding(3)
+                    .Text(last.Name, SubjectBytes).Text(last.Body, BodyBytes);
             }
-            else
-            {
-                writer.Padding(32);
-            }
+            else writer.Padding(32);
         }
         return writer.Frame(FrameType.ConversationList);
     }
@@ -191,19 +160,11 @@ public static class InboxWire
         CheckSummary(detail.Id, detail.Status, detail.UnreadCount);
         if (detail.ReadSnapshot <= 0 || detail.Messages.Count > 100 || detail.Previous <= 0 || createResponse && detail.Previous is not null)
             throw Invalid();
-        var writer = new PodWriter();
-        writer.I64(detail.Id);
-        writer.I32(detail.Status);
-        writer.I32(detail.UnreadCount);
-        writer.I64(detail.LastMessageAt.ToUnixTimeMilliseconds());
-        writer.I64(detail.ReadSnapshot);
+        var writer = new PodWriter().I64(detail.Id).I32(detail.Status).I32(detail.UnreadCount)
+            .I64(detail.LastMessageAt.ToUnixTimeMilliseconds()).I64(detail.ReadSnapshot);
         if (!createResponse) writer.I64(detail.Previous ?? 0);
-        writer.Bool(detail.IsSystem);
-        writer.Bool(detail.CanReply);
-        writer.Bool(createResponse ? detail.Replayed : detail.Previous.HasValue);
-        writer.Padding(1);
-        writer.Text(detail.Subject, SubjectBytes);
-        writer.I32(detail.Messages.Count);
+        writer.Bool(detail.IsSystem).Bool(detail.CanReply).Bool(createResponse ? detail.Replayed : detail.Previous.HasValue)
+            .Padding(1).Text(detail.Subject, SubjectBytes).I32(detail.Messages.Count);
         foreach (var message in detail.Messages)
         {
             if (message.ConversationId != detail.Id) throw Invalid();
@@ -223,15 +184,9 @@ public static class InboxWire
     {
         if (message.Id <= 0 || message.ConversationId <= 0) throw Invalid();
         CheckSender(message.Sender);
-        writer.I64(message.Id);
-        writer.I64(message.ConversationId);
-        writer.I32(message.Sender);
-        writer.I64(message.CreatedAt.ToUnixTimeMilliseconds());
-        writer.Bool(!string.IsNullOrWhiteSpace(message.Name));
-        writer.Bool(message.Replayed);
-        writer.Padding(2);
-        writer.Text(message.Name, SubjectBytes);
-        writer.Text(message.Body, BodyBytes);
+        writer.I64(message.Id).I64(message.ConversationId).I32(message.Sender)
+            .I64(message.CreatedAt.ToUnixTimeMilliseconds()).Bool(!string.IsNullOrWhiteSpace(message.Name))
+            .Bool(message.Replayed).Padding(2).Text(message.Name, SubjectBytes).Text(message.Body, BodyBytes);
     }
 
     private static ReadOnlySpan<byte> DecodeRequest(ReadOnlySpan<byte> frame, FrameType kind)
@@ -274,17 +229,18 @@ public static class InboxWire
         if (sender is < 0 or > 2) throw Invalid();
     }
 
-    private sealed class PodWriter : ScalarBufferWriter
+    private sealed class PodWriter : ScalarBufferWriter<PodWriter>
     {
         private readonly ArrayBufferWriter<byte> arena = new();
 
-        public void Padding(int length)
+        public PodWriter Padding(int length)
         {
             buffer.GetSpan(length)[..length].Clear();
             buffer.Advance(length);
+            return this;
         }
 
-        public void Text(string? value, int limit)
+        public PodWriter Text(string? value, int limit)
         {
             value ??= "";
             int length = Utf8.GetByteCount(value);
@@ -292,6 +248,7 @@ public static class InboxWire
             I32(arena.WrittenCount);
             I32(length);
             if (length > 0) arena.Advance(Utf8.GetBytes(value, arena.GetSpan(length)));
+            return this;
         }
 
         public byte[] Frame(FrameType type)

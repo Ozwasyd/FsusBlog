@@ -10,22 +10,50 @@ public static partial class Wire
 
     private delegate T ReadRecord<T>(ref Reader reader);
 
-    private static byte[] EncodeRecord<T>(FrameType type, T value, Action<T> validate, Action<Writer, T> write)
+    private static byte[] EncodeFrame(FrameType type, Action<Writer> write)
     {
-        validate(value);
         var writer = new Writer();
-        write(writer, value);
+        write(writer);
         return Aeds.Encode(type, writer.Written);
     }
 
-    private static T DecodeRecord<T>(FrameType type, ReadOnlySpan<byte> frame, ReadRecord<T> read, Action<T> validate)
+    private static T DecodeFrame<T>(FrameType type, ReadOnlySpan<byte> frame, ReadRecord<T> read)
     {
         var reader = new Reader(Aeds.Decode(frame, type));
         var value = read(ref reader);
         reader.Finish();
+        return value;
+    }
+
+    private static T DecodeFrame<T>(FrameType type, ReadOnlySpan<byte> frame, int maximumBytes,
+        Func<ProtocolException> invalid, ReadRecord<T> read)
+    {
+        var reader = Reader.Open(frame, type, maximumBytes, invalid);
+        var value = read(ref reader);
+        reader.Finish();
+        return value;
+    }
+
+    private static byte[] EncodeRecord<T>(FrameType type, T value, Action<T> validate, Action<Writer, T> write)
+    {
+        validate(value);
+        return EncodeFrame(type, writer => write(writer, value));
+    }
+
+    private static T DecodeRecord<T>(FrameType type, ReadOnlySpan<byte> frame, ReadRecord<T> read, Action<T> validate)
+    {
+        var value = DecodeFrame(type, frame, read);
         validate(value);
         return value;
     }
+
+    private static bool IsBase64Url(string value) =>
+        value.All(static c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
+
+    private static bool IsLowerHex(string value, int length) =>
+        value.Length == length && value.All(char.IsAsciiHexDigitLower);
+
+    private static bool IsValidUnixMs(long value) => value is >= -62_135_596_800_000 and <= 253_402_300_799_999;
 
     public static byte[] EncodeEmptySuccess() => Aeds.Encode(FrameType.EmptySuccess, [1, 0, 0, 0]);
 
@@ -104,28 +132,48 @@ public static partial class Wire
             throw new ProtocolException("Invalid draft taxonomy coordinates");
     }
 
-    internal sealed class Writer : ScalarBufferWriter
+    internal sealed class Writer : ScalarBufferWriter<Writer>
     {
-
-        public void I32s(IReadOnlyList<int> values, int limit) =>
+        public Writer I32s(IReadOnlyList<int> values, int limit) =>
             List(values, limit, static (writer, value) => writer.I32(value));
 
-        public void List<T>(IReadOnlyList<T> values, int limit, Action<Writer, T> writeItem)
+        public Writer List<T>(IReadOnlyList<T> values, int limit, Action<Writer, T> writeItem)
         {
             if (values.Count > limit)
                 throw new ProtocolException("AEDS collection exceeds its item limit");
+            return Items(values, writeItem);
+        }
+
+        public Writer Items<T>(IReadOnlyList<T> values, Action<Writer, T> writeItem)
+        {
             I32(values.Count);
             for (var index = 0; index < values.Count; index++)
                 writeItem(this, values[index]);
+            return this;
         }
 
-        public void Uuid(Guid value)
+        public Writer Optional<T>(T? value, Action<Writer, T> writeItem) where T : class
+        {
+            Bool(value is not null);
+            if (value is not null) writeItem(this, value);
+            return this;
+        }
+
+        public Writer Optional<T>(T? value, Action<Writer, T> writeItem) where T : struct
+        {
+            Bool(value.HasValue);
+            if (value.HasValue) writeItem(this, value.Value);
+            return this;
+        }
+
+        public Writer Uuid(Guid value)
         {
             value.TryWriteBytes(buffer.GetSpan(16), bigEndian: true, out _);
             buffer.Advance(16);
+            return this;
         }
 
-        public void Text(string value, int limit)
+        public Writer Text(string value, int limit)
         {
             int length = Utf8.GetByteCount(value);
             if (length > limit)
@@ -133,14 +181,20 @@ public static partial class Wire
             I32(length);
             if (length != 0)
                 buffer.Advance(Utf8.GetBytes(value, buffer.GetSpan(length)));
+            return this;
         }
 
-        public void FixedBytes(ReadOnlySpan<byte> value) => buffer.Write(value);
+        public Writer FixedBytes(ReadOnlySpan<byte> value)
+        {
+            buffer.Write(value);
+            return this;
+        }
 
-        public void Bytes(ReadOnlySpan<byte> value)
+        public Writer Bytes(ReadOnlySpan<byte> value)
         {
             I32(value.Length);
             buffer.Write(value);
+            return this;
         }
     }
 
@@ -181,6 +235,9 @@ public static partial class Wire
             for (var index = 0; index < count; index++) values[index] = readItem(ref this);
             return values;
         }
+
+        public T? Optional<T>(ReadRecord<T> read) where T : class => Bool() ? read(ref this) : null;
+        public T? OptionalValue<T>(ReadRecord<T> read) where T : struct => Bool() ? read(ref this) : null;
         public long I64() => BinaryPrimitives.ReadInt64LittleEndian(Take(8));
         public Guid Uuid() => new(Take(16), bigEndian: true);
 
