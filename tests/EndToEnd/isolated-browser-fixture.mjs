@@ -4,10 +4,86 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { requireWebPackage } from './web-package-fixture.mjs'
 
-export function launchChrome(args = []) {
-  return requireWebPackage('@playwright/test').chromium.launch({
+export async function launchChrome(args = []) {
+  const browser = await requireWebPackage('@playwright/test').chromium.launch({
     executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true, ...(args.length && { args }),
   })
+  return instrumentApiBodyCapture(browser)
+}
+
+function instrumentApiBodyCapture(browser) {
+  const attached = new WeakSet()
+  const instrumentContext = context => {
+    const openPage = context.newPage.bind(context)
+    context.newPage = async (...params) => {
+      const page = await openPage(...params)
+      await attachApiBodyCapture(context, page, attached)
+      return page
+    }
+    context.on('page', page => { void attachApiBodyCapture(context, page, attached).catch(() => {}) })
+    return context
+  }
+  const openContext = browser.newContext.bind(browser)
+  browser.newContext = async (...params) => instrumentContext(await openContext(...params))
+  const openPage = browser.newPage.bind(browser)
+  browser.newPage = async (...params) => {
+    const page = await openPage(...params)
+    await attachApiBodyCapture(page.context(), page, attached)
+    return page
+  }
+  return browser
+}
+
+async function attachApiBodyCapture(context, page, attached) {
+  if (attached.has(page)) return
+  attached.add(page)
+  // Chromium 147 intermittently drops Blink Network.getResponseBody buffers when
+  // page code drains fetch() via ReadableStream. Capture unmodified /api/*
+  // bytes at CDP Fetch Response stage and fall back only on that protocol error.
+  const cdp = await context.newCDPSession(page)
+  const queues = new Map()
+  const keyOf = (method, url) => `${method} ${url}`
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/*', requestStage: 'Response' }] })
+  cdp.on('Fetch.requestPaused', async event => {
+    try {
+      const status = event.responseStatusCode ?? 0
+      const headers = event.responseHeaders ?? []
+      const type = headers.find(h => h.name.toLowerCase() === 'content-type')?.value?.split(';')[0].trim().toLowerCase() ?? ''
+      const length = Number(headers.find(h => h.name.toLowerCase() === 'content-length')?.value ?? 0)
+      if (!event.responseErrorReason && event.resourceType !== 'WebSocket' && event.request.method !== 'HEAD' &&
+          status >= 200 && status !== 204 && !(status >= 300 && status < 400) &&
+          type !== 'text/event-stream' && (!Number.isFinite(length) || length <= 16_000_000)) {
+        const { body, base64Encoded } = await cdp.send('Fetch.getResponseBody', { requestId: event.requestId })
+        const key = keyOf(event.request.method, event.request.url)
+        const queue = queues.get(key) ?? []
+        queue.push({ status, bytes: Buffer.from(body, base64Encoded ? 'base64' : 'utf8') })
+        if (queue.length > 32) queue.shift()
+        queues.set(key, queue)
+      }
+    } catch {
+      // Let continueResponse/failRequest resume the browser unchanged.
+    } finally {
+      const resume = event.responseErrorReason
+        ? cdp.send('Fetch.failRequest', { requestId: event.requestId, errorReason: event.responseErrorReason })
+        : cdp.send('Fetch.continueResponse', { requestId: event.requestId })
+      await resume.catch(() => {})
+    }
+  })
+  page.on('response', response => {
+    const key = keyOf(response.request().method(), response.url())
+    const queue = queues.get(key)
+    if (!queue?.length) return
+    const index = queue.findIndex(item => item.status === response.status())
+    if (index < 0) return
+    const [{ bytes }] = queue.splice(index, 1)
+    if (queue.length === 0) queues.delete(key)
+    const originalBody = response.body.bind(response)
+    response.body = () => originalBody().catch(error => {
+      if (/No data found for resource with given identifier/.test(error?.message ?? '')) return bytes
+      throw error
+    })
+  })
+  page.on('close', () => { queues.clear(); void cdp.detach().catch(() => {}) })
 }
 
 export function launchIsolatedChromium() {
