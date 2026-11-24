@@ -21,8 +21,9 @@ internal static class AdminModerationEndpoints
             store.BeginModerationDecisionStepUp(cookie, Wire.DecodeAdminModerationDecision(frame), ct)).RequireRateLimiting(actions.PasskeyLimit);
         actions.Execute(WireRoutes.AdminModerationDecision, async (ctx, ct) =>
         {
-            var frame = await actions.Read(ctx, WireLimits.AdminModerationDecisionFrameBytes, ct);
-            await store.DecideComment(actions.Session(ctx), Proof(ctx), Wire.DecodeAdminModerationDecision(frame), ct, fenceVisibleMessages);
+            await store.DecideComment(actions.Session(ctx), Proof(ctx),
+                Wire.DecodeAdminModerationDecision(await actions.Read(ctx, WireLimits.AdminModerationDecisionFrameBytes, ct)),
+                ct, fenceVisibleMessages);
             return ServerHttp.EmptyFrame();
         });
     }
@@ -35,10 +36,8 @@ internal static class AdminModerationBatchEndpoints
     internal static void Map(AdminActionRoutes actions, AdminModerationBatchStore store, bool fenceVisibleMessages)
     {
         actions.App.MapCommandPost(WireRoutes.AdminModerationBatchClaim, (HttpContext ctx, CancellationToken ct) => Run(ctx, async () =>
-        {
-            var targets = Wire.DecodeAdminModerationBatchTargets(await actions.Read(ctx, WireLimits.AdminModerationBatchTargetsFrameBytes, ct));
-            return Wire.EncodeAdminModerationBatchClaims(await store.AcquireModerationBatch(actions.Session(ctx), targets, ct));
-        }));
+            Wire.EncodeAdminModerationBatchClaims(await store.AcquireModerationBatch(actions.Session(ctx),
+                Wire.DecodeAdminModerationBatchTargets(await actions.Read(ctx, WireLimits.AdminModerationBatchTargetsFrameBytes, ct)), ct))));
         actions.App.MapPost(WireRoutes.AdminModerationBatchStepUpBegin, (HttpContext ctx, CancellationToken ct) => Run(ctx, async () =>
             await store.BeginModerationBatchStepUp(actions.Session(ctx), await actions.Read(ctx, WireLimits.AdminModerationBatchDecisionFrameBytes, ct), ct)))
             .RequireRateLimiting(actions.PasskeyLimit);
@@ -47,19 +46,16 @@ internal static class AdminModerationBatchEndpoints
                 PasskeyWire.ReadLogin(await actions.Read(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false), ct)))
             .RequireRateLimiting(actions.PasskeyLimit);
         actions.App.MapCommandPost(WireRoutes.AdminModerationBatchDecision, (HttpContext ctx, CancellationToken ct) => Run(ctx, async () =>
-        {
-            var frame = await actions.Read(ctx, WireLimits.AdminModerationBatchDecisionFrameBytes, ct);
-            return Wire.EncodeAdminModerationBatchReceipt(
-                await store.DecideModerationBatch(actions.Session(ctx), Proof(ctx), frame, fenceVisibleMessages, ct));
-        }));
+            Wire.EncodeAdminModerationBatchReceipt(await store.DecideModerationBatch(actions.Session(ctx), Proof(ctx),
+                await actions.Read(ctx, WireLimits.AdminModerationBatchDecisionFrameBytes, ct), fenceVisibleMessages, ct))));
 
         static async Task<IResult> Run(HttpContext ctx, Func<Task<byte[]>> apply)
         {
             try { return Frame(await apply()); }
             catch (ModerationBatchConflictException error)
             {
-                var details = $"moderation_batch_conflicts:{error.Positions.ToString("x5", CultureInfo.InvariantCulture)}";
-                return ServerHttp.ErrorFrame(ctx, StatusCodes.Status409Conflict, "Selected comments or their claims changed.", details);
+                return ServerHttp.ErrorFrame(ctx, StatusCodes.Status409Conflict, "Selected comments or their claims changed.",
+                    $"moderation_batch_conflicts:{error.Positions.ToString("x5", CultureInfo.InvariantCulture)}");
             }
             catch (ProofRequiredException) { return ProofRequired(ctx); }
         }
@@ -94,10 +90,8 @@ internal static class AdminCommentRevisions
             context.Response.Headers.CacheControl = "no-store";
             var result = await store.CommentRevisions(context.Request.Cookies[session], id, context.Request.Query, Position, ct);
             if (result.Next is long version)
-            {
-                var scope = result.Article == 0 ? "" : FormattableString.Invariant($"&articleId={result.Article}");
-                context.Response.Headers.Link = FormattableString.Invariant($"</api/binary/author/comments/{id}/revisions?before={version}{scope}>; rel=\"next\"");
-            }
+                context.Response.Headers.Link = FormattableString.Invariant(
+                    $"</api/binary/author/comments/{id}/revisions?before={version}{(result.Article == 0 ? "" : $"&articleId={result.Article}")}>; rel=\"next\"");
             return Frame(result.Frame);
         });
         app.MapCommandGet(WireRoutes.AdminCommentTimeline, async (long id, HttpContext context, CancellationToken ct) =>
@@ -126,30 +120,25 @@ internal static class AdminRiskReadinessEndpoints
     internal static void Map(AdminActionRoutes actions, AdminOperationsStore operations, AdminCommentRiskStore? commentRisk,
         InstalledCommentRoutes commentRoutes, bool trustLoopbackProxy)
     {
-        actions.App.MapGet(WireRoutes.AdminRiskReadiness, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            var result = await operations.RiskReadiness(actions.Session(ctx), commentRoutes, trustLoopbackProxy, ct);
-            ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
-            if (commentRoutes.RootPowPolicy) ctx.Response.Headers[WireHeaders.AdminRootCommentPowPolicy] = "1";
-            return Frame(Wire.EncodeAdminRiskReadiness(result.Controls));
-        }).RequireRateLimiting(actions.PasskeyLimit);
+        actions.GetPermission(WireRoutes.AdminRiskReadiness,
+            (_, s, ct) => operations.RiskReadiness(s, commentRoutes, trustLoopbackProxy, ct),
+            Wire.EncodeAdminRiskReadiness, rateLimit: actions.PasskeyLimit,
+            extraHeaders: commentRoutes.RootPowPolicy ? ctx => ctx.Response.Headers[WireHeaders.AdminRootCommentPowPolicy] = "1" : null);
 
         if (!commentRoutes.RootPowPolicy || commentRisk is null) return;
-        actions.App.MapGet(WireRoutes.AdminRootCommentPowPolicy, async (HttpContext ctx, CancellationToken ct) =>
-            State(ctx, await commentRisk.ReadRootCommentPowPolicy(actions.Session(ctx), ct))).RequireRateLimiting(actions.PasskeyLimit);
+        actions.GetPermission(WireRoutes.AdminRootCommentPowPolicy, (_, s, ct) => commentRisk.ReadRootCommentPowPolicy(s, ct),
+            Wire.EncodeAdminRootCommentPowPolicy, rateLimit: actions.PasskeyLimit);
         actions.Begin(WireRoutes.AdminRootCommentPowBegin, ReadIntent, commentRisk.BeginRootCommentPowStepUp);
         actions.Complete(WireRoutes.AdminRootCommentPowComplete, commentRisk.CompleteRootCommentPowStepUp);
         actions.App.MapCommandPost(WireRoutes.AdminRootCommentPowApply, async (HttpContext ctx, CancellationToken ct) =>
-            State(ctx, await commentRisk.ApplyRootCommentPowPolicy(actions.Session(ctx), await ReadIntent(ctx, ct), Proof(ctx), ct)));
+        {
+            var (state, permission) = await commentRisk.ApplyRootCommentPowPolicy(actions.Session(ctx), await ReadIntent(ctx, ct), Proof(ctx), ct);
+            ctx.Response.Headers[WireHeaders.AdminPermissionSession] = permission;
+            return Frame(Wire.EncodeAdminRootCommentPowPolicy(state));
+        });
 
         async Task<AdminRootCommentPowCommand> ReadIntent(HttpContext ctx, CancellationToken ct) =>
             Wire.DecodeAdminRootCommentPowCommand(await actions.Read(ctx, WireLimits.AdminRootCommentPowCommandFrameBytes, ct));
-    }
-
-    private static IResult State(HttpContext ctx, (AdminRootCommentPowPolicy State, string PermissionSession) result)
-    {
-        ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
-        return Frame(Wire.EncodeAdminRootCommentPowPolicy(result.State));
     }
 }
 
@@ -157,13 +146,8 @@ internal static class AdminReaderGovernanceEndpoints
 {
     internal static void Map(AdminActionRoutes actions, AdminReaderGovernanceStore store)
     {
-        actions.App.MapCommandGet(WireRoutes.AdminReaderAccounts, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            ctx.Response.Headers.CacheControl = "no-store";
-            var result = await store.ListReaders(actions.Session(ctx), ctx.Request.Query, ct);
-            ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
-            return Frame(Wire.EncodeAdminReaderAccountPage(result.Page));
-        });
+        actions.GetPermission(WireRoutes.AdminReaderAccounts, (ctx, s, ct) => store.ListReaders(s, ctx.Request.Query, ct),
+            Wire.EncodeAdminReaderAccountPage, noStore: true);
         actions.StepUpWithPermission(WireRoutes.AdminReaderStatusStepUpBegin, WireRoutes.AdminReaderStatusStepUpComplete,
             WireRoutes.AdminReaderStatusExecute, WireLimits.AdminReaderStatusCommandFrameBytes,
             Wire.DecodeAdminReaderStatusCommand, c => c.IdempotencyKey,

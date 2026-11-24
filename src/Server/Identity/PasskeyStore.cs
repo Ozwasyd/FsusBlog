@@ -26,9 +26,6 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
     private Task<T> Run<T>(NpgsqlConnection db, Func<NpgsqlTransaction, Task<T>> run, CancellationToken ct) =>
         InstanceLease.RunProtected(db, lease, run, ct);
 
-    private Task Run(NpgsqlConnection db, Func<NpgsqlTransaction, Task> run, CancellationToken ct) =>
-        InstanceLease.RunProtected(db, lease, run, ct);
-
     internal Task<byte[]> BeginLogin(CancellationToken ct) => Run(async (db, tx) =>
     {
         var options = _verifier.RequestAssertion([]);
@@ -70,11 +67,11 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
     {
         var bindingDigest = RecoveryTokenDigest(binding) ?? throw Denied();
         await using var db = await source.OpenConnectionAsync(ct);
-        var challenge = await ConsumeChallenge(db, request.Token, bindingDigest, ct);
+        var challenge = await Run(db, tx => ConsumeChallenge(db, tx, request.Token, bindingDigest, ct), ct);
         CheckId(request.CredentialId, request.RawId);
         var accountId = challenge.UserId!.Value;
         var options = CredentialCreateOptions.FromJson(challenge.Options);
-        await Run(db, async tx =>
+        await InstanceLease.RunProtected(db, lease, async tx =>
         {
             if (await Scalar(db, tx, ct, """
                 select 1 from public.blog_user u join public.passkey_subject s on s.user_id=u.id
@@ -102,7 +99,7 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         PasskeyLoginRequest request, bool mfaEnabled, bool persistentEnabled, AdminPasskeyStore? adminStore, CancellationToken ct)
     {
         await using var db = await source.OpenConnectionAsync(ct);
-        var challenge = await ConsumeChallenge(db, request.Token, null, ct);
+        var challenge = await Run(db, tx => ConsumeChallenge(db, tx, request.Token, null, ct), ct);
         CheckId(request.CredentialId, request.RawId);
 
         return await Run(db, async tx =>
@@ -146,26 +143,16 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         return options.LoginFrame(token, ids);
     }, ct);
 
-    internal async Task<byte[]> CompleteSetupProof(string? session, PasskeyLoginRequest request, CancellationToken ct)
-    {
-        if (request.RememberMe) throw Denied();
-        await using var db = await source.OpenConnectionAsync(ct);
-        var (original, options) = await Run(db, async consume =>
-        {
-            var actor = await MfaStore.RequireSession(db, consume, session, ct);
-            return (actor, await MfaStore.ReadFlow(db, consume, actor, MfaStore.Purpose.Assertion, request.Token, consume: true, ct));
-        }, ct);
-        CheckId(request.CredentialId, request.RawId);
-        return await Run(db, async verify =>
-        {
-            var current = await MfaStore.RequireSession(db, verify, session, ct);
-            if (!SameSession(original, current) || await MfaStore.IsEnabled(db, verify, current.Id, ct))
-                throw MfaStore.Denied();
-            await VerifyAssertion(db, verify, request, current.Id, AssertionOptions.FromJson(options), requireHandle: false, ct);
-            var proof = await MfaStore.BeginFlow(db, verify, current, MfaStore.Purpose.SetupProof, "", ct);
-            return MfaWire.EncodeChallenge(true, MfaWire.Setup, proof);
-        }, ct);
-    }
+    internal Task<byte[]> CompleteSetupProof(string? session, PasskeyLoginRequest request, CancellationToken ct) =>
+        CompleteAssertion(session, expected: null, requireCurrent: false, request,
+            (db, tx, actor) => MfaStore.ReadFlow(db, tx, actor, MfaStore.Purpose.Assertion, request.Token, consume: true, ct),
+            async (db, tx, current, options) =>
+            {
+                if (await MfaStore.IsEnabled(db, tx, current.Id, ct)) throw MfaStore.Denied();
+                await VerifyAssertion(db, tx, request, current.Id, AssertionOptions.FromJson(options), requireHandle: false, ct);
+                var proof = await MfaStore.BeginFlow(db, tx, current, MfaStore.Purpose.SetupProof, "", ct);
+                return MfaWire.EncodeChallenge(true, MfaWire.Setup, proof);
+            }, ct, checkIdFirst: false, mismatch: MfaStore.Denied);
 
     internal Task<byte[]> BeginReaderRegistration(string binding,
         Func<NpgsqlConnection, NpgsqlTransaction, Task> admit, CancellationToken ct) => Run(async (db, tx) =>
@@ -183,12 +170,12 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         var key = ReaderRegistrationKey(request.Token, binding);
         await using var db = await source.OpenConnectionAsync(ct);
         // Retire an attempted ceremony before attestation, just like first-Passkey provisioning.
-        var challenge = await ConsumeChallenge(db, key, null, ct);
+        var challenge = await Run(db, tx => ConsumeChallenge(db, tx, key, null, ct), ct);
         if (challenge.UserId is not null || challenge.Generation is not null) throw Denied();
         CheckId(request.CredentialId, request.RawId);
         var options = CredentialCreateOptions.FromJson(challenge.Options);
         var id = Guid.NewGuid();
-        await Run(db, async tx =>
+        await InstanceLease.RunProtected(db, lease, async tx =>
         {
             await Execute(db, tx, ct, """
                 insert into public.blog_user(id,name,enabled,generation) values($1,$2,true,1)
@@ -224,33 +211,21 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         return options.LoginFrame(token, ids);
     }, ct);
 
-    internal async Task<byte[]> CompleteRecoveryKeyStepUp(string? session, PasskeyLoginRequest request, CancellationToken ct)
-    {
-        if (request.RememberMe) throw Denied();
-        CheckId(request.CredentialId, request.RawId);
-        await using var db = await source.OpenConnectionAsync(ct);
-        var (original, operation, options) = await Run(db, async consume =>
-        {
-            var actor = await MfaStore.RequireSession(db, consume, session, ct);
-            var (op, opt) = await QueryRequired(db, consume, ct, """
+    internal Task<byte[]> CompleteRecoveryKeyStepUp(string? session, PasskeyLoginRequest request, CancellationToken ct) =>
+        CompleteAssertion(session, expected: null, requireCurrent: false, request,
+            (db, tx, actor) => QueryRequired(db, tx, ct, """
                 delete from public.site_recovery_flow
                 where digest=$1 and user_id=$2 and generation=$3 and session_digest=$4 and kind=$5
                     and expires_at>clock_timestamp()
                 returning purpose,options
-                """, r => (r.GetInt16(0), r.GetString(1)), Denied,
-                MfaStore.FlowDigest(request.Token), actor.Id, actor.Generation, actor.Scope, RecoveryAssertion);
-            return (actor, op, opt);
-        }, ct);
-
-        return await Run(db, async tx =>
-        {
-            var current = await MfaStore.RequireSession(db, tx, session, ct);
-            if (!SameSession(current, original)) throw Denied();
-            await VerifyAssertion(db, tx, request, current.Id, AssertionOptions.FromJson(options), requireHandle: false, ct);
-            var proof = await SaveRecoveryFlow(db, tx, current, operation, RecoveryProof, null, 45, ct);
-            return MfaWire.EncodeChallenge(true, operation == 1 ? "recovery-key.create" : "recovery-key.rotate", proof);
-        }, ct);
-    }
+                """, r => (Op: r.GetInt16(0), Options: r.GetString(1)), Denied,
+                MfaStore.FlowDigest(request.Token), actor.Id, actor.Generation, actor.Scope, RecoveryAssertion),
+            async (db, tx, current, flow) =>
+            {
+                await VerifyAssertion(db, tx, request, current.Id, AssertionOptions.FromJson(flow.Options), requireHandle: false, ct);
+                var proof = await SaveRecoveryFlow(db, tx, current, flow.Op, RecoveryProof, null, 45, ct);
+                return MfaWire.EncodeChallenge(true, flow.Op == 1 ? "recovery-key.create" : "recovery-key.rotate", proof);
+            }, ct);
 
     internal Task<RecoveryKeyIssued> IssueRecoveryKey(RecoveryKeySecret secret, string? session,
         RecoveryKeyOperation operation, string? proof, CancellationToken ct) => Run(async (db, tx) =>
@@ -291,7 +266,7 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         var lookup = secret.Lookup(key);
         await using var db = await source.OpenConnectionAsync(ct);
         // Spend the anonymous proof before running its protected operation, including failed guesses.
-        await Run(db, proof => consumePow(db, proof), ct);
+        await InstanceLease.RunProtected(db, lease, proof => consumePow(db, proof), ct);
 
         return await Run(db, async tx =>
         {
@@ -411,39 +386,26 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         return options.LoginFrame(token, allowed);
     }, ct);
 
-    internal async Task<byte[]> ApproveSitePasskeyEnrollment(string? session, string? expected, PasskeyLoginRequest request, CancellationToken ct)
-    {
-        if (request.RememberMe) throw Denied();
-        CheckId(request.CredentialId, request.RawId);
-        await using var db = await source.OpenConnectionAsync(ct);
-        var (admitted, approvedOptions) = await Run(db, async consume =>
-        {
-            var actor = await RequireCurrentPasskeySession(db, consume, session, expected, ct);
-            var challenge = await ConsumeChallenge(db, consume, request.Token, EnrollmentApprovalBinding(actor.Scope), ct);
-            if (challenge.UserId != actor.Id || challenge.Generation != actor.Generation) throw Denied();
-            return (actor, challenge.Options);
-        }, ct);
+    internal Task<byte[]> ApproveSitePasskeyEnrollment(string? session, string? expected, PasskeyLoginRequest request, CancellationToken ct) =>
+        CompleteAssertion(session, expected, requireCurrent: true, request,
+            (db, tx, actor) => ConsumeOwnedChallenge(db, tx, actor, request.Token, EnrollmentApprovalBinding(actor.Scope), ct),
+            async (db, tx, actor, approvedOptions) =>
+            {
+                var state = await ReadEnrollmentState(db, tx, actor, ct);
+                if (!CryptographicOperations.FixedTimeEquals(state.Current, request.RawId)) throw Denied();
+                await RequireNoEnrollment(db, tx, actor, ct);
+                await VerifyAssertion(db, tx, request, actor.Id, AssertionOptions.FromJson(approvedOptions), requireHandle: false, ct);
+                await RequireCurrentPasskeySession(db, tx, session, expected, ct);
 
-        return await Run(db, async tx =>
-        {
-            var actor = await RequireCurrentPasskeySession(db, tx, session, expected, ct);
-            if (!SameSession(actor, admitted)) throw Denied();
-            var state = await ReadEnrollmentState(db, tx, actor, ct);
-            if (!CryptographicOperations.FixedTimeEquals(state.Current, request.RawId)) throw Denied();
-            await RequireNoEnrollment(db, tx, actor, ct);
-            await VerifyAssertion(db, tx, request, actor.Id, AssertionOptions.FromJson(approvedOptions), requireHandle: false, ct);
-            await RequireCurrentPasskeySession(db, tx, session, expected, ct);
-
-            var options = _verifier.RequestRegistration(state.Handle);
-            var intent = new EnrollmentIntent(expected!, EnrollmentSet(state.Credentials), options.ToJson());
-            var token = NewToken();
-            await SaveChallenge(db, tx, token, JsonSerializer.Serialize(intent), actor.Id, actor.Generation,
-                EnrollmentCreationBinding(actor.Id), ct, EnrollmentLifetimeSeconds);
-            return PasskeyWire.EnrollmentBegin(token, checked((uint)options.Timeout), options.Rp.Id, options.Rp.Name,
-                options.User.Name, options.User.DisplayName, options.User.Id, options.Challenge,
-                options.PubKeyCredParams.Select(parameter => (int)parameter.Alg).ToArray(), state.Credentials);
-        }, ct);
-    }
+                var options = _verifier.RequestRegistration(state.Handle);
+                var intent = new EnrollmentIntent(expected!, EnrollmentSet(state.Credentials), options.ToJson());
+                var token = NewToken();
+                await SaveChallenge(db, tx, token, JsonSerializer.Serialize(intent), actor.Id, actor.Generation,
+                    EnrollmentCreationBinding(actor.Id), ct, EnrollmentLifetimeSeconds);
+                return PasskeyWire.EnrollmentBegin(token, checked((uint)options.Timeout), options.Rp.Id, options.Rp.Name,
+                    options.User.Name, options.User.DisplayName, options.User.Id, options.Challenge,
+                    options.PubKeyCredParams.Select(parameter => (int)parameter.Alg).ToArray(), state.Credentials);
+            }, ct);
 
     internal Task CompleteSitePasskeyEnrollment(string? session, string? expected, PasskeyProvisionRequest request, CancellationToken ct)
     {
@@ -451,9 +413,8 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         return Run(async (db, tx) =>
         {
             var actor = await RequireCurrentPasskeySession(db, tx, session, expected, ct);
-            var challenge = await ConsumeChallenge(db, tx, request.Token, EnrollmentCreationBinding(actor.Id), ct);
-            if (challenge.UserId != actor.Id || challenge.Generation != actor.Generation) throw Denied();
-            var intent = JsonSerializer.Deserialize<EnrollmentIntent>(challenge.Options) ?? throw Denied();
+            var raw = await ConsumeOwnedChallenge(db, tx, actor, request.Token, EnrollmentCreationBinding(actor.Id), ct);
+            var intent = JsonSerializer.Deserialize<EnrollmentIntent>(raw) ?? throw Denied();
             // A different browser session cannot consume this challenge, even if it presents the token.
             if (intent.Session != expected) throw Denied();
             await tx.SaveAsync("enrollment_write", ct);
@@ -521,38 +482,60 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
     private async Task<bool> CompleteSitePasskeyChange(string? session, string? expected, PasskeyLoginRequest request, bool remove,
         CancellationToken ct, byte[]? recovery = null)
     {
-        if (request.RememberMe) throw Denied();
-        CheckId(request.CredentialId, request.RawId);
-        await using var db = await source.OpenConnectionAsync(ct);
-        var (admitted, intent) = await Run(db, async consume =>
-        {
-            var actor = await RequireCurrentPasskeySession(db, consume, session, expected, ct);
-            if (!await CurrentSchema.HasSitePasskeyNamesAsync(db, consume, ct))
-                throw new BusinessException(Rejection.NotFound, "Passkey names are unavailable.");
-            var challenge = await ConsumeChallenge(db, consume, request.Token, ChangeBinding(actor.Scope, remove, recovery), ct);
-            if (challenge.UserId != actor.Id || challenge.Generation != actor.Generation) throw Denied();
-            var parsed = JsonSerializer.Deserialize<CredentialIntent>(challenge.Options) ?? throw Denied();
-            if (recovery is not null && parsed.RecoveryVersion != await CurrentRecoveryVersion(db, consume, actor, recovery, ct))
-                throw Denied();
-            return (actor, parsed);
-        }, ct);
-        if ((intent.Name is null) != remove || !CryptographicOperations.FixedTimeEquals(intent.ProofCredential, request.RawId)) throw Denied();
-        var (changed, removingCurrent) = await Run(db, async tx =>
-        {
-            var current = await RequireCurrentPasskeySession(db, tx, session, expected, ct);
-            if (!SameSession(current, admitted)) throw Denied();
-            await VerifyAssertion(db, tx, request, current.Id, AssertionOptions.FromJson(intent.Options), requireHandle: false, ct);
-            await MfaStore.RequireSession(db, tx, session, ct);
-            if (recovery is not null && intent.RecoveryVersion != await CurrentRecoveryVersion(db, tx, current, recovery, ct))
-                throw Denied();
-            var isCurrent = remove && intent.Target.AsSpan().SequenceEqual(intent.ProofCredential);
-            var ok = remove ? await RemoveCredential(db, tx, current, intent, isCurrent, recovery, ct) :
-                await ApplyRename(db, tx, current.Id, intent, ct);
-            // Preserve a valid assertion's counter even if a concurrent change makes its target stale.
-            return (ok, isCurrent);
-        }, ct);
+        var (changed, removingCurrent) = await CompleteAssertion(session, expected, requireCurrent: true, request,
+            async (db, tx, actor) =>
+            {
+                if (!await CurrentSchema.HasSitePasskeyNamesAsync(db, tx, ct))
+                    throw new BusinessException(Rejection.NotFound, "Passkey names are unavailable.");
+                var raw = await ConsumeOwnedChallenge(db, tx, actor, request.Token, ChangeBinding(actor.Scope, remove, recovery), ct);
+                var parsed = JsonSerializer.Deserialize<CredentialIntent>(raw) ?? throw Denied();
+                if (recovery is not null && parsed.RecoveryVersion != await CurrentRecoveryVersion(db, tx, actor, recovery, ct))
+                    throw Denied();
+                return parsed;
+            },
+            async (db, tx, current, intent) =>
+            {
+                await VerifyAssertion(db, tx, request, current.Id, AssertionOptions.FromJson(intent.Options), requireHandle: false, ct);
+                await MfaStore.RequireSession(db, tx, session, ct);
+                if (recovery is not null && intent.RecoveryVersion != await CurrentRecoveryVersion(db, tx, current, recovery, ct))
+                    throw Denied();
+                var isCurrent = remove && intent.Target.AsSpan().SequenceEqual(intent.ProofCredential);
+                var ok = remove ? await RemoveCredential(db, tx, current, intent, isCurrent, recovery, ct) :
+                    await ApplyRename(db, tx, current.Id, intent, ct);
+                // Preserve a valid assertion's counter even if a concurrent change makes its target stale.
+                return (ok, isCurrent);
+            }, ct, checkState: intent =>
+            {
+                if ((intent.Name is null) != remove || !CryptographicOperations.FixedTimeEquals(intent.ProofCredential, request.RawId))
+                    throw Denied();
+            });
         if (!changed) throw ChangeConflict(remove);
         return removingCurrent;
+    }
+
+    private async Task<TResult> CompleteAssertion<TState, TResult>(string? session, string? expected, bool requireCurrent,
+        PasskeyLoginRequest request, Func<NpgsqlConnection, NpgsqlTransaction, MfaStore.Subject, Task<TState>> consume,
+        Func<NpgsqlConnection, NpgsqlTransaction, MfaStore.Subject, TState, Task<TResult>> verify, CancellationToken ct,
+        bool checkIdFirst = true, Func<BusinessException>? mismatch = null, Action<TState>? checkState = null)
+    {
+        if (request.RememberMe) throw Denied();
+        if (checkIdFirst) CheckId(request.CredentialId, request.RawId);
+        await using var db = await source.OpenConnectionAsync(ct);
+        Task<MfaStore.Subject> ReadActor(NpgsqlTransaction tx) =>
+            requireCurrent ? RequireCurrentPasskeySession(db, tx, session, expected, ct) : MfaStore.RequireSession(db, tx, session, ct);
+        var (admitted, state) = await Run(db, async tx =>
+        {
+            var actor = await ReadActor(tx);
+            return (actor, await consume(db, tx, actor));
+        }, ct);
+        if (!checkIdFirst) CheckId(request.CredentialId, request.RawId);
+        checkState?.Invoke(state);
+        return await Run(db, async tx =>
+        {
+            var current = await ReadActor(tx);
+            if (!SameSession(current, admitted)) throw (mismatch ?? Denied)();
+            return await verify(db, tx, current, state);
+        }, ct);
     }
 
     private async Task<(AssertionOptions Options, List<byte[]> Credentials)> RestrictedAssertion(
@@ -641,9 +624,12 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
             throw new PublicUnavailableException();
     }
 
-    private Task<(string Options, Guid? UserId, long? Generation, DateTimeOffset ExpiresAt)> ConsumeChallenge(NpgsqlConnection db,
-        string token, byte[]? binding, CancellationToken ct) =>
-        Run(db, tx => ConsumeChallenge(db, tx, token, binding, ct), ct);
+    private static async Task<string> ConsumeOwnedChallenge(NpgsqlConnection db, NpgsqlTransaction tx, MfaStore.Subject actor,
+        string token, byte[] binding, CancellationToken ct)
+    {
+        var challenge = await ConsumeChallenge(db, tx, token, binding, ct);
+        return challenge.UserId == actor.Id && challenge.Generation == actor.Generation ? challenge.Options : throw Denied();
+    }
 
     private static Task<(string Options, Guid? UserId, long? Generation, DateTimeOffset ExpiresAt)> ConsumeChallenge(NpgsqlConnection db,
         NpgsqlTransaction tx, string token, byte[]? binding, CancellationToken ct) =>

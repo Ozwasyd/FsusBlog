@@ -8,83 +8,57 @@ internal static class AdminArticleRollbackEndpoints
 
     internal static void Map(AdminActionRoutes actions, AdminArticleRollbackStore rollback, AdminArticleArchiveStore archive)
     {
-        MapAction<AdminArticleRollbackIntent, AdminArticleRollbackReceipt>(
+        void MapPublished<TIntent, TReceipt>(string available, string begin, string complete, string execute,
+            int maximum, IntentDecoder<TIntent> decode, Func<TIntent, Guid> idempotencyKey,
+            Func<string?, CancellationToken, Task> check, Func<string?, TIntent, CancellationToken, Task<byte[]>> beginStepUp,
+            Func<string?, PasskeyLoginRequest, CancellationToken, Task<byte[]>> completeStepUp,
+            Func<string?, string?, TIntent, Action, CancellationToken, Task<TReceipt>> apply, Func<TReceipt, byte[]> encode) =>
+            actions.ArticleAction(available, begin, complete, execute, maximum, decode, idempotencyKey, headerRequired: false,
+                check, beginStepUp, completeStepUp,
+                (ctx, s, p, i, ct) => ctx.RequestServices.GetRequiredService<Publications>().AdministrativePublication(inv => apply(s, p, i, inv, ct), ct),
+                encode);
+
+        MapPublished<AdminArticleRollbackIntent, AdminArticleRollbackReceipt>(
             WireRoutes.AdminArticleRollbackAvailability, WireRoutes.AdminArticleRollbackStepUpBegin,
             WireRoutes.AdminArticleRollbackStepUpComplete, WireRoutes.AdminArticleRollbackExecute,
-            WireLimits.MaxAdminArticleRollbackFrameBytes, Wire.DecodeAdminArticleRollbackIntent, intent => intent.IdempotencyKey,
+            WireLimits.MaxAdminArticleRollbackFrameBytes, Wire.DecodeAdminArticleRollbackIntent, i => i.IdempotencyKey,
             rollback.CheckArticleRollbackAvailability, rollback.BeginArticleRollbackStepUp, rollback.CompleteArticleRollbackStepUp,
             rollback.ExecuteArticleRollback, Wire.EncodeAdminArticleRollbackReceipt);
         actions.App.MapQueryGet(WireRoutes.AdminArticleRollbackPreview, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            var (article, source) = (PositiveCoordinate(ctx, "articleId"), PositiveCoordinate(ctx, "sourceRevision"));
-            if (article > int.MaxValue) throw InvalidCoordinate();
-            return Frame(Wire.EncodeAdminArticleRollbackPreview(await rollback.PreviewArticleRollback(actions.Session(ctx), (int)article, source, ct)));
-        });
+            Frame(Wire.EncodeAdminArticleRollbackPreview(await rollback.PreviewArticleRollback(
+                actions.Session(ctx), PositiveIntCoordinate(ctx, "articleId"), PositiveCoordinate(ctx, "sourceRevision"), ct))));
 
-        MapAction<AdminArticleDraftRollbackIntent, AdminArticleDraftRollbackReceipt>(
+        MapPublished<AdminArticleDraftRollbackIntent, AdminArticleDraftRollbackReceipt>(
             WireRoutes.AdminArticleDraftRollbackAvailability, WireRoutes.AdminArticleDraftRollbackStepUpBegin,
             WireRoutes.AdminArticleDraftRollbackStepUpComplete, WireRoutes.AdminArticleDraftRollbackExecute,
-            WireLimits.MaxAdminArticleDraftRollbackFrameBytes, Wire.DecodeAdminArticleDraftRollbackIntent, intent => intent.IdempotencyKey,
+            WireLimits.MaxAdminArticleDraftRollbackFrameBytes, Wire.DecodeAdminArticleDraftRollbackIntent, i => i.IdempotencyKey,
             rollback.CheckArticleDraftRollbackAvailability, rollback.BeginArticleDraftRollbackStepUp, rollback.CompleteArticleDraftRollbackStepUp,
             rollback.ExecuteArticleDraftRollback, Wire.EncodeAdminArticleDraftRollbackReceipt);
 
-        MapAction<AdminArticleArchiveIntent, AdminArticleArchiveReceipt>(
+        MapPublished<AdminArticleArchiveIntent, AdminArticleArchiveReceipt>(
             WireRoutes.AdminArticleArchiveAvailability, WireRoutes.AdminArticleArchiveStepUpBegin,
             WireRoutes.AdminArticleArchiveStepUpComplete, WireRoutes.AdminArticleArchiveExecute,
-            WireLimits.MaxAdminArticleArchiveFrameBytes, Wire.DecodeAdminArticleArchiveIntent, intent => intent.IdempotencyKey,
+            WireLimits.MaxAdminArticleArchiveFrameBytes, Wire.DecodeAdminArticleArchiveIntent, i => i.IdempotencyKey,
             archive.CheckArticleArchiveAvailability, archive.BeginArticleArchiveStepUp, archive.CompleteArticleArchiveStepUp,
             archive.ExecuteArticleArchive, Wire.EncodeAdminArticleArchiveReceipt);
         actions.App.MapQueryGet(WireRoutes.AdminArticleArchivePage, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            var before = ctx.Request.Query.ContainsKey("before") ? PositiveCoordinate(ctx, "before") : 0;
-            if (before > int.MaxValue) throw InvalidCoordinate();
-            return Frame(Wire.EncodeAdminArticleArchivePage(await archive.ListArchivedArticles(actions.Session(ctx), (int)before, ct)));
-        });
+            Frame(Wire.EncodeAdminArticleArchivePage(await archive.ListArchivedArticles(
+                actions.Session(ctx), ctx.Request.Query.ContainsKey("before") ? PositiveIntCoordinate(ctx, "before") : 0, ct))));
         actions.App.MapQueryGet(WireRoutes.AdminArticleArchivePreview, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            var (article, revision, privateRelease) = (PositiveCoordinate(ctx, "articleId"), PositiveCoordinate(ctx, "revision"), PositiveCoordinate(ctx, "privateReleaseId"));
-            if (article > int.MaxValue) throw InvalidCoordinate();
-            return Frame(await archive.PreviewArchivedArticle(actions.Session(ctx), (int)article, revision, privateRelease, ct));
-        });
-
-        void MapAction<TIntent, TReceipt>(string available, string begin, string complete, string execute,
-            int maximum, IntentDecoder<TIntent> decode, Func<TIntent, Guid> idempotencyKey,
-            Func<string?, CancellationToken, Task> checkAvailability,
-            Func<string?, TIntent, CancellationToken, Task<byte[]>> beginStepUp,
-            Func<string?, PasskeyLoginRequest, CancellationToken, Task<byte[]>> completeStepUp,
-            Func<string?, string?, TIntent, Action, CancellationToken, Task<TReceipt>> apply,
-            Func<TReceipt, byte[]> encode)
-        {
-            Task<TIntent> ReadIntent(HttpContext ctx, CancellationToken ct) =>
-                actions.ReadIntent(ctx, maximum, decode, idempotencyKey, required: false, ct);
-            actions.Availability(available, checkAvailability);
-            actions.Begin(begin, ReadIntent, beginStepUp);
-            actions.Complete(complete, completeStepUp);
-            actions.App.MapCommandPost(execute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
-            {
-                var intent = await ReadIntent(ctx, ct);
-                var receipt = await publications.AdministrativePublication(
-                    invalidate => apply(actions.Session(ctx), Proof(ctx), intent, invalidate, ct), ct);
-                return Frame(encode(receipt));
-            });
-        }
+            Frame(await archive.PreviewArchivedArticle(actions.Session(ctx), PositiveIntCoordinate(ctx, "articleId"),
+                PositiveCoordinate(ctx, "revision"), PositiveCoordinate(ctx, "privateReleaseId"), ct)));
     }
 }
 
 internal static class AdminArticleTrashRestore
 {
-    internal static void Map(AdminActionRoutes actions, AdminArticleTrashRestoreStore store)
-    {
-        Task<AdminArticleTrashRestoreIntent> Intent(HttpContext ctx, CancellationToken ct) =>
-            actions.ReadIntent(ctx, WireLimits.AdminArticleTrashRestoreIntentFrameBytes, Wire.DecodeAdminArticleTrashRestoreIntent,
-                intent => intent.IdempotencyKey, required: true, ct);
-        actions.Availability(WireRoutes.AdminArticleTrashRestoreAvailability, store.CheckTrashRestoreAvailability);
-        actions.Complete(WireRoutes.AdminArticleTrashRestoreComplete, store.CompleteTrashRestoreStepUp);
-        actions.Begin(WireRoutes.AdminArticleTrashRestoreBegin, Intent, store.BeginTrashRestoreStepUp);
-        actions.App.MapCommandPost(WireRoutes.AdminArticleTrashRestoreExecute, async (HttpContext ctx, CancellationToken ct) =>
-            Frame(Wire.EncodeAdminArticleTrashRestoreReceipt(
-                await store.RestoreFromTrash(actions.Session(ctx), Proof(ctx), await Intent(ctx, ct), ct))));
-    }
+    internal static void Map(AdminActionRoutes actions, AdminArticleTrashRestoreStore store) =>
+        actions.ArticleAction<AdminArticleTrashRestoreIntent, AdminArticleTrashRestoreReceipt>(
+            WireRoutes.AdminArticleTrashRestoreAvailability, WireRoutes.AdminArticleTrashRestoreBegin,
+            WireRoutes.AdminArticleTrashRestoreComplete, WireRoutes.AdminArticleTrashRestoreExecute,
+            WireLimits.AdminArticleTrashRestoreIntentFrameBytes, Wire.DecodeAdminArticleTrashRestoreIntent, i => i.IdempotencyKey,
+            headerRequired: true, store.CheckTrashRestoreAvailability, store.BeginTrashRestoreStepUp, store.CompleteTrashRestoreStepUp,
+            (_, s, p, i, ct) => store.RestoreFromTrash(s, p, i, ct), Wire.EncodeAdminArticleTrashRestoreReceipt);
 }
 
 internal static class AdminArticleTrashPublication
@@ -92,23 +66,19 @@ internal static class AdminArticleTrashPublication
     internal static void Map(AdminActionRoutes actions, AdminArticleTrashPublicationStore store)
     {
         var media = actions.App.Services.GetService<PublishedMediaStore>();
-        Task<AdminArticleTrashPublicationIntent> Intent(HttpContext ctx, CancellationToken ct) =>
-            actions.ReadIntent(ctx, WireLimits.MaxAdminArticleArchiveFrameBytes, Wire.DecodeAdminArticleTrashPublicationIntent,
-                intent => intent.IdempotencyKey, required: true, ct);
-        actions.Availability(WireRoutes.AdminArticleTrashPublicationAvailability, store.CheckTrashPublicationAvailability);
+        actions.ArticleAction<AdminArticleTrashPublicationIntent, AdminArticleTrashPublicationReceipt>(
+            WireRoutes.AdminArticleTrashPublicationAvailability, WireRoutes.AdminArticleTrashPublicationBegin,
+            WireRoutes.AdminArticleTrashPublicationComplete, WireRoutes.AdminArticleTrashPublicationExecute,
+            WireLimits.MaxAdminArticleArchiveFrameBytes, Wire.DecodeAdminArticleTrashPublicationIntent, i => i.IdempotencyKey,
+            headerRequired: true, store.CheckTrashPublicationAvailability, store.BeginTrashPublicationStepUp, store.CompleteTrashPublicationStepUp,
+            (ctx, s, p, i, ct) => ctx.RequestServices.GetRequiredService<Publications>().AdministrativePublication(
+                inv => store.RestoreTrashPublication(s, p, i, media, inv, ct), ct),
+            Wire.EncodeAdminArticleTrashPublicationReceipt);
         actions.App.MapCommandGet(WireRoutes.AdminArticleTrashPublicationPreview, async (HttpContext ctx, CancellationToken ct) =>
         {
-            var (article, revision) = (PositiveCoordinate(ctx, "articleId"), PositiveCoordinate(ctx, "revision"));
-            if (article > int.MaxValue) throw new BusinessException(Rejection.Invalid, "Invalid article ID.");
-            return Frame(Wire.EncodeAdminArticleTrashPublicationPreview(await store.PreviewTrashPublication(actions.Session(ctx), (int)article, revision, ct)));
-        });
-        actions.Complete(WireRoutes.AdminArticleTrashPublicationComplete, store.CompleteTrashPublicationStepUp);
-        actions.Begin(WireRoutes.AdminArticleTrashPublicationBegin, Intent, store.BeginTrashPublicationStepUp);
-        actions.App.MapCommandPost(WireRoutes.AdminArticleTrashPublicationExecute, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
-        {
-            var intent = await Intent(ctx, ct);
-            return Frame(Wire.EncodeAdminArticleTrashPublicationReceipt(await publications.AdministrativePublication(
-                invalidate => store.RestoreTrashPublication(actions.Session(ctx), Proof(ctx), intent, media, invalidate, ct), ct)));
+            var article = PositiveIntCoordinate(ctx, "articleId", static () => new BusinessException(Rejection.Invalid, "Invalid article ID."));
+            return Frame(Wire.EncodeAdminArticleTrashPublicationPreview(
+                await store.PreviewTrashPublication(actions.Session(ctx), article, PositiveCoordinate(ctx, "revision"), ct)));
         });
     }
 }
@@ -139,10 +109,9 @@ internal static class AdminTagMetadataEndpoints
             async (HttpContext ctx, int id, Publications publications, CancellationToken ct) =>
             {
                 actions.RequireOrigin(ctx);
-                if (id <= 0)
-                    throw new BusinessException(Rejection.Invalid, category ? "Invalid category ID." : "Invalid tag ID.");
+                if (id <= 0) throw new BusinessException(Rejection.Invalid, category ? "Invalid category ID." : "Invalid tag ID.");
                 return Frame(await publications.AdministrativePublication(
-                    invalidate => store.DeleteTaxonomy(actions.Session(ctx), id, category, invalidate, ct), ct));
+                    inv => store.DeleteTaxonomy(actions.Session(ctx), id, category, inv, ct), ct));
             });
 
         Task<IResult> Protect(HttpContext ctx, int id, ScopedPow pow, Publications? publications, bool create, CancellationToken ct) =>
@@ -153,9 +122,9 @@ internal static class AdminTagMetadataEndpoints
                     : create ? Wire.DecodeAdminTagCreateCommand(frame) : Wire.DecodeAdminTagMetadataCommand(frame);
                 if (input.Id != id || (!create && id <= 0))
                     throw new BusinessException(Rejection.Invalid, category ? "Category ID does not match the request route." : "Tag ID does not match the request route.");
-                Task<byte[]> Apply(Action? invalidate) => category
-                    ? store.ChangeCategoryMetadata(actions.Session(ctx), input, frame, ctx, pow, invalidate, ct)
-                    : store.ChangeTagMetadata(actions.Session(ctx), input, frame, ctx, pow, invalidate, ct);
+                Task<byte[]> Apply(Action? inv) => category
+                    ? store.ChangeCategoryMetadata(actions.Session(ctx), input, frame, ctx, pow, inv, ct)
+                    : store.ChangeTagMetadata(actions.Session(ctx), input, frame, ctx, pow, inv, ct);
                 return publications is null ? await Apply(null) : await publications.AdministrativePublication(Apply, ct);
             }, scope);
     }
@@ -170,11 +139,10 @@ internal static class AdminSiteConfigEndpoints
         actions.StepUpPow(WireRoutes.AdminSiteConfigStepUpBegin, WireRoutes.AdminSiteConfigStepUpComplete,
             WireRoutes.AdminSiteConfigPow, WireRoutes.AdminSiteConfigSave, WireLimits.AdminSiteConfigFrameBytes,
             Wire.DecodeAdminSiteConfigCommand, PowScope.AdminSiteConfig,
-            (_, session, cmd, ct) => store.BeginSiteConfigStepUp(session, config, cmd, ct),
-            store.CompleteSiteConfigStepUp,
-            (ctx, session, cmd, frame, pow, ct) => store.IssueSiteConfigPow(session, config, cmd, frame, pow, ctx, ct),
-            (ctx, session, cmd, frame, proof, pow, ct) => store.SaveSiteConfig(
-                session, config, ctx.RequestServices.GetRequiredService<Publications>(), cmd, frame, proof, pow, ctx, ct));
+            (_, s, cmd, ct) => store.BeginSiteConfigStepUp(s, config, cmd, ct), store.CompleteSiteConfigStepUp,
+            (ctx, s, cmd, frame, pow, ct) => store.IssueSiteConfigPow(s, config, cmd, frame, pow, ctx, ct),
+            (ctx, s, cmd, frame, proof, pow, ct) => store.SaveSiteConfig(
+                s, config, ctx.RequestServices.GetRequiredService<Publications>(), cmd, frame, proof, pow, ctx, ct));
     }
 }
 
@@ -184,11 +152,8 @@ internal static class AdminSitePages
 
     internal static bool IsLegacyRoute(PathString path)
     {
-        if (path == WireRoutes.AdminLegacySitePageUpdate || path == WireRoutes.AdminLegacySitePageUpdate + "/")
-            return true;
-        if (!path.StartsWithSegments(LegacyPrefix, out var remaining) || remaining.Value is not { Length: > 1 } segment)
-            return false;
-        // Routing accepts an optional trailing slash. Guard both forms on the public origin.
+        if (path == WireRoutes.AdminLegacySitePageUpdate || path == WireRoutes.AdminLegacySitePageUpdate + "/") return true;
+        if (!path.StartsWithSegments(LegacyPrefix, out var remaining) || remaining.Value is not { Length: > 1 } segment) return false;
         var slug = segment.AsSpan(1).TrimEnd('/');
         return !slug.IsEmpty && !slug.Contains('/');
     }
@@ -220,17 +185,12 @@ internal static class AdminSitePageEditorEndpoints
     {
         actions.App.MapQueryGet(WireRoutes.AdminSitePageRevision, async (HttpContext ctx, SitePages pages, string slug, CancellationToken ct) =>
             Frame(Wire.EncodeAdminSitePageRevision(await store.CurrentSitePage(actions.Session(ctx), pages, slug, ct))));
-        actions.App.MapPost(WireRoutes.AdminSitePageStepUpBegin, async (HttpContext ctx, SitePages pages, CancellationToken ct) =>
-            Frame(await store.BeginSitePageStepUp(actions.Session(ctx), pages,
-                Wire.DecodeAdminSitePagePublish(await actions.Read(ctx, WireLimits.AdminSitePagePublishFrameBytes, ct)), ct)))
-            .RequireRateLimiting(actions.PasskeyLimit);
-        actions.Complete(WireRoutes.AdminSitePageStepUpComplete, store.CompleteSitePageStepUp);
-        actions.App.MapCommandPost(WireRoutes.AdminSitePagePow, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
-            ScopedPow.Protect(ctx, async () =>
-            {
-                var frame = await actions.Read(ctx, WireLimits.AdminSitePagePublishFrameBytes, ct);
-                return await store.IssueSitePagePow(actions.Session(ctx), pages, Wire.DecodeAdminSitePagePublish(frame), frame, pow, ctx, ct);
-            }, PowScope.AdminSitePagePublish));
+        actions.StepUpPow(WireRoutes.AdminSitePageStepUpBegin, WireRoutes.AdminSitePageStepUpComplete,
+            WireRoutes.AdminSitePagePow, WireRoutes.AdminSitePagePublish, WireLimits.AdminSitePagePublishFrameBytes,
+            Wire.DecodeAdminSitePagePublish, PowScope.AdminSitePagePublish,
+            (ctx, s, intent, ct) => store.BeginSitePageStepUp(s, ctx.RequestServices.GetRequiredService<SitePages>(), intent, ct),
+            store.CompleteSitePageStepUp,
+            (ctx, s, intent, frame, pow, ct) => store.IssueSitePagePow(s, ctx.RequestServices.GetRequiredService<SitePages>(), intent, frame, pow, ctx, ct));
         actions.App.MapCommandPost(WireRoutes.AdminSitePagePublish, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
             Publish(ctx, pages, pow, legacy: false, ct));
         actions.App.MapCommandPut(WireRoutes.AdminLegacySitePageUpdate, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
@@ -266,8 +226,7 @@ internal static class AdminSitePageEditorEndpoints
             throw new BadHttpRequestException("A current site page ETag is required.", StatusCodes.Status428PreconditionRequired);
         var tag = tags.Count == 1 ? tags[0].AsSpan() : default;
         var prefix = $"\"{update.Slug}.";
-        if (tag.Length <= prefix.Length + WireLimits.AdminSitePageDigestBytes + 2 ||
-            !tag.StartsWith(prefix, StringComparison.Ordinal) || tag[^1] != '"')
+        if (tag.Length <= prefix.Length + WireLimits.AdminSitePageDigestBytes + 2 || !tag.StartsWith(prefix, StringComparison.Ordinal) || tag[^1] != '"')
             throw new ProtocolException("Invalid site page ETag");
         var suffix = tag[prefix.Length..^1];
         var separator = suffix.Length - WireLimits.AdminSitePageDigestBytes - 1;
@@ -299,27 +258,17 @@ internal static class AdminAppearanceEndpoints
             ctx.Response.Headers.CacheControl = "no-store";
             var query = ctx.Request.Query;
             if (query.Keys.Any(key => key is not ("before" or "limit"))) throw HistoryQueryError();
-            var before = HistoryCoordinate(query, "before");
-            var limit = HistoryCoordinate(query, "limit") ?? WireLimits.AdminAppearanceHistoryPageSize;
+            long? before = query.ContainsKey("before") ? PositiveCoordinate(ctx, "before", HistoryQueryError) : null;
+            var limit = query.ContainsKey("limit") ? PositiveCoordinate(ctx, "limit", HistoryQueryError) : WireLimits.AdminAppearanceHistoryPageSize;
             if (limit > WireLimits.AdminAppearanceHistoryMaximumItems) throw HistoryQueryError();
             return Frame(await store.AppearanceHistory(actions.Session(ctx), before, (int)limit, ct));
         });
         actions.StepUpPow(WireRoutes.AdminAppearanceStepUpBegin, WireRoutes.AdminAppearanceStepUpComplete,
             WireRoutes.AdminAppearancePow, WireRoutes.AdminAppearanceApply, WireLimits.AdminAppearanceCommandFrameBytes,
             Wire.DecodeAdminAppearanceCommand, PowScope.AdminAppearance,
-            (_, session, cmd, ct) => store.BeginAppearanceStepUp(session, registry, cmd, ct),
-            store.CompleteAppearanceStepUp,
-            (ctx, session, cmd, frame, pow, ct) => store.IssueAppearancePow(session, registry, cmd, frame, pow, ctx, ct),
-            (ctx, session, cmd, frame, proof, pow, ct) => store.ApplyAppearance(session, registry, cmd, frame, proof, pow, ctx, ct));
-    }
-
-    private static long? HistoryCoordinate(IQueryCollection query, string key)
-    {
-        if (!query.TryGetValue(key, out var values)) return null;
-        if (values is { Count: 1 } && values[0] is { Length: >= 1 and <= 19 } text &&
-            long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var coordinate) && coordinate > 0 &&
-            coordinate.ToString(CultureInfo.InvariantCulture) == text) return coordinate;
-        throw HistoryQueryError();
+            (_, s, cmd, ct) => store.BeginAppearanceStepUp(s, registry, cmd, ct), store.CompleteAppearanceStepUp,
+            (ctx, s, cmd, frame, pow, ct) => store.IssueAppearancePow(s, registry, cmd, frame, pow, ctx, ct),
+            (ctx, s, cmd, frame, proof, pow, ct) => store.ApplyAppearance(s, registry, cmd, frame, proof, pow, ctx, ct));
     }
 
     private static BusinessException HistoryQueryError() =>

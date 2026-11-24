@@ -104,6 +104,25 @@ internal sealed class AdminOperationsStore(AdminSessionGate gate)
         }, ct);
 }
 
+internal static class AdminProtectedChange
+{
+    internal static Task<byte[]> IssuePow(AdminSessionGate gate, string? session, PowScope scope, string context,
+        byte[] frame, ScopedPow pow, HttpContext ctx, Func<NpgsqlConnection, NpgsqlTransaction, Task> check, CancellationToken ct) =>
+        gate.WithLiveAdmin(session, async (db, tx, _) =>
+        {
+            await check(db, tx);
+            return PowWire.EncodeChallenge(pow.Issue(scope, context, session!, ScopedPow.Source(ctx), ScopedPow.ReadClientNonce(ctx), frame));
+        }, ct);
+
+    internal static async Task Verify(AdminStepUpService stepUp, NpgsqlConnection db, NpgsqlTransaction tx, AdminLiveSession admin,
+        string? session, string? proof, byte[] digest, AdminStepUpAction action, string proofMessage, ScopedPow pow, PowScope scope,
+        string context, byte[] frame, HttpContext ctx, CancellationToken ct)
+    {
+        await stepUp.RequireProofAsync(db, tx, admin, proof, digest, ct, action, proofMessage);
+        await pow.Consume(db, tx, scope, context, session!, ScopedPow.Source(ctx), frame, ScopedPow.ReadProof(ctx), ct);
+    }
+}
+
 internal sealed class AdminSitePageStore(AdminSessionGate gate, AdminStepUpService? stepUp = null)
 {
     internal Task<byte[]> SitePagesOverview(string? token, SitePages pages, CancellationToken ct) =>
@@ -124,12 +143,8 @@ internal sealed class AdminSitePageStore(AdminSessionGate gate, AdminStepUpServi
 
     internal Task<byte[]> IssueSitePagePow(string? session, SitePages pages, AdminSitePagePublish intent, byte[] frame,
         ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        gate.WithLiveAdmin(session, async (db, tx, _) =>
-        {
-            await CurrentSitePage(db, tx, pages, intent, ct);
-            return PowWire.EncodeChallenge(pow.Issue(PowScope.AdminSitePagePublish, intent.Slug, session!, ScopedPow.Source(ctx),
-                ScopedPow.ReadClientNonce(ctx), frame));
-        }, ct);
+        AdminProtectedChange.IssuePow(gate, session, PowScope.AdminSitePagePublish, intent.Slug, frame, pow, ctx,
+            (db, tx) => CurrentSitePage(db, tx, pages, intent, ct), ct);
 
     internal Task PublishSitePage(string? session, SitePages pages, AdminSitePagePublish intent, byte[] frame,
         string? proof, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
@@ -137,10 +152,9 @@ internal sealed class AdminSitePageStore(AdminSessionGate gate, AdminStepUpServi
         {
             var stepUpService = RequireStepUp();
             var current = await CurrentSitePage(db, tx, pages, intent, ct, forUpdate: true);
-            await stepUpService.RequireProofAsync(db, tx, admin, proof, SitePageIntentDigest(intent), ct,
-                AdminStepUpAction.PublishSitePage, "A current Passkey proof for this exact site page change is required.");
-            await pow.Consume(db, tx, PowScope.AdminSitePagePublish, intent.Slug, session!, ScopedPow.Source(ctx),
-                frame, ScopedPow.ReadProof(ctx), ct);
+            await AdminProtectedChange.Verify(stepUpService, db, tx, admin, session, proof, SitePageIntentDigest(intent),
+                AdminStepUpAction.PublishSitePage, "A current Passkey proof for this exact site page change is required.",
+                pow, PowScope.AdminSitePagePublish, intent.Slug, frame, ctx, ct);
             await SitePagePublicationStore.Publish(db, tx, admin.Id, current, intent.Markdown, ct);
             pages.MarkPublished(intent.Slug);
             return true;
@@ -178,12 +192,8 @@ internal sealed class AdminSiteConfigStore(AdminSessionGate gate, AdminStepUpSer
 
     internal Task<byte[]> IssueSiteConfigPow(string? session, PublicSiteConfiguration config, AdminSiteConfigCommand command,
         byte[] frame, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        gate.WithLiveAdmin(session, async (db, tx, _) =>
-        {
-            await CheckSiteConfig(db, tx, config, command, ct);
-            return PowWire.EncodeChallenge(pow.Issue(PowScope.AdminSiteConfig, SiteConfigPowScope, session!,
-                ScopedPow.Source(ctx), ScopedPow.ReadClientNonce(ctx), frame));
-        }, ct);
+        AdminProtectedChange.IssuePow(gate, session, PowScope.AdminSiteConfig, SiteConfigPowScope, frame, pow, ctx,
+            (db, tx) => CheckSiteConfig(db, tx, config, command, ct), ct);
 
     internal Task SaveSiteConfig(string? session, PublicSiteConfiguration config, Publications publications,
         AdminSiteConfigCommand command, byte[] frame, string? proof, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
@@ -191,12 +201,10 @@ internal sealed class AdminSiteConfigStore(AdminSessionGate gate, AdminStepUpSer
         {
             var saved = await gate.WithLiveAdmin(session, async (db, tx, admin) =>
             {
-                var current = await CheckSiteConfig(db, tx, config, command, ct, forUpdate: true);
-                var (seo, compliance) = config.ValidateOverride(command);
-                await stepUp.RequireProofAsync(db, tx, admin, proof, CommandDigest(command), ct,
-                    AdminStepUpAction.UpdateSiteConfig, "A current Passkey proof for this exact site configuration change is required.");
-                await pow.Consume(db, tx, PowScope.AdminSiteConfig, SiteConfigPowScope, session!, ScopedPow.Source(ctx),
-                    frame, ScopedPow.ReadProof(ctx), ct);
+                var (current, seo, compliance) = await CheckSiteConfig(db, tx, config, command, ct, forUpdate: true);
+                await AdminProtectedChange.Verify(stepUp, db, tx, admin, session, proof, CommandDigest(command),
+                    AdminStepUpAction.UpdateSiteConfig, "A current Passkey proof for this exact site configuration change is required.",
+                    pow, PowScope.AdminSiteConfig, SiteConfigPowScope, frame, ctx, ct);
                 var next = await SiteConfigOverrideStore.Save(db, tx, admin.Id, current, seo, compliance, ct);
                 invalidate();
                 return next;
@@ -205,15 +213,16 @@ internal sealed class AdminSiteConfigStore(AdminSessionGate gate, AdminStepUpSer
             return true;
         }, ct);
 
-    private static async Task<PublicSiteConfiguration.Snapshot> CheckSiteConfig(NpgsqlConnection db, NpgsqlTransaction tx,
-        PublicSiteConfiguration config, AdminSiteConfigCommand command, CancellationToken ct, bool forUpdate = false)
+    private static async Task<(PublicSiteConfiguration.Snapshot Current, SiteSeo Seo, SiteCompliance Compliance)>
+        CheckSiteConfig(NpgsqlConnection db, NpgsqlTransaction tx, PublicSiteConfiguration config, AdminSiteConfigCommand command,
+            CancellationToken ct, bool forUpdate = false)
     {
         var current = await SiteConfigOverrideStore.Read(db, tx, config, ct, forUpdate);
         SiteConfigOverrideStore.RequireMatch(current, command);
         var (nextSeo, nextCompliance) = config.ValidateOverride(command);
         if (PublicSiteConfiguration.ComputeDigest(SiteConfigWire.EncodeSeo(nextSeo), SiteConfigWire.EncodeCompliance(nextCompliance)) == current.Digest)
             throw new BusinessException(Rejection.Invalid, "Change at least one site configuration value before saving.");
-        return current;
+        return (current, nextSeo, nextCompliance);
     }
 
     internal static byte[] CommandDigest(AdminSiteConfigCommand command) => SHA256.HashData(Wire.EncodeAdminSiteConfigCommand(command));
@@ -263,22 +272,17 @@ internal sealed class AdminAppearanceStore(AdminSessionGate gate, AdminStepUpSer
 
     internal Task<byte[]> IssueAppearancePow(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, byte[] frame,
         ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        gate.WithLiveAdmin(session, async (db, tx, _) =>
-        {
-            await CheckAppearance(db, tx, registry, command, ct);
-            return PowWire.EncodeChallenge(pow.Issue(PowScope.AdminAppearance, AppearancePowScope, session!, ScopedPow.Source(ctx),
-                ScopedPow.ReadClientNonce(ctx), frame));
-        }, ct);
+        AdminProtectedChange.IssuePow(gate, session, PowScope.AdminAppearance, AppearancePowScope, frame, pow, ctx,
+            (db, tx) => CheckAppearance(db, tx, registry, command, ct), ct);
 
     internal Task ApplyAppearance(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, byte[] frame,
         string? proof, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
         gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             var (current, next) = await CheckAppearance(db, tx, registry, command, ct, locked: true);
-            await stepUp.RequireProofAsync(db, tx, admin, proof, AppearanceIntentDigest(command), ct,
-                AdminStepUpAction.ActivateAppearance, "A current Passkey proof for this exact appearance change is required.");
-            await pow.Consume(db, tx, PowScope.AdminAppearance, AppearancePowScope, session!, ScopedPow.Source(ctx), frame,
-                ScopedPow.ReadProof(ctx), ct);
+            await AdminProtectedChange.Verify(stepUp, db, tx, admin, session, proof, AppearanceIntentDigest(command),
+                AdminStepUpAction.ActivateAppearance, "A current Passkey proof for this exact appearance change is required.",
+                pow, PowScope.AdminAppearance, AppearancePowScope, frame, ctx, ct);
             if (!registry.IsCurrent(next)) throw UnapprovedAppearance();
             await AppearanceActivationStore.Change(db, tx, current, next, admin.Id, command.Rollback, ct);
             return true;
