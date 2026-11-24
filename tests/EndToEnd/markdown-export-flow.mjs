@@ -21,17 +21,20 @@ export async function readMarkdownDownload(page, button, body) {
 }
 
 async function readAttachmentDownload(page, button, format, type) {
+  // Retain the original fetch body at the response event instead of waiting for
+  // the click and Blob download to finish before asking Chromium for its bytes.
   const attachment = page.waitForResponse(response => new URL(response.url()).pathname.endsWith(`/export.${format}`))
+    .then(async response => {
+      assert.equal(response.status(), 200)
+      assert.equal(response.headers()['content-type'], type)
+      assert.equal(response.headers()['cache-control'], 'private, no-store')
+      return { response, expected: await response.body() }
+    })
   const download = page.waitForEvent('download')
-  await button.click()
-  const response = await attachment
-  assert.equal(response.status(), 200)
-  assert.equal(response.headers()['content-type'], type)
-  assert.equal(response.headers()['cache-control'], 'private, no-store')
-  const result = await download
+  const [{ response, expected }, result] = await Promise.all([attachment, download, button.click()])
   assert.equal(result.suggestedFilename(), `article.${format}`)
   const actual = await readFile(await result.path())
-  assert.deepEqual(actual, await response.body())
+  assert.deepEqual(actual, expected)
   return { result, actual, response }
 }
 

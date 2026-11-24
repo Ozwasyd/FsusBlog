@@ -200,10 +200,11 @@ await auth.withRedactedEvidence(browser, evidence, 'site-recovery-result.json', 
   state.phase = 'passed'
 })
 
-const setVerified = (fixture, isUserVerified) =>
-  fixture.cdp.send('WebAuthn.setUserVerified', { authenticatorId: fixture.authenticatorId, isUserVerified })
+function setVerified(fixture, isUserVerified) {
+  return fixture.cdp.send('WebAuthn.setUserVerified', { authenticatorId: fixture.authenticatorId, isUserVerified })
+}
 
-const assertNoSessionGrant = header => assert(!header?.includes(siteCookieName + '='), 'Recovery response changed the site session cookie.')
+function assertNoSessionGrant(header) { assert(!header?.includes(siteCookieName + '='), 'Recovery response changed the site session cookie.') }
 
 function assertRecoveryCookie(header) {
   assertNoSessionGrant(header)

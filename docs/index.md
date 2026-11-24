@@ -27,6 +27,7 @@
 - [Web 构建与端到端验证](web-validation.md)
 - [本机公开读取负载与压测说明](../tests/Performance/README.md)
 - [发布就绪矩阵](releases/readiness.md)
+- [CI 使用与维护](development/ci.md)
 - [文档架构与写作规范](development/documentation-policy.md)
 
 ## 功能契约（按业务域分组）

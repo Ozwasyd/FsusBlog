@@ -30,11 +30,20 @@ pg_fixture_create_db() {
 }
 
 pg_fixture_build_cli() {
-  local cli_project="src/Cli/FsusBlog.V2.Cli.csproj"
-  "$dotnet_bin" restore "$cli_project" --configfile NuGet.Config --locked-mode
-  "$dotnet_bin" build "$cli_project" --no-restore
   export DOTNET_BIN="$dotnet_bin"
-  export FSUSBLOG_CLI_DLL="src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll"
+  if [[ -n ${FSUSBLOG_TEST_CLI_DLL:-} ]]; then
+    # Reuse CI's tested Release CLI; keep build servers outside disposable test groups.
+    [[ -s "$FSUSBLOG_TEST_CLI_DLL" ]] || {
+      printf 'Missing built CLI: %s\n' "$FSUSBLOG_TEST_CLI_DLL" >&2
+      exit 2
+    }
+    export FSUSBLOG_CLI_DLL="$FSUSBLOG_TEST_CLI_DLL"
+  else
+    local cli_project="src/Cli/FsusBlog.V2.Cli.csproj"
+    "$dotnet_bin" restore "$cli_project" --configfile NuGet.Config --locked-mode
+    "$dotnet_bin" build "$cli_project" --no-restore
+    export FSUSBLOG_CLI_DLL="src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll"
+  fi
   cli=("$DOTNET_BIN" "$FSUSBLOG_CLI_DLL")
 }
 

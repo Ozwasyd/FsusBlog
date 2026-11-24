@@ -370,6 +370,6 @@ async function readManifest(context, id, publication) {
   return { images, bytes }
 }
 
-const mediaRoute = (route, id, publication) => origin + route.replace('{id:int}', String(id)).replace('{publication:long}', String(publication))
-const manifestUrl = (id, publication) => mediaRoute(WireRoutes.PublicArticleMedia, id, publication)
-const rawUrl = (id, publication, digest) => mediaRoute(WireRoutes.PublicArticleMediaFile, id, publication).replace('{digest}', digest)
+function mediaRoute(route, id, publication) { return origin + route.replace('{id:int}', String(id)).replace('{publication:long}', String(publication)) }
+function manifestUrl(id, publication) { return mediaRoute(WireRoutes.PublicArticleMedia, id, publication) }
+function rawUrl(id, publication, digest) { return mediaRoute(WireRoutes.PublicArticleMediaFile, id, publication).replace('{digest}', digest) }

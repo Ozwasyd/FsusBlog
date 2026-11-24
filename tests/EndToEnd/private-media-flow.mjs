@@ -100,7 +100,7 @@ async function verifyViewport(index, { name, colorScheme, viewport }) {
   })
 }
 
-const beginMutation = requests => requests.find(([path]) => path.endsWith('/begin.aeds'))[1]
+function beginMutation(requests) { return requests.find(([path]) => path.endsWith('/begin.aeds'))[1] }
 
 async function withResumableRoute(page, onPart1, run) {
   const requests = []
@@ -130,9 +130,9 @@ async function cancelUpload(page) {
   await exactText(page, '已取消上传。').waitFor()
 }
 
-const abortPart1 = (page, run) => withResumableRoute(page, route => route.abort('failed'), run)
-const submitInterrupted = (page, file) => submitUpload(page, file, '上传未完成。可以重试，已确认的分片会保留。')
-const completeResumable = (page, file) => withResumableRoute(page, null, () => submitUpload(page, file, '图片已保存。'))
+function abortPart1(page, run) { return withResumableRoute(page, route => route.abort('failed'), run) }
+function submitInterrupted(page, file) { return submitUpload(page, file, '上传未完成。可以重试，已确认的分片会保留。') }
+function completeResumable(page, file) { return withResumableRoute(page, null, () => submitUpload(page, file, '图片已保存。')) }
 
 async function verifyContinuation(page, file, name) {
   const resumeUi = page.getByText(/当前标签页重新选择/)

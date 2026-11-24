@@ -1,0 +1,154 @@
+name: FsusBlog V2 CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      extended:
+        description: Run additional media and workspace browser flows
+        type: boolean
+        default: false
+  schedule:
+    - cron: '23 3 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+  NUGET_PACKAGES: ${{ github.workspace }}/artifacts/ci/nuget
+  CI_REPORTS: ${{ github.workspace }}/artifacts/ci/reports
+  GOTOOLCHAIN: local
+
+jobs:
+  source:
+    name: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.18.0'
+          package-manager-cache: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Validate the workflow
+        run: |
+          GOBIN="$RUNNER_TEMP/ci-tools" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$RUNNER_TEMP/ci-tools/actionlint" -color
+      - name: Source, contracts, and load-generator tests
+        run: |
+          mkdir -p "$CI_REPORTS"
+          bash tools/ci/run.sh source 2>&1 | tee "$CI_REPORTS/source.txt"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: ci-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/ci/reports/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  stack:
+    name: native-stack
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: read
+    env:
+      CI_EXTENDED: ${{ github.event_name == 'schedule' || inputs.extended == true }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.18.0'
+          package-manager-cache: false
+      - name: Prepare native PostgreSQL 18, Caddy, and C++ tools
+        run: bash tools/ci/prepare-linux.sh
+      - name: Acquire locked NuGet dependencies
+        run: dotnet restore FsusBlog.V2.slnx --configfile NuGet.Config --locked-mode --source https://api.nuget.org/v3/index.json
+      - name: Offline restore, Release build, units, and cross-language protocol
+        run: bash tools/ci/run.sh backend
+      - name: Real PostgreSQL, TLS, and CLI recovery tests
+        run: bash tools/ci/with-postgres.sh bash tools/ci/run.sh integration
+      - name: Install the declared pnpm version
+        run: |
+          manager=$(node -p "require('./src/Web/package.json').packageManager")
+          npm install --global "$manager" --ignore-scripts --no-audit --no-fund
+      - name: Fetch locked Web packages
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          config=$(mktemp "$RUNNER_TEMP/fsus-npm.XXXXXXXX")
+          trap 'rm -f -- "$config"' EXIT
+          chmod 600 "$config"
+          printf '%s\n' "//npm.pkg.github.com/:_authToken=\${NODE_AUTH_TOKEN}" > "$config"
+          NPM_CONFIG_USERCONFIG="$config" pnpm --dir src/Web fetch --ignore-scripts
+      - name: Offline Web restore, typecheck, and production build
+        run: |
+          pnpm --dir src/Web install --offline --frozen-lockfile --ignore-scripts
+          pnpm --dir src/Web typecheck
+          pnpm --dir src/Web build
+          git diff --exit-code -- src/Web/pnpm-lock.yaml '**/packages.lock.json'
+      - name: Install the lockfile-matched Chromium
+        run: |
+          pnpm --dir src/Web exec playwright install --with-deps chromium
+          chrome=$(cd src/Web && node --input-type=module -e "import { chromium } from '@playwright/test'; console.log(chromium.executablePath())")
+          test -x "$chrome"
+          printf 'FSUSBLOG_TEST_CHROME=%s\n' "$chrome" >> "$GITHUB_ENV"
+      - name: Real browser publication, admin TLS, and inbox TLS
+        run: bash tools/ci/with-postgres.sh bash tools/ci/run.sh browser
+      - name: Record non-secret toolchain provenance
+        if: always()
+        run: |
+          mkdir -p "$CI_REPORTS"
+          {
+            printf 'commit=%s\nrunner=%s\nimage=%s\n' "$GITHUB_SHA" "$RUNNER_OS" "${ImageVersion:-unknown}"
+            dotnet --info
+            node --version
+            c++ --version
+          } > "$CI_REPORTS/environment.txt"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: ci-native-stack-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/ci/reports/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  required:
+    name: ci / required
+    if: always()
+    needs: [source, stack]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Require every mandatory job to succeed
+        env:
+          CI_NEEDS: ${{ toJSON(needs) }}
+        run: python3 -B tools/ci/checks.py required

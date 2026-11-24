@@ -23,7 +23,7 @@ import { exerciseMarkdownImport } from './markdown-import-flow.mjs'
 import { exerciseArticleOutline } from './outline-flow.mjs'
 import { exerciseRelatedReading, verifyRelatedWithdrawal } from './related-reading-flow.mjs'
 import { assertFields, assertStatus, pollHotRanking, readFrame } from './response-status-fixture.mjs'
-import { waitForPathResponse } from './response-wait-fixture.mjs'
+import { retainAedsBody, waitForPathResponse } from './response-wait-fixture.mjs'
 import { exerciseDraftRevision } from './revision-flow.mjs'
 import * as loc from './role-locators.mjs'
 import { exerciseSearchWorkerReuse } from './search-worker-reuse-flow.mjs'
@@ -242,7 +242,7 @@ async function exercisePropertyBatch(publisher, observations) {
   const staged = loc.exactText(panel, '2 staged changes')
   async function saveBatch(previous, count) {
     await staged.waitFor()
-    const [reply] = await Promise.all([page.waitForResponse(res => isValueBatch(res.request())), control('Save property changes').click()])
+    const [reply] = await Promise.all([page.waitForResponse(res => isValueBatch(res.request())).then(retainAedsBody), control('Save property changes').click()])
     const receipt = await readFrame(reply, FrameType.PropertyValueBatchReceipt, decodePropertyValueBatchReceipt)
     assertFields(receipt, { articleId: article.id, schemaRevision: previous.schemaRevision, valueRevision: previous.valueRevision + 1n })
     assert.equal(requests.length, count)
@@ -525,7 +525,6 @@ await isolated.withBrowserEvidence(
     const publishedSummary = `This release note has a manual summary ${token}.`
     const summaryPath = WireRoutes.ArticleSummary.replace('{id:int}', String(writtenId))
     const summaryInput = loc.exactLabel(publisher, 'Summary text')
-    const readSummary = response => new URL(response.url()).pathname === summaryPath && response.request().method() === 'GET'
     async function inspectSummary() {
       const disclosure = loc.exactText(publisher, 'Article summary')
       await visible(loc.exactButton(publisher, 'Inspector'))
@@ -537,7 +536,7 @@ await isolated.withBrowserEvidence(
     async function saveSummary(text) {
       const [response, receipt] = await Promise.all([
         waitForPathResponse(publisher, () => WireRoutes.ArticleSummarySave, 'POST'),
-        publisher.waitForResponse(readSummary),
+        waitForPathResponse(publisher, () => summaryPath, 'GET'),
         loc.exactButton(publisher, 'Save summary').click(),
       ])
       decodeFrame(response.request().postDataBuffer(), FrameType.ArticleSummaryCommand)
@@ -632,7 +631,7 @@ await isolated.withBrowserEvidence(
     await screen(visitor, 'article-mobile-dark')
 
     const corpusResponse = mobile.waitForEvent('response', response =>
-      new URL(response.url()).pathname === WireRoutes.PublicSearchCorpus && response.request().method() === 'GET')
+      new URL(response.url()).pathname === WireRoutes.PublicSearchCorpus && response.request().method() === 'GET').then(retainAedsBody)
     await search(visitor, 'release note')
     await visible(loc.exactLink(visitor, title))
     const corpus = await corpusResponse
