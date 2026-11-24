@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 internal static class FixtureProcess

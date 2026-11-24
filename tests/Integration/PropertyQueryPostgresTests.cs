@@ -1,8 +1,3 @@
-using System.Net;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class PropertyQueryPostgresTests

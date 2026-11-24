@@ -1,7 +1,5 @@
 using System.Data;
 using System.Reflection;
-using FsusBlogV2.Storage;
-using Npgsql;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -15,11 +13,8 @@ public sealed class CatalogVerificationOptionsPostgresTests
             BindingFlags.Static | BindingFlags.NonPublic);
         Assert.NotNull(method);
         var parameters = method!.GetParameters();
-        Assert.Equal(4, parameters.Length);
-        Assert.Equal(typeof(NpgsqlConnection), parameters[0].ParameterType);
-        Assert.Equal(typeof(NpgsqlTransaction), parameters[1].ParameterType);
-        Assert.Equal(typeof(CancellationToken), parameters[2].ParameterType);
-        Assert.Equal(typeof(CatalogVerificationOptions), parameters[3].ParameterType);
+        Assert.Equal([typeof(NpgsqlConnection), typeof(NpgsqlTransaction), typeof(CancellationToken), typeof(CatalogVerificationOptions)],
+            parameters.Select(p => p.ParameterType).ToArray());
         Assert.True(parameters[3].HasDefaultValue);
         Assert.Null(parameters[3].DefaultValue);
 
@@ -27,86 +22,56 @@ public sealed class CatalogVerificationOptionsPostgresTests
         Assert.Equal(CatalogVerificationOptions.Default, options);
 
         // 9 core bool flags
-        Assert.True(options.Core.RecoveryScope);
-        Assert.True(options.Core.RevisionHistory);
-        Assert.True(options.Core.AdminIdentity);
-        Assert.True(options.Core.PublicationHistory);
-        Assert.True(options.Core.ArticleSchedule);
-        Assert.True(options.Core.MediaUpload);
-        Assert.True(options.Core.PublicationRights);
-        Assert.True(options.Core.CanvasHistory);
+        Assert.All(new[]
+        {
+            options.Core.RecoveryScope, options.Core.RevisionHistory, options.Core.AdminIdentity,
+            options.Core.PublicationHistory, options.Core.ArticleSchedule, options.Core.MediaUpload,
+            options.Core.PublicationRights, options.Core.CanvasHistory
+        }, Assert.True);
         Assert.False(options.Core.LegacyCanvas);
 
-        // 5 site bool? flags
-        Assert.Null(options.Site.Subscription);
-        Assert.Null(options.Site.RecoveryKey);
-        Assert.Null(options.Site.Refresh);
-        Assert.Null(options.Site.PageEditor);
-        Assert.Null(options.Site.AppearanceActivation);
-
-        // 4 admin inbox bool? flags
-        Assert.Null(options.AdminInbox.Reply);
-        Assert.Null(options.AdminInbox.Status);
-        Assert.Null(options.AdminInbox.Notice);
-        Assert.Null(options.AdminInbox.Read);
-
-        // 4 admin content bool? flags
-        Assert.Null(options.AdminContent.TagMetadata);
-        Assert.Null(options.AdminContent.CategoryMetadata);
-        Assert.Null(options.AdminContent.ArticleRollback);
-        Assert.Null(options.AdminContent.ArticleTrashRestore);
-
-        // 6 comment bool? flags
-        Assert.Null(options.Comments.RootPowPolicy);
-        Assert.Null(options.Comments.AuthorEdit);
-        Assert.Null(options.Comments.Report);
-        Assert.Null(options.Comments.Appeal);
-        Assert.Null(options.Comments.Replies);
-        Assert.Null(options.Comments.AdminBatch);
-
-        // 7 authoring bool? flags
-        Assert.Null(options.Authoring.Workspace);
-        Assert.Null(options.Authoring.WorkspaceGroups);
-        Assert.Null(options.Authoring.SavedViews);
-        Assert.Null(options.Authoring.SavedViewPlacement);
-        Assert.Null(options.Authoring.RecentOpens);
-        Assert.Null(options.Authoring.ArticleSummary);
-        Assert.Null(options.Authoring.DocumentExports);
-
-        // 1 bool? + 4 bool author-text flags
-        Assert.Null(options.AuthorText.Index);
-        Assert.False(options.AuthorText.SummaryIndex);
-        Assert.False(options.AuthorText.HeadingIndex);
-        Assert.False(options.AuthorText.PropertyIndex);
-        Assert.False(options.AuthorText.Rebuild);
-
-        // 4 media bool? flags
-        Assert.Null(options.Media.ArticleMedia);
-        Assert.Null(options.Media.ArticleCover);
-        Assert.Null(options.Media.PublicationMedia);
-        Assert.Null(options.Media.PublicationCover);
-
-        // 6 publication/read bool? flags
-        Assert.Null(options.Publication.Canonical);
-        Assert.Null(options.Publication.Proof);
-        Assert.Null(options.Publication.Transparency);
-        Assert.Null(options.Publication.Head);
-        Assert.Null(options.Publication.ArticleRead);
-        Assert.Null(options.Publication.ArticleReadTotal);
+        // 37 optional bool? flags default to null (auto-detect)
+        Assert.All(new bool?[]
+        {
+            options.Site.Subscription, options.Site.RecoveryKey, options.Site.Refresh,
+            options.Site.PageEditor, options.Site.AppearanceActivation,
+            options.AdminInbox.Reply, options.AdminInbox.Status, options.AdminInbox.Notice, options.AdminInbox.Read,
+            options.AdminContent.TagMetadata, options.AdminContent.CategoryMetadata,
+            options.AdminContent.ArticleRollback, options.AdminContent.ArticleTrashRestore,
+            options.Comments.RootPowPolicy, options.Comments.AuthorEdit, options.Comments.Report,
+            options.Comments.Appeal, options.Comments.Replies, options.Comments.AdminBatch,
+            options.Authoring.Workspace, options.Authoring.WorkspaceGroups, options.Authoring.SavedViews,
+            options.Authoring.SavedViewPlacement, options.Authoring.RecentOpens,
+            options.Authoring.ArticleSummary, options.Authoring.DocumentExports,
+            options.AuthorText.Index,
+            options.Media.ArticleMedia, options.Media.ArticleCover,
+            options.Media.PublicationMedia, options.Media.PublicationCover,
+            options.Publication.Canonical, options.Publication.Proof, options.Publication.Transparency,
+            options.Publication.Head, options.Publication.ArticleRead, options.Publication.ArticleReadTotal
+        }, Assert.Null);
+        Assert.All(new[]
+        {
+            options.AuthorText.SummaryIndex, options.AuthorText.HeadingIndex,
+            options.AuthorText.PropertyIndex, options.AuthorText.Rebuild
+        }, Assert.False);
 
         // Immutability & null-group guard
         var customized = options with { Media = options.Media with { ArticleMedia = true } };
         Assert.Null(options.Media.ArticleMedia);
         Assert.True(customized.Media.ArticleMedia);
-        Assert.Throws<ArgumentNullException>(() => new CatalogVerificationOptions { Core = null! });
-        Assert.Throws<ArgumentNullException>(() => new CatalogVerificationOptions { Site = null! });
-        Assert.Throws<ArgumentNullException>(() => new CatalogVerificationOptions { AdminInbox = null! });
-        Assert.Throws<ArgumentNullException>(() => new CatalogVerificationOptions { AdminContent = null! });
-        Assert.Throws<ArgumentNullException>(() => new CatalogVerificationOptions { Comments = null! });
-        Assert.Throws<ArgumentNullException>(() => new CatalogVerificationOptions { Authoring = null! });
-        Assert.Throws<ArgumentNullException>(() => new CatalogVerificationOptions { AuthorText = null! });
-        Assert.Throws<ArgumentNullException>(() => new CatalogVerificationOptions { Media = null! });
-        Assert.Throws<ArgumentNullException>(() => new CatalogVerificationOptions { Publication = null! });
+        foreach (Action invalid in new Action[]
+        {
+            () => _ = new CatalogVerificationOptions { Core = null! },
+            () => _ = new CatalogVerificationOptions { Site = null! },
+            () => _ = new CatalogVerificationOptions { AdminInbox = null! },
+            () => _ = new CatalogVerificationOptions { AdminContent = null! },
+            () => _ = new CatalogVerificationOptions { Comments = null! },
+            () => _ = new CatalogVerificationOptions { Authoring = null! },
+            () => _ = new CatalogVerificationOptions { AuthorText = null! },
+            () => _ = new CatalogVerificationOptions { Media = null! },
+            () => _ = new CatalogVerificationOptions { Publication = null! }
+        })
+            Assert.Throws<ArgumentNullException>(invalid);
     }
 
     [Fact]
@@ -114,58 +79,37 @@ public sealed class CatalogVerificationOptionsPostgresTests
     {
         var defaultOnline = CatalogVerificationOptions.FromAdmission(default);
         Assert.True(defaultOnline.Media.ArticleMedia);
-        Assert.Null(defaultOnline.Media.PublicationMedia);
-        Assert.Null(defaultOnline.Site.Subscription);
-        Assert.Null(defaultOnline.Authoring.ArticleSummary);
-        Assert.Null(defaultOnline.Authoring.DocumentExports);
+        Assert.All(new bool?[]
+        {
+            defaultOnline.Media.PublicationMedia, defaultOnline.Site.Subscription,
+            defaultOnline.Authoring.ArticleSummary, defaultOnline.Authoring.DocumentExports
+        }, Assert.Null);
         Assert.Equal(CoreCatalogOptions.Default, defaultOnline.Core);
 
         var mixed = CatalogVerificationOptions.FromAdmission(new SchemaAdmission(
-            Subscription: true,
-            RecoveryKey: false,
-            AdminInboxReply: true,
-            SiteRefresh: false,
-            SitePageEditor: true,
-            SiteConfigEditor: true,
-            AdminArticleRollback: false,
-            AdminInboxStatus: true,
-            AdminInboxNotice: false,
-            AppearanceActivation: true,
-            AdminTagMetadata: false,
-            AdminInboxRead: true,
-            PublicationMedia: false,
-            AdminCommentBatch: true,
-            AuthorTextIndex: false,
-            ArticleSummary: true,
-            DocumentExports: false,
-            AdminCategoryMetadata: true));
+            Subscription: true, RecoveryKey: false, AdminInboxReply: true, SiteRefresh: false,
+            SitePageEditor: true, SiteConfigEditor: true, AdminArticleRollback: false, AdminInboxStatus: true,
+            AdminInboxNotice: false, AppearanceActivation: true, AdminTagMetadata: false, AdminInboxRead: true,
+            PublicationMedia: false, AdminCommentBatch: true, AuthorTextIndex: false, ArticleSummary: true,
+            DocumentExports: false, AdminCategoryMetadata: true));
 
-        Assert.True(mixed.Media.ArticleMedia);
-        Assert.Equal(true, mixed.Site.Subscription);
-        Assert.Equal(false, mixed.Site.RecoveryKey);
-        Assert.Equal(true, mixed.AdminInbox.Reply);
-        Assert.Equal(false, mixed.Site.Refresh);
-        Assert.Equal(true, mixed.Site.PageEditor);
-        Assert.Equal(true, mixed.Site.ConfigEditor);
-        Assert.Equal(false, mixed.AdminContent.ArticleRollback);
-        Assert.Equal(true, mixed.AdminInbox.Status);
-        Assert.Equal(false, mixed.AdminInbox.Notice);
-        Assert.Equal(true, mixed.Site.AppearanceActivation);
-        Assert.Equal(false, mixed.AdminContent.TagMetadata);
-        Assert.Equal(true, mixed.AdminInbox.Read);
-        Assert.Equal(false, mixed.Media.PublicationMedia);
-        Assert.Equal(true, mixed.Comments.AdminBatch);
-        Assert.Equal(false, mixed.AuthorText.Index);
-        Assert.Equal(true, mixed.Authoring.ArticleSummary);
-        Assert.Equal(false, mixed.Authoring.DocumentExports);
-        Assert.Equal(true, mixed.AdminContent.CategoryMetadata);
-
-        // Unmapped optional fields remain auto-detected (null) / false
-        Assert.Null(mixed.Media.ArticleCover);
-        Assert.Null(mixed.Media.PublicationCover);
-        Assert.Null(mixed.Comments.Report);
-        Assert.Null(mixed.Comments.Appeal);
-        Assert.Null(mixed.Publication.Canonical);
+        Assert.All(new bool?[]
+        {
+            mixed.Media.ArticleMedia, mixed.Site.Subscription, mixed.AdminInbox.Reply, mixed.Site.PageEditor,
+            mixed.Site.ConfigEditor, mixed.AdminInbox.Status, mixed.Site.AppearanceActivation, mixed.AdminInbox.Read,
+            mixed.Comments.AdminBatch, mixed.Authoring.ArticleSummary, mixed.AdminContent.CategoryMetadata
+        }, value => Assert.Equal(true, value));
+        Assert.All(new bool?[]
+        {
+            mixed.Site.RecoveryKey, mixed.Site.Refresh, mixed.AdminContent.ArticleRollback,
+            mixed.AdminInbox.Notice, mixed.AdminContent.TagMetadata, mixed.Media.PublicationMedia,
+            mixed.AuthorText.Index, mixed.Authoring.DocumentExports
+        }, value => Assert.Equal(false, value));
+        Assert.All(new bool?[]
+        {
+            mixed.Media.ArticleCover, mixed.Media.PublicationCover, mixed.Comments.Report,
+            mixed.Comments.Appeal, mixed.Publication.Canonical
+        }, Assert.Null);
         Assert.False(mixed.AuthorText.Rebuild);
     }
 
@@ -176,11 +120,8 @@ public sealed class CatalogVerificationOptionsPostgresTests
         await using var db = await database.DataSource.OpenConnectionAsync(ct);
 
         async Task ExpectInvalid(string message, CatalogVerificationOptions? options = null,
-            StringComparison comparison = StringComparison.Ordinal)
-        {
-            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => VerifyInReadOnlyTx(db, options, ct));
-            Assert.Contains(message, error.Message, comparison);
-        }
+            StringComparison comparison = StringComparison.Ordinal) =>
+            Assert.Contains(message, (await Assert.ThrowsAsync<InvalidOperationException>(() => VerifyInReadOnlyTx(db, options, ct))).Message, comparison);
 
         // 1. Complete schema: defaults, explicit true, and explicit false rejection
         Assert.False(await VerifyInReadOnlyTx(db, null, ct));
@@ -197,19 +138,14 @@ public sealed class CatalogVerificationOptionsPostgresTests
         }, ct));
 
         await ExpectInvalid("Comment report schema presence", new() { Comments = new() { Report = false } });
-
         await ExpectInvalid("Recovery Key schema presence", new() { Site = new() { RecoveryKey = false } });
-
         await ExpectInvalid("publication head schema presence", new() { Publication = new() { Head = false } });
-
         await ExpectInvalid("author recent opens schema presence", new() { Core = new() { RecoveryScope = false } });
 
         // 2. Half-installed optional relation group must be rejected under null, true, AND false
         await FixtureSql.ExecuteAsync(db, null, ct, "ALTER TABLE public.comment_appeal_event RENAME TO incomplete_comment_appeal_event");
         foreach (var appealOption in new bool?[] { null, true, false })
-        {
             await ExpectInvalid("Comment appeal storage is incomplete", new() { Comments = new() { Appeal = appealOption } });
-        }
         await FixtureSql.ExecuteAsync(db, null, ct, "ALTER TABLE public.incomplete_comment_appeal_event RENAME TO comment_appeal_event");
 
         // 3. Corrupted index and CHECK constraint must still be rejected with default options
@@ -218,15 +154,11 @@ public sealed class CatalogVerificationOptionsPostgresTests
         await FixtureSql.ExecuteAsync(db, null, ct, "ALTER INDEX public.broken_author_text_article_owner RENAME TO author_text_article_owner");
 
         await FixtureSql.ExecuteAsync(db, null, ct, """
-            ALTER TABLE public.comment_report
-                DROP CONSTRAINT comment_report_publication_id_check,
-                ADD CHECK (publication_id >= 0)
+            ALTER TABLE public.comment_report DROP CONSTRAINT comment_report_publication_id_check, ADD CHECK (publication_id >= 0)
             """);
         await ExpectInvalid("comment_report c publication_id publication_id>0");
         await FixtureSql.ExecuteAsync(db, null, ct, """
-            ALTER TABLE public.comment_report
-                DROP CONSTRAINT comment_report_publication_id_check,
-                ADD CHECK (publication_id > 0)
+            ALTER TABLE public.comment_report DROP CONSTRAINT comment_report_publication_id_check, ADD CHECK (publication_id > 0)
             """);
 
         // 4. Allowed optional absence: null auto-detect and explicit false pass, explicit true fails
@@ -239,7 +171,6 @@ public sealed class CatalogVerificationOptionsPostgresTests
         }, ct));
 
         await ExpectInvalid("Comment report schema presence", new() { Comments = new() { Report = true } });
-
         await ExpectInvalid("autonomous indexing", new() { AuthorText = new() { Rebuild = true } });
 
         // 5. Core boolean toggle (RecoveryScope = false) when recovery scope & dependent recent opens are absent
@@ -258,8 +189,7 @@ public sealed class CatalogVerificationOptionsPostgresTests
     private static async Task<bool> VerifyInReadOnlyTx(NpgsqlConnection db, CatalogVerificationOptions? options, CancellationToken ct)
     {
         await using var tx = await db.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
-        await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", db, tx))
-            await protect.ExecuteNonQueryAsync(ct);
+        await FixtureSql.ExecuteAsync(db, tx, ct, "SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog");
         var webp = await CurrentSchema.VerifyCatalogAsync(db, tx, ct, options);
         await tx.CommitAsync(ct);
         return webp;

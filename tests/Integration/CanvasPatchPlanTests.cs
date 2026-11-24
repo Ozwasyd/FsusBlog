@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using FsusBlog.V2.Core.Authoring;
-using FsusBlog.V2.Server.Authoring;
 
 namespace FsusBlog.V2.Integration.Tests;
 

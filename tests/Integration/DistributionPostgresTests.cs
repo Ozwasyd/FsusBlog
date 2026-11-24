@@ -1,15 +1,3 @@
-using static System.Net.HttpStatusCode;
-using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
-using System.Net;
-using System.Text.Json;
-using System.Xml.Linq;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Integration.Tests;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Content;
-using FsusBlog.V2.Server.Operations;
-using Microsoft.Extensions.Configuration;
-
 public sealed class DistributionPostgresTests
 {
     private const string Origin = "https://blog.example.test";

@@ -1,9 +1,3 @@
-using System.Net;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Authoring;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 internal sealed class CanvasFixture(ScratchDatabase database, CancellationToken token) : IAsyncDisposable

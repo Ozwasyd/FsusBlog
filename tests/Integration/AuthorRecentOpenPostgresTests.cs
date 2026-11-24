@@ -1,8 +1,3 @@
-using System.Net;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Integration.Tests;
-using FsusBlog.V2.Server;
-
 public sealed class AuthorRecentOpenPostgresTests
 {
     [PostgresFact]

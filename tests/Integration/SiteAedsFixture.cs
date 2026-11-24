@@ -1,7 +1,3 @@
-using System.Net;
-using System.Net.Http.Headers;
-using FsusBlog.V2.Contracts;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 internal static class SiteAedsFixture
@@ -44,6 +40,38 @@ internal static class SiteAedsFixture
         if (includeOrigin && method != HttpMethod.Get) request.Headers.Add("Origin", ServerProcess.DefaultAdminOrigin);
         if (token is not null) request.Headers.Add("Cookie", $"{ServerProcess.DefaultAdminCookie}={token}");
         return request;
+    }
+
+    internal static async Task<HttpResponseMessage> AdminSend(HttpClient client, HttpMethod method, string route,
+        string? token, CancellationToken ct, byte[]? frame = null, bool includeOrigin = true,
+        Action<HttpRequestMessage>? configure = null)
+    {
+        using var request = AdminRequest(method, route, token, frame, includeOrigin);
+        configure?.Invoke(request);
+        return await client.SendAsync(request, ct);
+    }
+
+    internal static Task<byte[]> AdminBytes(HttpClient client, HttpMethod method, string route, string? token,
+        CancellationToken ct, HttpStatusCode status = HttpStatusCode.OK, byte[]? frame = null, bool includeOrigin = true,
+        Action<HttpRequestMessage>? configure = null) =>
+        ExpectBytes(status, AdminSend(client, method, route, token, ct, frame, includeOrigin, configure), ct);
+
+    internal static Task AdminStatus(HttpClient client, HttpMethod method, string route, string? token,
+        CancellationToken ct, HttpStatusCode status, byte[]? frame = null, bool includeOrigin = true,
+        Action<HttpRequestMessage>? configure = null) =>
+        CheckStatusAsync(status, AdminSend(client, method, route, token, ct, frame, includeOrigin, configure));
+
+    internal static (int Status, string Message, string Details, string TraceId) DecodeApiError(byte[] frame)
+    {
+        var payload = Aeds.Decode(frame, FrameType.ApiError);
+        return (
+            BinaryPrimitives.ReadInt32LittleEndian(payload.Slice(WireLayouts.ErrorStatusOffset, 4)),
+            FixedText(payload[WireLayouts.ErrorMessageOffset..WireLayouts.ErrorDetailsOffset]),
+            FixedText(payload[WireLayouts.ErrorDetailsOffset..WireLayouts.ErrorTraceIdOffset]),
+            FixedText(payload[WireLayouts.ErrorTraceIdOffset..]));
+
+        static string FixedText(ReadOnlySpan<byte> slice) =>
+            Encoding.UTF8.GetString(slice.IndexOf((byte)0) is var zero and >= 0 ? slice[..zero] : slice);
     }
 
     internal static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string route, byte[]? frame,

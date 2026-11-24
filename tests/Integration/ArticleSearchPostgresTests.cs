@@ -1,10 +1,3 @@
-using System.Buffers.Binary;
-using System.Net;
-using System.Text.Json;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Integration.Tests;
-using FsusBlog.V2.Server;
-
 public sealed class ArticleSearchPostgresTests
 {
     [Fact]

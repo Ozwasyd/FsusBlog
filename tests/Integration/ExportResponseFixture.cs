@@ -1,6 +1,3 @@
-using System.Net;
-using FsusBlog.V2.Contracts;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 internal static class ExportResponseFixture

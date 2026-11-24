@@ -1,9 +1,3 @@
-using System.Security.Cryptography;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Sessions;
-using FsusBlogV2.Storage;
-using Npgsql;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 internal sealed class ScratchDatabase : IAsyncDisposable
@@ -15,6 +9,34 @@ internal sealed class ScratchDatabase : IAsyncDisposable
     private CancellationTokenSource? _deadline;
     internal string ConnectionString { get; }
     internal NpgsqlDataSource DataSource { get; }
+    private CancellationToken DefaultToken => _deadline?.Token ?? CancellationToken.None;
+
+    internal Task<int> Exec(string sql, params object[] args) => ExecAsync(DefaultToken, sql, args);
+    internal async Task<int> ExecAsync(CancellationToken ct, string sql, params object[] args)
+    {
+        await using var db = await DataSource.OpenConnectionAsync(ct);
+        return await FixtureSql.ExecuteAsync(db, null, ct, sql, args);
+    }
+
+    internal Task<object?> Scalar(string sql, params object[] args) => ScalarAsync(DefaultToken, sql, args);
+    internal async Task<object?> ScalarAsync(CancellationToken ct, string sql, params object[] args)
+    {
+        await using var db = await DataSource.OpenConnectionAsync(ct);
+        return await FixtureSql.ScalarAsync(db, null, ct, sql, args);
+    }
+
+    internal async Task<T> Scalar<T>(string sql, params object[] args) => (T)(await Scalar(sql, args))!;
+    internal async Task<T> ScalarAsync<T>(CancellationToken ct, string sql, params object[] args) =>
+        (T)(await ScalarAsync(ct, sql, args))!;
+
+    internal async Task<(Guid Id, string Token, byte[] Digest)> AdminAsync(string handle, int minutes = 5,
+        byte[]? credential = null, byte[]? key = null, CancellationToken? ct = null)
+    {
+        var token = ct ?? DefaultToken;
+        await using var db = await DataSource.OpenConnectionAsync(token);
+        return await FixtureSql.AdminAsync(db, token, handle, minutes,
+            credential ?? RandomNumberGenerator.GetBytes(16), key ?? RandomNumberGenerator.GetBytes(32));
+    }
 
     internal Task<(Guid Id, string Token, string Handle)> SignIn(string name, CancellationToken ct,
         bool canAuthor = true, int minutes = 2) =>

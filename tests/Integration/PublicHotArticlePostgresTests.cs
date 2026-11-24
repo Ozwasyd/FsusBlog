@@ -1,10 +1,3 @@
-using System.Net;
-using System.Security.Cryptography;
-using System.Text.Json;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Analytics;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class PublicHotArticlePostgresTests

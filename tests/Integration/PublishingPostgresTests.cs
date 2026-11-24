@@ -1,13 +1,3 @@
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Integration.Tests;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server.Operations;
-using Microsoft.Extensions.Logging.Abstractions;
-using Npgsql;
-using System.Net;
-using System.Security.Cryptography;
-
 public sealed class PublishingPostgresTests
 {
     [PostgresFact]

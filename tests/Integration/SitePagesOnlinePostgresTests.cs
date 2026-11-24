@@ -1,15 +1,3 @@
-using static System.Net.HttpStatusCode;
-using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using System.Xml.Linq;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Integration.Tests;
-using FsusBlog.V2.Server.Administration;
-using FsusBlog.V2.Server.Content;
-using Microsoft.AspNetCore.WebUtilities;
-
 public sealed class SitePagesOnlinePostgresTests
 {
     [PostgresFact]

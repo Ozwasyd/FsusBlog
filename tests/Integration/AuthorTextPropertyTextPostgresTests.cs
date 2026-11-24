@@ -1,9 +1,3 @@
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server;
 using AuthorTextRebuildProfile = FsusBlog.V2.Server.Authoring.AuthorTextRebuildProfile;
 using static FsusBlog.V2.Integration.Tests.AuthorPropertyFixture;
 

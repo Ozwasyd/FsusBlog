@@ -1,6 +1,3 @@
-using System.Net;
-using FsusBlog.V2.Server.Analytics;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class SiteTrafficCollectionTests

@@ -1,7 +1,3 @@
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Communication;
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class InboxWakePostgresTests

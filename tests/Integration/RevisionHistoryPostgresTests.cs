@@ -1,10 +1,3 @@
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Integration.Tests;
-using FsusBlog.V2.Server;
-
 public sealed class RevisionHistoryPostgresTests
 {
     [PostgresFact]

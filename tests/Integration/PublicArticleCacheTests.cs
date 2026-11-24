@@ -1,11 +1,6 @@
-using System.Net;
 using System.Net.Sockets;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Content;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 public sealed class PublicArticleCacheTests

@@ -1,10 +1,3 @@
-using System.Diagnostics;
-using System.Net;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server;
-using Xunit.Abstractions;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)

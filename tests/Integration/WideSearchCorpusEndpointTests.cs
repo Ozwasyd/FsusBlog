@@ -1,9 +1,3 @@
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Content;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class WideSearchCorpusEndpointTests

@@ -1,11 +1,3 @@
-using System.Diagnostics;
-using System.Globalization;
-using System.Net;
-using System.Security.Cryptography;
-using System.Text.Json.Nodes;
-using FsusBlog.V2.Contracts;
-using Npgsql;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class PublicationHeadPostgresTests
