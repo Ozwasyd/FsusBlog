@@ -112,9 +112,10 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   const rejected = page.waitForResponse(response => new URL(response.url()).pathname === routes.draft(absentId))
   const attempted = await openById(page, absentId)
   assert.equal((await rejected).status(), 404)
-  await loc.exactText(attempted, 'The article is unavailable.').waitFor()
-  await page.keyboard.press('Escape')
+  // Valid IDs close the launcher before activation; failures belong to the
+  // still-mounted workspace, not the destroyed launcher dialog.
   await attempted.waitFor({ state: 'detached' })
+  await loc.exactText(page.locator('main'), 'The article is unavailable.').waitFor()
   await expectEditor(page, origin, replacement)
   assert.equal(await replacementTab.getAttribute('aria-selected'), 'true')
   assert.equal(await workspaceList(page).getByRole('tab').count(), 3)
