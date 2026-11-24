@@ -12,6 +12,12 @@
           "Microsoft.TestPlatform.TestHost": "18.5.1"
         }
       },
+      "System.Formats.Cbor": {
+        "type": "Direct",
+        "requested": "[9.0.24, 9.0.24]",
+        "resolved": "9.0.24",
+        "contentHash": "SEfEvHu6qXcXoDsDKagddLDf8A9iHIhHUD0hGemdmwlP206KLLCI5ksskOpeXMgNpQCs2diB0fOBKcnjySHFUQ=="
+      },
       "xunit": {
         "type": "Direct",
         "requested": "[2.9.3, )",
@@ -277,11 +283,6 @@
         "type": "Transitive",
         "resolved": "3.119.4",
         "contentHash": "XOpbx/4CReO2wYsq2s6rbvdauc6dntG4Zv499sHGTJ87bwZaFXszFkwql3+FIZMc8kUPeaj3Mx2ezIJmo8a1Kg=="
-      },
-      "System.Formats.Cbor": {
-        "type": "Transitive",
-        "resolved": "9.0.0",
-        "contentHash": "v8LmGrvD0thxFBn5/SaMc5Y0AecfOeoKlAcek1X0fIta8Eb0+fZA3kGelUNE9HhOAe1J1h/tDKjKxh88DWBMjA=="
       },
       "xunit.abstractions": {
         "type": "Transitive",
