@@ -35,46 +35,9 @@ internal static class ArticleSearchTokens
 
     internal static IEnumerable<uint> Hashes(string text, CancellationToken ct)
     {
-        for (var offset = 0; offset < text.Length;)
-        {
-            ct.ThrowIfCancellationRequested();
-            if (char.IsAsciiLetterOrDigit(text[offset]))
-            {
-                var start = offset++;
-                while (offset < text.Length && char.IsAsciiLetterOrDigit(text[offset])) offset++;
-                yield return LocalSearchCorpus.HashAscii(text.AsSpan(start, offset - start));
-            }
-            else if (SearchLexicon.IsCjk(text[offset]))
-            {
-                var start = offset++;
-                while (offset < text.Length && SearchLexicon.IsCjk(text[offset])) offset++;
-                // The frozen tokenizer falls through to one scalar until its remaining suffix fits.
-                while (offset - start > MaxCjkSegment)
-                    yield return LocalSearchCorpus.HashWord(text.AsSpan(start++, 1));
-                foreach (var (at, width) in SearchLexicon.Segment(text, start, offset))
-                {
-                    yield return LocalSearchCorpus.HashWord(text.AsSpan(at, width));
-                    for (var relative = 0; relative < width; relative++)
-                    {
-                        var longest = Math.Min(width - 1, width - relative);
-                        for (var part = 2; part <= longest; part++)
-                        {
-                            var candidate = text.AsSpan(at + relative, part);
-                            if (SearchLexicon.IsWord(candidate))
-                                yield return LocalSearchCorpus.HashWord(candidate);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                if (!Rune.TryGetRuneAt(text, offset, out var scalar)) scalar = Rune.ReplacementChar;
-                offset += scalar.Utf16SequenceLength;
-                var unit = (char)scalar.Value;
-                if (scalar.Value > 0x20 && !char.IsPunctuation(unit) && !char.IsWhiteSpace(unit))
-                    yield return LocalSearchCorpus.HashRune(scalar);
-            }
-        }
+        var hashes = new List<uint>();
+        VisitTokens(text, ct, expandAscii: false, (hash, _) => { hashes.Add(hash); return true; });
+        return hashes;
     }
 
     internal delegate bool VisitSource(uint hash, ReadOnlySpan<uint> aliases);
@@ -88,9 +51,12 @@ internal static class ArticleSearchTokens
             return true;
         });
 
-    internal static bool VisitSources(string text, CancellationToken ct, VisitSource visit)
+    internal static bool VisitSources(string text, CancellationToken ct, VisitSource visit) =>
+        VisitTokens(text, ct, expandAscii: true, visit);
+
+    private static bool VisitTokens(string text, CancellationToken ct, bool expandAscii, VisitSource visit)
     {
-        Span<uint> subtokens = stackalloc uint[MaxAsciiSubtokens];
+        Span<uint> subtokens = expandAscii ? stackalloc uint[MaxAsciiSubtokens] : [];
         for (var offset = 0; offset < text.Length;)
         {
             ct.ThrowIfCancellationRequested();
@@ -100,7 +66,7 @@ internal static class ArticleSearchTokens
                 while (offset < text.Length && char.IsAsciiLetterOrDigit(text[offset])) offset++;
                 var span = text.AsSpan(start, offset - start);
                 var fullHash = LocalSearchCorpus.HashAscii(span);
-                var expanded = ExpandAscii(span, fullHash, subtokens);
+                var expanded = expandAscii ? ExpandAscii(span, fullHash, subtokens) : 0;
                 if (!visit(fullHash, subtokens[..expanded])) return false;
             }
             else if (SearchLexicon.IsCjk(text[offset]))
@@ -189,31 +155,17 @@ internal static class ArticleSearchTokens
         List<(string Prefix, uint Hash)>? prefixes = null;
         for (var offset = 0; offset < normalizedQuery.Length;)
         {
-            if (!char.IsAsciiLetterOrDigit(normalizedQuery[offset]))
-            {
-                offset++;
-                continue;
-            }
+            if (!char.IsAsciiLetterOrDigit(normalizedQuery[offset])) { offset++; continue; }
             var start = offset++;
             while (offset < normalizedQuery.Length && char.IsAsciiLetterOrDigit(normalizedQuery[offset])) offset++;
             var length = offset - start;
-            if (length <= 0 || length >= AsciiMinPrefixLength) continue;
+            if (length is <= 0 or >= AsciiMinPrefixLength) continue;
             var span = normalizedQuery.AsSpan(start, length);
             var duplicate = false;
             if (prefixes is not null)
-            {
-                for (var i = 0; i < prefixes.Count; i++)
-                {
-                    if (prefixes[i].Prefix.AsSpan().SequenceEqual(span))
-                    {
-                        duplicate = true;
-                        break;
-                    }
-                }
-            }
-            if (duplicate) continue;
-            prefixes ??= [];
-            prefixes.Add((normalizedQuery.Substring(start, length), LocalSearchCorpus.HashAscii(span)));
+                foreach (var (existing, _) in prefixes)
+                    if (existing.AsSpan().SequenceEqual(span)) { duplicate = true; break; }
+            if (!duplicate) (prefixes ??= []).Add((normalizedQuery.Substring(start, length), LocalSearchCorpus.HashAscii(span)));
         }
         return prefixes;
     }

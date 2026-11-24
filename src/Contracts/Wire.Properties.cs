@@ -127,52 +127,36 @@ public static partial class Wire
             return new PropertyWorkspace(article, articleRevision, schemaRevision, valueRevision, nextKey, fields);
         });
 
-    internal static void Validate(PropertyDefinitionCommand input)
-    {
-        if (input.DefinitionId == Guid.Empty || input.RequestId == Guid.Empty || input.SchemaRevision < 0
-            || input.DefinitionRevision < 0 || input.Operation is < 1 or > 4
-            || (input.Operation == 1) != (input.DefinitionRevision == 0)
-            || (input.Operation == 1) != (input.MachineKey.Length != 0)
-            || (input.Operation is 1 or 2) != (input.Label.Length != 0))
-            throw new ProtocolException("Invalid property definition command.");
-    }
+    internal static void Validate(PropertyDefinitionCommand input) =>
+        Check(input.DefinitionId != Guid.Empty && input.RequestId != Guid.Empty && input.SchemaRevision >= 0 &&
+            input.DefinitionRevision >= 0 && input.Operation is >= 1 and <= 4 &&
+            (input.Operation == 1) == (input.DefinitionRevision == 0) &&
+            (input.Operation == 1) == (input.MachineKey.Length != 0) &&
+            (input.Operation is 1 or 2) == (input.Label.Length != 0), "Invalid property definition command.");
 
-    internal static void Validate(PropertyDefinitionProjectionCommand input)
-    {
-        if (input.RequestId == Guid.Empty || !ValidPropertyDefinitionCoordinates(input.DefinitionId, input.DefinitionRevision, input.SchemaRevision))
-            throw new ProtocolException("Invalid property definition projection command.");
-    }
+    internal static void Validate(PropertyDefinitionProjectionCommand input) =>
+        Check(input.RequestId != Guid.Empty && ValidPropertyDefinitionCoordinates(input.DefinitionId, input.DefinitionRevision, input.SchemaRevision),
+            "Invalid property definition projection command.");
 
-    internal static void Validate(PropertyDefinitionProjection output)
-    {
-        if (!ValidPropertyDefinitionCoordinates(output.DefinitionId, output.DefinitionRevision, output.SchemaRevision) ||
-            !IsLowerHex(output.Digest, PropertyDefinitionDigestBytes))
-            throw new ProtocolException("Invalid property definition projection.");
-    }
+    internal static void Validate(PropertyDefinitionProjection output) =>
+        Check(ValidPropertyDefinitionCoordinates(output.DefinitionId, output.DefinitionRevision, output.SchemaRevision) &&
+            IsLowerHex(output.Digest, PropertyDefinitionDigestBytes), "Invalid property definition projection.");
 
     private static bool ValidPropertyDefinitionCoordinates(Guid definition, long definitionRevision, long schemaRevision) =>
         definition != Guid.Empty && definitionRevision > 0 && definitionRevision <= schemaRevision;
 
-    internal static void Validate(PropertyWorkspaceRequest input)
-    {
-        if (input.ArticleId <= 0 || input.ArticleRevision <= 0 || input.SchemaRevision < 0 || input.ValueRevision < 0
-            || (input.AfterKey.Length == 0 ? input.SchemaRevision != 0 || input.ValueRevision != 0 : !ValidPropertyKey(input.AfterKey)))
-            throw new ProtocolException("Invalid property workspace request.");
-    }
+    internal static void Validate(PropertyWorkspaceRequest input) =>
+        Check(input.ArticleId > 0 && input.ArticleRevision > 0 && input.SchemaRevision >= 0 && input.ValueRevision >= 0 &&
+            (input.AfterKey.Length == 0 ? input.SchemaRevision == 0 && input.ValueRevision == 0 : ValidPropertyKey(input.AfterKey)),
+            "Invalid property workspace request.");
 
-    internal static void Validate(PropertyTextCommand input)
-    {
-        if (input.ArticleId <= 0 || input.ArticleRevision <= 0 || input.DefinitionId == Guid.Empty || input.RequestId == Guid.Empty
-            || input.SchemaRevision <= 0 || input.DefinitionRevision <= 0 || input.ValueRevision < 0
-            || input.Remove && input.Value.Length != 0)
-            throw new ProtocolException("Invalid property value command.");
-    }
+    internal static void Validate(PropertyTextCommand input) =>
+        Check(input.ArticleId > 0 && input.ArticleRevision > 0 && input.DefinitionId != Guid.Empty && input.RequestId != Guid.Empty &&
+            input.SchemaRevision > 0 && input.DefinitionRevision > 0 && input.ValueRevision >= 0 &&
+            !(input.Remove && input.Value.Length != 0), "Invalid property value command.");
 
-    internal static void Validate(PropertyCommandReceipt input)
-    {
-        if (input.DefinitionId == Guid.Empty || input.SchemaRevision <= 0 || input.Revision <= 0)
-            throw new ProtocolException("Invalid property receipt.");
-    }
+    internal static void Validate(PropertyCommandReceipt input) =>
+        Check(input.DefinitionId != Guid.Empty && input.SchemaRevision > 0 && input.Revision > 0, "Invalid property receipt.");
 
     private static bool ValidPropertyKey(string key)
     {
@@ -235,34 +219,26 @@ public static partial class Wire
                     WriteValue(w.Uuid(change.DefinitionId).I64(change.DefinitionRevision), change.Value)));
     }
 
-    public static PropertyValueBatchInput DecodePropertyValueBatch(ReadOnlySpan<byte> frame)
-    {
-        var input = DecodeFrame(FrameType.PropertyValueBatchCommand, frame, PropertyBatchMaxCommandBytes, InvalidProperty,
-            static (ref Reader reader) => new PropertyValueBatchInput(reader.I32(), reader.I64(), reader.I64(),
-                reader.I64(), reader.Uuid(), reader.Items(1, PropertyBatchMaxChanges, InvalidProperty,
-                    static (ref Reader r) => new PropertyValueChange(r.Uuid(), r.I64(), ReadValue(ref r)))));
-        ValidateBatch(input);
-        return input;
-    }
+    public static PropertyValueBatchInput DecodePropertyValueBatch(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PropertyValueBatchInput>(FrameType.PropertyValueBatchCommand, frame, PropertyBatchMaxCommandBytes, InvalidProperty,
+            static (ref Reader reader) => new(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(),
+                reader.Items(1, PropertyBatchMaxChanges, InvalidProperty,
+                    static (ref Reader r) => new PropertyValueChange(r.Uuid(), r.I64(), ReadValue(ref r)))), ValidateBatch);
 
     private static void ValidateBatch(PropertyValueBatchInput input)
     {
-        if (input.ArticleId <= 0 || input.ArticleRevision <= 0 || input.SchemaRevision <= 0 ||
-            input.ValueRevision is < 0 or long.MaxValue || input.RequestId == Guid.Empty ||
-            input.Changes.Count is < 1 or > PropertyBatchMaxChanges)
-            throw InvalidProperty();
+        Check(input.ArticleId > 0 && input.ArticleRevision > 0 && input.SchemaRevision > 0 &&
+            input.ValueRevision is >= 0 and < long.MaxValue && input.RequestId != Guid.Empty &&
+            input.Changes.Count is >= 1 and <= PropertyBatchMaxChanges, InvalidProperty);
         var fields = new HashSet<Guid>();
         foreach (var change in input.Changes)
-            if (change.DefinitionId == Guid.Empty || change.DefinitionRevision <= 0 ||
-                change.Value is null or PropertyFieldValue.Unavailable || !fields.Add(change.DefinitionId))
-                throw InvalidProperty();
+            Check(change.DefinitionId != Guid.Empty && change.DefinitionRevision > 0 &&
+                change.Value is not (null or PropertyFieldValue.Unavailable) && fields.Add(change.DefinitionId), InvalidProperty);
     }
 
-    private static void Validate(PropertyValueBatchReceipt receipt)
-    {
-        if (receipt.ArticleId <= 0 || receipt.SchemaRevision <= 0 || receipt.ValueRevision <= 0 || receipt.RequestId == Guid.Empty)
-            throw InvalidProperty();
-    }
+    private static void Validate(PropertyValueBatchReceipt receipt) =>
+        Check(receipt.ArticleId > 0 && receipt.SchemaRevision > 0 && receipt.ValueRevision > 0 && receipt.RequestId != Guid.Empty,
+            InvalidProperty);
 
     public static byte[] EncodePropertyEditor(PropertyEditorWorkspace input)
     {
@@ -313,26 +289,19 @@ public static partial class Wire
 
     private static void ValidateDefinitionFields(int operation, PropertyFieldKind kind, IReadOnlyList<PropertyFieldOption> options)
     {
-        if (!Enum.IsDefined(kind) || operation != 1 && (kind != PropertyFieldKind.Text || options.Count != 0) ||
-            (kind is PropertyFieldKind.SingleSelect or PropertyFieldKind.MultiSelect) != (options.Count > 0))
-            throw InvalidProperty();
+        Check(Enum.IsDefined(kind) && (operation == 1 || kind == PropertyFieldKind.Text && options.Count == 0) &&
+            (kind is PropertyFieldKind.SingleSelect or PropertyFieldKind.MultiSelect) == (options.Count > 0), InvalidProperty);
         ValidateOptions(options);
     }
 
-    private static void ValidateValueInput(PropertyValueInput value)
-    {
-        if (value.ArticleId <= 0 || value.ArticleRevision <= 0 || value.SchemaRevision <= 0 || value.ValueRevision < 0 ||
-            value.DefinitionId == Guid.Empty || value.DefinitionRevision <= 0 || value.RequestId == Guid.Empty ||
-            value.Value is PropertyFieldValue.Unavailable)
-            throw InvalidProperty();
-    }
+    private static void ValidateValueInput(PropertyValueInput value) =>
+        Check(value.ArticleId > 0 && value.ArticleRevision > 0 && value.SchemaRevision > 0 && value.ValueRevision >= 0 &&
+            value.DefinitionId != Guid.Empty && value.DefinitionRevision > 0 && value.RequestId != Guid.Empty &&
+            value.Value is not PropertyFieldValue.Unavailable, InvalidProperty);
 
-    private static void ValidateOptions(IReadOnlyList<PropertyFieldOption> options)
-    {
-        if (options.Count > PropertyOptionCount || options.Any(option => option.Id == Guid.Empty ||
-            string.IsNullOrWhiteSpace(option.Label)) || options.Select(option => option.Id).Distinct().Count() != options.Count)
-            throw InvalidProperty();
-    }
+    private static void ValidateOptions(IReadOnlyList<PropertyFieldOption> options) =>
+        Check(options.Count <= PropertyOptionCount && options.All(option => option.Id != Guid.Empty &&
+            !string.IsNullOrWhiteSpace(option.Label)) && options.Select(option => option.Id).Distinct().Count() == options.Count, InvalidProperty);
 
     private static void WriteOptions(Writer writer, IReadOnlyList<PropertyFieldOption> options) =>
         writer.Items(options, static (w, option) => w.Uuid(option.Id).Text(option.Label, PropertyLabelBytes));
@@ -571,21 +540,17 @@ public static partial class Wire
             reader.Items(0, PropertyPageSize, InvalidProperty,
                 static (ref Reader r) => new PropertyArticleRow(r.I32(), r.I64(), r.Text(TitleBytes)))));
 
-    internal static void Validate(PropertyFilterabilityCommand input)
-    {
-        if (input.DefinitionId == Guid.Empty || input.RequestId == Guid.Empty || input.SchemaRevision <= 0 ||
-            input.DefinitionRevision <= 0 || input.DefinitionRevision > input.SchemaRevision) throw InvalidProperty();
-    }
+    internal static void Validate(PropertyFilterabilityCommand input) =>
+        Check(input.DefinitionId != Guid.Empty && input.RequestId != Guid.Empty && input.SchemaRevision > 0 &&
+            input.DefinitionRevision > 0 && input.DefinitionRevision <= input.SchemaRevision, InvalidProperty);
 
-    private static void Validate(PropertyArticleQuery input)
-    {
-        if (!ValidCondition(input.SchemaRevision, input.DefinitionId, input.DefinitionRevision, input.Value) ||
-            !ValidCursor(input.Cursor)) throw InvalidProperty();
-    }
+    private static void Validate(PropertyArticleQuery input) =>
+        Check(ValidCondition(input.SchemaRevision, input.DefinitionId, input.DefinitionRevision, input.Value) &&
+            ValidCursor(input.Cursor), InvalidProperty);
 
     private static void Validate(PropertyArticleQueryGroup input)
     {
-        if (!ValidCursor(input.Cursor) || !IsCanonicalAuthorArticleKeyword(input.Keyword)) throw InvalidProperty();
+        Check(ValidCursor(input.Cursor) && IsCanonicalAuthorArticleKeyword(input.Keyword), InvalidProperty);
         ValidatePropertyConditions(input.SchemaRevision, input.Conditions);
     }
 
@@ -689,13 +654,10 @@ public static partial class Wire
                 reader.FixedBytes(AuthorTextSearchSourceDigestBytes).ToArray()), ValidatePropertyTextHitRequest);
     }
 
-    private static void ValidatePropertyTextHitRequest(PropertyTextHitRequest value)
-    {
-        if (value.ArticleId <= 0 || value.ArticleRevision <= 0 || value.SchemaRevision <= 0 || value.ValueRevision < 0 ||
-            value.DefinitionId == Guid.Empty || value.DefinitionRevision <= 0 || value.DefinitionRevision > value.SchemaRevision ||
-            value.SourceDigest.Length != AuthorTextSearchSourceDigestBytes)
-            throw InvalidPropertyTextHitRequest();
-    }
+    private static void ValidatePropertyTextHitRequest(PropertyTextHitRequest value) =>
+        Check(value.ArticleId > 0 && value.ArticleRevision > 0 && value.SchemaRevision > 0 && value.ValueRevision >= 0 &&
+            value.DefinitionId != Guid.Empty && value.DefinitionRevision > 0 && value.DefinitionRevision <= value.SchemaRevision &&
+            value.SourceDigest.Length == AuthorTextSearchSourceDigestBytes, InvalidPropertyTextHitRequest);
 
     private static ProtocolException InvalidPropertyTextHitRequest() => new("Invalid saved text property match request.");
 
@@ -873,30 +835,22 @@ public static partial class Wire
             value.Name != NormalizeSavedViewName(value.Name) ? throw InvalidSavedView() : value;
     }
 
-    private static void Validate(SavedViewExecute value)
-    {
-        if (value.Id == Guid.Empty || value.Revision <= 0 || !ValidCursor(value.Cursor)) throw InvalidSavedView();
-    }
+    private static void Validate(SavedViewExecute value) =>
+        Check(value.Id != Guid.Empty && value.Revision > 0 && ValidCursor(value.Cursor), InvalidSavedView);
 
     private static void Validate(SavedViewCommand value)
     {
-        if (value.Id == Guid.Empty || value.RequestId == Guid.Empty || value.Revision < 0 || value.CollectionRevision < value.Revision ||
-            !Enum.IsDefined(value.Action) || value.Action != SavedViewAction.Save && value.Revision == 0 ||
-            (value.Action == SavedViewAction.Save) != (value.Query is not null) || value.Query is { Cursor.Length: > 0 })
-            throw InvalidSavedView();
-        if (value.Action == SavedViewAction.Retire)
-        {
-            if (value.Name.Length != 0) throw InvalidSavedView();
-        }
+        Check(value.Id != Guid.Empty && value.RequestId != Guid.Empty && value.Revision >= 0 && value.CollectionRevision >= value.Revision &&
+            Enum.IsDefined(value.Action) && (value.Action == SavedViewAction.Save || value.Revision != 0) &&
+            (value.Action == SavedViewAction.Save) == (value.Query is not null) && value.Query is not { Cursor.Length: > 0 }, InvalidSavedView);
+        if (value.Action == SavedViewAction.Retire) Check(value.Name.Length == 0, InvalidSavedView);
         else NormalizeSavedViewName(value.Name);
     }
 
-    private static void Validate(SavedViewPlacementCommand value)
-    {
-        if (!Enum.IsDefined(value.Action) || value.Id == Guid.Empty || value.RequestId == Guid.Empty || value.Revision <= 0 ||
-            value.CollectionRevision < value.Revision || value.BeforeId == value.Id ||
-            value.Action != SavedViewPlacementAction.MoveBefore && value.BeforeId != Guid.Empty) throw InvalidSavedView();
-    }
+    private static void Validate(SavedViewPlacementCommand value) =>
+        Check(Enum.IsDefined(value.Action) && value.Id != Guid.Empty && value.RequestId != Guid.Empty && value.Revision > 0 &&
+            value.CollectionRevision >= value.Revision && value.BeforeId != value.Id &&
+            (value.Action == SavedViewPlacementAction.MoveBefore || value.BeforeId == Guid.Empty), InvalidSavedView);
 
     private static ProtocolException InvalidSavedView() => new("Invalid saved view.");
 }

@@ -41,13 +41,9 @@ public static partial class Wire
         EncodeRecord(FrameType.AuthorTextSearchQuery, value, ValidateAuthorTextQuery,
             static (writer, query) => writer.Text(query, AuthorTextSearchQueryBytes));
 
-    public static string DecodeAuthorTextSearchQuery(ReadOnlySpan<byte> frame)
-    {
-        var query = DecodeFrame(FrameType.AuthorTextSearchQuery, frame, MaxAuthorTextSearchQueryFrameBytes,
-            AuthorTextFrameLimit, static (ref Reader reader) => reader.Text(AuthorTextSearchQueryBytes));
-        ValidateAuthorTextQuery(query);
-        return query;
-    }
+    public static string DecodeAuthorTextSearchQuery(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<string>(FrameType.AuthorTextSearchQuery, frame, MaxAuthorTextSearchQueryFrameBytes,
+            AuthorTextFrameLimit, static (ref Reader reader) => reader.Text(AuthorTextSearchQueryBytes), ValidateAuthorTextQuery);
 
     public static byte[] EncodeAuthorTextSearchPage(AuthorTextSearchPage value)
     {
@@ -109,12 +105,9 @@ public static partial class Wire
         WritePropertyConditions(writer, value.Conditions);
     }
 
-    private static AuthorTextQualifiedQuery DecodeAuthorTextQualifiedQuery(ReadOnlySpan<byte> frame, FrameType type)
-    {
-        var value = DecodeFrame(type, frame, MaxAuthorTextQualifiedQueryFrameBytes, AuthorTextFrameLimit, ReadAuthorTextQualifiedQuery);
-        ValidateAuthorTextQualifiedQuery(value, requireQualifier: type == FrameType.AuthorTextQualifiedQuery);
-        return value;
-    }
+    private static AuthorTextQualifiedQuery DecodeAuthorTextQualifiedQuery(ReadOnlySpan<byte> frame, FrameType type) =>
+        DecodeRecord<AuthorTextQualifiedQuery>(type, frame, MaxAuthorTextQualifiedQueryFrameBytes, AuthorTextFrameLimit,
+            ReadAuthorTextQualifiedQuery, value => ValidateAuthorTextQualifiedQuery(value, requireQualifier: type == FrameType.AuthorTextQualifiedQuery));
 
     private static AuthorTextQualifiedQuery ReadAuthorTextQualifiedQuery(ref Reader reader) =>
         new(reader.Text(AuthorTextSearchQueryBytes), reader.Text(AuthorTextRankedCursorChars),
@@ -369,14 +362,11 @@ public static partial class Wire
         });
     }
 
-    public static AuthorTextPropertyFacetQuery DecodeAuthorTextPropertyFacetQuery(ReadOnlySpan<byte> frame)
-    {
-        var value = DecodeFrame(FrameType.AuthorTextPropertyFacetQuery, frame, MaxAuthorTextPropertyFacetQueryFrameBytes,
-            InvalidAuthorTextPropertyFacet, static (ref Reader reader) => new AuthorTextPropertyFacetQuery(
-                ReadAuthorTextQualifiedQuery(ref reader), reader.Bool(), reader.Uuid(), reader.I64()));
-        ValidateAuthorTextPropertyFacetQuery(value);
-        return value;
-    }
+    public static AuthorTextPropertyFacetQuery DecodeAuthorTextPropertyFacetQuery(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthorTextPropertyFacetQuery>(FrameType.AuthorTextPropertyFacetQuery, frame, MaxAuthorTextPropertyFacetQueryFrameBytes,
+            InvalidAuthorTextPropertyFacet, static (ref Reader reader) => new(
+                ReadAuthorTextQualifiedQuery(ref reader), reader.Bool(), reader.Uuid(), reader.I64()),
+            ValidateAuthorTextPropertyFacetQuery);
 
     public static byte[] EncodeAuthorTextPropertyFacetPage(AuthorTextPropertyFacetPage value, bool includeHeading = true)
     {
@@ -499,15 +489,12 @@ public static partial class Wire
         });
     }
 
-    public static AuthorTextPropertySortQuery DecodeAuthorTextPropertySortQuery(ReadOnlySpan<byte> frame)
-    {
-        var value = DecodeFrame(FrameType.AuthorTextPropertySortQuery, frame, MaxAuthorTextPropertySortQueryFrameBytes,
-            InvalidAuthorTextPropertySort, static (ref Reader reader) => new AuthorTextPropertySortQuery(
+    public static AuthorTextPropertySortQuery DecodeAuthorTextPropertySortQuery(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthorTextPropertySortQuery>(FrameType.AuthorTextPropertySortQuery, frame, MaxAuthorTextPropertySortQueryFrameBytes,
+            InvalidAuthorTextPropertySort, static (ref Reader reader) => new(
                 ReadAuthorTextQualifiedQuery(ref reader), reader.Bool(), reader.Uuid(), reader.I64(),
-                ReadAuthorTextPropertySortDirection(ref reader), reader.Optional(ReadAuthorTextPropertyFacetSelector)));
-        ValidateAuthorTextPropertySortQuery(value);
-        return value;
-    }
+                ReadAuthorTextPropertySortDirection(ref reader), reader.Optional(ReadAuthorTextPropertyFacetSelector)),
+            ValidateAuthorTextPropertySortQuery);
 
     public static byte[] EncodeAuthorTextPropertySortPage(AuthorTextPropertySortPage value, bool includeHeading = true) =>
         EncodeAuthorTextOptionalPropertyFacetPage(value, FrameType.AuthorTextPropertySortPage, AuthorTextPropertyFacetMaxField(includeHeading));
@@ -557,14 +544,11 @@ public static partial class Wire
             writer => WriteAuthorTextPropertyTextSelection(writer, value.Search, value.DefinitionId, value.DefinitionRevision));
     }
 
-    public static AuthorTextPropertyTextQuery DecodeAuthorTextPropertyTextQuery(ReadOnlySpan<byte> frame)
-    {
-        var value = DecodeFrame(FrameType.AuthorTextPropertyTextQuery, frame, MaxAuthorTextPropertyTextQueryFrameBytes,
-            InvalidAuthorTextPropertyText, static (ref Reader reader) => new AuthorTextPropertyTextQuery(
-                ReadAuthorTextQualifiedQuery(ref reader), reader.Uuid(), reader.I64()));
-        ValidateAuthorTextPropertyTextSelection(value.Search, value.DefinitionId, value.DefinitionRevision);
-        return value;
-    }
+    public static AuthorTextPropertyTextQuery DecodeAuthorTextPropertyTextQuery(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthorTextPropertyTextQuery>(FrameType.AuthorTextPropertyTextQuery, frame, MaxAuthorTextPropertyTextQueryFrameBytes,
+            InvalidAuthorTextPropertyText, static (ref Reader reader) => new(
+                ReadAuthorTextQualifiedQuery(ref reader), reader.Uuid(), reader.I64()),
+            static value => ValidateAuthorTextPropertyTextSelection(value.Search, value.DefinitionId, value.DefinitionRevision));
 
     public static byte[] EncodeAuthorTextPropertyTextPage(AuthorTextFacetedPage page)
     {
@@ -579,30 +563,22 @@ public static partial class Wire
         return page;
     }
 
-    public static byte[] EncodeAuthorTextPropertyTextQualifiedQuery(AuthorTextPropertyTextQualifiedQuery value)
-    {
-        ValidateAuthorTextPropertyTextQualifiedQuery(value);
-        return EncodeFrame(FrameType.AuthorTextPropertyTextQualifiedQuery, writer =>
-        {
-            WriteAuthorTextPropertyTextSelection(writer, value.Search, value.DefinitionId, value.DefinitionRevision);
-            WriteAuthorTextPropertySelectors(writer, value.Facet, value.Sort);
-        });
-    }
-
-    public static AuthorTextPropertyTextQualifiedQuery DecodeAuthorTextPropertyTextQualifiedQuery(ReadOnlySpan<byte> frame)
-    {
-        var value = DecodeFrame(FrameType.AuthorTextPropertyTextQualifiedQuery, frame, MaxAuthorTextPropertyTextQualifiedQueryFrameBytes,
-            InvalidAuthorTextPropertyText, static (ref Reader reader) =>
+    public static byte[] EncodeAuthorTextPropertyTextQualifiedQuery(AuthorTextPropertyTextQualifiedQuery value) =>
+        EncodeRecord(FrameType.AuthorTextPropertyTextQualifiedQuery, value, ValidateAuthorTextPropertyTextQualifiedQuery,
+            static (writer, record) =>
             {
-                var search = ReadAuthorTextQualifiedQuery(ref reader);
-                var definition = reader.Uuid();
-                var revision = reader.I64();
-                var (facet, sort) = ReadAuthorTextPropertySelectors(ref reader);
-                return new AuthorTextPropertyTextQualifiedQuery(search, definition, revision, facet, sort);
+                WriteAuthorTextPropertyTextSelection(writer, record.Search, record.DefinitionId, record.DefinitionRevision);
+                WriteAuthorTextPropertySelectors(writer, record.Facet, record.Sort);
             });
-        ValidateAuthorTextPropertyTextQualifiedQuery(value);
-        return value;
-    }
+
+    public static AuthorTextPropertyTextQualifiedQuery DecodeAuthorTextPropertyTextQualifiedQuery(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthorTextPropertyTextQualifiedQuery>(FrameType.AuthorTextPropertyTextQualifiedQuery, frame,
+            MaxAuthorTextPropertyTextQualifiedQueryFrameBytes, InvalidAuthorTextPropertyText, static (ref Reader reader) =>
+            {
+                var (search, definition, revision) = (ReadAuthorTextQualifiedQuery(ref reader), reader.Uuid(), reader.I64());
+                var (facet, sort) = ReadAuthorTextPropertySelectors(ref reader);
+                return new(search, definition, revision, facet, sort);
+            }, ValidateAuthorTextPropertyTextQualifiedQuery);
 
     public static byte[] EncodeAuthorTextPropertyTextQualifiedPage(AuthorTextPropertySortPage value)
     {
@@ -619,33 +595,29 @@ public static partial class Wire
         return value;
     }
 
-    public static byte[] EncodeAuthorTextPropertyTextMixedQuery(AuthorTextPropertyTextMixedQuery value)
-    {
-        ValidateAuthorTextPropertyTextSelection(value.Search, value.DefinitionId, value.DefinitionRevision);
-        ValidateAuthorTextPropertySelectors(value.Search.SchemaRevision, value.Facet, value.Sort);
-        return EncodeFrame(FrameType.AuthorTextPropertyTextMixedQuery, writer =>
-        {
-            WriteAuthorTextPropertyTextSelection(writer, value.Search, value.DefinitionId, value.DefinitionRevision);
-            writer.Bool(value.IncludeHeading);
-            WriteAuthorTextPropertySelectors(writer, value.Facet, value.Sort);
-        });
-    }
-
-    public static AuthorTextPropertyTextMixedQuery DecodeAuthorTextPropertyTextMixedQuery(ReadOnlySpan<byte> frame)
-    {
-        var value = DecodeFrame(FrameType.AuthorTextPropertyTextMixedQuery, frame, MaxAuthorTextPropertyTextMixedQueryFrameBytes,
-            InvalidAuthorTextPropertyText, static (ref Reader reader) =>
+    public static byte[] EncodeAuthorTextPropertyTextMixedQuery(AuthorTextPropertyTextMixedQuery value) =>
+        EncodeRecord(FrameType.AuthorTextPropertyTextMixedQuery, value, ValidateAuthorTextPropertyTextMixedQuery,
+            static (writer, record) =>
             {
-                var search = ReadAuthorTextQualifiedQuery(ref reader);
-                var definition = reader.Uuid();
-                var revision = reader.I64();
-                var includeHeading = reader.Bool();
-                var (facet, sort) = ReadAuthorTextPropertySelectors(ref reader);
-                return new AuthorTextPropertyTextMixedQuery(search, definition, revision, includeHeading, facet, sort);
+                WriteAuthorTextPropertyTextSelection(writer, record.Search, record.DefinitionId, record.DefinitionRevision);
+                writer.Bool(record.IncludeHeading);
+                WriteAuthorTextPropertySelectors(writer, record.Facet, record.Sort);
             });
+
+    public static AuthorTextPropertyTextMixedQuery DecodeAuthorTextPropertyTextMixedQuery(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<AuthorTextPropertyTextMixedQuery>(FrameType.AuthorTextPropertyTextMixedQuery, frame,
+            MaxAuthorTextPropertyTextMixedQueryFrameBytes, InvalidAuthorTextPropertyText, static (ref Reader reader) =>
+            {
+                var (search, definition, revision, includeHeading) =
+                    (ReadAuthorTextQualifiedQuery(ref reader), reader.Uuid(), reader.I64(), reader.Bool());
+                var (facet, sort) = ReadAuthorTextPropertySelectors(ref reader);
+                return new(search, definition, revision, includeHeading, facet, sort);
+            }, ValidateAuthorTextPropertyTextMixedQuery);
+
+    private static void ValidateAuthorTextPropertyTextMixedQuery(AuthorTextPropertyTextMixedQuery value)
+    {
         ValidateAuthorTextPropertyTextSelection(value.Search, value.DefinitionId, value.DefinitionRevision);
         ValidateAuthorTextPropertySelectors(value.Search.SchemaRevision, value.Facet, value.Sort);
-        return value;
     }
 
     public static byte[] EncodeAuthorTextPropertyTextMixedPage(AuthorTextPropertySortPage value, bool includeHeading)

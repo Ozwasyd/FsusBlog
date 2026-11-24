@@ -1,4 +1,4 @@
-import { PodReader } from './binary.ts';
+import { decodePod, PodReader } from './binary.ts';
 import { ProtocolError, request, validSiteSessionId } from './client.ts';
 import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
@@ -19,13 +19,11 @@ export function sitePasskeys(expectedSession: string, signal?: AbortSignal): Pro
 }
 
 export function decodeSitePasskeys(payload: Uint8Array): SitePasskey[] {
-  const reader = new PodReader(payload);
-  const count = reader.i32();
-  if (count < 1 || count > WireLimits.SitePasskeyListSize) throw invalid();
-  const rows: SitePasskey[] = [];
-  for (let i = 0; i < count; i++) rows.push(readSitePasskeyRow(reader, i === 0));
-  reader.finish();
-  return rows;
+  return decodePod(payload, reader => {
+    const count = reader.i32();
+    if (count < 1 || count > WireLimits.SitePasskeyListSize) throw invalid();
+    return Array.from({ length: count }, (_, i) => readSitePasskeyRow(reader, i === 0));
+  });
 }
 
 export function readSitePasskeyRow(reader: PodReader, currentExpected: boolean): SitePasskey {

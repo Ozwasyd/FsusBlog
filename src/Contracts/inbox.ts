@@ -1,4 +1,4 @@
-import { decodeUtf8, ProtocolError } from './binary.ts';
+import { ByteView, decodeUtf8, ProtocolError } from './binary.ts';
 import { validReplayCursor } from './inbox-replay.ts';
 import { WireHeaders } from './wire.generated.ts';
 
@@ -49,29 +49,9 @@ export interface InboxThread extends InboxConversation {
 
 const invalid = (): never => { throw new ProtocolError('Invalid AEDS inbox payload'); };
 
-class Packet {
-  readonly data: DataView;
-  private readonly payload: Uint8Array;
+class Packet extends ByteView {
   private arena = 0;
-
-  constructor(payload: Uint8Array) {
-    this.payload = payload;
-    this.data = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
-  }
-
-  bounds(start: number, length: number): void {
-    if (start < 0 || length < 0 || start > this.payload.length - length) invalid();
-  }
-
-  i32(offset: number): number {
-    this.bounds(offset, 4);
-    return this.data.getInt32(offset, true);
-  }
-
-  i64(offset: number): bigint {
-    this.bounds(offset, 8);
-    return this.data.getBigInt64(offset, true);
-  }
+  constructor(payload: Uint8Array) { super(payload, invalid); }
 
   position(offset: number): bigint {
     const value = this.i64(offset);
@@ -84,25 +64,17 @@ class Packet {
   }
 
   flag(offset: number): boolean {
-    this.bounds(offset, 1);
-    const value = this.data.getUint8(offset);
+    const value = this.u8(offset);
     if (value !== 0 && value !== 1) invalid();
     return value === 1;
   }
 
-  reserved(offset: number, size: number): void {
-    this.bounds(offset, size);
-    for (let index = 0; index < size; index++) if (this.data.getUint8(offset + index) !== 0) invalid();
-  }
-
-  inline(offset: number, length: number): string {
-    this.bounds(offset, length);
-    return decodeUtf8(this.payload.subarray(offset, offset + length));
-  }
+  reserved(offset: number, size: number): void { this.zero(offset, size); }
+  inline(offset: number, length: number): string { return decodeUtf8(this.span(offset, length)); }
 
   setArena(fieldsEnd: number): void {
     this.arena = fieldsEnd + 4;
-    if (this.i32(fieldsEnd) !== this.payload.length - this.arena) invalid();
+    if (this.i32(fieldsEnd) !== this.length - this.arena) invalid();
   }
 
   text(offset: number, limit: number): string {

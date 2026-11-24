@@ -1,5 +1,5 @@
 import { encodeFrame, ProtocolError } from './aeds.ts'
-import { PodReader, PodWriter } from './binary.ts'
+import { decodePod, isNonZeroUuid, PodReader, PodWriter, writePod } from './binary.ts'
 import { sessionGet, post, sessionPost, siteSessionHeader } from './internal/http.ts'
 import { encodePropertyTextHitRequest, type PropertyTextHitRequest } from './property-text-hit.ts'
 import {
@@ -61,7 +61,6 @@ export type { PropertyWorkspaceRequest }
 
 const maxOptions = WireLimits.PropertyOptionCount
 const maxReferences = WireLimits.PropertyOptionCount
-const zeroUuid = '00000000-0000-0000-0000-000000000000'
 const maxDecimalCoefficient = 79_228_162_514_264_337_593_543_950_335n
 const machineKey = /^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$/
 const control = /[\u0000-\u001F\u007F-\u009F]/
@@ -71,7 +70,7 @@ function requireProperty(condition: boolean, detail: string): asserts condition 
 }
 
 function uuid(value: string): string {
-  requireProperty(/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value) && value !== zeroUuid, 'identifier')
+  requireProperty(isNonZeroUuid(value), 'identifier')
   return value.toLowerCase()
 }
 
@@ -273,95 +272,68 @@ export function encodePropertySchemaCommand(input: PropertySchemaCommand): Uint8
     input.definitionRevision >= 0n && (input.operation === 1) === (input.definitionRevision === 0n) &&
     (input.operation === 1) === (input.machineKey.length !== 0) &&
     (input.operation === 1 || input.operation === 2) === (input.label.length !== 0), 'definition command')
-  const creating = input.operation === 1
-  const kind = input.kind ?? 'text'
-  const tag = propertyKinds.indexOf(kind)
-  const options = input.options ?? []
+  const creating = input.operation === 1, kind = input.kind ?? 'text', tag = propertyKinds.indexOf(kind), options = input.options ?? []
   requireProperty(tag >= 0 && (creating || tag === 0 && options.length === 0), 'definition command options')
   checkOptions(kind, options)
-
-  const writer = new PodWriter()
-  writer.i32(input.operation)
-  writer.uuid(uuid(input.definitionId))
-  writer.uuid(uuid(input.requestId))
-  writer.i64(input.schemaRevision)
-  writer.i64(input.definitionRevision)
-  writer.text(creating ? key(input.machineKey) : '', WireLimits.PropertyKeyBytes)
-  writer.text(input.label.length > 0 ? label(input.label) : '', WireLimits.PropertyLabelBytes)
-  writer.i32(tag)
-  writeOptions(writer, options)
-  return writer.finish()
+  return writePod(writer => {
+    writer.i32(input.operation).uuid(uuid(input.definitionId)).uuid(uuid(input.requestId))
+      .i64(input.schemaRevision).i64(input.definitionRevision)
+      .text(creating ? key(input.machineKey) : '', WireLimits.PropertyKeyBytes)
+      .text(input.label.length > 0 ? label(input.label) : '', WireLimits.PropertyLabelBytes).i32(tag)
+    writeOptions(writer, options)
+  })
 }
 
 export function encodePropertyValueCommand(input: PropertyValueCommand): Uint8Array {
   requireProperty(input.articleId > 0 && input.articleRevision > 0n && input.schemaRevision > 0n &&
     input.valueRevision >= 0n && input.definitionRevision > 0n, 'value command coordinates')
-  const writer = new PodWriter()
-  writer.i32(input.articleId)
-  writer.i64(input.articleRevision)
-  writer.i64(input.schemaRevision)
-  writer.i64(input.valueRevision)
-  writer.uuid(uuid(input.definitionId))
-  writer.i64(input.definitionRevision)
-  writer.uuid(uuid(input.requestId))
-  writeValue(writer, input.value)
-  return writer.finish()
+  return writePod(writer => {
+    writer.i32(input.articleId).i64(input.articleRevision).i64(input.schemaRevision).i64(input.valueRevision)
+      .uuid(uuid(input.definitionId)).i64(input.definitionRevision).uuid(uuid(input.requestId))
+    writeValue(writer, input.value)
+  })
 }
 
 export function encodePropertyValueBatch(input: PropertyValueBatchCommand): Uint8Array {
   requireProperty(input.articleId > 0 && input.articleRevision > 0n && input.schemaRevision > 0n &&
     input.valueRevision >= 0n && input.valueRevision < 9_223_372_036_854_775_807n &&
     input.changes.length > 0 && input.changes.length <= WireLimits.PropertyBatchMaxChanges, 'batch coordinates')
-  const writer = new PodWriter()
-  writer.i32(input.articleId)
-  writer.i64(input.articleRevision)
-  writer.i64(input.schemaRevision)
-  writer.i64(input.valueRevision)
-  writer.uuid(uuid(input.requestId))
-  writer.i32(input.changes.length)
-  const fields = new Set<string>()
-  for (const change of input.changes) {
-    const id = uuid(change.definitionId)
-    requireProperty(change.definitionRevision > 0n && !fields.has(id), 'batch field')
-    fields.add(id)
-    writer.uuid(id)
-    writer.i64(change.definitionRevision)
-    writeValue(writer, change.value)
-  }
-  return writer.finish()
+  return writePod(writer => {
+    writer.i32(input.articleId).i64(input.articleRevision).i64(input.schemaRevision).i64(input.valueRevision)
+      .uuid(uuid(input.requestId)).i32(input.changes.length)
+    const fields = new Set<string>()
+    for (const change of input.changes) {
+      const id = uuid(change.definitionId)
+      requireProperty(change.definitionRevision > 0n && !fields.has(id), 'batch field')
+      fields.add(id)
+      writer.uuid(id).i64(change.definitionRevision)
+      writeValue(writer, change.value)
+    }
+  })
 }
 
 export function decodePropertyEditor(payload: Uint8Array): PropertyWorkspace {
-  const reader = new PodReader(payload)
-  const articleId = reader.i32()
-  const articleRevision = reader.i64()
-  const schemaRevision = reader.i64()
-  const valueRevision = reader.i64()
-  const nextKey = reader.text(WireLimits.PropertyKeyBytes)
-  const size = limitCount(reader.i32(), WireLimits.PropertyPageSize)
-  requireProperty(articleId > 0 && articleRevision > 0n && schemaRevision >= 0n && valueRevision >= 0n, 'workspace coordinates')
-  const fields: EditableProperty[] = []
-  const identities = new Set<string>()
-  let previous = ''
-  for (let index = 0; index < size; index++) {
-    const definitionId = uuid(reader.uuid())
-    const definitionRevision = reader.i64()
-    const machineKey = key(reader.text(WireLimits.PropertyKeyBytes))
-    const title = label(reader.text(WireLimits.PropertyLabelBytes))
-    const deprecated = reader.bool()
-    const kind = decodeKind(reader.i32())
-    const options = readOptions(reader, kind)
-    const value = readValue(reader, kind)
-    requireProperty(definitionRevision > 0n && definitionRevision <= schemaRevision &&
-      machineKey > previous && !identities.has(definitionId), 'field coordinates')
-    checkValueOptions(value, options)
-    fields.push({ definitionId, definitionRevision, machineKey, label: title, deprecated, kind, options, value })
-    identities.add(definitionId)
-    previous = machineKey
-  }
-  requireProperty(!nextKey || (size === WireLimits.PropertyPageSize && nextKey === previous), 'cursor')
-  reader.finish()
-  return { articleId, articleRevision, schemaRevision, valueRevision, nextKey, fields }
+  return decodePod(payload, reader => {
+    const articleId = reader.i32(), articleRevision = reader.i64(), schemaRevision = reader.i64(), valueRevision = reader.i64()
+    const nextKey = reader.text(WireLimits.PropertyKeyBytes), size = limitCount(reader.i32(), WireLimits.PropertyPageSize)
+    requireProperty(articleId > 0 && articleRevision > 0n && schemaRevision >= 0n && valueRevision >= 0n, 'workspace coordinates')
+    const fields: EditableProperty[] = [], identities = new Set<string>()
+    let previous = ''
+    for (let index = 0; index < size; index++) {
+      const definitionId = uuid(reader.uuid()), definitionRevision = reader.i64()
+      const machineKey = key(reader.text(WireLimits.PropertyKeyBytes)), title = label(reader.text(WireLimits.PropertyLabelBytes))
+      const deprecated = reader.bool(), kind = decodeKind(reader.i32())
+      const options = readOptions(reader, kind), value = readValue(reader, kind)
+      requireProperty(definitionRevision > 0n && definitionRevision <= schemaRevision &&
+        machineKey > previous && !identities.has(definitionId), 'field coordinates')
+      checkValueOptions(value, options)
+      fields.push({ definitionId, definitionRevision, machineKey, label: title, deprecated, kind, options, value })
+      identities.add(definitionId)
+      previous = machineKey
+    }
+    requireProperty(!nextKey || (size === WireLimits.PropertyPageSize && nextKey === previous), 'cursor')
+    return { articleId, articleRevision, schemaRevision, valueRevision, nextKey, fields }
+  })
 }
 
 function readReceipt(payload: Uint8Array) {

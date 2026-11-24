@@ -53,51 +53,34 @@ public static partial class Wire
     private const int CanvasBundleDigestBytes = 64;
     public const string CanvasBundleContentType = "application/vnd.fsus.canvas+json";
 
-    internal static void Validate(CanvasCreate input)
-    {
-        if (input.CanvasId == Guid.Empty || input.EdgeId == Guid.Empty ||
-            input.HostArticleId <= 0 || input.TargetArticleId <= 0 || input.HostArticleId == input.TargetArticleId)
-            throw new ProtocolException("Invalid Canvas identities.");
-    }
+    internal static void Validate(CanvasCreate input) =>
+        Check(input.CanvasId != Guid.Empty && input.EdgeId != Guid.Empty &&
+            input.HostArticleId > 0 && input.TargetArticleId > 0 && input.HostArticleId != input.TargetArticleId,
+            "Invalid Canvas identities.");
 
-    internal static void Validate(CanvasCreated input)
-    {
-        if (input.CanvasId == Guid.Empty || input.EdgeId == Guid.Empty || input.CanvasRevision <= 0)
-            throw new ProtocolException("Invalid Canvas coordinates.");
-    }
+    internal static void Validate(CanvasCreated input) =>
+        Check(input.CanvasId != Guid.Empty && input.EdgeId != Guid.Empty && input.CanvasRevision > 0, "Invalid Canvas coordinates.");
 
-    internal static void Validate(CanvasPreview input)
-    {
-        if (input.CanvasId == Guid.Empty || input.EdgeId == Guid.Empty || input.CanvasRevision <= 0 ||
-            input.HostRevision <= 0 || input.TargetRevision <= 0 || input.SourceOffset < 0)
-            throw new ProtocolException("Invalid Canvas preview coordinates.");
-    }
+    internal static void Validate(CanvasPreview input) =>
+        Check(input.CanvasId != Guid.Empty && input.EdgeId != Guid.Empty && input.CanvasRevision > 0 &&
+            input.HostRevision > 0 && input.TargetRevision > 0 && input.SourceOffset >= 0, "Invalid Canvas preview coordinates.");
 
-    internal static void Validate(CanvasLinkPlan input)
-    {
-        if (input.PlanId == Guid.Empty || input.CanvasRevision <= 0 || input.HostArticleId <= 0 ||
-            input.TargetArticleId <= 0 || input.HostArticleId == input.TargetArticleId || input.HostRevision <= 0 ||
-            input.TargetRevision <= 0 || input.SourceOffset < 0 || input.InsertedMarkdown.Length == 0 ||
-            input.ExpiresAtUnixSeconds <= 0)
-            throw new ProtocolException("Invalid Canvas link plan.");
-    }
+    internal static void Validate(CanvasLinkPlan input) =>
+        Check(input.PlanId != Guid.Empty && input.CanvasRevision > 0 && input.HostArticleId > 0 &&
+            input.TargetArticleId > 0 && input.HostArticleId != input.TargetArticleId && input.HostRevision > 0 &&
+            input.TargetRevision > 0 && input.SourceOffset >= 0 && input.InsertedMarkdown.Length != 0 &&
+            input.ExpiresAtUnixSeconds > 0, "Invalid Canvas link plan.");
 
-    internal static void Validate(CanvasConfirm input)
-    {
-        if (input.PlanId == Guid.Empty) throw new ProtocolException("Invalid Canvas link plan identity.");
-    }
+    internal static void Validate(CanvasConfirm input) => Check(input.PlanId != Guid.Empty, "Invalid Canvas link plan identity.");
 
-    internal static void Validate(CanvasLinked input)
-    {
-        if (input.PlanId == Guid.Empty || input.ArticleId <= 0 || input.ArticleRevision <= 0 || input.CanvasRevision <= 0)
-            throw new ProtocolException("Invalid Canvas link receipt.");
-    }
+    internal static void Validate(CanvasLinked input) =>
+        Check(input.PlanId != Guid.Empty && input.ArticleId > 0 && input.ArticleRevision > 0 && input.CanvasRevision > 0,
+            "Invalid Canvas link receipt.");
 
     // Frames encode variants by their elected fields. Domain validation runs after strict framing.
-    public static CanvasGraphCommand DecodeCanvasGraphCommand(ReadOnlySpan<byte> frame)
-    {
-        var command = DecodeFrame(FrameType.CanvasGraphCommand, frame, CanvasGraphCommandBytes, CanvasProtocolError,
-            static (ref Reader r) => new CanvasGraphCommand(r.Uuid(), r.Uuid(), r.I64(), (CanvasGraphAction)r.I32(),
+    public static CanvasGraphCommand DecodeCanvasGraphCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<CanvasGraphCommand>(FrameType.CanvasGraphCommand, frame, CanvasGraphCommandBytes, CanvasProtocolError,
+            static (ref Reader r) => new(r.Uuid(), r.Uuid(), r.I64(), (CanvasGraphAction)r.I32(),
                 r.Text(TitleBytes), r.OptionalValue(ReadViewport),
                 r.Items(0, CanvasGraphMaxChanges, CanvasProtocolError, static (ref Reader cr) => cr.I32() switch
                 {
@@ -106,10 +89,7 @@ public static partial class Wire
                     2 => new CanvasChangeFrame.PutEdge(ReadCanvasEdge(ref cr)),
                     3 => new CanvasChangeFrame.DropEdge(cr.Uuid()),
                     _ => throw CanvasProtocolError()
-                })));
-        ValidateCanvasCommand(command);
-        return command;
-    }
+                })), ValidateCanvasCommand);
 
     public static byte[] EncodeCanvasGraphCommand(CanvasGraphCommand command)
     {
@@ -183,24 +163,17 @@ public static partial class Wire
             return new(revision, undo == 0 ? null : undo, redo == 0 ? null : redo);
         }, ValidateCanvasHistory);
 
-    private static void ValidateCanvasHistory(CanvasGraphHistory history)
-    {
-        if (history.Revision <= 0 || history.UndoRevision is <= 0 || history.RedoRevision is <= 0
-            || history.UndoRevision > history.Revision || history.RedoRevision > history.Revision
-            || (history.UndoRevision.HasValue && history.UndoRevision == history.RedoRevision))
-            throw CanvasProtocolError();
-    }
+    private static void ValidateCanvasHistory(CanvasGraphHistory history) =>
+        Check(history.Revision > 0 && history.UndoRevision is not <= 0 && history.RedoRevision is not <= 0 &&
+            !(history.UndoRevision > history.Revision) && !(history.RedoRevision > history.Revision) &&
+            !(history.UndoRevision.HasValue && history.UndoRevision == history.RedoRevision), CanvasProtocolError);
 
-    private static void ValidateCanvasCommand(CanvasGraphCommand command)
-    {
-        if (command.Id == Guid.Empty || command.CommandId == Guid.Empty || !Enum.IsDefined(command.Action)
-            || command.ExpectedRevision < 0 || (command.ExpectedRevision == 0) != (command.Action == CanvasGraphAction.Create)
-            || command.Changes.Count > CanvasGraphMaxChanges)
-            throw CanvasProtocolError();
-        if ((command.Action is CanvasGraphAction.Undo or CanvasGraphAction.Redo)
-            && (command.Title.Length != 0 || command.Viewport.HasValue || command.Changes.Count != 0))
-            throw CanvasProtocolError();
-    }
+    private static void ValidateCanvasCommand(CanvasGraphCommand command) =>
+        Check(command.Id != Guid.Empty && command.CommandId != Guid.Empty && Enum.IsDefined(command.Action) &&
+            command.ExpectedRevision >= 0 && (command.ExpectedRevision == 0) == (command.Action == CanvasGraphAction.Create) &&
+            command.Changes.Count <= CanvasGraphMaxChanges &&
+            !(command.Action is CanvasGraphAction.Undo or CanvasGraphAction.Redo &&
+                (command.Title.Length != 0 || command.Viewport.HasValue || command.Changes.Count != 0)), CanvasProtocolError);
 
     private static void WriteCanvasReceipt(Writer w, CanvasGraphReceipt receipt)
     {
@@ -313,20 +286,14 @@ public static partial class Wire
                 .Items(value.Mappings, static (mw, mapping) =>
                     mw.I32(mapping.Slot).I32(mapping.ArticleId).I64(mapping.PinnedRevision ?? 0)).Bytes(value.Bundle));
 
-    public static CanvasBundleExecute DecodeCanvasBundleExecute(ReadOnlySpan<byte> frame)
-    {
-        var execute = DecodeFrame(FrameType.CanvasBundleExecute, frame, CanvasBundleExecuteFrameBytes, InvalidCanvasBundle,
-            static (ref Reader input) => new CanvasBundleExecute(input.Uuid(), input.Uuid(), input.Text(CanvasBundleDigestBytes),
+    public static CanvasBundleExecute DecodeCanvasBundleExecute(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<CanvasBundleExecute>(FrameType.CanvasBundleExecute, frame, CanvasBundleExecuteFrameBytes, InvalidCanvasBundle,
+            static (ref Reader input) => new(input.Uuid(), input.Uuid(), input.Text(CanvasBundleDigestBytes),
                 input.Items(0, CanvasBundleMaxReferences, CanvasProtocolError, static (ref Reader r) =>
                 {
-                    var slot = r.I32();
-                    var article = r.I32();
-                    var revision = r.I64();
+                    var (slot, article, revision) = (r.I32(), r.I32(), r.I64());
                     return new CanvasBundleMapping(slot, article, revision == 0 ? null : revision);
-                }), input.Bytes(CanvasBundleBytes).ToArray()));
-        ValidateCanvasBundleExecute(execute);
-        return execute;
-    }
+                }), input.Bytes(CanvasBundleBytes).ToArray()), ValidateCanvasBundleExecute);
 
     private static void ValidateCanvasBundlePlan(CanvasBundlePlan plan)
     {

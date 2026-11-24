@@ -858,14 +858,7 @@ public static class LocalSearchCorpus
     {
         if (word.Length == 1) return HashRune(new Rune(word[0]));
         Span<byte> bytes = stackalloc byte[word.Length * 3];
-        var length = Utf8.GetBytes(word, bytes);
-        uint hash = 0;
-        var offset = 0;
-        for (; length - offset >= 4; offset += 4)
-            hash = MixWord(hash, BinaryPrimitives.ReadUInt32LittleEndian(bytes[offset..]));
-        uint tail = 0;
-        for (var i = 0; offset + i < length; i++) tail |= (uint)bytes[offset + i] << (8 * i);
-        return FinishHash(hash, tail, length);
+        return HashBytes(bytes[..Utf8.GetBytes(word, bytes)]);
     }
 
     internal static uint HashAscii(ReadOnlySpan<char> token)
@@ -880,21 +873,24 @@ public static class LocalSearchCorpus
             offset += 4;
         }
         uint tail = 0;
-        for (var i = 0; offset + i < token.Length; i++)
-            tail |= LowerAscii(token[offset + i]) << (8 * i);
+        for (var i = 0; offset + i < token.Length; i++) tail |= LowerAscii(token[offset + i]) << (8 * i);
         return FinishHash(hash, tail, token.Length);
     }
 
     internal static uint HashRune(Rune rune)
     {
         Span<byte> encoded = stackalloc byte[4];
-        var bytes = encoded[..rune.EncodeToUtf8(encoded)];
+        return HashBytes(encoded[..rune.EncodeToUtf8(encoded)]);
+    }
+
+    private static uint HashBytes(ReadOnlySpan<byte> bytes)
+    {
         uint hash = 0;
-        var offset = bytes.Length == 4 ? 4 : 0;
-        if (offset == 4) hash = MixWord(0, BinaryPrimitives.ReadUInt32LittleEndian(bytes));
+        var offset = 0;
+        for (; bytes.Length - offset >= 4; offset += 4)
+            hash = MixWord(hash, BinaryPrimitives.ReadUInt32LittleEndian(bytes[offset..]));
         uint tail = 0;
-        for (var i = 0; offset + i < bytes.Length; i++)
-            tail |= (uint)bytes[offset + i] << (8 * i);
+        for (var i = 0; offset + i < bytes.Length; i++) tail |= (uint)bytes[offset + i] << (8 * i);
         return FinishHash(hash, tail, bytes.Length);
     }
 

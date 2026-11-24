@@ -80,31 +80,22 @@ public static partial class Wire
         return runes > 0 && Encoding.UTF8.GetByteCount(value) <= PublicCommentHandleBytes;
     }
 
-    internal static void Validate(SiteDisplayNameState value)
-    {
-        if (value?.DisplayName is null || value.DisplayName.Length > 0 && !ValidSiteDisplayName(value.DisplayName))
-            throw new ProtocolException("Invalid site display name state.");
-    }
+    internal static void Validate(SiteDisplayNameState value) =>
+        Check(value?.DisplayName is not null && (value.DisplayName.Length == 0 || ValidSiteDisplayName(value.DisplayName)),
+            "Invalid site display name state.");
 
-    internal static void Validate(SiteDisplayNameCommand value)
-    {
-        if (value is null || !ValidSiteDisplayName(value.DisplayName))
-            throw new ProtocolException("Invalid site display name command.");
-    }
+    internal static void Validate(SiteDisplayNameCommand value) =>
+        Check(value is not null && ValidSiteDisplayName(value.DisplayName), "Invalid site display name command.");
 
-    internal static void Validate(AdminHandleCommand value)
-    {
-        if (value is null || value.IdempotencyKey == Guid.Empty ||
-            !ValidAdminHandle(value.ExpectedHandle) || !ValidAdminHandle(value.NewHandle) ||
-            string.Equals(value.ExpectedHandle, value.NewHandle, StringComparison.Ordinal))
-            throw new ProtocolException("Invalid administrator handle rename command.");
-    }
+    internal static void Validate(AdminHandleCommand value) =>
+        Check(value is not null && value.IdempotencyKey != Guid.Empty &&
+            ValidAdminHandle(value.ExpectedHandle) && ValidAdminHandle(value.NewHandle) &&
+            !string.Equals(value.ExpectedHandle, value.NewHandle, StringComparison.Ordinal),
+            "Invalid administrator handle rename command.");
 
-    internal static void Validate(AdminHandleReceipt value)
-    {
-        if (value is null || !ValidAdminHandle(value.Handle) || value.HappenedAtUnixMs is <= 0 or > MaxAccountRenameUnixMs)
-            throw new ProtocolException("Invalid administrator handle rename receipt.");
-    }
+    internal static void Validate(AdminHandleReceipt value) =>
+        Check(value is not null && ValidAdminHandle(value.Handle) && value.HappenedAtUnixMs is > 0 and <= MaxAccountRenameUnixMs,
+            "Invalid administrator handle rename receipt.");
 
     private static T? ReadCommentJson<T>(ReadOnlySpan<byte> payload, JsonTypeInfo<T> type) where T : class
     {
@@ -168,11 +159,9 @@ public static partial class Wire
             ValidCommentProof(proof) ? request : throw new ProtocolException("Invalid comment author edit request.");
     }
 
-    internal static void Validate(CommentAuthorEditDetail value)
-    {
-        if (value is not { ArticleId: > 0, Publication: > 0, CurrentVersion: > 0 and < MaxCommentAuthorVersion, Body.Length: > 0 })
-            throw new ProtocolException("Invalid comment author edit detail.");
-    }
+    internal static void Validate(CommentAuthorEditDetail value) =>
+        Check(value is { ArticleId: > 0, Publication: > 0, CurrentVersion: > 0 and < MaxCommentAuthorVersion, Body.Length: > 0 },
+            "Invalid comment author edit detail.");
 
     public static string ReadCommentAuthorDeleteRequest(ReadOnlySpan<byte> frame)
     {
@@ -235,50 +224,36 @@ public static partial class Wire
     public static byte[] EncodeAdminCommentTimeline(AdminCommentTimeline timeline) =>
         WriteCommentJson(FrameType.CommentModerationTimeline, timeline, AdminCommentRevisionJson.Default.AdminCommentTimeline);
 
-    internal static void Validate(PublicCommentEligibility eligibility)
-    {
-        if (eligibility.ArticleId <= 0 || eligibility.Publication <= 0 || string.IsNullOrWhiteSpace(eligibility.DisplayName))
-            throw new ProtocolException("Invalid public comment eligibility response");
-    }
+    internal static void Validate(PublicCommentEligibility eligibility) =>
+        Check(eligibility.ArticleId > 0 && eligibility.Publication > 0 && !string.IsNullOrWhiteSpace(eligibility.DisplayName),
+            "Invalid public comment eligibility response");
 
     internal static void Validate(PublicCommentSubmission submission) => ValidatePublicCommentCoordinates(submission.ArticleId,
         submission.Publication, submission.IdempotencyKey, submission.ExplicitPublic, submission.DisplayName);
 
     internal static void Validate(PublicCommentReply reply)
     {
-        if (reply.ParentId <= 0) throw new ProtocolException("Invalid authenticated public comment reply target");
+        Check(reply.ParentId > 0, "Invalid authenticated public comment reply target");
         ValidatePublicCommentCoordinates(reply.ArticleId, reply.Publication, reply.IdempotencyKey, reply.ExplicitPublic, reply.DisplayName);
     }
 
-    private static void ValidatePublicCommentCoordinates(int article, long publication, Guid id, bool explicitPublic, string display)
-    {
-        if (article <= 0 || publication <= 0 || id == Guid.Empty || !explicitPublic || string.IsNullOrWhiteSpace(display))
-            throw new ProtocolException("Invalid authenticated public comment coordinates");
-    }
+    private static void ValidatePublicCommentCoordinates(int article, long publication, Guid id, bool explicitPublic, string display) =>
+        Check(article > 0 && publication > 0 && id != Guid.Empty && explicitPublic && !string.IsNullOrWhiteSpace(display),
+            "Invalid authenticated public comment coordinates");
 
-    internal static void Validate(PublicCommentSubmissionResult result)
-    {
-        if (result.ArticleId <= 0 || result.CommentId <= 0 || result.ModerationStatus is < 0 or > 3)
-            throw new ProtocolException("Invalid public comment submission result");
-    }
+    internal static void Validate(PublicCommentSubmissionResult result) =>
+        Check(result.ArticleId > 0 && result.CommentId > 0 && result.ModerationStatus is >= 0 and <= 3,
+            "Invalid public comment submission result");
 
-    internal static void Validate(RecoveryKeyOperation value)
-    {
-        if (value.Operation is not (1 or 2)) throw new ProtocolException("Invalid recovery key operation.");
-    }
+    internal static void Validate(RecoveryKeyOperation value) =>
+        Check(value.Operation is 1 or 2, "Invalid recovery key operation.");
 
-    internal static void Validate(RecoveryKeyIssued value)
-    {
-        if (!IsRecoveryKey(value.Key) || value.Version <= 0 || value.CreatedAt <= 0)
-            throw new ProtocolException("Invalid recovery key receipt.");
-    }
+    internal static void Validate(RecoveryKeyIssued value) =>
+        Check(IsRecoveryKey(value.Key) && value.Version > 0 && value.CreatedAt > 0, "Invalid recovery key receipt.");
 
     internal static void Validate(RecoveryKeyStatus value) { }
 
-    internal static void Validate(RecoveryKeyVerify value)
-    {
-        if (!IsRecoveryKey(value.Key)) throw new ProtocolException("Invalid recovery key.");
-    }
+    internal static void Validate(RecoveryKeyVerify value) => Check(IsRecoveryKey(value.Key), "Invalid recovery key.");
 
     private static bool IsRecoveryKey(string key) =>
         key.Length == RecoveryKeyBytes && key.StartsWith("frk_", StringComparison.Ordinal) &&
@@ -286,19 +261,15 @@ public static partial class Wire
 
     public static bool IsRootCommentPowLifetime(int seconds) => seconds is >= RootCommentPowMinSeconds and <= PowChallengeSeconds;
 
-    internal static void Validate(AdminRootCommentPowPolicy value)
-    {
-        if (value.Generation < 1 || !IsLowerHex(value.Digest, RootCommentPowDigestBytes) || !IsRootCommentPowLifetime(value.ProofSeconds) ||
-            (value.Generation == 1 ? value.ProofSeconds != PowChallengeSeconds || value.PreviousSeconds != 0
-                : !IsRootCommentPowLifetime(value.PreviousSeconds) || value.PreviousSeconds == value.ProofSeconds))
-            throw new ProtocolException("Invalid root comment proof policy.");
-    }
+    internal static void Validate(AdminRootCommentPowPolicy value) =>
+        Check(value.Generation >= 1 && IsLowerHex(value.Digest, RootCommentPowDigestBytes) && IsRootCommentPowLifetime(value.ProofSeconds) &&
+            (value.Generation == 1 ? value.ProofSeconds == PowChallengeSeconds && value.PreviousSeconds == 0
+                : IsRootCommentPowLifetime(value.PreviousSeconds) && value.PreviousSeconds != value.ProofSeconds),
+            "Invalid root comment proof policy.");
 
-    internal static void Validate(AdminRootCommentPowCommand value)
-    {
-        if (value.ExpectedGeneration < 1 || !IsLowerHex(value.ExpectedDigest, RootCommentPowDigestBytes) || !IsRootCommentPowLifetime(value.ProofSeconds))
-            throw new ProtocolException("Invalid root comment proof policy command.");
-    }
+    internal static void Validate(AdminRootCommentPowCommand value) =>
+        Check(value.ExpectedGeneration >= 1 && IsLowerHex(value.ExpectedDigest, RootCommentPowDigestBytes) &&
+            IsRootCommentPowLifetime(value.ProofSeconds), "Invalid root comment proof policy command.");
 
     public static byte[] EncodeSitePasskeys(IReadOnlyList<SitePasskeyRow> rows)
     {
@@ -359,40 +330,35 @@ public static partial class Wire
     private static bool ValidSitePasskeyName(string value) =>
         value.Length <= SitePasskeyNameChars && !string.IsNullOrWhiteSpace(value);
 
-    private static void ValidateSitePasskeyRename(SitePasskeyRename value)
-    {
-        if (!ValidSitePasskeyReference(value.Reference) || value.ExpectedRevision < 0 || !ValidSitePasskeyName(value.Name))
-            throw new ProtocolException("Invalid site Passkey rename.");
-    }
+    private static void ValidateSitePasskeyRename(SitePasskeyRename value) =>
+        Check(ValidSitePasskeyReference(value.Reference) && value.ExpectedRevision >= 0 && ValidSitePasskeyName(value.Name),
+            "Invalid site Passkey rename.");
 
     private static void WriteSitePasskeyRow(Writer writer, SitePasskeyRow row, bool current)
     {
-        if (row.CreatedAt <= 0 || !IsValidUnixMs(row.CreatedAt) ||
-            row.LastUsedAt is { } used && (used <= 0 || !IsValidUnixMs(used)) ||
-            (row.BackedUp && !row.BackupEligible) || row.Current != current)
-            throw new ProtocolException("Invalid site Passkey row.");
+        Check(row.CreatedAt > 0 && IsValidUnixMs(row.CreatedAt) &&
+            (row.LastUsedAt is not { } used || used > 0 && IsValidUnixMs(used)) &&
+            (!row.BackedUp || row.BackupEligible) && row.Current == current, "Invalid site Passkey row.");
         writer.I64(row.CreatedAt).I64(row.LastUsedAt ?? 0).Bool(row.BackupEligible).Bool(row.BackedUp).Bool(row.Current);
     }
 
     public static byte[] EncodeSiteSessions(SiteSessionList value)
     {
-        if (value.Sessions.Count is < 1 or > SiteSessionListSize || !value.Sessions[0].Current ||
-            value.Sessions.Skip(1).Any(row => row.Current)) throw new ProtocolException("Invalid site session list.");
+        Check(value.Sessions.Count is >= 1 and <= SiteSessionListSize && value.Sessions[0].Current &&
+            !value.Sessions.Skip(1).Any(row => row.Current), "Invalid site session list.");
         return EncodeFrame(FrameType.SiteSessionList, writer => writer.Bool(value.HasMore).Items(value.Sessions, static (w, row) =>
         {
-            if (!ValidSiteSessionId(row.Id) || row.ExpiresAt <= 0 || row.Method is < 1 or > 2 || (row.Method == 1 && row.Mfa))
-                throw new ProtocolException("Invalid site session row.");
+            Check(ValidSiteSessionId(row.Id) && row.ExpiresAt > 0 && row.Method is >= 1 and <= 2 && !(row.Method == 1 && row.Mfa),
+                "Invalid site session row.");
             w.Text(row.Id, SiteSessionIdBytes).I64(row.ExpiresAt).Bool(row.Current).I32(row.Method).Bool(row.Mfa);
         }));
     }
 
     public static bool ValidSiteSessionId(string? value) => value is not null && IsLowerHex(value, SiteSessionIdBytes);
 
-    internal static void Validate(SubscriptionPreferenceRequest request)
-    {
-        if (string.IsNullOrEmpty(request.Email) || request.Email.Length > SubscriptionEmailBytes ||
-            !request.Email.All(c => c is >= '!' and <= '~') ||
-            request.Channel is not (WireLayouts.SubscriptionRssChannel or WireLayouts.SubscriptionEmailChannel))
-            throw new ProtocolException("Invalid subscription preference request");
-    }
+    internal static void Validate(SubscriptionPreferenceRequest request) =>
+        Check(!string.IsNullOrEmpty(request.Email) && request.Email.Length <= SubscriptionEmailBytes &&
+            request.Email.All(c => c is >= '!' and <= '~') &&
+            request.Channel is WireLayouts.SubscriptionRssChannel or WireLayouts.SubscriptionEmailChannel,
+            "Invalid subscription preference request");
 }

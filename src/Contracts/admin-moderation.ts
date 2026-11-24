@@ -1,7 +1,7 @@
-import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
+import { encodeFrame, ProtocolError } from './aeds.ts';
 import type { AdminCommentCursor } from './admin-identity.ts';
 import { adminProofHeaders } from './admin-step-up.ts';
-import { post } from './internal/http.ts';
+import { post, postEmpty } from './internal/http.ts';
 import {
   decodeAdminModerationClaim,
   encodeAdminModerationClaim,
@@ -37,14 +37,12 @@ export function renewCommentClaim(claim: AdminModerationClaim, signal: AbortSign
 }
 
 export function releaseCommentClaim(claim: AdminModerationClaim, signal: AbortSignal): Promise<void> {
-  const body = encodeFrame(FrameType.AdminModerationClaim, encodeAdminModerationClaim(claim));
-  return post(WireRoutes.AdminModerationRelease, FrameType.EmptySuccess, decodeSuccess, signal, body);
+  return postEmpty(WireRoutes.AdminModerationRelease, signal, encodeFrame(FrameType.AdminModerationClaim, encodeAdminModerationClaim(claim)));
 }
 
 export function decideComment(decision: AdminModerationDecision, proof: string, signal: AbortSignal): Promise<void> {
-  const body = encodeFrame(FrameType.AdminModerationDecision, encodeAdminModerationDecision(decision));
-  return post(WireRoutes.AdminModerationDecision, FrameType.EmptySuccess, decodeSuccess, signal, body,
-    adminProofHeaders(proof));
+  return postEmpty(WireRoutes.AdminModerationDecision, signal,
+    encodeFrame(FrameType.AdminModerationDecision, encodeAdminModerationDecision(decision)), adminProofHeaders(proof));
 }
 
 function readClaim(payload: Uint8Array, target: AdminCommentCursor): AdminModerationClaim {

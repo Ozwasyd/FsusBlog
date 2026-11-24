@@ -297,27 +297,23 @@ public static partial class Wire
         return length;
     }
 
-    internal static void Validate(ArticleBodyInsertionCommand value)
-    {
-        if (value.Id <= 0 || value.ExpectedRevision <= 0 || value.IdempotencyKey == Guid.Empty ||
-            value.Offset < 0 || value.Length <= 0 || value.Length > value.Body.Length || value.Offset > value.Body.Length - value.Length)
-            throw new ProtocolException("Invalid article insertion command coordinates.");
-    }
+    internal static void Validate(ArticleBodyInsertionCommand value) =>
+        Check(value.Id > 0 && value.ExpectedRevision > 0 && value.IdempotencyKey != Guid.Empty &&
+            value.Offset >= 0 && value.Length > 0 && value.Length <= value.Body.Length && value.Offset <= value.Body.Length - value.Length,
+            "Invalid article insertion command coordinates.");
 
     internal static void Validate(DraftRevisionBodyInsertion value)
     {
-        if (value.Id <= 0 || value.SourceRevision <= 0 || value.SourceRevision >= value.Revision)
-            throw new ProtocolException("Invalid saved body insertion coordinates.");
-        if (value.Available)
-        {
-            if (value.SourceRevision == value.Revision - 1 && value.Offset >= 0 && value.Offset <= value.SourceBody.Length &&
+        Check(value.Id > 0 && value.SourceRevision > 0 && value.SourceRevision < value.Revision,
+            "Invalid saved body insertion coordinates.");
+        Check(value.Available
+            ? value.SourceRevision == value.Revision - 1 && value.Offset >= 0 && value.Offset <= value.SourceBody.Length &&
                 value.Length > 0 && value.Length == value.Body.Length - value.SourceBody.Length &&
                 IsLowerHex(value.SourceDigest, ArticleBodyInsertionDigestBytes) &&
-                IsLowerHex(value.Digest, ArticleBodyInsertionDigestBytes)) return;
-        }
-        else if (value.Offset == 0 && value.Length == 0 && value.SourceDigest.Length == 0 && value.Digest.Length == 0 &&
-            value.SourceBody.Length == 0 && value.Body.Length == 0) return;
-        throw new ProtocolException("Invalid saved body insertion payload.");
+                IsLowerHex(value.Digest, ArticleBodyInsertionDigestBytes)
+            : value.Offset == 0 && value.Length == 0 && value.SourceDigest.Length == 0 && value.Digest.Length == 0 &&
+                value.SourceBody.Length == 0 && value.Body.Length == 0,
+            "Invalid saved body insertion payload.");
     }
 
     private static ProtocolException InvalidBodyEdits() => new("Invalid saved body edit chain.");
@@ -331,11 +327,8 @@ public static partial class Wire
         DecodeRecord<ArticleCoverCommand>(FrameType.ArticleCoverCommand, frame,
             static (ref Reader reader) => new(reader.I32(), reader.I64(), reader.Uuid(), reader.Uuid()), ValidateCover);
 
-    private static void ValidateCover(ArticleCoverCommand value)
-    {
-        if (value.Id <= 0 || value.ExpectedRevision <= 0 || value.IdempotencyKey == Guid.Empty)
-            throw new ProtocolException("Invalid saved article cover command.");
-    }
+    private static void ValidateCover(ArticleCoverCommand value) =>
+        Check(value.Id > 0 && value.ExpectedRevision > 0 && value.IdempotencyKey != Guid.Empty, "Invalid saved article cover command.");
 
     public static byte[] EncodeArticleMediaCommand(ArticleMediaCommand value) =>
         EncodeRecord(FrameType.ArticleMediaCommand, value, ValidateMedia, static (writer, record) =>
@@ -347,20 +340,18 @@ public static partial class Wire
 
     public static byte[] EncodeArticleMedia(int article, long revision, IReadOnlyList<ArticleMediaEntry> entries)
     {
-        if (article <= 0 || revision <= 0 || entries.Count > 32) throw new ProtocolException("Invalid private article attachments.");
+        Check(article > 0 && revision > 0 && entries.Count <= 32, "Invalid private article attachments.");
         return EncodeFrame(FrameType.ArticleMedia, writer => writer.I32(article).I64(revision).Items(entries, static (w, entry) =>
         {
-            if (entry.Id == Guid.Empty || entry.Ticket.Length != 91 || !IsBase64Url(entry.Ticket))
-                throw new ProtocolException("Invalid private article attachment coordinate.");
+            Check(entry.Id != Guid.Empty && entry.Ticket.Length == 91 && IsBase64Url(entry.Ticket),
+                "Invalid private article attachment coordinate.");
             w.Uuid(entry.Id).Text(entry.Ticket, 91);
         }));
     }
 
-    private static void ValidateMedia(ArticleMediaCommand value)
-    {
-        if (value.Id <= 0 || value.ExpectedRevision <= 0 || value.IdempotencyKey == Guid.Empty || value.AssetId == Guid.Empty)
-            throw new ProtocolException("Invalid private article attachment command.");
-    }
+    private static void ValidateMedia(ArticleMediaCommand value) =>
+        Check(value.Id > 0 && value.ExpectedRevision > 0 && value.IdempotencyKey != Guid.Empty && value.AssetId != Guid.Empty,
+            "Invalid private article attachment command.");
 
     public static void DecodeArticleReadChallengeRequest(ReadOnlySpan<byte> frame)
     {
@@ -426,51 +417,33 @@ public static partial class Wire
         value.Length <= max && value == value.Trim() &&
         !value.Any(character => char.IsControl(character) && (!multiline || character is not ('\r' or '\n' or '\t')));
 
-    internal static void Validate(ArticleSchedule value)
-    {
-        if (value.Id <= 0 || value.Revision <= 0 || value.DueUnixMs < 0 || !IsValidUnixMs(value.DueUnixMs) ||
-            value.PublishedRevision < 0 || value.PublishedRevision > value.Revision)
-            throw new ProtocolException("Invalid schedule coordinates");
-    }
+    internal static void Validate(ArticleSchedule value) =>
+        Check(value.Id > 0 && value.Revision > 0 && value.DueUnixMs >= 0 && IsValidUnixMs(value.DueUnixMs) &&
+            value.PublishedRevision >= 0 && value.PublishedRevision <= value.Revision, "Invalid schedule coordinates");
 
-    internal static void Validate(ArticleScheduleCommand value)
-    {
-        if (value.Id <= 0 || value.ExpectedRevision <= 0 || value.IdempotencyKey == Guid.Empty ||
-            value.DueUnixMs < 0 || !IsValidUnixMs(value.DueUnixMs))
-            throw new ProtocolException("Invalid schedule command");
-    }
+    internal static void Validate(ArticleScheduleCommand value) =>
+        Check(value.Id > 0 && value.ExpectedRevision > 0 && value.IdempotencyKey != Guid.Empty &&
+            value.DueUnixMs >= 0 && IsValidUnixMs(value.DueUnixMs), "Invalid schedule command");
 
-    public static byte[] EncodeArticleSummaryCommand(ArticleSummaryCommand value)
-    {
-        ValidateArticleSummaryCommand(value);
-        return EncodeFrame(FrameType.ArticleSummaryCommand, writer =>
-            WriteArticleSummaryText(writer.I32(value.Id).I64(value.ExpectedRevision).Uuid(value.IdempotencyKey),
-                value.Text, ArticleSummaryEditBytes));
-    }
+    public static byte[] EncodeArticleSummaryCommand(ArticleSummaryCommand value) =>
+        EncodeRecord(FrameType.ArticleSummaryCommand, value, ValidateArticleSummaryCommand, static (writer, record) =>
+            WriteArticleSummaryText(writer.I32(record.Id).I64(record.ExpectedRevision).Uuid(record.IdempotencyKey),
+                record.Text, ArticleSummaryEditBytes));
 
-    public static ArticleSummaryCommand DecodeArticleSummaryCommand(ReadOnlySpan<byte> frame)
-    {
-        var value = DecodeFrame(FrameType.ArticleSummaryCommand, frame, MaxArticleSummaryCommandFrameBytes, InvalidArticleSummary,
-            static (ref Reader reader) => new ArticleSummaryCommand(reader.I32(), reader.I64(), reader.Uuid(),
-                reader.Text(ArticleSummaryEditBytes)));
-        ValidateArticleSummaryCommand(value);
-        return value;
-    }
+    public static ArticleSummaryCommand DecodeArticleSummaryCommand(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<ArticleSummaryCommand>(FrameType.ArticleSummaryCommand, frame, MaxArticleSummaryCommandFrameBytes,
+            InvalidArticleSummary, static (ref Reader reader) => new(reader.I32(), reader.I64(), reader.Uuid(),
+                reader.Text(ArticleSummaryEditBytes)), ValidateArticleSummaryCommand);
 
-    public static byte[] EncodeArticleSummary(ArticleSummary value)
-    {
-        ValidateArticleSummary(value.Id, value.Revision, value.Text, ArticleSummaryReadChars);
-        return EncodeFrame(FrameType.ArticleSummary, writer =>
-            WriteArticleSummaryText(writer.I32(value.Id).I64(value.Revision), value.Text, ArticleSummaryReadBytes));
-    }
+    public static byte[] EncodeArticleSummary(ArticleSummary value) =>
+        EncodeRecord(FrameType.ArticleSummary, value,
+            static record => ValidateArticleSummary(record.Id, record.Revision, record.Text, ArticleSummaryReadChars),
+            static (writer, record) => WriteArticleSummaryText(writer.I32(record.Id).I64(record.Revision), record.Text, ArticleSummaryReadBytes));
 
-    public static ArticleSummary DecodeArticleSummary(ReadOnlySpan<byte> frame)
-    {
-        var value = DecodeFrame(FrameType.ArticleSummary, frame,
-            static (ref Reader reader) => new ArticleSummary(reader.I32(), reader.I64(), reader.Text(ArticleSummaryReadBytes)));
-        ValidateArticleSummary(value.Id, value.Revision, value.Text, ArticleSummaryReadChars);
-        return value;
-    }
+    public static ArticleSummary DecodeArticleSummary(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<ArticleSummary>(FrameType.ArticleSummary, frame,
+            static (ref Reader reader) => new(reader.I32(), reader.I64(), reader.Text(ArticleSummaryReadBytes)),
+            static value => ValidateArticleSummary(value.Id, value.Revision, value.Text, ArticleSummaryReadChars));
 
     private static void WriteArticleSummaryText(Writer writer, string text, int maxBytes)
     {
@@ -480,14 +453,12 @@ public static partial class Wire
 
     private static void ValidateArticleSummaryCommand(ArticleSummaryCommand value)
     {
-        if (value.IdempotencyKey == Guid.Empty) throw InvalidArticleSummary();
+        Check(value.IdempotencyKey != Guid.Empty, InvalidArticleSummary);
         ValidateArticleSummary(value.Id, value.ExpectedRevision, value.Text, ArticleSummaryEditChars);
     }
 
-    private static void ValidateArticleSummary(int id, long revision, string text, int maxChars)
-    {
-        if (id <= 0 || revision <= 0 || text.Length > maxChars || text.Contains('\0')) throw InvalidArticleSummary();
-    }
+    private static void ValidateArticleSummary(int id, long revision, string text, int maxChars) =>
+        Check(id > 0 && revision > 0 && text.Length <= maxChars && !text.Contains('\0'), InvalidArticleSummary);
 
     private static ProtocolException InvalidArticleSummary() => new("Invalid private article summary.");
 
@@ -503,19 +474,13 @@ public static partial class Wire
             WriteOptionalTaxonomy(w.I32(row.Id).I64(row.Revision).Text(row.Title, TitleBytes)
                 .I32((int)row.State).I64(row.ModifiedUnixMs).I64(row.ScheduledUnixMs), row.Category, row.Tags)));
 
-    internal static void Validate(AuthorRecentOpenCommand value)
-    {
-        if (value.SchemaVersion != 1 || value.ExpectedRevision is < 0 or long.MaxValue || value.RequestId == Guid.Empty ||
-            value.ArticleId <= 0 || value.ArticleRevision <= 0)
-            throw new ProtocolException("Invalid author recent open command.");
-    }
+    internal static void Validate(AuthorRecentOpenCommand value) =>
+        Check(value.SchemaVersion == 1 && value.ExpectedRevision is >= 0 and < long.MaxValue && value.RequestId != Guid.Empty &&
+            value.ArticleId > 0 && value.ArticleRevision > 0, "Invalid author recent open command.");
 
-    internal static void Validate(AuthorRecentOpenReceipt value)
-    {
-        if (value.SchemaVersion != 1 || value.Revision <= 0 || value.RequestId == Guid.Empty || value.ArticleId <= 0 ||
-            value.ArticleRevision <= 0 || value.OpenedAtUnixMs <= 0)
-            throw new ProtocolException("Invalid author recent open receipt.");
-    }
+    internal static void Validate(AuthorRecentOpenReceipt value) =>
+        Check(value.SchemaVersion == 1 && value.Revision > 0 && value.RequestId != Guid.Empty && value.ArticleId > 0 &&
+            value.ArticleRevision > 0 && value.OpenedAtUnixMs > 0, "Invalid author recent open receipt.");
 
     public static byte[] EncodeAuthorRecentOpenPage(AuthorRecentOpenPage value) =>
         EncodeFrame(FrameType.AuthorRecentOpenPage, writer => writer.I32(1).I64(value.Revision)
@@ -667,12 +632,9 @@ public static partial class Wire
         return result;
     }
 
-    private static void ValidateDocumentExport(DocumentExportCreate request)
-    {
-        if (request.Id == Guid.Empty || request.Article <= 0 || request.SourceRevision <= 0 ||
-            request.SourceRevision > request.Revision || !Enum.IsDefined(request.Format))
-            throw InvalidDocumentExport();
-    }
+    private static void ValidateDocumentExport(DocumentExportCreate request) =>
+        Check(request.Id != Guid.Empty && request.Article > 0 && request.SourceRevision > 0 &&
+            request.SourceRevision <= request.Revision && Enum.IsDefined(request.Format), InvalidDocumentExport);
 
     private static void ValidateDocumentExportTask(DocumentExportTask task)
     {
@@ -681,25 +643,21 @@ public static partial class Wire
         var terminal = task.State is DocumentExportState.Succeeded or DocumentExportState.Failed or
             DocumentExportState.Cancelled or DocumentExportState.Blocked;
         var failure = task.State is DocumentExportState.Failed or DocumentExportState.Blocked;
-        if (!Enum.IsDefined(task.State) || !Enum.IsDefined(task.Failure) || task.Provider is < 1 or > 4 ||
-            task.Created <= 0 || task.Expires <= task.Created ||
-            (task.Started != 0 && task.Started < task.Created) ||
-            (task.Finished != 0 && task.Finished < Math.Max(task.Created, task.Started)) ||
-            (task.State is DocumentExportState.Running or DocumentExportState.Cancelling or DocumentExportState.Succeeded && task.Started == 0) ||
-            terminal != (task.Finished != 0) || failure != (task.Failure != DocumentExportFailure.None) ||
-            task.SourceDigest.Length != 32 ||
-            (ready ? task.OutputDigest?.Length != 32 || task.OutputBytes is <= 0 or > 4 * 1024 * 1024 :
-                task.OutputDigest is not null || task.OutputBytes != 0))
-            throw InvalidDocumentExport();
+        Check(Enum.IsDefined(task.State) && Enum.IsDefined(task.Failure) && task.Provider is >= 1 and <= 4 &&
+            task.Created > 0 && task.Expires > task.Created &&
+            (task.Started == 0 || task.Started >= task.Created) &&
+            (task.Finished == 0 || task.Finished >= Math.Max(task.Created, task.Started)) &&
+            (task.State is not (DocumentExportState.Running or DocumentExportState.Cancelling or DocumentExportState.Succeeded) || task.Started != 0) &&
+            terminal == (task.Finished != 0) && failure == (task.Failure != DocumentExportFailure.None) &&
+            task.SourceDigest.Length == 32 &&
+            (ready ? task.OutputDigest?.Length == 32 && task.OutputBytes is > 0 and <= 4 * 1024 * 1024
+                : task.OutputDigest is null && task.OutputBytes == 0), InvalidDocumentExport);
     }
 
     private static ProtocolException InvalidDocumentExport() => new("Invalid document export frame.");
 
-    internal static void Validate(DraftRecoveryScope input)
-    {
-        if (input.SiteId == Guid.Empty || input.UserId == Guid.Empty)
-            throw new ProtocolException("Invalid recovery scope.");
-    }
+    internal static void Validate(DraftRecoveryScope input) =>
+        Check(input.SiteId != Guid.Empty && input.UserId != Guid.Empty, "Invalid recovery scope.");
 
     public static byte[] EncodePrivateMediaUpload(Guid id, int length, int partSize, long expiresAt,
         bool reserved, Guid? asset, IReadOnlyList<int> received)
@@ -756,23 +714,18 @@ public static partial class Wire
                     r.I32(), r.I32(), r.I32(), r.I32()))),
             ValidatePublicArticleMedia);
 
-    private static void ValidatePublishImages(ArticlePublishImages value)
-    {
-        if (value.ArticleId <= 0 || value.ExpectedRevision <= 0 || value.IdempotencyKey == Guid.Empty ||
-            value.AssetIds.Count is < 1 or > ArticlePublishImages.Maximum || value.AssetIds.Contains(Guid.Empty) ||
-            value.AssetIds.Distinct().Count() != value.AssetIds.Count)
-            throw InvalidPublishImages();
-    }
+    private static void ValidatePublishImages(ArticlePublishImages value) =>
+        Check(value.ArticleId > 0 && value.ExpectedRevision > 0 && value.IdempotencyKey != Guid.Empty &&
+            value.AssetIds.Count is >= 1 and <= ArticlePublishImages.Maximum && !value.AssetIds.Contains(Guid.Empty) &&
+            value.AssetIds.Distinct().Count() == value.AssetIds.Count, InvalidPublishImages);
 
     private static void ValidatePublicArticleMedia(PublicArticleMedia value)
     {
-        if (value.ArticleId <= 0 || value.Publication <= 0 || value.Images.Count > ArticlePublishImages.Maximum)
-            throw InvalidArticleMedia();
+        Check(value.ArticleId > 0 && value.Publication > 0 && value.Images.Count <= ArticlePublishImages.Maximum, InvalidArticleMedia);
         var total = 0L;
         var digests = new HashSet<string>(StringComparer.Ordinal);
         foreach (var image in value.Images)
-            if (!image.Valid() || !digests.Add(image.Digest) || (total += image.Length) > 40 * 1024 * 1024)
-                throw InvalidArticleMedia();
+            Check(image.Valid() && digests.Add(image.Digest) && (total += image.Length) <= 40 * 1024 * 1024, InvalidArticleMedia);
     }
 
     private static ProtocolException InvalidPublishImages() => new("Invalid published image selection.");
@@ -793,19 +746,13 @@ public static partial class Wire
                         r.Text(RollbackReasonBytes)))),
             Validate);
 
-    internal static void Validate(DraftRollback value)
-    {
-        if (value.Id <= 0 || value.SourceRevision <= 0 || value.SourceRevision >= value.ExpectedRevision ||
-            value.IdempotencyKey == Guid.Empty || !ValidRollbackReason(value.Reason))
-            throw new ProtocolException("Invalid draft rollback");
-    }
+    internal static void Validate(DraftRollback value) =>
+        Check(value.Id > 0 && value.SourceRevision > 0 && value.SourceRevision < value.ExpectedRevision &&
+            value.IdempotencyKey != Guid.Empty && ValidRollbackReason(value.Reason), "Invalid draft rollback");
 
-    internal static void Validate(RevisionComparison value)
-    {
-        if (value.Id <= 0 || value.SourceRevision <= 0 || value.SourceRevision >= value.Revision ||
-            value.Title.Length == 0 || value.SourceTitle.Length == 0)
-            throw new ProtocolException("Invalid revision comparison");
-    }
+    internal static void Validate(RevisionComparison value) =>
+        Check(value.Id > 0 && value.SourceRevision > 0 && value.SourceRevision < value.Revision &&
+            value.Title.Length != 0 && value.SourceTitle.Length != 0, "Invalid revision comparison");
 
     private static void Validate(RevisionHistoryPage page)
     {

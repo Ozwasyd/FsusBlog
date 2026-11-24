@@ -1,4 +1,4 @@
-import { decodeUtf8, ProtocolError } from './binary.ts';
+import { dataView, decodeFixedText, ProtocolError, toHex } from './binary.ts';
 import { post, request } from './internal/http.ts';
 import { FrameType, WireHeaders, WireLayouts, WireLimits } from './wire.generated.ts';
 
@@ -17,21 +17,15 @@ export type ScopedPowRequest<T> = {
 
 export function decodePowChallenge(payload: Uint8Array): PowChallenge {
   if (payload.length !== WireLayouts.PowChallengeBytes) throw new ProtocolError('Invalid PoW challenge size');
-  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+  const view = dataView(payload);
   const timestamp = view.getBigInt64(WireLayouts.PowChallengeTimestampOffset, true);
   const difficulty = view.getInt32(WireLayouts.PowChallengeSaltBytes, true);
   if (timestamp <= 0n || timestamp > BigInt(Number.MAX_SAFE_INTEGER) || difficulty < 1 || difficulty > 28)
     throw new ProtocolError('Invalid PoW challenge coordinates');
 
-  function fixed(bytes: Uint8Array): string {
-    const end = bytes.indexOf(0);
-    if (end === -1) return decodeUtf8(bytes);
-    if (bytes.subarray(end).some(Boolean)) throw new ProtocolError('Invalid PoW challenge padding');
-    return decodeUtf8(bytes.subarray(0, end));
-  }
-
-  const salt = fixed(payload.subarray(0, WireLayouts.PowChallengeSaltBytes));
-  const signature = fixed(payload.subarray(WireLayouts.PowChallengeSignatureOffset));
+  const padError = () => new ProtocolError('Invalid PoW challenge padding');
+  const salt = decodeFixedText(payload.subarray(0, WireLayouts.PowChallengeSaltBytes), padError);
+  const signature = decodeFixedText(payload.subarray(WireLayouts.PowChallengeSignatureOffset), padError);
   if (!salt || !signature) throw new ProtocolError('Incomplete PoW challenge');
   return { salt, signature, difficulty, timestamp: Number(timestamp) };
 }
@@ -106,7 +100,7 @@ function withHeaders(base: HeadersInit | undefined, extra?: HeadersInit): Header
 }
 
 export function createPowClientNonce(): string {
-  return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+  return toHex(crypto.getRandomValues(new Uint8Array(16)));
 }
 
 export function powProofHeaders(proof: string): Record<string, string> {

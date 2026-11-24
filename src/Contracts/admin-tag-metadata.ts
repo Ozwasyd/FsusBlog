@@ -1,5 +1,5 @@
-import { encodeFrame, ProtocolError } from './aeds.ts'
-import { PodReader, PodWriter } from './binary.ts'
+import { encodePod, ProtocolError } from './aeds.ts'
+import { decodePod } from './binary.ts'
 import { post, request } from './internal/http.ts'
 import { requestWithScopedPow } from './pow.ts'
 import { FrameType, WireLimits, WireRoutes } from './wire.generated.ts'
@@ -31,10 +31,10 @@ export async function taxonomyMetadataAvailable(kind: AdminMetadataKind, signal:
 }
 
 function readMetadata(bytes: Uint8Array, kind: AdminMetadataKind, id: number): AdminTaxonomyMetadata {
-  const reader = new PodReader(bytes)
-  const result = { id: reader.i32(), revision: reader.i64(), name: reader.text(WireLimits.TaxonomyNameBytes),
-    description: reader.text(WireLimits.TaxonomyDescriptionBytes), changed: reader.bool() }
-  reader.finish()
+  const result = decodePod(bytes, reader => ({
+    id: reader.i32(), revision: reader.i64(), name: reader.text(WireLimits.TaxonomyNameBytes),
+    description: reader.text(WireLimits.TaxonomyDescriptionBytes), changed: reader.bool(),
+  }))
   if (result.id <= 0 || id !== 0 && result.id !== id || result.revision < 0n || !result.name)
     throw new ProtocolError(`Invalid ${kind} metadata response.`)
   return result
@@ -70,13 +70,8 @@ export async function changeTaxonomyMetadata(kind: AdminMetadataKind, edit: Admi
     throw new ProtocolError(`Invalid ${kind} metadata coordinates.`)
   const normalized = normalizeTaxonomyMetadata(kind, edit.name, edit.description)
   const routes = metadataRoutes(kind, edit.id)
-  const writer = new PodWriter()
-  writer.i32(edit.id)
-  writer.i64(edit.expectedRevision)
-  writer.uuid(edit.requestId)
-  writer.text(normalized.name, nameLimit(kind))
-  writer.text(normalized.description, WireLimits.TaxonomyDescriptionBytes)
-  const frame = encodeFrame(routes.command, writer.finish())
+  const frame = encodePod(routes.command, w => w.i32(edit.id).i64(edit.expectedRevision).uuid(edit.requestId)
+    .text(normalized.name, nameLimit(kind)).text(normalized.description, WireLimits.TaxonomyDescriptionBytes))
   return requestWithScopedPow({
     challengePath: routes.pow,
     submitPath: routes.path,

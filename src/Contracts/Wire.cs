@@ -43,6 +43,17 @@ public static partial class Wire
         return value;
     }
 
+    private static T DecodeRecord<T>(FrameType type, ReadOnlySpan<byte> frame, int maximumBytes,
+        Func<ProtocolException> invalid, ReadRecord<T> read, Action<T> validate)
+    {
+        var value = DecodeFrame(type, frame, maximumBytes, invalid, read);
+        validate(value);
+        return value;
+    }
+
+    private static void Check([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool valid, string message) { if (!valid) throw new ProtocolException(message); }
+    private static void Check([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool valid, Func<ProtocolException> invalid) { if (!valid) throw invalid(); }
+
     private static bool IsBase64Url(string value) =>
         value.All(static c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
 
@@ -86,47 +97,29 @@ public static partial class Wire
         Encoding.UTF8.GetEncoder().Convert(text, destination, true, out _, out _, out _);
     }
 
-    internal static void Validate(SignIn value)
-    {
-        if (value.Ticket.Length == 0)
-            throw new ProtocolException("Missing operator ticket");
-    }
+    internal static void Validate(SignIn value) => Check(value.Ticket.Length != 0, "Missing operator ticket");
 
-    internal static void Validate(Session value)
-    {
-        if (value.Name.Length == 0 || value.Generation <= 0)
-            throw new ProtocolException("Invalid operator session");
-    }
+    internal static void Validate(Session value) => Check(value.Name.Length != 0 && value.Generation > 0, "Invalid operator session");
 
-    internal static void Validate(Draft value)
-    {
-        if (value.Id <= 0 || value.Revision <= 0)
-            throw new ProtocolException("Invalid draft coordinates");
-    }
+    internal static void Validate(Draft value) => Check(value.Id > 0 && value.Revision > 0, "Invalid draft coordinates");
 
-    internal static void Validate(ArticleCommand value)
-    {
-        if (value.Id < 0 || value.ExpectedRevision < 0 ||
-            (value.Id == 0) != (value.ExpectedRevision == 0) || value.IdempotencyKey == Guid.Empty)
-            throw new ProtocolException("Invalid article command coordinates");
-    }
+    internal static void Validate(ArticleCommand value) =>
+        Check(value.Id >= 0 && value.ExpectedRevision >= 0 &&
+            (value.Id == 0) == (value.ExpectedRevision == 0) && value.IdempotencyKey != Guid.Empty,
+            "Invalid article command coordinates");
 
     internal static void Validate(DraftTaxonomy value) =>
         ValidateTaxonomy(value.Id, value.Revision, value.CategoryId, value.TagIds);
 
     internal static void Validate(TaxonomyAssignment value)
     {
-        if (value.IdempotencyKey == Guid.Empty)
-            throw new ProtocolException("Invalid taxonomy command key");
+        Check(value.IdempotencyKey != Guid.Empty, "Invalid taxonomy command key");
         ValidateTaxonomy(value.Id, value.ExpectedRevision, value.CategoryId, value.TagIds);
     }
 
-    private static void ValidateTaxonomy(int article, long revision, int category, IReadOnlyList<int> tags)
-    {
-        if (article <= 0 || revision <= 0 || category < 0 || tags.Count > WireLimits.TaxonomyTagCount ||
-            tags.Any(tag => tag <= 0) || tags.Distinct().Count() != tags.Count)
-            throw new ProtocolException("Invalid draft taxonomy coordinates");
-    }
+    private static void ValidateTaxonomy(int article, long revision, int category, IReadOnlyList<int> tags) =>
+        Check(article > 0 && revision > 0 && category >= 0 && tags.Count <= WireLimits.TaxonomyTagCount &&
+            tags.All(tag => tag > 0) && tags.Distinct().Count() == tags.Count, "Invalid draft taxonomy coordinates");
 
     internal sealed class Writer : ScalarBufferWriter<Writer>
     {

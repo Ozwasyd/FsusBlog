@@ -1,7 +1,7 @@
-import { decodeSuccess, encodeFrame } from './aeds.ts';
+import { decodeSuccess, encodeFrame, encodePod } from './aeds.ts';
 import { ProtocolError } from './client.ts';
 import { post, request } from './internal/http.ts';
-import { PodReader, PodWriter } from './binary.ts';
+import { decodePod, PodReader, ZERO_UUID } from './binary.ts';
 import { decodeInboxReplied } from './inbox.ts';
 import { watchInboxWake } from './inbox-wake.ts';
 import { requestWithScopedPow } from './pow.ts';
@@ -32,12 +32,13 @@ export function adminInbox(filter: AdminInboxFilter, next: string | null, signal
   if (order === 'activity') query.set('order', 'activity');
   const frame = shared ? FrameType.AdminInboxSharedPage : FrameType.AdminInboxPage;
   return request(`${WireRoutes.AdminInboxQueue}?${query}`, frame, (payload, headers) => {
-    const reader = new PodReader(payload);
-    const following = cursor(reader, order === 'activity' ? 75 : 64);
-    const rows = Array.from({ length: count(reader, following) }, () => row(reader, shared));
-    if (new Set(rows.map(item => item.id)).size !== rows.length ||
-        order === 'created' && rows.some((item, index) => index > 0 && item.id >= rows[index - 1].id)) throw invalid();
-    reader.finish();
+    const { following, rows } = decodePod(payload, reader => {
+      const following = cursor(reader, order === 'activity' ? 75 : 64);
+      const rows = Array.from({ length: count(reader, following) }, () => row(reader, shared));
+      if (new Set(rows.map(item => item.id)).size !== rows.length ||
+          order === 'created' && rows.some((item, index) => index > 0 && item.id >= rows[index - 1].id)) throw invalid();
+      return { following, rows };
+    });
     const flag = headers.get(WireHeaders.AdminInboxNoticeEnabled);
     const capability = headers.get(WireHeaders.AdminInboxSharedRead);
     const activity = headers.get(WireHeaders.AdminInboxActivityOrder);
@@ -58,14 +59,14 @@ export function adminInboxThread(id: bigint, before: string | null, signal: Abor
   if (shared) query.set('shared', '1');
   const frame = shared ? FrameType.AdminInboxSharedThread : FrameType.AdminInboxThread;
   return request(`${path}?${query}`, frame, (payload, headers) => {
-    const reader = new PodReader(payload);
-    const conversation = row(reader, shared);
-    const previous = cursor(reader);
-    const messages = Array.from({ length: count(reader, previous) }, () => ({ id: positive(reader.i64()), sender: kind(reader.i32()),
-      internal: reader.bool(), at: time(reader.i64()), body: reader.text(16000) }));
-    if (conversation.id !== id || !messages.length || messages.some((item, index) =>
-      !item.body || index > 0 && item.id <= messages[index - 1].id)) throw invalid();
-    reader.finish();
+    const { conversation, previous, messages } = decodePod(payload, reader => {
+      const conversation = row(reader, shared), previous = cursor(reader);
+      const messages = Array.from({ length: count(reader, previous) }, () => ({ id: positive(reader.i64()), sender: kind(reader.i32()),
+        internal: reader.bool(), at: time(reader.i64()), body: reader.text(16000) }));
+      if (conversation.id !== id || !messages.length || messages.some((item, index) =>
+        !item.body || index > 0 && item.id <= messages[index - 1].id)) throw invalid();
+      return { conversation, previous, messages };
+    });
     const flag = headers.get(WireHeaders.AdminInboxReplyEnabled);
     const live = headers.get(WireHeaders.AdminInboxLive);
     const version = headers.get(WireHeaders.AdminInboxVersion);
@@ -99,8 +100,6 @@ export function watchAdminInboxWake(scope: bigint | AdminInboxLiveStatus, signal
 
 export function acknowledgeAdminInboxRead(id: bigint, snapshot: NonNullable<AdminInboxThread['readSnapshot']>, signal: AbortSignal) {
   if (id <= 0n || !validCursor(snapshot.token) || snapshot.through <= 0n) throw invalid();
-  const fields = new PodWriter();
-  fields.i64(snapshot.through);
   const path = WireRoutes.AdminInboxAcknowledge.replace('{id:long}', String(id));
   return post(path, FrameType.EmptySuccess, (payload, headers) => {
     decodeSuccess(payload);
@@ -108,7 +107,8 @@ export function acknowledgeAdminInboxRead(id: bigint, snapshot: NonNullable<Admi
     if (raw === null || !/^(0|[1-9][0-9]{0,9})$/.test(raw) || Number(raw) > 0x7fffffff)
       throw invalid();
     return Number(raw);
-  }, signal, encodeFrame(FrameType.ConversationReadRequest, fields.finish()), { [WireHeaders.AdminInboxReadSnapshot]: snapshot.token });
+  }, signal, encodePod(FrameType.ConversationReadRequest, f => f.i64(snapshot.through)),
+    { [WireHeaders.AdminInboxReadSnapshot]: snapshot.token });
 }
 
 export function adminReplyFrame(body: string) {
@@ -158,11 +158,11 @@ export function adminStatusFrame(status: AdminInboxStatus, reason: string) {
 
 export function decodeAdminStatusResult(payload: Uint8Array, target: AdminInboxStatus) {
   if (payload.byteLength !== 12) throw invalid();
-  const reader = new PodReader(payload);
-  const previous = kind(reader.i32());
-  const current = kind(reader.i32());
-  if (current !== target || reader.i32() !== (previous === current ? 1 : 0)) throw invalid();
-  return { previous, current, changed: previous !== current };
+  return decodePod(payload, reader => {
+    const previous = kind(reader.i32()), current = kind(reader.i32());
+    if (current !== target || reader.i32() !== (previous === current ? 1 : 0)) throw invalid();
+    return { previous, current, changed: previous !== current };
+  });
 }
 
 export async function adminChangeStatus(id: bigint, version: string, target: AdminInboxStatus, reason: string, signal: AbortSignal) {
@@ -187,7 +187,7 @@ function validVersion(value: string) {
 function row(reader: PodReader, shared: boolean): AdminInboxRow {
   const item = { id: positive(reader.i64()), account: reader.uuid(), subject: reader.text(640), status: kind(reader.i32()),
     system: reader.bool(), updated: time(reader.i64()), unread: shared ? reader.i32() : null };
-  if (item.account === '00000000-0000-0000-0000-000000000000' || !item.subject || item.unread !== null && item.unread < 0)
+  if (item.account === ZERO_UUID || !item.subject || item.unread !== null && item.unread < 0)
     throw invalid();
   return item;
 }

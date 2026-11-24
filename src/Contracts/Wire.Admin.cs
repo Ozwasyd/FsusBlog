@@ -61,37 +61,30 @@ public static partial class Wire
     private static bool AppearanceDigest(string value) =>
         value.Length == 0 || IsLowerHex(value, AdminAppearanceDigestBytes);
 
-    private static void Validate(AdminAppearanceState value)
-    {
-        if (value.Revision < 0 || !AppearanceDigest(value.Theme) || !AppearanceDigest(value.Font) ||
-            !AppearanceDigest(value.PreviousTheme) || !AppearanceDigest(value.PreviousFont) ||
-            (value.Revision == 0 && (value.CanRollback || value.PreviousTheme.Length != 0 || value.PreviousFont.Length != 0)))
-            throw new ProtocolException("Invalid appearance activation state");
-    }
+    private static void Validate(AdminAppearanceState value) =>
+        Check(value.Revision >= 0 && AppearanceDigest(value.Theme) && AppearanceDigest(value.Font) &&
+            AppearanceDigest(value.PreviousTheme) && AppearanceDigest(value.PreviousFont) &&
+            !(value.Revision == 0 && (value.CanRollback || value.PreviousTheme.Length != 0 || value.PreviousFont.Length != 0)),
+            "Invalid appearance activation state");
 
-    private static void Validate(AdminAppearanceCommand value)
-    {
-        if (value.ExpectedRevision < 0 || !AppearanceDigest(value.CurrentTheme) || !AppearanceDigest(value.CurrentFont) ||
-            !AppearanceDigest(value.Theme) || !AppearanceDigest(value.Font))
-            throw new ProtocolException("Invalid appearance activation command");
-    }
+    private static void Validate(AdminAppearanceCommand value) =>
+        Check(value.ExpectedRevision >= 0 && AppearanceDigest(value.CurrentTheme) && AppearanceDigest(value.CurrentFont) &&
+            AppearanceDigest(value.Theme) && AppearanceDigest(value.Font), "Invalid appearance activation command");
 
     private static void Validate(AdminAppearanceFontDetail value)
     {
-        if (string.IsNullOrWhiteSpace(value.Id) || string.IsNullOrWhiteSpace(value.Version) ||
-            !IsLowerHex(value.ArchiveDigest, AdminAppearanceDigestBytes) ||
-            !IsLowerHex(value.FaceDigest, AdminAppearanceDigestBytes) ||
-            value.LicenseName is not ("OFL-1.1" or "Apache-2.0") || string.IsNullOrWhiteSpace(value.LicenseText) ||
-            value.FaceWeight != 400 || value.FaceStyle != "normal" || value.FaceBytes is < 1 or > AdminAppearanceFontAssetBytes)
-            throw new ProtocolException("Invalid appearance font detail");
-        if (value.SourceKind.Length == 0
-            ? value.Name.Length != 0 || value.Family.Length != 0 || value.SourcePackage.Length != 0 ||
-                value.SourceVersion.Length != 0 || value.SourceUpstream.Length != 0 || value.UnicodeRange.Length != 0
-            : value.SourceKind is not ("local-vendored" or "npm-fontsource") ||
-                string.IsNullOrWhiteSpace(value.Name) || string.IsNullOrWhiteSpace(value.Family) ||
-                string.IsNullOrWhiteSpace(value.SourcePackage) || string.IsNullOrWhiteSpace(value.SourceVersion) ||
-                string.IsNullOrWhiteSpace(value.SourceUpstream))
-            throw new ProtocolException("Invalid appearance font source");
+        Check(!string.IsNullOrWhiteSpace(value.Id) && !string.IsNullOrWhiteSpace(value.Version) &&
+            IsLowerHex(value.ArchiveDigest, AdminAppearanceDigestBytes) && IsLowerHex(value.FaceDigest, AdminAppearanceDigestBytes) &&
+            value.LicenseName is "OFL-1.1" or "Apache-2.0" && !string.IsNullOrWhiteSpace(value.LicenseText) &&
+            value.FaceWeight == 400 && value.FaceStyle == "normal" && value.FaceBytes is >= 1 and <= AdminAppearanceFontAssetBytes,
+            "Invalid appearance font detail");
+        Check(value.SourceKind.Length == 0
+            ? value.Name.Length == 0 && value.Family.Length == 0 && value.SourcePackage.Length == 0 &&
+                value.SourceVersion.Length == 0 && value.SourceUpstream.Length == 0 && value.UnicodeRange.Length == 0
+            : value.SourceKind is "local-vendored" or "npm-fontsource" &&
+                !string.IsNullOrWhiteSpace(value.Name) && !string.IsNullOrWhiteSpace(value.Family) &&
+                !string.IsNullOrWhiteSpace(value.SourcePackage) && !string.IsNullOrWhiteSpace(value.SourceVersion) &&
+                !string.IsNullOrWhiteSpace(value.SourceUpstream), "Invalid appearance font source");
     }
 
     public static byte[] EncodeAdminAppearanceCatalog(IReadOnlyList<AdminAppearancePackage> packages)
@@ -131,53 +124,46 @@ public static partial class Wire
         });
     }
 
-    private static void Validate(AdminArticleArchiveIntent value)
-    {
-        if (value.ArticleId <= 0 || value.ExpectedRevision <= 0 || value.ExpectedReleaseId <= 0 ||
-            value.SourceRevision <= 0 || value.IdempotencyKey == Guid.Empty || !ValidAdminReason(value.Reason) ||
+    private static void Validate(AdminArticleArchiveIntent value) =>
+        Check(value.ArticleId > 0 && value.ExpectedRevision > 0 && value.ExpectedReleaseId > 0 &&
+            value.SourceRevision > 0 && value.IdempotencyKey != Guid.Empty && ValidAdminReason(value.Reason) &&
             (value.TargetStatus switch
             {
-                AdminArticleArchiveStatus => value.SourceRevision >= value.ExpectedRevision,
-                AdminArticleRestoreStatus => value.SourceRevision != value.ExpectedRevision,
-                _ => true
-            }))
-            throw new ProtocolException("Invalid administrator article archive intent");
-    }
+                AdminArticleArchiveStatus => value.SourceRevision < value.ExpectedRevision,
+                AdminArticleRestoreStatus => value.SourceRevision == value.ExpectedRevision,
+                _ => false
+            }), "Invalid administrator article archive intent");
 
     private static void Validate(AdminArticleArchiveReceipt value)
     {
         Validate(new AdminArticleArchiveRow(value.ArticleId, value.Revision, value.ReleaseId,
             value.PublicationNo, value.TransitionedUnixMs, ""));
-        if (value.SourceRevision <= 0 || value.PreviousReleaseId <= 0 || value.PreviousReleaseId == value.ReleaseId ||
-            value.RightsSnapshotId <= 0 || value.ResponsibilitySnapshotId <= 0 ||
+        Check(value.SourceRevision > 0 && value.PreviousReleaseId > 0 && value.PreviousReleaseId != value.ReleaseId &&
+            value.RightsSnapshotId > 0 && value.ResponsibilitySnapshotId > 0 &&
             (value.TargetStatus switch
             {
-                AdminArticleArchiveStatus => value.SourceRevision >= value.Revision - 1,
-                AdminArticleRestoreStatus => value.SourceRevision != value.Revision - 1,
-                _ => true
-            }))
-            throw new ProtocolException("Invalid administrator article archive receipt");
+                AdminArticleArchiveStatus => value.SourceRevision < value.Revision - 1,
+                AdminArticleRestoreStatus => value.SourceRevision == value.Revision - 1,
+                _ => false
+            }), "Invalid administrator article archive receipt");
     }
 
-    private static void Validate(AdminArticleArchivePreview value)
-    {
-        if (value.ArticleId <= 0 || value.Revision <= 0 || value.PrivateReleaseId <= 0 || string.IsNullOrWhiteSpace(value.Title))
-            throw new ProtocolException("Invalid administrator article archive preview");
-    }
+    private static void Validate(AdminArticleArchivePreview value) =>
+        Check(value.ArticleId > 0 && value.Revision > 0 && value.PrivateReleaseId > 0 && !string.IsNullOrWhiteSpace(value.Title),
+            "Invalid administrator article archive preview");
 
     public static byte[] EncodeAdminArticleArchivePage(AdminArticleArchivePage page)
     {
-        if (page.Items.Count > AdminArticleArchivePageSize || page.NextId < 0 ||
-            page.NextId != 0 && (page.Items.Count != AdminArticleArchivePageSize || page.NextId != page.Items[^1].ArticleId))
-            throw new ProtocolException("Invalid administrator article archive page");
+        Check(page.Items.Count <= AdminArticleArchivePageSize && page.NextId >= 0 &&
+            (page.NextId == 0 || page.Items.Count == AdminArticleArchivePageSize && page.NextId == page.Items[^1].ArticleId),
+            "Invalid administrator article archive page");
         return EncodeFrame(FrameType.AdminArticleArchivePage, writer =>
         {
             long before = (long)int.MaxValue + 1;
             writer.I32(page.NextId).Items(page.Items, (w, row) =>
             {
                 Validate(row);
-                if (row.ArticleId >= before || string.IsNullOrWhiteSpace(row.Title))
-                    throw new ProtocolException("Invalid administrator article archive page item");
+                Check(row.ArticleId < before && !string.IsNullOrWhiteSpace(row.Title), "Invalid administrator article archive page item");
                 before = row.ArticleId;
                 w.I32(row.ArticleId).I64(row.Revision).I64(row.PrivateReleaseId).I32(row.PublicationNo)
                     .I64(row.ArchivedUnixMs).Text(row.Title, TitleBytes);
@@ -185,101 +171,80 @@ public static partial class Wire
         });
     }
 
-    private static void Validate(AdminArticleArchiveRow value)
-    {
-        if (value.ArticleId <= 0 || value.Revision <= 0 || value.PrivateReleaseId <= 0 ||
-            value.PublicationNo < 2 || value.ArchivedUnixMs <= 0 || !IsValidUnixMs(value.ArchivedUnixMs))
-            throw new ProtocolException("Invalid administrator article archive coordinates");
-    }
+    private static void Validate(AdminArticleArchiveRow value) =>
+        Check(value.ArticleId > 0 && value.Revision > 0 && value.PrivateReleaseId > 0 &&
+            value.PublicationNo >= 2 && value.ArchivedUnixMs > 0 && IsValidUnixMs(value.ArchivedUnixMs),
+            "Invalid administrator article archive coordinates");
 
     private static void Validate(AdminArticleDraftRollbackIntent value)
     {
-        if (value.TargetStatus != 0) throw new ProtocolException("Invalid administrator draft rollback destination");
+        Check(value.TargetStatus == 0, "Invalid administrator draft rollback destination");
         Validate(new AdminArticleRollbackIntent(value.ArticleId, value.ExpectedRevision, value.ExpectedPublicationId,
             value.SourceRevision, value.IdempotencyKey, value.Reason));
     }
 
     private static void Validate(AdminArticleDraftRollbackReceipt value)
     {
-        if (value.TargetStatus != 0) throw new ProtocolException("Invalid administrator draft rollback destination");
+        Check(value.TargetStatus == 0, "Invalid administrator draft rollback destination");
         Validate(new AdminArticleRollbackReceipt(value.ArticleId, value.Revision, value.SourceRevision,
             value.PreviousPublicationId, value.PrivateReleaseId, value.PublicationNo, value.TransitionedUnixMs,
             value.RightsSnapshotId, value.ResponsibilitySnapshotId));
     }
 
-    private static void Validate(AdminArticleRollbackIntent value)
-    {
-        if (value.ArticleId <= 0 || value.ExpectedRevision <= 0 || value.ExpectedPublicationId <= 0 ||
-            value.SourceRevision <= 0 || value.SourceRevision >= value.ExpectedRevision || value.IdempotencyKey == Guid.Empty ||
-            !ValidAdminReason(value.Reason))
-            throw new ProtocolException("Invalid administrator article rollback intent");
-    }
+    private static void Validate(AdminArticleRollbackIntent value) =>
+        Check(value.ArticleId > 0 && value.ExpectedRevision > 0 && value.ExpectedPublicationId > 0 &&
+            value.SourceRevision > 0 && value.SourceRevision < value.ExpectedRevision && value.IdempotencyKey != Guid.Empty &&
+            ValidAdminReason(value.Reason), "Invalid administrator article rollback intent");
 
-    private static void Validate(AdminArticleRollbackPreview value)
-    {
-        if (value.ArticleId <= 0 || value.CurrentRevision <= 0 || value.CurrentPublicationId <= 0 ||
-            value.SourceRevision <= 0 || value.SourceRevision >= value.CurrentRevision || value.SourcePublicationId <= 0 ||
-            string.IsNullOrWhiteSpace(value.SourceTitle) || !Enum.IsDefined((AdminArticleRollbackBlock)value.BlockingReason) ||
-            value.PackageComplete != (value.BlockingReason == (int)AdminArticleRollbackBlock.Ready))
-            throw new ProtocolException("Invalid administrator article rollback preview");
-    }
+    private static void Validate(AdminArticleRollbackPreview value) =>
+        Check(value.ArticleId > 0 && value.CurrentRevision > 0 && value.CurrentPublicationId > 0 &&
+            value.SourceRevision > 0 && value.SourceRevision < value.CurrentRevision && value.SourcePublicationId > 0 &&
+            !string.IsNullOrWhiteSpace(value.SourceTitle) && Enum.IsDefined((AdminArticleRollbackBlock)value.BlockingReason) &&
+            value.PackageComplete == (value.BlockingReason == (int)AdminArticleRollbackBlock.Ready),
+            "Invalid administrator article rollback preview");
 
-    private static void Validate(AdminArticleRollbackReceipt value)
-    {
-        if (value.ArticleId <= 0 || value.Revision <= 0 || value.SourceRevision <= 0 || value.SourceRevision >= value.Revision - 1 ||
-            value.PreviousPublicationId <= 0 || value.PublicationId <= 0 || value.PreviousPublicationId == value.PublicationId ||
-            value.PublicationNo < 2 || value.PublishedUnixMs <= 0 || !IsValidUnixMs(value.PublishedUnixMs) ||
-            value.RightsSnapshotId <= 0 || value.ResponsibilitySnapshotId <= 0)
-            throw new ProtocolException("Invalid administrator article rollback receipt");
-    }
+    private static void Validate(AdminArticleRollbackReceipt value) =>
+        Check(value.ArticleId > 0 && value.Revision > 0 && value.SourceRevision > 0 && value.SourceRevision < value.Revision - 1 &&
+            value.PreviousPublicationId > 0 && value.PublicationId > 0 && value.PreviousPublicationId != value.PublicationId &&
+            value.PublicationNo >= 2 && value.PublishedUnixMs > 0 && IsValidUnixMs(value.PublishedUnixMs) &&
+            value.RightsSnapshotId > 0 && value.ResponsibilitySnapshotId > 0, "Invalid administrator article rollback receipt");
 
     private static void Validate(AdminArticleTrashPublicationPreview preview)
     {
         ValidateTrashPublication(preview.ArticleId, preview.ExpectedRevision, preview.SourceRevision, preview.SourcePublicationId);
-        if (string.IsNullOrWhiteSpace(preview.Title)) throw new ProtocolException("Invalid former publication title.");
+        Check(!string.IsNullOrWhiteSpace(preview.Title), "Invalid former publication title.");
     }
 
     private static void Validate(AdminArticleTrashPublicationIntent intent)
     {
         ValidateTrashPublication(intent.ArticleId, intent.ExpectedRevision, intent.SourceRevision, intent.SourcePublicationId);
-        if (intent.IdempotencyKey == Guid.Empty || !ValidAdminReason(intent.Reason))
-            throw new ProtocolException("Invalid trash republication approval.");
+        Check(intent.IdempotencyKey != Guid.Empty && ValidAdminReason(intent.Reason), "Invalid trash republication approval.");
     }
 
     private static void Validate(AdminArticleTrashPublicationReceipt receipt)
     {
-        if (receipt.Revision < 3 || receipt.PublicationId <= 0 || receipt.PublicationId == receipt.SourcePublicationId)
-            throw new ProtocolException("Invalid recovered publication.");
+        Check(receipt.Revision >= 3 && receipt.PublicationId > 0 && receipt.PublicationId != receipt.SourcePublicationId,
+            "Invalid recovered publication.");
         ValidateTrashPublication(receipt.ArticleId, receipt.Revision - 1, receipt.SourceRevision, receipt.SourcePublicationId);
     }
 
-    private static void ValidateTrashPublication(int article, long expected, long source, long publication)
-    {
-        if (article <= 0 || source <= 0 || source >= expected || expected == long.MaxValue || publication <= 0)
-            throw new ProtocolException("Invalid former publication coordinates.");
-    }
+    private static void ValidateTrashPublication(int article, long expected, long source, long publication) =>
+        Check(article > 0 && source > 0 && source < expected && expected != long.MaxValue && publication > 0,
+            "Invalid former publication coordinates.");
 
-    private static void Validate(AdminArticleTrashRestoreIntent value)
-    {
-        if (value.ArticleId <= 0 || value.ExpectedRevision is <= 0 or long.MaxValue || value.IdempotencyKey == Guid.Empty)
-            throw new ProtocolException("Invalid administrator trash restore intent.");
-    }
+    private static void Validate(AdminArticleTrashRestoreIntent value) =>
+        Check(value.ArticleId > 0 && value.ExpectedRevision is > 0 and < long.MaxValue && value.IdempotencyKey != Guid.Empty,
+            "Invalid administrator trash restore intent.");
 
-    private static void Validate(AdminArticleTrashRestoreReceipt value)
-    {
-        if (value.ArticleId <= 0 || value.Revision < 2)
-            throw new ProtocolException("Invalid administrator trash restore receipt.");
-    }
+    private static void Validate(AdminArticleTrashRestoreReceipt value) =>
+        Check(value.ArticleId > 0 && value.Revision >= 2, "Invalid administrator trash restore receipt.");
 
-    internal static void Validate(AdminClusterStatus value)
-    {
-        if (value.Mode != 1 || value.InstanceId == Guid.Empty || !ValidClusterNodeId(value.NodeId) ||
-            value.BuildVersion.Length is < 1 or > AdminClusterVersionBytes ||
-            !value.BuildVersion.All(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '-' or '+') ||
-            value.StartedAt <= 0 || !IsValidUnixMs(value.StartedAt) || value.ObservedAt <= 0 || !IsValidUnixMs(value.ObservedAt) ||
-            value.LeaseAgeMs is < 0 or >= 1000)
-            throw new ProtocolException("Invalid standalone deployment observation.");
-    }
+    internal static void Validate(AdminClusterStatus value) =>
+        Check(value.Mode == 1 && value.InstanceId != Guid.Empty && ValidClusterNodeId(value.NodeId) &&
+            value.BuildVersion.Length is >= 1 and <= AdminClusterVersionBytes &&
+            value.BuildVersion.All(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '-' or '+') &&
+            value.StartedAt > 0 && IsValidUnixMs(value.StartedAt) && value.ObservedAt > 0 && IsValidUnixMs(value.ObservedAt) &&
+            value.LeaseAgeMs is >= 0 and < 1000, "Invalid standalone deployment observation.");
 
     public static bool ValidClusterNodeId(string value) => value.Length <= AdminClusterNodeIdBytes &&
         value.All(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '-' or '_');
@@ -304,23 +269,19 @@ public static partial class Wire
         });
     }
 
-    internal static void Validate(AdminModerationIntent value)
-    {
-        if (value.ArticleId <= 0 || value.CommentId <= 0 || value.ExpectedStatus != 0 || value.Decision is not (1 or 2) ||
-            value.Reason.Length == 0 || value.Reason != value.Reason.Trim() || value.Reason.Any(char.IsControl))
-            throw new ProtocolException("Invalid pending comment moderation intent.");
-    }
+    internal static void Validate(AdminModerationIntent value) =>
+        Check(value.ArticleId > 0 && value.CommentId > 0 && value.ExpectedStatus == 0 && value.Decision is 1 or 2 &&
+            value.Reason.Length != 0 && value.Reason == value.Reason.Trim() && !value.Reason.Any(char.IsControl),
+            "Invalid pending comment moderation intent.");
 
-    internal static void Validate(AdminModerationClaimRequest value)
-    {
-        if (value.ArticleId <= 0 || value.CommentId <= 0) throw new ProtocolException("Invalid pending comment coordinates.");
-    }
+    internal static void Validate(AdminModerationClaimRequest value) =>
+        Check(value.ArticleId > 0 && value.CommentId > 0, "Invalid pending comment coordinates.");
 
     internal static void Validate(AdminModerationClaim value)
     {
         Validate(new AdminModerationClaimRequest(value.ArticleId, value.CommentId));
         ValidateClaim(value.CommentVersion, value.ClaimGeneration, value.ClaimVersion, value.ClaimToken);
-        if (value.ExpiresAt <= 0) throw new ProtocolException("Invalid comment claim expiry.");
+        Check(value.ExpiresAt > 0, "Invalid comment claim expiry.");
     }
 
     internal static void Validate(AdminModerationDecision value)
@@ -329,26 +290,19 @@ public static partial class Wire
         ValidateClaim(value.CommentVersion, value.ClaimGeneration, value.ClaimVersion, value.ClaimToken);
     }
 
-    private static void ValidateClaim(long commentVersion, long generation, long version, string token)
-    {
-        if (commentVersion <= 0 || generation <= 0 || version <= 0 ||
-            token.Length != AdminModerationClaimTokenBytes || !IsBase64Url(token))
-            throw new ProtocolException("Invalid comment claim coordinates.");
-    }
+    private static void ValidateClaim(long commentVersion, long generation, long version, string token) =>
+        Check(commentVersion > 0 && generation > 0 && version > 0 &&
+            token.Length == AdminModerationClaimTokenBytes && IsBase64Url(token), "Invalid comment claim coordinates.");
 
-    internal static void Validate(AdminSessionSnapshot value)
-    {
-        if (value.Handle.Length is < 1 or > 64 || value.Generation <= 0 || value.ExpiresAt <= 0)
-            throw new ProtocolException("Invalid administrator session.");
-    }
+    internal static void Validate(AdminSessionSnapshot value) =>
+        Check(value.Handle.Length is >= 1 and <= 64 && value.Generation > 0 && value.ExpiresAt > 0,
+            "Invalid administrator session.");
 
-    internal static void Validate(AdminOperationsStatus value)
-    {
-        if (value.PublicationWatermark < 0 || (!value.SnapshotReady && value.PublicationWatermark != 0) ||
-            value.PendingPublicationEvents < 0 || value.OldestPendingAt < 0 ||
-            (value.PendingPublicationEvents == 0) != (value.OldestPendingAt == 0))
-            throw new ProtocolException("Invalid administrator operations status.");
-    }
+    internal static void Validate(AdminOperationsStatus value) =>
+        Check(value.PublicationWatermark >= 0 && (value.SnapshotReady || value.PublicationWatermark == 0) &&
+            value.PendingPublicationEvents >= 0 && value.OldestPendingAt >= 0 &&
+            (value.PendingPublicationEvents == 0) == (value.OldestPendingAt == 0),
+            "Invalid administrator operations status.");
 
     public static byte[] EncodeAdminInboxNotice(AdminInboxNotice notice)
     {
@@ -555,26 +509,39 @@ public static partial class Wire
         }
     }
 
-    internal static void Validate(AdminReaderStatusCommand value)
-    {
-        if (value is null || value.UserId == Guid.Empty || value.ExpectedGeneration <= 0 ||
-            value.IdempotencyKey == Guid.Empty || value.Reason.Length is 0 or > AdminReaderReasonChars)
-            throw new ProtocolException("Invalid administrator reader status command.");
-    }
+    internal static void Validate(AdminReaderStatusCommand value) =>
+        Check(value is not null && value.UserId != Guid.Empty && value.ExpectedGeneration > 0 &&
+            value.IdempotencyKey != Guid.Empty && value.Reason.Length is > 0 and <= AdminReaderReasonChars,
+            "Invalid administrator reader status command.");
 
-    internal static void Validate(AdminReaderStatusReceipt value)
-    {
-        if (value is null || value.UserId == Guid.Empty || value.Generation <= 1 ||
-            value.RevokedSessionCount < 0 || value.HappenedAtUnixMs is <= 0 or > MaxReaderUnixMs)
-            throw new ProtocolException("Invalid administrator reader status receipt.");
-    }
+    internal static void Validate(AdminReaderStatusReceipt value) =>
+        Check(value is not null && value.UserId != Guid.Empty && value.Generation > 1 &&
+            value.RevokedSessionCount >= 0 && value.HappenedAtUnixMs is > 0 and <= MaxReaderUnixMs,
+            "Invalid administrator reader status receipt.");
 
-    internal static void Validate(AdminRiskReadiness value)
+    internal static void Validate(AdminRiskReadiness value) =>
+        Check(value.PublicReadMode == 1 && value.RootWriteMode is >= 0 and <= 1 &&
+            value.ReplyWriteMode is >= 0 and <= 2 && !(value.RootWriteMode == 0 && value.ReplyWriteMode != 0) &&
+            value.ForwardingMode is >= 0 and <= 1 && value.DynamicRisk == 0 && value.StrongAnonymous == 0,
+            "Invalid installed risk controls.");
+
+    internal static void Validate(AdminSignInHistorySnapshot value)
     {
-        if (value.PublicReadMode != 1 || value.RootWriteMode is < 0 or > 1 ||
-            value.ReplyWriteMode is < 0 or > 2 || (value.RootWriteMode == 0 && value.ReplyWriteMode != 0) ||
-            value.ForwardingMode is < 0 or > 1 || value.DynamicRisk != 0 || value.StrongAnonymous != 0)
-            throw new ProtocolException("Invalid installed risk controls.");
+        Check(value is { SignIns: not null, Generation: > 0 } && value.SignIns.Count <= AdminSignInHistoryMaxItems,
+            "Invalid administrator sign-in history.");
+        for (var index = 0; index < value.SignIns.Count; index++)
+        {
+            var signIn = value.SignIns[index];
+            var valid = signIn?.State switch
+            {
+                AdminSignInState.Current => index == 0 && signIn.EndedAt == 0,
+                AdminSignInState.Ended => signIn.EndedAt >= signIn.StartedAt && signIn.EndedAt < signIn.ExpiresAt,
+                AdminSignInState.Expired => signIn.EndedAt == signIn.ExpiresAt,
+                _ => false
+            };
+            Check(valid && signIn!.StartedAt > 0 && signIn.ExpiresAt > signIn.StartedAt && signIn.ExpiresAt <= MaxReaderUnixMs,
+                "Invalid administrator sign-in interval.");
+        }
     }
 
     private static void Validate(AdminSiteConfigState value)
@@ -616,11 +583,8 @@ public static partial class Wire
                 throw new ProtocolException("Invalid site configuration text");
     }
 
-    private static void Validate(AdminSitePages value)
-    {
-        if (value.ConfiguredMask is < 0 or > 15)
-            throw new ProtocolException("Invalid site page configuration states");
-    }
+    private static void Validate(AdminSitePages value) =>
+        Check(value.ConfiguredMask is >= 0 and <= 15, "Invalid site page configuration states");
 
     private static void Validate(AdminSitePageRevision value) =>
         ValidatePageEditor(value.Slug, value.Revision, value.Digest, value.Markdown);
@@ -628,13 +592,10 @@ public static partial class Wire
     private static void Validate(AdminSitePagePublish value) =>
         ValidatePageEditor(value.Slug, value.ExpectedRevision, value.ExpectedDigest, value.Markdown);
 
-    private static void ValidatePageEditor(string slug, long revision, string digest, string markdown)
-    {
-        if (slug is not ("about" or "privacy" or "guidelines" or "copyright") ||
-            revision < 0 || !IsLowerHex(digest, AdminSitePageDigestBytes) ||
-            markdown.Length > PageContentChars || markdown.Contains('\0'))
-            throw new ProtocolException("Invalid site page revision or content");
-    }
+    private static void ValidatePageEditor(string slug, long revision, string digest, string markdown) =>
+        Check(slug is "about" or "privacy" or "guidelines" or "copyright" &&
+            revision >= 0 && IsLowerHex(digest, AdminSitePageDigestBytes) &&
+            markdown.Length <= PageContentChars && !markdown.Contains('\0'), "Invalid site page revision or content");
 
     public static byte[] EncodeAdminSiteTraffic(AdminSiteTraffic value)
     {

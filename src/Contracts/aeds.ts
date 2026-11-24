@@ -1,4 +1,4 @@
-import { decodeUtf8, ProtocolError } from './binary.ts';
+import { dataView, decodeFixedText, PodWriter, ProtocolError, writePod } from './binary.ts';
 import { FrameType, WireHeader, WireLayouts, WireLimits } from './wire.generated.ts';
 
 export { ProtocolError } from './binary.ts';
@@ -37,11 +37,15 @@ export function encodeFrame(type: FrameType, payload: Uint8Array): Uint8Array<Ar
   return frame;
 }
 
+export function encodePod(type: FrameType, write: (writer: PodWriter) => void): Uint8Array<ArrayBuffer> {
+  return encodeFrame(type, writePod(write));
+}
+
 export function decodeFrame(
   frame: Uint8Array,
   expected?: FrameType,
 ): { type: FrameType; payload: Uint8Array } {
-  const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength);
+  const view = dataView(frame);
   if (
     frame.length < WireHeader.HeaderSize || frame.length > WireHeader.HeaderSize + WireLimits.MaxPayloadBytes ||
     view.getUint32(0, true) !== WireHeader.Magic ||
@@ -89,26 +93,18 @@ export function decodeApiError(payload: Uint8Array, httpStatus: number): ApiErro
   if (payload.length !== WireLayouts.ErrorBytes || payload[2] !== 0 || payload[3] !== 0)
     throw new ProtocolError('Invalid AEDS error record');
   const [code, category] = payload;
-  const status = new DataView(payload.buffer, payload.byteOffset, payload.length)
-    .getInt32(WireLayouts.ErrorStatusOffset, true);
+  const status = dataView(payload).getInt32(WireLayouts.ErrorStatusOffset, true);
   if (code < 1 || code > 7 || category < 1 || category > 13 || status !== httpStatus ||
       status < 400 || status > 599)
     throw new ProtocolError('Invalid AEDS error semantics');
 
-  const message = fixedText(payload.subarray(WireLayouts.ErrorMessageOffset, WireLayouts.ErrorDetailsOffset));
-  const details = fixedText(payload.subarray(WireLayouts.ErrorDetailsOffset, WireLayouts.ErrorTraceIdOffset));
-  const trace = fixedText(payload.subarray(WireLayouts.ErrorTraceIdOffset));
+  const message = decodeFixedText(payload.subarray(WireLayouts.ErrorMessageOffset, WireLayouts.ErrorDetailsOffset));
+  const details = decodeFixedText(payload.subarray(WireLayouts.ErrorDetailsOffset, WireLayouts.ErrorTraceIdOffset));
+  const trace = decodeFixedText(payload.subarray(WireLayouts.ErrorTraceIdOffset));
   return new ApiError(message, status, details, trace, code, category);
 }
 
 export function decodeSuccess(payload: Uint8Array): void {
   if (payload.length !== WireLayouts.SuccessBytes || payload[0] !== 1 || payload.subarray(1).some(Boolean))
     throw new ProtocolError('Invalid AEDS success record');
-}
-
-function fixedText(bytes: Uint8Array): string {
-  const end = bytes.indexOf(0);
-  if (end < 0) return decodeUtf8(bytes);
-  if (bytes.subarray(end).some(Boolean)) throw new ProtocolError('Invalid AEDS text padding');
-  return decodeUtf8(bytes.subarray(0, end));
 }

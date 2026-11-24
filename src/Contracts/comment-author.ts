@@ -1,5 +1,5 @@
-import { encodeFrame } from './aeds.ts';
-import { PodReader, PodWriter, ProtocolError, decodeUtf8 } from './binary.ts';
+import { encodeFrame, encodePod } from './aeds.ts';
+import { decodePod, decodeUtf8, ProtocolError } from './binary.ts';
 import { ApiError, validSiteSessionId } from './client.ts';
 import { post, request } from './internal/http.ts';
 import { decodeCommentAuthorEditDetail, FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
@@ -19,28 +19,27 @@ export async function commentAuthorEligibility(article: number, candidates: read
     throw new ProtocolError('Invalid comment eligibility coordinates');
   const supplied = new Set(candidates);
   if (supplied.size !== candidates.length) throw new ProtocolError('Repeated comment eligibility coordinate');
-  const writer = new PodWriter();
-  writer.i32(candidates.length);
-  for (const id of candidates) {
-    const numeric = BigInt(id);
-    if (numeric >= (1n << 63n)) throw new ProtocolError('Invalid comment identifier');
-    writer.i64(numeric);
-  }
-  const path = WireRoutes.CommentAuthorEligibility.replace('{articleId:int}', String(article));
-  const frame = encodeFrame(FrameType.CommentAuthorEligibilityRequest, writer.finish());
-  return post(path, FrameType.CommentAuthorEligibility, (payload, responseHeaders) => {
-    const reader = new PodReader(payload);
-    const count = reader.i32();
-    if (count < 0 || count > supplied.size) throw new ProtocolError('Invalid comment eligibility count');
-    const result: string[] = [];
-    for (let i = 0; i < count; i++) {
-      const id = String(reader.i64());
-      if (!supplied.delete(id)) throw new ProtocolError('Unexpected comment eligibility coordinate');
-      result.push(id);
+  const frame = encodePod(FrameType.CommentAuthorEligibilityRequest, writer => {
+    writer.i32(candidates.length);
+    for (const id of candidates) {
+      const numeric = BigInt(id);
+      if (numeric >= (1n << 63n)) throw new ProtocolError('Invalid comment identifier');
+      writer.i64(numeric);
     }
-    reader.finish();
-    return { ids: result, editEnabled: responseHeaders.get(WireHeaders.CommentAuthorEditEnabled) === '1' };
-  }, signal, frame, headers(handle));
+  });
+  const path = WireRoutes.CommentAuthorEligibility.replace('{articleId:int}', String(article));
+  return post(path, FrameType.CommentAuthorEligibility, (payload, responseHeaders) => ({
+    ids: decodePod(payload, reader => {
+      const count = reader.i32();
+      if (count < 0 || count > supplied.size) throw new ProtocolError('Invalid comment eligibility count');
+      return Array.from({ length: count }, () => {
+        const id = String(reader.i64());
+        if (!supplied.delete(id)) throw new ProtocolError('Unexpected comment eligibility coordinate');
+        return id;
+      });
+    }),
+    editEnabled: responseHeaders.get(WireHeaders.CommentAuthorEditEnabled) === '1',
+  }), signal, frame, headers(handle));
 }
 
 function parse(payload: Uint8Array): Record<string, unknown> {
