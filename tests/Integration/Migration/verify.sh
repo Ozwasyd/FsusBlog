@@ -52,10 +52,20 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cli_project="src/Cli/FsusBlog.V2.Cli.csproj"
-"$dotnet_bin" restore "$cli_project" --configfile NuGet.Config --locked-mode
-"$dotnet_bin" build "$cli_project" --no-restore
-cli=("$dotnet_bin" src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll)
+if [[ -n ${FSUSBLOG_TEST_CLI_DLL:-} ]]; then
+  # CI supplies the same Release CLI already built and used by integration tests.
+  # Do not start persistent build servers inside the disposable test process group.
+  [[ -s "$FSUSBLOG_TEST_CLI_DLL" ]] || {
+    printf 'Missing built CLI: %s\n' "$FSUSBLOG_TEST_CLI_DLL" >&2
+    exit 2
+  }
+  cli=("$dotnet_bin" "$FSUSBLOG_TEST_CLI_DLL")
+else
+  cli_project="src/Cli/FsusBlog.V2.Cli.csproj"
+  "$dotnet_bin" restore "$cli_project" --configfile NuGet.Config --locked-mode
+  "$dotnet_bin" build "$cli_project" --no-restore
+  cli=("$dotnet_bin" src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll)
+fi
 
 expect_failure() {
   local expected="$1"

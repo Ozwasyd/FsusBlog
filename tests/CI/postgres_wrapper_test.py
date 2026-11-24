@@ -67,6 +67,18 @@ esac
                 self.assertTrue(str(path).startswith("/tmp/fsus-ci-pg."))
                 shutil.rmtree(path)
 
+    def test_success_with_live_child_is_rejected_and_child_is_stopped(self):
+        child_file = self.root / "child.pid"
+        self.env["CHILD_PID_FILE"] = str(child_file)
+        result = self.run_wrapper('sleep 30 & echo $! > "$CHILD_PID_FILE"; exit 0')
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("Owned processes remained", result.stderr)
+        self.assertFalse(self.state.exists())
+        status = Path(f"/proc/{int(child_file.read_text())}/stat")
+        if status.exists():
+            # A reparented child can briefly await init's reap, but cannot run.
+            self.assertEqual(status.read_text().split(") ", 1)[1].split()[0], "Z")
+
     def test_wrong_postgres_major_is_rejected(self):
         self.tool("postgres", 'echo "postgres (PostgreSQL) 17.6"')
         result = self.run_wrapper("true")

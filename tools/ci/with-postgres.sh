@@ -18,6 +18,8 @@ cleanup() {
   local code=$? stopped=1
   trap - EXIT INT TERM
   if [[ -n "$child" ]] && kill -0 -- "-$child" 2>/dev/null; then
+    echo "Owned processes remained after the test command (process group $child):" >&2
+    ps -eo pid=,ppid=,pgid=,comm= | awk -v group="$child" '$3 == group' >&2 || true
     kill -TERM -- "-$child" 2>/dev/null || true
     for ((i=0; i<50; i++)); do
       kill -0 -- "-$child" 2>/dev/null || break
