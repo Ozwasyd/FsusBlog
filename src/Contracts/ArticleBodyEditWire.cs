@@ -38,13 +38,8 @@ public static partial class Wire
     public static byte[] EncodeDraftRevisionBodyEditChain(DraftRevisionBodyEditChain value)
     {
         ValidateBodyEditChain(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.Revision);
-        writer.I64(value.SourceRevision);
-        writer.Bool(value.Available);
-        writer.Text(value.SourceBody, WireLimits.BodyBytes);
-        writer.Text(value.Body, WireLimits.BodyBytes);
+        var writer = WriteBodyChainHeader(value.Id, value.Revision, value.SourceRevision, value.Available,
+            value.SourceBody, value.Body);
         writer.I32(value.Edges.Count);
         foreach (var edge in value.Edges)
         {
@@ -59,12 +54,7 @@ public static partial class Wire
     {
         var reader = Reader.Open(frame, FrameType.DraftRevisionBodyEditChain, WireLimits.MaxDraftRevisionBodyEditChainFrameBytes,
             InvalidBodyEdits);
-        var id = reader.I32();
-        var revision = reader.I64();
-        var sourceRevision = reader.I64();
-        var available = reader.Bool();
-        var source = reader.Text(WireLimits.BodyBytes);
-        var body = reader.Text(WireLimits.BodyBytes);
+        var (id, revision, sourceRevision, available, source, body) = ReadBodyChainHeader(ref reader);
         var edges = new DraftRevisionBodyEditEdge[reader.Count(0, WireLimits.ArticleBodyInsertionChainEdges, InvalidBodyEdits)];
         for (var index = 0; index < edges.Length; index++)
             edges[index] = new(reader.Text(WireLimits.ArticleBodyInsertionDigestBytes), reader.Text(WireLimits.ArticleBodyInsertionDigestBytes),
@@ -74,6 +64,23 @@ public static partial class Wire
         ValidateBodyEditChain(result);
         return result;
     }
+
+    private static Writer WriteBodyChainHeader(int id, long revision, long sourceRevision, bool available,
+        string sourceBody, string body)
+    {
+        var writer = new Writer();
+        writer.I32(id);
+        writer.I64(revision);
+        writer.I64(sourceRevision);
+        writer.Bool(available);
+        writer.Text(sourceBody, WireLimits.BodyBytes);
+        writer.Text(body, WireLimits.BodyBytes);
+        return writer;
+    }
+
+    private static (int, long, long, bool, string, string) ReadBodyChainHeader(ref Reader reader) =>
+        (reader.I32(), reader.I64(), reader.I64(), reader.Bool(),
+            reader.Text(WireLimits.BodyBytes), reader.Text(WireLimits.BodyBytes));
 
     private static void WriteBodyEdits(Writer writer, IReadOnlyList<BodyEdit> edits)
     {

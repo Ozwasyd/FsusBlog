@@ -36,13 +36,8 @@ public static partial class Wire
     public static byte[] EncodeDraftRevisionBodyInsertionChain(DraftRevisionBodyInsertionChain value)
     {
         ValidateBodyInsertionChain(value);
-        var writer = new Writer();
-        writer.I32(value.Id);
-        writer.I64(value.Revision);
-        writer.I64(value.SourceRevision);
-        writer.Bool(value.Available);
-        writer.Text(value.SourceBody, WireLimits.BodyBytes);
-        writer.Text(value.Body, WireLimits.BodyBytes);
+        var writer = WriteBodyChainHeader(value.Id, value.Revision, value.SourceRevision, value.Available,
+            value.SourceBody, value.Body);
         writer.I32(value.Edges.Count);
         foreach (var edge in value.Edges)
         {
@@ -57,12 +52,7 @@ public static partial class Wire
     {
         var reader = Reader.Open(frame, FrameType.DraftRevisionBodyInsertionChain, WireLimits.MaxDraftRevisionBodyInsertionChainFrameBytes,
             InvalidBodyInsertionChain);
-        var id = reader.I32();
-        var revision = reader.I64();
-        var source = reader.I64();
-        var available = reader.Bool();
-        var sourceBody = reader.Text(WireLimits.BodyBytes);
-        var body = reader.Text(WireLimits.BodyBytes);
+        var (id, revision, source, available, sourceBody, body) = ReadBodyChainHeader(ref reader);
         var edges = new DraftRevisionBodyInsertionEdge[reader.Count(0, WireLimits.ArticleBodyInsertionChainEdges, InvalidBodyInsertionChain)];
         for (var index = 0; index < edges.Length; index++)
             edges[index] = new(reader.Text(WireLimits.ArticleBodyInsertionDigestBytes), reader.Text(WireLimits.ArticleBodyInsertionDigestBytes),
