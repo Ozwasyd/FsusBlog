@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import re
 import json
 import os
 from pathlib import Path
@@ -76,6 +78,25 @@ def validate_trx(path: Path, profile: str) -> dict:
             "passed": passed, "excluded": skipped}
 
 
+def validate_caddy(manifest: Path, archive: Path, manifest_sha256: str) -> dict:
+    """Caddy uses SHA-512 archive entries, inside a SHA-256-pinned manifest."""
+    payload = manifest.read_bytes()
+    if hashlib.sha256(payload).hexdigest() != manifest_sha256:
+        raise ValueError("Caddy checksum manifest does not match the pinned SHA-256.")
+    matches = []
+    for line in payload.decode("ascii").splitlines():
+        entry = re.fullmatch(r"([0-9a-fA-F]{128}) [ *](.+)", line)
+        if entry and entry.group(2) == archive.name:
+            matches.append(entry.group(1).lower())
+    if len(matches) != 1:
+        raise ValueError("Caddy manifest must contain exactly one SHA-512 archive entry.")
+    with archive.open("rb") as stream:
+        actual = hashlib.file_digest(stream, "sha512").hexdigest()
+    if actual != matches[0]:
+        raise ValueError("Caddy archive does not match its authenticated SHA-512.")
+    return {"status": "verified", "archive": archive.name, "sha512": actual}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -83,10 +104,16 @@ def main() -> int:
     trx = sub.add_parser("trx")
     trx.add_argument("path", type=Path)
     trx.add_argument("--profile", choices=["unit", "integration"], default="unit")
+    caddy = sub.add_parser("caddy")
+    caddy.add_argument("manifest", type=Path)
+    caddy.add_argument("archive", type=Path)
+    caddy.add_argument("--manifest-sha256", required=True)
     args = parser.parse_args()
     try:
         if args.command == "required":
             report = validate_needs(json.loads(os.environ.get("CI_NEEDS", "null")))
+        elif args.command == "caddy":
+            report = validate_caddy(args.manifest, args.archive, args.manifest_sha256)
         else:
             report = validate_trx(args.path, args.profile)
         print(json.dumps(report, ensure_ascii=False, indent=2))

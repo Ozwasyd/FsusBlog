@@ -1,5 +1,6 @@
 """Negative controls for CI aggregation and real-test report validation."""
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -121,6 +122,54 @@ class ResultGates(unittest.TestCase):
     def test_malformed_required_job_is_rejected(self):
         with self.assertRaises(ValueError):
             checks.validate_needs({"source": {"result": "success"}, "stack": "success"})
+
+
+class CaddyChecksums(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.archive = Path(self.temp.name) / "caddy_2.11.9_linux_amd64.tar.gz"
+        self.manifest = Path(self.temp.name) / "checksums.txt"
+        self.archive.write_bytes(b"archive fixture")
+        self.digest = hashlib.sha512(self.archive.read_bytes()).hexdigest()
+
+    def manifest_digest(self, text):
+        self.manifest.write_text(text, encoding="ascii")
+        return hashlib.sha256(self.manifest.read_bytes()).hexdigest()
+
+    def test_authenticated_sha512_archive_in_text_and_binary_modes(self):
+        for mode in (" ", "*"):
+            with self.subTest(mode=mode):
+                pin = self.manifest_digest(f"{self.digest} {mode}{self.archive.name}\n")
+                report = checks.validate_caddy(self.manifest, self.archive, pin)
+                self.assertEqual(report["status"], "verified")
+
+    def test_untrusted_manifest_is_rejected(self):
+        self.manifest_digest(f"{self.digest}  {self.archive.name}\n")
+        with self.assertRaises(ValueError):
+            checks.validate_caddy(self.manifest, self.archive, "0" * 64)
+
+    def test_tampered_archive_is_rejected(self):
+        pin = self.manifest_digest(f"{self.digest}  {self.archive.name}\n")
+        self.archive.write_bytes(b"tampered")
+        with self.assertRaises(ValueError):
+            checks.validate_caddy(self.manifest, self.archive, pin)
+
+    def test_duplicate_archive_entry_is_rejected(self):
+        pin = self.manifest_digest(f"{self.digest}  {self.archive.name}\n" * 2)
+        with self.assertRaises(ValueError):
+            checks.validate_caddy(self.manifest, self.archive, pin)
+
+    def test_missing_exact_archive_is_rejected(self):
+        pin = self.manifest_digest(f"{self.digest}  wrong-{self.archive.name}\n")
+        with self.assertRaises(ValueError):
+            checks.validate_caddy(self.manifest, self.archive, pin)
+
+    def test_sha256_archive_entry_cannot_replace_sha512(self):
+        short = hashlib.sha256(self.archive.read_bytes()).hexdigest()
+        pin = self.manifest_digest(f"{short}  {self.archive.name}\n")
+        with self.assertRaises(ValueError):
+            checks.validate_caddy(self.manifest, self.archive, pin)
 
 
 if __name__ == "__main__":

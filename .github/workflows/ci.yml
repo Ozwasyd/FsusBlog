@@ -104,7 +104,7 @@ jobs:
           config=$(mktemp "$RUNNER_TEMP/fsus-npm.XXXXXXXX")
           trap 'rm -f -- "$config"' EXIT
           chmod 600 "$config"
-          printf '%s\n' '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' > "$config"
+          printf '%s\n' "//npm.pkg.github.com/:_authToken=\${NODE_AUTH_TOKEN}" > "$config"
           NPM_CONFIG_USERCONFIG="$config" pnpm --dir src/Web fetch --ignore-scripts
       - name: Offline Web restore, typecheck, and production build
         run: |

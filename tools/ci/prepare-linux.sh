@@ -27,10 +27,10 @@ work=$(mktemp -d "$RUNNER_TEMP/fsus-caddy.XXXXXXXX")
 trap 'rm -rf -- "$work"' EXIT
 url="https://github.com/caddyserver/caddy/releases/download/v$version"
 curl --fail --silent --show-error --location --retry 3 "$url/caddy_${version}_checksums.txt" -o "$work/checksums.txt"
-printf '%s  %s\n' "$checksum" "$work/checksums.txt" | sha256sum --check --strict
 archive="caddy_${version}_linux_amd64.tar.gz"
 curl --fail --silent --show-error --location --retry 3 "$url/$archive" -o "$work/$archive"
-(cd "$work"; grep -F " $archive" checksums.txt | sha256sum --check --strict)
+python3 -B "$(dirname -- "${BASH_SOURCE[0]}")/checks.py" caddy \
+  "$work/checksums.txt" "$work/$archive" --manifest-sha256 "$checksum"
 mkdir -p "$RUNNER_TEMP/fsus-tools"
 tar -xzf "$work/$archive" -C "$RUNNER_TEMP/fsus-tools" caddy
 printf '%s\n' "$RUNNER_TEMP/fsus-tools" /usr/lib/postgresql/18/bin >> "$GITHUB_PATH"
