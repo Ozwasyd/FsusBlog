@@ -16,11 +16,11 @@ NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 # Exact method names prevent a new environment-dependent test silently going green.
 INTEGRATION_EXCLUSIONS = {
     "FsusBlog.V2.Integration.Tests.PrivateMediaPostgresTests.PdfIncludesOnlyApprovedSavedImagesAndPinsTheirOrder": "macOS PDF renderer",
-    "FsusBlog.V2.Integration.Tests.MarkdownExportPostgresTests.PdfExportsOnlyTheAuthorizedSelectedRevision": "macOS PDF renderer",
-    "FsusBlog.V2.Integration.Tests.DocumentExportPdfPostgresTests.CancelsAnOwnedRunningPdfAndReleasesItsRendererBeforeTimeout": "macOS PDF renderer",
-    "FsusBlog.V2.Integration.Tests.DocumentExportPdfPostgresTests.RestartsAfterLeaseLossInterruptsRealPdfAndFinishesTheQueuedJob": "macOS PDF renderer",
-    "FsusBlog.V2.Integration.Tests.DocumentExportPdfPostgresTests.RestartsAfterSigtermInterruptsRealPdfAndFinishesTheQueuedJob": "macOS PDF renderer",
-    "FsusBlog.V2.Integration.Tests.PluginPreviewPostgresTests.SignedWorkerPreviewsOnlyTheCurrentSavedAuthorRevisionOverHttps": "operator-staged Linux ARM64 plugin worker",
+    "MarkdownExportPostgresTests.PdfExportsOnlyTheAuthorizedSelectedRevision": "macOS PDF renderer",
+    "FsusBlog.V2.Integration.Tests.DocumentExportPostgresTests.CancelsAnOwnedRunningPdfAndReleasesItsRendererBeforeTimeout": "macOS PDF renderer",
+    "FsusBlog.V2.Integration.Tests.DocumentExportPostgresTests.RestartsAfterLeaseLossInterruptsRealPdfAndFinishesTheQueuedJob": "macOS PDF renderer",
+    "FsusBlog.V2.Integration.Tests.DocumentExportPostgresTests.RestartsAfterSigtermInterruptsRealPdfAndFinishesTheQueuedJob": "macOS PDF renderer",
+    "PluginPreviewPostgresTests.SignedWorkerPreviewsOnlyTheCurrentSavedAuthorRevisionOverHttps": "operator-staged Linux ARM64 plugin worker",
     "FsusBlog.V2.Integration.Tests.NightlyFixturePostgresTests.WritePlannedArticles": "separate C11 scale fixture",
 }
 
@@ -68,10 +68,15 @@ def validate_trx(path: Path, profile: str) -> dict:
         else:
             raise ValueError(f"Unexpected test outcome {outcome}: {name}")
     expected = {"total": len(results), "passed": passed, "failed": 0,
-                "notExecuted": len(skipped), "executed": passed}
+                "executed": passed}
     for key, value in expected.items():
         if int(counters.get(key, "-1")) != value:
             raise ValueError(f"TRX counter mismatch: {key} must be {value}.")
+    # VSTest 18.5.1 writes notExecuted=0 even when xUnit emits NotExecuted
+    # result rows. Count and authorize every skipped row above; require the
+    # independent total/executed/passed counters to reconcile either encoding.
+    if int(counters.get("notExecuted", "-1")) not in {0, len(skipped)}:
+        raise ValueError("TRX notExecuted counter does not match its result rows.")
     if passed == 0:
         raise ValueError("An all-skipped run cannot pass.")
     return {"status": "passed", "profile": profile, "total": len(results),

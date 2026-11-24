@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='utf-8'?>
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <!-- Minimized from run 45417259283, artifact 14931723956. Real xUnit identities and VSTest 18.5.1 counter encoding; totals adjusted to these eight rows. -->
+  <TestDefinitions>
+    <UnitTest id="test-0">
+      <TestMethod className="FsusBlog.V2.Integration.Tests.AdminInboxActivityPostgresTests" name="ActivityPagesPinTheLatestVisibleMessageAcrossCommitsAndPreserveLiveFilters" />
+    </UnitTest>
+    <UnitTest id="test-1">
+      <TestMethod className="PluginPreviewPostgresTests" name="SignedWorkerPreviewsOnlyTheCurrentSavedAuthorRevisionOverHttps" />
+    </UnitTest>
+    <UnitTest id="test-2">
+      <TestMethod className="FsusBlog.V2.Integration.Tests.NightlyFixturePostgresTests" name="WritePlannedArticles" />
+    </UnitTest>
+    <UnitTest id="test-3">
+      <TestMethod className="FsusBlog.V2.Integration.Tests.DocumentExportPostgresTests" name="RestartsAfterSigtermInterruptsRealPdfAndFinishesTheQueuedJob" />
+    </UnitTest>
+    <UnitTest id="test-4">
+      <TestMethod className="FsusBlog.V2.Integration.Tests.DocumentExportPostgresTests" name="RestartsAfterLeaseLossInterruptsRealPdfAndFinishesTheQueuedJob" />
+    </UnitTest>
+    <UnitTest id="test-5">
+      <TestMethod className="FsusBlog.V2.Integration.Tests.DocumentExportPostgresTests" name="CancelsAnOwnedRunningPdfAndReleasesItsRendererBeforeTimeout" />
+    </UnitTest>
+    <UnitTest id="test-6">
+      <TestMethod className="FsusBlog.V2.Integration.Tests.PrivateMediaPostgresTests" name="PdfIncludesOnlyApprovedSavedImagesAndPinsTheirOrder" />
+    </UnitTest>
+    <UnitTest id="test-7">
+      <TestMethod className="MarkdownExportPostgresTests" name="PdfExportsOnlyTheAuthorizedSelectedRevision" />
+    </UnitTest>
+  </TestDefinitions>
+  <Results>
+    <UnitTestResult testId="test-0" executionId="execution-0" testName="FsusBlog.V2.Integration.Tests.AdminInboxActivityPostgresTests.ActivityPagesPinTheLatestVisibleMessageAcrossCommitsAndPreserveLiveFilters" outcome="Passed" />
+    <UnitTestResult testId="test-1" executionId="execution-1" testName="PluginPreviewPostgresTests.SignedWorkerPreviewsOnlyTheCurrentSavedAuthorRevisionOverHttps" outcome="NotExecuted" />
+    <UnitTestResult testId="test-2" executionId="execution-2" testName="FsusBlog.V2.Integration.Tests.NightlyFixturePostgresTests.WritePlannedArticles" outcome="NotExecuted" />
+    <UnitTestResult testId="test-3" executionId="execution-3" testName="FsusBlog.V2.Integration.Tests.DocumentExportPostgresTests.RestartsAfterSigtermInterruptsRealPdfAndFinishesTheQueuedJob" outcome="NotExecuted" />
+    <UnitTestResult testId="test-4" executionId="execution-4" testName="FsusBlog.V2.Integration.Tests.DocumentExportPostgresTests.RestartsAfterLeaseLossInterruptsRealPdfAndFinishesTheQueuedJob" outcome="NotExecuted" />
+    <UnitTestResult testId="test-5" executionId="execution-5" testName="FsusBlog.V2.Integration.Tests.DocumentExportPostgresTests.CancelsAnOwnedRunningPdfAndReleasesItsRendererBeforeTimeout" outcome="NotExecuted" />
+    <UnitTestResult testId="test-6" executionId="execution-6" testName="FsusBlog.V2.Integration.Tests.PrivateMediaPostgresTests.PdfIncludesOnlyApprovedSavedImagesAndPinsTheirOrder" outcome="NotExecuted" />
+    <UnitTestResult testId="test-7" executionId="execution-7" testName="MarkdownExportPostgresTests.PdfExportsOnlyTheAuthorizedSelectedRevision" outcome="NotExecuted" />
+  </Results>
+  <ResultSummary outcome="Completed">
+    <Counters total="8" executed="1" passed="1" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>
