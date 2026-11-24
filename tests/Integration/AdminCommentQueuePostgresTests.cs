@@ -8,16 +8,11 @@ public sealed class AdminCommentQueuePostgresTests
     public async Task ModeratorReadsTrackedPendingCommentsAcrossPagesWithRevocationAndPublicIsolation()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var (admin, adminToken, _) = await FixtureSql.AdminAsync(db, ct, "moderator", 10, [1], [2]);
-        var owner = Guid.NewGuid();
-        var siteTicket = Secret();
-        await Execute("insert into public.blog_user(id,name,enabled,generation) values($1,'author',true,1)", owner);
-        await Execute("insert into public.login_ticket values($1,$2,clock_timestamp()+interval '5 minutes')", Store.TokenDigest(siteTicket)!, owner);
-        await Execute("insert into public.comment_public_handle values($1,'Fixture commenter')", owner);
+        var (admin, adminToken, _) = await fixture.AdminAsync("moderator", 10, [1], [2], ct);
+        var (owner, siteToken, _) = await fixture.SignInSiteUser("author", ct, minutes: 5);
+        await fixture.Exec("insert into public.comment_public_handle values($1,'Fixture commenter')", owner);
 
         var store = new Store(fixture.DataSource);
-        var (siteToken, _) = await store.SignIn(siteTicket, ct);
         var (_, authorToken, _) = await fixture.SignIn("comment-queue-author", ct);
         var adminStore = new AdminCommentQueueStore(new AdminSessionGate(fixture.DataSource, null));
         var publications = PublicationFixture.Project(fixture.DataSource);
@@ -29,17 +24,21 @@ public sealed class AdminCommentQueuePostgresTests
         const string pending = "Pending <strong>literal review content</strong>";
         var genuine = await Submit(published.Id, pending);
         var approved = await Submit(published.Id, "Approved public comment control");
-        await Execute("update public.comment set moderation_status=1 where article_id=$1 and id=$2", published.Id, approved.CommentId);
+        await fixture.Exec("update public.comment set moderation_status=1 where article_id=$1 and id=$2", published.Id, approved.CommentId);
         var acceptedAfterRetraction = await Submit(retracted.Id, "Pending under retracted article");
         var excludedAfterDeletion = await Submit(removed.Id, "Pending under deleted article");
         await ArticleCommand(ArticleAction.Retract, retracted.Id, retracted.Revision, retracted.Title);
         await ArticleCommand(ArticleAction.Delete, removed.Id, removed.Revision, removed.Title);
 
-        await Seed(published.Id, 10_000, 2, deleted: false, tracked: true, "Rejected tracked comment");
-        await Seed(published.Id, 10_001, 3, deleted: false, tracked: true, "Hidden tracked comment");
-        await Seed(published.Id, 10_002, 0, deleted: true, tracked: true, "Deleted tracked comment");
-        await Seed(draft.Id, 10_003, 0, deleted: false, tracked: false, "Untracked pending draft comment");
-        await Seed(published.Id, 10_004, 0, deleted: false, tracked: false, "Untracked pending public comment");
+        foreach (var (artId, cid, status, del, tracked, body) in new[]
+        {
+            (published.Id, 10_000L, (short)2, false, true, "Rejected tracked comment"),
+            (published.Id, 10_001L, (short)3, false, true, "Hidden tracked comment"),
+            (published.Id, 10_002L, (short)0, true, true, "Deleted tracked comment"),
+            (draft.Id, 10_003L, (short)0, false, false, "Untracked pending draft comment"),
+            (published.Id, 10_004L, (short)0, false, false, "Untracked pending public comment"),
+        })
+            await Seed(artId, cid, status, del, tracked, body);
 
         var allExpected = new List<(long Comment, int Article)>
         {
@@ -52,27 +51,22 @@ public sealed class AdminCommentQueuePostgresTests
             await Seed(published.Id, comment, 0, deleted: false, tracked: true, $"Pending page fixture {offset}");
             allExpected.Add((comment, published.Id));
         }
-        await Seed(retracted.Id, allExpected[WireLimits.AdminCommentQueueSize - 1].Comment,
-            0, deleted: false, tracked: true, "Pending shared comment coordinate");
-        allExpected.Add((allExpected[WireLimits.AdminCommentQueueSize - 1].Comment, retracted.Id));
+        var sharedComment = allExpected[WireLimits.AdminCommentQueueSize - 1].Comment;
+        await Seed(retracted.Id, sharedComment, 0, deleted: false, tracked: true, "Pending shared comment coordinate");
+        allExpected.Add((sharedComment, retracted.Id));
 
         await Denied(Rejection.Unauthorized, () => adminStore.CommentQueue(siteToken, QueryCollection.Empty, ct));
-        await Denied(Rejection.Invalid, () => adminStore.CommentQueue(adminToken, new QueryCollection(new Dictionary<string, StringValues>
-        {
-            ["afterComment"] = "1",
-        }), ct));
+        await Denied(Rejection.Invalid, () => adminStore.CommentQueue(adminToken,
+            new QueryCollection(new Dictionary<string, StringValues> { ["afterComment"] = "1" }), ct));
 
         var page = await adminStore.CommentQueue(adminToken, QueryCollection.Empty, ct);
-        Assert.True(page.HasMore);
-        Assert.Equal(WireLimits.AdminCommentQueueSize, page.Comments.Count);
+        Assert.Equal((true, WireLimits.AdminCommentQueueSize), (page.HasMore, page.Comments.Count));
         var realComment = Assert.Single(page.Comments, item => item.CommentId == genuine.CommentId && item.ArticleId == published.Id);
-        Assert.Equal(pending, realComment.Body);
-        Assert.Equal("Fixture commenter", realComment.DisplayName);
+        Assert.Equal((pending, "Fixture commenter"), (realComment.Body, realComment.DisplayName));
         Assert.True(realComment.CreatedAt > 0);
         Assert.DoesNotContain(page.Comments, item => item.CommentId == excludedAfterDeletion.CommentId && item.ArticleId == removed.Id);
         var encodedQueue = Wire.EncodeAdminCommentQueue(page);
-        Aeds.Decode(encodedQueue, out var frameType);
-        Assert.Equal(FrameType.AdminCommentQueue, frameType);
+        Aeds.Decode(encodedQueue, FrameType.AdminCommentQueue);
         Assert.True(encodedQueue.AsSpan().IndexOf(Encoding.UTF8.GetBytes(pending)) >= 0);
 
         var last = page.Comments[^1];
@@ -81,41 +75,32 @@ public sealed class AdminCommentQueuePostgresTests
             ["afterComment"] = last.CommentId.ToString(CultureInfo.InvariantCulture),
             ["afterArticle"] = last.ArticleId.ToString(CultureInfo.InvariantCulture),
         }), ct);
-        Assert.False(finalPage.HasMore);
-        Assert.Equal(last.CommentId, finalPage.Comments[0].CommentId);
-        Assert.Equal(retracted.Id, finalPage.Comments[0].ArticleId);
+        Assert.Equal((false, last.CommentId, retracted.Id),
+            (finalPage.HasMore, finalPage.Comments[0].CommentId, finalPage.Comments[0].ArticleId));
         Assert.Equal(allExpected.Order(), page.Comments.Concat(finalPage.Comments).Select(item => (item.CommentId, item.ArticleId)));
 
         var publicFrame = await new CommentReadStore(fixture.DataSource).Roots(published.Id, null, 50, ct);
-        Aeds.Decode(publicFrame, out var publicType);
-        Assert.Equal(FrameType.CommentTreeRootCursor, publicType);
+        Aeds.Decode(publicFrame, FrameType.CommentTreeRootCursor);
         Assert.True(publicFrame.AsSpan().IndexOf("Approved public comment control"u8) >= 0);
         Assert.True(publicFrame.AsSpan().IndexOf(Encoding.UTF8.GetBytes(pending)) < 0);
-        await Execute("update public.admin_principal set generation=generation+1,generation_changed_at=clock_timestamp() where id=$1", admin);
+        await fixture.Exec("update public.admin_principal set generation=generation+1,generation_changed_at=clock_timestamp() where id=$1", admin);
         await Denied(Rejection.Unauthorized, () => adminStore.CommentQueue(adminToken, QueryCollection.Empty, ct));
 
-        async Task<ArticleState> ArticleCommand(ArticleAction action, int id, long revision, string title)
-        {
-            var edit = action == ArticleAction.Save
-                ? new Edit(id, revision, Guid.NewGuid(), title, "Moderation fixture article body")
-                : new Edit(id, revision, Guid.NewGuid(), "", "");
-            var (article, _) = await publications.Command(store, authorToken, action,
-                edit, ct);
-            return article;
-        }
+        async Task<ArticleState> ArticleCommand(ArticleAction action, int id, long revision, string title) =>
+            (await publications.Command(store, authorToken, action,
+                new(id, revision, Guid.NewGuid(), action == ArticleAction.Save ? title : "", action == ArticleAction.Save ? "Moderation fixture article body" : ""), ct)).Article;
 
         async Task<ArticleState> Publish(string title)
         {
             var article = await ArticleCommand(ArticleAction.Save, 0, 0, title);
             var publishedArticle = await ArticleCommand(ArticleAction.Publish, article.Id, article.Revision, title);
-            await Execute("insert into public.comment_public_write values($1)", article.Id);
+            await fixture.Exec("insert into public.comment_public_write values($1)", article.Id);
             return publishedArticle;
         }
 
         async Task<PublicCommentSubmissionResult> Submit(int article, string content)
         {
-            await using var select = Store.Sql(db, null, "select publication_id from public.article_publication where article_id=$1", article);
-            var publication = (long)(await select.ExecuteScalarAsync(ct))!;
+            var publication = await fixture.Scalar<long>("select publication_id from public.article_publication where article_id=$1", article);
             return await store.WithSession(siteToken, false,
                 (connection, tx, actor) => CommentWriteStore.Submit(connection, tx, actor,
                     new PublicCommentSubmission(article, publication, Guid.NewGuid(), true, "Fixture commenter", content), ct), ct);
@@ -123,18 +108,13 @@ public sealed class AdminCommentQueuePostgresTests
 
         async Task Seed(int article, long comment, short status, bool deleted, bool tracked, string body)
         {
-            await Execute("""
+            await fixture.Exec("""
                 insert into public.comment(article_id,id,root_id,depth,moderation_status,deleted,body,author_mode,display_name,display_language,created_at)
                 values($1,$2,$2,0,$3,$4,$5,3,'Fixture commenter','en',clock_timestamp())
                 """, article, comment, status, deleted, body);
             if (tracked)
-                await Execute("insert into public.comment_submit_command values($1,$2,$3,$4,$5)", owner, Guid.NewGuid(),
+                await fixture.Exec("insert into public.comment_submit_command values($1,$2,$3,$4,$5)", owner, Guid.NewGuid(),
                     SHA256.HashData(Encoding.UTF8.GetBytes(body)), article, comment);
         }
-
-        Task Execute(string sql, params object[] arguments) =>
-            FixtureSql.ExecuteAsync(db, null, ct, sql, arguments);
     }
-
-    private static string Secret() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 }

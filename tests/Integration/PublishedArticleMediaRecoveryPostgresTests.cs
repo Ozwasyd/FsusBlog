@@ -8,16 +8,14 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
     public async Task RestoredPrivateBackupRebuildsVerifiedCurrentAndHistoricalImageObjects()
     {
         if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()) return;
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-        var ct = deadline.Token;
         var maintenance = new NpgsqlConnectionStringBuilder(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!);
         if (maintenance.Host is null || !Path.IsPathFullyQualified(maintenance.Host) || maintenance.Host.Contains(','))
             throw new InvalidOperationException("Published-media recovery tests require one native PostgreSQL Unix socket.");
-        await using var source = await ScratchDatabase.Create(maintenance.ConnectionString, ct);
+        await using var source = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(3));
         var owner = await MediaFixture.CreateSession(source.DataSource, "public image backup owner", ct);
-        var site = await SiteId(source.DataSource, ct);
+        var site = await source.Scalar<Guid>("SELECT site_id FROM public.authoring_recovery_site WHERE singleton");
         var root = Directory.CreateTempSubdirectory("fsusblog-public-image-recovery-");
-        try
+        using (new MediaFixture.DirectoryCleanup(root))
         {
             var privateRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "private-source");
             var publicRoot = MediaFixture.CreateOwnedDirectory(root.FullName, "public-source");
@@ -42,9 +40,9 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 var draft = await PostDraft(client, WireRoutes.Save,
                     Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "Media recovery", "Original published body.")), owner, ct);
                 var first = await Release(await Attach(client, owner, draft, historical.Id, ct), historical);
-                historicalPublication = await PublicationId(source.DataSource, first, ct);
+                historicalPublication = await PublicationId(source, first, ct);
                 var second = await Release(await Attach(client, owner, first, current.Id, ct), current);
-                currentPublication = await PublicationId(source.DataSource, second, ct);
+                currentPublication = await PublicationId(source, second, ct);
                 article = second.Id;
                 Assert.True(historicalPublication < currentPublication);
                 expectedManifest = await client.GetByteArrayAsync(ManifestPath(article, currentPublication), ct);
@@ -66,7 +64,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 var file = $"{image.Id:N}.media";
                 var bytes = await File.ReadAllBytesAsync(Path.Combine(privateRoot, file), ct);
                 Assert.Equal(image.Bytes, bytes);
-                await CreateReadOnlyLeaf(Path.Combine(restoredPrivate, file), bytes, ct);
+                await MediaFixture.WriteReadOnlyFile(Path.Combine(restoredPrivate, file), bytes, ct, createNew: true);
             }
 
             var name = $"fsusv2_media_restore_{Guid.NewGuid():N}";
@@ -82,12 +80,12 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 AssertSuccess(await RunPostgres("pg_restore", restore,
                     ["--no-password", "--single-transaction", "--exit-on-error", "--no-owner", "--no-privileges", "--dbname", name, dump], ct));
                 await using var restored = NpgsqlDataSource.Create(restore.ConnectionString);
-                Assert.Equal(site, await SiteId(restored, ct));
+                await using (var conn = await restored.OpenConnectionAsync(ct))
+                    Assert.Equal(site, Assert.IsType<Guid>(await FixtureSql.ScalarAsync(conn, null, ct,
+                        "SELECT site_id FROM public.authoring_recovery_site WHERE singleton")));
 
-                var wrongSite = await Recover("rebuild", Guid.NewGuid());
-                AssertFailed(wrongSite, "does not match the expected site");
-                var missing = await Recover("verify");
-                AssertFailed(missing, "A committed public media object is missing");
+                AssertFailed(await Recover("rebuild", Guid.NewGuid()), "does not match the expected site");
+                AssertFailed(await Recover("verify"), "A committed public media object is missing");
                 Assert.Empty(Directory.EnumerateFileSystemEntries(restoredPublic));
 
                 var firstObject = string.CompareOrdinal(historical.Digest, current.Digest) < 0 ? historical : current;
@@ -95,7 +93,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 File.Delete(sourceLeaf);
                 AssertFailed(await Recover("rebuild"), "A retained private source is missing");
                 Assert.Empty(Directory.EnumerateFileSystemEntries(restoredPublic));
-                await CreateReadOnlyLeaf(sourceLeaf, firstObject.Bytes, ct);
+                await MediaFixture.WriteReadOnlyFile(sourceLeaf, firstObject.Bytes, ct, createNew: true);
 
                 AssertRecovery(await Recover("rebuild"), rebuilt: 2);
                 await VerifyRetainedFiles(restoredPublic, historical, current, ct);
@@ -107,7 +105,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 var corrupt = historical.Bytes.ToArray();
                 corrupt[^1] ^= 1;
                 File.Delete(historicalObject);
-                await CreateReadOnlyLeaf(historicalObject, corrupt, ct);
+                await MediaFixture.WriteReadOnlyFile(historicalObject, corrupt, ct, createNew: true);
                 AssertFailed(await Recover("verify"), "Media bytes do not match their committed digest.");
                 AssertFailed(await Recover("rebuild"), "Media bytes do not match their committed digest.");
                 Assert.Equal(corrupt, await File.ReadAllBytesAsync(historicalObject, ct));
@@ -126,12 +124,10 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
 
                 Task<FixtureProcess.Result> Recover(string operation, Guid? expectedSite = null) =>
                     InvokeMigration(restore.ConnectionString, operation, expectedSite ?? site, restoredPrivate, restoredPublic, web, ct);
-
             }
             finally
             {
-                await using var drop = new NpgsqlCommand($"DROP DATABASE {name} WITH (FORCE)", control);
-                await drop.ExecuteNonQueryAsync();
+                await FixtureSql.ExecuteAsync(control, null, CancellationToken.None, $"DROP DATABASE {name} WITH (FORCE)");
             }
 
             Dictionary<string, string> Config(string privatePath, string publicPath)
@@ -141,7 +137,6 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 return settings;
             }
         }
-        finally { root.Delete(recursive: true); }
     }
 
     private static async Task AssertArchivedRoutesHidden(HttpClient client, int article, long release, string digest, CancellationToken ct)
@@ -170,35 +165,9 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         }
     }
 
-    private static async Task<Guid> SiteId(NpgsqlDataSource source, CancellationToken ct)
-    {
-        await using var db = await source.OpenConnectionAsync(ct);
-        return Assert.IsType<Guid>(await FixtureSql.ScalarAsync(db, null, ct, "SELECT site_id FROM public.authoring_recovery_site WHERE singleton"));
-    }
-
-    [UnsupportedOSPlatform("windows")]
-    private static async Task CreateReadOnlyLeaf(string path, byte[] bytes, CancellationToken ct)
-    {
-        await using (var file = new FileStream(path, new FileStreamOptions
-        {
-            Mode = FileMode.CreateNew, Access = FileAccess.Write, UnixCreateMode = UnixFileMode.UserRead
-        }))
-            await file.WriteAsync(bytes, ct);
-        File.SetUnixFileMode(path, UnixFileMode.UserRead);
-    }
-
     private static Task<FixtureProcess.Result> InvokeMigration(string dsn, string operation, Guid site, string privateRoot,
-        string publicRoot, string web, CancellationToken ct)
-    {
-        var dotnet = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ??
-            Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet";
-        var migrate = Environment.GetEnvironmentVariable(PublicationMediaRecoveryFactAttribute.MigrationPath)!;
-        if (!Path.IsPathFullyQualified(migrate) || !File.Exists(migrate))
-            throw new InvalidOperationException("Supply the absolute path to the built migration CLI.");
-        var command = FixtureProcess.Command(dotnet, [migrate, "article-public-media", operation, site.ToString("D"), privateRoot, publicRoot, web]);
-        command.Environment["FSUSBLOG_DB"] = dsn;
-        return FixtureProcess.Run(command, ct);
-    }
+        string publicRoot, string web, CancellationToken ct) =>
+        FixtureProcess.Run(FixtureProcess.Migration(dsn, "article-public-media", operation, site.ToString("D"), privateRoot, publicRoot, web), ct);
 
     private static Task<FixtureProcess.Result> RunPostgres(string executable, NpgsqlConnectionStringBuilder settings,
         string[] args, CancellationToken ct)

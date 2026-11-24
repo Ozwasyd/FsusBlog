@@ -11,11 +11,28 @@ internal static class FixtureProcess
         return start;
     }
 
-    internal static ProcessStartInfo Migration(string dsn, params string[] arguments)
+    internal static ProcessStartInfo Migration(string dsn, params string[] arguments) =>
+        Cli(dsn, Environment.GetEnvironmentVariable(PublicationTransparencyFact.MigrationPath), arguments);
+
+    internal static ProcessStartInfo Cli(string? dsn, string? explicitPath, params string[] arguments)
     {
-        var start = Command(Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet",
-            [Environment.GetEnvironmentVariable(PublicationTransparencyFact.MigrationPath)!, .. arguments]);
-        start.Environment["FSUSBLOG_DB"] = dsn;
+        var migrate = explicitPath;
+        if (string.IsNullOrEmpty(migrate))
+        {
+            var current = new DirectoryInfo(AppContext.BaseDirectory);
+            while (current is not null && !File.Exists(Path.Combine(current.FullName, "FsusBlog.V2.slnx")))
+                current = current.Parent;
+            Assert.NotNull(current);
+            var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+            migrate = Path.Combine(current!.FullName, "src", "Cli", "bin", configuration, "net10.0", "FsusBlog.V2.Cli.dll");
+            if (!File.Exists(migrate))
+                migrate = Path.Combine(current.FullName, "src", "Cli", "bin", "Release", "net10.0", "FsusBlog.V2.Cli.dll");
+        }
+        if (!Path.IsPathFullyQualified(migrate) || !File.Exists(migrate))
+            throw new InvalidOperationException("Supply the absolute path to the built migration CLI.");
+        var start = Command(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ??
+            Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet", [migrate, .. arguments]);
+        if (dsn is not null) start.Environment["FSUSBLOG_DB"] = dsn;
         return start;
     }
 

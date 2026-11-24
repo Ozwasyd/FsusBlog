@@ -16,19 +16,12 @@ public sealed class AuthorTextPropertySortPostgresTests
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var author = new AuthorPropertyFixture(fixture, server.Client, ct);
 
-        var number = await author.Create(owner, "ranking", PropertyFieldKind.Number);
-        number = await author.SetProjection(owner, number, searchable: false, sortable: true);
-        var flag = await author.Create(owner, "flag", PropertyFieldKind.Boolean);
-        flag = await author.SetFilterable(owner, flag);
-        flag = await author.SetProjection(owner, flag, searchable: false, sortable: true);
-        var disabled = await author.Create(owner, "disabled", PropertyFieldKind.Number);
-        disabled = await author.SetFilterable(owner, disabled);
-        disabled = await author.SetProjection(owner, disabled, searchable: true, sortable: false);
-        var retired = await author.Create(owner, "retired", PropertyFieldKind.Number);
-        retired = await author.SetProjection(owner, retired, searchable: false, sortable: true);
+        var number = await author.Define(owner, "ranking", PropertyFieldKind.Number, sortable: true);
+        var flag = await author.Define(owner, "flag", PropertyFieldKind.Boolean, filterable: true, sortable: true);
+        var disabled = await author.Define(owner, "disabled", PropertyFieldKind.Number, filterable: true, searchable: true);
+        var retired = await author.Define(owner, "retired", PropertyFieldKind.Number, sortable: true);
         retired = await author.ChangeDefinition(owner, 3, retired.Id, retired.Revision);
-        var outsiderNumber = await author.Create(outsider, "ranking", PropertyFieldKind.Number, number.Id);
-        outsiderNumber = await author.SetProjection(outsider, outsiderNumber, searchable: false, sortable: true);
+        var outsiderNumber = await author.Define(outsider, "ranking", PropertyFieldKind.Number, sortable: true, id: number.Id);
         await author.Create(outsider, "other", PropertyFieldKind.Boolean);
 
         var members = new Member[CohortSize];
@@ -41,8 +34,8 @@ public sealed class AuthorTextPropertySortPostgresTests
             var at = index is 8 or 10 ? oldAt.AddDays(1) : oldAt;
             var member = new Member(article, bodyOnly, at, NumberAt(index), FlagAt(index));
             members[index] = member;
-            await PutIfPresent(owner, article, number, member.Number);
-            await PutIfPresent(owner, article, flag, member.Flag);
+            await author.PutIfPresent(owner, article, number, member.Number);
+            await author.PutIfPresent(owner, article, flag, member.Flag);
         }
         foreach (var group in members.GroupBy(member => member.UpdatedAt))
             Assert.Equal(group.Count(), await author.Execute("update public.article set updated_at=$1 where id=any($2)",
@@ -77,11 +70,11 @@ public sealed class AuthorTextPropertySortPostgresTests
         await VerifyPages(flagSort, owner, Expect(members, member => member.Flag, flagSort.Direction));
 
         var withFacet = ascending with { Facet = new(flag.Id, flag.Revision) };
-        await VerifyPages(withFacet, owner, ascendingRows, page => RequireFlagFacet(page, flag, 7, 5, 9, 9));
+        await VerifyPages(withFacet, owner, ascendingRows, page => RequireBoolFacet(page.Facet, flag, 7, 5, 9, 9));
         var condition = new PropertyCondition(flag.Id, flag.Revision, PropertyComparison.IsPresent, new PropertyFieldValue.Missing());
         var filtered = withFacet with { Search = withFacet.Search with { Conditions = [condition] } };
         await VerifyPages(filtered, owner, ascendingRows.Where(member => member.Flag is PropertyFieldValue.Boolean).ToArray(),
-            page => RequireFlagFacet(page, flag, 0, 0, 9, 9));
+            page => RequireBoolFacet(page.Facet, flag, 0, 0, 9, 9));
 
         var foreignPage = await Ready(Query(outsider, outsiderNumber, descending.Direction), outsider);
         Assert.Equal(1, foreignPage.Search.Total);
@@ -145,10 +138,6 @@ public sealed class AuthorTextPropertySortPostgresTests
 
         Task<byte[]> Reject(AuthorTextPropertySortQuery query, Actor actor, HttpStatusCode status) =>
             author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertySortQuery(query), actor, status);
-
-        Task PutIfPresent(Actor actor, ArticleState article, Field field, PropertyFieldValue value) =>
-            value is PropertyFieldValue.Missing ? Task.CompletedTask : author.Put(actor, article, field, value);
-
     }
 
     private static AuthorTextPropertySortQuery Continue(AuthorTextPropertySortQuery query, string cursor) =>
@@ -188,18 +177,6 @@ public sealed class AuthorTextPropertySortPostgresTests
             PropertyFieldValue.Null or PropertyFieldValue.Missing => 0m,
             _ => throw new InvalidOperationException("The fixture expected a number or Boolean."),
         })).ThenBy(member => member.BodyOnly).ThenByDescending(member => member.UpdatedAt).ThenBy(member => member.Article.Id).ToArray();
-
-    private static void RequireFlagFacet(AuthorTextPropertySortPage page, Field flag, int missing, int nil, int falseCount, int trueCount)
-    {
-        var facet = Assert.IsType<AuthorTextPropertyFacet>(page.Facet);
-        Assert.Equal((flag.Id, flag.Revision, PropertyFieldKind.Boolean, missing, nil, 0),
-            (facet.DefinitionId, facet.DefinitionRevision, facet.Kind, facet.Missing, facet.Null, facet.Empty));
-        Assert.Equal(new[]
-        {
-            new AuthorTextPropertyFacetBucket(new PropertyFieldValue.Boolean(false), falseCount),
-            new AuthorTextPropertyFacetBucket(new PropertyFieldValue.Boolean(true), trueCount),
-        }, facet.Buckets);
-    }
 
     private sealed record Member(ArticleState Article, bool BodyOnly, DateTime UpdatedAt, PropertyFieldValue Number, PropertyFieldValue Flag);
 }

@@ -36,121 +36,90 @@ public sealed class ServerCompositionParityTests
     public async Task RequestGuardEnforcesProxyLeaseOriginHeadersMutationAndFailClosedExceptions()
     {
         var logger = new RecordingLogger();
+        const string sampleArticle = "/api/v2/public/articles/1/10.aeds";
 
         async Task AssertShortCircuit(DefaultHttpContext ctx, RequestGuardOptions options, int expectedStatus)
         {
             var nextCalled = false;
-            await ServerPipeline.ExecuteRequestGuardAsync(ctx, () =>
-            {
-                nextCalled = true;
-                return Task.CompletedTask;
-            }, options, logger);
-            Assert.False(nextCalled);
-            Assert.Equal(expectedStatus, ctx.Response.StatusCode);
-        }
-
-        async Task AssertForwardingRejected(string address, string protocol, int expectedStatus)
-        {
-            var ctx = CreateContext("http", "blog.example.test", "/api/v2/public/articles/1/10.aeds", IPAddress.Loopback);
-            ctx.Request.Headers["X-Forwarded-For"] = address;
-            ctx.Request.Headers["X-Forwarded-Proto"] = protocol;
-            await ServerPipeline.ExecuteRequestGuardAsync(ctx, () => Task.CompletedTask,
-                GuardOptions(trustLoopbackProxy: true), logger);
-            Assert.Equal(expectedStatus, ctx.Response.StatusCode);
+            await ServerPipeline.ExecuteRequestGuardAsync(ctx, () => { nextCalled = true; return Task.CompletedTask; }, options, logger);
+            Assert.Equal((false, expectedStatus), (nextCalled, ctx.Response.StatusCode));
         }
 
         // 1. Untrusted proxy peer fails closed with 403 before next()
-        {
-            var ctx = CreateContext("https", "blog.example.test", "/api/v2/public/articles/1/10.aeds",
-                IPAddress.Parse("198.51.100.7"));
-            await AssertShortCircuit(ctx, GuardOptions(trustLoopbackProxy: true), 403);
-            Assert.Equal(Aeds.ContentType, ctx.Response.ContentType);
-            Assert.Equal("nosniff", ctx.Response.Headers.XContentTypeOptions.ToString());
-            Assert.Equal("same-origin", ctx.Response.Headers["Referrer-Policy"].ToString());
-            Assert.Equal(ServerHttp.ContentSecurityPolicy, ctx.Response.Headers.ContentSecurityPolicy.ToString());
-            var error = SiteAedsFixture.DecodeApiError(ReadBody(ctx));
-            Assert.Equal(403, error.Status);
-            Assert.Contains("local reverse proxy", error.Message, StringComparison.OrdinalIgnoreCase);
-        }
+        var untrusted = CreateContext("https", "blog.example.test", sampleArticle, IPAddress.Parse("198.51.100.7"));
+        await AssertShortCircuit(untrusted, GuardOptions(trustLoopbackProxy: true), 403);
+        Assert.Equal((Aeds.ContentType, "nosniff", "same-origin", ServerHttp.ContentSecurityPolicy),
+            (untrusted.Response.ContentType, untrusted.Response.Headers.XContentTypeOptions.ToString(),
+                untrusted.Response.Headers["Referrer-Policy"].ToString(), untrusted.Response.Headers.ContentSecurityPolicy.ToString()));
+        var proxyError = SiteAedsFixture.DecodeApiError(ReadBody(untrusted));
+        Assert.Equal(403, proxyError.Status);
+        Assert.Contains("local reverse proxy", proxyError.Message, StringComparison.OrdinalIgnoreCase);
 
         // 2. Malformed forwarding headers return 400; HTTP forwarded proto returns 403
-        await AssertForwardingRejected("not-an-ip", "https", 400);
-        await AssertForwardingRejected("203.0.113.5", "http", 403);
+        foreach (var (address, protocol, expected) in new[] { ("not-an-ip", "https", 400), ("203.0.113.5", "http", 403) })
+        {
+            var forwarded = CreateContext("http", "blog.example.test", sampleArticle, IPAddress.Loopback);
+            forwarded.Request.Headers["X-Forwarded-For"] = address;
+            forwarded.Request.Headers["X-Forwarded-Proto"] = protocol;
+            await AssertShortCircuit(forwarded, GuardOptions(trustLoopbackProxy: true), expected);
+        }
 
         // 3. Lost lease fails closed with 503 + no-store and suppresses error log spam
-        {
-            logger.Errors.Clear();
-            var ctx = CreateContext("https", "blog.example.test", "/api/v2/public/articles/1/10.aeds", IPAddress.Loopback);
-            await AssertShortCircuit(ctx, GuardOptions(leaseCurrent: false), 503);
-            Assert.Equal("no-store", ctx.Response.Headers.CacheControl.ToString());
-            Assert.Empty(logger.Errors);
-        }
+        logger.Errors.Clear();
+        var lostLease = PublicCtx(sampleArticle);
+        await AssertShortCircuit(lostLease, GuardOptions(leaseCurrent: false), 503);
+        Assert.Equal("no-store", lostLease.Response.Headers.CacheControl.ToString());
+        Assert.Empty(logger.Errors);
 
         // 4. Non-admin origin hides admin & authoring routes with 404 + no-store before next()
         foreach (var hiddenPath in new[] { "/admin", "/admin/articles/write", "/api/v2/admin/identity/passkey/begin.aeds", "/api/v2/authoring/save.aeds" })
         {
-            var ctx = CreateContext("https", "blog.example.test", hiddenPath, IPAddress.Loopback);
-            await AssertShortCircuit(ctx, GuardOptions(adminIdentity: AdminOrigin), 404);
-            Assert.Equal("no-store", ctx.Response.Headers.CacheControl.ToString());
-            var expectedType = hiddenPath.StartsWith("/api", StringComparison.Ordinal) ? Aeds.ContentType : ServerHttp.TextContentType;
-            Assert.StartsWith(expectedType, ctx.Response.ContentType, StringComparison.Ordinal);
+            var hidden = PublicCtx(hiddenPath);
+            await AssertShortCircuit(hidden, GuardOptions(adminIdentity: AdminOrigin), 404);
+            Assert.Equal("no-store", hidden.Response.Headers.CacheControl.ToString());
+            Assert.StartsWith(hiddenPath.StartsWith("/api", StringComparison.Ordinal) ? Aeds.ContentType : ServerHttp.TextContentType,
+                hidden.Response.ContentType, StringComparison.Ordinal);
         }
 
         // 5. Published media rejects non-GET/HEAD with 405 and Allow: GET, HEAD
-        {
-            var ctx = CreateContext("https", "blog.example.test", $"{PublishedMediaEndpoints.PathPrefix}/1/1/abc",
-                IPAddress.Loopback, HttpMethods.Post);
-            await AssertShortCircuit(ctx, GuardOptions(publicMediaEnabled: true), 405);
-            Assert.Equal("GET, HEAD", ctx.Response.Headers.Allow.ToString());
-            Assert.Equal("no-store", ctx.Response.Headers.CacheControl.ToString());
-        }
+        var badMethod = PublicCtx($"{PublishedMediaEndpoints.PathPrefix}/1/1/abc", HttpMethods.Post);
+        await AssertShortCircuit(badMethod, GuardOptions(publicMediaEnabled: true), 405);
+        Assert.Equal(("GET, HEAD", "no-store"), (badMethod.Response.Headers.Allow.ToString(), badMethod.Response.Headers.CacheControl.ToString()));
 
         // 6. Cross-origin POST to /api fails closed with 403 before next()
-        {
-            var ctx = CreateContext("https", "blog.example.test", WireRoutes.SignIn, IPAddress.Loopback, HttpMethods.Post);
-            ctx.Request.Headers.Origin = "https://evil.example.test";
-            await AssertShortCircuit(ctx, GuardOptions(), 403);
-            Assert.Equal("no-store", ctx.Response.Headers.CacheControl.ToString());
-            Assert.False(string.IsNullOrEmpty(ctx.Response.Headers[WireHeaders.TraceId].ToString()));
-        }
+        var crossOrigin = PublicCtx(WireRoutes.SignIn, HttpMethods.Post);
+        crossOrigin.Request.Headers.Origin = "https://evil.example.test";
+        await AssertShortCircuit(crossOrigin, GuardOptions(), 403);
+        Assert.Equal("no-store", crossOrigin.Response.Headers.CacheControl.ToString());
+        Assert.False(string.IsNullOrEmpty(crossOrigin.Response.Headers[WireHeaders.TraceId].ToString()));
 
         // 7. Client-aborted cancellation is swallowed silently without 500 or error log
-        {
-            logger.Errors.Clear();
-            using var abort = new CancellationTokenSource();
-            var ctx = CreateContext("https", "blog.example.test", "/api/v2/public/articles/1/10.aeds", IPAddress.Loopback);
-            ctx.RequestAborted = abort.Token;
-            await ServerPipeline.ExecuteRequestGuardAsync(ctx, () =>
-            {
-                abort.Cancel();
-                throw new OperationCanceledException(abort.Token);
-            }, GuardOptions(), logger);
-            Assert.Equal(200, ctx.Response.StatusCode);
-            Assert.Empty(ReadBody(ctx));
-            Assert.Empty(logger.Errors);
-        }
+        logger.Errors.Clear();
+        using var abort = new CancellationTokenSource();
+        var aborted = PublicCtx(sampleArticle);
+        aborted.RequestAborted = abort.Token;
+        await ServerPipeline.ExecuteRequestGuardAsync(aborted, () => { abort.Cancel(); throw new OperationCanceledException(abort.Token); }, GuardOptions(), logger);
+        Assert.Equal(200, aborted.Response.StatusCode);
+        Assert.Empty(ReadBody(aborted));
+        Assert.Empty(logger.Errors);
 
         // 8. PrivateRead endpoint metadata hides exceptions as 404 with empty body
-        {
-            var ctx = CreateContext("https", "admin.example.test", "/api/v2/media/content/1", IPAddress.Loopback);
-            ctx.SetEndpoint(new Endpoint(_ => Task.CompletedTask, new EndpointMetadataCollection(new MediaEndpoints.PrivateRead()), "private-read"));
-            await ServerPipeline.ExecuteRequestGuardAsync(ctx, () => throw new BusinessException(Rejection.Unauthorized, "nope"),
-                GuardOptions(adminIdentity: AdminOrigin), logger);
-            Assert.Equal(404, ctx.Response.StatusCode);
-            Assert.Equal("private,no-store", ctx.Response.Headers.CacheControl.ToString());
-            Assert.Equal("no-referrer", ctx.Response.Headers["Referrer-Policy"].ToString());
-            Assert.Empty(ReadBody(ctx));
-        }
+        var privateRead = CreateContext("https", "admin.example.test", "/api/v2/media/content/1", IPAddress.Loopback);
+        privateRead.SetEndpoint(new Endpoint(_ => Task.CompletedTask, new EndpointMetadataCollection(new MediaEndpoints.PrivateRead()), "private-read"));
+        await ServerPipeline.ExecuteRequestGuardAsync(privateRead, () => throw new BusinessException(Rejection.Unauthorized, "nope"),
+            GuardOptions(adminIdentity: AdminOrigin), logger);
+        Assert.Equal((404, "private,no-store", "no-referrer"),
+            (privateRead.Response.StatusCode, privateRead.Response.Headers.CacheControl.ToString(), privateRead.Response.Headers["Referrer-Policy"].ToString()));
+        Assert.Empty(ReadBody(privateRead));
 
         // 9. PublicListFailure preserves details in AEDS error payload
-        {
-            var ctx = CreateContext("https", "blog.example.test", "/api/v2/public/articles/1/10.aeds", IPAddress.Loopback);
-            await ServerPipeline.ExecuteRequestGuardAsync(ctx, () => throw PublicListFailure.InvalidCursor(),
-                GuardOptions(), logger);
-            Assert.Equal(400, ctx.Response.StatusCode);
-            var error = SiteAedsFixture.DecodeApiError(ReadBody(ctx));
-            Assert.Equal((400, "article_cursor_invalid"), (error.Status, error.Details));
-        }
+        var cursorError = PublicCtx(sampleArticle);
+        await ServerPipeline.ExecuteRequestGuardAsync(cursorError, () => throw PublicListFailure.InvalidCursor(), GuardOptions(), logger);
+        var error = SiteAedsFixture.DecodeApiError(ReadBody(cursorError));
+        Assert.Equal((400, 400, "article_cursor_invalid"), (cursorError.Response.StatusCode, error.Status, error.Details));
+
+        static DefaultHttpContext PublicCtx(string path, string method = "GET") =>
+            CreateContext("https", "blog.example.test", path, IPAddress.Loopback, method);
     }
 
     [Fact]
@@ -182,60 +151,43 @@ public sealed class ServerCompositionParityTests
     public async Task EndpointTablePreservesRoutesMethodsRatePoliciesAndOmitsAdminWhenDisabled()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
-        var dist = Directory.CreateTempSubdirectory("fsusblog-v2-routes-").FullName;
-        try
+        var distDir = Directory.CreateTempSubdirectory("fsusblog-v2-routes-");
+        using var cleanup = new MediaFixture.DirectoryCleanup(distDir);
+        await File.WriteAllTextAsync(Path.Combine(distDir.FullName, "index.html"),
+            "<!doctype html><html lang=\"en\"><head><title>Fsu's Blog</title></head><body><!--fsus-public-content--></body></html>", ct);
+
+        var enabledEndpoints = await BuildEndpointSnapshots(fixture.ConnectionString, distDir.FullName, "https://admin.example.test", ct);
+        foreach (var (route, methods, policy) in new (string, string[], string?)[]
         {
-            await File.WriteAllTextAsync(Path.Combine(dist, "index.html"),
-                "<!doctype html><html lang=\"en\"><head><title>Fsu's Blog</title></head><body><!--fsus-public-content--></body></html>", ct);
-
-            // 1. Enabled admin & public origin
-            var enabledEndpoints = await BuildEndpointSnapshots(fixture.ConnectionString, dist, new Dictionary<string, string?>
-            {
-                [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-                ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
-            }, ct);
-
-            foreach (var (route, methods, policy) in new (string, string[], string?)[]
-            {
-                (WireRoutes.PublicList, ["GET"], "query"), (WireRoutes.PublicArchive, ["GET"], "query"),
-                (WireRoutes.PublicArticle, ["GET"], null), (WireRoutes.PublicRelatedReading, ["GET"], "query"),
-                (WireRoutes.PublicSearch, ["GET"], "query"), (WireRoutes.PublicArticleHot, ["GET", "HEAD"], null),
-                (WireRoutes.PublicIndex, ["GET"], null), (WireRoutes.PublicSearchCorpus, ["GET", "HEAD"], null),
-                (WireRoutes.SignIn, ["POST"], "sign-in"), (WireRoutes.Session, ["GET"], null),
-                (WireRoutes.AuthoringSession, ["GET"], "command"), (WireRoutes.SignOut, ["POST"], "command"),
-                (WireRoutes.Draft, ["GET"], "command"), (WireRoutes.AdminPasskeyBegin, ["POST"], "admin-passkey"),
-                (WireRoutes.AdminSession, ["GET"], "command"),
-            }) AssertEndpoint(enabledEndpoints, route, methods, policy);
-            foreach (var route in new[] { WireRoutes.Save, WireRoutes.Publish, WireRoutes.Retract, WireRoutes.Delete, WireRoutes.Restore })
-                AssertEndpoint(enabledEndpoints, route, ["POST"], "command");
-            foreach (var route in new[]
-            {
-                "/", "/article/{id:int}", "/archive", "/search", "/login", "/register",
-                "/user", "/user/comments", "/user/identity/mfa", "/user/messagebox", "/health/ready",
-                "/admin", "/admin/articles/write", "/admin/articles/edit/{id:int}", "/admin/canvas/{id:guid}"
-            }) AssertEndpoint(enabledEndpoints, route, ["GET"], null);
-            Assert.Contains(enabledEndpoints, endpoint => endpoint.Pattern == "/api/{**rest}");
-
-            var disabledEndpoints = await BuildEndpointSnapshots(fixture.ConnectionString, dist, new Dictionary<string, string?>
-            {
-                [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-                ["FSUSBLOG_ADMIN_ORIGIN"] = "",
-            }, ct);
-
-            Assert.DoesNotContain(disabledEndpoints, endpoint =>
-                endpoint.Pattern.StartsWith("/admin", StringComparison.Ordinal) ||
-                endpoint.Pattern.StartsWith("/api/v2/admin/", StringComparison.Ordinal));
-            Assert.DoesNotContain(disabledEndpoints, endpoint => endpoint.RatePolicy == "admin-passkey");
-            foreach (var (route, methods, policy) in new (string, string[], string?)[]
-            {
-                ("/", ["GET"], null), (WireRoutes.PublicList, ["GET"], "query"),
-                (WireRoutes.SignIn, ["POST"], "sign-in"), ("/health/ready", ["GET"], null),
-            }) AssertEndpoint(disabledEndpoints, route, methods, policy);
-        }
-        finally
+            (WireRoutes.PublicList, ["GET"], "query"), (WireRoutes.PublicArchive, ["GET"], "query"),
+            (WireRoutes.PublicArticle, ["GET"], null), (WireRoutes.PublicRelatedReading, ["GET"], "query"),
+            (WireRoutes.PublicSearch, ["GET"], "query"), (WireRoutes.PublicArticleHot, ["GET", "HEAD"], null),
+            (WireRoutes.PublicIndex, ["GET"], null), (WireRoutes.PublicSearchCorpus, ["GET", "HEAD"], null),
+            (WireRoutes.SignIn, ["POST"], "sign-in"), (WireRoutes.Session, ["GET"], null),
+            (WireRoutes.AuthoringSession, ["GET"], "command"), (WireRoutes.SignOut, ["POST"], "command"),
+            (WireRoutes.Draft, ["GET"], "command"), (WireRoutes.AdminPasskeyBegin, ["POST"], "admin-passkey"),
+            (WireRoutes.AdminSession, ["GET"], "command"),
+        }) AssertEndpoint(enabledEndpoints, route, methods, policy);
+        foreach (var route in new[] { WireRoutes.Save, WireRoutes.Publish, WireRoutes.Retract, WireRoutes.Delete, WireRoutes.Restore })
+            AssertEndpoint(enabledEndpoints, route, ["POST"], "command");
+        foreach (var route in new[]
         {
-            Directory.Delete(dist, recursive: true);
-        }
+            "/", "/article/{id:int}", "/archive", "/search", "/login", "/register",
+            "/user", "/user/comments", "/user/identity/mfa", "/user/messagebox", "/health/ready",
+            "/admin", "/admin/articles/write", "/admin/articles/edit/{id:int}", "/admin/canvas/{id:guid}"
+        }) AssertEndpoint(enabledEndpoints, route, ["GET"], null);
+        Assert.Contains(enabledEndpoints, endpoint => endpoint.Pattern == "/api/{**rest}");
+
+        var disabledEndpoints = await BuildEndpointSnapshots(fixture.ConnectionString, distDir.FullName, "", ct);
+        Assert.DoesNotContain(disabledEndpoints, endpoint =>
+            endpoint.Pattern.StartsWith("/admin", StringComparison.Ordinal) ||
+            endpoint.Pattern.StartsWith("/api/v2/admin/", StringComparison.Ordinal) ||
+            endpoint.RatePolicy == "admin-passkey");
+        foreach (var (route, methods, policy) in new (string, string[], string?)[]
+        {
+            ("/", ["GET"], null), (WireRoutes.PublicList, ["GET"], "query"),
+            (WireRoutes.SignIn, ["POST"], "sign-in"), ("/health/ready", ["GET"], null),
+        }) AssertEndpoint(disabledEndpoints, route, methods, policy);
     }
 
     [PostgresFact]
@@ -257,77 +209,64 @@ public sealed class ServerCompositionParityTests
             ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
         }, request => AttachOrigin(request, "blog.example.test"));
 
-        async Task<HttpResponseMessage> SendGet(string path, string host = "blog.example.test")
+        Task<HttpResponseMessage> Send(HttpMethod method, string path, string host = "blog.example.test", bool sameOrigin = false)
         {
-            using var req = new HttpRequestMessage(HttpMethod.Get, path);
+            using var req = new HttpRequestMessage(method, path);
             AttachOrigin(req, host);
-            return await server.Client.SendAsync(req, ct);
-        }
-
-        async Task<HttpResponseMessage> SendPasskey(string host)
-        {
-            using var req = new HttpRequestMessage(HttpMethod.Post, WireRoutes.AdminPasskeyBegin);
-            AttachOrigin(req, host);
-            req.Headers.Add("Origin", $"https://{host}");
-            req.Headers.Add("Sec-Fetch-Site", "same-origin");
-            return await server.Client.SendAsync(req, ct);
+            if (sameOrigin)
+            {
+                req.Headers.Add("Origin", $"https://{host}");
+                req.Headers.Add("Sec-Fetch-Site", "same-origin");
+            }
+            return server.Client.SendAsync(req, ct);
         }
 
         for (var i = 0; i < 12; i++)
         {
-            using var resp = Expect(NotFound, await SendPasskey("blog.example.test"));
-            Assert.True(resp.Headers.CacheControl?.NoStore);
-            Assert.Equal(ServerHttp.ContentSecurityPolicy, Assert.Single(resp.Headers.GetValues("Content-Security-Policy")));
-            Assert.Equal(404, SiteAedsFixture.DecodeApiError(await resp.Content.ReadAsByteArrayAsync(ct)).Status);
+            using var resp = Expect(NotFound, await Send(HttpMethod.Post, WireRoutes.AdminPasskeyBegin, sameOrigin: true));
+            Assert.Equal((true, ServerHttp.ContentSecurityPolicy, 404), (resp.Headers.CacheControl?.NoStore,
+                Assert.Single(resp.Headers.GetValues("Content-Security-Policy")),
+                SiteAedsFixture.DecodeApiError(await resp.Content.ReadAsByteArrayAsync(ct)).Status));
         }
-
         for (var i = 0; i < 4; i++)
         {
-            using var resp = Expect(NotFound, await SendGet("/admin/articles/write"));
+            using var resp = Expect(NotFound, await Send(HttpMethod.Get, "/admin/articles/write"));
             Assert.True(resp.Headers.CacheControl?.NoStore);
         }
-
         for (var i = 0; i < 9; i++)
         {
-            using var resp = await SendPasskey("admin.example.test");
+            using var resp = await Send(HttpMethod.Post, WireRoutes.AdminPasskeyBegin, "admin.example.test", sameOrigin: true);
             if (i < 8) Assert.NotEqual(TooManyRequests, resp.StatusCode);
-            else
-            {
-                Assert.Equal(TooManyRequests, resp.StatusCode);
-                Assert.Equal(429, SiteAedsFixture.DecodeApiError(await resp.Content.ReadAsByteArrayAsync(ct)).Status);
-            }
+            else Assert.Equal((TooManyRequests, 429), (resp.StatusCode, SiteAedsFixture.DecodeApiError(await resp.Content.ReadAsByteArrayAsync(ct)).Status));
         }
 
         foreach (var adminRoute in new[] { "/admin", "/admin/articles/write", "/admin/canvas" })
         {
-            using var resp = Ok(await SendGet(adminRoute, "admin.example.test"));
-            Assert.True(resp.Headers.CacheControl?.NoStore);
-            Assert.Equal("noindex", Assert.Single(resp.Headers.GetValues("X-Robots-Tag")));
-            Assert.Equal(ServerHttp.ContentSecurityPolicy, Assert.Single(resp.Headers.GetValues("Content-Security-Policy")));
+            using var resp = Ok(await Send(HttpMethod.Get, adminRoute, "admin.example.test"));
+            Assert.Equal((true, "noindex", ServerHttp.ContentSecurityPolicy), (resp.Headers.CacheControl?.NoStore,
+                Assert.Single(resp.Headers.GetValues("X-Robots-Tag")), Assert.Single(resp.Headers.GetValues("Content-Security-Policy"))));
             var html = await resp.Content.ReadAsStringAsync(ct);
             Assert.All(["<meta name=\"fsus-public-origin\" content=\"https://blog.example.test\">", "<meta name=\"robots\" content=\"noindex, follow\">"],
                 expected => Assert.Contains(expected, html, StringComparison.Ordinal));
             Assert.All(["/site-appearance/", "public-initial"], forbidden => Assert.DoesNotContain(forbidden, html, StringComparison.Ordinal));
         }
 
-        using (var home = Ok(await SendGet("/")))
+        using (var home = Ok(await Send(HttpMethod.Get, "/")))
         {
             Assert.Equal(ServerHttp.ContentSecurityPolicy, Assert.Single(home.Headers.GetValues("Content-Security-Policy")));
             var html = await home.Content.ReadAsStringAsync(ct);
             Assert.Contains("public-initial", html, StringComparison.Ordinal);
             Assert.DoesNotContain("fsus-public-origin", html, StringComparison.Ordinal);
         }
-
-        using (var comments = Ok(await SendGet("/user/comments")))
+        using (var comments = Ok(await Send(HttpMethod.Get, "/user/comments")))
         {
             Assert.Equal("noindex, nofollow", Assert.Single(comments.Headers.GetValues("X-Robots-Tag")));
             Assert.DoesNotContain("fsus-public-origin", await comments.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
         }
-
-        using (var user = Expect(Redirect, await SendGet("/user")))
+        using (var user = Expect(Redirect, await Send(HttpMethod.Get, "/user")))
             Assert.Equal("/user/identity/mfa", user.Headers.Location?.OriginalString);
 
-        var err = SiteAedsFixture.DecodeApiError(await ExpectBytes(NotFound, SendGet("/api/v2/does-not-exist.aeds"), ct));
+        var err = SiteAedsFixture.DecodeApiError(await ExpectBytes(NotFound, Send(HttpMethod.Get, "/api/v2/does-not-exist.aeds"), ct));
         Assert.Equal((404, "Unknown API route."), (err.Status, err.Message));
     }
 
@@ -340,8 +279,8 @@ public sealed class ServerCompositionParityTests
 
         var draft = await SiteAedsFixture.SaveDraft(server.Client, author.Token, null, 0, 0,
             "Parity Snapshot Title", "Parity snapshot body content.", ct);
-        draft = Wire.DecodeDraft(await SiteAedsFixture.ExpectStatus(server.Client, HttpMethod.Post, WireRoutes.Publish,
-            Wire.EncodeArticleCommand(new(draft.Id, draft.Revision, Guid.NewGuid(), "", "")), author.Token, null, OK, ct));
+        draft = await SiteAedsFixture.ArticleCommand(server.Client, WireRoutes.Publish, author.Token, null,
+            new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""), ct);
 
         string publishedGeneration;
         using (var articleResp = Ok(await server.Client.GetAsync($"/article/{draft.Id}", ct)))
@@ -351,8 +290,8 @@ public sealed class ServerCompositionParityTests
         }
 
         await CheckStatusAsync(OK, server.Client.GetAsync($"{WireRoutes.PublicIndex}?generation={publishedGeneration}", ct));
-        await SiteAedsFixture.ExpectStatus(server.Client, HttpMethod.Post, WireRoutes.Retract,
-            Wire.EncodeArticleCommand(new(draft.Id, draft.Revision, Guid.NewGuid(), "", "")), author.Token, null, OK, ct);
+        await SiteAedsFixture.ArticleCommand(server.Client, WireRoutes.Retract, author.Token, null,
+            new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""), ct);
 
         foreach (var (path, status) in new[]
         {
@@ -362,12 +301,7 @@ public sealed class ServerCompositionParityTests
             (WireRoutes.PublicArticle.Replace("{id}", draft.Id.ToString()), NotFound)
         }) await CheckStatusAsync(status, server.Client.GetAsync(path, ct));
 
-        Assert.True(await fixture.Scalar<bool>("""
-            select pg_terminate_backend(l.pid) from pg_catalog.pg_locks l
-            join pg_catalog.pg_stat_activity s on s.pid = l.pid
-            where l.locktype = 'advisory' and l.database = s.datid and s.datname = current_database()
-              and l.objsubid = 1 and ((l.classid::bigint << 32) | l.objid::bigint) = $1 and l.mode = 'ExclusiveLock' and l.granted
-            """, InstanceLease.OwnershipKey));
+        Assert.True(await fixture.TerminateAdvisoryOwner(InstanceLease.OwnershipKey));
 
         HttpStatusCode readyStatus = NoContent;
         for (var attempt = 0; attempt < 40 && readyStatus != ServiceUnavailable; attempt++)
@@ -388,17 +322,17 @@ public sealed class ServerCompositionParityTests
     private sealed record EndpointSnapshot(string Pattern, string[] Methods, string? RatePolicy);
 
     private static async Task<IReadOnlyList<EndpointSnapshot>> BuildEndpointSnapshots(
-        string connectionString, string dist, Dictionary<string, string?> overrides, CancellationToken ct)
+        string connectionString, string dist, string adminOrigin, CancellationToken ct)
     {
         var builder = WebApplication.CreateBuilder();
-        var config = new Dictionary<string, string?>
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["FSUSBLOG_DB"] = connectionString,
             ["FSUSBLOG_WEB_DIST"] = dist,
             ["Logging:LogLevel:Default"] = "Error",
-        };
-        foreach (var (key, value) in overrides) config[key] = value;
-        builder.Configuration.AddInMemoryCollection(config);
+            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+            ["FSUSBLOG_ADMIN_ORIGIN"] = adminOrigin,
+        });
 
         using var bootstrap = await ServerServices.ConfigureAsync(builder, ct);
         await using var app = builder.Build();
@@ -408,12 +342,8 @@ public sealed class ServerCompositionParityTests
         await ServerEndpoints.MapAsync(app, bootstrap);
 
         var sources = app.Services.GetServices<EndpointDataSource>().ToList();
-        if (app is IEndpointRouteBuilder routeBuilder)
-            sources.AddRange(routeBuilder.DataSources);
-
-        return sources.Distinct()
-            .SelectMany(source => source.Endpoints)
-            .OfType<RouteEndpoint>()
+        if (app is IEndpointRouteBuilder routeBuilder) sources.AddRange(routeBuilder.DataSources);
+        return sources.Distinct().SelectMany(source => source.Endpoints).OfType<RouteEndpoint>()
             .Select(endpoint => new EndpointSnapshot(
                 endpoint.RoutePattern.RawText ?? "",
                 endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.OrderBy(m => m, StringComparer.Ordinal).ToArray() ?? [],
@@ -429,31 +359,16 @@ public sealed class ServerCompositionParityTests
         Assert.Contains(matches, e => e.Methods.SequenceEqual(normalizedExpected) && e.RatePolicy == expectedPolicy);
     }
 
-    private static RequestGuardOptions GuardOptions(
-        bool leaseCurrent = true,
-        PasskeyConfiguration? adminIdentity = null,
-        bool trustLoopbackProxy = false,
-        bool publicMediaEnabled = false) => new(
-            LeaseIsCurrent: () => leaseCurrent,
-            AdminIdentity: adminIdentity,
-            TrustLoopbackProxy: trustLoopbackProxy,
-            PublicMediaEnabled: publicMediaEnabled,
-            HasPublicationProofs: false,
-            SiteTraffic: null,
-            TrafficOrigin: null);
+    private static RequestGuardOptions GuardOptions(bool leaseCurrent = true, PasskeyConfiguration? adminIdentity = null,
+        bool trustLoopbackProxy = false, bool publicMediaEnabled = false) =>
+        new(() => leaseCurrent, adminIdentity, trustLoopbackProxy, publicMediaEnabled, false, null, null);
 
     private static DefaultHttpContext CreateContext(string scheme, string host, string path, IPAddress remoteIp, string method = "GET")
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        var ctx = new DefaultHttpContext
-        {
-            RequestServices = services.BuildServiceProvider(),
-        };
-        ctx.Request.Scheme = scheme;
-        ctx.Request.Host = new HostString(host);
-        ctx.Request.Path = path;
-        ctx.Request.Method = method;
+        var ctx = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
+        (ctx.Request.Scheme, ctx.Request.Host, ctx.Request.Path, ctx.Request.Method) = (scheme, new HostString(host), path, method);
         ctx.Connection.RemoteIpAddress = remoteIp;
         ctx.Response.Body = new MemoryStream();
         return ctx;

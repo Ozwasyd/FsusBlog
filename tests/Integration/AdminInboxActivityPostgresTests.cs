@@ -8,20 +8,18 @@ public sealed class AdminInboxActivityPostgresTests
     public async Task ActivityPagesPinTheLatestVisibleMessageAcrossCommitsAndPreserveLiveFilters()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var owner = Guid.NewGuid();
-        var secondOwner = Guid.NewGuid();
-        var admin = await Administrator("activity-admin");
-        var other = await Administrator("other-activity-admin");
-        await Sql("""
+        var (owner, secondOwner) = (Guid.NewGuid(), Guid.NewGuid());
+        var admin = (await fixture.AdminAsync("activity-admin", 5, RandomNumberGenerator.GetBytes(8), [2], ct)).Token;
+        var other = (await fixture.AdminAsync("other-activity-admin", 5, RandomNumberGenerator.GetBytes(8), [2], ct)).Token;
+        await fixture.Exec("""
             insert into public.blog_user(id,name,enabled,generation)
             values($1,'activity-reader',true,1),($2,'activity-notice-recipient',true,1)
             """, owner, secondOwner);
-        await Sql("""
+        await fixture.Exec("""
             insert into public.inbox_conversation(id,account_id,subject,status,is_system,last_message_at)
             select id,$1,'Ticket '||id,0,false,'2022-01-01 UTC' from generate_series(1,27) id
             """, owner);
-        await Sql("""
+        await fixture.Exec("""
             insert into public.inbox_message(conversation_id,id,sender,is_internal,body,sent_at)
             select id,id,0,id=27,'Fixture message',timestamp with time zone '2022-01-01 UTC'
                 + case when id=1 then interval '1 second' when id=3 then interval '4 microseconds'
@@ -34,80 +32,64 @@ public sealed class AdminInboxActivityPostgresTests
             select setval(pg_get_serial_sequence('public.inbox_conversation','id'),27);
             select setval(pg_get_serial_sequence('public.inbox_message','id'),28)
             """);
-        await using var server = await StartAdmin(fixture, ct,
-            "FSUSBLOG_ADMIN_INBOX_SHARED_READ", InboxActivityFence.Setting);
+        await using var server = await StartAdmin(fixture, ct, "FSUSBLOG_ADMIN_INBOX_SHARED_READ", InboxActivityFence.Setting);
         const string activity = "?order=activity&shared=1";
         var legacy = Page(await Get("", admin), FrameType.AdminInboxPage);
         Assert.Equal(27L, legacy.Ids[0]);
         var first = Page(await Get(activity, admin), FrameType.AdminInboxSharedPage);
         Assert.Equal(new long[] { 1 }.Concat(Enumerable.Range(5, 22).Reverse().Select(value => (long)value)).Append(2), first.Ids);
         Assert.Equal(75, first.Cursor.Length);
-        await Get(activity + "&cursor=" + first.Cursor, other, HttpStatusCode.BadRequest);
-        await Get(activity + "&status=unread&cursor=" + first.Cursor, admin, HttpStatusCode.BadRequest);
-        await Get("?shared=1&cursor=" + first.Cursor, admin, HttpStatusCode.BadRequest);
-        await Get(activity + "&cursor=" + legacy.Cursor, admin, HttpStatusCode.BadRequest);
+        foreach (var (query, tok) in new[]
+        {
+            (activity + "&cursor=" + first.Cursor, other),
+            (activity + "&status=unread&cursor=" + first.Cursor, admin),
+            ("?shared=1&cursor=" + first.Cursor, admin),
+            (activity + "&cursor=" + legacy.Cursor, admin),
+        })
+            await Get(query, tok, BadRequest);
 
-        await using (var tx = await db.BeginTransactionAsync(ct))
+        await fixture.InTx(async (db, tx) =>
         {
             var inbox = new InboxStore(db, tx, owner, fenceVisibleMessages: true);
             await inbox.AppendAdministratorReply(4, "Visible reply newer than first snapshot", ct);
             await inbox.SendNoticeAsync("activity-new-notice", "New visible conversation", "New after first page", ct);
-            await tx.CommitAsync(ct);
-        }
-        await Sql("update public.inbox_conversation set status=1 where id=4");
+        }, ct);
+        await fixture.Exec("update public.inbox_conversation set status=1 where id=4");
         var second = Page(await Get(activity + "&cursor=" + first.Cursor, admin), FrameType.AdminInboxSharedPage);
         Assert.Equal(new long[] { 3, 4 }, second.Ids);
         Assert.Empty(second.Cursor);
-        var fresh = Page(await Get(activity, admin), FrameType.AdminInboxSharedPage);
-        Assert.Equal(new long[] { 28, 4, 1 }, fresh.Ids.Take(3));
-        var filter = Page(await Get(activity + "&status=pending", admin), FrameType.AdminInboxSharedPage);
-        Assert.Equal(new long[] { 4 }, filter.Ids);
+        Assert.Equal(new long[] { 28, 4, 1 }, Page(await Get(activity, admin), FrameType.AdminInboxSharedPage).Ids.Take(3));
+        Assert.Equal(new long[] { 4 }, Page(await Get(activity + "&status=pending", admin), FrameType.AdminInboxSharedPage).Ids);
 
         // A lower allocated ID cannot commit behind the first page's higher snapshot.
+        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         await using var held = await db.BeginTransactionAsync(ct);
         var pending = await new InboxStore(db, held, secondOwner, fenceVisibleMessages: true)
             .SendNoticeAsync("delay-between-insert-and-commit", "Paused notice", "Committed before anchor", ct);
-        long later;
-        await using (var concurrent = await fixture.DataSource.OpenConnectionAsync(ct))
-        await using (var committed = await concurrent.BeginTransactionAsync(ct))
-        {
-            var inbox = new InboxStore(concurrent, committed, owner, fenceVisibleMessages: true);
-            later = (await inbox.SendNoticeAsync("commit-ahead", "Committed notice", "Allocated after paused notice", ct)).Message.ConversationId;
-            await committed.CommitAsync(ct);
-        }
+        long later = await fixture.InTx(async (concurrent, committed) =>
+            (await new InboxStore(concurrent, committed, owner, fenceVisibleMessages: true)
+                .SendNoticeAsync("commit-ahead", "Committed notice", "Allocated after paused notice", ct)).Message.ConversationId, ct);
         var waiting = Get(activity, admin);
-        await using (var observe = await fixture.DataSource.OpenConnectionAsync(ct))
+        for (var attempt = 0; ; attempt++)
         {
-            for (var attempt = 0; ; attempt++)
-            {
-                await using var locks = Store.Sql(observe, null, """
-                    SELECT EXISTS (SELECT FROM pg_locks WHERE locktype='advisory' AND NOT granted
-                        AND mode='ExclusiveLock' AND objid=2 AND database=(select oid from pg_database where datname=current_database()))
-                    """);
-                if (await locks.ExecuteScalarAsync(ct) is true) break;
-                Assert.True(attempt < 30, "The first page never waited for the paused inbox writer.");
-                await Task.Delay(25, ct);
-            }
+            if (await fixture.Scalar<bool>("""
+                SELECT EXISTS (SELECT FROM pg_locks WHERE locktype='advisory' AND NOT granted
+                    AND mode='ExclusiveLock' AND objid=2 AND database=(select oid from pg_database where datname=current_database()))
+                """)) break;
+            Assert.True(attempt < 30, "The first page never waited for the paused inbox writer.");
+            await Task.Delay(25, ct);
         }
         Assert.False(waiting.IsCompleted);
         await held.CommitAsync(ct);
-        var fenced = Page(await waiting, FrameType.AdminInboxSharedPage);
-        Assert.Equal(new[] { later, pending.Message.ConversationId }, fenced.Ids.Take(2));
+        Assert.Equal(new[] { later, pending.Message.ConversationId }, Page(await waiting, FrameType.AdminInboxSharedPage).Ids.Take(2));
 
-        async Task<byte[]> Get(string query, string token, HttpStatusCode expected = HttpStatusCode.OK)
+        async Task<byte[]> Get(string query, string token, HttpStatusCode expected = OK)
         {
             using var request = AdminRequest(HttpMethod.Get, WireRoutes.AdminInboxQueue + query, token);
-            using var response = await server.Client.SendAsync(request, ct);
-            Assert.Equal(expected, response.StatusCode);
+            using var response = Expect(expected, await server.Client.SendAsync(request, ct));
             if (response.IsSuccessStatusCode)
                 Assert.Equal("1", Assert.Single(response.Headers.GetValues(WireHeaders.AdminInboxActivityOrder)));
             return await response.Content.ReadAsByteArrayAsync(ct);
         }
-
-        async Task<string> Administrator(string name) =>
-            (await FixtureSql.AdminAsync(db, ct, name, 5, RandomNumberGenerator.GetBytes(8), [2])).Token;
-
-        Task Sql(string command, params object[] values) =>
-            FixtureSql.ExecuteAsync(db, null, ct, command, values);
     }
 }

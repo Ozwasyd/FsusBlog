@@ -7,35 +7,150 @@ internal sealed class ScratchDatabase : IAsyncDisposable
     private readonly string _database;
     private readonly string _maintenanceConnectionString;
     private CancellationTokenSource? _deadline;
+    private CancellationToken _defaultToken;
     internal string ConnectionString { get; }
     internal NpgsqlDataSource DataSource { get; }
-    private CancellationToken DefaultToken => _deadline?.Token ?? CancellationToken.None;
+    private CancellationToken DefaultToken => _deadline?.Token ?? _defaultToken;
 
     internal Task<int> Exec(string sql, params object[] args) => ExecAsync(DefaultToken, sql, args);
-    internal async Task<int> ExecAsync(CancellationToken ct, string sql, params object[] args)
-    {
-        await using var db = await DataSource.OpenConnectionAsync(ct);
-        return await FixtureSql.ExecuteAsync(db, null, ct, sql, args);
-    }
+    internal Task<int> ExecAsync(CancellationToken ct, string sql, params object[] args) =>
+        WithConnection(db => FixtureSql.ExecuteAsync(db, null, ct, sql, args), ct);
 
     internal Task<object?> Scalar(string sql, params object[] args) => ScalarAsync(DefaultToken, sql, args);
-    internal async Task<object?> ScalarAsync(CancellationToken ct, string sql, params object[] args)
-    {
-        await using var db = await DataSource.OpenConnectionAsync(ct);
-        return await FixtureSql.ScalarAsync(db, null, ct, sql, args);
-    }
+    internal Task<object?> ScalarAsync(CancellationToken ct, string sql, params object[] args) =>
+        WithConnection(db => FixtureSql.ScalarAsync(db, null, ct, sql, args), ct);
 
     internal async Task<T> Scalar<T>(string sql, params object[] args) => (T)(await Scalar(sql, args))!;
     internal async Task<T> ScalarAsync<T>(CancellationToken ct, string sql, params object[] args) =>
         (T)(await ScalarAsync(ct, sql, args))!;
 
-    internal async Task<(Guid Id, string Token, byte[] Digest)> AdminAsync(string handle, int minutes = 5,
-        byte[]? credential = null, byte[]? key = null, CancellationToken? ct = null)
+    internal async Task WithConnection(Func<NpgsqlConnection, Task> action, CancellationToken? ct = null)
+    {
+        await using var db = await DataSource.OpenConnectionAsync(ct ?? DefaultToken);
+        await action(db);
+    }
+
+    internal async Task<T> WithConnection<T>(Func<NpgsqlConnection, Task<T>> action, CancellationToken? ct = null)
+    {
+        await using var db = await DataSource.OpenConnectionAsync(ct ?? DefaultToken);
+        return await action(db);
+    }
+
+    internal Task InTx(Func<NpgsqlConnection, NpgsqlTransaction, Task> action, CancellationToken? ct = null) =>
+        InTx(async (db, tx) => { await action(db, tx); return 0; }, ct);
+
+    internal async Task<T> InTx<T>(Func<NpgsqlConnection, NpgsqlTransaction, Task<T>> action, CancellationToken? ct = null)
     {
         var token = ct ?? DefaultToken;
         await using var db = await DataSource.OpenConnectionAsync(token);
-        return await FixtureSql.AdminAsync(db, token, handle, minutes,
-            credential ?? RandomNumberGenerator.GetBytes(16), key ?? RandomNumberGenerator.GetBytes(32));
+        await using var tx = await db.BeginTransactionAsync(token);
+        var result = await action(db, tx);
+        await tx.CommitAsync(token);
+        return result;
+    }
+
+    internal Task<T> QueryRow<T>(string sql, Func<NpgsqlDataReader, T> read, params object[] args) =>
+        QueryRowAsync(DefaultToken, sql, read, args);
+
+    internal Task<T> QueryRowAsync<T>(CancellationToken ct, string sql, Func<NpgsqlDataReader, T> read, params object[] args) =>
+        WithConnection(async db =>
+        {
+            await using var cmd = Store.Sql(db, null, sql, args);
+            await using var row = await cmd.ExecuteReaderAsync(ct);
+            Assert.True(await row.ReadAsync(ct));
+            return read(row);
+        }, ct);
+
+    internal Task<List<T>> QueryRows<T>(string sql, Func<NpgsqlDataReader, T> read, params object[] args) =>
+        QueryRowsAsync(DefaultToken, sql, read, args);
+
+    internal Task<List<T>> QueryRowsAsync<T>(CancellationToken ct, string sql, Func<NpgsqlDataReader, T> read, params object[] args) =>
+        WithConnection(async db =>
+        {
+            await using var cmd = Store.Sql(db, null, sql, args);
+            await using var rows = await cmd.ExecuteReaderAsync(ct);
+            List<T> result = [];
+            while (await rows.ReadAsync(ct)) result.Add(read(rows));
+            return result;
+        }, ct);
+
+    internal Task<(Guid Id, string Token, byte[] Digest)> AdminAsync(string handle, int minutes = 5,
+        byte[]? credential = null, byte[]? key = null, CancellationToken? ct = null, Guid? id = null)
+    {
+        var token = ct ?? DefaultToken;
+        return WithConnection(db => FixtureSql.AdminAsync(db, token, handle, minutes,
+            credential ?? RandomNumberGenerator.GetBytes(16), key ?? RandomNumberGenerator.GetBytes(32), id), token);
+    }
+
+    internal Task<int> AdminPrincipalAsync(Guid id, string handle, bool enabled = true, long generation = 1, CancellationToken? ct = null)
+    {
+        var token = ct ?? DefaultToken;
+        return WithConnection(db => FixtureSql.AdminPrincipalAsync(db, null, token, id, handle, enabled, generation), token);
+    }
+
+    internal Task<int> SiteAccountAsync(Guid id, string name, bool enabled = true, CancellationToken? ct = null)
+    {
+        var token = ct ?? DefaultToken;
+        return WithConnection(db => FixtureSql.SiteAccountAsync(db, null, token, id, name, enabled), token);
+    }
+
+    internal async Task<(string Token, byte[] Digest)> SeedStepUpProof(string table, Guid principalId, byte[] sessionDigest,
+        int action, byte[] bodyDigest, int lifetimeSeconds = 45, CancellationToken? ct = null)
+    {
+        var token = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+        var digest = SHA256.HashData(Encoding.ASCII.GetBytes(token));
+        await ExecAsync(ct ?? DefaultToken, $"""
+            insert into public.{table}(digest,principal_id,session_digest,generation,action,body_digest,expires_at,kind)
+            values($1,$2,$3,1,$4,$5,clock_timestamp()+$6 * interval '1 second',2)
+            on conflict (session_digest,kind) do update set digest=excluded.digest,action=excluded.action,body_digest=excluded.body_digest,expires_at=excluded.expires_at
+            """, digest, principalId, sessionDigest, action, bodyDigest, lifetimeSeconds);
+        return (token, digest);
+    }
+
+    internal Task<bool> TerminateAdvisoryOwner(long key, int timeoutMs = 5000, CancellationToken? ct = null) =>
+        ScalarAsync<bool>(ct ?? DefaultToken, """
+            select pg_catalog.pg_terminate_backend(l.pid, $2) from pg_catalog.pg_locks l
+            where l.database=(select oid from pg_catalog.pg_database where datname=current_database())
+                and l.locktype='advisory' and l.mode='ExclusiveLock' and l.granted and l.objsubid=1
+                and ((l.classid::bigint << 32) | l.objid::bigint)=$1
+            """, key, timeoutMs);
+
+    internal Task<(string Token, string Id, byte[] Digest)> SiteSessionAsync(Guid account, DateTimeOffset expiry,
+        long generation = 1, byte[]? credential = null, bool mfa = false, CancellationToken? ct = null)
+    {
+        var token = ct ?? DefaultToken;
+        return WithConnection(db => FixtureSql.SiteSessionAsync(db, account, expiry, token, generation, credential, mfa), token);
+    }
+
+    internal Task SitePasskeyAsync(Guid account, byte[] credential, byte[] key, CancellationToken? ct = null)
+    {
+        var token = ct ?? DefaultToken;
+        return WithConnection(db => FixtureSql.SitePasskeyAsync(db, null, token, account, credential, key), token);
+    }
+
+    internal async Task<(Guid Id, byte[] Credential)> SitePasskeyAccountAsync(string name, byte[]? key = null, CancellationToken? ct = null)
+    {
+        var id = Guid.NewGuid();
+        var credential = RandomNumberGenerator.GetBytes(32);
+        await SiteAccountAsync(id, name, ct: ct);
+        await SitePasskeyAsync(id, credential, key ?? RandomNumberGenerator.GetBytes(32), ct);
+        return (id, credential);
+    }
+
+    internal async Task WaitForBlocked(int blockerPid, int count = 1, CancellationToken? ct = null)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct ?? DefaultToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(15));
+        while (await ScalarAsync<long>(deadline.Token, """
+            with recursive blocked(pid) as (
+                select $1
+                union
+                select activity.pid from blocked join pg_catalog.pg_stat_activity activity
+                on activity.datname=current_database() and blocked.pid=any(pg_catalog.pg_blocking_pids(activity.pid))
+            )
+            select count(*)-1 from blocked
+            """, blockerPid) < count)
+            await Task.Delay(15, deadline.Token);
     }
 
     internal Task<(Guid Id, string Token, string Handle)> SignIn(string name, CancellationToken ct,
@@ -169,7 +284,7 @@ internal sealed class ScratchDatabase : IAsyncDisposable
             await create.ExecuteNonQueryAsync(ct);
         }
 
-        var database = new ScratchDatabase(settings.ConnectionString, name);
+        var database = new ScratchDatabase(settings.ConnectionString, name) { _defaultToken = ct };
         try
         {
             var schema = SchemaDirectory();

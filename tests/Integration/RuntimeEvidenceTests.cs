@@ -10,7 +10,7 @@ public sealed class RuntimeEvidenceTests
         {
             await using var observer = new RuntimeEvidence(directory.FullName, output, new HttpContextAccessor(), captureSlowRequests: true);
             Assert.Equal(0, observer.SlowRequestStart(0));
-            await Mark("measure-before");
+            await MarkAsync(directory, "measure-before", timeout.Token);
             Assert.Equal(0, observer.SlowRequestStart(4));
             var request = new DefaultHttpContext();
             request.Response.StatusCode = StatusCodes.Status200OK;
@@ -18,7 +18,7 @@ public sealed class RuntimeEvidenceTests
             Assert.NotEqual(0, observer.SlowRequestStart(1));
             var slow = Stopwatch.GetTimestamp() - Stopwatch.Frequency / 10;
             for (int i = 0; i < 4097; i++) observer.CountRequest(request, 1, slow);
-            await Mark("measure-after");
+            await MarkAsync(directory, "measure-after", timeout.Token);
             Assert.Equal(0, observer.SlowRequestStart(1));
             var lines = await File.ReadAllLinesAsync(output, timeout.Token);
             int retained = 0;
@@ -30,27 +30,16 @@ public sealed class RuntimeEvidenceTests
                 omitted = data.GetProperty("slowRequestOmitted").GetInt32();
                 foreach (var observed in data.GetProperty("slowRequests").EnumerateArray())
                 {
-                    Assert.Equal("detailHtml", observed.GetProperty("Route").GetString());
-                    Assert.Equal(42, observed.GetProperty("ContentLength").GetInt64());
-                    Assert.Equal(200, observed.GetProperty("Status").GetInt32());
+                    Assert.Equal(("detailHtml", 42L, 200), (observed.GetProperty("Route").GetString(),
+                        observed.GetProperty("ContentLength").GetInt64(), observed.GetProperty("Status").GetInt32()));
                     Assert.True(observed.GetProperty("Milliseconds").GetDouble() >= 20);
                     Assert.True(observed.GetProperty("StartUtc").GetDateTime() < observed.GetProperty("EndUtc").GetDateTime());
                     retained++;
                 }
             }
-            Assert.Equal(4096, retained);
-            Assert.Equal(1, omitted);
+            Assert.Equal((4096, 1), (retained, omitted));
         }
         finally { directory.Delete(recursive: true); }
-
-        async Task Mark(string value)
-        {
-            var next = Path.Combine(directory.FullName, "runtime.mark.next");
-            await File.WriteAllTextAsync(next, value, timeout.Token);
-            File.Move(next, Path.Combine(directory.FullName, "runtime.mark"));
-            var acknowledgment = Path.Combine(directory.FullName, value + ".ack");
-            while (!File.Exists(acknowledgment)) await Task.Delay(10, timeout.Token);
-        }
     }
 
     [Fact]
@@ -72,19 +61,23 @@ public sealed class RuntimeEvidenceTests
                 {
                     // The native event dispatcher is asynchronous, so ask for
                     // another sample until it has delivered the full sequence.
-                    var nextMark = Path.Combine(directory.FullName, "runtime.mark.next");
-                    var mark = Path.Combine(directory.FullName, "runtime.mark");
-                    var acknowledgment = Path.Combine(directory.FullName, "drain.ack");
-                    await File.WriteAllTextAsync(nextMark, "drain", timeout.Token);
-                    File.Move(nextMark, mark);
-                    while (!File.Exists(acknowledgment)) await Task.Delay(10, timeout.Token);
-                    File.Delete(acknowledgment);
+                    File.Delete(await MarkAsync(directory, "drain", timeout.Token));
                     data = await File.ReadAllTextAsync(output, timeout.Token);
                 } while (!data.Contains("\"SuspensionMilliseconds\"", StringComparison.Ordinal));
                 Assert.Contains("\"ResumeMilliseconds\"", data);
             }
         }
         finally { directory.Delete(recursive: true); }
+    }
+
+    private static async Task<string> MarkAsync(DirectoryInfo directory, string value, CancellationToken ct)
+    {
+        var next = Path.Combine(directory.FullName, "runtime.mark.next");
+        await File.WriteAllTextAsync(next, value, ct);
+        File.Move(next, Path.Combine(directory.FullName, "runtime.mark"));
+        var ack = Path.Combine(directory.FullName, value + ".ack");
+        while (!File.Exists(ack)) await Task.Delay(10, ct);
+        return ack;
     }
 
     [Fact]
@@ -102,12 +95,9 @@ public sealed class RuntimeEvidenceTests
         Assert.Equal(0, reader.Unmatched);
         var pauses = reader.Pauses.ToArray();
         Assert.Equal(2, pauses.Length);
-        Assert.Equal(clock.AddMilliseconds(3), pauses[0].RestartUtc);
-        Assert.Equal(3, pauses[0].SuspensionMilliseconds);
-        Assert.Equal(2, pauses[0].ResumeMilliseconds);
-        Assert.Equal(5, pauses[0].Milliseconds);
-        Assert.Equal(4, pauses[1].SuspensionMilliseconds);
-        Assert.Equal(1, pauses[1].ResumeMilliseconds);
+        Assert.Equal((clock.AddMilliseconds(3), 3d, 2d, 5d),
+            (pauses[0].RestartUtc, pauses[0].SuspensionMilliseconds, pauses[0].ResumeMilliseconds, pauses[0].Milliseconds));
+        Assert.Equal((4d, 1d), (pauses[1].SuspensionMilliseconds, pauses[1].ResumeMilliseconds));
     }
 
     [Fact]

@@ -2,8 +2,13 @@ namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class SiteCapabilitiesTests
 {
-    private static IConfiguration BuildConfig(Dictionary<string, string?> values) =>
-        new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+    private const string PublicOrigin = "https://blog.example.test";
+    private const string AdminOrigin = "https://admin.example.test";
+
+    private static string TempDist() => Path.Combine(Path.GetTempPath(), "fsusblog-cap-" + Guid.NewGuid().ToString("N"));
+    private static IConfiguration BuildConfig(Dictionary<string, string?> values) => new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+    private static SiteCapabilities Resolve(Dictionary<string, string?> values, string? webDist = null) =>
+        SiteCapabilities.Resolve(BuildConfig(values), webDist ?? TempDist());
 
     private static DirectoryInfo CreateSitePages(DirectoryInfo data)
     {
@@ -28,9 +33,7 @@ public sealed class SiteCapabilitiesTests
     [Fact]
     public void MinimalConfigActivatesZeroConfigDefaultsWithoutRequiringOptionalPrerequisites()
     {
-        var webDist = Path.Combine(Path.GetTempPath(), "fsusblog-cap-dist-" + Guid.NewGuid().ToString("N"));
-        var c = SiteCapabilities.Resolve(BuildConfig([]), webDist);
-
+        var c = Resolve([]);
         Assert.All(new object?[] { c.PublicSite.Origin, c.SitePasskey, c.AdminIdentity, c.PrivateMediaRoot, c.PublicMediaRoot, c.SitePagesRoot, c.AppearanceRoot, c.TrafficRegionsPath, c.TrafficOrigin }, Assert.Null);
         Assert.All([c.PublicCommentSubmissions, c.SignedInCommentReplies, c.PrivateInboxWrites, c.DocumentExportTasks, c.PublicHotArticles, c.WideSearchCorpus, c.SiteConfigOverrideActive], Assert.True);
         Assert.Equal("auto", c.PublicSearchMode);
@@ -42,14 +45,8 @@ public sealed class SiteCapabilitiesTests
     [Fact]
     public void PublicAndAdminOriginsAutoInferRpIdsAndActivateMatchingCapabilities()
     {
-        var webDist = Path.Combine(Path.GetTempPath(), "fsusblog-cap-dist-" + Guid.NewGuid().ToString("N"));
-        var c = SiteCapabilities.Resolve(BuildConfig(new()
-        {
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
-        }), webDist);
-
-        Assert.Equal(("https://blog.example.test", new Uri("https://blog.example.test"), "blog.example.test", new Uri("https://admin.example.test"), "admin.example.test", new Uri("https://blog.example.test")),
+        var c = Resolve(new() { [PublicSiteConfiguration.OriginKey] = PublicOrigin, ["FSUSBLOG_ADMIN_ORIGIN"] = AdminOrigin });
+        Assert.Equal((PublicOrigin, new Uri(PublicOrigin), "blog.example.test", new Uri(AdminOrigin), "admin.example.test", new Uri(PublicOrigin)),
             (c.PublicSite.Origin, c.SitePasskey?.Origin, c.SitePasskey?.RpId, c.AdminIdentity?.Origin, c.AdminIdentity?.RpId, c.TrafficOrigin));
         Assert.All([c.ArticleReadProof, c.SiteTraffic, c.ReaderRegistration, c.SitePersistentRefresh, c.SitePageEditor, c.SiteConfigEditor], Assert.True);
         CheckAdminChannels(c, Assert.True);
@@ -65,25 +62,17 @@ public sealed class SiteCapabilitiesTests
         CreateSitePages(root);
         WriteAppearanceFixture(root);
 
-        var c = SiteCapabilities.Resolve(BuildConfig(new()
-        {
-            [SiteCapabilities.DataDirSetting] = root.FullName,
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-        }), webDist.FullName);
-
-        var blogUri = new Uri("https://blog.example.test");
-        Assert.Equal(("https://blog.example.test", blogUri, "blog.example.test", blogUri, "blog.example.test"),
+        var c = Resolve(new() { [SiteCapabilities.DataDirSetting] = root.FullName, [PublicSiteConfiguration.OriginKey] = PublicOrigin }, webDist.FullName);
+        var blogUri = new Uri(PublicOrigin);
+        Assert.Equal((PublicOrigin, blogUri, "blog.example.test", blogUri, "blog.example.test"),
             (c.PublicSite.Origin, c.SitePasskey?.Origin, c.SitePasskey?.RpId, c.AdminIdentity?.Origin, c.AdminIdentity?.RpId));
         Assert.All([c.ReaderRegistration, c.SitePersistentRefresh, c.AdminInboxReplies, c.AdminCommentBatch, c.SitePageEditor, c.SiteConfigEditor, c.OnlineAppearance], Assert.True);
         CheckAdminArticleTools(c, Assert.True);
 
-        var publicOnly = SiteCapabilities.Resolve(BuildConfig(new()
+        var publicOnly = Resolve(new()
         {
-            [SiteCapabilities.DataDirSetting] = root.FullName,
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "",
-        }), webDist.FullName);
-
+            [SiteCapabilities.DataDirSetting] = root.FullName, [PublicSiteConfiguration.OriginKey] = PublicOrigin, ["FSUSBLOG_ADMIN_ORIGIN"] = "",
+        }, webDist.FullName);
         Assert.Equal(blogUri, publicOnly.SitePasskey?.Origin);
         Assert.Null(publicOnly.AdminIdentity);
         Assert.All([publicOnly.AdminInboxReplies, publicOnly.AdminCommentBatch, publicOnly.SitePageEditor, publicOnly.SiteConfigEditor, publicOnly.OnlineAppearance], Assert.False);
@@ -98,12 +87,9 @@ public sealed class SiteCapabilitiesTests
         Directory.CreateDirectory(Path.Combine(root.FullName, "appearance"));
         Dictionary<string, string?> cfg = new()
         {
-            [SiteCapabilities.DataDirSetting] = root.FullName,
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
+            [SiteCapabilities.DataDirSetting] = root.FullName, [PublicSiteConfiguration.OriginKey] = PublicOrigin, ["FSUSBLOG_ADMIN_ORIGIN"] = AdminOrigin,
         };
-        var initial = SiteCapabilities.Resolve(BuildConfig(cfg), webDist.FullName);
-
+        var initial = Resolve(cfg, webDist.FullName);
         Assert.Equal((Path.Combine(root.FullName, "private-media"), Path.Combine(root.FullName, "public-media")),
             (initial.PrivateMediaRoot, initial.PublicMediaRoot));
         Assert.All([Directory.Exists(initial.PrivateMediaRoot), Directory.Exists(initial.PublicMediaRoot), initial.PrivateMediaResumable, initial.SitePageEditor], Assert.True);
@@ -115,7 +101,7 @@ public sealed class SiteCapabilitiesTests
         var regionsFile = Path.Combine(root.FullName, "traffic-regions.json");
         File.WriteAllText(regionsFile, "[]");
 
-        var discovered = SiteCapabilities.Resolve(BuildConfig(cfg), webDist.FullName);
+        var discovered = Resolve(cfg, webDist.FullName);
         Assert.Equal((pages.FullName, Path.Combine(root.FullName, "appearance"), regionsFile),
             (discovered.SitePagesRoot, discovered.AppearanceRoot, discovered.TrafficRegionsPath));
         Assert.All([discovered.SitePageEditor, discovered.OnlineAppearance], Assert.True);
@@ -129,37 +115,22 @@ public sealed class SiteCapabilitiesTests
         CreateSitePages(root);
         WriteAppearanceFixture(root);
 
-        var c = SiteCapabilities.Resolve(BuildConfig(new()
+        var c = Resolve(new()
         {
-            [SiteCapabilities.DataDirSetting] = root.FullName,
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
-            ["FSUSBLOG_PASSKEY_ORIGIN"] = "",
-            [MediaEndpoints.StorageSetting] = "",
-            ["FSUSBLOG_SITE_PAGES"] = "",
-            [AppearanceAssets.RootSetting] = "",
-            [SiteCapabilities.PublicCommentsSetting] = "false",
-            [CommentReplies.Setting] = "false",
-            [InboxWriteEndpoints.Setting] = "false",
-            [DocumentExportEndpoints.Setting] = "false",
-            [PublicHotArticles.Setting] = "false",
-            [WideSearchCorpusEndpoints.Setting] = "false",
-            [SiteCapabilities.PublicSearchModeSetting] = "server",
-            [ArticleReadEndpoints.Setting] = "false",
-            [SiteTraffic.EnabledSetting] = "false",
-            [AdminInboxEndpoints.ReplySetting] = "false",
-            [AdminInboxEndpoints.StatusSetting] = "false",
-            [AdminInboxEndpoints.NoticeSetting] = "false",
-            [AdminInboxEndpoints.SharedReadSetting] = "false",
-            [AdminInboxEndpoints.LiveSetting] = "false",
-            [InboxActivityFence.Setting] = "false",
-            [AdminModerationBatchEndpoints.Setting] = "false",
-            [AdminArticleRollbackEndpoints.Setting] = "false",
-            [AdminTagMetadataEndpoints.Setting] = "false",
-            [AdminTagMetadataEndpoints.CategorySetting] = "false",
-            [SitePages.EditorSetting] = "false",
+            [SiteCapabilities.DataDirSetting] = root.FullName, [PublicSiteConfiguration.OriginKey] = PublicOrigin,
+            ["FSUSBLOG_ADMIN_ORIGIN"] = AdminOrigin, ["FSUSBLOG_PASSKEY_ORIGIN"] = "", [MediaEndpoints.StorageSetting] = "",
+            ["FSUSBLOG_SITE_PAGES"] = "", [AppearanceAssets.RootSetting] = "", [SiteCapabilities.PublicCommentsSetting] = "false",
+            [CommentReplies.Setting] = "false", [InboxWriteEndpoints.Setting] = "false", [DocumentExportEndpoints.Setting] = "false",
+            [PublicHotArticles.Setting] = "false", [WideSearchCorpusEndpoints.Setting] = "false",
+            [SiteCapabilities.PublicSearchModeSetting] = "server", [ArticleReadEndpoints.Setting] = "false",
+            [SiteTraffic.EnabledSetting] = "false", [AdminInboxEndpoints.ReplySetting] = "false",
+            [AdminInboxEndpoints.StatusSetting] = "false", [AdminInboxEndpoints.NoticeSetting] = "false",
+            [AdminInboxEndpoints.SharedReadSetting] = "false", [AdminInboxEndpoints.LiveSetting] = "false",
+            [InboxActivityFence.Setting] = "false", [AdminModerationBatchEndpoints.Setting] = "false",
+            [AdminArticleRollbackEndpoints.Setting] = "false", [AdminTagMetadataEndpoints.Setting] = "false",
+            [AdminTagMetadataEndpoints.CategorySetting] = "false", [SitePages.EditorSetting] = "false",
             [PublicSiteConfiguration.EditorSetting] = "false",
-        }), webDist.FullName);
+        }, webDist.FullName);
 
         Assert.All(new object?[] { c.SitePasskey, c.PrivateMediaRoot, c.PublicMediaRoot, c.SitePagesRoot, c.AppearanceRoot }, Assert.Null);
         Assert.Equal("server", c.PublicSearchMode);
@@ -172,31 +143,23 @@ public sealed class SiteCapabilitiesTests
     [Fact]
     public void InvalidValuesAndExplicitTrueWithoutPrerequisitesFailFast()
     {
-        var webDist = Path.Combine(Path.GetTempPath(), "fsusblog-cap-fail-" + Guid.NewGuid().ToString("N"));
-
-        void Invalid(params (string Key, string? Value)[] settings) =>
-            Assert.Throws<InvalidOperationException>(() => SiteCapabilities.Resolve(
-                BuildConfig(settings.ToDictionary(item => item.Key, item => item.Value)), webDist));
-
-        Invalid((PublicHotArticles.Setting, "maybe"));
-        Invalid((ArticleReadEndpoints.Setting, "true"));
-        Invalid((SiteTraffic.EnabledSetting, "true"));
-        Invalid((SiteCapabilities.ReaderRegistrationSetting, "true"));
-        Invalid((PublicSiteConfiguration.OriginKey, "https://blog.example.test"),
-            ("FSUSBLOG_PASSKEY_ORIGIN", ""),
-            (SiteCapabilities.ReaderRegistrationSetting, "true"));
-        Invalid((AdminArticleRollbackEndpoints.Setting, "true"));
-        Invalid((AdminTagMetadataEndpoints.Setting, "true"));
-        Invalid((AdminTagMetadataEndpoints.CategorySetting, "true"));
-        Invalid(("FSUSBLOG_ADMIN_ORIGIN", "https://admin.example.test"),
-            ("FSUSBLOG_ADMIN_RP_ID", "other.example.test"),
-            (PublicSiteConfiguration.OriginKey, "https://blog.example.test"));
-        Invalid((SiteCapabilities.DataDirSetting, webDist));
-        Invalid(("FSUSBLOG_ADMIN_ORIGIN", "https://admin.example.test"),
-            (SitePages.EditorSetting, "true"));
-        Invalid((PublicSiteConfiguration.OriginKey, "https://blog.example.test"),
-            ("FSUSBLOG_ADMIN_ORIGIN", "https://admin.example.test"),
-            (AppearanceAssets.OnlineSetting, "true"));
+        var webDist = TempDist();
+        foreach (var settings in new (string Key, string? Value)[][]
+        {
+            [(PublicHotArticles.Setting, "maybe")],
+            [(ArticleReadEndpoints.Setting, "true")],
+            [(SiteTraffic.EnabledSetting, "true")],
+            [(SiteCapabilities.ReaderRegistrationSetting, "true")],
+            [(PublicSiteConfiguration.OriginKey, PublicOrigin), ("FSUSBLOG_PASSKEY_ORIGIN", ""), (SiteCapabilities.ReaderRegistrationSetting, "true")],
+            [(AdminArticleRollbackEndpoints.Setting, "true")],
+            [(AdminTagMetadataEndpoints.Setting, "true")],
+            [(AdminTagMetadataEndpoints.CategorySetting, "true")],
+            [("FSUSBLOG_ADMIN_ORIGIN", AdminOrigin), ("FSUSBLOG_ADMIN_RP_ID", "other.example.test"), (PublicSiteConfiguration.OriginKey, PublicOrigin)],
+            [(SiteCapabilities.DataDirSetting, webDist)],
+            [("FSUSBLOG_ADMIN_ORIGIN", AdminOrigin), (SitePages.EditorSetting, "true")],
+            [(PublicSiteConfiguration.OriginKey, PublicOrigin), ("FSUSBLOG_ADMIN_ORIGIN", AdminOrigin), (AppearanceAssets.OnlineSetting, "true")],
+        })
+            Assert.Throws<InvalidOperationException>(() => Resolve(settings.ToDictionary(item => item.Key, item => item.Value), webDist));
     }
 
     [Fact]
@@ -207,12 +170,7 @@ public sealed class SiteCapabilitiesTests
         CreateSitePages(root);
         WriteAppearanceFixture(root);
 
-        var capabilities = SiteCapabilities.Resolve(BuildConfig(new()
-        {
-            [SiteCapabilities.DataDirSetting] = root.FullName,
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173",
-        }), webDist.FullName);
-
+        var capabilities = Resolve(new() { [SiteCapabilities.DataDirSetting] = root.FullName, ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173" }, webDist.FullName);
         Assert.Equal((new Uri("http://localhost:5173"), "localhost"), (capabilities.AdminIdentity?.Origin, capabilities.AdminIdentity?.RpId));
         Assert.All([capabilities.AdminTagMetadata, capabilities.AdminCategoryMetadata, capabilities.AdminArticleRollback,
             capabilities.SitePageEditor, capabilities.SiteConfigEditor, capabilities.OnlineAppearance], Assert.True);
@@ -221,47 +179,15 @@ public sealed class SiteCapabilitiesTests
     [Fact]
     public async Task MigrateInitSecretsOutputsThreeDistinctValidCryptographicKeys()
     {
-        var host = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet";
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current is not null && !File.Exists(Path.Combine(current.FullName, "FsusBlog.V2.slnx")))
-            current = current.Parent;
-        Assert.NotNull(current);
-        var configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent?.Name ?? "Release";
-        var cliDll = Path.Combine(current.FullName, "src", "Cli", "bin", configuration, "net10.0", "FsusBlog.V2.Cli.dll");
-        if (!File.Exists(cliDll))
-            cliDll = Path.Combine(current.FullName, "src", "Cli", "bin", "Release", "net10.0", "FsusBlog.V2.Cli.dll");
-        Assert.True(File.Exists(cliDll), $"Expected {cliDll} to exist.");
+        var result = await FixtureProcess.Run(FixtureProcess.Cli(null, null, "init-secrets"), CancellationToken.None);
+        Assert.Equal((0, ""), (result.Code, result.Error));
 
-        var start = new ProcessStartInfo(host)
-        {
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-        };
-        start.ArgumentList.Add(cliDll);
-        start.ArgumentList.Add("init-secrets");
-
-        using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start Cli.");
-        var stdout = await process.StandardOutput.ReadToEndAsync();
-        var stderr = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-
-        Assert.Equal(0, process.ExitCode);
-        Assert.Equal("", stderr);
-
-        var parsed = new Dictionary<string, string?>(StringComparer.Ordinal);
-        foreach (var line in stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            var split = line.IndexOf('=');
-            Assert.True(split > 0, $"Unexpected line: {line}");
-            parsed[line[..split]] = line[(split + 1)..];
-        }
-
-        Assert.Equal(3, parsed.Count);
-        Assert.Equal(64, parsed["FSUSBLOG_TOTP_KEY_HEX"]!.Length);
-        Assert.Equal(64, parsed["FSUSBLOG_RECOVERY_KEY_PEPPER_HEX"]!.Length);
-        Assert.Equal(64, parsed["FSUSBLOG_SUBSCRIPTION_HMAC_KEY"]!.Length);
-        Assert.Equal(3, parsed.Values.Distinct(StringComparer.Ordinal).Count());
+        var parsed = result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(line => { var split = line.IndexOf('='); Assert.True(split > 0, $"Unexpected line: {line}"); return (line[..split], line[(split + 1)..]); })
+            .ToDictionary(pair => pair.Item1, pair => (string?)pair.Item2, StringComparer.Ordinal);
+        Assert.Equal((3, 3), (parsed.Count, parsed.Values.Distinct(StringComparer.Ordinal).Count()));
+        Assert.All(["FSUSBLOG_TOTP_KEY_HEX", "FSUSBLOG_RECOVERY_KEY_PEPPER_HEX", "FSUSBLOG_SUBSCRIPTION_HMAC_KEY"],
+            key => Assert.Equal(64, parsed[key]!.Length));
 
         var config = BuildConfig(parsed);
         Assert.NotNull(TotpSecret.Read(config));
@@ -276,35 +202,34 @@ public sealed class SiteCapabilitiesTests
         request.Headers.Add("X-Forwarded-For", clientIp);
     }
 
+    private static async Task<HttpResponseMessage> SendHttps(HttpClient client, HttpMethod method, string route,
+        string clientIp, CancellationToken ct, string? cookie = null, string host = "blog.example.test")
+    {
+        using var req = new HttpRequestMessage(method, route);
+        AttachHttps(req, clientIp, host);
+        if (cookie is not null) req.Headers.Add("Cookie", cookie);
+        return await client.SendAsync(req, ct);
+    }
+
     [PostgresFact]
     public async Task ZeroConfigBootActivatesCapabilitiesAndExplicitFalseOverridesStayFailClosed()
     {
         if (OperatingSystem.IsWindows()) return;
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var (_, readerToken, _) = await fixture.SignInSiteUser("cap-reader", ct, minutes: 5);
-        var dataDir = MediaFixture.CreateOwnedTemporaryDirectory("fsusblog-cap-data-");
-        using var cleanup = new MediaFixture.DirectoryCleanup(dataDir);
+        using var dataDir = MediaFixture.OwnedTempDirectory("fsusblog-cap-data-");
 
         static void AttachPublicHttps(HttpRequestMessage request) => AttachHttps(request, "198.51.100.10");
-
-        async Task<HttpResponseMessage> HttpsSend(HttpClient client, HttpMethod method, string route, string? cookie = null, string host = "blog.example.test")
-        {
-            using var req = new HttpRequestMessage(method, route);
-            AttachHttps(req, "198.51.100.10", host);
-            if (cookie is not null) req.Headers.Add("Cookie", cookie);
-            return await client.SendAsync(req, ct);
-        }
+        Task<HttpResponseMessage> HttpsSend(HttpClient client, HttpMethod method, string route, string? cookie = null, string host = "blog.example.test") =>
+            SendHttps(client, method, route, "198.51.100.10", ct, cookie, host);
 
         await using (var enabled = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
         {
-            [LoopbackProxy.ConfigurationKey] = "true",
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
-            [SiteCapabilities.DataDirSetting] = dataDir.FullName,
+            [LoopbackProxy.ConfigurationKey] = "true", [PublicSiteConfiguration.OriginKey] = PublicOrigin,
+            ["FSUSBLOG_ADMIN_ORIGIN"] = AdminOrigin, [SiteCapabilities.DataDirSetting] = dataDir.FullName,
         }, AttachPublicHttps))
         {
             Assert.All(["private-media", "public-media"], dir => Assert.True(Directory.Exists(Path.Combine(dataDir.FullName, dir))));
-
             var html = await OkString(HttpsSend(enabled.Client, HttpMethod.Get, "/"), ct);
             Assert.All([PublicHotArticles.PageMarker, ArticleReadEndpoints.PageMarker, DocumentExportEndpoints.Marker],
                 marker => Assert.Contains(marker, html, StringComparison.Ordinal));
@@ -325,23 +250,16 @@ public sealed class SiteCapabilitiesTests
 
             using (var resp = Ok(await HttpsSend(enabled.Client, HttpMethod.Get, WireRoutes.InboxWriteAvailability, $"fsus-v2-session={readerToken}")))
                 Assert.Equal("1", Assert.Single(resp.Headers.GetValues(WireHeaders.InboxWriteEnabled)));
-
             await CheckStatusAsync(OK, HttpsSend(enabled.Client, HttpMethod.Get, "/admin", host: "admin.example.test"));
         }
 
         await using (var disabled = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
         {
-            [LoopbackProxy.ConfigurationKey] = "true",
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-            ["FSUSBLOG_PASSKEY_ORIGIN"] = "",
-            [PublicHotArticles.Setting] = "false",
-            [ArticleReadEndpoints.Setting] = "false",
-            [DocumentExportEndpoints.Setting] = "false",
-            [SiteCapabilities.PublicCommentsSetting] = "false",
-            [InboxWriteEndpoints.Setting] = "false",
-            [WideSearchCorpusEndpoints.Setting] = "false",
-            [SiteTraffic.EnabledSetting] = "false",
-            [SiteCapabilities.PublicSearchModeSetting] = "server",
+            [LoopbackProxy.ConfigurationKey] = "true", [PublicSiteConfiguration.OriginKey] = PublicOrigin,
+            ["FSUSBLOG_PASSKEY_ORIGIN"] = "", [PublicHotArticles.Setting] = "false", [ArticleReadEndpoints.Setting] = "false",
+            [DocumentExportEndpoints.Setting] = "false", [SiteCapabilities.PublicCommentsSetting] = "false",
+            [InboxWriteEndpoints.Setting] = "false", [WideSearchCorpusEndpoints.Setting] = "false",
+            [SiteTraffic.EnabledSetting] = "false", [SiteCapabilities.PublicSearchModeSetting] = "server",
         }, AttachPublicHttps))
         {
             var html = await OkString(HttpsSend(disabled.Client, HttpMethod.Get, "/"), ct);
@@ -372,51 +290,34 @@ public sealed class SiteCapabilitiesTests
         var adminCookie = $"__Host-FsusAdminSession={adminToken}";
         var bothCookies = $"{readerCookie}; {adminCookie}";
 
-        async Task ExpectGet(HttpClient client, string path, HttpStatusCode status, string? cookie = null,
-            string host = "blog.example.test", Func<HttpContent, Task>? checkContent = null)
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, path);
-            AttachHttps(request, clientIp, host);
-            if (cookie is not null) request.Headers.Add("Cookie", cookie);
-            using var response = Expect(status, await client.SendAsync(request, ct));
-            if (checkContent is not null) await checkContent(response.Content);
-        }
+        Task<byte[]> ExpectGet(HttpClient client, string path, HttpStatusCode status, string? cookie = null, string host = "blog.example.test") =>
+            ExpectBytes(status, SendHttps(client, HttpMethod.Get, path, clientIp, ct, cookie, host), ct);
 
         await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
         {
-            [LoopbackProxy.ConfigurationKey] = "true",
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
+            [LoopbackProxy.ConfigurationKey] = "true", [PublicSiteConfiguration.OriginKey] = PublicOrigin,
         }, req => AttachHttps(req, clientIp)))
         {
             await ExpectGet(server.Client, "/", OK);
             await ExpectGet(server.Client, "/admin", OK);
             await ExpectGet(server.Client, "/admin", NotFound, host: "other.example.test");
 
-            await ExpectGet(server.Client, WireRoutes.Session, OK, bothCookies, checkContent: async content =>
-            {
-                var session = Wire.DecodeSession(await content.ReadAsByteArrayAsync(ct));
-                Assert.Equal(("single-origin-reader", false), (session.Name, session.CanAuthor));
-            });
+            var readerSession = Wire.DecodeSession(await ExpectGet(server.Client, WireRoutes.Session, OK, bothCookies));
+            Assert.Equal(("single-origin-reader", false), (readerSession.Name, readerSession.CanAuthor));
             await ExpectGet(server.Client, WireRoutes.Session, Unauthorized, adminCookie);
 
-            await ExpectGet(server.Client, WireRoutes.AuthoringSession, OK, bothCookies, checkContent: async content =>
-            {
-                var session = Wire.DecodeSession(await content.ReadAsByteArrayAsync(ct));
-                Assert.Equal(("single-origin-admin", true), (session.Name, session.CanAuthor));
-            });
+            var authorSession = Wire.DecodeSession(await ExpectGet(server.Client, WireRoutes.AuthoringSession, OK, bothCookies));
+            Assert.Equal(("single-origin-admin", true), (authorSession.Name, authorSession.CanAuthor));
             await ExpectGet(server.Client, WireRoutes.AuthoringSession, Unauthorized, readerCookie);
             await ExpectGet(server.Client, WireRoutes.AuthoringSession, NotFound, adminCookie, "other.example.test");
 
-            await ExpectGet(server.Client, WireRoutes.AdminSession, OK, bothCookies, checkContent: async content =>
-                Assert.Equal("single-origin-admin", Wire.DecodeAdminSessionSnapshot(await content.ReadAsByteArrayAsync(ct)).Handle));
+            Assert.Equal("single-origin-admin", Wire.DecodeAdminSessionSnapshot(await ExpectGet(server.Client, WireRoutes.AdminSession, OK, bothCookies)).Handle);
             await ExpectGet(server.Client, WireRoutes.AdminSession, Unauthorized, readerCookie);
         }
 
         await using (var publicOnly = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
         {
-            [LoopbackProxy.ConfigurationKey] = "true",
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "",
+            [LoopbackProxy.ConfigurationKey] = "true", [PublicSiteConfiguration.OriginKey] = PublicOrigin, ["FSUSBLOG_ADMIN_ORIGIN"] = "",
         }, req => AttachHttps(req, clientIp)))
         {
             await ExpectGet(publicOnly.Client, "/", OK);
@@ -428,14 +329,10 @@ public sealed class SiteCapabilitiesTests
     [Fact]
     public async Task ExplicitAdminClosureSkipsPasskeyParsingAndDomainStoresConstructWithoutPasskeyConfig()
     {
-        var webDist = Path.Combine(Path.GetTempPath(), "fsusblog-cap-noadmin-" + Guid.NewGuid().ToString("N"));
-        var c = SiteCapabilities.Resolve(BuildConfig(new()
+        var c = Resolve(new()
         {
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "",
-            ["FSUSBLOG_ADMIN_RP_ID"] = "admin.example.test",
-        }), webDist);
-
+            [PublicSiteConfiguration.OriginKey] = PublicOrigin, ["FSUSBLOG_ADMIN_ORIGIN"] = "", ["FSUSBLOG_ADMIN_RP_ID"] = "admin.example.test",
+        });
         Assert.Null(c.AdminIdentity);
         Assert.All([c.AdminArticleRollback, c.AdminCommentBatch, c.AdminInboxReplies, c.AdminTagMetadata, c.AdminCategoryMetadata], Assert.False);
 

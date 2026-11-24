@@ -7,26 +7,18 @@ public sealed class PluginPreviewPostgresTests
     [PostgresFact]
     public async Task PreviewIsAbsentByDefault()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         using var shellRequest = new HttpRequestMessage(HttpMethod.Get, "/admin/articles/write");
         shellRequest.Headers.Host = ServerProcess.DefaultAdminHost;
-        using var shell = await server.Client.SendAsync(shellRequest, ct);
-        shell.EnsureSuccessStatusCode();
-        Assert.DoesNotContain("fsus-author-plugin-preview", await shell.Content.ReadAsStringAsync(ct), StringComparison.Ordinal);
-        using var response = await server.Client.PostAsync(PathFor(1, 1), null, ct);
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.DoesNotContain("fsus-author-plugin-preview", await OkString(server.Client.SendAsync(shellRequest, ct), ct), StringComparison.Ordinal);
+        await CheckStatusAsync(HttpStatusCode.NotFound, server.Client.PostAsync(PathFor(1, 1), null, ct));
     }
 
     [LinuxPluginPreviewFact]
     public async Task SignedWorkerPreviewsOnlyTheCurrentSavedAuthorRevisionOverHttps()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        var ct = deadline.Token;
-        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
         var store = new Store(fixture.DataSource);
         var (_, ownerToken, ownerHandle) = await fixture.SignInAdmin("Preview owner", ct);
         var (_, peerToken, peerHandle) = await fixture.SignInAdmin("Preview peer", ct);
@@ -114,13 +106,12 @@ public sealed class PluginPreviewPostgresTests
         await Preview(https, current, owner, HttpStatusCode.BadRequest, body: new byte[] { 1 });
         await Preview(https, current, owner, HttpStatusCode.Forbidden, sendOrigin: false);
         await Preview(server.Client, current, owner, HttpStatusCode.NotFound, sendOrigin: false);
-        using (var unpublished = await https.GetAsync($"/article/{current.Id}", ct))
-            Assert.Equal(HttpStatusCode.NotFound, unpublished.StatusCode);
+        await CheckStatusAsync(HttpStatusCode.NotFound, https.GetAsync($"/article/{current.Id}", ct));
 
-        await Execute(db, "delete from public.admin_session where digest=$1", ct, Store.TokenDigest(owner.Token)!);
+        await fixture.Exec("delete from public.admin_session where digest=$1", Store.TokenDigest(owner.Token)!);
         await Preview(https, current, owner, HttpStatusCode.Unauthorized);
-        await using var state = Store.Sql(db, null, "select body from public.article_revision where article_id=$1 and revision=$2", current.Id, current.Revision);
-        Assert.Equal(currentBody, await state.ExecuteScalarAsync(ct));
+        Assert.Equal(currentBody, await fixture.Scalar<string>(
+            "select body from public.article_revision where article_id=$1 and revision=$2", current.Id, current.Revision));
 
         async Task<ArticleState> Save(int id, long revision, string markdown) =>
             (await store.WithSession(owner.Token, true, (connection, tx, actor) => Store.Execute(connection, tx, actor, ArticleAction.Save,
@@ -168,12 +159,6 @@ public sealed class PluginPreviewPostgresTests
             else if (expected == HttpStatusCode.NoContent) Assert.Empty(bytes);
             else Assert.DoesNotContain("Saved current Markdown.", Encoding.UTF8.GetString(bytes), StringComparison.Ordinal);
         }
-    }
-
-    private static async Task Execute(NpgsqlConnection db, string sql, CancellationToken ct, params object[] values)
-    {
-        await using var command = Store.Sql(db, null, sql, values);
-        await command.ExecuteNonQueryAsync(ct);
     }
 
     private static string PathFor(int article, long revision) =>

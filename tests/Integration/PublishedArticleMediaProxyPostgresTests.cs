@@ -16,7 +16,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(3));
         var author = await MediaFixture.CreateSession(db.DataSource, "TLS image pacing author", ct);
         var workspace = Directory.CreateTempSubdirectory("fsus-published-media-caddy-");
-        try
+        using (new MediaFixture.DirectoryCleanup(workspace))
         {
             var privateRoot = MediaFixture.CreateOwnedDirectory(workspace.FullName, "private");
             var publicRoot = MediaFixture.CreateOwnedDirectory(workspace.FullName, "public");
@@ -39,7 +39,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             draft = await Attach(client, author, draft, image.Id, ct);
             var release = await PostDraft(client, WireRoutes.ArticlePublishImages,
                 Wire.EncodeArticlePublishImages(new(draft.Id, draft.Revision, Guid.NewGuid(), [image.Id])), author, ct);
-            var publication = await PublicationId(db.DataSource, release, ct);
+            var publication = await PublicationId(db, release, ct);
             var raw = RawPath(release.Id, publication, image.Digest);
             var missing = RawPath(release.Id, publication, new string('0', 64));
             var manifest = Wire.DecodePublicArticleMedia(await client.GetByteArrayAsync(ManifestPath(release.Id, publication), ct));
@@ -133,9 +133,8 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             });
             Assert.True(receivedBeforeWithdrawal < image.Bytes.Length);
             using var stale = await ProxyRequest(client, HttpMethod.Head, raw, ct);
-            await CheckEmpty(stale, HttpStatusCode.NotFound, ct);
+            await CheckEmpty(stale, NotFound, ct);
         }
-        finally { workspace.Delete(recursive: true); }
     }
 
     private static async Task WaitForReadLease(HttpClient client, string path, Asset image, CancellationToken ct)

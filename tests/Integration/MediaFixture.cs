@@ -6,8 +6,13 @@ internal static class MediaFixture
 {
     internal sealed class DirectoryCleanup(DirectoryInfo directory) : IDisposable
     {
+        internal DirectoryInfo Directory => directory;
+        internal string FullName => directory.FullName;
         public void Dispose() => directory.Delete(recursive: true);
     }
+
+    [UnsupportedOSPlatform("windows")]
+    internal static DirectoryCleanup OwnedTempDirectory(string prefix) => new(CreateOwnedTemporaryDirectory(prefix));
 
     private const UnixFileMode OwnerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
 
@@ -57,6 +62,23 @@ internal static class MediaFixture
     // macOS redirects its default temporary directory through /var.
     internal static string CanonicalPath(string path) =>
         OperatingSystem.IsMacOS() && path.StartsWith("/var/", StringComparison.Ordinal) ? "/private" + path : path;
+
+    internal static async Task WriteReadOnlyFile(string path, byte[] bytes, CancellationToken ct, bool createNew = false)
+    {
+        if (createNew)
+        {
+            var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
+            if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead;
+            await using var file = new FileStream(path, options);
+            await file.WriteAsync(bytes, ct);
+        }
+        else
+        {
+            if (File.Exists(path) && !OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            await File.WriteAllBytesAsync(path, bytes, ct);
+        }
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(path, UnixFileMode.UserRead);
+    }
 
     [UnsupportedOSPlatform("windows")]
     internal static async Task WithReplacedReadOnlyFile(string path, string held, byte[] bytes, Func<Task> check, CancellationToken ct)

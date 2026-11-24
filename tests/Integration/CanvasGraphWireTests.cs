@@ -47,20 +47,18 @@ public sealed class CanvasGraphWireTests
     {
         var bytes = Fixture(fixture);
         var command = Wire.DecodeCanvasGraphCommand(bytes);
-        Assert.Equal(action, command.Action);
-        Assert.Equal(9_007_199_254_740_993, command.ExpectedRevision);
-        Assert.Equal(Guid.Parse("7a7a7a7a-0000-4000-8000-000000000001"), command.Id);
-        Assert.Equal(Guid.Parse("7a7a7a7a-0000-4000-8000-000000000002"), command.CommandId);
+        Assert.Equal((action, 9_007_199_254_740_993L, Guid.Parse("7a7a7a7a-0000-4000-8000-000000000001"),
+            Guid.Parse("7a7a7a7a-0000-4000-8000-000000000002")), (command.Action, command.ExpectedRevision, command.Id, command.CommandId));
         Equal(bytes, Wire.EncodeCanvasGraphCommand(command));
 
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasGraphCommand(command with { ExpectedRevision = 0 }));
         var edit = command with { Action = CanvasGraphAction.Edit, Title = "Changed" };
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasGraphCommand(edit with { Action = action }));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasGraphCommand(command with { Viewport = new(0, 0, 1000) }));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasGraphCommand(command with
+        foreach (var bad in new[]
         {
-            Changes = [new CanvasChangeFrame.DropNode(command.Id)]
-        }));
+            command with { ExpectedRevision = 0 }, edit with { Action = action },
+            command with { Viewport = new(0, 0, 1000) },
+            command with { Changes = [new CanvasChangeFrame.DropNode(command.Id)] }
+        })
+            Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasGraphCommand(bad));
 
         var payload = Aeds.Decode(Wire.EncodeCanvasGraphCommand(edit), FrameType.CanvasGraphCommand).ToArray();
         const int actionOffset = 16 + 16 + sizeof(long);
@@ -81,10 +79,12 @@ public sealed class CanvasGraphWireTests
         Equal(fixture, Wire.EncodeCanvasGraphHistory(history));
         var afterUndo = new CanvasGraphHistory(revision + 1, null, revision);
         Assert.Equal(afterUndo, Wire.DecodeCanvasGraphHistory(Wire.EncodeCanvasGraphHistory(afterUndo)));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasGraphHistory(history with { Revision = 0 }));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasGraphHistory(history with { UndoRevision = 0 }));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasGraphHistory(history with { RedoRevision = revision }));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasGraphHistory(history with { UndoRevision = revision + 1 }));
+        foreach (var bad in new[]
+        {
+            history with { Revision = 0 }, history with { UndoRevision = 0 },
+            history with { RedoRevision = revision }, history with { UndoRevision = revision + 1 }
+        })
+            Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasGraphHistory(bad));
 
         var payload = Aeds.Decode(fixture, FrameType.CanvasGraphHistory).ToArray();
         BinaryPrimitives.WriteInt64LittleEndian(payload.AsSpan(sizeof(long) * 2), -1);
@@ -103,8 +103,7 @@ public sealed class CanvasGraphWireTests
         var unavailable = new CanvasReferenceResolution(canvas, node, revision, CanvasReferenceState.Unavailable,
             null, null, false, null, null, null);
         var missing = resolved with { State = CanvasReferenceState.MissingAnchor, Pinned = false, Excerpt = null, SourceOffset = null };
-        var pairs = new[] { ("resolved", resolved), ("unavailable", unavailable), ("missing", missing) };
-        foreach (var (name, value) in pairs)
+        foreach (var (name, value) in new[] { ("resolved", resolved), ("unavailable", unavailable), ("missing", missing) })
         {
             var bytes = Fixture("canvas-reference-" + name);
             Assert.Equal(value, Wire.DecodeCanvasReferenceResolution(bytes));
@@ -114,11 +113,12 @@ public sealed class CanvasGraphWireTests
         foreach (var state in new[] { CanvasReferenceState.Unavailable, CanvasReferenceState.StaleRevision })
         {
             var hidden = unavailable with { State = state };
-            Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(hidden with { ArticleId = 17 }));
-            Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(hidden with { ArticleRevision = revision }));
-            Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(hidden with { Pinned = true }));
-            Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(hidden with { Title = "Sensitive title" }));
-            Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(hidden with { Excerpt = "Sensitive text", SourceOffset = 0 }));
+            foreach (var bad in new[]
+            {
+                hidden with { ArticleId = 17 }, hidden with { ArticleRevision = revision }, hidden with { Pinned = true },
+                hidden with { Title = "Sensitive title" }, hidden with { Excerpt = "Sensitive text", SourceOffset = 0 }
+            })
+                Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(bad));
             var payload = Aeds.Decode(Fixture("canvas-reference-resolved"), FrameType.CanvasReferenceResolution).ToArray();
             BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(16 + 16 + sizeof(long)), (int)state);
             Assert.Throws<ProtocolException>(() => Wire.DecodeCanvasReferenceResolution(Aeds.Encode(FrameType.CanvasReferenceResolution, payload)));
@@ -130,28 +130,18 @@ public sealed class CanvasGraphWireTests
             Assert.Equal(unresolved, Wire.DecodeCanvasReferenceResolution(Wire.EncodeCanvasReferenceResolution(unresolved)));
             Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(unresolved with { SourceOffset = 0 }));
         }
-        var resolvedArticle = resolved with { Excerpt = null, SourceOffset = null };
-        Assert.Equal(resolvedArticle, Wire.DecodeCanvasReferenceResolution(Wire.EncodeCanvasReferenceResolution(resolvedArticle)));
-        var emptyExcerpt = resolved with { Excerpt = null };
-        Assert.Equal(emptyExcerpt, Wire.DecodeCanvasReferenceResolution(Wire.EncodeCanvasReferenceResolution(emptyExcerpt)));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(resolved with { SourceOffset = null }));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(resolved with { SourceOffset = -2 }));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(resolved with { Title = "\nBad title" }));
-        Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(resolved with { Excerpt = new string('猫', 257) }));
-    }
-
-    private static void Equal(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual)
-    {
-        Assert.True(expected.SequenceEqual(actual), "Canvas graph AEDS bytes differ.");
-    }
-
-    private static byte[] Fixture(string name)
-    {
-        for (var at = new DirectoryInfo(AppContext.BaseDirectory); at is not null; at = at.Parent)
+        foreach (var valid in new[] { resolved with { Excerpt = null, SourceOffset = null }, resolved with { Excerpt = null } })
+            Assert.Equal(valid, Wire.DecodeCanvasReferenceResolution(Wire.EncodeCanvasReferenceResolution(valid)));
+        foreach (var bad in new[]
         {
-            var path = Path.Combine(at.FullName, "tests", "Protocol", "fixtures", name + ".hex");
-            if (File.Exists(path)) return Convert.FromHexString(File.ReadAllText(path).Trim());
-        }
-        throw new FileNotFoundException($"Missing independent Canvas fixture {name}.");
+            resolved with { SourceOffset = null }, resolved with { SourceOffset = -2 },
+            resolved with { Title = "\nBad title" }, resolved with { Excerpt = new string('猫', 257) }
+        })
+            Assert.Throws<ProtocolException>(() => Wire.EncodeCanvasReferenceResolution(bad));
     }
+
+    private static void Equal(ReadOnlySpan<byte> expected, ReadOnlySpan<byte> actual) =>
+        Assert.True(expected.SequenceEqual(actual), "Canvas graph AEDS bytes differ.");
+
+    private static byte[] Fixture(string name) => CanvasFixture.ProtocolFixture(name);
 }

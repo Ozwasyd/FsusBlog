@@ -1,4 +1,5 @@
 using ArticleScheduleStore = FsusBlog.V2.Server.Authoring.ArticleScheduleStore;
+using static FsusBlog.V2.Integration.Tests.AuthorPropertyFixture;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -9,20 +10,20 @@ public sealed class AuthorTextSearchPostgresTests
     {
         await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         // This fixture checks exact foreground batch counts on the compatible pre-worker schema.
-        await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        await FixtureSql.ExecuteAsync(connection, null, ct, "drop table public.author_text_rebuild_job");
+        await db.ExecAsync(ct, "drop table public.author_text_rebuild_job");
         var store = new Store(db.DataSource);
-        var owner = await Login("Full-text owner", true);
-        var stranger = await Login("Full-text stranger", true);
-        var reader = await Login("Full-text reader", false);
+        var owner = await SignIn(db, "Full-text owner", ct);
+        var stranger = await SignIn(db, "Full-text stranger", ct);
+        var reader = await SignIn(db, "Full-text reader", ct, canAuthor: false);
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
+        var author = new AuthorPropertyFixture(db, server.Client, ct);
         var prefix = "😀\r\n" + new string('-', 230) + " ";
         var source = prefix + "Cafe\u0301 orbit";
-        for (var i = 0; i < 6; i++) await Save(owner, "Unrelated article " + i, "Other material");
-        var fragment = await Save(owner, "Caféteria", "orbital movement");
-        var across = await Save(owner, "Café", "orbit");
-        var primary = await Save(owner, "Tropical Harbor", source);
-        var foreign = await Save(stranger, "Private foreign title", source);
+        for (var i = 0; i < 6; i++) await author.Save(owner, "Unrelated article " + i, "Other material");
+        var fragment = await author.Save(owner, "Caféteria", "orbital movement");
+        var across = await author.Save(owner, "Café", "orbit");
+        var primary = await author.Save(owner, "Tropical Harbor", source);
+        var foreign = await author.Save(stranger, "Private foreign title", source);
         const string phrase = "\"Café orbit\"";
 
         await Send(phrase, reader, HttpStatusCode.Unauthorized);
@@ -40,14 +41,8 @@ public sealed class AuthorTextSearchPostgresTests
         Assert.True(page.Ready);
         Assert.False(page.More);
         var match = Assert.Single(page.Rows);
-        Assert.Equal(primary.Id, match.Id);
-        Assert.Equal(primary.Revision, match.Revision);
-        Assert.Equal(2, match.Field);
-        Assert.Equal("Cafe\u0301", match.Snippet[match.HighlightStart..match.HighlightEnd]);
-        Assert.Equal((prefix.Length, prefix.Length + "Cafe\u0301".Length), (match.SourceStart, match.SourceEnd));
-        Assert.Equal((Encoding.UTF8.GetByteCount(prefix), Encoding.UTF8.GetByteCount(prefix + "Cafe\u0301")),
-            (match.SourceByteStart, match.SourceByteEnd));
-        Assert.Equal(SHA256.HashData(Encoding.UTF8.GetBytes(source)), match.SourceDigest);
+        Assert.Equal((primary.Id, primary.Revision), (match.Id, match.Revision));
+        RequireSource(match, 2, source, "Cafe\u0301");
 
         Assert.Equal(new[] { primary.Id, across.Id }, (await Search("Café orbit", owner)).Rows.Select(row => row.Id).ToArray());
         Assert.Equal(new[] { primary.Id, across.Id }, (await Search("Café", owner)).Rows.Select(row => row.Id).ToArray());
@@ -56,27 +51,25 @@ public sealed class AuthorTextSearchPostgresTests
         Assert.Equal(fragment.Id, Assert.Single((await Search("orbital", owner)).Rows).Id);
         Assert.Equal(foreign.Id, Assert.Single((await Search(phrase, stranger)).Rows).Id);
         await Send("body:orbit", owner, HttpStatusCode.BadRequest);
-        using var anonymous = await server.Client.GetAsync(WireRoutes.PublicArticle.Replace("{id}",
-            primary.Id.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal), ct);
-        Assert.Equal(HttpStatusCode.NotFound, anonymous.StatusCode);
+        await CheckStatusAsync(HttpStatusCode.NotFound, server.Client.GetAsync(WireRoutes.PublicArticle.Replace("{id}",
+            primary.Id.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal), ct));
 
-        var edited = await Change(owner, ArticleAction.Save, new(primary.Id, primary.Revision, Guid.NewGuid(), primary.Title, "updated orbit"));
+        var edited = await author.ChangeArticle(owner, ArticleAction.Save, new(primary.Id, primary.Revision, Guid.NewGuid(), primary.Title, "updated orbit"));
         Assert.Empty((await Search(phrase, owner)).Rows);
         var changed = Assert.Single((await Search("\"updated orbit\"", owner)).Rows);
         Assert.Equal(edited.Revision, changed.Revision);
         Assert.Equal("updated", changed.Snippet[changed.HighlightStart..changed.HighlightEnd]);
-        var deleted = await Change(owner, ArticleAction.Delete, new(edited.Id, edited.Revision, Guid.NewGuid(), "", ""));
+        var deleted = await author.ChangeArticle(owner, ArticleAction.Delete, new(edited.Id, edited.Revision, Guid.NewGuid(), "", ""));
         Assert.Empty((await Search("updated", owner)).Rows);
         Assert.Equal(8, await IndexedCount(owner.Id));
-        var restored = await Change(owner, ArticleAction.Restore, new(deleted.Id, deleted.Revision, Guid.NewGuid(), "", ""));
+        var restored = await author.ChangeArticle(owner, ArticleAction.Restore, new(deleted.Id, deleted.Revision, Guid.NewGuid(), "", ""));
         Assert.Equal(restored.Revision, Assert.Single((await Search("updated", owner)).Rows).Revision);
 
         const string rankedTerm = "harborproof";
         var bodyHits = new List<ArticleState>();
-        for (var i = 0; i < 22; i++) bodyHits.Add(await Save(owner, "Rank body " + i, rankedTerm));
-        var titleHit = await Save(owner, "Harborproof launch", "blue orbit");
-        await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        Assert.Equal(22, await FixtureSql.ExecuteAsync(connection, null, ct, "update public.article set updated_at='2025-01-01T00:00:00Z' where id=any($1)", bodyHits.Select(row => row.Id).ToArray()));
+        for (var i = 0; i < 22; i++) bodyHits.Add(await author.Save(owner, "Rank body " + i, rankedTerm));
+        var titleHit = await author.Save(owner, "Harborproof launch", "blue orbit");
+        Assert.Equal(22, await db.ExecAsync(ct, "update public.article set updated_at='2025-01-01T00:00:00Z' where id=any($1)", bodyHits.Select(row => row.Id).ToArray()));
 
         Assert.False((await Ranked(rankedTerm, "", owner)).Ready);
         Assert.False((await Ranked(rankedTerm, "", owner)).Ready);
@@ -99,25 +92,21 @@ public sealed class AuthorTextSearchPostgresTests
         await SendRanked(rankedTerm, first.NextCursor, stranger, HttpStatusCode.Conflict);
 
         // The rank witness includes clock changes at the same source revision, as in scheduled publication.
-        await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        Assert.Equal(1, await FixtureSql.ExecuteAsync(connection, null, ct, "update public.article set updated_at='2025-01-02T00:00:00Z' where id=$1", bodyHits[^1].Id));
+        Assert.Equal(1, await db.ExecAsync(ct, "update public.article set updated_at='2025-01-02T00:00:00Z' where id=$1", bodyHits[^1].Id));
         await SendRanked(rankedTerm, first.NextCursor, owner, HttpStatusCode.Conflict);
-        owner = await Session(owner.Id);
+        owner = await SignIn(db, owner.Id, ct);
         await SendRanked(rankedTerm, first.NextCursor, owner, HttpStatusCode.Conflict);
         first = await Ranked(rankedTerm, "", owner);
         Assert.Equal(bodyHits[^1].Id, first.Rows[1].Id);
         var previousIndexedRevision = bodyHits[0].Revision;
-        bodyHits[0] = await Change(owner, ArticleAction.Save,
+        bodyHits[0] = await author.ChangeArticle(owner, ArticleAction.Save,
             new(bodyHits[0].Id, previousIndexedRevision, Guid.NewGuid(), "New revision", rankedTerm));
         await SendRanked(rankedTerm, first.NextCursor, owner, HttpStatusCode.Conflict);
-        await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        await using (var index = Store.Sql(connection, null,
-            "select revision from public.author_text_document where owner_id=$1 and article_id=$2", owner.Id, bodyHits[0].Id))
-            Assert.Equal(previousIndexedRevision, Assert.IsType<long>(await index.ExecuteScalarAsync(ct)));
+        Assert.Equal(previousIndexedRevision, await db.ScalarAsync<long>(ct,
+            "select revision from public.author_text_document where owner_id=$1 and article_id=$2", owner.Id, bodyHits[0].Id));
         Assert.Equal(restored.Revision, Assert.Single((await Search("updated", owner)).Rows).Revision);
 
-        await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        Assert.Equal(31, await FixtureSql.ExecuteAsync(connection, null, ct, """
+        Assert.Equal(31, await db.ExecAsync(ct, """
             insert into public.category(id,name) select id,'分类 ' || id from generate_series(101,115) id;
             insert into public.tag(id,name) select id,'Étiquette ' || id from generate_series(201,216) id;
             """));
@@ -127,14 +116,14 @@ public sealed class AuthorTextSearchPostgresTests
             var assigned = await Assign(owner, body, 101 + i, [201 + i, 215]);
             bodyHits[i] = body with { Revision = assigned.Revision };
         }
-        var foreignRanked = await Save(stranger, "Private foreign ranking", rankedTerm);
+        var foreignRanked = await author.Save(stranger, "Private foreign ranking", rankedTerm);
         await Assign(stranger, foreignRanked, 115, [216]);
         var queued = await store.WithSession(owner.Token, true, (conn, tx, identity) => Store.Schedule(conn, tx, identity,
             new(bodyHits[15].Id, bodyHits[15].Revision, Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds()), ct), ct);
-        var published = await Change(owner, ArticleAction.Publish, new(bodyHits[16].Id, bodyHits[16].Revision, Guid.NewGuid(), "", ""));
-        var publishedThenRetracted = await Change(owner, ArticleAction.Publish, new(bodyHits[17].Id, bodyHits[17].Revision, Guid.NewGuid(), "", ""));
-        var retracted = await Change(owner, ArticleAction.Retract, new(publishedThenRetracted.Id, publishedThenRetracted.Revision, Guid.NewGuid(), "", ""));
-        await Change(owner, ArticleAction.Delete, new(bodyHits[18].Id, bodyHits[18].Revision, Guid.NewGuid(), "", ""));
+        var published = await author.ChangeArticle(owner, ArticleAction.Publish, new(bodyHits[16].Id, bodyHits[16].Revision, Guid.NewGuid(), "", ""));
+        var publishedThenRetracted = await author.ChangeArticle(owner, ArticleAction.Publish, new(bodyHits[17].Id, bodyHits[17].Revision, Guid.NewGuid(), "", ""));
+        var retracted = await author.ChangeArticle(owner, ArticleAction.Retract, new(publishedThenRetracted.Id, publishedThenRetracted.Revision, Guid.NewGuid(), "", ""));
+        await author.ChangeArticle(owner, ArticleAction.Delete, new(bodyHits[18].Id, bodyHits[18].Revision, Guid.NewGuid(), "", ""));
 
         var unfinished = await Faceted(rankedTerm, "", owner);
         Assert.False(unfinished.Ready);
@@ -184,8 +173,7 @@ public sealed class AuthorTextSearchPostgresTests
         await SendFaceted(rankedTerm, facets.NextCursor, stranger, HttpStatusCode.Conflict);
 
         // Renaming a shared label must invalidate only a mode that returned it.
-        await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
-        Assert.Equal(1, await FixtureSql.ExecuteAsync(connection, null, ct, "update public.tag set name='改名 201' where id=201"));
+        Assert.Equal(1, await db.ExecAsync(ct, "update public.tag set name='改名 201' where id=201"));
         await SendFaceted(rankedTerm, facets.NextCursor, owner, HttpStatusCode.Conflict);
         Assert.True((await Ranked(rankedTerm, rankedOnly.NextCursor, owner)).Ready);
         var renamed = await Faceted(rankedTerm, "", owner);
@@ -202,12 +190,6 @@ public sealed class AuthorTextSearchPostgresTests
         await SendFaceted(rankedTerm, renamed.NextCursor, owner, HttpStatusCode.Conflict);
         Assert.Equal(new[] { 20, 0, 1, 1 }, (await Faceted(rankedTerm, "", owner)).StateCounts);
 
-        Task<ArticleState> Save(Actor actor, string title, string body) =>
-            Change(actor, ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, body));
-
-        async Task<ArticleState> Change(Actor actor, ArticleAction action, Edit edit) =>
-            (await store.WithSession(actor.Token, true, (conn, tx, identity) => Store.Execute(conn, tx, identity, action, edit, ct), ct)).Article;
-
         async Task<AuthorTextSearchPage> Search(string query, Actor actor) =>
             Wire.DecodeAuthorTextSearchPage(await Send(query, actor, HttpStatusCode.OK));
 
@@ -222,35 +204,15 @@ public sealed class AuthorTextSearchPostgresTests
                 new(article.Id, article.Revision, Guid.NewGuid(), category, tags), ct), ct);
 
         Task<byte[]> Send(string query, Actor actor, HttpStatusCode expected) =>
-            SendFrame(Wire.EncodeAuthorTextSearchQuery(query), actor, expected);
+            author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextSearchQuery(query), actor, expected);
 
         Task<byte[]> SendRanked(string query, string cursor, Actor actor, HttpStatusCode expected) =>
-            SendFrame(Wire.EncodeAuthorTextRankedQuery(new(query, cursor)), actor, expected);
+            author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextRankedQuery(new(query, cursor)), actor, expected);
 
         Task<byte[]> SendFaceted(string query, string cursor, Actor actor, HttpStatusCode expected) =>
-            SendFrame(Wire.EncodeAuthorTextFacetedQuery(new(query, cursor)), actor, expected);
+            author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextFacetedQuery(new(query, cursor)), actor, expected);
 
-        Task<byte[]> SendFrame(byte[] frame, Actor actor, HttpStatusCode expected) =>
-            SiteAedsFixture.ExpectPrivate(server.Client, HttpMethod.Post, WireRoutes.AuthorTextSearch, frame, actor.Token, actor.Handle, expected, ct);
-
-        async Task<long> IndexedCount(Guid id)
-        {
-            await using var conn = await db.DataSource.OpenConnectionAsync(ct);
-            return Assert.IsType<long>(await FixtureSql.ScalarAsync(conn, null, ct, "select count(*) from public.author_text_document where owner_id=$1", id));
-        }
-
-        async Task<Actor> Login(string name, bool canAuthor)
-        {
-            var (id, token, handle) = await db.SignIn(name, ct, canAuthor);
-            return new(id, token, handle);
-        }
-
-        async Task<Actor> Session(Guid id)
-        {
-            var (_, token, handle) = await db.SignIn(id, ct);
-            return new(id, token, handle);
-        }
+        Task<long> IndexedCount(Guid id) =>
+            db.ScalarAsync<long>(ct, "select count(*) from public.author_text_document where owner_id=$1", id);
     }
-
-    private sealed record Actor(Guid Id, string Token, string? Handle);
 }

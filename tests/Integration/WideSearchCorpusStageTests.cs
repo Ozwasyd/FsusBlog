@@ -23,13 +23,10 @@ public sealed class WideSearchCorpusStageTests
         long expectedBytes = eager.Sum(page => (long)page.Length);
         using var first = Build(articles);
         using var second = Build(articles.Reverse().ToArray());
-        Assert.Equal(documents, first.Manifest.DocumentCount);
-        Assert.Equal(expectedBytes, first.Manifest.ByteCount);
-        Assert.Equal(eager.Count, first.Manifest.Pages.Count);
-        Assert.Equal(documents, second.Manifest.DocumentCount);
-        Assert.Equal(expectedBytes, second.Manifest.ByteCount);
-        Assert.Equal(eager.Count, second.Manifest.Pages.Count);
-        AssertReadOnly(first.Manifest.Pages);
+        foreach (var spool in new[] { first, second })
+            Assert.Equal((documents, expectedBytes, eager.Count), (spool.Manifest.DocumentCount, spool.Manifest.ByteCount, spool.Manifest.Pages.Count));
+        if (first.Manifest.Pages is IList list)
+            Assert.Throws<NotSupportedException>(() => { list[0] = first.Manifest.Pages[1]; });
 
         using var canonical = new MemoryStream();
         using var writer = new BinaryWriter(canonical);
@@ -50,7 +47,6 @@ public sealed class WideSearchCorpusStageTests
                 (descriptor.Number, descriptor.DocumentCount, descriptor.FirstArticleId, descriptor.LastArticleId,
                     descriptor.Offset, descriptor.Length, descriptor.Sha256));
             Assert.Equal(descriptor, second.Manifest.Pages[i]);
-
             writer.Write(i + 1);
             writer.Write(count);
             writer.Write(firstId);
@@ -62,8 +58,7 @@ public sealed class WideSearchCorpusStageTests
         }
         writer.Flush();
         var digest = Sha256(canonical.ToArray());
-        Assert.Equal(digest, first.Manifest.ContentDigest);
-        Assert.Equal(digest, second.Manifest.ContentDigest);
+        Assert.Equal((digest, digest), (first.Manifest.ContentDigest, second.Manifest.ContentDigest));
 
         // Read the last page first, then the first, so a shared stream position cannot pass.
         Assert.Equal(eager[^1], await Read(first, eager.Count, eager[^1].Length));
@@ -83,13 +78,11 @@ public sealed class WideSearchCorpusStageTests
         if (!Supported) return;
         using var stage = Build([]);
         var descriptor = Assert.Single(stage.Manifest.Pages);
-        Assert.Equal(0, stage.Manifest.DocumentCount);
-        Assert.Equal((1, 0, 0, 0, 0L, 104), (descriptor.Number, descriptor.DocumentCount, descriptor.FirstArticleId,
-            descriptor.LastArticleId, descriptor.Offset, descriptor.Length));
-        Assert.Equal(104L, stage.Manifest.ByteCount);
         const string emptySha = "ccf6ee94814388854f26af27a24707c62df13b9e19e25762c4206b549eaeb09f";
-        Assert.Equal(emptySha, descriptor.Sha256);
-        Assert.Equal(emptySha, Sha256(await Read(stage, 1, descriptor.Length)));
+        Assert.Equal((0, 104L, 1, 0, 0, 0, 0L, 104, emptySha, emptySha),
+            (stage.Manifest.DocumentCount, stage.Manifest.ByteCount, descriptor.Number, descriptor.DocumentCount,
+                descriptor.FirstArticleId, descriptor.LastArticleId, descriptor.Offset, descriptor.Length,
+                descriptor.Sha256, Sha256(await Read(stage, 1, descriptor.Length))));
     }
 
     [Fact]
@@ -97,12 +90,11 @@ public sealed class WideSearchCorpusStageTests
     {
         if (!Supported) return;
         var articles = ArticleRows(DocumentsPerPage + 2);
-        var eager = Assert.IsAssignableFrom<IReadOnlyList<byte[]>>(LocalSearchCorpus.Build(articles));
-        var exactBytes = eager.Sum(page => page.Length);
+        var exactBytes = Assert.IsAssignableFrom<IReadOnlyList<byte[]>>(LocalSearchCorpus.Build(articles)).Sum(page => page.Length);
         using var accepted = Assert.IsType<WideSearchCorpusStage>(WideSearchCorpusStage.Build(articles, 2, exactBytes));
         using var exceedsPages = WideSearchCorpusStage.Build(articles, 1, ByteLimit);
-        Assert.Null(exceedsPages);
         using var exceedsBytes = WideSearchCorpusStage.Build(articles, 2, exactBytes - 1);
+        Assert.Null(exceedsPages);
         Assert.Null(exceedsBytes);
         Assert.Throws<ArgumentOutOfRangeException>(() => WideSearchCorpusStage.Build(articles, PageLimit + 1, ByteLimit));
         Assert.Throws<ArgumentOutOfRangeException>(() => WideSearchCorpusStage.Build(articles, PageLimit, 0));
@@ -111,11 +103,9 @@ public sealed class WideSearchCorpusStageTests
         using var cancellation = new CancellationTokenSource();
         // The highest ID is indexed after the first complete page has been staged.
         articles[0] = articles[0] with { Tags = new CancelOnTags(cancellation) };
-        Assert.ThrowsAny<OperationCanceledException>(() =>
-            WideSearchCorpusStage.Build(articles, 2, ByteLimit, cancellation.Token));
+        Assert.ThrowsAny<OperationCanceledException>(() => WideSearchCorpusStage.Build(articles, 2, ByteLimit, cancellation.Token));
         Assert.True(cancellation.IsCancellationRequested);
-        Assert.ThrowsAny<OperationCanceledException>(() =>
-            WideSearchCorpusStage.Build([], PageLimit, ByteLimit, cancellation.Token));
+        Assert.ThrowsAny<OperationCanceledException>(() => WideSearchCorpusStage.Build([], PageLimit, ByteLimit, cancellation.Token));
     }
 
     [Fact]
@@ -123,19 +113,18 @@ public sealed class WideSearchCorpusStageTests
     {
         if (!Supported) return;
         using var stage = Build(ArticleRows(DocumentsPerPage + 1));
-        var length = stage.Manifest.Pages[1].Length;
-        var expectedSha = stage.Manifest.Pages[1].Sha256;
+        var page = stage.Manifest.Pages[1];
         using var held = RequireBorrow(stage, 1);
         using var pending = RequireBorrow(stage, 2);
         stage.Dispose();
         Assert.False(stage.Closed.IsCompleted);
         Assert.Null(stage.Borrow(1));
 
-        await Assert.ThrowsAsync<ArgumentException>(async () => await pending.ReadAsync(new byte[length - 1]));
+        await Assert.ThrowsAsync<ArgumentException>(async () => await pending.ReadAsync(new byte[page.Length - 1]));
         Assert.False(stage.Closed.IsCompleted);
-        var bytes = new byte[length];
+        var bytes = new byte[page.Length];
         await pending.ReadAsync(bytes);
-        Assert.Equal(expectedSha, Sha256(bytes));
+        Assert.Equal(page.Sha256, Sha256(bytes));
         await Assert.ThrowsAsync<ObjectDisposedException>(async () => await pending.ReadAsync(bytes));
         Assert.False(stage.Closed.IsCompleted);
 
@@ -157,8 +146,7 @@ public sealed class WideSearchCorpusStageTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-            await reader.ReadAsync(destination, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await reader.ReadAsync(destination, cancellation.Token));
         Assert.All(destination, value => Assert.Equal((byte)0xff, value));
         await stage.Closed.WaitAsync(CloseDeadline);
         Assert.Null(stage.Borrow(1));
@@ -178,28 +166,14 @@ public sealed class WideSearchCorpusStageTests
         return bytes;
     }
 
-    private static Article[] ArticleRows(int count) => Enumerable.Range(1, count).Reverse()
-        .Select(id => Sample with { Id = id }).ToArray();
-
+    private static Article[] ArticleRows(int count) => Enumerable.Range(1, count).Reverse().Select(id => Sample with { Id = id }).ToArray();
     private static string Sha256(ReadOnlySpan<byte> bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
-
-    private static void AssertReadOnly<T>(IReadOnlyList<T> values)
-    {
-        if (values is IList<T> list)
-            Assert.Throws<NotSupportedException>(() => { list[0] = values[1]; });
-    }
 
     private sealed class CancelOnTags(CancellationTokenSource cancellation) : IReadOnlyList<TaxonomyName>
     {
         public int Count => 1;
         public TaxonomyName this[int index] => index == 0 ? new(11, "雪") : throw new ArgumentOutOfRangeException(nameof(index));
-
-        public IEnumerator<TaxonomyName> GetEnumerator()
-        {
-            cancellation.Cancel();
-            yield return this[0];
-        }
-
+        public IEnumerator<TaxonomyName> GetEnumerator() { cancellation.Cancel(); yield return this[0]; }
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

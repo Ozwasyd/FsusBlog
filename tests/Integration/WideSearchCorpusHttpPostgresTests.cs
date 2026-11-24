@@ -49,13 +49,8 @@ public sealed class WideSearchCorpusHttpPostgresTests
         await AssertNotModified(client, current, first.Validator, ct);
         await AssertRejectedCoordinates(client, current, ct);
 
-        using (var retract = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract,
-            Wire.EncodeArticleCommand(new(ArticleCount, 1, Guid.NewGuid(), "", "")), token, handle: null))
-        {
-            using var response = Ok(await client.SendAsync(retract, ct));
-            Assert.Equal(new Draft(ArticleCount, 2, "Quiet", "boundaryrank", false),
-                Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct)));
-        }
+        Assert.Equal(new Draft(ArticleCount, 2, "Quiet", "boundaryrank", false),
+            await SiteAedsFixture.ArticleCommand(client, WireRoutes.Retract, token, null, new(ArticleCount, 1, Guid.NewGuid(), "", ""), ct));
 
         var replacement = await GetManifest(client, ArticleCount - 1, ct);
         Assert.NotEqual(current.Generation, replacement.Generation);
@@ -87,18 +82,18 @@ public sealed class WideSearchCorpusHttpPostgresTests
 
     private static async Task AssertRejectedCoordinates(HttpClient client, Manifest current, CancellationToken ct)
     {
-        await ExpectGet(client, PagePath(1), HttpStatusCode.BadRequest, ct);
-        await ExpectGet(client, WireRoutes.PublicSearchWidePage.Replace("{page}", "01", StringComparison.Ordinal) + current.Pin,
-            HttpStatusCode.BadRequest, ct);
-        await ExpectGet(client, PagePath(1) + $"?generation=0{Format(current.Generation)}&digest={current.Digest}",
-            HttpStatusCode.BadRequest, ct);
-        await ExpectGet(client, PagePath(1) + Pin(current.Generation, new string('A', 64)), HttpStatusCode.BadRequest, ct);
-        await ExpectGet(client, PagePath(1) + current.Pin + $"&generation={Format(current.Generation)}",
-            HttpStatusCode.BadRequest, ct);
-        await ExpectGet(client, PagePath(current.Pages.Length + 1) + current.Pin, HttpStatusCode.NotFound, ct);
+        foreach (var (path, status) in new[]
+        {
+            (PagePath(1), BadRequest),
+            (WireRoutes.PublicSearchWidePage.Replace("{page}", "01", StringComparison.Ordinal) + current.Pin, BadRequest),
+            (PagePath(1) + $"?generation=0{Format(current.Generation)}&digest={current.Digest}", BadRequest),
+            (PagePath(1) + Pin(current.Generation, new string('A', 64)), BadRequest),
+            (PagePath(1) + current.Pin + $"&generation={Format(current.Generation)}", BadRequest),
+            (PagePath(current.Pages.Length + 1) + current.Pin, NotFound),
+        })
+            await ExpectGet(client, path, status, ct);
         using var missingPins = new HttpRequestMessage(HttpMethod.Head, WireRoutes.PublicSearchWideManifest);
-        using var response = Expect(BadRequest, await client.SendAsync(missingPins, ct));
-        Assert.Empty(await response.Content.ReadAsByteArrayAsync(ct));
+        Assert.Empty(await ExpectBytes(BadRequest, client.SendAsync(missingPins, ct), ct));
     }
 
     private static async Task<Manifest> GetManifest(HttpClient client, int documentCount, CancellationToken ct)
@@ -230,14 +225,8 @@ public sealed class WideSearchCorpusHttpPostgresTests
         await AssertError(response, status, ct);
     }
 
-    private static async Task AssertError(HttpResponseMessage response, HttpStatusCode status, CancellationToken ct)
-    {
-        Assert.Equal(status, response.StatusCode);
-        Assert.True(response.Headers.CacheControl?.NoStore);
-        Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
-        var frame = await response.Content.ReadAsByteArrayAsync(ct);
-        Assert.Equal((int)status, I32(Aeds.Decode(frame, FrameType.ApiError), WireLayouts.ErrorStatusOffset));
-    }
+    private static Task AssertError(HttpResponseMessage response, HttpStatusCode status, CancellationToken ct) =>
+        SiteAedsFixture.AssertAedsError(response, status, ct);
 
     private static void AssertHeaders(HttpResponseMessage response, Manifest manifest)
     {

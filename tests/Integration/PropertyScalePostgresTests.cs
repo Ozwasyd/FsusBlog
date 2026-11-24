@@ -9,11 +9,8 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
     [PostgresFact]
     public async Task ReadsAndQueriesThousandDefinitionsAcrossTenThousandOwnedArticles()
     {
-        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(4));
-        var ct = deadline.Token;
-        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(4));
         var store = new Store(db.DataSource);
-        await using var conn = await db.DataSource.OpenConnectionAsync(ct);
         var owner = await db.SignIn("Property scale author", ct);
         var outsider = await db.SignIn("Property scale outsider", ct);
         await SeedArticles();
@@ -61,15 +58,10 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
         Assert.Equal(++schemaRevision, scoreReceipt.SchemaRevision);
 
         await SeedValues();
-        await using (var census = Store.Sql(conn, null, """
+        Assert.Equal((88_000L, 1_000L, 10_000L), await db.QueryRowAsync(ct, """
             select count(*),count(distinct definition_id),count(distinct article_id)
             from public.property_value where owner_id=$1
-            """, owner.Id))
-        await using (var row = await census.ExecuteReaderAsync(ct))
-        {
-            Assert.True(await row.ReadAsync(ct));
-            Assert.Equal((88_000L, 1_000L, 10_000L), (row.GetInt64(0), row.GetInt64(1), row.GetInt64(2)));
-        }
+            """, r => (r.GetInt64(0), r.GetInt64(1), r.GetInt64(2)), owner.Id));
 
         clock.Restart();
         var firstRequest = new PropertyWorkspaceRequest(ArticleCount, 1, 0, 0, "");
@@ -159,36 +151,25 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
             Assert.Equal(matchingIds.Count(id => id % 5 is 1 or 2), counts[blue.Id]);
         }
 
-        async Task<byte[]> Send(string path, byte[] packet, (Guid Id, string Token, string Handle) actor, HttpStatusCode expected = HttpStatusCode.OK)
-        {
-            using var request = SiteAedsFixture.Request(HttpMethod.Post, path, packet, actor.Token, actor.Handle);
-            using var response = await server.Client.SendAsync(request, ct);
-            var body = await response.Content.ReadAsByteArrayAsync(ct);
-            Assert.True(response.StatusCode == expected, $"{path}: expected {(int)expected}, got {(int)response.StatusCode}");
-            Assert.True(response.Headers.CacheControl?.NoStore);
-            return body;
-        }
+        Task<byte[]> Send(string path, byte[] packet, (Guid Id, string Token, string Handle) actor, HttpStatusCode expected = HttpStatusCode.OK) =>
+            SiteAedsFixture.ExpectPrivate(server.Client, HttpMethod.Post, path, packet, actor.Token, actor.Handle, expected, ct);
 
-        async Task SeedArticles()
-        {
-            Assert.Equal(ArticleCount + 1, await FixtureSql.ExecuteAsync(conn, null, ct, """
-                with inserted as (
-                    insert into public.article(id,owner_id,revision,title,body,deleted,created_at,updated_at) overriding system value
-                    select n,case when n<=$3 then $1::uuid else $2::uuid end,1,'Scale draft '||n,
-                        E'## propertyscalejoint\n\nPrivate scale corpus',false,
-                        timestamptz '2026-01-01 00:00+00'+n*interval '1 second',
-                        timestamptz '2026-01-01 00:00+00'+n*interval '1 second'
-                    from generate_series(1,$3+1) n returning id,revision,title,body,created_at
-                )
-                insert into public.article_revision(article_id,revision,title,body,happened_at)
-                select id,revision,title,body,created_at from inserted
-                """, owner.Id, outsider.Id, ArticleCount));
-        }
+        async Task SeedArticles() => Assert.Equal(ArticleCount + 1, await db.ExecAsync(ct, """
+            with inserted as (
+                insert into public.article(id,owner_id,revision,title,body,deleted,created_at,updated_at) overriding system value
+                select n,case when n<=$3 then $1::uuid else $2::uuid end,1,'Scale draft '||n,
+                    E'## propertyscalejoint\n\nPrivate scale corpus',false,
+                    timestamptz '2026-01-01 00:00+00'+n*interval '1 second',
+                    timestamptz '2026-01-01 00:00+00'+n*interval '1 second'
+                from generate_series(1,$3+1) n returning id,revision,title,body,created_at
+            )
+            insert into public.article_revision(article_id,revision,title,body,happened_at)
+            select id,revision,title,body,created_at from inserted
+            """, owner.Id, outsider.Id, ArticleCount));
 
-        async Task SeedValues()
+        Task SeedValues() => db.InTx(async (conn, tx) =>
         {
             // The cap test replaces the last URL definition with a Text definition. Its seed type follows the replacement.
-            await using var tx = await conn.BeginTransactionAsync(ct);
             Assert.Equal(ArticleCount, await FixtureSql.ExecuteAsync(conn, tx, ct, """
                 insert into public.property_article(article_id,owner_id,revision)
                 select id,owner_id,1 from public.article where owner_id=$1
@@ -215,7 +196,6 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
                 end, case when kind=6 then array[ref] else '{}'::integer[] end
                 from entries where kind<>4 or id%5<>4 or definition<>$5::uuid
                 """, owner.Id, definitions, red.Id, blue.Id, category));
-            await tx.CommitAsync(ct);
-        }
+        }, ct);
     }
 }

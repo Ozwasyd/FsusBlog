@@ -61,6 +61,14 @@ internal static class SiteAedsFixture
         Action<HttpRequestMessage>? configure = null) =>
         CheckStatusAsync(status, AdminSend(client, method, route, token, ct, frame, includeOrigin, configure));
 
+    internal static async Task<string> AdminPow(HttpClient client, string powRoute, string token, byte[] frame, CancellationToken ct)
+    {
+        var nonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
+        var challenge = await AdminBytes(client, HttpMethod.Post, powRoute, token, ct, frame: frame,
+            configure: req => req.Headers.Add(WireHeaders.PowClientNonce, nonce));
+        return PowFixture.SolveFrame(challenge, nonce, ct);
+    }
+
     internal static (int Status, string Message, string Details, string TraceId) DecodeApiError(byte[] frame)
     {
         var payload = Aeds.Decode(frame, FrameType.ApiError);
@@ -74,6 +82,17 @@ internal static class SiteAedsFixture
             Encoding.UTF8.GetString(slice.IndexOf((byte)0) is var zero and >= 0 ? slice[..zero] : slice);
     }
 
+    internal static async Task<(int Status, string Message, string Details, string TraceId)> AssertAedsError(
+        HttpResponseMessage response, HttpStatusCode status, CancellationToken ct)
+    {
+        Assert.Equal(status, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+        var error = DecodeApiError(await response.Content.ReadAsByteArrayAsync(ct));
+        Assert.Equal((int)status, error.Status);
+        return error;
+    }
+
     internal static async Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string route, byte[]? frame,
         string? token, string? handle, CancellationToken ct, string? accept = null)
     {
@@ -82,13 +101,13 @@ internal static class SiteAedsFixture
         return await client.SendAsync(request, ct);
     }
 
-    internal static async Task<byte[]> ExpectStatus(HttpClient client, HttpMethod method, string route, byte[]? frame,
-        string? token, string? handle, HttpStatusCode status, CancellationToken ct)
-    {
-        using var response = await Send(client, method, route, frame, token, handle, ct);
-        Assert.Equal(status, response.StatusCode);
-        return await response.Content.ReadAsByteArrayAsync(ct);
-    }
+    internal static Task SendStatus(HttpClient client, HttpMethod method, string route, byte[]? frame,
+        string? token, string? handle, HttpStatusCode status, CancellationToken ct) =>
+        CheckStatusAsync(status, Send(client, method, route, frame, token, handle, ct));
+
+    internal static Task<byte[]> ExpectStatus(HttpClient client, HttpMethod method, string route, byte[]? frame,
+        string? token, string? handle, HttpStatusCode status, CancellationToken ct) =>
+        ExpectBytes(status, Send(client, method, route, frame, token, handle, ct), ct);
 
     internal static async Task<byte[]> ExpectPrivate(HttpClient client, HttpMethod method, string route, byte[]? frame,
         string? token, string? handle, HttpStatusCode status, CancellationToken ct)
@@ -114,12 +133,11 @@ internal static class SiteAedsFixture
         }
     }
 
-    internal static async Task<Draft> SaveDraft(HttpClient client, string token, string? handle, int id, long revision,
-        string title, string body, CancellationToken ct)
-    {
-        using var response = await Send(client, HttpMethod.Post, WireRoutes.Save,
-            Wire.EncodeArticleCommand(new(id, revision, Guid.NewGuid(), title, body)), token, handle, ct);
-        response.EnsureSuccessStatusCode();
-        return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
-    }
+    internal static Task<Draft> SaveDraft(HttpClient client, string token, string? handle, int id, long revision,
+        string title, string body, CancellationToken ct) =>
+        ArticleCommand(client, WireRoutes.Save, token, handle, new(id, revision, Guid.NewGuid(), title, body), ct);
+
+    internal static async Task<Draft> ArticleCommand(HttpClient client, string route, string token, string? handle,
+        ArticleCommand command, CancellationToken ct) =>
+        Wire.DecodeDraft(await OkBytes(Send(client, HttpMethod.Post, route, Wire.EncodeArticleCommand(command), token, handle, ct), ct));
 }

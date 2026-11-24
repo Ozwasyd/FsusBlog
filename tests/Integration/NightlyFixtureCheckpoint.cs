@@ -60,13 +60,12 @@ public sealed partial class NightlyFixturePostgresTests
 
             if (interruption == CheckpointInterruption.BeforeCommit)
             {
-                await using var terminate = Store.Sql(control, null, """
+                await RequireSql(control, null, ct, """
                     select pg_catalog.pg_terminate_backend(pid,5000)
                     from pg_catalog.pg_stat_activity
                     where pid=$1 and datname=current_database() and usename=current_user
                         and backend_type='client backend' and application_name=$2 and backend_xid is not null
                     """, db.ProcessID, CheckpointApplication);
-                Assert.True(await terminate.ExecuteScalarAsync(ct) is true);
                 await Assert.ThrowsAnyAsync<NpgsqlException>(() => InstanceLease.CommitProtected(tx, lease, ct));
                 throw new CheckpointInterrupted(interruption);
             }
@@ -88,13 +87,12 @@ public sealed partial class NightlyFixturePostgresTests
         await WriteInitialBatch(db, tx, actor, batch.Rows, binding.Due, ct);
         var next = new CheckpointPosition(last, reader.Position, batch.ArchiveOffset,
             previous.ReleaseHighWater + batch.Rows.Count(row => row.Kind != "scheduled"));
-        await using var advance = Store.Sql(db, tx, """
+        await Exec1(db, tx, ct, """
             update fsus_nightly_fixture.article_checkpoint
             set committed_articles=$1,next_offset=$2,archive_offset=$3,release_high_water=$4
             where singleton and archive_stage=0 and archived_articles=0 and not finished
                 and committed_articles=$5 and next_offset=$6
             """, next.Through, next.NextOffset, next.ArchiveOffset, next.ReleaseHighWater, previous.Through, previous.NextOffset);
-        Assert.Equal(1, await advance.ExecuteNonQueryAsync(ct));
         return next;
     }
 
@@ -104,10 +102,8 @@ public sealed partial class NightlyFixturePostgresTests
     {
         if (settings.Username != "fsusv2_nightly_qa")
             throw new InvalidOperationException("The standalone article fixture requires the owned PostgreSQL role.");
-        await using var marker = Store.Sql(db, null, """
-            select to_regclass('fsus_nightly_fixture.article_checkpoint') is not null
-            """);
-        bool resumed = await marker.ExecuteScalarAsync(ct) is true;
+        bool resumed = await FixtureSql.ScalarAsync(db, null, ct,
+            "select to_regclass('fsus_nightly_fixture.article_checkpoint') is not null") is true;
         if (!resumed) await InitializeCheckpoint(db, lease, actor, binding, firstOffset, ct);
         var position = await ReadCheckpoint(db, null, binding, ct);
         output.WriteLine("checkpoint_worker_start articles={0} archived={1} stage={2} resumed={3}",
@@ -116,9 +112,8 @@ public sealed partial class NightlyFixturePostgresTests
 
         if (position.Through < binding.Count)
         {
-            Assert.Equal(0, position.Archived);
-            Assert.Equal(0, position.ArchiveStage);
-            await using (var recover = await InstanceLease.BeginProtected(db, lease, ct))
+            Assert.Equal((0, (short)0), (position.Archived, position.ArchiveStage));
+            await Protected(db, lease, ct, async recover =>
             {
                 await RequireInitialCheckpointGraph(db, recover, position, ct);
                 var (actualArticle, actualRelease) = await ReadCheckpointSequenceHeads(db, recover, ct);
@@ -127,16 +122,12 @@ public sealed partial class NightlyFixturePostgresTests
                 Assert.InRange(actualArticle - articleNext, 0, BatchSize);
                 Assert.InRange(actualRelease - releaseNext, 0, actualArticle - articleNext);
                 await RepairCheckpointSequences(db, recover, actualArticle, actualRelease, articleNext, releaseNext, ct);
-                await InstanceLease.CommitProtected(recover, lease, ct);
-            }
+            });
 
             var reader = new PlanReader(source);
             while (position.Through < binding.Count)
             {
-                await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-                var next = await WriteCheckpointBatch(db, tx, reader, actor, position, binding, archiveStart, BatchSize, ct);
-                await InstanceLease.CommitProtected(tx, lease, ct);
-                position = next;
+                position = await Protected(db, lease, ct, tx => WriteCheckpointBatch(db, tx, reader, actor, position, binding, archiveStart, BatchSize, ct));
                 if (position.Through % 65_536 == 0 || position.Through == binding.Count)
                     output.WriteLine("checkpoint_committed_article_prefix={0}", position.Through);
             }
@@ -160,14 +151,12 @@ public sealed partial class NightlyFixturePostgresTests
         var archiveGate = new AdminSessionGate(data, lease);
         var store = new AdminArticleArchiveStore(archiveGate, new AdminStepUpService(archiveGate));
         var session = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        await using var exists = Store.Sql(db, null, "select exists (select from public.admin_principal)");
-        if (await exists.ExecuteScalarAsync(ct) is true)
-        {
-            await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-            await ReadCheckpoint(db, tx, binding, ct);
-            await RotateArchiveCheckpointSession(db, tx, Store.TokenDigest(session)!, ct);
-            await InstanceLease.CommitProtected(tx, lease, ct);
-        }
+        if (await FixtureSql.ScalarAsync(db, null, ct, "select exists (select from public.admin_principal)") is true)
+            await Protected(db, lease, ct, async tx =>
+            {
+                await ReadCheckpoint(db, tx, binding, ct);
+                await RotateArchiveCheckpointSession(db, tx, Store.TokenDigest(session)!, ct);
+            });
         else await StartArchiveSession(db, lease, Store.TokenDigest(session)!, ct);
 
         var reader = new PlanReader(source);
@@ -216,61 +205,54 @@ public sealed partial class NightlyFixturePostgresTests
         }
     }
 
-    private static async Task<bool> HasArchiveCommand(NpgsqlConnection db, Guid command, CancellationToken ct)
-    {
-        await using var find = Store.Sql(db, null, """
-            select exists (select from public.admin_article_rollback where principal_id=$1 and command_id=$2)
-            """, ArchiveAdministrator, command);
-        return await find.ExecuteScalarAsync(ct) is true;
-    }
+    private static async Task<bool> HasArchiveCommand(NpgsqlConnection db, Guid command, CancellationToken ct) =>
+        await FixtureSql.ScalarAsync(db, null, ct,
+            "select exists (select from public.admin_article_rollback where principal_id=$1 and command_id=$2)", ArchiveAdministrator, command) is true;
 
-    private static async Task VerifyArchiveCheckpointState(NpgsqlConnection db, InstanceLease lease, CheckpointBinding binding,
-        CheckpointPosition position, PlannedArticle article, AdminArticleArchiveIntent intent, byte[] intentHash, bool committed, CancellationToken ct)
-    {
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        var release = position.ReleaseHighWater + (committed ? 1 : 0);
-        int archived = position.Archived + (committed ? 1 : 0);
-        long expectedRevision = position.ArchiveStage == 0 ? 3 : committed ? 6 : 5;
-        long activeRelease = expectedRevision == 5 ? intent.ExpectedReleaseId : article.Id - binding.Count / 20;
-        var (title, body) = expectedRevision == 5 ? (article.ReplacementTitle, article.ReplacementBody) : (article.Title, article.Body);
-        await using (var verify = Store.Sql(db, tx, """
-            select (select count(*)=$1 and coalesce(max(id),0)=$1 and coalesce(min(id),1)=1 from public.article)
-                and (select count(*)=$2 from public.admin_article_rollback where principal_id=$3)
-                and (select count(*)=$2 from public.admin_article_rollback)
-                and greatest(coalesce((select max(publication_id) from public.article_publication_history),0),
-                    coalesce((select max(publication_id) from public.admin_article_rollback),0),
-                    coalesce((select max(publication_id) from public.article_publication_rights),0))=$4
-                and exists (select from fsus_nightly_fixture.article_checkpoint c
-                    where c.singleton and c.archive_stage=$7 and c.archived_articles=$8
-                        and (c.archive_stage=0 or (c.archive_article=$5 and c.archive_intent_sha256=$9)))
-                and exists (select from public.article a
-                    left join public.article_publication p on p.article_id=a.id
-                    where a.id=$5 and a.revision=$6 and a.title=$10 and a.body=$11 and not a.deleted
-                        and (case when $12 then a.published_revision is null and p.article_id is null
-                             else a.published_revision=$6 and p.revision=$6 and p.publication_id=$13 end))
-            """, binding.Count, archived, ArchiveAdministrator, release, article.Id, expectedRevision, position.ArchiveStage,
-                position.Archived, intentHash, title, body, committed, activeRelease))
-            Assert.True(await verify.ExecuteScalarAsync(ct) is true);
-        if (position.ArchiveStage != 0)
+    private static Task VerifyArchiveCheckpointState(NpgsqlConnection db, InstanceLease lease, CheckpointBinding binding,
+        CheckpointPosition position, PlannedArticle article, AdminArticleArchiveIntent intent, byte[] intentHash, bool committed, CancellationToken ct) =>
+        Protected(db, lease, ct, async tx =>
         {
-            Assert.Equal(1, position.ArchiveStage);
-            Assert.Equal(intent.ExpectedReleaseId, position.ReleaseHighWater);
-        }
-        long articleNext = binding.Count + 1L;
-        long releaseNext = release + 1;
-        var (actualArticle, actualRelease) = await ReadCheckpointSequenceHeads(db, tx, ct);
-        Assert.Equal(articleNext, actualArticle);
-        Assert.InRange(actualRelease - releaseNext, 0, committed ? 0 : 1);
-        await RepairCheckpointSequences(db, tx, actualArticle, actualRelease, articleNext, releaseNext, ct);
-        await InstanceLease.CommitProtected(tx, lease, ct);
-    }
+            var release = position.ReleaseHighWater + (committed ? 1 : 0);
+            int archived = position.Archived + (committed ? 1 : 0);
+            long expectedRevision = position.ArchiveStage == 0 ? 3 : committed ? 6 : 5;
+            long activeRelease = expectedRevision == 5 ? intent.ExpectedReleaseId : article.Id - binding.Count / 20;
+            var (title, body) = expectedRevision == 5 ? (article.ReplacementTitle, article.ReplacementBody) : (article.Title, article.Body);
+            await RequireSql(db, tx, ct, """
+                select (select count(*)=$1 and coalesce(max(id),0)=$1 and coalesce(min(id),1)=1 from public.article)
+                    and (select count(*)=$2 from public.admin_article_rollback where principal_id=$3)
+                    and (select count(*)=$2 from public.admin_article_rollback)
+                    and greatest(coalesce((select max(publication_id) from public.article_publication_history),0),
+                        coalesce((select max(publication_id) from public.admin_article_rollback),0),
+                        coalesce((select max(publication_id) from public.article_publication_rights),0))=$4
+                    and exists (select from fsus_nightly_fixture.article_checkpoint c
+                        where c.singleton and c.archive_stage=$7 and c.archived_articles=$8
+                            and (c.archive_stage=0 or (c.archive_article=$5 and c.archive_intent_sha256=$9)))
+                    and exists (select from public.article a
+                        left join public.article_publication p on p.article_id=a.id
+                        where a.id=$5 and a.revision=$6 and a.title=$10 and a.body=$11 and not a.deleted
+                            and (case when $12 then a.published_revision is null and p.article_id is null
+                                 else a.published_revision=$6 and p.revision=$6 and p.publication_id=$13 end))
+                """, binding.Count, archived, ArchiveAdministrator, release, article.Id, expectedRevision, position.ArchiveStage,
+                    position.Archived, intentHash, title, body, committed, activeRelease);
+            if (position.ArchiveStage != 0)
+            {
+                Assert.Equal(1, position.ArchiveStage);
+                Assert.Equal(intent.ExpectedReleaseId, position.ReleaseHighWater);
+            }
+            long articleNext = binding.Count + 1L;
+            long releaseNext = release + 1;
+            var (actualArticle, actualRelease) = await ReadCheckpointSequenceHeads(db, tx, ct);
+            Assert.Equal(articleNext, actualArticle);
+            Assert.InRange(actualRelease - releaseNext, 0, committed ? 0 : 1);
+            await RepairCheckpointSequences(db, tx, actualArticle, actualRelease, articleNext, releaseNext, ct);
+        });
 
     private static async Task<CheckpointPosition> AcknowledgeArchiveCheckpoint(NpgsqlConnection db, InstanceLease lease,
         CheckpointBinding binding, CheckpointPosition previous, AdminArticleArchiveIntent intent, byte[] fingerprint,
         AdminArticleArchiveReceipt receipt, long nextOffset, CancellationToken ct)
     {
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        await using var complete = Store.Sql(db, tx, """
+        await Protected(db, lease, ct, tx => Exec1(db, tx, ct, """
             update fsus_nightly_fixture.article_checkpoint c
             set archive_stage=0,archive_article=null,archive_intent_sha256=null,archived_articles=$1,
                 archive_offset=$2,release_high_water=$3
@@ -282,13 +264,8 @@ public sealed partial class NightlyFixturePostgresTests
                         and r.revision=6 and r.publication_id=$3
                 )
             """, previous.Archived + 1, nextOffset, receipt.ReleaseId, binding.Count, previous.ArchiveOffset, intent.ArticleId,
-                fingerprint, ArchiveAdministrator, intent.IdempotencyKey);
-        Assert.Equal(1, await complete.ExecuteNonQueryAsync(ct));
-        await InstanceLease.CommitProtected(tx, lease, ct);
-        return previous with
-        {
-            ArchiveStage = 0, Archived = previous.Archived + 1, ArchiveOffset = nextOffset, ReleaseHighWater = receipt.ReleaseId
-        };
+                fingerprint, ArchiveAdministrator, intent.IdempotencyKey));
+        return previous with { ArchiveStage = 0, Archived = previous.Archived + 1, ArchiveOffset = nextOffset, ReleaseHighWater = receipt.ReleaseId };
     }
 
     private static async Task<string> ReadCheckpointSourceHash(Stream source, CancellationToken ct)
@@ -299,50 +276,47 @@ public sealed partial class NightlyFixturePostgresTests
         return hash;
     }
 
-    private static async Task InitializeCheckpoint(NpgsqlConnection db, InstanceLease lease, Identity actor,
-        CheckpointBinding binding, long offset, CancellationToken ct)
-    {
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        await Prepare(db, tx, binding.Site, actor, ct);
-        await using var create = Store.Sql(db, tx, """
-            create schema fsus_nightly_fixture;
-            create table fsus_nightly_fixture.article_checkpoint (
-                singleton boolean primary key check(singleton),
-                format_version integer not null check(format_version=3),
-                schema_version integer not null,
-                database_oid oid not null,
-                site_id uuid not null,
-                plan_sha256 bytea not null check(octet_length(plan_sha256)=32),
-                manifest_sha256 bytea not null check(octet_length(manifest_sha256)=32),
-                due_unix_ms bigint not null check(due_unix_ms>0),
-                deadline_unix_ms bigint not null,
-                article_count integer not null check(article_count in (20,1000000)),
-                committed_articles integer not null check(committed_articles between 0 and article_count),
-                next_offset bigint not null check(next_offset>0),
-                archive_offset bigint not null check(archive_offset>=0),
-                release_high_water bigint not null check(release_high_water between 0 and committed_articles+article_count/20),
-                archive_stage smallint not null default 0 check(archive_stage in (0,1)),
-                archive_article integer,
-                archive_intent_sha256 bytea check(octet_length(archive_intent_sha256)=32),
-                archived_articles integer not null default 0 check(archived_articles between 0 and article_count/20),
-                finished boolean not null default false,
-                check(article_count=20 and deadline_unix_ms=0 or article_count=1000000 and deadline_unix_ms between 1 and due_unix_ms-1),
-                check((archive_stage=0)=(archive_article is null)),
-                check((archive_article is null)=(archive_intent_sha256 is null)),
-                check(not finished or (archive_stage=0 and archived_articles=article_count/20 and committed_articles=article_count))
-            );
-            """);
-        await create.ExecuteNonQueryAsync(ct);
-        await using var initialize = Store.Sql(db, tx, """
-            insert into fsus_nightly_fixture.article_checkpoint
-                (singleton,format_version,schema_version,database_oid,site_id,plan_sha256,manifest_sha256,
-                    due_unix_ms,deadline_unix_ms,article_count,committed_articles,next_offset,archive_offset,release_high_water)
-            select true,3,(select version from public.v2_schema where singleton),oid,$1,$2,$3,$4,$5,$6,0,$7,0,0
-            from pg_catalog.pg_database where datname=current_database()
-            """, binding.Site, binding.PlanDigest, binding.ManifestDigest, binding.Due, binding.Deadline, binding.Count, offset);
-        Assert.Equal(1, await initialize.ExecuteNonQueryAsync(ct));
-        await InstanceLease.CommitProtected(tx, lease, ct);
-    }
+    private static Task InitializeCheckpoint(NpgsqlConnection db, InstanceLease lease, Identity actor,
+        CheckpointBinding binding, long offset, CancellationToken ct) =>
+        Protected(db, lease, ct, async tx =>
+        {
+            await Prepare(db, tx, binding.Site, actor, ct);
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
+                create schema fsus_nightly_fixture;
+                create table fsus_nightly_fixture.article_checkpoint (
+                    singleton boolean primary key check(singleton),
+                    format_version integer not null check(format_version=3),
+                    schema_version integer not null,
+                    database_oid oid not null,
+                    site_id uuid not null,
+                    plan_sha256 bytea not null check(octet_length(plan_sha256)=32),
+                    manifest_sha256 bytea not null check(octet_length(manifest_sha256)=32),
+                    due_unix_ms bigint not null check(due_unix_ms>0),
+                    deadline_unix_ms bigint not null,
+                    article_count integer not null check(article_count in (20,1000000)),
+                    committed_articles integer not null check(committed_articles between 0 and article_count),
+                    next_offset bigint not null check(next_offset>0),
+                    archive_offset bigint not null check(archive_offset>=0),
+                    release_high_water bigint not null check(release_high_water between 0 and committed_articles+article_count/20),
+                    archive_stage smallint not null default 0 check(archive_stage in (0,1)),
+                    archive_article integer,
+                    archive_intent_sha256 bytea check(octet_length(archive_intent_sha256)=32),
+                    archived_articles integer not null default 0 check(archived_articles between 0 and article_count/20),
+                    finished boolean not null default false,
+                    check(article_count=20 and deadline_unix_ms=0 or article_count=1000000 and deadline_unix_ms between 1 and due_unix_ms-1),
+                    check((archive_stage=0)=(archive_article is null)),
+                    check((archive_article is null)=(archive_intent_sha256 is null)),
+                    check(not finished or (archive_stage=0 and archived_articles=article_count/20 and committed_articles=article_count))
+                );
+                """);
+            await Exec1(db, tx, ct, """
+                insert into fsus_nightly_fixture.article_checkpoint
+                    (singleton,format_version,schema_version,database_oid,site_id,plan_sha256,manifest_sha256,
+                        due_unix_ms,deadline_unix_ms,article_count,committed_articles,next_offset,archive_offset,release_high_water)
+                select true,3,(select version from public.v2_schema where singleton),oid,$1,$2,$3,$4,$5,$6,0,$7,0,0
+                from pg_catalog.pg_database where datname=current_database()
+                """, binding.Site, binding.PlanDigest, binding.ManifestDigest, binding.Due, binding.Deadline, binding.Count, offset);
+        });
 
     private static async Task<CheckpointPosition> ReadCheckpoint(NpgsqlConnection db, NpgsqlTransaction? tx,
         CheckpointBinding binding, CancellationToken ct)
@@ -371,23 +345,19 @@ public sealed partial class NightlyFixturePostgresTests
         var (articleActual, releaseActual) = await ReadCheckpointSequenceHeads(db, tx, ct);
         long articleNext = position.Through + 1L;
         long releaseNext = position.ReleaseHighWater + 1;
-        Assert.Equal(articleNext + repairGap, articleActual);
-        Assert.Equal(releaseNext + repairGap, releaseActual);
+        Assert.Equal((articleNext + repairGap, releaseNext + repairGap), (articleActual, releaseActual));
         await RepairCheckpointSequences(db, tx, articleActual, releaseActual, articleNext, releaseNext, ct);
     }
 
-    private static async Task RequireInitialCheckpointGraph(NpgsqlConnection db, NpgsqlTransaction tx,
-        CheckpointPosition position, CancellationToken ct)
-    {
-        await using var verify = Store.Sql(db, tx, """
+    private static Task RequireInitialCheckpointGraph(NpgsqlConnection db, NpgsqlTransaction tx,
+        CheckpointPosition position, CancellationToken ct) =>
+        RequireSql(db, tx, ct, """
             select (select count(*)=$1 and coalesce(max(id),0)=$1 and coalesce(min(id),1)=1 from public.article)
                 and (select count(publication_id)=$2 and count(distinct publication_id)=$2
                     and coalesce(max(publication_id),0)=$2 and coalesce(min(publication_id),1)=1
                     from public.article_publication_history)
                 and not exists (select from public.admin_article_rollback)
             """, position.Through, position.ReleaseHighWater);
-        Assert.True(await verify.ExecuteScalarAsync(ct) is true);
-    }
 
     private static async Task<(long Article, long Release)> ReadCheckpointSequenceHeads(NpgsqlConnection db, NpgsqlTransaction tx,
         CancellationToken ct)
@@ -406,32 +376,22 @@ public sealed partial class NightlyFixturePostgresTests
     {
         // Only the two dense fixture coordinates need repair. All opaque IDs may retain rollback gaps.
         if (currentArticle != articleNext)
-        {
-            await using var repair = Store.Sql(db, tx,
-                "alter sequence public.article_id_seq restart with " + articleNext.ToString(CultureInfo.InvariantCulture));
-            await repair.ExecuteNonQueryAsync(ct);
-        }
+            await FixtureSql.ExecuteAsync(db, tx, ct, "alter sequence public.article_id_seq restart with " + articleNext.ToString(CultureInfo.InvariantCulture));
         if (currentRelease != releaseNext)
-        {
-            await using var repair = Store.Sql(db, tx,
-                "alter sequence public.article_publication_publication_id_seq restart with " + releaseNext.ToString(CultureInfo.InvariantCulture));
-            await repair.ExecuteNonQueryAsync(ct);
-        }
+            await FixtureSql.ExecuteAsync(db, tx, ct, "alter sequence public.article_publication_publication_id_seq restart with " + releaseNext.ToString(CultureInfo.InvariantCulture));
     }
 
     private static async Task RecordArchivePrepared(NpgsqlConnection db, NpgsqlTransaction tx,
         AdminArticleArchiveIntent intent, CheckpointBinding binding, CancellationToken ct)
     {
         var initial = await ReadCheckpoint(db, tx, binding, ct);
-        Assert.Equal(binding.Count, initial.Through);
-        Assert.Equal(initial.ReleaseHighWater + 1, intent.ExpectedReleaseId);
-        await using var prepared = Store.Sql(db, tx, """
+        Assert.Equal((binding.Count, initial.ReleaseHighWater + 1), (initial.Through, intent.ExpectedReleaseId));
+        await Exec1(db, tx, ct, """
             update fsus_nightly_fixture.article_checkpoint
             set archive_stage=1,archive_article=$1,archive_intent_sha256=$2,release_high_water=$3
             where singleton and archive_stage=0 and archive_offset>0 and release_high_water=$3-1
                 and exists (select from public.article_publication p where p.article_id=$1 and p.revision=5 and p.publication_id=$3)
             """, intent.ArticleId, AdminArticleArchiveStore.ArticleArchiveIntentDigest(intent), intent.ExpectedReleaseId);
-        Assert.Equal(1, await prepared.ExecuteNonQueryAsync(ct));
     }
 
     private async Task<AdminArticleArchiveReceipt> ArchiveWithCheckpoint(NpgsqlConnection control, InstanceLease lease,
@@ -475,12 +435,11 @@ public sealed partial class NightlyFixturePostgresTests
             intentHash, committed: true, ct);
         var durable = await ReadCommittedArchive(acknowledge, replayIntent, intentHash, ct);
         var replaySession = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        await using (var rotation = await InstanceLease.BeginProtected(acknowledge, lease, ct))
+        await Protected(acknowledge, lease, ct, async rotation =>
         {
             await ReadCheckpoint(acknowledge, rotation, binding, ct);
             await RotateArchiveCheckpointSession(acknowledge, rotation, Store.TokenDigest(replaySession)!, ct);
-            await InstanceLease.CommitProtected(rotation, lease, ct);
-        }
+        });
         var reconnect = new NpgsqlConnectionStringBuilder(control.ConnectionString) { Pooling = false };
         await using var restartSource = NpgsqlDataSource.Create(reconnect.ConnectionString);
         var restartGate = new AdminSessionGate(restartSource, lease);
@@ -514,39 +473,35 @@ public sealed partial class NightlyFixturePostgresTests
         return (article, ArchiveIntent(article, CheckpointPilotCount, band, 0), reader.Position);
     }
 
-    private static async Task<string> ReauthorizePreparedArchive(NpgsqlConnection db, InstanceLease lease,
+    private static Task<string> ReauthorizePreparedArchive(NpgsqlConnection db, InstanceLease lease,
         PlannedArticle article, long sourceRelease, AdminArticleArchiveIntent intent, byte[] intentHash,
-        byte[] recoveredSessionDigest, CheckpointBinding binding, CancellationToken ct)
-    {
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        await ReadCheckpoint(db, tx, binding, ct);
-        await using (var prepared = Store.Sql(db, tx, """
-            select exists (
-                select from fsus_nightly_fixture.article_checkpoint c
-                join public.article a on a.id=c.archive_article
-                join public.article_publication p on p.article_id=a.id and p.revision=a.revision
-                join public.article_publication_responsibility responsibility
-                    on responsibility.article_id=a.id and responsibility.publication_id=$6 and responsibility.revision=3
-                where c.singleton and c.archive_stage=1 and c.archive_article=$1 and c.archive_intent_sha256=$2
-                    and c.release_high_water=$3 and a.revision=5 and a.published_revision=5 and not a.deleted
-                    and p.publication_id=$3 and a.title=$4 and a.body=$5
-            ) and not exists (
-                select from public.admin_article_rollback where principal_id=$7 and command_id=$8
-            )
-            """, intent.ArticleId, intentHash, intent.ExpectedReleaseId, article.ReplacementTitle, article.ReplacementBody, sourceRelease,
-                ArchiveAdministrator, intent.IdempotencyKey))
-            Assert.True(await prepared.ExecuteScalarAsync(ct) is true);
-
-        await RotateArchiveCheckpointSession(db, tx, recoveredSessionDigest, ct);
-        var proof = await IssueArchiveProof(db, tx, intent, recoveredSessionDigest, ct);
-        await InstanceLease.CommitProtected(tx, lease, ct);
-        return proof;
-    }
+        byte[] recoveredSessionDigest, CheckpointBinding binding, CancellationToken ct) =>
+        Protected(db, lease, ct, async tx =>
+        {
+            await ReadCheckpoint(db, tx, binding, ct);
+            await RequireSql(db, tx, ct, """
+                select exists (
+                    select from fsus_nightly_fixture.article_checkpoint c
+                    join public.article a on a.id=c.archive_article
+                    join public.article_publication p on p.article_id=a.id and p.revision=a.revision
+                    join public.article_publication_responsibility responsibility
+                        on responsibility.article_id=a.id and responsibility.publication_id=$6 and responsibility.revision=3
+                    where c.singleton and c.archive_stage=1 and c.archive_article=$1 and c.archive_intent_sha256=$2
+                        and c.release_high_water=$3 and a.revision=5 and a.published_revision=5 and not a.deleted
+                        and p.publication_id=$3 and a.title=$4 and a.body=$5
+                ) and not exists (
+                    select from public.admin_article_rollback where principal_id=$7 and command_id=$8
+                )
+                """, intent.ArticleId, intentHash, intent.ExpectedReleaseId, article.ReplacementTitle, article.ReplacementBody, sourceRelease,
+                    ArchiveAdministrator, intent.IdempotencyKey);
+            await RotateArchiveCheckpointSession(db, tx, recoveredSessionDigest, ct);
+            return await IssueArchiveProof(db, tx, intent, recoveredSessionDigest, ct);
+        });
 
     private static async Task RotateArchiveCheckpointSession(NpgsqlConnection db, NpgsqlTransaction tx,
         byte[] nextSessionDigest, CancellationToken ct)
     {
-        await using (var rotate = Store.Sql(db, tx, """
+        await Exec1(db, tx, ct, """
             with replaced as (
                 delete from public.admin_session s using public.admin_principal p
                 where s.principal_id=$1 and s.generation=1 and p.id=s.principal_id
@@ -556,12 +511,9 @@ public sealed partial class NightlyFixturePostgresTests
             insert into public.admin_session(digest,principal_id,generation,expires_at)
             select $2,principal_id,1,clock_timestamp()+interval '2 minutes'
             from replaced
-            """, ArchiveAdministrator, nextSessionDigest))
-            Assert.Equal(1, await rotate.ExecuteNonQueryAsync(ct));
-        await using var oldProof = Store.Sql(db, tx, """
-            select not exists (select from public.admin_article_rollback_step_up where principal_id=$1)
-            """, ArchiveAdministrator);
-        Assert.True(await oldProof.ExecuteScalarAsync(ct) is true);
+            """, ArchiveAdministrator, nextSessionDigest);
+        await RequireSql(db, tx, ct,
+            "select not exists (select from public.admin_article_rollback_step_up where principal_id=$1)", ArchiveAdministrator);
     }
 
     private static async Task<AdminArticleArchiveReceipt> ReadCommittedArchive(NpgsqlConnection db, AdminArticleArchiveIntent intent,
@@ -599,4 +551,20 @@ public sealed partial class NightlyFixturePostgresTests
     {
         internal CheckpointInterruption Boundary { get; } = boundary;
     }
+    private static Task Protected(NpgsqlConnection db, InstanceLease lease, CancellationToken ct, Func<NpgsqlTransaction, Task> action) =>
+        Protected(db, lease, ct, async tx => { await action(tx); return 0; });
+
+    private static async Task<T> Protected<T>(NpgsqlConnection db, InstanceLease lease, CancellationToken ct, Func<NpgsqlTransaction, Task<T>> action)
+    {
+        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+        var result = await action(tx);
+        await InstanceLease.CommitProtected(tx, lease, ct);
+        return result;
+    }
+
+    private static async Task Exec1(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql, params object[] args) =>
+        Assert.Equal(1, await FixtureSql.ExecuteAsync(db, tx, ct, sql, args));
+
+    private static async Task RequireSql(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql, params object[] args) =>
+        Assert.True(await FixtureSql.ScalarAsync(db, tx, ct, sql, args) is true);
 }

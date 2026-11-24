@@ -216,7 +216,7 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
             Publication = new() { Canonical = true }
         });
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(db, tx, ct);
-        await using var empty = Store.Sql(db, tx, """
+        if (await FixtureSql.ScalarAsync(db, tx, ct, """
             select not exists (select from public.article) and not exists (select from public.blog_user)
                and not exists (select from public.comment) and not exists (select from public.blog_outbox)
                and not exists (select from public.admin_principal)
@@ -226,66 +226,53 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
                     from public.category)
                and (select count(*)=128 and bool_and(id between 1 and 128 and name='Nightly tag ' || lpad(id::text,3,'0'))
                     from public.tag)
-            """);
-        if (await empty.ExecuteScalarAsync(ct) is not true)
+            """) is not true)
             throw new InvalidOperationException("Fixture target has existing business rows, incompatible taxonomy, or allocated IDs.");
         await FixtureSql.AdminPrincipalAsync(db, tx, ct, actor.Id, ScratchDatabase.AdminHandle(actor.Name, actor.Id), enabled: true, generation: actor.Generation);
     }
 
-    private static async Task StartArchiveSession(NpgsqlConnection db, InstanceLease lease, byte[] sessionDigest, CancellationToken ct)
-    {
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        // The fixture exercises the native grant, session and proof consumption checks. The separate browser test exercises Passkey.
-        await using var seed = Store.Sql(db, tx, FixtureSql.AdminSessionSql,
+    private static Task StartArchiveSession(NpgsqlConnection db, InstanceLease lease, byte[] sessionDigest, CancellationToken ct) =>
+        Protected(db, lease, ct, tx => Exec1(db, tx, ct, FixtureSql.AdminSessionSql,
             FixtureSql.AdminSessionArguments(ArchiveAdministrator, "nightly-fixture-archive",
-                RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), [1], sessionDigest, 2));
-        Assert.Equal(1, await seed.ExecuteNonQueryAsync(ct));
-        await InstanceLease.CommitProtected(tx, lease, ct);
-    }
+                RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), [1], sessionDigest, 2)));
 
-    private static async Task<string> PrepareArchive(NpgsqlConnection db, InstanceLease lease, Identity actor, PlannedArticle article,
-        long sourceRelease, AdminArticleArchiveIntent intent, byte[] sessionDigest, CancellationToken ct, CheckpointBinding? checkpoint = null)
-    {
-        int id = article.Id;
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        var draft = await Mutate(db, tx, actor, id, 3, ArticleAction.Save, ct, article.ReplacementTitle, article.ReplacementBody);
-        Assert.Equal<long?>(3, draft.PublishedRevision);
-        var replacement = await Mutate(db, tx, actor, id, 4, ArticleAction.Publish, ct);
-        Assert.Equal<long?>(5, replacement.PublishedRevision);
-        Assert.Equal((article.ReplacementTitle, article.ReplacementBody), (replacement.Title, replacement.Body));
+    private static Task<string> PrepareArchive(NpgsqlConnection db, InstanceLease lease, Identity actor, PlannedArticle article,
+        long sourceRelease, AdminArticleArchiveIntent intent, byte[] sessionDigest, CancellationToken ct, CheckpointBinding? checkpoint = null) =>
+        Protected(db, lease, ct, async tx =>
+        {
+            int id = article.Id;
+            var draft = await Mutate(db, tx, actor, id, 3, ArticleAction.Save, ct, article.ReplacementTitle, article.ReplacementBody);
+            Assert.Equal<long?>(3, draft.PublishedRevision);
+            var replacement = await Mutate(db, tx, actor, id, 4, ArticleAction.Publish, ct);
+            Assert.Equal((5L, article.ReplacementTitle, article.ReplacementBody), (replacement.PublishedRevision, replacement.Title, replacement.Body));
 
-        await using (var evidence = Store.Sql(db, tx, """
-            with source_release as (
-                select min(h.publication_id) as publication_id
-                from public.article_publication_history h
-                join public.article_publication_rights w on (w.publication_id,w.article_id,w.revision)=(h.publication_id,h.article_id,h.revision)
-                join public.article_revision_rights r on (r.article_id,r.revision)=(w.article_id,w.revision)
-                where h.article_id=$1 and h.revision=3 and h.kind in ('publish','replace','retained-active')
-                having count(*)=1 and min(h.publication_id)=$2
-            ), snapshot as (
-                insert into public.article_revision_responsibility(article_id,revision,responsible_party,basis,reference,recorded_by)
-                select $1,3,'Nightly synthetic editor','Fixture custody of first public revision',
-                    'c11-nightly-archive:' || $1::text,current_user::text from source_release returning id
-            )
-            insert into public.article_publication_responsibility(publication_id,article_id,revision,snapshot_id)
-            select publication_id,$1,3,id from source_release cross join snapshot
-            """, id, sourceRelease))
-            Assert.Equal(1, await evidence.ExecuteNonQueryAsync(ct));
+            await Exec1(db, tx, ct, """
+                with source_release as (
+                    select min(h.publication_id) as publication_id
+                    from public.article_publication_history h
+                    join public.article_publication_rights w on (w.publication_id,w.article_id,w.revision)=(h.publication_id,h.article_id,h.revision)
+                    join public.article_revision_rights r on (r.article_id,r.revision)=(w.article_id,w.revision)
+                    where h.article_id=$1 and h.revision=3 and h.kind in ('publish','replace','retained-active')
+                    having count(*)=1 and min(h.publication_id)=$2
+                ), snapshot as (
+                    insert into public.article_revision_responsibility(article_id,revision,responsible_party,basis,reference,recorded_by)
+                    select $1,3,'Nightly synthetic editor','Fixture custody of first public revision',
+                        'c11-nightly-archive:' || $1::text,current_user::text from source_release returning id
+                )
+                insert into public.article_publication_responsibility(publication_id,article_id,revision,snapshot_id)
+                select publication_id,$1,3,id from source_release cross join snapshot
+                """, id, sourceRelease);
 
-        var proof = await IssueArchiveProof(db, tx, intent, sessionDigest, ct);
-        if (checkpoint is not null)
-            await RecordArchivePrepared(db, tx, intent, checkpoint, ct);
-        await InstanceLease.CommitProtected(tx, lease, ct);
-        return proof;
-    }
+            var proof = await IssueArchiveProof(db, tx, intent, sessionDigest, ct);
+            if (checkpoint is not null) await RecordArchivePrepared(db, tx, intent, checkpoint, ct);
+            return proof;
+        });
 
     private static async Task<string> IssueArchiveProof(NpgsqlConnection db, NpgsqlTransaction tx,
         AdminArticleArchiveIntent intent, byte[] sessionDigest, CancellationToken ct)
     {
         var proof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-        var proofDigest = SHA256.HashData(Encoding.ASCII.GetBytes(proof));
-        var intentDigest = AdminArticleArchiveStore.ArticleArchiveIntentDigest(intent);
-        await using (var step = Store.Sql(db, tx, """
+        await Exec1(db, tx, ct, """
             with session as (
                 update public.admin_session set expires_at=clock_timestamp()+interval '2 minutes'
                 where digest=$1 and principal_id=$2 and generation=1 and expires_at>clock_timestamp()
@@ -293,8 +280,8 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
             )
             insert into public.admin_article_rollback_step_up(digest,principal_id,session_digest,generation,action,body_digest,expires_at,kind)
             select $3,principal_id,digest,generation,8,$4,clock_timestamp()+interval '45 seconds',2 from session
-            """, sessionDigest, ArchiveAdministrator, proofDigest, intentDigest))
-            Assert.Equal(1, await step.ExecuteNonQueryAsync(ct));
+            """, sessionDigest, ArchiveAdministrator, SHA256.HashData(Encoding.ASCII.GetBytes(proof)),
+                AdminArticleArchiveStore.ArticleArchiveIntentDigest(intent));
         return proof;
     }
 
@@ -307,37 +294,32 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         Assert.True(receipt.TransitionedUnixMs > 0 && receipt.RightsSnapshotId > 0 && receipt.ResponsibilitySnapshotId > 0);
     }
 
-    private static async Task RetireArchiveSession(NpgsqlConnection db, InstanceLease lease, CancellationToken ct,
-        CheckpointBinding? checkpoint = null)
-    {
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        await using (var proof = Store.Sql(db, tx,
-            "select not exists (select from public.admin_article_rollback_step_up where principal_id=$1)", ArchiveAdministrator))
-            Assert.True(await proof.ExecuteScalarAsync(ct) is true);
-        await using var retire = Store.Sql(db, tx, """
-            with sessions as (delete from public.admin_session where principal_id=$1 returning 1),
-                 credentials as (delete from public.admin_passkey_credential where principal_id=$1 returning 1),
-                 principal as (
-                    update public.admin_principal set enabled=false,generation=2,generation_changed_at=clock_timestamp()
-                    where id=$1 and enabled and generation=1 returning 1
-                 )
-            select (select count(*) from sessions)=1 and (select count(*) from credentials)=1 and
-                   (select count(*) from principal)=1
-            """, ArchiveAdministrator);
-        Assert.True(await retire.ExecuteScalarAsync(ct) is true);
-        if (checkpoint is not null)
+    private static Task RetireArchiveSession(NpgsqlConnection db, InstanceLease lease, CancellationToken ct,
+        CheckpointBinding? checkpoint = null) =>
+        Protected(db, lease, ct, async tx =>
         {
-            var position = await ReadCheckpoint(db, tx, checkpoint, ct);
-            Assert.Equal(checkpoint.Count / 20, position.Archived);
-            await using var finish = Store.Sql(db, tx, """
-                update fsus_nightly_fixture.article_checkpoint set finished=true
-                where singleton and not finished and archive_stage=0 and committed_articles=article_count
-                    and archived_articles=article_count/20
-                """);
-            Assert.Equal(1, await finish.ExecuteNonQueryAsync(ct));
-        }
-        await InstanceLease.CommitProtected(tx, lease, ct);
-    }
+            await RequireSql(db, tx, ct,
+                "select not exists (select from public.admin_article_rollback_step_up where principal_id=$1)", ArchiveAdministrator);
+            await RequireSql(db, tx, ct, """
+                with sessions as (delete from public.admin_session where principal_id=$1 returning 1),
+                     credentials as (delete from public.admin_passkey_credential where principal_id=$1 returning 1),
+                     principal as (
+                        update public.admin_principal set enabled=false,generation=2,generation_changed_at=clock_timestamp()
+                        where id=$1 and enabled and generation=1 returning 1
+                     )
+                select (select count(*) from sessions)=1 and (select count(*) from credentials)=1 and
+                       (select count(*) from principal)=1
+                """, ArchiveAdministrator);
+            if (checkpoint is not null)
+            {
+                Assert.Equal(checkpoint.Count / 20, (await ReadCheckpoint(db, tx, checkpoint, ct)).Archived);
+                await Exec1(db, tx, ct, """
+                    update fsus_nightly_fixture.article_checkpoint set finished=true
+                    where singleton and not finished and archive_stage=0 and committed_articles=article_count
+                        and archived_articles=article_count/20
+                    """);
+            }
+        });
 
     private static async Task Write(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, PlannedArticle article,
         long due, CancellationToken ct)

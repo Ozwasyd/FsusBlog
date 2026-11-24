@@ -7,29 +7,24 @@ public sealed class SiteSessionsPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var account = await AddAccount(db, "Reader", ct);
-        var foreign = await AddAccount(db, "Another reader", ct);
-        var credential = await AddCredential(db, account, ct);
+        var (account, credential) = await fixture.SitePasskeyAccountAsync("Reader");
+        var foreign = Guid.NewGuid();
+        await fixture.SiteAccountAsync(foreign, "Another reader");
         var expiry = DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds()).AddMinutes(10);
-        var current = await AddSession(db, account, expiry, ct, credential: credential, mfa: true);
-        var targeted = await AddSession(db, account, expiry, ct);
-        var other = await AddSession(db, account, expiry, ct, credential: credential);
-        var foreignSession = await AddSession(db, foreign, expiry, ct);
-        await AddSession(db, account, expiry.AddMinutes(-20), ct);
-        await AddSession(db, account, expiry, ct, generation: 2);
+        var current = await fixture.SiteSessionAsync(account, expiry, credential: credential, mfa: true);
+        var targeted = await fixture.SiteSessionAsync(account, expiry);
+        var other = await fixture.SiteSessionAsync(account, expiry, credential: credential);
+        var foreignSession = await fixture.SiteSessionAsync(foreign, expiry);
+        await fixture.SiteSessionAsync(account, expiry.AddMinutes(-20));
+        await fixture.SiteSessionAsync(account, expiry, generation: 2);
 
         var listed = await SiteSessions.List(store, current.Token, current.Id, ct);
         Assert.False(listed.HasMore);
         Assert.Equal(3, listed.Sessions.Count);
         var active = Assert.Single(listed.Sessions, session => session.Current);
-        Assert.Equal(current.Id, active.Id);
-        Assert.Equal(expiry.ToUnixTimeMilliseconds(), active.ExpiresAt);
-        Assert.Equal(2, active.Method);
-        Assert.True(active.Mfa);
+        Assert.Equal((current.Id, expiry.ToUnixTimeMilliseconds(), 2, true), (active.Id, active.ExpiresAt, active.Method, active.Mfa));
         var ticket = Assert.Single(listed.Sessions, session => session.Id == targeted.Id);
-        Assert.Equal(1, ticket.Method);
-        Assert.False(ticket.Mfa);
+        Assert.Equal((1, false), (ticket.Method, ticket.Mfa));
         Assert.DoesNotContain(listed.Sessions, session => session.Id == current.Token || session.Id == Convert.ToHexStringLower(current.Digest));
         Assert.DoesNotContain(listed.Sessions, session => session.Id == foreignSession.Id);
         Assert.NotEqual(current.Id, SiteSessions.Id(foreign, current.Digest));
@@ -50,8 +45,7 @@ public sealed class SiteSessionsPostgresTests
         await SiteSessions.Revoke(store, current.Token, current.Id, null, ct);
         await Denied(Rejection.Unauthorized, () => ReadOwner(store, other.Token, ct));
         var remaining = Assert.Single((await SiteSessions.List(store, current.Token, current.Id, ct)).Sessions);
-        Assert.Equal(current.Id, remaining.Id);
-        Assert.True(remaining.Current);
+        Assert.Equal((current.Id, true), (remaining.Id, remaining.Current));
         Assert.Equal(1L, (await ReadOwner(store, current.Token, ct)).Generation);
         Assert.Equal(foreign, (await ReadOwner(store, foreignSession.Token, ct)).Id);
     }
@@ -61,37 +55,27 @@ public sealed class SiteSessionsPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var store = new Store(fixture.DataSource);
-        await using var authority = await fixture.DataSource.OpenConnectionAsync(ct);
-        await using var inspection = await fixture.DataSource.OpenConnectionAsync(ct);
-        var account = await AddAccount(authority, "Concurrent account", ct);
+        var account = Guid.NewGuid();
+        await fixture.SiteAccountAsync(account, "Concurrent account");
         var expiry = DateTimeOffset.UtcNow.AddMinutes(10);
-        var stale = await AddSession(authority, account, expiry, ct);
-        var target = await AddSession(authority, account, expiry, ct);
-        var remaining = await AddSession(authority, account, expiry, ct);
+        var stale = await fixture.SiteSessionAsync(account, expiry);
+        var target = await fixture.SiteSessionAsync(account, expiry);
+        var remaining = await fixture.SiteSessionAsync(account, expiry);
 
-        await using var transaction = await authority.BeginTransactionAsync(ct);
-        await using (var write = Store.Sql(authority, transaction,
-            "update public.blog_user set generation=2 where id=$1", account))
-            Assert.Equal(1, await write.ExecuteNonQueryAsync(ct));
         using var operationDeadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         operationDeadline.CancelAfter(TimeSpan.FromSeconds(15));
-        var revocation = SiteSessions.Revoke(store, stale.Token, stale.Id, target.Id, operationDeadline.Token);
-        await using var waiting = Store.Sql(inspection, null, """
-            select exists (
-                select from pg_catalog.pg_stat_activity activity
-                where activity.datname=current_database() and $1 = any(pg_catalog.pg_blocking_pids(activity.pid))
-            )
-            """, authority.ProcessID);
-        while (!revocation.IsCompleted && await waiting.ExecuteScalarAsync(operationDeadline.Token) is false)
-            await Task.Delay(15, operationDeadline.Token);
-        Assert.False(revocation.IsCompleted, "Revocation should wait for the account lock before accessing its target.");
-
-        // Move the other sessions to the new generation while the actor's old authority expires.
-        await using (var retain = Store.Sql(authority, transaction, """
-            update public.user_session set generation=2 where user_id=$1 and digest<>$2
-            """, account, stale.Digest))
-            Assert.Equal(2, await retain.ExecuteNonQueryAsync(ct));
-        await transaction.CommitAsync(ct);
+        var revocation = await fixture.InTx(async (authority, transaction) =>
+        {
+            Assert.Equal(1, await FixtureSql.ExecuteAsync(authority, transaction, ct,
+                "update public.blog_user set generation=2 where id=$1", account));
+            var pending = SiteSessions.Revoke(store, stale.Token, stale.Id, target.Id, operationDeadline.Token);
+            await fixture.WaitForBlocked(authority.ProcessID, ct: operationDeadline.Token);
+            Assert.False(pending.IsCompleted, "Revocation should wait for the account lock before accessing its target.");
+            // Move the other sessions to the new generation while the actor's old authority expires.
+            Assert.Equal(2, await FixtureSql.ExecuteAsync(authority, transaction, ct,
+                "update public.user_session set generation=2 where user_id=$1 and digest<>$2", account, stale.Digest));
+            return pending;
+        });
 
         await Denied(Rejection.Unauthorized, () => revocation);
         await Denied(Rejection.Unauthorized, () => ReadOwner(store, stale.Token, ct));
@@ -101,22 +85,4 @@ public sealed class SiteSessionsPostgresTests
 
     private static Task<Identity> ReadOwner(Store store, string token, CancellationToken ct) =>
         store.WithSession(token, false, (_, _, actor) => Task.FromResult(actor), ct);
-
-    private static async Task<Guid> AddAccount(NpgsqlConnection db, string name, CancellationToken ct)
-    {
-        var id = Guid.NewGuid();
-        await FixtureSql.SiteAccountAsync(db, null, ct, id, name);
-        return id;
-    }
-
-    private static async Task<byte[]> AddCredential(NpgsqlConnection db, Guid account, CancellationToken ct)
-    {
-        var credential = RandomNumberGenerator.GetBytes(32);
-        await FixtureSql.SitePasskeyAsync(db, null, ct, account, credential, RandomNumberGenerator.GetBytes(32));
-        return credential;
-    }
-
-    private static Task<(string Token, string Id, byte[] Digest)> AddSession(NpgsqlConnection db, Guid account,
-        DateTimeOffset expiry, CancellationToken ct, long generation = 1, byte[]? credential = null, bool mfa = false) =>
-        FixtureSql.SiteSessionAsync(db, account, expiry, ct, generation, credential, mfa);
 }

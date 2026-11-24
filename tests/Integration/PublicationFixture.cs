@@ -56,9 +56,28 @@ internal static class PublicationFixture
         settings[prefix + "NotAfterUtc"] = notAfter;
     }
 
-    internal static async Task<string> ProofPath(NpgsqlConnection db, int article, CancellationToken ct) =>
-        $"/integrity/v2/article/{article}/{await FixtureSql.ScalarAsync(db, null, ct,
+    internal static async Task<string> ProofPath(ScratchDatabase db, int article, CancellationToken ct) =>
+        $"/integrity/v2/article/{article}/{await db.ScalarAsync<long>(ct,
             "select publication_id from public.article_publication where article_id=$1", article)}/rights.json";
+
+    internal static async Task<Draft> Publish(ServerProcess server, string host, string token, string title, string body,
+        CancellationToken ct, Draft? previous = null)
+    {
+        var draft = await Edit(server, host, token, WireRoutes.Save, new(previous?.Id ?? 0, previous?.Revision ?? 0, Guid.NewGuid(), title, body), ct);
+        return await Edit(server, host, token, WireRoutes.Publish, new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""), ct);
+    }
+
+    internal static async Task<string> InstallReadOnlyJson(string path, JsonNode content, CancellationToken ct)
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(content);
+        var pending = path + ".tmp";
+        await MediaFixture.WriteReadOnlyFile(pending, bytes, ct);
+        File.Move(pending, path, overwrite: true);
+        return Convert.ToHexStringLower(SHA256.HashData(bytes));
+    }
+
+    internal static byte[] SignP256(ECDsa key, byte[] bytes) =>
+        key.SignData(bytes, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
 
     internal static async Task<HttpResponseMessage> SendForwarded(ServerProcess server, HttpMethod method, string route,
         string host, string token, byte[]? frame, CancellationToken ct, string transport = "https")

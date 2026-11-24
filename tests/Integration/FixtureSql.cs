@@ -5,9 +5,9 @@ namespace FsusBlog.V2.Integration.Tests;
 internal static class FixtureSql
 {
     internal static async Task<(Guid Id, string Token, byte[] Digest)> AdminAsync(NpgsqlConnection db, CancellationToken ct,
-        string handle, int minutes, byte[] credential, byte[] key)
+        string handle, int minutes, byte[] credential, byte[] key, Guid? principalId = null)
     {
-        var id = Guid.NewGuid();
+        var id = principalId ?? Guid.NewGuid();
         var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         var digest = Store.TokenDigest(token)!;
         await ExecuteAsync(db, null, ct, AdminSessionSql, AdminSessionArguments(id, handle,

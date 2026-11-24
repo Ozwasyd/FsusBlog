@@ -12,27 +12,19 @@ public sealed class WideSearchCorpusWorkerTests
     [Fact]
     public async Task TwoPinnedSpoolsKeepNewSourcesReadableAndOnlyNewestSourceCanStage()
     {
-        if (!Supported) return;
-        using var deadline = new CancellationTokenSource(TestDeadline);
-        var ct = deadline.Token;
-        var signal = new WideSearchCorpusSignal();
-        var projection = new PublicProjection(signal);
         var first = Source(1);
         var second = Source(2, first);
         var superseded = Source(3, second);
         var newest = Source(4, superseded);
         var builds = new ConcurrentQueue<(PublicSnapshot Source, WideSearchCorpusStage Stage, int OpenBefore)>();
-        using var worker = new WideSearchCorpusWorker(projection, signal, NullLogger<WideSearchCorpusWorker>.Instance,
-            build: (source, token) =>
-            {
-                var openBefore = builds.Count(build => !build.Stage.Closed.IsCompletedSuccessfully);
-                var stage = Build(source, token);
-                builds.Enqueue((source, stage, openBefore));
-                return stage;
-            });
-        await worker.StartAsync(ct);
         WideSearchCorpusStage? last = null;
-        try
+        var projection = await RunWorker((source, token) =>
+        {
+            var openBefore = builds.Count(build => !build.Stage.Closed.IsCompletedSuccessfully);
+            var stage = Build(source, token);
+            builds.Enqueue((source, stage, openBefore));
+            return stage;
+        }, async (projection, _, ct) =>
         {
             projection.Replace(first);
             var readyFirst = await Ready(projection, first, ct);
@@ -69,11 +61,8 @@ public sealed class WideSearchCorpusWorkerTests
 
             secondPin.Dispose();
             await readySecond.Stage.Closed.WaitAsync(ct);
-        }
-        finally
-        {
-            await worker.StopAsync(CancellationToken.None).WaitAsync(TestDeadline);
-        }
+        });
+        if (projection is null) return;
         Assert.True(Assert.IsType<WideSearchCorpusStage>(last).Closed.IsCompletedSuccessfully);
         Assert.Same(newest, projection.Current?.Source);
         Assert.Null(projection.Current?.Wide);
@@ -82,37 +71,29 @@ public sealed class WideSearchCorpusWorkerTests
     [Fact]
     public async Task StaleCompletedSpoolClosesWithoutAttachingToReplacementSource()
     {
-        if (!Supported) return;
-        using var deadline = new CancellationTokenSource(TestDeadline);
-        var ct = deadline.Token;
-        var signal = new WideSearchCorpusSignal();
-        var projection = new PublicProjection(signal);
         var first = Source(1);
         var replacement = Source(2, first);
         var firstBuilt = new TaskCompletionSource<WideSearchCorpusStage>(TaskCreationOptions.RunContinuationsAsynchronously);
         var firstCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseFirst = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var worker = new WideSearchCorpusWorker(projection, signal, NullLogger<WideSearchCorpusWorker>.Instance,
-            build: (source, token) =>
+        await RunWorker((source, token) =>
+        {
+            if (!ReferenceEquals(first, source)) return Build(source, token);
+            var stage = Build(source, token);
+            try
             {
-                if (!ReferenceEquals(first, source)) return Build(source, token);
-                var stage = Build(source, token);
-                try
-                {
-                    using var cancelled = token.Register(() => firstCancelled.TrySetResult());
-                    firstBuilt.SetResult(stage);
-                    // Return the sealed stage after the worker had to cancel this source.
-                    releaseFirst.Task.WaitAsync(ct).GetAwaiter().GetResult();
-                    return stage;
-                }
-                catch
-                {
-                    stage.Dispose();
-                    throw;
-                }
-            });
-        await worker.StartAsync(ct);
-        try
+                using var cancelled = token.Register(() => firstCancelled.TrySetResult());
+                firstBuilt.SetResult(stage);
+                // Return the sealed stage after the worker had to cancel this source.
+                releaseFirst.Task.WaitAsync(TestDeadline).GetAwaiter().GetResult();
+                return stage;
+            }
+            catch
+            {
+                stage.Dispose();
+                throw;
+            }
+        }, async (projection, _, ct) =>
         {
             projection.Replace(first);
             var stale = await firstBuilt.Task.WaitAsync(ct);
@@ -127,35 +108,22 @@ public sealed class WideSearchCorpusWorkerTests
             Assert.NotSame(stale, ready.Stage);
             await stale.Closed.WaitAsync(ct);
             Assert.False(CanBorrow(stale));
-        }
-        finally
-        {
-            releaseFirst.TrySetResult();
-            await worker.StopAsync(CancellationToken.None).WaitAsync(TestDeadline);
-        }
+        }, onFinally: () => releaseFirst.TrySetResult());
     }
 
     [Fact]
     public async Task BudgetFailureBlocksOnlyItsSourceAndAllowsTheNextSourceToStage()
     {
-        if (!Supported) return;
-        using var deadline = new CancellationTokenSource(TestDeadline);
-        var ct = deadline.Token;
-        var signal = new WideSearchCorpusSignal();
-        var projection = new PublicProjection(signal);
         var rejected = Source(1);
         var successor = Source(2, rejected);
         var attempted = new ConcurrentQueue<PublicSnapshot>();
-        using var worker = new WideSearchCorpusWorker(projection, signal, NullLogger<WideSearchCorpusWorker>.Instance,
-            build: (source, token) =>
-            {
-                attempted.Enqueue(source);
-                return ReferenceEquals(source, rejected)
-                    ? WideSearchCorpusStage.Build(source.WideSearchArticles, 1, WireLimits.SearchWideCorpusTotalBytes, token)
-                    : Build(source, token);
-            });
-        await worker.StartAsync(ct);
-        try
+        await RunWorker((source, token) =>
+        {
+            attempted.Enqueue(source);
+            return ReferenceEquals(source, rejected)
+                ? WideSearchCorpusStage.Build(source.WideSearchArticles, 1, WireLimits.SearchWideCorpusTotalBytes, token)
+                : Build(source, token);
+        }, async (projection, signal, ct) =>
         {
             projection.Replace(rejected);
             await Until(() => projection.Current is { WideBlocked: true }, ct);
@@ -171,11 +139,29 @@ public sealed class WideSearchCorpusWorkerTests
             projection.Replace(successor);
             await Ready(projection, successor, ct);
             Assert.Equal(new[] { rejected, successor }, attempted.ToArray());
+        });
+    }
+
+    private static async Task<PublicProjection?> RunWorker(Func<PublicSnapshot, CancellationToken, WideSearchCorpusStage?> build,
+        Func<PublicProjection, WideSearchCorpusSignal, CancellationToken, Task> body, Action? onFinally = null)
+    {
+        if (!Supported) return null;
+        using var deadline = new CancellationTokenSource(TestDeadline);
+        var ct = deadline.Token;
+        var signal = new WideSearchCorpusSignal();
+        var projection = new PublicProjection(signal);
+        using var worker = new WideSearchCorpusWorker(projection, signal, NullLogger<WideSearchCorpusWorker>.Instance, build: build);
+        await worker.StartAsync(ct);
+        try
+        {
+            await body(projection, signal, ct);
         }
         finally
         {
+            onFinally?.Invoke();
             await worker.StopAsync(CancellationToken.None).WaitAsync(TestDeadline);
         }
+        return projection;
     }
 
     private static PublicSnapshot Source(int version, PublicSnapshot? previous = null)
