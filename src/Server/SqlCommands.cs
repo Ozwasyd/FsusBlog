@@ -33,6 +33,49 @@ internal static class SqlCommands
         return await command.ExecuteScalarAsync(ct);
     }
 
+    internal static async Task<T?> QueryOne<T>(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql,
+        Func<NpgsqlDataReader, T> read, params object[] parameters) where T : class
+    {
+        await using var command = Create(db, tx, sql, parameters);
+        await using var row = await command.ExecuteReaderAsync(ct);
+        return await row.ReadAsync(ct) ? read(row) : null;
+    }
+
+    internal static async Task<T?> QueryOneValue<T>(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql,
+        Func<NpgsqlDataReader, T> read, params object[] parameters) where T : struct
+    {
+        await using var command = Create(db, tx, sql, parameters);
+        await using var row = await command.ExecuteReaderAsync(ct);
+        return await row.ReadAsync(ct) ? read(row) : null;
+    }
+
+    internal static async Task<T> QueryRequired<T>(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql,
+        Func<NpgsqlDataReader, T> read, Func<Exception>? missing, params object[] parameters)
+    {
+        await using var command = Create(db, tx, sql, parameters);
+        await using var row = await command.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct)) throw missing?.Invoke() ?? new InvalidOperationException("Query returned no row.");
+        return read(row);
+    }
+
+    internal static async Task<List<T>> QueryList<T>(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql,
+        Func<NpgsqlDataReader, T> read, params object[] parameters)
+    {
+        var items = new List<T>();
+        await using var command = Create(db, tx, sql, parameters);
+        await using var rows = await command.ExecuteReaderAsync(ct);
+        while (await rows.ReadAsync(ct)) items.Add(read(rows));
+        return items;
+    }
+
+    internal static async Task ReadAll(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql,
+        Action<NpgsqlDataReader> read, params object[] parameters)
+    {
+        await using var command = Create(db, tx, sql, parameters);
+        await using var rows = await command.ExecuteReaderAsync(ct);
+        while (await rows.ReadAsync(ct)) read(rows);
+    }
+
     internal static async Task LockCommand(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid commandKey, CancellationToken ct)
     {
         var scope = new byte[32];

@@ -8,6 +8,7 @@ using FsusBlog.V2.Core.Authoring;
 using FsusBlogV2.Storage;
 using Npgsql;
 using NpgsqlTypes;
+using static FsusBlog.V2.Server.SqlCommands;
 
 namespace FsusBlog.V2.Server.Authoring;
 
@@ -57,20 +58,16 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         var page = definitions.Take(WireLimits.PropertyPageSize).ToArray();
         var rows = new Dictionary<Guid, PropertyValue>();
         if (page.Length > 0)
-        {
-            await using var read = SqlCommands.Create(db, tx, """
+            await ReadAll(db, tx, ct, """
                 select definition_id,data::text,references_ids from public.property_value
                 where article_id=$1 and owner_id=$2 and definition_id=any($3)
-                """, input.ArticleId, ownerId, page.Select(definition => definition.Id).ToArray());
-            await using var reader = await read.ExecuteReaderAsync(ct);
-            while (await reader.ReadAsync(ct))
+                """, reader =>
             {
                 var value = Parse<PropertyValue>(reader.GetString(1));
                 if (!ReferenceIds(value).SequenceEqual(reader.GetFieldValue<int[]>(2)))
                     throw new InvalidOperationException("Stored property reference projection changed.");
                 rows.Add(reader.GetGuid(0), value);
-            }
-        }
+            }, input.ArticleId, ownerId, page.Select(definition => definition.Id).ToArray());
         var references = await ReadReferences(rows.Values.SelectMany(ReferenceIds).Distinct().Order().ToArray(), ct);
         var nextKey = definitions.Length > WireLimits.PropertyPageSize ? page[^1].MachineKey : "";
         return new(input.ArticleId, input.ArticleRevision, schema.Revision, values, nextKey,
@@ -215,19 +212,11 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
         // The request fingerprint binds every field. Keep the first definition as the existing journal coordinate.
         var firstDefinition = input.Changes[0].DefinitionId;
         var fingerprint = SHA256.HashData(originalFrame);
-        await using (var replay = SqlCommands.Create(db, tx, """
+        if (await QueryOneValue(db, tx, ct, """
             select fingerprint,definition_id,revision from public.property_value_command where article_id=$1 and request_id=$2
-            """, input.ArticleId, input.RequestId))
-        await using (var reader = await replay.ExecuteReaderAsync(ct))
-        {
-            if (await reader.ReadAsync(ct))
-            {
-                if (!CryptographicOperations.FixedTimeEquals(fingerprint, reader.GetFieldValue<byte[]>(0)) ||
-                    reader.GetGuid(1) != firstDefinition)
-                    throw Conflict();
-                return reader.GetInt64(2);
-            }
-        }
+            """, r => CryptographicOperations.FixedTimeEquals(fingerprint, r.GetFieldValue<byte[]>(0)) && r.GetGuid(1) == firstDefinition
+                ? r.GetInt64(2) : throw Conflict(), input.ArticleId, input.RequestId) is { } replayed)
+            return replayed;
 
         if (input.ArticleRevision != articleRevision) throw Conflict();
         var schema = await ReadSchema(ct);
@@ -293,11 +282,8 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     {
         // All still-present Text values carry the article-wide revision. Also include fields removed by this command.
         var affected = input.Changes.Select(change => change.DefinitionId).ToHashSet();
-        await using (var read = SqlCommands.Create(db, tx, """
-            select definition_id from public.property_value where article_id=$1 and owner_id=$2
-            """, input.ArticleId, ownerId))
-        await using (var rows = await read.ExecuteReaderAsync(ct))
-            while (await rows.ReadAsync(ct)) affected.Add(rows.GetGuid(0));
+        await ReadAll(db, tx, ct, "select definition_id from public.property_value where article_id=$1 and owner_id=$2",
+            r => affected.Add(r.GetGuid(0)), input.ArticleId, ownerId);
 
         var definitions = affected.Select(schema.Find).Where(definition =>
                 definition is { Status: PropertyStatus.Active, Settings: { Kind: PropertyKind.Text, SearchEligible: true } })
@@ -325,18 +311,16 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     {
         var revision = await Revision("select revision from public.property_schema where owner_id=$1", ct, ownerId);
         if (!await VerifyStorageBudget(ct)) throw new InvalidOperationException("Stored property schema exceeds its byte budget.");
-        await using var command = SqlCommands.Create(db, tx,
-            "select id,machine_key,revision,digest,shape::text from public.property_definition where owner_id=$1 limit 4001", ownerId);
-        await using var reader = await command.ExecuteReaderAsync(ct);
         var definitions = ImmutableArray.CreateBuilder<PropertyDefinition>();
-        while (await reader.ReadAsync(ct))
-        {
-            var definition = Parse<PropertyDefinition>(reader.GetString(4));
-            if (definition.Id != reader.GetGuid(0) || definition.MachineKey != reader.GetString(1) ||
-                definition.Revision != reader.GetInt64(2) || definition.Digest != reader.GetString(3))
-                throw new InvalidOperationException("Stored property definition does not match its digest or coordinates.");
-            definitions.Add(definition);
-        }
+        await ReadAll(db, tx, ct, "select id,machine_key,revision,digest,shape::text from public.property_definition where owner_id=$1 limit 4001",
+            reader =>
+            {
+                var definition = Parse<PropertyDefinition>(reader.GetString(4));
+                if (definition.Id != reader.GetGuid(0) || definition.MachineKey != reader.GetString(1) ||
+                    definition.Revision != reader.GetInt64(2) || definition.Digest != reader.GetString(3))
+                    throw new InvalidOperationException("Stored property definition does not match its digest or coordinates.");
+                definitions.Add(definition);
+            }, ownerId);
         return PropertySchema.Restore(Scope, revision, definitions);
     }
 
@@ -348,13 +332,11 @@ internal sealed partial class PropertyStore(NpgsqlConnection db, NpgsqlTransacti
     {
         var visible = new HashSet<int>();
         if (ids.Length == 0) return visible;
-        await using var command = SqlCommands.Create(db, tx, $"""
+        await ReadAll(db, tx, ct, $"""
             select r.id from public.article r
             {ReferenceAuthorityJoins("join")}
             where r.id=any($1) and r.owner_id=$2 and not r.deleted order by r.id {(lockTargets ? "for share of r" : "")}
-            """, ids, ownerId);
-        await using var reader = await command.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct)) visible.Add(reader.GetInt32(0));
+            """, r => visible.Add(r.GetInt32(0)), ids, ownerId);
         return visible;
     }
 

@@ -26,36 +26,23 @@ internal static class RevisionHistoryStore
         return head.PublishedRevision ?? 0;
     }
 
-    internal static async Task<(string Title, string Body, DateTimeOffset HappenedAt)> ReadSource(NpgsqlConnection db, NpgsqlTransaction tx,
-        int id, long revision, CancellationToken ct)
-    {
-        await using var read = SqlCommands.Create(db, tx, """
-            select title,body,happened_at from public.article_revision where article_id=$1 and revision=$2
-            """, id, revision);
-        await using var row = await read.ExecuteReaderAsync(ct);
-        await row.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "Article revision not found."));
-        return (row.GetString(0), row.GetString(1), row.GetFieldValue<DateTimeOffset>(2));
-    }
+    internal static Task<(string Title, string Body, DateTimeOffset HappenedAt)> ReadSource(NpgsqlConnection db, NpgsqlTransaction tx,
+        int id, long revision, CancellationToken ct) =>
+        SqlCommands.QueryRequired(db, tx, ct, "select title,body,happened_at from public.article_revision where article_id=$1 and revision=$2",
+            r => (r.GetString(0), r.GetString(1), r.GetFieldValue<DateTimeOffset>(2)),
+            () => new BusinessException(Rejection.NotFound, "Article revision not found."), id, revision);
 
-    internal static async Task<List<RevisionHistoryItem>> Read(NpgsqlConnection db, NpgsqlTransaction tx, int id,
-        long expected, long before, CancellationToken ct)
-    {
-        await using var read = SqlCommands.Create(db, tx, """
+    internal static Task<List<RevisionHistoryItem>> Read(NpgsqlConnection db, NpgsqlTransaction tx, int id,
+        long expected, long before, CancellationToken ct) =>
+        SqlCommands.QueryList(db, tx, ct, """
             select r.revision,r.title,r.happened_at,a.source_revision,a.reason
             from public.article_revision r
             left join public.article_rollback a using (article_id,revision)
             where r.article_id=$1 and r.revision<=$2 and ($3=0 or r.revision<$3)
             order by r.revision desc limit $4
-            """, id, expected, before, WireLimits.RevisionHistoryPageSize + 1);
-        var revisions = new List<RevisionHistoryItem>();
-        await using var rows = await read.ExecuteReaderAsync(ct);
-        while (await rows.ReadAsync(ct))
-        {
-            revisions.Add(new(rows.GetInt64(0), rows.GetString(1), rows.GetUnixMilliseconds(2),
-                rows.IsDBNull(3) ? 0 : rows.GetInt64(3), rows.IsDBNull(4) ? "" : rows.GetString(4)));
-        }
-        return revisions;
-    }
+            """, r => new RevisionHistoryItem(r.GetInt64(0), r.GetString(1), r.GetUnixMilliseconds(2),
+                r.IsDBNull(3) ? 0 : r.GetInt64(3), r.IsDBNull(4) ? "" : r.GetString(4)),
+            id, expected, before, WireLimits.RevisionHistoryPageSize + 1);
 
     internal static async Task<(SavedRevisionMetadata Current, SavedRevisionMetadata Source)> ReadMetadata(
         NpgsqlConnection db, NpgsqlTransaction tx, int id, long expected, long source, CancellationToken ct)

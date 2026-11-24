@@ -57,9 +57,7 @@ internal sealed class AuthorTextRebuildWorker(NpgsqlDataSource source, InstanceL
             // queue lock, since a foreground query holds the owner scope before enqueueing.
             job = await Next(db, token);
             if (job is null) return false;
-            await using var tx = await InstanceLease.BeginProtected(db, lease, token);
-            await Process(db, tx, job, token);
-            await InstanceLease.CommitProtected(tx, lease, token);
+            await InstanceLease.RunProtected(db, lease, tx => Process(db, tx, job, token), token);
             return true;
         }
         catch (Exception error) when (!ct.IsCancellationRequested && error is not PublicUnavailableException)
@@ -136,10 +134,7 @@ internal sealed class AuthorTextRebuildWorker(NpgsqlDataSource source, InstanceL
         budget.CancelAfter(IdleDelay);
         try
         {
-            await using var db = await source.OpenConnectionAsync(budget.Token);
-            await using var tx = await InstanceLease.BeginProtected(db, lease, budget.Token);
-            await SetPending(db, tx, job, RetryDelay, budget.Token);
-            await InstanceLease.CommitProtected(tx, lease, budget.Token);
+            await InstanceLease.RunProtected(source, lease, (db, tx) => SetPending(db, tx, job, RetryDelay, budget.Token), budget.Token);
         }
         catch (Exception error) when (!ct.IsCancellationRequested && error is not PublicUnavailableException)
         {
