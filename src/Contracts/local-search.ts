@@ -1130,6 +1130,27 @@ async function currentCachedCorpus(
   }
 }
 
+type CorpusMatch = { article: SearchArticle; score: number };
+
+function appendCorpusMatches(shard: Shard, ids: Set<number>, matches: CorpusMatch[]): void {
+  for (const article of shard.documents.values()) {
+    requireWire(!ids.has(article.id), 'duplicate corpus article');
+    ids.add(article.id);
+    const score = shard.matches.get(article.id);
+    if (score !== undefined) matches.push({ article, score });
+  }
+}
+
+function encodeCorpusMatches(matches: CorpusMatch[], page: number, size: number, sort: PublicSearchSort): Uint8Array<ArrayBuffer> {
+  matches.sort((a, b) => compareHits(
+    { score: a.score, publishedAt: a.article.createdAt, id: a.article.id },
+    { score: b.score, publishedAt: b.article.createdAt, id: b.article.id },
+    sort,
+  ));
+  const start = (page - 1) * size;
+  return encodeLocalSearchResult(matches.slice(start, start + size).map(hit => hit.article), matches.length);
+}
+
 async function runCorpusSearch(
   query: string,
   signal: AbortSignal | undefined,
@@ -1156,7 +1177,7 @@ async function runCorpusSearch(
   if (cached.persisted) {
     try {
       const ids = new Set<number>();
-      const matches: { article: SearchArticle; score: number }[] = [];
+      const matches: CorpusMatch[] = [];
       let totalBytes = 0;
       const pages = cached.persisted.pages;
       for (let i = 0; i < pages.length; i++) {
@@ -1165,20 +1186,9 @@ async function runCorpusSearch(
         requireWire(totalBytes <= Limit.SearchCorpusTotalBytes, 'corpus pages or byte budget');
         const shard = queryCorpusPage(pages[i], terms, shortPrefixes);
         requireWire(pages.length === 1 || shard.documents.size > 0, 'empty corpus page');
-        for (const article of shard.documents.values()) {
-          requireWire(!ids.has(article.id), 'duplicate corpus article');
-          ids.add(article.id);
-          const score = shard.matches.get(article.id);
-          if (score !== undefined) matches.push({ article, score });
-        }
+        appendCorpusMatches(shard, ids, matches);
       }
-      matches.sort((a, b) => compareHits(
-        { score: a.score, publishedAt: a.article.createdAt, id: a.article.id },
-        { score: b.score, publishedAt: b.article.createdAt, id: b.article.id },
-        sort,
-      ));
-      const start = (page - 1) * size;
-      const encoded = encodeLocalSearchResult(matches.slice(start, start + size).map(hit => hit.article), matches.length);
+      const encoded = encodeCorpusMatches(matches, page, size, sort);
       signal?.throwIfAborted();
       if (cache) cache.corpus = cached.persisted;
       return { frame: encoded, generation: cached.persisted.generation };
@@ -1206,7 +1216,7 @@ async function runCorpusSearch(
     const first = await corpusRequest(signal, undefined, 1, takePrevious(1));
     const pendingPages: Uint8Array[] | undefined = cache ? [] : undefined;
     const ids = new Set<number>();
-    const matches: { article: SearchArticle; score: number }[] = [];
+    const matches: CorpusMatch[] = [];
     let totalBytes = 0;
     for (let i = 1; i <= first.pages; i++) {
       signal?.throwIfAborted();
@@ -1220,20 +1230,9 @@ async function runCorpusSearch(
       const shard = queryCorpusPage(loaded.bytes, terms, shortPrefixes);
       pendingPages?.push(loaded.bytes);
       requireWire(first.pages === 1 || shard.documents.size > 0, 'empty corpus page');
-      for (const article of shard.documents.values()) {
-        requireWire(!ids.has(article.id), 'duplicate corpus article');
-        ids.add(article.id);
-        const score = shard.matches.get(article.id);
-        if (score !== undefined) matches.push({ article, score });
-      }
+      appendCorpusMatches(shard, ids, matches);
     }
-    matches.sort((a, b) => compareHits(
-      { score: a.score, publishedAt: a.article.createdAt, id: a.article.id },
-      { score: b.score, publishedAt: b.article.createdAt, id: b.article.id },
-      sort,
-    ));
-    const start = (page - 1) * size;
-    const encoded = encodeLocalSearchResult(matches.slice(start, start + size).map(hit => hit.article), matches.length);
+    const encoded = encodeCorpusMatches(matches, page, size, sort);
     signal?.throwIfAborted();
     if (cache && pendingPages) {
       cache.corpus = { generation: first.generation, pages: pendingPages };
