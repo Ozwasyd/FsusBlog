@@ -4,7 +4,6 @@ using FsusBlog.V2.Core.Communication;
 
 namespace FsusBlogV2.Storage;
 
-/// <summary>Account inbox. Call account methods after verifying the current session in this transaction.</summary>
 internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction transaction, Guid accountId,
     bool fenceVisibleMessages = false)
 {
@@ -24,35 +23,26 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         if (cursor is { SnapshotMessageId: <= 0 } or { ConversationId: <= 0 }) throw Invalid("Invalid conversation cursor.");
         var selected = filter?.Trim().ToLowerInvariant() switch
         {
-            "unread" => "unread_count > 0",
-            "system" => "is_system",
-            "open" => "status = 0",
-            "pending" => "status = 1",
-            "closed" => "status = 2",
-            _ => "true"
+            "unread" => "unread_count > 0", "system" => "is_system", "open" => "status = 0",
+            "pending" => "status = 1", "closed" => "status = 2", _ => "true"
         };
-        await using var action = Command($"""
+        List<InboxSummary> rows = [];
+        long position = 0, snapshot = 0, total = 0;
+        await ReadAll($"""
             WITH position AS (
                 SELECT coalesce(nullif(@snapshot, 0), max(last_message_id), 0) AS snapshot
                 FROM public.inbox_conversation WHERE account_id = @account
             ), selected AS MATERIALIZED (
-                SELECT c.id, c.subject, c.status, c.is_system, {Unread} AS unread_count,
-                       m.id AS message_id, m.sent_at
-                FROM public.inbox_conversation c
-                CROSS JOIN position pos
+                SELECT c.id, c.subject, c.status, c.is_system, {Unread} AS unread_count, m.id AS message_id, m.sent_at
+                FROM public.inbox_conversation c CROSS JOIN position pos
                 JOIN LATERAL (
                     SELECT id, sent_at FROM public.inbox_message
-                    WHERE conversation_id = c.id AND id <= pos.snapshot AND NOT is_internal
-                    ORDER BY id DESC LIMIT 1
-                ) m ON true
-                WHERE c.account_id = @account
-            ), filtered AS MATERIALIZED (
-                SELECT * FROM selected WHERE {selected}
-            )
+                    WHERE conversation_id = c.id AND id <= pos.snapshot AND NOT is_internal ORDER BY id DESC LIMIT 1
+                ) m ON true WHERE c.account_id = @account
+            ), filtered AS MATERIALIZED (SELECT * FROM selected WHERE {selected})
             SELECT coalesce(h.last_sequence, 0), pos.snapshot, (SELECT count(*) FROM filtered),
                    p.id, p.subject, p.status, p.is_system, p.unread_count, {ConversationActivity}, p.sent_at, m.sender, m.body
-            FROM position pos
-            LEFT JOIN public.inbox_delivery h ON h.account_id = @account
+            FROM position pos LEFT JOIN public.inbox_delivery h ON h.account_id = @account
             LEFT JOIN LATERAL (
                 SELECT * FROM filtered WHERE @before_id = 0 OR (sent_at, id) < (@before_time, @before_id)
                 ORDER BY sent_at DESC, id DESC LIMIT @take
@@ -60,21 +50,15 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
             LEFT JOIN public.inbox_conversation c ON (c.account_id,c.id)=(@account,p.id)
             LEFT JOIN public.inbox_message m ON (m.conversation_id, m.id) = (p.id, p.message_id)
             ORDER BY p.sent_at DESC, p.id DESC
-            """, ("snapshot", cursor?.SnapshotMessageId ?? 0L), ("before_time", cursor?.LastMessageAt ?? DateTimeOffset.UnixEpoch),
-            ("before_id", cursor?.ConversationId ?? 0L), ("take", take));
-        await using var reader = await action.ExecuteReaderAsync(cancellationToken);
-        List<InboxSummary> rows = [];
-        long position = 0, snapshot = 0, total = 0;
-        while (await reader.ReadAsync(cancellationToken))
+            """, reader =>
         {
-            position = reader.GetInt64(0);
-            snapshot = reader.GetInt64(1);
-            total = reader.GetInt64(2);
-            if (reader.IsDBNull(3)) continue;
+            (position, snapshot, total) = (reader.GetInt64(0), reader.GetInt64(1), reader.GetInt64(2));
+            if (reader.IsDBNull(3)) return;
             rows.Add(new InboxSummary(reader.GetInt64(3), reader.GetString(4), (ConversationStatus)reader.GetInt16(5),
                 reader.GetBoolean(6), reader.GetInt64(7), reader.GetFieldValue<DateTimeOffset>(9), reader.GetFieldValue<DateTimeOffset>(8),
                 (InboxSender)reader.GetInt16(10), InboxRules.Preview(reader.GetString(11))));
-        }
+        }, cancellationToken, ("snapshot", cursor?.SnapshotMessageId ?? 0L), ("before_time", cursor?.LastMessageAt ?? DateTimeOffset.UnixEpoch),
+            ("before_id", cursor?.ConversationId ?? 0L), ("take", take));
         InboxCursor? next = TrimPage(rows, size) ? new(snapshot, rows[^1].LastMessageAt, rows[^1].Id) : null;
         return new InboxPage(rows, total, next, position);
     }
@@ -89,33 +73,24 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
     {
         var take = PageSize(size, 100);
         var direction = delta ? "ASC" : "DESC";
-        var comparator = delta ? ">" : "<";
         await using var action = Command($"""
             SELECT c.subject, c.status, c.is_system, c.read_through, {Unread}, c.last_message_at, m.id, m.sender, m.body, m.sent_at
             FROM public.inbox_conversation c
             LEFT JOIN LATERAL (
                 SELECT id, sender, body, sent_at FROM public.inbox_message
-                WHERE conversation_id = c.id AND (@cursor = 0 OR id {comparator} @cursor) AND NOT is_internal
+                WHERE conversation_id = c.id AND (@cursor = 0 OR id {(delta ? ">" : "<")} @cursor) AND NOT is_internal
                 ORDER BY id {direction} LIMIT @take
-            ) m ON true
-            WHERE c.id = @id AND c.account_id = @account
-            ORDER BY m.id {direction}
+            ) m ON true WHERE c.id = @id AND c.account_id = @account ORDER BY m.id {direction}
             """, ("id", Positive(conversationId)), ("cursor", cursor is long position ? Positive(position) : 0L), ("take", take));
         await using var reader = await action.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken)) return null;
-
-        var subject = reader.GetString(0);
-        var status = (ConversationStatus)reader.GetInt16(1);
-        var system = reader.GetBoolean(2);
-        var readThrough = reader.IsDBNull(3) ? (long?)null : reader.GetInt64(3);
-        var unread = reader.GetInt64(4);
-        var lastMessageAt = reader.GetFieldValue<DateTimeOffset>(5);
+        var (subject, status, system, readThrough, unread, lastMessageAt) = (reader.GetString(0), (ConversationStatus)reader.GetInt16(1),
+            reader.GetBoolean(2), reader.IsDBNull(3) ? (long?)null : reader.GetInt64(3), reader.GetInt64(4), reader.GetFieldValue<DateTimeOffset>(5));
         List<InboxMessage> messages = [];
         do
         {
-            if (reader.IsDBNull(6)) continue;
-            messages.Add(new InboxMessage(reader.GetInt64(6), conversationId, (InboxSender)reader.GetInt16(7),
-                reader.GetString(8), reader.GetFieldValue<DateTimeOffset>(9)));
+            if (!reader.IsDBNull(6))
+                messages.Add(new InboxMessage(reader.GetInt64(6), conversationId, (InboxSender)reader.GetInt16(7), reader.GetString(8), reader.GetFieldValue<DateTimeOffset>(9)));
         } while (await reader.ReadAsync(cancellationToken));
 
         if (messages.Count == 0)
@@ -143,8 +118,7 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
 
     private async Task RequireNoticeRecipient(CancellationToken ct)
     {
-        await using var recipient = Command("SELECT id FROM public.blog_user WHERE id = @account AND enabled FOR SHARE");
-        if (await recipient.ExecuteScalarAsync(ct) is null)
+        if (await Scalar("SELECT id FROM public.blog_user WHERE id = @account AND enabled FOR SHARE", ct) is null)
             throw new BusinessException(Rejection.NotFound, "Inbox account not found.");
     }
 
@@ -155,9 +129,7 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         body = InboxRules.Body(body);
         var fingerprint = InboxRules.Fingerprint("create", 0, 0, subject, body);
         await LockDeliveryAsync(cancellationToken);
-        var replay = await FindCommandAsync(commandId, system, fingerprint, cancellationToken);
-        if (replay is not null) return replay;
-
+        if (await FindCommandAsync(commandId, system, fingerprint, cancellationToken) is { } replay) return replay;
         var message = await StartConversation(subject, body, sender, cancellationToken);
         await RecordCommandAsync(commandId, system, fingerprint, message, cancellationToken);
         return new InboxMutation(message, Replayed: false);
@@ -166,17 +138,14 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
     private async Task<InboxMessage> StartConversation(string subject, string body, InboxSender sender, CancellationToken cancellationToken)
     {
         var system = sender == InboxSender.System;
-        await using var insert = Command("""
+        var conversationId = (long)(await Scalar("""
             INSERT INTO public.inbox_conversation (account_id, subject, status, is_system, last_message_at)
             VALUES (@account, @subject, 0, @system, clock_timestamp()) RETURNING id
-            """, ("subject", subject), ("system", system));
-        var conversationId = (long)(await insert.ExecuteScalarAsync(cancellationToken))!;
+            """, cancellationToken, ("subject", subject), ("system", system)))!;
         var message = await AppendAsync(conversationId, sender, body, cancellationToken);
-        if (!system)
-            await SetReadAsync(conversationId, message.Id, cancellationToken);
+        if (!system) await SetReadAsync(conversationId, message.Id, cancellationToken);
         await RecordEventAsync(InboxEventKind.ConversationUpsert, message.ConversationId, message.Id, cancellationToken);
-        if (system)
-            await RecordEventAsync(InboxEventKind.MessageAppend, message.ConversationId, message.Id, cancellationToken);
+        if (system) await RecordEventAsync(InboxEventKind.MessageAppend, message.ConversationId, message.Id, cancellationToken);
         return message;
     }
 
@@ -188,17 +157,13 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         body = InboxRules.Body(body);
         var fingerprint = InboxRules.Fingerprint("reply", conversationId, readThrough, "", body);
         await LockDeliveryAsync(cancellationToken);
-        var replay = await FindCommandAsync(commandId, false, fingerprint, cancellationToken);
-        if (replay is not null) return replay;
-
+        if (await FindCommandAsync(commandId, false, fingerprint, cancellationToken) is { } replay) return replay;
         var (status, currentRead) = await ReadConversationAsync(conversationId, cancellationToken);
-        if (status == ConversationStatus.Closed)
-            throw new BusinessException(Rejection.Conflict, "The conversation is closed.");
+        if (status == ConversationStatus.Closed) throw new BusinessException(Rejection.Conflict, "The conversation is closed.");
         var changed = await AdvanceAsync(conversationId, readThrough, currentRead, cancellationToken);
         var message = await AppendAsync(conversationId, InboxSender.Account, body, cancellationToken);
         await RecordCommandAsync(commandId, false, fingerprint, message, cancellationToken);
-        if (changed)
-            await RecordEventAsync(InboxEventKind.ReadUpdated, conversationId, readThrough, cancellationToken);
+        if (changed) await RecordEventAsync(InboxEventKind.ReadUpdated, conversationId, readThrough, cancellationToken);
         await RecordEventAsync(InboxEventKind.MessageAppend, conversationId, message.Id, cancellationToken);
         await RecordEventAsync(InboxEventKind.ConversationUpsert, conversationId, message.Id, cancellationToken);
         return new InboxMutation(message, Replayed: false);
@@ -208,11 +173,9 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
     {
         Positive(conversationId);
         Positive(readThrough);
-        var fingerprint = InboxRules.Fingerprint("reply", conversationId, readThrough, "", InboxRules.Body(body));
-        if (await FindCommandAsync(commandId, false, fingerprint, token) is not null) return;
+        if (await FindCommandAsync(commandId, false, InboxRules.Fingerprint("reply", conversationId, readThrough, "", InboxRules.Body(body)), token) is not null) return;
         var (status, current) = await ReadConversationAsync(conversationId, token);
-        if (status == ConversationStatus.Closed)
-            throw new BusinessException(Rejection.Conflict, "The conversation is closed.");
+        if (status == ConversationStatus.Closed) throw new BusinessException(Rejection.Conflict, "The conversation is closed.");
         await CheckReadTarget(conversationId, readThrough, current, token);
     }
 
@@ -220,8 +183,7 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
     {
         await LockDeliveryAsync(ct);
         var (status, _) = await ReadConversationAsync(conversationId, ct);
-        if (status == ConversationStatus.Closed)
-            throw new BusinessException(Rejection.Conflict, "The conversation is closed.");
+        if (status == ConversationStatus.Closed) throw new BusinessException(Rejection.Conflict, "The conversation is closed.");
         var message = await AppendAsync(conversationId, InboxSender.Administrator, InboxRules.Body(body), ct);
         await RecordEventAsync(InboxEventKind.ConversationUpsert, conversationId, message.Id, ct);
         await RecordEventAsync(InboxEventKind.MessageAppend, conversationId, message.Id, ct);
@@ -232,28 +194,19 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         string expected, ConversationStatus target, CancellationToken ct)
     {
         await LockDeliveryAsync(ct);
-        await using var query = Command("""
+        var (before, xmin, message) = await QueryRequired("""
             SELECT c.status,c.xmin::text,
                 (SELECT m.id FROM public.inbox_message m WHERE m.conversation_id=c.id AND NOT m.is_internal ORDER BY m.id DESC LIMIT 1)
             FROM public.inbox_conversation c WHERE c.id=@id AND c.account_id=@account FOR UPDATE OF c
-            """, ("id", conversationId));
-        ConversationStatus before;
-        long message;
-        await using (var row = await query.ExecuteReaderAsync(ct))
-        {
-            await row.ReadRequired(ct, () => new BusinessException(Rejection.NotFound, "Conversation not found."));
-            before = (ConversationStatus)row.GetInt16(0);
-            if (before == target) return (before, false);
-            if (row.GetString(1) != expected) throw new BusinessException(Rejection.Conflict, "The conversation changed. Reload it.");
-            if (before == ConversationStatus.Closed && target != ConversationStatus.Open)
-                throw new BusinessException(Rejection.Conflict, "This conversation status transition is not allowed.");
-            if (row.IsDBNull(2)) throw new BusinessException(Rejection.NotFound, "Conversation not found.");
-            message = row.GetInt64(2);
-        }
-        await using var change = Command("UPDATE public.inbox_conversation SET status=@status WHERE id=@id AND account_id=@account",
-            ("status", (short)target), ("id", conversationId));
-        await change.ExecuteNonQueryAsync(ct);
-        await RecordEventAsync(InboxEventKind.ConversationUpsert, conversationId, message, ct);
+            """, row => ((ConversationStatus)row.GetInt16(0), row.GetString(1), row.IsDBNull(2) ? (long?)null : row.GetInt64(2)),
+            static () => new BusinessException(Rejection.NotFound, "Conversation not found."), ct, ("id", conversationId));
+        if (before == target) return (before, false);
+        if (xmin != expected) throw new BusinessException(Rejection.Conflict, "The conversation changed. Reload it.");
+        if (before == ConversationStatus.Closed && target != ConversationStatus.Open)
+            throw new BusinessException(Rejection.Conflict, "This conversation status transition is not allowed.");
+        if (message is not { } msgId) throw new BusinessException(Rejection.NotFound, "Conversation not found.");
+        await Exec("UPDATE public.inbox_conversation SET status=@status WHERE id=@id AND account_id=@account", ct, ("status", (short)target), ("id", conversationId));
+        await RecordEventAsync(InboxEventKind.ConversationUpsert, conversationId, msgId, ct);
         return (before, true);
     }
 
@@ -265,76 +218,56 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         var (_, currentRead) = await ReadConversationAsync(conversationId, cancellationToken);
         if (await AdvanceAsync(conversationId, readThrough, currentRead, cancellationToken))
             await RecordEventAsync(InboxEventKind.ReadUpdated, conversationId, readThrough, cancellationToken);
-        await using var count = Command($"""
-            SELECT {Unread} FROM public.inbox_conversation c WHERE c.account_id = @account AND c.id = @id
-            """, ("id", conversationId));
-        return new InboxReadState(readThrough, (long)(await count.ExecuteScalarAsync(cancellationToken))!);
+        return new InboxReadState(readThrough, (long)(await Scalar(
+            $"SELECT {Unread} FROM public.inbox_conversation c WHERE c.account_id = @account AND c.id = @id", cancellationToken, ("id", conversationId)))!);
     }
 
-    internal async Task<long> ReplayPositionAsync(CancellationToken ct)
-    {
-        await using var read = Command("select coalesce((select last_sequence from public.inbox_delivery where account_id=@account),0)");
-        return (long)(await read.ExecuteScalarAsync(ct))!;
-    }
+    internal async Task<long> ReplayPositionAsync(CancellationToken ct) =>
+        (long)(await Scalar("select coalesce((select last_sequence from public.inbox_delivery where account_id=@account),0)", ct))!;
 
     public async Task<InboxReplay> ReplayAsync(long after, int size, CancellationToken cancellationToken)
     {
         if (after < 0) throw Invalid("Invalid notification position.");
         var take = PageSize(size, 512);
-        await using var action = Command("""
+        List<InboxEvent> events = [];
+        long next = after, head = 0;
+        var gap = false;
+        await ReadAll("""
             SELECT coalesce(h.last_sequence, 0), e.sequence, e.kind, e.conversation_id, e.message_id, e.occurred_at
             FROM (VALUES (@account)) AS recipient(id)
             LEFT JOIN public.inbox_delivery h ON h.account_id = recipient.id
             LEFT JOIN LATERAL (
                 SELECT e.sequence, e.kind, e.conversation_id, e.message_id, e.occurred_at
-                FROM public.inbox_event e
-                JOIN public.inbox_message m ON (m.conversation_id, m.id) = (e.conversation_id, e.message_id)
-                WHERE e.account_id = recipient.id AND e.sequence > @after AND NOT m.is_internal
-                ORDER BY e.sequence LIMIT @take
-            ) e ON true
-            ORDER BY e.sequence
-            """, ("after", after), ("take", take));
-        await using var reader = await action.ExecuteReaderAsync(cancellationToken);
-        List<InboxEvent> events = [];
-        var next = after;
-        var head = 0L;
-        while (await reader.ReadAsync(cancellationToken))
+                FROM public.inbox_event e JOIN public.inbox_message m ON (m.conversation_id, m.id) = (e.conversation_id, e.message_id)
+                WHERE e.account_id = recipient.id AND e.sequence > @after AND NOT m.is_internal ORDER BY e.sequence LIMIT @take
+            ) e ON true ORDER BY e.sequence
+            """, reader =>
         {
+            if (gap) return;
             head = reader.GetInt64(0);
-            if (reader.IsDBNull(1)) continue;
+            if (reader.IsDBNull(1)) return;
             var sequence = reader.GetInt64(1);
-            if (sequence - 1 != next) return new InboxReplay(head, false, true, []);
-            events.Add(new InboxEvent(sequence, (InboxEventKind)reader.GetInt16(2), reader.GetInt64(3),
-                reader.GetInt64(4), reader.GetFieldValue<DateTimeOffset>(5)));
+            if (sequence - 1 != next) { gap = true; return; }
+            events.Add(new InboxEvent(sequence, (InboxEventKind)reader.GetInt16(2), reader.GetInt64(3), reader.GetInt64(4), reader.GetFieldValue<DateTimeOffset>(5)));
             next = sequence;
-        }
+        }, cancellationToken, ("after", after), ("take", take));
+        if (gap) return new InboxReplay(head, false, true, []);
         var more = TrimPage(events, size);
-        if (next > head || (next < head && !more)) return new InboxReplay(head, false, true, []);
-        return new InboxReplay(events.Count > 0 ? events[^1].Sequence : after, more, false, events);
+        return next > head || (next < head && !more)
+            ? new InboxReplay(head, false, true, [])
+            : new InboxReplay(events.Count > 0 ? events[^1].Sequence : after, more, false, events);
     }
 
     private async Task LockDeliveryAsync(CancellationToken cancellationToken)
     {
-        await using var prepare = Command("""
-            INSERT INTO public.inbox_delivery (account_id, last_sequence) VALUES (@account, 0)
-            ON CONFLICT (account_id) DO NOTHING
-            """);
-        await prepare.ExecuteNonQueryAsync(cancellationToken);
-        await using var take = Command("SELECT last_sequence FROM public.inbox_delivery WHERE account_id = @account FOR UPDATE");
-        await take.ExecuteScalarAsync(cancellationToken);
+        await Exec("INSERT INTO public.inbox_delivery (account_id, last_sequence) VALUES (@account, 0) ON CONFLICT (account_id) DO NOTHING", cancellationToken);
+        await Scalar("SELECT last_sequence FROM public.inbox_delivery WHERE account_id = @account FOR UPDATE", cancellationToken);
     }
 
-    private async Task<(ConversationStatus Status, long? ReadThrough)> ReadConversationAsync(long conversationId, CancellationToken cancellationToken)
-    {
-        await using var query = Command("""
-            SELECT status, read_through FROM public.inbox_conversation
-            WHERE account_id = @account AND id = @id FOR UPDATE
-            """, ("id", conversationId));
-        await using var reader = await query.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
-            throw new BusinessException(Rejection.NotFound, "Conversation not found.");
-        return ((ConversationStatus)reader.GetInt16(0), reader.IsDBNull(1) ? null : reader.GetInt64(1));
-    }
+    private Task<(ConversationStatus Status, long? ReadThrough)> ReadConversationAsync(long conversationId, CancellationToken cancellationToken) =>
+        QueryRequired("SELECT status, read_through FROM public.inbox_conversation WHERE account_id = @account AND id = @id FOR UPDATE",
+            reader => ((ConversationStatus)reader.GetInt16(0), reader.IsDBNull(1) ? (long?)null : reader.GetInt64(1)),
+            static () => new BusinessException(Rejection.NotFound, "Conversation not found."), cancellationToken, ("id", conversationId));
 
     private async Task<bool> AdvanceAsync(long conversationId, long requested, long? current, CancellationToken cancellationToken)
     {
@@ -347,50 +280,38 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
     private async Task CheckReadTarget(long conversationId, long requested, long? current, CancellationToken cancellationToken)
     {
         if (current > requested) throw new BusinessException(Rejection.Conflict, "The read position is already newer.");
-        await using var target = Command("""
+        if (await Scalar("""
             SELECT 1 FROM public.inbox_message m JOIN public.inbox_conversation c ON c.id = m.conversation_id
             WHERE c.account_id = @account AND c.id = @id AND m.id = @requested AND NOT m.is_internal
-            """, ("id", conversationId), ("requested", requested));
-        if (await target.ExecuteScalarAsync(cancellationToken) is null)
+            """, cancellationToken, ("id", conversationId), ("requested", requested)) is null)
             throw Invalid("The read position does not refer to a visible message in this conversation.");
     }
 
-    private async Task SetReadAsync(long conversationId, long readThrough, CancellationToken cancellationToken)
-    {
-        await using var update = Command("""
-            UPDATE public.inbox_conversation SET read_through = @message
-            WHERE account_id = @account AND id = @id
-            """, ("id", conversationId), ("message", readThrough));
-        await update.ExecuteNonQueryAsync(cancellationToken);
-    }
+    private Task SetReadAsync(long conversationId, long readThrough, CancellationToken cancellationToken) =>
+        Exec("UPDATE public.inbox_conversation SET read_through = @message WHERE account_id = @account AND id = @id",
+            cancellationToken, ("id", conversationId), ("message", readThrough));
 
     private async Task<InboxMessage> AppendAsync(long conversationId, InboxSender sender, string body, CancellationToken cancellationToken)
     {
-        if (fenceVisibleMessages)
-            await InboxActivityFence.TakeAsync(connection, transaction, shared: true, cancellationToken);
-        await using var append = Command("""
+        if (fenceVisibleMessages) await InboxActivityFence.TakeAsync(connection, transaction, shared: true, cancellationToken);
+        return await QueryRequired("""
             WITH added AS (
                 INSERT INTO public.inbox_message (conversation_id, sender, is_internal, body, sent_at)
                 SELECT id, @sender, false, @body, clock_timestamp() FROM public.inbox_conversation
-                WHERE account_id = @account AND id = @id
-                RETURNING id, sent_at
+                WHERE account_id = @account AND id = @id RETURNING id, sent_at
             )
             UPDATE public.inbox_conversation c SET last_message_id = added.id, last_message_at = added.sent_at
-            FROM added WHERE c.account_id = @account AND c.id = @id
-            RETURNING added.id, added.sent_at
-            """, ("id", conversationId), ("sender", (short)sender), ("body", body));
-        await using var reader = await append.ExecuteReaderAsync(cancellationToken);
-        if (!await reader.ReadAsync(cancellationToken))
-            throw new BusinessException(Rejection.NotFound, "Conversation not found.");
-        return new InboxMessage(reader.GetInt64(0), conversationId, sender, body, reader.GetFieldValue<DateTimeOffset>(1));
+            FROM added WHERE c.account_id = @account AND c.id = @id RETURNING added.id, added.sent_at
+            """, reader => new InboxMessage(reader.GetInt64(0), conversationId, sender, body, reader.GetFieldValue<DateTimeOffset>(1)),
+            static () => new BusinessException(Rejection.NotFound, "Conversation not found."),
+            cancellationToken, ("id", conversationId), ("sender", (short)sender), ("body", body));
     }
 
     private async Task<InboxMutation?> FindCommandAsync(string key, bool service, byte[] fingerprint, CancellationToken cancellationToken)
     {
         await using var existing = Command("""
             SELECT c.fingerprint, m.id, m.conversation_id, m.sender, m.body, m.sent_at
-            FROM public.inbox_command c
-            JOIN public.inbox_message m ON (m.conversation_id, m.id) = (c.conversation_id, c.message_id)
+            FROM public.inbox_command c JOIN public.inbox_message m ON (m.conversation_id, m.id) = (c.conversation_id, c.message_id)
             WHERE c.account_id = @account AND c.command_id = @key AND c.is_service = @service AND NOT m.is_internal
             """, ("key", key), ("service", service));
         await using var reader = await existing.ExecuteReaderAsync(cancellationToken);
@@ -401,29 +322,49 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
             reader.GetString(4), reader.GetFieldValue<DateTimeOffset>(5)), Replayed: true);
     }
 
-    private async Task RecordCommandAsync(string key, bool service, byte[] fingerprint, InboxMessage message, CancellationToken cancellationToken)
-    {
-        await using var record = Command("""
+    private Task RecordCommandAsync(string key, bool service, byte[] fingerprint, InboxMessage message, CancellationToken cancellationToken) =>
+        Exec("""
             INSERT INTO public.inbox_command (account_id, is_service, command_id, fingerprint, conversation_id, message_id)
             VALUES (@account, @service, @key, @fingerprint, @conversation, @message)
-            """, ("key", key), ("service", service), ("fingerprint", fingerprint), ("conversation", message.ConversationId), ("message", message.Id));
-        await record.ExecuteNonQueryAsync(cancellationToken);
-    }
+            """, cancellationToken, ("key", key), ("service", service), ("fingerprint", fingerprint), ("conversation", message.ConversationId), ("message", message.Id));
 
-    private async Task RecordEventAsync(InboxEventKind kind, long conversationId, long messageId, CancellationToken cancellationToken)
-    {
-        await using var record = Command("""
+    private Task RecordEventAsync(InboxEventKind kind, long conversationId, long messageId, CancellationToken cancellationToken) =>
+        Exec("""
             WITH head AS (
-                UPDATE public.inbox_delivery SET last_sequence = last_sequence + 1
-                WHERE account_id = @account RETURNING last_sequence
+                UPDATE public.inbox_delivery SET last_sequence = last_sequence + 1 WHERE account_id = @account RETURNING last_sequence
             ), written AS (
                 INSERT INTO public.inbox_event (account_id, sequence, kind, conversation_id, message_id, occurred_at)
-                SELECT @account, last_sequence, @kind, @conversation, @message, clock_timestamp() FROM head
-                RETURNING 1
+                SELECT @account, last_sequence, @kind, @conversation, @message, clock_timestamp() FROM head RETURNING 1
             )
             SELECT pg_catalog.pg_notify('fsus_v2_inbox', '') FROM written
-            """, ("kind", (short)kind), ("conversation", conversationId), ("message", messageId));
-        await record.ExecuteNonQueryAsync(cancellationToken);
+            """, cancellationToken, ("kind", (short)kind), ("conversation", conversationId), ("message", messageId));
+
+    private async Task Exec(string sql, CancellationToken ct, params (string Name, object Value)[] parameters)
+    {
+        await using var command = Command(sql, parameters);
+        await command.ExecuteNonQueryAsync(ct);
+    }
+
+    private async Task<object?> Scalar(string sql, CancellationToken ct, params (string Name, object Value)[] parameters)
+    {
+        await using var command = Command(sql, parameters);
+        return await command.ExecuteScalarAsync(ct);
+    }
+
+    private async Task<T> QueryRequired<T>(string sql, Func<NpgsqlDataReader, T> read, Func<Exception> missing, CancellationToken ct,
+        params (string Name, object Value)[] parameters)
+    {
+        await using var command = Command(sql, parameters);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct)) throw missing();
+        return read(reader);
+    }
+
+    private async Task ReadAll(string sql, Action<NpgsqlDataReader> read, CancellationToken ct, params (string Name, object Value)[] parameters)
+    {
+        await using var command = Command(sql, parameters);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct)) read(reader);
     }
 
     private NpgsqlCommand Command(string sql, params (string Name, object Value)[] parameters)
@@ -443,5 +384,28 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         if (page.Count <= size) return false;
         page.RemoveAt(size);
         return true;
+    }
+}
+
+internal static class InboxActivityFence
+{
+    internal const string Setting = "FSUSBLOG_ADMIN_INBOX_ACTIVITY_ORDER";
+    private const int LockClass = 1179866434;
+    private const int LockObject = 2;
+
+    internal static async Task<long> SnapshotAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    {
+        await TakeAsync(db, tx, shared: false, ct);
+        await using var query = new NpgsqlCommand("SELECT coalesce(max(id),0) FROM public.inbox_message WHERE NOT is_internal", db, tx) { CommandTimeout = 2 };
+        return (long)(await query.ExecuteScalarAsync(ct))!;
+    }
+
+    internal static async Task TakeAsync(NpgsqlConnection db, NpgsqlTransaction tx, bool shared, CancellationToken ct)
+    {
+        await using var fence = new NpgsqlCommand(shared ? "SELECT pg_catalog.pg_advisory_xact_lock_shared($1,$2)"
+            : "SELECT pg_catalog.pg_advisory_xact_lock($1,$2)", db, tx) { CommandTimeout = 2 };
+        fence.Parameters.AddWithValue(LockClass);
+        fence.Parameters.AddWithValue(LockObject);
+        await fence.ExecuteNonQueryAsync(ct);
     }
 }

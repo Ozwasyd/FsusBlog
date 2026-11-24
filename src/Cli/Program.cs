@@ -308,19 +308,12 @@ internal static partial class Cli
     {
         await ExecuteAsync(connection, tx, "SET LOCAL search_path TO pg_catalog", ct);
         await ExecuteAsync(connection, tx, BootstrapLock, ct);
-        await using (var acquire = new NpgsqlCommand($"select pg_try_advisory_xact_lock({PublicationLocks.Ownership})", connection, tx))
-            if (await acquire.ExecuteScalarAsync(ct) is not true)
-                throw new InvalidOperationException("Stop the serving process before changing the database schema.");
-        await using (var handoff = new NpgsqlCommand("select pg_catalog.pg_advisory_xact_lock($1,$2)", connection, tx))
-        {
-            handoff.Parameters.AddWithValue(PublicationLocks.HandoffClass);
-            handoff.Parameters.AddWithValue(PublicationLocks.HandoffObject);
-            await handoff.ExecuteNonQueryAsync(ct);
-        }
-
-        await using var marker = new NpgsqlCommand("select version from public.v2_schema", connection, tx);
-        await using var reader = await marker.ExecuteReaderAsync(ct);
-        if (!await reader.ReadAsync(ct) || reader.GetInt32(0) != CurrentSchema.Version || await reader.ReadAsync(ct))
+        if (await ScalarAsync(connection, tx, $"select pg_try_advisory_xact_lock({PublicationLocks.Ownership})", ct) is not true)
+            throw new InvalidOperationException("Stop the serving process before changing the database schema.");
+        await ExecuteAsync(connection, tx, "select pg_catalog.pg_advisory_xact_lock($1,$2)", ct,
+            PublicationLocks.HandoffClass, PublicationLocks.HandoffObject);
+        var versions = await QueryListAsync(connection, tx, "select version from public.v2_schema", r => r.GetInt32(0), ct);
+        if (versions.Count != 1 || versions[0] != CurrentSchema.Version)
             throw new InvalidOperationException("The database is not on the expected v2 schema revision.");
     }
 
@@ -333,13 +326,8 @@ internal static partial class Cli
         if (create)
         {
             userId = Guid.NewGuid();
-            await using var insertUser = new NpgsqlCommand("""
-                INSERT INTO public.blog_user (id, name, enabled, generation)
-                VALUES ($1, $2, true, 1)
-                """, connection, transaction);
-            insertUser.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = userId });
-            insertUser.Parameters.Add(new NpgsqlParameter<string> { TypedValue = name });
-            await insertUser.ExecuteNonQueryAsync(token);
+            await ExecuteAsync(connection, transaction,
+                "INSERT INTO public.blog_user (id, name, enabled, generation) VALUES ($1, $2, true, 1)", token, userId, name);
         }
         else
         {
@@ -348,23 +336,17 @@ internal static partial class Cli
                 throw new InvalidOperationException("This account must use its Recovery Key.");
         }
 
-        await using var ticket = new NpgsqlCommand("""
-            INSERT INTO public.login_ticket (digest, user_id, expires_at)
-            VALUES ($1, $2, pg_catalog.clock_timestamp() + interval '10 minutes')
-            """, connection, transaction);
         var secret = RandomNumberGenerator.GetBytes(32);
         try
         {
-            ticket.Parameters.Add(new NpgsqlParameter<byte[]> { TypedValue = SHA256.HashData(secret) });
-            ticket.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = userId });
-            await ticket.ExecuteNonQueryAsync(token);
+            await ExecuteAsync(connection, transaction, """
+                INSERT INTO public.login_ticket (digest, user_id, expires_at)
+                VALUES ($1, $2, pg_catalog.clock_timestamp() + interval '10 minutes')
+                """, token, SHA256.HashData(secret), userId);
             await transaction.CommitAsync(token);
             Console.WriteLine(Convert.ToHexStringLower(secret));
         }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(secret);
-        }
+        finally { CryptographicOperations.ZeroMemory(secret); }
     }
 
     private static async Task RevokeAsync(NpgsqlConnection connection, string name, CancellationToken token)
@@ -373,36 +355,17 @@ internal static partial class Cli
         await CurrentSchema.VerifyAsync(connection, token);
         await using var transaction = await connection.BeginTransactionAsync(token);
         var userId = await FindUserAsync(connection, transaction, name, requireEnabled: false, token);
-        await using var revoke = new NpgsqlBatch(connection, transaction);
-        foreach (var statement in new[]
-        {
-            "UPDATE public.blog_user SET generation = generation + 1 WHERE id = $1",
-            "DELETE FROM public.login_ticket WHERE user_id = $1",
-            "DELETE FROM public.user_session WHERE user_id = $1"
-        })
-        {
-            var command = new NpgsqlBatchCommand(statement);
-            command.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = userId });
-            revoke.BatchCommands.Add(command);
-        }
-
-        await revoke.ExecuteNonQueryAsync(token);
+        await ExecuteAsync(connection, transaction, "UPDATE public.blog_user SET generation = generation + 1 WHERE id = $1", token, userId);
+        await ExecuteAsync(connection, transaction, "DELETE FROM public.login_ticket WHERE user_id = $1", token, userId);
+        await ExecuteAsync(connection, transaction, "DELETE FROM public.user_session WHERE user_id = $1", token, userId);
         await transaction.CommitAsync(token);
         Console.WriteLine("Revoked sessions and unused login tickets.");
     }
 
     private static async Task<Guid> FindUserAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        string name, bool requireEnabled, CancellationToken token)
-    {
-        await using var find = new NpgsqlCommand("""
-            SELECT id FROM public.blog_user WHERE name = $1 AND (NOT $2 OR enabled) FOR UPDATE
-            """, connection, transaction);
-        find.Parameters.Add(new NpgsqlParameter<string> { TypedValue = name });
-        find.Parameters.Add(new NpgsqlParameter<bool> { TypedValue = requireEnabled });
-        return await find.ExecuteScalarAsync(token) is Guid id
-            ? id
-            : throw new InvalidOperationException("No matching user can perform this operation.");
-    }
+        string name, bool requireEnabled, CancellationToken token) =>
+        await ScalarAsync(connection, transaction, "SELECT id FROM public.blog_user WHERE name = $1 AND (NOT $2 OR enabled) FOR UPDATE",
+            token, name, requireEnabled) is Guid id ? id : throw new InvalidOperationException("No matching user can perform this operation.");
 
     private static void CheckName(string name)
     {
@@ -418,57 +381,30 @@ internal static partial class Cli
             await ExecuteAsync(connection, transaction, "SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", token);
             return transaction;
         }
-        catch
-        {
-            await transaction.DisposeAsync();
-            throw;
-        }
+        catch { await transaction.DisposeAsync(); throw; }
     }
 
-    private static async Task<DatabaseTarget> ReadTargetAsync(NpgsqlConnection connection,
-        NpgsqlTransaction transaction, CancellationToken token)
-    {
-        await using var command = new NpgsqlCommand("""
+    private static Task<DatabaseTarget> ReadTargetAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken token) =>
+        QueryRequiredAsync(connection, transaction, """
             SELECT oid::bigint, datname, pg_catalog.pg_postmaster_start_time()
-            FROM pg_catalog.pg_database
-            WHERE datname = pg_catalog.current_database()
-            """, connection, transaction);
-        await using var reader = await command.ExecuteReaderAsync(token);
-        if (!await reader.ReadAsync(token))
-            throw new InvalidOperationException("Could not identify the target database.");
+            FROM pg_catalog.pg_database WHERE datname = pg_catalog.current_database()
+            """, reader => new DatabaseTarget(connection.Host ?? "", connection.Port, reader.GetInt64(0), reader.GetString(1), reader.GetFieldValue<DateTime>(2)),
+            static () => new InvalidOperationException("Could not identify the target database."), token);
 
-        return new DatabaseTarget(connection.Host ?? "", connection.Port, reader.GetInt64(0), reader.GetString(1),
-            reader.GetFieldValue<DateTime>(2));
-    }
-
-    private static async Task RequireEmptyAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        CancellationToken token)
+    private static async Task RequireEmptyAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken token)
     {
         if ((await RelationsAsync(connection, transaction, token)).Count != 0)
             throw new InvalidOperationException("Fresh schema creation requires an empty database. Inspect with inventory.");
     }
 
-    private static async Task<List<Relation>> RelationsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        CancellationToken token)
-    {
-        await using var command = new NpgsqlCommand("""
+    private static Task<List<Relation>> RelationsAsync(NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken token) =>
+        QueryListAsync(connection, transaction, """
             SELECT n.nspname, c.relname, c.relkind::text
             FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
             WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
-              AND n.nspname !~ '^pg_(toast|temp)'
-              AND c.relkind NOT IN ('i', 'I')
+              AND n.nspname !~ '^pg_(toast|temp)' AND c.relkind NOT IN ('i', 'I')
             ORDER BY n.nspname, c.relname
-            """, connection, transaction);
-        return await ReadInventoryRows(command,
-            static reader => new Relation(reader.GetString(0), reader.GetString(1), reader.GetString(2)), token);
-    }
-
-    private static async Task ExecuteAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
-        string sql, CancellationToken token)
-    {
-        await using var command = new NpgsqlCommand(sql, connection, transaction);
-        await command.ExecuteNonQueryAsync(token);
-    }
+            """, static reader => new Relation(reader.GetString(0), reader.GetString(1), reader.GetString(2)), token);
 
     private static async Task<string> SchemaSqlAsync(CancellationToken token)
     {
