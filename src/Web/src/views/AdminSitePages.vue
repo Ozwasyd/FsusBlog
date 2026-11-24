@@ -182,7 +182,7 @@ onMounted(() => { void readOverview(false) })
                 }"
                 @click="toggleEditor(page.slug)"
               >
-                {{ editor === page.slug ? t('admin.sitePages.close') : page.configured ? t('admin.sitePages.edit') : t('admin.sitePages.create') }}
+                {{ editor === page.slug ? t('admin.sitePages.close') : page.configured ? t('admin.inventory.edit') : t('admin.sitePages.create') }}
               </ElButton>
             </template>
             <template v-else-if="page.configured">

@@ -261,7 +261,7 @@ onBeforeUnmount(() => {
             clearable
             v-bind="{ maxlength: WireLimits.AdminReaderKeywordChars, autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false', enterkeyhint: 'search' }"
           />
-          <ElButton native-type="submit" :disabled="submitting" :loading="searchLoading">{{ t('admin.readers.search') }}</ElButton>
+          <ElButton native-type="submit" :disabled="submitting" :loading="searchLoading">{{ t('page.search') }}</ElButton>
         </form>
       </div>
       <div class="readers-filter-row">
@@ -274,7 +274,7 @@ onBeforeUnmount(() => {
           @update:model-value="selectStatus"
         >
           <ElRadioButton value="all">
-            {{ page ? t('admin.readers.filterAllCount', { count: page.enabledTotal + page.disabledTotal }) : t('admin.readers.filterAll') }}
+            {{ page ? t('admin.readers.filterAllCount', { count: page.enabledTotal + page.disabledTotal }) : t('account.message129') }}
           </ElRadioButton>
           <ElRadioButton value="enabled">
             {{ page ? t('admin.readers.filterEnabledCount', { count: page.enabledTotal }) : t('admin.readers.filterEnabled') }}
@@ -288,7 +288,7 @@ onBeforeUnmount(() => {
             {{ t('admin.readers.resetFilters') }}
           </ElButton>
           <ElButton text :loading="refreshLoading" :disabled="submitting" @click="load(false, 'refresh')">
-            {{ t('admin.readers.refresh') }}
+            {{ t('account.inboxRefresh') }}
           </ElButton>
         </ElInlineActions>
       </div>
@@ -314,7 +314,7 @@ onBeforeUnmount(() => {
           <template #meta>
             <div class="readers-item-tags">
               <ElTag size="small" :type="item.enabled ? 'success' : 'danger'">
-                {{ t(item.enabled ? 'admin.readers.statusEnabled' : 'admin.readers.statusDisabled') }}
+                {{ t(item.enabled ? 'admin.readers.filterEnabled' : 'admin.readers.filterDisabled') }}
               </ElTag>
               <span v-if="item.accountId > 0" class="readers-mono">#{{ item.accountId }}</span>
               <span v-if="item.displayName && item.displayName !== item.name" class="readers-mono">{{ item.name }}</span>
@@ -406,7 +406,7 @@ onBeforeUnmount(() => {
       <template #footer>
         <ElInlineActions>
           <ElButton :disabled="submitting" @click="closeDialog()">
-            {{ t('admin.readers.cancel') }}
+            {{ t('nav.cancel') }}
           </ElButton>
           <ElButton
             native-type="submit"

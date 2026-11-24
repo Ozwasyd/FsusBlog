@@ -24,7 +24,7 @@ const emit = defineEmits<{ keydown: [event: KeyboardEvent]; dismiss: [] }>()
     >
       <header class="outline-header">
         <h2 :id="headingId">{{ panelName }}</h2>
-        <ElButton text size="small" native-type="button" @click="emit('dismiss')">{{ t('author.articleOutlineRail.close') }}</ElButton>
+        <ElButton text size="small" native-type="button" @click="emit('dismiss')">{{ t('comment.close') }}</ElButton>
       </header>
       <slot />
     </aside>

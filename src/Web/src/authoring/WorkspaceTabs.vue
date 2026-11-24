@@ -43,13 +43,13 @@ const id = (tab: WorkspaceTab) => `workspace-tab-${tab.sessionId}`
 const title = (tab: WorkspaceTab) => tab.title.trim() || t('author.workspaceTabs.untitled.article')
 const status = (tab: WorkspaceTab): string => {
   switch (tab.risk) {
-    case 'dirty': return t('author.workspaceTabs.unsaved')
+    case 'dirty': return t('author.write.unsaved')
     case 'saving': return t('author.workspaceTabs.saving')
     case 'conflict': return t('author.workspaceTabs.conflict')
     case 'recovery': return t('author.workspaceTabs.recovery.needed')
-    case 'pending': return t('author.workspaceTabs.pending')
+    case 'pending': return t('account.message133')
     case 'blocked': return t('author.workspaceTabs.unavailable')
-    case 'clean': return tab.mode === 'pinned' ? t('author.workspaceTabs.pinned') : t('author.workspaceTabs.preview')
+    case 'clean': return tab.mode === 'pinned' ? t('author.workspaceTabs.pinned') : t('admin.sitePages.modePreview')
   }
 }
 const tabLabel = (tab: WorkspaceTab) => `${title(tab)} · ${status(tab)}`
@@ -320,7 +320,7 @@ async function advancePage(index: number) {
           type="button" class="workspace-tabs__action"
           :aria-label="t('author.workspaceTabs.close.article', { title: title(tab) })" :disabled="disabled" @click="close(tab)"
         >
-          {{ t('author.workspaceTabs.close') }}
+          {{ t('comment.close') }}
         </button>
       </div>
       <div v-if="pageCount > 1" class="workspace-tabs__pages">

@@ -336,7 +336,7 @@ async function confirmDelete() {
     await deleteOwnComment(target.comment, handle, request.signal)
     if (request.signal.aborted || liveHandle() !== handle) return
     clearDelete()
-    notice.value = t('account.commentsDeleteSuccess')
+    notice.value = t('comment.deleted')
     await load(false, 'refresh')
   } catch {
     if (!request.signal.aborted) deleteProblem.value = t('account.commentsDeleteFailed')
@@ -383,7 +383,7 @@ onBeforeUnmount(() => {
       density="compact"
     >
       <template #title>
-        <span id="own-comments-title">{{ t('account.message111') }}</span>
+        <span id="own-comments-title">{{ t('page.own-comments') }}</span>
       </template>
       <template v-if="currentSession" #actions>
         <ElButton
@@ -418,7 +418,7 @@ onBeforeUnmount(() => {
             @clear="clearSearch"
           />
           <ElButton native-type="submit" :loading="searchLoading" :disabled="locked">
-            {{ t('account.commentsSearchAction') }}
+            {{ t('page.search') }}
           </ElButton>
         </form>
       </template>
@@ -446,7 +446,7 @@ onBeforeUnmount(() => {
           text
           :disabled="locked"
           @click="resetFilters"
-        >{{ t('account.commentsResetFilters') }}</ElButton>
+        >{{ t('admin.readers.resetFilters') }}</ElButton>
       </template>
     </ElCollectionToolbar>
 
@@ -470,7 +470,7 @@ onBeforeUnmount(() => {
     >
       <template v-if="hasActiveFilter" #actions>
         <ElButton native-type="button" text @click="resetFilters">
-          {{ t('account.commentsResetFilters') }}
+          {{ t('admin.readers.resetFilters') }}
         </ElButton>
       </template>
     </ElEmptyState>
@@ -562,7 +562,7 @@ onBeforeUnmount(() => {
                     :disabled="!appealReason(reason)"
                   >{{ t('account.message145') }}</ElButton>
                   <ElButton native-type="button" :disabled="submittingAppeal" @click="clearForm">
-                    {{ t('account.message106') }}
+                    {{ t('nav.cancel') }}
                   </ElButton>
                 </ElInlineActions>
               </form>
@@ -624,7 +624,7 @@ onBeforeUnmount(() => {
           :loading="moreLoading"
           :disabled="locked"
           @click="load(true, 'more')"
-        >{{ t('account.message154') }}</ElButton>
+        >{{ t('comment.more') }}</ElButton>
       </div>
     </template>
 
@@ -646,7 +646,7 @@ onBeforeUnmount(() => {
       <template #footer>
         <ElInlineActions density="compact">
           <ElButton native-type="button" :disabled="deletePending" @click="closeDeleteDialog">
-            {{ t('account.message106') }}
+            {{ t('nav.cancel') }}
           </ElButton>
           <ElButton
             native-type="button"

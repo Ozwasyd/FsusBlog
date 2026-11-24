@@ -6,14 +6,14 @@ import type { Session } from '../../../Contracts/client.ts'
 import type { PublishImagesSelection } from '../../../Contracts/published-media.ts'
 import type { TaxonomySelection } from '../../../Contracts/taxonomy-client.ts'
 import type { Draft } from '../../../Contracts/wire.generated.ts'
+import type { MessageKey } from '../siteLocale.ts'
 import type { RecoveryCandidate } from './draftJournal.ts'
 import { validDraftBody, validDraftTitle, type DraftMarkdown } from './draftMarkdownImport.ts'
-import type { SourceHandoffCoordinator, SourceHandoffNoticeKey } from './sourceHandoffCoordinator.ts'
+import type { SourceHandoffCoordinator } from './sourceHandoffCoordinator.ts'
 import {
   closeRiskMessageKey,
   failureMessageKeyByReason,
   savedMessageKeyByAction,
-  type ArticleAction,
   type RestoreSelection,
   type WriteAction,
   type WriteCommandAdapter,
@@ -34,42 +34,7 @@ import {
 
 export const workspaceHistoryState = Object.freeze({ articleWorkspace: true })
 
-export type WriteMessageKey =
-  | SourceHandoffNoticeKey
-  | (typeof failureMessageKeyByReason)[keyof typeof failureMessageKeyByReason]
-  | (typeof savedMessageKeyByAction)[keyof typeof savedMessageKeyByAction]
-  | (typeof closeRiskMessageKey)[keyof typeof closeRiskMessageKey]
-  | 'author.write.couldNotVerifyYourSession'
-  | 'author.write.thisEditorLinkHasExpiredReturnToIts'
-  | 'author.write.thisWorkspaceHas100OpenArticlesCloseA'
-  | 'author.write.applyOrCancelThePendingChangesBeforeSwitching'
-  | 'author.write.theServerHasANewerRevisionCopyYour'
-  | 'author.write.enterAValidArticleId'
-  | 'author.write.movedTitlePrimary'
-  | 'author.write.movedTitleSecondary'
-  | 'author.write.movedPrimary'
-  | 'author.write.movedSecondary'
-  | 'author.write.mergedBothGroupsIntoThePrimaryGroup'
-  | 'author.write.saveChangesAndCloseTheCurrentPreviewBefore'
-  | 'author.write.changedOnServer'
-  | 'author.write.cleanupUnconfirmed'
-  | 'author.write.rejectedTitle'
-  | 'author.write.saveBlocked'
-  | 'author.write.saveUnconfirmed'
-  | 'author.write.tabsStillOpenFailure'
-  | 'author.write.savedTitlesPrefix'
-  | 'author.write.savedTitlesOpen'
-  | 'author.write.closeBlocked'
-  | 'author.write.couldNotVerifyRecoveryCopiesSaveTheDrafts'
-  | 'author.write.couldNotDiscardTheRecoveryCopiesTheTabs'
-  | 'author.write.tabsChangedBeforeClosingTryAgain'
-  | 'author.write.closed1Tab'
-  | 'author.write.closedTabs'
-  | 'author.write.applyOrCancelThePendingChangesBeforeClosing'
-  | 'author.write.resolveThePendingChangesBeforeClosingThisTab'
-  | 'author.write.markdownLoadedSaveToKeepThisDraft'
-  | 'author.write.draftSavedRecoveryCleanupIsUnfinishedTryAgain'
-  | 'author.write.theServerRejectedThisChangeCheckTheDraft'
+export type WriteMessageKey = MessageKey
 
 export type MessageFormatter = (key: WriteMessageKey, params?: Record<string, string | number>) => string
 
@@ -642,13 +607,15 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
     }
   }
 
+  function setField<K extends keyof WriteWorkspaceState>(key: K): (value: WriteWorkspaceState[K]) => void {
+    return value => { if (state[key] !== value) patch({ [key]: value }) }
+  }
+
   return {
     registry,
     lifetime,
 
-    snapshot(): WriteWorkspaceState {
-      return state
-    },
+    snapshot: () => state,
 
     flags,
 
@@ -657,37 +624,14 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
       return () => { listeners.delete(listener) }
     },
 
-    setNotice(value: string): void {
-      if (state.notice !== value) patch({ notice: value })
-    },
-
-    setOpenInput(value: string): void {
-      if (state.openInput !== value) patch({ openInput: value })
-    },
-
-    setTaxonomyDirty(value: boolean): void {
-      if (state.taxonomyDirty !== value) patch({ taxonomyDirty: value })
-    },
-
-    setSummaryDirty(value: boolean): void {
-      if (state.summaryDirty !== value) patch({ summaryDirty: value })
-    },
-
-    markTaxonomyStale(): void {
-      if (!state.taxonomyStale) patch({ taxonomyStale: true })
-    },
-
-    setPropertyPending(value: boolean): void {
-      if (state.propertyPending !== value) patch({ propertyPending: value })
-    },
-
-    setRevisionComparisonActive(value: boolean): void {
-      if (state.revisionComparisonActive !== value) patch({ revisionComparisonActive: value })
-    },
-
-    setTaxonomyModalActive(value: boolean): void {
-      if (state.taxonomyModalActive !== value) patch({ taxonomyModalActive: value })
-    },
+    setNotice: setField('notice'),
+    setOpenInput: setField('openInput'),
+    setTaxonomyDirty: setField('taxonomyDirty'),
+    setSummaryDirty: setField('summaryDirty'),
+    markTaxonomyStale: () => { if (!state.taxonomyStale) patch({ taxonomyStale: true }) },
+    setPropertyPending: setField('propertyPending'),
+    setRevisionComparisonActive: setField('revisionComparisonActive'),
+    setTaxonomyModalActive: setField('taxonomyModalActive'),
 
     syncIdentity(current: Session | null, epoch: number): void {
       const handle = current?.siteSessionId

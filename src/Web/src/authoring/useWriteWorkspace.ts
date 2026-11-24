@@ -1,4 +1,4 @@
-import { computed, nextTick, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import type { ElInput } from '@ozwasyd/element-plus'
 import { api, type Draft } from '../../../Contracts/client'
@@ -20,7 +20,7 @@ import { recentArticleOpens } from './recentArticleOpens'
 import { useWriteSourceHandoff } from './useWriteSourceHandoff'
 import { confirmDiscardTabDialog, confirmLeaveDialog, confirmProtectedCloseDialog } from './writeCloseDialog'
 import { createWriteCommandAdapter } from './writeCommandAdapter'
-import { snapshotFields } from './snapshotFields'
+import { computedProps, createSnapshotRefs, snapshotFields } from './snapshotFields'
 import { workspacePersistence } from './workspacePersistence'
 import {
   articleRouteDestination,
@@ -96,25 +96,11 @@ export function useWriteWorkspace() {
       refreshSession: (signal, reuseInFlight) => refreshSession(signal, reuseInFlight),
     },
     recovery: {
+      ...recovery,
       candidates: () => recoveryItems.value,
       guarded: () => recoveryChecking.value,
-      setCurrent: recovery.setCurrent,
-      persist: recovery.persist,
-      confirmed: recovery.confirmed,
-      remove: recovery.remove,
-      discardArticle: recovery.discardArticle,
-      verifyCloseCopies: recovery.verifyCloseCopies,
-      discardCloseCopies: recovery.discardCloseCopies,
-      dismissCandidates: recovery.dismissCandidates,
-      close: recovery.close,
     },
-    persistence: {
-      reset: persistence.reset,
-      restore: persistence.restore,
-      rebind: persistence.rebind,
-      changed: persistence.changed,
-      flush: persistence.flush,
-    },
+    persistence,
     router: {
       articleId: () => id.value,
       path: () => route.path,
@@ -142,36 +128,7 @@ export function useWriteWorkspace() {
     scheduleTick: callback => { void nextTick(callback) },
   })
 
-  const initial = controller.snapshot()
-  const fields = {
-    original: shallowRef<Draft | undefined>(initial.original),
-    tab: shallowRef<WorkspaceTab | undefined>(initial.tab),
-    workspaceTabs: shallowRef<readonly WorkspaceTab[]>(initial.workspaceTabs),
-    workspaceRevision: ref(initial.workspaceRevision),
-    sourcePanes: shallowRef<readonly WorkspaceSource<Draft>[]>(initial.sourcePanes),
-    hasSecondaryGroup: ref(initial.hasSecondaryGroup),
-    recentlyClosed: shallowRef<readonly RecentlyClosed[]>(initial.recentlyClosed),
-    inspectorOpen: ref(initial.inspectorOpen),
-    persistentWorkspace: ref(initial.persistentWorkspace),
-    authorizationReady: ref(initial.authorizationReady),
-    layoutRestoring: ref(initial.layoutRestoring),
-    loading: ref(initial.loading),
-    opening: ref(initial.opening),
-    closingTabs: ref(initial.closingTabs),
-    recoveryWorking: ref(initial.recoveryWorking),
-    composing: ref<number | undefined>(initial.composing),
-    taxonomyDirty: ref(initial.taxonomyDirty),
-    summaryDirty: ref(initial.summaryDirty),
-    taxonomyStale: ref(initial.taxonomyStale),
-    propertyPending: ref(initial.propertyPending),
-    revisionComparisonActive: ref(initial.revisionComparisonActive),
-    taxonomyModalActive: ref(initial.taxonomyModalActive),
-    notice: ref(initial.notice),
-    failure: ref(initial.failure),
-    navigationNotice: ref(initial.navigationNotice),
-    groupNotice: ref(initial.groupNotice),
-    openInput: ref(initial.openInput),
-  }
+  const fields = createSnapshotRefs(controller.snapshot(), ['original', 'tab', 'workspaceTabs', 'sourcePanes', 'recentlyClosed'])
   const { state, update } = snapshotFields(fields)
   const openInput = computed({
     get: () => fields.openInput.value,
@@ -187,29 +144,8 @@ export function useWriteWorkspace() {
     recoveryChecking: recoveryChecking.value,
   }))
 
-  const metadataDirty = computed(() => flags.value.metadataDirty)
-  const recoveryBlocked = computed(() => flags.value.recoveryBlocked)
-  const articleDirty = computed(() => flags.value.articleDirty)
-  const dirty = computed(() => flags.value.dirty)
-  const hasConflict = computed(() => flags.value.hasConflict)
-  const articlePending = computed(() => flags.value.articlePending)
-  const pending = computed(() => flags.value.pending)
-  const canSwitch = computed(() => flags.value.canSwitch)
-  const retry = computed(() => flags.value.retry)
-  const validBody = computed(() => flags.value.validBody)
-  const editable = computed(() => flags.value.editable)
-  const cannotWrite = computed(() => flags.value.cannotWrite)
-  const credential = computed(() => flags.value.credential)
-  const canImportDraft = computed(() => flags.value.canImportDraft)
-  const canPreviewPlugin = computed(() => flags.value.canPreviewPlugin)
-  const canChangeSummary = computed(() => flags.value.canChangeSummary)
-  const canArrangeGroups = computed(() => flags.value.canArrangeGroups)
-  const otherGroup = computed(() => flags.value.otherGroup)
-  const activeGroupTabs = computed(() => flags.value.activeGroupTabs)
-  const activeGroupIndex = computed(() => flags.value.activeGroupIndex)
-  const canCloseGroupTabs = computed(() => flags.value.canCloseGroupTabs)
-  const canPublishImages = computed(() => flags.value.canPublishImages)
-  const inputArticle = computed(() => flags.value.inputArticle)
+  const flagRefs = computedProps(flags)
+  const { metadataDirty, recoveryBlocked, pending, editable, credential, inputArticle } = flagRefs
   const openAddress = computed(() => {
     const articleId = inputArticle.value
     return articleId === undefined ? undefined : articleRouteDestination(articleId)
@@ -416,89 +352,20 @@ export function useWriteWorkspace() {
     if (await controller.reloadDraft()) reload.value++
   }
 
+  const { coordinator: _c, bindActivity: _b, ...handoffPublic } = handoff
   return {
-    route,
-    id,
-    tabsControl,
-    articleInput,
-    reload,
-    currentSession,
-    identityEpoch,
-    credentialEpoch,
+    ...fields,
+    ...flagRefs,
+    ...handoffPublic,
+    route, id, tabsControl, articleInput, reload, currentSession, identityEpoch, credentialEpoch,
     workspaceState: workspaceHistoryState,
-    original: fields.original,
-    tab: fields.tab,
-    workspaceTabs: fields.workspaceTabs,
-    workspaceRevision: fields.workspaceRevision,
-    sourcePanes: fields.sourcePanes,
-    hasSecondaryGroup: fields.hasSecondaryGroup,
-    recentlyClosed: fields.recentlyClosed,
-    inspectorOpen: fields.inspectorOpen,
-    persistentWorkspace: fields.persistentWorkspace,
-    authorizationReady: fields.authorizationReady,
-    loading: fields.loading,
-    opening: fields.opening,
-    closingTabs: fields.closingTabs,
-    recovery,
-    recoveryItems,
-    recoveryFailure,
-    recoveryChecking,
-    recoveryWorking: fields.recoveryWorking,
-    recoveryBlocked,
-    notice: fields.notice,
-    failure: fields.failure,
-    navigationNotice: fields.navigationNotice,
-    groupNotice: fields.groupNotice,
+    recovery, recoveryItems, recoveryFailure, recoveryChecking,
     layoutNotice: persistence.notice,
     supportsSavedGroups: persistence.supportsGroups,
-    recentOpensVersion,
-    recentOpensNotice,
-    openInput,
-    openAddress,
-    inputArticle,
-    selectedPanelTitle,
-    articleDirty,
-    summaryDirty: fields.summaryDirty,
-    metadataDirty,
-    dirty,
-    hasConflict,
-    articlePending,
-    pending,
-    canSwitch,
-    retry,
-    validBody,
-    editable,
-    cannotWrite,
-    credential,
-    publishedPath,
-    canImportDraft,
-    canPreviewPlugin,
-    canChangeSummary,
-    canArrangeGroups,
-    otherGroup,
-    activeGroupTabs,
-    activeGroupIndex,
-    canCloseGroupTabs,
-    canPublishImages,
-    revisionComparisonActive: fields.revisionComparisonActive,
-    taxonomyModalActive: fields.taxonomyModalActive,
-    sourceInspectorPending: handoff.sourceInspectorPending,
-    sourceSeek: handoff.sourceSeek,
-    historicalSeek: handoff.historicalSeek,
-    propertySeek: handoff.propertySeek,
-    summarySeek: handoff.summarySeek,
-    finishSourceSeek: handoff.finishSourceSeek,
-    finishHistoricalSeek: handoff.finishHistoricalSeek,
-    closeHistoricalSeek: handoff.closeHistoricalSeek,
-    finishPropertySeek: handoff.finishPropertySeek,
+    recentOpensVersion, recentOpensNotice, openInput, openAddress, selectedPanelTitle, publishedPath,
     recheckComparison: (candidate: WorkspaceTab, signal: AbortSignal) =>
       controller.registry.recheckComparison(candidate, signal),
-    focusSource,
-    focusGroup,
-    reopenRecent,
-    activateQuickResult,
-    focusQuickResult,
-    quickResultHref,
+    focusSource, focusGroup, reopenRecent, activateQuickResult, focusQuickResult, quickResultHref,
     openArticle: controller.openArticle,
     openSavedWorkspace: controller.openSavedWorkspace,
     navigateTo: controller.navigateTo,
@@ -509,8 +376,7 @@ export function useWriteWorkspace() {
     arrangeGroups,
     setInspectorOpen: controller.setInspectorOpen,
     togglePin: controller.togglePin,
-    closeGroupTabs,
-    closeTab,
+    closeGroupTabs, closeTab,
     edit: controller.edit,
     loadImportedDraft,
     restoreDraft: controller.restoreDraft,

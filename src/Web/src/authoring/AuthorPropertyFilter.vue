@@ -246,7 +246,7 @@ function conditionText(condition: PropertyCondition) {
   if (value.kind === 'missing') return t('author.authorPropertyFilter.description.not.set', { label: field.label })
   if (value.kind === 'null') return t('author.authorPropertyFilter.description.explicit.null', { label: field.label })
   const names = new Map(field.options.map(option => [option.id, option.label]))
-  const description = value.kind === 'multi-select' ? value.value.map(id => names.get(id)).join('、') || t('author.authorPropertyFilter.empty.option.set')
+  const description = value.kind === 'multi-select' ? value.value.map(id => names.get(id)).join('、') || t('author.authorTextSearch.empty.option.set')
     : value.kind === 'single-select' ? names.get(value.value)
     : value.kind === 'article-reference' ? value.value.join('、') || t('author.authorPropertyFilter.empty.reference.set') : String(value.value)
   if (comparison === 'multi-select-any-of' || comparison === 'single-select-any-of' || comparison === 'reference-any-of')
@@ -316,7 +316,7 @@ async function search(more = false) {
       return
     }
   }
-  if (!filter) { queryError.value = t('author.authorPropertyFilter.enter.a.valid.property.value'); return }
+  if (!filter) { queryError.value = t('author.properties.enterAValidPropertyValue'); return }
   const request = new AbortController()
   queryRequest.value = request
   const current = () => queryRequest.value === request && !request.signal.aborted && credentialEpoch.value === epoch &&
@@ -375,8 +375,8 @@ async function search(more = false) {
         <template v-if="sortField">
           <label :for="sortDirectionId">{{ t('author.authorPropertyFilter.property.sort.direction') }}</label>
           <ElSelect :id="sortDirectionId" v-model="sortDirection" :ariaLabel="t('author.authorPropertyFilter.property.sort.direction')" :disabled="busy">
-            <ElOption value="ascending" :label="t('author.authorPropertyFilter.ascending')" />
-            <ElOption value="descending" :label="t('author.authorPropertyFilter.descending')" />
+            <ElOption value="ascending" :label="t('author.authorTextSearch.ascending')" />
+            <ElOption value="descending" :label="t('author.authorTextSearch.descending')" />
           </ElSelect>
         </template>
       </template>
@@ -396,7 +396,7 @@ async function search(more = false) {
         </ElSelect>
       </template>
       <p v-else>{{ t('author.authorPropertyFilter.no.properties.have.filtering.enabled.here') }}</p>
-      <ElButton v-if="catalog.nextKey" text :disabled="busy || !!pendingChange" @click="later">{{ t('author.authorPropertyFilter.more.properties') }}</ElButton>
+      <ElButton v-if="catalog.nextKey" text :disabled="busy || !!pendingChange" @click="later">{{ t('author.properties.moreProperties') }}</ElButton>
       <template v-if="field">
         <p v-if="field.deprecated">{{ t('author.authorPropertyFilter.this.property.is.disabled') }}</p>
         <ElButton v-else-if="!embedded" text :disabled="busy" @click="changeFilterability">
@@ -411,8 +411,8 @@ async function search(more = false) {
             <ElOption v-if="field.kind === 'multi-select'" value="multi-select-any-of" :label="t('author.authorPropertyFilter.match.any')" />
             <ElOption v-if="field.kind === 'article-reference'" value="reference-any-of" :label="t('author.authorPropertyFilter.match.any')" />
             <ElOption value="is-present" :label="t('author.authorPropertyFilter.value.exists')" />
-            <ElOption value="missing" :label="t('author.authorPropertyFilter.not.set')" />
-            <ElOption value="null" :label="t('author.authorPropertyFilter.explicit.null')" />
+            <ElOption value="missing" :label="t('author.authorTextSearch.not.set')" />
+            <ElOption value="null" :label="t('author.authorTextSearch.explicit.null')" />
           </ElSelect>
           <ElCheckbox v-if="sameField.length" :disabled="busy || existingAlternatives"
             :model-value="existingAlternatives || anyOf" @update:model-value="anyOf = $event === true">
@@ -432,7 +432,7 @@ async function search(more = false) {
               <ElOption v-for="option in field.options" :key="option.id" :value="option.id" :label="option.label" />
             </ElSelect>
             <ElInput v-else :id="valueId" v-model="text" :disabled="busy"
-              :placeholder="mode === 'reference-any-of' ? t('author.authorPropertyFilter.article.ids.separated.by.commas') : field.kind === 'date' ? '2026-01-01T00:00:00.000Z' : field.kind === 'article-reference' ? t('author.authorPropertyFilter.article.id') : undefined" />
+              :placeholder="mode === 'reference-any-of' ? t('author.authorPropertyFilter.article.ids.separated.by.commas') : field.kind === 'date' ? '2026-01-01T00:00:00.000Z' : field.kind === 'article-reference' ? t('admin.moderation.m35') : undefined" />
           </template>
           <ElButton v-if="canAdd" text
             :disabled="busy || !!pendingChange" @click="add">{{ t('author.authorPropertyFilter.add.condition') }}</ElButton>
@@ -442,13 +442,13 @@ async function search(more = false) {
         :disabled="busy || !!pendingChange" @click="search()">{{ conditions.some(item => item.anyOf) || sameField.length && anyOf
           ? t('author.authorPropertyFilter.apply.conditions') : conditions.length ? t('author.authorPropertyFilter.match.all.conditions') : t('author.authorPropertyFilter.filter.properties') }}</ElButton>
       <section v-if="!embedded && result" :aria-label="t('author.authorPropertyFilter.property.filter.results')">
-        <p v-if="!result.rows.length" role="status">{{ t('author.authorPropertyFilter.no.matching.articles') }}</p>
+        <p v-if="!result.rows.length" role="status">{{ t('author.savedViewPanel.no.matching.articles') }}</p>
         <ul v-else>
           <li v-for="item in result.rows" :key="item.id">
             <RouterLink :to="{ name: 'edit', params: { id: item.id } }">{{ item.title }}</RouterLink>
           </li>
         </ul>
-        <ElButton v-if="result.nextCursor" :disabled="busy" @click="search(true)">{{ t('author.authorPropertyFilter.more.matching.articles') }}</ElButton>
+        <ElButton v-if="result.nextCursor" :disabled="busy" @click="search(true)">{{ t('author.savedViewPanel.more.matching.articles') }}</ElButton>
       </section>
     </template>
   </details>

@@ -355,7 +355,7 @@ onScopeDispose(() => {
         </ElButton>
       </li>
     </ul>
-    <ElButton v-if="cursor" :disabled="loading" text @click="load(true)">{{ t('author.revisionHistory.older.revisions') }}</ElButton>
+    <ElButton v-if="cursor" :disabled="loading" text @click="load(true)">{{ t('admin.moderation.m43') }}</ElButton>
     <ElDialog
       :model-value="comparisonOpen" :title="historical ? t('author.revisionHistory.historical.search.position') : t('author.revisionHistory.revision.comparison')" append-to-body destroy-on-close
       width="min(72rem, calc(100vw - 2rem))" top="4vh"
@@ -392,8 +392,8 @@ onScopeDispose(() => {
                 <h4>{{ sources[index].label }}</h4>
                 <dl class="revision-metadata">
                   <dt>{{ t('author.revisionHistory.summary') }}</dt><dd>{{ fields.summary || t('author.revisionHistory.no.saved.summary') }}</dd>
-                  <dt>{{ t('author.revisionHistory.category') }}</dt><dd>{{ fields.category?.name ?? t('author.revisionHistory.no.category') }}</dd>
-                  <dt>{{ t('author.revisionHistory.tags') }}</dt><dd>{{ fields.tags.map(tag => tag.name).join(', ') || t('author.revisionHistory.no.tags') }}</dd>
+                  <dt>{{ t('page.category') }}</dt><dd>{{ fields.category?.name ?? t('author.taxonomy.noCategory') }}</dd>
+                  <dt>{{ t('admin.taxonomy.m6') }}</dt><dd>{{ fields.tags.map(tag => tag.name).join(', ') || t('author.revisionHistory.no.tags') }}</dd>
                   <template v-if="comparisonMetadata.source.cover || comparisonMetadata.current.cover">
                     <dt>{{ t('author.revisionHistory.cover') }}</dt><dd>{{ fields.cover ? t('author.revisionHistory.private.image', { id: fields.cover }) : t('author.revisionHistory.no.draft.cover') }}</dd>
                   </template>

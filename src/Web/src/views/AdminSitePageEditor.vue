@@ -270,7 +270,7 @@ onScopeDispose(() => {
 
         <div class="site-page-commit">
           <div v-if="dirty" class="site-page-dirty-row">
-            <ElTag size="small" type="warning">{{ t('admin.sitePages.unsaved') }}</ElTag>
+            <ElTag size="small" type="warning">{{ t('admin.siteConfig.unsaved') }}</ElTag>
           </div>
           <ElCheckbox
             v-if="!stale"

@@ -467,7 +467,7 @@ function logOut() {
           <template #footer>
             <ElInlineActions density="compact">
               <ElButton :disabled="handleSubmitting" @click="closeHandleRename()">
-                {{ t('admin.renameHandleCancel') }}
+                {{ t('nav.cancel') }}
               </ElButton>
               <ElButton
                 native-type="submit"
@@ -526,7 +526,7 @@ function logOut() {
             <ElInput id="admin-bootstrap-key" v-model="ticket" type="password" autocomplete="off" :disabled="busy" />
             <div class="admin-login-actions">
               <ElButton native-type="submit" type="primary" :loading="busy" :disabled="!ticketValid">{{ t('admin.createPasskey') }}</ElButton>
-              <ElButton :disabled="busy" @click="closeBootstrap">{{ t('admin.cancelSetup') }}</ElButton>
+              <ElButton :disabled="busy" @click="closeBootstrap">{{ t('account.message19') }}</ElButton>
             </div>
           </form>
         </div>

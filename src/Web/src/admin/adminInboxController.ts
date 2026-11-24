@@ -163,6 +163,17 @@ interface ActiveLiveSubscription {
  * idempotent reply/notice keys, status transitions, PoW error handling,
  * and wake-driven live refreshes without forcing moderation lease semantics.
  */
+type WritableInboxData = {
+  -readonly [K in Exclude<keyof AdminInboxState, 'pending' | `${string}Pending`>]: AdminInboxState[K]
+}
+type InboxSessionData = Omit<WritableInboxData, 'filter' | 'order' | 'expanded'>
+
+const emptyInboxSessionData = (): InboxSessionData => ({
+  rows: [], thread: undefined, next: null, failed: '', reply: '', notice: '', destination: undefined,
+  reason: '', needsRefresh: false, sharedRead: false, activityAvailable: false, queueLive: false,
+  unreadAckFailed: false, noticesEnabled: false, composeNotice: false, recipient: '', noticeSubject: '', noticeBody: '',
+})
+
 export class AdminInboxController {
   private readonly transport: AdminInboxTransport
   private readonly clock: AdminClock
@@ -177,28 +188,7 @@ export class AdminInboxController {
   private readonly noticeChannel: AdminOperationChannel
   private readonly listeners = new Set<() => void>()
 
-  private _rows: AdminInboxRow[] = []
-  private _thread: AdminInboxThread | undefined
-  private _next: string | null = null
-  private _filter: AdminInboxFilter = ''
-  private _order: AdminInboxOrder = 'created'
-  private _expanded = true
-  private _failed: MessageKey | '' = ''
-  private _reply = ''
-  private _notice: MessageKey | '' = ''
-  private _destination: AdminInboxStatus | undefined
-  private _reason = ''
-  private _needsRefresh = false
-  private _sharedRead = false
-  private _activityAvailable = false
-  private _queueLive = false
-  private _unreadAckFailed = false
-  private _noticesEnabled = false
-  private _composeNotice = false
-  private _recipient = ''
-  private _noticeSubject = ''
-  private _noticeBody = ''
-
+  private s: WritableInboxData = { ...emptyInboxSessionData(), filter: '', order: 'created', expanded: true }
   private attempt: { conversation: bigint; body: string; key: string } | undefined
   private noticeAttempt: { account: string; subject: string; body: string; eventId: bigint } | undefined
   private activeLive: ActiveLiveSubscription | null = null
@@ -216,9 +206,9 @@ export class AdminInboxController {
         this.emitChange()
       },
       onSessionAborted: () => {
-        this._expanded = false
-        this._filter = ''
-        this._order = 'created'
+        this.s.expanded = false
+        this.s.filter = ''
+        this.s.order = 'created'
         this.emitChange()
       },
     })
@@ -237,39 +227,28 @@ export class AdminInboxController {
     this._snapshot = this.buildSnapshot()
   }
 
-  get state(): AdminInboxState {
-    return this._snapshot
-  }
-
-  get disposed(): boolean {
-    return this.scope.disposed
-  }
-
-  snapshot(): AdminInboxState {
-    return this._snapshot
-  }
-
+  get state(): AdminInboxState { return this._snapshot }
+  get disposed(): boolean { return this.scope.disposed }
+  snapshot(): AdminInboxState { return this._snapshot }
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
     return () => this.listeners.delete(listener)
   }
 
   liveScope(): bigint | AdminInboxLiveStatus | undefined {
-    const current = this._thread
+    const current = this.s.thread
     if (current) return current.liveEnabled ? current.conversation.id : undefined
-    const status = this._filter
-    return this._expanded && this._queueLive && this._order === 'created' && supportsAdminInboxLiveStatus(status)
-      ? status
-      : undefined
+    const status = this.s.filter
+    return this.s.expanded && this.s.queueLive && this.s.order === 'created' && supportsAdminInboxLiveStatus(status)
+      ? status : undefined
   }
 
   bindSession(signal: AbortSignal, options: Readonly<{ autoLoad?: boolean }> = {}): void {
-    const autoLoad = options.autoLoad ?? true
-    this._expanded = !signal.aborted
-    this._filter = ''
-    this._order = 'created'
+    this.s.expanded = !signal.aborted
+    this.s.filter = ''
+    this.s.order = 'created'
     const { active } = this.scope.bindSession(signal)
-    if (active && autoLoad) void this.loadQueue()
+    if (active && (options.autoLoad ?? true)) void this.loadQueue()
   }
 
   cancel(): void {
@@ -278,71 +257,30 @@ export class AdminInboxController {
     this.emitChange()
   }
 
-  dispose(): void {
-    this.scope.dispose()
-  }
+  dispose(): void { this.scope.dispose() }
 
-  setFilter(next: AdminInboxFilter): void {
-    if (this._filter === next) return
-    this._filter = next
-    if (!this._expanded) {
-      this.emitChange()
-      return
-    }
-    this.resetKeepingCapabilitiesAndReload()
-  }
-
-  setOrder(next: AdminInboxOrder): void {
-    if (this._order === next) return
-    this._order = next
-    if (!this._expanded) {
-      this.emitChange()
-      return
-    }
-    this.resetKeepingCapabilitiesAndReload()
-  }
-
-  setReply(value: string): void {
-    if (this._reply === value) return
-    this._reply = value
+  private setField<K extends keyof WritableInboxData>(key: K, value: WritableInboxData[K]): void {
+    if (this.s[key] === value) return
+    this.s[key] = value
     this.emitChange()
   }
 
-  setDestination(value: AdminInboxStatus | undefined): void {
-    if (this._destination === value) return
-    this._destination = value
-    this.emitChange()
+  private setQueryField<K extends 'filter' | 'order'>(key: K, next: WritableInboxData[K]): void {
+    if (this.s[key] === next) return
+    this.s[key] = next
+    if (!this.s.expanded) this.emitChange()
+    else this.resetKeepingCapabilitiesAndReload()
   }
 
-  setReason(value: string): void {
-    if (this._reason === value) return
-    this._reason = value
-    this.emitChange()
-  }
-
-  setComposeNotice(open: boolean): void {
-    if (this._composeNotice === open) return
-    this._composeNotice = open
-    this.emitChange()
-  }
-
-  setRecipient(value: string): void {
-    if (this._recipient === value) return
-    this._recipient = value
-    this.emitChange()
-  }
-
-  setNoticeSubject(value: string): void {
-    if (this._noticeSubject === value) return
-    this._noticeSubject = value
-    this.emitChange()
-  }
-
-  setNoticeBody(value: string): void {
-    if (this._noticeBody === value) return
-    this._noticeBody = value
-    this.emitChange()
-  }
+  setFilter(next: AdminInboxFilter): void { this.setQueryField('filter', next) }
+  setOrder(next: AdminInboxOrder): void { this.setQueryField('order', next) }
+  setReply(value: string): void { this.setField('reply', value) }
+  setDestination(value: AdminInboxStatus | undefined): void { this.setField('destination', value) }
+  setReason(value: string): void { this.setField('reason', value) }
+  setComposeNotice(open: boolean): void { this.setField('composeNotice', open) }
+  setRecipient(value: string): void { this.setField('recipient', value) }
+  setNoticeSubject(value: string): void { this.setField('noticeSubject', value) }
+  setNoticeBody(value: string): void { this.setField('noticeBody', value) }
 
   clearNotice(): void {
     this.clearNoticeInternal()
@@ -352,8 +290,8 @@ export class AdminInboxController {
   closeThread(): void {
     this.threadChannel.cancel()
     this.readChannel.cancel()
-    this._thread = undefined
-    this._unreadAckFailed = false
+    this.s.thread = undefined
+    this.s.unreadAckFailed = false
     this.clearReplyInternal()
     this.clearStatusInternal()
     this.emitChange()
@@ -362,37 +300,35 @@ export class AdminInboxController {
   }
 
   toggle(): void {
-    this._expanded = !this._expanded
-    this._filter = ''
-    this._order = 'created'
+    this.s.expanded = !this.s.expanded
+    this.s.filter = ''
+    this.s.order = 'created'
     this.scope.cancelOperations()
     this.resetStateInternal()
     this.emitChange()
-    if (this._expanded && this.scope.active) void this.loadQueue()
+    if (this.s.expanded && this.scope.active) void this.loadQueue()
   }
 
   loadQueue(cursor: string | null = null, options: Readonly<{ clearRowsOnError?: boolean }> = {}): Promise<boolean> {
-    if (cursor === null && this.queueChannel.pending) {
-      this.queueChannel.cancel()
-    }
+    if (cursor === null && this.queueChannel.pending) this.queueChannel.cancel()
     return this.runOnChannel(this.queueChannel, async ctx => {
-      let page = await this.transport.adminInbox(this._filter, cursor, ctx.signal, this._sharedRead, this._order)
+      let page = await this.transport.adminInbox(this.s.filter, cursor, ctx.signal, this.s.sharedRead, this.s.order)
       if (!ctx.isCurrent()) return
-      if (!cursor && !this._sharedRead && page.sharedAvailable) {
-        page = await this.transport.adminInbox(this._filter, null, ctx.signal, true, this._order)
+      if (!cursor && !this.s.sharedRead && page.sharedAvailable) {
+        page = await this.transport.adminInbox(this.s.filter, null, ctx.signal, true, this.s.order)
         if (!ctx.isCurrent()) return
       }
       this.applyQueuePage(page, cursor !== null)
     }, 'admin.inbox.m39', options.clearRowsOnError ? () => {
-      this._rows = []
-      this._next = null
+      this.s.rows = []
+      this.s.next = null
     } : undefined)
   }
 
   async openThread(id: bigint, before: string | null = null): Promise<boolean> {
-    if (!before && this._thread?.conversation.id === id && !this._needsRefresh && !this.threadChannel.pending) {
+    if (!before && this.s.thread?.conversation.id === id && !this.s.needsRefresh && !this.threadChannel.pending) {
       await this.hooks.onThreadOpened?.()
-      if (this._unreadAckFailed && this._thread?.conversation.id === id && this._thread.readSnapshot) {
+      if (this.s.unreadAckFailed && this.s.thread?.conversation.id === id && this.s.thread.readSnapshot) {
         await this.acknowledge(id)
       }
       return true
@@ -400,46 +336,42 @@ export class AdminInboxController {
     if (!before) {
       this.threadChannel.cancel()
       this.readChannel.cancel()
-      if (this._thread && this._thread.conversation.id !== id) {
-        this._unreadAckFailed = false
+      if (this.s.thread && this.s.thread.conversation.id !== id) {
+        this.s.unreadAckFailed = false
         this.clearReplyInternal()
         this.clearStatusInternal()
       }
     }
     const loaded = await this.runOnChannel(this.threadChannel, async ctx => {
-      if (!before && this.activeLive?.target === id) {
-        this.activeLive.dirty = false
-      }
-      const page = await this.transport.adminInboxThread(id, before, ctx.signal, this._sharedRead)
+      if (!before && this.activeLive?.target === id) this.activeLive.dirty = false
+      const page = await this.transport.adminInboxThread(id, before, ctx.signal, this.s.sharedRead)
       if (!ctx.isCurrent()) return
-      this._thread = before && this._thread?.conversation.id === id
-        ? { ...page, messages: [...page.messages, ...this._thread.messages], readSnapshot: this._thread.readSnapshot }
+      this.s.thread = before && this.s.thread?.conversation.id === id
+        ? { ...page, messages: [...page.messages, ...this.s.thread.messages], readSnapshot: this.s.thread.readSnapshot }
         : page
       if (!before) {
-        this._needsRefresh = false
+        this.s.needsRefresh = false
         this.clearStatusInternal()
       }
       this.emitChange()
       this.syncLive()
-      if (!before) {
-        await this.hooks.onThreadOpened?.()
-      }
+      if (!before) await this.hooks.onThreadOpened?.()
     })
-    if (loaded && !before && this._thread?.conversation.id === id && this._thread.readSnapshot) {
+    if (loaded && !before && this.s.thread?.conversation.id === id && this.s.thread.readSnapshot) {
       await this.acknowledge(id)
     }
     return loaded
   }
 
   retryRead(): Promise<boolean> | undefined {
-    const current = this._thread
+    const current = this.s.thread
     if (!current) return undefined
     this.readChannel.cancel()
     return this.acknowledge(current.conversation.id)
   }
 
   reloadThread(): Promise<boolean> | undefined {
-    const current = this._thread
+    const current = this.s.thread
     if (!current) return undefined
     const id = current.conversation.id
     this.threadChannel.cancel()
@@ -449,61 +381,58 @@ export class AdminInboxController {
   }
 
   sendNotice(): Promise<boolean> | undefined {
-    const account = this._recipient.trim().toLowerCase()
-    const subject = this._noticeSubject
-    const body = this._noticeBody
-    if (!this._noticesEnabled || !isNoticeRecipient(account) || !body.trim() || this.noticeChannel.pending || !this.scope.active) {
+    const account = this.s.recipient.trim().toLowerCase()
+    const { noticeSubject: subject, noticeBody: body } = this.s
+    if (!this.s.noticesEnabled || !isNoticeRecipient(account) || !body.trim() || this.noticeChannel.pending || !this.scope.active) {
       return undefined
     }
     if (this.noticeAttempt?.account !== account || this.noticeAttempt.subject !== subject || this.noticeAttempt.body !== body) {
       this.noticeAttempt = { account, subject, body, eventId: this.idGenerator.newNoticeEventId() }
     }
     const eventId = this.noticeAttempt.eventId
-    this._notice = ''
+    this.s.notice = ''
     this.emitChange()
     return this.runOnChannel(this.noticeChannel, async ctx => {
       await this.transport.adminSendNotice(account, subject, body, eventId, ctx.signal)
       if (!ctx.isCurrent()) return
       this.clearNoticeInternal()
-      this._notice = 'admin.inbox.m40'
+      this.s.notice = 'admin.inbox.m40'
       this.emitChange()
-      const page = await this.transport.adminInbox(this._filter, null, ctx.signal, this._sharedRead, this._order)
+      const page = await this.transport.adminInbox(this.s.filter, null, ctx.signal, this.s.sharedRead, this.s.order)
       if (!ctx.isCurrent()) return
       this.applyQueuePage(page, false)
     }, 'admin.inbox.m41')
   }
 
   sendReply(): Promise<boolean> | undefined {
-    const current = this._thread
+    const current = this.s.thread
     if (!current || current.conversation.status === 2 || !current.repliesEnabled ||
-        !this._reply.trim() || this.replyChannel.pending || !this.scope.active) {
+        !this.s.reply.trim() || this.replyChannel.pending || !this.scope.active) {
       return undefined
     }
     const conversation = current.conversation.id
-    const body = this._reply
+    const body = this.s.reply
     if (this.attempt?.conversation !== conversation || this.attempt.body !== body) {
       this.attempt = { conversation, body, key: this.idGenerator.randomUuid() }
     }
     const key = this.attempt.key
-    this._notice = ''
+    this.s.notice = ''
     this.emitChange()
     return this.runOnChannel(this.replyChannel, async ctx => {
       const saved = await this.transport.adminReply(conversation, body, key, ctx.signal)
       if (!ctx.isCurrent()) return
       this.clearReplyInternal()
-      this._notice = 'admin.inbox.m42'
-      const active = this._thread?.conversation.id === conversation ? this._thread : undefined
+      this.s.notice = 'admin.inbox.m42'
+      const active = this.s.thread?.conversation.id === conversation ? this.s.thread : undefined
       if (active) {
         const messages = active.messages.some(message => message.id === saved.id)
           ? active.messages
           : [...active.messages, { id: saved.id, sender: 1 as const, internal: false, at: saved.createdAt, body: saved.body }]
             .sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
         // Preserve existing version across refresh so the status form never unmounts/remounts.
-        this._thread = { ...active, messages }
+        this.s.thread = { ...active, messages }
         this.emitChange()
-        if (active.version) {
-          await this.refreshThreadAfterMutation(conversation, ctx)
-        }
+        if (active.version) await this.refreshThreadAfterMutation(conversation, ctx)
       } else {
         this.emitChange()
       }
@@ -511,33 +440,33 @@ export class AdminInboxController {
   }
 
   saveStatus(): Promise<boolean> | undefined {
-    const current = this._thread
-    const target = this._destination
+    const current = this.s.thread
+    const target = this.s.destination
     if (!current?.version || target === undefined ||
         !adminInboxStatusTransitions[current.conversation.status].includes(target) ||
-        !this._reason.trim() || this._reason.trim().length > 256 ||
+        !this.s.reason.trim() || this.s.reason.trim().length > 256 ||
         this.statusChannel.pending || this.replyChannel.pending || !this.scope.active) {
       return undefined
     }
     const conversation = current.conversation.id
     const version = current.version
-    const explanation = this._reason
-    this._notice = ''
+    const explanation = this.s.reason
+    this.s.notice = ''
     this.emitChange()
     return this.runOnChannel(this.statusChannel, async ctx => {
       const saved = await this.transport.adminChangeStatus(conversation, version, target, explanation, ctx.signal)
       if (!ctx.isCurrent()) return
-      const active = this._thread?.conversation.id === conversation ? this._thread : undefined
+      const active = this.s.thread?.conversation.id === conversation ? this.s.thread : undefined
       const updated = { ...(active?.conversation ?? current.conversation), status: saved.current }
-      this._rows = adminInboxStatusFilters.some(status => status === this._filter) &&
-        this._filter !== adminInboxStatusFilters[saved.current]
-        ? this._rows.filter(item => item.id !== conversation)
-        : this._rows.map(item => item.id === conversation ? updated : item)
+      this.s.rows = adminInboxStatusFilters.some(status => status === this.s.filter) &&
+        this.s.filter !== adminInboxStatusFilters[saved.current]
+        ? this.s.rows.filter(item => item.id !== conversation)
+        : this.s.rows.map(item => item.id === conversation ? updated : item)
       this.clearStatusInternal()
-      this._notice = saved.changed ? 'admin.inbox.m44' : 'admin.inbox.m45'
+      this.s.notice = saved.changed ? 'admin.inbox.m44' : 'admin.inbox.m45'
       if (active) {
         // Keep version populated while refreshing to prevent status-form layout jump.
-        this._thread = { ...active, conversation: updated }
+        this.s.thread = { ...active, conversation: updated }
         this.emitChange()
         await this.refreshThreadAfterMutation(conversation, ctx)
       } else {
@@ -553,27 +482,19 @@ export class AdminInboxController {
     onBeforeError?: () => void,
   ): Promise<boolean> {
     return channel.run(task, {
-      onStart: () => {
-        this._failed = ''
-      },
+      onStart: () => { this.s.failed = '' },
       onError: error => {
-        if (!(error instanceof ApiError && error.details.startsWith('pow_'))) {
-          this.hooks.onSessionLost?.(error)
-        }
+        if (!(error instanceof ApiError && error.details.startsWith('pow_'))) this.hooks.onSessionLost?.(error)
         onBeforeError?.()
-        this._failed = message
+        this.s.failed = message
         this.emitChange()
       },
     })
   }
 
   private anyPending(): boolean {
-    return this.queueChannel.pending ||
-      this.threadChannel.pending ||
-      this.readChannel.pending ||
-      this.replyChannel.pending ||
-      this.statusChannel.pending ||
-      this.noticeChannel.pending
+    return this.queueChannel.pending || this.threadChannel.pending || this.readChannel.pending ||
+      this.replyChannel.pending || this.statusChannel.pending || this.noticeChannel.pending
   }
 
   private isLiveBlocked(target: bigint | AdminInboxLiveStatus): boolean {
@@ -583,65 +504,64 @@ export class AdminInboxController {
   }
 
   private applyQueuePage(page: AdminInboxPage, append = false): void {
-    this._rows = append ? [...this._rows, ...page.rows] : page.rows
-    this._next = page.next
-    this._noticesEnabled = page.noticesEnabled
-    this._sharedRead = page.sharedAvailable
-    this._activityAvailable = page.activityAvailable
-    this._queueLive = !append && page.liveEnabled
+    Object.assign(this.s, {
+      rows: append ? [...this.s.rows, ...page.rows] : page.rows,
+      next: page.next,
+      noticesEnabled: page.noticesEnabled,
+      sharedRead: page.sharedAvailable,
+      activityAvailable: page.activityAvailable,
+      queueLive: !append && page.liveEnabled,
+    })
     this.emitChange()
     this.syncLive()
   }
 
   private async acknowledgeAfterSuccess(id: bigint, ok: boolean): Promise<boolean> {
-    if (ok && this._thread?.conversation.id === id && this._thread.readSnapshot) {
-      await this.acknowledge(id)
-    }
+    if (ok && this.s.thread?.conversation.id === id && this.s.thread.readSnapshot) await this.acknowledge(id)
     return ok
   }
 
   private acknowledge(id: bigint): Promise<boolean> {
     return this.readChannel.run(async ctx => {
-      const seen = this._thread
+      const seen = this.s.thread
       if (!ctx.isCurrent() || seen?.conversation.id !== id || !seen.readSnapshot) return
-      this._unreadAckFailed = false
+      this.s.unreadAckFailed = false
       this.emitChange()
       try {
         const unread = await this.transport.acknowledgeAdminInboxRead(id, seen.readSnapshot, ctx.signal)
-        if (!ctx.isCurrent() || this._thread?.conversation.id !== id || this._thread?.readSnapshot !== seen.readSnapshot) return
-        const latest = this._thread
-        const updated = { ...latest.conversation, unread }
-        this._thread = { ...latest, conversation: updated, readSnapshot: null }
-        this._rows = this._filter === 'unread' && unread === 0
-          ? this._rows.filter(item => item.id !== id)
-          : this._rows.map(item => item.id === id ? { ...item, unread } : item)
+        if (!ctx.isCurrent() || this.s.thread?.conversation.id !== id || this.s.thread?.readSnapshot !== seen.readSnapshot) return
+        const latest = this.s.thread
+        this.s.thread = { ...latest, conversation: { ...latest.conversation, unread }, readSnapshot: null }
+        this.s.rows = this.s.filter === 'unread' && unread === 0
+          ? this.s.rows.filter(item => item.id !== id)
+          : this.s.rows.map(item => item.id === id ? { ...item, unread } : item)
         this.emitChange()
       } catch (error) {
         if (!ctx.isCurrent()) return
         this.hooks.onSessionLost?.(error)
-        this._unreadAckFailed = true
+        this.s.unreadAckFailed = true
         this.emitChange()
       }
     }, { onError: () => {} })
   }
 
   private applyLatestThread(latest: AdminInboxThread, keepReadSnapshot = false): boolean {
-    const current = this._thread
+    const current = this.s.thread
     if (current?.conversation.id !== latest.conversation.id) return false
     const afterFocus = this.hooks.onBeforeApplyLatestThread?.(latest.conversation.id)
     const first = latest.messages[0]?.id
     // Keep earlier pages only when the newest authoritative page still joins them.
     const overlap = first === undefined ? -1 : current.messages.findIndex(message => message.id === first)
-    this._thread = {
+    this.s.thread = {
       ...latest,
       previous: overlap > 0 ? current.previous : latest.previous,
       messages: overlap > 0 ? [...current.messages.slice(0, overlap), ...latest.messages] : latest.messages,
       readSnapshot: keepReadSnapshot ? current.readSnapshot : latest.readSnapshot,
     }
-    if (this._destination !== undefined && !adminInboxStatusTransitions[latest.conversation.status].includes(this._destination)) {
-      this._destination = undefined
+    if (this.s.destination !== undefined && !adminInboxStatusTransitions[latest.conversation.status].includes(this.s.destination)) {
+      this.s.destination = undefined
     }
-    this._needsRefresh = false
+    this.s.needsRefresh = false
     this.emitChange()
     this.syncLive()
     afterFocus?.()
@@ -649,10 +569,8 @@ export class AdminInboxController {
   }
 
   private async refreshThread(id: bigint, ctx: AdminOperationContext): Promise<void> {
-    if (this.activeLive?.target === id) {
-      this.activeLive.dirty = false
-    }
-    const latest = await this.transport.adminInboxThread(id, null, ctx.signal, this._sharedRead)
+    if (this.activeLive?.target === id) this.activeLive.dirty = false
+    const latest = await this.transport.adminInboxThread(id, null, ctx.signal, this.s.sharedRead)
     if (!ctx.isCurrent() || !this.applyLatestThread(latest)) return
     await this.hooks.onThreadRefreshed?.()
   }
@@ -661,9 +579,9 @@ export class AdminInboxController {
     try {
       await this.refreshThread(id, ctx)
     } catch (error) {
-      if (ctx.isCurrent() && this._thread?.conversation.id === id) {
-        this._thread = { ...this._thread, version: null }
-        this._needsRefresh = true
+      if (ctx.isCurrent() && this.s.thread?.conversation.id === id) {
+        this.s.thread = { ...this.s.thread, version: null }
+        this.s.needsRefresh = true
       }
       throw error
     }
@@ -671,12 +589,10 @@ export class AdminInboxController {
 
   private resetKeepingCapabilitiesAndReload(): void {
     this.queueChannel.cancel()
-    if (typeof this.activeLive?.target === 'string') {
-      this.stopLive()
-    }
-    this._next = null
-    this._queueLive = false
-    this._failed = ''
+    if (typeof this.activeLive?.target === 'string') this.stopLive()
+    this.s.next = null
+    this.s.queueLive = false
+    this.s.failed = ''
     this.emitChange()
     if (this.scope.active) void this.loadQueue(null, { clearRowsOnError: true })
   }
@@ -699,9 +615,7 @@ export class AdminInboxController {
       this.stopLive()
       return
     }
-    if (this.activeLive && this.activeLive.target === target && !this.activeLive.controller.signal.aborted) {
-      return
-    }
+    if (this.activeLive && this.activeLive.target === target && !this.activeLive.controller.signal.aborted) return
 
     this.stopLive()
     const generation = ++this.liveGeneration
@@ -710,26 +624,18 @@ export class AdminInboxController {
     const isLiveCurrent = () => generation === this.liveGeneration && derived.isCurrent()
 
     const subscription: ActiveLiveSubscription = {
-      target,
-      generation,
-      controller,
-      retry: undefined,
-      dirty: false,
-      refreshing: false,
-      delay: 1_000,
+      target, generation, controller, retry: undefined, dirty: false, refreshing: false, delay: 1_000,
       refresh: async () => {
         if (!isLiveCurrent() || this.liveScope() !== target || !subscription.dirty ||
-            subscription.refreshing || this.isLiveBlocked(target) || subscription.retry !== undefined) {
-          return
-        }
+            subscription.refreshing || this.isLiveBlocked(target) || subscription.retry !== undefined) return
         subscription.dirty = false
         subscription.refreshing = true
         try {
           if (typeof target === 'string') {
-            const previous = this._rows
-            const page = await this.transport.adminInbox(target, null, derived.signal, this._sharedRead)
+            const previous = this.s.rows
+            const page = await this.transport.adminInbox(target, null, derived.signal, this.s.sharedRead)
             if (!isLiveCurrent() || this.liveScope() !== target) return
-            if (this.isLiveBlocked(target) || previous !== this._rows) {
+            if (this.isLiveBlocked(target) || previous !== this.s.rows) {
               subscription.dirty = true
             } else {
               const afterFocus = this.hooks.onBeforeApplyLiveQueuePage?.()
@@ -737,13 +643,13 @@ export class AdminInboxController {
               afterFocus?.()
             }
           } else {
-            const previous = this._thread
-            const snapshot = await this.transport.adminInboxThread(target, null, derived.signal, this._sharedRead)
+            const previous = this.s.thread
+            const snapshot = await this.transport.adminInboxThread(target, null, derived.signal, this.s.sharedRead)
             if (!isLiveCurrent() || this.liveScope() !== target) return
-            if (this.isLiveBlocked(target) || previous !== this._thread) {
+            if (this.isLiveBlocked(target) || previous !== this.s.thread) {
               subscription.dirty = true
             } else {
-              this.applyLatestThread(snapshot, this._unreadAckFailed)
+              this.applyLatestThread(snapshot, this.s.unreadAckFailed)
             }
           }
           subscription.delay = 1_000
@@ -787,50 +693,36 @@ export class AdminInboxController {
   }
 
   private clearReplyInternal(): void {
-    this._reply = ''
-    this._notice = ''
+    this.s.reply = ''
+    this.s.notice = ''
     this.attempt = undefined
   }
 
   private clearStatusInternal(): void {
-    this._destination = undefined
-    this._reason = ''
-    this._needsRefresh = false
+    this.s.destination = undefined
+    this.s.reason = ''
+    this.s.needsRefresh = false
   }
 
   private clearNoticeInternal(): void {
-    this._composeNotice = false
-    this._recipient = ''
-    this._noticeSubject = ''
-    this._noticeBody = ''
+    this.s.composeNotice = false
+    this.s.recipient = ''
+    this.s.noticeSubject = ''
+    this.s.noticeBody = ''
     this.noticeAttempt = undefined
   }
 
   private resetStateInternal(): void {
     this.stopLive()
-    this._rows = []
-    this._thread = undefined
-    this._next = null
-    this._failed = ''
-    this.clearReplyInternal()
-    this.clearStatusInternal()
-    this.clearNoticeInternal()
-    this._noticesEnabled = false
-    this._sharedRead = false
-    this._activityAvailable = false
-    this._queueLive = false
-    this._unreadAckFailed = false
+    Object.assign(this.s, emptyInboxSessionData())
+    this.attempt = undefined
+    this.noticeAttempt = undefined
     this.hooks.onReset?.()
   }
 
   private buildSnapshot(): AdminInboxState {
     return {
-      rows: this._rows,
-      thread: this._thread,
-      next: this._next,
-      filter: this._filter,
-      order: this._order,
-      expanded: this._expanded,
+      ...this.s,
       pending: this.anyPending(),
       queuePending: this.queueChannel.pending,
       threadPending: this.threadChannel.pending,
@@ -838,21 +730,6 @@ export class AdminInboxController {
       replyPending: this.replyChannel.pending,
       statusPending: this.statusChannel.pending,
       noticePending: this.noticeChannel.pending,
-      failed: this._failed,
-      reply: this._reply,
-      notice: this._notice,
-      destination: this._destination,
-      reason: this._reason,
-      needsRefresh: this._needsRefresh,
-      sharedRead: this._sharedRead,
-      activityAvailable: this._activityAvailable,
-      queueLive: this._queueLive,
-      unreadAckFailed: this._unreadAckFailed,
-      noticesEnabled: this._noticesEnabled,
-      composeNotice: this._composeNotice,
-      recipient: this._recipient,
-      noticeSubject: this._noticeSubject,
-      noticeBody: this._noticeBody,
     }
   }
 

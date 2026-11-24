@@ -269,7 +269,7 @@ defineExpose({
         onKeydown: escapePane,
       }"
       @click="toggle"
-    >{{ t('author.articleOutlineRail.outline') }}</ElButton>
+    >{{ t('author.canvas.outline') }}</ElButton>
   </Teleport>
   <OutlineShell
     :surface="surface" :dock-target="dockTarget" :foreground="foreground" :expanded="expanded"

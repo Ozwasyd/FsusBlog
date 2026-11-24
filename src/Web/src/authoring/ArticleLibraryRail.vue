@@ -170,7 +170,7 @@ defineExpose({ open, close, toggle, visible })
       <div v-if="recentAvailable || pinnedAvailable" class="library-modes" role="group" :aria-label="t('author.articleLibraryRail.article.library.views')">
         <button type="button" :aria-pressed="mode === 'all'" @click="mode = 'all'">{{ t('author.articleLibraryRail.all.articles') }}</button>
         <button v-if="recentAvailable" type="button" :aria-pressed="mode === 'recent'" @click="mode = 'recent'">{{ t('author.articleLibraryRail.recent.opens') }}</button>
-        <button v-if="pinnedAvailable" type="button" :aria-pressed="mode === 'pinned'" @click="mode = 'pinned'">{{ t('author.articleLibraryRail.pinned.views') }}</button>
+        <button v-if="pinnedAvailable" type="button" :aria-pressed="mode === 'pinned'" @click="mode = 'pinned'">{{ t('author.savedViewPanel.pinned.views') }}</button>
       </div>
       <div v-show="mode === 'all'">
         <ArticleLibraryResults ref="results" :article-id="articleId" :article-revision="articleRevision"

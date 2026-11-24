@@ -149,13 +149,13 @@ function issue() {
   <SecuritySectionCard
     v-if="available && currentSession"
     heading-id="site-recovery-key-heading"
-    :title="t('account.message54')"
+    :title="t('login.recovery.key')"
     :description="active ? t('account.recoveryActiveSummary') : t('account.message55')"
     :has-body="Boolean(failure || issued || (active && currentSession.siteSessionId))"
   >
     <template v-if="active !== null" #badge>
       <ElTag size="small" :type="active ? 'success' : 'info'" disable-transitions>
-        {{ t(active ? 'account.recoveryActiveTag' : 'account.recoveryUnsetTag') }}
+        {{ t(active ? 'admin.configured' : 'account.recoveryUnsetTag') }}
       </ElTag>
     </template>
 
@@ -221,7 +221,7 @@ function issue() {
             :loading="busy"
             :disabled="busy || !validSiteRecoveryKey(removalKey.trim())"
           >{{ t('account.message41') }}</ElButton>
-          <ElButton native-type="button" :disabled="busy" @click="closeRemoval">{{ t('account.message39') }}</ElButton>
+          <ElButton native-type="button" :disabled="busy" @click="closeRemoval">{{ t('nav.cancel') }}</ElButton>
         </ElInlineActions>
       </form>
     </div>

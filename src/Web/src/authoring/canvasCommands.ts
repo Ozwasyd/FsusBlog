@@ -20,7 +20,7 @@ export type CanvasMessageKey =
   | 'author.canvas.could_not_load_the_canvas'
   | 'author.canvas.could_not_load_all_canvas_records'
   | 'author.canvas.could_not_load_all_canvas_records_try_again'
-  | 'author.canvas.could_not_verify_your_session'
+  | 'author.write.couldNotVerifyYourSession'
   | 'author.canvas.could_not_resolve_the_reference'
   | 'author.canvas.the_pinned_revision_cannot_be_opened_as_the_current_draft'
   | 'author.canvas.could_not_open_this_reference_at_its_resolved_position_resolve_it_again'

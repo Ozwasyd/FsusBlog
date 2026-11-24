@@ -188,7 +188,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
 <template>
   <main class="account-security">
     <ElTaskPageHeader
-      :title="t('account.message1')"
+      :title="t('nav.security')"
       :description="t('account.securitySummary')"
       density="compact"
     />
@@ -196,7 +196,7 @@ function changeSecuritySession<T>(epoch: number, change: (signal: AbortSignal) =
     <div v-if="!currentSession" class="security-empty-surface">
       <ElEmptyState size="compact" :title="t('account.message113')">
         <p class="security-signed-out">
-          <RouterLink class="security-login-link" to="/login">{{ t('account.message2') }}</RouterLink>
+          <RouterLink class="security-login-link" to="/login">{{ t('page.login') }}</RouterLink>
           {{ ' ' }}{{ t('account.message3') }}
         </p>
       </ElEmptyState>

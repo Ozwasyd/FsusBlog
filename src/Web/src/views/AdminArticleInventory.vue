@@ -222,7 +222,7 @@ async function confirmDelete() {
       <form class="inventory-search" @submit.prevent="search()">
         <label :for="keywordId">{{ t('admin.inventory.keyword') }}</label>
         <ElInput :id="keywordId" v-model="keyword" :disabled="mutating" clearable />
-        <ElButton native-type="submit" :disabled="mutating" :loading="searchLoading">{{ t('admin.inventory.search') }}</ElButton>
+        <ElButton native-type="submit" :disabled="mutating" :loading="searchLoading">{{ t('reading.searchLabel') }}</ElButton>
       </form>
       <RouterLink v-if="!trash" :to="{ name: 'write' }" custom v-slot="{ href, navigate }">
         <ElButton tag="a" type="primary" class="inventory-write-link" v-bind="{ href }" @click="navigate">
@@ -270,7 +270,7 @@ async function confirmDelete() {
             </ElButton>
             <ElInlineActions v-else>
               <ElButton v-if="row.state === 'published'" tag="a" text size="small" class="inventory-action-link" v-bind="{ href: `${publicBase}/article/${row.id}`, target: '_blank', rel: 'noopener' }">
-                {{ t('admin.inventory.view') }}
+                {{ t('account.message93') }}
               </ElButton>
               <RouterLink :to="{ name: 'edit', params: { id: row.id } }" custom v-slot="{ href, navigate }">
                 <ElButton tag="a" text size="small" class="inventory-action-link" v-bind="{ href }" @click="navigate">
@@ -278,7 +278,7 @@ async function confirmDelete() {
                 </ElButton>
               </RouterLink>
               <ElButton native-type="button" text size="small" type="danger" :disabled="busy" @click="deleteFailure = ''; deleteTarget = row">
-                {{ t('admin.inventory.delete') }}
+                {{ t('account.message94') }}
               </ElButton>
             </ElInlineActions>
           </template>
@@ -286,7 +286,7 @@ async function confirmDelete() {
       </ElTable>
       <ElInlineActions v-if="query.beforeId || page.nextId" class="inventory-actions">
         <ElButton v-if="query.beforeId" native-type="button" :disabled="busy" @click="load({ ...query, beforeId: undefined })">{{ t('admin.inventory.first') }}</ElButton>
-        <ElButton v-if="page.nextId" native-type="button" :disabled="busy" @click="nextPage">{{ t('admin.inventory.next') }}</ElButton>
+        <ElButton v-if="page.nextId" native-type="button" :disabled="busy" @click="nextPage">{{ t('admin.taxonomy.m32') }}</ElButton>
       </ElInlineActions>
     </template>
     <ElDialog :model-value="!!selected" :title="t('admin.inventory.restoreTitle')" width="min(30rem, 90vw)"
@@ -309,7 +309,7 @@ async function confirmDelete() {
       </div>
       <template #footer>
         <ElInlineActions>
-          <ElButton native-type="button" :disabled="restoring" @click="selected = undefined">{{ t('admin.inventory.cancel') }}</ElButton>
+          <ElButton native-type="button" :disabled="restoring" @click="selected = undefined">{{ t('nav.cancel') }}</ElButton>
           <ElButton v-if="restoreAvailable" native-type="button" type="primary" :loading="restoring" @click="restore()">{{ t('admin.inventory.restorePrivate') }}</ElButton>
         </ElInlineActions>
       </template>
@@ -323,7 +323,7 @@ async function confirmDelete() {
       </div>
       <template #footer>
         <ElInlineActions>
-          <ElButton native-type="button" :disabled="deleting" @click="deleteTarget = undefined">{{ t('admin.inventory.cancel') }}</ElButton>
+          <ElButton native-type="button" :disabled="deleting" @click="deleteTarget = undefined">{{ t('nav.cancel') }}</ElButton>
           <ElButton native-type="button" type="danger" :loading="deleting" @click="confirmDelete">{{ t('admin.inventory.deleteAction') }}</ElButton>
         </ElInlineActions>
       </template>

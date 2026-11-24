@@ -217,8 +217,8 @@ function onOutlineVisibility(open: boolean) {
 }
 
 const pageHeading = computed(() => id.value === undefined
-  ? t('author.write.articleWorkspace')
-  : id.value === 0 ? t('author.write.newArticle') : t('author.write.editArticle'))
+  ? t('page.article-workspace')
+  : id.value === 0 ? t('page.write') : t('page.edit'))
 
 const statusTagType = computed<'danger' | 'warning' | 'success' | 'info'>(() => {
   if (hasConflict.value) return 'danger'
@@ -230,7 +230,7 @@ const statusTagType = computed<'danger' | 'warning' | 'success' | 'info'>(() => 
 const statusLabel = computed(() => {
   if (hasConflict.value) return t('author.write.saveConflict')
   if (articleDirty.value) return t('author.write.unsaved')
-  if (original.value?.published) return t('author.write.published')
+  if (original.value?.published) return t('admin.taxonomy.m15')
   return t('author.write.draft')
 })
 
@@ -398,7 +398,7 @@ function onMoreCommand(command: unknown) {
       <div class="studio-topbar__right">
         <template v-if="editable && id !== undefined">
           <span v-if="retry" class="studio-action-slot">
-            <ElButton type="primary" size="small" :disabled="closingTabs || pending" @click="submit(retry)">{{ t('author.write.tryAgain') }}</ElButton>
+            <ElButton type="primary" size="small" :disabled="closingTabs || pending" @click="submit(retry)">{{ t('nav.retry') }}</ElButton>
           </span>
           <span v-else class="studio-action-slot">
             <ElButton native-type="button" size="small" :disabled="cannotWrite || !articleDirty" @click="submit('save')">{{ t('author.write.saveDraft') }}</ElButton>
@@ -512,13 +512,13 @@ function onMoreCommand(command: unknown) {
             <ElDropdownMenu>
               <template v-if="compactViewport">
                 <ElDropdownItem command="library" :disabled="!canSwitch">{{ t('author.articleLibraryRail.article.library') }}</ElDropdownItem>
-                <ElDropdownItem v-if="editable" command="outline" :disabled="!canOpenOutlineFromMenu">{{ t('author.articleOutlineRail.outline') }}</ElDropdownItem>
+                <ElDropdownItem v-if="editable" command="outline" :disabled="!canOpenOutlineFromMenu">{{ t('author.canvas.outline') }}</ElDropdownItem>
                 <ElDropdownItem command="quick-switch" :disabled="!canSwitch || revisionComparisonActive">{{ t('author.articleQuickSwitcher.quick.switch.articles') }}</ElDropdownItem>
               </template>
               <ElDropdownItem command="new-draft" :divided="compactViewport">{{ t('author.write.newDraft') }}</ElDropdownItem>
               <ElDropdownItem command="workspace" :disabled="!canSwitch">{{ t('author.write.workspaceTools') }}</ElDropdownItem>
               <ElDropdownItem v-if="!persistentWorkspace && id !== undefined" command="open-saved-workspace" :disabled="!canSwitch">{{ t('author.write.openSavedWorkspace') }}</ElDropdownItem>
-              <ElDropdownItem command="canvases">{{ t('author.write.canvases') }}</ElDropdownItem>
+              <ElDropdownItem command="canvases">{{ t('page.canvas') }}</ElDropdownItem>
               <ElDropdownItem v-if="editable && original?.published && !retry" command="withdraw" divided :disabled="cannotWrite || dirty">{{ t('author.write.withdraw') }}</ElDropdownItem>
             </ElDropdownMenu>
           </template>
@@ -527,7 +527,7 @@ function onMoreCommand(command: unknown) {
     </header>
 
     <div v-if="showTabStrip || hasWorkspaceNotices" class="studio-subbar">
-      <div v-if="showTabStrip" class="studio-tabs" :aria-label="t('author.write.articleWorkspace')">
+      <div v-if="showTabStrip" class="studio-tabs" :aria-label="t('page.article-workspace')">
         <WorkspaceTabs ref="tabsControl" :tabs="workspaceTabs" :disabled="!canSwitch" :workspace-revision="workspaceRevision"
           :can-move-background="canMoveBackgroundTab"
           @activate="navigateTo($event.articleId)" @pin="togglePin" @close="closeTab" @move="moveBackgroundTab" />
@@ -560,9 +560,9 @@ function onMoreCommand(command: unknown) {
         </div>
         <div v-else-if="!currentSession?.canAuthor" class="studio-state">
           <ElAlert :title="failure || t('author.write.logInWithAnAuthorAccountToWrite')" type="info" :closable="false" />
-          <p><RouterLink :to="{ name: 'login', query: { redirect: route.fullPath } }">{{ t('author.write.logIn') }}</RouterLink></p>
+          <p><RouterLink :to="{ name: 'login', query: { redirect: route.fullPath } }">{{ t('page.login') }}</RouterLink></p>
         </div>
-        <section v-else-if="id === undefined" class="studio-empty" :aria-label="t('author.write.articleWorkspace')">
+        <section v-else-if="id === undefined" class="studio-empty" :aria-label="t('page.article-workspace')">
           <p class="studio-empty__prompt" role="status">{{ t('author.write.openAnArticleOrStartANewDraft') }}</p>
           <div class="studio-empty__actions">
             <span class="studio-action-slot">
@@ -576,7 +576,7 @@ function onMoreCommand(command: unknown) {
             </span>
           </div>
           <form class="workspace-open studio-empty__form" @submit.prevent="openArticle()">
-            <label for="workspace-article-id">{{ t('author.write.articleId') }}</label>
+            <label for="workspace-article-id">{{ t('admin.moderation.m35') }}</label>
             <ElInput id="workspace-article-id" ref="articleInput" v-model="openInput" class="workspace-open-field" :disabled="!canSwitch" />
             <div class="workspace-open__actions">
               <ElButton native-type="submit" size="small" :disabled="!canSwitch">{{ t('author.write.openArticle') }}</ElButton>
@@ -596,7 +596,7 @@ function onMoreCommand(command: unknown) {
         </section>
         <div v-else-if="!editable" class="studio-state">
           <ElAlert :title="failure" type="error" :closable="false" />
-          <ElButton class="retry" @click="reload++">{{ t('author.write.retry') }}</ElButton>
+          <ElButton class="retry" @click="reload++">{{ t('reading.retry') }}</ElButton>
         </div>
         <section
           v-if="authorizationReady && currentSession?.canAuthor && sourcePanes.length"
@@ -691,7 +691,7 @@ function onMoreCommand(command: unknown) {
       <div class="workspace-dialog">
         <ElSettingsSection density="compact" title-tag="h3" :title="t('author.write.openArticle')">
           <form class="workspace-open" @submit.prevent="submitOpenArticle(false)">
-            <label :for="id === undefined ? 'workspace-dialog-article-id' : 'workspace-article-id'">{{ t('author.write.articleId') }}</label>
+            <label :for="id === undefined ? 'workspace-dialog-article-id' : 'workspace-article-id'">{{ t('admin.moderation.m35') }}</label>
             <ElInput
               :id="id === undefined ? 'workspace-dialog-article-id' : 'workspace-article-id'"
               ref="dialogArticleInput"
@@ -736,7 +736,7 @@ function onMoreCommand(command: unknown) {
                 :disabled="!canSwitch"
                 @click="runCloseActiveTab"
               >
-                {{ t('author.workspaceTabs.close') }}
+                {{ t('comment.close') }}
               </ElButton>
             </template>
             <template v-if="hasSecondaryGroup">

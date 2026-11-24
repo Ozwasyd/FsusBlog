@@ -273,7 +273,7 @@ function reload() {
           <ElButton text :disabled="busy || saving || view.id === defaultId" @click="deleting = true">{{ t('author.savedViewPanel.remove.saved.view') }}</ElButton>
           <div v-if="deleting">
             <ElButton :disabled="busy" @click="save('retire')">{{ t('author.savedViewPanel.confirm.view.removal') }}</ElButton>
-            <ElButton text @click="deleting = false">{{ t('author.savedViewPanel.cancel') }}</ElButton>
+            <ElButton text @click="deleting = false">{{ t('nav.cancel') }}</ElButton>
           </div>
         </template>
       </template>

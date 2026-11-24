@@ -49,7 +49,7 @@ async function loadHistory() {
   >
     <template #title><span id="admin-session-history-heading">{{ t('admin.sessionHistory') }}</span></template>
     <template #actions>
-      <ElButton text :loading="refreshLoading" @click="loadHistory">{{ t('admin.refreshSessionHistory') }}</ElButton>
+      <ElButton text :loading="refreshLoading" @click="loadHistory">{{ t('account.inboxRefresh') }}</ElButton>
     </template>
     <ElAlert v-if="failure" :title="t('admin.sessionHistoryFailed')" type="error" :closable="false" show-icon />
     <ElSkeleton v-else-if="loading && !history" :rows="2" animated />

@@ -32,13 +32,13 @@ import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refr
 const filters = computed<ReadonlyArray<{ value: InboxFilter; label: string }>>(() => [
   { value: 'all', label: t('account.message129') },
   { value: 'unread', label: t('account.message130') },
-  { value: 'system', label: t('account.message131') },
+  { value: 'system', label: t('admin.inbox.m32') },
   { value: 'open', label: t('account.message132') },
   { value: 'pending', label: t('account.message133') },
-  { value: 'closed', label: t('account.message134') },
+  { value: 'closed', label: t('admin.inbox.m8') },
 ])
-const statuses = computed(() => [t('account.message132'), t('account.message133'), t('account.message134')] as const)
-const senders = computed(() => [t('account.message135'), t('account.message136'), t('account.message131')] as const)
+const statuses = computed(() => [t('account.message132'), t('account.message133'), t('admin.inbox.m8')] as const)
+const senders = computed(() => [t('account.message135'), t('admin.inbox.m31'), t('admin.inbox.m32')] as const)
 const timeFormat = computed(() => createInboxTimeFormatter(siteLocale.value))
 
 const filter = ref<InboxFilter>('all')
@@ -106,7 +106,7 @@ const replies = new Map<bigint, { body: string; snapshot?: bigint; key?: string 
 function rowMeta(row: InboxListItem): string {
   const time = timeFormat.value.compact(row.lastMessageAt)
   if (row.unreadCount > 0) {
-    if (row.isSystem) return `${t('account.message131')} · ${time}`
+    if (row.isSystem) return `${t('admin.inbox.m32')} · ${time}`
     if (row.status !== 0) return `${statuses.value[row.status]} · ${time}`
   }
   return time
@@ -494,7 +494,7 @@ onBeforeUnmount(() => {
     >
       <template v-if="currentSession" #default>
         <ElButton native-type="button" text @click="reloadInbox(cursor, 'refresh')">
-          {{ t('account.message112') }}
+          {{ t('reading.retry') }}
         </ElButton>
       </template>
     </ElAlert>
@@ -503,7 +503,7 @@ onBeforeUnmount(() => {
 
     <ElEmptyState v-else-if="!currentSession" :title="t('account.message113')">
       <template #actions>
-        <RouterLink class="inbox-login-link" to="/login">{{ t('account.message80') }}</RouterLink>
+        <RouterLink class="inbox-login-link" to="/login">{{ t('page.login') }}</RouterLink>
       </template>
     </ElEmptyState>
 
@@ -522,7 +522,7 @@ onBeforeUnmount(() => {
       :has-empty-list-actions="filter !== 'all' || writable"
       :has-more="Boolean(nextPage)"
       :more-loading="moreLoading"
-      :more-label="t('account.message121')"
+      :more-label="t('admin.inbox.m24')"
       :thread-key="threadKey"
       :thread-title="thread?.subject ?? ''"
       thread-title-tag="h2"
@@ -541,7 +541,7 @@ onBeforeUnmount(() => {
       v-model:reply-model="reply"
       :reply-disabled="sending"
       :reply-pending="sending"
-      :reply-submit-label="t('account.message128')"
+      :reply-submit-label="t('admin.inbox.m34')"
       :closed-note="thread?.status === 2 ? t('account.inboxClosedHint') : ''"
       :empty-selection-title="t('account.message125')"
       :empty-selection-description="t('account.inboxSelectHint')"
@@ -589,7 +589,7 @@ onBeforeUnmount(() => {
               {{ t('account.unreadCount', { count: row.unreadCount }) }}
             </ElTag>
             <ElTag v-else size="small" :type="row.isSystem ? 'info' : inboxStatusTagType(row.status)" disable-transitions>
-              {{ row.isSystem ? t('account.message131') : statuses[row.status] }}
+              {{ row.isSystem ? t('admin.inbox.m32') : statuses[row.status] }}
             </ElTag>
           </template>
         </ElConversationListItem>
@@ -612,7 +612,7 @@ onBeforeUnmount(() => {
           {{ statuses[thread.status] }}
         </ElTag>
         <ElTag v-if="thread.isSystem" size="small" type="info" disable-transitions>
-          {{ t('account.message131') }}
+          {{ t('admin.inbox.m32') }}
         </ElTag>
         <ElTag v-if="thread.unreadCount" size="small" disable-transitions>
           {{ t('account.unreadCount', { count: thread.unreadCount }) }}
@@ -660,7 +660,7 @@ onBeforeUnmount(() => {
       <template #footer>
         <ElInlineActions density="compact">
           <ElButton native-type="button" :disabled="sending" @click="closeCompose">
-            {{ t('account.inboxCancel') }}
+            {{ t('nav.cancel') }}
           </ElButton>
           <ElButton
             type="primary"
