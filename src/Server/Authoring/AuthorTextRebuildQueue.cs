@@ -1,7 +1,3 @@
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Operations;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal enum AuthorTextRebuildProfile { Legacy = 1, Summary = 2, Heading = 3, PropertyText = 4 }

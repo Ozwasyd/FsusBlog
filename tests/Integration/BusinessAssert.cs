@@ -1,5 +1,3 @@
-using FsusBlog.V2.Core;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 internal static class BusinessAssert

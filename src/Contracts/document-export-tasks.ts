@@ -1,5 +1,5 @@
-import { ApiError, encodeFrame, ProtocolError } from './aeds.ts';
-import { PodReader, PodWriter } from './binary.ts';
+import { ApiError, encodePod, ProtocolError } from './aeds.ts';
+import { decodePod, PodReader, toHex, ZERO_UUID } from './binary.ts';
 import { post, request, siteSessionHeader } from './internal/http.ts';
 import { consumeBounded } from './bounded-stream.ts';
 import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
@@ -15,7 +15,6 @@ export const documentOutputs = {
   epub: { type: 'application/epub+zip', limit: 2 * 1024 * 1024 },
 } as const;
 
-const nilUuid = '00000000-0000-0000-0000-000000000000';
 const maximumRevision = 9_223_372_036_854_775_807n;
 const taskBytes = 140;
 const hashBytes = 32;
@@ -53,7 +52,7 @@ function requireArticle(article: number): void {
 
 function requireCoordinates(request: DocumentExportCreate): void {
   requireArticle(request.article);
-  if (request.id === nilUuid || request.revision > maximumRevision ||
+  if (request.id === ZERO_UUID || request.revision > maximumRevision ||
       request.sourceRevision <= 0n || request.sourceRevision > request.revision || !formats.includes(request.format))
     throw new ProtocolError('Invalid document export coordinates');
 }
@@ -69,34 +68,20 @@ function readCoordinates(reader: PodReader): DocumentExportCreate {
 
 export function encodeDocumentExportCreate(value: DocumentExportCreate): Uint8Array<ArrayBuffer> {
   requireCoordinates(value);
-  const writer = new PodWriter();
-  writer.uuid(value.id);
-  writer.i32(value.article);
-  writer.i64(value.revision);
-  writer.i64(value.sourceRevision);
-  writer.fixedBytes(Uint8Array.of(formats.indexOf(value.format) + 1));
-  return encodeFrame(FrameType.DocumentExportCreate, writer.finish());
+  return encodePod(FrameType.DocumentExportCreate, writer => writer.uuid(value.id).i32(value.article)
+    .i64(value.revision).i64(value.sourceRevision).u8(formats.indexOf(value.format) + 1));
 }
 
-export function decodeDocumentExportCreate(payload: Uint8Array): DocumentExportCreate {
-  const reader = new PodReader(payload);
-  const value = readCoordinates(reader);
-  reader.finish();
-  return value;
-}
+export const decodeDocumentExportCreate = (payload: Uint8Array): DocumentExportCreate => decodePod(payload, readCoordinates);
 
 export function encodeDocumentExportTaskRef(id: string): Uint8Array<ArrayBuffer> {
-  if (id === nilUuid) throw new ProtocolError('Invalid document export task');
-  const writer = new PodWriter();
-  writer.uuid(id);
-  return encodeFrame(FrameType.DocumentExportTaskRef, writer.finish());
+  if (id === ZERO_UUID) throw new ProtocolError('Invalid document export task');
+  return encodePod(FrameType.DocumentExportTaskRef, writer => writer.uuid(id));
 }
 
 export function decodeDocumentExportTaskRef(payload: Uint8Array): string {
-  const reader = new PodReader(payload);
-  const id = reader.uuid();
-  reader.finish();
-  if (id === nilUuid) throw new ProtocolError('Invalid document export task');
+  const id = decodePod(payload, reader => reader.uuid());
+  if (id === ZERO_UUID) throw new ProtocolError('Invalid document export task');
   return id;
 }
 
@@ -134,21 +119,15 @@ function readTask(reader: PodReader): DocumentExportTask {
   return value;
 }
 
-export function decodeDocumentExportTask(payload: Uint8Array): DocumentExportTask {
-  const reader = new PodReader(payload);
-  const value = readTask(reader);
-  reader.finish();
-  return value;
-}
+export const decodeDocumentExportTask = (payload: Uint8Array): DocumentExportTask => decodePod(payload, readTask);
 
 export function decodeDocumentExportTaskList(payload: Uint8Array): readonly DocumentExportTask[] {
-  const reader = new PodReader(payload);
-  const count = reader.fixedBytes(1)[0];
-  if (count > listCapacity || payload.length !== 1 + count * taskBytes)
-    throw new ProtocolError('Invalid document export task count');
-  const tasks = Array.from({ length: count }, () => readTask(reader));
-  reader.finish();
-  return tasks;
+  return decodePod(payload, reader => {
+    const count = reader.fixedBytes(1)[0];
+    if (count > listCapacity || payload.length !== 1 + count * taskBytes)
+      throw new ProtocolError('Invalid document export task count');
+    return Array.from({ length: count }, () => readTask(reader));
+  });
 }
 
 function exportHeaders(session: string): HeadersInit {
@@ -260,13 +239,12 @@ async function fetchDocumentExport(task: DocumentExportTask, session: string, si
     await consumeBounded(response.body, 16 * 1024, 'Document export receipt is too large', chunk => { chunks.push(chunk); });
     const file = new Blob(chunks, { type });
     const document = JSON.parse(await file.text());
-    const hex = (hash: Uint8Array) => Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('');
     signal.throwIfAborted();
     if (document?.version !== version || document.taskId !== task.id || document.article !== task.article ||
         document.expectedRevision !== String(task.revision) || document.sourceRevision !== String(task.sourceRevision) ||
-        document.format !== task.format || document.provider !== task.provider || document.sourceSha256 !== hex(task.sourceHash) ||
+        document.format !== task.format || document.provider !== task.provider || document.sourceSha256 !== toHex(task.sourceHash) ||
         document.output?.mime !== output.type || document.output.bytes !== task.outputBytes ||
-        document.output.sha256 !== hex(expectedHash))
+        document.output.sha256 !== toHex(expectedHash))
       throw new ProtocolError('Document export receipt differs from the task');
     const warnings: DocumentExportWarning[] = [];
     if (version === 2) {

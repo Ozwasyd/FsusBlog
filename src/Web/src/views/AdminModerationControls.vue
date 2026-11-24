@@ -31,9 +31,9 @@ function displayMessage(message: ModerationDisplayMessage): string {
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ sessionLost: [error: ApiError] }>()
 const batchHeading = ref<HTMLElement>()
-const statuses = ['admin.moderation.m1', 'admin.moderation.m2', 'admin.moderation.m3', 'admin.moderation.m4'] as const
+const statuses = ['admin.moderation.m1', 'admin.moderation.m2', 'admin.moderation.m3', 'account.message158'] as const
 const eventLabels: Record<string, MessageKey> = {
-  create: 'admin.moderation.m5', approve: 'admin.moderation.m2', reject: 'admin.moderation.m3', hide: 'admin.moderation.m4', edit: 'admin.moderation.m6', delete: 'admin.moderation.m7',
+  create: 'admin.moderation.m5', approve: 'admin.moderation.m2', reject: 'admin.moderation.m3', hide: 'account.message158', edit: 'admin.moderation.m6', delete: 'admin.moderation.m7',
   appeal: 'admin.moderation.m8', appeal_decision: 'admin.moderation.m9',
 }
 
@@ -137,7 +137,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
   <section class="admin-moderation" aria-labelledby="admin-moderation-heading">
     <h2 id="admin-moderation-heading" class="moderation-sr-title">{{ t('admin.moderation.m32') }}</h2>
     <div class="moderation-panel-actions">
-      <ElButton text :disabled="Boolean(claim || batchClaims)" :loading="refreshLoading" @click="load()">{{ t('admin.moderation.refresh') }}</ElButton>
+      <ElButton text :disabled="Boolean(claim || batchClaims)" :loading="refreshLoading" @click="load()">{{ t('account.inboxRefresh') }}</ElButton>
     </div>
 
     <ElAlert v-if="failure" :title="displayMessage(failure)" type="error" :closable="false" show-icon />
@@ -184,7 +184,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
             <header class="moderation-comment-header">
               <h3>{{ item.displayName }}</h3>
               <p class="moderation-comment-meta">
-                {{ t('admin.moderation.m71', { article: item.articleId, comment: item.commentId.toString() }) }}
+                {{ t('admin.appeals.m13', { article: item.articleId, comment: item.commentId.toString() }) }}
                 · <time :datetime="new Date(item.createdAt).toISOString()">{{ new Date(item.createdAt).toLocaleString() }}</time>
               </p>
             </header>
@@ -238,7 +238,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
       </ElResourceList>
 
       <div v-if="queue.next" class="moderation-more">
-        <ElButton text :disabled="busy || Boolean(claim || batchClaims)" @click="load(queue.next)">{{ t('admin.moderation.m61') }}</ElButton>
+        <ElButton text :disabled="busy || Boolean(claim || batchClaims)" @click="load(queue.next)">{{ t('admin.taxonomy.m32') }}</ElButton>
       </div>
     </template>
 
@@ -327,7 +327,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
       </div>
       <template #footer>
         <ElInlineActions>
-          <ElButton @click="historyDialogOpen = false">{{ t('admin.moderation.closeHistory') }}</ElButton>
+          <ElButton @click="historyDialogOpen = false">{{ t('comment.close') }}</ElButton>
         </ElInlineActions>
       </template>
     </ElDialog>
@@ -485,11 +485,7 @@ const decideBatch = (decision: 1 | 2) => controller.decideBatch(decision)
 }
 
 .moderation-comment-header h3 {
-  margin: 0;
-  font-size: var(--el-font-size-base);
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  overflow-wrap: anywhere;
+  @include layout.review-item-heading;
 }
 
 .moderation-comment-controls {

@@ -1,29 +1,17 @@
-using System.Diagnostics;
-using System.Globalization;
-using System.Net;
-using System.Security.Cryptography;
-using System.Text.Json.Nodes;
-using FsusBlog.V2.Contracts;
-using Npgsql;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class PublicationHeadPostgresTests
 {
-    private const string Host = "head.example.test";
-    private const string Origin = "https://" + Host;
-    private const string Head = "/integrity/v2/log/head.json";
-    private const string Registry = "/integrity/v2/keys.json";
-    private const string Settings = "IntegrityProof__Signing__";
-    private const string Anchor = Settings + "NativeV2PublicHeadAnchor";
+    private const string Host = "head.example.test", Origin = "https://" + Host;
+    private const string Head = "/integrity/v2/log/head.json", Registry = "/integrity/v2/keys.json";
+    private const string Settings = "IntegrityProof__Signing__", Anchor = Settings + "NativeV2PublicHeadAnchor";
 
     [PublicationTransparencyFact]
     public async Task ServesOnlyOriginalOpaqueHeadForTheAnchoredExactCommittedTail()
     {
         if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        await Migrate("enable");
+        await Run(FixtureProcess.Migration(fixture.ConnectionString, "publication-transparency", "enable"));
 
         var (_, session, _) = await fixture.SignIn("Public head fixture", ct, minutes: 5);
         var scratch = PublicationFixture.PrivateScratch("fsus-head");
@@ -36,113 +24,91 @@ public sealed class PublicationHeadPostgresTests
             var config = PublicationFixture.NativeSettings(Origin, "first", currentPath);
             PublicationFixture.ConfigureKey(config, "first", "1", currentKey.ExportSubjectPublicKeyInfo());
             PublicationFixture.ConfigureKey(config, "next", "2", nextKey.ExportSubjectPublicKeyInfo());
-            await using (var server = await Start()) await Status(server, HttpStatusCode.NotFound);
+            await using (var server = await Start()) await Status(server, NotFound);
 
             config[Anchor] = "genesis";
-            string firstPin;
-            string retained;
+            string firstPin, retained;
             DateTime attestedAt;
             await using (var server = await Start())
             {
-                await Status(server, HttpStatusCode.NotFound);
+                await Status(server, NotFound);
                 var release = await Publish(server, "First retained content");
                 var first = await WaitForHead(server, "1");
                 firstPin = "1:" + JsonNode.Parse(first)!["entrySha256"]!.GetValue<string>();
                 first = await VerifyIndependently(server, first);
-                await Scalar("create temporary table first_head as table public.publication_transparency_head");
-                var proofUrl = await PublicationFixture.ProofPath(db, release.Id, ct);
-                using (var proof = await Send(server, HttpMethod.Get, proofUrl))
-                {
-                    proof.EnsureSuccessStatusCode();
-                    Assert.NotEqual(JsonNode.Parse(first)!["signature"]!.GetValue<string>(),
-                        JsonNode.Parse(await proof.Content.ReadAsStringAsync(ct))!["signature"]!.GetValue<string>());
-                }
-                await Edit(server, WireRoutes.Retract, release.Id, release.Revision);
-                using (var privateProof = await Send(server, HttpMethod.Get, proofUrl))
-                    Assert.Equal(HttpStatusCode.NotFound, privateProof.StatusCode);
+                await fixture.Exec("create table public.first_head_fixture as table public.publication_transparency_head");
+                var proofUrl = await PublicationFixture.ProofPath(fixture, release.Id, ct);
+                Assert.NotEqual(JsonNode.Parse(first)!["signature"]!.GetValue<string>(),
+                    JsonNode.Parse(await OkString(Send(server, HttpMethod.Get, proofUrl), ct))!["signature"]!.GetValue<string>());
+                await PublicationFixture.Edit(server, Host, session, WireRoutes.Retract,
+                    new(release.Id, release.Revision, Guid.NewGuid(), "", ""), ct);
+                await CheckStatusAsync(NotFound, Send(server, HttpMethod.Get, proofUrl));
                 Assert.Equal(first, await WaitForHead(server, "1"));
-                await Status(server, HttpStatusCode.NotFound, "wrong.example.test");
-                await Status(server, HttpStatusCode.Forbidden, Host, "http");
+                await Status(server, NotFound, "wrong.example.test");
+                await Status(server, Forbidden, Host, "http");
 
                 // The sequence witnesses a real head INSERT that fails after the proof and ledger inserts.
-                await Scalar("create sequence public.head_fixture_attempt");
-                await Scalar("""
+                await fixture.Exec("""
+                    create sequence public.head_fixture_attempt;
                     alter table public.publication_transparency_head add constraint head_fixture_fail
-                    check (nextval('public.head_fixture_attempt')=0) not valid
+                        check (nextval('public.head_fixture_attempt')=0) not valid;
                     """);
                 await Publish(server, "Second retained content");
-                for (var attempt = 0; await Scalar("select is_called from public.head_fixture_attempt") is not true; attempt++)
+                for (var attempt = 0; !await fixture.Scalar<bool>("select is_called from public.head_fixture_attempt"); attempt++)
                 {
                     Assert.InRange(attempt, 0, 100);
                     await Task.Delay(100, ct);
                 }
-                Assert.Equal(1L, await Scalar("select count(*) from public.article_publication_proof"));
-                Assert.Equal(1L, await Scalar("select count(*) from public.article_publication_transparency"));
-                Assert.Equal(first, await WaitForHead(server, "1"));
-                await Scalar("alter table public.publication_transparency_head drop constraint head_fixture_fail");
-                await Scalar("drop sequence public.head_fixture_attempt");
+                Assert.Equal((1L, 1L, first), (await fixture.Scalar<long>("select count(*) from public.article_publication_proof"),
+                    await fixture.Scalar<long>("select count(*) from public.article_publication_transparency"), await WaitForHead(server, "1")));
+                await fixture.Exec("alter table public.publication_transparency_head drop constraint head_fixture_fail; drop sequence public.head_fixture_attempt;");
                 retained = await VerifyIndependently(server, await WaitForHead(server, "2"));
-                attestedAt = (DateTime)(await Scalar("select attested_at from public.publication_transparency_head"))!;
-                var liveCheckpoint = await Checkpoint(currentPath);
-                Assert.NotEqual(0, liveCheckpoint.Code);
-                Assert.Contains("Stop the serving process", liveCheckpoint.Error);
+                attestedAt = await fixture.Scalar<DateTime>("select attested_at from public.publication_transparency_head");
+                AssertFailed(await Checkpoint(currentPath), "Stop the serving process", checkEmpty: false);
             }
 
             var signedCheckpoint = await Checkpoint(currentPath);
             Assert.True(signedCheckpoint.Code == 0, signedCheckpoint.Error);
             await VerifyCheckpoint(signedCheckpoint.Output, "first");
-            var priorDay = ((DateTime)(await Scalar("select min(issued_at) from public.article_publication_proof"))!).AddDays(-1)
+            var priorDay = (await fixture.Scalar<DateTime>("select min(issued_at) from public.article_publication_proof")).AddDays(-1)
                 .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             var dailyCheckpoint = await Checkpoint(currentPath, day: priorDay);
             Assert.True(dailyCheckpoint.Code == 0, dailyCheckpoint.Error);
             var dayBundle = JsonNode.Parse(dailyCheckpoint.Output)!;
-            Assert.Equal("daily", dayBundle["checkpoint"]!["checkpointKind"]!.GetValue<string>());
-            Assert.Equal(0, dayBundle["checkpoint"]!["entryCount"]!.GetValue<int>());
-            Assert.Equal("0", dayBundle["checkpoint"]!["fromSequence"]!.GetValue<string>());
-            Assert.Equal("0", dayBundle["checkpoint"]!["toSequence"]!.GetValue<string>());
+            var cp = dayBundle["checkpoint"]!;
+            Assert.Equal(("daily", 0, "0", "0"), (cp["checkpointKind"]!.GetValue<string>(), cp["entryCount"]!.GetValue<int>(),
+                cp["fromSequence"]!.GetValue<string>(), cp["toSequence"]!.GetValue<string>()));
             Assert.Null(dayBundle["inclusion"]);
             var dayFile = Path.Combine(scratch.FullName, "daily-checkpoint.json");
             await File.WriteAllTextAsync(dayFile, dailyCheckpoint.Output, ct);
-            await Run(new("node") { ArgumentList = { PublicationFixture.Tool("verify-publication-checkpoint.mjs"), Origin, Path.Combine(scratch.FullName, "keys.json"),
-                Path.Combine(scratch.FullName, "head.json"), dayFile, "--daily", priorDay } });
-            var openDay = await Checkpoint(currentPath, day: attestedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
-            Assert.NotEqual(0, openDay.Code);
-            Assert.Empty(openDay.Output);
-            Assert.Contains("on or after the next UTC midnight", openDay.Error);
-            var emptyInclusion = await Checkpoint(currentPath, day: priorDay, include: "1");
-            Assert.NotEqual(0, emptyInclusion.Code);
-            Assert.Empty(emptyInclusion.Output);
-            Assert.Contains("cannot include a ledger entry", emptyInclusion.Error);
-            var originalIssue = (DateTime)(await Scalar("select issued_at from public.article_publication_proof where transparency_seq=2"))!;
-            await Scalar("update public.article_publication_proof set issued_at=issued_at+interval '1 second' where transparency_seq=2");
-            var tamperedDay = await Checkpoint(currentPath, day: priorDay);
-            Assert.NotEqual(0, tamperedDay.Code);
-            Assert.Empty(tamperedDay.Output);
-            Assert.Contains("does not connect to the independently retained native head", tamperedDay.Error);
-            await Scalar("update public.article_publication_proof set issued_at=$1 where transparency_seq=2", originalIssue);
-            var wrongCurrentKey = await Checkpoint(currentPath, "next");
-            Assert.NotEqual(0, wrongCurrentKey.Code);
-            Assert.Contains("differs from the trusted registry's current key", wrongCurrentKey.Error);
+            await Run(FixtureProcess.Command("node", PublicationFixture.Tool("verify-publication-checkpoint.mjs"), Origin,
+                Path.Combine(scratch.FullName, "keys.json"), Path.Combine(scratch.FullName, "head.json"), dayFile, "--daily", priorDay));
+            AssertFailed(await Checkpoint(currentPath, day: attestedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)), "on or after the next UTC midnight");
+            AssertFailed(await Checkpoint(currentPath, day: priorDay, include: "1"), "cannot include a ledger entry");
+            var originalIssue = await fixture.Scalar<DateTime>("select issued_at from public.article_publication_proof where transparency_seq=2");
+            await fixture.Exec("update public.article_publication_proof set issued_at=issued_at+interval '1 second' where transparency_seq=2");
+            AssertFailed(await Checkpoint(currentPath, day: priorDay), "does not connect to the independently retained native head");
+            await fixture.Exec("update public.article_publication_proof set issued_at=$1 where transparency_seq=2", originalIssue);
+            AssertFailed(await Checkpoint(currentPath, "next"), "differs from the trusted registry's current key", checkEmpty: false);
             var wrongPrivateKey = await Checkpoint(nextPath);
-            Assert.NotEqual(0, wrongPrivateKey.Code);
-            Assert.Contains("Invalid native publication signing configuration or private key", wrongPrivateKey.Error);
+            AssertFailed(wrongPrivateKey, "Invalid native publication signing configuration or private key", checkEmpty: false);
             Assert.DoesNotContain(nextPath, wrongPrivateKey.Error);
 
-            await Scalar("create temporary table latest_head as table public.publication_transparency_head");
-            await using (var server = await Start()) await Status(server, HttpStatusCode.ServiceUnavailable);
+            await fixture.Exec("create table public.latest_head_fixture as table public.publication_transparency_head");
+            await using (var server = await Start()) await Status(server, ServiceUnavailable);
 
             config[Anchor] = firstPin;
-            await Scalar("delete from public.publication_transparency_head");
-            await Scalar("insert into public.publication_transparency_head select * from pg_temp.first_head");
-            await using (var server = await Start()) await Status(server, HttpStatusCode.ServiceUnavailable);
-            await Scalar("delete from public.publication_transparency_head");
-            await Scalar("insert into public.publication_transparency_head select * from pg_temp.latest_head");
-            await Scalar("update public.article_publication_transparency set prev_sha256=decode(repeat('00',32),'hex') where seq=2");
-            var corruptCheckpoint = await Checkpoint(currentPath);
-            Assert.NotEqual(0, corruptCheckpoint.Code);
-            Assert.Contains("does not connect to the independently retained native head", corruptCheckpoint.Error);
-            await using (var server = await Start()) await Status(server, HttpStatusCode.ServiceUnavailable);
-            await Scalar("""
+            await fixture.Exec("delete from public.publication_transparency_head; insert into public.publication_transparency_head select * from public.first_head_fixture;");
+            await using (var server = await Start()) await Status(server, ServiceUnavailable);
+            await fixture.Exec("""
+                delete from public.publication_transparency_head;
+                insert into public.publication_transparency_head select * from public.latest_head_fixture;
+                drop table public.first_head_fixture, public.latest_head_fixture;
+                update public.article_publication_transparency set prev_sha256=decode(repeat('00',32),'hex') where seq=2;
+                """);
+            AssertFailed(await Checkpoint(currentPath), "does not connect to the independently retained native head", checkEmpty: false);
+            await using (var server = await Start()) await Status(server, ServiceUnavailable);
+            await fixture.Exec("""
                 update public.article_publication_transparency b set prev_sha256=a.entry_sha256
                 from public.article_publication_transparency a where a.seq=1 and b.seq=2
                 """);
@@ -153,16 +119,11 @@ public sealed class PublicationHeadPostgresTests
             await using (var server = await Start())
             {
                 Assert.Equal(retained, await VerifyIndependently(server, await WaitForHead(server, "2")));
-                await Scalar("""
-                    select pg_terminate_backend(l.pid) from pg_locks l
-                    where l.database=(select oid from pg_database where datname=current_database())
-                      and l.locktype='advisory' and l.mode='ExclusiveLock' and l.granted and l.objsubid=1
-                      and ((l.classid::bigint << 32) | l.objid::bigint)=$1
-                    """, FsusBlogV2.Storage.PublicationLocks.Ownership);
+                Assert.True(await fixture.TerminateAdvisoryOwner(PublicationLocks.Ownership, 5000, ct));
                 for (var attempt = 0; ; attempt++)
                 {
                     using var denied = await Send(server, HttpMethod.Get, Head);
-                    if (denied.StatusCode == HttpStatusCode.ServiceUnavailable) break;
+                    if (denied.StatusCode == ServiceUnavailable) break;
                     Assert.InRange(attempt, 0, 40);
                     await Task.Delay(50, ct);
                 }
@@ -173,9 +134,9 @@ public sealed class PublicationHeadPostgresTests
             config[Settings + "Keys__first__CompromisedAtUtc"] = ArticlePublicationProofPayloadV2.Time(attestedAt);
             await using (var server = await Start())
             {
-                await Status(server, HttpStatusCode.ServiceUnavailable);
+                await Status(server, ServiceUnavailable);
                 var next = await Publish(server, "Native proof survives optional head refusal");
-                var proofUrl = await PublicationFixture.ProofPath(db, next.Id, ct);
+                var proofUrl = await PublicationFixture.ProofPath(fixture, next.Id, ct);
                 for (var attempt = 0; ; attempt++)
                 {
                     using var proof = await Send(server, HttpMethod.Get, proofUrl);
@@ -183,14 +144,12 @@ public sealed class PublicationHeadPostgresTests
                     Assert.InRange(attempt, 0, 100);
                     await Task.Delay(100, ct);
                 }
-                Assert.Equal(3L, await Scalar("select max(seq) from public.article_publication_transparency"));
-                Assert.Equal(2L, await Scalar("select seq from public.publication_transparency_head"));
-                await Status(server, HttpStatusCode.ServiceUnavailable);
+                Assert.Equal((3L, 2L), (await fixture.Scalar<long>("select max(seq) from public.article_publication_transparency"),
+                    await fixture.Scalar<long>("select seq from public.publication_transparency_head")));
+                await Status(server, ServiceUnavailable);
             }
             // The saved manifest predates the compromise. The persisted revocation state still denies the anchor.
-            var compromisedCheckpoint = await Checkpoint(nextPath, "next");
-            Assert.NotEqual(0, compromisedCheckpoint.Code);
-            Assert.Contains("ineligible at its attested time", compromisedCheckpoint.Error);
+            AssertFailed(await Checkpoint(nextPath, "next"), "ineligible at its attested time", checkEmpty: false);
 
             Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, config, request => PublicationFixture.Forward(request, Host));
 
@@ -202,11 +161,8 @@ public sealed class PublicationHeadPostgresTests
                 return response;
             }
 
-            async Task Status(ServerProcess server, HttpStatusCode code, string host = Host, string scheme = "https")
-            {
-                using var response = await Send(server, HttpMethod.Get, Head, host: host, scheme: scheme);
-                Assert.Equal(code, response.StatusCode);
-            }
+            Task Status(ServerProcess server, HttpStatusCode code, string host = Host, string scheme = "https") =>
+                CheckStatusAsync(code, Send(server, HttpMethod.Get, Head, host: host, scheme: scheme));
 
             async Task<string> WaitForHead(ServerProcess server, string sequence)
             {
@@ -225,45 +181,26 @@ public sealed class PublicationHeadPostgresTests
 
             async Task<string> VerifyIndependently(ServerProcess server, string head)
             {
-                using var registry = await Send(server, HttpMethod.Get, Registry);
-                registry.EnsureSuccessStatusCode();
                 var keyFile = Path.Combine(scratch.FullName, "keys.json");
                 var headFile = Path.Combine(scratch.FullName, "head.json");
-                await File.WriteAllTextAsync(keyFile, await registry.Content.ReadAsStringAsync(ct), ct);
+                await File.WriteAllTextAsync(keyFile, await OkString(Send(server, HttpMethod.Get, Registry), ct), ct);
                 await File.WriteAllTextAsync(headFile, head, ct);
-                await Run(new("node") { ArgumentList = { PublicationFixture.Tool("verify-publication-head.mjs"), Origin, keyFile, headFile } });
+                await Run(FixtureProcess.Command("node", PublicationFixture.Tool("verify-publication-head.mjs"), Origin, keyFile, headFile));
                 return head;
             }
 
-            async Task<Draft> Publish(ServerProcess server, string body)
-            {
-                var draft = await Edit(server, WireRoutes.Save, 0, 0, "Public anchor fixture", body);
-                return await Edit(server, WireRoutes.Publish, draft.Id, draft.Revision);
-            }
-
-            Task<Draft> Edit(ServerProcess server, string action, int article, long revision, string title = "", string body = "") =>
-                PublicationFixture.Edit(server, Host, session, action, new(article, revision, Guid.NewGuid(), title, body), ct);
+            Task<Draft> Publish(ServerProcess server, string body) =>
+                PublicationFixture.Publish(server, Host, session, "Public anchor fixture", body, ct);
         }
         finally { scratch.Delete(recursive: true); }
 
-        Task<object?> Scalar(string sql, params object[] args) =>
-            FixtureSql.ScalarAsync(db, null, ct, sql, args);
-
-        Task Migrate(string operation) => Run(FixtureProcess.Migration(fixture.ConnectionString, "publication-transparency", operation));
-
-        Task<FixtureProcess.Result> Checkpoint(string privateKey, string currentKeyId = "first",
-            string? day = null, string? include = null)
+        Task<FixtureProcess.Result> Checkpoint(string privateKey, string currentKeyId = "first", string? day = null, string? include = null)
         {
             var options = FixtureProcess.Migration(fixture.ConnectionString,
                 "publication-transparency", day is null ? "checkpoint-release" : "checkpoint-daily", Origin,
                 Path.Combine(scratch.FullName, "keys.json"), Path.Combine(scratch.FullName, "head.json"));
-            if (day is null)
-                foreach (var argument in new[] { "release-fixture.1", "1", "2", "2" }) options.ArgumentList.Add(argument);
-            else
-            {
-                options.ArgumentList.Add(day);
-                if (include is not null) options.ArgumentList.Add(include);
-            }
+            foreach (var argument in day is null ? new[] { "release-fixture.1", "1", "2", "2" } : include is null ? [day] : [day, include])
+                options.ArgumentList.Add(argument);
             options.Environment[Settings + "CurrentKeyId"] = currentKeyId;
             options.Environment[Settings + "NativeV2PrivateKeyFile"] = privateKey;
             return FixtureProcess.Run(options, ct);
@@ -272,19 +209,25 @@ public sealed class PublicationHeadPostgresTests
         async Task VerifyCheckpoint(string output, string keyId)
         {
             var checkpoint = JsonNode.Parse(output)!["checkpoint"]!;
-            Assert.Equal(keyId, checkpoint["keyId"]!.GetValue<string>());
-            Assert.Equal(2, checkpoint["entryCount"]!.GetValue<int>());
+            Assert.Equal((keyId, 2), (checkpoint["keyId"]!.GetValue<string>(), checkpoint["entryCount"]!.GetValue<int>()));
             var bundle = Path.Combine(scratch.FullName, "checkpoint.json");
             await File.WriteAllTextAsync(bundle, output, ct);
-            var expected = (string)(await Scalar("select encode(entry_sha256,'hex') from public.article_publication_transparency where seq=2"))!;
-            await Run(new("node") { ArgumentList = { PublicationFixture.Tool("verify-publication-checkpoint.mjs"), Origin, Path.Combine(scratch.FullName, "keys.json"),
-                Path.Combine(scratch.FullName, "head.json"), bundle, "release-fixture.1", "2", expected } });
+            var expected = await fixture.Scalar<string>("select encode(entry_sha256,'hex') from public.article_publication_transparency where seq=2");
+            await Run(FixtureProcess.Command("node", PublicationFixture.Tool("verify-publication-checkpoint.mjs"), Origin,
+                Path.Combine(scratch.FullName, "keys.json"), Path.Combine(scratch.FullName, "head.json"), bundle, "release-fixture.1", "2", expected));
         }
 
         async Task Run(ProcessStartInfo options)
         {
             var result = await FixtureProcess.Run(options, ct);
             Assert.True(result.Code == 0, result.Error + result.Output);
+        }
+
+        static void AssertFailed(FixtureProcess.Result result, string expectedError, bool checkEmpty = true)
+        {
+            Assert.NotEqual(0, result.Code);
+            if (checkEmpty) Assert.Empty(result.Output);
+            Assert.Contains(expectedError, result.Error);
         }
     }
 }

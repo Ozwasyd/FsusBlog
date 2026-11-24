@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import importlib.util
 import json
 import pathlib
 import struct
@@ -8,12 +7,11 @@ import sys
 import tempfile
 import unittest
 
+from tool_module_fixture import load_tool_module
+
 
 COMPILER = pathlib.Path(__file__).resolve().parents[2] / "tools/fsdl-dictionary.py"
-spec = importlib.util.spec_from_file_location("fsdl_dictionary", COMPILER)
-fsdl = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = fsdl
-spec.loader.exec_module(fsdl)
+fsdl = load_tool_module("fsdl_dictionary", COMPILER)
 
 
 class FsdlDictionaryTests(unittest.TestCase):

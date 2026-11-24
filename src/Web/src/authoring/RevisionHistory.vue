@@ -111,14 +111,18 @@ const metadataChanges = computed(() => {
 let historyRequest: AbortController | undefined
 let compareRequest: AbortController | undefined
 
-function reset() {
-  historyRequest?.abort()
-  closeComparison()
+function clearHistoryList() {
   items.value = []
   cursor.value = null
   published.value = null
-  error.value = ''
   loading.value = false
+}
+
+function reset() {
+  historyRequest?.abort()
+  closeComparison()
+  clearHistoryList()
+  error.value = ''
 }
 
 function closeComparison() {
@@ -199,10 +203,7 @@ async function compare(source: bigint) {
     if (controller.signal.aborted) return
     if (cause instanceof ApiError && [401, 403, 409].includes(cause.status)) {
       historyRequest?.abort()
-      items.value = []
-      cursor.value = null
-      published.value = null
-      loading.value = false
+      clearHistoryList()
       error.value = cause.status === 409 ? t('author.revisionHistory.load.the.current.draft.to.view.revision.history') : t('author.revisionHistory.revision.history.is.unavailable')
       comparisonError.value = cause.status === 409 ? t('author.revisionHistory.the.saved.draft.changed.load.its.current.revision.and') : t('author.revisionHistory.this.comparison.is.unavailable')
     } else {
@@ -322,10 +323,7 @@ watch(credentialEpoch, () => {
     comparing.value = false
     comparisonError.value = t('author.revisionHistory.the.session.renewed.while.loading.close.the.comparison.and')
   }
-  items.value = []
-  cursor.value = null
-  published.value = null
-  loading.value = false
+  clearHistoryList()
   if (open.value && props.articleId > 0) void load()
 }, { flush: 'sync' })
 onScopeDispose(() => {
@@ -355,7 +353,7 @@ onScopeDispose(() => {
         </ElButton>
       </li>
     </ul>
-    <ElButton v-if="cursor" :disabled="loading" text @click="load(true)">{{ t('author.revisionHistory.older.revisions') }}</ElButton>
+    <ElButton v-if="cursor" :disabled="loading" text @click="load(true)">{{ t('admin.moderation.m43') }}</ElButton>
     <ElDialog
       :model-value="comparisonOpen" :title="historical ? t('author.revisionHistory.historical.search.position') : t('author.revisionHistory.revision.comparison')" append-to-body destroy-on-close
       width="min(72rem, calc(100vw - 2rem))" top="4vh"
@@ -392,8 +390,8 @@ onScopeDispose(() => {
                 <h4>{{ sources[index].label }}</h4>
                 <dl class="revision-metadata">
                   <dt>{{ t('author.revisionHistory.summary') }}</dt><dd>{{ fields.summary || t('author.revisionHistory.no.saved.summary') }}</dd>
-                  <dt>{{ t('author.revisionHistory.category') }}</dt><dd>{{ fields.category?.name ?? t('author.revisionHistory.no.category') }}</dd>
-                  <dt>{{ t('author.revisionHistory.tags') }}</dt><dd>{{ fields.tags.map(tag => tag.name).join(', ') || t('author.revisionHistory.no.tags') }}</dd>
+                  <dt>{{ t('page.category') }}</dt><dd>{{ fields.category?.name ?? t('author.taxonomy.noCategory') }}</dd>
+                  <dt>{{ t('admin.taxonomy.m6') }}</dt><dd>{{ fields.tags.map(tag => tag.name).join(', ') || t('author.revisionHistory.no.tags') }}</dd>
                   <template v-if="comparisonMetadata.source.cover || comparisonMetadata.current.cover">
                     <dt>{{ t('author.revisionHistory.cover') }}</dt><dd>{{ fields.cover ? t('author.revisionHistory.private.image', { id: fields.cover }) : t('author.revisionHistory.no.draft.cover') }}</dd>
                   </template>

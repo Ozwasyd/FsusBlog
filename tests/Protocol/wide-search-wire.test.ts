@@ -6,6 +6,8 @@ import { FrameType, WireHeaders, WireLayouts as L, WireRoutes } from '../../src/
 import {
   fetchWideSearchManifest, fetchWideSearchPage, verifyWideSearchGeneration, verifyWideSearchPageBytes,
 } from '../../src/Web/src/wideSearchWire.ts'
+import { hexBytes, sha256Hex } from './fixture-source.ts'
+import { apiErrorResponse } from './step-up-fixture.ts'
 
 type FixturePage = { first: number; last: number; count: number; bytes: Uint8Array<ArrayBuffer> }
 const generation = '9223372036854775807'
@@ -13,7 +15,6 @@ const pages: FixturePage[] = [
   { first: 42, last: 42, count: 1, bytes: new Uint8Array(180).fill(7) },
   { first: 48, last: 51, count: 2, bytes: new Uint8Array(256).fill(9) },
 ]
-const sha = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex')
 
 test('wide transport verifies the independent manifest and pinned streamed page and HEAD', async t => {
   const fixture = manifestFrame(pages)
@@ -27,16 +28,20 @@ test('wide transport verifies the independent manifest and pinned streamed page 
     requests.push(`${init.method} ${path}`)
     if (init.method === 'HEAD') return new Response(null, { status: 204, headers: fixture.headers })
     if (path === WireRoutes.PublicSearchWideManifest) return packet(fixture.frame, fixture.headers)
-    return packet(pages[1].bytes, { ...fixture.headers, ETag: `"${sha(pages[1].bytes)}"` })
+    return packet(pages[1].bytes, { ...fixture.headers, ETag: `"${sha256Hex(pages[1].bytes)}"` })
   })
   const manifest = await fetchWideSearchManifest()
-  assert.deepEqual([manifest.generation, manifest.digest, manifest.pageCount, manifest.documentCount, manifest.byteCount],
-    [generation, fixture.digest, 2, 3, 436])
+  assert.equal(manifest.generation, generation)
+  assert.equal(manifest.digest, fixture.digest)
+  assert.equal(manifest.pageCount, 2)
+  assert.equal(manifest.documentCount, 3)
+  assert.equal(manifest.byteCount, 436)
   assert(Object.isFrozen(manifest) && Object.isFrozen(manifest.pages))
   const second = manifest.pages[1]
   assert(Object.isFrozen(second))
-  assert.deepEqual(second, { number: 2, documentCount: 2, firstArticleId: 48, lastArticleId: 51, offset: 180,
-    length: 256, sha256: sha(pages[1].bytes) })
+  assert.deepEqual(second, {
+    number: 2, documentCount: 2, firstArticleId: 48, lastArticleId: 51, offset: 180, length: 256, sha256: sha256Hex(pages[1].bytes),
+  })
   const bytes = await fetchWideSearchPage(manifest, second)
   assert.deepEqual(bytes, pages[1].bytes)
   await verifyWideSearchPageBytes(second, bytes)
@@ -56,12 +61,9 @@ test('manifest parsing rejects wrong coordinates, totals, independent digest and
   await fetchWideSearchManifest()
   const entry2 = L.SearchWideManifestHeaderSize + L.SearchWideManifestPageRecordSize
   for (const change of [
-    (view: DataView) => view.setInt32(entry2 + 8, 42, true),
-    (view: DataView) => view.setBigInt64(entry2 + 16, 181n, true),
-    (view: DataView) => view.setInt32(entry2 + 4, 3, true),
-    (view: DataView) => view.setInt32(entry2 + 24, 255, true),
-    (view: DataView) => view.setInt32(12, 4, true),
-    (view: DataView) => view.setBigInt64(20, 437n, true),
+    (v: DataView) => v.setInt32(entry2 + 8, 42, true), (v: DataView) => v.setBigInt64(entry2 + 16, 181n, true),
+    (v: DataView) => v.setInt32(entry2 + 4, 3, true), (v: DataView) => v.setInt32(entry2 + 24, 255, true),
+    (v: DataView) => v.setInt32(12, 4, true), (v: DataView) => v.setBigInt64(20, 437n, true),
   ]) {
     const malformed = manifestFrame(pages, change)
     respond = () => packet(malformed.frame, malformed.headers)
@@ -70,16 +72,13 @@ test('manifest parsing rejects wrong coordinates, totals, independent digest and
   const badDigest = manifestFrame(pages, undefined, true)
   respond = () => packet(badDigest.frame, badDigest.headers)
   await assert.rejects(fetchWideSearchManifest(), /manifest digest/)
-  for (const headers of [
-    { ...good.headers, 'Cache-Control': 'max-age=300' },
-    { ...good.headers, Age: '2' },
-    { ...good.headers, [WireHeaders.SearchIndexGeneration]: '9223372036854775808' },
-    { ...good.headers, [WireHeaders.SearchIndexGeneration]: '7' },
-    { ...good.headers, [WireHeaders.SearchCorpusDigest]: 'a'.repeat(64) },
-    { ...good.headers, [WireHeaders.SearchIndexPages]: '02' },
-    { ...good.headers, [WireHeaders.SearchIndexPages]: '513' },
+  for (const patch of [
+    { 'Cache-Control': 'max-age=300' }, { Age: '2' },
+    { [WireHeaders.SearchIndexGeneration]: '9223372036854775808' }, { [WireHeaders.SearchIndexGeneration]: '7' },
+    { [WireHeaders.SearchCorpusDigest]: 'a'.repeat(64) },
+    { [WireHeaders.SearchIndexPages]: '02' }, { [WireHeaders.SearchIndexPages]: '513' },
   ]) {
-    respond = () => packet(good.frame, headers)
+    respond = () => packet(good.frame, { ...good.headers, ...patch })
     await assert.rejects(fetchWideSearchManifest(), ProtocolError)
   }
   const empty = manifestFrame([{ first: 0, last: 0, count: 0, bytes: new Uint8Array(104) }])
@@ -89,23 +88,22 @@ test('manifest parsing rejects wrong coordinates, totals, independent digest and
 
 test('page and HEAD fail closed on stale pins, noncanonical replies, and wrong body lengths', async t => {
   const fixture = manifestFrame(pages)
-  const headers = { ...fixture.headers, ETag: `"${sha(pages[0].bytes)}"` }
+  const headers = { ...fixture.headers, ETag: `"${sha256Hex(pages[0].bytes)}"` }
   let respond = () => packet(fixture.frame, fixture.headers)
   t.mock.method(globalThis, 'fetch', () => respond())
   const manifest = await fetchWideSearchManifest()
   const page = manifest.pages[0]
-  for (const reply of [
-    () => packet(pages[0].bytes, { ...headers, [WireHeaders.SearchIndexGeneration]: '51' }),
-    () => packet(pages[0].bytes, { ...headers, [WireHeaders.SearchIndexPages]: '1' }),
-    () => packet(pages[0].bytes, { ...headers, [WireHeaders.SearchCorpusDigest]: '0'.repeat(64) }),
-    () => packet(pages[0].bytes, { ...headers, ETag: `W/${headers.ETag}` }),
-    () => packet(pages[0].bytes, { ...headers, 'Content-Type': 'text/plain' }),
-    () => packet(pages[0].bytes.subarray(1), headers),
-    () => packet(new Uint8Array(181), headers),
-    () => packet(new Uint8Array(180), headers),
-    () => packet(pages[0].bytes, headers, 206),
+  for (const patch of [
+    { [WireHeaders.SearchIndexGeneration]: '51' }, { [WireHeaders.SearchIndexPages]: '1' },
+    { [WireHeaders.SearchCorpusDigest]: '0'.repeat(64) }, { ETag: `W/${headers.ETag}` }, { 'Content-Type': 'text/plain' },
   ]) {
-    respond = reply
+    respond = () => packet(pages[0].bytes, { ...headers, ...patch })
+    await assert.rejects(fetchWideSearchPage(manifest, page), ProtocolError)
+  }
+  for (const [body, status] of [
+    [pages[0].bytes.subarray(1), 200], [new Uint8Array(181), 200], [new Uint8Array(180), 200], [pages[0].bytes, 206],
+  ] as const) {
+    respond = () => packet(body, headers, status)
     await assert.rejects(fetchWideSearchPage(manifest, page), ProtocolError)
   }
   await assert.rejects(fetchWideSearchPage(manifest, { ...page }, undefined), ProtocolError)
@@ -123,11 +121,7 @@ test('page and HEAD fail closed on stale pins, noncanonical replies, and wrong b
 })
 
 test('bounded AEDS errors preserve genuine HTTP status for callers', async t => {
-  const typed = new Uint8Array(L.ErrorBytes)
-  typed[0] = typed[1] = 1
-  new DataView(typed.buffer).setInt32(L.ErrorStatusOffset, 503, true)
-  typed.set(new TextEncoder().encode('Wide unavailable'), L.ErrorMessageOffset)
-  let respond = () => packet(encodeFrame(FrameType.ApiError, typed), { 'Content-Type': 'application/octet-stream' }, 503)
+  let respond = () => apiErrorResponse(503, '', 'Wide unavailable')
   t.mock.method(globalThis, 'fetch', () => respond())
   await assert.rejects(fetchWideSearchManifest(), (error: unknown) =>
     error instanceof ApiError && error.status === 503 && error.message === 'Wide unavailable')
@@ -150,9 +144,8 @@ function stream(bytes: Uint8Array<ArrayBuffer>) {
   })
 }
 
-function packet(bytes: Uint8Array<ArrayBuffer>, headers: HeadersInit, status = 200) {
-  return new Response(stream(bytes), { headers, status })
-}
+const packet = (bytes: Uint8Array<ArrayBuffer>, headers: HeadersInit, status = 200) =>
+  new Response(stream(bytes), { headers, status })
 
 function manifestFrame(rows: FixturePage[], change?: (view: DataView) => void, wrongDigest = false) {
   const payload = new Uint8Array(60 + 60 * rows.length)
@@ -171,13 +164,13 @@ function manifestFrame(rows: FixturePage[], change?: (view: DataView) => void, w
     view.setInt32(at + 12, row.last, true)
     view.setBigInt64(at + 16, BigInt(offset), true)
     view.setInt32(at + 24, row.bytes.length, true)
-    payload.set(createHash('sha256').update(row.bytes).digest(), at + 28)
+    payload.set(hexBytes(sha256Hex(row.bytes)), at + 28)
     offset += row.bytes.length
   }
   change?.(view)
   const digest = wrongDigest ? '0'.repeat(64) : createHash('sha256').update('public-search-fspk-manifest-v1\0')
     .update(payload.subarray(12, 28)).update(payload.subarray(60)).digest('hex')
-  payload.set(Buffer.from(digest, 'hex'), 28)
+  payload.set(hexBytes(digest), 28)
   const frame = encodeFrame(FrameType.PublicSearchWideManifest, payload)
   return { frame, digest, headers: {
     'Content-Type': 'application/octet-stream',

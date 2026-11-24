@@ -160,22 +160,31 @@ export function compileSchema(schema) {
   function csWrite(target, field) {
     const [name, type, arg1, arg2] = field;
     if (Object.hasOwn(primitive, type))
-      return `writer.${primitive[type][1]}(${target}.${name}${arg1 ? `, WireLimits.${arg1}` : ''});`;
+      return `writer.${primitive[type][1]}(${target}.${name}${arg1 ? `, ${arg1}` : ''});`;
     if (type === 'enum' || type === 'record')
       return `Write${arg1}(writer, ${target}.${name});`;
     if (type === 'list')
-      return `writer.List(${target}.${name}, WireLimits.${arg2}, Write${arg1});`;
+      return `writer.List(${target}.${name}, ${arg2}, Write${arg1});`;
     throw new Error(`Unsupported field type: ${type}`);
+  }
+
+  function csFluent(target, field) {
+    const [name, type, arg1, arg2] = field;
+    if (Object.hasOwn(primitive, type))
+      return `.${primitive[type][1]}(${target}.${name}${arg1 ? `, ${arg1}` : ''})`;
+    if (type === 'list')
+      return `.List(${target}.${name}, ${arg2}, Write${arg1})`;
+    return null;
   }
 
   function csRead(field) {
     const [, type, arg1, arg2] = field;
     if (Object.hasOwn(primitive, type))
-      return `reader.${primitive[type][1]}(${arg1 ? `WireLimits.${arg1}` : ''})`;
+      return `reader.${primitive[type][1]}(${arg1 ?? ''})`;
     if (type === 'enum' || type === 'record')
       return `Read${arg1}(ref reader)`;
     if (type === 'list')
-      return `reader.List(WireLimits.${arg2}, ${embeddedMinBytes.get(arg1)}, Read${arg1})`;
+      return `reader.List(${arg2}, ${embeddedMinBytes.get(arg1)}, Read${arg1})`;
     throw new Error(`Unsupported field type: ${type}`);
   }
 
@@ -192,7 +201,7 @@ export function compileSchema(schema) {
     throw new Error(`Unsupported field type: ${type}`);
   }
 
-  const cs = [notice, 'namespace FsusBlog.V2.Contracts;', '',
+  const cs = [notice, 'using static FsusBlog.V2.Contracts.WireLimits;', '', 'namespace FsusBlog.V2.Contracts;', '',
     'public enum FrameType : ushort', '{',
     ...entries(frameTypes).map(([n, v]) => `    ${n} = ${v},`), '}', '',
     ...entries(enums).flatMap(([name, { type, values }]) => [
@@ -225,25 +234,31 @@ export function compileSchema(schema) {
         '    };', '',
       ];
     }),
-    ...embeddedOrder.flatMap(([name, fields]) => [
-      `    private static void Write${name}(Writer writer, ${name} record)`,
-      '    {',
-      ...fields.map(field => `        ${csWrite('record', field)}`),
-      '    }', '',
-      `    private static ${name} Read${name}(ref Reader reader) =>`,
-      `        new ${name}(${fields.map(csRead).join(', ')});`, '',
-    ]),
-    ...methods.flatMap(([name, { fields, frame }]) => [
-      `    public static byte[] Encode${name}(${name} value) =>`,
-      `        EncodeRecord(FrameType.${frame}, value, Validate, static (writer, record) =>`,
-      '        {',
-      ...fields.map(field => `            ${csWrite('record', field)}`),
-      '        });', '',
-      `    public static ${name} Decode${name}(ReadOnlySpan<byte> frame) =>`,
-      `        DecodeRecord<${name}>(FrameType.${frame}, frame, static (ref Reader reader) =>`,
-      `            new ${name}(${fields.map(csRead).join(', ')}), Validate);`,
-      '',
-    ]),
+    ...embeddedOrder.flatMap(([name, fields]) => {
+      const chain = fields.map(field => csFluent('record', field));
+      return [
+        ...(chain.every(Boolean)
+          ? [`    private static void Write${name}(Writer writer, ${name} record) => writer${chain.join('')};`, '']
+          : [`    private static void Write${name}(Writer writer, ${name} record)`, '    {',
+              ...fields.map(field => `        ${csWrite('record', field)}`), '    }', '']),
+        `    private static ${name} Read${name}(ref Reader reader) =>`,
+        `        new(${fields.map(csRead).join(', ')});`, '',
+      ];
+    }),
+    ...methods.flatMap(([name, { fields, frame }]) => {
+      const chain = fields.map(field => csFluent('record', field));
+      return [
+        `    public static byte[] Encode${name}(${name} value) =>`,
+        ...(chain.every(Boolean)
+          ? [`        EncodeRecord(FrameType.${frame}, value, Validate, static (writer, record) => writer${chain.join('')});`, '']
+          : [`        EncodeRecord(FrameType.${frame}, value, Validate, static (writer, record) =>`, '        {',
+              ...fields.map(field => `            ${csWrite('record', field)}`), '        });', '']),
+        `    public static ${name} Decode${name}(ReadOnlySpan<byte> frame) =>`,
+        `        DecodeRecord<${name}>(FrameType.${frame}, frame, static (ref Reader reader) =>`,
+        `            new(${fields.map(csRead).join(', ')}), Validate);`,
+        '',
+      ];
+    }),
     '}', '',
   ].join('\n');
 
@@ -264,9 +279,9 @@ export function compileSchema(schema) {
     let layout = `${camel(name)}Fields`;
     if (fields.length === 1 && !Array.isArray(fields[0])) layout = groupName(fields[0]);
     else declarations.push(`const ${layout} = {`, ...members, '};');
-    return [...declarations, `export interface ${name} extends PodValue<typeof ${layout}> {}`,
-      embedded ? `const ${camel(name)}Field = /* @__PURE__ */ podField.record<${name}>(${layout});` :
-        `export const [encode${name}, decode${name}] = /* @__PURE__ */ definePodRecord<${name}>(${layout});`, ''];
+    return [...declarations, `export type ${name} = PodValue<typeof ${layout}>;`,
+      embedded ? `const ${camel(name)}Field = /* @__PURE__ */ podField.record(${layout});` :
+        `export const [encode${name}, decode${name}] = /* @__PURE__ */ definePodRecord(${layout});`, ''];
   }
 
   const ts = [notice,

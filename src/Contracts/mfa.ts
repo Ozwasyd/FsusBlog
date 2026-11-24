@@ -1,7 +1,7 @@
-import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
-import { decodeUtf8 } from './binary.ts';
+import { encodeFrame, ProtocolError } from './aeds.ts';
+import { dataView, decodeFixedText, decodeUtf8 } from './binary.ts';
 import { api } from './client.ts';
-import { post, request, siteSessionHeader } from './internal/http.ts';
+import { post, postEmpty, request, siteSessionHeader } from './internal/http.ts';
 import { FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
 export const mfaAction = {
@@ -56,8 +56,7 @@ export async function completeMfaLogin(token: string, factor: Factor, signal?: A
 
 export async function disableMfa(factor: Factor, signal?: AbortSignal) {
   const proof = await proveMfaAction(mfaAction.disable, factor, signal);
-  await post(WireRoutes.MfaDisable, FrameType.EmptySuccess, decodeSuccess, signal,
-    undefined, { [WireHeaders.MfaProof]: proof });
+  await postEmpty(WireRoutes.MfaDisable, signal, undefined, { [WireHeaders.MfaProof]: proof });
 }
 
 export async function regenerateMfaRecoveryCodes(factor: Factor, expected: string, signal?: AbortSignal): Promise<string[]> {
@@ -148,12 +147,5 @@ function fields(payload: Uint8Array, start: number, limits: number[]): string[] 
   return values;
 }
 
-function fixed(bytes: Uint8Array): string {
-  const end = bytes.indexOf(0);
-  if (end < 0 || bytes.subarray(end).some(Boolean)) throw invalid();
-  return decodeUtf8(bytes.subarray(0, end));
-}
-
-function view(bytes: Uint8Array): DataView {
-  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-}
+const fixed = (bytes: Uint8Array) => decodeFixedText(bytes, invalid, true);
+const view = dataView;

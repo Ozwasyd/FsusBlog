@@ -1,9 +1,9 @@
-import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
-import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticleHot } from '../../src/Contracts/article-hot.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { roleWithExactName, exactText } from './role-locators.mjs'
+import { withTempContext } from './isolated-browser-fixture.mjs'
+import { assertStatus, readFrame } from './response-status-fixture.mjs'
+import * as loc from './role-locators.mjs'
 
 const hotPath = WireRoutes.PublicArticleHot.replace('{size}', '10')
 const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
@@ -11,11 +11,10 @@ const visibleLimit = 5
 const wrongTag = '"browser-test-mismatched-article-hot-validator"'
 
 async function readRanking(response) {
-  assertStatus(response, 200)
   const { etag, [generationHeader]: generation } = response.headers()
+  const items = await readFrame(response, FrameType.ArticleHot, decodeArticleHot)
   assert.match(etag, /^"[0-9a-f]{64}"$/)
   assert.match(generation, /^[0-9]+$/)
-  const items = decodeArticleHot(decodeFrame(await response.body(), FrameType.ArticleHot).payload)
   assert(items.length >= 6 && items.length <= 10, 'Fixture needs more ranked articles than the home panel displays')
   assert.deepEqual(items, [...items].sort((left, right) => right.views - left.views || right.id - left.id))
   return { items, generation, etag }
@@ -58,7 +57,7 @@ async function pauseFirst(page, urlMatches, method) {
     }
   })
   return {
-    release: () => release.resolve(),
+    release: release.resolve,
     async reached() {
       const result = await bounded(reached.promise, `paused ranking ${method}`)
       if (result.error) throw result.error
@@ -74,23 +73,14 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
   const marker = 'meta[name="fsus-public-hot-articles"][content="1"]'
   const diagnostics = []
 
-  async function visit(scenario) {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 850 } })
-    try {
+  function visit(scenario) {
+    return withTempContext(browser, { viewport: { width: 1280, height: 850 } }, async context => {
       await context.addCookies([{ name: 'fsus_locale', value: 'en', url: site }])
       const page = await context.newPage()
-      const requests = []
-      const responses = []
-      const failing = []
-      page.on('request', request => {
-        if (urlMatches(new URL(request.url()))) requests.push(request)
-      })
-      page.on('response', response => {
-        if (urlMatches(new URL(response.url()))) responses.push(response)
-      })
-      page.on('requestfailed', request => {
-        if (urlMatches(new URL(request.url()))) failing.push(request)
-      })
+      const requests = [], responses = [], failing = []
+      page.on('request', req => { if (urlMatches(new URL(req.url()))) requests.push(req) })
+      page.on('response', res => { if (urlMatches(new URL(res.url()))) responses.push(res) })
+      page.on('requestfailed', req => { if (urlMatches(new URL(req.url()))) failing.push(req) })
       page.on('pageerror', error => diagnostics.push(error.message))
       monitor?.(page, 'public-hot-articles')
       await page.addInitScript(() => {
@@ -104,20 +94,21 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
         }).observe(document, { childList: true, subtree: true, characterData: true })
       })
       await scenario({ page, requests, responses, failing })
-    } finally {
-      await context.close()
-    }
+    })
   }
 
-  const panel = page => roleWithExactName(page, 'region', 'Popular articles')
+  const panel = page => loc.exactRegion(page, 'Popular articles')
   const articleLinks = page => page.locator('ol.article-list h2 a')
   const mounts = page => page.evaluate(() => window.__fsusHotArticleMounts)
-  const next = page => roleWithExactName(roleWithExactName(page, 'navigation', 'Article pages'), 'link', 'Next')
+  const next = page => loc.exactLink(loc.roleWithExactName(page, 'navigation', 'Article pages'), 'Next')
+  const assertNoPanel = async page => {
+    assert.equal(await panel(page).count(), 0)
+    assert.deepEqual(await mounts(page), [])
+  }
 
   async function start(page) {
-    const result = await page.goto(site + '/')
-    assertStatus(result, 200)
-    await roleWithExactName(page, 'heading', 'Latest posts').waitFor()
+    assertStatus(await page.goto(site + '/'), 200)
+    await loc.exactHeading(page, 'Latest posts').waitFor()
     await next(page).waitFor()
     assert.equal(await page.locator(marker).count(), enabled ? 1 : 0)
   }
@@ -125,9 +116,9 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
   async function older(page) {
     await next(page).click()
     await page.waitForURL(url => url.pathname === '/' && url.searchParams.get('page') === '2' && !!url.searchParams.get('cursor'))
-    await exactText(roleWithExactName(page, 'navigation', 'Article pages'), 'Page 2').waitFor()
+    await loc.exactText(loc.roleWithExactName(page, 'navigation', 'Article pages'), 'Page 2').waitFor()
     await articleLinks(page).first().waitFor()
-    await roleWithExactName(page, 'heading', 'Latest posts').waitFor()
+    await loc.exactHeading(page, 'Latest posts').waitFor()
     assert.equal(await panel(page).count(), 0)
   }
 
@@ -146,7 +137,7 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
     }))), top.map(item => ({ text: item.title, href: `/article/${item.id}` })))
     const format = new Intl.NumberFormat('en')
     for (const [index, item] of top.entries()) {
-      await exactText(region.getByRole('listitem').nth(index), `${format.format(item.views)} ${item.views === 1 ? 'read' : 'reads'}`).waitFor()
+      await loc.exactText(region.getByRole('listitem').nth(index), `${format.format(item.views)} ${item.views === 1 ? 'read' : 'reads'}`).waitFor()
     }
   }
 
@@ -172,8 +163,7 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
       const ranking = await readRanking(responses[0])
       if (expected) assert.deepEqual(ranking.items.slice(0, expected.length), expected)
       assert.equal(new URL(request.url()).searchParams.get('generation'), ranking.generation)
-      assert.equal(await panel(page).count(), 0)
-      assert.deepEqual(await mounts(page), [])
+      await assertNoPanel(page)
       const primary = await articleLinks(page).allTextContents()
       assert.equal(primary.length, 10)
       proof.release()
@@ -188,9 +178,7 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
       assert(requests.every(request => !request.headers().cookie && !request.headers().authorization))
       observations.push({ scenario: 'public-hot-confirmed', ranked: ranking.items, rendered: visibleLimit,
         generation: ranking.generation, validator: ranking.etag, pageTwoExtraRequests: 0 })
-    } finally {
-      proof.release()
-    }
+    } finally { proof.release() }
   })
 
   await visit(async ({ page, requests, responses, failing }) => {
@@ -206,13 +194,10 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
       const aborted = failing.includes(request)
       if (completed.error) assert(aborted, String(completed.error))
       assert(aborted || responses.some(receipt => receipt.request() === request && receipt.status() === 200))
-      assert.equal(await panel(page).count(), 0)
-      assert.deepEqual(await mounts(page), [])
+      await assertNoPanel(page)
       assert.deepEqual(requests.map(item => item.method()), ['GET'])
       observations.push({ scenario: 'public-hot-navigation', oldGeneration: ranking.generation, oldGetAborted: aborted })
-    } finally {
-      old.release()
-    }
+    } finally { old.release() }
   })
 
   if (advance) {
@@ -239,9 +224,7 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
         assert.deepEqual(await mounts(page), [current.items.slice(0, visibleLimit).map(item => `/article/${item.id}`)])
         observations.push({ scenario: 'public-hot-real-authority-change', oldGeneration: prior.generation,
           generation: current.generation, previousRanked: prior.items, ranked: current.items })
-      } finally {
-        proof.release()
-      }
+      } finally { proof.release() }
     })
   }
 
@@ -260,8 +243,7 @@ export async function exercisePublicHotArticles({ browser, origin, enabled, expe
     for (const response of responses.filter(item => item.request().method() === 'HEAD')) {
       assert.equal(response.headers().etag, wrongTag)
     }
-    assert.equal(await panel(page).count(), 0)
-    assert.deepEqual(await mounts(page), [])
+    await assertNoPanel(page)
     observations.push({ scenario: 'public-hot-injected-validator-mismatch', proofs: upstreamStatuses.length })
   })
 

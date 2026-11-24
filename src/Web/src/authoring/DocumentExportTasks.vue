@@ -215,8 +215,8 @@ onScopeDispose(stop)
       <ElAlert v-if="actionError" :title="actionError" type="error" :closable="false" />
       <ul v-if="tasks.length" class="document-export-list" :aria-label="t('author.documentExportTasks.recent.export.tasks')">
         <li v-for="task in tasks" :key="task.id">
-          <strong>{{ t('author.documentExportTasks.revision', { p0: String(labels[task.format]), p1: String(task.sourceRevision) }) }}</strong>
-          <span role="status">{{ task.status === 'succeeded' && !downloadable(task) ? t('author.documentExportTasks.expired') : states[task.status] }}</span>
+          <strong>{{ t('author.revisionHistory.revision', { p0: String(labels[task.format]), p1: String(task.sourceRevision) }) }}</strong>
+          <span role="status">{{ task.status === 'succeeded' && !downloadable(task) ? t('admin.sessionExpired') : states[task.status] }}</span>
           <span v-if="task.failure !== 'none'">{{ failures[task.failure] }}</span>
           <div v-if="cancelable(task) || downloadable(task)">
             <ElButton v-if="cancelable(task)" native-type="button" text :disabled="busy" @click="cancel(task)">{{ t('author.documentExportTasks.cancel.task') }}</ElButton>

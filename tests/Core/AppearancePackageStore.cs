@@ -1,34 +1,40 @@
-using System.IO.Compression;
-using System.Security.Cryptography;
-using System.Text.Json;
-using FsusBlog.V2.Core.Extensions;
-
 namespace FsusBlog.V2.Tests;
 
 internal abstract class AppearancePackageStore
 {
     internal static readonly DateTimeOffset Now = new(2026, 11, 15, 0, 0, 0, TimeSpan.Zero);
 
-    internal static byte[] Theme(string color = "#225533", string? member = null, bool link = false)
+    internal static byte[] MakeZip(params (string Name, byte[] Bytes, bool Link)[] entries)
     {
         using var result = new MemoryStream();
         using (var zip = new ZipArchive(result, ZipArchiveMode.Create, leaveOpen: true))
         {
-            var entry = zip.CreateEntry("manifest.json");
-            if (link) entry.ExternalAttributes = unchecked((int)0xa1ff0000);
-            using (var file = entry.Open()) JsonSerializer.Serialize(file, new
+            foreach (var (name, bytes, link) in entries)
             {
-                Format = 1, Id = "summer", Version = "1.0", Kind = "theme", Publisher = "site.operator",
-                SignatureReference = "signature/one", TrustPolicyReference = "trust/policy",
-                Theme = new { LightAccent = color, LightHover = "#447733", DarkAccent = "#99eeaa", DarkHover = "#cceedd" }
-            });
-            if (member is not null && !link)
-            {
-                foreach (var name in new[] { member, "LICENSE.txt" })
-                using (var extra = zip.CreateEntry(name).Open()) extra.Write("forbidden"u8);
+                var entry = zip.CreateEntry(name);
+                if (link) entry.ExternalAttributes = unchecked((int)0xa1ff0000);
+                using var stream = entry.Open();
+                stream.Write(bytes);
             }
         }
         return result.ToArray();
+    }
+
+    internal static byte[] Theme(string color = "#225533", string? member = null, bool link = false)
+    {
+        var manifest = JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            Format = 1, Id = "summer", Version = "1.0", Kind = "theme", Publisher = "site.operator",
+            SignatureReference = "signature/one", TrustPolicyReference = "trust/policy",
+            Theme = new { LightAccent = color, LightHover = "#447733", DarkAccent = "#99eeaa", DarkHover = "#cceedd" }
+        });
+        List<(string, byte[], bool)> entries = [("manifest.json", manifest, link)];
+        if (member is not null && !link)
+        {
+            entries.Add((member, "forbidden"u8.ToArray(), false));
+            entries.Add(("LICENSE.txt", "forbidden"u8.ToArray(), false));
+        }
+        return MakeZip([.. entries]);
     }
 
     internal static string Hash(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));

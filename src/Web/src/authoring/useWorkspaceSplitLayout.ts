@@ -38,7 +38,6 @@ export function useWorkspaceSplitLayout(options: UseWorkspaceSplitLayoutOptions)
     twoSources: twoSources.value,
     comparisonReady: comparisonReady.value,
   }))
-  const trackWidth = computed(() => metrics.value.trackWidth)
   const minimumShare = computed(() => metrics.value.minimumShare)
   const wideEditorArea = computed(() => metrics.value.wideEditorArea)
   const primaryWidth = computed(() => metrics.value.primaryWidth)
@@ -80,28 +79,14 @@ export function useWorkspaceSplitLayout(options: UseWorkspaceSplitLayoutOptions)
 
   function startResize(event: PointerEvent): void {
     const divider = splitter.value
-    if (!divider) return
-    if (!resizeController.start({
-      pointerId: event.pointerId,
-      isPrimary: event.isPrimary,
-      button: event.button,
-      clientX: event.clientX,
-    }, {
-      showComparison: showComparison.value,
-      primaryWidth: primaryWidth.value,
-      direction: direction(),
-      trackWidth: trackWidth.value,
-    })) return
+    if (!divider || !resizeController.start(event, { ...metrics.value, direction: direction() })) return
     event.preventDefault()
     divider.setPointerCapture(event.pointerId)
     divider.focus({ preventScroll: true })
   }
 
   function dragResize(event: PointerEvent): void {
-    const nextWidth = resizeController.move(
-      { pointerId: event.pointerId, clientX: event.clientX },
-      { showComparison: showComparison.value, minimumShare: minimumShare.value },
-    )
+    const nextWidth = resizeController.move(event, metrics.value)
     if (nextWidth !== undefined) preferredPrimaryWidth.value = nextWidth
   }
 
@@ -110,18 +95,7 @@ export function useWorkspaceSplitLayout(options: UseWorkspaceSplitLayoutOptions)
   }
 
   function keyboardResize(event: KeyboardEvent): void {
-    const width = resolveKeyboardResize({
-      key: event.key,
-      altKey: event.altKey,
-      ctrlKey: event.ctrlKey,
-      metaKey: event.metaKey,
-      shiftKey: event.shiftKey,
-    }, {
-      showComparison: showComparison.value,
-      primaryWidth: primaryWidth.value,
-      minimumShare: minimumShare.value,
-      direction: direction(),
-    })
+    const width = resolveKeyboardResize(event, { ...metrics.value, direction: direction() })
     if (width === undefined) return
     event.preventDefault()
     preferredPrimaryWidth.value = width

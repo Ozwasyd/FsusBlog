@@ -271,6 +271,7 @@ onMounted(async () => {
 </template>
 
 <style scoped lang="scss">
+@use '../review-panel' as layout;
 @use '../shared-fields' as fields;
 
 .admin-archive {
@@ -285,11 +286,7 @@ onMounted(async () => {
 }
 
 .archive-selected-head h3 {
-  margin: 0;
-  font-size: var(--el-font-size-base);
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  overflow-wrap: anywhere;
+  @include layout.review-item-heading;
 }
 
 .archive-coordinates {

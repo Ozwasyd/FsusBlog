@@ -1,9 +1,3 @@
-using System.Net;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Integration.Tests;
-using FsusBlog.V2.Server;
-using Npgsql;
-
 public sealed class AuthorArticleInventoryPostgresTests
 {
     [PostgresFact]

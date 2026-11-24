@@ -174,7 +174,7 @@ const label = formField('label')
 
 const nodeTypeLabels = computed(() => ({
   'plain-text-note': t('author.canvas.note'),
-  'article-reference': t('author.canvas.article'),
+  'article-reference': t('page.article'),
   'heading-reference': t('author.canvas.heading'),
   'block-reference': t('author.canvas.block'),
   'group-frame': t('author.canvas.frame'),
@@ -264,7 +264,7 @@ async function deleteDocument() {
   const selected = document.value
   const token = controller.contextToken
   if (!selected || disabled.value) return
-  try { await ElMessageBox.confirm(t('author.canvas.delete_this_canvas_and_its_nodes_and_edges'), t('author.canvas.delete_canvas'), { confirmButtonText: t('author.canvas.delete') }) }
+  try { await ElMessageBox.confirm(t('author.canvas.delete_this_canvas_and_its_nodes_and_edges'), t('author.canvas.delete_canvas'), { confirmButtonText: t('account.message94') }) }
   catch { return }
   if (ownerLife.signal.aborted || controller.contextToken !== token) return
   await controller.deleteDocument(selected)
@@ -302,8 +302,8 @@ function historyShortcut(event: KeyboardEvent) {
   <main class="canvas-workspace" aria-labelledby="canvas-title" tabindex="-1" @keydown="historyShortcut">
     <header class="canvas-header">
       <div>
-        <RouterLink :to="documentId ? '/admin/canvas' : articlePath">{{ documentId ? t('author.canvas.all_canvases') : t('author.canvas.article_workspace') }}</RouterLink>
-        <h1 id="canvas-title">{{ document?.title ?? (documentId ? t('author.canvas.canvas') : t('author.canvas.canvases')) }}</h1>
+        <RouterLink :to="documentId ? '/admin/canvas' : articlePath">{{ documentId ? t('author.canvas.all_canvases') : t('page.article-workspace') }}</RouterLink>
+        <h1 id="canvas-title">{{ document?.title ?? (documentId ? t('page.canvas-document') : t('author.canvas.canvases')) }}</h1>
       </div>
       <div v-if="authorized && ready" class="canvas-toolbar">
         <template v-if="!documentId">
@@ -449,7 +449,7 @@ function historyShortcut(event: KeyboardEvent) {
         <label v-if="nodeKind === 'article-reference' || nodeKind === 'heading-reference' || nodeKind === 'block-reference'" for="canvas-reference">{{ t('author.canvas.reference_type') }}</label>
         <select v-if="nodeKind === 'article-reference' || nodeKind === 'heading-reference' || nodeKind === 'block-reference'"
           id="canvas-reference" v-model="nodeKind" :disabled="!!editingNode || working || !!retry">
-          <option value="article-reference">{{ t('author.canvas.article') }}</option><option value="heading-reference">{{ t('author.canvas.heading') }}</option><option value="block-reference">{{ t('author.canvas.block') }}</option>
+          <option value="article-reference">{{ t('page.article') }}</option><option value="heading-reference">{{ t('author.canvas.heading') }}</option><option value="block-reference">{{ t('author.canvas.block') }}</option>
         </select>
         <template v-if="nodeKind === 'plain-text-note' || nodeKind === 'group-frame'">
           <label for="canvas-node-text">{{ nodeKind === 'group-frame' ? t('author.canvas.frame_name') : t('author.canvas.note_text') }}</label>
@@ -465,7 +465,7 @@ function historyShortcut(event: KeyboardEvent) {
           </template>
         </template>
         <template v-else>
-          <label for="canvas-article">{{ t('author.canvas.article_id') }}</label><input id="canvas-article" v-model="article" inputmode="numeric" :disabled="working || !!retry" />
+          <label for="canvas-article">{{ t('admin.moderation.m35') }}</label><input id="canvas-article" v-model="article" inputmode="numeric" :disabled="working || !!retry" />
           <template v-if="nodeKind !== 'article-reference'">
             <label for="canvas-anchor">{{ t('author.canvas.anchor_id') }}</label><input id="canvas-anchor" v-model="anchor" maxlength="64" :disabled="working || !!retry" />
           </template>
@@ -492,7 +492,7 @@ function historyShortcut(event: KeyboardEvent) {
       </form>
       <p v-if="form && error" role="alert">{{ error }}</p>
       <ElButton v-if="retry" :disabled="working" @click="send(retry)">{{ t('author.canvas.retry_change') }}</ElButton>
-      <ElButton v-else-if="form" :disabled="working" @click="form = undefined">{{ t('author.canvas.cancel') }}</ElButton>
+      <ElButton v-else-if="form" :disabled="working" @click="form = undefined">{{ t('nav.cancel') }}</ElButton>
     </ElDialog>
 
     <ElDialog v-if="authorized" :model-value="!!plan" :title="t('author.canvas.review_article_link')" append-to-body :show-close="!linkPending && !linkUnconfirmed"
@@ -503,7 +503,7 @@ function historyShortcut(event: KeyboardEvent) {
         <pre class="canvas-link-preview">{{ plan.insertedMarkdown }}</pre>
         <p v-if="error" role="alert">{{ error }}</p>
         <div class="canvas-toolbar">
-          <ElButton :disabled="linkPending || linkUnconfirmed" @click="cancelLink">{{ t('author.canvas.cancel') }}</ElButton>
+          <ElButton :disabled="linkPending || linkUnconfirmed" @click="cancelLink">{{ t('nav.cancel') }}</ElButton>
           <ElButton type="primary" :disabled="linkPending" @click="applyLink">{{ linkUnconfirmed ? t('author.canvas.retry_confirmation') : t('author.canvas.confirm_link') }}</ElButton>
         </div>
       </div>

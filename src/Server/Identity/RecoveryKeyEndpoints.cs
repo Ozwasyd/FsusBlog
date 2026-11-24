@@ -1,10 +1,3 @@
-using System.Security.Cryptography;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Security;
-using FsusBlog.V2.Server.Sessions;
-using Microsoft.AspNetCore.Http.Features;
-
 namespace FsusBlog.V2.Server.Passkeys;
 
 internal static class RecoveryKeyEndpoints
@@ -14,8 +7,7 @@ internal static class RecoveryKeyEndpoints
     private const string PowContext = "site-identity";
 
     internal static void Map(WebApplication app, PasskeyStore store, RecoveryKeySecret secret, string sessionCookie,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, Action<HttpContext> requireHost,
-        Func<string, CookieOptions> cookie)
+        Action<HttpContext> requireHost, Func<string, CookieOptions> cookie)
     {
         var pow = app.Services.GetRequiredService<ScopedPow>();
         var post = new SiteMfaPostRoutes(app, RequirePost);
@@ -33,7 +25,7 @@ internal static class RecoveryKeyEndpoints
             ServerHttp.Frame(await store.BeginRecoveryKeyStepUp(Session(ctx), await Operation(ctx, ct), ct)));
         post.Post(WireRoutes.RecoveryKeyStepUpComplete, async (ctx, ct) =>
         {
-            var frame = await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct);
+            var frame = await ServerHttp.ReadFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct);
             return ServerHttp.Frame(await store.CompleteRecoveryKeyStepUp(Session(ctx), PasskeyWire.ReadLogin(frame, discoverable: false), ct));
         });
         post.Post(WireRoutes.RecoveryKeyIssue, async (ctx, ct) =>
@@ -47,15 +39,14 @@ internal static class RecoveryKeyEndpoints
             }
             catch (RecoveryKeyProofRequiredException)
             {
-                const int status = StatusCodes.Status428PreconditionRequired;
-                return new AedsError(status, Wire.EncodeError(status, "MFA_PROOF_REQUIRED", traceId: ctx.TraceIdentifier));
+                return ServerHttp.ErrorFrame(ctx, StatusCodes.Status428PreconditionRequired, "MFA_PROOF_REQUIRED");
             }
         });
         app.MapPost(WireRoutes.RecoveryKeyPow, (HttpContext ctx, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
             {
                 RequirePost(ctx);
-                var frame = await readFrame(ctx, WireLimits.RecoveryKeyVerifyFrameBytes, ct);
+                var frame = await ServerHttp.ReadFrame(ctx, WireLimits.RecoveryKeyVerifyFrameBytes, ct);
                 try
                 {
                     var key = Wire.DecodeRecoveryKeyVerify(frame);
@@ -68,7 +59,7 @@ internal static class RecoveryKeyEndpoints
             ScopedPow.Protect(ctx, async () =>
             {
                 RequirePost(ctx);
-                var frame = await readFrame(ctx, WireLimits.RecoveryKeyVerifyFrameBytes, ct);
+                var frame = await ServerHttp.ReadFrame(ctx, WireLimits.RecoveryKeyVerifyFrameBytes, ct);
                 try
                 {
                     var key = Wire.DecodeRecoveryKeyVerify(frame);
@@ -91,7 +82,7 @@ internal static class RecoveryKeyEndpoints
         });
         post.Post(WireRoutes.SitePasskeyRemoveCurrentComplete, async (ctx, ct) =>
         {
-            var request = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
+            var request = PasskeyWire.ReadLogin(await ServerHttp.ReadFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
             await store.CompleteSitePasskeyRemoveCurrent(Session(ctx), SiteSessions.Requested(ctx), ctx.Request.Cookies[RebindCookie], request, ct);
             ctx.Response.Cookies.Delete(sessionCookie, cookie("/"));
             ctx.Response.Cookies.Delete(RebindCookie, cookie(RebindPath));
@@ -102,7 +93,7 @@ internal static class RecoveryKeyEndpoints
             ServerHttp.Frame(await store.BeginRecoveryRebind(ctx.Request.Cookies[RebindCookie], ct)));
         post.Post(WireRoutes.RecoveryKeyRebindComplete, async (ctx, ct) =>
         {
-            var frame = await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct);
+            var frame = await ServerHttp.ReadFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct);
             await store.CompleteRecoveryRebind(ctx.Request.Cookies[RebindCookie], PasskeyWire.ReadProvision(frame),
                 SHA256.HashData(frame), ct);
             return ServerHttp.EmptyFrame();
@@ -110,7 +101,7 @@ internal static class RecoveryKeyEndpoints
 
         string? Session(HttpContext ctx) => ctx.Request.Cookies[sessionCookie];
         async Task<RecoveryKeyOperation> Operation(HttpContext ctx, CancellationToken ct) =>
-            Wire.DecodeRecoveryKeyOperation(await readFrame(ctx, WireLimits.RecoveryKeyOperationFrameBytes, ct));
+            Wire.DecodeRecoveryKeyOperation(await ServerHttp.ReadFrame(ctx, WireLimits.RecoveryKeyOperationFrameBytes, ct));
 
         void RequirePost(HttpContext ctx)
         {

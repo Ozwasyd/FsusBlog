@@ -11,7 +11,7 @@ start_identity_fixture admin-identity admin 'administrator identity'
 
 first=$("${migrate[@]}" admin-identity bootstrap identity-fixture)
 [[ "$first" =~ ^[0-9a-f]{64}$ ]]
-first_digest=$(printf '%s' "$first" | xxd -r -p | openssl dgst -sha256 | awk '{print $NF}')
+first_digest=$(pg_fixture_sha256_hex "$first")
 [[ $("${query[@]}" "SELECT count(*) FROM public.admin_invitation WHERE encode(digest, 'hex') = '$first_digest'") == 1 ]]
 [[ $("${query[@]}" "SELECT count(*) FROM public.login_ticket WHERE encode(digest, 'hex') = '$first_digest'") == 0 ]]
 unset first
@@ -32,7 +32,7 @@ add_pending_session_and_challenge() {
 add_pending_session_and_challenge
 replacement=$("${migrate[@]}" admin-identity rotate-passkey identity-fixture)
 [[ "$replacement" =~ ^[0-9a-f]{64}$ ]]
-replacement_digest=$(printf '%s' "$replacement" | xxd -r -p | openssl dgst -sha256 | awk '{print $NF}')
+replacement_digest=$(pg_fixture_sha256_hex "$replacement")
 [[ "$replacement_digest" != "$first_digest" ]]
 [[ $("${query[@]}" "SELECT count(*) FROM public.admin_invitation WHERE generation=2 AND encode(digest, 'hex')='$replacement_digest'") == 1 ]]
 unset replacement first_digest replacement_digest

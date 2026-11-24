@@ -1,7 +1,7 @@
-import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
-import { decodeUtf8 } from './binary.ts';
+import { encodeFrame, ProtocolError } from './aeds.ts';
+import { dataView as view, decodeUtf8 } from './binary.ts';
 import { api, validSiteSessionId, type Session } from './client.ts';
-import { post, readAvailability } from './internal/http.ts';
+import { post, postEmpty, readAvailability } from './internal/http.ts';
 import { mfaAction, mfaStartData, readMfaProof } from './mfa.ts';
 import { encodeSignIn, FrameType, WireHeader, WireHeaders, WireLayouts, WireLimits, WireRoutes } from './wire.generated.ts';
 
@@ -61,7 +61,7 @@ export async function beginPasskeyProvision(ticket: string, signal?: AbortSignal
 
 export async function completePasskeyProvision(begin: { token: string; options: PublicKeyCredentialCreationOptions }, signal?: AbortSignal): Promise<void> {
   const attestation = await getAttestation(begin.token, begin.options, signal);
-  await post(WireRoutes.PasskeyProvisionComplete, FrameType.EmptySuccess, decodeSuccess, signal, attestation);
+  await postEmpty(WireRoutes.PasskeyProvisionComplete, signal, attestation);
 }
 
 export async function provisionPasskey(ticket: string, signal?: AbortSignal): Promise<void> {
@@ -76,7 +76,7 @@ export async function enrollSitePasskey(expectedSession: string, signal?: AbortS
   const { token, options } = await post(WireRoutes.SitePasskeyEnrollApprove, FrameType.PasskeyRegisterBegin,
     decodeEnrollmentBegin, signal, assertion, headers);
   const attestation = await getAttestation(token, options, signal);
-  await post(WireRoutes.SitePasskeyEnrollComplete, FrameType.EmptySuccess, decodeSuccess, signal, attestation, headers);
+  await postEmpty(WireRoutes.SitePasskeyEnrollComplete, signal, attestation, headers);
 }
 
 export async function requestPasskeyAttestation(beginPath: string, signal?: AbortSignal,
@@ -235,8 +235,4 @@ function complete(size: number, token: string, fields: Uint8Array[], hints: numb
     offset += field.length;
   });
   return payload;
-}
-
-function view(data: Uint8Array): DataView {
-  return new DataView(data.buffer, data.byteOffset, data.byteLength);
 }

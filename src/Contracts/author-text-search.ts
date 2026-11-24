@@ -1,5 +1,5 @@
-import { encodeFrame } from './aeds.ts';
-import { PodReader, PodWriter, ProtocolError } from './binary.ts';
+import { encodePod } from './aeds.ts';
+import { decodePod, isValidUnixMs, PodReader, PodWriter, ProtocolError, ZERO_UUID } from './binary.ts';
 import { sessionPost } from './internal/http.ts';
 import { readPropertyConditions, writePropertyConditions, type PropertyCondition, type PropertyQueryOperand } from './property-query.ts';
 import { propertyKinds } from './property-values.ts';
@@ -91,15 +91,15 @@ export type DecodedAuthorTextPropertyTextQualifiedQuery = DecodedPropertyQuery<A
 export type AuthorTextPropertyTextMixedQuery = AuthorTextPropertyTextQualifiedQuery & Readonly<{ includeHeading: boolean }>;
 export type DecodedAuthorTextPropertyTextMixedQuery = DecodedPropertyQuery<AuthorTextPropertyTextMixedQuery>;
 
-const emptyUuid = '00000000-0000-0000-0000-000000000000';
 const utf8 = new TextEncoder();
 const textFields = ['title', 'body', 'summary', 'heading', 'property-text'] as const;
+const queryLimitError = () => new ProtocolError('Author text search query exceeds its frame limit');
+const decodeQuery = <T>(payload: Uint8Array, frameLimit: number, read: (r: PodReader) => T): T =>
+  decodePod(payload, read, frameLimit - WireHeader.HeaderSize, queryLimitError);
 
 export function encodeAuthorTextSearchQuery(query: string): Uint8Array<ArrayBuffer> {
   validateQuery(query);
-  const writer = new PodWriter();
-  writer.text(query, WireLimits.AuthorTextSearchQueryBytes);
-  return encodeFrame(FrameType.AuthorTextSearchQuery, writer.finish());
+  return encodePod(FrameType.AuthorTextSearchQuery, writer => writer.text(query, WireLimits.AuthorTextSearchQueryBytes));
 }
 
 export function authorTextSearch(query: string, session: string, signal: AbortSignal): Promise<AuthorTextSearchPage> {
@@ -108,93 +108,52 @@ export function authorTextSearch(query: string, session: string, signal: AbortSi
 }
 
 export function decodeAuthorTextSearchPage(payload: Uint8Array): AuthorTextSearchPage {
-  const reader = new PodReader(payload);
-  const ready = reader.bool();
-  const more = reader.bool();
-  const count = reader.i32();
-  validatePage(ready, more, count);
-
-  const rows: AuthorTextSearchRow[] = [];
-  for (let i = 0; i < count; i++) {
-    const row = readRow(reader);
-    if (i > 0 && row.id >= rows[i - 1].id) throw new ProtocolError('Invalid author text search row');
-    rows.push(row);
-  }
-  reader.finish();
-  return { ready, more, rows };
+  return decodePod(payload, reader => {
+    const ready = reader.bool(), more = reader.bool(), count = reader.i32();
+    validatePage(ready, more, count);
+    const rows: AuthorTextSearchRow[] = [];
+    for (let i = 0; i < count; i++) {
+      const row = readRow(reader);
+      if (i > 0 && row.id >= rows[i - 1].id) throw new ProtocolError('Invalid author text search row');
+      rows.push(row);
+    }
+    return { ready, more, rows };
+  });
 }
 
-export function encodeAuthorTextRankedQuery(value: AuthorTextRankedQuery): Uint8Array<ArrayBuffer> {
-  return encodeCursorQuery(value, FrameType.AuthorTextRankedQuery);
-}
-
-export function encodeAuthorTextFacetedQuery(value: AuthorTextRankedQuery): Uint8Array<ArrayBuffer> {
-  return encodeCursorQuery(value, FrameType.AuthorTextFacetedQuery);
-}
-
-export function encodeAuthorTextQualifiedQuery(value: AuthorTextQualifiedQuery): Uint8Array<ArrayBuffer> {
-  return encodeQualifiedQuery(value, FrameType.AuthorTextQualifiedQuery);
-}
-
-export function encodeAuthorTextSummaryQuery(value: AuthorTextQualifiedQuery): Uint8Array<ArrayBuffer> {
-  return encodeQualifiedQuery(value, FrameType.AuthorTextSummaryQuery);
-}
-
-export function encodeAuthorTextHeadingQuery(value: AuthorTextQualifiedQuery): Uint8Array<ArrayBuffer> {
-  return encodeQualifiedQuery(value, FrameType.AuthorTextHeadingQuery);
-}
+export const encodeAuthorTextRankedQuery = (value: AuthorTextRankedQuery) => encodeCursorQuery(value, FrameType.AuthorTextRankedQuery);
+export const encodeAuthorTextFacetedQuery = (value: AuthorTextRankedQuery) => encodeCursorQuery(value, FrameType.AuthorTextFacetedQuery);
+export const encodeAuthorTextQualifiedQuery = (value: AuthorTextQualifiedQuery) => encodeQualifiedQuery(value, FrameType.AuthorTextQualifiedQuery);
+export const encodeAuthorTextSummaryQuery = (value: AuthorTextQualifiedQuery) => encodeQualifiedQuery(value, FrameType.AuthorTextSummaryQuery);
+export const encodeAuthorTextHeadingQuery = (value: AuthorTextQualifiedQuery) => encodeQualifiedQuery(value, FrameType.AuthorTextHeadingQuery);
 
 function encodeQualifiedQuery(value: AuthorTextQualifiedQuery, type: FrameType): Uint8Array<ArrayBuffer> {
-  const writer = new PodWriter();
-  writeQualifiedQuery(writer, value, type === FrameType.AuthorTextQualifiedQuery);
-  return encodeFrame(type, writer.finish());
+  return encodePod(type, writer => writeQualifiedQuery(writer, value, type === FrameType.AuthorTextQualifiedQuery));
 }
 
 function writeQualifiedQuery(writer: PodWriter, value: AuthorTextQualifiedQuery, requireQualifier: boolean, propertyFacet = false): void {
   validateQualifiedQuery(value, requireQualifier);
-  writer.text(value.query, WireLimits.AuthorTextSearchQueryBytes);
-  writer.text(value.cursor, WireLimits.AuthorTextRankedCursorChars);
-  writer.bool(value.updatedFromUnixMs !== null);
-  if (value.updatedFromUnixMs !== null) writer.i64(value.updatedFromUnixMs);
-  writer.bool(value.updatedUntilUnixMs !== null);
-  if (value.updatedUntilUnixMs !== null) writer.i64(value.updatedUntilUnixMs);
-  writer.i64(value.schema);
+  writer.text(value.query, WireLimits.AuthorTextSearchQueryBytes).text(value.cursor, WireLimits.AuthorTextRankedCursorChars)
+    .optional(value.updatedFromUnixMs, (w, v) => w.i64(v)).optional(value.updatedUntilUnixMs, (w, v) => w.i64(v)).i64(value.schema);
   writePropertyConditions(writer, value.schema, value.conditions, propertyFacet ? 'positive' : 'zero');
 }
 
-export function decodeAuthorTextQualifiedQuery(payload: Uint8Array): DecodedAuthorTextQualifiedQuery {
-  return decodeQualifiedQuery(payload, true);
-}
-
-export function decodeAuthorTextSummaryQuery(payload: Uint8Array): DecodedAuthorTextQualifiedQuery {
-  return decodeQualifiedQuery(payload, false);
-}
-
-export function decodeAuthorTextHeadingQuery(payload: Uint8Array): DecodedAuthorTextQualifiedQuery {
-  return decodeQualifiedQuery(payload, false);
-}
-
-function queryReader(payload: Uint8Array, frameLimit: number): PodReader {
-  if (payload.length > frameLimit - WireHeader.HeaderSize)
-    throw new ProtocolError('Author text search query exceeds its frame limit');
-  return new PodReader(payload);
-}
+export const decodeAuthorTextQualifiedQuery = (payload: Uint8Array) => decodeQualifiedQuery(payload, true);
+export const decodeAuthorTextSummaryQuery = (payload: Uint8Array) => decodeQualifiedQuery(payload, false);
+export const decodeAuthorTextHeadingQuery = (payload: Uint8Array) => decodeQualifiedQuery(payload, false);
 
 function decodeQualifiedQuery(payload: Uint8Array, requireQualifier: boolean): DecodedAuthorTextQualifiedQuery {
-  const reader = queryReader(payload, WireLimits.MaxAuthorTextQualifiedQueryFrameBytes);
-  const value = readQualifiedQuery(reader, requireQualifier);
-  reader.finish();
-  return value;
+  return decodeQuery(payload, WireLimits.MaxAuthorTextQualifiedQueryFrameBytes, reader => readQualifiedQuery(reader, requireQualifier));
 }
 
 function readQualifiedQuery(reader: PodReader, requireQualifier: boolean, propertyFacet = false): DecodedAuthorTextQualifiedQuery {
   const query = reader.text(WireLimits.AuthorTextSearchQueryBytes);
   const cursor = reader.text(WireLimits.AuthorTextRankedCursorChars);
-  const updatedFromUnixMs = reader.bool() ? reader.i64() : null;
-  const updatedUntilUnixMs = reader.bool() ? reader.i64() : null;
+  const updatedFromUnixMs = reader.optional(r => r.i64());
+  const updatedUntilUnixMs = reader.optional(r => r.i64());
   const schema = reader.i64();
-  const conditions = readPropertyConditions(reader, schema, propertyFacet ? 'positive' : 'zero');
-  const value = { query, cursor, updatedFromUnixMs, updatedUntilUnixMs, schema, conditions };
+  const value = { query, cursor, updatedFromUnixMs, updatedUntilUnixMs, schema,
+    conditions: readPropertyConditions(reader, schema, propertyFacet ? 'positive' : 'zero') };
   validateQualifiedQuery(value, requireQualifier);
   return value;
 }
@@ -205,9 +164,7 @@ function validateQualifiedQuery(
   validateQuery(value.query);
   validateCursor(value.cursor);
   const { updatedFromUnixMs: from, updatedUntilUnixMs: until } = value;
-  const minUnixMs = -62_135_596_800_000n, maxUnixMs = 253_402_300_799_999n;
-  if ((from !== null && (from < minUnixMs || from > maxUnixMs)) ||
-      (until !== null && (until < minUnixMs || until > maxUnixMs)) ||
+  if ((from !== null && !isValidUnixMs(from)) || (until !== null && !isValidUnixMs(until)) ||
       (from !== null && until !== null && from >= until) ||
       (requireQualifier && from === null && until === null && value.conditions.length === 0))
     throw new ProtocolError('Invalid qualified author text search');
@@ -216,76 +173,51 @@ function validateQualifiedQuery(
 function encodeCursorQuery(value: AuthorTextRankedQuery, frameType: FrameType): Uint8Array<ArrayBuffer> {
   validateQuery(value.query);
   validateCursor(value.cursor);
-  const writer = new PodWriter();
-  writer.text(value.query, WireLimits.AuthorTextSearchQueryBytes);
-  writer.text(value.cursor, WireLimits.AuthorTextRankedCursorChars);
-  return encodeFrame(frameType, writer.finish());
+  return encodePod(frameType, writer => writer.text(value.query, WireLimits.AuthorTextSearchQueryBytes)
+    .text(value.cursor, WireLimits.AuthorTextRankedCursorChars));
 }
 
-export function decodeAuthorTextRankedQuery(payload: Uint8Array): AuthorTextRankedQuery {
-  return decodeCursorQuery(payload);
-}
-
-export function decodeAuthorTextFacetedQuery(payload: Uint8Array): AuthorTextRankedQuery {
-  return decodeCursorQuery(payload);
-}
+export const decodeAuthorTextRankedQuery = (payload: Uint8Array) => decodeCursorQuery(payload);
+export const decodeAuthorTextFacetedQuery = (payload: Uint8Array) => decodeCursorQuery(payload);
 
 function decodeCursorQuery(payload: Uint8Array): AuthorTextRankedQuery {
-  const reader = new PodReader(payload);
-  const query = reader.text(WireLimits.AuthorTextSearchQueryBytes);
-  const cursor = reader.text(WireLimits.AuthorTextRankedCursorChars);
-  reader.finish();
-  validateQuery(query);
-  validateCursor(cursor);
-  return { query, cursor };
+  return decodePod(payload, reader => {
+    const query = reader.text(WireLimits.AuthorTextSearchQueryBytes);
+    const cursor = reader.text(WireLimits.AuthorTextRankedCursorChars);
+    validateQuery(query);
+    validateCursor(cursor);
+    return { query, cursor };
+  });
 }
 
 export function encodeAuthorTextRankedPage(value: AuthorTextRankedPage): Uint8Array<ArrayBuffer> {
   validateCursor(value.nextCursor);
   validatePage(value.ready, value.nextCursor.length !== 0, value.rows.length);
-  const writer = new PodWriter();
-  writer.bool(value.ready);
-  writer.text(value.nextCursor, WireLimits.AuthorTextRankedCursorChars);
-  writer.i32(value.rows.length);
-  const ids = new Set<number>();
-  for (const row of value.rows) {
-    validateRow(row);
-    recordRankedId(ids, row.id);
-    writeRow(writer, row);
-  }
-  return encodeFrame(FrameType.AuthorTextRankedPage, writer.finish());
+  return encodePod(FrameType.AuthorTextRankedPage, writer => {
+    writer.bool(value.ready).text(value.nextCursor, WireLimits.AuthorTextRankedCursorChars).i32(value.rows.length);
+    const ids = new Set<number>();
+    for (const row of value.rows) {
+      validateRow(row);
+      recordRankedId(ids, row.id);
+      writeRow(writer, row);
+    }
+  });
 }
 
 export function decodeAuthorTextRankedPage(payload: Uint8Array): AuthorTextRankedPage {
-  const reader = new PodReader(payload);
-  const ready = reader.bool();
-  const nextCursor = reader.text(WireLimits.AuthorTextRankedCursorChars);
-  const count = reader.i32();
-  validateCursor(nextCursor);
-  validatePage(ready, nextCursor.length !== 0, count);
-  const rows = readRankedRows(reader, count);
-  reader.finish();
-  return { ready, nextCursor, rows };
+  return decodePod(payload, reader => {
+    const ready = reader.bool(), nextCursor = reader.text(WireLimits.AuthorTextRankedCursorChars), count = reader.i32();
+    validateCursor(nextCursor);
+    validatePage(ready, nextCursor.length !== 0, count);
+    return { ready, nextCursor, rows: readRankedRows(reader, count) };
+  });
 }
 
-export function decodeAuthorTextFacetedPage(payload: Uint8Array): AuthorTextFacetedPage {
-  return decodeFacetedPage(payload, 2);
-}
+export const decodeAuthorTextFacetedPage = (payload: Uint8Array) => decodeFacetedPage(payload, 2);
+export const decodeAuthorTextSummaryPage = (payload: Uint8Array) => decodeFacetedPage(payload, 3);
+export const decodeAuthorTextHeadingPage = (payload: Uint8Array) => decodeFacetedPage(payload, 4);
 
-export function decodeAuthorTextSummaryPage(payload: Uint8Array): AuthorTextFacetedPage {
-  return decodeFacetedPage(payload, 3);
-}
-
-export function decodeAuthorTextHeadingPage(payload: Uint8Array): AuthorTextFacetedPage {
-  return decodeFacetedPage(payload, 4);
-}
-
-function decodeFacetedPage(payload: Uint8Array, maxField: number): AuthorTextFacetedPage {
-  const reader = new PodReader(payload);
-  const page = readFacetedPage(reader, maxField);
-  reader.finish();
-  return page;
-}
+const decodeFacetedPage = (payload: Uint8Array, maxField: number) => decodePod(payload, r => readFacetedPage(r, maxField));
 
 function readFacetedPage(reader: PodReader, maxField: number): AuthorTextFacetedPage {
   const ready = reader.bool();
@@ -308,72 +240,58 @@ function readFacetedPage(reader: PodReader, maxField: number): AuthorTextFaceted
 export function encodeAuthorTextPropertyFacetQuery(value: AuthorTextPropertyFacetQuery): Uint8Array<ArrayBuffer> {
   validatePropertySelector(value, value.search.schema);
   if (typeof value.includeHeading !== 'boolean') throw new ProtocolError('Invalid author text property facet mode');
-  const writer = writePropertyFacetQuery(value);
-  return encodeFrame(FrameType.AuthorTextPropertyFacetQuery, writer.finish());
+  return encodePod(FrameType.AuthorTextPropertyFacetQuery, writer => writePropertyFacetQuery(writer, value));
 }
 
 export function decodeAuthorTextPropertyFacetQuery(payload: Uint8Array): DecodedAuthorTextPropertyFacetQuery {
-  const reader = queryReader(payload, WireLimits.MaxAuthorTextPropertyFacetQueryFrameBytes);
-  const value = readPropertyFacetQuery(reader);
-  reader.finish();
+  const value = decodeQuery(payload, WireLimits.MaxAuthorTextPropertyFacetQueryFrameBytes, readPropertyFacetQuery);
   validatePropertySelector(value, value.search.schema);
   return value;
 }
 
 function readPropertyFacetQuery(reader: PodReader): DecodedAuthorTextPropertyFacetQuery {
-  const search = readQualifiedQuery(reader, false, true);
-  return { search, includeHeading: reader.bool(), ...readPropertySelector(reader) };
+  return { search: readQualifiedQuery(reader, false, true), includeHeading: reader.bool(), ...readPropertySelector(reader) };
 }
 
-function writePropertyFacetQuery(value: AuthorTextPropertyFacetQuery): PodWriter {
-  const writer = new PodWriter();
+function writePropertyFacetQuery(writer: PodWriter, value: AuthorTextPropertyFacetQuery): void {
   writeQualifiedQuery(writer, value.search, false, true);
   writer.bool(value.includeHeading);
   writePropertySelector(writer, value);
-  return writer;
 }
 
-function readPropertySelector(reader: PodReader): AuthorTextPropertyFacetSelector {
-  return { definitionId: reader.uuid(), definitionRevision: reader.i64() };
-}
+const readPropertySelector = (reader: PodReader): AuthorTextPropertyFacetSelector =>
+  ({ definitionId: reader.uuid(), definitionRevision: reader.i64() });
 
-function writePropertySelector(writer: PodWriter, value: AuthorTextPropertyFacetSelector): void {
-  writer.uuid(value.definitionId);
-  writer.i64(value.definitionRevision);
-}
+const writePropertySelector = (writer: PodWriter, value: AuthorTextPropertyFacetSelector): void => {
+  writer.uuid(value.definitionId).i64(value.definitionRevision);
+};
 
 function validatePropertySelector(value: AuthorTextPropertyFacetSelector, schema: bigint): void {
-  if (value.definitionId === emptyUuid || value.definitionRevision <= 0n || value.definitionRevision > schema)
+  if (value.definitionId === ZERO_UUID || value.definitionRevision <= 0n || value.definitionRevision > schema)
     throw new ProtocolError('Invalid author text property selector');
 }
 
 export function decodeAuthorTextPropertyFacetPage(payload: Uint8Array, includeHeading = true): AuthorTextPropertyFacetPage {
-  const reader = new PodReader(payload);
-  const search = readFacetedPage(reader, includeHeading ? 4 : 3);
-  const facet = search.ready ? readPropertyFacet(reader, search.total) : null;
-  reader.finish();
-  return { search, facet };
+  return decodePod(payload, reader => {
+    const search = readFacetedPage(reader, includeHeading ? 4 : 3);
+    return { search, facet: search.ready ? readPropertyFacet(reader, search.total) : null };
+  });
 }
 
 export function encodeAuthorTextPropertySortQuery(value: AuthorTextPropertySortQuery): Uint8Array<ArrayBuffer> {
   validatePropertySortQuery(value);
-  const writer = writePropertyFacetQuery(value);
-  writer.bool(value.direction === 'descending');
-  writer.bool(value.facet !== null);
-  if (value.facet !== null) {
-    writer.uuid(value.facet.definitionId);
-    writer.i64(value.facet.definitionRevision);
-  }
-  return encodeFrame(FrameType.AuthorTextPropertySortQuery, writer.finish());
+  return encodePod(FrameType.AuthorTextPropertySortQuery, writer => {
+    writePropertyFacetQuery(writer, value);
+    writer.bool(value.direction === 'descending').optional(value.facet, writePropertySelector);
+  });
 }
 
 export function decodeAuthorTextPropertySortQuery(payload: Uint8Array): DecodedAuthorTextPropertySortQuery {
-  const reader = queryReader(payload, WireLimits.MaxAuthorTextPropertySortQueryFrameBytes);
-  const fields = readPropertyFacetQuery(reader);
-  const direction: AuthorTextPropertySortDirection = reader.bool() ? 'descending' : 'ascending';
-  const facet = reader.bool() ? readPropertySelector(reader) : null;
-  reader.finish();
-  const value = { ...fields, direction, facet };
+  const value = decodeQuery(payload, WireLimits.MaxAuthorTextPropertySortQueryFrameBytes, reader => ({
+    ...readPropertyFacetQuery(reader),
+    direction: (reader.bool() ? 'descending' : 'ascending') as AuthorTextPropertySortDirection,
+    facet: reader.optional(readPropertySelector),
+  }));
   validatePropertySortQuery(value);
   return value;
 }
@@ -385,33 +303,26 @@ function validatePropertySortQuery(value: AuthorTextPropertySortQuery | DecodedA
     throw new ProtocolError('Invalid author text property sort');
 }
 
-export function decodeAuthorTextPropertySortPage(
-  payload: Uint8Array, includeHeading = true, expectFacet?: boolean,
-): AuthorTextPropertySortPage {
-  return decodeOptionalPropertyFacetPage(payload, includeHeading ? 4 : 3, expectFacet);
-}
+export const decodeAuthorTextPropertySortPage = (payload: Uint8Array, includeHeading = true, expectFacet?: boolean) =>
+  decodeOptionalPropertyFacetPage(payload, includeHeading ? 4 : 3, expectFacet);
 
 function decodeOptionalPropertyFacetPage(payload: Uint8Array, maxField: number, expectFacet?: boolean): AuthorTextPropertySortPage {
-  const reader = new PodReader(payload);
-  const search = readFacetedPage(reader, maxField);
-  const facet = search.ready && reader.bool() ? readPropertyFacet(reader, search.total) : null;
-  reader.finish();
-  if (search.ready && expectFacet !== undefined && expectFacet !== (facet !== null))
-    throw new ProtocolError('Invalid author text property sort facet');
-  return { search, facet };
+  return decodePod(payload, reader => {
+    const search = readFacetedPage(reader, maxField);
+    const facet = search.ready && reader.bool() ? readPropertyFacet(reader, search.total) : null;
+    if (search.ready && expectFacet !== undefined && expectFacet !== (facet !== null))
+      throw new ProtocolError('Invalid author text property sort facet');
+    return { search, facet };
+  });
 }
 
 export function encodeAuthorTextPropertyTextQuery(value: AuthorTextPropertyTextQuery): Uint8Array<ArrayBuffer> {
   validatePropertySelector(value, value.search.schema);
-  const writer = new PodWriter();
-  writePropertyTextSelection(writer, value);
-  return encodeFrame(FrameType.AuthorTextPropertyTextQuery, writer.finish());
+  return encodePod(FrameType.AuthorTextPropertyTextQuery, writer => writePropertyTextSelection(writer, value));
 }
 
 export function decodeAuthorTextPropertyTextQuery(payload: Uint8Array): DecodedAuthorTextPropertyTextQuery {
-  const reader = queryReader(payload, WireLimits.MaxAuthorTextPropertyTextQueryFrameBytes);
-  const value = readPropertyTextSelection(reader);
-  reader.finish();
+  const value = decodeQuery(payload, WireLimits.MaxAuthorTextPropertyTextQueryFrameBytes, readPropertyTextSelection);
   validatePropertySelector(value, value.search.schema);
   return value;
 }
@@ -424,16 +335,15 @@ export function decodeAuthorTextPropertyTextPage(payload: Uint8Array): AuthorTex
 
 export function encodeAuthorTextPropertyTextQualifiedQuery(value: AuthorTextPropertyTextQualifiedQuery): Uint8Array<ArrayBuffer> {
   validatePropertyTextQualifiedQuery(value);
-  const writer = new PodWriter();
-  writePropertyTextSelection(writer, value);
-  writePropertySelectors(writer, value.facet, value.sort);
-  return encodeFrame(FrameType.AuthorTextPropertyTextQualifiedQuery, writer.finish());
+  return encodePod(FrameType.AuthorTextPropertyTextQualifiedQuery, writer => {
+    writePropertyTextSelection(writer, value);
+    writePropertySelectors(writer, value.facet, value.sort);
+  });
 }
 
 export function decodeAuthorTextPropertyTextQualifiedQuery(payload: Uint8Array): DecodedAuthorTextPropertyTextQualifiedQuery {
-  const reader = queryReader(payload, WireLimits.MaxAuthorTextPropertyTextQualifiedQueryFrameBytes);
-  const value = { ...readPropertyTextSelection(reader), ...readPropertySelectors(reader) };
-  reader.finish();
+  const value = decodeQuery(payload, WireLimits.MaxAuthorTextPropertyTextQualifiedQueryFrameBytes,
+    reader => ({ ...readPropertyTextSelection(reader), ...readPropertySelectors(reader) }));
   validatePropertyTextQualifiedQuery(value);
   return value;
 }
@@ -448,17 +358,16 @@ export function encodeAuthorTextPropertyTextMixedQuery(value: AuthorTextProperty
   if (typeof value.includeHeading !== 'boolean') throw new ProtocolError('Invalid author text heading mode');
   validatePropertySelector(value, value.search.schema);
   validatePropertySelectors(value.search.schema, value.facet, value.sort);
-  const writer = new PodWriter();
-  writePropertyTextSelection(writer, value);
-  writer.bool(value.includeHeading);
-  writePropertySelectors(writer, value.facet, value.sort);
-  return encodeFrame(FrameType.AuthorTextPropertyTextMixedQuery, writer.finish());
+  return encodePod(FrameType.AuthorTextPropertyTextMixedQuery, writer => {
+    writePropertyTextSelection(writer, value);
+    writer.bool(value.includeHeading);
+    writePropertySelectors(writer, value.facet, value.sort);
+  });
 }
 
 export function decodeAuthorTextPropertyTextMixedQuery(payload: Uint8Array): DecodedAuthorTextPropertyTextMixedQuery {
-  const reader = queryReader(payload, WireLimits.MaxAuthorTextPropertyTextMixedQueryFrameBytes);
-  const value = { ...readPropertyTextSelection(reader), includeHeading: reader.bool(), ...readPropertySelectors(reader) };
-  reader.finish();
+  const value = decodeQuery(payload, WireLimits.MaxAuthorTextPropertyTextMixedQueryFrameBytes,
+    reader => ({ ...readPropertyTextSelection(reader), includeHeading: reader.bool(), ...readPropertySelectors(reader) }));
   validatePropertySelector(value, value.search.schema);
   validatePropertySelectors(value.search.schema, value.facet, value.sort);
   return value;
@@ -471,9 +380,8 @@ export function decodeAuthorTextPropertyTextMixedPage(payload: Uint8Array, inclu
   return page;
 }
 
-function readPropertyTextSelection(reader: PodReader): DecodedAuthorTextPropertyTextQuery {
-  return { search: readQualifiedQuery(reader, false, true), ...readPropertySelector(reader) };
-}
+const readPropertyTextSelection = (reader: PodReader): DecodedAuthorTextPropertyTextQuery =>
+  ({ search: readQualifiedQuery(reader, false, true), ...readPropertySelector(reader) });
 
 function writePropertyTextSelection(writer: PodWriter, value: AuthorTextPropertyTextQuery): void {
   writeQualifiedQuery(writer, value.search, false, true);
@@ -481,21 +389,17 @@ function writePropertyTextSelection(writer: PodWriter, value: AuthorTextProperty
 }
 
 function writePropertySelectors(writer: PodWriter, facet: AuthorTextPropertyFacetSelector | null, sort: AuthorTextPropertySortSelector | null): void {
-  writer.bool(facet !== null);
-  if (facet !== null) writePropertySelector(writer, facet);
-  writer.bool(sort !== null);
-  if (sort !== null) {
-    writePropertySelector(writer, sort);
-    writer.bool(sort.direction === 'descending');
-  }
+  writer.optional(facet, writePropertySelector).optional(sort, (w, s) => {
+    writePropertySelector(w, s);
+    w.bool(s.direction === 'descending');
+  });
 }
 
 function readPropertySelectors(reader: PodReader): Pick<AuthorTextPropertyTextQualifiedQuery, 'facet' | 'sort'> {
-  const facet = reader.bool() ? readPropertySelector(reader) : null;
-  const sort: AuthorTextPropertySortSelector | null = reader.bool() ? {
-    ...readPropertySelector(reader), direction: reader.bool() ? 'descending' : 'ascending',
-  } : null;
-  return { facet, sort };
+  return {
+    facet: reader.optional(readPropertySelector),
+    sort: reader.optional(r => ({ ...readPropertySelector(r), direction: r.bool() ? 'descending' : 'ascending' })),
+  };
 }
 
 function validatePropertyTextQualifiedQuery(value: AuthorTextPropertyTextQualifiedQuery | DecodedAuthorTextPropertyTextQualifiedQuery): void {
@@ -523,14 +427,14 @@ function readPropertyFacet(reader: PodReader, total: number): AuthorTextProperty
   const definitionId = reader.uuid(), definitionRevision = reader.i64(), kind = propertyKinds[reader.i32()];
   const missing = reader.i32(), nil = reader.i32(), empty = reader.i32(), count = reader.i32();
   const remaining = total - missing - nil - empty;
-  if (definitionId === emptyUuid || definitionRevision <= 0n || missing < 0 || nil < 0 || empty < 0 || remaining < 0 ||
+  if (definitionId === ZERO_UUID || definitionRevision <= 0n || missing < 0 || nil < 0 || empty < 0 || remaining < 0 ||
       (kind !== 'boolean' && kind !== 'single-select' && kind !== 'multi-select') ||
       (kind !== 'multi-select' && empty !== 0) ||
       (kind === 'boolean' ? count !== 2 : count < 0 || count > WireLimits.PropertyOptionCount))
     throw new ProtocolError('Invalid author text property facet');
 
   const buckets: AuthorTextPropertyFacetBucket[] = [];
-  let previous = emptyUuid;
+  let previous = ZERO_UUID;
   let sum = 0;
   for (let index = 0; index < count; index++) {
     let value: AuthorTextPropertyFacetBucket['value'];

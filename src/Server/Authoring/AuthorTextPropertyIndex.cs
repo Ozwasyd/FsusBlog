@@ -1,11 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Core.Authoring;
-using NpgsqlTypes;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal sealed record AuthorTextPropertyScope(long SchemaRevision, PropertyDefinition Definition);

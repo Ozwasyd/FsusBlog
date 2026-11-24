@@ -12,13 +12,9 @@ SEED = 20261114
 OWNER = "5e3986ac-4d8e-5c55-91f6-202611140001"
 YEAR_END = datetime(2026, 11, 14, tzinfo=timezone.utc)
 DAY = 86_400
-PUBLIC = 12_000
-DRAFT = 50
-WITHDRAWAL = 50
+PUBLIC, DRAFT, WITHDRAWAL = 12_000, 50, 50
 TOTAL = PUBLIC + DRAFT + WITHDRAWAL
-CATEGORIES = 32
-TAGS = 128
-SCHEMA = 1
+CATEGORIES, TAGS, SCHEMA = 32, 128, 1
 SERVER_LOCK = 716729109726707501
 MIGRATION_LOCK = 4815262471654073021
 SIZES = (2048, 8192, 32768)
@@ -62,21 +58,14 @@ def utc(value):
 
 def words(article_id, size):
     entropy = hashlib.shake_256(f"fsusblog-p2:{SEED}:{article_id}".encode("ascii"))
-    sentences = []
     topic = TOPICS[(SEED + 11 * article_id) % len(TOPICS)]
-    title = (
-        f"Field notes {article_id:05d} - {topic} observations fixture{article_id:05d}"
-    )
-    sentences.append(
-        f"These field notes give a dependable view of the {topic} over several visits."
-    )
+    title = f"Field notes {article_id:05d} - {topic} observations fixture{article_id:05d}"
+    sentences = [f"These field notes give a dependable view of the {topic} over several visits."]
     # Each group of bytes chooses independently among action, place and time phrases.
     choices = entropy.digest(size // 4)
     filled = len(sentences[0]) + 1
     for start in range(0, len(choices) - 4, 5):
-        person, verb, detail, setting, when = (
-            byte & 15 for byte in choices[start : start + 5]
-        )
+        person, verb, detail, setting, when = (byte & 15 for byte in choices[start : start + 5])
         sentence = f"{PEOPLE[person]} {VERBS[verb]} {DETAILS[detail]} {SETTINGS[setting]} {TIMES[when]}."
         remaining = size - filled
         if len(sentence) + 1 >= remaining:
@@ -88,9 +77,7 @@ def words(article_id, size):
         filled += len(sentence) + 1
     text = " ".join(sentences).encode("ascii")
     if len(text) != size:
-        raise RuntimeError(
-            f"Fixture body {article_id} has {len(text)} bytes, expected {size}"
-        )
+        raise RuntimeError(f"Fixture body {article_id} has {len(text)} bytes, expected {size}")
     return title, text
 
 
@@ -104,12 +91,8 @@ def articles():
             # spread across IDs and dates, while retaining exact tier counts.
             size_rank = (offset * 733 + SEED) % count
             date_rank = (offset * 937 + SEED) % count
-            size = SIZES[
-                0 if size_rank < tiers[0] else 1 if size_rank < sum(tiers[:2]) else 2
-            ]
-            instant = year_start + timedelta(
-                seconds=((2 * date_rank + 1) * days * DAY) // (2 * count)
-            )
+            size = SIZES[0 if size_rank < tiers[0] else 1 if size_rank < sum(tiers[:2]) else 2]
+            instant = year_start + timedelta(seconds=((2 * date_rank + 1) * days * DAY) // (2 * count))
             title, body = words(article_id, size)
             live = state != "draft"
             category_id = 1 + ((article_id - 1) * 11 + SEED) % CATEGORIES
@@ -117,23 +100,14 @@ def articles():
             html_body = body.rstrip(b" ")
             yield (
                 {
-                    "id": article_id,
-                    "revision": 1,
-                    "title": title,
-                    "bodySha256": hashlib.sha256(body).hexdigest(),
-                    "bodyBytes": size,
-                    "htmlBodySha256": hashlib.sha256(html_body).hexdigest(),
-                    "htmlBodyBytes": len(html_body),
-                    "createdAt": utc(instant - timedelta(minutes=10)),
-                    "updatedAt": utc(instant),
-                    "publishedAt": utc(instant) if live else None,
-                    "state": state,
-                    "publicationId": article_id if live else None,
-                    "publicationNo": 1 if live else None,
-                    "categoryId": category_id,
-                    "categoryName": f"fixture category {category_id:02d}",
-                    "tagIds": [tag_id],
-                    "tagNames": [f"fixture tag {tag_id:03d}"],
+                    "id": article_id, "revision": 1, "title": title,
+                    "bodySha256": hashlib.sha256(body).hexdigest(), "bodyBytes": size,
+                    "htmlBodySha256": hashlib.sha256(html_body).hexdigest(), "htmlBodyBytes": len(html_body),
+                    "createdAt": utc(instant - timedelta(minutes=10)), "updatedAt": utc(instant),
+                    "publishedAt": utc(instant) if live else None, "state": state,
+                    "publicationId": article_id if live else None, "publicationNo": 1 if live else None,
+                    "categoryId": category_id, "categoryName": f"fixture category {category_id:02d}",
+                    "tagIds": [tag_id], "tagNames": [f"fixture tag {tag_id:03d}"],
                 },
                 body.decode("ascii"),
             )
@@ -141,6 +115,39 @@ def articles():
 
 
 def write_guard(out, database, admin_schema):
+    bootstrap_checks = (
+        ("authoring_recovery_site",
+         "SELECT count(*) = 1 AND bool_and(singleton AND site_id <> ''00000000-0000-0000-0000-000000000000'') FROM public.authoring_recovery_site",
+         "Fixture target has an invalid authoring recovery bootstrap marker"),
+        ("admin_identity_schema",
+         f"SELECT count(*) = 1 AND bool_and(singleton AND version = {admin_schema}) FROM public.admin_identity_schema",
+         "Fixture target has an invalid administrator identity bootstrap marker"),
+        ("site_page_content",
+         "SELECT count(*) = 4 AND array_agg(slug ORDER BY slug) = ARRAY[''about'',''copyright'',''guidelines'',''privacy''] AND bool_and(revision = 0 AND markdown IS NULL) FROM public.site_page_content",
+         "Fixture target has nonempty or incomplete site page bootstrap data"),
+        ("appearance_activation",
+         "SELECT count(*) = 1 AND bool_and(singleton AND revision = 0 AND theme_digest = '''' AND font_digest = '''') FROM public.appearance_activation",
+         "Fixture target has nonempty or incomplete appearance bootstrap data"),
+        ("taxonomy_epoch",
+         "SELECT count(*) = 1 AND bool_and(singleton AND revision = 0) FROM public.taxonomy_epoch",
+         "Fixture target has nonempty or incomplete taxonomy bootstrap data"),
+        ("article_read_epoch",
+         "SELECT count(*) = 1 AND bool_and(singleton AND last_epoch IS NULL) FROM public.article_read_epoch",
+         "Fixture target has nonempty or incomplete article read bootstrap data"),
+        ("root_comment_pow_policy",
+         "SELECT count(*) = 1 AND bool_and(singleton AND generation = 1 AND proof_seconds = 120) FROM public.root_comment_pow_policy",
+         "Fixture target has an invalid root comment proof bootstrap policy"),
+    )
+    bootstrap_sql = "".join(
+        f"        IF relation.relname = '{table}' THEN\n"
+        f"            EXECUTE '{query}' INTO valid_bootstrap;\n"
+        f"            IF valid_bootstrap IS DISTINCT FROM true THEN\n"
+        f"                RAISE EXCEPTION '{message}';\n"
+        f"            END IF;\n"
+        f"            CONTINUE;\n"
+        f"        END IF;\n"
+        for table, query, message in bootstrap_checks
+    )
     out.write(
         f"""\\set ON_ERROR_STOP on
 BEGIN;
@@ -177,64 +184,7 @@ BEGIN
         ORDER BY c.relname
     LOOP
         EXECUTE format('LOCK TABLE public.%I IN ACCESS EXCLUSIVE MODE NOWAIT', relation.relname);
-        IF relation.relname = 'authoring_recovery_site' THEN
-            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND site_id <> ''00000000-0000-0000-0000-000000000000'') FROM public.authoring_recovery_site'
-                INTO valid_bootstrap;
-            IF valid_bootstrap IS DISTINCT FROM true THEN
-                RAISE EXCEPTION 'Fixture target has an invalid authoring recovery bootstrap marker';
-            END IF;
-            CONTINUE;
-        END IF;
-        IF relation.relname = 'admin_identity_schema' THEN
-            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND version = {admin_schema}) FROM public.admin_identity_schema'
-                INTO valid_bootstrap;
-            IF valid_bootstrap IS DISTINCT FROM true THEN
-                RAISE EXCEPTION 'Fixture target has an invalid administrator identity bootstrap marker';
-            END IF;
-            CONTINUE;
-        END IF;
-        IF relation.relname = 'site_page_content' THEN
-            EXECUTE 'SELECT count(*) = 4 AND array_agg(slug ORDER BY slug) = ARRAY[''about'',''copyright'',''guidelines'',''privacy'']
-                AND bool_and(revision = 0 AND markdown IS NULL) FROM public.site_page_content'
-                INTO valid_bootstrap;
-            IF valid_bootstrap IS DISTINCT FROM true THEN
-                RAISE EXCEPTION 'Fixture target has nonempty or incomplete site page bootstrap data';
-            END IF;
-            CONTINUE;
-        END IF;
-        IF relation.relname = 'appearance_activation' THEN
-            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND revision = 0 AND theme_digest = '''' AND font_digest = '''')
-                FROM public.appearance_activation' INTO valid_bootstrap;
-            IF valid_bootstrap IS DISTINCT FROM true THEN
-                RAISE EXCEPTION 'Fixture target has nonempty or incomplete appearance bootstrap data';
-            END IF;
-            CONTINUE;
-        END IF;
-        IF relation.relname = 'taxonomy_epoch' THEN
-            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND revision = 0) FROM public.taxonomy_epoch'
-                INTO valid_bootstrap;
-            IF valid_bootstrap IS DISTINCT FROM true THEN
-                RAISE EXCEPTION 'Fixture target has nonempty or incomplete taxonomy bootstrap data';
-            END IF;
-            CONTINUE;
-        END IF;
-        IF relation.relname = 'article_read_epoch' THEN
-            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND last_epoch IS NULL) FROM public.article_read_epoch'
-                INTO valid_bootstrap;
-            IF valid_bootstrap IS DISTINCT FROM true THEN
-                RAISE EXCEPTION 'Fixture target has nonempty or incomplete article read bootstrap data';
-            END IF;
-            CONTINUE;
-        END IF;
-        IF relation.relname = 'root_comment_pow_policy' THEN
-            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND generation = 1 AND proof_seconds = 120)
-                FROM public.root_comment_pow_policy' INTO valid_bootstrap;
-            IF valid_bootstrap IS DISTINCT FROM true THEN
-                RAISE EXCEPTION 'Fixture target has an invalid root comment proof bootstrap policy';
-            END IF;
-            CONTINUE;
-        END IF;
-        EXECUTE format('SELECT EXISTS (SELECT 1 FROM public.%I)', relation.relname) INTO contains_rows;
+{bootstrap_sql}        EXECUTE format('SELECT EXISTS (SELECT 1 FROM public.%I)', relation.relname) INTO contains_rows;
         IF contains_rows THEN
             RAISE EXCEPTION 'Fixture target contains business data in %', relation.relname;
         END IF;
@@ -260,6 +210,14 @@ COPY pg_temp.fsus_perf_fixture FROM STDIN;
 
 
 def write_inserts(out):
+    checks = " OR ".join(
+        f"(SELECT count(*) FROM public.{table}) <> {expected}"
+        for table, expected in (
+            ("article", TOTAL), ("article_revision", TOTAL), ("article_publication", PUBLIC + WITHDRAWAL),
+            ("category", CATEGORIES), ("tag", TAGS), ("tag_url_name", TAGS),
+            ("article_revision_category", TOTAL), ("article_revision_tag", TOTAL),
+        )
+    )
     out.write(
         f"""\\.
 INSERT INTO public.admin_principal (id,handle,user_handle,enabled,generation)
@@ -290,14 +248,7 @@ ALTER SEQUENCE public.category_id_seq RESTART WITH {CATEGORIES + 1};
 ALTER SEQUENCE public.tag_id_seq RESTART WITH {TAGS + 1};
 DO $counts$
 BEGIN
-    IF (SELECT count(*) FROM public.article) <> {TOTAL}
-        OR (SELECT count(*) FROM public.article_revision) <> {TOTAL}
-        OR (SELECT count(*) FROM public.article_publication) <> {PUBLIC + WITHDRAWAL}
-        OR (SELECT count(*) FROM public.category) <> {CATEGORIES}
-        OR (SELECT count(*) FROM public.tag) <> {TAGS}
-        OR (SELECT count(*) FROM public.tag_url_name) <> {TAGS}
-        OR (SELECT count(*) FROM public.article_revision_category) <> {TOTAL}
-        OR (SELECT count(*) FROM public.article_revision_tag) <> {TOTAL} THEN
+    IF {checks} THEN
         RAISE EXCEPTION 'Fixture row count mismatch';
     END IF;
 END $counts$;
@@ -308,13 +259,8 @@ COMMIT;
 
 def generate(database, admin_schema, sql_path, manifest_path):
     manifest = {
-        "schema": "fsusblog-v2-p2-performance-fixture-v1",
-        "seed": SEED,
-        "windowEnd": utc(YEAR_END),
-        "taxonomies": {
-            "categories": {"required": CATEGORIES, "seeded": CATEGORIES},
-            "tags": {"required": TAGS, "seeded": TAGS},
-        },
+        "schema": "fsusblog-v2-p2-performance-fixture-v1", "seed": SEED, "windowEnd": utc(YEAR_END),
+        "taxonomies": {"categories": {"required": CATEGORIES, "seeded": CATEGORIES}, "tags": {"required": TAGS, "seeded": TAGS}},
         "articles": [],
     }
     # Each output lives in the runner's owned directory. Exclusive creation
@@ -346,9 +292,7 @@ def main():
     parser.add_argument("--manifest", type=Path, required=True)
     args = parser.parse_args()
     if not re.fullmatch(r"fsusv2_perf_[0-9a-f]{32}", args.database):
-        parser.error(
-            "--database must be fsusv2_perf_ followed by a new 32-digit lowercase hex run ID"
-        )
+        parser.error("--database must be fsusv2_perf_ followed by a new 32-digit lowercase hex run ID")
     if not 1 <= args.admin_schema <= 2147483647:
         parser.error("--admin-schema must be a positive PostgreSQL integer")
     generate(args.database, args.admin_schema, args.sql, args.manifest)

@@ -93,13 +93,22 @@ export class CanvasPreviewController {
     this.#nativeMarkdownAvailable = nativeMarkdownAvailable
   }
 
-  get reference(): CanvasReferenceResolution | undefined { return this.#reference }
-  get referenceLoading(): boolean { return this.#referenceLoading }
-  get referenceError(): boolean { return this.#referenceError }
-  get referenceOpenNotice(): CanvasNotice | undefined { return this.#referenceOpenNotice }
   get plan(): CanvasLinkPreviewPlan | undefined { return this.#plan }
   get linkPending(): boolean { return this.#linkPending }
   get linkUnconfirmed(): boolean { return this.#linkUnconfirmed }
+
+  snapshot(siteSessionId: string | undefined) {
+    return {
+      plan: this.#plan,
+      linkPending: this.#linkPending,
+      linkUnconfirmed: this.#linkUnconfirmed,
+      reference: this.#reference,
+      referenceLoading: this.#referenceLoading,
+      referenceError: this.#referenceError,
+      referenceOpenNotice: this.#referenceOpenNotice,
+      canOpenReference: this.canOpenReference(siteSessionId),
+    }
+  }
 
   canOpenReference(siteSessionId: string | undefined): boolean {
     return this.#reference?.state === 'resolved' &&

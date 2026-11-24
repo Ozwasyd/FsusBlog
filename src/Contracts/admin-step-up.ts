@@ -1,7 +1,8 @@
-import { encodeFrame, ProtocolError } from './aeds.ts';
+import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
 import { post } from './internal/http.ts';
 import { readMfaProof } from './mfa.ts';
 import { requestPasskeyAssertion } from './passkey.ts';
+import { requestWithScopedPow } from './pow.ts';
 import { encodeAdminModerationDecision, encodeAdminModerationIntent, FrameType, WireHeaders, WireRoutes,
   type AdminModerationDecision, type AdminModerationIntent } from './wire.generated.ts';
 
@@ -50,4 +51,21 @@ export async function proveAdminModeration(intent: AdminModerationIntent, signal
 export async function proveAdminModerationDecision(intent: AdminModerationDecision, signal?: AbortSignal): Promise<string> {
   const body = encodeFrame(FrameType.AdminModerationDecision, encodeAdminModerationDecision(intent));
   return proveAdminStepUp({ begin: WireRoutes.AdminModerationStepUpBegin, complete: WireRoutes.AdminStepUpComplete }, body, signal);
+}
+
+export async function proveAndSubmitAdminPow(
+  routes: AdminStepUpRoutes & Readonly<{ pow: string; submit: string }>,
+  body: Uint8Array<ArrayBuffer>,
+  signal: AbortSignal,
+): Promise<void> {
+  const proof = await proveAdminStepUp(routes, body, signal);
+  await requestWithScopedPow({
+    challengePath: routes.pow,
+    submitPath: routes.submit,
+    expected: FrameType.EmptySuccess,
+    decode: decodeSuccess,
+    body,
+    signal,
+    submitHeaders: adminProofHeaders(proof),
+  });
 }

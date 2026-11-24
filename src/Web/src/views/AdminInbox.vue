@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { siteLocale, t } from '../siteLocale'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   ElAlert,
   ElButton,
@@ -17,7 +17,7 @@ import {
   AdminInboxController,
   adminInboxStatusTransitions as transitions,
 } from '../admin/adminInboxController'
-import { snapshotFields } from '../authoring/snapshotFields'
+import { createSnapshotRefs, snapshotFields } from '../authoring/snapshotFields'
 import { useDelayedBusy } from '../delayedBusy'
 import {
   createInboxTimeFormatter,
@@ -31,7 +31,7 @@ const emit = defineEmits<{ sessionLost: [error: unknown] }>()
 
 const workspace = ref<InstanceType<typeof InboxSplitWorkspace>>()
 const statuses = ['admin.inbox.m6', 'admin.inbox.m7', 'admin.inbox.m8'] as const
-const senders = ['admin.inbox.m30', 'admin.inbox.m31', 'admin.inbox.m32'] as const
+const senders = ['nav.security', 'admin.inbox.m31', 'admin.inbox.m32'] as const
 const timeFormat = computed(() => createInboxTimeFormatter(siteLocale.value))
 
 let opener: HTMLElement | undefined
@@ -77,37 +77,9 @@ const controller = new AdminInboxController({
 })
 
 controller.bindSession(props.sessionSignal, { autoLoad: false })
-const initial = controller.snapshot()
-
 const queueAction = ref<'refresh' | 'more' | null>(null)
 const threadAction = ref<'reload' | 'earlier' | null>(null)
-const { state, update } = snapshotFields({
-  rows: shallowRef(initial.rows),
-  thread: shallowRef(initial.thread),
-  next: ref(initial.next),
-  filter: ref(initial.filter),
-  order: ref(initial.order),
-  queuePending: ref(initial.queuePending),
-  threadPending: ref(initial.threadPending),
-  readPending: ref(initial.readPending),
-  replyPending: ref(initial.replyPending),
-  statusPending: ref(initial.statusPending),
-  noticePending: ref(initial.noticePending),
-  failed: ref(initial.failed),
-  reply: ref(initial.reply),
-  notice: ref(initial.notice),
-  destination: ref(initial.destination),
-  reason: ref(initial.reason),
-  needsRefresh: ref(initial.needsRefresh),
-  sharedRead: ref(initial.sharedRead),
-  activityAvailable: ref(initial.activityAvailable),
-  unreadAckFailed: ref(initial.unreadAckFailed),
-  noticesEnabled: ref(initial.noticesEnabled),
-  composeNotice: ref(initial.composeNotice),
-  recipient: ref(initial.recipient),
-  noticeSubject: ref(initial.noticeSubject),
-  noticeBody: ref(initial.noticeBody),
-}, key => {
+const { state, update } = snapshotFields(createSnapshotRefs(controller.snapshot(), ['rows', 'thread']), key => {
   if (key === 'queuePending' && !state.queuePending) queueAction.value = null
   if (key === 'threadPending' && !state.threadPending) threadAction.value = null
 })

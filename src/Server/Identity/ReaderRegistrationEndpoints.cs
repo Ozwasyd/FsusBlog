@@ -1,7 +1,3 @@
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Security;
-
 namespace FsusBlog.V2.Server.Passkeys;
 
 internal static class ReaderRegistrationEndpoints
@@ -11,7 +7,6 @@ internal static class ReaderRegistrationEndpoints
     private const string Context = "reader-registration";
 
     internal static void Map(WebApplication app, PasskeyStore store,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame,
         Action<HttpContext> requireHost, Action<HttpContext> requireOrigin, Func<string, CookieOptions> cookie)
     {
         var pow = app.Services.GetRequiredService<ScopedPow>();
@@ -50,7 +45,7 @@ internal static class ReaderRegistrationEndpoints
         {
             RequirePost(ctx);
             var binding = Binding(ctx);
-            var request = PasskeyWire.ReadProvision(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
+            var request = PasskeyWire.ReadProvision(await ServerHttp.ReadFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct));
             ctx.Response.Cookies.Delete(BrowserCookie, cookie(Base));
             await store.CompleteReaderRegistration(request, binding, ct);
             return ServerHttp.Frame(acceptance);
@@ -59,7 +54,7 @@ internal static class ReaderRegistrationEndpoints
         void RequirePost(HttpContext ctx) { NoStore(ctx); requireOrigin(ctx); }
         async Task<byte[]> Accepted(HttpContext ctx, CancellationToken ct)
         {
-            var frame = await readFrame(ctx, acceptance.Length, ct);
+            var frame = await ServerHttp.ReadFrame(ctx, acceptance.Length, ct);
             if (!frame.AsSpan().SequenceEqual(acceptance))
                 throw new BusinessException(Rejection.Invalid, "Explicit reader registration acceptance is required.");
             return frame;

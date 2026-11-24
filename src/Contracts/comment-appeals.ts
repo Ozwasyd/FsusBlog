@@ -1,6 +1,6 @@
 import { encodeFrame } from './aeds.ts';
 import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
-import { PodReader, ProtocolError, decodeUtf8 } from './binary.ts';
+import { decodePod, decodeUtf8, PodReader, ProtocolError } from './binary.ts';
 import { sessionGet, post, sessionPost, request } from './internal/http.ts';
 import { requestCommentAuthorChallenge } from './comment-author.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
@@ -117,13 +117,11 @@ function id(value: bigint) {
 }
 
 function page<T>(payload: Uint8Array, row: (reader: PodReader) => T) {
-  const reader = new PodReader(payload);
-  const more = reader.bool();
-  const count = reader.i32();
-  if (count < 0 || count > 24 || more && count !== 24) throw invalid();
-  const rows = Array.from({ length: count }, () => row(reader));
-  reader.finish();
-  return { rows, more };
+  return decodePod(payload, reader => {
+    const more = reader.bool(), count = reader.i32();
+    if (count < 0 || count > 24 || more && count !== 24) throw invalid();
+    return { rows: Array.from({ length: count }, () => row(reader)), more };
+  });
 }
 
 function json(payload: Uint8Array): Record<string, unknown> {

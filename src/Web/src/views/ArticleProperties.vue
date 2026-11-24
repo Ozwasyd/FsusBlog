@@ -59,7 +59,7 @@ const unsettled = computed(() => mutating.value || canRetry.value || formTouched
 const disabledInput = computed(() => props.disabled || busy.value || canRetry.value || shouldReload.value)
 const editingDisabled = computed(() => disabledInput.value || editing.value?.deprecated === true)
 const kindLabels: Record<PropertyKind, MessageKey> = {
-  text: 'author.properties.text', number: 'author.properties.number', boolean: 'author.properties.boolean', date: 'author.properties.date', 'single-select': 'author.properties.singleSelect',
+  text: 'author.properties.text', number: 'author.properties.number', boolean: 'author.properties.boolean', date: 'admin.traffic.date', 'single-select': 'author.properties.singleSelect',
   'multi-select': 'author.properties.multipleSelect', 'article-reference': 'author.properties.articleReference', url: 'author.properties.url',
 }
 const isSelection = (kind: PropertyKind) => kind === 'single-select' || kind === 'multi-select'
@@ -550,7 +550,7 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
               :disabled="disabledInput || creating || !!editing || (batchMode && batchFull && !staged.has(field.definitionId))"
               @click="openValueForm(field)"
             >
-              {{ field.deprecated ? t('author.properties.manage') : t('author.properties.edit') }} {{ field.label }}
+              {{ field.deprecated ? t('author.properties.manage') : t('admin.inventory.edit') }} {{ field.label }}
             </ElButton>
           </dd>
         </div>
@@ -588,7 +588,7 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
         </template>
         <div class="editor-taxonomy-actions">
           <ElButton native-type="submit" type="primary" :disabled="disabledInput">{{ t('author.properties.createProperty') }}</ElButton>
-          <ElButton :disabled="busy || canRetry" @click="clearEdits">{{ t('author.properties.cancel') }}</ElButton>
+          <ElButton :disabled="busy || canRetry" @click="clearEdits">{{ t('nav.cancel') }}</ElButton>
         </div>
       </form>
       <form v-if="editing" ref="valueForm" class="property-form" @submit.prevent="writeValue()">
@@ -597,8 +597,8 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
           v-if="editing.kind === 'boolean'" :model-value="boolean" :label="t('author.properties.labelValue', { label: editing.label })"
           :disabled="editingDisabled" @update:model-value="setBoolean"
         >
-          <ElRadio :value="true">{{ t('author.properties.true') }}</ElRadio>
-          <ElRadio :value="false">{{ t('author.properties.false') }}</ElRadio>
+          <ElRadio :value="true">{{ t('author.helper.true') }}</ElRadio>
+          <ElRadio :value="false">{{ t('author.helper.false') }}</ElRadio>
         </ElRadioGroup>
         <ElRadioGroup
           v-else-if="editing.kind === 'single-select'" :model-value="selected[0] ?? ''" :label="t('author.properties.labelValue', { label: editing.label })"
@@ -624,7 +624,7 @@ watch([() => props.sourceTarget, () => props.inspectorReady, () => props.disable
           <ElButton v-if="editing.value.kind !== 'missing'" :disabled="disabledInput" native-type="button" @click="writeValue('remove')">
             {{ batchMode ? t('author.properties.stageRemoval') : t('author.properties.removeValue') }}
           </ElButton>
-          <ElButton :disabled="busy || canRetry" @click="cancelValueForm">{{ t('author.properties.cancel') }}</ElButton>
+          <ElButton :disabled="busy || canRetry" @click="cancelValueForm">{{ t('nav.cancel') }}</ElButton>
         </div>
       </form>
     </template>

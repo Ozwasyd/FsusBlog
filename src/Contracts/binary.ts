@@ -1,8 +1,53 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 
+export const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
+export const isNonZeroUuid = (value: string): boolean =>
+  /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value) && value.toLowerCase() !== ZERO_UUID;
+export const isValidUnixMs = (value: bigint): boolean => value >= -62_135_596_800_000n && value <= 253_402_300_799_999n;
+export const toHex = (bytes: Uint8Array): string => Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+export const dataView = (bytes: Uint8Array): DataView => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
 export class ProtocolError extends Error {
   override readonly name = 'ProtocolError';
+}
+
+export class ByteView {
+  readonly data: Uint8Array;
+  readonly view: DataView;
+  private readonly fail: (field: string) => never;
+
+  constructor(data: Uint8Array, fail: (field: string) => never) {
+    this.data = data;
+    this.view = dataView(data);
+    this.fail = fail;
+  }
+
+  get length(): number { return this.data.byteLength; }
+  private at(offset: number, length: number, field = 'range'): DataView {
+    if (offset < 0 || length < 0 || offset > this.length - length) this.fail(field);
+    return this.view;
+  }
+  u8(at: number): number { return this.at(at, 1, 'byte offset').getUint8(at); }
+  u16(at: number): number { return this.at(at, 2, 'uint16 offset').getUint16(at, true); }
+  u32(at: number): number { return this.at(at, 4, 'uint32 offset').getUint32(at, true); }
+  i32(at: number): number { return this.at(at, 4, 'int32 offset').getInt32(at, true); }
+  i64(at: number): bigint { return this.at(at, 8, 'int64 offset').getBigInt64(at, true); }
+  f32(at: number): number { return this.at(at, 4, 'float32 offset').getFloat32(at, true); }
+  span(offset: number, length: number, field = 'byte slice'): Uint8Array {
+    this.at(offset, length, field);
+    return this.data.subarray(offset, offset + length);
+  }
+  sub(start: number, end: number): Uint8Array { return this.span(start, end - start, 'range'); }
+  record(offset: number, length: number): ByteView { return new ByteView(this.span(offset, length), this.fail); }
+  zero(offset: number, length: number): void {
+    if (this.span(offset, length, 'reserved bytes').some(Boolean)) this.fail('reserved bytes');
+  }
+  timestamp(at: number, allowZero = true): number {
+    const value = this.i64(at);
+    if ((!allowZero && value === 0n) || !isValidUnixMs(value)) this.fail(allowZero ? 'timestamp' : 'publish timestamp');
+    return Number(value);
+  }
 }
 
 export class PodReader {
@@ -34,6 +79,10 @@ export class PodReader {
     return Array.from({ length: count }, () => readItem(this));
   }
 
+  optional<T>(read: (reader: PodReader) => T): T | null {
+    return this.bool() ? read(this) : null;
+  }
+
   i64(): bigint {
     return this.view(8).getBigInt64(0, true);
   }
@@ -45,7 +94,7 @@ export class PodReader {
   }
 
   uuid(): string {
-    const hex = Array.from(this.take(16), value => value.toString(16).padStart(2, '0')).join('');
+    const hex = toHex(this.take(16));
     return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');
   }
 
@@ -71,8 +120,7 @@ export class PodReader {
   }
 
   private view(length: number): DataView {
-    const part = this.take(length);
-    return new DataView(part.buffer, part.byteOffset, part.byteLength);
+    return dataView(this.take(length));
   }
 
   private take(length: number): Uint8Array {
@@ -86,60 +134,71 @@ export class PodReader {
 export class PodWriter {
   private readonly parts: Uint8Array[] = [];
 
-  u8(value: number): void {
+  u8(value: number): this {
     if (!Number.isInteger(value) || value < 0 || value > 0xff)
       throw new ProtocolError('Value outside AEDS uint8 range');
     this.parts.push(Uint8Array.of(value));
+    return this;
   }
 
-  i32(value: number): void {
+  i32(value: number): this {
     if (!Number.isInteger(value) || value < -0x80000000 || value > 0x7fffffff)
       throw new ProtocolError('Value outside AEDS int32 range');
-    this.number(4, view => view.setInt32(0, value, true));
+    return this.number(4, view => view.setInt32(0, value, true));
   }
 
-  i32s(values: readonly number[], limit: number): void {
-    this.list(values, limit, (writer, value) => writer.i32(value));
+  i32s(values: readonly number[], limit: number): this {
+    return this.list(values, limit, (writer, value) => writer.i32(value));
   }
 
-  list<T>(values: readonly T[], limit: number, writeItem: (writer: PodWriter, value: T) => void): void {
+  list<T>(values: readonly T[], limit: number, writeItem: (writer: PodWriter, value: T) => void): this {
     if (values.length > limit) throw new ProtocolError('AEDS collection exceeds its item limit');
     this.i32(values.length);
     for (const value of values) writeItem(this, value);
+    return this;
   }
 
-  i64(value: bigint): void {
+  optional<T>(value: T | null | undefined, writeItem: (writer: PodWriter, value: T) => void): this {
+    this.bool(value !== null && value !== undefined);
+    if (value !== null && value !== undefined) writeItem(this, value);
+    return this;
+  }
+
+  i64(value: bigint): this {
     if (BigInt.asIntN(64, value) !== value) throw new ProtocolError('Value outside AEDS int64 range');
-    this.number(8, view => view.setBigInt64(0, value, true));
+    return this.number(8, view => view.setBigInt64(0, value, true));
   }
 
-  bool(value: boolean): void {
+  bool(value: boolean): this {
     this.parts.push(Uint8Array.of(value ? 1 : 0));
+    return this;
   }
 
-  uuid(value: string): void {
+  uuid(value: string): this {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value))
       throw new ProtocolError('Invalid AEDS UUID');
     const hex = value.replaceAll('-', '');
     this.parts.push(Uint8Array.from({ length: 16 }, (_, index) => parseInt(hex.slice(index * 2, index * 2 + 2), 16)));
+    return this;
   }
 
-  text(value: string, limit: number): void {
+  text(value: string, limit: number): this {
     if (value.length > limit) throw new ProtocolError('AEDS text exceeds its byte limit');
     const bytes = encoder.encode(value);
     if (bytes.length > limit) throw new ProtocolError('AEDS text exceeds its byte limit');
     if (decodeUtf8(bytes) !== value) throw new ProtocolError('Invalid AEDS source text');
     this.i32(bytes.length);
     this.parts.push(bytes);
+    return this;
   }
 
-  bytes(value: Uint8Array): void {
-    this.i32(value.length);
-    this.fixedBytes(value);
+  bytes(value: Uint8Array): this {
+    return this.i32(value.length).fixedBytes(value);
   }
 
-  fixedBytes(value: Uint8Array): void {
+  fixedBytes(value: Uint8Array): this {
     this.parts.push(value);
+    return this;
   }
 
   finish(): Uint8Array {
@@ -152,11 +211,38 @@ export class PodWriter {
     return bytes;
   }
 
-  private number(length: number, write: (view: DataView) => void): void {
+  private number(length: number, write: (view: DataView) => void): this {
     const bytes = new Uint8Array(length);
     write(new DataView(bytes.buffer));
     this.parts.push(bytes);
+    return this;
   }
+}
+
+export function writePod(write: (writer: PodWriter) => void): Uint8Array {
+  const writer = new PodWriter();
+  write(writer);
+  return writer.finish();
+}
+
+export function decodePod<T>(
+  payload: Uint8Array, read: (reader: PodReader) => T, maxPayload?: number, onLimit?: () => ProtocolError,
+): T {
+  if (maxPayload !== undefined && payload.length > maxPayload) throw onLimit ? onLimit() : new ProtocolError('AEDS payload exceeds limit');
+  const reader = new PodReader(payload);
+  const value = read(reader);
+  reader.finish();
+  return value;
+}
+
+export function decodeFixedText(bytes: Uint8Array, onPadding?: () => ProtocolError, requireNull = false): string {
+  const end = bytes.indexOf(0);
+  if (end < 0) {
+    if (requireNull) throw onPadding ? onPadding() : new ProtocolError('Invalid AEDS text padding');
+    return decodeUtf8(bytes);
+  }
+  if (bytes.subarray(end).some(Boolean)) throw onPadding ? onPadding() : new ProtocolError('Invalid AEDS text padding');
+  return decodeUtf8(bytes.subarray(0, end));
 }
 
 export function decodeUtf8(bytes: Uint8Array): string {

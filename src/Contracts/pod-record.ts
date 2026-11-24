@@ -1,4 +1,4 @@
-import { PodReader, PodWriter, ProtocolError } from './binary.ts';
+import { decodePod, PodReader, PodWriter, ProtocolError, writePod } from './binary.ts';
 
 type Field<T> = {
   read(reader: PodReader): T;
@@ -76,16 +76,7 @@ export type PodValue<Layout> = {
 export function definePodRecord<T extends object>(fields: { [Key in keyof T]: Field<T[Key]> }) {
   const codec = podField.record(fields);
   return [
-    (value: T): Uint8Array => {
-      const writer = new PodWriter();
-      codec.write(writer, value);
-      return writer.finish();
-    },
-    (payload: Uint8Array): T => {
-      const reader = new PodReader(payload);
-      const value = codec.read(reader);
-      reader.finish();
-      return value;
-    },
+    (value: T): Uint8Array => writePod(writer => codec.write(writer, value)),
+    (payload: Uint8Array): T => decodePod(payload, codec.read),
   ] as const;
 }

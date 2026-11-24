@@ -14,7 +14,7 @@ def routes(rate, seconds):
         for name, share in ROUTE_WEIGHTS.items()
     }
     by_route["all"] = {"sent": planned, "dropped": 0, "ok": planned, "p95Ms": 10, "p99Ms": 20,
-                      "errors": {}, "httpStatus": {"200": planned}}
+                       "errors": {}, "httpStatus": {"200": planned}}
     return by_route
 
 
@@ -59,11 +59,8 @@ class WarmupEvidence(unittest.TestCase):
                     self.evaluate(report)
 
     def test_peak_quorum_keeps_failed_attempts_and_requires_both_topologies(self):
-        def matrix_peak(topology, passed):
-            return {"topology": topology, "stages": [{"numericPeakPassed": passed}]}
-
-        direct = [matrix_peak("direct", passed) for passed in (True, True, False)]
-        proxy = [matrix_peak("proxy", passed) for passed in (False, True, True)]
+        direct = [{"topology": "direct", "stages": [{"numericPeakPassed": passed}]} for passed in (True, True, False)]
+        proxy = [{"topology": "proxy", "stages": [{"numericPeakPassed": passed}]} for passed in (False, True, True)]
         self.assertFalse(peak_quorum(direct))
         self.assertFalse(peak_quorum(direct + proxy[:2]))
         self.assertFalse(peak_quorum(direct[:1] + proxy))
@@ -117,8 +114,7 @@ class PrivateSupplierEvidence(unittest.TestCase):
         }
         self.reports = []
         for index, rate in enumerate(RATES):
-            process = index + 50
-            first = index * 112 + 2
+            process, first = index + 50, index * 112 + 2
             report = shared_report()
             identity = {key: self.binding[key] for key in ("target", "generation", "fixtureSha256")}
             report.update(identity, pid=process, targetScope="explicit-private-literal",
@@ -126,9 +122,8 @@ class PrivateSupplierEvidence(unittest.TestCase):
                           expected=rate * 60, routes=routes(rate, 60), startedAt=self.utc(first + 1),
                           measurementStartedAt=self.utc(first + 34),
                           measurementCompletedAt=self.utc(first + 93.982), finishedAt=self.utc(first + 94),
-                          measurementElapsedSeconds=60.00008, supplyBySecond=self.timeline(rate))
-            for key in ("producerBefore", "producerAfter"):
-                report[key] = {"runtimeMaxProcs": 8}
+                          measurementElapsedSeconds=60.00008, supplyBySecond=self.timeline(rate),
+                          producerBefore={"runtimeMaxProcs": 8}, producerAfter={"runtimeMaxProcs": 8})
             report["warmup"].update(identity, pid=process, measurementElapsedSeconds=30,
                                     measurementStartedAt=self.utc(first + 3), measurementCompletedAt=self.utc(first + 33),
                                     supplyBySecond=self.timeline(2000, 30))
@@ -164,30 +159,35 @@ class PrivateSupplierEvidence(unittest.TestCase):
     def write_binding(self):
         self.write_json("private-supplier.json", self.binding)
 
+    def save_last_stage(self):
+        self.write_stage(-1)
+        self.write_binding()
+
     def evaluate(self, private=True):
         return matrix(self.path, self.topology, self.inputs if private else None)
+
+    def assert_rejected(self, pattern):
+        with self.assertRaisesRegex(ValueError, pattern):
+            self.evaluate()
 
     def test_owned_direct_and_tls_are_admitted_with_the_same_numeric_output(self):
         for topology in ("direct", "proxy"):
             with self.subTest(topology=topology):
                 self.topology = topology
                 self.fixture()
-                public = self.evaluate(False)
-                private = self.evaluate()
+                public, private = self.evaluate(False), self.evaluate()
                 self.assertEqual(private.pop("privateSupplierEvidence")["target"], self.target)
                 self.assertEqual(public, private)
 
     def test_missing_admission_is_explicit_and_old_numeric_use_still_works(self):
         (self.path / "private-supplier.json").unlink()
         self.assertTrue(self.evaluate(False)["stages"][-1]["numericPeakPassed"])
-        with self.assertRaisesRegex(ValueError, "private supplier admission failed.*private-supplier.json"):
-            self.evaluate()
+        self.assert_rejected("private supplier admission failed.*private-supplier.json")
 
     def test_tampered_results_and_actual_input_bytes_fail(self):
         self.reports[-1]["measurementElapsedSeconds"] = 1
         self.write_json("direct-10500.json", self.reports[-1])
-        with self.assertRaisesRegex(ValueError, "differs from the raw result"):
-            self.evaluate()
+        self.assert_rejected("differs from the raw result")
         self.fixture()
         for key, name in (("wireSha256", "wire.schema.json"), ("toolSha256", "load"),
                           ("archiveSha256", "fsusblog-v2.tar.gz"), ("payloadManifestSha256", "payload.sha256")):
@@ -195,13 +195,11 @@ class PrivateSupplierEvidence(unittest.TestCase):
                 original = (self.inputs_path / name).read_text()
                 (self.inputs_path / name).write_text("changed")
                 self.inputs = sealed_inputs(self.inputs_path)
-                with self.assertRaisesRegex(ValueError, "sealed inputs"):
-                    self.evaluate()
+                self.assert_rejected("sealed inputs")
                 (self.inputs_path / name).write_text(original)
                 self.inputs = sealed_inputs(self.inputs_path)
         (self.path / "fixture.json").write_text("changed")
-        with self.assertRaisesRegex(ValueError, "sealed inputs"):
-            self.evaluate()
+        self.assert_rejected("sealed inputs")
 
     def test_copied_report_with_updated_digest_and_wrong_pid_or_time_fails(self):
         for field, value, message in (
@@ -214,29 +212,23 @@ class PrivateSupplierEvidence(unittest.TestCase):
             with self.subTest(field=field):
                 self.fixture()
                 self.reports[-1][field] = value
-                self.write_stage(-1)
-                self.write_binding()
-                with self.assertRaisesRegex(ValueError, message):
-                    self.evaluate()
+                self.save_last_stage()
+                self.assert_rejected(message)
 
     def test_future_targets_and_duplicated_hosts_fail_at_admission(self):
-        self.run["finished_at"] = datetime.now(timezone.utc) + timedelta(days=1)
-        self.run["finished_at"] = self.run["finished_at"].isoformat().replace("+00:00", "Z")
+        self.run["finished_at"] = (datetime.now(timezone.utc) + timedelta(days=1)).isoformat().replace("+00:00", "Z")
         self.write_properties("outcome.txt", self.run)
         self.binding["outcomeSha256"] = digest(self.path / "outcome.txt")
         self.write_binding()
-        with self.assertRaisesRegex(ValueError, "private run interval"):
-            self.evaluate()
-        self.fixture()
-        self.binding["supplierHostId"] = self.binding["serverHostId"]
-        self.write_binding()
-        with self.assertRaisesRegex(ValueError, "host or owner differs"):
-            self.evaluate()
-        self.fixture()
-        self.binding["target"] = "https://10.4.3.2:8080"
-        self.write_binding()
-        with self.assertRaisesRegex(ValueError, "target, TLS authority or process ownership"):
-            self.evaluate()
+        self.assert_rejected("private run interval")
+        for key, value, pattern in (
+            ("supplierHostId", self.binding["serverHostId"], "host or owner differs"),
+            ("target", "https://10.4.3.2:8080", "target, TLS authority or process ownership"),
+        ):
+            self.fixture()
+            self.binding[key] = value
+            self.write_binding()
+            self.assert_rejected(pattern)
 
     def test_same_exact_failure_threshold_in_both_modes(self):
         for dropped in (630, 631):
@@ -253,8 +245,7 @@ class PrivateSupplierEvidence(unittest.TestCase):
                 for key in ("admitted", "attemptFinished", "correct"):
                     second[key] -= dropped
                 second["dropped"] = dropped
-                self.write_stage(-1)
-                self.write_binding()
+                self.save_last_stage()
                 for private in (False, True):
                     self.assertEqual(self.evaluate(private)["stages"][-1]["numericPeakPassed"], dropped == 630)
 
@@ -270,18 +261,14 @@ class PrivateSupplierEvidence(unittest.TestCase):
     def test_changed_owner_and_tls_authority_fail(self):
         owner = self.path / "owner.txt"
         owner.write_text(owner.read_text() + "other text\n")
-        with self.assertRaisesRegex(ValueError, "host or owner differs"):
-            self.evaluate()
+        self.assert_rejected("host or owner differs")
         self.topology = "proxy"
         self.fixture()
         (self.path / "ca.pem").write_text("some other CA")
-        with self.assertRaisesRegex(ValueError, "target, TLS authority or process ownership"):
-            self.evaluate()
+        self.assert_rejected("target, TLS authority or process ownership")
 
     def test_planned_counts_cannot_move_between_seconds(self):
         self.reports[-1]["supplyBySecond"][0]["planned"] -= 1
         self.reports[-1]["supplyBySecond"][1]["planned"] += 1
-        self.write_stage(-1)
-        self.write_binding()
-        with self.assertRaisesRegex(ValueError, "producer timeline differs"):
-            self.evaluate()
+        self.save_last_stage()
+        self.assert_rejected("producer timeline differs")

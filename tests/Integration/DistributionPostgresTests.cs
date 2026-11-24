@@ -1,15 +1,3 @@
-using static System.Net.HttpStatusCode;
-using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
-using System.Net;
-using System.Text.Json;
-using System.Xml.Linq;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Integration.Tests;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Content;
-using FsusBlog.V2.Server.Operations;
-using Microsoft.Extensions.Configuration;
-
 public sealed class DistributionPostgresTests
 {
     private const string Origin = "https://blog.example.test";
@@ -53,9 +41,9 @@ public sealed class DistributionPostgresTests
         var split = DistributionSnapshot.BuildSitemap(Origin, paths, CancellationToken.None);
         Assert.Equal(new[] { Origin + "/sitemap/1.xml", Origin + "/sitemap/2.xml" },
             Parse(split.Root).Descendants(Sitemap + "loc").Select(x => x.Value));
-        Assert.Equal(2, split.Pages.Length);
-        Assert.Equal(DistributionSnapshot.SitemapPageSize, Parse(split.Pages[0]).Root!.Elements(Sitemap + "url").Count());
-        Assert.Equal(Origin + "/article/45001", Assert.Single(Parse(split.Pages[1]).Descendants(Sitemap + "loc")).Value);
+        Assert.Equal((2, DistributionSnapshot.SitemapPageSize, Origin + "/article/45001"),
+            (split.Pages.Length, Parse(split.Pages[0]).Root!.Elements(Sitemap + "url").Count(),
+                Assert.Single(Parse(split.Pages[1]).Descendants(Sitemap + "loc")).Value));
     }
 
     [Fact]
@@ -88,8 +76,7 @@ public sealed class DistributionPostgresTests
             Assert.True(response.Headers.CacheControl?.NoStore);
             Assert.False(response.Headers.Contains(WireHeaders.SearchIndexGeneration));
         }
-        using var robots = Ok(await Read(server.Client, "/robots.txt", ct));
-        Assert.Equal("User-agent: *\nDisallow: /\n", await robots.Content.ReadAsStringAsync(ct));
+        Assert.Equal("User-agent: *\nDisallow: /\n", await OkString(Read(server.Client, "/robots.txt", ct), ct));
         Assert.DoesNotContain("canonical", await server.Client.GetStringAsync("/", ct));
     }
 
@@ -97,13 +84,12 @@ public sealed class DistributionPostgresTests
     public async Task DistributionFollowsPublishedGenerationAndRemovesWithdrawnContent()
     {
         await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(35));
-        await using var connection = await database.DataSource.OpenConnectionAsync(ct);
         var actor = await database.SignIn("distribution-author", ct, minutes: 1);
-        await using (var catalog = Store.Sql(connection, null, """
+        await database.Exec("""
             insert into public.category(id,name) values(11,'Published category'),(12,'Draft category');
             insert into public.tag(id,name) values(41,'Public tag'),(42,'Draft tag');
             insert into public.tag_url_name(name_key,tag_id) values('public tag',41),('public alias',41),('draft tag',42);
-            """)) await catalog.ExecuteNonQueryAsync(ct);
+            """);
         var site = Directory.CreateTempSubdirectory("fsusv2-distribution-pages-");
         try
         {
@@ -122,8 +108,8 @@ public sealed class DistributionPostgresTests
             const string title = "Visible <em>Title</em> & 世界";
             const string publicSummary = "Prefix <script>alert(123)</script> & literal \u0001 value";
             const string unpublished = "DRAFT_ONLY_HIDDEN_PAYLOAD";
-            var draft = await Command(WireRoutes.Save, new(0, 0, Guid.NewGuid(), title, publicSummary));
-            var privateArticle = await Command(WireRoutes.Save, new(0, 0, Guid.NewGuid(), "Other private draft", unpublished));
+            var draft = await SiteAedsFixture.SaveDraft(client, actor.Token, null, 0, 0, title, publicSummary, ct);
+            var privateArticle = await SiteAedsFixture.SaveDraft(client, actor.Token, null, 0, 0, "Other private draft", unpublished, ct);
             var assigned = await Assign(draft, 11, 41);
             await Assign(privateArticle, 12, 42);
             var articlePath = $"/article/{draft.Id}";
@@ -131,14 +117,14 @@ public sealed class DistributionPostgresTests
             var before = await CurrentGeneration();
             await Absent(articleUrl, title);
 
-            var published = await Command(WireRoutes.Publish, new(draft.Id, assigned.Revision, Guid.NewGuid(), "", ""));
+            var published = await SiteAedsFixture.ArticleCommand(client, WireRoutes.Publish, actor.Token, null,
+                new(draft.Id, assigned.Revision, Guid.NewGuid(), "", ""), ct);
             var generation = await CurrentGeneration();
             Assert.NotEqual(before, generation);
             var rss = await Artifact(FeedPaths[0], "application/rss+xml", generation);
             Assert.Equal(rss, await Artifact(FeedPaths[1], "application/rss+xml", generation));
             var item = Assert.Single(XDocument.Parse(rss).Descendants("item"));
-            Assert.Equal(title, item.Element("title")!.Value);
-            Assert.Equal(articleUrl, item.Element("guid")!.Value);
+            Assert.Equal((title, articleUrl), (item.Element("title")!.Value, item.Element("guid")!.Value));
             Assert.Contains("&lt;script&gt;", item.Element("description")!.Value);
             Assert.DoesNotContain("<script>", rss);
             Assert.DoesNotContain('\u0001', rss);
@@ -162,44 +148,40 @@ public sealed class DistributionPostgresTests
             var robots = await Artifact("/robots.txt", "text/plain", generation);
             Assert.Contains("Disallow: /api/", robots);
             Assert.Contains($"Sitemap: {Origin}/sitemap.xml", robots);
-            using var noPage = Expect(NotFound, await Read(client, "/sitemap/1.xml", ct));
+            await CheckStatusAsync(NotFound, Read(client, "/sitemap/1.xml", ct));
             using var head = Ok(await Read(client, "/feed/rss.xml", ct, head: true));
             Assert.Equal(generation, Assert.Single(head.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
             Assert.Empty(await head.Content.ReadAsByteArrayAsync(ct));
             foreach (var pathUnderOrigin in new[] { "/", "/archive", "/about", articlePath, "/tag/41", "/category/11" })
             {
-                using var response = Ok(await Read(client, pathUnderOrigin, ct));
-                var html = await response.Content.ReadAsStringAsync(ct);
+                var html = await OkString(Read(client, pathUnderOrigin, ct), ct);
                 Assert.Contains($"rel=\"canonical\" href=\"{Origin}{pathUnderOrigin}\"", html);
                 Assert.Contains("type=\"application/rss+xml\"", html);
                 Assert.DoesNotContain("forged.example", html);
             }
 
-            var saved = await Command(WireRoutes.Save, new(published.Id, published.Revision, Guid.NewGuid(), "New private draft", unpublished));
+            var saved = await SiteAedsFixture.SaveDraft(client, actor.Token, null, published.Id, published.Revision, "New private draft", unpublished, ct);
             Assert.Equal(generation, await CurrentGeneration());
             Assert.Equal(rss, await Artifact(FeedPaths[0], "application/rss+xml", generation));
-            var republished = await Command(WireRoutes.Publish, new(saved.Id, saved.Revision, Guid.NewGuid(), "", ""));
-            var nextGeneration = await CurrentGeneration();
-            Assert.NotEqual(generation, nextGeneration);
+            var republished = await SiteAedsFixture.ArticleCommand(client, WireRoutes.Publish, actor.Token, null,
+                new(saved.Id, saved.Revision, Guid.NewGuid(), "", ""), ct);
+            Assert.NotEqual(generation, await CurrentGeneration());
             using (var latest = JsonDocument.Parse(await client.GetStringAsync(FeedPaths[3], ct)))
                 Assert.Equal(unpublished, Assert.Single(latest.RootElement.GetProperty("items").EnumerateArray()).GetProperty("content_text").GetString());
-            await Command(WireRoutes.Retract, new(republished.Id, republished.Revision, Guid.NewGuid(), "", ""));
+            await SiteAedsFixture.ArticleCommand(client, WireRoutes.Retract, actor.Token, null,
+                new(republished.Id, republished.Revision, Guid.NewGuid(), "", ""), ct);
             Assert.NotEqual(generation, await CurrentGeneration());
             await Absent(articleUrl, title);
             var after = await client.GetStringAsync("/sitemap.xml", ct);
             Assert.DoesNotContain("/category/11", after);
             Assert.DoesNotContain("/tag/41", after);
-            using var gone = Expect(NotFound, await Read(client, articlePath, ct));
+            await CheckStatusAsync(NotFound, Read(client, articlePath, ct));
 
-            await using (var lease = Store.Sql(connection, null, """
-                select pg_terminate_backend(pid, 3000) from pg_locks
-                where locktype='advisory' and database=(select oid from pg_database where datname=current_database())
-                    and objsubid=1 and ((classid::bigint << 32) | objid::bigint)=$1 and mode='ExclusiveLock' and granted
-                """, InstanceLease.OwnershipKey)) Assert.True((bool)(await lease.ExecuteScalarAsync(ct))!);
+            Assert.True(await database.TerminateAdvisoryOwner(InstanceLease.OwnershipKey, 3000, ct));
             for (var check = 0; check < 100; check++)
             {
                 using var ready = await client.GetAsync("/health/ready", ct);
-                if (ready.StatusCode == HttpStatusCode.ServiceUnavailable) break;
+                if (ready.StatusCode == ServiceUnavailable) break;
                 await Task.Delay(20, ct);
             }
             foreach (var route in FeedPaths.Append("/robots.txt"))
@@ -209,26 +191,10 @@ public sealed class DistributionPostgresTests
                 Assert.False(response.Headers.Contains(WireHeaders.SearchIndexGeneration));
             }
 
-            async Task<Draft> Command(string route, ArticleCommand command)
-            {
-                using var response = await Mutation(route, Wire.EncodeArticleCommand(command));
-                return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
-            }
-
-            async Task<DraftTaxonomy> Assign(Draft draftValue, int category, int tag)
-            {
-                using var result = await Mutation(WireRoutes.TaxonomyAssignment,
-                    Wire.EncodeTaxonomyAssignment(new(draftValue.Id, draftValue.Revision, Guid.NewGuid(), category, [tag])));
-                return Wire.DecodeDraftTaxonomy(await result.Content.ReadAsByteArrayAsync(ct));
-            }
-
-            async Task<HttpResponseMessage> Mutation(string route, byte[] frame)
-            {
-                using var request = SiteAedsFixture.Request(HttpMethod.Post, route, frame, actor.Token, handle: null);
-                var response = await client.SendAsync(request, ct);
-                response.EnsureSuccessStatusCode();
-                return response;
-            }
+            async Task<DraftTaxonomy> Assign(Draft draftValue, int category, int tag) =>
+                Wire.DecodeDraftTaxonomy(await SiteAedsFixture.ExpectStatus(client, HttpMethod.Post, WireRoutes.TaxonomyAssignment,
+                    Wire.EncodeTaxonomyAssignment(new(draftValue.Id, draftValue.Revision, Guid.NewGuid(), category, [tag])),
+                    actor.Token, null, OK, ct));
 
             async Task<string> CurrentGeneration()
             {
@@ -240,8 +206,8 @@ public sealed class DistributionPostgresTests
             {
                 using var response = Ok(await Read(client, route, ct));
                 Assert.True(response.Headers.CacheControl?.NoStore);
-                Assert.Equal(mediaType, response.Content.Headers.ContentType!.MediaType);
-                Assert.Equal(expectedGeneration, Assert.Single(response.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
+                Assert.Equal((mediaType, expectedGeneration),
+                    (response.Content.Headers.ContentType!.MediaType, Assert.Single(response.Headers.GetValues(WireHeaders.SearchIndexGeneration))));
                 var rendered = await response.Content.ReadAsStringAsync(ct);
                 Assert.DoesNotContain(unpublished, rendered);
                 Assert.DoesNotContain("forged.example", rendered);
@@ -260,10 +226,8 @@ public sealed class DistributionPostgresTests
                         Assert.Empty(feed.RootElement.GetProperty("items").EnumerateArray());
                     }
                     else
-                    {
                         Assert.DoesNotContain(XDocument.Parse(body).Descendants(), element =>
                             element.Value == uri || element.Value == name || element.Value == Origin + "/category/12" || element.Value == Origin + "/tag/42");
-                    }
                 }
             }
         }
@@ -278,9 +242,5 @@ public sealed class DistributionPostgresTests
         return await client.SendAsync(request, ct);
     }
 
-    private static XDocument Parse(byte[] bytes)
-    {
-        using var stream = new MemoryStream(bytes);
-        return XDocument.Load(stream);
-    }
+    private static XDocument Parse(byte[] bytes) { using var stream = new MemoryStream(bytes); return XDocument.Load(stream); }
 }

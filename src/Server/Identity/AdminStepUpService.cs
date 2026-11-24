@@ -1,9 +1,3 @@
-using System.Security.Cryptography;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlogV2.Storage;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Administration;
 
 internal enum AdminStepUpAction
@@ -71,20 +65,16 @@ internal sealed class AdminStepUpService(AdminSessionGate gate, AdminPasskeyStor
         var challenge = await gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             if (requireSchema is not null) await requireSchema(db, tx, ct);
-            await using var consume = Store.Sql(db, tx, $"""
+            return await SqlCommands.QueryRequired(db, tx, ct, $"""
                 delete from {StepUpTable(action)}
                 where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
                   and expires_at>clock_timestamp()
                 returning options,body_digest
-                """, AdminSql.ChallengeDigest(request.Token, null), admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpChallenge, (int)action);
-            await using var row = await consume.ExecuteReaderAsync(ct);
-            if (!await row.ReadAsync(ct))
-            {
-                if (articleTransition)
-                    throw new BusinessException(Rejection.Forbidden, $"The {transition} challenge expired or does not match this session.");
-                throw AdminSessionGate.Denied();
-            }
-            return (Options: row.GetString(0), Digest: row.GetFieldValue<byte[]>(1));
+                """, r => (Options: r.GetString(0), Digest: r.GetFieldValue<byte[]>(1)),
+                () => articleTransition
+                    ? new BusinessException(Rejection.Forbidden, $"The {transition} challenge expired or does not match this session.")
+                    : AdminSessionGate.Denied(),
+                AdminSql.ChallengeDigest(request.Token, null), admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpChallenge, (int)action);
         }, ct);
         try
         {
@@ -125,6 +115,13 @@ internal sealed class AdminStepUpService(AdminSessionGate gate, AdminPasskeyStor
         }, ct);
 
     internal static byte[] IntentDigest(AdminModerationIntent intent) => SHA256.HashData(Wire.EncodeAdminModerationIntent(intent));
+
+    internal async Task RequireProofAsync(NpgsqlConnection db, NpgsqlTransaction tx, AdminLiveSession admin,
+        string? proof, byte[] bodyDigest, CancellationToken ct, AdminStepUpAction action, string forbiddenMessage)
+    {
+        if (!await ConsumeProofAsync(db, tx, admin, proof, bodyDigest, ct, action))
+            throw new BusinessException(Rejection.Forbidden, forbiddenMessage);
+    }
 
     internal async Task<bool> ConsumeProofAsync(NpgsqlConnection db, NpgsqlTransaction tx, AdminLiveSession admin,
         string? proof, byte[] bodyDigest, CancellationToken ct, AdminStepUpAction action = AdminStepUpAction.ModerateComment)

@@ -3,5 +3,6 @@
     <ProjectReference Include="../Core/FsusBlog.V2.Core.csproj" />
     <ProjectReference Include="../Contracts/FsusBlog.V2.Contracts.csproj" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
+    <Using Include="Npgsql" />
   </ItemGroup>
 </Project>

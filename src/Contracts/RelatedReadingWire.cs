@@ -1,8 +1,3 @@
-using System.Buffers.Binary;
-using System.Text;
-
-using static FsusBlog.V2.Contracts.WireLayouts;
-
 namespace FsusBlog.V2.Contracts;
 
 public sealed record RelatedItem(int Id, DateTimeOffset CreatedAt, string Title, string? Summary, string Reason);

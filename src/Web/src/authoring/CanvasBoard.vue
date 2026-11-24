@@ -38,11 +38,11 @@ const size = shallowRef({ width: 0, height: 0 })
 const position = shallowRef<{ x: number; y: number }>()
 const nodesById = computed(() => new Map(props.nodes.map(node => [node.id, node])))
 const labels: Record<CanvasNode['kind'], MessageKey> = {
-  'article-reference': 'author.canvasBoard.articleReference',
+  'article-reference': 'author.properties.articleReference',
   'heading-reference': 'author.canvasBoard.headingReference',
   'block-reference': 'author.canvasBoard.blockReference',
-  'plain-text-note': 'author.canvasBoard.note',
-  'group-frame': 'author.canvasBoard.frame',
+  'plain-text-note': 'author.canvas.note',
+  'group-frame': 'author.canvas.frame',
 }
 
 const gesture = shallowRef<CanvasGesture>()

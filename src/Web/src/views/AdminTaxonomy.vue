@@ -49,7 +49,7 @@ const filteredItems = computed(() => {
 const editorTitle = computed(() => {
   if (edited.value === undefined) return ''
   return edited.value === 0
-    ? t('admin.tagMetadata.m7', { kind: kindLabel.value })
+    ? t('admin.taxonomy.m41', { kind: kindLabel.value })
     : t('admin.tagMetadata.m8', { kind: kindLabel.value })
 })
 
@@ -226,12 +226,12 @@ onBeforeUnmount(() => {
 
     <p v-if="notice" class="taxonomy-status" role="status">
       {{ notice.name
-        ? t(notice.key, { kind: t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2'), name: notice.name })
-        : t(notice.key, { label: t(notice.kind === 'categories' ? 'admin.taxonomy.m1' : 'admin.taxonomy.m2') }) }}
+        ? t(notice.key, { kind: t(notice.kind === 'categories' ? 'page.category' : 'page.tag'), name: notice.name })
+        : t(notice.key, { label: t(notice.kind === 'categories' ? 'page.category' : 'page.tag') }) }}
     </p>
     <ElSkeleton v-if="pending" animated />
     <ElAlert v-else-if="failure === 'request'" :title="t('admin.taxonomy.m8')" type="error" :closable="false" show-icon>
-      <ElButton text @click="load(pageNumber)">{{ t('admin.taxonomy.m9') }}</ElButton>
+      <ElButton text @click="load(pageNumber)">{{ t('nav.retry') }}</ElButton>
     </ElAlert>
     <template v-else-if="page">
       <div class="taxonomy-toolbar">
@@ -258,10 +258,10 @@ onBeforeUnmount(() => {
         <table>
           <thead>
             <tr>
-              <th scope="col">{{ kind === 'categories' ? t('admin.taxonomy.m1') : t('admin.taxonomy.m2') }}</th>
+              <th scope="col">{{ kind === 'categories' ? t('page.category') : t('page.tag') }}</th>
               <th scope="col">{{ t('admin.taxonomy.m15') }}</th>
               <th scope="col">{{ t('admin.taxonomy.otherStates') }}</th>
-              <th scope="col">{{ t('admin.taxonomy.actions') }}</th>
+              <th scope="col">{{ t('admin.articles.actions') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -286,10 +286,10 @@ onBeforeUnmount(() => {
                     {{ t('admin.taxonomy.viewArticles') }}
                   </ElButton>
                   <ElButton v-if="canEditMetadata" text size="small" :disabled="edited !== undefined" @click="openEditor(item.id, $event)">
-                    {{ t('admin.taxonomy.edit') }}
+                    {{ t('admin.inventory.edit') }}
                   </ElButton>
                   <ElButton v-if="canEditMetadata" text size="small" type="danger" :disabled="deleting" @click="openDelete(item, $event)">
-                    {{ t('admin.taxonomy.delete') }}
+                    {{ t('account.message94') }}
                   </ElButton>
                 </ElInlineActions>
               </td>
@@ -306,7 +306,7 @@ onBeforeUnmount(() => {
       <nav v-if="pageNumber > 0 || page.nextId !== null" class="taxonomy-actions" :aria-label="t('admin.taxonomy.m30')">
         <ElInlineActions>
           <ElButton :disabled="pageNumber === 0" @click="load(pageNumber - 1)">{{ t('admin.taxonomy.m31') }}</ElButton>
-          <span class="taxonomy-page-status" role="status">{{ t('admin.taxonomy.m45', { page: pageNumber + 1 }) }}</span>
+          <span class="taxonomy-page-status" role="status">{{ t('reading.pageNumber', { page: pageNumber + 1 }) }}</span>
           <ElButton :disabled="page.nextId === null" @click="next">{{ t('admin.taxonomy.m32') }}</ElButton>
         </ElInlineActions>
       </nav>
@@ -351,7 +351,7 @@ onBeforeUnmount(() => {
       </div>
       <template #footer>
         <ElInlineActions>
-          <ElButton :disabled="deleting" @click="closeDelete">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
+          <ElButton :disabled="deleting" @click="closeDelete">{{ t('nav.cancel') }}</ElButton>
           <ElButton
             v-if="deleteTarget && deleteTarget.retainedArticles > 0"
             type="primary"

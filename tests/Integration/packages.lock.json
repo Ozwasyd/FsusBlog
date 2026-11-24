@@ -14,9 +14,9 @@
       },
       "System.Formats.Cbor": {
         "type": "Direct",
-        "requested": "[9.0.24, 9.0.24]",
-        "resolved": "9.0.24",
-        "contentHash": "SEfEvHu6qXcXoDsDKagddLDf8A9iHIhHUD0hGemdmwlP206KLLCI5ksskOpeXMgNpQCs2diB0fOBKcnjySHFUQ=="
+        "requested": "[10.0.15, 10.0.15]",
+        "resolved": "10.0.15",
+        "contentHash": "8EBB814RXFnm/Klsuil8A6r+n6zvz4L/rQ1ROamxDZDt8lIjUl0tbSGlsYzea1jr/4V3Q6TNQbWfU/C8tjwPDQ=="
       },
       "xunit": {
         "type": "Direct",

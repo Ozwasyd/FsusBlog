@@ -8,5 +8,14 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
     <Compile Include="../Core/AppearancePackageStore.cs" Link="AppearancePackageStore.cs" />
     <Using Include="Xunit" />
+    <Using Include="System.Collections.Immutable" />
+    <Using Include="System.IO.Compression" />
+    <Using Include="System.Security.Cryptography" />
+    <Using Include="System.Text" />
+    <Using Include="System.Text.Json" />
+    <Using Include="FsusBlog.V2.Core" />
+    <Using Include="FsusBlog.V2.Core.Authoring" />
+    <Using Include="FsusBlog.V2.Core.Extensions" />
+    <Using Include="FsusBlog.V2.Platform.Extensions" />
   </ItemGroup>
 </Project>

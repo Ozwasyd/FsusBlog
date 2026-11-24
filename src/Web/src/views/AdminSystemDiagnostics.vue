@@ -24,7 +24,7 @@ import {
 } from '../../../Contracts/admin-identity'
 import { useDelayedBusy } from '../delayedBusy'
 import { siteLocale, t, type MessageKey } from '../siteLocale'
-import { watchAdminSessionClear } from './adminSessionClear'
+import { isAdminSessionLost, useAdminRequests } from './adminSessionClear'
 
 type RuntimeDiagnostics = Readonly<{
   operations: AdminOperationsStatus
@@ -41,7 +41,6 @@ const state = shallowRef<RuntimeDiagnostics | null>(null)
 const busy = ref(false)
 const checkLoading = useDelayedBusy(() => busy.value)
 const error = ref<MessageKey | ''>('')
-let request: AbortController | undefined
 
 const snapshotReady = computed(() => Boolean(state.value?.operations.snapshotReady && state.value?.cluster.snapshotReady))
 const pendingCount = computed(() => state.value?.operations.pendingPublicationEvents ?? 0n)
@@ -60,30 +59,26 @@ function formatTime(unixMs: number): string {
   return new Date(unixMs).toLocaleString(siteLocale.value)
 }
 
-function clear() {
-  request?.abort()
-  request = undefined
+const requests = useAdminRequests(() => [props.session, props.sessionSignal] as const, () => {
   state.value = null
   busy.value = false
   error.value = ''
-}
+})
 
 async function check(force = true) {
   if (props.sessionSignal.aborted || (!force && busy.value)) return
-  request?.abort()
   const activeSession = props.session
-  const current = request = new AbortController()
-  const signal = AbortSignal.any([current.signal, props.sessionSignal])
-  const live = () => request === current && !signal.aborted && props.session === activeSession
+  const req = requests.start()
+  const live = () => req.isCurrent() && !req.signal.aborted && props.session === activeSession
   busy.value = true
   error.value = ''
   try {
     const [operations, cluster] = await Promise.all([
-      readAdminOperations(activeSession, signal),
-      readAdminCluster(activeSession, signal),
+      readAdminOperations(activeSession, req.signal),
+      readAdminCluster(activeSession, req.signal),
     ])
     if (!live()) return
-    const observed = await readAdminAuthority(signal)
+    const observed = await readAdminAuthority(req.signal)
     if (!live()) return
     if (observed.status !== 'active' || observed.session.permissionSession !== activeSession.permissionSession) {
       state.value = null
@@ -94,13 +89,10 @@ async function check(force = true) {
   } catch (cause) {
     if (!live()) return
     state.value = null
-    if (cause instanceof ApiError && cause.status === 401) {
-      const observed = await readAdminAuthority(signal).catch(() => null)
+    if (isAdminSessionLost(cause)) {
+      const observed = await readAdminAuthority(req.signal).catch(() => null)
       if (!live()) return
-      if (observed?.status === 'signed-out') {
-        emit('session-lost', cause)
-        return
-      }
+      if (observed?.status === 'signed-out') { emit('session-lost', cause); return }
       if (observed && (observed.status !== 'active' || observed.session.permissionSession !== activeSession.permissionSession)) {
         emit('authority-changed', observed)
         return
@@ -108,14 +100,10 @@ async function check(force = true) {
     }
     if (force || !(cause instanceof ApiError && cause.status === 403)) error.value = 'admin.runtimeFailed'
   } finally {
-    if (request === current) {
-      request = undefined
-      busy.value = false
-    }
+    if (req.isCurrent()) { req.finish(); busy.value = false }
   }
 }
 
-watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clear)
 onMounted(() => { void check(false) })
 </script>
 

@@ -1,32 +1,27 @@
-import { exactText, exactLabel, roleWithExactName } from './role-locators.mjs'
-import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { requireWebPackage } from './web-package-fixture.mjs'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { assertFocused } from './admin-workspace-fixture.mjs'
+import * as isolated from './isolated-browser-fixture.mjs'
+import { assertStatus } from './response-status-fixture.mjs'
+import { exactHeading, exactLabel, exactText } from './role-locators.mjs'
 import { signInFreshSite } from './webauthn-fixture.mjs'
 
-const { chromium } = requireWebPackage('@playwright/test')
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const tickets = [process.env.FSUSBLOG_INBOX_DESKTOP_TICKET, process.env.FSUSBLOG_INBOX_MOBILE_TICKET]
 const recipients = [process.env.FSUSBLOG_INBOX_DESKTOP_ID, process.env.FSUSBLOG_INBOX_MOBILE_ID]
 assert(evidence && tickets.every(Boolean) && recipients.every(Boolean), 'Set local inbox fixture identities, tickets and evidence directory')
 assert(/(?:^|;)Database=fsusv2_inbox_[a-f0-9]{32}(?:;|$)/.test(process.env.FSUSBLOG_DB ?? ''), 'Expected an owned disposable inbox database')
-await mkdir(evidence, { recursive: true })
 
 const tlsPin = process.env.FSUSBLOG_TEST_TLS_SPKI
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true,
-  args: tlsPin ? [`--ignore-certificate-errors-spki-list=${tlsPin}`] : [] })
+const browser = await isolated.launchChrome(tlsPin ? [`--ignore-certificate-errors-spki-list=${tlsPin}`] : [])
 const diagnostics = []
 const observations = []
-let failure
-try {
-  for (const [index, viewport] of [{ width: 1280, height: 800 }, { width: 375, height: 850 }].entries()) {
-    const name = index === 0 ? 'desktop' : 'mobile'
-    const context = await browser.newContext({ viewport, colorScheme: index === 0 ? 'light' : 'dark' })
+
+async function verifyViewport(index, viewport) {
+  const name = index === 0 ? 'desktop' : 'mobile'
+  await isolated.withTempContext(browser, { viewport, colorScheme: index === 0 ? 'light' : 'dark' }, async context => {
     await context.addInitScript(() => {
       const NativeSocket = window.WebSocket
       window.WebSocket = class extends NativeSocket {
@@ -40,8 +35,7 @@ try {
       const page = await context.newPage()
       await context.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
       const ready = page.getByRole('heading', { name: 'My messages' })
-      const anonymous = await page.goto(`${origin}/user/messagebox`)
-      assertStatus(anonymous, 200)
+      assertStatus(await page.goto(`${origin}/user/messagebox`), 200)
       await ready.waitFor()
       await exactText(page, 'Please log in').waitFor()
       assert.equal(await exactText(page, 'Integration fixture notice').count(), 0)
@@ -77,8 +71,8 @@ try {
       assert.equal(new URL(page.url()).pathname, '/user/messagebox')
       assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex')
       assert.equal(await exactText(row, '1 unread').count(), 1)
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
-      await page.screenshot({ path: join(evidence, `inbox-${name}-list.png`) })
+      await isolated.assertNoOverflow(page)
+      await isolated.saveShot(page, evidence, `inbox-${name}-list.png`, {})
       const accountMenu = page.getByRole('button', { name: 'Account menu' })
       if (index === 1) {
         const brand = page.getByRole('banner', { name: 'Site header' }).getByRole('link', { name: "Fsu's Blog" })
@@ -90,7 +84,7 @@ try {
         const dialog = page.getByRole('dialog', { name: 'Account menu' })
         await dialog.getByRole('link', { name: 'Account' }).waitFor()
         await dialog.getByRole('button', { name: 'Log out' }).waitFor()
-        await page.screenshot({ path: join(evidence, 'inbox-mobile-account-menu.png'), animations: 'disabled' })
+        await isolated.saveShot(page, evidence, 'inbox-mobile-account-menu.png')
         await page.keyboard.press('Escape')
         await dialog.waitFor({ state: 'hidden' })
         await page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'Account menu')
@@ -116,23 +110,23 @@ try {
       await page.keyboard.press('Enter')
       const heading = page.getByRole('heading', { name: 'Integration fixture notice' })
       await heading.waitFor()
-      assert.equal(await heading.evaluate(element => element === document.activeElement), true)
+      await assertFocused(heading)
       await exactText(page, 'Integration fixture private body').last().waitFor()
       if (index === 1) {
         const headingBox = await heading.boundingBox()
         assert(headingBox && headingBox.width >= 140, `Narrow ElThreadPanel heading must wrap cleanly instead of crushing (got ${headingBox?.width}px)`)
-        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
-        await page.screenshot({ path: join(evidence, 'inbox-mobile-unread-header.png') })
+        await isolated.assertNoOverflow(page)
+        await isolated.saveShot(page, evidence, 'inbox-mobile-unread-header.png', {})
       }
       const marked = page.waitForResponse(response => response.url().endsWith('/read') && response.request().method() === 'POST')
       await page.getByRole('button', { name: 'Mark as read' }).click()
       assertStatus(await marked, 200)
       await page.getByRole('button', { name: 'Mark as read' }).waitFor({ state: 'hidden' })
-      await page.screenshot({ path: join(evidence, `inbox-${name}-read.png`) })
+      await isolated.saveShot(page, evidence, `inbox-${name}-read.png`, {})
       if (index === 1) {
         await page.getByRole('button', { name: 'Back to message list' }).click()
         await row.waitFor()
-        assert.equal(await row.evaluate(element => element === document.activeElement), true)
+        await assertFocused(row)
       }
       assert.equal(await exactText(row, '1 unread').count(), 0)
       const subject = `Native support ${name}`
@@ -141,15 +135,15 @@ try {
       await exactLabel(page, 'Ticket content').fill('Native proof sent this ticket.')
       await page.getByRole('button', { name: 'Send ticket' }).click()
       await exactText(page, 'Ticket submitted.').waitFor()
-      await roleWithExactName(page, 'heading', subject).waitFor()
+      await exactHeading(page, subject).waitFor()
       await exactLabel(page, 'Reply content').fill('Native proof sent this reply.')
       await page.getByRole('button', { name: 'Send reply' }).click()
       await exactText(page, 'Reply sent.').waitFor()
       await exactText(page.getByRole('region', { name: subject }), 'Native proof sent this reply.').waitFor()
       assert.equal(challenges.length, 2)
       assert.deepEqual(challenges.map(([path, status]) => [path.split('/').at(-1), status]), [['pow-create.aeds', 200], ['pow-reply.aeds', 200]])
-      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
-      await page.screenshot({ path: join(evidence, `inbox-${name}-write.png`) })
+      await isolated.assertNoOverflow(page)
+      await isolated.saveShot(page, evidence, `inbox-${name}-write.png`, {})
       assert.deepEqual(browserErrors, [])
       observations.push({ name, viewport, url: page.url(), title: await page.title(), anonymous: 'private list hidden',
         replay: 'a WebSocket wake led to a new notice without navigating or reloading',
@@ -159,17 +153,21 @@ try {
     } catch (error) {
       diagnostics.push({ name, error: String(error) })
       throw error
-    } finally {
-      await context.close()
     }
-  }
-} catch (error) {
-  failure = error
-} finally {
-  await browser.close()
-  await writeFile(join(evidence, 'inbox-browser.json'), JSON.stringify({ observations, diagnostics, passed: !failure }, null, 2))
+  })
 }
-if (failure) throw failure
+
+await isolated.withBrowserEvidence(
+  browser,
+  evidence,
+  'inbox-browser.json',
+  failure => ({ observations, diagnostics, passed: !failure }),
+  async () => {
+    for (const [index, viewport] of [{ width: 1280, height: 800 }, { width: 375, height: 850 }].entries())
+      await verifyViewport(index, viewport)
+  },
+  { mkdir: true },
+)
 console.log('Native PostgreSQL communication flow passed in desktop and narrow Chrome.')
 
 function appendFixtureNotice(recipient, event = 'while-open', subject = 'New notification after opening') {

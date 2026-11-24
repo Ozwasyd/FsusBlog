@@ -86,9 +86,9 @@ onScopeDispose(() => request?.abort())
         </template>
       </dl>
       <nav v-if="offset > 0 || data.nextKey" class="revision-property-pages" :aria-label="`${label} pages`">
-        <ElButton text native-type="button" :disabled="offset === 0" @click="turn(false)">{{ t('author.revisionPropertyPage.previous') }}</ElButton>
+        <ElButton text native-type="button" :disabled="offset === 0" @click="turn(false)">{{ t('reading.previous') }}</ElButton>
         <span role="status">{{ t('author.revisionPropertyPage.page', { p0: String(1 + offset / WireLimits.PropertyPageSize) }) }}</span>
-        <ElButton text native-type="button" :disabled="!data.nextKey" @click="turn(true)">{{ t('author.revisionPropertyPage.next') }}</ElButton>
+        <ElButton text native-type="button" :disabled="!data.nextKey" @click="turn(true)">{{ t('reading.next') }}</ElButton>
       </nav>
     </template>
   </section>

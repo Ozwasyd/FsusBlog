@@ -1010,8 +1010,8 @@ const adminSignInFields = {
   endedAt: podField.i64,
   state: /* @__PURE__ */ podField.enumU8(AdminSignInState),
 };
-export interface AdminSignIn extends PodValue<typeof adminSignInFields> {}
-const adminSignInField = /* @__PURE__ */ podField.record<AdminSignIn>(adminSignInFields);
+export type AdminSignIn = PodValue<typeof adminSignInFields>;
+const adminSignInField = /* @__PURE__ */ podField.record(adminSignInFields);
 
 const adminReaderAccountFields = {
   userId: podField.uuid,
@@ -1031,41 +1031,41 @@ const adminReaderAccountFields = {
   lastGovernanceActor: podField.text(WireLimits.NameBytes),
   lastGovernanceReason: podField.text(WireLimits.AdminReaderReasonBytes),
 };
-export interface AdminReaderAccount extends PodValue<typeof adminReaderAccountFields> {}
-const adminReaderAccountField = /* @__PURE__ */ podField.record<AdminReaderAccount>(adminReaderAccountFields);
+export type AdminReaderAccount = PodValue<typeof adminReaderAccountFields>;
+const adminReaderAccountField = /* @__PURE__ */ podField.record(adminReaderAccountFields);
 
 const recoveryKeyOperationFields = {
   operation: podField.i32,
 };
-export interface RecoveryKeyOperation extends PodValue<typeof recoveryKeyOperationFields> {}
-export const [encodeRecoveryKeyOperation, decodeRecoveryKeyOperation] = /* @__PURE__ */ definePodRecord<RecoveryKeyOperation>(recoveryKeyOperationFields);
+export type RecoveryKeyOperation = PodValue<typeof recoveryKeyOperationFields>;
+export const [encodeRecoveryKeyOperation, decodeRecoveryKeyOperation] = /* @__PURE__ */ definePodRecord(recoveryKeyOperationFields);
 
 const recoveryKeyIssuedFields = {
   key: podField.text(WireLimits.RecoveryKeyBytes),
   version: podField.i64,
   createdAt: podField.i64,
 };
-export interface RecoveryKeyIssued extends PodValue<typeof recoveryKeyIssuedFields> {}
-export const [encodeRecoveryKeyIssued, decodeRecoveryKeyIssued] = /* @__PURE__ */ definePodRecord<RecoveryKeyIssued>(recoveryKeyIssuedFields);
+export type RecoveryKeyIssued = PodValue<typeof recoveryKeyIssuedFields>;
+export const [encodeRecoveryKeyIssued, decodeRecoveryKeyIssued] = /* @__PURE__ */ definePodRecord(recoveryKeyIssuedFields);
 
 const recoveryKeyStatusFields = {
   active: podField.bool,
 };
-export interface RecoveryKeyStatus extends PodValue<typeof recoveryKeyStatusFields> {}
-export const [encodeRecoveryKeyStatus, decodeRecoveryKeyStatus] = /* @__PURE__ */ definePodRecord<RecoveryKeyStatus>(recoveryKeyStatusFields);
+export type RecoveryKeyStatus = PodValue<typeof recoveryKeyStatusFields>;
+export const [encodeRecoveryKeyStatus, decodeRecoveryKeyStatus] = /* @__PURE__ */ definePodRecord(recoveryKeyStatusFields);
 
 const recoveryKeyVerifyFields = {
   key: podField.text(WireLimits.RecoveryKeyBytes),
 };
-export interface RecoveryKeyVerify extends PodValue<typeof recoveryKeyVerifyFields> {}
-export const [encodeRecoveryKeyVerify, decodeRecoveryKeyVerify] = /* @__PURE__ */ definePodRecord<RecoveryKeyVerify>(recoveryKeyVerifyFields);
+export type RecoveryKeyVerify = PodValue<typeof recoveryKeyVerifyFields>;
+export const [encodeRecoveryKeyVerify, decodeRecoveryKeyVerify] = /* @__PURE__ */ definePodRecord(recoveryKeyVerifyFields);
 
 const _groupCommentIdentity = {
   articleId: podField.i32,
   commentId: podField.i64,
 };
-export interface AdminModerationClaimRequest extends PodValue<typeof _groupCommentIdentity> {}
-export const [encodeAdminModerationClaimRequest, decodeAdminModerationClaimRequest] = /* @__PURE__ */ definePodRecord<AdminModerationClaimRequest>(_groupCommentIdentity);
+export type AdminModerationClaimRequest = PodValue<typeof _groupCommentIdentity>;
+export const [encodeAdminModerationClaimRequest, decodeAdminModerationClaimRequest] = /* @__PURE__ */ definePodRecord(_groupCommentIdentity);
 
 const _groupAdminModerationClaimWitness = {
   commentVersion: podField.i64,
@@ -1078,8 +1078,8 @@ const adminModerationClaimFields = {
   ..._groupAdminModerationClaimWitness,
   expiresAt: podField.i64,
 };
-export interface AdminModerationClaim extends PodValue<typeof adminModerationClaimFields> {}
-export const [encodeAdminModerationClaim, decodeAdminModerationClaim] = /* @__PURE__ */ definePodRecord<AdminModerationClaim>(adminModerationClaimFields);
+export type AdminModerationClaim = PodValue<typeof adminModerationClaimFields>;
+export const [encodeAdminModerationClaim, decodeAdminModerationClaim] = /* @__PURE__ */ definePodRecord(adminModerationClaimFields);
 
 const _groupAdminModerationIntentFields = {
   articleId: podField.i32,
@@ -1092,19 +1092,19 @@ const adminModerationDecisionFields = {
   ..._groupAdminModerationIntentFields,
   ..._groupAdminModerationClaimWitness,
 };
-export interface AdminModerationDecision extends PodValue<typeof adminModerationDecisionFields> {}
-export const [encodeAdminModerationDecision, decodeAdminModerationDecision] = /* @__PURE__ */ definePodRecord<AdminModerationDecision>(adminModerationDecisionFields);
+export type AdminModerationDecision = PodValue<typeof adminModerationDecisionFields>;
+export const [encodeAdminModerationDecision, decodeAdminModerationDecision] = /* @__PURE__ */ definePodRecord(adminModerationDecisionFields);
 
-export interface AdminModerationIntent extends PodValue<typeof _groupAdminModerationIntentFields> {}
-export const [encodeAdminModerationIntent, decodeAdminModerationIntent] = /* @__PURE__ */ definePodRecord<AdminModerationIntent>(_groupAdminModerationIntentFields);
+export type AdminModerationIntent = PodValue<typeof _groupAdminModerationIntentFields>;
+export const [encodeAdminModerationIntent, decodeAdminModerationIntent] = /* @__PURE__ */ definePodRecord(_groupAdminModerationIntentFields);
 
 const adminSessionSnapshotFields = {
   handle: podField.text(WireLimits.NameBytes),
   generation: podField.i64,
   expiresAt: podField.i64,
 };
-export interface AdminSessionSnapshot extends PodValue<typeof adminSessionSnapshotFields> {}
-export const [encodeAdminSessionSnapshot, decodeAdminSessionSnapshot] = /* @__PURE__ */ definePodRecord<AdminSessionSnapshot>(adminSessionSnapshotFields);
+export type AdminSessionSnapshot = PodValue<typeof adminSessionSnapshotFields>;
+export const [encodeAdminSessionSnapshot, decodeAdminSessionSnapshot] = /* @__PURE__ */ definePodRecord(adminSessionSnapshotFields);
 
 const adminOperationsStatusFields = {
   snapshotReady: podField.bool,
@@ -1112,8 +1112,8 @@ const adminOperationsStatusFields = {
   pendingPublicationEvents: podField.i64,
   oldestPendingAt: podField.i64,
 };
-export interface AdminOperationsStatus extends PodValue<typeof adminOperationsStatusFields> {}
-export const [encodeAdminOperationsStatus, decodeAdminOperationsStatus] = /* @__PURE__ */ definePodRecord<AdminOperationsStatus>(adminOperationsStatusFields);
+export type AdminOperationsStatus = PodValue<typeof adminOperationsStatusFields>;
+export const [encodeAdminOperationsStatus, decodeAdminOperationsStatus] = /* @__PURE__ */ definePodRecord(adminOperationsStatusFields);
 
 const adminRiskReadinessFields = {
   publicReadMode: podField.i32,
@@ -1123,8 +1123,8 @@ const adminRiskReadinessFields = {
   dynamicRisk: podField.i32,
   strongAnonymous: podField.i32,
 };
-export interface AdminRiskReadiness extends PodValue<typeof adminRiskReadinessFields> {}
-export const [encodeAdminRiskReadiness, decodeAdminRiskReadiness] = /* @__PURE__ */ definePodRecord<AdminRiskReadiness>(adminRiskReadinessFields);
+export type AdminRiskReadiness = PodValue<typeof adminRiskReadinessFields>;
+export const [encodeAdminRiskReadiness, decodeAdminRiskReadiness] = /* @__PURE__ */ definePodRecord(adminRiskReadinessFields);
 
 const adminRootCommentPowPolicyFields = {
   generation: podField.i64,
@@ -1132,8 +1132,8 @@ const adminRootCommentPowPolicyFields = {
   proofSeconds: podField.i32,
   previousSeconds: podField.i32,
 };
-export interface AdminRootCommentPowPolicy extends PodValue<typeof adminRootCommentPowPolicyFields> {}
-export const [encodeAdminRootCommentPowPolicy, decodeAdminRootCommentPowPolicy] = /* @__PURE__ */ definePodRecord<AdminRootCommentPowPolicy>(adminRootCommentPowPolicyFields);
+export type AdminRootCommentPowPolicy = PodValue<typeof adminRootCommentPowPolicyFields>;
+export const [encodeAdminRootCommentPowPolicy, decodeAdminRootCommentPowPolicy] = /* @__PURE__ */ definePodRecord(adminRootCommentPowPolicyFields);
 
 const adminRootCommentPowCommandFields = {
   expectedGeneration: podField.i64,
@@ -1141,8 +1141,8 @@ const adminRootCommentPowCommandFields = {
   proofSeconds: podField.i32,
   rollback: podField.bool,
 };
-export interface AdminRootCommentPowCommand extends PodValue<typeof adminRootCommentPowCommandFields> {}
-export const [encodeAdminRootCommentPowCommand, decodeAdminRootCommentPowCommand] = /* @__PURE__ */ definePodRecord<AdminRootCommentPowCommand>(adminRootCommentPowCommandFields);
+export type AdminRootCommentPowCommand = PodValue<typeof adminRootCommentPowCommandFields>;
+export const [encodeAdminRootCommentPowCommand, decodeAdminRootCommentPowCommand] = /* @__PURE__ */ definePodRecord(adminRootCommentPowCommandFields);
 
 const adminClusterStatusFields = {
   mode: podField.i32,
@@ -1154,15 +1154,15 @@ const adminClusterStatusFields = {
   leaseAgeMs: podField.i32,
   snapshotReady: podField.bool,
 };
-export interface AdminClusterStatus extends PodValue<typeof adminClusterStatusFields> {}
-export const [encodeAdminClusterStatus, decodeAdminClusterStatus] = /* @__PURE__ */ definePodRecord<AdminClusterStatus>(adminClusterStatusFields);
+export type AdminClusterStatus = PodValue<typeof adminClusterStatusFields>;
+export const [encodeAdminClusterStatus, decodeAdminClusterStatus] = /* @__PURE__ */ definePodRecord(adminClusterStatusFields);
 
 const adminSignInHistorySnapshotFields = {
   generation: podField.i64,
   signIns: /* @__PURE__ */ podField.list(adminSignInField, WireLimits.AdminSignInHistoryMaxItems, 25),
 };
-export interface AdminSignInHistorySnapshot extends PodValue<typeof adminSignInHistorySnapshotFields> {}
-export const [encodeAdminSignInHistorySnapshot, decodeAdminSignInHistorySnapshot] = /* @__PURE__ */ definePodRecord<AdminSignInHistorySnapshot>(adminSignInHistorySnapshotFields);
+export type AdminSignInHistorySnapshot = PodValue<typeof adminSignInHistorySnapshotFields>;
+export const [encodeAdminSignInHistorySnapshot, decodeAdminSignInHistorySnapshot] = /* @__PURE__ */ definePodRecord(adminSignInHistorySnapshotFields);
 
 const adminReaderAccountPageFields = {
   total: podField.i32,
@@ -1173,8 +1173,8 @@ const adminReaderAccountPageFields = {
   nextCursorUserId: podField.uuid,
   items: /* @__PURE__ */ podField.list(adminReaderAccountField, WireLimits.AdminReaderPageSize, 83),
 };
-export interface AdminReaderAccountPage extends PodValue<typeof adminReaderAccountPageFields> {}
-export const [encodeAdminReaderAccountPage, decodeAdminReaderAccountPage] = /* @__PURE__ */ definePodRecord<AdminReaderAccountPage>(adminReaderAccountPageFields);
+export type AdminReaderAccountPage = PodValue<typeof adminReaderAccountPageFields>;
+export const [encodeAdminReaderAccountPage, decodeAdminReaderAccountPage] = /* @__PURE__ */ definePodRecord(adminReaderAccountPageFields);
 
 const adminReaderStatusCommandFields = {
   userId: podField.uuid,
@@ -1183,8 +1183,8 @@ const adminReaderStatusCommandFields = {
   idempotencyKey: podField.uuid,
   reason: podField.text(WireLimits.AdminReaderReasonBytes),
 };
-export interface AdminReaderStatusCommand extends PodValue<typeof adminReaderStatusCommandFields> {}
-export const [encodeAdminReaderStatusCommand, decodeAdminReaderStatusCommand] = /* @__PURE__ */ definePodRecord<AdminReaderStatusCommand>(adminReaderStatusCommandFields);
+export type AdminReaderStatusCommand = PodValue<typeof adminReaderStatusCommandFields>;
+export const [encodeAdminReaderStatusCommand, decodeAdminReaderStatusCommand] = /* @__PURE__ */ definePodRecord(adminReaderStatusCommandFields);
 
 const adminReaderStatusReceiptFields = {
   userId: podField.uuid,
@@ -1194,36 +1194,36 @@ const adminReaderStatusReceiptFields = {
   happenedAtUnixMs: podField.i64,
   replayed: podField.bool,
 };
-export interface AdminReaderStatusReceipt extends PodValue<typeof adminReaderStatusReceiptFields> {}
-export const [encodeAdminReaderStatusReceipt, decodeAdminReaderStatusReceipt] = /* @__PURE__ */ definePodRecord<AdminReaderStatusReceipt>(adminReaderStatusReceiptFields);
+export type AdminReaderStatusReceipt = PodValue<typeof adminReaderStatusReceiptFields>;
+export const [encodeAdminReaderStatusReceipt, decodeAdminReaderStatusReceipt] = /* @__PURE__ */ definePodRecord(adminReaderStatusReceiptFields);
 
 const siteDisplayNameStateFields = {
   displayName: podField.text(WireLimits.PublicCommentHandleBytes),
 };
-export interface SiteDisplayNameState extends PodValue<typeof siteDisplayNameStateFields> {}
-export const [encodeSiteDisplayNameState, decodeSiteDisplayNameState] = /* @__PURE__ */ definePodRecord<SiteDisplayNameState>(siteDisplayNameStateFields);
+export type SiteDisplayNameState = PodValue<typeof siteDisplayNameStateFields>;
+export const [encodeSiteDisplayNameState, decodeSiteDisplayNameState] = /* @__PURE__ */ definePodRecord(siteDisplayNameStateFields);
 
 const siteDisplayNameCommandFields = {
   displayName: podField.text(WireLimits.PublicCommentHandleBytes),
 };
-export interface SiteDisplayNameCommand extends PodValue<typeof siteDisplayNameCommandFields> {}
-export const [encodeSiteDisplayNameCommand, decodeSiteDisplayNameCommand] = /* @__PURE__ */ definePodRecord<SiteDisplayNameCommand>(siteDisplayNameCommandFields);
+export type SiteDisplayNameCommand = PodValue<typeof siteDisplayNameCommandFields>;
+export const [encodeSiteDisplayNameCommand, decodeSiteDisplayNameCommand] = /* @__PURE__ */ definePodRecord(siteDisplayNameCommandFields);
 
 const adminHandleCommandFields = {
   expectedHandle: podField.text(WireLimits.AdminHandleBytes),
   newHandle: podField.text(WireLimits.AdminHandleBytes),
   idempotencyKey: podField.uuid,
 };
-export interface AdminHandleCommand extends PodValue<typeof adminHandleCommandFields> {}
-export const [encodeAdminHandleCommand, decodeAdminHandleCommand] = /* @__PURE__ */ definePodRecord<AdminHandleCommand>(adminHandleCommandFields);
+export type AdminHandleCommand = PodValue<typeof adminHandleCommandFields>;
+export const [encodeAdminHandleCommand, decodeAdminHandleCommand] = /* @__PURE__ */ definePodRecord(adminHandleCommandFields);
 
 const adminHandleReceiptFields = {
   handle: podField.text(WireLimits.AdminHandleBytes),
   happenedAtUnixMs: podField.i64,
   replayed: podField.bool,
 };
-export interface AdminHandleReceipt extends PodValue<typeof adminHandleReceiptFields> {}
-export const [encodeAdminHandleReceipt, decodeAdminHandleReceipt] = /* @__PURE__ */ definePodRecord<AdminHandleReceipt>(adminHandleReceiptFields);
+export type AdminHandleReceipt = PodValue<typeof adminHandleReceiptFields>;
+export const [encodeAdminHandleReceipt, decodeAdminHandleReceipt] = /* @__PURE__ */ definePodRecord(adminHandleReceiptFields);
 
 const _groupAdminArticleRollbackIntentFields = {
   articleId: podField.i32,
@@ -1233,8 +1233,8 @@ const _groupAdminArticleRollbackIntentFields = {
   idempotencyKey: podField.uuid,
   reason: podField.text(WireLimits.RollbackReasonBytes),
 };
-export interface AdminArticleRollbackIntent extends PodValue<typeof _groupAdminArticleRollbackIntentFields> {}
-export const [encodeAdminArticleRollbackIntent, decodeAdminArticleRollbackIntent] = /* @__PURE__ */ definePodRecord<AdminArticleRollbackIntent>(_groupAdminArticleRollbackIntentFields);
+export type AdminArticleRollbackIntent = PodValue<typeof _groupAdminArticleRollbackIntentFields>;
+export const [encodeAdminArticleRollbackIntent, decodeAdminArticleRollbackIntent] = /* @__PURE__ */ definePodRecord(_groupAdminArticleRollbackIntentFields);
 
 const adminArticleRollbackPreviewFields = {
   articleId: podField.i32,
@@ -1246,8 +1246,8 @@ const adminArticleRollbackPreviewFields = {
   packageComplete: podField.bool,
   blockingReason: podField.i32,
 };
-export interface AdminArticleRollbackPreview extends PodValue<typeof adminArticleRollbackPreviewFields> {}
-export const [encodeAdminArticleRollbackPreview, decodeAdminArticleRollbackPreview] = /* @__PURE__ */ definePodRecord<AdminArticleRollbackPreview>(adminArticleRollbackPreviewFields);
+export type AdminArticleRollbackPreview = PodValue<typeof adminArticleRollbackPreviewFields>;
+export const [encodeAdminArticleRollbackPreview, decodeAdminArticleRollbackPreview] = /* @__PURE__ */ definePodRecord(adminArticleRollbackPreviewFields);
 
 const _groupArticleReceiptRevisions = {
   articleId: podField.i32,
@@ -1263,15 +1263,15 @@ const adminArticleRollbackReceiptFields = {
   rightsSnapshotId: podField.i64,
   responsibilitySnapshotId: podField.i64,
 };
-export interface AdminArticleRollbackReceipt extends PodValue<typeof adminArticleRollbackReceiptFields> {}
-export const [encodeAdminArticleRollbackReceipt, decodeAdminArticleRollbackReceipt] = /* @__PURE__ */ definePodRecord<AdminArticleRollbackReceipt>(adminArticleRollbackReceiptFields);
+export type AdminArticleRollbackReceipt = PodValue<typeof adminArticleRollbackReceiptFields>;
+export const [encodeAdminArticleRollbackReceipt, decodeAdminArticleRollbackReceipt] = /* @__PURE__ */ definePodRecord(adminArticleRollbackReceiptFields);
 
 const adminArticleDraftRollbackIntentFields = {
   ..._groupAdminArticleRollbackIntentFields,
   targetStatus: podField.i32,
 };
-export interface AdminArticleDraftRollbackIntent extends PodValue<typeof adminArticleDraftRollbackIntentFields> {}
-export const [encodeAdminArticleDraftRollbackIntent, decodeAdminArticleDraftRollbackIntent] = /* @__PURE__ */ definePodRecord<AdminArticleDraftRollbackIntent>(adminArticleDraftRollbackIntentFields);
+export type AdminArticleDraftRollbackIntent = PodValue<typeof adminArticleDraftRollbackIntentFields>;
+export const [encodeAdminArticleDraftRollbackIntent, decodeAdminArticleDraftRollbackIntent] = /* @__PURE__ */ definePodRecord(adminArticleDraftRollbackIntentFields);
 
 const _groupPublicationTransition = {
   publicationNo: podField.i32,
@@ -1286,8 +1286,8 @@ const adminArticleDraftRollbackReceiptFields = {
   privateReleaseId: podField.i64,
   ..._groupPublicationTransition,
 };
-export interface AdminArticleDraftRollbackReceipt extends PodValue<typeof adminArticleDraftRollbackReceiptFields> {}
-export const [encodeAdminArticleDraftRollbackReceipt, decodeAdminArticleDraftRollbackReceipt] = /* @__PURE__ */ definePodRecord<AdminArticleDraftRollbackReceipt>(adminArticleDraftRollbackReceiptFields);
+export type AdminArticleDraftRollbackReceipt = PodValue<typeof adminArticleDraftRollbackReceiptFields>;
+export const [encodeAdminArticleDraftRollbackReceipt, decodeAdminArticleDraftRollbackReceipt] = /* @__PURE__ */ definePodRecord(adminArticleDraftRollbackReceiptFields);
 
 const _groupArticleMutationReason = {
   idempotencyKey: podField.uuid,
@@ -1301,8 +1301,8 @@ const adminArticleArchiveIntentFields = {
   ..._groupArticleMutationReason,
   targetStatus: podField.i32,
 };
-export interface AdminArticleArchiveIntent extends PodValue<typeof adminArticleArchiveIntentFields> {}
-export const [encodeAdminArticleArchiveIntent, decodeAdminArticleArchiveIntent] = /* @__PURE__ */ definePodRecord<AdminArticleArchiveIntent>(adminArticleArchiveIntentFields);
+export type AdminArticleArchiveIntent = PodValue<typeof adminArticleArchiveIntentFields>;
+export const [encodeAdminArticleArchiveIntent, decodeAdminArticleArchiveIntent] = /* @__PURE__ */ definePodRecord(adminArticleArchiveIntentFields);
 
 const adminArticleArchiveReceiptFields = {
   ..._groupArticleReceiptRevisions,
@@ -1310,8 +1310,8 @@ const adminArticleArchiveReceiptFields = {
   releaseId: podField.i64,
   ..._groupPublicationTransition,
 };
-export interface AdminArticleArchiveReceipt extends PodValue<typeof adminArticleArchiveReceiptFields> {}
-export const [encodeAdminArticleArchiveReceipt, decodeAdminArticleArchiveReceipt] = /* @__PURE__ */ definePodRecord<AdminArticleArchiveReceipt>(adminArticleArchiveReceiptFields);
+export type AdminArticleArchiveReceipt = PodValue<typeof adminArticleArchiveReceiptFields>;
+export const [encodeAdminArticleArchiveReceipt, decodeAdminArticleArchiveReceipt] = /* @__PURE__ */ definePodRecord(adminArticleArchiveReceiptFields);
 
 const adminArticleArchivePreviewFields = {
   articleId: podField.i32,
@@ -1320,23 +1320,23 @@ const adminArticleArchivePreviewFields = {
   title: podField.text(WireLimits.TitleBytes),
   markdown: podField.text(WireLimits.BodyBytes),
 };
-export interface AdminArticleArchivePreview extends PodValue<typeof adminArticleArchivePreviewFields> {}
-export const [encodeAdminArticleArchivePreview, decodeAdminArticleArchivePreview] = /* @__PURE__ */ definePodRecord<AdminArticleArchivePreview>(adminArticleArchivePreviewFields);
+export type AdminArticleArchivePreview = PodValue<typeof adminArticleArchivePreviewFields>;
+export const [encodeAdminArticleArchivePreview, decodeAdminArticleArchivePreview] = /* @__PURE__ */ definePodRecord(adminArticleArchivePreviewFields);
 
 const adminArticleTrashRestoreIntentFields = {
   articleId: podField.i32,
   expectedRevision: podField.i64,
   idempotencyKey: podField.uuid,
 };
-export interface AdminArticleTrashRestoreIntent extends PodValue<typeof adminArticleTrashRestoreIntentFields> {}
-export const [encodeAdminArticleTrashRestoreIntent, decodeAdminArticleTrashRestoreIntent] = /* @__PURE__ */ definePodRecord<AdminArticleTrashRestoreIntent>(adminArticleTrashRestoreIntentFields);
+export type AdminArticleTrashRestoreIntent = PodValue<typeof adminArticleTrashRestoreIntentFields>;
+export const [encodeAdminArticleTrashRestoreIntent, decodeAdminArticleTrashRestoreIntent] = /* @__PURE__ */ definePodRecord(adminArticleTrashRestoreIntentFields);
 
 const adminArticleTrashRestoreReceiptFields = {
   articleId: podField.i32,
   revision: podField.i64,
 };
-export interface AdminArticleTrashRestoreReceipt extends PodValue<typeof adminArticleTrashRestoreReceiptFields> {}
-export const [encodeAdminArticleTrashRestoreReceipt, decodeAdminArticleTrashRestoreReceipt] = /* @__PURE__ */ definePodRecord<AdminArticleTrashRestoreReceipt>(adminArticleTrashRestoreReceiptFields);
+export type AdminArticleTrashRestoreReceipt = PodValue<typeof adminArticleTrashRestoreReceiptFields>;
+export const [encodeAdminArticleTrashRestoreReceipt, decodeAdminArticleTrashRestoreReceipt] = /* @__PURE__ */ definePodRecord(adminArticleTrashRestoreReceiptFields);
 
 const _groupAdminArticleTrashPublicationCoordinates = {
   articleId: podField.i32,
@@ -1348,29 +1348,29 @@ const adminArticleTrashPublicationPreviewFields = {
   ..._groupAdminArticleTrashPublicationCoordinates,
   title: podField.text(WireLimits.TitleBytes),
 };
-export interface AdminArticleTrashPublicationPreview extends PodValue<typeof adminArticleTrashPublicationPreviewFields> {}
-export const [encodeAdminArticleTrashPublicationPreview, decodeAdminArticleTrashPublicationPreview] = /* @__PURE__ */ definePodRecord<AdminArticleTrashPublicationPreview>(adminArticleTrashPublicationPreviewFields);
+export type AdminArticleTrashPublicationPreview = PodValue<typeof adminArticleTrashPublicationPreviewFields>;
+export const [encodeAdminArticleTrashPublicationPreview, decodeAdminArticleTrashPublicationPreview] = /* @__PURE__ */ definePodRecord(adminArticleTrashPublicationPreviewFields);
 
 const adminArticleTrashPublicationIntentFields = {
   ..._groupAdminArticleTrashPublicationCoordinates,
   ..._groupArticleMutationReason,
 };
-export interface AdminArticleTrashPublicationIntent extends PodValue<typeof adminArticleTrashPublicationIntentFields> {}
-export const [encodeAdminArticleTrashPublicationIntent, decodeAdminArticleTrashPublicationIntent] = /* @__PURE__ */ definePodRecord<AdminArticleTrashPublicationIntent>(adminArticleTrashPublicationIntentFields);
+export type AdminArticleTrashPublicationIntent = PodValue<typeof adminArticleTrashPublicationIntentFields>;
+export const [encodeAdminArticleTrashPublicationIntent, decodeAdminArticleTrashPublicationIntent] = /* @__PURE__ */ definePodRecord(adminArticleTrashPublicationIntentFields);
 
 const adminArticleTrashPublicationReceiptFields = {
   ..._groupArticleReceiptRevisions,
   sourcePublicationId: podField.i64,
   publicationId: podField.i64,
 };
-export interface AdminArticleTrashPublicationReceipt extends PodValue<typeof adminArticleTrashPublicationReceiptFields> {}
-export const [encodeAdminArticleTrashPublicationReceipt, decodeAdminArticleTrashPublicationReceipt] = /* @__PURE__ */ definePodRecord<AdminArticleTrashPublicationReceipt>(adminArticleTrashPublicationReceiptFields);
+export type AdminArticleTrashPublicationReceipt = PodValue<typeof adminArticleTrashPublicationReceiptFields>;
+export const [encodeAdminArticleTrashPublicationReceipt, decodeAdminArticleTrashPublicationReceipt] = /* @__PURE__ */ definePodRecord(adminArticleTrashPublicationReceiptFields);
 
 const adminSitePagesFields = {
   configuredMask: podField.i32,
 };
-export interface AdminSitePages extends PodValue<typeof adminSitePagesFields> {}
-export const [encodeAdminSitePages, decodeAdminSitePages] = /* @__PURE__ */ definePodRecord<AdminSitePages>(adminSitePagesFields);
+export type AdminSitePages = PodValue<typeof adminSitePagesFields>;
+export const [encodeAdminSitePages, decodeAdminSitePages] = /* @__PURE__ */ definePodRecord(adminSitePagesFields);
 
 const adminSitePageRevisionFields = {
   slug: podField.text(WireLimits.AdminSitePageSlugBytes),
@@ -1378,8 +1378,8 @@ const adminSitePageRevisionFields = {
   digest: podField.text(WireLimits.AdminSitePageDigestBytes),
   markdown: podField.text(WireLimits.PageContentBytes),
 };
-export interface AdminSitePageRevision extends PodValue<typeof adminSitePageRevisionFields> {}
-export const [encodeAdminSitePageRevision, decodeAdminSitePageRevision] = /* @__PURE__ */ definePodRecord<AdminSitePageRevision>(adminSitePageRevisionFields);
+export type AdminSitePageRevision = PodValue<typeof adminSitePageRevisionFields>;
+export const [encodeAdminSitePageRevision, decodeAdminSitePageRevision] = /* @__PURE__ */ definePodRecord(adminSitePageRevisionFields);
 
 const adminSitePagePublishFields = {
   slug: podField.text(WireLimits.AdminSitePageSlugBytes),
@@ -1387,8 +1387,8 @@ const adminSitePagePublishFields = {
   expectedDigest: podField.text(WireLimits.AdminSitePageDigestBytes),
   markdown: podField.text(WireLimits.PageContentBytes),
 };
-export interface AdminSitePagePublish extends PodValue<typeof adminSitePagePublishFields> {}
-export const [encodeAdminSitePagePublish, decodeAdminSitePagePublish] = /* @__PURE__ */ definePodRecord<AdminSitePagePublish>(adminSitePagePublishFields);
+export type AdminSitePagePublish = PodValue<typeof adminSitePagePublishFields>;
+export const [encodeAdminSitePagePublish, decodeAdminSitePagePublish] = /* @__PURE__ */ definePodRecord(adminSitePagePublishFields);
 
 const _groupAdminSiteConfigFields = {
   title: podField.text(WireLimits.SiteConfigTitleBytes),
@@ -1430,16 +1430,16 @@ const adminSiteConfigStateFields = {
   origin: podField.text(WireLimits.SiteConfigUrlBytes),
   ..._groupAdminSiteConfigFields,
 };
-export interface AdminSiteConfigState extends PodValue<typeof adminSiteConfigStateFields> {}
-export const [encodeAdminSiteConfigState, decodeAdminSiteConfigState] = /* @__PURE__ */ definePodRecord<AdminSiteConfigState>(adminSiteConfigStateFields);
+export type AdminSiteConfigState = PodValue<typeof adminSiteConfigStateFields>;
+export const [encodeAdminSiteConfigState, decodeAdminSiteConfigState] = /* @__PURE__ */ definePodRecord(adminSiteConfigStateFields);
 
 const adminSiteConfigCommandFields = {
   expectedRevision: podField.i64,
   expectedDigest: podField.text(WireLimits.AdminSiteConfigDigestBytes),
   ..._groupAdminSiteConfigFields,
 };
-export interface AdminSiteConfigCommand extends PodValue<typeof adminSiteConfigCommandFields> {}
-export const [encodeAdminSiteConfigCommand, decodeAdminSiteConfigCommand] = /* @__PURE__ */ definePodRecord<AdminSiteConfigCommand>(adminSiteConfigCommandFields);
+export type AdminSiteConfigCommand = PodValue<typeof adminSiteConfigCommandFields>;
+export const [encodeAdminSiteConfigCommand, decodeAdminSiteConfigCommand] = /* @__PURE__ */ definePodRecord(adminSiteConfigCommandFields);
 
 const _groupAuthoringWorkspaceSnapshotBase = {
   schemaVersion: podField.i32,
@@ -1449,8 +1449,8 @@ const _groupAuthoringWorkspaceSnapshotBase = {
   tabs: podField.i32s(WireLimits.AuthoringWorkspaceTabs),
   skipped: podField.i32,
 };
-export interface AuthoringWorkspaceSnapshot extends PodValue<typeof _groupAuthoringWorkspaceSnapshotBase> {}
-export const [encodeAuthoringWorkspaceSnapshot, decodeAuthoringWorkspaceSnapshot] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceSnapshot>(_groupAuthoringWorkspaceSnapshotBase);
+export type AuthoringWorkspaceSnapshot = PodValue<typeof _groupAuthoringWorkspaceSnapshotBase>;
+export const [encodeAuthoringWorkspaceSnapshot, decodeAuthoringWorkspaceSnapshot] = /* @__PURE__ */ definePodRecord(_groupAuthoringWorkspaceSnapshotBase);
 
 const _groupAuthoringWorkspaceCommandBase = {
   schemaVersion: podField.i32,
@@ -1458,22 +1458,22 @@ const _groupAuthoringWorkspaceCommandBase = {
   activeArticleId: podField.i32,
   tabs: podField.i32s(WireLimits.AuthoringWorkspaceTabs),
 };
-export interface AuthoringWorkspaceCommand extends PodValue<typeof _groupAuthoringWorkspaceCommandBase> {}
-export const [encodeAuthoringWorkspaceCommand, decodeAuthoringWorkspaceCommand] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceCommand>(_groupAuthoringWorkspaceCommandBase);
+export type AuthoringWorkspaceCommand = PodValue<typeof _groupAuthoringWorkspaceCommandBase>;
+export const [encodeAuthoringWorkspaceCommand, decodeAuthoringWorkspaceCommand] = /* @__PURE__ */ definePodRecord(_groupAuthoringWorkspaceCommandBase);
 
 const authoringWorkspaceLayoutFields = {
   ..._groupAuthoringWorkspaceSnapshotBase,
   inspectorOpen: podField.bool,
 };
-export interface AuthoringWorkspaceLayout extends PodValue<typeof authoringWorkspaceLayoutFields> {}
-export const [encodeAuthoringWorkspaceLayout, decodeAuthoringWorkspaceLayout] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceLayout>(authoringWorkspaceLayoutFields);
+export type AuthoringWorkspaceLayout = PodValue<typeof authoringWorkspaceLayoutFields>;
+export const [encodeAuthoringWorkspaceLayout, decodeAuthoringWorkspaceLayout] = /* @__PURE__ */ definePodRecord(authoringWorkspaceLayoutFields);
 
 const authoringWorkspaceLayoutCommandFields = {
   ..._groupAuthoringWorkspaceCommandBase,
   inspectorOpen: podField.bool,
 };
-export interface AuthoringWorkspaceLayoutCommand extends PodValue<typeof authoringWorkspaceLayoutCommandFields> {}
-export const [encodeAuthoringWorkspaceLayoutCommand, decodeAuthoringWorkspaceLayoutCommand] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceLayoutCommand>(authoringWorkspaceLayoutCommandFields);
+export type AuthoringWorkspaceLayoutCommand = PodValue<typeof authoringWorkspaceLayoutCommandFields>;
+export const [encodeAuthoringWorkspaceLayoutCommand, decodeAuthoringWorkspaceLayoutCommand] = /* @__PURE__ */ definePodRecord(authoringWorkspaceLayoutCommandFields);
 
 const _groupAuthoringWorkspaceGroupPresentation = {
   inspectorOpen: podField.bool,
@@ -1485,15 +1485,15 @@ const authoringWorkspaceGroupsFields = {
   ..._groupAuthoringWorkspaceSnapshotBase,
   ..._groupAuthoringWorkspaceGroupPresentation,
 };
-export interface AuthoringWorkspaceGroups extends PodValue<typeof authoringWorkspaceGroupsFields> {}
-export const [encodeAuthoringWorkspaceGroups, decodeAuthoringWorkspaceGroups] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceGroups>(authoringWorkspaceGroupsFields);
+export type AuthoringWorkspaceGroups = PodValue<typeof authoringWorkspaceGroupsFields>;
+export const [encodeAuthoringWorkspaceGroups, decodeAuthoringWorkspaceGroups] = /* @__PURE__ */ definePodRecord(authoringWorkspaceGroupsFields);
 
 const authoringWorkspaceGroupsCommandFields = {
   ..._groupAuthoringWorkspaceCommandBase,
   ..._groupAuthoringWorkspaceGroupPresentation,
 };
-export interface AuthoringWorkspaceGroupsCommand extends PodValue<typeof authoringWorkspaceGroupsCommandFields> {}
-export const [encodeAuthoringWorkspaceGroupsCommand, decodeAuthoringWorkspaceGroupsCommand] = /* @__PURE__ */ definePodRecord<AuthoringWorkspaceGroupsCommand>(authoringWorkspaceGroupsCommandFields);
+export type AuthoringWorkspaceGroupsCommand = PodValue<typeof authoringWorkspaceGroupsCommandFields>;
+export const [encodeAuthoringWorkspaceGroupsCommand, decodeAuthoringWorkspaceGroupsCommand] = /* @__PURE__ */ definePodRecord(authoringWorkspaceGroupsCommandFields);
 
 const _groupRecentOpenTarget = {
   requestId: podField.uuid,
@@ -1505,8 +1505,8 @@ const authorRecentOpenCommandFields = {
   expectedRevision: podField.i64,
   ..._groupRecentOpenTarget,
 };
-export interface AuthorRecentOpenCommand extends PodValue<typeof authorRecentOpenCommandFields> {}
-export const [encodeAuthorRecentOpenCommand, decodeAuthorRecentOpenCommand] = /* @__PURE__ */ definePodRecord<AuthorRecentOpenCommand>(authorRecentOpenCommandFields);
+export type AuthorRecentOpenCommand = PodValue<typeof authorRecentOpenCommandFields>;
+export const [encodeAuthorRecentOpenCommand, decodeAuthorRecentOpenCommand] = /* @__PURE__ */ definePodRecord(authorRecentOpenCommandFields);
 
 const authorRecentOpenReceiptFields = {
   schemaVersion: podField.i32,
@@ -1514,8 +1514,8 @@ const authorRecentOpenReceiptFields = {
   ..._groupRecentOpenTarget,
   openedAtUnixMs: podField.i64,
 };
-export interface AuthorRecentOpenReceipt extends PodValue<typeof authorRecentOpenReceiptFields> {}
-export const [encodeAuthorRecentOpenReceipt, decodeAuthorRecentOpenReceipt] = /* @__PURE__ */ definePodRecord<AuthorRecentOpenReceipt>(authorRecentOpenReceiptFields);
+export type AuthorRecentOpenReceipt = PodValue<typeof authorRecentOpenReceiptFields>;
+export const [encodeAuthorRecentOpenReceipt, decodeAuthorRecentOpenReceipt] = /* @__PURE__ */ definePodRecord(authorRecentOpenReceiptFields);
 
 const adminAppearanceStateFields = {
   revision: podField.i64,
@@ -1526,8 +1526,8 @@ const adminAppearanceStateFields = {
   previousTheme: podField.text(WireLimits.AdminAppearanceDigestBytes),
   previousFont: podField.text(WireLimits.AdminAppearanceDigestBytes),
 };
-export interface AdminAppearanceState extends PodValue<typeof adminAppearanceStateFields> {}
-export const [encodeAdminAppearanceState, decodeAdminAppearanceState] = /* @__PURE__ */ definePodRecord<AdminAppearanceState>(adminAppearanceStateFields);
+export type AdminAppearanceState = PodValue<typeof adminAppearanceStateFields>;
+export const [encodeAdminAppearanceState, decodeAdminAppearanceState] = /* @__PURE__ */ definePodRecord(adminAppearanceStateFields);
 
 const adminAppearanceCommandFields = {
   expectedRevision: podField.i64,
@@ -1537,8 +1537,8 @@ const adminAppearanceCommandFields = {
   font: podField.text(WireLimits.AdminAppearanceDigestBytes),
   rollback: podField.bool,
 };
-export interface AdminAppearanceCommand extends PodValue<typeof adminAppearanceCommandFields> {}
-export const [encodeAdminAppearanceCommand, decodeAdminAppearanceCommand] = /* @__PURE__ */ definePodRecord<AdminAppearanceCommand>(adminAppearanceCommandFields);
+export type AdminAppearanceCommand = PodValue<typeof adminAppearanceCommandFields>;
+export const [encodeAdminAppearanceCommand, decodeAdminAppearanceCommand] = /* @__PURE__ */ definePodRecord(adminAppearanceCommandFields);
 
 const adminAppearanceFontDetailFields = {
   id: podField.text(WireLimits.AdminAppearanceIdBytes),
@@ -1558,15 +1558,15 @@ const adminAppearanceFontDetailFields = {
   sourceVersion: podField.text(WireLimits.AdminAppearanceVersionBytes),
   sourceUpstream: podField.text(WireLimits.AdminAppearanceFontMetadataBytes),
 };
-export interface AdminAppearanceFontDetail extends PodValue<typeof adminAppearanceFontDetailFields> {}
-export const [encodeAdminAppearanceFontDetail, decodeAdminAppearanceFontDetail] = /* @__PURE__ */ definePodRecord<AdminAppearanceFontDetail>(adminAppearanceFontDetailFields);
+export type AdminAppearanceFontDetail = PodValue<typeof adminAppearanceFontDetailFields>;
+export const [encodeAdminAppearanceFontDetail, decodeAdminAppearanceFontDetail] = /* @__PURE__ */ definePodRecord(adminAppearanceFontDetailFields);
 
 const draftRecoveryScopeFields = {
   siteId: podField.uuid,
   userId: podField.uuid,
 };
-export interface DraftRecoveryScope extends PodValue<typeof draftRecoveryScopeFields> {}
-export const [encodeDraftRecoveryScope, decodeDraftRecoveryScope] = /* @__PURE__ */ definePodRecord<DraftRecoveryScope>(draftRecoveryScopeFields);
+export type DraftRecoveryScope = PodValue<typeof draftRecoveryScopeFields>;
+export const [encodeDraftRecoveryScope, decodeDraftRecoveryScope] = /* @__PURE__ */ definePodRecord(draftRecoveryScopeFields);
 
 const _groupCommentPublication = {
   articleId: podField.i32,
@@ -1576,16 +1576,16 @@ const publicCommentEligibilityFields = {
   ..._groupCommentPublication,
   displayName: podField.text(WireLimits.PublicCommentHandleBytes),
 };
-export interface PublicCommentEligibility extends PodValue<typeof publicCommentEligibilityFields> {}
-export const [encodePublicCommentEligibility, decodePublicCommentEligibility] = /* @__PURE__ */ definePodRecord<PublicCommentEligibility>(publicCommentEligibilityFields);
+export type PublicCommentEligibility = PodValue<typeof publicCommentEligibilityFields>;
+export const [encodePublicCommentEligibility, decodePublicCommentEligibility] = /* @__PURE__ */ definePodRecord(publicCommentEligibilityFields);
 
 const commentAuthorEditDetailFields = {
   ..._groupCommentPublication,
   currentVersion: podField.i64,
   body: podField.text(WireLimits.PublicCommentBodyBytes),
 };
-export interface CommentAuthorEditDetail extends PodValue<typeof commentAuthorEditDetailFields> {}
-export const [encodeCommentAuthorEditDetail, decodeCommentAuthorEditDetail] = /* @__PURE__ */ definePodRecord<CommentAuthorEditDetail>(commentAuthorEditDetailFields);
+export type CommentAuthorEditDetail = PodValue<typeof commentAuthorEditDetailFields>;
+export const [encodeCommentAuthorEditDetail, decodeCommentAuthorEditDetail] = /* @__PURE__ */ definePodRecord(commentAuthorEditDetailFields);
 
 const _groupPublicCommentText = {
   displayName: podField.text(WireLimits.PublicCommentHandleBytes),
@@ -1597,8 +1597,8 @@ const publicCommentSubmissionFields = {
   explicitPublic: podField.bool,
   ..._groupPublicCommentText,
 };
-export interface PublicCommentSubmission extends PodValue<typeof publicCommentSubmissionFields> {}
-export const [encodePublicCommentSubmission, decodePublicCommentSubmission] = /* @__PURE__ */ definePodRecord<PublicCommentSubmission>(publicCommentSubmissionFields);
+export type PublicCommentSubmission = PodValue<typeof publicCommentSubmissionFields>;
+export const [encodePublicCommentSubmission, decodePublicCommentSubmission] = /* @__PURE__ */ definePodRecord(publicCommentSubmissionFields);
 
 const publicCommentReplyFields = {
   ..._groupCommentPublication,
@@ -1607,23 +1607,23 @@ const publicCommentReplyFields = {
   idempotencyKey: podField.uuid,
   explicitPublic: podField.bool,
 };
-export interface PublicCommentReply extends PodValue<typeof publicCommentReplyFields> {}
-export const [encodePublicCommentReply, decodePublicCommentReply] = /* @__PURE__ */ definePodRecord<PublicCommentReply>(publicCommentReplyFields);
+export type PublicCommentReply = PodValue<typeof publicCommentReplyFields>;
+export const [encodePublicCommentReply, decodePublicCommentReply] = /* @__PURE__ */ definePodRecord(publicCommentReplyFields);
 
 const publicCommentSubmissionResultFields = {
   ..._groupCommentIdentity,
   moderationStatus: podField.i32,
   replayed: podField.bool,
 };
-export interface PublicCommentSubmissionResult extends PodValue<typeof publicCommentSubmissionResultFields> {}
-export const [encodePublicCommentSubmissionResult, decodePublicCommentSubmissionResult] = /* @__PURE__ */ definePodRecord<PublicCommentSubmissionResult>(publicCommentSubmissionResultFields);
+export type PublicCommentSubmissionResult = PodValue<typeof publicCommentSubmissionResultFields>;
+export const [encodePublicCommentSubmissionResult, decodePublicCommentSubmissionResult] = /* @__PURE__ */ definePodRecord(publicCommentSubmissionResultFields);
 
 const subscriptionPreferenceRequestFields = {
   email: podField.text(WireLimits.SubscriptionEmailBytes),
   channel: podField.i32,
 };
-export interface SubscriptionPreferenceRequest extends PodValue<typeof subscriptionPreferenceRequestFields> {}
-export const [encodeSubscriptionPreferenceRequest, decodeSubscriptionPreferenceRequest] = /* @__PURE__ */ definePodRecord<SubscriptionPreferenceRequest>(subscriptionPreferenceRequestFields);
+export type SubscriptionPreferenceRequest = PodValue<typeof subscriptionPreferenceRequestFields>;
+export const [encodeSubscriptionPreferenceRequest, decodeSubscriptionPreferenceRequest] = /* @__PURE__ */ definePodRecord(subscriptionPreferenceRequestFields);
 
 const _groupArticleRevisionIdentity = {
   id: podField.i32,
@@ -1637,8 +1637,8 @@ const draftTaxonomyFields = {
   ..._groupArticleRevisionIdentity,
   ..._groupArticleTaxonomySelection,
 };
-export interface DraftTaxonomy extends PodValue<typeof draftTaxonomyFields> {}
-export const [encodeDraftTaxonomy, decodeDraftTaxonomy] = /* @__PURE__ */ definePodRecord<DraftTaxonomy>(draftTaxonomyFields);
+export type DraftTaxonomy = PodValue<typeof draftTaxonomyFields>;
+export const [encodeDraftTaxonomy, decodeDraftTaxonomy] = /* @__PURE__ */ definePodRecord(draftTaxonomyFields);
 
 const _groupArticleMutationIdentity = {
   id: podField.i32,
@@ -1649,22 +1649,22 @@ const taxonomyAssignmentFields = {
   ..._groupArticleMutationIdentity,
   ..._groupArticleTaxonomySelection,
 };
-export interface TaxonomyAssignment extends PodValue<typeof taxonomyAssignmentFields> {}
-export const [encodeTaxonomyAssignment, decodeTaxonomyAssignment] = /* @__PURE__ */ definePodRecord<TaxonomyAssignment>(taxonomyAssignmentFields);
+export type TaxonomyAssignment = PodValue<typeof taxonomyAssignmentFields>;
+export const [encodeTaxonomyAssignment, decodeTaxonomyAssignment] = /* @__PURE__ */ definePodRecord(taxonomyAssignmentFields);
 
 const signInFields = {
   ticket: podField.text(WireLimits.TicketBytes),
 };
-export interface SignIn extends PodValue<typeof signInFields> {}
-export const [encodeSignIn, decodeSignIn] = /* @__PURE__ */ definePodRecord<SignIn>(signInFields);
+export type SignIn = PodValue<typeof signInFields>;
+export const [encodeSignIn, decodeSignIn] = /* @__PURE__ */ definePodRecord(signInFields);
 
 const sessionFields = {
   name: podField.text(WireLimits.NameBytes),
   generation: podField.i64,
   canAuthor: podField.bool,
 };
-export interface Session extends PodValue<typeof sessionFields> {}
-export const [encodeSession, decodeSession] = /* @__PURE__ */ definePodRecord<Session>(sessionFields);
+export type Session = PodValue<typeof sessionFields>;
+export const [encodeSession, decodeSession] = /* @__PURE__ */ definePodRecord(sessionFields);
 
 const _groupDraftText = {
   title: podField.text(WireLimits.TitleBytes),
@@ -1675,8 +1675,8 @@ const draftFields = {
   ..._groupDraftText,
   published: podField.bool,
 };
-export interface Draft extends PodValue<typeof draftFields> {}
-export const [encodeDraft, decodeDraft] = /* @__PURE__ */ definePodRecord<Draft>(draftFields);
+export type Draft = PodValue<typeof draftFields>;
+export const [encodeDraft, decodeDraft] = /* @__PURE__ */ definePodRecord(draftFields);
 
 const draftRollbackFields = {
   id: podField.i32,
@@ -1684,8 +1684,8 @@ const draftRollbackFields = {
   sourceRevision: podField.i64,
   ..._groupArticleMutationReason,
 };
-export interface DraftRollback extends PodValue<typeof draftRollbackFields> {}
-export const [encodeDraftRollback, decodeDraftRollback] = /* @__PURE__ */ definePodRecord<DraftRollback>(draftRollbackFields);
+export type DraftRollback = PodValue<typeof draftRollbackFields>;
+export const [encodeDraftRollback, decodeDraftRollback] = /* @__PURE__ */ definePodRecord(draftRollbackFields);
 
 const _groupArticleRightsSettings = {
   enabled: podField.bool,
@@ -1705,30 +1705,30 @@ const articleRightsPolicyFields = {
   present: podField.bool,
   ..._groupArticleRightsSettings,
 };
-export interface ArticleRightsPolicy extends PodValue<typeof articleRightsPolicyFields> {}
-export const [encodeArticleRightsPolicy, decodeArticleRightsPolicy] = /* @__PURE__ */ definePodRecord<ArticleRightsPolicy>(articleRightsPolicyFields);
+export type ArticleRightsPolicy = PodValue<typeof articleRightsPolicyFields>;
+export const [encodeArticleRightsPolicy, decodeArticleRightsPolicy] = /* @__PURE__ */ definePodRecord(articleRightsPolicyFields);
 
 const articleRightsCommandFields = {
   ..._groupArticleMutationIdentity,
   ..._groupArticleRightsSettings,
 };
-export interface ArticleRightsCommand extends PodValue<typeof articleRightsCommandFields> {}
-export const [encodeArticleRightsCommand, decodeArticleRightsCommand] = /* @__PURE__ */ definePodRecord<ArticleRightsCommand>(articleRightsCommandFields);
+export type ArticleRightsCommand = PodValue<typeof articleRightsCommandFields>;
+export const [encodeArticleRightsCommand, decodeArticleRightsCommand] = /* @__PURE__ */ definePodRecord(articleRightsCommandFields);
 
 const articleScheduleFields = {
   ..._groupArticleRevisionIdentity,
   dueUnixMs: podField.i64,
   publishedRevision: podField.i64,
 };
-export interface ArticleSchedule extends PodValue<typeof articleScheduleFields> {}
-export const [encodeArticleSchedule, decodeArticleSchedule] = /* @__PURE__ */ definePodRecord<ArticleSchedule>(articleScheduleFields);
+export type ArticleSchedule = PodValue<typeof articleScheduleFields>;
+export const [encodeArticleSchedule, decodeArticleSchedule] = /* @__PURE__ */ definePodRecord(articleScheduleFields);
 
 const articleScheduleCommandFields = {
   ..._groupArticleMutationIdentity,
   dueUnixMs: podField.i64,
 };
-export interface ArticleScheduleCommand extends PodValue<typeof articleScheduleCommandFields> {}
-export const [encodeArticleScheduleCommand, decodeArticleScheduleCommand] = /* @__PURE__ */ definePodRecord<ArticleScheduleCommand>(articleScheduleCommandFields);
+export type ArticleScheduleCommand = PodValue<typeof articleScheduleCommandFields>;
+export const [encodeArticleScheduleCommand, decodeArticleScheduleCommand] = /* @__PURE__ */ definePodRecord(articleScheduleCommandFields);
 
 const revisionComparisonFields = {
   ..._groupArticleRevisionIdentity,
@@ -1737,15 +1737,15 @@ const revisionComparisonFields = {
   sourceTitle: podField.text(WireLimits.TitleBytes),
   sourceBody: podField.text(WireLimits.BodyBytes),
 };
-export interface RevisionComparison extends PodValue<typeof revisionComparisonFields> {}
-export const [encodeRevisionComparison, decodeRevisionComparison] = /* @__PURE__ */ definePodRecord<RevisionComparison>(revisionComparisonFields);
+export type RevisionComparison = PodValue<typeof revisionComparisonFields>;
+export const [encodeRevisionComparison, decodeRevisionComparison] = /* @__PURE__ */ definePodRecord(revisionComparisonFields);
 
 const articleCommandFields = {
   ..._groupArticleMutationIdentity,
   ..._groupDraftText,
 };
-export interface ArticleCommand extends PodValue<typeof articleCommandFields> {}
-export const [encodeArticleCommand, decodeArticleCommand] = /* @__PURE__ */ definePodRecord<ArticleCommand>(articleCommandFields);
+export type ArticleCommand = PodValue<typeof articleCommandFields>;
+export const [encodeArticleCommand, decodeArticleCommand] = /* @__PURE__ */ definePodRecord(articleCommandFields);
 
 const articleBodyInsertionCommandFields = {
   ..._groupArticleMutationIdentity,
@@ -1753,8 +1753,8 @@ const articleBodyInsertionCommandFields = {
   offset: podField.i32,
   length: podField.i32,
 };
-export interface ArticleBodyInsertionCommand extends PodValue<typeof articleBodyInsertionCommandFields> {}
-export const [encodeArticleBodyInsertionCommand, decodeArticleBodyInsertionCommand] = /* @__PURE__ */ definePodRecord<ArticleBodyInsertionCommand>(articleBodyInsertionCommandFields);
+export type ArticleBodyInsertionCommand = PodValue<typeof articleBodyInsertionCommandFields>;
+export const [encodeArticleBodyInsertionCommand, decodeArticleBodyInsertionCommand] = /* @__PURE__ */ definePodRecord(articleBodyInsertionCommandFields);
 
 const draftRevisionBodyInsertionFields = {
   ..._groupArticleRevisionIdentity,
@@ -1767,8 +1767,8 @@ const draftRevisionBodyInsertionFields = {
   sourceBody: podField.text(WireLimits.BodyBytes),
   body: podField.text(WireLimits.BodyBytes),
 };
-export interface DraftRevisionBodyInsertion extends PodValue<typeof draftRevisionBodyInsertionFields> {}
-export const [encodeDraftRevisionBodyInsertion, decodeDraftRevisionBodyInsertion] = /* @__PURE__ */ definePodRecord<DraftRevisionBodyInsertion>(draftRevisionBodyInsertionFields);
+export type DraftRevisionBodyInsertion = PodValue<typeof draftRevisionBodyInsertionFields>;
+export const [encodeDraftRevisionBodyInsertion, decodeDraftRevisionBodyInsertion] = /* @__PURE__ */ definePodRecord(draftRevisionBodyInsertionFields);
 
 const _groupCanvasEdgeIdentity = {
   canvasId: podField.uuid,
@@ -1779,15 +1779,15 @@ const canvasCreateFields = {
   hostArticleId: podField.i32,
   targetArticleId: podField.i32,
 };
-export interface CanvasCreate extends PodValue<typeof canvasCreateFields> {}
-export const [encodeCanvasCreate, decodeCanvasCreate] = /* @__PURE__ */ definePodRecord<CanvasCreate>(canvasCreateFields);
+export type CanvasCreate = PodValue<typeof canvasCreateFields>;
+export const [encodeCanvasCreate, decodeCanvasCreate] = /* @__PURE__ */ definePodRecord(canvasCreateFields);
 
 const canvasCreatedFields = {
   ..._groupCanvasEdgeIdentity,
   canvasRevision: podField.i64,
 };
-export interface CanvasCreated extends PodValue<typeof canvasCreatedFields> {}
-export const [encodeCanvasCreated, decodeCanvasCreated] = /* @__PURE__ */ definePodRecord<CanvasCreated>(canvasCreatedFields);
+export type CanvasCreated = PodValue<typeof canvasCreatedFields>;
+export const [encodeCanvasCreated, decodeCanvasCreated] = /* @__PURE__ */ definePodRecord(canvasCreatedFields);
 
 const canvasPreviewFields = {
   ..._groupCanvasEdgeIdentity,
@@ -1796,8 +1796,8 @@ const canvasPreviewFields = {
   targetRevision: podField.i64,
   sourceOffset: podField.i32,
 };
-export interface CanvasPreview extends PodValue<typeof canvasPreviewFields> {}
-export const [encodeCanvasPreview, decodeCanvasPreview] = /* @__PURE__ */ definePodRecord<CanvasPreview>(canvasPreviewFields);
+export type CanvasPreview = PodValue<typeof canvasPreviewFields>;
+export const [encodeCanvasPreview, decodeCanvasPreview] = /* @__PURE__ */ definePodRecord(canvasPreviewFields);
 
 const canvasLinkPlanFields = {
   planId: podField.uuid,
@@ -1810,14 +1810,14 @@ const canvasLinkPlanFields = {
   insertedMarkdown: podField.text(WireLimits.CanvasInsertionBytes),
   expiresAtUnixSeconds: podField.i64,
 };
-export interface CanvasLinkPlan extends PodValue<typeof canvasLinkPlanFields> {}
-export const [encodeCanvasLinkPlan, decodeCanvasLinkPlan] = /* @__PURE__ */ definePodRecord<CanvasLinkPlan>(canvasLinkPlanFields);
+export type CanvasLinkPlan = PodValue<typeof canvasLinkPlanFields>;
+export const [encodeCanvasLinkPlan, decodeCanvasLinkPlan] = /* @__PURE__ */ definePodRecord(canvasLinkPlanFields);
 
 const canvasConfirmFields = {
   planId: podField.uuid,
 };
-export interface CanvasConfirm extends PodValue<typeof canvasConfirmFields> {}
-export const [encodeCanvasConfirm, decodeCanvasConfirm] = /* @__PURE__ */ definePodRecord<CanvasConfirm>(canvasConfirmFields);
+export type CanvasConfirm = PodValue<typeof canvasConfirmFields>;
+export const [encodeCanvasConfirm, decodeCanvasConfirm] = /* @__PURE__ */ definePodRecord(canvasConfirmFields);
 
 const canvasLinkedFields = {
   planId: podField.uuid,
@@ -1825,8 +1825,8 @@ const canvasLinkedFields = {
   articleRevision: podField.i64,
   canvasRevision: podField.i64,
 };
-export interface CanvasLinked extends PodValue<typeof canvasLinkedFields> {}
-export const [encodeCanvasLinked, decodeCanvasLinked] = /* @__PURE__ */ definePodRecord<CanvasLinked>(canvasLinkedFields);
+export type CanvasLinked = PodValue<typeof canvasLinkedFields>;
+export const [encodeCanvasLinked, decodeCanvasLinked] = /* @__PURE__ */ definePodRecord(canvasLinkedFields);
 
 const _groupPropertyDefinitionMutationIdentity = {
   definitionId: podField.uuid,
@@ -1840,8 +1840,8 @@ const propertyDefinitionCommandFields = {
   machineKey: podField.text(WireLimits.PropertyKeyBytes),
   label: podField.text(WireLimits.PropertyLabelBytes),
 };
-export interface PropertyDefinitionCommand extends PodValue<typeof propertyDefinitionCommandFields> {}
-export const [encodePropertyDefinitionCommand, decodePropertyDefinitionCommand] = /* @__PURE__ */ definePodRecord<PropertyDefinitionCommand>(propertyDefinitionCommandFields);
+export type PropertyDefinitionCommand = PodValue<typeof propertyDefinitionCommandFields>;
+export const [encodePropertyDefinitionCommand, decodePropertyDefinitionCommand] = /* @__PURE__ */ definePodRecord(propertyDefinitionCommandFields);
 
 const _groupPropertyWorkspaceRevisions = {
   articleId: podField.i32,
@@ -1853,23 +1853,23 @@ const propertyWorkspaceRequestFields = {
   ..._groupPropertyWorkspaceRevisions,
   afterKey: podField.text(WireLimits.PropertyKeyBytes),
 };
-export interface PropertyWorkspaceRequest extends PodValue<typeof propertyWorkspaceRequestFields> {}
-export const [encodePropertyWorkspaceRequest, decodePropertyWorkspaceRequest] = /* @__PURE__ */ definePodRecord<PropertyWorkspaceRequest>(propertyWorkspaceRequestFields);
+export type PropertyWorkspaceRequest = PodValue<typeof propertyWorkspaceRequestFields>;
+export const [encodePropertyWorkspaceRequest, decodePropertyWorkspaceRequest] = /* @__PURE__ */ definePodRecord(propertyWorkspaceRequestFields);
 
 const propertyFilterabilityCommandFields = {
   ..._groupPropertyDefinitionMutationIdentity,
   enabled: podField.bool,
 };
-export interface PropertyFilterabilityCommand extends PodValue<typeof propertyFilterabilityCommandFields> {}
-export const [encodePropertyFilterabilityCommand, decodePropertyFilterabilityCommand] = /* @__PURE__ */ definePodRecord<PropertyFilterabilityCommand>(propertyFilterabilityCommandFields);
+export type PropertyFilterabilityCommand = PodValue<typeof propertyFilterabilityCommandFields>;
+export const [encodePropertyFilterabilityCommand, decodePropertyFilterabilityCommand] = /* @__PURE__ */ definePodRecord(propertyFilterabilityCommandFields);
 
 const propertyDefinitionProjectionCommandFields = {
   ..._groupPropertyDefinitionMutationIdentity,
   searchEligible: podField.bool,
   sortable: podField.bool,
 };
-export interface PropertyDefinitionProjectionCommand extends PodValue<typeof propertyDefinitionProjectionCommandFields> {}
-export const [encodePropertyDefinitionProjectionCommand, decodePropertyDefinitionProjectionCommand] = /* @__PURE__ */ definePodRecord<PropertyDefinitionProjectionCommand>(propertyDefinitionProjectionCommandFields);
+export type PropertyDefinitionProjectionCommand = PodValue<typeof propertyDefinitionProjectionCommandFields>;
+export const [encodePropertyDefinitionProjectionCommand, decodePropertyDefinitionProjectionCommand] = /* @__PURE__ */ definePodRecord(propertyDefinitionProjectionCommandFields);
 
 const propertyDefinitionProjectionFields = {
   definitionId: podField.uuid,
@@ -1881,8 +1881,8 @@ const propertyDefinitionProjectionFields = {
   sortable: podField.bool,
   digest: podField.text(WireLimits.PropertyDefinitionDigestBytes),
 };
-export interface PropertyDefinitionProjection extends PodValue<typeof propertyDefinitionProjectionFields> {}
-export const [encodePropertyDefinitionProjection, decodePropertyDefinitionProjection] = /* @__PURE__ */ definePodRecord<PropertyDefinitionProjection>(propertyDefinitionProjectionFields);
+export type PropertyDefinitionProjection = PodValue<typeof propertyDefinitionProjectionFields>;
+export const [encodePropertyDefinitionProjection, decodePropertyDefinitionProjection] = /* @__PURE__ */ definePodRecord(propertyDefinitionProjectionFields);
 
 const propertyTextCommandFields = {
   ..._groupPropertyWorkspaceRevisions,
@@ -1892,16 +1892,16 @@ const propertyTextCommandFields = {
   remove: podField.bool,
   value: podField.text(WireLimits.PropertyValueBytes),
 };
-export interface PropertyTextCommand extends PodValue<typeof propertyTextCommandFields> {}
-export const [encodePropertyTextCommand, decodePropertyTextCommand] = /* @__PURE__ */ definePodRecord<PropertyTextCommand>(propertyTextCommandFields);
+export type PropertyTextCommand = PodValue<typeof propertyTextCommandFields>;
+export const [encodePropertyTextCommand, decodePropertyTextCommand] = /* @__PURE__ */ definePodRecord(propertyTextCommandFields);
 
 const propertyCommandReceiptFields = {
   definitionId: podField.uuid,
   schemaRevision: podField.i64,
   revision: podField.i64,
 };
-export interface PropertyCommandReceipt extends PodValue<typeof propertyCommandReceiptFields> {}
-export const [encodePropertyCommandReceipt, decodePropertyCommandReceipt] = /* @__PURE__ */ definePodRecord<PropertyCommandReceipt>(propertyCommandReceiptFields);
+export type PropertyCommandReceipt = PodValue<typeof propertyCommandReceiptFields>;
+export const [encodePropertyCommandReceipt, decodePropertyCommandReceipt] = /* @__PURE__ */ definePodRecord(propertyCommandReceiptFields);
 
 const propertyValueBatchReceiptFields = {
   articleId: podField.i32,
@@ -1909,5 +1909,5 @@ const propertyValueBatchReceiptFields = {
   valueRevision: podField.i64,
   requestId: podField.uuid,
 };
-export interface PropertyValueBatchReceipt extends PodValue<typeof propertyValueBatchReceiptFields> {}
-export const [encodePropertyValueBatchReceipt, decodePropertyValueBatchReceipt] = /* @__PURE__ */ definePodRecord<PropertyValueBatchReceipt>(propertyValueBatchReceiptFields);
+export type PropertyValueBatchReceipt = PodValue<typeof propertyValueBatchReceiptFields>;
+export const [encodePropertyValueBatchReceipt, decodePropertyValueBatchReceipt] = /* @__PURE__ */ definePodRecord(propertyValueBatchReceiptFields);

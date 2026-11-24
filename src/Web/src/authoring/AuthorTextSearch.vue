@@ -35,10 +35,10 @@ type SearchReply = AuthorTextFacetedPage & { propertyFacet?: AuthorTextPropertyF
 type SearchPage = SearchReply & { input: SearchInput; cursor: string; previous: readonly string[] }
 type FacetBucket = { key: string; label: string; count: number; condition?: PropertyCondition }
 const PreviousPageLimit = 500
-const fieldLabels = { get title() { return t('author.authorTextSearch.title') }, get body() { return t('author.authorTextSearch.body') }, get summary() { return t('author.authorTextSearch.summary') }, get heading() { return t('author.authorTextSearch.heading') }, get 'property-text'() { return t('author.authorTextSearch.text.property') } } as const
+const fieldLabels = { get title() { return t('author.authorTextSearch.title') }, get body() { return t('author.authorTextSearch.body') }, get summary() { return t('author.revisionHistory.summary') }, get heading() { return t('author.authorTextSearch.heading') }, get 'property-text'() { return t('author.authorTextSearch.text.property') } } as const
 const states = [
-  { value: 'draft', get label() { return t('author.authorTextSearch.draft') } }, { value: 'scheduled', get label() { return t('author.authorTextSearch.scheduled') } },
-  { value: 'published', get label() { return t('author.authorTextSearch.published') } }, { value: 'retracted', get label() { return t('author.authorTextSearch.withdrawn') } },
+  { value: 'draft', get label() { return t('admin.taxonomy.m16') } }, { value: 'scheduled', get label() { return t('author.authorTextSearch.scheduled') } },
+  { value: 'published', get label() { return t('admin.taxonomy.m15') } }, { value: 'retracted', get label() { return t('author.authorTextSearch.withdrawn') } },
 ] as const
 
 type Opening = {
@@ -168,13 +168,14 @@ async function readPage({ includeHeading, mixedSources, facet, sort, textSource,
   if ((input.schema && input.schema !== schema) || (facet && facet.schema !== schema) || (sort && sort.schema !== schema))
     throw new ProtocolError('Inconsistent property catalog revision')
   const search = { ...input, schema, cursor }
-  const selection = { definitionId: selectedProperty.field.id, definitionRevision: selectedProperty.field.revision }
-  const facetSelection = facet ? { definitionId: facet.field.id, definitionRevision: facet.field.revision } : null
+  const defRef = (item: PropertySelection) => ({ definitionId: item.field.id, definitionRevision: item.field.revision })
+  const selection = defRef(selectedProperty)
+  const facetSelection = facet ? defRef(facet) : null
   let page
   if (textSource) {
     if (!mixedSources && !facet && !sort) return authorTextPropertyTextSearch({ search, ...selection }, session, signal)
     const selectedQuery = { search, ...selection, facet: facetSelection,
-      sort: sort ? { definitionId: sort.field.id, definitionRevision: sort.field.revision, direction: sort.direction } : null }
+      sort: sort ? { ...defRef(sort), direction: sort.direction } : null }
     page = mixedSources ? await authorTextPropertyTextMixedSearch({ ...selectedQuery, includeHeading }, session, signal)
       : await authorTextPropertyTextQualifiedSearch(selectedQuery, session, signal)
   } else if (sort) {
@@ -211,7 +212,7 @@ function facetBuckets(page: SearchPage): FacetBucket[] {
   if (counts.kind === 'multi-select') buckets.push({ key: 'empty', label: t('author.authorTextSearch.empty.option.set'), count: counts.empty })
   for (const { value, count } of counts.buckets) {
     if (value.kind === 'boolean') {
-      buckets.push({ key: String(value.value), label: value.value ? t('author.authorTextSearch.yes') : t('author.authorTextSearch.no'), count,
+      buckets.push({ key: String(value.value), label: value.value ? t('account.message35') : t('account.message36'), count,
         condition: { field, comparison: 'equal', value } })
     } else {
       const option = field.options.find(item => item.id === value.value)
@@ -240,15 +241,19 @@ function applyBucket(page: SearchPage, bucket: FacetBucket) {
 function queryAvailabilityError(input: SearchInput, failure: unknown): string | undefined {
   if (!(failure instanceof ApiError)) return
   if (input.includeHeading && failure.status === 422) return t('author.authorTextSearch.some.articles.exceed.the.heading.parsing.limit.you.can')
-  if (input.textSource && (failure.status === 404 || failure.status === 409))
-    return input.facet || input.sort ? t('author.authorTextSearch.the.text.property.source.sort.or.facet.is.no')
-      : t('author.authorTextSearch.the.text.property.source.is.no.longer.valid.reload')
-  if (input.sort && (failure.status === 404 || failure.status === 409))
-    return input.facet ? t('author.authorTextSearch.the.property.sort.or.facet.is.no.longer.valid') : t('author.authorTextSearch.the.property.sort.is.no.longer.valid.reload.property')
-  if (input.facet && (failure.status === 404 || failure.status === 409))
-    return t('author.authorTextSearch.the.property.facet.is.no.longer.valid.reload.property')
-  if (input.conditions.length > 0 && (failure.status === 404 || failure.status === 409))
-    return t('author.authorTextSearch.property.conditions.are.no.longer.valid.reload.property.definitions')
+  if (failure.status !== 404 && failure.status !== 409) return
+  if (input.textSource) {
+    return t(input.facet || input.sort
+      ? 'author.authorTextSearch.the.text.property.source.sort.or.facet.is.no'
+      : 'author.authorTextSearch.the.text.property.source.is.no.longer.valid.reload')
+  }
+  if (input.sort) {
+    return t(input.facet
+      ? 'author.authorTextSearch.the.property.sort.or.facet.is.no.longer.valid'
+      : 'author.authorTextSearch.the.property.sort.is.no.longer.valid.reload.property')
+  }
+  if (input.facet) return t('author.authorTextSearch.the.property.facet.is.no.longer.valid.reload.property')
+  if (input.conditions.length > 0) return t('author.authorTextSearch.property.conditions.are.no.longer.valid.reload.property.definitions')
 }
 
 function showNextPage() {
@@ -543,7 +548,7 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
           </div>
         </dl>
       </section>
-      <p v-if="!result.rows.length" role="status">{{ t('author.authorTextSearch.no.matching.articles') }}</p>
+      <p v-if="!result.rows.length" role="status">{{ t('author.savedViewPanel.no.matching.articles') }}</p>
       <ul v-else>
         <li v-for="row in result.rows" :key="`${row.id}:${row.field}`">
           <RouterLink :to="{ name: 'edit', params: { id: row.id } }" dir="auto">{{ row.title }}</RouterLink>
@@ -558,9 +563,9 @@ async function openMatch(row: AuthorTextSearchRow, mode: 'current' | 'history' |
       </ul>
       <nav v-if="result.previous.length || result.nextCursor" :aria-label="t('author.authorTextSearch.full.text.search.pagination')">
         <ElButton native-type="button" text v-bind="{ 'aria-disabled': !!pending || !!opening || !result.previous.length }"
-          @click="showPreviousPage">{{ t('author.authorTextSearch.previous') }}</ElButton>
+          @click="showPreviousPage">{{ t('reading.previous') }}</ElButton>
         <ElButton native-type="button" text v-bind="{ 'aria-disabled': !!pending || !!opening || !result.nextCursor }"
-          @click="showNextPage">{{ t('author.authorTextSearch.next') }}</ElButton>
+          @click="showNextPage">{{ t('reading.next') }}</ElButton>
       </nav>
     </section>
   </details>

@@ -1,24 +1,10 @@
-using static System.Net.HttpStatusCode;
-using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using System.Xml.Linq;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Integration.Tests;
-using FsusBlog.V2.Server.Administration;
-using FsusBlog.V2.Server.Content;
-using Microsoft.AspNetCore.WebUtilities;
-
 public sealed class SitePagesOnlinePostgresTests
 {
     [PostgresFact]
     public async Task ZeroDiskBaselineAllowsOnlineSitePageCreationLivePublicServeSitemapAndDisabledFallback()
     {
         await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(45));
-        await using var db = await database.DataSource.OpenConnectionAsync(ct);
-        var admin = await FixtureSql.AdminAsync(db, ct, "site-page-admin", 10, RandomNumberGenerator.GetBytes(32), [7]);
-
+        var admin = await database.AdminAsync("site-page-admin", 10, RandomNumberGenerator.GetBytes(32), [7], ct);
         const string origin = "https://blog.example.test";
         var settings = new Dictionary<string, string>
         {
@@ -27,96 +13,60 @@ public sealed class SitePagesOnlinePostgresTests
             ["FSUSBLOG_ADMIN_RP_ID"] = ServerProcess.DefaultAdminHost,
             ["FSUSBLOG_SITE_PAGES"] = "",
         };
+        var aboutPage = WireRoutes.AdminSitePage.Replace("{slug}", "about");
+        var aboutRevision = WireRoutes.AdminSitePageRevision.Replace("{slug}", "about");
 
         await using (var server = await ServerProcess.Start(database.ConnectionString, ct, settings))
         {
+            var client = server.Client;
             // Initial overview: zero disk files => all 4 pages unconfigured (mask 0), editor header = 1.
-            using (var overviewResp = Ok(await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePages)))
+            using (var overviewResp = Ok(await SiteAedsFixture.AdminSend(client, HttpMethod.Get, WireRoutes.AdminSitePages, admin.Token, ct)))
             {
                 Assert.Equal("1", Assert.Single(overviewResp.Headers.GetValues(WireHeaders.AdminSitePageEditor)));
-                var overview = Wire.DecodeAdminSitePages(await overviewResp.Content.ReadAsByteArrayAsync(ct));
-                Assert.Equal(0, overview.ConfiguredMask);
+                Assert.Equal(0, Wire.DecodeAdminSitePages(await overviewResp.Content.ReadAsByteArrayAsync(ct)).ConfiguredMask);
             }
 
             // Unconfigured page returns 404 on admin content read and unconfigured + noindex on public HTML.
-            CheckStatus(NotFound, await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePage.Replace("{slug}", "about")));
-
-            using (var publicBefore = Ok(await server.Client.GetAsync("/about", ct)))
+            await SiteAedsFixture.AdminStatus(client, HttpMethod.Get, aboutPage, admin.Token, ct, NotFound);
+            using (var publicBefore = Ok(await client.GetAsync("/about", ct)))
             {
                 Assert.True(publicBefore.Headers.TryGetValues("X-Robots-Tag", out var robots) &&
                     robots.Any(v => v.Contains("noindex", StringComparison.OrdinalIgnoreCase)));
-                var html = await publicBefore.Content.ReadAsStringAsync(ct);
-                Assert.Contains("data-state=\"unconfigured\"", html);
+                Assert.Contains("data-state=\"unconfigured\"", await publicBefore.Content.ReadAsStringAsync(ct));
             }
 
             // Editor revision endpoint returns empty revision 0 baseline ready for first creation.
-            AdminSitePageRevision initial;
-            using (var revResp = Ok(await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePageRevision.Replace("{slug}", "about"))))
-            {
-                initial = Wire.DecodeAdminSitePageRevision(await revResp.Content.ReadAsByteArrayAsync(ct));
-            }
-            Assert.Equal("about", initial.Slug);
-            Assert.Equal(0L, initial.Revision);
-            Assert.Equal(string.Empty, initial.Markdown);
-            Assert.Equal(SitePagePublicationStore.Digest(string.Empty), initial.Digest);
+            var initial = Wire.DecodeAdminSitePageRevision(await SiteAedsFixture.AdminBytes(client, HttpMethod.Get, aboutRevision, admin.Token, ct));
+            Assert.Equal(("about", 0L, string.Empty, SitePagePublicationStore.Digest(string.Empty)),
+                (initial.Slug, initial.Revision, initial.Markdown, initial.Digest));
 
             // Publish /about with Passkey Step-Up + Scoped PoW.
             const string publishedMd = "# About North Notes\n\nPublished online without disk baseline.\n";
             var intent = new AdminSitePagePublish("about", initial.Revision, initial.Digest, publishedMd);
             var frame = Wire.EncodeAdminSitePagePublish(intent);
-
-            using (var beginResp = Ok(await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSitePageStepUpBegin, frame)))
-            {
-                Aeds.Decode(await beginResp.Content.ReadAsByteArrayAsync(ct), FrameType.PasskeyLoginBegin);
-            }
-
-            var stepUpProof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-            await FixtureSql.ExecuteAsync(db, null, ct, """
-                insert into public.admin_site_page_step_up(digest,principal_id,session_digest,generation,action,body_digest,options,expires_at,kind)
-                values($1,$2,$3,1,2,$4,null,clock_timestamp()+interval '45 seconds',2)
-                on conflict (session_digest,kind) do update set digest=excluded.digest,body_digest=excluded.body_digest,expires_at=excluded.expires_at
-                """, SHA256.HashData(Encoding.ASCII.GetBytes(stepUpProof)), admin.Id, admin.Digest,
-                AdminSitePageStore.SitePageIntentDigest(intent));
-
-            var clientNonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16));
-            string powProof;
-            using (var powResp = Ok(await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSitePagePow, frame,
-                       new() { [WireHeaders.PowClientNonce] = clientNonce })))
-            {
-                powProof = PowFixture.SolveFrame(await powResp.Content.ReadAsByteArrayAsync(ct), clientNonce, ct);
-            }
-
-            using (var publishResp = Ok(await AdminRequest(server, HttpMethod.Post, WireRoutes.AdminSitePagePublish, frame,
-                       new() { [WireHeaders.MfaProof] = stepUpProof, [WireHeaders.PowProof] = powProof })))
-            {
-                Aeds.Decode(await publishResp.Content.ReadAsByteArrayAsync(ct), FrameType.EmptySuccess);
-            }
+            Aeds.Decode(await SiteAedsFixture.AdminBytes(client, HttpMethod.Post, WireRoutes.AdminSitePageStepUpBegin, admin.Token, ct, frame: frame),
+                FrameType.PasskeyLoginBegin);
+            var (stepUpProof, _) = await database.SeedStepUpProof("admin_site_page_step_up", admin.Id, admin.Digest, 2,
+                AdminSitePageStore.SitePageIntentDigest(intent), ct: ct);
+            var powProof = await SiteAedsFixture.AdminPow(client, WireRoutes.AdminSitePagePow, admin.Token, frame, ct);
+            Aeds.Decode(await SiteAedsFixture.AdminBytes(client, HttpMethod.Post, WireRoutes.AdminSitePagePublish, admin.Token, ct, frame: frame,
+                configure: req => { req.Headers.TryAddWithoutValidation(WireHeaders.MfaProof, stepUpProof); req.Headers.TryAddWithoutValidation(WireHeaders.PowProof, powProof); }),
+                FrameType.EmptySuccess);
 
             // Overview mask immediately flips bit 0 ("about") to configured!
-            using (var overviewAfter = Ok(await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePages)))
-            {
-                var overview = Wire.DecodeAdminSitePages(await overviewAfter.Content.ReadAsByteArrayAsync(ct));
-                Assert.Equal(1, overview.ConfiguredMask);
-            }
+            Assert.Equal(1, Wire.DecodeAdminSitePages(await SiteAedsFixture.AdminBytes(client, HttpMethod.Get, WireRoutes.AdminSitePages, admin.Token, ct)).ConfiguredMask);
 
             // Admin content read and public HTML + AEDS frame + sitemap immediately serve the new published page!
-            using (var adminContent = Ok(await AdminRequest(server, HttpMethod.Get, WireRoutes.AdminSitePage.Replace("{slug}", "about"))))
-            {
-                var payload = Aeds.Decode(await adminContent.Content.ReadAsByteArrayAsync(ct), FrameType.PageContent);
-                Assert.Equal(publishedMd, Encoding.UTF8.GetString(payload[WireLayouts.PageContentBlobOffset..]));
-            }
-
-            using (var publicAfter = Ok(await server.Client.GetAsync("/about", ct)))
+            var payload = Aeds.Decode(await SiteAedsFixture.AdminBytes(client, HttpMethod.Get, aboutPage, admin.Token, ct), FrameType.PageContent);
+            Assert.Equal(publishedMd, Encoding.UTF8.GetString(payload[WireLayouts.PageContentBlobOffset..]));
+            using (var publicAfter = Ok(await client.GetAsync("/about", ct)))
             {
                 Assert.False(publicAfter.Headers.Contains("X-Robots-Tag"));
                 var html = await publicAfter.Content.ReadAsStringAsync(ct);
-                Assert.Contains("data-state=\"published\"", html);
-                Assert.Contains("About North Notes", html);
-                Assert.Contains("Published online without disk baseline.", html);
+                foreach (var expected in new[] { "data-state=\"published\"", "About North Notes", "Published online without disk baseline." })
+                    Assert.Contains(expected, html);
             }
-
-            var sitemapXml = XDocument.Parse(await server.Client.GetStringAsync("/sitemap.xml", ct));
-            var locs = sitemapXml.Descendants().Where(e => e.Name.LocalName == "loc").Select(e => e.Value).ToArray();
+            var locs = await SitemapLocs(client);
             Assert.Contains(origin + "/about", locs);
             Assert.DoesNotContain(origin + "/privacy", locs);
         }
@@ -124,48 +74,27 @@ public sealed class SitePagesOnlinePostgresTests
         // Cold restart with online editor enabled recovers published /about and sitemap automatically!
         await using (var restarted = await ServerProcess.Start(database.ConnectionString, ct, settings))
         {
-            using (var overviewResp = Ok(await AdminRequest(restarted, HttpMethod.Get, WireRoutes.AdminSitePages)))
-            {
-                var overview = Wire.DecodeAdminSitePages(await overviewResp.Content.ReadAsByteArrayAsync(ct));
-                Assert.Equal(1, overview.ConfiguredMask);
-            }
-
-            var sitemapXml = XDocument.Parse(await restarted.Client.GetStringAsync("/sitemap.xml", ct));
-            var locs = sitemapXml.Descendants().Where(e => e.Name.LocalName == "loc").Select(e => e.Value).ToArray();
-            Assert.Contains(origin + "/about", locs);
+            Assert.Equal(1, Wire.DecodeAdminSitePages(await SiteAedsFixture.AdminBytes(restarted.Client, HttpMethod.Get, WireRoutes.AdminSitePages, admin.Token, ct)).ConfiguredMask);
+            Assert.Contains(origin + "/about", await SitemapLocs(restarted.Client));
         }
 
         // Explicit FSUSBLOG_SITE_PAGE_EDITOR=false falls back cleanly to unconfigured baseline (no disk files) and closes editor endpoints.
-        var disabledSettings = new Dictionary<string, string>(settings)
+        await using (var disabled = await ServerProcess.Start(database.ConnectionString, ct,
+            new Dictionary<string, string>(settings) { [SitePages.EditorSetting] = "false" }))
         {
-            [SitePages.EditorSetting] = "false",
-        };
-        await using (var disabled = await ServerProcess.Start(database.ConnectionString, ct, disabledSettings))
-        {
-            using (var overviewResp = Ok(await AdminRequest(disabled, HttpMethod.Get, WireRoutes.AdminSitePages)))
+            using (var overviewResp = Ok(await SiteAedsFixture.AdminSend(disabled.Client, HttpMethod.Get, WireRoutes.AdminSitePages, admin.Token, ct)))
             {
                 Assert.False(overviewResp.Headers.Contains(WireHeaders.AdminSitePageEditor));
-                var overview = Wire.DecodeAdminSitePages(await overviewResp.Content.ReadAsByteArrayAsync(ct));
-                Assert.Equal(0, overview.ConfiguredMask);
+                Assert.Equal(0, Wire.DecodeAdminSitePages(await overviewResp.Content.ReadAsByteArrayAsync(ct)).ConfiguredMask);
             }
-
-            CheckStatus(NotFound, await AdminRequest(disabled, HttpMethod.Get, WireRoutes.AdminSitePageRevision.Replace("{slug}", "about")));
-
-            using (var publicDisabled = Ok(await disabled.Client.GetAsync("/about", ct)))
-            {
-                Assert.True(publicDisabled.Headers.Contains("X-Robots-Tag"));
-                Assert.Contains("data-state=\"unconfigured\"", await publicDisabled.Content.ReadAsStringAsync(ct));
-            }
+            await SiteAedsFixture.AdminStatus(disabled.Client, HttpMethod.Get, aboutRevision, admin.Token, ct, NotFound);
+            using var publicDisabled = Ok(await disabled.Client.GetAsync("/about", ct));
+            Assert.True(publicDisabled.Headers.Contains("X-Robots-Tag"));
+            Assert.Contains("data-state=\"unconfigured\"", await publicDisabled.Content.ReadAsStringAsync(ct));
         }
 
-        async Task<HttpResponseMessage> AdminRequest(ServerProcess server, HttpMethod method, string path,
-            byte[]? body = null, Dictionary<string, string>? extraHeaders = null)
-        {
-            using var request = SiteAedsFixture.AdminRequest(method, path, admin.Token, body, includeOrigin: method == HttpMethod.Post);
-            if (extraHeaders is not null)
-                foreach (var (k, v) in extraHeaders)
-                    request.Headers.TryAddWithoutValidation(k, v);
-            return await server.Client.SendAsync(request, ct);
-        }
+        async Task<string[]> SitemapLocs(HttpClient client) =>
+            XDocument.Parse(await client.GetStringAsync("/sitemap.xml", ct)).Descendants()
+                .Where(e => e.Name.LocalName == "loc").Select(e => e.Value).ToArray();
     }
 }

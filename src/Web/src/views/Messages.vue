@@ -20,7 +20,7 @@ import { api, ApiError, ProtocolError, type InboxFilter, type InboxListItem, typ
 import { createInboxConversation, inboxComposeEnabled, replyInboxConversation } from '../../../Contracts/inbox-write'
 import { watchInboxWake } from '../../../Contracts/inbox-wake'
 import InboxSplitWorkspace from '../components/InboxSplitWorkspace.vue'
-import { useDelayedBusy } from '../delayedBusy'
+import { useDelayedBusy, useMediaQuery } from '../delayedBusy'
 import {
   createInboxTimeFormatter,
   inboxBubbleVariant,
@@ -32,13 +32,13 @@ import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refr
 const filters = computed<ReadonlyArray<{ value: InboxFilter; label: string }>>(() => [
   { value: 'all', label: t('account.message129') },
   { value: 'unread', label: t('account.message130') },
-  { value: 'system', label: t('account.message131') },
+  { value: 'system', label: t('admin.inbox.m32') },
   { value: 'open', label: t('account.message132') },
   { value: 'pending', label: t('account.message133') },
-  { value: 'closed', label: t('account.message134') },
+  { value: 'closed', label: t('admin.inbox.m8') },
 ])
-const statuses = computed(() => [t('account.message132'), t('account.message133'), t('account.message134')] as const)
-const senders = computed(() => [t('account.message135'), t('account.message136'), t('account.message131')] as const)
+const statuses = computed(() => [t('account.message132'), t('account.message133'), t('admin.inbox.m8')] as const)
+const senders = computed(() => [t('account.message135'), t('admin.inbox.m31'), t('admin.inbox.m32')] as const)
 const timeFormat = computed(() => createInboxTimeFormatter(siteLocale.value))
 
 const filter = ref<InboxFilter>('all')
@@ -62,9 +62,7 @@ const notice = ref('')
 const error = ref('')
 const workspace = ref<InstanceType<typeof InboxSplitWorkspace>>()
 const listHeading = ref<HTMLElement>()
-const narrowQuery = matchMedia('(max-width: 760px)')
-const mobile = ref(narrowQuery.matches)
-const onViewportChange = () => { mobile.value = narrowQuery.matches }
+const mobile = useMediaQuery('(max-width: 760px)')
 
 const hasSelection = computed(() => selected.value !== null)
 const selectedRow = computed(() =>
@@ -106,7 +104,7 @@ const replies = new Map<bigint, { body: string; snapshot?: bigint; key?: string 
 function rowMeta(row: InboxListItem): string {
   const time = timeFormat.value.compact(row.lastMessageAt)
   if (row.unreadCount > 0) {
-    if (row.isSystem) return `${t('account.message131')} · ${time}`
+    if (row.isSystem) return `${t('admin.inbox.m32')} · ${time}`
     if (row.status !== 0) return `${statuses.value[row.status]} · ${time}`
   }
   return time
@@ -115,6 +113,11 @@ function rowMeta(row: InboxListItem): string {
 function current(signal: AbortSignal, identity: number) {
   const session = currentSession.value
   return !signal.aborted && identity === identityEpoch.value && !!session?.siteSessionId && session.expiresAt > Date.now()
+}
+
+function activeContext() {
+  const signal = scope.signal, identity = identityEpoch.value, session = currentSession.value?.siteSessionId
+  return session && current(signal, identity) ? { signal, identity, session } : undefined
 }
 
 function report(failure: unknown, signal: AbortSignal, identity: number, fallback: string) {
@@ -132,11 +135,10 @@ function recheck(signal: AbortSignal) {
 }
 
 async function loadList(append = false, source: 'refresh' | 'more' | null = append ? 'more' : null): Promise<boolean> {
-  const identity = identityEpoch.value
-  const signal = scope.signal
-  const session = currentSession.value?.siteSessionId
+  const ctx = activeContext()
   const page = append ? nextPage.value : null
-  if (!session || !current(signal, identity) || (append && !page)) return false
+  if (!ctx || (append && !page)) return false
+  const { signal, identity, session } = ctx
   const request = ++listRequest
   listAction.value = source
   listPending.value = true
@@ -162,10 +164,9 @@ async function loadList(append = false, source: 'refresh' | 'more' | null = appe
 }
 
 async function loadThread(id: bigint, older?: bigint, focusOnReady = false): Promise<boolean> {
-  const signal = scope.signal
-  const identity = identityEpoch.value
-  const session = currentSession.value?.siteSessionId
-  if (!session || !current(signal, identity)) return false
+  const ctx = activeContext()
+  if (!ctx) return false
+  const { signal, identity, session } = ctx
   const request = ++threadRequest
   threadAction.value = older !== undefined ? 'earlier' : null
   threadPending.value = true
@@ -237,10 +238,9 @@ watch(reply, body => {
 }, { flush: 'sync' })
 
 async function sendTicket() {
-  const signal = scope.signal
-  const identity = identityEpoch.value
-  const session = currentSession.value?.siteSessionId
-  if (!session || !current(signal, identity) || !writable.value || sending.value || !ticket.value.trim()) return
+  const ctx = activeContext()
+  if (!ctx || !writable.value || sending.value || !ticket.value.trim()) return
+  const { signal, identity, session } = ctx
   const input = { subject: subject.value, body: ticket.value }
   if (!createAttempt || createAttempt.body !== input.body || createAttempt.subject !== input.subject)
     createAttempt = { ...input, key: crypto.randomUUID() }
@@ -265,11 +265,9 @@ async function sendTicket() {
 
 async function sendReply() {
   const detail = thread.value
-  const signal = scope.signal
-  const identity = identityEpoch.value
-  const session = currentSession.value?.siteSessionId
-  if (!session || !detail || selected.value !== detail.id || !current(signal, identity) ||
-      !writable.value || sending.value || !reply.value.trim()) return
+  const ctx = activeContext()
+  if (!ctx || !detail || selected.value !== detail.id || !writable.value || sending.value || !reply.value.trim()) return
+  const { signal, identity, session } = ctx
   const saved = replies.get(detail.id)
   const body = reply.value
   const snapshot = saved?.body === body && saved.snapshot ? saved.snapshot : detail.readThrough
@@ -299,11 +297,9 @@ async function sendReply() {
 
 async function markRead() {
   const detail = thread.value
-  if (!detail || markPending.value) return
-  const signal = scope.signal
-  const identity = identityEpoch.value
-  const session = currentSession.value?.siteSessionId
-  if (!session || !current(signal, identity)) return
+  const ctx = activeContext()
+  if (!detail || markPending.value || !ctx) return
+  const { signal, identity, session } = ctx
   markPending.value = true
   try {
     await api.inboxRead(detail.id, detail.readThrough, signal, session)
@@ -431,7 +427,6 @@ watch(filter, () => {
 })
 
 onMounted(async () => {
-  narrowQuery.addEventListener('change', onViewportChange)
   document.addEventListener('visibilitychange', resume)
   window.addEventListener('online', resume)
   const signal = scope.signal
@@ -443,7 +438,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   scope.abort()
   clearTimeout(pollTimer)
-  narrowQuery.removeEventListener('change', onViewportChange)
   document.removeEventListener('visibilitychange', resume)
   window.removeEventListener('online', resume)
 })
@@ -494,7 +488,7 @@ onBeforeUnmount(() => {
     >
       <template v-if="currentSession" #default>
         <ElButton native-type="button" text @click="reloadInbox(cursor, 'refresh')">
-          {{ t('account.message112') }}
+          {{ t('reading.retry') }}
         </ElButton>
       </template>
     </ElAlert>
@@ -503,7 +497,7 @@ onBeforeUnmount(() => {
 
     <ElEmptyState v-else-if="!currentSession" :title="t('account.message113')">
       <template #actions>
-        <RouterLink class="inbox-login-link" to="/login">{{ t('account.message80') }}</RouterLink>
+        <RouterLink class="inbox-login-link" to="/login">{{ t('page.login') }}</RouterLink>
       </template>
     </ElEmptyState>
 
@@ -522,7 +516,7 @@ onBeforeUnmount(() => {
       :has-empty-list-actions="filter !== 'all' || writable"
       :has-more="Boolean(nextPage)"
       :more-loading="moreLoading"
-      :more-label="t('account.message121')"
+      :more-label="t('admin.inbox.m24')"
       :thread-key="threadKey"
       :thread-title="thread?.subject ?? ''"
       thread-title-tag="h2"
@@ -541,7 +535,7 @@ onBeforeUnmount(() => {
       v-model:reply-model="reply"
       :reply-disabled="sending"
       :reply-pending="sending"
-      :reply-submit-label="t('account.message128')"
+      :reply-submit-label="t('admin.inbox.m34')"
       :closed-note="thread?.status === 2 ? t('account.inboxClosedHint') : ''"
       :empty-selection-title="t('account.message125')"
       :empty-selection-description="t('account.inboxSelectHint')"
@@ -589,7 +583,7 @@ onBeforeUnmount(() => {
               {{ t('account.unreadCount', { count: row.unreadCount }) }}
             </ElTag>
             <ElTag v-else size="small" :type="row.isSystem ? 'info' : inboxStatusTagType(row.status)" disable-transitions>
-              {{ row.isSystem ? t('account.message131') : statuses[row.status] }}
+              {{ row.isSystem ? t('admin.inbox.m32') : statuses[row.status] }}
             </ElTag>
           </template>
         </ElConversationListItem>
@@ -612,7 +606,7 @@ onBeforeUnmount(() => {
           {{ statuses[thread.status] }}
         </ElTag>
         <ElTag v-if="thread.isSystem" size="small" type="info" disable-transitions>
-          {{ t('account.message131') }}
+          {{ t('admin.inbox.m32') }}
         </ElTag>
         <ElTag v-if="thread.unreadCount" size="small" disable-transitions>
           {{ t('account.unreadCount', { count: thread.unreadCount }) }}
@@ -660,7 +654,7 @@ onBeforeUnmount(() => {
       <template #footer>
         <ElInlineActions density="compact">
           <ElButton native-type="button" :disabled="sending" @click="closeCompose">
-            {{ t('account.inboxCancel') }}
+            {{ t('nav.cancel') }}
           </ElButton>
           <ElButton
             type="primary"

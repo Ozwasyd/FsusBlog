@@ -1,9 +1,3 @@
-using System.Buffers.Binary;
-using System.Security.Cryptography;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server;
-using Microsoft.Extensions.Logging.Abstractions;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class ArticleSearchWideTests
@@ -186,29 +180,24 @@ public sealed class ArticleSearchWideTests
         };
         var pages = new WebPages("<html><body><!--fsus-public-content--></body></html>");
         var cursor = new PublicListCursor(TimeProvider.System);
-        var current = new PublicSnapshot(7, articles, new([], [], []), pages, cursor, null, NullLogger.Instance,
-            null, null, CancellationToken.None);
+        var current = Snapshot(7, articles);
         Assert.Equal(ExpectedGeneration(current, articles, wide: true), current.Generation);
         Assert.NotEqual(ExpectedGeneration(current, articles, wide: false), current.Generation);
-        var unchanged = new PublicSnapshot(8, articles, new([], [], []), pages, cursor, current, NullLogger.Instance,
-            null, null, CancellationToken.None);
+        var unchanged = Snapshot(8, articles, current);
         Assert.Equal(current.GenerationHeader, unchanged.GenerationHeader);
 
         var hit = Aeds.Decode(current.Search("withdrawalneedle", CancellationToken.None)!, FrameType.ArticleSearch);
         Assert.True(hit[..4].SequenceEqual("FAS4"u8));
-        Assert.Equal(4, BinaryPrimitives.ReadInt32LittleEndian(hit[4..]));
-        Assert.Equal(1, BinaryPrimitives.ReadInt32LittleEndian(hit[8..]));
-        Assert.Equal(last, BinaryPrimitives.ReadInt32LittleEndian(hit[12..]));
+        Assert.Equal((4, 1, last), (BinaryPrimitives.ReadInt32LittleEndian(hit[4..]),
+            BinaryPrimitives.ReadInt32LittleEndian(hit[8..]), BinaryPrimitives.ReadInt32LittleEndian(hit[12..])));
         Assert.Equal(12 + WireLayouts.ArticleSearchItemPodSize + 8 + WireLayouts.ArticlePublicationCoordinateBytes, hit.Length);
         var coordinate = hit[^WireLayouts.ArticlePublicationCoordinateBytes..];
-        Assert.Equal(9L, BinaryPrimitives.ReadInt64LittleEndian(coordinate));
-        Assert.Equal(9, BinaryPrimitives.ReadInt32LittleEndian(coordinate[8..]));
-        Assert.Equal(publication, BinaryPrimitives.ReadInt64LittleEndian(coordinate[12..]));
-        Assert.Equal(3, BinaryPrimitives.ReadInt32LittleEndian(coordinate[20..]));
+        Assert.Equal((9L, 9, publication, 3), (BinaryPrimitives.ReadInt64LittleEndian(coordinate),
+            BinaryPrimitives.ReadInt32LittleEndian(coordinate[8..]), BinaryPrimitives.ReadInt64LittleEndian(coordinate[12..]),
+            BinaryPrimitives.ReadInt32LittleEndian(coordinate[20..])));
 
         var survivors = articles[..^1];
-        var withdrawn = new PublicSnapshot(9, survivors, new([], [], []), pages, cursor, unchanged, NullLogger.Instance,
-            null, null, CancellationToken.None);
+        var withdrawn = Snapshot(9, survivors, unchanged);
         Assert.True(current.HasArticle(last));
         Assert.False(withdrawn.HasArticle(last));
         Assert.NotEqual(current.GenerationHeader, withdrawn.GenerationHeader);
@@ -216,6 +205,9 @@ public sealed class ArticleSearchWideTests
         var empty = Aeds.Decode(withdrawn.Search("withdrawalneedle", CancellationToken.None)!, FrameType.ArticleSearch);
         Assert.Equal(12, empty.Length);
         Assert.Equal(0, BinaryPrimitives.ReadInt32LittleEndian(empty[8..]));
+
+        PublicSnapshot Snapshot(long watermark, Article[] list, PublicSnapshot? previous = null) =>
+            new(watermark, list, new([], [], []), pages, cursor, previous, NullLogger.Instance, null, null, CancellationToken.None);
     }
 
     [Fact]
@@ -257,42 +249,31 @@ public sealed class ArticleSearchWideTests
         var wide = Assert.IsType<ArticleSearchIndex>(ArticleSearchIndex.Build(articles, CancellationToken.None));
         Assert.True(wide.UsesWideProfile);
 
-        var byRelevance = wide.SearchPage("sortprobe", ArticleSearchSort.Relevance, 1, 10, CancellationToken.None);
-        Assert.Equal(3, byRelevance.Total);
-        Assert.Equal([1, 40_500, 2], byRelevance.Articles.Select(article => article.Id));
-
-        var byLatest = wide.SearchPage("sortprobe", ArticleSearchSort.Latest, 1, 2, CancellationToken.None);
-        Assert.Equal(3, byLatest.Total);
-        Assert.Equal([40_500, 2], byLatest.Articles.Select(article => article.Id));
-        var byLatestPage2 = wide.SearchPage("sortprobe", ArticleSearchSort.Latest, 2, 2, CancellationToken.None);
-        Assert.Equal(3, byLatestPage2.Total);
-        Assert.Equal([1], byLatestPage2.Articles.Select(article => article.Id));
-        var pastEnd = wide.SearchPage("sortprobe", ArticleSearchSort.Latest, 3, 2, CancellationToken.None);
-        Assert.Equal(3, pastEnd.Total);
-        Assert.Empty(pastEnd.Articles);
+        ExpectPage(wide, "sortprobe", ArticleSearchSort.Relevance, 1, 10, 3, [1, 40_500, 2]);
+        ExpectPage(wide, "sortprobe", ArticleSearchSort.Latest, 1, 2, 3, [40_500, 2]);
+        ExpectPage(wide, "sortprobe", ArticleSearchSort.Latest, 2, 2, 3, [1]);
+        ExpectPage(wide, "sortprobe", ArticleSearchSort.Latest, 3, 2, 3, []);
 
         // Compound identifier honors Latest sort and pagination.
-        var compoundRel = wide.SearchPage("job_item-9", ArticleSearchSort.Relevance, 1, 10, CancellationToken.None);
-        Assert.Equal(2, compoundRel.Total);
-        Assert.Equal([40_900, 40_800], compoundRel.Articles.Select(article => article.Id));
-        var compoundLatest = wide.SearchPage("job_item-9", ArticleSearchSort.Latest, 1, 10, CancellationToken.None);
-        Assert.Equal(2, compoundLatest.Total);
-        Assert.Equal([40_800, 40_900], compoundLatest.Articles.Select(article => article.Id));
+        ExpectPage(wide, "job_item-9", ArticleSearchSort.Relevance, 1, 10, 2, [40_900, 40_800]);
+        ExpectPage(wide, "job_item-9", ArticleSearchSort.Latest, 1, 10, 2, [40_800, 40_900]);
 
         // Pagination caps at MaxPaginatedResults (1,000) while reporting exact total (1,198 Pageprobe articles).
         var page100 = wide.SearchPage("pageprobe", ArticleSearchSort.Latest, 100, 10, CancellationToken.None);
-        Assert.Equal(1_198, page100.Total);
-        Assert.Equal(10, page100.Articles.Length);
-        var page101 = wide.SearchPage("pageprobe", ArticleSearchSort.Latest, 101, 10, CancellationToken.None);
-        Assert.Equal(1_198, page101.Total);
-        Assert.Empty(page101.Articles);
+        Assert.Equal((1_198, 10), (page100.Total, page100.Articles.Length));
+        ExpectPage(wide, "pageprobe", ArticleSearchSort.Latest, 101, 10, 1_198, []);
 
         // Compact profile matches the same latest-sort contract.
         var compact = Assert.IsType<ArticleSearchIndex>(ArticleSearchIndex.Build(articles[..1_200], CancellationToken.None));
         Assert.False(compact.UsesWideProfile);
-        var compactLatest = compact.SearchPage("sortprobe", ArticleSearchSort.Latest, 1, 10, CancellationToken.None);
-        Assert.Equal(2, compactLatest.Total);
-        Assert.Equal([2, 1], compactLatest.Articles.Select(article => article.Id));
+        ExpectPage(compact, "sortprobe", ArticleSearchSort.Latest, 1, 10, 2, [2, 1]);
+
+        static void ExpectPage(ArticleSearchIndex index, string query, ArticleSearchSort sort, int page, int size, int total, int[] ids)
+        {
+            var result = index.SearchPage(query, sort, page, size, CancellationToken.None);
+            Assert.Equal(total, result.Total);
+            Assert.Equal(ids, result.Articles.Select(article => article.Id));
+        }
     }
 
     private static Article Row(int id, string title, string body, DateTimeOffset created) =>

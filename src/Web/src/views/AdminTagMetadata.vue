@@ -17,9 +17,9 @@ const error = ref<string | { key: MessageKey; kind: AdminMetadataKind }>('')
 const busy = ref(false)
 const stale = ref(false)
 const creating = computed(() => props.id === 0)
-const kindLabel = computed(() => t(props.kind === 'tag' ? 'admin.tagMetadata.kindTag' : 'admin.tagMetadata.kindCategory'))
-const label = computed(() => props.kind === 'tag' ? t('admin.tagMetadata.m1') : t('admin.tagMetadata.m2'))
-const heading = computed(() => creating.value ? t('admin.tagMetadata.m7', { kind: kindLabel.value }) : t('admin.tagMetadata.m8', { kind: kindLabel.value }))
+const kindLabel = computed(() => t(props.kind === 'tag' ? 'admin.taxonomy.kindTag' : 'admin.taxonomy.kindCategory'))
+const label = computed(() => props.kind === 'tag' ? t('page.tag') : t('page.category'))
+const heading = computed(() => creating.value ? t('admin.taxonomy.m41', { kind: kindLabel.value }) : t('admin.tagMetadata.m8', { kind: kindLabel.value }))
 const warning = computed(() => props.kind === 'tag'
   ? t('admin.tagMetadata.m3')
   : t('admin.tagMetadata.m4'))
@@ -86,7 +86,7 @@ onScopeDispose(() => lifetime.abort())
   <div class="tag-metadata-editor" :aria-label="heading" :aria-busy="busy">
     <ElAlert
       v-if="error"
-      :title="typeof error === 'string' ? error : t(error.key, { kind: t(error.kind === 'tag' ? 'admin.tagMetadata.kindTag' : 'admin.tagMetadata.kindCategory') })"
+      :title="typeof error === 'string' ? error : t(error.key, { kind: t(error.kind === 'tag' ? 'admin.taxonomy.kindTag' : 'admin.taxonomy.kindCategory') })"
       type="error"
       :closable="false"
     />
@@ -101,7 +101,7 @@ onScopeDispose(() => lifetime.abort())
       </div>
       <ElAlert v-if="!normalized" :title="warning" type="warning" :closable="false" />
       <ElInlineActions>
-        <ElButton :disabled="busy" @click="emit('close')">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
+        <ElButton :disabled="busy" @click="emit('close')">{{ t('nav.cancel') }}</ElButton>
         <ElButton v-if="!creating && (stale || !current)" :disabled="busy" @click="load">{{ t('admin.tagMetadata.m18', { kind: kindLabel }) }}</ElButton>
         <ElButton v-if="!stale" native-type="submit" type="primary" :disabled="!normalized || busy" :loading="busy">
           {{ submitLabel }}
@@ -109,7 +109,7 @@ onScopeDispose(() => lifetime.abort())
       </ElInlineActions>
     </form>
     <ElInlineActions v-else>
-      <ElButton :disabled="busy" @click="emit('close')">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
+      <ElButton :disabled="busy" @click="emit('close')">{{ t('nav.cancel') }}</ElButton>
       <ElButton v-if="!creating && (stale || !current)" :disabled="busy" @click="load">{{ t('admin.tagMetadata.m18', { kind: kindLabel }) }}</ElButton>
     </ElInlineActions>
   </div>

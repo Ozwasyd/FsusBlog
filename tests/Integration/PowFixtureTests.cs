@@ -1,6 +1,3 @@
-using System.Buffers.Binary;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server.Security;
 using Xunit.Sdk;
 
 namespace FsusBlog.V2.Integration.Tests;

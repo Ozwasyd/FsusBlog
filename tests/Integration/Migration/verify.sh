@@ -1,89 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-root="$(cd "$(dirname "$0")/../../.." && pwd)"
-cd "$root"
-dotnet_bin="${DOTNET_BIN:-dotnet}"
-libpq_bin="${PG_TOOLS_DIR:-}"
-if [[ -n "$libpq_bin" ]]; then
-  PATH="$libpq_bin:$PATH"
-fi
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+cd "$script_dir/../../.."
+source "$script_dir/pg-fixture.sh"
+pg_fixture_init fsusv2-cli 0 'Set FSUSBLOG_TEST_DB, PGHOST and PGUSER to the same isolated PostgreSQL test cluster.'
+pg_fixture_cleanup_message='Removed both test databases and scratch files.'
+for tool in psql pg_dump pg_restore openssl xxd rg; do command -v "$tool" >/dev/null; done
 
-if [[ -z "${FSUSBLOG_TEST_DB:-}" || -z "${PGHOST:-}" || -z "${PGUSER:-}" ]]; then
-  printf '%s\n' "Set FSUSBLOG_TEST_DB, PGHOST and PGUSER to the same isolated PostgreSQL test cluster." >&2
-  exit 2
-fi
+pg_fixture_build_cli
+expect_failure() {
+    local exp="$1"
+    shift
+    pg_fixture_expect_failure "$scratch/error.log" "$exp" "Expected failure containing $exp" "$@"
+}
 
-settings="${FSUSBLOG_TEST_DB%;}"
-for tool in psql pg_dump pg_restore openssl xxd rg; do
-  command -v "$tool" >/dev/null
-done
-psql_main=(psql -X --no-password -v ON_ERROR_STOP=1 --dbname postgres)
-umask 077
-scratch="$(mktemp -d "${TMPDIR:-/tmp}/fsusv2-cli.XXXXXXXX")"
 source_db="fsusv2_native_$(openssl rand -hex 12)"
 restore_db="${source_db}_restore"
-created_source=0
-created_restore=0
-cleanup() {
-  code=$?
-  trap - EXIT
-  if ((created_restore == 1)); then
-    if ! "${psql_main[@]}" -c "DROP DATABASE \"$restore_db\"" >&2; then
-      printf 'Database cleanup failed: %s\n' "$restore_db" >&2
-      if ((code == 0)); then code=1; fi
-    fi
-  fi
-  if ((created_source == 1)); then
-    if ! "${psql_main[@]}" -c "DROP DATABASE \"$source_db\"" >&2; then
-      printf 'Database cleanup failed: %s\n' "$source_db" >&2
-      if ((code == 0)); then code=1; fi
-    fi
-  fi
-  if ! rm -f -- "$scratch/plan.json" "$scratch/backup.dump" "$scratch/error.log" "$scratch/inventory.json" ||
-     ! rmdir -- "$scratch"; then
-    printf 'Artifact cleanup failed: %s\n' "$scratch" >&2
-    if ((code == 0)); then code=1; fi
-  fi
-  if ((code == 0)); then
-    printf '%s\n' "Removed both test databases and scratch files."
-  fi
-  exit "$code"
-}
-trap cleanup EXIT
-
-if [[ -n ${FSUSBLOG_TEST_CLI_DLL:-} ]]; then
-  # CI supplies the same Release CLI already built and used by integration tests.
-  # Do not start persistent build servers inside the disposable test process group.
-  [[ -s "$FSUSBLOG_TEST_CLI_DLL" ]] || {
-    printf 'Missing built CLI: %s\n' "$FSUSBLOG_TEST_CLI_DLL" >&2
-    exit 2
-  }
-  cli=("$dotnet_bin" "$FSUSBLOG_TEST_CLI_DLL")
-else
-  cli_project="src/Cli/FsusBlog.V2.Cli.csproj"
-  "$dotnet_bin" restore "$cli_project" --configfile NuGet.Config --locked-mode
-  "$dotnet_bin" build "$cli_project" --no-restore
-  cli=("$dotnet_bin" src/Cli/bin/Debug/net10.0/FsusBlog.V2.Cli.dll)
-fi
-
-expect_failure() {
-  local expected="$1"
-  shift
-  if "$@" > "$scratch/error.log" 2>&1; then
-    printf 'Expected failure containing %s\n' "$expected" >&2
-    return 1
-  fi
-  if ! rg -F "$expected" "$scratch/error.log"; then
-    cat "$scratch/error.log" >&2
-    return 1
-  fi
-}
-
-"${psql_main[@]}" -c "CREATE DATABASE \"$source_db\" TEMPLATE template0"
-created_source=1
-"${psql_main[@]}" -c "CREATE DATABASE \"$restore_db\" TEMPLATE template0"
-created_restore=1
+pg_fixture_create_db "$source_db"
+pg_fixture_create_db "$restore_db"
 export FSUSBLOG_DB="$settings;Database=$source_db"
 psql_source=(psql -X --no-password -v ON_ERROR_STOP=1 --dbname "$source_db")
 psql_restore=(psql -X --no-password -v ON_ERROR_STOP=1 --dbname "$restore_db")
@@ -103,7 +38,7 @@ expect_failure 'requires an empty database' "${cli[@]}" apply "$scratch/plan.jso
 
 ticket=$("${cli[@]}" operator 'Native reader')
 [[ "$ticket" =~ ^[0-9a-f]{64}$ ]]
-digest="$(printf '%s' "$ticket" | xxd -r -p | openssl dgst -sha256 | awk '{print $NF}')"
+digest="$(pg_fixture_sha256_hex "$ticket")"
 [[ "$("${psql_source[@]}" -qAtc "SELECT encode(digest, 'hex') FROM public.login_ticket")" == "$digest" ]]
 unset ticket digest
 "${cli[@]}" revoke 'Native reader'
@@ -128,15 +63,14 @@ INSERT INTO public.article_publication_history (article_id, event_no, revision, 
 COMMIT;
 SQL
 
-"${psql_source[@]}" -c 'UPDATE public.v2_schema SET version = 99'
-expect_failure 'schema marker at version 1' "${cli[@]}" verify
-"${psql_source[@]}" -c 'UPDATE public.v2_schema SET version = 1'
-"${psql_source[@]}" -c 'UPDATE public.article_publication SET revision = 2'
-expect_failure 'inconsistent publication coordinates' "${cli[@]}" verify
-"${psql_source[@]}" -c 'UPDATE public.article_publication SET revision = 1'
-"${psql_source[@]}" -c 'UPDATE public.article_publication SET publication_no = 2'
-expect_failure 'inconsistent publication coordinates' "${cli[@]}" verify
-"${psql_source[@]}" -c 'UPDATE public.article_publication SET publication_no = 1'
+verify_drift() {
+  "${psql_source[@]}" -c "$1"
+  expect_failure "$2" "${cli[@]}" verify
+  if [[ -n "${3:-}" ]]; then "${psql_source[@]}" -c "$3"; fi
+}
+verify_drift 'UPDATE public.v2_schema SET version = 99' 'schema marker at version 1' 'UPDATE public.v2_schema SET version = 1'
+verify_drift 'UPDATE public.article_publication SET revision = 2' 'inconsistent publication coordinates' 'UPDATE public.article_publication SET revision = 1'
+verify_drift 'UPDATE public.article_publication SET publication_no = 2' 'inconsistent publication coordinates' 'UPDATE public.article_publication SET publication_no = 1'
 "${cli[@]}" inventory --counts > "$scratch/inventory.json"
 rg -A 3 '"name": "article",' "$scratch/inventory.json" | rg -F '"rows": 1'
 pg_dump --no-password --format=custom --dbname "$source_db" --file "$scratch/backup.dump"
@@ -268,19 +202,16 @@ SQL
 FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'constraint shape mismatch' "${cli[@]}" verify
 
 appeal_step_up_pair="CHECK ((kind = 1 AND options IS NOT NULL) OR (kind = 2 AND options IS NULL))"
-"${psql_source[@]}" -c 'ALTER TABLE public.comment_appeal_admin_step_up DROP CONSTRAINT comment_appeal_admin_step_up_options_check'
-expect_failure 'comment_appeal_admin_step_up c options octet_length(options)>=1ANDoctet_length(options)<=8192' "${cli[@]}" verify
-"${psql_source[@]}" -c 'ALTER TABLE public.comment_appeal_admin_step_up ADD CONSTRAINT comment_appeal_admin_step_up_options_check CHECK (octet_length(options) BETWEEN 1 AND 8192)'
-"${psql_source[@]}" -c 'ALTER TABLE public.comment_appeal_admin_step_up DROP CONSTRAINT comment_appeal_admin_step_up_check'
-expect_failure 'comment_appeal_admin_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL' "${cli[@]}" verify
-"${psql_source[@]}" -c "ALTER TABLE public.comment_appeal_admin_step_up ADD CONSTRAINT comment_appeal_admin_step_up_check $appeal_step_up_pair NOT VALID"
-expect_failure 'comment_appeal_admin_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL not-validated' "${cli[@]}" verify
-"${psql_source[@]}" -c 'ALTER TABLE public.comment_appeal_admin_step_up VALIDATE CONSTRAINT comment_appeal_admin_step_up_check'
+verify_drift 'ALTER TABLE public.comment_appeal_admin_step_up DROP CONSTRAINT comment_appeal_admin_step_up_options_check' \
+  'comment_appeal_admin_step_up c options octet_length(options)>=1ANDoctet_length(options)<=8192' \
+  'ALTER TABLE public.comment_appeal_admin_step_up ADD CONSTRAINT comment_appeal_admin_step_up_options_check CHECK (octet_length(options) BETWEEN 1 AND 8192)'
+verify_drift 'ALTER TABLE public.comment_appeal_admin_step_up DROP CONSTRAINT comment_appeal_admin_step_up_check' \
+  'comment_appeal_admin_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL'
+verify_drift "ALTER TABLE public.comment_appeal_admin_step_up ADD CONSTRAINT comment_appeal_admin_step_up_check $appeal_step_up_pair NOT VALID" \
+  'comment_appeal_admin_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL not-validated' \
+  'ALTER TABLE public.comment_appeal_admin_step_up VALIDATE CONSTRAINT comment_appeal_admin_step_up_check'
 "${cli[@]}" verify
 
-"${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 2'
-expect_failure 'unexpected-identity-sequence' "${cli[@]}" verify
-"${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 1'
-"${psql_source[@]}" -c 'ALTER TABLE public.article DROP CONSTRAINT article_current_revision_fk'
-expect_failure 'constraint shape mismatch' "${cli[@]}" verify
+verify_drift 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 2' 'unexpected-identity-sequence' 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 1'
+verify_drift 'ALTER TABLE public.article DROP CONSTRAINT article_current_revision_fk' 'constraint shape mismatch'
 printf '%s\n' "Native PostgreSQL CLI verification checks passed."

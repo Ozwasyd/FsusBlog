@@ -42,8 +42,8 @@ let opener: HTMLElement | undefined
 
 const createDialogTitle = computed(() => {
   if (!creatingKind.value) return ''
-  const kind = t(creatingKind.value === 'category' ? 'admin.tagMetadata.kindCategory' : 'admin.tagMetadata.kindTag')
-  return t('admin.tagMetadata.m7', { kind })
+  const kind = t(creatingKind.value === 'category' ? 'admin.taxonomy.kindCategory' : 'admin.taxonomy.kindTag')
+  return t('admin.taxonomy.m41', { kind })
 })
 const selected = computed<TaxonomySelection>(() => ({
   categoryId: category.value || null,
@@ -180,7 +180,7 @@ function reset() {
     <div v-else-if="original" class="taxonomy-fields">
       <div class="taxonomy-field">
         <div class="editor-taxonomy-label-row">
-          <label for="edit-category">{{ t('author.taxonomy.category') }}</label>
+          <label for="edit-category">{{ t('page.category') }}</label>
           <ElButton
             v-if="canCreateCategory"
             native-type="button"
@@ -189,17 +189,17 @@ function reset() {
             :disabled="props.disabled || !!creatingKind"
             @click="openCreate('category', $event)"
           >
-            {{ t('admin.tagMetadata.m7', { kind: t('admin.tagMetadata.kindCategory') }) }}
+            {{ t('admin.taxonomy.m41', { kind: t('admin.taxonomy.kindCategory') }) }}
           </ElButton>
         </div>
-        <ElSelect id="edit-category" v-model="category" :ariaLabel="t('author.taxonomy.category')" :disabled="props.disabled" filterable>
+        <ElSelect id="edit-category" v-model="category" :ariaLabel="t('page.category')" :disabled="props.disabled" filterable>
           <ElOption :value="0" :label="t('author.taxonomy.noCategory')" />
           <ElOption v-for="item in categoryOptions" :key="item.id" :value="item.id" :label="item.name" />
         </ElSelect>
       </div>
       <div class="taxonomy-field">
         <div class="editor-taxonomy-label-row">
-          <label for="edit-tags">{{ t('author.taxonomy.tags') }}</label>
+          <label for="edit-tags">{{ t('admin.taxonomy.m6') }}</label>
           <ElButton
             v-if="canCreateTag"
             native-type="button"
@@ -208,10 +208,10 @@ function reset() {
             :disabled="props.disabled || !!creatingKind"
             @click="openCreate('tag', $event)"
           >
-            {{ t('admin.tagMetadata.m7', { kind: t('admin.tagMetadata.kindTag') }) }}
+            {{ t('admin.taxonomy.m41', { kind: t('admin.taxonomy.kindTag') }) }}
           </ElButton>
         </div>
-        <ElSelect id="edit-tags" v-model="tags" :ariaLabel="t('author.taxonomy.tags')" :disabled="props.disabled" :multiple-limit="maxTags" multiple filterable>
+        <ElSelect id="edit-tags" v-model="tags" :ariaLabel="t('admin.taxonomy.m6')" :disabled="props.disabled" :multiple-limit="maxTags" multiple filterable>
           <ElOption v-for="item in tagOptions" :key="item.id" :value="item.id" :label="item.name" />
         </ElSelect>
       </div>

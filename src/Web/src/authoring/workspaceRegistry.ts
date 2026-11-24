@@ -368,8 +368,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     }
     if (signal.aborted || intent !== this.#activation || !this.#currentIdentity()) return undefined
     for (const item of restored) {
-      this.#sessions.set(item.id, { ...item, draft: structuredClone(item.draft), sessionId: ++this.#sequence,
-        controller: new AbortController(), phase: 'ready', dirty: false, conflict: false, recovery: false, pending: false, edit: 0 })
+      this.#sessions.set(item.id, this.#createSession(item.id, item.group, item.mode, 'ready', { draft: structuredClone(item.draft) }))
     }
     this.#selected.main = this.#sessions.get(layout.activeArticleId)
     this.#selected.secondary = this.#sessions.get(layout.secondaryActiveArticleId)
@@ -406,12 +405,11 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       const canReplace = mode === 'preview' && this.#cleanPreview(group)
       if (this.#sessions.size >= this.#limit && !canReplace) return { kind: 'capacity' }
       const controller = new AbortController()
-      session = {
-        id: articleId, sessionId: ++this.#sequence, group, mode, controller,
-        phase: 'loading', dirty: false, conflict: false, recovery: false, pending: false, edit: 0,
+      session = this.#createSession(articleId, group, mode, 'loading', {
+        controller,
         loading: untilAborted(controller.signal, () => this.#transport.load(articleId, controller.signal))
           .catch(() => blocked('unavailable')),
-      }
+      })
       this.#sessions.set(articleId, session)
     }
 
@@ -495,11 +493,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     if (!this.#sessions.has(0)) {
       const visibleCount = Array.from(this.#sessions.values()).filter(session => session.phase !== 'loading').length
       if (visibleCount >= this.#limit) return Promise.resolve({ kind: 'capacity' })
-      this.#sessions.set(0, {
-        id: 0, sessionId: ++this.#sequence, group, mode: 'pinned', draft: structuredClone(draft),
-        controller: new AbortController(), phase: 'ready', dirty: false, conflict: false,
-        recovery: false, pending: false, edit: 0,
-      })
+      this.#sessions.set(0, this.#createSession(0, group, 'pinned', 'ready', { draft: structuredClone(draft) }))
     }
     return this.openOrActivate(0, group, 'pinned')
   }
@@ -697,19 +691,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   }
 
   applyClose(plan: ClosePlan): CloseReceipt {
-    if (plan.revision !== this.#revision) return { kind: 'stale' }
-    const sessions: Session<Draft>[] = []
-    for (const tab of plan.tabs) {
-      const session = this.#find(tab)
-      if (!session || session.phase === 'loading') return { kind: 'stale' }
-      if (this.#risk(session) !== 'clean') return { kind: 'protected' }
-      sessions.push(session)
-    }
-    if (sessions.length > 0) {
-      for (const session of sessions) this.#close(session)
-      this.#changed()
-    }
-    return { kind: 'closed' }
+    return this.#closePlan(plan, session => this.#risk(session) === 'clean')
   }
 
   recoveryDraftsForClose(plan: ClosePlan, saving = false): readonly RecoverableCloseDraft<Draft>[] | undefined {
@@ -776,12 +758,16 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   }
 
   discardMany(plan: ClosePlan): CloseReceipt {
+    return this.#closePlan(plan, session => !session.writing && !session.request && !session.pending && !session.recovery)
+  }
+
+  #closePlan(plan: ClosePlan, allowed: (session: Session<Draft>) => boolean): CloseReceipt {
     if (plan.revision !== this.#revision) return { kind: 'stale' }
     const sessions = new Set<Session<Draft>>()
     for (const tab of plan.tabs) {
       const session = this.#find(tab)
       if (!session || session.phase === 'loading') return { kind: 'stale' }
-      if (session.writing || session.request || session.pending || session.recovery) return { kind: 'protected' }
+      if (!allowed(session)) return { kind: 'protected' }
       sessions.add(session)
     }
     if (sessions.size) {
@@ -789,6 +775,19 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
       this.#changed()
     }
     return { kind: 'closed' }
+  }
+
+  #createSession(
+    id: number,
+    group: WorkspaceGroup,
+    mode: TabMode,
+    phase: Session<Draft>['phase'],
+    extras: Partial<Session<Draft>> = {},
+  ): Session<Draft> {
+    return {
+      id, sessionId: ++this.#sequence, group, mode, controller: new AbortController(),
+      phase, dirty: false, conflict: false, recovery: false, pending: false, edit: 0, ...extras,
+    }
   }
 
   idle(): void {

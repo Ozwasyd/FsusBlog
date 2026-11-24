@@ -1,14 +1,3 @@
-using System.Globalization;
-using System.Net;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Administration;
-using FsusBlog.V2.Server.Authoring;
-using FsusBlog.V2.Server.Operations;
-using FsusBlog.V2.Server.Sessions;
-using Microsoft.AspNetCore.Http.Features;
-using Npgsql;
-
 namespace FsusBlog.V2.Server;
 
 internal static class ServerHttp
@@ -28,10 +17,13 @@ internal static class ServerHttp
 
     internal static void NoStore(HttpContext ctx) => ctx.Response.Headers.CacheControl = "no-store";
 
+    internal static IResult ErrorFrame(HttpContext ctx, int status, string message, string? details = null) =>
+        new AedsError(status, Wire.EncodeError(status, message, details, ctx.TraceIdentifier));
+
     internal static IResult Error(HttpContext ctx, int status, string message, string? details = null)
     {
         NoStore(ctx);
-        return new AedsError(status, Wire.EncodeError(status, message, details, ctx.TraceIdentifier));
+        return ErrorFrame(ctx, status, message, details);
     }
 
     internal static PublicSnapshot Snapshot(HttpContext ctx, Publications publications)
@@ -126,4 +118,71 @@ internal static class ServerHttp
         PublicUnavailableException or NpgsqlException => (503, "This operation is temporarily unavailable.", null),
         _ => (500, "An internal error occurred.", null)
     };
+}
+
+internal sealed record AedsError(int Status, byte[] Packet) : IResult
+{
+    public async Task ExecuteAsync(HttpContext ctx)
+    {
+        ctx.Response.StatusCode = Status;
+        ctx.Response.ContentType = ServerHttp.BinaryContentType;
+        ctx.Response.ContentLength = Packet.Length;
+        await ctx.Response.Body.WriteAsync(Packet, ctx.RequestAborted);
+    }
+}
+
+internal static class ClientMutationHeader
+{
+    internal const string Mismatch = "Command key does not match its request header.";
+
+    internal static bool Matches(HttpContext context, Guid key, bool required = false) =>
+        context.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header)
+            ? header.Count == 1 && Guid.TryParseExact(header[0], "D", out var parsed) && parsed == key
+            : !required;
+
+    internal static void Require(HttpContext context, Guid key, bool required = false)
+    {
+        if (!Matches(context, key, required)) throw new BusinessException(Rejection.Invalid, Mismatch);
+    }
+}
+
+internal static class DraftRevisionQuery
+{
+    internal static long Read(HttpContext context, int id) =>
+        Read(id > 0 ? ServerHttp.Query(context, "revision", 19) : null);
+
+    internal static long Read(string? text) =>
+        long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out var revision) && revision > 0
+            ? revision : throw new BusinessException(Rejection.Invalid, "A valid draft revision is required.");
+}
+
+internal static class ImmediateConcurrencyLimits
+{
+    internal static void AddImmediateConcurrency(this RateLimiterOptions options, string policy, int permits) =>
+        options.AddConcurrencyLimiter(policy, limiter =>
+        {
+            limiter.PermitLimit = permits;
+            limiter.QueueLimit = 0;
+        });
+}
+
+internal static class CommandEndpoints
+{
+    internal const string Policy = "command";
+    internal const string QueryPolicy = "query";
+
+    internal static RouteHandlerBuilder MapCommandGet(this IEndpointRouteBuilder routes, string pattern, Delegate handler) =>
+        routes.MapGet(pattern, handler).RequireRateLimiting(Policy);
+
+    internal static RouteHandlerBuilder MapCommandPost(this IEndpointRouteBuilder routes, string pattern, Delegate handler) =>
+        routes.MapPost(pattern, handler).RequireRateLimiting(Policy);
+
+    internal static RouteHandlerBuilder MapCommandPut(this IEndpointRouteBuilder routes, string pattern, Delegate handler) =>
+        routes.MapPut(pattern, handler).RequireRateLimiting(Policy);
+
+    internal static RouteHandlerBuilder MapQueryGet(this IEndpointRouteBuilder routes, string pattern, Delegate handler) =>
+        routes.MapGet(pattern, handler).RequireRateLimiting(QueryPolicy);
+
+    internal static RouteHandlerBuilder MapQueryMethods(this IEndpointRouteBuilder routes, string pattern, IEnumerable<string> methods, Delegate handler) =>
+        routes.MapMethods(pattern, methods, handler).RequireRateLimiting(QueryPolicy);
 }

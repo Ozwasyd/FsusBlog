@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { hexFixture } from './fixture-source.ts';
+import { appendByte, hexBytes, hexFixture, sha256Hex, withByte, withI32 } from './fixture-source.ts';
 import { test, type TestContext } from 'node:test';
 import { ProtocolError, encodeFrame } from '../../src/Contracts/aeds.ts';
 import {
@@ -10,25 +9,20 @@ import {
 } from '../../src/Contracts/local-search.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireRoutes } from '../../src/Contracts/wire.generated.ts';
 
-const fixtures = (name: string) =>
-  Uint8Array.from(hexFixture(`${name}.hex`));
+const fixtures = (name: string) => Uint8Array.from(hexFixture(`${name}.hex`));
 const packageBytes = fixtures('search-fspk-v4');
 const expected = fixtures('search-fsr4');
 
 test('FSPK v4 indexes a body-only term and produces the fixed FSR4 result', () => {
   assert.deepEqual(searchTerms('foo ＦＯＯ'), [0xf6a5c420, 0xf6a5c420]);
-  const shard = queryCorpusPage(packageBytes, searchTerms('needle'));
-  assert.deepEqual([...shard.matches.keys()], [42]);
-  assert.deepEqual([...queryCorpusPage(packageBytes, searchTerms('need')).matches.keys()], [42]);
-  assert.deepEqual([...queryCorpusPage(packageBytes, searchTerms('tit')).matches.keys()], [42]);
-  assert.deepEqual([...queryCorpusPage(packageBytes, searchTerms('not')).matches.keys()], [42]);
-  assert.equal(queryCorpusPage(packageBytes, searchTerms('ne')).matches.size, 0);
-  assert.equal(queryCorpusPage(packageBytes, searchTerms('雪')).matches.size, 1);
-  assert.equal(queryCorpusPage(packageBytes, searchTerms('absent')).matches.size, 0);
+  const query = (term: string) => queryCorpusPage(packageBytes, searchTerms(term));
+  const shard = query('needle');
+  for (const term of ['needle', 'need', 'tit', 'not', '雪']) assert.deepEqual([...query(term).matches.keys()], [42]);
+  for (const term of ['ne', 'absent']) assert.equal(query(term).matches.size, 0);
   const doc = shard.documents.get(42)!;
   assert.equal(doc.title, 'Title');
   assert.equal(doc.summary, 'note');
-  assert(!Object.hasOwn(doc, 'body'));
+  assert.equal(Object.hasOwn(doc, 'body'), false);
   assert.equal(doc.revision, 9007199254740993n);
   assert.equal(doc.publication, 9007199254741001n);
   assert.equal(doc.category.name, 'Lab');
@@ -80,9 +74,7 @@ test('weighted CJK words preserve width, scalar matches, and non-positional stop
   assert.equal(score('搜索 公开页'), score('公开页 搜索'));
   assert.equal(score('的 搜索'), score('搜索 的'));
   assert.equal(score('ABC 博客'), score('博客 ABC'));
-  assert.deepEqual([...query('公开').matches.keys()], [42]);
-  assert.deepEqual([...query('客').matches.keys()], [42]);
-  assert.deepEqual([...query('的').matches.keys()], [42]);
+  for (const term of ['公开', '客', '的']) assert.deepEqual([...query(term).matches.keys()], [42]);
   const shard = new DataView(dictionary.buffer, L.SearchPackagePayloadOffset);
   const term = shard.getUint32(36, true); // First sorted hash is 公开页.
   const posting = shard.getUint32(60, true) + shard.getUint32(term + 8, true);
@@ -91,61 +83,29 @@ test('weighted CJK words preserve width, scalar matches, and non-positional stop
 });
 
 test('admission rejects incorrect package versions, offsets, invalid postings and wrong result contracts', () => {
-  for (const end of [0, 12, 104, packageBytes.length - 1]) {
+  for (const end of [0, 12, 104, packageBytes.length - 1])
     assert.throws(() => queryCorpusPage(packageBytes.subarray(0, end), []), ProtocolError);
-  }
-  const mutate = (offset: number, value: number) => {
-    const changed = packageBytes.slice();
-    new DataView(changed.buffer).setUint32(offset, value, true);
-    assert.throws(() => queryCorpusPage(changed, searchTerms('unknown')), ProtocolError);
-  };
-  mutate(4, 3);
-  mutate(L.SearchPackageEntryOffset + 8, 28);
-  mutate(L.SearchPackagePayloadOffset + 64, 1);
-  const changedPosting = packageBytes.slice();
-  changedPosting[changedPosting.length - 1] = 8;
-  assert.throws(() => queryCorpusPage(changedPosting, searchTerms('unknown')), ProtocolError);
+  for (const [offset, value] of [[4, 3], [L.SearchPackageEntryOffset + 8, 28], [L.SearchPackagePayloadOffset + 64, 1]])
+    assert.throws(() => queryCorpusPage(withI32(packageBytes, offset, value), searchTerms('unknown')), ProtocolError);
+  assert.throws(() => queryCorpusPage(withByte(packageBytes, packageBytes.length - 1, 8), searchTerms('unknown')), ProtocolError);
   const fas4Frame = encodeFrame(FrameType.ArticleSearch, fixtures('article-search-fas4').subarray(16));
   assert.throws(() => decodeLocalSearchResult(fas4Frame.subarray(16)), ProtocolError);
-  assert.throws(() => decodeLocalSearchResult(Uint8Array.from([...expected, 0])), ProtocolError);
+  assert.throws(() => decodeLocalSearchResult(appendByte(expected, 0)), ProtocolError);
 });
 
 test('search uses corpus GET and separately revalidates with HEAD, rejecting mixed pages and withdrawal', async (t) => {
-  let pages = 1;
+  let corpus = [packageBytes];
   let page2Generation = '700';
-  let current = '700';
-  const requests: string[] = [];
-  t.mock.method(globalThis, 'fetch', (path: string, init: RequestInit) => {
-    const url = new URL(path, 'http://localhost');
-    assert.equal(url.pathname, WireRoutes.PublicSearchCorpus);
-    assert.equal(init.credentials, 'omit');
-    assert.equal(init.cache, 'no-store');
-    const generation = url.searchParams.get('generation');
-    const page = Number(url.searchParams.get('page'));
-    requests.push(`${init.method}:${generation ?? 'current'}:${page || '-'}`);
-    if (init.method === 'HEAD') {
-      return new Response(null, {
-        status: generation === current ? 204 : 409,
-        headers: { [WireHeaders.SearchIndexGeneration]: current },
-      });
-    }
-    return new Response(packageBytes.slice(), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        [WireHeaders.SearchIndexPages]: String(pages),
-        [WireHeaders.SearchIndexGeneration]: page === 1 ? current : page2Generation,
-      },
-    });
-  });
+  let generation = '700';
+  const { calls } = mockCorpus(t, () => ({ generation, corpus, available: true, page2Generation }));
   const local = await searchCorpus('needle');
   assert.equal(local.generation, '700');
   assert.deepEqual(local.frame, expected);
   await verifySearchGeneration(local.generation);
-  assert.deepEqual(requests, ['GET:current:1', 'HEAD:700:-']);
-  current = '701';
+  assert.deepEqual(calls.splice(0), ['GET:current:1', 'HEAD:700:-']);
+  generation = '701';
   await assert.rejects(verifySearchGeneration(local.generation), { status: 409 });
-  pages = 2;
+  corpus = [packageBytes, packageBytes];
   await assert.rejects(searchCorpus('needle'), ProtocolError);
   page2Generation = '701';
   await assert.rejects(searchCorpus('needle'), /duplicate corpus article/);
@@ -159,19 +119,7 @@ test('FSR4 empty pages preserve the distinction between no tokens, no matches, a
   const empty = '465352340400000000000000000000001800000018000000';
   const pastEnd = '465352340400000001000000000000001800000018000000';
   const generation = '710';
-  const calls: string[] = [];
-  t.mock.method(globalThis, 'fetch', (path: string, init: RequestInit) => {
-    const url = new URL(path, 'http://localhost');
-    assert.equal(url.pathname, WireRoutes.PublicSearchCorpus);
-    calls.push(`${init.method} ${url.search}`);
-    const headers = { [WireHeaders.SearchIndexGeneration]: generation };
-    if (init.method === 'HEAD') return new Response(null, { status: 204, headers });
-    return new Response(packageBytes.slice(), { headers: {
-      ...headers,
-      'Content-Type': 'application/octet-stream',
-      [WireHeaders.SearchIndexPages]: '1',
-    } });
-  });
+  const { calls } = mockCorpus(t, () => ({ generation, corpus: [packageBytes], available: true }));
 
   const search = createCorpusSearch();
   const tokenless = await search('!!!');
@@ -184,15 +132,15 @@ test('FSR4 empty pages preserve the distinction between no tokens, no matches, a
   assert.equal(Buffer.from(noMatches.frame).toString('hex'), empty);
   assert.deepEqual(decodeLocalSearchResult(noMatches.frame), { items: [], total: 0, nextCursor: null });
   await verifySearchGeneration(noMatches.generation);
-  assert.deepEqual(calls.splice(0), ['GET ?page=1', 'HEAD ?generation=710']);
+  assert.deepEqual(calls.splice(0), ['GET:current:1', 'HEAD:710:-']);
 
   const beyondLastPage = await search('needle', undefined, 2, 1);
   assert.equal(beyondLastPage.generation, generation);
   assert.equal(Buffer.from(beyondLastPage.frame).toString('hex'), pastEnd);
   assert.deepEqual(decodeLocalSearchResult(beyondLastPage.frame), { items: [], total: 1, nextCursor: null });
-  assert.deepEqual(calls, ['HEAD ?generation=710']);
+  assert.deepEqual(calls, ['HEAD:710:-']);
   await verifySearchGeneration(beyondLastPage.generation);
-  assert.deepEqual(calls, ['HEAD ?generation=710', 'HEAD ?generation=710']);
+  assert.deepEqual(calls, ['HEAD:710:-', 'HEAD:710:-']);
 });
 
 function resultIds(frame: Uint8Array) {
@@ -211,32 +159,37 @@ function pageWithId(id: number) {
   return result;
 }
 
-const corpusETag = (bytes: Uint8Array) => `"${createHash('sha256').update(bytes).digest('hex')}"`;
+const corpusETag = (bytes: Uint8Array) => `"${sha256Hex(bytes)}"`;
 
-function mockCorpus(t: TestContext, state: () => { generation: string; corpus: Uint8Array<ArrayBuffer>[]; available: boolean },
-  notModified = (headers: Record<string, string>, etag: string) => new Response(null, { status: 304, headers: { ...headers, ETag: etag } })) {
+function mockCorpus(
+  t: TestContext,
+  state: () => { generation: string; corpus: Uint8Array<ArrayBuffer>[]; available: boolean; page2Generation?: string },
+  notModified = (headers: Record<string, string>, etag: string) => new Response(null, { status: 304, headers: { ...headers, ETag: etag } }),
+) {
   const calls: string[] = [];
   const bodies: number[] = [];
 
   t.mock.method(globalThis, 'fetch', (path: string, init: RequestInit) => {
-    const { generation, corpus, available } = state();
+    const { generation, corpus, available, page2Generation } = state();
     const url = new URL(path, 'http://localhost');
+    assert.equal(url.pathname, WireRoutes.PublicSearchCorpus);
+    assert.equal(init.credentials, 'omit');
+    assert.equal(init.cache, 'no-store');
     const pinned = url.searchParams.get('generation');
     const page = Number(url.searchParams.get('page'));
     calls.push(`${init.method}:${pinned ?? 'current'}:${page || '-'}`);
+    const responseGeneration = page === 2 && page2Generation !== undefined ? page2Generation : generation;
     const headers = {
       'Content-Type': 'application/octet-stream',
       [WireHeaders.SearchIndexPages]: String(corpus.length),
-      [WireHeaders.SearchIndexGeneration]: generation,
+      [WireHeaders.SearchIndexGeneration]: responseGeneration,
     };
     if (!available) return new Response(null, { status: 503 });
-    if (pinned !== null && pinned !== generation) return new Response(null, { status: 409 });
+    if (pinned !== null && pinned !== generation) return new Response(null, { status: 409, headers: { [WireHeaders.SearchIndexGeneration]: generation } });
     if (!page) return new Response(null, { status: 204, headers });
     const bytes = corpus[page - 1];
     const etag = corpusETag(bytes);
-    if (new Headers(init.headers).get('If-None-Match') === etag) {
-      return notModified(headers, etag);
-    }
+    if (new Headers(init.headers).get('If-None-Match') === etag) return notModified(headers, etag);
     bodies.push(page);
     return new Response(bytes.slice(), { headers: { ...headers, ETag: etag } });
   });
@@ -317,10 +270,6 @@ test('FSPT admits an exact target in the normal Worker cache and retries a damag
   const revisionOffset = 32 + Buffer.from(target).readUInt32LE(72) + 52;
   const targetRevision = 9007199254740994n;
   new DataView(target.buffer).setBigInt64(revisionOffset, targetRevision, true);
-  const sha = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest();
-  const tag = (bytes: Uint8Array) => `"${sha(bytes).toString('hex')}"`;
-
-  // Independent encoder with one explicit edit from the fixed FSPK fixture.
   const sample = Buffer.alloc(116);
   sample.write('FSPT');
   sample.writeUInt32LE(4, 4);
@@ -331,8 +280,8 @@ test('FSPT admits an exact target in the normal Worker cache and retries a damag
   sample.writeUInt32LE(target.length, 32);
   sample.writeUInt32LE(revisionOffset, 36);
   sample.writeUInt32LE(base.length - revisionOffset - 8, 40);
-  sha(base).copy(sample, 44);
-  sha(target).copy(sample, 76);
+  hexBytes(sha256Hex(base)).copy(sample, 44);
+  hexBytes(sha256Hex(target)).copy(sample, 76);
   sample.writeBigInt64LE(targetRevision, 108);
 
   let current = baseGeneration;
@@ -355,13 +304,13 @@ test('FSPT admits an exact target in the normal Worker cache and retries a damag
       assert.equal(pinned, targetGeneration);
       assert.equal(page, 2);
       assert.equal(request.get('Accept'), `${media}, application/octet-stream`);
-      assert.equal(request.get('If-None-Match'), tag(base));
+      assert.equal(request.get('If-None-Match'), corpusETag(base));
       return new Response(Uint8Array.from(patch), { headers: { ...headers, 'Content-Type': media,
-        [WireHeaders.SearchCorpusTargetDigest]: sha(target).toString('hex'),
+        [WireHeaders.SearchCorpusTargetDigest]: sha256Hex(target),
       } });
     }
     if (withdrewDuringFallback && page === 2 && pinned === targetGeneration) return new Response(null, { status: 409 });
-    const etag = tag(bytes);
+    const etag = corpusETag(bytes);
     if (request.get('If-None-Match') === etag) return new Response(null, { status: 304, headers: { ...headers, ETag: etag } });
     return new Response(bytes.slice(), { headers: { ...headers, 'Content-Type': 'application/octet-stream', ETag: etag } });
   });
@@ -377,7 +326,7 @@ test('FSPT admits an exact target in the normal Worker cache and retries a damag
     if (corruptAt === -2) {
       // The replacement and its embedded digest agree, but not with the separately sealed target.
       patch.set(base.subarray(revisionOffset, revisionOffset + 8), 108);
-      patch.set(sha(base), 76);
+      patch.set(hexBytes(sha256Hex(base)), 76);
     }
     current = targetGeneration;
     const result = await search('needle');
@@ -490,48 +439,35 @@ test('persistent compact storage reuses across sessions, refreshes via 304, disc
     },
   };
 
-  function expectIds(result: Awaited<ReturnType<CorpusSearch>>, ids: number[]) {
-    assert.deepEqual(resultIds(result.frame), ids);
-  }
+  type Sort = 'relevance' | 'latest';
+  const check = async (session: CorpusSearch, sort: Sort, ids: number[], reqs: string[], pages: number[] = []) => {
+    assert.deepEqual(resultIds((await session('needle', undefined, 1, 10, sort)).frame), ids);
+    expectTraffic(reqs, pages);
+  };
 
-  // First session: cold download saves to persistent storage; relevance puts olderHigher (42) before newerLower (43).
   const firstSession = createCorpusSearch({ storage });
-  expectIds(await firstSession('needle', undefined, 1, 10, 'relevance'), [42, 43]);
+  await check(firstSession, 'relevance', [42, 43], ['GET:current:1', 'GET:900:2'], [1, 2]);
   assert.equal(stored?.generation, '900');
-  expectTraffic(['GET:current:1', 'GET:900:2'], [1, 2]);
+  await check(firstSession, 'latest', [43, 42], ['HEAD:900:-']);
 
-  // Same session warm RAM hit with sort='latest' puts newerLower (43) before olderHigher (42) with zero page GETs.
-  expectIds(await firstSession('needle', undefined, 1, 10, 'latest'), [43, 42]);
-  expectTraffic(['HEAD:900:-'], []);
-
-  // Second session (simulating reload / return to /search / second tab): reuses persisted storage with ZERO page GETs.
   const secondSession = createCorpusSearch({ storage });
-  expectIds(await secondSession('needle', undefined, 1, 10, 'relevance'), [42, 43]);
-  expectTraffic(['HEAD:900:-'], []);
+  await check(secondSession, 'relevance', [42, 43], ['HEAD:900:-']);
+  await check(secondSession, 'latest', [43, 42], ['HEAD:900:-']);
 
-  // Subsequent query in second session uses promoted RAM fast path for 'latest'.
-  expectIds(await secondSession('needle', undefined, 1, 10, 'latest'), [43, 42]);
-  expectTraffic(['HEAD:900:-'], []);
-
-  // Third session after generation advances: persisted page 1 hits 304, only page 2 downloads, storage updates to 901.
   generation = '901';
   corpus = [olderHigher, pageWith(44, 1700172800000n, false)];
   const thirdSession = createCorpusSearch({ storage });
-  expectIds(await thirdSession('needle', undefined, 1, 10, 'latest'), [44, 42]);
+  await check(thirdSession, 'latest', [44, 42], ['HEAD:900:-', 'GET:current:1', 'GET:901:2'], [2]);
   assert.equal(stored?.generation, '901');
-  expectTraffic(['HEAD:900:-', 'GET:current:1', 'GET:901:2'], [2]);
 
-  // Corrupted persisted storage is detected, discarded, and cleanly refetched from network.
   const corruptedPage = stored!.pages[0].slice();
   corruptedPage[4] ^= 0xff;
   stored = { generation: '901', pages: [corruptedPage, stored!.pages[1]] };
   const fourthSession = createCorpusSearch({ storage });
-  expectIds(await fourthSession('needle', undefined, 1, 10, 'relevance'), [42, 44]);
+  await check(fourthSession, 'relevance', [42, 44], ['HEAD:901:-', 'GET:current:1', 'GET:901:2'], [1, 2]);
   assert.deepEqual(discards.splice(0), ['901']);
   assert.equal(stored?.generation, '901');
-  expectTraffic(['HEAD:901:-', 'GET:current:1', 'GET:901:2'], [1, 2]);
 
-  // 503 on HEAD against persisted storage discards obsolete compact cache.
   available = false;
   const fifthSession = createCorpusSearch({ storage });
   await assert.rejects(fifthSession('needle'), { status: 503 });
@@ -539,7 +475,6 @@ test('persistent compact storage reuses across sessions, refreshes via 304, disc
   assert.equal(stored, undefined);
   assert.deepEqual(calls.splice(0), ['HEAD:901:-']);
 
-  // invalidate() clears RAM and invokes storage.discard().
   available = true;
   await fifthSession('needle');
   assert.equal(stored?.generation, '901');

@@ -8,7 +8,6 @@ import type {
   CanvasGraphHistory,
   CanvasGraphPage,
   CanvasNode,
-  CanvasReferenceResolution,
   CanvasViewport,
 } from '../../../Contracts/canvas-graph.ts'
 import {
@@ -34,7 +33,6 @@ import {
 import {
   CanvasPreviewController,
   type CanvasEditorHandoffPort,
-  type CanvasLinkPreviewPlan,
   type CanvasPreviewTransport,
 } from './canvasPreviewController.ts'
 import { focusNodeViewport, viewportEquals, zoomCanvasViewport } from './canvasViewport.ts'
@@ -81,53 +79,54 @@ export interface CanvasContextInput {
 
 export type { CanvasFormFields, CanvasFormState } from './canvasForm.ts'
 
-export interface CanvasControllerState extends CanvasFormState {
-  readonly ready: boolean
-  readonly authorized: boolean
-  readonly documentId: string
-  readonly loading: boolean
-  readonly working: boolean
-  readonly bundlePending: boolean
-  readonly stale: boolean
-  readonly graphReadFailure: boolean
-  readonly message: CanvasNotice | undefined
-  readonly error: CanvasNotice | undefined
-  readonly document: CanvasGraphHeader | undefined
-  readonly documents: readonly CanvasGraphHeader[]
-  readonly nodes: readonly CanvasNode[]
-  readonly edges: readonly CanvasGraphEdge[]
-  readonly byId: ReadonlyMap<string, CanvasNode>
-  readonly offset: number | null
-  readonly view: 'canvas' | 'outline'
-  readonly outlinePage: number
-  readonly outlineSearch: string
-  readonly focusBoardNode: string
-  readonly loadingAll: boolean
-  readonly completeGraph: boolean
-  readonly bulkProgress: number
-  readonly nodeId: string
-  readonly edgeId: string
-  readonly selectedNode: CanvasNode | undefined
-  readonly selectedEdge: CanvasGraphEdge | undefined
-  readonly selectedReference: Extract<CanvasNode, { articleId: number }> | undefined
-  readonly activeLink: CanvasActiveLinkPair | undefined
-  readonly retry: CanvasGraphCommand | undefined
-  readonly plan: CanvasLinkPreviewPlan | undefined
-  readonly linkPending: boolean
-  readonly linkUnconfirmed: boolean
-  readonly history: CanvasGraphHistory | undefined
-  readonly historyFailure: boolean
-  readonly historyLoading: boolean
-  readonly historyActionAvailable: { readonly undo: boolean; readonly redo: boolean }
-  readonly reference: CanvasReferenceResolution | undefined
-  readonly referenceLoading: boolean
-  readonly referenceError: boolean
-  readonly referenceOpenNotice: CanvasNotice | undefined
-  readonly canOpenReference: boolean
-  readonly disabled: boolean
-  readonly canNavigate: boolean
-  readonly shouldProtectUnload: boolean
-}
+const emptyCanvasDocState = () => ({
+  loading: false,
+  working: false,
+  bundlePending: false,
+  stale: false,
+  graphReadFailure: false,
+  message: undefined as CanvasNotice | undefined,
+  error: undefined as CanvasNotice | undefined,
+  document: undefined as CanvasGraphHeader | undefined,
+  documents: [] as readonly CanvasGraphHeader[],
+  nodes: [] as readonly CanvasNode[],
+  byId: new Map<string, CanvasNode>() as ReadonlyMap<string, CanvasNode>,
+  edges: [] as readonly CanvasGraphEdge[],
+  offset: null as number | null,
+  outlinePage: 0,
+  outlineSearch: '',
+  focusBoardNode: '',
+  loadingAll: false,
+  completeGraph: false,
+  bulkProgress: 0,
+  nodeId: '',
+  edgeId: '',
+  retry: undefined as CanvasGraphCommand | undefined,
+  history: undefined as CanvasGraphHistory | undefined,
+  historyFailure: false,
+  historyLoading: false,
+})
+
+type CanvasDocState = ReturnType<typeof emptyCanvasDocState>
+
+export type CanvasControllerState = Readonly<
+  CanvasFormState &
+  CanvasDocState &
+  ReturnType<CanvasPreviewController['snapshot']> & {
+    ready: boolean
+    authorized: boolean
+    documentId: string
+    view: 'canvas' | 'outline'
+    selectedNode: CanvasNode | undefined
+    selectedEdge: CanvasGraphEdge | undefined
+    selectedReference: Extract<CanvasNode, { articleId: number }> | undefined
+    activeLink: CanvasActiveLinkPair | undefined
+    historyActionAvailable: { readonly undo: boolean; readonly redo: boolean }
+    disabled: boolean
+    canNavigate: boolean
+    shouldProtectUnload: boolean
+  }
+>
 
 function sameAuthorSession(left: CanvasIdentity | null, right: CanvasIdentity | null): boolean {
   if (left === right) return true
@@ -138,6 +137,9 @@ function sameAuthorSession(left: CanvasIdentity | null, right: CanvasIdentity | 
     left.siteSessionId === right.siteSessionId &&
     left.credentialEpoch === right.credentialEpoch
 }
+
+const isTerminalCanvasStatus = (cause: unknown): cause is ApiError =>
+  cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)
 
 export class CanvasController {
   readonly #transport: CanvasGraphTransport
@@ -162,33 +164,8 @@ export class CanvasController {
   #contextToken = 0
   #historyRequest: AbortController | undefined
   #disposed = false
-
-  #loading = false
-  #working = false
-  #bundlePending = false
-  #stale = false
-  #graphReadFailure = false
-  #message: CanvasNotice | undefined
-  #error: CanvasNotice | undefined
-  #document: CanvasGraphHeader | undefined
-  #documents: readonly CanvasGraphHeader[] = []
-  #nodes: readonly CanvasNode[] = []
-  #byId: ReadonlyMap<string, CanvasNode> = new Map()
-  #edges: readonly CanvasGraphEdge[] = []
-  #offset: number | null = null
   #view: 'canvas' | 'outline' = 'canvas'
-  #outlinePage = 0
-  #outlineSearch = ''
-  #focusBoardNode = ''
-  #loadingAll = false
-  #completeGraph = false
-  #bulkProgress = 0
-  #nodeId = ''
-  #edgeId = ''
-  #retry: CanvasGraphCommand | undefined
-  #history = undefined as CanvasGraphHistory | undefined
-  #historyFailure = false
-  #historyLoading = false
+  #s: CanvasDocState = emptyCanvasDocState()
 
   #lastDocument: CanvasGraphHeader | undefined
   #lastSelectedReference: Extract<CanvasNode, { articleId: number }> | undefined
@@ -214,7 +191,7 @@ export class CanvasController {
       {
         current: () => ({
           signal: this.#scope.signal,
-          document: this.#document,
+          document: this.#s.document,
           selectedReference: this.selectedReference,
           selectedEdge: this.selectedEdge,
           activeLink: this.activeLink,
@@ -224,8 +201,8 @@ export class CanvasController {
           scoped: signal => this.#scoped(signal),
           canNavigate: () => this.canNavigate,
         }),
-        clearError: () => { this.#error = undefined },
-        setMessage: key => { this.#message = keyNotice(key) },
+        clearError: () => { this.#s.error = undefined },
+        setMessage: key => { this.#s.message = keyNotice(key) },
         recordError: (cause, signal, fallbackKey, reading) => this.#recordError(cause, signal, fallbackKey, reading),
         invalidateSession: () => this.#invalidateAuthorization(),
         reloadAfterLink: () => this.load(),
@@ -237,59 +214,32 @@ export class CanvasController {
     this.#snapshot = this.#buildState()
   }
 
-  get state(): CanvasControllerState {
-    return this.#snapshot
-  }
-
-  get contextToken(): number {
-    return this.#contextToken
-  }
-
-  get selectedNode(): CanvasNode | undefined {
-    return this.#nodeId ? this.#byId.get(this.#nodeId) : undefined
-  }
-
+  get state(): CanvasControllerState { return this.#snapshot }
+  get contextToken(): number { return this.#contextToken }
+  get selectedNode(): CanvasNode | undefined { return this.#s.nodeId ? this.#s.byId.get(this.#s.nodeId) : undefined }
   get selectedEdge(): CanvasGraphEdge | undefined {
-    return this.#edgeId ? this.#edges.find(edge => edge.id === this.#edgeId) : undefined
+    return this.#s.edgeId ? this.#s.edges.find(edge => edge.id === this.#s.edgeId) : undefined
   }
-
   get selectedReference(): Extract<CanvasNode, { articleId: number }> | undefined {
     const node = this.selectedNode
     return node && 'articleId' in node ? node : undefined
   }
-
-  get activeLink(): CanvasActiveLinkPair | undefined {
-    return resolveActiveArticleLink(this.selectedEdge, this.#byId)
-  }
+  get activeLink(): CanvasActiveLinkPair | undefined { return resolveActiveArticleLink(this.selectedEdge, this.#s.byId) }
 
   get disabled(): boolean {
-    return this.#loading ||
-      this.#loadingAll ||
-      this.#working ||
-      this.#preview.linkPending ||
-      Boolean(this.#preview.plan) ||
-      Boolean(this.#retry) ||
-      this.#stale ||
-      this.#graphReadFailure ||
-      this.#bundlePending
+    const s = this.#s
+    return s.loading || s.loadingAll || s.working || this.#preview.linkPending ||
+      Boolean(this.#preview.plan) || Boolean(s.retry) || s.stale || s.graphReadFailure || s.bundlePending
   }
 
   get canNavigate(): boolean {
-    return !this.#working &&
-      !this.#bundlePending &&
-      !this.#preview.linkPending &&
-      !this.#form.isOpen &&
-      !this.#preview.plan &&
-      !this.#retry &&
-      !this.#preview.linkUnconfirmed
+    return !this.#s.working && !this.#s.bundlePending && !this.#preview.linkPending &&
+      !this.#form.isOpen && !this.#preview.plan && !this.#s.retry && !this.#preview.linkUnconfirmed
   }
 
   get shouldProtectUnload(): boolean {
-    return this.#working ||
-      this.#bundlePending ||
-      Boolean(this.#retry) ||
-      this.#preview.linkUnconfirmed ||
-      this.#preview.linkPending
+    return this.#s.working || this.#s.bundlePending || Boolean(this.#s.retry) ||
+      this.#preview.linkUnconfirmed || this.#preview.linkPending
   }
 
   isAuthorized(): boolean {
@@ -351,7 +301,7 @@ export class CanvasController {
 
     if (!this.#usedInitialDocuments && input.initialDocuments && !this.#documentId && this.#ready && this.isAuthorized()) {
       this.#usedInitialDocuments = true
-      this.#documents = input.initialDocuments
+      this.#s.documents = input.initialDocuments
       this.#syncDerived()
       this.#snapshot = this.#buildState()
       for (const listener of this.#listeners) listener()
@@ -365,44 +315,19 @@ export class CanvasController {
     }
 
     this.reset()
-    if (this.#ready && this.isAuthorized()) {
-      void this.load()
-    }
+    if (this.#ready && this.isAuthorized()) void this.load()
   }
 
   reset(): void {
     this.#scope.abort()
     this.#scope = new AbortController()
     this.#contextToken++
-    this.#document = undefined
-    this.#documents = []
-    this.#setNodes([])
-    this.#edges = []
-    this.#nodeId = ''
-    this.#edgeId = ''
-    this.#offset = null
-    this.#outlinePage = 0
-    this.#outlineSearch = ''
-    this.#focusBoardNode = ''
-    this.#loadingAll = false
-    this.#completeGraph = false
-    this.#bulkProgress = 0
-    if (this.#retry) this.#retiredCommands.add(this.#retry)
-    this.#retry = undefined
+    if (this.#s.retry) this.#retiredCommands.add(this.#s.retry)
+    this.#s = emptyCanvasDocState()
     this.#form.reset(false)
-    this.#working = false
-    this.#bundlePending = false
-    this.#loading = false
-    this.#stale = false
-    this.#graphReadFailure = false
-    this.#history = undefined
-    this.#historyFailure = false
-    this.#historyLoading = false
     this.#historyRequest?.abort()
     this.#historyRequest = undefined
     this.#preview.reset()
-    this.#error = undefined
-    this.#message = undefined
     this.#form.update({ title: '' })
     this.#lastDocument = undefined
     this.#lastSelectedReference = undefined
@@ -413,13 +338,13 @@ export class CanvasController {
   }
 
   setSessionVerificationError(): void {
-    this.#error = keyNotice('author.canvas.could_not_verify_your_session')
+    this.#s.error = keyNotice('author.write.couldNotVerifyYourSession')
     this.#notify()
   }
 
   setBundlePending(value: boolean): void {
-    if (this.#bundlePending === value) return
-    this.#bundlePending = value
+    if (this.#s.bundlePending === value) return
+    this.#s.bundlePending = value
     this.#notify()
   }
 
@@ -429,56 +354,54 @@ export class CanvasController {
     this.#notify()
   }
 
-  toggleView(): void {
-    this.setView(this.#view === 'canvas' ? 'outline' : 'canvas')
-  }
+  toggleView(): void { this.setView(this.#view === 'canvas' ? 'outline' : 'canvas') }
 
   setOutlineSearch(value: string): void {
-    if (this.#outlineSearch === value) return
-    this.#outlineSearch = value
-    this.#outlinePage = 0
+    if (this.#s.outlineSearch === value) return
+    this.#s.outlineSearch = value
+    this.#s.outlinePage = 0
     this.#notify()
   }
 
   previousOutlinePage(): void {
-    if (this.#outlinePage <= 0) return
-    this.#outlinePage--
+    if (this.#s.outlinePage <= 0) return
+    this.#s.outlinePage--
     this.#notify()
   }
 
   nextOutlinePage(): void {
-    this.#outlinePage++
+    this.#s.outlinePage++
     this.#notify()
   }
 
   clearFocusRequest(): void {
-    if (!this.#focusBoardNode) return
-    this.#focusBoardNode = ''
+    if (!this.#s.focusBoardNode) return
+    this.#s.focusBoardNode = ''
     this.#notify()
   }
 
   chooseNode(id: string): void {
-    this.#nodeId = id
-    this.#edgeId = ''
+    this.#s.nodeId = id
+    this.#s.edgeId = ''
     this.#notify()
   }
 
   chooseEdge(id: string): void {
-    this.#edgeId = id
-    this.#nodeId = ''
+    this.#s.edgeId = id
+    this.#s.nodeId = ''
     this.#notify()
   }
 
   async showNode(): Promise<void> {
     const node = this.selectedNode
-    const viewport = this.#document?.viewport
+    const viewport = this.#s.document?.viewport
     if (!node || !viewport) return
     const signal = this.#scope.signal
     this.#view = 'canvas'
     this.#notify()
     await this.saveViewport(focusNodeViewport(viewport, node))
-    if (this.#scoped(signal) && this.selectedNode?.id === node.id && this.#view === 'canvas' && !this.#stale) {
-      this.#focusBoardNode = node.id
+    if (this.#scoped(signal) && this.selectedNode?.id === node.id && this.#view === 'canvas' && !this.#s.stale) {
+      this.#s.focusBoardNode = node.id
       this.#notify()
     }
   }
@@ -494,7 +417,7 @@ export class CanvasController {
   }
 
   openTitleForm(): void {
-    this.#form.openTitle(this.#document?.title)
+    this.#form.openTitle(this.#s.document?.title)
     this.#notify()
   }
 
@@ -510,44 +433,41 @@ export class CanvasController {
   }
 
   closeForm(): void {
-    if (this.#form.close(this.#working || Boolean(this.#retry))) this.#notify()
+    if (this.#form.close(this.#s.working || Boolean(this.#s.retry))) this.#notify()
   }
 
-  async loadHistory(current = this.#document): Promise<void> {
+  async loadHistory(current = this.#s.document): Promise<void> {
     const signal = this.#scope.signal
     if (!current || !this.#scoped(signal)) return
     this.#historyRequest?.abort()
     const request = new AbortController()
     this.#historyRequest = request
-    this.#historyLoading = true
-    this.#history = undefined
-    this.#historyFailure = false
+    this.#s.historyLoading = true
+    this.#s.history = undefined
+    this.#s.historyFailure = false
     this.#notify()
 
     const isLatest = () =>
-      request === this.#historyRequest &&
-      !request.signal.aborted &&
-      this.#scoped(signal) &&
-      this.#document?.id === current.id &&
-      this.#document.revision === current.revision
+      request === this.#historyRequest && !request.signal.aborted && this.#scoped(signal) &&
+      this.#s.document?.id === current.id && this.#s.document.revision === current.revision
 
     try {
       const next = await this.#transport.history(current.id, current.revision, request.signal)
       if (!isLatest()) return
       if (next.revision !== current.revision) throw new Error('Canvas history revision changed')
-      this.#history = next
+      this.#s.history = next
       this.#notify()
     } catch (cause) {
       if (!isLatest()) return
-      if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
+      if (isTerminalCanvasStatus(cause)) {
         this.#recordError(cause, signal, 'author.canvas.could_not_load_canvas_history', true)
       } else {
-        this.#historyFailure = true
+        this.#s.historyFailure = true
         this.#notify()
       }
     } finally {
       if (request === this.#historyRequest && this.#scoped(signal)) {
-        this.#historyLoading = false
+        this.#s.historyLoading = false
         this.#historyRequest = undefined
         this.#notify()
       }
@@ -556,115 +476,105 @@ export class CanvasController {
 
   async load(more = false, confirmed?: CanvasGraphHeader): Promise<void> {
     const signal = this.#scope.signal
-    if (!this.#scoped(signal) || this.#loading || (more && this.#offset === null)) return
-    this.#loading = true
-    this.#error = undefined
+    if (!this.#scoped(signal) || this.#s.loading || (more && this.#s.offset === null)) return
+    this.#s.loading = true
+    this.#s.error = undefined
     this.#notify()
 
     try {
       if (!this.#documentId) {
         const value = await this.#transport.list(signal)
-        if (this.#scoped(signal)) this.#documents = value
+        if (this.#scoped(signal)) this.#s.documents = value
       } else {
-        const previous = more ? this.#document : undefined
+        const previous = more ? this.#s.document : undefined
         const id = this.#documentId
         const position = confirmed
           ? { revision: confirmed.revision }
-          : previous && this.#offset !== null
-            ? { revision: previous.revision, offset: this.#offset }
+          : previous && this.#s.offset !== null
+            ? { revision: previous.revision, offset: this.#s.offset }
             : {}
         const page = await this.#transport.page(id, position, signal)
-        if (!this.#scoped(signal) || (more && this.#document !== previous)) return
-        this.#document = page.header
-        this.#setNodes(more ? [...this.#nodes, ...page.nodes] : page.nodes)
-        this.#edges = more ? [...this.#edges, ...page.edges] : page.edges
-        this.#offset = page.nextOffset
+        if (!this.#scoped(signal) || (more && this.#s.document !== previous)) return
+        this.#s.document = page.header
+        this.#setNodes(more ? [...this.#s.nodes, ...page.nodes] : page.nodes)
+        this.#s.edges = more ? [...this.#s.edges, ...page.edges] : page.edges
+        this.#s.offset = page.nextOffset
         if (!more) {
-          this.#outlinePage = 0
+          this.#s.outlinePage = 0
           if (page.nextOffset !== null && page.nextOffset === page.header.nodeCount) {
-            const edgePage = await this.#transport.page(
-              id,
-              { revision: page.header.revision, offset: page.nextOffset },
-              signal,
-            )
+            const edgePage = await this.#transport.page(id, { revision: page.header.revision, offset: page.nextOffset }, signal)
             if (!this.#scoped(signal)) return
-            this.#edges = edgePage.edges
-            this.#offset = edgePage.nextOffset
+            this.#s.edges = edgePage.edges
+            this.#s.offset = edgePage.nextOffset
           }
         }
-        if (this.#offset === null) {
-          if (this.#nodeId && !this.#byId.has(this.#nodeId)) this.#nodeId = ''
-          if (this.#edgeId && !this.#edges.some(edge => edge.id === this.#edgeId)) this.#edgeId = ''
-        }
+        if (this.#s.offset === null) this.#pruneSelection(this.#s.edges)
       }
       if (this.#scoped(signal)) {
-        this.#stale = false
-        this.#graphReadFailure = false
+        this.#s.stale = false
+        this.#s.graphReadFailure = false
         this.#notify()
-        if (!more && this.#document) {
-          if (confirmed) await this.loadHistory(this.#document)
-          else void this.loadHistory(this.#document)
+        if (!more && this.#s.document) {
+          if (confirmed) await this.loadHistory(this.#s.document)
+          else void this.loadHistory(this.#s.document)
         }
-        if (this.#completeGraph && this.#offset !== null && !more) {
-          await this.loadAll()
-        }
+        if (this.#s.completeGraph && this.#s.offset !== null && !more) await this.loadAll()
       }
     } catch (cause) {
-      if (this.#scoped(signal)) this.#graphReadFailure = true
+      if (this.#scoped(signal)) this.#s.graphReadFailure = true
       this.#recordError(cause, signal, 'author.canvas.could_not_load_the_canvas', true)
     } finally {
-      if (this.#scoped(signal) && this.#loading) {
-        this.#loading = false
+      if (this.#scoped(signal) && this.#s.loading) {
+        this.#s.loading = false
         this.#notify()
       }
     }
   }
 
   async loadAll(): Promise<void> {
-    const current = this.#document
+    const current = this.#s.document
     const signal = this.#scope.signal
-    let next = this.#offset
-    if (!current || next === null || this.#loadingAll || !this.#scoped(signal)) return
-    this.#loadingAll = true
-    this.#error = undefined
-    this.#bulkProgress = this.#nodes.length + this.#edges.length
+    let next = this.#s.offset
+    if (!current || next === null || this.#s.loadingAll || !this.#scoped(signal)) return
+    this.#s.loadingAll = true
+    this.#s.error = undefined
+    this.#s.bulkProgress = this.#s.nodes.length + this.#s.edges.length
     this.#notify()
 
-    const nextNodes = [...this.#nodes]
-    const nextEdges = [...this.#edges]
+    const nextNodes = [...this.#s.nodes]
+    const nextEdges = [...this.#s.edges]
     try {
       while (next !== null) {
         const page = await this.#transport.page(current.id, { revision: current.revision, offset: next }, signal)
-        if (!this.#scoped(signal) || current !== this.#document) return
+        if (!this.#scoped(signal) || current !== this.#s.document) return
         nextNodes.push(...page.nodes)
         nextEdges.push(...page.edges)
-        this.#bulkProgress = nextNodes.length + nextEdges.length
+        this.#s.bulkProgress = nextNodes.length + nextEdges.length
         next = page.nextOffset
         this.#notify()
       }
       if (nextNodes.length !== current.nodeCount || nextEdges.length !== current.edgeCount) {
         throw new Error('Canvas pages did not cover the advertised counts')
       }
-      if (!this.#scoped(signal) || current !== this.#document) return
+      if (!this.#scoped(signal) || current !== this.#s.document) return
       this.#setNodes(nextNodes)
-      this.#edges = nextEdges
-      this.#offset = null
-      this.#completeGraph = true
-      if (this.#nodeId && !this.#byId.has(this.#nodeId)) this.#nodeId = ''
-      if (this.#edgeId && !nextEdges.some(edge => edge.id === this.#edgeId)) this.#edgeId = ''
+      this.#s.edges = nextEdges
+      this.#s.offset = null
+      this.#s.completeGraph = true
+      this.#pruneSelection(nextEdges)
       this.#notify()
     } catch (cause) {
       if (!this.#scoped(signal)) return
-      this.#completeGraph = false
-      if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
+      this.#s.completeGraph = false
+      if (isTerminalCanvasStatus(cause)) {
         this.#recordError(cause, signal, 'author.canvas.could_not_load_all_canvas_records', true)
       } else {
-        this.#error = keyNotice('author.canvas.could_not_load_all_canvas_records_try_again')
+        this.#s.error = keyNotice('author.canvas.could_not_load_all_canvas_records_try_again')
         this.#notify()
       }
     } finally {
-      if (this.#scoped(signal) && this.#loadingAll) {
-        this.#loadingAll = false
+      if (this.#scoped(signal) && this.#s.loadingAll) {
+        this.#s.loadingAll = false
         this.#notify()
       }
     }
@@ -672,42 +582,37 @@ export class CanvasController {
 
   async send(command: CanvasGraphCommand): Promise<boolean> {
     const signal = this.#scope.signal
-    if (!this.#scoped(signal) || this.#working || this.#preview.linkPending || this.#stale ||
-      (this.#retry && this.#retry !== command) || this.#retiredCommands.has(command)) {
+    if (!this.#scoped(signal) || this.#s.working || this.#preview.linkPending || this.#s.stale ||
+      (this.#s.retry && this.#s.retry !== command) || this.#retiredCommands.has(command)) {
       return false
     }
     if (command.action === 'create') {
-      if (this.#documentId !== '' || this.#document !== undefined) return false
-    } else {
-      if (!this.#document || command.id !== this.#document.id || command.expectedRevision !== this.#document.revision) {
-        return false
-      }
+      if (this.#documentId !== '' || this.#s.document !== undefined) return false
+    } else if (!this.#s.document || command.id !== this.#s.document.id || command.expectedRevision !== this.#s.document.revision) {
+      return false
     }
     if (!validateCanvasCommand(command)) {
-      this.#error = keyNotice('author.canvas.check_the_canvas_text_reference_and_size_limits')
+      this.#s.error = keyNotice('author.canvas.check_the_canvas_text_reference_and_size_limits')
       this.#notify()
       return false
     }
 
-    this.#working = true
-    this.#message = undefined
-    this.#error = undefined
-    this.#retry = command
+    this.#s.working = true
+    this.#s.message = undefined
+    this.#s.error = undefined
+    this.#s.retry = command
     this.#notify()
 
     try {
       const result = await this.#transport.write(command, signal)
       if (!this.#scoped(signal)) return false
-      if (this.#retry) this.#retiredCommands.add(this.#retry)
-      this.#retry = undefined
-      this.#working = false
+      if (this.#s.retry) this.#retiredCommands.add(this.#s.retry)
+      this.#s.retry = undefined
+      this.#s.working = false
       this.#form.clearEditing()
-      this.#message = keyNotice(
-        command.action === 'undo'
-          ? 'author.canvas.canvas_change_undone'
-          : command.action === 'redo'
-            ? 'author.canvas.canvas_change_redone'
-            : 'author.canvas.canvas_saved',
+      this.#s.message = keyNotice(
+        command.action === 'undo' ? 'author.canvas.canvas_change_undone'
+          : command.action === 'redo' ? 'author.canvas.canvas_change_redone' : 'author.canvas.canvas_saved',
       )
 
       if (command.action === 'create') {
@@ -720,21 +625,16 @@ export class CanvasController {
         this.#notify()
         await this.load(false, result)
       } else if (command.changes.length === 0) {
-        this.#document = result
+        this.#s.document = result
         this.#notify()
         void this.loadHistory(result)
       } else {
         const optimisticNode = canApplyOptimisticNodeUpsert(
-          this.#completeGraph,
-          command,
-          this.#byId,
-          result,
-          this.#nodes.length,
-          this.#edges.length,
+          this.#s.completeGraph, command, this.#s.byId, result, this.#s.nodes.length, this.#s.edges.length,
         )
         if (optimisticNode) {
-          this.#setNodes(this.#nodes.map(node => node.id === optimisticNode.id ? optimisticNode : node))
-          this.#document = result
+          this.#setNodes(this.#s.nodes.map(node => node.id === optimisticNode.id ? optimisticNode : node))
+          this.#s.document = result
           this.#notify()
           void this.loadHistory(result)
         } else {
@@ -745,76 +645,61 @@ export class CanvasController {
       return true
     } catch (cause) {
       if (this.#recordError(cause, signal, 'author.canvas.could_not_confirm_the_change_retry_the_same_request')) {
-        if (this.#retry) this.#retiredCommands.add(this.#retry)
-        this.#retry = undefined
+        if (this.#s.retry) this.#retiredCommands.add(this.#s.retry)
+        this.#s.retry = undefined
         this.#notify()
       }
       return false
     } finally {
-      if (this.#scoped(signal) && this.#working) {
-        this.#working = false
+      if (this.#scoped(signal) && this.#s.working) {
+        this.#s.working = false
         this.#notify()
       }
     }
   }
 
-  retryLastCommand(): Promise<boolean> {
-    if (!this.#retry) return Promise.resolve(false)
-    return this.send(this.#retry)
-  }
+  retryLastCommand(): Promise<boolean> { return this.#s.retry ? this.send(this.#s.retry) : Promise.resolve(false) }
 
-  patch(
-    changes: readonly CanvasGraphChange[] = [],
-    name = '',
-    viewport: CanvasViewport | null = null,
-  ): Promise<boolean> | undefined {
-    if (!this.#document || this.disabled || !this.isAuthorized()) return undefined
-    return this.send(editCanvasCommand(this.#document, this.#newId(), { changes, title: name, viewport }))
+  patch(changes: readonly CanvasGraphChange[] = [], name = '', viewport: CanvasViewport | null = null): Promise<boolean> | undefined {
+    if (!this.#s.document || this.disabled || !this.isAuthorized()) return undefined
+    return this.send(editCanvasCommand(this.#s.document, this.#newId(), { changes, title: name, viewport }))
   }
 
   saveViewport(viewport: CanvasViewport): Promise<boolean> | undefined {
-    const saved = this.#document?.viewport
-    if (saved && !viewportEquals(viewport, saved)) {
-      return this.patch([], '', viewport)
-    }
-    return undefined
+    const saved = this.#s.document?.viewport
+    return saved && !viewportEquals(viewport, saved) ? this.patch([], '', viewport) : undefined
   }
 
   zoom(amount: number): Promise<boolean> | undefined {
-    const viewport = this.#document?.viewport
-    if (!viewport) return undefined
-    return this.saveViewport(zoomCanvasViewport(viewport, amount))
+    const viewport = this.#s.document?.viewport
+    return viewport ? this.saveViewport(zoomCanvasViewport(viewport, amount)) : undefined
   }
 
   moveNode(id: string, geometry: CanvasGeometry): Promise<boolean> | undefined {
-    const node = this.#byId.get(id)
-    if (!node) return undefined
-    return this.patch([{ kind: 'upsert-node', node: { ...node, geometry } }])
+    const node = this.#s.byId.get(id)
+    return node ? this.patch([{ kind: 'upsert-node', node: { ...node, geometry } }]) : undefined
   }
 
   removeNode(id: string): Promise<boolean> | undefined {
-    if (!this.#byId.has(id)) return undefined
-    return this.patch([{ kind: 'remove-node', id }])
+    return this.#s.byId.has(id) ? this.patch([{ kind: 'remove-node', id }]) : undefined
   }
 
   removeEdge(id: string): Promise<boolean> | undefined {
-    if (!this.#edges.some(edge => edge.id === id)) return undefined
-    return this.patch([{ kind: 'remove-edge', id }])
+    return this.#s.edges.some(edge => edge.id === id) ? this.patch([{ kind: 'remove-edge', id }]) : undefined
   }
 
   saveTitle(): Promise<boolean> | undefined {
     const next = this.#form.title.trim()
-    if (!next || next === this.#document?.title) return undefined
-    if (this.#document) return this.patch([], next)
-    return this.send(createCanvasCommand(next, this.#newId(), this.#newId()))
+    if (!next || next === this.#s.document?.title) return undefined
+    return this.#s.document ? this.patch([], next) : this.send(createCanvasCommand(next, this.#newId(), this.#newId()))
   }
 
   saveNode(): Promise<boolean> | undefined {
-    const canvas = this.#document
+    const canvas = this.#s.document
     if (!canvas) return undefined
     const built = this.#form.buildNode(canvas, this.#newId())
     if (!built.ok) {
-      this.#error = keyNotice(built.errorKey)
+      this.#s.error = keyNotice(built.errorKey)
       this.#notify()
       return undefined
     }
@@ -824,52 +709,42 @@ export class CanvasController {
   saveEdge(): Promise<boolean> | undefined {
     const built = this.#form.buildEdge({
       selectedNodeId: this.selectedNode?.id,
-      byId: this.#byId,
-      edgeCount: this.#document?.edgeCount ?? 0,
+      byId: this.#s.byId,
+      edgeCount: this.#s.document?.edgeCount ?? 0,
       generatedEdgeId: this.#newId(),
     })
-    if (!built) return undefined
-    return this.patch([{ kind: 'upsert-edge', edge: built }])
+    return built ? this.patch([{ kind: 'upsert-edge', edge: built }]) : undefined
   }
 
   travel(action: 'undo' | 'redo'): Promise<boolean> {
-    const current = this.#document
-    if (!current || !this.#historyAvailability()[action]) return Promise.resolve(false)
-    return this.send(historyTravelCommand(current, action, this.#newId()))
+    const current = this.#s.document
+    return current && this.#historyAvailability()[action]
+      ? this.send(historyTravelCommand(current, action, this.#newId())) : Promise.resolve(false)
   }
 
-  deleteDocument(expected = this.#document): Promise<boolean> {
-    if (!expected || this.#document !== expected || this.disabled) return Promise.resolve(false)
-    return this.send(deleteCanvasCommand(expected, this.#newId()))
+  deleteDocument(expected = this.#s.document): Promise<boolean> {
+    return expected && this.#s.document === expected && !this.disabled
+      ? this.send(deleteCanvasCommand(expected, this.#newId())) : Promise.resolve(false)
   }
 
-  resolveReference(): Promise<void> {
-    return this.#preview.resolveReference()
-  }
-
-  openReference(): Promise<boolean> {
-    return this.#preview.openReference()
-  }
-
-  prepareLink(): Promise<void> {
-    return this.#preview.prepareLink()
-  }
-
-  applyLink(): Promise<void> {
-    return this.#preview.applyLink()
-  }
-
-  cancelLink(): void {
-    this.#preview.cancelLink()
-  }
+  resolveReference(): Promise<void> { return this.#preview.resolveReference() }
+  openReference(): Promise<boolean> { return this.#preview.openReference() }
+  prepareLink(): Promise<void> { return this.#preview.prepareLink() }
+  applyLink(): Promise<void> { return this.#preview.applyLink() }
+  cancelLink(): void { this.#preview.cancelLink() }
 
   #scoped(signal: AbortSignal): boolean {
     return !this.#disposed && this.#scope.signal === signal && !signal.aborted && this.isAuthorized()
   }
 
   #setNodes(nodes: readonly CanvasNode[]): void {
-    this.#nodes = nodes
-    this.#byId = new Map(nodes.map(node => [node.id, node]))
+    this.#s.nodes = nodes
+    this.#s.byId = new Map(nodes.map(node => [node.id, node]))
+  }
+
+  #pruneSelection(edges: readonly CanvasGraphEdge[]): void {
+    if (this.#s.nodeId && !this.#s.byId.has(this.#s.nodeId)) this.#s.nodeId = ''
+    if (this.#s.edgeId && !edges.some(edge => edge.id === this.#s.edgeId)) this.#s.edgeId = ''
   }
 
   #invalidateAuthorization(): void {
@@ -881,7 +756,7 @@ export class CanvasController {
   #recordError(cause: unknown, signal: AbortSignal, fallbackKey: CanvasMessageKey, reading = false): boolean {
     if (!this.#scoped(signal)) return false
     if (!(cause instanceof ApiError)) {
-      this.#error = keyNotice(fallbackKey)
+      this.#s.error = keyNotice(fallbackKey)
       this.#notify()
       return false
     }
@@ -891,24 +766,20 @@ export class CanvasController {
     }
     if (cause.status === 403 || (cause.status === 404 && reading)) {
       this.#setNodes([])
-      this.#edges = []
-      this.#document = undefined
-      this.#documents = []
-      this.#history = undefined
-      this.#historyFailure = false
+      Object.assign(this.#s, { edges: [], document: undefined, documents: [], history: undefined, historyFailure: false })
       this.#preview.clearLinkOnUnavailable()
-      if (this.#retry) this.#retiredCommands.add(this.#retry)
-      this.#retry = undefined
+      if (this.#s.retry) this.#retiredCommands.add(this.#s.retry)
+      this.#s.retry = undefined
       this.#preview.clearReference(false)
-      this.#error = keyNotice('author.canvas.canvas_is_unavailable')
+      this.#s.error = keyNotice('author.canvas.canvas_is_unavailable')
     } else if (cause.status === 409) {
-      this.#stale = true
+      this.#s.stale = true
       this.#preview.clearReference(false)
-      this.#error = keyNotice('author.canvas.the_canvas_changed_reload_the_current_revision')
+      this.#s.error = keyNotice('author.canvas.the_canvas_changed_reload_the_current_revision')
     } else if (cause.status === 400 || cause.status === 404) {
-      this.#error = textNotice(cause.message)
+      this.#s.error = textNotice(cause.message)
     } else {
-      this.#error = keyNotice(fallbackKey)
+      this.#s.error = keyNotice(fallbackKey)
       this.#notify()
       return false
     }
@@ -920,29 +791,23 @@ export class CanvasController {
     return computeHistoryAvailability({
       disabled: this.disabled,
       hasOpenForm: this.#form.isOpen,
-      document: this.#document,
-      history: this.#history,
+      document: this.#s.document,
+      history: this.#s.history,
     })
   }
 
   #syncDerived(): void {
     const selectedRef = this.selectedReference
-    if (this.#view !== this.#lastView || this.#nodeId !== this.#lastNodeId) {
-      this.#focusBoardNode = ''
-    }
-    if (
-      this.#document !== this.#lastDocument ||
-      selectedRef !== this.#lastSelectedReference ||
-      this.#view !== this.#lastView ||
-      this.#stale !== this.#lastStale
-    ) {
+    if (this.#view !== this.#lastView || this.#s.nodeId !== this.#lastNodeId) this.#s.focusBoardNode = ''
+    if (this.#s.document !== this.#lastDocument || selectedRef !== this.#lastSelectedReference ||
+        this.#view !== this.#lastView || this.#s.stale !== this.#lastStale) {
       this.#preview.clearReference(false)
     }
-    this.#lastDocument = this.#document
+    this.#lastDocument = this.#s.document
     this.#lastSelectedReference = selectedRef
     this.#lastView = this.#view
-    this.#lastStale = this.#stale
-    this.#lastNodeId = this.#nodeId
+    this.#lastStale = this.#s.stale
+    this.#lastNodeId = this.#s.nodeId
   }
 
   #notify(): void {
@@ -956,50 +821,18 @@ export class CanvasController {
     const selectedNode = this.selectedNode
     const selectedEdge = this.selectedEdge
     const selectedReference = selectedNode && 'articleId' in selectedNode ? selectedNode : undefined
-    const activeLink = resolveActiveArticleLink(selectedEdge, this.#byId)
     return Object.freeze({
       ready: this.#ready,
       authorized: this.isAuthorized(),
       documentId: this.#documentId,
-      loading: this.#loading,
-      working: this.#working,
-      bundlePending: this.#bundlePending,
-      stale: this.#stale,
-      graphReadFailure: this.#graphReadFailure,
-      message: this.#message,
-      error: this.#error,
-      document: this.#document,
-      documents: this.#documents,
-      nodes: this.#nodes,
-      edges: this.#edges,
-      byId: this.#byId,
-      offset: this.#offset,
       view: this.#view,
-      outlinePage: this.#outlinePage,
-      outlineSearch: this.#outlineSearch,
-      focusBoardNode: this.#focusBoardNode,
-      loadingAll: this.#loadingAll,
-      completeGraph: this.#completeGraph,
-      bulkProgress: this.#bulkProgress,
-      nodeId: this.#nodeId,
-      edgeId: this.#edgeId,
+      ...this.#s,
       selectedNode,
       selectedEdge,
       selectedReference,
-      activeLink,
-      retry: this.#retry,
-      plan: this.#preview.plan,
-      linkPending: this.#preview.linkPending,
-      linkUnconfirmed: this.#preview.linkUnconfirmed,
-      history: this.#history,
-      historyFailure: this.#historyFailure,
-      historyLoading: this.#historyLoading,
+      activeLink: resolveActiveArticleLink(selectedEdge, this.#s.byId),
+      ...this.#preview.snapshot(this.#identity?.siteSessionId),
       historyActionAvailable: this.#historyAvailability(),
-      reference: this.#preview.reference,
-      referenceLoading: this.#preview.referenceLoading,
-      referenceError: this.#preview.referenceError,
-      referenceOpenNotice: this.#preview.referenceOpenNotice,
-      canOpenReference: this.#preview.canOpenReference(this.#identity?.siteSessionId),
       ...this.#form.snapshot(),
       disabled: this.disabled,
       canNavigate: this.canNavigate,

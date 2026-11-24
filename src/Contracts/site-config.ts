@@ -1,4 +1,4 @@
-import { ProtocolError, decodeUtf8 } from './binary.ts';
+import { dataView, decodeFixedText, decodeUtf8, ProtocolError } from './binary.ts';
 import { request } from './client.ts';
 import { FrameType, WireLayouts as L, WireLimits, WireRoutes } from './wire.generated.ts';
 
@@ -7,7 +7,7 @@ function fields(payload: Uint8Array, podBytes: number, sliceOffset: number) {
   const length = payload.byteLength - start;
   if (length < 0 || length > WireLimits.SiteConfigBlobBytes)
     throw new ProtocolError('Invalid site config payload size');
-  const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+  const view = dataView(payload);
   if (view.getInt32(sliceOffset, true) !== 0 || view.getInt32(sliceOffset + 4, true) !== length ||
       view.getInt32(podBytes, true) !== length)
     throw new ProtocolError('Invalid site config text slice');
@@ -16,14 +16,8 @@ function fields(payload: Uint8Array, podBytes: number, sliceOffset: number) {
   return {
     view,
     text,
-    fixed(from: number, end: number): string {
-      const slot = payload.subarray(from, end);
-      const padding = slot.indexOf(0);
-      if (padding < 0) return decodeUtf8(slot);
-      if (slot.subarray(padding).some(value => value !== 0))
-        throw new ProtocolError('Invalid site config text padding');
-      return decodeUtf8(slot.subarray(0, padding));
-    },
+    fixed: (from: number, end: number) =>
+      decodeFixedText(payload.subarray(from, end), () => new ProtocolError('Invalid site config text padding')),
   };
 }
 

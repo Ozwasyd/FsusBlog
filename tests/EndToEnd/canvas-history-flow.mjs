@@ -1,8 +1,9 @@
-import { createCanvasThroughUi } from './browser-authoring-fixture.mjs'
 import assert from 'node:assert/strict'
-import { decodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeCanvasGraphHistory, decodeCanvasGraphPage } from '../../src/Contracts/canvas-graph.ts'
+import { decodeCanvasGraphHistory } from '../../src/Contracts/canvas-graph.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { canvasFixture, createCanvasThroughUi } from './browser-authoring-fixture.mjs'
+import { getFrame } from './response-status-fixture.mjs'
+import { exactButton, exactText, roleWithExactName } from './role-locators.mjs'
 
 export async function exerciseCanvasHistory({ page, origin, screenshot, observations, monitor }) {
   const author = await page.context().newPage()
@@ -10,42 +11,29 @@ export async function exerciseCanvasHistory({ page, origin, screenshot, observat
   monitor(author, 'canvas-history')
   monitor(stale, 'canvas-history-stale')
   const title = `Canvas history ${Date.now()}`
-  const button = (name, use = author) => use.getByRole('button', { name, exact: true })
-  const dialog = name => author.getByRole('dialog', { name, exact: true })
-  const viewport = () => author.getByRole('region', { name: 'Interactive Canvas Viewport' })
+  const canvas = canvasFixture(author, origin)
+  const button = (name, use = author) => exactButton(use, name)
+  const heading = () => roleWithExactName(author, 'heading', title)
   const undo = () => button('Undo')
   const redo = () => button('Redo')
-  const note = () => viewport().getByRole('button', { name: /History note/ })
+  const note = () => canvas.board().getByRole('button', { name: /History note/ })
 
   async function addNote(label) {
-    await button('Add note').click()
-    const add = dialog('Add node')
-    await add.getByLabel('Note text').fill(label)
-    await add.getByRole('button', { name: 'Save node', exact: true }).click()
-    await viewport().getByRole('button', { name: new RegExp(label) }).waitFor()
-    await add.waitFor({ state: 'hidden' })
-  }
-
-  async function state() {
-    const id = new URL(author.url()).pathname.split('/').at(-1)
-    const response = await author.request.get(origin + WireRoutes.CanvasGraphPage.replace('{id:guid}', id))
-    assert.equal(response.status(), 200)
-    return decodeCanvasGraphPage(decodeFrame(await response.body(), FrameType.CanvasGraphPage).payload)
+    await canvas.addNote(label)
+    await canvas.board().getByRole('button', { name: new RegExp(label) }).waitFor()
   }
 
   async function history(revision) {
-    const id = new URL(author.url()).pathname.split('/').at(-1)
-    const path = WireRoutes.CanvasGraphHistory.replace('{id:guid}', id)
-    const response = await author.request.get(`${origin}${path}?revision=${revision}`)
-    assert.equal(response.status(), 200)
-    const value = decodeCanvasGraphHistory(decodeFrame(await response.body(), FrameType.CanvasGraphHistory).payload)
+    const path = WireRoutes.CanvasGraphHistory.replace('{id:guid}', canvas.documentId())
+    const value = await getFrame(author.request, `${origin}${path}?revision=${revision}`,
+      FrameType.CanvasGraphHistory, decodeCanvasGraphHistory)
     assert.equal(value.revision, BigInt(revision))
     return value
   }
 
   async function assertState(revision, count) {
-    await author.getByText(`Revision ${revision} · ${count}/${count} nodes · 0/0 edges`, { exact: true }).waitFor()
-    const graph = await state()
+    await exactText(author, `Revision ${revision} · ${count}/${count} nodes · 0/0 edges`).waitFor()
+    const graph = await canvas.graph()
     assert.equal(graph.header.revision, BigInt(revision))
     assert.equal(graph.nodes.length, count)
     return graph
@@ -53,7 +41,7 @@ export async function exerciseCanvasHistory({ page, origin, screenshot, observat
 
   try {
     await createCanvasThroughUi(author, origin, title)
-    await author.getByRole('heading', { name: title, exact: true }).waitFor()
+    await heading().waitFor()
     await assertState(1, 0)
     assert.deepEqual(await history(1), { revision: 1n, undoRevision: null, redoRevision: null })
     assert(await undo().isDisabled())
@@ -72,7 +60,7 @@ export async function exerciseCanvasHistory({ page, origin, screenshot, observat
     await author.getByRole('status').filter({ hasText: 'Canvas change undone.' }).waitFor()
     assert.deepEqual((await assertState(4, 1)).nodes[0].geometry, original)
     await author.reload()
-    await author.getByRole('heading', { name: title, exact: true }).waitFor()
+    await heading().waitFor()
     await redo().click({ trial: true })
     await redo().focus()
     await author.keyboard.press('Enter')
@@ -82,12 +70,12 @@ export async function exerciseCanvasHistory({ page, origin, screenshot, observat
 
     await stale.goto(author.url())
     await button('Undo', stale).click({ trial: true })
-    await viewport().focus()
+    await canvas.board().focus()
     await author.keyboard.press('Control+z')
     assert.deepEqual((await assertState(6, 1)).nodes[0].geometry, original)
     await button('Undo', stale).click()
     await stale.getByRole('alert').filter({ hasText: 'The Canvas changed.' }).waitFor()
-    assert.deepEqual((await state()).nodes[0].geometry, original)
+    assert.deepEqual((await canvas.graph()).nodes[0].geometry, original)
     await button('Reload Canvas', stale).click()
     await button('Redo', stale).click({ trial: true })
 
@@ -99,7 +87,7 @@ export async function exerciseCanvasHistory({ page, origin, screenshot, observat
     await screenshot(author, 'canvas-history-desktop')
     await author.setViewportSize({ width: 375, height: 850 })
     await author.reload()
-    await author.getByRole('heading', { name: title, exact: true }).waitFor()
+    await heading().waitFor()
     assert(await redo().isDisabled())
     await undo().click()
     await assertState(8, 1)

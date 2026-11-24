@@ -36,16 +36,18 @@ def ensure(condition, message):
         raise BackupError(message)
 
 
+DIR_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+
+
 @contextlib.contextmanager
 def open_directory(path):
     """Anchor every path component without following links."""
     parts = PurePath(path).parts
     ensure(parts and parts[0] == "/" and ".." not in parts, "Use an absolute path with no '..' elements.")
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
-    current = os.open("/", flags)
+    current = os.open("/", DIR_FLAGS)
     try:
         for part in parts[1:]:
-            leaf = os.open(part, flags, dir_fd=current)
+            leaf = os.open(part, DIR_FLAGS, dir_fd=current)
             os.close(current)
             current = leaf
         check_directory(current)
@@ -64,7 +66,7 @@ def check_directory(fd):
 def directory_child(parent, name, create=False):
     if create:
         os.mkdir(name, 0o700, dir_fd=parent)
-    child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent)
+    child = os.open(name, DIR_FLAGS, dir_fd=parent)
     try:
         check_directory(child)
         yield child
@@ -169,34 +171,42 @@ def copy_checked(file, destination=None, limit=MAX_MEDIA_BYTES):
     return count, sha.hexdigest()
 
 
+def measure_dump(backup):
+    with read_file(backup, DUMP) as dump:
+        ensure(dump.read(5) == b"PGDMP", "Expected a PostgreSQL custom-format dump.")
+        dump.seek(0)
+        count, digest = copy_checked(dump)
+        return {"bytes": count, "sha256": digest}
+
+
 def check_media(directory, files, destination=None):
     ensure(set(os.listdir(directory)) == files.keys(), "Media directory contains missing or unexpected files.")
     ensure(sum(value[0] for value in files.values()) <= MAX_MEDIA_BYTES, "Media snapshot exceeds its byte limit.")
     for name, measurement in files.items():
-        with read_file(directory, name) as file:
-            if destination is None:
-                observed = copy_checked(file, limit=20 * 1024**2)
-            else:
-                with new_file(destination, name) as target:
-                    observed = copy_checked(file, target, limit=20 * 1024**2)
-            ensure(observed == measurement, "Private media bytes differ from committed metadata.")
+        with read_file(directory, name) as file, (
+            new_file(destination, name) if destination is not None else contextlib.nullcontext()
+        ) as target:
+            ensure(copy_checked(file, target, limit=20 * 1024**2) == measurement,
+                   "Private media bytes differ from committed metadata.")
+
+
+def file_id(info):
+    return (info.st_dev, info.st_ino)
 
 
 def check_separate_roots(parent, media_root):
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
     for lower, outside in ((parent, media_root), (media_root, parent)):
-        expected = os.fstat(outside)
+        expected = file_id(os.fstat(outside))
         current = os.dup(lower)
         try:
             while True:
-                ancestor = os.fstat(current)
-                ensure((ancestor.st_dev, ancestor.st_ino) != (expected.st_dev, expected.st_ino),
-                       "The backup parent and live media tree must be separate.")
-                next_fd = os.open("..", flags, dir_fd=current)
-                upper = os.fstat(next_fd)
+                ancestor = file_id(os.fstat(current))
+                ensure(ancestor != expected, "The backup parent and live media tree must be separate.")
+                next_fd = os.open("..", DIR_FLAGS, dir_fd=current)
+                upper = file_id(os.fstat(next_fd))
                 os.close(current)
                 current = next_fd
-                if (ancestor.st_dev, ancestor.st_ino) == (upper.st_dev, upper.st_ino):
+                if ancestor == upper:
                     break
         finally:
             os.close(current)
@@ -294,12 +304,8 @@ def capture(parent_path, leaf, media_path):
                 database.stdin.write(b"finish\n")
                 database.stdin.flush()
                 ensure(database.wait(timeout=5) == 0, "The source snapshot did not finish cleanly.")
-                with read_file(backup, DUMP) as dump:
-                    ensure(dump.read(5) == b"PGDMP", "Expected a PostgreSQL custom-format dump.")
-                    dump.seek(0)
-                    length, digest = copy_checked(dump)
                 document = {"format": "fsusblog-offline-backup-candidate-v1",
-                            "databaseDump": {"bytes": length, "sha256": digest}, "site": site}
+                            "databaseDump": measure_dump(backup), "site": site}
                 encoded = json.dumps(document, sort_keys=True, separators=(",", ":")).encode() + b"\n"
                 with new_file(backup, MANIFEST) as manifest:
                     manifest.write(encoded)
@@ -309,9 +315,8 @@ def capture(parent_path, leaf, media_path):
             finally:
                 if database is not None:
                     terminate_child(database)
-                    database.stdin.close()
-                    database.stdout.close()
-                    database.stderr.close()
+                    for stream in (database.stdin, database.stdout, database.stderr):
+                        stream.close()
                 if not complete:
                     clear_incomplete(parent, leaf, backup)
     print(f"Backup candidate manifest SHA-256: {hashlib.sha256(encoded).hexdigest()}")
@@ -328,9 +333,7 @@ def clear_incomplete(parent, leaf, backup):
     for name in (MANIFEST, DUMP):
         with contextlib.suppress(FileNotFoundError):
             os.unlink(name, dir_fd=backup)
-    identity = os.fstat(backup)
-    final = os.stat(leaf, dir_fd=parent, follow_symlinks=False)
-    ensure((identity.st_dev, identity.st_ino) == (final.st_dev, final.st_ino),
+    ensure(file_id(os.fstat(backup)) == file_id(os.stat(leaf, dir_fd=parent, follow_symlinks=False)),
            "Aborted backup directory identity changed before cleanup.")
     os.rmdir(leaf, dir_fd=parent)
 
@@ -349,11 +352,7 @@ def verify(path, expected):
         files = validate_site(document["site"])
         ensure(type(document["databaseDump"]["bytes"]) is int and 5 < document["databaseDump"]["bytes"] <= MAX_MEDIA_BYTES
                and is_hash(document["databaseDump"]["sha256"]), "Invalid backup dump measurement.")
-        with read_file(backup, DUMP) as dump:
-            ensure(dump.read(5) == b"PGDMP", "Expected a PostgreSQL custom-format dump.")
-            dump.seek(0)
-            count, digest = copy_checked(dump)
-        ensure(document["databaseDump"] == {"bytes": count, "sha256": digest}, "Backup database dump digest differs.")
+        ensure(document["databaseDump"] == measure_dump(backup), "Backup database dump digest differs.")
         with directory_child(backup, MEDIA) as media:
             check_media(media, files)
     return document["site"]
@@ -375,17 +374,14 @@ def verify_restored(path, expected, media_path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    make = commands.add_parser("capture")
-    make.add_argument("parent")
-    make.add_argument("new_name")
-    make.add_argument("media_root")
-    check = commands.add_parser("verify")
-    check.add_argument("candidate")
-    check.add_argument("manifest_sha256")
-    restored = commands.add_parser("verify-restored")
-    restored.add_argument("candidate")
-    restored.add_argument("manifest_sha256")
-    restored.add_argument("restored_media_root")
+    for subcommand, params in (
+        ("capture", ("parent", "new_name", "media_root")),
+        ("verify", ("candidate", "manifest_sha256")),
+        ("verify-restored", ("candidate", "manifest_sha256", "restored_media_root")),
+    ):
+        sub = commands.add_parser(subcommand)
+        for param in params:
+            sub.add_argument(param)
     args = parser.parse_args()
     if args.command == "capture":
         capture(args.parent, args.new_name, args.media_root)

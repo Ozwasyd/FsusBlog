@@ -309,7 +309,7 @@ async function run(change?: Change | 'enroll') {
             <ElButton native-type="submit" type="primary" :loading="busy" :disabled="busy || !name.trim()">
               {{ t('account.message38') }}
             </ElButton>
-            <ElButton native-type="button" :disabled="busy" @click="closeEdit">{{ t('account.message39') }}</ElButton>
+            <ElButton native-type="button" :disabled="busy" @click="closeEdit">{{ t('nav.cancel') }}</ElButton>
           </ElInlineActions>
         </form>
 
@@ -329,7 +329,7 @@ async function run(change?: Change | 'enroll') {
             <ElButton native-type="submit" type="danger" :loading="busy" :disabled="busy">
               {{ t('account.message41') }}
             </ElButton>
-            <ElButton native-type="button" autofocus :disabled="busy" @click="closeEdit">{{ t('account.message39') }}</ElButton>
+            <ElButton native-type="button" autofocus :disabled="busy" @click="closeEdit">{{ t('nav.cancel') }}</ElButton>
           </ElInlineActions>
         </form>
       </ElResourceListItem>

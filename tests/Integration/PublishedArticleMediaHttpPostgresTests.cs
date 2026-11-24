@@ -1,16 +1,3 @@
-using static System.Net.HttpStatusCode;
-using static FsusBlog.V2.Integration.Tests.HttpResponseAssert;
-using System.Buffers.Binary;
-using System.Globalization;
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Content;
-using Npgsql;
-using SkiaSharp;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed partial class PublishedArticleMediaHttpPostgresTests
@@ -52,24 +39,29 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 {
                     Assert.Equal("1", Assert.Single(attachments.Headers.GetValues(WireHeaders.ArticlePublishImagesEnabled)));
                 }
-                await RejectPublish(null, HttpStatusCode.Unauthorized);
-                await RejectPublish(owner, HttpStatusCode.Conflict, currentSession: "");
-                await RejectPublish(owner, HttpStatusCode.Conflict, currentSession: other.SiteSessionId);
-                await RejectPublish(other, HttpStatusCode.NotFound);
-                await RejectPublish(owner, HttpStatusCode.BadRequest, headerKey: Guid.NewGuid());
+                foreach (var (caller, status, currentSession, headerKey) in new (MediaFixture.Session?, HttpStatusCode, string?, Guid?)[]
+                {
+                    (null, Unauthorized, null, null),
+                    (owner, Conflict, "", null),
+                    (owner, Conflict, other.SiteSessionId, null),
+                    (other, NotFound, null, null),
+                    (owner, BadRequest, null, Guid.NewGuid()),
+                })
+                {
+                    using var rejected = await Send(client, HttpMethod.Post, WireRoutes.ArticlePublishImages, ct, caller, frame, headerKey, currentSession);
+                    await SiteAedsFixture.AssertAedsError(rejected, status, ct);
+                }
                 using (var stale = await Send(client, HttpMethod.Post, WireRoutes.ArticlePublishImages, ct, owner,
                     Wire.EncodeArticlePublishImages(mutation with { ExpectedRevision = initial.Revision })))
-                    await AssertAedsError(stale, HttpStatusCode.Conflict, ct);
+                    await SiteAedsFixture.AssertAedsError(stale, Conflict, ct);
                 CheckStatus(NotFound, await client.GetAsync(ArticlePath(draft.Id), ct));
                 Assert.Empty(Directory.EnumerateFileSystemEntries(publicRoot));
 
                 var released = await PostDraft(client, WireRoutes.ArticlePublishImages, frame, owner, ct, mutation.IdempotencyKey);
-                Assert.True(released.Published);
-                Assert.Equal(draft.Revision + 1, released.Revision);
-                Assert.Equal(draft.Body, released.Body);
+                Assert.Equal((true, draft.Revision + 1, draft.Body), (released.Published, released.Revision, released.Body));
                 Assert.Equal(released, await PostDraft(client, WireRoutes.ArticlePublishImages, frame, owner, ct, mutation.IdempotencyKey));
 
-                var publication = await PublicationId(db.DataSource, released, ct);
+                var publication = await PublicationId(db, released, ct);
                 var manifestPath = ManifestPath(released.Id, publication);
                 var rawPath = RawPath(released.Id, publication, chosen.Digest);
                 using (var response = Ok(await client.GetAsync(manifestPath, ct)))
@@ -119,18 +111,17 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 var secondRelease = await PostDraft(client, WireRoutes.ArticlePublishImages,
                     Wire.EncodeArticlePublishImages(new(secondDraft.Id, secondDraft.Revision, Guid.NewGuid(), [shared.Id])), other, ct);
                 otherArticle = secondRelease.Id;
-                otherPublication = await PublicationId(db.DataSource, secondRelease, ct);
+                otherPublication = await PublicationId(db, secondRelease, ct);
                 Assert.Equal(chosen.Digest + ".media", Path.GetFileName(Assert.Single(Directory.EnumerateFileSystemEntries(publicRoot))));
                 var otherPath = RawPath(otherArticle, otherPublication, shared.Digest);
                 await AssertImage(client, otherPath, shared, ct);
-                await AssertEmptyImageResponse(client, HttpMethod.Get, RawPath(otherArticle, publication, chosen.Digest), HttpStatusCode.NotFound, ct);
+                await AssertEmptyImageResponse(client, HttpMethod.Get, RawPath(otherArticle, publication, chosen.Digest), NotFound, ct);
 
                 var withdrawn = await PostDraft(client, WireRoutes.Retract,
                     Wire.EncodeArticleCommand(new(released.Id, released.Revision, Guid.NewGuid(), "", "")), owner, ct);
                 Assert.False(withdrawn.Published);
-                await AssertEmptyImageResponse(client, HttpMethod.Get, rawPath, HttpStatusCode.NotFound, ct,
-                    new("If-None-Match", '"' + chosen.Digest + '"'));
-                await AssertEmptyImageResponse(client, HttpMethod.Head, rawPath, HttpStatusCode.NotFound, ct);
+                await AssertEmptyImageResponse(client, HttpMethod.Get, rawPath, NotFound, ct, new("If-None-Match", '"' + chosen.Digest + '"'));
+                await AssertEmptyImageResponse(client, HttpMethod.Head, rawPath, NotFound, ct);
                 using (var old = Expect(NotFound, await client.GetAsync(manifestPath, ct)))
                 {
                     Assert.True(old.Headers.CacheControl?.NoStore);
@@ -143,15 +134,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                     activeArticleFrame = await binary.Content.ReadAsByteArrayAsync(ct);
                     Assert.True(Aeds.Decode(activeArticleFrame, FrameType.ArticleDetail).Length > 0);
                 }
-                using var ownerBytes = await Send(client, HttpMethod.Get, PrivatePath(chosen.Id), ct, owner);
-                Assert.Equal(chosen.Bytes, await ownerBytes.Content.ReadAsByteArrayAsync(ct));
-
-                async Task RejectPublish(MediaFixture.Session? caller, HttpStatusCode status, string? currentSession = null, Guid? headerKey = null)
-                {
-                    using var response = await Send(client, HttpMethod.Post, WireRoutes.ArticlePublishImages, ct, caller, frame,
-                        headerKey, currentSession);
-                    await AssertAedsError(response, status, ct);
-                }
+                Assert.Equal(chosen.Bytes, await OkBytes(Send(client, HttpMethod.Get, PrivatePath(chosen.Id), ct, owner), ct));
             }
 
             enabled[PublishedMediaEndpoints.StorageSetting] = "";
@@ -166,13 +149,9 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 Assert.False(binary.Headers.Contains(WireHeaders.PublicArticleMediaPresent));
                 Assert.Equal(activeArticleFrame, await binary.Content.ReadAsByteArrayAsync(ct));
             }
-            using (var file = Expect(NotFound, await disabled.Client.GetAsync(RawPath(otherArticle, otherPublication, shared.Digest), ct)))
-            {
-                Assert.Empty(await file.Content.ReadAsByteArrayAsync(ct));
-            }
-            CheckStatus(NotFound, await disabled.Client.GetAsync(ManifestPath(otherArticle, otherPublication), ct));
-            using (var privateImage = await Send(disabled.Client, HttpMethod.Get, PrivatePath(shared.Id), ct, other))
-                Assert.Equal(shared.Bytes, await privateImage.Content.ReadAsByteArrayAsync(ct));
+            Assert.Empty(await ExpectBytes(NotFound, disabled.Client.GetAsync(RawPath(otherArticle, otherPublication, shared.Digest), ct), ct));
+            await CheckStatusAsync(NotFound, disabled.Client.GetAsync(ManifestPath(otherArticle, otherPublication), ct));
+            Assert.Equal(shared.Bytes, await OkBytes(Send(disabled.Client, HttpMethod.Get, PrivatePath(shared.Id), ct, other), ct));
         }
     }
 
@@ -238,15 +217,6 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         Assert.Null(response.Content.Headers.LastModified);
     }
 
-    private static async Task AssertAedsError(HttpResponseMessage response, HttpStatusCode status, CancellationToken ct)
-    {
-        Assert.Equal(status, response.StatusCode);
-        Assert.True(response.Headers.CacheControl?.NoStore);
-        Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
-        var payload = Aeds.Decode(await response.Content.ReadAsByteArrayAsync(ct), FrameType.ApiError);
-        Assert.Equal((int)status, BinaryPrimitives.ReadInt32LittleEndian(payload[WireLayouts.ErrorStatusOffset..]));
-    }
-
     private static Task<Draft> Attach(HttpClient client, MediaFixture.Session author, Draft draft, Guid asset, CancellationToken ct) =>
         PostDraft(client, WireRoutes.ArticleMediaCommand,
             Wire.EncodeArticleMediaCommand(new(draft.Id, draft.Revision, Guid.NewGuid(), asset, true)), author, ct);
@@ -261,8 +231,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
 
     private static async Task<Asset> Upload(HttpClient client, MediaFixture.Session owner, string name, string type, byte[] source, CancellationToken ct)
     {
-        using var uploaded = Ok(await MediaFixture.Upload(client, owner, Guid.NewGuid(), name, type, source, ct));
-        var id = MediaFixture.FirstListedAsset(await uploaded.Content.ReadAsByteArrayAsync(ct), 1);
+        var id = MediaFixture.FirstListedAsset(await OkBytes(MediaFixture.Upload(client, owner, Guid.NewGuid(), name, type, source, ct), ct), 1);
         using var raw = Ok(await Send(client, HttpMethod.Get, PrivatePath(id), ct, owner));
         Assert.Equal(type, raw.Content.Headers.ContentType?.MediaType);
         var canonical = await raw.Content.ReadAsByteArrayAsync(ct);
@@ -280,11 +249,8 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         return await client.SendAsync(request, ct);
     }
 
-    private static async Task<long> PublicationId(NpgsqlDataSource source, Draft draft, CancellationToken ct)
-    {
-        await using var db = await source.OpenConnectionAsync(ct);
-        return Assert.IsType<long>(await FixtureSql.ScalarAsync(db, null, ct, "SELECT publication_id FROM public.article_publication WHERE article_id=$1 AND revision=$2", draft.Id, draft.Revision));
-    }
+    private static Task<long> PublicationId(ScratchDatabase db, Draft draft, CancellationToken ct) =>
+        db.ScalarAsync<long>(ct, "SELECT publication_id FROM public.article_publication WHERE article_id=$1 AND revision=$2", draft.Id, draft.Revision);
 
     private static string Invariant(long value) => value.ToString(CultureInfo.InvariantCulture);
     private static string ArticlePath(int article) => "/article/" + Invariant(article);

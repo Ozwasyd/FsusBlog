@@ -1,22 +1,11 @@
 import { ApiError, decodeSuccess } from './aeds.ts';
-import { post, request } from './internal/http.ts';
+import { postEmpty, request } from './internal/http.ts';
 import { FrameType, WireRoutes } from './wire.generated.ts';
 
-export function siteRefreshAvailable(signal?: AbortSignal): Promise<boolean> {
-  return readFlag(WireRoutes.SiteRefreshAvailability, signal);
-}
-
-export function hasSiteRefreshCookie(signal?: AbortSignal): Promise<boolean> {
-  return readFlag(WireRoutes.SiteRefreshStatus, signal);
-}
-
-export function rotateSiteRefresh(signal?: AbortSignal): Promise<void> {
-  return post(WireRoutes.SiteRefreshRotate, FrameType.EmptySuccess, decodeSuccess, signal);
-}
-
-export function signOutSiteRefresh(signal?: AbortSignal): Promise<void> {
-  return post(WireRoutes.SiteRefreshSignOut, FrameType.EmptySuccess, decodeSuccess, signal);
-}
+export const siteRefreshAvailable = (signal?: AbortSignal) => readFlag(WireRoutes.SiteRefreshAvailability, signal);
+export const hasSiteRefreshCookie = (signal?: AbortSignal) => readFlag(WireRoutes.SiteRefreshStatus, signal);
+export const rotateSiteRefresh = (signal?: AbortSignal) => postEmpty(WireRoutes.SiteRefreshRotate, signal);
+export const signOutSiteRefresh = (signal?: AbortSignal) => postEmpty(WireRoutes.SiteRefreshSignOut, signal);
 
 async function readFlag(path: string, signal?: AbortSignal): Promise<boolean> {
   try {

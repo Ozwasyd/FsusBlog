@@ -1,7 +1,3 @@
-using System.Buffers.Binary;
-using System.Text;
-using static FsusBlog.V2.Contracts.WireLayouts;
-
 namespace FsusBlog.V2.Contracts;
 
 public sealed record MfaAttempt(string Token, string Action, string Code, string Recovery);

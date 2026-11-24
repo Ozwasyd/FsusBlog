@@ -1,17 +1,4 @@
-using System.Buffers.Binary;
 using System.Formats.Cbor;
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Content;
-using FsusBlog.V2.Server.Operations;
-using FsusBlog.V2.Server.Passkeys;
-using Microsoft.AspNetCore.WebUtilities;
-using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -22,17 +9,7 @@ public sealed class PasskeyPostgresTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
         var service = new PasskeyStore(fixture.DataSource, new PasskeyConfiguration(new Uri("http://localhost:54822"), "localhost"));
-        var key = RandomNumberGenerator.GetBytes(32);
-        var digest = SHA256.HashData(key);
-        var ticket = Convert.ToHexStringLower(key);
-        var id = Guid.NewGuid();
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        await using (var insert = Store.Sql(db, null,
-            "insert into public.blog_user(id,name,enabled,generation) values ($1,'Passkey fixture',true,1)", id))
-            await insert.ExecuteNonQueryAsync(ct);
-        await using (var insert = Store.Sql(db, null,
-            "insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,clock_timestamp()+interval '5 minutes')", digest, id))
-            await insert.ExecuteNonQueryAsync(ct);
+        var (id, ticket) = await fixture.IssueTicket("Passkey fixture", ct, minutes: 5);
 
         var registration = await service.BeginProvision(ticket, ct);
         var token = ReadToken(registration.Frame, FrameType.PasskeyRegisterBegin, WireLayouts.PasskeyRegisterBeginTokenOffset);
@@ -40,23 +17,19 @@ public sealed class PasskeyPostgresTests
         await Denied(() => new Store(fixture.DataSource).SignIn(ticket, ct));
 
         // These are invalid bytes. Verification can never create a credential or session from this request.
-        var rawId = new byte[] { 42 };
-        var completion = new PasskeyProvisionRequest(token, "Kg", rawId, [1], [1], []);
+        var completion = new PasskeyProvisionRequest(token, "Kg", [42], [1], [1], []);
         await Denied(() => service.CompleteProvision(completion, null, ct));
         await Denied(() => service.CompleteProvision(completion, new string('A', 43), ct));
-        await using (var count = Store.Sql(db, null, "select count(*) from public.passkey_challenge where user_id=$1", id))
-            Assert.Equal(1L, await count.ExecuteScalarAsync(ct));
+        Assert.Equal(1L, await fixture.Scalar<long>("select count(*) from public.passkey_challenge where user_id=$1", id));
 
-        await using (var revoke = Store.Sql(db, null, "update public.blog_user set generation=generation+1 where id=$1", id))
-            await revoke.ExecuteNonQueryAsync(ct);
+        await fixture.Exec("update public.blog_user set generation=generation+1 where id=$1", id);
         await Denied(() => service.CompleteProvision(completion, registration.Binding, ct));
         await Denied(() => service.CompleteProvision(completion, registration.Binding, ct));
-        await using var remaining = Store.Sql(db, null, """
+        Assert.Equal(0L, await fixture.Scalar<long>("""
             select (select count(*) from public.passkey_challenge where user_id=$1)
                 + (select count(*) from public.passkey_credential where user_id=$1)
                 + (select count(*) from public.user_session where user_id=$1)
-            """, id);
-        Assert.Equal(0L, await remaining.ExecuteScalarAsync(ct));
+            """, id));
     }
 
     [PostgresFact]
@@ -64,7 +37,6 @@ public sealed class PasskeyPostgresTests
     {
         if (OperatingSystem.IsWindows()) return;
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
 
         const string host = "blog.example.test";
         const string origin = "https://" + host;
@@ -77,20 +49,17 @@ public sealed class PasskeyPostgresTests
         var readerUserId = Guid.NewGuid();
         var adminPrincipalId = Guid.NewGuid();
 
-        await FixtureSql.ExecuteAsync(db, null, ct,
-            "insert into public.blog_user(id,name,enabled,generation) values($1,'unified-reader',true,1)", readerUserId);
-        await FixtureSql.ExecuteAsync(db, null, ct,
-            "insert into public.passkey_subject(user_id,user_handle) values($1,$2)", readerUserId, readerHandle);
-        await FixtureSql.ExecuteAsync(db, null, ct, """
+        await fixture.SiteAccountAsync(readerUserId, "unified-reader");
+        await fixture.Exec("insert into public.passkey_subject(user_id,user_handle) values($1,$2)", readerUserId, readerHandle);
+        await fixture.Exec("""
             insert into public.passkey_credential(credential_id,user_id,public_key,sign_count,backup_eligible,backed_up)
             values($1,$2,$3,0,false,false)
             """, readerCredId, readerUserId, EncodeCoseEs256PublicKey(readerKey));
-
-        await FixtureSql.ExecuteAsync(db, null, ct, """
+        await fixture.Exec("""
             insert into public.admin_principal(id,handle,user_handle,enabled,generation,generation_changed_at)
             values($1,'unified-admin',$2,true,1,clock_timestamp()-interval '1 minute')
             """, adminPrincipalId, adminHandle);
-        await FixtureSql.ExecuteAsync(db, null, ct, """
+        await fixture.Exec("""
             insert into public.admin_passkey_credential(credential_id,principal_id,public_key,sign_count,backup_eligible,backed_up)
             values($1,$2,$3,0,false,false)
             """, adminCredId, adminPrincipalId, EncodeCoseEs256PublicKey(adminKey));
@@ -135,13 +104,13 @@ public sealed class PasskeyPostgresTests
 
             // 3. Challenge started before admin generation_changed_at is rejected fail-closed
             var staleBegin = await BeginLogin(server);
-            await FixtureSql.ExecuteAsync(db, null, ct,
+            await fixture.Exec(
                 "update public.admin_principal set generation=generation+1,generation_changed_at=clock_timestamp()+interval '1 minute' where id=$1",
                 adminPrincipalId);
             var staleComplete = await CompleteLogin(server, BuildLoginAssertionFrame(
                 staleBegin.Token, staleBegin.Challenge, host, origin, adminCredId, adminHandle, adminKey, signCount: 2, rememberMe: false));
             Assert.Equal(HttpStatusCode.Unauthorized, staleComplete.Status);
-            await FixtureSql.ExecuteAsync(db, null, ct,
+            await fixture.Exec(
                 "update public.admin_principal set generation_changed_at=clock_timestamp()-interval '1 minute' where id=$1",
                 adminPrincipalId);
         }

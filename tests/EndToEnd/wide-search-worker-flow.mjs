@@ -1,16 +1,11 @@
-import { assertStatus } from './response-status-fixture.mjs'
-import { roleWithExactName, exactText } from './role-locators.mjs'
 import assert from 'node:assert/strict'
-import { submitSearch as submit } from './search-form-fixture.mjs'
-import { randomUUID } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
-import { decodeFrame } from '../../src/Contracts/aeds.ts'
-import {
-  decodeDraft, encodeArticleCommand, FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes,
-} from '../../src/Contracts/wire.generated.ts'
+import { FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { withBrowserEvidence } from './isolated-browser-fixture.mjs'
+import { assertFields, assertHeaders, readFrame } from './response-status-fixture.mjs'
+import { exactButton, exactLink } from './role-locators.mjs'
+import * as search from './search-form-fixture.mjs'
 
 const fixtureCount = 26_002
 const deepPage = 2_601
@@ -22,12 +17,11 @@ const withdrawnQuery = '２６００２'
 const cacheName = 'fsusblog-v2-wide-search-v1'
 const timeout = 60_000
 const pagePrefix = WireRoutes.PublicSearchWidePage.replace('{page}', '')
-const generationHeader = WireHeaders.SearchIndexGeneration.toLowerCase()
 const digestHeader = WireHeaders.SearchCorpusDigest.toLowerCase()
-const pagesHeader = WireHeaders.SearchIndexPages.toLowerCase()
 const articleTitle = id => `Browser fixture ${id}`
 const cards = page => page.locator('ol.article-list h2 a')
-const worker = page => page.workers().find(worker => new URL(worker.url()).pathname.includes('/search.worker'))
+const paginationNav = page => page.getByRole('navigation', { name: 'Search result pages' })
+const loadError = page => page.getByRole('alert').filter({ hasText: 'Could not load the articles.' })
 
 export async function exerciseWideSearchWorker({ page, origin, manifest, withdraw, readManifest, observations }) {
   const context = page.context()
@@ -43,32 +37,30 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     if (call) {
       const headers = response.headers()
       responses.push({
-        ...call, status: response.status(), generation: headers[generationHeader] ?? null,
-        digest: headers[digestHeader] ?? null, pages: Number(headers[pagesHeader] ?? 0),
+        ...call, status: response.status(), generation: headers[search.generationHeader] ?? null,
+        digest: headers[digestHeader] ?? null, pages: Number(headers[search.pagesHeader] ?? 0),
         cache: headers['cache-control'] ?? null, validator: headers.etag ?? null,
         length: Number(headers['content-length'] ?? 0), encoding: headers['content-encoding'] ?? null,
       })
     }
   }
-  function collect(stage) {
-    observations[stage] = { requests: requests.splice(0), responses: responses.splice(0) }
-    return observations[stage]
-  }
+  const collect = stage => (observations[stage] = { requests: requests.splice(0), responses: responses.splice(0) })
   context.on('request', onRequest)
   context.on('response', onResponse)
   try {
-    const firstPage = await holdFirstPage(context, origin)
+    const firstPage = await search.holdRoute(context, url => url.origin === origin && url.pathname === pagePrefix + '1',
+      null, timeout, 'Timed out waiting for raw wide page 1')
     try {
       await page.goto(origin + deepUrl)
       await firstPage.reached()
-      const firstWorker = worker(page)
+      const firstWorker = search.searchWorker(page)
       assert(firstWorker, 'The first query owns a search Worker')
       await markSupersededVisibility(page)
-      await submit(page, String(fixtureCount))
+      await search.submitSearch(page, String(fixtureCount))
       await page.goBack()
       await page.waitForURL(url => url.pathname === '/search' &&
         url.searchParams.get('q') === 'fixture' && url.searchParams.get('page') === String(deepPage))
-      assert.equal(worker(page), firstWorker, 'Superseding input retains the Worker loading the full generation')
+      assert.equal(search.searchWorker(page), firstWorker, 'Superseding input retains the Worker loading the full generation')
 
       await peer.goto(origin + deepUrl)
       await peer.waitForFunction(async name => {
@@ -80,8 +72,8 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
       assert.equal(await cards(peer).count(), 0)
       firstPage.release()
       await Promise.all([assertCards(page, deepIds), assertCards(peer, deepIds)])
-      assert.equal(worker(page), firstWorker)
-      assert(worker(peer) && worker(peer) !== firstWorker, 'The same-origin peer has an independent Worker')
+      assert.equal(search.searchWorker(page), firstWorker)
+      assert(search.searchWorker(peer) && search.searchWorker(peer) !== firstWorker, 'The same-origin peer has an independent Worker')
       assert.equal(await page.evaluate(() => {
         const marker = window.__wideSearchFixtureSupersession
         marker.observer.disconnect()
@@ -98,11 +90,11 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     await assertDeepPage(peer)
     observations.initialStorage = await inspectCache(peer, manifest)
 
-    const peerWorker = worker(peer)
+    const peerWorker = search.searchWorker(peer)
     await peer.reload()
     await assertCards(peer, deepIds)
     await assertDeepPage(peer)
-    assert(worker(peer) && worker(peer) !== peerWorker, 'The reloaded tab has a fresh Worker')
+    assert(search.searchWorker(peer) && search.searchWorker(peer) !== peerWorker, 'The reloaded tab has a fresh Worker')
     assertWarm(collect('warmIndependentWorker'), manifest)
 
     const middle = manifest.pages[Math.floor(manifest.pages.length / 2)]
@@ -111,13 +103,13 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     assert.equal(damaged.changed?.length, middle.length)
     assert.notEqual(damaged.changed?.before, damaged.changed?.after)
     observations.corruption = damaged.changed
-    await submit(peer, String(fixtureCount))
-    await peer.getByRole('alert').filter({ hasText: 'Could not load the articles.' }).waitFor({ timeout })
+    await search.submitSearch(peer, String(fixtureCount))
+    await loadError(peer).waitFor({ timeout })
     assert.equal(await cards(peer).count(), 0, 'The corrupted sealed page suppresses all results')
     observations.corruptionCleanup = await waitForEmptyCache(peer)
     assertWarm(collect('corruptionRejectedWithoutRefetch'), manifest, 1)
 
-    await roleWithExactName(peer, 'button', 'Retry').click()
+    await exactButton(peer, 'Retry').click()
     await assertCards(peer, [fixtureCount])
     assertComplete(collect('explicitAdmissionAfterCorruption'), manifest)
     const recovered = observations.recoveredStorage = await inspectCache(peer, manifest)
@@ -125,7 +117,7 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
 
     const normalizedBoundary = String(fixtureCount) + '…'.repeat(41)
     assert.equal(normalizedBoundary.normalize('NFKC').length, WireLimits.SearchQueryChars)
-    await submit(peer, normalizedBoundary)
+    await search.submitSearch(peer, normalizedBoundary)
     await assertCards(peer, [fixtureCount])
     const atLimit = collect('normalizedLengthAtLimit')
     assert(!atLimit.requests.some(call => call.kind === 'fas4'))
@@ -141,10 +133,10 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     await peer.getByRole('status').filter({ hasText: /^Use at most 128 characters, including after normalization\.$/ }).waitFor({ timeout })
     const queryForm = peer.locator('form.search-form')
     assert.equal(await queryForm.getByRole('textbox', { name: 'Search articles' }).inputValue(), beyondNormalizedBoundary)
-    assert(await roleWithExactName(queryForm, 'button', 'Search').isDisabled())
+    assert(await exactButton(queryForm, 'Search').isDisabled())
     assert.equal(await cards(peer).count(), 0)
     assert.equal(await peer.getByRole('alert').count(), 0)
-    assert.equal(await roleWithExactName(peer, 'button', 'Retry').count(), 0)
+    assert.equal(await exactButton(peer, 'Retry').count(), 0)
     assert.deepEqual(collect('normalizedLengthOverLimit'), { requests: [], responses: [] })
 
     const outOfRange = new URLSearchParams({ q: String(fixtureCount), page: '2' })
@@ -152,24 +144,23 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     await peer.getByRole('status').filter({ hasText: /^There are no articles on this search result page\.$/ }).waitFor({ timeout })
     assert.equal(peer.url(), `${origin}/search?${outOfRange}`)
     assert.equal(await cards(peer).count(), 0)
-    const pagination = peer.getByRole('navigation', { name: 'Search result pages' })
-    assert.equal(await roleWithExactName(pagination, 'link', 'Next').count(), 0)
+    const pagination = paginationNav(peer)
+    assert.equal(await exactLink(pagination, 'Next').count(), 0)
     assertWarm(collect('outOfRangePage'), manifest)
 
-    await roleWithExactName(pagination, 'link', 'First page').click()
+    await exactLink(pagination, 'First page').click()
     await peer.waitForURL(`${origin}/search?q=${fixtureCount}`)
     await assertCards(peer, [fixtureCount])
     assertWarm(collect('returnToFirstPage'), manifest)
 
     const finalHead = await holdWindowHead(peer)
     try {
-      await submit(peer, withdrawnQuery)
-      const pins = await finalHead.reached()
-      assert.deepEqual(pins, { generation: manifest.generation, digest: manifest.digest })
+      await search.submitSearch(peer, withdrawnQuery)
+      assert.deepEqual(await finalHead.reached(), { generation: manifest.generation, digest: manifest.digest })
       assert.equal(await cards(peer).count(), 0, 'Prior cards clear while the window visibility check is held')
       await withdraw()
       await finalHead.release()
-      await peer.getByRole('alert').filter({ hasText: 'Could not load the articles.' }).waitFor({ timeout })
+      await loadError(peer).waitFor({ timeout })
       assert.equal(await cards(peer).count(), 0, 'A denied final HEAD does not publish the withdrawn card')
       observations.withdrawalCleanup = await waitForEmptyCache(peer)
       const denied = collect('withdrawalRejectedAtWindowHead')
@@ -177,9 +168,7 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
       const failures = denied.responses.filter(call => call.kind === 'manifest' && call.method === 'HEAD' && call.status === 409)
       assert.equal(failures.length, 1)
       assertPins(failures[0], manifest)
-      assert.equal(failures[0].cache, 'no-store')
-      assert.equal(failures[0].generation, null)
-      assert.equal(failures[0].digest, null)
+      assertFields(failures[0], { cache: 'no-store', generation: null, digest: null })
     } finally {
       await finalHead.close()
     }
@@ -188,8 +177,8 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
     assert.notEqual(replacement.generation, manifest.generation)
     assert.notEqual(replacement.digest, manifest.digest)
     assert.equal(replacement.documentCount, fixtureCount - 1)
-    await roleWithExactName(peer, 'button', 'Retry').click()
-    await exactText(peer, 'No articles match your search.').waitFor({ timeout })
+    await exactButton(peer, 'Retry').click()
+    await search.noSearchMatches(peer).waitFor({ timeout })
     assert.equal(await cards(peer).count(), 0)
     assertComplete(collect('replacement'), replacement)
     observations.replacementStorage = await inspectCache(peer, replacement)
@@ -201,23 +190,22 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
   }
 }
 
-
 async function assertCards(page, ids) {
-  await roleWithExactName(page.locator('ol.article-list'), 'link', articleTitle(ids[0])).waitFor({ timeout })
+  await search.resultLink(page, articleTitle(ids[0])).waitFor({ timeout })
   assert.deepEqual(await cards(page).allTextContents(), ids.map(articleTitle))
   const paths = await cards(page).evaluateAll(links => links.map(link => new URL(link.href).pathname))
   assert.deepEqual(paths, ids.map(id => `/article/${id}`))
 }
 
 async function assertDeepPage(page) {
-  const nav = page.getByRole('navigation', { name: 'Search result pages' })
+  const nav = paginationNav(page)
   assert.equal(await nav.locator('span[aria-current="page"]').textContent(), `Page ${deepPage}`)
-  assert.equal(await roleWithExactName(nav, 'link', 'Previous').count(), 1)
-  assert.equal(await roleWithExactName(nav, 'link', 'Next').count(), 0)
+  assert.equal(await exactLink(nav, 'Previous').count(), 1)
+  assert.equal(await exactLink(nav, 'Next').count(), 0)
 }
 
-async function markSupersededVisibility(page) {
-  await page.evaluate(title => {
+function markSupersededVisibility(page) {
+  return page.evaluate(title => {
     const marker = { visible: false }
     const observer = new MutationObserver(() => {
       marker.visible ||= Array.from(document.querySelectorAll('ol.article-list h2 a'))
@@ -248,6 +236,13 @@ function assertPins(call, manifest) {
   assert.equal(call.requestedDigest, manifest.digest)
 }
 
+function assertSealedMeta(call, manifest) {
+  assert.equal(call.generation, manifest.generation)
+  assert.equal(call.digest, manifest.digest)
+  assert.equal(call.pages, manifest.pages.length)
+  assert.equal(call.cache, 'no-store')
+}
+
 function assertReads(batch, manifest, minimumSuccesses = 2) {
   assert(batch.requests.some(call => call.kind === 'manifest' && call.method === 'GET'), 'A real sealed manifest was requested')
   assert(batch.requests.filter(call => call.kind === 'manifest' && call.method === 'GET').every(call => !call.params.length))
@@ -255,10 +250,7 @@ function assertReads(batch, manifest, minimumSuccesses = 2) {
   assert(heads.length >= minimumSuccesses, 'Expected successful pinned authority checks')
   for (const call of heads) {
     assertPins(call, manifest)
-    assert.equal(call.generation, manifest.generation)
-    assert.equal(call.digest, manifest.digest)
-    assert.equal(call.pages, manifest.pages.length)
-    assert.equal(call.cache, 'no-store')
+    assertSealedMeta(call, manifest)
   }
   assert(batch.responses.filter(call => call.kind === 'legacy').every(call => call.status === 503),
     'The compact endpoint accepts none of this fixture as a partial corpus')
@@ -280,40 +272,9 @@ function assertComplete(batch, manifest) {
   for (const [index, call] of bodies.entries()) {
     const page = manifest.pages[index]
     assert.equal(call.status, 200)
-    assert.equal(call.generation, manifest.generation)
-    assert.equal(call.digest, manifest.digest)
-    assert.equal(call.pages, manifest.pages.length)
+    assertSealedMeta(call, manifest)
     assert.equal(call.validator, `"${page.sha256}"`)
-    assert.equal(call.cache, 'no-store')
     if (!call.encoding || call.encoding === 'identity') assert.equal(call.length, page.length)
-  }
-}
-
-async function holdFirstPage(context, origin) {
-  const arrived = Promise.withResolvers()
-  const gate = Promise.withResolvers()
-  const match = url => url.origin === origin && url.pathname === pagePrefix + '1'
-  const hold = async route => {
-    arrived.resolve()
-    await gate.promise
-    await route.continue().catch(() => {})
-  }
-  await context.route(match, hold, { times: 1 })
-  return {
-    async reached() {
-      const timer = new AbortController()
-      try {
-        assert(await Promise.race([arrived.promise.then(() => true), delay(timeout, false, { signal: timer.signal })]),
-          'Timed out waiting for raw wide page 1')
-      } finally {
-        timer.abort()
-      }
-    },
-    release: gate.resolve,
-    async close() {
-      gate.resolve()
-      await context.unroute(match, hold)
-    },
   }
 }
 
@@ -334,24 +295,17 @@ async function holdWindowHead(page) {
     }
   }, WireRoutes.PublicSearchWideManifest)
   return {
-    async reached() {
-      const seen = await page.waitForFunction(() => window.__wideSearchFixtureHead?.pins, undefined, { timeout })
-      return await seen.jsonValue()
-    },
-    async release() {
-      await page.evaluate(() => window.__wideSearchFixtureHead.release())
-    },
-    async close() {
-      await page.evaluate(() => {
-        window.__wideSearchFixtureHead.release()
-        window.__wideSearchFixtureHead.restore()
-        delete window.__wideSearchFixtureHead
-      })
-    },
+    reached: async () => (await page.waitForFunction(() => window.__wideSearchFixtureHead?.pins, undefined, { timeout })).jsonValue(),
+    release: () => page.evaluate(() => window.__wideSearchFixtureHead.release()),
+    close: () => page.evaluate(() => {
+      window.__wideSearchFixtureHead.release()
+      window.__wideSearchFixtureHead.restore()
+      delete window.__wideSearchFixtureHead
+    }),
   }
 }
 
-async function readCache(page, corruptPage = null, lockTimeout = timeout) {
+function readCache(page, corruptPage = null, lockTimeout = timeout) {
   return page.evaluate(({ name, corruptPage, timeout }) =>
     navigator.locks.request(name, { mode: 'exclusive', signal: AbortSignal.timeout(timeout) },
       () => new Promise((resolve, reject) => {
@@ -414,18 +368,14 @@ async function sealedManifest(request) {
     const response = await request.get(WireRoutes.PublicSearchWideManifest)
     try {
       if (response.status() !== 503) {
-        assertStatus(response, 200)
-        const { payload } = decodeFrame(await response.body(), FrameType.PublicSearchWideManifest)
-        const bytes = Buffer.from(payload)
+        const bytes = Buffer.from(await readFrame(response, FrameType.PublicSearchWideManifest))
         const generation = bytes.readBigInt64LE(4).toString()
         const documentCount = bytes.readInt32LE(12)
         const pageCount = bytes.readInt32LE(16)
         const byteCount = Number(bytes.readBigInt64LE(20))
         const digest = bytes.subarray(28, WireLayouts.SearchWideManifestHeaderSize).toString('hex')
         assert.equal(bytes.readInt32LE(0), WireLayouts.SearchWideManifestVersion)
-        assert.equal(generation, response.headers()[generationHeader])
-        assert.equal(digest, response.headers()[digestHeader])
-        assert.equal(String(pageCount), response.headers()[pagesHeader])
+        assertHeaders(response, { [search.generationHeader]: generation, [digestHeader]: digest, [search.pagesHeader]: String(pageCount) })
         assert(pageCount > WireLimits.SearchCorpusMaxPages && pageCount <= WireLimits.SearchWideCorpusMaxPages)
         assert.equal(bytes.length, WireLayouts.SearchWideManifestHeaderSize + pageCount * WireLayouts.SearchWideManifestPageRecordSize)
         const pages = Array.from({ length: pageCount }, (_, index) => {
@@ -448,7 +398,7 @@ async function sealedManifest(request) {
 
 async function run() {
   const { launchIdentityBrowser, request } = await import('./site-authentication-fixture.mjs')
-  const { postFrame } = await import('./browser-authoring-fixture.mjs')
+  const { authorFixture } = await import('./browser-authoring-fixture.mjs')
   const { signInFreshAdmin } = await import('./webauthn-fixture.mjs')
   const url = new URL(process.env.FSUSBLOG_TEST_SITE_URL ?? 'http://invalid.test')
   const adminOrigin = new URL(process.env.FSUSBLOG_TEST_ADMIN_URL ?? 'http://invalid.test').origin
@@ -458,11 +408,11 @@ async function run() {
   assert(url.protocol === 'https:' && ['127.0.0.1', 'localhost'].includes(url.hostname) &&
     /^[0-9a-f]{64}$/.test(bootstrap ?? '') && /^[A-Za-z0-9+/]{43}=(?:,[A-Za-z0-9+/]{43}=)?$/.test(pins ?? '') && evidence,
   'Use the isolated Caddy HTTPS fixture with a disposable administrator bootstrap key and TLS leaf pins.')
-  await mkdir(evidence, { recursive: true })
   const publicHttp = await request.newContext({ baseURL: url.origin })
   const browser = await launchIdentityBrowser(pins)
   const observations = { browser: browser.version(), origin: url.origin }
-  try {
+  const admin = authorFixture(adminOrigin, [])
+  await withBrowserEvidence(browser, evidence, 'wide-search-worker.json', () => observations, async () => {
     const manifest = await sealedManifest(publicHttp)
     assert.equal(manifest.documentCount, fixtureCount)
     const context = await browser.newContext({ viewport: { width: 375, height: 850 }, serviceWorkers: 'block' })
@@ -474,27 +424,11 @@ async function run() {
       page, origin: url.origin, manifest, observations,
       readManifest: () => sealedManifest(publicHttp),
       async withdraw() {
-        const payload = encodeArticleCommand({ id: fixtureCount, expectedRevision: 1n, title: '', body: '', idempotencyKey: randomUUID() })
-        const receipt = decodeDraft(await post(owner.request, WireRoutes.Retract, FrameType.ArticleCommand, payload, FrameType.Draft))
-        assert.equal(receipt.id, fixtureCount)
-        assert.equal(receipt.revision, 2n)
-        assert.equal(receipt.published, false)
+        const receipt = await admin.retractDraft(owner, { id: fixtureCount, revision: 1n })
+        assertFields(receipt, { id: fixtureCount, revision: 2n, published: false })
       },
     })
-  } finally {
-    await Promise.all([browser.close(), publicHttp.dispose()])
-    await writeFile(join(evidence, 'wide-search-worker.json'), JSON.stringify(observations, null, 2) + '\n')
-  }
-
-  async function post(client, path, type, payload, reply) {
-    const response = await postFrame(client, adminOrigin + path, type, payload)
-    try {
-      assertStatus(response, 200)
-      return decodeFrame(await response.body(), reply).payload
-    } finally {
-      await response.dispose()
-    }
-  }
+  }, { mkdir: true, newline: true, after: () => publicHttp.dispose() })
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await run()

@@ -1,12 +1,3 @@
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Administration;
-using FsusBlog.V2.Server.Passkeys;
-using Microsoft.AspNetCore.WebUtilities;
 using static FsusBlog.V2.Integration.Tests.AuthorPropertyFixture;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -28,15 +19,15 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         var blue = Guid.Parse("00000000-0000-4000-8000-000000000002");
         var unused = Guid.Parse("00000000-0000-4000-8000-000000000003");
         PropertyFieldOption[] options = [new(unused, "Unused"), new(blue, "Blue"), new(red, "Red")];
-        var flag = await Define(owner, "flag", PropertyFieldKind.Boolean);
-        var multi = await Define(owner, "choices", PropertyFieldKind.MultiSelect, options);
-        var single = await Define(owner, "choice", PropertyFieldKind.SingleSelect, options);
-        var disabled = await Define(owner, "disabled", PropertyFieldKind.Boolean, enabled: false);
-        var deprecated = await Define(owner, "deprecated", PropertyFieldKind.Boolean);
+        var flag = await author.Define(owner, "flag", PropertyFieldKind.Boolean, filterable: true);
+        var multi = await author.Define(owner, "choices", PropertyFieldKind.MultiSelect, filterable: true, options: options);
+        var single = await author.Define(owner, "choice", PropertyFieldKind.SingleSelect, filterable: true, options: options);
+        var disabled = await author.Create(owner, "disabled", PropertyFieldKind.Boolean);
+        var deprecated = await author.Define(owner, "deprecated", PropertyFieldKind.Boolean, filterable: true);
         await author.ChangeDefinition(owner, 3, deprecated.Id, deprecated.Revision);
-        var unsupported = await Define(owner, "text", PropertyFieldKind.Text);
+        var unsupported = await author.Define(owner, "text", PropertyFieldKind.Text, filterable: true);
         // Reuse the UUID across two schemas. Both the definition and value must stay owner-scoped.
-        var outsiderFlag = await Define(outsider, "flag", PropertyFieldKind.Boolean, id: flag.Id);
+        var outsiderFlag = await author.Define(outsider, "flag", PropertyFieldKind.Boolean, filterable: true, id: flag.Id);
 
         const int matches = 24;
         var articles = new ArticleState[matches];
@@ -95,14 +86,14 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         Assert.Equal(new[] { matches, 0, 0, 0 }, first.Search.StateCounts);
         Assert.Equal(WireLimits.AuthorTextSearchRows, first.Search.Rows.Count);
         Assert.NotEmpty(first.Search.NextCursor);
-        RequireFacet(first, flag, PropertyFieldKind.Boolean, 4, 3, 0, Bool(false, 7), Bool(true, 10));
+        RequireBoolFacet(first.Facet, flag, 4, 3, 7, 10);
 
         var continuation = request with { Search = request.Search with { Cursor = first.Search.NextCursor } };
         var tail = await Read(continuation, owner);
         Assert.True(tail.Search.Ready);
         Assert.Equal(matches, tail.Search.Total);
         Assert.Empty(tail.Search.NextCursor);
-        RequireFacet(tail, flag, PropertyFieldKind.Boolean, 4, 3, 0, Bool(false, 7), Bool(true, 10));
+        RequireBoolFacet(tail.Facet, flag, 4, 3, 7, 10);
         var seen = first.Search.Rows.Concat(tail.Search.Rows).ToArray();
         Assert.Equal(articles.Select(row => row.Id).Order(), seen.Select(row => row.Id).Order());
         Assert.Equal(new[] { 1, 2 }, seen.Select(row => row.Field).Distinct().Order());
@@ -110,10 +101,10 @@ public sealed class AuthorTextPropertyFacetPostgresTests
 
         var multiPage = await Ready(Query(owner, multi), owner);
         Assert.Equal(matches, multiPage.Search.Total);
-        RequireFacet(multiPage, multi, PropertyFieldKind.MultiSelect, 4, 4, 4, Choice(red, 8), Choice(blue, 8), Choice(unused, 0));
+        RequireFacet(multiPage.Facet, multi, PropertyFieldKind.MultiSelect, 4, 4, 4, ChoiceFacet(red, 8), ChoiceFacet(blue, 8), ChoiceFacet(unused, 0));
         var singlePage = await Ready(Query(owner, single), owner);
         Assert.Equal(matches, singlePage.Search.Total);
-        RequireFacet(singlePage, single, PropertyFieldKind.SingleSelect, 20, 1, 0, Choice(red, 2), Choice(blue, 1), Choice(unused, 0));
+        RequireFacet(singlePage.Facet, single, PropertyFieldKind.SingleSelect, 20, 1, 0, ChoiceFacet(red, 2), ChoiceFacet(blue, 1), ChoiceFacet(unused, 0));
 
         var alternatives = new PropertyCondition(multi.Id, multi.Revision, PropertyComparison.MultiSelectAnyOf,
             new PropertyFieldValue.MultiSelect([blue, red]));
@@ -121,16 +112,16 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         Assert.Equal(12, filtered.Search.Total);
         Assert.Equal(articles.Where((_, i) => i % 6 < 3).Select(row => row.Id).Order(),
             filtered.Search.Rows.Select(row => row.Id).Order());
-        RequireFacet(filtered, flag, PropertyFieldKind.Boolean, 3, 0, 0, Bool(false, 3), Bool(true, 6));
+        RequireBoolFacet(filtered.Facet, flag, 3, 0, 3, 6);
         var onlyFalse = new PropertyCondition(flag.Id, flag.Revision, PropertyComparison.Equal, new PropertyFieldValue.Boolean(false));
         var filteredMulti = await Ready(Query(owner, multi, onlyFalse), owner);
         Assert.Equal(7, filteredMulti.Search.Total);
         Assert.Equal(articles.Skip(10).Take(7).Select(row => row.Id), filteredMulti.Search.Rows.Select(row => row.Id).Order());
-        RequireFacet(filteredMulti, multi, PropertyFieldKind.MultiSelect, 2, 1, 1, Choice(red, 2), Choice(blue, 2), Choice(unused, 0));
+        RequireFacet(filteredMulti.Facet, multi, PropertyFieldKind.MultiSelect, 2, 1, 1, ChoiceFacet(red, 2), ChoiceFacet(blue, 2), ChoiceFacet(unused, 0));
 
         var outsiderPage = await Ready(Query(outsider, outsiderFlag), outsider);
         Assert.Equal(foreign.Id, Assert.Single(outsiderPage.Search.Rows).Id);
-        RequireFacet(outsiderPage, outsiderFlag, PropertyFieldKind.Boolean, 0, 0, 0, Bool(false, 1), Bool(true, 0));
+        RequireBoolFacet(outsiderPage.Facet, outsiderFlag, 0, 0, 1, 0);
         await Reject(Query(outsider, multi), outsider, HttpStatusCode.NotFound);
         await Reject(Query(owner, new(Guid.NewGuid(), 1)), owner, HttpStatusCode.NotFound);
         await Reject(Query(owner, disabled), owner, HttpStatusCode.NotFound);
@@ -171,13 +162,6 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         Assert.Equal(matches - 1, atNewSchema.Search.Total);
         RequireFlags(atNewSchema, renamed, values.Skip(1));
 
-        async Task<Field> Define(Actor actor, string name, PropertyFieldKind kind, PropertyFieldOption[]? choices = null,
-            bool enabled = true, Guid? id = null)
-        {
-            var field = await author.Create(actor, name, kind, id, choices);
-            return enabled ? await author.SetFilterable(actor, field) : field;
-        }
-
         AuthorTextPropertyFacetQuery Query(Actor actor, Field field, params PropertyCondition[] conditions) =>
             new(new(Keyword, "", null, null, actor.SchemaRevision, conditions), false, field.Id, field.Revision);
 
@@ -206,27 +190,16 @@ public sealed class AuthorTextPropertyFacetPostgresTests
                 select h.publication_id,h.article_id,h.revision,c.id from public.article_publication_history h cross join custody c
                 where h.article_id=$1 and h.revision=$2 and h.kind='publish'
                 """, draft.Id, original.Revision);
-            await using var conn = await fixture.DataSource.OpenConnectionAsync(ct);
-            await using var coordinate = Store.Sql(conn, null,
+            var release = await fixture.ScalarAsync<long>(ct,
                 "select publication_id from public.article_publication where article_id=$1 and revision=$2", draft.Id, published.Revision);
-            var release = Assert.IsType<long>(await coordinate.ExecuteScalarAsync(ct));
             var intent = new AdminArticleArchiveIntent(draft.Id, published.Revision, release, original.Revision,
                 Guid.NewGuid(), "Archive the matched private facet fixture", Wire.AdminArticleArchiveStatus);
-            var admin = Guid.NewGuid();
-            var token = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-            var digest = Store.TokenDigest(token)!;
-            await author.Execute(FixtureSql.AdminSessionSql,
-                FixtureSql.AdminSessionArguments(admin, "facet-fixture-admin",
-                    RandomNumberGenerator.GetBytes(32), RandomNumberGenerator.GetBytes(32), [1], digest, 2));
-            var proof = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-            await author.Execute("""
-                insert into public.admin_article_rollback_step_up
-                    (digest,principal_id,session_digest,generation,action,body_digest,expires_at,kind)
-                values($1,$2,$3,1,8,$4,clock_timestamp()+interval '45 seconds',2)
-                """, SHA256.HashData(Encoding.ASCII.GetBytes(proof)), admin, digest, AdminArticleArchiveStore.ArticleArchiveIntentDigest(intent));
+            var admin = await fixture.AdminAsync("facet-fixture-admin", ct: ct);
+            var (proof, _) = await fixture.SeedStepUpProof("admin_article_rollback_step_up", admin.Id, admin.Digest,
+                8, AdminArticleArchiveStore.ArticleArchiveIntentDigest(intent), ct: ct);
             var gate = new AdminSessionGate(fixture.DataSource, null);
-            var archives = new AdminArticleArchiveStore(gate, new AdminStepUpService(gate));
-            var receipt = await archives.ExecuteArticleArchive(token, proof, intent, () => { }, ct);
+            var receipt = await new AdminArticleArchiveStore(gate, new AdminStepUpService(gate))
+                .ExecuteArticleArchive(admin.Token, proof, intent, () => { }, ct);
             Assert.Equal((draft.Id, published.Revision + 1, Wire.AdminArticleArchiveStatus), (receipt.ArticleId, receipt.Revision, receipt.TargetStatus));
         }
 
@@ -235,22 +208,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
     private static void RequireFlags(AuthorTextPropertyFacetPage page, Field flag, IEnumerable<PropertyFieldValue> entries)
     {
         var values = entries.ToArray();
-        RequireFacet(page, flag, PropertyFieldKind.Boolean,
-            values.Count(v => v is PropertyFieldValue.Missing), values.Count(v => v is PropertyFieldValue.Null), 0,
-            Bool(false, values.Count(v => v is PropertyFieldValue.Boolean { Value: false })),
-            Bool(true, values.Count(v => v is PropertyFieldValue.Boolean { Value: true })));
+        RequireBoolFacet(page.Facet, flag, values.Count(v => v is PropertyFieldValue.Missing), values.Count(v => v is PropertyFieldValue.Null),
+            values.Count(v => v is PropertyFieldValue.Boolean { Value: false }), values.Count(v => v is PropertyFieldValue.Boolean { Value: true }));
     }
-
-    private static void RequireFacet(AuthorTextPropertyFacetPage page, Field field, PropertyFieldKind kind, int missing, int nil,
-        int empty, params AuthorTextPropertyFacetBucket[] buckets)
-    {
-        var facet = Assert.IsType<AuthorTextPropertyFacet>(page.Facet);
-        Assert.Equal((field.Id, field.Revision, kind, missing, nil, empty),
-            (facet.DefinitionId, facet.DefinitionRevision, facet.Kind, facet.Missing, facet.Null, facet.Empty));
-        Assert.Equal(buckets, facet.Buckets);
-    }
-
-    private static AuthorTextPropertyFacetBucket Bool(bool value, int count) => new(new PropertyFieldValue.Boolean(value), count);
-    private static AuthorTextPropertyFacetBucket Choice(Guid id, int count) => new(new PropertyFieldValue.SingleSelect(id), count);
-
 }

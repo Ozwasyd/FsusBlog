@@ -1,9 +1,3 @@
-using FsusBlogV2.Storage;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using Npgsql;
-using NpgsqlTypes;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal static class ArticleScheduleStore
@@ -57,38 +51,25 @@ internal static class ArticleScheduleStore
             """, current.Id, current.Revision, actor.Id, actor.Generation, input.IdempotencyKey, Due(input));
     }
 
-    internal static async Task<ArticleSchedule> ReadReceipt(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid command,
-        ArticleState draft, CancellationToken ct)
-    {
-        await using var read = SqlCommands.Create(db, tx, """
+    internal static Task<ArticleSchedule> ReadReceipt(NpgsqlConnection db, NpgsqlTransaction tx, Guid actor, Guid command,
+        ArticleState draft, CancellationToken ct) =>
+        SqlCommands.QueryRequired(db, tx, ct, """
             select due_at,published_revision from public.article_schedule_receipt where actor_id=$1 and command_id=$2
-            """, actor, command);
-        await using var row = await read.ExecuteReaderAsync(ct);
-        await row.ReadRequired(ct, () => new InvalidOperationException("Schedule receipt missing."));
-        return new(draft.Id, draft.Revision, row.IsDBNull(0) ? 0 : Milliseconds(row.GetDateTime(0)), row.GetInt64(1));
-    }
+            """, r => new ArticleSchedule(draft.Id, draft.Revision, r.IsDBNull(0) ? 0 : Milliseconds(r.GetDateTime(0)), r.GetInt64(1)),
+            () => new InvalidOperationException("Schedule receipt missing."), actor, command);
 
-    internal static async Task Clear(NpgsqlConnection db, NpgsqlTransaction tx, int id, CancellationToken ct)
-    {
-        await SqlCommands.Execute(db, tx, ct, "delete from public.article_schedule where article_id=$1", id);
-    }
+    internal static Task Clear(NpgsqlConnection db, NpgsqlTransaction tx, int id, CancellationToken ct) =>
+        SqlCommands.Execute(db, tx, ct, "delete from public.article_schedule where article_id=$1", id);
 
     // The one-shot clock is an internal integration seam. Production always reads the database clock inside this transaction.
     internal static async Task<int> PublishDue(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct, DateTime? testClock = null)
     {
-        await using var time = SqlCommands.Create(db, tx, "select clock_timestamp()");
-        var now = testClock ?? (DateTime)(await time.ExecuteScalarAsync(ct))!;
-        var due = new List<Candidate>(BatchSize);
-        await using (var claim = SqlCommands.Create(db, tx, """
+        var now = testClock ?? (DateTime)(await SqlCommands.Scalar(db, tx, ct, "select clock_timestamp()"))!;
+        var due = await SqlCommands.QueryList(db, tx, ct, """
             select a.id,s.revision,s.actor_id,s.generation,s.command_id
             from public.article_schedule s join public.article a on a.id=s.article_id
             where s.due_at<=$1 order by s.due_at,s.article_id limit $2 for update of a skip locked
-            """, now, BatchSize))
-        await using (var reader = await claim.ExecuteReaderAsync(ct))
-        {
-            while (await reader.ReadAsync(ct))
-                due.Add(new(reader.GetInt32(0), reader.GetInt64(1), reader.GetGuid(2), reader.GetInt64(3), reader.GetGuid(4)));
-        }
+            """, r => new Candidate(r.GetInt32(0), r.GetInt64(1), r.GetGuid(2), r.GetInt64(3), r.GetGuid(4)), now, BatchSize);
         var changed = 0;
         foreach (var candidate in due)
         {
@@ -97,7 +78,7 @@ internal static class ArticleScheduleStore
                 select p.enabled and p.generation=$2
                 from public.admin_principal p where p.id=$1 for share skip locked
                 """, candidate.Actor, candidate.Generation) is not bool permitted) continue;
-            await using var verify = SqlCommands.Create(db, tx, $"""
+            var check = await SqlCommands.QueryOneValue(db, tx, ct, $"""
                 select a.published_revision,s.revision=a.revision and s.actor_id=a.owner_id and not a.deleted
                     and {ArchivedArticleAuthority.Available}
                     and a.id=c.article_id and s.revision=c.revision and s.due_at=r.due_at
@@ -108,15 +89,9 @@ internal static class ArticleScheduleStore
                 join public.article_command c on c.actor_id=s.actor_id and c.command_id=s.command_id
                 where s.article_id=$1 and s.revision=$2 and s.actor_id=$3 and s.generation=$4
                   and s.command_id=$5 and s.due_at<=$6
-                """, candidate.Id, candidate.Revision, candidate.Actor, candidate.Generation, candidate.Command, now);
-            long? publication;
-            bool eligible;
-            await using (var row = await verify.ExecuteReaderAsync(ct))
-            {
-                if (!await row.ReadAsync(ct)) continue;
-                publication = row.IsDBNull(0) ? null : row.GetInt64(0);
-                eligible = row.GetBoolean(1);
-            }
+                """, r => (Publication: r.IsDBNull(0) ? (long?)null : r.GetInt64(0), Eligible: r.GetBoolean(1)),
+                candidate.Id, candidate.Revision, candidate.Actor, candidate.Generation, candidate.Command, now);
+            if (check is not var (publication, eligible)) continue;
             if (permitted && eligible)
             {
                 await SqlCommands.Execute(db, tx, ct, """

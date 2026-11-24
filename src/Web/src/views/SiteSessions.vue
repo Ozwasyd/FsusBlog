@@ -112,7 +112,7 @@ async function run(kind: 'load' | 'revoke', action: (id: string, signal: AbortSi
         :title="item.current ? t('account.message69') : t('account.message70')"
       >
         <template v-if="item.current" #badge>
-          <ElTag size="small" type="success" disable-transitions>{{ t('account.sessionCurrentBadge') }}</ElTag>
+          <ElTag size="small" type="success" disable-transitions>{{ t('admin.sessionCurrent') }}</ElTag>
         </template>
         <template v-if="!item.current" #actions>
           <ElButton native-type="button" text type="danger" :disabled="busy" @click="revoke(item.id)">

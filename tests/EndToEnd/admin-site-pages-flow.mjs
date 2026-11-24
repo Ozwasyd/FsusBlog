@@ -1,44 +1,40 @@
-import { assertStatus } from './response-status-fixture.mjs'
-import { waitForUrlResponse } from './response-wait-fixture.mjs'
-import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-import { join } from 'node:path'
-import { writeFile } from 'node:fs/promises'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeSitePage } from '../../src/Contracts/site-pages.ts'
+import * as wire from '../../src/Contracts/wire.generated.ts'
 import { adminClusterFlow } from './admin-cluster-flow.mjs'
 import { adminRiskReadinessFlow, verifyRootCommentPowPolicy } from './admin-risk-readiness-flow.mjs'
-import { decodeSitePage } from '../../src/Contracts/site-pages.ts'
-import { decodeAdminSitePageRevision, encodeAdminSitePagePublish, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
-import { exactButton, roleWithExactName, exactText } from './role-locators.mjs'
+import * as adminFx from './admin-workspace-fixture.mjs'
+import { saveShot, writeEvidenceJson } from './isolated-browser-fixture.mjs'
+import { assertNoStore, assertStatus, readFrame } from './response-status-fixture.mjs'
+import * as loc from './role-locators.mjs'
+
+const { FrameType, WireHeaders, WireRoutes: R } = wire
 
 export async function verifyAdminSitePages({ page, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
   priorCookie, revoke, logIn, probe, readCookie, evidence }) {
+  const adminBase = adminOrigin.origin, siteBase = siteOrigin.origin
   const cluster = adminClusterFlow({ page, adminOrigin, siteOrigin, adminCookieName, siteCookie, priorCookie, probe, evidence })
   const riskFixture = process.env.FSUSBLOG_TEST_ADMIN_RISK_EXPECTED
   const risk = riskFixture ? adminRiskReadinessFlow({ page, context, adminOrigin, siteOrigin, adminCookieName,
     siteCookie, priorCookie, probe, evidence, expected: JSON.parse(riskFixture) }) : null
   const openRiskControls = async () => {
-    await visitAdminWorkspace(page, '/admin/interaction')
-    await roleWithExactName(page, 'tab', 'Risk controls').click()
+    await adminFx.visitAdminWorkspace(page, '/admin/interaction')
+    await loc.exactTab(page, 'Risk controls').click()
   }
-  await visitAdminWorkspace(page, '/admin/site')
+  await adminFx.visitAdminWorkspace(page, '/admin/site')
   await cluster.verifyIsolation()
   if (risk) await risk.verifyIsolation()
   const legacy = '/api/binary/system/admin/page/about'
-  const overview = adminOrigin.origin + WireRoutes.AdminSitePages
-  const detail = WireRoutes.AdminSitePage.replace('{slug}', 'about')
-  const section = roleWithExactName(page, 'region', 'Site pages')
-  const button = exactButton(section, 'Refresh')
-  const check = async () => (await Promise.all([
-    waitForUrlResponse(page, () => overview, 'GET'), button.click(),
-  ]))[0]
-  await probe(adminOrigin.origin + legacy, adminCookieName, siteCookie.value, 401)
-  await probe(siteOrigin.origin + legacy, adminCookieName, priorCookie.value, 404)
-  assertStatus(await context.request.get(adminOrigin.origin + legacy + '/nested'), 404)
-  assertStatus(await context.request.get(adminOrigin.origin + '/api/binary/system/page/about'), 404)
-  assertStatus(await context.request.put(adminOrigin.origin + legacy), 404)
+  const overview = adminBase + R.AdminSitePages
+  const detail = R.AdminSitePage.replace('{slug}', 'about')
+  const section = loc.exactRegion(page, 'Site pages')
+  const check = () => adminFx.clickForResponse(page, overview, loc.exactButton(section, 'Refresh'))
+  await probe(adminBase + legacy, adminCookieName, siteCookie.value, 401)
+  await probe(siteBase + legacy, adminCookieName, priorCookie.value, 404)
+  for (const url of [adminBase + legacy + '/nested', adminBase + '/api/binary/system/page/about'])
+    assertStatus(await context.request.get(url), 404)
+  assertStatus(await context.request.put(adminBase + legacy), 404)
   await probe(overview, adminCookieName, siteCookie.value, 401)
   await cluster.verifyAvailable()
   if (risk) {
@@ -46,50 +42,44 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
     await risk.verifyAvailable()
     if (process.env.FSUSBLOG_TEST_ADMIN_RISK_CASE === 'root-pow-policy')
       await verifyRootCommentPowPolicy({ page, context, adminOrigin, siteOrigin, evidence })
-    await visitAdminWorkspace(page, '/admin/site')
+    await adminFx.visitAdminWorkspace(page, '/admin/site')
   }
   const allowed = await check()
-  assertStatus(allowed, 200)
-  assert.match(allowed.headers()['cache-control'], /no-store/)
-  const overviewFrame = decodeFrame(await allowed.body(), FrameType.AdminSitePages)
-  assert.equal(overviewFrame.payload.length, 4)
-  assert.equal(new DataView(overviewFrame.payload.buffer, overviewFrame.payload.byteOffset, 4).getInt32(0, true), 15)
-  assert.equal(await exactText(section, 'Configured').count(), 4)
+  await assertNoStore(allowed)
+  const overviewPayload = await readFrame(allowed, FrameType.AdminSitePages)
+  assert.equal(overviewPayload.length, 4)
+  assert.equal(new DataView(overviewPayload.buffer, overviewPayload.byteOffset, 4).getInt32(0, true), 15)
+  assert.equal(await loc.exactText(section, 'Configured').count(), 4)
   const editor = process.env.FSUSBLOG_TEST_ADMIN_SITE_PAGE_EDITOR === '1'
   assert.equal(allowed.headers()[WireHeaders.AdminSitePageEditor.toLowerCase()], editor ? '1' : undefined)
   let displayed
   if (!editor) {
-    await exactButton(section, 'View about content').click()
+    await loc.exactButton(section, 'View about content').click()
     displayed = section.getByLabel('about Markdown')
     await displayed.waitFor()
     assert.match(await displayed.textContent(), /# Verified about\n\n<script>literal<\/script>/)
     assert.equal(await section.locator('script').count(), 0)
   }
 
-  const canonical = await context.request.get(adminOrigin.origin + legacy)
-  const versioned = await context.request.get(adminOrigin.origin + detail)
-  const publicPage = await context.request.get(siteOrigin.origin + '/api/binary/system/page/about')
-  for (const response of [canonical, versioned, publicPage]) {
-    assertStatus(response, 200)
-    assert.match(response.headers()['cache-control'], /no-store/)
-  }
-  const exact = await canonical.body()
-  assert.deepEqual(await versioned.body(), exact)
-  assert.deepEqual(await publicPage.body(), exact)
+  const responses = await Promise.all([adminBase + legacy, adminBase + detail,
+    siteBase + '/api/binary/system/page/about'].map(url => context.request.get(url)))
+  for (const response of responses) { assertStatus(response, 200); await assertNoStore(response) }
+  const [exact, versionedBody, publicBody] = await Promise.all(responses.map(r => r.body()))
+  assert.deepEqual(versionedBody, exact)
+  assert.deepEqual(publicBody, exact)
   assert.deepEqual(decodeSitePage(decodeFrame(exact, FrameType.PageContent).payload),
     { slug: 'about', markdown: '# Verified about\n\n<script>literal</script>\n' })
-  assertStatus(await context.request.get(adminOrigin.origin + '/api/binary/system/admin/page/unknown'), 404)
-  await page.screenshot({ path: join(evidence, 'administrator-site-page.png') })
+  assertStatus(await context.request.get(adminBase + '/api/binary/system/admin/page/unknown'), 404)
+  await saveShot(page, evidence, 'administrator-site-page.png', {})
 
-  const sessionCookie = await readCookie(context, adminOrigin.origin + detail, adminCookieName)
-  if (editor) await verifyEditor({ page, section, context, adminOrigin, siteOrigin, adminCookieName, sessionCookie, probe, legacy, evidence })
-  else assert.equal(await exactButton(section, 'Edit about content').count(), 0)
+  const sessionCookie = await readCookie(context, adminBase + detail, adminCookieName)
+  if (editor) await verifyEditor({ page, section, context, adminBase, siteBase, adminCookieName, sessionCookie, probe, legacy, evidence })
+  else assert.equal(await loc.exactButton(section, 'Edit about content').count(), 0)
   const revokeAndObserve = async () => {
-    await visitAdminWorkspace(page, '/admin/site')
-    await promisify(execFile)(revoke, [], { timeout: 8_000 })
-    await probe(adminOrigin.origin + legacy, adminCookieName, sessionCookie.value, 401)
-    const revision = adminOrigin.origin + WireRoutes.AdminSitePageRevision.replace('{slug}', 'about')
-    await probe(revision, adminCookieName, sessionCookie.value, editor ? 401 : 404)
+    await adminFx.visitAdminWorkspace(page, '/admin/site')
+    await adminFx.runFixtureCommand(revoke)
+    await probe(adminBase + legacy, adminCookieName, sessionCookie.value, 401)
+    await probe(adminBase + R.AdminSitePageRevision.replace('{slug}', 'about'), adminCookieName, sessionCookie.value, editor ? 401 : 404)
     assertStatus(await check(), 401)
   }
   if (risk) {
@@ -99,23 +89,19 @@ export async function verifyAdminSitePages({ page, context, adminOrigin, siteOri
     // The retained reply must not resurrect Risk controls after navigation and Site observes revocation.
     await risk.duringRevocation(sessionCookie, revokeAndObserve)
     assert.equal(new URL(page.url()).pathname, '/admin/site')
-  }
-  else await revokeAndObserve()
+  } else await revokeAndObserve()
   if (displayed) await displayed.waitFor({ state: 'hidden' })
   await cluster.cleared(sessionCookie)
   await logIn(page)
   assertStatus(await context.request.get(overview), 200)
-  return await readCookie(context, adminOrigin.origin + WireRoutes.AdminSession, adminCookieName)
+  return readCookie(context, adminBase + R.AdminSession, adminCookieName)
 }
 
-async function verifyEditor({ page, section, context, adminOrigin, siteOrigin, adminCookieName, sessionCookie, probe, legacy, evidence }) {
-  const html = siteOrigin.origin + '/about'
-  const binary = siteOrigin.origin + '/api/binary/system/page/about'
-  const admin = path => adminOrigin.origin + path
-  const getRevision = admin(WireRoutes.AdminSitePageRevision.replace('{slug}', 'about'))
-  const before = await context.request.get(getRevision)
-  assertStatus(before, 200)
-  const old = decodeAdminSitePageRevision(decodeFrame(await before.body(), FrameType.AdminSitePageRevision).payload)
+async function verifyEditor({ page, section, context, adminBase, siteBase, adminCookieName, sessionCookie, probe, legacy, evidence }) {
+  const html = siteBase + '/about', binary = siteBase + '/api/binary/system/page/about'
+  const admin = path => adminBase + path
+  const getRevision = admin(R.AdminSitePageRevision.replace('{slug}', 'about'))
+  const old = await readFrame(await context.request.get(getRevision), FrameType.AdminSitePageRevision, wire.decodeAdminSitePageRevision)
   assert.equal(old.revision, 0n)
   assert.match(old.digest, /^[a-z0-9]{64}$/)
   const fixtures = await Promise.all([html, binary].map(async path => {
@@ -125,98 +111,79 @@ async function verifyEditor({ page, section, context, adminOrigin, siteOrigin, a
     assert.match(tag, /^"[a-f0-9]{64}"$/)
     const cached = await context.request.get(path, { headers: { 'If-None-Match': tag } })
     assertStatus(cached, 304)
-    assert.equal(await cached.body().then(body => body.length), 0)
+    assert.equal((await cached.body()).length, 0)
     return { path, tag }
   }))
   assert.notEqual(fixtures[0].tag, fixtures[1].tag)
-  await probe(siteOrigin.origin + WireRoutes.AdminSitePageRevision.replace('{slug}', 'about'), adminCookieName, sessionCookie.value, 404)
+  await probe(siteBase + R.AdminSitePageRevision.replace('{slug}', 'about'), adminCookieName, sessionCookie.value, 404)
 
   const markdown = '# Published by authorized editor\n\n<script data-page-fixture>literal</script>\n\n[unsafe](javascript:alert%281%29)\n'
   const edit = { slug: 'about', expectedRevision: old.revision, expectedDigest: old.digest, markdown }
-  const frame = input => Buffer.from(encodeFrame(FrameType.AdminSitePagePublish, encodeAdminSitePagePublish(input)))
-  const submit = (path, input, headers = {}) => context.request.post(admin(path), {
-    headers: { Origin: adminOrigin.origin, 'Content-Type': 'application/octet-stream', ...headers }, data: frame(input)
-  })
+  const frame = input => adminFx.packFrame(FrameType.AdminSitePagePublish, wire.encodeAdminSitePagePublish(input))
+  const submit = (path, input, headers = {}) => adminFx.postBinary(context.request, admin(path), adminBase, frame(input), headers)
   const legacyTag = (await context.request.get(admin(legacy))).headers().etag
   assert.equal(legacyTag, `"about.${old.revision}.${old.digest}"`)
-  const legacyFrameFor = (input) => {
-    const markdown = Buffer.from(input.markdown)
-    const pod = Buffer.alloc(140 + markdown.length)
+  const legacyFrameFor = input => {
+    const content = Buffer.from(input.markdown), pod = Buffer.alloc(140 + content.length)
     pod.write(input.slug)
-    pod.writeUInt32LE(markdown.length, 132)
-    pod.writeUInt32LE(markdown.length, 136)
-    markdown.copy(pod, 140)
+    pod.writeUInt32LE(content.length, 132)
+    pod.writeUInt32LE(content.length, 136)
+    content.copy(pod, 140)
     return Buffer.from(encodeFrame(36, pod))
   }
-  const legacyWrite = (input, { headers = {}, tag = legacyTag, target = adminOrigin.origin, data = legacyFrameFor(input) } = {}) =>
-    context.request.put(target + WireRoutes.AdminLegacySitePageUpdate, {
-      headers: { Origin: adminOrigin.origin, 'Content-Type': 'application/octet-stream', ...(tag ? { 'If-Match': tag } : {}), ...headers },
-      data,
+  const legacyWrite = (input, { headers = {}, tag = legacyTag, target = adminBase, data = legacyFrameFor(input) } = {}) =>
+    context.request.put(target + R.AdminLegacySitePageUpdate, {
+      headers: { Origin: adminBase, 'Content-Type': 'application/octet-stream', ...(tag ? { 'If-Match': tag } : {}), ...headers }, data,
     })
   const legacyRefusals = await Promise.all([
-    legacyWrite(edit, { target: siteOrigin.origin }),
-    legacyWrite(edit, { headers: { Origin: siteOrigin.origin } }),
-    legacyWrite(edit, { headers: { 'Sec-Fetch-Site': 'cross-site' } }),
-    legacyWrite(edit, { tag: '' }),
-    legacyWrite(edit, { tag: `W/${legacyTag}` }),
-    legacyWrite(edit, { data: frame(edit) }),
-    legacyWrite(edit),
+    legacyWrite(edit, { target: siteBase }), legacyWrite(edit, { headers: { Origin: siteBase } }),
+    legacyWrite(edit, { headers: { 'Sec-Fetch-Site': 'cross-site' } }), legacyWrite(edit, { tag: '' }),
+    legacyWrite(edit, { tag: `W/${legacyTag}` }), legacyWrite(edit, { data: frame(edit) }), legacyWrite(edit),
   ])
   assert.deepEqual(legacyRefusals.map(r => r.status()), [404, 403, 403, 428, 400, 400, 403])
-  assertStatus(await submit(WireRoutes.AdminSitePagePublish, edit), 403)
-  assertStatus(await submit(WireRoutes.AdminSitePageStepUpBegin, edit, { Origin: siteOrigin.origin }), 403)
-  assertStatus(await submit(WireRoutes.AdminSitePageStepUpBegin, { ...edit, slug: 'elsewhere' }), 400)
+  assertStatus(await submit(R.AdminSitePagePublish, edit), 403)
+  assertStatus(await submit(R.AdminSitePageStepUpBegin, edit, { Origin: siteBase }), 403)
+  assertStatus(await submit(R.AdminSitePageStepUpBegin, { ...edit, slug: 'elsewhere' }), 400)
 
   let observed = []
-  const commandPath = admin(WireRoutes.AdminSitePagePublish)
+  const commandPath = admin(R.AdminSitePagePublish)
   const intercept = async route => {
-    const request = route.request()
-    const headers = await request.allHeaders()
-    const collected = {
-      [WireHeaders.MfaProof]: headers[WireHeaders.MfaProof.toLowerCase()],
-      [WireHeaders.PowProof]: headers[WireHeaders.PowProof.toLowerCase()],
-    }
+    const headers = await route.request().allHeaders()
+    const collected = { [WireHeaders.MfaProof]: headers[WireHeaders.MfaProof.toLowerCase()], [WireHeaders.PowProof]: headers[WireHeaders.PowProof.toLowerCase()] }
     const tampered = await legacyWrite({ ...edit, markdown: '# Changed intent' }, { headers: collected })
     const badPow = await legacyWrite(edit, { headers: { ...collected, [WireHeaders.PowProof]: 'invalid' } })
     const attempts = await Promise.all([legacyWrite(edit, { headers: collected }), legacyWrite(edit, { headers: collected })])
     const legacyStatuses = attempts.map(response => response.status()).sort((left, right) => left - right)
     const published = attempts.find(response => response.status() === 200) ?? attempts[0]
-    if (published.status() === 200) {
-      assert.deepEqual(Array.from(decodeFrame(await published.body(), FrameType.EmptySuccess).payload), [1, 0, 0, 0])
-    }
-    const v2Replay = await submit(WireRoutes.AdminSitePagePublish, edit, collected)
+    if (published.status() === 200) assert.deepEqual(Array.from(decodeFrame(await published.body(), FrameType.EmptySuccess).payload), [1, 0, 0, 0])
+    const v2Replay = await submit(R.AdminSitePagePublish, edit, collected)
     observed = [tampered.status(), badPow.status(), ...legacyStatuses, v2Replay.status()]
     await route.fulfill({ response: published })
   }
   await page.route(commandPath, intercept)
-  await exactButton(section, 'Edit about content').click()
-  const textarea = section.getByRole('textbox', { name: 'about Markdown editor' })
-  await textarea.fill(markdown)
+  await loc.exactButton(section, 'Edit about content').click()
+  await section.getByRole('textbox', { name: 'about Markdown editor' }).fill(markdown)
   const publish = section.getByRole('button', { name: 'Publish with Passkey' })
   assert(await publish.isDisabled())
-  await exactText(section, 'Replace the public /about page').click()
-  assert(await section.getByRole('checkbox', { name: 'Replace the public /about page' }).isChecked())
+  await adminFx.checkLabeledCheckbox(section, 'Replace the public /about page')
   await publish.click()
-  await exactText(section, 'Published /about').waitFor({ timeout: 18_000 })
+  await loc.exactText(section, 'Published /about').waitFor({ timeout: 18_000 })
   await page.unroute(commandPath, intercept)
   assert.deepEqual(observed, [403, 400, 200, 412, 409])
   for (const { path, tag } of fixtures) {
     const current = await context.request.get(path, { headers: { 'If-None-Match': tag } })
     assertStatus(current, 200)
     assert.notEqual(current.headers().etag, tag)
-    assert.match(current.headers()['cache-control'], /no-store/)
+    await assertNoStore(current)
     const date = await context.request.get(path, { headers: { 'If-Modified-Since': new Date(Date.now() + 1000).toUTCString() } })
     assertStatus(date, 200)
     assert.deepEqual(await date.body(), await current.body())
-    const fresh = await context.request.head(path, { headers: { 'If-None-Match': current.headers().etag } })
-    assertStatus(fresh, 304)
+    assertStatus(await context.request.head(path, { headers: { 'If-None-Match': current.headers().etag } }), 304)
   }
-  const snapshot = await context.request.get(getRevision)
-  const revised = decodeAdminSitePageRevision(decodeFrame(await snapshot.body(), FrameType.AdminSitePageRevision).payload)
+  const revised = await readFrame(await context.request.get(getRevision), FrameType.AdminSitePageRevision, wire.decodeAdminSitePageRevision)
   assert.equal(revised.revision, 1n)
   assert.equal(revised.markdown, markdown)
-  const publicFrame = await context.request.get(binary)
-  const legacyFrame = await context.request.get(admin(legacy))
+  const publicFrame = await context.request.get(binary), legacyFrame = await context.request.get(admin(legacy))
   assert.equal(legacyFrame.headers().etag, `"about.${revised.revision}.${revised.digest}"`)
   assert.deepEqual(await legacyFrame.body(), await publicFrame.body())
   assert.equal(decodeSitePage(decodeFrame(await publicFrame.body(), FrameType.PageContent).payload).markdown, markdown)
@@ -227,11 +194,11 @@ async function verifyEditor({ page, section, context, adminOrigin, siteOrigin, a
   assert.equal(await article.locator('script').count(), 0)
   assert.equal(await article.getByRole('link', { name: 'unsafe' }).getAttribute('href'), '#')
   await publicPage.close()
-  assertStatus(await submit(WireRoutes.AdminSitePageStepUpBegin, edit), 409)
-  await writeFile(join(evidence, 'legacy-site-page-result.json'), JSON.stringify({
+  assertStatus(await submit(R.AdminSitePageStepUpBegin, edit), 409)
+  await writeEvidenceJson(evidence, 'legacy-site-page-result.json', {
     legacyFrameType: 36, initialRevision: old.revision.toString(), publishedRevision: revised.revision.toString(),
     wrongSite: 404, wrongOrigin: 403, crossSite: 403, missingTag: 428, weakTag: 400, wrongFrame: 400, missingPasskey: 403,
     tamperedIntent: observed[0], invalidProofOfWork: observed[1], concurrentLegacyWrites: observed.slice(2, 4), v2Replay: observed[4],
-  }, null, 2) + '\n')
-  await page.screenshot({ path: join(evidence, 'administrator-site-page-published.png') })
+  })
+  await saveShot(page, evidence, 'administrator-site-page-published.png', {})
 }

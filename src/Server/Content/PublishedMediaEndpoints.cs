@@ -1,10 +1,3 @@
-using System.Net;
-using System.Threading.RateLimiting;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Sessions;
-using Microsoft.AspNetCore.RateLimiting;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal static class PublishedMediaEndpoints
@@ -44,12 +37,11 @@ internal static class PublishedMediaEndpoints
         response.Headers.AcceptRanges = "none";
     }
 
-    internal static void Map(WebApplication app, string cookie, Publications publications, PublishedMediaStore media,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+    internal static void Map(WebApplication app, string cookie, Publications publications, PublishedMediaStore media)
     {
         app.MapCommandPost(WireRoutes.ArticlePublishImages, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var input = Wire.DecodeArticlePublishImages(await readFrame(ctx, ArticlePublishImages.MaxFrameBytes, ct));
+            var input = Wire.DecodeArticlePublishImages(await ServerHttp.ReadFrame(ctx, ArticlePublishImages.MaxFrameBytes, ct));
             ClientMutationHeader.Require(ctx, input.IdempotencyKey);
             var result = await publications.PublishWithImages(store, ctx.Request.Cookies[cookie], SiteSessions.Requested(ctx),
                 media, input.ArticleId, input.ExpectedRevision, input.IdempotencyKey, input.AssetIds, ct);

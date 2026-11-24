@@ -153,7 +153,7 @@ async function remove(item: PrivateMediaItem) {
   working.value = true
   try {
     const confirmed = await ElMessageBox.confirm(t('account.deleteImageConfirm', { name: item.name }), t('account.message104'), {
-      type: 'warning', confirmButtonText: t('account.message105'), cancelButtonText: t('account.message106'), closeOnClickModal: false,
+      type: 'warning', confirmButtonText: t('account.message105'), cancelButtonText: t('nav.cancel'), closeOnClickModal: false,
     })
     if (!confirmed.ok || !current(signal)) return
     await removeMedia(item.id, signal)
@@ -214,9 +214,9 @@ onBeforeUnmount(() => scope.abort())
 
 <template>
   <main class="media-page" tabindex="-1">
-    <ElTaskPageHeader :title="t('account.message78')" />
+    <ElTaskPageHeader :title="t('nav.assets')" />
     <ElEmptyState v-if="!currentSession?.canAuthor" :title="t('account.message79')">
-      <RouterLink v-if="!currentSession" :to="{ name: 'login', query: { redirect: route.fullPath } }">{{ t('account.message80') }}</RouterLink>
+      <RouterLink v-if="!currentSession" :to="{ name: 'login', query: { redirect: route.fullPath } }">{{ t('page.login') }}</RouterLink>
     </ElEmptyState>
     <template v-else>
       <ElAlert v-if="!available" type="info" :title="t('account.message81')" :closable="false" />
@@ -245,7 +245,7 @@ onBeforeUnmount(() => scope.abort())
         <section aria-labelledby="media-list" :aria-busy="loading">
           <header class="media-head">
             <h2 id="media-list" ref="heading" tabindex="-1">{{ t('account.message90') }}</h2>
-            <ElButton text :disabled="working" :loading="loading" @click="load()">{{ t('account.message91') }}</ElButton>
+            <ElButton text :disabled="working" :loading="loading" @click="load()">{{ t('account.inboxRefresh') }}</ElButton>
           </header>
           <ElSkeleton v-if="loading && !entries.length" :rows="4" animated />
           <ElEmptyState v-else-if="!entries.length && !error" :title="t('account.message92')" />

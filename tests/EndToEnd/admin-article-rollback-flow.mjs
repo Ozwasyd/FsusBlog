@@ -1,151 +1,101 @@
-import { assertStatus } from './response-status-fixture.mjs'
-import { visitAdminWorkspace } from './admin-workspace-fixture.mjs'
 import assert from 'node:assert/strict'
-import { join } from 'node:path'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
-import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
-import {
-  decodeAdminArticleDraftRollbackIntent, decodeAdminArticleDraftRollbackReceipt, decodeDraft, encodeAdminArticleDraftRollbackIntent,
-  decodeAdminArticleRollbackReceipt, encodeAdminArticleRollbackIntent, FrameType, WireHeaders, WireRoutes,
-} from '../../src/Contracts/wire.generated.ts'
-import { adminArticleFixture, commitWithLostReceipt, sourceTitle } from './admin-article-fixture.mjs'
-import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
+import * as wire from '../../src/Contracts/wire.generated.ts'
+import { adminArticleFixture, sourceTitle } from './admin-article-fixture.mjs'
+import * as adminFx from './admin-workspace-fixture.mjs'
+import { saveShot } from './isolated-browser-fixture.mjs'
+import { assertFields, assertGetStatus, getFrame } from './response-status-fixture.mjs'
+import * as loc from './role-locators.mjs'
+
+const { FrameType, WireRoutes: R } = wire
 
 export async function verifyAdminArticleRollback({ page, context, adminOrigin, siteOrigin, owner, adminCookieName, siteCookie, probe, evidence }) {
-  await visitAdminWorkspace(page, '/admin/articles')
-  const { admin, section, send, openPublicationRecovery, previewRollback, inspect, index,
-    expectStaleIndex, expectWithdrawnArticle, expectWithdrawnCorpus } = adminArticleFixture({ page, context, adminOrigin, siteOrigin })
-  const availability = WireRoutes.AdminArticleRollbackAvailability
-  const draftAvailability = WireRoutes.AdminArticleDraftRollbackAvailability
-  const command = WireRoutes.AdminArticleRollbackExecute
+  await adminFx.visitAdminWorkspace(page, '/admin/articles')
+  const fx = adminArticleFixture({ page, context, adminOrigin, siteOrigin })
+  const { admin, section, expectSend, openPublicationRecovery, previewRollback, inspect, index, commitMfaCommand } = fx
   const before = await inspect()
-  assert.deepEqual([before.revision, before.publication, before.title, before.rights?.copyrightHolder],
-    [2n, 2n, 'Rollback fixture current title', 'Current fixture rights'])
+  assertFields(before, { revision: 2n, publication: 2n, title: 'Rollback fixture current title' })
+  assert.equal(before.rights?.copyrightHolder, 'Current fixture rights')
 
-  await probe(admin(availability), adminCookieName, siteCookie.value, 401)
-  assertStatus(await context.request.get(siteOrigin.origin + availability), 404)
-  await probe(admin(draftAvailability), adminCookieName, siteCookie.value, 401)
-  assertStatus(await context.request.get(siteOrigin.origin + draftAvailability), 404)
+  for (const route of [R.AdminArticleRollbackAvailability, R.AdminArticleDraftRollbackAvailability]) {
+    await probe(admin(route), adminCookieName, siteCookie.value, 401)
+    await assertGetStatus(context.request, siteOrigin.origin + route, 404)
+  }
   await openPublicationRecovery()
   await section.waitFor()
-  assertStatus(await context.request.get(admin(draftAvailability)), 204)
+  await assertGetStatus(context.request, admin(R.AdminArticleDraftRollbackAvailability), 204)
   await previewRollback()
   assert.deepEqual(await inspect(), before)
 
   const reason = 'Restore the approved historical publication'
-  const commandBody = {
-    articleId: 1, expectedRevision: 2n, expectedPublicationId: 2n, sourceRevision: 1n,
-    idempotencyKey: crypto.randomUUID(), reason,
-  }
-  const packed = value => Buffer.from(encodeFrame(FrameType.AdminArticleRollbackIntent, encodeAdminArticleRollbackIntent(value)))
-  assertStatus(await send(command, packed(commandBody)), 403)
-  assertStatus(await send(WireRoutes.AdminArticleRollbackStepUpBegin, packed(commandBody), { Origin: siteOrigin.origin }), 403)
+  const commandBody = { articleId: 1, expectedRevision: 2n, expectedPublicationId: 2n, sourceRevision: 1n,
+    idempotencyKey: crypto.randomUUID(), reason }
+  const packed = value => adminFx.packFrame(FrameType.AdminArticleRollbackIntent, wire.encodeAdminArticleRollbackIntent(value))
+  await expectSend(R.AdminArticleRollbackExecute, packed(commandBody), 403)
+  await expectSend(R.AdminArticleRollbackStepUpBegin, packed(commandBody), 403, { Origin: siteOrigin.origin })
 
-  await exactLabel(section, 'Reason for publishing this revision').fill(reason)
-  const publish = exactButton(section, 'Publish revision with Passkey')
+  await loc.exactLabel(section, 'Reason for publishing this revision').fill(reason)
+  const publish = loc.exactButton(section, 'Publish revision with Passkey')
   assert(await publish.isDisabled())
-  const confirmationText = 'Publish a new revision with this historical content, rights, and responsibility'
-  await exactText(section, confirmationText).click()
-  assert(await roleWithExactName(section, 'checkbox', confirmationText).isChecked())
+  await adminFx.checkLabeledCheckbox(section, 'Publish a new revision with this historical content, rights, and responsibility')
 
-  const committed = await commitWithLostReceipt({
-    page, url: admin(command), button: publish,
-    check: exactButton(section, 'Check publication result'),
-    async verifyRequest(request) {
-      const authorization = await request.headerValue(WireHeaders.MfaProof)
-      assert(/^[A-Za-z0-9_-]{43}$/.test(authorization ?? ''), 'The exact command has a live Passkey proof')
-      const altered = await send(command, packed({ ...commandBody, reason: 'A different requested public rollback' }),
-        { [WireHeaders.MfaProof]: authorization })
-      assertStatus(altered, 403)
-      await altered.dispose()
-    },
-    readReceipt(bytes) {
-      const receipt = decodeAdminArticleRollbackReceipt(decodeFrame(bytes, FrameType.AdminArticleRollbackReceipt).payload)
-      assert.deepEqual([receipt.articleId, receipt.revision, receipt.sourceRevision, receipt.previousPublicationId,
-        receipt.publicationNo], [1, 3n, 1n, 2n, 3])
-      return receipt
-    },
+  const committed = await commitMfaCommand({
+    schema: 'AdminArticleRollback', button: publish, check: loc.exactButton(section, 'Check publication result'),
+    tamperIntent: () => ({ ...commandBody, reason: 'A different requested public rollback' }),
+    verifyReceipt: r => assertFields(r, { articleId: 1, revision: 3n, sourceRevision: 1n, previousPublicationId: 2n, publicationNo: 3 }),
   })
-  await exactText(section, `Published revision 3 as publication ${committed.publicationId}`).waitFor()
+  await loc.exactText(section, `Published revision 3 as publication ${committed.publicationId}`).waitFor()
   const after = await inspect()
-  assert.deepEqual([after.revision, after.publication, after.title, after.rights?.copyrightHolder, after.rights?.snapshotId],
-    [3n, committed.publicationId, 'Rollback fixture source title', 'Historical fixture rights', committed.rightsSnapshotId])
-  const html = await context.request.get(siteOrigin.origin + '/article/1')
-  assertStatus(html, 200)
-  assert.match(await html.text(), /Historical Markdown ready for restoration/)
-  await page.screenshot({ path: join(evidence, 'administrator-article-rollback.png') })
+  assertFields(after, { revision: 3n, publication: committed.publicationId, title: sourceTitle })
+  assertFields(after.rights, { copyrightHolder: 'Historical fixture rights', snapshotId: committed.rightsSnapshotId })
+  await fx.expectPublicHtml()
+  await saveShot(page, evidence, 'administrator-article-rollback.png', {})
 
   const priorIndex = await index()
   assert(priorIndex.items.some(article => article.id === 1 && article.revision === 3n && article.publication === committed.publicationId))
 
   const draftReason = 'Restore the historical copy as a private draft and withdraw it'
-  const draftCommand = WireRoutes.AdminArticleDraftRollbackExecute
-  const draftBody = {
-    articleId: 1, expectedRevision: 3n, expectedPublicationId: committed.publicationId, sourceRevision: 1n,
-    idempotencyKey: crypto.randomUUID(), reason: draftReason, targetStatus: 0,
-  }
-  const packedDraft = value => Buffer.from(encodeFrame(FrameType.AdminArticleDraftRollbackIntent, encodeAdminArticleDraftRollbackIntent(value)))
-  assertStatus(await send(draftCommand, packedDraft(draftBody)), 403)
-  assertStatus(await send(draftCommand, packedDraft({ ...draftBody, targetStatus: 3 })), 400)
-  assertStatus(await send(WireRoutes.AdminArticleDraftRollbackStepUpBegin, packedDraft(draftBody), { Origin: siteOrigin.origin }), 403)
-  await exactButton(section, 'Preview publication rollback').press('Enter')
-  await roleWithExactName(section, 'heading', sourceTitle).waitFor()
-  await exactLabel(section, 'Reason for restoring this revision as a draft').fill(draftReason)
-  await exactLabel(section, 'Reason for publishing this revision').fill(reason)
-  const withdraw = exactButton(section, 'Restore as draft and withdraw')
+  const draftBody = { articleId: 1, expectedRevision: 3n, expectedPublicationId: committed.publicationId, sourceRevision: 1n,
+    idempotencyKey: crypto.randomUUID(), reason: draftReason, targetStatus: 0 }
+  const packedDraft = value => adminFx.packFrame(FrameType.AdminArticleDraftRollbackIntent, wire.encodeAdminArticleDraftRollbackIntent(value))
+  await expectSend(R.AdminArticleDraftRollbackExecute, packedDraft(draftBody), 403)
+  await expectSend(R.AdminArticleDraftRollbackExecute, packedDraft({ ...draftBody, targetStatus: 3 }), 400)
+  await expectSend(R.AdminArticleDraftRollbackStepUpBegin, packedDraft(draftBody), 403, { Origin: siteOrigin.origin })
+  await loc.exactButton(section, 'Preview publication rollback').press('Enter')
+  await loc.exactHeading(section, sourceTitle).waitFor()
+  await loc.exactLabel(section, 'Reason for restoring this revision as a draft').fill(draftReason)
+  await loc.exactLabel(section, 'Reason for publishing this revision').fill(reason)
+  const withdraw = loc.exactButton(section, 'Restore as draft and withdraw')
   assert(await withdraw.isDisabled())
-  const draftConfirmation = 'Create a private draft from this revision and withdraw the current publication'
-  await exactText(section, draftConfirmation).click()
-  assert(await roleWithExactName(section, 'checkbox', draftConfirmation).isChecked())
+  await adminFx.checkLabeledCheckbox(section, 'Create a private draft from this revision and withdraw the current publication')
   assert(await publish.isDisabled(), 'Draft confirmation must never authorize publishing')
   assert.equal((await inspect()).publication, committed.publicationId)
 
-  await commitWithLostReceipt({
-    page, url: admin(draftCommand), button: withdraw,
-    check: exactButton(section, 'Check draft rollback result'),
-    async verifyRequest(request, sent) {
-      const actual = decodeAdminArticleDraftRollbackIntent(decodeFrame(sent, FrameType.AdminArticleDraftRollbackIntent).payload)
-      assert.deepEqual(actual, { ...draftBody, idempotencyKey: actual.idempotencyKey })
-      const authorization = await request.headerValue(WireHeaders.MfaProof)
-      assert(/^[A-Za-z0-9_-]{43}$/.test(authorization ?? ''), 'The Draft operation has a fresh Passkey proof')
-      const proof = { [WireHeaders.MfaProof]: authorization }
-      const wrongAction = await send(command, packed(actual), proof)
-      assertStatus(wrongAction, 403, 'A Draft proof cannot authorize the same fields for publishing')
-      await wrongAction.dispose()
-      const altered = await send(draftCommand, packedDraft({ ...actual, reason: 'A different draft rollback request' }), proof)
-      assertStatus(altered, 403)
-      await altered.dispose()
-    },
-    readReceipt(bytes) {
-      const receipt = decodeAdminArticleDraftRollbackReceipt(decodeFrame(bytes, FrameType.AdminArticleDraftRollbackReceipt).payload)
-      assert.deepEqual([receipt.articleId, receipt.revision, receipt.sourceRevision, receipt.previousPublicationId,
-        receipt.publicationNo, receipt.targetStatus], [1, 4n, 1n, committed.publicationId, 4, 0])
+  await commitMfaCommand({
+    schema: 'AdminArticleDraftRollback', button: withdraw, check: loc.exactButton(section, 'Check draft rollback result'),
+    verifyIntent: actual => assert.deepEqual(actual, { ...draftBody, idempotencyKey: actual.idempotencyKey }),
+    extraTamper: (actual, headers) => expectSend(R.AdminArticleRollbackExecute, packed(actual), 403, headers),
+    tamperIntent: actual => ({ ...actual, reason: 'A different draft rollback request' }),
+    verifyReceipt(receipt) {
+      assertFields(receipt, { articleId: 1, revision: 4n, sourceRevision: 1n, previousPublicationId: committed.publicationId,
+        publicationNo: 4, targetStatus: 0 })
       assert(receipt.privateReleaseId > 0n && receipt.privateReleaseId !== committed.publicationId)
       assert(receipt.rightsSnapshotId > 0n && receipt.rightsSnapshotId !== committed.rightsSnapshotId)
       assert(receipt.responsibilitySnapshotId > 0n && receipt.responsibilitySnapshotId !== committed.responsibilitySnapshotId)
-      return receipt
     },
   })
-  await exactText(section, 'Restored revision 4 as a private draft').waitFor()
+  await loc.exactText(section, 'Restored revision 4 as a private draft').waitFor()
 
-  await expectWithdrawnArticle()
-  await expectStaleIndex(priorIndex.generation)
+  await fx.expectWithdrawnArticle()
+  await fx.expectStaleIndex(priorIndex.generation)
   const hiddenIndex = await index()
   assert.notEqual(hiddenIndex.generation, priorIndex.generation)
   assert(!hiddenIndex.items.some(article => article.id === 1))
-  await expectWithdrawnCorpus(hiddenIndex.generation)
+  await fx.expectWithdrawnCorpus(hiddenIndex.generation)
 
-  const ownerDraft = await owner.request.get(admin(WireRoutes.Draft.replace('{id:int}', '1')))
-  assertStatus(ownerDraft, 200)
-  const draft = decodeDraft(decodeFrame(await ownerDraft.body(), FrameType.Draft).payload)
-  assert.deepEqual([draft.id, draft.revision, draft.title, draft.body, draft.published],
-    [1, 4n, 'Rollback fixture source title',
-      'Historical Markdown ready for restoration\n\n![Never fetched in source preview](https://archive-preview.invalid/from-source.png)\n', false])
-  await ownerDraft.dispose()
-  const inventory = await owner.request.get(admin(WireRoutes.AuthorArticles + '?scope=active&article=1&state=draft'))
-  assertStatus(inventory, 200)
-  const inventoryRows = decodeAuthorArticlePage(decodeFrame(await inventory.body(), FrameType.AuthorArticlePage).payload).items
+  const draft = await getFrame(owner.request, admin(R.Draft.replace('{id:int}', '1')), FrameType.Draft, wire.decodeDraft)
+  assertFields(draft, { id: 1, revision: 4n, title: sourceTitle, published: false,
+    body: 'Historical Markdown ready for restoration\n\n![Never fetched in source preview](https://archive-preview.invalid/from-source.png)\n' })
+  const inventoryRows = (await fx.ownerArticles(owner, '?scope=active&article=1&state=draft')).items
   assert.deepEqual(inventoryRows.map(item => [item.id, item.revision, item.state]), [[1, 4n, 'draft']])
-  await inventory.dispose()
-  await page.screenshot({ path: join(evidence, 'administrator-article-draft-rollback.png') })
+  await saveShot(page, evidence, 'administrator-article-draft-rollback.png', {})
 }

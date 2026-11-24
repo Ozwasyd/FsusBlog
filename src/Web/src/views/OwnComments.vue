@@ -153,6 +153,17 @@ async function load(
   }
 }
 
+function clearListState() {
+  rows.value = null
+  more.value = false
+  editEnabled.value = false
+}
+
+function reloadFiltered() {
+  clearForm()
+  void load(false, 'search')
+}
+
 function submitSearch() {
   if (locked.value) return
   const trimmed = keywordInput.value.trim()
@@ -161,8 +172,7 @@ function submitSearch() {
     return
   }
   appliedKeyword.value = trimmed
-  clearForm()
-  void load(false, 'search')
+  reloadFiltered()
 }
 
 function clearSearch() {
@@ -170,14 +180,11 @@ function clearSearch() {
   keywordInput.value = ''
   if (!appliedKeyword.value) return
   appliedKeyword.value = ''
-  clearForm()
-  void load(false, 'search')
+  reloadFiltered()
 }
 
 function onStatusFilterChange() {
-  if (locked.value) return
-  clearForm()
-  void load(false, 'search')
+  if (!locked.value) reloadFiltered()
 }
 
 function resetFilters() {
@@ -185,8 +192,7 @@ function resetFilters() {
   keywordInput.value = ''
   appliedKeyword.value = ''
   statusFilter.value = 'all'
-  clearForm()
-  void load(false, 'search')
+  reloadFiltered()
 }
 
 async function submit(comment: string) {
@@ -290,9 +296,7 @@ async function saveEdit() {
       return
     }
     clearEdit()
-    rows.value = null
-    more.value = false
-    editEnabled.value = false
+    clearListState()
     notice.value = t('account.message169')
     await load(false, 'initial', t('account.message170'))
   } catch (error) {
@@ -305,9 +309,7 @@ async function saveEdit() {
 
 function reloadAfterEditProblem() {
   clearEdit()
-  rows.value = null
-  more.value = false
-  editEnabled.value = false
+  clearListState()
   void load(false, 'refresh')
 }
 
@@ -336,7 +338,7 @@ async function confirmDelete() {
     await deleteOwnComment(target.comment, handle, request.signal)
     if (request.signal.aborted || liveHandle() !== handle) return
     clearDelete()
-    notice.value = t('account.commentsDeleteSuccess')
+    notice.value = t('comment.deleted')
     await load(false, 'refresh')
   } catch {
     if (!request.signal.aborted) deleteProblem.value = t('account.commentsDeleteFailed')
@@ -353,9 +355,7 @@ watch([identityEpoch, credentialEpoch], () => {
   scope = new AbortController()
   abortListRequest()
   submittingAppeal.value = false
-  rows.value = null
-  more.value = false
-  editEnabled.value = false
+  clearListState()
   failure.value = ''
   notice.value = ''
   keywordInput.value = ''
@@ -383,7 +383,7 @@ onBeforeUnmount(() => {
       density="compact"
     >
       <template #title>
-        <span id="own-comments-title">{{ t('account.message111') }}</span>
+        <span id="own-comments-title">{{ t('page.own-comments') }}</span>
       </template>
       <template v-if="currentSession" #actions>
         <ElButton
@@ -418,7 +418,7 @@ onBeforeUnmount(() => {
             @clear="clearSearch"
           />
           <ElButton native-type="submit" :loading="searchLoading" :disabled="locked">
-            {{ t('account.commentsSearchAction') }}
+            {{ t('page.search') }}
           </ElButton>
         </form>
       </template>
@@ -446,7 +446,7 @@ onBeforeUnmount(() => {
           text
           :disabled="locked"
           @click="resetFilters"
-        >{{ t('account.commentsResetFilters') }}</ElButton>
+        >{{ t('admin.readers.resetFilters') }}</ElButton>
       </template>
     </ElCollectionToolbar>
 
@@ -470,7 +470,7 @@ onBeforeUnmount(() => {
     >
       <template v-if="hasActiveFilter" #actions>
         <ElButton native-type="button" text @click="resetFilters">
-          {{ t('account.commentsResetFilters') }}
+          {{ t('admin.readers.resetFilters') }}
         </ElButton>
       </template>
     </ElEmptyState>
@@ -562,7 +562,7 @@ onBeforeUnmount(() => {
                     :disabled="!appealReason(reason)"
                   >{{ t('account.message145') }}</ElButton>
                   <ElButton native-type="button" :disabled="submittingAppeal" @click="clearForm">
-                    {{ t('account.message106') }}
+                    {{ t('nav.cancel') }}
                   </ElButton>
                 </ElInlineActions>
               </form>
@@ -624,7 +624,7 @@ onBeforeUnmount(() => {
           :loading="moreLoading"
           :disabled="locked"
           @click="load(true, 'more')"
-        >{{ t('account.message154') }}</ElButton>
+        >{{ t('comment.more') }}</ElButton>
       </div>
     </template>
 
@@ -646,7 +646,7 @@ onBeforeUnmount(() => {
       <template #footer>
         <ElInlineActions density="compact">
           <ElButton native-type="button" :disabled="deletePending" @click="closeDeleteDialog">
-            {{ t('account.message106') }}
+            {{ t('nav.cancel') }}
           </ElButton>
           <ElButton
             native-type="button"

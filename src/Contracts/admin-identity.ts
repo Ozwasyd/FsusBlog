@@ -1,6 +1,6 @@
-import { ApiError, decodeSuccess, ProtocolError } from './aeds.ts';
-import { PodReader } from './binary.ts';
-import { post, request } from './internal/http.ts';
+import { ApiError, ProtocolError } from './aeds.ts';
+import { decodePod } from './binary.ts';
+import { post, postEmpty, request } from './internal/http.ts';
 import { requestPasskeyAssertion, requestPasskeyAttestation } from './passkey.ts';
 import {
   decodeAdminOperationsStatus,
@@ -51,19 +51,19 @@ export async function bootstrapAdminPasskey(ticket: string, signal?: AbortSignal
   if (!validAdminBootstrapToken(ticket)) throw new ProtocolError('Invalid administrator bootstrap key.');
   const headers = { [WireHeaders.AdminBootstrapToken]: ticket };
   const attestation = await requestPasskeyAttestation(WireRoutes.AdminBootstrapBegin, signal, undefined, headers);
-  await post(WireRoutes.AdminBootstrapComplete, FrameType.EmptySuccess, decodeSuccess, signal, attestation, headers);
+  await postEmpty(WireRoutes.AdminBootstrapComplete, signal, attestation, headers);
 }
 
 export async function signInAdmin(signal?: AbortSignal): Promise<AdminSession> {
   const assertion = await requestPasskeyAssertion(WireRoutes.AdminPasskeyBegin, signal);
-  await post(WireRoutes.AdminPasskeyComplete, FrameType.EmptySuccess, decodeSuccess, signal, assertion);
+  await postEmpty(WireRoutes.AdminPasskeyComplete, signal, assertion);
   const authority = await readAdminAuthority(signal);
   if (authority.status !== 'active') throw new ProtocolError('The administrator session is unavailable.');
   return authority.session;
 }
 
 export async function signOutAdmin(signal?: AbortSignal): Promise<void> {
-  await post(WireRoutes.AdminSignOut, FrameType.EmptySuccess, decodeSuccess, signal);
+  await postEmpty(WireRoutes.AdminSignOut, signal);
 }
 
 const permissionSessionPattern = /^[a-f0-9]{64}$/;
@@ -97,30 +97,24 @@ export function readAdminCommentQueue(after: AdminCommentCursor | null, signal?:
 }
 
 function readCommentQueue(payload: Uint8Array, after: AdminCommentCursor | null): Omit<AdminCommentQueue, 'batchEnabled'> {
-  const reader = new PodReader(payload);
-  const hasMore = reader.bool();
-  const count = reader.i32();
-  if (count < 0 || count > WireLimits.AdminCommentQueueSize || (hasMore && count !== WireLimits.AdminCommentQueueSize))
-    throw new ProtocolError('Invalid administrator moderation queue size.');
-
-  const comments: AdminQueuedComment[] = [];
-  let previous = after;
-  for (let index = 0; index < count; index++) {
-    const articleId = reader.i32();
-    const commentId = reader.i64();
-    const createdAt = Number(reader.i64());
-    const displayName = reader.text(WireLimits.PublicCommentHandleBytes);
-    const body = reader.text(WireLimits.AdminCommentQueueBodyBytes);
-    if (articleId <= 0 || commentId <= 0n || !Number.isSafeInteger(createdAt) || createdAt <= 0 || createdAt > 8.64e15 ||
-        displayName.length === 0 || body.length === 0 ||
-        (previous !== null && (commentId < previous.commentId || (commentId === previous.commentId && articleId <= previous.articleId))))
-      throw new ProtocolError('Invalid administrator moderation queue row.');
-
-    previous = { articleId, commentId };
-    comments.push({ ...previous, createdAt, displayName, body });
-  }
-  reader.finish();
-  return { comments, next: hasMore ? previous : null };
+  return decodePod(payload, reader => {
+    const hasMore = reader.bool(), count = reader.i32();
+    if (count < 0 || count > WireLimits.AdminCommentQueueSize || (hasMore && count !== WireLimits.AdminCommentQueueSize))
+      throw new ProtocolError('Invalid administrator moderation queue size.');
+    const comments: AdminQueuedComment[] = [];
+    let previous = after;
+    for (let index = 0; index < count; index++) {
+      const articleId = reader.i32(), commentId = reader.i64(), createdAt = Number(reader.i64());
+      const displayName = reader.text(WireLimits.PublicCommentHandleBytes), body = reader.text(WireLimits.AdminCommentQueueBodyBytes);
+      if (articleId <= 0 || commentId <= 0n || !Number.isSafeInteger(createdAt) || createdAt <= 0 || createdAt > 8.64e15 ||
+          displayName.length === 0 || body.length === 0 ||
+          (previous !== null && (commentId < previous.commentId || (commentId === previous.commentId && articleId <= previous.articleId))))
+        throw new ProtocolError('Invalid administrator moderation queue row.');
+      previous = { articleId, commentId };
+      comments.push({ ...previous, createdAt, displayName, body });
+    }
+    return { comments, next: hasMore ? previous : null };
+  });
 }
 
 function readOperationsStatus(payload: Uint8Array): AdminOperationsStatus {

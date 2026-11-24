@@ -1,5 +1,3 @@
-using System.Net;
-
 namespace FsusBlog.V2.Server.Operations;
 
 internal static class LoopbackProxy

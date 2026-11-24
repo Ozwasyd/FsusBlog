@@ -1,8 +1,7 @@
-import { decodeSuccess, encodeFrame, ProtocolError } from './aeds.ts';
-import { adminProofHeaders, proveAdminStepUp } from './admin-step-up.ts';
+import { encodeFrame, ProtocolError } from './aeds.ts';
+import { proveAndSubmitAdminPow } from './admin-step-up.ts';
 import { decodeUtf8 } from './binary.ts';
 import { request } from './client.ts';
-import { requestWithScopedPow } from './pow.ts';
 import { decodeSitePage, sitePages, type SitePageSlug } from './site-pages.ts';
 import { decodeAdminSitePageRevision, decodeAdminSitePages, encodeAdminSitePagePublish,
   FrameType, WireHeaders, WireLimits, WireRoutes, type AdminSitePagePublish } from './wire.generated.ts';
@@ -36,23 +35,14 @@ export function validPageMarkdown(markdown: string): boolean {
   return bytes.length <= WireLimits.PageContentBytes && decodeUtf8(bytes) === markdown;
 }
 
-export async function publishAdminSitePage(intent: AdminSitePagePublish, signal: AbortSignal): Promise<void> {
+export function publishAdminSitePage(intent: AdminSitePagePublish, signal: AbortSignal): Promise<void> {
   if (!validPageMarkdown(intent.markdown)) throw new ProtocolError('Invalid site page Markdown');
-  const frame = encodeFrame(FrameType.AdminSitePagePublish, encodeAdminSitePagePublish(intent));
-  const passkey = await proveAdminStepUp({
+  return proveAndSubmitAdminPow({
     begin: WireRoutes.AdminSitePageStepUpBegin,
     complete: WireRoutes.AdminSitePageStepUpComplete,
-  }, frame, signal);
-
-  await requestWithScopedPow({
-    challengePath: WireRoutes.AdminSitePagePow,
-    submitPath: WireRoutes.AdminSitePagePublish,
-    expected: FrameType.EmptySuccess,
-    decode: decodeSuccess,
-    body: frame,
-    signal,
-    submitHeaders: adminProofHeaders(passkey),
-  });
+    pow: WireRoutes.AdminSitePagePow,
+    submit: WireRoutes.AdminSitePagePublish,
+  }, encodeFrame(FrameType.AdminSitePagePublish, encodeAdminSitePagePublish(intent)), signal);
 }
 
 export function readAdminSitePage(slug: SitePageSlug, signal: AbortSignal) {

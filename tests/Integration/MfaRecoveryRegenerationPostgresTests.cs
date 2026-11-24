@@ -1,15 +1,4 @@
-using System.Buffers.Binary;
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Authentication;
-using FsusBlog.V2.Server;
-using FsusBlog.V2.Server.Passkeys;
-using FsusBlog.V2.Server.Sessions;
-using Microsoft.AspNetCore.WebUtilities;
-using Npgsql;
-using static FsusBlog.V2.Integration.Tests.BusinessAssert;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -22,10 +11,9 @@ public sealed class MfaRecoveryRegenerationPostgresTests
         var secrets = new TotpSecret(RandomNumberGenerator.GetBytes(32));
         var mfa = new MfaStore(fixture.DataSource, secrets);
         var sessions = new Store(fixture.DataSource);
-        await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
-        var owner = await AddAccount(db, "MFA regeneration owner", secrets, ct);
-        var foreign = await AddAccount(db, "MFA regeneration foreign", secrets, ct);
-        var sibling = await IssueSession(db, owner.Id, owner.Credential, persistent: false, ct);
+        var owner = await AddAccount(fixture, "MFA regeneration owner", secrets, ct);
+        var foreign = await AddAccount(fixture, "MFA regeneration foreign", secrets, ct);
+        var sibling = await fixture.InTx((db, tx) => MfaStore.IssueSession(db, tx, owner.Id, 1, owner.Credential, mfa: true, persistent: false, ct));
         var ownerHandle = SiteSessions.Id(owner.Id, Store.TokenDigest(owner.Session.Access)!);
         var siblingHandle = SiteSessions.Id(owner.Id, Store.TokenDigest(sibling.Access)!);
 
@@ -43,11 +31,10 @@ public sealed class MfaRecoveryRegenerationPostgresTests
         await Denied(() => mfa.VerifyRecoveryRegeneration(foreign.Session.Access, attempt, ct));
         await Denied(Rejection.Conflict, () => mfa.VerifyRecoveryRegeneration(owner.Session.Access, attempt, ct, siblingHandle));
         var proof = ReadToken(await mfa.VerifyRecoveryRegeneration(owner.Session.Access, attempt, ct, ownerHandle), MfaWire.Regenerate, verified: true);
-        await using (var digest = Store.Sql(db, null, """
+        Assert.True(await fixture.Scalar<bool>("""
             select exists (select 1 from public.mfa_flow where digest=$2 and options=$3)
             and not exists (select 1 from public.mfa_flow where digest=$1)
-            """, MfaStore.FlowDigest(proof), MfaStore.FlowDigest(proof, MfaWire.Regenerate), MfaWire.Regenerate))
-            Assert.Equal(true, await digest.ExecuteScalarAsync(ct));
+            """, MfaStore.FlowDigest(proof), MfaStore.FlowDigest(proof, MfaWire.Regenerate), MfaWire.Regenerate));
         await Denied(() => mfa.VerifyRecoveryRegeneration(owner.Session.Access, attempt, ct));
         await Assert.ThrowsAsync<MfaProofRequiredException>(() => mfa.Disable(owner.Session.Access, proof, ct));
         await Assert.ThrowsAsync<MfaProofRequiredException>(() => mfa.RegenerateRecoveryCodes(sibling.Access, proof, ct));
@@ -57,16 +44,15 @@ public sealed class MfaRecoveryRegenerationPostgresTests
 
         var before = await sessions.WithSession(owner.Session.Access, false, (_, _, actor) => Task.FromResult(actor), ct);
         var profile = await mfa.Profile(owner.Session.Access, ct);
-        Assert.Equal(RecoveryDigest(owner.Codes[2]), Assert.Single(await ReadDigests(db, owner.Id, ct)));
+        Assert.Equal(RecoveryDigest(owner.Codes[2]), Assert.Single(await ReadDigests(fixture, owner.Id)));
 
-        await using (var blockWrite = Store.Sql(db, null, $"""
+        await fixture.Exec($"""
             alter table public.mfa_recovery_code add constraint fixture_refuse_new_codes
                 check (user_id <> '{owner.Id:D}'::uuid) not valid
-            """)) await blockWrite.ExecuteNonQueryAsync(ct);
+            """);
         await Assert.ThrowsAsync<PostgresException>(() => mfa.RegenerateRecoveryCodes(owner.Session.Access, proof, ct));
-        Assert.Equal(RecoveryDigest(owner.Codes[2]), Assert.Single(await ReadDigests(db, owner.Id, ct)));
-        await using (var allowWrite = Store.Sql(db, null, "alter table public.mfa_recovery_code drop constraint fixture_refuse_new_codes"))
-            await allowWrite.ExecuteNonQueryAsync(ct);
+        Assert.Equal(RecoveryDigest(owner.Codes[2]), Assert.Single(await ReadDigests(fixture, owner.Id)));
+        await fixture.Exec("alter table public.mfa_recovery_code drop constraint fixture_refuse_new_codes");
 
         var concurrent = await Task.WhenAll(TryRedeem(), TryRedeem());
         var result = Assert.Single(concurrent.OfType<byte[]>());
@@ -75,40 +61,36 @@ public sealed class MfaRecoveryRegenerationPostgresTests
         Assert.Equal(10, replacements.Length);
         Assert.Equal(replacements.Length, replacements.Distinct(StringComparer.Ordinal).Count());
         Assert.All(replacements, code => Assert.Matches("^(?:[0-9A-F]{4}-){7}[0-9A-F]{4}$", code));
-        Assert.Equal(replacements.Select(RecoveryDigest).Order(StringComparer.Ordinal), await ReadDigests(db, owner.Id, ct));
-        Assert.Equal(foreign.Codes.Select(RecoveryDigest).Order(StringComparer.Ordinal), await ReadDigests(db, foreign.Id, ct));
+        Assert.Equal(replacements.Select(RecoveryDigest).Order(StringComparer.Ordinal), await ReadDigests(fixture, owner.Id));
+        Assert.Equal(foreign.Codes.Select(RecoveryDigest).Order(StringComparer.Ordinal), await ReadDigests(fixture, foreign.Id));
         Assert.Equal(before, await sessions.WithSession(owner.Session.Access, false, (_, _, actor) => Task.FromResult(actor), ct));
         Assert.Equal(owner.Id, await sessions.WithSession(sibling.Access, false, (_, _, actor) => Task.FromResult(actor.Id), ct));
         Assert.Equal(profile, await mfa.Profile(owner.Session.Access, ct));
         Assert.True(await new SiteRefreshStore(fixture.DataSource).HasCurrent(owner.Session.Refresh, ct));
-        await using (var factor = Store.Sql(db, null, "select sealed_seed,last_step from public.mfa_totp where user_id=$1", owner.Id))
-        await using (var record = await factor.ExecuteReaderAsync(ct))
-        {
-            Assert.True(await record.ReadAsync(ct));
-            Assert.Equal(owner.SealedSeed, record.GetFieldValue<byte[]>(0));
-            Assert.Equal(owner.ReplayFloor, record.GetInt64(1));
-        }
+        var (sealedSeed, replayFloor) = await fixture.QueryRow("select sealed_seed,last_step from public.mfa_totp where user_id=$1",
+            r => (r.GetFieldValue<byte[]>(0), r.GetInt64(1)), owner.Id);
+        Assert.Equal(owner.SealedSeed, sealedSeed);
+        Assert.Equal(owner.ReplayFloor, replayFloor);
 
-        var login = await BeginLogin(db, owner, ct);
+        var login = await BeginLogin(fixture, owner, ct);
         await Denied(() => mfa.FinishLogin(Attempt(login.Token, MfaWire.Login, owner.Codes[2]), login.Binding, false, ct));
         var (signedIn, _) = await mfa.FinishLogin(Attempt(login.Token, MfaWire.Login, replacements[0]), login.Binding, false, ct);
         Assert.Equal(owner.Id, await sessions.WithSession(signedIn.Access, false, (_, _, actor) => Task.FromResult(actor.Id), ct));
-        var nextLogin = await BeginLogin(db, owner, ct);
+        var nextLogin = await BeginLogin(fixture, owner, ct);
         await Denied(() => mfa.FinishLogin(Attempt(nextLogin.Token, MfaWire.Login, replacements[0]), nextLogin.Binding, false, ct));
-        Assert.Equal(9, (await ReadDigests(db, owner.Id, ct)).Length);
+        Assert.Equal(9, (await ReadDigests(fixture, owner.Id)).Count);
 
         var staleChallenge = ReadToken(await mfa.BeginRecoveryRegeneration(owner.Session.Access, ct), MfaWire.Regenerate, verified: false);
         var staleProof = ReadToken(await mfa.VerifyRecoveryRegeneration(owner.Session.Access,
             Attempt(staleChallenge, MfaWire.Regenerate, replacements[1]), ct), MfaWire.Regenerate, verified: true);
-        await using (var advance = await db.BeginTransactionAsync(ct))
+        await fixture.InTx(async (db, advance) =>
         {
-            await Execute(db, advance, ct, "update public.blog_user set generation=2 where id=$1", owner.Id);
-            await Execute(db, advance, ct, "update public.user_session set generation=2 where digest=$1", Store.TokenDigest(owner.Session.Access)!);
-            await advance.CommitAsync(ct);
-        }
+            await FixtureSql.ExecuteAsync(db, advance, ct, "update public.blog_user set generation=2 where id=$1", owner.Id);
+            await FixtureSql.ExecuteAsync(db, advance, ct, "update public.user_session set generation=2 where digest=$1", Store.TokenDigest(owner.Session.Access)!);
+        });
         Assert.Equal(2L, await sessions.WithSession(owner.Session.Access, false, (_, _, actor) => Task.FromResult(actor.Generation), ct));
         await Assert.ThrowsAsync<MfaProofRequiredException>(() => mfa.RegenerateRecoveryCodes(owner.Session.Access, staleProof, ct));
-        Assert.Equal(8, (await ReadDigests(db, owner.Id, ct)).Length);
+        Assert.Equal(8, (await ReadDigests(fixture, owner.Id)).Count);
 
         async Task<byte[]?> TryRedeem()
         {
@@ -120,20 +102,19 @@ public sealed class MfaRecoveryRegenerationPostgresTests
     private sealed record FixtureAccount(Guid Id, byte[] Credential, byte[] SealedSeed, long ReplayFloor,
         SiteRefreshStore.Issued Session, string[] Codes);
 
-    private static async Task<FixtureAccount> AddAccount(NpgsqlConnection db, string name, TotpSecret secrets, CancellationToken ct)
-    {
-        var account = Guid.NewGuid();
-        var credential = RandomNumberGenerator.GetBytes(32);
-        var seed = RandomNumberGenerator.GetBytes(Totp.SecretBytes);
-        byte[] sealedSeed;
-        try { sealedSeed = secrets.Seal(account, seed); }
-        finally { CryptographicOperations.ZeroMemory(seed); }
-        var replayFloor = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / Totp.StepSeconds;
-        await using (var tx = await db.BeginTransactionAsync(ct))
+    private static Task<FixtureAccount> AddAccount(ScratchDatabase fixture, string name, TotpSecret secrets, CancellationToken ct) =>
+        fixture.InTx(async (db, tx) =>
         {
+            var account = Guid.NewGuid();
+            var credential = RandomNumberGenerator.GetBytes(32);
+            var seed = RandomNumberGenerator.GetBytes(Totp.SecretBytes);
+            byte[] sealedSeed;
+            try { sealedSeed = secrets.Seal(account, seed); }
+            finally { CryptographicOperations.ZeroMemory(seed); }
+            var replayFloor = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / Totp.StepSeconds;
             await FixtureSql.SiteAccountAsync(db, tx, ct, account, name);
             await FixtureSql.SitePasskeyAsync(db, tx, ct, account, credential, RandomNumberGenerator.GetBytes(32));
-            await Execute(db, tx, ct, """
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
                 insert into public.mfa_totp(user_id,sealed_seed,last_step,verified_at,retry_after,failed_count)
                 values($1,$2,$3,clock_timestamp(),clock_timestamp(),0)
                 """, account, sealedSeed, replayFloor);
@@ -145,47 +126,26 @@ public sealed class MfaRecoveryRegenerationPostgresTests
                 {
                     var text = Convert.ToHexString(raw);
                     codes[index] = string.Join('-', Enumerable.Range(0, 8).Select(group => text.Substring(group * 4, 4)));
-                    await Execute(db, tx, ct, "insert into public.mfa_recovery_code(user_id,digest) values($1,$2)", account, SHA256.HashData(raw));
+                    await FixtureSql.ExecuteAsync(db, tx, ct, "insert into public.mfa_recovery_code(user_id,digest) values($1,$2)", account, SHA256.HashData(raw));
                 }
                 finally { CryptographicOperations.ZeroMemory(raw); }
             }
             var issued = await MfaStore.IssueSession(db, tx, account, 1, credential, mfa: true, persistent: true, ct);
-            await tx.CommitAsync(ct);
-            return new(account, credential, sealedSeed, replayFloor, issued, codes);
-        }
-    }
+            return new FixtureAccount(account, credential, sealedSeed, replayFloor, issued, codes);
+        }, ct);
 
-    private static async Task<SiteRefreshStore.Issued> IssueSession(NpgsqlConnection db, Guid account, byte[] credential,
-        bool persistent, CancellationToken ct)
-    {
-        await using var tx = await db.BeginTransactionAsync(ct);
-        var issued = await MfaStore.IssueSession(db, tx, account, 1, credential, mfa: true, persistent, ct);
-        await tx.CommitAsync(ct);
-        return issued;
-    }
+    private static Task<(string Token, string Binding)> BeginLogin(ScratchDatabase fixture, FixtureAccount account, CancellationToken ct) =>
+        fixture.InTx(async (db, tx) =>
+        {
+            var actor = await MfaStore.RequireSession(db, tx, account.Session.Access, ct);
+            var binding = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+            var bound = actor with { Scope = [.. MfaStore.FlowDigest(binding), .. account.Credential] };
+            return (await MfaStore.BeginFlow(db, tx, bound, MfaStore.Purpose.Login, "", ct), binding);
+        }, ct);
 
-    private static async Task<(string Token, string Binding)> BeginLogin(NpgsqlConnection db, FixtureAccount account, CancellationToken ct)
-    {
-        await using var tx = await db.BeginTransactionAsync(ct);
-        var actor = await MfaStore.RequireSession(db, tx, account.Session.Access, ct);
-        var binding = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-        var bound = actor with { Scope = [.. MfaStore.FlowDigest(binding), .. account.Credential] };
-        var token = await MfaStore.BeginFlow(db, tx, bound, MfaStore.Purpose.Login, "", ct);
-        await tx.CommitAsync(ct);
-        return (token, binding);
-    }
-
-    private static async Task<string[]> ReadDigests(NpgsqlConnection db, Guid account, CancellationToken ct)
-    {
-        await using var query = Store.Sql(db, null, "select digest from public.mfa_recovery_code where user_id=$1 order by digest", account);
-        await using var rows = await query.ExecuteReaderAsync(ct);
-        var digests = new List<string>();
-        while (await rows.ReadAsync(ct)) digests.Add(Convert.ToHexString(rows.GetFieldValue<byte[]>(0)));
-        return digests.ToArray();
-    }
-
-    private static Task Execute(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct, string sql, params object[] args) =>
-        FixtureSql.ExecuteAsync(db, tx, ct, sql, args);
+    private static Task<List<string>> ReadDigests(ScratchDatabase fixture, Guid account) => fixture.QueryRows(
+        "select digest from public.mfa_recovery_code where user_id=$1 order by digest",
+        r => Convert.ToHexString(r.GetFieldValue<byte[]>(0)), account);
 
     private static MfaAttempt Attempt(string token, string action, string recovery) => new(token, action, "", recovery);
 

@@ -1,7 +1,4 @@
-using System.Security.Cryptography;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Operations;
-using Npgsql;
+using static FsusBlog.V2.Server.SqlCommands;
 
 namespace FsusBlog.V2.Server.Passkeys;
 
@@ -18,7 +15,7 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
         DateTimeOffset accessExpires, CancellationToken ct)
     {
         var (refresh, digest) = NewToken();
-        var refreshExpires = new DateTimeOffset((DateTime)(await SqlCommands.Scalar(db, tx, ct, """
+        var refreshExpires = new DateTimeOffset((DateTime)(await Scalar(db, tx, ct, """
             insert into public.site_session_refresh
                 (family_id,access_digest,refresh_digest,generation,idle_expires_at,absolute_expires_at,rotated_at)
             values($1,$2,$3,0,statement_timestamp()+interval '720 hours',statement_timestamp()+interval '2160 hours',statement_timestamp())
@@ -27,21 +24,15 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
         return new(access, accessExpires, refresh, refreshExpires);
     }
 
-    internal async Task<bool> HasCurrent(string? refresh, CancellationToken ct)
-    {
-        if (Store.TokenDigest(refresh) is not { } digest) return false;
-        await using var db = await source.OpenConnectionAsync(ct);
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        var active = await SqlCommands.Scalar(db, tx, ct, """
+    internal Task<bool> HasCurrent(string? refresh, CancellationToken ct) =>
+        Store.TokenDigest(refresh) is not { } digest ? Task.FromResult(false) :
+        InstanceLease.RunProtected(source, lease, async (db, tx) => await Scalar(db, tx, ct, """
             select exists (
                 select from public.site_session_refresh f join public.user_session s on s.digest=f.access_digest
                 join public.blog_user u on u.id=s.user_id
                 where f.refresh_digest=$1 and f.idle_expires_at>clock_timestamp() and u.enabled and s.generation=u.generation
             )
-            """, digest) is true;
-        await InstanceLease.CommitProtected(tx, lease, ct);
-        return active;
-    }
+            """, digest) is true, ct);
 
     internal async Task<Result> Rotate(string? refresh, string? access, CancellationToken ct)
     {
@@ -62,96 +53,79 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
         if (isCurrent && family.Recent && Same(family.PreviousAccess, accessDigest))
             return new(ResultKind.Contention);
         if (isCurrent) return new(ResultKind.Rejected);
-        await using var history = Store.Sql(db, tx, """
+        var used = await QueryOneValue(db, tx, ct, """
             select generation,used_at>=clock_timestamp()-interval '5 seconds'
             from public.site_session_refresh_tombstone
             where refresh_digest=$1 and family_id=$2 and expires_at>clock_timestamp()
-            """, digest, family.Id);
-        await using (var used = await history.ExecuteReaderAsync(ct))
-        {
-            if (!await used.ReadAsync(ct)) return new(ResultKind.Rejected);
-            if (contextMatches && family.Recent && used.GetBoolean(1) && used.GetInt64(0) == family.Generation - 1)
-                return new(ResultKind.Contention);
-        }
+            """, r => (Generation: r.GetInt64(0), Recent: r.GetBoolean(1)), digest, family.Id);
+        if (used is not var (generation, recent)) return new(ResultKind.Rejected);
+        if (contextMatches && family.Recent && recent && generation == family.Generation - 1)
+            return new(ResultKind.Contention);
         await Delete(db, tx, family.Access, ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
         return new(ResultKind.Compromised);
     }
 
-    internal async Task SignOut(string? refresh, string? access, CancellationToken ct)
+    internal Task SignOut(string? refresh, string? access, CancellationToken ct)
     {
-        if (Store.TokenDigest(refresh) is not { } digest) return;
-        await using var db = await source.OpenConnectionAsync(ct);
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        // A supplied access credential must belong to this family. An expired one still identifies the family.
-        var family = await Resolve(db, tx, digest, ct);
-        var accessDigest = Store.TokenDigest(access);
-        if (family is not null && (access is null || Same(family.Access, accessDigest) || Same(family.PreviousAccess, accessDigest)))
-            await Delete(db, tx, family.Access, ct);
-        await InstanceLease.CommitProtected(tx, lease, ct);
+        if (Store.TokenDigest(refresh) is not { } digest) return Task.CompletedTask;
+        return InstanceLease.RunProtected(source, lease, async (db, tx) =>
+        {
+            // A supplied access credential must belong to this family. An expired one still identifies the family.
+            var family = await Resolve(db, tx, digest, ct);
+            var accessDigest = Store.TokenDigest(access);
+            if (family is not null && (access is null || Same(family.Access, accessDigest) || Same(family.PreviousAccess, accessDigest)))
+                await Delete(db, tx, family.Access, ct);
+        }, ct);
     }
 
-    internal static async Task<Guid?> FindCurrentFamily(NpgsqlConnection db, NpgsqlTransaction tx, byte[] access, CancellationToken ct)
-    {
-        return await SqlCommands.Scalar(db, tx, ct, """
+    internal static async Task<Guid?> FindCurrentFamily(NpgsqlConnection db, NpgsqlTransaction tx, byte[] access, CancellationToken ct) =>
+        await Scalar(db, tx, ct, """
             select family_id from public.site_session_refresh where access_digest=$1 and idle_expires_at>clock_timestamp()
             """, access) as Guid?;
-    }
 
     private static async Task<Family?> Resolve(NpgsqlConnection db, NpgsqlTransaction tx, byte[] digest, CancellationToken ct)
     {
-        Guid family;
-        Guid actor;
-        await using (var candidate = Store.Sql(db, tx, """
+        var found = await QueryOneValue(db, tx, ct, """
             select f.family_id,s.user_id from public.site_session_refresh f join public.user_session s on s.digest=f.access_digest
             where f.family_id=coalesce(
                 (select family_id from public.site_session_refresh where refresh_digest=$1),
                 (select family_id from public.site_session_refresh_tombstone where refresh_digest=$1 and expires_at>clock_timestamp())
             )
-            """, digest))
-        await using (var row = await candidate.ExecuteReaderAsync(ct))
-        {
-            if (!await row.ReadAsync(ct)) return null;
-            (family, actor) = (row.GetGuid(0), row.GetGuid(1));
-        }
-        if (await SqlCommands.Scalar(db, tx, ct,
-            "select 1 from public.blog_user where id=$1 and enabled for update", actor) is null) return null;
-        await using var select = Store.Sql(db, tx, """
+            """, r => (Family: r.GetGuid(0), Actor: r.GetGuid(1)), digest);
+        if (found is not var (family, actor)) return null;
+        if (await Scalar(db, tx, ct, "select 1 from public.blog_user where id=$1 and enabled for update", actor) is null) return null;
+        return await QueryOne(db, tx, ct, """
             select f.access_digest,f.refresh_digest,f.previous_access_digest,f.generation,
                 f.idle_expires_at>clock_timestamp() and f.absolute_expires_at>clock_timestamp() and s.generation=u.generation,
                 f.rotated_at>=clock_timestamp()-interval '5 seconds',s.generation
             from public.site_session_refresh f join public.user_session s on s.digest=f.access_digest
             join public.blog_user u on u.id=s.user_id
             where f.family_id=$1 and s.user_id=$2 for update of s,f
-            """, family, actor);
-        await using var current = await select.ExecuteReaderAsync(ct);
-        if (!await current.ReadAsync(ct)) return null;
-        return new(family, current.GetFieldValue<byte[]>(0), current.GetFieldValue<byte[]>(1),
-            current.IsDBNull(2) ? null : current.GetFieldValue<byte[]>(2), current.GetInt64(3), current.GetBoolean(4),
-            current.GetBoolean(5), current.GetInt64(6));
+            """, r => new Family(family, r.GetFieldValue<byte[]>(0), r.GetFieldValue<byte[]>(1),
+                r.IsDBNull(2) ? null : r.GetFieldValue<byte[]>(2), r.GetInt64(3), r.GetBoolean(4),
+                r.GetBoolean(5), r.GetInt64(6)), family, actor);
     }
 
     private static async Task<Issued> Replace(NpgsqlConnection db, NpgsqlTransaction tx, Family family, CancellationToken ct)
     {
         var (access, accessDigest) = NewToken();
         var (refresh, refreshDigest) = NewToken();
-        await SqlCommands.Execute(db, tx, ct, """
+        await Execute(db, tx, ct, """
             insert into public.site_session_refresh_tombstone(refresh_digest,family_id,generation,used_at,expires_at)
             values($1,$2,$3,statement_timestamp(),statement_timestamp()+interval '720 hours')
             """, family.Refresh, family.Id, family.Generation);
-        DateTimeOffset idleExpires;
-        idleExpires = await SqlCommands.Scalar(db, tx, ct, """
+        var idleExpires = await Scalar(db, tx, ct, """
             update public.site_session_refresh set refresh_digest=$2,previous_access_digest=$3,generation=generation+1,
                 idle_expires_at=least(absolute_expires_at,statement_timestamp()+interval '720 hours'),rotated_at=statement_timestamp()
             where family_id=$1 and refresh_digest=$4 and generation=$5 and idle_expires_at>clock_timestamp()
             returning idle_expires_at
-            """, family.Id, refreshDigest, family.Access, family.Refresh, family.Generation) is DateTime idle ? new(idle) : throw Changed();
-        DateTimeOffset accessExpires;
-        accessExpires = await SqlCommands.Scalar(db, tx, ct, """
+            """, family.Id, refreshDigest, family.Access, family.Refresh, family.Generation) is DateTime idle ? new DateTimeOffset(idle) : throw Changed();
+        var accessExpires = await Scalar(db, tx, ct, """
             update public.user_session set digest=$2,expires_at=least($3,statement_timestamp()+interval '8 hours')
             where digest=$1 and generation=$4 returning expires_at
-            """, family.Access, accessDigest, idleExpires, family.AccountGeneration) is DateTime expiry ? new(expiry) : throw Changed();
-        await SqlCommands.Execute(db, tx, ct, """
+            """, family.Access, accessDigest, idleExpires, family.AccountGeneration) is DateTime expiry ? new DateTimeOffset(expiry) : throw Changed();
+        await Execute(db, tx, ct, """
             with expired as (
                 select refresh_digest from public.site_session_refresh_tombstone where expires_at<=clock_timestamp()
                 order by expires_at limit 32 for update skip locked
@@ -162,10 +136,8 @@ internal sealed class SiteRefreshStore(NpgsqlDataSource source, InstanceLease? l
         return new(access, accessExpires, refresh, idleExpires);
     }
 
-    private static async Task Delete(NpgsqlConnection db, NpgsqlTransaction tx, byte[] access, CancellationToken ct)
-    {
-        await SqlCommands.Execute(db, tx, ct, "delete from public.user_session where digest=$1", access);
-    }
+    private static Task Delete(NpgsqlConnection db, NpgsqlTransaction tx, byte[] access, CancellationToken ct) =>
+        Execute(db, tx, ct, "delete from public.user_session where digest=$1", access);
 
     internal static (string Token, byte[] Digest) NewToken()
     {

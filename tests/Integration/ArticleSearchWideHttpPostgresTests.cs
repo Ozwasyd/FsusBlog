@@ -1,10 +1,3 @@
-using System.Buffers.Binary;
-using System.Globalization;
-using System.Net;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server;
-
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class ArticleSearchWideHttpPostgresTests
@@ -40,14 +33,8 @@ public sealed class ArticleSearchWideHttpPostgresTests
             Assert.Contains(LastBody, await html.Content.ReadAsStringAsync(ct));
         }
 
-        using (var request = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.Retract,
-            Wire.EncodeArticleCommand(new(LastArticle, 1, Guid.NewGuid(), "", "")), token, handle: null))
-        {
-            using var response = await client.SendAsync(request, ct);
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var receipt = Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
-            Assert.Equal(new Draft(LastArticle, 2, "Boundaryrank", LastBody, false), receipt);
-        }
+        Assert.Equal(new Draft(LastArticle, 2, "Boundaryrank", LastBody, false),
+            await SiteAedsFixture.ArticleCommand(client, WireRoutes.Retract, token, null, new(LastArticle, 1, Guid.NewGuid(), "", ""), ct));
 
         var (withdrawn, after) = await Search(LastBody);
         Assert.Empty(withdrawn);
@@ -111,8 +98,7 @@ public sealed class ArticleSearchWideHttpPostgresTests
     internal static async Task<string> Seed(ScratchDatabase fixture, CancellationToken ct)
     {
         var (author, token, _) = await fixture.SignIn("FAS4 wide author", ct, minutes: 5);
-        await using (var db = await fixture.DataSource.OpenConnectionAsync(ct))
-        await using (var tx = await db.BeginTransactionAsync(ct))
+        await fixture.InTx(async (db, tx) =>
         {
             // With equal timestamps, the snapshot's descending ID order puts article 1 at the final ordinal.
             await FixtureSql.ExecuteAsync(db, tx, ct, """
@@ -131,21 +117,13 @@ public sealed class ArticleSearchWideHttpPostgresTests
                 insert into public.article_publication(article_id,revision,publication_id,published_at)
                 select id,revision,$1+id,created_at from public.article
                 """, PublicationBase);
-            await FixtureSql.ExecuteAsync(db, tx, ct, """
-                insert into public.article_revision_rights(article_id,revision,enabled,license_type,
-                    copyright_holder,copyright_year,rights_statement,attribution_template,
-                    copy_policy,max_excerpt_chars,allow_code_copy,show_public_badge,proof_binding_enabled)
-                select article_id,revision,true,'all-rights-reserved','',0,'','','append-attribution',300,true,true,true
-                from public.article_publication;
-                insert into public.article_publication_rights(article_id,publication_id,revision)
-                select article_id,publication_id,revision from public.article_publication;
+            await FixtureSql.ExecuteAsync(db, tx, ct, PublicationFixture.DefaultRightsForPublishedArticles + """
                 insert into public.article_publication_history
                     (article_id,event_no,revision,publication_no,publication_id,kind,reason,happened_at)
                 select article_id,1,revision,publication_no,publication_id,'retained-active','pre-history',published_at
                 from public.article_publication
                 """);
-            await tx.CommitAsync(ct);
-        }
+        }, ct);
         return token;
     }
 
@@ -157,21 +135,14 @@ public sealed class ArticleSearchWideHttpPostgresTests
 
     private static async Task<byte[]> ReadPacket(HttpResponseMessage response, CancellationToken ct)
     {
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(OK, response.StatusCode);
         Assert.True(response.Headers.CacheControl?.NoStore);
         Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
         return await response.Content.ReadAsByteArrayAsync(ct);
     }
 
-    private static async Task AssertError(HttpResponseMessage response, HttpStatusCode status, string message, CancellationToken ct)
-    {
-        Assert.Equal(status, response.StatusCode);
-        Assert.True(response.Headers.CacheControl?.NoStore);
-        Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
-        var payload = Aeds.Decode(await response.Content.ReadAsByteArrayAsync(ct), FrameType.ApiError);
-        Assert.Equal((int)status, I32(payload, WireLayouts.ErrorStatusOffset));
-        Assert.Equal(message, Encoding.UTF8.GetString(payload[WireLayouts.ErrorMessageOffset..WireLayouts.ErrorDetailsOffset]).TrimEnd('\0'));
-    }
+    private static async Task AssertError(HttpResponseMessage response, HttpStatusCode status, string message, CancellationToken ct) =>
+        Assert.Equal(message, (await SiteAedsFixture.AssertAedsError(response, status, ct)).Message);
 
     private static void AssertList(byte[] packet, int count)
     {

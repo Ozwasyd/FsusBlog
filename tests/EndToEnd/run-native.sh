@@ -18,6 +18,9 @@ evidence=$(cd -- "$evidence" && pwd)
 export FSUSBLOG_TEST_EVIDENCE="$evidence"
 server_pid=
 pg_started=0
+db() { "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres "$@"; }
+bootstrap_admin() { export "$1=$("${migrate[@]}" admin-identity bootstrap "$2")"; }
+make_media_dir() { mkdir -m 700 "$scratch/$2"; export "$1=$(cd "$scratch/$2" && pwd -P)"; }
 cleanup() {
   local code=$? cleanup_ok=1
   trap - EXIT
@@ -27,17 +30,12 @@ cleanup() {
     if kill -0 "$server_pid" 2>/dev/null; then cleanup_ok=0; fi
   fi
   if (( pg_started )); then
-    if ! "$PG_TOOLS_DIR/pg_ctl" -D "$scratch/data" -m fast -w stop >> "$evidence/postgres.log" 2>&1; then
-      cleanup_ok=0
-    fi
+    if ! "$PG_TOOLS_DIR/pg_ctl" -D "$scratch/data" -m fast -w stop >> "$evidence/postgres.log" 2>&1; then cleanup_ok=0; fi
     if "$PG_TOOLS_DIR/pg_ctl" -D "$scratch/data" status >/dev/null 2>&1; then cleanup_ok=0; fi
   fi
   if (( cleanup_ok )); then rm -rf -- "$scratch" || cleanup_ok=0; fi
   if (( ! cleanup_ok && code == 0 )); then code=1; fi
-  {
-    printf 'ended=%s\n' "$(date -u +%FT%TZ)"
-    printf 'exit=%s\ncleanup=%s\n' "$code" "$cleanup_ok"
-  } >> "$evidence/run.txt"
+  printf 'ended=%s\nexit=%s\ncleanup=%s\n' "$(date -u +%FT%TZ)" "$code" "$cleanup_ok" >> "$evidence/run.txt"
   printf 'Evidence: %s\n' "$evidence"
   exit "$code"
 }
@@ -79,74 +77,50 @@ if [[ ${FSUSBLOG_TEST_MEDIA_WEBP:-0} == 1 ]]; then
   "${migrate[@]}" media-webp schema >> "$evidence/schema.log"
 fi
 "${migrate[@]}" verify >> "$evidence/schema.log"
-FSUSBLOG_TEST_TICKET=$("${migrate[@]}" operator browser-author)
-export FSUSBLOG_TEST_TICKET
+export FSUSBLOG_TEST_TICKET="$("${migrate[@]}" operator browser-author)"
 flow=${FSUSBLOG_TEST_FLOW:-blog}
 media_flow=0
 case "$flow" in
   private-media|article-media|public-article-media) media_flow=1 ;;
 esac
-if [[ $flow == blog || $flow == canvas-keyboard || $flow == canvas-scale || $flow == editor-readiness ||
-      $flow == workspace-recovery || $flow == workspace-split || $flow == workspace-locale ||
-      $flow == article-library || $flow == property-history || $flow == property-inspector-scale ||
-      $flow == comment-author-delete || $media_flow == 1 ||
-      ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
-  FSUSBLOG_TEST_AUTHOR_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap browser-author)
-  export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP
-fi
-if [[ $flow == workspace-recovery || $flow == workspace-split || $flow == article-library ||
-      $flow == property-history || $flow == canvas-scale ]]; then
-  FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap "$flow-outsider")
-  export FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP
-fi
+case "$flow" in
+  blog|canvas-keyboard|canvas-scale|editor-readiness|workspace-recovery|workspace-split|workspace-locale|article-library|property-history|property-inspector-scale|comment-author-delete|private-media|article-media|public-article-media)
+    bootstrap_admin FSUSBLOG_TEST_AUTHOR_BOOTSTRAP browser-author ;;
+  *) [[ ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]] && bootstrap_admin FSUSBLOG_TEST_AUTHOR_BOOTSTRAP browser-author ;;
+esac
+case "$flow" in
+  workspace-recovery|workspace-split|article-library|property-history|canvas-scale)
+    bootstrap_admin FSUSBLOG_TEST_OUTSIDER_BOOTSTRAP "$flow-outsider" ;;
+esac
 if [[ $flow == comment-author-delete ]]; then
-  FSUSBLOG_TEST_COMMENT_DELETE_DB="$scratch/socket"
-  export FSUSBLOG_TEST_COMMENT_DELETE_DB
-  export FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true
+  export FSUSBLOG_TEST_COMMENT_DELETE_DB="$scratch/socket" FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true
 fi
 if [[ $media_flow == 1 ]]; then
-  FSUSBLOG_TEST_MOBILE_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap mobile-author)
-  export FSUSBLOG_TEST_MOBILE_BOOTSTRAP
+  bootstrap_admin FSUSBLOG_TEST_MOBILE_BOOTSTRAP mobile-author
   if [[ ${FSUSBLOG_TEST_RESUMABLE_MEDIA:-0} == 1 ]]; then
     export FSUSBLOG_PRIVATE_MEDIA_RESUMABLE=true
-    if [[ $flow == private-media ]]; then
-      FSUSBLOG_TEST_MEDIA_SWITCH_BOOTSTRAP=$("${migrate[@]}" admin-identity bootstrap switch-author)
-      export FSUSBLOG_TEST_MEDIA_SWITCH_BOOTSTRAP
-    fi
+    if [[ $flow == private-media ]]; then bootstrap_admin FSUSBLOG_TEST_MEDIA_SWITCH_BOOTSTRAP switch-author; fi
   else
     export FSUSBLOG_PRIVATE_MEDIA_RESUMABLE=false
   fi
-  mkdir -m 700 "$scratch/media"
-  FSUSBLOG_PRIVATE_MEDIA_ROOT=$(cd "$scratch/media" && pwd -P)
-  export FSUSBLOG_PRIVATE_MEDIA_ROOT
+  make_media_dir FSUSBLOG_PRIVATE_MEDIA_ROOT media
 fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-article-media ]]; then
-  mkdir -m 700 "$scratch/public-media"
-  FSUSBLOG_PUBLIC_MEDIA_ROOT=$(cd "$scratch/public-media" && pwd -P)
-  export FSUSBLOG_PUBLIC_MEDIA_ROOT
-fi
+if [[ $flow == public-article-media ]]; then make_media_dir FSUSBLOG_PUBLIC_MEDIA_ROOT public-media; fi
 if [[ ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
-  fixture_count=12
-  if [[ ${FSUSBLOG_TEST_FLOW:-blog} == search-corpus-reuse ]]; then fixture_count=220; fi
-  "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -v "fixture_count=$fixture_count" -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
-    -f tests/EndToEnd/public-fixture.sql > "$evidence/public-fixture.log"
-  shasum -a 256 tests/EndToEnd/public-fixture.sql >> "$evidence/run.txt"
-  "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
-    -f tests/Fixtures/publication-rights.sql >> "$evidence/public-fixture.log"
-  shasum -a 256 tests/Fixtures/publication-rights.sql >> "$evidence/run.txt"
+  fixture_count=$([[ $flow == search-corpus-reuse ]] && echo 220 || echo 12)
+  db -v "fixture_count=$fixture_count" -f tests/EndToEnd/public-fixture.sql -f tests/Fixtures/publication-rights.sql > "$evidence/public-fixture.log"
+  shasum -a 256 tests/EndToEnd/public-fixture.sql tests/Fixtures/publication-rights.sql >> "$evidence/run.txt"
   export FSUSBLOG_TEST_PUBLIC_FIXTURE=1
 fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == public-hot-articles ]]; then
+if [[ $flow == public-hot-articles ]]; then
   [[ ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-0} == 1 ]]
-  FSUSBLOG_TEST_HOT_ENABLED=${FSUSBLOG_TEST_HOT_ENABLED:-1}
+  export FSUSBLOG_TEST_HOT_ENABLED=${FSUSBLOG_TEST_HOT_ENABLED:-1}
   case "$FSUSBLOG_TEST_HOT_ENABLED" in
     0) export FSUSBLOG_PUBLIC_HOT_ARTICLES=false ;;
     1) export FSUSBLOG_PUBLIC_HOT_ARTICLES=true ;;
     *) exit 2 ;;
   esac
-  export FSUSBLOG_TEST_HOT_ENABLED
-  "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
-    -f tests/EndToEnd/public-hot-fixture.sql >> "$evidence/public-fixture.log"
+  db -f tests/EndToEnd/public-hot-fixture.sql >> "$evidence/public-fixture.log"
   shasum -a 256 tests/EndToEnd/public-hot-fixture.sql >> "$evidence/run.txt"
 fi
 
@@ -169,10 +143,7 @@ fi
 if [[ $reader_registration == 1 || $flow == passkey || $flow == site-sessions || $flow == mfa ]]; then
   export FSUSBLOG_PASSKEY_ORIGIN="$url" FSUSBLOG_PASSKEY_RP_ID=localhost
 fi
-if [[ $flow == mfa ]]; then
-  FSUSBLOG_TOTP_KEY_HEX=$(openssl rand -hex 32)
-  export FSUSBLOG_TOTP_KEY_HEX
-fi
+if [[ $flow == mfa ]]; then export FSUSBLOG_TOTP_KEY_HEX="$(openssl rand -hex 32)"; fi
 dotnet "$scratch/server/FsusBlog.V2.Server.dll" --urls "http://127.0.0.1:$http_port" > "$evidence/server.log" 2>&1 &
 server_pid=$!
 for (( attempt=0; attempt<100; attempt++ )); do
@@ -189,36 +160,28 @@ if [[ ${FSUSBLOG_TEST_MEDIA_WEBP:-0} == 1 ]]; then
   fi
   rg -q 'Stop the serving process before changing the database schema.' "$evidence/media-webp-live-rejection.log"
 fi
-case ${FSUSBLOG_TEST_FLOW:-blog} in
+case "$flow" in
   canvas-scale)
     node tests/EndToEnd/run-canvas-scale.mjs
-    "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
-      -f tests/EndToEnd/canvas-scale-verify.sql > "$evidence/canvas-scale-database.txt"
+    db -f tests/EndToEnd/canvas-scale-verify.sql > "$evidence/canvas-scale-database.txt"
     ;;
-  reader-registration)
-    FSUSBLOG_TEST_PASSKEY_URL="$url" node tests/EndToEnd/reader-registration-flow.mjs
-    ;;
-  passkey)
-    FSUSBLOG_TEST_PASSKEY_URL="$url" FSUSBLOG_TEST_PASSKEY_TICKET="$FSUSBLOG_TEST_TICKET" node tests/EndToEnd/passkey-flow.mjs
-    ;;
+  reader-registration) FSUSBLOG_TEST_PASSKEY_URL="$url" node tests/EndToEnd/reader-registration-flow.mjs ;;
+  passkey) FSUSBLOG_TEST_PASSKEY_URL="$url" FSUSBLOG_TEST_PASSKEY_TICKET="$FSUSBLOG_TEST_TICKET" node tests/EndToEnd/passkey-flow.mjs ;;
   site-sessions)
     foreign_ticket=$("${migrate[@]}" operator standalone-session-reader --reader)
     FSUSBLOG_TEST_SESSIONS_URL="$url" FSUSBLOG_TEST_SESSIONS_TICKETS=$(printf '["%s","%s"]' "$FSUSBLOG_TEST_TICKET" "$foreign_ticket") \
       node tests/EndToEnd/site-sessions-flow.mjs
     ;;
-  mfa)
-    FSUSBLOG_TEST_MFA_URL="$url" FSUSBLOG_TEST_MFA_TICKET="$FSUSBLOG_TEST_TICKET" node tests/EndToEnd/mfa-flow.mjs
-    ;;
+  mfa) FSUSBLOG_TEST_MFA_URL="$url" FSUSBLOG_TEST_MFA_TICKET="$FSUSBLOG_TEST_TICKET" node tests/EndToEnd/mfa-flow.mjs ;;
   public-hot-articles) node tests/EndToEnd/run-public-hot-articles.mjs ;;
   property-inspector-scale) node tests/EndToEnd/property-inspector-scale.mjs ;;
   canvas-keyboard|article-media|public-article-media|search-corpus-reuse|editor-readiness|workspace-recovery|workspace-split|article-library|property-history|comment-author-delete|site-locale|workspace-locale|public-route-transition)
-    node "tests/EndToEnd/${FSUSBLOG_TEST_FLOW}-flow.mjs"
+    node "tests/EndToEnd/${flow}-flow.mjs"
     ;;
   private-media)
     node tests/EndToEnd/private-media-flow.mjs
     if [[ ${FSUSBLOG_TEST_RESUMABLE_MEDIA:-0} == 1 ]]; then
-      "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres -qAt -c \
-        'SELECT (SELECT count(*) FROM public.private_media_upload WHERE complete), (SELECT count(*) FROM public.private_media_upload_part), (SELECT count(*) FROM public.private_media WHERE phase=3)' > "$evidence/media-state.txt"
+      db -qAt -c 'SELECT (SELECT count(*) FROM public.private_media_upload WHERE complete), (SELECT count(*) FROM public.private_media_upload_part), (SELECT count(*) FROM public.private_media WHERE phase=3)' > "$evidence/media-state.txt"
       [[ $(cat "$evidence/media-state.txt") == '3|0|3' ]]
     fi
     ;;

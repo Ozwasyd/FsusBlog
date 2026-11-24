@@ -10,7 +10,7 @@ import type { AdminSession } from '../../../Contracts/admin-identity'
 import { readAdminRiskReadiness } from '../../../Contracts/admin-risk-readiness'
 import { applyRootCommentPowPolicy, readRootCommentPowPolicy, validRootCommentPowSeconds } from '../../../Contracts/admin-root-comment-pow'
 import { useDelayedBusy } from '../delayedBusy'
-import { watchAdminSessionClear } from './adminSessionClear'
+import { isAdminSessionLost, useAdminRequests } from './adminSessionClear'
 
 const props = defineProps<{ session: AdminSession, sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: ApiError] }>()
@@ -20,11 +20,8 @@ const seconds = ref('')
 const busy = ref(false)
 const checkLoading = useDelayedBusy(() => busy.value)
 const error = ref<MessageKey | ''>('')
-let request: AbortController | undefined
 
 function clear() {
-  request?.abort()
-  request = undefined
   observation.value = undefined
   rootPolicy.value = undefined
   seconds.value = ''
@@ -32,29 +29,27 @@ function clear() {
   error.value = ''
 }
 
+const requests = useAdminRequests(() => [props.session, props.sessionSignal] as const, clear)
+
 async function check(force = true) {
   if (props.sessionSignal.aborted || (!force && busy.value)) return
   clear()
-  const current = request = new AbortController()
-  const signal = AbortSignal.any([current.signal, props.sessionSignal])
+  const req = requests.start()
   busy.value = true
   try {
-    const status = await readAdminRiskReadiness(props.session, signal)
-    const policy = status.rootCommentPowPolicy ? await readRootCommentPowPolicy(props.session, signal) : undefined
-    if (!signal.aborted) {
+    const status = await readAdminRiskReadiness(props.session, req.signal)
+    const policy = status.rootCommentPowPolicy ? await readRootCommentPowPolicy(props.session, req.signal) : undefined
+    if (!req.signal.aborted) {
       observation.value = status
       rootPolicy.value = policy
       if (policy) seconds.value = String(policy.proofSeconds)
     }
   } catch (cause) {
-    if (signal.aborted) return
-    if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
+    if (req.signal.aborted) return
+    if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else if (force || !(cause instanceof ApiError && cause.status === 403)) error.value = 'admin.riskCheckFailed'
   } finally {
-    if (request === current) {
-      request = undefined
-      busy.value = false
-    }
+    if (req.isCurrent()) { req.finish(); busy.value = false }
   }
 }
 
@@ -63,33 +58,28 @@ async function change(rollback: boolean) {
   const value = rollback ? policy?.previousSeconds : Number(seconds.value)
   if (!policy || value === undefined || !validRootCommentPowSeconds(value) || value === policy.proofSeconds ||
       props.sessionSignal.aborted || busy.value) return
-  const current = request = new AbortController()
-  const signal = AbortSignal.any([current.signal, props.sessionSignal])
+  const req = requests.start()
   busy.value = true
   error.value = ''
   try {
     const saved = await applyRootCommentPowPolicy(props.session, {
       expectedGeneration: policy.generation, expectedDigest: policy.digest, proofSeconds: value, rollback,
-    }, signal)
-    if (!signal.aborted) {
+    }, req.signal)
+    if (!req.signal.aborted) {
       rootPolicy.value = saved
       seconds.value = String(saved.proofSeconds)
     }
   } catch (cause) {
-    if (signal.aborted) return
+    if (req.signal.aborted) return
     rootPolicy.value = undefined
-    if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
+    if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else if (cause instanceof ApiError && cause.status === 409) error.value = 'admin.riskPolicyChanged'
     else error.value = 'admin.riskPolicyUnconfirmed'
   } finally {
-    if (request === current) {
-      request = undefined
-      busy.value = false
-    }
+    if (req.isCurrent()) { req.finish(); busy.value = false }
   }
 }
 
-watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clear)
 onMounted(() => { void check(false) })
 </script>
 

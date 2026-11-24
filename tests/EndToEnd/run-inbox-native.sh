@@ -27,12 +27,9 @@ proxy_pid=
 run=
 target=
 origin=
-own_child() {
-  [[ -n $1 && "$(ps -o ppid= -p "$1" 2>/dev/null | tr -d ' ')" == "$$" ]]
-}
+own_child() { [[ -n $1 && "$(ps -o ppid= -p "$1" 2>/dev/null | tr -d ' ')" == "$$" ]]; }
 cleanup() {
-  local code=$? cleanup_ok=1
-  local pid address
+  local code=$? cleanup_ok=1 pid address
   trap - EXIT
   for pid in "$proxy_pid" "$server_pid"; do
     if [[ -n $pid ]]; then
@@ -51,7 +48,7 @@ cleanup() {
     printf 'DROP DATABASE %s WITH (FORCE);\n' "$database" | "${query[@]}" -d postgres >> "$evidence/db.log" 2>&1 || cleanup_ok=0
   fi
   if (( ! cleanup_ok && code == 0 )); then code=1; fi
-  { printf 'ended=%s\n' "$(date -u +%FT%TZ)"; printf 'exit=%s\ncleanup=%s\n' "$code" "$cleanup_ok"; } >> "$evidence/run.txt"
+  printf 'ended=%s\nexit=%s\ncleanup=%s\n' "$(date -u +%FT%TZ)" "$code" "$cleanup_ok" >> "$evidence/run.txt"
   printf 'Evidence: %s\n' "$evidence"
   exit "$code"
 }
@@ -70,31 +67,26 @@ trap 'exit 143' TERM
 printf 'CREATE DATABASE %s TEMPLATE template0;\n' "$database" | "${query[@]}" -d postgres > "$evidence/db.log"
 owned_db=1
 export FSUSBLOG_DB="Host=$FSUSBLOG_TEST_PGHOST;Port=$FSUSBLOG_TEST_PGPORT;Username=$FSUSBLOG_TEST_PGUSER;Database=$database;SSL Mode=Disable"
-export FSUSBLOG_WEB_DIST=$dist
-export FSUSBLOG_PRIVATE_INBOX_WRITES=true
-"$dotnet" "$migrate" plan > "$evidence/schema-plan.json"
-"$dotnet" "$migrate" apply "$evidence/schema-plan.json" > "$evidence/schema.log"
-FSUSBLOG_INBOX_DESKTOP_TICKET=$("$dotnet" "$migrate" operator inbox-desktop --reader)
-FSUSBLOG_INBOX_MOBILE_TICKET=$("$dotnet" "$migrate" operator inbox-mobile --reader)
-export FSUSBLOG_INBOX_DESKTOP_TICKET FSUSBLOG_INBOX_MOBILE_TICKET
-
-FSUSBLOG_INBOX_DESKTOP_ID=$("${query[@]}" -d "$database" -qAtc "SELECT id FROM public.blog_user WHERE name='inbox-desktop';")
-FSUSBLOG_INBOX_MOBILE_ID=$("${query[@]}" -d "$database" -qAtc "SELECT id FROM public.blog_user WHERE name='inbox-mobile';")
-export FSUSBLOG_INBOX_DESKTOP_ID FSUSBLOG_INBOX_MOBILE_ID
+export FSUSBLOG_WEB_DIST=$dist FSUSBLOG_PRIVATE_INBOX_WRITES=true
+cli() { "$dotnet" "$migrate" "$@"; }
+cli plan > "$evidence/schema-plan.json"
+cli apply "$evidence/schema-plan.json" > "$evidence/schema.log"
+export FSUSBLOG_INBOX_DESKTOP_TICKET="$(cli operator inbox-desktop --reader)" FSUSBLOG_INBOX_MOBILE_TICKET="$(cli operator inbox-mobile --reader)"
+export FSUSBLOG_INBOX_DESKTOP_ID="$("${query[@]}" -d "$database" -qAtc "SELECT id FROM public.blog_user WHERE name='inbox-desktop';")"
+export FSUSBLOG_INBOX_MOBILE_ID="$("${query[@]}" -d "$database" -qAtc "SELECT id FROM public.blog_user WHERE name='inbox-mobile';")"
+initial_notice='{"subject":"Integration fixture notice","body":"Integration fixture private body"}'
 for recipient in "$FSUSBLOG_INBOX_DESKTOP_ID" "$FSUSBLOG_INBOX_MOBILE_ID"; do
-  printf '%s' '{"subject":"Integration fixture notice","body":"Integration fixture private body"}' |
-    "$dotnet" "$migrate" notify "$recipient" initial-notice >> "$evidence/schema.log"
+  printf '%s' "$initial_notice" | cli notify "$recipient" initial-notice >> "$evidence/schema.log"
 done
-printf '%s' '{"subject":"Integration fixture notice","body":"Integration fixture private body"}' |
-  "$dotnet" "$migrate" notify "$FSUSBLOG_INBOX_DESKTOP_ID" initial-notice > "$evidence/replayed-notice.json"
+printf '%s' "$initial_notice" | cli notify "$FSUSBLOG_INBOX_DESKTOP_ID" initial-notice > "$evidence/replayed-notice.json"
 rg -q '"replayed": true' "$evidence/replayed-notice.json"
 if printf '%s' '{"subject":"Integration fixture notice","body":"Different retry body"}' |
-    "$dotnet" "$migrate" notify "$FSUSBLOG_INBOX_DESKTOP_ID" initial-notice > "$evidence/notice-conflict.log" 2>&1; then
+    cli notify "$FSUSBLOG_INBOX_DESKTOP_ID" initial-notice > "$evidence/notice-conflict.log" 2>&1; then
   printf 'Conflicting notice retry was accepted.\n' >&2
   exit 1
 fi
 rg -q 'different request' "$evidence/notice-conflict.log"
-"$dotnet" "$migrate" verify >> "$evidence/schema.log"
+cli verify >> "$evidence/schema.log"
 
 # shellcheck source=tests/Performance/proxy.sh
 source tests/Performance/proxy.sh

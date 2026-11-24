@@ -1,29 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$(dirname "$0")/../../.."
-
-if [[ ${PGHOST:-} != /* || -z ${PGUSER:-} || -z ${FSUSBLOG_TEST_DB:-} ]]; then
-    printf '%s\n' 'Set PGHOST and PGUSER for an isolated PostgreSQL Unix socket, with matching FSUSBLOG_TEST_DB.' >&2
-    exit 2
-fi
-if [[ -n ${PG_TOOLS_DIR:-} ]]; then PATH="$PG_TOOLS_DIR:$PATH"; fi
-migrate=("${DOTNET_BIN:-dotnet}" "${FSUSBLOG_CLI_DLL:-src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll}")
-umask 077
-scratch=$(mktemp -d /tmp/fsusv2-canonical.XXXXXXXX)
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+cd "$script_dir/../../.."
+source "$script_dir/pg-fixture.sh"
+pg_fixture_init fsusv2-canonical 1 'Set PGHOST and PGUSER for an isolated PostgreSQL Unix socket, with matching FSUSBLOG_TEST_DB.'
+migrate=("$dotnet_bin" "${FSUSBLOG_CLI_DLL:-src/Cli/bin/Release/net10.0/FsusBlog.V2.Cli.dll}")
 database="fsusv2_canonical_$(openssl rand -hex 9)"
-maintenance=(psql -X -q --no-password -v ON_ERROR_STOP=1 -d postgres)
-created=0
-cleanup() {
-    local code=$?
-    if (( created )); then "${maintenance[@]}" -c "DROP DATABASE \"$database\"" || code=1; fi
-    find "$scratch" -depth -delete || code=1
-    exit "$code"
-}
-trap cleanup EXIT
-"${maintenance[@]}" -c "CREATE DATABASE \"$database\" TEMPLATE template0"
-created=1
+pg_fixture_create_db "$database"
 sql=(psql -X -q --no-password -v ON_ERROR_STOP=1 -d "$database")
-export FSUSBLOG_DB="${FSUSBLOG_TEST_DB%;};Database=$database"
+export FSUSBLOG_DB="$settings;Database=$database"
 "${migrate[@]}" plan > "$scratch/plan.json"
 "${migrate[@]}" apply "$scratch/plan.json"
 

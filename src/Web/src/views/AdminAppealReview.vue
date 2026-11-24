@@ -88,7 +88,7 @@ function decide(id: string, decision: 'granted' | 'denied') {
   <section class="appeal-review" aria-labelledby="admin-appeal-heading">
     <h2 id="admin-appeal-heading" class="appeal-sr-title">{{ t('admin.appeals.m1') }}</h2>
     <div class="appeal-panel-actions">
-      <ElButton text :loading="refreshLoading" @click="load()">{{ t('admin.appeals.refresh') }}</ElButton>
+      <ElButton text :loading="refreshLoading" @click="load()">{{ t('account.inboxRefresh') }}</ElButton>
     </div>
     <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" />
     <p v-if="notice" class="appeal-status" role="status">{{ t(notice) }}</p>
@@ -117,7 +117,7 @@ function decide(id: string, decision: 'granted' | 'denied') {
             <ElButton :disabled="busy || !appealReason(reason)"
               @click="decide(item.id, 'denied')">{{ t('admin.appeals.m7') }}</ElButton>
             <ElButton text :disabled="busy"
-              @click="selected = undefined; reason = ''">{{ t('admin.taxonomy.deleteCancel') }}</ElButton>
+              @click="selected = undefined; reason = ''">{{ t('nav.cancel') }}</ElButton>
           </ElInlineActions>
         </div>
       </ElResourceListItem>

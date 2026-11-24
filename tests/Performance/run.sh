@@ -75,45 +75,30 @@ unset PGSERVICE PGPASSWORD PGOPTIONS PGHOSTADDR
 export FSUSBLOG_DB="Host=$run;Port=$pg_port;Database=$database;Username=perf;Pooling=true"
 export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
 
-own_child() {
-  [[ -n "$1" && "$(ps -o ppid= -p "$1" 2>/dev/null | tr -d ' ')" == "$$" ]]
+stop_graceful() {
+  local pid=$1
+  own_child "$pid" || return 0
+  kill -TERM "$pid"
+  wait_child_exit "$pid" 50
+  if own_child "$pid"; then
+    kill -KILL "$pid"
+    clean=forced
+  fi
 }
 
 cleanup() {
-  local status=$? clean=yes server_exit=not-started
+  local status=$? clean=yes server_exit=not-started pid
   trap - EXIT INT TERM
   set +e
-  if own_child "$load_pid"; then
-    kill -TERM "$load_pid"
-    wait "$load_pid" 2>/dev/null
-  fi
-  if own_child "$sampler_pid"; then
-    kill -TERM "$sampler_pid"
-    wait "$sampler_pid" 2>/dev/null
-  fi
-  if own_child "$proxy_pid"; then
-    kill -TERM "$proxy_pid"
-    for _ in {1..50}; do
-      own_child "$proxy_pid" || break
-      sleep 0.1
-    done
-    if own_child "$proxy_pid"; then
-      kill -KILL "$proxy_pid"
-      clean=forced
+  for pid in "$load_pid" "$sampler_pid"; do
+    if own_child "$pid"; then
+      kill -TERM "$pid"
+      wait "$pid" 2>/dev/null
     fi
-    wait "$proxy_pid" 2>/dev/null
-  fi
-  if own_child "$server_pid"; then
-    kill -TERM "$server_pid"
-    for _ in {1..50}; do
-      own_child "$server_pid" || break
-      sleep 0.1
-    done
-    if own_child "$server_pid"; then
-      kill -KILL "$server_pid"
-      clean=forced
-    fi
-  fi
+  done
+  stop_graceful "$proxy_pid"
+  if [[ -n "$proxy_pid" ]]; then wait "$proxy_pid" 2>/dev/null; fi
+  stop_graceful "$server_pid"
   if [[ -n "$server_pid" ]]; then
     wait "$server_pid" 2>/dev/null
     server_exit=$?
@@ -125,41 +110,23 @@ cleanup() {
   if [[ -e "$run/pg/postmaster.pid" || -S "$run/.s.PGSQL.$pg_port" ]]; then
     clean=no
   fi
-  if [[ -n "$origin" ]]; then
-    local port=${origin##*:}
-    if lsof -n -P -iTCP@127.0.0.1:"$port" -sTCP:LISTEN > "$evidence/residual-listener.txt" 2>&1; then
-      clean=no
-    fi
-  fi
-  if [[ -n "$proxy_pid" ]]; then
-    local port=${target##*:}
-    if lsof -n -P -iTCP@127.0.0.1:"$port" -sTCP:LISTEN > "$evidence/residual-proxy-listener.txt" 2>&1; then
-      clean=no
-    fi
-  fi
+  check_residual() {
+    local url=$1 log=$2
+    [[ -n "$url" ]] && lsof -n -P -iTCP@127.0.0.1:"${url##*:}" -sTCP:LISTEN > "$evidence/$log" 2>&1 && clean=no
+  }
+  check_residual "$origin" residual-listener.txt
+  if [[ -n "$proxy_pid" ]]; then check_residual "$target" residual-proxy-listener.txt; fi
   if [[ "$clean" != no ]]; then
     rm -rf -- "$run" || clean=no
     [[ ! -e "$run" ]] || clean=no
   fi
   if [[ "$clean" != yes && "$status" == 0 ]]; then status=1; fi
-  {
-    echo "started_at=$started"
-    echo "finished_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-    echo "run_id=$run_id"
-    echo "invocation_id=$invocation_id"
-    echo "attempt_id=$attempt_id"
-    echo "owner_pid=$$"
-    echo "server_pid=$server_pid"
-    echo "server_exit_code=$server_exit"
-    echo "origin=$origin"
-    echo "proxy_pid=$proxy_pid"
-    echo "target=$target"
-    echo "database=$database"
-    echo "scratch=$run"
-    echo "exit_code=$status"
-    echo "last_stage=$stage"
-    echo "cleanup=$clean"
-  } > "$evidence/outcome.txt"
+  printf '%s\n' \
+    "started_at=$started" "finished_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+    "run_id=$run_id" "invocation_id=$invocation_id" "attempt_id=$attempt_id" \
+    "owner_pid=$$" "server_pid=$server_pid" "server_exit_code=$server_exit" \
+    "origin=$origin" "proxy_pid=$proxy_pid" "target=$target" "database=$database" \
+    "scratch=$run" "exit_code=$status" "last_stage=$stage" "cleanup=$clean" > "$evidence/outcome.txt"
   printf 'P2 native %s: %s, exit=%d, cleanup=%s\n' "$mode" "$evidence" "$status" "$clean" >&2
   exit "$status"
 }
@@ -323,14 +290,15 @@ read -r postgres_pid < "$run/pg/postmaster.pid"
   echo 'readiness=204'
 } > "$evidence/owner.txt"
 
+sample_proc() {
+  ps -o pid=,rss=,%cpu= -p "$1" | awk -v date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" '{ print date "," $1 "," $2 "," $3 }'
+}
 (
   printf 'utc,pid,rss_kib,pcpu\n'
   if [[ -n "$proxy_pid" ]]; then printf 'utc,pid,rss_kib,pcpu\n' > "$evidence/proxy-process.csv"; fi
   while kill -0 "$server_pid" 2>/dev/null; do
-    ps -o pid=,rss=,%cpu= -p "$server_pid" | awk -v date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" '{ print date "," $1 "," $2 "," $3 }'
-    if [[ -n "$proxy_pid" ]]; then
-      ps -o pid=,rss=,%cpu= -p "$proxy_pid" | awk -v date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" '{ print date "," $1 "," $2 "," $3 }' >> "$evidence/proxy-process.csv"
-    fi
+    sample_proc "$server_pid"
+    if [[ -n "$proxy_pid" ]]; then sample_proc "$proxy_pid" >> "$evidence/proxy-process.csv"; fi
     sleep 5
   done
 ) > "$evidence/server-process.csv" &

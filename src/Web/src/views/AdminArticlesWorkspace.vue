@@ -44,7 +44,7 @@ function openArticlesByTaxonomy(filter: AdminArticleTaxonomyFilter) {
       <AdminArticleInventory v-model:keyword="keyword" trash :session-signal="sessionSignal" :active="selected === 'trash'"
         @busy="working.trash = $event" @session-lost="emit('session-lost', $event)" />
     </ElTabPane>
-    <ElTabPane name="categories" :label="t('admin.articles.categories')" lazy>
+    <ElTabPane name="categories" :label="t('admin.taxonomy.m5')" lazy>
       <AdminTaxonomy
         initial-kind="categories"
         :active="selected === 'categories'"
@@ -52,7 +52,7 @@ function openArticlesByTaxonomy(filter: AdminArticleTaxonomyFilter) {
         @session-lost="emit('session-lost', $event)"
       />
     </ElTabPane>
-    <ElTabPane name="tags" :label="t('admin.articles.tags')" lazy>
+    <ElTabPane name="tags" :label="t('admin.taxonomy.m6')" lazy>
       <AdminTaxonomy
         initial-kind="tags"
         :active="selected === 'tags'"

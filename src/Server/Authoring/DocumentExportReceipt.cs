@@ -1,10 +1,3 @@
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using FsusBlog.V2.Contracts;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 // The receipt contract is independent of persistence and uses no reflection or intermediate JSON DOM.

@@ -4,5 +4,9 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Contracts/FsusBlog.V2.Contracts.csproj" />
+    <Using Include="System.Buffers.Binary" />
+    <Using Include="System.Security.Cryptography" />
+    <Using Include="FsusBlog.V2.Contracts" />
+    <Using Include="VectorFixture" Static="true" />
   </ItemGroup>
 </Project>

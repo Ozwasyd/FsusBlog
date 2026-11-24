@@ -1,5 +1,3 @@
-using System.Buffers.Binary;
-
 namespace FsusBlog.V2.Contracts;
 
 public sealed class ProtocolException(string message) : Exception(message);

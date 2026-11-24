@@ -12,6 +12,10 @@ export function post<T>(path: string, expected: FrameType, decode: Decoder<T>, s
   return request(path, expected, decode, signal, 'POST', body, headers);
 }
 
+export function postEmpty(path: string, signal: AbortSignal | undefined, body?: Body, headers?: HeadersInit): Promise<void> {
+  return post(path, FrameType.EmptySuccess, decodeSuccess, signal, body, headers);
+}
+
 export function sessionGet<T>(path: string, expected: FrameType, decode: Decoder<T>, signal: AbortSignal | undefined,
   session?: string): Promise<T> {
   return request(path, expected, decode, signal, 'GET', undefined, siteSessionHeader(session));

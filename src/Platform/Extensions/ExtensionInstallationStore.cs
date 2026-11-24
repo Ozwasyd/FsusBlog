@@ -1,7 +1,4 @@
 using System.Collections.Immutable;
-using System.Security.Cryptography;
-using System.Text.Json;
-using FsusBlog.V2.Core.Extensions;
 using static FsusBlog.V2.Core.Extensions.ExtensionManifestReader;
 using static FsusBlog.V2.Core.Extensions.ExtensionPackageVerifier;
 

@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert'
-import test from 'node:test'
+import test, { type TestContext } from 'node:test'
 import { ApiError } from '../../src/Contracts/aeds.ts'
 import type {
   AdminInboxFilter,
@@ -14,8 +14,8 @@ import {
   type AdminInboxControllerOptions,
   type AdminInboxTransport,
 } from '../../src/Web/src/admin/adminInboxController.ts'
-import { FakeClock } from './fakeClock.ts'
-import { bindTestSession } from './controllerSession.ts'
+import { createInboxTimeFormatter, inboxBubbleVariant, inboxStatusTagType } from '../../src/Web/src/inboxPresentation.ts'
+import { bindAndFlush, expectFields, FakeClock, flushMicrotasks } from './controllerSession.ts'
 
 interface FakeWakeSubscription {
   readonly scope: bigint | AdminInboxLiveStatus
@@ -24,58 +24,34 @@ interface FakeWakeSubscription {
   readonly onRevoked: () => void
 }
 
-async function flushMicrotasks(): Promise<void> {
-  for (let i = 0; i < 6; i++) await Promise.resolve()
-}
-
 const sampleAccount = '11111111-2222-3333-4444-555555555555'
 
-function makeRow(id: bigint, overrides: Partial<AdminInboxRow> = {}): AdminInboxRow {
-  return {
-    id,
-    account: sampleAccount,
-    subject: `Ticket #${id}`,
-    status: 0,
-    system: false,
-    updated: 1_700_000_000_000,
-    unread: 2,
-    ...overrides,
-  }
-}
+const makeRow = (id: bigint, overrides: Partial<AdminInboxRow> = {}): AdminInboxRow => ({
+  id, account: sampleAccount, subject: `Ticket #${id}`, status: 0, system: false,
+  updated: 1_700_000_000_000, unread: 2, ...overrides,
+})
 
-function makePage(rows: AdminInboxRow[], overrides: Partial<AdminInboxPage> = {}): AdminInboxPage {
-  return {
-    rows,
-    next: null,
-    noticesEnabled: true,
-    sharedAvailable: true,
-    activityAvailable: true,
-    liveEnabled: true,
-    ...overrides,
-  }
-}
+const makePage = (rows: AdminInboxRow[], overrides: Partial<AdminInboxPage> = {}): AdminInboxPage => ({
+  rows, next: null, noticesEnabled: true, sharedAvailable: true, activityAvailable: true, liveEnabled: true, ...overrides,
+})
 
-function makeThread(id: bigint, overrides: Partial<AdminInboxThread> = {}): AdminInboxThread {
-  return {
-    conversation: makeRow(id),
-    messages: [
-      { id: 10n, sender: 0, internal: false, at: 1_700_000_000_000, body: 'Initial account message' },
-      { id: 11n, sender: 1, internal: true, at: 1_700_000_001_000, body: 'Internal note' },
-    ],
-    previous: null,
-    repliesEnabled: true,
-    liveEnabled: true,
-    version: '1',
-    readSnapshot: { token: 'r'.repeat(64), through: 10n },
-    ...overrides,
-  }
-}
+const makeThread = (id: bigint, overrides: Partial<AdminInboxThread> = {}): AdminInboxThread => ({
+  conversation: makeRow(id),
+  messages: [
+    { id: 10n, sender: 0, internal: false, at: 1_700_000_000_000, body: 'Initial account message' },
+    { id: 11n, sender: 1, internal: true, at: 1_700_000_001_000, body: 'Internal note' },
+  ],
+  previous: null, repliesEnabled: true, liveEnabled: true, version: '1',
+  readSnapshot: { token: 'r'.repeat(64), through: 10n }, ...overrides,
+})
 
-function createController(
-  options: Omit<AdminInboxControllerOptions, 'transport'>,
+function setupInbox(
+  t: TestContext,
+  options: Omit<AdminInboxControllerOptions, 'transport'> = {},
   overrides: Partial<AdminInboxTransport> = {},
-  wakes: FakeWakeSubscription[] = [],
-): AdminInboxController {
+) {
+  const wakes: FakeWakeSubscription[] = []
+  const sessionLost: unknown[] = []
   const transport: AdminInboxTransport = {
     adminInbox: async () => makePage([makeRow(1n), makeRow(2n)]),
     adminInboxThread: async id => makeThread(id),
@@ -83,59 +59,58 @@ function createController(
     adminReply: async (id, body) => ({ id: 20n, conversationId: id, sender: 1, createdAt: 1_700_000_005_000, body }),
     adminChangeStatus: async (_id, _version, target) => ({ previous: 0, current: target, changed: target !== 0 }),
     adminSendNotice: async () => ({}),
-    watchAdminInboxWake: (scope, signal, wake, onRevoked) => {
-      wakes.push({ scope, signal, wake, onRevoked })
-    },
+    watchAdminInboxWake: (scope, signal, wake, onRevoked) => { wakes.push({ scope, signal, wake, onRevoked }) },
     ...overrides,
   }
-  return new AdminInboxController({ ...options, transport })
+  const hooks = { onSessionLost: (err: unknown) => { sessionLost.push(err) }, ...options.hooks }
+  const controller = new AdminInboxController({ ...options, hooks, transport })
+  t.after(() => controller.dispose())
+  return { controller, wakes, sessionLost }
 }
 
-test('queue auto-upgrades to shared read, disables live on pagination, and preserves capabilities across filter/order switches', async () => {
+const triggerWake = async (sub: FakeWakeSubscription) => { sub.wake(); await flushMicrotasks() }
+const advanceAndFlush = async (clock: FakeClock, ms: number) => { clock.advance(ms); await flushMicrotasks() }
+const rowIds = (controller: AdminInboxController) => controller.state.rows.map(r => r.id)
+const messageIds = (controller: AdminInboxController) => controller.state.thread?.messages.map(m => m.id)
+const setFilter = async (controller: AdminInboxController, filter: AdminInboxFilter) => {
+  controller.setFilter(filter)
+  await flushMicrotasks()
+}
+const saveStatus = (controller: AdminInboxController, destination: 0 | 1 | 2, reason: string) => {
+  controller.setDestination(destination)
+  controller.setReason(reason)
+  return controller.saveStatus()
+}
+
+test('queue auto-upgrades to shared read, disables live on pagination, and preserves capabilities across filter/order switches', async t => {
   const queueCalls: Array<{ filter: AdminInboxFilter; cursor: string | null; shared: boolean | undefined; order: AdminInboxOrder | undefined }> = []
-  const wakes: FakeWakeSubscription[] = []
-  const controller = createController({}, {
+  const { controller, wakes } = setupInbox(t, {}, {
     adminInbox: async (filter, cursor, _signal, shared, order) => {
       queueCalls.push({ filter, cursor, shared, order })
-      if (cursor === 'next-cursor') {
-        return makePage([makeRow(3n)], { next: null, liveEnabled: true })
-      }
-      return makePage([makeRow(1n, { unread: shared ? 2 : null })], { next: 'next-cursor', sharedAvailable: true, activityAvailable: true, liveEnabled: true })
+      if (cursor === 'next-cursor') return makePage([makeRow(3n)], { next: null, liveEnabled: true })
+      return makePage([makeRow(1n, { unread: shared ? 2 : null })], { next: 'next-cursor' })
     },
-  }, wakes)
+  })
 
-  bindTestSession(controller)
-  await flushMicrotasks()
-
-  // Initial load detects sharedAvailable=true and performs a second shared=true fetch.
-  assert.equal(queueCalls.length, 2)
-  assert.equal(queueCalls[0]!.shared, false)
-  assert.equal(queueCalls[1]!.shared, true)
-  assert.equal(controller.state.sharedRead, true)
-  assert.equal(controller.state.activityAvailable, true)
-  assert.equal(controller.state.queueLive, true)
+  await bindAndFlush(controller)
+  assert.deepEqual(queueCalls.map(c => c.shared), [false, true])
+  expectFields(controller.state, { sharedRead: true, activityAvailable: true, queueLive: true })
   assert.equal(controller.liveScope(), '')
   assert.equal(wakes.length, 1)
   assert.equal(wakes[0]!.scope, '')
 
-  // Appending next page disables queue live subscription and aborts wake signal.
   await controller.loadQueue('next-cursor')
   assert.equal(controller.state.rows.length, 2)
   assert.equal(controller.state.queueLive, false)
   assert.equal(controller.liveScope(), undefined)
   assert.equal(wakes[0]!.signal.aborted, true)
 
-  // Switching filter to 'unread' keeps sharedRead & activityAvailable, uses shared=true directly, and does not open live wake.
-  controller.setFilter('unread')
-  await flushMicrotasks()
-  assert.equal(queueCalls.at(-1)!.filter, 'unread')
-  assert.equal(queueCalls.at(-1)!.shared, true)
+  await setFilter(controller, 'unread')
+  expectFields(queueCalls.at(-1)!, { filter: 'unread', shared: true })
   assert.equal(controller.liveScope(), undefined)
   assert.equal(wakes.length, 1)
 
-  // Switching order to 'activity' keeps live disabled.
-  controller.setFilter('open')
-  await flushMicrotasks()
+  await setFilter(controller, 'open')
   assert.equal(controller.liveScope(), 'open')
   assert.equal(wakes.length, 2)
   assert.equal(wakes[1]!.scope, 'open')
@@ -144,112 +119,80 @@ test('queue auto-upgrades to shared read, disables live on pagination, and prese
   await flushMicrotasks()
   assert.equal(controller.liveScope(), undefined)
   assert.equal(wakes[1]!.signal.aborted, true)
-
-  controller.dispose()
 })
 
-test('thread open, earlier messages prepend, read acknowledgement failure + retry, and unread filter removal preserve exact semantics', async () => {
+test('thread open, earlier messages prepend, read acknowledgement failure + retry, and unread filter removal preserve exact semantics', async t => {
   let ackAttempts = 0
   const ackSnapshots: string[] = []
-  const sessionLostErrors: unknown[] = []
-  const wakes: FakeWakeSubscription[] = []
   let openedHooks = 0
   let closedHooks = 0
   const snapshotToken = 's'.repeat(64)
 
-  const controller = createController({
+  const { controller, wakes, sessionLost } = setupInbox(t, {
     hooks: {
-      onSessionLost: err => sessionLostErrors.push(err),
+      onSessionLost: err => sessionLost.push(err),
       onThreadOpened: () => { openedHooks++ },
       onThreadClosed: () => { closedHooks++ },
     },
   }, {
-    adminInbox: async filter => makePage([makeRow(5n, { unread: 1 }), makeRow(6n, { unread: 3 })], {
-      liveEnabled: filter !== 'unread',
-    }),
-    adminInboxThread: async (id, before) => {
-      if (before === 'prev-page') {
-        return makeThread(id, {
-          previous: null,
-          messages: [{ id: 8n, sender: 0, internal: false, at: 1_699_999_999_000, body: 'Earlier message' }],
-          readSnapshot: null,
-        })
-      }
-      return makeThread(id, {
-        previous: 'prev-page',
-        readSnapshot: { token: snapshotToken, through: 10n },
+    adminInbox: async filter => makePage([makeRow(5n, { unread: 1 }), makeRow(6n, { unread: 3 })], { liveEnabled: filter !== 'unread' }),
+    adminInboxThread: async (id, before) => before === 'prev-page'
+      ? makeThread(id, {
+        previous: null, readSnapshot: null,
+        messages: [{ id: 8n, sender: 0, internal: false, at: 1_699_999_999_000, body: 'Earlier message' }],
       })
-    },
+      : makeThread(id, { previous: 'prev-page', readSnapshot: { token: snapshotToken, through: 10n } }),
     acknowledgeAdminInboxRead: async (_id, snapshot) => {
       ackAttempts++
       ackSnapshots.push(snapshot.token)
       if (ackAttempts === 1) throw new ApiError('temporary ack error', 503)
       return 0
     },
-  }, wakes)
+  })
 
-  bindTestSession(controller)
-  await flushMicrotasks()
-  controller.setFilter('unread')
-  await flushMicrotasks()
+  await bindAndFlush(controller)
+  await setFilter(controller, 'unread')
 
-  // Opening thread runs focus hook and attempts read acknowledgement; failure retains snapshot and sets unreadAckFailed.
   await controller.openThread(5n)
-  assert.equal(openedHooks, 1)
-  assert.equal(ackAttempts, 1)
-  assert.equal(controller.state.unreadAckFailed, true)
-  assert.equal(controller.state.failed, '')
-  assert.equal(controller.state.thread?.readSnapshot?.token, snapshotToken)
-  assert.equal(sessionLostErrors.length, 1)
+  assert.deepEqual([openedHooks, ackAttempts, sessionLost.length], [1, 1, 1])
   assert.equal(controller.liveScope(), 5n)
+  expectFields(controller.state, { unreadAckFailed: true, failed: '' })
+  assert.equal(controller.state.thread?.readSnapshot?.token, snapshotToken)
   const threadWake = wakes.at(-1)!
   assert.equal(threadWake.scope, 5n)
 
-  // Loading earlier messages prepends history, preserves existing readSnapshot, and keeps the same live wake socket.
   await controller.openThread(5n, 'prev-page')
-  assert.deepEqual(controller.state.thread?.messages.map(m => m.id), [8n, 10n, 11n])
+  assert.deepEqual(messageIds(controller), [8n, 10n, 11n])
   assert.equal(controller.state.thread?.readSnapshot?.token, snapshotToken)
   assert.equal(wakes.length, 2)
   assert.equal(threadWake.signal.aborted, false)
 
-  // Retry marking as read reuses exact readSnapshot, clears unreadAckFailed, and removes row under 'unread' filter.
   await controller.retryRead()
   assert.deepEqual(ackSnapshots, [snapshotToken, snapshotToken])
   assert.equal(controller.state.unreadAckFailed, false)
   assert.equal(controller.state.thread?.readSnapshot, null)
   assert.equal(controller.state.thread?.conversation.unread, 0)
-  assert.deepEqual(controller.state.rows.map(r => r.id), [6n])
+  assert.deepEqual(rowIds(controller), [6n])
 
-  // Closing thread stops thread wake and runs focus restoration hook.
   controller.closeThread()
   assert.equal(closedHooks, 1)
   assert.equal(threadWake.signal.aborted, true)
-  controller.dispose()
 })
 
-test('reply, status change, and system notice preserve idempotency keys, PoW error isolation, and status transition rules', async () => {
+test('reply, status change, and system notice preserve idempotency keys, PoW error isolation, and status transition rules', async t => {
   let uuidCounter = 0
   let eventCounter = 100n
   const replyKeys: string[] = []
   const noticeEvents: bigint[] = []
-  const sessionLostErrors: unknown[] = []
   let failReplyWithPow = true
   let failNotice = true
   let statusChanged = true
 
-  const controller = createController({
-    idGenerator: {
-      randomUuid: () => `uuid-${++uuidCounter}`,
-      newNoticeEventId: () => ++eventCounter,
-    },
-    hooks: { onSessionLost: err => sessionLostErrors.push(err) },
+  const { controller, sessionLost } = setupInbox(t, {
+    idGenerator: { randomUuid: () => `uuid-${++uuidCounter}`, newNoticeEventId: () => ++eventCounter },
   }, {
     adminInbox: async () => makePage([makeRow(10n, { status: 0 })]),
-    adminInboxThread: async id => makeThread(id, {
-      conversation: makeRow(id, { status: statusChanged ? 1 : 0 }),
-      version: '2',
-      readSnapshot: null,
-    }),
+    adminInboxThread: async id => makeThread(id, { conversation: makeRow(id, { status: statusChanged ? 1 : 0 }), version: '2', readSnapshot: null }),
     adminReply: async (id, body, key) => {
       replyKeys.push(key)
       if (failReplyWithPow) throw new ApiError('PoW rejected', 428, 'pow_expired')
@@ -262,116 +205,84 @@ test('reply, status change, and system notice preserve idempotency keys, PoW err
     },
   })
 
-  const session = bindTestSession(controller)
-  await flushMicrotasks()
+  const session = await bindAndFlush(controller)
 
-  // System notice: pow_* failure must NOT emit sessionLost, and retrying the same form reuses the exact eventId.
   controller.setComposeNotice(true)
   controller.setRecipient(`  ${sampleAccount.toUpperCase()}  `)
   controller.setNoticeSubject('Notice title')
   controller.setNoticeBody('Important update')
   await controller.sendNotice()
   assert.equal(controller.state.failed, 'admin.inbox.m41')
-  assert.equal(sessionLostErrors.length, 0)
+  assert.equal(sessionLost.length, 0)
   assert.deepEqual(noticeEvents, [101n])
 
   failNotice = false
   await controller.sendNotice()
   assert.deepEqual(noticeEvents, [101n, 101n])
-  assert.equal(controller.state.notice, 'admin.inbox.m40')
-  assert.equal(controller.state.composeNotice, false)
+  expectFields(controller.state, { notice: 'admin.inbox.m40', composeNotice: false })
 
-  // Open thread (initially status 0 -> set statusChanged=false first so thread opens as open).
   statusChanged = false
   await controller.openThread(10n)
-
-  // Reply: pow_* failure does NOT emit sessionLost; retrying same conversation+body reuses exact idempotency key.
   controller.setReply('First support reply')
   await controller.sendReply()
   assert.equal(controller.state.failed, 'admin.inbox.m43')
-  assert.equal(sessionLostErrors.length, 0)
+  assert.equal(sessionLost.length, 0)
   assert.deepEqual(replyKeys, ['uuid-1'])
 
   failReplyWithPow = false
   await controller.sendReply()
   assert.deepEqual(replyKeys, ['uuid-1', 'uuid-1'])
-  assert.equal(controller.state.notice, 'admin.inbox.m42')
-  assert.equal(controller.state.reply, '')
-  assert.equal(controller.state.needsRefresh, false)
+  expectFields(controller.state, { notice: 'admin.inbox.m42', reply: '', needsRefresh: false })
 
-  // Status update with changed=true removes row when filtered by 'open' and reports m44.
-  controller.setFilter('open')
-  await flushMicrotasks()
+  await setFilter(controller, 'open')
   await controller.openThread(10n)
   statusChanged = true
-  controller.setDestination(1)
-  controller.setReason('Awaiting user receipt.')
-  await controller.saveStatus()
+  await saveStatus(controller, 1, 'Awaiting user receipt.')
   assert.equal(controller.state.notice, 'admin.inbox.m44')
   assert.equal(controller.state.thread?.conversation.status, 1)
   assert.equal(controller.state.rows.length, 0)
 
-  // Non-pow 403/409 error invokes onSessionLost hook and preserves specific error key without auto-retry.
   controller.setDestination(2)
   controller.setReason('Close after timeout')
-  const prevLen = sessionLostErrors.length
-  const badTransportController = createController({ hooks: { onSessionLost: err => sessionLostErrors.push(err) } }, {
+  const { controller: badTransport, sessionLost: badLost } = setupInbox(t, {}, {
     adminInbox: async () => makePage([makeRow(10n)]),
     adminInboxThread: async id => makeThread(id, { readSnapshot: null }),
     adminChangeStatus: async () => { throw new ApiError('stale version', 409) },
   })
-  badTransportController.bindSession(session.signal)
+  badTransport.bindSession(session.signal)
   await flushMicrotasks()
-  await badTransportController.openThread(10n)
-  badTransportController.setDestination(1)
-  badTransportController.setReason('Reason')
-  await badTransportController.saveStatus()
-  assert.equal(badTransportController.state.failed, 'admin.inbox.m46')
-  assert.equal(sessionLostErrors.length, prevLen + 1)
-  assert.equal((sessionLostErrors.at(-1) as ApiError).status, 409)
-
-  controller.dispose()
-  badTransportController.dispose()
+  await badTransport.openThread(10n)
+  await saveStatus(badTransport, 1, 'Reason')
+  assert.equal(badTransport.state.failed, 'admin.inbox.m46')
+  assert.equal(badLost.length, 1)
+  assert.equal((badLost.at(-1) as ApiError).status, 409)
 })
 
-test('live refresh coordinates pending deferral, overlap merge, keepReadSnapshot on unreadAckFailed, exponential backoff, and non-retried 4xx', async () => {
+test('live refresh coordinates pending deferral, overlap merge, keepReadSnapshot on unreadAckFailed, exponential backoff, and non-retried 4xx', async t => {
   const clock = new FakeClock(1_000_000)
-  const wakes: FakeWakeSubscription[] = []
-  const sessionLostErrors: unknown[] = []
   const replyGate = Promise.withResolvers<{ id: bigint; conversationId: bigint; sender: 1; createdAt: number; body: string }>()
   let liveThreadMode: 'merge' | 'fail500' | 'fail403' | 'fail401' = 'merge'
   let threadFetchCount = 0
   const retainedSnapshot = { token: 'k'.repeat(64), through: 10n }
 
-  const controller = createController({
-    clock,
-    hooks: { onSessionLost: err => sessionLostErrors.push(err) },
-  }, {
+  const { controller, wakes, sessionLost } = setupInbox(t, { clock }, {
     adminInbox: async () => makePage([makeRow(7n)]),
     adminInboxThread: async (id, before) => {
       threadFetchCount++
       if (before === 'earlier-1') {
         return makeThread(id, {
-          previous: null,
+          previous: null, readSnapshot: null,
           messages: [{ id: 5n, sender: 0, internal: false, at: 1_699_999_000_000, body: 'Old history msg' }],
-          readSnapshot: null,
         })
       }
-      if (threadFetchCount === 1) {
-        return makeThread(id, {
-          previous: 'earlier-1',
-          version: '1',
-          readSnapshot: retainedSnapshot,
-        })
-      }
+      if (threadFetchCount === 1) return makeThread(id, { previous: 'earlier-1', version: '1', readSnapshot: retainedSnapshot })
       if (liveThreadMode === 'fail500') throw new ApiError('server busy', 503)
       if (liveThreadMode === 'fail403') throw new ApiError('forbidden', 403)
       if (liveThreadMode === 'fail401') throw new ApiError('expired', 401)
       return makeThread(id, {
         previous: 'should-be-replaced-by-current-previous',
         messages: [
-          { id: 10n, sender: 0, internal: false, at: 1_700_000_000_000, body: 'Initial account message' },
-          { id: 11n, sender: 1, internal: true, at: 1_700_000_001_000, body: 'Internal note' },
+          ...makeThread(id).messages,
           { id: 12n, sender: 0, internal: false, at: 1_700_000_009_000, body: 'Live incoming message' },
         ],
         readSnapshot: { token: 'z'.repeat(64), through: 12n },
@@ -379,133 +290,98 @@ test('live refresh coordinates pending deferral, overlap merge, keepReadSnapshot
     },
     acknowledgeAdminInboxRead: async () => { throw new ApiError('ack failed', 500) },
     adminReply: async () => replyGate.promise,
-  }, wakes)
+  })
 
-  bindTestSession(controller)
-  await flushMicrotasks()
-
-  // Open thread (ack fails -> unreadAckFailed=true) and load earlier history page.
+  await bindAndFlush(controller)
   await controller.openThread(7n)
   assert.equal(controller.state.unreadAckFailed, true)
   await controller.openThread(7n, 'earlier-1')
-  assert.deepEqual(controller.state.thread?.messages.map(m => m.id), [5n, 10n, 11n])
+  assert.deepEqual(messageIds(controller), [5n, 10n, 11n])
   const live = wakes.at(-1)!
   assert.equal(live.scope, 7n)
 
-  // Trigger wake while a reply is pending: live refresh must wait until pending clears.
   const fetchesBeforePending = threadFetchCount
   controller.setReply('In-flight admin reply')
   const replyPromise = controller.sendReply()
   assert.equal(controller.state.pending, true)
-  live.wake()
-  await flushMicrotasks()
+  await triggerWake(live)
   assert.equal(threadFetchCount, fetchesBeforePending)
 
-  // Complete reply (also refreshes thread), then trigger another wake to verify merge + keepReadSnapshot.
   replyGate.resolve({ id: 13n, conversationId: 7n, sender: 1, createdAt: 1_700_000_010_000, body: 'In-flight admin reply' })
   await replyPromise
   await flushMicrotasks()
-  // Live wake while unreadAckFailed=true merges overlapping earlier messages AND preserves retainedSnapshot!
   assert.equal(controller.state.unreadAckFailed, true)
   const snapshotBeforeWake = controller.state.thread?.readSnapshot
-  live.wake()
-  await flushMicrotasks()
-  assert.deepEqual(controller.state.thread?.messages.map(m => m.id), [5n, 10n, 11n, 12n])
+  await triggerWake(live)
+  assert.deepEqual(messageIds(controller), [5n, 10n, 11n, 12n])
   assert.equal(controller.state.thread?.previous, null)
   assert.deepEqual(controller.state.thread?.readSnapshot, snapshotBeforeWake)
 
-  // 503 triggers exponential backoff: 1s -> 2s -> 4s.
   liveThreadMode = 'fail500'
-  live.wake()
-  await flushMicrotasks()
-  assert.deepEqual(clock.scheduledDelays, [1_000])
-  clock.advance(1_000)
-  await flushMicrotasks()
-  assert.deepEqual(clock.scheduledDelays, [1_000, 2_000])
-  clock.advance(2_000)
-  await flushMicrotasks()
+  await triggerWake(live)
+  for (const [delay, expected] of [[1_000, [1_000]], [2_000, [1_000, 2_000]]] as const) {
+    assert.deepEqual(clock.scheduledDelays, expected)
+    await advanceAndFlush(clock, delay)
+  }
   assert.deepEqual(clock.scheduledDelays, [1_000, 2_000, 4_000])
 
-  // Recovery resets backoff to 1s.
   liveThreadMode = 'merge'
-  clock.advance(4_000)
-  await flushMicrotasks()
+  await advanceAndFlush(clock, 4_000)
   assert.equal(clock.activeTimerCount, 0)
 
-  // 403 does NOT schedule retries.
   liveThreadMode = 'fail403'
   const delaysBefore403 = clock.scheduledDelays.length
-  live.wake()
-  await flushMicrotasks()
+  await triggerWake(live)
   assert.equal(clock.scheduledDelays.length, delaysBefore403)
   assert.equal(clock.activeTimerCount, 0)
 
-  // 401 invokes onSessionLost and does NOT retry.
   liveThreadMode = 'fail401'
-  const lostBefore401 = sessionLostErrors.length
-  live.wake()
-  await flushMicrotasks()
-  assert.equal(sessionLostErrors.length, lostBefore401 + 1)
-  assert.equal((sessionLostErrors.at(-1) as ApiError).status, 401)
+  const lostBefore401 = sessionLost.length
+  await triggerWake(live)
+  assert.equal(sessionLost.length, lostBefore401 + 1)
+  assert.equal((sessionLost.at(-1) as ApiError).status, 401)
   assert.equal(clock.activeTimerCount, 0)
-
-  controller.dispose()
 })
 
-test('cross-session isolation, explicit cancel, and idempotent dispose block stale wake, timers, and late responses', async () => {
+test('cross-session isolation, explicit cancel, and idempotent dispose block stale wake, timers, and late responses', async t => {
   const clock = new FakeClock(1_000_000)
-  const wakes: FakeWakeSubscription[] = []
-  const sessionLostErrors: unknown[] = []
   const staleQueueGate = Promise.withResolvers<AdminInboxPage>()
   let activeSession = 'A'
 
-  const controller = createController({
-    clock,
-    hooks: { onSessionLost: err => sessionLostErrors.push(err) },
-  }, {
-    adminInbox: async (_filter, _cursor, _signal, shared) => {
-      if (activeSession === 'A') {
-        if (shared) return makePage([makeRow(1n, { subject: 'Session A ticket' })])
-        return makePage([makeRow(1n, { subject: 'Session A ticket' })])
-      }
+  const { controller, wakes, sessionLost } = setupInbox(t, { clock }, {
+    adminInbox: async () => {
+      if (activeSession === 'A') return makePage([makeRow(1n, { subject: 'Session A ticket' })])
       if (activeSession === 'A-late') return staleQueueGate.promise
       return makePage([makeRow(99n, { subject: 'Session B ticket' })], { sharedAvailable: false })
     },
-  }, wakes)
+  })
 
-  const sessionA = bindTestSession(controller)
-  await flushMicrotasks()
+  const sessionA = await bindAndFlush(controller)
   assert.equal(wakes.length, 1)
   const wakeA = wakes[0]!
 
-  // Start a slow refresh in session A, then switch to session B.
   activeSession = 'A-late'
   const staleLoad = controller.loadQueue()
-
   activeSession = 'B'
-  bindTestSession(controller)
-  await flushMicrotasks()
+  await bindAndFlush(controller)
   assert.equal(wakeA.signal.aborted, true)
-  assert.deepEqual(controller.state.rows.map(r => r.id), [99n])
+  assert.deepEqual(rowIds(controller), [99n])
 
-  // Old session A wake, onRevoked, abort, and late queue resolution must NOT touch session B!
   wakeA.wake()
   wakeA.onRevoked()
   sessionA.abort()
   staleQueueGate.resolve(makePage([makeRow(1n, { subject: 'Stale A' })]))
   await staleLoad
   await flushMicrotasks()
-  assert.deepEqual(controller.state.rows.map(r => r.id), [99n])
-  assert.equal(sessionLostErrors.length, 0)
+  assert.deepEqual(rowIds(controller), [99n])
+  assert.equal(sessionLost.length, 0)
 
-  // Explicit cancel stops active live subscription without destroying controller.
   const wakeB = wakes.at(-1)!
   assert.equal(wakeB.signal.aborted, false)
   controller.cancel()
   assert.equal(wakeB.signal.aborted, true)
   assert.equal(controller.state.pending, false)
 
-  // Reloading resumes live; then dispose() is idempotent and clears all timers/subscriptions.
   await controller.loadQueue()
   const wakeB2 = wakes.at(-1)!
   assert.equal(wakeB2.signal.aborted, false)
@@ -516,29 +392,24 @@ test('cross-session isolation, explicit cancel, and idempotent dispose block sta
   assert.equal(clock.activeTimerCount, 0)
   assert.equal(controller.state.rows.length, 0)
 
-  // Stale wake/revoked callbacks after dispose do nothing.
   wakeB2.wake()
   wakeB2.onRevoked()
   clock.advance(60_000)
-  assert.equal(sessionLostErrors.length, 0)
+  assert.equal(sessionLost.length, 0)
 })
 
-test('toggle collapse/expand, queue live 429 retry + focus hook, unchanged status m45, and invalid destination pruning', async () => {
+test('toggle collapse/expand, queue live 429 retry + focus hook, unchanged status m45, and invalid destination pruning', async t => {
   const clock = new FakeClock(2_000_000)
-  const wakes: FakeWakeSubscription[] = []
   let queueMode: 'ok' | 'rate429' | 'conflict409' = 'ok'
   let queueFocusBefore = 0
   let queueFocusAfter = 0
   let threadFocusAfter = 0
   let threadStatus: 0 | 2 = 0
 
-  const controller = createController({
+  const { controller, wakes } = setupInbox(t, {
     clock,
     hooks: {
-      onBeforeApplyLiveQueuePage: () => {
-        queueFocusBefore++
-        return () => { queueFocusAfter++ }
-      },
+      onBeforeApplyLiveQueuePage: () => { queueFocusBefore++; return () => { queueFocusAfter++ } },
       onBeforeApplyLatestThread: () => () => { threadFocusAfter++ },
     },
   }, {
@@ -547,36 +418,25 @@ test('toggle collapse/expand, queue live 429 retry + focus hook, unchanged statu
       if (queueMode === 'conflict409') throw new ApiError('conflict', 409)
       return makePage([makeRow(20n, { subject: 'Live queue item' })], { sharedAvailable: false })
     },
-    adminInboxThread: async id => makeThread(id, {
-      conversation: makeRow(id, { status: threadStatus }),
-      readSnapshot: null,
-    }),
+    adminInboxThread: async id => makeThread(id, { conversation: makeRow(id, { status: threadStatus }), readSnapshot: null }),
     adminChangeStatus: async (_id, _version, target) => ({ previous: target, current: target, changed: false }),
-  }, wakes)
+  })
 
-  bindTestSession(controller)
-  await flushMicrotasks()
+  await bindAndFlush(controller)
   const queueWake = wakes[0]!
   assert.equal(queueWake.scope, '')
 
-  // 429 retries after 1s; once recovered, invokes queue focus hook.
   queueMode = 'rate429'
-  queueWake.wake()
-  await flushMicrotasks()
+  await triggerWake(queueWake)
   assert.deepEqual(clock.scheduledDelays, [1_000])
   queueMode = 'ok'
-  clock.advance(1_000)
-  await flushMicrotasks()
-  assert.equal(queueFocusBefore, 1)
-  assert.equal(queueFocusAfter, 1)
+  await advanceAndFlush(clock, 1_000)
+  assert.deepEqual([queueFocusBefore, queueFocusAfter], [1, 1])
 
-  // 409 does NOT schedule retry.
   queueMode = 'conflict409'
-  queueWake.wake()
-  await flushMicrotasks()
+  await triggerWake(queueWake)
   assert.equal(clock.activeTimerCount, 0)
 
-  // Toggle collapse stops live wake and clears rows; toggle expand reloads with reset filter/order.
   queueMode = 'ok'
   controller.toggle()
   assert.equal(controller.state.expanded, false)
@@ -587,91 +447,66 @@ test('toggle collapse/expand, queue live 429 retry + focus hook, unchanged statu
   assert.equal(controller.state.expanded, true)
   assert.equal(controller.state.rows.length, 1)
 
-  // Unchanged status reports m45; live update closing conversation prunes invalid destination=1.
   await controller.openThread(20n)
-  controller.setDestination(1)
-  controller.setReason('Confirming current state')
-  await controller.saveStatus()
+  await saveStatus(controller, 1, 'Confirming current state')
   assert.equal(controller.state.notice, 'admin.inbox.m45')
 
   controller.setDestination(1)
   threadStatus = 2
-  const threadWake = wakes.at(-1)!
-  threadWake.wake()
-  await flushMicrotasks()
+  await triggerWake(wakes.at(-1)!)
   assert.equal(controller.state.thread?.conversation.status, 2)
   assert.equal(controller.state.destination, undefined)
   assert(threadFocusAfter >= 1)
-
-  controller.dispose()
 })
 
-test('fine-grained channels, latest-wins thread/filter switching, non-blocking read ack, and stable version during mutations', async () => {
+test('fine-grained channels, latest-wins thread/filter switching, non-blocking read ack, and stable version during mutations', async t => {
   const threadAGate = Promise.withResolvers<AdminInboxThread>()
   const threadBGate = Promise.withResolvers<AdminInboxThread>()
   const ackGate = Promise.withResolvers<number>()
   const filterGate = Promise.withResolvers<AdminInboxPage>()
   const refreshGate = Promise.withResolvers<AdminInboxThread>()
-  let threadFetches: bigint[] = []
+  const threadFetches: bigint[] = []
   let openHookCalls = 0
   let filterCallCount = 0
   let refreshMode: 'normal' | 'hold' = 'normal'
 
-  const controller = createController({ hooks: { onThreadOpened: () => { openHookCalls++ } } }, {
+  const { controller } = setupInbox(t, { hooks: { onThreadOpened: () => { openHookCalls++ } } }, {
     adminInbox: async filter => {
       if (filter === 'pending') {
-        filterCallCount++
-        if (filterCallCount === 1) return filterGate.promise
+        if (++filterCallCount === 1) return filterGate.promise
         throw new ApiError('queue load failed', 503)
       }
       return makePage([makeRow(1n), makeRow(2n)])
     },
     adminInboxThread: async id => {
       threadFetches.push(id)
-      if (id === 1n && refreshMode === 'normal' && threadFetches.filter(x => x === 1n).length === 1) {
-        return threadAGate.promise
-      }
-      if (id === 2n && refreshMode === 'normal' && threadFetches.filter(x => x === 2n).length === 1) {
-        return threadBGate.promise
-      }
-      if (refreshMode === 'hold') {
-        return refreshGate.promise
-      }
+      if (refreshMode === 'normal' && threadFetches.filter(x => x === id).length === 1)
+        return id === 1n ? threadAGate.promise : threadBGate.promise
+      if (refreshMode === 'hold') return refreshGate.promise
       return makeThread(id, { version: '2', readSnapshot: null })
     },
     acknowledgeAdminInboxRead: async () => ackGate.promise,
   })
 
-  bindTestSession(controller)
-  await flushMicrotasks()
+  await bindAndFlush(controller)
 
-  // Clicking thread 1 then rapidly clicking thread 2 cancels thread 1 (latest-wins) without dropping thread 2.
   const open1 = controller.openThread(1n)
-  assert.equal(controller.state.threadPending, true)
-  assert.equal(controller.state.queuePending, false)
+  expectFields(controller.state, { threadPending: true, queuePending: false })
   const open2 = controller.openThread(2n)
   threadAGate.resolve(makeThread(1n))
   threadBGate.resolve(makeThread(2n))
   await flushMicrotasks()
 
-  // Thread 2 is rendered and threadPending is already false even while read ack is still pending.
   assert.equal(controller.state.thread?.conversation.id, 2n)
-  assert.equal(controller.state.threadPending, false)
-  assert.equal(controller.state.readPending, true)
-  assert.equal(controller.state.replyPending, false)
-  assert.equal(controller.state.statusPending, false)
+  expectFields(controller.state, { threadPending: false, readPending: true, replyPending: false, statusPending: false })
   ackGate.resolve(0)
   await Promise.all([open1, open2])
   assert.equal(controller.state.readPending, false)
 
-  // Re-clicking the already-open thread 2 focuses it without issuing a duplicate GET.
-  const fetchesBeforeReclick = threadFetches.length
-  const hooksBeforeReclick = openHookCalls
+  const [fetchesBefore, hooksBefore] = [threadFetches.length, openHookCalls]
   await controller.openThread(2n)
-  assert.equal(threadFetches.length, fetchesBeforeReclick)
-  assert.equal(openHookCalls, hooksBeforeReclick + 1)
+  assert.deepEqual([threadFetches.length, openHookCalls], [fetchesBefore, hooksBefore + 1])
 
-  // Switching filter preserves existing rows & open thread while loading (no skeleton flash), then swaps atomically.
   controller.setFilter('pending')
   assert.equal(controller.state.queuePending, true)
   assert.equal(controller.state.rows.length, 2)
@@ -679,30 +514,43 @@ test('fine-grained channels, latest-wins thread/filter switching, non-blocking r
   filterGate.resolve(makePage([makeRow(2n, { status: 1 })]))
   await flushMicrotasks()
   assert.equal(controller.state.queuePending, false)
-  assert.deepEqual(controller.state.rows.map(r => r.id), [2n])
+  assert.deepEqual(rowIds(controller), [2n])
   assert.equal(controller.state.thread?.conversation.id, 2n)
 
-  // Sending a reply keeps thread.version intact during post-reply refresh so the status form never unmounts.
   refreshMode = 'hold'
   controller.setReply('Smooth non-jumping reply')
   const replyPromise = controller.sendReply()!
   await flushMicrotasks()
-  assert.equal(controller.state.replyPending, true)
-  assert.equal(controller.state.statusPending, false)
+  expectFields(controller.state, { replyPending: true, statusPending: false, notice: 'admin.inbox.m42' })
   assert.equal(controller.state.thread?.version, '1')
-  assert.equal(controller.state.notice, 'admin.inbox.m42')
   refreshGate.resolve(makeThread(2n, { version: '2', readSnapshot: null }))
   await replyPromise
   assert.equal(controller.state.replyPending, false)
   assert.equal(controller.state.thread?.version, '2')
 
-  // Filter switch error clears stale rows from previous filter cleanly.
-  controller.setFilter('open')
-  await flushMicrotasks()
-  controller.setFilter('pending')
-  await flushMicrotasks()
+  await setFilter(controller, 'open')
+  await setFilter(controller, 'pending')
   assert.equal(controller.state.failed, 'admin.inbox.m39')
   assert.equal(controller.state.rows.length, 0)
+})
 
-  controller.dispose()
+test('inbox presentation maps status tags, bubble variants, and compact/full timestamps consistently', () => {
+  for (const [status, expected] of [[0, 'success'], [1, 'warning'], [2, 'info'], [99, 'info']] as const)
+    assert.equal(inboxStatusTagType(status), expected)
+  for (const [sender, role, internal, expected] of [
+    [0, 'reader', false, 'self'], [1, 'reader', false, 'other'], [2, 'reader', false, 'system'],
+    [0, 'admin', false, 'other'], [1, 'admin', false, 'self'], [2, 'admin', false, 'system'],
+    [1, 'admin', true, 'muted'], [2, 'admin', true, 'muted'],
+  ] as const) assert.equal(inboxBubbleVariant(sender, role, internal), expected)
+
+  const formatter = createInboxTimeFormatter('zh-CN')
+  const now = new Date(2026, 10, 22, 18, 30, 0)
+  const sameDay = new Date(2026, 10, 22, 9, 5, 0).getTime()
+  const sameYear = new Date(2026, 4, 3, 14, 20, 0).getTime()
+  const priorYear = new Date(2024, 1, 12, 8, 0, 0).getTime()
+  assert.match(formatter.compact(sameDay, now), /09:05/)
+  assert.doesNotMatch(formatter.compact(sameYear, now), /2026/)
+  assert.match(formatter.compact(sameYear, now), /5.*3/)
+  assert.match(formatter.compact(priorYear, now), /2024/)
+  assert.match(formatter.full(sameDay), /2026/)
 })

@@ -1,8 +1,3 @@
-using System.Security.Cryptography;
-using Fido2NetLib;
-using Fido2NetLib.Objects;
-using FsusBlog.V2.Contracts;
-
 namespace FsusBlog.V2.Server.Passkeys;
 
 internal static class PasskeyVerification

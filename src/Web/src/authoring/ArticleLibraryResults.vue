@@ -14,12 +14,12 @@ const props = defineProps<{ articleId?: number; articleRevision?: bigint; disabl
 const emit = defineEmits<{ open: [articleId: number, separate: boolean] }>()
 
 const states: Record<Exclude<AuthorArticleState, 'deleted'>, string> = {
-  get draft() { return t('author.articleLibraryResults.draft') }, get scheduled() { return t('author.articleLibraryResults.scheduled') }, get published() { return t('author.articleLibraryResults.published') }, get retracted() { return t('author.articleLibraryResults.withdrawn') },
+  get draft() { return t('admin.taxonomy.m16') }, get scheduled() { return t('author.authorTextSearch.scheduled') }, get published() { return t('admin.taxonomy.m15') }, get retracted() { return t('author.authorTextSearch.withdrawn') },
 }
 const filters = computed(() => Object.entries(states))
 const keyword = ref('')
 const scope = ref<Scope>('')
-const taxonomyFilters = computed(() => [['category', t('author.articleLibraryResults.category')], ['tag', t('author.articleLibraryResults.tag')]] as const)
+const taxonomyFilters = computed(() => [['category', t('page.category')], ['tag', t('page.tag')]] as const)
 const taxonomy = reactive<Record<TaxonomyKind, TaxonomyListItem[]>>({ category: [], tag: [] })
 const selectedTaxonomy = reactive({ category: 0, tag: 0 })
 const query = shallowRef<{ keyword: string; state: Scope; category: number; tag: number; cursors: readonly (number | undefined)[] }>({
@@ -137,7 +137,7 @@ function stateLabel(item: AuthorArticleRow) {
     <ElInput ref="search" v-model="keyword" :label="t('author.articleLibraryResults.search.article.titles')" v-bind="{ maxlength: WireLimits.AuthorArticleKeywordChars }" />
     <label for="article-library-state">{{ t('author.articleLibraryResults.status') }}</label>
     <select id="article-library-state" v-model="scope">
-      <option value="">{{ t('author.articleLibraryResults.all.articles') }}</option>
+      <option value="">{{ t('author.articleLibraryRail.all.articles') }}</option>
       <option v-for="[value, label] in filters" :key="value" :value="value">{{ label }}</option>
     </select>
     <template v-for="[kind, label] in taxonomyFilters" :key="kind">
@@ -148,10 +148,10 @@ function stateLabel(item: AuthorArticleRow) {
     </template>
     <ElButton native-type="submit">{{ t('author.articleLibraryResults.filter.articles') }}</ElButton>
   </form>
-  <p v-if="loading || currentLoading" role="status">{{ t('author.articleLibraryResults.loading.articles') }}</p>
+  <p v-if="loading || currentLoading" role="status">{{ t('page.loadingArticles') }}</p>
   <p v-if="failed" role="alert">{{ t('author.articleLibraryResults.could.not.load.articles') }}</p>
   <ElButton v-if="failed" text @click="retry++">{{ t('author.articleLibraryResults.retry.articles') }}</ElButton>
-  <p v-if="!loading && !failed && page?.items.length === 0" role="status">{{ t('author.articleLibraryResults.no.matching.articles') }}</p>
+  <p v-if="!loading && !failed && page?.items.length === 0" role="status">{{ t('author.savedViewPanel.no.matching.articles') }}</p>
   <ul v-if="rows.length" ref="results" class="library-results" :aria-label="t('author.articleLibraryResults.article.results')" @keydown="moveLibraryFocus($event, results)">
     <li v-for="row in rows" :key="row.id">
       <button type="button" :disabled="disabled" :aria-current="row.id === current ? 'true' : undefined"

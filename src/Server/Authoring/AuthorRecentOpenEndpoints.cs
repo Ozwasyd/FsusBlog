@@ -1,9 +1,3 @@
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Sessions;
-using FsusBlogV2.Storage;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal static class AuthorRecentOpenEndpoints
@@ -11,13 +5,12 @@ internal static class AuthorRecentOpenEndpoints
     private const int RetainedEntries = 1000;
     private const int RetainedReceipts = 1000;
 
-    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> read,
-        Func<HttpContext, string, int, string?> query)
+    internal static void Map(WebApplication app, string cookie)
     {
         app.MapCommandGet(WireRoutes.AuthorRecentOpens, (HttpContext ctx, Store store, CancellationToken ct) =>
             Run(ctx, store, async (db, tx, site, owner, session) =>
             {
-                var raw = query(ctx, "cursor", WireLimits.AuthorRecentOpenCursorChars);
+                var raw = ServerHttp.Query(ctx, "cursor", WireLimits.AuthorRecentOpenCursorChars);
                 var cursor = raw is null ? null : AuthorRecentOpenCursor.Decode(site, owner, session, raw);
                 if (raw is not null && !cursor.HasValue)
                     throw new BusinessException(Rejection.Invalid, "Invalid recent opens cursor.");
@@ -26,7 +19,7 @@ internal static class AuthorRecentOpenEndpoints
 
         app.MapCommandPost(WireRoutes.AuthorRecentOpens, async (HttpContext ctx, Store store, CancellationToken ct) =>
         {
-            var input = Wire.DecodeAuthorRecentOpenCommand(await read(ctx, WireLimits.MaxAuthorRecentOpenCommandFrameBytes, ct));
+            var input = Wire.DecodeAuthorRecentOpenCommand(await ServerHttp.ReadFrame(ctx, WireLimits.MaxAuthorRecentOpenCommandFrameBytes, ct));
             return await Run(ctx, store, async (db, tx, site, owner, _) =>
                 Wire.EncodeAuthorRecentOpenReceipt(await Record(db, tx, site, owner, input, ct)), ct);
         });
@@ -49,7 +42,10 @@ internal static class AuthorRecentOpenEndpoints
         byte[] session, (long Revision, long Before)? cursor, CancellationToken ct)
     {
         // Read the collection witness and the authorized projection in one statement snapshot.
-        await using var query = Store.Sql(db, tx, $"""
+        var entries = new List<AuthorRecentOpenRow>(WireLimits.AuthorRecentOpenPageSize);
+        var revision = 0L;
+        var more = false;
+        await SqlCommands.ReadAll(db, tx, ct, $"""
             select head.revision, p.article_id, p.article_revision, p.sequence, p.opened_at, p.title
             from (select coalesce((select revision from public.author_recent_open_collection
                 where site_id=$1 and owner_id=$2),0) revision) head
@@ -60,26 +56,16 @@ internal static class AuthorRecentOpenEndpoints
                     and {ArchivedArticleAuthority.Available}
                     and ($3=0 or r.sequence<$3) and ($4=0 or head.revision=$4)
                 order by r.sequence desc limit $5
-            ) p on true
-            order by p.sequence desc
-            """, site, owner, cursor?.Before ?? 0L, cursor?.Revision ?? 0L, WireLimits.AuthorRecentOpenPageSize + 1);
-        var entries = new List<AuthorRecentOpenRow>(WireLimits.AuthorRecentOpenPageSize);
-        var revision = 0L;
-        var more = false;
-        await using var rows = await query.ExecuteReaderAsync(ct);
-        while (await rows.ReadAsync(ct))
+            ) p on true order by p.sequence desc
+            """, rows =>
         {
+            if (more) return;
             revision = rows.GetInt64(0);
             if (cursor.HasValue && revision != cursor.Value.Revision) throw Conflict();
-            if (rows.IsDBNull(1)) break;
-            if (entries.Count == WireLimits.AuthorRecentOpenPageSize)
-            {
-                more = true;
-                break;
-            }
-            entries.Add(new(rows.GetInt32(1), rows.GetInt64(2), rows.GetInt64(3),
-                rows.GetUnixMilliseconds(4), rows.GetString(5)));
-        }
+            if (rows.IsDBNull(1)) return;
+            if (entries.Count == WireLimits.AuthorRecentOpenPageSize) { more = true; return; }
+            entries.Add(new(rows.GetInt32(1), rows.GetInt64(2), rows.GetInt64(3), rows.GetUnixMilliseconds(4), rows.GetString(5)));
+        }, site, owner, cursor?.Before ?? 0L, cursor?.Revision ?? 0L, WireLimits.AuthorRecentOpenPageSize + 1);
         return new(revision, more ? AuthorRecentOpenCursor.Encode(site, owner, session, revision, entries[^1].Sequence) : "", entries);
     }
 
@@ -100,20 +86,14 @@ internal static class AuthorRecentOpenEndpoints
         var articleRevision = (await OwnedArticleRead.TryLock(db, tx, owner, input.ArticleId, ct))?.Revision
             ?? throw new BusinessException(Rejection.NotFound, "Article not found.");
 
-        await using (var prior = Store.Sql(db, tx, """
+        if (await SqlCommands.QueryOne(db, tx, ct, """
             select article_id,article_revision,sequence,opened_at from public.author_recent_open_receipt
             where site_id=$1 and owner_id=$2 and request_id=$3
-            """, site, owner, input.RequestId))
-        await using (var row = await prior.ExecuteReaderAsync(ct))
-        {
-            if (await row.ReadAsync(ct))
-            {
-                if (row.GetInt32(0) != input.ArticleId || row.GetInt64(1) != input.ArticleRevision ||
-                    row.GetInt64(2) != input.ExpectedRevision + 1) throw Conflict();
-                return new(1, row.GetInt64(2), input.RequestId, input.ArticleId, input.ArticleRevision,
-                    row.GetUnixMilliseconds(3));
-            }
-        }
+            """, row => row.GetInt32(0) == input.ArticleId && row.GetInt64(1) == input.ArticleRevision &&
+                row.GetInt64(2) == input.ExpectedRevision + 1
+                ? new AuthorRecentOpenReceipt(1, row.GetInt64(2), input.RequestId, input.ArticleId, input.ArticleRevision, row.GetUnixMilliseconds(3))
+                : throw Conflict(), site, owner, input.RequestId) is { } replayed)
+            return replayed;
 
         if ((created ? 0 : revision) != input.ExpectedRevision || articleRevision != input.ArticleRevision) throw Conflict();
         var next = input.ExpectedRevision + 1;
@@ -149,4 +129,42 @@ internal static class AuthorRecentOpenEndpoints
     }
 
     private static BusinessException Conflict() => new(Rejection.Conflict, "The recent opens history or article revision changed.");
+}
+
+internal static class AuthorRecentOpenCursor
+{
+    private const int Coordinates = 2 * sizeof(long);
+    private static readonly byte[] Key = RandomNumberGenerator.GetBytes(32);
+
+    internal static string Encode(Guid site, Guid owner, byte[] session, long revision, long before)
+    {
+        Span<byte> token = stackalloc byte[Coordinates + SHA256.HashSizeInBytes];
+        BinaryPrimitives.WriteInt64LittleEndian(token, revision);
+        BinaryPrimitives.WriteInt64LittleEndian(token[sizeof(long)..], before);
+        Sign(site, owner, session, token[..Coordinates], token[Coordinates..]);
+        return WebEncoders.Base64UrlEncode(token);
+    }
+
+    internal static (long Revision, long Before)? Decode(Guid site, Guid owner, byte[] session, string cursor)
+    {
+        if (cursor.Length != WireLimits.AuthorRecentOpenCursorChars || cursor.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_'))
+            return null;
+        var bytes = WebEncoders.Base64UrlDecode(cursor);
+        Span<byte> tag = stackalloc byte[SHA256.HashSizeInBytes];
+        Sign(site, owner, session, bytes.AsSpan(0, Coordinates), tag);
+        if (!CryptographicOperations.FixedTimeEquals(bytes.AsSpan(Coordinates), tag)) return null;
+        var revision = BinaryPrimitives.ReadInt64LittleEndian(bytes);
+        var before = BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(sizeof(long)));
+        return before > 1 && before <= revision ? (revision, before) : null;
+    }
+
+    private static void Sign(Guid site, Guid owner, byte[] session, ReadOnlySpan<byte> coordinates, Span<byte> tag)
+    {
+        Span<byte> input = stackalloc byte[2 * 16 + SHA256.HashSizeInBytes + Coordinates];
+        site.TryWriteBytes(input);
+        owner.TryWriteBytes(input[16..]);
+        session.CopyTo(input[32..]);
+        coordinates.CopyTo(input[(32 + SHA256.HashSizeInBytes)..]);
+        HMACSHA256.HashData(Key, input, tag);
+    }
 }
