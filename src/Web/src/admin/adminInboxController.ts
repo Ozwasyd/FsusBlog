@@ -445,12 +445,7 @@ export class AdminInboxController {
     this.threadChannel.cancel()
     this.readChannel.cancel()
     return this.runOnChannel(this.threadChannel, ctx => this.refreshThread(id, ctx))
-      .then(async ok => {
-        if (ok && this._thread?.conversation.id === id && this._thread.readSnapshot) {
-          await this.acknowledge(id)
-        }
-        return ok
-      })
+      .then(ok => this.acknowledgeAfterSuccess(id, ok))
   }
 
   sendNotice(): Promise<boolean> | undefined {
@@ -512,12 +507,7 @@ export class AdminInboxController {
       } else {
         this.emitChange()
       }
-    }, 'admin.inbox.m43').then(async ok => {
-      if (ok && this._thread?.conversation.id === conversation && this._thread.readSnapshot) {
-        await this.acknowledge(conversation)
-      }
-      return ok
-    })
+    }, 'admin.inbox.m43').then(ok => this.acknowledgeAfterSuccess(conversation, ok))
   }
 
   saveStatus(): Promise<boolean> | undefined {
@@ -553,12 +543,7 @@ export class AdminInboxController {
       } else {
         this.emitChange()
       }
-    }, 'admin.inbox.m46').then(async ok => {
-      if (ok && this._thread?.conversation.id === conversation && this._thread.readSnapshot) {
-        await this.acknowledge(conversation)
-      }
-      return ok
-    })
+    }, 'admin.inbox.m46').then(ok => this.acknowledgeAfterSuccess(conversation, ok))
   }
 
   private runOnChannel(
@@ -606,6 +591,13 @@ export class AdminInboxController {
     this._queueLive = !append && page.liveEnabled
     this.emitChange()
     this.syncLive()
+  }
+
+  private async acknowledgeAfterSuccess(id: bigint, ok: boolean): Promise<boolean> {
+    if (ok && this._thread?.conversation.id === id && this._thread.readSnapshot) {
+      await this.acknowledge(id)
+    }
+    return ok
   }
 
   private acknowledge(id: bigint): Promise<boolean> {
