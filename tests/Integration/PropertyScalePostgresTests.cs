@@ -58,6 +58,7 @@ public sealed class PropertyScalePostgresTests(ITestOutputHelper evidence)
         Assert.Equal(++schemaRevision, scoreReceipt.SchemaRevision);
 
         await SeedValues();
+        await db.ExecAsync(ct, "analyze public.article, public.article_revision, public.property_article, public.property_value");
         Assert.Equal((88_000L, 1_000L, 10_000L), await db.QueryRowAsync(ct, """
             select count(*),count(distinct definition_id),count(distinct article_id)
             from public.property_value where owner_id=$1

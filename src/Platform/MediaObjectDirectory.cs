@@ -6,7 +6,9 @@ internal sealed class MediaObjectDirectory : IDisposable
     private const int FileExists = 17;
     private const UnixFileMode PrivateDirectory = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
     private const UnixFileMode ReadOnlyFile = UnixFileMode.UserRead;
+    private const int Interrupted = 4;
     private const int LockExclusiveNonBlocking = 6;
+    private const int LockUnlock = 8;
 
     private readonly SafeFileHandle directory;
     private readonly int maximumBytes;
@@ -33,7 +35,7 @@ internal sealed class MediaObjectDirectory : IDisposable
         {
             if (!NativeUnixFile.HasMode(directory, PrivateDirectory, owned: true))
                 throw new InvalidOperationException("Media storage must have Unix mode 0700 and be process-owned.");
-            if (Flock(Fd, LockExclusiveNonBlocking) != 0)
+            if (Lock(LockExclusiveNonBlocking) != 0)
                 throw new InvalidOperationException("Media storage is already in use or does not support exclusive locking.");
         }
         catch { directory.Dispose(); throw; }
@@ -110,7 +112,20 @@ internal sealed class MediaObjectDirectory : IDisposable
         SyncRoot();
     }
 
-    public void Dispose() => directory.Dispose();
+    public void Dispose()
+    {
+        if (!directory.IsInvalid && !directory.IsClosed) _ = Lock(LockUnlock);
+        directory.Dispose();
+    }
+
+    private int Lock(int operation)
+    {
+        while (true)
+        {
+            var result = Flock(Fd, operation);
+            if (result == 0 || Marshal.GetLastPInvokeError() != Interrupted) return result;
+        }
+    }
 
     private FileStream? OpenRead(string name)
     {
