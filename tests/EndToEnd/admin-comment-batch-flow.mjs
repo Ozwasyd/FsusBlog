@@ -1,11 +1,13 @@
-import { assertStatus } from './response-status-fixture.mjs'
-import { roleWithExactName, exactText, exactLabel } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeModerationBatchReceipt } from '../../src/Contracts/admin-moderation-batch.ts'
 import { readMfaProof } from '../../src/Contracts/mfa.ts'
-import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { FrameType, WireHeaders, WireRoutes as R } from '../../src/Contracts/wire.generated.ts'
+import { postBinary } from './admin-workspace-fixture.mjs'
+import { assertNoStore, assertStatus, readFrame } from './response-status-fixture.mjs'
+import { waitForUrlResponse } from './response-wait-fixture.mjs'
+import { roleWithExactName, exactText, exactLabel } from './role-locators.mjs'
 
 export async function verifyAdminModerationBatch({ page, context, section, adminOrigin, publicRoute, evidence }) {
   const approved = ['Batch approve fixture one', 'Batch approve fixture two']
@@ -16,6 +18,44 @@ export async function verifyAdminModerationBatch({ page, context, section, admin
   const errors = []
   const recordError = error => errors.push(error.message)
   page.on('pageerror', recordError)
+  const waitPost = path => waitForUrlResponse(page, () => adminOrigin + path, 'POST')
+
+  async function choose(body) {
+    const row = section.getByRole('article').filter({ has: exactText(page, body) })
+    const checkbox = row.getByRole('checkbox', { name: /Select comment \d+ for batch review/ })
+    // FsusUI renders the clickable label around its visually-hidden native input.
+    await exactText(row, /Select comment \d+ for batch review/).click()
+    assert.equal(await checkbox.isChecked(), true)
+  }
+
+  async function takeClaims() {
+    const [response] = await Promise.all([waitPost(R.AdminModerationBatchClaim), claim.click()])
+    await readFrame(response, FrameType.AdminModerationBatchClaims)
+    await exactText(section, '2 comments claimed for review.').waitFor()
+  }
+
+  async function decide(decision, label, notice) {
+    const action = roleWithExactName(section, 'button', label)
+    assert.equal(await action.isDisabled(), true)
+    await exactLabel(section, 'Reason for batch decision').fill('Batch moderation integration fixture')
+    if (decision === 1) await page.screenshot({ path: join(evidence, 'admin-comment-batch-mobile.png'), animations: 'disabled' })
+    const [started, completed, committed] = await Promise.all([
+      waitPost(R.AdminModerationBatchStepUpBegin), waitPost(R.AdminModerationBatchStepUpComplete),
+      waitPost(R.AdminModerationBatchDecision), action.click(),
+    ])
+    for (const response of [started, completed, committed]) { assertStatus(response, 200); await assertNoStore(response) }
+    await readFrame(started, FrameType.PasskeyLoginBegin)
+    const proof = readMfaProof(await readFrame(completed, FrameType.MfaChallengeResult), 'admin-sensitive', true)
+    const command = committed.request().postDataBuffer()
+    assert(command.equals(started.request().postDataBuffer()))
+    assert.equal(await committed.request().headerValue(WireHeaders.MfaProof), proof)
+    const payload = decodeFrame(command, FrameType.AdminModerationBatchDecision).payload
+    assert.equal(new DataView(payload.buffer, payload.byteOffset, payload.byteLength).getInt32(0, true), decision)
+    assert(decodeModerationBatchReceipt(await readFrame(committed, FrameType.AdminModerationBatchReceipt), 2).batchId > 0n)
+    await exactText(section, notice).waitFor()
+    assertStatus(await postBinary(context.request, committed.url(), adminOrigin, command, { [WireHeaders.MfaProof]: proof }), 428)
+  }
+
   try {
     assert.equal(new URL(page.url()).pathname, '/admin/interaction')
     assert.equal(await claim.isDisabled(), true)
@@ -45,53 +85,5 @@ export async function verifyAdminModerationBatch({ page, context, section, admin
   } finally {
     page.off('pageerror', recordError)
     if (initialViewport) await page.setViewportSize(initialViewport)
-  }
-
-  async function choose(body) {
-    const row = section.getByRole('article').filter({ has: exactText(page, body) })
-    const checkbox = row.getByRole('checkbox', { name: /Select comment \d+ for batch review/ })
-    // FsusUI renders the clickable label around its visually-hidden native input.
-    await exactText(row, /Select comment \d+ for batch review/).click()
-    assert.equal(await checkbox.isChecked(), true)
-  }
-
-  async function takeClaims() {
-    const [response] = await Promise.all([waitPost(WireRoutes.AdminModerationBatchClaim), claim.click()])
-    assertStatus(response, 200)
-    assert.equal(decodeFrame(await response.body()).type, FrameType.AdminModerationBatchClaims)
-    await exactText(section, '2 comments claimed for review.').waitFor()
-  }
-
-  async function decide(decision, label, notice) {
-    const action = roleWithExactName(section, 'button', label)
-    assert.equal(await action.isDisabled(), true)
-    await exactLabel(section, 'Reason for batch decision').fill('Batch moderation integration fixture')
-    if (decision === 1)
-      await page.screenshot({ path: join(evidence, 'admin-comment-batch-mobile.png'), animations: 'disabled' })
-    const [started, completed, committed] = await Promise.all([
-      waitPost(WireRoutes.AdminModerationBatchStepUpBegin), waitPost(WireRoutes.AdminModerationBatchStepUpComplete),
-      waitPost(WireRoutes.AdminModerationBatchDecision), action.click(),
-    ])
-    for (const response of [started, completed, committed]) {
-      assertStatus(response, 200)
-      assert((await response.headerValue('Cache-Control'))?.includes('no-store'))
-    }
-    assert.equal(decodeFrame(await started.body()).type, FrameType.PasskeyLoginBegin)
-    const proof = readMfaProof(decodeFrame(await completed.body(), FrameType.MfaChallengeResult).payload, 'admin-sensitive', true)
-    const command = committed.request().postDataBuffer()
-    assert(command.equals(started.request().postDataBuffer()))
-    assert.equal(await committed.request().headerValue(WireHeaders.MfaProof), proof)
-    const payload = decodeFrame(command, FrameType.AdminModerationBatchDecision).payload
-    assert.equal(new DataView(payload.buffer, payload.byteOffset, payload.byteLength).getInt32(0, true), decision)
-    assert(decodeModerationBatchReceipt(decodeFrame(await committed.body(), FrameType.AdminModerationBatchReceipt).payload, 2).batchId > 0n)
-    await exactText(section, notice).waitFor()
-    const repeated = await context.request.post(committed.url(), {
-      headers: { Origin: adminOrigin, 'Content-Type': 'application/octet-stream', [WireHeaders.MfaProof]: proof }, data: command,
-    })
-    assertStatus(repeated, 428)
-  }
-
-  function waitPost(path) {
-    return page.waitForResponse(response => response.url() === adminOrigin + path && response.request().method() === 'POST')
   }
 }

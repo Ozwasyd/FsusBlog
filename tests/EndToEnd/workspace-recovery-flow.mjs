@@ -1,71 +1,52 @@
-import { withBrowserEvidence } from './isolated-browser-fixture.mjs'
 import assert from 'node:assert/strict'
-import { mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
-import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
-import {
-  decodeAuthoringWorkspaceSnapshot, decodeAuthoringWorkspaceLayout, decodeDraft, encodeAuthoringWorkspaceCommand,
-  encodeAuthoringWorkspaceLayoutCommand,
-  FrameType, WireHeaders, WireRoutes,
-} from '../../src/Contracts/wire.generated.ts'
-import { authorFixture, binary, button, chromium, expect, journalContains, submitArticle } from './browser-authoring-fixture.mjs'
-import { exactButton, roleWithExactName } from './role-locators.mjs'
+import * as wire from '../../src/Contracts/wire.generated.ts'
+import { clickForResponse } from './admin-workspace-fixture.mjs'
+import * as authoring from './browser-authoring-fixture.mjs'
+import { launchChrome, saveShot, withBrowserEvidence } from './isolated-browser-fixture.mjs'
+import { assertStatus, getFrame, readFrame } from './response-status-fixture.mjs'
+import { exactButton, exactHeading, exactLabel, exactTab, exactText } from './role-locators.mjs'
 import { openById } from './workspace-flow.mjs'
 
+const { FrameType, WireHeaders, WireRoutes } = wire
+const { binary, button, expect, journalContains, postFrame, readDraft } = authoring
 const origin = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
 const workspaceUrl = `${origin}/admin/articles/workspace`
-const editUrl = article => `${origin}/admin/articles/edit/${article.id}`
-const route = WireRoutes.AuthoringWorkspace
-const launch = () => chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
 const tabList = page => page.getByRole('tablist', { name: 'Open articles' })
-const tab = (page, article, status) => roleWithExactName(tabList(page), 'tab', `${article.title} · ${status}`)
-const bodyInput = page => page.getByLabel('Body', { exact: true })
+const tab = (page, article, status) => exactTab(tabList(page), `${article.title} · ${status}`)
+const bodyInput = page => exactLabel(page, 'Body')
 const observations = []
 const diagnostics = []
-await mkdir(evidence, { recursive: true })
 
-const { createDraft, monitor, signInWithPasskey } = authorFixture(origin, diagnostics)
-
+const fx = authoring.authorFixture(origin, diagnostics)
+const { createDraft, deleteDraft, monitor, signInWithPasskey, editPath } = fx
+const editUrl = article => editPath(article.id)
 const create = (context, title) => createDraft(context, title, `Saved private draft for ${title}`)
+const layoutResponse = response => response.url() === `${origin}${WireRoutes.AuthoringWorkspaceGroups}` && response.request().method() === 'POST'
 
-function layoutResponse(response) {
-  return response.url() === `${origin}${WireRoutes.AuthoringWorkspaceGroups}` && response.request().method() === 'POST'
-}
+const inspectorLayout = (context, session) => getFrame(context.request, `${origin}${WireRoutes.AuthoringWorkspaceLayout}`,
+  FrameType.AuthoringWorkspaceLayout, wire.decodeAuthoringWorkspaceLayout, { headers: { [WireHeaders.CurrentSession]: session } })
 
-async function inspectorLayout(context, session) {
-  const response = await context.request.get(`${origin}${WireRoutes.AuthoringWorkspaceLayout}`, {
-    headers: { [WireHeaders.CurrentSession]: session },
-  })
-  assert.equal(response.status(), 200)
-  return decodeAuthoringWorkspaceLayout(decodeFrame(await response.body(), FrameType.AuthoringWorkspaceLayout).payload)
-}
-
-async function updateInspectorLayout(context, session, input) {
-  const response = await context.request.post(`${origin}${WireRoutes.AuthoringWorkspaceLayout}`, {
-    headers: { ...binary, [WireHeaders.CurrentSession]: session },
-    data: Buffer.from(encodeFrame(FrameType.AuthoringWorkspaceLayoutCommand, encodeAuthoringWorkspaceLayoutCommand(input))),
-  })
-  assert.equal(response.status(), 200)
-  return decodeAuthoringWorkspaceLayout(decodeFrame(await response.body(), FrameType.AuthoringWorkspaceLayout).payload)
-}
+const updateInspectorLayout = async (context, session, input) => readFrame(
+  await postFrame(context.request, `${origin}${WireRoutes.AuthoringWorkspaceLayout}`, FrameType.AuthoringWorkspaceLayoutCommand,
+    wire.encodeAuthoringWorkspaceLayoutCommand(input), { ...binary, [WireHeaders.CurrentSession]: session }),
+  FrameType.AuthoringWorkspaceLayout, wire.decodeAuthoringWorkspaceLayout)
 
 async function layout(context, session, command, status = 200) {
-  const request = context.request
   const headers = { ...binary, [WireHeaders.CurrentSession]: session }
   const response = command
-    ? await request.post(`${origin}${route}`, { headers, data: Buffer.from(encodeFrame(FrameType.AuthoringWorkspaceCommand,
-      encodeAuthoringWorkspaceCommand({ schemaVersion: 1, ...command }))) })
-    : await request.get(`${origin}${route}`, { headers })
-  assert.equal(response.status(), status)
-  return status === 200 ? decodeAuthoringWorkspaceSnapshot(decodeFrame(await response.body(), FrameType.AuthoringWorkspaceSnapshot).payload) : undefined
+    ? await postFrame(context.request, `${origin}${WireRoutes.AuthoringWorkspace}`, FrameType.AuthoringWorkspaceCommand,
+      wire.encodeAuthoringWorkspaceCommand({ schemaVersion: 1, ...command }), headers)
+    : await context.request.get(`${origin}${WireRoutes.AuthoringWorkspace}`, { headers })
+  if (status !== 200) { assertStatus(response, status); return undefined }
+  return readFrame(response, FrameType.AuthoringWorkspaceSnapshot, wire.decodeAuthoringWorkspaceSnapshot)
 }
 
 async function open(page, article) {
   const dialog = await openById(page, article.id)
   await expect(dialog).toBeHidden()
   await expect(page).toHaveURL(editUrl(article))
-  await expect(page.getByLabel('Title', { exact: true })).toHaveValue(article.title)
+  await expect(exactLabel(page, 'Title')).toHaveValue(article.title)
 }
 
 async function saveBesideInspector(page, width, article) {
@@ -83,20 +64,16 @@ async function saveBesideInspector(page, width, article) {
     return { acceptsPointer: !!top && element.contains(top), hit: top?.closest('aside')?.getAttribute('aria-labelledby') ?? top?.tagName }
   })
   assert.equal(hit.acceptsPointer, true, `Save draft is overlaid at ${width}px by ${hit.hit}`)
-  const [receipt] = await Promise.all([page.waitForResponse(response => response.url() === `${origin}${WireRoutes.Save}` &&
-    response.request().method() === 'POST'), save.click()])
-  assert.equal(receipt.status(), 200)
-  const saved = decodeDraft(decodeFrame(await receipt.body(), FrameType.Draft).payload)
+  const saved = await readDraft(await clickForResponse(page, `${origin}${WireRoutes.Save}`, save, 'POST'))
   assert.equal(saved.id, article.id)
   assert.equal(saved.body, value)
-  await expect(page.getByText('Draft saved.', { exact: true })).toBeVisible()
+  await expect(exactText(page, 'Draft saved.')).toBeVisible()
   await expect(pane).toBeVisible()
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width)
-  await page.screenshot({ path: join(evidence, `workspace-inspector-save-${width}.png`) })
+  await saveShot(page, evidence, `workspace-inspector-save-${width}.png`, {})
   const list = tabList(page)
   if (await list.isVisible()) {
-    const selected = list.getByRole('tab', { selected: true })
-    await selected.focus()
+    await list.getByRole('tab', { selected: true }).focus()
     await page.keyboard.press('Home')
     await expect(list.getByRole('tab').first()).toBeFocused()
     await page.keyboard.press('Enter')
@@ -104,8 +81,7 @@ async function saveBesideInspector(page, width, article) {
   }
 }
 
-
-let browser = await launch()
+const browser = await launchChrome()
 await withBrowserEvidence(browser, evidence, 'workspace-recovery-result.json', { observations, diagnostics }, async () => {
   const originContext = await browser.newContext({ viewport: { width: 1280, height: 800 } })
   const outsider = await browser.newContext()
@@ -119,13 +95,11 @@ await withBrowserEvidence(browser, evidence, 'workspace-recovery-result.json', {
 
   const original = monitor(await originContext.newPage())
   await original.goto(workspaceUrl)
-  await expect(roleWithExactName(original, 'heading', 'Article workspace')).toBeVisible()
-  await open(original, first)
-  await button(tabList(original), `Pin ${first.title}`).click()
-  await open(original, second)
-  await button(tabList(original), `Pin ${second.title}`).click()
-  await open(original, removed)
-  await button(tabList(original), `Pin ${removed.title}`).click()
+  await expect(exactHeading(original, 'Article workspace')).toBeVisible()
+  for (const draft of [first, second, removed]) {
+    await open(original, draft)
+    await button(tabList(original), `Pin ${draft.title}`).click()
+  }
   await open(original, preview)
   await tab(original, second, 'Pinned').click()
   await expect(original).toHaveURL(editUrl(second))
@@ -137,9 +111,7 @@ await withBrowserEvidence(browser, evidence, 'workspace-recovery-result.json', {
     return [saved.activeArticleId, ...saved.tabs]
   }).toEqual([second.id, first.id, second.id, removed.id, -preview.id])
 
-  const deletion = await submitArticle(originContext.request, origin + WireRoutes.Delete,
-    { id: removed.id, expectedRevision: removed.revision, title: '', body: '' })
-  assert.equal(deletion.status(), 200)
+  await deleteDraft(originContext, removed)
   const rendererCrashed = original.waitForEvent('crash', { timeout: 10_000 })
   const renderer = await originContext.newCDPSession(original)
   void renderer.send('Page.crash').catch(() => {})
@@ -149,7 +121,7 @@ await withBrowserEvidence(browser, evidence, 'workspace-recovery-result.json', {
 
   // A different browser process reopens layout from PostgreSQL with the same live author session.
   const state = await originContext.storageState()
-  const reopenedBrowser = await launch()
+  const reopenedBrowser = await launchChrome()
   try {
     const reopened = await reopenedBrowser.newContext({ storageState: state, viewport: { width: 1280, height: 800 } })
     const page = monitor(await reopened.newPage())
@@ -163,7 +135,7 @@ await withBrowserEvidence(browser, evidence, 'workspace-recovery-result.json', {
     assert.equal(await page.locator('#article-body').count(), 1)
     await page.reload()
     await expect(tabList(page).getByRole('tab')).toHaveCount(3)
-    await page.screenshot({ path: join(evidence, 'workspace-reopened.png') })
+    await saveShot(page, evidence, 'workspace-reopened.png', {})
 
     const activeCopy = monitor(await originContext.newPage())
     await activeCopy.goto(workspaceUrl)
@@ -176,20 +148,18 @@ await withBrowserEvidence(browser, evidence, 'workspace-recovery-result.json', {
 
     const selectFirst = Promise.all([page.waitForResponse(layoutResponse), tab(page, first, 'Pinned').click()])
     await expect(page).toHaveURL(editUrl(first))
-    assert.equal((await selectFirst)[0].status(), 200)
+    assertStatus((await selectFirst)[0], 200)
     const third = await create(originContext, 'Unconfirmed competing layout')
     const conflict = activeCopy.waitForResponse(layoutResponse)
     await open(activeCopy, third)
-    assert.equal((await conflict).status(), 409)
+    assertStatus(await conflict, 409)
     await expect(activeCopy.getByText('The saved workspace changed elsewhere. Reload the workspace to use that layout.')).toBeVisible()
     const winner = await layout(reopened, session)
     assert.deepEqual(winner.tabs, [first.id, second.id, -preview.id])
     assert.equal(winner.activeArticleId, first.id)
     const filtered = await layout(reopened, session, { expectedRevision: winner.revision, activeArticleId: privateOutside.id,
       tabs: [first.id, privateOutside.id] })
-    assert.deepEqual(filtered.tabs, [first.id])
-    assert.equal(filtered.activeArticleId, 0)
-    assert.equal(filtered.skipped, 1)
+    assert.deepEqual([filtered.tabs, filtered.activeArticleId, filtered.skipped], [[first.id], 0, 1])
     await layout(reopened, session, { expectedRevision: filtered.revision, activeArticleId: 0, tabs: [first.id, -first.id] }, 400)
     observations.push({ competingBrowserCannotOverwrite: true, wrongSessionDenied: true, wrongOwnerFiltered: true, duplicateRejected: true })
 
@@ -197,8 +167,8 @@ await withBrowserEvidence(browser, evidence, 'workspace-recovery-result.json', {
     const readLayout = desktopInspector.waitForResponse(response => response.url() === `${origin}${WireRoutes.AuthoringWorkspaceGroups}` &&
       response.request().method() === 'GET')
     await desktopInspector.goto(workspaceUrl)
-    assert.equal((await readLayout).status(), 200)
-    await expect(desktopInspector.getByText('Open an article or start a new draft.', { exact: true })).toBeVisible()
+    assertStatus(await readLayout, 200)
+    await expect(exactText(desktopInspector, 'Open an article or start a new draft.')).toBeVisible()
     await open(desktopInspector, first)
     await button(desktopInspector, 'Inspector').click()
     await expect(desktopInspector.getByRole('complementary', { name: 'Article inspector' })).toBeVisible()
@@ -208,8 +178,7 @@ await withBrowserEvidence(browser, evidence, 'workspace-recovery-result.json', {
     const beforeLegacy = await inspectorLayout(reopened, session)
     const legacy = await layout(reopened, session, { expectedRevision: beforeLegacy.revision, activeArticleId: first.id, tabs: [first.id] })
     const afterLegacy = await inspectorLayout(reopened, session)
-    assert.equal(afterLegacy.revision, legacy.revision)
-    assert.equal(afterLegacy.inspectorOpen, true)
+    assert.deepEqual([afterLegacy.revision, afterLegacy.inspectorOpen], [legacy.revision, true])
 
     const mobileInspector = monitor(await originContext.newPage())
     await mobileInspector.setViewportSize({ width: 375, height: 850 })
@@ -217,7 +186,7 @@ await withBrowserEvidence(browser, evidence, 'workspace-recovery-result.json', {
     await expect(mobileInspector).toHaveURL(editUrl(first))
     const drawer = mobileInspector.getByRole('dialog', { name: 'Article inspector' })
     await expect(drawer).toBeVisible()
-    await mobileInspector.screenshot({ path: join(evidence, 'workspace-inspector-mobile.png') })
+    await saveShot(mobileInspector, evidence, 'workspace-inspector-mobile.png', {})
     await mobileInspector.setViewportSize({ width: 1280, height: 800 })
     const pane = mobileInspector.getByRole('complementary', { name: 'Article inspector' })
     await expect(pane).toBeVisible()
@@ -232,17 +201,14 @@ await withBrowserEvidence(browser, evidence, 'workspace-recovery-result.json', {
     const closed = await inspectorLayout(reopened, session)
     const maximumTabs = [first.id, ...Array.from({ length: 99 }, (_, index) => 2_000_000_000 + index)]
     const maximum = await layout(reopened, session, { expectedRevision: closed.revision, activeArticleId: first.id, tabs: maximumTabs })
-    assert.equal(maximum.skipped, 99)
-    assert.deepEqual(maximum.tabs, [first.id])
+    assert.deepEqual([maximum.skipped, maximum.tabs], [99, [first.id]])
     const extendedMaximum = await updateInspectorLayout(reopened, session, { schemaVersion: 2, expectedRevision: maximum.revision,
       activeArticleId: first.id, tabs: maximumTabs, inspectorOpen: true })
-    assert.deepEqual(extendedMaximum.tabs, [first.id])
-    assert.equal(extendedMaximum.skipped, 99)
-    assert.equal(extendedMaximum.inspectorOpen, true)
+    assert.deepEqual([extendedMaximum.tabs, extendedMaximum.skipped, extendedMaximum.inspectorOpen], [[first.id], 99, true])
     observations.push({ inspectorRestoredAcrossViewports: true, breakpointDoesNotWrite: true, legacyWritePreservesInspector: true,
       inspectorCloseSurvivesReload: true, maximumWorkspaceFrames: true })
   } finally {
     await reopenedBrowser.close()
   }
   assert.deepEqual(diagnostics, [])
-})
+}, { mkdir: true })

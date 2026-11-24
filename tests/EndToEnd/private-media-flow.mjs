@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
-import { chromium, observePageErrors } from './browser-authoring-fixture.mjs'
-import { readdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { canvasDataUrl, currentMediaSession, mediaBootstraps } from './media-session-fixture.mjs'
-import { signInFreshAdmin } from './webauthn-fixture.mjs'
+import { readdir } from 'node:fs/promises'
+import { observePageErrors } from './browser-authoring-fixture.mjs'
+import * as isolated from './isolated-browser-fixture.mjs'
+import * as media from './media-session-fixture.mjs'
 import { assertStatus } from './response-status-fixture.mjs'
+import { exactButton, exactText } from './role-locators.mjs'
+import { signInFreshAdmin } from './webauthn-fixture.mjs'
 
 const url = new URL(process.env.FSUSBLOG_TEST_URL).origin
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -12,49 +13,51 @@ const storage = process.env.FSUSBLOG_PRIVATE_MEDIA_ROOT
 const resumableRoute = '**/api/v2/media/resumable/**'
 const resumable = process.env.FSUSBLOG_TEST_RESUMABLE_MEDIA === '1'
 const chineseLocale = { name: 'fsus_locale', value: 'zh-CN', url }
-assert(evidence && storage && mediaBootstraps.every(Boolean))
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })
+assert(evidence && storage && media.mediaBootstraps.every(Boolean))
+const browser = await isolated.launchChrome()
 const results = []
-let failure
-try {
-  for (const [index, viewport] of [{ width: 1280, height: 800 }, { width: 375, height: 850 }].entries()) {
-    const context = await browser.newContext({ viewport, colorScheme: index ? 'dark' : 'light' })
-    const page = await context.newPage()
+
+const chunkedFile = (name, bytes) => ({ name, mimeType: 'image/png', buffer: Buffer.concat([bytes, Buffer.alloc(512 * 1024, 1)]) })
+
+await isolated.withBrowserEvidence(
+  browser,
+  evidence,
+  'private-media-browser.json',
+  failure => ({ results, failure: failure?.stack }),
+  async () => {
+    for (const [index, entry] of media.mediaViewports.entries()) await verifyViewport(index, entry)
+  },
+)
+console.log('Private PNG upload, authorized image read and file removal verified in desktop and mobile Chrome.')
+
+async function verifyViewport(index, { name, colorScheme, viewport }) {
+  await isolated.withTempContext(browser, { viewport, colorScheme }, async context => {
     const diagnostics = []
-    const name = index ? 'mobile' : 'desktop'
-    observePageErrors(page, diagnostics)
-    page.on('response', response => {
-      if (response.status() >= 500 || response.status() >= 400 && new URL(response.url()).pathname.startsWith('/assets/')) {
-        diagnostics.push(`${response.status()} ${new URL(response.url()).pathname}`)
-      }
-    })
+    const page = observePageErrors(await context.newPage(), diagnostics, true)
 
     await context.addCookies([chineseLocale])
     const anonymousLibrary = await page.goto(`${url}/admin/assets`)
     assertStatus(anonymousLibrary, 200)
-    await page.getByText('请使用作者账号登录', { exact: true }).waitFor()
+    await exactText(page, '请使用作者账号登录').waitFor()
     assert.match(await page.title(), /资产库/)
     assert.equal(anonymousLibrary.headers()['x-robots-tag'], 'noindex')
     assert.equal(await page.getByLabel('选择图片').count(), 0)
 
-    await signInFreshAdmin(page, url, mediaBootstraps[index])
+    await signInFreshAdmin(page, url, media.mediaBootstraps[index])
     await context.addCookies([chineseLocale])
     await page.goto(`${url}/admin/assets`)
-    await page.getByText('还没有图片', { exact: true }).waitFor()
-    await page.screenshot({ path: join(evidence, `private-media-${name}-empty.png`) })
+    await exactText(page, '还没有图片').waitFor()
+    await isolated.saveShot(page, evidence, `private-media-${name}-empty.png`, {})
 
     const fileName = `integration-${name}.png`
-    const data = await canvasDataUrl(page, [180, 90], ['#374f6b', '#cddfef'], [25, 20, 80, 50])
-    const imageBytes = Buffer.from(data.split(',')[1], 'base64')
+    const imageBytes = await media.imageBytes(page, [180, 90], ['#374f6b', '#cddfef'], [25, 20, 80, 50])
     let continuation
-    if (resumable) {
-      const file = { name: fileName, mimeType: 'image/png', buffer: Buffer.concat([imageBytes, Buffer.alloc(512 * 1024, 1)]) }
-      continuation = await verifyContinuation(page, file, name)
-    } else {
+    if (resumable) continuation = await verifyContinuation(page, chunkedFile(fileName, imageBytes), name)
+    else {
       await page.getByLabel('选择图片').setInputFiles({ name: fileName, mimeType: 'image/png', buffer: imageBytes })
       const upload = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v2/media/upload.aeds')
       await page.getByRole('button', { name: '上传图片' }).click()
-      assert.equal((await upload).status(), 200)
+      assertStatus(await upload, 200)
       assert.equal(await page.getByText(/当前标签页重新选择/).count(), 0)
     }
     await page.getByRole('status').getByText('图片已保存。').waitFor()
@@ -63,165 +66,136 @@ try {
     await page.keyboard.press('Enter')
     const preview = page.getByRole('img', { name: fileName })
     await preview.waitFor()
-    await page.waitForFunction(name => [...document.images].find(image => image.alt === name)?.naturalWidth === 180, fileName)
+    await page.waitForFunction(target => [...document.images].find(image => image.alt === target)?.naturalWidth === 180, fileName)
     assert.equal(await page.getByRole('heading', { name: fileName }).evaluate(node => node === document.activeElement), true)
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
+    await isolated.assertNoOverflow(page)
     const imageHref = await preview.getAttribute('src')
     const forbidden = await fetch(new URL(imageHref, url))
     assert.equal(forbidden.status, 404)
     assert.equal((await forbidden.arrayBuffer()).byteLength, 0)
     assert.equal((await readdir(storage)).length, 1)
-    await page.screenshot({ path: join(evidence, `private-media-${name}-view.png`) })
+    await isolated.saveShot(page, evidence, `private-media-${name}-view.png`, {})
 
     await page.getByRole('button', { name: '关闭预览' }).click()
     assert.equal(await show.evaluate(node => node === document.activeElement), true)
     const remove = page.getByRole('button', { name: `删除 ${fileName}` })
     await remove.click()
-    await page.getByRole('button', { name: '取消', exact: true }).click()
+    await exactButton(page, '取消').click()
     await show.waitFor()
     await remove.click()
     const deletion = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/remove.aeds'))
-    await page.getByRole('button', { name: '删除图片', exact: true }).click()
-    assert.equal((await deletion).status(), 200)
+    await exactButton(page, '删除图片').click()
+    assertStatus(await deletion, 200)
     await page.getByRole('status').getByText('图片已删除。').waitFor()
     await show.waitFor({ state: 'hidden' })
-    const removed = await context.request.get(new URL(imageHref, url).href)
-    assert.equal(removed.status(), 404)
+    assertStatus(await context.request.get(new URL(imageHref, url).href), 404)
     assert.deepEqual(await readdir(storage), [])
     if (resumable && name === 'desktop') {
-      await verifyAccountSwitch(page, { name: 'account-switch.png', mimeType: 'image/png',
-        buffer: Buffer.concat([imageBytes, Buffer.alloc(512 * 1024, 1)]) }, context)
+      await verifyAccountSwitch(page, chunkedFile('account-switch.png', imageBytes), context)
       continuation.accountSwitchIsolated = true
     }
     assert.deepEqual(diagnostics, [])
     results.push({ name, viewport, title: await page.title(), upload: true, privateRead: true,
       keyboardFocus: true, remove: true, assetFileRemoved: true, continuation, diagnostics })
-    await context.close()
-  }
-} catch (error) { failure = error }
-finally {
-  await browser.close()
-  await writeFile(join(evidence, 'private-media-browser.json'), JSON.stringify({ results, failure: failure?.stack }, null, 2))
-}
-if (failure) throw failure
-console.log('Private PNG upload, authorized image read and file removal verified in desktop and mobile Chrome.')
-
-function beginMutation(requests) {
-  return requests.find(([path]) => path.endsWith('/begin.aeds'))[1]
+  })
 }
 
-async function submitInterruptedUpload(page, choose, submit, file) {
-  await choose.setInputFiles(file)
-  await submit.click()
-  await page.getByText('上传未完成。可以重试，已确认的分片会保留。', { exact: true }).waitFor()
-}
+const beginMutation = requests => requests.find(([path]) => path.endsWith('/begin.aeds'))[1]
 
-async function completeResumableUpload(page, choose, submit, file) {
+async function withResumableRoute(page, onPart1, run) {
   const requests = []
   await page.route(resumableRoute, async route => {
     const request = route.request()
-    requests.push([new URL(request.url()).pathname, request.headers()['x-fsus-client-mutation-id']])
-    await route.continue()
+    const path = new URL(request.url()).pathname
+    requests.push([path, request.headers()['x-fsus-client-mutation-id']])
+    if (onPart1 && path.endsWith('/parts/1.aeds')) await onPart1(route)
+    else await route.continue()
   })
-  await choose.setInputFiles(file)
-  await submit.click()
-  await page.getByText('图片已保存。', { exact: true }).waitFor()
-  await page.unroute(resumableRoute)
-  return requests
+  try {
+    await run(requests)
+    return requests
+  } finally {
+    await page.unroute(resumableRoute)
+  }
 }
+
+async function submitUpload(page, file, expectedText) {
+  await page.getByLabel('选择图片').setInputFiles(file)
+  await page.getByRole('button', { name: '上传图片' }).click()
+  await exactText(page, expectedText).waitFor()
+}
+
+async function cancelUpload(page) {
+  await page.getByRole('button', { name: '取消上传' }).click()
+  await exactText(page, '已取消上传。').waitFor()
+}
+
+const abortPart1 = (page, run) => withResumableRoute(page, route => route.abort('failed'), run)
+const submitInterrupted = (page, file) => submitUpload(page, file, '上传未完成。可以重试，已确认的分片会保留。')
+const completeResumable = (page, file) => withResumableRoute(page, null, () => submitUpload(page, file, '图片已保存。'))
 
 async function verifyContinuation(page, file, name) {
   const resumeUi = page.getByText(/当前标签页重新选择/)
   await resumeUi.waitFor()
-  const submit = page.getByRole('button', { name: '上传图片' })
-  const choose = page.getByLabel('选择图片')
-  const first = []
-  await page.route(resumableRoute, async route => {
-    const request = route.request()
-    const path = new URL(request.url()).pathname
-    first.push([path, request.headers()['x-fsus-client-mutation-id']])
-    if (path.endsWith('/parts/1.aeds')) await route.abort('failed')
-    else await route.continue()
+  const first = await abortPart1(page, async () => {
+    await submitInterrupted(page, file)
+    await exactText(page, '1 / 2 个分片已确认').waitFor()
+    assert.equal(await page.getByRole('button', { name: '取消上传' }).count(), 1)
+    await isolated.saveShot(page, evidence, `private-media-${name}-interrupted.png`)
   })
-  await submitInterruptedUpload(page, choose, submit, file)
-  await page.getByText('1 / 2 个分片已确认', { exact: true }).waitFor()
-  assert.equal(await page.getByRole('button', { name: '取消上传' }).count(), 1)
-  await page.screenshot({ path: join(evidence, `private-media-${name}-interrupted.png`), animations: 'disabled' })
-  await page.unroute(resumableRoute)
   await page.reload()
   await resumeUi.waitFor()
   const expected = beginMutation(first)
   if (name === 'mobile') {
     const changed = Buffer.from(file.buffer)
     changed[changed.length - 1] ^= 1
-    let differentKey
-    await page.route(resumableRoute, async route => {
-      const request = route.request()
-      const path = new URL(request.url()).pathname
-      if (path.endsWith('/begin.aeds')) differentKey = request.headers()['x-fsus-client-mutation-id']
-      if (path.endsWith('/parts/1.aeds')) await route.abort('failed')
-      else await route.continue()
+    const changedRequests = await abortPart1(page, async () => {
+      await submitInterrupted(page, { ...file, buffer: changed })
+      await cancelUpload(page)
     })
-    await submitInterruptedUpload(page, choose, submit, { ...file, buffer: changed })
+    const differentKey = beginMutation(changedRequests)
     assert(differentKey && differentKey !== expected)
-    await page.getByRole('button', { name: '取消上传' }).click()
-    await page.getByText('已取消上传。', { exact: true }).waitFor()
-    await page.unroute(resumableRoute)
   }
-  const second = await completeResumableUpload(page, choose, submit, file)
+  const second = await completeResumable(page, file)
   assert.equal(beginMutation(second), expected)
   assert.deepEqual(second.filter(([path]) => path.includes('/parts/')).map(([path]) => path.split('/').at(-1)), ['1.aeds'])
   assert.equal(await page.evaluate(() => Object.keys(sessionStorage).some(key => key.startsWith('fsus.private-media.resume.v1:'))), false)
-
   return { acceptedBeforeFailure: [0], replayedAfterReload: [1], differentBytesIsolated: name === 'mobile' }
 }
 
 async function verifyAccountSwitch(page, uploadFile, context) {
   // Use a second real author in the same tab after one confirmed part. Exactly the original bytes select a new owner key.
-  const submit = page.getByRole('button', { name: '上传图片' })
-  const choose = page.getByLabel('选择图片')
   const resumeUi = page.getByText(/当前标签页重新选择/)
   const originalCookies = await context.cookies(url)
-  const originalSession = await currentMediaSession(page, url)
-  const peer = await browser.newContext()
-  let foreignCookies, foreignSession
-  try {
+  const originalSession = await media.currentMediaSession(page, url)
+  const { foreignCookies, foreignSession } = await isolated.withTempContext(browser, async peer => {
     const peerPage = await peer.newPage()
     await signInFreshAdmin(peerPage, url, process.env.FSUSBLOG_TEST_MEDIA_SWITCH_BOOTSTRAP)
     await peer.addCookies([chineseLocale])
-    foreignCookies = await peer.cookies(url)
-    foreignSession = await currentMediaSession(peerPage, url)
-    assert.notEqual(foreignSession, originalSession)
-  } finally { await peer.close() }
-  const switched = []
-  await page.route(resumableRoute, async route => {
-    const request = route.request()
-    const path = new URL(request.url()).pathname
-    switched.push([path, request.headers()['x-fsus-client-mutation-id']])
-    if (path.endsWith('/parts/1.aeds')) {
-      await context.addCookies(foreignCookies)
-      await route.abort('failed')
-    } else await route.continue()
+    const session = await media.currentMediaSession(peerPage, url)
+    assert.notEqual(session, originalSession)
+    return { foreignCookies: await peer.cookies(url), foreignSession: session }
   })
-  await submitInterruptedUpload(page, choose, submit, uploadFile)
+  const switched = await withResumableRoute(page, async route => {
+    await context.addCookies(foreignCookies)
+    await route.abort('failed')
+  }, () => submitInterrupted(page, uploadFile))
   const original = beginMutation(switched)
-  await page.unroute(resumableRoute)
-  assert.equal(await currentMediaSession(page, url), foreignSession)
+  assert.equal(await media.currentMediaSession(page, url), foreignSession)
   await page.reload()
   await resumeUi.waitFor()
-  const received = await completeResumableUpload(page, choose, submit, uploadFile)
+  const received = await completeResumable(page, uploadFile)
   assert.notEqual(beginMutation(received), original)
   assert.equal(received.filter(([path]) => path.includes('/parts/')).length, 2)
   await page.getByRole('button', { name: `删除 ${uploadFile.name}` }).click()
-  await page.getByRole('button', { name: '删除图片', exact: true }).click()
-  await page.getByText('图片已删除。', { exact: true }).waitFor()
+  await exactButton(page, '删除图片').click()
+  await exactText(page, '图片已删除。').waitFor()
   await context.addCookies(originalCookies)
-  await page.route(resumableRoute, route => new URL(route.request().url()).pathname.endsWith('/parts/1.aeds') ? route.abort('failed') : route.continue())
-  await page.reload()
-  await resumeUi.waitFor()
-  await submitInterruptedUpload(page, choose, submit, uploadFile)
-  await page.getByText('1 / 2 个分片已确认', { exact: true }).waitFor()
-  await page.getByRole('button', { name: '取消上传' }).click()
-  await page.getByText('已取消上传。', { exact: true }).waitFor()
-  await page.unroute(resumableRoute)
+  await abortPart1(page, async () => {
+    await page.reload()
+    await resumeUi.waitFor()
+    await submitInterrupted(page, uploadFile)
+    await exactText(page, '1 / 2 个分片已确认').waitFor()
+    await cancelUpload(page)
+  })
 }

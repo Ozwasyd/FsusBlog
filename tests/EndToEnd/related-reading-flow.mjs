@@ -1,16 +1,15 @@
-import { roleWithExactName } from './role-locators.mjs'
-import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
-import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeRelatedReading } from '../../src/Contracts/related-reading.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { assertApiError, assertNoStore, readFrame } from './response-status-fixture.mjs'
+import { roleWithExactName } from './role-locators.mjs'
+
+const relatedUrl = (origin, id) => origin + WireRoutes.PublicRelatedReading.replace('{articleId:int}', String(id))
 
 export async function exerciseRelatedReading(page, articleId, articleTitle, origin) {
-  const path = WireRoutes.PublicRelatedReading.replace('{articleId:int}', String(articleId))
-  const response = await page.request.get(origin + path)
-  assertStatus(response, 200)
-  assert.equal(response.headers()['cache-control'], 'no-store')
-  const reading = decodeRelatedReading(decodeFrame(await response.body(), FrameType.ArticleRelatedReading).payload)
+  const response = await page.request.get(relatedUrl(origin, articleId))
+  await assertNoStore(response)
+  const reading = await readFrame(response, FrameType.ArticleRelatedReading, decodeRelatedReading)
   assert(reading.related.some(item => item.title === 'Browser fixture 12'))
   assert(!reading.related.some(item => item.title === 'Browser fixture 11'))
   assert.equal(reading.previous?.title, 'Browser fixture 12')
@@ -34,12 +33,9 @@ export async function exerciseRelatedReading(page, articleId, articleTitle, orig
 }
 
 export async function verifyRelatedWithdrawal(page, articleId, previousId, origin) {
-  const withdrawn = await page.request.get(origin + WireRoutes.PublicRelatedReading.replace('{articleId:int}', String(articleId)))
-  assertStatus(withdrawn, 404)
-  assert.equal(decodeFrame(await withdrawn.body()).type, FrameType.ApiError)
+  await assertApiError(await page.request.get(relatedUrl(origin, articleId)), 404)
   if (previousId === undefined) return
-  const source = await page.request.get(origin + WireRoutes.PublicRelatedReading.replace('{articleId:int}', String(previousId)))
-  assertStatus(source, 200)
-  const reading = decodeRelatedReading(decodeFrame(await source.body(), FrameType.ArticleRelatedReading).payload)
+  const reading = await readFrame(await page.request.get(relatedUrl(origin, previousId)),
+    FrameType.ArticleRelatedReading, decodeRelatedReading)
   assert(![...reading.related, reading.previous, reading.next].some(item => item?.id === articleId))
 }

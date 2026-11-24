@@ -1,10 +1,9 @@
-import { assertStatus } from './response-status-fixture.mjs'
 import assert from 'node:assert/strict'
-import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import * as exportsFlow from './markdown-export-flow.mjs'
+import { assertApiError, assertStatus, getFrame } from './response-status-fixture.mjs'
 import { waitForPathResponse } from './response-wait-fixture.mjs'
-import { readEpubDownload, readMarkdownDownload, readPdfDownload, readWordDownload, verifyOfflineHtmlDownload } from './markdown-export-flow.mjs'
-import { exactButton, roleWithExactName, exactLabel, exactText } from './role-locators.mjs'
+import { exactButton, exactDialog, exactLabel, exactText } from './role-locators.mjs'
 
 export async function exerciseDraftRevision({ page, origin, articleId, sourceRevision, originalBody, publicArticle, screenshot, observations,
   pdfEnabled, pdfFixture }) {
@@ -15,29 +14,35 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   await exactText(pane, 'Revision history').click()
   const comparePath = WireRoutes.DraftRevisionComparison.replace('{id:int}', String(articleId))
     .replace('{sourceRevision:long}', String(sourceRevision))
-  const currentDraftPath = WireRoutes.Draft.replace('{id:int}', String(articleId))
-  const storedBefore = await page.request.get(`${origin}${currentDraftPath}`)
-  assertStatus(storedBefore, 200)
-  const savedBefore = decodeDraft(decodeFrame(await storedBefore.body(), FrameType.Draft).payload)
+  const loadDraft = () => getFrame(page.request, `${origin}${WireRoutes.Draft.replace('{id:int}', String(articleId))}`, FrameType.Draft, decodeDraft)
+  const savedBefore = await loadDraft()
   const staleBase = savedBefore.revision + 1n
-  const stale = await page.request.get(`${origin}${comparePath}?revision=${staleBase}`)
-  assertStatus(stale, 409)
-  assert.equal(decodeFrame(await stale.body()).type, FrameType.ApiError)
+  await assertApiError(await page.request.get(`${origin}${comparePath}?revision=${staleBase}`), 409)
   const choose = exactButton(pane, `Compare revision ${sourceRevision}`)
   // Run the view's request against that mismatched coordinate without altering the server's response.
   await page.route(url => url.pathname === comparePath, route =>
     route.continue({ url: `${origin}${comparePath}?revision=${staleBase}` }), { times: 1 })
   await choose.click()
-  const comparison = roleWithExactName(page, 'dialog', 'Revision comparison')
+  const comparison = exactDialog(page, 'Revision comparison')
+  const earlier = exactLabel(comparison, 'Earlier revision Markdown')
+  const current = exactLabel(comparison, 'Current saved revision Markdown')
+  const openCompare = async trigger => {
+    await trigger.click()
+    await earlier.waitFor()
+  }
+  const closeComparison = async focusTarget => {
+    await earlier.focus()
+    await page.keyboard.press('Escape')
+    await comparison.waitFor({ state: 'hidden' })
+    if (focusTarget) await focusTarget.and(page.locator(':focus')).waitFor()
+  }
+
   await exactText(comparison, 'The saved draft changed. Load its current revision and compare again.').waitFor()
   assert.equal(await comparison.locator('pre').count(), 0)
   await page.keyboard.press('Escape')
   await comparison.waitFor({ state: 'hidden' })
   await exactButton(pane, 'Reload revisions').click()
-  await choose.click()
-  const earlier = exactLabel(comparison, 'Earlier revision Markdown')
-  const current = exactLabel(comparison, 'Current saved revision Markdown')
-  await earlier.waitFor()
+  await openCompare(choose)
   await current.waitFor()
   assert.equal(await earlier.textContent(), originalBody)
   assert.equal(await current.textContent(), currentBody)
@@ -52,55 +57,42 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   assert(wide)
   await page.setViewportSize({ width: 375, height: 850 })
   await page.waitForFunction(() => matchMedia('(max-width: 740px)').matches)
-  const drawer = roleWithExactName(page, 'dialog', 'Article inspector')
+  const drawer = exactDialog(page, 'Article inspector')
   await drawer.waitFor({ state: 'hidden' })
-  const earlierNarrow = await earlier.boundingBox()
-  const currentNarrow = await current.boundingBox()
+  const [earlierNarrow, currentNarrow] = await Promise.all([earlier.boundingBox(), current.boundingBox()])
   assert(earlierNarrow && currentNarrow && earlierNarrow.y + earlierNarrow.height < currentNarrow.y,
     'Narrow comparison must stack the exact sources without hiding either')
   await page.waitForFunction(() => document.documentElement.scrollWidth === 375)
   await comparison.getByRole('button', { name: 'Download revision Markdown' }).click({ trial: true })
-  await verifyOfflineHtmlDownload(page, exactButton(comparison, 'Download revision HTML'),
+  await exportsFlow.verifyOfflineHtmlDownload(page, exactButton(comparison, 'Download revision HTML'),
     savedBefore.title, 'Draft milestone', 'Newer saved revision.')
-  await readEpubDownload(page, exactButton(comparison, 'Download revision EPUB'))
+  await exportsFlow.readEpubDownload(page, exactButton(comparison, 'Download revision EPUB'))
   const revisionPdf = exactButton(comparison, 'Download revision PDF')
   if (pdfEnabled) {
-    const pdf = await readPdfDownload(page, revisionPdf, articleId, savedBefore.revision, sourceRevision)
+    const pdf = await exportsFlow.readPdfDownload(page, revisionPdf, articleId, savedBefore.revision, sourceRevision)
     if (pdfFixture) await pdf.saveAs(pdfFixture)
     observations.push('The narrow revision comparison downloads the selected historical PDF against the current saved revision.')
   } else assert.equal(await revisionPdf.count(), 0)
   await screenshot(page, 'editor-revision-comparison-mobile')
   await page.setViewportSize(wide)
-
-  await earlier.focus()
-  await page.keyboard.press('Escape')
-  await comparison.waitFor({ state: 'hidden' })
-  await choose.and(page.locator(':focus')).waitFor()
+  await closeComparison(choose)
 
   // A compare opened from an existing compact Drawer owns Escape before the Inspector.
   await page.setViewportSize({ width: 375, height: 850 })
   await drawer.waitFor()
   const chooseCompact = exactButton(drawer, `Compare revision ${sourceRevision}`)
-  await chooseCompact.click()
-  await earlier.waitFor()
-  await earlier.focus()
-  await page.keyboard.press('Escape')
-  await comparison.waitFor({ state: 'hidden' })
+  await openCompare(chooseCompact)
+  await closeComparison(chooseCompact)
   await drawer.waitFor()
-  await chooseCompact.and(page.locator(':focus')).waitFor()
-  await chooseCompact.click()
-  await earlier.waitFor()
+  await openCompare(chooseCompact)
   await page.setViewportSize(wide)
   await drawer.waitFor()
-  await earlier.focus()
-  await page.keyboard.press('Escape')
-  await comparison.waitFor({ state: 'hidden' })
+  await closeComparison()
   await pane.waitFor()
-  await choose.click()
-  await earlier.waitFor()
-  const attachment = await readMarkdownDownload(page, comparison.getByRole('button', { name: 'Download revision Markdown' }), originalBody)
+  await openCompare(choose)
+  const attachment = await exportsFlow.readMarkdownDownload(page, comparison.getByRole('button', { name: 'Download revision Markdown' }), originalBody)
   assert.equal(attachment.revision, sourceRevision)
-  await readWordDownload(page, exactButton(comparison, 'Download revision Word'))
+  await exportsFlow.readWordDownload(page, exactButton(comparison, 'Download revision Word'))
   const restore = exactButton(comparison, 'Restore as new draft')
   assert.equal(await restore.isDisabled(), true)
   const reason = 'Restore the initial published content as a draft.'
@@ -112,14 +104,11 @@ export async function exerciseDraftRevision({ page, origin, articleId, sourceRev
   await page.getByRole('status').filter({ hasText: 'Revision restored to a new draft.' }).waitFor()
   await pane.getByText(reason, { exact: false }).waitFor()
   await page.waitForFunction(source => document.querySelector('#article-body')?.value === source, originalBody)
-  const stored = await page.request.get(`${origin}${WireRoutes.Draft.replace('{id:int}', String(articleId))}`)
-  assertStatus(stored, 200)
-  const restored = decodeDraft(decodeFrame(await stored.body(), FrameType.Draft).payload)
+  const restored = await loadDraft()
   assert.equal(restored.body, originalBody)
   assert(restored.revision > sourceRevision)
   const publicAfter = await publicArticle(articleId)
-  assert.equal(publicAfter.revision, sourceRevision)
-  assert.equal(publicAfter.body, originalBody)
+  assert.deepEqual([publicAfter.revision, publicAfter.body], [sourceRevision, originalBody])
   await exactButton(pane, 'Close').click()
   observations.push('The Inspector compares two saved revisions, records the reason, restores a new private draft, and preserves the prior public revision.')
 }

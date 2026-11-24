@@ -1,9 +1,8 @@
-import { assertStatus } from './response-status-fixture.mjs'
+import { assertStatus, readFrame } from './response-status-fixture.mjs'
 import { exactText, roleWithExactName } from './role-locators.mjs'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
-import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDocumentExportTask } from '../../src/Contracts/document-export-tasks.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { waitForPathResponse } from './response-wait-fixture.mjs'
@@ -38,9 +37,8 @@ export async function exerciseDocumentExportTasks(page, article, revision, visib
     const incoming = receipt(WireRoutes.DocumentExportCreate)
     await roleWithExactName(panel, 'button', 'Create export task').click()
     const response = await incoming
-    assertStatus(response, 200)
     assert(await response.request().headerValue(WireHeaders.CurrentSession))
-    const task = decodeDocumentExportTask(decodeFrame(await response.body(), FrameType.DocumentExportTask).payload)
+    const task = await readFrame(response, FrameType.DocumentExportTask, decodeDocumentExportTask)
     assert.deepEqual([task.article, task.revision, task.sourceRevision, task.format], [article, revision, revision, format])
     assert(['queued', 'running', 'succeeded'].includes(task.status))
   }

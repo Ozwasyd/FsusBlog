@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
-import { launchIdentityBrowser } from './site-authentication-fixture.mjs'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeSeoConfig, decodeSiteComplianceConfig } from '../../src/Contracts/site-config.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { saveShot, withBrowserEvidence } from './isolated-browser-fixture.mjs'
+import { assertStatus } from './response-status-fixture.mjs'
+import { exactText } from './role-locators.mjs'
+import { launchIdentityBrowser } from './site-authentication-fixture.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_SITE_URL ?? process.env.FSUSBLOG_TEST_URL
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -14,9 +15,7 @@ const read = async (path, type, decode) => {
   const response = await fetch(new URL(path, origin), { redirect: 'error' })
   assert.equal(response.status, 200)
   assert.equal(response.headers.get('Content-Type'), 'application/octet-stream')
-  const frame = decodeFrame(new Uint8Array(await response.arrayBuffer()))
-  assert.equal(frame.type, type)
-  return decode(frame.payload)
+  return decode(decodeFrame(new Uint8Array(await response.arrayBuffer()), type).payload)
 }
 const seo = await read(WireRoutes.PublicSeo, FrameType.SeoConfig, decodeSeoConfig)
 const legal = await read(WireRoutes.PublicCompliance, FrameType.SiteComplianceConfig, decodeSiteComplianceConfig)
@@ -25,35 +24,40 @@ assert.equal(seo.baseUrl, process.env.FSUSBLOG_TEST_SITE_URL ?? 'https://blog.ex
 assert.equal(legal.enabled, true)
 assert.equal(legal.icpRecordNumber, 'Fixture registration')
 assert.equal(legal.contactEmail, 'info@example.test')
-await mkdir(evidence, { recursive: true })
+const viewport = { width: 375, height: 812 }
 const browser = await launchIdentityBrowser(process.env.FSUSBLOG_TEST_TLS_SPKI)
-try {
-  const viewport = { width: 375, height: 812 }
-  const page = await browser.newPage({ viewport, locale: 'en-US' })
-  page.setDefaultTimeout(15_000)
-  const errors = []
-  page.on('pageerror', error => errors.push(error.message))
-  const response = await page.goto(origin, { waitUntil: 'domcontentloaded' })
-  assert.equal(response.status(), 200)
-  const footer = page.locator('.site-footer')
-  await footer.locator('strong').getByText('North & <South>', { exact: true }).waitFor()
-  await footer.locator('p').getByText(/North Company/).waitFor()
-  assert.equal(await page.title(), seo.title)
-  assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'), seo.baseUrl + '/')
-  assert.equal(await footer.getByRole('link', { name: 'Fixture registration' }).getAttribute('href'), 'https://beian.miit.gov.cn/')
-  assert.equal(await footer.getByRole('link', { name: 'CC BY 4.0' }).getAttribute('href'), 'https://creativecommons.org/licenses/by/4.0/')
-  assert.equal(await footer.getByRole('link', { name: 'info@example.test' }).getAttribute('href'), 'mailto:info@example.test')
-  await footer.scrollIntoViewIfNeeded()
-  await page.screenshot({ path: join(evidence, 'public-site-config-mobile.png'), fullPage: true })
-  await footer.getByRole('link', { name: 'About' }).click()
-  await page.waitForURL(new URL('/about', origin).href)
-  assert.equal(await page.locator('link[rel="canonical"]').count(), 0)
-  assert.equal(await page.title(), `About · ${seo.title}`)
-  assert.deepEqual(errors, [])
-  await writeFile(join(evidence, 'result.json'), JSON.stringify({
+
+await withBrowserEvidence(
+  browser,
+  evidence,
+  'result.json',
+  () => ({
     started, finished: new Date().toISOString(), browser: browser.version(), viewport,
     completed: ['seo and compliance AEDS frames', 'same configured title after Vue takeover', 'public compliance footer and safe links', 'SPA path clears original canonical'],
-  }, null, 2) + '\n')
-} finally {
-  await browser.close()
-}
+  }),
+  async () => {
+    const page = await browser.newPage({ viewport, locale: 'en-US' })
+    page.setDefaultTimeout(15_000)
+    const errors = []
+    page.on('pageerror', error => errors.push(error.message))
+    assertStatus(await page.goto(origin, { waitUntil: 'domcontentloaded' }), 200)
+    const footer = page.locator('.site-footer')
+    await exactText(footer.locator('strong'), 'North & <South>').waitFor()
+    await footer.locator('p').getByText(/North Company/).waitFor()
+    assert.equal(await page.title(), seo.title)
+    assert.equal(await page.locator('link[rel="canonical"]').getAttribute('href'), seo.baseUrl + '/')
+    for (const [name, href] of [
+      ['Fixture registration', 'https://beian.miit.gov.cn/'],
+      ['CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/'],
+      ['info@example.test', 'mailto:info@example.test'],
+    ]) assert.equal(await footer.getByRole('link', { name }).getAttribute('href'), href)
+    await footer.scrollIntoViewIfNeeded()
+    await saveShot(page, evidence, 'public-site-config-mobile.png', { fullPage: true })
+    await footer.getByRole('link', { name: 'About' }).click()
+    await page.waitForURL(new URL('/about', origin).href)
+    assert.equal(await page.locator('link[rel="canonical"]').count(), 0)
+    assert.equal(await page.title(), `About · ${seo.title}`)
+    assert.deepEqual(errors, [])
+  },
+  { mkdir: true, newline: true },
+)

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
-import { requireWebPackage } from './web-package-fixture.mjs'
 import { mkdir } from 'node:fs/promises'
-import { resolve } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeSitePage, sitePages } from '../../src/Contracts/site-pages.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import * as isolated from './isolated-browser-fixture.mjs'
+import { roleWithExactName } from './role-locators.mjs'
 
 const origin = process.env.FSUSBLOG_TEST_URL
 const evidence = process.env.FSUSBLOG_TEST_EVIDENCE
@@ -26,8 +26,7 @@ for (const slug of Object.keys(sitePages)) {
   assert.match(html, new RegExp(`<article[^>]* data-site-page="${slug}" data-state="published">`))
   assert.match(html, new RegExp(fixture(slug)))
   assert.equal(wire.status, 200)
-  const packet = decodeFrame(new Uint8Array(await wire.arrayBuffer()), FrameType.PageContent)
-  const content = decodeSitePage(packet.payload)
+  const content = decodeSitePage(decodeFrame(new Uint8Array(await wire.arrayBuffer()), FrameType.PageContent).payload)
   assert.equal(content.slug, slug)
   assert.match(content.markdown, new RegExp(fixture(slug)))
 }
@@ -35,39 +34,38 @@ const invalid = await fetch(`${origin}/api/binary/system/page/unrecognized`)
 assert.equal(invalid.status, 404)
 decodeFrame(new Uint8Array(await invalid.arrayBuffer()), FrameType.ApiError)
 
-const { chromium } = requireWebPackage('@playwright/test')
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME })
+const browser = await isolated.launchChrome()
 try {
   for (const size of [{ width: 1280, height: 860 }, { width: 390, height: 844 }]) {
     const page = await browser.newPage({ viewport: size, locale: 'zh-CN', colorScheme: size.width < 500 ? 'dark' : 'light' })
-    const errors = []
-    const pageErrors = []
+    const errors = [], pageErrors = []
     page.on('pageerror', error => pageErrors.push(error.message))
     page.on('console', msg => {
       if (msg.type() === 'warn' || msg.type() === 'error')
         errors.push({ message: msg.text(), path: new URL(msg.location().url || origin, origin).pathname })
     })
     await page.goto(`${origin}/about`)
-    await page.getByRole('heading', { name: '关于', exact: true }).waitFor()
+    await roleWithExactName(page, 'heading', '关于').waitFor()
     await page.locator('[data-site-page-body] >> text=Standalone fixture about').waitFor()
     assert.equal(await page.title(), "关于 · Fsu's Blog")
     assert.equal(await page.locator('html').getAttribute('lang'), 'zh-CN')
     assert.equal(await page.locator('[data-site-page-body] script, [data-site-page-body] [href^="javascript:"]').count(), 0)
     assert(!(await page.locator('vite-error-overlay').count()))
-    await page.getByRole('navigation', { name: '站点政策' }).getByRole('link', { name: '隐私政策' }).click()
+    const policyNav = page.getByRole('navigation', { name: '站点政策' })
+    await policyNav.getByRole('link', { name: '隐私政策' }).click()
     await page.locator('[data-site-page-body] >> text=Standalone fixture privacy').waitFor()
     assert.equal(new URL(page.url()).pathname, '/privacy')
     assert.equal(await page.title(), "隐私政策 · Fsu's Blog")
     assert.equal(await page.locator('meta[name=robots]').count(), 0)
-    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
-    await page.screenshot({ path: resolve(evidence, `site-pages-${size.width}.png`), fullPage: true })
+    await isolated.assertNoOverflow(page)
+    await isolated.saveShot(page, evidence, `site-pages-${size.width}.png`, { fullPage: true })
     let failOnce = true
     await page.route('**/guidelines', route => {
       if (!failOnce) return route.continue()
       failOnce = false
       return route.fulfill({ status: 503, contentType: 'text/plain', body: 'Fixture failure' })
     })
-    const guidelines = page.getByRole('navigation', { name: '站点政策' }).getByRole('link', { name: '用户守则' })
+    const guidelines = policyNav.getByRole('link', { name: '用户守则' })
     await guidelines.focus()
     await page.keyboard.press('Enter')
     await page.getByText('页面内容暂时无法加载').waitFor()
@@ -82,7 +80,5 @@ try {
     ), [])
     await page.close()
   }
-} finally {
-  await browser.close()
-}
+} finally { await browser.close() }
 console.log('Site pages verified in Chrome at desktop and mobile sizes, with real HTML/HEAD and pinned AEDS.')
