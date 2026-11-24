@@ -169,6 +169,14 @@ def copy_checked(file, destination=None, limit=MAX_MEDIA_BYTES):
     return count, sha.hexdigest()
 
 
+def measure_dump(backup):
+    with read_file(backup, DUMP) as dump:
+        ensure(dump.read(5) == b"PGDMP", "Expected a PostgreSQL custom-format dump.")
+        dump.seek(0)
+        count, digest = copy_checked(dump)
+        return {"bytes": count, "sha256": digest}
+
+
 def check_media(directory, files, destination=None):
     ensure(set(os.listdir(directory)) == files.keys(), "Media directory contains missing or unexpected files.")
     ensure(sum(value[0] for value in files.values()) <= MAX_MEDIA_BYTES, "Media snapshot exceeds its byte limit.")
@@ -294,12 +302,8 @@ def capture(parent_path, leaf, media_path):
                 database.stdin.write(b"finish\n")
                 database.stdin.flush()
                 ensure(database.wait(timeout=5) == 0, "The source snapshot did not finish cleanly.")
-                with read_file(backup, DUMP) as dump:
-                    ensure(dump.read(5) == b"PGDMP", "Expected a PostgreSQL custom-format dump.")
-                    dump.seek(0)
-                    length, digest = copy_checked(dump)
                 document = {"format": "fsusblog-offline-backup-candidate-v1",
-                            "databaseDump": {"bytes": length, "sha256": digest}, "site": site}
+                            "databaseDump": measure_dump(backup), "site": site}
                 encoded = json.dumps(document, sort_keys=True, separators=(",", ":")).encode() + b"\n"
                 with new_file(backup, MANIFEST) as manifest:
                     manifest.write(encoded)
@@ -349,11 +353,7 @@ def verify(path, expected):
         files = validate_site(document["site"])
         ensure(type(document["databaseDump"]["bytes"]) is int and 5 < document["databaseDump"]["bytes"] <= MAX_MEDIA_BYTES
                and is_hash(document["databaseDump"]["sha256"]), "Invalid backup dump measurement.")
-        with read_file(backup, DUMP) as dump:
-            ensure(dump.read(5) == b"PGDMP", "Expected a PostgreSQL custom-format dump.")
-            dump.seek(0)
-            count, digest = copy_checked(dump)
-        ensure(document["databaseDump"] == {"bytes": count, "sha256": digest}, "Backup database dump digest differs.")
+        ensure(document["databaseDump"] == measure_dump(backup), "Backup database dump digest differs.")
         with directory_child(backup, MEDIA) as media:
             check_media(media, files)
     return document["site"]
