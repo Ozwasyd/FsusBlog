@@ -1,12 +1,3 @@
-using System.Globalization;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Core.Communication;
-using FsusBlog.V2.Server.Communication;
-using FsusBlog.V2.Server.Operations;
-using FsusBlog.V2.Server.Security;
-using FsusBlogV2.Storage;
-
 namespace FsusBlog.V2.Server.Administration;
 
 internal static class AdminInboxEndpoints

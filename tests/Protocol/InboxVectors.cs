@@ -1,6 +1,3 @@
-using System.Buffers.Binary;
-using FsusBlog.V2.Contracts;
-
 internal static class InboxVectors
 {
     public static void Run(string fixtures)

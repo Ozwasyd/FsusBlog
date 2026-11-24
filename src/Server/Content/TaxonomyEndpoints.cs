@@ -1,7 +1,3 @@
-using System.Globalization;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal static class TaxonomyEndpoints

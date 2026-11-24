@@ -1,6 +1,3 @@
-using System.Buffers.Binary;
-using static FsusBlog.V2.Contracts.WireLayouts;
-
 namespace FsusBlog.V2.Contracts;
 
 public static class SearchCorpusPatch

@@ -1,8 +1,3 @@
-using System.Globalization;
-using System.Text;
-using FsusBlogV2.Storage;
-using Npgsql;
-
 namespace FsusBlog.V2.Cli;
 
 internal static class CommentMaintenance

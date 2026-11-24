@@ -1,11 +1,3 @@
-using System.Buffers.Binary;
-using System.Security.Cryptography;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core.Authoring;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 // Called only while the matching authoring_canvas row is locked.

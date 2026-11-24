@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using Npgsql;
 
 namespace FsusBlog.V2.Server.Communication;
 

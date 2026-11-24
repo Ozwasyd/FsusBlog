@@ -1,6 +1,3 @@
-using System.Globalization;
-using System.Text;
-
 namespace FsusBlog.V2.Contracts;
 
 public sealed record PublicationTransparencyHeadV2(string Origin, long Sequence, byte[] EntrySha256, string KeyId,

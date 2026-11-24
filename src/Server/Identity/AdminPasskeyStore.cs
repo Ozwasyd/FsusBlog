@@ -1,12 +1,3 @@
-using System.Security.Cryptography;
-using Fido2NetLib;
-using Fido2NetLib.Objects;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server.Operations;
-using FsusBlog.V2.Server.Passkeys;
-using FsusBlogV2.Storage;
-using Npgsql;
-using NpgsqlTypes;
 using static FsusBlog.V2.Server.SqlCommands;
 
 namespace FsusBlog.V2.Server.Administration;

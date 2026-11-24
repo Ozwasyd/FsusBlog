@@ -1,7 +1,4 @@
 using System.Runtime.Versioning;
-using System.Security.Cryptography;
-using FsusBlog.V2.Core.Extensions;
-using FsusBlog.V2.Platform.Extensions;
 using static FsusBlog.V2.Tests.SignedExtensionFixture;
 
 namespace FsusBlog.V2.Platform.Tests;

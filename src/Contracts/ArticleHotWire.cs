@@ -1,7 +1,4 @@
-using System.Text;
-
 using static System.Buffers.Binary.BinaryPrimitives;
-using static FsusBlog.V2.Contracts.WireLayouts;
 
 namespace FsusBlog.V2.Contracts;
 

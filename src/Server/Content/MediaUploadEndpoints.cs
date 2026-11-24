@@ -1,12 +1,3 @@
-using System.Globalization;
-using System.Security.Cryptography;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Operations;
-using FsusBlog.V2.Server.Sessions;
-using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.RateLimiting;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal static class MediaUploadEndpoints

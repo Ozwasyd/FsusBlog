@@ -1,12 +1,4 @@
-using System.Security.Cryptography;
-using System.Text;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Authentication;
-using FsusBlog.V2.Server.Operations;
-using FsusBlog.V2.Server.Sessions;
-using Microsoft.AspNetCore.WebUtilities;
-using Npgsql;
 using static FsusBlog.V2.Server.SqlCommands;
 
 namespace FsusBlog.V2.Server.Passkeys;

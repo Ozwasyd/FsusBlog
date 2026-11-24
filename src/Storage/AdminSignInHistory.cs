@@ -1,5 +1,4 @@
 using FsusBlog.V2.Contracts;
-using Npgsql;
 using NpgsqlTypes;
 
 namespace FsusBlogV2.Storage;

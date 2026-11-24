@@ -4,5 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Contracts/FsusBlog.V2.Contracts.csproj" />
+    <Using Include="System.Buffers.Binary" />
+    <Using Include="FsusBlog.V2.Contracts" />
   </ItemGroup>
 </Project>

@@ -1,8 +1,3 @@
-using System.Collections.Immutable;
-using System.Text.Json;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Core.Authoring;
-
 public sealed class CanvasHistoryPatchTests
 {
     private static readonly CanvasGeometry Geometry = new(100, 200, 16_000, 9_000);

@@ -1,5 +1,3 @@
-using System.Text;
-
 internal static partial class Cli
 {
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);

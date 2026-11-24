@@ -1,6 +1,3 @@
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-
 namespace FsusBlog.V2.Server;
 
 internal static class ClientMutationHeader

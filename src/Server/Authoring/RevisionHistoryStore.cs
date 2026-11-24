@@ -1,8 +1,3 @@
-using FsusBlogV2.Storage;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal static class RevisionHistoryStore

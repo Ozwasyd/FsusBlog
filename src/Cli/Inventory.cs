@@ -1,6 +1,3 @@
-using System.Text.Json;
-using Npgsql;
-
 internal static partial class Cli
 {
     private static async Task WriteInventoryAsync(NpgsqlConnection connection, bool countRows, CancellationToken token)

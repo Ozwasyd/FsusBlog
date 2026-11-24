@@ -1,5 +1,3 @@
-using FsusBlog.V2.Contracts;
-
 namespace FsusBlog.V2.Server.Sessions;
 
 internal static class SiteDisplayNameEndpoints

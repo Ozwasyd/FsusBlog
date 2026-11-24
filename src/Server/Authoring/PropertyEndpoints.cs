@@ -1,9 +1,3 @@
-using System.Globalization;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Core.Authoring;
-using FsusBlog.V2.Server.Sessions;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal static class PropertyEndpoints

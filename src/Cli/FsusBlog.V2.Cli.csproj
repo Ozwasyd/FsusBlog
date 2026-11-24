@@ -11,6 +11,17 @@
     <PackageReference Include="Jint" Version="[4.13.0]" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="System.Data" />
+    <Using Include="System.Globalization" />
+    <Using Include="System.Security.Cryptography" />
+    <Using Include="System.Text" />
+    <Using Include="System.Text.Json" />
+    <Using Include="FsusBlog.V2.Contracts" />
+    <Using Include="FsusBlog.V2.Core" />
+    <Using Include="FsusBlog.V2.Core.Extensions" />
+    <Using Include="FsusBlog.V2.Platform" />
+    <Using Include="FsusBlogV2.Storage" />
+    <Using Include="Npgsql" />
     <EmbeddedResource Include="Schema/*.sql" LogicalName="FsusBlog.V2.Cli.Schema.%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

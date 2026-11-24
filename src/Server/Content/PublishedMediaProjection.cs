@@ -1,8 +1,3 @@
-using System.Collections.Frozen;
-using FsusBlog.V2.Contracts;
-using FsusBlogV2.Storage;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal sealed record PublishedArticleImages(long Publication, IReadOnlyList<PublishedArticleImage> Images, string? CoverDigest);

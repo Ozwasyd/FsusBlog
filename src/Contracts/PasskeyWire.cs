@@ -1,8 +1,3 @@
-using System.Buffers.Binary;
-using System.Text;
-using static FsusBlog.V2.Contracts.WireLayouts;
-using static FsusBlog.V2.Contracts.WireLimits;
-
 namespace FsusBlog.V2.Contracts;
 
 public sealed record PasskeyLoginRequest(string Token, string CredentialId, byte[] RawId, byte[] ClientData,

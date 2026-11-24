@@ -5,5 +5,13 @@
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
     <Using Include="Xunit" />
+    <Using Include="System.Collections.Immutable" />
+    <Using Include="System.IO.Compression" />
+    <Using Include="System.Security.Cryptography" />
+    <Using Include="System.Text" />
+    <Using Include="System.Text.Json" />
+    <Using Include="FsusBlog.V2.Core" />
+    <Using Include="FsusBlog.V2.Core.Authoring" />
+    <Using Include="FsusBlog.V2.Core.Extensions" />
   </ItemGroup>
 </Project>

@@ -1,14 +1,3 @@
-using System.Globalization;
-using System.Net;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Administration;
-using FsusBlog.V2.Server.Authoring;
-using FsusBlog.V2.Server.Operations;
-using FsusBlog.V2.Server.Sessions;
-using Microsoft.AspNetCore.Http.Features;
-using Npgsql;
-
 namespace FsusBlog.V2.Server;
 
 internal static class ServerHttp

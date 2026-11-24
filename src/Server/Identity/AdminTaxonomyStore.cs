@@ -1,8 +1,3 @@
-using System.Globalization;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlogV2.Storage;
-
 namespace FsusBlog.V2.Server.Administration;
 
 internal sealed class AdminTaxonomyStore(AdminSessionGate gate)

@@ -1,5 +1,3 @@
-using FsusBlog.V2.Core.Authoring;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 // Projects an already validated history patch. It neither authorizes references nor writes storage.

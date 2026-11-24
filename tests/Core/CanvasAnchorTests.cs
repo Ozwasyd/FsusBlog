@@ -1,6 +1,3 @@
-using System.Text;
-using FsusBlog.V2.Core.Authoring;
-
 public sealed class CanvasAnchorTests
 {
     [Theory]

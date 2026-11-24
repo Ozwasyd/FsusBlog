@@ -1,7 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Runtime.InteropServices;
-using FsusBlog.V2.Core.Extensions;
 
 namespace FsusBlog.V2.Platform.Extensions;
 

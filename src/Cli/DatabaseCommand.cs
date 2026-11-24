@@ -1,5 +1,3 @@
-using Npgsql;
-
 internal static partial class Cli
 {
     private static NpgsqlCommand ParameterizedCommand(NpgsqlConnection db, NpgsqlTransaction tx, string text, params object[] args)

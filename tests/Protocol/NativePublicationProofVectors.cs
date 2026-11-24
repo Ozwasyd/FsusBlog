@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using FsusBlog.V2.Contracts;
 
 internal static class NativePublicationProofVectors
 {

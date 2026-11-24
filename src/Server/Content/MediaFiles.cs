@@ -1,5 +1,3 @@
-using FsusBlog.V2.Platform;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal sealed class MediaFiles(string path, string publicRoot) : IDisposable

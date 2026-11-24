@@ -1,7 +1,3 @@
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Security;
-
 namespace FsusBlog.V2.Server.Passkeys;
 
 internal static class ReaderRegistrationEndpoints

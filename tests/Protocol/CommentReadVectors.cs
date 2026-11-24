@@ -1,5 +1,3 @@
-using FsusBlog.V2.Contracts;
-
 internal static class CommentReadVectors
 {
     internal static void Run(string fixtures)

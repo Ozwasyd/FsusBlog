@@ -1,6 +1,3 @@
-using System.Buffers.Binary;
-using FsusBlog.V2.Contracts;
-
 internal static class ArticleHotVectors
 {
     internal static void Run(string directory)

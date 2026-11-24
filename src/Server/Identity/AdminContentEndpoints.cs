@@ -1,9 +1,3 @@
-using System.Globalization;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Core.Extensions;
-using FsusBlog.V2.Server.Content;
-using FsusBlog.V2.Server.Security;
 using static FsusBlog.V2.Server.Administration.AdminActionRoutes;
 
 namespace FsusBlog.V2.Server.Administration;

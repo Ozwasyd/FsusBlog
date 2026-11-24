@@ -1,5 +1,3 @@
-using FsusBlog.V2.Contracts;
-
 namespace FsusBlog.V2.Server;
 
 internal sealed class PublicListProjection

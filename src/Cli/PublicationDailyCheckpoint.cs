@@ -1,6 +1,3 @@
-using FsusBlog.V2.Contracts;
-using Npgsql;
-
 internal static partial class Cli
 {
     private static async Task<List<PublicationCheckpointEntry>> ReadDailyCheckpointEntries(NpgsqlConnection db,

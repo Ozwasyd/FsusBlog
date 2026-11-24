@@ -1,5 +1,3 @@
-using System.Net;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal sealed class PublicMediaAddressRate(TimeProvider clock)

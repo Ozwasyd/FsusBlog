@@ -1,5 +1,3 @@
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 // A read result, not a transferable authorization token: the caller retains this transaction's lock.

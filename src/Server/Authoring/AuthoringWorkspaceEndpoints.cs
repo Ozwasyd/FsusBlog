@@ -1,9 +1,3 @@
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Sessions;
-using FsusBlogV2.Storage;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal static class AuthoringWorkspaceEndpoints

@@ -1,11 +1,3 @@
-using System.Data;
-using System.Text.Json;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Platform;
-using FsusBlogV2.Storage;
-using Npgsql;
-
 internal static partial class Cli
 {
     private const int PublicationMediaObjectLimit = 20 * 1024 * 1024;

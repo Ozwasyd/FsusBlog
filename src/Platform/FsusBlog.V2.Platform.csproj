@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="../Core/FsusBlog.V2.Core.csproj" />
+    <Using Include="System.Runtime.InteropServices" />
+    <Using Include="System.Security.Cryptography" />
+    <Using Include="System.Text.Json" />
+    <Using Include="Microsoft.Win32.SafeHandles" />
+    <Using Include="FsusBlog.V2.Core.Extensions" />
   </ItemGroup>
 </Project>

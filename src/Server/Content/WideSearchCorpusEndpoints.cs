@@ -1,7 +1,3 @@
-using System.Globalization;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Operations;
 using Microsoft.Net.Http.Headers;
 
 namespace FsusBlog.V2.Server.Content;

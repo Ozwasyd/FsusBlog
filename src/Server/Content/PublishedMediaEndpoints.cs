@@ -1,10 +1,3 @@
-using System.Net;
-using System.Threading.RateLimiting;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Sessions;
-using Microsoft.AspNetCore.RateLimiting;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal static class PublishedMediaEndpoints

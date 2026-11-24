@@ -1,6 +1,3 @@
-using FsusBlogV2.Storage;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal static class PublicationCanonicalStore

@@ -1,7 +1,3 @@
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Operations;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal sealed class AuthorTextRebuildWorker(NpgsqlDataSource source, InstanceLease lease, ILogger<AuthorTextRebuildWorker> log)

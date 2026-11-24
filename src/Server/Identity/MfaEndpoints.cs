@@ -1,8 +1,3 @@
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Sessions;
-using Microsoft.AspNetCore.Http.Features;
-
 namespace FsusBlog.V2.Server.Passkeys;
 
 internal static class MfaEndpoints

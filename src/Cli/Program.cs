@@ -1,13 +1,5 @@
-using System.Data;
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using FsusBlog.V2.Cli;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlogV2.Storage;
-using Npgsql;
 
 return await (PlatformPluginCommand.IsWorker(args) ? PlatformPluginCommand.Worker() : Cli.RunAsync(args));
 

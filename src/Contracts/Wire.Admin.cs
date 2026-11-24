@@ -1,6 +1,3 @@
-using System.Globalization;
-using static FsusBlog.V2.Contracts.WireLimits;
-
 namespace FsusBlog.V2.Contracts;
 
 public sealed record AdminAppearancePackage(string Id, string Version, string Digest, bool Font);

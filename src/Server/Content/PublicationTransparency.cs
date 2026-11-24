@@ -1,6 +1,3 @@
-using FsusBlog.V2.Contracts;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal readonly record struct PublicationTransparency(long Sequence, byte[] Hash)

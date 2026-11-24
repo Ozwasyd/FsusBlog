@@ -1,5 +1,3 @@
-using FsusBlog.V2.Contracts;
-
 internal static class ProtocolRejection
 {
     internal static void Assert(Action action, string acceptedMessage)

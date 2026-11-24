@@ -1,9 +1,3 @@
-using FsusBlogV2.Storage;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Core.Extensions;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Content;
 
 internal sealed record AppearanceActivation(long Revision, AppearanceSelection Selected);

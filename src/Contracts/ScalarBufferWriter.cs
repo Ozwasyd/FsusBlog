@@ -1,6 +1,3 @@
-using System.Buffers;
-using System.Buffers.Binary;
-
 namespace FsusBlog.V2.Contracts;
 
 internal abstract class ScalarBufferWriter<TSelf> where TSelf : ScalarBufferWriter<TSelf>

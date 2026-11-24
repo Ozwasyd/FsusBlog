@@ -1,5 +1,3 @@
-using Npgsql;
-
 namespace FsusBlogV2.Storage;
 
 internal readonly record struct CatalogColumnInfo(bool NotNull, string TypeName);

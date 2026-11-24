@@ -1,5 +1,3 @@
-using FsusBlog.V2.Core;
-
 public sealed class PublishingTests
 {
     private static readonly Identity Owner = new(Guid.NewGuid(), "author", 1, true, DateTimeOffset.MaxValue);

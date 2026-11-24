@@ -1,5 +1,3 @@
-using Npgsql;
-
 namespace FsusBlogV2.Storage;
 
 internal enum ExportImageScope { Html, Portable, All }

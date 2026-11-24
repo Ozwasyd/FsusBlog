@@ -1,18 +1,3 @@
-using System.Buffers.Binary;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using Fido2NetLib;
-using Fido2NetLib.Objects;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Server.Administration;
-using FsusBlog.V2.Server.Operations;
-using FsusBlog.V2.Server.Sessions;
-using FsusBlogV2.Storage;
-using Microsoft.AspNetCore.WebUtilities;
-using Npgsql;
-using NpgsqlTypes;
 using static FsusBlog.V2.Server.SqlCommands;
 
 namespace FsusBlog.V2.Server.Passkeys;

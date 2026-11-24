@@ -1,5 +1,3 @@
-using static FsusBlog.V2.Contracts.WireLimits;
-
 namespace FsusBlog.V2.Contracts;
 
 public readonly record struct CanvasViewport(int X, int Y, int Zoom)

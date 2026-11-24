@@ -1,7 +1,3 @@
-using System.Diagnostics;
-using FsusBlog.V2.Core.Extensions;
-using FsusBlog.V2.Platform.Extensions;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal sealed class MacPdfRuntime(PdfExportToolchain toolchain)

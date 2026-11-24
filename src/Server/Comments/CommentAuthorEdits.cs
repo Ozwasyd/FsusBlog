@@ -1,8 +1,3 @@
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlogV2.Storage;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Comments;
 
 internal static class CommentAuthorEdits

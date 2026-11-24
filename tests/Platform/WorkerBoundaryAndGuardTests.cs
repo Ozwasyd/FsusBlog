@@ -1,8 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using FsusBlog.V2.Core.Extensions;
 using FsusBlog.V2.Core.Tests;
-using FsusBlog.V2.Platform.Extensions;
 
 namespace FsusBlog.V2.Platform.Tests;
 

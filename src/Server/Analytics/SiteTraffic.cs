@@ -1,8 +1,3 @@
-using System.Globalization;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Server.Operations;
-using Npgsql;
-
 namespace FsusBlog.V2.Server.Analytics;
 
 // Counts requests, not people. Only day/region totals enter memory or PostgreSQL.

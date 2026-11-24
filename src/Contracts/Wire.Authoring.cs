@@ -1,8 +1,3 @@
-using System.Buffers.Binary;
-using System.Globalization;
-using System.Text;
-using static FsusBlog.V2.Contracts.WireLimits;
-
 namespace FsusBlog.V2.Contracts;
 
 public sealed record BodyEdit(int Offset, int RemovedLength, string Insert);

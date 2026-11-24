@@ -1,8 +1,3 @@
-using System.Text.Json;
-using FsusBlog.V2.Core;
-using FsusBlogV2.Storage;
-using Npgsql;
-
 internal static partial class Cli
 {
     private static async Task NotifyAsync(NpgsqlConnection connection, string recipient, string eventId, Stream input, CancellationToken ct)

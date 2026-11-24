@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using FsusBlog.V2.Core.Extensions;
 using static FsusBlog.V2.Tests.SignedExtensionFixture;
 
 public sealed class ExtensionAuthorityTests

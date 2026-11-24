@@ -1,8 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Text;
-using FsusBlog.V2.Core.Extensions;
 using FsusBlog.V2.Platform.Extensions;
 
 namespace FsusBlog.V2.Cli;

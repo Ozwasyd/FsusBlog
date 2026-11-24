@@ -1,7 +1,6 @@
 using System.Security.Cryptography;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Communication;
-using Npgsql;
 
 namespace FsusBlogV2.Storage;
 

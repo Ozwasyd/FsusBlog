@@ -1,6 +1,3 @@
-using System.Collections.Immutable;
-using FsusBlog.V2.Core.Authoring;
-
 public sealed class PropertySchemaTests
 {
     private static readonly Guid Actor = Guid.Parse("e3726967-184d-4714-86e0-cbf84ef45a19");

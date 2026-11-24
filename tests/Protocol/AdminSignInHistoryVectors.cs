@@ -1,5 +1,3 @@
-using FsusBlog.V2.Contracts;
-
 internal static class AdminSignInHistoryVectors
 {
     private const long Hours2 = 7_200_000;

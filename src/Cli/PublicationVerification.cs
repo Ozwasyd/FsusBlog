@@ -1,6 +1,3 @@
-using FsusBlogV2.Storage;
-using Npgsql;
-
 internal static partial class Cli
 {
     private static async Task VerifyPublicationsAsync(NpgsqlConnection connection, CancellationToken token)

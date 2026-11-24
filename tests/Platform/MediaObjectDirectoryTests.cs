@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-
 namespace FsusBlog.V2.Platform.Tests;
 
 public sealed class MediaObjectDirectoryTests

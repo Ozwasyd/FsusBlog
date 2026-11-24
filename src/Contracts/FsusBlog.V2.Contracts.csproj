@@ -7,5 +7,12 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="search-lexicon.json" LogicalName="SearchLexicon" />
+    <Using Include="System.Buffers" />
+    <Using Include="System.Buffers.Binary" />
+    <Using Include="System.Globalization" />
+    <Using Include="System.Security.Cryptography" />
+    <Using Include="System.Text" />
+    <Using Include="FsusBlog.V2.Contracts.WireLayouts" Static="true" />
+    <Using Include="FsusBlog.V2.Contracts.WireLimits" Static="true" />
   </ItemGroup>
 </Project>

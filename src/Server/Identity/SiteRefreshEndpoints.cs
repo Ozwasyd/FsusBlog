@@ -1,7 +1,3 @@
-using System.Globalization;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-
 namespace FsusBlog.V2.Server.Passkeys;
 
 internal sealed class SiteRefreshEndpoints(SiteRefreshStore store, string accessCookie, bool secure, Action<HttpContext> requireHost,

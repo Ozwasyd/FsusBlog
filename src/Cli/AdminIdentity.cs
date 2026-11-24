@@ -1,7 +1,3 @@
-using System.Security.Cryptography;
-using FsusBlogV2.Storage;
-using Npgsql;
-
 internal static partial class Cli
 {
     private static async Task AdminIdentityAsync(NpgsqlConnection connection, string[] arguments, CancellationToken ct)

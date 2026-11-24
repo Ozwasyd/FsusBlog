@@ -1,6 +1,4 @@
 using System.Data;
-using FsusBlog.V2.Contracts;
-using Npgsql;
 
 namespace FsusBlog.V2.Server.Comments;
 

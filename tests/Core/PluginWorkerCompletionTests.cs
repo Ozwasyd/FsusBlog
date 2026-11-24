@@ -1,5 +1,3 @@
-using FsusBlog.V2.Core.Extensions;
-
 namespace FsusBlog.V2.Core.Tests;
 
 public sealed class PluginWorkerCompletionTests

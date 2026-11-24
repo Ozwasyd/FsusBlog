@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace FsusBlog.V2.Server.Authoring;
 
 internal static class ArticleInventorySql

@@ -1,9 +1,3 @@
-using System.Data;
-using System.Globalization;
-using System.Text.Json;
-using FsusBlogV2.Storage;
-using Npgsql;
-
 internal static partial class Cli
 {
     private static async Task RecordArticleResponsibilityAsync(NpgsqlConnection connection, string articleId,

@@ -1,10 +1,3 @@
-using System.Net;
-using System.Text;
-using System.Threading.RateLimiting;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using Microsoft.AspNetCore.RateLimiting;
-
 namespace FsusBlog.V2.Server.Analytics;
 
 internal static class ArticleReadEndpoints

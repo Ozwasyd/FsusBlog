@@ -1,5 +1,3 @@
-using FsusBlog.V2.Contracts;
-
 string fixtures = args.Length == 1 ? args[0] : throw new ArgumentException("Supply the fixture directory");
 byte[] Fixture(string name) => VectorFixture.Hex(fixtures, name);
 

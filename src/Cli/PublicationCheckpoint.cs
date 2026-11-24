@@ -1,12 +1,4 @@
 using System.Buffers.Text;
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Text.Json;
-using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
-using FsusBlog.V2.Platform;
-using FsusBlogV2.Storage;
-using Npgsql;
 
 internal static partial class Cli
 {
