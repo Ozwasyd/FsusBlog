@@ -23,7 +23,7 @@ internal sealed class AdminModerationStore(AdminSessionGate gate, AdminStepUpSer
     {
         var version = await LockPendingComment(db, tx, target.ArticleId, target.CommentId, ct);
         var token = AdminSql.Token();
-        await using var cmd = Store.Sql(db, tx, """
+        return await SqlCommands.QueryRequired(db, tx, ct, """
             insert into public.admin_comment_claim as claim
                 (article_id,comment_id,principal_id,session_digest,admin_generation,claim_digest,
                  claim_generation,claim_version,claimed_comment_version,expires_at,state)
@@ -43,27 +43,24 @@ internal sealed class AdminModerationStore(AdminSessionGate gate, AdminStepUpSer
                         and exists (select from public.admin_passkey_credential where principal_id=p.id)
                 )
             returning claim_generation,claim_version,expires_at
-            """, target.ArticleId, target.CommentId, admin.Id, admin.Digest, admin.Snapshot.Generation,
+            """, r => new AdminModerationClaim(target.ArticleId, target.CommentId, version, token,
+                r.GetInt64(0), r.GetInt64(1), r.GetUnixMilliseconds(2)),
+            () => new BusinessException(Rejection.Conflict, "The pending comment is already claimed."),
+            target.ArticleId, target.CommentId, admin.Id, admin.Digest, admin.Snapshot.Generation,
             ClaimDigest(token), version, ClaimActive);
-        await using var row = await cmd.ExecuteReaderAsync(ct);
-        await row.ReadRequired(ct, () => new BusinessException(Rejection.Conflict, "The pending comment is already claimed."));
-        return new AdminModerationClaim(target.ArticleId, target.CommentId, version, token, row.GetInt64(0),
-            row.GetInt64(1), row.GetUnixMilliseconds(2));
     }
 
     internal Task<AdminModerationClaim> RenewCommentClaim(string? session, AdminModerationClaim claim, CancellationToken ct) =>
         gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             await CheckClaim(db, tx, admin, Receipt(claim), ct);
-            await using var cmd = Store.Sql(db, tx, """
+            return await SqlCommands.QueryRequired(db, tx, ct, """
                 update public.admin_comment_claim set claim_version=claim_version+1,
                     expires_at=clock_timestamp()+interval '2 minutes'
                 where article_id=$1 and comment_id=$2 and expires_at>clock_timestamp()
                 returning claim_version, expires_at
-                """, claim.ArticleId, claim.CommentId);
-            await using var row = await cmd.ExecuteReaderAsync(ct);
-            await row.ReadRequired(ct, ModerationChanged);
-            return claim with { ClaimVersion = row.GetInt64(0), ExpiresAt = row.GetUnixMilliseconds(1) };
+                """, r => claim with { ClaimVersion = r.GetInt64(0), ExpiresAt = r.GetUnixMilliseconds(1) },
+                ModerationChanged, claim.ArticleId, claim.CommentId);
         }, ct);
 
     internal Task ReleaseCommentClaim(string? session, AdminModerationClaim claim, CancellationToken ct) =>
@@ -160,4 +157,4 @@ internal sealed class AdminModerationStore(AdminSessionGate gate, AdminStepUpSer
         new(Rejection.Conflict, "The pending comment or claim changed.");
 }
 
-internal sealed class ModerationProofRequiredException : Exception;
+internal sealed class ModerationProofRequiredException : ProofRequiredException;

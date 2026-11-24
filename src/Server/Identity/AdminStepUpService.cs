@@ -71,20 +71,16 @@ internal sealed class AdminStepUpService(AdminSessionGate gate, AdminPasskeyStor
         var challenge = await gate.WithLiveAdmin(session, async (db, tx, admin) =>
         {
             if (requireSchema is not null) await requireSchema(db, tx, ct);
-            await using var consume = Store.Sql(db, tx, $"""
+            return await SqlCommands.QueryRequired(db, tx, ct, $"""
                 delete from {StepUpTable(action)}
                 where digest=$1 and principal_id=$2 and session_digest=$3 and generation=$4 and kind=$5 and action=$6
                   and expires_at>clock_timestamp()
                 returning options,body_digest
-                """, AdminSql.ChallengeDigest(request.Token, null), admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpChallenge, (int)action);
-            await using var row = await consume.ExecuteReaderAsync(ct);
-            if (!await row.ReadAsync(ct))
-            {
-                if (articleTransition)
-                    throw new BusinessException(Rejection.Forbidden, $"The {transition} challenge expired or does not match this session.");
-                throw AdminSessionGate.Denied();
-            }
-            return (Options: row.GetString(0), Digest: row.GetFieldValue<byte[]>(1));
+                """, r => (Options: r.GetString(0), Digest: r.GetFieldValue<byte[]>(1)),
+                () => articleTransition
+                    ? new BusinessException(Rejection.Forbidden, $"The {transition} challenge expired or does not match this session.")
+                    : AdminSessionGate.Denied(),
+                AdminSql.ChallengeDigest(request.Token, null), admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpChallenge, (int)action);
         }, ct);
         try
         {

@@ -172,27 +172,14 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
         {
             var permissionSession = AdminSessionGate.PermissionBinding(admin.Digest);
             await Store.LockCommand(db, tx, admin.Id, normalized.IdempotencyKey, ct);
-            await using (var replay = Store.Sql(db, tx, """
+            if (await SqlCommands.QueryOne(db, tx, ct, """
                 select fingerprint, user_id, next_enabled, next_generation, revoked_session_count, happened_at
-                from public.admin_reader_governance_audit
-                where principal_id = $1 and command_id = $2
-                """, admin.Id, normalized.IdempotencyKey))
-            await using (var existing = await replay.ExecuteReaderAsync(ct))
-            {
-                if (await existing.ReadAsync(ct))
-                {
-                    if (!CryptographicOperations.FixedTimeEquals(fingerprint, existing.GetFieldValue<byte[]>(0)))
-                        throw new BusinessException(Rejection.Conflict, "This administrator command key is already in use.");
-                    var replayed = new AdminReaderStatusReceipt(
-                        existing.GetGuid(1),
-                        existing.GetBoolean(2),
-                        existing.GetInt64(3),
-                        existing.GetInt32(4),
-                        existing.GetUnixMilliseconds(5),
-                        Replayed: true);
-                    return (replayed, permissionSession);
-                }
-            }
+                from public.admin_reader_governance_audit where principal_id = $1 and command_id = $2
+                """, r => CryptographicOperations.FixedTimeEquals(fingerprint, r.GetFieldValue<byte[]>(0))
+                    ? new AdminReaderStatusReceipt(r.GetGuid(1), r.GetBoolean(2), r.GetInt64(3), r.GetInt32(4), r.GetUnixMilliseconds(5), Replayed: true)
+                    : throw new BusinessException(Rejection.Conflict, "This administrator command key is already in use."),
+                admin.Id, normalized.IdempotencyKey) is { } replayed)
+                return (replayed, permissionSession);
 
             if (!await stepUp.ConsumeProofAsync(db, tx, admin, proof, fingerprint, ct, AdminStepUpAction.ChangeReaderStatus))
                 throw new ReaderGovernanceProofRequiredException();
@@ -237,45 +224,29 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
                 await SqlCommands.Execute(db, tx, ct, "delete from public.passkey_challenge where user_id = $1", normalized.UserId);
             }
 
-            DateTimeOffset happenedAt;
-            await using (var audit = Store.Sql(db, tx, """
+            var happenedAt = await SqlCommands.QueryRequired(db, tx, ct, """
                 insert into public.admin_reader_governance_audit
                     (user_id, principal_id, command_id, fingerprint, previous_enabled, next_enabled,
                      previous_generation, next_generation, revoked_session_count, reason)
                 values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 returning happened_at
-                """,
+                """, r => r.GetFieldValue<DateTimeOffset>(0),
+                () => new InvalidOperationException("Failed to record reader governance audit."),
                 normalized.UserId, admin.Id, normalized.IdempotencyKey, fingerprint,
-                previousEnabled, normalized.TargetEnabled,
-                normalized.ExpectedGeneration, nextGeneration,
-                revokedSessions, normalized.Reason))
-            await using (var row = await audit.ExecuteReaderAsync(ct))
-            {
-                await row.ReadRequired(ct, () => new InvalidOperationException("Failed to record reader governance audit."));
-                happenedAt = row.GetFieldValue<DateTimeOffset>(0);
-            }
+                previousEnabled, normalized.TargetEnabled, normalized.ExpectedGeneration, nextGeneration,
+                revokedSessions, normalized.Reason);
 
-            var receipt = new AdminReaderStatusReceipt(
-                normalized.UserId,
-                normalized.TargetEnabled,
-                nextGeneration,
-                revokedSessions,
-                happenedAt.ToUnixTimeMilliseconds(),
-                Replayed: false);
-            return (receipt, permissionSession);
+            return (new AdminReaderStatusReceipt(normalized.UserId, normalized.TargetEnabled, nextGeneration,
+                revokedSessions, happenedAt.ToUnixTimeMilliseconds(), Replayed: false), permissionSession);
         }, ct);
     }
 
     private static async Task<bool> CheckTarget(NpgsqlConnection db, NpgsqlTransaction tx,
         AdminReaderStatusCommand command, bool forUpdate, CancellationToken ct)
     {
-        var suffix = forUpdate ? " for update" : "";
-        await using var query = Store.Sql(db, tx,
-            $"select enabled, generation from public.blog_user where id = $1{suffix}", command.UserId);
-        await using var row = await query.ExecuteReaderAsync(ct);
-        await row.ReadRequired(ct, TargetNotFound);
-        var enabled = row.GetBoolean(0);
-        var generation = row.GetInt64(1);
+        var (enabled, generation) = await SqlCommands.QueryRequired(db, tx, ct,
+            $"select enabled, generation from public.blog_user where id = $1{(forUpdate ? " for update" : "")}",
+            r => (r.GetBoolean(0), r.GetInt64(1)), TargetNotFound, command.UserId);
         if (generation != command.ExpectedGeneration || enabled == command.TargetEnabled)
             throw new BusinessException(Rejection.Conflict, "The reader account state changed. Reload the reader list.");
         return enabled;
@@ -360,4 +331,4 @@ internal sealed class AdminReaderGovernanceStore(AdminSessionGate gate, AdminSte
         Guid AfterUserId);
 }
 
-internal sealed class ReaderGovernanceProofRequiredException : Exception;
+internal sealed class ReaderGovernanceProofRequiredException : ProofRequiredException;

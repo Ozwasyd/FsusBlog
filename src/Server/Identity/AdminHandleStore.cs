@@ -7,7 +7,7 @@ using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
 
-internal sealed class AdminHandleProofRequiredException : Exception;
+internal sealed class AdminHandleProofRequiredException : ProofRequiredException;
 
 internal sealed partial class AdminHandleStore(AdminSessionGate gate, AdminStepUpService stepUp)
 {
@@ -35,24 +35,14 @@ internal sealed partial class AdminHandleStore(AdminSessionGate gate, AdminStepU
         {
             var permissionSession = AdminSessionGate.PermissionBinding(admin.Digest);
             await Store.LockCommand(db, tx, admin.Id, normalized.IdempotencyKey, ct);
-            await using (var replay = Store.Sql(db, tx, """
-                select fingerprint, next_handle, happened_at
-                from public.admin_handle_rename_audit
+            if (await SqlCommands.QueryOne(db, tx, ct, """
+                select fingerprint, next_handle, happened_at from public.admin_handle_rename_audit
                 where principal_id = $1 and command_id = $2
-                """, admin.Id, normalized.IdempotencyKey))
-            await using (var existing = await replay.ExecuteReaderAsync(ct))
-            {
-                if (await existing.ReadAsync(ct))
-                {
-                    if (!CryptographicOperations.FixedTimeEquals(fingerprint, existing.GetFieldValue<byte[]>(0)))
-                        throw new BusinessException(Rejection.Conflict, "This administrator command key is already in use.");
-                    var replayed = new AdminHandleReceipt(
-                        existing.GetString(1),
-                        existing.GetUnixMilliseconds(2),
-                        Replayed: true);
-                    return (replayed, permissionSession);
-                }
-            }
+                """, existing => CryptographicOperations.FixedTimeEquals(fingerprint, existing.GetFieldValue<byte[]>(0))
+                    ? new AdminHandleReceipt(existing.GetString(1), existing.GetUnixMilliseconds(2), Replayed: true)
+                    : throw new BusinessException(Rejection.Conflict, "This administrator command key is already in use."),
+                admin.Id, normalized.IdempotencyKey) is { } replayed)
+                return (replayed, permissionSession);
 
             if (!await stepUp.ConsumeProofAsync(db, tx, admin, proof, fingerprint, ct, AdminStepUpAction.RenameAdminHandle))
                 throw new AdminHandleProofRequiredException();
@@ -73,18 +63,14 @@ internal sealed partial class AdminHandleStore(AdminSessionGate gate, AdminStepU
                 throw new BusinessException(Rejection.Conflict, "This administrator handle is already in use.");
             }
 
-            DateTimeOffset happenedAt;
-            await using (var audit = Store.Sql(db, tx, """
+            var happenedAt = await SqlCommands.QueryRequired(db, tx, ct, """
                 insert into public.admin_handle_rename_audit
                     (principal_id, command_id, fingerprint, previous_handle, next_handle)
                 values ($1, $2, $3, $4, $5)
                 returning happened_at
-                """, admin.Id, normalized.IdempotencyKey, fingerprint, previousHandle, normalized.NewHandle))
-            await using (var row = await audit.ExecuteReaderAsync(ct))
-            {
-                await row.ReadRequired(ct, () => new InvalidOperationException("Failed to record administrator handle rename audit."));
-                happenedAt = row.GetFieldValue<DateTimeOffset>(0);
-            }
+                """, r => r.GetFieldValue<DateTimeOffset>(0),
+                () => new InvalidOperationException("Failed to record administrator handle rename audit."),
+                admin.Id, normalized.IdempotencyKey, fingerprint, previousHandle, normalized.NewHandle);
 
             await SqlCommands.Execute(db, tx, ct, """
                 insert into public.admin_identity_audit (principal_id, action, happened_at, actor)

@@ -1,8 +1,11 @@
 using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Security;
 
 namespace FsusBlog.V2.Server.Administration;
+
+internal abstract class ProofRequiredException : Exception;
 
 internal sealed class AdminActionRoutes(WebApplication app, string authority, string session, string passkeyLimit,
     Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
@@ -38,10 +41,7 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
     internal RouteHandlerBuilder Post(string route, int maximum,
         Func<string?, byte[], CancellationToken, Task<byte[]>> apply) =>
         App.MapPost(route, async (HttpContext ctx, CancellationToken ct) =>
-        {
-            var frame = await Read(ctx, maximum, ct);
-            return Frame(await apply(Session(ctx), frame, ct));
-        });
+            Frame(await apply(Session(ctx), await Read(ctx, maximum, ct), ct)));
 
     internal void Begin<T>(string route, Func<HttpContext, CancellationToken, Task<T>> readIntent,
         Func<string?, T, CancellationToken, Task<byte[]>> begin) =>
@@ -55,6 +55,58 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
             var assertion = PasskeyWire.ReadLogin(await Read(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
             return Frame(await apply(Session(ctx), assertion, ct));
         }).RequireRateLimiting(PasskeyLimit);
+
+    internal void Execute(string route, Func<HttpContext, CancellationToken, Task<IResult>> run, bool noStore = false) =>
+        App.MapCommandPost(route, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            if (noStore) ctx.Response.Headers.CacheControl = "no-store";
+            try { return await run(ctx, ct); }
+            catch (ProofRequiredException) { return ProofRequired(ctx); }
+        });
+
+    internal void StepUpWithPermission<TIntent, TReceipt>(string begin, string complete, string execute, int maximum,
+        IntentDecoder<TIntent> decode, Func<TIntent, Guid> idempotencyKey,
+        Func<string?, TIntent, CancellationToken, Task<byte[]>> beginStepUp,
+        Func<string?, PasskeyLoginRequest, CancellationToken, Task<byte[]>> completeStepUp,
+        Func<string?, string?, TIntent, CancellationToken, Task<(TReceipt Receipt, string PermissionSession)>> apply,
+        Func<TReceipt, byte[]> encode)
+    {
+        Task<TIntent> ReadCommand(HttpContext ctx, CancellationToken ct) =>
+            ReadIntent(ctx, maximum, decode, idempotencyKey, required: true, ct);
+        Begin(begin, ReadCommand, beginStepUp);
+        Complete(complete, completeStepUp);
+        Execute(execute, async (ctx, ct) =>
+        {
+            var result = await apply(Session(ctx), Proof(ctx), await ReadCommand(ctx, ct), ct);
+            ctx.Response.Headers[WireHeaders.AdminPermissionSession] = result.PermissionSession;
+            return Frame(encode(result.Receipt));
+        }, noStore: true);
+    }
+
+    internal void StepUpPow<TIntent>(string begin, string complete, string powRoute, string execute,
+        int maximum, IntentDecoder<TIntent> decode, PowScope scope,
+        Func<HttpContext, string?, TIntent, CancellationToken, Task<byte[]>> beginStepUp,
+        Func<string?, PasskeyLoginRequest, CancellationToken, Task<byte[]>> completeStepUp,
+        Func<HttpContext, string?, TIntent, byte[], ScopedPow, CancellationToken, Task<byte[]>> issuePow,
+        Func<HttpContext, string?, TIntent, byte[], string?, ScopedPow, CancellationToken, Task> apply)
+    {
+        App.MapPost(begin, async (HttpContext ctx, CancellationToken ct) =>
+            Frame(await beginStepUp(ctx, Session(ctx), decode(await Read(ctx, maximum, ct)), ct))).RequireRateLimiting(PasskeyLimit);
+        Complete(complete, completeStepUp);
+        App.MapCommandPost(powRoute, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+            ScopedPow.Protect(ctx, async () =>
+            {
+                var frame = await Read(ctx, maximum, ct);
+                return await issuePow(ctx, Session(ctx), decode(frame), frame, pow, ct);
+            }, scope));
+        App.MapCommandPost(execute, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
+            ScopedPow.Protect(ctx, async () =>
+            {
+                var frame = await Read(ctx, maximum, ct);
+                await apply(ctx, Session(ctx), decode(frame), frame, Proof(ctx), pow, ct);
+                return Wire.EncodeEmptySuccess();
+            }, scope));
+    }
 
     internal static void RequireOrigin(HttpContext ctx, string authority)
     {
