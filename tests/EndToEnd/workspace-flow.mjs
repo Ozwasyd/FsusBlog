@@ -43,8 +43,9 @@ export async function openById(page, articleId) {
 async function openWithDelayedResponse(page, origin, current, target) {
   const held = await holdResponse(page, `${origin}${routes.draft(target.id)}`, { maxRetries: 0, maxRedirects: 0 })
   const timer = new AbortController()
+  let dialog
   try {
-    await openById(page, target.id)
+    dialog = await openById(page, target.id)
     assert.equal(await Promise.race([
       held.status().catch(error => error),
       delay(10_000, 'no draft request', { signal: timer.signal }),
@@ -58,6 +59,7 @@ async function openWithDelayedResponse(page, origin, current, target) {
     held.release()
     timer.abort()
   }
+  await dialog.waitFor({ state: 'detached' })
   await expectEditor(page, origin, target)
   await exactTab(page, target.title, 'Preview').waitFor()
 }
@@ -97,7 +99,8 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   assert.equal(await exactTab(page, pinned.title, 'Unsaved').getAttribute('aria-selected'), 'true')
 
   for (const draft of [preview, replacement]) {
-    await openById(page, draft.id)
+    const dialog = await openById(page, draft.id)
+    await dialog.waitFor({ state: 'detached' })
     await expectEditor(page, origin, draft)
     await exactTab(page, draft.title, 'Preview').waitFor()
   }
@@ -109,9 +112,11 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
 
   // A failed activation leaves the prior ready document and its route intact.
   const absentId = 0x7fffffff
-  const rejected = page.waitForResponse(response => new URL(response.url()).pathname === routes.draft(absentId))
-  const attempted = await openById(page, absentId)
-  assert.equal((await rejected).status(), 404)
+  const [rejected, attempted] = await Promise.all([
+    page.waitForResponse(response => new URL(response.url()).pathname === routes.draft(absentId)),
+    openById(page, absentId),
+  ])
+  assert.equal(rejected.status(), 404)
   // Valid IDs close the launcher before activation; failures belong to the
   // still-mounted workspace, not the destroyed launcher dialog.
   await attempted.waitFor({ state: 'detached' })
@@ -171,7 +176,9 @@ export async function exerciseWorkspace({ page, origin, article, screenshot, mon
   await switchTab(primary, 'Pinned')
   assert.deepEqual(await readDraft(await page.request.get(`${origin}${routes.draft(pinned.id)}`)), pinned,
     'Tab discard must leave the persistent private draft untouched')
-  await loc.exactButton(await openWorkspaceDialog(page), `Reopen Article ${pinned.id}`).click()
+  const reopenDialog = await openWorkspaceDialog(page)
+  await loc.exactButton(reopenDialog, `Reopen Article ${pinned.id}`).click()
+  await reopenDialog.waitFor({ state: 'detached' })
   await expectEditor(page, origin, pinned)
   await exactTab(page, pinned.title, 'Pinned').waitFor()
   await switchTab(primary, 'Pinned')
