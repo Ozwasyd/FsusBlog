@@ -3,6 +3,7 @@ import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { readDraft } from './browser-authoring-fixture.mjs'
 import { readMarkdownDownload } from './markdown-export-flow.mjs'
+import { waitForPathResponse } from './response-wait-fixture.mjs'
 import * as loc from './role-locators.mjs'
 
 export async function exerciseMarkdownImport({ page, origin, bytes, title, body }) {
@@ -74,7 +75,7 @@ export async function exerciseMarkdownImport({ page, origin, bytes, title, body 
     assert.equal(await titleInput.inputValue(), title)
 
     const [response] = await Promise.all([
-      page.waitForResponse(response => isSave(response.request())),
+      waitForPathResponse(page, () => WireRoutes.Save, 'POST'),
       save.click(),
     ])
     const request = response.request().postDataBuffer()

@@ -5,6 +5,7 @@ import { canvasEditorHandoffKey } from '../../src/Web/src/authoring/canvasEditor
 import { clickForResponse } from './admin-workspace-fixture.mjs'
 import * as authoring from './browser-authoring-fixture.mjs'
 import { assertApiError, readFrame } from './response-status-fixture.mjs'
+import { retainAedsBody, waitForUrlResponse } from './response-wait-fixture.mjs'
 import { exactButton, exactHeading, exactText, roleWithExactName } from './role-locators.mjs'
 
 export async function exerciseCanvasReferences({ page, origin, createDraft, screenshot, observations }) {
@@ -68,7 +69,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
         const address = new URL(res.url())
         return res.request().method() === 'GET' && address.origin === origin && address.pathname.startsWith(referencePrefix) &&
           address.pathname.includes('/references/') && address.searchParams.has('revision') && !address.searchParams.has('current')
-      }),
+      }).then(retainAedsBody),
       exactButton(preview(), 'Resolve reference').click(),
     ])
     return { address: new URL(response.url()), resolution: await readReference(response) }
@@ -80,7 +81,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
       address.searchParams.get('current') === '1' && address.searchParams.size === 2
   }
 
-  const waitCurrentRead = witness => page.waitForResponse(res => res.request().method() === 'GET' && currentRead(witness, new URL(res.url())))
+  const waitCurrentRead = witness => page.waitForResponse(res => res.request().method() === 'GET' && currentRead(witness, new URL(res.url()))).then(retainAedsBody)
 
   async function openResolved(witness, anchor, { draft = article, editorSource = draft.body } = {}) {
     const marker = anchor === undefined ? null : draft.body.indexOf(`^${anchor}`)
@@ -93,7 +94,7 @@ export async function exerciseCanvasReferences({ page, origin, createDraft, scre
     assert.equal(witness.resolution.articleRevision, draft.revision)
     assert.equal(witness.resolution.sourceOffset, marker)
     const pending = waitCurrentRead(witness)
-    const readDraft = page.waitForResponse(response => response.request().method() === 'GET' && response.url() === draftReadPath(draft.id))
+    const readDraft = waitForUrlResponse(page, () => draftReadPath(draft.id), 'GET')
     await openAction().click()
     assert.deepEqual(await readReference(await pending), witness.resolution, 'Current-only preflight must repeat the exact resolved witness')
     await page.waitForURL(url => url.origin + url.pathname === `${origin}/admin/articles/edit/${draft.id}`)

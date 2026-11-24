@@ -1,4 +1,4 @@
-async function retainAedsBody(response) {
+export async function retainAedsBody(response) {
   // Playwright caches this original body. Read it before a caller waits for a
   // follow-up request or click, while Chromium still retains the resource.
   const type = response.headers()['content-type']?.split(';')[0].trim().toLowerCase()

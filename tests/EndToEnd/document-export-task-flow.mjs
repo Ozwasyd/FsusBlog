@@ -20,17 +20,17 @@ export async function exerciseDocumentExportTasks(page, article, revision, visib
   const download = async (panel, label, format) => {
     const entry = panel.getByRole('listitem').filter({ hasText: `${label} · Revision ${revision}` })
     await exactText(entry, 'Ready').waitFor()
-    const incoming = receipt(WireRoutes.DocumentExportDownload)
+    const incoming = receipt(WireRoutes.DocumentExportDownload).then(async response => {
+      assertStatus(response, 200)
+      assert.equal(response.headers()['cache-control'], 'private, no-store')
+      assert.equal(response.headers()['x-content-type-options'], 'nosniff')
+      return await response.body()
+    })
     const fileReady = page.waitForEvent('download')
-    await roleWithExactName(entry, 'button', 'Download export').click()
-    const response = await incoming
-    assertStatus(response, 200)
-    assert.equal(response.headers()['cache-control'], 'private, no-store')
-    assert.equal(response.headers()['x-content-type-options'], 'nosniff')
-    const file = await fileReady
+    const [expected, file] = await Promise.all([incoming, fileReady, roleWithExactName(entry, 'button', 'Download export').click()])
     assert.equal(file.suggestedFilename(), `article.${format}`)
     const bytes = await readFile(await file.path())
-    assert.deepEqual(bytes, await response.body())
+    assert.deepEqual(bytes, expected)
     return { bytes, digest: createHash('sha256').update(bytes).digest('hex') }
   }
   async function create(panel, format) {
