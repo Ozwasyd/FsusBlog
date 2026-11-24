@@ -82,22 +82,71 @@ type contract struct {
 
 func number(values map[string]json.RawMessage, name string) int {
 	var i int
-	if err := json.Unmarshal(values[name], &i); err != nil {
-		var literal string
-		if err := json.Unmarshal(values[name], &literal); err == nil {
-			i, err = strconv.Atoi(literal)
-			if err != nil {
-				value, parse := strconv.ParseInt(literal, 0, 32)
-				if parse != nil {
-					panic("invalid protocol field: " + name)
-				}
-				i = int(value)
-			}
-		} else {
-			panic("missing protocol field: " + name)
-		}
+	if err := json.Unmarshal(values[name], &i); err == nil {
+		return i
 	}
-	return i
+	var literal string
+	if err := json.Unmarshal(values[name], &literal); err != nil {
+		panic("missing protocol field: " + name)
+	}
+	value, err := strconv.ParseInt(literal, 0, 32)
+	if err != nil {
+		panic("invalid protocol field: " + name)
+	}
+	return int(value)
+}
+
+func (c contract) header(name string) int { return number(c.Header, name) }
+func (c contract) layout(name string) int { return number(c.Layouts, name) }
+func (c contract) limit(name string) int  { return number(c.Limits, name) }
+
+func sortArticlesDesc(src []article, at func(article) time.Time) []article {
+	ordered := append([]article(nil), src...)
+	sort.Slice(ordered, func(i, j int) bool {
+		ti, tj := at(ordered[i]), at(ordered[j])
+		if ti.Equal(tj) {
+			return ordered[i].ID > ordered[j].ID
+		}
+		return ti.After(tj)
+	})
+	return ordered
+}
+
+func checkMediaAndEncoding(response *http.Response, expected string) bool {
+	media, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
+	enc := response.Header.Get("Content-Encoding")
+	return err == nil && media == expected && (enc == "" || enc == "identity")
+}
+
+func readBoundedBody(r io.Reader, limit int) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(r, int64(limit)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > limit {
+		return nil, errors.New("response exceeds its byte budget")
+	}
+	return body, nil
+}
+
+func writeIndentedJSON(w io.Writer, value any) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
+}
+
+func sha256Hex(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+func readWire(path string) (contract, error) {
+	encoded, err := os.ReadFile(path)
+	if err != nil {
+		return contract{}, err
+	}
+	var wire contract
+	return wire, json.Unmarshal(encoded, &wire)
 }
 
 type expectation struct {
@@ -119,6 +168,15 @@ type workload struct {
 	protocol   string
 	tlsVersion string
 	corpus     corpusPreflight
+}
+
+func (w workload) detailExpectation(class route, id int) expectation {
+	idText := strconv.Itoa(id)
+	path := "/article/" + idText
+	if class == detailAEDS {
+		path = strings.Replace(w.wire.Routes["PublicArticle"], "{id}", idText, 1)
+	}
+	return expectation{class: class, path: path, id: id}
 }
 
 func readWorkload(fixturePath, wirePath string) (workload, error) {
@@ -154,6 +212,9 @@ func readWorkload(fixturePath, wirePath string) (workload, error) {
 		if entry.PublicationID <= 0 || publications[entry.PublicationID] || entry.PublishedAt.IsZero() {
 			return w, fmt.Errorf("invalid publication fixture %d", id)
 		}
+		if len(entry.TagIDs) != len(entry.TagNames) {
+			return w, fmt.Errorf("invalid tag fixture %d", entry.ID)
+		}
 		publications[entry.PublicationID] = true
 		w.articles = append(w.articles, entry)
 		if id <= 12000 {
@@ -163,24 +224,9 @@ func readWorkload(fixturePath, wirePath string) (workload, error) {
 	if counts[2048] != 8400 || counts[8192] != 3000 || counts[32768] != 600 {
 		return w, errors.New("fixture body sizes do not match frozen workload")
 	}
-	byTime := append([]article(nil), w.articles...)
-	sort.Slice(byTime, func(i, j int) bool {
-		if byTime[i].PublishedAt.Equal(byTime[j].PublishedAt) {
-			return byTime[i].ID > byTime[j].ID
-		}
-		return byTime[i].PublishedAt.After(byTime[j].PublishedAt)
-	})
-	for _, entry := range w.articles {
-		if len(entry.TagIDs) != len(entry.TagNames) {
-			return w, fmt.Errorf("invalid tag fixture %d", entry.ID)
-		}
-	}
-	w.fixture = fmt.Sprintf("%x", sha256.Sum256(fixture))
-	encodedWire, err := os.ReadFile(wirePath)
-	if err != nil {
-		return w, err
-	}
-	if err := json.Unmarshal(encodedWire, &w.wire); err != nil {
+	byTime := sortArticlesDesc(w.articles, func(a article) time.Time { return a.PublishedAt })
+	w.fixture = sha256Hex(fixture)
+	if w.wire, err = readWire(wirePath); err != nil {
 		return w, err
 	}
 	if w.wire.Routes["PublicList"] == "" || w.wire.Routes["PublicArticle"] == "" || w.wire.Routes["PublicSearchCorpus"] == "" ||
@@ -191,9 +237,8 @@ func readWorkload(fixturePath, wirePath string) (workload, error) {
 	w.paths[homeHTML] = []expectation{{class: homeHTML, path: "/"}}
 	w.paths[homeAEDS] = []expectation{{class: homeAEDS, path: listPath}}
 	for id := 1; id <= hotDetails; id++ {
-		p := strings.Replace(w.wire.Routes["PublicArticle"], "{id}", strconv.Itoa(id), 1)
-		w.paths[detailHTML] = append(w.paths[detailHTML], expectation{class: detailHTML, path: "/article/" + strconv.Itoa(id), id: id})
-		w.paths[detailAEDS] = append(w.paths[detailAEDS], expectation{class: detailAEDS, path: p, id: id})
+		w.paths[detailHTML] = append(w.paths[detailHTML], w.detailExpectation(detailHTML, id))
+		w.paths[detailAEDS] = append(w.paths[detailAEDS], w.detailExpectation(detailAEDS, id))
 	}
 	// The list and home encode their newest articles in the same publication order.
 	w.articles = append(w.articles, byTime[:20]...)
@@ -210,11 +255,8 @@ func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, publish
 	transport := &http.Transport{TLSClientConfig: w.tlsConfig, DisableCompression: true, DisableKeepAlives: true}
 	client := &http.Client{Transport: transport, Timeout: requestLimit,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	generationHeader := w.wire.Headers["SearchIndexGeneration"]
-	pagesHeader := w.wire.Headers["SearchIndexPages"]
-	pageBytes := number(w.wire.Limits, "SearchCorpusPageBytes")
-	totalBytes := number(w.wire.Limits, "SearchCorpusTotalBytes")
-	maxPages := number(w.wire.Limits, "SearchCorpusMaxPages")
+	generationHeader, pagesHeader := w.wire.Headers["SearchIndexGeneration"], w.wire.Headers["SearchIndexPages"]
+	pageBytes, totalBytes, maxPages := w.wire.limit("SearchCorpusPageBytes"), w.wire.limit("SearchCorpusTotalBytes"), w.wire.limit("SearchCorpusMaxPages")
 	sum := sha256.New()
 	_, _ = io.WriteString(sum, "public-generation-corpus-v1\x00")
 	searchProfile := 1
@@ -225,27 +267,25 @@ func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, publish
 	}
 	_, _ = fmt.Fprintf(sum, "public-search-bm25-v%d\x00", searchProfile)
 	appendNumber := func(value int) {
-		var number [4]byte
-		binary.LittleEndian.PutUint32(number[:], uint32(value))
-		sum.Write(number[:])
+		var buf [4]byte
+		binary.LittleEndian.PutUint32(buf[:], uint32(value))
+		sum.Write(buf[:])
 	}
 	var observed string
 	var evidence corpusPreflight
 	// These requests are outside the timed workload and do not touch the detail cache.
 	request := func(method, query string) (*http.Response, error) {
-		request, err := newLoadRequest(ctx, method, origin, w.wire.Routes["PublicSearchCorpus"]+query)
+		req, err := newLoadRequest(ctx, method, origin, w.wire.Routes["PublicSearchCorpus"]+query)
 		if err != nil {
 			return nil, err
 		}
-		request.Header.Set("Accept", "application/octet-stream")
-		request.Header.Set("Accept-Encoding", "identity")
-		return client.Do(request)
+		req.Header.Set("Accept", "application/octet-stream")
+		req.Header.Set("Accept-Encoding", "identity")
+		return client.Do(req)
 	}
 	readPage := func(response *http.Response) ([]byte, error) {
 		defer response.Body.Close()
-		media, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
-		if response.Proto != "HTTP/1.1" || response.Header.Get("Cache-Control") != "no-store" || err != nil || media != "application/octet-stream" ||
-			(response.Header.Get("Content-Encoding") != "" && response.Header.Get("Content-Encoding") != "identity") {
+		if response.Proto != "HTTP/1.1" || response.Header.Get("Cache-Control") != "no-store" || !checkMediaAndEncoding(response, "application/octet-stream") {
 			return nil, errors.New("unexpected corpus protocol, cache policy or media type")
 		}
 		limit := min(pageBytes, totalBytes-evidence.Bytes)
@@ -255,14 +295,7 @@ func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, publish
 		if response.ContentLength > int64(limit) {
 			return nil, errors.New("corpus response exceeds its byte budget")
 		}
-		body, err := io.ReadAll(io.LimitReader(response.Body, int64(limit)+1))
-		if err != nil {
-			return nil, err
-		}
-		if len(body) > limit {
-			return nil, errors.New("corpus response exceeds its byte budget")
-		}
-		return body, nil
+		return readBoundedBody(response.Body, limit)
 	}
 	for page := 1; ; page++ {
 		path := "?page=" + strconv.Itoa(page)
@@ -283,12 +316,11 @@ func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, publish
 		}
 		counts := response.Header.Values(pagesHeader)
 		if page == 1 && response.StatusCode == http.StatusServiceUnavailable {
-			payload, err := w.parseFrame(body, "ApiError")
-			if err != nil || len(payload) != number(w.wire.Layouts, "ErrorBytes") ||
-				u32(payload, number(w.wire.Layouts, "ErrorStatusOffset")) != http.StatusServiceUnavailable || len(counts) != 0 {
+			payload, err := w.parseApiError(body, http.StatusServiceUnavailable)
+			if err != nil || len(counts) != 0 {
 				return errors.New("invalid unavailable corpus response")
 			}
-			message := payload[number(w.wire.Layouts, "ErrorMessageOffset"):number(w.wire.Layouts, "ErrorDetailsOffset")]
+			message := payload[w.wire.layout("ErrorMessageOffset"):w.wire.layout("ErrorDetailsOffset")]
 			if string(bytes.TrimRight(message, "\x00")) != "The search corpus is unavailable." {
 				return errors.New("corpus returned a different availability failure")
 			}
@@ -307,8 +339,8 @@ func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, publish
 			observed, evidence.Pages, evidence.Status = values[0], count, response.StatusCode
 			appendNumber(count)
 		}
-		if len(body) < number(w.wire.Layouts, "SearchPackagePayloadOffset")+number(w.wire.Layouts, "SearchShardHeaderSize") ||
-			u32(body, 0) != number(w.wire.Layouts, "SearchPackageMagic") || u32(body, 4) != number(w.wire.Layouts, "SearchArtifactVersion") {
+		if len(body) < w.wire.layout("SearchPackagePayloadOffset")+w.wire.layout("SearchShardHeaderSize") ||
+			u32(body, 0) != w.wire.layout("SearchPackageMagic") || u32(body, 4) != w.wire.layout("SearchArtifactVersion") {
 			return errors.New("invalid corpus package header")
 		}
 		evidence.Bytes += len(body)
@@ -318,13 +350,7 @@ func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, publish
 			break
 		}
 	}
-	ordered := append([]article(nil), published...)
-	sort.Slice(ordered, func(i, j int) bool {
-		if ordered[i].CreatedAt.Equal(ordered[j].CreatedAt) {
-			return ordered[i].ID > ordered[j].ID
-		}
-		return ordered[i].CreatedAt.After(ordered[j].CreatedAt)
-	})
+	ordered := sortArticlesDesc(published, func(a article) time.Time { return a.CreatedAt })
 	appendNumber(len(ordered))
 	var coordinates [20]byte
 	for _, entry := range ordered {
@@ -383,6 +409,12 @@ func (c *connection) close() {
 	c.served = false
 }
 
+func closePool(pool []connection) {
+	for i := range pool {
+		pool[i].close()
+	}
+}
+
 func (c *connection) request(path string, deadline time.Time, inspect func(*http.Response) error) (int, error) {
 	request, err := encodeRequest(c.origin, path)
 	if err != nil {
@@ -423,7 +455,7 @@ func (c *connection) requestEncoded(request []byte, deadline time.Time, observed
 	if dialing {
 		observed.dialStarted = time.Now()
 	}
-	err := c.connect(deadline)
+	err := c.connectContext(context.Background(), deadline)
 	if dialing {
 		observed.dialFinished = time.Now()
 		observed.dialConnected = err == nil
@@ -464,7 +496,7 @@ func (c *connection) requestEncoded(request []byte, deadline time.Time, observed
 	return response.StatusCode, err
 }
 
-func (c *connection) connect(deadline time.Time) error {
+func (c *connection) connectContext(ctx context.Context, deadline time.Time) error {
 	if c.conn != nil {
 		return nil
 	}
@@ -472,9 +504,9 @@ func (c *connection) connect(deadline time.Time) error {
 	var socket net.Conn
 	var err error
 	if c.origin.Scheme == "https" {
-		socket, err = tls.DialWithDialer(dialer, "tcp", c.origin.Host, c.tlsConfig)
+		socket, err = (&tls.Dialer{NetDialer: dialer, Config: c.tlsConfig}).DialContext(ctx, "tcp", c.origin.Host)
 	} else {
-		socket, err = dialer.Dial("tcp", c.origin.Host)
+		socket, err = dialer.DialContext(ctx, "tcp", c.origin.Host)
 	}
 	if err != nil {
 		return err
@@ -485,13 +517,11 @@ func (c *connection) connect(deadline time.Time) error {
 }
 
 func metadata(response *http.Response, class route, generation, header string) (string, error) {
-	content, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
 	expected := "text/html"
 	if class == homeAEDS || class == detailAEDS {
 		expected = "application/octet-stream"
 	}
-	encoding := response.Header.Get("Content-Encoding")
-	if response.StatusCode != 200 || err != nil || content != expected || (encoding != "" && encoding != "identity") {
+	if response.StatusCode != 200 || !checkMediaAndEncoding(response, expected) {
 		return "status_or_type", errors.New("status, media type or content encoding differs")
 	}
 	if values := response.Header.Values(header); len(values) != 1 || values[0] != generation {
@@ -526,8 +556,8 @@ func preflight(ctx context.Context, origin *url.URL, w *workload) error {
 				if _, err := metadata(response, class, w.generation, header); err != nil {
 					return err
 				}
-				body, err := io.ReadAll(io.LimitReader(response.Body, maxBody+1))
-				if err != nil || len(body) > maxBody || len(body) == 0 {
+				body, err := readBoundedBody(response.Body, maxBody)
+				if err != nil || len(body) == 0 {
 					return errors.New("could not read a complete bounded body")
 				}
 				if err = w.validate(class, expected.id, body); err != nil {
@@ -561,23 +591,37 @@ var wireTable = func() [256]uint16 {
 	return table
 }()
 
-func u32(data []byte, off int) int   { return int(binary.LittleEndian.Uint32(data[off:])) }
-func u64(data []byte, off int) int64 { return int64(binary.LittleEndian.Uint64(data[off:])) }
-
-func (w workload) parseFrame(body []byte, name string) ([]byte, error) {
-	v := w.wire.Header
-	size := number(v, "HeaderSize")
-	if len(body) < size || u32(body, 0) != number(v, "Magic") || int(body[number(v, "VersionOffset")]) != number(v, "Version") || int(body[number(v, "LengthOffset")]) != size ||
-		binary.LittleEndian.Uint16(body[number(v, "FlagsOffset"):]) != 0 || int(binary.LittleEndian.Uint16(body[number(v, "TypeOffset"):])) != w.wire.FrameTypes[name] || u32(body, number(v, "PayloadLengthOffset")) != len(body)-size {
-		return nil, errors.New("AEDS envelope does not match the expected frame")
-	}
-	payload := body[size:]
+func crc16(payload []byte) uint16 {
 	crc := uint16(0xffff)
 	for _, value := range payload {
 		crc = (crc >> 8) ^ wireTable[byte(crc)^value]
 	}
-	if crc != binary.LittleEndian.Uint16(body[number(v, "CrcOffset"):]) {
+	return crc
+}
+
+func u32(data []byte, off int) int   { return int(binary.LittleEndian.Uint32(data[off:])) }
+func u64(data []byte, off int) int64 { return int64(binary.LittleEndian.Uint64(data[off:])) }
+
+func (w workload) parseFrame(body []byte, name string) ([]byte, error) {
+	size := w.wire.header("HeaderSize")
+	if len(body) < size || u32(body, 0) != w.wire.header("Magic") || int(body[w.wire.header("VersionOffset")]) != w.wire.header("Version") || int(body[w.wire.header("LengthOffset")]) != size ||
+		binary.LittleEndian.Uint16(body[w.wire.header("FlagsOffset"):]) != 0 || int(binary.LittleEndian.Uint16(body[w.wire.header("TypeOffset"):])) != w.wire.FrameTypes[name] || u32(body, w.wire.header("PayloadLengthOffset")) != len(body)-size {
+		return nil, errors.New("AEDS envelope does not match the expected frame")
+	}
+	payload := body[size:]
+	if crc16(payload) != binary.LittleEndian.Uint16(body[w.wire.header("CrcOffset"):]) {
 		return nil, errors.New("AEDS CRC differs")
+	}
+	return payload, nil
+}
+
+func (w workload) parseApiError(body []byte, expectedStatus int) ([]byte, error) {
+	payload, err := w.parseFrame(body, "ApiError")
+	if err != nil {
+		return nil, err
+	}
+	if len(payload) != w.wire.layout("ErrorBytes") || u32(payload, w.wire.layout("ErrorStatusOffset")) != expectedStatus {
+		return nil, errors.New("AEDS error status differs")
 	}
 	return payload, nil
 }
@@ -598,8 +642,7 @@ func (w workload) checksum(class route, body []byte) ([sha256.Size]byte, error) 
 		}
 		// Next-cursor expiry/signature changes over time. Validate the frame CRC,
 		// then hash the stable payload with only the cursor characters zeroed.
-		cursor := number(w.wire.Layouts, "ArticleListCursorOffset")
-		length := number(w.wire.Layouts, "ArticleListCursorLengthOffset")
+		cursor, length := w.wire.layout("ArticleListCursorOffset"), w.wire.layout("ArticleListCursorLengthOffset")
 		if len(frame) < cursor || u32(frame, length) > len(frame)-cursor {
 			return [sha256.Size]byte{}, errors.New("invalid cursor bounds")
 		}
@@ -613,6 +656,14 @@ func (w workload) checksum(class route, body []byte) ([sha256.Size]byte, error) 
 		body = frame
 	}
 	return sha256.Sum256(body), nil
+}
+
+func (w workload) matchArticleRecord(frame, record, blob []byte, a article, coordsOff, titleOff, catOff, tagStart, tagCount int) bool {
+	return u32(record, 0) == a.ID && u64(record, coordsOff) == 1 && u64(record, coordsOff+12) == a.PublicationID &&
+		string(textSlot(record, titleOff, blob)) == a.Title &&
+		u32(record, w.wire.layout("ArticleCategoryIdOffset")) == a.CategoryID &&
+		string(textSlot(record, catOff, blob)) == a.CategoryName &&
+		matchesTags(frame, blob, tagStart, tagCount, w.wire.layout("ArticleTagRecordSize"), a)
 }
 
 func (w workload) validate(class route, id int, body []byte) error {
@@ -637,32 +688,28 @@ func (w workload) validate(class route, id int, body []byte) error {
 		_, after, found := strings.Cut(string(body), "</h1><p>")
 		markup, _, closed := strings.Cut(after, "</p>")
 		text := []byte(html.UnescapeString(markup))
-		if !found || !closed || len(text) != a.HTMLBodyBytes || fmt.Sprintf("%x", sha256.Sum256(text)) != a.HTMLBodySHA {
+		if !found || !closed || len(text) != a.HTMLBodyBytes || sha256Hex(text) != a.HTMLBodySHA {
 			return errors.New("HTML detail body differs from the seeded article")
 		}
 		return nil
 	}
-	layout := func(name string) int { return number(w.wire.Layouts, name) }
 	if class == detailAEDS {
 		a := w.articles[id-1]
 		frame, err := w.parseFrame(body, "ArticleDetail")
 		if err != nil {
 			return err
 		}
-		if len(frame) < 44 || u32(frame, 0) != layout("ArticleDetailV5Magic") || u32(frame, 4) != layout("ArticleDetailV5Version") {
+		if len(frame) < 44 || u32(frame, 0) != w.wire.layout("ArticleDetailV5Magic") || u32(frame, 4) != w.wire.layout("ArticleDetailV5Version") {
 			return errors.New("unexpected AEDS article detail layout")
 		}
 		start, lenRecord, blobOffset := u32(frame, 12), u32(frame, 16), u32(frame, 36)
-		if start != layout("ArticleDetailHeaderSize") || lenRecord != layout("ArticleDetailV5RecordSize") || blobOffset < start+lenRecord || blobOffset > len(frame) {
+		if start != w.wire.layout("ArticleDetailHeaderSize") || lenRecord != w.wire.layout("ArticleDetailV5RecordSize") || blobOffset < start+lenRecord || blobOffset > len(frame) {
 			return errors.New("invalid AEDS detail offsets")
 		}
 		record, blob := frame[start:start+lenRecord], frame[blobOffset:]
-		off := layout("ArticleDetailCoordinatesOffset")
-		text := textSlot(record, layout("ArticleDetailBodyOffset"), blob)
-		if u32(record, 0) != id || u64(record, off) != 1 || u64(record, off+12) != a.PublicationID ||
-			string(textSlot(record, layout("ArticleDetailTitleOffset"), blob)) != a.Title || len(text) != a.BodyBytes || fmt.Sprintf("%x", sha256.Sum256(text)) != a.BodySHA256 ||
-			u32(record, layout("ArticleCategoryIdOffset")) != a.CategoryID || string(textSlot(record, layout("ArticleDetailCategoryOffset"), blob)) != a.CategoryName ||
-			!matchesTags(frame, blob, u32(frame, 20), u32(frame, 24), layout("ArticleTagRecordSize"), a) {
+		text := textSlot(record, w.wire.layout("ArticleDetailBodyOffset"), blob)
+		if !w.matchArticleRecord(frame, record, blob, a, w.wire.layout("ArticleDetailCoordinatesOffset"), w.wire.layout("ArticleDetailTitleOffset"), w.wire.layout("ArticleDetailCategoryOffset"), u32(frame, 20), u32(frame, 24)) ||
+			len(text) != a.BodyBytes || sha256Hex(text) != a.BodySHA256 {
 			return errors.New("AEDS detail identity, projection coordinate or content differs")
 		}
 		return nil
@@ -671,31 +718,26 @@ func (w workload) validate(class route, id int, body []byte) error {
 	if err != nil {
 		return err
 	}
-	if len(frame) < 29 || u32(frame, 0) != layout("ArticleListCursorMagic") || u32(frame, 4) != layout("ArticleListCursorVersion") ||
-		u32(frame, layout("ArticleListTotalOffset")) != len(w.articles)-20 {
+	if len(frame) < 29 || u32(frame, 0) != w.wire.layout("ArticleListCursorMagic") || u32(frame, 4) != w.wire.layout("ArticleListCursorVersion") ||
+		u32(frame, w.wire.layout("ArticleListTotalOffset")) != len(w.articles)-20 {
 		return errors.New("unexpected AEDS list layout or total")
 	}
-	meta := layout("ArticleListCursorOffset") + u32(frame, layout("ArticleListCursorLengthOffset"))
+	meta := w.wire.layout("ArticleListCursorOffset") + u32(frame, w.wire.layout("ArticleListCursorLengthOffset"))
 	if meta > len(frame)-12 || u32(frame, meta) != len(newest) {
 		return errors.New("AEDS list count or cursor differs")
 	}
 	blobStart := meta + 12
 	blobEnd := blobStart + u32(frame, meta+8)
-	size := layout("ArticleListRecordSizeCurrent")
-	tagSize := layout("ArticleTagRecordSize")
+	size, tagSize := w.wire.layout("ArticleListRecordSizeCurrent"), w.wire.layout("ArticleTagRecordSize")
 	tagOffset := blobEnd + size*len(newest)
 	if tagOffset+tagSize*u32(frame, meta+4) != len(frame) {
 		return errors.New("AEDS list has invalid boundaries")
 	}
+	blob := frame[blobStart:blobEnd]
 	for i, a := range newest {
 		record := frame[blobEnd+i*size : blobEnd+(i+1)*size]
-		off := layout("ArticleListCoordinatesOffset")
-		blob := frame[blobStart:blobEnd]
-		firstTag := tagOffset + tagSize*u32(record, layout("ArticleListTagStartOffset"))
-		if u32(record, 0) != a.ID || u64(record, off) != 1 || u64(record, off+12) != a.PublicationID ||
-			string(textSlot(record, layout("ArticleListTitleOffset"), blob)) != a.Title ||
-			u32(record, layout("ArticleCategoryIdOffset")) != a.CategoryID || string(textSlot(record, layout("ArticleListCategoryOffset"), blob)) != a.CategoryName ||
-			!matchesTags(frame, blob, firstTag, u32(record, layout("ArticleListTagCountOffset")), tagSize, a) {
+		firstTag := tagOffset + tagSize*u32(record, w.wire.layout("ArticleListTagStartOffset"))
+		if !w.matchArticleRecord(frame, record, blob, a, w.wire.layout("ArticleListCoordinatesOffset"), w.wire.layout("ArticleListTitleOffset"), w.wire.layout("ArticleListCategoryOffset"), firstTag, u32(record, w.wire.layout("ArticleListTagCountOffset"))) {
 			return fmt.Errorf("AEDS list row %d identity, coordinates or title differ", i)
 		}
 	}
@@ -843,28 +885,25 @@ func worker(c *connection, jobs <-chan job, permits <-chan struct{}, output chan
 			source := io.LimitReader(response.Body, int64(j.length)+1)
 			var received int64
 			var readErr error
+			var sampledBuf *bytes.Buffer
 			if j.sample {
-				buf := bytes.NewBuffer(readBuffer[:0])
-				received, readErr = io.Copy(buf, source)
-				if readErr == nil && received <= int64(j.length) {
-					r.bodyCompleted = time.Now()
-				}
-				if readErr == nil {
-					digest, digestErr := w.checksum(j.class, buf.Bytes())
-					if digestErr != nil || digest != j.digest {
-						r.reason = "digest"
-						return errors.New("response checksum differs")
-					}
-				}
+				sampledBuf = bytes.NewBuffer(readBuffer[:0])
+				received, readErr = io.Copy(sampledBuf, source)
 				r.sampled = true
 			} else {
 				received, readErr = io.CopyBuffer(io.Discard, source, copyBuffer)
-				if readErr == nil && received <= int64(j.length) {
-					r.bodyCompleted = time.Now()
-				}
+			}
+			if readErr == nil && received <= int64(j.length) {
+				r.bodyCompleted = time.Now()
 			}
 			if readErr != nil {
 				return readErr
+			}
+			if sampledBuf != nil {
+				if digest, digestErr := w.checksum(j.class, sampledBuf.Bytes()); digestErr != nil || digest != j.digest {
+					r.reason = "digest"
+					return errors.New("response checksum differs")
+				}
 			}
 			r.bytes = received
 			if int(received) != j.length {
@@ -998,8 +1037,8 @@ func (s *stats) add(r result) {
 	s.latency.add(r.latency)
 }
 
-func loadConnections(origin *url.URL, config *tls.Config) []connection {
-	pool := make([]connection, maxInFlight)
+func loadConnections(origin *url.URL, config *tls.Config, count int) []connection {
+	pool := make([]connection, count)
 	for i := range pool {
 		pool[i] = connection{origin: origin, tlsConfig: config}
 	}
@@ -1027,39 +1066,26 @@ func retainWarmSockets(pool []connection) {
 func continuity(pool []connection) connectionReuse {
 	var total connectionReuse
 	for i := range pool {
-		total.Retained += pool[i].reuse.Retained
-		total.Attempted += pool[i].reuse.Attempted
-		total.Validated += pool[i].reuse.Validated
-		total.AttemptedRequests += pool[i].reuse.AttemptedRequests
-		total.ValidatedRequests += pool[i].reuse.ValidatedRequests
+		r := pool[i].reuse
+		total.Retained += r.Retained
+		total.Attempted += r.Attempted
+		total.Validated += r.Validated
+		total.AttemptedRequests += r.AttemptedRequests
+		total.ValidatedRequests += r.ValidatedRequests
 	}
 	return total
 }
 
-func warmTLSConnections(ctx context.Context, pool []connection) error {
+func connectPool(ctx context.Context, pool []connection, label string) error {
 	for i := range pool {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := pool[i].connect(time.Now().Add(requestLimit)); err != nil {
-			return fmt.Errorf("TLS connection %d: %w", i+1, err)
+		if err := pool[i].connectContext(ctx, time.Now().Add(requestLimit)); err != nil {
+			return fmt.Errorf("%s %d: %w", label, i+1, err)
 		}
 	}
 	return nil
-}
-
-type admissionSecond struct {
-	dequeued int
-	admitted int
-	dropped  int
-	high     int
-	wakeMax  time.Duration
-}
-
-type transferSecond struct {
-	written, headers, body, finished, correct int
-	dialStarted, dialConnected, dialFailed    int
-	writeDelay, afterWrite, dialMax           time.Duration
 }
 
 type supplySecond struct {
@@ -1086,70 +1112,66 @@ type supplySecond struct {
 type supplyTimeline struct {
 	epoch      time.Time
 	seconds    int
-	admissions map[int]*admissionSecond // Producer owns this map.
-	transfers  map[int]*transferSecond  // Collector owns this map.
+	admissions map[int]*supplySecond // Producer owns this map.
+	transfers  map[int]*supplySecond // Collector owns this map.
+}
+
+func bucketAt(buckets map[int]*supplySecond, epoch, at time.Time) *supplySecond {
+	second := int(at.Sub(epoch) / time.Second)
+	slot := buckets[second]
+	if slot == nil {
+		slot = new(supplySecond)
+		buckets[second] = slot
+	}
+	return slot
 }
 
 func (s supplyTimeline) recordAdmission(at, planned time.Time, admitted bool, observedOutstanding int) {
-	second := int(at.Sub(s.epoch) / time.Second)
-	slot := s.admissions[second]
-	if slot == nil {
-		slot = &admissionSecond{}
-		s.admissions[second] = slot
-	}
-	slot.dequeued++
-	slot.wakeMax = max(slot.wakeMax, at.Sub(planned))
+	slot := bucketAt(s.admissions, s.epoch, at)
+	slot.SchedulerAwake++
+	slot.MaxWakeDelayMS = max(slot.MaxWakeDelayMS, millis(at.Sub(planned)))
 	if admitted {
-		slot.admitted++
-		slot.high = max(slot.high, observedOutstanding)
+		slot.Admitted++
+		slot.OutstandingPeak = max(slot.OutstandingPeak, observedOutstanding)
 	} else {
-		slot.dropped++
-		slot.high = maxInFlight
+		slot.Dropped++
+		slot.OutstandingPeak = maxInFlight
 	}
-}
-
-func (s supplyTimeline) transfer(at time.Time) *transferSecond {
-	second := int(at.Sub(s.epoch) / time.Second)
-	slot := s.transfers[second]
-	if slot == nil {
-		slot = &transferSecond{}
-		s.transfers[second] = slot
-	}
-	return slot
 }
 
 func (s supplyTimeline) recordTransfer(r result) {
 	if r.reason == "dropped" {
 		return
 	}
+	transfer := func(at time.Time) *supplySecond { return bucketAt(s.transfers, s.epoch, at) }
 	if !r.dialStarted.IsZero() {
-		s.transfer(r.dialStarted).dialStarted++
-		finished := s.transfer(r.dialFinished)
+		transfer(r.dialStarted).DialsStarted++
+		finished := transfer(r.dialFinished)
 		if r.dialConnected {
-			finished.dialConnected++
+			finished.DialsConnected++
 		} else {
-			finished.dialFailed++
+			finished.DialsFailed++
 		}
-		finished.dialMax = max(finished.dialMax, r.dialFinished.Sub(r.dialStarted))
+		finished.MaxDialDurationMS = max(finished.MaxDialDurationMS, millis(r.dialFinished.Sub(r.dialStarted)))
 	}
-	done := s.transfer(r.completed)
-	done.finished++
+	done := transfer(r.completed)
+	done.Finished++
 	if !r.bodyCompleted.IsZero() {
-		s.transfer(r.bodyCompleted).body++
+		transfer(r.bodyCompleted).BodiesRead++
 	}
 	if !r.headers.IsZero() {
-		s.transfer(r.headers).headers++
+		transfer(r.headers).HeadersRead++
 	}
 	if r.reason == "" {
-		done.correct++
+		done.Correct++
 	}
 	if !r.written.IsZero() {
-		written := s.transfer(r.written)
-		written.written++
-		written.writeDelay = max(written.writeDelay, r.written.Sub(r.planned))
+		written := transfer(r.written)
+		written.SocketWritten++
+		written.MaxWriteDelayMS = max(written.MaxWriteDelayMS, millis(r.written.Sub(r.planned)))
 		if !r.bodyCompleted.IsZero() {
-			body := s.transfer(r.bodyCompleted)
-			body.afterWrite = max(body.afterWrite, r.bodyCompleted.Sub(r.written))
+			body := transfer(r.bodyCompleted)
+			body.MaxAfterWriteMS = max(body.MaxAfterWriteMS, millis(r.bodyCompleted.Sub(r.written)))
 		}
 	}
 }
@@ -1165,21 +1187,16 @@ func (s supplyTimeline) rows(rate int) []supplySecond {
 	rows := make([]supplySecond, last+1)
 	for second := range rows {
 		row := &rows[second]
+		if slot := s.transfers[second]; slot != nil {
+			*row = *slot
+		}
+		if slot := s.admissions[second]; slot != nil {
+			row.SchedulerAwake, row.Admitted, row.Dropped = slot.SchedulerAwake, slot.Admitted, slot.Dropped
+			row.OutstandingPeak, row.MaxWakeDelayMS = slot.OutstandingPeak, slot.MaxWakeDelayMS
+		}
 		row.Second = second
 		if second < s.seconds {
 			row.Planned = rate
-		}
-		if slot := s.admissions[second]; slot != nil {
-			row.SchedulerAwake = slot.dequeued
-			row.Admitted, row.Dropped, row.OutstandingPeak = slot.admitted, slot.dropped, slot.high
-			row.MaxWakeDelayMS = millis(slot.wakeMax)
-		}
-		if slot := s.transfers[second]; slot != nil {
-			row.SocketWritten, row.HeadersRead, row.BodiesRead = slot.written, slot.headers, slot.body
-			row.Finished, row.Correct = slot.finished, slot.correct
-			row.DialsStarted, row.DialsConnected, row.DialsFailed = slot.dialStarted, slot.dialConnected, slot.dialFailed
-			row.MaxWriteDelayMS, row.MaxAfterWriteMS, row.MaxDialDurationMS =
-				millis(slot.writeDelay), millis(slot.afterWrite), millis(slot.dialMax)
 		}
 	}
 	return rows
@@ -1197,8 +1214,7 @@ type producerSample struct {
 
 func sampleProducer() (producerSample, error) {
 	var usage syscall.Rusage
-	err := syscall.Getrusage(syscall.RUSAGE_SELF, &usage)
-	if err != nil {
+	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &usage); err != nil {
 		return producerSample{}, err
 	}
 	runtimeSamples := []metrics.Sample{{Name: "/cpu/classes/gc/pause:cpu-seconds"},
@@ -1223,16 +1239,13 @@ func sampleProducer() (producerSample, error) {
 func measure(ctx context.Context, pool []connection, w workload, rate, seconds int, slow *slowRequests) (time.Time, time.Duration, map[string]*stats, []supplySecond) {
 	// Admission counts queued jobs and active requests against the same limit.
 	// A worker briefly between reads must not turn unused capacity into an offered drop.
-	jobs := make(chan job, maxInFlight)
-	permits := make(chan struct{}, maxInFlight)
-	results := make(chan result, maxInFlight)
-	var workers sync.WaitGroup
-	var collector sync.WaitGroup
+	jobs, permits, results := make(chan job, maxInFlight), make(chan struct{}, maxInFlight), make(chan result, maxInFlight)
+	var workers, collector sync.WaitGroup
 	totals := map[string]*stats{}
 	for _, name := range append(names[:], "all") {
 		totals[name] = &stats{Status: map[int]int{}, Errors: map[string]int{}}
 	}
-	timeline := supplyTimeline{seconds: seconds, admissions: make(map[int]*admissionSecond), transfers: make(map[int]*transferSecond)}
+	timeline := supplyTimeline{seconds: seconds, admissions: make(map[int]*supplySecond), transfers: make(map[int]*supplySecond)}
 	collector.Go(func() {
 		for r := range results {
 			totals["all"].add(r)
@@ -1268,9 +1281,7 @@ func measure(ctx context.Context, pool []connection, w workload, rate, seconds i
 	close(results)
 	collector.Wait()
 	for _, s := range totals {
-		s.P50MS = s.latency.percentile(s.OK, 50)
-		s.P95MS = s.latency.percentile(s.OK, 95)
-		s.P99MS = s.latency.percentile(s.OK, 99)
+		s.P50MS, s.P95MS, s.P99MS = s.latency.percentile(s.OK, 50), s.latency.percentile(s.OK, 95), s.latency.percentile(s.OK, 99)
 		s.Dispatch = s.dispatch.percentile(s.Sent, 99)
 	}
 	return started.UTC(), drained, totals, timeline.rows(rate)
@@ -1305,8 +1316,7 @@ func captureStage(ctx context.Context, pool []connection, w workload, rate, seco
 	producerAfter, afterErr := sampleProducer()
 	all := totals["all"]
 	report["measurementStartedAt"], report["measurementCompletedAt"], report["routes"] = measured, finished, totals
-	report["measurementElapsedSeconds"] = elapsed.Seconds()
-	report["supplyBySecond"] = timeline
+	report["measurementElapsedSeconds"], report["supplyBySecond"] = elapsed.Seconds(), timeline
 	if slow != nil {
 		report["slowRequests"] = slow
 	}
@@ -1345,7 +1355,6 @@ func parseLoadTarget(target, privateTarget, authority string) (*url.URL, error) 
 		}
 		return origin, nil
 	}
-
 	host, port := origin.Hostname(), origin.Port()
 	address, addressErr := netip.ParseAddr(host)
 	portNumber, portErr := strconv.ParseUint(port, 10, 16)
@@ -1377,39 +1386,35 @@ func run() int {
 	output := flag.String("out", "", "new JSON evidence path")
 	flag.Parse()
 	fail := func(err error) int { fmt.Fprintln(os.Stderr, err); return 1 }
-	if *coldPressure && *coldLog == "" {
-		return fail(errors.New("cold pressure requires the private cold-cache log"))
-	}
 	origin, err := parseLoadTarget(*target, *privateTarget, *authority)
 	if err != nil {
 		return fail(err)
 	}
-	if *fixture == "" || *output == "" || *rate < 0 || *rate > 11000 || *seconds < 1 || *seconds > 900 {
-		return fail(errors.New("fixture and output required; rate 0..11000, seconds 1..900"))
-	}
-	if *privateTarget != "" && (*coldLog != "" || *runtimeControl != "") {
-		return fail(errors.New("cold-cache logs and runtime measurement markers require the local runner"))
+	for _, check := range []struct {
+		invalid bool
+		message string
+	}{
+		{*coldPressure && *coldLog == "", "cold pressure requires the private cold-cache log"},
+		{*fixture == "" || *output == "" || *rate < 0 || *rate > 11000 || *seconds < 1 || *seconds > 900, "fixture and output required; rate 0..11000, seconds 1..900"},
+		{*privateTarget != "" && (*coldLog != "" || *runtimeControl != ""), "cold-cache logs and runtime measurement markers require the local runner"},
+		{origin.Scheme != "https" && *authority != "", "a certificate authority requires an HTTPS target"},
+		{*preconnect && (origin.Scheme != "https" || *rate == 0), "TLS preconnection requires an HTTPS target and hot load"},
+		{*sharedWarmup != 0 && (*rate == 0 || *preconnect || *sharedWarmup != 30 && *sharedWarmup != 3), "shared warmup requires hot load, no TLS preconnection, and 30 or 3 seconds"},
+		{*captureSlow && (*runtimeControl == "" || *sharedWarmup != 30 || *rate != 10500 || *seconds != 60 || *coldLog != ""), "slow request recording requires the marked 10500/s peak diagnostic with 30 seconds of shared warmup"},
+		{*coldLog != "" && (origin.Scheme != "http" || *rate != 0), "cold sampling requires a fresh direct origin and no hot load"},
+	} {
+		if check.invalid {
+			return fail(errors.New(check.message))
+		}
 	}
 	w, err := readWorkload(*fixture, *wire)
 	if err != nil {
 		return fail(err)
 	}
 	if origin.Scheme == "https" {
-		w.tlsConfig, err = loadTLSConfig(*authority)
-		if err != nil {
+		if w.tlsConfig, err = loadTLSConfig(*authority); err != nil {
 			return fail(err)
 		}
-	} else if *authority != "" {
-		return fail(errors.New("a certificate authority requires an HTTPS target"))
-	}
-	if *preconnect && (origin.Scheme != "https" || *rate == 0) {
-		return fail(errors.New("TLS preconnection requires an HTTPS target and hot load"))
-	}
-	if *sharedWarmup != 0 && (*rate == 0 || *preconnect || *sharedWarmup != 30 && *sharedWarmup != 3) {
-		return fail(errors.New("shared warmup requires hot load, no TLS preconnection, and 30 or 3 seconds"))
-	}
-	if *captureSlow && (*runtimeControl == "" || *sharedWarmup != 30 || *rate != 10500 || *seconds != 60 || *coldLog != "") {
-		return fail(errors.New("slow request recording requires the marked 10500/s peak diagnostic with 30 seconds of shared warmup"))
 	}
 	out, err := os.OpenFile(*output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
@@ -1419,11 +1424,6 @@ func run() int {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	started := time.Now().UTC()
-	if *coldLog != "" {
-		if origin.Scheme != "http" || *rate != 0 {
-			return fail(errors.New("cold sampling requires a fresh direct origin and no hot load"))
-		}
-	}
 	err = verifyGeneration(ctx, origin, &w, w.articles[:len(w.articles)-20])
 	if *coldLog != "" && err == nil {
 		return runCold(ctx, origin, w, *coldLog, *coldPressure, out)
@@ -1466,12 +1466,8 @@ func run() int {
 		}
 		report["preflightPayloads"] = checkedPayloads
 	}
-	pool := loadConnections(origin, w.tlsConfig)
-	defer func() {
-		for i := range pool {
-			pool[i].close()
-		}
-	}()
+	pool := loadConnections(origin, w.tlsConfig, maxInFlight)
+	defer closePool(pool)
 	if code == 0 && *sharedWarmup != 0 {
 		warm := map[string]any{"pid": os.Getpid(), "target": origin.String(), "generation": w.generation, "fixtureSha256": w.fixture}
 		captureStage(ctx, pool, w, 2000, *sharedWarmup, warm, nil)
@@ -1479,19 +1475,17 @@ func run() int {
 		retainWarmSockets(pool)
 		report["connectionReuse"] = continuity(pool)
 		if ctx.Err() != nil {
-			err = ctx.Err()
-			code = 1
+			err, code = ctx.Err(), 1
 			report["measurement"], report["measurementError"] = "warmup_cancelled", err.Error()
 		}
 	}
 	if code == 0 && *preconnect {
 		warmed := time.Now()
-		if err = warmTLSConnections(ctx, pool); err != nil {
+		if err = connectPool(ctx, pool, "TLS connection"); err != nil {
 			report["measurement"], report["measurementError"] = "preconnect_failed", err.Error()
 			code = 1
 		} else {
-			report["preconnectedTLS"] = len(pool)
-			report["preconnectSeconds"] = time.Since(warmed).Seconds()
+			report["preconnectedTLS"], report["preconnectSeconds"] = len(pool), time.Since(warmed).Seconds()
 		}
 	}
 	if code == 0 && *rate > 0 && *runtimeControl != "" {
@@ -1507,15 +1501,12 @@ func run() int {
 		}
 		captureStage(ctx, pool, w, *rate, *seconds, report, slow)
 		if *sharedWarmup != 0 {
-			report["connectionReuse"] = continuity(pool)
-			report["pid"] = os.Getpid()
+			report["connectionReuse"], report["pid"] = continuity(pool), os.Getpid()
 		}
 	}
 	report["finishedAt"] = time.Now().UTC()
-	encoder := json.NewEncoder(out)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(report); err != nil {
-		return fail(err)
+	if writeErr := writeIndentedJSON(out, report); writeErr != nil {
+		return fail(writeErr)
 	}
 	if ctx.Err() != nil {
 		return 130

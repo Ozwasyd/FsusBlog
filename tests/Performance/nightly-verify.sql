@@ -212,11 +212,6 @@ SELECT rows=0 AND NOT EXISTS (SELECT FROM public.comment_blocked_region)
     AND NOT EXISTS (SELECT FROM public.comment_account_owner)
     AND NOT EXISTS (SELECT FROM public.comment_moderation_log)
     AS comment_graph_ok, to_jsonb(totals) AS comment_metrics FROM totals \gset
-SELECT jsonb_build_object('kind','comment-graph','actual',:'comment_metrics'::jsonb);
-\if :comment_graph_ok
-\else
-DO $$ BEGIN RAISE EXCEPTION 'Million-article fixture has unrelated comment data'; END $$;
-\endif
 \else
 WITH comments AS MATERIALIZED (
     SELECT c.article_id,c.id,c.parent_id,c.depth,c.moderation_status,c.deleted,c.author_mode,
@@ -272,11 +267,11 @@ SELECT t.rows=:roots+:replies AND t.distinct_ids=t.rows AND t.roots=:roots AND t
     AS comment_graph_ok, to_jsonb(t) || jsonb_build_object('structural_nodes',t.visible_content+roots.rows,
         'spread',to_jsonb(spread)) AS comment_metrics
 FROM totals t CROSS JOIN private_leaves leaves CROSS JOIN private_roots roots CROSS JOIN distribution spread \gset
+\endif
 SELECT jsonb_build_object('kind','comment-graph','actual',:'comment_metrics'::jsonb);
 \if :comment_graph_ok
 \else
 DO $$ BEGIN RAISE EXCEPTION 'Nightly comment storage, visibility or thread sentinels differ'; END $$;
-\endif
 \endif
 
 WITH samples(id) AS (

@@ -21,6 +21,16 @@ def read_properties(path):
     return dict(line.split("=", 1) for line in path.read_text().splitlines() if "=" in line)
 
 
+def route_totals_match(by_route):
+    totals = by_route["all"]
+    return all(totals[k] == sum(by_route[route][k] for route in ROUTE_WEIGHTS) for k in ("sent", "dropped", "ok"))
+
+
+def route_mix_matches(by_route, expected):
+    return all(by_route[route]["sent"] + by_route[route]["dropped"] == expected * share // 100
+               for route, share in ROUTE_WEIGHTS.items())
+
+
 def stage(path, rate, p95_limit, p99_limit, supplier_procs, report=None):
     if report is None:
         report = json.loads(path.read_text())
@@ -40,15 +50,12 @@ def stage(path, rate, p95_limit, p99_limit, supplier_procs, report=None):
                for key in ("producerBefore", "producerAfter"))
     ):
         raise ValueError(f"{path}: load supplier processor count differs from the recorded configuration")
-    if any(totals[k] != sum(by_route[route][k] for route in ROUTE_WEIGHTS) for k in ("sent", "dropped", "ok")):
+    if not route_totals_match(by_route):
         raise ValueError(f"{path}: route totals do not reconcile")
     unreached = expected - totals["sent"] - totals["dropped"]
     if unreached < 0 or report.get("schedulerUnreached", unreached) != unreached:
         raise ValueError(f"{path}: scheduled counts do not reconcile")
-    if not unreached and any(
-        by_route[route]["sent"] + by_route[route]["dropped"] != expected * share // 100
-        for route, share in ROUTE_WEIGHTS.items()
-    ):
+    if not unreached and not route_mix_matches(by_route, expected):
         raise ValueError(f"{path}: request mix differs from the frozen protocol")
     request_errors = totals["sent"] - totals["ok"]
     if (
@@ -73,8 +80,7 @@ def stage(path, rate, p95_limit, p99_limit, supplier_procs, report=None):
             or (warm["requestedRate"], warm["seconds"], warm["expected"]) != (2000, 30, 60000)
             or not 0 <= warm_unreached <= 60000
             or warm_totals["sent"] + warm_totals["dropped"] + warm_unreached != 60000
-            or any(warm_totals[key] != sum(warm["routes"][name][key] for name in ROUTE_WEIGHTS)
-                   for key in ("sent", "dropped", "ok"))
+            or not route_totals_match(warm["routes"])
             or not 0 <= warm_totals["ok"] <= warm_totals["sent"]
             or warm_totals["sent"] - warm_totals["ok"] != sum(warm_totals["errors"].values())
             or not 0 <= reuse["validatedOnRetained"] <= reuse["attemptedOnRetained"] <= reuse["retainedAfterWarmup"] <= 256
@@ -84,10 +90,7 @@ def stage(path, rate, p95_limit, p99_limit, supplier_procs, report=None):
             or not clock(warm["measurementStartedAt"]) < clock(warm["measurementCompletedAt"]) <= clock(report["measurementStartedAt"])
         ):
             raise ValueError(f"{path}: reused warmup evidence is missing or inconsistent")
-        if not warm_unreached and any(
-            warm["routes"][name]["sent"] + warm["routes"][name]["dropped"] != 60000 * weight // 100
-            for name, weight in ROUTE_WEIGHTS.items()
-        ):
+        if not warm_unreached and not route_mix_matches(warm["routes"], 60000):
             raise ValueError(f"{path}: warmup request mix differs from the frozen protocol")
     elif policy not in ("serial-tls-preconnect", "fresh-pool"):
         raise ValueError(f"{path}: unknown connection policy")

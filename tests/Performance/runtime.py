@@ -37,6 +37,11 @@ def commands(start, end, metric):
     return {category: value - start[metric][category] for category, value in end[metric].items()}
 
 
+def window_halves(stamped, start, end):
+    five, ten = start + timedelta(minutes=5), start + timedelta(minutes=10)
+    return [v for t, v in stamped if five < t <= ten], [v for t, v in stamped if ten < t <= end]
+
+
 def summarize(rows, load, rss, pid):
     if not rows or any(row["pid"] != pid for row in rows):
         raise ValueError("Runtime samples require the PID of the run-owned Kestrel.")
@@ -147,18 +152,14 @@ def summarize(rows, load, rss, pid):
 
     rss_values = [(timestamp(row["utc"]), int(row["rss_kib"])) for row in rss if int(row["pid"]) == pid]
     rss_peak = max((kb for stamp, kb in rss_values if measured_at <= stamp <= measured_end), default=None)
-    mid_rss = [kb for stamp, kb in rss_values
-               if measured_at + timedelta(minutes=5) < stamp <= measured_at + timedelta(minutes=10)]
-    end_rss = [kb for stamp, kb in rss_values
-               if measured_at + timedelta(minutes=10) < stamp <= measured_end]
+    mid_rss, end_rss = window_halves(rss_values, measured_at, measured_end)
     rss_growth = (median(end_rss) / median(mid_rss) - 1.0) if len(mid_rss) >= 50 and len(end_rss) >= 50 else None
     queue_growth = None
     stability = None
     if duration == 900:
-        mid_queue = [row["threadPoolPending"] for row in series
-                     if measured_at + timedelta(minutes=5) < timestamp(row["utc"]) <= measured_at + timedelta(minutes=10)]
-        final_queue = [row["threadPoolPending"] for row in series
-                       if measured_at + timedelta(minutes=10) < timestamp(row["utc"]) <= measured_end]
+        mid_queue, final_queue = window_halves(
+            [(timestamp(row["utc"]), row["threadPoolPending"]) for row in series], measured_at, measured_end
+        )
         if len(mid_queue) >= 50 and len(final_queue) >= 50:
             queue_growth = median(final_queue) - median(mid_queue)
         stability = (

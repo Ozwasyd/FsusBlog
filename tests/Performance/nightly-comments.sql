@@ -135,15 +135,18 @@ SELECT article_id, pairs,
         AS first_root
 FROM allotment;
 
+CREATE TEMP TABLE c11_comment_paired ON COMMIT DROP AS
+SELECT a.article_id, r.root_no FROM c11_comment_regular a
+CROSS JOIN LATERAL generate_series(a.first_root, a.first_root + a.pairs - 1) r(root_no)
+UNION ALL
+SELECT archived_id, root_count - 1 FROM c11_comment_plan
+UNION ALL
+SELECT deleted_id, root_count FROM c11_comment_plan;
+
 WITH roots AS (
     SELECT 1 article_id, r.root_no FROM c11_comment_plan p CROSS JOIN LATERAL generate_series(1::bigint, p.hot_roots) r(root_no)
     UNION ALL
-    SELECT a.article_id, r.root_no FROM c11_comment_regular a
-    CROSS JOIN LATERAL generate_series(a.first_root, a.first_root + a.pairs - 1) r(root_no)
-    UNION ALL
-    SELECT archived_id, root_count - 1 FROM c11_comment_plan
-    UNION ALL
-    SELECT deleted_id, root_count FROM c11_comment_plan
+    SELECT article_id, root_no FROM c11_comment_paired
 )
 INSERT INTO public.comment (article_id, id, root_id, depth, moderation_status, deleted, body, author_mode,
     display_name, display_language, created_at)
@@ -162,18 +165,11 @@ WITH hot AS (
         CASE WHEN u.reply_no BETWEEN p.wide_replies + 1 AND p.wide_replies + 32
              THEN (u.reply_no - p.wide_replies)::integer ELSE 1 END AS depth
     FROM c11_comment_plan p CROSS JOIN LATERAL generate_series(1::bigint, p.hot_replies) u(reply_no)
-), paired AS (
-    SELECT a.article_id, r.root_no FROM c11_comment_regular a
-    CROSS JOIN LATERAL generate_series(a.first_root, a.first_root + a.pairs - 1) r(root_no)
-    UNION ALL
-    SELECT archived_id, root_count - 1 FROM c11_comment_plan
-    UNION ALL
-    SELECT deleted_id, root_count FROM c11_comment_plan
 ), replies AS (
     SELECT 1 AS article_id, root_no, reply_no, depth FROM hot
     UNION ALL
     SELECT a.article_id, a.root_no, p.hot_replies + a.root_no - p.hot_roots, 1
-    FROM paired a CROSS JOIN c11_comment_plan p
+    FROM c11_comment_paired a CROSS JOIN c11_comment_plan p
 ), coordinates AS (
     SELECT r.*, 9007199254740993 + r.root_no AS root_id, 9007199254740993 + p.root_count + r.reply_no AS id
     FROM replies r CROSS JOIN c11_comment_plan p
