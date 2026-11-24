@@ -136,19 +136,14 @@ const compliance = ref<SiteCompliance>()
 const loadedSiteEpoch = ref(-1)
 const siteAuthor = ref(document.head.querySelector<HTMLMetaElement>('meta[name="author"]')?.content || undefined)
 const failedBrandUrls = ref<Record<string, boolean>>({})
-const activeBrandLogoUrl = computed(() => {
-  const brand = siteBrand.value
-  const candidate = resolvedTheme.value === 'dark' ? (brand.siteLogoDarkUrl || brand.siteLogoUrl) : brand.siteLogoUrl
-  return candidate && !failedBrandUrls.value[candidate] ? candidate : ''
-})
-const activeBrandWordmarkUrl = computed(() => {
-  const candidate = siteBrand.value.siteWordmarkUrl
-  return candidate && !failedBrandUrls.value[candidate] ? candidate : ''
-})
-const activePoliceBadgeUrl = computed(() => {
-  const candidate = legal.value?.policeBadgeIconUrl ? safeBrandAssetUrl(legal.value.policeBadgeIconUrl) : ''
-  return candidate && !failedBrandUrls.value[candidate] ? candidate : ''
-})
+const liveBrandUrl = (candidate: string) => candidate && !failedBrandUrls.value[candidate] ? candidate : ''
+const activeBrandLogoUrl = computed(() => liveBrandUrl(
+  resolvedTheme.value === 'dark' ? (siteBrand.value.siteLogoDarkUrl || siteBrand.value.siteLogoUrl) : siteBrand.value.siteLogoUrl,
+))
+const activeBrandWordmarkUrl = computed(() => liveBrandUrl(siteBrand.value.siteWordmarkUrl))
+const activePoliceBadgeUrl = computed(() => liveBrandUrl(
+  legal.value?.policeBadgeIconUrl ? safeBrandAssetUrl(legal.value.policeBadgeIconUrl) : '',
+))
 function markBrandUrlFailed(url: string) {
   if (!url || failedBrandUrls.value[url]) return
   failedBrandUrls.value = { ...failedBrandUrls.value, [url]: true }

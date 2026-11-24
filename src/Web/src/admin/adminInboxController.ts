@@ -36,57 +36,16 @@ export const adminInboxStatusTransitions: readonly (readonly AdminInboxStatus[])
 export type AdminInboxReplyResult = Awaited<ReturnType<typeof adminReply>>
 export type AdminInboxStatusResult = Awaited<ReturnType<typeof adminChangeStatus>>
 
-export interface AdminInboxTransport {
-  adminInbox(
-    filter: AdminInboxFilter,
-    next: string | null,
-    signal: AbortSignal,
-    shared?: boolean,
-    order?: AdminInboxOrder,
-  ): Promise<AdminInboxPage>
-  adminInboxThread(
-    id: bigint,
-    before: string | null,
-    signal: AbortSignal,
-    shared?: boolean,
-  ): Promise<AdminInboxThread>
-  acknowledgeAdminInboxRead(
-    id: bigint,
-    snapshot: NonNullable<AdminInboxThread['readSnapshot']>,
-    signal: AbortSignal,
-  ): Promise<number>
-  adminReply(id: bigint, body: string, key: string, signal: AbortSignal): Promise<AdminInboxReplyResult>
-  adminChangeStatus(
-    id: bigint,
-    version: string,
-    target: AdminInboxStatus,
-    reason: string,
-    signal: AbortSignal,
-  ): Promise<AdminInboxStatusResult>
-  adminSendNotice(
-    account: string,
-    subject: string,
-    body: string,
-    sourceEvent: bigint,
-    signal: AbortSignal,
-  ): Promise<unknown>
-  watchAdminInboxWake(
-    scope: bigint | AdminInboxLiveStatus,
-    signal: AbortSignal,
-    refresh: () => void,
-    onRevoked: () => void,
-  ): void
-}
-
-export const defaultAdminInboxTransport: AdminInboxTransport = {
+export const defaultAdminInboxTransport = {
   adminInbox,
   adminInboxThread,
   acknowledgeAdminInboxRead,
   adminReply,
   adminChangeStatus,
-  adminSendNotice,
+  adminSendNotice: adminSendNotice as (account: string, subject: string, body: string, sourceEvent: bigint, signal: AbortSignal) => Promise<unknown>,
   watchAdminInboxWake,
 }
+export type AdminInboxTransport = typeof defaultAdminInboxTransport
 
 export interface AdminInboxIdGenerator {
   randomUuid(): string

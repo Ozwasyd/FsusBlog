@@ -106,38 +106,24 @@ export interface WriteCommandSessionPort {
   recheckCredential(handle: string, signal: AbortSignal): Promise<void>
 }
 
+type DraftCoord = Readonly<{
+  id: number
+  expectedRevision: bigint
+  idempotencyKey: string
+}>
+
 export interface WriteCommandTransportPort {
   readDraft(articleId: number, signal: AbortSignal, handle: string): Promise<Draft>
   articleAction(action: ArticleAction, input: ArticleCommand, signal: AbortSignal, handle: string): Promise<Draft>
   saveWithBodyInsertion(input: ArticleBodyInsertionCommand, handle: string, signal: AbortSignal): Promise<Draft>
   saveWithBodyInsertions(input: ArticleBodyInsertionsCommand, handle: string, signal: AbortSignal): Promise<Draft>
   saveWithBodyEdits(input: ArticleBodyEditsCommand, handle: string, signal: AbortSignal): Promise<Draft>
-  assignTaxonomy(input: Readonly<{
-    id: number
-    expectedRevision: bigint
-    idempotencyKey: string
-    categoryId: number | null
-    tagIds: number[]
-  }>, signal: AbortSignal): Promise<Readonly<{ id: number; revision: bigint }>>
+  assignTaxonomy(input: Readonly<DraftCoord & { categoryId: number | null; tagIds: number[] }>, signal: AbortSignal): Promise<Readonly<{ id: number; revision: bigint }>>
   rollbackDraft(input: DraftRollback, signal: AbortSignal): Promise<Draft>
-  setArticleSchedule(input: Readonly<{
-    id: number
-    expectedRevision: bigint
-    idempotencyKey: string
-    dueUnixMs: bigint
-  }>, signal: AbortSignal): Promise<Readonly<{ revision: bigint; publishedRevision: bigint }>>
-  setDraftRights(input: Readonly<RightsEdit & {
-    id: number
-    expectedRevision: bigint
-    idempotencyKey: string
-  }>, signal: AbortSignal): Promise<Readonly<{ revision: bigint }>>
+  setArticleSchedule(input: Readonly<DraftCoord & { dueUnixMs: bigint }>, signal: AbortSignal): Promise<Readonly<{ revision: bigint; publishedRevision: bigint }>>
+  setDraftRights(input: Readonly<RightsEdit & DraftCoord>, signal: AbortSignal): Promise<Readonly<{ revision: bigint }>>
   editArticleMedia(articleId: number, revision: bigint, key: string, edit: AttachmentEdit, handle: string, signal: AbortSignal): Promise<Draft>
-  saveDraftSummary(input: Readonly<{
-    id: number
-    expectedRevision: bigint
-    idempotencyKey: string
-    text: string
-  }>, handle: string, signal: AbortSignal): Promise<Draft>
+  saveDraftSummary(input: Readonly<DraftCoord & { text: string }>, handle: string, signal: AbortSignal): Promise<Draft>
   publishArticleImages(articleId: number, revision: bigint, key: string, assets: readonly string[], handle: string, signal: AbortSignal): Promise<Draft>
 }
 
@@ -227,55 +213,29 @@ export function createWriteCommandAdapter(ports: Readonly<{
     id: draft.id, expectedRevision: draft.revision, idempotencyKey,
   })
 
-  const saveTaxonomy = (selection: TaxonomySelection) => (
-    draft: Draft,
-    signal: AbortSignal,
-    idempotencyKey: string,
-  ): Promise<DraftSave<Draft>> =>
-    mutationResult(async () => {
-      const stored = await transport.assignTaxonomy({
-        ...coordinates(draft, idempotencyKey),
-        categoryId: selection.categoryId,
-        tagIds: selection.tagIds.slice(),
-      }, signal)
-      return { ...draft, id: stored.id, revision: stored.revision }
-    }, signal)
+  const withMutation = (run: (draft: Draft, signal: AbortSignal, key: string) => Promise<Draft>) =>
+    (draft: Draft, signal: AbortSignal, key: string): Promise<DraftSave<Draft>> =>
+      mutationResult(() => run(draft, signal, key), signal)
 
-  const restoreRevision = (selection: RestoreSelection) => (
-    draft: Draft,
-    signal: AbortSignal,
-    idempotencyKey: string,
-  ): Promise<DraftSave<Draft>> =>
-    mutationResult(() => transport.rollbackDraft({
-      ...coordinates(draft, idempotencyKey),
-      ...selection,
-    }, signal), signal)
-
-  const updateSchedule = (dueUnixMs: bigint) => (
-    draft: Draft,
-    signal: AbortSignal,
-    idempotencyKey: string,
-  ): Promise<DraftSave<Draft>> =>
-    mutationResult(async () => {
-      const result = await transport.setArticleSchedule({
-        ...coordinates(draft, idempotencyKey),
-        dueUnixMs,
-      }, signal)
-      return { ...draft, revision: result.revision, published: result.publishedRevision !== 0n }
+  const saveTaxonomy = (selection: TaxonomySelection) => withMutation(async (draft, signal, key) => {
+    const stored = await transport.assignTaxonomy({
+      ...coordinates(draft, key), categoryId: selection.categoryId, tagIds: selection.tagIds.slice(),
     }, signal)
+    return { ...draft, id: stored.id, revision: stored.revision }
+  })
 
-  const updateRights = (policy: RightsEdit) => (
-    draft: Draft,
-    signal: AbortSignal,
-    idempotencyKey: string,
-  ): Promise<DraftSave<Draft>> =>
-    mutationResult(async () => {
-      const result = await transport.setDraftRights({
-        ...policy,
-        ...coordinates(draft, idempotencyKey),
-      }, signal)
-      return { ...draft, revision: result.revision }
-    }, signal)
+  const restoreRevision = (selection: RestoreSelection) => withMutation((draft, signal, key) =>
+    transport.rollbackDraft({ ...coordinates(draft, key), ...selection }, signal))
+
+  const updateSchedule = (dueUnixMs: bigint) => withMutation(async (draft, signal, key) => {
+    const result = await transport.setArticleSchedule({ ...coordinates(draft, key), dueUnixMs }, signal)
+    return { ...draft, revision: result.revision, published: result.publishedRevision !== 0n }
+  })
+
+  const updateRights = (policy: RightsEdit) => withMutation(async (draft, signal, key) => {
+    const result = await transport.setDraftRights({ ...policy, ...coordinates(draft, key) }, signal)
+    return { ...draft, revision: result.revision }
+  })
 
   const withCredential = (run: (draft: Draft, signal: AbortSignal, key: string, handle: string) => Promise<Draft>) =>
     (draft: Draft, signal: AbortSignal, key: string): Promise<DraftSave<Draft>> => {

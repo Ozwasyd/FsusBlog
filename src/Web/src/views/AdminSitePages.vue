@@ -19,7 +19,7 @@ import { readAdminSitePage, readAdminSitePages } from '../../../Contracts/admin-
 import type { SitePageSlug } from '../../../Contracts/site-pages'
 import AdminSitePageEditor from './AdminSitePageEditor.vue'
 import { useDelayedBusy } from '../delayedBusy'
-import { watchAdminSessionClear } from './adminSessionClear'
+import { isAdminSessionLost, useAdminRequests } from './adminSessionClear'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: unknown] }>()
@@ -34,25 +34,13 @@ const busy = ref(false)
 const refreshLoading = useDelayedBusy(() => busy.value)
 const readingSlug = ref<SitePageSlug>()
 const error = ref<MessageKey | ''>('')
-let active: AbortController | undefined
 
-const sectionDescription = computed(() => {
-  if (!pages.value) return ''
-  return pages.value.editor ? t('admin.sitePages.editorDesc') : t('admin.sitePages.readOnlyDesc')
-})
-
-function publicHref(slug: SitePageSlug): string {
-  const origin = configuredPublicOrigin.replace(/\/+$/, '')
-  return origin ? `${origin}/${slug}` : `/${slug}`
-}
-
-function pageTitle(slug: SitePageSlug): string {
-  return t(`policy.${slug}` as MessageKey)
-}
+const sectionDescription = computed(() =>
+  pages.value ? t(pages.value.editor ? 'admin.sitePages.editorDesc' : 'admin.sitePages.readOnlyDesc') : '')
+const publicHref = (slug: SitePageSlug) => `${configuredPublicOrigin.replace(/\/+$/, '')}/${slug}`
+const pageTitle = (slug: SitePageSlug) => t(`policy.${slug}` as MessageKey)
 
 function clear() {
-  active?.abort()
-  active = undefined
   pages.value = undefined
   selected.value = undefined
   editor.value = undefined
@@ -61,53 +49,48 @@ function clear() {
   error.value = ''
 }
 
+const requests = useAdminRequests(() => props.sessionSignal, clear)
+
 async function readOverview(force = true) {
   if (props.sessionSignal.aborted || (!force && busy.value)) return
-  active?.abort()
-  const request = active = new AbortController()
-  const signal = AbortSignal.any([request.signal, props.sessionSignal])
+  const req = requests.start()
   error.value = ''
   busy.value = true
   try {
-    const overview = await readAdminSitePages(signal)
-    if (signal.aborted) return
+    const overview = await readAdminSitePages(req.signal)
+    if (req.signal.aborted) return
     pages.value = overview
     if (!overview.editor) editor.value = undefined
     if (selected.value && !overview.pages.some(item => item.slug === selected.value?.slug && item.configured)) {
       selected.value = undefined
     }
   } catch (cause) {
-    if (signal.aborted) return
-    if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
+    if (req.signal.aborted) return
+    if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else if (force || !(cause instanceof ApiError && cause.status === 403)) error.value = 'admin.sitePageLoadFailed'
   } finally {
-    if (active === request) { active = undefined; busy.value = false }
+    if (req.isCurrent()) { req.finish(); busy.value = false }
   }
 }
 
 async function toggleReadOnlyView(slug: SitePageSlug) {
-  if (selected.value?.slug === slug) {
-    selected.value = undefined
-    return
-  }
+  if (selected.value?.slug === slug) { selected.value = undefined; return }
   if (props.sessionSignal.aborted) return
-  active?.abort()
-  const request = active = new AbortController()
-  const signal = AbortSignal.any([request.signal, props.sessionSignal])
+  const req = requests.start()
   error.value = ''
   readingSlug.value = slug
   try {
-    const page = await readAdminSitePage(slug, signal)
-    if (!signal.aborted) {
+    const page = await readAdminSitePage(slug, req.signal)
+    if (!req.signal.aborted) {
       selected.value = page
       readOnlyMode.value = 'source'
     }
   } catch (cause) {
-    if (signal.aborted) return
-    if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
+    if (req.signal.aborted) return
+    if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else error.value = 'admin.sitePageLoadFailed'
   } finally {
-    if (active === request) { active = undefined; readingSlug.value = undefined }
+    if (req.isCurrent()) { req.finish(); readingSlug.value = undefined }
   }
 }
 
@@ -119,13 +102,9 @@ function toggleEditor(slug: SitePageSlug) {
 function markPublished(slug: SitePageSlug) {
   const current = pages.value
   if (!current) return
-  pages.value = {
-    ...current,
-    pages: current.pages.map(item => item.slug === slug ? { ...item, configured: true } : item),
-  }
+  pages.value = { ...current, pages: current.pages.map(item => item.slug === slug ? { ...item, configured: true } : item) }
 }
 
-watchAdminSessionClear(() => props.sessionSignal, clear)
 onMounted(() => { void readOverview(false) })
 </script>
 

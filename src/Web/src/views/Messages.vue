@@ -20,7 +20,7 @@ import { api, ApiError, ProtocolError, type InboxFilter, type InboxListItem, typ
 import { createInboxConversation, inboxComposeEnabled, replyInboxConversation } from '../../../Contracts/inbox-write'
 import { watchInboxWake } from '../../../Contracts/inbox-wake'
 import InboxSplitWorkspace from '../components/InboxSplitWorkspace.vue'
-import { useDelayedBusy } from '../delayedBusy'
+import { useDelayedBusy, useMediaQuery } from '../delayedBusy'
 import {
   createInboxTimeFormatter,
   inboxBubbleVariant,
@@ -62,9 +62,7 @@ const notice = ref('')
 const error = ref('')
 const workspace = ref<InstanceType<typeof InboxSplitWorkspace>>()
 const listHeading = ref<HTMLElement>()
-const narrowQuery = matchMedia('(max-width: 760px)')
-const mobile = ref(narrowQuery.matches)
-const onViewportChange = () => { mobile.value = narrowQuery.matches }
+const mobile = useMediaQuery('(max-width: 760px)')
 
 const hasSelection = computed(() => selected.value !== null)
 const selectedRow = computed(() =>
@@ -117,6 +115,11 @@ function current(signal: AbortSignal, identity: number) {
   return !signal.aborted && identity === identityEpoch.value && !!session?.siteSessionId && session.expiresAt > Date.now()
 }
 
+function activeContext() {
+  const signal = scope.signal, identity = identityEpoch.value, session = currentSession.value?.siteSessionId
+  return session && current(signal, identity) ? { signal, identity, session } : undefined
+}
+
 function report(failure: unknown, signal: AbortSignal, identity: number, fallback: string) {
   if (!current(signal, identity)) return
   if (failure instanceof ApiError && failure.status === 401 && !failure.details.startsWith('pow_')) recheck(signal)
@@ -132,11 +135,10 @@ function recheck(signal: AbortSignal) {
 }
 
 async function loadList(append = false, source: 'refresh' | 'more' | null = append ? 'more' : null): Promise<boolean> {
-  const identity = identityEpoch.value
-  const signal = scope.signal
-  const session = currentSession.value?.siteSessionId
+  const ctx = activeContext()
   const page = append ? nextPage.value : null
-  if (!session || !current(signal, identity) || (append && !page)) return false
+  if (!ctx || (append && !page)) return false
+  const { signal, identity, session } = ctx
   const request = ++listRequest
   listAction.value = source
   listPending.value = true
@@ -162,10 +164,9 @@ async function loadList(append = false, source: 'refresh' | 'more' | null = appe
 }
 
 async function loadThread(id: bigint, older?: bigint, focusOnReady = false): Promise<boolean> {
-  const signal = scope.signal
-  const identity = identityEpoch.value
-  const session = currentSession.value?.siteSessionId
-  if (!session || !current(signal, identity)) return false
+  const ctx = activeContext()
+  if (!ctx) return false
+  const { signal, identity, session } = ctx
   const request = ++threadRequest
   threadAction.value = older !== undefined ? 'earlier' : null
   threadPending.value = true
@@ -237,10 +238,9 @@ watch(reply, body => {
 }, { flush: 'sync' })
 
 async function sendTicket() {
-  const signal = scope.signal
-  const identity = identityEpoch.value
-  const session = currentSession.value?.siteSessionId
-  if (!session || !current(signal, identity) || !writable.value || sending.value || !ticket.value.trim()) return
+  const ctx = activeContext()
+  if (!ctx || !writable.value || sending.value || !ticket.value.trim()) return
+  const { signal, identity, session } = ctx
   const input = { subject: subject.value, body: ticket.value }
   if (!createAttempt || createAttempt.body !== input.body || createAttempt.subject !== input.subject)
     createAttempt = { ...input, key: crypto.randomUUID() }
@@ -265,11 +265,9 @@ async function sendTicket() {
 
 async function sendReply() {
   const detail = thread.value
-  const signal = scope.signal
-  const identity = identityEpoch.value
-  const session = currentSession.value?.siteSessionId
-  if (!session || !detail || selected.value !== detail.id || !current(signal, identity) ||
-      !writable.value || sending.value || !reply.value.trim()) return
+  const ctx = activeContext()
+  if (!ctx || !detail || selected.value !== detail.id || !writable.value || sending.value || !reply.value.trim()) return
+  const { signal, identity, session } = ctx
   const saved = replies.get(detail.id)
   const body = reply.value
   const snapshot = saved?.body === body && saved.snapshot ? saved.snapshot : detail.readThrough
@@ -299,11 +297,9 @@ async function sendReply() {
 
 async function markRead() {
   const detail = thread.value
-  if (!detail || markPending.value) return
-  const signal = scope.signal
-  const identity = identityEpoch.value
-  const session = currentSession.value?.siteSessionId
-  if (!session || !current(signal, identity)) return
+  const ctx = activeContext()
+  if (!detail || markPending.value || !ctx) return
+  const { signal, identity, session } = ctx
   markPending.value = true
   try {
     await api.inboxRead(detail.id, detail.readThrough, signal, session)
@@ -431,7 +427,6 @@ watch(filter, () => {
 })
 
 onMounted(async () => {
-  narrowQuery.addEventListener('change', onViewportChange)
   document.addEventListener('visibilitychange', resume)
   window.addEventListener('online', resume)
   const signal = scope.signal
@@ -443,7 +438,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   scope.abort()
   clearTimeout(pollTimer)
-  narrowQuery.removeEventListener('change', onViewportChange)
   document.removeEventListener('visibilitychange', resume)
   window.removeEventListener('online', resume)
 })

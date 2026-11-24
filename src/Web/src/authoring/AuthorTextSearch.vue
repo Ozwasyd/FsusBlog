@@ -168,13 +168,14 @@ async function readPage({ includeHeading, mixedSources, facet, sort, textSource,
   if ((input.schema && input.schema !== schema) || (facet && facet.schema !== schema) || (sort && sort.schema !== schema))
     throw new ProtocolError('Inconsistent property catalog revision')
   const search = { ...input, schema, cursor }
-  const selection = { definitionId: selectedProperty.field.id, definitionRevision: selectedProperty.field.revision }
-  const facetSelection = facet ? { definitionId: facet.field.id, definitionRevision: facet.field.revision } : null
+  const defRef = (item: PropertySelection) => ({ definitionId: item.field.id, definitionRevision: item.field.revision })
+  const selection = defRef(selectedProperty)
+  const facetSelection = facet ? defRef(facet) : null
   let page
   if (textSource) {
     if (!mixedSources && !facet && !sort) return authorTextPropertyTextSearch({ search, ...selection }, session, signal)
     const selectedQuery = { search, ...selection, facet: facetSelection,
-      sort: sort ? { definitionId: sort.field.id, definitionRevision: sort.field.revision, direction: sort.direction } : null }
+      sort: sort ? { ...defRef(sort), direction: sort.direction } : null }
     page = mixedSources ? await authorTextPropertyTextMixedSearch({ ...selectedQuery, includeHeading }, session, signal)
       : await authorTextPropertyTextQualifiedSearch(selectedQuery, session, signal)
   } else if (sort) {
@@ -240,15 +241,19 @@ function applyBucket(page: SearchPage, bucket: FacetBucket) {
 function queryAvailabilityError(input: SearchInput, failure: unknown): string | undefined {
   if (!(failure instanceof ApiError)) return
   if (input.includeHeading && failure.status === 422) return t('author.authorTextSearch.some.articles.exceed.the.heading.parsing.limit.you.can')
-  if (input.textSource && (failure.status === 404 || failure.status === 409))
-    return input.facet || input.sort ? t('author.authorTextSearch.the.text.property.source.sort.or.facet.is.no')
-      : t('author.authorTextSearch.the.text.property.source.is.no.longer.valid.reload')
-  if (input.sort && (failure.status === 404 || failure.status === 409))
-    return input.facet ? t('author.authorTextSearch.the.property.sort.or.facet.is.no.longer.valid') : t('author.authorTextSearch.the.property.sort.is.no.longer.valid.reload.property')
-  if (input.facet && (failure.status === 404 || failure.status === 409))
-    return t('author.authorTextSearch.the.property.facet.is.no.longer.valid.reload.property')
-  if (input.conditions.length > 0 && (failure.status === 404 || failure.status === 409))
-    return t('author.authorTextSearch.property.conditions.are.no.longer.valid.reload.property.definitions')
+  if (failure.status !== 404 && failure.status !== 409) return
+  if (input.textSource) {
+    return t(input.facet || input.sort
+      ? 'author.authorTextSearch.the.text.property.source.sort.or.facet.is.no'
+      : 'author.authorTextSearch.the.text.property.source.is.no.longer.valid.reload')
+  }
+  if (input.sort) {
+    return t(input.facet
+      ? 'author.authorTextSearch.the.property.sort.or.facet.is.no.longer.valid'
+      : 'author.authorTextSearch.the.property.sort.is.no.longer.valid.reload.property')
+  }
+  if (input.facet) return t('author.authorTextSearch.the.property.facet.is.no.longer.valid.reload.property')
+  if (input.conditions.length > 0) return t('author.authorTextSearch.property.conditions.are.no.longer.valid.reload.property.definitions')
 }
 
 function showNextPage() {

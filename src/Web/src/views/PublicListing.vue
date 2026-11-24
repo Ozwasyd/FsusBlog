@@ -14,6 +14,7 @@ import {
 } from '../../../Contracts/taxonomy-client'
 import { pageNumber, readInitialListing, readInitialTaxonomy } from '../publicEntry'
 import { createLocalSearch } from '../localSearch'
+import { useMediaQuery } from '../delayedBusy'
 import { loadPublicHotArticles } from '../publicHotArticles'
 import { siteTitle } from '../siteBrand'
 import { WireLimits } from '../../../Contracts/wire.generated.ts'
@@ -74,15 +75,7 @@ onScopeDispose(localSearch.dispose)
 const hotEnabled = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-hot-articles"]')?.content === '1'
 const hotRoute = computed(() => hotEnabled && isHome.value && page.value === 1 && !cursor.value ? route.fullPath : undefined)
 const hotArticles = shallowRef<PopularArticle[]>([])
-const compactHotQuery = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-  ? window.matchMedia('(max-width: 37.99rem)')
-  : undefined
-const compactHotViewport = ref(compactHotQuery?.matches ?? false)
-if (compactHotQuery) {
-  const syncCompactHotViewport = (event: MediaQueryListEvent) => { compactHotViewport.value = event.matches }
-  compactHotQuery.addEventListener('change', syncCompactHotViewport)
-  onScopeDispose(() => compactHotQuery.removeEventListener('change', syncCompactHotViewport))
-}
+const compactHotViewport = useMediaQuery('(max-width: 37.99rem)')
 const visibleHotArticles = computed(() => hotArticles.value.slice(0, compactHotViewport.value ? 3 : 5))
 const readCount = new Intl.NumberFormat('en')
 

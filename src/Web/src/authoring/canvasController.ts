@@ -8,7 +8,6 @@ import type {
   CanvasGraphHistory,
   CanvasGraphPage,
   CanvasNode,
-  CanvasReferenceResolution,
   CanvasViewport,
 } from '../../../Contracts/canvas-graph.ts'
 import {
@@ -34,7 +33,6 @@ import {
 import {
   CanvasPreviewController,
   type CanvasEditorHandoffPort,
-  type CanvasLinkPreviewPlan,
   type CanvasPreviewTransport,
 } from './canvasPreviewController.ts'
 import { focusNodeViewport, viewportEquals, zoomCanvasViewport } from './canvasViewport.ts'
@@ -81,53 +79,54 @@ export interface CanvasContextInput {
 
 export type { CanvasFormFields, CanvasFormState } from './canvasForm.ts'
 
-export interface CanvasControllerState extends CanvasFormState {
-  readonly ready: boolean
-  readonly authorized: boolean
-  readonly documentId: string
-  readonly loading: boolean
-  readonly working: boolean
-  readonly bundlePending: boolean
-  readonly stale: boolean
-  readonly graphReadFailure: boolean
-  readonly message: CanvasNotice | undefined
-  readonly error: CanvasNotice | undefined
-  readonly document: CanvasGraphHeader | undefined
-  readonly documents: readonly CanvasGraphHeader[]
-  readonly nodes: readonly CanvasNode[]
-  readonly edges: readonly CanvasGraphEdge[]
-  readonly byId: ReadonlyMap<string, CanvasNode>
-  readonly offset: number | null
-  readonly view: 'canvas' | 'outline'
-  readonly outlinePage: number
-  readonly outlineSearch: string
-  readonly focusBoardNode: string
-  readonly loadingAll: boolean
-  readonly completeGraph: boolean
-  readonly bulkProgress: number
-  readonly nodeId: string
-  readonly edgeId: string
-  readonly selectedNode: CanvasNode | undefined
-  readonly selectedEdge: CanvasGraphEdge | undefined
-  readonly selectedReference: Extract<CanvasNode, { articleId: number }> | undefined
-  readonly activeLink: CanvasActiveLinkPair | undefined
-  readonly retry: CanvasGraphCommand | undefined
-  readonly plan: CanvasLinkPreviewPlan | undefined
-  readonly linkPending: boolean
-  readonly linkUnconfirmed: boolean
-  readonly history: CanvasGraphHistory | undefined
-  readonly historyFailure: boolean
-  readonly historyLoading: boolean
-  readonly historyActionAvailable: { readonly undo: boolean; readonly redo: boolean }
-  readonly reference: CanvasReferenceResolution | undefined
-  readonly referenceLoading: boolean
-  readonly referenceError: boolean
-  readonly referenceOpenNotice: CanvasNotice | undefined
-  readonly canOpenReference: boolean
-  readonly disabled: boolean
-  readonly canNavigate: boolean
-  readonly shouldProtectUnload: boolean
-}
+const emptyCanvasDocState = () => ({
+  loading: false,
+  working: false,
+  bundlePending: false,
+  stale: false,
+  graphReadFailure: false,
+  message: undefined as CanvasNotice | undefined,
+  error: undefined as CanvasNotice | undefined,
+  document: undefined as CanvasGraphHeader | undefined,
+  documents: [] as readonly CanvasGraphHeader[],
+  nodes: [] as readonly CanvasNode[],
+  byId: new Map<string, CanvasNode>() as ReadonlyMap<string, CanvasNode>,
+  edges: [] as readonly CanvasGraphEdge[],
+  offset: null as number | null,
+  outlinePage: 0,
+  outlineSearch: '',
+  focusBoardNode: '',
+  loadingAll: false,
+  completeGraph: false,
+  bulkProgress: 0,
+  nodeId: '',
+  edgeId: '',
+  retry: undefined as CanvasGraphCommand | undefined,
+  history: undefined as CanvasGraphHistory | undefined,
+  historyFailure: false,
+  historyLoading: false,
+})
+
+type CanvasDocState = ReturnType<typeof emptyCanvasDocState>
+
+export type CanvasControllerState = Readonly<
+  CanvasFormState &
+  CanvasDocState &
+  ReturnType<CanvasPreviewController['snapshot']> & {
+    ready: boolean
+    authorized: boolean
+    documentId: string
+    view: 'canvas' | 'outline'
+    selectedNode: CanvasNode | undefined
+    selectedEdge: CanvasGraphEdge | undefined
+    selectedReference: Extract<CanvasNode, { articleId: number }> | undefined
+    activeLink: CanvasActiveLinkPair | undefined
+    historyActionAvailable: { readonly undo: boolean; readonly redo: boolean }
+    disabled: boolean
+    canNavigate: boolean
+    shouldProtectUnload: boolean
+  }
+>
 
 function sameAuthorSession(left: CanvasIdentity | null, right: CanvasIdentity | null): boolean {
   if (left === right) return true
@@ -139,23 +138,8 @@ function sameAuthorSession(left: CanvasIdentity | null, right: CanvasIdentity | 
     left.credentialEpoch === right.credentialEpoch
 }
 
-type CanvasDocState = {
-  -readonly [K in Exclude<
-    keyof CanvasControllerState,
-    keyof CanvasFormState | 'ready' | 'authorized' | 'documentId' | 'view' | 'selectedNode' | 'selectedEdge' |
-    'selectedReference' | 'activeLink' | 'plan' | 'linkPending' | 'linkUnconfirmed' | 'historyActionAvailable' |
-    'reference' | 'referenceLoading' | 'referenceError' | 'referenceOpenNotice' | 'canOpenReference' |
-    'disabled' | 'canNavigate' | 'shouldProtectUnload'
-  >]: CanvasControllerState[K]
-}
-
-const emptyCanvasDocState = (): CanvasDocState => ({
-  loading: false, working: false, bundlePending: false, stale: false, graphReadFailure: false,
-  message: undefined, error: undefined, document: undefined, documents: [], nodes: [], byId: new Map(),
-  edges: [], offset: null, outlinePage: 0, outlineSearch: '', focusBoardNode: '', loadingAll: false,
-  completeGraph: false, bulkProgress: 0, nodeId: '', edgeId: '', retry: undefined, history: undefined,
-  historyFailure: false, historyLoading: false,
-})
+const isTerminalCanvasStatus = (cause: unknown): cause is ApiError =>
+  cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)
 
 export class CanvasController {
   readonly #transport: CanvasGraphTransport
@@ -475,7 +459,7 @@ export class CanvasController {
       this.#notify()
     } catch (cause) {
       if (!isLatest()) return
-      if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
+      if (isTerminalCanvasStatus(cause)) {
         this.#recordError(cause, signal, 'author.canvas.could_not_load_canvas_history', true)
       } else {
         this.#s.historyFailure = true
@@ -582,7 +566,7 @@ export class CanvasController {
     } catch (cause) {
       if (!this.#scoped(signal)) return
       this.#s.completeGraph = false
-      if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
+      if (isTerminalCanvasStatus(cause)) {
         this.#recordError(cause, signal, 'author.canvas.could_not_load_all_canvas_records', true)
       } else {
         this.#s.error = keyNotice('author.canvas.could_not_load_all_canvas_records_try_again')
@@ -847,15 +831,8 @@ export class CanvasController {
       selectedEdge,
       selectedReference,
       activeLink: resolveActiveArticleLink(selectedEdge, this.#s.byId),
-      plan: this.#preview.plan,
-      linkPending: this.#preview.linkPending,
-      linkUnconfirmed: this.#preview.linkUnconfirmed,
+      ...this.#preview.snapshot(this.#identity?.siteSessionId),
       historyActionAvailable: this.#historyAvailability(),
-      reference: this.#preview.reference,
-      referenceLoading: this.#preview.referenceLoading,
-      referenceError: this.#preview.referenceError,
-      referenceOpenNotice: this.#preview.referenceOpenNotice,
-      canOpenReference: this.#preview.canOpenReference(this.#identity?.siteSessionId),
       ...this.#form.snapshot(),
       disabled: this.disabled,
       canNavigate: this.canNavigate,

@@ -30,6 +30,7 @@ import AdminAppearance from './AdminAppearance.vue'
 import { ApiError } from '../../../Contracts/aeds'
 import { passkeyAvailable } from '../../../Contracts/passkey'
 import { announceAdminAuthChange, clearAuthorSession, markAdminSessionHint } from '../authorSession'
+import { publicOriginBase } from '../siteBrand'
 import { readInitialAdminEntry } from '../workspacePreload'
 import {
   bootstrapAdminPasskey,
@@ -54,8 +55,7 @@ const route = useRoute()
 const router = useRouter()
 const section = computed(() => adminWorkspacePages.find(page => page.name === route.name) ?? adminWorkspacePages.at(-1)!)
 const adminUsesHttps = globalThis.location?.protocol === 'https:'
-const configuredPublicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
-const splitAdminHost = Boolean(configuredPublicOrigin && configuredPublicOrigin !== globalThis.location?.origin)
+const splitAdminHost = Boolean(publicOriginBase())
 const unifiedLogin = ref(false)
 const lifetime = new AbortController()
 const authority = shallowRef<AdminAuthority | null>(null)
@@ -281,25 +281,25 @@ function logIn() {
   }, 'admin.passkeyLoginFailed')
 }
 
-function openHandleRename() {
-  if (authority.value?.status !== 'active' || busy.value || handleSubmitting.value) return
-  handleNotice.value = ''
-  nextHandle.value = authority.value.session.handle
+function resetHandleForm(handle = '', open = false) {
+  handleDialogOpen.value = open
+  nextHandle.value = handle
   nextHandleTouched.value = false
   handleFailure.value = ''
   handleRetryCommand.value = null
-  handleDialogOpen.value = true
+}
+
+function openHandleRename() {
+  if (authority.value?.status !== 'active' || busy.value || handleSubmitting.value) return
+  handleNotice.value = ''
+  resetHandleForm(authority.value.session.handle, true)
 }
 
 function closeHandleRename(force = false) {
   if (handleSubmitting.value && !force) return
   handleRequest?.abort()
   handleRequest = undefined
-  handleDialogOpen.value = false
-  nextHandle.value = ''
-  nextHandleTouched.value = false
-  handleFailure.value = ''
-  handleRetryCommand.value = null
+  resetHandleForm()
   handleSubmitting.value = false
 }
 

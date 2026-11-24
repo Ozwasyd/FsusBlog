@@ -32,7 +32,7 @@ import { WireLimits } from '../../../Contracts/wire.generated'
 import { applySiteBrand, bumpSiteConfigEpoch, safeBrandAssetUrl } from '../siteBrand'
 import { t, type MessageKey } from '../siteLocale'
 import { useDelayedBusy } from '../delayedBusy'
-import { watchAdminSessionClear } from './adminSessionClear'
+import { isAdminSessionLost, useAdminRequests } from './adminSessionClear'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: unknown] }>()
@@ -45,40 +45,28 @@ type FormModel = Record<FieldKey, string> & {
   regionMode: 'global' | 'mainland-cn'
 }
 
-const fieldTabs: Readonly<Record<FieldKey, ConfigTab>> = {
-  title: 'seo',
-  author: 'seo',
-  description: 'seo',
-  ogImage: 'seo',
-  siteLogoUrl: 'brand',
-  siteLogoDarkUrl: 'brand',
-  siteWordmarkUrl: 'brand',
-  faviconSvgUrl: 'brand',
-  faviconIcoUrl: 'brand',
-  faviconPngUrl: 'brand',
-  appleTouchIconUrl: 'brand',
-  manifestName: 'brand',
-  manifestShortName: 'brand',
-  themeColor: 'brand',
-  backgroundColor: 'brand',
-  pwaIcon192Url: 'brand',
-  pwaIcon512Url: 'brand',
-  pwaMaskableIconUrl: 'brand',
-  copyrightOwner: 'compliance',
-  copyrightStartYear: 'compliance',
-  copyrightText: 'compliance',
-  contentLicenseName: 'compliance',
-  contentLicenseUrl: 'compliance',
-  icpRecordNumber: 'compliance',
-  icpRecordUrl: 'compliance',
-  policeRecordNumber: 'compliance',
-  policeRecordUrl: 'compliance',
-  policeBadgeIconUrl: 'compliance',
-  operatorName: 'compliance',
-  contactEmail: 'compliance',
+const tabFields: Readonly<Record<ConfigTab, readonly FieldKey[]>> = {
+  seo: ['title', 'author', 'description', 'ogImage'],
+  brand: [
+    'siteLogoUrl', 'siteLogoDarkUrl', 'siteWordmarkUrl', 'faviconSvgUrl', 'faviconIcoUrl', 'faviconPngUrl',
+    'appleTouchIconUrl', 'manifestName', 'manifestShortName', 'themeColor', 'backgroundColor',
+    'pwaIcon192Url', 'pwaIcon512Url', 'pwaMaskableIconUrl',
+  ],
+  compliance: [
+    'copyrightOwner', 'copyrightStartYear', 'copyrightText', 'contentLicenseName', 'contentLicenseUrl',
+    'icpRecordNumber', 'icpRecordUrl', 'policeRecordNumber', 'policeRecordUrl', 'policeBadgeIconUrl',
+    'operatorName', 'contactEmail',
+  ],
 }
-
-const fieldOrder = Object.keys(fieldTabs) as FieldKey[]
+const fieldTabs = Object.fromEntries(
+  (Object.entries(tabFields) as [ConfigTab, readonly FieldKey[]][]).flatMap(([tab, keys]) => keys.map(key => [key, tab])),
+) as Readonly<Record<FieldKey, ConfigTab>>
+const fieldOrder = Object.values(tabFields).flat() as FieldKey[]
+const shortTextFields = new Set<FieldKey>(['manifestName', 'manifestShortName', 'copyrightOwner', 'contentLicenseName', 'operatorName'])
+const assetUrlFields = new Set<FieldKey>([
+  'ogImage', 'faviconSvgUrl', 'faviconIcoUrl', 'faviconPngUrl', 'appleTouchIconUrl',
+  'pwaIcon192Url', 'pwaIcon512Url', 'pwaMaskableIconUrl', 'siteLogoUrl', 'siteLogoDarkUrl', 'siteWordmarkUrl',
+])
 
 const brandLogos = { siteLogoUrl: '/assets/logo.svg', siteLogoDarkUrl: '/assets/logo-dark.svg' } as const
 const favicons = {
@@ -117,7 +105,6 @@ const emptyForm = (): FormModel => ({
   regionMode: 'global',
 })
 
-const lifetime = new AbortController()
 const state = shallowRef<AdminSiteConfigState>()
 const form = reactive<FormModel>(emptyForm())
 const activeTab = ref<ConfigTab>('seo')
@@ -132,7 +119,6 @@ const notice = ref<MessageKey | ''>('')
 const touched = reactive<Partial<Record<FieldKey, boolean>>>({})
 const brokenPreviewUrls = ref<Record<string, boolean>>({})
 const liveAnnouncement = ref('')
-let activeRequest: AbortController | undefined
 let announceTimer: ReturnType<typeof setTimeout> | undefined
 let announcedField: FieldKey | undefined
 
@@ -167,27 +153,13 @@ function parseYear(raw: string): number | null {
 }
 
 function validateField(field: FieldKey): SiteConfigFieldError | null {
+  if (shortTextFields.has(field)) return validSiteText(form[field], WireLimits.SiteConfigShortTextBytes)
+  if (assetUrlFields.has(field)) return validSiteUrl(form[field], { asset: true })
   switch (field) {
     case 'themeColor':
     case 'backgroundColor': return validSiteColor(form[field])
     case 'icpRecordNumber':
     case 'policeRecordNumber': return validSiteText(form[field], WireLimits.SiteConfigRecordNumberBytes)
-    case 'manifestName':
-    case 'manifestShortName':
-    case 'copyrightOwner':
-    case 'contentLicenseName':
-    case 'operatorName': return validSiteText(form[field], WireLimits.SiteConfigShortTextBytes)
-    case 'ogImage':
-    case 'faviconSvgUrl':
-    case 'faviconIcoUrl':
-    case 'faviconPngUrl':
-    case 'appleTouchIconUrl':
-    case 'pwaIcon192Url':
-    case 'pwaIcon512Url':
-    case 'pwaMaskableIconUrl':
-    case 'siteLogoUrl':
-    case 'siteLogoDarkUrl':
-    case 'siteWordmarkUrl': return validSiteUrl(form[field], { asset: true })
     case 'title': return validSiteText(form.title, WireLimits.SiteConfigTitleBytes, true)
     case 'author': return validSiteText(form.author, WireLimits.SiteConfigAuthorBytes, true)
     case 'description': return validSiteText(form.description, WireLimits.SiteConfigDescriptionBytes, false, true)
@@ -198,6 +170,7 @@ function validateField(field: FieldKey): SiteConfigFieldError | null {
     case 'policeRecordUrl': return validSiteUrl(form.policeRecordUrl, { label: form.policeRecordNumber })
     case 'policeBadgeIconUrl': return validSiteUrl(form.policeBadgeIconUrl, { asset: true, label: form.policeRecordNumber })
     case 'contactEmail': return validSiteEmail(form.contactEmail)
+    default: return null
   }
 }
 
@@ -311,31 +284,17 @@ const sectionDescription = computed(() => {
     : t('admin.siteConfig.overrideDesc', { revision: state.value.revision.toString() })
 })
 
+const activePreview = (url: string) => (url && !brokenPreviewUrls.value[url] ? url : '')
 const previewOrigin = computed(() => state.value?.origin || window.location.origin)
-const previewOgUrl = computed(() => {
-  const url = safeBrandAssetUrl(form.ogImage)
-  return url && !brokenPreviewUrls.value[url] ? url : ''
-})
-const previewLightLogo = computed(() => {
-  const url = safeBrandAssetUrl(form.siteLogoUrl)
-  return url && !brokenPreviewUrls.value[url] ? url : ''
-})
-const previewDarkLogo = computed(() => {
-  const url = safeBrandAssetUrl(form.siteLogoDarkUrl) || safeBrandAssetUrl(form.siteLogoUrl)
-  return url && !brokenPreviewUrls.value[url] ? url : ''
-})
+const previewOgUrl = computed(() => activePreview(safeBrandAssetUrl(form.ogImage)))
+const previewLightLogo = computed(() => activePreview(safeBrandAssetUrl(form.siteLogoUrl)))
+const previewDarkLogo = computed(() => activePreview(safeBrandAssetUrl(form.siteLogoDarkUrl) || safeBrandAssetUrl(form.siteLogoUrl)))
 const brandPreviews = {
   light: { label: 'admin.siteConfig.previewLight', logo: previewLightLogo },
   dark: { label: 'admin.siteConfig.previewDark', logo: previewDarkLogo },
 } as const
-const previewWordmark = computed(() => {
-  const url = safeBrandAssetUrl(form.siteWordmarkUrl)
-  return url && !brokenPreviewUrls.value[url] ? url : ''
-})
-const previewPoliceBadge = computed(() => {
-  const url = safeBrandAssetUrl(form.policeBadgeIconUrl)
-  return url && !brokenPreviewUrls.value[url] ? url : ''
-})
+const previewWordmark = computed(() => activePreview(safeBrandAssetUrl(form.siteWordmarkUrl)))
+const previewPoliceBadge = computed(() => activePreview(safeBrandAssetUrl(form.policeBadgeIconUrl)))
 const manifestPreviewName = computed(() => form.manifestName.trim() || form.title.trim() || "Fsu's Blog")
 const manifestPreviewShortName = computed(() => form.manifestShortName.trim() || manifestPreviewName.value)
 const manifestIconCount = computed(() =>
@@ -349,38 +308,23 @@ const previewCopyright = computed(() => {
   const statement = (form.complianceEnabled ? form.copyrightText.trim() : '') || t('nav.rightsReserved')
   return ['©', years, owner, statement].filter(Boolean).join(' ')
 })
-const previewIcpUrl = computed(() => {
-  const num = form.icpRecordNumber.trim()
-  if (!num) return ''
-  return form.icpRecordUrl.trim() || 'https://beian.miit.gov.cn/'
-})
-const previewPoliceUrl = computed(() => {
-  const num = form.policeRecordNumber.trim()
-  if (!num) return ''
-  return form.policeRecordUrl.trim() || 'https://beian.mps.gov.cn/'
-})
+const registrationUrl = (number: string, url: string, fallback: string) => number.trim() ? url.trim() || fallback : ''
+const previewIcpUrl = computed(() => registrationUrl(form.icpRecordNumber, form.icpRecordUrl, 'https://beian.miit.gov.cn/'))
+const previewPoliceUrl = computed(() => registrationUrl(form.policeRecordNumber, form.policeRecordUrl, 'https://beian.mps.gov.cn/'))
 
 function markPreviewBroken(url: string) {
   if (!url || brokenPreviewUrls.value[url]) return
   brokenPreviewUrls.value = { ...brokenPreviewUrls.value, [url]: true }
 }
 
-function pickerColor(raw: string, fallback: string): string {
-  return /^#[0-9a-fA-F]{6}$/.test(raw.trim()) ? raw.trim() : fallback
-}
-
-function onColorPicker(field: 'themeColor' | 'backgroundColor', event: Event) {
-  const target = event.target as HTMLInputElement
-  form[field] = target.value
+const pickerColor = (raw: string, fallback: string) => (/^#[0-9a-fA-F]{6}$/.test(raw.trim()) ? raw.trim() : fallback)
+function setColor(field: 'themeColor' | 'backgroundColor', value: string) {
+  form[field] = value
   touched[field] = true
   onInput(field)
 }
-
-function clearColor(field: 'themeColor' | 'backgroundColor') {
-  form[field] = ''
-  touched[field] = true
-  onInput(field)
-}
+const onColorPicker = (field: 'themeColor' | 'backgroundColor', event: Event) => setColor(field, (event.target as HTMLInputElement).value)
+const clearColor = (field: 'themeColor' | 'backgroundColor') => setColor(field, '')
 
 function resetForm() {
   if (!state.value) return
@@ -390,8 +334,6 @@ function resetForm() {
 }
 
 function clear() {
-  activeRequest?.abort()
-  activeRequest = undefined
   state.value = undefined
   applyFormValues(emptyForm())
   loading.value = false
@@ -401,26 +343,26 @@ function clear() {
   notice.value = ''
 }
 
+const requests = useAdminRequests(() => props.sessionSignal, clear)
+
 async function load() {
   if (props.sessionSignal.aborted) return
-  activeRequest?.abort()
-  const controller = activeRequest = new AbortController()
-  const signal = AbortSignal.any([controller.signal, lifetime.signal, props.sessionSignal])
+  const req = requests.start()
   loading.value = true
   error.value = ''
   try {
-    const next = await readAdminSiteConfig(signal)
-    if (signal.aborted) return
+    const next = await readAdminSiteConfig(req.signal)
+    if (req.signal.aborted) return
     state.value = next
     stale.value = false
     applyFormValues(stateToForm(next))
   } catch (cause) {
-    if (signal.aborted) return
-    if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
+    if (req.signal.aborted) return
+    if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else error.value = 'admin.siteConfig.loadFailed'
   } finally {
-    if (activeRequest === controller) {
-      activeRequest = undefined
+    if (req.isCurrent()) {
+      req.finish()
       loading.value = false
     }
   }
@@ -447,36 +389,30 @@ async function submit() {
     return
   }
 
-  const current = state.value
-  const command = buildCommand(current)
-  const controller = activeRequest = new AbortController()
-  const signal = AbortSignal.any([controller.signal, lifetime.signal, props.sessionSignal])
+  const command = buildCommand(state.value)
+  const req = requests.start()
   saving.value = true
   error.value = ''
   notice.value = ''
   try {
-    await saveAdminSiteConfig(command, signal)
-    if (signal.aborted) return
+    await saveAdminSiteConfig(command, req.signal)
+    if (req.signal.aborted) return
     stale.value = true
     applySiteBrand({
-      title: command.title,
-      author: command.author,
-      siteLogoUrl: command.siteLogoUrl,
-      siteLogoDarkUrl: command.siteLogoDarkUrl,
-      siteWordmarkUrl: command.siteWordmarkUrl,
+      title: command.title, author: command.author, siteLogoUrl: command.siteLogoUrl,
+      siteLogoDarkUrl: command.siteLogoDarkUrl, siteWordmarkUrl: command.siteWordmarkUrl,
     })
     bumpSiteConfigEpoch()
-    const reloaded = await readAdminSiteConfig(signal)
-    if (signal.aborted) return
+    const reloaded = await readAdminSiteConfig(req.signal)
+    if (req.signal.aborted) return
     state.value = reloaded
     stale.value = false
     applyFormValues(stateToForm(reloaded))
     notice.value = 'admin.siteConfig.saved'
   } catch (cause) {
-    if (signal.aborted) return
-    if (cause instanceof ApiError && cause.status === 401 && !cause.details.startsWith('pow_')) {
-      emit('session-lost', cause)
-    } else if (cause instanceof ApiError && cause.status === 409) {
+    if (req.signal.aborted) return
+    if (isAdminSessionLost(cause)) emit('session-lost', cause)
+    else if (cause instanceof ApiError && cause.status === 409) {
       stale.value = true
       confirmed.value = false
       error.value = 'admin.siteConfig.conflict'
@@ -486,17 +422,13 @@ async function submit() {
       error.value = 'admin.siteConfig.saveFailed'
     }
   } finally {
-    if (activeRequest === controller) activeRequest = undefined
+    req.finish()
     saving.value = false
   }
 }
 
-watchAdminSessionClear(() => props.sessionSignal, clear, () => lifetime.abort())
 onMounted(() => { void load() })
-onScopeDispose(() => {
-  clearAnnouncement()
-  lifetime.abort()
-})
+onScopeDispose(clearAnnouncement)
 </script>
 
 <template>

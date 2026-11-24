@@ -9,7 +9,7 @@ import type { AdminSession } from '../../../Contracts/admin-identity'
 import { readAdminSiteTraffic } from '../../../Contracts/admin-site-traffic'
 import { siteLocale, t, type MessageKey } from '../siteLocale'
 import { useDelayedBusy } from '../delayedBusy'
-import { watchAdminSessionClear } from './adminSessionClear'
+import { isAdminSessionLost, useAdminRequests } from './adminSessionClear'
 
 const props = defineProps<{ session: AdminSession; sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: ApiError] }>()
@@ -17,7 +17,6 @@ const observation = shallowRef<Awaited<ReturnType<typeof readAdminSiteTraffic>>>
 const busy = ref(false)
 const refreshLoading = useDelayedBusy(() => busy.value)
 const error = ref<MessageKey | ''>('')
-let request: AbortController | undefined
 const total = computed(() => observation.value?.days.reduce((sum, day) => sum + day.views, 0) ?? 0)
 const peak = computed(() => Math.max(1, ...observation.value?.days.map(day => day.views) ?? []))
 const points = computed(() => observation.value?.days.map((day, index, days) =>
@@ -40,33 +39,28 @@ function regionName(code: string) {
 }
 const number = (value: number) => new Intl.NumberFormat(siteLocale.value).format(value)
 
-function clear() {
-  request?.abort()
-  request = undefined
+const requests = useAdminRequests(() => [props.session, props.sessionSignal] as const, () => {
   observation.value = undefined
   busy.value = false
   error.value = ''
-}
+})
 async function load() {
   if (busy.value || props.sessionSignal.aborted) return
-  request?.abort()
-  const current = request = new AbortController()
-  const signal = AbortSignal.any([current.signal, props.sessionSignal])
+  const req = requests.start()
   busy.value = true
   error.value = ''
   try {
-    const result = await readAdminSiteTraffic(props.session, signal)
-    if (!signal.aborted) observation.value = result
+    const result = await readAdminSiteTraffic(props.session, req.signal)
+    if (!req.signal.aborted) observation.value = result
   } catch (cause) {
-    if (signal.aborted) return
+    if (req.signal.aborted) return
     observation.value = undefined
-    if (cause instanceof ApiError && cause.status === 401) emit('session-lost', cause)
+    if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else error.value = 'admin.traffic.failed'
   } finally {
-    if (request === current) { request = undefined; busy.value = false }
+    if (req.isCurrent()) { req.finish(); busy.value = false }
   }
 }
-watchAdminSessionClear(() => [props.session, props.sessionSignal] as const, clear)
 onMounted(() => { void load() })
 </script>
 

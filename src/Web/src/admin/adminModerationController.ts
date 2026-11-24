@@ -46,20 +46,7 @@ export type ModerationDisplayMessage =
   | Readonly<{ key: MessageKey; params: Readonly<Record<string, string | number>> }>
   | ModerationConflictMessage
 
-export interface AdminModerationTransport {
-  readAdminCommentQueue(after: AdminCommentCursor | null, signal: AbortSignal): Promise<AdminCommentQueue>
-  claimComment(target: AdminCommentCursor, signal: AbortSignal): Promise<AdminModerationClaim>
-  renewCommentClaim(claim: AdminModerationClaim, signal: AbortSignal): Promise<AdminModerationClaim>
-  releaseCommentClaim(claim: AdminModerationClaim, signal: AbortSignal): Promise<void>
-  proveAdminModerationDecision(command: AdminModerationDecision, signal: AbortSignal): Promise<string>
-  decideComment(command: AdminModerationDecision, proof: string, signal: AbortSignal): Promise<void>
-  claimModerationBatch(targets: readonly AdminCommentCursor[], signal: AbortSignal): Promise<readonly AdminModerationClaim[]>
-  proveAndDecideModerationBatch(command: AdminModerationBatchDecision, signal: AbortSignal): Promise<AdminModerationBatchReceipt>
-  readModerationTimeline(article: string, comment: string, signal: AbortSignal): Promise<ModerationTimeline>
-  readCommentRevisions(article: string, comment: string, before: number | null, signal: AbortSignal): Promise<CommentRevisionPage>
-}
-
-export const defaultAdminModerationTransport: AdminModerationTransport = {
+export const defaultAdminModerationTransport = {
   readAdminCommentQueue,
   claimComment,
   renewCommentClaim,
@@ -71,6 +58,7 @@ export const defaultAdminModerationTransport: AdminModerationTransport = {
   readModerationTimeline,
   readCommentRevisions,
 }
+export type AdminModerationTransport = typeof defaultAdminModerationTransport
 
 export interface AdminModerationHooks {
   onSessionLost?: (error: ApiError) => void

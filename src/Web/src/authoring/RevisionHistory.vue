@@ -111,14 +111,18 @@ const metadataChanges = computed(() => {
 let historyRequest: AbortController | undefined
 let compareRequest: AbortController | undefined
 
-function reset() {
-  historyRequest?.abort()
-  closeComparison()
+function clearHistoryList() {
   items.value = []
   cursor.value = null
   published.value = null
-  error.value = ''
   loading.value = false
+}
+
+function reset() {
+  historyRequest?.abort()
+  closeComparison()
+  clearHistoryList()
+  error.value = ''
 }
 
 function closeComparison() {
@@ -199,10 +203,7 @@ async function compare(source: bigint) {
     if (controller.signal.aborted) return
     if (cause instanceof ApiError && [401, 403, 409].includes(cause.status)) {
       historyRequest?.abort()
-      items.value = []
-      cursor.value = null
-      published.value = null
-      loading.value = false
+      clearHistoryList()
       error.value = cause.status === 409 ? t('author.revisionHistory.load.the.current.draft.to.view.revision.history') : t('author.revisionHistory.revision.history.is.unavailable')
       comparisonError.value = cause.status === 409 ? t('author.revisionHistory.the.saved.draft.changed.load.its.current.revision.and') : t('author.revisionHistory.this.comparison.is.unavailable')
     } else {
@@ -322,10 +323,7 @@ watch(credentialEpoch, () => {
     comparing.value = false
     comparisonError.value = t('author.revisionHistory.the.session.renewed.while.loading.close.the.comparison.and')
   }
-  items.value = []
-  cursor.value = null
-  published.value = null
-  loading.value = false
+  clearHistoryList()
   if (open.value && props.articleId > 0) void load()
 }, { flush: 'sync' })
 onScopeDispose(() => {

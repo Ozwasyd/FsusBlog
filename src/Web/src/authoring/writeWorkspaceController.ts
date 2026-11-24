@@ -148,35 +148,37 @@ export interface WriteWorkspaceControllerPorts {
   newRequestKey?: ConstructorParameters<typeof WorkspaceRegistry<Draft>>[3]
 }
 
-export type WriteWorkspaceState = Readonly<{
-  original: Draft | undefined
-  tab: WorkspaceTab | undefined
-  workspaceTabs: readonly WorkspaceTab[]
-  workspaceRevision: number
-  sourcePanes: readonly WorkspaceSource<Draft>[]
-  hasSecondaryGroup: boolean
-  recentlyClosed: readonly RecentlyClosed[]
-  inspectorOpen: boolean
-  persistentWorkspace: boolean
-  authorizationReady: boolean
-  layoutRestoring: boolean
-  loading: boolean
-  opening: boolean
-  closingTabs: boolean
-  recoveryWorking: boolean
-  composing: number | undefined
-  taxonomyDirty: boolean
-  summaryDirty: boolean
-  taxonomyStale: boolean
-  propertyPending: boolean
-  revisionComparisonActive: boolean
-  taxonomyModalActive: boolean
-  notice: string
-  failure: string
-  navigationNotice: string
-  groupNotice: string
-  openInput: string
-}>
+const initialWorkspaceState = (persistentWorkspace: boolean, authorizationReady: boolean) => ({
+  original: undefined as Draft | undefined,
+  tab: undefined as WorkspaceTab | undefined,
+  workspaceTabs: [] as readonly WorkspaceTab[],
+  workspaceRevision: 0,
+  sourcePanes: [] as readonly WorkspaceSource<Draft>[],
+  hasSecondaryGroup: false,
+  recentlyClosed: [] as readonly RecentlyClosed[],
+  inspectorOpen: false,
+  persistentWorkspace,
+  authorizationReady,
+  layoutRestoring: false,
+  loading: false,
+  opening: false,
+  closingTabs: false,
+  recoveryWorking: false,
+  composing: undefined as number | undefined,
+  taxonomyDirty: false,
+  summaryDirty: false,
+  taxonomyStale: false,
+  propertyPending: false,
+  revisionComparisonActive: false,
+  taxonomyModalActive: false,
+  notice: '',
+  failure: '',
+  navigationNotice: '',
+  groupNotice: '',
+  openInput: '',
+})
+
+export type WriteWorkspaceState = Readonly<ReturnType<typeof initialWorkspaceState>>
 
 export type DeriveWorkspaceFlagsInput = Readonly<{
   state: WriteWorkspaceState
@@ -186,32 +188,7 @@ export type DeriveWorkspaceFlagsInput = Readonly<{
   recoveryChecking: boolean
 }>
 
-export type WriteWorkspaceFlags = Readonly<{
-  metadataDirty: boolean
-  recoveryBlocked: boolean
-  articleDirty: boolean
-  dirty: boolean
-  hasConflict: boolean
-  articlePending: boolean
-  pending: boolean
-  canSwitch: boolean
-  retry: WorkspaceTab['retry']
-  validTitle: boolean
-  validBody: boolean
-  editable: boolean
-  cannotWrite: boolean
-  credential: string | undefined
-  canImportDraft: boolean
-  canPreviewPlugin: boolean
-  canChangeSummary: boolean
-  canArrangeGroups: boolean
-  otherGroup: WorkspaceGroup | undefined
-  activeGroupTabs: readonly WorkspaceTab[]
-  activeGroupIndex: number
-  canCloseGroupTabs: boolean
-  canPublishImages: boolean
-  inputArticle: number | undefined
-}>
+export type WriteWorkspaceFlags = Readonly<ReturnType<typeof deriveWorkspaceFlags>>
 
 export function articleRouteId(name: unknown, idParam: unknown): number | undefined {
   if (name === 'write') return 0
@@ -229,7 +206,7 @@ export function parseArticleIdInput(raw: string): number | undefined {
   return /^[1-9][0-9]{0,9}$/.test(input) && articleId <= 2_147_483_647 ? articleId : undefined
 }
 
-export function deriveWorkspaceFlags(input: DeriveWorkspaceFlagsInput): WriteWorkspaceFlags {
+export function deriveWorkspaceFlags(input: DeriveWorkspaceFlagsInput) {
   const { state, articleId, session, recoveryItemsCount, recoveryChecking } = input
   const { tab, original } = state
   const metadataDirty = state.taxonomyDirty || state.summaryDirty
@@ -249,10 +226,10 @@ export function deriveWorkspaceFlags(input: DeriveWorkspaceFlagsInput): WriteWor
   const cannotWrite = state.closingTabs || pending || recoveryBlocked || hasConflict || metadataDirty ||
     !validBody || !validTitle
   const credential = session?.siteSessionId
-  const canImportDraft = !!credential && editable && canSwitch && !state.opening && !pending && !recoveryBlocked &&
-    !hasConflict && !retry && tab?.risk === 'clean' && original?.id === 0 && original.title === '' && original.body === ''
-  const canPreviewPlugin = !!credential && editable && canSwitch && !state.opening && !pending && !recoveryBlocked &&
-    !hasConflict && !retry && tab?.risk === 'clean' && original !== undefined && original.id > 0 && original.revision > 0n
+  const cleanReady = !!credential && editable && canSwitch && !state.opening && !pending &&
+    !recoveryBlocked && !hasConflict && !retry && tab?.risk === 'clean'
+  const canImportDraft = cleanReady && original?.id === 0 && original.title === '' && original.body === ''
+  const canPreviewPlugin = cleanReady && original !== undefined && original.id > 0 && original.revision > 0n
   const canChangeSummary = !!credential && editable && tab?.risk === 'clean' && !state.closingTabs && !pending &&
     !recoveryBlocked && !hasConflict && !state.taxonomyDirty && validBody && validTitle
   const canArrangeGroups = !!credential && editable && !state.opening && !state.layoutRestoring && !state.closingTabs &&
@@ -316,35 +293,7 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
     confirmed: recovery.confirmed,
   }, ports.limit, nowMs, ports.newRequestKey)
 
-  let state: WriteWorkspaceState = {
-    original: undefined,
-    tab: undefined,
-    workspaceTabs: [],
-    workspaceRevision: 0,
-    sourcePanes: [],
-    hasSecondaryGroup: false,
-    recentlyClosed: [],
-    inspectorOpen: false,
-    persistentWorkspace: ports.initialPersistentWorkspace,
-    authorizationReady: ports.initialAuthorizationReady,
-    layoutRestoring: false,
-    loading: false,
-    opening: false,
-    closingTabs: false,
-    recoveryWorking: false,
-    composing: undefined,
-    taxonomyDirty: false,
-    summaryDirty: false,
-    taxonomyStale: false,
-    propertyPending: false,
-    revisionComparisonActive: false,
-    taxonomyModalActive: false,
-    notice: '',
-    failure: '',
-    navigationNotice: '',
-    groupNotice: '',
-    openInput: '',
-  }
+  let state: WriteWorkspaceState = initialWorkspaceState(ports.initialPersistentWorkspace, ports.initialAuthorizationReady)
 
   let layoutStarted = false
   let workspaceIdentity: number | undefined
@@ -609,6 +558,23 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
 
   function setField<K extends keyof WriteWorkspaceState>(key: K): (value: WriteWorkspaceState[K]) => void {
     return value => { if (state[key] !== value) patch({ [key]: value }) }
+  }
+
+  function commitForActiveDocument(
+    action: 'publish-images' | 'save-summary',
+    allowed: boolean,
+    target: Readonly<{ articleId: number; revision: bigint; credential: string }>,
+    command: Parameters<typeof registry.commit>[2],
+  ): Promise<void> {
+    const currentFlags = flags()
+    const current = state.tab
+    const document = state.original
+    if (!current || !document || !allowed || target.articleId !== document.id ||
+        target.revision !== document.revision || target.credential !== currentFlags.credential) {
+      return Promise.resolve()
+    }
+    patch({ failure: '', notice: '' })
+    return finishSubmission(action, current, document, session.identityEpoch(), registry.commit(current, action, command))
   }
 
   return {
@@ -1126,28 +1092,12 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
       await finishSubmission(action, current, document, identity, requested)
     },
 
-    async publishSelectedImages(selection: PublishImagesSelection): Promise<void> {
-      const currentFlags = flags()
-      const current = state.tab
-      const document = state.original
-      if (!current || !document || !currentFlags.canPublishImages || selection.articleId !== document.id ||
-          selection.revision !== document.revision || selection.credential !== currentFlags.credential) return
-      patch({ failure: '', notice: '' })
-      const identity = session.identityEpoch()
-      const requested = registry.commit(current, 'publish-images', commands.publishImages(selection.assets.slice()))
-      await finishSubmission('publish-images', current, document, identity, requested)
+    publishSelectedImages(selection: PublishImagesSelection): Promise<void> {
+      return commitForActiveDocument('publish-images', flags().canPublishImages, selection, commands.publishImages(selection.assets.slice()))
     },
 
-    async saveSummary(edit: DraftSummaryEdit): Promise<void> {
-      const currentFlags = flags()
-      const current = state.tab
-      const document = state.original
-      if (!current || !document || !currentFlags.canChangeSummary || !state.summaryDirty ||
-          edit.articleId !== document.id || edit.revision !== document.revision || edit.credential !== currentFlags.credential) return
-      patch({ failure: '', notice: '' })
-      const identity = session.identityEpoch()
-      const requested = registry.commit(current, 'save-summary', commands.updateSummary(edit.text))
-      await finishSubmission('save-summary', current, document, identity, requested)
+    saveSummary(edit: DraftSummaryEdit): Promise<void> {
+      return commitForActiveDocument('save-summary', flags().canChangeSummary && state.summaryDirty, edit, commands.updateSummary(edit.text))
     },
 
     async reloadDraft(): Promise<boolean> {

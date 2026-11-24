@@ -153,6 +153,17 @@ async function load(
   }
 }
 
+function clearListState() {
+  rows.value = null
+  more.value = false
+  editEnabled.value = false
+}
+
+function reloadFiltered() {
+  clearForm()
+  void load(false, 'search')
+}
+
 function submitSearch() {
   if (locked.value) return
   const trimmed = keywordInput.value.trim()
@@ -161,8 +172,7 @@ function submitSearch() {
     return
   }
   appliedKeyword.value = trimmed
-  clearForm()
-  void load(false, 'search')
+  reloadFiltered()
 }
 
 function clearSearch() {
@@ -170,14 +180,11 @@ function clearSearch() {
   keywordInput.value = ''
   if (!appliedKeyword.value) return
   appliedKeyword.value = ''
-  clearForm()
-  void load(false, 'search')
+  reloadFiltered()
 }
 
 function onStatusFilterChange() {
-  if (locked.value) return
-  clearForm()
-  void load(false, 'search')
+  if (!locked.value) reloadFiltered()
 }
 
 function resetFilters() {
@@ -185,8 +192,7 @@ function resetFilters() {
   keywordInput.value = ''
   appliedKeyword.value = ''
   statusFilter.value = 'all'
-  clearForm()
-  void load(false, 'search')
+  reloadFiltered()
 }
 
 async function submit(comment: string) {
@@ -290,9 +296,7 @@ async function saveEdit() {
       return
     }
     clearEdit()
-    rows.value = null
-    more.value = false
-    editEnabled.value = false
+    clearListState()
     notice.value = t('account.message169')
     await load(false, 'initial', t('account.message170'))
   } catch (error) {
@@ -305,9 +309,7 @@ async function saveEdit() {
 
 function reloadAfterEditProblem() {
   clearEdit()
-  rows.value = null
-  more.value = false
-  editEnabled.value = false
+  clearListState()
   void load(false, 'refresh')
 }
 
@@ -353,9 +355,7 @@ watch([identityEpoch, credentialEpoch], () => {
   scope = new AbortController()
   abortListRequest()
   submittingAppeal.value = false
-  rows.value = null
-  more.value = false
-  editEnabled.value = false
+  clearListState()
   failure.value = ''
   notice.value = ''
   keywordInput.value = ''

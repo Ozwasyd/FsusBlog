@@ -14,6 +14,7 @@ import { executeTrashPublication, executeTrashRestore, readTrashPublication, rea
 import { listAdminArticles, type AuthorArticlePage, type AuthorArticleQuery, type AuthorArticleRow } from '../../../Contracts/author-articles'
 import type { AdminArticleTrashPublicationIntent, AdminArticleTrashPublicationPreview, AdminArticleTrashRestoreIntent } from '../../../Contracts/wire.generated'
 import { useDelayedBusy } from '../delayedBusy'
+import { publicOriginBase } from '../siteBrand'
 
 const props = withDefaults(defineProps<{
   sessionSignal: AbortSignal
@@ -41,8 +42,7 @@ const publication = shallowRef<AdminArticleTrashPublicationPreview>()
 const reason = ref('')
 const selected = shallowRef<AuthorArticleRow>()
 const retry = shallowRef<AdminArticleTrashRestoreIntent | AdminArticleTrashPublicationIntent>()
-const configuredPublicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
-const publicBase = configuredPublicOrigin && configuredPublicOrigin !== globalThis.location?.origin ? configuredPublicOrigin : ''
+const publicBase = publicOriginBase()
 const restoring = ref(false)
 const restoreFailure = ref<MessageKey | ''>('')
 const deleteTarget = shallowRef<AuthorArticleRow>()

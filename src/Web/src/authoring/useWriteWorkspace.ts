@@ -11,6 +11,7 @@ import { saveWithBodyEdits, saveWithBodyInsertion, saveWithBodyInsertions } from
 import { editArticleMedia } from '../../../Contracts/article-media'
 import { publishArticleImages } from '../../../Contracts/published-media'
 import { t } from '../siteLocale'
+import { publicOriginBase } from '../siteBrand'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refreshSession } from '../authorSession'
 import { consumeAuthoringSessionPreload } from '../workspacePreload'
 import type WorkspaceTabs from './WorkspaceTabs.vue'
@@ -83,6 +84,12 @@ export function useWriteWorkspace() {
     () => controller.registry.hasSecondaryGroup,
   )
 
+  const navigateRoute = async (
+    method: 'push' | 'replace',
+    target: ReturnType<typeof articleRouteDestination> | { name: 'article-workspace' },
+    persistent: boolean,
+  ) => Boolean(await router[method]({ ...target, state: persistent ? workspaceHistoryState : undefined }))
+
   controller = createWriteWorkspaceController({
     origin: location.origin,
     initialPersistentWorkspace: route.name === 'article-workspace' || history.state?.articleWorkspace === true,
@@ -105,18 +112,9 @@ export function useWriteWorkspace() {
       articleId: () => id.value,
       path: () => route.path,
       resolveArticlePath: articleId => router.resolve(articleRouteDestination(articleId)).path,
-      pushArticle: async (articleId, persistent) => Boolean(await router.push({
-        ...articleRouteDestination(articleId),
-        state: persistent ? workspaceHistoryState : undefined,
-      })),
-      replaceArticle: async (articleId, persistent) => Boolean(await router.replace({
-        ...articleRouteDestination(articleId),
-        state: persistent ? workspaceHistoryState : undefined,
-      })),
-      replaceWorkspace: async persistent => Boolean(await router.replace({
-        name: 'article-workspace',
-        state: persistent ? workspaceHistoryState : undefined,
-      })),
+      pushArticle: (articleId, persistent) => navigateRoute('push', articleRouteDestination(articleId), persistent),
+      replaceArticle: (articleId, persistent) => navigateRoute('replace', articleRouteDestination(articleId), persistent),
+      replaceWorkspace: persistent => navigateRoute('replace', { name: 'article-workspace' }, persistent),
     },
     confirm: {
       confirmProtectedClose: confirmProtectedCloseDialog,
@@ -153,8 +151,7 @@ export function useWriteWorkspace() {
   const selectedPanelTitle = computed(() => state.tab?.title
     ? t('author.write.contentTitle', { title: state.tab.title })
     : t('author.write.articleContent'))
-  const configuredPublicOrigin = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-origin"]')?.content ?? ''
-  const publicBase = configuredPublicOrigin && configuredPublicOrigin !== globalThis.location?.origin ? configuredPublicOrigin : ''
+  const publicBase = publicOriginBase()
   const publishedPath = computed(() => state.original?.published ? `${publicBase}/article/${state.original.id}` : '')
 
   let deferredFocus: Readonly<{ sessionId: number; epoch: number; pane: HTMLElement }> | undefined
@@ -354,6 +351,7 @@ export function useWriteWorkspace() {
 
   const { coordinator: _c, bindActivity: _b, ...handoffPublic } = handoff
   return {
+    ...controller,
     ...fields,
     ...flagRefs,
     ...handoffPublic,
@@ -366,29 +364,6 @@ export function useWriteWorkspace() {
     recheckComparison: (candidate: WorkspaceTab, signal: AbortSignal) =>
       controller.registry.recheckComparison(candidate, signal),
     focusSource, focusGroup, reopenRecent, activateQuickResult, focusQuickResult, quickResultHref,
-    openArticle: controller.openArticle,
-    openSavedWorkspace: controller.openSavedWorkspace,
-    navigateTo: controller.navigateTo,
-    paneFocused: controller.paneFocused,
-    changeComposition: controller.changeComposition,
-    canMoveBackgroundTab: controller.canMoveBackgroundTab,
-    moveBackgroundTab: controller.moveBackgroundTab,
-    arrangeGroups,
-    setInspectorOpen: controller.setInspectorOpen,
-    togglePin: controller.togglePin,
-    closeGroupTabs, closeTab,
-    edit: controller.edit,
-    loadImportedDraft,
-    restoreDraft: controller.restoreDraft,
-    submit: controller.submit,
-    publishSelectedImages: controller.publishSelectedImages,
-    saveSummary: controller.saveSummary,
-    reloadDraft,
-    setTaxonomyDirty: controller.setTaxonomyDirty,
-    setSummaryDirty: controller.setSummaryDirty,
-    markTaxonomyStale: controller.markTaxonomyStale,
-    setPropertyPending: controller.setPropertyPending,
-    setRevisionComparisonActive: controller.setRevisionComparisonActive,
-    setTaxonomyModalActive: controller.setTaxonomyModalActive,
+    arrangeGroups, closeGroupTabs, closeTab, loadImportedDraft, reloadDraft,
   }
 }
