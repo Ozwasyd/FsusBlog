@@ -209,7 +209,7 @@ function assertCookieOptions(access, refresh) {
   assert(Math.abs(access.expires - refresh.expires) <= 1, 'Persistent cookie expirations differed by more than one second.')
 }
 
-const rotateVia = api => api.post(origin + R.SiteRefreshRotate, { headers: { Origin: origin }, maxRedirects: 0 })
+function rotateVia(api) { return api.post(origin + R.SiteRefreshRotate, { headers: { Origin: origin }, maxRedirects: 0 }) }
 
 async function refreshError(reply, status, message) {
   assert.equal(decodeApiError(await readFrame(reply, FrameType.ApiError, null, status), status).message, message)

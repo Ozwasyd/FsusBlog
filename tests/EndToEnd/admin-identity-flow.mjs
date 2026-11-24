@@ -357,7 +357,7 @@ async function revokeDuringLogin(page, executable) {
   await page.getByRole('alert').filter({ hasText: 'Could not log in with this administrator Passkey. Try again.' }).waitFor()
 }
 
-const waitPost = (page, path) => waitForUrlResponse(page, () => adminBase + path, 'POST', { timeout: 12_000 })
+function waitPost(page, path) { return waitForUrlResponse(page, () => adminBase + path, 'POST', { timeout: 12_000 }) }
 
 async function verifyOperationsStatus(page, context, siteCookie, priorCookie, revoke) {
   await adminFx.visitAdminWorkspace(page, '/admin/site')
@@ -636,7 +636,7 @@ async function applyModerationDecision(page, context, card, claim, targetState, 
   await expectRepeatedPost(context, applied, 428)
 }
 
-const claimComment = (page, card) => clickAndWait(page, R.AdminModerationClaim, 'Claim comment for review', card).then(readClaim)
+function claimComment(page, card) { return clickAndWait(page, R.AdminModerationClaim, 'Claim comment for review', card).then(readClaim) }
 
 async function readClaim(response) {
   const claim = await res.readFrame(response, FrameType.AdminModerationClaim, wire.decodeAdminModerationClaim)
@@ -720,8 +720,9 @@ function readModerationFixture(frame, articleId) {
   return fixture
 }
 
-const clickAndWait = (page, path, label, scope = page) =>
-  adminFx.clickForResponse(page, adminBase + path, loc.exactButton(scope, label), 'POST', { timeout: 12_000 })
+function clickAndWait(page, path, label, scope = page) {
+  return adminFx.clickForResponse(page, adminBase + path, loc.exactButton(scope, label), 'POST', { timeout: 12_000 })
+}
 
 async function frameType(response) {
   res.assertStatus(response, 200)
@@ -750,8 +751,9 @@ async function rejectRetiredAdminSession(cookie) {
   await probeAdminCookie(adminBase + R.AdminSignInHistory, cookie, 401)
 }
 
-const probeAdminCookie = (url, cookie, expectedStatus, ...capture) =>
-  credentialProbe(url, adminCookieName, cookie.value, expectedStatus, ...capture)
+function probeAdminCookie(url, cookie, expectedStatus, ...capture) {
+  return credentialProbe(url, adminCookieName, cookie.value, expectedStatus, ...capture)
+}
 
 function credentialProbe(url, name, value, expectedStatus, capture = false) {
   return withAnonymousRequest(async probe => {
@@ -761,7 +763,7 @@ function credentialProbe(url, name, value, expectedStatus, capture = false) {
   })
 }
 
-const adminSessionCookie = context => readCookie(context, adminSessionUrl, adminCookieName)
+function adminSessionCookie(context) { return readCookie(context, adminSessionUrl, adminCookieName) }
 
 async function readCookie(context, url, name) {
   const cookie = await auth.findCookie(context, url, name)
