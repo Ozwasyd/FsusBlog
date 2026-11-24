@@ -1,0 +1,24 @@
+name: CI main synchronization input
+on:
+  push:
+    branches: [ci/fsusblog-v2]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: 54e3ea250648ff02388fc5ab91e5dc421ad3f6ed
+          path: main-source
+          persist-credentials: false
+      - name: Collect the exact source snapshot without Git credentials
+        shell: bash
+        run: tar --exclude=.git -czf "$RUNNER_TEMP/main-source.tar.gz" -C main-source .
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: ci-main-source-54e3ea2
+          path: ${{ runner.temp }}/main-source.tar.gz
+          retention-days: 1
