@@ -159,12 +159,16 @@ internal static class SearchEvalRunner
         var queryCpuMs = (proc.TotalProcessorTime - qCpuBefore).TotalMilliseconds;
         var queryAllocBytes = GC.GetTotalAllocatedBytes(true) - qAllocBefore;
 
-        // 4b. Measure #47 PublicSearchResult V2 payload bytes & snippet extraction cost (returned page hits only)
+        // 4b. Measure #47 PublicSearchResult V2 payload bytes & snippet extraction cost + #48 execution stats
         var v2LatenciesMs = new List<double>(queryDoc.Queries.Length);
+        var v2RareLatenciesMs = new List<double>();
+        var v2CommonLatenciesMs = new List<double>();
         var snippetOnlyLatenciesMs = new List<double>(queryDoc.Queries.Length);
         var v2PayloadBytesList = new List<double>(queryDoc.Queries.Length);
         long v2TotalPayloadBytes = 0;
         var v2SnippetsGenerated = 0;
+        long v2PostingsDecoded = 0, v2BlocksVisited = 0, v2BlocksSkipped = 0, v2PositionsRead = 0, v2CandidatesScored = 0, v2PosSkipsByBound = 0;
+        var pathCounts = new Dictionary<string, int>();
         var v2CpuBefore = proc.TotalProcessorTime;
         var v2AllocBefore = GC.GetTotalAllocatedBytes(true);
         var v2WallSw = Stopwatch.StartNew();
@@ -172,7 +176,16 @@ internal static class SearchEvalRunner
         {
             var plan = SearchQueryPlan.Build(q.Query, CancellationToken.None);
             var swTotal = Stopwatch.StartNew();
-            var cPage = index.SearchWithCursor(plan, ArticleSearchSort.Relevance, 10, null, 0, CancellationToken.None);
+            var cPage = index.SearchWithCursor(plan, ArticleSearchSort.Relevance, 10, null, 0, CancellationToken.None, out var stats);
+            v2PostingsDecoded += stats.PostingsDecoded;
+            v2BlocksVisited += stats.BlocksVisited;
+            v2BlocksSkipped += stats.BlocksSkipped;
+            v2PositionsRead += stats.PositionsRead;
+            v2CandidatesScored += stats.CandidatesScored;
+            v2PosSkipsByBound += stats.PositionSkipsByBound;
+            var pathName = stats.Path.ToString();
+            pathCounts[pathName] = pathCounts.GetValueOrDefault(pathName) + 1;
+
             var swSnip = Stopwatch.StartNew();
             var hits = new PublicSearchHit[cPage.Hits.Length];
             for (var i = 0; i < cPage.Hits.Length; i++)
@@ -196,14 +209,20 @@ internal static class SearchEvalRunner
                 cPage.TotalCount, cPage.TotalRelation, cPage.PrimaryCount, cPage.RelaxedCount,
                 cPage.HasMore, cPage.HasMore ? new string('A', 162) : "", hits));
             swTotal.Stop();
+            var totalMs = swTotal.Elapsed.TotalMilliseconds;
             v2TotalPayloadBytes += v2Frame.Length;
             v2PayloadBytesList.Add(v2Frame.Length);
-            v2LatenciesMs.Add(swTotal.Elapsed.TotalMilliseconds);
+            v2LatenciesMs.Add(totalMs);
+            if (q.Rarity == "rare") v2RareLatenciesMs.Add(totalMs);
+            else if (q.Rarity == "common") v2CommonLatenciesMs.Add(totalMs);
             snippetOnlyLatenciesMs.Add(swSnip.Elapsed.TotalMilliseconds);
         }
         v2WallSw.Stop();
         var v2CpuMs = (proc.TotalProcessorTime - v2CpuBefore).TotalMilliseconds;
         var v2AllocBytes = GC.GetTotalAllocatedBytes(true) - v2AllocBefore;
+
+        // 4c. Deterministic 2,500-document multi-block broad-query pruning benchmark (#48)
+        var broadBenchmark = RunBroadCorpusPruningBenchmark(articles);
 
         // 5. Repeated warm query stream vs unique query stream (cache-hit vs cache-miss baseline; currently uncached)
         var hotQueries = queryDoc.Queries.Where(q => q.Rarity == "common").Take(8).ToArray();
@@ -388,8 +407,21 @@ internal static class SearchEvalRunner
                 cpuMs = v2CpuMs,
                 allocBytes = v2AllocBytes,
                 endToEndLatencyMs = Summarize(v2LatenciesMs),
-                snippetOnlyLatencyMs = Summarize(snippetOnlyLatenciesMs)
+                rareEndToEndLatencyMs = Summarize(v2RareLatenciesMs),
+                commonEndToEndLatencyMs = Summarize(v2CommonLatenciesMs),
+                snippetOnlyLatencyMs = Summarize(snippetOnlyLatenciesMs),
+                executionStats = new
+                {
+                    postingsDecoded = v2PostingsDecoded,
+                    blocksVisited = v2BlocksVisited,
+                    blocksSkipped = v2BlocksSkipped,
+                    positionsRead = v2PositionsRead,
+                    positionSkipsByBound = v2PosSkipsByBound,
+                    candidatesScored = v2CandidatesScored,
+                    pathCounts
+                }
             },
+            broadCorpusPruning = broadBenchmark,
             repeatedHot = new
             {
                 offered = repeatedLatencies.Count,
@@ -432,6 +464,95 @@ internal static class SearchEvalRunner
 
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
         File.WriteAllText(outputPath, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    private static object RunBroadCorpusPruningBenchmark(Article[] seedArticles)
+    {
+        const int totalDocs = 2_500;
+        var baseTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var docs = new Article[totalDocs];
+        for (var i = 0; i < totalDocs; i++)
+        {
+            var src = seedArticles[i % seedArticles.Length];
+            var id = i + 1;
+            var pub = i < 20 ? baseTime.AddDays(3000 - i) : baseTime.AddHours(i);
+            var title = i < 24
+                ? $"{src.Title} 性能 优化 架构"
+                : (i is 1200 or 2300 ? $"{src.Title} 性能 优化 架构 量子核" : $"日常记录条目 {id} {src.Title}");
+            var body = i < 24
+                ? $"## 性能 优化 架构\n\n性能 优化 架构 详解。{src.Body}"
+                : $"常规说明段落用于构建多块高频词倒排测试，涵盖 性能 与 架构 以及 优化 相关背景说明{(i < 240 ? "，以及 少见词项" : "")}。{src.Body}";
+            docs[i] = src with { Id = id, Publication = 500_000 + id, Title = title, Body = body, PublishedAt = pub, CreatedAt = pub };
+        }
+
+        var buildSw = Stopwatch.StartNew();
+        var broadIndex = ArticleSearchIndex.Build(docs, CancellationToken.None)
+            ?? throw new InvalidOperationException("Broad benchmark index build returned null");
+        buildSw.Stop();
+
+        var queries = new (string Label, string Rarity, string Query, ArticleSearchSort Sort)[]
+        {
+            ("single_common_rel", "common", "性能", ArticleSearchSort.Relevance),
+            ("single_common_latest", "common", "性能", ArticleSearchSort.Latest),
+            ("conj2_common_rel", "common", "性能 架构", ArticleSearchSort.Relevance),
+            ("conj2_common_latest", "common", "性能 架构", ArticleSearchSort.Latest),
+            ("relaxed_bmw_score_rel", "common", "性能 优化 架构 少见词项", ArticleSearchSort.Relevance),
+            ("relaxed_bmw_elig_rel", "common", "性能 优化 架构 量子核", ArticleSearchSort.Relevance),
+            ("relaxed_bmw_latest", "common", "性能 优化 架构 少见词项", ArticleSearchSort.Latest),
+            ("rare_exact_rel", "rare", "量子核", ArticleSearchSort.Relevance),
+            ("rare_conj_rel", "rare", "量子核 性能", ArticleSearchSort.Relevance)
+        };
+
+        // Warm-up
+        foreach (var q in queries)
+            _ = broadIndex.SearchWithCursor(q.Query, q.Sort, 10, null, 0, CancellationToken.None, out _);
+
+        var rows = new List<object>(queries.Length);
+        foreach (var q in queries)
+        {
+            const int reps = 20;
+            var allocBefore = GC.GetTotalAllocatedBytes(true);
+            var lats = new double[reps];
+            SearchExecutionStats lastStats = default;
+            ArticleSearchCursorPage lastPage = default;
+            for (var r = 0; r < reps; r++)
+            {
+                var sw = Stopwatch.StartNew();
+                lastPage = broadIndex.SearchWithCursor(q.Query, q.Sort, 10, null, 0, CancellationToken.None, out lastStats);
+                sw.Stop();
+                lats[r] = sw.Elapsed.TotalMilliseconds;
+            }
+            var allocPerQuery = (GC.GetTotalAllocatedBytes(true) - allocBefore) / (double)reps;
+            rows.Add(new
+            {
+                label = q.Label,
+                rarity = q.Rarity,
+                query = q.Query,
+                sort = q.Sort.ToString(),
+                path = lastStats.Path.ToString(),
+                hits = lastPage.Hits.Length,
+                totalCount = lastPage.TotalCount,
+                totalRelation = lastPage.TotalRelation.ToString(),
+                postingsDecoded = lastStats.PostingsDecoded,
+                blocksVisited = lastStats.BlocksVisited,
+                blocksSkipped = lastStats.BlocksSkipped,
+                positionsRead = lastStats.PositionsRead,
+                positionSkipsByBound = lastStats.PositionSkipsByBound,
+                candidatesScored = lastStats.CandidatesScored,
+                allocBytesPerQuery = allocPerQuery,
+                latencyMs = Summarize(lats)
+            });
+        }
+
+        return new
+        {
+            documentCount = totalDocs,
+            termCount = broadIndex.TermCount,
+            postingCount = broadIndex.PostingCount,
+            blockCount = broadIndex.BlockCount,
+            buildWallMs = buildSw.Elapsed.TotalMilliseconds,
+            queries = rows
+        };
     }
 
     private static object Summarize(IReadOnlyList<double> values)

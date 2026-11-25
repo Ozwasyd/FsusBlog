@@ -317,7 +317,9 @@ public sealed partial class ArticleSearchIndex
         }
         var indexData = sources.Pack(blocks, remainingBytes, ct);
         return indexData is null ? null :
-            new ArticleSearchIndex(documents, ComputeAvgFieldLengths(totalFieldLengths, articles.Count), [], [], [], indexData);
+            new ArticleSearchIndex(
+                documents, ComputeAvgFieldLengths(totalFieldLengths, articles.Count),
+                [], [], [], [], [], [], [], indexData);
     }
 
     private static WideBlock? PackBlock(WidePostingBuilder builder, int first, int count, int availableBytes, CancellationToken ct)
@@ -445,9 +447,20 @@ public sealed partial class ArticleSearchIndex
         internal Dictionary<int, WideTermDocData>? Docs;
     }
 
-    private (List<ArticleSearchHit> Primary, List<ArticleSearchHit> Relaxed, bool AllowsRelaxation) CollectWideHits(
-        WideIndex wide, SearchQueryPlan plan, int workBudget, CancellationToken ct)
+    private CompactSearchOutcome ExecuteWideSearch(
+        WideIndex wide,
+        SearchQueryPlan plan,
+        ArticleSearchSort sort,
+        int primaryNeed,
+        int relaxedNeedCap,
+        SearchCursorPosition? afterCursor,
+        int returnedSoFar,
+        int pageTake,
+        int workBudget,
+        CancellationToken ct,
+        out SearchExecutionStats stats)
     {
+        stats = new SearchExecutionStats { Path = SearchExecutionPath.WideIndex };
         var n = _documents.Length;
         var concepts = plan.ContentConcepts;
 
@@ -487,8 +500,11 @@ public sealed partial class ArticleSearchIndex
             ct.ThrowIfCancellationRequested();
             foreach (var block in wide.Blocks)
             {
+                var visited = false;
                 foreach (var p in new WidePostings(block, sid, ct))
                 {
+                    if (!visited) { stats.BlocksVisited++; visited = true; }
+                    stats.PostingsDecoded++;
                     var absOrd = block.First + p.Ordinal;
                     for (var u = 0; u < uses.Count; u++)
                     {
@@ -504,7 +520,7 @@ public sealed partial class ArticleSearchIndex
 
         foreach (var phrase in plan.QuotedPhrases)
             foreach (var st in phrase.Steps)
-                if (termMaps[st.CanonicalKey].DocFreq == 0) return ([], [], false);
+                if (termMaps[st.CanonicalKey].DocFreq == 0) return new([], 0, [], 0, false);
 
         var allowsRelaxation = SearchScoringProfile.AllowsRelaxation(plan);
         var minRelaxed = SearchScoringProfile.MinRelaxedConcepts(concepts.Length);
@@ -585,7 +601,7 @@ public sealed partial class ArticleSearchIndex
             totalQueryIdf += idf;
             if (!canMatch)
             {
-                if (concept.IsStrictIdentifier || !allowsRelaxation) return ([], [], false);
+                if (concept.IsStrictIdentifier || !allowsRelaxation) return new([], 0, [], 0, false);
             }
             else
             {
@@ -595,11 +611,11 @@ public sealed partial class ArticleSearchIndex
         }
 
         if (possibleConcepts < minRelaxed || (totalQueryIdf > 0.0 && possibleIdfSum / totalQueryIdf < minRelaxedRatio))
-            return ([], [], false);
+            return new([], 0, [], 0, false);
 
         // Select smallest driver or union of candidates
         var candidates = CollectWideCandidates(plan, concepts, termMaps, shortPrefixMaps, allowsRelaxation, ct);
-        if (candidates.Count == 0) return ([], [], false);
+        if (candidates.Count == 0) return new([], 0, [], 0, false);
 
         // Identify keys that require positional extraction on candidates
         HashSet<SearchTermKey>? positionalKeys = null;
@@ -615,10 +631,20 @@ public sealed partial class ArticleSearchIndex
             foreach (var st in plan.OrderedQuerySequence) positionalKeys.Add(st.CanonicalKey);
         }
 
-        var primaryHits = new List<ArticleSearchHit>();
-        var relaxedHits = new List<ArticleSearchHit>();
+        var effPrimaryNeed = afterCursor is { Tier: SearchMatchTier.Relaxed } ? 0 : primaryNeed;
+        var effRelaxedNeed = allowsRelaxation
+            ? Math.Min(SearchScoringProfile.MaxRelaxedResults, Math.Max(0, relaxedNeedCap))
+            : 0;
+        using var primaryHeap = new SearchTopKHeap(effPrimaryNeed, sort);
+        using var relaxedHeap = new SearchTopKHeap(effRelaxedNeed, sort);
+        var primaryObserved = 0;
+        var relaxedObserved = 0;
+
         Span<double> tfs = stackalloc double[SearchScoringProfile.FieldCount];
         Span<int> docLens = stackalloc int[SearchScoringProfile.FieldCount];
+        var hasCursor = afterCursor.HasValue;
+        var cursorVal = hasCursor ? afterCursor!.Value : default;
+        var cursorScore = hasCursor ? BitConverter.Int64BitsToDouble(cursorVal.ScoreBits) : 0.0;
 
         var scoredCandidates = 0;
         foreach (var ordinal in candidates)
@@ -628,7 +654,7 @@ public sealed partial class ArticleSearchIndex
                 throw new SearchBudgetExceededException();
             var doc = _documents[ordinal];
 
-            // Fast pre-check before extracting positions: every quoted phrase step and strict identifier must be present
+            // Fast pre-check before extracting positions: every quoted phrase step must be present
             var preOk = true;
             foreach (var phrase in plan.QuotedPhrases)
             {
@@ -641,14 +667,20 @@ public sealed partial class ArticleSearchIndex
             if (!preOk) continue;
 
             Dictionary<SearchTermKey, List<uint>>? docPositions = null;
-            Dictionary<SearchTermKey, List<uint>> GetDocPositions() =>
-                docPositions ??= ExtractWideCandidatePositions(doc.Article, positionalKeys!, ct);
+            var posExtracted = false;
+            Dictionary<SearchTermKey, List<uint>> GetDocPositions()
+            {
+                if (docPositions is not null) return docPositions;
+                posExtracted = true;
+                return docPositions = ExtractWideCandidatePositions(doc.Article, positionalKeys!, ct);
+            }
 
             // 1. Verify strict quoted phrases
             foreach (var phrase in plan.QuotedPhrases)
             {
                 if (!WideMatchesExactSequence(GetDocPositions(), phrase.Steps, out _)) { preOk = false; break; }
             }
+            if (posExtracted) { stats.PositionsRead++; posExtracted = false; }
             if (!preOk) continue;
 
             doc.CopyLengths(docLens);
@@ -663,6 +695,7 @@ public sealed partial class ArticleSearchIndex
                 tfs.Clear();
                 var matched = EvaluateWideConcept(ordinal, concept, termMaps, shortPrefixMaps[c], GetDocPositions, tfs,
                     out var exactFormHit, out var usedShortPrefixOnly);
+                if (posExtracted) { stats.PositionsRead++; posExtracted = false; }
                 if (!matched)
                 {
                     if (concept.IsStrictIdentifier) { strictOk = false; break; }
@@ -679,12 +712,66 @@ public sealed partial class ArticleSearchIndex
 
             var isPrimary = matchedCount == concepts.Length;
             var isRelaxed = !isPrimary && allowsRelaxation &&
+                            primaryObserved < SearchScoringProfile.RelaxationTriggerPrimaryCount &&
                             matchedCount >= minRelaxed &&
                             totalQueryIdf > 0.0 &&
                             (matchedIdfSum / totalQueryIdf) >= minRelaxedRatio;
             if (!isPrimary && !isRelaxed) continue;
 
-            if (plan.QuotedPhrases.Length > 0 || (isPrimary && plan.OrderedQuerySequence.Length >= 2))
+            stats.CandidatesScored++;
+            if (isPrimary) primaryObserved++;
+            else relaxedObserved++;
+
+            var targetNeed = isPrimary ? effPrimaryNeed : effRelaxedNeed;
+            if (targetNeed == 0) continue;
+
+            // Exact lazy position check before phrase/proximity extraction on Wide candidates
+            var needsBonus = plan.QuotedPhrases.Length > 0 || (isPrimary && plan.OrderedQuerySequence.Length >= 2);
+            var maxBonus = needsBonus
+                ? SearchScoringProfile.TitleOrHeadingPhraseBonusFactor * matchedIdfSum * (1.0 + 1e-11) + 1e-11
+                : 0.0;
+            var docPubTicks = doc.Article.PublishedAt.UtcTicks;
+            var tier = isPrimary ? SearchMatchTier.Primary : SearchMatchTier.Relaxed;
+
+            var skipForCursorOrHeap = false;
+            if (hasCursor)
+            {
+                if (tier < cursorVal.Tier)
+                    skipForCursorOrHeap = true;
+                else if (tier == cursorVal.Tier)
+                {
+                    if (sort == ArticleSearchSort.Latest && docPubTicks > cursorVal.PublishedAtTicks)
+                        skipForCursorOrHeap = true;
+                    else if (sort == ArticleSearchSort.Relevance && score > cursorScore)
+                        skipForCursorOrHeap = true;
+                }
+            }
+            if (!skipForCursorOrHeap)
+            {
+                var isFull = isPrimary ? primaryHeap.IsFull : relaxedHeap.IsFull;
+                if (isFull)
+                {
+                    var worst = isPrimary ? primaryHeap.Worst : relaxedHeap.Worst;
+                    if (sort == ArticleSearchSort.Latest)
+                    {
+                        var worstPub = worst.Article.PublishedAt.UtcTicks;
+                        if (docPubTicks < worstPub || (docPubTicks == worstPub && score + maxBonus < worst.Score))
+                            skipForCursorOrHeap = true;
+                    }
+                    else if (score + maxBonus < worst.Score)
+                    {
+                        skipForCursorOrHeap = true;
+                    }
+                }
+            }
+
+            if (skipForCursorOrHeap)
+            {
+                if (needsBonus) stats.PositionSkipsByBound++;
+                continue;
+            }
+
+            if (needsBonus)
             {
                 var seq = plan.QuotedPhrases.Length > 0 ? plan.QuotedPhrases[0].Steps : plan.OrderedQuerySequence;
                 var allSeqPresent = true;
@@ -695,6 +782,7 @@ public sealed partial class ArticleSearchIndex
                 if (allSeqPresent)
                 {
                     var posMap = GetDocPositions();
+                    if (posExtracted) { stats.PositionsRead++; posExtracted = false; }
                     if (WideMatchesExactSequence(posMap, seq, out var matchField))
                     {
                         var factor = matchField is SearchScoreField.Title or SearchScoreField.Heading
@@ -710,11 +798,35 @@ public sealed partial class ArticleSearchIndex
                 }
             }
 
-            if (isPrimary) primaryHits.Add(new ArticleSearchHit(doc.Article, SearchMatchTier.Primary, score));
-            else relaxedHits.Add(new ArticleSearchHit(doc.Article, SearchMatchTier.Relaxed, score));
+            var hit = new ArticleSearchHit(doc.Article, tier, score);
+            if (hasCursor && SearchScoringProfile.CompareHitToCursor(hit, cursorVal, sort) <= 0)
+                continue;
+            if (isPrimary) primaryHeap.TryPush(hit);
+            else relaxedHeap.TryPush(hit);
         }
 
-        return (primaryHits, relaxedHits, allowsRelaxation);
+        var includeRelaxed = allowsRelaxation &&
+                             primaryObserved < SearchScoringProfile.RelaxationTriggerPrimaryCount &&
+                             relaxedObserved > 0;
+        var finalRelaxedCount = includeRelaxed ? Math.Min(relaxedObserved, SearchScoringProfile.MaxRelaxedResults) : 0;
+        ArticleSearchHit[] finalRelaxedHits = [];
+        if (includeRelaxed)
+        {
+            finalRelaxedHits = relaxedHeap.DrainSorted();
+            if (afterCursor is { Tier: SearchMatchTier.Relaxed })
+            {
+                var returnedRelaxedSoFar = Math.Max(0, returnedSoFar - primaryObserved);
+                var remainingRelaxedCap = Math.Max(0, SearchScoringProfile.MaxRelaxedResults - returnedRelaxedSoFar);
+                if (finalRelaxedHits.Length > remainingRelaxedCap)
+                    finalRelaxedHits = finalRelaxedHits[..remainingRelaxedCap];
+            }
+            else if (finalRelaxedHits.Length > SearchScoringProfile.MaxRelaxedResults)
+            {
+                finalRelaxedHits = finalRelaxedHits[..SearchScoringProfile.MaxRelaxedResults];
+            }
+        }
+
+        return new(primaryHeap.DrainSorted(), primaryObserved, finalRelaxedHits, finalRelaxedCount, false);
     }
 
     private static List<int> CollectWideCandidates(

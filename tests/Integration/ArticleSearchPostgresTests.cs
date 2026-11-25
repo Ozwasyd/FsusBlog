@@ -453,6 +453,14 @@ public sealed class ArticleSearchPostgresTests
         var ok = codec.Decode(1001, plan, ArticleSearchSort.Relevance, 10, token);
         Assert.Equal((pos, 10), (ok.Position, ok.ReturnedSoFar));
 
+        // Non-canonical trailing padding bits ('B') and illegal base64url chars must return 400, never 500 FormatException
+        var badPad = token[..^1] + "B";
+        var badPadErr = Assert.Throws<PublicSearchFailure>(() => codec.Decode(1001, plan, ArticleSearchSort.Relevance, 10, badPad));
+        Assert.Equal((400, "search_cursor_invalid"), (badPadErr.Status, badPadErr.Details));
+        var badChar = token[..^1] + "!";
+        var badCharErr = Assert.Throws<PublicSearchFailure>(() => codec.Decode(1001, plan, ArticleSearchSort.Relevance, 10, badChar));
+        Assert.Equal((400, "search_cursor_invalid"), (badCharErr.Status, badCharErr.Details));
+
         var genErr = Assert.Throws<PublicSearchFailure>(() => codec.Decode(1002, plan, ArticleSearchSort.Relevance, 10, token));
         Assert.Equal((409, "search_generation_changed"), (genErr.Status, genErr.Details));
 

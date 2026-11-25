@@ -218,6 +218,92 @@ internal static class ArticleSearchTokens
         }
     }
 
+    /// <summary>Packs a 1- or 2-character lowercase ASCII prefix into a collision-free ushort key.</summary>
+    internal static ushort PackShortPrefixKey(ReadOnlySpan<char> lowerPrefix) =>
+        lowerPrefix.Length == 1
+            ? (ushort)lowerPrefix[0]
+            : (ushort)(((uint)lowerPrefix[0] << 8) | lowerPrefix[1]);
+
+    /// <summary>
+    /// Collects exact per-field 1- and 2-char ASCII prefix hit counts matching <see cref="CountAsciiPrefixMatches"/>
+    /// in one linear pass at index build time so queries never scan article metadata strings (#48).
+    /// fieldShift: 20=Title, 10=Summary, 0=Taxonomy.
+    /// </summary>
+    internal static void AccumulateShortPrefixCounts(string? text, int fieldShift, Dictionary<ushort, int> docPacked)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length <= 1) return;
+        var span = text.IsNormalized(NormalizationForm.FormKC)
+            ? text.AsSpan()
+            : text.Normalize(NormalizationForm.FormKC).AsSpan();
+        var allowLen2 = text.Length > 2;
+        Span<ushort> seenInToken = stackalloc ushort[64];
+        HashSet<ushort>? seenOverflow = null;
+        for (var offset = 0; offset < span.Length;)
+        {
+            if (!char.IsAsciiLetterOrDigit(span[offset]))
+            {
+                offset++;
+                continue;
+            }
+            var start = offset++;
+            while (offset < span.Length && char.IsAsciiLetterOrDigit(span[offset])) offset++;
+            var token = span.Slice(start, offset - start);
+            if (token.Length <= 1) continue;
+
+            var seenCount = 0;
+            seenOverflow?.Clear();
+
+            static char Lower(char c) => c is >= 'A' and <= 'Z' ? (char)(c + 32) : c;
+
+            // Whole-token prefix of length 1 (token.Length >= 2) and length 2 (text.Length > 2 && token.Length >= 3)
+            var c0 = Lower(token[0]);
+            RecordShortPrefix((ushort)c0, seenInToken, ref seenCount, ref seenOverflow, docPacked, fieldShift);
+            if (allowLen2 && token.Length > 2)
+                RecordShortPrefix((ushort)(((uint)c0 << 8) | Lower(token[1])), seenInToken, ref seenCount, ref seenOverflow, docPacked, fieldShift);
+
+            // CamelCase / digit subword boundary prefixes matching CountAsciiPrefixMatches
+            var segmentStart = 0;
+            for (var i = 1; i <= token.Length; i++)
+            {
+                if (i < token.Length && !SearchTextAnalyzer.IsSubwordBoundary(token, i)) continue;
+                var segLen = i - segmentStart;
+                if (segmentStart > 0 && segLen > 1)
+                {
+                    var s0 = Lower(token[segmentStart]);
+                    RecordShortPrefix((ushort)s0, seenInToken, ref seenCount, ref seenOverflow, docPacked, fieldShift);
+                    if (allowLen2 && segLen > 2)
+                        RecordShortPrefix((ushort)(((uint)s0 << 8) | Lower(token[segmentStart + 1])), seenInToken, ref seenCount, ref seenOverflow, docPacked, fieldShift);
+                }
+                segmentStart = i;
+            }
+        }
+
+        static void RecordShortPrefix(ushort key, Span<ushort> seenInToken, ref int seenCount,
+            ref HashSet<ushort>? seenOverflow, Dictionary<ushort, int> docPacked, int fieldShift)
+        {
+            for (var s = 0; s < seenCount; s++)
+                if (seenInToken[s] == key) return;
+            if (seenCount < seenInToken.Length)
+            {
+                seenInToken[seenCount++] = key;
+            }
+            else
+            {
+                seenOverflow ??= [];
+                if (!seenOverflow.Add(key)) return;
+            }
+            ref var slot = ref System.Runtime.InteropServices.CollectionsMarshal.GetValueRefOrAddDefault(docPacked, key, out _);
+            slot = IncrementPackedSlot(slot, fieldShift);
+        }
+
+        static int IncrementPackedSlot(int packed, int shift)
+        {
+            var cur = (packed >> shift) & 1023;
+            if (cur >= 1023) return packed;
+            return (packed & ~(1023 << shift)) | ((cur + 1) << shift);
+        }
+    }
+
     internal static int DocumentLength(string body, CancellationToken ct = default)
     {
         var (headings, prose, code) = SearchTextAnalyzer.AnalyzeMarkdownBody(body ?? "", ct);
