@@ -86,8 +86,18 @@ internal sealed class ArticleReadAuthority(string connectionString, InstanceLeas
         }
         catch (Exception fault) when (fault is NpgsqlException or TimeoutException or OperationCanceledException or PublicUnavailableException)
         {
+            var reason = fault switch
+            {
+                PostgresException postgres => $"PostgreSQL error ({postgres.SqlState}).",
+                NpgsqlException { InnerException: TimeoutException } or TimeoutException => "PostgreSQL command timed out.",
+                OperationCanceledException when lease.Stopped.IsCancellationRequested => "Publication lease stopped.",
+                OperationCanceledException => "Article read operation exceeded its deadline.",
+                PublicUnavailableException => "Publication lease or database invariant was unavailable.",
+                _ => "PostgreSQL connection failed."
+            };
             await Retire();
-            throw new ArticleReadUnavailableException();
+            // Keep raw database exceptions and values out of diagnostics; HTTP still returns the same generic 503.
+            throw new ArticleReadUnavailableException(reason);
         }
         finally { _owner.Release(); }
     }
@@ -204,4 +214,4 @@ internal sealed class ArticleReadAuthority(string connectionString, InstanceLeas
     }
 }
 
-internal sealed class ArticleReadUnavailableException : Exception;
+internal sealed class ArticleReadUnavailableException(string? reason = null) : Exception(reason);
