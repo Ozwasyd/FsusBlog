@@ -1,17 +1,48 @@
 import { ApiError, ProtocolError } from '../../Contracts/aeds.ts'
-import { api } from '../../Contracts/client.ts'
+import { api, type PublicSearchResultItem, type PublicSearchV2Page } from '../../Contracts/client.ts'
 import {
   decodeLocalSearchResult, verifySearchGeneration, type PublicSearchSort,
 } from '../../Contracts/local-search.ts'
+import { WireLimits } from '../../Contracts/wire.generated.ts'
 import { discardCompactSearchCorpus } from './compactSearchStorage.ts'
 import type { SearchCommand, SearchReply, WorkerSearchMode } from './search.worker.ts'
 import { verifyWideSearchGeneration } from './wideSearchWire.ts'
 
 export type PublicSearchMode = 'auto' | 'local' | 'server'
+export type PublicSearchDisplayResult = PublicSearchV2Page & Readonly<{ usesCursors: boolean }>
 
-function readPublicSearchMode(): PublicSearchMode {
+export function readPublicSearchMode(): PublicSearchMode {
   const value = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-search-mode"]')?.content
   return value === 'server' || value === 'local' ? value : 'auto'
+}
+
+function adaptLocalPage(
+  items: readonly import('../../Contracts/public-articles.ts').ArticleCard[],
+  total: number,
+  page: number,
+  size: number,
+  generation: string,
+): PublicSearchDisplayResult {
+  const adapted: PublicSearchResultItem[] = items.map(item => ({
+    ...item,
+    matchTier: 'primary',
+    snippetField: 'none',
+    snippet: '',
+    highlights: [],
+  }))
+  return {
+    generation,
+    profileVersion: WireLimits.SearchFas4Profile,
+    analyzerVersion: WireLimits.SearchAnalyzerVersion,
+    total,
+    totalRelation: 'exact',
+    primaryCount: total,
+    relaxedCount: 0,
+    hasMore: page * size < total,
+    nextCursor: null,
+    items: adapted,
+    usesCursors: false,
+  }
 }
 
 export function createLocalSearch() {
@@ -43,13 +74,30 @@ export function createLocalSearch() {
     return instance
   }
 
+  async function runServerSearch(
+    query: string,
+    signal: AbortSignal,
+    page: number,
+    size: number,
+    sort: PublicSearchSort,
+    cursor?: string,
+  ): Promise<PublicSearchDisplayResult> {
+    if (page > 1 && !cursor) {
+      throw new ApiError('Invalid or expired search cursor.', 400, 'search_cursor_invalid')
+    }
+    const result = await api.searchV2(query, signal, { sort, size, cursor })
+    signal.throwIfAborted()
+    return { ...result, usesCursors: true }
+  }
+
   async function search(
     query: string,
     signal: AbortSignal,
     page = 1,
     size = 10,
     sort: PublicSearchSort = 'relevance',
-  ) {
+    cursor?: string,
+  ): Promise<PublicSearchDisplayResult> {
     signal.throwIfAborted()
     active?.abort()
     const request = new AbortController()
@@ -60,9 +108,7 @@ export function createLocalSearch() {
     try {
       const mode = readPublicSearchMode()
       if (mode === 'server' || (mode === 'auto' && preferServer)) {
-        const result = await api.search(query, request.signal, { sort, page, size })
-        request.signal.throwIfAborted()
-        return result
+        return await runServerSearch(query, request.signal, page, size, sort, cursor)
       }
       const workerMode: WorkerSearchMode = mode === 'local' ? 'local' : 'auto'
       const current = worker ??= startWorker()
@@ -91,15 +137,16 @@ export function createLocalSearch() {
           : new ProtocolError(reply.message)
       }
       if ('fallback' in reply) {
-        const result = await api.search(query, request.signal, { sort, page, size })
-        request.signal.throwIfAborted()
+        const result = await runServerSearch(query, request.signal, page, size, sort, cursor)
         preferServer = true
         if (worker === current) stopWorker()
         return result
       }
       const result = decodeLocalSearchResult(reply.frame)
       const visibility = reply.visibility
+      let generation = '0'
       if (visibility?.kind === 'wide') {
+        generation = visibility.identity.generation
         try {
           const limit = 5_000
           const deadline = Date.now() + limit
@@ -113,6 +160,7 @@ export function createLocalSearch() {
           throw error
         }
       } else if (visibility?.kind === 'compact') {
+        generation = visibility.generation
         try {
           await verifySearchGeneration(visibility.generation, request.signal)
         } catch (error) {
@@ -127,7 +175,7 @@ export function createLocalSearch() {
         }
       }
       request.signal.throwIfAborted()
-      return result
+      return adaptLocalPage(result.items, result.total, page, size, generation)
     } finally {
       signal.removeEventListener('abort', cancel)
       if (active === request) active = undefined

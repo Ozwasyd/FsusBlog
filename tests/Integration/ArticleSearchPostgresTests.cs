@@ -273,6 +273,226 @@ public sealed class ArticleSearchPostgresTests
         }
     }
 
+    [PostgresFact]
+    public async Task PublicSearchV2EnforcesTruthfulCountsGenerationCursorsSnippetsAndZeroDbQueries()
+    {
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(2));
+        var author = await fixture.SignIn("search-v2-author", ct, canAuthor: true);
+        await fixture.InTx(async (db, tx) =>
+        {
+            await FixtureSql.ExecuteAsync(db, tx, ct,
+                "insert into public.category (id, name, description) overriding system value values (11, 'CompilerInfra', null)");
+            await FixtureSql.ExecuteAsync(db, tx, ct,
+                "insert into public.tag (id, name, description) overriding system value values (21, 'ZeroCopy', null)");
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
+                insert into public.article (id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at)
+                overriding system value
+                select id,$1,1,title,body,1,1,false,
+                       timestamptz '2025-01-01 UTC' + offset_minutes * interval '1 minute',timestamptz '2025-01-01 UTC'
+                from (
+                    values
+                        (1,'SoloTitleBeacon','Quiet body text',1),
+                        (2,'Plain Heading Host','## Deep HeadingBeacon' || E'\n\n' || 'Quiet paragraph.',2),
+                        (3,'Code Host','Intro.' || E'\n\n' || '```ts' || E'\n' || 'const x = k8s_v1_30()' || E'\n' || '```',3),
+                        (4,'XSS and Surrogate','<script>alert(1)</script><img src=x onerror=alert(1)> 🚀 𠀀 Visible **quasar** [safe](javascript:alert(1)).',4),
+                        (5,'Taxonomy Host','Unrelated plain body',5),
+                        (6,'Alpha Beta Gamma Primary','alpha beta gamma full coverage primary',6),
+                        (7,'Alpha Beta Relaxed One','alpha beta partial match only',7),
+                        (8,'Alpha Beta Relaxed Two','alpha beta partial match second',8),
+                        (9,'Alpha Beta Relaxed Three','alpha beta partial match third',9)
+                ) fixture(id,title,body,offset_minutes)
+                union all
+                select id,$1,1,'Boundary Bulk ' || id,'bulkcommon shared body text',1,1,false,
+                       timestamptz '2025-01-01 UTC' + (id - 1000) * interval '1 minute',timestamptz '2025-01-01 UTC'
+                from generate_series(1001,2005) id
+                """, author.Id);
+            await FixtureSql.ExecuteAsync(db, tx, ct, PublicationFixture.AllCurrentArticlesWithDefaultRights);
+            await FixtureSql.ExecuteAsync(db, tx, ct,
+                "insert into public.article_revision_category (article_id, revision, category_id) values (5, 1, 11)");
+            await FixtureSql.ExecuteAsync(db, tx, ct,
+                "insert into public.article_revision_tag (article_id, revision, tag_id) values (5, 1, 21)");
+            await FixtureSql.ExecuteAsync(db, tx, ct,
+                "select setval(pg_get_serial_sequence('public.article', 'id'), 2005, true)");
+        }, ct);
+
+        var evidence = Directory.CreateTempSubdirectory("fsusv2-search-v2-");
+        using (new MediaFixture.DirectoryCleanup(evidence))
+        {
+            var output = Path.Combine(evidence.FullName, "runtime.ndjson");
+            await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
+            {
+                ["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"] = evidence.FullName,
+                ["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] = output
+            });
+            var client = server.Client;
+            var before = await Mark(evidence, output, "measure-before", ct);
+
+            // 1. Boundary counts: 0, 1, and >1000 (LowerBound, never Exact)
+            var zero = await QueryV2(client, V2Path("doesnotmatchanythingxyz"), ct);
+            Assert.Equal((0, PublicSearchTotalRelation.Exact, false, "", 0),
+                (zero.TotalCount, zero.TotalRelation, zero.HasMore, zero.NextCursor, zero.Items.Count));
+
+            var solo = await QueryV2(client, V2Path("solotitlebeacon"), ct);
+            Assert.Equal((1, PublicSearchTotalRelation.Exact, false, "", 1),
+                (solo.TotalCount, solo.TotalRelation, solo.HasMore, solo.NextCursor, solo.Items.Count));
+            Assert.Equal((PublicSearchSnippetField.Title, "SoloTitleBeacon"), (solo.Items[0].SnippetField, solo.Items[0].Snippet));
+
+            // Field-only snippets + XSS sanitization + surrogate pair highlight safety
+            var heading = await QueryV2(client, V2Path("headingbeacon"), ct);
+            Assert.Equal(PublicSearchSnippetField.Heading, Assert.Single(heading.Items).SnippetField);
+
+            var code = await QueryV2(client, V2Path("k8s_v1_30"), ct);
+            Assert.Equal(PublicSearchSnippetField.Code, Assert.Single(code.Items).SnippetField);
+
+            var tax = await QueryV2(client, V2Path("zerocopy"), ct);
+            Assert.Equal(PublicSearchSnippetField.Taxonomy, Assert.Single(tax.Items).SnippetField);
+
+            var xss = await QueryV2(client, V2Path("quasar"), ct);
+            var xssHit = Assert.Single(xss.Items);
+            Assert.Equal(PublicSearchSnippetField.Body, xssHit.SnippetField);
+            Assert.DoesNotContain("<script", xssHit.Snippet, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("onerror", xssHit.Snippet, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("javascript:", xssHit.Snippet, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("🚀", xssHit.Snippet, StringComparison.Ordinal);
+            var xssRange = Assert.Single(xssHit.Highlights);
+            Assert.Equal("quasar", xssHit.Snippet.Substring(xssRange.Start, xssRange.End - xssRange.Start));
+
+            // 2. Primary + Relaxed deterministic cursor walk (size=2 across both tiers)
+            var walkedIds = new List<int>();
+            var walkedTiers = new List<PublicSearchMatchTier>();
+            string? next = null;
+            string? firstPageCursor = null;
+            for (var step = 0; step < 5; step++)
+            {
+                var p = await QueryV2(client, V2Path("alpha beta gamma", size: 2, cursor: next), ct);
+                Assert.Equal((4, PublicSearchTotalRelation.Exact, 1, 3),
+                    (p.TotalCount, p.TotalRelation, p.PrimaryCount, p.RelaxedCount));
+                walkedIds.AddRange(p.Items.Select(static i => i.Id));
+                walkedTiers.AddRange(p.Items.Select(static i => i.MatchTier));
+                if (step == 0) firstPageCursor = p.NextCursor;
+                if (!p.HasMore) break;
+                next = p.NextCursor;
+            }
+            Assert.Equal(4, walkedIds.Count);
+            Assert.Equal(4, walkedIds.Distinct().Count());
+            Assert.Equal(6, walkedIds[0]);
+            Assert.Equal(PublicSearchMatchTier.Primary, walkedTiers[0]);
+            Assert.All(walkedTiers.Skip(1), tier => Assert.Equal(PublicSearchMatchTier.Relaxed, tier));
+            Assert.False(string.IsNullOrEmpty(firstPageCursor));
+
+            // 3. Above-threshold (1005 > 1000) reports LowerBound, stops cleanly at window ceiling without fabricating nextCursor
+            var bulkFirst = await QueryV2(client, V2Path("bulkcommon", sort: "latest", size: 100), ct);
+            Assert.Equal((ArticleSearchIndex.MaxPaginatedResults, PublicSearchTotalRelation.LowerBound, true),
+                (bulkFirst.TotalCount, bulkFirst.TotalRelation, bulkFirst.HasMore));
+            var bulkIds = new List<int>(bulkFirst.Items.Select(static i => i.Id));
+            var bulkCursor = bulkFirst.NextCursor;
+            var bulkPages = 1;
+            while (!string.IsNullOrEmpty(bulkCursor))
+            {
+                var nextBulk = await QueryV2(client, V2Path("bulkcommon", sort: "latest", size: 100, cursor: bulkCursor), ct);
+                bulkPages++;
+                Assert.Equal(PublicSearchTotalRelation.LowerBound, nextBulk.TotalRelation);
+                bulkIds.AddRange(nextBulk.Items.Select(static i => i.Id));
+                bulkCursor = nextBulk.NextCursor;
+                if (!nextBulk.HasMore)
+                {
+                    Assert.Equal("", nextBulk.NextCursor);
+                    break;
+                }
+                Assert.True(bulkPages <= 10);
+            }
+            Assert.Equal((10, 1000, 1000), (bulkPages, bulkIds.Count, bulkIds.Distinct().Count()));
+
+            var after = await Mark(evidence, output, "measure-after", ct);
+            Assert.Equal(Count(before, "dbCommandStarts"), Count(after, "dbCommandStarts"));
+            Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(after, "dbPhysicalOpenStarts"));
+
+            // 4. Cursor tamper / mismatch / invalid query / unsupported profile rejections
+            var tampered = firstPageCursor![..^1] + (firstPageCursor[^1] == 'A' ? 'B' : 'A');
+            Assert.Equal((400, "search_cursor_invalid"), await ExpectErrorDetails(client, V2Path("alpha beta gamma", size: 2, cursor: tampered), BadRequest, ct));
+            Assert.Equal((400, "search_cursor_invalid"), await ExpectErrorDetails(client, V2Path("different query", size: 2, cursor: firstPageCursor), BadRequest, ct));
+            Assert.Equal((400, "search_cursor_invalid"), await ExpectErrorDetails(client, V2Path("alpha beta gamma", sort: "latest", size: 2, cursor: firstPageCursor), BadRequest, ct));
+            Assert.Equal((400, "search_cursor_invalid"), await ExpectErrorDetails(client, V2Path("alpha beta gamma", size: 3, cursor: firstPageCursor), BadRequest, ct));
+            Assert.Equal((400, "search_profile_unsupported"), await ExpectErrorDetails(client, V2Path("alpha beta gamma") + "&profile=999", BadRequest, ct));
+            Assert.Equal((400, "search_query_invalid"), await ExpectErrorDetails(client, $"{WireRoutes.PublicSearchV2}?q=", BadRequest, ct));
+            Assert.Equal((400, "search_query_invalid"), await ExpectErrorDetails(client, V2Path(new string('a', 129)), BadRequest, ct));
+            Assert.Equal((400, "search_sort_invalid"), await ExpectErrorDetails(client, V2Path("quasar", sort: "hot"), BadRequest, ct));
+            Assert.Equal((400, "search_size_invalid"), await ExpectErrorDetails(client, V2Path("quasar", size: 101), BadRequest, ct));
+
+            // 5. Publication and withdrawal between pages reject stale generation cursor with 409 search_generation_changed
+            var draft = await SiteAedsFixture.SaveDraft(client, author.Token, null, 0, 0,
+                "Alpha Beta Fresh Publication", "alpha beta gamma newly published article", ct);
+            var published = await SiteAedsFixture.ArticleCommand(client, WireRoutes.Publish, author.Token, null,
+                new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""), ct);
+            Assert.Equal((409, "search_generation_changed"),
+                await ExpectErrorDetails(client, V2Path("alpha beta gamma", size: 2, cursor: firstPageCursor), Conflict, ct));
+
+            var freshPage1 = await QueryV2(client, V2Path("alpha beta gamma", size: 2), ct);
+            Assert.NotEqual(zero.Generation, freshPage1.Generation);
+            Assert.True(freshPage1.HasMore);
+            var freshCursor = freshPage1.NextCursor;
+
+            await SiteAedsFixture.ArticleCommand(client, WireRoutes.Retract, author.Token, null,
+                new(published.Id, published.Revision, Guid.NewGuid(), "", ""), ct);
+            Assert.Equal((409, "search_generation_changed"),
+                await ExpectErrorDetails(client, V2Path("alpha beta gamma", size: 2, cursor: freshCursor), Conflict, ct));
+            var afterWithdraw = await QueryV2(client, V2Path("alpha beta gamma", size: 10), ct);
+            Assert.DoesNotContain(afterWithdraw.Items, item => item.Id == published.Id);
+        }
+    }
+
+    [Fact]
+    public void PublicSearchCursorRejectsExpiredTokensAndDistinguishesGenerationChanges()
+    {
+        var clock = new TestSearchClock(new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero));
+        var codec = new PublicSearchCursor(clock);
+        var plan = SearchQueryPlan.Build("alpha beta");
+        var pos = new SearchCursorPosition(SearchMatchTier.Primary, BitConverter.DoubleToInt64Bits(3.5), 1000, 1000, 42);
+        var token = codec.Encode(1001, plan, ArticleSearchSort.Relevance, 10, 10, pos);
+
+        var ok = codec.Decode(1001, plan, ArticleSearchSort.Relevance, 10, token);
+        Assert.Equal((pos, 10), (ok.Position, ok.ReturnedSoFar));
+
+        var genErr = Assert.Throws<PublicSearchFailure>(() => codec.Decode(1002, plan, ArticleSearchSort.Relevance, 10, token));
+        Assert.Equal((409, "search_generation_changed"), (genErr.Status, genErr.Details));
+
+        clock.Advance(TimeSpan.FromMinutes(16));
+        var expErr = Assert.Throws<PublicSearchFailure>(() => codec.Decode(1001, plan, ArticleSearchSort.Relevance, 10, token));
+        Assert.Equal((400, "search_cursor_invalid"), (expErr.Status, expErr.Details));
+    }
+
+    private sealed class TestSearchClock(DateTimeOffset now) : TimeProvider
+    {
+        private DateTimeOffset _now = now;
+        public void Advance(TimeSpan delta) => _now = _now.Add(delta);
+        public override DateTimeOffset GetUtcNow() => _now;
+    }
+
+    private static async Task<PublicSearchResult> QueryV2(HttpClient client, string path, CancellationToken ct)
+    {
+        using var response = Ok(await client.GetAsync(path, ct));
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+        var headerGen = Assert.Single(response.Headers.GetValues(WireHeaders.SearchIndexGeneration));
+        var decoded = Wire.DecodePublicSearchResult(await response.Content.ReadAsByteArrayAsync(ct));
+        Assert.Equal(headerGen, decoded.Generation.ToString(CultureInfo.InvariantCulture));
+        return decoded;
+    }
+
+    private static async Task<(int Status, string Details)> ExpectErrorDetails(HttpClient client, string path, HttpStatusCode status, CancellationToken ct)
+    {
+        var err = SiteAedsFixture.DecodeApiError(await ExpectBytes(status, client.GetAsync(path, ct), ct));
+        return (err.Status, err.Details);
+    }
+
+    private static string V2Path(string keyword, string sort = "relevance", int size = 10, string? cursor = null)
+    {
+        var url = $"{WireRoutes.PublicSearchV2}?q={Uri.EscapeDataString(keyword)}&size={size}";
+        if (sort != "relevance") url += $"&sort={Uri.EscapeDataString(sort)}";
+        if (cursor is not null) url += $"&cursor={Uri.EscapeDataString(cursor)}";
+        return url;
+    }
+
     private static async Task<(Hit[] Hits, string Generation, int Total)> Query(HttpClient client, string path, CancellationToken ct)
     {
         using var response = Ok(await client.GetAsync(path, ct));

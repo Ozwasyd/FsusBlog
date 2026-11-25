@@ -18,6 +18,7 @@
     "ArticleDetail": 2,
     "ArticleHot": 3,
     "ArticleSearch": 4,
+    "PublicSearchResult": 33081,
     "PublicSearchWideManifest": 33004,
     "ArticleRelatedReading": 27,
     "CommentThreadReplyCursor": 8,
@@ -283,6 +284,7 @@
     "CommentContext": "/api/binary/comment/{articleId:int}/context/{commentId:long}",
     "CommentThread": "/api/binary/comment/{articleId:int}/thread/{rootId:long}",
     "PublicSearch": "/api/binary/article/search/query.aeds",
+    "PublicSearchV2": "/api/v2/public/search.aeds",
     "PublicRelatedReading": "/api/binary/article/{articleId:int}/related.aeds",
     "PublicSitePage": "/api/binary/system/page/{slug}",
     "AdminLegacySitePageUpdate": "/api/binary/system/page",
@@ -703,6 +705,11 @@
     "SearchQueryChars": 128,
     "SearchAnalyzerVersion": 1,
     "SearchFas4Profile": 3,
+    "PublicSearchMaxPageSize": 100,
+    "PublicSearchCursorMaxBytes": 256,
+    "PublicSearchSnippetMaxBytes": 640,
+    "PublicSearchMaxHighlights": 16,
+    "PublicSearchSummaryBytes": 2048,
     "PublicArticleHotMaxSize": 100,
     "RelatedReadingMaxItems": 6,
     "RelatedReadingMaxTextBytes": 2048,
@@ -996,6 +1003,32 @@
         "Ended": 2,
         "Expired": 3
       }
+    },
+    "PublicSearchTotalRelation": {
+      "type": "u8",
+      "values": {
+        "Exact": 0,
+        "LowerBound": 1
+      }
+    },
+    "PublicSearchMatchTier": {
+      "type": "u8",
+      "values": {
+        "Primary": 0,
+        "Relaxed": 1
+      }
+    },
+    "PublicSearchSnippetField": {
+      "type": "u8",
+      "values": {
+        "None": 0,
+        "Title": 1,
+        "Heading": 2,
+        "Summary": 3,
+        "Taxonomy": 4,
+        "Code": 5,
+        "Body": 6
+      }
     }
   },
   "embeddedRecords": {
@@ -1025,6 +1058,33 @@
         ["LastGovernanceAtUnixMs", "i64"],
         ["LastGovernanceActor", "text", "NameBytes"],
         ["LastGovernanceReason", "text", "AdminReaderReasonBytes"]
+      ]
+    },
+    "PublicSearchHighlight": {
+      "fields": [["Start", "i32"], ["End", "i32"]]
+    },
+    "PublicSearchTag": {
+      "fields": [["Id", "i32"], ["Name", "text", "TaxonomyNameBytes"]]
+    },
+    "PublicSearchHit": {
+      "fields": [
+        ["Id", "i32"],
+        ["Revision", "i64"],
+        ["RevisionNo", "i32"],
+        ["Publication", "i64"],
+        ["PublicationNo", "i32"],
+        ["PublishedAtUnixMs", "i64"],
+        ["CreatedAtUnixMs", "i64"],
+        ["Views", "i32"],
+        ["CategoryId", "i32"],
+        ["CategoryName", "text", "TaxonomyNameBytes"],
+        ["Tags", "list", "PublicSearchTag", "TaxonomyTagCount"],
+        ["Title", "text", "TitleBytes"],
+        ["Summary", "text", "PublicSearchSummaryBytes"],
+        ["MatchTier", "enum", "PublicSearchMatchTier"],
+        ["SnippetField", "enum", "PublicSearchSnippetField"],
+        ["Snippet", "text", "PublicSearchSnippetMaxBytes"],
+        ["Highlights", "list", "PublicSearchHighlight", "PublicSearchMaxHighlights"]
       ]
     }
   },
@@ -1380,6 +1440,20 @@
     },
     "PropertyValueBatchReceipt": {
       "fields": [["ArticleId", "i32"], ["SchemaRevision", "i64"], ["ValueRevision", "i64"], ["RequestId", "uuid"]]
+    },
+    "PublicSearchResult": {
+      "fields": [
+        ["Generation", "i64"],
+        ["ProfileVersion", "i32"],
+        ["AnalyzerVersion", "i32"],
+        ["TotalCount", "i32"],
+        ["TotalRelation", "enum", "PublicSearchTotalRelation"],
+        ["PrimaryCount", "i32"],
+        ["RelaxedCount", "i32"],
+        ["HasMore", "bool"],
+        ["NextCursor", "text", "PublicSearchCursorMaxBytes"],
+        ["Items", "list", "PublicSearchHit", "PublicSearchMaxPageSize"]
+      ]
     }
   }
 }

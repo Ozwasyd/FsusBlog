@@ -9,6 +9,7 @@ public enum FrameType : ushort
     ArticleDetail = 2,
     ArticleHot = 3,
     ArticleSearch = 4,
+    PublicSearchResult = 33081,
     PublicSearchWideManifest = 33004,
     ArticleRelatedReading = 27,
     CommentThreadReplyCursor = 8,
@@ -258,6 +259,29 @@ public enum AdminSignInState : byte
     Expired = 3,
 }
 
+public enum PublicSearchTotalRelation : byte
+{
+    Exact = 0,
+    LowerBound = 1,
+}
+
+public enum PublicSearchMatchTier : byte
+{
+    Primary = 0,
+    Relaxed = 1,
+}
+
+public enum PublicSearchSnippetField : byte
+{
+    None = 0,
+    Title = 1,
+    Heading = 2,
+    Summary = 3,
+    Taxonomy = 4,
+    Code = 5,
+    Body = 6,
+}
+
 public static class WireHeader
 {
     public const int Magic = 0x53444541;
@@ -393,6 +417,11 @@ public static class WireLimits
     public const int SearchQueryChars = 128;
     public const int SearchAnalyzerVersion = 1;
     public const int SearchFas4Profile = 3;
+    public const int PublicSearchMaxPageSize = 100;
+    public const int PublicSearchCursorMaxBytes = 256;
+    public const int PublicSearchSnippetMaxBytes = 640;
+    public const int PublicSearchMaxHighlights = 16;
+    public const int PublicSearchSummaryBytes = 2048;
     public const int PublicArticleHotMaxSize = 100;
     public const int RelatedReadingMaxItems = 6;
     public const int RelatedReadingMaxTextBytes = 2048;
@@ -706,6 +735,7 @@ public static class WireRoutes
     public const string CommentContext = "/api/binary/comment/{articleId:int}/context/{commentId:long}";
     public const string CommentThread = "/api/binary/comment/{articleId:int}/thread/{rootId:long}";
     public const string PublicSearch = "/api/binary/article/search/query.aeds";
+    public const string PublicSearchV2 = "/api/v2/public/search.aeds";
     public const string PublicRelatedReading = "/api/binary/article/{articleId:int}/related.aeds";
     public const string PublicSitePage = "/api/binary/system/page/{slug}";
     public const string AdminLegacySitePageUpdate = "/api/binary/system/page";
@@ -1012,6 +1042,9 @@ public static class WireHeaders
 
 public sealed record AdminSignIn(long StartedAt, long ExpiresAt, long EndedAt, AdminSignInState State);
 public sealed record AdminReaderAccount(Guid UserId, int AccountId, string Name, string DisplayName, bool Enabled, long Generation, int PasskeyCount, bool HasRecoveryKey, bool HasTotp, int ActiveSessionCount, int CommentCount, long RegisteredAtUnixMs, long LastUsedAtUnixMs, long LastGovernanceAtUnixMs, string LastGovernanceActor, string LastGovernanceReason);
+public sealed record PublicSearchHighlight(int Start, int End);
+public sealed record PublicSearchTag(int Id, string Name);
+public sealed record PublicSearchHit(int Id, long Revision, int RevisionNo, long Publication, int PublicationNo, long PublishedAtUnixMs, long CreatedAtUnixMs, int Views, int CategoryId, string CategoryName, IReadOnlyList<PublicSearchTag> Tags, string Title, string Summary, PublicSearchMatchTier MatchTier, PublicSearchSnippetField SnippetField, string Snippet, IReadOnlyList<PublicSearchHighlight> Highlights);
 public sealed record RecoveryKeyOperation(int Operation);
 public sealed record RecoveryKeyIssued(string Key, long Version, long CreatedAt);
 public sealed record RecoveryKeyStatus(bool Active);
@@ -1098,6 +1131,7 @@ public sealed record PropertyDefinitionProjection(Guid DefinitionId, long Schema
 public sealed record PropertyTextCommand(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision, Guid DefinitionId, long DefinitionRevision, Guid RequestId, bool Remove, string Value);
 public sealed record PropertyCommandReceipt(Guid DefinitionId, long SchemaRevision, long Revision);
 public sealed record PropertyValueBatchReceipt(int ArticleId, long SchemaRevision, long ValueRevision, Guid RequestId);
+public sealed record PublicSearchResult(long Generation, int ProfileVersion, int AnalyzerVersion, int TotalCount, PublicSearchTotalRelation TotalRelation, int PrimaryCount, int RelaxedCount, bool HasMore, string NextCursor, IReadOnlyList<PublicSearchHit> Items);
 
 public static partial class Wire
 {
@@ -1110,6 +1144,42 @@ public static partial class Wire
     private static AdminSignInState ReadAdminSignInState(ref Reader reader) => (AdminSignInState)reader.Byte() switch
     {
         var value and (AdminSignInState.Current or AdminSignInState.Ended or AdminSignInState.Expired) => value,
+        _ => throw new ProtocolException("Invalid AEDS enum value"),
+    };
+
+    private static void WritePublicSearchTotalRelation(Writer writer, PublicSearchTotalRelation value) => writer.Byte(value switch
+    {
+        PublicSearchTotalRelation.Exact or PublicSearchTotalRelation.LowerBound => (byte)value,
+        _ => throw new ProtocolException("Invalid AEDS enum value"),
+    });
+
+    private static PublicSearchTotalRelation ReadPublicSearchTotalRelation(ref Reader reader) => (PublicSearchTotalRelation)reader.Byte() switch
+    {
+        var value and (PublicSearchTotalRelation.Exact or PublicSearchTotalRelation.LowerBound) => value,
+        _ => throw new ProtocolException("Invalid AEDS enum value"),
+    };
+
+    private static void WritePublicSearchMatchTier(Writer writer, PublicSearchMatchTier value) => writer.Byte(value switch
+    {
+        PublicSearchMatchTier.Primary or PublicSearchMatchTier.Relaxed => (byte)value,
+        _ => throw new ProtocolException("Invalid AEDS enum value"),
+    });
+
+    private static PublicSearchMatchTier ReadPublicSearchMatchTier(ref Reader reader) => (PublicSearchMatchTier)reader.Byte() switch
+    {
+        var value and (PublicSearchMatchTier.Primary or PublicSearchMatchTier.Relaxed) => value,
+        _ => throw new ProtocolException("Invalid AEDS enum value"),
+    };
+
+    private static void WritePublicSearchSnippetField(Writer writer, PublicSearchSnippetField value) => writer.Byte(value switch
+    {
+        PublicSearchSnippetField.None or PublicSearchSnippetField.Title or PublicSearchSnippetField.Heading or PublicSearchSnippetField.Summary or PublicSearchSnippetField.Taxonomy or PublicSearchSnippetField.Code or PublicSearchSnippetField.Body => (byte)value,
+        _ => throw new ProtocolException("Invalid AEDS enum value"),
+    });
+
+    private static PublicSearchSnippetField ReadPublicSearchSnippetField(ref Reader reader) => (PublicSearchSnippetField)reader.Byte() switch
+    {
+        var value and (PublicSearchSnippetField.None or PublicSearchSnippetField.Title or PublicSearchSnippetField.Heading or PublicSearchSnippetField.Summary or PublicSearchSnippetField.Taxonomy or PublicSearchSnippetField.Code or PublicSearchSnippetField.Body) => value,
         _ => throw new ProtocolException("Invalid AEDS enum value"),
     };
 
@@ -1128,6 +1198,40 @@ public static partial class Wire
 
     private static AdminReaderAccount ReadAdminReaderAccount(ref Reader reader) =>
         new(reader.Uuid(), reader.I32(), reader.Text(NameBytes), reader.Text(PublicCommentHandleBytes), reader.Bool(), reader.I64(), reader.I32(), reader.Bool(), reader.Bool(), reader.I32(), reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Text(NameBytes), reader.Text(AdminReaderReasonBytes));
+
+    private static void WritePublicSearchHighlight(Writer writer, PublicSearchHighlight record) => writer.I32(record.Start).I32(record.End);
+
+    private static PublicSearchHighlight ReadPublicSearchHighlight(ref Reader reader) =>
+        new(reader.I32(), reader.I32());
+
+    private static void WritePublicSearchTag(Writer writer, PublicSearchTag record) => writer.I32(record.Id).Text(record.Name, TaxonomyNameBytes);
+
+    private static PublicSearchTag ReadPublicSearchTag(ref Reader reader) =>
+        new(reader.I32(), reader.Text(TaxonomyNameBytes));
+
+    private static void WritePublicSearchHit(Writer writer, PublicSearchHit record)
+    {
+        writer.I32(record.Id);
+        writer.I64(record.Revision);
+        writer.I32(record.RevisionNo);
+        writer.I64(record.Publication);
+        writer.I32(record.PublicationNo);
+        writer.I64(record.PublishedAtUnixMs);
+        writer.I64(record.CreatedAtUnixMs);
+        writer.I32(record.Views);
+        writer.I32(record.CategoryId);
+        writer.Text(record.CategoryName, TaxonomyNameBytes);
+        writer.List(record.Tags, TaxonomyTagCount, WritePublicSearchTag);
+        writer.Text(record.Title, TitleBytes);
+        writer.Text(record.Summary, PublicSearchSummaryBytes);
+        WritePublicSearchMatchTier(writer, record.MatchTier);
+        WritePublicSearchSnippetField(writer, record.SnippetField);
+        writer.Text(record.Snippet, PublicSearchSnippetMaxBytes);
+        writer.List(record.Highlights, PublicSearchMaxHighlights, WritePublicSearchHighlight);
+    }
+
+    private static PublicSearchHit ReadPublicSearchHit(ref Reader reader) =>
+        new(reader.I32(), reader.I64(), reader.I32(), reader.I64(), reader.I32(), reader.I64(), reader.I64(), reader.I32(), reader.I32(), reader.Text(TaxonomyNameBytes), reader.List(TaxonomyTagCount, 8, ReadPublicSearchTag), reader.Text(TitleBytes), reader.Text(PublicSearchSummaryBytes), ReadPublicSearchMatchTier(ref reader), ReadPublicSearchSnippetField(ref reader), reader.Text(PublicSearchSnippetMaxBytes), reader.List(PublicSearchMaxHighlights, 8, ReadPublicSearchHighlight));
 
     public static byte[] EncodeRecoveryKeyOperation(RecoveryKeyOperation value) =>
         EncodeRecord(FrameType.RecoveryKeyOperation, value, Validate, static (writer, record) => writer.I32(record.Operation));
@@ -1730,5 +1834,24 @@ public static partial class Wire
     public static PropertyValueBatchReceipt DecodePropertyValueBatchReceipt(ReadOnlySpan<byte> frame) =>
         DecodeRecord<PropertyValueBatchReceipt>(FrameType.PropertyValueBatchReceipt, frame, static (ref Reader reader) =>
             new(reader.I32(), reader.I64(), reader.I64(), reader.Uuid()), Validate);
+
+    public static byte[] EncodePublicSearchResult(PublicSearchResult value) =>
+        EncodeRecord(FrameType.PublicSearchResult, value, Validate, static (writer, record) =>
+        {
+            writer.I64(record.Generation);
+            writer.I32(record.ProfileVersion);
+            writer.I32(record.AnalyzerVersion);
+            writer.I32(record.TotalCount);
+            WritePublicSearchTotalRelation(writer, record.TotalRelation);
+            writer.I32(record.PrimaryCount);
+            writer.I32(record.RelaxedCount);
+            writer.Bool(record.HasMore);
+            writer.Text(record.NextCursor, PublicSearchCursorMaxBytes);
+            writer.List(record.Items, PublicSearchMaxPageSize, WritePublicSearchHit);
+        });
+
+    public static PublicSearchResult DecodePublicSearchResult(ReadOnlySpan<byte> frame) =>
+        DecodeRecord<PublicSearchResult>(FrameType.PublicSearchResult, frame, static (ref Reader reader) =>
+            new(reader.I64(), reader.I32(), reader.I32(), reader.I32(), ReadPublicSearchTotalRelation(ref reader), reader.I32(), reader.I32(), reader.Bool(), reader.Text(PublicSearchCursorMaxBytes), reader.List(PublicSearchMaxPageSize, 78, ReadPublicSearchHit)), Validate);
 
 }

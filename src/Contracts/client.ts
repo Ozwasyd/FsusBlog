@@ -3,6 +3,7 @@ import { decodeInboxReplay, validReplayCursor } from './inbox-replay.ts';
 import { decodeInboxList, decodeInboxThread, type InboxFilter } from './inbox.ts';
 import { collectBounded } from './bounded-stream.ts';
 import { decodeArticle, decodeArticleList, decodeSearch } from './public-articles.ts';
+import { decodePublicSearchV2 } from './public-search-v2.ts';
 import {
   type ArticleCommand,
   type Draft,
@@ -21,6 +22,17 @@ import {
 export { ApiError, ProtocolError } from './aeds.ts';
 export { consumeBounded } from './bounded-stream.ts';
 export type { Article, ArticleCard } from './public-articles.ts';
+export {
+  decodePublicSearchV2,
+  sliceSnippetHighlights,
+  type PublicSearchHighlightRange,
+  type PublicSearchMatchTierKind,
+  type PublicSearchResultItem,
+  type PublicSearchSnippetFieldKind,
+  type PublicSearchTotalRelationKind,
+  type PublicSearchV2Page,
+  type SnippetSegment,
+} from './public-search-v2.ts';
 export type { ArticleCommand, Draft } from './wire.generated.ts';
 export type { InboxReplay, InboxReplayEvent } from './inbox-replay.ts';
 export type { InboxFilter, InboxListItem, InboxListPage, InboxMessage, InboxThread } from './inbox.ts';
@@ -184,6 +196,21 @@ export const api = {
       }
       return { items: articles, total: reportedTotal, nextCursor: null };
     }, signal, 'GET', undefined, undefined, 'omit');
+  },
+
+  searchV2(
+    query: string,
+    signal?: AbortSignal,
+    options?: { sort?: 'relevance' | 'latest'; size?: number; cursor?: string; profile?: string },
+  ) {
+    const search = new URLSearchParams({ q: query });
+    if (options?.sort && options.sort !== 'relevance') search.set('sort', options.sort);
+    if (options?.size !== undefined) search.set('size', String(options.size));
+    if (options?.cursor !== undefined) search.set('cursor', options.cursor);
+    if (options?.profile !== undefined) search.set('profile', options.profile);
+    return request(`${WireRoutes.PublicSearchV2}?${search}`, FrameType.PublicSearchResult, (payload, headers) =>
+      decodePublicSearchV2(payload, headers.get(WireHeaders.SearchIndexGeneration)),
+    signal, 'GET', undefined, undefined, 'omit');
   },
 
   async publicIndex(signal?: AbortSignal) {

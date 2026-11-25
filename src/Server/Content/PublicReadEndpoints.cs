@@ -57,6 +57,50 @@ internal static class PublicReadEndpoints
             ctx.Response.Headers[WireHeaders.SearchTotal] = reportedTotal.ToString(CultureInfo.InvariantCulture);
             return ServerHttp.Frame(hit.Bytes);
         });
+        app.MapQueryGet(WireRoutes.PublicSearchV2, (HttpContext ctx) =>
+        {
+            if (!ctx.Request.Query.TryGetValue("q", out var qValues) || qValues.Count != 1 || qValues[0] is not { } rawQ)
+                throw PublicSearchFailure.InvalidQuery();
+            var keyword = rawQ.Trim();
+            if (!SearchTextAnalyzer.IsQueryWithinLimit(keyword, ctx.RequestAborted))
+                throw PublicSearchFailure.InvalidQuery("Search query is empty or exceeds the maximum length.");
+
+            var sort = ArticleSearchSort.Relevance;
+            if (ctx.Request.Query.TryGetValue("sort", out var sortValues))
+            {
+                if (sortValues.Count != 1 || sortValues[0] is not { } sortText) throw PublicSearchFailure.InvalidSort();
+                sort = sortText switch
+                {
+                    "" or "relevance" => ArticleSearchSort.Relevance,
+                    "latest" => ArticleSearchSort.Latest,
+                    _ => throw PublicSearchFailure.InvalidSort()
+                };
+            }
+
+            var size = 10;
+            if (ctx.Request.Query.TryGetValue("size", out var sizeValues))
+            {
+                if (sizeValues.Count != 1 || sizeValues[0] is not { Length: > 0 and <= 10 } sizeText ||
+                    !int.TryParse(sizeText, NumberStyles.None, CultureInfo.InvariantCulture, out size) ||
+                    size is < 1 or > WireLimits.PublicSearchMaxPageSize ||
+                    sizeText != size.ToString(CultureInfo.InvariantCulture))
+                    throw PublicSearchFailure.InvalidSize();
+            }
+
+            if (ctx.Request.Query.TryGetValue("profile", out var profileValues))
+            {
+                if (profileValues.Count != 1 || profileValues[0] is not { Length: > 0 and <= 32 } profileText ||
+                    (profileText != WireLimits.SearchFas4Profile.ToString(CultureInfo.InvariantCulture) &&
+                     profileText != "bm25f-concept-v3"))
+                    throw PublicSearchFailure.UnsupportedProfile();
+            }
+
+            var cursor = ServerHttp.ReadSearchCursor(ctx);
+            var snapshot = ServerHttp.Snapshot(ctx, publications);
+            var frame = snapshot.SearchV2(keyword, sort, size, cursor, ctx.RequestAborted);
+            ServerHttp.RequireCurrentSnapshot(ctx, publications, snapshot);
+            return ServerHttp.Frame(frame);
+        });
 
         if (capabilities.WideSearchCorpus)
             WideSearchCorpusEndpoints.Map(app, app.Services.GetRequiredService<PublicProjection>(), app.Services.GetRequiredService<InstanceLease>());

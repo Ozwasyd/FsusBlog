@@ -6,6 +6,7 @@ export const FrameType = {
   ArticleDetail: 2,
   ArticleHot: 3,
   ArticleSearch: 4,
+  PublicSearchResult: 33081,
   PublicSearchWideManifest: 33004,
   ArticleRelatedReading: 27,
   CommentThreadReplyCursor: 8,
@@ -381,6 +382,11 @@ export const WireLimits = {
   SearchQueryChars: 128,
   SearchAnalyzerVersion: 1,
   SearchFas4Profile: 3,
+  PublicSearchMaxPageSize: 100,
+  PublicSearchCursorMaxBytes: 256,
+  PublicSearchSnippetMaxBytes: 640,
+  PublicSearchMaxHighlights: 16,
+  PublicSearchSummaryBytes: 2048,
   PublicArticleHotMaxSize: 100,
   RelatedReadingMaxItems: 6,
   RelatedReadingMaxTextBytes: 2048,
@@ -692,6 +698,7 @@ export const WireRoutes = {
   CommentContext: "/api/binary/comment/{articleId:int}/context/{commentId:long}",
   CommentThread: "/api/binary/comment/{articleId:int}/thread/{rootId:long}",
   PublicSearch: "/api/binary/article/search/query.aeds",
+  PublicSearchV2: "/api/v2/public/search.aeds",
   PublicRelatedReading: "/api/binary/article/{articleId:int}/related.aeds",
   PublicSitePage: "/api/binary/system/page/{slug}",
   AdminLegacySitePageUpdate: "/api/binary/system/page",
@@ -1005,6 +1012,32 @@ export const AdminSignInState = {
 
 export type AdminSignInState = typeof AdminSignInState[keyof typeof AdminSignInState];
 
+export const PublicSearchTotalRelation = {
+  Exact: 0,
+  LowerBound: 1,
+} as const;
+
+export type PublicSearchTotalRelation = typeof PublicSearchTotalRelation[keyof typeof PublicSearchTotalRelation];
+
+export const PublicSearchMatchTier = {
+  Primary: 0,
+  Relaxed: 1,
+} as const;
+
+export type PublicSearchMatchTier = typeof PublicSearchMatchTier[keyof typeof PublicSearchMatchTier];
+
+export const PublicSearchSnippetField = {
+  None: 0,
+  Title: 1,
+  Heading: 2,
+  Summary: 3,
+  Taxonomy: 4,
+  Code: 5,
+  Body: 6,
+} as const;
+
+export type PublicSearchSnippetField = typeof PublicSearchSnippetField[keyof typeof PublicSearchSnippetField];
+
 const adminSignInFields = {
   startedAt: podField.i64,
   expiresAt: podField.i64,
@@ -1034,6 +1067,42 @@ const adminReaderAccountFields = {
 };
 export type AdminReaderAccount = PodValue<typeof adminReaderAccountFields>;
 const adminReaderAccountField = /* @__PURE__ */ podField.record(adminReaderAccountFields);
+
+const publicSearchHighlightFields = {
+  start: podField.i32,
+  end: podField.i32,
+};
+export type PublicSearchHighlight = PodValue<typeof publicSearchHighlightFields>;
+const publicSearchHighlightField = /* @__PURE__ */ podField.record(publicSearchHighlightFields);
+
+const publicSearchTagFields = {
+  id: podField.i32,
+  name: podField.text(WireLimits.TaxonomyNameBytes),
+};
+export type PublicSearchTag = PodValue<typeof publicSearchTagFields>;
+const publicSearchTagField = /* @__PURE__ */ podField.record(publicSearchTagFields);
+
+const publicSearchHitFields = {
+  id: podField.i32,
+  revision: podField.i64,
+  revisionNo: podField.i32,
+  publication: podField.i64,
+  publicationNo: podField.i32,
+  publishedAtUnixMs: podField.i64,
+  createdAtUnixMs: podField.i64,
+  views: podField.i32,
+  categoryId: podField.i32,
+  categoryName: podField.text(WireLimits.TaxonomyNameBytes),
+  tags: /* @__PURE__ */ podField.list(publicSearchTagField, WireLimits.TaxonomyTagCount, 8),
+  title: podField.text(WireLimits.TitleBytes),
+  summary: podField.text(WireLimits.PublicSearchSummaryBytes),
+  matchTier: /* @__PURE__ */ podField.enumU8(PublicSearchMatchTier),
+  snippetField: /* @__PURE__ */ podField.enumU8(PublicSearchSnippetField),
+  snippet: podField.text(WireLimits.PublicSearchSnippetMaxBytes),
+  highlights: /* @__PURE__ */ podField.list(publicSearchHighlightField, WireLimits.PublicSearchMaxHighlights, 8),
+};
+export type PublicSearchHit = PodValue<typeof publicSearchHitFields>;
+const publicSearchHitField = /* @__PURE__ */ podField.record(publicSearchHitFields);
 
 const recoveryKeyOperationFields = {
   operation: podField.i32,
@@ -1912,3 +1981,18 @@ const propertyValueBatchReceiptFields = {
 };
 export type PropertyValueBatchReceipt = PodValue<typeof propertyValueBatchReceiptFields>;
 export const [encodePropertyValueBatchReceipt, decodePropertyValueBatchReceipt] = /* @__PURE__ */ definePodRecord(propertyValueBatchReceiptFields);
+
+const publicSearchResultFields = {
+  generation: podField.i64,
+  profileVersion: podField.i32,
+  analyzerVersion: podField.i32,
+  totalCount: podField.i32,
+  totalRelation: /* @__PURE__ */ podField.enumU8(PublicSearchTotalRelation),
+  primaryCount: podField.i32,
+  relaxedCount: podField.i32,
+  hasMore: podField.bool,
+  nextCursor: podField.text(WireLimits.PublicSearchCursorMaxBytes),
+  items: /* @__PURE__ */ podField.list(publicSearchHitField, WireLimits.PublicSearchMaxPageSize, 78),
+};
+export type PublicSearchResult = PodValue<typeof publicSearchResultFields>;
+export const [encodePublicSearchResult, decodePublicSearchResult] = /* @__PURE__ */ definePodRecord(publicSearchResultFields);

@@ -57,6 +57,14 @@ internal static class ServerHttp
         return value;
     }
 
+    internal static string? ReadSearchCursor(HttpContext ctx)
+    {
+        if (!ctx.Request.Query.TryGetValue("cursor", out var values)) return null;
+        if (values.Count != 1 || values[0] is not { Length: > 0 and <= WireLimits.PublicSearchCursorMaxBytes } value)
+            throw PublicSearchFailure.InvalidCursor();
+        return value;
+    }
+
     internal static void VerifyMutation(HttpContext ctx)
     {
         if (!ctx.Request.IsHttps && (ctx.Connection.RemoteIpAddress is not { } peer || !IPAddress.IsLoopback(peer)))
@@ -112,6 +120,7 @@ internal static class ServerHttp
             _ => 500
         }, err.Message, (string?)null),
         PublicListFailure err => (err.Status, err.Message, err.Details),
+        PublicSearchFailure err => (err.Status, err.Message, err.Details),
         AuthorHeadingBudgetException => (422, "A saved article exceeds the heading parser's work limit.", null),
         ProtocolException => (400, "Invalid AEDS payload.", null),
         BadHttpRequestException bad => (bad.StatusCode, "Invalid HTTP request.", null),

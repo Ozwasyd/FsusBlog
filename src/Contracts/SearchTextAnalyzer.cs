@@ -269,6 +269,16 @@ public static class SearchTextAnalyzer
         return cat is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark;
     }
 
+    public static bool IsQueryWithinLimit(string? rawQuery, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(rawQuery)) return false;
+        var trimmed = rawQuery.Trim();
+        if (trimmed.Length == 0 || trimmed.Length > WireLimits.SearchQueryChars) return false;
+        var (nfkc, _, _) = NormalizeWithOffsets(trimmed, 0, ct);
+        var normalizedTrimmed = nfkc.Trim();
+        return normalizedTrimmed.Length > 0 && normalizedTrimmed.Length <= WireLimits.SearchQueryChars;
+    }
+
     public static AnalyzedQuery AnalyzeQuery(string rawQuery, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

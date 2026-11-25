@@ -82,6 +82,11 @@ p { line-height: 1.65; }
 .article-list h2 a { text-decoration: none; }
 .article-list h2 a:hover { text-decoration: underline; }
 .article-list p { margin: .35rem 0; color: var(--fsus-color-text-muted); }
+.search-relaxed-notice { margin: .25rem 0 .75rem; font-size: .875rem; }
+.search-snippet { margin: .4rem 0 0; color: var(--fsus-color-text-muted); line-height: 1.65; overflow-wrap: anywhere; }
+.search-snippet--code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: .875rem; line-height: 1.55; }
+.search-highlight { padding-inline: .1em; border-radius: 2px; background: color-mix(in srgb, var(--fsus-scholarly-blue) 14%, transparent); color: var(--fsus-ink); font-weight: 500; }
+.article-list h2 .search-highlight { font-weight: inherit; }
 .page-links { margin-block-start: 2rem; padding-block-start: 1.25rem; border-block-start: 1px solid var(--fsus-border); }
 .page-links .el-pagination-bar__controls { flex-wrap: wrap; gap: .75rem; }
 .page-links .el-button + .el-button { margin-inline-start: 0; }

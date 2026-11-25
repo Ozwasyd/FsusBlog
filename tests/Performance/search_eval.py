@@ -710,10 +710,19 @@ def run_paired_baseline(
                     "repeatedHotP95Ms": summarize_variability([r["repeatedHot"]["latencyMs"]["p95"] for r in server_rounds]),
                     "concurrentThroughputQps": summarize_variability([r["concurrent"]["throughputQps"] for r in server_rounds]),
                     "churnServerRebuildP95Ms": summarize_variability([r["publicationChurn"]["serverRebuildLatencyMs"]["p95"] for r in server_rounds]),
+                    **(
+                        {
+                            "v2EndToEndP95Ms": summarize_variability([r["v2PayloadAndSnippets"]["endToEndLatencyMs"]["p95"] for r in server_rounds]),
+                            "v2SnippetOnlyP95Ms": summarize_variability([r["v2PayloadAndSnippets"]["snippetOnlyLatencyMs"]["p95"] for r in server_rounds]),
+                        }
+                        if all("v2PayloadAndSnippets" in r for r in server_rounds)
+                        else {}
+                    ),
                 },
                 "latestRoundMetrics": {
                     "indexing": server_ref["indexing"],
                     "queryPass": server_ref["queryPass"],
+                    **({"v2PayloadAndSnippets": server_ref["v2PayloadAndSnippets"]} if "v2PayloadAndSnippets" in server_ref else {}),
                     "repeatedHot": server_ref["repeatedHot"],
                     "concurrent": server_ref["concurrent"],
                     "cancellation": server_ref["cancellation"],

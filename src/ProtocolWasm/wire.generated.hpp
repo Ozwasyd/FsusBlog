@@ -137,6 +137,11 @@ inline constexpr uint32_t SearchWideCorpusTotalBytes = 268435456;
 inline constexpr uint32_t SearchQueryChars = 128;
 inline constexpr uint32_t SearchAnalyzerVersion = 1;
 inline constexpr uint32_t SearchFas4Profile = 3;
+inline constexpr uint32_t PublicSearchMaxPageSize = 100;
+inline constexpr uint32_t PublicSearchCursorMaxBytes = 256;
+inline constexpr uint32_t PublicSearchSnippetMaxBytes = 640;
+inline constexpr uint32_t PublicSearchMaxHighlights = 16;
+inline constexpr uint32_t PublicSearchSummaryBytes = 2048;
 inline constexpr uint32_t PublicArticleHotMaxSize = 100;
 inline constexpr uint32_t RelatedReadingMaxItems = 6;
 inline constexpr uint32_t RelatedReadingMaxTextBytes = 2048;
@@ -429,6 +434,7 @@ enum class FrameType : uint16_t {
     ArticleDetail = 2,
     ArticleHot = 3,
     ArticleSearch = 4,
+    PublicSearchResult = 33081,
     PublicSearchWideManifest = 33004,
     ArticleRelatedReading = 27,
     CommentThreadReplyCursor = 8,
@@ -723,7 +729,7 @@ inline constexpr FrameRange frameRanges[] = {
     {33032, 33049},
     {33055, 33066},
     {33068, 33068},
-    {33070, 33080},
+    {33070, 33081},
 };
 }
 

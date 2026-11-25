@@ -159,6 +159,52 @@ internal static class SearchEvalRunner
         var queryCpuMs = (proc.TotalProcessorTime - qCpuBefore).TotalMilliseconds;
         var queryAllocBytes = GC.GetTotalAllocatedBytes(true) - qAllocBefore;
 
+        // 4b. Measure #47 PublicSearchResult V2 payload bytes & snippet extraction cost (returned page hits only)
+        var v2LatenciesMs = new List<double>(queryDoc.Queries.Length);
+        var snippetOnlyLatenciesMs = new List<double>(queryDoc.Queries.Length);
+        var v2PayloadBytesList = new List<double>(queryDoc.Queries.Length);
+        long v2TotalPayloadBytes = 0;
+        var v2SnippetsGenerated = 0;
+        var v2CpuBefore = proc.TotalProcessorTime;
+        var v2AllocBefore = GC.GetTotalAllocatedBytes(true);
+        var v2WallSw = Stopwatch.StartNew();
+        foreach (var q in queryDoc.Queries)
+        {
+            var plan = SearchQueryPlan.Build(q.Query, CancellationToken.None);
+            var swTotal = Stopwatch.StartNew();
+            var cPage = index.SearchWithCursor(plan, ArticleSearchSort.Relevance, 10, null, 0, CancellationToken.None);
+            var swSnip = Stopwatch.StartNew();
+            var hits = new PublicSearchHit[cPage.Hits.Length];
+            for (var i = 0; i < cPage.Hits.Length; i++)
+            {
+                var hit = cPage.Hits[i];
+                var a = hit.Article;
+                var snip = SearchSnippetExtractor.Extract(a, plan, CancellationToken.None);
+                v2SnippetsGenerated++;
+                hits[i] = new PublicSearchHit(
+                    a.Id, a.Revision, a.RevisionNo, a.Publication, a.PublicationNo,
+                    a.PublishedAt.ToUnixTimeMilliseconds(), a.CreatedAt.ToUnixTimeMilliseconds(), 0,
+                    a.Category?.Id ?? 0, a.Category?.Name ?? "",
+                    a.Tags is { Count: > 0 } ts ? ts.Select(static t => new PublicSearchTag(t.Id, t.Name)).ToArray() : [],
+                    a.Title, a.Summary ?? "",
+                    hit.Tier == SearchMatchTier.Relaxed ? PublicSearchMatchTier.Relaxed : PublicSearchMatchTier.Primary,
+                    snip.Field, snip.Text, snip.Highlights);
+            }
+            swSnip.Stop();
+            var v2Frame = Wire.EncodePublicSearchResult(new PublicSearchResult(
+                123456789L, index.ProfileVersion, index.AnalyzerVersion,
+                cPage.TotalCount, cPage.TotalRelation, cPage.PrimaryCount, cPage.RelaxedCount,
+                cPage.HasMore, cPage.HasMore ? new string('A', 162) : "", hits));
+            swTotal.Stop();
+            v2TotalPayloadBytes += v2Frame.Length;
+            v2PayloadBytesList.Add(v2Frame.Length);
+            v2LatenciesMs.Add(swTotal.Elapsed.TotalMilliseconds);
+            snippetOnlyLatenciesMs.Add(swSnip.Elapsed.TotalMilliseconds);
+        }
+        v2WallSw.Stop();
+        var v2CpuMs = (proc.TotalProcessorTime - v2CpuBefore).TotalMilliseconds;
+        var v2AllocBytes = GC.GetTotalAllocatedBytes(true) - v2AllocBefore;
+
         // 5. Repeated warm query stream vs unique query stream (cache-hit vs cache-miss baseline; currently uncached)
         var hotQueries = queryDoc.Queries.Where(q => q.Rarity == "common").Take(8).ToArray();
         if (hotQueries.Length == 0) hotQueries = queryDoc.Queries.Take(8).ToArray();
@@ -330,6 +376,19 @@ internal static class SearchEvalRunner
                 latencyMs = Summarize(allLatenciesMs),
                 rareLatencyMs = Summarize(rareLatenciesMs),
                 commonLatencyMs = Summarize(commonLatenciesMs)
+            },
+            v2PayloadAndSnippets = new
+            {
+                queries = queryDoc.Queries.Length,
+                snippetsGenerated = v2SnippetsGenerated,
+                totalResponseBytes = v2TotalPayloadBytes,
+                fas4TotalResponseBytes = totalResponseBytes,
+                responseBytes = Summarize(v2PayloadBytesList),
+                wallMs = v2WallSw.Elapsed.TotalMilliseconds,
+                cpuMs = v2CpuMs,
+                allocBytes = v2AllocBytes,
+                endToEndLatencyMs = Summarize(v2LatenciesMs),
+                snippetOnlyLatencyMs = Summarize(snippetOnlyLatenciesMs)
             },
             repeatedHot = new
             {

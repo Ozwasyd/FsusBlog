@@ -20,6 +20,7 @@ public sealed partial class ArticleSearchIndex
 {
     private const int MaxResults = 200;
     public const int MaxPaginatedResults = 1_000;
+    public const int DefaultWorkBudgetCandidates = 200_000;
     private const int CompactMaxDocuments = WireLimits.SearchIndexMaxPages * WireLimits.SearchIndexPageSize;
     private const int MaxTerms = 262_144;
     private const int MaxPostings = 3_000_000;
@@ -106,14 +107,51 @@ public sealed partial class ArticleSearchIndex
 
         var start = (long)(page - 1) * size;
         var window = start >= MaxPaginatedResults ? 0 : (int)Math.Min(start + size, MaxPaginatedResults);
-        if (_wide is { } wide)
-            return SearchWideDetailed(wide, plan, sort, (int)Math.Min(start, MaxPaginatedResults), window, ct);
-
-        return SearchCompactDetailed(plan, sort, (int)Math.Min(start, MaxPaginatedResults), window, ct);
+        var (primaryHits, relaxedHits, allowsRelaxation) = _wide is { } wide
+            ? CollectWideHits(wide, plan, DefaultWorkBudgetCandidates, ct)
+            : CollectCompactHits(plan, DefaultWorkBudgetCandidates, ct);
+        return FinalizeDetailedPage(primaryHits, relaxedHits, allowsRelaxation, sort,
+            (int)Math.Min(start, MaxPaginatedResults), window);
     }
 
-    private ArticleSearchDetailedPage SearchCompactDetailed(SearchQueryPlan plan, ArticleSearchSort sort,
-        int start, int window, CancellationToken ct)
+    public ArticleSearchCursorPage SearchWithCursor(
+        string query,
+        ArticleSearchSort sort,
+        int size,
+        SearchCursorPosition? afterCursor,
+        int returnedSoFar,
+        CancellationToken ct,
+        int? countThreshold = null,
+        int? workBudget = null) =>
+        SearchWithCursor(SearchQueryPlan.Build(query, ct), sort, size, afterCursor, returnedSoFar, ct, countThreshold, workBudget);
+
+    public ArticleSearchCursorPage SearchWithCursor(
+        SearchQueryPlan plan,
+        ArticleSearchSort sort,
+        int size,
+        SearchCursorPosition? afterCursor,
+        int returnedSoFar,
+        CancellationToken ct,
+        int? countThreshold = null,
+        int? workBudget = null)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentOutOfRangeException.ThrowIfLessThan(size, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(size, WireLimits.PublicSearchMaxPageSize);
+        ArgumentOutOfRangeException.ThrowIfLessThan(returnedSoFar, 0);
+        if (_documents.Length == 0 || plan.IsEmpty || plan.IsOverlongExactIdentifier)
+            return new([], 0, PublicSearchTotalRelation.Exact, 0, 0, false, null);
+
+        var budget = Math.Max(1, workBudget ?? DefaultWorkBudgetCandidates);
+        var threshold = Math.Max(1, countThreshold ?? MaxPaginatedResults);
+        var (primaryHits, relaxedHits, allowsRelaxation) = _wide is { } wide
+            ? CollectWideHits(wide, plan, budget, ct)
+            : CollectCompactHits(plan, budget, ct);
+        return FinalizeCursorPage(primaryHits, relaxedHits, allowsRelaxation, sort, size, afterCursor, returnedSoFar, threshold);
+    }
+
+    private (List<ArticleSearchHit> Primary, List<ArticleSearchHit> Relaxed, bool AllowsRelaxation) CollectCompactHits(
+        SearchQueryPlan plan, int workBudget, CancellationToken ct)
     {
         var n = _documents.Length;
         var concepts = plan.ContentConcepts;
@@ -137,7 +175,7 @@ public sealed partial class ArticleSearchIndex
         {
             foreach (var st in phrase.Steps)
             {
-                if (Lookup(st.CanonicalKey).Count == 0) return new([], 0, 0, 0);
+                if (Lookup(st.CanonicalKey).Count == 0) return ([], [], false);
             }
         }
 
@@ -219,7 +257,7 @@ public sealed partial class ArticleSearchIndex
             totalQueryIdf += idf;
             if (!canMatch)
             {
-                if (concept.IsStrictIdentifier || !allowsRelaxation) return new([], 0, 0, 0);
+                if (concept.IsStrictIdentifier || !allowsRelaxation) return ([], [], false);
             }
             else
             {
@@ -229,23 +267,26 @@ public sealed partial class ArticleSearchIndex
         }
 
         if (possibleConcepts < minRelaxed || (totalQueryIdf > 0.0 && possibleIdfSum / totalQueryIdf < minRelaxedRatio))
-            return new([], 0, 0, 0);
+            return ([], [], false);
 
         // Pre-resolve OrderedQuerySequence keys for proximity bonus
         foreach (var st in plan.OrderedQuerySequence) Lookup(st.CanonicalKey);
 
         // Collect candidate document ordinals without scanning the full corpus when selective
         var candidateOrdinals = CollectCompactCandidates(plan, concepts, shortPrefixWeights, Lookup, allowsRelaxation, ct);
-        if (candidateOrdinals.Count == 0) return new([], 0, 0, 0);
+        if (candidateOrdinals.Count == 0) return ([], [], false);
 
         var primaryHits = new List<ArticleSearchHit>();
         var relaxedHits = new List<ArticleSearchHit>();
         Span<double> tfs = stackalloc double[SearchScoringProfile.FieldCount];
         Span<int> docLens = stackalloc int[SearchScoringProfile.FieldCount];
 
+        var scoredCandidates = 0;
         foreach (var ordinal in candidateOrdinals)
         {
             ct.ThrowIfCancellationRequested();
+            if (++scoredCandidates > workBudget)
+                throw new SearchBudgetExceededException();
 
             // 1. Strict quoted phrases MUST match (never relaxed)
             var phraseOk = true;
@@ -315,7 +356,7 @@ public sealed partial class ArticleSearchIndex
             else relaxedHits.Add(new ArticleSearchHit(doc.Article, SearchMatchTier.Relaxed, score));
         }
 
-        return FinalizeDetailedPage(primaryHits, relaxedHits, allowsRelaxation, sort, start, window);
+        return (primaryHits, relaxedHits, allowsRelaxation);
     }
 
     private List<int> CollectCompactCandidates(
@@ -648,6 +689,85 @@ public sealed partial class ArticleSearchIndex
             slice[i] = idx < primaryHits.Count ? primaryHits[idx] : relaxedHits[idx - primaryHits.Count];
         }
         return new(slice, total, primaryHits.Count, relaxedHits.Count);
+    }
+
+    private static ArticleSearchCursorPage FinalizeCursorPage(
+        List<ArticleSearchHit> primaryHits,
+        List<ArticleSearchHit> relaxedHits,
+        bool allowsRelaxation,
+        ArticleSearchSort sort,
+        int size,
+        SearchCursorPosition? afterCursor,
+        int returnedSoFar,
+        int countThreshold)
+    {
+        primaryHits.Sort((a, b) => SearchScoringProfile.CompareHits(a, b, sort));
+        var includeRelaxed = allowsRelaxation &&
+                             primaryHits.Count < SearchScoringProfile.RelaxationTriggerPrimaryCount &&
+                             relaxedHits.Count > 0;
+        if (includeRelaxed)
+        {
+            relaxedHits.Sort((a, b) => SearchScoringProfile.CompareHits(a, b, sort));
+            if (relaxedHits.Count > SearchScoringProfile.MaxRelaxedResults)
+                relaxedHits.RemoveRange(SearchScoringProfile.MaxRelaxedResults, relaxedHits.Count - SearchScoringProfile.MaxRelaxedResults);
+        }
+        else
+        {
+            relaxedHits.Clear();
+        }
+
+        var rawTotal = primaryHits.Count + relaxedHits.Count;
+        var threshold = Math.Max(1, countThreshold);
+        PublicSearchTotalRelation totalRelation;
+        int totalCount, primaryCount, relaxedCount;
+        if (rawTotal > threshold)
+        {
+            totalRelation = PublicSearchTotalRelation.LowerBound;
+            totalCount = threshold;
+            primaryCount = Math.Min(primaryHits.Count, threshold);
+            relaxedCount = Math.Min(relaxedHits.Count, Math.Max(0, threshold - primaryCount));
+        }
+        else
+        {
+            totalRelation = PublicSearchTotalRelation.Exact;
+            totalCount = rawTotal;
+            primaryCount = primaryHits.Count;
+            relaxedCount = relaxedHits.Count;
+        }
+
+        var remainingWindow = Math.Max(0, MaxPaginatedResults - Math.Max(0, returnedSoFar));
+        var pageTake = Math.Min(size, remainingWindow);
+        if (pageTake == 0 || rawTotal == 0)
+            return new([], totalCount, totalRelation, primaryCount, relaxedCount, false, null);
+
+        var selected = new List<ArticleSearchHit>(Math.Min(pageTake, rawTotal));
+        var hasMore = false;
+
+        void Scan(List<ArticleSearchHit> list)
+        {
+            for (var i = 0; i < list.Count; i++)
+            {
+                var hit = list[i];
+                if (afterCursor is { } cur && SearchScoringProfile.CompareHitToCursor(hit, cur, sort) <= 0)
+                    continue;
+                if (selected.Count < pageTake)
+                {
+                    selected.Add(hit);
+                }
+                else
+                {
+                    if (returnedSoFar + selected.Count < MaxPaginatedResults)
+                        hasMore = true;
+                    return;
+                }
+            }
+        }
+
+        Scan(primaryHits);
+        if (!hasMore) Scan(relaxedHits);
+
+        var lastPos = selected.Count > 0 ? SearchCursorPosition.From(selected[^1]) : (SearchCursorPosition?)null;
+        return new([.. selected], totalCount, totalRelation, primaryCount, relaxedCount, hasMore, lastPos);
     }
 
     private static int PackShortPrefixHits(Article article, string prefix)
