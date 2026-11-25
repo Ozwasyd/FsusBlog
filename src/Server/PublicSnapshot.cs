@@ -16,6 +16,7 @@ internal sealed class PublicSnapshot
     private readonly PublicArticleCache _details;
     private readonly PublicListProjection _listing;
     private readonly ArticleSearchIndex? _search;
+    private readonly PublicSearchCursor _searchCursor;
     private readonly PublishedMediaProjection? _media;
     internal long Generation { get; }
     internal string GenerationHeader { get; }
@@ -36,12 +37,14 @@ internal sealed class PublicSnapshot
 
     internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
         PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, DistributionSettings? distribution, CancellationToken cancellationToken,
-        long taxonomyEpoch = 0, PublishedMediaProjection? media = null, long siteConfigRevision = 0, int sitePagesMask = 0)
+        long taxonomyEpoch = 0, PublishedMediaProjection? media = null, long siteConfigRevision = 0, int sitePagesMask = 0,
+        PublicSearchCursor? searchCursor = null)
     {
         Watermark = watermark;
         TaxonomyEpoch = taxonomyEpoch;
         SiteConfigRevision = siteConfigRevision;
         SitePagesMask = sitePagesMask;
+        _searchCursor = searchCursor ?? new PublicSearchCursor(TimeProvider.System);
         _corpus = LocalSearchCorpus.BuildSnapshot(articles, previous?._corpus, cancellationToken);
         _corpusTags = _corpus is null ? [] : CorpusTags(_corpus, previous, cancellationToken);
         _search = ArticleSearchIndex.Build(articles, cancellationToken);
@@ -128,6 +131,73 @@ internal sealed class PublicSnapshot
         if (_search is null) return null;
         var matching = _search.SearchPage(keyword, sort, page, size, ct);
         return (PublicArticles.EncodeSearch(matching.Articles, matching.Articles.Length), matching.Total);
+    }
+
+    internal byte[] SearchV2(string keyword, ArticleSearchSort sort, int size, string? cursor, CancellationToken ct,
+        int? countThreshold = null, int? workBudget = null)
+    {
+        if (_search is null) throw PublicSearchFailure.Unavailable();
+        var plan = SearchQueryPlan.Build(keyword, ct);
+        DecodedSearchCursor? decoded = cursor is null
+            ? null
+            : _searchCursor.Decode(Generation, plan, sort, size, cursor);
+
+        ArticleSearchCursorPage page;
+        try
+        {
+            page = _search.SearchWithCursor(plan, sort, size, decoded?.Position, decoded?.ReturnedSoFar ?? 0, ct,
+                countThreshold, workBudget);
+        }
+        catch (SearchBudgetExceededException)
+        {
+            throw PublicSearchFailure.BudgetExceeded();
+        }
+
+        var items = new PublicSearchHit[page.Hits.Length];
+        for (var i = 0; i < page.Hits.Length; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var hit = page.Hits[i];
+            var article = hit.Article;
+            var snippet = SearchSnippetExtractor.Extract(article, plan, ct);
+            var tags = article.Tags is { Count: > 0 } articleTags
+                ? articleTags.Select(static t => new PublicSearchTag(t.Id, t.Name)).ToArray()
+                : Array.Empty<PublicSearchTag>();
+            items[i] = new PublicSearchHit(
+                article.Id,
+                article.Revision,
+                article.RevisionNo,
+                article.Publication,
+                article.PublicationNo,
+                article.PublishedAt.ToUnixTimeMilliseconds(),
+                article.CreatedAt.ToUnixTimeMilliseconds(),
+                0,
+                article.Category?.Id ?? 0,
+                article.Category?.Name ?? "",
+                tags,
+                article.Title,
+                article.Summary ?? "",
+                hit.Tier == SearchMatchTier.Relaxed ? PublicSearchMatchTier.Relaxed : PublicSearchMatchTier.Primary,
+                snippet.Field,
+                snippet.Text,
+                snippet.Highlights);
+        }
+
+        var nextCursor = page.HasMore && page.LastHitPosition is { } last
+            ? _searchCursor.Encode(Generation, plan, sort, size, (decoded?.ReturnedSoFar ?? 0) + page.Hits.Length, last)
+            : "";
+
+        return Wire.EncodePublicSearchResult(new PublicSearchResult(
+            Generation,
+            _search.ProfileVersion,
+            _search.AnalyzerVersion,
+            page.TotalCount,
+            page.TotalRelation,
+            page.PrimaryCount,
+            page.RelaxedCount,
+            page.HasMore,
+            nextCursor,
+            items));
     }
 
     private static EntityTagHeaderValue[] CorpusTags(LocalSearchCorpusSnapshot corpus, PublicSnapshot? previous, CancellationToken ct)
@@ -235,6 +305,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
 {
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
+    private readonly PublicSearchCursor _searchCursor = new(TimeProvider.System);
     private readonly PublicProjection _projection = projection ?? new();
     private PublicSnapshot? _lastProjection;
     private bool? _taxonomyEpochInstalled;
@@ -409,7 +480,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                     row.GetFieldValue<DateTimeOffset>(7), summary, category, tags, rights, mediaProjection?.CoverDigest(id, publication)));
             }
             next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution,
-                ct, taxonomyEpoch, mediaProjection, siteConfigRevision, sitePagesMask);
+                ct, taxonomyEpoch, mediaProjection, siteConfigRevision, sitePagesMask, _searchCursor);
         }
         await SqlCommands.Execute(connection, tx, ct, """
             update public.blog_outbox set processed_at=now() where processed_at is null

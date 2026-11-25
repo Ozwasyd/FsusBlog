@@ -24,3 +24,11 @@ PostgreSQL 与 Kestrel 的 40,002 篇用例验证末段命中及 64 位发布坐
 两项 Release 检查通过。PostgreSQL 与 Kestrel 验证了 FAS4 字节布局及发布坐标、不同字段的排序、CJK 词典边界、并集和去重、200 条上限及撤回投影失败后的拒绝与重放。六次查询返回 200，其请求归因的 PostgreSQL 命令和物理连接增量均为零。独立索引诊断用 12,050 篇合成发布文章、61,708,288 字节正文，构建用时约 748 毫秒，分配约 71.5 MB，完整垃圾回收后净保留约 14.5 MB。该诊断记录独立索引开销，完整服务的容量和长时预算由 P2 矩阵验收。
 
 面向代表性查询集的相关性、冷/热会话传输字节、延迟与能耗复现评估口径见 [公开搜索相关性、延迟与能耗评估基准](search-evaluation.md)。
+
+## 公开搜索结果契约 v2（`/api/v2/public/search.aeds`，AEDS `33081`，#47）
+
+在保持原有 `/api/binary/article/search/query.aeds`（FAS4）向后兼容的同时，服务端提供版本化的生成式 AEDS 检索端点 `GET /api/v2/public/search.aeds?q=…&sort=relevance|latest&size=1..100&cursor=…&profile=…`（帧类型 `FrameType.PublicSearchResult = 33081`，见 [`src/Contracts/wire.schema.json`](../../src/Contracts/wire.schema.json) 与 [`src/Contracts/Wire.PublicSearch.cs`](../../src/Contracts/Wire.PublicSearch.cs)）：
+
+- **真实计数关系与检索窗口解耦**：响应显式返回 `generation`、`profileVersion`、`analyzerVersion`、`totalCount`、`totalRelation`（`Exact = 0` / `LowerBound = 1`）、`primaryCount`、`relaxedCount`、`hasMore` 与 `nextCursor`。命中数不超过阈值（默认 1,000）时返回 `Exact` 且满足 `primaryCount + relaxedCount == totalCount`；超过阈值或触发下界计数时绝不伪造为精确计数，而是标记 `LowerBound`。`hasMore` 与 `nextCursor` 仅在确实观察到当前窗口内的下一条合法结果时才为真/非空，绝不从下界计数反推伪造。
+- **代次绑定认证游标**：`PublicSearchCursor` 使用每实例 256 位随机密钥的 AES-256-GCM 签发不透明游标（15 分钟有效期），绑定 `generation`、规范查询计划、排序、页大小、分析器与评分配置版本、结果层级及末条确定性排序元组 `(Tier, ScoreBits, PublishedAtTicks, CreatedAtTicks, Id)`。篡改、过期或参数不匹配的游标返回 AEDS `400`（`search_cursor_invalid`）；不支持的 `profile` 返回 `400`（`search_profile_unsupported`）；合法游标在翻页期间发生发布/编辑/撤回导致代次变更时返回明确 `409`（`search_generation_changed`）；超出显式工作预算时返回 `503`（`search_budget_exceeded`），索引不可用返回 `503`（`search_unavailable`），绝不以 `200` 精确空结果掩盖失败。
+- **仅面向返回页的安全纯文本摘要与高亮**：[`SearchSnippetExtractor.cs`](../../src/Contracts/SearchSnippetExtractor.cs) 仅对当前返回页（≤ `size` 篇）提取有界纯文本片段（≤ 640 UTF-8 字节）与经排序、非重叠、不撕裂 UTF-16 代理对的高亮偏移列表（≤ 16 段），覆盖 `Title`、`Heading`、`Summary`、`Taxonomy`、`Code` 与 `Body` 字段命中；所有隐藏 HTML/脚本与 Markdown 目标 URL 均被剥离，前端仅渲染纯文本节点与 `<mark class="search-highlight">` 而绝不使用 `v-html`。

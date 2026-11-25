@@ -20,12 +20,41 @@ public enum SearchScoreField : byte
 /// <summary>Single ranked public search hit with its admission tier and deterministic score.</summary>
 public readonly record struct ArticleSearchHit(Article Article, SearchMatchTier Tier, double Score);
 
+/// <summary>Deterministic cursor ordering tuple anchored to the last hit of a search page (#47).</summary>
+public readonly record struct SearchCursorPosition(
+    SearchMatchTier Tier,
+    long ScoreBits,
+    long PublishedAtTicks,
+    long CreatedAtTicks,
+    int Id)
+{
+    public static SearchCursorPosition From(ArticleSearchHit hit) => new(
+        hit.Tier,
+        BitConverter.DoubleToInt64Bits(hit.Score),
+        hit.Article.PublishedAt.UtcTicks,
+        hit.Article.CreatedAt.UtcTicks,
+        hit.Article.Id);
+}
+
+/// <summary>Raised when a search execution exceeds its explicit work budget rather than fabricating a truncated empty result (#47).</summary>
+public sealed class SearchBudgetExceededException(string message = "Search work budget exceeded.") : Exception(message);
+
 /// <summary>Detailed public search result exposing primary vs relaxed tier counts alongside ordered hits.</summary>
 public readonly record struct ArticleSearchDetailedPage(
     ArticleSearchHit[] Hits,
     int Total,
     int PrimaryTotal,
     int RelaxedTotal);
+
+/// <summary>Truthful cursor-paginated public search result separating count relation from continuation availability (#47).</summary>
+public readonly record struct ArticleSearchCursorPage(
+    ArticleSearchHit[] Hits,
+    int TotalCount,
+    PublicSearchTotalRelation TotalRelation,
+    int PrimaryCount,
+    int RelaxedCount,
+    bool HasMore,
+    SearchCursorPosition? LastHitPosition);
 
 /// <summary>
 /// Documented BM25F-style scoring specification shared by the server index (compact &amp; wide)
@@ -171,6 +200,33 @@ public static class SearchScoringProfile
             if (score != 0) return score;
             var created = right.Article.CreatedAt.UtcTicks.CompareTo(left.Article.CreatedAt.UtcTicks);
             return created != 0 ? created : right.Article.Id.CompareTo(left.Article.Id);
+        }
+    }
+
+    /// <summary>
+    /// Compares <paramref name="hit"/> against a cursor ordering tuple under <paramref name="sort"/>.
+    /// Returns &gt; 0 strictly when <paramref name="hit"/> ranks AFTER <paramref name="cursor"/>.
+    /// </summary>
+    public static int CompareHitToCursor(ArticleSearchHit hit, SearchCursorPosition cursor, ArticleSearchSort sort)
+    {
+        var tierCmp = ((byte)hit.Tier).CompareTo((byte)cursor.Tier);
+        if (tierCmp != 0) return tierCmp;
+        var cursorScore = BitConverter.Int64BitsToDouble(cursor.ScoreBits);
+        if (sort == ArticleSearchSort.Latest)
+        {
+            var pub = cursor.PublishedAtTicks.CompareTo(hit.Article.PublishedAt.UtcTicks);
+            if (pub != 0) return pub;
+            var score = cursorScore.CompareTo(hit.Score);
+            if (score != 0) return score;
+            var created = cursor.CreatedAtTicks.CompareTo(hit.Article.CreatedAt.UtcTicks);
+            return created != 0 ? created : cursor.Id.CompareTo(hit.Article.Id);
+        }
+        else
+        {
+            var score = cursorScore.CompareTo(hit.Score);
+            if (score != 0) return score;
+            var created = cursor.CreatedAtTicks.CompareTo(hit.Article.CreatedAt.UtcTicks);
+            return created != 0 ? created : cursor.Id.CompareTo(hit.Article.Id);
         }
     }
 

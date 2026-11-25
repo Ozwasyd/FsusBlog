@@ -9,7 +9,7 @@
 - `FSUSBLOG_PUBLIC_SEARCH_MODE` 控制公开检索路由策略，支持 `auto`（默认）、`local` 与 `server`（非法值启动即失败）：
   - **`auto`（默认）**：中小语料优先使用紧凑档 FSPK v4 本地分片；紧凑档超出预算返回 `503` 时自动切换至已启用的宽语料分片；宽语料未启用或存储不可用时，在当前 `/search` 周期内无缝回落至零数据库查询的服务端 FAS4 并释放 Worker（但宽档数据损坏或撤回 `409` 严格 fail-closed 拒绝，绝不静默回落）。
   - **`local`**：强制仅走客户端分片检索路径。
-  - **`server`**：通过 `<meta name="fsus-public-search-mode" content="server">` 指示前端直连服务端 FAS4，不启动浏览器搜索 Worker（详见 [公开 FAS4 服务端检索](fas4-search.md)）。
+  - **`server`**：通过 `<meta name="fsus-public-search-mode" content="server">` 指示前端直连服务端 `/api/v2/public/search.aeds`（AEDS `33081`），展示精确/下界计数、部分匹配提示、安全纯文本高亮摘要与代次绑定游标翻页，不启动浏览器搜索 Worker（详见 [公开 FAS4 服务端检索](fas4-search.md)）。
 - `FSUSBLOG_WIDE_SEARCH_CORPUS` **默认开启**（可显式设为 `false` 关闭），为 25,601 至 100,000 篇公开文章构建离线暂存宽语料分片。
 
 ## 2. 统一文本分析、词表与短语评分
@@ -47,6 +47,6 @@
 
 ```bash
 ./tools/protocol-test.sh
-node --test tests/Protocol/search-analyzer.test.ts tests/Protocol/search-ranking.test.ts tests/Protocol/local-search.test.ts tests/Protocol/local-search-positions.test.ts tests/Protocol/v1-search-ranking-differential.test.mjs
+node --test tests/Protocol/search-analyzer.test.ts tests/Protocol/search-ranking.test.ts tests/Protocol/search-contract.test.ts tests/Protocol/local-search.test.ts tests/Protocol/local-search-positions.test.ts tests/Protocol/v1-search-ranking-differential.test.mjs
 dotnet test tests/Integration/FsusBlog.V2.Integration.Tests.csproj -c Release --filter "ArticleSearch"
 ```

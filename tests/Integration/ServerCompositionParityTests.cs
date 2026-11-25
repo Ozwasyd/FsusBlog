@@ -22,6 +22,8 @@ public sealed class ServerCompositionParityTests
             (new BusinessException(Rejection.Conflict, "stale"), 409, "stale", null),
             (new BusinessException((Rejection)999, "unexpected"), 500, "unexpected", null),
             (PublicListFailure.InvalidCursor(), 400, "Invalid or expired article cursor.", "article_cursor_invalid"),
+            (PublicSearchFailure.GenerationChanged(), 409, "The public search index changed. Start again from the first page.", "search_generation_changed"),
+            (PublicSearchFailure.BudgetExceeded(), 503, "This search exceeded its work budget. Refine your query and try again.", "search_budget_exceeded"),
             (new AuthorHeadingBudgetException(), 422, "A saved article exceeds the heading parser's work limit.", null),
             (new ProtocolException("bad frame"), 400, "Invalid AEDS payload.", null),
             (new BadHttpRequestException("Expected AEDS.", 415), 415, "Invalid HTTP request.", null),
@@ -161,7 +163,7 @@ public sealed class ServerCompositionParityTests
         {
             (WireRoutes.PublicList, ["GET"], "query"), (WireRoutes.PublicArchive, ["GET"], "query"),
             (WireRoutes.PublicArticle, ["GET"], null), (WireRoutes.PublicRelatedReading, ["GET"], "query"),
-            (WireRoutes.PublicSearch, ["GET"], "query"), (WireRoutes.PublicArticleHot, ["GET", "HEAD"], null),
+            (WireRoutes.PublicSearch, ["GET"], "query"), (WireRoutes.PublicSearchV2, ["GET"], "query"), (WireRoutes.PublicArticleHot, ["GET", "HEAD"], null),
             (WireRoutes.PublicIndex, ["GET"], null), (WireRoutes.PublicSearchCorpus, ["GET", "HEAD"], null),
             (WireRoutes.SignIn, ["POST"], "sign-in"), (WireRoutes.Session, ["GET"], null),
             (WireRoutes.AuthoringSession, ["GET"], "command"), (WireRoutes.SignOut, ["POST"], "command"),

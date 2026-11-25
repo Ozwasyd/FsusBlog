@@ -445,8 +445,8 @@ public sealed partial class ArticleSearchIndex
         internal Dictionary<int, WideTermDocData>? Docs;
     }
 
-    private ArticleSearchDetailedPage SearchWideDetailed(WideIndex wide, SearchQueryPlan plan, ArticleSearchSort sort,
-        int start, int window, CancellationToken ct)
+    private (List<ArticleSearchHit> Primary, List<ArticleSearchHit> Relaxed, bool AllowsRelaxation) CollectWideHits(
+        WideIndex wide, SearchQueryPlan plan, int workBudget, CancellationToken ct)
     {
         var n = _documents.Length;
         var concepts = plan.ContentConcepts;
@@ -504,7 +504,7 @@ public sealed partial class ArticleSearchIndex
 
         foreach (var phrase in plan.QuotedPhrases)
             foreach (var st in phrase.Steps)
-                if (termMaps[st.CanonicalKey].DocFreq == 0) return new([], 0, 0, 0);
+                if (termMaps[st.CanonicalKey].DocFreq == 0) return ([], [], false);
 
         var allowsRelaxation = SearchScoringProfile.AllowsRelaxation(plan);
         var minRelaxed = SearchScoringProfile.MinRelaxedConcepts(concepts.Length);
@@ -585,7 +585,7 @@ public sealed partial class ArticleSearchIndex
             totalQueryIdf += idf;
             if (!canMatch)
             {
-                if (concept.IsStrictIdentifier || !allowsRelaxation) return new([], 0, 0, 0);
+                if (concept.IsStrictIdentifier || !allowsRelaxation) return ([], [], false);
             }
             else
             {
@@ -595,11 +595,11 @@ public sealed partial class ArticleSearchIndex
         }
 
         if (possibleConcepts < minRelaxed || (totalQueryIdf > 0.0 && possibleIdfSum / totalQueryIdf < minRelaxedRatio))
-            return new([], 0, 0, 0);
+            return ([], [], false);
 
         // Select smallest driver or union of candidates
         var candidates = CollectWideCandidates(plan, concepts, termMaps, shortPrefixMaps, allowsRelaxation, ct);
-        if (candidates.Count == 0) return new([], 0, 0, 0);
+        if (candidates.Count == 0) return ([], [], false);
 
         // Identify keys that require positional extraction on candidates
         HashSet<SearchTermKey>? positionalKeys = null;
@@ -620,9 +620,12 @@ public sealed partial class ArticleSearchIndex
         Span<double> tfs = stackalloc double[SearchScoringProfile.FieldCount];
         Span<int> docLens = stackalloc int[SearchScoringProfile.FieldCount];
 
+        var scoredCandidates = 0;
         foreach (var ordinal in candidates)
         {
             ct.ThrowIfCancellationRequested();
+            if (++scoredCandidates > workBudget)
+                throw new SearchBudgetExceededException();
             var doc = _documents[ordinal];
 
             // Fast pre-check before extracting positions: every quoted phrase step and strict identifier must be present
@@ -711,7 +714,7 @@ public sealed partial class ArticleSearchIndex
             else relaxedHits.Add(new ArticleSearchHit(doc.Article, SearchMatchTier.Relaxed, score));
         }
 
-        return FinalizeDetailedPage(primaryHits, relaxedHits, allowsRelaxation, sort, start, window);
+        return (primaryHits, relaxedHits, allowsRelaxation);
     }
 
     private static List<int> CollectWideCandidates(
