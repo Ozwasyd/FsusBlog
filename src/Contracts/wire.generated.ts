@@ -380,7 +380,7 @@ export const WireLimits = {
   SearchWideCorpusTotalBytes: 268435456,
   SearchQueryChars: 128,
   SearchAnalyzerVersion: 1,
-  SearchFas4Profile: 2,
+  SearchFas4Profile: 3,
   PublicArticleHotMaxSize: 100,
   RelatedReadingMaxItems: 6,
   RelatedReadingMaxTextBytes: 2048,

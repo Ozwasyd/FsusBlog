@@ -25,7 +25,7 @@ CORPUS_VERSION = "synthetic-tech-blog-v1"
 QUERY_SET_VERSION = "synthetic-queries-v1"
 JUDGMENTS_VERSION = "synthetic-judgments-v1"
 ANALYZER_PROFILE = "unified-analyzer-v1"
-SCORING_PROFILE = "baseline-fas4-v2-vs-fspk-v4"
+SCORING_PROFILE = "bm25f-concept-v3"
 
 BASE_TIME = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
 

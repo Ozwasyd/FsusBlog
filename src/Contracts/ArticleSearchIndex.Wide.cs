@@ -62,28 +62,38 @@ public sealed partial class ArticleSearchIndex
 
     private sealed class WideSources
     {
-        private readonly record struct Source(SearchTermKey? Primary, SearchTermKey[] Aliases, int Previous);
+        private readonly record struct Source(
+            SearchTermKey? Primary,
+            SearchTermKey[] ScriptAliases,
+            SearchTermKey[] DerivedAliases,
+            int Previous);
+
         private readonly Dictionary<ulong, int> _heads = [];
         private readonly List<Source> _sources = [];
         private int _linkCount;
 
-        internal uint? Resolve(SearchTermKey? primary, ReadOnlySpan<SearchTermKey> aliases)
+        internal uint? Resolve(SearchTermKey? primary, ReadOnlySpan<SearchTermKey> scriptAliases, ReadOnlySpan<SearchTermKey> derivedAliases)
         {
-            var bucketHash = primary?.Hash64 ?? (aliases.Length > 0 ? aliases[0].Hash64 ^ 0x9E3779B97F4A7C15UL : 0UL);
+            var bucketHash = primary?.Hash64
+                ?? (scriptAliases.Length > 0 ? scriptAliases[0].Hash64 ^ 0x9E3779B97F4A7C15UL
+                : derivedAliases.Length > 0 ? derivedAliases[0].Hash64 ^ 0xBF58476D1CE4E5B9UL : 0UL);
             var previous = _heads.GetValueOrDefault(bucketHash, -1);
             for (var index = previous; index >= 0; index = _sources[index].Previous)
             {
                 var existing = _sources[index];
-                if (existing.Primary == primary && aliases.SequenceEqual(existing.Aliases)) return (uint)index;
+                if (existing.Primary == primary &&
+                    scriptAliases.SequenceEqual(existing.ScriptAliases) &&
+                    derivedAliases.SequenceEqual(existing.DerivedAliases))
+                    return (uint)index;
             }
 
-            var addedLinks = (primary.HasValue ? 1 : 0) + aliases.Length;
+            var addedLinks = (primary.HasValue ? 1 : 0) + scriptAliases.Length + derivedAliases.Length;
             if (_sources.Count == MaxTerms || _linkCount > MaxWideRetainedBytes - addedLinks)
                 return null;
 
             var id = _sources.Count;
             _heads[bucketHash] = id;
-            _sources.Add(new Source(primary, aliases.ToArray(), previous));
+            _sources.Add(new Source(primary, scriptAliases.ToArray(), derivedAliases.ToArray(), previous));
             _linkCount += addedLinks;
             return (uint)id;
         }
@@ -96,8 +106,10 @@ public sealed partial class ArticleSearchIndex
             {
                 ct.ThrowIfCancellationRequested();
                 var source = _sources[id];
-                if (source.Primary is { } p) Add(p, id * 2);
-                foreach (var alias in source.Aliases) Add(alias, id * 2 + 1);
+                // link = id * 3 + role (0=PrimaryExact +2 exact, 1=ScriptOrStandalone +2 non-exact, 2=Derived +1 non-exact)
+                if (source.Primary is { } p) Add(p, id * 3);
+                foreach (var sa in source.ScriptAliases) Add(sa, id * 3 + 1);
+                foreach (var da in source.DerivedAliases) Add(da, id * 3 + 2);
                 if ((long)references.Count * Unsafe.SizeOf<WideAlias>() + _linkCount > availableBytes)
                     return null;
             }
@@ -157,39 +169,90 @@ public sealed partial class ArticleSearchIndex
         }
     }
 
+    private readonly record struct WideCounts(int Ordinal, byte C0, byte C1, byte C2, byte C3, byte C4);
+    private readonly record struct PendingWidePosting(WideCounts Value, int Previous);
+
     private sealed class WidePostingBuilder(long remainingChars, WideSources sources)
     {
-        private readonly Dictionary<uint, int> _frequencies = [];
-        internal readonly Dictionary<uint, Bucket> Heads = [];
-        internal readonly List<PendingPosting> Pending = [];
-        private readonly Dictionary<uint, int> _oddWeights = [];
-        internal readonly Dictionary<int, int> OddWeights = [];
-        internal long TotalLength { get; private set; }
+        private struct SourceCounts
+        {
+            internal byte C0, C1, C2, C3, C4;
+            internal void Increment(int field)
+            {
+                switch (field)
+                {
+                    case 0: if (C0 < 254) C0++; break;
+                    case 1: if (C1 < 254) C1++; break;
+                    case 2: if (C2 < 254) C2++; break;
+                    case 3: if (C3 < 254) C3++; break;
+                    default: if (C4 < 254) C4++; break;
+                }
+            }
+        }
 
-        internal bool Collect(IReadOnlyList<Article> articles, int first, Span<int> lengths,
+        private readonly Dictionary<uint, SourceCounts> _docSources = [];
+        internal readonly Dictionary<uint, Bucket> Heads = [];
+        internal readonly List<PendingWidePosting> Pending = [];
+
+        internal bool Collect(IReadOnlyList<Article> articles, int first, int count, Document[] documents, long[] totalFieldLengths,
             int termLimit, int postingLimit, CancellationToken ct)
         {
             Heads.Clear();
             Pending.Clear();
-            OddWeights.Clear();
-            for (var ordinal = 0; ordinal < lengths.Length; ordinal++)
+            for (var ordinal = 0; ordinal < count; ordinal++)
             {
                 ct.ThrowIfCancellationRequested();
                 var article = articles[first + ordinal];
-                _frequencies.Clear();
-                _oddWeights.Clear();
-                if (!Index(article.Title, SearchFieldKind.Title, false, TitleWeight, out _) ||
-                    !Index(article.Summary ?? "", SearchFieldKind.Summary, false, SummaryWeight, out _) ||
-                    !Index(article.Category?.Name ?? "", SearchFieldKind.Taxonomy, false, TaxonomyWeight, out _))
-                    return false;
-                foreach (var tag in article.Tags ?? [])
-                    if (!Index(tag.Name, SearchFieldKind.Taxonomy, false, TaxonomyWeight, out _)) return false;
-                if (!Index(article.Body, SearchFieldKind.Body, true, BodyWeight, out var bodyLength)) return false;
-                lengths[ordinal] = Math.Max(1, bodyLength);
-                TotalLength += lengths[ordinal];
+                _docSources.Clear();
 
-                if (_frequencies.Count > postingLimit - Pending.Count) return false;
-                foreach (var (sourceId, weight) in _frequencies)
+                if (!ChargeChars(article.Title.Length)) return false;
+                var titleRes = SearchTextAnalyzer.AnalyzePlainField(article.Title, SearchFieldKind.Title, SearchAnalysisMode.Index, 0, ct);
+                if (!RecordField(titleRes.Tokens, 0, termLimit, ct)) return false;
+                var titleLen = Math.Max(1, titleRes.SourceLength);
+
+                var summaryText = article.Summary ?? "";
+                if (!ChargeChars(summaryText.Length)) return false;
+                var sumRes = SearchTextAnalyzer.AnalyzePlainField(summaryText, SearchFieldKind.Summary, SearchAnalysisMode.Index, 0, ct);
+                if (!RecordField(sumRes.Tokens, 2, termLimit, ct)) return false;
+                var sumLen = Math.Max(1, sumRes.SourceLength);
+
+                var taxLen = 0;
+                if (article.Category is { Name.Length: > 0 } cat)
+                {
+                    if (!ChargeChars(cat.Name.Length)) return false;
+                    var catRes = SearchTextAnalyzer.AnalyzePlainField(cat.Name, SearchFieldKind.Taxonomy, SearchAnalysisMode.Index, 0, ct);
+                    if (!RecordField(catRes.Tokens, 3, termLimit, ct)) return false;
+                    taxLen += catRes.SourceLength;
+                }
+                foreach (var tag in article.Tags ?? [])
+                {
+                    if (string.IsNullOrEmpty(tag.Name)) continue;
+                    if (!ChargeChars(tag.Name.Length)) return false;
+                    var tagRes = SearchTextAnalyzer.AnalyzePlainField(tag.Name, SearchFieldKind.Taxonomy, SearchAnalysisMode.Index, 0, ct);
+                    if (!RecordField(tagRes.Tokens, 3, termLimit, ct)) return false;
+                    taxLen += tagRes.SourceLength;
+                }
+                taxLen = Math.Max(1, taxLen);
+
+                var bodyText = article.Body ?? "";
+                if (!ChargeChars(bodyText.Length)) return false;
+                var (headings, prose, code) = SearchTextAnalyzer.AnalyzeMarkdownBody(bodyText, ct);
+                if (!RecordField(headings.Tokens, 1, termLimit, ct) ||
+                    !RecordField(prose.Tokens, 4, termLimit, ct) ||
+                    !RecordField(code.Tokens, 4, termLimit, ct))
+                    return false;
+                var headingLen = Math.Max(1, headings.SourceLength);
+                var bodyLen = Math.Max(1, prose.SourceLength + code.SourceLength);
+
+                documents[first + ordinal] = new Document(article, titleLen, headingLen, sumLen, taxLen, bodyLen);
+                totalFieldLengths[0] += titleLen;
+                totalFieldLengths[1] += headingLen;
+                totalFieldLengths[2] += sumLen;
+                totalFieldLengths[3] += taxLen;
+                totalFieldLengths[4] += bodyLen;
+
+                if (_docSources.Count > postingLimit - Pending.Count) return false;
+                foreach (var (sourceId, counts) in _docSources)
                 {
                     ref var bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(Heads, sourceId, out var found);
                     if (!found)
@@ -197,54 +260,50 @@ public sealed partial class ArticleSearchIndex
                         if (Heads.Count > termLimit) return false;
                         bucket = new Bucket(-1, 0);
                     }
-                    if (_oddWeights.TryGetValue(sourceId, out var adjustment)) OddWeights.Add(Pending.Count, adjustment);
-                    Pending.Add(new PendingPosting(new Posting(ordinal, weight), bucket.Head));
+                    Pending.Add(new PendingWidePosting(
+                        new WideCounts(ordinal, counts.C0, counts.C1, counts.C2, counts.C3, counts.C4),
+                        bucket.Head));
                     bucket = new Bucket(Pending.Count - 1, bucket.Count + 1);
                 }
             }
             return true;
-
-            bool Index(string text, SearchFieldKind field, bool isMarkdown, int weight, out int sourceLen)
-            {
-                sourceLen = 0;
-                remainingChars -= text.Length;
-                if (remainingChars < 0) return false;
-                return ArticleSearchTokens.VisitFieldSources(text, field, isMarkdown, ct, (primary, aliases) =>
-                {
-                    var source = sources.Resolve(primary, aliases);
-                    if (source is not { } key) return false;
-                    if (weight % 2 != 0 && !aliases.IsEmpty)
-                        CollectionsMarshal.GetValueRefOrAddDefault(_oddWeights, key, out _)++;
-                    return Add(key, weight);
-                }, out sourceLen);
-            }
-
-            bool Add(uint sourceId, int delta)
-            {
-                ref var frequency = ref CollectionsMarshal.GetValueRefOrAddDefault(_frequencies, sourceId, out _);
-                if (frequency > int.MaxValue - delta) return false;
-                frequency += delta;
-                return _frequencies.Count <= termLimit;
-            }
         }
+
+        private bool ChargeChars(int count)
+        {
+            remainingChars -= count;
+            return remainingChars >= 0;
+        }
+
+        private bool RecordField(IReadOnlyList<SearchToken> tokens, int fieldIdx, int termLimit, CancellationToken ct) =>
+            ArticleSearchTokens.VisitTokensAsRoleGroups(tokens, (primary, scriptAliases, derivedAliases) =>
+            {
+                var source = sources.Resolve(primary, scriptAliases, derivedAliases);
+                if (source is not { } sid) return false;
+                ref var counts = ref CollectionsMarshal.GetValueRefOrAddDefault(_docSources, sid, out var exists);
+                if (!exists && _docSources.Count > termLimit) return false;
+                counts.Increment(fieldIdx);
+                return true;
+            }, ct);
     }
 
     private static ArticleSearchIndex? BuildWide(IReadOnlyList<Article> articles, CancellationToken ct)
     {
         if (articles.Count > MaxWideDocuments) return null;
 
-        var lengths = new int[articles.Count];
+        var documents = new Document[articles.Count];
+        var totalFieldLengths = new long[SearchScoringProfile.FieldCount];
         var blocks = new WideBlock[(articles.Count + WideBlockDocuments - 1) / WideBlockDocuments];
         var sources = new WideSources();
         var builder = new WidePostingBuilder(MaxWideScannedChars, sources);
         var remainingTerms = MaxTerms;
         var remainingPostings = MaxWidePostings;
-        var remainingBytes = MaxWideRetainedBytes - lengths.Length * Unsafe.SizeOf<Document>();
+        var remainingBytes = MaxWideRetainedBytes - documents.Length * Unsafe.SizeOf<Document>();
         for (var index = 0; index < blocks.Length; index++)
         {
             var first = index * WideBlockDocuments;
             var count = Math.Min(WideBlockDocuments, articles.Count - first);
-            if (!builder.Collect(articles, first, lengths.AsSpan(first, count), remainingTerms,
+            if (!builder.Collect(articles, first, count, documents, totalFieldLengths, remainingTerms,
                     Math.Min(remainingPostings, MaxWideBlockPostings), ct))
                 return null;
 
@@ -258,7 +317,7 @@ public sealed partial class ArticleSearchIndex
         }
         var indexData = sources.Pack(blocks, remainingBytes, ct);
         return indexData is null ? null :
-            new ArticleSearchIndex(Normalize(articles, lengths, builder.TotalLength, ct), [], [], indexData);
+            new ArticleSearchIndex(documents, ComputeAvgFieldLengths(totalFieldLengths, articles.Count), [], [], [], indexData);
     }
 
     private static WideBlock? PackBlock(WidePostingBuilder builder, int first, int count, int availableBytes, CancellationToken ct)
@@ -287,21 +346,62 @@ public sealed partial class ArticleSearchIndex
             for (int entry = bucket.Head, i = 0; entry >= 0; entry = builder.Pending[entry].Previous, i++)
             {
                 if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
-                var posting = builder.Pending[entry].Value;
-                var adjustment = builder.OddWeights.GetValueOrDefault(entry);
-                var delta = (previous - posting.Ordinal) * 2 + (adjustment != 0 ? 1 : 0);
+                var p = builder.Pending[entry].Value;
+                byte mask = 0;
+                var singleField = -1;
+                byte singleCount = 0;
+                if (p.C0 != 0) { mask |= 1; singleField = 0; singleCount = p.C0; }
+                if (p.C1 != 0) { mask |= 2; singleField = singleField < 0 ? 1 : 99; singleCount = p.C1; }
+                if (p.C2 != 0) { mask |= 4; singleField = singleField < 0 ? 2 : 99; singleCount = p.C2; }
+                if (p.C3 != 0) { mask |= 8; singleField = singleField < 0 ? 3 : 99; singleCount = p.C3; }
+                if (p.C4 != 0) { mask |= 16; singleField = singleField < 0 ? 4 : 99; singleCount = p.C4; }
+
+                var isMulti = singleField == 99;
+                var delta = (previous - p.Ordinal) * 2 + (isMulti ? 1 : 0);
                 if (target.IsEmpty)
                 {
-                    pos += VarintWidth(delta) + VarintWidth(posting.Weight) + (adjustment != 0 ? VarintWidth(adjustment) : 0);
+                    pos += VarintWidth(delta);
+                    if (!isMulti)
+                    {
+                        pos += 1 + (singleCount <= 31 ? 0 : VarintWidth(singleCount));
+                    }
+                    else
+                    {
+                        pos += 1;
+                        if (p.C0 != 0) pos += VarintWidth(p.C0);
+                        if (p.C1 != 0) pos += VarintWidth(p.C1);
+                        if (p.C2 != 0) pos += VarintWidth(p.C2);
+                        if (p.C3 != 0) pos += VarintWidth(p.C3);
+                        if (p.C4 != 0) pos += VarintWidth(p.C4);
+                    }
                     if (pos > limit) return false;
                 }
                 else
                 {
                     WriteVarint(target, ref pos, delta);
-                    WriteVarint(target, ref pos, posting.Weight);
-                    if (adjustment != 0) WriteVarint(target, ref pos, adjustment);
+                    if (!isMulti)
+                    {
+                        if (singleCount <= 31)
+                        {
+                            target[pos++] = (byte)((singleField << 5) | singleCount);
+                        }
+                        else
+                        {
+                            target[pos++] = (byte)(singleField << 5);
+                            WriteVarint(target, ref pos, singleCount);
+                        }
+                    }
+                    else
+                    {
+                        target[pos++] = mask;
+                        if (p.C0 != 0) WriteVarint(target, ref pos, p.C0);
+                        if (p.C1 != 0) WriteVarint(target, ref pos, p.C1);
+                        if (p.C2 != 0) WriteVarint(target, ref pos, p.C2);
+                        if (p.C3 != 0) WriteVarint(target, ref pos, p.C3);
+                        if (p.C4 != 0) WriteVarint(target, ref pos, p.C4);
+                    }
                 }
-                previous = posting.Ordinal;
+                previous = p.Ordinal;
             }
             return true;
         }
@@ -313,134 +413,569 @@ public sealed partial class ArticleSearchIndex
         return position >= 0 ? terms[position] : default;
     }
 
-    private sealed class WideQueryTerm
+    private struct WideTermDocData
     {
-        internal int Frequency;
-        internal int Links;
-        internal int DirectLink = -1;
-        internal int[]? Weights;
-    }
+        internal byte Tf0, Tf1, Tf2, Tf3, Tf4;
+        internal byte ExactFlags;
 
-    private readonly record struct WideQueryUse(WideQueryTerm Term, bool Exact, int Previous);
-
-    private Dictionary<SearchTermKey, WideQueryTerm> CollectWideTerms(WideIndex wide, AnalyzedQuery query, CancellationToken ct)
-    {
-        var terms = new Dictionary<SearchTermKey, WideQueryTerm>();
-        var sources = new Dictionary<uint, int>();
-        var uses = new List<WideQueryUse>();
-        foreach (var token in query.Tokens)
+        internal void Add(WideCounts counts, int role)
         {
-            var key = SearchTermKey.From(token);
-            var term = new WideQueryTerm();
-            if (!terms.TryAdd(key, term)) continue;
-
-            foreach (var link in new WideLinks(wide.SourcesFor(key)))
-            {
-                ct.ThrowIfCancellationRequested();
-                var source = (uint)(link / 2);
-                var previous = sources.GetValueOrDefault(source, -1);
-                sources[source] = uses.Count;
-                uses.Add(new WideQueryUse(term, link % 2 == 0, previous));
-                term.Links++;
-            }
+            var mult = role <= 1 ? 2 : 1;
+            if (counts.C0 != 0) Tf0 = (byte)Math.Min(254, Tf0 + counts.C0 * mult);
+            if (counts.C1 != 0) Tf1 = (byte)Math.Min(254, Tf1 + counts.C1 * mult);
+            if (counts.C2 != 0) Tf2 = (byte)Math.Min(254, Tf2 + counts.C2 * mult);
+            if (counts.C3 != 0) Tf3 = (byte)Math.Min(254, Tf3 + counts.C3 * mult);
+            if (counts.C4 != 0) Tf4 = (byte)Math.Min(254, Tf4 + counts.C4 * mult);
+            if (role == 0) ExactFlags |= ExactFlagBit;
         }
 
-        foreach (var (source, head) in sources)
+        internal readonly double FieldTf(int field) => (field switch
+        {
+            0 => Tf0,
+            1 => Tf1,
+            2 => Tf2,
+            3 => Tf3,
+            _ => Tf4
+        }) * 0.5;
+    }
+
+    private sealed class WideResolvedTerm
+    {
+        internal int DocFreq;
+        internal Dictionary<int, WideTermDocData>? Docs;
+    }
+
+    private ArticleSearchDetailedPage SearchWideDetailed(WideIndex wide, SearchQueryPlan plan, ArticleSearchSort sort,
+        int start, int window, CancellationToken ct)
+    {
+        var n = _documents.Length;
+        var concepts = plan.ContentConcepts;
+
+        // Collect every unique SearchTermKey referenced by the query plan (bounded by <= 128 query chars!)
+        var uniqueKeys = new HashSet<SearchTermKey>();
+        foreach (var phrase in plan.QuotedPhrases)
+            foreach (var st in phrase.Steps) uniqueKeys.Add(st.CanonicalKey);
+        foreach (var c in concepts)
+        {
+            foreach (var st in c.Steps)
+            {
+                uniqueKeys.Add(st.CanonicalKey);
+                if (st.DiffersFromExactForm) uniqueKeys.Add(st.ExactFormKey);
+            }
+        }
+        foreach (var st in plan.OrderedQuerySequence) uniqueKeys.Add(st.CanonicalKey);
+
+        // Decode every referenced WideSources posting list ONCE across all blocks into per-term maps
+        var termMaps = new Dictionary<SearchTermKey, WideResolvedTerm>(uniqueKeys.Count);
+        var sourceUses = new Dictionary<uint, List<(WideResolvedTerm Term, int Role)>>();
+        foreach (var key in uniqueKeys)
         {
             ct.ThrowIfCancellationRequested();
-            var first = uses[head];
-            if (first.Previous < 0 && first.Term.Links == 1)
+            var rt = new WideResolvedTerm();
+            termMaps[key] = rt;
+            foreach (var link in new WideLinks(wide.SourcesFor(key)))
             {
-                first.Term.DirectLink = (int)source * 2 + (first.Exact ? 0 : 1);
-                foreach (var block in wide.Blocks) first.Term.Frequency += FindWideTerm(block.Terms, source).Count;
-                continue;
+                var sid = (uint)(link / 3);
+                var role = link % 3;
+                if (!sourceUses.TryGetValue(sid, out var list)) sourceUses[sid] = list = [];
+                list.Add((rt, role));
             }
+        }
 
+        foreach (var (sid, uses) in sourceUses)
+        {
+            ct.ThrowIfCancellationRequested();
             foreach (var block in wide.Blocks)
             {
-                foreach (var posting in new WidePostings(block, source, ct))
+                foreach (var p in new WidePostings(block, sid, ct))
                 {
-                    var ordinal = block.First + posting.Ordinal;
-                    for (var useId = head; useId >= 0; useId = uses[useId].Previous)
+                    var absOrd = block.First + p.Ordinal;
+                    for (var u = 0; u < uses.Count; u++)
                     {
-                        var use = uses[useId];
-                        var weights = use.Term.Weights ??= new int[_documents.Length];
-                        if (weights[ordinal] == 0) use.Term.Frequency++;
-                        weights[ordinal] += use.Exact ? posting.Weight : posting.AliasWeight;
+                        var (rt, role) = uses[u];
+                        var map = rt.Docs ??= [];
+                        ref var data = ref CollectionsMarshal.GetValueRefOrAddDefault(map, absOrd, out var exists);
+                        if (!exists) rt.DocFreq++;
+                        data.Add(p, role);
                     }
                 }
             }
         }
-        return terms;
+
+        foreach (var phrase in plan.QuotedPhrases)
+            foreach (var st in phrase.Steps)
+                if (termMaps[st.CanonicalKey].DocFreq == 0) return new([], 0, 0, 0);
+
+        var allowsRelaxation = SearchScoringProfile.AllowsRelaxation(plan);
+        var minRelaxed = SearchScoringProfile.MinRelaxedConcepts(concepts.Length);
+        var minRelaxedRatio = SearchScoringProfile.MinRelaxedIdfRatio(concepts.Length);
+
+        var conceptIdfs = new double[concepts.Length];
+        var shortPrefixIdfs = new double[concepts.Length];
+        var shortPrefixMaps = new Dictionary<int, int>?[concepts.Length];
+        var totalQueryIdf = 0.0;
+        var possibleConcepts = 0;
+        var possibleIdfSum = 0.0;
+
+        for (var c = 0; c < concepts.Length; c++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var concept = concepts[c];
+            double idf;
+            var canMatch = false;
+            switch (concept.Kind)
+            {
+                case SearchConceptKind.CjkSequence:
+                {
+                    var maxIdf = 0.0;
+                    var allPresent = true;
+                    foreach (var st in concept.Steps)
+                    {
+                        var df = termMaps[st.CanonicalKey].DocFreq;
+                        if (df == 0) allPresent = false;
+                        var stIdf = SearchScoringProfile.InverseDocumentFrequency(n, df);
+                        if (stIdf > maxIdf) maxIdf = stIdf;
+                    }
+                    idf = maxIdf;
+                    canMatch = allPresent;
+                    break;
+                }
+                case SearchConceptKind.CompoundHyphen:
+                {
+                    var exactDf = termMaps[concept.Steps[0].CanonicalKey].DocFreq;
+                    var minSubDf = n;
+                    var allSubs = concept.Steps.Length > 1;
+                    for (var i = 1; i < concept.Steps.Length; i++)
+                    {
+                        var d = termMaps[concept.Steps[i].CanonicalKey].DocFreq;
+                        if (d == 0) allSubs = false;
+                        if (d < minSubDf) minSubDf = d;
+                    }
+                    var combinedDf = Math.Min(n, Math.Max(exactDf, allSubs ? minSubDf : 0));
+                    idf = SearchScoringProfile.InverseDocumentFrequency(n, combinedDf);
+                    canMatch = exactDf > 0 || allSubs;
+                    break;
+                }
+                default:
+                {
+                    var df = termMaps[concept.Steps[0].CanonicalKey].DocFreq;
+                    idf = SearchScoringProfile.InverseDocumentFrequency(n, df);
+                    canMatch = df > 0;
+                    if (concept.ShortAsciiPrefix is { } prefix)
+                    {
+                        Dictionary<int, int>? map = null;
+                        for (var ord = 0; ord < n; ord++)
+                        {
+                            if ((ord & 1023) == 0) ct.ThrowIfCancellationRequested();
+                            var p = PackShortPrefixHits(_documents[ord].Article, prefix);
+                            if (p != 0) (map ??= [])[ord] = p;
+                        }
+                        if (map is { Count: > 0 })
+                        {
+                            shortPrefixMaps[c] = map;
+                            shortPrefixIdfs[c] = SearchScoringProfile.InverseDocumentFrequency(n, Math.Min(n, df + map.Count));
+                            canMatch = true;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            conceptIdfs[c] = idf;
+            totalQueryIdf += idf;
+            if (!canMatch)
+            {
+                if (concept.IsStrictIdentifier || !allowsRelaxation) return new([], 0, 0, 0);
+            }
+            else
+            {
+                possibleConcepts++;
+                possibleIdfSum += idf;
+            }
+        }
+
+        if (possibleConcepts < minRelaxed || (totalQueryIdf > 0.0 && possibleIdfSum / totalQueryIdf < minRelaxedRatio))
+            return new([], 0, 0, 0);
+
+        // Select smallest driver or union of candidates
+        var candidates = CollectWideCandidates(plan, concepts, termMaps, shortPrefixMaps, allowsRelaxation, ct);
+        if (candidates.Count == 0) return new([], 0, 0, 0);
+
+        // Identify keys that require positional extraction on candidates
+        HashSet<SearchTermKey>? positionalKeys = null;
+        if (plan.QuotedPhrases.Length > 0 || plan.OrderedQuerySequence.Length >= 2 ||
+            concepts.Any(static c => c.Kind == SearchConceptKind.CjkSequence))
+        {
+            positionalKeys = [];
+            foreach (var phrase in plan.QuotedPhrases)
+                foreach (var st in phrase.Steps) positionalKeys.Add(st.CanonicalKey);
+            foreach (var c in concepts)
+                if (c.Kind == SearchConceptKind.CjkSequence)
+                    foreach (var st in c.Steps) positionalKeys.Add(st.CanonicalKey);
+            foreach (var st in plan.OrderedQuerySequence) positionalKeys.Add(st.CanonicalKey);
+        }
+
+        var primaryHits = new List<ArticleSearchHit>();
+        var relaxedHits = new List<ArticleSearchHit>();
+        Span<double> tfs = stackalloc double[SearchScoringProfile.FieldCount];
+        Span<int> docLens = stackalloc int[SearchScoringProfile.FieldCount];
+
+        foreach (var ordinal in candidates)
+        {
+            ct.ThrowIfCancellationRequested();
+            var doc = _documents[ordinal];
+
+            // Fast pre-check before extracting positions: every quoted phrase step and strict identifier must be present
+            var preOk = true;
+            foreach (var phrase in plan.QuotedPhrases)
+            {
+                foreach (var st in phrase.Steps)
+                {
+                    if (termMaps[st.CanonicalKey].Docs is not { } d || !d.ContainsKey(ordinal)) { preOk = false; break; }
+                }
+                if (!preOk) break;
+            }
+            if (!preOk) continue;
+
+            Dictionary<SearchTermKey, List<uint>>? docPositions = null;
+            Dictionary<SearchTermKey, List<uint>> GetDocPositions() =>
+                docPositions ??= ExtractWideCandidatePositions(doc.Article, positionalKeys!, ct);
+
+            // 1. Verify strict quoted phrases
+            foreach (var phrase in plan.QuotedPhrases)
+            {
+                if (!WideMatchesExactSequence(GetDocPositions(), phrase.Steps, out _)) { preOk = false; break; }
+            }
+            if (!preOk) continue;
+
+            doc.CopyLengths(docLens);
+            var matchedCount = 0;
+            var matchedIdfSum = 0.0;
+            var strictOk = true;
+            var score = 0.0;
+
+            for (var c = 0; c < concepts.Length; c++)
+            {
+                var concept = concepts[c];
+                tfs.Clear();
+                var matched = EvaluateWideConcept(ordinal, concept, termMaps, shortPrefixMaps[c], GetDocPositions, tfs,
+                    out var exactFormHit, out var usedShortPrefixOnly);
+                if (!matched)
+                {
+                    if (concept.IsStrictIdentifier) { strictOk = false; break; }
+                    continue;
+                }
+                matchedCount++;
+                matchedIdfSum += conceptIdfs[c];
+                var activeIdf = usedShortPrefixOnly ? shortPrefixIdfs[c] : conceptIdfs[c];
+                score += SearchScoringProfile.ScoreConceptBm25F(activeIdf, tfs, docLens, _avgFieldLengths);
+                if (exactFormHit)
+                    score += SearchScoringProfile.ExactFormBonusFactor * activeIdf;
+            }
+            if (!strictOk || matchedCount == 0) continue;
+
+            var isPrimary = matchedCount == concepts.Length;
+            var isRelaxed = !isPrimary && allowsRelaxation &&
+                            matchedCount >= minRelaxed &&
+                            totalQueryIdf > 0.0 &&
+                            (matchedIdfSum / totalQueryIdf) >= minRelaxedRatio;
+            if (!isPrimary && !isRelaxed) continue;
+
+            if (plan.QuotedPhrases.Length > 0 || (isPrimary && plan.OrderedQuerySequence.Length >= 2))
+            {
+                var seq = plan.QuotedPhrases.Length > 0 ? plan.QuotedPhrases[0].Steps : plan.OrderedQuerySequence;
+                var allSeqPresent = true;
+                foreach (var st in seq)
+                {
+                    if (termMaps[st.CanonicalKey].Docs is not { } d || !d.ContainsKey(ordinal)) { allSeqPresent = false; break; }
+                }
+                if (allSeqPresent)
+                {
+                    var posMap = GetDocPositions();
+                    if (WideMatchesExactSequence(posMap, seq, out var matchField))
+                    {
+                        var factor = matchField is SearchScoreField.Title or SearchScoreField.Heading
+                            ? SearchScoringProfile.TitleOrHeadingPhraseBonusFactor
+                            : SearchScoringProfile.BodyPhraseBonusFactor;
+                        score += factor * matchedIdfSum;
+                    }
+                    else if (isPrimary && concepts.Length >= 2 &&
+                             WideMatchesTightProximity(posMap, plan.OrderedQuerySequence, 2 * concepts.Length + 4))
+                    {
+                        score += SearchScoringProfile.TightProximityBonusFactor * matchedIdfSum;
+                    }
+                }
+            }
+
+            if (isPrimary) primaryHits.Add(new ArticleSearchHit(doc.Article, SearchMatchTier.Primary, score));
+            else relaxedHits.Add(new ArticleSearchHit(doc.Article, SearchMatchTier.Relaxed, score));
+        }
+
+        return FinalizeDetailedPage(primaryHits, relaxedHits, allowsRelaxation, sort, start, window);
     }
 
-    private ArticleSearchPage SearchWide(WideIndex wide, AnalyzedQuery query, ArticleSearchSort sort, int start, int window,
+    private static List<int> CollectWideCandidates(
+        SearchQueryPlan plan,
+        SearchConcept[] concepts,
+        Dictionary<SearchTermKey, WideResolvedTerm> termMaps,
+        Dictionary<int, int>?[] shortPrefixMaps,
+        bool allowsRelaxation,
         CancellationToken ct)
     {
-        var collected = CollectWideTerms(wide, query, ct);
-        var terms = collected.Values.Where(term => term.Frequency != 0)
-            .Select(term => (Value: term, Idf: InverseFrequency(term.Frequency))).ToArray();
-        var shortTerms = new List<(string Prefix, double Idf)>();
-        if (query.ShortAsciiPrefixes.Count > 0)
+        WideResolvedTerm? smallestDriver = null;
+        void Consider(WideResolvedTerm t)
         {
-            foreach (var prefix in query.ShortAsciiPrefixes)
+            if (smallestDriver is null || t.DocFreq < smallestDriver.DocFreq)
+                smallestDriver = t;
+        }
+
+        foreach (var phrase in plan.QuotedPhrases)
+            foreach (var st in phrase.Steps) Consider(termMaps[st.CanonicalKey]);
+
+        foreach (var c in concepts)
+        {
+            if (c.IsStrictIdentifier)
             {
-                var prefixDf = 0;
-                for (var ordinal = 0; ordinal < _documents.Length; ordinal++)
-                {
-                    if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
-                    if (ShortPrefixWeight(_documents[ordinal].Article, prefix) > 0) prefixDf++;
-                }
-                var exactDf = collected.GetValueOrDefault(SearchTermKey.From(prefix))?.Frequency ?? 0;
-                if (prefixDf > 0)
-                    shortTerms.Add((prefix, InverseFrequency(Math.Min(_documents.Length, exactDf + prefixDf))));
+                Consider(termMaps[c.Steps[0].CanonicalKey]);
+            }
+            else if (!allowsRelaxation)
+            {
+                if (c.Kind == SearchConceptKind.Term && c.ShortAsciiPrefix is null)
+                    Consider(termMaps[c.Steps[0].CanonicalKey]);
+                else if (c.Kind == SearchConceptKind.CjkSequence)
+                    foreach (var st in c.Steps) Consider(termMaps[st.CanonicalKey]);
             }
         }
-        if (terms.Length == 0 && shortTerms.Count == 0) return new([], 0);
 
-        var candidates = window == 0 ? null : new PriorityQueue<Article, SearchRank>(window);
-        var total = 0;
-        var scoresBuffer = ArrayPool<double>.Shared.Rent(WideBlockDocuments);
-        try
+        if (smallestDriver is { } driver)
         {
-            foreach (var block in wide.Blocks)
+            if (driver.Docs is null) return [];
+            var result = new List<int>(driver.Docs.Count);
+            foreach (var ord in driver.Docs.Keys) result.Add(ord);
+            return result;
+        }
+
+        var union = new HashSet<int>();
+        for (var c = 0; c < concepts.Length; c++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var concept = concepts[c];
+            if (concept.Kind == SearchConceptKind.CjkSequence)
             {
-                ct.ThrowIfCancellationRequested();
-                var scores = scoresBuffer.AsSpan(0, block.Count);
-                scores.Clear();
-                foreach (var (term, idf) in terms)
+                var rarest = termMaps[concept.Steps[0].CanonicalKey];
+                for (var s = 1; s < concept.Steps.Length; s++)
                 {
-                    if (term.Weights is { } weights)
+                    var t = termMaps[concept.Steps[s].CanonicalKey];
+                    if (t.DocFreq < rarest.DocFreq) rarest = t;
+                }
+                if (rarest.Docs is not null)
+                    foreach (var ord in rarest.Docs.Keys) union.Add(ord);
+            }
+            else if (concept.Kind == SearchConceptKind.CompoundHyphen)
+            {
+                if (termMaps[concept.Steps[0].CanonicalKey].Docs is { } ex)
+                    foreach (var ord in ex.Keys) union.Add(ord);
+                if (concept.Steps.Length > 1)
+                {
+                    var rarest = termMaps[concept.Steps[1].CanonicalKey];
+                    for (var s = 2; s < concept.Steps.Length; s++)
                     {
-                        for (var ordinal = 0; ordinal < block.Count; ordinal++)
+                        var t = termMaps[concept.Steps[s].CanonicalKey];
+                        if (t.DocFreq < rarest.DocFreq) rarest = t;
+                    }
+                    if (rarest.Docs is not null)
+                        foreach (var ord in rarest.Docs.Keys) union.Add(ord);
+                }
+            }
+            else
+            {
+                if (termMaps[concept.Steps[0].CanonicalKey].Docs is { } d)
+                    foreach (var ord in d.Keys) union.Add(ord);
+                if (shortPrefixMaps[c] is { } sp)
+                    foreach (var ord in sp.Keys) union.Add(ord);
+            }
+        }
+        return [.. union];
+    }
+
+    private static bool EvaluateWideConcept(
+        int ordinal,
+        SearchConcept concept,
+        Dictionary<SearchTermKey, WideResolvedTerm> termMaps,
+        Dictionary<int, int>? shortPrefixMap,
+        Func<Dictionary<SearchTermKey, List<uint>>> getPositions,
+        Span<double> tfs,
+        out bool exactFormHit,
+        out bool usedShortPrefixOnly)
+    {
+        exactFormHit = false;
+        usedShortPrefixOnly = false;
+
+        switch (concept.Kind)
+        {
+            case SearchConceptKind.CjkSequence:
+            {
+                foreach (var st in concept.Steps)
+                    if (termMaps[st.CanonicalKey].Docs is not { } d || !d.ContainsKey(ordinal)) return false;
+                if (!WideMatchesExactSequence(getPositions(), concept.Steps, out _)) return false;
+                for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
+                {
+                    var minTf = double.MaxValue;
+                    foreach (var st in concept.Steps)
+                    {
+                        var tf = termMaps[st.CanonicalKey].Docs![ordinal].FieldTf(f);
+                        if (tf < minTf) minTf = tf;
+                    }
+                    tfs[f] = minTf == double.MaxValue ? 0 : minTf;
+                }
+                exactFormHit = true;
+                foreach (var st in concept.Steps)
+                {
+                    if (termMaps[st.ExactFormKey].Docs is not { } exMap ||
+                        !exMap.TryGetValue(ordinal, out var ex) ||
+                        (ex.ExactFlags & ExactFlagBit) == 0)
+                    {
+                        exactFormHit = false;
+                        break;
+                    }
+                }
+                return true;
+            }
+            case SearchConceptKind.CompoundHyphen:
+            {
+                WideTermDocData exactData = default;
+                var hasExact = termMaps[concept.Steps[0].CanonicalKey].Docs is { } exMap && exMap.TryGetValue(ordinal, out exactData);
+                var hasAllSub = concept.Steps.Length > 1;
+                for (var i = 1; i < concept.Steps.Length; i++)
+                {
+                    if (termMaps[concept.Steps[i].CanonicalKey].Docs is not { } d || !d.ContainsKey(ordinal))
+                    {
+                        hasAllSub = false;
+                        break;
+                    }
+                }
+                if (!hasExact && !hasAllSub) return false;
+
+                for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
+                {
+                    var tf = hasExact ? exactData.FieldTf(f) : 0.0;
+                    if (hasAllSub)
+                    {
+                        var minSub = double.MaxValue;
+                        for (var i = 1; i < concept.Steps.Length; i++)
                         {
-                            var weight = weights[block.First + ordinal];
-                            if (weight != 0)
-                                scores[ordinal] += Score(weight, _documents[block.First + ordinal].Normalization, idf);
+                            var stf = termMaps[concept.Steps[i].CanonicalKey].Docs![ordinal].FieldTf(f);
+                            if (stf < minSub) minSub = stf;
                         }
-                        continue;
+                        if (minSub != double.MaxValue && minSub > tf) tf = minSub;
                     }
-
-                    var link = term.DirectLink;
-                    foreach (var posting in new WidePostings(block, (uint)(link / 2), ct))
-                        scores[posting.Ordinal] += Score(link % 2 == 0 ? posting.Weight : posting.AliasWeight,
-                            _documents[block.First + posting.Ordinal].Normalization, idf);
+                    tfs[f] = tf;
                 }
-                foreach (var (prefix, idf) in shortTerms)
+                exactFormHit = hasExact && (exactData.ExactFlags & ExactFlagBit) != 0;
+                return true;
+            }
+            default:
+            {
+                var step = concept.Steps[0];
+                if (termMaps[step.CanonicalKey].Docs is { } dMap && dMap.TryGetValue(ordinal, out var data))
                 {
-                    for (var ordinal = 0; ordinal < block.Count; ordinal++)
-                    {
-                        if ((ordinal & 1023) == 0) ct.ThrowIfCancellationRequested();
-                        var weight = ShortPrefixWeight(_documents[block.First + ordinal].Article, prefix);
-                        if (weight != 0)
-                            scores[ordinal] += Score(weight, _documents[block.First + ordinal].Normalization, idf);
-                    }
+                    for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
+                        tfs[f] = data.FieldTf(f);
+                    exactFormHit = step.DiffersFromExactForm
+                        ? (termMaps[step.ExactFormKey].Docs is { } eMap && eMap.TryGetValue(ordinal, out var ex) && (ex.ExactFlags & ExactFlagBit) != 0)
+                        : (data.ExactFlags & ExactFlagBit) != 0;
+                    return true;
                 }
-                Select(scores, block.First, candidates, sort, window, ref total, ct);
+                if (shortPrefixMap is not null && shortPrefixMap.TryGetValue(ordinal, out var packed) && packed != 0)
+                {
+                    UnpackShortPrefixTfs(packed, tfs);
+                    usedShortPrefixOnly = true;
+                    return true;
+                }
+                return false;
             }
         }
-        finally { ArrayPool<double>.Shared.Return(scoresBuffer); }
-        return new(Ordered(candidates, start), total);
+    }
+
+    private static Dictionary<SearchTermKey, List<uint>> ExtractWideCandidatePositions(Article article,
+        HashSet<SearchTermKey> neededKeys, CancellationToken ct)
+    {
+        var result = new Dictionary<SearchTermKey, List<uint>>();
+        void Collect(IReadOnlyList<SearchToken> tokens, SearchScoreField field, int posShift)
+        {
+            foreach (var tok in tokens)
+            {
+                if (tok.Kind is not (SearchTokenKind.Exact or SearchTokenKind.CjkBigram or SearchTokenKind.Subword or SearchTokenKind.ScriptAlias))
+                    continue;
+                var key = SearchTermKey.From(tok);
+                if (!neededKeys.Contains(key)) continue;
+                if (!result.TryGetValue(key, out var list)) result[key] = list = [];
+                list.Add(SearchScoringProfile.PackPosition(field, tok.Position + posShift, tok.Width));
+            }
+        }
+
+        var title = SearchTextAnalyzer.AnalyzePlainField(article.Title, SearchFieldKind.Title, SearchAnalysisMode.Index, 0, ct);
+        Collect(title.Tokens, SearchScoreField.Title, 0);
+        var summary = SearchTextAnalyzer.AnalyzePlainField(article.Summary ?? "", SearchFieldKind.Summary, SearchAnalysisMode.Index, 0, ct);
+        Collect(summary.Tokens, SearchScoreField.Summary, 0);
+        var taxPos = 0;
+        if (article.Category is { Name.Length: > 0 } cat)
+        {
+            var catRes = SearchTextAnalyzer.AnalyzePlainField(cat.Name, SearchFieldKind.Taxonomy, SearchAnalysisMode.Index, taxPos, ct);
+            Collect(catRes.Tokens, SearchScoreField.Taxonomy, 0);
+            taxPos = catRes.EndPosition + SearchTextAnalyzer.BlockPositionGap;
+        }
+        foreach (var tag in article.Tags ?? [])
+        {
+            if (string.IsNullOrEmpty(tag.Name)) continue;
+            var tagRes = SearchTextAnalyzer.AnalyzePlainField(tag.Name, SearchFieldKind.Taxonomy, SearchAnalysisMode.Index, taxPos, ct);
+            Collect(tagRes.Tokens, SearchScoreField.Taxonomy, 0);
+            taxPos = tagRes.EndPosition + SearchTextAnalyzer.BlockPositionGap;
+        }
+        var (headings, prose, code) = SearchTextAnalyzer.AnalyzeMarkdownBody(article.Body ?? "", ct);
+        Collect(headings.Tokens, SearchScoreField.Heading, 0);
+        var codeShift = prose.EndPosition > 0 ? prose.EndPosition + SearchTextAnalyzer.BlockPositionGap : 0;
+        Collect(prose.Tokens, SearchScoreField.Body, 0);
+        Collect(code.Tokens, SearchScoreField.Body, codeShift);
+
+        foreach (var list in result.Values)
+        {
+            if (list.Count > 1)
+            {
+                list.Sort();
+                var write = 1;
+                for (var r = 1; r < list.Count; r++)
+                    if (list[r] != list[r - 1]) list[write++] = list[r];
+                if (write < list.Count) list.RemoveRange(write, list.Count - write);
+            }
+        }
+        return result;
+    }
+
+    private static bool WideMatchesExactSequence(Dictionary<SearchTermKey, List<uint>> posMap, SearchConceptStep[] steps,
+        out SearchScoreField bestField)
+    {
+        bestField = SearchScoreField.Body;
+        if (steps.Length == 0) return false;
+        var lists = new IReadOnlyList<uint>[steps.Length];
+        for (var i = 0; i < steps.Length; i++)
+        {
+            if (!posMap.TryGetValue(steps[i].CanonicalKey, out var list) || list.Count == 0) return false;
+            lists[i] = list;
+        }
+        return ExhaustiveSearchOracle.MatchPositionsExactSequence(lists, steps, out bestField);
+    }
+
+    private static bool WideMatchesTightProximity(Dictionary<SearchTermKey, List<uint>> posMap, SearchConceptStep[] steps, int maxSpan)
+    {
+        if (steps.Length < 2) return false;
+        var lists = new IReadOnlyList<uint>[steps.Length];
+        for (var i = 0; i < steps.Length; i++)
+        {
+            if (!posMap.TryGetValue(steps[i].CanonicalKey, out var list) || list.Count == 0) return false;
+            lists[i] = list;
+        }
+        return ExhaustiveSearchOracle.MatchPositionsTightProximity(lists, maxSpan);
     }
 
     private ref struct WideLinks(ReadOnlySpan<byte> bytes)
@@ -459,8 +994,6 @@ public sealed partial class ArticleSearchIndex
         }
     }
 
-    private readonly record struct WidePosting(int Ordinal, int Weight, int AliasWeight);
-
     private struct WidePostings
     {
         private readonly byte[] _bytes;
@@ -475,7 +1008,7 @@ public sealed partial class ArticleSearchIndex
         }
 
         public readonly WidePostings GetEnumerator() => this;
-        public WidePosting Current { readonly get; private set; }
+        public WideCounts Current { readonly get; private set; }
 
         public bool MoveNext()
         {
@@ -483,9 +1016,32 @@ public sealed partial class ArticleSearchIndex
             if ((_index++ & 1023) == 0) _ct.ThrowIfCancellationRequested();
             var delta = ReadVarint(_bytes, ref _offset);
             _ordinal -= delta / 2;
-            var weight = ReadVarint(_bytes, ref _offset);
-            var adjustment = delta % 2 == 0 ? 0 : ReadVarint(_bytes, ref _offset);
-            Current = new WidePosting(_ordinal, weight, (weight - adjustment) / 2);
+            byte c0 = 0, c1 = 0, c2 = 0, c3 = 0, c4 = 0;
+            if ((delta & 1) == 0)
+            {
+                var header = _bytes[_offset++];
+                var field = header >> 5;
+                var val = (byte)(header & 31);
+                if (val == 0) val = (byte)Math.Min(254, ReadVarint(_bytes, ref _offset));
+                switch (field)
+                {
+                    case 0: c0 = val; break;
+                    case 1: c1 = val; break;
+                    case 2: c2 = val; break;
+                    case 3: c3 = val; break;
+                    default: c4 = val; break;
+                }
+            }
+            else
+            {
+                var mask = _bytes[_offset++];
+                if ((mask & 1) != 0) c0 = (byte)Math.Min(254, ReadVarint(_bytes, ref _offset));
+                if ((mask & 2) != 0) c1 = (byte)Math.Min(254, ReadVarint(_bytes, ref _offset));
+                if ((mask & 4) != 0) c2 = (byte)Math.Min(254, ReadVarint(_bytes, ref _offset));
+                if ((mask & 8) != 0) c3 = (byte)Math.Min(254, ReadVarint(_bytes, ref _offset));
+                if ((mask & 16) != 0) c4 = (byte)Math.Min(254, ReadVarint(_bytes, ref _offset));
+            }
+            Current = new WideCounts(_ordinal, c0, c1, c2, c3, c4);
             return true;
         }
     }

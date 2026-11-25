@@ -731,8 +731,24 @@ public static class SearchTextAnalyzer
                     return false;
                 hasHyphen = true;
             }
-            else if (c is '_' or '.' or '/' or '#' or '+')
+            else if (c is '_' or '.' or '/')
             {
+                // Leading dot allowed only before ASCII letter (e.g. .NET); connectors cannot repeat or trail
+                if (i == token.Length - 1) return false;
+                if (c == '.' && i == 0)
+                {
+                    if (!char.IsAsciiLetter(token[1])) return false;
+                }
+                else
+                {
+                    if (i == 0 || !char.IsAsciiLetterOrDigit(token[i - 1]) || !char.IsAsciiLetterOrDigit(token[i + 1]))
+                        return false;
+                }
+                hasStrictSymbol = true;
+            }
+            else if (c is '#' or '+')
+            {
+                if (i == 0) return false;
                 hasStrictSymbol = true;
             }
             else

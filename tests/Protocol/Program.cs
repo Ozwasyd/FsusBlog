@@ -53,6 +53,7 @@ RejectAll(() => InboxReplayWire.Encode(703, true, false, inboxEvents), () => Inb
 
 LocalSearchVectors.Run(fixtures);
 SearchAnalyzerVectors.Run(fixtures);
+SearchRankingVectors.Run(fixtures);
 PropertyValueVectors.Run(fixtures);
 NativePublicationProofVectors.Run(fixtures);
 

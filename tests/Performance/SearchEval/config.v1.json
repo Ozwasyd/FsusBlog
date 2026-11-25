@@ -4,7 +4,7 @@
   "querySetVersion": "synthetic-queries-v1",
   "judgmentsVersion": "synthetic-judgments-v1",
   "analyzerProfile": "unified-analyzer-v1",
-  "scoringProfile": "baseline-fas4-v2-vs-fspk-v4",
+  "scoringProfile": "bm25f-concept-v3",
   "provenance": {
     "corpusType": "synthetic",
     "containsPrivateDrafts": false,

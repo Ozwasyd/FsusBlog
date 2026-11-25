@@ -22,7 +22,10 @@
   - **中文与繁简**：在简体折叠视图上对连续 CJK 片段执行词典 Viterbi 分词，为未知中文词与人名发射带精确位置的相邻二元词（`CjkBigram`），繁简差异同步发射 `ScriptAlias`，单字索引项（`CjkChar`）仅在索引侧发射以支持显式单字查询而不污染多字查询；超过 4,096 个连续 CJK 字符时退化为有界线性扫描；
   - **技术标识符与标点**：保留 `C#`、`C++`、`.NET`、`ASP.NET`、`HTTP/2`、`issue-2205`、`v2_schema` 等带标点精确词项，区分 `Exact` 与有界 `Prefix`/`Subword`，超长精确标识符（> 128 单元）显式拒绝而非静默截断，且同一源词跨度只计入一次字段长度；
   - **抗碰撞词项标识**：服务端索引使用 64 位 FNV-1a 哈希与规范词串联合键（`SearchTermKey`），消除纯 32 位哈希截断碰撞。
-- 浏览器 Worker 计算页内 BM25 并结合短语位置加分（短语须在同一字段按查询顺序连续命中，停用词计入普通频次但跳过短语位置，每页位置表上限 200 KiB），跨页支持 `relevance`（默认：得分、发布时间、ID 降序）与 `latest`（发布时间、得分、ID 降序），输出 FSR4 结果；已准入页面评分走有序二分查找并仅延迟解码当前展示页卡片。
+- **服务端权威执行与本地全局一致性（`local-fspk-v4-global-concept-v3`）**：
+  - 服务端 5 字段无量化 BM25F（`SearchFas4Profile = 3`，见 [公开 FAS4 服务端检索](fas4-search.md)）为权威排序契约。
+  - 保留的浏览器 FSPK v4 紧凑与宽语料路径在查询前**跨当前代次全部已准入分片汇总全局文档总数、全局平均长度与全局词项文档频率**（两遍扫描），彻底消除页内局部 IDF 导致的分片边界与合并排序漂移；同时复用与服务端共享黄金向量的 [`search-query-plan.ts`](../../src/Contracts/search-query-plan.ts)，执行相同的概念覆盖、未知中文连续二元词位置核验、显式引号短语校验、严格标识符保护与有界松弛策略，跨页输出 `relevance` 与 `latest`（主层恒优先于松弛层）。
+  - **已声明支持范围与显式拒绝**：FSPK v4 仅存储标题/元数据/正文 3 档量化词频、32 位哈希及非停用词标题/正文位置；对于超出 FSPK v4 支持边界的查询（例如纯停用词引号短语），本地路径显式返回 `Unsupported local search query profile` 错误而非静默返回失真结果。
 
 ## 3. 紧凑档分片、缓存复用与 FSPT 增量补丁
 
@@ -44,6 +47,6 @@
 
 ```bash
 ./tools/protocol-test.sh
-node --test tests/Protocol/search-analyzer.test.ts tests/Protocol/local-search.test.ts tests/Protocol/local-search-positions.test.ts tests/Protocol/v1-search-ranking-differential.test.mjs
+node --test tests/Protocol/search-analyzer.test.ts tests/Protocol/search-ranking.test.ts tests/Protocol/local-search.test.ts tests/Protocol/local-search-positions.test.ts tests/Protocol/v1-search-ranking-differential.test.mjs
 dotnet test tests/Integration/FsusBlog.V2.Integration.Tests.csproj -c Release --filter "ArticleSearch"
 ```

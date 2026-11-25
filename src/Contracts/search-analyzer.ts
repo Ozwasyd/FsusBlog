@@ -195,7 +195,16 @@ export function isStrictExactIdentifier(token: string): boolean {
         return false;
       }
       hasHyphen = true;
-    } else if (c === 95 /* _ */ || c === 46 /* . */ || c === 47 /* / */ || c === 35 /* # */ || c === 43 /* + */) {
+    } else if (c === 95 /* _ */ || c === 46 /* . */ || c === 47 /* / */) {
+      if (i === token.length - 1) return false;
+      if (c === 46 && i === 0) {
+        if (!isAsciiLetter(token.charCodeAt(1))) return false;
+      } else if (i === 0 || !isAsciiAlnum(token.charCodeAt(i - 1)) || !isAsciiAlnum(token.charCodeAt(i + 1))) {
+        return false;
+      }
+      hasStrictSymbol = true;
+    } else if (c === 35 /* # */ || c === 43 /* + */) {
+      if (i === 0) return false;
       hasStrictSymbol = true;
     } else {
       return false;

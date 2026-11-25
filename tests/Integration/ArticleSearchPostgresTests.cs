@@ -4,16 +4,26 @@ public sealed class ArticleSearchPostgresTests
     public void UsesVisibleBodyLengthForNormalizationAndDoesNotScoreRepeatedQueryTerms()
     {
         var when = DateTimeOffset.UnixEpoch.AddYears(50);
-        var index = ArticleSearchIndex.Build([
+        var bodyIndex = ArticleSearchIndex.Build([
+            new Article(1, 1, 1, 1, 1, "Quiet", "Needle brief", when, when, when),
+            new Article(2, 1, 2, 1, 1, "Quiet", "Needle " + string.Concat(Enumerable.Repeat("brief ", 60)), when.AddDays(2), when, when),
+            new Article(3, 1, 3, 1, 1, "Quiet", $"Needle [brief]({new string('x', 5000)})", when.AddDays(1), when, when)
+        ], CancellationToken.None);
+        Assert.NotNull(bodyIndex);
+        // Visible Body length excludes the 5,000-char hidden Markdown URL; article 3 and 1 tie on body length (2) and break by CreatedAt desc.
+        Assert.Equal([3, 1, 2], bodyIndex.Search("ＮＥＥＤＬＥ needle", CancellationToken.None).Select(article => article.Id));
+
+        // Under BM25F (#46), Title matches normalize by Title length rather than Body length, so identical titles break ties by CreatedAt desc.
+        var titleIndex = ArticleSearchIndex.Build([
             new Article(1, 1, 1, 1, 1, "Needle", "brief", when, when, when),
             new Article(2, 1, 2, 1, 1, "Needle", string.Concat(Enumerable.Repeat("brief ", 60)), when.AddDays(2), when, when),
             new Article(3, 1, 3, 1, 1, "Needle", $"[brief]({new string('x', 5000)})", when.AddDays(1), when, when)
         ], CancellationToken.None);
-        Assert.NotNull(index);
-        Assert.Equal([3, 1, 2], index.Search("ＮＥＥＤＬＥ needle", CancellationToken.None).Select(article => article.Id));
+        Assert.NotNull(titleIndex);
+        Assert.Equal([2, 3, 1], titleIndex.Search("ＮＥＥＤＬＥ needle", CancellationToken.None).Select(article => article.Id));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        Assert.Throws<OperationCanceledException>(() => index.Search("needle", cancellation.Token));
+        Assert.Throws<OperationCanceledException>(() => bodyIndex.Search("needle", cancellation.Token));
     }
 
     [Fact]
@@ -69,8 +79,9 @@ public sealed class ArticleSearchPostgresTests
         Assert.Equal([1], index.Search(".NET", CancellationToken.None).Select(a => a.Id));
         Assert.Equal([1], index.Search("ASP.NET", CancellationToken.None).Select(a => a.Id));
 
-        // Bidirectional controlled SC/TC recall
-        Assert.Contains(4, index.Search("軟體架構", CancellationToken.None).Select(a => a.Id));
+        // Bidirectional controlled SC/TC recall (1-to-1 character conversion under concept coverage)
+        Assert.Contains(4, index.Search("軟件架構", CancellationToken.None).Select(a => a.Id));
+        Assert.Empty(index.Search("軟體架構", CancellationToken.None)); // 軟體 != 軟件 under concept coverage
         Assert.Contains(4, index.Search("數據庫", CancellationToken.None).Select(a => a.Id));
         Assert.Contains(5, index.Search("开源社区", CancellationToken.None).Select(a => a.Id));
 
@@ -134,9 +145,11 @@ public sealed class ArticleSearchPostgresTests
             var (needle, generation, _) = await Query(client, PathFor("  ＮＥＥＤＬＥ needle\t "), ct);
             Assert.Equal([1, 4, 5, 2, 3], needle.Select(item => item.Id));
             Assert.Equal(new Hit(1, 1, 1, 10_001, 1), needle[0]);
-            var (union, _, _) = await Query(client, PathFor("zeta needle"), ct);
-            Assert.Equal([1, 2, 3, 4, 5, 6], union.Select(item => item.Id).Order());
-            Assert.Equal(union, (await Query(client, PathFor("needle zeta"), ct)).Hits);
+            // Profile v3 (#46): 2-concept queries require full concept coverage (possibly across distinct fields)
+            Assert.Empty((await Query(client, PathFor("zeta needle"), ct)).Hits);
+            var (crossField, _, _) = await Query(client, PathFor("metadata needle"), ct);
+            Assert.Equal([2], crossField.Select(item => item.Id));
+            Assert.Equal(crossField, (await Query(client, PathFor("needle metadata"), ct)).Hits);
             Assert.Equal(7, Assert.Single((await Query(client, PathFor("公开页"), ct)).Hits).Id);
             Assert.Equal([8, 7], (await Query(client, PathFor("公开"), ct)).Hits.Select(item => item.Id));
             Assert.Equal(Enumerable.Range(1006, 200).Reverse(), (await Query(client, PathFor("common"), ct)).Hits.Select(item => item.Id));
@@ -162,7 +175,7 @@ public sealed class ArticleSearchPostgresTests
                 Assert.Equal(expected, hits.Select(item => item.Id));
             }
             var after = await Mark(evidence, output, "measure-after", ct);
-            Assert.Equal(16, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
+            Assert.Equal(17, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
             Assert.Equal(Count(before, "dbCommandStarts"), Count(after, "dbCommandStarts"));
             Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(after, "dbPhysicalOpenStarts"));
             using (var corpus = await client.GetAsync(WireRoutes.PublicSearchCorpus, ct))

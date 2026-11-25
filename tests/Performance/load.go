@@ -261,7 +261,7 @@ func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, publish
 	_, _ = io.WriteString(sum, "public-generation-corpus-v1\x00")
 	searchProfile := 1
 	if encodedProfile, present := w.wire.Limits["SearchFas4Profile"]; present {
-		if err := json.Unmarshal(encodedProfile, &searchProfile); err != nil || searchProfile != 2 {
+		if err := json.Unmarshal(encodedProfile, &searchProfile); err != nil || (searchProfile != 2 && searchProfile != 3) {
 			return errors.New("unknown FAS4 search profile")
 		}
 	}
