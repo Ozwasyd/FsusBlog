@@ -71,11 +71,7 @@ public sealed partial class AppearanceRegistry
 
     private AppearanceRegistry(Theme? theme, Font? font, TimeProvider clock, ImmutableDictionary<string, Entry> entries)
     {
-        _theme = theme;
-        _font = font;
-        _clock = clock;
-        _loadedAt = clock.GetTimestamp();
-        _entries = entries;
+        (_theme, _font, _clock, _loadedAt, _entries) = (theme, font, clock, clock.GetTimestamp(), entries);
         if (theme is not null || font is not null)
         {
             _css = Encoding.UTF8.GetBytes(ThemeCss(theme) + FontCss(font));
@@ -83,15 +79,8 @@ public sealed partial class AppearanceRegistry
         }
     }
 
-    public byte[]? ReadStyle(string digest)
-    {
-        return _css is not null && digest == StyleDigest && Current() ? _css.ToArray() : null;
-    }
-
-    public byte[]? ReadFont(string digest)
-    {
-        return _font is not null && digest == _font.Hash && Current() ? _font.Bytes.ToArray() : null;
-    }
+    public byte[]? ReadStyle(string digest) => _css is not null && digest == StyleDigest && Current() ? _css.ToArray() : null;
+    public byte[]? ReadFont(string digest) => _font is not null && digest == _font.Hash && Current() ? _font.Bytes.ToArray() : null;
 
     private bool Current()
     {
@@ -114,11 +103,8 @@ public sealed partial class AppearanceRegistry
         }
     }
 
-    private static T? Select<T>(Dictionary<string, Entry> entries, string? id) where T : Entry
-    {
-        if (id is null) return null;
-        return entries.GetValueOrDefault(id) as T ?? throw Reject("appearance-active-reference");
-    }
+    private static T? Select<T>(Dictionary<string, Entry> entries, string? id) where T : Entry =>
+        id is null ? null : entries.GetValueOrDefault(id) as T ?? throw Reject("appearance-active-reference");
 
     private static Entry Read(byte[] bytes, SignedArchiveTrust trust, bool legacyFont)
     {

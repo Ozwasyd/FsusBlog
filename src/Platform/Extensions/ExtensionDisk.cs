@@ -11,9 +11,7 @@ internal static class ExtensionDisk
         if (!NativeUnixFile.Supported) throw new PlatformNotSupportedException();
         if (!root.Exists) throw Reject("private-root-unavailable");
         for (DirectoryInfo? component = root; component is not null; component = component.Parent)
-        {
             if ((component.Attributes & FileAttributes.ReparsePoint) != 0) throw Reject("private-root-link");
-        }
         using var directory = NativeUnixFile.OpenDirectory(root.FullName);
         if (!NativeUnixFile.HasMode(directory, PrivateDirectory, owned: true)) throw Reject("private-root-mode");
         return root.FullName;
@@ -67,12 +65,7 @@ internal static class ExtensionDisk
         try
         {
             using (var file = new FileStream(pending, new FileStreamOptions
-            {
-                Mode = FileMode.CreateNew,
-                Access = FileAccess.Write,
-                Share = FileShare.None,
-                UnixCreateMode = ImmutableFile
-            }))
+            { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None, UnixCreateMode = ImmutableFile }))
             {
                 owned = true;
                 file.Write(bytes);

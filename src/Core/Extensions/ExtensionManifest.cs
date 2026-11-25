@@ -7,17 +7,8 @@ namespace FsusBlog.V2.Core.Extensions;
 
 public enum ExtensionCapability
 {
-    DocumentRangeRead,
-    DocumentFullRead,
-    SelectionRead,
-    DocumentMutationRequest,
-    ArticleQuery,
-    NetworkDestination,
-    FileSystemRootRead,
-    FileSystemRootProposeWrite,
-    DiagnosticReport,
-    StateStorageRead,
-    StateStorageWrite
+    DocumentRangeRead, DocumentFullRead, SelectionRead, DocumentMutationRequest, ArticleQuery,
+    NetworkDestination, FileSystemRootRead, FileSystemRootProposeWrite, DiagnosticReport, StateStorageRead, StateStorageWrite
 }
 
 public enum ExtensionPlatform { Browser, AvaloniaDesktop, ServerLinux }
@@ -47,11 +38,8 @@ internal static partial class ExtensionManifestReader
 
     internal static readonly JsonSerializerOptions Json = new()
     {
-        MaxDepth = 16,
-        RespectNullableAnnotations = true,
-        RespectRequiredConstructorParameters = true,
-        AllowDuplicateProperties = false,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
+        MaxDepth = 16, RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true,
+        AllowDuplicateProperties = false, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
     };
 
     internal static readonly JsonSerializerOptions LegacyJson = new(Json) { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -74,12 +62,8 @@ internal static partial class ExtensionManifestReader
             if (clause.Length <= width || !Version.TryParse(clause[width..], out var bound)) return false;
             var accepts = clause[..width] switch
             {
-                ">=" => LegacyBaseline >= bound,
-                ">" => LegacyBaseline > bound,
-                "<=" => LegacyBaseline <= bound,
-                "<" => LegacyBaseline < bound,
-                "=" => LegacyBaseline == bound,
-                _ => false
+                ">=" => LegacyBaseline >= bound, ">" => LegacyBaseline > bound, "<=" => LegacyBaseline <= bound,
+                "<" => LegacyBaseline < bound, "=" => LegacyBaseline == bound, _ => false
             };
             if (!accepts) return false;
         }

@@ -14,15 +14,8 @@ public readonly record struct CanvasGeometry(int X, int Y, int Width, int Height
     public const int MaxExtent = 409_600;
 }
 
-public sealed record CanvasNode(
-    Guid Id,
-    CanvasNodeKind Kind,
-    CanvasGeometry Geometry,
-    int? ArticleId = null,
-    string? Anchor = null,
-    long? PinnedRevision = null,
-    string? Text = null,
-    ImmutableArray<Guid> MemberIds = default);
+public sealed record CanvasNode(Guid Id, CanvasNodeKind Kind, CanvasGeometry Geometry, int? ArticleId = null,
+    string? Anchor = null, long? PinnedRevision = null, string? Text = null, ImmutableArray<Guid> MemberIds = default);
 
 public sealed record CanvasGraphEdge(Guid Id, CanvasGraphEdgeKind Kind, Guid SourceNodeId, Guid TargetNodeId,
     int Order, string? Label = null);
@@ -220,9 +213,7 @@ public sealed record CanvasGraph(ImmutableArray<CanvasNode> Nodes, ImmutableArra
     {
         if (required && string.IsNullOrWhiteSpace(text)) throw Invalid("Canvas text is required.");
         if (text is null) return;
-        int angle = text.IndexOf('<');
-        if (text.Length > limit || text.Any(character => char.IsControl(character) && character is not ('\n' or '\r' or '\t'))
-            || angle >= 0 && text.IndexOf('>', angle + 1) >= 0)
+        if (text.Length > limit || text.Any(c => char.IsControl(c) && c is not ('\n' or '\r' or '\t')) || CanvasPortableBundle.HasMarkup(text))
             throw Invalid("Invalid Canvas plain text.");
         try { Utf8.GetByteCount(text); }
         catch (EncoderFallbackException) { throw Invalid("Invalid Canvas Unicode."); }

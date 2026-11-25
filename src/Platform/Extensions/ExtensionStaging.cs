@@ -47,12 +47,8 @@ public sealed class ExtensionStaging(string rootId, DirectoryInfo privateRoot) :
             // CreateNew is the authority for creation. A failed open never enters the cleanup path.
             owned = new FileStream(file, new FileStreamOptions
             {
-                Mode = FileMode.CreateNew,
-                Access = FileAccess.ReadWrite,
-                Share = FileShare.None,
-                BufferSize = 64 * 1024,
-                Options = FileOptions.Asynchronous,
-                UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+                Mode = FileMode.CreateNew, Access = FileAccess.ReadWrite, Share = FileShare.None,
+                BufferSize = 64 * 1024, Options = FileOptions.Asynchronous, UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
             });
             // Remove the name before accepting any content. All subsequent writes and release target the original handle.
             File.Delete(file);

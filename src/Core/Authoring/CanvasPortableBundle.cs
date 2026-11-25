@@ -191,22 +191,11 @@ public sealed partial class CanvasPortableBundle
             || viewport.Zoom is < 100 or > 4000 || sourceRevision <= 0)
             throw Invalid("Invalid Canvas package document metadata.");
 
-        try
-        {
-            if (StrictUtf8.GetByteCount(title) > MaxTitleBytes)
-                throw Invalid("Canvas package title exceeds its byte limit.");
-        }
-        catch (EncoderFallbackException)
-        {
-            throw Invalid("Invalid Canvas package title encoding.");
-        }
+        try { if (StrictUtf8.GetByteCount(title) > MaxTitleBytes) throw Invalid("Canvas package title exceeds its byte limit."); }
+        catch (EncoderFallbackException) { throw Invalid("Invalid Canvas package title encoding."); }
     }
 
-    private static bool HasMarkup(string text)
-    {
-        int angle = text.IndexOf('<');
-        return angle >= 0 && text.IndexOf('>', angle + 1) >= 0;
-    }
+    internal static bool HasMarkup(string text) { int angle = text.IndexOf('<'); return angle >= 0 && text.IndexOf('>', angle + 1) >= 0; }
 
     private static bool IsReference(CanvasNodeKind kind) => kind is CanvasNodeKind.ArticleReference or
         CanvasNodeKind.HeadingReference or CanvasNodeKind.BlockReference;
