@@ -37,6 +37,7 @@ public sealed partial class ArticleSearchIndex
     private ArticleSearchIndex(Document[] documents, Term[] terms, Posting[] postings, WideIndex? wide = null) =>
         (_documents, _terms, _postings, _wide) = (documents, terms, postings, wide);
 
+    public int AnalyzerVersion => SearchTextAnalyzer.Version;
     public bool UsesWideProfile => _wide is not null;
     public int DocumentCount => _documents.Length;
     public int TermCount => _wide is { } wide ? wide.Aliases.Length : _terms.Length;
@@ -56,14 +57,14 @@ public sealed partial class ArticleSearchIndex
         var postings = new Posting[builder.Pending.Count];
         var termIndex = 0;
         var start = 0;
-        foreach (var (hash, bucket) in builder.Heads)
+        foreach (var (key, bucket) in builder.Heads)
         {
             ct.ThrowIfCancellationRequested();
-            terms[termIndex++] = new Term(hash, start, bucket.Count);
+            terms[termIndex++] = new Term(key, start, bucket.Count);
             for (var entry = bucket.Head; entry >= 0; entry = builder.Pending[entry].Previous)
                 postings[start++] = builder.Pending[entry].Value;
         }
-        Array.Sort(terms, Term.ByHash);
+        Array.Sort(terms, Term.ByKey);
         return new ArticleSearchIndex(Normalize(articles, lengths, builder.TotalLength, ct), terms, postings);
     }
 
@@ -77,14 +78,13 @@ public sealed partial class ArticleSearchIndex
         ArgumentOutOfRangeException.ThrowIfLessThan(size, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, MaxResults);
         if (_documents.Length == 0) return new([], 0);
-        var (normalized, exactIdentifier) = ArticleSearchTokens.NormalizeQuery(query);
-        if (normalized.Length == 0) return new([], 0);
+        var analyzed = ArticleSearchTokens.AnalyzeQuery(query, ct);
+        if (analyzed.IsOverlongExactIdentifier || analyzed.NormalizedText.Length == 0) return new([], 0);
         var start = (long)(page - 1) * size;
         var window = start >= MaxPaginatedResults ? 0 : (int)Math.Min(start + size, MaxPaginatedResults);
-        if (exactIdentifier) return SearchIdentifier(normalized, sort, (int)Math.Min(start, MaxPaginatedResults), window, ct);
-        query = normalized;
-        if (_wide is { } wide) return SearchWide(wide, query, sort, (int)Math.Min(start, MaxPaginatedResults), window, ct);
-        var hashes = new HashSet<uint>();
+        if (_wide is { } wide) return SearchWide(wide, analyzed, sort, (int)Math.Min(start, MaxPaginatedResults), window, ct);
+
+        var seenKeys = new HashSet<SearchTermKey>();
         var candidates = window == 0 ? null : new PriorityQueue<Article, SearchRank>(window);
         var total = 0;
         var buffer = ArrayPool<double>.Shared.Rent(_documents.Length);
@@ -92,10 +92,12 @@ public sealed partial class ArticleSearchIndex
         {
             var scores = buffer.AsSpan(0, _documents.Length);
             scores.Clear();
-            foreach (var hash in ArticleSearchTokens.Hashes(query, ct))
+            foreach (var token in analyzed.Tokens)
             {
-                if (!hashes.Add(hash)) continue;
-                var term = FindTerm(_terms, hash);
+                ct.ThrowIfCancellationRequested();
+                var key = SearchTermKey.From(token);
+                if (!seenKeys.Add(key)) continue;
+                var term = FindTerm(_terms, key);
                 if (term.Count == 0) continue;
                 var idf = InverseFrequency(term.Count);
                 for (var i = 0; i < term.Count; i++)
@@ -106,8 +108,8 @@ public sealed partial class ArticleSearchIndex
                     scores[posting.Ordinal] += Score(posting.Weight, normalization, idf);
                 }
             }
-            if (ArticleSearchTokens.ShortAsciiPrefixes(query) is { Count: > 0 } shortPrefixes)
-                AddCompactShortPrefixScores(scores, shortPrefixes, ct);
+            if (analyzed.ShortAsciiPrefixes.Count > 0)
+                AddCompactShortPrefixScores(scores, analyzed.ShortAsciiPrefixes, ct);
             Select(scores, 0, candidates, sort, window, ref total, ct);
         }
         finally
@@ -118,8 +120,7 @@ public sealed partial class ArticleSearchIndex
         return new(Ordered(candidates, (int)Math.Min(start, MaxPaginatedResults)), total);
     }
 
-    private void AddCompactShortPrefixScores(Span<double> scores, IReadOnlyList<(string Prefix, uint Hash)> prefixes,
-        CancellationToken ct)
+    private void AddCompactShortPrefixScores(Span<double> scores, IReadOnlyList<string> prefixes, CancellationToken ct)
     {
         var weightBuffer = ArrayPool<int>.Shared.Rent(_documents.Length);
         try
@@ -127,7 +128,7 @@ public sealed partial class ArticleSearchIndex
             var weights = weightBuffer.AsSpan(0, _documents.Length);
             for (var p = 0; p < prefixes.Count; p++)
             {
-                var (prefix, hash) = prefixes[p];
+                var prefix = prefixes[p];
                 var prefixDf = 0;
                 for (var ordinal = 0; ordinal < _documents.Length; ordinal++)
                 {
@@ -137,7 +138,7 @@ public sealed partial class ArticleSearchIndex
                     if (weight > 0) prefixDf++;
                 }
                 if (prefixDf == 0) continue;
-                var exactDf = FindTerm(_terms, hash).Count;
+                var exactDf = FindTerm(_terms, SearchTermKey.From(prefix)).Count;
                 var idf = InverseFrequency(Math.Min(_documents.Length, exactDf + prefixDf));
                 for (var ordinal = 0; ordinal < _documents.Length; ordinal++)
                 {
@@ -163,47 +164,9 @@ public sealed partial class ArticleSearchIndex
         return weight;
     }
 
-    private ArticleSearchPage SearchIdentifier(string query, ArticleSearchSort sort, int start, int window, CancellationToken ct)
+    private static Term FindTerm(Term[] terms, SearchTermKey key)
     {
-        // A complete identifier must have all of its segments in the existing postings. Verify only
-        // one segment's candidates, including those outside the regular 200-result limit.
-        var candidates = window == 0 ? null : new PriorityQueue<Article, SearchRank>(window);
-        var total = 0;
-        if (_wide is { } wide)
-        {
-            VisitWideIdentifierCandidates(wide, query, Match, ct);
-        }
-        else
-        {
-            var anchor = default(Term);
-            foreach (var hash in ArticleSearchTokens.Hashes(query, ct))
-            {
-                var term = FindTerm(_terms, hash);
-                if (term.Count == 0) return new([], 0);
-                if (anchor.Count == 0 || term.Count < anchor.Count) anchor = term;
-            }
-            for (var index = 0; index < anchor.Count; index++) Match(_postings[anchor.Start + index].Ordinal);
-        }
-        return new(Ordered(candidates, start), total);
-
-        void Match(int ordinal)
-        {
-            ct.ThrowIfCancellationRequested();
-            var document = _documents[ordinal];
-            var article = document.Article;
-            var weight = TitleWeight * Count(article.Title) + SummaryWeight * Count(article.Summary ?? "") +
-                TaxonomyWeight * Count(article.Category?.Name ?? "") + BodyWeight * Count(article.Body);
-            foreach (var tag in article.Tags ?? []) weight += TaxonomyWeight * Count(tag.Name);
-            // An identifier has one IDF shared by every hit, so it cannot change the ordering.
-            if (weight > 0) Offer(candidates, article, Score(weight, document.Normalization, 1), sort, window, ref total);
-        }
-
-        int Count(string value) => ArticleSearchTokens.CountIdentifier(value, query, ct);
-    }
-
-    private static Term FindTerm(Term[] terms, uint hash)
-    {
-        var position = Array.BinarySearch(terms, new Term(hash, 0, 0), Term.ByHash);
+        var position = Array.BinarySearch(terms, new Term(key, 0, 0), Term.ByKey);
         return position >= 0 ? terms[position] : default;
     }
 
@@ -258,13 +221,11 @@ public sealed partial class ArticleSearchIndex
         return documents;
     }
 
-    private sealed class PostingBuilder(long remainingChars, WideSources? sources = null)
+    private sealed class PostingBuilder(long remainingChars)
     {
-        private readonly Dictionary<uint, int> _frequencies = [];
-        internal readonly Dictionary<uint, Bucket> Heads = [];
+        private readonly Dictionary<SearchTermKey, int> _frequencies = [];
+        internal readonly Dictionary<SearchTermKey, Bucket> Heads = [];
         internal readonly List<PendingPosting> Pending = [];
-        private readonly Dictionary<uint, int> _oddWeights = [];
-        internal readonly Dictionary<int, int> OddWeights = [];
         internal long TotalLength { get; private set; }
 
         internal bool Collect(IReadOnlyList<Article> articles, int first, Span<int> lengths,
@@ -272,59 +233,49 @@ public sealed partial class ArticleSearchIndex
         {
             Heads.Clear();
             Pending.Clear();
-            OddWeights.Clear();
             for (var ordinal = 0; ordinal < lengths.Length; ordinal++)
             {
                 ct.ThrowIfCancellationRequested();
                 var article = articles[first + ordinal];
                 _frequencies.Clear();
-                _oddWeights.Clear();
-                if (!Index(article.Title, TitleWeight) || !Index(article.Summary ?? "", SummaryWeight) ||
-                    !Index(article.Category?.Name ?? "", TaxonomyWeight))
+                if (!Index(article.Title, SearchFieldKind.Title, false, TitleWeight, out _) ||
+                    !Index(article.Summary ?? "", SearchFieldKind.Summary, false, SummaryWeight, out _) ||
+                    !Index(article.Category?.Name ?? "", SearchFieldKind.Taxonomy, false, TaxonomyWeight, out _))
                     return false;
                 foreach (var tag in article.Tags ?? [])
-                    if (!Index(tag.Name, TaxonomyWeight)) return false;
-                if (!Index(article.Body, BodyWeight)) return false;
-                lengths[ordinal] = ArticleSearchTokens.DocumentLength(article.Body);
+                    if (!Index(tag.Name, SearchFieldKind.Taxonomy, false, TaxonomyWeight, out _)) return false;
+                if (!Index(article.Body, SearchFieldKind.Body, true, BodyWeight, out var bodyLength)) return false;
+                lengths[ordinal] = Math.Max(1, bodyLength);
                 TotalLength += lengths[ordinal];
 
                 if (_frequencies.Count > postingLimit - Pending.Count) return false;
-                foreach (var (hash, weight) in _frequencies)
+                foreach (var (key, weight) in _frequencies)
                 {
-                    ref var bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(Heads, hash, out var found);
+                    ref var bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(Heads, key, out var found);
                     if (!found)
                     {
                         if (Heads.Count > termLimit) return false;
                         bucket = new Bucket(-1, 0);
                     }
-                    if (_oddWeights.TryGetValue(hash, out var adjustment)) OddWeights.Add(Pending.Count, adjustment);
                     Pending.Add(new PendingPosting(new Posting(ordinal, weight), bucket.Head));
                     bucket = new Bucket(Pending.Count - 1, bucket.Count + 1);
                 }
             }
             return true;
 
-            bool Index(string text, int weight)
+            bool Index(string text, SearchFieldKind field, bool isMarkdown, int weight, out int sourceLen)
             {
+                sourceLen = 0;
                 remainingChars -= text.Length;
                 if (remainingChars < 0) return false;
                 var subtokenWeight = Math.Max(1, weight / 2);
-                if (sources is null)
-                    return ArticleSearchTokens.VisitIndexTokens(text, ct, (hash, exact) => Add(hash, exact ? weight : subtokenWeight));
-
-                return ArticleSearchTokens.VisitSources(text, ct, (hash, aliases) =>
-                {
-                    var source = sources.Resolve(hash, aliases);
-                    if (source is not { } key) return false;
-                    if (weight % 2 != 0 && !aliases.IsEmpty)
-                        CollectionsMarshal.GetValueRefOrAddDefault(_oddWeights, key, out _)++;
-                    return Add(key, weight);
-                });
+                return ArticleSearchTokens.VisitFieldTokens(text, field, isMarkdown, ct,
+                    (key, primary) => Add(key, primary ? weight : subtokenWeight), out sourceLen);
             }
 
-            bool Add(uint hash, int delta)
+            bool Add(SearchTermKey key, int delta)
             {
-                ref var frequency = ref CollectionsMarshal.GetValueRefOrAddDefault(_frequencies, hash, out _);
+                ref var frequency = ref CollectionsMarshal.GetValueRefOrAddDefault(_frequencies, key, out _);
                 if (frequency > int.MaxValue - delta) return false;
                 frequency += delta;
                 return _frequencies.Count <= termLimit;
@@ -347,9 +298,9 @@ public sealed partial class ArticleSearchIndex
 
         private static int Compare(int a, int b, int c, int d) => a != 0 ? a : b != 0 ? b : c != 0 ? c : d;
     }
-    private readonly record struct Term(uint Hash, int Start, int Count)
+    private readonly record struct Term(SearchTermKey Key, int Start, int Count)
     {
-        internal static readonly IComparer<Term> ByHash =
-            Comparer<Term>.Create(static (left, right) => left.Hash.CompareTo(right.Hash));
+        internal static readonly IComparer<Term> ByKey =
+            Comparer<Term>.Create(static (left, right) => left.Key.CompareTo(right.Key));
     }
 }

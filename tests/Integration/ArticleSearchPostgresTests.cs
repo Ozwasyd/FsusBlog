@@ -45,6 +45,44 @@ public sealed class ArticleSearchPostgresTests
             Assert.Equal(expected, index.Search(term, CancellationToken.None).Select(article => article.Id));
     }
 
+    [Fact]
+    public void UnifiedAnalyzerHandlesMarkdownBoundariesScTcTechnicalPunctuationAndVersionBinding()
+    {
+        var when = DateTimeOffset.UnixEpoch.AddYears(50);
+        var articles = new[]
+        {
+            new Article(1, 1, 1, 1, 1, "C# 与 .NET 10 实践", "说明 `ASP.NET` 和 `C#` 边界", when, when, when),
+            new Article(2, 1, 2, 1, 1, "C++ 23 原生解析器", "使用 C++ 编写零未定义行为解析器", when, when, when),
+            new Article(3, 1, 3, 1, 1, "普通 C 语言指针", "讲解标准 C 语法，不含井号或加号", when, when, when),
+            new Article(4, 1, 4, 1, 1, "软件架构与数据库", "介绍现代软件架构与数据库索引设计", when, when, when),
+            new Article(5, 1, 5, 1, 1, "開源社區文檔規範", "整理開源社區的文檔規範實踐", when, when, when),
+            new Article(6, 1, 6, 1, 1, "Markdown 边界",
+                "# VisibleTitleMark\n\n[可见链接词](https://hidden.invalid/url-only-45)\n\n<!-- comment-only-45 -->\n<div data-x=\"attr-only-45\">VisibleHtmlInner45</div>\n<script>var script_only_45 = 1;</script>\n\n```csharp\nFencedCodeMark45();\n```",
+                when, when, when)
+        };
+        var index = Assert.IsType<ArticleSearchIndex>(ArticleSearchIndex.Build(articles, CancellationToken.None));
+        Assert.Equal(WireLimits.SearchAnalyzerVersion, index.AnalyzerVersion);
+
+        // Technical punctuation isolation: C# vs C++ vs C, .NET vs ASP.NET
+        Assert.Equal([1], index.Search("C#", CancellationToken.None).Select(a => a.Id));
+        Assert.Equal([2], index.Search("C++", CancellationToken.None).Select(a => a.Id));
+        Assert.Equal([1], index.Search(".NET", CancellationToken.None).Select(a => a.Id));
+        Assert.Equal([1], index.Search("ASP.NET", CancellationToken.None).Select(a => a.Id));
+
+        // Bidirectional controlled SC/TC recall
+        Assert.Contains(4, index.Search("軟體架構", CancellationToken.None).Select(a => a.Id));
+        Assert.Contains(4, index.Search("數據庫", CancellationToken.None).Select(a => a.Id));
+        Assert.Contains(5, index.Search("开源社区", CancellationToken.None).Select(a => a.Id));
+
+        // Published Markdown visible content is searchable while hidden markup/URLs/comments/scripts are excluded
+        Assert.Equal([6], index.Search("VisibleTitleMark", CancellationToken.None).Select(a => a.Id));
+        Assert.Equal([6], index.Search("可见链接词", CancellationToken.None).Select(a => a.Id));
+        Assert.Equal([6], index.Search("VisibleHtmlInner45", CancellationToken.None).Select(a => a.Id));
+        Assert.Equal([6], index.Search("FencedCodeMark45", CancellationToken.None).Select(a => a.Id));
+        foreach (var hidden in new[] { "url-only-45", "comment-only-45", "attr-only-45", "script_only_45" })
+            Assert.Empty(index.Search(hidden, CancellationToken.None));
+    }
+
     [PostgresFact]
     public async Task DedicatedFas4RanksCurrentPublicFieldsAndFailsClosedAcrossWithdrawal()
     {
@@ -100,7 +138,7 @@ public sealed class ArticleSearchPostgresTests
             Assert.Equal([1, 2, 3, 4, 5, 6], union.Select(item => item.Id).Order());
             Assert.Equal(union, (await Query(client, PathFor("needle zeta"), ct)).Hits);
             Assert.Equal(7, Assert.Single((await Query(client, PathFor("公开页"), ct)).Hits).Id);
-            Assert.Equal(8, Assert.Single((await Query(client, PathFor("公开"), ct)).Hits).Id);
+            Assert.Equal([8, 7], (await Query(client, PathFor("公开"), ct)).Hits.Select(item => item.Id));
             Assert.Equal(Enumerable.Range(1006, 200).Reverse(), (await Query(client, PathFor("common"), ct)).Hits.Select(item => item.Id));
             var (compound, compoundGeneration, _) = await Query(client, PathFor("  ＢＡＴＣＨ-Item_7  "), ct);
             Assert.Equal([10, 12], compound.Select(item => item.Id));

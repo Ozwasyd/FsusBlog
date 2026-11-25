@@ -391,6 +391,7 @@ public static class WireLimits
     public const int SearchWideCorpusMaxPages = 512;
     public const int SearchWideCorpusTotalBytes = 268435456;
     public const int SearchQueryChars = 128;
+    public const int SearchAnalyzerVersion = 1;
     public const int SearchFas4Profile = 2;
     public const int PublicArticleHotMaxSize = 100;
     public const int RelatedReadingMaxItems = 6;

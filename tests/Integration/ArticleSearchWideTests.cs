@@ -286,6 +286,7 @@ public sealed class ArticleSearchWideTests
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData("public-generation-corpus-v1\0public-search-bm25-v2\0"u8);
+        hash.AppendData(Encoding.ASCII.GetBytes($"public-search-analyzer-v{WireLimits.SearchAnalyzerVersion}\0"));
         if (wide) hash.AppendData("public-search-bm25-wide-v1\0"u8);
         Span<byte> coordinate = stackalloc byte[sizeof(int) + 2 * sizeof(long)];
         BinaryPrimitives.WriteInt32LittleEndian(coordinate, snapshot.CorpusPageCount == 0 ? -1 : snapshot.CorpusPageCount);

@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="search-lexicon.json" LogicalName="SearchLexicon" />
+    <EmbeddedResource Include="search-sc-tc-map.json" LogicalName="SearchScTcMap" />
     <Using Include="System.Buffers" />
     <Using Include="System.Buffers.Binary" />
     <Using Include="System.Globalization" />

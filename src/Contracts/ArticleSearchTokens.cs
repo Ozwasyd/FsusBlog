@@ -1,173 +1,104 @@
-using System.Text.RegularExpressions;
-
 namespace FsusBlog.V2.Contracts;
+
+public readonly record struct SearchTermKey(ulong Hash64, string Term) : IComparable<SearchTermKey>
+{
+    public int CompareTo(SearchTermKey other)
+    {
+        var cmp = Hash64.CompareTo(other.Hash64);
+        return cmp != 0 ? cmp : string.CompareOrdinal(Term, other.Term);
+    }
+
+    public static SearchTermKey From(SearchToken token) => new(token.Key, token.Term);
+    public static SearchTermKey From(string term) => new(SearchTextAnalyzer.HashTerm64(term), term);
+}
 
 internal static class ArticleSearchTokens
 {
-    private const int MaxCjkSegment = 4096;
-    private const int MaxMeasuredBody = 256 * 1024;
-    internal const int AsciiMinPrefixLength = 3;
-    internal const int AsciiMaxPrefixLength = 12;
-    internal const int MaxAsciiSubtokens = 32;
-    private static readonly Regex Link = new(@"!?\[(?<text>.*?)\]\(.*?\)", RegexOptions.NonBacktracking);
-    private static readonly Regex Tag = new(@"<.*?>", RegexOptions.NonBacktracking);
+    internal const int AsciiMinPrefixLength = SearchTextAnalyzer.AsciiMinPrefixLength;
+    internal const int AsciiMaxPrefixLength = SearchTextAnalyzer.AsciiMaxPrefixLength;
+    internal const int MaxAsciiSubtokens = SearchTextAnalyzer.MaxAsciiSubtokens;
 
-    internal static (string Text, bool ExactIdentifier) NormalizeQuery(string text)
+    internal static AnalyzedQuery AnalyzeQuery(string text, CancellationToken ct) =>
+        SearchTextAnalyzer.AnalyzeQuery(text, ct);
+
+    internal static bool VisitFieldTokens(string text, SearchFieldKind field, bool isMarkdown, CancellationToken ct,
+        Func<SearchTermKey, bool, bool> visit, out int sourceLength)
     {
-        var normalized = text.Normalize(NormalizationForm.FormKC).AsSpan().Trim();
-        var exactIdentifier = IsCompoundIdentifier(normalized);
-        if (exactIdentifier && normalized.Length > WireLimits.SearchQueryChars) return ("", true);
-        Span<char> query = stackalloc char[WireLimits.SearchQueryChars + 1];
-        var length = 0;
-        foreach (var value in normalized)
+        if (isMarkdown)
         {
-            if (char.IsWhiteSpace(value))
-            {
-                if (length > 0 && query[length - 1] != ' ') query[length++] = ' ';
-                continue;
-            }
-            query[length++] = char.ToLowerInvariant(value);
-            if (length >= WireLimits.SearchQueryChars) break;
+            var (headings, body, code) = SearchTextAnalyzer.AnalyzeMarkdownBody(text, ct);
+            sourceLength = Math.Max(1, headings.SourceLength + body.SourceLength + code.SourceLength);
+            return EmitList(headings.Tokens, visit, ct) &&
+                   EmitList(body.Tokens, visit, ct) &&
+                   EmitList(code.Tokens, visit, ct);
         }
-        var trimmed = query[..length].TrimEnd();
-        return (trimmed.Length <= WireLimits.SearchQueryChars ? new string(trimmed) : "", exactIdentifier);
-    }
 
-    internal static IEnumerable<uint> Hashes(string text, CancellationToken ct)
-    {
-        var hashes = new List<uint>();
-        VisitTokens(text, ct, expandAscii: false, (hash, _) => { hashes.Add(hash); return true; });
-        return hashes;
-    }
+        var analyzed = SearchTextAnalyzer.AnalyzePlainField(text, field, SearchAnalysisMode.Index, 0, ct);
+        sourceLength = analyzed.SourceLength;
+        return EmitList(analyzed.Tokens, visit, ct);
 
-    internal delegate bool VisitSource(uint hash, ReadOnlySpan<uint> aliases);
-
-    internal static bool VisitIndexTokens(string text, CancellationToken ct, Func<uint, bool, bool> visit) =>
-        VisitSources(text, ct, (hash, aliases) =>
+        static bool EmitList(IReadOnlyList<SearchToken> tokens, Func<SearchTermKey, bool, bool> visit, CancellationToken ct)
         {
-            if (!visit(hash, true)) return false;
-            foreach (var alias in aliases)
-                if (!visit(alias, false)) return false;
+            for (var i = 0; i < tokens.Count; i++)
+            {
+                if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
+                var token = tokens[i];
+                var isPrimary = token.Kind == SearchTokenKind.Exact || token.Advance > 0;
+                if (!visit(SearchTermKey.From(token), isPrimary)) return false;
+            }
             return true;
-        });
+        }
+    }
 
-    internal static bool VisitSources(string text, CancellationToken ct, VisitSource visit) =>
-        VisitTokens(text, ct, expandAscii: true, visit);
-
-    private static bool VisitTokens(string text, CancellationToken ct, bool expandAscii, VisitSource visit)
+    internal static bool VisitFieldSources(string text, SearchFieldKind field, bool isMarkdown, CancellationToken ct,
+        Func<SearchTermKey?, ReadOnlySpan<SearchTermKey>, bool> visit, out int sourceLength)
     {
-        Span<uint> subtokens = expandAscii ? stackalloc uint[MaxAsciiSubtokens] : [];
-        for (var offset = 0; offset < text.Length;)
+        if (isMarkdown)
         {
-            ct.ThrowIfCancellationRequested();
-            if (char.IsAsciiLetterOrDigit(text[offset]))
+            var (headings, body, code) = SearchTextAnalyzer.AnalyzeMarkdownBody(text, ct);
+            sourceLength = Math.Max(1, headings.SourceLength + body.SourceLength + code.SourceLength);
+            return EmitGroups(headings.Tokens, visit, ct) &&
+                   EmitGroups(body.Tokens, visit, ct) &&
+                   EmitGroups(code.Tokens, visit, ct);
+        }
+
+        var analyzed = SearchTextAnalyzer.AnalyzePlainField(text, field, SearchAnalysisMode.Index, 0, ct);
+        sourceLength = analyzed.SourceLength;
+        return EmitGroups(analyzed.Tokens, visit, ct);
+
+        static bool EmitGroups(IReadOnlyList<SearchToken> tokens,
+            Func<SearchTermKey?, ReadOnlySpan<SearchTermKey>, bool> visit, CancellationToken ct)
+        {
+            var aliases = new List<SearchTermKey>(16);
+            var i = 0;
+            while (i < tokens.Count)
             {
-                var start = offset++;
-                while (offset < text.Length && char.IsAsciiLetterOrDigit(text[offset])) offset++;
-                var span = text.AsSpan(start, offset - start);
-                var fullHash = LocalSearchCorpus.HashAscii(span);
-                var expanded = expandAscii ? ExpandAscii(span, fullHash, subtokens) : 0;
-                if (!visit(fullHash, subtokens[..expanded])) return false;
-            }
-            else if (SearchLexicon.IsCjk(text[offset]))
-            {
-                var start = offset++;
-                while (offset < text.Length && SearchLexicon.IsCjk(text[offset])) offset++;
-                while (offset - start > MaxCjkSegment)
-                    if (!visit(LocalSearchCorpus.HashWord(text.AsSpan(start++, 1)), [])) return false;
-                foreach (var (at, width) in SearchLexicon.Segment(text, start, offset))
+                if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
+                var head = tokens[i];
+                var headPrimary = head.Kind == SearchTokenKind.Exact || head.Advance > 0;
+                if (!headPrimary)
                 {
-                    if (!visit(LocalSearchCorpus.HashWord(text.AsSpan(at, width)), [])) return false;
-                    for (var relative = 0; relative < width; relative++)
-                    {
-                        var longest = Math.Min(width - 1, width - relative);
-                        for (var part = 2; part <= longest; part++)
-                        {
-                            var candidate = text.AsSpan(at + relative, part);
-                            if (SearchLexicon.IsWord(candidate) && !visit(LocalSearchCorpus.HashWord(candidate), []))
-                                return false;
-                        }
-                    }
+                    if (!visit(null, [SearchTermKey.From(head)])) return false;
+                    i++;
+                    continue;
                 }
+                aliases.Clear();
+                var headKey = SearchTermKey.From(head);
+                var j = i + 1;
+                while (j < tokens.Count && tokens[j].Advance == 0 && tokens[j].Position == head.Position &&
+                       tokens[j].SourceStart == head.SourceStart && tokens[j].SourceEnd == head.SourceEnd &&
+                       tokens[j].Kind is SearchTokenKind.Prefix or SearchTokenKind.Subword or SearchTokenKind.ScriptAlias)
+                {
+                    var key = SearchTermKey.From(tokens[j]);
+                    if (!key.Equals(headKey)) aliases.Add(key);
+                    j++;
+                }
+                var span = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(aliases);
+                if (!visit(headKey, span)) return false;
+                i = j;
             }
-            else
-            {
-                if (!Rune.TryGetRuneAt(text, offset, out var scalar)) scalar = Rune.ReplacementChar;
-                offset += scalar.Utf16SequenceLength;
-                var unit = (char)scalar.Value;
-                if (scalar.Value > 0x20 && !char.IsPunctuation(unit) && !char.IsWhiteSpace(unit) &&
-                    !visit(LocalSearchCorpus.HashRune(scalar), []))
-                    return false;
-            }
+            return true;
         }
-        return true;
-    }
-
-    internal static int ExpandAscii(ReadOnlySpan<char> token, uint fullHash, Span<uint> destination)
-    {
-        if (token.Length < 2 || destination.Length == 0) return 0;
-        var count = 0;
-
-        var maxPrefix = Math.Min(AsciiMaxPrefixLength, token.Length - 1);
-        for (var length = AsciiMinPrefixLength; length <= maxPrefix; length++)
-            Add(destination, ref count, fullHash, LocalSearchCorpus.HashAscii(token[..length]));
-
-        var segmentStart = 0;
-        for (var i = 1; i <= token.Length; i++)
-        {
-            if (i < token.Length && !IsSubwordBoundary(token, i)) continue;
-            var segmentLength = i - segmentStart;
-            if (segmentLength >= 2 && segmentLength < token.Length)
-            {
-                var segment = token.Slice(segmentStart, segmentLength);
-                Add(destination, ref count, fullHash, LocalSearchCorpus.HashAscii(segment));
-                var segmentMaxPrefix = Math.Min(AsciiMaxPrefixLength, segmentLength - 1);
-                for (var length = AsciiMinPrefixLength; length <= segmentMaxPrefix; length++)
-                    Add(destination, ref count, fullHash, LocalSearchCorpus.HashAscii(segment[..length]));
-            }
-            segmentStart = i;
-        }
-
-        return count;
-
-        static void Add(Span<uint> target, ref int written, uint exactHash, uint hash)
-        {
-            if (hash == exactHash || written >= target.Length) return;
-            for (var i = 0; i < written; i++)
-                if (target[i] == hash) return;
-            target[written++] = hash;
-        }
-    }
-
-    private static bool IsSubwordBoundary(ReadOnlySpan<char> token, int index)
-    {
-        var previous = token[index - 1];
-        var current = token[index];
-        if (char.IsAsciiDigit(previous) != char.IsAsciiDigit(current)) return true;
-        if (char.IsAsciiLetterLower(previous) && char.IsAsciiLetterUpper(current)) return true;
-        if (char.IsAsciiLetterUpper(previous) && char.IsAsciiLetterUpper(current) &&
-            index + 1 < token.Length && char.IsAsciiLetterLower(token[index + 1])) return true;
-        return false;
-    }
-
-    internal static List<(string Prefix, uint Hash)>? ShortAsciiPrefixes(string normalizedQuery)
-    {
-        List<(string Prefix, uint Hash)>? prefixes = null;
-        for (var offset = 0; offset < normalizedQuery.Length;)
-        {
-            if (!char.IsAsciiLetterOrDigit(normalizedQuery[offset])) { offset++; continue; }
-            var start = offset++;
-            while (offset < normalizedQuery.Length && char.IsAsciiLetterOrDigit(normalizedQuery[offset])) offset++;
-            var length = offset - start;
-            if (length is <= 0 or >= AsciiMinPrefixLength) continue;
-            var span = normalizedQuery.AsSpan(start, length);
-            var duplicate = false;
-            if (prefixes is not null)
-                foreach (var (existing, _) in prefixes)
-                    if (existing.AsSpan().SequenceEqual(span)) { duplicate = true; break; }
-            if (!duplicate) (prefixes ??= []).Add((normalizedQuery.Substring(start, length), LocalSearchCorpus.HashAscii(span)));
-        }
-        return prefixes;
     }
 
     internal static int CountAsciiPrefixMatches(string text, ReadOnlySpan<char> prefix)
@@ -196,7 +127,7 @@ internal static class ArticleSearchTokens
             var segmentStart = 0;
             for (var i = 1; i <= token.Length; i++)
             {
-                if (i < token.Length && !IsSubwordBoundary(token, i)) continue;
+                if (i < token.Length && !SearchTextAnalyzer.IsSubwordBoundary(token, i)) continue;
                 var segmentLength = i - segmentStart;
                 if (segmentStart > 0 && segmentLength > prefix.Length &&
                     StartsWithLowerAscii(token.Slice(segmentStart, segmentLength), prefix))
@@ -221,64 +152,10 @@ internal static class ArticleSearchTokens
         }
     }
 
-    private static bool IsCompoundIdentifier(ReadOnlySpan<char> query)
+    internal static int DocumentLength(string body, CancellationToken ct = default)
     {
-        var hasDigit = false;
-        var separator = false;
-        var inSegment = false;
-        foreach (var unit in query)
-        {
-            if (char.IsAsciiLetterOrDigit(unit))
-            {
-                hasDigit |= char.IsAsciiDigit(unit);
-                inSegment = true;
-            }
-            else if (inSegment && (unit is '-' or '_'))
-            {
-                separator = true;
-                inSegment = false;
-            }
-            else return false;
-        }
-        return hasDigit && separator && inSegment;
-    }
-
-    internal static int CountIdentifier(string text, string query, CancellationToken ct)
-    {
-        var value = text.AsSpan();
-        var count = 0;
-        for (var start = 0; start <= value.Length - query.Length;)
-        {
-            ct.ThrowIfCancellationRequested();
-            var match = value[start..].IndexOf(query, StringComparison.OrdinalIgnoreCase);
-            if (match < 0) break;
-            var first = start + match;
-            var end = first + query.Length;
-            if ((first == 0 || !IdentifierUnit(value[first - 1])) &&
-                (end == value.Length || !IdentifierUnit(value[end])) && Ascii.IsValid(value[first..end]))
-                count++;
-            start = end;
-        }
-        return count;
-
-        static bool IdentifierUnit(char unit) => char.IsAsciiLetterOrDigit(unit) || unit is '-' or '_';
-    }
-
-    internal static int DocumentLength(string body)
-    {
-        if (body.Length > MaxMeasuredBody) body = body[..MaxMeasuredBody];
-        if (body.Contains('[')) body = Link.Replace(body, static match => match.Groups["text"].Value);
-        if (body.Contains('<')) body = Tag.Replace(body, "");
-
-        // The production index normalized visible Markdown whitespace and then counted its words.
-        var words = 1;
-        var inWord = false;
-        foreach (var value in body)
-        {
-            var boundary = char.IsWhiteSpace(value) || value is '`' or '#' or '>' or '*' or '_' or '~' or '-';
-            if (!boundary && !inWord) words++;
-            inWord = !boundary;
-        }
-        return words;
+        var (headings, prose, code) = SearchTextAnalyzer.AnalyzeMarkdownBody(body ?? "", ct);
+        return Math.Max(1, headings.SourceLength + prose.SourceLength + code.SourceLength);
     }
 }
+

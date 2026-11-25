@@ -266,6 +266,13 @@ func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, publish
 		}
 	}
 	_, _ = fmt.Fprintf(sum, "public-search-bm25-v%d\x00", searchProfile)
+	if encodedAnalyzer, present := w.wire.Limits["SearchAnalyzerVersion"]; present {
+		var analyzerVersion int
+		if err := json.Unmarshal(encodedAnalyzer, &analyzerVersion); err != nil || analyzerVersion < 1 {
+			return errors.New("unknown search analyzer version")
+		}
+		_, _ = fmt.Fprintf(sum, "public-search-analyzer-v%d\x00", analyzerVersion)
+	}
 	appendNumber := func(value int) {
 		var buf [4]byte
 		binary.LittleEndian.PutUint32(buf[:], uint32(value))
