@@ -18,6 +18,32 @@ ui_pkg="$repo/src/Web/node_modules/@ozwasyd/element-plus"
   echo 'Install the locked Web dependencies (including @ozwasyd/element-plus) first.' >&2
   exit 2
 }
+# The npm payload has no gitHead. Bind the installed identity and frozen lock
+# entry to the source receipt shared with the vendored FsusUI Markdown code.
+ui_coordinates=$(node - "$ui_pkg/package.json" <<'NODE'
+const fs = require('node:fs');
+const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
+const installed = readJson(process.argv[2]);
+const upstream = readJson('src/Server/Authoring/FsusMarkdown/UPSTREAM.json');
+const web = readJson('src/Web/package.json');
+const id = `${installed.name}@${installed.version}`;
+const lock = fs.readFileSync('src/Web/pnpm-lock.yaml', 'utf8');
+const packageResolution = lock.split('\n').findIndex((line) => line === `  '${id}':`);
+const integrity = packageResolution < 0 ? undefined
+  : /^    resolution: \{integrity: (sha512-[A-Za-z0-9+/]{86}==)(?:[,}])/.exec(lock.split('\n')[packageResolution + 1])?.[1];
+if (installed.name !== '@ozwasyd/element-plus' || installed.name !== upstream.package ||
+    installed.version !== upstream.version || installed.version !== web.dependencies?.[installed.name] ||
+    !integrity || integrity !== upstream.packageIntegrity ||
+    upstream.repository !== 'https://github.com/Ozwasyd/FsusUI' ||
+    !/^[0-9a-f]{40}$/.test(upstream.commit) ||
+    (installed.gitHead != null && installed.gitHead !== upstream.commit)) {
+  console.error(`FsusUI release source receipt does not match the installed and locked package: ${id}`);
+  process.exit(2);
+}
+console.log(`${id} ${upstream.commit}`);
+NODE
+)
+read -r ui_pkg_id ui_commit <<< "$ui_coordinates"
 wasm="$ui_pkg/es/wasm/dist"
 wasm_stems=(ep_wasm markdown_basic markdown_simd)
 wasm_files=(ep_wasm.mjs ep_wasm.wasm markdown_basic.js markdown_basic.wasm markdown_simd.js markdown_simd.wasm)
@@ -51,9 +77,8 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 rev=$(git rev-parse HEAD)
-ui_pkg_id=$(node -p "const p = require('$ui_pkg/package.json'); p.name + '@' + p.version")
 {
-  printf 'started_at=%s\nfsusblog_commit=%s\nfsusui_package=%s\n' "$(date -u +%FT%TZ)" "$rev" "$ui_pkg_id"
+  printf 'started_at=%s\nfsusblog_commit=%s\nfsusui_package=%s\nfsusui_commit=%s\n' "$(date -u +%FT%TZ)" "$rev" "$ui_pkg_id" "$ui_commit"
   printf 'build_host=%s\n' "$(uname -srm)"
   "$dotnet" --info
   node --version
@@ -92,7 +117,7 @@ for name in "${wasm_stems[@]}"; do
 done
 cp -- "$scratch/source/deploy"/{nginx.conf.example,Caddyfile,Caddyfile.admin,README.md,fsusblog-daily-checkpoint.service,fsusblog-daily-checkpoint.timer} "$scratch/package/"
 {
-  printf 'fsusblog_commit=%s\nfsusui_package=%s\n' "$rev" "$ui_pkg_id"
+  printf 'fsusblog_commit=%s\nfsusui_package=%s\nfsusui_commit=%s\n' "$rev" "$ui_pkg_id" "$ui_commit"
   printf 'server_rid=%s\nheading_parser=%s\n' "$server_rid" "$heading_parser"
   printf 'web=web/\nserver=server/FsusBlog.V2.Server.dll\ncli=cli/FsusBlog.V2.Cli.dll\ndictionary=search-lexicon.fsdl\n'
 } > "$scratch/package/release.txt"
