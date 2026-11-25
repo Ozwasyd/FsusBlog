@@ -7,7 +7,7 @@ FsusBlog v2 is a clean-slate deployment-oriented content system built on .NET 10
 - Check `git status` before editing. Respect existing working-tree changes; never overwrite, revert, reformat, or commit unrelated files. Review or planning requests do not automatically authorize implementation.
 - Close the loop within the requested scope: implement, verify, fix regressions introduced here, and update matching active documents. Do not invent process for small edits.
 - **Pre-release development posture**: V2 is in pre-release development with no production migration obligation. Edit the final schema directly in `src/Cli/Schema/01..04*.sql` and `src/Storage/`, and rebuild development databases via `FsusBlog.V2.Cli plan` and `apply`. Do not add dev-era single-table incremental schema-patch CLI commands, legacy environment-variable fallbacks, or V1 data-migration code. Treat sibling `../FsusBlogV1` strictly as read-only static reference.
-- **Phase commit and push cadence**: After completing and verifying each distinct phase, stage only the task's changes, create a clean atomic commit (every commit must build and pass its verification tier), and push to the current tracking branch. Never force-push or rewrite published history.
+- **Branch-and-PR delivery workflow**: Never commit or push directly to `main`. Before editing, sync with `origin/main` and checkout a new task-scoped branch (e.g., `fix/...`, `feat/...`, `docs/...`, `chore/...`). After completing and verifying each distinct phase, stage only the task's changes, create clean atomic commits (every commit must build and pass its local verification tier), push the branch to `origin`, and open a Pull Request against `main` (prefer `gh`). Wait until all required GitHub Actions CI checks (`source`, `native-stack`, `ci / required`) pass green, then merge the PR, delete the merged branch both remotely and locally, and fast-forward local `main`. Never force-push, rewrite published history, or merge with failing/incomplete CI checks.
 
 ## Load context on demand
 
@@ -34,7 +34,7 @@ Read only the entry points, source files, and tests relevant to the current task
 
 ## Risk-tiered verification and delivery
 
-Run checks proportional to the blast radius before each phase commit and push:
+Run checks proportional to the blast radius before committing and pushing the PR branch:
 
 - **C# changes**: `dotnet restore FsusBlog.V2.slnx --configfile NuGet.Config --locked-mode` (when project/dependencies change), `dotnet build FsusBlog.V2.slnx -c Release --no-restore` (0 warnings, 0 errors), `dotnet test tests/Core/FsusBlog.V2.Core.Tests.csproj -c Release --no-build`, and `dotnet test tests/Platform/FsusBlog.V2.Platform.Tests.csproj -c Release --no-build`.
 - **Wire / `src/Contracts/` changes**: `node tools/protocol-generate.mjs --check` and `./tools/protocol-test.sh`.
@@ -44,7 +44,7 @@ Run checks proportional to the blast radius before each phase commit and push:
 
 Always execute PostgreSQL and browser checks against isolated, disposable databases and directories with guaranteed cleanup (`trap ... EXIT`); never target V1 or production data. Never weaken tests, fixtures, or thresholds to force a pass, and never present compilation, static checks, mocks, or historical screenshots as current end-to-end or visual acceptance.
 
-On delivery, concisely state what changed, exact verification commands and results, any un-run environment-gated checks (e.g., Caddy TLS, PDF renderer, Nightly scale), and the pushed commit SHA.
+On delivery, concisely state what changed, exact local verification commands and results, any un-run environment-gated checks (e.g., Linux ARM64 plugin worker, PDF renderer, Nightly scale), the PR URL and CI status, and the merged commit SHA.
 
 ## Maintaining this file
 
