@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { decodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticleSummary } from '../../src/Contracts/article-summary.ts'
 import { api } from '../../src/Contracts/client.ts'
 import { decodePropertyValueBatchReceipt } from '../../src/Contracts/property-values.ts'
@@ -788,6 +788,88 @@ await isolated.withBrowserEvidence(
       const staleCursor = new URL(preWithdrawCursorUrl).searchParams.get('cursor')
       const staleV2 = await nativeFetch(`${origin}${WireRoutes.PublicSearchV2}?q=${encodeURIComponent('Browser fixture')}&size=10&cursor=${encodeURIComponent(staleCursor)}`)
       assert.equal(staleV2.status, 409)
+
+      // 1. Controlled generation change in browser: stale page-2 cursor automatically restarts AT MOST ONCE at page 1,
+      // syncs route URL cleanly without a 3rd fetch, and shows updated page-1 results + quiet notice.
+      const restartEvents = []
+      const onRestartResp = response => {
+        const url = new URL(response.url())
+        if (url.origin === origin && url.pathname === WireRoutes.PublicSearchV2) {
+          restartEvents.push({ status: response.status(), hasCursor: url.searchParams.has('cursor') })
+        }
+      }
+      mobile.on('response', onRestartResp)
+      try {
+        await visitor.goto(preWithdrawCursorUrl)
+        await visible(visitor.getByText('Published articles changed. Showing updated results from page 1.'))
+        await visible(loc.exactText(visitor, 'Page 1'))
+        await visitor.waitForURL(u => u.pathname === '/search' && u.searchParams.get('q') === 'Browser fixture' &&
+          !u.searchParams.has('page') && !u.searchParams.has('cursor'))
+        await visitor.waitForTimeout(150)
+        assert.deepEqual(restartEvents, [
+          { status: 409, hasCursor: true },
+          { status: 200, hasCursor: false },
+        ], 'Controlled generation change must restart exactly once from page 1 without duplicate fetches')
+        assert(await visitor.locator('ol.article-list h2 a').count() > 0)
+        await screen(visitor, 'search-restarted-mobile-dark')
+      } finally {
+        mobile.off('response', onRestartResp)
+      }
+
+      // 2. Repeated consecutive generation changes stop after 1 retry (2 requests total) and show actionable recovery UI with zero obsolete results.
+      const searchV2Matcher = url => url.origin === origin && url.pathname === WireRoutes.PublicSearchV2
+      const errorPayload = new Uint8Array(wire.WireLayouts.ErrorBytes)
+      errorPayload[0] = 1
+      errorPayload[1] = 1
+      new DataView(errorPayload.buffer).setInt32(wire.WireLayouts.ErrorStatusOffset, 409, true)
+      const utf8 = new TextEncoder()
+      errorPayload.set(utf8.encode('The public search index changed. Start again from the first page.').subarray(0, 255), wire.WireLayouts.ErrorMessageOffset)
+      errorPayload.set(utf8.encode('search_generation_changed').subarray(0, 255), wire.WireLayouts.ErrorDetailsOffset)
+      const doubleConflictBody = Buffer.from(encodeFrame(FrameType.ApiError, errorPayload))
+      let doubleConflictCalls = 0
+      const doubleConflictHandler = async route => {
+        doubleConflictCalls++
+        await route.fulfill({
+          status: 409,
+          headers: { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' },
+          body: doubleConflictBody,
+        })
+      }
+      await mobile.route(searchV2Matcher, doubleConflictHandler)
+      try {
+        await visitor.goto(preWithdrawCursorUrl)
+        await visible(visitor.getByText('Published articles have changed. Start from the first page to see current search results.'))
+        await visible(loc.exactLink(visitor, 'First page'))
+        await visitor.waitForTimeout(150)
+        assert.equal(doubleConflictCalls, 2, 'Two consecutive 409 responses must stop after a single restart without looping')
+        assert.equal(await visitor.locator('ol.article-list li').count(), 0, 'Actionable generation error must never display obsolete hits')
+        await screen(visitor, 'search-generation-error-mobile-dark')
+      } finally {
+        await mobile.unroute(searchV2Matcher, doubleConflictHandler)
+      }
+
+      // 3. Corrupt AEDS response fails closed on the first request without auto-retrying or showing obsolete hits.
+      let corruptCalls = 0
+      const corruptHandler = async route => {
+        corruptCalls++
+        await route.fulfill({
+          status: 200,
+          headers: { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' },
+          body: Buffer.from([0xde, 0xad, 0xbe, 0xef]),
+        })
+      }
+      await mobile.route(searchV2Matcher, corruptHandler)
+      try {
+        await visitor.goto(`${origin}/search?q=corruptprobe`)
+        await visible(visitor.getByRole('alert').filter({ hasText: 'Could not load the articles.' }))
+        await visible(loc.exactButton(visitor, 'Retry'))
+        await visitor.waitForTimeout(150)
+        assert.equal(corruptCalls, 1, 'Corrupt AEDS payload must never trigger an automatic retry')
+        assert.equal(await visitor.locator('ol.article-list li').count(), 0)
+      } finally {
+        await mobile.unroute(searchV2Matcher, corruptHandler)
+      }
+      observations.push('Browser generation-change recovery restarted cleanly once at page 1, halted on repeated 409 with actionable UI and zero obsolete results, and failed closed without retry on corrupt AEDS bytes.')
     }
     await search(visitor, bodyTerm)
     await visible(loc.exactText(visitor, 'No articles match your search.'))

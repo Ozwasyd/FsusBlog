@@ -66,10 +66,12 @@ const searchRelaxedCount = ref(0)
 const searchHasMore = ref(false)
 const searchUsesCursors = ref(false)
 const searchCursorIssue = ref<'expired' | 'generation' | null>(null)
+const searchGenerationRestarted = ref(false)
 const searchBudgetExceeded = ref(false)
 const archiveTotal = ref(0)
 const cursorExpired = ref(false)
 const previousByCursor = new Map<string, string | undefined>()
+let pendingRestartSync: { query: string; sort: PublicSearchSort; reload: number } | null = null
 const priorCursor = computed(() => cursor.value && previousByCursor.get(cursor.value))
 const previousPageQuery = computed(() => page.value > 2 && priorCursor.value
   ? { page: page.value - 1, cursor: priorCursor.value }
@@ -106,7 +108,13 @@ const compactHotViewport = useMediaQuery('(max-width: 37.99rem)')
 const visibleHotArticles = computed(() => hotArticles.value.slice(0, compactHotViewport.value ? 3 : 5))
 const readCount = new Intl.NumberFormat('en')
 
-watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, reload], async ([search, home, kind, categoryOrTagId, ordinal, token, text, sort], _, cleanup) => {
+watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, reload], async ([search, home, kind, categoryOrTagId, ordinal, token, text, sort, reloadCount], _, cleanup) => {
+  if (search && ordinal === 1 && token === undefined && pendingRestartSync &&
+      pendingRestartSync.query === text && pendingRestartSync.sort === sort && pendingRestartSync.reload === reloadCount) {
+    pendingRestartSync = null
+    return
+  }
+  pendingRestartSync = null
   const request = new AbortController()
   cleanup(() => request.abort())
   articles.value = []
@@ -119,6 +127,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, 
   searchHasMore.value = false
   searchUsesCursors.value = false
   searchCursorIssue.value = null
+  searchGenerationRestarted.value = false
   searchBudgetExceeded.value = false
   archiveTotal.value = 0
   filter.value = undefined
@@ -142,6 +151,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, 
     if (search) {
       const res = await localSearch.search(text, request.signal, ordinal, pageSize, sort, currentCursor)
       if (!request.signal.aborted) {
+        if (res.restartedFromGenerationChange) previousByCursor.clear()
         searchHits.value = res.items
         articles.value = [...res.items]
         nextCursor.value = res.nextCursor
@@ -151,9 +161,15 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, 
         searchRelaxedCount.value = res.relaxedCount
         searchHasMore.value = res.hasMore
         searchUsesCursors.value = res.usesCursors
+        searchGenerationRestarted.value = res.restartedFromGenerationChange === true
         if (res.nextCursor) {
           if (previousByCursor.size >= 100) previousByCursor.clear()
-          previousByCursor.set(res.nextCursor, token)
+          previousByCursor.set(res.nextCursor, res.restartedFromGenerationChange ? undefined : token)
+        }
+        if (res.restartedFromGenerationChange && (ordinal > 1 || token !== undefined)) {
+          loading.value = false
+          pendingRestartSync = { query: text, sort, reload: reloadCount }
+          void router.replace({ name: 'search', query: searchRouteQuery(text, sort) })
         }
       }
       return
@@ -260,6 +276,9 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
           </RouterLink>
         </nav>
       </div>
+      <p v-if="!loading && !failed && !searchCursorIssue && !searchBudgetExceeded && !searchRouteTooLong && query && searchGenerationRestarted" class="muted search-relaxed-notice" role="status">
+        {{ t('reading.searchGenerationRestarted') }}
+      </p>
       <p v-if="!loading && !failed && !searchCursorIssue && !searchBudgetExceeded && !searchRouteTooLong && query && searchPrimaryCount === 0 && searchRelaxedCount > 0" class="muted search-relaxed-notice" role="status">
         {{ t('reading.searchRelaxedNotice') }}
       </p>
@@ -286,7 +305,8 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
     </template>
     <template v-else-if="searchCursorIssue">
       <p role="status">{{ t(searchCursorIssue === 'generation' ? 'reading.searchGenerationChanged' : 'reading.searchCursorExpired') }}</p>
-      <RouterLink :to="{ name: 'search', query: searchRouteQuery(query, searchSort) }">{{ t('reading.firstPage') }}</RouterLink>
+      <RouterLink v-if="page > 1 || cursor" :to="{ name: 'search', query: searchRouteQuery(query, searchSort) }">{{ t('reading.firstPage') }}</RouterLink>
+      <ElButton v-else class="retry" @click="reload++">{{ t('reading.retry') }}</ElButton>
     </template>
     <template v-else-if="searchBudgetExceeded">
       <ElAlert :title="t('reading.searchBudgetExceeded')" type="error" :closable="false" show-icon />

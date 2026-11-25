@@ -290,6 +290,34 @@ public sealed record SearchQueryPlan(
     private static SearchQueryPlan Empty(string normalized) =>
         new(SearchScoringProfile.ProfileVersion, SearchTextAnalyzer.Version, normalized, [], [], [], [], false, false, true);
 
+    /// <summary>
+    /// Builds a deterministic canonical cache key for this analyzed query plan (#50).
+    /// Binds versions, emptiness/overlong-identifier state, normalized text, concepts (including exact form), and quoted phrases.
+    /// </summary>
+    public string BuildCanonicalCacheKey()
+    {
+        var sb = new StringBuilder(NormalizedText.Length + 64);
+        sb.Append(ProfileVersion).Append('\0')
+            .Append(AnalyzerVersion).Append('\0')
+            .Append(IsEmpty ? '1' : '0')
+            .Append(IsOverlongExactIdentifier ? '1' : '0')
+            .Append(HasStrictIdentifier ? '1' : '0')
+            .Append('\0')
+            .Append(NormalizedText);
+        foreach (var concept in ContentConcepts)
+        {
+            sb.Append('\u001F').Append(concept.IdentityKey);
+            foreach (var step in concept.Steps)
+            {
+                if (step.DiffersFromExactForm)
+                    sb.Append('=').Append(step.ExactFormTerm);
+            }
+        }
+        foreach (var phrase in QuotedPhrases)
+            sb.Append('\u001E').Append(phrase.RawText);
+        return sb.ToString();
+    }
+
     private static string StripSurroundingQuotes(string s)
     {
         if (s.Length >= 2 && ((s[0] == '"' && s[^1] == '"') || (s[0] == '“' && s[^1] == '”')))

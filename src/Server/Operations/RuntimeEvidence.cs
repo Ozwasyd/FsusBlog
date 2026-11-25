@@ -45,6 +45,9 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
     private int _pending;
     private int _activePeak;
     private int _pendingPeak;
+    private PublicSearchCache? _searchCache;
+
+    internal void RegisterSearchCache(PublicSearchCache cache) => Volatile.Write(ref _searchCache, cache);
 
     internal RuntimeEvidence(string directory, string output, IHttpContextAccessor http, bool captureSlowRequests = false)
     {
@@ -220,10 +223,29 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
             coldPending = Volatile.Read(ref _pending), coldActive = Volatile.Read(ref _active),
             coldPendingPeak = Volatile.Read(ref _pendingPeak), coldActivePeak = Volatile.Read(ref _activePeak),
             coldRenders = Interlocked.Read(ref _renders),
-            refreshes = Interlocked.Read(ref _refreshes), projectionBuilds = Interlocked.Read(ref _rebuilt)
+            refreshes = Interlocked.Read(ref _refreshes), projectionBuilds = Interlocked.Read(ref _rebuilt),
+            searchCache = Volatile.Read(ref _searchCache) is { } sc ? FormatSearchCache(sc.SnapshotStats()) : null
         }));
         _output.Flush();
     }
+
+    private static object FormatSearchCache(SearchResultCacheStats stats) => new
+    {
+        hits = stats.Hits,
+        misses = stats.Misses,
+        coalescedWaiters = stats.CoalescedWaiters,
+        executions = stats.Executions,
+        cancellations = stats.Cancellations,
+        deadlineExpirations = stats.DeadlineExpirations,
+        generationRestarts = stats.GenerationRestarts,
+        rejectedWork = stats.RejectedWork,
+        evictions = stats.Evictions,
+        generationEvictions = stats.GenerationEvictions,
+        retainedBytes = stats.RetainedBytes,
+        entryCount = stats.EntryCount,
+        inFlightCount = stats.InFlightCount,
+        activeWaiters = stats.ActiveWaiters
+    };
 
     private static Dictionary<string, long> Counts(long[] values)
     {

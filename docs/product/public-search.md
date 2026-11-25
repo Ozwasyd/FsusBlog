@@ -8,6 +8,7 @@
 
 - `FSUSBLOG_PUBLIC_SEARCH_MODE` 控制公开检索路由策略，支持 `server`（默认）、`auto` 与 `local`（非法值启动即失败）：
   - **`server`（默认，#49）**：省略页面覆盖标记（或显式设 `server`），前端直连服务端 `/api/v2/public/search.aeds`（AEDS `33081`），仅按显式提交发送有界单次查询请求，返回当前页命中、精确/下界计数、部分匹配提示、安全纯文本高亮摘要与代次绑定游标，**零搜索 Worker 启动、零紧凑/宽语料分片下载、零搜索 IndexedDB 写入**，且不依赖浏览器 `Worker`、`indexedDB` 或 `navigator.locks`（详见 [公开 FAS4 服务端检索](fas4-search.md)）。
+  - **代次变更安全恢复（#50）**：在服务端检索遇到明确的 `409 search_generation_changed`（或显式启用紧凑本地检索时在最终代次 `HEAD` 校验遇 `409`）时，前端（[`localSearch.ts`](../../src/Web/src/localSearch.ts)、[`PublicListing.vue`](../../src/Web/src/views/PublicListing.vue)）立即丢弃过期游标/本地分片并在原请求截止时间内**至多自动重试一次**，统一从第 1 页重新开始并同步地址栏至第 1 页（绝不混拼新旧代次分页），同时展示轻提示；若连续第二次仍发生代次变更则立即停止重试并展示可操作的重置/重试状态（绝不展示过期结果、绝不形成重试死循环）。损坏帧/分片（`ProtocolError`）、篡改或过期游标（`400 search_cursor_invalid`）、鉴权失败（`401`/`403`）、预算超限（`503`）及普通传输错误均与安全代次重启严格隔离，直接 fail-closed，不静默回落或自动重试。
   - **`auto`（显式 opt-in）**：通过 `<meta name="fsus-public-search-mode" content="auto">` 指示前端按需启用客户端分片检索——中小语料使用紧凑档 FSPK v4 本地分片（冷首查需下载全站紧凑分片）；紧凑档超出预算返回 `503` 时切换至已启用的宽语料分片；宽语料未启用或存储/Worker 不可用时，在当前 `/search` 周期内回落至零数据库查询的服务端 V2 检索并释放 Worker（但宽档数据损坏或撤回 `409` 严格 fail-closed 拒绝，绝不静默回落）。
   - **`local`（显式 opt-in）**：通过 `<meta name="fsus-public-search-mode" content="local">` 强制仅走客户端分片检索路径（依赖浏览器 Web Worker，冷首查需下载完整分片并在展示结果前经网络 `HEAD` 复核当前公开代次；因此 `local`/`auto` **并非离线可用搜索**，而是以客户端首次下载与存储成本换取热会话本地执行）。
 - `FSUSBLOG_WIDE_SEARCH_CORPUS` **默认开启**（可显式设为 `false` 关闭），为显式启用 `auto`/`local` 时的 25,601 至 100,000 篇公开文章构建离线暂存宽语料分片。

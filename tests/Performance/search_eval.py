@@ -724,6 +724,7 @@ def run_paired_baseline(
                     "queryPass": server_ref["queryPass"],
                     **({"v2PayloadAndSnippets": server_ref["v2PayloadAndSnippets"]} if "v2PayloadAndSnippets" in server_ref else {}),
                     **({"broadCorpusPruning": server_ref["broadCorpusPruning"]} if "broadCorpusPruning" in server_ref else {}),
+                    **({"cacheSensitivity": server_ref["cacheSensitivity"]} if "cacheSensitivity" in server_ref else {}),
                     "repeatedHot": server_ref["repeatedHot"],
                     "concurrent": server_ref["concurrent"],
                     "cancellation": server_ref["cancellation"],

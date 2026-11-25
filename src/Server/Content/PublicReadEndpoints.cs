@@ -6,6 +6,13 @@ internal static class PublicReadEndpoints
 
     internal static void Map(WebApplication app, SiteCapabilities capabilities, Publications publications, bool publicMediaEnabled)
     {
+        var searchCache = app.Services.GetService<PublicSearchCache>();
+        if (searchCache is null)
+        {
+            searchCache = new PublicSearchCache();
+            app.Lifetime.ApplicationStopping.Register(searchCache.Dispose);
+        }
+
         app.MapQueryGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) =>
             PublicList(ctx, publications, "home", page, size));
         app.MapQueryGet(WireRoutes.PublicArchive, (HttpContext ctx, int page, int size) =>
@@ -26,7 +33,7 @@ internal static class PublicReadEndpoints
                 ? ServerHttp.Error(ctx, 404, "Article not found.", "article_not_found")
                 : ServerHttp.Frame(frame);
         });
-        app.MapQueryGet(WireRoutes.PublicSearch, (HttpContext ctx) =>
+        app.MapQueryGet(WireRoutes.PublicSearch, async (HttpContext ctx) =>
         {
             var keyword = ServerHttp.Query(ctx, "q", 256)?.Trim();
             if (string.IsNullOrEmpty(keyword)) return ServerHttp.Error(ctx, 400, "A search term is required.");
@@ -50,14 +57,22 @@ internal static class PublicReadEndpoints
                 size is < 1 or > 100 || sizeText != size.ToString(CultureInfo.InvariantCulture)))
                 return ServerHttp.Error(ctx, 400, "Invalid search page size.");
             var snapshot = ServerHttp.Snapshot(ctx, publications);
-            var result = snapshot.SearchPage(keyword, sort, page, size, ctx.RequestAborted);
+            (byte[] Bytes, int Total)? result;
+            try
+            {
+                result = await searchCache.SearchFas4Async(publications, snapshot, keyword, sort, page, size, paginated, ctx.RequestAborted);
+            }
+            catch (PublicUnavailableException)
+            {
+                ctx.Response.Headers.Remove(WireHeaders.SearchIndexGeneration);
+                throw;
+            }
             ServerHttp.RequireCurrentSnapshot(ctx, publications, snapshot);
             if (result is not { } hit) return ServerHttp.Error(ctx, 503, "The article search projection is unavailable.");
             var reportedTotal = paginated ? Math.Min(hit.Total, ArticleSearchIndex.MaxPaginatedResults) : hit.Total;
-            ctx.Response.Headers[WireHeaders.SearchTotal] = reportedTotal.ToString(CultureInfo.InvariantCulture);
-            return ServerHttp.Frame(hit.Bytes);
+            return new CurrentSearchFrame(snapshot, publications, hit.Bytes, reportedTotal.ToString(CultureInfo.InvariantCulture));
         });
-        app.MapQueryGet(WireRoutes.PublicSearchV2, (HttpContext ctx) =>
+        app.MapQueryGet(WireRoutes.PublicSearchV2, async (HttpContext ctx) =>
         {
             if (!ctx.Request.Query.TryGetValue("q", out var qValues) || qValues.Count != 1 || qValues[0] is not { } rawQ)
                 throw PublicSearchFailure.InvalidQuery();
@@ -97,9 +112,18 @@ internal static class PublicReadEndpoints
 
             var cursor = ServerHttp.ReadSearchCursor(ctx);
             var snapshot = ServerHttp.Snapshot(ctx, publications);
-            var frame = snapshot.SearchV2(keyword, sort, size, cursor, ctx.RequestAborted);
+            byte[] frame;
+            try
+            {
+                frame = await searchCache.SearchV2Async(publications, snapshot, keyword, sort, size, cursor, ctx.RequestAborted);
+            }
+            catch (PublicUnavailableException)
+            {
+                ctx.Response.Headers.Remove(WireHeaders.SearchIndexGeneration);
+                throw;
+            }
             ServerHttp.RequireCurrentSnapshot(ctx, publications, snapshot);
-            return ServerHttp.Frame(frame);
+            return new CurrentSearchFrame(snapshot, publications, frame, TotalHeader: null);
         });
 
         if (capabilities.WideSearchCorpus)
@@ -195,6 +219,19 @@ internal static class PublicReadEndpoints
             ? Results.Text(SiteLocale.Text(SiteLocale.Select(ctx), "reading.articleMissing"), ServerHttp.TextContentType, statusCode: 404)
             : ServerHttp.Error(ctx, 404, "Article not found.");
         await missing.ExecuteAsync(ctx);
+    }
+
+    internal sealed record CurrentSearchFrame(PublicSnapshot Snapshot, Publications Publications, byte[] Bytes, string? TotalHeader) : IResult
+    {
+        public Task ExecuteAsync(HttpContext context)
+        {
+            ServerHttp.RequireCurrentSnapshot(context, Publications, Snapshot);
+            context.RequestAborted.ThrowIfCancellationRequested();
+            ServerHttp.NoStore(context);
+            if (TotalHeader is not null)
+                context.Response.Headers[WireHeaders.SearchTotal] = TotalHeader;
+            return ServerHttp.Frame(Bytes).ExecuteAsync(context);
+        }
     }
 
     internal sealed record CurrentSearchCorpusPatch(PublicSnapshot Snapshot, Publications Publications, string TargetDigest, byte[] Bytes) : IResult
