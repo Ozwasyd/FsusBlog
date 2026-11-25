@@ -10,9 +10,10 @@ import * as search from './search-form-fixture.mjs'
 const fixtureCount = 26_002
 const deepPage = 2_601
 const deepUrl = `/search?q=fixture&page=${deepPage}`
-// Local IDF uses each FSPK page. The two-document tail ranks first. Article 12's
-// category and tag lengthen it, leaving article 201 and 12 at the end of the ranking.
-const deepIds = [201, 12]
+// Global IDF across all sealed FSPK pages ties articles with identical document lengths in
+// descending publication order. Article 12's category and tag lengthen its stored document
+// length, leaving articles 1 and 12 at the end of the ranking.
+const deepIds = [1, 12]
 const withdrawnQuery = '２６００２'
 const cacheName = 'fsusblog-v2-wide-search-v1'
 const timeout = 60_000
