@@ -92,16 +92,21 @@ public sealed class ArticleSearchWideTests
         var index = Assert.IsType<ArticleSearchIndex>(ArticleSearchIndex.Build(articles, CancellationToken.None));
         Assert.True(index.UsesWideProfile);
 
-        // Equal field weights put the rarer term first. Block-local IDF would put middleCobalt above Amber.
+        // Profile v3 (#46): 2-concept queries require full concept coverage (only `both` covers amber + cobalt),
+        // while single-concept and global-IDF ranking remain corpus-wide across all 5 wide blocks.
         Assert.True(Idf(count, 301) > Idf(count, 1_503));
         Assert.True(Idf(20_000, 300) < Idf(20_000, 1));
-        var expected = new[] { both }.Concat(Enumerable.Range(102, 199).Reverse());
-        Assert.Equal(expected, Ids("amber cobalt"));
-        Assert.Equal(expected, Ids("ＡＭＢＥＲ cobalt amber"));
+        Assert.Equal([both], Ids("amber cobalt"));
+        Assert.Equal([both], Ids("ＡＭＢＥＲ cobalt amber"));
+        // Single-concept "amber" ranks 1-word title "Amber" (1..300) above 2-word title "Amber Cobalt" (85239) via BM25F title-length normalization.
+        var expectedAmber = Enumerable.Range(101, 200).Reverse();
+        Assert.Equal(expectedAmber, Ids("amber"));
 
         // The medium article is shorter than most of its block, while the shortest is longer than most of its block.
-        Assert.Equal([firstLength, middleLength, tailLength], Ids("lengthmarker"));
-        Assert.Equal([count, 64_000, 45_000, 29_000, 9_000], Ids("frontonly middleonly thirdonly fourthonly finalonly"));
+        // Title-only "lengthmarker" ties on Title length (1) under BM25F; verify visible Body length normalization on "shared".
+        Assert.Equal([tailLength, middleLength, firstLength], Ids("lengthmarker"));
+        // 5 completely disjoint concepts across 5 different articles (1/5 match each < minRelaxed=3): returns empty cleanly.
+        Assert.Empty(Ids("frontonly middleonly thirdonly fourthonly finalonly"));
         Assert.Equal([count], Ids("finalonly"));
         Assert.Equal([largerWeight, smallerWeight], Ids("weightprobe"));
         Assert.Equal([count, 29_001], Ids("queue_job-23"));
@@ -111,7 +116,7 @@ public sealed class ArticleSearchWideTests
             .OrderDescending().Take(198));
         Assert.Equal(expectedTies, Ids("roundtable"));
         Assert.Empty(Ids("neverpublishedtoken"));
-        Assert.Equal(expected, Ids("am"));
+        Assert.Equal(expectedAmber, Ids("am"));
         Assert.Empty(Ids("fr"));
 
         var compact = Assert.IsType<ArticleSearchIndex>(ArticleSearchIndex.Build(articles[..40_000], CancellationToken.None));
@@ -152,11 +157,12 @@ public sealed class ArticleSearchWideTests
         var index = Assert.IsType<ArticleSearchIndex>(ArticleSearchIndex.Build(articles, CancellationToken.None));
         Assert.True(index.UsesWideProfile);
 
-        // Two half-weight taxonomy hits tie a half-weight taxonomy hit plus an exact body hit.
+        // Profile v3 (#46): 3-concept query admits Primary full-coverage hit (40001) and Relaxed 2/3 hit (1: pro+projectbridge),
+        // while rejecting 1/3 single-concept hit (20001) under bounded relaxation.
         Assert.Equal([count, 20_001, 1], Ids("pro"));
         Assert.Equal([count, 1], Ids("projectbridge"));
         Assert.Equal([count], Ids("desk"));
-        Assert.Equal([count, 1, 20_001], Ids("pro projectbridge desk"));
+        Assert.Equal([count, 1], Ids("pro projectbridge desk"));
         var frequent = index.SearchPage("abcdef", ArticleSearchSort.Relevance, 1, 100, CancellationToken.None);
         Assert.Equal(20_000, frequent.Total);
         Assert.Equal(20_000, frequent.Articles[0].Id);
@@ -285,7 +291,8 @@ public sealed class ArticleSearchWideTests
     private static long ExpectedGeneration(PublicSnapshot snapshot, Article[] articles, bool wide)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        hash.AppendData("public-generation-corpus-v1\0public-search-bm25-v2\0"u8);
+        hash.AppendData("public-generation-corpus-v1\0"u8);
+        hash.AppendData(Encoding.ASCII.GetBytes($"public-search-bm25-v{WireLimits.SearchFas4Profile}\0"));
         hash.AppendData(Encoding.ASCII.GetBytes($"public-search-analyzer-v{WireLimits.SearchAnalyzerVersion}\0"));
         if (wide) hash.AppendData("public-search-bm25-wide-v1\0"u8);
         Span<byte> coordinate = stackalloc byte[sizeof(int) + 2 * sizeof(long)];

@@ -119,17 +119,18 @@ func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
 		name, generation, mutate string
 		unavailable, legacy      bool
 	}{
-		{name: "available", generation: "8345231680797748768"},
-		{name: "unavailable", generation: "8299725263154154555", unavailable: true},
+		{name: "available", generation: "4986118064117694158"},
+		{name: "unavailable", generation: "6437897112279731679", unavailable: true},
 		{name: "frozen legacy profile", generation: "7548595041853034171", legacy: true},
 		{name: "legacy generation with current profile", generation: "7548595041853034171", mutate: "previous ranking"},
 		{name: "before BM25", generation: "6612586008012810405", mutate: "previous ranking"},
 		{name: "before analyzer binding", generation: "6218626370617519827", mutate: "previous analyzer"},
-		{name: "changed bytes", generation: "8345231680797748768", mutate: "bytes"},
-		{name: "different page generation", generation: "8345231680797748768", mutate: "generation"},
-		{name: "changed page count", generation: "8345231680797748768", mutate: "pages"},
-		{name: "stale at final HEAD", generation: "8345231680797748768", mutate: "head"},
-		{name: "unrelated 503", generation: "8299725263154154555", unavailable: true, mutate: "error"},
+		{name: "before BM25F v3", generation: "8345231680797748768", mutate: "previous ranking"},
+		{name: "changed bytes", generation: "4986118064117694158", mutate: "bytes"},
+		{name: "different page generation", generation: "4986118064117694158", mutate: "generation"},
+		{name: "changed page count", generation: "4986118064117694158", mutate: "pages"},
+		{name: "stale at final HEAD", generation: "4986118064117694158", mutate: "head"},
+		{name: "unrelated 503", generation: "6437897112279731679", unavailable: true, mutate: "error"},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			packets := [][]byte{make([]byte, 104), make([]byte, 104)}

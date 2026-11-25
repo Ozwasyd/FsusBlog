@@ -101,6 +101,72 @@ internal static class ArticleSearchTokens
         }
     }
 
+    /// <summary>
+    /// Emits source-grouped terms for WideIndex alias sharing preserving the exact 3 token strength roles:
+    /// role 0 = Exact / Advance>0 CjkBigram (+2 half-steps, HasExact=true),
+    /// role 1 = ScriptAlias / standalone CjkChar (+2 half-steps, HasExact=false),
+    /// role 2 = Derived Prefix / Subword / internal CjkBigram or CjkChar (+1 half-step, HasExact=false).
+    /// </summary>
+    internal static bool VisitTokensAsRoleGroups(IReadOnlyList<SearchToken> tokens,
+        Func<SearchTermKey?, ReadOnlySpan<SearchTermKey>, ReadOnlySpan<SearchTermKey>, bool> visit, CancellationToken ct)
+    {
+        var scriptOrStandalone = new List<SearchTermKey>(4);
+        var derived = new List<SearchTermKey>(24);
+        var i = 0;
+        while (i < tokens.Count)
+        {
+            if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
+            var head = tokens[i];
+            var headRole = TokenRole(head);
+            if (headRole != 0)
+            {
+                var key = SearchTermKey.From(head);
+                if (headRole == 1)
+                {
+                    if (!visit(null, [key], [])) return false;
+                }
+                else
+                {
+                    if (!visit(null, [], [key])) return false;
+                }
+                i++;
+                continue;
+            }
+            scriptOrStandalone.Clear();
+            derived.Clear();
+            var headKey = SearchTermKey.From(head);
+            var j = i + 1;
+            while (j < tokens.Count && tokens[j].Advance == 0 && tokens[j].Position == head.Position &&
+                   tokens[j].SourceStart == head.SourceStart && tokens[j].SourceEnd == head.SourceEnd &&
+                   tokens[j].Kind is SearchTokenKind.Prefix or SearchTokenKind.Subword or SearchTokenKind.ScriptAlias)
+            {
+                var next = tokens[j];
+                var key = SearchTermKey.From(next);
+                if (!key.Equals(headKey))
+                {
+                    if (next.Kind == SearchTokenKind.ScriptAlias) scriptOrStandalone.Add(key);
+                    else derived.Add(key);
+                }
+                j++;
+            }
+            if (!visit(headKey,
+                    System.Runtime.InteropServices.CollectionsMarshal.AsSpan(scriptOrStandalone),
+                    System.Runtime.InteropServices.CollectionsMarshal.AsSpan(derived)))
+                return false;
+            i = j;
+        }
+        return true;
+    }
+
+    internal static byte TokenRole(SearchToken tok)
+    {
+        if (tok.Kind == SearchTokenKind.Exact || (tok.Kind == SearchTokenKind.CjkBigram && tok.Advance > 0))
+            return 0; // +2 half-steps, HasExact=true
+        if (tok.Kind == SearchTokenKind.ScriptAlias || tok.Advance > 0)
+            return 1; // +2 half-steps, HasExact=false
+        return 2; // +1 half-step, HasExact=false
+    }
+
     internal static int CountAsciiPrefixMatches(string text, ReadOnlySpan<char> prefix)
     {
         if (string.IsNullOrEmpty(text) || prefix.Length == 0 || text.Length <= prefix.Length) return 0;

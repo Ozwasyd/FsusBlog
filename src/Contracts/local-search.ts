@@ -5,6 +5,26 @@ import type { ArticleCard } from './public-articles.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireLimits as Limit, WireRoutes } from './wire.generated.ts';
 import lexicon from './search-lexicon.json' with { type: 'json' };
 import { analyzeQuery, isStrictExactIdentifier } from './search-analyzer.ts';
+import {
+  allowsRelaxation,
+  BODY_PHRASE_BONUS_FACTOR,
+  EXACT_FORM_BONUS_FACTOR,
+  inverseDocumentFrequency,
+  isQuerySupportedByLocalFspk,
+  MAX_RELAXED_RESULTS,
+  minRelaxedConcepts,
+  minRelaxedIdfRatio,
+  planSearchQuery,
+  RELAXATION_TRIGGER_PRIMARY_COUNT,
+  TIGHT_PROXIMITY_BONUS_FACTOR,
+  TITLE_OR_HEADING_PHRASE_BONUS_FACTOR,
+  type SearchConcept,
+  type SearchConceptStep,
+  type SearchMatchTier,
+  type SearchQueryPlan,
+} from './search-query-plan.ts';
+
+export const LOCAL_SEARCH_PROFILE = 'local-fspk-v4-global-concept-v3';
 
 type Term = { offset: number; end: number; idf: number; hasPositions: boolean };
 type SearchArticle = ArticleCard & { length: number; row: number };
@@ -23,7 +43,14 @@ export interface CompactSearchStorage {
   save(corpus: PersistedCompactCorpus, signal?: AbortSignal): Promise<void>;
   discard(generation: string, signal?: AbortSignal): Promise<void>;
 }
-export type AdmittedHit = Readonly<{ row: number; id: number; publishedAt: number; views: number; score: number }>;
+export type AdmittedHit = Readonly<{ row: number; id: number; publishedAt: number; views: number; score: number; tier?: SearchMatchTier }>;
+export interface GlobalCorpusStats {
+  totalDocs: number;
+  totalDocLength: number;
+  avgLength: number;
+  docFreqs: Map<number, number>;
+  shortPrefixDfs: Map<string, number>;
+}
 
 export function normalizePublicSearchSort(value: unknown): PublicSearchSort {
   return value === 'latest' ? 'latest' : 'relevance';
@@ -946,34 +973,527 @@ export function createCorpusSearch(options?: { storage?: CompactSearchStorage })
 }
 
 function compareHits(
-  a: { score: number; publishedAt: number; id: number },
-  b: { score: number; publishedAt: number; id: number },
+  a: { score: number; publishedAt: number; id: number; tier?: SearchMatchTier },
+  b: { score: number; publishedAt: number; id: number; tier?: SearchMatchTier },
   sort: PublicSearchSort,
 ): number {
+  const tierDiff = (a.tier ?? 0) - (b.tier ?? 0);
+  if (tierDiff !== 0) return tierDiff;
   return sort === 'latest'
     ? b.publishedAt - a.publishedAt || b.score - a.score || b.id - a.id
     : b.score - a.score || b.publishedAt - a.publishedAt || b.id - a.id;
 }
 
-function scoreAdmittedCorpus(
+export function planLocalSearchQuery(query: string): SearchQueryPlan {
+  // Overlong strict exact identifiers (> 128 up to 256 HTTP bound) return empty cleanly rather than failing
+  if (query.length <= 256) {
+    const trimmedNfkc = query.normalize('NFKC').trim();
+    const unquoted = trimmedNfkc.length >= 2 &&
+      ((trimmedNfkc[0] === '"' && trimmedNfkc[trimmedNfkc.length - 1] === '"') ||
+       (trimmedNfkc[0] === '“' && trimmedNfkc[trimmedNfkc.length - 1] === '”'))
+      ? trimmedNfkc.slice(1, -1).trim()
+      : trimmedNfkc;
+    if (isStrictExactIdentifier(unquoted) && unquoted.length > Limit.SearchQueryChars) {
+      return planSearchQuery(query);
+    }
+  }
+  const normalized = requireNormalizedQuery(query);
+  const plan = planSearchQuery(normalized);
+  const support = isQuerySupportedByLocalFspk(plan);
+  if (!support.supported) {
+    throw new ProtocolError(`Unsupported local search query profile: ${support.reason}`);
+  }
+  return plan;
+}
+
+function collectPlanHashes(plan: SearchQueryPlan): { hashes: number[]; shortPrefixes: string[] } {
+  const hashSet = new Set<number>();
+  const prefixSet = new Set<string>();
+  for (const phrase of plan.quotedPhrases) {
+    for (const st of phrase.steps) {
+      if (!st.isStopword) hashSet.add(st.canonicalHash32);
+    }
+  }
+  for (const c of plan.contentConcepts) {
+    for (const st of c.steps) {
+      hashSet.add(st.canonicalHash32);
+      if (st.differsFromExactForm) hashSet.add(st.exactFormHash32);
+    }
+    if (c.shortAsciiPrefix) prefixSet.add(c.shortAsciiPrefix);
+  }
+  for (const st of plan.orderedQuerySequence) {
+    if (!st.isStopword) hashSet.add(st.canonicalHash32);
+  }
+  return { hashes: [...hashSet].sort((a, b) => a - b), shortPrefixes: [...prefixSet] };
+}
+
+/** Pass 1 helper: accumulate exact corpus-wide document count, document lengths, and global DFs across pages. */
+export function accumulateGlobalCorpusStats(
+  payload: Uint8Array,
+  plan: SearchQueryPlan,
+  stats: GlobalCorpusStats,
+): void {
+  const b = openBytes(payload.subarray(L.SearchPackagePayloadOffset));
+  const { termCount, docCount, termAt, docAt, postingAt } = readShardHeader(b);
+  if (docCount === 0) return;
+  stats.totalDocs += docCount;
+  for (let row = 0; row < docCount; row++) {
+    stats.totalDocLength += b.u32(docAt + row * L.SearchDocumentRecordSize + 20);
+  }
+  const { hashes, shortPrefixes } = collectPlanHashes(plan);
+  for (const hash of hashes) {
+    const df = exactDocumentFrequency(b, termAt, termCount, postingAt, hash);
+    if (df > 0) stats.docFreqs.set(hash, (stats.docFreqs.get(hash) ?? 0) + df);
+  }
+  if (shortPrefixes.length > 0) {
+    const rows = Array.from({ length: docCount }, (_, i) => i);
+    const cards = decodeCorpusDocuments(payload, rows);
+    for (const prefix of shortPrefixes) {
+      let count = 0;
+      for (let row = 0; row < docCount; row++) {
+        const doc = cards[row];
+        let hits = countAsciiPrefixMatches(doc.title, prefix) +
+          countAsciiPrefixMatches(doc.summary, prefix) +
+          countAsciiPrefixMatches(doc.category.name, prefix);
+        for (let j = 0; j < doc.tags.length; j++) hits += countAsciiPrefixMatches(doc.tags[j].name, prefix);
+        if (hits > 0) count++;
+      }
+      if (count > 0) stats.shortPrefixDfs.set(prefix, (stats.shortPrefixDfs.get(prefix) ?? 0) + count);
+    }
+  }
+}
+
+export function createGlobalCorpusStats(): GlobalCorpusStats {
+  return { totalDocs: 0, totalDocLength: 0, avgLength: 1, docFreqs: new Map(), shortPrefixDfs: new Map() };
+}
+
+export function finalizeGlobalCorpusStats(stats: GlobalCorpusStats): GlobalCorpusStats {
+  stats.avgLength = stats.totalDocs > 0 ? Math.max(1, stats.totalDocLength / stats.totalDocs) : 1;
+  return stats;
+}
+
+type LocalRowPosting = {
+  title: number;
+  meta: number;
+  body: number;
+  posStart: number;
+  posEnd: number;
+};
+
+type DecodedPos = { field: number; pos: number };
+
+function decodeRowPositions(b: ByteView, start: number, end: number): DecodedPos[] {
+  if (end <= start) return [];
+  const read = new PostingReader(b, start, end);
+  const out: DecodedPos[] = [];
+  let pos = 0;
+  while (read.offset < read.end) {
+    pos += read.vint();
+    read.vint(); // width
+    const field = read.vint();
+    out.push({ field, pos });
+  }
+  return out;
+}
+
+function hasFieldAndPos(list: readonly DecodedPos[], field: number, targetPos: number): boolean {
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].field === field && list[i].pos === targetPos) return true;
+  }
+  return false;
+}
+
+function localMatchesExactSequence(
+  b: ByteView,
+  steps: readonly SearchConceptStep[],
+  row: number,
+  postingsByHash: Map<number, Map<number, LocalRowPosting>>,
+  posCache: Map<string, DecodedPos[]>,
+): { matched: boolean; inTitle: boolean } {
+  const active = steps.filter(s => !s.isStopword);
+  if (active.length === 0) return { matched: false, inTitle: false };
+  const lists: DecodedPos[][] = [];
+  for (const st of active) {
+    const p = postingsByHash.get(st.canonicalHash32)?.get(row);
+    if (!p || p.posEnd <= p.posStart) return { matched: false, inTitle: false };
+    const cacheKey = `${row}:${st.canonicalHash32}`;
+    let decoded = posCache.get(cacheKey);
+    if (!decoded) {
+      decoded = decodeRowPositions(b, p.posStart, p.posEnd);
+      posCache.set(cacheKey, decoded);
+    }
+    if (decoded.length === 0) return { matched: false, inTitle: false };
+    lists.push(decoded);
+  }
+  const baseList = lists[0];
+  const baseOffset = active[0].relativeOffset;
+  let found = false;
+  let inTitle = false;
+  for (let i = 0; i < baseList.length; i++) {
+    const { field, pos: pos0 } = baseList[i];
+    let ok = true;
+    for (let s = 1; s < active.length; s++) {
+      const target = pos0 + (active[s].relativeOffset - baseOffset);
+      if (!hasFieldAndPos(lists[s], field, target)) { ok = false; break; }
+    }
+    if (ok) {
+      found = true;
+      if (field === titleField) { inTitle = true; return { matched: true, inTitle: true }; }
+    }
+  }
+  return { matched: found, inTitle };
+}
+
+function localMatchesTightProximity(
+  b: ByteView,
+  steps: readonly SearchConceptStep[],
+  row: number,
+  postingsByHash: Map<number, Map<number, LocalRowPosting>>,
+  posCache: Map<string, DecodedPos[]>,
+  maxSpan: number,
+): boolean {
+  const active = steps.filter(s => !s.isStopword);
+  if (active.length < 2) return false;
+  const lists: DecodedPos[][] = [];
+  for (const st of active) {
+    const p = postingsByHash.get(st.canonicalHash32)?.get(row);
+    if (!p || p.posEnd <= p.posStart) return false;
+    const cacheKey = `${row}:${st.canonicalHash32}`;
+    let decoded = posCache.get(cacheKey);
+    if (!decoded) {
+      decoded = decodeRowPositions(b, p.posStart, p.posEnd);
+      posCache.set(cacheKey, decoded);
+    }
+    if (decoded.length === 0) return false;
+    lists.push(decoded);
+  }
+  for (const field of [titleField, bodyField]) {
+    const baseList = lists[0];
+    for (let i = 0; i < baseList.length; i++) {
+      if (baseList[i].field !== field) continue;
+      const anchor = baseList[i].pos;
+      let minP = anchor;
+      let maxP = anchor;
+      let ok = true;
+      for (let s = 1; s < lists.length; s++) {
+        let bestDist = Infinity;
+        let closest = 0;
+        const listS = lists[s];
+        for (let k = 0; k < listS.length; k++) {
+          if (listS[k].field !== field) continue;
+          const d = Math.abs(listS[k].pos - anchor);
+          if (d < bestDist) { bestDist = d; closest = listS[k].pos; }
+        }
+        if (bestDist === Infinity) { ok = false; break; }
+        if (closest < minP) minP = closest;
+        if (closest > maxP) maxP = closest;
+        if (maxP - minP > maxSpan) { ok = false; break; }
+      }
+      if (ok) return true;
+    }
+  }
+  return false;
+}
+
+function computeLocalConceptIdf(concept: SearchConcept, stats: GlobalCorpusStats): number {
+  const n = stats.totalDocs;
+  if (concept.kind === 'cjkSequence') {
+    let maxIdf = 0;
+    for (const st of concept.steps) {
+      const idf = inverseDocumentFrequency(n, stats.docFreqs.get(st.canonicalHash32) ?? 0);
+      if (idf > maxIdf) maxIdf = idf;
+    }
+    return maxIdf;
+  }
+  if (concept.kind === 'compoundHyphen') {
+    const exactDf = stats.docFreqs.get(concept.steps[0].canonicalHash32) ?? 0;
+    let minSub = n;
+    let allSub = concept.steps.length > 1;
+    for (let i = 1; i < concept.steps.length; i++) {
+      const d = stats.docFreqs.get(concept.steps[i].canonicalHash32) ?? 0;
+      if (d === 0) allSub = false;
+      if (d < minSub) minSub = d;
+    }
+    return inverseDocumentFrequency(n, Math.min(n, Math.max(exactDf, allSub ? minSub : 0)));
+  }
+  return inverseDocumentFrequency(n, stats.docFreqs.get(concept.steps[0].canonicalHash32) ?? 0);
+}
+
+/**
+ * Pass 2 helper: score one already-admitted FSPK v4 page using global corpus-wide statistics,
+ * concept-aware matching, exact CJK bigram / quoted-phrase positions, and bounded relaxation.
+ */
+export function scoreAdmittedCorpusPageGlobal(
+  payload: Uint8Array,
+  plan: SearchQueryPlan,
+  stats: GlobalCorpusStats,
+): AdmittedHit[] {
+  if (plan.isEmpty || plan.isOverlongExactIdentifier || stats.totalDocs === 0) return [];
+  const b = openBytes(payload.subarray(L.SearchPackagePayloadOffset));
+  const { termCount, docCount, termAt, docAt, postingAt } = readShardHeader(b);
+  if (docCount === 0) return [];
+
+  // Early reject if any quoted phrase term is globally absent
+  for (const phrase of plan.quotedPhrases) {
+    for (const st of phrase.steps) {
+      if (!st.isStopword && (stats.docFreqs.get(st.canonicalHash32) ?? 0) === 0) return [];
+    }
+  }
+
+  const concepts = plan.contentConcepts;
+  const canRelax = allowsRelaxation(plan);
+  const minRelax = minRelaxedConcepts(concepts.length);
+  const minRatio = minRelaxedIdfRatio(concepts.length);
+  const conceptIdfs = new Float64Array(concepts.length);
+  const shortPrefixIdfs = new Float64Array(concepts.length);
+  let totalQueryIdf = 0;
+
+  for (let c = 0; c < concepts.length; c++) {
+    const concept = concepts[c];
+    const idf = computeLocalConceptIdf(concept, stats);
+    conceptIdfs[c] = idf;
+    totalQueryIdf += idf;
+    if (concept.shortAsciiPrefix) {
+      const pDf = stats.shortPrefixDfs.get(concept.shortAsciiPrefix) ?? 0;
+      if (pDf > 0) {
+        const exDf = stats.docFreqs.get(concept.steps[0].canonicalHash32) ?? 0;
+        shortPrefixIdfs[c] = inverseDocumentFrequency(stats.totalDocs, Math.min(stats.totalDocs, exDf + pDf));
+      }
+    }
+  }
+
+  const { hashes, shortPrefixes } = collectPlanHashes(plan);
+  const postingsByHash = new Map<number, Map<number, LocalRowPosting>>();
+  const candidateRows = new Set<number>();
+
+  for (const hash of hashes) {
+    const at = findTermRecord(b, termAt, termCount, hash);
+    if (at < 0) continue;
+    const offset = postingAt + b.u32(at + 8);
+    const length = b.u32(at + 12);
+    const read = new PostingReader(b, offset, offset + length);
+    const count = read.vint();
+    const rowMap = new Map<number, LocalRowPosting>();
+    let id = 0;
+    let rowHint = 0;
+    for (let i = 0; i < count; i++) {
+      id += read.vint();
+      const row = findDocumentRow(b, docAt, docCount, id, rowHint);
+      requireWire(row >= 0, 'posting document ID');
+      rowHint = row + 1;
+      const title = tf[b.u8(read.offset++)];
+      const meta = tf[b.u8(read.offset++)];
+      const body = tf[b.u8(read.offset++)];
+      const positions = read.vint();
+      const posStart = read.offset;
+      for (let j = 0; j < positions; j++) {
+        read.vint();
+        read.vint();
+        read.vint();
+      }
+      rowMap.set(row, { title, meta, body, posStart, posEnd: read.offset });
+      candidateRows.add(row);
+    }
+    postingsByHash.set(hash, rowMap);
+  }
+
+  const shortPrefixWeightsByPrefix = new Map<string, Float64Array>();
+  if (shortPrefixes.length > 0) {
+    const allRows = Array.from({ length: docCount }, (_, i) => i);
+    const cards = decodeCorpusDocuments(payload, allRows);
+    for (const prefix of shortPrefixes) {
+      const weights = new Float64Array(docCount);
+      for (let row = 0; row < docCount; row++) {
+        const doc = cards[row];
+        const tHits = countAsciiPrefixMatches(doc.title, prefix);
+        let mHits = countAsciiPrefixMatches(doc.summary, prefix) + countAsciiPrefixMatches(doc.category.name, prefix);
+        for (let j = 0; j < doc.tags.length; j++) mHits += countAsciiPrefixMatches(doc.tags[j].name, prefix);
+        const w = tHits * (4.5 * 0.5) + mHits * (2.2 * 0.25);
+        if (w > 0) {
+          weights[row] = w;
+          candidateRows.add(row);
+        }
+      }
+      shortPrefixWeightsByPrefix.set(prefix, weights);
+    }
+  }
+
+  if (candidateRows.size === 0) return [];
+  const posCache = new Map<string, DecodedPos[]>();
+  const hits: AdmittedHit[] = [];
+  const avgLen = stats.avgLength;
+
+  for (const row of candidateRows) {
+    let phraseOk = true;
+    for (const phrase of plan.quotedPhrases) {
+      if (!localMatchesExactSequence(b, phrase.steps, row, postingsByHash, posCache).matched) {
+        phraseOk = false;
+        break;
+      }
+    }
+    if (!phraseOk) continue;
+
+    const docLength = b.u32(docAt + row * L.SearchDocumentRecordSize + 20);
+    let matchedCount = 0;
+    let matchedIdfSum = 0;
+    let strictOk = true;
+    let score = 0;
+
+    for (let c = 0; c < concepts.length; c++) {
+      const concept = concepts[c];
+      let matched = false;
+      let weightedTf = 0;
+      let exactFormHit = false;
+      let usedShortPrefixOnly = false;
+
+      if (concept.kind === 'cjkSequence') {
+        if (localMatchesExactSequence(b, concept.steps, row, postingsByHash, posCache).matched) {
+          matched = true;
+          let minT = Infinity;
+          let minM = Infinity;
+          let minB = Infinity;
+          let allExact = true;
+          for (const st of concept.steps) {
+            const p = postingsByHash.get(st.canonicalHash32)?.get(row);
+            if (!p) { minT = minM = minB = 0; break; }
+            if (p.title < minT) minT = p.title;
+            if (p.meta < minM) minM = p.meta;
+            if (p.body < minB) minB = p.body;
+            if (!postingsByHash.get(st.exactFormHash32)?.has(row)) allExact = false;
+          }
+          weightedTf = (minT === Infinity ? 0 : minT) * 4.5 + (minM === Infinity ? 0 : minM) * 2.2 + (minB === Infinity ? 0 : minB);
+          exactFormHit = allExact;
+        }
+      } else if (concept.kind === 'compoundHyphen') {
+        const exP = postingsByHash.get(concept.steps[0].canonicalHash32)?.get(row);
+        let allSub = concept.steps.length > 1;
+        let minT = Infinity;
+        let minM = Infinity;
+        let minB = Infinity;
+        for (let i = 1; i < concept.steps.length; i++) {
+          const sp = postingsByHash.get(concept.steps[i].canonicalHash32)?.get(row);
+          if (!sp) { allSub = false; break; }
+          if (sp.title < minT) minT = sp.title;
+          if (sp.meta < minM) minM = sp.meta;
+          if (sp.body < minB) minB = sp.body;
+        }
+        if (exP || allSub) {
+          matched = true;
+          const exW = exP ? exP.title * 4.5 + exP.meta * 2.2 + exP.body : 0;
+          const subW = allSub ? minT * 4.5 + minM * 2.2 + minB : 0;
+          weightedTf = Math.max(exW, subW);
+          exactFormHit = exP !== undefined;
+        }
+      } else {
+        const st = concept.steps[0];
+        const p = postingsByHash.get(st.canonicalHash32)?.get(row);
+        if (p) {
+          matched = true;
+          weightedTf = p.title * 4.5 + p.meta * 2.2 + p.body;
+          exactFormHit = !st.differsFromExactForm || (postingsByHash.get(st.exactFormHash32)?.has(row) ?? false);
+        } else if (concept.shortAsciiPrefix) {
+          const w = shortPrefixWeightsByPrefix.get(concept.shortAsciiPrefix)?.[row] ?? 0;
+          if (w > 0) {
+            matched = true;
+            weightedTf = w;
+            usedShortPrefixOnly = true;
+          }
+        }
+      }
+
+      if (!matched) {
+        if (concept.isStrictIdentifier) { strictOk = false; break; }
+        continue;
+      }
+      matchedCount++;
+      matchedIdfSum += conceptIdfs[c];
+      const activeIdf = usedShortPrefixOnly ? shortPrefixIdfs[c] : conceptIdfs[c];
+      score += bm25(activeIdf, weightedTf, docLength, avgLen);
+      if (exactFormHit) score += EXACT_FORM_BONUS_FACTOR * activeIdf;
+    }
+
+    if (!strictOk || matchedCount === 0) continue;
+
+    const isPrimary = matchedCount === concepts.length;
+    const isRelaxed = !isPrimary && canRelax &&
+      matchedCount >= minRelax &&
+      totalQueryIdf > 0 &&
+      (matchedIdfSum / totalQueryIdf) >= minRatio;
+    if (!isPrimary && !isRelaxed) continue;
+
+    if (plan.quotedPhrases.length > 0 || (isPrimary && plan.orderedQuerySequence.length >= 2)) {
+      const seq = plan.quotedPhrases.length > 0 ? plan.quotedPhrases[0].steps : plan.orderedQuerySequence;
+      const exactSeq = localMatchesExactSequence(b, seq, row, postingsByHash, posCache);
+      if (exactSeq.matched) {
+        score += (exactSeq.inTitle ? TITLE_OR_HEADING_PHRASE_BONUS_FACTOR : BODY_PHRASE_BONUS_FACTOR) * matchedIdfSum;
+      } else if (isPrimary && concepts.length >= 2 &&
+          localMatchesTightProximity(b, plan.orderedQuerySequence, row, postingsByHash, posCache, 2 * concepts.length + 4)) {
+        score += TIGHT_PROXIMITY_BONUS_FACTOR * matchedIdfSum;
+      }
+    }
+
+    const at = docAt + row * L.SearchDocumentRecordSize;
+    hits.push({
+      row,
+      id: b.u32(at),
+      views: b.u32(at + 12),
+      publishedAt: b.timestamp(at + 24, false),
+      score,
+      tier: isPrimary ? 0 : 1,
+    });
+  }
+
+  return hits;
+}
+
+export function selectGlobalTieredHits<T extends { score: number; publishedAt: number; id: number; tier?: SearchMatchTier }>(
+  allHits: T[],
+  plan: SearchQueryPlan,
+  sort: PublicSearchSort,
+): T[] {
+  const primary: T[] = [];
+  const relaxed: T[] = [];
+  for (const h of allHits) {
+    if ((h.tier ?? 0) === 0) primary.push(h);
+    else relaxed.push(h);
+  }
+  primary.sort((a, b) => compareHits(a, b, sort));
+  if (allowsRelaxation(plan) && primary.length < RELAXATION_TRIGGER_PRIMARY_COUNT && relaxed.length > 0) {
+    relaxed.sort((a, b) => compareHits(a, b, sort));
+    const capped = relaxed.length > MAX_RELAXED_RESULTS ? relaxed.slice(0, MAX_RELAXED_RESULTS) : relaxed;
+    return primary.concat(capped);
+  }
+  return primary;
+}
+
+export function scoreAdmittedCorpusGlobal(
   pages: readonly Uint8Array[],
-  terms: readonly number[],
-  shortPrefixes: readonly string[],
+  plan: SearchQueryPlan,
   page: number,
   size: number,
   sort: PublicSearchSort,
-  signal: AbortSignal | undefined,
+  signal?: AbortSignal,
 ): Uint8Array<ArrayBuffer> {
-  const matches: (AdmittedHit & { pageIndex: number })[] = [];
+  if (plan.isEmpty || plan.isOverlongExactIdentifier || pages.length === 0) {
+    return encodeLocalSearchResult([], 0);
+  }
+  const stats = createGlobalCorpusStats();
   for (let i = 0; i < pages.length; i++) {
     signal?.throwIfAborted();
-    for (const hit of scoreAdmittedCorpusPage(pages[i], terms, shortPrefixes)) {
-      matches.push({ ...hit, pageIndex: i });
+    accumulateGlobalCorpusStats(pages[i], plan, stats);
+  }
+  finalizeGlobalCorpusStats(stats);
+
+  const rawHits: (AdmittedHit & { pageIndex: number })[] = [];
+  for (let i = 0; i < pages.length; i++) {
+    signal?.throwIfAborted();
+    for (const hit of scoreAdmittedCorpusPageGlobal(pages[i], plan, stats)) {
+      rawHits.push({ ...hit, pageIndex: i });
     }
   }
-  matches.sort((a, b) => compareHits(a, b, sort));
+  const ordered = selectGlobalTieredHits(rawHits, plan, sort);
   const start = (page - 1) * size;
-  const selected = matches.slice(start, start + size);
+  const selected = ordered.slice(start, start + size);
   const items = new Array<ArticleCard>(selected.length);
   const byPage = new Map<number, { row: number; resultIndex: number }[]>();
   for (let i = 0; i < selected.length; i++) {
@@ -986,7 +1506,7 @@ function scoreAdmittedCorpus(
     const decoded = decodeCorpusDocuments(pages[pageIndex], group.map(entry => entry.row));
     for (let i = 0; i < group.length; i++) items[group[i].resultIndex] = decoded[i];
   }
-  return encodeLocalSearchResult(items, matches.length);
+  return encodeLocalSearchResult(items, ordered.length);
 }
 
 async function currentCachedCorpus(
@@ -1021,27 +1541,6 @@ async function currentCachedCorpus(
   }
 }
 
-type CorpusMatch = { article: SearchArticle; score: number };
-
-function appendCorpusMatches(shard: Shard, ids: Set<number>, matches: CorpusMatch[]): void {
-  for (const article of shard.documents.values()) {
-    requireWire(!ids.has(article.id), 'duplicate corpus article');
-    ids.add(article.id);
-    const score = shard.matches.get(article.id);
-    if (score !== undefined) matches.push({ article, score });
-  }
-}
-
-function encodeCorpusMatches(matches: CorpusMatch[], page: number, size: number, sort: PublicSearchSort): Uint8Array<ArrayBuffer> {
-  matches.sort((a, b) => compareHits(
-    { score: a.score, publishedAt: a.article.createdAt, id: a.article.id },
-    { score: b.score, publishedAt: b.article.createdAt, id: b.article.id },
-    sort,
-  ));
-  const start = (page - 1) * size;
-  return encodeLocalSearchResult(matches.slice(start, start + size).map(hit => hit.article), matches.length);
-}
-
 async function runCorpusSearch(
   query: string,
   signal: AbortSignal | undefined,
@@ -1053,24 +1552,24 @@ async function runCorpusSearch(
 ): Promise<{ frame: Uint8Array<ArrayBuffer>; generation: string | null }> {
   requireWire(Number.isInteger(page) && page > 0 && page <= 10000 &&
     Number.isInteger(size) && size > 0 && size <= 100, 'query page');
-  const terms = searchTerms(query);
-  const shortPrefixes = searchShortAsciiPrefixes(query);
+  const plan = planLocalSearchQuery(query);
   signal?.throwIfAborted();
-  if (terms.length === 0) return { frame: encodeLocalSearchResult([], 0), generation: null };
+  if (plan.isEmpty || plan.isOverlongExactIdentifier) return { frame: encodeLocalSearchResult([], 0), generation: null };
 
   const cached = cache ? await currentCachedCorpus(cache, storage, signal) : {};
   if (cached.admitted) {
-    const encoded = scoreAdmittedCorpus(cached.admitted.pages, terms, shortPrefixes, page, size, sort, signal);
+    const encoded = scoreAdmittedCorpusGlobal(cached.admitted.pages, plan, page, size, sort, signal);
     signal?.throwIfAborted();
     return { frame: encoded, generation: cached.admitted.generation };
   }
 
-  const scoreFullPages = async (
+  const admitAndScorePages = async (
     pageCount: number,
     readPage: (index: number) => Promise<Uint8Array> | Uint8Array,
     onLoaded?: (bytes: Uint8Array, totalBytes: number) => void,
   ): Promise<Uint8Array<ArrayBuffer>> => {
-    const ids = new Set<number>(), matches: CorpusMatch[] = [];
+    const ids = new Set<number>();
+    const admittedPages: Uint8Array[] = [];
     let totalBytes = 0;
     for (let i = 0; i < pageCount; i++) {
       signal?.throwIfAborted();
@@ -1078,11 +1577,16 @@ async function runCorpusSearch(
       totalBytes += bytes.length;
       requireWire(totalBytes <= Limit.SearchCorpusTotalBytes, 'corpus pages or byte budget');
       onLoaded?.(bytes, totalBytes);
-      const shard = queryCorpusPage(bytes, terms, shortPrefixes);
+      // Full canonical wire validation on admission before scoring with global statistics
+      const shard = queryCorpusPage(bytes, [], []);
       requireWire(pageCount === 1 || shard.documents.size > 0, 'empty corpus page');
-      appendCorpusMatches(shard, ids, matches);
+      for (const article of shard.documents.values()) {
+        requireWire(!ids.has(article.id), 'duplicate corpus article');
+        ids.add(article.id);
+      }
+      admittedPages.push(bytes);
     }
-    const encoded = encodeCorpusMatches(matches, page, size, sort);
+    const encoded = scoreAdmittedCorpusGlobal(admittedPages, plan, page, size, sort, signal);
     signal?.throwIfAborted();
     return encoded;
   };
@@ -1090,7 +1594,7 @@ async function runCorpusSearch(
   if (cached.persisted) {
     try {
       const { pages, generation } = cached.persisted;
-      const frame = await scoreFullPages(pages.length, i => pages[i]);
+      const frame = await admitAndScorePages(pages.length, i => pages[i]);
       if (cache) cache.corpus = cached.persisted;
       return { frame, generation };
     } catch (error) {
@@ -1116,7 +1620,7 @@ async function runCorpusSearch(
   try {
     const first = await corpusRequest(signal, undefined, 1, takePrevious(1));
     const pendingPages: Uint8Array[] | undefined = cache ? [] : undefined;
-    const frame = await scoreFullPages(first.pages, async i => {
+    const frame = await admitAndScorePages(first.pages, async i => {
       const loaded = i === 0 ? first : await corpusRequest(signal, first.generation, i + 1, takePrevious(i + 1));
       requireWire(loaded.pages === first.pages, 'corpus pages or byte budget');
       return loaded.bytes;

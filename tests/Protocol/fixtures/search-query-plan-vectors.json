@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "fsusblog-search-query-plan-vectors-v1",
+  "profileVersion": 3,
+  "analyzerVersion": 1,
+  "cases": [
+    {
+      "name": "unknown-cjk-compound-single-sequence-concept",
+      "input": "量子纠缠",
+      "isEmpty": false,
+      "isOverlongExactIdentifier": false,
+      "hasStrictIdentifier": false,
+      "quotedPhraseCount": 0,
+      "contentConcepts": [
+        { "kind": "cjkSequence", "steps": ["量子", "子纠", "纠缠"], "isStrictIdentifier": false, "shortAsciiPrefix": null }
+      ]
+    },
+    {
+      "name": "traditional-cjk-canonicalized-to-single-concept-with-exact-form",
+      "input": "數據庫 架構",
+      "isEmpty": false,
+      "isOverlongExactIdentifier": false,
+      "hasStrictIdentifier": false,
+      "quotedPhraseCount": 0,
+      "contentConcepts": [
+        { "kind": "term", "steps": ["数据库"], "exactSteps": ["數據庫"], "isStrictIdentifier": false, "shortAsciiPrefix": null },
+        { "kind": "term", "steps": ["架构"], "exactSteps": ["架構"], "isStrictIdentifier": false, "shortAsciiPrefix": null }
+      ]
+    },
+    {
+      "name": "repeated-and-script-variant-deduplicated",
+      "input": "架構 架构 架構",
+      "isEmpty": false,
+      "isOverlongExactIdentifier": false,
+      "hasStrictIdentifier": false,
+      "quotedPhraseCount": 0,
+      "contentConcepts": [
+        { "kind": "term", "steps": ["架构"], "isStrictIdentifier": false, "shortAsciiPrefix": null }
+      ]
+    },
+    {
+      "name": "quoted-phrase-and-strict-identifier",
+      "input": "\"博客 搜索\" C# issue-2205",
+      "isEmpty": false,
+      "isOverlongExactIdentifier": false,
+      "hasStrictIdentifier": true,
+      "quotedPhraseCount": 1,
+      "contentConcepts": [
+        { "kind": "term", "steps": ["博客"], "isStrictIdentifier": false, "shortAsciiPrefix": null },
+        { "kind": "term", "steps": ["搜索"], "isStrictIdentifier": false, "shortAsciiPrefix": null },
+        { "kind": "term", "steps": ["c#"], "isStrictIdentifier": true, "shortAsciiPrefix": null },
+        { "kind": "term", "steps": ["issue-2205"], "isStrictIdentifier": true, "shortAsciiPrefix": null }
+      ]
+    },
+    {
+      "name": "pure-hyphen-compound-single-concept",
+      "input": "batch-item",
+      "isEmpty": false,
+      "isOverlongExactIdentifier": false,
+      "hasStrictIdentifier": false,
+      "quotedPhraseCount": 0,
+      "contentConcepts": [
+        { "kind": "compoundHyphen", "steps": ["batch-item", "batch", "item"], "isStrictIdentifier": false, "shortAsciiPrefix": null }
+      ]
+    },
+    {
+      "name": "short-ascii-prefix-single-concept",
+      "input": "go",
+      "isEmpty": false,
+      "isOverlongExactIdentifier": false,
+      "hasStrictIdentifier": false,
+      "quotedPhraseCount": 0,
+      "contentConcepts": [
+        { "kind": "term", "steps": ["go"], "isStrictIdentifier": false, "shortAsciiPrefix": "go" }
+      ]
+    },
+    {
+      "name": "overlong-exact-identifier-rejected-empty",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-12",
+      "isEmpty": true,
+      "isOverlongExactIdentifier": true,
+      "hasStrictIdentifier": true,
+      "quotedPhraseCount": 0,
+      "contentConcepts": []
+    }
+  ]
+}

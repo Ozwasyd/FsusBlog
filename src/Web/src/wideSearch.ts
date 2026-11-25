@@ -1,8 +1,10 @@
 import { ApiError, ProtocolError } from '../../Contracts/aeds.ts'
 import {
-  decodeCorpusDocuments, encodeLocalSearchResult, queryCorpusPage, scoreAdmittedCorpusPage,
-  searchShortAsciiPrefixes, searchTerms, type PublicSearchSort,
+  accumulateGlobalCorpusStats, createGlobalCorpusStats, decodeCorpusDocuments, encodeLocalSearchResult,
+  finalizeGlobalCorpusStats, planLocalSearchQuery, queryCorpusPage, scoreAdmittedCorpusPageGlobal,
+  selectGlobalTieredHits, type PublicSearchSort,
 } from '../../Contracts/local-search.ts'
+import type { SearchQueryPlan } from '../../Contracts/search-query-plan.ts'
 import type { ArticleCard } from '../../Contracts/public-articles.ts'
 import { withWideSearchStorage, type WideSearchStorage } from './wideSearchStorage.ts'
 import {
@@ -14,8 +16,7 @@ type Result = { frame: Uint8Array<ArrayBuffer>; identity: WideSearchIdentity | n
 type CachedCorpus = { manifest: WideSearchManifest; owner: string }
 type CachedRanking = {
   corpus: CachedCorpus
-  terms: readonly number[]
-  shortPrefixes: readonly string[]
+  normalizedQuery: string
   sort: PublicSearchSort
   positions: Uint32Array
 }
@@ -38,55 +39,40 @@ function parsePage(bytes: Uint8Array, page: WideSearchPage, terms: readonly numb
   return shard
 }
 
-function sortRanks(indices: Uint32Array, compare: (left: number, right: number) => number) {
-  function sift(root: number, size: number) {
-    const value = indices[root]
-    for (let child = root * 2 + 1; child < size; child = root * 2 + 1) {
-      if (child + 1 < size && compare(indices[child], indices[child + 1]) < 0) child++
-      if (compare(value, indices[child]) >= 0) break
-      indices[root] = indices[child]
-      root = child
-    }
-    indices[root] = value
-  }
-  for (let root = Math.floor(indices.length / 2) - 1; root >= 0; root--) sift(root, indices.length)
-  for (let last = indices.length - 1; last > 0; last--) {
-    const value = indices[last]
-    indices[last] = indices[0]
-    indices[0] = value
-    sift(0, last)
-  }
-}
-
 type ReadPageBytes = (page: WideSearchPage) => Promise<Uint8Array<ArrayBuffer>>
 
 async function rankPages(
   manifest: WideSearchManifest,
-  terms: readonly number[],
-  shortPrefixes: readonly string[],
+  plan: SearchQueryPlan,
   sort: PublicSearchSort,
   read: ReadPageBytes,
 ) {
-  const positions = new Uint32Array(manifest.documentCount)
-  const ids = new Uint32Array(manifest.documentCount)
-  const times = new Float64Array(manifest.documentCount)
-  const scores = new Float64Array(manifest.documentCount)
-  let matches = 0
+  // Pass 1: exact corpus-wide statistics across all pages so ranking is invariant to partitioning
+  const stats = createGlobalCorpusStats()
   for (const page of manifest.pages) {
     const bytes = await read(page)
-    for (const hit of scoreAdmittedCorpusPage(bytes, terms, shortPrefixes)) {
-      positions[matches] = (page.number - 1) * rowsPerSlot + hit.row
-      ids[matches] = hit.id
-      times[matches] = hit.publishedAt
-      scores[matches++] = hit.score
+    accumulateGlobalCorpusStats(bytes, plan, stats)
+  }
+  finalizeGlobalCorpusStats(stats)
+
+  // Pass 2: concept-aware scoring using global statistics
+  const hits: { position: number; id: number; publishedAt: number; score: number; tier: 0 | 1 }[] = []
+  for (const page of manifest.pages) {
+    const bytes = await read(page)
+    for (const hit of scoreAdmittedCorpusPageGlobal(bytes, plan, stats)) {
+      hits.push({
+        position: (page.number - 1) * rowsPerSlot + hit.row,
+        id: hit.id,
+        publishedAt: hit.publishedAt,
+        score: hit.score,
+        tier: hit.tier ?? 0,
+      })
     }
   }
-  const order = Uint32Array.from({ length: matches }, (_, i) => i)
-  sortRanks(order, sort === 'latest'
-    ? (left, right) => times[right] - times[left] || scores[right] - scores[left] || ids[right] - ids[left]
-    : (left, right) => scores[right] - scores[left] || times[right] - times[left] || ids[right] - ids[left])
-  for (let i = 0; i < order.length; i++) order[i] = positions[order[i]]
-  return order
+  const ordered = selectGlobalTieredHits(hits, plan, sort)
+  const positions = new Uint32Array(ordered.length)
+  for (let i = 0; i < ordered.length; i++) positions[i] = ordered[i].position
+  return positions
 }
 
 async function readResults(manifest: WideSearchManifest, positions: Uint32Array, page: number, size: number, read: ReadPageBytes) {
@@ -141,10 +127,9 @@ export function createWideSearch() {
     if (!Number.isInteger(page) || page < 1 || page > 10000 || !Number.isInteger(size) || size < 1 || size > 100) {
       throw new ProtocolError('Invalid local search query page')
     }
-    const terms = searchTerms(query)
-    const shortPrefixes = searchShortAsciiPrefixes(query)
+    const plan = planLocalSearchQuery(query)
     request.throwIfAborted()
-    if (terms.length === 0) return { frame: encodeLocalSearchResult([], 0), identity: null }
+    if (plan.isEmpty || plan.isOverlongExactIdentifier) return { frame: encodeLocalSearchResult([], 0), identity: null }
 
     // Changing the query only cancels scoring and display. The active route owns admission.
     const deadline = Date.now() + attemptMs
@@ -215,12 +200,9 @@ export function createWideSearch() {
         }
         const cached = ranking
         const current = cached && cached.corpus.owner === corpus.owner && sameIdentity(cached.corpus.manifest, manifest) &&
-          cached.sort === sort && terms.length === cached.terms.length &&
-          terms.every((hash, index) => hash === cached.terms[index]) &&
-          shortPrefixes.length === cached.shortPrefixes.length &&
-          shortPrefixes.every((prefix, index) => prefix === cached.shortPrefixes[index])
+          cached.sort === sort && cached.normalizedQuery === plan.normalizedText
           ? cached
-          : { corpus, terms, shortPrefixes, sort, positions: await rankPages(manifest, terms, shortPrefixes, sort, read) }
+          : { corpus, normalizedQuery: plan.normalizedText, sort, positions: await rankPages(manifest, plan, sort, read) }
         ranking = current
         const frame = await readResults(manifest, current.positions, page, size, read)
         check(scoring)
