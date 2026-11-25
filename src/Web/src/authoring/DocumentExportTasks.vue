@@ -247,10 +247,5 @@ onScopeDispose(stop)
 .document-export-controls { display: flex; align-items: center; flex-wrap: wrap; gap: var(--fsus-space-2); }
 .document-export-format { inline-size: 8rem; max-inline-size: 100%; }
 .document-export-list { list-style: none; margin: 0; padding: 0; }
-.document-export-list li {
-  display: grid;
-  gap: var(--fsus-space-1);
-  padding-block: var(--fsus-space-2);
-  border-block-start: 1px solid var(--fsus-border);
-}
+.document-export-list li { display: grid; gap: var(--fsus-space-1); padding-block: var(--fsus-space-2); border-block-start: 1px solid var(--fsus-border); }
 </style>

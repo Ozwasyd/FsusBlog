@@ -84,71 +84,31 @@ onMounted(() => { void check(false) })
 </script>
 
 <template>
-  <ElSettingsSection
-    ariaLabelledby="admin-risk-controls-heading"
-    :description="t('admin.riskSummary')"
-    v-bind="{ 'aria-busy': busy }"
-    density="compact"
-  >
-    <template #title>
-      <span id="admin-risk-controls-heading">{{ t('admin.riskControls') }}</span>
-    </template>
-    <template #actions>
-      <ElButton text :loading="checkLoading" @click="check(true)">{{ t('admin.checkRisk') }}</ElButton>
-    </template>
+  <ElSettingsSection ariaLabelledby="admin-risk-controls-heading" :description="t('admin.riskSummary')" v-bind="{ 'aria-busy': busy }" density="compact">
+    <template #title><span id="admin-risk-controls-heading">{{ t('admin.riskControls') }}</span></template>
+    <template #actions><ElButton text :loading="checkLoading" @click="check(true)">{{ t('admin.checkRisk') }}</ElButton></template>
     <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" show-icon />
     <div aria-live="polite">
       <ElKeyValueGrid v-if="observation" density="compact">
         <ElKeyValueItem :label="t('admin.publicCommentReads')" :value="t('admin.fixedConcurrency')" />
-        <ElKeyValueItem
-          :label="t('admin.signedInRoots')"
-          :value="observation.rootWriteMode === 1 ? t('admin.classicPowInstalled') : t('admin.routeNotInstalled')"
-        />
-        <ElKeyValueItem
-          :label="t('admin.signedInReplies')"
-          :value="observation.replyWriteMode === 2
-            ? t('admin.replyTablePresent')
-            : observation.replyWriteMode === 1
-              ? t('admin.replyTableAbsent')
-              : t('admin.routeNotInstalled')"
-        />
-        <ElKeyValueItem
-          :label="t('admin.forwardedAddress')"
-          :value="observation.forwardingMode === 1 ? t('admin.trustedLoopback') : t('admin.peerAddress')"
-        />
+        <ElKeyValueItem :label="t('admin.signedInRoots')" :value="observation.rootWriteMode === 1 ? t('admin.classicPowInstalled') : t('admin.routeNotInstalled')" />
+        <ElKeyValueItem :label="t('admin.signedInReplies')" :value="observation.replyWriteMode === 2 ? t('admin.replyTablePresent') : observation.replyWriteMode === 1 ? t('admin.replyTableAbsent') : t('admin.routeNotInstalled')" />
+        <ElKeyValueItem :label="t('admin.forwardedAddress')" :value="observation.forwardingMode === 1 ? t('admin.trustedLoopback') : t('admin.peerAddress')" />
         <ElKeyValueItem :label="t('admin.dynamicRisk')" :value="t('admin.notInstalled')" />
         <ElKeyValueItem :label="t('admin.strongAnonymous')" :value="t('admin.notInstalled')" />
       </ElKeyValueGrid>
     </div>
     <ElFormSection v-if="rootPolicy" title-tag="h3" ariaLabelledby="admin-root-comment-proof-heading" density="compact">
-      <template #title>
-        <span id="admin-root-comment-proof-heading">{{ t('admin.rootProofPolicy') }}</span>
-      </template>
-      <template #description>
-        <span aria-live="polite">{{ t('admin.proofGeneration', { generation: rootPolicy.generation.toString(), seconds: rootPolicy.proofSeconds }) }}</span>
-      </template>
-      <ElCopyableDetail
-        class="policy-digest"
-        :value="rootPolicy.digest"
-        :label="t('admin.copy')"
-        :copied-label="t('admin.copied')"
-        :error-label="t('admin.copyFailed')"
-      />
+      <template #title><span id="admin-root-comment-proof-heading">{{ t('admin.rootProofPolicy') }}</span></template>
+      <template #description><span aria-live="polite">{{ t('admin.proofGeneration', { generation: rootPolicy.generation.toString(), seconds: rootPolicy.proofSeconds }) }}</span></template>
+      <ElCopyableDetail class="policy-digest" :value="rootPolicy.digest" :label="t('admin.copy')" :copied-label="t('admin.copied')" :error-label="t('admin.copyFailed')" />
       <div class="risk-policy-field">
         <label for="root-comment-proof-seconds">{{ t('admin.proofLifetime') }}</label>
         <ElInput id="root-comment-proof-seconds" v-model="seconds" v-bind="{ inputmode: 'numeric' }" :disabled="busy" />
       </div>
       <ElInlineActions>
-        <ElButton
-          type="primary"
-          :disabled="busy || !validRootCommentPowSeconds(Number(seconds)) || Number(seconds) === rootPolicy.proofSeconds"
-          @click="change(false)"
-        >{{ t('admin.applyProofLifetime') }}</ElButton>
-        <ElButton
-          v-if="rootPolicy.previousSeconds > 0"
-          :disabled="busy"
-          @click="change(true)"
-        >{{ t('admin.restoreProofLifetime') }}</ElButton>
+        <ElButton type="primary" :disabled="busy || !validRootCommentPowSeconds(Number(seconds)) || Number(seconds) === rootPolicy.proofSeconds" @click="change(false)">{{ t('admin.applyProofLifetime') }}</ElButton>
+        <ElButton v-if="rootPolicy.previousSeconds > 0" :disabled="busy" @click="change(true)">{{ t('admin.restoreProofLifetime') }}</ElButton>
       </ElInlineActions>
     </ElFormSection>
   </ElSettingsSection>
@@ -156,19 +116,7 @@ onMounted(() => { void check(false) })
 
 <style scoped lang="scss">
 @use '../shared-fields' as fields;
-
-.risk-policy-field {
-  display: grid;
-  gap: 6px;
-  max-width: 280px;
-}
-
-.risk-policy-field label {
-
-  @include fields.admin-label;
-}
-
-.policy-digest {
-  overflow-wrap: anywhere;
-}
+.risk-policy-field { display: grid; gap: 6px; max-width: 280px; }
+.risk-policy-field label { @include fields.admin-label; }
+.policy-digest { overflow-wrap: anywhere; }
 </style>

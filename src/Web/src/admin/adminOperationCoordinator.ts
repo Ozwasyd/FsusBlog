@@ -1,5 +1,4 @@
 export type TimerHandle = unknown
-
 export interface AdminClock {
   now(): number
   setTimeout(callback: () => void, delayMs: number): TimerHandle
@@ -7,7 +6,6 @@ export interface AdminClock {
 }
 
 export const MAX_TIMEOUT_MS = 2_147_483_647
-
 export const systemAdminClock: AdminClock = {
   now: () => Date.now(),
   setTimeout: (callback, delayMs) => globalThis.setTimeout(callback, delayMs),
@@ -15,30 +13,13 @@ export const systemAdminClock: AdminClock = {
 }
 
 export interface DerivedAdminSignal {
-  readonly signal: AbortSignal
-  readonly sessionEpoch: number
-  readonly scopeEpoch: number
-  isCurrent(): boolean
+  readonly signal: AbortSignal; readonly sessionEpoch: number; readonly scopeEpoch: number; isCurrent(): boolean
 }
+export interface AdminOperationContext extends DerivedAdminSignal { readonly runId: number }
+export interface AdminOperationHandlers { onStart?: () => void; onError: (error: unknown, context: AdminOperationContext) => void }
+export interface AdminSessionScopeOptions { onReset?: () => void; onSessionAborted?: () => void }
 
-export interface AdminOperationContext extends DerivedAdminSignal {
-  readonly runId: number
-}
-
-export interface AdminOperationHandlers {
-  onStart?: () => void
-  onError: (error: unknown, context: AdminOperationContext) => void
-}
-
-export interface AdminSessionScopeOptions {
-  onReset?: () => void
-  onSessionAborted?: () => void
-}
-
-/**
- * Coordinates component lifetime, session signal switching/invalidation,
- * explicit operation cancellation, and epoch guards for admin views.
- */
+/** Coordinates component lifetime, session signal switching/invalidation, cancellation, and epoch guards for admin views. */
 export class AdminSessionScope {
   private readonly lifetime = new AbortController()
   private scopeController = new AbortController()
@@ -56,67 +37,37 @@ export class AdminSessionScope {
     this.onSessionAbortedCallback = options.onSessionAborted
   }
 
-  get disposed(): boolean {
-    return this._disposed
-  }
-
-  get sessionEpoch(): number {
-    return this._sessionEpoch
-  }
-
-  get scopeEpoch(): number {
-    return this._scopeEpoch
-  }
-
-  get sessionAborted(): boolean {
-    return this._disposed || (this.currentSessionSignal?.aborted ?? true)
-  }
-
-  get active(): boolean {
-    return !this.sessionAborted
-  }
-
-  isSessionCurrent(sessionEpoch: number): boolean {
-    return !this._disposed && this.active && this._sessionEpoch === sessionEpoch
-  }
-
-  isScopeCurrent(sessionEpoch: number, scopeEpoch: number): boolean {
-    return this.isSessionCurrent(sessionEpoch) && this._scopeEpoch === scopeEpoch
-  }
-
-  registerChannel(channel: AdminOperationChannel): void {
-    this.channels.add(channel)
-  }
+  get disposed(): boolean { return this._disposed }
+  get sessionEpoch(): number { return this._sessionEpoch }
+  get scopeEpoch(): number { return this._scopeEpoch }
+  get sessionAborted(): boolean { return this._disposed || (this.currentSessionSignal?.aborted ?? true) }
+  get active(): boolean { return !this.sessionAborted }
+  isSessionCurrent(sessionEpoch: number): boolean { return !this._disposed && this.active && this._sessionEpoch === sessionEpoch }
+  isScopeCurrent(sessionEpoch: number, scopeEpoch: number): boolean { return this.isSessionCurrent(sessionEpoch) && this._scopeEpoch === scopeEpoch }
+  registerChannel(channel: AdminOperationChannel): void { this.channels.add(channel) }
 
   bindSession(signal: AbortSignal): Readonly<{ active: boolean; sessionEpoch: number }> {
-    if (this._disposed) {
-      return { active: false, sessionEpoch: this._sessionEpoch }
-    }
-
+    if (this._disposed) return { active: false, sessionEpoch: this._sessionEpoch }
     this.detachSessionListener?.()
     this.detachSessionListener = null
     this.currentSessionSignal = signal
     const boundEpoch = this.advanceSession(signal.aborted)
     if (signal.aborted) return { active: false, sessionEpoch: boundEpoch }
-
     const handleAbort = () => {
       if (this._disposed || this._sessionEpoch !== boundEpoch) return
       this.detachSessionListener = null
       this.advanceSession(true)
       this.onSessionAbortedCallback?.()
     }
-
     signal.addEventListener('abort', handleAbort, { once: true })
     this.detachSessionListener = () => signal.removeEventListener('abort', handleAbort)
-
     return { active: true, sessionEpoch: boundEpoch }
   }
 
   private advanceSession(abortScope: boolean): number {
     this._sessionEpoch++
     this._scopeEpoch++
-    this.rotateScopeController()
-    if (abortScope) this.scopeController.abort()
+    this.rotateScopeController(abortScope)
     this.resetChannels()
     this.onResetCallback?.()
     return this._sessionEpoch
@@ -125,25 +76,18 @@ export class AdminSessionScope {
   cancelOperations(): number {
     if (this._disposed) return this._scopeEpoch
     this._scopeEpoch++
-    this.rotateScopeController()
-    if (this.sessionAborted) this.scopeController.abort()
+    this.rotateScopeController(this.sessionAborted)
     this.resetChannels()
     return this._scopeEpoch
   }
 
   deriveSignal(extraSignals: readonly AbortSignal[] = []): DerivedAdminSignal {
-    const sessionEpoch = this._sessionEpoch
-    const scopeEpoch = this._scopeEpoch
+    const sessionEpoch = this._sessionEpoch, scopeEpoch = this._scopeEpoch
     const sources: AbortSignal[] = [this.lifetime.signal, this.scopeController.signal]
     if (this.currentSessionSignal) sources.push(this.currentSessionSignal)
-    for (const extra of extraSignals) sources.push(extra)
+    sources.push(...extraSignals)
     const signal = AbortSignal.any(sources)
-    return {
-      signal,
-      sessionEpoch,
-      scopeEpoch,
-      isCurrent: () => !signal.aborted && this.isScopeCurrent(sessionEpoch, scopeEpoch),
-    }
+    return { signal, sessionEpoch, scopeEpoch, isCurrent: () => !signal.aborted && this.isScopeCurrent(sessionEpoch, scopeEpoch) }
   }
 
   dispose(): void {
@@ -160,21 +104,16 @@ export class AdminSessionScope {
     this.onResetCallback?.()
   }
 
-  private rotateScopeController(): void {
+  private rotateScopeController(abortNext: boolean): void {
     this.scopeController.abort()
     this.scopeController = new AbortController()
+    if (abortNext) this.scopeController.abort()
   }
 
-  private resetChannels(): void {
-    for (const channel of this.channels) channel.resetInternal()
-  }
+  private resetChannels(): void { for (const channel of this.channels) channel.resetInternal() }
 }
 
-/**
- * Single non-reentrant asynchronous operation channel bound to an AdminSessionScope.
- * Prevents concurrent overlap, isolates late results/errors across session switches
- * or cancellations, and ensures stale finally blocks never clear newer pending runs.
- */
+/** Single non-reentrant asynchronous operation channel bound to an AdminSessionScope. */
 export class AdminOperationChannel {
   private readonly scope: AdminSessionScope
   private readonly onPendingChange?: (pending: boolean) => void
@@ -189,45 +128,25 @@ export class AdminOperationChannel {
     this.scope.registerChannel(this)
   }
 
-  get pending(): boolean {
-    return this._pending
-  }
-
-  cancel(): void {
-    this.resetInternal()
-  }
+  get pending(): boolean { return this._pending }
+  cancel(): void { this.resetInternal() }
 
   resetInternal(): void {
     this.activeRunId = 0
     this.channelController.abort()
     this.channelController = new AbortController()
-    if (this._pending) {
-      this._pending = false
-      this.onPendingChange?.(false)
-    }
+    if (this._pending) { this._pending = false; this.onPendingChange?.(false) }
   }
 
-  async run(
-    task: (context: AdminOperationContext) => Promise<void>,
-    handlers: AdminOperationHandlers,
-  ): Promise<boolean> {
+  async run(task: (context: AdminOperationContext) => Promise<void>, handlers: AdminOperationHandlers): Promise<boolean> {
     if (this._pending || !this.scope.active) return false
-
     const runId = ++this.nextRunId
     this.activeRunId = runId
     const derived = this.scope.deriveSignal([this.channelController.signal])
-    const context: AdminOperationContext = {
-      signal: derived.signal,
-      sessionEpoch: derived.sessionEpoch,
-      scopeEpoch: derived.scopeEpoch,
-      runId,
-      isCurrent: () => derived.isCurrent() && this.activeRunId === runId,
-    }
-
+    const context: AdminOperationContext = { ...derived, runId, isCurrent: () => derived.isCurrent() && this.activeRunId === runId }
     this._pending = true
     handlers.onStart?.()
     this.onPendingChange?.(true)
-
     try {
       await task(context)
       return context.isCurrent()
@@ -237,10 +156,7 @@ export class AdminOperationChannel {
     } finally {
       if (this.activeRunId === runId) {
         this.activeRunId = 0
-        if (this._pending) {
-          this._pending = false
-          this.onPendingChange?.(false)
-        }
+        if (this._pending) { this._pending = false; this.onPendingChange?.(false) }
       }
     }
   }
