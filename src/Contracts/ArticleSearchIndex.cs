@@ -11,12 +11,13 @@ public enum ArticleSearchSort
 public readonly record struct ArticleSearchPage(Article[] Articles, int Total);
 
 /// <summary>
-/// In-memory concept-aware BM25F search index over the active public generation (#46, #48, profile v3).
-/// Compact (&lt;= 40,000 docs) and Wide (40,001..100,000 docs) profiles compute identical globally consistent
-/// 5-field BM25F scores, concept coverage, CJK bigram sequences, quoted phrases, bounded relaxation,
-/// and deterministic tie-breaking, verified against <see cref="ExhaustiveSearchOracle"/>.
-/// Compact retrieval uses selective exact intersections for rare queries and Block-Max conjunction /
-/// Block-Max WAND / Latest block pruning with pooled Top-K heaps for broad queries.
+/// In-memory concept-aware BM25F search index over the active public generation (#46, #48, #51, profile v3).
+/// Compact (&lt;= 40,000 docs) uses immutable generation-consistent segments with incremental updates,
+/// thresholded zero-reanalysis compaction, exact global live statistics, and Block-Max conjunction /
+/// Block-Max WAND / Latest block pruning with pooled value-type Top-K heaps.
+/// Wide (40,001..100,000 docs) computes identical globally consistent 5-field BM25F scores,
+/// concept coverage, CJK bigram sequences, quoted phrases, bounded relaxation, and deterministic
+/// tie-breaking, verified against <see cref="ExhaustiveSearchOracle"/>.
 /// </summary>
 public sealed partial class ArticleSearchIndex
 {
@@ -29,192 +30,130 @@ public sealed partial class ArticleSearchIndex
     private const long MaxScannedChars = 128 * 1024 * 1024;
     private const byte ExactFlagBit = 1;
 
-    private readonly Document[] _documents;
+    private readonly SearchSegment[] _segments;
+    private readonly ulong[]?[] _liveMasks;
+    private readonly int[] _segmentLiveCounts;
+    private readonly Dictionary<int, (int SegmentIndex, int LocalOrdinal)> _liveLocator;
+    private readonly Dictionary<int, Article> _articlesById;
+    private readonly Article[]? _fallbackArticles;
+    private readonly bool _duplicateIdsFallback;
+    private readonly int _liveDocumentCount;
+    private readonly int _deadDocumentSlots;
+    private readonly long[] _totalFieldLengths;
     private readonly double[] _avgFieldLengths;
-    private readonly Term[] _terms;
-    private readonly Posting[] _postings;
-    private readonly SearchPostingBlockMeta[] _blocks;
-    private readonly uint[] _positions;
-    private readonly ShortPrefixTerm[] _shortPrefixTerms;
-    private readonly ShortPrefixPosting[] _shortPrefixPostings;
-    private readonly ShortPrefixBlockMeta[] _shortPrefixBlocks;
+    private readonly long _liveScannedChars;
+    private readonly Dictionary<SearchTermKey, int>? _globalLiveDf;
+    private readonly Dictionary<ushort, int>? _globalShortPrefixLiveDf;
+    private readonly int _analyzerVersion;
+    private readonly int _profileVersion;
     private readonly WideIndex? _wide;
 
     private ArticleSearchIndex(
-        Document[] documents,
+        SearchSegment[] segments,
+        ulong[]?[] liveMasks,
+        int[] segmentLiveCounts,
+        Dictionary<int, (int SegmentIndex, int LocalOrdinal)> liveLocator,
+        Dictionary<int, Article> articlesById,
+        Article[]? fallbackArticles,
+        int liveDocumentCount,
+        int deadDocumentSlots,
+        long[] totalFieldLengths,
         double[] avgFieldLengths,
-        Term[] terms,
-        Posting[] postings,
-        SearchPostingBlockMeta[] blocks,
-        uint[] positions,
-        ShortPrefixTerm[] shortPrefixTerms,
-        ShortPrefixPosting[] shortPrefixPostings,
-        ShortPrefixBlockMeta[] shortPrefixBlocks,
-        WideIndex? wide = null) =>
-        (_documents, _avgFieldLengths, _terms, _postings, _blocks, _positions,
-            _shortPrefixTerms, _shortPrefixPostings, _shortPrefixBlocks, _wide) =
-            (documents, avgFieldLengths, terms, postings, blocks, positions,
-                shortPrefixTerms, shortPrefixPostings, shortPrefixBlocks, wide);
+        long liveScannedChars,
+        Dictionary<SearchTermKey, int>? globalLiveDf,
+        Dictionary<ushort, int>? globalShortPrefixLiveDf,
+        int analyzerVersion,
+        int profileVersion,
+        WideIndex? wide = null)
+    {
+        _segments = segments;
+        _liveMasks = liveMasks;
+        _segmentLiveCounts = segmentLiveCounts;
+        _liveLocator = liveLocator;
+        _articlesById = articlesById;
+        _fallbackArticles = fallbackArticles;
+        _duplicateIdsFallback = fallbackArticles is not null;
+        _liveDocumentCount = liveDocumentCount;
+        _deadDocumentSlots = deadDocumentSlots;
+        _totalFieldLengths = totalFieldLengths;
+        _avgFieldLengths = avgFieldLengths;
+        _liveScannedChars = liveScannedChars;
+        _globalLiveDf = globalLiveDf;
+        _globalShortPrefixLiveDf = globalShortPrefixLiveDf;
+        _analyzerVersion = analyzerVersion;
+        _profileVersion = profileVersion;
+        _wide = wide;
+    }
 
-    public int AnalyzerVersion => SearchTextAnalyzer.Version;
-    public int ProfileVersion => SearchScoringProfile.ProfileVersion;
+    private static ArticleSearchIndex CreateEmpty(int analyzerVersion, int profileVersion) => new(
+        [],
+        [],
+        [],
+        new Dictionary<int, (int SegmentIndex, int LocalOrdinal)>(0),
+        new Dictionary<int, Article>(0),
+        fallbackArticles: null,
+        liveDocumentCount: 0,
+        deadDocumentSlots: 0,
+        new long[SearchScoringProfile.FieldCount],
+        ComputeAvgFieldLengths(new long[SearchScoringProfile.FieldCount], 0),
+        liveScannedChars: 0,
+        globalLiveDf: null,
+        globalShortPrefixLiveDf: null,
+        analyzerVersion,
+        profileVersion);
+
+    public int AnalyzerVersion => _analyzerVersion;
+    public int ProfileVersion => _profileVersion;
     public bool UsesWideProfile => _wide is not null;
-    public int DocumentCount => _documents.Length;
-    public int TermCount => _wide is { } wide ? wide.Aliases.Length : _terms.Length;
-    public int PostingCount => _wide is { } wide
-        ? wide.Blocks.Sum(static block => block.Terms.Sum(static term => term.Count))
-        : _postings.Length;
-    public int BlockCount => _blocks.Length;
+    public int DocumentCount => _liveDocumentCount;
+    public int SegmentCount => _wide is not null ? 1 : _segments.Length;
+    public int DeadDocumentSlots => _deadDocumentSlots;
+    public int TermCount => _wide is { } wide
+        ? wide.Aliases.Length
+        : (_globalLiveDf is not null ? _globalLiveDf.Count : (_segments.Length == 1 ? _segments[0].Terms.Length : 0));
+    public int PostingCount
+    {
+        get
+        {
+            if (_wide is { } wide)
+                return wide.Blocks.Sum(static block => block.Terms.Sum(static term => term.Count));
+            var total = 0;
+            for (var i = 0; i < _segments.Length; i++) total += _segments[i].Postings.Length;
+            return total;
+        }
+    }
+    public int BlockCount
+    {
+        get
+        {
+            var total = 0;
+            for (var i = 0; i < _segments.Length; i++) total += _segments[i].Blocks.Length;
+            return total;
+        }
+    }
+    public long EstimatedRetainedBytes
+    {
+        get
+        {
+            if (_wide is { } wide)
+                return wide.EstimatedBytes;
+            long total = 0;
+            for (var i = 0; i < _segments.Length; i++) total += _segments[i].EstimatedBytes;
+            for (var i = 0; i < _liveMasks.Length; i++)
+                if (_liveMasks[i] is { } mask) total += (long)mask.Length * sizeof(ulong);
+            if (_globalLiveDf is not null) total += (long)_globalLiveDf.Count * 32;
+            if (_globalShortPrefixLiveDf is not null) total += (long)_globalShortPrefixLiveDf.Count * 16;
+            return total;
+        }
+    }
 
     public static ArticleSearchIndex? Build(IReadOnlyList<Article> articles, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(articles);
+        ct.ThrowIfCancellationRequested();
+        if (articles.Count == 0) return CreateEmpty(SearchTextAnalyzer.Version, SearchScoringProfile.ProfileVersion);
         if (articles.Count > CompactMaxDocuments) return BuildWide(articles, ct);
-
-        var documents = new Document[articles.Count];
-        var totalFieldLengths = new long[SearchScoringProfile.FieldCount];
-        var builder = new PostingBuilder(MaxScannedChars);
-        if (!builder.Collect(articles, documents, totalFieldLengths, MaxTerms, MaxPostings, ct)) return null;
-
-        // Materialize postings in ascending Ordinal order and compute 64-doc generation-independent block bounds
-        var totalBlocks = 0;
-        foreach (var bucket in builder.Heads.Values)
-            totalBlocks += (bucket.Count + PostingBlockSize - 1) / PostingBlockSize;
-
-        var terms = new Term[builder.Heads.Count];
-        var postings = new Posting[builder.Pending.Count];
-        var blocks = new SearchPostingBlockMeta[totalBlocks];
-        var termIndex = 0;
-        var start = 0;
-        var blockCursor = 0;
-
-        foreach (var (key, bucket) in builder.Heads)
-        {
-            ct.ThrowIfCancellationRequested();
-            var bCount = (bucket.Count + PostingBlockSize - 1) / PostingBlockSize;
-            terms[termIndex++] = new Term(key, start, bucket.Count, blockCursor, bCount);
-
-            var write = start + bucket.Count - 1;
-            for (var entry = bucket.Head; entry >= 0; entry = builder.Pending[entry].Previous)
-                postings[write--] = builder.Pending[entry].Value;
-
-            for (var b = 0; b < bCount; b++)
-            {
-                var bStart = start + b * PostingBlockSize;
-                var bEnd = Math.Min(start + bucket.Count, bStart + PostingBlockSize);
-                byte mTf0 = 0, mTf1 = 0, mTf2 = 0, mTf3 = 0, mTf4 = 0, anyExact = 0;
-                ushort minL0 = ushort.MaxValue, minL1 = ushort.MaxValue, minL2 = ushort.MaxValue,
-                       minL3 = ushort.MaxValue, minL4 = ushort.MaxValue;
-                var maxPub = long.MinValue;
-                var minPub = long.MaxValue;
-
-                for (var i = bStart; i < bEnd; i++)
-                {
-                    var p = postings[i];
-                    if (p.Tf0 > mTf0) mTf0 = p.Tf0;
-                    if (p.Tf1 > mTf1) mTf1 = p.Tf1;
-                    if (p.Tf2 > mTf2) mTf2 = p.Tf2;
-                    if (p.Tf3 > mTf3) mTf3 = p.Tf3;
-                    if (p.Tf4 > mTf4) mTf4 = p.Tf4;
-                    anyExact |= (byte)(p.ExactFlags & ExactFlagBit);
-
-                    var d = documents[p.Ordinal];
-                    var l0 = (ushort)Math.Min(ushort.MaxValue, d.TitleLen);
-                    var l1 = (ushort)Math.Min(ushort.MaxValue, d.HeadingLen);
-                    var l2 = (ushort)Math.Min(ushort.MaxValue, d.SummaryLen);
-                    var l3 = (ushort)Math.Min(ushort.MaxValue, d.TaxonomyLen);
-                    var l4 = (ushort)Math.Min(ushort.MaxValue, d.BodyLen);
-                    if (l0 < minL0) minL0 = l0;
-                    if (l1 < minL1) minL1 = l1;
-                    if (l2 < minL2) minL2 = l2;
-                    if (l3 < minL3) minL3 = l3;
-                    if (l4 < minL4) minL4 = l4;
-
-                    var pub = d.Article.PublishedAt.UtcTicks;
-                    if (pub > maxPub) maxPub = pub;
-                    if (pub < minPub) minPub = pub;
-                }
-
-                blocks[blockCursor++] = new SearchPostingBlockMeta(
-                    postings[bEnd - 1].Ordinal,
-                    mTf0, mTf1, mTf2, mTf3, mTf4,
-                    anyExact,
-                    minL0, minL1, minL2, minL3, minL4,
-                    maxPub, minPub);
-            }
-
-            start += bucket.Count;
-        }
-        Array.Sort(terms, Term.ByKey);
-
-        // Materialize pre-indexed 1-2 char ASCII short-prefix postings & block metadata (eliminates O(N) metadata scans)
-        var totalSpBlocks = 0;
-        foreach (var bucket in builder.ShortPrefixHeads.Values)
-            totalSpBlocks += (bucket.Count + PostingBlockSize - 1) / PostingBlockSize;
-
-        var spTerms = new ShortPrefixTerm[builder.ShortPrefixHeads.Count];
-        var spPostings = new ShortPrefixPosting[builder.PendingShortPrefixes.Count];
-        var spBlocks = new ShortPrefixBlockMeta[totalSpBlocks];
-        var spTermIndex = 0;
-        var spStart = 0;
-        var spBlockCursor = 0;
-
-        foreach (var (spKey, bucket) in builder.ShortPrefixHeads)
-        {
-            ct.ThrowIfCancellationRequested();
-            var bCount = (bucket.Count + PostingBlockSize - 1) / PostingBlockSize;
-            spTerms[spTermIndex++] = new ShortPrefixTerm(spKey, spStart, bucket.Count, spBlockCursor, bCount);
-
-            var write = spStart + bucket.Count - 1;
-            for (var entry = bucket.Head; entry >= 0; entry = builder.PendingShortPrefixes[entry].Previous)
-                spPostings[write--] = builder.PendingShortPrefixes[entry].Value;
-
-            for (var b = 0; b < bCount; b++)
-            {
-                var bStart = spStart + b * PostingBlockSize;
-                var bEnd = Math.Min(spStart + bucket.Count, bStart + PostingBlockSize);
-                ushort maxT = 0, maxS = 0, maxX = 0;
-                ushort minL0 = ushort.MaxValue, minL2 = ushort.MaxValue, minL3 = ushort.MaxValue;
-                var maxPub = long.MinValue;
-                var minPub = long.MaxValue;
-
-                for (var i = bStart; i < bEnd; i++)
-                {
-                    var sp = spPostings[i];
-                    var tHits = (ushort)((sp.Packed >> 20) & 1023);
-                    var sHits = (ushort)((sp.Packed >> 10) & 1023);
-                    var xHits = (ushort)(sp.Packed & 1023);
-                    if (tHits > maxT) maxT = tHits;
-                    if (sHits > maxS) maxS = sHits;
-                    if (xHits > maxX) maxX = xHits;
-
-                    var d = documents[sp.Ordinal];
-                    var l0 = (ushort)Math.Min(ushort.MaxValue, d.TitleLen);
-                    var l2 = (ushort)Math.Min(ushort.MaxValue, d.SummaryLen);
-                    var l3 = (ushort)Math.Min(ushort.MaxValue, d.TaxonomyLen);
-                    if (l0 < minL0) minL0 = l0;
-                    if (l2 < minL2) minL2 = l2;
-                    if (l3 < minL3) minL3 = l3;
-
-                    var pub = d.Article.PublishedAt.UtcTicks;
-                    if (pub > maxPub) maxPub = pub;
-                    if (pub < minPub) minPub = pub;
-                }
-
-                spBlocks[spBlockCursor++] = new ShortPrefixBlockMeta(
-                    spPostings[bEnd - 1].Ordinal,
-                    maxT, maxS, maxX,
-                    minL0, minL2, minL3,
-                    maxPub, minPub);
-            }
-
-            spStart += bucket.Count;
-        }
-        Array.Sort(spTerms, ShortPrefixTerm.ByKey);
-
-        var avgFieldLengths = ComputeAvgFieldLengths(totalFieldLengths, articles.Count);
-        return new ArticleSearchIndex(
-            documents, avgFieldLengths, terms, postings, blocks, [.. builder.Positions],
-            spTerms, spPostings, spBlocks);
+        return BuildSingleSegmentIndex(articles, "full", 0, ct, out _);
     }
 
     public Article[] Search(string query, CancellationToken ct) =>
@@ -247,7 +186,7 @@ public sealed partial class ArticleSearchIndex
         ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(size, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, MaxResults);
-        if (_documents.Length == 0) return new([], 0, 0, 0);
+        if (_liveDocumentCount == 0) return new([], 0, 0, 0);
 
         if (plan.IsEmpty || plan.IsOverlongExactIdentifier) return new([], 0, 0, 0);
 
@@ -309,7 +248,7 @@ public sealed partial class ArticleSearchIndex
         ArgumentOutOfRangeException.ThrowIfLessThan(size, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, WireLimits.PublicSearchMaxPageSize);
         ArgumentOutOfRangeException.ThrowIfLessThan(returnedSoFar, 0);
-        if (_documents.Length == 0 || plan.IsEmpty || plan.IsOverlongExactIdentifier)
+        if (_liveDocumentCount == 0 || plan.IsEmpty || plan.IsOverlongExactIdentifier)
             return new([], 0, PublicSearchTotalRelation.Exact, 0, 0, false, null);
 
         var budget = Math.Max(1, workBudget ?? DefaultWorkBudgetCandidates);
@@ -325,15 +264,15 @@ public sealed partial class ArticleSearchIndex
         return BuildCursorPageFromOutcome(outcome, size, returnedSoFar, threshold);
     }
 
-    private bool TryFindPosting(Term term, int ordinal, out Posting posting)
+    private static bool TryFindPosting(Posting[] postings, Term term, int ordinal, out Posting posting)
     {
         var lo = term.Start;
         var hi = term.Start + term.Count - 1;
         while (lo <= hi)
         {
             var mid = lo + ((hi - lo) >> 1);
-            var ord = _postings[mid].Ordinal;
-            if (ord == ordinal) { posting = _postings[mid]; return true; }
+            var ord = postings[mid].Ordinal;
+            if (ord == ordinal) { posting = postings[mid]; return true; }
             if (ord < ordinal) lo = mid + 1;
             else hi = mid - 1;
         }
@@ -407,15 +346,25 @@ public sealed partial class ArticleSearchIndex
         internal readonly List<uint> Positions = [];
         internal readonly Dictionary<ushort, Bucket> ShortPrefixHeads = [];
         internal readonly List<PendingShortPrefixPosting> PendingShortPrefixes = [];
+        internal long TotalScannedChars;
+        internal int AnalyzedDocuments;
 
-        internal bool Collect(IReadOnlyList<Article> articles, Document[] documents, long[] totalFieldLengths,
-            int termLimit, int postingLimit, CancellationToken ct)
+        internal bool Collect(
+            IReadOnlyList<Article> articles,
+            IReadOnlyList<SearchDocFingerprint> fingerprints,
+            DocumentMeta[] documents,
+            long[] totalFieldLengths,
+            int termLimit,
+            int postingLimit,
+            CancellationToken ct)
         {
             Heads.Clear();
             Pending.Clear();
             Positions.Clear();
             ShortPrefixHeads.Clear();
             PendingShortPrefixes.Clear();
+            TotalScannedChars = 0;
+            AnalyzedDocuments = 0;
 
             for (var ordinal = 0; ordinal < articles.Count; ordinal++)
             {
@@ -424,15 +373,17 @@ public sealed partial class ArticleSearchIndex
                 _docTerms.Clear();
                 _docShortPrefixes.Clear();
                 _docPositions.Clear();
+                long docChars = 0;
+                AnalyzedDocuments++;
 
-                if (!ChargeChars(article.Title.Length)) return false;
+                if (!ChargeChars(article.Title.Length, ref docChars)) return false;
                 var titleRes = SearchTextAnalyzer.AnalyzePlainField(article.Title, SearchFieldKind.Title, SearchAnalysisMode.Index, 0, ct);
                 if (!Accumulate(titleRes.Tokens, SearchScoreField.Title, 0, termLimit)) return false;
                 ArticleSearchTokens.AccumulateShortPrefixCounts(article.Title, 20, _docShortPrefixes);
                 var titleLen = Math.Max(1, titleRes.SourceLength);
 
                 var summaryText = article.Summary ?? "";
-                if (!ChargeChars(summaryText.Length)) return false;
+                if (!ChargeChars(summaryText.Length, ref docChars)) return false;
                 var sumRes = SearchTextAnalyzer.AnalyzePlainField(summaryText, SearchFieldKind.Summary, SearchAnalysisMode.Index, 0, ct);
                 if (!Accumulate(sumRes.Tokens, SearchScoreField.Summary, 0, termLimit)) return false;
                 ArticleSearchTokens.AccumulateShortPrefixCounts(summaryText, 10, _docShortPrefixes);
@@ -442,7 +393,7 @@ public sealed partial class ArticleSearchIndex
                 var taxLen = 0;
                 if (article.Category is { Name.Length: > 0 } cat)
                 {
-                    if (!ChargeChars(cat.Name.Length)) return false;
+                    if (!ChargeChars(cat.Name.Length, ref docChars)) return false;
                     var catRes = SearchTextAnalyzer.AnalyzePlainField(cat.Name, SearchFieldKind.Taxonomy, SearchAnalysisMode.Index, taxPos, ct);
                     if (!Accumulate(catRes.Tokens, SearchScoreField.Taxonomy, 0, termLimit)) return false;
                     ArticleSearchTokens.AccumulateShortPrefixCounts(cat.Name, 0, _docShortPrefixes);
@@ -452,7 +403,7 @@ public sealed partial class ArticleSearchIndex
                 foreach (var tag in article.Tags ?? [])
                 {
                     if (string.IsNullOrEmpty(tag.Name)) continue;
-                    if (!ChargeChars(tag.Name.Length)) return false;
+                    if (!ChargeChars(tag.Name.Length, ref docChars)) return false;
                     var tagRes = SearchTextAnalyzer.AnalyzePlainField(tag.Name, SearchFieldKind.Taxonomy, SearchAnalysisMode.Index, taxPos, ct);
                     if (!Accumulate(tagRes.Tokens, SearchScoreField.Taxonomy, 0, termLimit)) return false;
                     ArticleSearchTokens.AccumulateShortPrefixCounts(tag.Name, 0, _docShortPrefixes);
@@ -462,7 +413,7 @@ public sealed partial class ArticleSearchIndex
                 taxLen = Math.Max(1, taxLen);
 
                 var bodyText = article.Body ?? "";
-                if (!ChargeChars(bodyText.Length)) return false;
+                if (!ChargeChars(bodyText.Length, ref docChars)) return false;
                 var (headings, prose, code) = SearchTextAnalyzer.AnalyzeMarkdownBody(bodyText, ct);
                 if (!Accumulate(headings.Tokens, SearchScoreField.Heading, 0, termLimit)) return false;
                 var headingLen = Math.Max(1, headings.SourceLength);
@@ -473,12 +424,23 @@ public sealed partial class ArticleSearchIndex
                     return false;
                 var bodyLen = Math.Max(1, prose.SourceLength + code.SourceLength);
 
-                documents[ordinal] = new Document(article, titleLen, headingLen, sumLen, taxLen, bodyLen);
+                documents[ordinal] = new DocumentMeta(
+                    article.Id,
+                    titleLen,
+                    headingLen,
+                    sumLen,
+                    taxLen,
+                    bodyLen,
+                    article.PublishedAt.UtcTicks,
+                    article.CreatedAt.UtcTicks,
+                    docChars,
+                    fingerprints[ordinal]);
                 totalFieldLengths[0] += titleLen;
                 totalFieldLengths[1] += headingLen;
                 totalFieldLengths[2] += sumLen;
                 totalFieldLengths[3] += taxLen;
                 totalFieldLengths[4] += bodyLen;
+                TotalScannedChars += docChars;
 
                 if (_docTerms.Count > postingLimit - Pending.Count) return false;
                 foreach (var (key, acc) in _docTerms)
@@ -531,9 +493,10 @@ public sealed partial class ArticleSearchIndex
             return true;
         }
 
-        private bool ChargeChars(int count)
+        private bool ChargeChars(int count, ref long docChars)
         {
             remainingChars -= count;
+            docChars += count;
             return remainingChars >= 0;
         }
 
@@ -592,18 +555,6 @@ public sealed partial class ArticleSearchIndex
         ushort MinLen0, ushort MinLen2, ushort MinLen3,
         long MaxPublishedTicks, long MinPublishedTicks);
     private readonly record struct Bucket(int Head, int Count);
-
-    private readonly record struct Document(Article Article, int TitleLen, int HeadingLen, int SummaryLen, int TaxonomyLen, int BodyLen)
-    {
-        internal void CopyLengths(Span<int> target)
-        {
-            target[0] = TitleLen;
-            target[1] = HeadingLen;
-            target[2] = SummaryLen;
-            target[3] = TaxonomyLen;
-            target[4] = BodyLen;
-        }
-    }
 
     private readonly record struct Term(SearchTermKey Key, int Start, int Count, int BlockStart, int BlockCount)
     {

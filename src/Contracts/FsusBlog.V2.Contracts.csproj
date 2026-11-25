@@ -6,6 +6,12 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>FsusBlog.V2.ProtocolTests</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>FsusBlog.V2.Integration.Tests</_Parameter1>
+    </AssemblyAttribute>
     <EmbeddedResource Include="search-lexicon.json" LogicalName="SearchLexicon" />
     <EmbeddedResource Include="search-sc-tc-map.json" LogicalName="SearchScTcMap" />
     <Using Include="System.Buffers" />
