@@ -39,6 +39,7 @@ internal sealed class SiteCapabilities
     internal bool PrivateMediaResumable { get; }
     internal bool ArticleReadProof { get; }
     internal bool SiteTraffic { get; }
+    internal bool SiteTrafficReadable { get; }
     internal Uri? TrafficOrigin { get; }
     internal bool ReaderRegistration { get; }
     internal bool SitePersistentRefresh { get; }
@@ -126,6 +127,7 @@ internal sealed class SiteCapabilities
         var hasAdmin = adminIdentity is not null;
         var httpsAdmin = adminIdentity?.Origin.Scheme == Uri.UriSchemeHttps;
         var loopbackAdmin = adminIdentity is { Origin: { Scheme: "http", IsLoopback: true } };
+        SiteTrafficReadable = requestedTraffic != false && (SiteTraffic || loopbackAdmin);
 
         AdminInboxReplies = hasAdmin && Enabled(AdminInboxEndpoints.ReplySetting);
         AdminInboxStatus = hasAdmin && Enabled(AdminInboxEndpoints.StatusSetting);

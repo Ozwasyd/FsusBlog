@@ -64,4 +64,94 @@ public sealed class SiteTrafficCollectionTests
         }
         finally { File.Delete(path); }
     }
+
+    [PostgresFact]
+    public async Task LoopbackAdminReadsSeededSiteTrafficWithoutCollectingHttpRequests()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
+        var (_, adminToken, _) = await fixture.AdminAsync("loopback-traffic-admin", 10, [1], [2], ct);
+
+        await fixture.InTx(async (db, tx) =>
+        {
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
+                insert into public.site_traffic_daily (day, region, views)
+                values
+                  ((now() at time zone 'UTC')::date - 1, 'CN-SH', 30),
+                  ((now() at time zone 'UTC')::date, 'CN-SH', 12),
+                  ((now() at time zone 'UTC')::date, 'US', 18),
+                  ((now() at time zone 'UTC')::date, 'unknown', 5)
+                """);
+        }, ct);
+
+        using var dataDir = MediaFixture.OwnedTempDirectory("fsusblog-loopback-traffic-");
+        await File.WriteAllTextAsync(Path.Combine(dataDir.FullName, "traffic-regions.json"),
+            """[{"cidr":"192.0.2.0/24","region":"CN-SH"},{"cidr":"203.0.113.0/24","region":"US"}]""", ct);
+
+        await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
+        {
+            [SiteCapabilities.DataDirSetting] = dataDir.FullName,
+        }))
+        {
+            using (var home = await server.Client.GetAsync("/", ct))
+                Assert.Equal(OK, home.StatusCode);
+
+            var frame = await SiteAedsFixture.AdminBytes(server.Client, HttpMethod.Get, WireRoutes.AdminSiteTraffic, adminToken, ct);
+            var snapshot = DecodeTraffic(frame);
+            Assert.True(snapshot.Enabled);
+            Assert.True(snapshot.RegionsConfigured);
+            Assert.Equal(30, snapshot.Days.Count);
+            Assert.Equal(65, snapshot.Days.Sum(day => day.Views));
+            Assert.Equal([new SiteTrafficRegion("CN-SH", 42), new SiteTrafficRegion("US", 18), new SiteTrafficRegion("unknown", 5)],
+                snapshot.Regions);
+        }
+
+        await using (var disabled = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
+        {
+            [SiteCapabilities.DataDirSetting] = dataDir.FullName,
+            [SiteTraffic.EnabledSetting] = "false",
+        }))
+        {
+            var frame = await SiteAedsFixture.AdminBytes(disabled.Client, HttpMethod.Get, WireRoutes.AdminSiteTraffic, adminToken, ct);
+            var snapshot = DecodeTraffic(frame);
+            Assert.False(snapshot.Enabled);
+            Assert.False(snapshot.RegionsConfigured);
+            Assert.Empty(snapshot.Days);
+            Assert.Empty(snapshot.Regions);
+        }
+    }
+
+    private static AdminSiteTraffic DecodeTraffic(byte[] frame)
+    {
+        var payload = Aeds.Decode(frame, FrameType.AdminSiteTraffic);
+        var pos = 0;
+        var enabled = ReadBool(payload, ref pos);
+        var regionsConfigured = ReadBool(payload, ref pos);
+        var dayCount = ReadInt32(payload, ref pos);
+        var days = new List<SiteTrafficDay>(dayCount);
+        for (var i = 0; i < dayCount; i++)
+            days.Add(new(ReadText(payload, ref pos), ReadInt64(payload, ref pos)));
+        var regionCount = ReadInt32(payload, ref pos);
+        var regions = new List<SiteTrafficRegion>(regionCount);
+        for (var i = 0; i < regionCount; i++)
+            regions.Add(new(ReadText(payload, ref pos), ReadInt64(payload, ref pos)));
+        Assert.Equal(payload.Length, pos);
+        return new(enabled, regionsConfigured, days, regions);
+
+        static bool ReadBool(ReadOnlySpan<byte> data, ref int offset) => data[offset++] switch
+        {
+            0 => false,
+            1 => true,
+            var value => throw new InvalidOperationException($"Unexpected boolean byte {value}.")
+        };
+        static int ReadInt32(ReadOnlySpan<byte> data, ref int offset) { var value = BinaryPrimitives.ReadInt32LittleEndian(data[offset..]); offset += 4; return value; }
+        static long ReadInt64(ReadOnlySpan<byte> data, ref int offset) { var value = BinaryPrimitives.ReadInt64LittleEndian(data[offset..]); offset += 8; return value; }
+        static string ReadText(ReadOnlySpan<byte> data, ref int offset)
+        {
+            var len = ReadInt32(data, ref offset);
+            var text = Encoding.UTF8.GetString(data.Slice(offset, len));
+            offset += len;
+            return text;
+        }
+    }
 }

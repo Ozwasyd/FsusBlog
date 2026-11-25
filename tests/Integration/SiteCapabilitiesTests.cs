@@ -37,7 +37,7 @@ public sealed class SiteCapabilitiesTests
         Assert.All(new object?[] { c.PublicSite.Origin, c.SitePasskey, c.AdminIdentity, c.PrivateMediaRoot, c.PublicMediaRoot, c.SitePagesRoot, c.AppearanceRoot, c.TrafficRegionsPath, c.TrafficOrigin }, Assert.Null);
         Assert.All([c.PublicCommentSubmissions, c.SignedInCommentReplies, c.PrivateInboxWrites, c.DocumentExportTasks, c.PublicHotArticles, c.WideSearchCorpus, c.SiteConfigOverrideActive], Assert.True);
         Assert.Equal("auto", c.PublicSearchMode);
-        Assert.All([c.TrustLoopbackProxy, c.PrivateMediaResumable, c.ArticleReadProof, c.SiteTraffic, c.ReaderRegistration, c.SitePersistentRefresh, c.SitePageEditor, c.SiteConfigEditor, c.OnlineAppearance], Assert.False);
+        Assert.All([c.TrustLoopbackProxy, c.PrivateMediaResumable, c.ArticleReadProof, c.SiteTraffic, c.SiteTrafficReadable, c.ReaderRegistration, c.SitePersistentRefresh, c.SitePageEditor, c.SiteConfigEditor, c.OnlineAppearance], Assert.False);
         CheckAdminChannels(c, Assert.False);
         CheckAdminArticleTools(c, Assert.False);
     }
@@ -48,7 +48,7 @@ public sealed class SiteCapabilitiesTests
         var c = Resolve(new() { [PublicSiteConfiguration.OriginKey] = PublicOrigin, ["FSUSBLOG_ADMIN_ORIGIN"] = AdminOrigin });
         Assert.Equal((PublicOrigin, new Uri(PublicOrigin), "blog.example.test", new Uri(AdminOrigin), "admin.example.test", new Uri(PublicOrigin)),
             (c.PublicSite.Origin, c.SitePasskey?.Origin, c.SitePasskey?.RpId, c.AdminIdentity?.Origin, c.AdminIdentity?.RpId, c.TrafficOrigin));
-        Assert.All([c.ArticleReadProof, c.SiteTraffic, c.ReaderRegistration, c.SitePersistentRefresh, c.SitePageEditor, c.SiteConfigEditor], Assert.True);
+        Assert.All([c.ArticleReadProof, c.SiteTraffic, c.SiteTrafficReadable, c.ReaderRegistration, c.SitePersistentRefresh, c.SitePageEditor, c.SiteConfigEditor], Assert.True);
         CheckAdminChannels(c, Assert.True);
         CheckAdminArticleTools(c, Assert.True);
         Assert.All([c.PrivateMediaResumable, c.OnlineAppearance], Assert.False);
@@ -135,7 +135,7 @@ public sealed class SiteCapabilitiesTests
         Assert.All(new object?[] { c.SitePasskey, c.PrivateMediaRoot, c.PublicMediaRoot, c.SitePagesRoot, c.AppearanceRoot }, Assert.Null);
         Assert.Equal("server", c.PublicSearchMode);
         Assert.All([c.PublicCommentSubmissions, c.SignedInCommentReplies, c.PrivateInboxWrites, c.DocumentExportTasks, c.PublicHotArticles, c.WideSearchCorpus,
-            c.PrivateMediaResumable, c.ArticleReadProof, c.SiteTraffic, c.ReaderRegistration, c.SitePersistentRefresh, c.SitePageEditor, c.OnlineAppearance], Assert.False);
+            c.PrivateMediaResumable, c.ArticleReadProof, c.SiteTraffic, c.SiteTrafficReadable, c.ReaderRegistration, c.SitePersistentRefresh, c.SitePageEditor, c.OnlineAppearance], Assert.False);
         CheckAdminChannels(c, Assert.False);
         CheckAdminArticleTools(c, Assert.False);
     }
@@ -173,7 +173,24 @@ public sealed class SiteCapabilitiesTests
         var capabilities = Resolve(new() { [SiteCapabilities.DataDirSetting] = root.FullName, ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173" }, webDist.FullName);
         Assert.Equal((new Uri("http://localhost:5173"), "localhost"), (capabilities.AdminIdentity?.Origin, capabilities.AdminIdentity?.RpId));
         Assert.All([capabilities.AdminTagMetadata, capabilities.AdminCategoryMetadata, capabilities.AdminArticleRollback,
-            capabilities.SitePageEditor, capabilities.SiteConfigEditor, capabilities.OnlineAppearance], Assert.True);
+            capabilities.SitePageEditor, capabilities.SiteConfigEditor, capabilities.OnlineAppearance, capabilities.SiteTrafficReadable], Assert.True);
+        Assert.False(capabilities.SiteTraffic);
+        Assert.Null(capabilities.TrafficOrigin);
+
+        var disabledTraffic = Resolve(new()
+        {
+            [SiteCapabilities.DataDirSetting] = root.FullName,
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173",
+            [SiteTraffic.EnabledSetting] = "false",
+        }, webDist.FullName);
+        Assert.All([disabledTraffic.SiteTraffic, disabledTraffic.SiteTrafficReadable], Assert.False);
+
+        Assert.Throws<InvalidOperationException>(() => Resolve(new()
+        {
+            [SiteCapabilities.DataDirSetting] = root.FullName,
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173",
+            [SiteTraffic.EnabledSetting] = "true",
+        }, webDist.FullName));
     }
 
     [Fact]

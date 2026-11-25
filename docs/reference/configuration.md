@@ -65,7 +65,7 @@ export FSUSBLOG_TRUST_LOOPBACK_PROXY=true
 | `FSUSBLOG_WIDE_SEARCH_CORPUS` | `true` | 启用 25,601–100,000 篇文章的大语料暂存分片构建与宽档 HTTP 端点 |
 | `FSUSBLOG_PUBLIC_HOT_ARTICLES` | `true` | 启用公开热门文章榜单（热读零数据库查询） |
 | `FSUSBLOG_ARTICLE_READ_PROOF` | 配置公开源后为 `true` | 启用文章可见阅读计时证明计数；显式 `=true` 需有效 `FSUSBLOG_PUBLIC_ORIGIN` |
-| `FSUSBLOG_SITE_TRAFFIC` | 配置 HTTPS 公开源后为 `true` | 启用最近 30 UTC 日无追踪页面访问统计；显式 `=true` 需 HTTPS `FSUSBLOG_PUBLIC_ORIGIN` |
+| `FSUSBLOG_SITE_TRAFFIC` | 配置 HTTPS 公开源后为 `true` | 启用最近 30 UTC 日无追踪页面访问采集与统计；本机 Loopback 管理源默认仅开放已入库聚合只读预览（不启用 HTTP 采集）；显式 `=false` 同时关闭采集与读取；显式 `=true` 需 HTTPS `FSUSBLOG_PUBLIC_ORIGIN` |
 | `FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS` | `true` | 启用受控登录评论投稿（Classic PoW + 审核队列） |
 | `FSUSBLOG_SIGNED_IN_COMMENT_REPLIES` | `true`（受评论投稿约束） | 启用登录账号直接回复与审核后站内通知（需同时开启评论投稿） |
 | `FSUSBLOG_PRIVATE_INBOX_WRITES` | `true` | 启用普通账号站内信/工单写入 |
