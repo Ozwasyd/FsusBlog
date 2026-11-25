@@ -12,10 +12,16 @@
   - **`server`**：通过 `<meta name="fsus-public-search-mode" content="server">` 指示前端直连服务端 FAS4，不启动浏览器搜索 Worker（详见 [公开 FAS4 服务端检索](fas4-search.md)）。
 - `FSUSBLOG_WIDE_SEARCH_CORPUS` **默认开启**（可显式设为 `false` 关闭），为 25,601 至 100,000 篇公开文章构建离线暂存宽语料分片。
 
-## 2. 分词、词表与短语评分
+## 2. 统一文本分析、词表与短语评分
 
-- C# 索引构建器与浏览器 Worker 共享同一份合并词表（核心词表、领域词表、停用词表），同时随发布包产出标准 FSDL v2 词典 `search-lexicon.fsdl`（见 [`tools/fsdl-dictionary.py`](../../tools/fsdl-dictionary.py)）。
-- 两端先执行 NFKC 规范化，按统一权重对 CJK 连续字段分词并合并 ASCII 字母数字（小写化）；连续超过 4,096 个 CJK 字符时退化为单字加最大词宽内逐位置命中。词典词、子词与单字共享原文字段位置与跨度。
+- C# 索引构建器（`SearchTextAnalyzer` / `SearchMarkdownExtractor`）与浏览器 TypeScript 查询路径（`src/Contracts/search-analyzer.ts`）共享同一版本化分析契约（`SearchAnalyzerVersion = 1`，绑定至 `PublicGeneration`）与共享黄金向量（`tests/Protocol/fixtures/search-analyzer-vectors.json`）。
+- 合并词表（核心词表、领域词表、停用词表）随发布包产出标准 FSDL v2 词典 `search-lexicon.fsdl`（见 [`tools/fsdl-dictionary.py`](../../tools/fsdl-dictionary.py)），简繁映射独立维护在嵌入资源 [`src/Contracts/search-sc-tc-map.json`](../../src/Contracts/search-sc-tc-map.json) 中。
+- 分析契约核心规则：
+  - **受限已发布 Markdown 提取**：线性扫描提取可见标题、行内与围栏代码、可见正文、可见链接/图片标签与可见 HTML 内文，并按块插入位置间隔，排除链接目标 URL、引用定义、HTML 注释、标签属性及 `<script>`/`<style>` 隐藏内容；
+  - **NFKC 与精确 UTF-16 偏移**：按簇执行 NFKC 并为每个输出词元保留不撕裂代理对的原始 `[SourceStart, SourceEnd)` 偏移；
+  - **中文与繁简**：在简体折叠视图上对连续 CJK 片段执行词典 Viterbi 分词，为未知中文词与人名发射带精确位置的相邻二元词（`CjkBigram`），繁简差异同步发射 `ScriptAlias`，单字索引项（`CjkChar`）仅在索引侧发射以支持显式单字查询而不污染多字查询；超过 4,096 个连续 CJK 字符时退化为有界线性扫描；
+  - **技术标识符与标点**：保留 `C#`、`C++`、`.NET`、`ASP.NET`、`HTTP/2`、`issue-2205`、`v2_schema` 等带标点精确词项，区分 `Exact` 与有界 `Prefix`/`Subword`，超长精确标识符（> 128 单元）显式拒绝而非静默截断，且同一源词跨度只计入一次字段长度；
+  - **抗碰撞词项标识**：服务端索引使用 64 位 FNV-1a 哈希与规范词串联合键（`SearchTermKey`），消除纯 32 位哈希截断碰撞。
 - 浏览器 Worker 计算页内 BM25 并结合短语位置加分（短语须在同一字段按查询顺序连续命中，停用词计入普通频次但跳过短语位置，每页位置表上限 200 KiB），跨页支持 `relevance`（默认：得分、发布时间、ID 降序）与 `latest`（发布时间、得分、ID 降序），输出 FSR4 结果；已准入页面评分走有序二分查找并仅延迟解码当前展示页卡片。
 
 ## 3. 紧凑档分片、缓存复用与 FSPT 增量补丁
@@ -38,6 +44,6 @@
 
 ```bash
 ./tools/protocol-test.sh
-node --test tests/Protocol/local-search.test.ts tests/Protocol/local-search-positions.test.ts tests/Protocol/v1-search-ranking-differential.test.mjs
+node --test tests/Protocol/search-analyzer.test.ts tests/Protocol/local-search.test.ts tests/Protocol/local-search-positions.test.ts tests/Protocol/v1-search-ranking-differential.test.mjs
 dotnet test tests/Integration/FsusBlog.V2.Integration.Tests.csproj -c Release --filter "ArticleSearch"
 ```

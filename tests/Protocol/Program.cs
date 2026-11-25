@@ -52,6 +52,7 @@ CheckHex(fixtures, "inbox-replay.hex", InboxReplayWire.Encode(702, true, false, 
 RejectAll(() => InboxReplayWire.Encode(703, true, false, inboxEvents), () => InboxReplayWire.Encode(702, true, true, inboxEvents));
 
 LocalSearchVectors.Run(fixtures);
+SearchAnalyzerVectors.Run(fixtures);
 PropertyValueVectors.Run(fixtures);
 NativePublicationProofVectors.Run(fixtures);
 

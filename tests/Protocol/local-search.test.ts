@@ -76,9 +76,17 @@ test('weighted CJK words preserve width, scalar matches, and non-positional stop
   assert.equal(score('ABC 博客'), score('博客 ABC'));
   for (const term of ['公开', '客', '的']) assert.deepEqual([...query(term).matches.keys()], [42]);
   const shard = new DataView(dictionary.buffer, L.SearchPackagePayloadOffset);
-  const term = shard.getUint32(36, true); // First sorted hash is 公开页.
+  const targetHash = searchTerms('公开页')[0];
+  const termCount = shard.getUint32(16, true);
+  const termAt = shard.getUint32(36, true);
+  let term = -1;
+  for (let i = 0; i < termCount; i++) {
+    const candidate = termAt + i * L.SearchTermRecordSize;
+    if (shard.getUint32(candidate, true) === targetHash) { term = candidate; break; }
+  }
+  assert(term >= 0);
   const posting = shard.getUint32(60, true) + shard.getUint32(term + 8, true);
-  shard.setUint8(posting + 7, 4); // Width would advance beyond the body and document.
+  shard.setUint8(posting + 7, 5); // Width would advance beyond the body and document.
   assert.throws(() => query('absent'), /posting position/);
 });
 

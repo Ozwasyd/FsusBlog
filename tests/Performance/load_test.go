@@ -119,16 +119,17 @@ func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
 		name, generation, mutate string
 		unavailable, legacy      bool
 	}{
-		{name: "available", generation: "6218626370617519827"},
-		{name: "unavailable", generation: "7188452516169598208", unavailable: true},
+		{name: "available", generation: "8345231680797748768"},
+		{name: "unavailable", generation: "8299725263154154555", unavailable: true},
 		{name: "frozen legacy profile", generation: "7548595041853034171", legacy: true},
 		{name: "legacy generation with current profile", generation: "7548595041853034171", mutate: "previous ranking"},
 		{name: "before BM25", generation: "6612586008012810405", mutate: "previous ranking"},
-		{name: "changed bytes", generation: "6218626370617519827", mutate: "bytes"},
-		{name: "different page generation", generation: "6218626370617519827", mutate: "generation"},
-		{name: "changed page count", generation: "6218626370617519827", mutate: "pages"},
-		{name: "stale at final HEAD", generation: "6218626370617519827", mutate: "head"},
-		{name: "unrelated 503", generation: "7188452516169598208", unavailable: true, mutate: "error"},
+		{name: "before analyzer binding", generation: "6218626370617519827", mutate: "previous analyzer"},
+		{name: "changed bytes", generation: "8345231680797748768", mutate: "bytes"},
+		{name: "different page generation", generation: "8345231680797748768", mutate: "generation"},
+		{name: "changed page count", generation: "8345231680797748768", mutate: "pages"},
+		{name: "stale at final HEAD", generation: "8345231680797748768", mutate: "head"},
+		{name: "unrelated 503", generation: "8299725263154154555", unavailable: true, mutate: "error"},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			packets := [][]byte{make([]byte, 104), make([]byte, 104)}
@@ -185,6 +186,7 @@ func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
 			if scenario.legacy {
 				work.wire.Limits = maps.Clone(wire.Limits)
 				delete(work.wire.Limits, "SearchFas4Profile")
+				delete(work.wire.Limits, "SearchAnalyzerVersion")
 			}
 			err := verifyGeneration(context.Background(), must(url.Parse(server.URL))(t), &work, articles)
 			if scenario.mutate != "" {

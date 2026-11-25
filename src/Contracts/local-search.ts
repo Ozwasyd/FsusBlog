@@ -4,6 +4,7 @@ import { collectBounded } from './bounded-stream.ts';
 import type { ArticleCard } from './public-articles.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireLimits as Limit, WireRoutes } from './wire.generated.ts';
 import lexicon from './search-lexicon.json' with { type: 'json' };
+import { analyzeQuery, isStrictExactIdentifier } from './search-analyzer.ts';
 
 type Term = { offset: number; end: number; idf: number; hasPositions: boolean };
 type SearchArticle = ArticleCard & { length: number; row: number };
@@ -110,15 +111,30 @@ function requireNormalizedQuery(query: string): string {
 }
 
 export function searchTerms(query: string): readonly number[] {
-  const words = requireNormalizedQuery(query).match(/[a-zA-Z0-9]+|[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]+|[\p{Letter}\p{Decimal_Number}]/gu) ?? [];
-  const tokens = words.flatMap(word => cjk.test(word) ? segmentCjk(word) : [word.replace(/[A-Z]/g, letter => letter.toLowerCase())]);
-  return tokens.map(word => murmur(utf8.encode(word)));
+  const normalized = requireNormalizedQuery(query);
+  const analyzed = analyzeQuery(normalized);
+  if (analyzed.isOverlongExactIdentifier || analyzed.tokens.length === 0) return [];
+  // Emit ordered primary hashes first, followed by any distinct script-alias hashes (deduped for phrase order safety).
+  // Note: phrase matching in FSPK v4 matches consecutive ordered terms; keep one canonical token per query position
+  // when all tokens are primary, or prefer the simplified/canonical alias when traditional tokens occur.
+  const hashes: number[] = [];
+  for (const token of analyzed.tokens) {
+    if (token.kind === 'scriptAlias') continue;
+    hashes.push(token.hash32);
+  }
+  for (const token of analyzed.tokens) {
+    if (token.kind === 'scriptAlias' && !hashes.includes(token.hash32)) {
+      hashes.push(token.hash32);
+    }
+  }
+  return hashes;
 }
 
 export function searchShortAsciiPrefixes(query: string): readonly string[] {
-  const words = requireNormalizedQuery(query).match(/[a-zA-Z0-9]+/g);
-  if (!words) return [];
-  return [...new Set(words.filter(word => word.length > 0 && word.length < asciiMinPrefixLength).map(word => word.toLowerCase()))];
+  const normalized = requireNormalizedQuery(query);
+  const analyzed = analyzeQuery(normalized);
+  if (analyzed.isOverlongExactIdentifier || isStrictExactIdentifier(analyzed.normalizedText)) return [];
+  return [...analyzed.shortAsciiPrefixes];
 }
 
 const isAsciiLower = (c: number) => c >= 97 && c <= 122;
@@ -159,29 +175,6 @@ function countAsciiPrefixMatches(value: string, prefix: string): number {
     }
   }
   return count;
-}
-
-function segmentCjk(text: string) {
-  if (text.length === 1) return [text];
-  const next = new Uint8Array(text.length);
-  const scores = new Int32Array(text.length + 1);
-  for (let at = text.length - 1; at >= 0; at--) {
-    let score = 4 + scores[at + 1];
-    let best = 1;
-    for (let width = Math.min(maxWord, text.length - at); width >= 1; width--) {
-      const weight = weights.get(text.slice(at, at + width));
-      if (weight === undefined) continue;
-      const candidate = 4 * weight + width + scores[at + width];
-      if (candidate < score || (candidate === score && width <= best)) continue;
-      score = candidate;
-      best = width;
-    }
-    next[at] = best;
-    scores[at] = score;
-  }
-  const words: string[] = [];
-  for (let at = 0; at < text.length; at += next[at]) words.push(text.slice(at, at + next[at]));
-  return words;
 }
 
 function dictionary(bytes: ByteView, start: number, count: number, strings: number, end: number): Taxon[] {

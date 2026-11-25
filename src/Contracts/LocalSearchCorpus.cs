@@ -377,7 +377,6 @@ public static class LocalSearchCorpus
     private sealed record Document(Article Article, Dictionary<uint, Frequencies> Terms, int Length, int EstimatedBytes);
     private record struct Frequencies(int Title, int Meta, int Body, List<Position>? Positions);
     private readonly record struct Position(int Offset, byte Field, int Width);
-    private readonly record struct Token(uint Hash, int Width, int Advance, bool SkipPositions = false);
     private readonly record struct Posting(int ArticleId, Frequencies Tf);
     private readonly record struct Term(uint Hash, float Idf, int Offset, int Length, bool HasPositions);
     private readonly record struct TextSlice(int Offset, int Length);
@@ -403,32 +402,39 @@ public static class LocalSearchCorpus
 
         var terms = new Dictionary<uint, Frequencies>();
         var length = 0;
+        var maxPositionEnd = 0;
         var positions = 0;
         var tokens = 0;
-        if (!Field(article.Title, TitleField) || !Field(summary, 0) ||
-            !Field(article.Category?.Name ?? string.Empty, 0) ||
-            tags.Any(tag => !Field(tag.Name, 0)) || !Field(article.Body, BodyField))
+        if (!PlainField(article.Title, SearchFieldKind.Title, TitleField) ||
+            !PlainField(summary, SearchFieldKind.Summary, 0) ||
+            !PlainField(article.Category?.Name ?? string.Empty, SearchFieldKind.Taxonomy, 0) ||
+            tags.Any(tag => !PlainField(tag.Name, SearchFieldKind.Taxonomy, 0)) ||
+            !MarkdownBodyField(article.Body))
             return null;
 
-        return new Document(article, terms, Math.Max(1, length), Estimate());
+        return new Document(article, terms, Math.Max(1, Math.Max(length, maxPositionEnd)), Estimate());
 
         int Estimate() => SearchDocumentRecordSize + textBytes +
             terms.Count * PostingBudgetBytes + positions * PositionBudgetBytes;
 
-        bool Field(string text, byte field)
+        bool RecordTokens(IReadOnlyList<SearchToken> list, int positionShift, byte field)
         {
-            var offset = 0;
-            foreach (var token in Tokens(text))
+            for (var i = 0; i < list.Count; i++)
             {
                 if ((tokens++ & 1023) == 0) ct.ThrowIfCancellationRequested();
-                terms.TryGetValue(token.Hash, out var old);
-                if (!token.SkipPositions && (field is TitleField or BodyField))
+                var token = list[i];
+                terms.TryGetValue(token.Hash32, out var old);
+                var keepPosition = !token.IsStopword &&
+                    (field is TitleField or BodyField) &&
+                    token.Kind is SearchTokenKind.Exact or SearchTokenKind.CjkBigram or SearchTokenKind.Subword or SearchTokenKind.ScriptAlias;
+                if (keepPosition)
                 {
-                    (old.Positions ??= []).Add(new Position(offset, field, token.Width));
+                    var pos = token.Position + positionShift;
+                    (old.Positions ??= []).Add(new Position(pos, field, token.Width));
+                    if (pos + token.Width > maxPositionEnd) maxPositionEnd = pos + token.Width;
                     positions++;
                 }
-                offset += token.Advance;
-                terms[token.Hash] = field switch
+                terms[token.Hash32] = field switch
                 {
                     TitleField => old with { Title = old.Title + 1 },
                     BodyField => old with { Body = old.Body + 1 },
@@ -436,7 +442,35 @@ public static class LocalSearchCorpus
                 };
                 if (Estimate() > PageBytes - 512) return false;
             }
-            length += offset;
+            return true;
+        }
+
+        bool PlainField(string text, SearchFieldKind fieldKind, byte wireField)
+        {
+            var analyzed = SearchTextAnalyzer.AnalyzePlainField(text, fieldKind, SearchAnalysisMode.Index, 0, ct);
+            if (!RecordTokens(analyzed.Tokens, 0, wireField)) return false;
+            length += analyzed.SourceLength;
+            return true;
+        }
+
+        bool MarkdownBodyField(string markdown)
+        {
+            // Keep FSPK v4 body positions compact (1-slot inter-block gap prevents cross-block phrase bridging
+            // without inflating document length across headings, prose, and code blocks).
+            var visible = SearchMarkdownExtractor.Extract(markdown, ct);
+            var bodyPos = 0;
+            var bodyLen = 0;
+            var scratch = new List<SearchToken>();
+            foreach (var span in visible)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (span.StartsNewBlock && bodyPos > 0) bodyPos += 1;
+                scratch.Clear();
+                var slice = markdown.Substring(span.SourceStart, span.SourceEnd - span.SourceStart);
+                bodyLen += SearchTextAnalyzer.AnalyzeSpanInto(slice, span.SourceStart, SearchAnalysisMode.Index, scratch, ref bodyPos, null, ct);
+                if (!RecordTokens(scratch, 0, BodyField)) return false;
+            }
+            length += bodyLen;
             return true;
         }
     }
@@ -617,83 +651,6 @@ public static class LocalSearchCorpus
         <= 30 => 14, <= 50 => 15, <= 100 => 16, _ => 17
     });
 
-    private static IEnumerable<Token> Tokens(string text)
-    {
-        text = text.Normalize(NormalizationForm.FormKC);
-        uint[]? subtokens = null;
-        for (var index = 0; index < text.Length;)
-        {
-            if (char.IsAsciiLetterOrDigit(text[index]))
-            {
-                var start = index++;
-                while (index < text.Length && char.IsAsciiLetterOrDigit(text[index])) index++;
-                var length = index - start;
-                var fullHash = HashAscii(text.AsSpan(start, length));
-                var expanded = 0;
-                if (length >= 3)
-                {
-                    subtokens ??= new uint[ArticleSearchTokens.MaxAsciiSubtokens];
-                    expanded = ArticleSearchTokens.ExpandAscii(text.AsSpan(start, length), fullHash, subtokens);
-                }
-                yield return new Token(fullHash, 1, 1);
-                for (var i = 0; i < expanded; i++)
-                    yield return new Token(subtokens![i], 1, 0, SkipPositions: true);
-            }
-            else if (SearchLexicon.IsCjk(text[index]))
-            {
-                var start = index++;
-                while (index < text.Length && SearchLexicon.IsCjk(text[index])) index++;
-                if (index - start > SearchLexicon.MaxSegment)
-                {
-                    // Keep a literal dictionary hit without allocating a segmentation table for a long run.
-                    for (var at = start; at < index; at++)
-                    {
-                        for (var width = Math.Min(SearchLexicon.MaxWord, index - at); width >= 2; width--)
-                        {
-                            if (SearchLexicon.IsWord(text.AsSpan(at, width)))
-                                yield return DictionaryToken(text.AsSpan(at, width), 0);
-                        }
-                        yield return DictionaryToken(text.AsSpan(at, 1), 1);
-                    }
-                    continue;
-                }
-
-                foreach (var (at, width) in SearchLexicon.Segment(text, start, index))
-                {
-                    if (width > 1)
-                    {
-                        // Keep character matches for readers searching for a name or a fragment.
-                        // Dictionary subtokens share the source offsets used by phrase matching.
-                        for (var relative = 0; relative < width; relative++)
-                        {
-                            var available = width - relative;
-                            for (var subWidth = Math.Min(width - 1, available); subWidth >= 2; subWidth--)
-                            {
-                                var subword = text.AsSpan(at + relative, subWidth);
-                                if (SearchLexicon.IsWord(subword))
-                                    yield return DictionaryToken(subword, 0);
-                            }
-                            if (relative == 0)
-                                yield return DictionaryToken(text.AsSpan(at, width), 0);
-                            yield return DictionaryToken(text.AsSpan(at + relative, 1), 1);
-                        }
-                    }
-                    else yield return DictionaryToken(text.AsSpan(at, 1), 1);
-                }
-            }
-            else
-            {
-                var scalar = Rune.GetRuneAt(text, index);
-                index += scalar.Utf16SequenceLength;
-                if (scalar.Value >= 0x80 && Rune.IsLetterOrDigit(scalar))
-                    yield return new Token(HashRune(scalar), 1, 1);
-            }
-        }
-    }
-
-    private static Token DictionaryToken(ReadOnlySpan<char> word, int advance) =>
-        new(HashWord(word), word.Length, advance, SearchLexicon.IsStopword(word));
-
     internal static uint HashWord(ReadOnlySpan<char> word)
     {
         if (word.Length == 1) return HashRune(new Rune(word[0]));
@@ -722,6 +679,8 @@ public static class LocalSearchCorpus
         Span<byte> encoded = stackalloc byte[4];
         return HashBytes(encoded[..rune.EncodeToUtf8(encoded)]);
     }
+
+    internal static uint HashUtf8Bytes(ReadOnlySpan<byte> bytes) => HashBytes(bytes);
 
     private static uint HashBytes(ReadOnlySpan<byte> bytes)
     {

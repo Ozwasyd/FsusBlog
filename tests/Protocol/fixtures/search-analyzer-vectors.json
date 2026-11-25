@@ -1,0 +1,156 @@
+{
+  "schemaVersion": "fsusblog-search-analyzer-vectors-v1",
+  "analyzerVersion": 1,
+  "textCases": [
+    {
+      "name": "cjk-dictionary-boundaries-index",
+      "mode": "index",
+      "input": "博客搜索的公开页",
+      "expectedSourceLength": 8,
+      "mustContain": [
+        { "term": "博客", "kind": "exact", "position": 0, "width": 2, "advance": 2, "sourceStart": 0, "sourceEnd": 2, "isStopword": false },
+        { "term": "搜索", "kind": "exact", "position": 2, "width": 2, "advance": 2, "sourceStart": 2, "sourceEnd": 4, "isStopword": false },
+        { "term": "的", "kind": "exact", "position": 4, "width": 1, "advance": 1, "sourceStart": 4, "sourceEnd": 5, "isStopword": true },
+        { "term": "公开页", "kind": "exact", "position": 5, "width": 3, "advance": 3, "sourceStart": 5, "sourceEnd": 8, "isStopword": false },
+        { "term": "公开", "kind": "cjkBigram", "position": 5, "width": 2, "advance": 0, "sourceStart": 5, "sourceEnd": 7, "isStopword": false },
+        { "term": "开页", "kind": "cjkBigram", "position": 6, "width": 2, "advance": 0, "sourceStart": 6, "sourceEnd": 8, "isStopword": false },
+        { "term": "客", "kind": "cjkChar", "position": 1, "width": 1, "advance": 0, "sourceStart": 1, "sourceEnd": 2, "isStopword": false }
+      ],
+      "mustNotContainTerms": []
+    },
+    {
+      "name": "cjk-unknown-compound-query-bigrams-only",
+      "mode": "query",
+      "input": "量子纠缠",
+      "expectedSourceLength": 4,
+      "mustContain": [
+        { "term": "量子", "kind": "cjkBigram", "position": 0, "width": 2, "advance": 4, "sourceStart": 0, "sourceEnd": 2, "isStopword": false },
+        { "term": "子纠", "kind": "cjkBigram", "position": 1, "width": 2, "advance": 0, "sourceStart": 1, "sourceEnd": 3, "isStopword": false },
+        { "term": "纠缠", "kind": "cjkBigram", "position": 2, "width": 2, "advance": 0, "sourceStart": 2, "sourceEnd": 4, "isStopword": false }
+      ],
+      "mustNotContainTerms": ["量", "子", "纠", "缠"]
+    },
+    {
+      "name": "cjk-unknown-name-query",
+      "mode": "query",
+      "input": "林徽因",
+      "expectedSourceLength": 3,
+      "mustContain": [
+        { "term": "林徽", "kind": "cjkBigram", "position": 0, "width": 2, "advance": 3, "sourceStart": 0, "sourceEnd": 2, "isStopword": false },
+        { "term": "徽因", "kind": "cjkBigram", "position": 1, "width": 2, "advance": 0, "sourceStart": 1, "sourceEnd": 3, "isStopword": false }
+      ],
+      "mustNotContainTerms": ["林", "徽", "因"]
+    },
+    {
+      "name": "cjk-explicit-single-char-query",
+      "mode": "query",
+      "input": "锁",
+      "expectedSourceLength": 1,
+      "mustContain": [
+        { "term": "锁", "kind": "exact", "position": 0, "width": 1, "advance": 1, "sourceStart": 0, "sourceEnd": 1, "isStopword": false }
+      ],
+      "mustNotContainTerms": []
+    },
+    {
+      "name": "sc-tc-traditional-to-simplified-index",
+      "mode": "index",
+      "input": "軟體架構 數據庫",
+      "expectedSourceLength": 7,
+      "mustContain": [
+        { "term": "架構", "kind": "exact", "position": 2, "width": 2, "advance": 2, "sourceStart": 2, "sourceEnd": 4, "isStopword": false },
+        { "term": "架构", "kind": "scriptAlias", "position": 2, "width": 2, "advance": 0, "sourceStart": 2, "sourceEnd": 4, "isStopword": false },
+        { "term": "軟體", "kind": "cjkBigram", "position": 0, "width": 2, "advance": 2, "sourceStart": 0, "sourceEnd": 2, "isStopword": false },
+        { "term": "软体", "kind": "scriptAlias", "position": 0, "width": 2, "advance": 0, "sourceStart": 0, "sourceEnd": 2, "isStopword": false },
+        { "term": "數據庫", "kind": "exact", "position": 4, "width": 3, "advance": 3, "sourceStart": 5, "sourceEnd": 8, "isStopword": false },
+        { "term": "数据库", "kind": "scriptAlias", "position": 4, "width": 3, "advance": 0, "sourceStart": 5, "sourceEnd": 8, "isStopword": false }
+      ],
+      "mustNotContainTerms": []
+    },
+    {
+      "name": "technical-punctuation-index",
+      "mode": "index",
+      "input": "C# C++ .NET ASP.NET issue-2205 HTTP/2",
+      "expectedSourceLength": 6,
+      "mustContain": [
+        { "term": "c#", "kind": "exact", "position": 0, "width": 1, "advance": 1, "sourceStart": 0, "sourceEnd": 2, "isStopword": false },
+        { "term": "c++", "kind": "exact", "position": 1, "width": 1, "advance": 1, "sourceStart": 3, "sourceEnd": 6, "isStopword": false },
+        { "term": ".net", "kind": "exact", "position": 2, "width": 1, "advance": 1, "sourceStart": 7, "sourceEnd": 11, "isStopword": false },
+        { "term": "asp.net", "kind": "exact", "position": 3, "width": 1, "advance": 1, "sourceStart": 12, "sourceEnd": 19, "isStopword": false },
+        { "term": ".net", "kind": "subword", "position": 3, "width": 1, "advance": 0, "sourceStart": 12, "sourceEnd": 19, "isStopword": false },
+        { "term": "issue-2205", "kind": "exact", "position": 4, "width": 1, "advance": 1, "sourceStart": 20, "sourceEnd": 30, "isStopword": false },
+        { "term": "issue", "kind": "subword", "position": 4, "width": 1, "advance": 0, "sourceStart": 20, "sourceEnd": 30, "isStopword": false },
+        { "term": "2205", "kind": "subword", "position": 4, "width": 1, "advance": 0, "sourceStart": 20, "sourceEnd": 30, "isStopword": false },
+        { "term": "http/2", "kind": "exact", "position": 5, "width": 1, "advance": 1, "sourceStart": 31, "sourceEnd": 37, "isStopword": false }
+      ],
+      "mustNotContainTerms": ["c"]
+    },
+    {
+      "name": "camel-case-and-alnum-subwords-single-length",
+      "mode": "index",
+      "input": "ArticleSearchIndex dotNet10",
+      "expectedSourceLength": 2,
+      "mustContain": [
+        { "term": "articlesearchindex", "kind": "exact", "position": 0, "width": 1, "advance": 1, "sourceStart": 0, "sourceEnd": 18, "isStopword": false },
+        { "term": "article", "kind": "subword", "position": 0, "width": 1, "advance": 0, "sourceStart": 0, "sourceEnd": 18, "isStopword": false },
+        { "term": "search", "kind": "subword", "position": 0, "width": 1, "advance": 0, "sourceStart": 0, "sourceEnd": 18, "isStopword": false },
+        { "term": "index", "kind": "subword", "position": 0, "width": 1, "advance": 0, "sourceStart": 0, "sourceEnd": 18, "isStopword": false },
+        { "term": "dotnet10", "kind": "exact", "position": 1, "width": 1, "advance": 1, "sourceStart": 19, "sourceEnd": 27, "isStopword": false },
+        { "term": "dot", "kind": "subword", "position": 1, "width": 1, "advance": 0, "sourceStart": 19, "sourceEnd": 27, "isStopword": false },
+        { "term": "net", "kind": "subword", "position": 1, "width": 1, "advance": 0, "sourceStart": 19, "sourceEnd": 27, "isStopword": false },
+        { "term": "10", "kind": "subword", "position": 1, "width": 1, "advance": 0, "sourceStart": 19, "sourceEnd": 27, "isStopword": false }
+      ],
+      "mustNotContainTerms": []
+    },
+    {
+      "name": "unicode-nfkc-combining-ligature-and-surrogate-pairs",
+      "mode": "query",
+      "input": "ﬁle cafe\u0301 ＮＥＥＤＬＥ 🐈 𠀀",
+      "expectedSourceLength": 5,
+      "mustContain": [
+        { "term": "file", "kind": "exact", "position": 0, "width": 1, "advance": 1, "sourceStart": 0, "sourceEnd": 3, "isStopword": false },
+        { "term": "caf", "kind": "exact", "position": 1, "width": 1, "advance": 1, "sourceStart": 4, "sourceEnd": 7, "isStopword": false },
+        { "term": "é", "kind": "exact", "position": 2, "width": 1, "advance": 1, "sourceStart": 7, "sourceEnd": 9, "isStopword": false },
+        { "term": "needle", "kind": "exact", "position": 3, "width": 1, "advance": 1, "sourceStart": 10, "sourceEnd": 16, "isStopword": false },
+        { "term": "𠀀", "kind": "exact", "position": 4, "width": 1, "advance": 1, "sourceStart": 20, "sourceEnd": 22, "isStopword": false }
+      ],
+      "mustNotContainTerms": []
+    }
+  ],
+  "queryCases": [
+    {
+      "name": "strict-identifier-preserved",
+      "input": "  ＢＡＴＣＨ-Item_7  ",
+      "isExactIdentifier": true,
+      "isOverlongExactIdentifier": false,
+      "expectedTerms": ["batch-item_7"]
+    },
+    {
+      "name": "punctuation-c-sharp-preserved",
+      "input": "C#",
+      "isExactIdentifier": true,
+      "isOverlongExactIdentifier": false,
+      "expectedTerms": ["c#"]
+    },
+    {
+      "name": "punctuation-dot-net-preserved",
+      "input": ".NET",
+      "isExactIdentifier": true,
+      "isOverlongExactIdentifier": false,
+      "expectedTerms": [".net"]
+    },
+    {
+      "name": "overlong-exact-identifier-rejected",
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-12",
+      "isExactIdentifier": true,
+      "isOverlongExactIdentifier": true,
+      "expectedTerms": []
+    },
+    {
+      "name": "pure-hyphenated-words-keep-exact-and-subwords",
+      "input": "batch-item",
+      "isExactIdentifier": false,
+      "isOverlongExactIdentifier": false,
+      "expectedTerms": ["batch-item", "batch", "item"]
+    }
+  ]
+}
