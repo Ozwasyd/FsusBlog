@@ -49,18 +49,32 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             using (var prime = await ProxyRequest(client, HttpMethod.Get, missing, ct))
                 await CheckEmpty(prime, HttpStatusCode.NotFound, ct);
             await Task.Delay(TimeSpan.FromMilliseconds(3250), ct);
+            // The manual-clock limiter test covers the exact refill boundary. Here the
+            // real HTTP/2 route must share one address budget despite differing headers.
+            const int burstRequests = 64;
             var burst = Stopwatch.GetTimestamp();
-            for (var i = 0; i <= 31; i++)
+            var statuses = await Task.WhenAll(Enumerable.Range(0, burstRequests).Select(async i =>
             {
                 using var response = await ProxyRequest(client, HttpMethod.Get, missing, ct, spoof: i);
-                await CheckEmpty(response, i == 31 ? HttpStatusCode.TooManyRequests : HttpStatusCode.NotFound, ct);
-                if (i == 31) Assert.Equal(TimeSpan.FromSeconds(1), response.Headers.RetryAfter?.Delta);
-            }
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    await CheckEmpty(response, HttpStatusCode.TooManyRequests, ct);
+                    Assert.Equal(TimeSpan.FromSeconds(1), response.Headers.RetryAfter?.Delta);
+                }
+                else
+                {
+                    await CheckEmpty(response, HttpStatusCode.NotFound, ct);
+                }
+                return response.StatusCode;
+            }));
             var burstElapsed = Stopwatch.GetElapsedTime(burst);
-            Assert.True(burstElapsed < TimeSpan.FromMilliseconds(100), $"The 32-request TLS burst consumed {burstElapsed.TotalMilliseconds:F1} ms.");
-            _proxyOutput.WriteLine($"Burst: 31×404, 1×429 in {burstElapsed.TotalMilliseconds:F1} ms with varying forged forwarding headers.");
+            var admitted = statuses.Count(status => status == HttpStatusCode.NotFound);
+            var admittedLimit = 31 + burstElapsed.Ticks / TimeSpan.FromMilliseconds(100).Ticks;
+            Assert.InRange((long)admitted, 31L, admittedLimit);
+            Assert.Contains(HttpStatusCode.TooManyRequests, statuses);
+            _proxyOutput.WriteLine($"Burst: {admitted}×404, {burstRequests - admitted}×429 in {burstElapsed.TotalMilliseconds:F1} ms.");
             await Task.Delay(TimeSpan.FromMilliseconds(120), ct);
-            using (var replenished = await ProxyRequest(client, HttpMethod.Get, missing, ct, spoof: 40))
+            using (var replenished = await ProxyRequest(client, HttpMethod.Get, missing, ct, spoof: burstRequests))
                 await CheckEmpty(replenished, HttpStatusCode.NotFound, ct);
             await Task.Delay(TimeSpan.FromMilliseconds(3250), ct);
 

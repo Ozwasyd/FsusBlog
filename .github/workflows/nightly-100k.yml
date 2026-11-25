@@ -1,0 +1,127 @@
+name: FsusBlog Nightly 100k
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: fsusblog-nightly-100k-main
+  cancel-in-progress: false
+
+jobs:
+  nightly:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the frozen main revision
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse --is-shallow-repository)" = false
+          mkdir "$RUNNER_TEMP/nightly-reports"
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14c95bf1 # v5
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.18.0'
+          package-manager-cache: false
+      - name: Install native PostgreSQL 18 and Caddy
+        run: |
+          bash tools/ci/prepare-linux.sh
+          if [[ ! -x /usr/lib/postgresql/18/bin/pg_config ]]; then
+            sudo apt-get install -y --no-install-recommends postgresql-server-dev-18
+          fi
+          test -x /usr/lib/postgresql/18/bin/pg_config
+      - name: Restore locked dependencies and build fixtures
+        run: |
+          dotnet restore FsusBlog.V2.slnx --configfile NuGet.Config --locked-mode --source https://api.nuget.org/v3/index.json
+          dotnet build FsusBlog.V2.slnx -c Release --no-restore -warnaserror
+          manager=$(node -p "require('./src/Web/package.json').packageManager")
+          npm install --global "$manager" --ignore-scripts --no-audit --no-fund
+      - name: Restore locked Web dependencies
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          config=$(mktemp "$RUNNER_TEMP/fsus-npm.XXXXXXXX")
+          trap 'rm -f -- "$config"' EXIT
+          chmod 600 "$config"
+          printf '%s\n' "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > "$config"
+          NPM_CONFIG_USERCONFIG="$config" pnpm --dir src/Web fetch --ignore-scripts
+          pnpm --dir src/Web install --offline --frozen-lockfile --ignore-scripts
+      - name: Install lock-matched Chromium
+        run: |
+          pnpm --dir src/Web exec playwright install --with-deps chromium
+          chrome=$(cd src/Web && node --input-type=module -e "import { chromium } from '@playwright/test'; console.log(chromium.executablePath())")
+          test -x "$chrome"
+          printf 'FSUSBLOG_TEST_CHROME=%s\n' "$chrome" >> "$GITHUB_ENV"
+      - name: Build and independently verify the release bundle
+        run: |
+          release="$RUNNER_TEMP/nightly-release"
+          bash tools/build-release.sh "$release"
+          python3 -B tools/verify-release.py "$release" > "$RUNNER_TEMP/nightly-reports/release.json"
+          mkdir "$RUNNER_TEMP/nightly-payload"
+          tar -xzf "$release/fsusblog-v2.tar.gz" -C "$RUNNER_TEMP/nightly-payload"
+      - name: Record runner resources and required tools
+        run: |
+          {
+            printf 'commit=%s\nrunner=%s\nimage=%s\n' "$GITHUB_SHA" "$RUNNER_OS" "${ImageVersion:-unknown}"
+            df -h /tmp "$RUNNER_TEMP"
+            free -h
+            dotnet --version
+            node --version
+            "$FSUSBLOG_TEST_CHROME" --version
+            "$PG_TOOLS_DIR/postgres" --version
+            "$CADDY_BIN" version
+          } | tee "$RUNNER_TEMP/nightly-reports/environment.txt"
+          test -r "$("$PG_TOOLS_DIR/pg_config" --pkglibdir)/auto_explain.so"
+      - name: Execute 100,000-article HTTP Nightly
+        timeout-minutes: 240
+        env:
+          FSUSBLOG_TEST_C11_WIDE_BROWSER: '1'
+          FSUSBLOG_TEST_C11_LIST_TAXONOMY: '1'
+          FSUSBLOG_TEST_C11_COMMENTS: '1'
+        run: |
+          evidence="$RUNNER_TEMP/nightly-evidence"
+          payload="$RUNNER_TEMP/nightly-payload"
+          bash tests/Performance/nightly-run.sh nightly "$evidence" --http \
+            "$payload/server/FsusBlog.V2.Server.dll" "$payload/web" "$RUNNER_TEMP/nightly-release/payload.sha256"
+          for file in "$evidence/run.txt" "$evidence/wide-browser/run.txt"; do
+            grep -qx 'stop_stage=complete' "$file"
+            grep -qx 'exit=0' "$file"
+            grep -qx 'cleanup=yes' "$file"
+          done
+          for phase in http-list-taxonomy http-comment wide-browser; do
+            grep -q "^end $phase " "$evidence/phases.txt"
+          done
+      - name: Collect only non-secret evidence
+        if: always()
+        run: |
+          evidence="$RUNNER_TEMP/nightly-evidence"
+          out="$RUNNER_TEMP/nightly-reports"
+          mkdir -p "$out"
+          for file in phases.txt http-release-binding.json article-bytes.json database-resources.json \
+              http-proof.sha256 list-taxonomy-proof.sha256 comment-proof.sha256; do
+            if [[ -f "$evidence/$file" ]]; then cp "$evidence/$file" "$out/"; fi
+          done
+          for scope in . wide-browser; do
+            if [[ -f "$evidence/$scope/run.txt" ]]; then
+              grep -E '^(stop_stage|exit|cleanup|started|finished)=' "$evidence/$scope/run.txt" \
+                > "$out/receipt-${scope//./main}.txt" || true
+            fi
+          done
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: nightly-100k-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/nightly-reports/
+          retention-days: 14
+          if-no-files-found: warn
