@@ -444,6 +444,108 @@ public sealed class ArticleSearchPostgresTests
         }
     }
 
+    [PostgresFact]
+    public async Task PublicSearchCoalescesRepeatedQueriesEvictsOnWithdrawalAndPreservesNoStore()
+    {
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(2));
+        var author = await fixture.SignIn("search-cache-author", ct, canAuthor: true);
+        await fixture.InTx(async (db, tx) =>
+        {
+            await FixtureSql.ExecuteAsync(db, tx, ct, """
+                insert into public.article (id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at)
+                overriding system value
+                select id,$1,1,'Coalesce Entry ' || id,'sharedcachebeacon paragraph ' || id,1,1,false,
+                       timestamptz '2025-02-01 UTC' + id * interval '1 minute',timestamptz '2025-02-01 UTC'
+                from generate_series(1, 25) id
+                """, author.Id);
+            await FixtureSql.ExecuteAsync(db, tx, ct, PublicationFixture.AllCurrentArticlesWithDefaultRights);
+            await FixtureSql.ExecuteAsync(db, tx, ct, "select setval(pg_get_serial_sequence('public.article', 'id'), 25, true)");
+        }, ct);
+
+        var evidence = Directory.CreateTempSubdirectory("fsusv2-search-cache-");
+        using (new MediaFixture.DirectoryCleanup(evidence))
+        {
+            var output = Path.Combine(evidence.FullName, "runtime.ndjson");
+            await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
+            {
+                ["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"] = evidence.FullName,
+                ["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] = output
+            });
+            var client = server.Client;
+            var before = await Mark(evidence, output, "measure-before", ct);
+
+            // 1. Concurrent identical V2 requests + repeated hits + distinct sort/size/FAS4 requests
+            var secretQuery = "sharedcachebeacon";
+            var concurrentTasks = Enumerable.Range(0, 12)
+                .Select(_ => QueryV2(client, V2Path(secretQuery, size: 10), ct))
+                .ToArray();
+            var concurrentResults = await Task.WhenAll(concurrentTasks);
+            var expectedIds = concurrentResults[0].Items.Select(static i => i.Id).ToArray();
+            var firstGeneration = concurrentResults[0].Generation;
+            var page1Cursor = concurrentResults[0].NextCursor;
+            Assert.Equal(10, expectedIds.Length);
+            Assert.False(string.IsNullOrEmpty(page1Cursor));
+            foreach (var r in concurrentResults)
+            {
+                Assert.Equal(firstGeneration, r.Generation);
+                Assert.Equal(25, r.TotalCount);
+                Assert.Equal(expectedIds, r.Items.Select(static i => i.Id));
+            }
+
+            // Sequential repeated V2 requests with equivalent normalized query hit cache cleanly
+            for (var i = 0; i < 6; i++)
+            {
+                var repeated = await QueryV2(client, V2Path("  SHAREDCACHEBEACON  ", size: 10), ct);
+                Assert.Equal(expectedIds, repeated.Items.Select(static i => i.Id));
+            }
+
+            // Distinct sort & cursor & FAS4 requests do not collide with relevance page 1
+            var latestRes = await QueryV2(client, V2Path(secretQuery, sort: "latest", size: 10), ct);
+            Assert.Equal(Enumerable.Range(16, 10).Reverse(), latestRes.Items.Select(static i => i.Id));
+            var page2Res = await QueryV2(client, V2Path(secretQuery, size: 10, cursor: page1Cursor), ct);
+            Assert.Equal(10, page2Res.Items.Count);
+            Assert.Empty(page2Res.Items.Select(static i => i.Id).Intersect(expectedIds));
+            var fas4Res = await Query(client, PagePath(secretQuery, "latest", 1, 5), ct);
+            Assert.Equal(25, fas4Res.Total);
+            Assert.Equal(Enumerable.Range(21, 5).Reverse(), fas4Res.Hits.Select(static h => h.Id));
+
+            var mid = await Mark(evidence, output, "measure-after", ct);
+            Assert.Equal(Count(before, "dbCommandStarts"), Count(mid, "dbCommandStarts"));
+            Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(mid, "dbPhysicalOpenStarts"));
+
+            var scMid = mid.GetProperty("searchCache");
+            var hitsMid = scMid.GetProperty("hits").GetInt64();
+            var coalescedMid = scMid.GetProperty("coalescedWaiters").GetInt64();
+            var executionsMid = scMid.GetProperty("executions").GetInt64();
+            var retainedMid = scMid.GetProperty("retainedBytes").GetInt64();
+            Assert.True(hitsMid >= 6, $"Expected >= 6 cache hits, got {hitsMid}");
+            Assert.True(hitsMid + coalescedMid >= 12, $"Expected coalesced/hit reuse across 18 identical requests, got hits={hitsMid}, coalesced={coalescedMid}");
+            Assert.True(executionsMid <= 6, $"Expected <= 6 distinct executions, got {executionsMid}");
+            Assert.InRange(retainedMid, 1, 8 * 1024 * 1024);
+
+            // 2. Withdrawal invalidates cache promptly; stale cursor returns 409 search_generation_changed and increments generationRestarts
+            await SiteAedsFixture.ArticleCommand(client, WireRoutes.Retract, author.Token, null,
+                new(25, 1, Guid.NewGuid(), "", ""), ct);
+
+            Assert.Equal((409, "search_generation_changed"),
+                await ExpectErrorDetails(client, V2Path(secretQuery, size: 10, cursor: page1Cursor), Conflict, ct));
+
+            var afterWithdraw = await QueryV2(client, V2Path(secretQuery, sort: "latest", size: 10), ct);
+            Assert.NotEqual(firstGeneration, afterWithdraw.Generation);
+            Assert.Equal(24, afterWithdraw.TotalCount);
+            Assert.DoesNotContain(afterWithdraw.Items, item => item.Id == 25);
+
+            var after = await Mark(evidence, output, "drain", ct);
+            var scAfter = after.GetProperty("searchCache");
+            Assert.True(scAfter.GetProperty("generationRestarts").GetInt64() >= 1);
+            Assert.True(scAfter.GetProperty("generationEvictions").GetInt64() >= 1);
+
+            // Privacy guard: raw user query text must NEVER appear in RuntimeEvidence telemetry.
+            var telemetryText = await File.ReadAllTextAsync(output, ct);
+            Assert.DoesNotContain(secretQuery, telemetryText, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     [Fact]
     public void PublicSearchCursorRejectsExpiredTokensAndDistinguishesGenerationChanges()
     {

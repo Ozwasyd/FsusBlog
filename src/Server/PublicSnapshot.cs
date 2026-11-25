@@ -34,6 +34,11 @@ internal sealed class PublicSnapshot
     internal int ReusedCorpusPageCount => _corpus?.ReusedPageCount ?? 0;
     internal int PublicArticleCount => _byId.Count;
     internal IReadOnlyList<Article> WideSearchArticles => _byId.Values;
+    internal bool HasSearchIndex => _search is not null;
+    internal int SearchProfileVersion => _search?.ProfileVersion ?? SearchScoringProfile.ProfileVersion;
+    internal int SearchAnalyzerVersion => _search?.AnalyzerVersion ?? SearchTextAnalyzer.Version;
+    internal bool SearchUsesWideProfile => _search?.UsesWideProfile is true;
+    internal long SearchCursorNowUtcSeconds => _searchCursor.Now;
 
     internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
         PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, DistributionSettings? distribution, CancellationToken cancellationToken,
@@ -129,9 +134,19 @@ internal sealed class PublicSnapshot
         CancellationToken ct)
     {
         if (_search is null) return null;
-        var matching = _search.SearchPage(keyword, sort, page, size, ct);
+        return SearchPageWithPlan(SearchQueryPlan.Build(keyword, ct), sort, page, size, ct);
+    }
+
+    internal (byte[] Bytes, int Total)? SearchPageWithPlan(SearchQueryPlan plan, ArticleSearchSort sort, int page, int size,
+        CancellationToken ct)
+    {
+        if (_search is null) return null;
+        var matching = _search.SearchPage(plan, sort, page, size, ct);
         return (PublicArticles.EncodeSearch(matching.Articles, matching.Articles.Length), matching.Total);
     }
+
+    internal DecodedSearchCursor DecodeSearchCursor(SearchQueryPlan plan, ArticleSearchSort sort, int size, string cursor) =>
+        _searchCursor.Decode(Generation, plan, sort, size, cursor);
 
     internal byte[] SearchV2(string keyword, ArticleSearchSort sort, int size, string? cursor, CancellationToken ct,
         int? countThreshold = null, int? workBudget = null)
@@ -140,7 +155,14 @@ internal sealed class PublicSnapshot
         var plan = SearchQueryPlan.Build(keyword, ct);
         DecodedSearchCursor? decoded = cursor is null
             ? null
-            : _searchCursor.Decode(Generation, plan, sort, size, cursor);
+            : DecodeSearchCursor(plan, sort, size, cursor);
+        return SearchV2WithPlan(plan, sort, size, decoded, ct, out _, countThreshold, workBudget);
+    }
+
+    internal byte[] SearchV2WithPlan(SearchQueryPlan plan, ArticleSearchSort sort, int size, DecodedSearchCursor? decoded,
+        CancellationToken ct, out bool hasMore, int? countThreshold = null, int? workBudget = null)
+    {
+        if (_search is null) throw PublicSearchFailure.Unavailable();
 
         ArticleSearchCursorPage page;
         try
@@ -183,7 +205,8 @@ internal sealed class PublicSnapshot
                 snippet.Highlights);
         }
 
-        var nextCursor = page.HasMore && page.LastHitPosition is { } last
+        hasMore = page.HasMore && page.LastHitPosition is not null;
+        var nextCursor = hasMore && page.LastHitPosition is { } last
             ? _searchCursor.Encode(Generation, plan, sort, size, (decoded?.ReturnedSoFar ?? 0) + page.Hits.Length, last)
             : "";
 
@@ -301,7 +324,8 @@ internal sealed class PublicSnapshot
 
 internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log, InstanceLease? lease = null,
     RuntimeEvidence? evidence = null, DistributionSettings? distribution = null, PublishedMediaStore? media = null,
-    PublicProjection? projection = null, bool siteConfigOverrideActive = false, SitePages? sitePages = null)
+    PublicProjection? projection = null, bool siteConfigOverrideActive = false, SitePages? sitePages = null,
+    PublicSearchCache? searchCache = null)
 {
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
@@ -312,6 +336,12 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     private bool? _siteConfigOverrideInstalled;
     internal PublicSnapshot? Snapshot => lease?.IsCurrent is false ? null : _projection.Current?.Source;
     internal bool LeaseCurrent => lease?.IsCurrent is not false;
+
+    private void ReplaceProjection(PublicSnapshot? next)
+    {
+        _projection.Replace(next);
+        searchCache?.OnSnapshotChanged(next?.Generation);
+    }
 
     internal async Task<(ArticleState Article, bool Changed)> Command(Store store, string? token,
         ArticleAction action, Edit edit, CancellationToken ct, string? expectedSession = null,
@@ -368,7 +398,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
             {
                 // After an ambiguous commit or interruption, the old public bytes remain unservable.
                 // The worker rebuilds from the committed durable state.
-                if (invalidate) _projection.Replace(null);
+                if (invalidate) ReplaceProjection(null);
             });
 
             if (invalidate && Snapshot is null)
@@ -412,7 +442,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         await using var connection = await db.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(connection, lease, ct);
         if (await Authoring.ArticleScheduleStore.PublishDue(connection, tx, ct) != 0)
-            _projection.Replace(null);
+            ReplaceProjection(null);
         await InstanceLease.CommitProtected(tx, lease, ct);
     }
 
@@ -487,7 +517,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
             """);
         await InstanceLease.CommitProtected(tx, lease, ct);
         _lastProjection = next;
-        _projection.Replace(next);
+        ReplaceProjection(next);
         evidence?.CountRefresh(rebuilt);
     }
 

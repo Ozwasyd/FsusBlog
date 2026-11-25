@@ -224,6 +224,11 @@ internal static class SearchEvalRunner
         // 4c. Deterministic 2,500-document multi-block broad-query pruning benchmark (#48)
         var broadBenchmark = RunBroadCorpusPruningBenchmark(articles);
 
+        // 4d. Hit-rate sensitivity & single-flight coalescing benchmark (#50)
+        // Measures realistic low (10%), medium (40%), and high (75%) repeat rates plus concurrent burst coalescing
+        // against an uncached 0% baseline without relying on unrealistic 100%-hit workloads.
+        var cacheSensitivity = RunCacheSensitivityBenchmark(index, queryDoc.Queries, concurrency);
+
         // 5. Repeated warm query stream vs unique query stream (cache-hit vs cache-miss baseline; currently uncached)
         var hotQueries = queryDoc.Queries.Where(q => q.Rarity == "common").Take(8).ToArray();
         if (hotQueries.Length == 0) hotQueries = queryDoc.Queries.Take(8).ToArray();
@@ -422,6 +427,7 @@ internal static class SearchEvalRunner
                 }
             },
             broadCorpusPruning = broadBenchmark,
+            cacheSensitivity,
             repeatedHot = new
             {
                 offered = repeatedLatencies.Count,
@@ -552,6 +558,231 @@ internal static class SearchEvalRunner
             blockCount = broadIndex.BlockCount,
             buildWallMs = buildSw.Elapsed.TotalMilliseconds,
             queries = rows
+        };
+    }
+
+    private static object RunCacheSensitivityBenchmark(ArticleSearchIndex index, EvalQuery[] queries, int concurrency)
+    {
+        var proc = Process.GetCurrentProcess();
+        const long evalGeneration = 900_001L;
+        const int streamLength = 300;
+        var positiveQueries = queries.Where(static q => !q.ExpectedEmpty).ToArray();
+        if (positiveQueries.Length < 10) positiveQueries = queries;
+
+        byte[] ComputeV2Frame(SearchQueryPlan plan, ArticleSearchSort sort, int size, CancellationToken ct)
+        {
+            var cPage = index.SearchWithCursor(plan, sort, size, null, 0, ct);
+            var hits = new PublicSearchHit[cPage.Hits.Length];
+            for (var i = 0; i < cPage.Hits.Length; i++)
+            {
+                var hit = cPage.Hits[i];
+                var a = hit.Article;
+                var snip = SearchSnippetExtractor.Extract(a, plan, ct);
+                hits[i] = new PublicSearchHit(
+                    a.Id, a.Revision, a.RevisionNo, a.Publication, a.PublicationNo,
+                    a.PublishedAt.ToUnixTimeMilliseconds(), a.CreatedAt.ToUnixTimeMilliseconds(), 0,
+                    a.Category?.Id ?? 0, a.Category?.Name ?? "",
+                    a.Tags is { Count: > 0 } ts ? ts.Select(static t => new PublicSearchTag(t.Id, t.Name)).ToArray() : [],
+                    a.Title, a.Summary ?? "",
+                    hit.Tier == SearchMatchTier.Relaxed ? PublicSearchMatchTier.Relaxed : PublicSearchMatchTier.Primary,
+                    snip.Field, snip.Text, snip.Highlights);
+            }
+            return Wire.EncodePublicSearchResult(new PublicSearchResult(
+                evalGeneration, index.ProfileVersion, index.AnalyzerVersion,
+                cPage.TotalCount, cPage.TotalRelation, cPage.PrimaryCount, cPage.RelaxedCount,
+                cPage.HasMore, cPage.HasMore ? new string('A', 162) : "", hits));
+        }
+
+        // Build deterministic query streams of REAL matching queries with exact target repeat rates (0%, 10%, 40%, 75%)
+        (string Query, ArticleSearchSort Sort, int Size)[] BuildStream(double targetHitRate)
+        {
+            var hotPool = positiveQueries.Take(12).Select(static q => (q.Query, ArticleSearchSort.Relevance, 10)).ToArray();
+            // Pool of > 600 distinct real matching (query, sort, size) requests so unique tail misses execute real search + snippets
+            var uniquePool = new List<(string Query, ArticleSearchSort Sort, int Size)>(positiveQueries.Length * 2);
+            foreach (var sort in new[] { ArticleSearchSort.Relevance, ArticleSearchSort.Latest })
+            {
+                foreach (var pq in positiveQueries.Skip(12))
+                    uniquePool.Add((pq.Query, sort, 10));
+            }
+            var result = new (string Query, ArticleSearchSort Sort, int Size)[streamLength];
+            var seedCount = targetHitRate > 0 ? Math.Min(hotPool.Length, streamLength) : 0;
+            for (var i = 0; i < seedCount; i++) result[i] = hotPool[i];
+            var desiredHits = (int)Math.Round(targetHitRate * streamLength);
+            var hitCount = 0;
+            var uniqueSeq = 0;
+            for (var i = seedCount; i < streamLength; i++)
+            {
+                var remaining = streamLength - i;
+                var neededHits = desiredHits - hitCount;
+                var pickHit = neededHits > 0 && (neededHits >= remaining || ((i * 7 + 3) % 100) < (int)(targetHitRate * 100));
+                if (pickHit)
+                {
+                    result[i] = hotPool[hitCount % hotPool.Length];
+                    hitCount++;
+                }
+                else
+                {
+                    result[i] = uniquePool[uniqueSeq % uniquePool.Count];
+                    uniqueSeq++;
+                }
+            }
+            return result;
+        }
+
+        object MeasureStream(string label, double targetHitRate, bool useCache)
+        {
+            var stream = BuildStream(targetHitRate);
+            var options = new SearchResultCacheOptions(
+                MaxEntries: 512,
+                MaxRetainedBytes: 8 * 1024 * 1024,
+                MaxInFlightKeys: 32,
+                MaxWaitersPerKey: 16,
+                MaxTotalWaiters: 32,
+                MaxRetainedGenerations: 1);
+            using var cache = new SearchResultCache(options);
+            var lats = new double[stream.Length];
+            var cpuBefore = proc.TotalProcessorTime;
+            var allocBefore = GC.GetTotalAllocatedBytes(true);
+            var swAll = Stopwatch.StartNew();
+
+            for (var i = 0; i < stream.Length; i++)
+            {
+                var (q, sort, size) = stream[i];
+                var sw = Stopwatch.StartNew();
+                var plan = SearchQueryPlan.Build(q, CancellationToken.None);
+                if (!useCache)
+                {
+                    _ = ComputeV2Frame(plan, sort, size, CancellationToken.None);
+                }
+                else
+                {
+                    var key = new SearchResultCacheKey(
+                        SearchCacheEndpointKind.V2, evalGeneration, index.ProfileVersion, index.AnalyzerVersion,
+                        index.UsesWideProfile, plan.BuildCanonicalCacheKey(), sort,
+                        0, size, true, SearchCursorCacheKey.None, ArticleSearchIndex.MaxPaginatedResults,
+                        ArticleSearchIndex.DefaultWorkBudgetCandidates);
+                    _ = cache.GetOrExecuteAsync(key, ct => ValueTask.FromResult(new CachedSearchPayload(ComputeV2Frame(plan, sort, size, ct), 0)), CancellationToken.None)
+                        .AsTask().GetAwaiter().GetResult();
+                }
+                sw.Stop();
+                lats[i] = sw.Elapsed.TotalMilliseconds;
+            }
+            swAll.Stop();
+            var cpuMs = (proc.TotalProcessorTime - cpuBefore).TotalMilliseconds;
+            var allocBytes = GC.GetTotalAllocatedBytes(true) - allocBefore;
+            var stats = cache.SnapshotStats();
+            var executions = useCache ? stats.Executions : stream.Length;
+            var saved = stream.Length - executions;
+
+            return new
+            {
+                label,
+                useCache,
+                targetHitRate,
+                offered = stream.Length,
+                hits = useCache ? stats.Hits : 0L,
+                misses = useCache ? stats.Misses : (long)stream.Length,
+                coalescedWaiters = stats.CoalescedWaiters,
+                executions,
+                savedExecutions = saved,
+                savedExecutionRate = stream.Length > 0 ? (double)saved / stream.Length : 0.0,
+                evictions = stats.Evictions,
+                retainedBytes = stats.RetainedBytes,
+                maxRetainedBytes = options.MaxRetainedBytes,
+                entryCount = stats.EntryCount,
+                maxEntries = options.MaxEntries,
+                wallMs = swAll.Elapsed.TotalMilliseconds,
+                cpuMs,
+                allocBytes,
+                latencyMs = Summarize(lats)
+            };
+        }
+
+        // Concurrent burst coalescing benchmark: waves of 8 simultaneous identical requests across 12 distinct queries
+        object MeasureConcurrentBurst()
+        {
+            var burstQueries = positiveQueries.Take(12).Select(static q => q.Query).ToArray();
+            var waves = 12;
+            var fanout = Math.Max(4, concurrency * 2);
+            var totalOffered = waves * fanout;
+            var options = new SearchResultCacheOptions(
+                MaxEntries: 512,
+                MaxRetainedBytes: 8 * 1024 * 1024,
+                MaxInFlightKeys: 32,
+                MaxWaitersPerKey: 16,
+                MaxTotalWaiters: 32,
+                MaxRetainedGenerations: 1);
+            using var cache = new SearchResultCache(options);
+            var lats = new double[totalOffered];
+            var cpuBefore = proc.TotalProcessorTime;
+            var allocBefore = GC.GetTotalAllocatedBytes(true);
+            var swAll = Stopwatch.StartNew();
+
+            for (var w = 0; w < waves; w++)
+            {
+                var q = burstQueries[w % burstQueries.Length];
+                var plan = SearchQueryPlan.Build(q, CancellationToken.None);
+                var key = new SearchResultCacheKey(
+                    SearchCacheEndpointKind.V2, evalGeneration, index.ProfileVersion, index.AnalyzerVersion,
+                    index.UsesWideProfile, plan.BuildCanonicalCacheKey(), ArticleSearchSort.Relevance,
+                    0, 10, true, SearchCursorCacheKey.None, ArticleSearchIndex.MaxPaginatedResults,
+                    ArticleSearchIndex.DefaultWorkBudgetCandidates);
+                using var barrier = new ManualResetEventSlim(false);
+                var tasks = new Task[fanout];
+                for (var f = 0; f < fanout; f++)
+                {
+                    var slotIdx = w * fanout + f;
+                    tasks[f] = Task.Run(async () =>
+                    {
+                        barrier.Wait();
+                        var sw = Stopwatch.StartNew();
+                        _ = await cache.GetOrExecuteAsync(key, ct => ValueTask.FromResult(new CachedSearchPayload(ComputeV2Frame(plan, ArticleSearchSort.Relevance, 10, ct), 0)), CancellationToken.None);
+                        sw.Stop();
+                        lats[slotIdx] = sw.Elapsed.TotalMilliseconds;
+                    });
+                }
+                barrier.Set();
+                Task.WaitAll(tasks);
+            }
+
+            swAll.Stop();
+            var cpuMs = (proc.TotalProcessorTime - cpuBefore).TotalMilliseconds;
+            var allocBytes = GC.GetTotalAllocatedBytes(true) - allocBefore;
+            var stats = cache.SnapshotStats();
+            var saved = totalOffered - stats.Executions;
+
+            return new
+            {
+                label = "concurrent_burst",
+                waves,
+                fanoutPerWave = fanout,
+                offered = totalOffered,
+                hits = stats.Hits,
+                misses = stats.Misses,
+                coalescedWaiters = stats.CoalescedWaiters,
+                executions = stats.Executions,
+                savedExecutions = saved,
+                savedExecutionRate = totalOffered > 0 ? (double)saved / totalOffered : 0.0,
+                retainedBytes = stats.RetainedBytes,
+                maxRetainedBytes = options.MaxRetainedBytes,
+                entryCount = stats.EntryCount,
+                wallMs = swAll.Elapsed.TotalMilliseconds,
+                cpuMs,
+                allocBytes,
+                latencyMs = Summarize(lats)
+            };
+        }
+
+        return new
+        {
+            profiles = new[]
+            {
+                MeasureStream("uncached_0pct", 0.0, useCache: false),
+                MeasureStream("low_hit_10pct", 0.10, useCache: true),
+                MeasureStream("medium_hit_40pct", 0.40, useCache: true),
+                MeasureStream("high_hit_75pct", 0.75, useCache: true)
+            },
+            concurrentBurst = MeasureConcurrentBurst()
         };
     }
 

@@ -92,6 +92,7 @@ internal static class ServerServices
                 services.GetRequiredService<SitePages>().CurrentConfiguredPaths));
             builder.Services.AddSingleton<Store>();
             builder.Services.AddSingleton<PublicProjection>();
+            builder.Services.AddSingleton(_ => new PublicSearchCache());
             builder.Services.AddSingleton(services => new Publications(
                 services.GetRequiredService<NpgsqlDataSource>(),
                 services.GetRequiredService<WebPages>(),
@@ -102,7 +103,8 @@ internal static class ServerServices
                 services.GetService<PublishedMediaStore>(),
                 services.GetService<PublicProjection>(),
                 capabilities.SiteConfigOverrideActive,
-                services.GetRequiredService<SitePages>()));
+                services.GetRequiredService<SitePages>(),
+                services.GetRequiredService<PublicSearchCache>()));
 
             if (capabilities.WideSearchCorpus)
             {
@@ -208,7 +210,10 @@ internal static class ServerServices
     internal static async Task<IDisposable> InitializeRuntimeAsync(WebApplication app, ServerBootstrapContext bootstrap)
     {
         var lease = app.Services.GetRequiredService<InstanceLease>();
+        var searchCache = app.Services.GetRequiredService<PublicSearchCache>();
+        app.Services.GetService<RuntimeEvidence>()?.RegisterSearchCache(searchCache);
         var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
+        var clearCacheOnLeaseStop = lease.Stopped.Register(() => searchCache.OnSnapshotChanged(null));
         try
         {
             await lease.Start(app.Logger, app.Lifetime.ApplicationStopping,
@@ -218,12 +223,22 @@ internal static class ServerServices
             var publications = app.Services.GetRequiredService<Publications>();
             app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
             await publications.Refresh(CancellationToken.None);
-            return stopLease;
+            return new CombinedDisposable(clearCacheOnLeaseStop, stopLease);
         }
         catch
         {
+            clearCacheOnLeaseStop.Dispose();
             stopLease.Dispose();
             throw;
+        }
+    }
+
+    private sealed class CombinedDisposable(IDisposable first, IDisposable second) : IDisposable
+    {
+        public void Dispose()
+        {
+            try { first.Dispose(); }
+            finally { second.Dispose(); }
         }
     }
 }

@@ -220,9 +220,12 @@ public sealed partial class ArticleSearchIndex
     public Article[] Search(string query, CancellationToken ct) =>
         SearchPage(query, ArticleSearchSort.Relevance, 1, MaxResults, ct).Articles;
 
-    public ArticleSearchPage SearchPage(string query, ArticleSearchSort sort, int page, int size, CancellationToken ct)
+    public ArticleSearchPage SearchPage(string query, ArticleSearchSort sort, int page, int size, CancellationToken ct) =>
+        SearchPage(SearchQueryPlan.Build(query, ct), sort, page, size, ct);
+
+    public ArticleSearchPage SearchPage(SearchQueryPlan plan, ArticleSearchSort sort, int page, int size, CancellationToken ct)
     {
-        var detailed = SearchDetailed(query, sort, page, size, ct, out _);
+        var detailed = SearchDetailed(plan, sort, page, size, ct, out _);
         if (detailed.Hits.Length == 0) return new([], detailed.Total);
         var articles = new Article[detailed.Hits.Length];
         for (var i = 0; i < detailed.Hits.Length; i++) articles[i] = detailed.Hits[i].Article;
@@ -230,10 +233,14 @@ public sealed partial class ArticleSearchIndex
     }
 
     public ArticleSearchDetailedPage SearchDetailed(string query, ArticleSearchSort sort, int page, int size, CancellationToken ct) =>
-        SearchDetailed(query, sort, page, size, ct, out _);
+        SearchDetailed(SearchQueryPlan.Build(query, ct), sort, page, size, ct, out _);
 
     public ArticleSearchDetailedPage SearchDetailed(
-        string query, ArticleSearchSort sort, int page, int size, CancellationToken ct, out SearchExecutionStats stats)
+        string query, ArticleSearchSort sort, int page, int size, CancellationToken ct, out SearchExecutionStats stats) =>
+        SearchDetailed(SearchQueryPlan.Build(query, ct), sort, page, size, ct, out stats);
+
+    public ArticleSearchDetailedPage SearchDetailed(
+        SearchQueryPlan plan, ArticleSearchSort sort, int page, int size, CancellationToken ct, out SearchExecutionStats stats)
     {
         stats = default;
         ct.ThrowIfCancellationRequested();
@@ -242,7 +249,6 @@ public sealed partial class ArticleSearchIndex
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, MaxResults);
         if (_documents.Length == 0) return new([], 0, 0, 0);
 
-        var plan = SearchQueryPlan.Build(query, ct);
         if (plan.IsEmpty || plan.IsOverlongExactIdentifier) return new([], 0, 0, 0);
 
         var start = (long)(page - 1) * size;
