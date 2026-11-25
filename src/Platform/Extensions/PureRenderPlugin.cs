@@ -73,30 +73,19 @@ public sealed class PureRenderPlugin : IDisposable
     }
 
     private PureRenderPlugin(string root, string script, string version, int timeout, TimeProvider clock, long started,
-        SignedArchiveTrust trust, Approval approval, FileStream lease)
-    {
-        _root = root;
-        JavaScript = script;
-        Version = version;
-        TimeoutMs = timeout;
-        _clock = clock;
-        _started = started;
-        _trust = trust;
-        ApprovalIdentity = approval;
-        _lease = lease;
-    }
+        SignedArchiveTrust trust, Approval approval, FileStream lease) =>
+        (_root, JavaScript, Version, TimeoutMs, _clock, _started, _trust, ApprovalIdentity, _lease) =
+            (root, script, version, timeout, clock, started, trust, approval, lease);
 
     public void VerifyCompletion(CancellationToken ct = default)
     {
         ObjectDisposedException.ThrowIf(_lease.SafeFileHandle.IsClosed, this);
         ExtensionDisk.ValidatePrivateRoot(new(_root));
         ReadApproval(_root, ct, out var approval);
-        if (approval != ApprovalIdentity)
-            throw Reject("plugin-approval-changed");
+        if (approval != ApprovalIdentity) throw Reject("plugin-approval-changed");
         ReadArchive(_root, _trust.Source.ArchiveSha256, ct);
         if (_clock.GetElapsedTime(_started) >= TimeSpan.FromSeconds(15)) throw Reject("plugin-operation-expired");
-        if (_clock.GetElapsedTime(_started) >= _trust.ValidUntil - _trust.CheckedAt)
-            throw Reject("publisher-key-not-current");
+        if (_clock.GetElapsedTime(_started) >= _trust.ValidUntil - _trust.CheckedAt) throw Reject("publisher-key-not-current");
         _trust.RequireCurrent(_clock, ct);
     }
 

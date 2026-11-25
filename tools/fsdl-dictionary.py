@@ -26,52 +26,46 @@ class TrieNode:
     terminal: int = NO_TERMINAL
 
 
+def ensure(condition, message: str) -> None:
+    if not condition:
+        raise ValueError(message)
+
+
 def unique_object(fields):
     value = {}
     for key, item in fields:
-        if key in value:
-            raise ValueError(f"Duplicate lexicon field: {key}")
+        ensure(key not in value, f"Duplicate lexicon field: {key}")
         value[key] = item
     return value
 
 
 def compile_lexicon(source: object) -> bytes:
-    if not isinstance(source, dict) or set(source) != {"words", "stopwords"}:
-        raise ValueError("Expected the shared search lexicon with words and stopwords")
+    ensure(isinstance(source, dict) and set(source) == {"words", "stopwords"}, "Expected the shared search lexicon with words and stopwords")
     weights, stops = source["words"], source["stopwords"]
-    if not isinstance(weights, dict) or not isinstance(stops, list):
-        raise ValueError("Invalid lexicon tables")
-    if any(type(weight) is not int or not 1 <= weight <= 0x7FFFFFFF for weight in weights.values()):
-        raise ValueError("Invalid lexicon frequency")
-    if any(not isinstance(term, str) or not term for term in [*weights, *stops]):
-        raise ValueError("Invalid lexicon term")
+    ensure(isinstance(weights, dict) and isinstance(stops, list), "Invalid lexicon tables")
+    ensure(all(type(weight) is int and 1 <= weight <= 0x7FFFFFFF for weight in weights.values()), "Invalid lexicon frequency")
+    ensure(all(isinstance(term, str) and term for term in [*weights, *stops]), "Invalid lexicon term")
     stopwords = set(stops)
-    if len(stops) != len(stopwords):
-        raise ValueError("Duplicate stopword")
+    ensure(len(stops) == len(stopwords), "Duplicate stopword")
 
     ordered = sorted((term.encode("utf-8"), term) for term in weights.keys() | stopwords)
     nodes = [TrieNode()]
-    records = bytearray()
-    strings = bytearray()
+    records, strings = bytearray(), bytearray()
     for index, (encoded, term) in enumerate(ordered):
-        if len(encoded) > 0xFFFF:
-            raise ValueError("Lexicon term exceeds the FSDL byte field")
+        ensure(len(encoded) <= 0xFFFF, "Lexicon term exceeds the FSDL byte field")
         current = 0
         for character in term:
             scalar = ord(character)
             children = nodes[current].children
-            child = children.get(scalar)
-            if child is None:
-                child = len(nodes)
-                children[scalar] = child
+            if (child := children.get(scalar)) is None:
+                child = children[scalar] = len(nodes)
                 nodes.append(TrieNode())
             current = child
         nodes[current].terminal = index
         records.extend(ENTRY.pack(len(strings), len(encoded), int(term in stopwords), weights.get(term, 1), len(term)))
         strings.extend(encoded)
 
-    node_records = bytearray()
-    edges = bytearray()
+    node_records, edges = bytearray(), bytearray()
     for node in nodes:
         node_records.extend(NODE.pack(len(edges) // EDGE.size, len(node.children), node.terminal, 0))
         for scalar, target in sorted(node.children.items()):
@@ -96,8 +90,7 @@ def main() -> None:
                 os.link(staged, args.artifact)
         else:
             with args.artifact.open("rb") as artifact:
-                if artifact.read(len(data) + 1) != data:
-                    raise ValueError("FSDL artifact differs from the exact shared lexicon")
+                ensure(artifact.read(len(data) + 1) == data, "FSDL artifact differs from the exact shared lexicon")
     except (OSError, ValueError, struct.error) as error:
         parser.exit(1, f"{error}\n")
     print(f"fsdl_v2_bytes={len(data)} sha256={hashlib.sha256(data).hexdigest()}")

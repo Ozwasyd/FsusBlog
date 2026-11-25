@@ -55,11 +55,7 @@ const stateLabels: Record<AuthorArticleRow['state'], MessageKey> = {
   published: 'admin.inventory.statePublished', retracted: 'admin.inventory.stateRetracted', deleted: 'admin.inventory.stateDeleted',
 }
 const stateTagTypes: Record<AuthorArticleRow['state'], 'info' | 'warning' | 'success' | 'danger'> = {
-  draft: 'info',
-  scheduled: 'warning',
-  published: 'success',
-  retracted: 'warning',
-  deleted: 'danger',
+  draft: 'info', scheduled: 'warning', published: 'success', retracted: 'warning', deleted: 'danger',
 }
 const mutating = computed(() => restoring.value || deleting.value || !!retry.value)
 const busy = computed(() => reading.value || mutating.value)

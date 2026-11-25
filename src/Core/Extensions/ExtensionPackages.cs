@@ -15,14 +15,8 @@ public sealed record ApprovedExtensionSource(string Reference, string Provenance
 
 public sealed class VerifiedExtensionPackage
 {
-    internal VerifiedExtensionPackage(ExtensionManifest manifest, string identity, string archiveDigest, DateTimeOffset checkedAt, DateTimeOffset validUntil)
-    {
-        Manifest = manifest;
-        Identity = identity;
-        ArchiveDigest = archiveDigest;
-        CheckedAt = checkedAt;
-        ValidUntil = validUntil;
-    }
+    internal VerifiedExtensionPackage(ExtensionManifest manifest, string identity, string archiveDigest, DateTimeOffset checkedAt, DateTimeOffset validUntil) =>
+        (Manifest, Identity, ArchiveDigest, CheckedAt, ValidUntil) = (manifest, identity, archiveDigest, checkedAt, validUntil);
 
     public ExtensionManifest Manifest { get; }
     public string Identity { get; }

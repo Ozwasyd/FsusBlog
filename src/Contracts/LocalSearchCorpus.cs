@@ -24,11 +24,7 @@ public sealed class LocalSearchCorpusSnapshot
         {
             _pageBytes[i] = pages[i].Bytes;
             if (reusedFromPageIndex[i] >= 0) reused++;
-            if (pages[i].Documents.Length > 0)
-            {
-                byFirst ??= new Dictionary<int, int>(pages.Length);
-                byFirst.Add(pages[i].Documents[0].Id, i);
-            }
+            if (pages[i].Documents.Length > 0) (byFirst ??= new(pages.Length)).Add(pages[i].Documents[0].Id, i);
         }
         _pageIndexByFirstArticleId = byFirst;
         Pages = Array.AsReadOnly(_pageBytes);
@@ -45,8 +41,7 @@ public sealed class LocalSearchCorpusSnapshot
 
     internal bool TryFindPageByFirstArticleId(int firstArticleId, out int pageIndex)
     {
-        if (_pageIndexByFirstArticleId is not null)
-            return _pageIndexByFirstArticleId.TryGetValue(firstArticleId, out pageIndex);
+        if (_pageIndexByFirstArticleId is not null) return _pageIndexByFirstArticleId.TryGetValue(firstArticleId, out pageIndex);
         pageIndex = -1;
         return false;
     }
@@ -63,6 +58,24 @@ public static class LocalSearchCorpus
     private const int PositionBudgetBytes = 7;
     private const byte TitleField = 1;
     private const byte BodyField = 4;
+
+    private static bool ValidateBuildArgs(IReadOnlyList<Article> articles, int maxPages, int maxAggregateBytes, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(articles);
+        if (maxPages is < 1 or > MaxStagedPages) throw new ArgumentOutOfRangeException(nameof(maxPages));
+        if (maxAggregateBytes is < 1 or > MaxStagedAggregateBytes) throw new ArgumentOutOfRangeException(nameof(maxAggregateBytes));
+        ct.ThrowIfCancellationRequested();
+        // Every page holds at most this many documents even when the byte budget would fit more.
+        return articles.Count <= checked(maxPages * WireLimits.SearchIndexPageSize);
+    }
+
+    private static bool ShouldSplitPage(int docCount, int projectedBytes, int nextEstimate) =>
+        docCount != 0 && (projectedBytes + nextEstimate > PageBytes - 512 || docCount >= WireLimits.SearchIndexPageSize);
+
+    private static void CheckIncreasingId(int id, int lastId)
+    {
+        if (id <= lastId) throw new ProtocolException("Invalid or duplicate search corpus article ID");
+    }
 
     public static IReadOnlyList<byte[]>? Build(IReadOnlyList<Article> articles, CancellationToken ct = default)
     {
@@ -83,54 +96,35 @@ public static class LocalSearchCorpus
     public static LocalSearchCorpusSnapshot? BuildSnapshot(IReadOnlyList<Article> articles,
         LocalSearchCorpusSnapshot? previous, int maxPages, int maxAggregateBytes, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(articles);
-        if (maxPages is < 1 or > MaxStagedPages) throw new ArgumentOutOfRangeException(nameof(maxPages));
-        if (maxAggregateBytes is < 1 or > MaxStagedAggregateBytes) throw new ArgumentOutOfRangeException(nameof(maxAggregateBytes));
-        ct.ThrowIfCancellationRequested();
-        if (articles.Count > checked(maxPages * WireLimits.SearchIndexPageSize)) return null;
-
+        if (!ValidateBuildArgs(articles, maxPages, maxAggregateBytes, ct)) return null;
         if (articles.Count == 0)
         {
             if (previous is { PageCount: 1 } && previous.PageAt(0) is { Documents.Length: 0 } priorEmpty)
-            {
-                if (priorEmpty.Bytes.Length > maxAggregateBytes) return null;
-                return new LocalSearchCorpusSnapshot([priorEmpty], [0]);
-            }
-
+                return priorEmpty.Bytes.Length > maxAggregateBytes ? null : new LocalSearchCorpusSnapshot([priorEmpty], [0]);
             using var emptyPostings = new MemoryStream();
             using var emptyStrings = new MemoryStream();
-            var emptyPage = Package([], emptyPostings, emptyStrings, maxAggregateBytes, ct);
-            if (emptyPage is null) return null;
-            return new LocalSearchCorpusSnapshot([new PageState(emptyPage, 0, [])], [-1]);
+            return Package([], emptyPostings, emptyStrings, maxAggregateBytes, ct) is { } emptyPage
+                ? new LocalSearchCorpusSnapshot([new PageState(emptyPage, 0, [])], [-1]) : null;
         }
 
         var sorted = SortArticlesById(articles, ct);
         var resultPages = new List<PageState>();
         var reusedIndices = new List<int>();
         var docs = new List<Document>();
-        MemoryStream? postingBytes = null;
-        MemoryStream? strings = null;
-        var projectedBytes = 0;
-        var byteCount = 0;
-        var lastId = 0;
-        var pendingIndex = -1;
+        MemoryStream? postingBytes = null, strings = null;
+        int projectedBytes = 0, byteCount = 0, lastId = 0, pendingIndex = -1;
         Document? pendingDoc = null;
 
         try
         {
-            var cursor = 0;
-            while (cursor < sorted.Length)
+            for (var cursor = 0; cursor < sorted.Length;)
             {
                 ct.ThrowIfCancellationRequested();
-
                 if (docs.Count == 0 && pendingIndex != cursor && previous is not null)
                 {
-                    if (sorted[cursor].Id <= lastId)
-                        throw new ProtocolException("Invalid or duplicate search corpus article ID");
-
+                    CheckIncreasingId(sorted[cursor].Id, lastId);
                     if (TryReusePage(sorted, cursor, previous, resultPages.Count, maxPages, maxAggregateBytes, byteCount,
-                            ref lastId, ref pendingIndex, ref pendingDoc, ct,
-                            out var reusedPage, out var reusedFromIndex, out var budgetRejected))
+                            ref lastId, ref pendingIndex, ref pendingDoc, ct, out var reusedPage, out var reusedFromIndex, out var budgetRejected))
                     {
                         resultPages.Add(reusedPage!);
                         reusedIndices.Add(reusedFromIndex);
@@ -145,64 +139,44 @@ public static class LocalSearchCorpus
                 Document? doc;
                 if (pendingIndex == cursor)
                 {
-                    doc = pendingDoc!;
-                    pendingIndex = -1;
-                    pendingDoc = null;
-                    lastId = article.Id;
+                    (doc, pendingIndex, pendingDoc, lastId) = (pendingDoc!, -1, null, article.Id);
                 }
                 else
                 {
-                    if (article.Id <= lastId)
-                        throw new ProtocolException("Invalid or duplicate search corpus article ID");
-
+                    CheckIncreasingId(article.Id, lastId);
                     if (docs.Count != 0 && previous is not null &&
-                        CanSplitBeforeReusablePage(sorted, cursor, previous, docs.Count, projectedBytes))
+                        TryMatchKnownPageStartEstimate(article, previous, out var nextEstimate) &&
+                        ShouldSplitPage(docs.Count, projectedBytes, nextEstimate))
                     {
                         if (!EmitCurrentPage()) return null;
                         continue;
                     }
-
                     lastId = article.Id;
-                    doc = Index(article, ct);
-                    if (doc is null) return null;
+                    if ((doc = Index(article, ct)) is null) return null;
                 }
 
                 var estimate = doc.EstimatedBytes;
-                if (docs.Count != 0 && (projectedBytes + estimate > PageBytes - 512 ||
-                                        docs.Count >= WireLimits.SearchIndexPageSize))
-                {
-                    if (!EmitCurrentPage()) return null;
-                }
-
+                if (ShouldSplitPage(docs.Count, projectedBytes, estimate) && !EmitCurrentPage()) return null;
                 docs.Add(doc);
                 projectedBytes += estimate;
                 cursor++;
             }
 
             if (docs.Count != 0 && !EmitCurrentPage()) return null;
-
-            return new LocalSearchCorpusSnapshot(resultPages.ToArray(), reusedIndices.ToArray());
+            return new LocalSearchCorpusSnapshot([.. resultPages], [.. reusedIndices]);
         }
-        finally
-        {
-            postingBytes?.Dispose();
-            strings?.Dispose();
-        }
+        finally { postingBytes?.Dispose(); strings?.Dispose(); }
 
         bool EmitCurrentPage()
         {
             ct.ThrowIfCancellationRequested();
             if (resultPages.Count >= maxPages) return false;
-            postingBytes ??= new MemoryStream();
-            strings ??= new MemoryStream();
-            postingBytes.SetLength(0);
-            strings.SetLength(0);
-            var page = Package(docs, postingBytes, strings, maxAggregateBytes - byteCount, ct);
-            if (page is null) return false;
+            (postingBytes ??= new()).SetLength(0);
+            (strings ??= new()).SetLength(0);
+            if (Package(docs, postingBytes, strings, maxAggregateBytes - byteCount, ct) is not { } page) return false;
             byteCount += page.Length;
             var inputs = new ArticleInput[docs.Count];
-            for (var i = 0; i < docs.Count; i++)
-                inputs[i] = ArticleInput.Capture(docs[i].Article, docs[i].EstimatedBytes);
+            for (var i = 0; i < docs.Count; i++) inputs[i] = ArticleInput.Capture(docs[i].Article, docs[i].EstimatedBytes);
             resultPages.Add(new PageState(page, projectedBytes, inputs));
             reusedIndices.Add(-1);
             docs.Clear();
@@ -216,34 +190,23 @@ public static class LocalSearchCorpus
     public static bool TryStagePages(IReadOnlyList<Article> articles, int maxPages, int maxAggregateBytes,
         Func<LocalSearchCorpusPage, bool> stage, CancellationToken ct = default)
     {
-        ArgumentNullException.ThrowIfNull(articles);
         ArgumentNullException.ThrowIfNull(stage);
-        if (maxPages is < 1 or > MaxStagedPages) throw new ArgumentOutOfRangeException(nameof(maxPages));
-        if (maxAggregateBytes is < 1 or > MaxStagedAggregateBytes) throw new ArgumentOutOfRangeException(nameof(maxAggregateBytes));
-        ct.ThrowIfCancellationRequested();
-        // Every page holds at most this many documents even when the byte budget would fit more.
-        if (articles.Count > checked(maxPages * WireLimits.SearchIndexPageSize)) return false;
+        if (!ValidateBuildArgs(articles, maxPages, maxAggregateBytes, ct)) return false;
 
         var docs = new List<Document>();
         using var postingBytes = new MemoryStream();
         using var strings = new MemoryStream();
-        var projectedBytes = 0;
-        var byteCount = 0;
-        var pageCount = 0;
-        var lastId = 0;
+        int projectedBytes = 0, byteCount = 0, pageCount = 0, lastId = 0;
 
-        foreach (var article in articles.OrderBy(article => article.Id))
+        foreach (var article in SortArticlesById(articles, ct))
         {
             ct.ThrowIfCancellationRequested();
-            if (article.Id <= lastId)
-                throw new ProtocolException("Invalid or duplicate search corpus article ID");
+            CheckIncreasingId(article.Id, lastId);
             lastId = article.Id;
-            var doc = Index(article, ct);
-            if (doc is null) return false;
+            if (Index(article, ct) is not { } doc) return false;
             // Bound both the exact encoded size and the construction before merging term dictionaries.
             var estimate = doc.EstimatedBytes;
-            if (docs.Count != 0 && (projectedBytes + estimate > PageBytes - 512 ||
-                                      docs.Count >= WireLimits.SearchIndexPageSize))
+            if (ShouldSplitPage(docs.Count, projectedBytes, estimate))
             {
                 if (!StagePage()) return false;
                 docs.Clear();
@@ -252,7 +215,6 @@ public static class LocalSearchCorpus
             docs.Add(doc);
             projectedBytes += estimate;
         }
-
         return StagePage();
 
         bool StagePage()
@@ -261,12 +223,10 @@ public static class LocalSearchCorpus
             if (pageCount >= maxPages) return false;
             postingBytes.SetLength(0);
             strings.SetLength(0);
-            var page = Package(docs, postingBytes, strings, maxAggregateBytes - byteCount, ct);
-            if (page is null) return false;
+            if (Package(docs, postingBytes, strings, maxAggregateBytes - byteCount, ct) is not { } page) return false;
             byteCount += page.Length;
-            var firstId = docs.Count == 0 ? 0 : docs[0].Article.Id;
-            var lastId = docs.Count == 0 ? 0 : docs[^1].Article.Id;
-            var staged = stage(new LocalSearchCorpusPage(++pageCount, docs.Count, firstId, lastId, page));
+            var staged = stage(new LocalSearchCorpusPage(++pageCount, docs.Count,
+                docs.Count == 0 ? 0 : docs[0].Article.Id, docs.Count == 0 ? 0 : docs[^1].Article.Id, page));
             ct.ThrowIfCancellationRequested();
             return staged;
         }
@@ -294,50 +254,32 @@ public static class LocalSearchCorpus
         internal readonly TaxonomyName[] Tags = tags;
         internal readonly int EstimatedBytes = estimatedBytes;
 
-        internal static ArticleInput Capture(Article article, int estimatedBytes)
-        {
-            var source = article.Tags;
-            var tags = source is null || source.Count == 0 ? [] : new TaxonomyName[source.Count];
-            for (var i = 0; i < tags.Length; i++) tags[i] = source![i];
-            return new ArticleInput(article, tags, estimatedBytes);
-        }
+        internal static ArticleInput Capture(Article article, int estimatedBytes) =>
+            new(article, article.Tags is { Count: > 0 } source ? [.. source] : [], estimatedBytes);
 
         internal bool Matches(Article candidate, out bool sameReferences)
         {
             sameReferences = false;
-            if (Id != candidate.Id ||
-                Revision != candidate.Revision ||
-                Publication != candidate.Publication ||
-                RevisionNo != candidate.RevisionNo ||
-                PublicationNo != candidate.PublicationNo ||
-                PublishedAtMs != candidate.PublishedAt.ToUnixTimeMilliseconds())
-                return false;
-
-            var candidateCategory = candidate.Category;
-            if (Category != candidateCategory) return false;
-
+            var candidateSummary = candidate.Summary ?? string.Empty;
             var candidateTags = candidate.Tags;
-            var candidateTagCount = candidateTags?.Count ?? 0;
-            if (Tags.Length != candidateTagCount) return false;
+            if (Id != candidate.Id || Revision != candidate.Revision || Publication != candidate.Publication ||
+                RevisionNo != candidate.RevisionNo || PublicationNo != candidate.PublicationNo ||
+                PublishedAtMs != candidate.PublishedAt.ToUnixTimeMilliseconds() || Category != candidate.Category ||
+                Tags.Length != (candidateTags?.Count ?? 0) ||
+                !string.Equals(Title, candidate.Title, StringComparison.Ordinal) ||
+                !string.Equals(Summary, candidateSummary, StringComparison.Ordinal) ||
+                !string.Equals(Body, candidate.Body, StringComparison.Ordinal))
+                return false;
             var tagsSameRef = true;
             for (var i = 0; i < Tags.Length; i++)
             {
-                var priorTag = Tags[i];
                 var nextTag = candidateTags![i];
-                if (nextTag is null || priorTag.Id != nextTag.Id ||
-                    !string.Equals(priorTag.Name, nextTag.Name, StringComparison.Ordinal))
+                if (nextTag is null || Tags[i].Id != nextTag.Id || !string.Equals(Tags[i].Name, nextTag.Name, StringComparison.Ordinal))
                     return false;
-                tagsSameRef &= ReferenceEquals(priorTag, nextTag);
+                tagsSameRef &= ReferenceEquals(Tags[i], nextTag);
             }
-
-            if (!string.Equals(Title, candidate.Title, StringComparison.Ordinal)) return false;
-            var candidateSummary = candidate.Summary ?? string.Empty;
-            if (!string.Equals(Summary, candidateSummary, StringComparison.Ordinal)) return false;
-            if (!string.Equals(Body, candidate.Body, StringComparison.Ordinal)) return false;
-
-            sameReferences = ReferenceEquals(Category, candidateCategory) && tagsSameRef &&
-                ReferenceEquals(Title, candidate.Title) &&
-                ReferenceEquals(Summary, candidateSummary) &&
+            sameReferences = ReferenceEquals(Category, candidate.Category) && tagsSameRef &&
+                ReferenceEquals(Title, candidate.Title) && ReferenceEquals(Summary, candidateSummary) &&
                 ReferenceEquals(Body, candidate.Body);
             return true;
         }
@@ -346,170 +288,90 @@ public static class LocalSearchCorpus
     private static Article[] SortArticlesById(IReadOnlyList<Article> articles, CancellationToken ct)
     {
         var count = articles.Count;
-        if (count == 0) return [];
-        if (count == 1) return [articles[0]];
-
-        var ascending = true;
-        var descending = true;
+        if (count <= 1) return [.. articles];
+        bool ascending = true, descending = true;
         var previousId = articles[0].Id;
-        for (var i = 1; i < count; i++)
+        for (var i = 1; i < count && (ascending || descending); i++)
         {
             if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
             var currentId = articles[i].Id;
             if (currentId <= previousId) ascending = false;
             if (currentId >= previousId) descending = false;
-            if (!ascending && !descending) break;
             previousId = currentId;
         }
-
-        if (ascending)
-        {
-            var copy = new Article[count];
-            for (var i = 0; i < count; i++) copy[i] = articles[i];
-            return copy;
-        }
-
-        if (descending)
-        {
-            var reversed = new Article[count];
-            for (var i = 0; i < count; i++) reversed[i] = articles[count - 1 - i];
-            return reversed;
-        }
-
-        return articles.OrderBy(static article => article.Id).ToArray();
+        if (ascending) return [.. articles];
+        if (!descending) return [.. articles.OrderBy(static article => article.Id)];
+        Article[] reversed = [.. articles];
+        Array.Reverse(reversed);
+        return reversed;
     }
 
-    private static bool TryReusePage(
-        Article[] sorted,
-        int cursor,
-        LocalSearchCorpusSnapshot previous,
-        int currentPageCount,
-        int maxPages,
-        int maxAggregateBytes,
-        int byteCount,
-        ref int lastId,
-        ref int pendingIndex,
-        ref Document? pendingDoc,
-        CancellationToken ct,
-        out PageState? reusedPage,
-        out int reusedFromIndex,
-        out bool budgetRejected)
+    private static bool TryReusePage(Article[] sorted, int cursor, LocalSearchCorpusSnapshot previous, int currentPageCount,
+        int maxPages, int maxAggregateBytes, int byteCount, ref int lastId, ref int pendingIndex, ref Document? pendingDoc,
+        CancellationToken ct, out PageState? reusedPage, out int reusedFromIndex, out bool budgetRejected)
     {
-        reusedPage = null;
-        reusedFromIndex = -1;
-        budgetRejected = false;
-
-        if (!previous.TryFindPageByFirstArticleId(sorted[cursor].Id, out var candidateIndex))
-            return false;
-
+        (reusedPage, reusedFromIndex, budgetRejected) = (null, -1, false);
+        if (!previous.TryFindPageByFirstArticleId(sorted[cursor].Id, out var candidateIndex)) return false;
         var prior = previous.PageAt(candidateIndex);
         var count = prior.Documents.Length;
-        if (count == 0 || cursor + count > sorted.Length)
-            return false;
+        if (count == 0 || cursor + count > sorted.Length) return false;
 
         var allSameRefs = true;
         for (var i = 0; i < count; i++)
         {
             if ((i & 31) == 0) ct.ThrowIfCancellationRequested();
-            if (!prior.Documents[i].Matches(sorted[cursor + i], out var sameRefs))
-                return false;
+            if (!prior.Documents[i].Matches(sorted[cursor + i], out var sameRefs)) return false;
             allSameRefs &= sameRefs;
         }
 
         var pageLastId = prior.Documents[count - 1].Id;
         var nextCursor = cursor + count;
-
+        var overBudget = currentPageCount >= maxPages || prior.Bytes.Length > maxAggregateBytes - byteCount;
         if (nextCursor < sorted.Length)
         {
             var nextArticle = sorted[nextCursor];
-            if (nextArticle.Id <= pageLastId)
-                throw new ProtocolException("Invalid or duplicate search corpus article ID");
-
+            CheckIncreasingId(nextArticle.Id, pageLastId);
             if (count < WireLimits.SearchIndexPageSize)
             {
                 if (TryMatchKnownPageStartEstimate(nextArticle, previous, out var nextEstimate))
                 {
-                    if (prior.ProjectedBytes + nextEstimate <= PageBytes - 512)
-                        return false;
+                    if (prior.ProjectedBytes + nextEstimate <= PageBytes - 512) return false;
                 }
                 else
                 {
                     var indexedNext = Index(nextArticle, ct);
-                    if (indexedNext is null)
-                    {
-                        budgetRejected = true;
-                        return false;
-                    }
-                    pendingIndex = nextCursor;
-                    pendingDoc = indexedNext;
-                    if (prior.ProjectedBytes + indexedNext.EstimatedBytes <= PageBytes - 512)
-                        return false;
+                    if (indexedNext is null) { budgetRejected = true; return false; }
+                    (pendingIndex, pendingDoc) = (nextCursor, indexedNext);
+                    if (prior.ProjectedBytes + indexedNext.EstimatedBytes <= PageBytes - 512) return false;
                 }
             }
-            else if (currentPageCount >= maxPages || prior.Bytes.Length > maxAggregateBytes - byteCount)
+            else if (overBudget)
             {
-                if (!TryMatchKnownPageStartEstimate(nextArticle, previous, out _))
-                {
-                    var indexedNext = Index(nextArticle, ct);
-                    if (indexedNext is null)
-                    {
-                        budgetRejected = true;
-                        return false;
-                    }
-                }
+                if (!TryMatchKnownPageStartEstimate(nextArticle, previous, out _)) _ = Index(nextArticle, ct);
                 budgetRejected = true;
                 return false;
             }
         }
+        if (overBudget) { budgetRejected = true; return false; }
 
-        if (currentPageCount >= maxPages || prior.Bytes.Length > maxAggregateBytes - byteCount)
-        {
-            budgetRejected = true;
-            return false;
-        }
-
-        lastId = pageLastId;
-        reusedFromIndex = candidateIndex;
-        if (allSameRefs)
-        {
-            reusedPage = prior;
-        }
-        else
-        {
-            var refreshed = new ArticleInput[count];
-            for (var i = 0; i < count; i++)
-                refreshed[i] = ArticleInput.Capture(sorted[cursor + i], prior.Documents[i].EstimatedBytes);
-            reusedPage = new PageState(prior.Bytes, prior.ProjectedBytes, refreshed);
-        }
+        (lastId, reusedFromIndex) = (pageLastId, candidateIndex);
+        if (allSameRefs) { reusedPage = prior; return true; }
+        var refreshed = new ArticleInput[count];
+        for (var i = 0; i < count; i++) refreshed[i] = ArticleInput.Capture(sorted[cursor + i], prior.Documents[i].EstimatedBytes);
+        reusedPage = new PageState(prior.Bytes, prior.ProjectedBytes, refreshed);
         return true;
     }
 
     private static bool TryMatchKnownPageStartEstimate(Article article, LocalSearchCorpusSnapshot previous, out int estimatedBytes)
     {
-        if (previous.TryFindPageByFirstArticleId(article.Id, out var nextPageIndex))
+        if (previous.TryFindPageByFirstArticleId(article.Id, out var nextPageIndex) &&
+            previous.PageAt(nextPageIndex).Documents is { Length: > 0 } docs && docs[0].Matches(article, out _))
         {
-            var nextPage = previous.PageAt(nextPageIndex);
-            if (nextPage.Documents.Length > 0 && nextPage.Documents[0].Matches(article, out _))
-            {
-                estimatedBytes = nextPage.Documents[0].EstimatedBytes;
-                return true;
-            }
+            estimatedBytes = docs[0].EstimatedBytes;
+            return true;
         }
         estimatedBytes = 0;
         return false;
-    }
-
-    private static bool CanSplitBeforeReusablePage(
-        Article[] sorted,
-        int cursor,
-        LocalSearchCorpusSnapshot previous,
-        int currentDocsCount,
-        int currentProjectedBytes)
-    {
-        if (!TryMatchKnownPageStartEstimate(sorted[cursor], previous, out var nextEstimate))
-            return false;
-        return currentDocsCount >= WireLimits.SearchIndexPageSize ||
-               currentProjectedBytes + nextEstimate > PageBytes - 512;
     }
 
     private sealed record Document(Article Article, Dictionary<uint, Frequencies> Terms, int Length, int EstimatedBytes);
@@ -649,8 +511,7 @@ public static class LocalSearchCorpus
         {
             var article = docs[i].Article;
             metadata[i] = (Append(strings, article.Title), Append(strings, article.Summary ?? string.Empty));
-            foreach (var tag in article.Tags ?? [])
-                tagRefs.Add((ushort)tagIndex[tag.Id]);
+            foreach (var tag in article.Tags ?? []) tagRefs.Add((ushort)tagIndex[tag.Id]);
         }
 
         const int termStart = SearchShardHeaderSize;
@@ -664,19 +525,17 @@ public static class LocalSearchCorpus
         if (shardSize > Math.Min(PageBytes, remainingBytes) - SearchPackagePayloadOffset) return null;
 
         var package = new byte[SearchPackagePayloadOffset + shardSize];
-        I32(package, 0, SearchPackageMagic);
-        I32(package, 4, SearchArtifactVersion);
-        I32(package, 8, 1);
+        I32(package, 0, SearchPackageMagic); I32(package, 4, SearchArtifactVersion); I32(package, 8, 1);
         I32(package, SearchPackageEntryOffset + 8, SearchPackagePayloadOffset);
         I32(package, SearchPackageEntryOffset + 12, shardSize);
 
         var shard = package.AsSpan(SearchPackagePayloadOffset);
-        var fields = new[]
-        {
+        ReadOnlySpan<int> fields =
+        [
             SearchShardMagic, SearchArtifactVersion, 0, 1, terms.Count, docs.Count, categories.Count,
             tags.Count, tagRefs.Count, termStart, docStart, categoryStart, tagStart, tagRefStart,
             stringStart, postingStart, checked((int)postingBytes.Length)
-        };
+        ];
         for (var i = 0; i < fields.Length; i++) I32(shard, i * 4, fields[i]);
         F32(shard, 68, docs.Count == 0 ? 1 : (float)docs.Average(doc => (double)doc.Length));
 
@@ -684,32 +543,23 @@ public static class LocalSearchCorpus
         {
             var row = shard[(termStart + i * SearchTermRecordSize)..];
             var term = terms[i];
-            I32(row, 0, unchecked((int)term.Hash));
-            F32(row, 4, term.Idf);
-            I32(row, 8, term.Offset);
-            I32(row, 12, term.Length);
-            I32(row, 16, term.HasPositions ? 1 : 0);
+            I32(row, 0, unchecked((int)term.Hash)); F32(row, 4, term.Idf);
+            I32(row, 8, term.Offset); I32(row, 12, term.Length); I32(row, 16, term.HasPositions ? 1 : 0);
         }
 
         var tagOffset = 0;
         for (var i = 0; i < docs.Count; i++)
         {
             var row = shard[(docStart + i * SearchDocumentRecordSize)..];
-            var doc = docs[i];
-            var value = doc.Article;
+            var (doc, value) = (docs[i], docs[i].Article);
             var tagCount = value.Tags?.Count ?? 0;
             I32(row, 0, value.Id);
             U16(row, 4, value.Category is { } category ? categoryIndex[category.Id] : ushort.MaxValue);
-            U16(row, 6, tagCount);
-            I32(row, 8, tagOffset);
-            I32(row, 20, doc.Length);
+            U16(row, 6, tagCount); I32(row, 8, tagOffset); I32(row, 20, doc.Length);
             I64(row, 24, value.PublishedAt.ToUnixTimeMilliseconds());
-            WriteString(row, 32, metadata[i].Title);
-            WriteString(row, 40, metadata[i].Summary);
-            I64(row, 52, value.Revision);
-            I32(row, 60, value.RevisionNo);
-            I64(row, 64, value.Publication);
-            I32(row, 72, value.PublicationNo);
+            WriteString(row, 32, metadata[i].Title); WriteString(row, 40, metadata[i].Summary);
+            I64(row, 52, value.Revision); I32(row, 60, value.RevisionNo);
+            I64(row, 64, value.Publication); I32(row, 72, value.PublicationNo);
             tagOffset += tagCount;
         }
 
@@ -727,8 +577,7 @@ public static class LocalSearchCorpus
         foreach (var group in items.GroupBy(item => item.Id).OrderBy(group => group.Key))
         {
             var first = group.First();
-            if (group.Any(item => item.Name != first.Name))
-                throw new ProtocolException("Conflicting public taxonomy names");
+            if (group.Any(item => item.Name != first.Name)) throw new ProtocolException("Conflicting public taxonomy names");
             result.Add(new Taxon(first.Id, Append(strings, first.Name)));
         }
         return result;
@@ -750,24 +599,15 @@ public static class LocalSearchCorpus
         for (var i = 0; i < entries.Count; i++)
         {
             var row = shard[(start + i * SearchDictionaryRecordSize)..];
-            I32(row, 0, entries[i].Id);
-            WriteString(row, 4, entries[i].Name);
+            I32(row, 0, entries[i].Id); WriteString(row, 4, entries[i].Name);
         }
     }
 
-    private static void WriteString(Span<byte> row, int offset, TextSlice value)
-    {
-        I32(row, offset, value.Offset);
-        U16(row, offset + 4, value.Length);
-    }
+    private static void WriteString(Span<byte> row, int offset, TextSlice value) { I32(row, offset, value.Offset); U16(row, offset + 4, value.Length); }
 
     private static void Varint(Stream stream, int value)
     {
-        while (value >= 128)
-        {
-            stream.WriteByte((byte)(value | 128));
-            value >>= 7;
-        }
+        for (; value >= 128; value >>= 7) stream.WriteByte((byte)(value | 128));
         stream.WriteByte((byte)value);
     }
 

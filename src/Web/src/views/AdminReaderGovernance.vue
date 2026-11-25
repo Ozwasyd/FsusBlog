@@ -7,14 +7,8 @@ import {
 import { ApiError } from '../../../Contracts/aeds'
 import type { AdminSession } from '../../../Contracts/admin-identity'
 import {
-  executeReaderStatusChange,
-  readAdminReaderAccounts,
-  requestReaderStatusProof,
-  validReaderGovernanceReason,
-  type AdminReaderAccount,
-  type AdminReaderAccountPage,
-  type AdminReaderStatusCommand,
-  type AdminReaderStatusFilter,
+  executeReaderStatusChange, readAdminReaderAccounts, requestReaderStatusProof, validReaderGovernanceReason,
+  type AdminReaderAccount, type AdminReaderAccountPage, type AdminReaderStatusCommand, type AdminReaderStatusFilter,
 } from '../../../Contracts/admin-readers'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { t, type MessageKey } from '../siteLocale'
@@ -234,43 +228,21 @@ onMounted(() => {
       <div class="readers-search-region" role="search">
         <form class="readers-search-form" @submit.prevent="submitSearch">
           <label for="admin-readers-keyword">{{ t('admin.readers.searchLabel') }}</label>
-          <ElInput
-            id="admin-readers-keyword"
-            v-model="keyword"
-            :placeholder="t('admin.readers.searchPlaceholder')"
-            :disabled="submitting"
-            clearable
-            v-bind="{ maxlength: WireLimits.AdminReaderKeywordChars, autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false', enterkeyhint: 'search' }"
-          />
+          <ElInput id="admin-readers-keyword" v-model="keyword" :placeholder="t('admin.readers.searchPlaceholder')" :disabled="submitting" clearable
+            v-bind="{ maxlength: WireLimits.AdminReaderKeywordChars, autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false', enterkeyhint: 'search' }" />
           <ElButton native-type="submit" :disabled="submitting" :loading="searchLoading">{{ t('page.search') }}</ElButton>
         </form>
       </div>
       <div class="readers-filter-row">
-        <ElRadioGroup
-          class="readers-status-group fsus-radio-group--touch"
-          size="small"
-          :label="t('admin.readers.statusFilter')"
-          :model-value="statusFilter"
-          :disabled="submitting"
-          @update:model-value="selectStatus"
-        >
-          <ElRadioButton value="all">
-            {{ page ? t('admin.readers.filterAllCount', { count: page.enabledTotal + page.disabledTotal }) : t('account.message129') }}
-          </ElRadioButton>
-          <ElRadioButton value="enabled">
-            {{ page ? t('admin.readers.filterEnabledCount', { count: page.enabledTotal }) : t('admin.readers.filterEnabled') }}
-          </ElRadioButton>
-          <ElRadioButton value="disabled">
-            {{ page ? t('admin.readers.filterDisabledCount', { count: page.disabledTotal }) : t('admin.readers.filterDisabled') }}
-          </ElRadioButton>
+        <ElRadioGroup class="readers-status-group fsus-radio-group--touch" size="small" :label="t('admin.readers.statusFilter')"
+          :model-value="statusFilter" :disabled="submitting" @update:model-value="selectStatus">
+          <ElRadioButton value="all">{{ page ? t('admin.readers.filterAllCount', { count: page.enabledTotal + page.disabledTotal }) : t('account.message129') }}</ElRadioButton>
+          <ElRadioButton value="enabled">{{ page ? t('admin.readers.filterEnabledCount', { count: page.enabledTotal }) : t('admin.readers.filterEnabled') }}</ElRadioButton>
+          <ElRadioButton value="disabled">{{ page ? t('admin.readers.filterDisabledCount', { count: page.disabledTotal }) : t('admin.readers.filterDisabled') }}</ElRadioButton>
         </ElRadioGroup>
         <ElInlineActions>
-          <ElButton v-if="appliedKeyword || statusFilter !== 'all'" text :disabled="submitting" @click="clearSearch">
-            {{ t('admin.readers.resetFilters') }}
-          </ElButton>
-          <ElButton text :loading="refreshLoading" :disabled="submitting" @click="load(false, 'refresh')">
-            {{ t('account.inboxRefresh') }}
-          </ElButton>
+          <ElButton v-if="appliedKeyword || statusFilter !== 'all'" text :disabled="submitting" @click="clearSearch">{{ t('admin.readers.resetFilters') }}</ElButton>
+          <ElButton text :loading="refreshLoading" :disabled="submitting" @click="load(false, 'refresh')">{{ t('account.inboxRefresh') }}</ElButton>
         </ElInlineActions>
       </div>
     </div>
@@ -281,22 +253,12 @@ onMounted(() => {
 
     <template v-else-if="page">
       <p class="readers-summary" role="status">{{ t('admin.readers.countSummary', { count: page.total }) }}</p>
-      <ElEmptyState
-        v-if="items.length === 0"
-        :title="t(appliedKeyword || statusFilter !== 'all' ? 'admin.readers.emptyFiltered' : 'admin.readers.empty')"
-        role="status"
-      />
+      <ElEmptyState v-if="items.length === 0" :title="t(appliedKeyword || statusFilter !== 'all' ? 'admin.readers.emptyFiltered' : 'admin.readers.empty')" role="status" />
       <ElResourceList v-else class="readers-list" density="compact">
-        <ElResourceListItem
-          v-for="item in items"
-          :key="item.userId"
-          :title="accountLabel(item)"
-        >
+        <ElResourceListItem v-for="item in items" :key="item.userId" :title="accountLabel(item)">
           <template #meta>
             <div class="readers-item-tags">
-              <ElTag size="small" :type="item.enabled ? 'success' : 'danger'">
-                {{ t(item.enabled ? 'admin.readers.filterEnabled' : 'admin.readers.filterDisabled') }}
-              </ElTag>
+              <ElTag size="small" :type="item.enabled ? 'success' : 'danger'">{{ t(item.enabled ? 'admin.readers.filterEnabled' : 'admin.readers.filterDisabled') }}</ElTag>
               <span v-if="item.accountId > 0" class="readers-mono">#{{ item.accountId }}</span>
               <span v-if="item.displayName && item.displayName !== item.name" class="readers-mono">{{ item.name }}</span>
               <span>{{ t('admin.readers.generation', { generation: item.generation.toString() }) }}</span>
@@ -314,91 +276,44 @@ onMounted(() => {
               </template>
             </p>
             <p v-if="item.lastGovernanceAtUnixMs > 0n" class="readers-meta-line readers-audit-line">
-              {{ t('admin.readers.lastGovernance', {
-                actor: item.lastGovernanceActor,
-                time: formatTime(item.lastGovernanceAtUnixMs),
-                reason: item.lastGovernanceReason,
-              }) }}
+              {{ t('admin.readers.lastGovernance', { actor: item.lastGovernanceActor, time: formatTime(item.lastGovernanceAtUnixMs), reason: item.lastGovernanceReason }) }}
             </p>
           </template>
           <template #actions>
-            <ElButton
-              v-if="item.enabled"
-              text
-              type="danger"
-              :disabled="submitting"
-              @click="openAction(item, false)"
-            >{{ t('admin.readers.disableAction') }}</ElButton>
-            <ElButton
-              v-else
-              text
-              :disabled="submitting"
-              @click="openAction(item, true)"
-            >{{ t('admin.readers.enableAction') }}</ElButton>
+            <ElButton v-if="item.enabled" text type="danger" :disabled="submitting" @click="openAction(item, false)">{{ t('admin.readers.disableAction') }}</ElButton>
+            <ElButton v-else text :disabled="submitting" @click="openAction(item, true)">{{ t('admin.readers.enableAction') }}</ElButton>
           </template>
         </ElResourceListItem>
       </ElResourceList>
 
       <div v-if="page.hasMore" class="readers-more">
-        <ElButton text :loading="moreLoading" :disabled="submitting" @click="load(true, 'more')">
-          {{ t('admin.readers.loadMore') }}
-        </ElButton>
+        <ElButton text :loading="moreLoading" :disabled="submitting" @click="load(true, 'more')">{{ t('admin.readers.loadMore') }}</ElButton>
       </div>
     </template>
 
-    <ElDialog
-      :model-value="target !== null"
-      :title="t(targetEnabled ? 'admin.readers.enableDialogTitle' : 'admin.readers.disableDialogTitle')"
-      append-to-body
-      width="min(30rem, calc(100vw - 2rem))"
-      :close-on-press-escape="!submitting"
-      :close-on-click-modal="!submitting"
-      :show-close="!submitting"
-      @update:model-value="open => { if (!open) closeDialog() }"
-    >
+    <ElDialog :model-value="target !== null" :title="t(targetEnabled ? 'admin.readers.enableDialogTitle' : 'admin.readers.disableDialogTitle')"
+      append-to-body width="min(30rem, calc(100vw - 2rem))" :close-on-press-escape="!submitting" :close-on-click-modal="!submitting"
+      :show-close="!submitting" @update:model-value="open => { if (!open) closeDialog() }">
       <form v-if="target" id="admin-reader-governance-form" class="readers-dialog-body" @submit.prevent="submitGovernance">
         <ElAlert v-if="dialogFailure" :title="t(dialogFailure)" type="error" :closable="false" show-icon />
         <p class="readers-dialog-target">
           <strong>{{ accountLabel(target) }}</strong>
           <span v-if="target.accountId > 0" class="readers-mono"> #{{ target.accountId }}</span>
         </p>
-        <p class="readers-dialog-desc">
-          {{ t(targetEnabled ? 'admin.readers.enableConsequence' : 'admin.readers.disableConsequence', {
-            sessions: target.activeSessionCount,
-          }) }}
-        </p>
+        <p class="readers-dialog-desc">{{ t(targetEnabled ? 'admin.readers.enableConsequence' : 'admin.readers.disableConsequence', { sessions: target.activeSessionCount }) }}</p>
         <div class="readers-field">
           <label for="admin-reader-governance-reason">{{ t('admin.readers.reasonLabel') }}</label>
-          <ElInput
-            id="admin-reader-governance-reason"
-            v-model="reason"
-            type="textarea"
-            :disabled="submitting"
-            :placeholder="t('admin.readers.reasonPlaceholder')"
+          <ElInput id="admin-reader-governance-reason" v-model="reason" type="textarea" :disabled="submitting" :placeholder="t('admin.readers.reasonPlaceholder')"
             v-bind="{ maxlength: WireLimits.AdminReaderReasonChars, 'aria-describedby': 'admin-reader-governance-reason-hint', 'aria-invalid': reasonInvalid ? 'true' : undefined }"
-            @input="onReasonInput"
-            @blur="reasonTouched = true"
-          />
-          <p id="admin-reader-governance-reason-hint" :class="reasonInvalid ? 'readers-validation' : 'readers-hint'">
-            {{ t('admin.readers.reasonHint') }}
-          </p>
+            @input="onReasonInput" @blur="reasonTouched = true" />
+          <p id="admin-reader-governance-reason-hint" :class="reasonInvalid ? 'readers-validation' : 'readers-hint'">{{ t('admin.readers.reasonHint') }}</p>
         </div>
       </form>
       <template #footer>
         <ElInlineActions>
-          <ElButton :disabled="submitting" @click="closeDialog()">
-            {{ t('nav.cancel') }}
-          </ElButton>
-          <ElButton
-            native-type="submit"
-            v-bind="{ form: 'admin-reader-governance-form' }"
-            :type="targetEnabled ? 'primary' : 'danger'"
-            :loading="submitting"
-            :disabled="submitting"
-          >
-            {{ retryCommand
-              ? t('admin.readers.retryConfirm')
-              : t(targetEnabled ? 'admin.readers.confirmEnable' : 'admin.readers.confirmDisable') }}
+          <ElButton :disabled="submitting" @click="closeDialog()">{{ t('nav.cancel') }}</ElButton>
+          <ElButton native-type="submit" v-bind="{ form: 'admin-reader-governance-form' }" :type="targetEnabled ? 'primary' : 'danger'" :loading="submitting" :disabled="submitting">
+            {{ retryCommand ? t('admin.readers.retryConfirm') : t(targetEnabled ? 'admin.readers.confirmEnable' : 'admin.readers.confirmDisable') }}
           </ElButton>
         </ElInlineActions>
       </template>
@@ -409,106 +324,29 @@ onMounted(() => {
 <style scoped lang="scss">
 @use '../admin-collection' as collection;
 @use '../shared-fields' as fields;
-
-.admin-readers {
-  display: grid;
-  gap: var(--fsus-space-3);
-  min-width: 0;
-}
-.readers-sr-title {
-  @include collection.sr-title;
-}
-.readers-toolbar {
-  display: grid;
-  gap: var(--fsus-space-3);
-}
-.readers-search-region {
-  display: block;
-}
-.readers-search-form {
-  display: grid;
-  grid-template-columns: auto minmax(12rem, 28rem) auto;
-  align-items: center;
-  justify-content: start;
-  gap: 10px;
-}
-.readers-search-form label,
-.readers-field label {
-  @include fields.admin-label;
-}
-.readers-filter-row {
-  @include collection.toolbar;
-}
-.readers-status-group {
-  max-inline-size: 100%;
-}
-.readers-summary {
-  margin: 0;
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-}
-.readers-item-tags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-block-end: 4px;
-}
-.readers-mono {
-  font-family: var(--el-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-  overflow-wrap: anywhere;
-}
-.readers-meta-line {
-  margin: 2px 0 0;
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.readers-audit-line {
-  color: var(--el-text-color-regular);
-}
-.readers-more {
-  display: flex;
-  justify-content: flex-start;
-}
-.readers-dialog-body {
-  display: grid;
-  gap: 12px;
-}
-.readers-dialog-target,
-.readers-dialog-desc {
-  margin: 0;
-  line-height: 1.55;
-  overflow-wrap: anywhere;
-}
-.readers-dialog-desc {
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-}
-.readers-field {
-  display: grid;
-  gap: 6px;
-}
-.readers-hint,
-.readers-validation {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-}
-.readers-hint {
-  color: var(--el-text-color-secondary);
-}
-.readers-validation {
-  color: var(--el-color-danger);
-}
+.admin-readers { display: grid; gap: var(--fsus-space-3); min-width: 0; }
+.readers-sr-title { @include collection.sr-title; }
+.readers-toolbar { display: grid; gap: var(--fsus-space-3); }
+.readers-search-region { display: block; }
+.readers-search-form { display: grid; grid-template-columns: auto minmax(12rem, 28rem) auto; align-items: center; justify-content: start; gap: 10px; }
+.readers-search-form label, .readers-field label { @include fields.admin-label; }
+.readers-filter-row { @include collection.toolbar; }
+.readers-status-group { max-inline-size: 100%; }
+.readers-summary { margin: 0; color: var(--el-text-color-secondary); font-size: var(--el-font-size-small); }
+.readers-item-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-block-end: 4px; }
+.readers-mono { font-family: var(--el-font-family-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: var(--el-font-size-small); color: var(--el-text-color-secondary); overflow-wrap: anywhere; }
+.readers-meta-line { margin: 2px 0 0; color: var(--el-text-color-secondary); font-size: var(--el-font-size-small); line-height: 1.5; overflow-wrap: anywhere; }
+.readers-audit-line { color: var(--el-text-color-regular); }
+.readers-more { display: flex; justify-content: flex-start; }
+.readers-dialog-body { display: grid; gap: 12px; }
+.readers-dialog-target, .readers-dialog-desc { margin: 0; line-height: 1.55; overflow-wrap: anywhere; }
+.readers-dialog-desc { color: var(--el-text-color-secondary); font-size: var(--el-font-size-small); }
+.readers-field { display: grid; gap: 6px; }
+.readers-hint, .readers-validation { margin: 0; font-size: var(--el-font-size-small); }
+.readers-hint { color: var(--el-text-color-secondary); }
+.readers-validation { color: var(--el-color-danger); }
 @media (max-width: 40rem) {
-  .readers-search-form {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .readers-search-form label {
-    grid-column: 1 / -1;
-  }
+  .readers-search-form { grid-template-columns: minmax(0, 1fr) auto; }
+  .readers-search-form label { grid-column: 1 / -1; }
 }
 </style>

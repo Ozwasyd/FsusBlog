@@ -1,68 +1,34 @@
 import { ApiError } from '../../../Contracts/client.ts'
-import type {
-  CanvasGraphEdge,
-  CanvasGraphHeader,
-  CanvasNode,
-  CanvasReferenceResolution,
-} from '../../../Contracts/canvas-graph.ts'
+import type { CanvasGraphEdge, CanvasGraphHeader, CanvasNode, CanvasReferenceResolution } from '../../../Contracts/canvas-graph.ts'
 import type { CanvasLinkPlan, CanvasPreview } from '../../../Contracts/wire.generated.ts'
-import {
-  keyNotice,
-  type CanvasActiveLinkPair,
-  type CanvasMessageKey,
-  type CanvasNotice,
-} from './canvasCommands.ts'
+import { keyNotice, type CanvasActiveLinkPair, type CanvasMessageKey, type CanvasNotice } from './canvasCommands.ts'
 import type { CanvasEditorTarget } from './canvasEditorHandoff.ts'
 
 export type CanvasLinkPreviewPlan = CanvasLinkPlan & { edgeKind: CanvasGraphEdge['kind'] }
 
 export interface CanvasPreviewTransport {
-  resolveReference(
-    id: string,
-    nodeId: string,
-    revision: bigint,
-    signal: AbortSignal,
-    currentSession?: string,
-  ): Promise<CanvasReferenceResolution>
+  resolveReference(id: string, nodeId: string, revision: bigint, signal: AbortSignal, currentSession?: string): Promise<CanvasReferenceResolution>
   readDraft(articleId: number, signal: AbortSignal): Promise<{ id: number; revision: bigint; body: string }>
   readPublicArticle(articleId: number, signal: AbortSignal): Promise<{ id: number; revision: bigint }>
-  previewLink(
-    input: CanvasPreview,
-    host: number,
-    target: number,
-    signal: AbortSignal,
-    visualOnly: boolean,
-  ): Promise<CanvasLinkPlan>
+  previewLink(input: CanvasPreview, host: number, target: number, signal: AbortSignal, visualOnly: boolean): Promise<CanvasLinkPlan>
   confirmLink(plan: CanvasLinkPlan, signal: AbortSignal): Promise<unknown>
 }
-
 export interface CanvasEditorHandoffPort {
   offer(target: CanvasEditorTarget, credentialEpoch: number): string
   cancel(token: string): void
   openEditor(articleId: number, token: string): Promise<boolean>
 }
-
 export interface CanvasPreviewContext {
-  readonly signal: AbortSignal
-  readonly document: CanvasGraphHeader | undefined
+  readonly signal: AbortSignal; readonly document: CanvasGraphHeader | undefined
   readonly selectedReference: Extract<CanvasNode, { articleId: number }> | undefined
-  readonly selectedEdge: CanvasGraphEdge | undefined
-  readonly activeLink: CanvasActiveLinkPair | undefined
-  readonly disabled: boolean
-  readonly siteSessionId: string | undefined
-  readonly credentialEpoch: number
-  scoped(signal: AbortSignal): boolean
-  canNavigate(): boolean
+  readonly selectedEdge: CanvasGraphEdge | undefined; readonly activeLink: CanvasActiveLinkPair | undefined
+  readonly disabled: boolean; readonly siteSessionId: string | undefined; readonly credentialEpoch: number
+  scoped(signal: AbortSignal): boolean; canNavigate(): boolean
 }
-
 export interface CanvasPreviewHost {
-  current(): CanvasPreviewContext
-  clearError(): void
-  setMessage(key: CanvasMessageKey): void
+  current(): CanvasPreviewContext; clearError(): void; setMessage(key: CanvasMessageKey): void
   recordError(cause: unknown, signal: AbortSignal, fallbackKey: CanvasMessageKey, reading?: boolean): boolean
-  invalidateSession(): void
-  reloadAfterLink(): Promise<void>
-  notify(): void
+  invalidateSession(): void; reloadAfterLink(): Promise<void>; notify(): void
 }
 
 export class CanvasPreviewController {
@@ -70,27 +36,17 @@ export class CanvasPreviewController {
   readonly #handoff: CanvasEditorHandoffPort
   readonly #host: CanvasPreviewHost
   readonly #nativeMarkdownAvailable: boolean
-
   #reference: CanvasReferenceResolution | undefined
   #referenceLoading = false
   #referenceError = false
   #referenceOpenNotice: CanvasNotice | undefined
   #referenceRequest: AbortController | undefined
-
   #plan: CanvasLinkPreviewPlan | undefined
   #linkPending = false
   #linkUnconfirmed = false
 
-  constructor(
-    transport: CanvasPreviewTransport,
-    handoff: CanvasEditorHandoffPort,
-    host: CanvasPreviewHost,
-    nativeMarkdownAvailable: boolean,
-  ) {
-    this.#transport = transport
-    this.#handoff = handoff
-    this.#host = host
-    this.#nativeMarkdownAvailable = nativeMarkdownAvailable
+  constructor(transport: CanvasPreviewTransport, handoff: CanvasEditorHandoffPort, host: CanvasPreviewHost, nativeMarkdownAvailable: boolean) {
+    this.#transport = transport; this.#handoff = handoff; this.#host = host; this.#nativeMarkdownAvailable = nativeMarkdownAvailable
   }
 
   get plan(): CanvasLinkPreviewPlan | undefined { return this.#plan }
@@ -99,48 +55,27 @@ export class CanvasPreviewController {
 
   snapshot(siteSessionId: string | undefined) {
     return {
-      plan: this.#plan,
-      linkPending: this.#linkPending,
-      linkUnconfirmed: this.#linkUnconfirmed,
-      reference: this.#reference,
-      referenceLoading: this.#referenceLoading,
-      referenceError: this.#referenceError,
-      referenceOpenNotice: this.#referenceOpenNotice,
-      canOpenReference: this.canOpenReference(siteSessionId),
+      plan: this.#plan, linkPending: this.#linkPending, linkUnconfirmed: this.#linkUnconfirmed,
+      reference: this.#reference, referenceLoading: this.#referenceLoading, referenceError: this.#referenceError,
+      referenceOpenNotice: this.#referenceOpenNotice, canOpenReference: this.canOpenReference(siteSessionId),
     }
   }
 
   canOpenReference(siteSessionId: string | undefined): boolean {
-    return this.#reference?.state === 'resolved' &&
-      Boolean(siteSessionId) &&
-      (this.#reference.sourceOffset === null || this.#nativeMarkdownAvailable)
+    return this.#reference?.state === 'resolved' && Boolean(siteSessionId) && (this.#reference.sourceOffset === null || this.#nativeMarkdownAvailable)
   }
 
   clearReference(shouldNotify = true): void {
-    const hadState = this.#referenceRequest !== undefined ||
-      this.#reference !== undefined ||
-      this.#referenceLoading ||
-      this.#referenceError ||
-      this.#referenceOpenNotice !== undefined
+    const hadState = this.#referenceRequest !== undefined || this.#reference !== undefined ||
+      this.#referenceLoading || this.#referenceError || this.#referenceOpenNotice !== undefined
     this.#referenceRequest?.abort()
-    this.#referenceRequest = undefined
-    this.#reference = undefined
-    this.#referenceLoading = false
-    this.#referenceError = false
-    this.#referenceOpenNotice = undefined
+    this.#referenceRequest = this.#reference = this.#referenceOpenNotice = undefined
+    this.#referenceLoading = this.#referenceError = false
     if (hadState && shouldNotify) this.#host.notify()
   }
 
-  clearLinkOnUnavailable(): void {
-    this.#plan = undefined
-  }
-
-  reset(): void {
-    this.clearReference(false)
-    this.#plan = undefined
-    this.#linkPending = false
-    this.#linkUnconfirmed = false
-  }
+  clearLinkOnUnavailable(): void { this.#plan = undefined }
+  reset(): void { this.clearReference(false); this.#plan = undefined; this.#linkPending = this.#linkUnconfirmed = false }
 
   #beginReference(ctx: CanvasPreviewContext, current: CanvasPreviewContext['document'], node: CanvasPreviewContext['selectedReference'],
     stillAllowed?: (latest: CanvasPreviewContext) => boolean) {

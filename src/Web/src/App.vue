@@ -298,51 +298,20 @@ async function leave() {
   </AccountWorkspace>
   <div v-else @click="navigatePublic">
     <a class="skip-link" href="#page-content">{{ t('nav.skip') }}</a>
-    <ElPublicShell class="blog-public-shell"
-      :brand="siteTitle"
-      :nav-items="publicNavigation"
-      :active-nav="String(route.name ?? '')"
-      active-nav-motion="indicator"
-      :show-search="!searchPage"
-      :desktop-search-mode="searchPage ? 'none' : 'trigger'"
-      :search-aria-label="t('nav.search')"
-      :search-placeholder="t('nav.search')"
-      :mobile-nav-label="t('nav.primary')"
-      :mobile-nav-menu-label="t('nav.menu')"
-      :mobile-search-trigger-label="t('nav.search')"
-      :mobile-search-cancel-label="t('nav.cancel')"
-      :mobile-search-mode="searchPage ? 'none' : 'trigger'"
-      :auth-href="authHref"
-      :auth-label="authLabel"
-      v-model:search-query="searchQuery"
-      max-width="64rem"
+    <ElPublicShell class="blog-public-shell" :brand="siteTitle" :nav-items="publicNavigation" :active-nav="String(route.name ?? '')"
+      active-nav-motion="indicator" :show-search="!searchPage" :desktop-search-mode="searchPage ? 'none' : 'trigger'"
+      :search-aria-label="t('nav.search')" :search-placeholder="t('nav.search')" :mobile-nav-label="t('nav.primary')"
+      :mobile-nav-menu-label="t('nav.menu')" :mobile-search-trigger-label="t('nav.search')" :mobile-search-cancel-label="t('nav.cancel')"
+      :mobile-search-mode="searchPage ? 'none' : 'trigger'" :auth-href="authHref" :auth-label="authLabel"
+      v-model:search-query="searchQuery" max-width="64rem"
       :content-flow="route.name === 'article' || isSitePageSlug(route.name) ? 'content-driven' : 'viewport-stable'"
-      sticky
-      csp-safe
-      spa-search
-      @search="search"
-    >
+      sticky csp-safe spa-search @search="search">
       <template v-if="activeBrandLogoUrl || activeBrandWordmarkUrl" #brand>
         <span class="site-brand-mark">
-          <img
-            v-if="activeBrandLogoUrl"
-            class="site-brand-logo"
-            :src="activeBrandLogoUrl"
-            alt=""
-            aria-hidden="true"
-            decoding="async"
-            referrerpolicy="no-referrer"
-            @error="markBrandUrlFailed(activeBrandLogoUrl)"
-          >
-          <img
-            v-if="activeBrandWordmarkUrl"
-            class="site-brand-wordmark"
-            :src="activeBrandWordmarkUrl"
-            :alt="siteTitle"
-            decoding="async"
-            referrerpolicy="no-referrer"
-            @error="markBrandUrlFailed(activeBrandWordmarkUrl)"
-          >
+          <img v-if="activeBrandLogoUrl" class="site-brand-logo" :src="activeBrandLogoUrl" alt="" aria-hidden="true"
+            decoding="async" referrerpolicy="no-referrer" @error="markBrandUrlFailed(activeBrandLogoUrl)">
+          <img v-if="activeBrandWordmarkUrl" class="site-brand-wordmark" :src="activeBrandWordmarkUrl" :alt="siteTitle"
+            decoding="async" referrerpolicy="no-referrer" @error="markBrandUrlFailed(activeBrandWordmarkUrl)">
           <span v-else>{{ siteTitle }}</span>
         </span>
       </template>
@@ -354,9 +323,7 @@ async function leave() {
       <template #mobile-primary-actions>
         <RouterLink v-if="currentAuthorSession" class="site-header-text-action" to="/admin/site">{{ t('nav.admin') }}</RouterLink>
         <RouterLink v-if="currentSession" class="site-header-text-action" to="/user/identity/mfa">{{ t('nav.security') }}</RouterLink>
-        <div class="public-menu-preferences">
-          <SiteHeaderPreferences mobile :theme-mode="themeMode" @theme="useTheme" />
-        </div>
+        <div class="public-menu-preferences"><SiteHeaderPreferences mobile :theme-mode="themeMode" @theme="useTheme" /></div>
       </template>
       <div id="page-content" ref="publicContent" tabindex="-1">
         <div v-if="logoutFailure" class="reading-column editor-shell-error" role="alert">
@@ -381,16 +348,8 @@ async function leave() {
                 <template v-if="legal.regionMode === 'mainland-cn'">
                   <a v-if="legal.icpRecordNumber && publicLink(legal.icpRecordUrl)" :href="publicLink(legal.icpRecordUrl)">{{ legal.icpRecordNumber }}</a>
                   <a v-if="legal.policeRecordNumber && publicLink(legal.policeRecordUrl)" :href="publicLink(legal.policeRecordUrl)" class="site-police-link">
-                    <img
-                      v-if="activePoliceBadgeUrl"
-                      class="site-police-badge"
-                      :src="activePoliceBadgeUrl"
-                      alt=""
-                      aria-hidden="true"
-                      decoding="async"
-                      referrerpolicy="no-referrer"
-                      @error="markBrandUrlFailed(activePoliceBadgeUrl)"
-                    >
+                    <img v-if="activePoliceBadgeUrl" class="site-police-badge" :src="activePoliceBadgeUrl" alt="" aria-hidden="true"
+                      decoding="async" referrerpolicy="no-referrer" @error="markBrandUrlFailed(activePoliceBadgeUrl)">
                     <span>{{ legal.policeRecordNumber }}</span>
                   </a>
                 </template>
@@ -407,7 +366,5 @@ async function leave() {
 </template>
 
 <style scoped>
-.public-menu-preferences {
-  padding-block: .375rem 0;
-}
+.public-menu-preferences { padding-block: .375rem 0; }
 </style>

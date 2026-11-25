@@ -121,56 +121,37 @@ export function searchShortAsciiPrefixes(query: string): readonly string[] {
   return [...new Set(words.filter(word => word.length > 0 && word.length < asciiMinPrefixLength).map(word => word.toLowerCase()))];
 }
 
-function isAsciiLower(code: number) { return code >= 97 && code <= 122; }
-function isAsciiUpper(code: number) { return code >= 65 && code <= 90; }
-function isAsciiDigit(code: number) { return code >= 48 && code <= 57; }
-function isAsciiWord(code: number) { return isAsciiLower(code) || isAsciiUpper(code) || isAsciiDigit(code); }
-function lowerAscii(code: number) { return isAsciiUpper(code) ? code + 32 : code; }
+const isAsciiLower = (c: number) => c >= 97 && c <= 122;
+const isAsciiUpper = (c: number) => c >= 65 && c <= 90;
+const isAsciiDigit = (c: number) => c >= 48 && c <= 57;
+const isAsciiWord = (c: number) => isAsciiLower(c) || isAsciiUpper(c) || isAsciiDigit(c);
+const lowerAscii = (c: number) => isAsciiUpper(c) ? c + 32 : c;
 
 function isSubwordBoundary(value: string, end: number, index: number): boolean {
-  const previous = value.charCodeAt(index - 1);
-  const current = value.charCodeAt(index);
-  if (isAsciiDigit(previous) !== isAsciiDigit(current)) return true;
-  if (isAsciiLower(previous) && isAsciiUpper(current)) return true;
-  if (isAsciiUpper(previous) && isAsciiUpper(current) && index + 1 < end && isAsciiLower(value.charCodeAt(index + 1))) return true;
-  return false;
+  const prev = value.charCodeAt(index - 1), curr = value.charCodeAt(index);
+  return isAsciiDigit(prev) !== isAsciiDigit(curr) || isAsciiLower(prev) && isAsciiUpper(curr) ||
+    isAsciiUpper(prev) && isAsciiUpper(curr) && index + 1 < end && isAsciiLower(value.charCodeAt(index + 1));
 }
 
 function startsWithLowerAscii(value: string, at: number, prefix: string): boolean {
-  for (let i = 0; i < prefix.length; i++) {
-    if (lowerAscii(value.charCodeAt(at + i)) !== prefix.charCodeAt(i)) return false;
-  }
+  for (let i = 0; i < prefix.length; i++) if (lowerAscii(value.charCodeAt(at + i)) !== prefix.charCodeAt(i)) return false;
   return true;
 }
 
 function countAsciiPrefixMatches(value: string, prefix: string): number {
   if (value.length <= prefix.length) return 0;
   let source = value;
-  for (let i = 0; i < value.length; i++) {
-    if (value.charCodeAt(i) >= 0x80) {
-      source = value.normalize('NFKC');
-      break;
-    }
-  }
+  for (let i = 0; i < value.length; i++) if (value.charCodeAt(i) >= 0x80) { source = value.normalize('NFKC'); break; }
   let count = 0;
   for (let offset = 0; offset < source.length;) {
-    if (!isAsciiWord(source.charCodeAt(offset))) {
-      offset++;
-      continue;
-    }
+    if (!isAsciiWord(source.charCodeAt(offset))) { offset++; continue; }
     const start = offset++;
     while (offset < source.length && isAsciiWord(source.charCodeAt(offset))) offset++;
-    const length = offset - start;
-    if (length <= prefix.length) continue;
-    if (startsWithLowerAscii(source, start, prefix)) {
-      count++;
-      continue;
-    }
-    let segmentStart = start;
-    for (let i = start + 1; i <= offset; i++) {
+    if (offset - start <= prefix.length) continue;
+    if (startsWithLowerAscii(source, start, prefix)) { count++; continue; }
+    for (let segmentStart = start, i = start + 1; i <= offset; i++) {
       if (i < offset && !isSubwordBoundary(source, offset, i)) continue;
-      const segmentLength = i - segmentStart;
-      if (segmentStart > start && segmentLength > prefix.length && startsWithLowerAscii(source, segmentStart, prefix)) {
+      if (segmentStart > start && i - segmentStart > prefix.length && startsWithLowerAscii(source, segmentStart, prefix)) {
         count++;
         break;
       }
@@ -222,12 +203,7 @@ class PostingReader {
   private readonly bytes: ByteView;
   offset: number;
   readonly end: number;
-
-  constructor(bytes: ByteView, offset: number, end: number) {
-    this.bytes = bytes;
-    this.offset = offset;
-    this.end = end;
-  }
+  constructor(bytes: ByteView, offset: number, end: number) { this.bytes = bytes; this.offset = offset; this.end = end; }
 
   vint() {
     let result = 0;
@@ -236,10 +212,7 @@ class PostingReader {
       const next = this.bytes.u8(this.offset++);
       requireWire(i < 4 || next < 16, 'varint range');
       result += (next & 127) * (2 ** (i * 7));
-      if (next < 128) {
-        requireWire(i === 0 || next !== 0, 'varint encoding');
-        return result;
-      }
+      if (next < 128) { requireWire(i === 0 || next !== 0, 'varint encoding'); return result; }
     }
     throw new ProtocolError('Invalid local search varint');
   }
@@ -1099,24 +1072,34 @@ async function runCorpusSearch(
     return { frame: encoded, generation: cached.admitted.generation };
   }
 
+  const scoreFullPages = async (
+    pageCount: number,
+    readPage: (index: number) => Promise<Uint8Array> | Uint8Array,
+    onLoaded?: (bytes: Uint8Array, totalBytes: number) => void,
+  ): Promise<Uint8Array<ArrayBuffer>> => {
+    const ids = new Set<number>(), matches: CorpusMatch[] = [];
+    let totalBytes = 0;
+    for (let i = 0; i < pageCount; i++) {
+      signal?.throwIfAborted();
+      const bytes = await readPage(i);
+      totalBytes += bytes.length;
+      requireWire(totalBytes <= Limit.SearchCorpusTotalBytes, 'corpus pages or byte budget');
+      onLoaded?.(bytes, totalBytes);
+      const shard = queryCorpusPage(bytes, terms, shortPrefixes);
+      requireWire(pageCount === 1 || shard.documents.size > 0, 'empty corpus page');
+      appendCorpusMatches(shard, ids, matches);
+    }
+    const encoded = encodeCorpusMatches(matches, page, size, sort);
+    signal?.throwIfAborted();
+    return encoded;
+  };
+
   if (cached.persisted) {
     try {
-      const ids = new Set<number>();
-      const matches: CorpusMatch[] = [];
-      let totalBytes = 0;
-      const pages = cached.persisted.pages;
-      for (let i = 0; i < pages.length; i++) {
-        signal?.throwIfAborted();
-        totalBytes += pages[i].length;
-        requireWire(totalBytes <= Limit.SearchCorpusTotalBytes, 'corpus pages or byte budget');
-        const shard = queryCorpusPage(pages[i], terms, shortPrefixes);
-        requireWire(pages.length === 1 || shard.documents.size > 0, 'empty corpus page');
-        appendCorpusMatches(shard, ids, matches);
-      }
-      const encoded = encodeCorpusMatches(matches, page, size, sort);
-      signal?.throwIfAborted();
+      const { pages, generation } = cached.persisted;
+      const frame = await scoreFullPages(pages.length, i => pages[i]);
       if (cache) cache.corpus = cached.persisted;
-      return { frame: encoded, generation: cached.persisted.generation };
+      return { frame, generation };
     } catch (error) {
       signal?.throwIfAborted();
       if (!(error instanceof ProtocolError)) throw error;
@@ -1140,30 +1123,19 @@ async function runCorpusSearch(
   try {
     const first = await corpusRequest(signal, undefined, 1, takePrevious(1));
     const pendingPages: Uint8Array[] | undefined = cache ? [] : undefined;
-    const ids = new Set<number>();
-    const matches: CorpusMatch[] = [];
-    let totalBytes = 0;
-    for (let i = 1; i <= first.pages; i++) {
-      signal?.throwIfAborted();
-      const loaded = i === 1 ? first : await corpusRequest(signal, first.generation, i, takePrevious(i));
-      totalBytes += loaded.bytes.length;
-      requireWire(loaded.pages === first.pages && totalBytes <= Limit.SearchCorpusTotalBytes, 'corpus pages or byte budget');
-      if (reusable && totalBytes + unusedBytes > Limit.SearchCorpusTotalBytes) {
-        reusable.fill(undefined);
-        unusedBytes = 0;
-      }
-      const shard = queryCorpusPage(loaded.bytes, terms, shortPrefixes);
-      pendingPages?.push(loaded.bytes);
-      requireWire(first.pages === 1 || shard.documents.size > 0, 'empty corpus page');
-      appendCorpusMatches(shard, ids, matches);
-    }
-    const encoded = encodeCorpusMatches(matches, page, size, sort);
-    signal?.throwIfAborted();
+    const frame = await scoreFullPages(first.pages, async i => {
+      const loaded = i === 0 ? first : await corpusRequest(signal, first.generation, i + 1, takePrevious(i + 1));
+      requireWire(loaded.pages === first.pages, 'corpus pages or byte budget');
+      return loaded.bytes;
+    }, (bytes, totalBytes) => {
+      if (reusable && totalBytes + unusedBytes > Limit.SearchCorpusTotalBytes) { reusable.fill(undefined); unusedBytes = 0; }
+      pendingPages?.push(bytes);
+    });
     if (cache && pendingPages) {
       cache.corpus = { generation: first.generation, pages: pendingPages };
       await storage?.save({ generation: first.generation, pages: pendingPages }, signal).catch(() => {});
     }
-    return { frame: encoded, generation: first.generation };
+    return { frame, generation: first.generation };
   } catch (error) {
     if (previous) await storage?.discard(previous.generation).catch(() => {});
     throw error;

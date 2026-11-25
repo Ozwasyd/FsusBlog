@@ -23,21 +23,12 @@ const pages = documents / Limit.SearchIndexPageSize
 const budgetMs = 180_000
 
 const { bytes: oracleBytes, data: oracle } = readBoundedJson(oraclePath, 64 * 1024, 'Expected a bounded independent SQL oracle')
-assert.equal(oracle.version, 1)
-assert.equal(oracle.profile, 'nightly')
-assert.equal(oracle.documentCount, documents)
-assert.match(oracle.fixtureSha256, HEX64)
-assert.match(oracle.readbackSha256, HEX64)
-assert.equal(oracle.bodyCanary.term, 'c11body090000')
-assert.equal(oracle.bodyCanary.id, 90_000)
-assert.equal(oracle.bodyCanary.revision, '3')
-assert.equal(oracle.bodyCanary.publication, '85000')
-assert.match(oracle.bodyCanary.bodySha256, HEX64)
-assert.equal(oracle.broad.term, 'observations')
-assert.equal(oracle.broad.page, 8500)
-assert.equal(oracle.broad.size, 10)
-assert.equal(oracle.broad.items.length, 10)
-assert.equal(new Set(oracle.broad.items.map(row => row.id)).size, oracle.broad.size)
+assert.deepEqual(
+  [oracle.version, oracle.profile, oracle.documentCount, oracle.bodyCanary.term, oracle.bodyCanary.id,
+    oracle.bodyCanary.revision, oracle.bodyCanary.publication, oracle.broad.term, oracle.broad.page,
+    oracle.broad.size, oracle.broad.items.length, new Set(oracle.broad.items.map(r => r.id)).size],
+  [1, 'nightly', documents, 'c11body090000', 90_000, '3', '85000', 'observations', 8500, 10, 10, 10])
+for (const hash of [oracle.fixtureSha256, oracle.readbackSha256, oracle.bodyCanary.bodySha256]) assert.match(hash, HEX64)
 for (const row of [oracle.bodyCanary, ...oracle.broad.items]) {
   assert(Number.isInteger(row.id) && (row.id >= 1 && row.id <= 80_000 || row.id >= 85_001 && row.id <= 90_000))
   assert(typeof row.title === 'string' && row.title.includes(' observations ') && row.summary?.length === 200)
@@ -152,35 +143,24 @@ function observeCall(request) {
 }
 
 function assertBatch(batch, manifest, cold) {
-  assert.equal(batch.responses.filter(call => call.kind === 'compact' && call.status === 503).length, 1)
-  const discovery = batch.responses.filter(call => call.kind === 'manifest' && call.method === 'GET')
-  assert.equal(discovery.length, 1)
-  assert.deepEqual(discovery[0].query, [])
-  assert.equal(discovery[0].status, 200)
-  const heads = batch.responses.filter(call => call.kind === 'manifest' && call.method === 'HEAD')
-  assert.equal(heads.length, cold ? 3 : 2)
-  const responses = batch.responses.filter(call => call.kind === 'raw')
-  const requests = batch.requests.filter(call => call.kind === 'raw')
-  const wanted = cold ? manifest.parts.map(part => String(part.number)) : []
-  assert.deepEqual(requests.map(call => call.ordinal), wanted)
-  assert.deepEqual(responses.map(call => call.ordinal), wanted)
+  const discovery = batch.responses.filter(c => c.kind === 'manifest' && c.method === 'GET')
+  const heads = batch.responses.filter(c => c.kind === 'manifest' && c.method === 'HEAD')
+  const responses = batch.responses.filter(c => c.kind === 'raw')
+  const requests = batch.requests.filter(c => c.kind === 'raw')
+  const wanted = cold ? manifest.parts.map(p => String(p.number)) : []
+  assert.deepEqual(
+    [batch.responses.filter(c => c.kind === 'compact' && c.status === 503).length, discovery.length, discovery[0]?.query,
+      discovery[0]?.status, heads.length, requests.map(c => c.ordinal), responses.map(c => c.ordinal)],
+    [1, 1, [], 200, cold ? 3 : 2, wanted, wanted])
   for (const call of [...heads, ...requests]) {
-    assert.deepEqual(call.query, ['digest', 'generation'])
-    assert.equal(call.requestedGeneration, manifest.generation)
-    assert.equal(call.requestedDigest, manifest.digest)
-    assert.equal(call.method, call.kind === 'raw' ? 'GET' : 'HEAD')
+    assert.deepEqual([call.query, call.requestedGeneration, call.requestedDigest, call.method],
+      [['digest', 'generation'], manifest.generation, manifest.digest, call.kind === 'raw' ? 'GET' : 'HEAD'])
   }
   for (const call of [...discovery, ...heads, ...responses]) {
-    assert.equal(call.generation, manifest.generation)
-    assert.equal(call.digest, manifest.digest)
-    assert.equal(call.pages, pages)
-    assert.equal(call.cache, 'no-store')
-    assert.equal(call.status, call.method === 'HEAD' ? 204 : 200)
+    assert.deepEqual([call.generation, call.digest, call.pages, call.cache, call.status],
+      [manifest.generation, manifest.digest, pages, 'no-store', call.method === 'HEAD' ? 204 : 200])
   }
-  for (const [index, call] of responses.entries()) {
-    assert.equal(call.length, manifest.parts[index].length)
-    assert.equal(call.etag, `"${manifest.parts[index].sha256}"`)
-  }
+  responses.forEach((call, i) => assert.deepEqual([call.length, call.etag], [manifest.parts[i].length, `"${manifest.parts[i].sha256}"`]))
   batch.rawBytes = responses.reduce((sum, call) => sum + call.length, 0)
   assert.equal(batch.rawBytes, cold ? manifest.bytes : 0)
 }
@@ -201,24 +181,19 @@ async function readManifest() {
       if (response.status() === 503) return null
       assert.equal(response.status(), 200)
       const raw = await response.body()
-      const { payload } = decodeFrame(raw, FrameType.PublicSearchWideManifest)
-      const bytes = Buffer.from(payload)
-      assert.equal(bytes.length, L.SearchWideManifestHeaderSize + pages * L.SearchWideManifestPageRecordSize)
-      assert.equal(bytes.readInt32LE(0), L.SearchWideManifestVersion)
+      const bytes = Buffer.from(decodeFrame(raw, FrameType.PublicSearchWideManifest).payload)
       const generation = String(bytes.readBigInt64LE(4))
-      assert.match(generation, /^(0|[1-9][0-9]{0,18})$/)
-      assert.equal(bytes.readInt32LE(12), documents)
-      assert.equal(bytes.readInt32LE(16), pages)
       const total = Number(bytes.readBigInt64LE(20))
-      assert(total > Limit.SearchCorpusTotalBytes && total <= Limit.SearchWideCorpusTotalBytes)
       const digest = bytes.subarray(28, L.SearchWideManifestHeaderSize).toString('hex')
-      assert.equal(digest, sha256(Buffer.from('public-search-fspk-manifest-v1\0', 'ascii'),
-        bytes.subarray(12, 28), bytes.subarray(L.SearchWideManifestHeaderSize)))
       const headers = response.headers()
-      assert.equal(headers[HEADERS.generation], generation)
-      assert.equal(headers[HEADERS.digest], digest)
-      assert.equal(headers[HEADERS.pages], String(pages))
-      assert.equal(headers['cache-control'], 'no-store')
+      assert.match(generation, /^(0|[1-9][0-9]{0,18})$/)
+      assert(total > Limit.SearchCorpusTotalBytes && total <= Limit.SearchWideCorpusTotalBytes)
+      assert.deepEqual(
+        [bytes.length, bytes.readInt32LE(0), bytes.readInt32LE(12), bytes.readInt32LE(16), digest,
+          headers[HEADERS.generation], headers[HEADERS.digest], headers[HEADERS.pages], headers['cache-control']],
+        [L.SearchWideManifestHeaderSize + pages * L.SearchWideManifestPageRecordSize, L.SearchWideManifestVersion, documents, pages,
+          sha256(Buffer.from('public-search-fspk-manifest-v1\0', 'ascii'), bytes.subarray(12, 28), bytes.subarray(L.SearchWideManifestHeaderSize)),
+          generation, digest, String(pages), 'no-store'])
       let offset = 0
       const idAt = ordinal => ordinal <= 80_000 ? ordinal : ordinal + 5_000
       const parts = Array.from({ length: pages }, (_, i) => {
@@ -227,11 +202,8 @@ async function readManifest() {
         const descriptor = { number: bytes.readInt32LE(row), count: bytes.readInt32LE(row + 4),
           first: bytes.readInt32LE(row + 8), last: bytes.readInt32LE(row + 12), offset: Number(bytes.readBigInt64LE(row + 16)),
           length, sha256: bytes.subarray(row + 28, row + L.SearchWideManifestPageRecordSize).toString('hex') }
-        assert.equal(descriptor.number, i + 1)
-        assert.equal(descriptor.count, 200)
-        assert.equal(descriptor.first, idAt(i * 200 + 1))
-        assert.equal(descriptor.last, idAt((i + 1) * 200))
-        assert.equal(descriptor.offset, offset)
+        assert.deepEqual([descriptor.number, descriptor.count, descriptor.first, descriptor.last, descriptor.offset],
+          [i + 1, 200, idAt(i * 200 + 1), idAt((i + 1) * 200), offset])
         assert(length > 0 && length <= Limit.SearchCorpusPageBytes)
         offset += length
         return descriptor

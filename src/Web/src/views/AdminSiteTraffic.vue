@@ -119,34 +119,13 @@ onMounted(() => { void load() })
                 <template #default="{ row }">{{ number(row.views) }}</template>
               </ElTableColumn>
             </ElTable>
-            <ElPaginationBar
-              v-if="dailyPageCount > 1"
-              class="traffic-pagination"
-              density="compact"
-              :ariaLabel="t('admin.traffic.dailyPagination')"
-            >
+            <ElPaginationBar v-if="dailyPageCount > 1" class="traffic-pagination" density="compact" :ariaLabel="t('admin.traffic.dailyPagination')">
               <template #summary>
-                <span class="traffic-page-status" role="status">
-                  {{ t('admin.traffic.dailyPageSummary', { page: currentDailyPage, total: dailyPageCount }) }}
-                </span>
+                <span class="traffic-page-status" role="status">{{ t('admin.traffic.dailyPageSummary', { page: currentDailyPage, total: dailyPageCount }) }}</span>
               </template>
               <template #pagination>
-                <ElButton
-                  size="small"
-                  native-type="button"
-                  :disabled="currentDailyPage <= 1"
-                  @click="setDailyPage(currentDailyPage - 1)"
-                >
-                  {{ t('reading.previous') }}
-                </ElButton>
-                <ElButton
-                  size="small"
-                  native-type="button"
-                  :disabled="currentDailyPage >= dailyPageCount"
-                  @click="setDailyPage(currentDailyPage + 1)"
-                >
-                  {{ t('reading.next') }}
-                </ElButton>
+                <ElButton size="small" native-type="button" :disabled="currentDailyPage <= 1" @click="setDailyPage(currentDailyPage - 1)">{{ t('reading.previous') }}</ElButton>
+                <ElButton size="small" native-type="button" :disabled="currentDailyPage >= dailyPageCount" @click="setDailyPage(currentDailyPage + 1)">{{ t('reading.next') }}</ElButton>
               </template>
             </ElPaginationBar>
           </details>
@@ -156,13 +135,7 @@ onMounted(() => { void load() })
           <ElEmptyState v-if="!observation.regionsConfigured" :title="t('admin.traffic.regionsUnconfigured')" role="status" />
           <ElEmptyState v-else-if="!regions.length" :title="t('admin.traffic.regionsEmpty')" role="status" />
           <ElDistributionList v-else density="compact">
-            <ElDistributionBarRow
-              v-for="row in regions"
-              :key="row.region"
-              :label="regionName(row.region)"
-              :value="number(row.views)"
-              :ratio="row.views / regionPeak"
-            />
+            <ElDistributionBarRow v-for="row in regions" :key="row.region" :label="regionName(row.region)" :value="number(row.views)" :ratio="row.views / regionPeak" />
           </ElDistributionList>
         </section>
       </div>
@@ -171,82 +144,16 @@ onMounted(() => { void load() })
 </template>
 
 <style scoped>
-.traffic-loading {
-  display: grid;
-  gap: 8px;
-}
-
-.traffic-loading p {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-}
-
-.traffic-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  align-items: start;
-  gap: 16px;
-}
-
-.traffic-card {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 12px);
-  background: var(--el-bg-color);
-}
-
-.traffic-card h3 {
-  margin: 0;
-  font-size: var(--el-font-size-base);
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.traffic-chart {
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-
-.traffic-axis {
-  stroke: var(--el-border-color);
-  stroke-width: 1;
-}
-
-.traffic-line {
-  fill: none;
-  stroke: var(--el-color-primary);
-  stroke-width: 2;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-
-.traffic-range {
-  display: flex;
-  justify-content: space-between;
-  margin: 0;
-  font-size: var(--el-font-size-extra-small);
-  font-variant-numeric: tabular-nums;
-  color: var(--el-text-color-secondary);
-}
-
-.traffic-details {
-  display: grid;
-  gap: 10px;
-}
-
-.traffic-details summary {
-  cursor: pointer;
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-regular);
-}
-
-.traffic-page-status {
-  font-variant-numeric: tabular-nums;
-}
+.traffic-loading { display: grid; gap: 8px; }
+.traffic-loading p { margin: 0; font-size: var(--el-font-size-small); color: var(--el-text-color-secondary); }
+.traffic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; gap: 16px; }
+.traffic-card { display: grid; align-content: start; gap: 12px; padding: 16px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-panel, 12px); background: var(--el-bg-color); }
+.traffic-card h3 { margin: 0; font-size: var(--el-font-size-base); font-weight: 600; color: var(--el-text-color-primary); }
+.traffic-chart { width: 100%; height: auto; overflow: visible; }
+.traffic-axis { stroke: var(--el-border-color); stroke-width: 1; }
+.traffic-line { fill: none; stroke: var(--el-color-primary); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.traffic-range { display: flex; justify-content: space-between; margin: 0; font-size: var(--el-font-size-extra-small); font-variant-numeric: tabular-nums; color: var(--el-text-color-secondary); }
+.traffic-details { display: grid; gap: 10px; }
+.traffic-details summary { cursor: pointer; font-size: var(--el-font-size-small); font-weight: 500; color: var(--el-text-color-regular); }
+.traffic-page-status { font-variant-numeric: tabular-nums; }
 </style>

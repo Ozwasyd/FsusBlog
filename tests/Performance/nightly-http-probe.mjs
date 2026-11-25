@@ -52,21 +52,16 @@ function validateSource() {
   ];
   assert.deepEqual(Object.keys(facts.search).sort(), roles.map(([role]) => role).sort(), 'Sealed search roles');
   for (const [role, kind, revision, field, termKey, publicationKey, bodyHash] of roles) {
-    const canary = facts.search[role];
-    const { source, term } = canary;
+    const canary = facts.search[role], { source, term } = canary;
     const article = plan.articleCases.find(row => row.kind === kind);
     assert.match(term, /^[a-z0-9]{1,128}$/, role);
-    assert.equal(term, article[termKey], role);
-    assert.equal(source.articleId, article.id, role);
-    assert.equal(source.revision, revision, role);
-    assert.equal(source.field, field, role);
-    assert.equal(source.publicationId, publicationKey === null ? null : article[publicationKey], role);
-    assert.equal(source.categoryId, article.category, role);
-    assert.equal(source.tagId, article.tag, role);
+    assert.deepEqual(
+      [term, source.articleId, source.revision, source.field, source.publicationId, source.categoryId, source.tagId, source.bodySha256],
+      [article[termKey], article.id, revision, field, publicationKey === null ? null : article[publicationKey], article.category, article.tag, article[bodyHash]],
+      role);
     const active = source.revision === article.publicRevision && source.publicationId === article.publicationId;
     assert.deepEqual(canary.anonymousMatchIds, active ? [article.id] : [], role);
     for (const hash of [source.titleSha256, source.bodySha256, source.summarySha256]) assert.match(hash, HEX64, role);
-    assert.equal(source.bodySha256, article[bodyHash], role);
     assert(Number.isSafeInteger(source.utf8Offset) && source.utf8Offset >= 0 && source.utf8Length === term.length &&
       natural(source.fieldBytes) && source.utf8Offset + source.utf8Length <= source.fieldBytes, role + ' source byte range');
   }
@@ -74,20 +69,14 @@ function validateSource() {
   assert.deepEqual(oracle.unpublishedIds, facts.unpublishedDetailIds, 'PostgreSQL oracle unpublished detail roles');
   assert.deepEqual(oracle.negativeTerms, ['pendingUpdate', 'archivedInterim', 'deletedPrior'].map(role => facts.search[role].term),
     'PostgreSQL oracle hidden search terms');
-  for (const [observed, expected] of [[oracle.titleCanary, facts.search.publicTitle], [oracle.bodyCanary, facts.search.retainedBody]]) {
-    const { row, term } = observed;
+  for (const [{ row, term }, expected] of [[oracle.titleCanary, facts.search.publicTitle], [oracle.bodyCanary, facts.search.retainedBody]]) {
     const { source } = expected;
     assert.equal(term, expected.term, 'PostgreSQL oracle public search term');
-    assert.equal(row.id, source.articleId);
-    assert.equal(row.revision, String(source.revision));
-    assert.equal(row.publication, String(source.publicationId));
-    assert.equal(row.revisionNo, source.revision);
-    assert.equal(row.publicationNo, 1);
-    assert.equal(row.category.id, source.categoryId);
-    assert.deepEqual(row.tags.map(tag => tag.id), [source.tagId]);
-    assert.equal(sha256(row.title), source.titleSha256);
-    assert.equal(sha256(row.summary), source.summarySha256);
-    assert.equal(row.bodySha256, source.bodySha256);
+    assert.deepEqual(
+      [row.id, row.revision, row.publication, row.revisionNo, row.publicationNo, row.category.id,
+        row.tags.map(t => t.id), sha256(row.title), sha256(row.summary), row.bodySha256],
+      [source.articleId, String(source.revision), String(source.publicationId), source.revision, 1,
+        source.categoryId, [source.tagId], source.titleSha256, source.summarySha256, source.bodySha256]);
   }
   compareSourceRange(oracle.titleCanary.row.title, facts.search.publicTitle);
   return { planSha256, articlePlanSha256: plan.articlePlanSha256, articleByteReceiptSha256: sha256(articleBytes) };
@@ -171,16 +160,17 @@ async function observe(id, path, status, frame) {
 }
 
 function compareCard(row, expected, format) {
-  const label = `article ${expected.id} at rank ${expected.rank}`;
-  for (const key of ['id', 'title', 'summary', 'createdAt', 'revisionNo', 'publicationNo'])
-    assert.equal(row[key], expected[key], `${label} ${key}`);
-  assert.equal(String(row.revision), expected.revision, `${label} revision`);
-  assert.equal(String(row.publication), expected.publication, `${label} publication`);
-  assert.deepEqual(row.category, expected.category, `${label} category`);
-  assert.deepEqual(row.tags, expected.tags, `${label} ordered tags`);
-  assert.equal(row.publishedAt, format === 'search' ? null : expected.publishedAt, `${label} publishedAt`);
-  assert.equal(row.updatedAt, format === 'detail' ? expected.updatedAt : null, `${label} updatedAt`);
-  assert.equal(row.scheduledPublishAt, null, `${label} published revision has no exposed pending schedule`);
+  assert.deepEqual(
+    { id: row.id, title: row.title, summary: row.summary, createdAt: row.createdAt, revisionNo: row.revisionNo,
+      publicationNo: row.publicationNo, revision: String(row.revision), publication: String(row.publication),
+      category: row.category, tags: row.tags, publishedAt: row.publishedAt, updatedAt: row.updatedAt,
+      scheduledPublishAt: row.scheduledPublishAt },
+    { id: expected.id, title: expected.title, summary: expected.summary, createdAt: expected.createdAt,
+      revisionNo: expected.revisionNo, publicationNo: expected.publicationNo, revision: expected.revision,
+      publication: expected.publication, category: expected.category, tags: expected.tags,
+      publishedAt: format === 'search' ? null : expected.publishedAt,
+      updatedAt: format === 'detail' ? expected.updatedAt : null, scheduledPublishAt: null },
+    `article ${expected.id} at rank ${expected.rank}`);
 }
 
 function comparePage(result, expected, total, format) {

@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 """Generate the P2 fixture and a guarded psql input file for a new owned database."""
 
-import argparse
+import argparse, hashlib, json, re
 from datetime import datetime, timedelta, timezone
-import hashlib
-import json
 from pathlib import Path
-import re
 
 SEED = 20261114
 OWNER = "5e3986ac-4d8e-5c55-91f6-202611140001"
@@ -265,19 +262,13 @@ def generate(database, admin_schema, sql_path, manifest_path):
     }
     # Each output lives in the runner's owned directory. Exclusive creation
     # prevents even an accidental reuse of an existing attempt's fixture files.
-    with (
-        sql_path.open("x", encoding="ascii", newline="\n") as sql,
-        manifest_path.open("x", encoding="ascii", newline="\n") as receipt,
-    ):
+    null = r"\N"
+    with sql_path.open("x", encoding="ascii", newline="\n") as sql, manifest_path.open("x", encoding="ascii", newline="\n") as receipt:
         write_guard(sql, database, admin_schema)
         for article, body in articles():
-            published = article["publishedAt"] or r"\N"
-            publication = article["publicationId"] or r"\N"
-            sql.write(
-                f"{article['id']}\t{article['title']}\t{body}\t{article['bodyBytes']}\t"
-                f"{article['createdAt']}\t{article['updatedAt']}\t{published}\t{publication}\t"
-                f"{article['categoryId']}\t{article['tagIds'][0]}\n"
-            )
+            sql.write(f"{article['id']}\t{article['title']}\t{body}\t{article['bodyBytes']}\t{article['createdAt']}\t"
+                      f"{article['updatedAt']}\t{article['publishedAt'] or null}\t{article['publicationId'] or null}\t"
+                      f"{article['categoryId']}\t{article['tagIds'][0]}\n")
             manifest["articles"].append(article)
         write_inserts(sql)
         json.dump(manifest, receipt, ensure_ascii=True, separators=(",", ":"))
@@ -286,10 +277,8 @@ def generate(database, admin_schema, sql_path, manifest_path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--database", required=True)
-    parser.add_argument("--admin-schema", type=int, required=True)
-    parser.add_argument("--sql", type=Path, required=True)
-    parser.add_argument("--manifest", type=Path, required=True)
+    for flag, kw in (("--database", {}), ("--admin-schema", {"type": int}), ("--sql", {"type": Path}), ("--manifest", {"type": Path})):
+        parser.add_argument(flag, required=True, **kw)
     args = parser.parse_args()
     if not re.fullmatch(r"fsusv2_perf_[0-9a-f]{32}", args.database):
         parser.error("--database must be fsusv2_perf_ followed by a new 32-digit lowercase hex run ID")

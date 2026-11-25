@@ -48,17 +48,12 @@ stage=starting
 source tests/Performance/proxy.sh
 
 stop_child() {
-    local name=$1 pid=$2 status=0 forced=no requested=no
+    local name=$1 pid=$2 status=0 forced=no requested=no rc=0
     [[ -n $pid ]] || return 0
     if own_child "$pid"; then
         requested=yes
-        kill -TERM "$pid" 2>/dev/null || { ! own_child "$pid" || return 1; }
-        wait_child_exit "$pid" 50
-        if own_child "$pid"; then
-            forced=yes
-            kill -KILL "$pid" 2>/dev/null || { ! own_child "$pid" || return 1; }
-            wait_child_exit "$pid" 20
-        fi
+        terminate_child "$pid" 20 || rc=$?
+        if (( rc == 2 )); then forced=yes; elif (( rc != 0 )); then return 1; fi
     fi
     if own_child "$pid"; then
         printf '%s_pid=%s\n%s_exit=unconfirmed\n' "$name" "$pid" "$name" >> "$evidence/cleanup.log"

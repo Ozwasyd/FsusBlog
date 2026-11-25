@@ -30,25 +30,20 @@ public sealed partial class CanvasPortableBundle
         {
             var reader = new Utf8JsonReader(bytes, new JsonReaderOptions { MaxDepth = 4 });
             Read(ref reader, JsonTokenType.StartObject);
-            Name(ref reader, "kind"u8);
-            Literal(ref reader, Kind);
+            ExpectString(ref reader, "kind"u8, Kind);
             Name(ref reader, "version"u8);
             if (Int(ref reader) != Version) throw Invalid("Unsupported Canvas package version.");
-            Name(ref reader, "encoding"u8);
-            Literal(ref reader, "utf-8");
-            Name(ref reader, "newlines"u8);
-            Literal(ref reader, "preserve");
+            ExpectString(ref reader, "encoding"u8, "utf-8");
+            ExpectString(ref reader, "newlines"u8, "preserve");
             Name(ref reader, "sourceRevision"u8);
             Read(ref reader, JsonTokenType.Number);
             long sourceRevision = reader.GetInt64();
-
             Name(ref reader, "title"u8);
             string title = Text(ref reader, MaxTitleCharacters) ?? throw Invalid("Canvas package title is missing.");
             Name(ref reader, "viewport"u8);
             Read(ref reader, JsonTokenType.StartArray);
             var viewport = new CanvasPortableViewport(Int(ref reader), Int(ref reader), Int(ref reader));
             Read(ref reader, JsonTokenType.EndArray);
-
             Name(ref reader, "nodes"u8);
             var nodes = ReadNodes(ref reader);
             Name(ref reader, "edges"u8);
@@ -61,19 +56,15 @@ public sealed partial class CanvasPortableBundle
             var bundle = new CanvasPortableBundle(title, viewport, sourceRevision, nodes, edges);
             var (canonical, hash) = bundle.WriteBody();
             string checksum = Convert.ToHexStringLower(hash);
-            if (!StringComparer.Ordinal.Equals(declared, checksum))
-                throw Invalid("Canvas package checksum does not match.");
+            if (!StringComparer.Ordinal.Equals(declared, checksum)) throw Invalid("Canvas package checksum does not match.");
             AppendChecksum(canonical, hash);
-            if (!bytes.SequenceEqual(canonical.WrittenSpan))
-                throw Invalid("Canvas package bytes are not canonical.");
+            if (!bytes.SequenceEqual(canonical.WrittenSpan)) throw Invalid("Canvas package bytes are not canonical.");
             bundle.ValidateGraph();
             bundle.Checksum = checksum;
             return bundle;
         }
         catch (Exception error) when (error is JsonException or FormatException or InvalidOperationException or ArgumentException)
-        {
-            throw Invalid("Invalid Canvas package JSON.");
-        }
+        { throw Invalid("Invalid Canvas package JSON."); }
     }
 
     private (ArrayBufferWriter<byte> Bytes, byte[] Hash) WriteBody()
@@ -88,20 +79,13 @@ public sealed partial class CanvasPortableBundle
         w.WriteNumber("sourceRevision", SourceRevision);
         w.WriteString("title", Title);
         w.WriteStartArray("viewport");
-        w.WriteNumberValue(Viewport.X);
-        w.WriteNumberValue(Viewport.Y);
-        w.WriteNumberValue(Viewport.Zoom);
+        WriteInts(w, Viewport.X, Viewport.Y, Viewport.Zoom);
         w.WriteEndArray();
         w.WriteStartArray("nodes");
         foreach (var node in _nodes)
         {
             w.WriteStartArray();
-            w.WriteNumberValue((int)node.Kind);
-            w.WriteNumberValue(node.Geometry.X);
-            w.WriteNumberValue(node.Geometry.Y);
-            w.WriteNumberValue(node.Geometry.Width);
-            w.WriteNumberValue(node.Geometry.Height);
-            w.WriteNumberValue(node.Reference);
+            WriteInts(w, (int)node.Kind, node.Geometry.X, node.Geometry.Y, node.Geometry.Width, node.Geometry.Height, node.Reference);
             w.WriteStringValue(node.Anchor);
             w.WriteBooleanValue(node.Pinned);
             w.WriteStringValue(node.Text);
@@ -109,29 +93,25 @@ public sealed partial class CanvasPortableBundle
             foreach (int slot in node.Members) w.WriteNumberValue(slot);
             w.WriteEndArray();
             w.WriteEndArray();
-            if (w.BytesPending + w.BytesCommitted > MaxBytes)
-                throw Invalid("Canvas package exceeds its size limit.");
+            CheckLimit(w.BytesPending + w.BytesCommitted);
         }
         w.WriteEndArray();
         w.WriteStartArray("edges");
         foreach (var edge in _edges)
         {
             w.WriteStartArray();
-            w.WriteNumberValue((int)edge.Kind);
-            w.WriteNumberValue(edge.From);
-            w.WriteNumberValue(edge.To);
-            w.WriteNumberValue(edge.Order);
+            WriteInts(w, (int)edge.Kind, edge.From, edge.To, edge.Order);
             w.WriteStringValue(edge.Label);
             w.WriteEndArray();
-            if (w.BytesPending + w.BytesCommitted > MaxBytes)
-                throw Invalid("Canvas package exceeds its size limit.");
+            CheckLimit(w.BytesPending + w.BytesCommitted);
         }
         w.WriteEndArray();
         w.Flush();
-        if (bytes.WrittenCount + ChecksumSuffixLength > MaxBytes)
-            throw Invalid("Canvas package exceeds its size limit.");
-
+        CheckLimit(bytes.WrittenCount + ChecksumSuffixLength);
         return (bytes, SHA256.HashData(bytes.WrittenSpan));
+
+        static void WriteInts(Utf8JsonWriter writer, params ReadOnlySpan<int> values) { foreach (int v in values) writer.WriteNumberValue(v); }
+        static void CheckLimit(long total) { if (total > MaxBytes) throw Invalid("Canvas package exceeds its size limit."); }
     }
 
     private static ReadOnlySpan<byte> ChecksumPrefix => ",\"sha256\":\""u8;
@@ -214,17 +194,14 @@ public sealed partial class CanvasPortableBundle
         if (!reader.ValueTextEquals(name)) throw Invalid("Unknown Canvas package field.");
     }
 
-    private static void Literal(ref Utf8JsonReader reader, string value)
+    private static void ExpectString(ref Utf8JsonReader reader, ReadOnlySpan<byte> name, string value)
     {
+        Name(ref reader, name);
         Read(ref reader, JsonTokenType.String);
         if (!reader.ValueTextEquals(value)) throw Invalid("Invalid Canvas package format.");
     }
 
-    private static int Int(ref Utf8JsonReader reader)
-    {
-        Read(ref reader, JsonTokenType.Number);
-        return reader.GetInt32();
-    }
+    private static int Int(ref Utf8JsonReader reader) { Read(ref reader, JsonTokenType.Number); return reader.GetInt32(); }
 
     private static string? Text(ref Utf8JsonReader reader, int maxCharacters)
     {
@@ -232,11 +209,8 @@ public sealed partial class CanvasPortableBundle
         if (reader.TokenType == JsonTokenType.Null) return null;
         Require(ref reader, JsonTokenType.String);
         // An escaped UTF-16 code unit consumes at most six input bytes.
-        if (reader.ValueSpan.Length > maxCharacters * 6)
-            throw Invalid("Canvas package text exceeds its size limit.");
+        if (reader.ValueSpan.Length > maxCharacters * 6) throw Invalid("Canvas package text exceeds its size limit.");
         string text = reader.GetString()!;
-        if (text.Length > maxCharacters)
-            throw Invalid("Canvas package text exceeds its size limit.");
-        return text;
+        return text.Length > maxCharacters ? throw Invalid("Canvas package text exceeds its size limit.") : text;
     }
 }

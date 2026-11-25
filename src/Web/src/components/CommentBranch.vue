@@ -162,113 +162,29 @@ function toggle(show = !expanded.value) {
 </template>
 
 <style scoped>
-.comment-node {
-  padding-block: 1.25rem;
-  border-block-end: 1px solid var(--el-border-color-lighter);
-}
+.comment-node { padding-block: 1.25rem; border-block-end: 1px solid var(--el-border-color-lighter); }
 .comment-node:last-child { border-block-end-color: var(--fsus-border); }
 .comment-article { min-inline-size: 0; scroll-margin-block-start: 6.5rem; }
-.comment-article.is-target {
-  padding-inline-start: .875rem;
-  border-inline-start: 2px solid var(--fsus-scholarly-blue);
-}
-.comment-article:focus-visible {
-  outline: 2px solid var(--fsus-scholarly-blue);
-  outline-offset: 4px;
-  border-radius: var(--fsus-radius-control-small);
-}
-.comment-byline {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: .25rem 1rem;
-}
-.comment-identity {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: .25rem .5rem;
-  min-inline-size: 0;
-}
-.comment-author {
-  color: var(--fsus-ink);
-  font-size: .9375rem;
-  font-weight: 700;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-.comment-author.is-muted {
-  color: var(--fsus-color-text-quiet);
-  font-weight: 500;
-}
-.comment-badge {
-  padding: 0 .45rem;
-  border: 1px solid var(--fsus-border);
-  border-radius: var(--fsus-radius-pill);
-  color: var(--fsus-color-text-quiet);
-  font-size: .75rem;
-  line-height: 1.6;
-}
-.comment-reply-target,
-.comment-meta-note {
-  color: var(--fsus-color-text-quiet);
-  font-size: .8125rem;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.comment-time-link {
-  color: var(--fsus-color-text-quiet);
-  font-size: .8125rem;
-  line-height: 1.5;
-  font-variant-numeric: tabular-nums;
-  text-decoration: none;
-  white-space: nowrap;
-  transition: color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
-.comment-time-link:hover,
-.comment-time-link:focus-visible {
-  color: var(--fsus-scholarly-blue);
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: .25em;
-}
-.comment-text {
-  margin: .625rem 0 0;
-  color: var(--fsus-ink);
-  font-size: .9375rem;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
+.comment-article.is-target { padding-inline-start: .875rem; border-inline-start: 2px solid var(--fsus-scholarly-blue); }
+.comment-article:focus-visible { outline: 2px solid var(--fsus-scholarly-blue); outline-offset: 4px; border-radius: var(--fsus-radius-control-small); }
+.comment-byline { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .25rem 1rem; }
+.comment-identity { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .5rem; min-inline-size: 0; }
+.comment-author { color: var(--fsus-ink); font-size: .9375rem; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.comment-author.is-muted { color: var(--fsus-color-text-quiet); font-weight: 500; }
+.comment-badge { padding: 0 .45rem; border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-pill); color: var(--fsus-color-text-quiet); font-size: .75rem; line-height: 1.6; }
+.comment-reply-target, .comment-meta-note { color: var(--fsus-color-text-quiet); font-size: .8125rem; line-height: 1.5; overflow-wrap: anywhere; }
+.comment-time-link { color: var(--fsus-color-text-quiet); font-size: .8125rem; line-height: 1.5; font-variant-numeric: tabular-nums; text-decoration: none; white-space: nowrap; transition: color var(--fsus-motion-control-fast) var(--fsus-motion-standard); }
+.comment-time-link:hover, .comment-time-link:focus-visible { color: var(--fsus-scholarly-blue); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .25em; }
+.comment-text { margin: .625rem 0 0; color: var(--fsus-ink); font-size: .9375rem; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .comment-article.is-deleted .comment-text { color: var(--fsus-color-text-quiet); }
 .comment-error { margin: .5rem 0 0; color: var(--el-color-danger); font-size: .875rem; }
-.comment-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .125rem .25rem;
-  margin-block-start: .5rem;
-  margin-inline-start: -8px;
-}
-.comment-action {
-  color: var(--fsus-color-text-quiet);
-  font-size: .8125rem;
-  font-weight: 500;
-  transition: color var(--fsus-motion-control-fast) var(--fsus-motion-standard);
-}
+.comment-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .125rem .25rem; margin-block-start: .5rem; margin-inline-start: -8px; }
+.comment-action { color: var(--fsus-color-text-quiet); font-size: .8125rem; font-weight: 500; transition: color var(--fsus-motion-control-fast) var(--fsus-motion-standard); }
 .comment-action + .comment-action { margin-inline-start: 0; }
-.comment-action:hover,
-.comment-action:focus-visible { color: var(--fsus-scholarly-blue); }
-.comment-action--danger:hover,
-.comment-action--danger:focus-visible { color: var(--el-color-danger); }
+.comment-action:hover, .comment-action:focus-visible { color: var(--fsus-scholarly-blue); }
+.comment-action--danger:hover, .comment-action--danger:focus-visible { color: var(--el-color-danger); }
 .comment-replies { margin-block-start: .75rem; }
-.comment-children {
-  margin: 0;
-  padding: 0 0 0 1.25rem;
-  list-style: none;
-  border-inline-start: 2px solid var(--fsus-border);
-}
+.comment-children { margin: 0; padding: 0 0 0 1.25rem; list-style: none; border-inline-start: 2px solid var(--fsus-border); }
 .comment-children.is-deep { border-inline-start-style: dotted; }
 .comment-children .comment-node { padding-block: .875rem; }
 .comment-children .comment-node:first-child { padding-block-start: .375rem; }
@@ -279,14 +195,8 @@ function toggle(show = !expanded.value) {
 @media (max-width: 37.99rem) {
   .comment-node { padding-block: 1rem; }
   .comment-children { padding-inline-start: .875rem; }
-  .comment-children.is-deep { padding-inline-start: .625rem; }
-  .comment-article.is-target { padding-inline-start: .625rem; }
+  .comment-children.is-deep, .comment-article.is-target { padding-inline-start: .625rem; }
 }
-@media (pointer: coarse) {
-  .comment-action { min-block-size: 40px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .comment-time-link,
-  .comment-action { transition-duration: 1ms; }
-}
+@media (pointer: coarse) { .comment-action { min-block-size: 40px; } }
+@media (prefers-reduced-motion: reduce) { .comment-time-link, .comment-action { transition-duration: 1ms; } }
 </style>

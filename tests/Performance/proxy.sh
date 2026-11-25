@@ -6,29 +6,34 @@ own_child() {
 
 wait_child_exit() {
   local pid=$1 ticks=${2:-50} i
-  for ((i = 0; i < ticks; i++)); do
-    own_child "$pid" || return 0
-    sleep 0.1
-  done
+  for ((i = 0; i < ticks; i++)); do own_child "$pid" || return 0; sleep 0.1; done
+}
+
+# Returns 0 if not owned / stopped cleanly, 2 if SIGKILL was needed, 1 on kill failure.
+terminate_child() {
+  local pid=$1 kill_ticks=${2:-0}
+  own_child "$pid" || return 0
+  kill -TERM "$pid" 2>/dev/null || { ! own_child "$pid" && return 0 || return 1; }
+  wait_child_exit "$pid" 50
+  own_child "$pid" || return 0
+  kill -KILL "$pid" 2>/dev/null || { ! own_child "$pid" && return 2 || return 1; }
+  (( kill_ticks == 0 )) || wait_child_exit "$pid" "$kill_ticks"
+  return 2
 }
 
 choose_loopback_port() {
   python3 -c 'import socket
-with socket.socket() as listener:
-    listener.bind(("127.0.0.1", 0))
-    print(listener.getsockname()[1])'
+with socket.socket() as s: s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])'
 }
 
 verify_proxy_identity() {
   node --input-type=module - "$1" "$2" <<'JS'
 import { readFileSync } from 'node:fs';
 import { X509Certificate } from 'node:crypto';
-
-const [certificate, origin] = process.argv.slice(2);
+const [cert, origin] = process.argv.slice(2);
 const host = new URL(origin).hostname.replace(/^\[|\]$/g, '');
-const leaf = new X509Certificate(readFileSync(certificate));
-const matched = host === 'localhost' ? leaf.checkHost(host, { subject: 'never' }) : leaf.checkIP(host);
-if (!matched) {
+const leaf = new X509Certificate(readFileSync(cert));
+if (!(host === 'localhost' ? leaf.checkHost(host, { subject: 'never' }) : leaf.checkIP(host))) {
   console.error('Generated TLS leaf does not cover the expected proxy host.');
   process.exitCode = 1;
 }

@@ -25,39 +25,36 @@ INTEGRATION_EXCLUSIONS = {
 }
 
 
+def ensure(condition, message: str) -> None:
+    if not condition:
+        raise ValueError(message)
+
+
 def validate_needs(needs: object) -> dict[str, str]:
-    expected = {"source", "stack"}
-    if not isinstance(needs, dict) or set(needs) != expected:
-        raise ValueError("Required job set must be exactly source and stack.")
-    results = {name: value.get("result") if isinstance(value, dict) else None
-               for name, value in needs.items()}
-    if any(value != "success" for value in results.values()):
-        raise ValueError(f"Required jobs did not all succeed: {results}")
+    ensure(isinstance(needs, dict) and set(needs) == {"source", "stack"}, "Required job set must be exactly source and stack.")
+    results = {name: value.get("result") if isinstance(value, dict) else None for name, value in needs.items()}
+    ensure(all(value == "success" for value in results.values()), f"Required jobs did not all succeed: {results}")
     return results
 
 
 def validate_trx(path: Path, profile: str) -> dict:
-    if profile not in {"unit", "integration"}:
-        raise ValueError("Unknown TRX profile.")
+    ensure(profile in {"unit", "integration"}, "Unknown TRX profile.")
     root = ET.parse(path).getroot()
     results = root.findall("t:Results/t:UnitTestResult", NS)
     summary = root.find("t:ResultSummary", NS)
     counters = root.find("t:ResultSummary/t:Counters", NS)
-    if not results or summary is None or counters is None:
-        raise ValueError("TRX is missing results or its summary; zero tests cannot pass.")
-    if summary.get("outcome") not in {"Completed", "Passed"}:
-        raise ValueError(f"Unsuccessful TRX summary: {summary.get('outcome')}")
-    definitions = {}
-    for test in root.findall("t:TestDefinitions/t:UnitTest", NS):
-        method = test.find("t:TestMethod", NS)
-        if method is not None:
-            definitions[test.get("id")] = f"{method.get('className')}.{method.get('name')}"
+    ensure(results and summary is not None and counters is not None, "TRX is missing results or its summary; zero tests cannot pass.")
+    ensure(summary.get("outcome") in {"Completed", "Passed"}, f"Unsuccessful TRX summary: {summary.get('outcome')}")
+    definitions = {
+        test.get("id"): f"{method.get('className')}.{method.get('name')}"
+        for test in root.findall("t:TestDefinitions/t:UnitTest", NS)
+        if (method := test.find("t:TestMethod", NS)) is not None
+    }
     allowed = INTEGRATION_EXCLUSIONS if profile == "integration" else {}
     passed, skipped, executions = 0, [], set()
     for result in results:
         execution = result.get("executionId")
-        if not execution or execution in executions:
-            raise ValueError("Missing or duplicate TRX execution ID.")
+        ensure(execution and execution not in executions, "Missing or duplicate TRX execution ID.")
         executions.add(execution)
         name = definitions.get(result.get("testId"), result.get("testName", ""))
         outcome = result.get("outcome")
@@ -67,38 +64,29 @@ def validate_trx(path: Path, profile: str) -> dict:
             skipped.append({"test": name, "coverageGap": allowed[name]})
         else:
             raise ValueError(f"Unexpected test outcome {outcome}: {name}")
-    expected = {"total": len(results), "passed": passed, "failed": 0,
-                "executed": passed}
-    for key, value in expected.items():
-        if int(counters.get(key, "-1")) != value:
-            raise ValueError(f"TRX counter mismatch: {key} must be {value}.")
+    for key, value in {"total": len(results), "passed": passed, "failed": 0, "executed": passed}.items():
+        ensure(int(counters.get(key, "-1")) == value, f"TRX counter mismatch: {key} must be {value}.")
     # VSTest 18.5.1 writes notExecuted=0 even when xUnit emits NotExecuted
     # result rows. Count and authorize every skipped row above; require the
     # independent total/executed/passed counters to reconcile either encoding.
-    if int(counters.get("notExecuted", "-1")) not in {0, len(skipped)}:
-        raise ValueError("TRX notExecuted counter does not match its result rows.")
-    if passed == 0:
-        raise ValueError("An all-skipped run cannot pass.")
-    return {"status": "passed", "profile": profile, "total": len(results),
-            "passed": passed, "excluded": skipped}
+    ensure(int(counters.get("notExecuted", "-1")) in {0, len(skipped)}, "TRX notExecuted counter does not match its result rows.")
+    ensure(passed > 0, "An all-skipped run cannot pass.")
+    return {"status": "passed", "profile": profile, "total": len(results), "passed": passed, "excluded": skipped}
 
 
 def validate_caddy(manifest: Path, archive: Path, manifest_sha256: str) -> dict:
     """Caddy uses SHA-512 archive entries, inside a SHA-256-pinned manifest."""
     payload = manifest.read_bytes()
-    if hashlib.sha256(payload).hexdigest() != manifest_sha256:
-        raise ValueError("Caddy checksum manifest does not match the pinned SHA-256.")
-    matches = []
-    for line in payload.decode("ascii").splitlines():
-        entry = re.fullmatch(r"([0-9a-fA-F]{128}) [ *](.+)", line)
-        if entry and entry.group(2) == archive.name:
-            matches.append(entry.group(1).lower())
-    if len(matches) != 1:
-        raise ValueError("Caddy manifest must contain exactly one SHA-512 archive entry.")
+    ensure(hashlib.sha256(payload).hexdigest() == manifest_sha256, "Caddy checksum manifest does not match the pinned SHA-256.")
+    matches = [
+        entry.group(1).lower()
+        for line in payload.decode("ascii").splitlines()
+        if (entry := re.fullmatch(r"([0-9a-fA-F]{128}) [ *](.+)", line)) and entry.group(2) == archive.name
+    ]
+    ensure(len(matches) == 1, "Caddy manifest must contain exactly one SHA-512 archive entry.")
     with archive.open("rb") as stream:
         actual = hashlib.file_digest(stream, "sha512").hexdigest()
-    if actual != matches[0]:
-        raise ValueError("Caddy archive does not match its authenticated SHA-512.")
+    ensure(actual == matches[0], "Caddy archive does not match its authenticated SHA-512.")
     return {"status": "verified", "archive": archive.name, "sha512": actual}
 
 

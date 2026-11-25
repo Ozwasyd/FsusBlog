@@ -138,11 +138,9 @@ public sealed class ExtensionInstallationStore : IDisposable
         }
     }
 
-    public void ReplaceTrust(IEnumerable<ExtensionPublisherKey> keys, IEnumerable<ApprovedExtensionSource> sources)
-    {
-        lock (_gate)
+    public void ReplaceTrust(IEnumerable<ExtensionPublisherKey> keys, IEnumerable<ApprovedExtensionSource> sources) =>
+        WithMutable(CancellationToken.None, () =>
         {
-            RequireMutablePackage(CancellationToken.None);
             // Rotate trust conservatively so old grants and successful approvals cannot survive the change.
             var next = _ledger with
             {
@@ -154,55 +152,40 @@ public sealed class ExtensionInstallationStore : IDisposable
             Save(next);
             _authority.ReplaceTrust(verifier);
             _verifier = verifier;
-        }
-    }
+        });
 
-    public void Deactivate(string extensionId)
+    public void Deactivate(string extensionId) => WithMutable(CancellationToken.None, () =>
     {
-        lock (_gate)
-        {
-            RequireMutablePackage(CancellationToken.None);
-            var installed = FindInstallation(extensionId);
-            if (!installed.Active) return;
-            Save(_ledger with { Installations = _ledger.Installations.Replace(installed, installed with { Active = false }) });
-            _authority.Deactivate(extensionId);
-        }
-    }
+        var installed = FindInstallation(extensionId);
+        if (!installed.Active) return;
+        Save(_ledger with { Installations = _ledger.Installations.Replace(installed, installed with { Active = false }) });
+        _authority.Deactivate(extensionId);
+    });
 
-    public void Quarantine(string extensionId, string reason)
+    public void Quarantine(string extensionId, string reason) => WithMutable(CancellationToken.None, () =>
     {
-        lock (_gate)
+        if (!IsIdentifier(reason)) throw Reject("quarantine-reason");
+        var installed = FindInstallation(extensionId);
+        if (installed.Quarantine is { ReleasedAt: null } previous)
         {
-            RequireMutablePackage(CancellationToken.None);
-            if (!IsIdentifier(reason)) throw Reject("quarantine-reason");
-            var installed = FindInstallation(extensionId);
-            if (installed.Quarantine is { ReleasedAt: null } previous)
-            {
-                if (previous.Reason != reason) throw Reject("extension-already-quarantined");
-                return;
-            }
-            var now = _clock.GetUtcNow();
-            if (now < installed.ActivatedAt || now < installed.Quarantine?.ReleasedAt) throw Reject("quarantine-clock");
-            var next = installed with { Active = false, Quarantine = new(Guid.NewGuid(), reason, now) };
-            Save(_ledger with { Installations = _ledger.Installations.Replace(installed, next) });
-            _authority.Deactivate(extensionId);
+            if (previous.Reason != reason) throw Reject("extension-already-quarantined");
+            return;
         }
-    }
+        var now = _clock.GetUtcNow();
+        if (now < installed.ActivatedAt || now < installed.Quarantine?.ReleasedAt) throw Reject("quarantine-clock");
+        Save(_ledger with { Installations = _ledger.Installations.Replace(installed, installed with { Active = false, Quarantine = new(Guid.NewGuid(), reason, now) }) });
+        _authority.Deactivate(extensionId);
+    });
 
-    public void ClearQuarantine(string extensionId, Guid receipt, Guid approval)
+    public void ClearQuarantine(string extensionId, Guid receipt, Guid approval) => WithMutable(CancellationToken.None, () =>
     {
-        lock (_gate)
-        {
-            RequireMutablePackage(CancellationToken.None);
-            var installed = FindInstallation(extensionId);
-            if (installed.Quarantine is not { ReleasedAt: null } quarantine || quarantine.Receipt != receipt ||
-                approval == Guid.Empty || approval == receipt) throw Reject("quarantine-approval");
-            var now = _clock.GetUtcNow();
-            if (now < quarantine.QuarantinedAt) throw Reject("quarantine-clock");
-            var next = installed with { Quarantine = quarantine with { ReleaseApproval = approval, ReleasedAt = now } };
-            Save(_ledger with { Installations = _ledger.Installations.Replace(installed, next) });
-        }
-    }
+        var installed = FindInstallation(extensionId);
+        if (installed.Quarantine is not { ReleasedAt: null } quarantine || quarantine.Receipt != receipt ||
+            approval == Guid.Empty || approval == receipt) throw Reject("quarantine-approval");
+        var now = _clock.GetUtcNow();
+        if (now < quarantine.QuarantinedAt) throw Reject("quarantine-clock");
+        Save(_ledger with { Installations = _ledger.Installations.Replace(installed, installed with { Quarantine = quarantine with { ReleaseApproval = approval, ReleasedAt = now } }) });
+    });
 
     private Installation FindInstallation(string extensionId) =>
         _ledger.Installations.SingleOrDefault(item => item.Id == extensionId) ?? throw Reject("installed-extension-unknown");
@@ -229,46 +212,22 @@ public sealed class ExtensionInstallationStore : IDisposable
         return new(_checkpoint, installations.MoveToImmutable());
     }
 
-    public void SetOwner(ExtensionOwner owner)
-    {
-        lock (_gate) { RequireOperationAuthority(); _authority.SetOwner(owner); }
-    }
-
-    public Guid RecordConsent(ExtensionConsent consent)
-    {
-        lock (_gate) { RequireOperationAuthority(); return _authority.RecordConsent(consent); }
-    }
-
-    public void RevokeConsent(Guid id)
-    {
-        lock (_gate) { RequireOperationAuthority(); _authority.RevokeConsent(id); }
-    }
-
+    public void SetOwner(ExtensionOwner owner) => WithAuthority(() => _authority.SetOwner(owner));
+    public Guid RecordConsent(ExtensionConsent consent) => WithAuthority(() => _authority.RecordConsent(consent));
+    public void RevokeConsent(Guid id) => WithAuthority(() => _authority.RevokeConsent(id));
     public ExtensionAuthority.Operation Begin(ExtensionOwner owner, string contributionId, string purpose, ExtensionProposal proposal,
-        CancellationToken cancellationToken = default)
-    {
-        lock (_gate) { RequireOperationAuthority(); return _authority.Begin(owner, contributionId, purpose, proposal, cancellationToken); }
-    }
+        CancellationToken cancellationToken = default) =>
+        WithAuthority(() => _authority.Begin(owner, contributionId, purpose, proposal, cancellationToken));
 
-    public ExtensionStaging BindStaging(string rootId, DirectoryInfo privateRoot)
-    {
-        lock (_gate)
-        {
-            RequireOperationAuthority();
-            if (_staging is not null) throw Reject("staging-broker-already-bound");
-            return _staging = new ExtensionStaging(rootId, privateRoot);
-        }
-    }
+    public ExtensionStaging BindStaging(string rootId, DirectoryInfo privateRoot) => WithAuthority(() =>
+        _staging is not null ? throw Reject("staging-broker-already-bound") : _staging = new ExtensionStaging(rootId, privateRoot));
 
-    internal ExtensionDocumentBroker BindDocumentReader(IExtensionDocumentCustodian custodian)
-    {
-        lock (_gate)
-        {
-            RequireOperationAuthority();
-            if (_documentReader is not null) throw Reject("document-read-broker-already-bound");
-            return _documentReader = new ExtensionDocumentBroker(custodian);
-        }
-    }
+    internal ExtensionDocumentBroker BindDocumentReader(IExtensionDocumentCustodian custodian) => WithAuthority(() =>
+        _documentReader is not null ? throw Reject("document-read-broker-already-bound") : _documentReader = new ExtensionDocumentBroker(custodian));
+
+    private T WithAuthority<T>(Func<T> action) { lock (_gate) { RequireOperationAuthority(); return action(); } }
+    private void WithAuthority(Action action) { lock (_gate) { RequireOperationAuthority(); action(); } }
+    private void WithMutable(CancellationToken ct, Action action) { lock (_gate) { RequireMutablePackage(ct); action(); } }
 
     private IDisposable RetainBrokerScope(object broker)
     {
@@ -297,11 +256,7 @@ public sealed class ExtensionInstallationStore : IDisposable
         if (installation is not { Active: true } || installation.PackageIdentity != package.Identity)
             throw Reject("activation-no-longer-current");
         try { ReadPackage(installation, cancellationToken); }
-        catch (ExtensionRejectedException)
-        {
-            _authority.Deactivate(installation.Id);
-            throw;
-        }
+        catch (ExtensionRejectedException) { _authority.Deactivate(installation.Id); throw; }
     }
 
     private VerifiedExtensionPackage ReadPackage(Installation installation, CancellationToken cancellationToken)
@@ -317,10 +272,7 @@ public sealed class ExtensionInstallationStore : IDisposable
                 ExtensionInstalledVersion.From(package) != installation.Version) throw Reject("installed-package-identity");
             return package;
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-        {
-            throw Reject("installed-package-unavailable");
-        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { throw Reject("installed-package-unavailable"); }
     }
 
     private void Put(string name, byte[] bytes, string digest, CancellationToken cancellationToken)
@@ -328,8 +280,7 @@ public sealed class ExtensionInstallationStore : IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var known = ExtensionDisk.Read(_root, name, bytes.Length, cancellationToken);
-            if (Digest(known) != digest) throw Reject("installed-file-digest");
+            if (Digest(ExtensionDisk.Read(_root, name, bytes.Length, cancellationToken)) != digest) throw Reject("installed-file-digest");
         }
         catch (FileNotFoundException) { ExtensionDisk.Publish(_root, name, bytes, overwrite: false); }
     }
@@ -339,14 +290,9 @@ public sealed class ExtensionInstallationStore : IDisposable
         RequireOpen();
         try
         {
-            var bytes = ReadLedger(cancellationToken);
-            if (Digest(bytes) != _checkpoint.Digest) throw Reject("activation-ledger-drift");
+            if (Digest(ReadLedger(cancellationToken)) != _checkpoint.Digest) throw Reject("activation-ledger-drift");
         }
-        catch (ExtensionRejectedException)
-        {
-            _poisoned = true;
-            throw;
-        }
+        catch (ExtensionRejectedException) { _poisoned = true; throw; }
     }
 
     private byte[] ReadLedger(CancellationToken cancellationToken)
@@ -356,10 +302,7 @@ public sealed class ExtensionInstallationStore : IDisposable
             ExtensionDisk.ValidatePrivateRoot(new(_root));
             return ExtensionDisk.Read(_root, LedgerName, LedgerBytes, cancellationToken);
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
-        {
-            throw Reject("activation-ledger-unavailable");
-        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { throw Reject("activation-ledger-unavailable"); }
     }
 
     private (Ledger Ledger, ExtensionCheckpoint Checkpoint) Load(CancellationToken cancellationToken)
@@ -367,8 +310,8 @@ public sealed class ExtensionInstallationStore : IDisposable
         var bytes = ReadLedger(cancellationToken);
         if (bytes.Length <= TagBytes) throw Reject("activation-ledger-authentication");
         var data = bytes.AsSpan(TagBytes);
-        var expected = HMACSHA256.HashData(_key, data);
-        if (!CryptographicOperations.FixedTimeEquals(expected, bytes.AsSpan(0, TagBytes))) throw Reject("activation-ledger-authentication");
+        if (!CryptographicOperations.FixedTimeEquals(HMACSHA256.HashData(_key, data), bytes.AsSpan(0, TagBytes)))
+            throw Reject("activation-ledger-authentication");
         Ledger ledger;
         try { ledger = JsonSerializer.Deserialize<Ledger>(data, Json) ?? throw Reject("activation-ledger-shape"); }
         catch (JsonException) { throw Reject("activation-ledger-shape"); }
@@ -392,11 +335,7 @@ public sealed class ExtensionInstallationStore : IDisposable
         HMACSHA256.HashData(_key, data, bytes.AsSpan(0, TagBytes));
         data.CopyTo(bytes, TagBytes);
         try { ExtensionDisk.Publish(_root, LedgerName, bytes, overwrite); }
-        catch
-        {
-            _poisoned = true; // A failed durability acknowledgment can follow a successful rename.
-            throw;
-        }
+        catch { _poisoned = true; throw; } // A failed durability acknowledgment can follow a successful rename.
         return new(ledger.Sequence, Digest(bytes));
     }
 

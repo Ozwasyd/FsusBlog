@@ -8,13 +8,8 @@ import ArticleLibrarySaved from './ArticleLibrarySaved.vue'
 import { identityEpoch } from '../authorSession'
 
 const props = defineProps<{
-  articleId?: number
-  articleRevision?: bigint
-  recentOpensVersion: number
-  disabled: boolean
-  activate: (id: number) => Promise<boolean>
-  dockTarget?: HTMLElement
-  fallbackOpener?: () => HTMLElement | null
+  articleId?: number; articleRevision?: bigint; recentOpensVersion: number; disabled: boolean
+  activate: (id: number) => Promise<boolean>; dockTarget?: HTMLElement; fallbackOpener?: () => HTMLElement | null
 }>()
 const emit = defineEmits<{ visibility: [open: boolean] }>()
 
@@ -129,30 +124,12 @@ defineExpose({ open, close, toggle, visible })
 
 <template>
   <div v-if="!compact" class="library-rail">
-    <ElButton
-      ref="launcherBtn"
-      class="library-launcher"
-      text
-      size="small"
-      :bg="visible"
-      :type="visible ? 'primary' : 'default'"
-      native-type="button"
-      v-bind="{
-        'aria-expanded': visible,
-        'aria-controls': paneId,
-      }"
-      @click="toggle"
-    >{{ title }}</ElButton>
+    <ElButton ref="launcherBtn" class="library-launcher" text size="small" :bg="visible" :type="visible ? 'primary' : 'default'"
+      native-type="button" v-bind="{ 'aria-expanded': visible, 'aria-controls': paneId }" @click="toggle">{{ title }}</ElButton>
   </div>
   <Teleport v-if="!compact" :to="dockTarget ?? 'body'" :disabled="!dockTarget">
-    <aside
-      v-show="visible"
-      :id="sectionId"
-      class="library-pane"
-      :class="{ 'library-pane--docked': Boolean(dockTarget) }"
-      :aria-label="title"
-      @keydown.esc.stop.prevent="close()"
-    >
+    <aside v-show="visible" :id="sectionId" class="library-pane" :class="{ 'library-pane--docked': Boolean(dockTarget) }"
+      :aria-label="title" @keydown.esc.stop.prevent="close()">
       <header class="library-pane__header">
         <h2>{{ title }}</h2>
         <ElButton text size="small" native-type="button" @click="close()">{{ t('author.articleLibraryRail.close.library') }}</ElButton>
@@ -173,8 +150,7 @@ defineExpose({ open, close, toggle, visible })
         <button v-if="pinnedAvailable" type="button" :aria-pressed="mode === 'pinned'" @click="mode = 'pinned'">{{ t('author.savedViewPanel.pinned.views') }}</button>
       </div>
       <div v-show="mode === 'all'">
-        <ArticleLibraryResults ref="results" :article-id="articleId" :article-revision="articleRevision"
-          :disabled="disabled" @open="activate" />
+        <ArticleLibraryResults ref="results" :article-id="articleId" :article-revision="articleRevision" :disabled="disabled" @open="activate" />
       </div>
       <ArticleLibraryRecent :active="mode === 'recent'" :version="recentOpensVersion" :article-id="articleId" :disabled="disabled"
         @supported="recentSupport" @open="activate" />
@@ -184,89 +160,15 @@ defineExpose({ open, close, toggle, visible })
 </template>
 
 <style scoped>
-.library-rail {
-  display: inline-flex;
-  align-items: center;
-}
-.library-pane {
-  position: absolute;
-  z-index: 15;
-  inset-block-start: calc(100% + var(--fsus-space-2));
-  inset-inline-start: 0;
-  inline-size: min(23rem, calc(100vw - 4rem));
-  max-block-size: min(38rem, 62dvh);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
-  border: 1px solid var(--fsus-border);
-  border-radius: var(--fsus-radius-panel);
-  background: var(--fsus-paper);
-}
-.library-pane--docked {
-  position: static;
-  z-index: auto;
-  inset: auto;
-  inline-size: 17rem;
-  block-size: 100%;
-  max-block-size: none;
-  border: 0;
-  border-inline-end: 1px solid var(--fsus-border);
-  border-radius: 0;
-}
-.library-pane__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--fsus-space-2);
-  padding: var(--fsus-space-3) var(--fsus-space-4);
-  border-block-end: 1px solid var(--fsus-border);
-}
-.library-pane__header h2 {
-  font-size: var(--fsus-typography-heading-sm-size);
-  font-weight: 600;
-  margin: 0;
-}
-.library-pane__body {
-  min-block-size: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  padding: var(--fsus-space-3);
-}
-.library-modes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .25rem;
-  margin-block: 0 var(--fsus-space-3);
-  padding: .2rem;
-  border: 1px solid var(--fsus-border);
-  border-radius: var(--fsus-radius-control);
-  background: var(--fsus-page);
-}
-.library-modes button {
-  flex: 1 1 auto;
-  min-block-size: 2rem;
-  padding-inline: var(--fsus-space-2);
-  border: 0;
-  border-radius: var(--fsus-radius-control-small);
-  background: transparent;
-  color: var(--fsus-color-text-muted);
-  font: inherit;
-  font-size: .8125rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-.library-modes button:hover {
-  color: var(--fsus-ink);
-}
-.library-modes button[aria-pressed='true'] {
-  background: var(--fsus-paper);
-  color: var(--fsus-ink);
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
-}
-.library-modes button:focus-visible {
-  outline: 2px solid var(--fsus-color-action-primary);
-  outline-offset: -2px;
-}
+.library-rail { display: inline-flex; align-items: center; }
+.library-pane { position: absolute; z-index: 15; inset-block-start: calc(100% + var(--fsus-space-2)); inset-inline-start: 0; inline-size: min(23rem, calc(100vw - 4rem)); max-block-size: min(38rem, 62dvh); display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-panel); background: var(--fsus-paper); }
+.library-pane--docked { position: static; z-index: auto; inset: auto; inline-size: 17rem; block-size: 100%; max-block-size: none; border: 0; border-inline-end: 1px solid var(--fsus-border); border-radius: 0; }
+.library-pane__header { display: flex; align-items: center; justify-content: space-between; gap: var(--fsus-space-2); padding: var(--fsus-space-3) var(--fsus-space-4); border-block-end: 1px solid var(--fsus-border); }
+.library-pane__header h2 { font-size: var(--fsus-typography-heading-sm-size); font-weight: 600; margin: 0; }
+.library-pane__body { min-block-size: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: var(--fsus-space-3); }
+.library-modes { display: flex; flex-wrap: wrap; gap: .25rem; margin-block: 0 var(--fsus-space-3); padding: .2rem; border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-control); background: var(--fsus-page); }
+.library-modes button { flex: 1 1 auto; min-block-size: 2rem; padding-inline: var(--fsus-space-2); border: 0; border-radius: var(--fsus-radius-control-small); background: transparent; color: var(--fsus-color-text-muted); font: inherit; font-size: .8125rem; font-weight: 500; cursor: pointer; }
+.library-modes button:hover { color: var(--fsus-ink); }
+.library-modes button[aria-pressed='true'] { background: var(--fsus-paper); color: var(--fsus-ink); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 6%); }
+.library-modes button:focus-visible { outline: 2px solid var(--fsus-color-action-primary); outline-offset: -2px; }
 </style>

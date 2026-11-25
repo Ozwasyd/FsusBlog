@@ -283,30 +283,31 @@ func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, publish
 		req.Header.Set("Accept-Encoding", "identity")
 		return client.Do(req)
 	}
-	readPage := func(response *http.Response) ([]byte, error) {
+	fetchPage := func(query string) (*http.Response, []byte, error) {
+		response, err := request(http.MethodGet, query)
+		if err != nil {
+			return nil, nil, err
+		}
 		defer response.Body.Close()
 		if response.Proto != "HTTP/1.1" || response.Header.Get("Cache-Control") != "no-store" || !checkMediaAndEncoding(response, "application/octet-stream") {
-			return nil, errors.New("unexpected corpus protocol, cache policy or media type")
+			return nil, nil, errors.New("unexpected corpus protocol, cache policy or media type")
 		}
 		limit := min(pageBytes, totalBytes-evidence.Bytes)
 		if response.StatusCode != http.StatusOK {
 			limit = 4096
 		}
 		if response.ContentLength > int64(limit) {
-			return nil, errors.New("corpus response exceeds its byte budget")
+			return nil, nil, errors.New("corpus response exceeds its byte budget")
 		}
-		return readBoundedBody(response.Body, limit)
+		body, err := readBoundedBody(response.Body, limit)
+		return response, body, err
 	}
 	for page := 1; ; page++ {
 		path := "?page=" + strconv.Itoa(page)
 		if page > 1 {
 			path += "&generation=" + observed
 		}
-		response, err := request(http.MethodGet, path)
-		if err != nil {
-			return fmt.Errorf("search corpus page %d: %w", page, err)
-		}
-		body, err := readPage(response)
+		response, body, err := fetchPage(path)
 		if err != nil {
 			return fmt.Errorf("search corpus page %d: %w", page, err)
 		}

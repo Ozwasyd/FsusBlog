@@ -12,43 +12,17 @@ const scopeId = /^[a-zA-Z0-9:./_@-]{1,256}$/
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/
 const digestHex = /^[0-9a-f]{64}$/
 
-export interface DraftJournalScope {
-  readonly site: string
-  readonly userId: string
-}
-
-export type DraftTarget =
-  | Readonly<{ articleId: number }>
-  | Readonly<{ createDraftId: string }>
-
-export interface JournalSource {
-  readonly title: string
-  readonly body: string
-}
-
-export interface PendingSource extends JournalSource {
-  readonly baseRevision: bigint
-  readonly editSequence: number
-}
-
+export interface DraftJournalScope { readonly site: string; readonly userId: string }
+export type DraftTarget = Readonly<{ articleId: number }> | Readonly<{ createDraftId: string }>
+export interface JournalSource { readonly title: string; readonly body: string }
+export interface PendingSource extends JournalSource { readonly baseRevision: bigint; readonly editSequence: number }
 export type RecoveryCandidate = Readonly<PendingSource & {
-  readonly writer: string
-  readonly updatedAt: number
-  readonly expiresAt: number
-  readonly relationship: 'restore' | 'compare'
-  readonly target?: DraftTarget
+  readonly writer: string; readonly updatedAt: number; readonly expiresAt: number
+  readonly relationship: 'restore' | 'compare'; readonly target?: DraftTarget
 }>
-
 type RecoveryRecord = PendingSource & DraftJournalScope & {
-  key: [string, string, string, string]
-  document: string
-  writer: string
-  version: 1
-  digest: string
-  createdAt: number
-  updatedAt: number
-  expiresAt: number
-  bytes: number
+  key: [string, string, string, string]; document: string; writer: string; version: 1
+  digest: string; createdAt: number; updatedAt: number; expiresAt: number; bytes: number
 }
 
 type Admission = 'stored' | 'stale' | 'full' | 'closed'

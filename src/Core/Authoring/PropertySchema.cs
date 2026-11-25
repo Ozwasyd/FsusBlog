@@ -57,34 +57,25 @@ public sealed partial class PropertySchema
             throw PropertyValues.Invalid("scope");
     }
 
-    private PropertySchema(PropertyScope scope, long revision, ImmutableDictionary<Guid, PropertyDefinition> definitions)
-    {
-        Scope = scope;
-        Revision = revision;
-        this.definitions = definitions;
-    }
+    private PropertySchema(PropertyScope scope, long revision, ImmutableDictionary<Guid, PropertyDefinition> definitions) =>
+        (Scope, Revision, this.definitions) = (scope, revision, definitions);
 
     public PropertyScope Scope { get; }
     public long Revision { get; }
 
     public PropertyDefinition? Find(Guid id) => definitions.GetValueOrDefault(id);
 
-    public ImmutableArray<PropertyDefinition> Page(string? afterKey, int limit = MaxPageSize, PropertyKind? kind = null)
-    {
-        if (limit is < 1 or > MaxPageSize)
-            throw PropertyValues.Invalid("page-size");
-
-        return definitions.Values.Where(item => item.Status != PropertyStatus.Deleted
+    public ImmutableArray<PropertyDefinition> Page(string? afterKey, int limit = MaxPageSize, PropertyKind? kind = null) =>
+        limit is < 1 or > MaxPageSize ? throw PropertyValues.Invalid("page-size") :
+        definitions.Values.Where(item => item.Status != PropertyStatus.Deleted
                 && (kind is null || item.Settings.Kind == kind)
                 && (afterKey is null || StringComparer.Ordinal.Compare(item.MachineKey, afterKey) > 0))
             .OrderBy(item => item.MachineKey, StringComparer.Ordinal).Take(limit).ToImmutableArray();
-    }
 
     public static PropertySchema Restore(PropertyScope scope, long revision, IEnumerable<PropertyDefinition> snapshot)
     {
         var empty = new PropertySchema(scope);
-        if (revision < 0 || snapshot is null)
-            throw PropertyValues.Invalid("snapshot");
+        if (revision < 0 || snapshot is null) throw PropertyValues.Invalid("snapshot");
 
         var stored = empty.definitions.ToBuilder();
         var keys = new HashSet<string>(StringComparer.Ordinal);
@@ -99,28 +90,18 @@ public sealed partial class PropertySchema
                 || definition.MachineKey != NormalizeKey(definition.MachineKey)
                 || !keys.Add(definition.MachineKey) || stored.ContainsKey(definition.Id))
                 throw PropertyValues.Invalid("snapshot-definition");
-
             if (definition.Status != PropertyStatus.Deleted && ++active > MaxDefinitions)
                 throw PropertyValues.Invalid("schema-budget");
 
-            var canonical = definition with
-            {
-                Names = NormalizeNames(definition.Names),
-                Settings = PropertyValues.NormalizeSettings(definition.Settings)
-            };
+            var canonical = definition with { Names = NormalizeNames(definition.Names), Settings = PropertyValues.NormalizeSettings(definition.Settings) };
             byte[] encoded = PropertyDigests.Encode(canonical);
-            if (encoded.Length > MaxDefinitionBytes)
-                throw PropertyValues.Invalid("definition-budget");
-            if (!encoded.AsSpan().SequenceEqual(PropertyDigests.Encode(definition)))
-                throw PropertyValues.Invalid("snapshot-canonical");
+            if (encoded.Length > MaxDefinitionBytes) throw PropertyValues.Invalid("definition-budget");
+            if (!encoded.AsSpan().SequenceEqual(PropertyDigests.Encode(definition))) throw PropertyValues.Invalid("snapshot-canonical");
 
             stored.Add(canonical.Id, canonical);
             revisionCount += canonical.Revision;
         }
-
-        if (revisionCount != revision)
-            throw PropertyValues.Invalid("snapshot-revision");
-        return new(scope, revision, stored.ToImmutable());
+        return revisionCount != revision ? throw PropertyValues.Invalid("snapshot-revision") : new(scope, revision, stored.ToImmutable());
     }
 
     /// <summary>
@@ -147,24 +128,19 @@ public sealed partial class PropertySchema
             return new(this, replay, Replayed: true);
         }
 
-        if (command.ExpectedSchemaRevision != Revision)
-            throw new PropertySchemaException("schema-conflict");
-
+        if (command.ExpectedSchemaRevision != Revision) throw new PropertySchemaException("schema-conflict");
         var before = Find(change.DefinitionId);
-        if ((before?.Revision ?? 0) != command.ExpectedDefinitionRevision)
-            throw new PropertySchemaException("definition-conflict");
+        if ((before?.Revision ?? 0) != command.ExpectedDefinitionRevision) throw new PropertySchemaException("definition-conflict");
 
         var after = Plan(change, before);
         var canonical = PropertyDigests.Encode(after);
-        if (canonical.Length > MaxDefinitionBytes)
-            throw PropertyValues.Invalid("definition-budget");
+        if (canonical.Length > MaxDefinitionBytes) throw PropertyValues.Invalid("definition-budget");
 
         long? affected = null;
         if (RequiresImpact(before, after))
         {
             affected = countAffected?.Invoke(before, after);
-            if (affected is null or < 0)
-                throw new PropertySchemaException("impact-unavailable");
+            if (affected is null or < 0) throw new PropertySchemaException("impact-unavailable");
             if (affected > 0 && change is not (PropertyChange.Deprecate or PropertyChange.SetFilterable or PropertyChange.SetProjectionFlags))
                 throw new PropertySchemaException("reconciliation-required", affected);
         }

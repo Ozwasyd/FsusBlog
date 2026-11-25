@@ -234,94 +234,55 @@ async function advancePage(index: number) {
 <template>
   <nav v-if="tabs.length" ref="root" class="workspace-tabs" :aria-label="t('author.workspaceTabs.article.tabs')" @focusout="leaveOverflow">
     <div v-if="!compact" ref="list" class="workspace-tabs__list" role="tablist" :aria-label="t('author.workspaceTabs.open.articles')" aria-orientation="horizontal">
-      <div
-        v-for="tab in visible"
-        :key="tab.sessionId"
-        class="workspace-tabs__item"
-        :class="{ selected: tab.active }"
-        role="presentation"
-      >
-        <button
-          :id="id(tab)" type="button" role="tab" class="workspace-tabs__tab"
-          :aria-label="tabLabel(tab)" :aria-selected="tab.active"
-          :aria-controls="tab.active ? 'workspace-editor' : undefined"
-          :aria-disabled="cannotActivate(tab) || undefined"
-          :tabindex="focusableTab?.sessionId === tab.sessionId ? 0 : -1"
-          @focus="focused = tab.sessionId"
-          @click="activate(tab)"
-          @dblclick="tab.mode === 'preview' && pin(tab)" @auxclick="middleClick($event, tab)" @keydown="tabKeys($event, tab)"
-        >
+      <div v-for="tab in visible" :key="tab.sessionId" class="workspace-tabs__item" :class="{ selected: tab.active }" role="presentation">
+        <button :id="id(tab)" type="button" role="tab" class="workspace-tabs__tab"
+          :aria-label="tabLabel(tab)" :aria-selected="tab.active" :aria-controls="tab.active ? 'workspace-editor' : undefined"
+          :aria-disabled="cannotActivate(tab) || undefined" :tabindex="focusableTab?.sessionId === tab.sessionId ? 0 : -1"
+          @focus="focused = tab.sessionId" @click="activate(tab)"
+          @dblclick="tab.mode === 'preview' && pin(tab)" @auxclick="middleClick($event, tab)" @keydown="tabKeys($event, tab)">
           <span :title="title(tab)" class="workspace-tabs__title">{{ title(tab) }}</span>
           <span class="workspace-tabs__status">{{ status(tab) }}</span>
         </button>
-        <button
-          v-if="tab.risk !== 'blocked'"
-          type="button" class="workspace-tabs__action" :aria-label="pinLabel(tab)"
-          :aria-pressed="tab.mode === 'pinned'" :disabled="cannotPin(tab)"
-          :tabindex="tab.active ? 0 : -1" @click="pin(tab)"
-        >
+        <button v-if="tab.risk !== 'blocked'" type="button" class="workspace-tabs__action" :aria-label="pinLabel(tab)"
+          :aria-pressed="tab.mode === 'pinned'" :disabled="cannotPin(tab)" :tabindex="tab.active ? 0 : -1" @click="pin(tab)">
           {{ tab.mode === 'pinned' ? t('author.workspaceTabs.unpin') : t('author.workspaceTabs.pin') }}
         </button>
-        <button
-          type="button" class="workspace-tabs__action workspace-tabs__close"
+        <button type="button" class="workspace-tabs__action workspace-tabs__close"
           :aria-label="t('author.workspaceTabs.close.article', { title: title(tab) })" :disabled="disabled"
-          :tabindex="tab.active ? 0 : -1" @click="close(tab)"
-        >
+          :tabindex="tab.active ? 0 : -1" @click="close(tab)">
           <span aria-hidden="true">×</span>
         </button>
       </div>
     </div>
-    <button
-      v-if="compact || tabs.length > 1"
-      ref="trigger" type="button" class="workspace-tabs__trigger"
-      :class="{ 'workspace-tabs__trigger--compact': compact }"
-      :id="compact ? 'workspace-mobile-tab' : undefined"
+    <button v-if="compact || tabs.length > 1" ref="trigger" type="button" class="workspace-tabs__trigger"
+      :class="{ 'workspace-tabs__trigger--compact': compact }" :id="compact ? 'workspace-mobile-tab' : undefined"
       :aria-label="compact ? t('author.workspaceTabs.switch.article.tab') : undefined" :aria-expanded="open"
-      :aria-describedby="compact ? 'workspace-mobile-current' : undefined"
-      :aria-controls="open ? 'workspace-tabs-overflow' : undefined"
-      @click="toggleOverflow"
-      @keydown.esc.prevent="closeOverflow"
-    >
+      :aria-describedby="compact ? 'workspace-mobile-current' : undefined" :aria-controls="open ? 'workspace-tabs-overflow' : undefined"
+      @click="toggleOverflow" @keydown.esc.prevent="closeOverflow">
       <template v-if="compact">
         <span id="workspace-mobile-current" class="workspace-tabs__title">{{ selected ? title(selected) : t('author.workspaceTabs.select.an.open.article') }}</span>
         <span v-if="selected" class="workspace-tabs__status">{{ status(selected) }}</span>
       </template>
       <template v-else>{{ t('author.workspaceTabs.more.tabs', { p0: String(tabs.length) }) }}</template>
     </button>
-    <section
-      v-if="open" id="workspace-tabs-overflow" ref="overflow"
-      class="workspace-tabs__overflow"
-      :class="{ 'workspace-tabs__overflow--compact': compact }"
-      :aria-label="t('author.workspaceTabs.article.tabs')"
-      @keydown="overflowKeys"
-    >
+    <section v-if="open" id="workspace-tabs-overflow" ref="overflow" class="workspace-tabs__overflow"
+      :class="{ 'workspace-tabs__overflow--compact': compact }" :aria-label="t('author.workspaceTabs.article.tabs')" @keydown="overflowKeys">
       <div v-for="tab in overflowTabs" :key="tab.sessionId" class="workspace-tabs__row">
-        <button
-          type="button" class="workspace-tabs__tab workspace-tabs__choice"
-          :aria-label="tabLabel(tab)" :aria-current="tab.active || undefined"
-          :aria-disabled="cannotActivate(tab) || undefined"
-          @click="activateFromOverflow(tab)"
-          @auxclick="middleClick($event, tab)" @keydown.delete.prevent="close(tab)"
-        >
+        <button type="button" class="workspace-tabs__tab workspace-tabs__choice" :aria-label="tabLabel(tab)"
+          :aria-current="tab.active || undefined" :aria-disabled="cannotActivate(tab) || undefined"
+          @click="activateFromOverflow(tab)" @auxclick="middleClick($event, tab)" @keydown.delete.prevent="close(tab)">
           <span :title="title(tab)" class="workspace-tabs__title">{{ title(tab) }}</span>
           <span class="workspace-tabs__status">{{ status(tab) }}</span>
         </button>
-        <button
-          v-if="tab.risk !== 'blocked'"
-          type="button" class="workspace-tabs__action"
-          :aria-label="pinLabel(tab)" :aria-pressed="tab.mode === 'pinned'" :disabled="cannotPin(tab)" @click="pin(tab)"
-        >
+        <button v-if="tab.risk !== 'blocked'" type="button" class="workspace-tabs__action" :aria-label="pinLabel(tab)"
+          :aria-pressed="tab.mode === 'pinned'" :disabled="cannotPin(tab)" @click="pin(tab)">
           {{ tab.mode === 'pinned' ? t('author.workspaceTabs.unpin') : t('author.workspaceTabs.pin') }}
         </button>
         <ElButton v-if="canMoveBackground?.(tab)" text native-type="button"
           v-bind="{ 'aria-label': t('author.workspaceTabs.move.article.group', { title: title(tab), group: tab.group === 'main' ? t('author.workspaceTabs.secondary') : t('author.workspaceTabs.primary') }) }"
           @click="moveBackground(tab)">{{ t('author.workspaceTabs.move') }}</ElButton>
-        <button
-          type="button" class="workspace-tabs__action"
-          :aria-label="t('author.workspaceTabs.close.article', { title: title(tab) })" :disabled="disabled" @click="close(tab)"
-        >
-          {{ t('comment.close') }}
-        </button>
+        <button type="button" class="workspace-tabs__action" :aria-label="t('author.workspaceTabs.close.article', { title: title(tab) })"
+          :disabled="disabled" @click="close(tab)">{{ t('comment.close') }}</button>
       </div>
       <div v-if="pageCount > 1" class="workspace-tabs__pages">
         <ElButton text :disabled="page === 0" @click="advancePage(page - 1)">{{ t('author.workspaceTabs.previous.tabs') }}</ElButton>
@@ -333,153 +294,31 @@ async function advancePage(index: number) {
 </template>
 
 <style scoped>
-.workspace-tabs {
-  position: relative;
-  display: flex;
-  flex: 1 1 auto;
-  min-width: 0;
-  align-items: center;
-  gap: var(--fsus-space-2, .5rem);
-  margin: 0;
-}
-
-.workspace-tabs__list {
-  display: flex;
-  flex: 1 1 auto;
-  min-width: 0;
-  align-items: stretch;
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
-  scrollbar-width: thin;
-}
-
-.workspace-tabs__item,
-.workspace-tabs__row {
-  display: flex;
-  min-width: 0;
-  align-items: stretch;
-}
-
-.workspace-tabs__item {
-  min-width: 10rem;
-  max-width: 17rem;
-  flex: 0 0 14rem;
-  border-block-end: 2px solid transparent;
-}
-
-.workspace-tabs__item.selected {
-  border-block-end-color: var(--fsus-color-action-primary);
-}
-
-.workspace-tabs__tab,
-.workspace-tabs__action,
-.workspace-tabs__trigger {
-  min-block-size: var(--fsus-control-height-compact, 2rem);
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
-.workspace-tabs__tab,
-.workspace-tabs__trigger--compact {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: .5rem;
-  padding: .35rem .6rem;
-  text-align: start;
-}
-
+.workspace-tabs { position: relative; display: flex; flex: 1 1 auto; min-width: 0; align-items: center; gap: var(--fsus-space-2, .5rem); margin: 0; }
+.workspace-tabs__list { display: flex; flex: 1 1 auto; min-width: 0; align-items: stretch; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+.workspace-tabs__item, .workspace-tabs__row { display: flex; min-width: 0; align-items: stretch; }
+.workspace-tabs__item { min-width: 10rem; max-width: 17rem; flex: 0 0 14rem; border-block-end: 2px solid transparent; }
+.workspace-tabs__item.selected { border-block-end-color: var(--fsus-color-action-primary); }
+.workspace-tabs__tab, .workspace-tabs__action, .workspace-tabs__trigger { min-block-size: var(--fsus-control-height-compact, 2rem); border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.workspace-tabs__tab, .workspace-tabs__trigger--compact { display: flex; min-width: 0; align-items: center; gap: .5rem; padding: .35rem .6rem; text-align: start; }
 .workspace-tabs__tab { flex: 1 1 auto; }
-
-.workspace-tabs__title {
-  min-width: 0;
-  overflow: hidden;
-  font-size: .875rem;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workspace-tabs__status,
-.workspace-tabs__action,
-.workspace-tabs__pages {
-  flex: 0 0 auto;
-  color: var(--fsus-color-text-muted);
-  font-size: .75rem;
-  white-space: nowrap;
-}
-
-.workspace-tabs__action,
-.workspace-tabs__trigger { padding-inline: .5rem; }
-
+.workspace-tabs__title { min-width: 0; overflow: hidden; font-size: .875rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-tabs__status, .workspace-tabs__action, .workspace-tabs__pages { flex: 0 0 auto; color: var(--fsus-color-text-muted); font-size: .75rem; white-space: nowrap; }
+.workspace-tabs__action, .workspace-tabs__trigger { padding-inline: .5rem; }
 .workspace-tabs__close { font-size: 1.125rem; }
-
-.workspace-tabs__trigger {
-  flex: 0 0 auto;
-  font-size: .875rem;
-  white-space: nowrap;
-}
-
-.workspace-tabs__trigger--compact {
-  inline-size: 100%;
-  justify-content: space-between;
-  border: 1px solid var(--fsus-border);
-  border-radius: var(--fsus-radius-navigation, .5rem);
-}
-
-.workspace-tabs__action:disabled,
-.workspace-tabs__tab[aria-disabled='true'] {
-  opacity: .65;
-  cursor: default;
-}
-
-.workspace-tabs button:focus-visible {
-  outline: 2px solid var(--fsus-color-focus-ring, var(--fsus-color-action-primary));
-  outline-offset: -2px;
-}
-
-.workspace-tabs__overflow {
-  position: absolute;
-  inset-block-start: calc(100% + .25rem);
-  inset-inline-end: 0;
-  z-index: 2;
-  inline-size: min(26rem, 100%);
-  max-block-size: min(60dvh, 24rem);
-  overflow: auto;
-  overscroll-behavior: contain;
-  border: 1px solid var(--fsus-border);
-  border-radius: var(--fsus-radius-popover, .5rem);
-  background: var(--fsus-page);
-  box-shadow: var(--fsus-shadow-popover, none);
-}
-
+.workspace-tabs__trigger { flex: 0 0 auto; font-size: .875rem; white-space: nowrap; }
+.workspace-tabs__trigger--compact { inline-size: 100%; justify-content: space-between; border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-navigation, .5rem); }
+.workspace-tabs__action:disabled, .workspace-tabs__tab[aria-disabled='true'] { opacity: .65; cursor: default; }
+.workspace-tabs button:focus-visible { outline: 2px solid var(--fsus-color-focus-ring, var(--fsus-color-action-primary)); outline-offset: -2px; }
+.workspace-tabs__overflow { position: absolute; inset-block-start: calc(100% + .25rem); inset-inline-end: 0; z-index: 2; inline-size: min(26rem, 100%); max-block-size: min(60dvh, 24rem); overflow: auto; overscroll-behavior: contain; border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-popover, .5rem); background: var(--fsus-page); box-shadow: var(--fsus-shadow-popover, none); }
 .workspace-tabs__row + .workspace-tabs__row { border-block-start: 1px solid var(--fsus-border); }
 .workspace-tabs__row .workspace-tabs__tab { justify-content: space-between; }
-
-.workspace-tabs__pages {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-inline: .25rem;
-}
-
+.workspace-tabs__pages { display: flex; justify-content: space-between; align-items: center; padding-inline: .25rem; }
 @media (width <= 1023px) {
   .workspace-tabs { display: block; border: 0; }
-
-  .workspace-tabs__overflow--compact {
-    position: static;
-    width: 100%;
-    margin-block-start: .25rem;
-  }
-
-  .workspace-tabs__trigger,
-  .workspace-tabs__row .workspace-tabs__tab,
-  .workspace-tabs__row .workspace-tabs__action { min-block-size: 2.75rem; }
+  .workspace-tabs__overflow--compact { position: static; width: 100%; margin-block-start: .25rem; }
+  .workspace-tabs__trigger, .workspace-tabs__row .workspace-tabs__tab, .workspace-tabs__row .workspace-tabs__action { min-block-size: 2.75rem; }
 }
-
 @media (forced-colors: active) {
   .workspace-tabs__item.selected { border-block-end-color: Highlight; }
   .workspace-tabs button:focus-visible { outline-color: Highlight; }

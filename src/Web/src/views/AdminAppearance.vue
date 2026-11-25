@@ -239,52 +239,11 @@ const requests = useAdminRequests(() => props.sessionSignal, () => {
 
 <style scoped lang="scss">
 @use '../shared-fields' as fields;
-
-.appearance-status,
-.appearance-active {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-regular);
-}
-
-.appearance-summary {
-  display: grid;
-  gap: 8px;
-}
-
-.appearance-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-}
-
-.appearance-field {
-  display: grid;
-  gap: 6px;
-}
-
-.appearance-field label {
-
-  @include fields.admin-label;
-}
-
-.font-license-text {
-  margin: 0;
-  padding: 12px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-control, 6px);
-  background: var(--fsus-color-surface-raised, var(--el-fill-color-light));
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-extra-small);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-height: 16rem;
-  overflow: auto;
-}
-
-.appearance-history-more {
-  display: flex;
-  justify-content: flex-start;
-}
+.appearance-status, .appearance-active { margin: 0; font-size: var(--el-font-size-small); color: var(--el-text-color-regular); }
+.appearance-summary { display: grid; gap: 8px; }
+.appearance-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.appearance-field { display: grid; gap: 6px; }
+.appearance-field label { @include fields.admin-label; }
+.font-license-text { margin: 0; padding: 12px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-control, 6px); background: var(--fsus-color-surface-raised, var(--el-fill-color-light)); color: var(--el-text-color-secondary); font-size: var(--el-font-size-extra-small); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 16rem; overflow: auto; }
+.appearance-history-more { display: flex; justify-content: flex-start; }
 </style>

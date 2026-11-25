@@ -463,21 +463,16 @@ public static partial class Wire
     private static void BatchDecisionTarget(HashSet<(int, long)> seen, AdminModerationBatchItem row)
     {
         BatchTarget(seen, row.ArticleId, row.CommentId);
-        if (row.ExpectedStatus != 0) throw new ProtocolException("Invalid pending comment status for moderation batch.");
+        Check(row.ExpectedStatus == 0, "Invalid pending comment status for moderation batch.");
         ValidateClaim(row.CommentVersion, row.ClaimGeneration, row.ClaimVersion, row.ClaimToken);
     }
 
-    private static void BatchTarget(HashSet<(int, long)> seen, int article, long comment)
-    {
-        if (article <= 0 || comment <= 0 || !seen.Add((article, comment)))
-            throw new ProtocolException("Invalid or duplicate moderation batch target.");
-    }
+    private static void BatchTarget(HashSet<(int, long)> seen, int article, long comment) =>
+        Check(article > 0 && comment > 0 && seen.Add((article, comment)), "Invalid or duplicate moderation batch target.");
 
-    private static void ValidateBatchDecision(int decision, string reason)
-    {
-        if (decision is not (1 or 2) || reason.Length == 0 || reason != reason.Trim() || reason.Any(char.IsControl))
-            throw new ProtocolException("Invalid comment moderation batch decision.");
-    }
+    private static void ValidateBatchDecision(int decision, string reason) =>
+        Check(decision is 1 or 2 && reason.Length != 0 && reason == reason.Trim() && !reason.Any(char.IsControl),
+            "Invalid comment moderation batch decision.");
 
     private static int BatchCount(int count) => count is >= AdminModerationBatchMinimum and <= AdminModerationBatchCount
         ? count : throw new ProtocolException("Invalid comment moderation batch size.");
@@ -486,27 +481,20 @@ public static partial class Wire
 
     internal static void Validate(AdminReaderAccountPage value)
     {
-        if (value is null || value.Items is null ||
-            value.Total < 0 || value.EnabledTotal < 0 || value.DisabledTotal < 0 ||
-            value.Total > value.EnabledTotal + value.DisabledTotal ||
-            value.Items.Count > AdminReaderPageSize || value.NextCursorAccountId < 0 ||
-            (value.HasMore ? value.NextCursorUserId == Guid.Empty || value.Items.Count == 0
-                : value.NextCursorAccountId != 0 || value.NextCursorUserId != Guid.Empty))
-            throw new ProtocolException("Invalid administrator reader account page.");
-
+        Check(value is { Items: not null } && value.Total >= 0 && value.EnabledTotal >= 0 && value.DisabledTotal >= 0 &&
+            value.Total <= value.EnabledTotal + value.DisabledTotal && value.Items.Count <= AdminReaderPageSize &&
+            value.NextCursorAccountId >= 0 &&
+            (value.HasMore ? value.NextCursorUserId != Guid.Empty && value.Items.Count != 0
+                : value.NextCursorAccountId == 0 && value.NextCursorUserId == Guid.Empty),
+            "Invalid administrator reader account page.");
         foreach (var item in value.Items)
-        {
-            if (item is null || item.UserId == Guid.Empty || item.AccountId < 0 ||
-                string.IsNullOrEmpty(item.Name) || item.Generation <= 0 ||
-                item.PasskeyCount < 0 || item.ActiveSessionCount < 0 || item.CommentCount < 0 ||
-                item.RegisteredAtUnixMs is < 0 or > MaxReaderUnixMs ||
-                item.LastUsedAtUnixMs is < 0 or > MaxReaderUnixMs ||
-                item.LastGovernanceAtUnixMs is < 0 or > MaxReaderUnixMs ||
-                (item.LastGovernanceAtUnixMs == 0
-                    ? item.LastGovernanceActor.Length > 0 || item.LastGovernanceReason.Length > 0
-                    : item.LastGovernanceActor.Length == 0 || item.LastGovernanceReason.Length == 0))
-                throw new ProtocolException("Invalid administrator reader account entry.");
-        }
+            Check(item is not null && item.UserId != Guid.Empty && item.AccountId >= 0 && !string.IsNullOrEmpty(item.Name) &&
+                item.Generation > 0 && item.PasskeyCount >= 0 && item.ActiveSessionCount >= 0 && item.CommentCount >= 0 &&
+                item.RegisteredAtUnixMs is >= 0 and <= MaxReaderUnixMs && item.LastUsedAtUnixMs is >= 0 and <= MaxReaderUnixMs &&
+                item.LastGovernanceAtUnixMs is >= 0 and <= MaxReaderUnixMs &&
+                (item.LastGovernanceAtUnixMs == 0 ? item.LastGovernanceActor.Length == 0 && item.LastGovernanceReason.Length == 0
+                    : item.LastGovernanceActor.Length != 0 && item.LastGovernanceReason.Length != 0),
+                "Invalid administrator reader account entry.");
     }
 
     internal static void Validate(AdminReaderStatusCommand value) =>

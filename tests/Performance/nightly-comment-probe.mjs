@@ -71,19 +71,16 @@ const assertVisibleAuthor = (author, authorSha) =>
 function compareNode(actual, expected, form) {
   const { id, parent, root, depth, masked, createdAt, contentSha, authorSha } = expected;
   const expectedChildren = descendants(id).length;
-  const moreChildren = form === 'root' ? expectedChildren > 3 : form !== 'flat' && expectedChildren > 0;
   const reply = !masked && parent !== null ? nodes.get(parent) : null;
-  const label = 'Wrong comment projection for ' + id;
-  assert.equal(actual.id, id, label);
-  assert.equal(actual.parentId, parent, label);
-  assert.equal(actual.rootId, root, label);
-  assert.equal(actual.depth, depth, label);
-  assert.equal(actual.deleted, masked, label);
-  assert.equal(actual.createdAt, createdAt, label);
-  assert.equal(actual.edited, false, label);
-  assert.equal(actual.childCount, form === 'flat' ? 0 : expectedChildren, label);
-  assert.equal(actual.moreChildren, moreChildren, label);
-  assert.equal(actual.replyToId, !reply || reply.masked ? null : reply.id, label);
+  assert.deepEqual(
+    { id: actual.id, parentId: actual.parentId, rootId: actual.rootId, depth: actual.depth, deleted: actual.deleted,
+      createdAt: actual.createdAt, edited: actual.edited, childCount: actual.childCount,
+      moreChildren: actual.moreChildren, replyToId: actual.replyToId },
+    { id, parentId: parent, rootId: root, depth, deleted: masked, createdAt, edited: false,
+      childCount: form === 'flat' ? 0 : expectedChildren,
+      moreChildren: form === 'root' ? expectedChildren > 3 : form !== 'flat' && expectedChildren > 0,
+      replyToId: !reply || reply.masked ? null : reply.id },
+    'Wrong comment projection for ' + id);
   if (masked) {
     assert.equal(actual.content, '该回复已删除');
     assert.deepEqual(actual.author, tombstone);

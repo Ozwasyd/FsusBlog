@@ -64,13 +64,7 @@ public sealed class ExtensionAuthority
 
     public void ReplaceTrust(ExtensionPackageVerifier updated)
     {
-        lock (_gate)
-        {
-            _verifier = updated;
-            _trustRevision++;
-            _packages.Clear();
-            _grants.Clear();
-        }
+        lock (_gate) { _verifier = updated; _trustRevision++; _packages.Clear(); _grants.Clear(); }
     }
 
     public VerifiedExtensionPackage Activate(string approvedSource, ReadOnlyMemory<byte> archive, ReadOnlyMemory<byte> signature,
@@ -87,10 +81,7 @@ public sealed class ExtensionAuthority
         }
     }
 
-    internal void RestoreVersion(string id, ExtensionInstalledVersion version)
-    {
-        lock (_gate) _lastActivated.Add(id, version);
-    }
+    internal void RestoreVersion(string id, ExtensionInstalledVersion version) { lock (_gate) _lastActivated.Add(id, version); }
 
     internal VerifiedExtensionPackage ActivateVerified(VerifiedExtensionPackage package, Action<ExtensionInstalledVersion>? persist,
         CancellationToken cancellationToken)
@@ -110,22 +101,17 @@ public sealed class ExtensionAuthority
             if (_lastActivated.TryGetValue(id, out var prior)) prior.RequireCompatible(installed);
             else if (_lastActivated.Count >= 1024) throw Deny("active-package-limit");
             persist?.Invoke(installed);
-            RemoveGrants(id);
+            RemoveGrants(g => g.Scope.ExtensionId == id);
             _packages.Remove(id);
             _lastActivated[id] = installed;
             RequireCurrentTrust(package);
-            _packages[id] = package;
-            return package;
+            return _packages[id] = package;
         }
     }
 
     public void Deactivate(string extensionId)
     {
-        lock (_gate)
-        {
-            _packages.Remove(extensionId);
-            RemoveGrants(extensionId);
-        }
+        lock (_gate) { _packages.Remove(extensionId); RemoveGrants(g => g.Scope.ExtensionId == extensionId); }
     }
 
     public void SetOwner(ExtensionOwner owner)
@@ -143,23 +129,18 @@ public sealed class ExtensionAuthority
             }
             else if (_owners.Count >= 4096) throw Deny("owner-limit");
             _owners[owner.Actor] = owner;
-            foreach (var id in _grants.Where(item => item.Value.Scope.Owner.Actor == owner.Actor).Select(item => item.Key).ToArray())
-                _grants.Remove(id);
+            RemoveGrants(g => g.Scope.Owner.Actor == owner.Actor);
         }
     }
 
-    public void RevokeConsent(Guid consentId)
-    {
-        lock (_gate) _grants.Remove(consentId);
-    }
+    public void RevokeConsent(Guid consentId) { lock (_gate) _grants.Remove(consentId); }
 
     public Guid RecordConsent(ExtensionConsent scope)
     {
         lock (_gate)
         {
             var now = _clock.GetUtcNow();
-            foreach (var expired in _grants.Where(item => item.Value.Scope.ExpiresAt <= now).Select(item => item.Key).ToArray())
-                _grants.Remove(expired);
+            RemoveGrants(g => g.Scope.ExpiresAt <= now);
             if (_grants.Count >= 4096) throw Deny("consent-limit");
 
             if (!_owners.TryGetValue(scope.Owner.Actor, out var owner) || owner != scope.Owner ||
@@ -230,10 +211,9 @@ public sealed class ExtensionAuthority
         if (now < package.CheckedAt || now >= package.ValidUntil) throw Deny("publisher-key-not-current");
     }
 
-    private void RemoveGrants(string extensionId)
+    private void RemoveGrants(Func<Grant, bool> match)
     {
-        foreach (var id in _grants.Where(item => item.Value.Scope.ExtensionId == extensionId).Select(item => item.Key).ToArray())
-            _grants.Remove(id);
+        foreach (var id in _grants.Where(item => match(item.Value)).Select(item => item.Key).ToArray()) _grants.Remove(id);
     }
 
     private static ExtensionRejectedException Deny(string code) => new(code);
@@ -250,18 +230,12 @@ public sealed class ExtensionAuthority
 
         internal Operation(ExtensionAuthority authority, ExtensionProposal proposal, Grant grant)
         {
-            _authority = authority;
-            Proposal = proposal;
-            _grant = grant;
-            _started = authority._clock.GetTimestamp();
+            (_authority, Proposal, _grant, _started) = (authority, proposal, grant, authority._clock.GetTimestamp());
         }
 
         public ExtensionProposal Proposal { get; }
 
-        internal void RequireActive(CancellationToken cancellationToken)
-        {
-            lock (_authority._gate) Check(cancellationToken);
-        }
+        internal void RequireActive(CancellationToken cancellationToken) { lock (_authority._gate) Check(cancellationToken); }
 
         internal BrokerScope BeginStaging(IExtensionStagingBroker broker, CancellationToken cancellationToken) =>
             BeginBroker(broker, "staging-already-started", "staging-installed-scope-required", cancellationToken);
@@ -289,17 +263,9 @@ public sealed class ExtensionAuthority
                         _brokerPending = true;
                         return scope;
                     }
-                    catch
-                    {
-                        budget.Dispose();
-                        throw;
-                    }
+                    catch { budget.Dispose(); throw; }
                 }
-                catch
-                {
-                    Close();
-                    throw;
-                }
+                catch { Close(); throw; }
             }
         }
 
@@ -309,28 +275,25 @@ public sealed class ExtensionAuthority
             {
                 if (Proposal is ExtensionProposal.StageFile) throw Deny("staging-broker-required");
                 if (_brokerPending) throw Deny("operation-broker-pending");
-                try
-                {
-                    Check(cancellationToken, verifyInstalled: true);
-                    publish();
-                }
+                try { Check(cancellationToken, verifyInstalled: true); publish(); }
                 finally { Close(); }
             }
         }
 
-        public void Dispose()
-        {
-            lock (_authority._gate) Close();
-        }
+        public void Dispose() { lock (_authority._gate) Close(); }
 
         private void Check(CancellationToken cancellationToken, bool verifyInstalled = false)
         {
             if (_closed) throw Deny("operation-closed");
-            if (_authority._clock.GetElapsedTime(_started) >= _grant.Package.Manifest.Limits.WallClock)
-                throw Deny("operation-deadline");
+            CheckDeadline();
             _authority.Recheck(Proposal.ConsentId, _grant, cancellationToken, verifyInstalled);
-            if (_authority._clock.GetElapsedTime(_started) >= _grant.Package.Manifest.Limits.WallClock)
-                throw Deny("operation-deadline");
+            CheckDeadline();
+
+            void CheckDeadline()
+            {
+                if (_authority._clock.GetElapsedTime(_started) >= _grant.Package.Manifest.Limits.WallClock)
+                    throw Deny("operation-deadline");
+            }
         }
 
         private void Close()

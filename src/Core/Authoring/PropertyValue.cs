@@ -37,21 +37,11 @@ public sealed record PropertyUrlPolicy(bool AllowHttps = true, bool AllowHttp = 
 public sealed record PropertyReferencePolicy(bool Multiple = false, bool AllowArchived = false,
     bool AllowSelf = false, bool AllowCycles = false);
 
-public sealed record PropertySettings(
-    PropertyKind Kind,
-    PropertyPresence Presence,
-    PropertyValue? Default = null,
-    PropertyTextRange? TextRange = null,
-    PropertyNumberRange? NumberRange = null,
-    PropertyDateRange? DateRange = null,
-    PropertyCountRange? CountRange = null,
-    ImmutableArray<PropertyOption> Options = default,
-    PropertyReferencePolicy? Reference = null,
-    PropertyUrlPolicy? Url = null,
-    bool SearchEligible = false,
-    bool Filterable = false,
-    bool Sortable = false,
-    PropertyPlacement Placement = PropertyPlacement.Hidden,
+public sealed record PropertySettings(PropertyKind Kind, PropertyPresence Presence, PropertyValue? Default = null,
+    PropertyTextRange? TextRange = null, PropertyNumberRange? NumberRange = null, PropertyDateRange? DateRange = null,
+    PropertyCountRange? CountRange = null, ImmutableArray<PropertyOption> Options = default,
+    PropertyReferencePolicy? Reference = null, PropertyUrlPolicy? Url = null, bool SearchEligible = false,
+    bool Filterable = false, bool Sortable = false, PropertyPlacement Placement = PropertyPlacement.Hidden,
     PropertyVisibility Visibility = PropertyVisibility.AuthorOnly);
 
 public readonly record struct PropertyReferenceFacts(string Site, bool MayRead, bool Deleted, bool Archived, bool FormsCycle);
@@ -168,32 +158,24 @@ public static class PropertyValues
         return normalized;
     }
 
-    public static PropertyValue NormalizeFilter(PropertyDefinition definition, PropertyValue value)
-    {
-        if (definition.Status != PropertyStatus.Active || !definition.Settings.Filterable)
-            throw Invalid("filter-unavailable");
-        return NormalizePresent(definition.Settings, value);
-    }
+    public static PropertyValue NormalizeFilter(PropertyDefinition definition, PropertyValue value) =>
+        NormalizePresent(RequireFilterable(definition), value);
 
     public static PropertyValue.MultiSelect NormalizeSelectionAlternatives(PropertyDefinition definition, PropertyValue.MultiSelect value)
     {
-        var settings = definition.Settings;
-        if (definition.Status != PropertyStatus.Active || !settings.Filterable ||
-            settings.Kind is not (PropertyKind.SingleSelect or PropertyKind.MultiSelect))
-            throw Invalid("filter-unavailable");
+        var settings = RequireFilterable(definition);
+        if (settings.Kind is not (PropertyKind.SingleSelect or PropertyKind.MultiSelect)) throw Invalid("filter-unavailable");
         // Alternatives describe a query, so stored-value cardinality and empty policies do not apply.
-        var bounds = new PropertyCountRange(settings.Kind == PropertyKind.SingleSelect ? 1 : 0, settings.Options.Length);
-        return new(ValidateSet(value.OptionIds, bounds, id => IsActive(settings, id)));
+        return new(ValidateSet(value.OptionIds, new(settings.Kind == PropertyKind.SingleSelect ? 1 : 0, settings.Options.Length), id => IsActive(settings, id)));
     }
 
-    public static PropertyValue.ArticleReference NormalizeReferenceAlternatives(PropertyDefinition definition, PropertyValue.ArticleReference value)
-    {
-        if (definition.Status != PropertyStatus.Active || !definition.Settings.Filterable ||
-            definition.Settings.Kind != PropertyKind.ArticleReference)
-            throw Invalid("filter-unavailable");
-        // The candidate set is independent of the stored field's reference cardinality.
-        return new(ValidateSet(value.ArticleIds, null, id => id > 0));
-    }
+    public static PropertyValue.ArticleReference NormalizeReferenceAlternatives(PropertyDefinition definition, PropertyValue.ArticleReference value) =>
+        RequireFilterable(definition).Kind == PropertyKind.ArticleReference
+            ? new(ValidateSet(value.ArticleIds, null, id => id > 0)) // Candidate set is independent of stored cardinality.
+            : throw Invalid("filter-unavailable");
+
+    private static PropertySettings RequireFilterable(PropertyDefinition definition) =>
+        definition.Status == PropertyStatus.Active && definition.Settings.Filterable ? definition.Settings : throw Invalid("filter-unavailable");
 
     private static PropertyValue NormalizePresent(PropertySettings settings, PropertyValue value)
     {
@@ -291,14 +273,8 @@ public static class PropertyValues
 
     private static string NormalizeUnicode(string value, string code)
     {
-        try
-        {
-            return value.Normalize(NormalizationForm.FormC);
-        }
-        catch (ArgumentException)
-        {
-            throw Invalid(code);
-        }
+        try { return value.Normalize(NormalizationForm.FormC); }
+        catch (ArgumentException) { throw Invalid(code); }
     }
 
     internal static PropertyValidationException Invalid(string code) => new(code);

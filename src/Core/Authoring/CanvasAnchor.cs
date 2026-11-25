@@ -42,36 +42,24 @@ public static class CanvasAnchor
             {
                 if (literal.Closes(syntax, fence)) literal = default;
             }
-            else if (fence >= 3)
-            {
-                literal = new(RegionKind.Fence, syntax[0], fence);
-            }
-            else if (currentLine.Start < lastLatexClose && syntax.StartsWith("$$", StringComparison.Ordinal))
-            {
-                literal = new(RegionKind.Latex);
-            }
-            else if (currentLine.Start < lastContainerClose && IsContainerOpen(syntax))
-            {
-                literal = new(RegionKind.Container);
-            }
+            else if (fence >= 3) literal = new(RegionKind.Fence, syntax[0], fence);
+            else if (currentLine.Start < lastLatexClose && syntax.StartsWith("$$", StringComparison.Ordinal)) literal = new(RegionKind.Latex);
+            else if (currentLine.Start < lastContainerClose && IsContainerOpen(syntax)) literal = new(RegionKind.Container);
             else
             {
                 int caret = line.Length - canonicalAnchor.Length - 1;
-                if (caret >= 0 && line[caret] == '^'
-                    && (caret == 0 || line[caret - 1] == ' ')
+                if (caret >= 0 && line[caret] == '^' && (caret == 0 || line[caret - 1] == ' ')
                     && line[(caret + 1)..].SequenceEqual(canonicalAnchor))
                 {
                     // v1 also accepts the single-indented form via its following-line path.
                     // Longer whitespace-only indentation or orphan exclusive lines confer no ownership.
                     bool exclusive = line[0] == '^';
                     var owner = exclusive || caret == 1 ? previous : line[..caret];
-                    bool owns = exclusive ? IsAtomicOwner(previous) : caret == 1 || !Trim(owner).IsEmpty;
-                    if (owns)
+                    if (exclusive ? IsAtomicOwner(previous) : caret == 1 || !Trim(owner).IsEmpty)
                     {
                         if (firstClaim >= 0) return new(CanvasAnchorState.Duplicate, null, null);
                         firstClaim = currentLine.Start + caret;
-                        if (exclusive && IsBareCloser(previous))
-                            owner = beforeLastNonblank.Slice(source);
+                        if (exclusive && IsBareCloser(previous)) owner = beforeLastNonblank.Slice(source);
                         heading = !exclusive && TryHeading(owner, out _);
                         excerpt = PlainExcerpt(TryHeading(TrimStart(owner), out var body) ? body : owner);
                     }
@@ -79,16 +67,10 @@ public static class CanvasAnchor
             }
 
             previousLine = currentLine;
-            if (!Trim(line).IsEmpty)
-            {
-                beforeLastNonblank = lastNonblank;
-                lastNonblank = currentLine;
-            }
+            if (!Trim(line).IsEmpty) (beforeLastNonblank, lastNonblank) = (lastNonblank, currentLine);
         }
 
-        return firstClaim < 0 || requireHeading && !heading
-            ? default
-            : new(CanvasAnchorState.Resolved, excerpt, firstClaim);
+        return firstClaim < 0 || requireHeading && !heading ? default : new(CanvasAnchorState.Resolved, excerpt, firstClaim);
     }
 
     private static (int Latex, int Container) LastClosers(string source, CancellationToken ct)

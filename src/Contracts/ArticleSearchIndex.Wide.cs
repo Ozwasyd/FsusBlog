@@ -312,10 +312,7 @@ public sealed partial class ArticleSearchIndex
                 Select(scores, block.First, candidates, sort, window, ref total, ct);
             }
         }
-        finally
-        {
-            ArrayPool<double>.Shared.Return(scoresBuffer);
-        }
+        finally { ArrayPool<double>.Shared.Return(scoresBuffer); }
         return new(Ordered(candidates, start), total);
     }
 
@@ -336,9 +333,7 @@ public sealed partial class ArticleSearchIndex
                 ct.ThrowIfCancellationRequested();
                 foreach (var block in wide.Blocks) count += FindTerm(block.Terms, (uint)(link / 2)).Count;
             }
-            if (count >= fewest) continue;
-            fewest = count;
-            anchor = links;
+            if (count < fewest) { fewest = count; anchor = links; }
         }
 
         var candidates = new bool[WideBlockDocuments];
@@ -350,21 +345,17 @@ public sealed partial class ArticleSearchIndex
             foreach (var link in new WideLinks(anchor))
             {
                 ct.ThrowIfCancellationRequested();
-                foreach (var posting in new WidePostings(block, (uint)(link / 2), ct))
-                    ordinals[posting.Ordinal] = true;
+                foreach (var posting in new WidePostings(block, (uint)(link / 2), ct)) ordinals[posting.Ordinal] = true;
             }
             for (var ordinal = 0; ordinal < ordinals.Length; ordinal++)
                 if (ordinals[ordinal]) match(block.First + ordinal);
         }
     }
 
-    private ref struct WideLinks
+    private ref struct WideLinks(ReadOnlySpan<byte> bytes)
     {
-        private readonly ReadOnlySpan<byte> _bytes;
-        private int _offset;
-        private int _link;
-
-        internal WideLinks(ReadOnlySpan<byte> bytes) => _bytes = bytes;
+        private readonly ReadOnlySpan<byte> _bytes = bytes;
+        private int _offset, _link;
 
         public readonly WideLinks GetEnumerator() => this;
         public readonly int Current => _link;
@@ -384,9 +375,7 @@ public sealed partial class ArticleSearchIndex
         private readonly byte[] _bytes;
         private readonly CancellationToken _ct;
         private readonly int _count;
-        private int _offset;
-        private int _ordinal;
-        private int _index;
+        private int _offset, _ordinal, _index;
 
         internal WidePostings(WideBlock block, uint source, CancellationToken ct)
         {
@@ -413,34 +402,24 @@ public sealed partial class ArticleSearchIndex
     private static int VarintWidth(int value)
     {
         var width = 1;
-        while (value >= 128)
-        {
-            width++;
-            value >>= 7;
-        }
+        for (; value >= 128; value >>= 7) width++;
         return width;
     }
 
     private static void WriteVarint(Span<byte> bytes, ref int offset, int value)
     {
-        while (value >= 128)
-        {
-            bytes[offset++] = (byte)((value & 127) | 128);
-            value >>= 7;
-        }
+        for (; value >= 128; value >>= 7) bytes[offset++] = (byte)((value & 127) | 128);
         bytes[offset++] = (byte)value;
     }
 
     private static int ReadVarint(ReadOnlySpan<byte> bytes, ref int offset)
     {
-        var value = 0;
-        var shift = 0;
-        while (true)
+        int value = 0, shift = 0;
+        for (; ; shift += 7)
         {
             var next = bytes[offset++];
             value |= (next & 127) << shift;
             if (next < 128) return value;
-            shift += 7;
         }
     }
 }

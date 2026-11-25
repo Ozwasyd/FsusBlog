@@ -79,48 +79,48 @@ func readCacheEvents(path string) ([]cacheEvent, error) {
 // The fixture includes the dedicated withdrawal cases in the published ordering.
 func coldRounds(w workload, pressure bool) ([]coldRound, [][]expectation, error) {
 	byCreation := sortArticlesDesc(w.articles[:len(w.articles)-20], func(a article) time.Time { return a.CreatedAt })
-	cold := []article{}
+	var cold []article
 	for _, entry := range byCreation[hotDetails:] {
 		if entry.State == "public" {
 			cold = append(cold, entry)
 		}
 	}
+	specs := []struct {
+		name, missing string
+		size, count   int
+	}{
+		{"same-key-2048-bytes", "cold fixture does not contain all three body sizes", 2048, 1},
+		{"same-key-8192-bytes", "cold fixture does not contain all three body sizes", 8192, 1},
+		{"same-key-32768-bytes", "cold fixture does not contain all three body sizes", 32768, 1},
+		// Use the largest standard bodies to expose parallel rendering without an artificial delay.
+		{"distinct-keys-32768-bytes", "cold fixture does not contain 64 distinct large entries", 32768, coldFanOut},
+	}
+	if pressure {
+		specs = append(specs, struct {
+			name, missing string
+			size, count   int
+		}{"overload-256-distinct-keys-with-client-aborts", "cold fixture does not contain 256 additional distinct large entries", 32768, maxInFlight})
+	}
 	selected := make(map[int]bool)
-	rounds := []coldRound{}
-	paths := [][]expectation{}
-	addRound := func(name string, size, count int, missing string) error {
+	rounds, paths := make([]coldRound, 0, len(specs)), make([][]expectation, 0, len(specs))
+	for _, spec := range specs {
 		var picked []article
 		for _, entry := range cold {
-			if entry.BodyBytes == size && !selected[entry.ID] {
+			if entry.BodyBytes == spec.size && !selected[entry.ID] {
 				picked = append(picked, entry)
-				if len(picked) == count {
+				if len(picked) == spec.count {
 					break
 				}
 			}
 		}
-		if len(picked) != count {
-			return errors.New(missing)
+		if len(picked) != spec.count {
+			return nil, nil, errors.New(spec.missing)
 		}
 		for _, entry := range picked {
 			selected[entry.ID] = true
 		}
-		rounds = append(rounds, coldRound{Name: name})
+		rounds = append(rounds, coldRound{Name: spec.name})
 		paths = append(paths, coldPaths(w, picked))
-		return nil
-	}
-	for _, size := range []int{2048, 8192, 32768} {
-		if err := addRound(fmt.Sprintf("same-key-%d-bytes", size), size, 1, "cold fixture does not contain all three body sizes"); err != nil {
-			return nil, nil, err
-		}
-	}
-	// Use the largest standard bodies to expose parallel rendering without an artificial delay.
-	if err := addRound("distinct-keys-32768-bytes", 32768, coldFanOut, "cold fixture does not contain 64 distinct large entries"); err != nil {
-		return nil, nil, err
-	}
-	if pressure {
-		if err := addRound("overload-256-distinct-keys-with-client-aborts", 32768, maxInFlight, "cold fixture does not contain 256 additional distinct large entries"); err != nil {
-			return nil, nil, err
-		}
 	}
 	return rounds, paths, nil
 }
@@ -220,13 +220,10 @@ func releaseColdRound(ctx context.Context, origin *url.URL, w workload, round *c
 
 func abortColdRequest(client *connection, path string, deadline time.Time) error {
 	conn := client.conn.(*net.TCPConn)
-	if err := conn.SetWriteDeadline(deadline); err != nil {
-		return err
-	}
-	if err := conn.SetLinger(0); err != nil {
-		return err
-	}
 	req, err := encodeRequest(client.origin, path)
+	if err == nil {
+		err = errors.Join(conn.SetWriteDeadline(deadline), conn.SetLinger(0))
+	}
 	if err != nil {
 		return err
 	}
@@ -260,71 +257,56 @@ func summarizeColdRound(round *coldRound, selected []expectation, events []cache
 	admitted, finished, ready := map[int]int{}, map[int]int{}, map[int]int{}
 	active, rejected := map[int]bool{}, map[int]bool{}
 	var invalid []error
-	addErr := func(format string, args ...any) { invalid = append(invalid, fmt.Errorf(format, args...)) }
+	check := func(bad bool, format string, args ...any) {
+		if bad {
+			invalid = append(invalid, fmt.Errorf(format, args...))
+		}
+	}
 	for _, event := range events {
 		round.Events = append(round.Events, event)
 		round.CacheActions[event.Event]++
 		round.ActiveMax, round.PendingMax = max(round.ActiveMax, event.Active), max(round.PendingMax, event.Pending)
-		if !known[event.ID] || event.Generation != generation {
-			addErr("unexpected %s event for article %d or generation %s", eventKind, event.ID, event.Generation)
-		}
+		check(!known[event.ID] || event.Generation != generation, "unexpected %s event for article %d or generation %s", eventKind, event.ID, event.Generation)
 		switch event.Event {
 		case "admitted":
 			admitted[event.ID]++
-			if pressure && active[event.ID] {
-				addErr("article %d had simultaneous admissions", event.ID)
-			}
+			check(pressure && active[event.ID], "article %d had simultaneous admissions", event.ID)
 			active[event.ID] = true
 		case "finished":
 			finished[event.ID]++
 			delete(active, event.ID)
 		case "started":
 			round.ColdStarts[event.ID]++
-			if event.ElapsedUS > 750_000 {
-				addErr("article %d began rendering outside the 750 ms budget", event.ID)
-			}
+			check(event.ElapsedUS > 750_000, "article %d began rendering outside the 750 ms budget", event.ID)
 		case "ready":
 			ready[event.ID]++
-			if event.ElapsedUS > 2_000_000 {
-				addErr("article %d became ready outside the 2 s budget", event.ID)
-			}
+			check(event.ElapsedUS > 2_000_000, "article %d became ready outside the 2 s budget", event.ID)
 		case "admission-rejected":
-			if pressure && event.Pending != 64 {
-				addErr("article %d refused before 64 pending keys", event.ID)
-			}
+			check(pressure && event.Pending != 64, "article %d refused before 64 pending keys", event.ID)
 			rejected[event.ID] = true
 		case "wait-timeout", "worker-timeout", "render-timeout":
 			rejected[event.ID] = true
 		case "wait-cancelled":
-			if pressure && !aborted[event.ID] {
-				addErr("uncancelled client unexpectedly lost article %d", event.ID)
-			}
+			check(pressure && !aborted[event.ID], "uncancelled client unexpectedly lost article %d", event.ID)
 		}
 	}
 	drained := len(events) > 0 && events[len(events)-1].Pending == 0 && events[len(events)-1].Active == 0 &&
 		round.PendingMax <= 64 && round.ActiveMax <= 4
-	if !drained || (pressure && len(active) != 0) {
-		addErr("cache counters did not satisfy the concurrency or drain bounds")
-	}
+	check(!drained || (pressure && len(active) != 0), "cache counters did not satisfy the concurrency or drain bounds")
 	if pressure {
 		for id, count := range round.ColdStarts {
-			if count != 1 {
-				addErr("article %d rendered %d times", id, count)
-			}
+			check(count != 1, "article %d rendered %d times", id, count)
 		}
 	} else {
 		for id := range known {
-			if admitted[id] != 1 || finished[id] != 1 || ready[id] != 1 || round.ColdStarts[id] != 1 {
-				addErr("article %d did not complete exactly one cold render", id)
-			}
+			check(admitted[id] != 1 || finished[id] != 1 || ready[id] != 1 || round.ColdStarts[id] != 1,
+				"article %d did not complete exactly one cold render", id)
 		}
 	}
 	var timings histogram
 	measured := 0
 	for _, response := range round.Responses {
-		if response.Error != "" {
-			addErr("GET %s (%d): %s", response.Path, response.Status, response.Error)
-		}
+		check(response.Error != "", "GET %s (%d): %s", response.Path, response.Status, response.Error)
 		if pressure && response.Aborted {
 			continue
 		}
@@ -334,13 +316,12 @@ func summarizeColdRound(round *coldRound, selected []expectation, events []cache
 		if !pressure && response.Error != "" {
 			continue
 		}
-		if pressure && (response.Status == 200 && round.ColdStarts[response.ID] != 1 || response.Status == 503 && !rejected[response.ID]) {
-			addErr("GET %s (%d) has no matching cache result", response.Path, response.Status)
-		}
+		check(pressure && (response.Status == 200 && round.ColdStarts[response.ID] != 1 || response.Status == 503 && !rejected[response.ID]),
+			"GET %s (%d) has no matching cache result", response.Path, response.Status)
 		if response.LatencyMS > 750 {
-			addErr("GET %s (%d) took %.1f ms end to end", response.Path, response.Status, response.LatencyMS)
-		} else if !pressure && response.Status != http.StatusOK {
-			addErr("GET %s received a valid %d but normal fixture did not succeed", response.Path, response.Status)
+			check(true, "GET %s (%d) took %.1f ms end to end", response.Path, response.Status, response.LatencyMS)
+		} else {
+			check(!pressure && response.Status != http.StatusOK, "GET %s received a valid %d but normal fixture did not succeed", response.Path, response.Status)
 		}
 	}
 	round.P95MS, round.P99MS = timings.percentile(measured, 95), timings.percentile(measured, 99)

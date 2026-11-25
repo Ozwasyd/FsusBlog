@@ -273,48 +273,11 @@ onMounted(async () => {
 <style scoped lang="scss">
 @use '../review-panel' as layout;
 @use '../shared-fields' as fields;
-
-.admin-archive {
-  display: grid;
-  gap: 16px;
-}
-
-.archive-selected-head,
-.archive-field {
-  display: grid;
-  gap: 6px;
-}
-
-.archive-selected-head h3 {
-  @include layout.review-item-heading;
-}
-
-.archive-coordinates {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-  overflow-wrap: anywhere;
-}
-
-.archive-field label {
-
-  @include fields.admin-label;
-}
-
-.archive-preview-title {
-  margin: 0 0 10px;
-  overflow-wrap: anywhere;
-}
-
-.archive-source {
-  max-block-size: 55vh;
-  margin: 0;
-  padding: 12px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-control, 6px);
-  background: var(--fsus-color-surface-raised, var(--el-fill-color-light));
-  overflow: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
+.admin-archive { display: grid; gap: 16px; }
+.archive-selected-head, .archive-field { display: grid; gap: 6px; }
+.archive-selected-head h3 { @include layout.review-item-heading; }
+.archive-coordinates { margin: 0; font-size: var(--el-font-size-small); color: var(--el-text-color-secondary); overflow-wrap: anywhere; }
+.archive-field label { @include fields.admin-label; }
+.archive-preview-title { margin: 0 0 10px; overflow-wrap: anywhere; }
+.archive-source { max-block-size: 55vh; margin: 0; padding: 12px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-control, 6px); background: var(--fsus-color-surface-raised, var(--el-fill-color-light)); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>

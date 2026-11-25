@@ -244,24 +244,8 @@ defineExpose({ show, close })
 </template>
 
 <style scoped>
-.quick-results {
-  display: grid;
-  gap: var(--fsus-space-1);
-  overflow: auto;
-  max-block-size: min(46vh, 20rem);
-  margin: var(--fsus-space-2) 0 0;
-  padding: 0;
-  list-style: none;
-}
-.quick-results [role="option"] {
-  display: grid;
-  gap: var(--fsus-space-1);
-  padding: var(--fsus-space-2);
-  border: 1px solid transparent;
-  border-radius: var(--fsus-radius-control);
-  cursor: pointer;
-  overflow-wrap: anywhere;
-}
+.quick-results { display: grid; gap: var(--fsus-space-1); overflow: auto; max-block-size: min(46vh, 20rem); margin: var(--fsus-space-2) 0 0; padding: 0; list-style: none; }
+.quick-results [role="option"] { display: grid; gap: var(--fsus-space-1); padding: var(--fsus-space-2); border: 1px solid transparent; border-radius: var(--fsus-radius-control); cursor: pointer; overflow-wrap: anywhere; }
 .quick-results [aria-selected="true"] { border-color: var(--fsus-color-action-primary); }
 .quick-results small { color: var(--fsus-color-text-muted); }
 </style>

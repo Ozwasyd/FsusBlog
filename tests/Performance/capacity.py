@@ -17,6 +17,11 @@ ROUTE_WEIGHTS = {"home-html": 20, "detail-html": 30, "home-aeds": 20, "detail-ae
 SECONDS = 60
 
 
+def check(ok, message):
+    if not ok:
+        raise ValueError(message)
+
+
 def read_properties(path):
     return dict(line.split("=", 1) for line in path.read_text().splitlines() if "=" in line)
 
@@ -37,78 +42,58 @@ def stage(path, rate, p95_limit, p99_limit, supplier_procs, report=None, *, seco
     expected = rate * seconds
     by_route = report["routes"]
     totals = by_route["all"]
-    if (
-        report["preflight"] != "pass"
-        or report["responses"] != 2402
-        or report["protocol"] != "HTTP/1.1"
-        or (report["requestedRate"], report["seconds"], report["expected"]) != (rate, seconds, expected)
-    ):
-        raise ValueError(f"{path}: workload or preflight differs from the frozen protocol")
-    if supplier_procs != "runtime-default" and (
-        not supplier_procs.isascii() or not supplier_procs.isdecimal() or int(supplier_procs) < 1
-        or any(report.get(key, {}).get("runtimeMaxProcs") != int(supplier_procs)
-               for key in ("producerBefore", "producerAfter"))
-    ):
-        raise ValueError(f"{path}: load supplier processor count differs from the recorded configuration")
-    if not route_totals_match(by_route):
-        raise ValueError(f"{path}: route totals do not reconcile")
+    check(report["preflight"] == "pass" and report["responses"] == 2402 and report["protocol"] == "HTTP/1.1"
+          and (report["requestedRate"], report["seconds"], report["expected"]) == (rate, seconds, expected),
+          f"{path}: workload or preflight differs from the frozen protocol")
+    check(supplier_procs == "runtime-default" or (
+        supplier_procs.isascii() and supplier_procs.isdecimal() and int(supplier_procs) >= 1
+        and all(report.get(key, {}).get("runtimeMaxProcs") == int(supplier_procs)
+                for key in ("producerBefore", "producerAfter"))),
+        f"{path}: load supplier processor count differs from the recorded configuration")
+    check(route_totals_match(by_route), f"{path}: route totals do not reconcile")
     unreached = expected - totals["sent"] - totals["dropped"]
-    if unreached < 0 or report.get("schedulerUnreached", unreached) != unreached:
-        raise ValueError(f"{path}: scheduled counts do not reconcile")
-    if not unreached and not route_mix_matches(by_route, expected):
-        raise ValueError(f"{path}: request mix differs from the frozen protocol")
+    check(unreached >= 0 and report.get("schedulerUnreached", unreached) == unreached,
+          f"{path}: scheduled counts do not reconcile")
+    check(unreached or route_mix_matches(by_route, expected), f"{path}: request mix differs from the frozen protocol")
     request_errors = totals["sent"] - totals["ok"]
-    if (
-        request_errors != sum(totals["errors"].values()) or request_errors < 0
-        or totals["ok"] > totals["httpStatus"].get("200", 0)
-    ):
-        raise ValueError(f"{path}: failed attempts do not reconcile")
+    check(request_errors == sum(totals["errors"].values()) and request_errors >= 0
+          and totals["ok"] <= totals["httpStatus"].get("200", 0), f"{path}: failed attempts do not reconcile")
     supply = report.get("supplyBySecond")
     if supply:
         supply_totals = {"planned": expected, "schedulerAwake": expected - unreached,
                          "admitted": totals["sent"], "dropped": totals["dropped"],
                          "attemptFinished": totals["sent"], "correct": totals["ok"]}
-        if any(sum(row[key] for row in supply) != value for key, value in supply_totals.items()):
-            raise ValueError(f"{path}: producer timeline does not reconcile")
+        check(all(sum(row[key] for row in supply) == value for key, value in supply_totals.items()),
+              f"{path}: producer timeline does not reconcile")
     policy = report.get("connectionPolicy", "serial-tls-preconnect" if report.get("preconnectedTLS") else "fresh-pool")
     if policy == "carry-from-warmup":
         warm, reuse = report["warmup"], report["connectionReuse"]
-        warm_totals = warm["routes"]["all"]
-        warm_unreached = warm["schedulerUnreached"]
-        if (
-            any(warm[key] != report[key] for key in ("pid", "target", "generation", "fixtureSha256"))
-            or (warm["requestedRate"], warm["seconds"], warm["expected"]) != (2000, 30, 60000)
-            or not 0 <= warm_unreached <= 60000
-            or warm_totals["sent"] + warm_totals["dropped"] + warm_unreached != 60000
-            or not route_totals_match(warm["routes"])
-            or not 0 <= warm_totals["ok"] <= warm_totals["sent"]
-            or warm_totals["sent"] - warm_totals["ok"] != sum(warm_totals["errors"].values())
-            or not 0 <= reuse["validatedOnRetained"] <= reuse["attemptedOnRetained"] <= reuse["retainedAfterWarmup"] <= 256
-            or not reuse["validatedOnRetained"] <= reuse["requestsValidatedOnRetained"] <= totals["ok"]
-            or not reuse["requestsValidatedOnRetained"] <= reuse["requestsAttemptedOnRetained"] <= totals["sent"]
-            or not reuse["validatedOnRetained"]
-            or not clock(warm["measurementStartedAt"]) < clock(warm["measurementCompletedAt"]) <= clock(report["measurementStartedAt"])
-        ):
-            raise ValueError(f"{path}: reused warmup evidence is missing or inconsistent")
-        if not warm_unreached and not route_mix_matches(warm["routes"], 60000):
-            raise ValueError(f"{path}: warmup request mix differs from the frozen protocol")
-    elif policy not in ("serial-tls-preconnect", "fresh-pool"):
-        raise ValueError(f"{path}: unknown connection policy")
+        warm_totals, warm_unreached = warm["routes"]["all"], warm["schedulerUnreached"]
+        check(
+            all(warm[key] == report[key] for key in ("pid", "target", "generation", "fixtureSha256"))
+            and (warm["requestedRate"], warm["seconds"], warm["expected"]) == (2000, 30, 60000)
+            and 0 <= warm_unreached <= 60000
+            and warm_totals["sent"] + warm_totals["dropped"] + warm_unreached == 60000
+            and route_totals_match(warm["routes"]) and 0 <= warm_totals["ok"] <= warm_totals["sent"]
+            and warm_totals["sent"] - warm_totals["ok"] == sum(warm_totals["errors"].values())
+            and 0 <= reuse["validatedOnRetained"] <= reuse["attemptedOnRetained"] <= reuse["retainedAfterWarmup"] <= 256
+            and reuse["validatedOnRetained"] <= reuse["requestsValidatedOnRetained"] <= totals["ok"]
+            and reuse["requestsValidatedOnRetained"] <= reuse["requestsAttemptedOnRetained"] <= totals["sent"]
+            and reuse["validatedOnRetained"]
+            and clock(warm["measurementStartedAt"]) < clock(warm["measurementCompletedAt"]) <= clock(report["measurementStartedAt"]),
+            f"{path}: reused warmup evidence is missing or inconsistent")
+        check(warm_unreached or route_mix_matches(warm["routes"], 60000),
+              f"{path}: warmup request mix differs from the frozen protocol")
+    else:
+        check(policy in ("serial-tls-preconnect", "fresh-pool"), f"{path}: unknown connection policy")
     actual_rate = totals["ok"] / seconds
     failures = totals["dropped"] + request_errors + unreached
     per_route = {key: {k: by_route[key][k] for k in ("ok", "p95Ms", "p99Ms")} for key in ROUTE_WEIGHTS}
     out = {
-        "plannedRate": rate,
-        "correctPerSecond": actual_rate,
-        "correct": totals["ok"],
-        "errors": request_errors,
-        "dropped": totals["dropped"],
-        "unreached": unreached,
-        "failurePercent": failures * 100 / expected,
-        "p95Ms": totals["p95Ms"],
-        "p99Ms": totals["p99Ms"],
-        "routes": per_route,
-        "connectionPolicy": policy,
+        "plannedRate": rate, "correctPerSecond": actual_rate, "correct": totals["ok"],
+        "errors": request_errors, "dropped": totals["dropped"], "unreached": unreached,
+        "failurePercent": failures * 100 / expected, "p95Ms": totals["p95Ms"], "p99Ms": totals["p99Ms"],
+        "routes": per_route, "connectionPolicy": policy,
     }
     if policy == "carry-from-warmup":
         out["connectionReuse"] = reuse
@@ -118,28 +103,23 @@ def stage(path, rate, p95_limit, p99_limit, supplier_procs, report=None, *, seco
         out["dropSeconds"] = [row for row in supply if row["dropped"]]
     if rate == RATES[-1] and seconds == SECONDS:
         out["numericPeakPassed"] = (
-            actual_rate > 10000
-            and failures * 1000 <= expected
+            actual_rate > 10000 and failures * 1000 <= expected
             and all(0 < row["p95Ms"] <= p95_limit and 0 < row["p99Ms"] <= p99_limit
-                    for row in (*per_route.values(), totals))
-        )
+                    for row in (*per_route.values(), totals)))
     return report["fixtureSha256"], out
 
 
 def clock(value):
     # Python 3.9 requires either no fractional seconds or 3/6 digits.
     whole, separator, fraction = value[:-1].partition(".")
-    if value[-1:] != "Z":
-        raise ValueError(f"expected an ISO UTC timestamp: {value}")
+    check(value[-1:] == "Z", f"expected an ISO UTC timestamp: {value}")
     return datetime.fromisoformat(whole + ("." + fraction[:6].ljust(6, "0") if separator else "") + "+00:00")
 
 
 def owner_finish(timestamp):
     # The native owner records floor-to-second timestamps unless the coordinator has a finer clock.
     finish = clock(timestamp)
-    if "." not in timestamp:
-        return finish + timedelta(seconds=1) - datetime.resolution
-    return finish
+    return finish + timedelta(seconds=1) - datetime.resolution if "." not in timestamp else finish
 
 
 def digest(path):
@@ -160,8 +140,7 @@ def sealed_inputs(directory):
 def private_origin(value, scheme):
     try:
         origin = urlsplit(value)
-        address = ip_address(origin.hostname)
-        port = origin.port
+        address, port = ip_address(origin.hostname), origin.port
     except (ValueError, TypeError):
         return False
     host = f"[{origin.hostname}]" if address.version == 6 else origin.hostname
@@ -175,147 +154,112 @@ def private_origin(value, scheme):
 def private_stage(directory, topology, rate, receipt, binding, previous, finished):
     path = directory / f"{topology}-{rate}.json"
     raw = path.read_bytes()
-    if (receipt["rate"] != rate or type(receipt["exitCode"]) is not int or receipt["exitCode"] != 0
-            or hashlib.sha256(raw).hexdigest() != receipt["reportSha256"]):
-        raise ValueError(f"{path}: private stage receipt differs from the raw result")
+    check(receipt["rate"] == rate and type(receipt["exitCode"]) is int and receipt["exitCode"] == 0
+          and hashlib.sha256(raw).hexdigest() == receipt["reportSha256"],
+          f"{path}: private stage receipt differs from the raw result")
     report = json.loads(raw)
-    if (
-        any(report[key] != binding[key] for key in ("target", "generation", "fixtureSha256"))
-        or report["targetScope"] != "explicit-private-literal"
-        or report["connectionPolicy"] != "carry-from-warmup"
-        or type(report["pid"]) is not int or report["pid"] < 1 or report["pid"] != receipt["supplierPid"]
-        or report["tlsVersion"] not in (("TLS 1.2", "TLS 1.3") if topology == "proxy" else ("",))
-        or not report["supplyBySecond"]
-        or any(type(report[key]["runtimeMaxProcs"]) is not int or report[key]["runtimeMaxProcs"] < 1
-               for key in ("producerBefore", "producerAfter"))
-    ):
-        raise ValueError(f"{path}: private supplier scope, process or transport differs")
+    check(all(report[key] == binding[key] for key in ("target", "generation", "fixtureSha256"))
+          and report["targetScope"] == "explicit-private-literal"
+          and report["connectionPolicy"] == "carry-from-warmup"
+          and type(report["pid"]) is int and report["pid"] >= 1 and report["pid"] == receipt["supplierPid"]
+          and report["tlsVersion"] in (("TLS 1.2", "TLS 1.3") if topology == "proxy" else ("",))
+          and report["supplyBySecond"]
+          and all(type(report[key]["runtimeMaxProcs"]) is int and report[key]["runtimeMaxProcs"] >= 1
+                  for key in ("producerBefore", "producerAfter")),
+          f"{path}: private supplier scope, process or transport differs")
     for window, count, requested_rate in ((report, SECONDS, rate), (report["warmup"], 30, 2000)):
         buckets = window["supplyBySecond"]
-        if len(buckets) < count or any(
-            row["second"] != second or row["planned"] != (requested_rate if second < count else 0)
-            or not 0 <= row["observedOutstandingPeak"] <= 256
-            for second, row in enumerate(buckets)
-        ):
-            raise ValueError(f"{path}: private stage producer timeline differs from the frozen schedule")
+        check(len(buckets) >= count and all(
+            row["second"] == second and row["planned"] == (requested_rate if second < count else 0)
+            and 0 <= row["observedOutstandingPeak"] <= 256
+            for second, row in enumerate(buckets)),
+            f"{path}: private stage producer timeline differs from the frozen schedule")
     warm = report["warmup"]
     accepted, collected = (clock(receipt[key]) for key in ("acceptedAt", "collectedAt"))
     launched, start, end, emitted = (clock(report[key]) for key in
-                                    ("startedAt", "measurementStartedAt", "measurementCompletedAt", "finishedAt"))
+                                     ("startedAt", "measurementStartedAt", "measurementCompletedAt", "finishedAt"))
     warm_start, warm_end = (clock(warm[key]) for key in ("measurementStartedAt", "measurementCompletedAt"))
-    if not previous <= accepted <= launched <= warm_start < warm_end <= start < end <= emitted <= collected <= finished:
-        raise ValueError(f"{path}: private stage lies outside its current owner interval")
+    check(previous <= accepted <= launched <= warm_start < warm_end <= start < end <= emitted <= collected <= finished,
+          f"{path}: private stage lies outside its current owner interval")
     for window, nominal, requested_rate, first, last in (
         (warm, 30, 2000, warm_start, warm_end), (report, SECONDS, rate, start, end),
     ):
         elapsed = window["measurementElapsedSeconds"]
-        if (
-            type(elapsed) not in (int, float)
-            or not nominal - 1 / requested_rate <= elapsed <= nominal + 2
-            or abs((last - first).total_seconds() - elapsed) > 0.25
-        ):
-            raise ValueError(f"{path}: private stage duration differs from the frozen schedule")
+        check(type(elapsed) in (int, float) and nominal - 1 / requested_rate <= elapsed <= nominal + 2
+              and abs((last - first).total_seconds() - elapsed) <= 0.25,
+              f"{path}: private stage duration differs from the frozen schedule")
     return report, collected
 
 
 def private_matrix(directory, topology, environment, outcome, inputs):
     binding = json.loads((directory / "private-supplier.json").read_text())
     owner_path, release_path = directory / "owner.txt", directory / "release-input.json"
-    owner = read_properties(owner_path)
-    release = json.loads(release_path.read_text())
-    attempt = {name: outcome[key] for name, key in (
-        ("runId", "run_id"), ("invocationId", "invocation_id"), ("attemptId", "attempt_id"),
-    )}
+    owner, release = read_properties(owner_path), json.loads(release_path.read_text())
+    attempt = {name: outcome[key] for name, key in (("runId", "run_id"), ("invocationId", "invocation_id"), ("attemptId", "attempt_id"))}
     hosts = (binding["serverHostId"], binding["supplierHostId"])
-    if (
-        type(binding["version"]) is not int or binding["version"] != 1 or binding["topology"] != topology
-        or any(binding[key] != value or not re.fullmatch(r"[0-9a-f]{32}", value) for key, value in attempt.items())
-        or len(set(attempt.values())) != len(attempt)
-        or any(owner[key] != outcome[key] for key in
-               ("run_id", "invocation_id", "attempt_id", "owner_pid", "server_pid", "origin", "database", "target"))
-        or owner["readiness"] != "204" or binding["ownerSha256"] != digest(owner_path)
-        or binding["outcomeSha256"] != digest(directory / "outcome.txt")
-        or not all(re.fullmatch(r"[0-9a-f]{64}", host) for host in hosts) or hosts[0] == hosts[1]
-    ):
-        raise ValueError(f"{directory}: private supplier run, host or owner differs")
+    check(type(binding["version"]) is int and binding["version"] == 1 and binding["topology"] == topology
+          and all(binding[key] == value and re.fullmatch(r"[0-9a-f]{32}", value) for key, value in attempt.items())
+          and len(set(attempt.values())) == len(attempt)
+          and all(owner[key] == outcome[key] for key in ("run_id", "invocation_id", "attempt_id", "owner_pid", "server_pid", "origin", "database", "target"))
+          and owner["readiness"] == "204" and binding["ownerSha256"] == digest(owner_path)
+          and binding["outcomeSha256"] == digest(directory / "outcome.txt")
+          and all(re.fullmatch(r"[0-9a-f]{64}", host) for host in hosts) and hosts[0] != hosts[1],
+          f"{directory}: private supplier run, host or owner differs")
     target = binding["target"]
-    pids = [owner[key] for key in ("owner_pid", "server_pid", "postgres_pid")]
-    if topology == "proxy":
-        pids.append(owner["proxy_pid"])
-    if (
-        target != owner["target"] or not private_origin(target, "http" if topology == "direct" else "https")
-        or not all(re.fullmatch(r"[1-9][0-9]*", pid) for pid in pids) or len(set(pids)) != len(pids)
-        or topology == "direct" and (target != owner["origin"] or outcome["proxy_pid"] != "")
-        or topology == "proxy" and (owner["proxy_pid"] != outcome["proxy_pid"]
-                                    or not re.fullmatch(r"http://127\.0\.0\.1:[1-9][0-9]{0,4}", owner["origin"]))
-        or binding["caSha256"] != (digest(directory / "ca.pem") if topology == "proxy" else None)
-    ):
-        raise ValueError(f"{directory}: private target, TLS authority or process ownership differs")
+    pids = [owner[key] for key in ("owner_pid", "server_pid", "postgres_pid")] + ([owner["proxy_pid"]] if topology == "proxy" else [])
+    check(target == owner["target"] and private_origin(target, "http" if topology == "direct" else "https")
+          and all(re.fullmatch(r"[1-9][0-9]*", pid) for pid in pids) and len(set(pids)) == len(pids)
+          and (target == owner["origin"] and outcome["proxy_pid"] == "" if topology == "direct"
+               else owner["proxy_pid"] == outcome["proxy_pid"] and re.fullmatch(r"http://127\.0\.0\.1:[1-9][0-9]{0,4}", owner["origin"]))
+          and binding["caSha256"] == (digest(directory / "ca.pem") if topology == "proxy" else None),
+          f"{directory}: private target, TLS authority or process ownership differs")
     generation = binding["generation"]
-    if (
-        release["buildSource"] != "verified-release-archive" or release["fsusblogCommit"] != environment["commit"]
-        or binding["releaseInputSha256"] != digest(release_path)
-        or any(binding[key] != sha for key, sha in inputs.items())
-        or any(release[key] != inputs[key] for key in ("archiveSha256", "payloadManifestSha256"))
-        or binding["fixtureSha256"] != digest(directory / "fixture.json")
-        or not re.fullmatch(r"[1-9][0-9]*", generation)
-    ):
-        raise ValueError(f"{directory}: private sealed inputs or generation differ")
-    started, ready = clock(outcome["started_at"]), clock(owner["ready_at"])
-    finished = owner_finish(outcome["finished_at"])
+    check(release["buildSource"] == "verified-release-archive" and release["fsusblogCommit"] == environment["commit"]
+          and binding["releaseInputSha256"] == digest(release_path)
+          and all(binding[key] == sha for key, sha in inputs.items())
+          and all(release[key] == inputs[key] for key in ("archiveSha256", "payloadManifestSha256"))
+          and binding["fixtureSha256"] == digest(directory / "fixture.json") and re.fullmatch(r"[1-9][0-9]*", generation),
+          f"{directory}: private sealed inputs or generation differ")
+    started, ready, finished = clock(outcome["started_at"]), clock(owner["ready_at"]), owner_finish(outcome["finished_at"])
     receipts = binding["stages"]
-    if not started <= ready < finished <= datetime.now(timezone.utc) or len(receipts) != len(RATES):
-        raise ValueError(f"{directory}: private run interval or stage count differs")
-    reports = []
-    previous = ready
+    check(started <= ready < finished <= datetime.now(timezone.utc) and len(receipts) == len(RATES),
+          f"{directory}: private run interval or stage count differs")
+    reports, previous = [], ready
     for rate, receipt in zip(RATES, receipts):
         report, previous = private_stage(directory, topology, rate, receipt, binding, previous, finished)
-        if reports and (clock(report["startedAt"]) - clock(reports[-1]["finishedAt"])).total_seconds() < 15:
-            raise ValueError(f"{directory}: private stages lack the frozen 15-second cooldown")
+        check(not reports or (clock(report["startedAt"]) - clock(reports[-1]["finishedAt"])).total_seconds() >= 15,
+              f"{directory}: private stages lack the frozen 15-second cooldown")
         reports.append(report)
     return reports, {**attempt, **inputs, "target": target, "generation": generation,
                      "serverHostId": hosts[0], "supplierHostId": hosts[1]}
 
 
 def matrix(directory, topology, inputs=None):
-    outcome = read_properties(directory / "outcome.txt")
-    environment = read_properties(directory / "environment.txt")
-    if outcome.get("exit_code") != "0" or outcome.get("cleanup") != "yes" or outcome.get("last_stage") != "finished":
-        raise ValueError(f"{directory}: runner failed or cleanup is incomplete")
-    if (directory / "source-status.txt").read_text():
-        raise ValueError(f"{directory}: requires a clean candidate")
+    outcome, environment = read_properties(directory / "outcome.txt"), read_properties(directory / "environment.txt")
+    check(outcome.get("exit_code") == "0" and outcome.get("cleanup") == "yes" and outcome.get("last_stage") == "finished",
+          f"{directory}: runner failed or cleanup is incomplete")
+    check(not (directory / "source-status.txt").read_text(), f"{directory}: requires a clean candidate")
     p95_limit, p99_limit = (25, 75) if topology == "direct" else (40, 100)
     supplier_procs = environment.get("supplier_gomaxprocs", "runtime-default")
-    binding = None
+    binding, reports = None, [None] * len(RATES)
     if inputs is not None:
         try:
             reports, binding = private_matrix(directory, topology, environment, outcome, inputs)
         except (OSError, KeyError, TypeError, ValueError) as error:
             raise ValueError(f"{directory}: private supplier admission failed: {error}") from error
-    else:
-        reports = [None] * len(RATES)
     stages = [stage(directory / f"{topology}-{rate}.json", rate, p95_limit, p99_limit, supplier_procs, report)
               for rate, report in zip(RATES, reports)]
     fixture = stages[0][0]
-    if any(digest != fixture for digest, _ in stages):
-        raise ValueError(f"{directory}: fixture differs between stages")
-    if len({item["connectionPolicy"] for _, item in stages}) != 1:
-        raise ValueError(f"{directory}: connection policy differs between stages")
+    check(all(item == fixture for item, _ in stages), f"{directory}: fixture differs between stages")
+    check(len({item["connectionPolicy"] for _, item in stages}) == 1, f"{directory}: connection policy differs between stages")
     with (directory / "server-process.csv").open(newline="") as file:
-        rss = max(int(row["rss_kib"]) for row in csv.DictReader(file)
-                  if row["pid"] == outcome["server_pid"])
+        rss = max(int(row["rss_kib"]) for row in csv.DictReader(file) if row["pid"] == outcome["server_pid"])
     return {
-        "topology": topology,
-        "commit": environment["commit"],
-        "sourceSha256": environment["source_sha256"],
-        "fixtureSha256": fixture,
-        "connectionPolicy": stages[0][1]["connectionPolicy"],
-        "supplierGomaxprocs": supplier_procs,
-        "runId": outcome["run_id"],
-        "startedAt": outcome["started_at"],
-        "finishedAt": outcome["finished_at"],
-        "serverRssPeakKiB": rss,
-        "stages": [report for _, report in stages],
+        "topology": topology, "commit": environment["commit"], "sourceSha256": environment["source_sha256"],
+        "fixtureSha256": fixture, "connectionPolicy": stages[0][1]["connectionPolicy"],
+        "supplierGomaxprocs": supplier_procs, "runId": outcome["run_id"],
+        "startedAt": outcome["started_at"], "finishedAt": outcome["finished_at"],
+        "serverRssPeakKiB": rss, "stages": [report for _, report in stages],
         **({"privateSupplierEvidence": binding} if binding is not None else {}),
     }
 

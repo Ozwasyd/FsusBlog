@@ -2,17 +2,8 @@
 import { siteLocale, t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, onScopeDispose, ref, shallowRef } from 'vue'
 import {
-  ElAlert,
-  ElButton,
-  ElCheckbox,
-  ElFormSection,
-  ElInlineActions,
-  ElInput,
-  ElMarkdownRenderer,
-  ElRadioButton,
-  ElRadioGroup,
-  ElSkeleton,
-  ElTag,
+  ElAlert, ElButton, ElCheckbox, ElFormSection, ElInlineActions, ElInput, ElMarkdownRenderer,
+  ElRadioButton, ElRadioGroup, ElSkeleton, ElTag,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { publishAdminSitePage, readSitePageRevision, validPageMarkdown } from '../../../Contracts/admin-site-pages'
@@ -177,9 +168,7 @@ onScopeDispose(() => lifetime.abort())
     <ElFormSection density="compact">
       <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" show-icon />
       <ElAlert v-if="updated" :title="t('admin.pagePublished', { slug })" type="success" :closable="false" show-icon>
-        <a class="site-page-published-link" :href="publicHref" target="_blank" rel="noopener noreferrer">
-          {{ t('admin.sitePages.openPublic') }} /{{ slug }} ↗
-        </a>
+        <a class="site-page-published-link" :href="publicHref" target="_blank" rel="noopener noreferrer">{{ t('admin.sitePages.openPublic') }} /{{ slug }} ↗</a>
       </ElAlert>
       <ElSkeleton v-if="busy && !page" :rows="5" />
 
@@ -190,20 +179,9 @@ onScopeDispose(() => lifetime.abort())
             <code class="site-page-editor-slug">/{{ slug }}</code>
             <ElTag size="small" :type="revisionTagType">{{ revisionLabel }}</ElTag>
             <span class="site-page-budget" :class="{ 'site-page-budget--over': !valid }">{{ byteBudgetLabel }}</span>
-            <ElButton
-              v-if="canInsertTemplate"
-              text
-              size="small"
-              :disabled="busy"
-              @click="insertStarterTemplate"
-            >{{ t('admin.sitePages.insertTemplate') }}</ElButton>
+            <ElButton v-if="canInsertTemplate" text size="small" :disabled="busy" @click="insertStarterTemplate">{{ t('admin.sitePages.insertTemplate') }}</ElButton>
           </div>
-          <ElRadioGroup
-            :model-value="effectiveMode"
-            size="small"
-            :label="t('admin.sitePages.viewMode')"
-            @update:model-value="setMode"
-          >
+          <ElRadioGroup :model-value="effectiveMode" size="small" :label="t('admin.sitePages.viewMode')" @update:model-value="setMode">
             <ElRadioButton v-if="!narrowViewport" value="split">{{ t('admin.sitePages.modeSplit') }}</ElRadioButton>
             <ElRadioButton value="edit">{{ t('admin.sitePages.modeEdit') }}</ElRadioButton>
             <ElRadioButton value="preview">{{ t('admin.sitePages.modePreview') }}</ElRadioButton>
@@ -212,72 +190,33 @@ onScopeDispose(() => lifetime.abort())
 
         <div class="site-page-workspace" :class="{ 'site-page-workspace--split': effectiveMode === 'split' }">
           <div v-show="effectiveMode !== 'preview'" class="site-page-pane">
-            <label :for="`site-page-editor-${slug}`" class="site-page-pane-label">
-              {{ t('admin.pageMarkdownEditor', { slug }) }}
-            </label>
-            <ElInput
-              :id="`site-page-editor-${slug}`"
-              v-model="markdown"
-              class="site-page-textarea"
-              type="textarea"
-              :autosize="{ minRows: 12, maxRows: 24 }"
-              :placeholder="t('admin.sitePages.placeholder')"
-              v-bind="{
-                maxlength: WireLimits.PageContentChars,
-                'aria-invalid': valid ? 'false' : 'true',
-                'aria-describedby': !valid ? `site-page-size-error-${slug}` : undefined,
-              }"
-              :disabled="busy"
-              @input="confirmed = false; updated = false"
-            />
+            <label :for="`site-page-editor-${slug}`" class="site-page-pane-label">{{ t('admin.pageMarkdownEditor', { slug }) }}</label>
+            <ElInput :id="`site-page-editor-${slug}`" v-model="markdown" class="site-page-textarea" type="textarea"
+              :autosize="{ minRows: 12, maxRows: 24 }" :placeholder="t('admin.sitePages.placeholder')"
+              v-bind="{ maxlength: WireLimits.PageContentChars, 'aria-invalid': valid ? 'false' : 'true', 'aria-describedby': !valid ? `site-page-size-error-${slug}` : undefined }"
+              :disabled="busy" @input="confirmed = false; updated = false" />
           </div>
 
           <div v-if="effectiveMode !== 'edit'" class="site-page-pane">
             <span class="site-page-pane-label">{{ t('admin.sitePages.previewLabel') }}</span>
             <div class="site-page-preview-surface blog-markdown">
-              <p v-if="markdown.trim().length === 0" class="site-page-preview-empty">
-                {{ t('admin.sitePages.previewEmpty') }}
-              </p>
+              <p v-if="markdown.trim().length === 0" class="site-page-preview-empty">{{ t('admin.sitePages.previewEmpty') }}</p>
               <ElMarkdownRenderer v-else-if="nativeMarkdown" :content="markdown" mode="preview" />
               <pre v-else class="site-page-preview-fallback">{{ markdown }}</pre>
             </div>
           </div>
         </div>
 
-        <ElAlert
-          v-if="!valid"
-          v-bind="{ id: `site-page-size-error-${slug}` }"
-          :title="t('admin.markdownTooLarge')"
-          type="warning"
-          :closable="false"
-          show-icon
-        />
+        <ElAlert v-if="!valid" v-bind="{ id: `site-page-size-error-${slug}` }" :title="t('admin.markdownTooLarge')" type="warning" :closable="false" show-icon />
 
         <div class="site-page-commit">
-          <div v-if="dirty" class="site-page-dirty-row">
-            <ElTag size="small" type="warning">{{ t('admin.siteConfig.unsaved') }}</ElTag>
-          </div>
-          <ElCheckbox
-            v-if="!stale"
-            :model-value="confirmed"
-            :disabled="busy"
-            @update:model-value="confirmed = $event === true"
-          >
+          <div v-if="dirty" class="site-page-dirty-row"><ElTag size="small" type="warning">{{ t('admin.siteConfig.unsaved') }}</ElTag></div>
+          <ElCheckbox v-if="!stale" :model-value="confirmed" :disabled="busy" @update:model-value="confirmed = $event === true">
             {{ t('admin.replacePublicPage', { slug }) }}
           </ElCheckbox>
           <ElInlineActions>
-            <ElButton
-              v-if="!stale"
-              type="primary"
-              :loading="busy"
-              :disabled="!canPublish"
-              @click="publish"
-            >{{ t('admin.publishPasskey') }}</ElButton>
-            <ElButton
-              v-if="dirty && !stale"
-              :disabled="busy"
-              @click="discardChanges"
-            >{{ t('admin.sitePages.discard') }}</ElButton>
+            <ElButton v-if="!stale" type="primary" :loading="busy" :disabled="!canPublish" @click="publish">{{ t('admin.publishPasskey') }}</ElButton>
+            <ElButton v-if="dirty && !stale" :disabled="busy" @click="discardChanges">{{ t('admin.sitePages.discard') }}</ElButton>
             <ElButton v-if="stale" :loading="busy" @click="load">{{ t('admin.reloadPublished') }}</ElButton>
             <ElButton :disabled="busy" @click="emit('close')">{{ t('admin.closeEditor') }}</ElButton>
           </ElInlineActions>
@@ -293,126 +232,23 @@ onScopeDispose(() => lifetime.abort())
 </template>
 
 <style scoped>
-.site-page-editor {
-  margin-block: 12px 4px;
-  padding: 16px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 10px);
-  background: var(--el-bg-color);
-}
-
-.site-page-published-link {
-  display: inline-block;
-  margin-block-start: 4px;
-  font-size: var(--el-font-size-small);
-  color: var(--el-color-primary);
-  text-decoration: none;
-}
-
-.site-page-published-link:hover,
-.site-page-published-link:focus-visible {
-  text-decoration: underline;
-}
-
-.site-page-editor-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 12px;
-}
-
-.site-page-editor-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-}
-
-.site-page-editor-title {
-  font-size: var(--el-font-size-base);
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.site-page-editor-slug {
-  font-size: var(--el-font-size-extra-small);
-  color: var(--el-text-color-secondary);
-}
-
-.site-page-budget {
-  font-size: var(--el-font-size-extra-small);
-  font-variant-numeric: tabular-nums;
-  color: var(--el-text-color-secondary);
-}
-
-.site-page-budget--over {
-  color: var(--el-color-danger);
-  font-weight: 600;
-}
-
-.site-page-workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-}
-
-.site-page-workspace--split {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
-}
-
-.site-page-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-inline-size: 0;
-}
-
-.site-page-pane-label {
-  font-size: var(--el-font-size-extra-small);
-  font-weight: 500;
-  color: var(--el-text-color-secondary);
-}
-
-.site-page-textarea {
-  flex: 1;
-}
-
-.site-page-preview-surface {
-  flex: 1;
-  min-block-size: 17.5rem;
-  max-block-size: 34rem;
-  overflow: auto;
-  padding: 12px 14px;
-  border: 1px solid var(--el-border-color);
-  border-radius: var(--el-border-radius-base);
-  background: var(--el-fill-color-blank);
-}
-
-.site-page-preview-empty {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-placeholder);
-}
-
-.site-page-preview-fallback {
-  margin: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: var(--el-font-size-small);
-  line-height: 1.55;
-}
-
-.site-page-commit {
-  display: grid;
-  gap: 10px;
-  padding-block-start: 12px;
-  border-block-start: 1px solid var(--el-border-color-lighter);
-}
-
-.site-page-dirty-row {
-  display: flex;
-  align-items: center;
-}
+.site-page-editor { margin-block: 12px 4px; padding: 16px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-panel, 10px); background: var(--el-bg-color); }
+.site-page-published-link { display: inline-block; margin-block-start: 4px; font-size: var(--el-font-size-small); color: var(--el-color-primary); text-decoration: none; }
+.site-page-published-link:hover, .site-page-published-link:focus-visible { text-decoration: underline; }
+.site-page-editor-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.site-page-editor-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.site-page-editor-title { font-size: var(--el-font-size-base); font-weight: 600; color: var(--el-text-color-primary); }
+.site-page-editor-slug { font-size: var(--el-font-size-extra-small); color: var(--el-text-color-secondary); }
+.site-page-budget { font-size: var(--el-font-size-extra-small); font-variant-numeric: tabular-nums; color: var(--el-text-color-secondary); }
+.site-page-budget--over { color: var(--el-color-danger); font-weight: 600; }
+.site-page-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.site-page-workspace--split { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+.site-page-pane { display: flex; flex-direction: column; gap: 6px; min-inline-size: 0; }
+.site-page-pane-label { font-size: var(--el-font-size-extra-small); font-weight: 500; color: var(--el-text-color-secondary); }
+.site-page-textarea { flex: 1; }
+.site-page-preview-surface { flex: 1; min-block-size: 17.5rem; max-block-size: 34rem; overflow: auto; padding: 12px 14px; border: 1px solid var(--el-border-color); border-radius: var(--el-border-radius-base); background: var(--el-fill-color-blank); }
+.site-page-preview-empty { margin: 0; font-size: var(--el-font-size-small); color: var(--el-text-color-placeholder); }
+.site-page-preview-fallback { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--el-font-size-small); line-height: 1.55; }
+.site-page-commit { display: grid; gap: 10px; padding-block-start: 12px; border-block-start: 1px solid var(--el-border-color-lighter); }
+.site-page-dirty-row { display: flex; align-items: center; }
 </style>

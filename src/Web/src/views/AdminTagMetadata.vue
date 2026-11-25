@@ -84,12 +84,7 @@ onScopeDispose(() => lifetime.abort())
 
 <template>
   <div class="tag-metadata-editor" :aria-label="heading" :aria-busy="busy">
-    <ElAlert
-      v-if="error"
-      :title="typeof error === 'string' ? error : t(error.key, { kind: t(error.kind === 'tag' ? 'admin.taxonomy.kindTag' : 'admin.taxonomy.kindCategory') })"
-      type="error"
-      :closable="false"
-    />
+    <ElAlert v-if="error" :title="typeof error === 'string' ? error : t(error.key, { kind: t(error.kind === 'tag' ? 'admin.taxonomy.kindTag' : 'admin.taxonomy.kindCategory') })" type="error" :closable="false" />
     <form v-if="creating || current" class="tag-metadata-form" @submit.prevent="save">
       <div class="tag-metadata-field">
         <label :for="`admin-${kind}-name`">{{ t('admin.tagMetadata.m16', { label }) }}</label>
@@ -103,9 +98,7 @@ onScopeDispose(() => lifetime.abort())
       <ElInlineActions>
         <ElButton :disabled="busy" @click="emit('close')">{{ t('nav.cancel') }}</ElButton>
         <ElButton v-if="!creating && (stale || !current)" :disabled="busy" @click="load">{{ t('admin.tagMetadata.m18', { kind: kindLabel }) }}</ElButton>
-        <ElButton v-if="!stale" native-type="submit" type="primary" :disabled="!normalized || busy" :loading="busy">
-          {{ submitLabel }}
-        </ElButton>
+        <ElButton v-if="!stale" native-type="submit" type="primary" :disabled="!normalized || busy" :loading="busy">{{ submitLabel }}</ElButton>
       </ElInlineActions>
     </form>
     <ElInlineActions v-else>
@@ -117,20 +110,7 @@ onScopeDispose(() => lifetime.abort())
 
 <style scoped lang="scss">
 @use '../shared-fields' as fields;
-
-.tag-metadata-editor,
-.tag-metadata-form,
-.tag-metadata-field {
-  display: grid;
-  gap: 12px;
-}
-
-.tag-metadata-field {
-  gap: 6px;
-}
-
-.tag-metadata-field label {
-
-  @include fields.admin-label;
-}
+.tag-metadata-editor, .tag-metadata-form, .tag-metadata-field { display: grid; gap: 12px; }
+.tag-metadata-field { gap: 6px; }
+.tag-metadata-field label { @include fields.admin-label; }
 </style>

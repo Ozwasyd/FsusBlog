@@ -206,12 +206,11 @@ internal sealed partial class PropertyStore
     internal readonly record struct SortSelection(Guid DefinitionId, long DefinitionRevision, AuthorTextPropertySortDirection Direction);
     internal sealed record SortDefinition(Guid Id, PropertyFieldKind Kind, AuthorTextPropertySortDirection Direction, Guid[] OptionIds);
 
+    private static int AddParam(List<object> parameters, object value) { parameters.Add(value); return parameters.Count; }
+
     internal static string SortCtes(SortDefinition sort, List<object> parameters, string rankOrder)
     {
-        parameters.Add(sort.Id);
-        var definition = parameters.Count;
-        parameters.Add(PropertyTypeTag(sort.Kind));
-        var kind = parameters.Count;
+        int definition = AddParam(parameters, sort.Id), kind = AddParam(parameters, PropertyTypeTag(sort.Kind));
         var key = SortKey(sort, parameters);
         var direction = sort.Direction == AuthorTextPropertySortDirection.Ascending ? "asc" : "desc";
         return $"""
@@ -236,16 +235,13 @@ internal sealed partial class PropertyStore
 
     private static string SortKey(SortDefinition sort, List<object> parameters)
     {
-        const string Text = "v.data->>'Value'";
-        const string Value = "v.data->'Value'";
+        const string Text = "v.data->>'Value'", Value = "v.data->'Value'";
         if (sort.Kind is PropertyFieldKind.SingleSelect or PropertyFieldKind.MultiSelect)
         {
-            parameters.Add(sort.OptionIds.Select(id => id.ToString("D")).ToArray());
-            var active = parameters.Count;
-            if (sort.Kind == PropertyFieldKind.SingleSelect)
-                return $"case when v.data->>'OptionId'=any(${active}::text[]) then (v.data->>'OptionId')::uuid end";
-
-            return $$"""
+            var active = AddParam(parameters, sort.OptionIds.Select(id => id.ToString("D")).ToArray());
+            return sort.Kind == PropertyFieldKind.SingleSelect
+                ? $"case when v.data->>'OptionId'=any(${active}::text[]) then (v.data->>'OptionId')::uuid end"
+                : $$"""
                 case when jsonb_typeof(v.data->'OptionIds')='array' then (
                     select case when count(*)=count(distinct option_id)
                         then coalesce(array_agg(option_id order by option_id), '{}'::uuid[]) end
@@ -254,7 +250,6 @@ internal sealed partial class PropertyStore
                 ) end
                 """;
         }
-
         return sort.Kind switch
         {
             PropertyFieldKind.Text => $"case when jsonb_typeof({Value})='string' then ({Text}) collate \"C\" end",
@@ -267,13 +262,9 @@ internal sealed partial class PropertyStore
 
     internal static string FacetCtes(FacetDefinition facet, List<object> parameters)
     {
-        parameters.Add(facet.Id);
-        var definition = parameters.Count;
-        parameters.Add(PropertyTypeTag(facet.Kind));
-        var kind = parameters.Count;
-        string[] keys = facet.Kind == PropertyFieldKind.Boolean ? ["false", "true"] : facet.OptionIds.Select(id => id.ToString("D")).ToArray();
-        parameters.Add(keys);
-        var values = parameters.Count;
+        int definition = AddParam(parameters, facet.Id), kind = AddParam(parameters, PropertyTypeTag(facet.Kind));
+        int values = AddParam(parameters, facet.Kind == PropertyFieldKind.Boolean ? (string[])["false", "true"]
+            : facet.OptionIds.Select(id => id.ToString("D")).ToArray());
         var (member, jsonType) = facet.Kind switch
         {
             PropertyFieldKind.Boolean => ("Value", "boolean"),
@@ -390,40 +381,25 @@ internal sealed partial class PropertyStore
     private static void AppendCondition(StringBuilder sql, List<object> parameters, Condition condition)
     {
         var isPresent = condition.Comparison == PropertyComparison.IsPresent;
-        parameters.Add(condition.DefinitionId);
-        sql.Append(condition.Value is null && !isPresent ? "not exists (" : "exists (");
-        sql.Append("select from public.property_value v where v.article_id=a.id and v.owner_id=$1 and v.definition_id=$")
-            .Append(parameters.Count);
-        if (isPresent)
-        {
-            parameters.Add(PropertyTypeTag(condition.Kind));
-            sql.Append(" and v.data->>'$type'=$").Append(parameters.Count);
-        }
-        else if (condition.Comparison == PropertyComparison.ReferenceAnyOf && condition.Value is PropertyValue.ArticleReference references)
-        {
-            parameters.Add(PropertyTypeTag(condition.Kind));
-            sql.Append(" and v.data->>'$type'=$").Append(parameters.Count);
-            parameters.Add(ReferenceIds(references));
-            sql.Append(" and v.data->'ArticleIds'=to_jsonb(v.references_ids) and v.references_ids && $").Append(parameters.Count);
-        }
+        sql.Append(condition.Value is null && !isPresent ? "not exists (" : "exists (")
+            .Append("select from public.property_value v where v.article_id=a.id and v.owner_id=$1 and v.definition_id=$")
+            .Append(AddParam(parameters, condition.DefinitionId));
+        if (isPresent || condition.Comparison is PropertyComparison.ReferenceAnyOf or PropertyComparison.MultiSelectAnyOf or PropertyComparison.SingleSelectAnyOf)
+            sql.Append(" and v.data->>'$type'=$").Append(AddParam(parameters, PropertyTypeTag(condition.Kind)));
+        if (condition.Comparison == PropertyComparison.ReferenceAnyOf && condition.Value is PropertyValue.ArticleReference references)
+            sql.Append(" and v.data->'ArticleIds'=to_jsonb(v.references_ids) and v.references_ids && $").Append(AddParam(parameters, ReferenceIds(references)));
         else if (condition.Comparison is PropertyComparison.MultiSelectAnyOf or PropertyComparison.SingleSelectAnyOf &&
                  condition.Value is PropertyValue.MultiSelect alternatives)
         {
-            parameters.Add(PropertyTypeTag(condition.Kind));
-            sql.Append(" and v.data->>'$type'=$").Append(parameters.Count);
-            parameters.Add(alternatives.OptionIds.Select(id => id.ToString("D")).ToArray());
-            if (condition.Comparison == PropertyComparison.SingleSelectAnyOf)
-                sql.Append(" and v.data->>'OptionId'=any($").Append(parameters.Count).Append(')');
-            else
-                sql.Append(" and jsonb_typeof(v.data->'OptionIds')='array' and (v.data->'OptionIds') ?| $").Append(parameters.Count);
+            var idx = AddParam(parameters, alternatives.OptionIds.Select(id => id.ToString("D")).ToArray());
+            sql.Append(condition.Comparison == PropertyComparison.SingleSelectAnyOf
+                ? $" and v.data->>'OptionId'=any(${idx})"
+                : $" and jsonb_typeof(v.data->'OptionIds')='array' and (v.data->'OptionIds') ?| ${idx}");
         }
-        else if (condition.Value is not null)
+        else if (!isPresent && condition.Value is not null)
         {
             if (condition.Comparison == PropertyComparison.Equal)
-            {
-                parameters.Add(Json(condition.Value));
-                sql.Append(" and v.data=$").Append(parameters.Count);
-            }
+                sql.Append(" and v.data=$").Append(AddParam(parameters, Json(condition.Value)));
             else
             {
                 var (expression, operand) = condition.Value switch
@@ -432,16 +408,13 @@ internal sealed partial class PropertyStore
                     PropertyValue.Date date => ("case when v.data->>'$type'='date' then (v.data->>'Value')::timestamptz end", (object)date.Value),
                     _ => throw Invalid(),
                 };
-                parameters.Add(operand);
                 var comparison = condition.Comparison switch
                 {
-                    PropertyComparison.LessThan => "<",
-                    PropertyComparison.AtMost => "<=",
-                    PropertyComparison.GreaterThan => ">",
-                    PropertyComparison.AtLeast => ">=",
+                    PropertyComparison.LessThan => "<", PropertyComparison.AtMost => "<=",
+                    PropertyComparison.GreaterThan => ">", PropertyComparison.AtLeast => ">=",
                     _ => throw Invalid(),
                 };
-                sql.Append(" and (").Append(expression).Append(')').Append(comparison).Append('$').Append(parameters.Count);
+                sql.Append(" and (").Append(expression).Append(')').Append(comparison).Append('$').Append(AddParam(parameters, operand));
             }
         }
         if (ChecksReferenceVisibility(condition))

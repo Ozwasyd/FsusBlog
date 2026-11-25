@@ -246,34 +246,9 @@ function cancelFactor() {
 .login-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem 1rem; }
 .login-footer a { display: inline-flex; align-items: center; min-block-size: 44px; color: var(--el-text-color-secondary); }
 .login-footer a:hover { color: var(--el-text-color-primary); }
-.login-secondary-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: .25rem 1rem;
-  margin-block: .5rem 1rem;
-}
+.login-secondary-actions { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .25rem 1rem; margin-block: .5rem 1rem; }
 .login-secondary-actions :deep(.el-button + .el-button) { margin-inline-start: 0; }
-.login-secondary-trigger {
-  min-block-size: 44px;
-  padding-inline: .5rem;
-  margin-inline: -.5rem;
-  color: var(--el-text-color-secondary);
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  text-underline-offset: 6px;
-  text-decoration-thickness: 1.5px;
-  transition:
-    color var(--fsus-motion-control-fast, 140ms) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)),
-    text-decoration-color var(--fsus-motion-control-fast, 140ms) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));
-}
-.login-secondary-trigger[aria-expanded='true'] {
-  color: var(--el-text-color-primary);
-  font-weight: 600;
-  text-decoration-color: currentColor;
-}
-@media (prefers-reduced-motion: reduce) {
-  .login-secondary-trigger { transition-duration: 1ms; }
-}
+.login-secondary-trigger { min-block-size: 44px; padding-inline: .5rem; margin-inline: -.5rem; color: var(--el-text-color-secondary); text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 6px; text-decoration-thickness: 1.5px; transition: color var(--fsus-motion-control-fast, 140ms) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)), text-decoration-color var(--fsus-motion-control-fast, 140ms) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1)); }
+.login-secondary-trigger[aria-expanded='true'] { color: var(--el-text-color-primary); font-weight: 600; text-decoration-color: currentColor; }
+@media (prefers-reduced-motion: reduce) { .login-secondary-trigger { transition-duration: 1ms; } }
 </style>
