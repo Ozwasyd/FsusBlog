@@ -220,10 +220,9 @@ public static partial class Wire
     {
         ValidateAuthorTextCursor(next);
         ValidateAuthorTextPage(ready, next.Length != 0, rows);
-        if (total < rows || (!ready && total != 0) || (next.Length != 0 && total <= AuthorTextSearchRows) ||
-            states.Count != AuthorTextSearchStateCount || states.Any(count => count < 0) ||
-            states.Sum(count => (long)count) != total)
-            throw new ProtocolException("Invalid faceted author text search page.");
+        Check(total >= rows && (ready || total == 0) && (next.Length == 0 || total > AuthorTextSearchRows) &&
+            states.Count == AuthorTextSearchStateCount && states.All(count => count >= 0) &&
+            states.Sum(count => (long)count) == total, "Invalid faceted author text search page.");
     }
 
     private static void WriteAuthorTextFacets(Writer writer, bool more, IReadOnlyList<AuthorTextTaxonomyFacet> facets, int total)
@@ -243,11 +242,9 @@ public static partial class Wire
         return facets;
     }
 
-    private static void ValidateAuthorTextFacetCount(bool more, int count)
-    {
-        if (count is < 0 or > AuthorTextSearchFacetRows || (more && count != AuthorTextSearchFacetRows))
-            throw new ProtocolException("Invalid author text search facet count.");
-    }
+    private static void ValidateAuthorTextFacetCount(bool more, int count) =>
+        Check(count is >= 0 and <= AuthorTextSearchFacetRows && (!more || count == AuthorTextSearchFacetRows),
+            "Invalid author text search facet count.");
 
     private static void ValidateAuthorTextFacets(IReadOnlyList<AuthorTextTaxonomyFacet> facets, int total)
     {
@@ -255,10 +252,10 @@ public static partial class Wire
         AuthorTextTaxonomyFacet? previous = null;
         foreach (var facet in facets)
         {
-            if (facet.Id <= 0 || facet.Count <= 0 || facet.Count > total || !ids.Add(facet.Id) ||
-                facet.Name.Length == 0 || facet.Name.Contains('\0') || AuthorTextByteCount(facet.Name) > TaxonomyNameBytes ||
-                (previous is not null && (facet.Count > previous.Count || (facet.Count == previous.Count && facet.Id <= previous.Id))))
-                throw new ProtocolException("Invalid author text search facet.");
+            Check(facet.Id > 0 && facet.Count > 0 && facet.Count <= total && ids.Add(facet.Id) &&
+                facet.Name.Length != 0 && !facet.Name.Contains('\0') && AuthorTextByteCount(facet.Name) <= TaxonomyNameBytes &&
+                (previous is null || facet.Count < previous.Count || (facet.Count == previous.Count && facet.Id > previous.Id)),
+                "Invalid author text search facet.");
             previous = facet;
         }
     }
@@ -266,23 +263,14 @@ public static partial class Wire
     private static void WriteAuthorTextRankedRows(Writer writer, IReadOnlyList<AuthorTextSearchRow> rows, int maxField = 2)
     {
         var ids = new HashSet<int>();
-        writer.Items(rows, (w, row) =>
-        {
-            ValidateAuthorTextRankedRow(row, ids, maxField);
-            WriteAuthorTextRow(w, row);
-        });
+        writer.Items(rows, (w, row) => { ValidateAuthorTextRankedRow(row, ids, maxField); WriteAuthorTextRow(w, row); });
     }
 
     private static AuthorTextSearchRow[] ReadAuthorTextRankedRows(ref Reader reader, int count, int maxField = 2)
     {
         var rows = new AuthorTextSearchRow[count];
         var ids = new HashSet<int>();
-        for (var i = 0; i < rows.Length; i++)
-        {
-            var row = ReadAuthorTextRow(ref reader);
-            ValidateAuthorTextRankedRow(row, ids, maxField);
-            rows[i] = row;
-        }
+        for (var i = 0; i < rows.Length; i++) ValidateAuthorTextRankedRow(rows[i] = ReadAuthorTextRow(ref reader), ids, maxField);
         return rows;
     }
 
@@ -297,30 +285,22 @@ public static partial class Wire
             reader.Text(AuthorTextSearchSnippetBytes), reader.I32(), reader.I32(), reader.I32(), reader.I32(),
             reader.I32(), reader.I32(), reader.FixedBytes(AuthorTextSearchSourceDigestBytes).ToArray());
 
-    private static void ValidateAuthorTextCursor(string cursor)
-    {
-        if (cursor.Length > AuthorTextRankedCursorChars || !IsBase64Url(cursor))
-            throw new ProtocolException("Invalid author text search cursor.");
-    }
+    private static void ValidateAuthorTextCursor(string cursor) =>
+        Check(cursor.Length <= AuthorTextRankedCursorChars && IsBase64Url(cursor), "Invalid author text search cursor.");
 
     private static void ValidateAuthorTextRankedRow(AuthorTextSearchRow row, HashSet<int> ids, int maxField)
     {
         ValidateAuthorTextRow(row, previousId: 0, maxField: maxField);
-        if (!ids.Add(row.Id)) throw new ProtocolException("Invalid author text search row.");
+        Check(ids.Add(row.Id), "Invalid author text search row.");
     }
 
-    private static void ValidateAuthorTextQuery(string query)
-    {
-        if (query.Length > AuthorTextSearchQueryChars || AuthorTextByteCount(query) > AuthorTextSearchQueryBytes)
-            throw new ProtocolException("Author text search query exceeds its text limit.");
-    }
+    private static void ValidateAuthorTextQuery(string query) =>
+        Check(query.Length <= AuthorTextSearchQueryChars && AuthorTextByteCount(query) <= AuthorTextSearchQueryBytes,
+            "Author text search query exceeds its text limit.");
 
-    private static void ValidateAuthorTextPage(bool ready, bool more, int count)
-    {
-        if (count is < 0 or > AuthorTextSearchRows || (!ready && (more || count != 0)) ||
-            (more && count != AuthorTextSearchRows))
-            throw new ProtocolException("Invalid author text search page.");
-    }
+    private static void ValidateAuthorTextPage(bool ready, bool more, int count) =>
+        Check(count is >= 0 and <= AuthorTextSearchRows && (ready || (!more && count == 0)) &&
+            (!more || count == AuthorTextSearchRows), "Invalid author text search page.");
 
     private static void ValidateAuthorTextRow(AuthorTextSearchRow row, int previousId, int maxField = 2)
     {
@@ -664,35 +644,29 @@ public static partial class Wire
 
     private static void ValidateAuthorTextPropertyTextSelection(AuthorTextQualifiedQuery search, Guid definition, long revision)
     {
-        if (!ValidPropertyDefinitionCoordinates(definition, revision, search.SchemaRevision)) throw InvalidAuthorTextPropertyText();
+        Check(ValidPropertyDefinitionCoordinates(definition, revision, search.SchemaRevision), InvalidAuthorTextPropertyText);
         ValidateAuthorTextQualifiedQuery(search, requireQualifier: false, propertyFacet: true);
     }
 
     private static void ValidateAuthorTextPropertyTextQualifiedQuery(AuthorTextPropertyTextQualifiedQuery value)
     {
         ValidateAuthorTextPropertyTextSelection(value.Search, value.DefinitionId, value.DefinitionRevision);
-        if (value.Facet is null && value.Sort is null) throw InvalidAuthorTextPropertyText();
+        Check(value.Facet is not null || value.Sort is not null, InvalidAuthorTextPropertyText);
         ValidateAuthorTextPropertySelectors(value.Search.SchemaRevision, value.Facet, value.Sort);
     }
 
     private static void ValidateAuthorTextPropertySelectors(long schema, AuthorTextPropertyFacetSelector? facet,
-        AuthorTextPropertySortSelector? sort)
-    {
-        if (facet is not null && !ValidPropertyDefinitionCoordinates(facet.DefinitionId, facet.DefinitionRevision, schema) ||
-            sort is not null && (!ValidPropertyDefinitionCoordinates(sort.DefinitionId, sort.DefinitionRevision, schema) ||
-                sort.Direction is not (AuthorTextPropertySortDirection.Ascending or AuthorTextPropertySortDirection.Descending)))
-            throw InvalidAuthorTextPropertyText();
-    }
+        AuthorTextPropertySortSelector? sort) =>
+        Check((facet is null || ValidPropertyDefinitionCoordinates(facet.DefinitionId, facet.DefinitionRevision, schema)) &&
+            (sort is null || ValidPropertyDefinitionCoordinates(sort.DefinitionId, sort.DefinitionRevision, schema) &&
+                sort.Direction is AuthorTextPropertySortDirection.Ascending or AuthorTextPropertySortDirection.Descending),
+            InvalidAuthorTextPropertyText);
 
-    private static void ValidateAuthorTextPropertyTextMixedRows(AuthorTextFacetedPage page, bool includeHeading)
-    {
-        if (!includeHeading && page.Rows.Any(row => row.Field == 4)) throw InvalidAuthorTextPropertyText();
-    }
+    private static void ValidateAuthorTextPropertyTextMixedRows(AuthorTextFacetedPage page, bool includeHeading) =>
+        Check(includeHeading || page.Rows.All(row => row.Field != 4), InvalidAuthorTextPropertyText);
 
-    private static void ValidateAuthorTextPropertyTextPage(AuthorTextFacetedPage page)
-    {
-        if (page.Rows.Any(row => row.Field != 5)) throw InvalidAuthorTextPropertyText();
-    }
+    private static void ValidateAuthorTextPropertyTextPage(AuthorTextFacetedPage page) =>
+        Check(page.Rows.All(row => row.Field == 5), InvalidAuthorTextPropertyText);
 
     private static ProtocolException InvalidAuthorTextPropertyText() => new("Invalid author text property search.");
 }

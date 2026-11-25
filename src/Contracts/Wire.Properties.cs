@@ -408,58 +408,49 @@ public static partial class Wire
     public static PropertyFilterCatalog DecodePropertyFilterCatalog(ReadOnlySpan<byte> frame) =>
         DecodeFrame(FrameType.PropertyFilterCatalog, frame, static (ref Reader reader) =>
         {
-            var (revision, next, count) = ReadPropertyCatalogHeader(ref reader);
-            var fields = new PropertyFilterField[count];
-            for (var i = 0; i < count; i++) fields[i] = ReadPropertyFilterField(ref reader);
+            var (revision, next, fields) = ReadPropertyCatalog(ref reader, ReadPropertyFilterField);
             return new PropertyFilterCatalog(revision, next, fields);
         });
 
-    public static byte[] EncodePropertyProjectionCatalog(PropertyProjectionCatalog catalog)
-    {
-        ValidatePropertyProjectionCatalog(catalog);
-        return EncodeFrame(FrameType.PropertyProjectionCatalog, writer =>
-            writer.I64(catalog.SchemaRevision).Text(catalog.NextKey, PropertyKeyBytes).Items(catalog.Fields, static (w, projected) =>
+    public static byte[] EncodePropertyProjectionCatalog(PropertyProjectionCatalog catalog) =>
+        EncodeRecord(FrameType.PropertyProjectionCatalog, catalog, ValidatePropertyProjectionCatalog, static (writer, value) =>
+            writer.I64(value.SchemaRevision).Text(value.NextKey, PropertyKeyBytes).Items(value.Fields, static (w, projected) =>
             {
                 WritePropertyFilterField(w, projected.Field);
                 w.Bool(projected.SearchEligible).Bool(projected.Sortable);
             }));
-    }
 
     public static PropertyProjectionCatalog DecodePropertyProjectionCatalog(ReadOnlySpan<byte> frame) =>
         DecodeRecord<PropertyProjectionCatalog>(FrameType.PropertyProjectionCatalog, frame, static (ref Reader reader) =>
         {
-            var (revision, next, count) = ReadPropertyCatalogHeader(ref reader);
-            var fields = new PropertyProjectionCatalogField[count];
-            for (var i = 0; i < fields.Length; i++)
-                fields[i] = new(ReadPropertyFilterField(ref reader), reader.Bool(), reader.Bool());
+            var (revision, next, fields) = ReadPropertyCatalog(ref reader, static (ref Reader r) =>
+                new PropertyProjectionCatalogField(ReadPropertyFilterField(ref r), r.Bool(), r.Bool()));
             return new(revision, next, fields);
         }, ValidatePropertyProjectionCatalog);
 
     private static void ValidatePropertyProjectionCatalog(PropertyProjectionCatalog catalog)
     {
-        if (catalog.SchemaRevision < 0 || catalog.Fields.Count > PropertyPageSize) throw InvalidProperty();
+        Check(catalog.SchemaRevision >= 0 && catalog.Fields.Count <= PropertyPageSize, InvalidProperty);
         var previous = "";
         var seen = new HashSet<Guid>();
         foreach (var projected in catalog.Fields)
         {
             var field = projected.Field;
-            if (field.Id == Guid.Empty || !seen.Add(field.Id) || field.Revision <= 0 || field.Revision > catalog.SchemaRevision ||
-                string.CompareOrdinal(field.MachineKey, previous) <= 0 || field.Label.Length == 0 || !Enum.IsDefined(field.Kind) ||
-                (field.Deprecated && (field.Enabled || projected.SearchEligible || projected.Sortable)))
-                throw InvalidProperty();
+            Check(field.Id != Guid.Empty && seen.Add(field.Id) && field.Revision > 0 && field.Revision <= catalog.SchemaRevision &&
+                string.CompareOrdinal(field.MachineKey, previous) > 0 && field.Label.Length != 0 && Enum.IsDefined(field.Kind) &&
+                (!field.Deprecated || (!field.Enabled && !projected.SearchEligible && !projected.Sortable)), InvalidProperty);
             previous = field.MachineKey;
         }
-        if (catalog.NextKey.Length != 0 && (catalog.Fields.Count != PropertyPageSize || catalog.NextKey != previous))
-            throw InvalidProperty();
+        Check(catalog.NextKey.Length == 0 || (catalog.Fields.Count == PropertyPageSize && catalog.NextKey == previous), InvalidProperty);
     }
 
-    private static (long Revision, string Next, int Count) ReadPropertyCatalogHeader(ref Reader reader)
+    private static (long Revision, string Next, T[] Fields) ReadPropertyCatalog<T>(ref Reader reader, ReadRecord<T> readItem)
     {
-        var revision = reader.I64();
-        var next = reader.Text(PropertyKeyBytes);
-        var count = reader.I32();
-        if (revision < 0 || count is < 0 or > PropertyPageSize) throw InvalidProperty();
-        return (revision, next, count);
+        var (revision, next, count) = (reader.I64(), reader.Text(PropertyKeyBytes), reader.I32());
+        Check(revision >= 0 && count is >= 0 and <= PropertyPageSize, InvalidProperty);
+        var fields = new T[count];
+        for (var i = 0; i < count; i++) fields[i] = readItem(ref reader);
+        return (revision, next, fields);
     }
 
     private static void WritePropertyFilterField(Writer writer, PropertyFilterField field)

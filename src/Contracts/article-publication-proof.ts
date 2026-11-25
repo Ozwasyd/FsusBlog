@@ -11,81 +11,45 @@ const exactTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/
 
 export class PublicationProofError extends Error {
   readonly reason: 'unavailable' | 'invalid'
-
-  constructor(reason: 'unavailable' | 'invalid') {
-    super(reason)
-    this.reason = reason
-  }
+  constructor(reason: 'unavailable' | 'invalid') { super(reason); this.reason = reason }
 }
 
-function check(value: unknown): asserts value {
-  if (!value) throw new PublicationProofError('invalid')
-}
-
+function check(value: unknown): asserts value { if (!value) throw new PublicationProofError('invalid') }
 function record(value: unknown): Record<string, unknown> {
   check(value !== null && typeof value === 'object' && !Array.isArray(value))
   return value as Record<string, unknown>
 }
-
-function positive(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 2_147_483_647
-}
-
-function validId(value: unknown): value is string {
-  return typeof value === 'string' && keyId.test(value)
-}
-
-function validHex(value: unknown): value is string {
-  return typeof value === 'string' && lowerHex.test(value)
-}
-
-function milliseconds(value: string): string {
-  return value.slice(0, 23) + 'Z'
-}
+const positive = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0 && v <= 2_147_483_647
+const validId = (v: unknown): v is string => typeof v === 'string' && keyId.test(v)
+const validHex = (v: unknown): v is string => typeof v === 'string' && lowerHex.test(v)
+const milliseconds = (v: string) => v.slice(0, 23) + 'Z'
 
 function time(value: unknown): value is string {
   if (typeof value !== 'string' || !exactTime.test(value) || value.startsWith('0000')) return false
-  const millis = milliseconds(value)
-  const date = new Date(millis)
+  const millis = milliseconds(value), date = new Date(millis)
   return Number.isFinite(date.getTime()) && date.toISOString() === millis
 }
 
 function base64(bytes: Uint8Array): string {
   let source = ''
-  for (let offset = 0; offset < bytes.length; offset += 16_384) {
+  for (let offset = 0; offset < bytes.length; offset += 16_384)
     source += String.fromCharCode(...bytes.subarray(offset, offset + 16_384))
-  }
   return btoa(source)
 }
 
 function fromBase64Url(value: unknown, bytes: number): Uint8Array<ArrayBuffer> {
   check(typeof value === 'string' && value.length === Math.ceil(bytes * 8 / 6) && /^[A-Za-z0-9_-]+$/.test(value))
-  const decoded = Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), character => character.charCodeAt(0))
-  check(decoded.length === bytes &&
-    base64(decoded).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') === value)
+  const decoded = Uint8Array.from(atob(value.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))
+  check(decoded.length === bytes && base64(decoded).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') === value)
   return decoded
 }
 
-function payload(...lines: string[]): Uint8Array<ArrayBuffer> {
-  return encoder.encode(lines.join('\n') + '\n')
-}
-
-function stringLine(field: string, value: string): string {
-  return `${field}:s:${base64(encoder.encode(value))}`
-}
-
-function intLine(field: string, value: number | bigint | string): string {
-  return `${field}:i:${value}`
-}
-
-function boolLine(field: string, value: boolean): string {
-  return `${field}:b:${value ? 1 : 0}`
-}
-
-async function sha256(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
-  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))
-  return Array.from(hash, byte => byte.toString(16).padStart(2, '0')).join('')
-}
+const payload = (...lines: string[]): Uint8Array<ArrayBuffer> => encoder.encode(lines.join('\n') + '\n')
+const stringLine = (field: string, value: string) => `${field}:s:${base64(encoder.encode(value))}`
+const intLine = (field: string, value: number | bigint | string) => `${field}:i:${value}`
+const boolLine = (field: string, value: boolean) => `${field}:b:${value ? 1 : 0}`
+const sha256 = async (bytes: Uint8Array<ArrayBuffer>) =>
+  Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('')
 
 export async function articlePublicationDigests(article: Article, expectedVersion?: 2 | 3): Promise<{ content: string; policy: string }> {
   const rights = article.rights
@@ -116,9 +80,8 @@ export async function articlePublicationDigests(article: Article, expectedVersio
   return { content, policy }
 }
 
-export function publicationProofPath(article: Article): string {
-  return `/integrity/v2/article/${article.id}/${article.publication}/rights.json`
-}
+export const publicationProofPath = (article: Article): string =>
+  `/integrity/v2/article/${article.id}/${article.publication}/rights.json`
 
 async function readJson(path: string, maxBytes: number, signal: AbortSignal): Promise<string> {
   let response: Response
@@ -126,18 +89,14 @@ async function readJson(path: string, maxBytes: number, signal: AbortSignal): Pr
     response = await fetch(path, {
       cache: 'no-store', credentials: 'omit', redirect: 'error', headers: { Accept: 'application/json' }, signal,
     })
-  } catch {
-    throw new PublicationProofError('unavailable')
-  }
+  } catch { throw new PublicationProofError('unavailable') }
   if (!response.ok) throw new PublicationProofError('unavailable')
-  const cache = response.headers.get('cache-control')?.toLowerCase().split(',').map(value => value.trim())
+  const cache = response.headers.get('cache-control')?.toLowerCase().split(',').map(v => v.trim())
   const age = response.headers.get('age')
   if (!cache?.includes('no-store') || (age !== null && age !== '0')) throw new PublicationProofError('unavailable')
   check(response.headers.get('content-type')?.split(';')[0].trim().toLowerCase() === 'application/json' && response.body)
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder('utf-8', { fatal: true })
-  let size = 0
-  let json = ''
+  const reader = response.body.getReader(), decoder = new TextDecoder('utf-8', { fatal: true })
+  let size = 0, json = ''
   try {
     for (;;) {
       const { value, done } = await reader.read()
@@ -151,17 +110,12 @@ async function readJson(path: string, maxBytes: number, signal: AbortSignal): Pr
     await reader.cancel().catch(() => {})
     if (error instanceof PublicationProofError) throw error
     throw new PublicationProofError('unavailable')
-  } finally {
-    reader.releaseLock()
-  }
+  } finally { reader.releaseLock() }
 }
 
 function jsonRecord(json: string): Record<string, unknown> {
-  try {
-    return record(JSON.parse(json))
-  } catch {
-    throw new PublicationProofError('invalid')
-  }
+  try { return record(JSON.parse(json)) }
+  catch { throw new PublicationProofError('invalid') }
 }
 
 function locateKey(manifest: Record<string, unknown>, id: string): Record<string, unknown> {
