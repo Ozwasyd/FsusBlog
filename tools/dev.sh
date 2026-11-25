@@ -18,7 +18,7 @@ Starts an isolated local development stack with hot reload:
 
 Options:
   --reset          Wipe .dev-data/ and initialize a fresh database before starting
-  --seed           Idempotently seed demo articles, taxonomy, comments, read counts, and an inbox thread
+  --seed           Idempotently seed demo articles, taxonomy, comments, read counts, traffic stats, and an inbox thread
   --admin-session  Provision a local dev Passkey fixture + 24h admin cookie in .dev-data/
   --db-only        Start only PostgreSQL + initialized schema/data dir (for IDE F5 debugging)
   --no-watch       Use dotnet run instead of dotnet watch for the backend
@@ -161,6 +161,22 @@ with TemporaryDirectory() as tmp:
         packages.add(slug, manifest, {})
     packages.finish(now - timedelta(hours=1), now + timedelta(days=30), None, None, None, indent=2)
 PY
+fi
+
+# Seed an RFC 5737 / RFC 3849 documentation-only offline traffic region map when --seed is enabled
+# so /admin/site renders the seeded region ranking on local loopback dev without matching public IPs.
+traffic_regions_file="$site_data/traffic-regions.json"
+if (( seed_demo )) && [[ ! -f "$traffic_regions_file" ]]; then
+  printf '[dev] Provisioning demo offline traffic region map in %s...\n' "$traffic_regions_file"
+  cat > "$traffic_regions_file" <<'JSON'
+[
+  { "cidr": "192.0.2.0/24", "region": "CN-SH" },
+  { "cidr": "198.51.100.0/24", "region": "CN-BJ" },
+  { "cidr": "203.0.113.0/24", "region": "US" },
+  { "cidr": "2001:db8::/32", "region": "JP" }
+]
+JSON
+  chmod 600 "$traffic_regions_file"
 fi
 
 # Build CLI & Server incrementally (Debug for fast inner loop and IDE symbol alignment).
@@ -464,11 +480,11 @@ COMMIT;
 SQL
   fi
 
-  if db_empty "public.site_traffic_daily"; then
+  if db_empty "public.site_traffic_daily WHERE day >= (now() AT TIME ZONE 'UTC')::date - 29"; then
     apply_seed_sql <<'SQL'
 BEGIN;
 
--- Seed 7 days of sample site traffic aggregates (visible in /admin/site when HTTPS traffic stats are enabled).
+-- Seed 7 days of sample site traffic aggregates (visible in /admin/site under HTTPS public origin or local loopback admin).
 INSERT INTO public.site_traffic_daily (day, region, views)
 SELECT ((now() AT TIME ZONE 'UTC')::date - v.days_ago), v.region, v.views
 FROM (VALUES

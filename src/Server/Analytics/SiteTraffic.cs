@@ -15,6 +15,7 @@ internal sealed class SiteTraffic : BackgroundService
     private readonly Dictionary<(DateOnly Day, string Region), long> pending = [];
     private DateOnly? pruned;
     internal bool Enabled { get; }
+    internal bool Readable { get; }
 
     public SiteTraffic(SiteCapabilities capabilities, NpgsqlDataSource database, InstanceLease lease, ILogger<SiteTraffic> log)
     {
@@ -22,7 +23,8 @@ internal sealed class SiteTraffic : BackgroundService
         this.lease = lease;
         this.log = log;
         Enabled = capabilities.SiteTraffic;
-        if (!Enabled) return;
+        Readable = capabilities.SiteTrafficReadable;
+        if (!Readable) return;
         try { regions = new SiteTrafficRegions(capabilities.TrafficRegionsPath); }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or ArgumentException)
         { log.LogWarning("Site traffic offline region configuration is unavailable; collection is suspended."); }
@@ -54,7 +56,7 @@ internal sealed class SiteTraffic : BackgroundService
 
     internal async Task<AdminSiteTraffic> ReadAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
-        if (!Enabled) return new(false, false, [], []);
+        if (!Readable) return new(false, false, [], []);
         if (regions is null) throw new InvalidOperationException("Site traffic region configuration is unavailable.");
         var days = new List<SiteTrafficDay>();
         var today = default(DateOnly);
