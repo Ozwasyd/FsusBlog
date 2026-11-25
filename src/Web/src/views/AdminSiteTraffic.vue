@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import {
   ElAlert, ElButton, ElDistributionBarRow, ElDistributionList, ElEmptyState,
-  ElKpiGroup, ElSettingsSection, ElSkeleton, ElStatistic, ElTable, ElTableColumn,
+  ElKpiGroup, ElPaginationBar, ElSettingsSection, ElSkeleton, ElStatistic, ElTable, ElTableColumn,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import type { AdminSession } from '../../../Contracts/admin-identity'
@@ -13,15 +13,23 @@ import { isAdminSessionLost, useAdminRequests } from './adminSessionClear'
 
 const props = defineProps<{ session: AdminSession; sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: ApiError] }>()
+const DAILY_PAGE_SIZE = 7
 const observation = shallowRef<Awaited<ReturnType<typeof readAdminSiteTraffic>>>()
 const busy = ref(false)
 const refreshLoading = useDelayedBusy(() => busy.value)
 const error = ref<MessageKey | ''>('')
+const dailyPage = ref(1)
 const total = computed(() => observation.value?.days.reduce((sum, day) => sum + day.views, 0) ?? 0)
 const peak = computed(() => Math.max(1, ...observation.value?.days.map(day => day.views) ?? []))
 const points = computed(() => observation.value?.days.map((day, index, days) =>
   `${days.length === 1 ? 150 : index * 300 / (days.length - 1)},${90 - day.views / peak.value * 80}`).join(' ') ?? '')
-const days = computed(() => [...observation.value?.days ?? []])
+const days = computed(() => [...observation.value?.days ?? []].reverse())
+const dailyPageCount = computed(() => Math.max(1, Math.ceil(days.value.length / DAILY_PAGE_SIZE)))
+const currentDailyPage = computed(() => Math.min(Math.max(1, dailyPage.value), dailyPageCount.value))
+const pagedDays = computed(() => {
+  const start = (currentDailyPage.value - 1) * DAILY_PAGE_SIZE
+  return days.value.slice(start, start + DAILY_PAGE_SIZE)
+})
 const regions = computed(() => [...observation.value?.regions ?? []].sort((a, b) => b.views - a.views))
 const regionPeak = computed(() => Math.max(1, ...regions.value.map(region => region.views)))
 const regionNames = computed(() => new Intl.DisplayNames([siteLocale.value], { type: 'region' }))
@@ -39,10 +47,15 @@ function regionName(code: string) {
 }
 const number = (value: number) => new Intl.NumberFormat(siteLocale.value).format(value)
 
+function setDailyPage(next: number) {
+  dailyPage.value = Math.min(Math.max(1, next), dailyPageCount.value)
+}
+
 const requests = useAdminRequests(() => [props.session, props.sessionSignal] as const, () => {
   observation.value = undefined
   busy.value = false
   error.value = ''
+  dailyPage.value = 1
 })
 async function load() {
   if (busy.value || props.sessionSignal.aborted) return
@@ -51,7 +64,10 @@ async function load() {
   error.value = ''
   try {
     const result = await readAdminSiteTraffic(props.session, req.signal)
-    if (!req.signal.aborted) observation.value = result
+    if (!req.signal.aborted) {
+      observation.value = result
+      dailyPage.value = 1
+    }
   } catch (cause) {
     if (req.signal.aborted) return
     observation.value = undefined
@@ -97,12 +113,42 @@ onMounted(() => { void load() })
           </template>
           <details v-if="observation.days.length" class="traffic-details">
             <summary>{{ t('admin.traffic.dailyData') }}</summary>
-            <ElTable :data="days" border stripe>
+            <ElTable :data="pagedDays" border stripe>
               <ElTableColumn prop="date" :label="t('admin.traffic.date')" min-width="120" />
               <ElTableColumn prop="views" :label="t('admin.traffic.views')" min-width="90" align="right">
                 <template #default="{ row }">{{ number(row.views) }}</template>
               </ElTableColumn>
             </ElTable>
+            <ElPaginationBar
+              v-if="dailyPageCount > 1"
+              class="traffic-pagination"
+              density="compact"
+              :ariaLabel="t('admin.traffic.dailyPagination')"
+            >
+              <template #summary>
+                <span class="traffic-page-status" role="status">
+                  {{ t('admin.traffic.dailyPageSummary', { page: currentDailyPage, total: dailyPageCount }) }}
+                </span>
+              </template>
+              <template #pagination>
+                <ElButton
+                  size="small"
+                  native-type="button"
+                  :disabled="currentDailyPage <= 1"
+                  @click="setDailyPage(currentDailyPage - 1)"
+                >
+                  {{ t('reading.previous') }}
+                </ElButton>
+                <ElButton
+                  size="small"
+                  native-type="button"
+                  :disabled="currentDailyPage >= dailyPageCount"
+                  @click="setDailyPage(currentDailyPage + 1)"
+                >
+                  {{ t('reading.next') }}
+                </ElButton>
+              </template>
+            </ElPaginationBar>
           </details>
         </section>
         <section class="traffic-card" aria-labelledby="traffic-regions-heading">
@@ -139,6 +185,7 @@ onMounted(() => { void load() })
 .traffic-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: start;
   gap: 16px;
 }
 
@@ -197,5 +244,9 @@ onMounted(() => { void load() })
   font-size: var(--el-font-size-small);
   font-weight: 500;
   color: var(--el-text-color-regular);
+}
+
+.traffic-page-status {
+  font-variant-numeric: tabular-nums;
 }
 </style>
