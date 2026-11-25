@@ -138,26 +138,7 @@ async function send() {
 .public-comment-composer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
 .public-comment-btn + .public-comment-btn { margin-inline-start: 0; }
 .public-comment-status { margin: 0; color: var(--fsus-color-text-quiet); font-size: .875rem; }
-.public-comment-sign-in {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: .25rem .75rem;
-  margin-block: 1rem 0;
-  font-size: .875rem;
-}
-.public-comment-sign-in-link {
-  display: inline-flex;
-  align-items: center;
-  min-block-size: 44px;
-  color: var(--fsus-scholarly-blue);
-  font-weight: 500;
-  text-decoration: none;
-}
-.public-comment-sign-in-link:hover,
-.public-comment-sign-in-link:focus-visible {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: .25em;
-}
+.public-comment-sign-in { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .75rem; margin-block: 1rem 0; font-size: .875rem; }
+.public-comment-sign-in-link { display: inline-flex; align-items: center; min-block-size: 44px; color: var(--fsus-scholarly-blue); font-weight: 500; text-decoration: none; }
+.public-comment-sign-in-link:hover, .public-comment-sign-in-link:focus-visible { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .25em; }
 </style>

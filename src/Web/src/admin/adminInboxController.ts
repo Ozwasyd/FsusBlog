@@ -1,119 +1,54 @@
 import { ApiError } from '../../../Contracts/aeds.ts'
 import {
-  acknowledgeAdminInboxRead,
-  adminChangeStatus,
-  adminInbox,
-  adminInboxThread,
-  adminReply,
-  supportsAdminInboxLiveStatus,
-  watchAdminInboxWake,
-  type AdminInboxFilter,
-  type AdminInboxLiveStatus,
-  type AdminInboxOrder,
-  type AdminInboxPage,
-  type AdminInboxRow,
-  type AdminInboxStatus,
-  type AdminInboxThread,
+  acknowledgeAdminInboxRead, adminChangeStatus, adminInbox, adminInboxThread, adminReply,
+  supportsAdminInboxLiveStatus, watchAdminInboxWake, type AdminInboxFilter, type AdminInboxLiveStatus,
+  type AdminInboxOrder, type AdminInboxPage, type AdminInboxRow, type AdminInboxStatus, type AdminInboxThread,
 } from '../../../Contracts/admin-inbox.ts'
-import {
-  adminSendNotice,
-  isNoticeRecipient,
-  newNoticeEventId,
-} from '../../../Contracts/admin-inbox-notice.ts'
+import { adminSendNotice, isNoticeRecipient, newNoticeEventId } from '../../../Contracts/admin-inbox-notice.ts'
 import type { MessageKey } from '../siteLocale.ts'
 import {
-  AdminOperationChannel,
-  AdminSessionScope,
-  systemAdminClock,
-  type AdminClock,
-  type AdminOperationContext,
-  type TimerHandle,
+  AdminOperationChannel, AdminSessionScope, systemAdminClock,
+  type AdminClock, type AdminOperationContext, type TimerHandle,
 } from './adminOperationCoordinator.ts'
 
 export const adminInboxStatusFilters = ['open', 'pending', 'closed'] as const
 export const adminInboxStatusTransitions: readonly (readonly AdminInboxStatus[])[] = [[1, 2], [0, 2], [0]]
-
 export type AdminInboxReplyResult = Awaited<ReturnType<typeof adminReply>>
 export type AdminInboxStatusResult = Awaited<ReturnType<typeof adminChangeStatus>>
 
 export const defaultAdminInboxTransport = {
-  adminInbox,
-  adminInboxThread,
-  acknowledgeAdminInboxRead,
-  adminReply,
-  adminChangeStatus,
+  adminInbox, adminInboxThread, acknowledgeAdminInboxRead, adminReply, adminChangeStatus,
   adminSendNotice: adminSendNotice as (account: string, subject: string, body: string, sourceEvent: bigint, signal: AbortSignal) => Promise<unknown>,
   watchAdminInboxWake,
 }
 export type AdminInboxTransport = typeof defaultAdminInboxTransport
-
-export interface AdminInboxIdGenerator {
-  randomUuid(): string
-  newNoticeEventId(): bigint
-}
-
-export const defaultAdminInboxIdGenerator: AdminInboxIdGenerator = {
-  randomUuid: () => crypto.randomUUID(),
-  newNoticeEventId,
-}
+export interface AdminInboxIdGenerator { randomUuid(): string; newNoticeEventId(): bigint }
+export const defaultAdminInboxIdGenerator: AdminInboxIdGenerator = { randomUuid: () => crypto.randomUUID(), newNoticeEventId }
 
 export interface AdminInboxHooks {
-  onSessionLost?: (error: unknown) => void
-  onReset?: () => void
-  onThreadOpened?: () => void | Promise<void>
-  onThreadRefreshed?: () => void | Promise<void>
-  onThreadClosed?: () => void
+  onSessionLost?: (error: unknown) => void; onReset?: () => void
+  onThreadOpened?: () => void | Promise<void>; onThreadRefreshed?: () => void | Promise<void>; onThreadClosed?: () => void
   onBeforeApplyLatestThread?: (conversationId: bigint) => (() => void) | void
   onBeforeApplyLiveQueuePage?: () => (() => void) | void
 }
-
 export interface AdminInboxControllerOptions {
-  transport?: AdminInboxTransport
-  clock?: AdminClock
-  idGenerator?: AdminInboxIdGenerator
-  hooks?: AdminInboxHooks
+  transport?: AdminInboxTransport; clock?: AdminClock; idGenerator?: AdminInboxIdGenerator; hooks?: AdminInboxHooks
 }
 
 export type AdminInboxState = Readonly<{
-  rows: readonly AdminInboxRow[]
-  thread: AdminInboxThread | undefined
-  next: string | null
-  filter: AdminInboxFilter
-  order: AdminInboxOrder
-  expanded: boolean
-  pending: boolean
-  queuePending: boolean
-  threadPending: boolean
-  readPending: boolean
-  replyPending: boolean
-  statusPending: boolean
-  noticePending: boolean
-  failed: MessageKey | ''
-  reply: string
-  notice: MessageKey | ''
-  destination: AdminInboxStatus | undefined
-  reason: string
-  needsRefresh: boolean
-  sharedRead: boolean
-  activityAvailable: boolean
-  queueLive: boolean
-  unreadAckFailed: boolean
-  noticesEnabled: boolean
-  composeNotice: boolean
-  recipient: string
-  noticeSubject: string
-  noticeBody: string
+  rows: readonly AdminInboxRow[]; thread: AdminInboxThread | undefined; next: string | null
+  filter: AdminInboxFilter; order: AdminInboxOrder; expanded: boolean
+  pending: boolean; queuePending: boolean; threadPending: boolean; readPending: boolean
+  replyPending: boolean; statusPending: boolean; noticePending: boolean
+  failed: MessageKey | ''; reply: string; notice: MessageKey | ''; destination: AdminInboxStatus | undefined
+  reason: string; needsRefresh: boolean; sharedRead: boolean; activityAvailable: boolean; queueLive: boolean
+  unreadAckFailed: boolean; noticesEnabled: boolean; composeNotice: boolean
+  recipient: string; noticeSubject: string; noticeBody: string
 }>
 
 interface ActiveLiveSubscription {
-  readonly target: bigint | AdminInboxLiveStatus
-  readonly generation: number
-  readonly controller: AbortController
-  retry: TimerHandle | undefined
-  dirty: boolean
-  refreshing: boolean
-  delay: number
-  refresh: () => Promise<void>
+  readonly target: bigint | AdminInboxLiveStatus; readonly generation: number; readonly controller: AbortController
+  retry: TimerHandle | undefined; dirty: boolean; refreshing: boolean; delay: number; refresh: () => Promise<void>
 }
 
 /**

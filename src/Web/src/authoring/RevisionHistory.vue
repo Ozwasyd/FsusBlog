@@ -41,6 +41,7 @@ const pairCredential = ref<string>()
 const compareEditor = ref(false)
 const historical = shallowRef<{ seek: HistoricalSearchSeek; source: string }>()
 const historicalControl = ref<HTMLTextAreaElement>()
+const exportFormats = [undefined, 'docx', 'html', 'epub', 'pdf'] as const
 const historicalLabel = {
   get title() { return t('author.revisionHistory.earlier.revision.title') },
   get body() { return t('author.revisionHistory.earlier.revision.markdown') },
@@ -409,11 +410,8 @@ onScopeDispose(() => {
               :label="t('author.revisionHistory.current.saved.properties')" />
           </div>
         </details>
-        <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" />
-        <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="docx" />
-        <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="html" />
-        <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="epub" />
-        <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" format="pdf" />
+        <MarkdownExportControl v-for="format in exportFormats" :key="format ?? 'md'"
+          :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" v-bind="format ? { format } : {}" />
         <DocumentExportTasks :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision"
           :active="comparisonOpen" />
         <label :for="`${compareId}-reason`">{{ t('author.revisionHistory.reason.for.restoring.this.draft') }}</label>
@@ -431,35 +429,12 @@ onScopeDispose(() => {
 .revision-items { list-style: none; margin: .75rem 0 0; padding: 0; }
 .revision-items > li { padding: .5rem 0; overflow-wrap: anywhere; }
 .revision-comparison { display: grid; gap: .6rem; }
-.historical-source {
-  box-sizing: border-box;
-  inline-size: 100%;
-  max-block-size: min(55dvh, 24rem);
-  padding: .65rem;
-  color: var(--fsus-ink);
-  background: var(--fsus-paper);
-  border: 1px solid var(--fsus-border);
-  font: inherit;
-}
+.historical-source { box-sizing: border-box; inline-size: 100%; max-block-size: min(55dvh, 24rem); padding: .65rem; color: var(--fsus-ink); background: var(--fsus-paper); border: 1px solid var(--fsus-border); font: inherit; }
 .revision-comparison p, .revision-source h3 { margin: 0; }
 .revision-sources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--fsus-space-4); }
-.revision-source {
-  min-inline-size: 0;
-  padding: var(--fsus-space-3);
-  border: 1px solid var(--fsus-border);
-  border-radius: var(--fsus-radius-control);
-  overflow-wrap: anywhere;
-}
+.revision-source { min-inline-size: 0; padding: var(--fsus-space-3); border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-control); overflow-wrap: anywhere; }
 .revision-source h3 { font-size: 1rem; }
 .revision-metadata dd { margin-inline-start: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.revision-source pre {
-  white-space: pre-wrap;
-  max-block-size: min(40dvh, 24rem);
-  overflow: auto;
-  overscroll-behavior: contain;
-  margin-block: var(--fsus-space-2) 0;
-}
-@media (max-width: 740px) {
-  .revision-sources { grid-template-columns: minmax(0, 1fr); }
-}
+.revision-source pre { white-space: pre-wrap; max-block-size: min(40dvh, 24rem); overflow: auto; overscroll-behavior: contain; margin-block: var(--fsus-space-2) 0; }
+@media (max-width: 740px) { .revision-sources { grid-template-columns: minmax(0, 1fr); } }
 </style>

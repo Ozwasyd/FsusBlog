@@ -1,27 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import {
-  ElAlert,
-  ElButton,
-  ElCopyableDetail,
-  ElDiagnosticsItem,
-  ElDiagnosticsList,
-  ElKeyValueGrid,
-  ElKeyValueItem,
-  ElSettingsSection,
-  ElSkeleton,
-  ElStatusSummary,
-  ElTag,
+  ElAlert, ElButton, ElCopyableDetail, ElDiagnosticsItem, ElDiagnosticsList,
+  ElKeyValueGrid, ElKeyValueItem, ElSettingsSection, ElSkeleton, ElStatusSummary, ElTag,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminCluster } from '../../../Contracts/admin-cluster'
-import {
-  readAdminAuthority,
-  readAdminOperations,
-  type AdminAuthority,
-  type AdminOperationsStatus,
-  type AdminSession,
-} from '../../../Contracts/admin-identity'
+import { readAdminAuthority, readAdminOperations, type AdminAuthority, type AdminOperationsStatus, type AdminSession } from '../../../Contracts/admin-identity'
 import { useDelayedBusy } from '../delayedBusy'
 import { siteLocale, t, type MessageKey } from '../siteLocale'
 import { isAdminSessionLost, useAdminRequests } from './adminSessionClear'
@@ -108,29 +93,13 @@ onMounted(() => { void check(false) })
 </script>
 
 <template>
-  <ElSettingsSection
-    class="admin-runtime"
-    ariaLabelledby="admin-runtime-heading"
-    :description="t('admin.runtimeSummary')"
-    v-bind="{ 'aria-busy': busy }"
-    density="compact"
-  >
-    <template #title>
-      <span id="admin-runtime-heading">{{ t('admin.runtimeTitle') }}</span>
-    </template>
-    <template #actions>
-      <ElButton text :loading="checkLoading" @click="check(true)">
-        {{ t('admin.runtimeRecheck') }}
-      </ElButton>
-    </template>
-
+  <ElSettingsSection class="admin-runtime" ariaLabelledby="admin-runtime-heading" :description="t('admin.runtimeSummary')" v-bind="{ 'aria-busy': busy }" density="compact">
+    <template #title><span id="admin-runtime-heading">{{ t('admin.runtimeTitle') }}</span></template>
+    <template #actions><ElButton text :loading="checkLoading" @click="check(true)">{{ t('admin.runtimeRecheck') }}</ElButton></template>
     <ElAlert v-if="error" :title="t(error)" type="error" :closable="false" show-icon />
-
     <div v-if="state" class="runtime-body" aria-live="polite">
       <ElStatusSummary density="compact" :tone="summaryTone">
-        <template #label>
-          {{ snapshotReady ? t('admin.runtimeHealthy') : t('admin.runtimePreparing') }}
-        </template>
+        <template #label>{{ snapshotReady ? t('admin.runtimeHealthy') : t('admin.runtimePreparing') }}</template>
         <template #status>
           <ElTag size="small" :type="snapshotReady ? (hasPending ? 'warning' : 'success') : 'warning'">
             {{ snapshotReady ? t('admin.snapshotReadySummary') : t('admin.snapshotNotReadySummary') }}
@@ -141,18 +110,13 @@ onMounted(() => { void check(false) })
           <time :datetime="new Date(state.cluster.observedAt).toISOString()">{{ formatTime(state.cluster.observedAt) }}</time>
         </template>
       </ElStatusSummary>
-
       <ElKeyValueGrid density="compact">
-        <ElKeyValueItem
-          :label="t('admin.runtimeSyncLabel')"
-          :value="hasPending ? t('admin.runtimePendingCount', { count: pendingCount.toString() }) : t('admin.runtimeAllSynced')"
-        />
+        <ElKeyValueItem :label="t('admin.runtimeSyncLabel')" :value="hasPending ? t('admin.runtimePendingCount', { count: pendingCount.toString() }) : t('admin.runtimeAllSynced')" />
         <ElKeyValueItem :label="t('admin.runtimeVersionLabel')" :value="shortVersion" monospace />
         <ElKeyValueItem :label="t('admin.processStart')">
           <time :datetime="new Date(state.cluster.startedAt).toISOString()">{{ formatTime(state.cluster.startedAt) }}</time>
         </ElKeyValueItem>
       </ElKeyValueGrid>
-
       <ElDiagnosticsList density="compact">
         <ElDiagnosticsItem density="compact" :detail-label="t('admin.runtimeTechnicalDetails')">
           <template #detail>
@@ -166,23 +130,9 @@ onMounted(() => { void check(false) })
                 </ElKeyValueItem>
               </ElKeyValueGrid>
               <div class="runtime-identifiers">
-                <div class="runtime-identifier">
-                  <span class="runtime-identifier-label">{{ t('admin.buildVersion') }}</span>
-                  <ElCopyableDetail
-                    :value="state.cluster.buildVersion"
-                    :label="t('admin.copy')"
-                    :copied-label="t('admin.copied')"
-                    :error-label="t('admin.copyFailed')"
-                  />
-                </div>
-                <div class="runtime-identifier">
-                  <span class="runtime-identifier-label">{{ t('admin.instanceId') }}</span>
-                  <ElCopyableDetail
-                    :value="state.cluster.instanceId"
-                    :label="t('admin.copy')"
-                    :copied-label="t('admin.copied')"
-                    :error-label="t('admin.copyFailed')"
-                  />
+                <div v-for="[label, value] in ([['admin.buildVersion', state.cluster.buildVersion], ['admin.instanceId', state.cluster.instanceId]] as const)" :key="label" class="runtime-identifier">
+                  <span class="runtime-identifier-label">{{ t(label) }}</span>
+                  <ElCopyableDetail :value="value" :label="t('admin.copy')" :copied-label="t('admin.copied')" :error-label="t('admin.copyFailed')" />
                 </div>
               </div>
             </div>
@@ -190,45 +140,14 @@ onMounted(() => { void check(false) })
         </ElDiagnosticsItem>
       </ElDiagnosticsList>
     </div>
-
     <ElSkeleton v-else-if="checkLoading && !error" :rows="2" animated />
   </ElSettingsSection>
 </template>
 
 <style scoped>
-.admin-runtime {
-  min-width: 0;
-}
-
-.runtime-body {
-  display: grid;
-  gap: var(--fsus-space-3);
-  min-width: 0;
-}
-
-.runtime-technical {
-  display: grid;
-  gap: var(--fsus-space-3);
-  min-width: 0;
-}
-
-.runtime-identifiers {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
-  gap: var(--fsus-space-3) var(--fsus-space-4);
-  min-width: 0;
-}
-
-.runtime-identifier {
-  display: grid;
-  gap: var(--fsus-space-1);
-  min-width: 0;
-}
-
-.runtime-identifier-label {
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-extra-small);
-  font-weight: 500;
-  line-height: 1.45;
-}
+.admin-runtime { min-width: 0; }
+.runtime-body, .runtime-technical { display: grid; gap: var(--fsus-space-3); min-width: 0; }
+.runtime-identifiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: var(--fsus-space-3) var(--fsus-space-4); min-width: 0; }
+.runtime-identifier { display: grid; gap: var(--fsus-space-1); min-width: 0; }
+.runtime-identifier-label { color: var(--el-text-color-secondary); font-size: var(--el-font-size-extra-small); font-weight: 500; line-height: 1.45; }
 </style>

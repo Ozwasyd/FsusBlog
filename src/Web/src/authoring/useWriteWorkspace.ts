@@ -24,66 +24,35 @@ import { createWriteCommandAdapter } from './writeCommandAdapter'
 import { computedProps, createSnapshotRefs, snapshotFields } from './snapshotFields'
 import { workspacePersistence } from './workspacePersistence'
 import {
-  articleRouteDestination,
-  articleRouteId,
-  createWriteWorkspaceController,
-  deriveWorkspaceFlags,
-  workspaceHistoryState,
-  type WriteWorkspaceController,
+  articleRouteDestination, articleRouteId, createWriteWorkspaceController, deriveWorkspaceFlags,
+  workspaceHistoryState, type WriteWorkspaceController,
 } from './writeWorkspaceController'
 import type { RecentlyClosed, WorkspaceGroup, WorkspaceSource, WorkspaceTab } from './workspaceRegistry'
 
 export function useWriteWorkspace() {
-  const route = useRoute()
-  const router = useRouter()
+  const route = useRoute(), router = useRouter()
   const id = computed(() => articleRouteId(route.name, route.params.id))
-
-  const tabsControl = ref<InstanceType<typeof WorkspaceTabs>>()
-  const articleInput = ref<InstanceType<typeof ElInput>>()
-  const reload = ref(0)
+  const tabsControl = ref<InstanceType<typeof WorkspaceTabs>>(), articleInput = ref<InstanceType<typeof ElInput>>(), reload = ref(0)
 
   const recovery = editorRecovery()
-  const recoveryItems = recovery.candidates
-  const recoveryFailure = recovery.failure
-  const recoveryChecking = recovery.guarded
+  const { candidates: recoveryItems, failure: recoveryFailure, guarded: recoveryChecking } = recovery
   const { record: recordRecentOpen, changed: recentOpensVersion, notice: recentOpensNotice } = recentArticleOpens()
 
   let controller!: WriteWorkspaceController
   const handoff = useWriteSourceHandoff({
-    articleId: id,
-    credentialEpoch,
-    recordRecentOpen,
-    setNotice: message => controller.setNotice(message),
+    articleId: id, credentialEpoch, recordRecentOpen, setNotice: message => controller.setNotice(message),
   })
-
   const preloadedAuth = consumeAuthoringSessionPreload() && !handoff.coordinator.hasArrival()
   const commands = createWriteCommandAdapter({
-    session: {
-      currentHandle: () => currentSession.value?.siteSessionId,
-      hasSession: () => Boolean(currentSession.value),
-      recheckCredential,
-    },
+    session: { currentHandle: () => currentSession.value?.siteSessionId, hasSession: () => Boolean(currentSession.value), recheckCredential },
     transport: {
       readDraft: (articleId, signal, handle) => api.draft(articleId, signal, handle),
       articleAction: (action, input, signal, handle) => api[action](input, signal, handle),
-      saveWithBodyInsertion,
-      saveWithBodyInsertions,
-      saveWithBodyEdits,
-      assignTaxonomy,
-      rollbackDraft,
-      setArticleSchedule,
-      setDraftRights,
-      editArticleMedia,
-      saveDraftSummary,
-      publishArticleImages,
+      saveWithBodyInsertion, saveWithBodyInsertions, saveWithBodyEdits, assignTaxonomy, rollbackDraft,
+      setArticleSchedule, setDraftRights, editArticleMedia, saveDraftSummary, publishArticleImages,
     },
   })
-
-  const persistence = workspacePersistence(
-    () => controller.registry.savedLayout,
-    () => controller.registry.hasSecondaryGroup,
-  )
-
+  const persistence = workspacePersistence(() => controller.registry.savedLayout, () => controller.registry.hasSecondaryGroup)
   const navigateRoute = async (
     method: 'push' | 'replace',
     target: ReturnType<typeof articleRouteDestination> | { name: 'article-workspace' },
@@ -93,98 +62,52 @@ export function useWriteWorkspace() {
   controller = createWriteWorkspaceController({
     origin: location.origin,
     initialPersistentWorkspace: route.name === 'article-workspace' || history.state?.articleWorkspace === true,
-    initialAuthorizationReady: preloadedAuth,
-    commands,
-    handoff: handoff.coordinator,
+    initialAuthorizationReady: preloadedAuth, commands, handoff: handoff.coordinator,
     session: {
-      current: () => currentSession.value,
-      identityEpoch: () => identityEpoch.value,
-      credentialEpoch: () => credentialEpoch.value,
-      refreshSession: (signal, reuseInFlight) => refreshSession(signal, reuseInFlight),
+      current: () => currentSession.value, identityEpoch: () => identityEpoch.value,
+      credentialEpoch: () => credentialEpoch.value, refreshSession: (signal, reuseInFlight) => refreshSession(signal, reuseInFlight),
     },
-    recovery: {
-      ...recovery,
-      candidates: () => recoveryItems.value,
-      guarded: () => recoveryChecking.value,
-    },
+    recovery: { ...recovery, candidates: () => recoveryItems.value, guarded: () => recoveryChecking.value },
     persistence,
     router: {
-      articleId: () => id.value,
-      path: () => route.path,
+      articleId: () => id.value, path: () => route.path,
       resolveArticlePath: articleId => router.resolve(articleRouteDestination(articleId)).path,
       pushArticle: (articleId, persistent) => navigateRoute('push', articleRouteDestination(articleId), persistent),
       replaceArticle: (articleId, persistent) => navigateRoute('replace', articleRouteDestination(articleId), persistent),
       replaceWorkspace: persistent => navigateRoute('replace', { name: 'article-workspace' }, persistent),
     },
-    confirm: {
-      confirmProtectedClose: confirmProtectedCloseDialog,
-      confirmDiscardTab: confirmDiscardTabDialog,
-      confirmLeave: confirmLeaveDialog,
-    },
-    format: (key, params) => t(key, params),
-    recordRecentOpen,
-    scheduleTick: callback => { void nextTick(callback) },
+    confirm: { confirmProtectedClose: confirmProtectedCloseDialog, confirmDiscardTab: confirmDiscardTabDialog, confirmLeave: confirmLeaveDialog },
+    format: (key, params) => t(key, params), recordRecentOpen, scheduleTick: callback => { void nextTick(callback) },
   })
 
   const fields = createSnapshotRefs(controller.snapshot(), ['original', 'tab', 'workspaceTabs', 'sourcePanes', 'recentlyClosed'])
   const { state, update } = snapshotFields(fields)
-  const openInput = computed({
-    get: () => fields.openInput.value,
-    set: value => controller.setOpenInput(value),
-  })
+  const openInput = computed({ get: () => fields.openInput.value, set: value => controller.setOpenInput(value) })
   const unsubscribeController = controller.subscribe(() => update(controller.snapshot()))
 
   const flags = computed(() => deriveWorkspaceFlags({
-    state: { ...state },
-    articleId: id.value,
-    session: currentSession.value,
-    recoveryItemsCount: recoveryItems.value.length,
-    recoveryChecking: recoveryChecking.value,
+    state: { ...state }, articleId: id.value, session: currentSession.value,
+    recoveryItemsCount: recoveryItems.value.length, recoveryChecking: recoveryChecking.value,
   }))
-
   const flagRefs = computedProps(flags)
   const { metadataDirty, recoveryBlocked, pending, editable, credential, inputArticle } = flagRefs
-  const openAddress = computed(() => {
-    const articleId = inputArticle.value
-    return articleId === undefined ? undefined : articleRouteDestination(articleId)
-  })
-  const selectedPanelTitle = computed(() => state.tab?.title
-    ? t('author.write.contentTitle', { title: state.tab.title })
-    : t('author.write.articleContent'))
+  const openAddress = computed(() => inputArticle.value === undefined ? undefined : articleRouteDestination(inputArticle.value))
+  const selectedPanelTitle = computed(() => state.tab?.title ? t('author.write.contentTitle', { title: state.tab.title }) : t('author.write.articleContent'))
   const publicBase = publicOriginBase()
   const publishedPath = computed(() => state.original?.published ? `${publicBase}/article/${state.original.id}` : '')
 
   let deferredFocus: Readonly<{ sessionId: number; epoch: number; pane: HTMLElement }> | undefined
 
-  watch([currentSession, identityEpoch], ([session, epoch]) => {
-    controller.syncIdentity(session, epoch)
-  }, { immediate: true, flush: 'sync' })
-
+  watch([currentSession, identityEpoch], ([session, epoch]) => controller.syncIdentity(session, epoch), { immediate: true, flush: 'sync' })
   watch([identityEpoch, () => currentSession.value?.canAuthor], ([epoch, author]) => {
     if (!author) recovery.close()
-    else {
-      void recovery.attach(
-        epoch,
-        () => identityEpoch.value === epoch && currentSession.value?.canAuthor === true,
-        () => currentSession.value?.siteSessionId,
-      )
-    }
+    else void recovery.attach(epoch, () => identityEpoch.value === epoch && currentSession.value?.canAuthor === true, () => currentSession.value?.siteSessionId)
   }, { immediate: true })
-
-  watch(identityEpoch, () => {
-    controller.onIdentityEpochChanged()
-    deferredFocus = undefined
-  })
+  watch(identityEpoch, () => { controller.onIdentityEpochChanged(); deferredFocus = undefined })
 
   handoff.bindActivity({
-    recoveryItems,
-    recoveryWorking: fields.recoveryWorking,
-    activeTab: fields.tab,
-    propertyPending: fields.propertyPending,
-    metadataDirty,
-    composing: fields.composing,
-    closingTabs: fields.closingTabs,
-    revisionComparisonActive: fields.revisionComparisonActive,
+    recoveryItems, recoveryWorking: fields.recoveryWorking, activeTab: fields.tab, propertyPending: fields.propertyPending,
+    metadataDirty, composing: fields.composing, closingTabs: fields.closingTabs, revisionComparisonActive: fields.revisionComparisonActive,
   })
 
   watch([id, identityEpoch, fields.authorizationReady, reload, fields.persistentWorkspace], async ([articleId, identity], _, cleanup) => {
@@ -193,42 +116,20 @@ export function useWriteWorkspace() {
     await controller.syncRoute({ articleId, identity, isValid: () => valid })
   }, { immediate: true })
 
-  onBeforeRouteUpdate((to, from) => controller.beforeRouteUpdate({
-    toPath: to.path,
-    fromPath: from.path,
-    toArticleId: articleRouteId(to.name, to.params.id),
-  }))
-
+  onBeforeRouteUpdate((to, from) => controller.beforeRouteUpdate({ toPath: to.path, fromPath: from.path, toArticleId: articleRouteId(to.name, to.params.id) }))
   onBeforeRouteLeave(() => controller.beforeRouteLeave())
 
-  function onUnload(event: BeforeUnloadEvent): void {
-    if (controller.shouldPreventUnload()) event.preventDefault()
+  const onUnload = (event: BeforeUnloadEvent) => { if (controller.shouldPreventUnload()) event.preventDefault() }
+  const flushWorkspace = () => { void persistence.flush() }
+  const flushHiddenWorkspace = () => { if (document.visibilityState === 'hidden') flushWorkspace() }
+  const toggleListeners = (op: 'addEventListener' | 'removeEventListener') => {
+    window[op]('beforeunload', onUnload)
+    window[op]('pagehide', flushWorkspace)
+    window[op]('offline', persistence.offline)
+    document[op]('visibilitychange', flushHiddenWorkspace)
   }
-
-  function flushWorkspace(): void {
-    void persistence.flush()
-  }
-
-  function flushHiddenWorkspace(): void {
-    if (document.visibilityState === 'hidden') flushWorkspace()
-  }
-
-  onMounted(() => {
-    void controller.mountSessionCheck(preloadedAuth)
-    window.addEventListener('beforeunload', onUnload)
-    window.addEventListener('pagehide', flushWorkspace)
-    window.addEventListener('offline', persistence.offline)
-    document.addEventListener('visibilitychange', flushHiddenWorkspace)
-  })
-
-  onUnmounted(() => {
-    controller.dispose()
-    unsubscribeController()
-    window.removeEventListener('beforeunload', onUnload)
-    window.removeEventListener('pagehide', flushWorkspace)
-    window.removeEventListener('offline', persistence.offline)
-    document.removeEventListener('visibilitychange', flushHiddenWorkspace)
-  })
+  onMounted(() => { void controller.mountSessionCheck(preloadedAuth); toggleListeners('addEventListener') })
+  onUnmounted(() => { controller.dispose(); unsubscribeController(); toggleListeners('removeEventListener') })
 
   async function focusSource(target: WorkspaceTab, epoch: number): Promise<void> {
     await nextTick()

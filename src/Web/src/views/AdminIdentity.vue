@@ -7,17 +7,8 @@ import AccountWorkspace from '../AccountWorkspace.vue'
 import SiteAuthLayout from '../SiteAuthLayout.vue'
 import { adminWorkspacePages } from '../adminWorkspaceRoutes'
 import {
-  ElAlert,
-  ElButton,
-  ElDialog,
-  ElInlineActions,
-  ElInput,
-  ElKeyValueGrid,
-  ElKeyValueItem,
-  ElSettingsSection,
-  ElSkeleton,
-  ElTag,
-  ElTaskPageHeader,
+  ElAlert, ElButton, ElDialog, ElInlineActions, ElInput, ElKeyValueGrid, ElKeyValueItem,
+  ElSettingsSection, ElSkeleton, ElTag, ElTaskPageHeader,
 } from '@ozwasyd/element-plus'
 import AdminInteractionWorkspace from './AdminInteractionWorkspace.vue'
 import AdminArticlesWorkspace from './AdminArticlesWorkspace.vue'
@@ -33,20 +24,10 @@ import { announceAdminAuthChange, clearAuthorSession, markAdminSessionHint } fro
 import { publicOriginBase } from '../siteBrand'
 import { readInitialAdminEntry } from '../workspacePreload'
 import {
-  bootstrapAdminPasskey,
-  readAdminAuthority,
-  signInAdmin,
-  signOutAdmin,
-  validAdminBootstrapToken,
-  type AdminAuthority,
-  type AdminSession,
+  bootstrapAdminPasskey, readAdminAuthority, signInAdmin, signOutAdmin, validAdminBootstrapToken,
+  type AdminAuthority, type AdminSession,
 } from '../../../Contracts/admin-identity'
-import {
-  executeAdminHandleRename,
-  requestAdminHandleProof,
-  validAdminHandle,
-  type AdminHandleCommand,
-} from '../../../Contracts/admin-handle'
+import { executeAdminHandleRename, requestAdminHandleProof, validAdminHandle, type AdminHandleCommand } from '../../../Contracts/admin-handle'
 import { WireLimits } from '../../../Contracts/wire.generated'
 
 defineProps<{ themeMode?: ThemeMode }>()
@@ -390,35 +371,18 @@ function logOut() {
       <ElButton :text="!drawer" :loading="busy" @click="logOut">{{ t('admin.logout') }}</ElButton>
     </template>
     <main class="admin-workspace">
-      <ElTaskPageHeader
-        :title="t(section.label)"
-        :description="section.section === 'identity' ? t('admin.accountSummary') : undefined"
-        density="compact"
-      />
+      <ElTaskPageHeader :title="t(section.label)" :description="section.section === 'identity' ? t('admin.accountSummary') : undefined" density="compact" />
       <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
       <div class="admin-sections">
-        <ElSettingsSection
-          v-if="section.section === 'identity'"
-          ariaLabelledby="admin-session-heading"
-          :description="t('admin.sessionSummary')"
-          density="compact"
-        >
+        <ElSettingsSection v-if="section.section === 'identity'" ariaLabelledby="admin-session-heading" :description="t('admin.sessionSummary')" density="compact">
           <template #title><span id="admin-session-heading">{{ t('admin.session') }}</span></template>
           <template #actions>
             <ElInlineActions class="admin-session-actions" density="compact">
               <ElTag size="small" type="success">{{ t('admin.sessionActive') }}</ElTag>
-              <ElButton v-if="canUsePasskeys" text :disabled="busy" @click="openHandleRename">
-                {{ t('admin.renameHandle') }}
-              </ElButton>
+              <ElButton v-if="canUsePasskeys" text :disabled="busy" @click="openHandleRename">{{ t('admin.renameHandle') }}</ElButton>
             </ElInlineActions>
           </template>
-          <ElAlert
-            v-if="handleNotice"
-            :title="t('admin.renameHandleSuccess', { handle: handleNotice })"
-            type="success"
-            :closable="false"
-            show-icon
-          />
+          <ElAlert v-if="handleNotice" :title="t('admin.renameHandleSuccess', { handle: handleNotice })" type="success" :closable="false" show-icon />
           <ElKeyValueGrid density="compact">
             <ElKeyValueItem :label="t('admin.handle')" :value="authority.session.handle" monospace />
             <ElKeyValueItem :label="t('admin.sessionGeneration')" :value="authority.session.generation.toString()" monospace />
@@ -427,38 +391,17 @@ function logOut() {
             </ElKeyValueItem>
           </ElKeyValueGrid>
         </ElSettingsSection>
-        <ElDialog
-          v-if="section.section === 'identity'"
-          :model-value="handleDialogOpen"
-          :title="t('admin.renameHandleDialogTitle')"
-          append-to-body
-          width="min(30rem, calc(100vw - 2rem))"
-          :close-on-press-escape="!handleSubmitting"
-          :close-on-click-modal="!handleSubmitting"
-          :show-close="!handleSubmitting"
-          @update:model-value="open => { if (!open) closeHandleRename() }"
-        >
+        <ElDialog v-if="section.section === 'identity'" :model-value="handleDialogOpen" :title="t('admin.renameHandleDialogTitle')"
+          append-to-body width="min(30rem, calc(100vw - 2rem))" :close-on-press-escape="!handleSubmitting" :close-on-click-modal="!handleSubmitting"
+          :show-close="!handleSubmitting" @update:model-value="open => { if (!open) closeHandleRename() }">
           <form id="admin-handle-rename-form" class="admin-handle-dialog-body" @submit.prevent="submitHandleRename">
             <ElAlert v-if="handleFailure" :title="t(handleFailure)" type="error" :closable="false" show-icon />
             <p class="admin-handle-desc">{{ t('admin.renameHandlePasskeyNote') }}</p>
             <div class="admin-handle-field">
               <label for="admin-handle-rename-input">{{ t('admin.renameHandleLabel') }}</label>
-              <ElInput
-                id="admin-handle-rename-input"
-                v-model="nextHandle"
-                :disabled="handleSubmitting"
-                :placeholder="authority.session.handle"
-                v-bind="{
-                  maxlength: WireLimits.AdminHandleBytes,
-                  autocorrect: 'off',
-                  autocapitalize: 'none',
-                  spellcheck: 'false',
-                  'aria-describedby': 'admin-handle-rename-hint',
-                  'aria-invalid': nextHandleInvalid ? 'true' : undefined,
-                }"
-                @input="onHandleInput"
-                @blur="nextHandleTouched = true"
-              />
+              <ElInput id="admin-handle-rename-input" v-model="nextHandle" :disabled="handleSubmitting" :placeholder="authority.session.handle"
+                v-bind="{ maxlength: WireLimits.AdminHandleBytes, autocorrect: 'off', autocapitalize: 'none', spellcheck: 'false', 'aria-describedby': 'admin-handle-rename-hint', 'aria-invalid': nextHandleInvalid ? 'true' : undefined }"
+                @input="onHandleInput" @blur="nextHandleTouched = true" />
               <p id="admin-handle-rename-hint" :class="nextHandleInvalid ? 'admin-handle-validation' : 'admin-handle-hint'">
                 {{ t(nextHandleInvalid && !nextHandleValid ? 'admin.renameHandleInvalid' : 'admin.renameHandleHint') }}
               </p>
@@ -466,16 +409,8 @@ function logOut() {
           </form>
           <template #footer>
             <ElInlineActions density="compact">
-              <ElButton :disabled="handleSubmitting" @click="closeHandleRename()">
-                {{ t('nav.cancel') }}
-              </ElButton>
-              <ElButton
-                native-type="submit"
-                type="primary"
-                v-bind="{ form: 'admin-handle-rename-form' }"
-                :loading="handleSubmitting"
-                :disabled="!canSubmitHandle"
-              >
+              <ElButton :disabled="handleSubmitting" @click="closeHandleRename()">{{ t('nav.cancel') }}</ElButton>
+              <ElButton native-type="submit" type="primary" v-bind="{ form: 'admin-handle-rename-form' }" :loading="handleSubmitting" :disabled="!canSubmitHandle">
                 {{ t(handleRetryCommand ? 'admin.renameHandleRetry' : 'admin.renameHandleConfirm') }}
               </ElButton>
             </ElInlineActions>
@@ -483,14 +418,8 @@ function logOut() {
         </ElDialog>
         <AdminSessionHistory v-if="section.section === 'identity'" :key="sessionEpoch" :session="authority.session"
           :session-signal="sessionAuthority.signal" @session-lost="handleSessionLoss" />
-        <AdminInteractionWorkspace
-          v-if="section.section === 'interaction'"
-          :key="sessionEpoch"
-          :session="authority.session"
-          :session-signal="sessionAuthority.signal"
-          :show-risk-controls="adminUsesHttps"
-          @session-lost="handleSessionLoss"
-        />
+        <AdminInteractionWorkspace v-if="section.section === 'interaction'" :key="sessionEpoch" :session="authority.session"
+          :session-signal="sessionAuthority.signal" :show-risk-controls="adminUsesHttps" @session-lost="handleSessionLoss" />
         <AdminArticlesWorkspace v-if="section.section === 'articles'" :key="sessionEpoch"
           :session-signal="sessionAuthority.signal" :can-rollback="canUsePasskeys" @session-lost="handleSessionLoss" />
         <AdminSiteTraffic v-if="section.section === 'site'" :key="sessionEpoch"
@@ -517,9 +446,7 @@ function logOut() {
         <div v-else class="admin-login-panel">
           <div class="admin-login-actions">
             <ElButton type="primary" :loading="busy" @click="logIn">{{ t('admin.login') }}</ElButton>
-            <ElButton v-if="!bootstrapOpen" class="admin-setup-button" :disabled="busy" @click="bootstrapOpen = true">
-              {{ t('admin.setupPasskey') }}
-            </ElButton>
+            <ElButton v-if="!bootstrapOpen" class="admin-setup-button" :disabled="busy" @click="bootstrapOpen = true">{{ t('admin.setupPasskey') }}</ElButton>
           </div>
           <form v-if="bootstrapOpen" class="admin-bootstrap-form" @submit.prevent="enroll">
             <label for="admin-bootstrap-key">{{ t('admin.bootstrapKey') }}</label>
@@ -541,96 +468,23 @@ function logOut() {
 </template>
 
 <style scoped>
-.admin-workspace {
-  display: grid;
-  gap: var(--fsus-space-5);
-  min-width: 0;
-}
-.admin-sections {
-  display: grid;
-  gap: var(--fsus-space-6);
-  min-width: 0;
-}
-.admin-sections > :deep(*) {
-  margin-block: 0;
-}
-.admin-status-skeleton {
-  display: grid;
-  gap: var(--fsus-space-3);
-  justify-items: stretch;
-}
-.admin-status-text {
-  margin: 0;
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-base);
-}
-.admin-login-surface {
-  display: grid;
-  gap: var(--fsus-space-5);
-}
-.admin-login-panel {
-  display: grid;
-  gap: var(--fsus-space-4);
-  padding: var(--fsus-space-6);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel);
-  background: var(--fsus-paper);
-}
-.admin-login-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--fsus-space-2);
-  align-items: center;
-}
-.admin-login-actions :deep(.el-button + .el-button) {
-  margin-inline-start: 0;
-}
-.admin-bootstrap-form {
-  display: grid;
-  gap: var(--fsus-space-3);
-  padding-block-start: var(--fsus-space-4);
-  border-block-start: 1px solid var(--el-border-color-lighter);
-}
-.admin-bootstrap-form label {
-  color: var(--el-text-color-primary);
-  font-size: var(--el-font-size-base);
-  font-weight: 500;
-}
-.admin-setup-button {
-  margin-inline-start: 0;
-}
-.admin-session-actions {
-  align-items: center;
-}
-.admin-handle-dialog-body {
-  display: grid;
-  gap: var(--fsus-space-3);
-}
-.admin-handle-desc {
-  margin: 0;
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-  line-height: 1.55;
-}
-.admin-handle-field {
-  display: grid;
-  gap: 6px;
-}
-.admin-handle-field label {
-  color: var(--el-text-color-regular);
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-}
-.admin-handle-hint,
-.admin-handle-validation {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  line-height: 1.5;
-}
-.admin-handle-hint {
-  color: var(--el-text-color-secondary);
-}
-.admin-handle-validation {
-  color: var(--el-color-danger);
-}
+.admin-workspace { display: grid; gap: var(--fsus-space-5); min-width: 0; }
+.admin-sections { display: grid; gap: var(--fsus-space-6); min-width: 0; }
+.admin-sections > :deep(*) { margin-block: 0; }
+.admin-status-skeleton { display: grid; gap: var(--fsus-space-3); justify-items: stretch; }
+.admin-status-text { margin: 0; color: var(--el-text-color-secondary); font-size: var(--el-font-size-base); }
+.admin-login-surface { display: grid; gap: var(--fsus-space-5); }
+.admin-login-panel { display: grid; gap: var(--fsus-space-4); padding: var(--fsus-space-6); border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-panel); background: var(--fsus-paper); }
+.admin-login-actions { display: flex; flex-wrap: wrap; gap: var(--fsus-space-2); align-items: center; }
+.admin-login-actions :deep(.el-button + .el-button), .admin-setup-button { margin-inline-start: 0; }
+.admin-bootstrap-form { display: grid; gap: var(--fsus-space-3); padding-block-start: var(--fsus-space-4); border-block-start: 1px solid var(--el-border-color-lighter); }
+.admin-bootstrap-form label { color: var(--el-text-color-primary); font-size: var(--el-font-size-base); font-weight: 500; }
+.admin-session-actions { align-items: center; }
+.admin-handle-dialog-body { display: grid; gap: var(--fsus-space-3); }
+.admin-handle-desc { margin: 0; color: var(--el-text-color-secondary); font-size: var(--el-font-size-small); line-height: 1.55; }
+.admin-handle-field { display: grid; gap: 6px; }
+.admin-handle-field label { color: var(--el-text-color-regular); font-size: var(--el-font-size-small); font-weight: 500; }
+.admin-handle-hint, .admin-handle-validation { margin: 0; font-size: var(--el-font-size-small); line-height: 1.5; }
+.admin-handle-hint { color: var(--el-text-color-secondary); }
+.admin-handle-validation { color: var(--el-color-danger); }
 </style>

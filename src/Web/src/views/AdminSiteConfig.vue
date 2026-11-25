@@ -1,32 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onScopeDispose, reactive, ref, shallowRef } from 'vue'
 import {
-  ElAlert,
-  ElButton,
-  ElCheckbox,
-  ElFormSection,
-  ElInlineActions,
-  ElInput,
-  ElRadioButton,
-  ElRadioGroup,
-  ElSettingsSection,
-  ElSkeleton,
-  ElTabPane,
-  ElTabs,
-  ElTag,
+  ElAlert, ElButton, ElCheckbox, ElFormSection, ElInlineActions, ElInput, ElRadioButton, ElRadioGroup,
+  ElSettingsSection, ElSkeleton, ElTabPane, ElTabs, ElTag,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import {
-  readAdminSiteConfig,
-  saveAdminSiteConfig,
-  validCopyrightStartYear,
-  validSiteColor,
-  validSiteEmail,
-  validSiteText,
-  validSiteUrl,
-  type AdminSiteConfigCommand,
-  type AdminSiteConfigState,
-  type SiteConfigFieldError,
+  readAdminSiteConfig, saveAdminSiteConfig, validCopyrightStartYear, validSiteColor, validSiteEmail, validSiteText, validSiteUrl,
+  type AdminSiteConfigCommand, type AdminSiteConfigState, type SiteConfigFieldError,
 } from '../../../Contracts/admin-site-config'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { applySiteBrand, bumpSiteConfigEpoch, safeBrandAssetUrl } from '../siteBrand'
@@ -38,12 +19,9 @@ const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: unknown] }>()
 
 type ConfigTab = 'seo' | 'brand' | 'compliance'
-type FieldKey = Exclude<keyof AdminSiteConfigCommand,
-  'expectedRevision' | 'expectedDigest' | 'complianceEnabled' | 'regionMode'>
-type FormModel = Record<FieldKey, string> & {
-  complianceEnabled: boolean
-  regionMode: 'global' | 'mainland-cn'
-}
+type FieldKey = Exclude<keyof AdminSiteConfigCommand, 'expectedRevision' | 'expectedDigest' | 'complianceEnabled' | 'regionMode'>
+type FormModel = Record<FieldKey, string> & { complianceEnabled: boolean; regionMode: 'global' | 'mainland-cn' }
+type FieldSpec = { key: FieldKey; hint?: MessageKey; placeholder?: string; type?: string; id?: boolean; ac?: string; im?: string }
 
 const tabFields: Readonly<Record<ConfigTab, readonly FieldKey[]>> = {
   seo: ['title', 'author', 'description', 'ogImage'],
@@ -67,43 +45,33 @@ const assetUrlFields = new Set<FieldKey>([
   'ogImage', 'faviconSvgUrl', 'faviconIcoUrl', 'faviconPngUrl', 'appleTouchIconUrl',
   'pwaIcon192Url', 'pwaIcon512Url', 'pwaMaskableIconUrl', 'siteLogoUrl', 'siteLogoDarkUrl', 'siteWordmarkUrl',
 ])
-
 const brandLogos = { siteLogoUrl: '/assets/logo.svg', siteLogoDarkUrl: '/assets/logo-dark.svg' } as const
-const favicons = {
-  faviconSvgUrl: '/assets/favicon.svg',
-  faviconIcoUrl: '/assets/favicon.ico',
-  faviconPngUrl: '/assets/favicon.png',
-  appleTouchIconUrl: '/assets/apple-touch-icon.png',
-} as const
-const pwaIcons = {
-  pwaIcon192Url: '/assets/icon-192.png',
-  pwaIcon512Url: '/assets/icon-512.png',
-  pwaMaskableIconUrl: '/assets/icon-maskable-512.png',
-} as const
+const favicons = { faviconSvgUrl: '/assets/favicon.svg', faviconIcoUrl: '/assets/favicon.ico', faviconPngUrl: '/assets/favicon.png', appleTouchIconUrl: '/assets/apple-touch-icon.png' } as const
+const pwaIcons = { pwaIcon192Url: '/assets/icon-192.png', pwaIcon512Url: '/assets/icon-512.png', pwaMaskableIconUrl: '/assets/icon-maskable-512.png' } as const
 const primaryFields = { title: 'organization', author: 'name' } as const
-const manifestColors = {
-  themeColor: { fallback: '#1f4e79', manifestKey: 'theme_color' },
-  backgroundColor: { fallback: '#ffffff', manifestKey: 'background_color' },
-} as const
+const manifestColors = { themeColor: { fallback: '#1f4e79', manifestKey: 'theme_color' }, backgroundColor: { fallback: '#ffffff', manifestKey: 'background_color' } } as const
 const manifestNames = ['manifestName', 'manifestShortName'] as const
 const registrations = [
   { number: 'icpRecordNumber', url: 'icpRecordUrl', hint: 'admin.siteConfig.icpUrlHint', placeholder: 'https://beian.miit.gov.cn/' },
   { number: 'policeRecordNumber', url: 'policeRecordUrl', hint: 'admin.siteConfig.policeUrlHint', placeholder: 'https://beian.mps.gov.cn/' },
 ] as const
+const copyrightFields: readonly FieldSpec[] = [
+  { key: 'copyrightOwner' },
+  { key: 'copyrightStartYear', hint: 'admin.siteConfig.copyrightStartYearHint', placeholder: '2024', id: true, im: 'numeric' },
+]
+const licenseFields: readonly FieldSpec[] = [
+  { key: 'contentLicenseName', placeholder: 'CC BY 4.0' },
+  { key: 'contentLicenseUrl', hint: 'admin.siteConfig.httpsUrlHint', placeholder: 'https://creativecommons.org/licenses/by/4.0/', id: true },
+]
+const operatorFields: readonly FieldSpec[] = [
+  { key: 'operatorName' },
+  { key: 'contactEmail', type: 'email', hint: 'admin.siteConfig.contactEmailHint', placeholder: 'contact@example.com', id: true, ac: 'email' },
+]
 
-function fieldLabel(field: FieldKey): MessageKey {
-  return field === 'title' ? 'admin.siteConfig.siteTitle' : `admin.siteConfig.${field}`
-}
-
-function textFields(read: (field: FieldKey) => string): Record<FieldKey, string> {
-  return Object.fromEntries(fieldOrder.map(field => [field, read(field)])) as Record<FieldKey, string>
-}
-
-const emptyForm = (): FormModel => ({
-  ...textFields(() => ''),
-  complianceEnabled: false,
-  regionMode: 'global',
-})
+const fieldLabel = (field: FieldKey): MessageKey => field === 'title' ? 'admin.siteConfig.siteTitle' : `admin.siteConfig.${field}`
+const textFields = (read: (field: FieldKey) => string) =>
+  Object.fromEntries(fieldOrder.map(field => [field, read(field)])) as Record<FieldKey, string>
+const emptyForm = (): FormModel => ({ ...textFields(() => ''), complianceEnabled: false, regionMode: 'global' })
 
 const state = shallowRef<AdminSiteConfigState>()
 const form = reactive<FormModel>(emptyForm())
@@ -122,15 +90,11 @@ const liveAnnouncement = ref('')
 let announceTimer: ReturnType<typeof setTimeout> | undefined
 let announcedField: FieldKey | undefined
 
-function selectTab(value: string | number) {
-  activeTab.value = value === 'brand' || value === 'compliance' ? value : 'seo'
-}
+const selectTab = (value: string | number) => { activeTab.value = value === 'brand' || value === 'compliance' ? value : 'seo' }
 
 function stateToForm(source: AdminSiteConfigState): FormModel {
   return {
-    ...textFields(field => field === 'copyrightStartYear'
-      ? (source.copyrightStartYear > 0 ? String(source.copyrightStartYear) : '')
-      : source[field]),
+    ...textFields(field => field === 'copyrightStartYear' ? (source.copyrightStartYear > 0 ? String(source.copyrightStartYear) : '') : source[field]),
     complianceEnabled: source.complianceEnabled,
     regionMode: source.regionMode === 'mainland-cn' ? 'mainland-cn' : 'global',
   }
@@ -139,27 +103,22 @@ function stateToForm(source: AdminSiteConfigState): FormModel {
 function applyFormValues(values: FormModel) {
   Object.assign(form, values)
   for (const key of fieldOrder) delete touched[key]
-  submitted.value = false
-  confirmed.value = false
+  submitted.value = confirmed.value = false
   brokenPreviewUrls.value = {}
   clearAnnouncement()
 }
 
 function parseYear(raw: string): number | null {
   const trimmed = raw.trim()
-  if (!trimmed) return null
-  if (!/^\d{4}$/.test(trimmed)) return -1
-  return Number(trimmed)
+  return !trimmed ? null : /^\d{4}$/.test(trimmed) ? Number(trimmed) : -1
 }
 
 function validateField(field: FieldKey): SiteConfigFieldError | null {
   if (shortTextFields.has(field)) return validSiteText(form[field], WireLimits.SiteConfigShortTextBytes)
   if (assetUrlFields.has(field)) return validSiteUrl(form[field], { asset: true })
   switch (field) {
-    case 'themeColor':
-    case 'backgroundColor': return validSiteColor(form[field])
-    case 'icpRecordNumber':
-    case 'policeRecordNumber': return validSiteText(form[field], WireLimits.SiteConfigRecordNumberBytes)
+    case 'themeColor': case 'backgroundColor': return validSiteColor(form[field])
+    case 'icpRecordNumber': case 'policeRecordNumber': return validSiteText(form[field], WireLimits.SiteConfigRecordNumberBytes)
     case 'title': return validSiteText(form.title, WireLimits.SiteConfigTitleBytes, true)
     case 'author': return validSiteText(form.author, WireLimits.SiteConfigAuthorBytes, true)
     case 'description': return validSiteText(form.description, WireLimits.SiteConfigDescriptionBytes, false, true)
@@ -183,44 +142,28 @@ const allErrors = computed(() => {
   return map
 })
 
-function visibleError(field: FieldKey): SiteConfigFieldError | undefined {
-  if (!submitted.value && !touched[field]) return undefined
-  return allErrors.value[field]
-}
-
-function errorMessage(code: SiteConfigFieldError): string {
-  return t(`admin.siteConfig.error.${code}` as MessageKey)
-}
+const visibleError = (field: FieldKey) => (submitted.value || touched[field]) ? allErrors.value[field] : undefined
+const errorMessage = (code: SiteConfigFieldError) => t(`admin.siteConfig.error.${code}` as MessageKey)
 
 function fieldInputBind(
   field: FieldKey,
   opts: { hintId?: string; identifier?: boolean; required?: boolean; autocomplete?: string; inputmode?: string } = {},
 ): Record<string, unknown> {
   const invalid = Boolean(visibleError(field))
-  const ids: string[] = []
-  if (opts.hintId) ids.push(opts.hintId)
-  if (invalid) ids.push(`site-config-error-${field}`)
-  const attrs: Record<string, unknown> = {
+  const ids = [opts.hintId, invalid ? `site-config-error-${field}` : undefined].filter(Boolean) as string[]
+  return {
     name: field,
     'aria-invalid': invalid ? 'true' : 'false',
+    ...(ids.length ? { 'aria-describedby': ids.join(' ') } : {}),
+    ...(opts.required ? { required: true } : {}),
+    ...(opts.autocomplete ? { autocomplete: opts.autocomplete } : {}),
+    ...(opts.inputmode ? { inputmode: opts.inputmode } : {}),
+    ...(opts.identifier ? { autocorrect: 'off', autocapitalize: 'none', spellcheck: false } : {}),
   }
-  if (ids.length) attrs['aria-describedby'] = ids.join(' ')
-  if (opts.required) attrs.required = true
-  if (opts.autocomplete) attrs.autocomplete = opts.autocomplete
-  if (opts.inputmode) attrs.inputmode = opts.inputmode
-  if (opts.identifier) {
-    attrs.autocorrect = 'off'
-    attrs.autocapitalize = 'none'
-    attrs.spellcheck = false
-  }
-  return attrs
 }
 
 function clearAnnouncement() {
-  if (announceTimer !== undefined) {
-    clearTimeout(announceTimer)
-    announceTimer = undefined
-  }
+  if (announceTimer !== undefined) { clearTimeout(announceTimer); announceTimer = undefined }
   liveAnnouncement.value = ''
   announcedField = undefined
 }
@@ -231,12 +174,8 @@ function onBlur(field: FieldKey) {
   if (issue) {
     clearAnnouncement()
     announcedField = field
-    announceTimer = setTimeout(() => {
-      liveAnnouncement.value = `${t(fieldLabel(field))}: ${errorMessage(issue)}`
-    }, 500)
-  } else if (announcedField === field) {
-    clearAnnouncement()
-  }
+    announceTimer = setTimeout(() => { liveAnnouncement.value = `${t(fieldLabel(field))}: ${errorMessage(issue)}` }, 500)
+  } else if (announcedField === field) clearAnnouncement()
 }
 
 function onInput(field: FieldKey) {
@@ -249,11 +188,9 @@ function onInput(field: FieldKey) {
 function buildCommand(current: AdminSiteConfigState): AdminSiteConfigCommand {
   const year = parseYear(form.copyrightStartYear)
   return {
-    expectedRevision: current.revision,
-    expectedDigest: current.digest,
+    expectedRevision: current.revision, expectedDigest: current.digest,
     ...textFields(field => form[field].trim()),
-    complianceEnabled: form.complianceEnabled,
-    regionMode: form.regionMode,
+    complianceEnabled: form.complianceEnabled, regionMode: form.regionMode,
     copyrightStartYear: year && year > 0 ? year : 0,
   }
 }
@@ -262,43 +199,32 @@ const isDirty = computed(() => {
   if (!state.value) return false
   const baseline = stateToForm(state.value)
   return (Object.keys(baseline) as (keyof FormModel)[]).some(key => {
-    const a = baseline[key]
-    const b = form[key]
-    if (typeof a === 'string' && typeof b === 'string') return a.trim() !== b.trim()
-    return a !== b
+    const a = baseline[key], b = form[key]
+    return typeof a === 'string' && typeof b === 'string' ? a.trim() !== b.trim() : a !== b
   })
 })
 
 const tabErrorCount = computed(() => {
   const counts: Record<ConfigTab, number> = { seo: 0, brand: 0, compliance: 0 }
-  for (const key of fieldOrder) {
-    if (visibleError(key)) counts[fieldTabs[key]] += 1
-  }
+  for (const key of fieldOrder) if (visibleError(key)) counts[fieldTabs[key]] += 1
   return counts
 })
 
-const sectionDescription = computed(() => {
-  if (!state.value) return ''
-  return state.value.revision === 0n
-    ? t('admin.siteConfig.baselineDesc')
-    : t('admin.siteConfig.overrideDesc', { revision: state.value.revision.toString() })
-})
+const sectionDescription = computed(() => !state.value ? '' : state.value.revision === 0n
+  ? t('admin.siteConfig.baselineDesc')
+  : t('admin.siteConfig.overrideDesc', { revision: state.value.revision.toString() }))
 
 const activePreview = (url: string) => (url && !brokenPreviewUrls.value[url] ? url : '')
 const previewOrigin = computed(() => state.value?.origin || window.location.origin)
 const previewOgUrl = computed(() => activePreview(safeBrandAssetUrl(form.ogImage)))
 const previewLightLogo = computed(() => activePreview(safeBrandAssetUrl(form.siteLogoUrl)))
 const previewDarkLogo = computed(() => activePreview(safeBrandAssetUrl(form.siteLogoDarkUrl) || safeBrandAssetUrl(form.siteLogoUrl)))
-const brandPreviews = {
-  light: { label: 'admin.siteConfig.previewLight', logo: previewLightLogo },
-  dark: { label: 'admin.siteConfig.previewDark', logo: previewDarkLogo },
-} as const
+const brandPreviews = { light: { label: 'admin.siteConfig.previewLight', logo: previewLightLogo }, dark: { label: 'admin.siteConfig.previewDark', logo: previewDarkLogo } } as const
 const previewWordmark = computed(() => activePreview(safeBrandAssetUrl(form.siteWordmarkUrl)))
 const previewPoliceBadge = computed(() => activePreview(safeBrandAssetUrl(form.policeBadgeIconUrl)))
 const manifestPreviewName = computed(() => form.manifestName.trim() || form.title.trim() || "Fsu's Blog")
 const manifestPreviewShortName = computed(() => form.manifestShortName.trim() || manifestPreviewName.value)
-const manifestIconCount = computed(() =>
-  [form.pwaIcon192Url, form.pwaIcon512Url, form.pwaMaskableIconUrl].filter(v => safeBrandAssetUrl(v).length > 0).length)
+const manifestIconCount = computed(() => [form.pwaIcon192Url, form.pwaIcon512Url, form.pwaMaskableIconUrl].filter(v => safeBrandAssetUrl(v).length > 0).length)
 
 const currentYear = new Date().getFullYear()
 const previewCopyright = computed(() => {
@@ -313,15 +239,12 @@ const previewIcpUrl = computed(() => registrationUrl(form.icpRecordNumber, form.
 const previewPoliceUrl = computed(() => registrationUrl(form.policeRecordNumber, form.policeRecordUrl, 'https://beian.mps.gov.cn/'))
 
 function markPreviewBroken(url: string) {
-  if (!url || brokenPreviewUrls.value[url]) return
-  brokenPreviewUrls.value = { ...brokenPreviewUrls.value, [url]: true }
+  if (url && !brokenPreviewUrls.value[url]) brokenPreviewUrls.value = { ...brokenPreviewUrls.value, [url]: true }
 }
 
 const pickerColor = (raw: string, fallback: string) => (/^#[0-9a-fA-F]{6}$/.test(raw.trim()) ? raw.trim() : fallback)
 function setColor(field: 'themeColor' | 'backgroundColor', value: string) {
-  form[field] = value
-  touched[field] = true
-  onInput(field)
+  form[field] = value; touched[field] = true; onInput(field)
 }
 const onColorPicker = (field: 'themeColor' | 'backgroundColor', event: Event) => setColor(field, (event.target as HTMLInputElement).value)
 const clearColor = (field: 'themeColor' | 'backgroundColor') => setColor(field, '')
@@ -329,18 +252,14 @@ const clearColor = (field: 'themeColor' | 'backgroundColor') => setColor(field, 
 function resetForm() {
   if (!state.value) return
   applyFormValues(stateToForm(state.value))
-  error.value = ''
-  notice.value = ''
+  error.value = notice.value = ''
 }
 
 function clear() {
   state.value = undefined
   applyFormValues(emptyForm())
-  loading.value = false
-  saving.value = false
-  stale.value = false
-  error.value = ''
-  notice.value = ''
+  loading.value = saving.value = stale.value = false
+  error.value = notice.value = ''
 }
 
 const requests = useAdminRequests(() => props.sessionSignal, clear)
@@ -348,23 +267,18 @@ const requests = useAdminRequests(() => props.sessionSignal, clear)
 async function load() {
   if (props.sessionSignal.aborted) return
   const req = requests.start()
-  loading.value = true
-  error.value = ''
+  loading.value = true; error.value = ''
   try {
     const next = await readAdminSiteConfig(req.signal)
     if (req.signal.aborted) return
-    state.value = next
-    stale.value = false
+    state.value = next; stale.value = false
     applyFormValues(stateToForm(next))
   } catch (cause) {
     if (req.signal.aborted) return
     if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else error.value = 'admin.siteConfig.loadFailed'
   } finally {
-    if (req.isCurrent()) {
-      req.finish()
-      loading.value = false
-    }
+    if (req.isCurrent()) { req.finish(); loading.value = false }
   }
 }
 
@@ -372,10 +286,7 @@ async function focusField(field: FieldKey) {
   activeTab.value = fieldTabs[field]
   await nextTick()
   const el = document.getElementById(`site-config-field-${field}`)
-  if (el instanceof HTMLElement) {
-    el.focus()
-    el.scrollIntoView({ block: 'nearest' })
-  }
+  if (el instanceof HTMLElement) { el.focus(); el.scrollIntoView({ block: 'nearest' }) }
 }
 
 async function submit() {
@@ -383,17 +294,11 @@ async function submit() {
   submitted.value = true
   for (const key of fieldOrder) touched[key] = true
   const firstInvalid = fieldOrder.find(key => Boolean(allErrors.value[key]))
-  if (firstInvalid) {
-    error.value = 'admin.siteConfig.validationSummary'
-    await focusField(firstInvalid)
-    return
-  }
+  if (firstInvalid) { error.value = 'admin.siteConfig.validationSummary'; await focusField(firstInvalid); return }
 
   const command = buildCommand(state.value)
   const req = requests.start()
-  saving.value = true
-  error.value = ''
-  notice.value = ''
+  saving.value = true; error.value = notice.value = ''
   try {
     await saveAdminSiteConfig(command, req.signal)
     if (req.signal.aborted) return
@@ -405,25 +310,18 @@ async function submit() {
     bumpSiteConfigEpoch()
     const reloaded = await readAdminSiteConfig(req.signal)
     if (req.signal.aborted) return
-    state.value = reloaded
-    stale.value = false
+    state.value = reloaded; stale.value = false
     applyFormValues(stateToForm(reloaded))
     notice.value = 'admin.siteConfig.saved'
   } catch (cause) {
     if (req.signal.aborted) return
     if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else if (cause instanceof ApiError && cause.status === 409) {
-      stale.value = true
-      confirmed.value = false
-      error.value = 'admin.siteConfig.conflict'
-    } else if (cause instanceof Error && cause.name === 'NotAllowedError') {
-      error.value = 'admin.passkeyCanceled'
-    } else {
-      error.value = 'admin.siteConfig.saveFailed'
-    }
+      stale.value = true; confirmed.value = false; error.value = 'admin.siteConfig.conflict'
+    } else if (cause instanceof Error && cause.name === 'NotAllowedError') error.value = 'admin.passkeyCanceled'
+    else error.value = 'admin.siteConfig.saveFailed'
   } finally {
-    req.finish()
-    saving.value = false
+    req.finish(); saving.value = false
   }
 }
 
@@ -662,46 +560,29 @@ onScopeDispose(clearAnnouncement)
               <fieldset class="config-fieldset">
                 <legend>{{ t('admin.siteConfig.copyrightGroup') }}</legend>
                 <div class="config-grid-2">
-                  <div class="config-field">
-                    <label for="site-config-field-copyrightOwner">{{ t('admin.siteConfig.copyrightOwner') }}</label>
-                    <ElInput id="site-config-field-copyrightOwner" v-model="form.copyrightOwner" :disabled="saving"
-                      v-bind="fieldInputBind('copyrightOwner')"
-                      @blur="onBlur('copyrightOwner')" @input="onInput('copyrightOwner')" />
-                    <p v-if="visibleError('copyrightOwner')" id="site-config-error-copyrightOwner" class="config-error">{{ errorMessage(visibleError('copyrightOwner')!) }}</p>
-                  </div>
-                  <div class="config-field">
-                    <label for="site-config-field-copyrightStartYear">{{ t('admin.siteConfig.copyrightStartYear') }}</label>
-                    <span id="site-config-hint-copyrightStartYear" class="config-hint">{{ t('admin.siteConfig.copyrightStartYearHint') }}</span>
-                    <ElInput id="site-config-field-copyrightStartYear" v-model="form.copyrightStartYear" placeholder="2024" :disabled="saving"
-                      v-bind="fieldInputBind('copyrightStartYear', { hintId: 'site-config-hint-copyrightStartYear', identifier: true, inputmode: 'numeric' })"
-                      @blur="onBlur('copyrightStartYear')" @input="onInput('copyrightStartYear')" />
-                    <p v-if="visibleError('copyrightStartYear')" id="site-config-error-copyrightStartYear" class="config-error">{{ errorMessage(visibleError('copyrightStartYear')!) }}</p>
+                  <div v-for="f in copyrightFields" :key="f.key" class="config-field">
+                    <label :for="`site-config-field-${f.key}`">{{ t(fieldLabel(f.key)) }}</label>
+                    <span v-if="f.hint" :id="`site-config-hint-${f.key}`" class="config-hint">{{ t(f.hint) }}</span>
+                    <ElInput :id="`site-config-field-${f.key}`" v-model="form[f.key]" :type="f.type ?? 'text'" :placeholder="f.placeholder" :disabled="saving"
+                      v-bind="fieldInputBind(f.key, { hintId: f.hint ? `site-config-hint-${f.key}` : undefined, identifier: f.id, autocomplete: f.ac, inputmode: f.im })"
+                      @blur="onBlur(f.key)" @input="onInput(f.key)" />
+                    <p v-if="visibleError(f.key)" :id="`site-config-error-${f.key}`" class="config-error">{{ errorMessage(visibleError(f.key)!) }}</p>
                   </div>
                 </div>
-
                 <div class="config-field">
                   <label for="site-config-field-copyrightText">{{ t('admin.siteConfig.copyrightText') }}</label>
                   <ElInput id="site-config-field-copyrightText" v-model="form.copyrightText" type="textarea" :autosize="{ minRows: 2, maxRows: 4 }" :disabled="saving"
-                    v-bind="fieldInputBind('copyrightText')"
-                    @blur="onBlur('copyrightText')" @input="onInput('copyrightText')" />
+                    v-bind="fieldInputBind('copyrightText')" @blur="onBlur('copyrightText')" @input="onInput('copyrightText')" />
                   <p v-if="visibleError('copyrightText')" id="site-config-error-copyrightText" class="config-error">{{ errorMessage(visibleError('copyrightText')!) }}</p>
                 </div>
-
                 <div class="config-grid-2">
-                  <div class="config-field">
-                    <label for="site-config-field-contentLicenseName">{{ t('admin.siteConfig.contentLicenseName') }}</label>
-                    <ElInput id="site-config-field-contentLicenseName" v-model="form.contentLicenseName" placeholder="CC BY 4.0" :disabled="saving"
-                      v-bind="fieldInputBind('contentLicenseName')"
-                      @blur="onBlur('contentLicenseName')" @input="onInput('contentLicenseName')" />
-                    <p v-if="visibleError('contentLicenseName')" id="site-config-error-contentLicenseName" class="config-error">{{ errorMessage(visibleError('contentLicenseName')!) }}</p>
-                  </div>
-                  <div class="config-field">
-                    <label for="site-config-field-contentLicenseUrl">{{ t('admin.siteConfig.contentLicenseUrl') }}</label>
-                    <span id="site-config-hint-contentLicenseUrl" class="config-hint">{{ t('admin.siteConfig.httpsUrlHint') }}</span>
-                    <ElInput id="site-config-field-contentLicenseUrl" v-model="form.contentLicenseUrl" placeholder="https://creativecommons.org/licenses/by/4.0/" :disabled="saving"
-                      v-bind="fieldInputBind('contentLicenseUrl', { hintId: 'site-config-hint-contentLicenseUrl', identifier: true })"
-                      @blur="onBlur('contentLicenseUrl')" @input="onInput('contentLicenseUrl')" />
-                    <p v-if="visibleError('contentLicenseUrl')" id="site-config-error-contentLicenseUrl" class="config-error">{{ errorMessage(visibleError('contentLicenseUrl')!) }}</p>
+                  <div v-for="f in licenseFields" :key="f.key" class="config-field">
+                    <label :for="`site-config-field-${f.key}`">{{ t(fieldLabel(f.key)) }}</label>
+                    <span v-if="f.hint" :id="`site-config-hint-${f.key}`" class="config-hint">{{ t(f.hint) }}</span>
+                    <ElInput :id="`site-config-field-${f.key}`" v-model="form[f.key]" :type="f.type ?? 'text'" :placeholder="f.placeholder" :disabled="saving"
+                      v-bind="fieldInputBind(f.key, { hintId: f.hint ? `site-config-hint-${f.key}` : undefined, identifier: f.id, autocomplete: f.ac, inputmode: f.im })"
+                      @blur="onBlur(f.key)" @input="onInput(f.key)" />
+                    <p v-if="visibleError(f.key)" :id="`site-config-error-${f.key}`" class="config-error">{{ errorMessage(visibleError(f.key)!) }}</p>
                   </div>
                 </div>
               </fieldset>
@@ -714,16 +595,14 @@ onScopeDispose(clearAnnouncement)
                     <div class="config-field">
                       <label :for="`site-config-field-${record.number}`">{{ t(fieldLabel(record.number)) }}</label>
                       <ElInput :id="`site-config-field-${record.number}`" v-model="form[record.number]" :disabled="saving"
-                        v-bind="fieldInputBind(record.number, { identifier: true })"
-                        @blur="onBlur(record.number)" @input="onInput(record.number)" />
+                        v-bind="fieldInputBind(record.number, { identifier: true })" @blur="onBlur(record.number)" @input="onInput(record.number)" />
                       <p v-if="visibleError(record.number)" :id="`site-config-error-${record.number}`" class="config-error">{{ errorMessage(visibleError(record.number)!) }}</p>
                     </div>
                     <div class="config-field">
                       <label :for="`site-config-field-${record.url}`">{{ t(fieldLabel(record.url)) }}</label>
                       <span :id="`site-config-hint-${record.url}`" class="config-hint">{{ t(record.hint) }}</span>
                       <ElInput :id="`site-config-field-${record.url}`" v-model="form[record.url]" :placeholder="record.placeholder" :disabled="saving"
-                        v-bind="fieldInputBind(record.url, { hintId: `site-config-hint-${record.url}`, identifier: true })"
-                        @blur="onBlur(record.url)" @input="onInput(record.url)" />
+                        v-bind="fieldInputBind(record.url, { hintId: `site-config-hint-${record.url}`, identifier: true })" @blur="onBlur(record.url)" @input="onInput(record.url)" />
                       <p v-if="visibleError(record.url)" :id="`site-config-error-${record.url}`" class="config-error">{{ errorMessage(visibleError(record.url)!) }}</p>
                     </div>
                   </template>
@@ -741,20 +620,13 @@ onScopeDispose(clearAnnouncement)
               <fieldset class="config-fieldset">
                 <legend>{{ t('admin.siteConfig.operatorGroup') }}</legend>
                 <div class="config-grid-2">
-                  <div class="config-field">
-                    <label for="site-config-field-operatorName">{{ t('admin.siteConfig.operatorName') }}</label>
-                    <ElInput id="site-config-field-operatorName" v-model="form.operatorName" :disabled="saving"
-                      v-bind="fieldInputBind('operatorName')"
-                      @blur="onBlur('operatorName')" @input="onInput('operatorName')" />
-                    <p v-if="visibleError('operatorName')" id="site-config-error-operatorName" class="config-error">{{ errorMessage(visibleError('operatorName')!) }}</p>
-                  </div>
-                  <div class="config-field">
-                    <label for="site-config-field-contactEmail">{{ t('admin.siteConfig.contactEmail') }}</label>
-                    <span id="site-config-hint-contactEmail" class="config-hint">{{ t('admin.siteConfig.contactEmailHint') }}</span>
-                    <ElInput id="site-config-field-contactEmail" v-model="form.contactEmail" type="email" placeholder="contact@example.com" :disabled="saving"
-                      v-bind="fieldInputBind('contactEmail', { hintId: 'site-config-hint-contactEmail', identifier: true, autocomplete: 'email' })"
-                      @blur="onBlur('contactEmail')" @input="onInput('contactEmail')" />
-                    <p v-if="visibleError('contactEmail')" id="site-config-error-contactEmail" class="config-error">{{ errorMessage(visibleError('contactEmail')!) }}</p>
+                  <div v-for="f in operatorFields" :key="f.key" class="config-field">
+                    <label :for="`site-config-field-${f.key}`">{{ t(fieldLabel(f.key)) }}</label>
+                    <span v-if="f.hint" :id="`site-config-hint-${f.key}`" class="config-hint">{{ t(f.hint) }}</span>
+                    <ElInput :id="`site-config-field-${f.key}`" v-model="form[f.key]" :type="f.type ?? 'text'" :placeholder="f.placeholder" :disabled="saving"
+                      v-bind="fieldInputBind(f.key, { hintId: f.hint ? `site-config-hint-${f.key}` : undefined, identifier: f.id, autocomplete: f.ac, inputmode: f.im })"
+                      @blur="onBlur(f.key)" @input="onInput(f.key)" />
+                    <p v-if="visibleError(f.key)" :id="`site-config-error-${f.key}`" class="config-error">{{ errorMessage(visibleError(f.key)!) }}</p>
                   </div>
                 </div>
               </fieldset>
@@ -811,328 +683,52 @@ onScopeDispose(clearAnnouncement)
 </template>
 
 <style scoped>
-.site-config-loading {
-  display: grid;
-  gap: 8px;
-}
-
-.site-config-loading p {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-}
-
-.site-config-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-  min-inline-size: 0;
-}
-
-.site-config-tabs {
-  min-inline-size: 0;
-}
-
-.site-config-tab-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.site-config-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 21rem);
-  gap: 24px;
-  align-items: start;
-  padding-block-start: 8px;
-}
-
-.site-config-fields {
-  display: grid;
-  gap: 18px;
-  min-inline-size: 0;
-}
-
-.config-fieldset {
-  display: grid;
-  gap: 14px;
-  margin: 0;
-  padding: 14px 16px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 10px);
-  min-inline-size: 0;
-}
-
-.config-fieldset legend {
-  padding-inline: 6px;
-  font-size: var(--el-font-size-small);
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.config-grid-2 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: 14px 16px;
-}
-
-.config-field {
-  display: grid;
-  align-content: start;
-  gap: 4px;
-  min-inline-size: 0;
-}
-
-.config-field label,
-.config-readonly-label {
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-}
-
-.config-hint {
-  margin: 0;
-  font-size: var(--el-font-size-extra-small);
-  line-height: 1.45;
-  color: var(--el-text-color-secondary);
-}
-
-.config-error {
-  margin: 2px 0 0;
-  font-size: var(--el-font-size-extra-small);
-  line-height: 1.4;
-  color: var(--el-color-danger);
-}
-
-.config-origin-value {
-  display: block;
-  padding: 8px 10px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--el-border-radius-base);
-  background: var(--el-fill-color-light);
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-regular);
-  overflow-wrap: anywhere;
-}
-
-.config-color-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.config-color-picker {
-  inline-size: 36px;
-  block-size: 32px;
-  padding: 2px;
-  border: 1px solid var(--el-border-color);
-  border-radius: var(--el-border-radius-base);
-  background: var(--el-bg-color);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.config-toggle-block {
-  padding-block: 4px;
-}
-
-.site-config-preview-col {
-  display: grid;
-  gap: 14px;
-  min-inline-size: 0;
-}
-
-.preview-card {
-  display: grid;
-  gap: 10px;
-  padding: 14px 16px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 10px);
-  background: var(--el-bg-color);
-}
-
-.preview-card-title {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-}
-
-.search-preview-box {
-  display: grid;
-  gap: 4px;
-}
-
-.search-preview-url {
-  margin: 0;
-  font-size: var(--el-font-size-extra-small);
-  color: var(--el-text-color-secondary);
-  overflow-wrap: anywhere;
-}
-
-.search-preview-title {
-  margin: 0;
-  font-size: var(--el-font-size-medium);
-  font-weight: 600;
-  color: var(--el-color-primary);
-  overflow-wrap: anywhere;
-}
-
-.search-preview-desc {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  line-height: 1.5;
-  color: var(--el-text-color-regular);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.search-preview-og {
-  margin-block-start: 6px;
-  inline-size: 100%;
-  max-block-size: 150px;
-  object-fit: cover;
-  border-radius: var(--el-border-radius-base);
-  border: 1px solid var(--el-border-color-lighter);
-}
-
-.brand-preview-strip {
-  display: grid;
-  gap: 6px;
-  padding: 10px 12px;
-  border-radius: var(--el-border-radius-base);
-  border: 1px solid var(--el-border-color-lighter);
-}
-
-.brand-preview-strip--light {
-  background: #ffffff;
-  color: #1c1917;
-}
-
-.brand-preview-strip--dark {
-  background: #141413;
-  color: #f4f2ee;
-}
-
-.brand-preview-tag {
-  font-size: var(--el-font-size-extra-small);
-  opacity: 0.7;
-}
-
-.brand-preview-text {
-  font-size: var(--el-font-size-medium);
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.manifest-summary-list {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  font-size: var(--el-font-size-small);
-}
-
-.manifest-summary-list > div {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
-
-.manifest-summary-list dt {
-  color: var(--el-text-color-secondary);
-  font-family: var(--el-font-family-mono, ui-monospace, monospace);
-  font-size: var(--el-font-size-extra-small);
-}
-
-.manifest-summary-list dd {
-  margin: 0;
-  color: var(--el-text-color-primary);
-  text-align: end;
-  overflow-wrap: anywhere;
-}
-
-.manifest-swatch-val {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.manifest-swatch {
-  inline-size: 14px;
-  block-size: 14px;
-  border-radius: 3px;
-  border: 1px solid var(--el-border-color);
-  flex-shrink: 0;
-}
-
-.manifest-meta {
-  margin: 0;
-  font-size: var(--el-font-size-extra-small);
-  color: var(--el-text-color-secondary);
-}
-
-.manifest-link {
-  font-size: var(--el-font-size-small);
-  color: var(--el-color-primary);
-  text-decoration: none;
-}
-
-.manifest-link:hover,
-.manifest-link:focus-visible {
-  text-decoration: underline;
-}
-
-.footer-preview-box {
-  display: grid;
-  gap: 6px;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-}
-
-.footer-preview-brand {
-  color: var(--el-text-color-primary);
-}
-
-.footer-preview-copyright,
-.footer-preview-note {
-  margin: 0;
-  line-height: 1.5;
-}
-
-.footer-preview-note {
-  font-size: var(--el-font-size-extra-small);
-}
-
-.footer-preview-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  font-size: var(--el-font-size-extra-small);
-}
-
-.site-config-commit {
-  padding-block-start: 12px;
-  border-block-start: 1px solid var(--el-border-color-lighter);
-}
-
-.site-config-dirty-row {
-  display: flex;
-  align-items: center;
-}
-
-@media (max-width: 900px) {
-  .site-config-split {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .config-grid-2 {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
+.site-config-loading { display: grid; gap: 8px; }
+.site-config-loading p { margin: 0; font-size: var(--el-font-size-small); color: var(--el-text-color-secondary); }
+.site-config-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-inline-size: 0; }
+.site-config-tabs { min-inline-size: 0; }
+.site-config-tab-label, .manifest-swatch-val { display: inline-flex; align-items: center; gap: 6px; }
+.site-config-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 21rem); gap: 24px; align-items: start; padding-block-start: 8px; }
+.site-config-fields { display: grid; gap: 18px; min-inline-size: 0; }
+.config-fieldset { display: grid; gap: 14px; margin: 0; padding: 14px 16px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-panel, 10px); min-inline-size: 0; }
+.config-fieldset legend { padding-inline: 6px; font-size: var(--el-font-size-small); font-weight: 600; color: var(--el-text-color-primary); }
+.config-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 14px 16px; }
+.config-field { display: grid; align-content: start; gap: 4px; min-inline-size: 0; }
+.config-field label, .config-readonly-label { font-size: var(--el-font-size-small); font-weight: 500; color: var(--el-text-color-primary); }
+.config-hint { margin: 0; font-size: var(--el-font-size-extra-small); line-height: 1.45; color: var(--el-text-color-secondary); }
+.config-error { margin: 2px 0 0; font-size: var(--el-font-size-extra-small); line-height: 1.4; color: var(--el-color-danger); }
+.config-origin-value { display: block; padding: 8px 10px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--el-border-radius-base); background: var(--el-fill-color-light); font-size: var(--el-font-size-small); color: var(--el-text-color-regular); overflow-wrap: anywhere; }
+.config-color-row { display: flex; align-items: center; gap: 8px; }
+.config-color-picker { inline-size: 36px; block-size: 32px; padding: 2px; border: 1px solid var(--el-border-color); border-radius: var(--el-border-radius-base); background: var(--el-bg-color); cursor: pointer; flex-shrink: 0; }
+.config-toggle-block { padding-block: 4px; }
+.site-config-preview-col { display: grid; gap: 14px; min-inline-size: 0; }
+.preview-card { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-panel, 10px); background: var(--el-bg-color); }
+.preview-card-title { margin: 0; font-size: var(--el-font-size-small); font-weight: 600; color: var(--el-text-color-primary); }
+.search-preview-box { display: grid; gap: 4px; }
+.search-preview-url { margin: 0; font-size: var(--el-font-size-extra-small); color: var(--el-text-color-secondary); overflow-wrap: anywhere; }
+.search-preview-title { margin: 0; font-size: var(--el-font-size-medium); font-weight: 600; color: var(--el-color-primary); overflow-wrap: anywhere; }
+.search-preview-desc { margin: 0; font-size: var(--el-font-size-small); line-height: 1.5; color: var(--el-text-color-regular); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.search-preview-og { margin-block-start: 6px; inline-size: 100%; max-block-size: 150px; object-fit: cover; border-radius: var(--el-border-radius-base); border: 1px solid var(--el-border-color-lighter); }
+.brand-preview-strip { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--el-border-radius-base); border: 1px solid var(--el-border-color-lighter); }
+.brand-preview-strip--light { background: #ffffff; color: #1c1917; }
+.brand-preview-strip--dark { background: #141413; color: #f4f2ee; }
+.brand-preview-tag { font-size: var(--el-font-size-extra-small); opacity: 0.7; }
+.brand-preview-text { font-size: var(--el-font-size-medium); font-weight: 700; line-height: 1.25; }
+.manifest-summary-list { display: grid; gap: 6px; margin: 0; font-size: var(--el-font-size-small); }
+.manifest-summary-list > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.manifest-summary-list dt { color: var(--el-text-color-secondary); font-family: var(--el-font-family-mono, ui-monospace, monospace); font-size: var(--el-font-size-extra-small); }
+.manifest-summary-list dd { margin: 0; color: var(--el-text-color-primary); text-align: end; overflow-wrap: anywhere; }
+.manifest-swatch { inline-size: 14px; block-size: 14px; border-radius: 3px; border: 1px solid var(--el-border-color); flex-shrink: 0; }
+.manifest-meta { margin: 0; font-size: var(--el-font-size-extra-small); color: var(--el-text-color-secondary); }
+.manifest-link { font-size: var(--el-font-size-small); color: var(--el-color-primary); text-decoration: none; }
+.manifest-link:hover, .manifest-link:focus-visible { text-decoration: underline; }
+.footer-preview-box { display: grid; gap: 6px; font-size: var(--el-font-size-small); color: var(--el-text-color-secondary); }
+.footer-preview-brand { color: var(--el-text-color-primary); }
+.footer-preview-copyright, .footer-preview-note { margin: 0; line-height: 1.5; }
+.footer-preview-note { font-size: var(--el-font-size-extra-small); }
+.footer-preview-links { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: var(--el-font-size-extra-small); }
+.site-config-commit { padding-block-start: 12px; border-block-start: 1px solid var(--el-border-color-lighter); }
+.site-config-dirty-row { display: flex; align-items: center; }
+@media (max-width: 900px) { .site-config-split { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .config-grid-2 { grid-template-columns: minmax(0, 1fr); } }
 </style>

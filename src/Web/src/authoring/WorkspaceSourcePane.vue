@@ -249,17 +249,9 @@ defineExpose({
     </div>
     <div class="workspace-source__header">
       <label class="visually-hidden" :for="titleId">{{ t('author.authorTextSearch.title') }}</label>
-      <input
-        :id="titleId"
-        ref="titleInput"
-        class="workspace-source__title"
-        type="text"
-        :value="pane.draft.title"
-        :placeholder="t('author.workspaceSourcePane.write.the.article.title')"
-        :readonly="!focus"
-        :disabled="focus && blocked"
-        @input="edit('title', ($event.target as HTMLInputElement).value)"
-      />
+      <input :id="titleId" ref="titleInput" class="workspace-source__title" type="text" :value="pane.draft.title"
+        :placeholder="t('author.workspaceSourcePane.write.the.article.title')" :readonly="!focus" :disabled="focus && blocked"
+        @input="edit('title', ($event.target as HTMLInputElement).value)" />
       <div class="workspace-source__meta">
         <div class="workspace-source__meta-left">
           <span class="workspace-source__bytes">{{ t('author.workspaceSourcePane.bytes', { p0: String(titleLength), p1: String(WireLimits.TitleBytes) }) }}</span>
@@ -267,28 +259,16 @@ defineExpose({
         </div>
         <div class="workspace-source__meta-right">
           <label class="visually-hidden" :for="bodyId">{{ t('author.authorTextSearch.body') }}</label>
-          <ArticleOutlineRail
-            v-if="nativeMarkdown"
-            ref="outlineRail"
-            :foreground="foreground"
-            :headings="outlineSnapshot?.model.items ?? []"
-            :active="outlineActive"
-            :state="outlineState"
-            :disabled="outlineDisabled"
-            :reveal="revealOutline"
-            :launcher-target="split ? splitOutlineSlot : outlineLauncherTarget"
-            :dock-target="outlineDockTarget"
-            :fallback-opener="outlineFallbackOpener"
-            @visibility="onOutlineVisibility"
-          />
+          <ArticleOutlineRail v-if="nativeMarkdown" ref="outlineRail" :foreground="foreground"
+            :headings="outlineSnapshot?.model.items ?? []" :active="outlineActive" :state="outlineState" :disabled="outlineDisabled"
+            :reveal="revealOutline" :launcher-target="split ? splitOutlineSlot : outlineLauncherTarget"
+            :dock-target="outlineDockTarget" :fallback-opener="outlineFallbackOpener" @visibility="onOutlineVisibility" />
           <ElButton v-if="nativeMarkdown && focus && !concealed" text size="small" native-type="button" :disabled="blocked"
             @click="foreground && markdown?.openSearch()">{{ t('author.workspaceSourcePane.find.in.body') }}</ElButton>
         </div>
       </div>
     </div>
-    <div v-if="$slots.import" class="workspace-source__import">
-      <slot name="import" />
-    </div>
+    <div v-if="$slots.import" class="workspace-source__import"><slot name="import" /></div>
     <div class="workspace-source__body">
       <ElMarkdownEditor v-if="nativeMarkdown" ref="markdown" class="workspace-source__markdown" :textarea-id="bodyId"
         :locale-text="{ textarea: { source: t('author.authorTextSearch.body'), live: t('author.authorTextSearch.body') } }"
@@ -303,141 +283,32 @@ defineExpose({
           :autosize="{ minRows: 14 }" :placeholder="t('author.workspaceSourcePane.start.writing.here')" :readonly="!focus" :disabled="focus && blocked" />
       </template>
     </div>
-    <div v-if="$slots.after" class="workspace-source__after">
-      <slot name="after" />
-    </div>
+    <div v-if="$slots.after" class="workspace-source__after"><slot name="after" /></div>
   </section>
 </template>
 
 <style scoped>
-.workspace-source {
-  display: flex;
-  flex-direction: column;
-  gap: var(--fsus-space-3);
-  inline-size: min(50rem, 100%);
-  min-inline-size: 0;
-  min-block-size: 100%;
-  margin-inline: auto;
-  padding-block: var(--fsus-space-4) var(--fsus-space-5);
-}
-.workspace-source--split {
-  inline-size: 100%;
-  margin-inline: 0;
-  padding-block: var(--fsus-space-3);
-}
-.workspace-source[hidden] { display: none; }
-.workspace-source__heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--fsus-space-2);
-  padding-block-end: var(--fsus-space-2);
-  border-block-end: 1px solid var(--fsus-border);
-}
-.workspace-source__heading h2 {
-  margin: 0;
-  font-size: var(--fsus-typography-heading-sm-size);
-  font-weight: 600;
-}
-.workspace-source__heading-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--fsus-space-1);
-}
-.workspace-source__outline-slot {
-  display: contents;
-}
-.workspace-source__notices:empty,
-.workspace-source__import:empty,
-.workspace-source__after:empty {
-  display: none;
-}
-.workspace-source__notices,
-.workspace-source__after {
-  display: grid;
-  gap: var(--fsus-space-2);
-}
-.workspace-source__header {
-  display: grid;
-  gap: var(--fsus-space-2);
-}
-.workspace-source__title {
-  inline-size: 100%;
-  min-inline-size: 0;
-  padding: var(--fsus-space-1) 0 var(--fsus-space-3);
-  border: 0;
-  border-block-end: 1px solid var(--fsus-border);
-  border-radius: 0;
-  background: transparent;
-  color: var(--fsus-ink);
-  font-family: inherit;
-  font-size: clamp(1.375rem, 2.4vw, 1.875rem);
-  font-weight: 700;
-  line-height: 1.3;
-  letter-spacing: -0.015em;
-}
-.workspace-source__title::placeholder {
-  color: var(--fsus-color-text-muted);
-  font-weight: 500;
-}
-.workspace-source__title:focus-visible {
-  outline: none;
-  border-block-end-color: var(--fsus-color-action-primary);
-  box-shadow: 0 1px 0 0 var(--fsus-color-action-primary);
-}
-.workspace-source__title:disabled {
-  opacity: 0.65;
-}
-.workspace-source__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--fsus-space-2);
-  min-block-size: 2rem;
-}
-.workspace-source__meta-left,
-.workspace-source__meta-right {
-  position: relative;
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--fsus-space-2);
-}
-.workspace-source__bytes,
-.workspace-source__hint {
-  color: var(--fsus-color-text-muted);
-  font-size: .8125rem;
-  line-height: 1.4;
-}
-.workspace-source__bytes {
-  font-variant-numeric: tabular-nums;
-}
-.workspace-source__body {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-inline-size: 0;
-  min-block-size: 0;
-}
-.workspace-source__markdown {
-  flex: 1 1 auto;
-}
+.workspace-source { display: flex; flex-direction: column; gap: var(--fsus-space-3); inline-size: min(50rem, 100%); min-inline-size: 0; min-block-size: 100%; margin-inline: auto; padding-block: var(--fsus-space-4) var(--fsus-space-5); }
+.workspace-source--split { inline-size: 100%; margin-inline: 0; padding-block: var(--fsus-space-3); }
+.workspace-source[hidden], .workspace-source__notices:empty, .workspace-source__import:empty, .workspace-source__after:empty { display: none; }
+.workspace-source__heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--fsus-space-2); padding-block-end: var(--fsus-space-2); border-block-end: 1px solid var(--fsus-border); }
+.workspace-source__heading h2 { margin: 0; font-size: var(--fsus-typography-heading-sm-size); font-weight: 600; }
+.workspace-source__heading-actions { display: inline-flex; align-items: center; gap: var(--fsus-space-1); }
+.workspace-source__outline-slot { display: contents; }
+.workspace-source__notices, .workspace-source__after, .workspace-source__header { display: grid; gap: var(--fsus-space-2); }
+.workspace-source__title { inline-size: 100%; min-inline-size: 0; padding: var(--fsus-space-1) 0 var(--fsus-space-3); border: 0; border-block-end: 1px solid var(--fsus-border); border-radius: 0; background: transparent; color: var(--fsus-ink); font-family: inherit; font-size: clamp(1.375rem, 2.4vw, 1.875rem); font-weight: 700; line-height: 1.3; letter-spacing: -0.015em; }
+.workspace-source__title::placeholder { color: var(--fsus-color-text-muted); font-weight: 500; }
+.workspace-source__title:focus-visible { outline: none; border-block-end-color: var(--fsus-color-action-primary); box-shadow: 0 1px 0 0 var(--fsus-color-action-primary); }
+.workspace-source__title:disabled { opacity: 0.65; }
+.workspace-source__meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--fsus-space-2); min-block-size: 2rem; }
+.workspace-source__meta-left, .workspace-source__meta-right { position: relative; display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--fsus-space-2); }
+.workspace-source__bytes, .workspace-source__hint { color: var(--fsus-color-text-muted); font-size: .8125rem; line-height: 1.4; }
+.workspace-source__bytes { font-variant-numeric: tabular-nums; }
+.workspace-source__body { display: flex; flex: 1 1 auto; flex-direction: column; min-inline-size: 0; min-block-size: 0; }
+.workspace-source__markdown { flex: 1 1 auto; }
 @media (max-width: 1023px) {
-  .workspace-source {
-    gap: var(--fsus-space-2);
-    padding-block: var(--fsus-space-3) var(--fsus-space-4);
-  }
-  .workspace-source__title {
-    font-size: clamp(1.1875rem, 5vw, 1.375rem);
-    padding-block-end: var(--fsus-space-2);
-  }
+  .workspace-source { gap: var(--fsus-space-2); padding-block: var(--fsus-space-3) var(--fsus-space-4); }
+  .workspace-source__title { font-size: clamp(1.1875rem, 5vw, 1.375rem); padding-block-end: var(--fsus-space-2); }
 }
-@media (forced-colors: active) {
-  .workspace-source__title:focus-visible {
-    outline: 2px solid Highlight;
-    box-shadow: none;
-  }
-}
+@media (forced-colors: active) { .workspace-source__title:focus-visible { outline: 2px solid Highlight; box-shadow: none; } }
 </style>

@@ -169,36 +169,11 @@ function stateLabel(item: AuthorArticleRow) {
 <style scoped>
 .library-filter { display: grid; gap: var(--fsus-space-2); }
 .library-filter label { font-size: .8125rem; color: var(--fsus-color-text-muted); }
-.library-filter select {
-  min-height: var(--fsus-control-height-action);
-  padding-inline: var(--fsus-space-2);
-  border: 1px solid var(--fsus-border);
-  border-radius: var(--fsus-radius-control);
-  background: var(--fsus-paper);
-  color: var(--fsus-ink);
-  font: inherit;
-  font-size: .875rem;
-}
+.library-filter select { min-height: var(--fsus-control-height-action); padding-inline: var(--fsus-space-2); border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-control); background: var(--fsus-paper); color: var(--fsus-ink); font: inherit; font-size: .875rem; }
 .library-results { display: grid; gap: .2rem; list-style: none; padding: 0; margin: var(--fsus-space-3) 0 0; }
-.library-results button {
-  display: grid;
-  gap: .15rem;
-  width: 100%;
-  padding: var(--fsus-space-2);
-  border: 1px solid transparent;
-  border-radius: var(--fsus-radius-control);
-  color: var(--fsus-ink);
-  background: transparent;
-  font: inherit;
-  font-size: .875rem;
-  text-align: start;
-  cursor: pointer;
-}
+.library-results button { display: grid; gap: .15rem; width: 100%; padding: var(--fsus-space-2); border: 1px solid transparent; border-radius: var(--fsus-radius-control); color: var(--fsus-ink); background: transparent; font: inherit; font-size: .875rem; text-align: start; cursor: pointer; }
 .library-results button:hover { background: var(--el-fill-color-light); }
-.library-results button[aria-current="true"] {
-  border-color: var(--fsus-color-action-primary);
-  background: var(--fsus-state-selected-bg);
-}
+.library-results button[aria-current="true"] { border-color: var(--fsus-color-action-primary); background: var(--fsus-state-selected-bg); }
 .library-results span { overflow-wrap: anywhere; font-weight: 500; }
 .library-results small { color: var(--fsus-color-text-muted); font-size: .75rem; }
 .library-pages { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--fsus-space-2); margin-block-start: var(--fsus-space-2); }

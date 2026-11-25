@@ -1,107 +1,54 @@
 import { ApiError } from '../../../Contracts/aeds.ts'
 import { readAdminCommentQueue, type AdminCommentCursor, type AdminCommentQueue } from '../../../Contracts/admin-identity.ts'
 import {
-  claimComment,
-  decideComment,
-  releaseCommentClaim,
-  renewCommentClaim,
-  validModerationReason,
-  type AdminModerationClaim,
-  type AdminModerationDecision,
+  claimComment, decideComment, releaseCommentClaim, renewCommentClaim, validModerationReason,
+  type AdminModerationClaim, type AdminModerationDecision,
 } from '../../../Contracts/admin-moderation.ts'
 import {
-  claimModerationBatch,
-  proveAndDecideModerationBatch,
-  readModerationBatchConflicts,
-  type AdminModerationBatchDecision,
-  type AdminModerationBatchReceipt,
+  claimModerationBatch, proveAndDecideModerationBatch, readModerationBatchConflicts,
+  type AdminModerationBatchDecision, type AdminModerationBatchReceipt,
 } from '../../../Contracts/admin-moderation-batch.ts'
 import { proveAdminModerationDecision } from '../../../Contracts/admin-step-up.ts'
 import {
-  readCommentRevisions,
-  readModerationTimeline,
-  validModerationCoordinates,
-  type CommentRevisionPage,
-  type ModerationTimeline,
+  readCommentRevisions, readModerationTimeline, validModerationCoordinates,
+  type CommentRevisionPage, type ModerationTimeline,
 } from '../../../Contracts/comment-moderation-timeline.ts'
 import { WireLimits } from '../../../Contracts/wire.generated.ts'
 import type { MessageKey } from '../siteLocale.ts'
 import {
-  AdminOperationChannel,
-  AdminSessionScope,
-  MAX_TIMEOUT_MS,
-  systemAdminClock,
-  type AdminClock,
-  type AdminOperationContext,
-  type TimerHandle,
+  AdminOperationChannel, AdminSessionScope, MAX_TIMEOUT_MS, systemAdminClock,
+  type AdminClock, type AdminOperationContext, type TimerHandle,
 } from './adminOperationCoordinator.ts'
 
-export type ModerationConflictMessage = Readonly<{
-  key: MessageKey
-  conflicts: readonly AdminCommentCursor[]
-}>
-
+export type ModerationConflictMessage = Readonly<{ key: MessageKey; conflicts: readonly AdminCommentCursor[] }>
 export type ModerationDisplayMessage =
-  | MessageKey
-  | Readonly<{ key: MessageKey; params: Readonly<Record<string, string | number>> }>
-  | ModerationConflictMessage
+  | MessageKey | Readonly<{ key: MessageKey; params: Readonly<Record<string, string | number>> }> | ModerationConflictMessage
 
 export const defaultAdminModerationTransport = {
-  readAdminCommentQueue,
-  claimComment,
-  renewCommentClaim,
-  releaseCommentClaim,
-  proveAdminModerationDecision,
-  decideComment,
-  claimModerationBatch,
-  proveAndDecideModerationBatch,
-  readModerationTimeline,
-  readCommentRevisions,
+  readAdminCommentQueue, claimComment, renewCommentClaim, releaseCommentClaim, proveAdminModerationDecision,
+  decideComment, claimModerationBatch, proveAndDecideModerationBatch, readModerationTimeline, readCommentRevisions,
 }
 export type AdminModerationTransport = typeof defaultAdminModerationTransport
-
 export interface AdminModerationHooks {
   onSessionLost?: (error: ApiError) => void
   onBatchClaimed?: (isActive: () => boolean) => void | Promise<void>
 }
-
 export interface AdminModerationControllerOptions {
-  transport?: AdminModerationTransport
-  clock?: AdminClock
-  hooks?: AdminModerationHooks
+  transport?: AdminModerationTransport; clock?: AdminClock; hooks?: AdminModerationHooks
 }
-
 export type AdminModerationState = Readonly<{
-  queue: AdminCommentQueue | null
-  claim: AdminModerationClaim | null
-  batchClaims: readonly AdminModerationClaim[] | null
-  selected: ReadonlySet<string>
-  reason: string
-  batchReason: string
-  busy: boolean
-  failure: ModerationDisplayMessage | ''
-  notice: ModerationDisplayMessage | ''
-  historyArticle: string
-  historyComment: string
-  historyDialogOpen: boolean
-  historyLoading: boolean
-  historyError: MessageKey | ''
-  history: ModerationTimeline | null
-  revisions: CommentRevisionPage | null
+  queue: AdminCommentQueue | null; claim: AdminModerationClaim | null; batchClaims: readonly AdminModerationClaim[] | null
+  selected: ReadonlySet<string>; reason: string; batchReason: string; busy: boolean
+  failure: ModerationDisplayMessage | ''; notice: ModerationDisplayMessage | ''
+  historyArticle: string; historyComment: string; historyDialogOpen: boolean; historyLoading: boolean
+  historyError: MessageKey | ''; history: ModerationTimeline | null; revisions: CommentRevisionPage | null
 }>
 
-export function moderationCoordinate(row: AdminCommentCursor): string {
-  return `${row.articleId}/${row.commentId}`
-}
-
-function repeatableConflict(error: unknown): boolean {
-  return error instanceof ApiError && (error.status === 404 || error.status === 409)
-}
-
+export function moderationCoordinate(row: AdminCommentCursor): string { return `${row.articleId}/${row.commentId}` }
+function repeatableConflict(error: unknown): boolean { return error instanceof ApiError && (error.status === 404 || error.status === 409) }
 function batchConflict(error: unknown, targets: readonly AdminCommentCursor[]): ModerationConflictMessage | null {
   const conflicts = readModerationBatchConflicts(error, targets)
-  if (!conflicts) return null
-  return { key: 'admin.moderation.m63', conflicts }
+  return conflicts ? { key: 'admin.moderation.m63', conflicts } : null
 }
 
 /**
@@ -338,20 +285,13 @@ export class AdminModerationController {
       await this.transport.decideComment(command, proof, ctx.signal)
       if (!ctx.isCurrent()) return
       this.setClaimInternal(null)
-      this.s.queue = null
-      this.s.notice = decision === 1 ? 'admin.moderation.m23' : 'admin.moderation.m24'
-      this.emitChange()
-      const updated = await this.transport.readAdminCommentQueue(this.cursor, ctx.signal)
-      if (!ctx.isCurrent()) return
-      this.s.queue = updated
-      this.emitChange()
+      await this.reloadQueueAfterDecision(ctx, decision === 1 ? 'admin.moderation.m23' : 'admin.moderation.m24')
     }, error => this.claimFailure(error, this.s.notice ? 'admin.moderation.m25' : 'admin.moderation.m26'))
   }
 
   select(row: AdminCommentCursor, checked: boolean): void {
     if (!this.batchAvailable || this.s.batchClaims || this.mainChannel.pending || !this.scope.active) return
-    const key = moderationCoordinate(row)
-    const next = new Set(this.s.selected)
+    const key = moderationCoordinate(row), next = new Set(this.s.selected)
     if (!checked) next.delete(key)
     else if (next.size < WireLimits.AdminModerationBatchCount) next.add(key)
     this.s.selected = next
@@ -398,13 +338,7 @@ export class AdminModerationController {
         if (!ctx.isCurrent()) return
         this.clearBatchInternal()
         this.s.failure = ''
-        this.s.queue = null
-        this.s.notice = { key: decision === 1 ? 'admin.moderation.m65' : 'admin.moderation.m66', params: { count: receipt.count } }
-        this.emitChange()
-        const updated = await this.transport.readAdminCommentQueue(this.cursor, ctx.signal)
-        if (!ctx.isCurrent()) return
-        this.s.queue = updated
-        this.emitChange()
+        await this.reloadQueueAfterDecision(ctx, { key: decision === 1 ? 'admin.moderation.m65' : 'admin.moderation.m66', params: { count: receipt.count } })
       } catch (error) {
         if (!ctx.isCurrent()) return
         const conflict = batchConflict(error, rows)
@@ -417,6 +351,16 @@ export class AdminModerationController {
         this.emitChange()
       }
     }, () => this.s.notice ? 'admin.moderation.m25' : 'admin.moderation.m31')
+  }
+
+  private async reloadQueueAfterDecision(ctx: AdminOperationContext, notice: ModerationDisplayMessage): Promise<void> {
+    this.s.queue = null
+    this.s.notice = notice
+    this.emitChange()
+    const updated = await this.transport.readAdminCommentQueue(this.cursor, ctx.signal)
+    if (!ctx.isCurrent()) return
+    this.s.queue = updated
+    this.emitChange()
   }
 
   private runMain(

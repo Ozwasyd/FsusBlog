@@ -253,41 +253,14 @@ watch([() => props.articleId, () => props.publication, () => route.hash, restart
 
 <style scoped>
 .article-comments { margin-block-start: 3rem; }
-.article-comments-heading {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 0 0 .25rem;
-  scroll-margin-block-start: 6.5rem;
-  color: var(--fsus-color-text-quiet);
-  font-size: .8125rem;
-  font-weight: 500;
-  line-height: 1.5;
-}
-.article-comments-heading::after {
-  content: '';
-  flex: 1;
-  block-size: 1px;
-  background: var(--fsus-border);
-}
-.article-comments-heading:focus,
-.comment-composer-slot:focus {
-  outline: none;
-}
+.article-comments-heading { display: flex; align-items: center; gap: 1rem; margin: 0 0 .25rem; scroll-margin-block-start: 6.5rem; color: var(--fsus-color-text-quiet); font-size: .8125rem; font-weight: 500; line-height: 1.5; }
+.article-comments-heading::after { content: ''; flex: 1; block-size: 1px; background: var(--fsus-border); }
+.article-comments-heading:focus, .comment-composer-slot:focus { outline: none; }
 .comment-roots { list-style: none; padding: 0; margin: 0; }
 .comment-status { margin-block: .75rem; color: var(--fsus-color-text-quiet); font-size: .875rem; }
 .comment-empty { margin-block: 1.25rem .75rem; font-size: .9375rem; }
 .comment-alert { margin-block-start: 1rem; }
 .comment-list-footer { margin-block-start: .75rem; }
-.comment-all-link {
-  color: var(--fsus-color-text-quiet);
-  font-size: .875rem;
-  text-decoration: none;
-}
-.comment-all-link:hover,
-.comment-all-link:focus-visible {
-  color: var(--fsus-scholarly-blue);
-  text-decoration: underline;
-  text-underline-offset: .25em;
-}
+.comment-all-link { color: var(--fsus-color-text-quiet); font-size: .875rem; text-decoration: none; }
+.comment-all-link:hover, .comment-all-link:focus-visible { color: var(--fsus-scholarly-blue); text-decoration: underline; text-underline-offset: .25em; }
 </style>

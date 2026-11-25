@@ -3,30 +3,15 @@ import { t, siteLocale } from '../siteLocale'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
-  ElAlert,
-  ElButton,
-  ElConversationListItem,
-  ElDialog,
-  ElEmptyState,
-  ElInlineActions,
-  ElInput,
-  ElOption,
-  ElSelect,
-  ElSkeleton,
-  ElTag,
-  ElTaskPageHeader,
+  ElAlert, ElButton, ElConversationListItem, ElDialog, ElEmptyState, ElInlineActions, ElInput,
+  ElOption, ElSelect, ElSkeleton, ElTag, ElTaskPageHeader,
 } from '@ozwasyd/element-plus'
 import { api, ApiError, ProtocolError, type InboxFilter, type InboxListItem, type InboxThread } from '../../../Contracts/client'
 import { createInboxConversation, inboxComposeEnabled, replyInboxConversation } from '../../../Contracts/inbox-write'
 import { watchInboxWake } from '../../../Contracts/inbox-wake'
 import InboxSplitWorkspace from '../components/InboxSplitWorkspace.vue'
 import { useDelayedBusy, useMediaQuery } from '../delayedBusy'
-import {
-  createInboxTimeFormatter,
-  inboxBubbleVariant,
-  inboxStatusTagType,
-  type InboxRenderedMessage,
-} from '../inboxPresentation'
+import { createInboxTimeFormatter, inboxBubbleVariant, inboxStatusTagType, type InboxRenderedMessage } from '../inboxPresentation'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential, refreshSession } from '../session'
 
 const filters = computed<ReadonlyArray<{ value: InboxFilter; label: string }>>(() => [
@@ -445,51 +430,21 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="inbox-page">
-    <ElTaskPageHeader
-      :key="currentSession ? 'signed-in' : 'signed-out'"
-      :title="t('account.message110')"
-      :description="currentSession ? t('account.inboxSummary') : undefined"
-      density="compact"
-    >
+    <ElTaskPageHeader :key="currentSession ? 'signed-in' : 'signed-out'" :title="t('account.message110')"
+      :description="currentSession ? t('account.inboxSummary') : undefined" density="compact">
       <template v-if="currentSession" #actions>
         <ElInlineActions class="inbox-header-actions" density="compact">
-          <ElButton
-            native-type="button"
-            text
-            :loading="refreshLoading"
-            :disabled="sending"
-            @click="reloadInbox(cursor, 'refresh')"
-          >{{ t('account.inboxRefresh') }}</ElButton>
-          <ElButton
-            v-if="writable"
-            native-type="button"
-            type="primary"
-            :disabled="sending"
-            @click="openCompose"
-          >{{ t('account.message115') }}</ElButton>
+          <ElButton native-type="button" text :loading="refreshLoading" :disabled="sending" @click="reloadInbox(cursor, 'refresh')">{{ t('account.inboxRefresh') }}</ElButton>
+          <ElButton v-if="writable" native-type="button" type="primary" :disabled="sending" @click="openCompose">{{ t('account.message115') }}</ElButton>
         </ElInlineActions>
       </template>
     </ElTaskPageHeader>
 
-    <ElAlert
-      v-if="notice"
-      :title="notice"
-      type="success"
-      show-icon
-      @close="notice = ''"
-    />
+    <ElAlert v-if="notice" :title="notice" type="success" show-icon @close="notice = ''" />
 
-    <ElAlert
-      v-if="error && !composing"
-      :title="error"
-      type="error"
-      :closable="false"
-      show-icon
-    >
+    <ElAlert v-if="error && !composing" :title="error" type="error" :closable="false" show-icon>
       <template v-if="currentSession" #default>
-        <ElButton native-type="button" text @click="reloadInbox(cursor, 'refresh')">
-          {{ t('reading.retry') }}
-        </ElButton>
+        <ElButton native-type="button" text @click="reloadInbox(cursor, 'refresh')">{{ t('reading.retry') }}</ElButton>
       </template>
     </ElAlert>
 
@@ -501,56 +456,25 @@ onBeforeUnmount(() => {
       </template>
     </ElEmptyState>
 
-    <InboxSplitWorkspace
-      v-else
-      ref="workspace"
-      :has-selection="hasSelection"
-      :has-thread="Boolean(thread)"
-      :list-label="t('account.message114')"
-      :detail-label="t('account.message123')"
-      :list-busy="listPending"
-      :list-empty="rows.length === 0"
-      :list-error="Boolean(error)"
-      :empty-list-title="t('account.message120')"
-      :empty-list-description="filter === 'all' ? t('account.inboxEmptyAll') : t('account.inboxEmptyFiltered')"
-      :has-empty-list-actions="filter !== 'all' || writable"
-      :has-more="Boolean(nextPage)"
-      :more-loading="moreLoading"
-      :more-label="t('admin.inbox.m24')"
-      :thread-key="threadKey"
-      :thread-title="thread?.subject ?? ''"
-      thread-title-tag="h2"
-      :thread-busy="threadPending || markPending || sending"
-      :show-back="mobile && hasSelection"
-      :back-disabled="sending"
-      :back-label="t('account.message122')"
-      :has-earlier="Boolean(thread?.previous)"
-      :earlier-loading="earlierLoading"
-      :earlier-label="t('account.message126')"
-      :messages="renderedMessages"
-      :reply-enabled="Boolean(thread && writable && thread.status !== 2)"
-      reply-input-id="reply-body"
-      :reply-label="t('account.message127')"
-      :reply-placeholder="t('account.inboxReplyPlaceholder')"
-      v-model:reply-model="reply"
-      :reply-disabled="sending"
-      :reply-pending="sending"
-      :reply-submit-label="t('admin.inbox.m34')"
+    <InboxSplitWorkspace v-else ref="workspace"
+      :has-selection="hasSelection" :has-thread="Boolean(thread)" :list-label="t('account.message114')" :detail-label="t('account.message123')"
+      :list-busy="listPending" :list-empty="rows.length === 0" :list-error="Boolean(error)"
+      :empty-list-title="t('account.message120')" :empty-list-description="filter === 'all' ? t('account.inboxEmptyAll') : t('account.inboxEmptyFiltered')"
+      :has-empty-list-actions="filter !== 'all' || writable" :has-more="Boolean(nextPage)" :more-loading="moreLoading" :more-label="t('admin.inbox.m24')"
+      :thread-key="threadKey" :thread-title="thread?.subject ?? ''" thread-title-tag="h2" :thread-busy="threadPending || markPending || sending"
+      :show-back="mobile && hasSelection" :back-disabled="sending" :back-label="t('account.message122')"
+      :has-earlier="Boolean(thread?.previous)" :earlier-loading="earlierLoading" :earlier-label="t('account.message126')"
+      :messages="renderedMessages" :reply-enabled="Boolean(thread && writable && thread.status !== 2)"
+      reply-input-id="reply-body" :reply-label="t('account.message127')" :reply-placeholder="t('account.inboxReplyPlaceholder')"
+      v-model:reply-model="reply" :reply-disabled="sending" :reply-pending="sending" :reply-submit-label="t('admin.inbox.m34')"
       :closed-note="thread?.status === 2 ? t('account.inboxClosedHint') : ''"
-      :empty-selection-title="t('account.message125')"
-      :empty-selection-description="t('account.inboxSelectHint')"
-      :detail-loading-title="selectedRow?.subject ?? ''"
-      :show-detail-loading-back="mobile"
-      @load-more="loadList(true, 'more')"
-      @back="backToList"
-      @load-earlier="thread && thread.previous && loadThread(thread.id, thread.previous)"
-      @submit-reply="sendReply"
-    >
+      :empty-selection-title="t('account.message125')" :empty-selection-description="t('account.inboxSelectHint')"
+      :detail-loading-title="selectedRow?.subject ?? ''" :show-detail-loading-back="mobile"
+      @load-more="loadList(true, 'more')" @back="backToList"
+      @load-earlier="thread && thread.previous && loadThread(thread.id, thread.previous)" @submit-reply="sendReply">
       <template #list-toolbar>
         <header class="inbox-list-toolbar-row">
-          <h2 id="inbox-list" ref="listHeading" class="inbox-list-heading" tabindex="-1">
-            {{ t('account.message114') }}
-          </h2>
+          <h2 id="inbox-list" ref="listHeading" class="inbox-list-heading" tabindex="-1">{{ t('account.message114') }}</h2>
           <ElSelect v-model="filter" :ariaLabel="t('account.message116')" class="inbox-filter">
             <ElOption v-for="item in filters" :key="item.value" :label="item.label" :value="item.value" />
           </ElSelect>
@@ -558,30 +482,15 @@ onBeforeUnmount(() => {
       </template>
 
       <template #empty-list-actions>
-        <ElButton v-if="filter !== 'all'" native-type="button" text @click="filter = 'all'">
-          {{ t('account.inboxResetFilter') }}
-        </ElButton>
-        <ElButton v-else-if="writable" native-type="button" type="primary" :disabled="sending" @click="openCompose">
-          {{ t('account.message115') }}
-        </ElButton>
+        <ElButton v-if="filter !== 'all'" native-type="button" text @click="filter = 'all'">{{ t('account.inboxResetFilter') }}</ElButton>
+        <ElButton v-else-if="writable" native-type="button" type="primary" :disabled="sending" @click="openCompose">{{ t('account.message115') }}</ElButton>
       </template>
 
       <template #list-items>
-        <ElConversationListItem
-          v-for="row in rows"
-          :key="String(row.id)"
-          :title="row.subject"
-          :preview="row.preview || undefined"
-          :meta="rowMeta(row)"
-          :selected="row.id === selected"
-          :disabled="sending"
-          density="compact"
-          @select="selectConversation(row.id, $event)"
-        >
+        <ElConversationListItem v-for="row in rows" :key="String(row.id)" :title="row.subject" :preview="row.preview || undefined"
+          :meta="rowMeta(row)" :selected="row.id === selected" :disabled="sending" density="compact" @select="selectConversation(row.id, $event)">
           <template #badges>
-            <ElTag v-if="row.unreadCount" size="small" disable-transitions>
-              {{ t('account.unreadCount', { count: row.unreadCount }) }}
-            </ElTag>
+            <ElTag v-if="row.unreadCount" size="small" disable-transitions>{{ t('account.unreadCount', { count: row.unreadCount }) }}</ElTag>
             <ElTag v-else size="small" :type="row.isSystem ? 'info' : inboxStatusTagType(row.status)" disable-transitions>
               {{ row.isSystem ? t('admin.inbox.m32') : statuses[row.status] }}
             </ElTag>
@@ -590,79 +499,37 @@ onBeforeUnmount(() => {
       </template>
 
       <template #thread-actions>
-        <ElButton
-          v-if="thread?.unreadCount"
-          native-type="button"
-          text
-          type="primary"
-          :loading="markLoading"
-          :disabled="markPending || sending"
-          @click="markRead"
-        >{{ t('account.message124') }}</ElButton>
+        <ElButton v-if="thread?.unreadCount" native-type="button" text type="primary" :loading="markLoading"
+          :disabled="markPending || sending" @click="markRead">{{ t('account.message124') }}</ElButton>
       </template>
 
       <template v-if="thread" #thread-context>
-        <ElTag size="small" :type="inboxStatusTagType(thread.status)" disable-transitions>
-          {{ statuses[thread.status] }}
-        </ElTag>
-        <ElTag v-if="thread.isSystem" size="small" type="info" disable-transitions>
-          {{ t('admin.inbox.m32') }}
-        </ElTag>
-        <ElTag v-if="thread.unreadCount" size="small" disable-transitions>
-          {{ t('account.unreadCount', { count: thread.unreadCount }) }}
-        </ElTag>
-        <span v-if="thread.messages.length" class="inbox-context-time">
-          {{ timeFormat.full(thread.messages[thread.messages.length - 1].createdAt) }}
-        </span>
+        <ElTag size="small" :type="inboxStatusTagType(thread.status)" disable-transitions>{{ statuses[thread.status] }}</ElTag>
+        <ElTag v-if="thread.isSystem" size="small" type="info" disable-transitions>{{ t('admin.inbox.m32') }}</ElTag>
+        <ElTag v-if="thread.unreadCount" size="small" disable-transitions>{{ t('account.unreadCount', { count: thread.unreadCount }) }}</ElTag>
+        <span v-if="thread.messages.length" class="inbox-context-time">{{ timeFormat.full(thread.messages[thread.messages.length - 1].createdAt) }}</span>
       </template>
     </InboxSplitWorkspace>
 
-    <ElDialog
-      v-if="currentSession && writable"
-      :model-value="composing"
-      :title="t('account.message115')"
-      append-to-body
-      width="min(32rem, calc(100vw - 2rem))"
-      :close-on-press-escape="!sending"
-      :close-on-click-modal="!sending"
-      :show-close="!sending"
-      @update:model-value="open => { if (!open) closeCompose() }"
-    >
+    <ElDialog v-if="currentSession && writable" :model-value="composing" :title="t('account.message115')" append-to-body
+      width="min(32rem, calc(100vw - 2rem))" :close-on-press-escape="!sending" :close-on-click-modal="!sending" :show-close="!sending"
+      @update:model-value="open => { if (!open) closeCompose() }">
       <form id="inbox-ticket-form" class="inbox-dialog-form" @submit.prevent="sendTicket">
         <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon />
         <div class="inbox-dialog-field">
           <label for="ticket-subject">{{ t('account.message117') }}</label>
-          <ElInput
-            id="ticket-subject"
-            v-model="subject"
-            :placeholder="t('account.inboxSubjectPlaceholder')"
-            :disabled="sending"
-          />
+          <ElInput id="ticket-subject" v-model="subject" :placeholder="t('account.inboxSubjectPlaceholder')" :disabled="sending" />
         </div>
         <div class="inbox-dialog-field">
           <label for="ticket-body">{{ t('account.message118') }}</label>
-          <ElInput
-            id="ticket-body"
-            v-model="ticket"
-            type="textarea"
-            :placeholder="t('account.inboxBodyPlaceholder')"
-            :autosize="{ minRows: 4, maxRows: 8 }"
-            :disabled="sending"
-          />
+          <ElInput id="ticket-body" v-model="ticket" type="textarea" :placeholder="t('account.inboxBodyPlaceholder')"
+            :autosize="{ minRows: 4, maxRows: 8 }" :disabled="sending" />
         </div>
       </form>
       <template #footer>
         <ElInlineActions density="compact">
-          <ElButton native-type="button" :disabled="sending" @click="closeCompose">
-            {{ t('nav.cancel') }}
-          </ElButton>
-          <ElButton
-            type="primary"
-            native-type="submit"
-            v-bind="{ form: 'inbox-ticket-form' }"
-            :disabled="!ticket.trim()"
-            :loading="sending"
-          >{{ t('account.message119') }}</ElButton>
+          <ElButton native-type="button" :disabled="sending" @click="closeCompose">{{ t('nav.cancel') }}</ElButton>
+          <ElButton type="primary" native-type="submit" v-bind="{ form: 'inbox-ticket-form' }" :disabled="!ticket.trim()" :loading="sending">{{ t('account.message119') }}</ElButton>
         </ElInlineActions>
       </template>
     </ElDialog>
@@ -671,64 +538,14 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 @use '../shared-fields' as fields;
-
-.inbox-page {
-  display: grid;
-  gap: var(--fsus-space-4);
-  min-inline-size: 0;
-}
-
-.inbox-header-actions {
-  align-items: safe center;
-}
-
-.inbox-login-link {
-  display: inline-flex;
-  align-items: center;
-  min-block-size: 44px;
-  color: var(--fsus-scholarly-blue);
-  font-weight: 500;
-}
-
-.inbox-list-toolbar-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--fsus-space-2);
-  align-items: safe center;
-  justify-content: space-between;
-}
-
-.inbox-list-heading {
-  margin: 0;
-  font-size: var(--el-font-size-base);
-  font-weight: 700;
-  line-height: 1.4;
-  color: var(--el-text-color-primary);
-}
-
-.inbox-filter {
-  inline-size: min(9.5rem, 100%);
-}
-
-.inbox-context-time {
-  margin-inline-start: auto;
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-extra-small);
-  font-variant-numeric: tabular-nums;
-}
-
-.inbox-dialog-form {
-  display: grid;
-  gap: var(--fsus-space-4);
-}
-
-.inbox-dialog-field {
-
-  @include fields.account-field;
-}
-
-.inbox-dialog-field label {
-
-  @include fields.account-label;
-}
+.inbox-page { display: grid; gap: var(--fsus-space-4); min-inline-size: 0; }
+.inbox-header-actions { align-items: safe center; }
+.inbox-login-link { display: inline-flex; align-items: center; min-block-size: 44px; color: var(--fsus-scholarly-blue); font-weight: 500; }
+.inbox-list-toolbar-row { display: flex; flex-wrap: wrap; gap: var(--fsus-space-2); align-items: safe center; justify-content: space-between; }
+.inbox-list-heading { margin: 0; font-size: var(--el-font-size-base); font-weight: 700; line-height: 1.4; color: var(--el-text-color-primary); }
+.inbox-filter { inline-size: min(9.5rem, 100%); }
+.inbox-context-time { margin-inline-start: auto; color: var(--el-text-color-secondary); font-size: var(--el-font-size-extra-small); font-variant-numeric: tabular-nums; }
+.inbox-dialog-form { display: grid; gap: var(--fsus-space-4); }
+.inbox-dialog-field { @include fields.account-field; }
+.inbox-dialog-field label { @include fields.account-label; }
 </style>

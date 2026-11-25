@@ -1,18 +1,7 @@
 <script setup lang="ts">
 import { siteLocale, t } from '../siteLocale'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-import {
-  ElAlert,
-  ElButton,
-  ElInlineActions,
-  ElInput,
-  ElMetadataItem,
-  ElMetadataRow,
-  ElResourceList,
-  ElResourceListItem,
-  ElRiskNotice,
-  ElTag,
-} from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElInlineActions, ElInput, ElMetadataItem, ElMetadataRow, ElResourceList, ElResourceListItem, ElRiskNotice, ElTag } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { enrollSitePasskey } from '../../../Contracts/passkey'
 import { removeSitePasskey, renameSitePasskey, sitePasskeyManagement } from '../../../Contracts/site-passkey-names'
@@ -216,27 +205,13 @@ async function run(change?: Change | 'enroll') {
 </script>
 
 <template>
-  <SecuritySectionCard
-    v-if="passkeys || failed"
-    heading-id="site-passkeys-heading"
-    :title="t('account.message25')"
-    :description="t('account.passkeySummary')"
-    :flush="!failed"
-    :has-body="Boolean(notice || failed || passkeys?.length)"
-    landmark
-  >
+  <SecuritySectionCard v-if="passkeys || failed" heading-id="site-passkeys-heading" :title="t('account.message25')"
+    :description="t('account.passkeySummary')" :flush="!failed" :has-body="Boolean(notice || failed || passkeys?.length)" landmark>
     <template v-if="canAddPasskey" #actions>
-      <ElButton
-        native-type="button"
-        :loading="adding"
-        :disabled="busy || !!edit"
-        @click="addPasskey"
-      >{{ t('account.message26') }}</ElButton>
+      <ElButton native-type="button" :loading="adding" :disabled="busy || !!edit" @click="addPasskey">{{ t('account.message26') }}</ElButton>
     </template>
 
-    <div v-if="notice" :class="{ 'passkey-flush-banner': !failed }">
-      <p class="passkey-notice" role="status">{{ notice }}</p>
-    </div>
+    <div v-if="notice" :class="{ 'passkey-flush-banner': !failed }"><p class="passkey-notice" role="status">{{ notice }}</p></div>
 
     <template v-if="failed">
       <ElAlert :title="failed" type="error" :closable="false" show-icon />
@@ -246,89 +221,48 @@ async function run(change?: Change | 'enroll') {
     </template>
 
     <ElResourceList v-else divided>
-      <ElResourceListItem
-        v-for="(item, index) in passkeys"
-        :key="item.reference ?? index"
-        :title="item.name || (item.current ? t('account.message28') : t('account.message29'))"
-      >
+      <ElResourceListItem v-for="(item, index) in passkeys" :key="item.reference ?? index"
+        :title="item.name || (item.current ? t('account.message28') : t('account.message29'))">
         <template v-if="item.name && item.current" #badge>
           <ElTag size="small" type="success" disable-transitions>{{ t('account.message28') }}</ElTag>
         </template>
 
         <template v-if="item.reference && edit?.reference !== item.reference" #actions>
           <ElInlineActions density="compact">
-            <ElButton native-type="button" text :disabled="busy || !!edit" @click="openEdit(item, 'rename')">
-              {{ t('account.message42') }}
-            </ElButton>
-            <ElButton
-              v-if="passkeys && passkeys.length > 1"
-              native-type="button"
-              text
-              type="danger"
-              :disabled="busy || !!edit"
-              @click="openEdit(item, 'remove')"
-            >{{ item.current ? t('account.message43') : t('account.message44') }}</ElButton>
+            <ElButton native-type="button" text :disabled="busy || !!edit" @click="openEdit(item, 'rename')">{{ t('account.message42') }}</ElButton>
+            <ElButton v-if="passkeys && passkeys.length > 1" native-type="button" text type="danger" :disabled="busy || !!edit"
+              @click="openEdit(item, 'remove')">{{ item.current ? t('account.message43') : t('account.message44') }}</ElButton>
           </ElInlineActions>
         </template>
 
         <ElMetadataRow density="compact">
-          <ElMetadataItem :label="t('account.message30')">
-            <time :datetime="item.createdAt.toISOString()">{{ dateTime.format(item.createdAt) }}</time>
-          </ElMetadataItem>
+          <ElMetadataItem :label="t('account.message30')"><time :datetime="item.createdAt.toISOString()">{{ dateTime.format(item.createdAt) }}</time></ElMetadataItem>
           <ElMetadataItem :label="t('account.message31')">
             <time v-if="item.lastUsedAt" :datetime="item.lastUsedAt.toISOString()">{{ dateTime.format(item.lastUsedAt) }}</time>
             <span v-else>{{ t('account.message32') }}</span>
           </ElMetadataItem>
-          <ElMetadataItem
-            :label="t('account.message33')"
-            :value="item.backupEligible ? t('account.message35') : t('account.message36')"
-          />
-          <ElMetadataItem
-            :label="t('account.message34')"
-            :value="item.backedUp ? t('account.message35') : t('account.message36')"
-          />
+          <ElMetadataItem :label="t('account.message33')" :value="item.backupEligible ? t('account.message35') : t('account.message36')" />
+          <ElMetadataItem :label="t('account.message34')" :value="item.backedUp ? t('account.message35') : t('account.message36')" />
         </ElMetadataRow>
 
-        <form
-          v-if="edit?.action === 'rename' && edit.reference === item.reference"
-          class="passkey-inline-form"
-          @submit.prevent="saveName"
-        >
+        <form v-if="edit?.action === 'rename' && edit.reference === item.reference" class="passkey-inline-form" @submit.prevent="saveName">
           <div class="passkey-field">
             <label for="site-passkey-name">{{ t('account.message37') }}</label>
-            <ElInput
-              id="site-passkey-name"
-              v-model="name"
-              v-bind="{ maxlength: WireLimits.SitePasskeyNameChars, enterkeyhint: 'done' }"
-              autocomplete="off"
-              autofocus
-              :disabled="busy"
-            />
+            <ElInput id="site-passkey-name" v-model="name" v-bind="{ maxlength: WireLimits.SitePasskeyNameChars, enterkeyhint: 'done' }" autocomplete="off" autofocus :disabled="busy" />
           </div>
           <ElInlineActions class="passkey-inline-start" density="compact">
-            <ElButton native-type="submit" type="primary" :loading="busy" :disabled="busy || !name.trim()">
-              {{ t('account.message38') }}
-            </ElButton>
+            <ElButton native-type="submit" type="primary" :loading="busy" :disabled="busy || !name.trim()">{{ t('account.message38') }}</ElButton>
             <ElButton native-type="button" :disabled="busy" @click="closeEdit">{{ t('nav.cancel') }}</ElButton>
           </ElInlineActions>
         </form>
 
-        <form
-          v-else-if="edit?.action === 'remove' && edit.reference === item.reference"
-          class="passkey-inline-form"
-          aria-labelledby="site-passkey-remove-label"
-          @submit.prevent="removePasskey"
-        >
+        <form v-else-if="edit?.action === 'remove' && edit.reference === item.reference" class="passkey-inline-form" aria-labelledby="site-passkey-remove-label" @submit.prevent="removePasskey">
           <ElRiskNotice type="danger">
-            <p id="site-passkey-remove-label" class="passkey-remove-title">
-              {{ t('account.removePasskeyConfirm', { name: edit.label }) }}
-            </p>
+            <p id="site-passkey-remove-label" class="passkey-remove-title">{{ t('account.removePasskeyConfirm', { name: edit.label }) }}</p>
             <p v-if="edit.current" class="passkey-remove-copy">{{ t('account.message40') }}</p>
           </ElRiskNotice>
           <ElInlineActions class="passkey-inline-start" density="compact">
-            <ElButton native-type="submit" type="danger" :loading="busy" :disabled="busy">
-              {{ t('account.message41') }}
-            </ElButton>
+            <ElButton native-type="submit" type="danger" :loading="busy" :disabled="busy">{{ t('account.message41') }}</ElButton>
             <ElButton native-type="button" autofocus :disabled="busy" @click="closeEdit">{{ t('nav.cancel') }}</ElButton>
           </ElInlineActions>
         </form>
@@ -339,55 +273,12 @@ async function run(change?: Change | 'enroll') {
 
 <style scoped lang="scss">
 @use '../shared-fields' as fields;
-
-.passkey-flush-banner {
-  padding: var(--fsus-space-3) 14px 0;
-}
-
-.passkey-notice {
-  margin: 0;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in srgb, var(--el-color-success) 26%, var(--el-border-color-lighter));
-  border-radius: var(--fsus-radius-control, 6px);
-  background: color-mix(in srgb, var(--el-color-success) 7%, var(--el-bg-color));
-  font-size: var(--el-font-size-small);
-  line-height: 1.5;
-  color: var(--el-color-success);
-}
-
-.passkey-inline-form {
-  display: grid;
-  gap: var(--fsus-space-3);
-  margin-block-start: var(--fsus-space-3);
-  padding: var(--fsus-space-3);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-control, 8px);
-  background: var(--el-bg-color-page);
-  max-inline-size: 28rem;
-}
-
-.passkey-field {
-
-  @include fields.account-field;
-}
-
-.passkey-field label {
-
-  @include fields.account-label;
-}
-
-.passkey-remove-title {
-  margin: 0;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
-  overflow-wrap: anywhere;
-}
-
-.passkey-remove-copy {
-  margin: 4px 0 0;
-}
-
-.passkey-inline-start {
-  justify-content: flex-start;
-}
+.passkey-flush-banner { padding: var(--fsus-space-3) 14px 0; }
+.passkey-notice { margin: 0; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--el-color-success) 26%, var(--el-border-color-lighter)); border-radius: var(--fsus-radius-control, 6px); background: color-mix(in srgb, var(--el-color-success) 7%, var(--el-bg-color)); font-size: var(--el-font-size-small); line-height: 1.5; color: var(--el-color-success); }
+.passkey-inline-form { display: grid; gap: var(--fsus-space-3); margin-block-start: var(--fsus-space-3); padding: var(--fsus-space-3); border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-control, 8px); background: var(--el-bg-color-page); max-inline-size: 28rem; }
+.passkey-field { @include fields.account-field; }
+.passkey-field label { @include fields.account-label; }
+.passkey-remove-title { margin: 0; font-weight: 600; color: var(--el-text-color-primary); overflow-wrap: anywhere; }
+.passkey-remove-copy { margin: 4px 0 0; }
+.passkey-inline-start { justify-content: flex-start; }
 </style>

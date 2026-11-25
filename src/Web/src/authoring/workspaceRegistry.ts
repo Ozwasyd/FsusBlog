@@ -2,23 +2,11 @@ import type { BodyEdit } from '../../../Contracts/article-body-insertion.ts'
 import { WireLimits } from '../../../Contracts/wire.generated.ts'
 
 export interface WorkspaceIdentity {
-  readonly site: string
-  readonly principalId: string
-  readonly generation: bigint
-  readonly expiresAt?: number
+  readonly site: string; readonly principalId: string; readonly generation: bigint; readonly expiresAt?: number
 }
-
-export interface ArticleDraft {
-  readonly id: number
-  readonly revision: bigint
-  readonly title?: string
-  readonly body?: string
-}
-
+export interface ArticleDraft { readonly id: number; readonly revision: bigint; readonly title?: string; readonly body?: string }
 export type WorkspaceBlock = 'missing' | 'forbidden' | 'deleted' | 'expired' | 'unavailable' | 'stale-reference'
-
 type Blocked = Readonly<{ kind: 'blocked'; reason: WorkspaceBlock }>
-
 export type DraftLoad<Draft> = Readonly<{ kind: 'ready'; draft: Draft }> | Blocked
 export type DraftSave<Draft> = Readonly<{ kind: 'saved'; draft: Draft }> | { kind: 'conflict' | 'rejected' } | Blocked
 
@@ -26,88 +14,40 @@ export interface EditorTransport<Draft> {
   load(id: number, signal: AbortSignal): Promise<DraftLoad<Draft>>
   save(draft: Draft, signal: AbortSignal, idempotencyKey: string, edits?: readonly BodyEdit[]): Promise<DraftSave<Draft>>
   confirmed?(write: Readonly<{
-    command: WriteCommand
-    sessionId: number
-    previousArticleId: number
-    acknowledgedEdit: number
-    current: Draft
-    currentEdit: number
-    dirty: boolean
+    command: WriteCommand; sessionId: number; previousArticleId: number; acknowledgedEdit: number
+    current: Draft; currentEdit: number; dirty: boolean
   }>, signal?: AbortSignal): void | Promise<boolean>
 }
 
-type ContentCommand<Draft> = (draft: Draft, signal: AbortSignal, idempotencyKey: string,
-  edits?: readonly BodyEdit[]) => Promise<DraftSave<Draft>>
+type ContentCommand<Draft> = (draft: Draft, signal: AbortSignal, idempotencyKey: string, edits?: readonly BodyEdit[]) => Promise<DraftSave<Draft>>
 type WriteCommand = 'save' | 'publish' | 'publish-images' | 'retract' | 'assign-taxonomy' | 'rollback-history' | 'schedule-publication' | 'save-rights' | 'save-attachment' | 'save-summary'
-
-export interface EditorSessionRef {
-  readonly articleId: number
-  readonly sessionId: number
-}
-
+export interface EditorSessionRef { readonly articleId: number; readonly sessionId: number }
 type Risk = 'clean' | 'dirty' | 'saving' | 'conflict' | 'recovery' | 'pending' | 'blocked'
 type TabMode = 'preview' | 'pinned'
 export type WorkspaceGroup = 'main' | 'secondary'
-
-export type WorkspaceTab = Readonly<EditorSessionRef & {
-  title: string
-  group: WorkspaceGroup
-  mode: TabMode
-  risk: Risk
-  active: boolean
-  retry?: WriteCommand
-}>
-
+export type WorkspaceTab = Readonly<EditorSessionRef & { title: string; group: WorkspaceGroup; mode: TabMode; risk: Risk; active: boolean; retry?: WriteCommand }>
 export type RecentlyClosed = Readonly<{ articleId: number; title: string; group: WorkspaceGroup; mode: TabMode }>
 export type WorkspaceSource<Draft> = Readonly<{ tab: WorkspaceTab; draft: Draft; selected: boolean }>
 export type RecoverableCloseDraft<Draft> = Readonly<{ draft: Draft; edit: number }>
-export type CloseReservation<Draft> = Readonly<{
-  drafts: readonly RecoverableCloseDraft<Draft>[]
-  signal: AbortSignal
-  current: () => boolean
-}>
-
+export type CloseReservation<Draft> = Readonly<{ drafts: readonly RecoverableCloseDraft<Draft>[]; signal: AbortSignal; current: () => boolean }>
 export type SavedWorkspaceLayout = Readonly<{
-  tabs: readonly number[]
-  activeArticleId: number
-  inspectorOpen: boolean
-  secondaryTabs: readonly number[]
-  secondaryActiveArticleId: number
-  focusedGroup: 0 | 1
+  tabs: readonly number[]; activeArticleId: number; inspectorOpen: boolean
+  secondaryTabs: readonly number[]; secondaryActiveArticleId: number; focusedGroup: 0 | 1
 }>
-
 export type Activation =
   | Readonly<{ kind: 'ready'; tab: WorkspaceTab; workspaceRevision: number; witnessedRevision?: bigint }>
-  | Blocked
-  | Readonly<{ kind: 'superseded' }>
-  | Readonly<{ kind: 'capacity' }>
-
+  | Blocked | Readonly<{ kind: 'superseded' }> | Readonly<{ kind: 'capacity' }>
 type SaveReceipt =
   | Readonly<{ kind: 'saved'; articleId: number; revision: bigint; recoverySettled?: boolean }>
-  | Readonly<{ kind: 'conflict' | 'superseded' | 'busy' | 'clean' | 'dirty' | 'rejected' }>
-  | Blocked
-
+  | Readonly<{ kind: 'conflict' | 'superseded' | 'busy' | 'clean' | 'dirty' | 'rejected' }> | Blocked
 export type ClosePlan = Readonly<{ revision: number; tabs: readonly WorkspaceTab[] }>
 type CloseReceipt = Readonly<{ kind: 'closed' | 'stale' | 'protected' }>
-type GroupReceipt = Readonly<{ kind: 'changed'; tab: WorkspaceTab; workspaceRevision: number }> |
-  Readonly<{ kind: 'stale' | 'unchanged' }>
+type GroupReceipt = Readonly<{ kind: 'changed'; tab: WorkspaceTab; workspaceRevision: number }> | Readonly<{ kind: 'stale' | 'unchanged' }>
 type Session<Draft> = {
-  id: number
-  sessionId: number
-  group: WorkspaceGroup
-  mode: TabMode
-  controller: AbortController
-  phase: 'loading' | 'ready' | 'blocked'
-  loading?: Promise<DraftLoad<Draft> | undefined>
-  draft?: Draft
-  dirty: boolean
-  writing?: WriteCommand
-  conflict: boolean
-  recovery: boolean
-  pending: boolean
-  block?: WorkspaceBlock
-  edit: number
-  bodyEdits?: readonly BodyEdit[]
+  id: number; sessionId: number; group: WorkspaceGroup; mode: TabMode; controller: AbortController
+  phase: 'loading' | 'ready' | 'blocked'; loading?: Promise<DraftLoad<Draft> | undefined>; draft?: Draft
+  dirty: boolean; writing?: WriteCommand; conflict: boolean; recovery: boolean; pending: boolean
+  block?: WorkspaceBlock; edit: number; bodyEdits?: readonly BodyEdit[]
   request?: { command: WriteCommand; key: string; draft: Draft; edit: number; perform: ContentCommand<Draft>;
     bodyEdits?: readonly BodyEdit[]; settleRecovery?: boolean }
 }

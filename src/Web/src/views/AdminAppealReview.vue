@@ -131,42 +131,11 @@ function decide(id: string, decision: 'granted' | 'denied') {
 <style scoped lang="scss">
 @use '../review-panel' as layout;
 @use '../shared-fields' as fields;
-
 @include layout.review-panel('.appeal-review', '.appeal-sr-title', '.appeal-panel-actions', '.appeal-review-list');
-
-.appeal-status {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-}
-
-.appeal-text {
-  margin: 0;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-  font-size: var(--el-font-size-base);
-  line-height: 1.5;
-  color: var(--el-text-color-primary);
-}
-
-.appeal-reason {
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-}
-
-.appeal-form,
-.appeal-field {
-  display: grid;
-  gap: 8px;
-}
-
-.appeal-field label {
-
-  @include fields.admin-label;
-}
-
-.appeal-more {
-  display: flex;
-  justify-content: flex-start;
-}
+.appeal-status { margin: 0; font-size: var(--el-font-size-small); color: var(--el-text-color-secondary); }
+.appeal-text { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; font-size: var(--el-font-size-base); line-height: 1.5; color: var(--el-text-color-primary); }
+.appeal-reason { color: var(--el-text-color-secondary); font-size: var(--el-font-size-small); }
+.appeal-form, .appeal-field { display: grid; gap: 8px; }
+.appeal-field label { @include fields.admin-label; }
+.appeal-more { display: flex; justify-content: flex-start; }
 </style>

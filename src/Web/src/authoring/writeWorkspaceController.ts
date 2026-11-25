@@ -11,183 +11,88 @@ import type { RecoveryCandidate } from './draftJournal.ts'
 import { validDraftBody, validDraftTitle, type DraftMarkdown } from './draftMarkdownImport.ts'
 import type { SourceHandoffCoordinator } from './sourceHandoffCoordinator.ts'
 import {
-  closeRiskMessageKey,
-  failureMessageKeyByReason,
-  savedMessageKeyByAction,
-  type RestoreSelection,
-  type WriteAction,
-  type WriteCommandAdapter,
+  closeRiskMessageKey, failureMessageKeyByReason, savedMessageKeyByAction,
+  type RestoreSelection, type WriteAction, type WriteCommandAdapter,
 } from './writeCommandAdapter.ts'
 import {
-  WorkspaceRegistry,
-  type Activation,
-  type ClosePlan,
-  type CloseReservation,
-  type EditorTransport,
-  type RecentlyClosed,
-  type RecoverableCloseDraft,
-  type SavedWorkspaceLayout,
-  type WorkspaceGroup,
-  type WorkspaceSource,
-  type WorkspaceTab,
+  WorkspaceRegistry, type Activation, type ClosePlan, type CloseReservation, type EditorTransport,
+  type RecentlyClosed, type RecoverableCloseDraft, type SavedWorkspaceLayout, type WorkspaceGroup,
+  type WorkspaceSource, type WorkspaceTab,
 } from './workspaceRegistry.ts'
 
 export const workspaceHistoryState = Object.freeze({ articleWorkspace: true })
-
 export type WriteMessageKey = MessageKey
-
 export type MessageFormatter = (key: WriteMessageKey, params?: Record<string, string | number>) => string
-
-export type ArticleRouteDestination =
-  | Readonly<{ name: 'write' }>
-  | Readonly<{ name: 'edit'; params: Readonly<{ id: number }> }>
-
-export type ArticleSelection = Readonly<{
-  revision: bigint
-  current: () => boolean
-}>
-
+export type ArticleRouteDestination = Readonly<{ name: 'write' }> | Readonly<{ name: 'edit'; params: Readonly<{ id: number }> }>
+export type ArticleSelection = Readonly<{ revision: bigint; current: () => boolean }>
 type NavigationIntent = {
-  path: string
-  restore?: RecentlyClosed
-  targetGroup?: WorkspaceGroup
-  selection?: ArticleSelection
-  witness?: Readonly<{ sessionId: number; articleRevision: bigint }>
+  path: string; restore?: RecentlyClosed; targetGroup?: WorkspaceGroup
+  selection?: ArticleSelection; witness?: Readonly<{ sessionId: number; articleRevision: bigint }>
 }
-
 export type ProtectedCloseChoice = 'keep' | 'discard' | 'save' | 'cancelled'
-
 export type ProtectedCloseOutcome =
-  | 'closed'
-  | 'cancelled'
-  | 'protected'
-  | 'stale'
-  | 'copies-unavailable'
-  | 'discard-unavailable'
+  | 'closed' | 'cancelled' | 'protected' | 'stale' | 'copies-unavailable' | 'discard-unavailable'
   | Readonly<{ message: string }>
-
-export type CloseGroupResult = Readonly<{
-  outcome: ProtectedCloseOutcome | 'noop'
-  focusAction: 'none' | 'restore-trigger' | 'focus-active-tab'
-}>
-
-export type CloseTabResult = Readonly<{
-  outcome: ProtectedCloseOutcome | 'blocked' | 'noop'
-  focusAction: 'none' | 'restore-trigger' | 'focus-active-tab' | 'focus-article-input'
-}>
+export type CloseGroupResult = Readonly<{ outcome: ProtectedCloseOutcome | 'noop'; focusAction: 'none' | 'restore-trigger' | 'focus-active-tab' }>
+export type CloseTabResult = Readonly<{ outcome: ProtectedCloseOutcome | 'blocked' | 'noop'; focusAction: 'none' | 'restore-trigger' | 'focus-active-tab' | 'focus-article-input' }>
 
 export interface WorkspaceSessionPort {
-  current(): Session | null
-  identityEpoch(): number
-  credentialEpoch(): number
+  current(): Session | null; identityEpoch(): number; credentialEpoch(): number
   refreshSession(signal: AbortSignal, reuseInFlight: boolean): Promise<void>
 }
-
 export interface WorkspaceRecoveryPort {
-  candidates(): readonly RecoveryCandidate[]
-  guarded(): boolean
+  candidates(): readonly RecoveryCandidate[]; guarded(): boolean
   setCurrent(tab: WorkspaceTab | undefined, draft: Draft | undefined, edit: number): void
-  persist(draft: Draft, edit: number): void
-  confirmed: NonNullable<EditorTransport<Draft>['confirmed']>
+  persist(draft: Draft, edit: number): void; confirmed: NonNullable<EditorTransport<Draft>['confirmed']>
   remove(candidate: RecoveryCandidate, keep?: { draft: Draft; edit: number }): Promise<boolean>
   discardArticle(id: number, sessionId: number, edit: number): Promise<unknown> | void
   verifyCloseCopies(drafts: readonly RecoverableCloseDraft<Draft>[]): Promise<boolean>
   discardCloseCopies(reservation: CloseReservation<Draft>): Promise<boolean>
-  dismissCandidates(): void
-  close(): void
+  dismissCandidates(): void; close(): void
 }
-
 export interface WorkspacePersistencePort {
-  reset(): void
-  restore(
-    handle: string,
-    restoreLayout: (layout: SavedWorkspaceLayout, signal: AbortSignal) => Promise<number | undefined>,
-  ): Promise<void>
-  rebind(handle: string): void
-  changed(): void
-  flush(): Promise<void>
+  reset(): void; rebind(handle: string): void; changed(): void; flush(): Promise<void>
+  restore(handle: string, restoreLayout: (layout: SavedWorkspaceLayout, signal: AbortSignal) => Promise<number | undefined>): Promise<void>
 }
-
 export interface WorkspaceRouterPort {
-  articleId(): number | undefined
-  path(): string
-  resolveArticlePath(articleId: number): string
+  articleId(): number | undefined; path(): string; resolveArticlePath(articleId: number): string
   pushArticle(articleId: number, persistentWorkspace: boolean): Promise<boolean>
   replaceArticle(articleId: number, persistentWorkspace: boolean): Promise<boolean>
   replaceWorkspace(persistentWorkspace: boolean): Promise<boolean>
 }
-
 export interface WorkspaceConfirmPort {
   confirmProtectedClose(input: Readonly<{
-    plan: ClosePlan
-    hasKeepCopies: boolean
-    canSave: boolean
-    canDiscard: boolean
-    current: () => boolean
+    plan: ClosePlan; hasKeepCopies: boolean; canSave: boolean; canDiscard: boolean; current: () => boolean
   }>): Promise<ProtectedCloseChoice>
   confirmDiscardTab(title: string): Promise<boolean>
   confirmLeave(candidates: readonly WorkspaceTab[]): Promise<boolean>
 }
-
 export interface WriteWorkspaceControllerPorts {
-  origin: string
-  initialPersistentWorkspace: boolean
-  initialAuthorizationReady: boolean
-  commands: WriteCommandAdapter
-  handoff: SourceHandoffCoordinator
-  session: WorkspaceSessionPort
-  recovery: WorkspaceRecoveryPort
-  persistence: WorkspacePersistencePort
-  router: WorkspaceRouterPort
-  confirm: WorkspaceConfirmPort
-  format: MessageFormatter
-  recordRecentOpen(articleId: number, revision: bigint): void
-  scheduleTick(callback: () => void): void
-  nowMs?: () => number
-  limit?: number
-  newRequestKey?: ConstructorParameters<typeof WorkspaceRegistry<Draft>>[3]
+  origin: string; initialPersistentWorkspace: boolean; initialAuthorizationReady: boolean
+  commands: WriteCommandAdapter; handoff: SourceHandoffCoordinator; session: WorkspaceSessionPort
+  recovery: WorkspaceRecoveryPort; persistence: WorkspacePersistencePort; router: WorkspaceRouterPort
+  confirm: WorkspaceConfirmPort; format: MessageFormatter
+  recordRecentOpen(articleId: number, revision: bigint): void; scheduleTick(callback: () => void): void
+  nowMs?: () => number; limit?: number; newRequestKey?: ConstructorParameters<typeof WorkspaceRegistry<Draft>>[3]
 }
 
 const initialWorkspaceState = (persistentWorkspace: boolean, authorizationReady: boolean) => ({
-  original: undefined as Draft | undefined,
-  tab: undefined as WorkspaceTab | undefined,
-  workspaceTabs: [] as readonly WorkspaceTab[],
-  workspaceRevision: 0,
-  sourcePanes: [] as readonly WorkspaceSource<Draft>[],
-  hasSecondaryGroup: false,
-  recentlyClosed: [] as readonly RecentlyClosed[],
-  inspectorOpen: false,
-  persistentWorkspace,
-  authorizationReady,
-  layoutRestoring: false,
-  loading: false,
-  opening: false,
-  closingTabs: false,
-  recoveryWorking: false,
-  composing: undefined as number | undefined,
-  taxonomyDirty: false,
-  summaryDirty: false,
-  taxonomyStale: false,
-  propertyPending: false,
-  revisionComparisonActive: false,
-  taxonomyModalActive: false,
-  notice: '',
-  failure: '',
-  navigationNotice: '',
-  groupNotice: '',
-  openInput: '',
+  original: undefined as Draft | undefined, tab: undefined as WorkspaceTab | undefined,
+  workspaceTabs: [] as readonly WorkspaceTab[], workspaceRevision: 0,
+  sourcePanes: [] as readonly WorkspaceSource<Draft>[], hasSecondaryGroup: false,
+  recentlyClosed: [] as readonly RecentlyClosed[], inspectorOpen: false,
+  persistentWorkspace, authorizationReady, layoutRestoring: false, loading: false, opening: false,
+  closingTabs: false, recoveryWorking: false, composing: undefined as number | undefined,
+  taxonomyDirty: false, summaryDirty: false, taxonomyStale: false, propertyPending: false,
+  revisionComparisonActive: false, taxonomyModalActive: false,
+  notice: '', failure: '', navigationNotice: '', groupNotice: '', openInput: '',
 })
 
 export type WriteWorkspaceState = Readonly<ReturnType<typeof initialWorkspaceState>>
-
 export type DeriveWorkspaceFlagsInput = Readonly<{
-  state: WriteWorkspaceState
-  articleId: number | undefined
-  session: Session | null
-  recoveryItemsCount: number
-  recoveryChecking: boolean
+  state: WriteWorkspaceState; articleId: number | undefined; session: Session | null
+  recoveryItemsCount: number; recoveryChecking: boolean
 }>
-
 export type WriteWorkspaceFlags = Readonly<ReturnType<typeof deriveWorkspaceFlags>>
 
 export function articleRouteId(name: unknown, idParam: unknown): number | undefined {
@@ -243,81 +148,33 @@ export function deriveWorkspaceFlags(input: DeriveWorkspaceFlagsInput) {
   const inputArticle = parseArticleIdInput(state.openInput)
 
   return {
-    metadataDirty,
-    recoveryBlocked,
-    articleDirty,
-    dirty,
-    hasConflict,
-    articlePending,
-    pending,
-    canSwitch,
-    retry,
-    validTitle,
-    validBody,
-    editable,
-    cannotWrite,
-    credential,
-    canImportDraft,
-    canPreviewPlugin,
-    canChangeSummary,
-    canArrangeGroups,
-    otherGroup,
-    activeGroupTabs,
-    activeGroupIndex,
-    canCloseGroupTabs,
-    canPublishImages,
-    inputArticle,
+    metadataDirty, recoveryBlocked, articleDirty, dirty, hasConflict, articlePending, pending, canSwitch, retry,
+    validTitle, validBody, editable, cannotWrite, credential, canImportDraft, canPreviewPlugin, canChangeSummary,
+    canArrangeGroups, otherGroup, activeGroupTabs, activeGroupIndex, canCloseGroupTabs, canPublishImages, inputArticle,
   }
 }
 
 export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPorts) {
-  const {
-    commands,
-    handoff,
-    session,
-    recovery,
-    persistence,
-    router,
-    confirm,
-    format,
-    recordRecentOpen,
-    scheduleTick,
-  } = ports
+  const { commands, handoff, session, recovery, persistence, router, confirm, format, recordRecentOpen, scheduleTick } = ports
   const nowMs = ports.nowMs ?? Date.now
   const lifetime = new AbortController()
   const listeners = new Set<() => void>()
-
   const registry = new WorkspaceRegistry<Draft>({
-    load: commands.loadDraft,
-    save: commands.articleCommand('save'),
-    confirmed: recovery.confirmed,
+    load: commands.loadDraft, save: commands.articleCommand('save'), confirmed: recovery.confirmed,
   }, ports.limit, nowMs, ports.newRequestKey)
+  const authorIdentity = (epoch: number, active: Session) =>
+    ({ site: ports.origin, principalId: String(epoch), generation: active.generation, expiresAt: active.expiresAt })
 
   let state: WriteWorkspaceState = initialWorkspaceState(ports.initialPersistentWorkspace, ports.initialAuthorizationReady)
+  let layoutStarted = false, workspaceIdentity: number | undefined, persistedSession: string | undefined
+  let navigation = 0, explicitNavigation: NavigationIntent | undefined, disposed = false
 
-  let layoutStarted = false
-  let workspaceIdentity: number | undefined
-  let persistedSession: string | undefined
-  let navigation = 0
-  let explicitNavigation: NavigationIntent | undefined
-  let disposed = false
-
-  function emit(): void {
-    for (const listener of listeners) listener()
-  }
-
-  function patch(partial: Partial<WriteWorkspaceState>): void {
-    state = { ...state, ...partial }
-    emit()
-  }
-
+  function emit(): void { for (const listener of listeners) listener() }
+  function patch(partial: Partial<WriteWorkspaceState>): void { state = { ...state, ...partial }; emit() }
   function flags(): WriteWorkspaceFlags {
     return deriveWorkspaceFlags({
-      state,
-      articleId: router.articleId(),
-      session: session.current(),
-      recoveryItemsCount: recovery.candidates().length,
-      recoveryChecking: recovery.guarded(),
+      state, articleId: router.articleId(), session: session.current(),
+      recoveryItemsCount: recovery.candidates().length, recoveryChecking: recovery.guarded(),
     })
   }
 
@@ -325,16 +182,10 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
     const next = registry.activeDraft
     const draftChanged = next?.id !== state.original?.id || next?.revision !== state.original?.revision
     state = {
-      ...state,
-      ...(draftChanged ? { taxonomyDirty: false, summaryDirty: false, taxonomyStale: false } : {}),
-      original: next,
-      tab: registry.activeTab,
-      workspaceTabs: registry.tabs,
-      workspaceRevision: registry.revision,
-      sourcePanes: registry.sourcePanes,
-      hasSecondaryGroup: registry.hasSecondaryGroup,
-      recentlyClosed: registry.recentlyClosed,
-      inspectorOpen: registry.inspectorOpen,
+      ...state, ...(draftChanged ? { taxonomyDirty: false, summaryDirty: false, taxonomyStale: false } : {}),
+      original: next, tab: registry.activeTab, workspaceTabs: registry.tabs, workspaceRevision: registry.revision,
+      sourcePanes: registry.sourcePanes, hasSecondaryGroup: registry.hasSecondaryGroup,
+      recentlyClosed: registry.recentlyClosed, inspectorOpen: registry.inspectorOpen,
     }
     recovery.setCurrent(state.tab, next, registry.activeEditSequence)
     persistence.changed()
@@ -344,26 +195,18 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
   function paneFocused(pane: WorkspaceSource<Draft>): boolean {
     return flags().editable && pane.selected && pane.tab.active && state.tab?.sessionId === pane.tab.sessionId
   }
-
   function activationFailure(receipt: Activation): string {
-    if (receipt.kind === 'blocked') return format(failureMessageKeyByReason[receipt.reason])
-    if (receipt.kind === 'capacity') return format('author.write.thisWorkspaceHas100OpenArticlesCloseA')
-    return ''
+    return receipt.kind === 'blocked' ? format(failureMessageKeyByReason[receipt.reason])
+      : receipt.kind === 'capacity' ? format('author.write.thisWorkspaceHas100OpenArticlesCloseA') : ''
   }
-
   function activateArticle(
-    articleId: number,
-    targetGroup?: WorkspaceGroup,
-    mode?: WorkspaceTab['mode'],
-    ready?: () => boolean,
-    requiredRevision?: bigint,
-    allowRetainedEdits = false,
+    articleId: number, targetGroup?: WorkspaceGroup, mode?: WorkspaceTab['mode'],
+    ready?: () => boolean, requiredRevision?: bigint, allowRetainedEdits = false,
   ): Promise<Activation> {
     return articleId === 0
       ? registry.startDraft({ id: 0, revision: 0n, title: '', body: '', published: false })
       : registry.openOrActivate(articleId, targetGroup, mode, ready, requiredRevision, allowRetainedEdits)
   }
-
   function setInspectorOpen(open: boolean): void {
     if (state.persistentWorkspace && state.tab) registry.setInspectorOpen(state.tab, open)
     if (!open) {
@@ -383,31 +226,17 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
         const result = await registry.saveReserved(target, reservation)
         if (result.kind === 'saved') saved.push(target.title)
         if (result.kind === 'saved' && result.recoverySettled) continue
-        const failure = result.kind === 'conflict'
-          ? format('author.write.changedOnServer', { title: target.title })
-          : result.kind === 'saved'
-            ? format('author.write.cleanupUnconfirmed', { title: target.title })
-            : result.kind === 'rejected'
-              ? format('author.write.rejectedTitle', { title: target.title })
-              : result.kind === 'blocked' && result.reason !== 'unavailable'
-                ? format('author.write.saveBlocked', {
-                    title: target.title,
-                    reason: format(failureMessageKeyByReason[result.reason]),
-                  })
-                : format('author.write.saveUnconfirmed', { title: target.title })
-        return {
-          message: format('author.write.tabsStillOpenFailure', {
-            saved: saved.length ? format('author.write.savedTitlesPrefix', { titles: saved.join(', ') }) : '',
-            failure,
-          }),
-        }
+        const failure = result.kind === 'conflict' ? format('author.write.changedOnServer', { title: target.title })
+          : result.kind === 'saved' ? format('author.write.cleanupUnconfirmed', { title: target.title })
+          : result.kind === 'rejected' ? format('author.write.rejectedTitle', { title: target.title })
+          : result.kind === 'blocked' && result.reason !== 'unavailable'
+            ? format('author.write.saveBlocked', { title: target.title, reason: format(failureMessageKeyByReason[result.reason]) })
+            : format('author.write.saveUnconfirmed', { title: target.title })
+        return { message: format('author.write.tabsStillOpenFailure', { saved: saved.length ? format('author.write.savedTitlesPrefix', { titles: saved.join(', ') }) : '', failure }) }
       }
       if (!current()) return 'stale'
       const result = registry.completeClose(reservation, true)
-      if (result.kind === 'protected') {
-        return { message: format('author.write.savedTitlesOpen', { titles: saved.join(', ') }) }
-      }
-      return result.kind
+      return result.kind === 'protected' ? { message: format('author.write.savedTitlesOpen', { titles: saved.join(', ') }) } : result.kind
     } finally {
       if (reservation.current()) registry.completeClose(reservation, false)
     }
@@ -423,13 +252,7 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
 
     patch({ closingTabs: true })
     try {
-      const choice = await confirm.confirmProtectedClose({
-        plan,
-        hasKeepCopies: !!drafts?.length,
-        canSave,
-        canDiscard: allSaved && !!drafts?.length,
-        current,
-      })
+      const choice = await confirm.confirmProtectedClose({ plan, hasKeepCopies: !!drafts?.length, canSave, canDiscard: allSaved && !!drafts?.length, current })
       if (choice === 'cancelled') return 'cancelled'
       if (!current() || registry.revision !== plan.revision) return 'stale'
       if (choice === 'save') return canSave ? await saveAndCloseTabs(plan, current) : 'protected'
@@ -442,16 +265,11 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
       }
       if (!drafts?.length || !await recovery.verifyCloseCopies(drafts)) return 'copies-unavailable'
       return current() ? registry.discardMany(plan).kind : 'stale'
-    } catch {
-      return 'cancelled'
-    } finally {
-      patch({ closingTabs: false })
-    }
+    } catch { return 'cancelled' } finally { patch({ closingTabs: false }) }
   }
 
   function failedCloseNotice(outcome: ProtectedCloseOutcome, plan?: ClosePlan): string {
-    const blocked = plan?.tabs.flatMap(({ title, risk }) =>
-      risk === 'clean' ? [] : [`${title} (${format(closeRiskMessageKey[risk])})`]) ?? []
+    const blocked = plan?.tabs.flatMap(({ title, risk }) => risk === 'clean' ? [] : [`${title} (${format(closeRiskMessageKey[risk])})`]) ?? []
     return typeof outcome === 'object' ? outcome.message
       : outcome === 'protected' ? format('author.write.closeBlocked', { tabs: blocked.join(', ') })
       : outcome === 'copies-unavailable' ? format('author.write.couldNotVerifyRecoveryCopiesSaveTheDrafts')
@@ -470,77 +288,41 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
     if (!plan) return false
     const edits = candidates.map(item => ({ item, sequence: registry.editSequence(item) }))
     try {
-      const confirmed = await confirm.confirmLeave(candidates)
-      if (!confirmed || registry.discardMany(plan).kind !== 'closed') return false
-      await Promise.all(edits.map(({ item, sequence }) => sequence === undefined
-        ? undefined
-        : recovery.discardArticle(item.articleId, item.sessionId, sequence)))
+      if (!await confirm.confirmLeave(candidates) || registry.discardMany(plan).kind !== 'closed') return false
+      await Promise.all(edits.map(({ item, sequence }) => sequence === undefined ? undefined : recovery.discardArticle(item.articleId, item.sessionId, sequence)))
       return true
-    } catch {
-      return false
-    }
+    } catch { return false }
   }
 
   async function finishSubmission(
-    action: WriteAction,
-    current: WorkspaceTab,
-    document: Draft,
-    identity: number,
-    requested: ReturnType<typeof registry.retry>,
+    action: WriteAction, current: WorkspaceTab, document: Draft, identity: number, requested: ReturnType<typeof registry.retry>,
   ): Promise<void> {
     const result = await requested
-    if (lifetime.signal.aborted || identity !== session.identityEpoch() || router.articleId() !== current.articleId) {
-      return
-    }
+    if (lifetime.signal.aborted || identity !== session.identityEpoch() || router.articleId() !== current.articleId) return
     if (result.kind === 'saved') {
-      if (result.recoverySettled === false) {
-        patch({ failure: format('author.write.draftSavedRecoveryCleanupIsUnfinishedTryAgain') })
-        return
-      }
+      if (result.recoverySettled === false) { patch({ failure: format('author.write.draftSavedRecoveryCleanupIsUnfinishedTryAgain') }); return }
       patch({ notice: format(savedMessageKeyByAction[action]) })
-      if (!document.id) {
-        await router.replaceArticle(result.articleId, state.persistentWorkspace)
-      }
-    } else if (result.kind === 'conflict') {
-      patch({ failure: format('author.write.theServerHasANewerRevisionCopyYour') })
-    } else if (result.kind === 'blocked') {
-      patch({ failure: format(failureMessageKeyByReason[result.reason]) })
-    } else if (result.kind === 'rejected') {
-      patch({ failure: format('author.write.theServerRejectedThisChangeCheckTheDraft') })
-    }
+      if (!document.id) await router.replaceArticle(result.articleId, state.persistentWorkspace)
+    } else if (result.kind === 'conflict') patch({ failure: format('author.write.theServerHasANewerRevisionCopyYour') })
+    else if (result.kind === 'blocked') patch({ failure: format(failureMessageKeyByReason[result.reason]) })
+    else if (result.kind === 'rejected') patch({ failure: format('author.write.theServerRejectedThisChangeCheckTheDraft') })
   }
 
   async function navigateTo(
-    articleId: number,
-    restore?: RecentlyClosed,
-    targetGroup?: WorkspaceGroup,
-    selection?: ArticleSelection,
+    articleId: number, restore?: RecentlyClosed, targetGroup?: WorkspaceGroup, selection?: ArticleSelection,
   ): Promise<boolean> {
-    const currentFlags = flags()
-    if (!currentFlags.canSwitch || (selection && (state.opening || !selection.current()))) return false
+    if (!flags().canSwitch || (selection && (state.opening || !selection.current()))) return false
     if (registry.activeTab?.articleId === articleId && router.articleId() === articleId) {
       if (!selection) return true
-      const result = await activateArticle(
-        articleId,
-        undefined,
-        undefined,
-        () => selection.current() && flags().canSwitch && !lifetime.signal.aborted,
-        selection.revision,
-        true,
-      )
+      const result = await activateArticle(articleId, undefined, undefined,
+        () => selection.current() && flags().canSwitch && !lifetime.signal.aborted, selection.revision, true)
       if (result.kind !== 'ready' || !selection.current() || registry.activeTab?.sessionId !== result.tab.sessionId ||
           router.articleId() !== articleId) return false
       recordRecentOpen(articleId, selection.revision)
       return true
     }
-    const intent: NavigationIntent = {
-      restore,
-      targetGroup,
-      selection,
-      path: router.resolveArticlePath(articleId),
-    }
-    const epoch = session.identityEpoch()
-    const handle = session.current()?.siteSessionId
+    const intent: NavigationIntent = { restore, targetGroup, selection, path: router.resolveArticlePath(articleId) }
+    const epoch = session.identityEpoch(), handle = session.current()?.siteSessionId
     explicitNavigation = intent
     try {
       const failed = await router.pushArticle(articleId, state.persistentWorkspace)
@@ -551,9 +333,7 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
         recordRecentOpen(articleId, intent.witness.articleRevision)
       }
       return true
-    } finally {
-      if (explicitNavigation === intent) explicitNavigation = undefined
-    }
+    } finally { if (explicitNavigation === intent) explicitNavigation = undefined }
   }
 
   function setField<K extends keyof WriteWorkspaceState>(key: K): (value: WriteWorkspaceState[K]) => void {
@@ -561,39 +341,22 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
   }
 
   function commitForActiveDocument(
-    action: 'publish-images' | 'save-summary',
-    allowed: boolean,
+    action: 'publish-images' | 'save-summary', allowed: boolean,
     target: Readonly<{ articleId: number; revision: bigint; credential: string }>,
     command: Parameters<typeof registry.commit>[2],
   ): Promise<void> {
-    const currentFlags = flags()
-    const current = state.tab
-    const document = state.original
+    const current = state.tab, document = state.original
     if (!current || !document || !allowed || target.articleId !== document.id ||
-        target.revision !== document.revision || target.credential !== currentFlags.credential) {
-      return Promise.resolve()
-    }
+        target.revision !== document.revision || target.credential !== flags().credential) return Promise.resolve()
     patch({ failure: '', notice: '' })
     return finishSubmission(action, current, document, session.identityEpoch(), registry.commit(current, action, command))
   }
 
   return {
-    registry,
-    lifetime,
-
-    snapshot: () => state,
-
-    flags,
-
-    subscribe(listener: () => void): () => void {
-      listeners.add(listener)
-      return () => { listeners.delete(listener) }
-    },
-
-    setNotice: setField('notice'),
-    setOpenInput: setField('openInput'),
-    setTaxonomyDirty: setField('taxonomyDirty'),
-    setSummaryDirty: setField('summaryDirty'),
+    registry, lifetime, snapshot: () => state, flags,
+    subscribe(listener: () => void): () => void { listeners.add(listener); return () => { listeners.delete(listener) } },
+    setNotice: setField('notice'), setOpenInput: setField('openInput'),
+    setTaxonomyDirty: setField('taxonomyDirty'), setSummaryDirty: setField('summaryDirty'),
     markTaxonomyStale: () => { if (!state.taxonomyStale) patch({ taxonomyStale: true }) },
     setPropertyPending: setField('propertyPending'),
     setRevisionComparisonActive: setField('revisionComparisonActive'),
@@ -607,9 +370,7 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
         if (state.layoutRestoring) patch({ layoutRestoring: false })
         persistedSession = handle
         workspaceIdentity = epoch
-        registry.setIdentity(current?.canAuthor
-          ? { site: ports.origin, principalId: String(epoch), generation: current.generation, expiresAt: current.expiresAt }
-          : null)
+        registry.setIdentity(current?.canAuthor ? authorIdentity(epoch, current) : null)
         return
       }
       registry.updateIdentityExpiry(current.expiresAt)
@@ -619,39 +380,21 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
 
     onIdentityEpochChanged(): void {
       ++navigation
-      patch({
-        opening: false,
-        composing: undefined,
-        navigationNotice: '',
-        groupNotice: '',
-      })
+      patch({ opening: false, composing: undefined, navigationNotice: '', groupNotice: '' })
     },
 
     mountSessionCheck(preloadedAuth: boolean): Promise<void> {
-      if (preloadedAuth) {
-        handoff.markSessionVerified()
-        return Promise.resolve()
-      }
-      return session.refreshSession(lifetime.signal, !handoff.hasArrival()).then(() => {
-        handoff.markSessionVerified()
-      }).catch(() => {
-        if (!lifetime.signal.aborted) patch({ failure: format('author.write.couldNotVerifyYourSession') })
-      }).finally(() => {
-        if (!lifetime.signal.aborted) patch({ authorizationReady: true })
-      })
+      if (preloadedAuth) { handoff.markSessionVerified(); return Promise.resolve() }
+      return session.refreshSession(lifetime.signal, !handoff.hasArrival())
+        .then(() => { handoff.markSessionVerified() })
+        .catch(() => { if (!lifetime.signal.aborted) patch({ failure: format('author.write.couldNotVerifyYourSession') }) })
+        .finally(() => { if (!lifetime.signal.aborted) patch({ authorizationReady: true }) })
     },
 
-    async syncRoute(params: Readonly<{
-      articleId: number | undefined
-      identity: number
-      isValid: () => boolean
-    }>): Promise<void> {
+    async syncRoute(params: Readonly<{ articleId: number | undefined; identity: number; isValid: () => boolean }>): Promise<void> {
       const { articleId, identity, isValid } = params
       const activeSession = session.current()
-      if (!state.authorizationReady || !activeSession?.canAuthor) {
-        patch({ opening: false, loading: false })
-        return
-      }
+      if (!state.authorizationReady || !activeSession?.canAuthor) { patch({ opening: false, loading: false }); return }
       const handle = activeSession.siteSessionId
       if (state.persistentWorkspace && !layoutStarted && handle) {
         layoutStarted = true
@@ -664,25 +407,14 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
           if (!isValid() || identity !== session.identityEpoch()) return
         }
       }
-      if (articleId === undefined) {
-        registry.idle()
-        patch({ loading: false })
-        return
-      }
+      if (articleId === undefined) { registry.idle(); patch({ loading: false }); return }
 
       const epoch = session.credentialEpoch()
       const arrival = handoff.resolveArrival(articleId, epoch, handle)
-      if (arrival.kind === 'expired') {
-        patch({ failure: format('author.write.thisEditorLinkHasExpiredReturnToIts'), loading: false })
-        return
-      }
+      if (arrival.kind === 'expired') { patch({ failure: format('author.write.thisEditorLinkHasExpiredReturnToIts'), loading: false }); return }
       const source = arrival.kind === 'ready' ? arrival.source : undefined
       const requiredRevision = arrival.kind === 'ready' ? arrival.requiredRevision : undefined
-
-      if (!source && state.original?.id === articleId) {
-        patch({ loading: false })
-        return
-      }
+      if (!source && state.original?.id === articleId) { patch({ loading: false }); return }
 
       patch({ loading: true, failure: '', notice: '' })
       const routeIntent = navigation
@@ -694,100 +426,58 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
 
       if (result.kind !== 'ready') {
         const failureKind = handoff.handleActivationFailure(source, result)
-        const message = failureKind === 'search-unavailable'
-          ? format('author.write.theSearchPositionIsNoLongerAvailableReturn')
-          : failureKind === 'stale-reference'
-            ? format(failureMessageKeyByReason['stale-reference'])
-            : activationFailure(result)
-        patch({ failure: message })
+        patch({ failure: failureKind === 'search-unavailable' ? format('author.write.theSearchPositionIsNoLongerAvailableReturn')
+          : failureKind === 'stale-reference' ? format(failureMessageKeyByReason['stale-reference']) : activationFailure(result) })
         return
       }
-      if (!source) {
-        handoff.clearPending()
-        return
-      }
+      if (!source) { handoff.clearPending(); return }
       const activated = handoff.activateTarget({
-        source,
-        sessionId: result.tab.sessionId,
-        witnessedRevision: result.witnessedRevision,
-        handle,
-        persistentWorkspace: state.persistentWorkspace,
-        recoveryItemsCount: recovery.candidates().length,
-        recoveryWorking: state.recoveryWorking,
-        revisionComparisonActive: state.revisionComparisonActive,
-        activeEditSequence: registry.activeEditSequence,
-        isRouteCurrent: current,
+        source, sessionId: result.tab.sessionId, witnessedRevision: result.witnessedRevision, handle,
+        persistentWorkspace: state.persistentWorkspace, recoveryItemsCount: recovery.candidates().length,
+        recoveryWorking: state.recoveryWorking, revisionComparisonActive: state.revisionComparisonActive,
+        activeEditSequence: registry.activeEditSequence, isRouteCurrent: current,
         readLiveState: () => {
           const liveFlags = flags()
           return {
-            activeSessionId: state.tab?.sessionId,
-            activeRisk: state.tab?.risk,
-            recoveryBlocked: liveFlags.recoveryBlocked,
-            canSwitch: liveFlags.canSwitch,
-            editable: liveFlags.editable,
-            pending: liveFlags.pending,
-            revisionComparisonActive: state.revisionComparisonActive,
-            activeEditSequence: registry.activeEditSequence,
-            originalId: state.original?.id,
-            originalRevision: state.original?.revision,
-            inspectorOpen: state.inspectorOpen,
+            activeSessionId: state.tab?.sessionId, activeRisk: state.tab?.risk,
+            recoveryBlocked: liveFlags.recoveryBlocked, canSwitch: liveFlags.canSwitch, editable: liveFlags.editable,
+            pending: liveFlags.pending, revisionComparisonActive: state.revisionComparisonActive,
+            activeEditSequence: registry.activeEditSequence, originalId: state.original?.id,
+            originalRevision: state.original?.revision, inspectorOpen: state.inspectorOpen,
             sessionExpiresAt: session.current()?.expiresAt ?? 0,
           }
         },
         setInspectorOpen,
       })
-      if (activated.kind === 'unavailable' && activated.noticeKey) {
-        patch({ notice: format(activated.noticeKey) })
-      }
+      if (activated.kind === 'unavailable' && activated.noticeKey) patch({ notice: format(activated.noticeKey) })
     },
 
-    async beforeRouteUpdate(params: Readonly<{
-      toPath: string
-      fromPath: string
-      toArticleId: number | undefined
-    }>): Promise<boolean> {
+    async beforeRouteUpdate(params: Readonly<{ toPath: string; fromPath: string; toArticleId: number | undefined }>): Promise<boolean> {
       const { toPath, fromPath, toArticleId } = params
       if (toPath === fromPath || !state.authorizationReady || !session.current()?.canAuthor) return true
       const intent = ++navigation
       registry.cancelOpening()
       patch({ opening: false })
-      if (!flags().canSwitch) {
-        patch({ navigationNotice: format('author.write.applyOrCancelThePendingChangesBeforeSwitching') })
-        return false
-      }
+      if (!flags().canSwitch) { patch({ navigationNotice: format('author.write.applyOrCancelThePendingChangesBeforeSwitching') }); return false }
       patch({ navigationNotice: '', groupNotice: '' })
-      if (toArticleId === undefined) return true
       // A successful creation already has a verified persisted revision in the same session.
-      if (toArticleId === state.tab?.articleId) return true
+      if (toArticleId === undefined || toArticleId === state.tab?.articleId) return true
       const epoch = session.identityEpoch()
       patch({ opening: true })
       const explicit = explicitNavigation?.path === toPath ? explicitNavigation : undefined
       const selection = explicit?.selection
-      const result = await activateArticle(
-        toArticleId,
-        explicit?.targetGroup ?? explicit?.restore?.group,
-        explicit?.restore?.mode,
-        () => intent === navigation && epoch === session.identityEpoch() && flags().canSwitch &&
-          !lifetime.signal.aborted && (!selection || selection.current()),
-        selection?.revision,
-        !!selection,
-      )
+      const result = await activateArticle(toArticleId, explicit?.targetGroup ?? explicit?.restore?.group, explicit?.restore?.mode,
+        () => intent === navigation && epoch === session.identityEpoch() && flags().canSwitch && !lifetime.signal.aborted && (!selection || selection.current()),
+        selection?.revision, !!selection)
       if (intent !== navigation || epoch !== session.identityEpoch() || lifetime.signal.aborted) return false
       patch({ opening: false })
       if (!selection) {
-        const message = result.kind === 'superseded' && !flags().canSwitch
-          ? format('author.write.applyOrCancelThePendingChangesBeforeSwitching')
-          : activationFailure(result)
-        patch({ navigationNotice: message })
+        patch({ navigationNotice: result.kind === 'superseded' && !flags().canSwitch
+          ? format('author.write.applyOrCancelThePendingChangesBeforeSwitching') : activationFailure(result) })
       }
       if (result.kind === 'ready') {
-        if (explicit && result.witnessedRevision !== undefined) {
-          explicit.witness = { sessionId: result.tab.sessionId, articleRevision: result.witnessedRevision }
-        }
-        patch({
-          notice: '',
-          failure: result.tab.risk === 'conflict' ? format('author.write.theServerHasANewerRevisionCopyYour') : '',
-        })
+        if (explicit && result.witnessedRevision !== undefined) explicit.witness = { sessionId: result.tab.sessionId, articleRevision: result.witnessedRevision }
+        patch({ notice: '', failure: result.tab.risk === 'conflict' ? format('author.write.theServerHasANewerRevisionCopyYour') : '' })
       }
       return result.kind === 'ready'
     },
@@ -806,17 +496,11 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
     async openSavedWorkspace(): Promise<void> {
       const identity = session.identityEpoch()
       if (!await allowLeave(true) || lifetime.signal.aborted || identity !== session.identityEpoch()) return
-      if (await router.replaceWorkspace(true)) return
-      if (lifetime.signal.aborted || identity !== session.identityEpoch()) return
+      if (await router.replaceWorkspace(true) || lifetime.signal.aborted || identity !== session.identityEpoch()) return
       registry.setIdentity(null)
       const activeSession = session.current()
       if (!activeSession?.canAuthor) return
-      registry.setIdentity({
-        site: ports.origin,
-        principalId: String(identity),
-        generation: activeSession.generation,
-        expiresAt: activeSession.expiresAt,
-      })
+      registry.setIdentity(authorIdentity(identity, activeSession))
       patch({ persistentWorkspace: true })
     },
 
@@ -824,55 +508,35 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
 
     openArticle(splitGroup = false): void {
       const currentFlags = flags()
-      if (currentFlags.inputArticle === undefined) {
-        patch({ navigationNotice: format('author.write.enterAValidArticleId') })
-        return
-      }
+      if (currentFlags.inputArticle === undefined) { patch({ navigationNotice: format('author.write.enterAValidArticleId') }); return }
       void navigateTo(currentFlags.inputArticle, undefined, splitGroup ? currentFlags.otherGroup : undefined)
     },
 
     paneFocused,
 
     changeComposition(pane: WorkspaceSource<Draft>, active: boolean): void {
-      if (active) {
-        if (paneFocused(pane)) patch({ composing: pane.tab.sessionId })
-      } else if (state.composing === pane.tab.sessionId) {
-        scheduleTick(() => {
-          if (state.composing === pane.tab.sessionId) patch({ composing: undefined })
-        })
-      }
+      if (active) { if (paneFocused(pane)) patch({ composing: pane.tab.sessionId }) }
+      else if (state.composing === pane.tab.sessionId) scheduleTick(() => { if (state.composing === pane.tab.sessionId) patch({ composing: undefined }) })
     },
 
-    canMoveBackgroundTab(target: WorkspaceTab): boolean {
-      return flags().canArrangeGroups && registry.canMoveBackgroundTab(target)
-    },
+    canMoveBackgroundTab(target: WorkspaceTab): boolean { return flags().canArrangeGroups && registry.canMoveBackgroundTab(target) },
 
     moveBackgroundTab(target: WorkspaceTab, revision: number): void {
       if (!flags().canArrangeGroups) return
       const destination: WorkspaceGroup = target.group === 'main' ? 'secondary' : 'main'
       const receipt = registry.moveBackgroundTab(target, destination, revision)
       if (receipt.kind === 'changed') {
-        patch({
-          groupNotice: format(
-            destination === 'main' ? 'author.write.movedTitlePrimary' : 'author.write.movedTitleSecondary',
-            { title: receipt.tab.title },
-          ),
-        })
+        patch({ groupNotice: format(destination === 'main' ? 'author.write.movedTitlePrimary' : 'author.write.movedTitleSecondary', { title: receipt.tab.title }) })
       }
     },
 
     arrangeGroups(destination?: WorkspaceGroup): WorkspaceTab | undefined {
       const current = state.tab
       if (!current || !flags().canArrangeGroups) return undefined
-      const receipt = destination
-        ? registry.moveActiveTab(current, destination, registry.revision)
-        : registry.mergeGroups(current, registry.revision)
+      const receipt = destination ? registry.moveActiveTab(current, destination, registry.revision) : registry.mergeGroups(current, registry.revision)
       if (receipt.kind !== 'changed') return undefined
-      patch({
-        groupNotice: destination
-          ? format(destination === 'main' ? 'author.write.movedPrimary' : 'author.write.movedSecondary')
-          : format('author.write.mergedBothGroupsIntoThePrimaryGroup'),
-      })
+      patch({ groupNotice: destination ? format(destination === 'main' ? 'author.write.movedPrimary' : 'author.write.movedSecondary')
+        : format('author.write.mergedBothGroupsIntoThePrimaryGroup') })
       return receipt.tab
     },
 
@@ -880,41 +544,27 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
 
     togglePin(target: WorkspaceTab): void {
       if (target.mode === 'preview') registry.pin(target)
-      else if (!registry.unpin(target)) {
-        patch({ navigationNotice: format('author.write.saveChangesAndCloseTheCurrentPreviewBefore') })
-      }
+      else if (!registry.unpin(target)) patch({ navigationNotice: format('author.write.saveChangesAndCloseTheCurrentPreviewBefore') })
     },
 
     async closeGroupTabs(onlyRight: boolean): Promise<CloseGroupResult> {
-      const current = registry.activeTab
-      const currentFlags = flags()
-      const index = currentFlags.activeGroupIndex
-      const groupTabs = currentFlags.activeGroupTabs
-      if (!current || !currentFlags.canCloseGroupTabs || groupTabs[index]?.sessionId !== current.sessionId) {
-        return { outcome: 'noop', focusAction: 'none' }
-      }
+      const current = registry.activeTab, currentFlags = flags()
+      const { activeGroupIndex: index, activeGroupTabs: groupTabs } = currentFlags
+      if (!current || !currentFlags.canCloseGroupTabs || groupTabs[index]?.sessionId !== current.sessionId) return { outcome: 'noop', focusAction: 'none' }
       const targets = onlyRight ? groupTabs.slice(index + 1) : groupTabs.filter(candidate => !candidate.active)
       if (targets.length === 0) return { outcome: 'noop', focusAction: 'none' }
-      const epoch = session.identityEpoch()
-      const path = router.path()
+      const epoch = session.identityEpoch(), path = router.path()
       const isCurrent = () => epoch === session.identityEpoch() && !lifetime.signal.aborted &&
         router.path() === path && registry.activeTab?.sessionId === current.sessionId
       const plan = registry.planClose(targets)
       const result = plan ? registry.applyClose(plan).kind : 'stale'
-      const outcome: ProtectedCloseOutcome = plan && result === 'protected'
-        ? await confirmProtectedClose(plan, isCurrent)
-        : result
+      const outcome: ProtectedCloseOutcome = plan && result === 'protected' ? await confirmProtectedClose(plan, isCurrent) : result
       if (!isCurrent()) return { outcome, focusAction: 'none' }
       if (outcome !== 'closed') {
         patch({ groupNotice: '', navigationNotice: failedCloseNotice(outcome, plan) })
         return { outcome, focusAction: 'restore-trigger' }
       }
-      patch({
-        navigationNotice: '',
-        groupNotice: targets.length === 1
-          ? format('author.write.closed1Tab')
-          : format('author.write.closedTabs', { count: targets.length }),
-      })
+      patch({ navigationNotice: '', groupNotice: targets.length === 1 ? format('author.write.closed1Tab') : format('author.write.closedTabs', { count: targets.length }) })
       return { outcome, focusAction: 'focus-active-tab' }
     },
 
@@ -923,9 +573,7 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
         patch({ navigationNotice: format('author.write.applyOrCancelThePendingChangesBeforeClosing') })
         return { outcome: 'blocked', focusAction: 'none' }
       }
-      const epoch = session.identityEpoch()
-      const path = router.path()
-      const active = registry.activeTab?.sessionId
+      const epoch = session.identityEpoch(), path = router.path(), active = registry.activeTab?.sessionId
       const samePage = () => epoch === session.identityEpoch() && !lifetime.signal.aborted && router.path() === path
       const isCurrent = () => samePage() && registry.activeTab?.sessionId === active
 
@@ -935,45 +583,31 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
       const ready = registry.applyClose(plan)
       if (ready.kind === 'stale') return { outcome: 'stale', focusAction: 'none' }
       if (ready.kind === 'protected') {
-        if (target.risk === 'saving' || target.risk === 'pending' || (target.risk === 'recovery' &&
-            (target.articleId === 0 || target.retry !== 'save'))) {
+        if (target.risk === 'saving' || target.risk === 'pending' || (target.risk === 'recovery' && (target.articleId === 0 || target.retry !== 'save'))) {
           patch({ navigationNotice: format('author.write.resolveThePendingChangesBeforeClosingThisTab') })
           return { outcome: 'protected', focusAction: 'none' }
         }
         if (target.articleId > 0 && target.risk !== 'blocked') {
           const outcome = await confirmProtectedClose(plan, isCurrent)
           if (!samePage()) return { outcome, focusAction: 'none' }
-          if (outcome !== 'closed') {
-            patch({ navigationNotice: failedCloseNotice(outcome, plan) })
-            return { outcome, focusAction: 'restore-trigger' }
-          }
+          if (outcome !== 'closed') { patch({ navigationNotice: failedCloseNotice(outcome, plan) }); return { outcome, focusAction: 'restore-trigger' } }
         } else {
           const edit = registry.editSequence(target)
           try {
-            const confirmed = await confirm.confirmDiscardTab(target.title)
-            if (!confirmed || !isCurrent() || registry.discard(target, plan.revision).kind !== 'closed') {
+            if (!await confirm.confirmDiscardTab(target.title) || !isCurrent() || registry.discard(target, plan.revision).kind !== 'closed') {
               return { outcome: 'cancelled', focusAction: 'restore-trigger' }
             }
             if (edit !== undefined) await recovery.discardArticle(target.articleId, target.sessionId, edit)
-          } catch {
-            return { outcome: 'cancelled', focusAction: 'restore-trigger' }
-          }
+          } catch { return { outcome: 'cancelled', focusAction: 'restore-trigger' } }
         }
       }
       if (!samePage()) return { outcome: 'stale', focusAction: 'none' }
       if (target.active) {
         const next = state.workspaceTabs.find(candidate => candidate.risk !== 'blocked' && candidate.risk !== 'saving')
-        const rejected = next
-          ? await router.replaceArticle(next.articleId, state.persistentWorkspace)
-          : await router.replaceWorkspace(state.persistentWorkspace)
-        if (rejected && !registry.activeTab) {
-          await router.replaceWorkspace(state.persistentWorkspace)
-        }
+        const rejected = next ? await router.replaceArticle(next.articleId, state.persistentWorkspace) : await router.replaceWorkspace(state.persistentWorkspace)
+        if (rejected && !registry.activeTab) await router.replaceWorkspace(state.persistentWorkspace)
       }
-      return {
-        outcome: 'closed',
-        focusAction: registry.activeTab ? 'focus-active-tab' : 'focus-article-input',
-      }
+      return { outcome: 'closed', focusAction: registry.activeTab ? 'focus-active-tab' : 'focus-article-input' }
     },
 
     shouldPreventUnload(): boolean {
@@ -983,9 +617,7 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
     },
 
     edit(pane: WorkspaceSource<Draft>, field: 'title' | 'body', value: string, edits?: readonly BodyEdit[]): boolean {
-      const currentFlags = flags()
-      const document = state.original
-      const current = state.tab
+      const currentFlags = flags(), document = state.original, current = state.tab
       if (paneFocused(pane) && !state.closingTabs && !currentFlags.recoveryBlocked && !currentFlags.metadataDirty &&
           !state.propertyPending && current && document && document[field] !== value) {
         const next = { ...document, [field]: value }
@@ -997,18 +629,10 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
       return false
     },
 
-    loadImportedDraft(
-      pane: WorkspaceSource<Draft>,
-      imported: DraftMarkdown,
-    ): Readonly<{ imported: true; handle: string; sessionId: number }> | Readonly<{ imported: false }> {
-      const currentFlags = flags()
-      const active = state.tab
-      const draft = state.original
-      const handle = currentFlags.credential
+    loadImportedDraft(pane: WorkspaceSource<Draft>, imported: DraftMarkdown): Readonly<{ imported: true; handle: string; sessionId: number }> | Readonly<{ imported: false }> {
+      const currentFlags = flags(), active = state.tab, draft = state.original, handle = currentFlags.credential
       if (!active || !draft || !handle || !currentFlags.canImportDraft || !paneFocused(pane) || lifetime.signal.aborted ||
-          (session.current()?.expiresAt ?? 0) <= nowMs()) {
-        return { imported: false }
-      }
+          (session.current()?.expiresAt ?? 0) <= nowMs()) return { imported: false }
       const next = { ...draft, ...imported }
       if (!registry.updateDraft(active, next)) return { imported: false }
       recovery.persist(next, registry.activeEditSequence)
@@ -1017,79 +641,49 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
     },
 
     async restoreDraft(candidate: RecoveryCandidate): Promise<boolean> {
-      const currentFlags = flags()
-      const current = state.tab
-      const document = state.original
+      const currentFlags = flags(), current = state.tab, document = state.original
       if (!current || !document || current.risk !== 'clean' || currentFlags.pending || state.recoveryWorking ||
           !recovery.candidates().includes(candidate)) return false
       const restored = { ...document, title: candidate.title, body: candidate.body }
       patch({ recoveryWorking: true })
       try {
-        if (registry.updateDraft(current, restored)) {
-          if (!await recovery.remove(candidate, { draft: restored, edit: registry.activeEditSequence })) {
-            recovery.dismissCandidates()
-          }
-          return true
-        }
-        return false
-      } finally {
-        patch({ recoveryWorking: false })
-      }
+        if (!registry.updateDraft(current, restored)) return false
+        if (!await recovery.remove(candidate, { draft: restored, edit: registry.activeEditSequence })) recovery.dismissCandidates()
+        return true
+      } finally { patch({ recoveryWorking: false }) }
     },
 
     async submit(
-      action: WriteAction,
-      selection?: TaxonomySelection,
-      restore?: RestoreSelection,
-      due?: bigint,
-      rights?: RightsEdit,
-      media?: AttachmentEdit,
+      action: WriteAction, selection?: TaxonomySelection, restore?: RestoreSelection,
+      due?: bigint, rights?: RightsEdit, media?: AttachmentEdit,
     ): Promise<void> {
-      const currentFlags = flags()
-      const current = state.tab
-      const document = state.original
-      const siteSession = session.current()?.siteSessionId
-      if (!current || !document || !currentFlags.editable || state.closingTabs || currentFlags.pending ||
-          currentFlags.recoveryBlocked) return
+      const currentFlags = flags(), current = state.tab, document = state.original, siteSession = session.current()?.siteSessionId
+      if (!current || !document || !currentFlags.editable || state.closingTabs || currentFlags.pending || currentFlags.recoveryBlocked) return
+      let command: Parameters<typeof registry.commit>[2] | 'save' | 'retry' | undefined
       if (current.retry) {
         if (action !== current.retry) return
-      } else if (action === 'publish-images' || action === 'save-summary') {
-        return
-      } else if (action === 'assign-taxonomy') {
-        if (!selection || current.risk !== 'clean' || state.taxonomyStale || !state.taxonomyDirty || state.summaryDirty) return
-      } else if (action === 'rollback-history') {
-        if (!restore || current.risk !== 'clean' || currentFlags.cannotWrite) return
-      } else if (action === 'schedule-publication') {
-        if (due === undefined || current.risk !== 'clean' || currentFlags.cannotWrite) return
-      } else if (action === 'save-rights') {
-        if (!rights || current.risk !== 'clean' || currentFlags.cannotWrite) return
-      } else if (action === 'save-attachment') {
-        if (!media || !siteSession || current.risk !== 'clean' || currentFlags.cannotWrite) return
-      } else if (currentFlags.cannotWrite || (action === 'publish' && !document.body.trim())) {
-        return
+        command = 'retry'
+      } else {
+        const cleanWritable = current.risk === 'clean' && !currentFlags.cannotWrite
+        switch (action) {
+          case 'save': if (!currentFlags.cannotWrite) command = 'save'; break
+          case 'publish': if (!currentFlags.cannotWrite && document.body.trim()) command = commands.articleCommand(action); break
+          case 'retract': if (!currentFlags.cannotWrite) command = commands.articleCommand(action); break
+          case 'assign-taxonomy': if (selection && current.risk === 'clean' && !state.taxonomyStale && state.taxonomyDirty && !state.summaryDirty) command = commands.saveTaxonomy(selection); break
+          case 'rollback-history': if (restore && cleanWritable) command = commands.restoreRevision(restore); break
+          case 'schedule-publication': if (due !== undefined && cleanWritable) command = commands.updateSchedule(due); break
+          case 'save-rights': if (rights && cleanWritable) command = commands.updateRights(rights); break
+          case 'save-attachment': if (media && siteSession && cleanWritable) command = commands.updateAttachment(media); break
+          case 'publish-images': case 'save-summary': return
+        }
       }
-
+      if (!command) return
       patch({ failure: '', notice: '' })
-      const identity = session.identityEpoch()
-      const requested = current.retry
-        ? registry.retry(current)
-        : action === 'save'
-          ? registry.save(current)
-          : action === 'publish' || action === 'retract'
-            ? registry.commit(current, action, commands.articleCommand(action))
-            : action === 'assign-taxonomy' && selection
-              ? registry.commit(current, action, commands.saveTaxonomy(selection))
-              : action === 'rollback-history' && restore
-                ? registry.commit(current, action, commands.restoreRevision(restore))
-                : action === 'schedule-publication' && due !== undefined
-                  ? registry.commit(current, action, commands.updateSchedule(due))
-                  : action === 'save-rights' && rights
-                    ? registry.commit(current, action, commands.updateRights(rights))
-                    : action === 'save-attachment' && media && siteSession
-                      ? registry.commit(current, action, commands.updateAttachment(media))
-                      : undefined
+      const requested = command === 'retry' ? registry.retry(current)
+        : command === 'save' ? registry.save(current)
+        : action === 'save' ? undefined : registry.commit(current, action, command)
       if (!requested) return
-      await finishSubmission(action, current, document, identity, requested)
+      await finishSubmission(action, current, document, session.identityEpoch(), requested)
     },
 
     publishSelectedImages(selection: PublishImagesSelection): Promise<void> {
@@ -1102,8 +696,7 @@ export function createWriteWorkspaceController(ports: WriteWorkspaceControllerPo
 
     async reloadDraft(): Promise<boolean> {
       if (!await allowLeave()) return false
-      const current = state.tab
-      if (current) registry.requestClose(current)
+      if (state.tab) registry.requestClose(state.tab)
       return true
     },
 

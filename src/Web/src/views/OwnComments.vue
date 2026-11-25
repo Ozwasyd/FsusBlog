@@ -3,30 +3,13 @@ import { t } from '../siteLocale'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
-  ElAlert,
-  ElButton,
-  ElCollectionToolbar,
-  ElDialog,
-  ElEmptyState,
-  ElInlineActions,
-  ElInput,
-  ElOption,
-  ElResourceList,
-  ElResourceListItem,
-  ElSelect,
-  ElSkeleton,
-  ElTag,
-  ElTaskPageHeader,
+  ElAlert, ElButton, ElCollectionToolbar, ElDialog, ElEmptyState, ElInlineActions, ElInput, ElOption,
+  ElResourceList, ElResourceListItem, ElSelect, ElSkeleton, ElTag, ElTaskPageHeader,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import {
-  appealReason,
-  authorCommentSearchLimit,
-  readAuthorAppeals,
-  submitAuthorAppeal,
-  validAuthorCommentQuery,
-  type AuthorAppeal,
-  type AuthorCommentStatusFilter,
+  appealReason, authorCommentSearchLimit, readAuthorAppeals, submitAuthorAppeal, validAuthorCommentQuery,
+  type AuthorAppeal, type AuthorCommentStatusFilter,
 } from '../../../Contracts/comment-appeals'
 import { commentAuthorEditDetail, deleteOwnComment, editOwnComment } from '../../../Contracts/comment-author'
 import { WireLimits } from '../../../Contracts/wire.generated'
@@ -377,76 +360,28 @@ onBeforeUnmount(() => {
 
 <template>
   <main class="own-comments-page" aria-labelledby="own-comments-title">
-    <ElTaskPageHeader
-      :key="currentSession ? 'signed-in' : 'signed-out'"
-      :description="currentSession ? t('account.commentsSummary') : undefined"
-      density="compact"
-    >
-      <template #title>
-        <span id="own-comments-title">{{ t('page.own-comments') }}</span>
-      </template>
+    <ElTaskPageHeader :key="currentSession ? 'signed-in' : 'signed-out'" :description="currentSession ? t('account.commentsSummary') : undefined" density="compact">
+      <template #title><span id="own-comments-title">{{ t('page.own-comments') }}</span></template>
       <template v-if="currentSession" #actions>
-        <ElButton
-          native-type="button"
-          text
-          :loading="refreshLoading"
-          :disabled="locked"
-          @click="load(false, 'refresh')"
-        >{{ t('account.message141') }}</ElButton>
+        <ElButton native-type="button" text :loading="refreshLoading" :disabled="locked" @click="load(false, 'refresh')">{{ t('account.message141') }}</ElButton>
       </template>
     </ElTaskPageHeader>
 
-    <ElCollectionToolbar
-      v-if="currentSession"
-      class="own-comments-toolbar"
-      :ariaLabel="t('account.commentsToolbarLabel')"
-      density="compact"
-    >
+    <ElCollectionToolbar v-if="currentSession" class="own-comments-toolbar" :ariaLabel="t('account.commentsToolbarLabel')" density="compact">
       <template #primary>
         <form class="own-comments-search-form" @submit.prevent="submitSearch">
-          <ElInput
-            id="own-comments-search"
-            v-model="keywordInput"
-            :placeholder="t('account.commentsSearchPlaceholder')"
-            :disabled="locked"
-            clearable
-            v-bind="{
-              maxlength: authorCommentSearchLimit,
-              enterkeyhint: 'search',
-              'aria-label': t('account.commentsSearchLabel'),
-            }"
-            @clear="clearSearch"
-          />
-          <ElButton native-type="submit" :loading="searchLoading" :disabled="locked">
-            {{ t('page.search') }}
-          </ElButton>
+          <ElInput id="own-comments-search" v-model="keywordInput" :placeholder="t('account.commentsSearchPlaceholder')" :disabled="locked" clearable
+            v-bind="{ maxlength: authorCommentSearchLimit, enterkeyhint: 'search', 'aria-label': t('account.commentsSearchLabel') }" @clear="clearSearch" />
+          <ElButton native-type="submit" :loading="searchLoading" :disabled="locked">{{ t('page.search') }}</ElButton>
         </form>
       </template>
-
       <template #filters>
-        <ElSelect
-          v-model="statusFilter"
-          class="own-comments-status-filter"
-          :ariaLabel="t('account.commentsStatusFilter')"
-          :disabled="locked"
-          @change="onStatusFilterChange"
-        >
-          <ElOption
-            v-for="option in statusFilterOptions"
-            :key="option.value"
-            :label="option.label"
-            :value="option.value"
-          />
+        <ElSelect v-model="statusFilter" class="own-comments-status-filter" :ariaLabel="t('account.commentsStatusFilter')" :disabled="locked" @change="onStatusFilterChange">
+          <ElOption v-for="option in statusFilterOptions" :key="option.value" :label="option.label" :value="option.value" />
         </ElSelect>
       </template>
-
       <template v-if="hasActiveFilter" #actions>
-        <ElButton
-          native-type="button"
-          text
-          :disabled="locked"
-          @click="resetFilters"
-        >{{ t('admin.readers.resetFilters') }}</ElButton>
+        <ElButton native-type="button" text :disabled="locked" @click="resetFilters">{{ t('admin.readers.resetFilters') }}</ElButton>
       </template>
     </ElCollectionToolbar>
 
@@ -454,24 +389,16 @@ onBeforeUnmount(() => {
     <ElAlert v-if="notice" :title="notice" type="success" show-icon @close="notice = ''" />
 
     <ElEmptyState v-if="!currentSession" :title="t('account.message113')">
-      <template #actions>
-        <RouterLink class="own-comments-login-link" to="/login">{{ t('account.message140') }}</RouterLink>
-      </template>
+      <template #actions><RouterLink class="own-comments-login-link" to="/login">{{ t('account.message140') }}</RouterLink></template>
     </ElEmptyState>
 
     <ElSkeleton v-else-if="busy && rows === null" :rows="4" animated />
 
-    <ElEmptyState
-      v-else-if="rows?.length === 0"
-      :key="hasActiveFilter ? 'empty-filtered' : 'empty-all'"
-      size="inline"
+    <ElEmptyState v-else-if="rows?.length === 0" :key="hasActiveFilter ? 'empty-filtered' : 'empty-all'" size="inline"
       :title="hasActiveFilter ? t('account.commentsEmptyFiltered') : t('account.message142')"
-      :description="hasActiveFilter ? t('account.commentsEmptyFilteredHint') : t('account.commentsEmptyDescription')"
-    >
+      :description="hasActiveFilter ? t('account.commentsEmptyFilteredHint') : t('account.commentsEmptyDescription')">
       <template v-if="hasActiveFilter" #actions>
-        <ElButton native-type="button" text @click="resetFilters">
-          {{ t('admin.readers.resetFilters') }}
-        </ElButton>
+        <ElButton native-type="button" text @click="resetFilters">{{ t('admin.readers.resetFilters') }}</ElButton>
       </template>
     </ElEmptyState>
 
@@ -481,47 +408,22 @@ onBeforeUnmount(() => {
           <li v-for="row in rows" :key="row.comment" class="own-comments-row" role="presentation">
             <ElResourceListItem density="compact">
               <template #title>
-                <RouterLink class="own-comment-article" :to="`/article/${row.article}`">
-                  {{ t('account.articleNumber', { id: row.article }) }}
-                </RouterLink>
+                <RouterLink class="own-comment-article" :to="`/article/${row.article}`">{{ t('account.articleNumber', { id: row.article }) }}</RouterLink>
               </template>
-
               <template #badge>
                 <span class="own-comment-badges">
-                  <ElTag size="small" :type="statusTagType(row.status)" disable-transitions>
-                    {{ statuses[row.status] }}
-                  </ElTag>
-                  <ElTag v-if="row.appeal" size="small" :type="appealTagType(row.appeal)" disable-transitions>
-                    {{ appeals[row.appeal] }}
-                  </ElTag>
+                  <ElTag size="small" :type="statusTagType(row.status)" disable-transitions>{{ statuses[row.status] }}</ElTag>
+                  <ElTag v-if="row.appeal" size="small" :type="appealTagType(row.appeal)" disable-transitions>{{ appeals[row.appeal] }}</ElTag>
                 </span>
               </template>
-
               <template #actions>
                 <ElInlineActions density="compact">
-                  <ElButton
-                    v-if="row.appeal === 1 && selected !== row.comment"
-                    native-type="button"
-                    text
-                    type="primary"
-                    :disabled="busy || locked"
-                    @click="clearForm(); selected = row.comment"
-                  >{{ t('account.message143') }}</ElButton>
-                  <ElButton
-                    v-if="canEdit(row) && editTarget?.comment !== row.comment"
-                    native-type="button"
-                    text
-                    :disabled="busy || locked"
-                    @click="openEdit(row)"
-                  >{{ t('account.message146') }}</ElButton>
-                  <ElButton
-                    v-if="canDelete(row) && selected !== row.comment && editTarget?.comment !== row.comment"
-                    native-type="button"
-                    text
-                    type="danger"
-                    :disabled="busy || locked"
-                    @click="requestDelete(row)"
-                  >{{ t('account.commentsDeleteAction') }}</ElButton>
+                  <ElButton v-if="row.appeal === 1 && selected !== row.comment" native-type="button" text type="primary"
+                    :disabled="busy || locked" @click="clearForm(); selected = row.comment">{{ t('account.message143') }}</ElButton>
+                  <ElButton v-if="canEdit(row) && editTarget?.comment !== row.comment" native-type="button" text
+                    :disabled="busy || locked" @click="openEdit(row)">{{ t('account.message146') }}</ElButton>
+                  <ElButton v-if="canDelete(row) && selected !== row.comment && editTarget?.comment !== row.comment" native-type="button" text type="danger"
+                    :disabled="busy || locked" @click="requestDelete(row)">{{ t('account.commentsDeleteAction') }}</ElButton>
                 </ElInlineActions>
               </template>
 
@@ -533,83 +435,37 @@ onBeforeUnmount(() => {
                 <p class="own-comment-decision-text">{{ row.decisionReason }}</p>
               </div>
 
-              <form
-                v-if="selected === row.comment"
-                class="own-comment-inline-form"
-                @submit.prevent="submit(row.comment)"
-              >
+              <form v-if="selected === row.comment" class="own-comment-inline-form" @submit.prevent="submit(row.comment)">
                 <div class="own-comment-field">
                   <div class="own-comment-field-head">
                     <label :for="`appeal-reason-${row.comment}`">{{ t('account.message144') }}</label>
-                    <span class="own-comment-counter">
-                      {{ t('account.commentsCharCount', { count: reason.trim().length, max: 1000 }) }}
-                    </span>
+                    <span class="own-comment-counter">{{ t('account.commentsCharCount', { count: reason.trim().length, max: 1000 }) }}</span>
                   </div>
-                  <ElInput
-                    :id="`appeal-reason-${row.comment}`"
-                    v-model="reason"
-                    type="textarea"
-                    :placeholder="t('account.commentsAppealPlaceholder')"
-                    :autosize="{ minRows: 3, maxRows: 7 }"
-                    :disabled="submittingAppeal"
-                  />
+                  <ElInput :id="`appeal-reason-${row.comment}`" v-model="reason" type="textarea" :placeholder="t('account.commentsAppealPlaceholder')"
+                    :autosize="{ minRows: 3, maxRows: 7 }" :disabled="submittingAppeal" />
                 </div>
                 <ElInlineActions density="compact">
-                  <ElButton
-                    native-type="submit"
-                    type="primary"
-                    :loading="submittingAppeal"
-                    :disabled="!appealReason(reason)"
-                  >{{ t('account.message145') }}</ElButton>
-                  <ElButton native-type="button" :disabled="submittingAppeal" @click="clearForm">
-                    {{ t('nav.cancel') }}
-                  </ElButton>
+                  <ElButton native-type="submit" type="primary" :loading="submittingAppeal" :disabled="!appealReason(reason)">{{ t('account.message145') }}</ElButton>
+                  <ElButton native-type="button" :disabled="submittingAppeal" @click="clearForm">{{ t('nav.cancel') }}</ElButton>
                 </ElInlineActions>
               </form>
 
-              <form
-                v-if="editTarget?.comment === row.comment"
-                class="own-comment-inline-form"
-                :aria-label="t('account.message147')"
-                @submit.prevent="saveEdit"
-              >
-                <p v-if="editPending" class="own-comment-status" role="status">
-                  {{ editPending === 'detail' ? t('account.message148') : t('account.message149') }}
-                </p>
+              <form v-if="editTarget?.comment === row.comment" class="own-comment-inline-form" :aria-label="t('account.message147')" @submit.prevent="saveEdit">
+                <p v-if="editPending" class="own-comment-status" role="status">{{ editPending === 'detail' ? t('account.message148') : t('account.message149') }}</p>
                 <ElSkeleton v-if="editPending === 'detail' && !editDetail" :rows="2" animated />
                 <div v-if="editDetail" class="own-comment-field">
                   <div class="own-comment-field-head">
                     <label :for="`edit-comment-${row.comment}`">{{ t('account.message150') }}</label>
-                    <span class="own-comment-counter">
-                      {{ t('account.commentsCharCount', { count: editContent.length, max: 1000 }) }}
-                    </span>
+                    <span class="own-comment-counter">{{ t('account.commentsCharCount', { count: editContent.length, max: 1000 }) }}</span>
                   </div>
-                  <ElInput
-                    :id="`edit-comment-${row.comment}`"
-                    v-model="editBody"
-                    type="textarea"
-                    :placeholder="t('account.commentsEditPlaceholder')"
-                    :autosize="{ minRows: 4, maxRows: 8 }"
-                    v-bind="{ maxlength: 1000 }"
-                    :disabled="editPending === 'save'"
-                    :readonly="!!editProblem"
-                  />
+                  <ElInput :id="`edit-comment-${row.comment}`" v-model="editBody" type="textarea" :placeholder="t('account.commentsEditPlaceholder')"
+                    :autosize="{ minRows: 4, maxRows: 8 }" v-bind="{ maxlength: 1000 }" :disabled="editPending === 'save'" :readonly="!!editProblem" />
                 </div>
                 <ElAlert v-if="editProblem" :title="editProblem" type="error" :closable="false" show-icon />
                 <ElInlineActions density="compact">
-                  <ElButton
-                    v-if="editDetail && !editProblem"
-                    native-type="submit"
-                    type="primary"
-                    :disabled="!editReady"
-                    :loading="editPending === 'save'"
-                  >{{ t('account.message151') }}</ElButton>
-                  <ElButton v-if="editProblem" native-type="button" @click="reloadAfterEditProblem">
-                    {{ t('account.message152') }}
-                  </ElButton>
-                  <ElButton native-type="button" :disabled="editPending === 'save'" @click="clearEdit">
-                    {{ t('account.message153') }}
-                  </ElButton>
+                  <ElButton v-if="editDetail && !editProblem" native-type="submit" type="primary" :disabled="!editReady" :loading="editPending === 'save'">{{ t('account.message151') }}</ElButton>
+                  <ElButton v-if="editProblem" native-type="button" @click="reloadAfterEditProblem">{{ t('account.message152') }}</ElButton>
+                  <ElButton native-type="button" :disabled="editPending === 'save'" @click="clearEdit">{{ t('account.message153') }}</ElButton>
                 </ElInlineActions>
               </form>
             </ElResourceListItem>
@@ -618,26 +474,13 @@ onBeforeUnmount(() => {
       </ElResourceList>
 
       <div v-if="more" class="own-comments-more">
-        <ElButton
-          native-type="button"
-          text
-          :loading="moreLoading"
-          :disabled="locked"
-          @click="load(true, 'more')"
-        >{{ t('comment.more') }}</ElButton>
+        <ElButton native-type="button" text :loading="moreLoading" :disabled="locked" @click="load(true, 'more')">{{ t('comment.more') }}</ElButton>
       </div>
     </template>
 
-    <ElDialog
-      :model-value="Boolean(deleteTarget)"
-      :title="t('account.commentsDeleteDialogTitle')"
-      append-to-body
-      width="min(30rem, calc(100vw - 2rem))"
-      :close-on-press-escape="!deletePending"
-      :close-on-click-modal="!deletePending"
-      :show-close="!deletePending"
-      @update:model-value="open => { if (!open) closeDeleteDialog() }"
-    >
+    <ElDialog :model-value="Boolean(deleteTarget)" :title="t('account.commentsDeleteDialogTitle')" append-to-body width="min(30rem, calc(100vw - 2rem))"
+      :close-on-press-escape="!deletePending" :close-on-click-modal="!deletePending" :show-close="!deletePending"
+      @update:model-value="open => { if (!open) closeDeleteDialog() }">
       <div v-if="deleteTarget" class="own-comment-delete-dialog">
         <ElAlert v-if="deleteProblem" :title="deleteProblem" type="error" :closable="false" show-icon />
         <p class="own-comment-delete-note">{{ t('account.commentsDeleteNote') }}</p>
@@ -645,15 +488,8 @@ onBeforeUnmount(() => {
       </div>
       <template #footer>
         <ElInlineActions density="compact">
-          <ElButton native-type="button" :disabled="deletePending" @click="closeDeleteDialog">
-            {{ t('nav.cancel') }}
-          </ElButton>
-          <ElButton
-            native-type="button"
-            type="danger"
-            :loading="deletePending"
-            @click="confirmDelete"
-          >{{ t('account.commentsDeleteConfirm') }}</ElButton>
+          <ElButton native-type="button" :disabled="deletePending" @click="closeDeleteDialog">{{ t('nav.cancel') }}</ElButton>
+          <ElButton native-type="button" type="danger" :loading="deletePending" @click="confirmDelete">{{ t('account.commentsDeleteConfirm') }}</ElButton>
         </ElInlineActions>
       </template>
     </ElDialog>
@@ -662,193 +498,31 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 @use '../shared-fields' as fields;
-
-.own-comments-page {
-  display: grid;
-  align-content: start;
-  gap: var(--fsus-space-4);
-  min-inline-size: 0;
-}
-
-.own-comments-search-form {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: var(--fsus-space-2);
-  align-items: safe center;
-  min-inline-size: 0;
-  inline-size: 100%;
-}
-
-.own-comments-status-filter {
-  inline-size: 10rem;
-}
-
-@media (max-width: 639px) {
-  .own-comments-status-filter {
-    inline-size: 100%;
-  }
-}
-
-.own-comments-login-link {
-  display: inline-flex;
-  align-items: center;
-  min-block-size: 44px;
-  color: var(--fsus-scholarly-blue);
-  font-weight: 500;
-}
-
-.own-comments-surface {
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 12px);
-  background: var(--el-bg-color);
-  overflow: hidden;
-}
-
-.own-comments-list {
-  display: grid;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-  min-inline-size: 0;
-}
-
-.own-comments-row {
-  min-inline-size: 0;
-}
-
-.own-comments-row + .own-comments-row {
-  border-block-start: 1px solid var(--el-border-color-lighter);
-}
-
-.own-comment-article {
-  color: var(--fsus-scholarly-blue);
-  text-decoration: none;
-  font-weight: 700;
-}
-
-.own-comment-article:hover {
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
-.own-comment-badges {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: safe center;
-  gap: 6px;
-}
-
-.own-comment-body {
-  margin: 0;
-  color: var(--el-text-color-primary);
-  font-size: var(--el-font-size-base);
-  line-height: 1.65;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.own-comment-deleted {
-  margin: 0;
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-  font-style: italic;
-}
-
-.own-comment-decision {
-  display: grid;
-  gap: 4px;
-  margin-block-start: 4px;
-  padding: var(--fsus-space-2) var(--fsus-space-3);
-  border-inline-start: 2px solid var(--el-border-color-darker);
-  border-radius: 0 var(--fsus-radius-control-small, 4px) var(--fsus-radius-control-small, 4px) 0;
-  background: var(--el-fill-color-lighter);
-}
-
-.own-comment-decision-label {
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-extra-small);
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.own-comment-decision-text {
-  margin: 0;
-  color: var(--el-text-color-regular);
-  font-size: var(--el-font-size-small);
-  line-height: 1.55;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.own-comment-inline-form {
-  display: grid;
-  gap: var(--fsus-space-3);
-  margin-block-start: var(--fsus-space-2);
-  padding: var(--fsus-space-3);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-control, 6px);
-  background: var(--el-fill-color-lighter);
-}
-
-.own-comment-field {
-
-  @include fields.account-field;
-}
-
-.own-comment-field-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: safe center;
-  justify-content: space-between;
-  gap: var(--fsus-space-2);
-}
-
-.own-comment-field-head label {
-
-  @include fields.account-label;
-}
-
-.own-comment-counter {
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-extra-small);
-  font-variant-numeric: tabular-nums;
-}
-
-.own-comment-status {
-  margin: 0;
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-}
-
-.own-comments-more {
-  display: flex;
-  justify-content: center;
-}
-
-.own-comment-delete-dialog {
-  display: grid;
-  gap: var(--fsus-space-3);
-}
-
-.own-comment-delete-note {
-  margin: 0;
-  color: var(--el-text-color-secondary);
-  font-size: var(--el-font-size-small);
-  line-height: 1.6;
-}
-
-.own-comment-delete-preview {
-  margin: 0;
-  padding: var(--fsus-space-3);
-  border-inline-start: 2px solid var(--el-border-color);
-  border-radius: 0 var(--fsus-radius-control-small, 4px) var(--fsus-radius-control-small, 4px) 0;
-  background: var(--el-fill-color-lighter);
-  color: var(--el-text-color-primary);
-  font-size: var(--el-font-size-small);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-block-size: 9rem;
-  overflow-y: auto;
-}
+.own-comments-page { display: grid; align-content: start; gap: var(--fsus-space-4); min-inline-size: 0; }
+.own-comments-search-form { display: flex; flex-wrap: nowrap; gap: var(--fsus-space-2); align-items: safe center; min-inline-size: 0; inline-size: 100%; }
+.own-comments-status-filter { inline-size: 10rem; }
+@media (max-width: 639px) { .own-comments-status-filter { inline-size: 100%; } }
+.own-comments-login-link { display: inline-flex; align-items: center; min-block-size: 44px; color: var(--fsus-scholarly-blue); font-weight: 500; }
+.own-comments-surface { border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-panel, 12px); background: var(--el-bg-color); overflow: hidden; }
+.own-comments-list { display: grid; padding: 0; margin: 0; list-style: none; min-inline-size: 0; }
+.own-comments-row { min-inline-size: 0; }
+.own-comments-row + .own-comments-row { border-block-start: 1px solid var(--el-border-color-lighter); }
+.own-comment-article { color: var(--fsus-scholarly-blue); text-decoration: none; font-weight: 700; }
+.own-comment-article:hover { text-decoration: underline; text-underline-offset: 4px; }
+.own-comment-badges { display: inline-flex; flex-wrap: wrap; align-items: safe center; gap: 6px; }
+.own-comment-body { margin: 0; color: var(--el-text-color-primary); font-size: var(--el-font-size-base); line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.own-comment-deleted { margin: 0; color: var(--el-text-color-secondary); font-size: var(--el-font-size-small); font-style: italic; }
+.own-comment-decision { display: grid; gap: 4px; margin-block-start: 4px; padding: var(--fsus-space-2) var(--fsus-space-3); border-inline-start: 2px solid var(--el-border-color-darker); border-radius: 0 var(--fsus-radius-control-small, 4px) var(--fsus-radius-control-small, 4px) 0; background: var(--el-fill-color-lighter); }
+.own-comment-decision-label { color: var(--el-text-color-secondary); font-size: var(--el-font-size-extra-small); font-weight: 500; line-height: 1.4; }
+.own-comment-decision-text { margin: 0; color: var(--el-text-color-regular); font-size: var(--el-font-size-small); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.own-comment-inline-form { display: grid; gap: var(--fsus-space-3); margin-block-start: var(--fsus-space-2); padding: var(--fsus-space-3); border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-control, 6px); background: var(--el-fill-color-lighter); }
+.own-comment-field { @include fields.account-field; }
+.own-comment-field-head { display: flex; flex-wrap: wrap; align-items: safe center; justify-content: space-between; gap: var(--fsus-space-2); }
+.own-comment-field-head label { @include fields.account-label; }
+.own-comment-counter { color: var(--el-text-color-secondary); font-size: var(--el-font-size-extra-small); font-variant-numeric: tabular-nums; }
+.own-comment-status { margin: 0; color: var(--el-text-color-secondary); font-size: var(--el-font-size-small); }
+.own-comments-more { display: flex; justify-content: center; }
+.own-comment-delete-dialog { display: grid; gap: var(--fsus-space-3); }
+.own-comment-delete-note { margin: 0; color: var(--el-text-color-secondary); font-size: var(--el-font-size-small); line-height: 1.6; }
+.own-comment-delete-preview { margin: 0; padding: var(--fsus-space-3); border-inline-start: 2px solid var(--el-border-color); border-radius: 0 var(--fsus-radius-control-small, 4px) var(--fsus-radius-control-small, 4px) 0; background: var(--el-fill-color-lighter); color: var(--el-text-color-primary); font-size: var(--el-font-size-small); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; max-block-size: 9rem; overflow-y: auto; }
 </style>

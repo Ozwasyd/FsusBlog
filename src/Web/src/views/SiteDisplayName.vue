@@ -107,43 +107,20 @@ watch(identityEpoch, () => {
 </script>
 
 <template>
-  <SecuritySectionCard
-    v-if="currentSession?.siteSessionId"
-    heading-id="site-display-name-heading"
-    :title="t('account.displayNameTitle')"
-    :description="t('account.displayNameSummary')"
-    :has-body="Boolean(failure || notice || showSkeleton || savedName !== null)"
-  >
+  <SecuritySectionCard v-if="currentSession?.siteSessionId" heading-id="site-display-name-heading"
+    :title="t('account.displayNameTitle')" :description="t('account.displayNameSummary')"
+    :has-body="Boolean(failure || notice || showSkeleton || savedName !== null)">
     <ElAlert v-if="failure" :title="t(failure)" type="error" :closable="false" show-icon />
     <p v-if="notice" class="display-name-notice" role="status">{{ t(notice) }}</p>
-
     <ElSkeleton v-if="showSkeleton" :rows="1" animated />
-
     <form v-else-if="savedName !== null" class="display-name-form" @submit.prevent="save">
       <div class="display-name-field">
         <label for="site-display-name-input">{{ t('account.displayNameLabel') }}</label>
         <div class="display-name-row">
-          <ElInput
-            id="site-display-name-input"
-            v-model="draft"
-            :placeholder="t('account.displayNamePlaceholder')"
-            :disabled="saving"
-            v-bind="{
-              maxlength: WireLimits.SiteDisplayNameChars,
-              autocomplete: 'nickname',
-              enterkeyhint: 'done',
-              'aria-describedby': 'site-display-name-hint',
-              'aria-invalid': showValidation ? 'true' : undefined,
-            }"
-            @input="notice = ''; failure = ''"
-            @blur="touched = true"
-          />
-          <ElButton
-            native-type="submit"
-            type="primary"
-            :loading="saving"
-            :disabled="!canSave"
-          >{{ t('account.displayNameSave') }}</ElButton>
+          <ElInput id="site-display-name-input" v-model="draft" :placeholder="t('account.displayNamePlaceholder')" :disabled="saving"
+            v-bind="{ maxlength: WireLimits.SiteDisplayNameChars, autocomplete: 'nickname', enterkeyhint: 'done', 'aria-describedby': 'site-display-name-hint', 'aria-invalid': showValidation ? 'true' : undefined }"
+            @input="notice = ''; failure = ''" @blur="touched = true" />
+          <ElButton native-type="submit" type="primary" :loading="saving" :disabled="!canSave">{{ t('account.displayNameSave') }}</ElButton>
         </div>
         <p id="site-display-name-hint" :class="showValidation ? 'display-name-validation' : 'display-name-hint'">
           {{ t(showValidation ? 'account.displayNameInvalid' : 'account.displayNameHint') }}
@@ -154,51 +131,13 @@ watch(identityEpoch, () => {
 </template>
 
 <style scoped>
-.display-name-notice {
-  margin: 0;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in srgb, var(--el-color-success) 26%, var(--el-border-color-lighter));
-  border-radius: var(--fsus-radius-control, 6px);
-  background: color-mix(in srgb, var(--el-color-success) 7%, var(--el-bg-color));
-  color: var(--el-color-success);
-  font-size: var(--el-font-size-small);
-  line-height: 1.5;
-}
-.display-name-form {
-  display: grid;
-  gap: var(--fsus-space-3);
-  max-inline-size: 32rem;
-}
-.display-name-field {
-  display: grid;
-  gap: 6px;
-}
-.display-name-field label {
-  color: var(--el-text-color-regular);
-  font-size: var(--el-font-size-small);
-  font-weight: 500;
-}
-.display-name-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: safe center;
-  gap: var(--fsus-space-2);
-}
-.display-name-hint,
-.display-name-validation {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  line-height: 1.5;
-}
-.display-name-hint {
-  color: var(--el-text-color-secondary);
-}
-.display-name-validation {
-  color: var(--el-color-danger);
-}
-@media (max-width: 30rem) {
-  .display-name-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
+.display-name-notice { margin: 0; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--el-color-success) 26%, var(--el-border-color-lighter)); border-radius: var(--fsus-radius-control, 6px); background: color-mix(in srgb, var(--el-color-success) 7%, var(--el-bg-color)); color: var(--el-color-success); font-size: var(--el-font-size-small); line-height: 1.5; }
+.display-name-form { display: grid; gap: var(--fsus-space-3); max-inline-size: 32rem; }
+.display-name-field { display: grid; gap: 6px; }
+.display-name-field label { color: var(--el-text-color-regular); font-size: var(--el-font-size-small); font-weight: 500; }
+.display-name-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: safe center; gap: var(--fsus-space-2); }
+.display-name-hint, .display-name-validation { margin: 0; font-size: var(--el-font-size-small); line-height: 1.5; }
+.display-name-hint { color: var(--el-text-color-secondary); }
+.display-name-validation { color: var(--el-color-danger); }
+@media (max-width: 30rem) { .display-name-row { grid-template-columns: minmax(0, 1fr); } }
 </style>

@@ -211,15 +211,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <ElSettingsSection
-    class="admin-taxonomy"
-    :ariaLabelledby="`admin-taxonomy-heading-${kind}`"
-    v-bind="{ 'aria-busy': pending }"
-    density="compact"
-  >
-    <template #title>
-      <span :id="`admin-taxonomy-heading-${kind}`" ref="heading" tabindex="-1">{{ t('admin.taxonomy.m3') }}</span>
-    </template>
+  <ElSettingsSection class="admin-taxonomy" :ariaLabelledby="`admin-taxonomy-heading-${kind}`" v-bind="{ 'aria-busy': pending }" density="compact">
+    <template #title><span :id="`admin-taxonomy-heading-${kind}`" ref="heading" tabindex="-1">{{ t('admin.taxonomy.m3') }}</span></template>
     <template #actions>
       <ElButton class="taxonomy-refresh" text :disabled="pending || edited !== undefined" @click="load(pageNumber)">{{ t('admin.articles.refresh') }}</ElButton>
     </template>
@@ -235,19 +228,10 @@ onBeforeUnmount(() => {
     </ElAlert>
     <template v-else-if="page">
       <div class="taxonomy-toolbar">
-        <ElInput
-          v-model="searchQuery"
-          class="taxonomy-search-input"
+        <ElInput v-model="searchQuery" class="taxonomy-search-input"
           :placeholder="t('admin.taxonomy.searchPlaceholder', { kind: kindLabel })"
-          :label="t('admin.taxonomy.searchPlaceholder', { kind: kindLabel })"
-          clearable
-        />
-        <ElButton
-          v-if="canEditMetadata"
-          type="primary"
-          :disabled="edited !== undefined"
-          @click="openEditor(0, $event)"
-        >
+          :label="t('admin.taxonomy.searchPlaceholder', { kind: kindLabel })" clearable />
+        <ElButton v-if="canEditMetadata" type="primary" :disabled="edited !== undefined" @click="openEditor(0, $event)">
           {{ t('admin.taxonomy.m41', { kind: kindLabel }) }}
         </ElButton>
       </div>
@@ -268,29 +252,15 @@ onBeforeUnmount(() => {
             <tr v-for="item in filteredItems" :key="item.id">
               <th scope="row">{{ item.name }}</th>
               <td>
-                <ElButton
-                  v-if="item.published > 0"
-                  text
-                  size="small"
-                  class="taxonomy-count-link"
-                  @click="viewLinkedArticles(item)"
-                >
-                  {{ item.published }}
-                </ElButton>
+                <ElButton v-if="item.published > 0" text size="small" class="taxonomy-count-link" @click="viewLinkedArticles(item)">{{ item.published }}</ElButton>
                 <span v-else>0</span>
               </td>
               <td class="taxonomy-other-states">{{ formatOtherStates(item) }}</td>
               <td class="taxonomy-row-actions">
                 <ElInlineActions>
-                  <ElButton text size="small" @click="viewLinkedArticles(item)">
-                    {{ t('admin.taxonomy.viewArticles') }}
-                  </ElButton>
-                  <ElButton v-if="canEditMetadata" text size="small" :disabled="edited !== undefined" @click="openEditor(item.id, $event)">
-                    {{ t('admin.inventory.edit') }}
-                  </ElButton>
-                  <ElButton v-if="canEditMetadata" text size="small" type="danger" :disabled="deleting" @click="openDelete(item, $event)">
-                    {{ t('account.message94') }}
-                  </ElButton>
+                  <ElButton text size="small" @click="viewLinkedArticles(item)">{{ t('admin.taxonomy.viewArticles') }}</ElButton>
+                  <ElButton v-if="canEditMetadata" text size="small" :disabled="edited !== undefined" @click="openEditor(item.id, $event)">{{ t('admin.inventory.edit') }}</ElButton>
+                  <ElButton v-if="canEditMetadata" text size="small" type="danger" :disabled="deleting" @click="openDelete(item, $event)">{{ t('account.message94') }}</ElButton>
                 </ElInlineActions>
               </td>
             </tr>
@@ -312,61 +282,25 @@ onBeforeUnmount(() => {
       </nav>
     </template>
 
-    <ElDialog
-      :model-value="edited !== undefined"
-      :title="editorTitle"
-      width="min(30rem, 92vw)"
-      append-to-body
-      @update:model-value="visible => { if (!visible) closeEditor(false) }"
-    >
-      <AdminTagMetadata
-        v-if="edited !== undefined"
-        :key="`${kind}:${edited}`"
-        :kind="metadataKind"
-        :id="edited"
-        @close="closeEditor(false)"
-        @saved="closeEditor(true)"
-        @session-lost="emit('session-lost', $event)"
-      />
+    <ElDialog :model-value="edited !== undefined" :title="editorTitle" width="min(30rem, 92vw)" append-to-body
+      @update:model-value="visible => { if (!visible) closeEditor(false) }">
+      <AdminTagMetadata v-if="edited !== undefined" :key="`${kind}:${edited}`" :kind="metadataKind" :id="edited"
+        @close="closeEditor(false)" @saved="closeEditor(true)" @session-lost="emit('session-lost', $event)" />
     </ElDialog>
 
-    <ElDialog
-      :model-value="!!deleteTarget"
-      :title="t('admin.taxonomy.deleteTitle', { kind: kindLabel })"
-      width="min(28rem, 92vw)"
-      append-to-body
-      :close-on-press-escape="!deleting"
-      :close-on-click-modal="!deleting"
-      :show-close="!deleting"
-      @update:model-value="visible => { if (!visible) void closeDelete() }"
-    >
+    <ElDialog :model-value="!!deleteTarget" :title="t('admin.taxonomy.deleteTitle', { kind: kindLabel })" width="min(28rem, 92vw)"
+      append-to-body :close-on-press-escape="!deleting" :close-on-click-modal="!deleting" :show-close="!deleting"
+      @update:model-value="visible => { if (!visible) void closeDelete() }">
       <div v-if="deleteTarget" class="taxonomy-delete-body">
         <ElAlert v-if="deleteError" :title="deleteError" type="error" :closable="false" />
-        <p v-if="deleteTarget.retainedArticles > 0">
-          {{ t('admin.taxonomy.deleteBlocked', { kind: kindLabel, name: deleteTarget.name, count: deleteTarget.retainedArticles }) }}
-        </p>
-        <p v-else>
-          {{ t('admin.taxonomy.deleteConfirm', { kind: kindLabel, name: deleteTarget.name }) }}
-        </p>
+        <p v-if="deleteTarget.retainedArticles > 0">{{ t('admin.taxonomy.deleteBlocked', { kind: kindLabel, name: deleteTarget.name, count: deleteTarget.retainedArticles }) }}</p>
+        <p v-else>{{ t('admin.taxonomy.deleteConfirm', { kind: kindLabel, name: deleteTarget.name }) }}</p>
       </div>
       <template #footer>
         <ElInlineActions>
           <ElButton :disabled="deleting" @click="closeDelete">{{ t('nav.cancel') }}</ElButton>
-          <ElButton
-            v-if="deleteTarget && deleteTarget.retainedArticles > 0"
-            type="primary"
-            @click="viewLinkedArticles(deleteTarget)"
-          >
-            {{ t('admin.taxonomy.goViewArticles') }}
-          </ElButton>
-          <ElButton
-            v-else-if="deleteTarget"
-            type="danger"
-            :loading="deleting"
-            @click="confirmDelete"
-          >
-            {{ t('admin.taxonomy.deleteAction') }}
-          </ElButton>
+          <ElButton v-if="deleteTarget && deleteTarget.retainedArticles > 0" type="primary" @click="viewLinkedArticles(deleteTarget)">{{ t('admin.taxonomy.goViewArticles') }}</ElButton>
+          <ElButton v-else-if="deleteTarget" type="danger" :loading="deleting" @click="confirmDelete">{{ t('admin.taxonomy.deleteAction') }}</ElButton>
         </ElInlineActions>
       </template>
     </ElDialog>
@@ -375,123 +309,25 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 @use '../admin-collection' as collection;
-
-.admin-taxonomy h2 {
-  font-size: var(--el-font-size-large);
-  margin: 0;
-}
-
-.taxonomy-toolbar {
-  @include collection.toolbar;
-}
-
-.taxonomy-search-input {
-  flex: 1 1 14rem;
-  max-width: 22rem;
-}
-
-.taxonomy-status,
-.taxonomy-notes {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-}
-
-.taxonomy-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-.taxonomy-table-scroll {
-  overflow-x: auto;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 12px);
-  background: var(--el-bg-color);
-}
-
-.taxonomy-table-scroll:focus-visible {
-  outline: 2px solid var(--el-color-primary);
-  outline-offset: 2px;
-}
-
-.taxonomy-page-status {
-  font-size: var(--el-font-size-small);
-  font-variant-numeric: tabular-nums;
-  color: var(--el-text-color-secondary);
-}
-
-.taxonomy-scroll-note {
-  display: none;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
-}
-
-th, td {
-  padding: 10px 14px;
-  text-align: start;
-  border-block-start: 1px solid var(--el-border-color-lighter);
-  white-space: nowrap;
-  font-size: var(--el-font-size-small);
-}
-
-thead th {
-  border-block-start: none;
-  background: var(--fsus-color-surface-raised, var(--el-fill-color-light));
-  color: var(--el-text-color-secondary);
-  font-weight: 600;
-}
-
-tbody tr:hover {
-  background: var(--el-fill-color-light);
-}
-
-th:first-child {
-  min-width: 8rem;
-  max-width: 18rem;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  color: var(--el-text-color-primary);
-}
-
-.taxonomy-count-link {
-  padding: 0 4px;
-  min-height: auto;
-  font-variant-numeric: tabular-nums;
-}
-
-.taxonomy-other-states {
-  color: var(--el-text-color-secondary);
-  white-space: nowrap;
-}
-
-.taxonomy-row-actions {
-  white-space: nowrap;
-}
-
-.taxonomy-row-actions :deep(.el-inline-actions) {
-  flex-wrap: nowrap;
-}
-
-.taxonomy-delete-body {
-  display: grid;
-  gap: 10px;
-}
-
-.taxonomy-delete-body p {
-  margin: 0;
-  color: var(--el-text-color-regular);
-  line-height: 1.5;
-}
-
-@media (max-width: 46rem) {
-  .taxonomy-scroll-note {
-    display: inline;
-  }
-}
+.admin-taxonomy h2 { font-size: var(--el-font-size-large); margin: 0; }
+.taxonomy-toolbar { @include collection.toolbar; }
+.taxonomy-search-input { flex: 1 1 14rem; max-width: 22rem; }
+.taxonomy-status, .taxonomy-notes { margin: 0; font-size: var(--el-font-size-small); color: var(--el-text-color-secondary); }
+.taxonomy-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.taxonomy-table-scroll { overflow-x: auto; border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-panel, 12px); background: var(--el-bg-color); }
+.taxonomy-table-scroll:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 2px; }
+.taxonomy-page-status { font-size: var(--el-font-size-small); font-variant-numeric: tabular-nums; color: var(--el-text-color-secondary); }
+.taxonomy-scroll-note { display: none; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 10px 14px; text-align: start; border-block-start: 1px solid var(--el-border-color-lighter); white-space: nowrap; font-size: var(--el-font-size-small); }
+thead th { border-block-start: none; background: var(--fsus-color-surface-raised, var(--el-fill-color-light)); color: var(--el-text-color-secondary); font-weight: 600; }
+tbody tr:hover { background: var(--el-fill-color-light); }
+th:first-child { min-width: 8rem; max-width: 18rem; white-space: normal; overflow-wrap: anywhere; color: var(--el-text-color-primary); }
+.taxonomy-count-link { padding: 0 4px; min-height: auto; font-variant-numeric: tabular-nums; }
+.taxonomy-other-states { color: var(--el-text-color-secondary); white-space: nowrap; }
+.taxonomy-row-actions { white-space: nowrap; }
+.taxonomy-row-actions :deep(.el-inline-actions) { flex-wrap: nowrap; }
+.taxonomy-delete-body { display: grid; gap: 10px; }
+.taxonomy-delete-body p { margin: 0; color: var(--el-text-color-regular); line-height: 1.5; }
+@media (max-width: 46rem) { .taxonomy-scroll-note { display: inline; } }
 </style>

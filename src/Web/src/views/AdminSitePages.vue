@@ -2,17 +2,8 @@
 import { t, type MessageKey } from '../siteLocale'
 import { computed, onMounted, ref, shallowRef } from 'vue'
 import {
-  ElAlert,
-  ElButton,
-  ElInlineActions,
-  ElMarkdownRenderer,
-  ElRadioButton,
-  ElRadioGroup,
-  ElResourceList,
-  ElResourceListItem,
-  ElSettingsSection,
-  ElSkeleton,
-  ElTag,
+  ElAlert, ElButton, ElInlineActions, ElMarkdownRenderer, ElRadioButton, ElRadioGroup,
+  ElResourceList, ElResourceListItem, ElSettingsSection, ElSkeleton, ElTag,
 } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { readAdminSitePage, readAdminSitePages } from '../../../Contracts/admin-site-pages'
@@ -109,18 +100,9 @@ onMounted(() => { void readOverview(false) })
 </script>
 
 <template>
-  <ElSettingsSection
-    class="admin-site-pages"
-    ariaLabelledby="admin-site-pages-heading"
-    :description="sectionDescription || undefined"
-    density="compact"
-  >
-    <template #title>
-      <span id="admin-site-pages-heading">{{ t('admin.sitePages') }}</span>
-    </template>
-    <template #actions>
-      <ElButton :loading="refreshLoading" @click="readOverview(true)">{{ t('admin.sitePages.refresh') }}</ElButton>
-    </template>
+  <ElSettingsSection class="admin-site-pages" ariaLabelledby="admin-site-pages-heading" :description="sectionDescription || undefined" density="compact">
+    <template #title><span id="admin-site-pages-heading">{{ t('admin.sitePages') }}</span></template>
+    <template #actions><ElButton :loading="refreshLoading" @click="readOverview(true)">{{ t('admin.sitePages.refresh') }}</ElButton></template>
 
     <ElAlert v-if="error" :title="t(error)" :closable="false" type="error" show-icon />
 
@@ -132,52 +114,26 @@ onMounted(() => { void readOverview(false) })
     <ElResourceList v-else-if="pages" class="site-pages-list" density="compact">
       <ElResourceListItem v-for="page in pages.pages" :key="page.slug" :title="pageTitle(page.slug)">
         <template #badge>
-          <ElTag size="small" :type="page.configured ? 'success' : 'info'">
-            {{ page.configured ? t('admin.configured') : t('admin.unconfigured') }}
-          </ElTag>
+          <ElTag size="small" :type="page.configured ? 'success' : 'info'">{{ page.configured ? t('admin.configured') : t('admin.unconfigured') }}</ElTag>
         </template>
         <template #meta>
           <span class="site-page-meta">
             <code>/{{ page.slug }}</code>
-            <a
-              v-if="page.configured"
-              class="site-page-public-link"
-              :href="publicHref(page.slug)"
-              target="_blank"
-              rel="noopener noreferrer"
-            >{{ t('admin.sitePages.openPublic') }} ↗</a>
+            <a v-if="page.configured" class="site-page-public-link" :href="publicHref(page.slug)" target="_blank" rel="noopener noreferrer">{{ t('admin.sitePages.openPublic') }} ↗</a>
           </span>
         </template>
         <template #actions>
           <ElInlineActions>
-            <template v-if="pages.editor">
-              <ElButton
-                :type="!page.configured && editor !== page.slug ? 'primary' : undefined"
-                :disabled="busy"
-                text
-                v-bind="{
-                  'aria-label': editor === page.slug ? t('admin.closeEditor') : t('admin.editPageContent', { slug: page.slug }),
-                  'aria-expanded': editor === page.slug,
-                }"
-                @click="toggleEditor(page.slug)"
-              >
-                {{ editor === page.slug ? t('admin.sitePages.close') : page.configured ? t('admin.inventory.edit') : t('admin.sitePages.create') }}
-              </ElButton>
-            </template>
-            <template v-else-if="page.configured">
-              <ElButton
-                :loading="readingSlug === page.slug"
-                :disabled="busy"
-                text
-                v-bind="{
-                  'aria-label': selected?.slug === page.slug ? t('admin.sitePages.close') : t('admin.viewPageContent', { slug: page.slug }),
-                  'aria-expanded': selected?.slug === page.slug,
-                }"
-                @click="toggleReadOnlyView(page.slug)"
-              >
-                {{ selected?.slug === page.slug ? t('admin.sitePages.close') : t('admin.sitePages.view') }}
-              </ElButton>
-            </template>
+            <ElButton v-if="pages.editor" :type="!page.configured && editor !== page.slug ? 'primary' : undefined" :disabled="busy" text
+              v-bind="{ 'aria-label': editor === page.slug ? t('admin.closeEditor') : t('admin.editPageContent', { slug: page.slug }), 'aria-expanded': editor === page.slug }"
+              @click="toggleEditor(page.slug)">
+              {{ editor === page.slug ? t('admin.sitePages.close') : page.configured ? t('admin.inventory.edit') : t('admin.sitePages.create') }}
+            </ElButton>
+            <ElButton v-else-if="page.configured" :loading="readingSlug === page.slug" :disabled="busy" text
+              v-bind="{ 'aria-label': selected?.slug === page.slug ? t('admin.sitePages.close') : t('admin.viewPageContent', { slug: page.slug }), 'aria-expanded': selected?.slug === page.slug }"
+              @click="toggleReadOnlyView(page.slug)">
+              {{ selected?.slug === page.slug ? t('admin.sitePages.close') : t('admin.sitePages.view') }}
+            </ElButton>
             <span v-else class="site-page-readonly-note">{{ t('admin.sitePages.readOnlyUnconfigured') }}</span>
           </ElInlineActions>
         </template>
@@ -191,13 +147,8 @@ onMounted(() => { void readOverview(false) })
           <code>/{{ selected.slug }}</code>
         </div>
         <div class="site-page-readonly-controls">
-          <ElRadioGroup
-            v-if="nativeMarkdown"
-            :model-value="readOnlyMode"
-            size="small"
-            :label="t('admin.sitePages.viewMode')"
-            @update:model-value="readOnlyMode = $event === 'preview' ? 'preview' : 'source'"
-          >
+          <ElRadioGroup v-if="nativeMarkdown" :model-value="readOnlyMode" size="small" :label="t('admin.sitePages.viewMode')"
+            @update:model-value="readOnlyMode = $event === 'preview' ? 'preview' : 'source'">
             <ElRadioButton value="source">{{ t('admin.sitePages.modeSource') }}</ElRadioButton>
             <ElRadioButton value="preview">{{ t('admin.sitePages.modePreview') }}</ElRadioButton>
           </ElRadioGroup>
@@ -207,114 +158,26 @@ onMounted(() => { void readOverview(false) })
       <div v-if="nativeMarkdown && readOnlyMode === 'preview'" class="site-page-readonly-rendered blog-markdown">
         <ElMarkdownRenderer :content="selected.markdown" mode="preview" />
       </div>
-      <pre
-        v-else
-        class="site-page-preview"
-        tabindex="0"
-        :aria-label="t('admin.pageMarkdown', { slug: selected.slug })"
-      >{{ selected.markdown }}</pre>
+      <pre v-else class="site-page-preview" tabindex="0" :aria-label="t('admin.pageMarkdown', { slug: selected.slug })">{{ selected.markdown }}</pre>
     </div>
 
-    <AdminSitePageEditor
-      v-if="pages?.editor && editor"
-      :key="editor"
-      :slug="editor"
-      :title="pageTitle(editor)"
-      :configured="pages.pages.some(item => item.slug === editor && item.configured)"
-      :public-href="publicHref(editor)"
-      :session-signal="sessionSignal"
-      @session-lost="emit('session-lost', $event)"
-      @published="markPublished(editor)"
-      @close="editor = undefined"
-    />
+    <AdminSitePageEditor v-if="pages?.editor && editor" :key="editor" :slug="editor" :title="pageTitle(editor)"
+      :configured="pages.pages.some(item => item.slug === editor && item.configured)" :public-href="publicHref(editor)"
+      :session-signal="sessionSignal" @session-lost="emit('session-lost', $event)" @published="markPublished(editor)" @close="editor = undefined" />
   </ElSettingsSection>
 </template>
 
 <style scoped>
-.site-pages-loading {
-  display: grid;
-  gap: 10px;
-}
-
-.site-pages-loading p {
-  margin: 0;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-}
-
-.site-page-meta {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-}
-
-.site-page-public-link {
-  font-size: var(--el-font-size-extra-small);
-  color: var(--el-text-color-secondary);
-  text-decoration: none;
-}
-
-.site-page-public-link:hover,
-.site-page-public-link:focus-visible {
-  color: var(--el-color-primary);
-  text-decoration: underline;
-}
-
-.site-page-readonly-note {
-  font-size: var(--el-font-size-extra-small);
-  color: var(--el-text-color-placeholder);
-}
-
-.site-page-readonly-panel {
-  display: grid;
-  gap: 10px;
-  margin-block: 10px 4px;
-  padding: 12px 14px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-panel, 10px);
-  background: var(--el-bg-color);
-}
-
-.site-page-readonly-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 12px;
-}
-
-.site-page-readonly-heading,
-.site-page-readonly-controls {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.site-page-readonly-heading code {
-  font-size: var(--el-font-size-extra-small);
-  color: var(--el-text-color-secondary);
-}
-
-.site-page-readonly-rendered {
-  padding: 4px 2px;
-  max-block-size: 24rem;
-  overflow: auto;
-}
-
-.site-page-preview {
-  margin: 0;
-  padding: 12px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: var(--fsus-radius-control, 6px);
-  background: var(--el-fill-color-light);
-  color: var(--el-text-color-primary);
-  font-size: var(--el-font-size-small);
-  line-height: 1.55;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-block-size: 22rem;
-  overflow: auto;
-}
+.site-pages-loading { display: grid; gap: 10px; }
+.site-pages-loading p { margin: 0; font-size: var(--el-font-size-small); color: var(--el-text-color-secondary); }
+.site-page-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.site-page-public-link { font-size: var(--el-font-size-extra-small); color: var(--el-text-color-secondary); text-decoration: none; }
+.site-page-public-link:hover, .site-page-public-link:focus-visible { color: var(--el-color-primary); text-decoration: underline; }
+.site-page-readonly-note { font-size: var(--el-font-size-extra-small); color: var(--el-text-color-placeholder); }
+.site-page-readonly-panel { display: grid; gap: 10px; margin-block: 10px 4px; padding: 12px 14px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-panel, 10px); background: var(--el-bg-color); }
+.site-page-readonly-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.site-page-readonly-heading, .site-page-readonly-controls { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.site-page-readonly-heading code { font-size: var(--el-font-size-extra-small); color: var(--el-text-color-secondary); }
+.site-page-readonly-rendered { padding: 4px 2px; max-block-size: 24rem; overflow: auto; }
+.site-page-preview { margin: 0; padding: 12px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-control, 6px); background: var(--el-fill-color-light); color: var(--el-text-color-primary); font-size: var(--el-font-size-small); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; max-block-size: 22rem; overflow: auto; }
 </style>

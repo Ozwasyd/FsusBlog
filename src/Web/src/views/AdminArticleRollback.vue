@@ -269,40 +269,16 @@ onScopeDispose(() => lifetime.abort())
       </template>
     </div>
 
-    <AdminArticleArchive
-      :session-signal="signal"
-      :preview="preview"
-      :blocked="busy || !!retry"
-      @working-change="archiveWorking = $event"
-      @invalidate-review="resetPreview()"
-      @session-lost="emit('session-lost', $event)"
-    />
+    <AdminArticleArchive :session-signal="signal" :preview="preview" :blocked="busy || !!retry"
+      @working-change="archiveWorking = $event" @invalidate-review="resetPreview()" @session-lost="emit('session-lost', $event)" />
   </ElSettingsSection>
 </template>
 
 <style scoped lang="scss">
 @use '../review-panel' as layout;
 @use '../shared-fields' as fields;
-
-.rollback-lookup-form,
-.rollback-preview,
-.rollback-field {
-  display: grid;
-  gap: 10px;
-}
-
-.rollback-lookup-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-}
-
-.rollback-field label {
-
-  @include fields.admin-label;
-}
-
-.rollback-preview h3 {
-  @include layout.review-item-heading;
-}
+.rollback-lookup-form, .rollback-preview, .rollback-field { display: grid; gap: 10px; }
+.rollback-lookup-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.rollback-field label { @include fields.admin-label; }
+.rollback-preview h3 { @include layout.review-item-heading; }
 </style>

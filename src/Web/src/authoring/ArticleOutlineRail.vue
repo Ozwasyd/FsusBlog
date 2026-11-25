@@ -253,28 +253,13 @@ defineExpose({
 
 <template>
   <Teleport :to="launcherTarget ?? 'body'" :disabled="!launcherTarget">
-    <ElButton
-      v-if="!compact && foreground"
-      ref="launcherBtn"
-      class="outline-launcher"
-      text
-      size="small"
-      :bg="expanded"
-      :type="expanded ? 'primary' : 'default'"
-      native-type="button"
-      :disabled="disabled"
-      v-bind="{
-        'aria-expanded': expanded,
-        'aria-controls': expanded ? contentId : undefined,
-        onKeydown: escapePane,
-      }"
-      @click="toggle"
-    >{{ t('author.canvas.outline') }}</ElButton>
+    <ElButton v-if="!compact && foreground" ref="launcherBtn" class="outline-launcher" text size="small"
+      :bg="expanded" :type="expanded ? 'primary' : 'default'" native-type="button" :disabled="disabled"
+      v-bind="{ 'aria-expanded': expanded, 'aria-controls': expanded ? contentId : undefined, onKeydown: escapePane }"
+      @click="toggle">{{ t('author.canvas.outline') }}</ElButton>
   </Teleport>
-  <OutlineShell
-    :surface="surface" :dock-target="dockTarget" :foreground="foreground" :expanded="expanded"
-    :heading-id="headingId" :panel-name="panelName" @keydown="escapePane" @dismiss="close(surface)"
-  >
+  <OutlineShell :surface="surface" :dock-target="dockTarget" :foreground="foreground" :expanded="expanded"
+    :heading-id="headingId" :panel-name="panelName" @keydown="escapePane" @dismiss="close(surface)">
     <div :id="contentId" ref="content" class="outline-body" tabindex="-1">
       <p v-if="state === 'loading'" role="status">{{ t('author.articleOutlineRail.loading.the.outline') }}</p>
       <p v-else-if="state === 'unavailable'" role="status">{{ t('author.articleOutlineRail.the.outline.is.unavailable') }}</p>
@@ -282,13 +267,13 @@ defineExpose({
       <nav v-else :aria-label="t('author.articleOutlineRail.article.headings')">
         <ol class="outline-headings" role="list" :start="page * pageSize + 1">
           <li v-for="(heading, index) in visible" :key="heading.nodeId">
-            <button
-              :id="headingButtonId(heading.nodeId)" class="outline-heading" type="button"
+            <button :id="headingButtonId(heading.nodeId)" class="outline-heading" type="button"
               :style="{ '--outline-indent': Math.max(0, Math.min(5, heading.depth - 1)) }"
               :tabindex="tabStop?.nodeId === heading.nodeId ? 0 : -1"
               :aria-current="active === heading.nodeId ? 'location' : undefined"
-              @focus="focusedId = heading.nodeId" @keydown="navigate($event, index)" @click="choose(heading)"
-            >{{ heading.text || t('author.articleOutlineRail.untitled.heading') }}</button>
+              @focus="focusedId = heading.nodeId" @keydown="navigate($event, index)" @click="choose(heading)">
+              {{ heading.text || t('author.articleOutlineRail.untitled.heading') }}
+            </button>
             <p v-if="diagnostics(heading).length" class="outline-diagnostic">{{ diagnostics(heading).join(' · ') }}</p>
           </li>
         </ol>
@@ -302,56 +287,12 @@ defineExpose({
 </template>
 
 <style scoped>
-.outline-pane .outline-body {
-  min-block-size: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  padding: var(--fsus-space-2) var(--fsus-space-3);
-}
-.outline-headings {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.outline-heading {
-  display: block;
-  inline-size: 100%;
-  min-block-size: var(--fsus-control-height-action);
-  border: 0;
-  border-radius: var(--fsus-radius-control-small);
-  padding: var(--fsus-space-1) var(--fsus-space-2);
-  padding-inline-start: calc(var(--fsus-space-2) + var(--outline-indent) * var(--fsus-space-2));
-  background: transparent;
-  color: var(--fsus-ink);
-  font: inherit;
-  font-size: .875rem;
-  text-align: start;
-  overflow-wrap: anywhere;
-  cursor: pointer;
-}
-.outline-heading:hover,
-.outline-heading[aria-current] {
-  background: var(--fsus-state-selected-bg);
-}
-.outline-heading[aria-current] {
-  font-weight: 600;
-  color: var(--fsus-color-action-primary);
-}
-.outline-body:focus-visible,
-.outline-heading:focus-visible {
-  outline: 2px solid var(--fsus-color-focus-ring, var(--fsus-color-action-primary));
-  outline-offset: -2px;
-}
-.outline-diagnostic {
-  margin: 0 var(--fsus-space-2) var(--fsus-space-2);
-  color: var(--fsus-color-text-muted);
-  font-size: .8125rem;
-}
-.outline-pages {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  margin-block-start: var(--fsus-space-2);
-}
+.outline-pane .outline-body { min-block-size: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: var(--fsus-space-2) var(--fsus-space-3); }
+.outline-headings { margin: 0; padding: 0; list-style: none; }
+.outline-heading { display: block; inline-size: 100%; min-block-size: var(--fsus-control-height-action); border: 0; border-radius: var(--fsus-radius-control-small); padding: var(--fsus-space-1) var(--fsus-space-2); padding-inline-start: calc(var(--fsus-space-2) + var(--outline-indent) * var(--fsus-space-2)); background: transparent; color: var(--fsus-ink); font: inherit; font-size: .875rem; text-align: start; overflow-wrap: anywhere; cursor: pointer; }
+.outline-heading:hover, .outline-heading[aria-current] { background: var(--fsus-state-selected-bg); }
+.outline-heading[aria-current] { font-weight: 600; color: var(--fsus-color-action-primary); }
+.outline-body:focus-visible, .outline-heading:focus-visible { outline: 2px solid var(--fsus-color-focus-ring, var(--fsus-color-action-primary)); outline-offset: -2px; }
+.outline-diagnostic { margin: 0 var(--fsus-space-2) var(--fsus-space-2); color: var(--fsus-color-text-muted); font-size: .8125rem; }
+.outline-pages { display: flex; flex-wrap: wrap; justify-content: space-between; margin-block-start: var(--fsus-space-2); }
 </style>

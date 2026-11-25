@@ -91,73 +91,14 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.register-scope-note {
-  font-size: var(--el-font-size-small);
-}
-
-.register-form {
-  gap: 1.25rem;
-}
-
-.register-consent-block {
-  display: grid;
-  gap: .25rem;
-}
-
-.register-guidelines-link {
-  justify-self: start;
-  margin-inline-start: 1.5rem;
-  display: inline-flex;
-  align-items: center;
-  min-block-size: 32px;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-  text-decoration: underline;
-  text-decoration-color: var(--el-border-color);
-  text-underline-offset: 4px;
-}
-
-.register-guidelines-link:hover,
-.register-guidelines-link:focus-visible {
-  color: var(--el-text-color-primary);
-  text-decoration-color: currentColor;
-}
-
-.register-next-link {
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  min-block-size: 44px;
-  font-weight: 500;
-  color: var(--el-color-primary);
-  text-decoration: none;
-}
-
-.register-next-link:hover,
-.register-next-link:focus-visible {
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
-.register-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.register-footer a {
-  display: inline-flex;
-  align-items: center;
-  min-block-size: 44px;
-  font-size: var(--el-font-size-small);
-  color: var(--el-text-color-secondary);
-  text-decoration: none;
-}
-
-.register-footer a:hover,
-.register-footer a:focus-visible {
-  color: var(--el-text-color-primary);
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
+.register-scope-note { font-size: var(--el-font-size-small); }
+.register-form { gap: 1.25rem; }
+.register-consent-block { display: grid; gap: .25rem; }
+.register-guidelines-link { justify-self: start; margin-inline-start: 1.5rem; display: inline-flex; align-items: center; min-block-size: 32px; font-size: var(--el-font-size-small); color: var(--el-text-color-secondary); text-decoration: underline; text-decoration-color: var(--el-border-color); text-underline-offset: 4px; }
+.register-guidelines-link:hover, .register-guidelines-link:focus-visible { color: var(--el-text-color-primary); text-decoration-color: currentColor; }
+.register-next-link { justify-self: start; display: inline-flex; align-items: center; min-block-size: 44px; font-weight: 500; color: var(--el-color-primary); text-decoration: none; }
+.register-next-link:hover, .register-next-link:focus-visible { text-decoration: underline; text-underline-offset: 4px; }
+.register-footer { display: flex; flex-wrap: wrap; align-items: center; }
+.register-footer a { display: inline-flex; align-items: center; min-block-size: 44px; font-size: var(--el-font-size-small); color: var(--el-text-color-secondary); text-decoration: none; }
+.register-footer a:hover, .register-footer a:focus-visible { color: var(--el-text-color-primary); text-decoration: underline; text-underline-offset: 4px; }
 </style>
