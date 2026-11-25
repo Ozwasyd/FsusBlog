@@ -16,7 +16,7 @@ public sealed class PageShellAssemblyTests
             "fsus-document-export-tasks", "fsus-pdf-export", "fsus-public-hot-articles", "fsus-article-read-proof"]);
 
         var enabled = WebPages.PrepareTemplate(BaselineTemplate, new PageShellCapabilities(
-            PublicSearchMode: "server", PluginPreview: true, DocumentExportTasks: true,
+            PublicSearchMode: "auto", PluginPreview: true, DocumentExportTasks: true,
             PdfExport: true, PublicHotArticles: true, ArticleReadProof: true));
 
         var headClose = enabled.IndexOf("</head>", StringComparison.Ordinal);
@@ -25,7 +25,7 @@ public sealed class PageShellAssemblyTests
 
         string[] expectedMarkers =
         [
-            "<meta name=\"fsus-public-search-mode\" content=\"server\">",
+            "<meta name=\"fsus-public-search-mode\" content=\"auto\">",
             PluginPreviewEndpoints.Marker, DocumentExportEndpoints.Marker,
             PdfDocumentExport.PageMarker, PublicHotArticles.PageMarker, ArticleReadEndpoints.PageMarker,
         ];

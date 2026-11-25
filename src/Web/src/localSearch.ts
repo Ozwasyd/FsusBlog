@@ -13,7 +13,7 @@ export type PublicSearchDisplayResult = PublicSearchV2Page & Readonly<{ usesCurs
 
 export function readPublicSearchMode(): PublicSearchMode {
   const value = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-public-search-mode"]')?.content
-  return value === 'server' || value === 'local' ? value : 'auto'
+  return value === 'auto' || value === 'local' ? value : 'server'
 }
 
 function adaptLocalPage(
@@ -107,8 +107,11 @@ export function createLocalSearch() {
     signal.addEventListener('abort', cancel, { once: true })
     try {
       const mode = readPublicSearchMode()
-      if (mode === 'server' || (mode === 'auto' && preferServer)) {
+      if (mode === 'server' || (mode === 'auto' && (preferServer || typeof Worker === 'undefined'))) {
         return await runServerSearch(query, request.signal, page, size, sort, cursor)
+      }
+      if (typeof Worker === 'undefined') {
+        throw new ProtocolError('Local search requires browser Web Worker support.')
       }
       const workerMode: WorkerSearchMode = mode === 'local' ? 'local' : 'auto'
       const current = worker ??= startWorker()

@@ -143,6 +143,9 @@ fi
 if [[ $reader_registration == 1 || $flow == passkey || $flow == site-sessions || $flow == mfa ]]; then
   export FSUSBLOG_PASSKEY_ORIGIN="$url" FSUSBLOG_PASSKEY_RP_ID=localhost
 fi
+if [[ $flow == search-corpus-reuse ]]; then
+  export FSUSBLOG_PUBLIC_SEARCH_MODE=auto
+fi
 if [[ $flow == mfa ]]; then export FSUSBLOG_TOTP_KEY_HEX="$(openssl rand -hex 32)"; fi
 dotnet "$scratch/server/FsusBlog.V2.Server.dll" --urls "http://127.0.0.1:$http_port" > "$evidence/server.log" 2>&1 &
 server_pid=$!

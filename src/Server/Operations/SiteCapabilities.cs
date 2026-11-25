@@ -84,7 +84,7 @@ internal sealed class SiteCapabilities
         AppearanceRoot = ResolvePath(AppearanceAssets.RootSetting, dir => DiscoverAssets(dir, "appearance", ["appearance.json"]));
         TrafficRegionsPath = ResolvePath(Analytics.SiteTraffic.RegionsSetting, dir => DiscoverExistingFile(dir, "traffic-regions.json"));
 
-        PublicSearchMode = (configuration[PublicSearchModeSetting] ?? "auto").Trim().ToLowerInvariant();
+        PublicSearchMode = (configuration[PublicSearchModeSetting] ?? "server").Trim().ToLowerInvariant();
         if (PublicSearchMode is not ("auto" or "local" or "server"))
             throw new InvalidOperationException($"{PublicSearchModeSetting} must be auto, local, or server.");
 

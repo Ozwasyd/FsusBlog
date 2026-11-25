@@ -168,6 +168,7 @@ cli plan > "$evidence/schema-plan.json"
 cli apply "$evidence/schema-plan.json" > "$evidence/schema.log"
 cli verify >> "$evidence/schema.log"
 if [[ ${FSUSBLOG_TEST_WIDE_SEARCH:-0} == 1 || ${FSUSBLOG_TEST_SEARCH_PATCH:-0} == 1 ]]; then
+  export FSUSBLOG_PUBLIC_SEARCH_MODE=auto
   export FSUSBLOG_TEST_AUTHOR_BOOTSTRAP="$(cli admin-identity bootstrap browser-author)"
   if [[ ${FSUSBLOG_TEST_WIDE_SEARCH:-0} == 1 ]]; then
     export FSUSBLOG_WIDE_SEARCH_CORPUS=true

@@ -100,32 +100,76 @@ PY
 "$pg/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 55439 -U fsusqa -d postgres \
   -f "$scratch/seed.sql" -f "$repo/tests/Fixtures/publication-rights.sql" > "$scratch/seed.log"
 
+read_proc_stats() {
+  local pid=$1
+  python3 - "$pid" <<'PY'
+import subprocess, sys
+out = subprocess.check_output(["ps", "-o", "cputime=,rss=", "-p", sys.argv[1]], text=True).strip()
+parts = out.split()
+cpu_str = parts[0]
+rss_kb = int(parts[1])
+# macOS format: MM:SS.cc or H:MM:SS.cc; Linux format: HH:MM:SS
+segs = cpu_str.replace("-", ":").split(":")
+if len(segs) == 2:
+    cpu_ms = (int(segs[0]) * 60.0 + float(segs[1])) * 1000.0
+elif len(segs) == 3:
+    cpu_ms = (int(segs[0]) * 3600.0 + int(segs[1]) * 60.0 + float(segs[2])) * 1000.0
+else:
+    cpu_ms = float(segs[-1]) * 1000.0
+print(f"{cpu_ms:.2f} {rss_kb * 1024}")
+PY
+}
+
 run_mode() {
-  local mode=$1 port=$2
+  local label=$1 env_mode=$2 port=$3
   local origin="http://127.0.0.1:$port"
-  FSUSBLOG_WEB_DIST="$repo/src/Web/dist" \
-  FSUSBLOG_PUBLIC_SEARCH_MODE="$mode" \
-  ASPNETCORE_URLS="$origin" \
-    dotnet "$srv" > "$scratch/server-$mode.log" 2>&1 &
+  if [[ -n "$env_mode" ]]; then
+    FSUSBLOG_WEB_DIST="$repo/src/Web/dist" \
+    FSUSBLOG_PUBLIC_SEARCH_MODE="$env_mode" \
+    ASPNETCORE_URLS="$origin" \
+      dotnet "$srv" > "$scratch/server-$label.log" 2>&1 &
+  else
+    FSUSBLOG_WEB_DIST="$repo/src/Web/dist" \
+    ASPNETCORE_URLS="$origin" \
+      dotnet "$srv" > "$scratch/server-$label.log" 2>&1 &
+  fi
   server_pid=$!
   for ((i=0; i<100; i++)); do
     if curl -sf "$origin/search" >/dev/null 2>&1; then break; fi
     sleep 0.1
   done
   curl -sf "$origin/search" >/dev/null
-  node "$repo/tests/Performance/search-eval-browser.mjs" --origin "$origin" --mode "$mode" --out "$out_dir/browser-$mode.json"
+  read -r cpu_before rss_before < <(read_proc_stats "$server_pid")
+  node "$repo/tests/Performance/search-eval-browser.mjs" --origin "$origin" --mode "$label" --out "$out_dir/browser-$label.json"
+  read -r cpu_after rss_after < <(read_proc_stats "$server_pid")
+  python3 - "$out_dir/browser-$label.json" "$cpu_before" "$cpu_after" "$rss_before" "$rss_after" <<'PY'
+import json, sys
+path, cb, ca, rb, ra = sys.argv[1], float(sys.argv[2]), float(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
+doc = json.load(open(path, encoding="utf-8"))
+doc["serverProcessMetrics"] = {
+    "cpuDeltaMs": round(max(0.0, ca - cb), 2),
+    "rssBeforeBytes": rb,
+    "rssAfterBytes": ra,
+}
+open(path, "w", encoding="utf-8").write(json.dumps(doc, indent=2) + "\n")
+PY
   kill "$server_pid" || true
   wait "$server_pid" 2>/dev/null || true
   server_pid=
 }
 
-run_mode server 55481
-run_mode local 55482
-python3 - "$out_dir/browser-server.json" "$out_dir/browser-local.json" <<'PY'
+run_mode default "" 55481
+run_mode local "local" 55482
+python3 - "$out_dir/browser-default.json" "$out_dir/browser-local.json" <<'PY'
 import json, sys
 for path in sys.argv[1:]:
     d = json.load(open(path, encoding="utf-8"))
+    sp = d.get("serverProcessMetrics", {})
     print(f"browser mode={d['mode']}: coldFirstMs={d['coldFirstSearchMedianMs']:.2f} "
           f"warmFollowupMs={d['warmFollowupMedianMs']:.2f} coldBytes={d['coldFirstSearchBytesMedian']} "
-          f"workers={d['workersStartedPerSession']} corpusReqs={d['corpusRequestsPerSession']} idb={d['idbDatabases']}")
+          f"warmBytes={d['warmFollowupBytesMedian']} browserCpuMs={d['browserTaskCpuMedianMs']:.1f} "
+          f"browserHeapMB={d['browserJsHeapUsedMedianBytes']/1048576:.2f} "
+          f"serverCpuDeltaMs={sp.get('cpuDeltaMs', 0):.1f} serverRssMB={sp.get('rssAfterBytes', 0)/1048576:.1f} "
+          f"workers={d['workersStartedPerSession']} apiReqs={d['searchApiRequestsPerSession']} "
+          f"corpusReqs={d['corpusRequestsPerSession']} headReqs={d['headRequestsPerSession']} idb={d['idbDatabases']}")
 PY
