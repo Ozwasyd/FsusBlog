@@ -34,6 +34,8 @@
 
 ## 5. 验证入口
 
+相关性、延迟与能耗基线方法论及复现入口见 [公开搜索相关性、延迟与能耗评估基准](search-evaluation.md)。
+
 ```bash
 ./tools/protocol-test.sh
 node --test tests/Protocol/local-search.test.ts tests/Protocol/local-search-positions.test.ts tests/Protocol/v1-search-ranking-differential.test.mjs

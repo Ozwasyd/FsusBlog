@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "fsusblog-search-eval-config-v1",
+  "corpusVersion": "synthetic-tech-blog-v1",
+  "querySetVersion": "synthetic-queries-v1",
+  "judgmentsVersion": "synthetic-judgments-v1",
+  "analyzerProfile": "baseline-split-v2",
+  "scoringProfile": "baseline-fas4-v2-vs-fspk-v4",
+  "provenance": {
+    "corpusType": "synthetic",
+    "containsPrivateDrafts": false,
+    "containsReaderQueryHistory": false,
+    "generatorScript": "tests/Performance/search_eval_dataset.py",
+    "articleCount": 420,
+    "queryCount": 360,
+    "splitPolicy": "50/50 stratified by query category (15 tuning + 15 holdout per category)",
+    "judgmentScale": {
+      "3": "Primary exact target article",
+      "2": "Highly relevant supporting article",
+      "1": "Partially relevant / topical overlap",
+      "0": "Irrelevant (default for unlisted articles)"
+    },
+    "corpusSha256": "147955e1fb81d7acaa8b29e9009b60871f474d2d9e8071bad125a7a3cd31520e",
+    "queriesSha256": "a1f5c4c6128a6da961976d7c92e98a12fae9f763a60a277b331fc70bfab270bc"
+  },
+  "provisionalGates": {
+    "provisional": true,
+    "rationale": "Initial planning targets for public search evaluation (#44). Explicitly provisional until target hardware, offered load, query-class weights, and maintainer-reviewed judgments are frozen. Any gate revision must append an entry to revisionHistory with a recorded justification.",
+    "serverLatencyP95MsMax": 30.0,
+    "targetSuccessAt3Min": 0.95,
+    "heldOutNdcgAt10Min": 0.85,
+    "noMatchFalsePositiveRateMax": 0.05,
+    "maxFailedOrRejectedRate": 0.001,
+    "revisionHistory": []
+  },
+  "energyModel": {
+    "defaultRounds": 3,
+    "warmupQueries": 30,
+    "idleSampleSeconds": 0.5,
+    "amortizationScenarios": {
+      "read_heavy_low_churn": {
+        "searchesPerPublish": 10000,
+        "searchesPerHour": 3600,
+        "description": "Low publication churn, steady reader traffic."
+      },
+      "balanced": {
+        "searchesPerPublish": 500,
+        "searchesPerHour": 600,
+        "description": "Moderate authoring/publishing cadence with regular searches."
+      },
+      "high_churn": {
+        "searchesPerPublish": 20,
+        "searchesPerHour": 120,
+        "description": "Frequent edits/publications relative to search volume."
+      }
+    },
+    "networkEnergyEstimate": {
+      "isEstimate": true,
+      "joulesPerMegabyte": 0.06,
+      "note": "Parameterized network-transfer estimate only; never combined into measured CPU-package or whole-system energy counters."
+    }
+  }
+}

@@ -1,3 +1,8 @@
+if (args.Length > 0 && args[0] == "--search-eval")
+{
+    SearchEvalRunner.Run(args[1..]);
+    return;
+}
 string fixtures = args.Length == 1 ? args[0] : throw new ArgumentException("Supply the fixture directory");
 byte[] Fixture(string name) => Hex(fixtures, name);
 
