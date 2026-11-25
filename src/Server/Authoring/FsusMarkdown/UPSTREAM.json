@@ -2,6 +2,7 @@
   "repository": "https://github.com/Ozwasyd/FsusUI",
   "package": "@ozwasyd/element-plus",
   "version": "1.6.0-preview.11",
+  "packageIntegrity": "sha512-C26355Ewmp5K2U4tDNi7MrRCueYAldw5KO7AXgEPmyP9Oq5+xd+u0Puu643sQvT4gYwrNSJIEyqpKYcMhb6Qcw==",
   "tag": "v1.6.0-preview.11",
   "commit": "4cef4a6463ec752242a9ad2c0e8584e222414e37",
   "sourceRoot": "vue/packages/wasm/markdown",
