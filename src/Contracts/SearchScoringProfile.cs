@@ -46,6 +46,68 @@ public readonly record struct ArticleSearchDetailedPage(
     int PrimaryTotal,
     int RelaxedTotal);
 
+/// <summary>Execution path selected by the bounded Top-K retrieval engine (#48).</summary>
+public enum SearchExecutionPath : byte
+{
+    Empty = 0,
+    SelectiveExact = 1,
+    BlockMaxConjunction = 2,
+    BlockMaxWand = 3,
+    LatestBlockScan = 4,
+    WideIndex = 5
+}
+
+/// <summary>
+/// Generation-independent primitive block metadata over up to 64 ascending postings (#48, #51).
+/// Stores only raw per-field TF maxima, field-length minima, exact-form presence, and publish timestamps
+/// so dynamic bounds stay mathematically conservative across global-stat updates and segment merges.
+/// </summary>
+public readonly record struct SearchPostingBlockMeta(
+    int MaxOrdinal,
+    byte MaxTf0, byte MaxTf1, byte MaxTf2, byte MaxTf3, byte MaxTf4,
+    byte HasAnyExact,
+    ushort MinLen0, ushort MinLen1, ushort MinLen2, ushort MinLen3, ushort MinLen4,
+    long MaxPublishedTicks,
+    long MinPublishedTicks)
+{
+    public static SearchPostingBlockMeta Merge(SearchPostingBlockMeta left, SearchPostingBlockMeta right) => new(
+        Math.Max(left.MaxOrdinal, right.MaxOrdinal),
+        Math.Max(left.MaxTf0, right.MaxTf0),
+        Math.Max(left.MaxTf1, right.MaxTf1),
+        Math.Max(left.MaxTf2, right.MaxTf2),
+        Math.Max(left.MaxTf3, right.MaxTf3),
+        Math.Max(left.MaxTf4, right.MaxTf4),
+        (byte)(left.HasAnyExact | right.HasAnyExact),
+        Math.Min(left.MinLen0, right.MinLen0),
+        Math.Min(left.MinLen1, right.MinLen1),
+        Math.Min(left.MinLen2, right.MinLen2),
+        Math.Min(left.MinLen3, right.MinLen3),
+        Math.Min(left.MinLen4, right.MinLen4),
+        Math.Max(left.MaxPublishedTicks, right.MaxPublishedTicks),
+        Math.Min(left.MinPublishedTicks, right.MinPublishedTicks));
+
+    public double UpperBoundBm25F(double idf, bool allowExactBonus, ReadOnlySpan<double> avgFieldLengths) =>
+        SearchScoringProfile.UpperBoundConceptBlockBm25F(
+            idf,
+            MaxTf0, MaxTf1, MaxTf2, MaxTf3, MaxTf4,
+            MinLen0, MinLen1, MinLen2, MinLen3, MinLen4,
+            allowExactBonus,
+            avgFieldLengths);
+}
+
+/// <summary>Per-query execution counters for verification and #44 performance reporting (#48).</summary>
+public struct SearchExecutionStats
+{
+    public SearchExecutionPath Path;
+    public int PostingsDecoded;
+    public int BlocksVisited;
+    public int BlocksSkipped;
+    public int PositionsRead;
+    public int CandidatesScored;
+    public int PositionSkipsByBound;
+    public bool PrunedCounting;
+}
+
 /// <summary>Truthful cursor-paginated public search result separating count relation from continuation availability (#47).</summary>
 public readonly record struct ArticleSearchCursorPage(
     ArticleSearchHit[] Hits,
@@ -157,6 +219,80 @@ public static class SearchScoringProfile
         }
         if (pseudoTf <= 0.0) return 0.0;
         return idf * ((pseudoTf * (K1 + 1.0)) / (pseudoTf + K1));
+    }
+
+    /// <summary>
+    /// Computes a mathematically conservative upper bound on a concept's BM25F + exact-form contribution
+    /// for any document in a posting block, evaluated dynamically from generation-independent primitive block stats
+    /// against the active generation's <paramref name="idf"/> and <paramref name="avgFieldLengths"/> (#48, #51).
+    /// </summary>
+    public static double UpperBoundConceptBlockBm25F(
+        double idf,
+        byte maxTf0, byte maxTf1, byte maxTf2, byte maxTf3, byte maxTf4,
+        ushort minLen0, ushort minLen1, ushort minLen2, ushort minLen3, ushort minLen4,
+        bool allowExactBonus,
+        ReadOnlySpan<double> avgFieldLengths)
+    {
+        if (idf <= 0.0) return 0.0;
+        var pseudoTf = 0.0;
+        if (maxTf0 != 0)
+        {
+            var norm = (1.0 - TitleB) + TitleB * (Math.Max(1, (int)minLen0) / avgFieldLengths[0]);
+            pseudoTf += TitleWeight * ((maxTf0 * 0.5) / norm);
+        }
+        if (maxTf1 != 0)
+        {
+            var norm = (1.0 - HeadingB) + HeadingB * (Math.Max(1, (int)minLen1) / avgFieldLengths[1]);
+            pseudoTf += HeadingWeight * ((maxTf1 * 0.5) / norm);
+        }
+        if (maxTf2 != 0)
+        {
+            var norm = (1.0 - SummaryB) + SummaryB * (Math.Max(1, (int)minLen2) / avgFieldLengths[2]);
+            pseudoTf += SummaryWeight * ((maxTf2 * 0.5) / norm);
+        }
+        if (maxTf3 != 0)
+        {
+            var norm = (1.0 - TaxonomyB) + TaxonomyB * (Math.Max(1, (int)minLen3) / avgFieldLengths[3]);
+            pseudoTf += TaxonomyWeight * ((maxTf3 * 0.5) / norm);
+        }
+        if (maxTf4 != 0)
+        {
+            var norm = (1.0 - BodyB) + BodyB * (Math.Max(1, (int)minLen4) / avgFieldLengths[4]);
+            pseudoTf += BodyWeight * ((maxTf4 * 0.5) / norm);
+        }
+        var bm25 = pseudoTf > 0.0 ? idf * ((pseudoTf * (K1 + 1.0)) / (pseudoTf + K1)) : 0.0;
+        var exact = allowExactBonus ? ExactFormBonusFactor * idf : 0.0;
+        return (bm25 + exact) * (1.0 + 1e-11) + 1e-11;
+    }
+
+    /// <summary>
+    /// Computes a conservative BM25F upper bound for a 1–2 char ASCII short-prefix block (#48).
+    /// </summary>
+    public static double UpperBoundShortPrefixBlockBm25F(
+        double idf,
+        ushort maxTitleHits, ushort maxSummaryHits, ushort maxTaxonomyHits,
+        ushort minLen0, ushort minLen2, ushort minLen3,
+        ReadOnlySpan<double> avgFieldLengths)
+    {
+        if (idf <= 0.0) return 0.0;
+        var pseudoTf = 0.0;
+        if (maxTitleHits != 0)
+        {
+            var norm = (1.0 - TitleB) + TitleB * (Math.Max(1, (int)minLen0) / avgFieldLengths[0]);
+            pseudoTf += TitleWeight * ((maxTitleHits * ShortPrefixTitleTf) / norm);
+        }
+        if (maxSummaryHits != 0)
+        {
+            var norm = (1.0 - SummaryB) + SummaryB * (Math.Max(1, (int)minLen2) / avgFieldLengths[2]);
+            pseudoTf += SummaryWeight * ((maxSummaryHits * ShortPrefixSummaryTf) / norm);
+        }
+        if (maxTaxonomyHits != 0)
+        {
+            var norm = (1.0 - TaxonomyB) + TaxonomyB * (Math.Max(1, (int)minLen3) / avgFieldLengths[3]);
+            pseudoTf += TaxonomyWeight * ((maxTaxonomyHits * ShortPrefixTaxonomyTf) / norm);
+        }
+        var bm25 = pseudoTf > 0.0 ? idf * ((pseudoTf * (K1 + 1.0)) / (pseudoTf + K1)) : 0.0;
+        return bm25 * (1.0 + 1e-11) + 1e-11;
     }
 
     public static bool AllowsRelaxation(SearchQueryPlan plan) =>

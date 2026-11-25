@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace FsusBlog.V2.Server;
 
 internal sealed class PublicSearchFailure(int status, string message, string details) : Exception(message)
@@ -88,7 +90,9 @@ internal sealed class PublicSearchCursor(TimeProvider time)
     {
         Span<byte> protectedBytes = stackalloc byte[ProtectedSize];
         if (cursor.Length != EncodedSize ||
-            !Base64Url.TryDecodeFromChars(cursor, protectedBytes, out var written) || written != ProtectedSize ||
+            Base64Url.DecodeFromChars(cursor, protectedBytes, out var consumed, out var written) != OperationStatus.Done ||
+            consumed != cursor.Length ||
+            written != ProtectedSize ||
             !string.Equals(Base64Url.EncodeToString(protectedBytes), cursor, StringComparison.Ordinal))
             throw PublicSearchFailure.InvalidCursor();
 

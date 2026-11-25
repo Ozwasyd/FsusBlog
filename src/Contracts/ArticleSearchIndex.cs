@@ -11,10 +11,12 @@ public enum ArticleSearchSort
 public readonly record struct ArticleSearchPage(Article[] Articles, int Total);
 
 /// <summary>
-/// In-memory concept-aware BM25F search index over the active public generation (#46, profile v3).
+/// In-memory concept-aware BM25F search index over the active public generation (#46, #48, profile v3).
 /// Compact (&lt;= 40,000 docs) and Wide (40,001..100,000 docs) profiles compute identical globally consistent
 /// 5-field BM25F scores, concept coverage, CJK bigram sequences, quoted phrases, bounded relaxation,
 /// and deterministic tie-breaking, verified against <see cref="ExhaustiveSearchOracle"/>.
+/// Compact retrieval uses selective exact intersections for rare queries and Block-Max conjunction /
+/// Block-Max WAND / Latest block pruning with pooled Top-K heaps for broad queries.
 /// </summary>
 public sealed partial class ArticleSearchIndex
 {
@@ -31,7 +33,11 @@ public sealed partial class ArticleSearchIndex
     private readonly double[] _avgFieldLengths;
     private readonly Term[] _terms;
     private readonly Posting[] _postings;
+    private readonly SearchPostingBlockMeta[] _blocks;
     private readonly uint[] _positions;
+    private readonly ShortPrefixTerm[] _shortPrefixTerms;
+    private readonly ShortPrefixPosting[] _shortPrefixPostings;
+    private readonly ShortPrefixBlockMeta[] _shortPrefixBlocks;
     private readonly WideIndex? _wide;
 
     private ArticleSearchIndex(
@@ -39,10 +45,16 @@ public sealed partial class ArticleSearchIndex
         double[] avgFieldLengths,
         Term[] terms,
         Posting[] postings,
+        SearchPostingBlockMeta[] blocks,
         uint[] positions,
+        ShortPrefixTerm[] shortPrefixTerms,
+        ShortPrefixPosting[] shortPrefixPostings,
+        ShortPrefixBlockMeta[] shortPrefixBlocks,
         WideIndex? wide = null) =>
-        (_documents, _avgFieldLengths, _terms, _postings, _positions, _wide) =
-            (documents, avgFieldLengths, terms, postings, positions, wide);
+        (_documents, _avgFieldLengths, _terms, _postings, _blocks, _positions,
+            _shortPrefixTerms, _shortPrefixPostings, _shortPrefixBlocks, _wide) =
+            (documents, avgFieldLengths, terms, postings, blocks, positions,
+                shortPrefixTerms, shortPrefixPostings, shortPrefixBlocks, wide);
 
     public int AnalyzerVersion => SearchTextAnalyzer.Version;
     public int ProfileVersion => SearchScoringProfile.ProfileVersion;
@@ -52,6 +64,7 @@ public sealed partial class ArticleSearchIndex
     public int PostingCount => _wide is { } wide
         ? wide.Blocks.Sum(static block => block.Terms.Sum(static term => term.Count))
         : _postings.Length;
+    public int BlockCount => _blocks.Length;
 
     public static ArticleSearchIndex? Build(IReadOnlyList<Article> articles, CancellationToken ct)
     {
@@ -62,24 +75,146 @@ public sealed partial class ArticleSearchIndex
         var builder = new PostingBuilder(MaxScannedChars);
         if (!builder.Collect(articles, documents, totalFieldLengths, MaxTerms, MaxPostings, ct)) return null;
 
+        // Materialize postings in ascending Ordinal order and compute 64-doc generation-independent block bounds
+        var totalBlocks = 0;
+        foreach (var bucket in builder.Heads.Values)
+            totalBlocks += (bucket.Count + PostingBlockSize - 1) / PostingBlockSize;
+
         var terms = new Term[builder.Heads.Count];
         var postings = new Posting[builder.Pending.Count];
+        var blocks = new SearchPostingBlockMeta[totalBlocks];
         var termIndex = 0;
         var start = 0;
+        var blockCursor = 0;
+
         foreach (var (key, bucket) in builder.Heads)
         {
             ct.ThrowIfCancellationRequested();
-            terms[termIndex++] = new Term(key, start, bucket.Count);
-            // Reverse linked list into ascending Ordinal order for O(log df) lookup and #48 seeking
+            var bCount = (bucket.Count + PostingBlockSize - 1) / PostingBlockSize;
+            terms[termIndex++] = new Term(key, start, bucket.Count, blockCursor, bCount);
+
             var write = start + bucket.Count - 1;
             for (var entry = bucket.Head; entry >= 0; entry = builder.Pending[entry].Previous)
                 postings[write--] = builder.Pending[entry].Value;
+
+            for (var b = 0; b < bCount; b++)
+            {
+                var bStart = start + b * PostingBlockSize;
+                var bEnd = Math.Min(start + bucket.Count, bStart + PostingBlockSize);
+                byte mTf0 = 0, mTf1 = 0, mTf2 = 0, mTf3 = 0, mTf4 = 0, anyExact = 0;
+                ushort minL0 = ushort.MaxValue, minL1 = ushort.MaxValue, minL2 = ushort.MaxValue,
+                       minL3 = ushort.MaxValue, minL4 = ushort.MaxValue;
+                var maxPub = long.MinValue;
+                var minPub = long.MaxValue;
+
+                for (var i = bStart; i < bEnd; i++)
+                {
+                    var p = postings[i];
+                    if (p.Tf0 > mTf0) mTf0 = p.Tf0;
+                    if (p.Tf1 > mTf1) mTf1 = p.Tf1;
+                    if (p.Tf2 > mTf2) mTf2 = p.Tf2;
+                    if (p.Tf3 > mTf3) mTf3 = p.Tf3;
+                    if (p.Tf4 > mTf4) mTf4 = p.Tf4;
+                    anyExact |= (byte)(p.ExactFlags & ExactFlagBit);
+
+                    var d = documents[p.Ordinal];
+                    var l0 = (ushort)Math.Min(ushort.MaxValue, d.TitleLen);
+                    var l1 = (ushort)Math.Min(ushort.MaxValue, d.HeadingLen);
+                    var l2 = (ushort)Math.Min(ushort.MaxValue, d.SummaryLen);
+                    var l3 = (ushort)Math.Min(ushort.MaxValue, d.TaxonomyLen);
+                    var l4 = (ushort)Math.Min(ushort.MaxValue, d.BodyLen);
+                    if (l0 < minL0) minL0 = l0;
+                    if (l1 < minL1) minL1 = l1;
+                    if (l2 < minL2) minL2 = l2;
+                    if (l3 < minL3) minL3 = l3;
+                    if (l4 < minL4) minL4 = l4;
+
+                    var pub = d.Article.PublishedAt.UtcTicks;
+                    if (pub > maxPub) maxPub = pub;
+                    if (pub < minPub) minPub = pub;
+                }
+
+                blocks[blockCursor++] = new SearchPostingBlockMeta(
+                    postings[bEnd - 1].Ordinal,
+                    mTf0, mTf1, mTf2, mTf3, mTf4,
+                    anyExact,
+                    minL0, minL1, minL2, minL3, minL4,
+                    maxPub, minPub);
+            }
+
             start += bucket.Count;
         }
         Array.Sort(terms, Term.ByKey);
 
+        // Materialize pre-indexed 1-2 char ASCII short-prefix postings & block metadata (eliminates O(N) metadata scans)
+        var totalSpBlocks = 0;
+        foreach (var bucket in builder.ShortPrefixHeads.Values)
+            totalSpBlocks += (bucket.Count + PostingBlockSize - 1) / PostingBlockSize;
+
+        var spTerms = new ShortPrefixTerm[builder.ShortPrefixHeads.Count];
+        var spPostings = new ShortPrefixPosting[builder.PendingShortPrefixes.Count];
+        var spBlocks = new ShortPrefixBlockMeta[totalSpBlocks];
+        var spTermIndex = 0;
+        var spStart = 0;
+        var spBlockCursor = 0;
+
+        foreach (var (spKey, bucket) in builder.ShortPrefixHeads)
+        {
+            ct.ThrowIfCancellationRequested();
+            var bCount = (bucket.Count + PostingBlockSize - 1) / PostingBlockSize;
+            spTerms[spTermIndex++] = new ShortPrefixTerm(spKey, spStart, bucket.Count, spBlockCursor, bCount);
+
+            var write = spStart + bucket.Count - 1;
+            for (var entry = bucket.Head; entry >= 0; entry = builder.PendingShortPrefixes[entry].Previous)
+                spPostings[write--] = builder.PendingShortPrefixes[entry].Value;
+
+            for (var b = 0; b < bCount; b++)
+            {
+                var bStart = spStart + b * PostingBlockSize;
+                var bEnd = Math.Min(spStart + bucket.Count, bStart + PostingBlockSize);
+                ushort maxT = 0, maxS = 0, maxX = 0;
+                ushort minL0 = ushort.MaxValue, minL2 = ushort.MaxValue, minL3 = ushort.MaxValue;
+                var maxPub = long.MinValue;
+                var minPub = long.MaxValue;
+
+                for (var i = bStart; i < bEnd; i++)
+                {
+                    var sp = spPostings[i];
+                    var tHits = (ushort)((sp.Packed >> 20) & 1023);
+                    var sHits = (ushort)((sp.Packed >> 10) & 1023);
+                    var xHits = (ushort)(sp.Packed & 1023);
+                    if (tHits > maxT) maxT = tHits;
+                    if (sHits > maxS) maxS = sHits;
+                    if (xHits > maxX) maxX = xHits;
+
+                    var d = documents[sp.Ordinal];
+                    var l0 = (ushort)Math.Min(ushort.MaxValue, d.TitleLen);
+                    var l2 = (ushort)Math.Min(ushort.MaxValue, d.SummaryLen);
+                    var l3 = (ushort)Math.Min(ushort.MaxValue, d.TaxonomyLen);
+                    if (l0 < minL0) minL0 = l0;
+                    if (l2 < minL2) minL2 = l2;
+                    if (l3 < minL3) minL3 = l3;
+
+                    var pub = d.Article.PublishedAt.UtcTicks;
+                    if (pub > maxPub) maxPub = pub;
+                    if (pub < minPub) minPub = pub;
+                }
+
+                spBlocks[spBlockCursor++] = new ShortPrefixBlockMeta(
+                    spPostings[bEnd - 1].Ordinal,
+                    maxT, maxS, maxX,
+                    minL0, minL2, minL3,
+                    maxPub, minPub);
+            }
+
+            spStart += bucket.Count;
+        }
+        Array.Sort(spTerms, ShortPrefixTerm.ByKey);
+
         var avgFieldLengths = ComputeAvgFieldLengths(totalFieldLengths, articles.Count);
-        return new ArticleSearchIndex(documents, avgFieldLengths, terms, postings, [.. builder.Positions]);
+        return new ArticleSearchIndex(
+            documents, avgFieldLengths, terms, postings, blocks, [.. builder.Positions],
+            spTerms, spPostings, spBlocks);
     }
 
     public Article[] Search(string query, CancellationToken ct) =>
@@ -87,15 +222,20 @@ public sealed partial class ArticleSearchIndex
 
     public ArticleSearchPage SearchPage(string query, ArticleSearchSort sort, int page, int size, CancellationToken ct)
     {
-        var detailed = SearchDetailed(query, sort, page, size, ct);
+        var detailed = SearchDetailed(query, sort, page, size, ct, out _);
         if (detailed.Hits.Length == 0) return new([], detailed.Total);
         var articles = new Article[detailed.Hits.Length];
         for (var i = 0; i < detailed.Hits.Length; i++) articles[i] = detailed.Hits[i].Article;
         return new(articles, detailed.Total);
     }
 
-    public ArticleSearchDetailedPage SearchDetailed(string query, ArticleSearchSort sort, int page, int size, CancellationToken ct)
+    public ArticleSearchDetailedPage SearchDetailed(string query, ArticleSearchSort sort, int page, int size, CancellationToken ct) =>
+        SearchDetailed(query, sort, page, size, ct, out _);
+
+    public ArticleSearchDetailedPage SearchDetailed(
+        string query, ArticleSearchSort sort, int page, int size, CancellationToken ct, out SearchExecutionStats stats)
     {
+        stats = default;
         ct.ThrowIfCancellationRequested();
         ArgumentOutOfRangeException.ThrowIfLessThan(page, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(size, 1);
@@ -107,11 +247,10 @@ public sealed partial class ArticleSearchIndex
 
         var start = (long)(page - 1) * size;
         var window = start >= MaxPaginatedResults ? 0 : (int)Math.Min(start + size, MaxPaginatedResults);
-        var (primaryHits, relaxedHits, allowsRelaxation) = _wide is { } wide
-            ? CollectWideHits(wide, plan, DefaultWorkBudgetCandidates, ct)
-            : CollectCompactHits(plan, DefaultWorkBudgetCandidates, ct);
-        return FinalizeDetailedPage(primaryHits, relaxedHits, allowsRelaxation, sort,
-            (int)Math.Min(start, MaxPaginatedResults), window);
+        var outcome = _wide is { } wide
+            ? ExecuteWideSearch(wide, plan, sort, window, window, null, 0, window, DefaultWorkBudgetCandidates, ct, out stats)
+            : ExecuteCompactSearch(plan, sort, window, window, null, 0, window, DefaultWorkBudgetCandidates, requireExactCount: true, ct, out stats);
+        return BuildDetailedPageFromOutcome(outcome, (int)Math.Min(start, MaxPaginatedResults), window);
     }
 
     public ArticleSearchCursorPage SearchWithCursor(
@@ -123,7 +262,7 @@ public sealed partial class ArticleSearchIndex
         CancellationToken ct,
         int? countThreshold = null,
         int? workBudget = null) =>
-        SearchWithCursor(SearchQueryPlan.Build(query, ct), sort, size, afterCursor, returnedSoFar, ct, countThreshold, workBudget);
+        SearchWithCursor(SearchQueryPlan.Build(query, ct), sort, size, afterCursor, returnedSoFar, ct, out _, countThreshold, workBudget);
 
     public ArticleSearchCursorPage SearchWithCursor(
         SearchQueryPlan plan,
@@ -133,8 +272,33 @@ public sealed partial class ArticleSearchIndex
         int returnedSoFar,
         CancellationToken ct,
         int? countThreshold = null,
+        int? workBudget = null) =>
+        SearchWithCursor(plan, sort, size, afterCursor, returnedSoFar, ct, out _, countThreshold, workBudget);
+
+    public ArticleSearchCursorPage SearchWithCursor(
+        string query,
+        ArticleSearchSort sort,
+        int size,
+        SearchCursorPosition? afterCursor,
+        int returnedSoFar,
+        CancellationToken ct,
+        out SearchExecutionStats stats,
+        int? countThreshold = null,
+        int? workBudget = null) =>
+        SearchWithCursor(SearchQueryPlan.Build(query, ct), sort, size, afterCursor, returnedSoFar, ct, out stats, countThreshold, workBudget);
+
+    public ArticleSearchCursorPage SearchWithCursor(
+        SearchQueryPlan plan,
+        ArticleSearchSort sort,
+        int size,
+        SearchCursorPosition? afterCursor,
+        int returnedSoFar,
+        CancellationToken ct,
+        out SearchExecutionStats stats,
+        int? countThreshold = null,
         int? workBudget = null)
     {
+        stats = default;
         ct.ThrowIfCancellationRequested();
         ArgumentOutOfRangeException.ThrowIfLessThan(size, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(size, WireLimits.PublicSearchMaxPageSize);
@@ -144,497 +308,15 @@ public sealed partial class ArticleSearchIndex
 
         var budget = Math.Max(1, workBudget ?? DefaultWorkBudgetCandidates);
         var threshold = Math.Max(1, countThreshold ?? MaxPaginatedResults);
-        var (primaryHits, relaxedHits, allowsRelaxation) = _wide is { } wide
-            ? CollectWideHits(wide, plan, budget, ct)
-            : CollectCompactHits(plan, budget, ct);
-        return FinalizeCursorPage(primaryHits, relaxedHits, allowsRelaxation, sort, size, afterCursor, returnedSoFar, threshold);
-    }
+        var remainingWindow = Math.Max(0, MaxPaginatedResults - Math.Max(0, returnedSoFar));
+        var pageTake = Math.Min(size, remainingWindow);
+        var needExtra = pageTake > 0 && returnedSoFar + pageTake < MaxPaginatedResults;
+        var needTotal = pageTake + (needExtra ? 1 : 0);
 
-    private (List<ArticleSearchHit> Primary, List<ArticleSearchHit> Relaxed, bool AllowsRelaxation) CollectCompactHits(
-        SearchQueryPlan plan, int workBudget, CancellationToken ct)
-    {
-        var n = _documents.Length;
-        var concepts = plan.ContentConcepts;
-        var conceptIdfs = new double[concepts.Length];
-        var shortPrefixIdfs = new double[concepts.Length];
-        var shortPrefixWeights = new int[concepts.Length][]; // non-null only for concepts with short ASCII prefix
-        var totalQueryIdf = 0.0;
-
-        // Resolve dictionary terms once per unique key
-        var resolvedTerms = new Dictionary<SearchTermKey, Term>();
-        Term Lookup(SearchTermKey key)
-        {
-            if (resolvedTerms.TryGetValue(key, out var found)) return found;
-            found = FindTerm(_terms, key);
-            resolvedTerms[key] = found;
-            return found;
-        }
-
-        // Pre-resolve every concept step & quoted phrase step
-        foreach (var phrase in plan.QuotedPhrases)
-        {
-            foreach (var st in phrase.Steps)
-            {
-                if (Lookup(st.CanonicalKey).Count == 0) return ([], [], false);
-            }
-        }
-
-        var allowsRelaxation = SearchScoringProfile.AllowsRelaxation(plan);
-        var minRelaxed = SearchScoringProfile.MinRelaxedConcepts(concepts.Length);
-        var minRelaxedRatio = SearchScoringProfile.MinRelaxedIdfRatio(concepts.Length);
-
-        var possibleConcepts = 0;
-        var possibleIdfSum = 0.0;
-        for (var c = 0; c < concepts.Length; c++)
-        {
-            ct.ThrowIfCancellationRequested();
-            var concept = concepts[c];
-            double idf;
-            var canMatch = false;
-            switch (concept.Kind)
-            {
-                case SearchConceptKind.CjkSequence:
-                {
-                    var maxIdf = 0.0;
-                    var allPresent = true;
-                    foreach (var st in concept.Steps)
-                    {
-                        var df = Lookup(st.CanonicalKey).Count;
-                        if (df == 0) allPresent = false;
-                        if (st.DiffersFromExactForm) Lookup(st.ExactFormKey);
-                        var stIdf = SearchScoringProfile.InverseDocumentFrequency(n, df);
-                        if (stIdf > maxIdf) maxIdf = stIdf;
-                    }
-                    idf = maxIdf;
-                    canMatch = allPresent;
-                    break;
-                }
-                case SearchConceptKind.CompoundHyphen:
-                {
-                    var exactDf = Lookup(concept.Steps[0].CanonicalKey).Count;
-                    var minSubDf = n;
-                    var allSubs = concept.Steps.Length > 1;
-                    for (var i = 1; i < concept.Steps.Length; i++)
-                    {
-                        var d = Lookup(concept.Steps[i].CanonicalKey).Count;
-                        if (d == 0) allSubs = false;
-                        if (d < minSubDf) minSubDf = d;
-                    }
-                    var combinedDf = Math.Min(n, Math.Max(exactDf, allSubs ? minSubDf : 0));
-                    idf = SearchScoringProfile.InverseDocumentFrequency(n, combinedDf);
-                    canMatch = exactDf > 0 || allSubs;
-                    break;
-                }
-                default:
-                {
-                    var st = concept.Steps[0];
-                    var df = Lookup(st.CanonicalKey).Count;
-                    if (st.DiffersFromExactForm) Lookup(st.ExactFormKey);
-                    idf = SearchScoringProfile.InverseDocumentFrequency(n, df);
-                    canMatch = df > 0;
-                    if (concept.ShortAsciiPrefix is { } prefix)
-                    {
-                        var prefixDf = 0;
-                        var packedCounts = new int[n];
-                        for (var ord = 0; ord < n; ord++)
-                        {
-                            if ((ord & 1023) == 0) ct.ThrowIfCancellationRequested();
-                            var p = PackShortPrefixHits(_documents[ord].Article, prefix);
-                            if (p != 0) { packedCounts[ord] = p; prefixDf++; }
-                        }
-                        if (prefixDf > 0)
-                        {
-                            shortPrefixWeights[c] = packedCounts;
-                            shortPrefixIdfs[c] = SearchScoringProfile.InverseDocumentFrequency(n, Math.Min(n, df + prefixDf));
-                            canMatch = true;
-                        }
-                    }
-                    break;
-                }
-            }
-
-            conceptIdfs[c] = idf;
-            totalQueryIdf += idf;
-            if (!canMatch)
-            {
-                if (concept.IsStrictIdentifier || !allowsRelaxation) return ([], [], false);
-            }
-            else
-            {
-                possibleConcepts++;
-                possibleIdfSum += idf;
-            }
-        }
-
-        if (possibleConcepts < minRelaxed || (totalQueryIdf > 0.0 && possibleIdfSum / totalQueryIdf < minRelaxedRatio))
-            return ([], [], false);
-
-        // Pre-resolve OrderedQuerySequence keys for proximity bonus
-        foreach (var st in plan.OrderedQuerySequence) Lookup(st.CanonicalKey);
-
-        // Collect candidate document ordinals without scanning the full corpus when selective
-        var candidateOrdinals = CollectCompactCandidates(plan, concepts, shortPrefixWeights, Lookup, allowsRelaxation, ct);
-        if (candidateOrdinals.Count == 0) return ([], [], false);
-
-        var primaryHits = new List<ArticleSearchHit>();
-        var relaxedHits = new List<ArticleSearchHit>();
-        Span<double> tfs = stackalloc double[SearchScoringProfile.FieldCount];
-        Span<int> docLens = stackalloc int[SearchScoringProfile.FieldCount];
-
-        var scoredCandidates = 0;
-        foreach (var ordinal in candidateOrdinals)
-        {
-            ct.ThrowIfCancellationRequested();
-            if (++scoredCandidates > workBudget)
-                throw new SearchBudgetExceededException();
-
-            // 1. Strict quoted phrases MUST match (never relaxed)
-            var phraseOk = true;
-            foreach (var phrase in plan.QuotedPhrases)
-            {
-                if (!CompactMatchesExactSequence(ordinal, phrase.Steps, Lookup, out _))
-                {
-                    phraseOk = false;
-                    break;
-                }
-            }
-            if (!phraseOk) continue;
-
-            var doc = _documents[ordinal];
-            doc.CopyLengths(docLens);
-
-            var matchedCount = 0;
-            var matchedIdfSum = 0.0;
-            var strictOk = true;
-            var score = 0.0;
-
-            for (var c = 0; c < concepts.Length; c++)
-            {
-                var concept = concepts[c];
-                tfs.Clear();
-                var matched = EvaluateCompactConcept(ordinal, concept, shortPrefixWeights[c], Lookup, tfs,
-                    out var exactFormHit, out var usedShortPrefixOnly);
-                if (!matched)
-                {
-                    if (concept.IsStrictIdentifier) { strictOk = false; break; }
-                    continue;
-                }
-                matchedCount++;
-                matchedIdfSum += conceptIdfs[c];
-                var activeIdf = usedShortPrefixOnly ? shortPrefixIdfs[c] : conceptIdfs[c];
-                score += SearchScoringProfile.ScoreConceptBm25F(activeIdf, tfs, docLens, _avgFieldLengths);
-                if (exactFormHit)
-                    score += SearchScoringProfile.ExactFormBonusFactor * activeIdf;
-            }
-            if (!strictOk || matchedCount == 0) continue;
-
-            var isPrimary = matchedCount == concepts.Length;
-            var isRelaxed = !isPrimary && allowsRelaxation &&
-                            matchedCount >= minRelaxed &&
-                            totalQueryIdf > 0.0 &&
-                            (matchedIdfSum / totalQueryIdf) >= minRelaxedRatio;
-            if (!isPrimary && !isRelaxed) continue;
-
-            if (plan.QuotedPhrases.Length > 0 || (isPrimary && plan.OrderedQuerySequence.Length >= 2))
-            {
-                var seq = plan.QuotedPhrases.Length > 0 ? plan.QuotedPhrases[0].Steps : plan.OrderedQuerySequence;
-                if (CompactMatchesExactSequence(ordinal, seq, Lookup, out var matchField))
-                {
-                    var factor = matchField is SearchScoreField.Title or SearchScoreField.Heading
-                        ? SearchScoringProfile.TitleOrHeadingPhraseBonusFactor
-                        : SearchScoringProfile.BodyPhraseBonusFactor;
-                    score += factor * matchedIdfSum;
-                }
-                else if (isPrimary && concepts.Length >= 2 &&
-                         CompactMatchesTightProximity(ordinal, plan.OrderedQuerySequence, Lookup, 2 * concepts.Length + 4))
-                {
-                    score += SearchScoringProfile.TightProximityBonusFactor * matchedIdfSum;
-                }
-            }
-
-            if (isPrimary) primaryHits.Add(new ArticleSearchHit(doc.Article, SearchMatchTier.Primary, score));
-            else relaxedHits.Add(new ArticleSearchHit(doc.Article, SearchMatchTier.Relaxed, score));
-        }
-
-        return (primaryHits, relaxedHits, allowsRelaxation);
-    }
-
-    private List<int> CollectCompactCandidates(
-        SearchQueryPlan plan,
-        SearchConcept[] concepts,
-        int[][] shortPrefixWeights,
-        Func<SearchTermKey, Term> lookup,
-        bool allowsRelaxation,
-        CancellationToken ct)
-    {
-        // Fast selective intersection driver when a non-relaxable constraint exists:
-        // either quoted phrase step, strict identifier, or full-coverage non-relaxable query (|C| <= 2)
-        Term? smallestDriver = null;
-        void ConsiderDriver(Term t)
-        {
-            if (smallestDriver is null || t.Count < smallestDriver.Value.Count)
-                smallestDriver = t;
-        }
-
-        foreach (var phrase in plan.QuotedPhrases)
-            foreach (var st in phrase.Steps)
-                ConsiderDriver(lookup(st.CanonicalKey));
-
-        foreach (var c in concepts)
-        {
-            if (c.IsStrictIdentifier)
-            {
-                ConsiderDriver(lookup(c.Steps[0].CanonicalKey));
-            }
-            else if (!allowsRelaxation)
-            {
-                if (c.Kind == SearchConceptKind.Term && c.ShortAsciiPrefix is null)
-                    ConsiderDriver(lookup(c.Steps[0].CanonicalKey));
-                else if (c.Kind == SearchConceptKind.CjkSequence)
-                    foreach (var st in c.Steps) ConsiderDriver(lookup(st.CanonicalKey));
-            }
-        }
-
-        if (smallestDriver is { } driver)
-        {
-            var list = new List<int>(driver.Count);
-            for (var i = 0; i < driver.Count; i++)
-            {
-                if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
-                list.Add(_postings[driver.Start + i].Ordinal);
-            }
-            return list;
-        }
-
-        // Broad / relaxable or short-prefix/hyphen-only query: union of candidate doc ordinals via pooled bitset/seen array
-        var seen = ArrayPool<byte>.Shared.Rent(_documents.Length);
-        try
-        {
-            seen.AsSpan(0, _documents.Length).Clear();
-            var list = new List<int>();
-            void AddTerm(Term t)
-            {
-                for (var i = 0; i < t.Count; i++)
-                {
-                    if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
-                    var ord = _postings[t.Start + i].Ordinal;
-                    if (seen[ord] == 0) { seen[ord] = 1; list.Add(ord); }
-                }
-            }
-
-            for (var c = 0; c < concepts.Length; c++)
-            {
-                var concept = concepts[c];
-                if (concept.Kind == SearchConceptKind.CjkSequence)
-                {
-                    // Pick the rarest bigram of the CJK sequence as its candidate generator (all bigrams are required)
-                    var rarest = lookup(concept.Steps[0].CanonicalKey);
-                    for (var s = 1; s < concept.Steps.Length; s++)
-                    {
-                        var t = lookup(concept.Steps[s].CanonicalKey);
-                        if (t.Count < rarest.Count) rarest = t;
-                    }
-                    if (rarest.Count > 0) AddTerm(rarest);
-                }
-                else if (concept.Kind == SearchConceptKind.CompoundHyphen)
-                {
-                    AddTerm(lookup(concept.Steps[0].CanonicalKey));
-                    if (concept.Steps.Length > 1)
-                    {
-                        var rarest = lookup(concept.Steps[1].CanonicalKey);
-                        for (var s = 2; s < concept.Steps.Length; s++)
-                        {
-                            var t = lookup(concept.Steps[s].CanonicalKey);
-                            if (t.Count < rarest.Count) rarest = t;
-                        }
-                        if (rarest.Count > 0) AddTerm(rarest);
-                    }
-                }
-                else
-                {
-                    AddTerm(lookup(concept.Steps[0].CanonicalKey));
-                    if (shortPrefixWeights[c] is { } spw)
-                    {
-                        for (var ord = 0; ord < spw.Length; ord++)
-                            if (spw[ord] != 0 && seen[ord] == 0) { seen[ord] = 1; list.Add(ord); }
-                    }
-                }
-            }
-            return list;
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(seen);
-        }
-    }
-
-    private bool EvaluateCompactConcept(int ordinal, SearchConcept concept, int[]? shortPrefixPacked,
-        Func<SearchTermKey, Term> lookup, Span<double> tfs, out bool exactFormHit, out bool usedShortPrefixOnly)
-    {
-        exactFormHit = false;
-        usedShortPrefixOnly = false;
-
-        switch (concept.Kind)
-        {
-            case SearchConceptKind.CjkSequence:
-            {
-                if (!CompactMatchesExactSequence(ordinal, concept.Steps, lookup, out _)) return false;
-                for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
-                {
-                    var minTf = double.MaxValue;
-                    foreach (var st in concept.Steps)
-                    {
-                        if (!TryFindPosting(lookup(st.CanonicalKey), ordinal, out var p)) { minTf = 0; break; }
-                        var tf = p.FieldTf(f);
-                        if (tf < minTf) minTf = tf;
-                    }
-                    tfs[f] = minTf == double.MaxValue ? 0 : minTf;
-                }
-                exactFormHit = true;
-                foreach (var st in concept.Steps)
-                {
-                    if (!TryFindPosting(lookup(st.ExactFormKey), ordinal, out var ex) || (ex.ExactFlags & ExactFlagBit) == 0)
-                    {
-                        exactFormHit = false;
-                        break;
-                    }
-                }
-                return true;
-            }
-            case SearchConceptKind.CompoundHyphen:
-            {
-                var hasExact = TryFindPosting(lookup(concept.Steps[0].CanonicalKey), ordinal, out var exactPosting);
-                var hasAllSub = concept.Steps.Length > 1;
-                Span<Posting> subPostings = concept.Steps.Length <= 8
-                    ? stackalloc Posting[concept.Steps.Length]
-                    : new Posting[concept.Steps.Length];
-                for (var i = 1; i < concept.Steps.Length; i++)
-                {
-                    if (!TryFindPosting(lookup(concept.Steps[i].CanonicalKey), ordinal, out subPostings[i]))
-                    {
-                        hasAllSub = false;
-                        break;
-                    }
-                }
-                if (!hasExact && !hasAllSub) return false;
-
-                for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
-                {
-                    var tf = hasExact ? exactPosting.FieldTf(f) : 0.0;
-                    if (hasAllSub)
-                    {
-                        var minSub = double.MaxValue;
-                        for (var i = 1; i < concept.Steps.Length; i++)
-                        {
-                            var stf = subPostings[i].FieldTf(f);
-                            if (stf < minSub) minSub = stf;
-                        }
-                        if (minSub != double.MaxValue && minSub > tf) tf = minSub;
-                    }
-                    tfs[f] = tf;
-                }
-                exactFormHit = hasExact && (exactPosting.ExactFlags & ExactFlagBit) != 0;
-                return true;
-            }
-            default:
-            {
-                var step = concept.Steps[0];
-                if (TryFindPosting(lookup(step.CanonicalKey), ordinal, out var posting))
-                {
-                    for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
-                        tfs[f] = posting.FieldTf(f);
-                    exactFormHit = step.DiffersFromExactForm
-                        ? (TryFindPosting(lookup(step.ExactFormKey), ordinal, out var ex) && (ex.ExactFlags & ExactFlagBit) != 0)
-                        : (posting.ExactFlags & ExactFlagBit) != 0;
-                    return true;
-                }
-                if (shortPrefixPacked is not null && shortPrefixPacked[ordinal] != 0)
-                {
-                    UnpackShortPrefixTfs(shortPrefixPacked[ordinal], tfs);
-                    usedShortPrefixOnly = true;
-                    return true;
-                }
-                return false;
-            }
-        }
-    }
-
-    private bool CompactMatchesExactSequence(int ordinal, SearchConceptStep[] steps, Func<SearchTermKey, Term> lookup,
-        out SearchScoreField bestField)
-    {
-        bestField = SearchScoreField.Body;
-        if (steps.Length == 0) return false;
-        Span<Posting> postings = steps.Length <= 16 ? stackalloc Posting[steps.Length] : new Posting[steps.Length];
-        for (var i = 0; i < steps.Length; i++)
-        {
-            if (!TryFindPosting(lookup(steps[i].CanonicalKey), ordinal, out postings[i]) || postings[i].PosCount == 0)
-                return false;
-        }
-        var baseSpan = _positions.AsSpan(postings[0].PosStart, postings[0].PosCount);
-        var baseOffset = steps[0].RelativeOffset;
-        var found = false;
-        for (var i = 0; i < baseSpan.Length; i++)
-        {
-            var packed0 = baseSpan[i];
-            var field = SearchScoringProfile.UnpackField(packed0);
-            var pos0 = SearchScoringProfile.UnpackPosition(packed0);
-            var allOk = true;
-            for (var s = 1; s < steps.Length; s++)
-            {
-                var targetPos = pos0 + (steps[s].RelativeOffset - baseOffset);
-                var spanS = _positions.AsSpan(postings[s].PosStart, postings[s].PosCount);
-                if (!ExhaustiveSearchOracle.ContainsFieldAndPos(spanS, field, targetPos))
-                {
-                    allOk = false;
-                    break;
-                }
-            }
-            if (allOk)
-            {
-                if (!found || (int)field < (int)bestField) bestField = field;
-                found = true;
-                if (bestField == SearchScoreField.Title) return true;
-            }
-        }
-        return found;
-    }
-
-    private bool CompactMatchesTightProximity(int ordinal, SearchConceptStep[] steps, Func<SearchTermKey, Term> lookup, int maxSpan)
-    {
-        if (steps.Length < 2) return false;
-        Span<Posting> postings = steps.Length <= 16 ? stackalloc Posting[steps.Length] : new Posting[steps.Length];
-        for (var i = 0; i < steps.Length; i++)
-        {
-            if (!TryFindPosting(lookup(steps[i].CanonicalKey), ordinal, out postings[i]) || postings[i].PosCount == 0)
-                return false;
-        }
-        var baseSpan = _positions.AsSpan(postings[0].PosStart, postings[0].PosCount);
-        for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
-        {
-            var field = (SearchScoreField)f;
-            for (var i = 0; i < baseSpan.Length; i++)
-            {
-                if (SearchScoringProfile.UnpackField(baseSpan[i]) != field) continue;
-                var anchor = SearchScoringProfile.UnpackPosition(baseSpan[i]);
-                var minP = anchor;
-                var maxP = anchor;
-                var allNear = true;
-                for (var s = 1; s < steps.Length; s++)
-                {
-                    var spanS = _positions.AsSpan(postings[s].PosStart, postings[s].PosCount);
-                    if (!ExhaustiveSearchOracle.TryFindClosestInField(spanS, field, anchor, out var closest))
-                    {
-                        allNear = false;
-                        break;
-                    }
-                    if (closest < minP) minP = closest;
-                    if (closest > maxP) maxP = closest;
-                    if (maxP - minP > maxSpan) { allNear = false; break; }
-                }
-                if (allNear) return true;
-            }
-        }
-        return false;
+        var outcome = _wide is { } wide
+            ? ExecuteWideSearch(wide, plan, sort, needTotal, needTotal, afterCursor, returnedSoFar, pageTake, budget, ct, out stats)
+            : ExecuteCompactSearch(plan, sort, needTotal, needTotal, afterCursor, returnedSoFar, pageTake, budget, requireExactCount: false, ct, out stats);
+        return BuildCursorPageFromOutcome(outcome, size, returnedSoFar, threshold);
     }
 
     private bool TryFindPosting(Term term, int ordinal, out Posting posting)
@@ -651,123 +333,6 @@ public sealed partial class ArticleSearchIndex
         }
         posting = default;
         return false;
-    }
-
-    private static ArticleSearchDetailedPage FinalizeDetailedPage(
-        List<ArticleSearchHit> primaryHits,
-        List<ArticleSearchHit> relaxedHits,
-        bool allowsRelaxation,
-        ArticleSearchSort sort,
-        int start,
-        int window)
-    {
-        primaryHits.Sort((a, b) => SearchScoringProfile.CompareHits(a, b, sort));
-        var includeRelaxed = allowsRelaxation &&
-                             primaryHits.Count < SearchScoringProfile.RelaxationTriggerPrimaryCount &&
-                             relaxedHits.Count > 0;
-        if (includeRelaxed)
-        {
-            relaxedHits.Sort((a, b) => SearchScoringProfile.CompareHits(a, b, sort));
-            if (relaxedHits.Count > SearchScoringProfile.MaxRelaxedResults)
-                relaxedHits.RemoveRange(SearchScoringProfile.MaxRelaxedResults, relaxedHits.Count - SearchScoringProfile.MaxRelaxedResults);
-        }
-        else
-        {
-            relaxedHits.Clear();
-        }
-
-        var total = primaryHits.Count + relaxedHits.Count;
-        if (window == 0 || start >= total || start >= window)
-            return new([], total, primaryHits.Count, relaxedHits.Count);
-
-        var end = Math.Min(total, window);
-        var count = end - start;
-        var slice = new ArticleSearchHit[count];
-        for (var i = 0; i < count; i++)
-        {
-            var idx = start + i;
-            slice[i] = idx < primaryHits.Count ? primaryHits[idx] : relaxedHits[idx - primaryHits.Count];
-        }
-        return new(slice, total, primaryHits.Count, relaxedHits.Count);
-    }
-
-    private static ArticleSearchCursorPage FinalizeCursorPage(
-        List<ArticleSearchHit> primaryHits,
-        List<ArticleSearchHit> relaxedHits,
-        bool allowsRelaxation,
-        ArticleSearchSort sort,
-        int size,
-        SearchCursorPosition? afterCursor,
-        int returnedSoFar,
-        int countThreshold)
-    {
-        primaryHits.Sort((a, b) => SearchScoringProfile.CompareHits(a, b, sort));
-        var includeRelaxed = allowsRelaxation &&
-                             primaryHits.Count < SearchScoringProfile.RelaxationTriggerPrimaryCount &&
-                             relaxedHits.Count > 0;
-        if (includeRelaxed)
-        {
-            relaxedHits.Sort((a, b) => SearchScoringProfile.CompareHits(a, b, sort));
-            if (relaxedHits.Count > SearchScoringProfile.MaxRelaxedResults)
-                relaxedHits.RemoveRange(SearchScoringProfile.MaxRelaxedResults, relaxedHits.Count - SearchScoringProfile.MaxRelaxedResults);
-        }
-        else
-        {
-            relaxedHits.Clear();
-        }
-
-        var rawTotal = primaryHits.Count + relaxedHits.Count;
-        var threshold = Math.Max(1, countThreshold);
-        PublicSearchTotalRelation totalRelation;
-        int totalCount, primaryCount, relaxedCount;
-        if (rawTotal > threshold)
-        {
-            totalRelation = PublicSearchTotalRelation.LowerBound;
-            totalCount = threshold;
-            primaryCount = Math.Min(primaryHits.Count, threshold);
-            relaxedCount = Math.Min(relaxedHits.Count, Math.Max(0, threshold - primaryCount));
-        }
-        else
-        {
-            totalRelation = PublicSearchTotalRelation.Exact;
-            totalCount = rawTotal;
-            primaryCount = primaryHits.Count;
-            relaxedCount = relaxedHits.Count;
-        }
-
-        var remainingWindow = Math.Max(0, MaxPaginatedResults - Math.Max(0, returnedSoFar));
-        var pageTake = Math.Min(size, remainingWindow);
-        if (pageTake == 0 || rawTotal == 0)
-            return new([], totalCount, totalRelation, primaryCount, relaxedCount, false, null);
-
-        var selected = new List<ArticleSearchHit>(Math.Min(pageTake, rawTotal));
-        var hasMore = false;
-
-        void Scan(List<ArticleSearchHit> list)
-        {
-            for (var i = 0; i < list.Count; i++)
-            {
-                var hit = list[i];
-                if (afterCursor is { } cur && SearchScoringProfile.CompareHitToCursor(hit, cur, sort) <= 0)
-                    continue;
-                if (selected.Count < pageTake)
-                {
-                    selected.Add(hit);
-                }
-                else
-                {
-                    if (returnedSoFar + selected.Count < MaxPaginatedResults)
-                        hasMore = true;
-                    return;
-                }
-            }
-        }
-
-        Scan(primaryHits);
-        if (!hasMore) Scan(relaxedHits);
-
-        var lastPos = selected.Count > 0 ? SearchCursorPosition.From(selected[^1]) : (SearchCursorPosition?)null;
-        return new([.. selected], totalCount, totalRelation, primaryCount, relaxedCount, hasMore, lastPos);
     }
 
     private static int PackShortPrefixHits(Article article, string prefix)
@@ -791,7 +356,7 @@ public sealed partial class ArticleSearchIndex
 
     private static Term FindTerm(Term[] terms, SearchTermKey key)
     {
-        var position = Array.BinarySearch(terms, new Term(key, 0, 0), Term.ByKey);
+        var position = Array.BinarySearch(terms, new Term(key, 0, 0, 0, 0), Term.ByKey);
         return position >= 0 ? terms[position] : default;
     }
 
@@ -828,11 +393,14 @@ public sealed partial class ArticleSearchIndex
         }
 
         private readonly Dictionary<SearchTermKey, DocAccum> _docTerms = [];
+        private readonly Dictionary<ushort, int> _docShortPrefixes = [];
         private readonly List<PendingPos> _docPositions = [];
         private readonly List<uint> _posScratch = [];
         internal readonly Dictionary<SearchTermKey, Bucket> Heads = [];
         internal readonly List<PendingPosting> Pending = [];
         internal readonly List<uint> Positions = [];
+        internal readonly Dictionary<ushort, Bucket> ShortPrefixHeads = [];
+        internal readonly List<PendingShortPrefixPosting> PendingShortPrefixes = [];
 
         internal bool Collect(IReadOnlyList<Article> articles, Document[] documents, long[] totalFieldLengths,
             int termLimit, int postingLimit, CancellationToken ct)
@@ -840,23 +408,28 @@ public sealed partial class ArticleSearchIndex
             Heads.Clear();
             Pending.Clear();
             Positions.Clear();
+            ShortPrefixHeads.Clear();
+            PendingShortPrefixes.Clear();
 
             for (var ordinal = 0; ordinal < articles.Count; ordinal++)
             {
                 ct.ThrowIfCancellationRequested();
                 var article = articles[ordinal];
                 _docTerms.Clear();
+                _docShortPrefixes.Clear();
                 _docPositions.Clear();
 
                 if (!ChargeChars(article.Title.Length)) return false;
                 var titleRes = SearchTextAnalyzer.AnalyzePlainField(article.Title, SearchFieldKind.Title, SearchAnalysisMode.Index, 0, ct);
                 if (!Accumulate(titleRes.Tokens, SearchScoreField.Title, 0, termLimit)) return false;
+                ArticleSearchTokens.AccumulateShortPrefixCounts(article.Title, 20, _docShortPrefixes);
                 var titleLen = Math.Max(1, titleRes.SourceLength);
 
                 var summaryText = article.Summary ?? "";
                 if (!ChargeChars(summaryText.Length)) return false;
                 var sumRes = SearchTextAnalyzer.AnalyzePlainField(summaryText, SearchFieldKind.Summary, SearchAnalysisMode.Index, 0, ct);
                 if (!Accumulate(sumRes.Tokens, SearchScoreField.Summary, 0, termLimit)) return false;
+                ArticleSearchTokens.AccumulateShortPrefixCounts(summaryText, 10, _docShortPrefixes);
                 var sumLen = Math.Max(1, sumRes.SourceLength);
 
                 var taxPos = 0;
@@ -866,6 +439,7 @@ public sealed partial class ArticleSearchIndex
                     if (!ChargeChars(cat.Name.Length)) return false;
                     var catRes = SearchTextAnalyzer.AnalyzePlainField(cat.Name, SearchFieldKind.Taxonomy, SearchAnalysisMode.Index, taxPos, ct);
                     if (!Accumulate(catRes.Tokens, SearchScoreField.Taxonomy, 0, termLimit)) return false;
+                    ArticleSearchTokens.AccumulateShortPrefixCounts(cat.Name, 0, _docShortPrefixes);
                     taxLen += catRes.SourceLength;
                     taxPos = catRes.EndPosition + SearchTextAnalyzer.BlockPositionGap;
                 }
@@ -875,6 +449,7 @@ public sealed partial class ArticleSearchIndex
                     if (!ChargeChars(tag.Name.Length)) return false;
                     var tagRes = SearchTextAnalyzer.AnalyzePlainField(tag.Name, SearchFieldKind.Taxonomy, SearchAnalysisMode.Index, taxPos, ct);
                     if (!Accumulate(tagRes.Tokens, SearchScoreField.Taxonomy, 0, termLimit)) return false;
+                    ArticleSearchTokens.AccumulateShortPrefixCounts(tag.Name, 0, _docShortPrefixes);
                     taxLen += tagRes.SourceLength;
                     taxPos = tagRes.EndPosition + SearchTextAnalyzer.BlockPositionGap;
                 }
@@ -937,6 +512,15 @@ public sealed partial class ArticleSearchIndex
                         bucket.Head));
                     bucket = new Bucket(Pending.Count - 1, bucket.Count + 1);
                 }
+
+                foreach (var (spKey, packed) in _docShortPrefixes)
+                {
+                    if (packed == 0) continue;
+                    ref var bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(ShortPrefixHeads, spKey, out var found);
+                    if (!found) bucket = new Bucket(-1, 0);
+                    PendingShortPrefixes.Add(new PendingShortPrefixPosting(new ShortPrefixPosting(ordinal, packed), bucket.Head));
+                    bucket = new Bucket(PendingShortPrefixes.Count - 1, bucket.Count + 1);
+                }
             }
             return true;
         }
@@ -994,6 +578,13 @@ public sealed partial class ArticleSearchIndex
     }
 
     private readonly record struct PendingPosting(Posting Value, int Previous);
+    private readonly record struct ShortPrefixPosting(int Ordinal, int Packed);
+    private readonly record struct PendingShortPrefixPosting(ShortPrefixPosting Value, int Previous);
+    private readonly record struct ShortPrefixBlockMeta(
+        int MaxOrdinal,
+        ushort MaxTitleHits, ushort MaxSummaryHits, ushort MaxTaxonomyHits,
+        ushort MinLen0, ushort MinLen2, ushort MinLen3,
+        long MaxPublishedTicks, long MinPublishedTicks);
     private readonly record struct Bucket(int Head, int Count);
 
     private readonly record struct Document(Article Article, int TitleLen, int HeadingLen, int SummaryLen, int TaxonomyLen, int BodyLen)
@@ -1008,9 +599,15 @@ public sealed partial class ArticleSearchIndex
         }
     }
 
-    private readonly record struct Term(SearchTermKey Key, int Start, int Count)
+    private readonly record struct Term(SearchTermKey Key, int Start, int Count, int BlockStart, int BlockCount)
     {
         internal static readonly IComparer<Term> ByKey =
             Comparer<Term>.Create(static (left, right) => left.Key.CompareTo(right.Key));
+    }
+
+    private readonly record struct ShortPrefixTerm(ushort Key, int Start, int Count, int BlockStart, int BlockCount)
+    {
+        internal static readonly IComparer<ShortPrefixTerm> ByKey =
+            Comparer<ShortPrefixTerm>.Create(static (left, right) => left.Key.CompareTo(right.Key));
     }
 }
