@@ -28,12 +28,20 @@ public sealed class PublicArticleCacheTests
     [Fact]
     public async Task KestrelDisconnectCancelsOneWaiterWithoutDiscardingTheSharedRender()
     {
-        using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        using var trace = new HeldColdTrace();
+        using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var trace = new ColdTrace();
+        var renderPaused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRender = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var now = DateTimeOffset.UtcNow;
         var article = new Article(1, 1, 1, 1, 1, "Cold detail", "## Cold payload", now, now, now);
         var cache = new PublicArticleCache(new Dictionary<int, Article> { [article.Id] = article },
-            new WebPages("<!--fsus-public-content-->"), log: trace);
+            new WebPages("<!--fsus-public-content-->"), log: trace,
+            waitBudget: TimeSpan.FromSeconds(10), renderBudget: TimeSpan.FromSeconds(10),
+            beforeEncode: () =>
+            {
+                renderPaused.TrySetResult();
+                return releaseRender.Task;
+            });
 
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
@@ -60,16 +68,17 @@ public sealed class PublicArticleCacheTests
             await client.ConnectAsync(new IPEndPoint(IPAddress.Loopback, origin.Port), budget.Token);
             var message = "GET /article/1 HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: keep-alive\r\n\r\n"u8.ToArray();
             Assert.Equal(message.Length, await client.SendAsync(message, SocketFlags.None, budget.Token));
-            await trace.RenderStarted.Task.WaitAsync(budget.Token);
+            await renderPaused.Task.WaitAsync(budget.Token);
+            Assert.True(trace.RenderStarted.Task.IsCompletedSuccessfully);
             client.LingerState = new LingerOption(true, 0);
             client.Close();
 
-            // The waiter may run its cancellation continuation synchronously and
-            // need the held trace lock before other token callbacks can run.
+            // Pause encode asynchronously outside the cache lock so cancellation is observed
+            // deterministically before the shared render is released to finish and cache.
             var requestAborted = await requestToken.Task.WaitAsync(budget.Token);
-            while (!requestAborted.IsCancellationRequested) await Task.Delay(1, budget.Token);
-            trace.ReleaseRender.Set();
             await trace.WaiterCancelled.Task.WaitAsync(budget.Token);
+            Assert.True(requestAborted.IsCancellationRequested);
+            releaseRender.TrySetResult();
 
             using var retry = new HttpClient { BaseAddress = origin };
             Assert.Contains("<h2>Cold payload</h2>", await retry.GetStringAsync("/article/1", budget.Token));
@@ -77,16 +86,15 @@ public sealed class PublicArticleCacheTests
         }
         finally
         {
-            trace.ReleaseRender.Set();
+            releaseRender.TrySetResult();
             await app.StopAsync(CancellationToken.None);
         }
     }
 
-    private sealed class HeldColdTrace : ILogger, IDisposable
+    private sealed class ColdTrace : ILogger
     {
         internal TaskCompletionSource RenderStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal TaskCompletionSource WaiterCancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        internal ManualResetEventSlim ReleaseRender { get; } = new();
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
@@ -99,14 +107,11 @@ public sealed class PublicArticleCacheTests
             {
                 case "started":
                     RenderStarted.TrySetResult();
-                    Assert.True(ReleaseRender.Wait(TimeSpan.FromSeconds(10)), "Kestrel did not abort the waiting request.");
                     break;
                 case "wait-cancelled":
                     WaiterCancelled.TrySetResult();
                     break;
             }
         }
-
-        public void Dispose() => ReleaseRender.Dispose();
     }
 }

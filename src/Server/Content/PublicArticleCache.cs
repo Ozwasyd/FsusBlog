@@ -4,18 +4,22 @@ internal sealed record PublicArticleBytes(byte[] Wire, byte[] Html, byte[]? Engl
 
 internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> articles, WebPages pages,
     long generation = 0, ILogger? log = null, RuntimeEvidence? evidence = null, PublishedMediaProjection? media = null,
-    long siteConfigRevision = 0)
+    long siteConfigRevision = 0, TimeSpan? waitBudget = null, TimeSpan? renderBudget = null,
+    Func<Task>? beforeEncode = null)
 {
     private const int ParallelRenders = 4;
     private const int PendingRenders = 64;
     private const long ByteLimit = 96 * 1024 * 1024;
-    private static readonly TimeSpan WaitBudget = TimeSpan.FromMilliseconds(750);
-    private static readonly TimeSpan RenderBudget = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan DefaultWaitBudget = TimeSpan.FromMilliseconds(750);
+    private static readonly TimeSpan DefaultRenderBudget = TimeSpan.FromSeconds(2);
     private static readonly Action<ILogger, string, int, long, int, int, long, Exception?> LogCold =
         LoggerMessage.Define<string, int, long, int, int, long>(LogLevel.Debug, new EventId(2201, "PublicArticleColdCache"),
             "Public article cache {Event} article={ArticleId} generation={Generation} pending={Pending} active={Active} elapsed_us={ElapsedUs}");
     private readonly PublishedMediaProjection? _media = media;
     private readonly long _siteConfigRevision = siteConfigRevision;
+    private readonly TimeSpan _waitBudget = PositiveBudget(waitBudget, DefaultWaitBudget, nameof(waitBudget));
+    private readonly TimeSpan _renderBudget = PositiveBudget(renderBudget, DefaultRenderBudget, nameof(renderBudget));
+    private readonly Func<Task>? _beforeEncode = beforeEncode;
     private readonly object _gate = new();
     private readonly Dictionary<int, Task<PublicArticleBytes>> _pending = new();
     private readonly Dictionary<int, LinkedListNode<Entry>> _entries = new();
@@ -83,7 +87,7 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
             else Trace("joined", id, arrived);
         }
 
-        try { return await operation.WaitAsync(WaitBudget, cancellationToken); }
+        try { return await operation.WaitAsync(_waitBudget, cancellationToken); }
         catch (TimeoutException)
         {
             lock (_gate) Trace("wait-timeout", id, arrived);
@@ -100,7 +104,7 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
     {
         try
         {
-            var remaining = WaitBudget - Stopwatch.GetElapsedTime(admitted);
+            var remaining = _waitBudget - Stopwatch.GetElapsedTime(admitted);
             if (remaining <= TimeSpan.Zero || !await _workers.WaitAsync(remaining))
             {
                 lock (_gate) Trace("worker-timeout", article.Id, admitted);
@@ -110,7 +114,7 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
             {
                 lock (_gate)
                 {
-                    if (Stopwatch.GetElapsedTime(admitted) > WaitBudget)
+                    if (Stopwatch.GetElapsedTime(admitted) > _waitBudget)
                     {
                         Trace("worker-timeout", article.Id, admitted);
                         throw new PublicUnavailableException();
@@ -121,10 +125,11 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
                 }
                 try
                 {
+                    if (_beforeEncode is not null) await _beforeEncode();
                     var encoded = Encode(article);
                     lock (_gate)
                     {
-                        if (Stopwatch.GetElapsedTime(admitted) > RenderBudget)
+                        if (Stopwatch.GetElapsedTime(admitted) > _renderBudget)
                         {
                             Trace("render-timeout", article.Id, admitted);
                             throw new PublicUnavailableException();
@@ -186,6 +191,13 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
         }
         _entries.Add(id, _recent.AddFirst(new Entry(id, size, value)));
         _bytes += size;
+    }
+
+    private static TimeSpan PositiveBudget(TimeSpan? configured, TimeSpan fallback, string name)
+    {
+        var value = configured ?? fallback;
+        if (value <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(name, value, "Cache budget must be positive.");
+        return value;
     }
 
     private sealed record Entry(int Id, long Size, PublicArticleBytes Value);
