@@ -1,5 +1,10 @@
 namespace FsusBlog.V2.Integration.Tests;
 
+// These tests exercise the production lease heartbeat and SQL deadlines on a real cluster.
+[CollectionDefinition("Article read authority", DisableParallelization = true)]
+public sealed class ArticleReadAuthorityCollection;
+
+[Collection("Article read authority")]
 public sealed class ArticleReadAuthorityPostgresTests
 {
     [Fact]
@@ -41,7 +46,9 @@ public sealed class ArticleReadAuthorityPostgresTests
         var first = Assert.IsType<byte[]>(await authority.Challenge(id, publication, IPAddress.Loopback, browser, ct));
         await database.Exec("alter table public.article_read_dwell add constraint synthetic_failure check (count<0)");
         clock.Advance(TimeSpan.FromSeconds(8));
-        await Assert.ThrowsAsync<ArticleReadUnavailableException>(() => authority.Submit(id, publication, IPAddress.Loopback, browser, first, 8000, ct));
+        var failure = await Assert.ThrowsAsync<ArticleReadUnavailableException>(
+            () => authority.Submit(id, publication, IPAddress.Loopback, browser, first, 8000, ct));
+        Assert.Equal($"PostgreSQL error ({PostgresErrorCodes.CheckViolation}).", failure.Message);
         await AssertAggregates(database, id, 0, DBNull.Value);
         await database.Exec("alter table public.article_read_dwell drop constraint synthetic_failure");
 
