@@ -36,7 +36,7 @@ public sealed class SiteCapabilitiesTests
         var c = Resolve([]);
         Assert.All(new object?[] { c.PublicSite.Origin, c.SitePasskey, c.AdminIdentity, c.PrivateMediaRoot, c.PublicMediaRoot, c.SitePagesRoot, c.AppearanceRoot, c.TrafficRegionsPath, c.TrafficOrigin }, Assert.Null);
         Assert.All([c.PublicCommentSubmissions, c.SignedInCommentReplies, c.PrivateInboxWrites, c.DocumentExportTasks, c.PublicHotArticles, c.WideSearchCorpus, c.SiteConfigOverrideActive], Assert.True);
-        Assert.Equal("auto", c.PublicSearchMode);
+        Assert.Equal("server", c.PublicSearchMode);
         Assert.All([c.TrustLoopbackProxy, c.PrivateMediaResumable, c.ArticleReadProof, c.SiteTraffic, c.SiteTrafficReadable, c.ReaderRegistration, c.SitePersistentRefresh, c.SitePageEditor, c.SiteConfigEditor, c.OnlineAppearance], Assert.False);
         CheckAdminChannels(c, Assert.False);
         CheckAdminArticleTools(c, Assert.False);
@@ -122,7 +122,7 @@ public sealed class SiteCapabilitiesTests
             ["FSUSBLOG_SITE_PAGES"] = "", [AppearanceAssets.RootSetting] = "", [SiteCapabilities.PublicCommentsSetting] = "false",
             [CommentReplies.Setting] = "false", [InboxWriteEndpoints.Setting] = "false", [DocumentExportEndpoints.Setting] = "false",
             [PublicHotArticles.Setting] = "false", [WideSearchCorpusEndpoints.Setting] = "false",
-            [SiteCapabilities.PublicSearchModeSetting] = "server", [ArticleReadEndpoints.Setting] = "false",
+            [SiteCapabilities.PublicSearchModeSetting] = "local", [ArticleReadEndpoints.Setting] = "false",
             [SiteTraffic.EnabledSetting] = "false", [AdminInboxEndpoints.ReplySetting] = "false",
             [AdminInboxEndpoints.StatusSetting] = "false", [AdminInboxEndpoints.NoticeSetting] = "false",
             [AdminInboxEndpoints.SharedReadSetting] = "false", [AdminInboxEndpoints.LiveSetting] = "false",
@@ -133,7 +133,7 @@ public sealed class SiteCapabilitiesTests
         }, webDist.FullName);
 
         Assert.All(new object?[] { c.SitePasskey, c.PrivateMediaRoot, c.PublicMediaRoot, c.SitePagesRoot, c.AppearanceRoot }, Assert.Null);
-        Assert.Equal("server", c.PublicSearchMode);
+        Assert.Equal("local", c.PublicSearchMode);
         Assert.All([c.PublicCommentSubmissions, c.SignedInCommentReplies, c.PrivateInboxWrites, c.DocumentExportTasks, c.PublicHotArticles, c.WideSearchCorpus,
             c.PrivateMediaResumable, c.ArticleReadProof, c.SiteTraffic, c.SiteTrafficReadable, c.ReaderRegistration, c.SitePersistentRefresh, c.SitePageEditor, c.OnlineAppearance], Assert.False);
         CheckAdminChannels(c, Assert.False);
@@ -266,13 +266,13 @@ public sealed class SiteCapabilitiesTests
             ["FSUSBLOG_PASSKEY_ORIGIN"] = "", [PublicHotArticles.Setting] = "false", [ArticleReadEndpoints.Setting] = "false",
             [DocumentExportEndpoints.Setting] = "false", [SiteCapabilities.PublicCommentsSetting] = "false",
             [InboxWriteEndpoints.Setting] = "false", [WideSearchCorpusEndpoints.Setting] = "false",
-            [SiteTraffic.EnabledSetting] = "false", [SiteCapabilities.PublicSearchModeSetting] = "server",
+            [SiteTraffic.EnabledSetting] = "false", [SiteCapabilities.PublicSearchModeSetting] = "local",
         }, AttachPublicHttps))
         {
             var html = await OkString(HttpsSend(disabled.Client, HttpMethod.Get, "/"), ct);
             Assert.All([PublicHotArticles.PageMarker, ArticleReadEndpoints.PageMarker, DocumentExportEndpoints.Marker],
                 marker => Assert.DoesNotContain(marker, html, StringComparison.Ordinal));
-            Assert.Contains("name=\"fsus-public-search-mode\" content=\"server\"", html, StringComparison.Ordinal);
+            Assert.Contains("name=\"fsus-public-search-mode\" content=\"local\"", html, StringComparison.Ordinal);
 
             foreach (var route in new[] { WireRoutes.PasskeyAvailability, "/api/v2/identity/reader-registration/status.aeds",
                 WireRoutes.SiteRefreshAvailability, WireRoutes.PublicArticleHot.Replace("{size}", "10"), WireRoutes.PublicSearchWideManifest })

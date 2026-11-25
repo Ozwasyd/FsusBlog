@@ -42,6 +42,8 @@ const queries = ['博客搜索', 'PostgreSQL 18 索引优化', 'issue-2205', '�
 async function runSession(browser, queryList) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+  await cdp.send('Performance.enable');
   let workersStarted = 0;
   let searchApiRequests = 0;
   let searchApiBytes = 0;
@@ -53,7 +55,7 @@ async function runSession(browser, queryList) {
   page.on('response', async (response) => {
     const url = new URL(response.url());
     const method = response.request().method();
-    if (url.pathname === WireRoutes.PublicSearch) {
+    if (url.pathname === WireRoutes.PublicSearchV2 || url.pathname === WireRoutes.PublicSearch) {
       searchApiRequests++;
       try { searchApiBytes += (await response.body()).byteLength; } catch {}
     } else if (url.pathname === WireRoutes.PublicSearchCorpus || url.pathname.startsWith('/api/v2/public/search-corpus/')) {
@@ -66,6 +68,7 @@ async function runSession(browser, queryList) {
   });
 
   await page.goto(`${opts.origin}/search`, { waitUntil: 'networkidle' });
+  const metricsBefore = Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map(m => [m.name, m.value]));
 
   const perQuery = [];
   for (let i = 0; i < queryList.length; i++) {
@@ -91,6 +94,10 @@ async function runSession(browser, queryList) {
     });
   }
 
+  const metricsAfter = Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map(m => [m.name, m.value]));
+  const browserTaskCpuMs = Math.max(0, ((metricsAfter.TaskDuration ?? 0) - (metricsBefore.TaskDuration ?? 0)) * 1000);
+  const browserJsHeapUsedBytes = metricsAfter.JSHeapUsedSize ?? 0;
+
   const idbDatabases = await page.evaluate(async () => {
     if (!('databases' in indexedDB)) return [];
     const list = await indexedDB.databases();
@@ -105,6 +112,8 @@ async function runSession(browser, queryList) {
     corpusRequests,
     corpusBytes,
     headRequests,
+    browserTaskCpuMs,
+    browserJsHeapUsedBytes,
     idbDatabases,
     perQuery,
   };
@@ -119,6 +128,9 @@ try {
   const coldTimes = sessions.map(s => s.perQuery[0].timeToFirstUsableMs);
   const warmTimes = sessions.flatMap(s => s.perQuery.slice(1).map(q => q.timeToFirstUsableMs));
   const coldBytes = sessions.map(s => s.perQuery[0].deltaBytes);
+  const warmBytes = sessions.flatMap(s => s.perQuery.slice(1).map(q => q.deltaBytes));
+  const browserCpuMs = sessions.map(s => s.browserTaskCpuMs);
+  const browserHeapBytes = sessions.map(s => s.browserJsHeapUsedBytes);
   const median = (arr) => {
     const s = [...arr].sort((a, b) => a - b);
     const m = Math.floor(s.length / 2);
@@ -131,8 +143,13 @@ try {
     coldFirstSearchMedianMs: median(coldTimes),
     warmFollowupMedianMs: median(warmTimes),
     coldFirstSearchBytesMedian: median(coldBytes),
+    warmFollowupBytesMedian: median(warmBytes),
+    browserTaskCpuMedianMs: median(browserCpuMs),
+    browserJsHeapUsedMedianBytes: median(browserHeapBytes),
     workersStartedPerSession: sessions.map(s => s.workersStarted),
     corpusRequestsPerSession: sessions.map(s => s.corpusRequests),
+    searchApiRequestsPerSession: sessions.map(s => s.searchApiRequests),
+    headRequestsPerSession: sessions.map(s => s.headRequests),
     idbDatabases: sessions[0].idbDatabases,
     sessions,
   };

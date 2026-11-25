@@ -26,7 +26,7 @@ import { assertFields, assertStatus, pollHotRanking, readFrame } from './respons
 import { retainAedsBody, waitForPathResponse } from './response-wait-fixture.mjs'
 import { exerciseDraftRevision } from './revision-flow.mjs'
 import * as loc from './role-locators.mjs'
-import { exerciseSearchWorkerReuse } from './search-worker-reuse-flow.mjs'
+import * as searchFixture from './search-form-fixture.mjs'
 import { requireWebPackage } from './web-package-fixture.mjs'
 import { signInFreshAdmin } from './webauthn-fixture.mjs'
 import { exerciseWorkspace } from './workspace-flow.mjs'
@@ -630,21 +630,92 @@ await isolated.withBrowserEvidence(
     }
     await screen(visitor, 'article-mobile-dark')
 
-    const corpusResponse = mobile.waitForEvent('response', response =>
-      new URL(response.url()).pathname === WireRoutes.PublicSearchCorpus && response.request().method() === 'GET').then(retainAedsBody)
-    await search(visitor, 'release note')
-    await visible(loc.exactLink(visitor, title))
-    const corpus = await corpusResponse
-    assertStatus(corpus, 200)
-    assert.equal((await corpus.body()).subarray(0, 4).toString('ascii'), 'FSPK')
-    assert(!indexEntry.summary.includes(bodyTerm), 'The full-text term must fall outside the index summary')
-    const generationCheck = waitForPathResponse(visitor, () => WireRoutes.PublicSearchCorpus, 'HEAD')
-    await search(visitor, bodyTerm)
-    await visible(loc.exactLink(visitor, title))
-    assertStatus(await generationCheck, 204)
-    assert.equal((await api.search(bodyTerm)).items[0].id, writtenId)
-    await screen(visitor, 'search-mobile-dark')
-    observations.push('Published snapshot visible in HTML, AEDS public detail, and local full-text search on a dark 375px viewport. A body-only term passed through the FSPK worker and generation recheck.')
+    const searchCorpusCalls = []
+    let searchV2Requests = 0
+    const isCorpusPath = path => path === WireRoutes.PublicSearchCorpus || path.startsWith('/api/v2/public/search-corpus/')
+    const trackDefaultSearch = request => {
+      const url = new URL(request.url())
+      if (url.origin !== origin) return
+      if (isCorpusPath(url.pathname)) searchCorpusCalls.push(`${request.method()} ${url.pathname}`)
+      if (url.pathname === WireRoutes.PublicSearchV2) searchV2Requests++
+    }
+    mobile.on('request', trackDefaultSearch)
+    let firstSearchResponse
+    let preWithdrawCursorUrl
+    try {
+      // Explicit submission only: filling the query box must not trigger background full-text requests.
+      await visitor.goto(`${origin}/search`)
+      await visitor.getByRole('textbox', { name: 'Search articles' }).fill('release note')
+      await visitor.waitForTimeout(150)
+      assert.equal(searchV2Requests, 0, 'Typing in the search input must not issue unsolicited search requests')
+
+      const searchWait = waitForPathResponse(visitor, () => WireRoutes.PublicSearchV2, 'GET')
+      await loc.exactButton(visitor.locator('form.search-form'), 'Search').click()
+      await visible(loc.exactLink(visitor, title))
+      firstSearchResponse = await searchWait
+      assertStatus(firstSearchResponse, 200)
+      assert.equal(firstSearchResponse.headers()['cache-control'], 'no-store')
+      assert.equal(firstSearchResponse.headers()['content-type'], 'application/octet-stream')
+      assert(!indexEntry.summary.includes(bodyTerm), 'The full-text term must fall outside the index summary')
+
+      const bodySearchWait = waitForPathResponse(visitor, () => WireRoutes.PublicSearchV2, 'GET')
+      await search(visitor, bodyTerm)
+      await visible(loc.exactLink(visitor, title))
+      assertStatus(await bodySearchWait, 200)
+      await visible(visitor.locator('ol.article-list .search-snippet mark.search-highlight').first())
+      assert.equal((await api.search(bodyTerm)).items[0].id, writtenId)
+      await screen(visitor, 'search-mobile-dark')
+
+      if (config.publicFixture) {
+        await search(visitor, 'Browser fixture')
+        await visible(loc.exactLink(visitor, 'Next'))
+        await loc.exactLink(visitor, 'Next').click()
+        await visible(loc.exactText(visitor, 'Page 2'))
+        preWithdrawCursorUrl = visitor.url()
+        assert(new URL(preWithdrawCursorUrl).searchParams.get('cursor'), 'Server search page 2 must carry a cursor')
+        await visitor.goBack()
+        await visible(loc.exactText(visitor, 'Page 1'))
+        await visitor.goForward()
+        await visible(loc.exactText(visitor, 'Page 2'))
+        await loc.exactLink(visitor, 'Latest').click()
+        await visitor.waitForURL(u => u.pathname === '/search' && u.searchParams.get('sort') === 'latest' && !u.searchParams.get('cursor'))
+        await visible(visitor.locator('ol.article-list h2 a').first())
+      }
+
+      // Cancellation on query replacement: superseded in-flight V2 search must not render after a newer submission.
+      const supersededQuery = config.publicFixture ? 'Browser fixture' : 'release note'
+      const heldSearch = await searchFixture.holdRoute(mobile,
+        url => url.origin === origin && url.pathname === WireRoutes.PublicSearchV2,
+        req => new URL(req.url()).searchParams.get('q') === supersededQuery,
+        10_000, 'Timed out waiting for held default search request')
+      try {
+        await search(visitor, supersededQuery)
+        await heldSearch.reached()
+        await visitor.getByRole('textbox', { name: 'Search articles' }).fill(bodyTerm)
+        await loc.exactButton(visitor.locator('form.search-form'), 'Search').click()
+        await visible(loc.exactLink(visitor, title))
+        heldSearch.release()
+        await visitor.waitForTimeout(150)
+        assert.equal(new URL(visitor.url()).searchParams.get('q'), bodyTerm)
+        if (config.publicFixture) {
+          assert.equal(await loc.exactLink(visitor, 'Browser fixture 12').count(), 0,
+            'Superseded held search response must not overwrite replacement results')
+        }
+      } finally {
+        await heldSearch.close()
+      }
+
+      assert.deepEqual(searchCorpusCalls, [], 'Default server-first search must perform zero compact/wide corpus requests')
+      assert.equal(searchFixture.searchWorker(visitor), undefined, 'Default server-first search must start zero search Workers')
+      const searchIdbs = await visitor.evaluate(async () => {
+        if (!('databases' in indexedDB)) return []
+        return (await indexedDB.databases()).map(d => d.name).filter(name => name && name.includes('search'))
+      })
+      assert.deepEqual(searchIdbs, [], 'Default server-first search must write zero search IndexedDB databases')
+      observations.push('Default server-first search ran with zero corpus downloads, zero search Workers, zero search IndexedDB writes, explicit submission only, highlighted snippets, cursor pagination, sort switching, back/forward history, and in-flight replacement cancellation.')
+    } finally {
+      mobile.off('request', trackDefaultSearch)
+    }
 
     const reversedTitle = `Reverse order ${token}`
     const comparison = await author.publishDraft(publisher, await createDraft(reversedTitle,
@@ -659,7 +730,7 @@ await isolated.withBrowserEvidence(
     await visible(loc.exactText(orderedLinks, reversedTitle))
     assert.equal(await orderedLinks.first().textContent(), reversedTitle)
     await author.deleteDraft(publisher, comparison)
-    observations.push('The local worker normalizes fullwidth Latin and ranks mixed Latin/CJK dictionary phrases by stored word widths. Reversing query order reverses the order of otherwise equivalent articles.')
+    observations.push('Default server-first search normalizes fullwidth Latin and ranks mixed Latin/CJK phrases consistently. Reversing query order reverses the order of otherwise equivalent articles.')
 
     const stale = await desktop.newPage()
     monitor(stale, 'stale-editor')
@@ -685,19 +756,22 @@ await isolated.withBrowserEvidence(
     })
     await exerciseCanvas({ page: publisher, origin, targetArticle: publicArticle, screenshot: screen, monitor, observations, createDraft })
     await exerciseCanvasHistory({ page: publisher, origin, screenshot: screen, monitor, observations })
-    await isolated.withTempContext(browser, { viewport: { width: 375, height: 850 }, colorScheme: 'dark' }, async searchContext => {
-      await searchContext.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
-      const isolatedSearch = await searchContext.newPage()
-      monitor(isolatedSearch, 'fresh-search-corpus')
-      await exerciseSearchWorkerReuse({
-        page: isolatedSearch, origin, articleTitle: title, firstQuery: bodyTerm, repeatQuery: bodyTerm.toUpperCase(),
-        withdraw: async () => {
-          await loc.exactButton(publisher, 'More actions').click()
-          await loc.exactMenuItem(publisher, 'Withdraw').click()
-          await visible(loc.exactText(publisher, 'Article withdrawn.'))
-        },
-        observations,
+    await isolated.withTempContext(browser, { viewport: { width: 375, height: 850 }, colorScheme: 'dark' }, async restrictedContext => {
+      await restrictedContext.addCookies([{ name: 'fsus_locale', value: 'en', url: origin }])
+      await restrictedContext.addInitScript(() => {
+        Object.defineProperty(window, 'Worker', { value: undefined, configurable: true })
+        Object.defineProperty(window, 'indexedDB', { get() { throw new DOMException('Storage disabled', 'SecurityError') }, configurable: true })
+        Object.defineProperty(navigator, 'locks', { value: undefined, configurable: true })
       })
+      const restrictedPage = await restrictedContext.newPage()
+      monitor(restrictedPage, 'restricted-default-search')
+      await search(restrictedPage, bodyTerm)
+      await visible(loc.exactLink(restrictedPage, title))
+      assert.equal(searchFixture.searchWorker(restrictedPage), undefined)
+      await loc.exactButton(publisher, 'More actions').click()
+      await loc.exactMenuItem(publisher, 'Withdraw').click()
+      await visible(loc.exactText(publisher, 'Article withdrawn.'))
+      observations.push('Default server-first search succeeded with window.Worker, indexedDB, and navigator.locks unavailable.')
     })
     const withdrawn = await api.publicIndex()
     assert.notEqual(withdrawn.generation, published.generation)
@@ -707,9 +781,14 @@ await isolated.withBrowserEvidence(
     assertStatus(absent, 404)
     assert(!(await absent.text()).includes(token))
     await verifyRelatedWithdrawal(visitor, writtenId, relatedPrevious, origin)
-    const priorSearchGeneration = corpus.headers()['x-fsus-search-index-generation']
+    const priorSearchGeneration = firstSearchResponse.headers()['x-fsus-search-index-generation']
     assert(priorSearchGeneration)
     assert.equal((await nativeFetch(`${origin}${WireRoutes.PublicSearchCorpus}?generation=${priorSearchGeneration}`, { method: 'HEAD' })).status, 409)
+    if (preWithdrawCursorUrl) {
+      const staleCursor = new URL(preWithdrawCursorUrl).searchParams.get('cursor')
+      const staleV2 = await nativeFetch(`${origin}${WireRoutes.PublicSearchV2}?q=${encodeURIComponent('Browser fixture')}&size=10&cursor=${encodeURIComponent(staleCursor)}`)
+      assert.equal(staleV2.status, 409)
+    }
     await search(visitor, bodyTerm)
     await visible(loc.exactText(visitor, 'No articles match your search.'))
     if (process.env.FSUSBLOG_TEST_MARKDOWN_IMPORT === '1') {

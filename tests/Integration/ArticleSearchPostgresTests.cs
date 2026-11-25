@@ -199,9 +199,12 @@ public sealed class ArticleSearchPostgresTests
     public async Task PublicSearchModeConfigControlsHtmlMetaAndFailsFastOnInvalidValue()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        await using (var autoServer = await ServerProcess.Start(fixture.ConnectionString, ct))
-            Assert.DoesNotContain("fsus-public-search-mode", await autoServer.Client.GetStringAsync("/search", ct), StringComparison.Ordinal);
-        foreach (var mode in new[] { "server", "local" })
+        await using (var defaultServer = await ServerProcess.Start(fixture.ConnectionString, ct))
+            Assert.DoesNotContain("fsus-public-search-mode", await defaultServer.Client.GetStringAsync("/search", ct), StringComparison.Ordinal);
+        await using (var explicitServer = await ServerProcess.Start(fixture.ConnectionString, ct,
+            new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_SEARCH_MODE"] = "server" }))
+            Assert.DoesNotContain("fsus-public-search-mode", await explicitServer.Client.GetStringAsync("/search", ct), StringComparison.Ordinal);
+        foreach (var mode in new[] { "auto", "local" })
         {
             await using var modeServer = await ServerProcess.Start(fixture.ConnectionString, ct,
                 new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_SEARCH_MODE"] = mode });

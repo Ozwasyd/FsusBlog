@@ -94,8 +94,8 @@ FsusBlog v2 默认采用**统一单域名 HTTPS 部署**（也可按需显式拆
 ## 6. 全文检索与内容完整性子系统
 
 - **公开搜索三模式（`FSUSBLOG_PUBLIC_SEARCH_MODE`）**：
-  - `auto`（默认）：中小语料由浏览器 Worker 下载 FSPK v4 分片并在同源 IndexedDB 缓存复用（支持 ETag 304 与 FSPT 增量补丁）；超出紧凑档预算时按配置切至宽语料分片，或无缝回落至零数据库查询的服务端 FAS4 倒排检索；
-  - `local`：严格走客户端分片检索；
-  - `server`：直连服务端 FAS4，不启动浏览器搜索 Worker。
+  - `server`（默认，#49）：直连零数据库查询的服务端 `/api/v2/public/search.aeds`（AEDS `33081`），零搜索 Worker、零全量语料下载、零搜索 IndexedDB 写入，不依赖客户端存储或 Web Locks；
+  - `auto`（显式 opt-in）：中小语料由浏览器 Worker 下载 FSPK v4 分片并在同源 IndexedDB 缓存复用（支持 ETag 304 与 FSPT 增量补丁）；超出紧凑档预算时按配置切至宽语料分片，或回落至服务端检索；
+  - `local`（显式 opt-in）：严格走客户端分片检索（每次展示仍需经网络 `HEAD` 校验当前公开代次，非离线能力）。
   - 详情见 [本地全文检索](../product/public-search.md) 与 [公开 FAS4 服务端检索](../product/fas4-search.md)。
 - **可验证发布与完整性**：支持发布规范摘要、ECDSA P-256 签名与公开密钥清单（`/integrity/keys.json`）、发布透明日志头以及由独立只读账户与专用签名密钥驱动的每日 Merkle 检查点归档。详情见 [公开验证密钥](../product/integrity-keys.md) 与 [发布权利快照](../product/publication-rights.md)。

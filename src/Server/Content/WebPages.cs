@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace FsusBlog.V2.Server;
 
 internal sealed record PageShellCapabilities(
-    string PublicSearchMode = "auto",
+    string PublicSearchMode = "server",
     bool PluginPreview = false,
     bool DocumentExportTasks = false,
     bool PdfExport = false,
@@ -105,7 +105,7 @@ internal sealed partial class WebPages(string template, PublicSiteConfiguration?
             throw new InvalidOperationException("The v2 web build template must not pre-define site appearance stylesheets.");
 
         var markers = new StringBuilder();
-        if (capabilities.PublicSearchMode != "auto")
+        if (capabilities.PublicSearchMode != "server")
             markers.Append($"<meta name=\"fsus-public-search-mode\" content=\"{HtmlEncoder.Default.Encode(capabilities.PublicSearchMode)}\">");
         if (capabilities.PluginPreview)
             markers.Append(PluginPreviewEndpoints.Marker);

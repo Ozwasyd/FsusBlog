@@ -6,11 +6,11 @@
 
 ## 1. 搜索模式与默认配置
 
-- `FSUSBLOG_PUBLIC_SEARCH_MODE` 控制公开检索路由策略，支持 `auto`（默认）、`local` 与 `server`（非法值启动即失败）：
-  - **`auto`（默认）**：中小语料优先使用紧凑档 FSPK v4 本地分片；紧凑档超出预算返回 `503` 时自动切换至已启用的宽语料分片；宽语料未启用或存储不可用时，在当前 `/search` 周期内无缝回落至零数据库查询的服务端 FAS4 并释放 Worker（但宽档数据损坏或撤回 `409` 严格 fail-closed 拒绝，绝不静默回落）。
-  - **`local`**：强制仅走客户端分片检索路径。
-  - **`server`**：通过 `<meta name="fsus-public-search-mode" content="server">` 指示前端直连服务端 `/api/v2/public/search.aeds`（AEDS `33081`），展示精确/下界计数、部分匹配提示、安全纯文本高亮摘要与代次绑定游标翻页，不启动浏览器搜索 Worker（详见 [公开 FAS4 服务端检索](fas4-search.md)）。
-- `FSUSBLOG_WIDE_SEARCH_CORPUS` **默认开启**（可显式设为 `false` 关闭），为 25,601 至 100,000 篇公开文章构建离线暂存宽语料分片。
+- `FSUSBLOG_PUBLIC_SEARCH_MODE` 控制公开检索路由策略，支持 `server`（默认）、`auto` 与 `local`（非法值启动即失败）：
+  - **`server`（默认，#49）**：省略页面覆盖标记（或显式设 `server`），前端直连服务端 `/api/v2/public/search.aeds`（AEDS `33081`），仅按显式提交发送有界单次查询请求，返回当前页命中、精确/下界计数、部分匹配提示、安全纯文本高亮摘要与代次绑定游标，**零搜索 Worker 启动、零紧凑/宽语料分片下载、零搜索 IndexedDB 写入**，且不依赖浏览器 `Worker`、`indexedDB` 或 `navigator.locks`（详见 [公开 FAS4 服务端检索](fas4-search.md)）。
+  - **`auto`（显式 opt-in）**：通过 `<meta name="fsus-public-search-mode" content="auto">` 指示前端按需启用客户端分片检索——中小语料使用紧凑档 FSPK v4 本地分片（冷首查需下载全站紧凑分片）；紧凑档超出预算返回 `503` 时切换至已启用的宽语料分片；宽语料未启用或存储/Worker 不可用时，在当前 `/search` 周期内回落至零数据库查询的服务端 V2 检索并释放 Worker（但宽档数据损坏或撤回 `409` 严格 fail-closed 拒绝，绝不静默回落）。
+  - **`local`（显式 opt-in）**：通过 `<meta name="fsus-public-search-mode" content="local">` 强制仅走客户端分片检索路径（依赖浏览器 Web Worker，冷首查需下载完整分片并在展示结果前经网络 `HEAD` 复核当前公开代次；因此 `local`/`auto` **并非离线可用搜索**，而是以客户端首次下载与存储成本换取热会话本地执行）。
+- `FSUSBLOG_WIDE_SEARCH_CORPUS` **默认开启**（可显式设为 `false` 关闭），为显式启用 `auto`/`local` 时的 25,601 至 100,000 篇公开文章构建离线暂存宽语料分片。
 
 ## 2. 统一文本分析、词表与短语评分
 
