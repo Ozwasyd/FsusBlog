@@ -7,18 +7,33 @@ repo=$PWD
 
 mode=${1:-}
 output_arg=${2:-}
-if [[ $# != 2 || ( "$mode" != smoke && "$mode" != direct && "$mode" != soak && "$mode" != cold &&
-    "$mode" != proxy-smoke && "$mode" != proxy && "$mode" != peak && "$mode" != proxy-peak &&
-    "$mode" != supplier && "$mode" != proxy-supplier ) ]]; then
-  echo 'Usage: tests/Performance/run.sh {smoke|direct|soak|cold|proxy-smoke|proxy|peak|proxy-peak|supplier|proxy-supplier} NEW_EVIDENCE_DIRECTORY' >&2
-  exit 2
-fi
+launch_rate=
+case "$mode" in
+  launch-direct|proxy-launch|proxy-launch-soak)
+    if [[ $# != 3 || ! "${3:-}" =~ ^[1-9][0-9]{0,3}0$ ]] || (( $3 > 11000 )); then
+      echo 'Launch modes require NEW_EVIDENCE_DIRECTORY and a QPS multiple of 10 in 10..11000.' >&2
+      exit 2
+    fi
+    launch_rate=$3
+    ;;
+  smoke|direct|soak|cold|proxy-smoke|proxy|peak|proxy-peak|supplier|proxy-supplier)
+    [[ $# == 2 ]] || { echo 'Legacy modes require NEW_EVIDENCE_DIRECTORY only.' >&2; exit 2; }
+    ;;
+  *)
+    echo 'Usage: tests/Performance/run.sh {smoke|direct|soak|cold|proxy-smoke|proxy|peak|proxy-peak|supplier|proxy-supplier|launch-direct|proxy-launch|proxy-launch-soak} NEW_EVIDENCE_DIRECTORY [QPS]' >&2
+    exit 2
+    ;;
+esac
 proxy_mode=false
 runtime_evidence=false
 slow_requests=false
 if [[ "$mode" == *peak ]]; then slow_requests=true; fi
-if [[ "$mode" == soak || "$slow_requests" == true || ( "$mode" == *smoke && "${FSUSBLOG_PERF_RUNTIME:-}" == 1 ) ]]; then runtime_evidence=true; fi
+if [[ "$mode" == soak || "$mode" == proxy-launch-soak || "$slow_requests" == true || ( "$mode" == *smoke && "${FSUSBLOG_PERF_RUNTIME:-}" == 1 ) ]]; then runtime_evidence=true; fi
 shared_warmup=false
+if [[ -n "$launch_rate" && "${FSUSBLOG_PERF_REUSE_CONNECTIONS:-}" == 1 ]]; then
+  echo 'Launch modes use a separate warmup at the requested rate.' >&2
+  exit 2
+fi
 if [[ "$slow_requests" == true || "$mode" == *supplier || "${FSUSBLOG_PERF_REUSE_CONNECTIONS:-}" == 1 ]]; then
   if [[ "$mode" == cold || ( "$mode" == *smoke && "$runtime_evidence" != true ) || "${FSUSBLOG_PERF_PRECONNECT_TLS:-}" == 1 ]]; then
     echo 'Connection reuse requires a hot stage with its own warmup and no serial preconnection.' >&2
@@ -156,7 +171,16 @@ candidate=$(source_hash)
 ui_pkg="$repo/src/Web/node_modules/@ozwasyd/element-plus"
 ui_package=$(node -p "const p = require('$ui_pkg/package.json'); p.name + '@' + p.version")
 {
-  printf 'command=tests/Performance/run.sh %q %q\n' "$mode" "$output_arg"
+  printf 'command=tests/Performance/run.sh %q %q' "$mode" "$output_arg"
+  if [[ -n "$launch_rate" ]]; then printf ' %q' "$launch_rate"; fi
+  printf '\n'
+  if [[ -n "$launch_rate" ]]; then
+    printf 'launch_mode=%s\nlaunch_rate=%s\n' "$mode" "$launch_rate"
+    if [[ -r /proc/meminfo ]]; then
+      getconf _NPROCESSORS_ONLN
+      grep '^MemTotal:' /proc/meminfo
+    fi
+  fi
   printf 'shared_warmup=%s\n' "$shared_warmup"
   printf 'commit=%s\nsource_sha256=%s\n' "$commit" "$candidate"
   printf 'fsusui_package=%s\n' "$ui_package"
@@ -196,6 +220,9 @@ mkdir -p "$run/source/src" "$run/source/tests/Performance" "$run/source/tests/Fi
 rsync -a --exclude bin --exclude obj --exclude dist --exclude node_modules --exclude .DS_Store src/ "$run/source/src/"
 cp Directory.Build.* NuGet.Config global.json "$run/source/"
 cp tests/Performance/{seed.py,load.go,cold.go,proxy-boundary.mjs,proxy.sh,runtime.py,runtime.sh} "$run/source/tests/Performance/"
+if [[ -n "$launch_rate" ]]; then
+  cp tests/Performance/{launch_gate.py,capacity.py} "$run/source/tests/Performance/"
+fi
 cp tests/Fixtures/publication-rights.sql "$run/source/tests/Fixtures/"
 cp deploy/Caddyfile "$run/source/deploy/"
 shasum -a 256 "$run/source/deploy/Caddyfile" > "$evidence/caddyfile.sha256"
@@ -296,9 +323,23 @@ sample_proc() {
 (
   printf 'utc,pid,rss_kib,pcpu\n'
   if [[ -n "$proxy_pid" ]]; then printf 'utc,pid,rss_kib,pcpu\n' > "$evidence/proxy-process.csv"; fi
+  if [[ -n "$launch_rate" ]]; then
+    printf 'utc,pid,rss_kib,pcpu\n' > "$evidence/postgres-process.csv"
+    printf 'utc,pid,rss_kib,pcpu\n' > "$evidence/supplier-process.csv"
+  fi
   while kill -0 "$server_pid" 2>/dev/null; do
     sample_proc "$server_pid"
     if [[ -n "$proxy_pid" ]]; then sample_proc "$proxy_pid" >> "$evidence/proxy-process.csv"; fi
+    if [[ -n "$launch_rate" ]]; then
+      ps -axo pid=,ppid=,rss=,%cpu= | awk -v parent="$postgres_pid" -v date="$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+        '$1 == parent || $2 == parent { print date "," $1 "," $3 "," $4 }' >> "$evidence/postgres-process.csv"
+      if [[ -s "$run/supplier.pid" ]]; then
+        supplier_pid=$(cat "$run/supplier.pid" 2>/dev/null || true)
+        if [[ "$supplier_pid" =~ ^[1-9][0-9]*$ ]]; then
+          sample_proc "$supplier_pid" >> "$evidence/supplier-process.csv" || true
+        fi
+      fi
+    fi
     sleep 5
   done
 ) > "$evidence/server-process.csv" &
@@ -309,7 +350,9 @@ run_load() {
   printf '\n' >> "$evidence/commands.txt"
   "${supplier_env[@]}" "$run/load" "$@" > "$evidence/$stage.log" 2>&1 &
   load_pid=$!
+  if [[ -n "$launch_rate" ]]; then printf '%s\n' "$load_pid" > "$run/supplier.pid"; fi
   wait "$load_pid"
+  if [[ -n "$launch_rate" ]]; then rm -f -- "$run/supplier.pid"; fi
   load_pid=
 }
 
@@ -336,7 +379,7 @@ measure_with_warmup() {
   if [[ "$shared_warmup" == true ]]; then
     measure "$name" "$rate" "$seconds" "$warmup_seconds"
   else
-    measure "$warmup_name" 2000 "$warmup_seconds"
+    measure "$warmup_name" "${launch_rate:-2000}" "$warmup_seconds"
     measure "$name" "$rate" "$seconds"
   fi
 }
@@ -374,6 +417,14 @@ case "$mode" in
     ;;
   supplier|proxy-supplier)
     measure "$mode-11000" 11000 60 30
+    ;;
+  launch-direct|proxy-launch|proxy-launch-soak)
+    seconds=60
+    if [[ "$mode" == proxy-launch-soak ]]; then seconds=900; fi
+    measure_with_warmup "$mode-$launch_rate" "$launch_rate" "$seconds" "warmup-$launch_rate" 30
+    stage=launch-gate
+    python3 -B "$run/source/tests/Performance/launch_gate.py" "$mode" "$launch_rate" "$evidence" \
+      > "$evidence/launch-gate.json"
     ;;
   soak)
     measure_with_warmup direct-soak 8000 900 warmup-soak 30

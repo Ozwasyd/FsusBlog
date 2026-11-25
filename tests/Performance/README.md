@@ -15,7 +15,7 @@
 - **热读集与流量配比**：热请求选取已驻留的 1,200 篇公开文章；每百次请求按确定性配比为 **HTML 首页 20%、HTML 详情 30%、AEDS 首页列表 20%、AEDS 详情 30%**（详情 80% 命中 ID 1–120，20% 命中 ID 121–1200；首页固定第 1 页、20 条）。
 - **请求约束**：全部为无凭据 `GET`、HTTP/1.1 keep-alive、`identity` 编码、最多 256 个在途请求、端到端超时 2 s、禁用重试与跳转；所有响应读至流结束并校验状态码、长度、类型、公开代次及周期性内容摘要。仅有效 HTTP `200` 计为成功。
 
-### 阶段与验收门槛
+### 双机专项的固定负载与验收门槛
 
 | 阶段 | 工况与步长 | 通过门槛 |
 | --- | --- | --- |
@@ -23,7 +23,7 @@
 | **长时稳态（`soak`，短档达标后执行）** | 30 s 预热后在 8,000 QPS 持续 15 分钟（900 s） | 四条热读路径归因 PostgreSQL 命令与物理连接为 **0**；稳定后进程 RSS **≤ 1.5 GiB**；末 5 分钟 RSS 中位数较第 6–10 分钟增幅 **≤ 10%**；队列不持续增长 |
 | **冷读并发（`cold`）** | 3 个未驻留键各 64 并发（HTML/AEDS 各 32）+ 64 个不同 32 KiB 公开键同时并发 | 256 次全部返回正确 `200`；单键合并至多 1 次实际重建；等待端 ≤ 750 ms，leader ≤ 2 s |
 
-> 最终报告必须区分：未运行、环境阻塞、局部试跑、完整运行失败与完整通过。供给者打满资源或送不进目标流量时记为供给不足，不得以较小负载替代验收。
+> 最终报告必须区分：未运行、环境阻塞、局部试跑、完整运行失败与完整通过。供给者打满资源或送不进目标流量时记为供给不足，不得以较小负载替代双机专项验收。V2 首发使用第 4 节的单机实测口径，不得混报。
 
 ---
 
@@ -65,7 +65,7 @@ tests/Performance/run.sh proxy-supplier artifacts/p2-tls-supplier-1
 
 ---
 
-## 3. 数字门槛复算与独立双机供给准入
+## 3. 后续双机专项：数字门槛复算与独立供给准入
 
 使用 [`tests/Performance/capacity.py`](capacity.py) 复算已完成矩阵的数字门槛：
 
@@ -74,4 +74,28 @@ python3 tests/Performance/capacity.py --direct PATH_1 --direct PATH_2 --proxy PA
 ```
 
 - `--require-peak-quorum` 校验直连与 TLS 是否各有至少两轮独立峰值通过；未通过时退出码为 `1`，标准输出保留全部传入轮次的原始复算结果。
-- 正式双实机验收需由协调方独立保存 `private-supplier.json`（版本 `1`，绑定 `runId`/`invocationId`/`attemptId`、`topology`、`target`、`generation`、双机 `serverHostId`/`supplierHostId` 摘要，以及归档、清单、语料、协议、工具和每档报告的 SHA-256），并在复算时附加 `--private-supplier-inputs TRUSTED_INPUTS` 执行完整准入校验。独立供给客户端通过 `-private-target` 与 `-ca` 指向私网被测目标（默认 `-target` 仅接受显式回环地址）。
+- 双实机专项验收需由协调方独立保存 `private-supplier.json`（版本 `1`，绑定 `runId`/`invocationId`/`attemptId`、`topology`、`target`、`generation`、双机 `serverHostId`/`supplierHostId` 摘要，以及归档、清单、语料、协议、工具和每档报告的 SHA-256），并在复算时附加 `--private-supplier-inputs TRUSTED_INPUTS` 执行完整准入校验。独立供给客户端通过 `-private-target` 与 `-ca` 指向私网被测目标（默认 `-target` 仅接受显式回环地址）。
+
+---
+
+## 4. 单机首发验收
+
+此口径用于 V2 首发，不证明独立双机万级容量。静态、全测、Nightly、目标平台和发布包验收仍按[发布就绪矩阵](../../docs/releases/readiness.md)执行，使用同一冻结提交。
+
+1. **固定环境**：在目标部署规格的单台 VPS 上使用隔离数据目录、相同 Release 产物和第 1 节语料及请求配比。PostgreSQL 走私有 Unix socket；发压器在本机分别通过回环访问 Kestrel 和 Caddy TLS。保留证书校验，不使用公网或生产数据。分别采集发压器、服务、数据库和 Caddy 的 CPU、内存与供给漏发；记录机器规格及资源分配；发压器饱和或明显挤占服务资源时，将该档标为供给不足，不归因于服务。
+2. **测定并复核稳定档位**：从低档逐步提高 QPS，在直连和 TLS 都稳定时选出共同档位。固定该档和输入，独立执行直连两轮、TLS 两轮，每轮预热后计时 60 秒。直连 p95 ≤ 25 ms、p99 ≤ 75 ms；TLS p95 ≤ 40 ms、p99 ≤ 100 ms；错误、拒绝、超时与供给漏发合计 ≤ 0.1%，且无私密数据泄漏。归档目标与实测 QPS、分位延迟和每轮原始报告，不把 10,500 QPS 当作首发门槛。
+3. **900 秒 TLS 长测**：在选定的共同档位预热后，经 Caddy TLS 连续运行 900 秒。保留短档正确性、延迟与漏发门槛，以及第 1 节的热读 PostgreSQL、RSS 和队列条件。没有完整结果，不记为通过。
+4. **独立验证公网并定首发限流**：验证目标部署的公网带宽与入口在代表性请求下的可持续负载，和回环压测分别归档。首发流量上限低于单机稳定档和公网验证承载能力中的较小值，记录余量及实际限流配置。没有双机专项证据时，将其列为未验收，不使用第 3 节的峰值达标结论。
+
+在目标 VPS 上从仓库根目录执行。QPS 参数为 10–11,000 范围内的 10 的倍数；每次使用独立的新证据目录。先用相同入口逐档探测，再将 `QPS` 设为选定的共同档位（下例的 500 仅是示例，不是发布门槛）：
+
+```bash
+QPS=500
+for round in 1 2; do
+  tests/Performance/run.sh launch-direct "artifacts/launch-direct-$round" "$QPS"
+  tests/Performance/run.sh proxy-launch "artifacts/launch-tls-$round" "$QPS"
+done
+tests/Performance/run.sh proxy-launch-soak artifacts/launch-tls-soak "$QPS"
+```
+
+每轮在选定档位独立预热 30 秒；短档计时 60 秒，TLS 长测计时 900 秒。保留 `launch-gate.json`、`outcome.txt` 与原始采样；只有数值判定通过、退出码为 0 且清理完成的轮次才有效。另行核验各轮提交、语料、档位一致及发压端资源余量；公网测量和最终限流不由此脚本代办。`direct`、`proxy`、`soak` 继续用于原固定档位，不替代上述入口。

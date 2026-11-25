@@ -31,17 +31,17 @@ def route_mix_matches(by_route, expected):
                for route, share in ROUTE_WEIGHTS.items())
 
 
-def stage(path, rate, p95_limit, p99_limit, supplier_procs, report=None):
+def stage(path, rate, p95_limit, p99_limit, supplier_procs, report=None, *, seconds=SECONDS):
     if report is None:
         report = json.loads(path.read_text())
-    expected = rate * SECONDS
+    expected = rate * seconds
     by_route = report["routes"]
     totals = by_route["all"]
     if (
         report["preflight"] != "pass"
         or report["responses"] != 2402
         or report["protocol"] != "HTTP/1.1"
-        or (report["requestedRate"], report["seconds"], report["expected"]) != (rate, SECONDS, expected)
+        or (report["requestedRate"], report["seconds"], report["expected"]) != (rate, seconds, expected)
     ):
         raise ValueError(f"{path}: workload or preflight differs from the frozen protocol")
     if supplier_procs != "runtime-default" and (
@@ -94,7 +94,7 @@ def stage(path, rate, p95_limit, p99_limit, supplier_procs, report=None):
             raise ValueError(f"{path}: warmup request mix differs from the frozen protocol")
     elif policy not in ("serial-tls-preconnect", "fresh-pool"):
         raise ValueError(f"{path}: unknown connection policy")
-    actual_rate = totals["ok"] / SECONDS
+    actual_rate = totals["ok"] / seconds
     failures = totals["dropped"] + request_errors + unreached
     per_route = {key: {k: by_route[key][k] for k in ("ok", "p95Ms", "p99Ms")} for key in ROUTE_WEIGHTS}
     out = {
@@ -116,7 +116,7 @@ def stage(path, rate, p95_limit, p99_limit, supplier_procs, report=None):
                          "errors": warm_totals["sent"] - warm_totals["ok"]}
     if supply:
         out["dropSeconds"] = [row for row in supply if row["dropped"]]
-    if rate == RATES[-1]:
+    if rate == RATES[-1] and seconds == SECONDS:
         out["numericPeakPassed"] = (
             actual_rate > 10000
             and failures * 1000 <= expected

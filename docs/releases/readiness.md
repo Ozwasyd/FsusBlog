@@ -19,7 +19,7 @@ V1 已退役。历史旧数据以只读归档保留，仓库已移除 V1 离线�
 | **创作、属性与 Canvas** | 持久双栏工作区与快速切换、离线 IndexedDB 草稿日志恢复、文章库与回收站、定时发布、私有修订历史与比较、管理员回滚与归档再发布、八种封闭属性（千字段万篇实测）、保存视图、作者全文/章节/属性检索、万节点 Canvas 与可移植包、HTML/Markdown/DOCX/EPUB/PDF 异步与多图导出 | 富编辑器完整跨组状态与命令面板输入法上游依赖（FsusUI #1083）、完整无障碍读屏实测 | `tests/EndToEnd/run-native.sh`（各 `FSUSBLOG_TEST_FLOW`）<br>`tests/Integration/` 创作套件 |
 | **社区评论与沟通** | 公开评论树与永久链接、受控登录投稿与直接回复（Classic PoW）、作者编辑/删除/申诉、双人独立申诉复核、批量审核、评论修订与审核时间线、举报去重、站内信/工单、WebSocket 实时推送、一次性订阅取消 | 外部邮件/订阅投递提供方集成、管理员全事件广播 | `tests/EndToEnd/run-inbox-native.sh`<br>`tests/EndToEnd/run-admin-tls.sh` |
 | **完整性与离线扩展** | `/integrity/keys.json` 公开密钥清单、原生发布证明与权利快照、浏览器独立验签、透明日志头与外部锚定、systemd 独立只读账户每日 Merkle 检查点、macOS/Debian ARM64 离线签名纯 Markdown 插件宿主与作者端预览授权 | 生产定时器与外部独立时间见证落地；通用在线插件 Hook 与 IO broker | `tools/verify-publication-*.mjs`<br>`tests/Integration/Migration/extensions.sh`<br>`tests/Integration/Migration/linux-managed-plugin-flow.py` |
-| **发布包与性能容量** | 锁定依赖框架依赖发布包（`tools/build-release.sh`）、SHA-256 清单与完整 Git bundle 验证、Debian ARM64 同包冷启动与重启一致性验证、900 秒堆硬上限长测零热读数据库调用 | **正式发布阻断项**：最终冻结提交需完成独立双实机供给的两轮直连 + 两轮 TLS 独占短档达标（错误+漏发 ≤ 0.1%）及随后的 900 秒正式长时验收；Docker 验收由外部目标环境执行并单列结果 | `tools/build-release.sh`<br>`python3 tools/verify-release.py`<br>`tests/Performance/run.sh` |
+| **发布包与性能容量** | 锁定依赖框架依赖发布包（`tools/build-release.sh`）、SHA-256 清单与完整 Git bundle 验证、Debian ARM64 同包冷启动与重启一致性验证、900 秒堆硬上限长测零热读数据库调用 | **V2 首发阻断项**：在最终冻结提交上完成单机两轮直连、两轮 TLS 短档，以及 900 秒 TLS 长测；首发流量上限取单机已验证容量与公网实测承载能力两者中较低者，并保留余量。独立双机万级容量验收后置；Docker 验收仍由外部目标环境执行并单列结果 | `tools/build-release.sh`<br>`python3 tools/verify-release.py`<br>`tests/Performance/run.sh` |
 
 ---
 
@@ -30,4 +30,4 @@ V1 已退役。历史旧数据以只读归档保留，仓库已移除 V1 离线�
 1. **静态与单元门禁**：`dotnet build FsusBlog.V2.slnx -c Release --no-restore`（0 警告 0 错误）、`Core.Tests`、`Platform.Tests`、`./tools/protocol-test.sh`、`pnpm --dir src/Web typecheck && pnpm --dir src/Web build`、`python3 tools/check-docs.py`。
 2. **实库与浏览器闭环**：隔离 PostgreSQL 18 完整集成测试、CLI 迁移/备份/物理备库套件，以及桌面 + 移动（明暗主题）真实浏览器端到端回归。
 3. **发布包完整性**：`tools/build-release.sh` 产出并独立核验 `SHA256SUMS`、`payload.sha256`、`history.bundle`（空裸库 `git fsck --full`）与目标 Linux/macOS 实机冷启动和重启一致。
-4. **容量与长稳验收**：独立供给机完成短档双轮达标（`capacity.py --require-peak-quorum`）及 900 秒独占长测。
+4. **容量与长稳验收**：按[单机首发验收](../../tests/Performance/README.md#4-单机首发验收)在目标部署规格上测定并复核首发流量上限，归档直连和 TLS 各两轮、900 秒 TLS 长测及独立的公网验证结果。不要求首发达到 10,500 QPS；没有独立双机记录时，双机专项标记为未验收。
