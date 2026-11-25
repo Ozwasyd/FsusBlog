@@ -87,4 +87,15 @@ python3 tests/Performance/capacity.py --direct PATH_1 --direct PATH_2 --proxy PA
 3. **900 秒 TLS 长测**：在选定的共同档位预热后，经 Caddy TLS 连续运行 900 秒。保留短档正确性、延迟与漏发门槛，以及第 1 节的热读 PostgreSQL、RSS 和队列条件。没有完整结果，不记为通过。
 4. **独立验证公网并定首发限流**：验证目标部署的公网带宽与入口在代表性请求下的可持续负载，和回环压测分别归档。首发流量上限低于单机稳定档和公网验证承载能力中的较小值，记录余量及实际限流配置。没有双机专项证据时，将其列为未验收，不使用第 3 节的峰值达标结论。
 
-现有 `run.sh` 的 `direct`、`proxy` 矩阵采用固定档位，`soak` 是固定 8,000 QPS 的直连长测，不会执行本节的自选档位和 TLS 长测。执行首发验收前，先准备支持这些工况并保留同等证据的运行入口；本计划不将固定跑法视为替代。
+在目标 VPS 上从仓库根目录执行。QPS 参数为 10–11,000 范围内的 10 的倍数；每次使用独立的新证据目录。先用相同入口逐档探测，再将 `QPS` 设为选定的共同档位（下例的 500 仅是示例，不是发布门槛）：
+
+```bash
+QPS=500
+for round in 1 2; do
+  tests/Performance/run.sh launch-direct "artifacts/launch-direct-$round" "$QPS"
+  tests/Performance/run.sh proxy-launch "artifacts/launch-tls-$round" "$QPS"
+done
+tests/Performance/run.sh proxy-launch-soak artifacts/launch-tls-soak "$QPS"
+```
+
+每轮在选定档位独立预热 30 秒；短档计时 60 秒，TLS 长测计时 900 秒。保留 `launch-gate.json`、`outcome.txt` 与原始采样；只有数值判定通过、退出码为 0 且清理完成的轮次才有效。另行核验各轮提交、语料、档位一致及发压端资源余量；公网测量和最终限流不由此脚本代办。`direct`、`proxy`、`soak` 继续用于原固定档位，不替代上述入口。
