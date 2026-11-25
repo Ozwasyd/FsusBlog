@@ -51,7 +51,7 @@ async function runSearch({ query, page, size, sort, mode }: SearchRequest, signa
     return await searchCompact()
   } catch (error) {
     signal.throwIfAborted()
-    if (!(error instanceof ApiError) || error.status !== 503) throw error
+    if (!(error instanceof ApiError) || (error.status !== 503 && !(mode === 'auto' && error.status === 404))) throw error
     if (!triedWide && canUseWideSearchStorage()) {
       const result = await searchWide()
       if (result) return result

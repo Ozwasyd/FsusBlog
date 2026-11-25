@@ -164,32 +164,35 @@ internal static class PublicReadEndpoints
                 ? ServerHttp.Frame(index) : ServerHttp.Error(ctx, 404, "Index page not found.");
         });
 
-        app.MapMethods(WireRoutes.PublicSearchCorpus, ReadMethods, (HttpContext ctx) =>
+        if (capabilities.LocalSearchCorpus)
         {
-            var snapshot = ServerHttp.Snapshot(ctx, publications);
-            var generation = ServerHttp.Query(ctx, "generation", 20);
-            var pageText = ServerHttp.Query(ctx, "page", 10);
-            var page = 1;
-            if (pageText is not null && (!int.TryParse(pageText, NumberStyles.None, CultureInfo.InvariantCulture, out page) || page < 1))
-                return ServerHttp.Error(ctx, 400, "Invalid search corpus page.");
-            var head = HttpMethods.IsHead(ctx.Request.Method);
-            if ((head || page > 1) && generation is null)
-                return ServerHttp.Error(ctx, 400, "A search generation is required.");
-            if (generation is not null && generation != snapshot.GenerationHeader)
-                return ServerHttp.Error(ctx, 409, "The search corpus changed. Reload it from page 1.");
-            if (snapshot.CorpusPageCount == 0)
-                return ServerHttp.Error(ctx, 503, "The search corpus is unavailable.");
-            ServerHttp.RequireCurrentSnapshot(ctx, publications, snapshot);
-            ctx.Response.Headers[WireHeaders.SearchIndexPages] = snapshot.CorpusPageCount.ToString(CultureInfo.InvariantCulture);
-            if (head) return Results.NoContent();
-            if (page > 1 && ctx.Request.Headers.Accept.ToString() == SearchCorpusPatch.Accept &&
-                ServerHttp.Query(ctx, "baseGeneration", 19) is { } baseGeneration && ctx.Request.Headers.IfNoneMatch is { Count: 1 } validators &&
-                snapshot.CorpusPatch(page, baseGeneration, validators[0]) is { } patch)
-                return new CurrentSearchCorpusPatch(snapshot, publications, snapshot.CorpusTag(page).Tag.ToString()[1..^1], patch);
-            return snapshot.Corpus(page) is { } bytes
-                ? Results.Bytes(bytes, ServerHttp.BinaryContentType, entityTag: snapshot.CorpusTag(page))
-                : ServerHttp.Error(ctx, 404, "Search corpus page not found.");
-        });
+            app.MapMethods(WireRoutes.PublicSearchCorpus, ReadMethods, (HttpContext ctx) =>
+            {
+                var snapshot = ServerHttp.Snapshot(ctx, publications);
+                var generation = ServerHttp.Query(ctx, "generation", 20);
+                var pageText = ServerHttp.Query(ctx, "page", 10);
+                var page = 1;
+                if (pageText is not null && (!int.TryParse(pageText, NumberStyles.None, CultureInfo.InvariantCulture, out page) || page < 1))
+                    return ServerHttp.Error(ctx, 400, "Invalid search corpus page.");
+                var head = HttpMethods.IsHead(ctx.Request.Method);
+                if ((head || page > 1) && generation is null)
+                    return ServerHttp.Error(ctx, 400, "A search generation is required.");
+                if (generation is not null && generation != snapshot.GenerationHeader)
+                    return ServerHttp.Error(ctx, 409, "The search corpus changed. Reload it from page 1.");
+                if (snapshot.CorpusPageCount == 0)
+                    return ServerHttp.Error(ctx, 503, "The search corpus is unavailable.");
+                ServerHttp.RequireCurrentSnapshot(ctx, publications, snapshot);
+                ctx.Response.Headers[WireHeaders.SearchIndexPages] = snapshot.CorpusPageCount.ToString(CultureInfo.InvariantCulture);
+                if (head) return Results.NoContent();
+                if (page > 1 && ctx.Request.Headers.Accept.ToString() == SearchCorpusPatch.Accept &&
+                    ServerHttp.Query(ctx, "baseGeneration", 19) is { } baseGeneration && ctx.Request.Headers.IfNoneMatch is { Count: 1 } validators &&
+                    snapshot.CorpusPatch(page, baseGeneration, validators[0]) is { } patch)
+                    return new CurrentSearchCorpusPatch(snapshot, publications, snapshot.CorpusTag(page).Tag.ToString()[1..^1], patch);
+                return snapshot.Corpus(page) is { } bytes
+                    ? Results.Bytes(bytes, ServerHttp.BinaryContentType, entityTag: snapshot.CorpusTag(page))
+                    : ServerHttp.Error(ctx, 404, "Search corpus page not found.");
+            });
+        }
     }
 
     internal static Task PublicList(HttpContext ctx, Publications publications, string scope, int page, int size)

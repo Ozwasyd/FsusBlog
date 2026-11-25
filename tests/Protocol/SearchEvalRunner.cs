@@ -229,6 +229,9 @@ internal static class SearchEvalRunner
         // against an uncached 0% baseline without relying on unrealistic 100%-hit workloads.
         var cacheSensitivity = RunCacheSensitivityBenchmark(index, queryDoc.Queries, concurrency);
 
+        // 4e. Incremental immutable segments vs full rebuild benchmark (#51) across low-churn & high-churn workloads
+        var incrementalIndexing = RunIncrementalIndexingBenchmark(articles);
+
         // 5. Repeated warm query stream vs unique query stream (cache-hit vs cache-miss baseline; currently uncached)
         var hotQueries = queryDoc.Queries.Where(q => q.Rarity == "common").Take(8).ToArray();
         if (hotQueries.Length == 0) hotQueries = queryDoc.Queries.Take(8).ToArray();
@@ -428,6 +431,7 @@ internal static class SearchEvalRunner
             },
             broadCorpusPruning = broadBenchmark,
             cacheSensitivity,
+            incrementalIndexing,
             repeatedHot = new
             {
                 offered = repeatedLatencies.Count,
@@ -783,6 +787,231 @@ internal static class SearchEvalRunner
                 MeasureStream("high_hit_75pct", 0.75, useCache: true)
             },
             concurrentBurst = MeasureConcurrentBurst()
+        };
+    }
+
+    private static object RunIncrementalIndexingBenchmark(Article[] seedArticles)
+    {
+        var proc = Process.GetCurrentProcess();
+
+        object MeasureWorkload(string label, bool highChurn, int opCount, bool useIncremental, bool includeLocalCorpus)
+        {
+            var docs = seedArticles.ToList();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            var memBefore = GC.GetTotalMemory(true);
+            var coldIndex = ArticleSearchIndex.BuildIncremental(docs, null, CancellationToken.None, out var coldStats)
+                ?? throw new InvalidOperationException("Cold incremental build returned null");
+            var prevCorpus = includeLocalCorpus
+                ? LocalSearchCorpus.BuildSnapshot(docs, null, CancellationToken.None)
+                : null;
+
+            var current = coldIndex;
+            var lats = new List<double>(opCount);
+            var nonCompactLats = new List<double>();
+            var compactLats = new List<double>();
+            long totalBytesRewritten = 0;
+            long totalAnalyzed = 0;
+            long totalSkipped = 0;
+            long totalRemoved = 0;
+            var compactions = 0;
+            var compactedSegments = 0;
+            long peakWs = proc.WorkingSet64;
+
+            var cpuBefore = proc.TotalProcessorTime;
+            var allocBefore = GC.GetTotalAllocatedBytes(true);
+            var totalSw = Stopwatch.StartNew();
+
+            for (var op = 0; op < opCount; op++)
+            {
+                if (!highChurn)
+                {
+                    // Low-publication churn: 1 article edited / published / withdrawn per event
+                    var targetIdx = (op * 29) % docs.Count;
+                    if (op % 4 == 0)
+                    {
+                        var orig = docs[targetIdx];
+                        docs[targetIdx] = orig with
+                        {
+                            Revision = orig.Revision + 1, RevisionNo = orig.RevisionNo + 1,
+                            Publication = orig.Publication + 1000, PublicationNo = orig.PublicationNo + 1,
+                            Body = orig.Body + $"\nLow churn revision {op}."
+                        };
+                    }
+                    else if (op % 4 == 1)
+                    {
+                        var newId = 50_000 + op;
+                        var tmpl = seedArticles[op % seedArticles.Length];
+                        docs.Add(tmpl with
+                        {
+                            Id = newId, Publication = 500_000 + op,
+                            Title = $"Low churn publish {newId}",
+                            Body = $"Low churn published article {op} with 性能 架构."
+                        });
+                    }
+                    else if (op % 4 == 2 && docs.Count > 50)
+                    {
+                        docs.RemoveAt(docs.Count - 1);
+                    }
+                    else
+                    {
+                        var orig = docs[targetIdx];
+                        docs[targetIdx] = orig with
+                        {
+                            Publication = orig.Publication + 1000, PublicationNo = orig.PublicationNo + 1,
+                            Summary = $"Updated summary {op}"
+                        };
+                    }
+                }
+                else
+                {
+                    // High-churn workload: burst edits, multi-article withdrawals, taxonomy renames, and republishes
+                    var mode = op % 5;
+                    if (mode == 0)
+                    {
+                        for (var b = 0; b < 5; b++)
+                        {
+                            var idx = (op * 17 + b * 13) % docs.Count;
+                            var orig = docs[idx];
+                            docs[idx] = orig with
+                            {
+                                Revision = orig.Revision + 1, RevisionNo = orig.RevisionNo + 1,
+                                Publication = orig.Publication + 1000, PublicationNo = orig.PublicationNo + 1,
+                                Body = orig.Body + $"\nHigh churn batch {op}-{b}."
+                            };
+                        }
+                    }
+                    else if (mode == 1)
+                    {
+                        for (var b = 0; b < 4; b++)
+                        {
+                            var newId = 70_000 + op * 10 + b;
+                            var tmpl = seedArticles[(op + b) % seedArticles.Length];
+                            docs.Add(tmpl with
+                            {
+                                Id = newId, Publication = 700_000 + op * 10 + b,
+                                Title = $"High churn publish {newId}",
+                                Body = $"High churn burst {op}-{b} covering 数据库 索引."
+                            });
+                        }
+                    }
+                    else if (mode == 2 && docs.Count > 100)
+                    {
+                        for (var b = 0; b < 4 && docs.Count > 100; b++)
+                            docs.RemoveAt((op * 7) % docs.Count);
+                    }
+                    else if (mode == 3)
+                    {
+                        // Taxonomy rename affecting a category slice (~10-20 articles)
+                        var catId = docs[op % docs.Count].Category?.Id ?? 1;
+                        var newName = $"RenamedCategory_{op}";
+                        for (var i = 0; i < docs.Count; i++)
+                        {
+                            if (docs[i].Category?.Id == catId)
+                                docs[i] = docs[i] with { Category = new TaxonomyName(catId, newName) };
+                        }
+                    }
+                    else
+                    {
+                        var idx = (op * 31) % docs.Count;
+                        var orig = docs[idx];
+                        docs[idx] = orig with { Revision = orig.Revision + 1, Title = $"{orig.Title} r{op}" };
+                    }
+                }
+
+                var sw = Stopwatch.StartNew();
+                SearchIndexBuildStats st;
+                if (useIncremental)
+                {
+                    current = ArticleSearchIndex.BuildIncremental(docs, current, CancellationToken.None, out st)
+                        ?? throw new InvalidOperationException("Incremental benchmark build returned null");
+                }
+                else
+                {
+                    current = ArticleSearchIndex.BuildIncremental(docs, previous: null, CancellationToken.None, out st)
+                        ?? throw new InvalidOperationException("Full rebuild benchmark returned null");
+                }
+                if (includeLocalCorpus)
+                {
+                    prevCorpus = LocalSearchCorpus.BuildSnapshot(docs, prevCorpus, CancellationToken.None);
+                }
+                sw.Stop();
+                var ms = sw.Elapsed.TotalMilliseconds;
+                lats.Add(ms);
+                if (st.Compacted)
+                {
+                    compactions++;
+                    compactedSegments += st.CompactedSegments;
+                    compactLats.Add(ms);
+                }
+                else
+                {
+                    nonCompactLats.Add(ms);
+                }
+                totalBytesRewritten += st.BytesRewritten;
+                totalAnalyzed += st.AnalyzedDocuments;
+                totalSkipped += st.SkippedAnalysisDocuments;
+                totalRemoved += st.RemovedDocuments;
+                var ws = proc.WorkingSet64;
+                if (ws > peakWs) peakWs = ws;
+            }
+
+            totalSw.Stop();
+            var cpuMs = (proc.TotalProcessorTime - cpuBefore).TotalMilliseconds;
+            var allocBytes = GC.GetTotalAllocatedBytes(true) - allocBefore;
+            var finalSegments = current.SegmentCount;
+            var finalDeadSlots = current.DeadDocumentSlots;
+            var finalEstimatedRetainedBytes = current.EstimatedRetainedBytes;
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            var retainedManagedBytes = Math.Max(0, GC.GetTotalMemory(true) - memBefore);
+            GC.KeepAlive(current);
+            GC.KeepAlive(prevCorpus);
+
+            return new
+            {
+                label,
+                useIncremental,
+                includeLocalCorpus,
+                operations = opCount,
+                totalWallMs = totalSw.Elapsed.TotalMilliseconds,
+                cpuMs,
+                allocBytes,
+                peakWorkingSetBytes = peakWs,
+                retainedManagedBytes,
+                finalEstimatedRetainedBytes,
+                totalBytesRewritten,
+                totalAnalyzedDocs = totalAnalyzed,
+                totalSkippedAnalysisDocs = totalSkipped,
+                totalRemovedDocs = totalRemoved,
+                compactions,
+                compactedSegments,
+                finalSegments,
+                finalDeadSlots,
+                visibilityLatencyMs = Summarize(lats),
+                nonCompactLatencyMs = Summarize(nonCompactLats),
+                compactionLatencyMs = Summarize(compactLats)
+            };
+        }
+
+        // Warm JIT
+        _ = ArticleSearchIndex.BuildIncremental(seedArticles, null, CancellationToken.None, out _);
+
+        return new
+        {
+            lowChurn = new
+            {
+                fullRebuild = MeasureWorkload("low_churn_full", highChurn: false, opCount: 24, useIncremental: false, includeLocalCorpus: false),
+                incremental = MeasureWorkload("low_churn_incremental", highChurn: false, opCount: 24, useIncremental: true, includeLocalCorpus: false),
+                incrementalWithLocalCorpus = MeasureWorkload("low_churn_incremental_with_fspk", highChurn: false, opCount: 24, useIncremental: true, includeLocalCorpus: true),
+            },
+            highChurn = new
+            {
+                fullRebuild = MeasureWorkload("high_churn_full", highChurn: true, opCount: 50, useIncremental: false, includeLocalCorpus: false),
+                incremental = MeasureWorkload("high_churn_incremental", highChurn: true, opCount: 50, useIncremental: true, includeLocalCorpus: false),
+            }
         };
     }
 

@@ -11,6 +11,7 @@ internal sealed class SiteCapabilities
     internal const string PublicCommentsSetting = "FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS";
     internal const string ReaderRegistrationSetting = "FSUSBLOG_READER_REGISTRATION";
     internal const string PublicSearchModeSetting = "FSUSBLOG_PUBLIC_SEARCH_MODE";
+    internal const string LocalSearchCorpusSetting = "FSUSBLOG_LOCAL_SEARCH_CORPUS";
 
     private static readonly string[] BaselineSitePageFiles = ["about.md", "privacy.md", "guidelines.md", "copyright.md"];
 
@@ -34,6 +35,7 @@ internal sealed class SiteCapabilities
     internal bool PrivateInboxWrites { get; }
     internal bool DocumentExportTasks { get; }
     internal bool PublicHotArticles { get; }
+    internal bool LocalSearchCorpus { get; }
     internal bool WideSearchCorpus { get; }
     internal string PublicSearchMode { get; }
     internal bool PrivateMediaResumable { get; }
@@ -93,7 +95,10 @@ internal sealed class SiteCapabilities
         PrivateInboxWrites = Enabled(InboxWriteEndpoints.Setting);
         DocumentExportTasks = Enabled(DocumentExportEndpoints.Setting);
         PublicHotArticles = Enabled(Analytics.PublicHotArticles.Setting);
+        LocalSearchCorpus = Enabled(LocalSearchCorpusSetting);
         WideSearchCorpus = Enabled(WideSearchCorpusEndpoints.Setting);
+        if (PublicSearchMode == "local" && !LocalSearchCorpus)
+            throw new InvalidOperationException($"Local public search mode requires {LocalSearchCorpusSetting} to remain enabled.");
         PrivateMediaResumable = PrivateMediaRoot is not null && Enabled(MediaUploadEndpoints.Setting);
 
         var hasHttpsPublic = publicSite.Origin is not null &&

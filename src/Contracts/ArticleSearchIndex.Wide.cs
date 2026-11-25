@@ -23,8 +23,26 @@ public sealed partial class ArticleSearchIndex
     /// <summary>Collision-safe alias entry: 64-bit hash + UTF-8 term bytes slice in NamePool + source links offset.</summary>
     private readonly record struct WideAlias(ulong Hash64, int NameOffset, ushort NameLength, int Offset);
 
-    private sealed record WideIndex(WideBlock[] Blocks, WideAlias[] Aliases, byte[] NamePool, byte[] Sources)
+    private readonly record struct WideDocument(Article Article, int TitleLen, int HeadingLen, int SummaryLen, int TaxonomyLen, int BodyLen)
     {
+        internal void CopyLengths(Span<int> target)
+        {
+            target[0] = TitleLen;
+            target[1] = HeadingLen;
+            target[2] = SummaryLen;
+            target[3] = TaxonomyLen;
+            target[4] = BodyLen;
+        }
+    }
+
+    private sealed record WideIndex(WideDocument[] Documents, WideBlock[] Blocks, WideAlias[] Aliases, byte[] NamePool, byte[] Sources)
+    {
+        internal long EstimatedBytes =>
+            (long)Documents.Length * Unsafe.SizeOf<WideDocument>()
+            + (long)Aliases.Length * Unsafe.SizeOf<WideAlias>()
+            + NamePool.Length + Sources.Length
+            + Blocks.Sum(static b => (long)b.Terms.Length * Unsafe.SizeOf<WideTerm>() + b.Postings.Length);
+
         internal ReadOnlySpan<byte> SourcesFor(SearchTermKey key)
         {
             var utf8Len = Encoding.UTF8.GetByteCount(key.Term);
@@ -98,7 +116,7 @@ public sealed partial class ArticleSearchIndex
             return (uint)id;
         }
 
-        internal WideIndex? Pack(WideBlock[] blocks, int availableBytes, CancellationToken ct)
+        internal WideIndex? Pack(WideDocument[] documents, WideBlock[] blocks, int availableBytes, CancellationToken ct)
         {
             if (_linkCount > availableBytes) return null;
             var references = new Dictionary<SearchTermKey, List<int>>();
@@ -145,7 +163,7 @@ public sealed partial class ArticleSearchIndex
                 namePos += nLen;
                 EncodeDeltas(references[key], sources, ref offset, ct);
             }
-            return new WideIndex(blocks, aliases, namePool, sources);
+            return new WideIndex(documents, blocks, aliases, namePool, sources);
 
             static void EncodeDeltas(List<int> links, Span<byte> target, ref int pos, CancellationToken ct)
             {
@@ -194,7 +212,7 @@ public sealed partial class ArticleSearchIndex
         internal readonly Dictionary<uint, Bucket> Heads = [];
         internal readonly List<PendingWidePosting> Pending = [];
 
-        internal bool Collect(IReadOnlyList<Article> articles, int first, int count, Document[] documents, long[] totalFieldLengths,
+        internal bool Collect(IReadOnlyList<Article> articles, int first, int count, WideDocument[] documents, long[] totalFieldLengths,
             int termLimit, int postingLimit, CancellationToken ct)
         {
             Heads.Clear();
@@ -244,7 +262,7 @@ public sealed partial class ArticleSearchIndex
                 var headingLen = Math.Max(1, headings.SourceLength);
                 var bodyLen = Math.Max(1, prose.SourceLength + code.SourceLength);
 
-                documents[first + ordinal] = new Document(article, titleLen, headingLen, sumLen, taxLen, bodyLen);
+                documents[first + ordinal] = new WideDocument(article, titleLen, headingLen, sumLen, taxLen, bodyLen);
                 totalFieldLengths[0] += titleLen;
                 totalFieldLengths[1] += headingLen;
                 totalFieldLengths[2] += sumLen;
@@ -291,14 +309,14 @@ public sealed partial class ArticleSearchIndex
     {
         if (articles.Count > MaxWideDocuments) return null;
 
-        var documents = new Document[articles.Count];
+        var documents = new WideDocument[articles.Count];
         var totalFieldLengths = new long[SearchScoringProfile.FieldCount];
         var blocks = new WideBlock[(articles.Count + WideBlockDocuments - 1) / WideBlockDocuments];
         var sources = new WideSources();
         var builder = new WidePostingBuilder(MaxWideScannedChars, sources);
         var remainingTerms = MaxTerms;
         var remainingPostings = MaxWidePostings;
-        var remainingBytes = MaxWideRetainedBytes - documents.Length * Unsafe.SizeOf<Document>();
+        var remainingBytes = MaxWideRetainedBytes - documents.Length * Unsafe.SizeOf<WideDocument>();
         for (var index = 0; index < blocks.Length; index++)
         {
             var first = index * WideBlockDocuments;
@@ -315,11 +333,25 @@ public sealed partial class ArticleSearchIndex
             remainingBytes -= block.Postings.Length;
             blocks[index] = block;
         }
-        var indexData = sources.Pack(blocks, remainingBytes, ct);
+        var indexData = sources.Pack(documents, blocks, remainingBytes, ct);
         return indexData is null ? null :
             new ArticleSearchIndex(
-                documents, ComputeAvgFieldLengths(totalFieldLengths, articles.Count),
-                [], [], [], [], [], [], [], indexData);
+                [],
+                [],
+                [],
+                new Dictionary<int, (int SegmentIndex, int LocalOrdinal)>(0),
+                new Dictionary<int, Article>(0),
+                fallbackArticles: null,
+                liveDocumentCount: articles.Count,
+                deadDocumentSlots: 0,
+                totalFieldLengths,
+                ComputeAvgFieldLengths(totalFieldLengths, articles.Count),
+                liveScannedChars: 0,
+                globalLiveDf: null,
+                globalShortPrefixLiveDf: null,
+                SearchTextAnalyzer.Version,
+                SearchScoringProfile.ProfileVersion,
+                indexData);
     }
 
     private static WideBlock? PackBlock(WidePostingBuilder builder, int first, int count, int availableBytes, CancellationToken ct)
@@ -461,7 +493,8 @@ public sealed partial class ArticleSearchIndex
         out SearchExecutionStats stats)
     {
         stats = new SearchExecutionStats { Path = SearchExecutionPath.WideIndex };
-        var n = _documents.Length;
+        var wideDocs = wide.Documents;
+        var n = wideDocs.Length;
         var concepts = plan.ContentConcepts;
 
         // Collect every unique SearchTermKey referenced by the query plan (bounded by <= 128 query chars!)
@@ -583,7 +616,7 @@ public sealed partial class ArticleSearchIndex
                         for (var ord = 0; ord < n; ord++)
                         {
                             if ((ord & 1023) == 0) ct.ThrowIfCancellationRequested();
-                            var p = PackShortPrefixHits(_documents[ord].Article, prefix);
+                            var p = PackShortPrefixHits(wideDocs[ord].Article, prefix);
                             if (p != 0) (map ??= [])[ord] = p;
                         }
                         if (map is { Count: > 0 })
@@ -652,7 +685,7 @@ public sealed partial class ArticleSearchIndex
             ct.ThrowIfCancellationRequested();
             if (++scoredCandidates > workBudget)
                 throw new SearchBudgetExceededException();
-            var doc = _documents[ordinal];
+            var doc = wideDocs[ordinal];
 
             // Fast pre-check before extracting positions: every quoted phrase step must be present
             var preOk = true;
@@ -754,7 +787,7 @@ public sealed partial class ArticleSearchIndex
                     var worst = isPrimary ? primaryHeap.Worst : relaxedHeap.Worst;
                     if (sort == ArticleSearchSort.Latest)
                     {
-                        var worstPub = worst.Article.PublishedAt.UtcTicks;
+                        var worstPub = worst.PublishedAtTicks;
                         if (docPubTicks < worstPub || (docPubTicks == worstPub && score + maxBonus < worst.Score))
                             skipForCursorOrHeap = true;
                     }
@@ -798,8 +831,8 @@ public sealed partial class ArticleSearchIndex
                 }
             }
 
-            var hit = new ArticleSearchHit(doc.Article, tier, score);
-            if (hasCursor && SearchScoringProfile.CompareHitToCursor(hit, cursorVal, sort) <= 0)
+            var hit = new HeapHit(doc.Article.Id, ordinal, tier, score, docPubTicks, doc.Article.CreatedAt.UtcTicks);
+            if (hasCursor && CompareHeapHitToCursor(hit, cursorVal, sort) <= 0)
                 continue;
             if (isPrimary) primaryHeap.TryPush(hit);
             else relaxedHeap.TryPush(hit);
@@ -812,21 +845,31 @@ public sealed partial class ArticleSearchIndex
         ArticleSearchHit[] finalRelaxedHits = [];
         if (includeRelaxed)
         {
-            finalRelaxedHits = relaxedHeap.DrainSorted();
+            var drainedRelaxed = relaxedHeap.DrainSorted();
             if (afterCursor is { Tier: SearchMatchTier.Relaxed })
             {
                 var returnedRelaxedSoFar = Math.Max(0, returnedSoFar - primaryObserved);
                 var remainingRelaxedCap = Math.Max(0, SearchScoringProfile.MaxRelaxedResults - returnedRelaxedSoFar);
-                if (finalRelaxedHits.Length > remainingRelaxedCap)
-                    finalRelaxedHits = finalRelaxedHits[..remainingRelaxedCap];
+                if (drainedRelaxed.Length > remainingRelaxedCap)
+                    drainedRelaxed = drainedRelaxed[..remainingRelaxedCap];
             }
-            else if (finalRelaxedHits.Length > SearchScoringProfile.MaxRelaxedResults)
+            else if (drainedRelaxed.Length > SearchScoringProfile.MaxRelaxedResults)
             {
-                finalRelaxedHits = finalRelaxedHits[..SearchScoringProfile.MaxRelaxedResults];
+                drainedRelaxed = drainedRelaxed[..SearchScoringProfile.MaxRelaxedResults];
             }
+            finalRelaxedHits = MaterializeWideHits(wideDocs, drainedRelaxed);
         }
 
-        return new(primaryHeap.DrainSorted(), primaryObserved, finalRelaxedHits, finalRelaxedCount, false);
+        return new(MaterializeWideHits(wideDocs, primaryHeap.DrainSorted()), primaryObserved, finalRelaxedHits, finalRelaxedCount, false);
+
+        static ArticleSearchHit[] MaterializeWideHits(WideDocument[] docs, HeapHit[] sorted)
+        {
+            if (sorted.Length == 0) return [];
+            var result = new ArticleSearchHit[sorted.Length];
+            for (var i = 0; i < sorted.Length; i++)
+                result[i] = new ArticleSearchHit(docs[sorted[i].FallbackOrdinal].Article, sorted[i].Tier, sorted[i].Score);
+            return result;
+        }
     }
 
     private static List<int> CollectWideCandidates(

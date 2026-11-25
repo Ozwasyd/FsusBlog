@@ -35,7 +35,7 @@ public sealed class SiteCapabilitiesTests
     {
         var c = Resolve([]);
         Assert.All(new object?[] { c.PublicSite.Origin, c.SitePasskey, c.AdminIdentity, c.PrivateMediaRoot, c.PublicMediaRoot, c.SitePagesRoot, c.AppearanceRoot, c.TrafficRegionsPath, c.TrafficOrigin }, Assert.Null);
-        Assert.All([c.PublicCommentSubmissions, c.SignedInCommentReplies, c.PrivateInboxWrites, c.DocumentExportTasks, c.PublicHotArticles, c.WideSearchCorpus, c.SiteConfigOverrideActive], Assert.True);
+        Assert.All([c.PublicCommentSubmissions, c.SignedInCommentReplies, c.PrivateInboxWrites, c.DocumentExportTasks, c.PublicHotArticles, c.LocalSearchCorpus, c.WideSearchCorpus, c.SiteConfigOverrideActive], Assert.True);
         Assert.Equal("server", c.PublicSearchMode);
         Assert.All([c.TrustLoopbackProxy, c.PrivateMediaResumable, c.ArticleReadProof, c.SiteTraffic, c.SiteTrafficReadable, c.ReaderRegistration, c.SitePersistentRefresh, c.SitePageEditor, c.SiteConfigEditor, c.OnlineAppearance], Assert.False);
         CheckAdminChannels(c, Assert.False);
@@ -147,6 +147,8 @@ public sealed class SiteCapabilitiesTests
         foreach (var settings in new (string Key, string? Value)[][]
         {
             [(PublicHotArticles.Setting, "maybe")],
+            [(SiteCapabilities.LocalSearchCorpusSetting, "maybe")],
+            [(SiteCapabilities.PublicSearchModeSetting, "local"), (SiteCapabilities.LocalSearchCorpusSetting, "false")],
             [(ArticleReadEndpoints.Setting, "true")],
             [(SiteTraffic.EnabledSetting, "true")],
             [(SiteCapabilities.ReaderRegistrationSetting, "true")],

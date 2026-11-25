@@ -62,6 +62,7 @@ export FSUSBLOG_TRUST_LOOPBACK_PROXY=true
 | 变量名 | 默认行为 | 依赖前提 / 说明 |
 | --- | --- | --- |
 | `FSUSBLOG_PUBLIC_SEARCH_MODE` | `server` | 公开搜索模式：`server`（默认，零库查询服务端 `/api/v2/public/search.aeds`，不下载全量语料或启动 Worker）、`auto`（显式 opt-in：紧凑分片 → 宽语料 → 服务端）、`local`（显式 opt-in：仅客户端分片，仍需网络 `HEAD` 代次复核，非离线搜索） |
+| `FSUSBLOG_LOCAL_SEARCH_CORPUS` | `true` | 启用紧凑档 FSPK v4 本地语料分片构建与 `/api/v2/public/search-corpus` 端点；纯服务端搜索部署可显式设为 `false` 以完全跳过本地语料构建与内存占用（端点返回 `404` 并保持重启确定性的 `PublicGeneration`；与 `FSUSBLOG_PUBLIC_SEARCH_MODE=local` 互斥，启动即失败） |
 | `FSUSBLOG_WIDE_SEARCH_CORPUS` | `true` | 启用 25,601–100,000 篇文章的大语料暂存分片构建与宽档 HTTP 端点 |
 | `FSUSBLOG_PUBLIC_HOT_ARTICLES` | `true` | 启用公开热门文章榜单（热读零数据库查询） |
 | `FSUSBLOG_ARTICLE_READ_PROOF` | 配置公开源后为 `true` | 启用文章可见阅读计时证明计数；显式 `=true` 需有效 `FSUSBLOG_PUBLIC_ORIGIN` |

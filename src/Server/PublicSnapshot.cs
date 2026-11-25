@@ -38,27 +38,31 @@ internal sealed class PublicSnapshot
     internal int SearchProfileVersion => _search?.ProfileVersion ?? SearchScoringProfile.ProfileVersion;
     internal int SearchAnalyzerVersion => _search?.AnalyzerVersion ?? SearchTextAnalyzer.Version;
     internal bool SearchUsesWideProfile => _search?.UsesWideProfile is true;
+    internal int SearchSegmentCount => _search?.SegmentCount ?? 0;
+    internal int SearchDeadDocumentSlots => _search?.DeadDocumentSlots ?? 0;
+    internal SearchIndexBuildStats SearchBuildStats { get; }
     internal long SearchCursorNowUtcSeconds => _searchCursor.Now;
 
     internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
         PublicSnapshot? previous, ILogger log, RuntimeEvidence? evidence, DistributionSettings? distribution, CancellationToken cancellationToken,
         long taxonomyEpoch = 0, PublishedMediaProjection? media = null, long siteConfigRevision = 0, int sitePagesMask = 0,
-        PublicSearchCursor? searchCursor = null)
+        PublicSearchCursor? searchCursor = null, bool buildLocalCorpus = true)
     {
         Watermark = watermark;
         TaxonomyEpoch = taxonomyEpoch;
         SiteConfigRevision = siteConfigRevision;
         SitePagesMask = sitePagesMask;
         _searchCursor = searchCursor ?? new PublicSearchCursor(TimeProvider.System);
-        _corpus = LocalSearchCorpus.BuildSnapshot(articles, previous?._corpus, cancellationToken);
+        _corpus = buildLocalCorpus ? LocalSearchCorpus.BuildSnapshot(articles, previous?._corpus, cancellationToken) : null;
         _corpusTags = _corpus is null ? [] : CorpusTags(_corpus, previous, cancellationToken);
-        _search = ArticleSearchIndex.Build(articles, cancellationToken);
-        Generation = PublicGeneration(articles, taxonomyEpoch, _corpus?.Pages, _search?.UsesWideProfile is true, cancellationToken);
+        _search = ArticleSearchIndex.BuildIncremental(articles, previous?._search, cancellationToken, out var searchBuildStats);
+        SearchBuildStats = searchBuildStats;
+        Generation = PublicGeneration(articles, taxonomyEpoch, _corpus?.Pages, buildLocalCorpus, _search?.UsesWideProfile is true, cancellationToken);
         GenerationHeader = Generation.ToString(CultureInfo.InvariantCulture);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
         RelatedReading = new RelatedReadingProjection(articles, cancellationToken);
         _byId = articles.ToFrozenDictionary(article => article.Id);
-        _corpusDelta = BuildCorpusDelta(previous, cancellationToken);
+        _corpusDelta = buildLocalCorpus ? BuildCorpusDelta(previous, cancellationToken) : null;
         _media = media;
         _details = new PublicArticleCache(_byId, pages, Generation, log, evidence, media, siteConfigRevision);
         _details.Warm(articles.Take(1200), previous?._details, cancellationToken);
@@ -270,39 +274,66 @@ internal sealed class PublicSnapshot
     private sealed record CorpusDelta(int Page, string BaseGeneration, string BaseTag, byte[] Bytes);
 
     private static long PublicGeneration(IReadOnlyList<Article> articles, long taxonomyEpoch,
-        IReadOnlyList<byte[]>? corpus, bool wideSearch, CancellationToken ct)
+        IReadOnlyList<byte[]>? corpus, bool buildLocalCorpus, bool wideSearch, CancellationToken ct)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         Span<byte> coordinates = stackalloc byte[20];
-        // One coordinate covers every HTTP representation. A restart with unchanged
-        // article rows still cannot serve changed corpus bytes at the old coordinate.
-        hash.AppendData("public-generation-corpus-v1\0"u8);
-        hash.AppendData(SearchProfileDomain);
-        hash.AppendData(SearchAnalyzerDomain);
-        if (wideSearch) hash.AppendData("public-search-bm25-wide-v1\0"u8);
-        AppendNumber(corpus?.Count ?? -1);
-        if (corpus is not null)
+        if (buildLocalCorpus)
         {
-            foreach (var page in corpus)
+            // One coordinate covers every HTTP representation. A restart with unchanged
+            // article rows still cannot serve changed corpus bytes at the old coordinate.
+            hash.AppendData("public-generation-corpus-v1\0"u8);
+            hash.AppendData(SearchProfileDomain);
+            hash.AppendData(SearchAnalyzerDomain);
+            if (wideSearch) hash.AppendData("public-search-bm25-wide-v1\0"u8);
+            AppendNumber(corpus?.Count ?? -1);
+            if (corpus is not null)
+            {
+                foreach (var page in corpus)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    AppendNumber(page.Length);
+                    hash.AppendData(page);
+                }
+            }
+            AppendNumber(articles.Count);
+            foreach (var article in articles)
             {
                 ct.ThrowIfCancellationRequested();
-                AppendNumber(page.Length);
-                hash.AppendData(page);
+                BinaryPrimitives.WriteInt32LittleEndian(coordinates, article.Id);
+                BinaryPrimitives.WriteInt64LittleEndian(coordinates[4..], article.Revision);
+                BinaryPrimitives.WriteInt64LittleEndian(coordinates[12..], article.Publication);
+                hash.AppendData(coordinates);
+                TaxonomyProjection.AppendGeneration(hash, article);
+                if (article.CoverMediaDigest is { } cover)
+                {
+                    hash.AppendData("public-cover-v1\0"u8);
+                    hash.AppendData(Convert.FromHexString(cover));
+                }
             }
         }
-        AppendNumber(articles.Count);
-        foreach (var article in articles)
+        else
         {
-            ct.ThrowIfCancellationRequested();
-            BinaryPrimitives.WriteInt32LittleEndian(coordinates, article.Id);
-            BinaryPrimitives.WriteInt64LittleEndian(coordinates[4..], article.Revision);
-            BinaryPrimitives.WriteInt64LittleEndian(coordinates[12..], article.Publication);
-            hash.AppendData(coordinates);
-            TaxonomyProjection.AppendGeneration(hash, article);
-            if (article.CoverMediaDigest is { } cover)
+            // Server-only mode (#51): local FSPK corpus construction is disabled, so bind every
+            // article's complete content, coordinates, taxonomy, cover, and search profile/analyzer
+            // versions deterministically across restarts without depending on corpus bytes.
+            hash.AppendData("public-generation-server-only-v1\0"u8);
+            hash.AppendData(SearchProfileDomain);
+            hash.AppendData(SearchAnalyzerDomain);
+            if (wideSearch) hash.AppendData("public-search-bm25-wide-v1\0"u8);
+            AppendNumber(articles.Count);
+            Span<byte> articleFingerprint = stackalloc byte[32];
+            foreach (var article in articles)
             {
-                hash.AppendData("public-cover-v1\0"u8);
-                hash.AppendData(Convert.FromHexString(cover));
+                ct.ThrowIfCancellationRequested();
+                ArticleSearchIndex.ComputeArticleFingerprint(article, articleFingerprint);
+                hash.AppendData(articleFingerprint);
+                TaxonomyProjection.AppendGeneration(hash, article);
+                if (article.CoverMediaDigest is { } cover)
+                {
+                    hash.AppendData("public-cover-v1\0"u8);
+                    hash.AppendData(Convert.FromHexString(cover));
+                }
             }
         }
         if (taxonomyEpoch != 0)
@@ -322,15 +353,181 @@ internal sealed class PublicSnapshot
     }
 }
 
+/// <summary>
+/// Bounded single-candidate snapshot coordinator (#51): enforces at most one simultaneous in-flight
+/// snapshot build, cancels superseded candidates promptly, and fences atomic installation against
+/// the intended source generation epoch and active instance lease.
+/// </summary>
+internal sealed class PublicSnapshotCoordinator : IDisposable
+{
+    private readonly object _sync = new();
+    private readonly SemaphoreSlim _candidateGate = new(1, 1);
+    private CancellationTokenSource? _activeCandidateCts;
+    private long _epoch;
+    private int _activeBuilds;
+    private int _peakActiveBuilds;
+    private long _supersededCount;
+    private long _rejectedInstallCount;
+
+    internal long CurrentEpoch => Volatile.Read(ref _epoch);
+    internal int ActiveBuilds => Volatile.Read(ref _activeBuilds);
+    internal int PeakActiveBuilds => Volatile.Read(ref _peakActiveBuilds);
+    internal long SupersededCount => Volatile.Read(ref _supersededCount);
+    internal long RejectedInstallCount => Volatile.Read(ref _rejectedInstallCount);
+
+    internal long Invalidate(Action? onInvalidate = null)
+    {
+        CancellationTokenSource? toCancel;
+        long nextEpoch;
+        lock (_sync)
+        {
+            nextEpoch = ++_epoch;
+            toCancel = _activeCandidateCts;
+            onInvalidate?.Invoke();
+        }
+        CancelQuietly(toCancel);
+        return nextEpoch;
+    }
+
+    internal void SupersedeActiveCandidate()
+    {
+        CancellationTokenSource? toCancel;
+        lock (_sync) toCancel = _activeCandidateCts;
+        CancelQuietly(toCancel);
+    }
+
+    internal async Task<(bool StillCurrent, T? Candidate)> BuildCandidateAsync<T>(
+        long expectedEpoch,
+        Func<CancellationToken, T> build,
+        CancellationToken callerCt,
+        CancellationToken leaseStoppedCt)
+    {
+        // Supersede any older in-flight candidate before awaiting the single-candidate gate.
+        SupersedeActiveCandidate();
+
+        using var waitLinked = leaseStoppedCt.CanBeCanceled
+            ? CancellationTokenSource.CreateLinkedTokenSource(callerCt, leaseStoppedCt)
+            : null;
+        var waitToken = waitLinked?.Token ?? callerCt;
+        await _candidateGate.WaitAsync(waitToken);
+
+        CancellationTokenSource? buildCts = null;
+        var entered = false;
+        try
+        {
+            lock (_sync)
+            {
+                if (_epoch != expectedEpoch)
+                {
+                    Interlocked.Increment(ref _supersededCount);
+                    return (false, default);
+                }
+                if (leaseStoppedCt.IsCancellationRequested)
+                    throw new OperationCanceledException(leaseStoppedCt);
+                callerCt.ThrowIfCancellationRequested();
+
+                buildCts = leaseStoppedCt.CanBeCanceled
+                    ? CancellationTokenSource.CreateLinkedTokenSource(callerCt, leaseStoppedCt)
+                    : CancellationTokenSource.CreateLinkedTokenSource(callerCt);
+                _activeCandidateCts = buildCts;
+            }
+
+            var active = Interlocked.Increment(ref _activeBuilds);
+            entered = true;
+            UpdatePeak(active);
+
+            T candidate;
+            try
+            {
+                candidate = build(buildCts.Token);
+            }
+            catch (OperationCanceledException) when (
+                !callerCt.IsCancellationRequested &&
+                !leaseStoppedCt.IsCancellationRequested &&
+                Volatile.Read(ref _epoch) != expectedEpoch)
+            {
+                Interlocked.Increment(ref _supersededCount);
+                return (false, default);
+            }
+
+            if (Volatile.Read(ref _epoch) != expectedEpoch)
+            {
+                Interlocked.Increment(ref _supersededCount);
+                return (false, default);
+            }
+            if (leaseStoppedCt.IsCancellationRequested)
+                throw new OperationCanceledException(leaseStoppedCt);
+
+            return (true, candidate);
+        }
+        finally
+        {
+            if (entered) Interlocked.Decrement(ref _activeBuilds);
+            lock (_sync)
+            {
+                if (ReferenceEquals(_activeCandidateCts, buildCts))
+                    _activeCandidateCts = null;
+            }
+            buildCts?.Dispose();
+            _candidateGate.Release();
+        }
+    }
+
+    internal bool TryCommitCandidate(long expectedEpoch, Func<bool> leaseCurrent, Action install)
+    {
+        lock (_sync)
+        {
+            if (_epoch != expectedEpoch || !leaseCurrent())
+            {
+                Interlocked.Increment(ref _rejectedInstallCount);
+                return false;
+            }
+            install();
+            return true;
+        }
+    }
+
+    public void Dispose()
+    {
+        CancellationTokenSource? toCancel;
+        lock (_sync)
+        {
+            _epoch++;
+            toCancel = _activeCandidateCts;
+            _activeCandidateCts = null;
+        }
+        CancelQuietly(toCancel);
+        _candidateGate.Dispose();
+    }
+
+    private void UpdatePeak(int value)
+    {
+        int observed;
+        while ((observed = Volatile.Read(ref _peakActiveBuilds)) < value)
+        {
+            if (Interlocked.CompareExchange(ref _peakActiveBuilds, value, observed) == observed)
+                break;
+        }
+    }
+
+    private static void CancelQuietly(CancellationTokenSource? cts)
+    {
+        if (cts is null) return;
+        try { cts.Cancel(); }
+        catch (ObjectDisposedException) { }
+    }
+}
+
 internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log, InstanceLease? lease = null,
     RuntimeEvidence? evidence = null, DistributionSettings? distribution = null, PublishedMediaStore? media = null,
     PublicProjection? projection = null, bool siteConfigOverrideActive = false, SitePages? sitePages = null,
-    PublicSearchCache? searchCache = null)
+    PublicSearchCache? searchCache = null, bool buildLocalCorpus = true)
 {
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
     private readonly PublicSearchCursor _searchCursor = new(TimeProvider.System);
     private readonly PublicProjection _projection = projection ?? new();
+    private readonly PublicSnapshotCoordinator _coordinator = new();
     private PublicSnapshot? _lastProjection;
     private bool? _taxonomyEpochInstalled;
     private bool? _siteConfigOverrideInstalled;
@@ -341,6 +538,15 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     {
         _projection.Replace(next);
         searchCache?.OnSnapshotChanged(next?.Generation);
+    }
+
+    internal void OnLeaseStopped()
+    {
+        _coordinator.Invalidate(() =>
+        {
+            _lastProjection = null;
+            ReplaceProjection(null);
+        });
     }
 
     internal async Task<(ArticleState Article, bool Changed)> Command(Store store, string? token,
@@ -397,13 +603,13 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
             var result = await transact(() =>
             {
                 // After an ambiguous commit or interruption, the old public bytes remain unservable.
-                // The worker rebuilds from the committed durable state.
-                if (invalidate) ReplaceProjection(null);
+                // Any in-flight background candidate is immediately superseded and cancelled.
+                if (invalidate) _coordinator.Invalidate(() => ReplaceProjection(null));
             });
 
             if (invalidate && Snapshot is null)
             {
-                try { await Rebuild(ct); }
+                try { await RebuildWhileHoldingWritersAsync(ct); }
                 catch (OperationCanceledException) when (!LeaseCurrent && !ct.IsCancellationRequested)
                 {
                     throw new PublicUnavailableException();
@@ -423,6 +629,10 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     internal async Task Refresh(CancellationToken ct)
     {
         lease?.RequireCurrent();
+        ProjectionSource? source;
+        long expectedEpoch;
+        PublicSnapshot? baseProjection;
+
         await _writers.WaitAsync(ct);
         try
         {
@@ -431,7 +641,40 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
             {
                 log.LogError(error, "Scheduled publication batch rolled back or awaits outbox recovery.");
             }
-            await Rebuild(ct);
+
+            source = await ReadProjectionSourceAsync(markOutboxIfUnchanged: true, ct);
+            if (source is null)
+            {
+                evidence?.CountRefresh(false);
+                return;
+            }
+            expectedEpoch = _coordinator.CurrentEpoch;
+            baseProjection = _lastProjection;
+        }
+        finally { _writers.Release(); }
+
+        // Build the candidate snapshot OUTSIDE _writers and OUTSIDE any open PostgreSQL transaction (#51).
+        using var attribution = evidence?.PublicationWork();
+        var (stillCurrent, next) = await _coordinator.BuildCandidateAsync(
+            expectedEpoch,
+            buildCt => BuildSnapshotFromSource(source, baseProjection, buildCt),
+            ct,
+            lease?.Stopped ?? CancellationToken.None);
+        if (!stillCurrent || next is null) return;
+
+        await _writers.WaitAsync(ct);
+        try
+        {
+            if (_coordinator.CurrentEpoch != expectedEpoch || !LeaseCurrent) return;
+            await MarkOutboxProcessedAsync(source.MaxPendingOutboxId, ct);
+            if (_coordinator.TryCommitCandidate(expectedEpoch, () => LeaseCurrent, () =>
+            {
+                _lastProjection = next;
+                ReplaceProjection(next);
+            }))
+            {
+                evidence?.CountRefresh(true);
+            }
         }
         finally { _writers.Release(); }
     }
@@ -442,47 +685,104 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         await using var connection = await db.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(connection, lease, ct);
         if (await Authoring.ArticleScheduleStore.PublishDue(connection, tx, ct) != 0)
-            ReplaceProjection(null);
+            _coordinator.Invalidate(() => ReplaceProjection(null));
         await InstanceLease.CommitProtected(tx, lease, ct);
     }
 
-    private async Task Rebuild(CancellationToken ct)
+    private async Task RebuildWhileHoldingWritersAsync(CancellationToken ct)
     {
         using var attribution = evidence?.PublicationWork();
+        lease?.RequireCurrent();
+        var expectedEpoch = _coordinator.CurrentEpoch;
+        var baseProjection = _lastProjection;
+        var source = await ReadProjectionSourceAsync(markOutboxIfUnchanged: true, ct);
+        if (source is null)
+        {
+            evidence?.CountRefresh(false);
+            return;
+        }
+
+        // Build candidate outside any open PostgreSQL transaction while enforcing the single-candidate bound.
+        var (stillCurrent, next) = await _coordinator.BuildCandidateAsync(
+            expectedEpoch,
+            buildCt => BuildSnapshotFromSource(source, baseProjection, buildCt),
+            ct,
+            lease?.Stopped ?? CancellationToken.None);
+        if (!stillCurrent || next is null) return;
+
+        await MarkOutboxProcessedAsync(source.MaxPendingOutboxId, ct);
+        if (_coordinator.TryCommitCandidate(expectedEpoch, () => LeaseCurrent, () =>
+        {
+            _lastProjection = next;
+            ReplaceProjection(next);
+        }))
+        {
+            evidence?.CountRefresh(true);
+        }
+    }
+
+    private PublicSnapshot BuildSnapshotFromSource(ProjectionSource source, PublicSnapshot? baseProjection, CancellationToken ct) =>
+        new(source.MaxEvent, source.Articles, source.Taxonomy, pages, _listCursor, baseProjection, log, evidence, distribution,
+            ct, source.TaxonomyEpoch, source.Media, source.SiteConfigRevision, source.SitePagesMask, _searchCursor,
+            buildLocalCorpus: buildLocalCorpus);
+
+    private sealed record ProjectionSource(
+        long MaxEvent,
+        long TaxonomyEpoch,
+        long SiteConfigRevision,
+        int SitePagesMask,
+        long MaxPendingOutboxId,
+        TaxonomyRows Taxonomy,
+        PublishedMediaProjection? Media,
+        List<Article> Articles);
+
+    private async Task<ProjectionSource?> ReadProjectionSourceAsync(bool markOutboxIfUnchanged, CancellationToken ct)
+    {
         lease?.RequireCurrent();
         using var stop = lease is null ? null : CancellationTokenSource.CreateLinkedTokenSource(ct, lease.Stopped);
         ct = stop?.Token ?? ct;
         await using var connection = await db.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(connection, lease, ct, System.Data.IsolationLevel.RepeatableRead);
-        var (maxEvent, taxonomyEpoch, siteConfigRevision, sitePagesMask) = await ReadWatermarks(connection, tx, ct);
-        var next = Snapshot;
-        var rebuilt = next is null || next.Watermark != maxEvent || next.TaxonomyEpoch != taxonomyEpoch ||
-            next.SiteConfigRevision != siteConfigRevision || next.SitePagesMask != sitePagesMask;
-        if (rebuilt)
+        var (maxEvent, taxonomyEpoch, siteConfigRevision, sitePagesMask, maxPendingOutboxId) = await ReadWatermarks(connection, tx, ct);
+        var current = Snapshot;
+        var rebuilt = current is null || current.Watermark != maxEvent || current.TaxonomyEpoch != taxonomyEpoch ||
+            current.SiteConfigRevision != siteConfigRevision || current.SitePagesMask != sitePagesMask;
+        if (!rebuilt)
         {
-            var taxonomy = await TaxonomyStore.Read(connection, tx, ct);
-            var mediaProjection = media is null ? null : await PublishedMediaProjection.Read(connection, tx, ct);
-            await using var cmd = Store.Sql(connection, tx, """
-                select a.id,r.revision,p.publication_id,r.title,r.body,a.created_at,r.happened_at,p.published_at,
-                    p.publication_no, c.id, c.name, tags.ids, tags.names, s.id,
-                    w.enabled,w.license_type,w.copyright_holder,w.copyright_year,w.rights_statement,w.attribution_template,
-                    w.copy_policy,w.max_excerpt_chars,w.allow_code_copy,w.show_public_badge,w.proof_binding_enabled,r.author_summary
-                from public.article_publication p join public.article a on a.id=p.article_id
-                join public.article_revision r on r.article_id=p.article_id and r.revision=p.revision
-                join public.article_publication_rights s on s.article_id=p.article_id and s.publication_id=p.publication_id and s.revision=p.revision
-                join public.article_revision_rights w on w.article_id=s.article_id and w.revision=s.revision
-                left join public.article_revision_category link on link.article_id=p.article_id and link.revision=p.revision
-                left join public.category c on c.id=link.category_id
-                left join lateral (
-                    select array_agg(t.id order by t.id) as ids, array_agg(t.name order by t.id) as names
-                    from public.article_revision_tag tag_link join public.tag t on t.id=tag_link.tag_id
-                    where tag_link.article_id=p.article_id and tag_link.revision=p.revision
-                ) tags on true
-                where not a.deleted and a.published_revision=p.revision
-                order by a.created_at desc, a.id desc
-                """);
-            await using var row = await cmd.ExecuteReaderAsync(ct);
-            var articles = new List<Article>();
+            if (markOutboxIfUnchanged && maxPendingOutboxId > 0)
+            {
+                await SqlCommands.Execute(connection, tx, ct, """
+                    update public.blog_outbox set processed_at=now() where processed_at is null and id <= $1
+                    """, maxPendingOutboxId);
+            }
+            await InstanceLease.CommitProtected(tx, lease, ct);
+            return null;
+        }
+
+        var taxonomy = await TaxonomyStore.Read(connection, tx, ct);
+        var mediaProjection = media is null ? null : await PublishedMediaProjection.Read(connection, tx, ct);
+        var articles = new List<Article>();
+        await using (var cmd = Store.Sql(connection, tx, """
+            select a.id,r.revision,p.publication_id,r.title,r.body,a.created_at,r.happened_at,p.published_at,
+                p.publication_no, c.id, c.name, tags.ids, tags.names, s.id,
+                w.enabled,w.license_type,w.copyright_holder,w.copyright_year,w.rights_statement,w.attribution_template,
+                w.copy_policy,w.max_excerpt_chars,w.allow_code_copy,w.show_public_badge,w.proof_binding_enabled,r.author_summary
+            from public.article_publication p join public.article a on a.id=p.article_id
+            join public.article_revision r on r.article_id=p.article_id and r.revision=p.revision
+            join public.article_publication_rights s on s.article_id=p.article_id and s.publication_id=p.publication_id and s.revision=p.revision
+            join public.article_revision_rights w on w.article_id=s.article_id and w.revision=s.revision
+            left join public.article_revision_category link on link.article_id=p.article_id and link.revision=p.revision
+            left join public.category c on c.id=link.category_id
+            left join lateral (
+                select array_agg(t.id order by t.id) as ids, array_agg(t.name order by t.id) as names
+                from public.article_revision_tag tag_link join public.tag t on t.id=tag_link.tag_id
+                where tag_link.article_id=p.article_id and tag_link.revision=p.revision
+            ) tags on true
+            where not a.deleted and a.published_revision=p.revision
+            order by a.created_at desc, a.id desc
+            """))
+        await using (var row = await cmd.ExecuteReaderAsync(ct))
+        {
             while (await row.ReadAsync(ct))
             {
                 var revision = row.GetInt64(1);
@@ -509,19 +809,28 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                     row.GetString(3), body, row.GetFieldValue<DateTimeOffset>(5), row.GetFieldValue<DateTimeOffset>(6),
                     row.GetFieldValue<DateTimeOffset>(7), summary, category, tags, rights, mediaProjection?.CoverDigest(id, publication)));
             }
-            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, evidence, distribution,
-                ct, taxonomyEpoch, mediaProjection, siteConfigRevision, sitePagesMask, _searchCursor);
         }
-        await SqlCommands.Execute(connection, tx, ct, """
-            update public.blog_outbox set processed_at=now() where processed_at is null
-            """);
         await InstanceLease.CommitProtected(tx, lease, ct);
-        _lastProjection = next;
-        ReplaceProjection(next);
-        evidence?.CountRefresh(rebuilt);
+        return new ProjectionSource(maxEvent, taxonomyEpoch, siteConfigRevision, sitePagesMask, maxPendingOutboxId,
+            taxonomy, mediaProjection, articles);
     }
 
-    private async Task<(long Article, long Taxonomy, long SiteConfig, int SitePagesMask)> ReadWatermarks(NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct)
+    private async Task MarkOutboxProcessedAsync(long maxPendingOutboxId, CancellationToken ct)
+    {
+        if (maxPendingOutboxId <= 0) return;
+        lease?.RequireCurrent();
+        using var stop = lease is null ? null : CancellationTokenSource.CreateLinkedTokenSource(ct, lease.Stopped);
+        ct = stop?.Token ?? ct;
+        await using var connection = await db.OpenConnectionAsync(ct);
+        await using var tx = await InstanceLease.BeginProtected(connection, lease, ct);
+        await SqlCommands.Execute(connection, tx, ct, """
+            update public.blog_outbox set processed_at=now() where processed_at is null and id <= $1
+            """, maxPendingOutboxId);
+        await InstanceLease.CommitProtected(tx, lease, ct);
+    }
+
+    private async Task<(long Article, long Taxonomy, long SiteConfig, int SitePagesMask, long MaxPendingOutboxId)> ReadWatermarks(
+        NpgsqlConnection connection, NpgsqlTransaction tx, CancellationToken ct)
     {
         _taxonomyEpochInstalled ??= await CurrentSchema.HasAdminTagMetadataAsync(connection, tx, ct);
         var siteConfig = siteConfigOverrideActive ? (pages.SiteConfig ?? distribution?.Site) : null;
@@ -529,10 +838,11 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
             _siteConfigOverrideInstalled ??= await CurrentSchema.HasSiteConfigOverrideSchemaAsync(connection, tx, ct);
         var readSiteConfig = siteConfig is not null && _siteConfigOverrideInstalled == true;
         const string articles = "select coalesce(max(id),0) from public.blog_outbox where kind in ('publish','retract','delete')";
+        const string pendingOutbox = "select coalesce(max(id),0) from public.blog_outbox where processed_at is null";
         var taxonomyExpr = _taxonomyEpochInstalled.Value ? "(select revision from public.taxonomy_epoch where singleton)" : "0::bigint";
         var siteConfigExpr = readSiteConfig ? "(select revision from public.site_config_override where singleton)" : "0::bigint";
-        var sql = $"select ({articles}), {taxonomyExpr}, {siteConfigExpr}";
-        long articleWatermark, taxonomyEpoch, siteConfigRevision;
+        var sql = $"select ({articles}), {taxonomyExpr}, {siteConfigExpr}, ({pendingOutbox})";
+        long articleWatermark, taxonomyEpoch, siteConfigRevision, maxPendingOutboxId;
         await using (var command = Store.Sql(connection, tx, sql))
         await using (var row = await command.ExecuteReaderAsync(ct))
         {
@@ -540,11 +850,12 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
             articleWatermark = row.GetInt64(0);
             taxonomyEpoch = row.GetInt64(1);
             siteConfigRevision = row.GetInt64(2);
+            maxPendingOutboxId = row.GetInt64(3);
         }
         if (readSiteConfig && siteConfig!.Revision != siteConfigRevision)
             await SiteConfigOverrideStore.SyncAsync(connection, tx, siteConfig, ct);
         var sitePagesMask = sitePages is null ? 0 : await sitePages.ConfiguredMaskAsync(connection, tx, ct);
-        return (articleWatermark, taxonomyEpoch, siteConfigRevision, sitePagesMask);
+        return (articleWatermark, taxonomyEpoch, siteConfigRevision, sitePagesMask, maxPendingOutboxId);
     }
 }
 

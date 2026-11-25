@@ -56,6 +56,7 @@ SearchAnalyzerVectors.Run(fixtures);
 SearchRankingVectors.Run(fixtures);
 SearchContractVectors.Run(fixtures);
 SearchPruningVectors.Run(fixtures);
+SearchIncrementalVectors.Run(fixtures);
 PropertyValueVectors.Run(fixtures);
 NativePublicationProofVectors.Run(fixtures);
 

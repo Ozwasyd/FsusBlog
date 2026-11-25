@@ -104,7 +104,8 @@ internal static class ServerServices
                 services.GetService<PublicProjection>(),
                 capabilities.SiteConfigOverrideActive,
                 services.GetRequiredService<SitePages>(),
-                services.GetRequiredService<PublicSearchCache>()));
+                services.GetRequiredService<PublicSearchCache>(),
+                capabilities.LocalSearchCorpus));
 
             if (capabilities.WideSearchCorpus)
             {
@@ -210,17 +211,21 @@ internal static class ServerServices
     internal static async Task<IDisposable> InitializeRuntimeAsync(WebApplication app, ServerBootstrapContext bootstrap)
     {
         var lease = app.Services.GetRequiredService<InstanceLease>();
+        var publications = app.Services.GetRequiredService<Publications>();
         var searchCache = app.Services.GetRequiredService<PublicSearchCache>();
         app.Services.GetService<RuntimeEvidence>()?.RegisterSearchCache(searchCache);
         var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
-        var clearCacheOnLeaseStop = lease.Stopped.Register(() => searchCache.OnSnapshotChanged(null));
+        var clearCacheOnLeaseStop = lease.Stopped.Register(() =>
+        {
+            publications.OnLeaseStopped();
+            searchCache.OnSnapshotChanged(null);
+        });
         try
         {
             await lease.Start(app.Logger, app.Lifetime.ApplicationStopping,
                 BuildSchemaAdmission(bootstrap.Capabilities, bootstrap.PublicMediaEnabled));
             var publicationProofs = app.Services.GetService<PublicationProofs>();
             if (publicationProofs is not null) await publicationProofs.Initialize(app.Lifetime.ApplicationStopping);
-            var publications = app.Services.GetRequiredService<Publications>();
             app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
             await publications.Refresh(CancellationToken.None);
             return new CombinedDisposable(clearCacheOnLeaseStop, stopLease);
