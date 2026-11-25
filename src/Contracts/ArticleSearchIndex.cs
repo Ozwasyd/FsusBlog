@@ -38,6 +38,11 @@ public sealed partial class ArticleSearchIndex
         (_documents, _terms, _postings, _wide) = (documents, terms, postings, wide);
 
     public bool UsesWideProfile => _wide is not null;
+    public int DocumentCount => _documents.Length;
+    public int TermCount => _wide is { } wide ? wide.Aliases.Length : _terms.Length;
+    public int PostingCount => _wide is { } wide
+        ? wide.Blocks.Sum(static block => block.Terms.Sum(static term => term.Count))
+        : _postings.Length;
 
     public static ArticleSearchIndex? Build(IReadOnlyList<Article> articles, CancellationToken ct)
     {

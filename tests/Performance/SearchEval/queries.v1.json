@@ -1,0 +1,5631 @@
+{
+  "schemaVersion": "fsusblog-search-eval-queries-v1",
+  "querySetVersion": "synthetic-queries-v1",
+  "judgmentsVersion": "synthetic-judgments-v1",
+  "synthetic": true,
+  "queryCount": 360,
+  "categories": [
+    "chinese_dict",
+    "chinese_unknown",
+    "chinese_names",
+    "chinese_single_char",
+    "technical_identifier",
+    "punctuation_sensitive",
+    "simplified_traditional",
+    "phrase",
+    "mixed_language",
+    "long_query",
+    "markdown_boundary",
+    "no_match"
+  ],
+  "queries": [
+    {
+      "id": "q-001",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "博客搜索",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        1
+      ],
+      "judgments": {
+        "1": 3
+      },
+      "notes": "Dictionary vocabulary query for '博客搜索' targeting article 1."
+    },
+    {
+      "id": "q-002",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "公开页",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        2
+      ],
+      "judgments": {
+        "2": 3
+      },
+      "notes": "Dictionary vocabulary query for '公开页' targeting article 2."
+    },
+    {
+      "id": "q-003",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "倒排索引 缓存",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        3
+      ],
+      "judgments": {
+        "3": 3
+      },
+      "notes": "Dictionary vocabulary query for '倒排索引 缓存' targeting article 3."
+    },
+    {
+      "id": "q-004",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "服务端 架构",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        4
+      ],
+      "judgments": {
+        "4": 3
+      },
+      "notes": "Dictionary vocabulary query for '服务端 架构' targeting article 4."
+    },
+    {
+      "id": "q-005",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "数据库 索引",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        5
+      ],
+      "judgments": {
+        "5": 3
+      },
+      "notes": "Dictionary vocabulary query for '数据库 索引' targeting article 5."
+    },
+    {
+      "id": "q-006",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "分类 标签",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        6
+      ],
+      "judgments": {
+        "6": 3
+      },
+      "notes": "Dictionary vocabulary query for '分类 标签' targeting article 6."
+    },
+    {
+      "id": "q-007",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "正文 摘要",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        7
+      ],
+      "judgments": {
+        "7": 3
+      },
+      "notes": "Dictionary vocabulary query for '正文 摘要' targeting article 7."
+    },
+    {
+      "id": "q-008",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "安全 发布",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        8
+      ],
+      "judgments": {
+        "8": 3,
+        "9": 1
+      },
+      "notes": "Dictionary vocabulary query for '安全 发布' targeting article 8."
+    },
+    {
+      "id": "q-009",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "静态 渲染",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        9
+      ],
+      "judgments": {
+        "9": 3
+      },
+      "notes": "Dictionary vocabulary query for '静态 渲染' targeting article 9."
+    },
+    {
+      "id": "q-010",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "前端 后端",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        10
+      ],
+      "judgments": {
+        "10": 3
+      },
+      "notes": "Dictionary vocabulary query for '前端 后端' targeting article 10."
+    },
+    {
+      "id": "q-011",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "短语 搜索",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        11
+      ],
+      "judgments": {
+        "11": 3
+      },
+      "notes": "Dictionary vocabulary query for '短语 搜索' targeting article 11."
+    },
+    {
+      "id": "q-012",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "归档 热度",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        12
+      ],
+      "judgments": {
+        "12": 3
+      },
+      "notes": "Dictionary vocabulary query for '归档 热度' targeting article 12."
+    },
+    {
+      "id": "q-013",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "评论 安全",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        13
+      ],
+      "judgments": {
+        "13": 3
+      },
+      "notes": "Dictionary vocabulary query for '评论 安全' targeting article 13."
+    },
+    {
+      "id": "q-014",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "消息 后台",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        14
+      ],
+      "judgments": {
+        "14": 3
+      },
+      "notes": "Dictionary vocabulary query for '消息 后台' targeting article 14."
+    },
+    {
+      "id": "q-015",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "标题 权重",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        15
+      ],
+      "judgments": {
+        "15": 3
+      },
+      "notes": "Dictionary vocabulary query for '标题 权重' targeting article 15."
+    },
+    {
+      "id": "q-016",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "全文 索引",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        16
+      ],
+      "judgments": {
+        "16": 3
+      },
+      "notes": "Dictionary vocabulary query for '全文 索引' targeting article 16."
+    },
+    {
+      "id": "q-017",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "更新 发布",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        17
+      ],
+      "judgments": {
+        "17": 3
+      },
+      "notes": "Dictionary vocabulary query for '更新 发布' targeting article 17."
+    },
+    {
+      "id": "q-018",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "用户 权限",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        18
+      ],
+      "judgments": {
+        "18": 3
+      },
+      "notes": "Dictionary vocabulary query for '用户 权限' targeting article 18."
+    },
+    {
+      "id": "q-019",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "技术 博客",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        19
+      ],
+      "judgments": {
+        "19": 3
+      },
+      "notes": "Dictionary vocabulary query for '技术 博客' targeting article 19."
+    },
+    {
+      "id": "q-020",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "开发 架构",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        20
+      ],
+      "judgments": {
+        "20": 3
+      },
+      "notes": "Dictionary vocabulary query for '开发 架构' targeting article 20."
+    },
+    {
+      "id": "q-021",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "博客 归档",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        21
+      ],
+      "judgments": {
+        "21": 3
+      },
+      "notes": "Dictionary vocabulary query for '博客 归档' targeting article 21."
+    },
+    {
+      "id": "q-022",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "搜索 摘要",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        22
+      ],
+      "judgments": {
+        "22": 3
+      },
+      "notes": "Dictionary vocabulary query for '搜索 摘要' targeting article 22."
+    },
+    {
+      "id": "q-023",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "系统 缓存",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        23
+      ],
+      "judgments": {
+        "23": 3
+      },
+      "notes": "Dictionary vocabulary query for '系统 缓存' targeting article 23."
+    },
+    {
+      "id": "q-024",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "后端 安全",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        24
+      ],
+      "judgments": {
+        "24": 3
+      },
+      "notes": "Dictionary vocabulary query for '后端 安全' targeting article 24."
+    },
+    {
+      "id": "q-025",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "前端 渲染",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        25
+      ],
+      "judgments": {
+        "25": 3
+      },
+      "notes": "Dictionary vocabulary query for '前端 渲染' targeting article 25."
+    },
+    {
+      "id": "q-026",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "数据库 架构",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        26
+      ],
+      "judgments": {
+        "26": 3
+      },
+      "notes": "Dictionary vocabulary query for '数据库 架构' targeting article 26."
+    },
+    {
+      "id": "q-027",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "索引 性能",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        27
+      ],
+      "judgments": {
+        "27": 3
+      },
+      "notes": "Dictionary vocabulary query for '索引 性能' targeting article 27."
+    },
+    {
+      "id": "q-028",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "评论 后台",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        28
+      ],
+      "judgments": {
+        "28": 3
+      },
+      "notes": "Dictionary vocabulary query for '评论 后台' targeting article 28."
+    },
+    {
+      "id": "q-029",
+      "split": "tuning",
+      "category": "chinese_dict",
+      "query": "标题 摘要",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        29
+      ],
+      "judgments": {
+        "29": 3,
+        "30": 1
+      },
+      "notes": "Dictionary vocabulary query for '标题 摘要' targeting article 29."
+    },
+    {
+      "id": "q-030",
+      "split": "holdout",
+      "category": "chinese_dict",
+      "query": "公开 索引",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        30
+      ],
+      "judgments": {
+        "1": 1,
+        "30": 3
+      },
+      "notes": "Dictionary vocabulary query for '公开 索引' targeting article 30."
+    },
+    {
+      "id": "q-031",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "量子纠缠",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        31
+      ],
+      "judgments": {
+        "31": 3
+      },
+      "notes": "Unknown Chinese compound '量子纠缠' (not in lexicon); isolated character matches must not outrank target 31."
+    },
+    {
+      "id": "q-032",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "协程调度",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        32
+      ],
+      "judgments": {
+        "32": 3
+      },
+      "notes": "Unknown Chinese compound '协程调度' (not in lexicon); isolated character matches must not outrank target 32."
+    },
+    {
+      "id": "q-033",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "零拷贝",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        33
+      ],
+      "judgments": {
+        "33": 3
+      },
+      "notes": "Unknown Chinese compound '零拷贝' (not in lexicon); isolated character matches must not outrank target 33."
+    },
+    {
+      "id": "q-034",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "内存屏障",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        34
+      ],
+      "judgments": {
+        "34": 3
+      },
+      "notes": "Unknown Chinese compound '内存屏障' (not in lexicon); isolated character matches must not outrank target 34."
+    },
+    {
+      "id": "q-035",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "分片路由",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        35
+      ],
+      "judgments": {
+        "35": 3
+      },
+      "notes": "Unknown Chinese compound '分片路由' (not in lexicon); isolated character matches must not outrank target 35."
+    },
+    {
+      "id": "q-036",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "分布式锁",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        36
+      ],
+      "judgments": {
+        "36": 3
+      },
+      "notes": "Unknown Chinese compound '分布式锁' (not in lexicon); isolated character matches must not outrank target 36."
+    },
+    {
+      "id": "q-037",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "写时复制",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        37
+      ],
+      "judgments": {
+        "37": 3
+      },
+      "notes": "Unknown Chinese compound '写时复制' (not in lexicon); isolated character matches must not outrank target 37."
+    },
+    {
+      "id": "q-038",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "无锁队列",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        38
+      ],
+      "judgments": {
+        "38": 3
+      },
+      "notes": "Unknown Chinese compound '无锁队列' (not in lexicon); isolated character matches must not outrank target 38."
+    },
+    {
+      "id": "q-039",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "背压控制",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        39
+      ],
+      "judgments": {
+        "39": 3
+      },
+      "notes": "Unknown Chinese compound '背压控制' (not in lexicon); isolated character matches must not outrank target 39."
+    },
+    {
+      "id": "q-040",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "冷热分离",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        40
+      ],
+      "judgments": {
+        "40": 3
+      },
+      "notes": "Unknown Chinese compound '冷热分离' (not in lexicon); isolated character matches must not outrank target 40."
+    },
+    {
+      "id": "q-041",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "熔断降级",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        41
+      ],
+      "judgments": {
+        "41": 3
+      },
+      "notes": "Unknown Chinese compound '熔断降级' (not in lexicon); isolated character matches must not outrank target 41."
+    },
+    {
+      "id": "q-042",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "时钟漂移",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        42
+      ],
+      "judgments": {
+        "42": 3
+      },
+      "notes": "Unknown Chinese compound '时钟漂移' (not in lexicon); isolated character matches must not outrank target 42."
+    },
+    {
+      "id": "q-043",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "布隆过滤",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        43
+      ],
+      "judgments": {
+        "43": 3
+      },
+      "notes": "Unknown Chinese compound '布隆过滤' (not in lexicon); isolated character matches must not outrank target 43."
+    },
+    {
+      "id": "q-044",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "跳表结构",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        44
+      ],
+      "judgments": {
+        "44": 3
+      },
+      "notes": "Unknown Chinese compound '跳表结构' (not in lexicon); isolated character matches must not outrank target 44."
+    },
+    {
+      "id": "q-045",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "滑动窗口",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        45
+      ],
+      "judgments": {
+        "45": 3
+      },
+      "notes": "Unknown Chinese compound '滑动窗口' (not in lexicon); isolated character matches must not outrank target 45."
+    },
+    {
+      "id": "q-046",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "位图压缩",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        46
+      ],
+      "judgments": {
+        "46": 3
+      },
+      "notes": "Unknown Chinese compound '位图压缩' (not in lexicon); isolated character matches must not outrank target 46."
+    },
+    {
+      "id": "q-047",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "增量快照",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        47
+      ],
+      "judgments": {
+        "47": 3
+      },
+      "notes": "Unknown Chinese compound '增量快照' (not in lexicon); isolated character matches must not outrank target 47."
+    },
+    {
+      "id": "q-048",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "前缀树",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        48
+      ],
+      "judgments": {
+        "48": 3
+      },
+      "notes": "Unknown Chinese compound '前缀树' (not in lexicon); isolated character matches must not outrank target 48."
+    },
+    {
+      "id": "q-049",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "后缀数组",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        49
+      ],
+      "judgments": {
+        "49": 3
+      },
+      "notes": "Unknown Chinese compound '后缀数组' (not in lexicon); isolated character matches must not outrank target 49."
+    },
+    {
+      "id": "q-050",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "一致性哈希",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        50
+      ],
+      "judgments": {
+        "50": 3
+      },
+      "notes": "Unknown Chinese compound '一致性哈希' (not in lexicon); isolated character matches must not outrank target 50."
+    },
+    {
+      "id": "q-051",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "乐观并发",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        51
+      ],
+      "judgments": {
+        "51": 3
+      },
+      "notes": "Unknown Chinese compound '乐观并发' (not in lexicon); isolated character matches must not outrank target 51."
+    },
+    {
+      "id": "q-052",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "尾延迟优化",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        52
+      ],
+      "judgments": {
+        "52": 3
+      },
+      "notes": "Unknown Chinese compound '尾延迟优化' (not in lexicon); isolated character matches must not outrank target 52."
+    },
+    {
+      "id": "q-053",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "流量整形",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        53
+      ],
+      "judgments": {
+        "53": 3
+      },
+      "notes": "Unknown Chinese compound '流量整形' (not in lexicon); isolated character matches must not outrank target 53."
+    },
+    {
+      "id": "q-054",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "热点探测",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        54
+      ],
+      "judgments": {
+        "54": 3
+      },
+      "notes": "Unknown Chinese compound '热点探测' (not in lexicon); isolated character matches must not outrank target 54."
+    },
+    {
+      "id": "q-055",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "灰度发布",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        55
+      ],
+      "judgments": {
+        "55": 3
+      },
+      "notes": "Unknown Chinese compound '灰度发布' (not in lexicon); isolated character matches must not outrank target 55."
+    },
+    {
+      "id": "q-056",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "双写一致",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        56
+      ],
+      "judgments": {
+        "56": 3
+      },
+      "notes": "Unknown Chinese compound '双写一致' (not in lexicon); isolated character matches must not outrank target 56."
+    },
+    {
+      "id": "q-057",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "幂等校验",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        57
+      ],
+      "judgments": {
+        "57": 3
+      },
+      "notes": "Unknown Chinese compound '幂等校验' (not in lexicon); isolated character matches must not outrank target 57."
+    },
+    {
+      "id": "q-058",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "读写分离",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        58
+      ],
+      "judgments": {
+        "58": 3
+      },
+      "notes": "Unknown Chinese compound '读写分离' (not in lexicon); isolated character matches must not outrank target 58."
+    },
+    {
+      "id": "q-059",
+      "split": "tuning",
+      "category": "chinese_unknown",
+      "query": "缓存穿透",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        59
+      ],
+      "judgments": {
+        "59": 3
+      },
+      "notes": "Unknown Chinese compound '缓存穿透' (not in lexicon); isolated character matches must not outrank target 59."
+    },
+    {
+      "id": "q-060",
+      "split": "holdout",
+      "category": "chinese_unknown",
+      "query": "垃圾回收",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        60
+      ],
+      "judgments": {
+        "60": 3
+      },
+      "notes": "Unknown Chinese compound '垃圾回收' (not in lexicon); isolated character matches must not outrank target 60."
+    },
+    {
+      "id": "q-061",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "林徽因",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        61
+      ],
+      "judgments": {
+        "61": 3
+      },
+      "notes": "Chinese name/entity query '林徽因' targeting article 61."
+    },
+    {
+      "id": "q-062",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "钱学森",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        62
+      ],
+      "judgments": {
+        "62": 3
+      },
+      "notes": "Chinese name/entity query '钱学森' targeting article 62."
+    },
+    {
+      "id": "q-063",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "图灵机",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        63
+      ],
+      "judgments": {
+        "63": 3
+      },
+      "notes": "Chinese name/entity query '图灵机' targeting article 63."
+    },
+    {
+      "id": "q-064",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "欧拉回路",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        64
+      ],
+      "judgments": {
+        "64": 3
+      },
+      "notes": "Chinese name/entity query '欧拉回路' targeting article 64."
+    },
+    {
+      "id": "q-065",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "杭州西湖",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        65
+      ],
+      "judgments": {
+        "65": 3
+      },
+      "notes": "Chinese name/entity query '杭州西湖' targeting article 65."
+    },
+    {
+      "id": "q-066",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "华罗庚",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        66
+      ],
+      "judgments": {
+        "66": 3
+      },
+      "notes": "Chinese name/entity query '华罗庚' targeting article 66."
+    },
+    {
+      "id": "q-067",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "陈景润",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        67
+      ],
+      "judgments": {
+        "67": 3
+      },
+      "notes": "Chinese name/entity query '陈景润' targeting article 67."
+    },
+    {
+      "id": "q-068",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "黄鹤楼",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        68
+      ],
+      "judgments": {
+        "68": 3
+      },
+      "notes": "Chinese name/entity query '黄鹤楼' targeting article 68."
+    },
+    {
+      "id": "q-069",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "秦岭隧道",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        69
+      ],
+      "judgments": {
+        "69": 3
+      },
+      "notes": "Chinese name/entity query '秦岭隧道' targeting article 69."
+    },
+    {
+      "id": "q-070",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "敦煌莫高窟",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        70
+      ],
+      "judgments": {
+        "70": 3
+      },
+      "notes": "Chinese name/entity query '敦煌莫高窟' targeting article 70."
+    },
+    {
+      "id": "q-071",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "都江堰",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        71
+      ],
+      "judgments": {
+        "71": 3
+      },
+      "notes": "Chinese name/entity query '都江堰' targeting article 71."
+    },
+    {
+      "id": "q-072",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "赵州桥",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        72
+      ],
+      "judgments": {
+        "72": 3
+      },
+      "notes": "Chinese name/entity query '赵州桥' targeting article 72."
+    },
+    {
+      "id": "q-073",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "苏州园林",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        73
+      ],
+      "judgments": {
+        "73": 3
+      },
+      "notes": "Chinese name/entity query '苏州园林' targeting article 73."
+    },
+    {
+      "id": "q-074",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "岳阳楼",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        74
+      ],
+      "judgments": {
+        "74": 3
+      },
+      "notes": "Chinese name/entity query '岳阳楼' targeting article 74."
+    },
+    {
+      "id": "q-075",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "滕王阁",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        75
+      ],
+      "judgments": {
+        "75": 3
+      },
+      "notes": "Chinese name/entity query '滕王阁' targeting article 75."
+    },
+    {
+      "id": "q-076",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "景德镇",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        76
+      ],
+      "judgments": {
+        "76": 3
+      },
+      "notes": "Chinese name/entity query '景德镇' targeting article 76."
+    },
+    {
+      "id": "q-077",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "张衡地动仪",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        77
+      ],
+      "judgments": {
+        "77": 3
+      },
+      "notes": "Chinese name/entity query '张衡地动仪' targeting article 77."
+    },
+    {
+      "id": "q-078",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "祖冲之",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        78
+      ],
+      "judgments": {
+        "78": 3
+      },
+      "notes": "Chinese name/entity query '祖冲之' targeting article 78."
+    },
+    {
+      "id": "q-079",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "沈括梦溪笔谈",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        79
+      ],
+      "judgments": {
+        "79": 3
+      },
+      "notes": "Chinese name/entity query '沈括梦溪笔谈' targeting article 79."
+    },
+    {
+      "id": "q-080",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "李冰治水",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        80
+      ],
+      "judgments": {
+        "80": 3
+      },
+      "notes": "Chinese name/entity query '李冰治水' targeting article 80."
+    },
+    {
+      "id": "q-081",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "王安石变法",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        81
+      ],
+      "judgments": {
+        "81": 3
+      },
+      "notes": "Chinese name/entity query '王安石变法' targeting article 81."
+    },
+    {
+      "id": "q-082",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "司马迁史记",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        82
+      ],
+      "judgments": {
+        "82": 3
+      },
+      "notes": "Chinese name/entity query '司马迁史记' targeting article 82."
+    },
+    {
+      "id": "q-083",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "徐霞客游记",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        83
+      ],
+      "judgments": {
+        "83": 3
+      },
+      "notes": "Chinese name/entity query '徐霞客游记' targeting article 83."
+    },
+    {
+      "id": "q-084",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "毕昇活字",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        84
+      ],
+      "judgments": {
+        "84": 3
+      },
+      "notes": "Chinese name/entity query '毕昇活字' targeting article 84."
+    },
+    {
+      "id": "q-085",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "蔡伦造纸",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        85
+      ],
+      "judgments": {
+        "85": 3
+      },
+      "notes": "Chinese name/entity query '蔡伦造纸' targeting article 85."
+    },
+    {
+      "id": "q-086",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "郭守敬",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        86
+      ],
+      "judgments": {
+        "86": 3
+      },
+      "notes": "Chinese name/entity query '郭守敬' targeting article 86."
+    },
+    {
+      "id": "q-087",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "宋应星",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        87
+      ],
+      "judgments": {
+        "87": 3
+      },
+      "notes": "Chinese name/entity query '宋应星' targeting article 87."
+    },
+    {
+      "id": "q-088",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "李时珍",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        88
+      ],
+      "judgments": {
+        "88": 3
+      },
+      "notes": "Chinese name/entity query '李时珍' targeting article 88."
+    },
+    {
+      "id": "q-089",
+      "split": "tuning",
+      "category": "chinese_names",
+      "query": "郦道元",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        89
+      ],
+      "judgments": {
+        "89": 3
+      },
+      "notes": "Chinese name/entity query '郦道元' targeting article 89."
+    },
+    {
+      "id": "q-090",
+      "split": "holdout",
+      "category": "chinese_names",
+      "query": "孙思邈",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        90
+      ],
+      "judgments": {
+        "90": 3
+      },
+      "notes": "Chinese name/entity query '孙思邈' targeting article 90."
+    },
+    {
+      "id": "q-091",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "锁",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        91
+      ],
+      "judgments": {
+        "91": 3
+      },
+      "notes": "Explicit single-character CJK query '锁' targeting article 91."
+    },
+    {
+      "id": "q-092",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "帧",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        92
+      ],
+      "judgments": {
+        "92": 3
+      },
+      "notes": "Explicit single-character CJK query '帧' targeting article 92."
+    },
+    {
+      "id": "q-093",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "栈",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        93
+      ],
+      "judgments": {
+        "93": 3
+      },
+      "notes": "Explicit single-character CJK query '栈' targeting article 93."
+    },
+    {
+      "id": "q-094",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "树",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        94
+      ],
+      "judgments": {
+        "94": 3
+      },
+      "notes": "Explicit single-character CJK query '树' targeting article 94."
+    },
+    {
+      "id": "q-095",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "图",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        95
+      ],
+      "judgments": {
+        "95": 3
+      },
+      "notes": "Explicit single-character CJK query '图' targeting article 95."
+    },
+    {
+      "id": "q-096",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "堆",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        96
+      ],
+      "judgments": {
+        "96": 3
+      },
+      "notes": "Explicit single-character CJK query '堆' targeting article 96."
+    },
+    {
+      "id": "q-097",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "环",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        97
+      ],
+      "judgments": {
+        "97": 3
+      },
+      "notes": "Explicit single-character CJK query '环' targeting article 97."
+    },
+    {
+      "id": "q-098",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "池",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        98
+      ],
+      "judgments": {
+        "98": 3
+      },
+      "notes": "Explicit single-character CJK query '池' targeting article 98."
+    },
+    {
+      "id": "q-099",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "页",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        99
+      ],
+      "judgments": {
+        "99": 3
+      },
+      "notes": "Explicit single-character CJK query '页' targeting article 99."
+    },
+    {
+      "id": "q-100",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "链",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        100
+      ],
+      "judgments": {
+        "100": 3
+      },
+      "notes": "Explicit single-character CJK query '链' targeting article 100."
+    },
+    {
+      "id": "q-101",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "槽",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        101
+      ],
+      "judgments": {
+        "101": 3
+      },
+      "notes": "Explicit single-character CJK query '槽' targeting article 101."
+    },
+    {
+      "id": "q-102",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "核",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        102
+      ],
+      "judgments": {
+        "102": 3
+      },
+      "notes": "Explicit single-character CJK query '核' targeting article 102."
+    },
+    {
+      "id": "q-103",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "桶",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        103
+      ],
+      "judgments": {
+        "103": 3
+      },
+      "notes": "Explicit single-character CJK query '桶' targeting article 103."
+    },
+    {
+      "id": "q-104",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "锚",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        104
+      ],
+      "judgments": {
+        "104": 3
+      },
+      "notes": "Explicit single-character CJK query '锚' targeting article 104."
+    },
+    {
+      "id": "q-105",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "轨",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        105
+      ],
+      "judgments": {
+        "105": 3
+      },
+      "notes": "Explicit single-character CJK query '轨' targeting article 105."
+    },
+    {
+      "id": "q-106",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "窗",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        106
+      ],
+      "judgments": {
+        "106": 3
+      },
+      "notes": "Explicit single-character CJK query '窗' targeting article 106."
+    },
+    {
+      "id": "q-107",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "门",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        107
+      ],
+      "judgments": {
+        "107": 3
+      },
+      "notes": "Explicit single-character CJK query '门' targeting article 107."
+    },
+    {
+      "id": "q-108",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "桥",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        108
+      ],
+      "judgments": {
+        "108": 3
+      },
+      "notes": "Explicit single-character CJK query '桥' targeting article 108."
+    },
+    {
+      "id": "q-109",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "镜",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        109
+      ],
+      "judgments": {
+        "109": 3
+      },
+      "notes": "Explicit single-character CJK query '镜' targeting article 109."
+    },
+    {
+      "id": "q-110",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "盾",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        110
+      ],
+      "judgments": {
+        "110": 3
+      },
+      "notes": "Explicit single-character CJK query '盾' targeting article 110."
+    },
+    {
+      "id": "q-111",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "灯",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        111
+      ],
+      "judgments": {
+        "111": 3
+      },
+      "notes": "Explicit single-character CJK query '灯' targeting article 111."
+    },
+    {
+      "id": "q-112",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "舟",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        112
+      ],
+      "judgments": {
+        "112": 3
+      },
+      "notes": "Explicit single-character CJK query '舟' targeting article 112."
+    },
+    {
+      "id": "q-113",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "碑",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        113
+      ],
+      "judgments": {
+        "113": 3
+      },
+      "notes": "Explicit single-character CJK query '碑' targeting article 113."
+    },
+    {
+      "id": "q-114",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "卷",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        114
+      ],
+      "judgments": {
+        "114": 3
+      },
+      "notes": "Explicit single-character CJK query '卷' targeting article 114."
+    },
+    {
+      "id": "q-115",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "谱",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        115
+      ],
+      "judgments": {
+        "115": 3
+      },
+      "notes": "Explicit single-character CJK query '谱' targeting article 115."
+    },
+    {
+      "id": "q-116",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "印",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        116
+      ],
+      "judgments": {
+        "116": 3
+      },
+      "notes": "Explicit single-character CJK query '印' targeting article 116."
+    },
+    {
+      "id": "q-117",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "契",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        117
+      ],
+      "judgments": {
+        "117": 3
+      },
+      "notes": "Explicit single-character CJK query '契' targeting article 117."
+    },
+    {
+      "id": "q-118",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "策",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        118
+      ],
+      "judgments": {
+        "118": 3
+      },
+      "notes": "Explicit single-character CJK query '策' targeting article 118."
+    },
+    {
+      "id": "q-119",
+      "split": "tuning",
+      "category": "chinese_single_char",
+      "query": "脉",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        119
+      ],
+      "judgments": {
+        "119": 3
+      },
+      "notes": "Explicit single-character CJK query '脉' targeting article 119."
+    },
+    {
+      "id": "q-120",
+      "split": "holdout",
+      "category": "chinese_single_char",
+      "query": "源",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        120
+      ],
+      "judgments": {
+        "120": 3
+      },
+      "notes": "Explicit single-character CJK query '源' targeting article 120."
+    },
+    {
+      "id": "q-121",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "issue-2205",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        121
+      ],
+      "judgments": {
+        "121": 3
+      },
+      "notes": "Technical identifier query 'issue-2205' targeting article 121."
+    },
+    {
+      "id": "q-122",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "batch_job-42",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        122
+      ],
+      "judgments": {
+        "122": 3
+      },
+      "notes": "Technical identifier query 'batch_job-42' targeting article 122."
+    },
+    {
+      "id": "q-123",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "token_bucket-9",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        123
+      ],
+      "judgments": {
+        "123": 3
+      },
+      "notes": "Technical identifier query 'token_bucket-9' targeting article 123."
+    },
+    {
+      "id": "q-124",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "shard_id-17",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        124
+      ],
+      "judgments": {
+        "124": 3
+      },
+      "notes": "Technical identifier query 'shard_id-17' targeting article 124."
+    },
+    {
+      "id": "q-125",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "lease_epoch-3",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        125
+      ],
+      "judgments": {
+        "125": 3
+      },
+      "notes": "Technical identifier query 'lease_epoch-3' targeting article 125."
+    },
+    {
+      "id": "q-126",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "cache_key-88",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        126
+      ],
+      "judgments": {
+        "126": 3
+      },
+      "notes": "Technical identifier query 'cache_key-88' targeting article 126."
+    },
+    {
+      "id": "q-127",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "cursor_hmac-5",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        127
+      ],
+      "judgments": {
+        "127": 3
+      },
+      "notes": "Technical identifier query 'cursor_hmac-5' targeting article 127."
+    },
+    {
+      "id": "q-128",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "bm25f_v1",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        128
+      ],
+      "judgments": {
+        "128": 3
+      },
+      "notes": "Technical identifier query 'bm25f_v1' targeting article 128."
+    },
+    {
+      "id": "q-129",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "bmwand_block-64",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        129
+      ],
+      "judgments": {
+        "129": 3
+      },
+      "notes": "Technical identifier query 'bmwand_block-64' targeting article 129."
+    },
+    {
+      "id": "q-130",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "segment_merge-12",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        130
+      ],
+      "judgments": {
+        "130": 3
+      },
+      "notes": "Technical identifier query 'segment_merge-12' targeting article 130."
+    },
+    {
+      "id": "q-131",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "pg18_wal",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        131
+      ],
+      "judgments": {
+        "131": 3
+      },
+      "notes": "Technical identifier query 'pg18_wal' targeting article 131."
+    },
+    {
+      "id": "q-132",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "v2_schema",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        132
+      ],
+      "judgments": {
+        "132": 3
+      },
+      "notes": "Technical identifier query 'v2_schema' targeting article 132."
+    },
+    {
+      "id": "q-133",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "aeds_v2",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        133
+      ],
+      "judgments": {
+        "133": 3
+      },
+      "notes": "Technical identifier query 'aeds_v2' targeting article 133."
+    },
+    {
+      "id": "q-134",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "fsdl_dict",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        134
+      ],
+      "judgments": {
+        "134": 3
+      },
+      "notes": "Technical identifier query 'fsdl_dict' targeting article 134."
+    },
+    {
+      "id": "q-135",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "fspt_patch",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        135
+      ],
+      "judgments": {
+        "135": 3
+      },
+      "notes": "Technical identifier query 'fspt_patch' targeting article 135."
+    },
+    {
+      "id": "q-136",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "http2_frame",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        136
+      ],
+      "judgments": {
+        "136": 3
+      },
+      "notes": "Technical identifier query 'http2_frame' targeting article 136."
+    },
+    {
+      "id": "q-137",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "rfc-9110",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        137
+      ],
+      "judgments": {
+        "137": 3
+      },
+      "notes": "Technical identifier query 'rfc-9110' targeting article 137."
+    },
+    {
+      "id": "q-138",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "cve_2026-104",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        138
+      ],
+      "judgments": {
+        "138": 3
+      },
+      "notes": "Technical identifier query 'cve_2026-104' targeting article 138."
+    },
+    {
+      "id": "q-139",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "pr-408",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        139
+      ],
+      "judgments": {
+        "139": 3
+      },
+      "notes": "Technical identifier query 'pr-408' targeting article 139."
+    },
+    {
+      "id": "q-140",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "err_503-retry",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        140
+      ],
+      "judgments": {
+        "140": 3
+      },
+      "notes": "Technical identifier query 'err_503-retry' targeting article 140."
+    },
+    {
+      "id": "q-141",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "ArticleSearchIndex",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        141
+      ],
+      "judgments": {
+        "141": 3
+      },
+      "notes": "Technical identifier query 'ArticleSearchIndex' targeting article 141."
+    },
+    {
+      "id": "q-142",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "LocalSearchCorpus",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        142
+      ],
+      "judgments": {
+        "142": 3
+      },
+      "notes": "Technical identifier query 'LocalSearchCorpus' targeting article 142."
+    },
+    {
+      "id": "q-143",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "WideSearchCorpusStage",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        143
+      ],
+      "judgments": {
+        "143": 3
+      },
+      "notes": "Technical identifier query 'WideSearchCorpusStage' targeting article 143."
+    },
+    {
+      "id": "q-144",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "PublicSnapshot",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        144
+      ],
+      "judgments": {
+        "144": 3
+      },
+      "notes": "Technical identifier query 'PublicSnapshot' targeting article 144."
+    },
+    {
+      "id": "q-145",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "PublicReadEndpoints",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        145
+      ],
+      "judgments": {
+        "145": 3
+      },
+      "notes": "Technical identifier query 'PublicReadEndpoints' targeting article 145."
+    },
+    {
+      "id": "q-146",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "BlockMaxWand",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        146
+      ],
+      "judgments": {
+        "146": 3
+      },
+      "notes": "Technical identifier query 'BlockMaxWand' targeting article 146."
+    },
+    {
+      "id": "q-147",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "TokenAnalyzer",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        147
+      ],
+      "judgments": {
+        "147": 3
+      },
+      "notes": "Technical identifier query 'TokenAnalyzer' targeting article 147."
+    },
+    {
+      "id": "q-148",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "SnippetExtractor",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        148
+      ],
+      "judgments": {
+        "148": 3
+      },
+      "notes": "Technical identifier query 'SnippetExtractor' targeting article 148."
+    },
+    {
+      "id": "q-149",
+      "split": "tuning",
+      "category": "technical_identifier",
+      "query": "QueryCoalescer",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        149
+      ],
+      "judgments": {
+        "149": 3
+      },
+      "notes": "Technical identifier query 'QueryCoalescer' targeting article 149."
+    },
+    {
+      "id": "q-150",
+      "split": "holdout",
+      "category": "technical_identifier",
+      "query": "SegmentManifest",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        150
+      ],
+      "judgments": {
+        "150": 3
+      },
+      "notes": "Technical identifier query 'SegmentManifest' targeting article 150."
+    },
+    {
+      "id": "q-151",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "C#",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        151
+      ],
+      "judgments": {
+        "151": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'C#' targeting article 151."
+    },
+    {
+      "id": "q-152",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "C++",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        152
+      ],
+      "judgments": {
+        "152": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'C++' targeting article 152."
+    },
+    {
+      "id": "q-153",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": ".NET",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        153
+      ],
+      "judgments": {
+        "153": 3
+      },
+      "notes": "Punctuation-sensitive technical query '.NET' targeting article 153."
+    },
+    {
+      "id": "q-154",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "ASP.NET",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        154
+      ],
+      "judgments": {
+        "154": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'ASP.NET' targeting article 154."
+    },
+    {
+      "id": "q-155",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "F#",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        155
+      ],
+      "judgments": {
+        "155": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'F#' targeting article 155."
+    },
+    {
+      "id": "q-156",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "Node.js",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        156
+      ],
+      "judgments": {
+        "156": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'Node.js' targeting article 156."
+    },
+    {
+      "id": "q-157",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "Vue.js",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        157
+      ],
+      "judgments": {
+        "157": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'Vue.js' targeting article 157."
+    },
+    {
+      "id": "q-158",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "O(log n)",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        158
+      ],
+      "judgments": {
+        "158": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'O(log n)' targeting article 158."
+    },
+    {
+      "id": "q-159",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "UTF-8",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        159
+      ],
+      "judgments": {
+        "159": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'UTF-8' targeting article 159."
+    },
+    {
+      "id": "q-160",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "HTTP/2",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        160
+      ],
+      "judgments": {
+        "160": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'HTTP/2' targeting article 160."
+    },
+    {
+      "id": "q-161",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "TLS 1.3",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        161
+      ],
+      "judgments": {
+        "161": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'TLS 1.3' targeting article 161."
+    },
+    {
+      "id": "q-162",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "TCP/IP",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        162
+      ],
+      "judgments": {
+        "162": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'TCP/IP' targeting article 162."
+    },
+    {
+      "id": "q-163",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "SHA-256",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        163
+      ],
+      "judgments": {
+        "163": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'SHA-256' targeting article 163."
+    },
+    {
+      "id": "q-164",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "CI/CD",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        164
+      ],
+      "judgments": {
+        "164": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'CI/CD' targeting article 164."
+    },
+    {
+      "id": "q-165",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "I/O",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        165
+      ],
+      "judgments": {
+        "165": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'I/O' targeting article 165."
+    },
+    {
+      "id": "q-166",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "PL/pgSQL",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        166
+      ],
+      "judgments": {
+        "166": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'PL/pgSQL' targeting article 166."
+    },
+    {
+      "id": "q-167",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "gRPC/HTTP2",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        167
+      ],
+      "judgments": {
+        "167": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'gRPC/HTTP2' targeting article 167."
+    },
+    {
+      "id": "q-168",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "x86_64",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        168
+      ],
+      "judgments": {
+        "168": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'x86_64' targeting article 168."
+    },
+    {
+      "id": "q-169",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "arm64-v8",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        169
+      ],
+      "judgments": {
+        "169": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'arm64-v8' targeting article 169."
+    },
+    {
+      "id": "q-170",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "A/B",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        170
+      ],
+      "judgments": {
+        "170": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'A/B' targeting article 170."
+    },
+    {
+      "id": "q-171",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "Next.js",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        171
+      ],
+      "judgments": {
+        "171": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'Next.js' targeting article 171."
+    },
+    {
+      "id": "q-172",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "Nuxt.js",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        172
+      ],
+      "judgments": {
+        "172": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'Nuxt.js' targeting article 172."
+    },
+    {
+      "id": "q-173",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "D3.js",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        173
+      ],
+      "judgments": {
+        "173": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'D3.js' targeting article 173."
+    },
+    {
+      "id": "q-174",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "Objective-C",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        174
+      ],
+      "judgments": {
+        "174": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'Objective-C' targeting article 174."
+    },
+    {
+      "id": "q-175",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "C/C++",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        175
+      ],
+      "judgments": {
+        "175": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'C/C++' targeting article 175."
+    },
+    {
+      "id": "q-176",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "macOS/arm64",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        176
+      ],
+      "judgments": {
+        "176": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'macOS/arm64' targeting article 176."
+    },
+    {
+      "id": "q-177",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "UTF-16",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        177
+      ],
+      "judgments": {
+        "177": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'UTF-16' targeting article 177."
+    },
+    {
+      "id": "q-178",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "IEEE-754",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        178
+      ],
+      "judgments": {
+        "178": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'IEEE-754' targeting article 178."
+    },
+    {
+      "id": "q-179",
+      "split": "tuning",
+      "category": "punctuation_sensitive",
+      "query": "SHA-512",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        179
+      ],
+      "judgments": {
+        "179": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'SHA-512' targeting article 179."
+    },
+    {
+      "id": "q-180",
+      "split": "holdout",
+      "category": "punctuation_sensitive",
+      "query": "WebAssembly/WASI",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        180
+      ],
+      "judgments": {
+        "180": 3
+      },
+      "notes": "Punctuation-sensitive technical query 'WebAssembly/WASI' targeting article 180."
+    },
+    {
+      "id": "q-181",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "軟件架構",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        181
+      ],
+      "judgments": {
+        "181": 3
+      },
+      "notes": "SC/TC variant query '軟件架構' matching article 181 written with '软件架构'."
+    },
+    {
+      "id": "q-182",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "網絡協議",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        182
+      ],
+      "judgments": {
+        "182": 3
+      },
+      "notes": "SC/TC variant query '網絡協議' matching article 182 written with '网络协议'."
+    },
+    {
+      "id": "q-183",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "數據庫",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        183
+      ],
+      "judgments": {
+        "183": 3
+      },
+      "notes": "SC/TC variant query '數據庫' matching article 183 written with '数据库'."
+    },
+    {
+      "id": "q-184",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "搜索引擎",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        184
+      ],
+      "judgments": {
+        "184": 3
+      },
+      "notes": "SC/TC variant query '搜索引擎' matching article 184 written with '搜索引擎'."
+    },
+    {
+      "id": "q-185",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "內存管理",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        185
+      ],
+      "judgments": {
+        "185": 3
+      },
+      "notes": "SC/TC variant query '內存管理' matching article 185 written with '内存管理'."
+    },
+    {
+      "id": "q-186",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "並發控制",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        186
+      ],
+      "judgments": {
+        "186": 3
+      },
+      "notes": "SC/TC variant query '並發控制' matching article 186 written with '并发控制'."
+    },
+    {
+      "id": "q-187",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "操作系統",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        187
+      ],
+      "judgments": {
+        "187": 3
+      },
+      "notes": "SC/TC variant query '操作系統' matching article 187 written with '操作系统'."
+    },
+    {
+      "id": "q-188",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "編程語言",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        188
+      ],
+      "judgments": {
+        "188": 3
+      },
+      "notes": "SC/TC variant query '編程語言' matching article 188 written with '编程语言'."
+    },
+    {
+      "id": "q-189",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "服務器",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        189
+      ],
+      "judgments": {
+        "189": 3
+      },
+      "notes": "SC/TC variant query '服務器' matching article 189 written with '服务器'."
+    },
+    {
+      "id": "q-190",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "編譯器",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        190
+      ],
+      "judgments": {
+        "190": 3
+      },
+      "notes": "SC/TC variant query '編譯器' matching article 190 written with '编译器'."
+    },
+    {
+      "id": "q-191",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "緩存策略",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        191
+      ],
+      "judgments": {
+        "191": 3
+      },
+      "notes": "SC/TC variant query '緩存策略' matching article 191 written with '缓存策略'."
+    },
+    {
+      "id": "q-192",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "分散架構",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        192
+      ],
+      "judgments": {
+        "192": 3
+      },
+      "notes": "SC/TC variant query '分散架構' matching article 192 written with '分散架构'."
+    },
+    {
+      "id": "q-193",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "性能優化",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        193
+      ],
+      "judgments": {
+        "193": 3
+      },
+      "notes": "SC/TC variant query '性能優化' matching article 193 written with '性能优化'."
+    },
+    {
+      "id": "q-194",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "測試框架",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        194
+      ],
+      "judgments": {
+        "194": 3
+      },
+      "notes": "SC/TC variant query '測試框架' matching article 194 written with '测试框架'."
+    },
+    {
+      "id": "q-195",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "數據壓縮",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        195
+      ],
+      "judgments": {
+        "195": 3
+      },
+      "notes": "SC/TC variant query '數據壓縮' matching article 195 written with '数据压缩'."
+    },
+    {
+      "id": "q-196",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "开源社区",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        196
+      ],
+      "judgments": {
+        "196": 3
+      },
+      "notes": "SC/TC variant query '开源社区' matching article 196 written with '開源社區'."
+    },
+    {
+      "id": "q-197",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "网络安全",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        197
+      ],
+      "judgments": {
+        "197": 3
+      },
+      "notes": "SC/TC variant query '网络安全' matching article 197 written with '網絡安全'."
+    },
+    {
+      "id": "q-198",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "文档规范",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        198
+      ],
+      "judgments": {
+        "198": 3
+      },
+      "notes": "SC/TC variant query '文档规范' matching article 198 written with '文檔規範'."
+    },
+    {
+      "id": "q-199",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "前端开发",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        199
+      ],
+      "judgments": {
+        "199": 3
+      },
+      "notes": "SC/TC variant query '前端开发' matching article 199 written with '前端開發'."
+    },
+    {
+      "id": "q-200",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "后端服务",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        200
+      ],
+      "judgments": {
+        "200": 3
+      },
+      "notes": "SC/TC variant query '后端服务' matching article 200 written with '後端服務'."
+    },
+    {
+      "id": "q-201",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "读写锁",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        201
+      ],
+      "judgments": {
+        "201": 3
+      },
+      "notes": "SC/TC variant query '读写锁' matching article 201 written with '讀寫鎖'."
+    },
+    {
+      "id": "q-202",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "语言设计",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        202
+      ],
+      "judgments": {
+        "202": 3
+      },
+      "notes": "SC/TC variant query '语言设计' matching article 202 written with '語言設計'."
+    },
+    {
+      "id": "q-203",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "系统监控",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        203
+      ],
+      "judgments": {
+        "203": 3
+      },
+      "notes": "SC/TC variant query '系统监控' matching article 203 written with '系統監控'."
+    },
+    {
+      "id": "q-204",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "日志审计",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        204
+      ],
+      "judgments": {
+        "204": 3
+      },
+      "notes": "SC/TC variant query '日志审计' matching article 204 written with '日誌審計'."
+    },
+    {
+      "id": "q-205",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "密钥轮换",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        205
+      ],
+      "judgments": {
+        "205": 3
+      },
+      "notes": "SC/TC variant query '密钥轮换' matching article 205 written with '密鑰輪換'."
+    },
+    {
+      "id": "q-206",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "静态站点",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        206
+      ],
+      "judgments": {
+        "206": 3
+      },
+      "notes": "SC/TC variant query '静态站点' matching article 206 written with '靜態站點'."
+    },
+    {
+      "id": "q-207",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "内存对齐",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        207
+      ],
+      "judgments": {
+        "207": 3
+      },
+      "notes": "SC/TC variant query '内存对齐' matching article 207 written with '內存對齊'."
+    },
+    {
+      "id": "q-208",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "连接池",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        208
+      ],
+      "judgments": {
+        "208": 3
+      },
+      "notes": "SC/TC variant query '连接池' matching article 208 written with '連接池'."
+    },
+    {
+      "id": "q-209",
+      "split": "tuning",
+      "category": "simplified_traditional",
+      "query": "异步队列",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        209
+      ],
+      "judgments": {
+        "209": 3
+      },
+      "notes": "SC/TC variant query '异步队列' matching article 209 written with '異步隊列'."
+    },
+    {
+      "id": "q-210",
+      "split": "holdout",
+      "category": "simplified_traditional",
+      "query": "权限校验",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        210
+      ],
+      "judgments": {
+        "210": 3
+      },
+      "notes": "SC/TC variant query '权限校验' matching article 210 written with '權限校驗'."
+    },
+    {
+      "id": "q-211",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "\"block max wand\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        211
+      ],
+      "judgments": {
+        "211": 3
+      },
+      "notes": "Phrase query \"block max wand\" targeting exact contiguous match in article 211."
+    },
+    {
+      "id": "q-212",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "\"zero copy ring\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        213
+      ],
+      "judgments": {
+        "213": 3
+      },
+      "notes": "Phrase query \"zero copy ring\" targeting exact contiguous match in article 213."
+    },
+    {
+      "id": "q-213",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "\"atomic generation swap\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        214
+      ],
+      "judgments": {
+        "214": 3
+      },
+      "notes": "Phrase query \"atomic generation swap\" targeting exact contiguous match in article 214."
+    },
+    {
+      "id": "q-214",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "\"public generation\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        215
+      ],
+      "judgments": {
+        "215": 3
+      },
+      "notes": "Phrase query \"public generation\" targeting exact contiguous match in article 215."
+    },
+    {
+      "id": "q-215",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "\"exact top k\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        217
+      ],
+      "judgments": {
+        "217": 3
+      },
+      "notes": "Phrase query \"exact top k\" targeting exact contiguous match in article 217."
+    },
+    {
+      "id": "q-216",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "\"fail closed\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        218
+      ],
+      "judgments": {
+        "218": 3
+      },
+      "notes": "Phrase query \"fail closed\" targeting exact contiguous match in article 218."
+    },
+    {
+      "id": "q-217",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "\"single flight\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        219
+      ],
+      "judgments": {
+        "219": 3
+      },
+      "notes": "Phrase query \"single flight\" targeting exact contiguous match in article 219."
+    },
+    {
+      "id": "q-218",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "\"lower bound count\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        221
+      ],
+      "judgments": {
+        "221": 3
+      },
+      "notes": "Phrase query \"lower bound count\" targeting exact contiguous match in article 221."
+    },
+    {
+      "id": "q-219",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "\"opaque cursor\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        222
+      ],
+      "judgments": {
+        "222": 3
+      },
+      "notes": "Phrase query \"opaque cursor\" targeting exact contiguous match in article 222."
+    },
+    {
+      "id": "q-220",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "\"field length norm\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        223
+      ],
+      "judgments": {
+        "223": 3
+      },
+      "notes": "Phrase query \"field length norm\" targeting exact contiguous match in article 223."
+    },
+    {
+      "id": "q-221",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "\"binary wire frame\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        225
+      ],
+      "judgments": {
+        "225": 3
+      },
+      "notes": "Phrase query \"binary wire frame\" targeting exact contiguous match in article 225."
+    },
+    {
+      "id": "q-222",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "\"immutable segment\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        226
+      ],
+      "judgments": {
+        "226": 3
+      },
+      "notes": "Phrase query \"immutable segment\" targeting exact contiguous match in article 226."
+    },
+    {
+      "id": "q-223",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "\"surrogate pair\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        227
+      ],
+      "judgments": {
+        "227": 3
+      },
+      "notes": "Phrase query \"surrogate pair\" targeting exact contiguous match in article 227."
+    },
+    {
+      "id": "q-224",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "\"work budget\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        229
+      ],
+      "judgments": {
+        "229": 3
+      },
+      "notes": "Phrase query \"work budget\" targeting exact contiguous match in article 229."
+    },
+    {
+      "id": "q-225",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "\"cache no store\"",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        230
+      ],
+      "judgments": {
+        "230": 3
+      },
+      "notes": "Phrase query \"cache no store\" targeting exact contiguous match in article 230."
+    },
+    {
+      "id": "q-226",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "零拷贝 环形缓冲",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        231
+      ],
+      "judgments": {
+        "231": 3,
+        "232": 1
+      },
+      "notes": "Phrase query 零拷贝 环形缓冲 targeting exact contiguous match in article 231."
+    },
+    {
+      "id": "q-227",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "公开代次 原子切换",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        233
+      ],
+      "judgments": {
+        "233": 3
+      },
+      "notes": "Phrase query 公开代次 原子切换 targeting exact contiguous match in article 233."
+    },
+    {
+      "id": "q-228",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "增量分片 合并预算",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        234
+      ],
+      "judgments": {
+        "234": 3
+      },
+      "notes": "Phrase query 增量分片 合并预算 targeting exact contiguous match in article 234."
+    },
+    {
+      "id": "q-229",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "单飞合并 取消传播",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        235
+      ],
+      "judgments": {
+        "235": 3,
+        "236": 1
+      },
+      "notes": "Phrase query 单飞合并 取消传播 targeting exact contiguous match in article 235."
+    },
+    {
+      "id": "q-230",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "字段加权 长度归一",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        237
+      ],
+      "judgments": {
+        "237": 3
+      },
+      "notes": "Phrase query 字段加权 长度归一 targeting exact contiguous match in article 237."
+    },
+    {
+      "id": "q-231",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "精确上界 块级剪枝",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        238
+      ],
+      "judgments": {
+        "238": 3
+      },
+      "notes": "Phrase query 精确上界 块级剪枝 targeting exact contiguous match in article 238."
+    },
+    {
+      "id": "q-232",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "代次游标 篡改拒绝",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        239
+      ],
+      "judgments": {
+        "239": 3,
+        "240": 1
+      },
+      "notes": "Phrase query 代次游标 篡改拒绝 targeting exact contiguous match in article 239."
+    },
+    {
+      "id": "q-233",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "纯文本 片段高亮",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        241
+      ],
+      "judgments": {
+        "241": 3
+      },
+      "notes": "Phrase query 纯文本 片段高亮 targeting exact contiguous match in article 241."
+    },
+    {
+      "id": "q-234",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "撤回隔离 即时生效",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        242
+      ],
+      "judgments": {
+        "242": 3
+      },
+      "notes": "Phrase query 撤回隔离 即时生效 targeting exact contiguous match in article 242."
+    },
+    {
+      "id": "q-235",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "离线维护 只读启动",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        243
+      ],
+      "judgments": {
+        "243": 3,
+        "244": 1
+      },
+      "notes": "Phrase query 离线维护 只读启动 targeting exact contiguous match in article 243."
+    },
+    {
+      "id": "q-236",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "服务端 默认检索",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        245
+      ],
+      "judgments": {
+        "245": 3
+      },
+      "notes": "Phrase query 服务端 默认检索 targeting exact contiguous match in article 245."
+    },
+    {
+      "id": "q-237",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "词法分析 跨栈向量",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        246
+      ],
+      "judgments": {
+        "246": 3
+      },
+      "notes": "Phrase query 词法分析 跨栈向量 targeting exact contiguous match in article 246."
+    },
+    {
+      "id": "q-238",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "概念覆盖 有界松弛",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        247
+      ],
+      "judgments": {
+        "247": 3,
+        "248": 1
+      },
+      "notes": "Phrase query 概念覆盖 有界松弛 targeting exact contiguous match in article 247."
+    },
+    {
+      "id": "q-239",
+      "split": "tuning",
+      "category": "phrase",
+      "query": "能耗评估 质量优先",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        249
+      ],
+      "judgments": {
+        "249": 3
+      },
+      "notes": "Phrase query 能耗评估 质量优先 targeting exact contiguous match in article 249."
+    },
+    {
+      "id": "q-240",
+      "split": "holdout",
+      "category": "phrase",
+      "query": "发布坐标 不可变证明",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        250
+      ],
+      "judgments": {
+        "250": 3
+      },
+      "notes": "Phrase query 发布坐标 不可变证明 targeting exact contiguous match in article 250."
+    },
+    {
+      "id": "q-241",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "PostgreSQL 18 索引优化",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        251
+      ],
+      "judgments": {
+        "251": 3
+      },
+      "notes": "Mixed Chinese/English query 'PostgreSQL 18 索引优化' targeting article 251."
+    },
+    {
+      "id": "q-242",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "C# AOT 编译",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        252
+      ],
+      "judgments": {
+        "252": 3
+      },
+      "notes": "Mixed Chinese/English query 'C# AOT 编译' targeting article 252."
+    },
+    {
+      "id": "q-243",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "Wasm 内存布局",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        253
+      ],
+      "judgments": {
+        "253": 3
+      },
+      "notes": "Mixed Chinese/English query 'Wasm 内存布局' targeting article 253."
+    },
+    {
+      "id": "q-244",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "Kestrel 反向代理 TLS",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        254
+      ],
+      "judgments": {
+        "254": 3
+      },
+      "notes": "Mixed Chinese/English query 'Kestrel 反向代理 TLS' targeting article 254."
+    },
+    {
+      "id": "q-245",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "Vue 3 响应式 缓存",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        255
+      ],
+      "judgments": {
+        "255": 3
+      },
+      "notes": "Mixed Chinese/English query 'Vue 3 响应式 缓存' targeting article 255."
+    },
+    {
+      "id": "q-246",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "Linux cgroup 隔离",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        256
+      ],
+      "judgments": {
+        "256": 3
+      },
+      "notes": "Mixed Chinese/English query 'Linux cgroup 隔离' targeting article 256."
+    },
+    {
+      "id": "q-247",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "BM25F 字段权重",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        257
+      ],
+      "judgments": {
+        "257": 3
+      },
+      "notes": "Mixed Chinese/English query 'BM25F 字段权重' targeting article 257."
+    },
+    {
+      "id": "q-248",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "AEDS v2 二进制帧",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        258
+      ],
+      "judgments": {
+        "258": 3
+      },
+      "notes": "Mixed Chinese/English query 'AEDS v2 二进制帧' targeting article 258."
+    },
+    {
+      "id": "q-249",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "Passkey 身份认证",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        259
+      ],
+      "judgments": {
+        "259": 3
+      },
+      "notes": "Mixed Chinese/English query 'Passkey 身份认证' targeting article 259."
+    },
+    {
+      "id": "q-250",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "FSPK 分片 校验",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        260
+      ],
+      "judgments": {
+        "260": 3
+      },
+      "notes": "Mixed Chinese/English query 'FSPK 分片 校验' targeting article 260."
+    },
+    {
+      "id": "q-251",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "HTTP/2 多路复用",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        261
+      ],
+      "judgments": {
+        "261": 3
+      },
+      "notes": "Mixed Chinese/English query 'HTTP/2 多路复用' targeting article 261."
+    },
+    {
+      "id": "q-252",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "IndexedDB 缓存 清理",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        262
+      ],
+      "judgments": {
+        "262": 3
+      },
+      "notes": "Mixed Chinese/English query 'IndexedDB 缓存 清理' targeting article 262."
+    },
+    {
+      "id": "q-253",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "Web Locks 并发协调",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        263
+      ],
+      "judgments": {
+        "263": 3
+      },
+      "notes": "Mixed Chinese/English query 'Web Locks 并发协调' targeting article 263."
+    },
+    {
+      "id": "q-254",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "Npgsql 零查询 校验",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        264
+      ],
+      "judgments": {
+        "264": 3
+      },
+      "notes": "Mixed Chinese/English query 'Npgsql 零查询 校验' targeting article 264."
+    },
+    {
+      "id": "q-255",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "Markdown 标题 提取",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        265
+      ],
+      "judgments": {
+        "265": 3
+      },
+      "notes": "Mixed Chinese/English query 'Markdown 标题 提取' targeting article 265."
+    },
+    {
+      "id": "q-256",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "Caddy 自动证书 配置",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        266
+      ],
+      "judgments": {
+        "266": 3
+      },
+      "notes": "Mixed Chinese/English query 'Caddy 自动证书 配置' targeting article 266."
+    },
+    {
+      "id": "q-257",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "Nginx 反代 限流",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        267
+      ],
+      "judgments": {
+        "267": 3
+      },
+      "notes": "Mixed Chinese/English query 'Nginx 反代 限流' targeting article 267."
+    },
+    {
+      "id": "q-258",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "RAPL 能耗 采样",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        268
+      ],
+      "judgments": {
+        "268": 3
+      },
+      "notes": "Mixed Chinese/English query 'RAPL 能耗 采样' targeting article 268."
+    },
+    {
+      "id": "q-259",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "Playwright 浏览器 回归",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        269
+      ],
+      "judgments": {
+        "269": 3
+      },
+      "notes": "Mixed Chinese/English query 'Playwright 浏览器 回归' targeting article 269."
+    },
+    {
+      "id": "q-260",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "ArrayPool 缓冲 复用",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        270
+      ],
+      "judgments": {
+        "270": 3
+      },
+      "notes": "Mixed Chinese/English query 'ArrayPool 缓冲 复用' targeting article 270."
+    },
+    {
+      "id": "q-261",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "PriorityQueue 堆 排序",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        271
+      ],
+      "judgments": {
+        "271": 3
+      },
+      "notes": "Mixed Chinese/English query 'PriorityQueue 堆 排序' targeting article 271."
+    },
+    {
+      "id": "q-262",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "AbortController 请求 取消",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        272
+      ],
+      "judgments": {
+        "272": 3
+      },
+      "notes": "Mixed Chinese/English query 'AbortController 请求 取消' targeting article 272."
+    },
+    {
+      "id": "q-263",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "CancellationToken 协作 取消",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        273
+      ],
+      "judgments": {
+        "273": 3
+      },
+      "notes": "Mixed Chinese/English query 'CancellationToken 协作 取消' targeting article 273."
+    },
+    {
+      "id": "q-264",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "SHA-256 摘要 绑定",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        274
+      ],
+      "judgments": {
+        "274": 3
+      },
+      "notes": "Mixed Chinese/English query 'SHA-256 摘要 绑定' targeting article 274."
+    },
+    {
+      "id": "q-265",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "UTF-8 编码 边界",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        275
+      ],
+      "judgments": {
+        "275": 3
+      },
+      "notes": "Mixed Chinese/English query 'UTF-8 编码 边界' targeting article 275."
+    },
+    {
+      "id": "q-266",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "NFKC 规范化 映射",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        276
+      ],
+      "judgments": {
+        "276": 3
+      },
+      "notes": "Mixed Chinese/English query 'NFKC 规范化 映射' targeting article 276."
+    },
+    {
+      "id": "q-267",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "TOTP 二次验证 恢复",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        277
+      ],
+      "judgments": {
+        "277": 3
+      },
+      "notes": "Mixed Chinese/English query 'TOTP 二次验证 恢复' targeting article 277."
+    },
+    {
+      "id": "q-268",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "RSS Atom 分发",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        278
+      ],
+      "judgments": {
+        "278": 3
+      },
+      "notes": "Mixed Chinese/English query 'RSS Atom 分发' targeting article 278."
+    },
+    {
+      "id": "q-269",
+      "split": "tuning",
+      "category": "mixed_language",
+      "query": "CSP 策略 脚本消毒",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        279
+      ],
+      "judgments": {
+        "279": 3
+      },
+      "notes": "Mixed Chinese/English query 'CSP 策略 脚本消毒' targeting article 279."
+    },
+    {
+      "id": "q-270",
+      "split": "holdout",
+      "category": "mixed_language",
+      "query": "SQLite 与 PostgreSQL 对比",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        280
+      ],
+      "judgments": {
+        "280": 3
+      },
+      "notes": "Mixed Chinese/English query 'SQLite 与 PostgreSQL 对比' targeting article 280."
+    },
+    {
+      "id": "q-271",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "如何在 PostgreSQL 18 中 设计 增量快照 并 保证 公开代次 撤回安全",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        281
+      ],
+      "judgments": {
+        "281": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 281."
+    },
+    {
+      "id": "q-272",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "服务端 默认检索 不下载 全量语料 分片 的 浏览器 首查 延迟优化",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        282
+      ],
+      "judgments": {
+        "282": 3
+      },
+      "notes": "Long natural-language query (9 terms) targeting article 282."
+    },
+    {
+      "id": "q-273",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "多词 查询 概念覆盖 跨字段 匹配 与 结果不足 有界松弛 策略",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        283
+      ],
+      "judgments": {
+        "283": 3
+      },
+      "notes": "Long natural-language query (9 terms) targeting article 283."
+    },
+    {
+      "id": "q-274",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "统一 词法分析 处理 中文词典 未知词 双字组 与 技术标点 标识符",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        284
+      ],
+      "judgments": {
+        "284": 3
+      },
+      "notes": "Long natural-language query (9 terms) targeting article 284."
+    },
+    {
+      "id": "q-275",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "基于 BM25F 字段权重 与 全局统计 消除 物理分片 导致 的 排序漂移",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        285
+      ],
+      "judgments": {
+        "285": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 285."
+    },
+    {
+      "id": "q-276",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "使用 Block-Max WAND 块级剪枝 实现 精确 Top-K 检索 且 不降低 相关性",
+      "synthetic": true,
+      "rarity": "common",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        286
+      ],
+      "judgments": {
+        "286": 3
+      },
+      "notes": "Long natural-language query (11 terms) targeting article 286."
+    },
+    {
+      "id": "q-277",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "高并发 重复搜索 单飞合并 有界缓存 与 取消单个等待者 不影响 其他请求",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        287
+      ],
+      "judgments": {
+        "287": 3
+      },
+      "notes": "Long natural-language query (8 terms) targeting article 287."
+    },
+    {
+      "id": "q-278",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "翻页期间 发生 发布 或 撤回 时 代次变化 一次自动重试 与 游标重置",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        288
+      ],
+      "judgments": {
+        "288": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 288."
+    },
+    {
+      "id": "q-279",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "不可变 服务端索引段 按文档变更 复用未变倒排 避免 全量重建 开销",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        289
+      ],
+      "judgments": {
+        "289": 3
+      },
+      "notes": "Long natural-language query (7 terms) targeting article 289."
+    },
+    {
+      "id": "q-280",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "搜索结果 协议 区分 精确计数 下界计数 并发出 签名游标 与 安全片段",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        290
+      ],
+      "judgments": {
+        "290": 3
+      },
+      "notes": "Long natural-language query (9 terms) targeting article 290."
+    },
+    {
+      "id": "q-281",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "从 已发布 Markdown 提取 标题 代码块 可见链接文本 并 过滤 隐藏标签",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        291
+      ],
+      "judgments": {
+        "291": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 291."
+    },
+    {
+      "id": "q-282",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "评估 公开搜索 相关性 延迟 内存 与 CPU 封装 能耗 的 复现基准",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        292
+      ],
+      "judgments": {
+        "292": 3
+      },
+      "notes": "Long natural-language query (11 terms) targeting article 292."
+    },
+    {
+      "id": "q-283",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "繁简中文 受控别名 映射 保留 原文偏移 且 不覆盖 精确标识符 约束",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        293
+      ],
+      "judgments": {
+        "293": 3
+      },
+      "notes": "Long natural-language query (9 terms) targeting article 293."
+    },
+    {
+      "id": "q-284",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "浏览器 禁用 存储 或 Web Worker 时 默认 服务端搜索 仍可 正常翻页",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        294
+      ],
+      "judgments": {
+        "294": 3
+      },
+      "notes": "Long natural-language query (11 terms) targeting article 294."
+    },
+    {
+      "id": "q-285",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "宽语料 模式 关闭 本地分片 后 跳过 无用语料构建 但 保持 重启代次一致",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        295
+      ],
+      "judgments": {
+        "295": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 295."
+    },
+    {
+      "id": "q-286",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "验证 公开搜索 HTTP 响应 保持 no-store 且 不记录 原始用户查询 日志",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        296
+      ],
+      "judgments": {
+        "296": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 296."
+    },
+    {
+      "id": "q-287",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "区分 损坏本地分片 权限失败 传输错误 与 可安全重试 的 代次变更",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        297
+      ],
+      "judgments": {
+        "297": 3
+      },
+      "notes": "Long natural-language query (8 terms) targeting article 297."
+    },
+    {
+      "id": "q-288",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "长中文 连续文本 超过 分段上限 时 有界退化 避免 内存暴涨",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        298
+      ],
+      "judgments": {
+        "298": 3
+      },
+      "notes": "Long natural-language query (8 terms) targeting article 298."
+    },
+    {
+      "id": "q-289",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "超长 精确技术标识符 超过 长度上限 时 直接拒绝 而非 静默截断 误命中",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        299
+      ],
+      "judgments": {
+        "299": 3
+      },
+      "notes": "Long natural-language query (9 terms) targeting article 299."
+    },
+    {
+      "id": "q-290",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "相同 查询 多次 执行 下 命中率敏感性 内存上界 与 节省执行次数 统计",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        300
+      ],
+      "judgments": {
+        "300": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 300."
+    },
+    {
+      "id": "q-291",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "分类 或 标签 重命名 触发 批量文章 更新 时 增量索引 保持 统计准确",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        301
+      ],
+      "judgments": {
+        "301": 3
+      },
+      "notes": "Long natural-language query (11 terms) targeting article 301."
+    },
+    {
+      "id": "q-292",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "稀有词 与 高频常用词 查询 延迟 分开报告 防止 平均值 掩盖 退化",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        302
+      ],
+      "judgments": {
+        "302": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 302."
+    },
+    {
+      "id": "q-293",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "引用短语 与 完整标识符 约束 在 松弛策略 下 绝不 未经确认 自动放宽",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        303
+      ],
+      "judgments": {
+        "303": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 303."
+    },
+    {
+      "id": "q-294",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "搜索 排序 切换 最新 publishedAt 与 相关性 relevance 的 确定性 决胜规则",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        304
+      ],
+      "judgments": {
+        "304": 3
+      },
+      "notes": "Long natural-language query (11 terms) targeting article 304."
+    },
+    {
+      "id": "q-295",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "离线 协议生成器 wire.schema.json 同步 C# TypeScript C++ 常量 零手改",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        305
+      ],
+      "judgments": {
+        "305": 3
+      },
+      "notes": "Long natural-language query (9 terms) targeting article 305."
+    },
+    {
+      "id": "q-296",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "段合并 物理压缩 在 后台 有界预算 执行 且 不改变 语义结果 与 游标规则",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        306
+      ],
+      "judgments": {
+        "306": 3
+      },
+      "notes": "Long natural-language query (11 terms) targeting article 306."
+    },
+    {
+      "id": "q-297",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "高频 突发 垃圾查询 攻击 下 准入限流 与 缓存 防驱逐 内存边界测试",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        307
+      ],
+      "judgments": {
+        "307": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 307."
+    },
+    {
+      "id": "q-298",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "真实 PostgreSQL 发布 编辑 撤回 重发 序列 与 全量重建 差分验证",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        308
+      ],
+      "judgments": {
+        "308": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 308."
+    },
+    {
+      "id": "q-299",
+      "split": "tuning",
+      "category": "long_query",
+      "query": "桌面端 与 移动端 明暗双主题 下 搜索 计数 片段 高亮 视觉验收",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        309
+      ],
+      "judgments": {
+        "309": 3
+      },
+      "notes": "Long natural-language query (10 terms) targeting article 309."
+    },
+    {
+      "id": "q-300",
+      "split": "holdout",
+      "category": "long_query",
+      "query": "分析器 版本号 升级 后 自动 失效 旧索引 与 旧缓存 拒绝 静默混用",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        310
+      ],
+      "judgments": {
+        "310": 3
+      },
+      "notes": "Long natural-language query (11 terms) targeting article 310."
+    },
+    {
+      "id": "q-301",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "VisibleHeadingAlpha",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        311
+      ],
+      "judgments": {
+        "311": 3
+      },
+      "notes": "Visible Markdown content query 'VisibleHeadingAlpha' targeting article 311."
+    },
+    {
+      "id": "q-302",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "VisibleHeadingBeta",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        312
+      ],
+      "judgments": {
+        "312": 3
+      },
+      "notes": "Visible Markdown content query 'VisibleHeadingBeta' targeting article 312."
+    },
+    {
+      "id": "q-303",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "InlineCodeToken01",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        313
+      ],
+      "judgments": {
+        "313": 3
+      },
+      "notes": "Visible Markdown content query 'InlineCodeToken01' targeting article 313."
+    },
+    {
+      "id": "q-304",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "InlineCodeToken02",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        314
+      ],
+      "judgments": {
+        "314": 3
+      },
+      "notes": "Visible Markdown content query 'InlineCodeToken02' targeting article 314."
+    },
+    {
+      "id": "q-305",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "FencedCodeSymbol03",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        315
+      ],
+      "judgments": {
+        "315": 3
+      },
+      "notes": "Visible Markdown content query 'FencedCodeSymbol03' targeting article 315."
+    },
+    {
+      "id": "q-306",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "FencedCodeSymbol04",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        316
+      ],
+      "judgments": {
+        "316": 3
+      },
+      "notes": "Visible Markdown content query 'FencedCodeSymbol04' targeting article 316."
+    },
+    {
+      "id": "q-307",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "可见链接标签甲",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        317
+      ],
+      "judgments": {
+        "317": 3
+      },
+      "notes": "Visible Markdown content query '可见链接标签甲' targeting article 317."
+    },
+    {
+      "id": "q-308",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "可见链接标签乙",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        318
+      ],
+      "judgments": {
+        "318": 3
+      },
+      "notes": "Visible Markdown content query '可见链接标签乙' targeting article 318."
+    },
+    {
+      "id": "q-309",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "VisibleQuotePhrase05",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        319
+      ],
+      "judgments": {
+        "319": 3
+      },
+      "notes": "Visible Markdown content query 'VisibleQuotePhrase05' targeting article 319."
+    },
+    {
+      "id": "q-310",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "VisibleListEntry06",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        320
+      ],
+      "judgments": {
+        "320": 3
+      },
+      "notes": "Visible Markdown content query 'VisibleListEntry06' targeting article 320."
+    },
+    {
+      "id": "q-311",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "VisibleTableCell07",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        321
+      ],
+      "judgments": {
+        "321": 3
+      },
+      "notes": "Visible Markdown content query 'VisibleTableCell07' targeting article 321."
+    },
+    {
+      "id": "q-312",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "VisibleBoldText08",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        322
+      ],
+      "judgments": {
+        "322": 3
+      },
+      "notes": "Visible Markdown content query 'VisibleBoldText08' targeting article 322."
+    },
+    {
+      "id": "q-313",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "VisibleItalicText09",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        323
+      ],
+      "judgments": {
+        "323": 3
+      },
+      "notes": "Visible Markdown content query 'VisibleItalicText09' targeting article 323."
+    },
+    {
+      "id": "q-314",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "VisibleImageAlt10",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        324
+      ],
+      "judgments": {
+        "324": 3
+      },
+      "notes": "Visible Markdown content query 'VisibleImageAlt10' targeting article 324."
+    },
+    {
+      "id": "q-315",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "VisibleHtmlInner11",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        325
+      ],
+      "judgments": {
+        "325": 3
+      },
+      "notes": "Visible Markdown content query 'VisibleHtmlInner11' targeting article 325."
+    },
+    {
+      "id": "q-316",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "FencedSqlToken12",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        326
+      ],
+      "judgments": {
+        "326": 3
+      },
+      "notes": "Visible Markdown content query 'FencedSqlToken12' targeting article 326."
+    },
+    {
+      "id": "q-317",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "可见子标题丙",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        327
+      ],
+      "judgments": {
+        "327": 3
+      },
+      "notes": "Visible Markdown content query '可见子标题丙' targeting article 327."
+    },
+    {
+      "id": "q-318",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "可见代码块丁",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        328
+      ],
+      "judgments": {
+        "328": 3
+      },
+      "notes": "Visible Markdown content query '可见代码块丁' targeting article 328."
+    },
+    {
+      "id": "q-319",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "VisibleEscaped13",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        329
+      ],
+      "judgments": {
+        "329": 3
+      },
+      "notes": "Visible Markdown content query 'VisibleEscaped13' targeting article 329."
+    },
+    {
+      "id": "q-320",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "VisibleFootnote14",
+      "synthetic": true,
+      "rarity": "rare",
+      "expectedEmpty": false,
+      "targetArticleIds": [
+        330
+      ],
+      "judgments": {
+        "330": 3
+      },
+      "notes": "Visible Markdown content query 'VisibleFootnote14' targeting article 330."
+    },
+    {
+      "id": "q-321",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "secret-link-target-01",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Hidden Markdown/HTML token 'secret-link-target-01' must NOT match ordinary prose search."
+    },
+    {
+      "id": "q-322",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "secret-link-target-02",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Hidden Markdown/HTML token 'secret-link-target-02' must NOT match ordinary prose search."
+    },
+    {
+      "id": "q-323",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "hidden-html-comment-03",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Hidden Markdown/HTML token 'hidden-html-comment-03' must NOT match ordinary prose search."
+    },
+    {
+      "id": "q-324",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "hidden-html-comment-04",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Hidden Markdown/HTML token 'hidden-html-comment-04' must NOT match ordinary prose search."
+    },
+    {
+      "id": "q-325",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "hidden-attr-token-05",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Hidden Markdown/HTML token 'hidden-attr-token-05' must NOT match ordinary prose search."
+    },
+    {
+      "id": "q-326",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "hidden-attr-token-06",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Hidden Markdown/HTML token 'hidden-attr-token-06' must NOT match ordinary prose search."
+    },
+    {
+      "id": "q-327",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "hidden-img-path-07",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Hidden Markdown/HTML token 'hidden-img-path-07' must NOT match ordinary prose search."
+    },
+    {
+      "id": "q-328",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "hidden-script-body-08",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Hidden Markdown/HTML token 'hidden-script-body-08' must NOT match ordinary prose search."
+    },
+    {
+      "id": "q-329",
+      "split": "tuning",
+      "category": "markdown_boundary",
+      "query": "hidden-style-rule-09",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Hidden Markdown/HTML token 'hidden-style-rule-09' must NOT match ordinary prose search."
+    },
+    {
+      "id": "q-330",
+      "split": "holdout",
+      "category": "markdown_boundary",
+      "query": "hidden-ref-url-10",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Hidden Markdown/HTML token 'hidden-ref-url-10' must NOT match ordinary prose search."
+    },
+    {
+      "id": "q-331",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "琥珀星云调度器",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Unknown Chinese multi-char compound absent from corpus"
+    },
+    {
+      "id": "q-332",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "不存在的作者名",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent Chinese person/entity phrase"
+    },
+    {
+      "id": "q-333",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "翡翠珊瑚矩阵",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent Chinese 6-char compound"
+    },
+    {
+      "id": "q-334",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "紫微斗数引擎",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent Chinese domain compound"
+    },
+    {
+      "id": "q-335",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "青铜编钟算法",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent Chinese cultural-tech compound"
+    },
+    {
+      "id": "q-336",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "白垩纪协议栈",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent Chinese technical compound"
+    },
+    {
+      "id": "q-337",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "missing_id-9999",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent compound identifier with digit"
+    },
+    {
+      "id": "q-338",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "ghost_ticket-404",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent compound ticket identifier"
+    },
+    {
+      "id": "q-339",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "nonexistent_rpc-77",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent compound RPC identifier"
+    },
+    {
+      "id": "q-340",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "FakeServiceController",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent camelCase identifier"
+    },
+    {
+      "id": "q-341",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "PhantomIndexBuilder",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent camelCase class name"
+    },
+    {
+      "id": "q-342",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "Q#++",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent punctuation-sensitive language name"
+    },
+    {
+      "id": "q-343",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "Cobol.NET",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent punctuation-sensitive runtime name"
+    },
+    {
+      "id": "q-344",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "Z/OS-99",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent punctuation-sensitive OS identifier"
+    },
+    {
+      "id": "q-345",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "QuantumDB 99 虚构索引",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent mixed-language query"
+    },
+    {
+      "id": "q-346",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "HyperRust 异步星舰",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent mixed-language query"
+    },
+    {
+      "id": "q-347",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "\"never appeared phrase anywhere\"",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent quoted English phrase"
+    },
+    {
+      "id": "q-348",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "\"从未出现过的精确短语\"",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent quoted Chinese phrase"
+    },
+    {
+      "id": "q-349",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "\"phantom block pruning\"",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent quoted technical phrase"
+    },
+    {
+      "id": "q-350",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-999999999",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Overlong compound identifier (>128 UTF-16 units) must not match via truncation"
+    },
+    {
+      "id": "q-351",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb_12345",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Overlong underscore identifier (>128 UTF-16 units)"
+    },
+    {
+      "id": "q-352",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "龍捲風量子計算機",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent Traditional Chinese compound"
+    },
+    {
+      "id": "q-353",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "無影燈編譯器",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent Traditional Chinese compound"
+    },
+    {
+      "id": "q-354",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "xylophone_quasar",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent lowercase ASCII pair"
+    },
+    {
+      "id": "q-355",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "zephyr-nebula-88",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent hyphenated identifier"
+    },
+    {
+      "id": "q-356",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "火星殖民地数据库",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent compound whose suffix '数据库' exists in corpus but full concept does not"
+    },
+    {
+      "id": "q-357",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "银河铁道分布式锁",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent mixed known/unknown compound"
+    },
+    {
+      "id": "q-358",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "恐龙化石搜索引擎",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent compound testing full-concept precision"
+    },
+    {
+      "id": "q-359",
+      "split": "tuning",
+      "category": "no_match",
+      "query": "深海火山缓存策略",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent compound testing non-union precision"
+    },
+    {
+      "id": "q-360",
+      "split": "holdout",
+      "category": "no_match",
+      "query": "月球基地编译器",
+      "synthetic": true,
+      "rarity": "none",
+      "expectedEmpty": true,
+      "targetArticleIds": [],
+      "judgments": {},
+      "notes": "Absent compound testing multi-concept precision"
+    }
+  ]
+}

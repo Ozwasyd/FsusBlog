@@ -42,6 +42,7 @@
 - [文章分类和标签](product/taxonomy.md)
 - [本地全文检索](product/public-search.md)
 - [公开 FAS4 服务端检索](product/fas4-search.md)
+- [公开搜索相关性、延迟与能耗评估基准](product/search-evaluation.md)
 - [公开分发（RSS / Atom / JSON Feed / Sitemap）](product/distribution.md)
 - [公开文章阅读统计](product/article-read-proof.md)
 - [公开热门文章](product/public-hot-articles.md)

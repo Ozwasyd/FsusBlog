@@ -62,6 +62,7 @@ tests/Performance/run.sh proxy-supplier artifacts/p2-tls-supplier-1
 - **运行时观察（`soak` / `FSUSBLOG_PERF_RUNTIME=1`）**：通过私有文件标记划定计时窗口，输出 `runtime-result.json`，独立统计四条热读路由归因的 Npgsql 命令/物理连接、GC 暂停分段分位、堆分配、RSS 与线程池排队，不记录 SQL、客户端路径或凭据。
 - **慢请求与供给余量**：`peak`/`proxy-peak` 记录 ≥ 20 ms 慢请求分段与 CLR 暂停交叉；`supplier`/`proxy-supplier` 以 11,000 QPS（660,000 请求）验证供给端余量；可通过 `FSUSBLOG_PERF_SUPPLIER_PROCS` 单独约束负载进程的 `GOMAXPROCS`。
 - **负载客户端回归**：运行 `go test -race tests/Performance/{load,cold,load_test}.go` 校验取消收尾、时间分桶与读写计数。
+- **公开搜索相关性、延迟与能耗评估**：使用 [`search_eval.py`](search_eval.py) 与 [`search-eval-browser.sh`](search-eval-browser.sh) 在版本化合成语料与 360 条调优/留出查询上复现评估，详见 [公开搜索相关性、延迟与能耗评估基准](../../docs/product/search-evaluation.md)。
 
 ---
 
