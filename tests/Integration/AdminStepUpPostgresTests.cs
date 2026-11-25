@@ -6,24 +6,7 @@ public sealed class AdminStepUpPostgresTests
     public async Task ModerationProofIsScopedAndAtomicWithItsConsumer()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        var member = Guid.NewGuid();
-        await fixture.SiteAccountAsync(member, "Site fixture", ct: ct);
-        await fixture.AdminPrincipalAsync(member, "site-fixture", ct: ct);
-        await fixture.Exec("""
-            with article as (
-                insert into public.article(id,owner_id,revision,title,body,deleted) overriding system value
-                values(1,$1,1,'Fixture article','Fixture article',false) returning id
-            )
-            insert into public.article_revision(article_id,revision,title,body,happened_at)
-            select id,1,'Fixture article','Fixture article',clock_timestamp() from article
-            """, member);
-        await fixture.Exec("""
-            insert into public.comment(article_id,id,root_id,depth,moderation_status,deleted,body,author_mode,display_name,display_language,created_at)
-            values(1,1,1,0,0,false,'Original pending comment',3,'Fixture writer','en',clock_timestamp()),
-                  (1,2,2,0,0,false,'Another pending comment',3,'Fixture writer','en',clock_timestamp())
-            """);
-        foreach (var n in new long[] { 1, 2 })
-            await fixture.Exec("insert into public.comment_submit_command values($1,$2,$3,1,$4)", member, Guid.NewGuid(), RandomNumberGenerator.GetBytes(32), n);
+        await AdminModerationPostgresTests.AddPendingComment(fixture, ct, "Original pending comment", "Another pending comment");
 
         var moderator = await fixture.AdminAsync("moderator", 10, RandomNumberGenerator.GetBytes(32), [2], ct);
         var other = await fixture.AdminAsync("other-moderator", 10, RandomNumberGenerator.GetBytes(32), [2], ct);

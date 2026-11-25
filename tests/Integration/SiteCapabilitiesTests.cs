@@ -177,20 +177,10 @@ public sealed class SiteCapabilitiesTests
         Assert.False(capabilities.SiteTraffic);
         Assert.Null(capabilities.TrafficOrigin);
 
-        var disabledTraffic = Resolve(new()
-        {
-            [SiteCapabilities.DataDirSetting] = root.FullName,
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173",
-            [SiteTraffic.EnabledSetting] = "false",
-        }, webDist.FullName);
+        var disabledTraffic = Resolve(new() { [SiteCapabilities.DataDirSetting] = root.FullName, ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173", [SiteTraffic.EnabledSetting] = "false" }, webDist.FullName);
         Assert.All([disabledTraffic.SiteTraffic, disabledTraffic.SiteTrafficReadable], Assert.False);
 
-        Assert.Throws<InvalidOperationException>(() => Resolve(new()
-        {
-            [SiteCapabilities.DataDirSetting] = root.FullName,
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173",
-            [SiteTraffic.EnabledSetting] = "true",
-        }, webDist.FullName));
+        Assert.Throws<InvalidOperationException>(() => Resolve(new() { [SiteCapabilities.DataDirSetting] = root.FullName, ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost:5173", [SiteTraffic.EnabledSetting] = "true" }, webDist.FullName));
     }
 
     [Fact]

@@ -566,8 +566,9 @@ public sealed partial class AdminModerationPostgresTests
         fixture.SeedStepUpProof(batch ? "admin_comment_batch_step_up" : "admin_step_up", moderator.Id, moderator.Digest,
             batch ? 6 : 1, SHA256.HashData(frame), ct: ct);
 
-    private static async Task AddPendingComment(ScratchDatabase fixture, CancellationToken ct)
+    internal static async Task AddPendingComment(ScratchDatabase fixture, CancellationToken ct, params string[] bodies)
     {
+        if (bodies.Length == 0) bodies = ["Awaiting review"];
         var member = Guid.NewGuid();
         await fixture.SiteAccountAsync(member, "Site fixture", ct: ct);
         await fixture.AdminPrincipalAsync(member, "site-fixture", ct: ct);
@@ -579,11 +580,15 @@ public sealed partial class AdminModerationPostgresTests
             insert into public.article_revision(article_id,revision,title,body,happened_at)
             select id,1,'Fixture article','Fixture article',clock_timestamp() from article
             """, member);
-        await fixture.Exec("""
-            insert into public.comment(article_id,id,root_id,depth,moderation_status,deleted,body,author_mode,display_name,display_language,created_at)
-            values(1,1,1,0,0,false,'Awaiting review',3,'Fixture writer','en',clock_timestamp())
-            """);
-        await fixture.Exec("insert into public.comment_submit_command values($1,$2,$3,1,1)", member, Guid.NewGuid(), RandomNumberGenerator.GetBytes(32));
+        for (var i = 0; i < bodies.Length; i++)
+        {
+            long id = i + 1;
+            await fixture.Exec("""
+                insert into public.comment(article_id,id,root_id,depth,moderation_status,deleted,body,author_mode,display_name,display_language,created_at)
+                values(1,$1,$1,0,0,false,$2,3,'Fixture writer','en',clock_timestamp())
+                """, id, bodies[i]);
+            await fixture.Exec("insert into public.comment_submit_command values($1,$2,$3,1,$4)", member, Guid.NewGuid(), RandomNumberGenerator.GetBytes(32), id);
+        }
     }
 
     private static async Task<Moderator> AddModerator(ScratchDatabase fixture, string handle, CancellationToken ct)
