@@ -170,7 +170,23 @@ export default defineConfig({
   resolve: {
     dedupe: ['vue'],
   },
-  optimizeDeps: { exclude: ['@ozwasyd/element-plus', '@ozwasyd/element-plus/theme', '@ozwasyd/element-plus/markdown-runtime'] },
+  optimizeDeps: {
+    exclude: ['@ozwasyd/element-plus', '@ozwasyd/element-plus/theme', '@ozwasyd/element-plus/markdown-runtime'],
+    include: [
+      '@ozwasyd/element-plus > dayjs',
+      '@ozwasyd/element-plus > dayjs/plugin/advancedFormat.js',
+      '@ozwasyd/element-plus > dayjs/plugin/customParseFormat.js',
+      '@ozwasyd/element-plus > dayjs/plugin/dayOfYear.js',
+      '@ozwasyd/element-plus > dayjs/plugin/isSameOrAfter.js',
+      '@ozwasyd/element-plus > dayjs/plugin/isSameOrBefore.js',
+      '@ozwasyd/element-plus > dayjs/plugin/localeData.js',
+      '@ozwasyd/element-plus > dayjs/plugin/weekOfYear.js',
+      '@ozwasyd/element-plus > dayjs/plugin/weekYear.js',
+      '@ozwasyd/element-plus > escape-html',
+      '@ozwasyd/element-plus > lodash-unified',
+      '@ozwasyd/element-plus > mermaid',
+    ],
+  },
   define: { 'import.meta.env.FSUS_MARKDOWN_NATIVE': JSON.stringify(nativeMarkdown) },
   server: {
     host: 'localhost',
