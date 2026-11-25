@@ -91,14 +91,9 @@ export FSUSBLOG_DB="Host=$run;Port=$pg_port;Database=$database;Username=perf;Poo
 export GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off
 
 stop_graceful() {
-  local pid=$1
-  own_child "$pid" || return 0
-  kill -TERM "$pid"
-  wait_child_exit "$pid" 50
-  if own_child "$pid"; then
-    kill -KILL "$pid"
-    clean=forced
-  fi
+  local rc=0
+  terminate_child "$1" || rc=$?
+  [[ $rc != 2 ]] || clean=forced
 }
 
 cleanup() {
@@ -106,36 +101,29 @@ cleanup() {
   trap - EXIT INT TERM
   set +e
   for pid in "$load_pid" "$sampler_pid"; do
-    if own_child "$pid"; then
-      kill -TERM "$pid"
-      wait "$pid" 2>/dev/null
-    fi
+    own_child "$pid" && { kill -TERM "$pid"; wait "$pid" 2>/dev/null; }
   done
   stop_graceful "$proxy_pid"
-  if [[ -n "$proxy_pid" ]]; then wait "$proxy_pid" 2>/dev/null; fi
+  [[ -z "$proxy_pid" ]] || wait "$proxy_pid" 2>/dev/null
   stop_graceful "$server_pid"
   if [[ -n "$server_pid" ]]; then
     wait "$server_pid" 2>/dev/null
     server_exit=$?
-    if [[ "$server_exit" != 0 && "$status" == 0 ]]; then status=1; fi
+    [[ "$server_exit" == 0 || "$status" != 0 ]] || status=1
   fi
   if [[ -e "$run/pg/postmaster.pid" ]]; then
     pg_ctl -w -t 15 -D "$run/pg" stop -m fast > "$evidence/postgres-stop.log" 2>&1 || clean=no
   fi
-  if [[ -e "$run/pg/postmaster.pid" || -S "$run/.s.PGSQL.$pg_port" ]]; then
-    clean=no
-  fi
+  [[ ! -e "$run/pg/postmaster.pid" && ! -S "$run/.s.PGSQL.$pg_port" ]] || clean=no
   check_residual() {
-    local url=$1 log=$2
-    [[ -n "$url" ]] && lsof -n -P -iTCP@127.0.0.1:"${url##*:}" -sTCP:LISTEN > "$evidence/$log" 2>&1 && clean=no
+    [[ -n "$1" ]] && lsof -n -P -iTCP@127.0.0.1:"${1##*:}" -sTCP:LISTEN > "$evidence/$2" 2>&1 && clean=no
   }
   check_residual "$origin" residual-listener.txt
-  if [[ -n "$proxy_pid" ]]; then check_residual "$target" residual-proxy-listener.txt; fi
+  [[ -z "$proxy_pid" ]] || check_residual "$target" residual-proxy-listener.txt
   if [[ "$clean" != no ]]; then
-    rm -rf -- "$run" || clean=no
-    [[ ! -e "$run" ]] || clean=no
+    rm -rf -- "$run" && [[ ! -e "$run" ]] || clean=no
   fi
-  if [[ "$clean" != yes && "$status" == 0 ]]; then status=1; fi
+  [[ "$clean" == yes || "$status" != 0 ]] || status=1
   printf '%s\n' \
     "started_at=$started" "finished_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
     "run_id=$run_id" "invocation_id=$invocation_id" "attempt_id=$attempt_id" \
@@ -157,13 +145,8 @@ from pathlib import Path
 h = hashlib.sha256()
 for path in sorted(set(sys.stdin.buffer.read().split(b"\0")) - {b""}):
     item = Path(os.fsdecode(path))
-    if item.is_symlink():
-        digest = hashlib.sha256(os.fsencode(os.readlink(item))).digest()
-    elif item.is_file():
-        digest = hashlib.sha256(item.read_bytes()).digest()
-    else:
-        digest = b"absent"
-    h.update(path + b"\0" + digest + b"\0")
+    data = os.fsencode(os.readlink(item)) if item.is_symlink() else item.read_bytes() if item.is_file() else None
+    h.update(path + b"\0" + (b"absent" if data is None else hashlib.sha256(data).digest()) + b"\0")
 print(h.hexdigest())'
 }
 commit=$(git rev-parse HEAD)

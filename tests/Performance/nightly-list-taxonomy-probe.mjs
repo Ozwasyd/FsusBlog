@@ -57,22 +57,18 @@ assert.deepEqual(tags.map(bucket => bucket.length), scope.tags.map(entry => entr
 
 function page(payload, expected, count) {
   const result = decodeArticleList(payload);
-  assert.equal(result.total, count, 'Wrong public page count or width.');
-  assert.equal(result.articles.length, expected.length, 'Wrong public page count or width.');
+  assert.deepEqual([result.total, result.articles.length], [count, expected.length], 'Wrong public page count or width.');
   result.articles.forEach((card, i) => {
     const [id, created, revision, publication, publishedAt, category, tag, titleHash, summaryHash] = expected[i];
-    const label = 'Mismatched ranked article ' + id;
-    assert.equal(card.id, id, label);
-    assert.equal(card.createdAt, Number(BigInt(created) / 1_000n), label);
-    assert.equal(String(card.revision), revision, label);
-    assert.equal(String(card.publication), publication, label);
-    assert.equal(card.publishedAt, publishedAt, label);
-    assert.deepEqual(card.category, { id: category, name: scope.categories[category - 1][1] }, label);
-    assert.deepEqual(card.tags, [{ id: tag, name: scope.tags[tag - 1][1] }], label);
-    assert.equal(sha256(card.title), titleHash, label);
-    assert.equal(sha256(card.summary), summaryHash, label);
-    assert.equal(card.revisionNo, 3, label);
-    assert.equal(card.publicationNo, 1, label);
+    assert.deepEqual(
+      { id: card.id, createdAt: card.createdAt, revision: String(card.revision), publication: String(card.publication),
+        publishedAt: card.publishedAt, category: card.category, tags: card.tags,
+        titleHash: sha256(card.title), summaryHash: sha256(card.summary),
+        revisionNo: card.revisionNo, publicationNo: card.publicationNo },
+      { id, createdAt: Number(BigInt(created) / 1_000n), revision, publication, publishedAt,
+        category: { id: category, name: scope.categories[category - 1][1] },
+        tags: [{ id: tag, name: scope.tags[tag - 1][1] }], titleHash, summaryHash, revisionNo: 3, publicationNo: 1 },
+      'Mismatched ranked article ' + id);
   });
   return result.nextCursor;
 }

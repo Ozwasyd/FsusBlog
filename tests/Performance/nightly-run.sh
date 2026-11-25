@@ -83,15 +83,9 @@ source tests/Performance/proxy.sh
 
 stop_http_server() {
     [[ -n "$server_pid" ]] || return 0
-    local result=0 forced=no server_exit
-    if own_child "$server_pid"; then
-        kill -TERM "$server_pid" || result=1
-        wait_child_exit "$server_pid" 50
-        if own_child "$server_pid"; then
-            kill -KILL "$server_pid" || result=1
-            forced=yes
-        fi
-    fi
+    local result=0 forced=no server_exit rc=0
+    terminate_child "$server_pid" || rc=$?
+    if (( rc == 2 )); then forced=yes; elif (( rc != 0 )); then result=1; fi
     if wait "$server_pid"; then server_exit=0; else server_exit=$?; result=1; fi
     if [[ -n "$http_port" ]] && lsof -n -P -iTCP@127.0.0.1:"$http_port" -sTCP:LISTEN > "$evidence/http-residual-listener.txt" 2>&1; then
         result=1
@@ -110,7 +104,7 @@ cleanup() {
     fi
     if pg_ctl -D "$data_dir" status >/dev/null 2>&1 || [[ -S "$scratch/socket/.s.PGSQL.$pg_port" ]]; then cleaned=no; fi
     if [[ $cleaned == yes ]]; then find "$scratch" -depth -delete || cleaned=no; fi
-    if [[ $cleaned != yes ]]; then result=1; fi
+    [[ $cleaned == yes ]] || result=1
     printf 'stop_stage=%s\nexit=%s\ncleanup=%s\nfinished=%s\n' "$stage" "$result" "$cleaned" "$(date -u +%FT%TZ)" >> "$evidence/run.txt"
     exit "$result"
 }
@@ -121,72 +115,53 @@ trap 'printf "Nightly fixture preparation failed at line %s.\n" "$LINENO" >&2' E
 
 stage_http_release() {
     python3 -B - "$1" "$2" "$3" "$scratch/release" "$source_commit" "$wide_browser" <<'PY'
-import json
-import os
-import re
-import runpy
-import shutil
-import sys
+import json, os, re, runpy, shutil, sys
 from pathlib import Path
 
-server, web, manifest = [Path(value).resolve(strict=True) for value in sys.argv[1:4]]
-stage = Path(sys.argv[4])
-commit = sys.argv[5]
-root = server.parent.parent
-server_name = "server/FsusBlog.V2.Server.dll"
-cli_name = "cli/FsusBlog.V2.Cli.dll"
-if server != root / server_name or web != root / "web":
-    raise SystemExit("Server and web must belong to one extracted release payload.")
+def check(ok, msg):
+    if not ok: raise SystemExit(msg)
+
+server, web, manifest = [Path(v).resolve(strict=True) for v in sys.argv[1:4]]
+stage, commit, root = Path(sys.argv[4]), sys.argv[5], server.parent.parent
+server_name, cli_name = "server/FsusBlog.V2.Server.dll", "cli/FsusBlog.V2.Cli.dll"
+check(server == root / server_name and web == root / "web", "Server and web must belong to one extracted release payload.")
 verify = runpy.run_path("tools/verify-release.py")
 stage.mkdir()
 sealed_manifest = stage / "payload.sha256"
 shutil.copyfile(manifest, sealed_manifest)
 entries = verify["read_manifest"](sealed_manifest, "./")
 trees = ("server", "cli", "web")
-metadata = {"release.txt"}
-if sys.argv[6] == "true":
-    metadata.add("Caddyfile")
-expected = {name for name in entries if name.startswith(tuple(tree + "/" for tree in trees))}
-expected.update(metadata)
-required = {server_name, cli_name, "web/index.html"} | metadata
-if not required <= entries.keys():
-    raise SystemExit("Payload manifest is missing a required server, CLI, web, or release entry.")
+metadata = {"release.txt"} | ({"Caddyfile"} if sys.argv[6] == "true" else set())
+expected = {n for n in entries if n.startswith(tuple(t + "/" for t in trees))} | metadata
+check(({server_name, cli_name, "web/index.html"} | metadata) <= entries.keys(),
+      "Payload manifest is missing a required server, CLI, web, or release entry.")
 present = metadata.copy()
 for tree in trees:
     directory = root / tree
-    if directory.is_symlink() or not directory.is_dir():
-        raise SystemExit(f"Expected a real release directory: {tree}")
-    for parent, directories, files in os.walk(directory, followlinks=False):
-        for leaf in directories + files:
+    check(not directory.is_symlink() and directory.is_dir(), f"Expected a real release directory: {tree}")
+    for parent, dirs, files in os.walk(directory, followlinks=False):
+        for leaf in dirs + files:
             entry = Path(parent) / leaf
-            if entry.is_symlink() or not (entry.is_file() or entry.is_dir()):
-                raise SystemExit(f"Unexpected entry in release: {entry.relative_to(root)}")
-        present.update((Path(parent) / name).relative_to(root).as_posix() for name in files)
-if present != expected:
-    raise SystemExit("Extracted server, CLI and web files differ from the release manifest.")
+            check(not entry.is_symlink() and (entry.is_file() or entry.is_dir()), f"Unexpected entry in release: {entry.relative_to(root)}")
+        present.update((Path(parent) / n).relative_to(root).as_posix() for n in files)
+check(present == expected, "Extracted server, CLI and web files differ from the release manifest.")
 for name in sorted(expected):
-    source = root / name
-    if source.is_symlink() or not source.is_file():
-        raise SystemExit(f"Expected a regular release file: {name}")
-    copy = stage / name
+    source, copy = root / name, stage / name
+    check(not source.is_symlink() and source.is_file(), f"Expected a regular release file: {name}")
     copy.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, copy)
     with copy.open("rb") as data:
-        if verify["file_sha256"](data) != entries[name]:
-            raise SystemExit(f"Extracted release checksum differs: {name}")
-coordinates = {}
-release = stage / "release.txt"
-if release.stat().st_size > 4096:
-    raise SystemExit("Release coordinates exceed the size limit.")
+        check(verify["file_sha256"](data) == entries[name], f"Extracted release checksum differs: {name}")
+coordinates, release = {}, stage / "release.txt"
+check(release.stat().st_size <= 4096, "Release coordinates exceed the size limit.")
 for line in release.read_text(encoding="ascii").splitlines():
-    key, separator, value = line.partition("=")
-    if not key or not separator or key in coordinates:
-        raise SystemExit("Invalid release coordinate.")
+    key, sep, value = line.partition("=")
+    check(key and sep and key not in coordinates, "Invalid release coordinate.")
     coordinates[key] = value
-if (coordinates.get("fsusblog_commit") != commit or coordinates.get("server") != server_name
-    or coordinates.get("cli") != cli_name or coordinates.get("web") != "web/"
-    or not re.fullmatch(r"[0-9a-f]{40}", coordinates.get("fsusui_commit", ""))):
-    raise SystemExit("The extracted release does not match the nightly source or expected layout.")
+check(coordinates.get("fsusblog_commit") == commit and coordinates.get("server") == server_name
+      and coordinates.get("cli") == cli_name and coordinates.get("web") == "web/"
+      and bool(re.fullmatch(r"[0-9a-f]{40}", coordinates.get("fsusui_commit", ""))),
+      "The extracted release does not match the nightly source or expected layout.")
 with sealed_manifest.open("rb") as data:
     manifest_digest = verify["file_sha256"](data)
 print(json.dumps({"fsusblogCommit": commit, "fsusuiCommit": coordinates["fsusui_commit"],
@@ -396,42 +371,35 @@ phase verify-article-bytes python3 -B tests/Performance/nightly-verify-article-b
     "$profile" "$article_input" "$evidence/plan.json" "$db" "$data_dir" "$site" "$evidence/article-bytes.json"
 shasum -a 256 "$evidence/article-bytes.json" >> "$evidence/run.txt"
 python3 - "$evidence" <<'PY'
-import hashlib
-import json
-import sys
+import hashlib, json, sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
 plan = json.loads((path / "plan.json").read_text())
 rows = [json.loads(line) for line in (path / "verify-rows.log").read_text().splitlines() if line.startswith("{")]
-articles, = [row["actual"] for row in rows if row["kind"] == "article-graph"]
-comments, = [row["actual"] for row in rows if row["kind"] == "comment-graph"]
-threads = [row for row in rows if row["kind"] == "thread-case"]
-for actual, expected in {
-    "articles": "articles", "active": "activePublications", "revisions": "revisions", "commands": "authorCommands",
-    "archive_receipts": "archivedReleases", "publication_history": "publicationHistory",
-    "publication_canonical": "canonicalPublications", "publication_rights": "retainedReleaseRights",
-    "responsibility_snapshots": "responsibilitySnapshots", "schedules": "scheduled",
-}.items():
+articles, = [r["actual"] for r in rows if r["kind"] == "article-graph"]
+comments, = [r["actual"] for r in rows if r["kind"] == "comment-graph"]
+threads = [r for r in rows if r["kind"] == "thread-case"]
+for actual, expected in (("articles", "articles"), ("active", "activePublications"), ("revisions", "revisions"),
+    ("commands", "authorCommands"), ("archive_receipts", "archivedReleases"), ("publication_history", "publicationHistory"),
+    ("publication_canonical", "canonicalPublications"), ("publication_rights", "retainedReleaseRights"),
+    ("responsibility_snapshots", "responsibilitySnapshots"), ("schedules", "scheduled")):
     assert articles[actual] == plan[expected], (actual, articles[actual], plan[expected])
-assert [comments[key] for key in ("rows", "roots", "replies", "visible_content", "structural_nodes")] == [
-    plan["comments"][key] for key in ("rows", "roots", "replies", "visibleContent", "structuralNodes")
-]
+assert [comments[k] for k in ("rows", "roots", "replies", "visible_content", "structural_nodes")] == [
+    plan["comments"][k] for k in ("rows", "roots", "replies", "visibleContent", "structuralNodes")]
 if plan["profile"] == "articles-million":
     assert not threads
 else:
     thread, = threads
-    assert thread["ancestors"] == thread["depth"] == 32
-    assert thread["root"] == plan["comments"]["deepRoot"] and thread["target"] == plan["comments"]["deepTarget"]
-cases = [row for row in rows if row["kind"] == "article-case"]
+    assert thread["ancestors"] == thread["depth"] == 32 and thread["root"] == plan["comments"]["deepRoot"] and thread["target"] == plan["comments"]["deepTarget"]
+cases = [r for r in rows if r["kind"] == "article-case"]
 assert len(cases) == len(plan["articleCases"])
 for row, expected in zip(cases, plan["articleCases"]):
-    assert row["revision"] == expected["currentRevision"]
-    for key in ("id", "publicRevision", "publicationId", "historicalFirstPublicationId", "category", "tag",
-                "originalTitle", "originalBodySha256", "currentBodySha256", "archiveSupersededReleaseId",
-                "archivedReleaseId", "archiveInterimBodySha256"):
-        assert row[key] == expected[key], (key, row, expected)
-    assert row["publicBodySha256"] == (expected["originalBodySha256"] if expected["publicationId"] else None)
+    assert row["revision"] == expected["currentRevision"] and row["publicBodySha256"] == (expected["originalBodySha256"] if expected["publicationId"] else None)
+    for k in ("id", "publicRevision", "publicationId", "historicalFirstPublicationId", "category", "tag",
+              "originalTitle", "originalBodySha256", "currentBodySha256", "archiveSupersededReleaseId",
+              "archivedReleaseId", "archiveInterimBodySha256"):
+        assert row[k] == expected[k], (k, row, expected)
 canonical = json.dumps(rows, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8") + b"\n"
 (path / "readback.json").write_bytes(canonical)
 (path / "readback.sha256").write_text(hashlib.sha256(canonical).hexdigest() + "\n")

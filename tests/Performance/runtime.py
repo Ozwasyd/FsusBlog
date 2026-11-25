@@ -95,119 +95,80 @@ def summarize(rows, load, rss, pid):
     observer_ticks = end["observerRequestMeasuredTicks"] - start["observerRequestMeasuredTicks"]
 
     errors = []
-    if trailing is None:
-        errors.append("No post-measurement sample was available to collect late GC events.")
-    if pending_gc_phases:
-        errors.append("A CLR suspension was still unpaired at the post-measurement sample.")
-    if control_commands <= 0 or control_requests != 1:
-        errors.append("No instrumented PostgreSQL command found under the positive HTTP comments control.")
+    def flag(bad, msg):
+        if bad:
+            errors.append(msg)
     startup_opens = sum(rows[0]["dbPhysicalOpenStarts"].values())
     initial_control_opens = sum(control_start["dbPhysicalOpenStarts"].values())
-    if max(startup_opens, initial_control_opens) <= 0:
-        errors.append("No physical PostgreSQL open was captured from startup.")
-    if query_counts["publication"] <= 0:
-        errors.append("No PostgreSQL commands observed under periodic projection work.")
-    if query_counts["background"] + query_counts["lease"] <= 0:
-        errors.append("No concurrently measured PostgreSQL background command observed.")
-    if query_counts["background"] != 0:
-        errors.append("An unclassified Npgsql command occurred during hot measurement.")
-    if query_counts["comments"] != 0 or query_counts["otherHttp"] != 0:
-        errors.append("Unexpected PostgreSQL request activity occurred during hot measurement.")
+    flag(trailing is None, "No post-measurement sample was available to collect late GC events.")
+    flag(pending_gc_phases, "A CLR suspension was still unpaired at the post-measurement sample.")
+    flag(control_commands <= 0 or control_requests != 1, "No instrumented PostgreSQL command found under the positive HTTP comments control.")
+    flag(max(startup_opens, initial_control_opens) <= 0, "No physical PostgreSQL open was captured from startup.")
+    flag(query_counts["publication"] <= 0, "No PostgreSQL commands observed under periodic projection work.")
+    flag(query_counts["background"] + query_counts["lease"] <= 0, "No concurrently measured PostgreSQL background command observed.")
+    flag(query_counts["background"] != 0, "An unclassified Npgsql command occurred during hot measurement.")
+    flag(query_counts["comments"] != 0 or query_counts["otherHttp"] != 0, "Unexpected PostgreSQL request activity occurred during hot measurement.")
     supply = load.get("supplyBySecond")
     if supply is not None:
         expected = {"planned": load["expected"], "schedulerAwake": all_routes["sent"] + all_routes["dropped"],
                     "admitted": all_routes["sent"], "dropped": all_routes["dropped"], "attemptFinished": all_routes["sent"],
                     "socketWritten": all_routes["socketWritten"], "responseHeadersRead": all_routes["responseHeadersRead"],
                     "responseBodiesRead": all_routes["responseBodiesRead"], "correct": correct}
-        if any(sum(row[k] for row in supply) != total for k, total in expected.items()):
-            errors.append("Producer time buckets do not reconcile to request stage totals.")
+        flag(any(sum(row[k] for row in supply) != total for k, total in expected.items()),
+             "Producer time buckets do not reconcile to request stage totals.")
     for route, category in ROUTES.items():
         stats = load["routes"][route]
-        expected_requests = stats.get("socketWritten", stats["sent"])
-        if completed[category] != expected_requests or success[category] != stats["ok"]:
-            errors.append(f"Server and load client totals disagree on {route}.")
-        if query_counts[category] != 0 or opening_counts[category] != 0:
-            errors.append(f"PostgreSQL activity occurred under {route}.")
-    if end["projectionBuilds"] != start["projectionBuilds"] or end["coldRenders"] != start["coldRenders"]:
-        errors.append("A projection build or cold detail render changed the hot interval.")
-    if end["coldPendingPeak"] or end["coldActivePeak"]:
-        errors.append("Detail cache work was queued during the hot interval.")
-    if gc_events and not split_complete and pending_gc_phases is not None:
-        errors.append("A GC event is missing its suspension or resume duration.")
-    if split_complete and any(
-        s < 0 or r < 0 or abs(full - (s + r)) > 0.001
-        for full, s, r in zip(gc_pauses, gc_suspensions, gc_resumes)
-    ):
-        errors.append("GC suspension and resume phases do not reconstruct the complete pause.")
+        flag(completed[category] != stats.get("socketWritten", stats["sent"]) or success[category] != stats["ok"],
+             f"Server and load client totals disagree on {route}.")
+        flag(query_counts[category] != 0 or opening_counts[category] != 0, f"PostgreSQL activity occurred under {route}.")
+    flag(end["projectionBuilds"] != start["projectionBuilds"] or end["coldRenders"] != start["coldRenders"],
+         "A projection build or cold detail render changed the hot interval.")
+    flag(end["coldPendingPeak"] or end["coldActivePeak"], "Detail cache work was queued during the hot interval.")
+    flag(gc_events and not split_complete and pending_gc_phases is not None,
+         "A GC event is missing its suspension or resume duration.")
+    flag(split_complete and any(s < 0 or r < 0 or abs(full - (s + r)) > 0.001 for full, s, r in zip(gc_pauses, gc_suspensions, gc_resumes)),
+         "GC suspension and resume phases do not reconstruct the complete pause.")
     comparison_total = sum(gc_suspensions) if split_complete else traced_pause
-    if (duration == 900 and not gc_pauses) or unmatched or abs(runtime_pause - comparison_total) > max(10, 0.2 * runtime_pause):
-        errors.append("GC pause events did not reconcile to the built-in total pause time.")
-    if guard_before > 1 or guard_after > 3:
-        errors.append("Runtime and client measurement bounds have excessive idle margins.")
-    slow = None
-    if "slowRequests" in load:
-        slow = summarize_slow_requests(rows, load, gc_events, start_at, end_at)
-        if not slow["complete"]:
-            errors.append("Slow request diagnostics were truncated or lack matching collection boundaries.")
+    flag((duration == 900 and not gc_pauses) or unmatched or abs(runtime_pause - comparison_total) > max(10, 0.2 * runtime_pause),
+         "GC pause events did not reconcile to the built-in total pause time.")
+    flag(guard_before > 1 or guard_after > 3, "Runtime and client measurement bounds have excessive idle margins.")
+    slow = summarize_slow_requests(rows, load, gc_events, start_at, end_at) if "slowRequests" in load else None
+    flag(slow is not None and not slow["complete"], "Slow request diagnostics were truncated or lack matching collection boundaries.")
 
     rss_values = [(timestamp(row["utc"]), int(row["rss_kib"])) for row in rss if int(row["pid"]) == pid]
     rss_peak = max((kb for stamp, kb in rss_values if measured_at <= stamp <= measured_end), default=None)
     mid_rss, end_rss = window_halves(rss_values, measured_at, measured_end)
     rss_growth = (median(end_rss) / median(mid_rss) - 1.0) if len(mid_rss) >= 50 and len(end_rss) >= 50 else None
-    queue_growth = None
-    stability = None
+    queue_growth = stability = None
     if duration == 900:
-        mid_queue, final_queue = window_halves(
-            [(timestamp(row["utc"]), row["threadPoolPending"]) for row in series], measured_at, measured_end
-        )
+        mid_queue, final_queue = window_halves([(timestamp(row["utc"]), row["threadPoolPending"]) for row in series], measured_at, measured_end)
         if len(mid_queue) >= 50 and len(final_queue) >= 50:
             queue_growth = median(final_queue) - median(mid_queue)
-        stability = (
-            rss_peak is not None
-            and rss_peak <= 1.5 * 1024 * 1024
-            and rss_growth is not None and rss_growth <= 0.1
-        )
-        if not stability:
-            errors.append("15-minute RSS ceiling, growth, or sample completeness did not pass.")
-        if queue_growth is None or queue_growth > 0:
-            errors.append("15-minute thread pool samples are incomplete or their final five-minute median grew.")
+        stability = rss_peak is not None and rss_peak <= 1.5 * 1024 * 1024 and rss_growth is not None and rss_growth <= 0.1
+        flag(not stability, "15-minute RSS ceiling, growth, or sample completeness did not pass.")
+        flag(queue_growth is None or queue_growth > 0, "15-minute thread pool samples are incomplete or their final five-minute median grew.")
 
     return {
-        "runtimeStart": start["utc"],
-        "loadStart": load["measurementStartedAt"],
-        "runtimeEnd": end["utc"],
-        "loadMonotonicSeconds": supplied_for,
-        "boundsIdleSeconds": {"before": guard_before, "after": guard_after},
-        "durationSeconds": duration,
-        "serverPid": pid,
-        "gcServer": start.get("gcServer"),
-        "gcConfiguration": start.get("gcConfiguration"),
-        "runtimeSamples": len(series),
+        "runtimeStart": start["utc"], "loadStart": load["measurementStartedAt"], "runtimeEnd": end["utc"],
+        "loadMonotonicSeconds": supplied_for, "boundsIdleSeconds": {"before": guard_before, "after": guard_after},
+        "durationSeconds": duration, "serverPid": pid, "gcServer": start.get("gcServer"),
+        "gcConfiguration": start.get("gcConfiguration"), "runtimeSamples": len(series),
         "load": {"planned": load["expected"], "sent": all_routes["sent"], "correct": correct,
                  "socketWritten": all_routes.get("socketWritten"), "responseHeadersRead": all_routes.get("responseHeadersRead"),
                  "responseBodiesRead": all_routes.get("responseBodiesRead"),
                  "schedulerDropped": all_routes["dropped"], "schedulerUnreached": load.get("schedulerUnreached"),
                  "clientMeasurement": load["measurement"]},
-        "dbCommandStarts": query_counts,
-        "dbPhysicalOpenStarts": opening_counts,
+        "dbCommandStarts": query_counts, "dbPhysicalOpenStarts": opening_counts,
         "positiveControl": {"commentsSuccessfulRequests": control_requests, "commentsDatabaseCommands": control_commands,
                             "startupPhysicalOpens": max(startup_opens, initial_control_opens)},
-        "serverRequestsCompleted": completed,
-        "serverStatus200": success,
-        "managedAllocatedBytes": allocated,
-        "managedAllocatedBytesPerCorrectResponse": allocated / correct if correct else None,
+        "serverRequestsCompleted": completed, "serverStatus200": success,
+        "managedAllocatedBytes": allocated, "managedAllocatedBytesPerCorrectResponse": allocated / correct if correct else None,
         "observerMiddlewareSamples": observer_samples,
-        "observerMiddlewareMeasuredNsPerSample": 1e9 * observer_ticks / end["clockTicksPerSecond"] / observer_samples
-        if observer_samples else None,
+        "observerMiddlewareMeasuredNsPerSample": 1e9 * observer_ticks / end["clockTicksPerSecond"] / observer_samples if observer_samples else None,
         "gcCollectionCounts": [b - a for a, b in zip(start["gcCollectionCounts"], end["gcCollectionCounts"])],
-        "gcPauseCount": len(gc_pauses),
-        "gcPauseTotalMs": runtime_pause,
-        "gcTracePauseTotalMs": traced_pause,
-        "gcUnmatchedEvents": unmatched,
-        "gcOpenSuspensions": pending_gc_phases,
-        "gcPauseP50Ms": percentile(gc_pauses, 0.50),
-        "gcPauseP95Ms": percentile(gc_pauses, 0.95),
-        "gcPauseP99Ms": percentile(gc_pauses, 0.99),
+        "gcPauseCount": len(gc_pauses), "gcPauseTotalMs": runtime_pause, "gcTracePauseTotalMs": traced_pause,
+        "gcUnmatchedEvents": unmatched, "gcOpenSuspensions": pending_gc_phases,
+        "gcPauseP50Ms": percentile(gc_pauses, 0.50), "gcPauseP95Ms": percentile(gc_pauses, 0.95), "gcPauseP99Ms": percentile(gc_pauses, 0.99),
         "gcPauseSplit": {
             "suspendThroughRestartBegin": pause_stats(gc_suspensions),
             "restartBeginThroughRestartEnd": pause_stats(gc_resumes),
@@ -217,19 +178,15 @@ def summarize(rows, load, rss, pid):
         "gcCommittedPeakBytes": max(row["gcCommittedBytes"] for row in series),
         "threadPoolPendingSampleMax": max(row["threadPoolPending"] for row in series),
         "threadPoolPendingMedianGrowth": queue_growth,
-        "coldPendingPeak": end["coldPendingPeak"],
-        "coldActivePeak": end["coldActivePeak"],
+        "coldPendingPeak": end["coldPendingPeak"], "coldActivePeak": end["coldActivePeak"],
         "coldRenders": end["coldRenders"] - start["coldRenders"],
         "publicationRefreshes": end["refreshes"] - start["refreshes"],
         "publicationBuilds": end["projectionBuilds"] - start["projectionBuilds"],
-        "serverRssPeakKiB": rss_peak,
-        "serverRssMinute6To10MedianKiB": median(mid_rss) if mid_rss else None,
+        "serverRssPeakKiB": rss_peak, "serverRssMinute6To10MedianKiB": median(mid_rss) if mid_rss else None,
         "serverRssLast5MinutesMedianKiB": median(end_rss) if end_rss else None,
-        "serverRssGrowthFraction": rss_growth,
-        "serverRssStabilityPassed": stability,
+        "serverRssGrowthFraction": rss_growth, "serverRssStabilityPassed": stability,
         **({"slowRequests": slow} if slow is not None else {}),
-        "result": "verified" if not errors else "incomplete",
-        "errors": errors,
+        "result": "verified" if not errors else "incomplete", "errors": errors,
     }
 
 

@@ -33,6 +33,11 @@ REVISIONS = {
 DIGEST_ROW = re.compile(rb"[0-9]+\t[0-9]+\t[0-9]+\t[0-9a-f]{64}\t[0-9]+\t[0-9a-f]{64}\n")
 
 
+def check(ok, msg):
+    if not ok:
+        raise ValueError(msg)
+
+
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -44,43 +49,35 @@ def signature(title, body):
 def read_manifest(path):
     with path.open("rb") as stream:
         value = stream.read(MAX_MANIFEST_BYTES + 1)
-    if len(value) > MAX_MANIFEST_BYTES:
-        raise ValueError("The article plan manifest exceeds its byte budget.")
+    check(len(value) <= MAX_MANIFEST_BYTES, "The article plan manifest exceeds its byte budget.")
     return value
 
 
 def unique_members(pairs):
     result = {}
     for key, value in pairs:
-        if key in result:
-            raise ValueError(f"Duplicate article plan member {key!r}.")
+        check(key not in result, f"Duplicate article plan member {key!r}.")
         result[key] = value
     return result
 
 
 def article_shards(plan):
-    shards = plan.get("articleShards")
-    width = PROFILE_SHARD_ROWS[plan["profile"]]
-    article_count = plan["articles"]
-    expected_parts = (article_count + width - 1) // width
-    if type(shards) is not list or len(shards) != expected_parts:
-        raise ValueError("Unexpected article shard count for the selected profile.")
-    first = 1
-    numeric = ("ordinal", "firstArticle", "lastArticle", "rows", "bytes")
+    shards, width, article_count = plan.get("articleShards"), PROFILE_SHARD_ROWS[plan["profile"]], plan["articles"]
+    check(type(shards) is list and len(shards) == (article_count + width - 1) // width,
+          "Unexpected article shard count for the selected profile.")
+    first, numeric = 1, ("ordinal", "firstArticle", "lastArticle", "rows", "bytes")
     fields = {*numeric, "sha256"}
     for ordinal, shard in enumerate(shards, 1):
-        if (type(shard) is not dict or shard.keys() != fields or any(type(shard[key]) is not int for key in numeric)
-                or type(shard["sha256"]) is not str or not re.fullmatch(r"[0-9a-f]{64}", shard["sha256"])):
-            raise ValueError(f"Malformed article shard description at ordinal {ordinal}.")
+        check(type(shard) is dict and shard.keys() == fields and all(type(shard[k]) is int for k in numeric)
+              and type(shard["sha256"]) is str and re.fullmatch(r"[0-9a-f]{64}", shard["sha256"]),
+              f"Malformed article shard description at ordinal {ordinal}.")
         rows = shard["rows"]
-        expected_rows = min(width, article_count - first + 1)
-        if (shard["ordinal"] != ordinal or not 0 < rows <= MAX_SHARD_ROWS or rows != expected_rows
-                or shard["firstArticle"] != first or shard["lastArticle"] != first + rows - 1
-                or not len(HEADER) < shard["bytes"] <= MAX_SHARD_BYTES):
-            raise ValueError(f"Unexpected article shard boundaries at ordinal {ordinal}.")
+        check(shard["ordinal"] == ordinal and 0 < rows <= MAX_SHARD_ROWS and rows == min(width, article_count - first + 1)
+              and shard["firstArticle"] == first and shard["lastArticle"] == first + rows - 1
+              and len(HEADER) < shard["bytes"] <= MAX_SHARD_BYTES,
+              f"Unexpected article shard boundaries at ordinal {ordinal}.")
         first += rows
-    if first != plan["articles"] + 1:
-        raise ValueError("The article shard ranges do not cover the declared plan.")
+    check(first == plan["articles"] + 1, "The article shard ranges do not cover the declared plan.")
     return shards
 
 
@@ -89,53 +86,45 @@ def plan_lines(path, shards):
         with path.open("rb") as source:
             yield from iter(lambda: source.readline(MAX_PLAN_LINE + 1), b"")
         return
-
     for shard in shards:
         ordinal = shard["ordinal"]
-        path_for_shard = path.parent / f"articles-{ordinal:05d}.tsv"
-        handle = os.open(path_for_shard, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        handle = os.open(path.parent / f"articles-{ordinal:05d}.tsv", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
         with os.fdopen(handle, "rb") as source:
             identity = os.fstat(source.fileno())
-            if not stat.S_ISREG(identity.st_mode) or identity.st_size != shard["bytes"]:
-                raise ValueError(f"Unexpected file type or byte count for article shard {ordinal}.")
+            check(stat.S_ISREG(identity.st_mode) and identity.st_size == shard["bytes"],
+                  f"Unexpected file type or byte count for article shard {ordinal}.")
             header = source.readline(MAX_PLAN_LINE + 1)
-            if header != HEADER:
-                raise ValueError(f"Unexpected header in article shard {ordinal}.")
+            check(header == HEADER, f"Unexpected header in article shard {ordinal}.")
             shard_hash = hashlib.sha256(header)
             if ordinal == 1:
                 yield header
             for _ in range(shard["rows"]):
                 raw = source.readline(MAX_PLAN_LINE + 1)
-                if not raw:
-                    raise ValueError(f"Article shard {ordinal} ended before its declared row count.")
+                check(raw, f"Article shard {ordinal} ended before its declared row count.")
                 shard_hash.update(raw)
                 yield raw
-            if source.read(1) or shard_hash.hexdigest() != shard["sha256"]:
-                raise ValueError(f"Article shard {ordinal} differs from its declared rows or SHA-256.")
+            check(not source.read(1) and shard_hash.hexdigest() == shard["sha256"],
+                  f"Article shard {ordinal} differs from its declared rows or SHA-256.")
 
 
 def inspect_revisions(source, actual, plan, probe):
     source_hash = hashlib.sha256()
     header = next(source, b"")
-    if header != HEADER:
-        raise ValueError("Unexpected sealed article plan header.")
+    check(header == HEADER, "Unexpected sealed article plan header.")
     source_hash.update(header)
 
     article = revisions = 0
-    ranges = []
-    rejected = False
+    ranges, rejected = [], False
     for kind in COHORTS:
-        first = article + 1
-        range_hash = hashlib.sha256()
-        range_revisions = 0
+        first, range_hash, range_revisions = article + 1, hashlib.sha256(), 0
         for _ in range(plan["cohorts"][kind]):
             article += 1
             raw = next(source, b"")
-            if len(raw) > MAX_PLAN_LINE or not raw.endswith(b"\n") or b"\r" in raw or b"\0" in raw:
-                raise ValueError(f"Invalid article plan record at article {article}.")
+            check(len(raw) <= MAX_PLAN_LINE and raw.endswith(b"\n") and b"\r" not in raw and b"\0" not in raw,
+                  f"Invalid article plan record at article {article}.")
             fields = raw[:-1].split(b"\t")
-            if len(fields) != 8 or fields[:2] != [str(article).encode("ascii"), kind.encode("ascii")]:
-                raise ValueError(f"Unexpected ordered article plan row at article {article}.")
+            check(len(fields) == 8 and fields[:2] == [str(article).encode("ascii"), kind.encode("ascii")],
+                  f"Unexpected ordered article plan row at article {article}.")
             try:
                 for text in fields[4:]:
                     text.decode("utf-8", "strict")
@@ -145,16 +134,13 @@ def inspect_revisions(source, actual, plan, probe):
             signatures = (signature(fields[4], fields[5]), signature(fields[6], fields[7]))
             for revision, version in enumerate(REVISIONS[kind], 1):
                 prefix = f"{article}\t{revision}\t".encode("ascii")
-                expected = prefix + signatures[version]
-                observed = actual.readline(201)
-                if len(observed) > 200 or not DIGEST_ROW.fullmatch(observed):
-                    raise ValueError(f"Missing or malformed digest row for article {article} revision {revision}.")
+                expected, observed = prefix + signatures[version], actual.readline(201)
+                check(len(observed) <= 200 and DIGEST_ROW.fullmatch(observed),
+                      f"Missing or malformed digest row for article {article} revision {revision}.")
                 if observed != expected:
-                    if not (probe and (article, revision) == (3, 1)
-                            and observed == prefix + signature(fields[4], fields[5] + b" ")):
-                        raise ValueError(f"Raw UTF-8 differs at article {article} revision {revision}. "
-                                         f"Expected digest row {expected.decode('ascii').rstrip()}, "
-                                         f"observed {observed.decode('ascii').rstrip()}.")
+                    check(probe and (article, revision) == (3, 1) and observed == prefix + signature(fields[4], fields[5] + b" "),
+                          f"Raw UTF-8 differs at article {article} revision {revision}. "
+                          f"Expected digest row {expected.decode('ascii').rstrip()}, observed {observed.decode('ascii').rstrip()}.")
                     rejected = True
                 range_hash.update(observed)
                 range_revisions += 1
@@ -162,12 +148,11 @@ def inspect_revisions(source, actual, plan, probe):
                        "revisions": range_revisions, "readbackSha256": range_hash.hexdigest()})
         revisions += range_revisions
 
-    if next(source, None) is not None or article != plan["articles"] or source_hash.hexdigest() != plan["articlePlanSha256"]:
-        raise ValueError("The article plan bytes, order or count differ from the seal.")
-    if revisions != plan["revisions"] or actual.readline(201) != ROLLBACK_MARKER or actual.read(1):
-        raise ValueError("Unexpected revision count or PostgreSQL rollback boundary.")
-    if probe and not rejected:
-        raise ValueError("Rollback control failed to detect the article 3 revision 1 body mutation.")
+    check(next(source, None) is None and article == plan["articles"] and source_hash.hexdigest() == plan["articlePlanSha256"],
+          "The article plan bytes, order or count differ from the seal.")
+    check(revisions == plan["revisions"] and actual.readline(201) == ROLLBACK_MARKER and not actual.read(1),
+          "Unexpected revision count or PostgreSQL rollback boundary.")
+    check(not probe or rejected, "Rollback control failed to detect the article 3 revision 1 body mutation.")
     return revisions, ranges
 
 
@@ -236,37 +221,33 @@ def main():
     args = parser.parse_args()
     try:
         socket = Path(args.data_directory).parent / "socket"
-        if not (re.fullmatch(r"fsusv2_nightly_[0-9a-f]{32}", args.database_name)
-                and Path(args.data_directory).is_absolute() and os.environ.get("PGHOST") == str(socket)
-                and os.environ.get("PGDATABASE") == args.database_name and os.environ.get("PGUSER") == "fsusv2_nightly_qa"):
-            raise ValueError("Expected the owned fixture database through its private Unix socket.")
+        check(re.fullmatch(r"fsusv2_nightly_[0-9a-f]{32}", args.database_name)
+              and Path(args.data_directory).is_absolute() and os.environ.get("PGHOST") == str(socket)
+              and os.environ.get("PGDATABASE") == args.database_name and os.environ.get("PGUSER") == "fsusv2_nightly_qa",
+              "Expected the owned fixture database through its private Unix socket.")
         manifest = read_manifest(args.manifest)
         plan = json.loads(manifest)
-        if not isinstance(plan, dict):
-            raise ValueError("Expected a sealed article plan object.")
+        check(isinstance(plan, dict), "Expected a sealed article plan object.")
         sharded = plan.get("format") == SHARDED_FORMAT
         if sharded:
-            if args.profile not in PROFILE_SHARD_ROWS or read_manifest(args.plan) != manifest:
-                raise ValueError("Sharded verification requires the identical selected manifest beside the shards.")
+            check(args.profile in PROFILE_SHARD_ROWS and read_manifest(args.plan) == manifest,
+                  "Sharded verification requires the identical selected manifest beside the shards.")
             plan = json.loads(manifest, object_pairs_hook=unique_members)
-        if args.profile == MILLION_PROFILE and not sharded:
-            raise ValueError("articles-million requires the sealed sharded article plan.")
-        count = PROFILE_ARTICLES[args.profile]
-        band = count // 20
-        cohorts = dict.fromkeys(COHORTS, band)
-        cohorts["published"] = 16 * band
-        if (not sharded and plan.get("format") != "fsusblog-v2-nightly-postgres-fixture-v2"
-                or plan.get("profile") != args.profile or plan.get("articles") != count or plan.get("cohorts") != cohorts):
-            raise ValueError("Unexpected sealed article plan profile or cohort counts.")
-        if sharded and (type(plan.get("articlePlanSha256")) is not str
-                        or not re.fullmatch(r"[0-9a-f]{64}", plan["articlePlanSha256"])
-                        or plan.get("revisions") != 3 * count + 6 * band
-                        or any(type(rows) is not int for rows in plan["cohorts"].values())):
-            raise ValueError("Unexpected sharded article plan digest or revision counts.")
+        check(args.profile != MILLION_PROFILE or sharded, "articles-million requires the sealed sharded article plan.")
+        count, band = PROFILE_ARTICLES[args.profile], PROFILE_ARTICLES[args.profile] // 20
+        cohorts = {**dict.fromkeys(COHORTS, band), "published": 16 * band}
+        check((sharded or plan.get("format") == "fsusblog-v2-nightly-postgres-fixture-v2")
+              and plan.get("profile") == args.profile and plan.get("articles") == count and plan.get("cohorts") == cohorts,
+              "Unexpected sealed article plan profile or cohort counts.")
+        check(not sharded or (type(plan.get("articlePlanSha256")) is str
+                              and bool(re.fullmatch(r"[0-9a-f]{64}", plan["articlePlanSha256"]))
+                              and plan.get("revisions") == 3 * count + 6 * band
+                              and all(type(rows) is int for rows in plan["cohorts"].values())),
+              "Unexpected sharded article plan digest or revision counts.")
         if args.profile == MILLION_PROFILE:
-            zero_comments = {"rows": 0, "roots": 0, "replies": 0, "visibleContent": 0, "structuralNodes": 0}
-            if plan.get("comments") != zero_comments or any(type(total) is not int for total in plan["comments"].values()):
-                raise ValueError("articles-million requires zero comment counts and no comment coordinates.")
+            zero = dict.fromkeys(("rows", "roots", "replies", "visibleContent", "structuralNodes"), 0)
+            check(plan.get("comments") == zero and all(type(total) is int for total in plan["comments"].values()),
+                  "articles-million requires zero comment counts and no comment coordinates.")
         shards = article_shards(plan) if sharded else None
         control = None
         if args.profile == "pilot":
@@ -275,9 +256,7 @@ def main():
         revisions, ranges = postgres_readback(args, plan, probe=False, shards=shards)
         result = {"version": 1, "profile": args.profile, "planSha256": digest(manifest),
                   "articlePlanSha256": plan["articlePlanSha256"], "verifiedRevisions": revisions,
-                  "ranges": ranges, "rollbackControl": control}
-        if shards is not None:
-            result["articleShards"] = shards
+                  "ranges": ranges, "rollbackControl": control, **({"articleShards": shards} if shards is not None else {})}
         with args.receipt.open("x", encoding="utf-8") as receipt:
             json.dump(result, receipt, indent=2, sort_keys=True)
             receipt.write("\n")

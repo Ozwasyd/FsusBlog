@@ -22,32 +22,20 @@ import (
 	"time"
 )
 
+func must[T any](v T, err error) func(*testing.T) T {
+	return func(t *testing.T) T {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+}
+
 func loadTestWire(t *testing.T) contract {
 	t.Helper()
 	_, current, _, _ := runtime.Caller(0)
-	wire, err := readWire(filepath.Join(filepath.Dir(current), "../../src/Contracts/wire.schema.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return wire
-}
-
-func mustParseURL(t *testing.T, raw string) *url.URL {
-	t.Helper()
-	origin, err := url.Parse(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return origin
-}
-
-func mustEncodeRequest(t *testing.T, origin *url.URL, path string) []byte {
-	t.Helper()
-	request, err := encodeRequest(origin, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return request
+	return must(readWire(filepath.Join(filepath.Dir(current), "../../src/Contracts/wire.schema.json")))(t)
 }
 
 func encodeTestFrame(wire contract, frameType string, payload []byte) []byte {
@@ -108,14 +96,8 @@ func TestLoadTargetRequiresExplicitPrivateLiteral(t *testing.T) {
 }
 
 func TestRequestPathsCannotChangeLoadOrigin(t *testing.T) {
-	origin, err := parseLoadTarget("", "http://192.168.0.2:8080", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	req, err := newLoadRequest(context.Background(), http.MethodGet, origin, "/one/two.aeds?generation=3&page=1")
-	if err != nil {
-		t.Fatal(err)
-	}
+	origin := must(parseLoadTarget("", "http://192.168.0.2:8080", ""))(t)
+	req := must(newLoadRequest(context.Background(), http.MethodGet, origin, "/one/two.aeds?generation=3&page=1"))(t)
 	if req.URL.Scheme != origin.Scheme || req.Host != origin.Host || req.URL.RequestURI() != "/one/two.aeds?generation=3&page=1" {
 		t.Fatalf("unexpected target URI %s and Host %s", req.URL, req.Host)
 	}
@@ -204,7 +186,7 @@ func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
 				work.wire.Limits = maps.Clone(wire.Limits)
 				delete(work.wire.Limits, "SearchFas4Profile")
 			}
-			err := verifyGeneration(context.Background(), mustParseURL(t, server.URL), &work, articles)
+			err := verifyGeneration(context.Background(), must(url.Parse(server.URL))(t), &work, articles)
 			if scenario.mutate != "" {
 				if err == nil || work.generation != "" {
 					t.Fatalf("unexpected admission: %+v, %v", work.corpus, err)
@@ -300,8 +282,8 @@ func TestSupplyTimelineSeparatesPhasesAndIncludesLateDrain(t *testing.T) {
 }
 
 func TestSocketWriteIsSeparateFromHTTPResponse(t *testing.T) {
-	origin := mustParseURL(t, "http://127.0.0.1:12345")
-	request := mustEncodeRequest(t, origin, "/")
+	origin := must(url.Parse("http://127.0.0.1:12345"))(t)
+	request := must(encodeRequest(origin, "/"))(t)
 	for _, response := range []bool{false, true} {
 		t.Run(fmt.Sprintf("response=%t", response), func(t *testing.T) {
 			client, server := net.Pipe()
@@ -350,7 +332,7 @@ func TestCancelledScheduleDrainsEveryAttempt(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	origin := mustParseURL(t, server.URL)
+	origin := must(url.Parse(server.URL))(t)
 	c.Headers["SearchIndexGeneration"] = header
 	w := workload{generation: generation, wire: c}
 	for class := route(0); class < routeCount; class++ {
@@ -358,7 +340,7 @@ func TestCancelledScheduleDrainsEveryAttempt(t *testing.T) {
 		if class == homeAEDS || class == detailAEDS {
 			path, body = "/binary", packet
 		}
-		encoded := mustEncodeRequest(t, origin, path)
+		encoded := must(encodeRequest(origin, path))(t)
 		if !bytes.HasPrefix(encoded, []byte("GET ")) {
 			t.Fatalf("invalid test request: %q", encoded)
 		}
@@ -417,12 +399,12 @@ func TestWarmupCarriesAnActualConnectionAndDoesNotRetryStaleSocket(t *testing.T)
 		_, _ = w.Write(body)
 	}))
 	defer server.Close()
-	origin := mustParseURL(t, server.URL)
+	origin := must(url.Parse(server.URL))(t)
 	trust := x509.NewCertPool()
 	trust.AddCert(server.Certificate())
 	pool := []connection{{origin: origin, tlsConfig: &tls.Config{RootCAs: trust, MinVersion: tls.VersionTLS12}}}
 	defer closePool(pool)
-	request := mustEncodeRequest(t, origin, "/")
+	request := must(encodeRequest(origin, "/"))(t)
 	w := workload{generation: generation, wire: contract{
 		Headers: map[string]string{"SearchIndexGeneration": header},
 	}}
