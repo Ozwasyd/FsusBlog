@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace FsusBlog.V2.Contracts;
 
 public enum SearchConceptKind : byte
@@ -103,11 +105,21 @@ public sealed record SearchQueryPlan(
             return Empty("");
 
         var segments = SplitQuotedSegments(normalized);
-        var allConcepts = new List<SearchConcept>();
+        var concepts = new List<SearchConcept>();
+        HashSet<string>? seenIdentities = null;
         var quotedPhrases = new List<SearchPhraseConstraint>();
         var orderedSequence = new List<SearchConceptStep>();
         var hasStrictId = false;
         var globalPos = 0;
+
+        // Keep the first occurrence even when later occurrences have different exact forms.
+        void AddFirstConcept(string identity, SearchConceptKind kind, ReadOnlySpan<SearchConceptStep> steps,
+            int position, int width, bool stopword = false, string? shortPrefix = null, bool strict = false)
+        {
+            seenIdentities ??= new HashSet<string>(StringComparer.Ordinal);
+            if (seenIdentities.Add(identity))
+                concepts.Add(new(concepts.Count, kind, steps.ToArray(), shortPrefix, strict, stopword, position, width, identity));
+        }
 
         foreach (var (text, isQuoted) in segments)
         {
@@ -145,10 +157,8 @@ public sealed record SearchQueryPlan(
                     while (i < tokens.Count && tokens[i].Kind == SearchTokenKind.Subword && tokens[i].Position == tok.Position)
                         steps.Add(ReadStep(tokens, ref i));
                     var idKey = "hyphen:" + step.CanonicalTerm;
-                    allConcepts.Add(new SearchConcept(
-                        allConcepts.Count, SearchConceptKind.CompoundHyphen, [.. steps],
-                        ShortAsciiPrefix: null, IsStrictIdentifier: false, IsStopword: tok.IsStopword,
-                        tok.Position, tok.Width, idKey));
+                    AddFirstConcept(idKey, SearchConceptKind.CompoundHyphen, CollectionsMarshal.AsSpan(steps),
+                        tok.Position, tok.Width, tok.IsStopword);
                     if (phraseSteps is not null)
                         phraseSteps.Add(step with { RelativeOffset = tok.Position - segStartPos });
                     if (!tok.IsStopword)
@@ -172,10 +182,8 @@ public sealed record SearchQueryPlan(
                     {
                         var totalWidth = (lastPos - seqStartPos) + 2;
                         var idKey = "cjkseq:" + string.Join('|', steps.Select(static s => s.CanonicalTerm));
-                        allConcepts.Add(new SearchConcept(
-                            allConcepts.Count, SearchConceptKind.CjkSequence, [.. steps],
-                            ShortAsciiPrefix: null, IsStrictIdentifier: false, IsStopword: false,
-                            seqStartPos, totalWidth, idKey));
+                        AddFirstConcept(idKey, SearchConceptKind.CjkSequence, CollectionsMarshal.AsSpan(steps),
+                            seqStartPos, totalWidth);
                         if (phraseSteps is not null)
                         {
                             foreach (var st in steps)
@@ -187,10 +195,7 @@ public sealed record SearchQueryPlan(
                     else
                     {
                         var idKey = "term:" + step.CanonicalTerm;
-                        allConcepts.Add(new SearchConcept(
-                            allConcepts.Count, SearchConceptKind.Term, [step],
-                            ShortAsciiPrefix: null, IsStrictIdentifier: false, IsStopword: step.IsStopword,
-                            seqStartPos, tok.Width, idKey));
+                        AddFirstConcept(idKey, SearchConceptKind.Term, [step], seqStartPos, tok.Width, step.IsStopword);
                         if (phraseSteps is not null)
                             phraseSteps.Add(step with { RelativeOffset = seqStartPos - segStartPos });
                         if (!step.IsStopword)
@@ -206,10 +211,8 @@ public sealed record SearchQueryPlan(
                     ? tok.Term
                     : null;
                 var conceptKey = (isStrict ? "strict:" : "term:") + step.CanonicalTerm + (shortPrefix is not null ? ":p" : "");
-                allConcepts.Add(new SearchConcept(
-                    allConcepts.Count, SearchConceptKind.Term, [step],
-                    ShortAsciiPrefix: shortPrefix, IsStrictIdentifier: isStrict, IsStopword: tok.IsStopword,
-                    tok.Position, tok.Width, conceptKey));
+                AddFirstConcept(conceptKey, SearchConceptKind.Term, [step], tok.Position, tok.Width, tok.IsStopword,
+                    shortPrefix, isStrict);
                 if (phraseSteps is not null)
                     phraseSteps.Add(step with { RelativeOffset = tok.Position - segStartPos });
                 if (!tok.IsStopword)
@@ -226,19 +229,12 @@ public sealed record SearchQueryPlan(
             }
         }
 
-        if (allConcepts.Count == 0)
+        if (concepts.Count == 0)
             return Empty(normalized);
 
-        // The identity prefix encodes strictness. Keep the first occurrence of each identity.
-        var deduped = new List<SearchConcept>(allConcepts.Count);
-        var seenIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var concept in allConcepts)
-            if (seenIds.Add(concept.IdentityKey))
-                deduped.Add(concept with { Index = deduped.Count });
-
         // ContentConcepts exclude stopwords unless every concept in the query is a stopword (e.g. query "的").
-        var nonStop = deduped.Where(static c => !c.IsStopword).ToArray();
-        var content = nonStop.Length > 0 ? nonStop : [.. deduped];
+        var nonStop = concepts.Where(static c => !c.IsStopword).ToArray();
+        var content = nonStop.Length > 0 ? nonStop : [.. concepts];
         for (var idx = 0; idx < content.Length; idx++)
             content[idx] = content[idx] with { Index = idx };
 
@@ -254,7 +250,7 @@ public sealed record SearchQueryPlan(
             SearchScoringProfile.ProfileVersion,
             SearchTextAnalyzer.Version,
             normalized,
-            [.. deduped],
+            [.. concepts],
             content,
             [.. quotedPhrases],
             seqArray,

@@ -16,12 +16,8 @@ internal static class RevisionHistoryEndpoints
                 if (cursor is not null && !RevisionHistoryCursor.TryDecode(token!, id, expected, cursor, out before))
                     throw new BusinessException(Rejection.Invalid, "Invalid or expired revision history cursor.");
                 var items = await RevisionHistoryStore.Read(db, tx, id, expected, before, ct);
-                var next = "";
-                if (items.Count > WireLimits.RevisionHistoryPageSize)
-                {
-                    items.RemoveAt(items.Count - 1);
-                    next = RevisionHistoryCursor.Encode(token!, id, expected, items[^1].Revision);
-                }
+                var next = SqlCommands.TrimPage(items, WireLimits.RevisionHistoryPageSize)
+                    ? RevisionHistoryCursor.Encode(token!, id, expected, items[^1].Revision) : "";
                 var page = new RevisionHistoryPage(id, expected, published, next, items);
                 return ServerHttp.Frame(Wire.EncodeRevisionHistory(page));
             }, ct);

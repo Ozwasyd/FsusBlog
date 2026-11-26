@@ -278,8 +278,7 @@ internal sealed class AdminCommentQueueStore(AdminSessionGate gate)
                 order by c.id,c.article_id limit $3
                 """, r => new AdminPendingComment(r.GetInt32(0), r.GetInt64(1), r.GetUnixMilliseconds(2), r.GetString(3), r.GetString(4)),
                 afterComment, afterArticle, WireLimits.AdminCommentQueueSize + 1);
-            var hasMore = rows.Count > WireLimits.AdminCommentQueueSize;
-            if (hasMore) rows.RemoveAt(WireLimits.AdminCommentQueueSize);
+            var hasMore = SqlCommands.TrimPage(rows, WireLimits.AdminCommentQueueSize);
             return new AdminCommentQueue(rows, hasMore);
         }, ct);
 
@@ -311,8 +310,7 @@ internal sealed class AdminCommentAppealStore(AdminSessionGate gate, AdminStepUp
                 order by a.id desc limit $3
                 """, row => new AdminAppealRow(row.GetInt64(0), row.GetInt32(1), row.GetInt64(2), row.GetString(3), row.GetString(4)),
                 CommentAppeals.Before(query), admin.Id, Wire.CommentAppealPageSize + 1);
-            var hasMore = rows.Count > Wire.CommentAppealPageSize;
-            if (hasMore) rows.RemoveAt(Wire.CommentAppealPageSize);
+            var hasMore = SqlCommands.TrimPage(rows, Wire.CommentAppealPageSize);
             return Wire.EncodeAdminCommentAppeals(rows, hasMore);
         }, ct);
 

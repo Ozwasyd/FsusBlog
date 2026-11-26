@@ -32,8 +32,7 @@ internal static class AppearanceActivationStore
             """, rows => new AdminAppearanceChange(rows.GetInt64(0), new DateTimeOffset(rows.GetDateTime(1)).ToUnixTimeMilliseconds(),
                 rows.GetString(2), rows.GetBoolean(3), rows.GetString(4), rows.GetString(5), rows.GetString(6), rows.GetString(7)),
             before is { } coordinate ? coordinate - 1 : long.MaxValue, limit + 1);
-        var hasMore = items.Count > limit;
-        if (hasMore) items.RemoveAt(limit);
+        var hasMore = SqlCommands.TrimPage(items, limit);
         return new(hasMore ? items[^1].Revision : 0, items);
     }
 
