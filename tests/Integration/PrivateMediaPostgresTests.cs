@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text.RegularExpressions;
+using static FsusBlog.V2.Integration.Tests.ExportResponseFixture;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -250,11 +251,11 @@ public sealed partial class PrivateMediaPostgresTests
             {
                 ExportResponseFixture.Attachment(epub, "application/epub+zip", "article.epub", noStore: true);
                 epubBytes = await epub.Content.ReadAsByteArrayAsync(ct);
-                using var archive = new ZipArchive(new MemoryStream(epubBytes));
-                var resource = Assert.Single(ReadPart(archive, "EPUB/package.opf").Descendants(opf + "item"),
+                using var archive = OpenZip(epubBytes);
+                var resource = Assert.Single(ReadZipXml(archive, "EPUB/package.opf").Descendants(opf + "item"),
                     item => (string?)item.Attribute("id") == "attachment");
                 Assert.Equal((imagePath, "image/png"), ((string?)resource.Attribute("href"), (string?)resource.Attribute("media-type")));
-                var chapter = ReadPart(archive, "EPUB/article.xhtml");
+                var chapter = ReadZipXml(archive, "EPUB/article.xhtml");
                 Assert.Contains("Original body.", chapter.Root!.Value);
                 var image = Assert.Single(chapter.Descendants(xhtml + "img"));
                 Assert.Equal((imagePath, mediaName, "3", "2", "figure"), ((string?)image.Attribute("src"), (string?)image.Attribute("alt"),
@@ -262,12 +263,12 @@ public sealed partial class PrivateMediaPostgresTests
                 Assert.Equal(normalized, await ReadEntry(archive.GetEntry("EPUB/" + imagePath)!));
             }
             Assert.Equal(epubBytes, await OkBytes(Export("epub", detached.Revision, saved.Revision, owner, asset), ct));
-            using (var archive = new ZipArchive(new MemoryStream(await OkBytes(Export("epub", detached.Revision, saved.Revision, owner, null), ct))))
+            using (var archive = OpenZip(await OkBytes(Export("epub", detached.Revision, saved.Revision, owner, null), ct)))
             {
                 Assert.Equal(new[] { "mimetype", "META-INF/container.xml", "EPUB/package.opf", "EPUB/nav.xhtml", "EPUB/article.xhtml" },
                     archive.Entries.Select(entry => entry.FullName));
-                Assert.Equal(2, ReadPart(archive, "EPUB/package.opf").Descendants(opf + "item").Count());
-                Assert.Empty(ReadPart(archive, "EPUB/article.xhtml").Descendants(xhtml + "img"));
+                Assert.Equal(2, ReadZipXml(archive, "EPUB/package.opf").Descendants(opf + "item").Count());
+                Assert.Empty(ReadZipXml(archive, "EPUB/article.xhtml").Descendants(xhtml + "img"));
             }
             foreach (var (status, expected, selected, actor, image, handle) in rejectedExports.Append((Conflict, detached.Revision, saved.Revision, owner, asset, "")))
                 await ExpectExportFailure("epub", "application/epub+zip", status, expected, selected, actor, image, handle);
@@ -277,16 +278,16 @@ public sealed partial class PrivateMediaPostgresTests
             {
                 ExportResponseFixture.Attachment(word, wordType, "article.docx", noStore: true);
                 var wordBytes = await word.Content.ReadAsByteArrayAsync(ct);
-                using var archive = new ZipArchive(new MemoryStream(wordBytes));
+                using var archive = OpenZip(wordBytes);
                 XNamespace packageRelationships = "http://schemas.openxmlformats.org/package/2006/relationships";
                 XNamespace documentRelationships = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
                 XNamespace wordprocessing = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
                 XNamespace drawing = "http://schemas.openxmlformats.org/drawingml/2006/main";
-                var reference = Assert.Single(ReadPart(archive, "word/_rels/document.xml.rels").Root!.Elements(packageRelationships + "Relationship"),
+                var reference = Assert.Single(ReadZipXml(archive, "word/_rels/document.xml.rels").Root!.Elements(packageRelationships + "Relationship"),
                     relation => (string?)relation.Attribute("Id") == "Image");
                 Assert.Equal(("media/attachment.png", documentRelationships.NamespaceName + "/image", (string?)null),
                     ((string?)reference.Attribute("Target"), (string?)reference.Attribute("Type"), (string?)reference.Attribute("TargetMode")));
-                var document = ReadPart(archive, "word/document.xml");
+                var document = ReadZipXml(archive, "word/document.xml");
                 Assert.Contains("Original body.", document.Root!.Value);
                 var blip = Assert.Single(Assert.Single(document.Descendants(wordprocessing + "drawing")).Descendants(drawing + "blip"));
                 Assert.Equal(("Image", (string?)null), ((string?)blip.Attribute(documentRelationships + "embed"), (string?)blip.Attribute(documentRelationships + "link")));
@@ -331,7 +332,7 @@ public sealed partial class PrivateMediaPostgresTests
             })
             {
                 var bytes = bodies[format] = await OkBytes(Export(extension, single.Revision, both.Revision, owner, null, selection: selectedPair), ct);
-                using var archive = new ZipArchive(new MemoryStream(bytes));
+                using var archive = OpenZip(bytes);
                 var images = archive.Entries.Where(entry => entry.FullName.StartsWith(resourceDirectory, StringComparison.Ordinal)).ToArray();
                 Assert.Equal(new[] { "attachment-1.jpeg", "attachment-2.png" }, images.Select(image => image.Name));
                 Assert.Equal(secondBytes, await ReadEntry(images[0]));
@@ -538,8 +539,6 @@ public sealed partial class PrivateMediaPostgresTests
                 await part.CopyToAsync(bytes, ct);
                 return bytes.ToArray();
             }
-
-            static XDocument ReadPart(ZipArchive archive, string path) { using var part = archive.GetEntry(path)!.Open(); return XDocument.Load(part); }
 
             async Task<string> Preview(long revision)
             {

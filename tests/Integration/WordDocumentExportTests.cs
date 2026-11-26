@@ -1,4 +1,4 @@
-using System.IO.Compression;
+using static FsusBlog.V2.Integration.Tests.ExportResponseFixture;
 
 public sealed class WordDocumentExportTests
 {
@@ -26,8 +26,8 @@ public sealed class WordDocumentExportTests
         var bytes = WordDocumentExport.Write(Title, Markdown, CancellationToken.None);
         Assert.Equal(bytes, WordDocumentExport.Write(Title, Markdown, CancellationToken.None));
         AssertFile(bytes, Title, "Saved outline", "const value", "![private picture]", "file:///etc/passwd", "<script>alert");
-        using var zip = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
-        var document = Read(zip, "word/document.xml");
+        using var zip = OpenZip(bytes);
+        var document = ReadZipXml(zip, "word/document.xml");
         var paragraphs = document.Descendants(Word + "p").ToArray();
         var style = new Func<XElement, string?>(p => p.Element(Word + "pPr")?.Element(Word + "pStyle")?.Attribute(Word + "val")?.Value);
         Assert.Equal("Title", style(paragraphs[0]));
@@ -68,8 +68,8 @@ public sealed class WordDocumentExportTests
         Assert.Equal(bytes, WordDocumentExport.Write(Title, markdown, CancellationToken.None));
         AssertFile(bytes, "[A](https://export.invalid/)", "Extra value");
 
-        using var zip = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
-        var table = Assert.Single(Read(zip, "word/document.xml").Descendants(Word + "tbl"));
+        using var zip = OpenZip(bytes);
+        var table = Assert.Single(ReadZipXml(zip, "word/document.xml").Descendants(Word + "tbl"));
         Assert.Equal(3, table.Descendants(Word + "gridCol").Count());
         var rows = table.Elements(Word + "tr").ToArray();
         Assert.Equal(3, rows.Length);
@@ -80,8 +80,8 @@ public sealed class WordDocumentExportTests
 
         var legacy = WordDocumentExport.Write(Title, markdown, CancellationToken.None, includeTables: false);
         AssertFile(legacy, "| Name | Count |", "| B | | Extra value |");
-        using var legacyZip = new ZipArchive(new MemoryStream(legacy), ZipArchiveMode.Read);
-        Assert.Empty(Read(legacyZip, "word/document.xml").Descendants(Word + "tbl"));
+        using var legacyZip = OpenZip(legacy);
+        Assert.Empty(ReadZipXml(legacyZip, "word/document.xml").Descendants(Word + "tbl"));
     }
 
     [Fact]
@@ -93,17 +93,14 @@ public sealed class WordDocumentExportTests
         var attachment = new DocumentExportAttachment("A & B.jpeg", MediaFormat.Jpeg, bitmap.Width, bitmap.Height, encoded.ToArray());
         var file = WordDocumentExport.Write(Title, Markdown, CancellationToken.None, attachment: attachment);
         Assert.Equal(file, WordDocumentExport.Write(Title, Markdown, CancellationToken.None, attachment: attachment));
-        using var zip = new ZipArchive(new MemoryStream(file));
-        using var image = zip.GetEntry("word/media/attachment.jpeg")!.Open();
-        using var bytes = new MemoryStream();
-        image.CopyTo(bytes);
-        Assert.Equal(attachment.Bytes, bytes.ToArray());
-        Assert.Contains(Read(zip, "[Content_Types].xml").Root!.Elements(), element =>
+        using var zip = OpenZip(file);
+        Assert.Equal(attachment.Bytes, ReadZipBytes(zip, "word/media/attachment.jpeg"));
+        Assert.Contains(ReadZipXml(zip, "[Content_Types].xml").Root!.Elements(), element =>
             (string?)element.Attribute("PartName") == "/word/media/attachment.jpeg" &&
             (string?)element.Attribute("ContentType") == "image/jpeg");
 
         XNamespace drawing = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
-        var inline = Assert.Single(Read(zip, "word/document.xml").Descendants(drawing + "inline"));
+        var inline = Assert.Single(ReadZipXml(zip, "word/document.xml").Descendants(drawing + "inline"));
         var extent = inline.Element(drawing + "extent")!;
         const int printableWidth = 9026 * 635;
         Assert.Equal(printableWidth, (int?)extent.Attribute("cx"));
@@ -115,27 +112,20 @@ public sealed class WordDocumentExportTests
 
     internal static void AssertFile(byte[] bytes, params string[] text)
     {
-        using var stream = new MemoryStream(bytes);
-        using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
+        using var zip = OpenZip(bytes);
         Assert.Equal(new[] { "[Content_Types].xml", "_rels/.rels", "word/_rels/document.xml.rels", "word/document.xml", "word/styles.xml" },
             zip.Entries.Select(entry => entry.FullName).Order(StringComparer.Ordinal));
         foreach (var rel in new[] { "_rels/.rels", "word/_rels/document.xml.rels" })
         {
-            var relation = Assert.Single(Read(zip, rel).Root!.Elements());
+            var relation = Assert.Single(ReadZipXml(zip, rel).Root!.Elements());
             Assert.Null(relation.Attribute("TargetMode"));
             Assert.Contains(relation.Attribute("Target")!.Value, new[] { "word/document.xml", "styles.xml" });
         }
-        var document = Read(zip, "word/document.xml");
+        var document = ReadZipXml(zip, "word/document.xml");
         Assert.Empty(document.Descendants(Word + "hyperlink"));
         Assert.Empty(document.Descendants(Word + "drawing"));
         Assert.Empty(document.Descendants(Word + "fldSimple"));
         var actual = string.Join('\n', document.Descendants(Word + "t").Select(node => node.Value));
         foreach (var value in text) Assert.Contains(value, actual, StringComparison.Ordinal);
-    }
-
-    private static XDocument Read(ZipArchive zip, string name)
-    {
-        using var part = zip.GetEntry(name)!.Open();
-        return XDocument.Load(part);
     }
 }

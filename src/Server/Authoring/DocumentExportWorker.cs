@@ -44,32 +44,27 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
     }
 
     private Task<int> InterruptPreviousRun(CancellationToken ct) =>
-        InTransaction(async (db, tx) =>
-        {
-            return await SqlCommands.Execute(db, tx, ct, """
+        InstanceLease.RunProtected(source, lease, (db, tx) =>
+            SqlCommands.Execute(db, tx, ct, """
                 update public.author_document_export
                 set state=case when state=7 then 5 else 4 end,
                     failure=case when state=7 then 0 else 4 end, finished_at=statement_timestamp()
                 where state in (2,7)
-                """);
-        }, ct);
+                """), ct);
 
     private Task<int> RemoveExpired(CancellationToken ct) =>
-        InTransaction(async (db, tx) =>
-        {
-            return await SqlCommands.Execute(db, tx, ct, """
+        InstanceLease.RunProtected(source, lease, (db, tx) =>
+            SqlCommands.Execute(db, tx, ct, """
                 delete from public.author_document_export e
                 where e.expires_at<=statement_timestamp()
                    or not exists (select from public.admin_principal p where p.id=e.owner_id
                        and p.enabled and p.generation=e.author_generation)
                    or exists (select from public.article a where a.id=e.article_id and a.deleted)
-                """);
-        }, ct);
+                """), ct);
 
     private Task<Job?> Claim(CancellationToken ct) =>
-        InTransaction<Job?>(async (db, tx) =>
-        {
-            await using var claim = Store.Sql(db, tx, """
+        InstanceLease.RunProtected(source, lease, (db, tx) =>
+            SqlCommands.QueryOne<Job>(db, tx, ct, """
                 with next as (
                     select owner_id,id from public.author_document_export
                     where state=1 and expires_at>statement_timestamp()
@@ -78,12 +73,8 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
                 update public.author_document_export e set state=2,started_at=statement_timestamp()
                 from next where e.owner_id=next.owner_id and e.id=next.id
                 returning e.owner_id,e.author_generation,e.id,e.article_id,e.expected_revision,e.source_revision,e.format,e.source_digest,e.provider
-                """);
-            await using var row = await claim.ExecuteReaderAsync(ct);
-            if (!await row.ReadAsync(ct)) return null;
-            return new(row.GetGuid(0), row.GetInt64(1), new(row.GetGuid(2), row.GetInt32(3), row.GetInt64(4),
-                row.GetInt64(5), (DocumentExportFormat)row.GetInt16(6)), row.GetFieldValue<byte[]>(7), row.GetInt16(8));
-        }, ct);
+                """, row => new(row.GetGuid(0), row.GetInt64(1), new(row.GetGuid(2), row.GetInt32(3), row.GetInt64(4),
+                    row.GetInt64(5), (DocumentExportFormat)row.GetInt16(6)), row.GetFieldValue<byte[]>(7), row.GetInt16(8))), ct);
 
     private async Task Run(Job job, CancellationToken ct)
     {
@@ -94,7 +85,7 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
         var cancellation = WatchCancellation(job, budget);
         try
         {
-            var input = await InTransaction(async (db, tx) =>
+            var input = await InstanceLease.RunProtected(source, lease, async (db, tx) =>
             {
                 await RequireAuthority(db, tx, job, budget.Token);
                 return await DocumentExportInput.ReadVerified(db, tx, job.Request, media, job.Owner, job.Provider,
@@ -159,7 +150,7 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
     }
 
     private Task<int> Finish(Job job, byte[]? output, DocumentExportFailure failure, CancellationToken ct) =>
-        InTransaction(async (db, tx) =>
+        InstanceLease.RunProtected(source, lease, async (db, tx) =>
         {
             try { await RequireAuthority(db, tx, job, ct); }
             catch (BusinessException error) when (error.Rejection is Rejection.Forbidden or Rejection.NotFound)
@@ -195,15 +186,6 @@ internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLeas
             """, job.Owner, job.Generation) is not true)
             throw new BusinessException(Rejection.Forbidden, "Document export author authority changed.");
         await RevisionHistoryStore.LockOwned(db, tx, job.Owner, job.Request.Article, ct);
-    }
-
-    private async Task<T> InTransaction<T>(Func<NpgsqlConnection, NpgsqlTransaction, Task<T>> operation, CancellationToken ct)
-    {
-        await using var db = await source.OpenConnectionAsync(ct);
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
-        var result = await operation(db, tx);
-        await InstanceLease.CommitProtected(tx, lease, ct);
-        return result;
     }
 
     private sealed record Job(Guid Owner, long Generation, DocumentExportCreate Request, byte[] SourceDigest, short Provider);

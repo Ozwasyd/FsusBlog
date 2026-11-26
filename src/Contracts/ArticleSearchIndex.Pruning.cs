@@ -520,88 +520,52 @@ public sealed partial class ArticleSearchIndex
             Posting[] postings,
             SearchPostingBlockMeta[] blocks,
             ShortPrefixPosting[] spPostings,
-            ShortPrefixBlockMeta[] spBlocks,
-            double[] avgFieldLengths)
+            ShortPrefixBlockMeta[] spBlocks)
         {
-            var s = new ConceptStream { Resolved = rc };
-            switch (rc.Concept.Kind)
+            var kind = rc.Concept.Kind;
+            var main = rc.PrimaryTerm;
+            if (kind == SearchConceptKind.CjkSequence)
+                main = rc.CanMatch && rc.StepTerms is not null ? rc.StepTerms[rc.RarestStepIndex] : default;
+            var alt = kind == SearchConceptKind.CompoundHyphen && rc.AllSubsExist && rc.StepTerms is not null
+                ? rc.StepTerms[rc.RarestStepIndex]
+                : default;
+            var prefix = kind is SearchConceptKind.CjkSequence or SearchConceptKind.CompoundHyphen
+                ? default
+                : rc.ShortPrefixTerm;
+            return new ConceptStream
             {
-                case SearchConceptKind.CjkSequence:
-                {
-                    if (rc.CanMatch && rc.StepTerms is not null)
-                    {
-                        var rarest = rc.StepTerms[rc.RarestStepIndex];
-                        s.MainCursor = new CompactTermCursor(postings, blocks, rarest);
-                        s.HasMain = rarest.Count > 0;
-                        var rarestStep = rc.Concept.Steps[rc.RarestStepIndex];
-                        s.GlobalMaxBound = s.HasMain
-                            ? s.MainCursor.ComputeGlobalMaxBound(
-                                rc.Idf,
-                                allowExactByBlock: rc.AllExactStepsExist && !rarestStep.DiffersFromExactForm,
-                                forceAllowExact: rc.AllExactStepsExist && rarestStep.DiffersFromExactForm,
-                                avgFieldLengths)
-                            : 0.0;
-                    }
-                    break;
-                }
-                case SearchConceptKind.CompoundHyphen:
-                {
-                    if (rc.PrimaryTerm.Count > 0)
-                    {
-                        s.MainCursor = new CompactTermCursor(postings, blocks, rc.PrimaryTerm);
-                        s.HasMain = true;
-                    }
-                    if (rc.AllSubsExist && rc.StepTerms is not null)
-                    {
-                        var rarestSub = rc.StepTerms[rc.RarestStepIndex];
-                        if (rarestSub.Count > 0)
-                        {
-                            s.AltCursor = new CompactTermCursor(postings, blocks, rarestSub);
-                            s.HasAlt = true;
-                        }
-                    }
-                    if (s.HasMain && s.HasAlt)
-                    {
-                        var maxMain = s.MainCursor.ComputeGlobalMaxBound(rc.Idf, allowExactByBlock: true, forceAllowExact: false, avgFieldLengths);
-                        var maxAlt = s.AltCursor.ComputeGlobalMaxBound(rc.Idf, allowExactByBlock: false, forceAllowExact: false, avgFieldLengths);
-                        s.GlobalMaxBound = maxMain + maxAlt;
-                    }
-                    else if (s.HasMain)
-                    {
-                        s.GlobalMaxBound = s.MainCursor.ComputeGlobalMaxBound(rc.Idf, allowExactByBlock: true, forceAllowExact: false, avgFieldLengths);
-                    }
-                    else if (s.HasAlt)
-                    {
-                        s.GlobalMaxBound = s.AltCursor.ComputeGlobalMaxBound(rc.Idf, allowExactByBlock: false, forceAllowExact: false, avgFieldLengths);
-                    }
-                    break;
-                }
-                default:
-                {
-                    if (rc.PrimaryTerm.Count > 0)
-                    {
-                        s.MainCursor = new CompactTermCursor(postings, blocks, rc.PrimaryTerm);
-                        s.HasMain = true;
-                    }
-                    if (rc.ShortPrefixTerm.Count > 0)
-                    {
-                        s.PrefixCursor = new ShortPrefixCursor(spPostings, spBlocks, rc.ShortPrefixTerm);
-                        s.HasPrefix = true;
-                    }
-                    var step = rc.Concept.Steps[0];
-                    var mainBound = s.HasMain
-                        ? s.MainCursor.ComputeGlobalMaxBound(
-                            rc.Idf,
-                            allowExactByBlock: !step.DiffersFromExactForm,
-                            forceAllowExact: step.DiffersFromExactForm && rc.ExactTerm.Count > 0,
-                            avgFieldLengths)
-                        : 0.0;
-                    var spBound = s.HasPrefix ? s.PrefixCursor.ComputeGlobalMaxBound(rc.ShortPrefixIdf, avgFieldLengths) : 0.0;
-                    s.GlobalMaxBound = Math.Max(mainBound, spBound);
-                    break;
-                }
+                Resolved = rc,
+                HasMain = main.Count > 0,
+                HasAlt = alt.Count > 0,
+                HasPrefix = prefix.Count > 0,
+                MainCursor = main.Count > 0 ? new CompactTermCursor(postings, blocks, main) : default,
+                AltCursor = alt.Count > 0 ? new CompactTermCursor(postings, blocks, alt) : default,
+                PrefixCursor = prefix.Count > 0 ? new ShortPrefixCursor(spPostings, spBlocks, prefix) : default
+            };
+        }
+
+        internal void SetGlobalMaxBound(double[] avgFieldLengths)
+        {
+            var rc = Resolved;
+            var kind = rc.Concept.Kind;
+            var isCjkSequence = kind == SearchConceptKind.CjkSequence;
+            var mainBound = 0.0;
+            if (HasMain)
+            {
+                var allowExact = !isCjkSequence || rc.AllExactStepsExist;
+                var differs = kind != SearchConceptKind.CompoundHyphen &&
+                    rc.Concept.Steps[isCjkSequence ? rc.RarestStepIndex : 0].DiffersFromExactForm;
+                mainBound = MainCursor.ComputeGlobalMaxBound(
+                    rc.Idf,
+                    allowExactByBlock: allowExact && !differs,
+                    forceAllowExact: allowExact && differs && (isCjkSequence || rc.ExactTerm.Count > 0),
+                    avgFieldLengths);
             }
-            return s;
+            var altBound = HasAlt
+                ? AltCursor.ComputeGlobalMaxBound(rc.Idf, allowExactByBlock: false, forceAllowExact: false, avgFieldLengths)
+                : 0.0;
+            var prefixBound = HasPrefix ? PrefixCursor.ComputeGlobalMaxBound(rc.ShortPrefixIdf, avgFieldLengths) : 0.0;
+            GlobalMaxBound = Math.Max(mainBound + altBound, prefixBound);
         }
 
         internal readonly int EstimatedCount =>
@@ -1248,7 +1212,7 @@ public sealed partial class ArticleSearchIndex
         var conceptStreams = new ConceptStream[resolved.Length];
         for (var c = 0; c < resolved.Length; c++)
             conceptStreams[c] = ConceptStream.Create(
-                resolved[c], segPostings, segBlocks, segSpPostings, segSpBlocks, _avgFieldLengths);
+                resolved[c], segPostings, segBlocks, segSpPostings, segSpBlocks);
 
         var requiredTerms = new List<Term>(resolved.Length + quotedPhraseTerms.Length * 2);
         var seenTermStarts = new HashSet<int>();
@@ -1640,7 +1604,7 @@ public sealed partial class ArticleSearchIndex
         {
             if (!resolved[c].CanMatch) continue;
             var cs = ConceptStream.Create(
-                resolved[c], segPostings, segBlocks, segSpPostings, segSpBlocks, _avgFieldLengths);
+                resolved[c], segPostings, segBlocks, segSpPostings, segSpBlocks);
             if (cs.Doc == int.MaxValue) continue;
             totalEstimatedPostings += cs.EstimatedCount;
             activeStreams.Add(cs);
@@ -1662,6 +1626,10 @@ public sealed partial class ArticleSearchIndex
             : (sort == ArticleSearchSort.Latest ? SearchExecutionPath.LatestBlockScan : SearchExecutionPath.BlockMaxWand);
         if (stats.Path is SearchExecutionPath.Empty or SearchExecutionPath.SelectiveExact)
             stats.Path = segPath;
+
+        if (!isSelective && sort == ArticleSearchSort.Relevance)
+            for (var i = 0; i < streamCount; i++)
+                streams[i].SetGlobalMaxBound(_avgFieldLengths);
 
         var order = new int[streamCount];
         for (var i = 0; i < streamCount; i++) order[i] = i;
