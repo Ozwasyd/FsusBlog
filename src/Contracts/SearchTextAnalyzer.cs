@@ -84,49 +84,33 @@ public static class SearchTextAnalyzer
     public static bool TryMapTraditionalChar(char c, out char simplified) =>
         TraditionalToSimplified.TryGetValue(c, out simplified);
 
-    public static string ToSimplifiedCjk(ReadOnlySpan<char> text)
+    public static string ToSimplifiedCjk(ReadOnlySpan<char> text) =>
+        MapTraditionalCjk(text) ?? new string(text);
+
+    private static string? MapTraditionalCjk(ReadOnlySpan<char> text)
     {
-        char[]? rented = null;
         for (var i = 0; i < text.Length; i++)
         {
-            if (TraditionalToSimplified.TryGetValue(text[i], out var mapped))
+            if (!TraditionalToSimplified.TryGetValue(text[i], out var mapped)) continue;
+            return string.Create(text.Length, new CjkMappingState(text, i, mapped), static (destination, state) =>
             {
-                if (rented is null)
+                state.Source[..state.Start].CopyTo(destination);
+                destination[state.Start] = state.Mapped;
+                for (var j = state.Start + 1; j < destination.Length; j++)
                 {
-                    rented = new char[text.Length];
-                    text[..i].CopyTo(rented);
+                    var ch = state.Source[j];
+                    destination[j] = TraditionalToSimplified.TryGetValue(ch, out var next) ? next : ch;
                 }
-                rented[i] = mapped;
-            }
-            else if (rented is not null)
-            {
-                rented[i] = text[i];
-            }
+            });
         }
-        return rented is null ? new string(text) : new string(rented);
+        return null;
     }
 
-    private static (string Source, int Offset) ToSimplifiedCjkSlice(string text, int start, int length)
+    private readonly ref struct CjkMappingState(ReadOnlySpan<char> source, int start, char mapped)
     {
-        char[]? rented = null;
-        for (var i = 0; i < length; i++)
-        {
-            var ch = text[start + i];
-            if (TraditionalToSimplified.TryGetValue(ch, out var mapped))
-            {
-                if (rented is null)
-                {
-                    rented = new char[length];
-                    text.AsSpan(start, i).CopyTo(rented);
-                }
-                rented[i] = mapped;
-            }
-            else if (rented is not null)
-            {
-                rented[i] = ch;
-            }
-        }
-        return rented is null ? (text, start) : (new string(rented), 0);
+        internal readonly ReadOnlySpan<char> Source = source;
+        internal readonly int Start = start;
+        internal readonly char Mapped = mapped;
     }
 
     /// <summary>Collision-safe 64-bit FNV-1a key (paired with exact Term string verification in term dictionaries).</summary>
@@ -589,14 +573,15 @@ public static class SearchTextAnalyzer
         {
             var single = text.Substring(start, 1);
             emitter.Emit(single, SearchTokenKind.Exact, basePos, 1, 1, start, end);
-            var simp = ToSimplifiedCjk(single);
-            if (!string.Equals(simp, single, StringComparison.Ordinal))
-                emitter.Emit(simp, SearchTokenKind.ScriptAlias, basePos, 1, 0, start, end);
+            if (TraditionalToSimplified.TryGetValue(text[start], out var mapped))
+                emitter.Emit(new string(mapped, 1), SearchTokenKind.ScriptAlias, basePos, 1, 0, start, end);
             return 1;
         }
 
-        var (simpSrc, simpBase) = ToSimplifiedCjkSlice(text, start, runLen);
-        var hasScDiff = !ReferenceEquals(simpSrc, text);
+        var simplified = MapTraditionalCjk(text.AsSpan(start, runLen));
+        var hasScDiff = simplified is not null;
+        var simpSrc = simplified ?? text;
+        var simpBase = hasScDiff ? 0 : start;
 
         void EmitWithScriptAlias(string origWord, ReadOnlySpan<char> simpWord, SearchTokenKind kind, int pos, int width, int advance, int ns, int ne)
         {
