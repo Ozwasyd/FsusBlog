@@ -468,7 +468,7 @@ public sealed class LocalSearchCorpusReuseTests
         // Edit and republish article 220 (page 2 only, compact coordinate/body delta past summary slice that fits FSPT v4).
         var saved = await SiteAedsFixture.SaveDraft(client, token, null, 220, 1, "Corpus article 220",
             new string('a', 200) + " Shared needle body content for article 220!", ct);
-        var published = await SiteAedsFixture.ArticleCommand(client, WireRoutes.Publish, token, null, new(saved.Id, saved.Revision, Guid.NewGuid(), "", ""), ct);
+        var published = await SiteAedsFixture.ChangePublication(client, WireRoutes.Publish, token, saved.Id, saved.Revision, ct);
         Assert.True(published.Published);
 
         var gen2 = await AssertGenerationFenceAndPage1Reuse(gen1, checkPagesHeader: true);
@@ -492,7 +492,7 @@ public sealed class LocalSearchCorpusReuseTests
         }
 
         // Retract article 220 -> old gen2 rejected with 409, page 1 STILL 304 with same ETag, page 2 updated without 220.
-        var retracted = await SiteAedsFixture.ArticleCommand(client, WireRoutes.Retract, token, null, new(published.Id, published.Revision, Guid.NewGuid(), "", ""), ct);
+        var retracted = await SiteAedsFixture.ChangePublication(client, WireRoutes.Retract, token, published.Id, published.Revision, ct);
         Assert.False(retracted.Published);
 
         var gen3 = await AssertGenerationFenceAndPage1Reuse(gen2, checkPagesHeader: false);

@@ -117,8 +117,7 @@ public sealed class DistributionPostgresTests
             var before = await CurrentGeneration();
             await Absent(articleUrl, title);
 
-            var published = await SiteAedsFixture.ArticleCommand(client, WireRoutes.Publish, actor.Token, null,
-                new(draft.Id, assigned.Revision, Guid.NewGuid(), "", ""), ct);
+            var published = await SiteAedsFixture.ChangePublication(client, WireRoutes.Publish, actor.Token, draft.Id, assigned.Revision, ct);
             var generation = await CurrentGeneration();
             Assert.NotEqual(before, generation);
             var rss = await Artifact(FeedPaths[0], "application/rss+xml", generation);
@@ -163,13 +162,11 @@ public sealed class DistributionPostgresTests
             var saved = await SiteAedsFixture.SaveDraft(client, actor.Token, null, published.Id, published.Revision, "New private draft", unpublished, ct);
             Assert.Equal(generation, await CurrentGeneration());
             Assert.Equal(rss, await Artifact(FeedPaths[0], "application/rss+xml", generation));
-            var republished = await SiteAedsFixture.ArticleCommand(client, WireRoutes.Publish, actor.Token, null,
-                new(saved.Id, saved.Revision, Guid.NewGuid(), "", ""), ct);
+            var republished = await SiteAedsFixture.ChangePublication(client, WireRoutes.Publish, actor.Token, saved.Id, saved.Revision, ct);
             Assert.NotEqual(generation, await CurrentGeneration());
             using (var latest = JsonDocument.Parse(await client.GetStringAsync(FeedPaths[3], ct)))
                 Assert.Equal(unpublished, Assert.Single(latest.RootElement.GetProperty("items").EnumerateArray()).GetProperty("content_text").GetString());
-            await SiteAedsFixture.ArticleCommand(client, WireRoutes.Retract, actor.Token, null,
-                new(republished.Id, republished.Revision, Guid.NewGuid(), "", ""), ct);
+            await SiteAedsFixture.ChangePublication(client, WireRoutes.Retract, actor.Token, republished.Id, republished.Revision, ct);
             Assert.NotEqual(generation, await CurrentGeneration());
             await Absent(articleUrl, title);
             var after = await client.GetStringAsync("/sitemap.xml", ct);

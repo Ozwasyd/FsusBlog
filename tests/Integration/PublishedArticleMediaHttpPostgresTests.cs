@@ -27,8 +27,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 var unselected = await Upload(client, owner, "unselected-private.jpg", "image/jpeg",
                     MediaFixture.SolidImage(SKEncodedImageFormat.Jpeg, SKColors.SeaGreen), ct);
                 Assert.NotEqual(chosen.Digest, unselected.Digest);
-                var initial = await PostDraft(client, WireRoutes.Save,
-                    Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "Current public image", "Scoped image fixture.")), owner, ct);
+                var initial = await SaveDraft(client, owner, "Current public image", "Scoped image fixture.", ct);
                 var draft = await Attach(client, owner, initial, chosen.Id, ct);
                 draft = await Attach(client, owner, draft, unselected.Id, ct);
                 var mutation = new ArticlePublishImages(draft.Id, draft.Revision, Guid.NewGuid(), [chosen.Id]);
@@ -105,11 +104,8 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 shared = await Upload(client, other, "same-content-different-owner.png", "image/png", source, ct);
                 Assert.NotEqual(chosen.Id, shared.Id);
                 Assert.Equal(chosen.Digest, shared.Digest);
-                var secondDraft = await PostDraft(client, WireRoutes.Save,
-                    Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "Independent publication", "Shared image bytes.")), other, ct);
-                secondDraft = await Attach(client, other, secondDraft, shared.Id, ct);
-                var secondRelease = await PostDraft(client, WireRoutes.ArticlePublishImages,
-                    Wire.EncodeArticlePublishImages(new(secondDraft.Id, secondDraft.Revision, Guid.NewGuid(), [shared.Id])), other, ct);
+                var secondDraft = await SaveDraft(client, other, "Independent publication", "Shared image bytes.", ct);
+                var secondRelease = await AttachAndPublish(client, other, secondDraft, shared.Id, ct);
                 otherArticle = secondRelease.Id;
                 otherPublication = await PublicationId(db, secondRelease, ct);
                 Assert.Equal(chosen.Digest + ".media", Path.GetFileName(Assert.Single(Directory.EnumerateFileSystemEntries(publicRoot))));
@@ -117,16 +113,11 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 await AssertImage(client, otherPath, shared, ct);
                 await AssertEmptyImageResponse(client, HttpMethod.Get, RawPath(otherArticle, publication, chosen.Digest), NotFound, ct);
 
-                var withdrawn = await PostDraft(client, WireRoutes.Retract,
-                    Wire.EncodeArticleCommand(new(released.Id, released.Revision, Guid.NewGuid(), "", "")), owner, ct);
+                var withdrawn = await RetractDraft(client, owner, released, ct);
                 Assert.False(withdrawn.Published);
                 await AssertEmptyImageResponse(client, HttpMethod.Get, rawPath, NotFound, ct, new("If-None-Match", '"' + chosen.Digest + '"'));
                 await AssertEmptyImageResponse(client, HttpMethod.Head, rawPath, NotFound, ct);
-                using (var old = Expect(NotFound, await client.GetAsync(manifestPath, ct)))
-                {
-                    Assert.True(old.Headers.CacheControl?.NoStore);
-                    Assert.Empty(await old.Content.ReadAsByteArrayAsync(ct));
-                }
+                await AssertHiddenManifest(client, manifestPath, ct);
                 await AssertImage(client, otherPath, shared, ct);
                 using (var binary = Ok(await client.GetAsync(DetailPath(otherArticle), ct)))
                 {
@@ -180,14 +171,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
     {
         using var get = await client.GetAsync(path, ct);
         using var head = await Send(client, HttpMethod.Head, path, ct);
-        foreach (var response in new[] { get, head })
-        {
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal(image.ContentType, response.Content.Headers.ContentType?.MediaType);
-            Assert.Equal(image.Bytes.LongLength, response.Content.Headers.ContentLength);
-            Assert.Equal(new[] { "none" }, response.Headers.AcceptRanges);
-            AssertImageHeaders(response);
-        }
+        foreach (var response in new[] { get, head }) AssertImageResponse(response, image);
         var bytes = await get.Content.ReadAsByteArrayAsync(ct);
         Assert.Equal(image.Bytes, bytes);
         Assert.Equal(image.Digest, Convert.ToHexStringLower(SHA256.HashData(bytes)));
@@ -198,14 +182,35 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         CancellationToken ct, KeyValuePair<string, string>? header = null)
     {
         using var response = await Send(client, method, path, ct, header: header);
-        Assert.Equal(status, response.StatusCode);
-        AssertImageHeaders(response);
-        Assert.Null(response.Content.Headers.ContentType);
+        AssertEmptyImageHeaders(response, status);
         Assert.Null(response.Content.Headers.ContentRange);
         Assert.Equal(0, response.Content.Headers.ContentLength.GetValueOrDefault());
         Assert.Empty(await response.Content.ReadAsByteArrayAsync(ct));
         if (status == HttpStatusCode.MethodNotAllowed)
             Assert.Equal(new[] { "GET", "HEAD" }, response.Content.Headers.Allow.Order(StringComparer.Ordinal));
+    }
+
+    private static void AssertImageResponse(HttpResponseMessage response, Asset image)
+    {
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(image.ContentType, response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(image.Bytes.LongLength, response.Content.Headers.ContentLength);
+        Assert.Equal(new[] { "none" }, response.Headers.AcceptRanges);
+        AssertImageHeaders(response);
+    }
+
+    private static void AssertEmptyImageHeaders(HttpResponseMessage response, HttpStatusCode expected)
+    {
+        Assert.Equal(expected, response.StatusCode);
+        AssertImageHeaders(response);
+        Assert.Null(response.Content.Headers.ContentType);
+    }
+
+    private static async Task AssertHiddenManifest(HttpClient client, string path, CancellationToken ct)
+    {
+        using var response = Expect(NotFound, await client.GetAsync(path, ct));
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        Assert.Empty(await response.Content.ReadAsByteArrayAsync(ct));
     }
 
     private static void AssertImageHeaders(HttpResponseMessage response)
@@ -216,6 +221,19 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         Assert.Null(response.Headers.ETag);
         Assert.Null(response.Content.Headers.LastModified);
     }
+
+    private static Task<Draft> SaveDraft(HttpClient client, MediaFixture.Session author, string title, string body, CancellationToken ct) =>
+        PostDraft(client, WireRoutes.Save, Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), title, body)), author, ct);
+
+    private static async Task<Draft> AttachAndPublish(HttpClient client, MediaFixture.Session author, Draft draft, Guid asset, CancellationToken ct)
+    {
+        var attached = await Attach(client, author, draft, asset, ct);
+        return await PostDraft(client, WireRoutes.ArticlePublishImages,
+            Wire.EncodeArticlePublishImages(new(attached.Id, attached.Revision, Guid.NewGuid(), [asset])), author, ct);
+    }
+
+    private static Task<Draft> RetractDraft(HttpClient client, MediaFixture.Session author, Draft release, CancellationToken ct) =>
+        PostDraft(client, WireRoutes.Retract, Wire.EncodeArticleCommand(new(release.Id, release.Revision, Guid.NewGuid(), "", "")), author, ct);
 
     private static Task<Draft> Attach(HttpClient client, MediaFixture.Session author, Draft draft, Guid asset, CancellationToken ct) =>
         PostDraft(client, WireRoutes.ArticleMediaCommand,

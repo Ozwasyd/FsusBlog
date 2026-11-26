@@ -10,8 +10,7 @@ public sealed class PropertyPostgresTests
         var author = (await db.SignIn("property author", ct)).Token;
         var visitor = (await db.SignIn("other author", ct)).Token;
         var guest = (await db.SignIn("guest", ct, canAuthor: false)).Token;
-        var draft = (await store.WithSession(author, true, (connection, tx, actor) => Store.Execute(connection, tx, actor,
-            ArticleAction.Save, new(0, 0, Guid.NewGuid(), "Host", "Markdown"), ct), ct)).Article;
+        var draft = await PublicationFixture.EditDraft(store, author, ArticleAction.Save, new(0, 0, Guid.NewGuid(), "Host", "Markdown"), ct);
         await using var server = await ServerProcess.Start(db.ConnectionString, ct);
 
         var input = new PropertyWorkspaceRequest(draft.Id, draft.Revision, 0, 0, "");

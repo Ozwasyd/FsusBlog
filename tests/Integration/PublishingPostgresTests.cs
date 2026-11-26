@@ -10,7 +10,7 @@ public sealed class PublishingPostgresTests
         byte[] bytes;
         await using (var first = await ServerProcess.Start(fixture.ConnectionString, ct))
         {
-            var article = await PublishArticle(first.Client, actor.Token, "Stable coordinates", "博客搜索的公开页", ct);
+            var article = await SiteAedsFixture.SaveAndPublish(first.Client, actor.Token, "Stable coordinates", "博客搜索的公开页", ct);
             using var detail = await first.Client.GetAsync(WireRoutes.PublicArticle.Replace("{id}", article.Id.ToString(CultureInfo.InvariantCulture)), ct);
             using var corpus = await first.Client.GetAsync(WireRoutes.PublicSearchCorpus, ct);
             generation = Assert.Single(corpus.Headers.GetValues(WireHeaders.SearchIndexGeneration));
@@ -71,7 +71,7 @@ public sealed class PublishingPostgresTests
             { await using var rejected = await ServerProcess.Start(fixture.ConnectionString, ct); })).Message);
 
         const string marker = "Visible only while the instance owns the database";
-        var published = await PublishArticle(first.Client, actor.Token, marker, "lease test", ct);
+        var published = await SiteAedsFixture.SaveAndPublish(first.Client, actor.Token, marker, "lease test", ct);
         var article = $"/article/{published.Id}";
         Assert.Contains(marker, await first.Client.GetStringAsync(article, ct));
 
@@ -98,8 +98,7 @@ public sealed class PublishingPostgresTests
         Assert.Contains(marker, await successor.Client.GetStringAsync(article, ct));
         await VerifyOldOwnerClosed();
         Assert.Equal(0L, await fixture.Scalar<long>("select count(*) from public.article_command where command_id=$1", forbidden.IdempotencyKey));
-        await SiteAedsFixture.ArticleCommand(successor.Client, WireRoutes.Retract, actor.Token, null,
-            new(published.Id, published.Revision, Guid.NewGuid(), "", ""), ct);
+        await SiteAedsFixture.ChangePublication(successor.Client, WireRoutes.Retract, actor.Token, published.Id, published.Revision, ct);
         await CheckStatusAsync(NotFound, successor.Client.GetAsync(article, ct));
 
         Task<int> OwnerPid() => fixture.Scalar<int>("""
@@ -170,7 +169,7 @@ public sealed class PublishingPostgresTests
         string publishedGeneration, binary;
         await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct))
         {
-            var published = await PublishArticle(server.Client, session.Token, "Snapshot <check>",
+            var published = await SiteAedsFixture.SaveAndPublish(server.Client, session.Token, "Snapshot <check>",
                 $"## Publication heading\n\n{marker}\n\n[Read source](/archive)", ct);
             articleId = published.Id;
             binary = WireRoutes.PublicArticle.Replace("{id}", articleId.ToString(CultureInfo.InvariantCulture));
@@ -185,8 +184,7 @@ public sealed class PublishingPostgresTests
             using var detail = Ok(await server.Client.GetAsync(binary, ct));
             Assert.Equal(publishedGeneration, Assert.Single(detail.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
             _ = Aeds.Decode(await detail.Content.ReadAsByteArrayAsync(ct), FrameType.ArticleDetail).Length;
-            await SiteAedsFixture.ArticleCommand(server.Client, WireRoutes.Retract, session.Token, null,
-                new(articleId, published.Revision, Guid.NewGuid(), "", ""), ct);
+            await SiteAedsFixture.ChangePublication(server.Client, WireRoutes.Retract, session.Token, articleId, published.Revision, ct);
             await VerifyUnavailable(server.Client);
         }
 
@@ -331,12 +329,6 @@ public sealed class PublishingPostgresTests
         Assert.Equal((4L, 4L), await fixture.QueryRow(
             "select count(*), count(distinct revision) from public.blog_outbox where article_id=$1",
             r => (r.GetInt64(0), r.GetInt64(1)), saved.Id));
-    }
-
-    private static async Task<Draft> PublishArticle(HttpClient client, string token, string title, string body, CancellationToken ct)
-    {
-        var saved = await SiteAedsFixture.SaveDraft(client, token, null, 0, 0, title, body, ct);
-        return await SiteAedsFixture.ArticleCommand(client, WireRoutes.Publish, token, null, new(saved.Id, saved.Revision, Guid.NewGuid(), "", ""), ct);
     }
 
     private static async Task<(Store Store, Publications Publications)> CreateProjection(ScratchDatabase fixture, CancellationToken ct, bool refresh = false)

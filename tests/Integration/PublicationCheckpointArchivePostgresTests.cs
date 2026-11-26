@@ -47,12 +47,7 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
                 SHA256.HashData(retired.ExportSubjectPublicKeyInfo()), headTime);
             var dayReceipt = new PublicationCheckpointV2(origin, day, 0, 0, 0, PublicationCheckpointTreeV2.EmptyDailyRoot(), 3, headDigest,
                 "next", 2, SHA256.HashData(current.ExportSubjectPublicKeyInfo()), signedAt, PublicationCheckpointKind.Daily);
-            var signedHead = JsonSerializer.SerializeToNode(new
-            {
-                headVersion = 2, kind = "native-publication-log-head", algorithm = ArticlePublicationProofPayloadV2.Algorithm, origin,
-                sequence = "3", entrySha256 = Hex(headDigest), keyId = "old", keyVersion = 1, keySha256 = Hex(head.KeySha256),
-                attestedAtUtc = Time(headTime), signature = Sign(retired, head.Payload()),
-            })!;
+            var signedHead = PublicationFixture.SignedHead(head, PublicationFixture.SignP256(retired, head.Payload()));
             var signedDay = SignedDay(dayReceipt);
             var backfilledAt = signedAt.AddMinutes(1);
             var backfilled = SignedDay(dayReceipt with { ScopeKey = backfilledDay, AttestedAt = backfilledAt });
@@ -155,15 +150,8 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
                 attestedAtUtc = Time(claim.AttestedAt), signature = Sign(current, claim.Payload()),
             })!;
 
-            async Task WithServer(Func<HttpClient, Task> check)
-            {
-                await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, config,
-                    request => PublicationFixture.Forward(request, address.Authority));
-                if (!viaCaddy) { await check(server.Client); return; }
-                await using var proxy = await NativeCaddyProxy.Start(server.Client.BaseAddress!, scratch.FullName, ct, address);
-                evidence.WriteLine($"Caddy SHA-256 leaf pin {proxy.Fingerprint}, HTTP/2 on {proxy.Client.BaseAddress}");
-                await check(proxy.Client);
-            }
+            Task WithServer(Func<HttpClient, Task> check) => PublicationFixture.WithPublicServer(fixture, scratch.FullName,
+                address, config, evidence, viaCaddy, (client, _) => check(client), ct);
 
             Task Withheld() => WithServer(async client =>
             {

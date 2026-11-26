@@ -279,10 +279,8 @@ public sealed class ServerCompositionParityTests
         var author = await fixture.SignIn("parity-author", ct, canAuthor: true);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
 
-        var draft = await SiteAedsFixture.SaveDraft(server.Client, author.Token, null, 0, 0,
+        var draft = await SiteAedsFixture.SaveAndPublish(server.Client, author.Token,
             "Parity Snapshot Title", "Parity snapshot body content.", ct);
-        draft = await SiteAedsFixture.ArticleCommand(server.Client, WireRoutes.Publish, author.Token, null,
-            new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""), ct);
 
         string publishedGeneration;
         using (var articleResp = Ok(await server.Client.GetAsync($"/article/{draft.Id}", ct)))
@@ -292,8 +290,7 @@ public sealed class ServerCompositionParityTests
         }
 
         await CheckStatusAsync(OK, server.Client.GetAsync($"{WireRoutes.PublicIndex}?generation={publishedGeneration}", ct));
-        await SiteAedsFixture.ArticleCommand(server.Client, WireRoutes.Retract, author.Token, null,
-            new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""), ct);
+        await SiteAedsFixture.ChangePublication(server.Client, WireRoutes.Retract, author.Token, draft.Id, draft.Revision, ct);
 
         foreach (var (path, status) in new[]
         {

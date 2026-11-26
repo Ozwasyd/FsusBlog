@@ -21,6 +21,9 @@ internal static class PublicationFixture
             select id,revision,10000+id,created_at from public.article;
         """ + "\n" + DefaultRightsForPublishedArticles;
 
+    internal static async Task<ArticleState> EditDraft(Store store, string token, ArticleAction action, Edit edit, CancellationToken ct) =>
+        (await store.WithSession(token, true, (db, tx, actor) => Store.Execute(db, tx, actor, action, edit, ct), ct)).Article;
+
     internal static Publications Project(NpgsqlDataSource source, InstanceLease? lease = null) =>
         new(source, new WebPages("<!--fsus-public-content-->"), NullLogger<Publications>.Instance, lease);
 
@@ -74,6 +77,26 @@ internal static class PublicationFixture
         await MediaFixture.WriteReadOnlyFile(pending, bytes, ct);
         File.Move(pending, path, overwrite: true);
         return Convert.ToHexStringLower(SHA256.HashData(bytes));
+    }
+
+    internal static JsonNode SignedHead(PublicationTransparencyHeadV2 head, byte[] signature) => JsonSerializer.SerializeToNode(new
+    {
+        headVersion = 2, kind = "native-publication-log-head", algorithm = ArticlePublicationProofPayloadV2.Algorithm, origin = head.Origin,
+        sequence = head.Sequence.ToString(CultureInfo.InvariantCulture), entrySha256 = Convert.ToHexStringLower(head.EntrySha256),
+        keyId = head.KeyId, keyVersion = head.KeyVersion, keySha256 = Convert.ToHexStringLower(head.KeySha256),
+        attestedAtUtc = ArticlePublicationProofPayloadV2.Time(head.AttestedAt), signature = WebEncoders.Base64UrlEncode(signature),
+    })!;
+
+    internal static async Task WithPublicServer(ScratchDatabase fixture, string scratch, Uri address,
+        IReadOnlyDictionary<string, string> settings, ITestOutputHelper evidence, bool viaCaddy,
+        Func<HttpClient, ServerProcess, Task> check, CancellationToken ct)
+    {
+        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, settings,
+            request => Forward(request, address.Authority));
+        if (!viaCaddy) { await check(server.Client, server); return; }
+        await using var proxy = await NativeCaddyProxy.Start(server.Client.BaseAddress!, scratch, ct, address);
+        evidence.WriteLine($"Caddy SHA-256 leaf pin {proxy.Fingerprint}, HTTP/2 on {proxy.Client.BaseAddress}");
+        await check(proxy.Client, server);
     }
 
     internal static byte[] SignP256(ECDsa key, byte[] bytes) =>

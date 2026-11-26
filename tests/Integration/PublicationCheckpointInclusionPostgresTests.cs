@@ -57,12 +57,7 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
             var head = new PublicationTransparencyHeadV2(origin, tail.Sequence, tail.Hash, Key, 1, fingerprint, headAt);
             var headPath = Path.Combine(directory.FullName, "head.json");
             var headSignature = PublicationFixture.SignP256(key, head.Payload());
-            await File.WriteAllTextAsync(headPath, JsonSerializer.Serialize(new
-            {
-                headVersion = 2, kind = "native-publication-log-head", algorithm = ArticlePublicationProofPayloadV2.Algorithm, origin,
-                sequence = Coordinate(head.Sequence), entrySha256 = Hex(head.EntrySha256), keyId = Key, keyVersion = 1,
-                keySha256 = Hex(fingerprint), attestedAtUtc = Time(headAt), signature = WebEncoders.Base64UrlEncode(headSignature),
-            }), ct);
+            await File.WriteAllTextAsync(headPath, PublicationFixture.SignedHead(head, headSignature).ToJsonString(), ct);
             var manifest = Path.Combine(directory.FullName, "keys.json");
             using var checkpointKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
             var checkpointSpki = checkpointKey.ExportSubjectPublicKeyInfo();
@@ -279,14 +274,8 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
             async Task Install(JsonNode contents) =>
                 settings[Archive + "Sha256"] = await PublicationFixture.InstallReadOnlyJson(settings[Archive + "Path"], contents, ct);
 
-            async Task WithTls(Func<HttpClient, ServerProcess, Task> verify)
-            {
-                await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, settings,
-                    request => PublicationFixture.Forward(request, address.Authority));
-                await using var proxy = await NativeCaddyProxy.Start(server.Client.BaseAddress!, directory.FullName, ct, address);
-                evidence.WriteLine($"Caddy endpoint {address.Authority}, leaf SHA-256 {proxy.Fingerprint}.");
-                await verify(proxy.Client, server);
-            }
+            Task WithTls(Func<HttpClient, ServerProcess, Task> verify) => PublicationFixture.WithPublicServer(fixture,
+                directory.FullName, address, settings, evidence, viaCaddy: true, verify, ct);
 
             async Task<string> Get(HttpClient client, string path, HttpStatusCode code)
             {

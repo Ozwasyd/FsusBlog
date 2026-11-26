@@ -171,9 +171,8 @@ public sealed class ArticleSummaryPostgresTests
             throw new InvalidOperationException("The summary fixture did not reconcile within five bounded batches.");
         }
 
-        async Task<ArticleState> Change(ArticleAction action, int id, long revision, string nextTitle = "", string nextBody = "") =>
-            (await store.WithSession(owner.Token, true, (conn, tx, actor) => Store.Execute(conn, tx, actor, action,
-                new(id, revision, Guid.NewGuid(), nextTitle, nextBody), ct), ct)).Article;
+        Task<ArticleState> Change(ArticleAction action, int id, long revision, string nextTitle = "", string nextBody = "") =>
+            PublicationFixture.EditDraft(store, owner.Token, action, new(id, revision, Guid.NewGuid(), nextTitle, nextBody), ct);
 
         async Task<string> PublicIndex()
         {

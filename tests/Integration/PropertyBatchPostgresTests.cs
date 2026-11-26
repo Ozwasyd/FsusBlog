@@ -166,9 +166,8 @@ public sealed class PropertyBatchPostgresTests
                 await Task.Delay(TimeSpan.FromMilliseconds(50), timeout.Token);
         }
 
-        async Task<ArticleState> Save(int article, long revision, string body) =>
-            (await store.WithSession(session, true, (connection, tx, actor) => Store.Execute(connection, tx, actor,
-                ArticleAction.Save, new(article, revision, Guid.NewGuid(), "Property batch", body), ct), ct)).Article;
+        Task<ArticleState> Save(int article, long revision, string body) =>
+            PublicationFixture.EditDraft(store, session, ArticleAction.Save, new(article, revision, Guid.NewGuid(), "Property batch", body), ct);
 
         async Task<PropertyCommandReceipt> Define(PropertyDefinitionCommand command, PropertyFieldKind kind) =>
             Wire.DecodePropertyCommandReceipt(await Expect(WireRoutes.PropertySchemaCommand, Wire.EncodePropertySchemaInput(new(command, kind, [])), OK));

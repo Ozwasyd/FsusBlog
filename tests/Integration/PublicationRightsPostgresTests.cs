@@ -15,8 +15,7 @@ public sealed class PublicationRightsPostgresTests
         var (_, token, _) = await fixture.SignIn("Previous catalog author", ct, minutes: 5);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var draft = await SiteAedsFixture.SaveDraft(server.Client, token, null, 0, 0, "Prior catalog", "Without canonical storage", ct);
-        var published = await SiteAedsFixture.ArticleCommand(server.Client, WireRoutes.Publish, token, null,
-            new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""), ct);
+        var published = await SiteAedsFixture.ChangePublication(server.Client, WireRoutes.Publish, token, draft.Id, draft.Revision, ct);
         Assert.Contains("Without canonical storage", await server.Client.GetStringAsync($"/article/{draft.Id}", ct));
         Assert.Equal(1L, await fixture.Scalar<long>(
             "select count(*) from public.blog_outbox where kind='publish' and article_id=$1 and revision=$2", draft.Id, published.Revision));

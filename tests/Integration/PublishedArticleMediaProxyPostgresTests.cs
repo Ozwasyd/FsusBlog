@@ -34,11 +34,8 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             _proxyOutput.WriteLine($"Caddy SHA-256 leaf pin {proxy.Fingerprint}, HTTP/2 on {client.BaseAddress}");
             var image = await Upload(client, author, "pacing-fixture.png", "image/png", NoiseImage(), ct);
             Assert.InRange(image.Bytes.Length, 11 * MiB, 15 * MiB);
-            var draft = await PostDraft(client, WireRoutes.Save,
-                Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "TLS paced image", "Published media pressure fixture.")), author, ct);
-            draft = await Attach(client, author, draft, image.Id, ct);
-            var release = await PostDraft(client, WireRoutes.ArticlePublishImages,
-                Wire.EncodeArticlePublishImages(new(draft.Id, draft.Revision, Guid.NewGuid(), [image.Id])), author, ct);
+            var draft = await SaveDraft(client, author, "TLS paced image", "Published media pressure fixture.", ct);
+            var release = await AttachAndPublish(client, author, draft, image.Id, ct);
             var publication = await PublicationId(db, release, ct);
             var raw = RawPath(release.Id, publication, image.Digest);
             var missing = RawPath(release.Id, publication, new string('0', 64));
@@ -135,8 +132,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             await using var interruptedBody = await interrupted.Content.ReadAsStreamAsync(ct);
             for (var read = 0; read < MiB; read += buffer.Length)
                 await interruptedBody.ReadExactlyAsync(buffer, ct);
-            var withdrawn = await PostDraft(client, WireRoutes.Retract,
-                Wire.EncodeArticleCommand(new(release.Id, release.Revision, Guid.NewGuid(), "", "")), author, ct);
+            var withdrawn = await RetractDraft(client, author, release, ct);
             Assert.False(withdrawn.Published);
             var receivedBeforeWithdrawal = MiB;
             await Assert.ThrowsAnyAsync<IOException>(async () =>
@@ -187,19 +183,13 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
     private static void CheckResponse(HttpResponseMessage response, Asset image)
     {
         Assert.Equal(HttpVersion.Version20, response.Version);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(image.Bytes.LongLength, response.Content.Headers.ContentLength);
-        Assert.Equal(image.ContentType, response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("none", Assert.Single(response.Headers.AcceptRanges));
-        AssertImageHeaders(response);
+        AssertImageResponse(response, image);
     }
 
     private static async Task CheckEmpty(HttpResponseMessage response, HttpStatusCode expected, CancellationToken ct)
     {
         Assert.Equal(HttpVersion.Version20, response.Version);
-        Assert.Equal(expected, response.StatusCode);
-        AssertImageHeaders(response);
-        Assert.Null(response.Content.Headers.ContentType);
+        AssertEmptyImageHeaders(response, expected);
         Assert.Empty(await response.Content.ReadAsByteArrayAsync(ct));
     }
 
