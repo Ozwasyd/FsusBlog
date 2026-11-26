@@ -8,27 +8,25 @@ internal static class AuthoringWorkspaceEndpoints
 
     internal static void Map(WebApplication app, string cookie)
     {
-        app.MapCommandGet(WireRoutes.AuthoringWorkspace, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Legacy, ct));
-        app.MapCommandPost(WireRoutes.AuthoringWorkspace, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        MapLayout(WireRoutes.AuthoringWorkspace, Legacy, WireLimits.MaxAuthoringWorkspaceFrameBytes, frame =>
         {
-            var input = Wire.DecodeAuthoringWorkspaceCommand(await ServerHttp.ReadFrame(ctx, WireLimits.MaxAuthoringWorkspaceFrameBytes, ct));
-            return await Run(ctx, store, Legacy, ct, new(Groups, input.ExpectedRevision, input.ActiveArticleId, input.Tabs, false, 0, [], 0));
+            var input = Wire.DecodeAuthoringWorkspaceCommand(frame);
+            return new(Groups, input.ExpectedRevision, input.ActiveArticleId, input.Tabs, false, 0, [], 0);
         });
+        MapLayout(WireRoutes.AuthoringWorkspaceLayout, Inspector, WireLimits.MaxAuthoringWorkspaceLayoutCommandFrameBytes, frame =>
+        {
+            var input = Wire.DecodeAuthoringWorkspaceLayoutCommand(frame);
+            return new(Groups, input.ExpectedRevision, input.ActiveArticleId, input.Tabs, input.InspectorOpen, 0, [], 0);
+        });
+        MapLayout(WireRoutes.AuthoringWorkspaceGroups, Groups, WireLimits.MaxAuthoringWorkspaceGroupsCommandFrameBytes,
+            frame => Wire.DecodeAuthoringWorkspaceGroupsCommand(frame));
 
-        app.MapCommandGet(WireRoutes.AuthoringWorkspaceLayout, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Inspector, ct));
-        app.MapCommandPost(WireRoutes.AuthoringWorkspaceLayout, async (HttpContext ctx, Store store, CancellationToken ct) =>
+        void MapLayout(string route, int format, int limit, Func<byte[], AuthoringWorkspaceGroupsCommand> decode)
         {
-            var input = Wire.DecodeAuthoringWorkspaceLayoutCommand(await ServerHttp.ReadFrame(ctx, WireLimits.MaxAuthoringWorkspaceLayoutCommandFrameBytes, ct));
-            return await Run(ctx, store, Inspector, ct, new(Groups, input.ExpectedRevision, input.ActiveArticleId, input.Tabs,
-                input.InspectorOpen, 0, [], 0));
-        });
-
-        app.MapCommandGet(WireRoutes.AuthoringWorkspaceGroups, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, Groups, ct));
-        app.MapCommandPost(WireRoutes.AuthoringWorkspaceGroups, async (HttpContext ctx, Store store, CancellationToken ct) =>
-        {
-            var input = Wire.DecodeAuthoringWorkspaceGroupsCommand(await ServerHttp.ReadFrame(ctx, WireLimits.MaxAuthoringWorkspaceGroupsCommandFrameBytes, ct));
-            return await Run(ctx, store, Groups, ct, input);
-        });
+            app.MapCommandGet(route, (HttpContext ctx, Store store, CancellationToken ct) => Run(ctx, store, format, ct));
+            app.MapCommandPost(route, async (HttpContext ctx, Store store, CancellationToken ct) =>
+                await Run(ctx, store, format, ct, decode(await ServerHttp.ReadFrame(ctx, limit, ct))));
+        }
 
         Task<IResult> Run(HttpContext ctx, Store store, int format, CancellationToken ct, AuthoringWorkspaceGroupsCommand? input = null)
         {
@@ -103,46 +101,37 @@ internal static class AuthoringWorkspaceEndpoints
         // Ownership of both panes is decided from one article statement. The CAS only takes a workspace row lock.
         var (owned, skipped) = await OwnedPositions(db, tx, owner,
             new(input.ActiveArticleId, input.Tabs, input.SecondaryActiveArticleId, input.SecondaryTabs, input.FocusedGroup), ct);
-        await using var cmd = format == Groups ? StoreGroupLayout(db, tx, owner, owned, input) :
-            StoreLegacyLayout(db, tx, owner, owned, input, format == Inspector, hasGroups);
+        await using var cmd = StoreLayout(db, tx, owner, owned, input, format, hasGroups);
         await using var row = await cmd.ExecuteReaderAsync(ct);
         await row.ReadRequired(ct, () => new BusinessException(Rejection.Conflict, "The workspace layout changed in another session or uses a newer format."));
         return new(Groups, row.GetInt64(0), row.GetUnixMilliseconds(1), owned.ActiveArticleId,
             owned.Tabs, skipped, input.InspectorOpen, owned.SecondaryActiveArticleId, owned.SecondaryTabs, owned.FocusedGroup);
     }
 
-    private static NpgsqlCommand StoreGroupLayout(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, Positions owned,
-        AuthoringWorkspaceGroupsCommand input)
+    private static NpgsqlCommand StoreLayout(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, Positions owned,
+        AuthoringWorkspaceGroupsCommand input, int format, bool hasGroups)
     {
-        object[] parameters = [owner, owned.ActiveArticleId, owned.Tabs, input.InspectorOpen, owned.SecondaryActiveArticleId,
-            owned.SecondaryTabs, owned.FocusedGroup];
-        return input.ExpectedRevision == 0 ? Store.Sql(db, tx, """
-            insert into public.authoring_workspace(user_id,schema_version,revision,updated_at,active_article_id,tabs,
-                inspector_open,secondary_active_article_id,secondary_tabs,focused_group)
-            values ($1,1,1,clock_timestamp(),$2,$3,$4,$5,$6,$7)
-            on conflict (user_id) do nothing returning revision,updated_at
-            """, parameters) : Store.Sql(db, tx, """
-            update public.authoring_workspace set revision=revision+1,updated_at=clock_timestamp(),active_article_id=$2,tabs=$3,
-                inspector_open=$4,secondary_active_article_id=$5,secondary_tabs=$6,focused_group=$7
-            where user_id=$1 and revision=$8 returning revision,updated_at
-            """, [.. parameters, input.ExpectedRevision]);
-    }
+        (string Columns, string Values, string Assignments, object[] Parameters) layout = format switch
+        {
+            Groups => (",inspector_open,secondary_active_article_id,secondary_tabs,focused_group", ",$4,$5,$6,$7",
+                ",inspector_open=$4,secondary_active_article_id=$5,secondary_tabs=$6,focused_group=$7",
+                [owner, owned.ActiveArticleId, owned.Tabs, input.InspectorOpen, owned.SecondaryActiveArticleId, owned.SecondaryTabs, owned.FocusedGroup]),
+            Inspector => (",inspector_open", ",$4", ",inspector_open=$4", [owner, owned.ActiveArticleId, owned.Tabs, input.InspectorOpen]),
+            _ => ("", "", "", [owner, owned.ActiveArticleId, owned.Tabs])
+        };
+        if (input.ExpectedRevision == 0)
+            return Store.Sql(db, tx, $"""
+                insert into public.authoring_workspace(user_id,schema_version,revision,updated_at,active_article_id,tabs{layout.Columns})
+                values ($1,1,1,clock_timestamp(),$2,$3{layout.Values})
+                on conflict (user_id) do nothing returning revision,updated_at
+                """, layout.Parameters);
 
-    private static NpgsqlCommand StoreLegacyLayout(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, Positions owned,
-        AuthoringWorkspaceGroupsCommand input, bool inspector, bool hasGroups)
-    {
-        var expected = input.ExpectedRevision;
-        var sql = expected == 0
-            ? "insert into public.authoring_workspace(user_id,schema_version,revision,updated_at,active_article_id,tabs" +
-                (inspector ? ",inspector_open) values ($1,1,1,clock_timestamp(),$2,$3,$4)" : ") values ($1,1,1,clock_timestamp(),$2,$3)") +
-                " on conflict (user_id) do nothing returning revision,updated_at"
-            : "update public.authoring_workspace set revision=revision+1,updated_at=clock_timestamp(),active_article_id=$2,tabs=$3" +
-                (inspector ? ",inspector_open=$5" : "") + " where user_id=$1 and revision=$4" +
-                (hasGroups ? " and cardinality(secondary_tabs)=0" : "") + " returning revision,updated_at";
-        var parameters = new List<object> { owner, owned.ActiveArticleId, owned.Tabs };
-        if (expected != 0) parameters.Add(expected);
-        if (inspector) parameters.Add(input.InspectorOpen);
-        return Store.Sql(db, tx, sql, parameters.ToArray());
+        var revision = (layout.Parameters.Length + 1).ToString(CultureInfo.InvariantCulture);
+        var unsplit = hasGroups && format != Groups ? " and cardinality(secondary_tabs)=0" : "";
+        return Store.Sql(db, tx, $"""
+            update public.authoring_workspace set revision=revision+1,updated_at=clock_timestamp(),active_article_id=$2,tabs=$3{layout.Assignments}
+            where user_id=$1 and revision=${revision}{unsplit} returning revision,updated_at
+            """, [.. layout.Parameters, input.ExpectedRevision]);
     }
 
     private static async Task<(Positions Positions, int Skipped)> OwnedPositions(NpgsqlConnection db, NpgsqlTransaction tx,
