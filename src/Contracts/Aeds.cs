@@ -4,6 +4,8 @@ public sealed class ProtocolException(string message) : Exception(message);
 
 public static class Aeds
 {
+    private const int CrcBlockSize = sizeof(int);
+    private const int CrcRowSize = byte.MaxValue + 1;
     private static readonly ushort[] CrcTable = BuildCrcTable();
 
     public const string ContentType = "application/octet-stream";
@@ -53,21 +55,36 @@ public static class Aeds
 
     private static ushort Crc16(ReadOnlySpan<byte> payload)
     {
-        ushort crc = WireHeader.CrcInitial;
+        int crc = WireHeader.CrcInitial;
+        var table = CrcTable;
+        for (; payload.Length >= CrcBlockSize; payload = payload[CrcBlockSize..])
+        {
+            // Each row advances a byte contribution by the number of bytes that follow it.
+            int block = BinaryPrimitives.ReadInt32LittleEndian(payload) ^ crc;
+            crc = table[3 * CrcRowSize + (block & byte.MaxValue)]
+                ^ table[2 * CrcRowSize + ((block >> 8) & byte.MaxValue)]
+                ^ table[CrcRowSize + ((block >> 16) & byte.MaxValue)]
+                ^ table[block >>> 24];
+        }
         foreach (byte value in payload)
-            crc = (ushort)((crc >> 8) ^ CrcTable[(crc ^ value) & 255]);
-        return crc;
+            crc = (crc >> 8) ^ table[(crc ^ value) & byte.MaxValue];
+        return (ushort)crc;
     }
 
     private static ushort[] BuildCrcTable()
     {
-        var table = new ushort[256];
-        for (var index = 0; index < table.Length; index++)
+        var table = new ushort[CrcBlockSize * CrcRowSize];
+        for (var index = 0; index < CrcRowSize; index++)
         {
             var value = index;
             for (var bit = 0; bit < 8; bit++)
                 value = (value >> 1) ^ ((value & 1) == 0 ? 0 : WireHeader.CrcPolynomial);
             table[index] = (ushort)value;
+        }
+        for (var index = CrcRowSize; index < table.Length; index++)
+        {
+            int previous = table[index - CrcRowSize];
+            table[index] = (ushort)((previous >> 8) ^ table[previous & byte.MaxValue]);
         }
         return table;
     }
