@@ -1,3 +1,5 @@
+using static FsusBlog.V2.Integration.Tests.RuntimeEvidenceFixture;
+
 namespace FsusBlog.V2.Integration.Tests;
 
 public sealed class PublicHotArticlePostgresTests
@@ -12,16 +14,10 @@ public sealed class PublicHotArticlePostgresTests
             new Dictionary<string, string> { [PublicHotArticles.Setting] = "false" }))
             await CheckStatusAsync(NotFound, disabled.Client.GetAsync(route, ct));
 
-        var evidence = Directory.CreateTempSubdirectory("fsusv2-hot-");
-        try
+        using (var evidence = new RuntimeEvidenceFixture("fsusv2-hot-"))
         {
-            var output = Path.Combine(evidence.FullName, "runtime.ndjson");
-            await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-            {
-                [PublicHotArticles.Setting] = "true",
-                ["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"] = evidence.FullName,
-                ["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] = output
-            });
+            await using var server = await evidence.Start(fixture.ConnectionString, ct,
+                new Dictionary<string, string> { [PublicHotArticles.Setting] = "true" });
             var first = await Publish("First public article");
             var second = await Publish("Second public article");
             var hidden = await Command(WireRoutes.Save, 0, 0, "Private high-count article");
@@ -36,14 +32,14 @@ public sealed class PublicHotArticlePostgresTests
             var ranked = await RankingOf(3);
             Assert.Equal(new ArticleHotItem[] { new(second.Id, 9, second.Title), new(first.Id, 9, first.Title), new(zero.Id, 0, zero.Title) }, ranked.Items);
 
-            var before = await Mark("measure-before");
+            var before = await evidence.Mark("measure-before", ct);
             using var bytes = Ok(await server.Client.GetAsync(route, ct));
             Assert.Equal(ranked.Tag, bytes.Headers.ETag?.ToString());
             using var request = new HttpRequestMessage(HttpMethod.Head, route + "?generation=" + ranked.Generation);
             using var head = Expect(NoContent, await server.Client.SendAsync(request, ct));
             Assert.Equal(ranked.Tag, head.Headers.ETag?.ToString());
             Assert.Empty(await head.Content.ReadAsByteArrayAsync(ct));
-            var after = await Mark("measure-after");
+            var after = await evidence.Mark("measure-after", ct);
             Assert.Equal((1L, Count(before, "dbCommandStarts"), Count(before, "dbPhysicalOpenStarts")),
                 (Count(after, "requestStatus200") - Count(before, "requestStatus200"), Count(after, "dbCommandStarts"), Count(after, "dbPhysicalOpenStarts")));
 
@@ -80,24 +76,6 @@ public sealed class PublicHotArticlePostgresTests
 
             Task<Draft> Command(string path, int id, long revision, string title = "") =>
                 SiteAedsFixture.ArticleCommand(server.Client, path, token, null, new(id, revision, Guid.NewGuid(), title, title.Length == 0 ? "" : "body"), ct);
-
-            async Task<JsonElement> Mark(string name)
-            {
-                var staging = Path.Combine(evidence.FullName, "staging");
-                await File.WriteAllTextAsync(staging, name, ct);
-                File.Move(staging, Path.Combine(evidence.FullName, "runtime.mark"));
-                while (!File.Exists(Path.Combine(evidence.FullName, name + ".ack"))) await Task.Delay(20, ct);
-                foreach (var line in await File.ReadAllLinesAsync(output, ct))
-                {
-                    using var row = JsonDocument.Parse(line);
-                    if (row.RootElement.GetProperty("mark").GetString() == name) return row.RootElement.Clone();
-                }
-                throw new InvalidOperationException("A runtime mark acknowledgement has no matching observation.");
-            }
         }
-        finally { evidence.Delete(recursive: true); }
     }
-
-    private static long Count(JsonElement observation, string name) =>
-        observation.GetProperty(name).GetProperty("otherHttp").GetInt64();
 }
