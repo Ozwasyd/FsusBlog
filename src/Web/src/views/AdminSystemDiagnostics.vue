@@ -85,7 +85,7 @@ async function check(force = true) {
     }
     if (force || !(cause instanceof ApiError && cause.status === 403)) error.value = 'admin.runtimeFailed'
   } finally {
-    if (req.isCurrent()) { req.finish(); busy.value = false }
+    if (req.finish()) busy.value = false
   }
 }
 

@@ -103,24 +103,14 @@ public sealed class ArticleSearchPostgresTests
         var (author, token, _) = await fixture.SignIn("FAS4 author", ct, minutes: 1);
         await fixture.InTx(async (db, tx) =>
         {
-            await FixtureSql.ExecuteAsync(db, tx, ct, """
-                insert into public.article (id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at)
-                overriding system value
-                select id,$1,1,title,body,case when id=9 then null else 1 end,case when id=9 then 0 else 1 end,false,
-                       timestamptz '2024-01-01 UTC' + offset_days * interval '1 day',timestamptz '2024-01-01 UTC'
-                from (
-                    values
-                        (1,'Needle','silence',0),(2,'Metadata','silence',0),(3,'Body',repeat('#',220)||' Needle',3),
-                        (4,'Summary','Needle',2),(5,'Taxonomy','silence',1),(6,'Alternatives','Zeta',0),
-                        (7,'公开页','silence',0),(8,'公开','silence',0),(9,'private needle zeta','Batch-Item_8',0),
-                        (10,'Batch-ITEM_7','silence',0),(11,'Batch Item 7','xBatch-Item_7 Batch-Item_7-extra',0),
-                        (12,'Job','Section '||repeat('#',220)||' `BATCH-ITEM_7`',0),
-                        (13,repeat('a',126)||'-1','silence',0)
-                ) fixture(id,title,body,offset_days)
-                union all
-                select id,$1,1,'Common Batch Item 7','silence',1,1,false,timestamptz '2024-01-01 UTC',timestamptz '2024-01-01 UTC'
-                from generate_series(1001,1205) id
-                """, author);
+            await SeedFas4Articles(db, tx, ct, author, """
+                (1,'Needle','silence',0),(2,'Metadata','silence',0),(3,'Body',repeat('#',220)||' Needle',3),
+                (4,'Summary','Needle',2),(5,'Taxonomy','silence',1),(6,'Alternatives','Zeta',0),
+                (7,'公开页','silence',0),(8,'公开','silence',0),(9,'private needle zeta','Batch-Item_8',0),
+                (10,'Batch-ITEM_7','silence',0),(11,'Batch Item 7','xBatch-Item_7 Batch-Item_7-extra',0),
+                (12,'Job','Section '||repeat('#',220)||' `BATCH-ITEM_7`',0),
+                (13,repeat('a',126)||'-1','silence',0)
+                """, "Common Batch Item 7", unpublishedId: 9);
             await FixtureSql.ExecuteAsync(db, tx, ct, """
                 insert into public.category(id,name) values (41,'Needle');
                 insert into public.tag(id,name) values (81,'Needle');
@@ -157,19 +147,14 @@ public sealed class ArticleSearchPostgresTests
             var maxIdentifier = new string('A', 126) + "-1";
             Assert.Equal(13, Assert.Single((await Query(client, PathFor(maxIdentifier), ct)).Hits).Id);
             Assert.Empty((await Query(client, PathFor(maxIdentifier + "2"), ct)).Hits);
-            foreach (var (term, sort, page, size, total, expected) in new (string, string, int, int, int, IEnumerable<int>)[]
-            {
+            await AssertPages(client, ct,
+            [
                 ("needle", "latest", 1, 2, 5, [3, 4]),
                 ("needle", "latest", 2, 2, 5, [5, 1]),
                 ("needle", "latest", 3, 2, 5, [2]),
                 ("needle", "latest", 4, 2, 5, []),
                 ("common", "relevance", 21, 10, 205, Enumerable.Range(1001, 5).Reverse()),
-            })
-            {
-                var (hits, _, gotTotal) = await Query(client, PagePath(term, sort, page, size), ct);
-                Assert.Equal(total, gotTotal);
-                Assert.Equal(expected, hits.Select(item => item.Id));
-            }
+            ]);
             var after = await evidence.Mark("measure-after", ct);
             Assert.Equal(17, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
             AssertNoDatabaseActivity(before, after);
@@ -194,17 +179,15 @@ public sealed class ArticleSearchPostgresTests
     public async Task PublicSearchModeConfigControlsHtmlMetaAndFailsFastOnInvalidValue()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
-        await using (var defaultServer = await ServerProcess.Start(fixture.ConnectionString, ct))
-            Assert.DoesNotContain("fsus-public-search-mode", await defaultServer.Client.GetStringAsync("/search", ct), StringComparison.Ordinal);
-        await using (var explicitServer = await ServerProcess.Start(fixture.ConnectionString, ct,
-            new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_SEARCH_MODE"] = "server" }))
-            Assert.DoesNotContain("fsus-public-search-mode", await explicitServer.Client.GetStringAsync("/search", ct), StringComparison.Ordinal);
-        foreach (var mode in new[] { "auto", "local" })
+        foreach (var mode in new[] { null, "server", "auto", "local" })
         {
             await using var modeServer = await ServerProcess.Start(fixture.ConnectionString, ct,
-                new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_SEARCH_MODE"] = mode });
-            Assert.Contains($"<meta name=\"fsus-public-search-mode\" content=\"{mode}\">",
-                await modeServer.Client.GetStringAsync("/search", ct), StringComparison.Ordinal);
+                mode is null ? null : new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_SEARCH_MODE"] = mode });
+            var html = await modeServer.Client.GetStringAsync("/search", ct);
+            if (mode is "auto" or "local")
+                Assert.Contains($"<meta name=\"fsus-public-search-mode\" content=\"{mode}\">", html, StringComparison.Ordinal);
+            else
+                Assert.DoesNotContain("fsus-public-search-mode", html, StringComparison.Ordinal);
         }
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string> { ["FSUSBLOG_PUBLIC_SEARCH_MODE"] = "hybrid" }));
@@ -218,21 +201,10 @@ public sealed class ArticleSearchPostgresTests
         var (author, _, _) = await fixture.SignIn("FAS4 paged author", ct, minutes: 1);
         await fixture.InTx(async (db, tx) =>
         {
-            await FixtureSql.ExecuteAsync(db, tx, ct, """
-                insert into public.article (id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at)
-                overriding system value
-                select id,$1,1,title,body,1,1,false,
-                       timestamptz '2024-01-01 UTC' + offset_days * interval '1 day',timestamptz '2024-01-01 UTC'
-                from (
-                    values
-                        (1,'Needle Needle Needle','silence',0),(2,'Quiet','Needle',3),(3,'Summary','Needle',2),
-                        (4,'Batch-ITEM_7','silence',1),(5,'Job','Section `BATCH-ITEM_7`',4)
-                ) fixture(id,title,body,offset_days)
-                union all
-                select id,$1,1,'Common Entry','silence',1,1,false,
-                       timestamptz '2024-01-01 UTC' + (id - 1000) * interval '1 minute',timestamptz '2024-01-01 UTC'
-                from generate_series(1001,1205) id
-                """, author);
+            await SeedFas4Articles(db, tx, ct, author, """
+                (1,'Needle Needle Needle','silence',0),(2,'Quiet','Needle',3),(3,'Summary','Needle',2),
+                (4,'Batch-ITEM_7','silence',1),(5,'Job','Section `BATCH-ITEM_7`',4)
+                """, "Common Entry", commonSpacingMinutes: 1);
             await FixtureSql.ExecuteAsync(db, tx, ct, PublicationFixture.AllCurrentArticlesWithDefaultRights);
         }, ct);
 
@@ -241,8 +213,8 @@ public sealed class ArticleSearchPostgresTests
             await using var server = await evidence.Start(fixture.ConnectionString, ct);
             var client = server.Client;
             var before = await evidence.Mark("measure-before", ct);
-            foreach (var (term, sort, page, size, total, expected) in new (string, string, int, int, int, int[])[]
-            {
+            await AssertPages(client, ct,
+            [
                 ("needle", "relevance", 1, 10, 3, [1, 2, 3]),
                 ("needle", "latest", 1, 2, 3, [2, 3]),
                 ("needle", "latest", 2, 2, 3, [1]),
@@ -250,12 +222,7 @@ public sealed class ArticleSearchPostgresTests
                 ("batch-item_7", "relevance", 1, 10, 2, [4, 5]),
                 ("batch-item_7", "latest", 1, 10, 2, [5, 4]),
                 ("common", "relevance", 21, 10, 205, [1005, 1004, 1003, 1002, 1001]),
-            })
-            {
-                var (hits, _, gotTotal) = await Query(client, PagePath(term, sort, page, size), ct);
-                Assert.Equal(total, gotTotal);
-                Assert.Equal(expected, hits.Select(item => item.Id));
-            }
+            ]);
             var after = await evidence.Mark("measure-after", ct);
             Assert.Equal(7, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
             AssertNoDatabaseActivity(before, after);
@@ -393,15 +360,19 @@ public sealed class ArticleSearchPostgresTests
 
             // 4. Cursor tamper / mismatch / invalid query / unsupported profile rejections
             var tampered = firstPageCursor![..^1] + (firstPageCursor[^1] == 'A' ? 'B' : 'A');
-            Assert.Equal((400, "search_cursor_invalid"), await ExpectErrorDetails(client, V2Path("alpha beta gamma", size: 2, cursor: tampered), BadRequest, ct));
-            Assert.Equal((400, "search_cursor_invalid"), await ExpectErrorDetails(client, V2Path("different query", size: 2, cursor: firstPageCursor), BadRequest, ct));
-            Assert.Equal((400, "search_cursor_invalid"), await ExpectErrorDetails(client, V2Path("alpha beta gamma", sort: "latest", size: 2, cursor: firstPageCursor), BadRequest, ct));
-            Assert.Equal((400, "search_cursor_invalid"), await ExpectErrorDetails(client, V2Path("alpha beta gamma", size: 3, cursor: firstPageCursor), BadRequest, ct));
-            Assert.Equal((400, "search_profile_unsupported"), await ExpectErrorDetails(client, V2Path("alpha beta gamma") + "&profile=999", BadRequest, ct));
-            Assert.Equal((400, "search_query_invalid"), await ExpectErrorDetails(client, $"{WireRoutes.PublicSearchV2}?q=", BadRequest, ct));
-            Assert.Equal((400, "search_query_invalid"), await ExpectErrorDetails(client, V2Path(new string('a', 129)), BadRequest, ct));
-            Assert.Equal((400, "search_sort_invalid"), await ExpectErrorDetails(client, V2Path("quasar", sort: "hot"), BadRequest, ct));
-            Assert.Equal((400, "search_size_invalid"), await ExpectErrorDetails(client, V2Path("quasar", size: 101), BadRequest, ct));
+            foreach (var (path, detail) in new[]
+            {
+                (V2Path("alpha beta gamma", size: 2, cursor: tampered), "search_cursor_invalid"),
+                (V2Path("different query", size: 2, cursor: firstPageCursor), "search_cursor_invalid"),
+                (V2Path("alpha beta gamma", sort: "latest", size: 2, cursor: firstPageCursor), "search_cursor_invalid"),
+                (V2Path("alpha beta gamma", size: 3, cursor: firstPageCursor), "search_cursor_invalid"),
+                (V2Path("alpha beta gamma") + "&profile=999", "search_profile_unsupported"),
+                ($"{WireRoutes.PublicSearchV2}?q=", "search_query_invalid"),
+                (V2Path(new string('a', 129)), "search_query_invalid"),
+                (V2Path("quasar", sort: "hot"), "search_sort_invalid"),
+                (V2Path("quasar", size: 101), "search_size_invalid"),
+            })
+                Assert.Equal((400, detail), await ExpectErrorDetails(client, path, BadRequest, ct));
 
             // 5. Publication and withdrawal between pages reject stale generation cursor with 409 search_generation_changed
             var draft = await SiteAedsFixture.SaveDraft(client, author.Token, null, 0, 0,
@@ -578,6 +549,31 @@ public sealed class ArticleSearchPostgresTests
         if (sort != "relevance") url += $"&sort={Uri.EscapeDataString(sort)}";
         if (cursor is not null) url += $"&cursor={Uri.EscapeDataString(cursor)}";
         return url;
+    }
+
+    private static Task<int> SeedFas4Articles(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct,
+        Guid author, string rows, string commonTitle, int commonSpacingMinutes = 0, int unpublishedId = 0) =>
+        FixtureSql.ExecuteAsync(db, tx, ct, $"""
+            insert into public.article (id,owner_id,revision,title,body,published_revision,publication_count,deleted,created_at,updated_at)
+            overriding system value
+            select id,$1,1,title,body,case when id=$2 then null else 1 end,case when id=$2 then 0 else 1 end,false,
+                   timestamptz '2024-01-01 UTC' + offset_days * interval '1 day',timestamptz '2024-01-01 UTC'
+            from (values {rows}) fixture(id,title,body,offset_days)
+            union all
+            select id,$1,1,$3,'silence',1,1,false,
+                   timestamptz '2024-01-01 UTC' + (id - 1000) * $4 * interval '1 minute',timestamptz '2024-01-01 UTC'
+            from generate_series(1001,1205) id
+            """, author, unpublishedId, commonTitle, commonSpacingMinutes);
+
+    private static async Task AssertPages(HttpClient client, CancellationToken ct,
+        (string Term, string Sort, int Page, int Size, int Total, IEnumerable<int> Expected)[] pages)
+    {
+        foreach (var (term, sort, page, size, total, expected) in pages)
+        {
+            var (hits, _, gotTotal) = await Query(client, PagePath(term, sort, page, size), ct);
+            Assert.Equal(total, gotTotal);
+            Assert.Equal(expected, hits.Select(item => item.Id));
+        }
     }
 
     private static async Task<(Hit[] Hits, string Generation, int Total)> Query(HttpClient client, string path, CancellationToken ct)

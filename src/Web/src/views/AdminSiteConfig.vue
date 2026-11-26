@@ -294,7 +294,7 @@ async function load() {
     if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else error.value = 'admin.siteConfig.loadFailed'
   } finally {
-    if (req.isCurrent()) { req.finish(); loading.value = false }
+    if (req.finish()) loading.value = false
   }
 }
 

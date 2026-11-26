@@ -138,9 +138,7 @@ internal static class AdminSiteConfigEndpoints
             Frame(await store.ReadSiteConfig(actions.Session(ctx), config, ct)));
         actions.StepUpPow(WireRoutes.AdminSiteConfigStepUpBegin, WireRoutes.AdminSiteConfigStepUpComplete,
             WireRoutes.AdminSiteConfigPow, WireRoutes.AdminSiteConfigSave, WireLimits.AdminSiteConfigFrameBytes,
-            Wire.DecodeAdminSiteConfigCommand, PowScope.AdminSiteConfig,
-            (_, s, cmd, ct) => store.BeginSiteConfigStepUp(s, config, cmd, ct), store.CompleteSiteConfigStepUp,
-            (ctx, s, cmd, frame, pow, ct) => store.IssueSiteConfigPow(s, config, cmd, frame, pow, ctx, ct),
+            Wire.DecodeAdminSiteConfigCommand, store.Protection(config),
             (ctx, s, cmd, frame, proof, pow, ct) => store.SaveSiteConfig(
                 s, config, ctx.RequestServices.GetRequiredService<Publications>(), cmd, frame, proof, pow, ctx, ct));
     }
@@ -187,10 +185,7 @@ internal static class AdminSitePageEditorEndpoints
             Frame(Wire.EncodeAdminSitePageRevision(await store.CurrentSitePage(actions.Session(ctx), pages, slug, ct))));
         actions.StepUpPow(WireRoutes.AdminSitePageStepUpBegin, WireRoutes.AdminSitePageStepUpComplete,
             WireRoutes.AdminSitePagePow, WireRoutes.AdminSitePagePublish, WireLimits.AdminSitePagePublishFrameBytes,
-            Wire.DecodeAdminSitePagePublish, PowScope.AdminSitePagePublish,
-            (ctx, s, intent, ct) => store.BeginSitePageStepUp(s, ctx.RequestServices.GetRequiredService<SitePages>(), intent, ct),
-            store.CompleteSitePageStepUp,
-            (ctx, s, intent, frame, pow, ct) => store.IssueSitePagePow(s, ctx.RequestServices.GetRequiredService<SitePages>(), intent, frame, pow, ctx, ct));
+            Wire.DecodeAdminSitePagePublish, store.Protection());
         actions.App.MapCommandPost(WireRoutes.AdminSitePagePublish, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
             Publish(ctx, pages, pow, legacy: false, ct));
         actions.App.MapCommandPut(WireRoutes.AdminLegacySitePageUpdate, (HttpContext ctx, SitePages pages, ScopedPow pow, CancellationToken ct) =>
@@ -265,9 +260,7 @@ internal static class AdminAppearanceEndpoints
         });
         actions.StepUpPow(WireRoutes.AdminAppearanceStepUpBegin, WireRoutes.AdminAppearanceStepUpComplete,
             WireRoutes.AdminAppearancePow, WireRoutes.AdminAppearanceApply, WireLimits.AdminAppearanceCommandFrameBytes,
-            Wire.DecodeAdminAppearanceCommand, PowScope.AdminAppearance,
-            (_, s, cmd, ct) => store.BeginAppearanceStepUp(s, registry, cmd, ct), store.CompleteAppearanceStepUp,
-            (ctx, s, cmd, frame, pow, ct) => store.IssueAppearancePow(s, registry, cmd, frame, pow, ctx, ct),
+            Wire.DecodeAdminAppearanceCommand, store.Protection(registry),
             (ctx, s, cmd, frame, proof, pow, ct) => store.ApplyAppearance(s, registry, cmd, frame, proof, pow, ctx, ct));
     }
 

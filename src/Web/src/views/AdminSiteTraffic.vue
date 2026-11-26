@@ -74,7 +74,7 @@ async function load() {
     if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else error.value = 'admin.traffic.failed'
   } finally {
-    if (req.isCurrent()) { req.finish(); busy.value = false }
+    if (req.finish()) busy.value = false
   }
 }
 onMounted(() => { void load() })
