@@ -652,11 +652,19 @@ public static class SearchSnippetExtractor
     private static bool IsWithinCodeRanges(int start, int end, List<(int Start, int End)>? codeRanges)
     {
         if (codeRanges is null || codeRanges.Count == 0) return false;
-        for (var i = 0; i < codeRanges.Count; i++)
+
+        // The buffer only appends, so the last interval starting at or before start has the greatest end.
+        var left = 0;
+        var right = codeRanges.Count - 1;
+        while (left < right)
         {
-            if (start >= codeRanges[i].Start && end <= codeRanges[i].End) return true;
+            var middle = left + (right - left + 1) / 2;
+            if (codeRanges[middle].Start <= start) left = middle;
+            else right = middle - 1;
         }
-        return false;
+
+        var range = codeRanges[left];
+        return start >= range.Start && end <= range.End;
     }
 
     private static void AppendNormalizedText(StringBuilder sb, ReadOnlySpan<char> slice, ref bool pendingSpace)
