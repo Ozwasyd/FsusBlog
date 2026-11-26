@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using FsusBlog.V2.Core.Extensions;
 
 namespace FsusBlog.V2.Tests;
 
@@ -54,7 +55,8 @@ internal static class SignedExtensionFixture
     internal static byte[] Sign(ECDsa key, byte[] archive) => key.SignData(archive, HashAlgorithmName.SHA256,
         DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
 
-    internal static byte[] MakeArchive(Func<string, string>? change = null, string path = PathInArchive, bool symlink = false, bool wrongDigest = false)
+    internal static byte[] MakeArchive(Func<string, string>? change = null, string path = PathInArchive, bool symlink = false,
+        bool wrongDigest = false, Func<ExtensionManifest, ExtensionManifest>? configure = null)
     {
         byte[] module = [0, 97, 115, 109, 1, 0, 0, 0];
         var name = Framed(Encoding.UTF8.GetBytes(path));
@@ -64,7 +66,7 @@ internal static class SignedExtensionFixture
             "fixture.publisher", "signature/first", "trust/policy", new(1, 1), [ExtensionPlatform.ServerLinux],
             [new("fixture.read", 1, 1, new(1, path, Hash(module)), [ExtensionCapability.DocumentRangeRead, ExtensionCapability.FileSystemRootProposeWrite])],
             new(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), 4096, 1024, 1024, 1, 8, 4, 0, 0, 1024, 0), 1, 1, 0, 0, 0, false);
-        var json = JsonSerializer.Serialize(manifest);
+        var json = JsonSerializer.Serialize(configure?.Invoke(manifest) ?? manifest);
         return AppearancePackageStore.MakeZip(
             ("manifest.json", Encoding.UTF8.GetBytes(change?.Invoke(json) ?? json), false),
             (path, module, symlink));

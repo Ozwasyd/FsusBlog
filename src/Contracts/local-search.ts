@@ -4,7 +4,7 @@ import { collectBounded } from './bounded-stream.ts';
 import type { ArticleCard } from './public-articles.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireLimits as Limit, WireRoutes } from './wire.generated.ts';
 import lexicon from './search-lexicon.json' with { type: 'json' };
-import { analyzeQuery, isStrictExactIdentifier } from './search-analyzer.ts';
+import { analyzeQuery, hashTerm32, isStrictExactIdentifier } from './search-analyzer.ts';
 import {
   allowsRelaxation,
   BODY_PHRASE_BONUS_FACTOR,
@@ -104,25 +104,6 @@ function coordinates(bytes: ByteView, offset: number) {
 function text(bytes: ByteView, start: number, offset: number, length: number, end: number, limit: number) {
   requireWire(length <= limit && start + offset + length <= end, 'string slice');
   return decodeUtf8(bytes.sub(start + offset, start + offset + length));
-}
-
-function murmur(bytes: Uint8Array): number {
-  let hash = 0;
-  let at = 0;
-  const view = dataView(bytes);
-  const rotate = (value: number, bits: number) => (value << bits) | (value >>> (32 - bits));
-  const mix = (value: number) => Math.imul(rotate(Math.imul(value, 0xcc9e2d51), 15), 0x1b873593);
-  while (bytes.length - at >= 4) {
-    hash ^= mix(view.getUint32(at, true));
-    hash = (Math.imul(rotate(hash, 13), 5) + 0xe6546b64) | 0;
-    at += 4;
-  }
-  let tail = 0;
-  for (let i = 0; at + i < bytes.length; i++) tail |= bytes[at + i] << (8 * i);
-  hash ^= mix(tail) ^ bytes.length;
-  hash = Math.imul(hash ^ (hash >>> 16), 0x85ebca6b);
-  hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
-  return (hash ^ (hash >>> 16)) >>> 0;
 }
 
 export function normalizeLocalSearchQuery(query: string): string | undefined {
@@ -569,7 +550,7 @@ function scoreShortMetadataPrefixes(
       }
     }
     if (prefixDf === 0) continue;
-    const exactDf = exactDocumentFrequency(b, termAt, termCount, postingAt, murmur(utf8.encode(prefix)));
+    const exactDf = exactDocumentFrequency(b, termAt, termCount, postingAt, hashTerm32(prefix));
     const combinedDf = Math.min(docCount, exactDf + prefixDf);
     const idf = Math.log(1 + (docCount - combinedDf + 0.5) / (combinedDf + 0.5));
     for (let row = 0; row < docCount; row++) {

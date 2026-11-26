@@ -82,7 +82,10 @@ export function toSimplifiedCjk(text: string): string {
 }
 
 export function hashTerm64(term: string): bigint {
-  const bytes = utf8.encode(term);
+  return hashBytes64(utf8.encode(term));
+}
+
+function hashBytes64(bytes: Uint8Array): bigint {
   let h = 14695981039346656037n;
   const prime = 1099511628211n;
   const mask = 0xffffffffffffffffn;
@@ -94,7 +97,10 @@ export function hashTerm64(term: string): bigint {
 }
 
 export function hashTerm32(term: string): number {
-  const bytes = utf8.encode(term);
+  return hashBytes32(utf8.encode(term));
+}
+
+function hashBytes32(bytes: Uint8Array): number {
   let hash = 0;
   let at = 0;
   const view = dataView(bytes);
@@ -314,10 +320,11 @@ export function analyzeText(
     normEnd: number,
   ) => {
     if (!term || tokens.length >= MAX_TOKENS_PER_FIELD) return;
+    const bytes = utf8.encode(term);
     tokens.push({
       term,
-      key: hashTerm64(term),
-      hash32: hashTerm32(term),
+      key: hashBytes64(bytes),
+      hash32: hashBytes32(bytes),
       kind,
       position: pos,
       width,

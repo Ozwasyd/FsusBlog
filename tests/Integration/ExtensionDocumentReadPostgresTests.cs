@@ -1,6 +1,7 @@
-using System.IO.Compression;
 using FsusBlog.V2.Core.Extensions;
 using FsusBlog.V2.Platform.Extensions;
+
+using static FsusBlog.V2.Tests.SignedExtensionFixture;
 
 namespace FsusBlog.V2.Integration.Tests;
 
@@ -31,37 +32,41 @@ public sealed class ExtensionDocumentReadPostgresTests
         {
             using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
             var now = DateTimeOffset.UtcNow;
-            var archive = CreatePackage();
+            var archive = MakeArchive(path: "bin/reader.wasm", configure: manifest => manifest with
+            {
+                SignatureReference = "signature/read",
+                TrustPolicyReference = "trust/read",
+                Contributions = [manifest.Contributions[0] with
+                {
+                    Capabilities = [ExtensionCapability.DocumentRangeRead, ExtensionCapability.SelectionRead]
+                }],
+                Limits = new(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), 4096, 1024, 8, 1, 1, 4, 0, 0, 0, 0)
+            });
             var grantSource = new ApprovedExtensionSource("approved-source/read", "provenance/read", "fixture.publisher", "fixture.key",
-                Digest(archive), "signature/read", "trust/read");
+                Hash(archive), "signature/read", "trust/read");
             using var installations = ExtensionInstallationStore.Create(root, Guid.NewGuid(), RandomNumberGenerator.GetBytes(32),
                 [new("fixture.publisher", "fixture.key", [.. key.ExportSubjectPublicKeyInfo()], now.AddHours(-1), now.AddHours(1))],
                 [grantSource], TimeProvider.System);
             installations.SetOwner(owner);
-            var unsigned = Assert.Throws<ExtensionRejectedException>(() => Issue(owner));
-            Assert.Equal("consent-owner-or-package", unsigned.Code);
-            var signature = key.SignData(archive, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+            AssertRejected("consent-owner-or-package", () => Issue(owner));
+            var signature = Sign(key, archive);
             installations.InstallAndActivate(grantSource.Reference, archive, signature, ExtensionPlatform.ServerLinux, ct);
             var broker = custodian.Bind(installations);
             var grant = Issue(owner);
-            var request = new ExtensionProposal.ReadRange(Guid.NewGuid(), grant, 1, 3);
+            var request = ReadRequest(grant, 1, 3);
             using (var operation = installations.Begin(owner, "fixture.read", "preview", request, ct))
             {
                 var result = await broker.ReadRangeAsync(operation, ct);
-                Assert.Equal(new(request.RequestId, saved.Id, saved.Revision, Digest(Encoding.UTF8.GetBytes("😀文")), 1, 3, "😀文"), result);
+                Assert.Equal(new(request.RequestId, saved.Id, saved.Revision, Hash(Encoding.UTF8.GetBytes("😀文")), 1, 3, "😀文"), result);
             }
-            var duplicate = Assert.Throws<ExtensionRejectedException>(() => installations.Begin(owner, "fixture.read", "preview", request, ct));
-            Assert.Equal("proposal-scope", duplicate.Code);
+            AssertRejected("proposal-scope", () => installations.Begin(owner, "fixture.read", "preview", request, ct));
             await DeniedRange(owner, grant, 0, source.Length, "document-range-scope");
             await DeniedRange(owner, grant, 2, 1, "document-range-encoding");
             await DeniedRange(owner, grant, 0, 4, "document-range-byte-limit");
             await DeniedRange(owner, grant, source.Length, 1, "document-range-scope");
             var selectionGrant = Issue(owner, ExtensionCapability.SelectionRead);
             using (var selection = installations.Begin(owner, "fixture.read", "preview", new ExtensionProposal.ReadSelection(Guid.NewGuid(), selectionGrant), ct))
-            {
-                var denied = await Assert.ThrowsAsync<ExtensionRejectedException>(() => broker.ReadRangeAsync(selection, ct).AsTask());
-                Assert.Equal("document-range-operation-required", denied.Code);
-            }
+                await AssertRejectedAsync("document-range-operation-required", () => broker.ReadRangeAsync(selection, ct).AsTask());
 
             var otherSite = owner with { Site = Guid.NewGuid() };
             installations.SetOwner(otherSite);
@@ -74,12 +79,10 @@ public sealed class ExtensionDocumentReadPostgresTests
                 await using var take = Store.Sql(connection, held, "select id from public.article where id=$1 for update", saved.Id);
                 await take.ExecuteScalarAsync(ct);
                 var pending = broker.ReadRangeAsync(operation, ct).AsTask();
-                var busy = Assert.Throws<ExtensionRejectedException>(() => installations.Deactivate("fixture.extension"));
-                Assert.Equal("installation-store-broker-busy", busy.Code);
+                AssertRejected("installation-store-broker-busy", () => installations.Deactivate("fixture.extension"));
                 installations.RevokeConsent(grant);
                 await held.CommitAsync(ct);
-                var revoked = await Assert.ThrowsAsync<ExtensionRejectedException>(() => pending);
-                Assert.Equal("operation-no-longer-current", revoked.Code);
+                await AssertRejectedAsync("operation-no-longer-current", () => pending);
             }
 
             grant = Issue(owner);
@@ -108,13 +111,12 @@ public sealed class ExtensionDocumentReadPostgresTests
                 installations.RecordConsent(new("fixture.extension", "fixture.read", target, "preview", capability, null, 0, now.AddMinutes(2)));
 
             ExtensionAuthority.Operation NewRange(ExtensionOwner target, Guid consent, int start, int length) => installations.Begin(target,
-                "fixture.read", "preview", new ExtensionProposal.ReadRange(Guid.NewGuid(), consent, start, length), ct);
+                "fixture.read", "preview", ReadRequest(consent, start, length), ct);
 
             async Task DeniedRange(ExtensionOwner target, Guid consent, int start, int length, string code)
             {
                 using var operation = NewRange(target, consent, start, length);
-                var rejected = await Assert.ThrowsAsync<ExtensionRejectedException>(() => broker.ReadRangeAsync(operation, ct).AsTask());
-                Assert.Equal(code, rejected.Code);
+                await AssertRejectedAsync(code, () => broker.ReadRangeAsync(operation, ct).AsTask());
             }
         }
         finally { root.Delete(recursive: true); }
@@ -124,33 +126,4 @@ public sealed class ExtensionDocumentReadPostgresTests
 
     }
 
-    private static byte[] CreatePackage()
-    {
-        const string entrypoint = "bin/reader.wasm";
-        byte[] wasm = [0, 97, 115, 109, 1, 0, 0, 0];
-        var name = Frame(Encoding.UTF8.GetBytes(entrypoint));
-        var manifest = new ExtensionManifest(1, 1, "fixture.extension", "1.0",
-            Digest([.. "fsusblog.authoring-package.payload.v1\0"u8, .. name, .. Frame(wasm)]),
-            Digest([.. name, .. SHA256.HashData(wasm)]), "fixture.publisher", "signature/read", "trust/read", new(1, 1),
-            [ExtensionPlatform.ServerLinux], [new("fixture.read", 1, 1, new(1, entrypoint, Digest(wasm)),
-                [ExtensionCapability.DocumentRangeRead, ExtensionCapability.SelectionRead])],
-            new(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), 4096, 1024, 8, 1, 1, 4, 0, 0, 0, 0), 1, 1, 0, 0, 0, false);
-        using var output = new MemoryStream();
-        using (var zip = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            using (var file = zip.CreateEntry("manifest.json").Open()) file.Write(JsonSerializer.SerializeToUtf8Bytes(manifest));
-            using (var file = zip.CreateEntry(entrypoint).Open()) file.Write(wasm);
-        }
-        return output.ToArray();
-    }
-
-    private static byte[] Frame(byte[] bytes)
-    {
-        var framed = new byte[4 + bytes.Length];
-        BinaryPrimitives.WriteInt32BigEndian(framed, bytes.Length);
-        bytes.CopyTo(framed, 4);
-        return framed;
-    }
-
-    private static string Digest(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
 }
