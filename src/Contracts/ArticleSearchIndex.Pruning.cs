@@ -2,6 +2,7 @@ namespace FsusBlog.V2.Contracts;
 
 public sealed partial class ArticleSearchIndex
 {
+    // Both cursor types rely on each block's MaxOrdinal being its final posting's ordinal.
     private const int PostingBlockSize = 64;
     private const int SelectiveExactThreshold = 256;
 
@@ -200,7 +201,6 @@ public sealed partial class ArticleSearchIndex
         }
 
         internal readonly int Count => _end - _start;
-        internal readonly bool Exhausted => _pos >= _end;
         internal readonly int Doc => _pos < _end ? _postings[_pos].Ordinal : int.MaxValue;
         internal readonly Posting Current => _postings[_pos];
 
@@ -240,7 +240,7 @@ public sealed partial class ArticleSearchIndex
                 _blockAccounted = true;
             }
 
-            if (_pos + 1 < _blockEnd && _postings[_pos + 1].Ordinal >= targetOrdinal)
+            if (_postings[_pos + 1].Ordinal >= targetOrdinal)
             {
                 _pos++;
                 stats.PostingsDecoded++;
@@ -259,18 +259,7 @@ public sealed partial class ArticleSearchIndex
             }
             stats.PostingsDecoded += Math.Max(1, steps);
             _pos = lo;
-            if (_pos >= _blockEnd)
-            {
-                _blockIdx++;
-                if (_blockIdx >= _blockCount)
-                {
-                    _pos = _end;
-                    return int.MaxValue;
-                }
-                _blockEnd = Math.Min(_end, _pos + PostingBlockSize);
-                _blockAccounted = false;
-            }
-            return _pos < _end ? _postings[_pos].Ordinal : int.MaxValue;
+            return _postings[_pos].Ordinal;
         }
 
         internal readonly bool TryShallowBlock(int targetOrdinal, out SearchPostingBlockMeta meta)
@@ -349,7 +338,6 @@ public sealed partial class ArticleSearchIndex
         }
 
         internal readonly int Count => _end - _start;
-        internal readonly bool Exhausted => _pos >= _end;
         internal readonly int Doc => _pos < _end ? _postings[_pos].Ordinal : int.MaxValue;
         internal readonly int CurrentPacked => _postings[_pos].Packed;
 
@@ -389,7 +377,7 @@ public sealed partial class ArticleSearchIndex
                 _blockAccounted = true;
             }
 
-            if (_pos + 1 < _blockEnd && _postings[_pos + 1].Ordinal >= targetOrdinal)
+            if (_postings[_pos + 1].Ordinal >= targetOrdinal)
             {
                 _pos++;
                 stats.PostingsDecoded++;
@@ -408,18 +396,7 @@ public sealed partial class ArticleSearchIndex
             }
             stats.PostingsDecoded += Math.Max(1, steps);
             _pos = lo;
-            if (_pos >= _blockEnd)
-            {
-                _blockIdx++;
-                if (_blockIdx >= _blockCount)
-                {
-                    _pos = _end;
-                    return int.MaxValue;
-                }
-                _blockEnd = Math.Min(_end, _pos + PostingBlockSize);
-                _blockAccounted = false;
-            }
-            return _pos < _end ? _postings[_pos].Ordinal : int.MaxValue;
+            return _postings[_pos].Ordinal;
         }
 
         internal readonly bool TryShallowBlock(int targetOrdinal, out ShortPrefixBlockMeta meta)

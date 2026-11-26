@@ -197,24 +197,14 @@ public sealed class ServerCompositionParityTests
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(1));
 
-        static void AttachOrigin(HttpRequestMessage request, string host)
-        {
-            request.Headers.Host = host;
-            request.Headers.Add("X-Forwarded-Proto", "https");
-            request.Headers.Add("X-Forwarded-For", "198.51.100.42");
-        }
-
-        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-        {
-            [LoopbackProxy.ConfigurationKey] = "true",
-            [PublicSiteConfiguration.OriginKey] = "https://blog.example.test",
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "https://admin.example.test",
-        }, request => AttachOrigin(request, "blog.example.test"));
+        const string clientIp = "198.51.100.42";
+        await using var server = await SiteAedsFixture.StartForwardedSite(fixture, "https://blog.example.test", clientIp, ct,
+            ("FSUSBLOG_ADMIN_ORIGIN", "https://admin.example.test"));
 
         Task<HttpResponseMessage> Send(HttpMethod method, string path, string host = "blog.example.test", bool sameOrigin = false)
         {
             using var req = new HttpRequestMessage(method, path);
-            AttachOrigin(req, host);
+            SiteAedsFixture.ForwardHttps(req, host, clientIp);
             if (sameOrigin)
             {
                 req.Headers.Add("Origin", $"https://{host}");

@@ -40,6 +40,7 @@ public sealed class PasskeyPostgresTests
 
         const string host = "blog.example.test";
         const string origin = "https://" + host;
+        const string clientIp = "198.51.100.30";
         using var readerKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         using var adminKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var readerCredId = RandomNumberGenerator.GetBytes(32);
@@ -64,18 +65,9 @@ public sealed class PasskeyPostgresTests
             values($1,$2,$3,0,false,false)
             """, adminCredId, adminPrincipalId, EncodeCoseEs256PublicKey(adminKey));
 
-        static void AttachHttps(HttpRequestMessage request)
-        {
-            request.Headers.Host = host;
-            request.Headers.Add("X-Forwarded-Proto", "https");
-            request.Headers.Add("X-Forwarded-For", "198.51.100.30");
-        }
+        static void AttachHttps(HttpRequestMessage request) => SiteAedsFixture.ForwardHttps(request, host, clientIp);
 
-        await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-        {
-            [LoopbackProxy.ConfigurationKey] = "true",
-            [PublicSiteConfiguration.OriginKey] = origin,
-        }, AttachHttps))
+        await using (var server = await SiteAedsFixture.StartForwardedSite(fixture, origin, clientIp, ct))
         {
             // 1. Reader Passkey on unified /api/binary/auth/passkey/login/complete issues ONLY reader cookie & "anonymous_account"
             var readerBegin = await BeginLogin(server);
@@ -116,12 +108,7 @@ public sealed class PasskeyPostgresTests
         }
 
         // 4. When FSUSBLOG_ADMIN_ORIGIN="" disables admin, admin Passkey fails closed (401) on unified login
-        await using (var publicOnly = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-        {
-            [LoopbackProxy.ConfigurationKey] = "true",
-            [PublicSiteConfiguration.OriginKey] = origin,
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "",
-        }, AttachHttps))
+        await using (var publicOnly = await SiteAedsFixture.StartForwardedSite(fixture, origin, clientIp, ct, ("FSUSBLOG_ADMIN_ORIGIN", "")))
         {
             var disabledBegin = await BeginLogin(publicOnly);
             var disabledComplete = await CompleteLogin(publicOnly, BuildLoginAssertionFrame(
@@ -147,11 +134,7 @@ public sealed class PasskeyPostgresTests
 
         async Task<(HttpStatusCode Status, byte[] Body, string[] Cookies)> CompleteLogin(ServerProcess server, byte[] frame)
         {
-            using var req = new HttpRequestMessage(HttpMethod.Post, WireRoutes.PasskeyLoginComplete)
-            {
-                Content = new ByteArrayContent(frame)
-            };
-            req.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(Aeds.ContentType);
+            using var req = SiteAedsFixture.Request(HttpMethod.Post, WireRoutes.PasskeyLoginComplete, frame, null, null, secure: true);
             AttachHttps(req);
             req.Headers.Add("Origin", origin);
             using var resp = await server.Client.SendAsync(req, ct);

@@ -651,35 +651,6 @@ public static class LocalSearchCorpus
         <= 30 => 14, <= 50 => 15, <= 100 => 16, _ => 17
     });
 
-    internal static uint HashWord(ReadOnlySpan<char> word)
-    {
-        if (word.Length == 1) return HashRune(new Rune(word[0]));
-        Span<byte> bytes = stackalloc byte[word.Length * 3];
-        return HashBytes(bytes[..Utf8.GetBytes(word, bytes)]);
-    }
-
-    internal static uint HashAscii(ReadOnlySpan<char> token)
-    {
-        uint hash = 0;
-        var offset = 0;
-        while (token.Length - offset >= 4)
-        {
-            var word = LowerAscii(token[offset]) | (LowerAscii(token[offset + 1]) << 8) |
-                (LowerAscii(token[offset + 2]) << 16) | (LowerAscii(token[offset + 3]) << 24);
-            hash = MixWord(hash, word);
-            offset += 4;
-        }
-        uint tail = 0;
-        for (var i = 0; offset + i < token.Length; i++) tail |= LowerAscii(token[offset + i]) << (8 * i);
-        return FinishHash(hash, tail, token.Length);
-    }
-
-    internal static uint HashRune(Rune rune)
-    {
-        Span<byte> encoded = stackalloc byte[4];
-        return HashBytes(encoded[..rune.EncodeToUtf8(encoded)]);
-    }
-
     internal static uint HashUtf8Bytes(ReadOnlySpan<byte> bytes) => HashBytes(bytes);
 
     private static uint HashBytes(ReadOnlySpan<byte> bytes)
@@ -693,7 +664,6 @@ public static class LocalSearchCorpus
         return FinishHash(hash, tail, bytes.Length);
     }
 
-    private static uint LowerAscii(char value) => (uint)(value is >= 'A' and <= 'Z' ? value + ('a' - 'A') : value);
     private static uint MixWord(uint hash, uint word) => BitOperations.RotateLeft(hash ^ Mix(word), 13) * 5 + 0xe6546b64;
 
     private static uint FinishHash(uint hash, uint tail, int length)
