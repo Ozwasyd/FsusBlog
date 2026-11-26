@@ -414,15 +414,12 @@ public sealed partial class ArticleSearchIndex
 
                 var bodyText = article.Body ?? "";
                 if (!ChargeChars(bodyText.Length, ref docChars)) return false;
-                var (headings, prose, code) = SearchTextAnalyzer.AnalyzeMarkdownBody(bodyText, ct);
-                if (!Accumulate(headings.Tokens, SearchScoreField.Heading, 0, termLimit)) return false;
-                var headingLen = Math.Max(1, headings.SourceLength);
-
-                var codeShift = prose.EndPosition > 0 ? prose.EndPosition + SearchTextAnalyzer.BlockPositionGap : 0;
-                if (!Accumulate(prose.Tokens, SearchScoreField.Body, 0, termLimit) ||
-                    !Accumulate(code.Tokens, SearchScoreField.Body, codeShift, termLimit))
+                if (!SearchTextAnalyzer.VisitMarkdownIndexTokens(bodyText,
+                    (tokens, field, shift) => Accumulate(tokens, SearchScoringProfile.ToScoreField(field), shift, termLimit),
+                    ct, out var headingLength, out var bodyLength))
                     return false;
-                var bodyLen = Math.Max(1, prose.SourceLength + code.SourceLength);
+                var headingLen = Math.Max(1, headingLength);
+                var bodyLen = Math.Max(1, bodyLength);
 
                 documents[ordinal] = new DocumentMeta(
                     article.Id,

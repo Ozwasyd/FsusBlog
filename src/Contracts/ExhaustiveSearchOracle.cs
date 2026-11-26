@@ -119,15 +119,13 @@ public sealed class ExhaustiveSearchOracle
             }
             fieldLengths[(int)SearchScoreField.Taxonomy] = Math.Max(1, taxLen);
 
-            var (headings, prose, code) = SearchTextAnalyzer.AnalyzeMarkdownBody(article.Body ?? "", ct);
-            fieldLengths[(int)SearchScoreField.Heading] = Math.Max(1, headings.SourceLength);
-            Collect(headings.Tokens, SearchScoreField.Heading, 0);
-
-            // Body field combines visible prose and code blocks with a non-bridging position gap between them.
-            var codeShift = prose.EndPosition > 0 ? prose.EndPosition + SearchTextAnalyzer.BlockPositionGap : 0;
-            fieldLengths[(int)SearchScoreField.Body] = Math.Max(1, prose.SourceLength + code.SourceLength);
-            Collect(prose.Tokens, SearchScoreField.Body, 0);
-            Collect(code.Tokens, SearchScoreField.Body, codeShift);
+            SearchTextAnalyzer.VisitMarkdownIndexTokens(article.Body ?? "", (tokens, field, shift) =>
+            {
+                Collect(tokens, SearchScoringProfile.ToScoreField(field), shift);
+                return true;
+            }, ct, out var headingLength, out var bodyLength);
+            fieldLengths[(int)SearchScoreField.Heading] = Math.Max(1, headingLength);
+            fieldLengths[(int)SearchScoreField.Body] = Math.Max(1, bodyLength);
 
             // Deduplicate and sort positions per term so positional checks match index order
             foreach (var key in terms.Keys.ToArray())

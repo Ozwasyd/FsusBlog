@@ -335,9 +335,12 @@ public static class SearchTextAnalyzer
     }
 
     public static (SearchFieldAnalysis Headings, SearchFieldAnalysis Body, SearchFieldAnalysis Code) AnalyzeMarkdownBody(
-        string markdown, CancellationToken ct = default)
+        string markdown, CancellationToken ct = default) =>
+        AnalyzeMarkdownBody(markdown, SearchMarkdownExtractor.Extract(markdown, ct), ct);
+
+    private static (SearchFieldAnalysis Headings, SearchFieldAnalysis Body, SearchFieldAnalysis Code) AnalyzeMarkdownBody(
+        string markdown, List<MarkdownVisibleSpan> visible, CancellationToken ct)
     {
-        var visible = SearchMarkdownExtractor.Extract(markdown, ct);
         var headingTokens = new List<SearchToken>();
         var bodyTokens = new List<SearchToken>();
         var codeTokens = new List<SearchToken>();
@@ -373,11 +376,88 @@ public static class SearchTextAnalyzer
     }
 
     internal static int AnalyzeSpanInto(string rawText, int baseSourceOffset, SearchAnalysisMode mode,
-        List<SearchToken> output, ref int position, List<string>? shortAsciiPrefixes, CancellationToken ct)
+        List<SearchToken> output, ref int position, List<string>? shortAsciiPrefixes, CancellationToken ct) =>
+        AnalyzeSpanInto(rawText, baseSourceOffset, mode, output, ref position, shortAsciiPrefixes, ct, null);
+
+    internal static bool VisitMarkdownIndexTokens(string markdown,
+        Func<IReadOnlyList<SearchToken>, SearchFieldKind, int, bool> visit, CancellationToken ct,
+        out int headingLength, out int bodyLength)
+    {
+        var spans = SearchMarkdownExtractor.Extract(markdown, ct);
+        var (headings, prose, code) = AnalyzeMarkdownBody(markdown, spans, ct);
+        bodyLength = 0;
+        if (!VisitField(headings, 0, out headingLength, out _) ||
+            !VisitField(prose, 0, out var proseLength, out var proseEnd))
+            return false;
+        // A replay can extend prose past the position returned by the bounded analysis.
+        var codeShift = proseEnd > 0 ? proseEnd + BlockPositionGap : 0;
+        if (!VisitField(code, codeShift, out var codeLength, out _)) return false;
+        bodyLength = proseLength + codeLength;
+        return true;
+
+        bool VisitField(SearchFieldAnalysis field, int shift, out int length, out int end)
+        {
+            if (field.Tokens.Count == MaxTokensPerField)
+                return ReplayMarkdownField(markdown, spans, field.Field, shift, visit, ct, out length, out end);
+            (length, end) = (field.SourceLength, field.EndPosition);
+            return field.Tokens.Count == 0 || visit(field.Tokens, field.Field, shift);
+        }
+    }
+
+    internal static bool ReplayIndexSpan(string text, int sourceStart, ref int position,
+        Func<IReadOnlyList<SearchToken>, bool> visit, CancellationToken ct, out int length)
+    {
+        var batch = new IndexTokenBatch((tokens, _, _) => visit(tokens));
+        length = 0;
+        try
+        {
+            length = AnalyzeSpanInto(text, sourceStart, SearchAnalysisMode.Index, batch.Tokens, ref position, null, ct, batch);
+            batch.Flush();
+            return true;
+        }
+        catch (IndexTokenBatchRejected) { return false; }
+    }
+
+    internal static void VisitPlainIndexTokens(string text, Action<IReadOnlyList<SearchToken>> visit, CancellationToken ct)
+    {
+        var batch = new IndexTokenBatch((tokens, _, _) =>
+        {
+            visit(tokens);
+            return true;
+        });
+        var position = 0;
+        AnalyzeSpanInto(text, 0, SearchAnalysisMode.Index, batch.Tokens, ref position, null, ct, batch);
+        batch.Flush();
+    }
+
+    private static bool ReplayMarkdownField(string markdown, List<MarkdownVisibleSpan> spans, SearchFieldKind field,
+        int shift, Func<IReadOnlyList<SearchToken>, SearchFieldKind, int, bool> visit, CancellationToken ct,
+        out int length, out int position)
+    {
+        var batch = new IndexTokenBatch(visit) { Field = field, PositionShift = shift };
+        length = position = 0;
+        try
+        {
+            foreach (var span in spans)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (span.Field != field) continue;
+                if (span.StartsNewBlock && position > 0) position += BlockPositionGap;
+                var slice = markdown.Substring(span.SourceStart, span.SourceEnd - span.SourceStart);
+                length += AnalyzeSpanInto(slice, span.SourceStart, SearchAnalysisMode.Index, batch.Tokens, ref position, null, ct, batch);
+            }
+            batch.Flush();
+            return true;
+        }
+        catch (IndexTokenBatchRejected) { return false; }
+    }
+
+    private static int AnalyzeSpanInto(string rawText, int baseSourceOffset, SearchAnalysisMode mode,
+        List<SearchToken> output, ref int position, List<string>? shortAsciiPrefixes, CancellationToken ct, IndexTokenBatch? batch)
     {
         if (string.IsNullOrEmpty(rawText)) return 0;
         var (text, origStart, origEnd) = NormalizeWithOffsets(rawText, baseSourceOffset, ct);
-        var emitter = new TokenOutput(output, baseSourceOffset, origStart, origEnd);
+        var emitter = new TokenOutput(output, baseSourceOffset, origStart, origEnd, batch);
         HashSet<string>? asciiSeen = null;
         var sourceLength = 0;
         var indexMode = mode == SearchAnalysisMode.Index;
@@ -385,7 +465,7 @@ public static class SearchTextAnalyzer
         for (var i = 0; i < text.Length;)
         {
             ct.ThrowIfCancellationRequested();
-            if (output.Count >= MaxTokensPerField) break;
+            if (output.Count >= MaxTokensPerField && batch is null) break;
 
             // 1. Technical / ASCII word run (including leading '.', internal '-', '_', '.', '/', trailing '#', '+')
             if (StartsTechnicalToken(text, i))
@@ -455,16 +535,42 @@ public static class SearchTextAnalyzer
         return sourceLength;
     }
 
-    private readonly struct TokenOutput(List<SearchToken> output, int baseSourceOffset, int[]? origStart, int[]? origEnd)
+    private sealed class IndexTokenBatchRejected : Exception;
+
+    private sealed class IndexTokenBatch(Func<IReadOnlyList<SearchToken>, SearchFieldKind, int, bool> visit)
+    {
+        internal const int TargetSize = 4_096;
+        internal readonly List<SearchToken> Tokens = [];
+        internal SearchFieldKind Field;
+        internal int PositionShift;
+
+        internal void FlushBefore(SearchToken next)
+        {
+            // A Wide source keeps its exact token and attached aliases in the same batch.
+            if (!ArticleSearchTokens.ContinuesRoleGroup(Tokens, next)) Flush();
+        }
+
+        internal void Flush()
+        {
+            if (Tokens.Count == 0) return;
+            if (!visit(Tokens, Field, PositionShift)) throw new IndexTokenBatchRejected();
+            Tokens.Clear();
+        }
+    }
+
+    private readonly struct TokenOutput(List<SearchToken> output, int baseSourceOffset, int[]? origStart, int[]? origEnd,
+        IndexTokenBatch? batch)
     {
         internal void Emit(string term, SearchTokenKind kind, int pos, int width, int advance, int normStart, int normEnd)
         {
-            if (term.Length == 0 || output.Count >= MaxTokensPerField) return;
+            if (term.Length == 0 || output.Count >= MaxTokensPerField && batch is null) return;
             var sStart = origStart is null ? baseSourceOffset + normStart : origStart[normStart];
             var sEnd = origEnd is null ? baseSourceOffset + normEnd : origEnd[normEnd - 1];
             var stop = SearchLexicon.IsStopword(term.AsSpan());
             var (h64, h32) = HashTermBoth(term.AsSpan());
-            output.Add(new SearchToken(term, h64, h32, kind, pos, width, advance, sStart, sEnd, stop));
+            var token = new SearchToken(term, h64, h32, kind, pos, width, advance, sStart, sEnd, stop);
+            if (output.Count >= IndexTokenBatch.TargetSize) batch?.FlushBefore(token);
+            output.Add(token);
         }
     }
 

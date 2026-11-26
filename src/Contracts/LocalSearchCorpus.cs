@@ -417,7 +417,7 @@ public static class LocalSearchCorpus
         int Estimate() => SearchDocumentRecordSize + textBytes +
             terms.Count * PostingBudgetBytes + positions * PositionBudgetBytes;
 
-        bool RecordTokens(IReadOnlyList<SearchToken> list, int positionShift, byte field)
+        bool RecordTokens(IReadOnlyList<SearchToken> list, byte field)
         {
             for (var i = 0; i < list.Count; i++)
             {
@@ -429,7 +429,7 @@ public static class LocalSearchCorpus
                     token.Kind is SearchTokenKind.Exact or SearchTokenKind.CjkBigram or SearchTokenKind.Subword or SearchTokenKind.ScriptAlias;
                 if (keepPosition)
                 {
-                    var pos = token.Position + positionShift;
+                    var pos = token.Position;
                     (old.Positions ??= []).Add(new Position(pos, field, token.Width));
                     if (pos + token.Width > maxPositionEnd) maxPositionEnd = pos + token.Width;
                     positions++;
@@ -448,29 +448,38 @@ public static class LocalSearchCorpus
         bool PlainField(string text, SearchFieldKind fieldKind, byte wireField)
         {
             var analyzed = SearchTextAnalyzer.AnalyzePlainField(text, fieldKind, SearchAnalysisMode.Index, 0, ct);
-            if (!RecordTokens(analyzed.Tokens, 0, wireField)) return false;
+            if (!RecordTokens(analyzed.Tokens, wireField)) return false;
             length += analyzed.SourceLength;
             return true;
         }
 
         bool MarkdownBodyField(string markdown)
         {
-            // Keep FSPK v4 body positions compact (1-slot inter-block gap prevents cross-block phrase bridging
-            // without inflating document length across headings, prose, and code blocks).
+            // FSPK v4 uses one inter-block slot in visible reading order across all Markdown fields.
             var visible = SearchMarkdownExtractor.Extract(markdown, ct);
             var bodyPos = 0;
-            var bodyLen = 0;
             var scratch = new List<SearchToken>();
             foreach (var span in visible)
             {
                 ct.ThrowIfCancellationRequested();
-                if (span.StartsNewBlock && bodyPos > 0) bodyPos += 1;
+                if (span.StartsNewBlock && bodyPos > 0) bodyPos++;
+                var startPosition = bodyPos;
                 scratch.Clear();
                 var slice = markdown.Substring(span.SourceStart, span.SourceEnd - span.SourceStart);
-                bodyLen += SearchTextAnalyzer.AnalyzeSpanInto(slice, span.SourceStart, SearchAnalysisMode.Index, scratch, ref bodyPos, null, ct);
-                if (!RecordTokens(scratch, 0, BodyField)) return false;
+                var sourceLength = SearchTextAnalyzer.AnalyzeSpanInto(slice, span.SourceStart, SearchAnalysisMode.Index,
+                    scratch, ref bodyPos, null, ct);
+                if (scratch.Count == SearchTextAnalyzer.MaxTokensPerField)
+                {
+                    // Give the recorder each token once, with the same starting coordinate on replay.
+                    scratch.Clear();
+                    bodyPos = startPosition;
+                    if (!SearchTextAnalyzer.ReplayIndexSpan(slice, span.SourceStart, ref bodyPos,
+                        list => RecordTokens(list, BodyField), ct, out sourceLength))
+                        return false;
+                }
+                else if (!RecordTokens(scratch, BodyField)) return false;
+                length += sourceLength;
             }
-            length += bodyLen;
             return true;
         }
     }
