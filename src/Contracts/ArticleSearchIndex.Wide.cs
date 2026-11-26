@@ -475,8 +475,23 @@ public sealed partial class ArticleSearchIndex
 
     private sealed class WideResolvedTerm
     {
-        internal int DocFreq;
+        internal int DocFreq => Docs?.Count ?? 0;
         internal Dictionary<int, WideTermDocData>? Docs;
+    }
+
+    private struct WidePositionCache(Article article, HashSet<SearchTermKey>? keys, CancellationToken ct)
+    {
+        private Dictionary<SearchTermKey, List<uint>>? _positions;
+
+        internal Dictionary<SearchTermKey, List<uint>> Get(ref SearchExecutionStats stats)
+        {
+            if (_positions is null)
+            {
+                _positions = ExtractWideCandidatePositions(article, keys!, ct);
+                stats.PositionsRead++;
+            }
+            return _positions;
+        }
     }
 
     private CompactSearchOutcome ExecuteWideSearch(
@@ -528,13 +543,22 @@ public sealed partial class ArticleSearchIndex
             }
         }
 
+        Span<WideTerm> sourceTerms = stackalloc WideTerm[wide.Blocks.Length];
         foreach (var (sid, uses) in sourceUses)
         {
             ct.ThrowIfCancellationRequested();
-            foreach (var block in wide.Blocks)
+            // A source has one posting per matching document, and blocks cover disjoint documents.
+            var sourceCount = 0;
+            for (var b = 0; b < sourceTerms.Length; b++)
             {
+                sourceTerms[b] = FindWideTerm(wide.Blocks[b].Terms, sid);
+                sourceCount += sourceTerms[b].Count;
+            }
+            for (var b = 0; b < sourceTerms.Length; b++)
+            {
+                var block = wide.Blocks[b];
                 var visited = false;
-                foreach (var p in new WidePostings(block, sid, ct))
+                foreach (var p in new WidePostings(block, sourceTerms[b], ct))
                 {
                     if (!visited) { stats.BlocksVisited++; visited = true; }
                     stats.PostingsDecoded++;
@@ -542,9 +566,8 @@ public sealed partial class ArticleSearchIndex
                     for (var u = 0; u < uses.Count; u++)
                     {
                         var (rt, role) = uses[u];
-                        var map = rt.Docs ??= [];
-                        ref var data = ref CollectionsMarshal.GetValueRefOrAddDefault(map, absOrd, out var exists);
-                        if (!exists) rt.DocFreq++;
+                        var map = rt.Docs ??= new(sourceCount);
+                        ref var data = ref CollectionsMarshal.GetValueRefOrAddDefault(map, absOrd, out _);
                         data.Add(p, role);
                     }
                 }
@@ -699,21 +722,12 @@ public sealed partial class ArticleSearchIndex
             }
             if (!preOk) continue;
 
-            Dictionary<SearchTermKey, List<uint>>? docPositions = null;
-            var posExtracted = false;
-            Dictionary<SearchTermKey, List<uint>> GetDocPositions()
-            {
-                if (docPositions is not null) return docPositions;
-                posExtracted = true;
-                return docPositions = ExtractWideCandidatePositions(doc.Article, positionalKeys!, ct);
-            }
-
+            var positions = new WidePositionCache(doc.Article, positionalKeys, ct);
             // 1. Verify strict quoted phrases
             foreach (var phrase in plan.QuotedPhrases)
             {
-                if (!WideMatchesExactSequence(GetDocPositions(), phrase.Steps, out _)) { preOk = false; break; }
+                if (!WideMatchesExactSequence(positions.Get(ref stats), phrase.Steps, out _)) { preOk = false; break; }
             }
-            if (posExtracted) { stats.PositionsRead++; posExtracted = false; }
             if (!preOk) continue;
 
             doc.CopyLengths(docLens);
@@ -726,9 +740,8 @@ public sealed partial class ArticleSearchIndex
             {
                 var concept = concepts[c];
                 tfs.Clear();
-                var matched = EvaluateWideConcept(ordinal, concept, termMaps, shortPrefixMaps[c], GetDocPositions, tfs,
+                var matched = EvaluateWideConcept(ordinal, concept, termMaps, shortPrefixMaps[c], ref positions, tfs, ref stats,
                     out var exactFormHit, out var usedShortPrefixOnly);
-                if (posExtracted) { stats.PositionsRead++; posExtracted = false; }
                 if (!matched)
                 {
                     if (concept.IsStrictIdentifier) { strictOk = false; break; }
@@ -814,8 +827,7 @@ public sealed partial class ArticleSearchIndex
                 }
                 if (allSeqPresent)
                 {
-                    var posMap = GetDocPositions();
-                    if (posExtracted) { stats.PositionsRead++; posExtracted = false; }
+                    var posMap = positions.Get(ref stats);
                     if (WideMatchesExactSequence(posMap, seq, out var matchField))
                     {
                         var factor = matchField is SearchScoreField.Title or SearchScoreField.Heading
@@ -961,8 +973,9 @@ public sealed partial class ArticleSearchIndex
         SearchConcept concept,
         Dictionary<SearchTermKey, WideResolvedTerm> termMaps,
         Dictionary<int, int>? shortPrefixMap,
-        Func<Dictionary<SearchTermKey, List<uint>>> getPositions,
+        ref WidePositionCache positions,
         Span<double> tfs,
+        ref SearchExecutionStats stats,
         out bool exactFormHit,
         out bool usedShortPrefixOnly)
     {
@@ -975,7 +988,7 @@ public sealed partial class ArticleSearchIndex
             {
                 foreach (var st in concept.Steps)
                     if (termMaps[st.CanonicalKey].Docs is not { } d || !d.ContainsKey(ordinal)) return false;
-                if (!WideMatchesExactSequence(getPositions(), concept.Steps, out _)) return false;
+                if (!WideMatchesExactSequence(positions.Get(ref stats), concept.Steps, out _)) return false;
                 for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
                 {
                     var minTf = double.MaxValue;
@@ -1159,9 +1172,8 @@ public sealed partial class ArticleSearchIndex
         private readonly int _count;
         private int _offset, _ordinal, _index;
 
-        internal WidePostings(WideBlock block, uint source, CancellationToken ct)
+        internal WidePostings(WideBlock block, WideTerm term, CancellationToken ct)
         {
-            var term = FindWideTerm(block.Terms, source);
             (_bytes, _ct, _count, _offset, _ordinal) = (block.Postings, ct, term.Count, term.Start, block.Count);
         }
 

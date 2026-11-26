@@ -53,15 +53,13 @@ internal static class CanvasEndpoints
             }, ct));
 
         app.MapCommandGet(WireRoutes.CanvasGraphList, (HttpContext ctx, Store store, CancellationToken ct) =>
-            store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
-                ServerHttp.Frame(Wire.EncodeCanvasGraphList(await new CanvasGraphStore(db, tx, actor).List(ct))), ct));
+            GraphReply(ctx, store, graph => graph.List(ct), Wire.EncodeCanvasGraphList, ct));
 
         app.MapCommandGet(WireRoutes.CanvasGraphPage, (HttpContext ctx, Store store, Guid id, CancellationToken ct) =>
         {
             long revision = Coordinate(ctx, "revision", long.MaxValue);
             int offset = (int)Coordinate(ctx, "offset", 20_000);
-            return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
-                ServerHttp.Frame(Wire.EncodeCanvasGraphPage(await new CanvasGraphStore(db, tx, actor).Page(id, revision, offset, ct))), ct);
+            return GraphReply(ctx, store, graph => graph.Page(id, revision, offset, ct), Wire.EncodeCanvasGraphPage, ct);
         });
 
         app.MapCommandGet(WireRoutes.CanvasReference, (HttpContext ctx, Store store, Guid id, Guid nodeId, CancellationToken ct) =>
@@ -83,8 +81,7 @@ internal static class CanvasEndpoints
         app.MapCommandGet(WireRoutes.CanvasGraphHistory, (HttpContext ctx, Store store, Guid id, CancellationToken ct) =>
         {
             long revision = Coordinate(ctx, "revision", long.MaxValue);
-            return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
-                ServerHttp.Frame(Wire.EncodeCanvasGraphHistory(await new CanvasGraphStore(db, tx, actor).History(id, revision, ct))), ct);
+            return GraphReply(ctx, store, graph => graph.History(id, revision, ct), Wire.EncodeCanvasGraphHistory, ct);
         });
 
         app.MapCommandPost(WireRoutes.CanvasGraphWrite, async (HttpContext ctx, Store store, CancellationToken ct) =>
@@ -93,9 +90,12 @@ internal static class CanvasEndpoints
             var command = Wire.DecodeCanvasGraphCommand(frame);
             ClientMutationHeader.Require(ctx, command.CommandId);
             byte[] fingerprint = SHA256.HashData(frame);
-            return await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
-                ServerHttp.Frame(Wire.EncodeCanvasGraphReceipt(await new CanvasGraphStore(db, tx, actor).Write(command, fingerprint, ct))), ct);
+            return await GraphReply(ctx, store, graph => graph.Write(command, fingerprint, ct), Wire.EncodeCanvasGraphReceipt, ct);
         });
+
+        Task<IResult> GraphReply<T>(HttpContext ctx, Store store, Func<CanvasGraphStore, Task<T>> apply, Func<T, byte[]> encode,
+            CancellationToken ct) => store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+                ServerHttp.Frame(encode(await apply(new CanvasGraphStore(db, tx, actor)))), ct);
     }
 
     private static bool SelectVisualEdge(HttpContext context)

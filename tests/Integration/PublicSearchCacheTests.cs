@@ -18,23 +18,13 @@ public sealed class PublicSearchCacheTests
             MaxTotalWaiters: 32,
             DefaultCallerDeadline: TimeSpan.FromSeconds(5)));
 
-        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var executions = 0;
+        var work = new PausedSearch(() => new CachedSearchPayload([1, 2, 3, 4], 42));
         var key = MakeKey(generation: 100, query: "alpha beta");
 
         var tasks = Enumerable.Range(0, 16).Select(_ => cache.GetOrExecuteAsync(
-            key,
-            async ct =>
-            {
-                Interlocked.Increment(ref executions);
-                started.TrySetResult();
-                await release.Task.WaitAsync(ct);
-                return new CachedSearchPayload([1, 2, 3, 4], 42);
-            },
-            CancellationToken.None).AsTask()).ToArray();
+            key, work.Execute, CancellationToken.None).AsTask()).ToArray();
 
-        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await work.Started.WaitAsync(TimeSpan.FromSeconds(5));
         await WaitUntilAsync(() => cache.SnapshotStats().ActiveWaiters == 16, TimeSpan.FromSeconds(5));
 
         var duringStats = cache.SnapshotStats();
@@ -43,10 +33,10 @@ public sealed class PublicSearchCacheTests
         Assert.Equal(1, duringStats.InFlightCount);
         Assert.Equal(16, duringStats.ActiveWaiters);
 
-        release.TrySetResult();
+        work.Release();
         var results = await Task.WhenAll(tasks);
 
-        Assert.Equal(1, executions);
+        Assert.Equal(1, work.Executions);
         Assert.All(results, r =>
         {
             Assert.Equal(42, r.Total);
@@ -236,21 +226,14 @@ public sealed class PublicSearchCacheTests
 
             // 2. Per-caller deadline expiry via deterministic TimeProvider does not cancel a patient peer.
             var slowKey = MakeKey(generation: 20, query: "slow deadline");
-            var slowStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var slowRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var slow = new PausedSearch(() => new CachedSearchPayload([9, 9], 99));
 
             var impatient = cache.GetOrExecuteAsync(
-                slowKey,
-                async ct =>
-                {
-                    slowStarted.TrySetResult();
-                    await slowRelease.Task.WaitAsync(ct);
-                    return new CachedSearchPayload([9, 9], 99);
-                },
+                slowKey, slow.Execute,
                 CancellationToken.None,
                 callerDeadline: TimeSpan.FromMilliseconds(100)).AsTask();
 
-            await slowStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await slow.Started.WaitAsync(TimeSpan.FromSeconds(5));
             var patient = cache.GetOrExecuteAsync(
                 slowKey,
                 _ => throw new InvalidOperationException("Should coalesce"),
@@ -271,28 +254,16 @@ public sealed class PublicSearchCacheTests
             await Assert.ThrowsAsync<TimeoutException>(() => impatient);
             Assert.Equal(1, cache.SnapshotStats().DeadlineExpirations);
 
-            slowRelease.TrySetResult();
+            slow.Release();
             var patientResult = await patient;
             Assert.Equal(99, patientResult.Total);
 
             // 4. MaxInFlightKeys cap: fill 2 in-flight keys, 3rd key rejected cleanly.
-            var gate1 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var gate2 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var s1 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var s2 = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            var inFlight1 = cache.GetOrExecuteAsync(MakeKey(20, "inflight one"), async ct =>
-            {
-                s1.TrySetResult();
-                await gate1.Task.WaitAsync(ct);
-                return new CachedSearchPayload([1], 1);
-            }, CancellationToken.None).AsTask();
-            var inFlight2 = cache.GetOrExecuteAsync(MakeKey(20, "inflight two"), async ct =>
-            {
-                s2.TrySetResult();
-                await gate2.Task.WaitAsync(ct);
-                return new CachedSearchPayload([2], 2);
-            }, CancellationToken.None).AsTask();
-            await Task.WhenAll(s1.Task, s2.Task).WaitAsync(TimeSpan.FromSeconds(5));
+            var firstInFlight = new PausedSearch(() => new CachedSearchPayload([1], 1));
+            var secondInFlight = new PausedSearch(() => new CachedSearchPayload([2], 2));
+            var inFlight1 = cache.GetOrExecuteAsync(MakeKey(20, "inflight one"), firstInFlight.Execute, CancellationToken.None).AsTask();
+            var inFlight2 = cache.GetOrExecuteAsync(MakeKey(20, "inflight two"), secondInFlight.Execute, CancellationToken.None).AsTask();
+            await Task.WhenAll(firstInFlight.Started, secondInFlight.Started).WaitAsync(TimeSpan.FromSeconds(5));
 
             await Assert.ThrowsAsync<SearchWorkRejectedException>(() => cache.GetOrExecuteAsync(
                 MakeKey(20, "inflight three"),
@@ -302,7 +273,7 @@ public sealed class PublicSearchCacheTests
 
             // 5. Dispose cancels all active in-flight work and rejects future calls.
             var disposeObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            gate1.TrySetResult();
+            firstInFlight.Release();
             await inFlight1;
             var dispStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var inFlightDispose = cache.GetOrExecuteAsync(MakeKey(20, "dispose target"), async ct =>
@@ -400,10 +371,10 @@ public sealed class PublicSearchCacheTests
         };
         var articlesG4Withdrawn = new[] { articlesG3TaxonomyRenamed[1] };
 
-        var snap1 = new PublicSnapshot(1, articlesG1, new([], [], []), pages, listCursor, null, NullLogger.Instance, null, null, CancellationToken.None, searchCursor: searchCursor);
-        var snap2 = new PublicSnapshot(2, articlesG2Edited, new([], [], []), pages, listCursor, snap1, NullLogger.Instance, null, null, CancellationToken.None, searchCursor: searchCursor);
-        var snap3 = new PublicSnapshot(3, articlesG3TaxonomyRenamed, new([], [], []), pages, listCursor, snap2, NullLogger.Instance, null, null, CancellationToken.None, taxonomyEpoch: 2, searchCursor: searchCursor);
-        var snap4 = new PublicSnapshot(4, articlesG4Withdrawn, new([], [], []), pages, listCursor, snap3, NullLogger.Instance, null, null, CancellationToken.None, taxonomyEpoch: 2, searchCursor: searchCursor);
+        var snap1 = Snapshot(1, articlesG1, null);
+        var snap2 = Snapshot(2, articlesG2Edited, snap1);
+        var snap3 = Snapshot(3, articlesG3TaxonomyRenamed, snap2, taxonomyEpoch: 2);
+        var snap4 = Snapshot(4, articlesG4Withdrawn, snap3, taxonomyEpoch: 2);
 
         var projection = new PublicProjection();
         projection.Replace(snap1);
@@ -428,20 +399,20 @@ public sealed class PublicSearchCacheTests
         var publications = new Publications(unusedDb, pages, NullLogger<Publications>.Instance, projection: projection, searchCache: searchCache);
 
         // 1. Prime cache hit on snap1
-        var v2G1 = await searchCache.SearchV2Async(publications, snap1, "alpha beacon", ArticleSearchSort.Relevance, 10, null, CancellationToken.None);
+        var v2G1 = await Search(snap1, "alpha beacon");
         var decodedG1 = Wire.DecodePublicSearchResult(v2G1);
         Assert.Equal(snap1.Generation, decodedG1.Generation);
         Assert.Equal([1], decodedG1.Items.Select(static i => i.Id));
 
         // Repeat serves from cache
-        var v2G1Hit = await searchCache.SearchV2Async(publications, snap1, "alpha beacon", ArticleSearchSort.Relevance, 10, null, CancellationToken.None);
+        var v2G1Hit = await Search(snap1, "alpha beacon");
         Assert.Same(v2G1, v2G1Hit);
         Assert.Equal(1, searchCache.SnapshotStats().Hits);
 
         // 2. Race on cached HIT when edit changes snapshot to snap2 (even before OnSnapshotChanged!)
         projection.Replace(snap2);
         await Assert.ThrowsAsync<PublicUnavailableException>(() =>
-            searchCache.SearchV2Async(publications, snap1, "alpha beacon", ArticleSearchSort.Relevance, 10, null, CancellationToken.None).AsTask());
+            Search(snap1, "alpha beacon").AsTask());
 
         // Notifying generation change evicts snap1 entries promptly
         searchCache.OnSnapshotChanged(snap2.Generation);
@@ -449,24 +420,24 @@ public sealed class PublicSearchCacheTests
         Assert.Equal(0, searchCache.SnapshotStats().RetainedBytes);
 
         // Query on snap2 reflects edited body ("gamma beacon")
-        var v2G2 = await searchCache.SearchV2Async(publications, snap2, "gamma beacon", ArticleSearchSort.Relevance, 10, null, CancellationToken.None);
+        var v2G2 = await Search(snap2, "gamma beacon");
         Assert.Equal([1], Wire.DecodePublicSearchResult(v2G2).Items.Select(static i => i.Id));
 
         // 3. Taxonomy rename -> old taxonomy query no longer served after snap3 replaces snap2
-        var oldTax = await searchCache.SearchV2Async(publications, snap2, "RustLang", ArticleSearchSort.Relevance, 10, null, CancellationToken.None);
+        var oldTax = await Search(snap2, "RustLang");
         Assert.Equal([1], Wire.DecodePublicSearchResult(oldTax).Items.Select(static i => i.Id));
         projection.Replace(snap3);
         searchCache.OnSnapshotChanged(snap3.Generation);
         Assert.Equal(0, searchCache.SnapshotStats().EntryCount);
-        var oldTaxAfterRename = await searchCache.SearchV2Async(publications, snap3, "RustLang", ArticleSearchSort.Relevance, 10, null, CancellationToken.None);
+        var oldTaxAfterRename = await Search(snap3, "RustLang");
         Assert.Empty(Wire.DecodePublicSearchResult(oldTaxAfterRename).Items);
-        var newTaxAfterRename = await searchCache.SearchV2Async(publications, snap3, "RenamedTag", ArticleSearchSort.Relevance, 10, null, CancellationToken.None);
+        var newTaxAfterRename = await Search(snap3, "RenamedTag");
         Assert.Equal([1], Wire.DecodePublicSearchResult(newTaxAfterRename).Items.Select(static i => i.Id));
 
         // 4. Race on IN-FLIGHT work during withdrawal (snap3 -> null -> snap4):
         // in-flight work is cancelled immediately and never cached or returned!
         Interlocked.Exchange(ref holdNext, 1);
-        var inFlightTask = searchCache.SearchV2Async(publications, snap3, "Cache Target Alpha", ArticleSearchSort.Relevance, 10, null, CancellationToken.None).AsTask();
+        var inFlightTask = Search(snap3, "Cache Target Alpha").AsTask();
         await computeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         projection.Replace(null);
@@ -477,26 +448,26 @@ public sealed class PublicSearchCacheTests
 
         projection.Replace(snap4);
         searchCache.OnSnapshotChanged(snap4.Generation);
-        var afterWithdraw = await searchCache.SearchV2Async(publications, snap4, "Cache Target Alpha", ArticleSearchSort.Relevance, 10, null, CancellationToken.None);
+        var afterWithdraw = await Search(snap4, "Cache Target Alpha");
         Assert.DoesNotContain(Wire.DecodePublicSearchResult(afterWithdraw).Items, item => item.Id == 1);
 
         // 5. Cursor freshness guard: advancing clock past MaxCursorReuseSeconds forces fresh cursor mint on same generation.
-        var page1 = await searchCache.SearchV2Async(publications, snap4, "Cache Target", ArticleSearchSort.Relevance, 1, null, CancellationToken.None);
-        var page1Repeat = await searchCache.SearchV2Async(publications, snap4, "Cache Target", ArticleSearchSort.Relevance, 1, null, CancellationToken.None);
+        var page1 = await Search(snap4, "Cache Target", size: 1);
+        var page1Repeat = await Search(snap4, "Cache Target", size: 1);
         Assert.Same(page1, page1Repeat); // cursorless (1 article total -> HasMore=false) still hits even after 6 min
-        var page2SetupSnap = new PublicSnapshot(5, articlesG1, new([], [], []), pages, listCursor, snap4, NullLogger.Instance, null, null, CancellationToken.None, searchCursor: searchCursor);
+        var page2SetupSnap = Snapshot(5, articlesG1, snap4);
         projection.Replace(page2SetupSnap);
         searchCache.OnSnapshotChanged(page2SetupSnap.Generation);
-        var withCursor1 = await searchCache.SearchV2Async(publications, page2SetupSnap, "Cache Target", ArticleSearchSort.Relevance, 1, null, CancellationToken.None);
+        var withCursor1 = await Search(page2SetupSnap, "Cache Target", size: 1);
         Assert.True(Wire.DecodePublicSearchResult(withCursor1).HasMore);
-        var withCursorHit = await searchCache.SearchV2Async(publications, page2SetupSnap, "Cache Target", ArticleSearchSort.Relevance, 1, null, CancellationToken.None);
+        var withCursorHit = await Search(page2SetupSnap, "Cache Target", size: 1);
         Assert.Same(withCursor1, withCursorHit);
         clock.Advance(TimeSpan.FromSeconds(PublicSearchCache.MaxCursorReuseSeconds + 1));
-        var withCursorRefreshed = await searchCache.SearchV2Async(publications, page2SetupSnap, "Cache Target", ArticleSearchSort.Relevance, 1, null, CancellationToken.None);
+        var withCursorRefreshed = await Search(page2SetupSnap, "Cache Target", size: 1);
         Assert.NotSame(withCursor1, withCursorRefreshed);
         // Fresh cursor decodes cleanly even after 6 minutes elapsed
         var refreshedCursor = Wire.DecodePublicSearchResult(withCursorRefreshed).NextCursor;
-        var page2 = await searchCache.SearchV2Async(publications, page2SetupSnap, "Cache Target", ArticleSearchSort.Relevance, 1, refreshedCursor, CancellationToken.None);
+        var page2 = await Search(page2SetupSnap, "Cache Target", size: 1, cursor: refreshedCursor);
         Assert.Single(Wire.DecodePublicSearchResult(page2).Items);
 
         // 6. Real Kestrel HTTP check: CurrentSearchFrame strips generation header and returns 503 if snapshot changes before commit;
@@ -540,6 +511,13 @@ public sealed class PublicSearchCacheTests
         {
             await app.StopAsync();
         }
+
+        PublicSnapshot Snapshot(long watermark, Article[] articles, PublicSnapshot? previous, long taxonomyEpoch = 0) =>
+            new(watermark, articles, new([], [], []), pages, listCursor, previous, NullLogger.Instance, null, null,
+                CancellationToken.None, taxonomyEpoch, searchCursor: searchCursor);
+
+        ValueTask<byte[]> Search(PublicSnapshot snapshot, string query, int size = 10, string? cursor = null) =>
+            searchCache.SearchV2Async(publications, snapshot, query, ArticleSearchSort.Relevance, size, cursor, CancellationToken.None);
     }
 
     private static SearchResultCacheKey MakeKey(
@@ -584,6 +562,25 @@ public sealed class PublicSearchCacheTests
             if (sw.Elapsed > timeout)
                 Assert.Fail("Condition was not satisfied before timeout.");
             await Task.Delay(5);
+        }
+    }
+
+    private sealed class PausedSearch(Func<CachedSearchPayload> payload)
+    {
+        private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _executions;
+
+        internal Task Started => _started.Task;
+        internal int Executions => Volatile.Read(ref _executions);
+        internal void Release() => _release.TrySetResult();
+
+        internal async ValueTask<CachedSearchPayload> Execute(CancellationToken ct)
+        {
+            Interlocked.Increment(ref _executions);
+            _started.TrySetResult();
+            await _release.Task.WaitAsync(ct);
+            return payload();
         }
     }
 

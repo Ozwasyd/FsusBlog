@@ -20,6 +20,7 @@ const enumWidths = {
 // validation remain record-owned. Reject invalid groups even when unused.
 const identifier = value => typeof value === 'string' && /^[A-Z][A-Za-z0-9]*$/.test(value);
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const knownIdentifier = (name, scope) => identifier(name) && Object.hasOwn(scope, name);
 
 export function compileSchema(schema) {
   const { header, frameTypes, routes, headers, limits, layouts, enums = {}, embeddedRecords = {}, records, fieldGroups } = schema;
@@ -31,16 +32,17 @@ export function compileSchema(schema) {
     ['WireHeaders', headers, true],
   ];
 
-  if (!object(enums)) throw new Error('Invalid enums');
-  if (!object(embeddedRecords)) throw new Error('Invalid embeddedRecords');
-  if (!object(fieldGroups)) throw new Error('Invalid fieldGroups');
-  if (!object(records)) throw new Error('Invalid records');
+  for (const [section, value] of entries({ enums, embeddedRecords, fieldGroups, records }))
+    if (!object(value)) throw new Error(`Invalid ${section}`);
 
   const typeNames = new Set();
-  for (const [name, definition] of entries(enums)) {
-    if (!identifier(name)) throw new Error(`Invalid enum name: ${name}`);
+  function registerType(name, kind) {
+    if (!identifier(name)) throw new Error(`Invalid ${kind} name: ${name}`);
     if (typeNames.has(name)) throw new Error(`Duplicate type name: ${name}`);
     typeNames.add(name);
+  }
+  for (const [name, definition] of entries(enums)) {
+    registerType(name, 'enum');
     if (!object(definition) || Object.keys(definition).length !== 2 ||
         typeof definition.type !== 'string' || !Object.hasOwn(enumWidths, definition.type) ||
         !object(definition.values) || entries(definition.values).length === 0)
@@ -55,9 +57,7 @@ export function compileSchema(schema) {
   }
 
   for (const [name, record] of entries(embeddedRecords)) {
-    if (!identifier(name)) throw new Error(`Invalid embedded record name: ${name}`);
-    if (typeNames.has(name)) throw new Error(`Duplicate type name: ${name}`);
-    typeNames.add(name);
+    registerType(name, 'embedded record');
     if (!object(record) || Object.keys(record).length !== 1 || !Object.hasOwn(record, 'fields'))
       throw new Error(`Invalid embedded record definition: ${name}`);
   }
@@ -73,17 +73,16 @@ export function compileSchema(schema) {
       if (Object.hasOwn(primitive, type)) {
         const bounded = type === 'text' || type === 'i32s';
         if (field.length !== (bounded ? 3 : 2) ||
-            (bounded && (!identifier(arg1) || !Object.hasOwn(limits, arg1))))
+            (bounded && !knownIdentifier(arg1, limits)))
           throw new Error(`Invalid field type or bound: ${owner}.${name}`);
       } else if (type === 'enum') {
-        if (field.length !== 3 || !identifier(arg1) || !Object.hasOwn(enums, arg1))
+        if (field.length !== 3 || !knownIdentifier(arg1, enums))
           throw new Error(`Invalid enum field: ${owner}.${name}`);
       } else if (type === 'record') {
-        if (field.length !== 3 || !identifier(arg1) || !Object.hasOwn(embeddedRecords, arg1))
+        if (field.length !== 3 || !knownIdentifier(arg1, embeddedRecords))
           throw new Error(`Invalid embedded record field: ${owner}.${name}`);
       } else if (type === 'list') {
-        if (field.length !== 4 || !identifier(arg1) || !Object.hasOwn(embeddedRecords, arg1) ||
-            !identifier(arg2) || !Object.hasOwn(limits, arg2))
+        if (field.length !== 4 || !knownIdentifier(arg1, embeddedRecords) || !knownIdentifier(arg2, limits))
           throw new Error(`Invalid list field: ${owner}.${name}`);
       } else {
         throw new Error(`Invalid field: ${owner}`);
@@ -139,9 +138,7 @@ export function compileSchema(schema) {
   for (const name of embeddedMap.keys()) visitEmbedded(name);
 
   const methods = entries(records).map(([name, record]) => {
-    if (!identifier(name)) throw new Error(`Invalid record name: ${name}`);
-    if (typeNames.has(name)) throw new Error(`Duplicate type name: ${name}`);
-    typeNames.add(name);
+    registerType(name, 'record');
     if (!object(record)) throw new Error(`Invalid record: ${name}`);
     const frame = record.frame ?? name;
     if (typeof frame !== 'string' || !Object.hasOwn(frameTypes, frame))
@@ -158,13 +155,11 @@ export function compileSchema(schema) {
   }
 
   function csWrite(target, field) {
-    const [name, type, arg1, arg2] = field;
-    if (Object.hasOwn(primitive, type))
-      return `writer.${primitive[type][1]}(${target}.${name}${arg1 ? `, ${arg1}` : ''});`;
+    const call = csFluent(target, field);
+    if (call) return `writer${call};`;
+    const [name, type, arg1] = field;
     if (type === 'enum' || type === 'record')
       return `Write${arg1}(writer, ${target}.${name});`;
-    if (type === 'list')
-      return `writer.List(${target}.${name}, ${arg2}, Write${arg1});`;
     throw new Error(`Unsupported field type: ${type}`);
   }
 
@@ -201,9 +196,12 @@ export function compileSchema(schema) {
     throw new Error(`Unsupported field type: ${type}`);
   }
 
+  const frameMembers = () => entries(frameTypes).map(([name, value]) => `    ${name} = ${value},`);
+  const csRecord = (name, fields) =>
+    `public sealed record ${name}(${fields.map(field => `${csFieldType(field)} ${field[0]}`).join(', ')});`;
   const cs = [notice, 'using static FsusBlog.V2.Contracts.WireLimits;', '', 'namespace FsusBlog.V2.Contracts;', '',
     'public enum FrameType : ushort', '{',
-    ...entries(frameTypes).map(([n, v]) => `    ${n} = ${v},`), '}', '',
+    ...frameMembers(), '}', '',
     ...entries(enums).flatMap(([name, { type, values }]) => [
       `public enum ${name} : ${enumWidths[type].csType}`, '{',
       ...entries(values).map(([member, value]) => `    ${member} = ${value},`), '}', '',
@@ -213,10 +211,8 @@ export function compileSchema(schema) {
       ...entries(values).map(([n, v]) => `    public const ${strings ? 'string' : 'int'} ${n} = ${literal(v, strings)};`),
       '}', '',
     ]),
-    ...embeddedOrder.map(([name, fields]) =>
-      `public sealed record ${name}(${fields.map(field => `${csFieldType(field)} ${field[0]}`).join(', ')});`),
-    ...methods.map(([name, { fields }]) =>
-      `public sealed record ${name}(${fields.map(field => `${csFieldType(field)} ${field[0]}`).join(', ')});`),
+    ...embeddedOrder.map(([name, fields]) => csRecord(name, fields)),
+    ...methods.map(([name, { fields }]) => csRecord(name, fields)),
     '', 'public static partial class Wire', '{',
     ...entries(enums).flatMap(([name, { type, values }]) => {
       const { csType, csWrite: writeMethod, csRead: readMethod } = enumWidths[type];
@@ -319,7 +315,7 @@ export function compileSchema(schema) {
       '}', '',
     ]),
     'enum class FrameType : uint16_t {',
-    ...entries(frameTypes).map(([n, v]) => `    ${n} = ${v},`), '};', '',
+    ...frameMembers(), '};', '',
     'namespace detail {',
     'struct FrameRange { uint16_t first, last; };',
     'inline constexpr FrameRange frameRanges[] = {',

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { t } from '../siteLocale'
+import { t, type MessageKey } from '../siteLocale'
 import { onScopeDispose, ref, watch } from 'vue'
 import { ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import { exportArticleRevision, type ArticleExportFormat } from '../../../Contracts/markdown-export'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential } from '../authorSession'
+import { downloadExport, exportFormatLabels } from './articleExport'
 
 const props = withDefaults(defineProps<{
   article: number
@@ -22,7 +23,17 @@ const props = withDefaults(defineProps<{
 })
 const failure = ref('')
 const loading = ref(false)
-const formatLabels: Record<ArticleExportFormat, string> = { md: 'Markdown', docx: 'Word', html: 'HTML', epub: 'EPUB', pdf: 'PDF' }
+const invalidInput: Partial<Record<ArticleExportFormat, MessageKey>> = {
+  html: 'author.markdownExportControl.offline.html.requires.basic.text.markdown.without.links.images',
+  epub: 'author.markdownExportControl.epub.requires.a.title.and.basic.text.markdown.without',
+  pdf: 'author.markdownExportControl.pdf.requires.basic.text.markdown.and.supported.characters.within',
+}
+const invalidAttachment: Partial<Record<ArticleExportFormat, MessageKey>> = {
+  html: 'author.markdownExportControl.use.basic.text.markdown.and.images.totaling.up.to',
+  epub: 'author.markdownExportControl.use.a.title.basic.text.markdown.and.images.totaling',
+  docx: 'author.markdownExportControl.use.png.or.jpeg.images.totaling.up.to.512',
+  pdf: 'author.markdownExportControl.use.supported.text.and.saved.images.totaling.up.to',
+}
 const pdfAvailable = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-pdf-export"]')?.content === '1'
 let request: AbortController | undefined
 
@@ -48,36 +59,18 @@ async function download() {
     if (controller.signal.aborted || epoch !== identityEpoch.value || session.expiresAt <= Date.now() ||
         !currentSession.value?.canAuthor || props.disabled || article !== props.article ||
         revision !== props.revision || selected !== props.selected || format !== props.format || attachment !== props.attachment) return
-    const url = URL.createObjectURL(data)
-    try {
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `article.${format}`
-      link.click()
-    } finally {
-      // Let the browser begin reading before releasing the attachment URL.
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    }
+    downloadExport(data, `article.${format}`)
   } catch (error) {
     if (controller.signal.aborted || epoch !== identityEpoch.value) return
     if (error instanceof ApiError && error.status === 401 && session.siteSessionId)
       await recheckCredential(session.siteSessionId, controller.signal)
     else if (error instanceof ApiError && error.status === 409) failure.value = t('author.markdownExportControl.load.the.current.draft.before.exporting')
     else if (error instanceof ApiError && [403, 404].includes(error.status)) failure.value = t('author.markdownExportControl.this.revision.is.unavailable')
-    else if (format === 'html' && attachment && error instanceof ApiError && error.status === 400)
-      failure.value = t('author.markdownExportControl.use.basic.text.markdown.and.images.totaling.up.to')
-    else if (format === 'html' && error instanceof ApiError && error.status === 400)
-      failure.value = t('author.markdownExportControl.offline.html.requires.basic.text.markdown.without.links.images')
-    else if (format === 'epub' && attachment && error instanceof ApiError && error.status === 400)
-      failure.value = t('author.markdownExportControl.use.a.title.basic.text.markdown.and.images.totaling')
-    else if (format === 'epub' && error instanceof ApiError && error.status === 400)
-      failure.value = t('author.markdownExportControl.epub.requires.a.title.and.basic.text.markdown.without')
-    else if (format === 'docx' && attachment && error instanceof ApiError && error.status === 400)
-      failure.value = t('author.markdownExportControl.use.png.or.jpeg.images.totaling.up.to.512')
-    else if (format === 'pdf' && error instanceof ApiError && error.status === 400)
-      failure.value = attachment ? t('author.markdownExportControl.use.supported.text.and.saved.images.totaling.up.to') :
-        t('author.markdownExportControl.pdf.requires.basic.text.markdown.and.supported.characters.within')
-    else failure.value = t('author.markdownExportControl.download.failed', { format: formatLabels[format] })
+    else {
+      const key = error instanceof ApiError && error.status === 400
+        ? (attachment ? invalidAttachment : invalidInput)[format] : undefined
+      failure.value = key ? t(key) : t('author.markdownExportControl.download.failed', { format: exportFormatLabels[format] })
+    }
   } finally {
     if (request === controller) {
       request = undefined
@@ -95,7 +88,7 @@ onScopeDispose(reset)
     <ElButton class="markdown-export-button" native-type="button" :size="size" :loading="loading" :disabled="disabled || loading" @click="download">
       {{ t('author.markdownExportControl.download', {
         p0: t(selected === revision ? 'author.markdownExportControl.scopeSaved' : 'author.markdownExportControl.scopeRevision'),
-        p1: formatLabels[format],
+        p1: exportFormatLabels[format],
         p2: attachment?.includes(',')
           ? t('author.markdownExportControl.withImages')
           : attachment
