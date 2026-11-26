@@ -38,6 +38,7 @@ const moreTrigger = ref<ComponentPublicInstance & { ref?: HTMLButtonElement }>()
 const dialogArticleInput = ref<InstanceType<typeof ElInput>>()
 const workspaceDialogOpen = ref(false)
 let workspaceDialogFocus: (() => void) | undefined
+let workspaceDialogGeneration = 0
 const explicitTabStrip = ref(false)
 const compactViewport = ref(false)
 const paneRefs = new Map<number, InstanceType<typeof WorkspaceSourcePane>>()
@@ -100,7 +101,11 @@ const cannotPinActiveTab = computed(() => {
   return !current || !canSwitch.value || current.risk === 'blocked' || (current.mode === 'pinned' && (current.articleId === 0 || current.risk !== 'clean'))
 })
 
-watch(identityEpoch, () => { workspaceDialogFocus = undefined; workspaceDialogOpen.value = explicitTabStrip.value = false })
+watch(identityEpoch, () => {
+  workspaceDialogGeneration++
+  workspaceDialogFocus = undefined
+  workspaceDialogOpen.value = explicitTabStrip.value = false
+})
 watch(() => workspaceTabs.value.length, count => { if (count === 0) explicitTabStrip.value = false })
 
 function togglePinFromDialog() {
@@ -109,7 +114,11 @@ function togglePinFromDialog() {
   if (current.mode !== 'pinned') explicitTabStrip.value = true
   togglePin(current)
 }
-const openWorkspaceDialog = () => { workspaceDialogFocus = undefined; workspaceDialogOpen.value = true }
+function openWorkspaceDialog() {
+  workspaceDialogGeneration++
+  workspaceDialogFocus = undefined
+  workspaceDialogOpen.value = true
+}
 function finishWorkspaceDialogClose() {
   const focus = workspaceDialogFocus
   workspaceDialogFocus = undefined
@@ -130,7 +139,20 @@ async function runCloseGroupTabs(event: MouseEvent, onlyRight: boolean) {
   }
 }
 
-const runReopenRecent = (item: RecentlyClosed, event: MouseEvent) => { workspaceDialogOpen.value = false; void reopenRecent(item, event) }
+function runReopenRecent(item: RecentlyClosed, event: MouseEvent) {
+  const generation = workspaceDialogGeneration
+  let closed = false
+  let restore: (() => void) | undefined
+  workspaceDialogFocus = () => { closed = true; restore?.() }
+  workspaceDialogOpen.value = false
+  void reopenRecent(item, event, {
+    current: () => generation === workspaceDialogGeneration && !workspaceDialogOpen.value,
+    afterClose(focus) {
+      restore = focus
+      if (closed) focus()
+    },
+  })
+}
 function runCloseActiveTab() {
   const current = tab.value
   if (!current) return

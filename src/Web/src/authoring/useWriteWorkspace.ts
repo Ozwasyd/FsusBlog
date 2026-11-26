@@ -96,7 +96,7 @@ export function useWriteWorkspace() {
   const publicBase = publicOriginBase()
   const publishedPath = computed(() => state.original?.published ? `${publicBase}/article/${state.original.id}` : '')
 
-  let deferredFocus: Readonly<{ sessionId: number; epoch: number; pane: HTMLElement }> | undefined
+  let deferredFocus: Readonly<{ sessionId: number; epoch: number; pane: HTMLElement; current?: () => boolean }> | undefined
 
   watch([currentSession, identityEpoch], ([session, epoch]) => controller.syncIdentity(session, epoch), { immediate: true, flush: 'sync' })
   watch([identityEpoch, () => currentSession.value?.canAuthor], ([epoch, author]) => {
@@ -131,9 +131,10 @@ export function useWriteWorkspace() {
   onMounted(() => { void controller.mountSessionCheck(preloadedAuth); toggleListeners('addEventListener') })
   onUnmounted(() => { controller.dispose(); unsubscribeController(); toggleListeners('removeEventListener') })
 
-  async function focusSource(target: WorkspaceTab, epoch: number): Promise<void> {
+  async function focusSource(target: WorkspaceTab, epoch: number, whenFocusLost?: () => boolean): Promise<void> {
     await nextTick()
     if (epoch !== identityEpoch.value || state.tab?.sessionId !== target.sessionId || !editable.value) return
+    if (whenFocusLost && (document.activeElement !== document.body || !whenFocusLost())) return
     if (!recoveryBlocked.value && !pending.value && !metadataDirty.value) {
       document.getElementById('article-body')?.focus({ preventScroll: true })
       return
@@ -141,7 +142,7 @@ export function useWriteWorkspace() {
     const pane = document.getElementById(`workspace-source-${target.sessionId}`)
     if (pane) {
       pane.focus({ preventScroll: true })
-      deferredFocus = { sessionId: target.sessionId, epoch, pane }
+      deferredFocus = { sessionId: target.sessionId, epoch, pane, current: whenFocusLost }
     }
   }
 
@@ -156,7 +157,8 @@ export function useWriteWorkspace() {
     await nextTick()
     if (deferredFocus !== request) return
     deferredFocus = undefined
-    if (document.activeElement === request.pane && state.tab?.sessionId === request.sessionId && editable.value) {
+    if (document.activeElement === request.pane && state.tab?.sessionId === request.sessionId &&
+        editable.value && request.current?.() !== false) {
       document.getElementById('article-body')?.focus({ preventScroll: true })
     }
   })
@@ -168,13 +170,20 @@ export function useWriteWorkspace() {
     await focusSource(target, epoch)
   }
 
-  async function reopenRecent(item: RecentlyClosed, event: MouseEvent): Promise<void> {
+  async function reopenRecent(item: RecentlyClosed, event: MouseEvent,
+    dialog?: Readonly<{ afterClose: (focus: () => void) => void; current: () => boolean }>): Promise<void> {
     const opener = event.currentTarget
     const current = controller.registry.activeTab
     const epoch = identityEpoch.value
+    const path = route.path
     if (await controller.navigateTo(item.articleId, item) || !current || !(opener instanceof HTMLElement)) return
-    await nextTick()
-    if (!opener.isConnected && document.activeElement === document.body) await focusSource(current, epoch)
+    if (controller.registry.recentlyClosed.some(entry => entry.articleId === item.articleId)) return
+    const restore = () => {
+      void focusSource(current, epoch, () => !controller.lifetime.signal.aborted && route.path === path &&
+        dialog?.current() !== false && !opener.isConnected)
+    }
+    if (dialog) dialog.afterClose(restore)
+    else restore()
   }
 
   function activateQuickResult(articleId: number, revision: bigint, current: () => boolean, targetGroup?: WorkspaceGroup) {
