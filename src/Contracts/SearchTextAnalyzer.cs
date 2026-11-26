@@ -139,12 +139,16 @@ public static class SearchTextAnalyzer
     {
         const ulong offsetBasis = 14695981039346656037UL;
         const ulong prime = 1099511628211UL;
-        var byteLen = Utf8.GetByteCount(term);
+        // A UTF-16 unit needs at most three UTF-8 bytes, so this path uses at most 384 stack bytes.
+        var shortTerm = term.Length <= 128;
+        var capacity = shortTerm ? term.Length * 3 : Utf8.GetByteCount(term);
         byte[]? pooled = null;
-        Span<byte> buf = byteLen <= 256 ? stackalloc byte[byteLen] : (pooled = ArrayPool<byte>.Shared.Rent(byteLen)).AsSpan(0, byteLen);
+        Span<byte> buf = shortTerm || capacity <= 256
+            ? stackalloc byte[capacity]
+            : (pooled = ArrayPool<byte>.Shared.Rent(capacity)).AsSpan(0, capacity);
         try
         {
-            Utf8.GetBytes(term, buf);
+            buf = buf[..Utf8.GetBytes(term, buf)];
             var h64 = offsetBasis;
             for (var i = 0; i < buf.Length; i++)
             {

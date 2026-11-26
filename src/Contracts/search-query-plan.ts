@@ -1,8 +1,6 @@
 import { WireLimits as Limit } from './wire.generated.ts';
 import {
   analyzeText,
-  hashTerm32,
-  hashTerm64,
   isStrictExactIdentifier,
   normalizeWithOffsets,
   SEARCH_ANALYZER_VERSION,
@@ -132,53 +130,25 @@ function splitQuotedSegments(text: string): { text: string; isQuoted: boolean }[
   return result;
 }
 
-function makeStep(
-  canonicalTerm: string,
-  exactFormTerm: string,
-  differsFromExactForm: boolean,
-  relativeOffset: number,
-  width: number,
-  canonicalHash32: number,
-  exactFormHash32: number,
-  isStopword: boolean,
-): SearchConceptStep {
-  return {
-    canonicalTerm,
-    canonicalKey: hashTerm64(canonicalTerm),
-    exactFormTerm,
-    exactFormKey: hashTerm64(exactFormTerm),
-    differsFromExactForm,
-    relativeOffset,
-    width,
-    canonicalHash32,
-    exactFormHash32,
-    isStopword,
-  };
-}
-
-function readPairedForm(tokens: readonly SearchToken[], cursor: { i: number }) {
-  const primary = tokens[cursor.i++];
-  const exactTerm = primary.term;
-  const exactHash32 = primary.hash32;
-  if (cursor.i < tokens.length &&
-      tokens[cursor.i].kind === 'scriptAlias' &&
-      tokens[cursor.i].position === primary.position &&
-      tokens[cursor.i].width === primary.width) {
-    const alias = tokens[cursor.i++];
-    return {
-      canonicalTerm: alias.term,
-      exactTerm,
-      differs: alias.term !== exactTerm,
-      canonHash32: alias.hash32,
-      exactHash32,
-    };
+function readStep(tokens: readonly SearchToken[], cursor: { i: number }, relativeOffset = 0): SearchConceptStep {
+  const exact = tokens[cursor.i++];
+  let canonical = exact;
+  const next = tokens[cursor.i];
+  if (next?.kind === 'scriptAlias' && next.position === exact.position && next.width === exact.width) {
+    canonical = next;
+    cursor.i++;
   }
   return {
-    canonicalTerm: exactTerm,
-    exactTerm,
-    differs: false,
-    canonHash32: exactHash32,
-    exactHash32,
+    canonicalTerm: canonical.term,
+    canonicalKey: canonical.key,
+    exactFormTerm: exact.term,
+    exactFormKey: exact.key,
+    differsFromExactForm: canonical.term !== exact.term,
+    relativeOffset,
+    width: exact.width,
+    canonicalHash32: canonical.hash32,
+    exactFormHash32: exact.hash32,
+    isStopword: exact.isStopword,
   };
 }
 
@@ -245,18 +215,14 @@ export function planSearchQuery(rawQuery: string): SearchQueryPlan {
         continue;
       }
 
-      const { canonicalTerm, exactTerm, differs, canonHash32, exactHash32 } = readPairedForm(tokens, cursor);
+      const step = readStep(tokens, cursor);
 
       // 1. Pure-letter hyphenated compound
       if (tok.kind === 'exact' && !isStrictExactIdentifier(tok.term) && tok.term.includes('-') &&
           cursor.i < tokens.length && tokens[cursor.i].kind === 'subword' && tokens[cursor.i].position === tok.position) {
-        const steps: SearchConceptStep[] = [
-          makeStep(canonicalTerm, exactTerm, differs, 0, tok.width, canonHash32, exactHash32, tok.isStopword),
-        ];
+        const steps = [step];
         while (cursor.i < tokens.length && tokens[cursor.i].kind === 'subword' && tokens[cursor.i].position === tok.position) {
-          const sub = tokens[cursor.i];
-          const p = readPairedForm(tokens, cursor);
-          steps.push(makeStep(p.canonicalTerm, p.exactTerm, p.differs, 0, sub.width, p.canonHash32, p.exactHash32, sub.isStopword));
+          steps.push(readStep(tokens, cursor));
         }
         allConcepts.push({
           index: allConcepts.length,
@@ -267,25 +233,21 @@ export function planSearchQuery(rawQuery: string): SearchQueryPlan {
           isStopword: tok.isStopword,
           queryPosition: tok.position,
           queryWidth: tok.width,
-          identityKey: `hyphen:${canonicalTerm}`,
+          identityKey: `hyphen:${step.canonicalTerm}`,
         });
-        if (phraseSteps) phraseSteps.push({ ...steps[0], relativeOffset: tok.position - segStartPos });
-        if (!tok.isStopword) orderedSequence.push({ ...steps[0], relativeOffset: tok.position });
+        if (phraseSteps) phraseSteps.push({ ...step, relativeOffset: tok.position - segStartPos });
+        if (!tok.isStopword) orderedSequence.push({ ...step, relativeOffset: tok.position });
         continue;
       }
 
       // 2. Contiguous CJK bigram sequence
       if (tok.kind === 'cjkBigram') {
         const seqStartPos = tok.position;
-        const steps: SearchConceptStep[] = [
-          makeStep(canonicalTerm, exactTerm, differs, 0, tok.width, canonHash32, exactHash32, tok.isStopword),
-        ];
+        const steps = [step];
         let lastPos = tok.position;
         while (cursor.i < tokens.length && tokens[cursor.i].kind === 'cjkBigram' && tokens[cursor.i].position === lastPos + 1) {
-          const next = tokens[cursor.i];
-          const p = readPairedForm(tokens, cursor);
-          steps.push(makeStep(p.canonicalTerm, p.exactTerm, p.differs, next.position - seqStartPos, next.width, p.canonHash32, p.exactHash32, next.isStopword));
-          lastPos = next.position;
+          lastPos = tokens[cursor.i].position;
+          steps.push(readStep(tokens, cursor, lastPos - seqStartPos));
         }
         if (steps.length >= 2) {
           allConcepts.push({
@@ -304,20 +266,19 @@ export function planSearchQuery(rawQuery: string): SearchQueryPlan {
           }
           for (const st of steps) orderedSequence.push({ ...st, relativeOffset: seqStartPos + st.relativeOffset });
         } else {
-          const st = steps[0];
           allConcepts.push({
             index: allConcepts.length,
             kind: 'term',
-            steps: [st],
+            steps: [step],
             shortAsciiPrefix: null,
             isStrictIdentifier: false,
-            isStopword: st.isStopword,
+            isStopword: step.isStopword,
             queryPosition: seqStartPos,
             queryWidth: tok.width,
-            identityKey: `term:${st.canonicalTerm}`,
+            identityKey: `term:${step.canonicalTerm}`,
           });
-          if (phraseSteps) phraseSteps.push({ ...st, relativeOffset: seqStartPos - segStartPos });
-          if (!st.isStopword) orderedSequence.push({ ...st, relativeOffset: seqStartPos });
+          if (phraseSteps) phraseSteps.push({ ...step, relativeOffset: seqStartPos - segStartPos });
+          if (!step.isStopword) orderedSequence.push({ ...step, relativeOffset: seqStartPos });
         }
         continue;
       }
@@ -326,8 +287,7 @@ export function planSearchQuery(rawQuery: string): SearchQueryPlan {
       const isStrict = isStrictExactIdentifier(tok.term);
       if (isStrict) hasStrictIdentifier = true;
       const shortAsciiPrefix = !isStrict && shortPrefixSet && shortPrefixSet.has(tok.term) ? tok.term : null;
-      const step = makeStep(canonicalTerm, exactTerm, differs, 0, tok.width, canonHash32, exactHash32, tok.isStopword);
-      const conceptKey = `${isStrict ? 'strict' : 'term'}:${canonicalTerm}${shortAsciiPrefix ? ':p' : ''}`;
+      const conceptKey = `${isStrict ? 'strict' : 'term'}:${step.canonicalTerm}${shortAsciiPrefix ? ':p' : ''}`;
       allConcepts.push({
         index: allConcepts.length,
         kind: 'term',
@@ -355,16 +315,11 @@ export function planSearchQuery(rawQuery: string): SearchQueryPlan {
   if (allConcepts.length === 0) return emptyPlan(normalized);
 
   const deduped: SearchConcept[] = [];
-  const seenIds = new Map<string, number>();
+  // Strict identifiers have their own identity prefix, so a duplicate keeps the first concept.
+  const seenIds = new Set<string>();
   for (const concept of allConcepts) {
-    const existingIdx = seenIds.get(concept.identityKey);
-    if (existingIdx !== undefined) {
-      if (concept.isStrictIdentifier && !deduped[existingIdx].isStrictIdentifier) {
-        deduped[existingIdx] = { ...deduped[existingIdx], isStrictIdentifier: true };
-      }
-      continue;
-    }
-    seenIds.set(concept.identityKey, deduped.length);
+    if (seenIds.has(concept.identityKey)) continue;
+    seenIds.add(concept.identityKey);
     deduped.push({ ...concept, index: deduped.length });
   }
 

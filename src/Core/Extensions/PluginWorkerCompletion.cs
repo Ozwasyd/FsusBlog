@@ -56,13 +56,8 @@ internal static class PluginWorkerCompletion
     internal static async Task<byte[]> ReadAsync(Stream stream, int limit, CancellationToken ct)
     {
         var data = new byte[limit + 1];
-        var size = 0;
-        while (size < data.Length)
-        {
-            var read = await stream.ReadAsync(data.AsMemory(size), ct);
-            if (read == 0) return data[..size];
-            size += read;
-        }
+        var size = await stream.ReadAtLeastAsync(data, data.Length, throwOnEndOfStream: false, ct);
+        if (size < data.Length) return data[..size];
         throw new ExtensionRejectedException("plugin-io-limit");
     }
 }

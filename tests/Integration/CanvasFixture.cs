@@ -45,11 +45,8 @@ internal sealed class CanvasFixture(ScratchDatabase database, CancellationToken 
     internal Task<ArticleState> Publish(string token, ArticleState source) =>
         Command(token, ArticleAction.Publish, new(source.Id, source.Revision, Guid.NewGuid(), "", ""));
 
-    internal async Task<ArticleState> Command(string token, ArticleAction action, Edit edit)
-    {
-        edit = Publishing.Validate(action, edit);
-        return (await _store.WithSession(token, true, (db, tx, actor) => Store.Execute(db, tx, actor, action, edit, Token), Token)).Article;
-    }
+    internal async Task<ArticleState> Command(string token, ArticleAction action, Edit edit) =>
+        await PublicationFixture.EditDraft(_store, token, action, Publishing.Validate(action, edit), Token);
 
     internal Task<CanvasGraphReceipt> WriteGraph(string token, CanvasGraphCommand command)
     {
@@ -57,8 +54,13 @@ internal sealed class CanvasFixture(ScratchDatabase database, CancellationToken 
         return WithGraph(token, graph => graph.Write(command, digest, Token));
     }
 
-    internal static CanvasGraphCommand GraphCommand(Guid document, long revision, CanvasGraphAction action) =>
-        new(document, Guid.NewGuid(), revision, action, "", null, []);
+    internal static CanvasGraphCommand GraphCommand(Guid document, long revision, CanvasGraphAction action,
+        string title = "", CanvasViewport? viewport = null, IReadOnlyList<CanvasChangeFrame>? changes = null) =>
+        new(document, Guid.NewGuid(), revision, action, title, viewport, changes ?? []);
+
+    internal static CanvasGraphCommand CreateGraph(Guid document, string title, CanvasViewport? viewport = null,
+        IReadOnlyList<CanvasChangeFrame>? changes = null) =>
+        GraphCommand(document, 0, CanvasGraphAction.Create, title, viewport, changes);
 
     internal static CanvasChangeFrame PutNode(Guid id, int kind, int? article = null, string? anchor = null,
         long? pinned = null, string? text = null, Guid[]? members = null) =>
