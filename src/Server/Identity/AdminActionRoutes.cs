@@ -108,21 +108,18 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
     }
 
     internal void StepUpPow<TIntent>(string begin, string complete, string powRoute, string execute,
-        int maximum, IntentDecoder<TIntent> decode, PowScope scope,
-        Func<HttpContext, string?, TIntent, CancellationToken, Task<byte[]>> beginStepUp,
-        Func<string?, PasskeyLoginRequest, CancellationToken, Task<byte[]>> completeStepUp,
-        Func<HttpContext, string?, TIntent, byte[], ScopedPow, CancellationToken, Task<byte[]>> issuePow,
+        int maximum, IntentDecoder<TIntent> decode, AdminProtectedChange<TIntent> protection,
         Func<HttpContext, string?, TIntent, byte[], string?, ScopedPow, CancellationToken, Task>? apply = null)
     {
         App.MapPost(begin, async (HttpContext ctx, CancellationToken ct) =>
-            Frame(await beginStepUp(ctx, Session(ctx), decode(await Read(ctx, maximum, ct)), ct))).RequireRateLimiting(PasskeyLimit);
-        Complete(complete, completeStepUp);
+            Frame(await protection.Begin(ctx, Session(ctx), decode(await Read(ctx, maximum, ct)), ct))).RequireRateLimiting(PasskeyLimit);
+        Complete(complete, protection.Complete);
         App.MapCommandPost(powRoute, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>
             {
                 var frame = await Read(ctx, maximum, ct);
-                return await issuePow(ctx, Session(ctx), decode(frame), frame, pow, ct);
-            }, scope));
+                return await protection.Issue(ctx, Session(ctx), decode(frame), frame, pow, ct);
+            }, protection.Scope));
         if (apply is not null)
             App.MapCommandPost(execute, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
                 ScopedPow.Protect(ctx, async () =>
@@ -130,7 +127,7 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
                     var frame = await Read(ctx, maximum, ct);
                     await apply(ctx, Session(ctx), decode(frame), frame, Proof(ctx), pow, ct);
                     return Wire.EncodeEmptySuccess();
-                }, scope));
+                }, protection.Scope));
     }
 
     internal static void RequireOrigin(HttpContext ctx, string authority)
@@ -169,4 +166,31 @@ internal sealed class AdminActionRoutes(WebApplication app, string authority, st
         ServerHttp.ErrorFrame(ctx, StatusCodes.Status428PreconditionRequired, "MFA_PROOF_REQUIRED");
 
     internal static IResult Frame(byte[] frame) => ServerHttp.Frame(frame);
+}
+
+internal sealed class AdminProtectedChange<TIntent>(AdminSessionGate gate, Func<AdminStepUpService> stepUp,
+    AdminStepUpAction action, PowScope scope, Func<TIntent, byte[]> digest, Func<TIntent, string> context,
+    Func<HttpContext, TIntent, CancellationToken, Func<NpgsqlConnection, NpgsqlTransaction, Task>> prepare)
+{
+    internal PowScope Scope => scope;
+
+    internal Task<byte[]> Begin(HttpContext ctx, string? session, TIntent intent, CancellationToken ct)
+    {
+        var check = prepare(ctx, intent, ct);
+        return stepUp().BeginStepUp(session, digest(intent), (db, tx, _) => check(db, tx), ct, action);
+    }
+
+    internal Task<byte[]> Complete(string? session, PasskeyLoginRequest assertion, CancellationToken ct) =>
+        stepUp().CompleteStepUp(session, assertion, action, ct);
+
+    internal Task<byte[]> Issue(HttpContext ctx, string? session, TIntent intent, byte[] frame, ScopedPow pow, CancellationToken ct)
+    {
+        var check = prepare(ctx, intent, ct);
+        var powContext = context(intent);
+        return gate.WithLiveAdmin(session, async (db, tx, _) =>
+        {
+            await check(db, tx);
+            return PowWire.EncodeChallenge(pow.Issue(scope, powContext, session!, ScopedPow.Source(ctx), ScopedPow.ReadClientNonce(ctx), frame));
+        }, ct);
+    }
 }

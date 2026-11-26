@@ -106,14 +106,6 @@ internal sealed class AdminOperationsStore(AdminSessionGate gate)
 
 internal static class AdminProtectedChange
 {
-    internal static Task<byte[]> IssuePow(AdminSessionGate gate, string? session, PowScope scope, string context,
-        byte[] frame, ScopedPow pow, HttpContext ctx, Func<NpgsqlConnection, NpgsqlTransaction, Task> check, CancellationToken ct) =>
-        gate.WithLiveAdmin(session, async (db, tx, _) =>
-        {
-            await check(db, tx);
-            return PowWire.EncodeChallenge(pow.Issue(scope, context, session!, ScopedPow.Source(ctx), ScopedPow.ReadClientNonce(ctx), frame));
-        }, ct);
-
     internal static async Task Verify(AdminStepUpService stepUp, NpgsqlConnection db, NpgsqlTransaction tx, AdminLiveSession admin,
         string? session, string? proof, byte[] digest, AdminStepUpAction action, string proofMessage, ScopedPow pow, PowScope scope,
         string context, byte[] frame, HttpContext ctx, CancellationToken ct)
@@ -134,17 +126,13 @@ internal sealed class AdminSitePageStore(AdminSessionGate gate, AdminStepUpServi
     internal Task<AdminSitePageRevision> CurrentSitePage(string? session, SitePages pages, string slug, CancellationToken ct) =>
         gate.WithLiveAdmin(session, (db, tx, _) => SitePagePublicationStore.Read(db, tx, pages.EditorBaseline(slug), ct), ct);
 
-    internal Task<byte[]> BeginSitePageStepUp(string? session, SitePages pages, AdminSitePagePublish intent, CancellationToken ct) =>
-        RequireStepUp().BeginStepUp(session, SitePageIntentDigest(intent),
-            (db, tx, _) => CurrentSitePage(db, tx, pages, intent, ct), ct, AdminStepUpAction.PublishSitePage);
-
-    internal Task<byte[]> CompleteSitePageStepUp(string? session, PasskeyLoginRequest assertion, CancellationToken ct) =>
-        RequireStepUp().CompleteStepUp(session, assertion, AdminStepUpAction.PublishSitePage, ct);
-
-    internal Task<byte[]> IssueSitePagePow(string? session, SitePages pages, AdminSitePagePublish intent, byte[] frame,
-        ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        AdminProtectedChange.IssuePow(gate, session, PowScope.AdminSitePagePublish, intent.Slug, frame, pow, ctx,
-            (db, tx) => CurrentSitePage(db, tx, pages, intent, ct), ct);
+    internal AdminProtectedChange<AdminSitePagePublish> Protection() =>
+        new(gate, RequireStepUp, AdminStepUpAction.PublishSitePage, PowScope.AdminSitePagePublish, SitePageIntentDigest,
+            intent => intent.Slug, (ctx, intent, ct) =>
+            {
+                var pages = ctx.RequestServices.GetRequiredService<SitePages>();
+                return (db, tx) => CurrentSitePage(db, tx, pages, intent, ct);
+            });
 
     internal Task PublishSitePage(string? session, SitePages pages, AdminSitePagePublish intent, byte[] frame,
         string? proof, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
@@ -182,18 +170,9 @@ internal sealed class AdminSiteConfigStore(AdminSessionGate gate, AdminStepUpSer
         gate.WithLiveAdmin(session, async (db, tx, _) =>
             Wire.EncodeAdminSiteConfigState(config.ToAdminState(await SiteConfigOverrideStore.Read(db, tx, config, ct))), ct);
 
-    internal Task<byte[]> BeginSiteConfigStepUp(string? session, PublicSiteConfiguration config, AdminSiteConfigCommand command,
-        CancellationToken ct) =>
-        stepUp.BeginStepUp(session, CommandDigest(command),
-            (db, tx, _) => CheckSiteConfig(db, tx, config, command, ct), ct, AdminStepUpAction.UpdateSiteConfig);
-
-    internal Task<byte[]> CompleteSiteConfigStepUp(string? session, PasskeyLoginRequest assertion, CancellationToken ct) =>
-        stepUp.CompleteStepUp(session, assertion, AdminStepUpAction.UpdateSiteConfig, ct);
-
-    internal Task<byte[]> IssueSiteConfigPow(string? session, PublicSiteConfiguration config, AdminSiteConfigCommand command,
-        byte[] frame, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        AdminProtectedChange.IssuePow(gate, session, PowScope.AdminSiteConfig, SiteConfigPowScope, frame, pow, ctx,
-            (db, tx) => CheckSiteConfig(db, tx, config, command, ct), ct);
+    internal AdminProtectedChange<AdminSiteConfigCommand> Protection(PublicSiteConfiguration config) =>
+        new(gate, () => stepUp, AdminStepUpAction.UpdateSiteConfig, PowScope.AdminSiteConfig, CommandDigest,
+            _ => SiteConfigPowScope, (_, command, ct) => (db, tx) => CheckSiteConfig(db, tx, config, command, ct));
 
     internal Task SaveSiteConfig(string? session, PublicSiteConfiguration config, Publications publications,
         AdminSiteConfigCommand command, byte[] frame, string? proof, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
@@ -263,17 +242,9 @@ internal sealed class AdminAppearanceStore(AdminSessionGate gate, AdminStepUpSer
         gate.WithLiveAdmin(session, async (db, tx, _) =>
             Wire.EncodeAdminAppearanceHistory(await AppearanceActivationStore.History(db, tx, before, limit, ct), limit), ct);
 
-    internal Task<byte[]> BeginAppearanceStepUp(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, CancellationToken ct) =>
-        stepUp.BeginStepUp(session, AppearanceIntentDigest(command),
-            (db, tx, _) => CheckAppearance(db, tx, registry, command, ct), ct, AdminStepUpAction.ActivateAppearance);
-
-    internal Task<byte[]> CompleteAppearanceStepUp(string? session, PasskeyLoginRequest assertion, CancellationToken ct) =>
-        stepUp.CompleteStepUp(session, assertion, AdminStepUpAction.ActivateAppearance, ct);
-
-    internal Task<byte[]> IssueAppearancePow(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, byte[] frame,
-        ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
-        AdminProtectedChange.IssuePow(gate, session, PowScope.AdminAppearance, AppearancePowScope, frame, pow, ctx,
-            (db, tx) => CheckAppearance(db, tx, registry, command, ct), ct);
+    internal AdminProtectedChange<AdminAppearanceCommand> Protection(AppearanceRegistry registry) =>
+        new(gate, () => stepUp, AdminStepUpAction.ActivateAppearance, PowScope.AdminAppearance, AppearanceIntentDigest,
+            _ => AppearancePowScope, (_, command, ct) => (db, tx) => CheckAppearance(db, tx, registry, command, ct));
 
     internal Task ApplyAppearance(string? session, AppearanceRegistry registry, AdminAppearanceCommand command, byte[] frame,
         string? proof, ScopedPow pow, HttpContext ctx, CancellationToken ct) =>
