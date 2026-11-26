@@ -58,7 +58,7 @@ public sealed class CanvasPostgresTests
         await Post(WireRoutes.CanvasPreview + visualSelection, wrongSelection, BadRequest, owner.Token);
 
         var (document, from, to, visualEdge) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
-        var visualGraph = new CanvasGraphCommand(document, Guid.NewGuid(), 0, CanvasGraphAction.Create, "Visual plan", new(0, 0, 1000),
+        var visualGraph = CreateGraph(document, "Visual plan", new(0, 0, 1000),
         [
             PutNode(from, 0, host.Id),
             new CanvasChangeFrame.PutNode(new(to, 0, 16000, 0, 12000, 8000, target.Id)),
@@ -95,7 +95,7 @@ public sealed class CanvasPostgresTests
         var bad = await test.Save(other.Token, "Another private title", "Unrelated content");
         var (canvas, note, reference, edge) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         await using var server = await ServerProcess.Start(test.ConnectionString, test.Token);
-        var initial = new CanvasGraphCommand(canvas, Guid.NewGuid(), 0, CanvasGraphAction.Create, "Portable research", new(1310, -2150, 1200),
+        var initial = CreateGraph(canvas, "Portable research", new(1310, -2150, 1200),
         [
             new CanvasChangeFrame.PutNode(new(note, 3, 10, 95, 12000, 8000, Text: "Plain note 🐝")),
             new CanvasChangeFrame.PutNode(new(reference, 1, 13500, 0, 12000, 8000, from.Id, "block", from.Revision)),
@@ -208,7 +208,7 @@ public sealed class CanvasPostgresTests
 
         var (canvas, heading, pin, currentPin, article, crlfBlock) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         var (crlfArticle, ambiguous, hidden, mismatchedKind, wrong) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
-        var input = new CanvasGraphCommand(canvas, Guid.NewGuid(), 0, CanvasGraphAction.Create, "Owned Canvas", new(600, 120, 1000),
+        var input = CreateGraph(canvas, "Owned Canvas", new(600, 120, 1000),
         [
             PutNode(heading, 1, current.Id, "overview"), PutNode(pin, 2, current.Id, "detail", initial.Revision),
             PutNode(currentPin, 1, current.Id, "overview", current.Revision), PutNode(article, 0, current.Id),
@@ -307,7 +307,7 @@ public sealed class CanvasPostgresTests
         var foreign = await test.Save(other.Token, "Foreign source", "Foreign paragraph ^block");
         var canvas = Guid.NewGuid();
         var node = new CanvasNodeFrame(Guid.NewGuid(), 2, 0, 0, 12000, 8000, source.Id, Anchor: "block");
-        var created = await Write(new(canvas, Guid.NewGuid(), 0, CanvasGraphAction.Create, "Anchor history", null, [new CanvasChangeFrame.PutNode(node)]));
+        var created = await Write(CreateGraph(canvas, "Anchor history", changes: [new CanvasChangeFrame.PutNode(node)]));
         var pinned = node with { PinnedRevision = source.Revision };
         var pin = Edit(created.Revision, pinned);
         var pinnedReceipt = await Write(pin);
@@ -366,7 +366,7 @@ public sealed class CanvasPostgresTests
         await using var server = await ServerProcess.Start(test.ConnectionString, test.Token);
         var (id, from, to, note, group, edge, loop) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         const string title = "Planning";
-        var create = new CanvasGraphCommand(id, Guid.NewGuid(), 0, CanvasGraphAction.Create, title, new(600, -200, 1750),
+        var create = CreateGraph(id, title, new(600, -200, 1750),
         [
             PutNode(from, 0, source.Id), PutNode(to, 0, target.Id), PutNode(note, 3, text: "Private planning note"),
             PutNode(group, 4, text: "Drafts", members: [from, note]),

@@ -11,7 +11,7 @@ public sealed class CanvasHistoryPostgresTests
         var article = await test.Save("Source", "Exactly the same body.");
         var (document, articleNode, note, frame, edge) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         var originalViewport = new CanvasViewport(-70, 100, 1750);
-        var initial = await test.Write(new(document, Guid.NewGuid(), 0, CanvasGraphAction.Create, "Original", originalViewport,
+        var initial = await test.Write(CreateGraph(document, "Original", originalViewport,
         [
             PutNode(articleNode, 0, article: article.Id), PutNode(note, 3, text: "Private sketch 🐈"),
             PutNode(frame, 4, text: "Frame", members: [articleNode, note]),
@@ -21,10 +21,8 @@ public sealed class CanvasHistoryPostgresTests
         var (articleRows, outboxRows) = (await test.Base.TableCount("public.article_revision"), await test.Base.TableCount("public.blog_outbox"));
 
         var editViewport = new CanvasViewport(0, -25, 800);
-        var edited = await test.Write(GraphCommand(document, initial.Revision, CanvasGraphAction.Edit) with
-        {
-            Title = "After deletion", Viewport = editViewport, Changes = [new CanvasChangeFrame.DropNode(note)]
-        });
+        var edited = await test.Write(GraphCommand(document, initial.Revision, CanvasGraphAction.Edit,
+            "After deletion", editViewport, [new CanvasChangeFrame.DropNode(note)]));
         Assert.Equal((2L, 2, 0), (edited.Revision, edited.NodeCount, edited.EdgeCount));
         Assert.Equal(new[] { articleNode }, Assert.IsType<Guid[]>(await test.Scalar(
             "select member_ids from public.canvas_node where canvas_id=$1 and id=$2", document, frame)));
@@ -59,15 +57,10 @@ public sealed class CanvasHistoryPostgresTests
         await using var test = await OpenOwner();
         var article = await test.Save("Temporary reference", "Synthetic source.");
         var (document, note) = (Guid.NewGuid(), Guid.NewGuid());
-        var initial = await test.Write(GraphCommand(document, 0, CanvasGraphAction.Create) with
-        {
-            Title = "Unchanged", Changes = [PutNode(note, 3, text: "Original note")]
-        });
+        var initial = await test.Write(CreateGraph(document, "Unchanged", changes: [PutNode(note, 3, text: "Original note")]));
         Assert.True((await test.Base.Command(test.Token, ArticleAction.Delete, new(article.Id, article.Revision, Guid.NewGuid(), "", ""))).Deleted);
-        var edit = GraphCommand(document, initial.Revision, CanvasGraphAction.Edit) with
-        {
-            Title = "<invalid>", Changes = [PutNode(Guid.NewGuid(), 0, article: article.Id)]
-        };
+        var edit = GraphCommand(document, initial.Revision, CanvasGraphAction.Edit,
+            "<invalid>", changes: [PutNode(Guid.NewGuid(), 0, article: article.Id)]);
         var error = await Assert.ThrowsAsync<BusinessException>(() => test.Write(edit));
         Assert.Equal((Rejection.Invalid, "Enter a valid Canvas title."), (error.Rejection, error.Message));
         await Denied(Rejection.NotFound, test.Write(edit with { Title = "Valid title" }));
@@ -85,15 +78,14 @@ public sealed class CanvasHistoryPostgresTests
         await using var test = await OpenOwner();
         var (document, first, second) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
         var originalViewport = new CanvasViewport(-70, 100, 1750);
-        var initial = await test.Write(GraphCommand(document, 0, CanvasGraphAction.Create) with
-        {
-            Title = "Original", Viewport = originalViewport,
-            Changes = [PutNode(first, 3, text: "First 🐈"), PutNode(second, 3, text: "Second"),
-                new CanvasChangeFrame.PutEdge(new(Guid.NewGuid(), 0, first, second, 0, "Visual"))]
-        });
+        var initial = await test.Write(CreateGraph(document, "Original", originalViewport,
+        [
+            PutNode(first, 3, text: "First 🐈"), PutNode(second, 3, text: "Second"),
+            new CanvasChangeFrame.PutEdge(new(Guid.NewGuid(), 0, first, second, 0, "Visual"))
+        ]));
         var nodes = Assert.IsType<string>(await Snapshot("canvas_node"));
         var edges = Assert.IsType<string>(await Snapshot("canvas_edge"));
-        var edit = GraphCommand(document, initial.Revision, CanvasGraphAction.Edit) with { Title = "Metadata only", Viewport = new(50, -25, 800) };
+        var edit = GraphCommand(document, initial.Revision, CanvasGraphAction.Edit, "Metadata only", new(50, -25, 800));
         var edited = await test.Write(edit);
         await AssertState(edited, 2, edit.Title, edit.Viewport!.Value, false);
         var undo = GraphCommand(document, edited.Revision, CanvasGraphAction.Undo);
@@ -104,7 +96,7 @@ public sealed class CanvasHistoryPostgresTests
         await AssertState(redone, 4, edited.Title, edited.Viewport, false);
         Assert.Equal((edited, restored, redone), (await test.Write(edit), await test.Write(undo), await test.Write(redo)));
         var error = await Assert.ThrowsAsync<BusinessException>(() => test.Write(
-            GraphCommand(document, redone.Revision, CanvasGraphAction.Edit) with { Title = redone.Title, Viewport = redone.Viewport }));
+            GraphCommand(document, redone.Revision, CanvasGraphAction.Edit, redone.Title, redone.Viewport)));
         Assert.Equal((Rejection.Invalid, "Choose a Canvas change."), (error.Rejection, error.Message));
         await AssertState(redone, 4, edited.Title, edited.Viewport, false);
         Assert.Equal((3L, 1L), (await test.Base.CanvasCount("canvas_history_transition", document), await test.Base.CanvasCount("canvas_history_patch", document)));
@@ -129,13 +121,13 @@ public sealed class CanvasHistoryPostgresTests
     {
         await using var test = await OpenOwner();
         var document = Guid.NewGuid();
-        var start = await test.Write(GraphCommand(document, 0, CanvasGraphAction.Create) with { Title = "Start" });
-        var first = await test.Write(GraphCommand(document, start.Revision, CanvasGraphAction.Edit) with { Title = "First" });
-        var second = await test.Write(GraphCommand(document, first.Revision, CanvasGraphAction.Edit) with { Title = "Second" });
+        var start = await test.Write(CreateGraph(document, "Start"));
+        var first = await test.Write(GraphCommand(document, start.Revision, CanvasGraphAction.Edit, "First"));
+        var second = await test.Write(GraphCommand(document, first.Revision, CanvasGraphAction.Edit, "Second"));
         var undo = GraphCommand(document, second.Revision, CanvasGraphAction.Undo);
         var unrolled = await test.Write(undo);
         Assert.Equal("First", unrolled.Title);
-        var branch = await test.Write(GraphCommand(document, unrolled.Revision, CanvasGraphAction.Edit) with { Title = "Branch" });
+        var branch = await test.Write(GraphCommand(document, unrolled.Revision, CanvasGraphAction.Edit, "Branch"));
         Assert.Equal(new[] { second.Revision }, Assert.IsType<long[]>(await test.Scalar(
             "select discarded_redo from public.canvas_history_transition where canvas_id=$1 and revision=$2", document, branch.Revision)));
         Assert.Equal(0L, await test.Scalar("select count(*) from public.canvas_history_patch where canvas_id=$1 and edit_revision=$2", document, second.Revision));
@@ -162,14 +154,9 @@ public sealed class CanvasHistoryPostgresTests
     {
         await using var test = await OpenOwner();
         var (document, node) = (Guid.NewGuid(), Guid.NewGuid());
-        var start = await test.Write(GraphCommand(document, 0, CanvasGraphAction.Create) with
-        {
-            Title = "Start", Changes = [PutNode(node, 3, text: "original note")]
-        });
-        var changed = await test.Write(GraphCommand(document, start.Revision, CanvasGraphAction.Edit) with
-        {
-            Title = "Edited", Changes = [new CanvasChangeFrame.DropNode(node)]
-        });
+        var start = await test.Write(CreateGraph(document, "Start", changes: [PutNode(node, 3, text: "original note")]));
+        var changed = await test.Write(GraphCommand(document, start.Revision, CanvasGraphAction.Edit,
+            "Edited", changes: [new CanvasChangeFrame.DropNode(node)]));
         var undo = GraphCommand(document, changed.Revision, CanvasGraphAction.Undo);
         var good = Assert.IsType<byte[]>(await test.Scalar(
             "select payload from public.canvas_history_patch where canvas_id=$1 and edit_revision=$2", document, changed.Revision));
@@ -203,14 +190,9 @@ public sealed class CanvasHistoryPostgresTests
         await using var test = await OpenOwner();
         var article = await test.Save("Article", "Article source.");
         var (document, node) = (Guid.NewGuid(), Guid.NewGuid());
-        var created = await test.Write(GraphCommand(document, 0, CanvasGraphAction.Create) with
-        {
-            Title = "Reference", Changes = [PutNode(node, 0, article: article.Id)]
-        });
-        var removed = await test.Write(GraphCommand(document, created.Revision, CanvasGraphAction.Edit) with
-        {
-            Changes = [new CanvasChangeFrame.DropNode(node)]
-        });
+        var created = await test.Write(CreateGraph(document, "Reference", changes: [PutNode(node, 0, article: article.Id)]));
+        var removed = await test.Write(GraphCommand(document, created.Revision, CanvasGraphAction.Edit,
+            changes: [new CanvasChangeFrame.DropNode(node)]));
         Assert.True((await test.Base.Command(test.Token, ArticleAction.Delete, new(article.Id, article.Revision, Guid.NewGuid(), "", ""))).Deleted);
         var (articleRows, outboxRows) = (await test.Base.TableCount("public.article_revision"), await test.Base.TableCount("public.blog_outbox"));
         await Denied(Rejection.NotFound, test.Write(GraphCommand(document, removed.Revision, CanvasGraphAction.Undo)));
@@ -226,11 +208,11 @@ public sealed class CanvasHistoryPostgresTests
     {
         await using var test = await OpenOwner();
         var document = Guid.NewGuid();
-        var latest = await test.Write(GraphCommand(document, 0, CanvasGraphAction.Create) with { Title = "Start" });
-        var oldest = GraphCommand(document, latest.Revision, CanvasGraphAction.Edit) with { Title = "Edit 0" };
+        var latest = await test.Write(CreateGraph(document, "Start"));
+        var oldest = GraphCommand(document, latest.Revision, CanvasGraphAction.Edit, "Edit 0");
         var original = latest = await test.Write(oldest);
         for (int n = 1; n <= 100; n++)
-            latest = await test.Write(GraphCommand(document, latest.Revision, CanvasGraphAction.Edit) with { Title = $"Edit {n}" });
+            latest = await test.Write(GraphCommand(document, latest.Revision, CanvasGraphAction.Edit, $"Edit {n}"));
 
         Assert.Equal((100L, 3L), (await test.Base.CanvasCount("canvas_history_patch", document),
             await test.Scalar("select min(edit_revision) from public.canvas_history_patch where canvas_id=$1", document)));
