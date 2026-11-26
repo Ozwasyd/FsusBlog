@@ -10,11 +10,9 @@ public static class MfaWire
     public const string Regenerate = "mfa_recovery_regenerate";
     public const string Login = "login";
 
-    public static byte[] EncodeSetup(string seed, string uri, string issuer, string account)
-    {
-        var payload = WriteFields(MfaSetupStartBytes, 4, [seed, uri, issuer, account]);
-        return Aeds.Encode(FrameType.MfaSetupStart, payload);
-    }
+    public static byte[] EncodeSetup(string seed, string uri, string issuer, string account) =>
+        Aeds.Encode(FrameType.MfaSetupStart, PackedWireFields.Encode(MfaSetupStartBytes, sizeof(int),
+            [Utf8.GetBytes(seed), Utf8.GetBytes(uri), Utf8.GetBytes(issuer), Utf8.GetBytes(account)]));
 
     public static byte[] EncodeSetupVerified(IReadOnlyList<string> codes)
     {
@@ -64,24 +62,6 @@ public static class MfaWire
     {
         var fields = ReadFields(Aeds.Decode(frame, FrameType.MfaChallengeVerifyRequest), [64, 64, 6, 40]);
         return new(fields[0], fields[1], fields[2], fields[3]);
-    }
-
-    private static byte[] WriteFields(int size, int referenceOffset, string[] fields)
-    {
-        var values = fields.Select(Utf8.GetBytes).ToArray();
-        var length = values.Sum(value => value.Length);
-        var payload = new byte[size + 4 + length];
-        I32(payload.AsSpan(size), length);
-        var offset = 0;
-        for (var i = 0; i < values.Length; i++)
-        {
-            var point = referenceOffset + i * 8;
-            I32(payload.AsSpan(point), offset);
-            I32(payload.AsSpan(point + 4), values[i].Length);
-            values[i].CopyTo(payload, size + 4 + offset);
-            offset += values[i].Length;
-        }
-        return payload;
     }
 
     private static string[] ReadFields(ReadOnlySpan<byte> packet, int[] bounds)

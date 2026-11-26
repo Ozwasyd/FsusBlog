@@ -149,28 +149,13 @@ public static class PasskeyWire
         return result;
     }
 
-    private static byte[] Begin(int size, byte[] extra, int tokenOffset, string token, uint timeout, byte[][] fields, int? referenceCount = null)
+    private static byte[] Begin(int size, byte[] extra, int tokenOffset, string token, uint timeout, byte[][] fields, int referenceCount)
     {
         if (token.Length != 43 || !Base64UrlText(token)) throw new ArgumentException("Invalid passkey challenge token.", nameof(token));
-        var blobSize = fields.Sum(field => field.Length);
-        var payload = new byte[size + extra.Length + 4 + blobSize];
+        var payload = PackedWireFields.Encode(size + extra.Length, tokenOffset + PasskeyTokenSize, fields, referenceCount);
         BinaryPrimitives.WriteUInt64LittleEndian(payload, timeout);
         Encoding.ASCII.GetBytes(token, payload.AsSpan(tokenOffset, PasskeyTokenSize));
         extra.CopyTo(payload, size);
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(size + extra.Length), blobSize);
-        var blob = payload.AsSpan(size + extra.Length + 4);
-        var offset = 0;
-        for (var i = 0; i < fields.Length; i++)
-        {
-            if (i < (referenceCount ?? fields.Length))
-            {
-                var reference = payload.AsSpan(tokenOffset + PasskeyTokenSize + i * PasskeySliceSize);
-                BinaryPrimitives.WriteInt32LittleEndian(reference, offset);
-                BinaryPrimitives.WriteInt32LittleEndian(reference[4..], fields[i].Length);
-            }
-            fields[i].CopyTo(blob[offset..]);
-            offset += fields[i].Length;
-        }
         return payload;
     }
 
