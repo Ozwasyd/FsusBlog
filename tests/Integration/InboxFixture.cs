@@ -27,13 +27,6 @@ internal static class InboxFixture
         return request;
     }
 
-    internal static async Task<byte[]> ExpectBody(ServerProcess server, HttpRequestMessage request, HttpStatusCode status, CancellationToken ct)
-    {
-        using var response = await server.Client.SendAsync(request, ct);
-        Assert.Equal(status, response.StatusCode);
-        return await response.Content.ReadAsByteArrayAsync(ct);
-    }
-
     internal static string Secret() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 
     internal static Uri WakeUri(ServerProcess server, string path) =>

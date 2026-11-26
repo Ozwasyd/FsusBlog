@@ -277,7 +277,7 @@ public sealed class AdminInboxPostgresTests
             using var request = AdminRequest(HttpMethod.Post, route, token, data);
             request.Headers.Add(WireHeaders.AdminInboxVersion, version);
             request.Headers.Add(route.EndsWith("-pow.aeds", StringComparison.Ordinal) ? WireHeaders.PowClientNonce : WireHeaders.PowProof, value);
-            return await ExpectBody(server, request, expected, ct);
+            return await ExpectBytes(expected, server.Client.SendAsync(request, ct), ct);
         }
 
         async Task<string> Work() => PowFixture.SolveFrame(await Post(challenge, OK, adminToken, command, frame, nonce), nonce, ct);
@@ -290,7 +290,7 @@ public sealed class AdminInboxPostgresTests
             if (origin is not null) request.Headers.Add("Origin", origin);
             if (clientNonce is not null) request.Headers.Add(WireHeaders.PowClientNonce, clientNonce);
             if (proof is not null) request.Headers.Add(WireHeaders.PowProof, proof);
-            return await ExpectBody(server, request, expected, ct);
+            return await ExpectBytes(expected, server.Client.SendAsync(request, ct), ct);
         }
 
         async Task<byte[]> Get(string route, HttpStatusCode expected, string secret, bool host = true, bool site = false)

@@ -112,7 +112,7 @@ public sealed class AdminInboxNoticePostgresTests
             request.Headers.Add(WireHeaders.SourceEventId, sourceEvent.ToString(CultureInfo.InvariantCulture));
             if (value is not null)
                 request.Headers.Add(route == WireRoutes.AdminInboxSendNoticePow ? WireHeaders.PowClientNonce : WireHeaders.PowProof, value);
-            return await ExpectBody(server, request, status, ct);
+            return await ExpectBytes(status, server.Client.SendAsync(request, ct), ct);
         }
     }
 }
