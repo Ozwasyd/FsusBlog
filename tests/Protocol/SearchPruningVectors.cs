@@ -110,40 +110,18 @@ internal static class SearchPruningVectors
         for (var i = 0; i < articles.Length; i++)
         {
             var id = i + 1;
-            if (i < 15)
+            var (title, body, created, published) = i switch
             {
-                // Early strong matches fill Top-10 heap in Block 0: identical title & body (identical score, timestamps),
-                // non-adjacent words in title so NO exact phrase bonus for "tiekey tiepair"
-                articles[i] = new Article(id, 1, id, 1, 1,
-                    "tiekey mid1 mid2 tiepair",
-                    "tiekey filler filler filler filler tiepair",
-                    fixedCreated, fixedCreated, fixedPub);
-            }
-            else if (i is 63 or 64 or 65 or 127 or 128 or 255 or 256 or 511 or 512 or 638)
-            {
-                // Identical text & timestamps at every block boundary -> MUST beat early docs via higher Id DESC!
-                articles[i] = new Article(id, 1, id, 1, 1,
-                    "tiekey mid1 mid2 tiepair",
-                    "tiekey filler filler filler filler tiepair",
-                    fixedCreated, fixedCreated, fixedPub);
-            }
-            else if (i == 639)
-            {
-                // Very last document in last block: longer title & body (LOWER base BM25F than early docs!)
-                // BUT exact adjacent phrase "tiekey tiepair" in Title lifts it to #1 for "tiekey tiepair"!
-                articles[i] = new Article(id, 1, id, 1, 1,
-                    "tiekey tiepair extra1 extra2 extra3",
-                    "tiekey tiepair extra padding padding padding padding padding",
-                    fixedCreated, fixedCreated, fixedPub);
-            }
-            else
-            {
-                // Weak body-only distractors filling middle blocks
-                articles[i] = new Article(id, 1, id, 1, 1,
-                    $"Neutral Entry {id}",
-                    "tiekey distant words a b c d e f g h i j k l m n o p q r s t tiepair",
-                    fixedCreated.AddMinutes(-i), fixedCreated.AddMinutes(-i), fixedPub.AddMinutes(-i));
-            }
+                // Early hits and higher IDs at block boundaries tie on score and timestamps.
+                < 15 or 63 or 64 or 65 or 127 or 128 or 255 or 256 or 511 or 512 or 638 =>
+                    ("tiekey mid1 mid2 tiepair", "tiekey filler filler filler filler tiepair", fixedCreated, fixedPub),
+                // The last document's title phrase bonus lifts its lower base score.
+                639 => ("tiekey tiepair extra1 extra2 extra3",
+                    "tiekey tiepair extra padding padding padding padding padding", fixedCreated, fixedPub),
+                _ => ($"Neutral Entry {id}", "tiekey distant words a b c d e f g h i j k l m n o p q r s t tiepair",
+                    fixedCreated.AddMinutes(-i), fixedPub.AddMinutes(-i))
+            };
+            articles[i] = new Article(id, 1, id, 1, 1, title, body, created, created, published);
         }
 
         var index = ArticleSearchIndex.Build(articles, CancellationToken.None)!;
@@ -269,40 +247,22 @@ internal static class SearchPruningVectors
                     : i == 1900 ? baseTime.AddDays(2000)
                     : baseTime.AddMinutes(i);
 
-            if (i < 16)
+            (string Title, string Body, string? Summary) content = i switch
             {
-                // Strong Title/Heading matches in Block 0 establish tight heap threshold quickly
-                articles[i] = new Article(id, 1, id, 1, 1,
-                    "broadterm commonpair rarehit",
-                    "## broadterm commonpair\n\nbroadterm commonpair strong introduction.",
-                    pub, pub, pub, "broadterm commonpair summary");
-            }
-            else if (i == 1900)
-            {
-                // Late competitive spike in Block 29 — MUST NOT be pruned!
-                articles[i] = new Article(id, 1, id, 1, 1,
-                    "broadterm commonpair broadterm",
-                    "## broadterm commonpair\n\nbroadterm commonpair late spike winner.",
-                    pub, pub, pub, "broadterm commonpair");
-            }
-            else if (i is 200 or 900)
-            {
-                // Only 2 Primary matches for 3-concept query ("broadterm commonpair ultraomega") -> triggers Relaxed BMW!
-                articles[i] = new Article(id, 1, id, 1, 1,
-                    "broadterm commonpair ultraomega",
-                    "broadterm commonpair ultraomega full primary.",
-                    pub, pub, pub);
-            }
-            else
-            {
-                // 2,000+ body-only weak matches spanning 30+ blocks
-                articles[i] = new Article(id, 1, id, 1, 1,
-                    $"Archive Log Entry Number {id}",
+                // Strong early matches establish the heap threshold.
+                < 16 => ("broadterm commonpair rarehit",
+                    "## broadterm commonpair\n\nbroadterm commonpair strong introduction.", "broadterm commonpair summary"),
+                // The competitive document in Block 29 must survive pruning.
+                1900 => ("broadterm commonpair broadterm",
+                    "## broadterm commonpair\n\nbroadterm commonpair late spike winner.", "broadterm commonpair"),
+                // Two primary matches leave room for relaxed Block-Max WAND.
+                200 or 900 => ("broadterm commonpair ultraomega", "broadterm commonpair ultraomega full primary.", null),
+                _ => ($"Archive Log Entry Number {id}",
                     "Long routine operational log paragraph with filler words one two three four five six seven eight nine ten " +
                     "eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty broadterm distant words " +
-                    "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu commonpair end.",
-                    pub, pub, pub);
-            }
+                    "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu commonpair end.", null)
+            };
+            articles[i] = new Article(id, 1, id, 1, 1, content.Title, content.Body, pub, pub, pub, content.Summary);
         }
 
         var index = ArticleSearchIndex.Build(articles, CancellationToken.None)!;
