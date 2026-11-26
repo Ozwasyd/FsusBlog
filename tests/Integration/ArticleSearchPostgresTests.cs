@@ -232,6 +232,32 @@ public sealed class ArticleSearchPostgresTests
     }
 
     [PostgresFact]
+    public async Task PublishedLongCjkBodiesKeepTailPhrasesAndHighlights()
+    {
+        await using var fixture = await ScratchDatabase.CreateTimed(out var ct);
+        var actor = await fixture.SignIn("Long body author", ct, canAuthor: true, minutes: 1);
+        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
+        var client = server.Client;
+        var prefix = new string('中', 131_073);
+        var same = await SiteAedsFixture.SaveAndPublish(client, actor.Token, "Same paragraph", prefix + " qx ry", ct);
+        var next = await SiteAedsFixture.SaveAndPublish(client, actor.Token, "Next paragraph", prefix + "\n\nqx ry", ct);
+        int[] expected = [same.Id, next.Id];
+        const string phrase = "\"qx ry\"";
+
+        var (legacy, _, total) = await Query(client, PathFor(phrase), ct);
+        Assert.Equal(2, total);
+        Assert.Equal(expected, legacy.Select(hit => hit.Id).Order());
+        var current = await QueryV2(client, V2Path(phrase), ct);
+        Assert.Equal(expected, current.Items.Select(hit => hit.Id).Order());
+        Assert.All(current.Items, hit =>
+        {
+            Assert.Equal(PublicSearchSnippetField.Body, hit.SnippetField);
+            var range = Assert.Single(hit.Highlights);
+            Assert.Equal("qx ry", hit.Snippet[range.Start..range.End]);
+        });
+    }
+
+    [PostgresFact]
     public async Task PublicSearchV2EnforcesTruthfulCountsGenerationCursorsSnippetsAndZeroDbQueries()
     {
         await using var fixture = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(2));

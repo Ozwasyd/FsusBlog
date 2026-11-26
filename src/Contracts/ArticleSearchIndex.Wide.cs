@@ -255,13 +255,12 @@ public sealed partial class ArticleSearchIndex
 
                 var bodyText = article.Body ?? "";
                 if (!ChargeChars(bodyText.Length)) return false;
-                var (headings, prose, code) = SearchTextAnalyzer.AnalyzeMarkdownBody(bodyText, ct);
-                if (!RecordField(headings.Tokens, 1, termLimit, ct) ||
-                    !RecordField(prose.Tokens, 4, termLimit, ct) ||
-                    !RecordField(code.Tokens, 4, termLimit, ct))
+                if (!SearchTextAnalyzer.VisitMarkdownIndexTokens(bodyText,
+                    (tokens, field, _) => RecordField(tokens, (int)SearchScoringProfile.ToScoreField(field), termLimit, ct),
+                    ct, out var headingLength, out var bodyLength))
                     return false;
-                var headingLen = Math.Max(1, headings.SourceLength);
-                var bodyLen = Math.Max(1, prose.SourceLength + code.SourceLength);
+                var headingLen = Math.Max(1, headingLength);
+                var bodyLen = Math.Max(1, bodyLength);
 
                 documents[first + ordinal] = new WideDocument(article, titleLen, headingLen, sumLen, taxLen, bodyLen);
                 totalFieldLengths[0] += titleLen;
@@ -1119,11 +1118,11 @@ public sealed partial class ArticleSearchIndex
             Collect(tagRes.Tokens, SearchScoreField.Taxonomy, 0);
             taxPos = tagRes.EndPosition + SearchTextAnalyzer.BlockPositionGap;
         }
-        var (headings, prose, code) = SearchTextAnalyzer.AnalyzeMarkdownBody(article.Body ?? "", ct);
-        Collect(headings.Tokens, SearchScoreField.Heading, 0);
-        var codeShift = prose.EndPosition > 0 ? prose.EndPosition + SearchTextAnalyzer.BlockPositionGap : 0;
-        Collect(prose.Tokens, SearchScoreField.Body, 0);
-        Collect(code.Tokens, SearchScoreField.Body, codeShift);
+        SearchTextAnalyzer.VisitMarkdownIndexTokens(article.Body ?? "", (tokens, field, shift) =>
+        {
+            Collect(tokens, SearchScoringProfile.ToScoreField(field), shift);
+            return true;
+        }, ct, out _, out _);
 
         foreach (var list in result.Values)
         {

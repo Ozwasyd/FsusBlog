@@ -69,19 +69,24 @@ internal static class LocalSearchVectors
         }
 
         ReadOnlySpan<byte> expected = [3, 42, 0, 0, 1, 1, 0, 2, 4, 1, 0, 0, 1, 1, 0, 2, 4, 1, 0, 0, 1, 1, 0xff, 0x1f, 2, 4];
+        CheckPositionedPosting(shard, 0xfa0b7541u, expected);
+    }
+
+    internal static void CheckPositionedPosting(ReadOnlySpan<byte> shard, uint hash, ReadOnlySpan<byte> expected)
+    {
         var termCount = BinaryPrimitives.ReadInt32LittleEndian(shard[16..]);
         var termOffset = BinaryPrimitives.ReadInt32LittleEndian(shard[36..]);
         var postingOffset = BinaryPrimitives.ReadInt32LittleEndian(shard[60..]);
         for (var i = 0; i < termCount; i++)
         {
             var term = shard[(termOffset + i * WireLayouts.SearchTermRecordSize)..];
-            if (BinaryPrimitives.ReadUInt32LittleEndian(term) != 0xfa0b7541u) continue;
+            if (BinaryPrimitives.ReadUInt32LittleEndian(term) != hash) continue;
             var start = postingOffset + BinaryPrimitives.ReadInt32LittleEndian(term[8..]);
             var size = BinaryPrimitives.ReadInt32LittleEndian(term[12..]);
             Require(BinaryPrimitives.ReadInt32LittleEndian(term[16..]) == 1 && shard.Slice(start, size).SequenceEqual(expected),
-                "FSPK dictionary postings differ at the long CJK boundary");
+                $"FSPK positions differ for term hash {hash:x8}");
             return;
         }
-        throw new InvalidOperationException("FSPK lost the dictionary term at the long CJK boundary");
+        throw new InvalidOperationException($"FSPK lost term hash {hash:x8}");
     }
 }

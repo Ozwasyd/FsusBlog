@@ -49,9 +49,7 @@ internal static class ArticleSearchTokens
             derived.Clear();
             var headKey = SearchTermKey.From(head);
             var j = i + 1;
-            while (j < tokens.Count && tokens[j].Advance == 0 && tokens[j].Position == head.Position &&
-                   tokens[j].SourceStart == head.SourceStart && tokens[j].SourceEnd == head.SourceEnd &&
-                   tokens[j].Kind is SearchTokenKind.Prefix or SearchTokenKind.Subword or SearchTokenKind.ScriptAlias)
+            while (j < tokens.Count && FollowsRoleGroup(head, tokens[j]))
             {
                 var next = tokens[j];
                 var key = SearchTermKey.From(next);
@@ -70,6 +68,23 @@ internal static class ArticleSearchTokens
         }
         return true;
     }
+
+    internal static bool ContinuesRoleGroup(IReadOnlyList<SearchToken> tokens, SearchToken next)
+    {
+        for (var i = tokens.Count - 1; i >= 0; i--)
+        {
+            var previous = tokens[i];
+            if (!FollowsRoleGroup(previous, next)) return false;
+            if (TokenRole(previous) == 0) return true;
+            if (!FollowsRoleGroup(next, previous)) return false;
+        }
+        return false;
+    }
+
+    private static bool FollowsRoleGroup(SearchToken head, SearchToken next) =>
+        next.Advance == 0 && next.Position == head.Position &&
+        next.SourceStart == head.SourceStart && next.SourceEnd == head.SourceEnd &&
+        next.Kind is SearchTokenKind.Prefix or SearchTokenKind.Subword or SearchTokenKind.ScriptAlias;
 
     internal static byte TokenRole(SearchToken tok)
     {

@@ -1,7 +1,10 @@
+using System.Text;
 using System.Text.Json;
 
 internal static class SearchRankingVectors
 {
+    private const int LongCjkLength = 131_073;
+
     private sealed record ExpectedConcept(string Kind, string[] Steps, string[]? ExactSteps, bool IsStrictIdentifier, string? ShortAsciiPrefix);
     private sealed record PlanCase(
         string Name,
@@ -19,6 +22,8 @@ internal static class SearchRankingVectors
         VerifyUnknownCjkNonAdmissionAndPositions();
         VerifyCrossFieldConceptsPhrasesIdentifiersAndRelaxation();
         VerifyPhraseAtCompactPositionCountBoundary();
+        VerifySearchAfterLongCjkRun();
+        VerifyMarkdownTokenBatchBoundary();
         VerifyExhaustiveOracleDifferentialAndPagination();
         VerifyCompactVsWideDifferential();
     }
@@ -175,6 +180,108 @@ internal static class SearchRankingVectors
         }
     }
 
+    private static void VerifySearchAfterLongCjkRun()
+    {
+        var when = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var prefix = new string('中', LongCjkLength);
+        Article[] articles = [
+            Art(1, "Same Paragraph", prefix + " qx ry", when),
+            Art(2, "Next Paragraph", prefix + "\n\nqx ry", when.AddDays(1)),
+            Art(3, "Split Phrase", "qx\n\nry", when.AddDays(2))
+        ];
+        var compact = ArticleSearchIndex.Build(articles, CancellationToken.None)
+            ?? throw new InvalidOperationException("The legal long-body articles did not fit the search index.");
+        Require(!compact.UsesWideProfile, "Expected the compact profile for the long-body regression.");
+        var oracle = ExhaustiveSearchOracle.Build(articles, CancellationToken.None);
+        (string Query, int[] Ids)[] cases = [("\"qx ry\"", [1, 2]), ("ry", [1, 2, 3])];
+        foreach (var (query, ids) in cases)
+        {
+            var expected = oracle.SearchDetailed(query, ArticleSearchSort.Relevance, 1, 10, CancellationToken.None);
+            var actual = compact.SearchDetailed(query, ArticleSearchSort.Relevance, 1, 10, CancellationToken.None);
+            Require(expected.Hits.Select(static hit => hit.Article.Id).Order().SequenceEqual(ids),
+                $"Oracle returned incorrect articles after a long CJK run for {query}.");
+            AssertDetailedEqual($"long CJK tail: {query}", expected, actual);
+        }
+
+        var phrase = SearchQueryPlan.Build(cases[0].Query);
+        foreach (var article in articles.Take(2))
+        {
+            var snippet = SearchSnippetExtractor.Extract(article, phrase);
+            Wire.ValidateSnippetHighlights(snippet.Text, snippet.Highlights);
+            Require(snippet.Field == PublicSearchSnippetField.Body &&
+                snippet.Highlights is [{ Start: var start, End: var end }] && snippet.Text[start..end] == "qx ry",
+                $"The public body snippet for article {article.Id} lost its tail phrase highlight.");
+            Require(Encoding.UTF8.GetByteCount(snippet.Text) <= WireLimits.PublicSearchSnippetMaxBytes,
+                $"The public body snippet for article {article.Id} exceeded its UTF-8 budget.");
+        }
+
+        var pages = LocalSearchCorpus.Build(articles);
+        Require(pages is { Count: 1 }, "The long-body articles did not fit one FSPK page.");
+        var shard = pages![0].AsSpan(WireLayouts.SearchPackagePayloadOffset);
+        // qx/ry positions: 131073/131074, 131074/131075, and 0/2. FSPK inserts one slot between blocks.
+        LocalSearchVectors.CheckPositionedPosting(shard, SearchTextAnalyzer.HashTerm32("qx"), [
+            3,
+            1, 0, 0, 1, 1, 0x81, 0x80, 0x08, 1, 4,
+            1, 0, 0, 1, 1, 0x82, 0x80, 0x08, 1, 4,
+            1, 0, 0, 1, 1, 0, 1, 4
+        ]);
+        LocalSearchVectors.CheckPositionedPosting(shard, SearchTextAnalyzer.HashTerm32("ry"), [
+            3,
+            1, 0, 0, 1, 1, 0x82, 0x80, 0x08, 1, 4,
+            1, 0, 0, 1, 1, 0x83, 0x80, 0x08, 1, 4,
+            1, 0, 0, 1, 1, 2, 1, 4
+        ]);
+    }
+
+    private static void VerifyMarkdownTokenBatchBoundary()
+    {
+        const int fillerCount = 4_095;
+        const string firstBlocks = "```text\nqx ry\n```\n\n# Heading\n\n";
+        var ordinary = firstBlocks + string.Concat(Enumerable.Repeat("a ", fillerCount)) + "FsusBlog zx";
+        foreach (var saturated in new[] { false, true })
+        {
+            var markdown = saturated ? ordinary + " " + new string('中', LongCjkLength) + " after" : ordinary;
+            var proseLength = fillerCount + 2 + (saturated ? LongCjkLength + 1 : 0);
+            var batches = new List<(SearchFieldKind Field, int Shift, SearchToken[] Tokens)>();
+            var accepted = SearchTextAnalyzer.VisitMarkdownIndexTokens(markdown, (tokens, field, shift) =>
+            {
+                var saveTokens = field != SearchFieldKind.Body || batches.Count == 1;
+                batches.Add((field, shift, saveTokens ? tokens.ToArray() : []));
+                return true;
+            }, CancellationToken.None, out var headingLength, out var bodyLength);
+            Require(accepted && headingLength == 1 && bodyLength == proseLength + 2, "Token batching changed Markdown field lengths.");
+            Require((saturated ? batches.Count > 3 : batches.Count == 3) &&
+                batches[0].Field == SearchFieldKind.Heading && batches[^1].Field == SearchFieldKind.Code &&
+                batches.Skip(1).Take(batches.Count - 2).All(static batch => batch.Field == SearchFieldKind.Body),
+                "Only the saturated prose lane should be replayed in batches.");
+
+            var heading = batches[0].Tokens.Single(static token => token.Kind == SearchTokenKind.Exact);
+            Require(batches[0].Shift == 0 && heading is { Term: "heading", Position: 0 } &&
+                heading.SourceStart == firstBlocks.IndexOf("Heading", StringComparison.Ordinal),
+                "Code-first Markdown changed the independent heading coordinates.");
+
+            var boundary = batches[1].Tokens;
+            Require(boundary.Length > fillerCount && boundary[fillerCount] is { Term: "fsusblog", Position: fillerCount } &&
+                boundary[fillerCount].SourceStart == firstBlocks.Length + fillerCount * 2 &&
+                boundary[fillerCount].SourceEnd == firstBlocks.Length + fillerCount * 2 + "FsusBlog".Length,
+                "The primary technical token changed at the batch boundary.");
+            var attached = false;
+            ArticleSearchTokens.VisitTokensAsRoleGroups(boundary, (primary, _, derived) =>
+            {
+                if (primary is { Term: "fsusblog" }) attached = derived.Contains(SearchTermKey.From("blog"));
+                return true;
+            }, CancellationToken.None);
+            Require(attached, "Flushing a token batch separated the technical term from its derived subword.");
+
+            var code = batches[^1];
+            var codeStart = proseLength + SearchTextAnalyzer.BlockPositionGap;
+            Require(code.Tokens.Where(static token => token.Kind == SearchTokenKind.Exact)
+                .Select(token => (token.Term, token.Position + code.Shift, token.SourceStart))
+                .SequenceEqual([("qx", codeStart, 8), ("ry", codeStart + 1, 11)]),
+                "Code must keep its source coordinates and be placed after the complete prose lane.");
+        }
+    }
+
     private static void VerifyExhaustiveOracleDifferentialAndPagination()
     {
         var when = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero);
@@ -245,6 +352,7 @@ internal static class SearchRankingVectors
             {
                 1 => Art(id, "量子纠缠 C# 架构", "# 标题段\n\n详解量子纠缠与 C# issue-4601 架构。", when.AddDays(1), summary: "摘要说明", category: "架构"),
                 20_005 => Art(id, "量度与子集", "纠缠与 C# 分散在不同句子，不含完整词。", when.AddDays(2)),
+                20_006 => Art(id, "Long Body", new string('中', LongCjkLength) + " qx ry", when),
                 40_001 => Art(id, "數據庫與架構", "包含 C# 與量子纠缠的尾块文档，以及 issue-4601。", when.AddDays(3), category: "数据库"),
                 _ => Art(id, "Quiet Entry", "shared body baseline text", when)
             };
@@ -264,6 +372,9 @@ internal static class SearchRankingVectors
         // SC/TC across wide blocks
         var q3 = wide.SearchDetailed("数据库 架构", ArticleSearchSort.Relevance, 1, 10, CancellationToken.None);
         Require(q3.Hits.Select(static h => h.Article.Id).SequenceEqual([40_001]), "Wide SC/TC concept query mismatch");
+
+        var tail = wide.SearchDetailed("\"qx ry\"", ArticleSearchSort.Relevance, 1, 10, CancellationToken.None);
+        Require(tail.Hits.Select(static hit => hit.Article.Id).SequenceEqual([20_006]), "Wide search lost the long-body tail phrase.");
     }
 
     private static void AssertDetailedEqual(string label, ArticleSearchDetailedPage expected, ArticleSearchDetailedPage actual)

@@ -191,27 +191,45 @@ public static class SearchSnippetExtractor
         List<(int Start, int End)>? codeRanges,
         CancellationToken ct)
     {
-        var analysis = SearchTextAnalyzer.AnalyzePlainField(text, analyzerField, SearchAnalysisMode.Index, 0, ct);
-        if (analysis.Tokens.Count == 0) return null;
-
-        var matchedSpans = new List<MatchedSpan>();
-        var tokens = analysis.Tokens;
-
-        // Index tokens by canonical term key for fast concept & phrase matching on this single field
         var byKey = new Dictionary<SearchTermKey, List<SearchToken>>();
-        for (var i = 0; i < tokens.Count; i++)
+        IReadOnlyList<SearchToken> metadataTokens = [];
+        var isMetadata = analyzerField is SearchFieldKind.Title or SearchFieldKind.Summary or SearchFieldKind.Taxonomy;
+        if (isMetadata)
         {
-            var tok = tokens[i];
-            var key = new SearchTermKey(tok.Key, tok.Term);
-            if (!byKey.TryGetValue(key, out var list))
+            metadataTokens = SearchTextAnalyzer.AnalyzePlainField(text, analyzerField, SearchAnalysisMode.Index, 0, ct).Tokens;
+            RecordTokens(metadataTokens, null);
+        }
+        else
+        {
+            var neededKeys = new HashSet<SearchTermKey>();
+            foreach (var phrase in plan.QuotedPhrases)
+                foreach (var step in phrase.Steps)
+                    neededKeys.Add(step.CanonicalKey);
+            foreach (var concept in plan.ContentConcepts)
+                foreach (var step in concept.Steps)
+                {
+                    neededKeys.Add(step.CanonicalKey);
+                    if (step.DiffersFromExactForm) neededKeys.Add(step.ExactFormKey);
+                }
+
+            SearchTextAnalyzer.VisitPlainIndexTokens(text, tokens => RecordTokens(tokens, neededKeys), ct);
+        }
+        if (byKey.Count == 0) return null;
+
+        void RecordTokens(IReadOnlyList<SearchToken> tokens, HashSet<SearchTermKey>? neededKeys)
+        {
+            foreach (var tok in tokens)
             {
-                list = [];
-                byKey[key] = list;
+                var key = SearchTermKey.From(tok);
+                if (neededKeys is not null && !neededKeys.Contains(key)) continue;
+                if (!byKey.TryGetValue(key, out var list))
+                    byKey[key] = list = [];
+                list.Add(tok);
             }
-            list.Add(tok);
         }
 
         // Check quoted phrases first
+        var matchedSpans = new List<MatchedSpan>();
         var hasPhrase = false;
         foreach (var phrase in plan.QuotedPhrases)
         {
@@ -249,12 +267,10 @@ public static class SearchSnippetExtractor
         var conceptMatched = new HashSet<int>();
         foreach (var concept in plan.ContentConcepts)
         {
-            if (concept.ShortAsciiPrefix is { Length: > 0 } prefix &&
-                analyzerField is SearchFieldKind.Title or SearchFieldKind.Summary or SearchFieldKind.Taxonomy)
+            if (concept.ShortAsciiPrefix is { Length: > 0 } prefix && isMetadata)
             {
-                for (var i = 0; i < tokens.Count; i++)
+                foreach (var tok in metadataTokens)
                 {
-                    var tok = tokens[i];
                     if (tok.Kind != SearchTokenKind.Exact) continue;
                     if (tok.Term.StartsWith(prefix, StringComparison.Ordinal))
                     {
