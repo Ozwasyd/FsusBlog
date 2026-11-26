@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { inspectDownloadedFile, inspectOfflinePage } from './media-export-fixture.mjs'
+import { captureAttachmentDownload, inspectDownloadedFile, inspectOfflinePage } from './media-export-fixture.mjs'
 
 export async function readMarkdownDownload(page, button, body) {
   const download = page.waitForEvent('download')
@@ -30,8 +30,7 @@ async function readAttachmentDownload(page, button, format, type) {
       assert.equal(response.headers()['cache-control'], 'private, no-store')
       return { response, expected: await response.body() }
     })
-  const download = page.waitForEvent('download')
-  const [{ response, expected }, result] = await Promise.all([attachment, download, button.click()])
+  const { receipt: { response, expected }, download: result } = await captureAttachmentDownload(page, button, attachment)
   assert.equal(result.suggestedFilename(), `article.${format}`)
   const actual = await readFile(await result.path())
   assert.deepEqual(actual, expected)
