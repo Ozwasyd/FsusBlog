@@ -54,8 +54,6 @@ internal readonly record struct PublicListPosition(int Score, long CreatedTicks,
 
 internal sealed class PublicListCursor(TimeProvider time)
 {
-    private const int NonceSize = 12;
-    private const int TagSize = 16;
     private const int PayloadSize = 88;
     private const int EncodedSize = 155;
     private const long LifetimeSeconds = 15 * 60;
@@ -77,32 +75,16 @@ internal sealed class PublicListCursor(TimeProvider time)
         BinaryPrimitives.WriteInt64LittleEndian(payload[48..], position.Publication);
         Fingerprint(query, payload[56..]);
 
-        Span<byte> protectedBytes = stackalloc byte[NonceSize + PayloadSize + TagSize];
-        var nonce = protectedBytes[..NonceSize];
-        RandomNumberGenerator.Fill(nonce);
-        using var aes = new AesGcm(key, TagSize);
-        aes.Encrypt(nonce, payload, protectedBytes.Slice(NonceSize, PayloadSize), protectedBytes[^TagSize..]);
-        return Base64Url.EncodeToString(protectedBytes);
+        return CursorEnvelope.Encode(key, payload);
     }
 
     internal PublicListPosition Decode(long generation, PublicListQuery query)
     {
-        Span<byte> protectedBytes = stackalloc byte[NonceSize + PayloadSize + TagSize];
-        if (query.Cursor is not { Length: EncodedSize } cursor ||
-            !Base64Url.TryDecodeFromChars(cursor, protectedBytes, out var written) || written != protectedBytes.Length ||
-            !string.Equals(Base64Url.EncodeToString(protectedBytes), cursor, StringComparison.Ordinal))
-            throw PublicListFailure.InvalidCursor();
-
+        Span<byte> protectedBytes = stackalloc byte[PayloadSize + CursorEnvelope.Overhead];
         Span<byte> payload = stackalloc byte[PayloadSize];
-        try
-        {
-            using var aes = new AesGcm(key, TagSize);
-            aes.Decrypt(protectedBytes[..NonceSize], protectedBytes.Slice(NonceSize, PayloadSize), protectedBytes[^TagSize..], payload);
-        }
-        catch (AuthenticationTagMismatchException)
-        {
+        if (query.Cursor is not { } cursor || !CursorEnvelope.TryRead(cursor, EncodedSize, protectedBytes) ||
+            !CursorEnvelope.TryDecrypt(key, protectedBytes, payload))
             throw PublicListFailure.InvalidCursor();
-        }
 
         Span<byte> fingerprint = stackalloc byte[32];
         Fingerprint(query, fingerprint);

@@ -4,8 +4,6 @@ internal sealed class AuthorTextCursor(TimeProvider time)
 {
     private const int GenerationBytes = 32;
     private const int PayloadBytes = 28 + GenerationBytes;
-    private const int NonceBytes = 12;
-    private const int TagBytes = 16;
     private const int EncodedChars = 118;
     private const long LifetimeSeconds = 15 * 60;
     private readonly byte[] key = RandomNumberGenerator.GetBytes(32);
@@ -21,32 +19,16 @@ internal sealed class AuthorTextCursor(TimeProvider time)
         if (generation.Length != GenerationBytes) throw Invalid();
         generation.AsSpan().CopyTo(payload[28..]);
 
-        Span<byte> encoded = stackalloc byte[NonceBytes + PayloadBytes + TagBytes];
-        var nonce = encoded[..NonceBytes];
-        RandomNumberGenerator.Fill(nonce);
-        using var aes = new AesGcm(key, TagBytes);
-        aes.Encrypt(nonce, payload, encoded.Slice(NonceBytes, PayloadBytes), encoded[^TagBytes..], Context(actor, session, query, mode));
-        return Base64Url.EncodeToString(encoded);
+        return CursorEnvelope.Encode(key, payload, Context(actor, session, query, mode));
     }
 
     internal (AuthorTextRankKey Position, byte[] Generation) Decode(string cursor, Identity actor, byte[] session, string query, FrameType mode)
     {
-        Span<byte> encoded = stackalloc byte[NonceBytes + PayloadBytes + TagBytes];
-        if (cursor.Length != EncodedChars || !Base64Url.TryDecodeFromChars(cursor, encoded, out var size) ||
-            size != encoded.Length || !string.Equals(Base64Url.EncodeToString(encoded), cursor, StringComparison.Ordinal))
-            throw Invalid();
-
+        Span<byte> encoded = stackalloc byte[PayloadBytes + CursorEnvelope.Overhead];
         Span<byte> payload = stackalloc byte[PayloadBytes];
-        using var aes = new AesGcm(key, TagBytes);
-        try
-        {
-            aes.Decrypt(encoded[..NonceBytes], encoded.Slice(NonceBytes, PayloadBytes), encoded[^TagBytes..], payload,
-                Context(actor, session, query, mode));
-        }
-        catch (AuthenticationTagMismatchException)
-        {
+        if (!CursorEnvelope.TryRead(cursor, EncodedChars, encoded) ||
+            !CursorEnvelope.TryDecrypt(key, encoded, payload, Context(actor, session, query, mode)))
             throw Invalid();
-        }
         if (BinaryPrimitives.ReadInt64LittleEndian(payload) <= Now) throw Invalid();
         return (new(BinaryPrimitives.ReadInt32LittleEndian(payload[8..]), BinaryPrimitives.ReadInt32LittleEndian(payload[12..]),
             BinaryPrimitives.ReadInt64LittleEndian(payload[16..]), BinaryPrimitives.ReadInt32LittleEndian(payload[24..])),

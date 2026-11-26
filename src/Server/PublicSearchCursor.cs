@@ -1,5 +1,3 @@
-using System.Buffers;
-
 namespace FsusBlog.V2.Server;
 
 internal sealed class PublicSearchFailure(int status, string message, string details) : Exception(message)
@@ -41,10 +39,7 @@ internal readonly record struct DecodedSearchCursor(SearchCursorPosition Positio
 /// </summary>
 internal sealed class PublicSearchCursor(TimeProvider time)
 {
-    private const int NonceSize = 12;
-    private const int TagSize = 16;
     private const int PayloadSize = 93;
-    private const int ProtectedSize = NonceSize + PayloadSize + TagSize; // 121 bytes -> 162 Base64Url chars
     private const int EncodedSize = 162;
     private const long LifetimeSeconds = 15 * 60;
     private readonly byte[] _key = RandomNumberGenerator.GetBytes(32);
@@ -73,12 +68,7 @@ internal sealed class PublicSearchCursor(TimeProvider time)
         BinaryPrimitives.WriteInt32LittleEndian(payload[57..], position.Id);
         Fingerprint(plan, sort, size, payload[61..]);
 
-        Span<byte> protectedBytes = stackalloc byte[ProtectedSize];
-        var nonce = protectedBytes[..NonceSize];
-        RandomNumberGenerator.Fill(nonce);
-        using var aes = new AesGcm(_key, TagSize);
-        aes.Encrypt(nonce, payload, protectedBytes.Slice(NonceSize, PayloadSize), protectedBytes[^TagSize..]);
-        return Base64Url.EncodeToString(protectedBytes);
+        return CursorEnvelope.Encode(_key, payload);
     }
 
     internal DecodedSearchCursor Decode(
@@ -88,24 +78,11 @@ internal sealed class PublicSearchCursor(TimeProvider time)
         int size,
         string cursor)
     {
-        Span<byte> protectedBytes = stackalloc byte[ProtectedSize];
-        if (cursor.Length != EncodedSize ||
-            Base64Url.DecodeFromChars(cursor, protectedBytes, out var consumed, out var written) != OperationStatus.Done ||
-            consumed != cursor.Length ||
-            written != ProtectedSize ||
-            !string.Equals(Base64Url.EncodeToString(protectedBytes), cursor, StringComparison.Ordinal))
-            throw PublicSearchFailure.InvalidCursor();
-
+        Span<byte> protectedBytes = stackalloc byte[PayloadSize + CursorEnvelope.Overhead];
         Span<byte> payload = stackalloc byte[PayloadSize];
-        try
-        {
-            using var aes = new AesGcm(_key, TagSize);
-            aes.Decrypt(protectedBytes[..NonceSize], protectedBytes.Slice(NonceSize, PayloadSize), protectedBytes[^TagSize..], payload);
-        }
-        catch (AuthenticationTagMismatchException)
-        {
+        if (!CursorEnvelope.TryRead(cursor, EncodedSize, protectedBytes, throwOnMalformed: false) ||
+            !CursorEnvelope.TryDecrypt(_key, protectedBytes, payload))
             throw PublicSearchFailure.InvalidCursor();
-        }
 
         var cursorGeneration = BinaryPrimitives.ReadInt64LittleEndian(payload);
         var expiresAt = BinaryPrimitives.ReadInt64LittleEndian(payload[8..]);
