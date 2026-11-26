@@ -7,6 +7,7 @@ import { ApiError } from '../../../Contracts/client'
 import { savedViewPlacement, type SavedViewPlacement } from '../../../Contracts/saved-views'
 import { WireLimits } from '../../../Contracts/wire.generated'
 import { credentialEpoch, currentSession } from '../authorSession'
+import { savedViewRoute } from './savedViewLink'
 
 defineProps<{ active: boolean; disabled: boolean }>()
 const emit = defineEmits<{ available: [value: boolean] }>()
@@ -83,7 +84,7 @@ onBeforeUnmount(() => request?.abort())
     <p v-if="placement?.pins.length === 0" role="status">{{ t('author.articleLibrarySaved.no.pinned.views.on.this.page') }}</p>
     <ul v-if="placement?.pins.length">
       <li v-for="view in placement.pins" :key="view.id">
-        <RouterLink :to="{ name: 'article-list', query: { view: view.id, viewSchema: '1' } }" custom v-slot="{ href, navigate }">
+        <RouterLink :to="{ name: savedViewRoute, query: { view: view.id, viewSchema: '1' } }" custom v-slot="{ href, navigate }">
           <ElLink :href="href" :disabled="disabled" @click="navigate">{{ view.name }}</ElLink>
         </RouterLink>
       </li>
