@@ -373,18 +373,10 @@ public static class SearchTextAnalyzer
     {
         if (string.IsNullOrEmpty(rawText)) return 0;
         var (text, origStart, origEnd) = NormalizeWithOffsets(rawText, baseSourceOffset, ct);
+        var emitter = new TokenOutput(output, baseSourceOffset, origStart, origEnd);
+        HashSet<string>? asciiSeen = null;
         var sourceLength = 0;
         var indexMode = mode == SearchAnalysisMode.Index;
-
-        void Emit(string term, SearchTokenKind kind, int pos, int width, int advance, int normStart, int normEnd)
-        {
-            if (term.Length == 0 || output.Count >= MaxTokensPerField) return;
-            var sStart = origStart is null ? baseSourceOffset + normStart : origStart[normStart];
-            var sEnd = origEnd is null ? baseSourceOffset + normEnd : origEnd[normEnd - 1];
-            var stop = SearchLexicon.IsStopword(term.AsSpan());
-            var (h64, h32) = HashTermBoth(term.AsSpan());
-            output.Add(new SearchToken(term, h64, h32, kind, pos, width, advance, sStart, sEnd, stop));
-        }
 
         for (var i = 0; i < text.Length;)
         {
@@ -398,44 +390,32 @@ public static class SearchTextAnalyzer
                 var end = ScanTechnicalToken(text, i);
                 i = end;
                 var rawToken = text.AsSpan(start, end - start);
+                // Reject overlong tokens rather than truncating them into a different term.
+                if (rawToken.Length > MaxIndexedTokenChars) continue;
                 var hasPunct = HasTechnicalPunctuation(rawToken);
-                if (rawToken.Length > MaxIndexedTokenChars)
-                {
-                    // Reject overlong exact identifiers rather than truncating into a different identifier!
-                    if (hasPunct) continue;
-                    // For plain overlong alphabetic runs in query/index, skip truncation as well
-                    continue;
-                }
 
                 var lower = LowerAsciiString(rawToken);
                 var tokenPos = position;
                 position += 1;
                 sourceLength += 1;
 
-                var isStrictPunct = IsStrictExactIdentifier(rawToken);
-                var isPureAlphaHyphen = !isStrictPunct && rawToken.Contains('-');
+                emitter.Emit(lower, SearchTokenKind.Exact, tokenPos, 1, 1, start, end);
 
-                Emit(lower, SearchTokenKind.Exact, tokenPos, 1, 1, start, end);
-
-                if (indexMode)
+                // Query mode expands only pure-letter hyphenated terms, so "batch-item" also
+                // matches "Batch Item". Strict identifiers such as "issue-2205" stay exact.
+                if (indexMode || (rawToken.Contains('-') && !IsStrictExactIdentifier(rawToken)))
                 {
-                    EmitAsciiAlternatives(rawToken, lower, tokenPos, start, end, Emit);
+                    asciiSeen ??= new HashSet<string>(StringComparer.Ordinal);
+                    // Alternatives are strict slices, so the whole term need not be in the set.
+                    asciiSeen.Clear();
+                    if (indexMode)
+                        EmitAsciiAlternatives(rawToken, lower, hasPunct, tokenPos, start, end, emitter, asciiSeen);
+                    else
+                        EmitConnectorSubwords(rawToken, lower, tokenPos, start, emitter, asciiSeen);
                 }
-                else
-                {
-                    // Query mode:
-                    // - Pure-letter hyphenated terms (e.g. "batch-item") also emit their component subwords
-                    //   so they match space-separated prose ("Batch Item"), while exact "batch-item" stays Exact.
-                    // - Strict identifiers (e.g. "issue-2205", "C#", "C++", ".NET", "HTTP/2", "v2_schema")
-                    //   are NOT expanded into components on the query side.
-                    if (isPureAlphaHyphen)
-                        EmitConnectorSubwords(rawToken, lower, tokenPos, start, end, Emit, includePrefixes: false);
 
-                    if (shortAsciiPrefixes is not null && !hasPunct && lower.Length is >= 1 and < AsciiMinPrefixLength)
-                    {
-                        if (!shortAsciiPrefixes.Contains(lower)) shortAsciiPrefixes.Add(lower);
-                    }
-                }
+                if (!indexMode && shortAsciiPrefixes is not null && !hasPunct && lower.Length is >= 1 and < AsciiMinPrefixLength)
+                    if (!shortAsciiPrefixes.Contains(lower)) shortAsciiPrefixes.Add(lower);
                 continue;
             }
 
@@ -446,7 +426,7 @@ public static class SearchTextAnalyzer
                 while (i < text.Length && SearchLexicon.IsCjk(text[i])) i++;
                 var runLen = i - start;
                 var runBasePos = position;
-                sourceLength += EmitCjkRun(text, start, i, runBasePos, indexMode, Emit, ct);
+                sourceLength += EmitCjkRun(text, start, i, runBasePos, indexMode, emitter, ct);
                 position += runLen;
                 continue;
             }
@@ -461,7 +441,7 @@ public static class SearchTextAnalyzer
                 // Group contiguous non-CJK non-ASCII letters/digits (e.g. "café" or "Étoile" when preceded/followed by ASCII?
                 // Wait: "café" starts with ASCII 'c'! Wait - let's check accented words like "café"!)
                 var term = Rune.ToLowerInvariant(scalar).ToString();
-                Emit(term, SearchTokenKind.Exact, position, 1, 1, start, end);
+                emitter.Emit(term, SearchTokenKind.Exact, position, 1, 1, start, end);
                 position += 1;
                 sourceLength += 1;
             }
@@ -471,17 +451,30 @@ public static class SearchTextAnalyzer
         return sourceLength;
     }
 
+    private readonly struct TokenOutput(List<SearchToken> output, int baseSourceOffset, int[]? origStart, int[]? origEnd)
+    {
+        internal void Emit(string term, SearchTokenKind kind, int pos, int width, int advance, int normStart, int normEnd)
+        {
+            if (term.Length == 0 || output.Count >= MaxTokensPerField) return;
+            var sStart = origStart is null ? baseSourceOffset + normStart : origStart[normStart];
+            var sEnd = origEnd is null ? baseSourceOffset + normEnd : origEnd[normEnd - 1];
+            var stop = SearchLexicon.IsStopword(term.AsSpan());
+            var (h64, h32) = HashTermBoth(term.AsSpan());
+            output.Add(new SearchToken(term, h64, h32, kind, pos, width, advance, sStart, sEnd, stop));
+        }
+    }
+
     private static int EmitCjkRun(string text, int start, int end, int basePos, bool indexMode,
-        Action<string, SearchTokenKind, int, int, int, int, int> emit, CancellationToken ct)
+        TokenOutput emitter, CancellationToken ct)
     {
         var runLen = end - start;
         if (runLen == 1)
         {
             var single = text.Substring(start, 1);
-            emit(single, SearchTokenKind.Exact, basePos, 1, 1, start, end);
+            emitter.Emit(single, SearchTokenKind.Exact, basePos, 1, 1, start, end);
             var simp = ToSimplifiedCjk(single);
             if (!string.Equals(simp, single, StringComparison.Ordinal))
-                emit(simp, SearchTokenKind.ScriptAlias, basePos, 1, 0, start, end);
+                emitter.Emit(simp, SearchTokenKind.ScriptAlias, basePos, 1, 0, start, end);
             return 1;
         }
 
@@ -490,9 +483,9 @@ public static class SearchTextAnalyzer
 
         void EmitWithScriptAlias(string origWord, ReadOnlySpan<char> simpWord, SearchTokenKind kind, int pos, int width, int advance, int ns, int ne)
         {
-            emit(origWord, kind, pos, width, advance, ns, ne);
+            emitter.Emit(origWord, kind, pos, width, advance, ns, ne);
             if (hasScDiff && !simpWord.SequenceEqual(origWord.AsSpan()))
-                emit(new string(simpWord), SearchTokenKind.ScriptAlias, pos, width, 0, ns, ne);
+                emitter.Emit(new string(simpWord), SearchTokenKind.ScriptAlias, pos, width, 0, ns, ne);
         }
 
         // Long CJK run (> 4096): bounded linear scan without DP table allocation
@@ -769,45 +762,71 @@ public static class SearchTextAnalyzer
         return hasAlnum && (hasStrictSymbol || (hasHyphen && hasDigit));
     }
 
-    private static void EmitAsciiAlternatives(ReadOnlySpan<char> rawToken, string lower, int pos,
-        int normStart, int normEnd, Action<string, SearchTokenKind, int, int, int, int, int> emit)
+    private struct AsciiAlternativeOutput(TokenOutput emitter, HashSet<string> seen, int pos, int normStart, int normEnd)
     {
-        var seen = new HashSet<string>(StringComparer.Ordinal) { lower };
-        var count = 0;
+        private int _count;
 
-        bool TryEmit(string candidate, SearchTokenKind kind)
+        internal void Emit(string candidate, SearchTokenKind kind)
         {
-            if (count >= MaxAsciiSubtokens || candidate.Length < 2 || !seen.Add(candidate)) return false;
-            count++;
-            emit(candidate, kind, pos, 1, 0, normStart, normEnd);
-            return true;
+            if (_count >= MaxAsciiSubtokens || !seen.Add(candidate)) return;
+            _count++;
+            emitter.Emit(candidate, kind, pos, 1, 0, normStart, normEnd);
         }
 
-        var hasPunct = HasTechnicalPunctuation(rawToken);
+        internal void EmitPrefixes(string term)
+        {
+            var maxPrefix = Math.Min(AsciiMaxPrefixLength, term.Length - 1);
+            for (var len = AsciiMinPrefixLength; len <= maxPrefix; len++)
+                Emit(term[..len], SearchTokenKind.Prefix);
+        }
+
+        internal void EmitSubwordsAndPrefixes(ReadOnlySpan<char> raw, string lower)
+        {
+            // Emit subwords first so their kind and budget take precedence over prefixes.
+            EmitCamelCaseAlternatives(raw, lower, prefixes: false);
+            EmitPrefixes(lower);
+            EmitCamelCaseAlternatives(raw, lower, prefixes: true);
+        }
+
+        private void EmitCamelCaseAlternatives(ReadOnlySpan<char> raw, string lower, bool prefixes)
+        {
+            var segStart = 0;
+            for (var i = 1; i <= raw.Length; i++)
+            {
+                if (i < raw.Length && !IsSubwordBoundary(raw, i)) continue;
+                var segLen = i - segStart;
+                if (segLen >= 2 && segLen < raw.Length)
+                {
+                    var segLower = lower.Substring(segStart, segLen);
+                    if (prefixes)
+                        EmitPrefixes(segLower);
+                    else
+                        Emit(segLower, SearchTokenKind.Subword);
+                }
+                segStart = i;
+            }
+        }
+    }
+
+    private static void EmitAsciiAlternatives(ReadOnlySpan<char> rawToken, string lower, bool hasPunct, int pos,
+        int normStart, int normEnd, TokenOutput emitter, HashSet<string> seen)
+    {
+        var alternatives = new AsciiAlternativeOutput(emitter, seen, pos, normStart, normEnd);
         if (!hasPunct)
         {
-            // CamelCase & digit-boundary subwords first so real subwords keep Subword kind and aren't starved
-            EmitCamelCaseSubwords(rawToken, lower, TryEmit, includePrefixes: false);
-
-            // Bounded prefixes 3..12 chars for plain ASCII tokens
-            var maxPrefix = Math.Min(AsciiMaxPrefixLength, lower.Length - 1);
-            for (var len = AsciiMinPrefixLength; len <= maxPrefix; len++)
-                TryEmit(lower[..len], SearchTokenKind.Prefix);
-
-            // Prefixes of CamelCase / digit-boundary subwords
-            EmitCamelCaseSubwordPrefixes(rawToken, lower, TryEmit);
+            alternatives.EmitSubwordsAndPrefixes(rawToken, lower);
             return;
         }
 
         // Punctuation-bearing technical token (e.g. issue-2205, ASP.NET, Node.js, C#, C++, HTTP/2):
-        // Do NOT emit single-letter base for C# / C++ / F# (length < 2 automatically skipped).
+        // Skip single-letter bases such as "c" for C# and C++.
         // For dotted names like ASP.NET, also emit leading-dot suffix ".net" as Subword!
         var dotIdx = lower.IndexOf('.');
         if (dotIdx > 0 && dotIdx + 2 < lower.Length)
         {
             var dottedSuffix = lower[dotIdx..];
             if (!dottedSuffix.AsSpan(1).Contains('.'))
-                TryEmit(dottedSuffix, SearchTokenKind.Subword);
+                alternatives.Emit(dottedSuffix, SearchTokenKind.Subword);
         }
 
         // Split on '-', '_', '.', '/' and emit >=2-char alphanumeric segments as Subword (+ camelCase inside each)
@@ -821,24 +840,17 @@ public static class SearchTextAnalyzer
                 var segRaw = rawToken.Slice(segStart, segLen);
                 // Strip trailing #/+ only when checking pure alphanumeric subword, keep e.g. "c++" from "c/c++"
                 var segLower = LowerAsciiString(segRaw);
-                TryEmit(segLower, SearchTokenKind.Subword);
+                alternatives.Emit(segLower, SearchTokenKind.Subword);
                 if (!HasTechnicalPunctuation(segRaw))
-                {
-                    EmitCamelCaseSubwords(segRaw, segLower, TryEmit, includePrefixes: false);
-                    var maxPrefix = Math.Min(AsciiMaxPrefixLength, segLower.Length - 1);
-                    for (var len = AsciiMinPrefixLength; len <= maxPrefix; len++)
-                        TryEmit(segLower[..len], SearchTokenKind.Prefix);
-                    EmitCamelCaseSubwordPrefixes(segRaw, segLower, TryEmit);
-                }
+                    alternatives.EmitSubwordsAndPrefixes(segRaw, segLower);
             }
             segStart = i + 1;
         }
     }
 
     private static void EmitConnectorSubwords(ReadOnlySpan<char> rawToken, string lower, int pos,
-        int normStart, int normEnd, Action<string, SearchTokenKind, int, int, int, int, int> emit, bool includePrefixes)
+        int normStart, TokenOutput emitter, HashSet<string> seen)
     {
-        var seen = new HashSet<string>(StringComparer.Ordinal) { lower };
         var segStart = 0;
         for (var i = 0; i <= rawToken.Length; i++)
         {
@@ -848,52 +860,9 @@ public static class SearchTextAnalyzer
             {
                 var segLower = lower.Substring(segStart, segLen);
                 if (seen.Add(segLower))
-                    emit(segLower, SearchTokenKind.Subword, pos, 1, 0, normStart + segStart, normStart + i);
+                    emitter.Emit(segLower, SearchTokenKind.Subword, pos, 1, 0, normStart + segStart, normStart + i);
             }
             segStart = i + 1;
-        }
-        _ = includePrefixes;
-    }
-
-    private static void EmitCamelCaseSubwords(ReadOnlySpan<char> rawToken, string lower,
-        Func<string, SearchTokenKind, bool> tryEmit, bool includePrefixes)
-    {
-        var segStart = 0;
-        for (var i = 1; i <= rawToken.Length; i++)
-        {
-            if (i < rawToken.Length && !IsSubwordBoundary(rawToken, i)) continue;
-            var segLen = i - segStart;
-            if (segLen >= 2 && segLen < rawToken.Length)
-            {
-                var segLower = lower.Substring(segStart, segLen);
-                tryEmit(segLower, SearchTokenKind.Subword);
-                if (includePrefixes)
-                {
-                    var maxPrefix = Math.Min(AsciiMaxPrefixLength, segLen - 1);
-                    for (var len = AsciiMinPrefixLength; len <= maxPrefix; len++)
-                        tryEmit(segLower[..len], SearchTokenKind.Prefix);
-                }
-            }
-            segStart = i;
-        }
-    }
-
-    private static void EmitCamelCaseSubwordPrefixes(ReadOnlySpan<char> rawToken, string lower,
-        Func<string, SearchTokenKind, bool> tryEmit)
-    {
-        var segStart = 0;
-        for (var i = 1; i <= rawToken.Length; i++)
-        {
-            if (i < rawToken.Length && !IsSubwordBoundary(rawToken, i)) continue;
-            var segLen = i - segStart;
-            if (segLen >= 2 && segLen < rawToken.Length)
-            {
-                var segLower = lower.Substring(segStart, segLen);
-                var maxPrefix = Math.Min(AsciiMaxPrefixLength, segLen - 1);
-                for (var len = AsciiMinPrefixLength; len <= maxPrefix; len++)
-                    tryEmit(segLower[..len], SearchTokenKind.Prefix);
-            }
-            segStart = i;
         }
     }
 
