@@ -17,29 +17,11 @@ public sealed class PropertyKindsPostgresTests
         var red = Guid.NewGuid();
         var blue = Guid.NewGuid();
         PropertyFieldOption[] options = [new(red, "Red"), new(blue, "Blue")];
-        var values = new (string Key, PropertyFieldKind Kind, PropertyFieldValue Value)[]
-        {
-            ("a-text", PropertyFieldKind.Text, new PropertyFieldValue.Text("准确 🐈")),
-            ("b-number", PropertyFieldKind.Number, new PropertyFieldValue.Number(decimal.Parse("9007199254740993.1234567", System.Globalization.CultureInfo.InvariantCulture))),
-            ("c-boolean", PropertyFieldKind.Boolean, new PropertyFieldValue.Boolean(false)),
-            ("d-date", PropertyFieldKind.Date, new PropertyFieldValue.Date(DateTimeOffset.FromUnixTimeMilliseconds(1794669740123))),
-            ("e-single", PropertyFieldKind.SingleSelect, new PropertyFieldValue.SingleSelect(red)),
-            ("f-multi", PropertyFieldKind.MultiSelect, new PropertyFieldValue.MultiSelect(new[] { blue, red }.Order().ToArray())),
-            ("g-reference", PropertyFieldKind.ArticleReference, new PropertyFieldValue.ArticleReference([target.Id])),
-            ("h-url", PropertyFieldKind.Url, new PropertyFieldValue.Url("https://example.net/guide")),
-        };
-
-        var definitions = new List<Guid>();
-        for (var index = 0; index < values.Length; index++)
-        {
-            var (name, kind, _) = values[index];
-            var definition = Guid.NewGuid();
-            definitions.Add(definition);
-            var input = new PropertySchemaInput(new(1, definition, Guid.NewGuid(), index, 0, name, name), kind,
-                kind is PropertyFieldKind.SingleSelect or PropertyFieldKind.MultiSelect ? options : []);
-            var receipt = Wire.DecodePropertyCommandReceipt(await Send(WireRoutes.PropertySchemaCommand, Wire.EncodePropertySchemaInput(input)));
-            Assert.Equal(new(definition, index + 1, 1), receipt);
-        }
+        var values = TypedPropertyFixture.Samples(target.Id, red, new[] { blue, red }.Order().ToArray(), "准确 🐈",
+            number: decimal.Parse("9007199254740993.1234567", System.Globalization.CultureInfo.InvariantCulture));
+        string[] names = ["a-text", "b-number", "c-boolean", "d-date", "e-single", "f-multi", "g-reference", "h-url"];
+        var definitions = await TypedPropertyFixture.CreateDefinitions(values, options, index => (names[index], names[index]),
+            frame => Send(WireRoutes.PropertySchemaCommand, frame), TypedPropertyFixture.AssertCreated);
         for (var index = 0; index < values.Length; index++)
         {
             var input = Value(source, index, index, values[index].Value);

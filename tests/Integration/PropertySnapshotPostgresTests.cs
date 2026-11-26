@@ -29,26 +29,9 @@ public sealed class PropertySnapshotPostgresTests
             var red = Guid.Parse("07b84434-3061-44e5-af9a-05db78ae1f01");
             var blue = Guid.Parse("07b84434-3061-44e5-af9a-05db78ae1f02");
             PropertyFieldOption[] options = [new(red, "Red"), new(blue, "Blue")];
-            (PropertyFieldKind Kind, PropertyFieldValue Value)[] fixture =
-            [
-                (PropertyFieldKind.Text, new PropertyFieldValue.Text(OriginalText)),
-                (PropertyFieldKind.Number, new PropertyFieldValue.Number(9007199254740993.1234567m)),
-                (PropertyFieldKind.Boolean, new PropertyFieldValue.Boolean(false)),
-                (PropertyFieldKind.Date, new PropertyFieldValue.Date(DateTimeOffset.FromUnixTimeMilliseconds(1794669740123))),
-                (PropertyFieldKind.SingleSelect, new PropertyFieldValue.SingleSelect(red)),
-                (PropertyFieldKind.MultiSelect, new PropertyFieldValue.MultiSelect([red, blue])),
-                (PropertyFieldKind.ArticleReference, new PropertyFieldValue.ArticleReference([target.Id])),
-                (PropertyFieldKind.Url, new PropertyFieldValue.Url("https://example.net/snapshot")),
-            ];
-            var definitions = new Guid[fixture.Length];
-            for (var index = 0; index < fixture.Length; index++)
-            {
-                var kind = fixture[index].Kind;
-                definitions[index] = Guid.NewGuid();
-                var receipt = await Define(new(1, definitions[index], Guid.NewGuid(), index, 0, $"prop-{index}", $"Field {index}"),
-                    kind, kind is PropertyFieldKind.SingleSelect or PropertyFieldKind.MultiSelect ? options : []);
-                Assert.Equal(new PropertyCommandReceipt(definitions[index], index + 1, 1), receipt);
-            }
+            var fixture = TypedPropertyFixture.Samples(target.Id, red, [red, blue], OriginalText, "https://example.net/snapshot");
+            var definitions = await TypedPropertyFixture.CreateDefinitions(fixture, options, index => ($"prop-{index}", $"Field {index}"),
+                frame => Request(HttpMethod.Post, WireRoutes.PropertySchemaCommand, owner, frame), TypedPropertyFixture.AssertCreated);
 
             var initial = new PropertyValueBatchInput(empty.Id, empty.Revision, fixture.Length, 0, Guid.NewGuid(),
                 definitions.Select((id, index) => new PropertyValueChange(id, 1, fixture[index].Value)).ToArray());
