@@ -18,6 +18,7 @@ internal static class SearchRankingVectors
         VerifyQueryPlanVectors(fixtures);
         VerifyUnknownCjkNonAdmissionAndPositions();
         VerifyCrossFieldConceptsPhrasesIdentifiersAndRelaxation();
+        VerifyPhraseAtCompactPositionCountBoundary();
         VerifyExhaustiveOracleDifferentialAndPagination();
         VerifyCompactVsWideDifferential();
     }
@@ -155,6 +156,23 @@ internal static class SearchRankingVectors
         var single = index.SearchDetailed("alpha", ArticleSearchSort.Relevance, 1, 10, CancellationToken.None);
         var repeated = index.SearchDetailed("alpha ALPHA alpha", ArticleSearchSort.Relevance, 1, 10, CancellationToken.None);
         AssertDetailedEqual("repeated-terms", single, repeated);
+    }
+
+    private static void VerifyPhraseAtCompactPositionCountBoundary()
+    {
+        const string query = "\"qx ry\"";
+        var when = DateTimeOffset.UnixEpoch;
+        var articles = new[] { 65_535, 65_536 }.Select(count =>
+            Art(count, "Position Boundary", string.Concat(Enumerable.Repeat("qx ", count - 1)) + "qx ry", when)).ToArray();
+        var compact = ArticleSearchIndex.Build(articles, CancellationToken.None)!;
+        var oracle = ExhaustiveSearchOracle.Build(articles, CancellationToken.None);
+        foreach (var sort in new[] { ArticleSearchSort.Relevance, ArticleSearchSort.Latest })
+        {
+            var expected = oracle.SearchDetailed(query, sort, 1, 10, CancellationToken.None);
+            Require(expected.Total == articles.Length, "Both tail phrases must match.");
+            AssertDetailedEqual("compact position count", expected,
+                compact.SearchDetailed(query, sort, 1, 10, CancellationToken.None));
+        }
     }
 
     private static void VerifyExhaustiveOracleDifferentialAndPagination()
