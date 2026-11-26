@@ -1,3 +1,5 @@
+using System.IO.Compression;
+
 namespace FsusBlog.V2.Integration.Tests;
 
 internal static class ExportResponseFixture
@@ -29,6 +31,22 @@ internal static class ExportResponseFixture
     {
         Assert.Equal("%PDF-", Encoding.ASCII.GetString(bytes, 0, 5));
         Assert.EndsWith("%%EOF", Encoding.ASCII.GetString(bytes[^16..]).TrimEnd(), StringComparison.Ordinal);
+    }
+
+    internal static ZipArchive OpenZip(byte[] bytes) => new(new MemoryStream(bytes), ZipArchiveMode.Read);
+
+    internal static XDocument ReadZipXml(ZipArchive zip, string path)
+    {
+        using var part = zip.GetEntry(path)!.Open();
+        return XDocument.Load(part);
+    }
+
+    internal static byte[] ReadZipBytes(ZipArchive zip, string path)
+    {
+        using var part = zip.GetEntry(path)!.Open();
+        using var bytes = new MemoryStream();
+        part.CopyTo(bytes);
+        return bytes.ToArray();
     }
 
     internal static void AedsWithoutAttachment(HttpResponseMessage response)

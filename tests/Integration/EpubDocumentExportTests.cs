@@ -1,5 +1,5 @@
-using System.IO.Compression;
 using Xunit.Sdk;
+using static FsusBlog.V2.Integration.Tests.ExportResponseFixture;
 
 public sealed class EpubDocumentExportTests
 {
@@ -88,21 +88,15 @@ public sealed class EpubDocumentExportTests
 
         (string Id, byte[] Bytes) Package(SKColor color)
         {
-            using var bitmap = new SKBitmap(3, 2);
-            bitmap.Erase(color);
-            using var encoded = bitmap.Encode(codec, 90);
-            var bytes = encoded.ToArray();
+            var bytes = MediaFixture.SolidImage(codec, color);
             var image = new DocumentExportAttachment("image " + extension, (MediaFormat)kind, 3, 2, bytes);
             var document = EpubDocumentExport.Write(Title, "Body", HappenedAt, CancellationToken.None, attachment: image);
-            using var package = new ZipArchive(new MemoryStream(document));
+            using var package = OpenZip(document);
             var entry = $"images/attachment.{extension}";
-            var metadata = Read(package, "EPUB/package.opf");
+            var metadata = ReadZipXml(package, "EPUB/package.opf");
             var resource = Assert.Single(metadata.Descendants(Opf + "item"), item => (string?)item.Attribute("id") == "attachment");
             Assert.Equal((entry, mime), ((string?)resource.Attribute("href"), (string?)resource.Attribute("media-type")));
-            using var contents = package.GetEntry("EPUB/" + entry)!.Open();
-            using var actual = new MemoryStream();
-            contents.CopyTo(actual);
-            Assert.Equal(bytes, actual.ToArray());
+            Assert.Equal(bytes, ReadZipBytes(package, "EPUB/" + entry));
             return (Assert.Single(metadata.Descendants(Dc + "identifier")).Value, document);
         }
     }
@@ -125,15 +119,14 @@ public sealed class EpubDocumentExportTests
         Assert.True(bytes.AsSpan(30, 8).SequenceEqual("mimetype"u8));
         Assert.True(bytes.AsSpan(38, 20).SequenceEqual("application/epub+zip"u8));
 
-        using var stream = new MemoryStream(bytes);
-        using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
+        using var zip = OpenZip(bytes);
         Assert.Equal(new[] { "mimetype", "META-INF/container.xml", "EPUB/package.opf", "EPUB/nav.xhtml", "EPUB/article.xhtml" },
             zip.Entries.Select(entry => entry.FullName));
-        var rootfile = Assert.Single(Read(zip, "META-INF/container.xml").Descendants(Container + "rootfile"));
+        var rootfile = Assert.Single(ReadZipXml(zip, "META-INF/container.xml").Descendants(Container + "rootfile"));
         Assert.Equal("EPUB/package.opf", (string?)rootfile.Attribute("full-path"));
         Assert.Equal("application/oebps-package+xml", (string?)rootfile.Attribute("media-type"));
 
-        var package = Read(zip, "EPUB/package.opf").Root!;
+        var package = ReadZipXml(zip, "EPUB/package.opf").Root!;
         Assert.Equal(Opf + "package", package.Name);
         Assert.Equal("3.0", (string?)package.Attribute("version"));
         var metadata = package.Element(Opf + "metadata")!;
@@ -155,7 +148,7 @@ public sealed class EpubDocumentExportTests
         Assert.Equal("nav.xhtml", (string?)navItem.Attribute("href"));
         foreach (var entry in manifest.Values)
             Assert.Equal("application/xhtml+xml", (string?)entry.Attribute("media-type"));
-        var nav = Read(zip, "EPUB/nav.xhtml");
+        var nav = ReadZipXml(zip, "EPUB/nav.xhtml");
         var toc = Assert.Single(nav.Descendants(Xhtml + "nav"), elem => (string?)elem.Attribute(Epub + "type") == "toc");
         var link = Assert.Single(toc.Descendants(Xhtml + "a"));
         Assert.Equal(title, link.Value);
@@ -164,7 +157,7 @@ public sealed class EpubDocumentExportTests
         Assert.Equal("bodymatter", (string?)Assert.Single(landmarks.Descendants(Xhtml + "a")).Attribute(Epub + "type"));
         Assert.All(nav.Descendants(Xhtml + "a"), anchor => Assert.Equal("article.xhtml", (string?)anchor.Attribute("href")));
 
-        var chapter = Read(zip, "EPUB/article.xhtml");
+        var chapter = ReadZipXml(zip, "EPUB/article.xhtml");
         Assert.Equal(Xhtml + "html", chapter.Root!.Name);
         Assert.Equal("auto", (string?)chapter.Root.Attribute("dir"));
         Assert.Equal(title, Assert.Single(chapter.Descendants(Xhtml + "article")).Elements(Xhtml + "h1").First().Value);
@@ -174,11 +167,5 @@ public sealed class EpubDocumentExportTests
 
         string MetadataValue(string property) =>
             Assert.Single(metadata.Elements(Opf + "meta"), e => (string?)e.Attribute("property") == property).Value;
-    }
-
-    private static XDocument Read(ZipArchive zip, string path)
-    {
-        using var content = zip.GetEntry(path)!.Open();
-        return XDocument.Load(content);
     }
 }
