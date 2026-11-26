@@ -134,33 +134,25 @@ public sealed record SearchQueryPlan(
                     continue;
                 }
 
-                // Pair token with its immediate ScriptAlias (if Traditional != Simplified)
-                var (canonicalTerm, exactTerm, differs, canonHash32, exactHash32) = ReadPairedForm(tokens, ref i);
+                var step = ReadStep(tokens, ref i);
 
                 // 1. Pure-letter hyphenated compound (e.g. "batch-item" followed by Subword "batch", "item")
-                if (tok.Kind == SearchTokenKind.Exact && !SearchTextAnalyzer.IsStrictExactIdentifier(tok.Term.AsSpan()) &&
-                    tok.Term.Contains('-') && i < tokens.Count && tokens[i].Kind == SearchTokenKind.Subword &&
-                    tokens[i].Position == tok.Position)
+                if (tok.Kind == SearchTokenKind.Exact && tok.Term.Contains('-') &&
+                    i < tokens.Count && tokens[i].Kind == SearchTokenKind.Subword && tokens[i].Position == tok.Position &&
+                    !SearchTextAnalyzer.IsStrictExactIdentifier(tok.Term.AsSpan()))
                 {
-                    var steps = new List<SearchConceptStep>
-                    {
-                        MakeStep(canonicalTerm, exactTerm, differs, 0, tok.Width, canonHash32, exactHash32, tok.IsStopword)
-                    };
+                    var steps = new List<SearchConceptStep> { step };
                     while (i < tokens.Count && tokens[i].Kind == SearchTokenKind.Subword && tokens[i].Position == tok.Position)
-                    {
-                        var sub = tokens[i];
-                        var (sCanon, sExact, sDiff, sCH32, sEH32) = ReadPairedForm(tokens, ref i);
-                        steps.Add(MakeStep(sCanon, sExact, sDiff, 0, sub.Width, sCH32, sEH32, sub.IsStopword));
-                    }
-                    var idKey = "hyphen:" + canonicalTerm;
+                        steps.Add(ReadStep(tokens, ref i));
+                    var idKey = "hyphen:" + step.CanonicalTerm;
                     allConcepts.Add(new SearchConcept(
                         allConcepts.Count, SearchConceptKind.CompoundHyphen, [.. steps],
                         ShortAsciiPrefix: null, IsStrictIdentifier: false, IsStopword: tok.IsStopword,
                         tok.Position, tok.Width, idKey));
                     if (phraseSteps is not null)
-                        phraseSteps.Add(steps[0] with { RelativeOffset = tok.Position - segStartPos });
+                        phraseSteps.Add(step with { RelativeOffset = tok.Position - segStartPos });
                     if (!tok.IsStopword)
-                        orderedSequence.Add(steps[0] with { RelativeOffset = tok.Position });
+                        orderedSequence.Add(step with { RelativeOffset = tok.Position });
                     continue;
                 }
 
@@ -168,17 +160,12 @@ public sealed record SearchQueryPlan(
                 if (tok.Kind == SearchTokenKind.CjkBigram)
                 {
                     var seqStartPos = tok.Position;
-                    var steps = new List<SearchConceptStep>
-                    {
-                        MakeStep(canonicalTerm, exactTerm, differs, 0, tok.Width, canonHash32, exactHash32, tok.IsStopword)
-                    };
+                    var steps = new List<SearchConceptStep> { step };
                     var lastPos = tok.Position;
                     while (i < tokens.Count && tokens[i].Kind == SearchTokenKind.CjkBigram && tokens[i].Position == lastPos + 1)
                     {
-                        var next = tokens[i];
-                        var (nCanon, nExact, nDiff, nCH32, nEH32) = ReadPairedForm(tokens, ref i);
-                        steps.Add(MakeStep(nCanon, nExact, nDiff, next.Position - seqStartPos, next.Width, nCH32, nEH32, next.IsStopword));
-                        lastPos = next.Position;
+                        lastPos = tokens[i].Position;
+                        steps.Add(ReadStep(tokens, ref i, lastPos - seqStartPos));
                     }
 
                     if (steps.Count >= 2)
@@ -199,16 +186,15 @@ public sealed record SearchQueryPlan(
                     }
                     else
                     {
-                        var st = steps[0];
-                        var idKey = "term:" + st.CanonicalTerm;
+                        var idKey = "term:" + step.CanonicalTerm;
                         allConcepts.Add(new SearchConcept(
-                            allConcepts.Count, SearchConceptKind.Term, [st],
-                            ShortAsciiPrefix: null, IsStrictIdentifier: false, IsStopword: st.IsStopword,
+                            allConcepts.Count, SearchConceptKind.Term, [step],
+                            ShortAsciiPrefix: null, IsStrictIdentifier: false, IsStopword: step.IsStopword,
                             seqStartPos, tok.Width, idKey));
                         if (phraseSteps is not null)
-                            phraseSteps.Add(st with { RelativeOffset = seqStartPos - segStartPos });
-                        if (!st.IsStopword)
-                            orderedSequence.Add(st with { RelativeOffset = seqStartPos });
+                            phraseSteps.Add(step with { RelativeOffset = seqStartPos - segStartPos });
+                        if (!step.IsStopword)
+                            orderedSequence.Add(step with { RelativeOffset = seqStartPos });
                     }
                     continue;
                 }
@@ -219,8 +205,7 @@ public sealed record SearchQueryPlan(
                 var shortPrefix = !isStrict && shortPrefixSet is not null && shortPrefixSet.Contains(tok.Term)
                     ? tok.Term
                     : null;
-                var step = MakeStep(canonicalTerm, exactTerm, differs, 0, tok.Width, canonHash32, exactHash32, tok.IsStopword);
-                var conceptKey = (isStrict ? "strict:" : "term:") + canonicalTerm + (shortPrefix is not null ? ":p" : "");
+                var conceptKey = (isStrict ? "strict:" : "term:") + step.CanonicalTerm + (shortPrefix is not null ? ":p" : "");
                 allConcepts.Add(new SearchConcept(
                     allConcepts.Count, SearchConceptKind.Term, [step],
                     ShortAsciiPrefix: shortPrefix, IsStrictIdentifier: isStrict, IsStopword: tok.IsStopword,
@@ -244,21 +229,12 @@ public sealed record SearchQueryPlan(
         if (allConcepts.Count == 0)
             return Empty(normalized);
 
-        // Deduplicate concepts by IdentityKey while preserving first-seen order and strictness.
+        // The identity prefix encodes strictness. Keep the first occurrence of each identity.
         var deduped = new List<SearchConcept>(allConcepts.Count);
-        var seenIds = new Dictionary<string, int>(StringComparer.Ordinal);
+        var seenIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var concept in allConcepts)
-        {
-            if (seenIds.TryGetValue(concept.IdentityKey, out var existingIdx))
-            {
-                // Preserve strictness if repeated
-                if (concept.IsStrictIdentifier && !deduped[existingIdx].IsStrictIdentifier)
-                    deduped[existingIdx] = deduped[existingIdx] with { IsStrictIdentifier = true };
-                continue;
-            }
-            seenIds[concept.IdentityKey] = deduped.Count;
-            deduped.Add(concept with { Index = deduped.Count });
-        }
+            if (seenIds.Add(concept.IdentityKey))
+                deduped.Add(concept with { Index = deduped.Count });
 
         // ContentConcepts exclude stopwords unless every concept in the query is a stopword (e.g. query "的").
         var nonStop = deduped.Where(static c => !c.IsStopword).ToArray();
@@ -356,35 +332,26 @@ public sealed record SearchQueryPlan(
         return result;
     }
 
-    private static (string CanonicalTerm, string ExactFormTerm, bool Differs, uint CanonHash32, uint ExactHash32)
-        ReadPairedForm(List<SearchToken> tokens, ref int index)
+    private static SearchConceptStep ReadStep(List<SearchToken> tokens, ref int index, int relativeOffset = 0)
     {
-        var primary = tokens[index++];
-        var exactTerm = primary.Term;
-        var exactHash32 = primary.Hash32;
+        var exact = tokens[index++];
+        var canonical = exact;
         if (index < tokens.Count &&
             tokens[index].Kind == SearchTokenKind.ScriptAlias &&
-            tokens[index].Position == primary.Position &&
-            tokens[index].Width == primary.Width)
-        {
-            var alias = tokens[index++];
-            return (alias.Term, exactTerm, !string.Equals(alias.Term, exactTerm, StringComparison.Ordinal),
-                alias.Hash32, exactHash32);
-        }
-        return (exactTerm, exactTerm, false, exactHash32, exactHash32);
-    }
+            tokens[index].Position == exact.Position &&
+            tokens[index].Width == exact.Width)
+            canonical = tokens[index++];
 
-    private static SearchConceptStep MakeStep(string canonicalTerm, string exactFormTerm, bool differs,
-        int relOffset, int width, uint canonHash32, uint exactHash32, bool isStopword) =>
-        new(
-            canonicalTerm,
-            SearchTermKey.From(canonicalTerm),
-            exactFormTerm,
-            SearchTermKey.From(exactFormTerm),
-            differs,
-            relOffset,
-            width,
-            canonHash32,
-            exactHash32,
-            isStopword);
+        return new SearchConceptStep(
+            canonical.Term,
+            SearchTermKey.From(canonical),
+            exact.Term,
+            SearchTermKey.From(exact),
+            !string.Equals(canonical.Term, exact.Term, StringComparison.Ordinal),
+            relativeOffset,
+            exact.Width,
+            canonical.Hash32,
+            exact.Hash32,
+            exact.IsStopword);
+    }
 }
