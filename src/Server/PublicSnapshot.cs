@@ -523,6 +523,8 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     PublicProjection? projection = null, bool siteConfigOverrideActive = false, SitePages? sitePages = null,
     PublicSearchCache? searchCache = null, bool buildLocalCorpus = true)
 {
+    private const string MarkOutboxProcessedSql =
+        "update public.blog_outbox set processed_at=now() where processed_at is null and id <= $1";
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
     private readonly PublicSearchCursor _searchCursor = new(TimeProvider.System);
@@ -642,7 +644,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                 log.LogError(error, "Scheduled publication batch rolled back or awaits outbox recovery.");
             }
 
-            source = await ReadProjectionSourceAsync(markOutboxIfUnchanged: true, ct);
+            source = await ReadProjectionSourceAsync(ct);
             if (source is null)
             {
                 evidence?.CountRefresh(false);
@@ -655,11 +657,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
 
         // Build the candidate snapshot OUTSIDE _writers and OUTSIDE any open PostgreSQL transaction (#51).
         using var attribution = evidence?.PublicationWork();
-        var (stillCurrent, next) = await _coordinator.BuildCandidateAsync(
-            expectedEpoch,
-            buildCt => BuildSnapshotFromSource(source, baseProjection, buildCt),
-            ct,
-            lease?.Stopped ?? CancellationToken.None);
+        var (stillCurrent, next) = await BuildProjectionCandidateAsync(expectedEpoch, source, baseProjection, ct);
         if (!stillCurrent || next is null) return;
 
         await _writers.WaitAsync(ct);
@@ -667,14 +665,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         {
             if (_coordinator.CurrentEpoch != expectedEpoch || !LeaseCurrent) return;
             await MarkOutboxProcessedAsync(source.MaxPendingOutboxId, ct);
-            if (_coordinator.TryCommitCandidate(expectedEpoch, () => LeaseCurrent, () =>
-            {
-                _lastProjection = next;
-                ReplaceProjection(next);
-            }))
-            {
-                evidence?.CountRefresh(true);
-            }
+            InstallProjectionCandidate(expectedEpoch, next);
         }
         finally { _writers.Release(); }
     }
@@ -695,7 +686,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         lease?.RequireCurrent();
         var expectedEpoch = _coordinator.CurrentEpoch;
         var baseProjection = _lastProjection;
-        var source = await ReadProjectionSourceAsync(markOutboxIfUnchanged: true, ct);
+        var source = await ReadProjectionSourceAsync(ct);
         if (source is null)
         {
             evidence?.CountRefresh(false);
@@ -703,14 +694,15 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         }
 
         // Build candidate outside any open PostgreSQL transaction while enforcing the single-candidate bound.
-        var (stillCurrent, next) = await _coordinator.BuildCandidateAsync(
-            expectedEpoch,
-            buildCt => BuildSnapshotFromSource(source, baseProjection, buildCt),
-            ct,
-            lease?.Stopped ?? CancellationToken.None);
+        var (stillCurrent, next) = await BuildProjectionCandidateAsync(expectedEpoch, source, baseProjection, ct);
         if (!stillCurrent || next is null) return;
 
         await MarkOutboxProcessedAsync(source.MaxPendingOutboxId, ct);
+        InstallProjectionCandidate(expectedEpoch, next);
+    }
+
+    private void InstallProjectionCandidate(long expectedEpoch, PublicSnapshot next)
+    {
         if (_coordinator.TryCommitCandidate(expectedEpoch, () => LeaseCurrent, () =>
         {
             _lastProjection = next;
@@ -721,10 +713,13 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         }
     }
 
-    private PublicSnapshot BuildSnapshotFromSource(ProjectionSource source, PublicSnapshot? baseProjection, CancellationToken ct) =>
-        new(source.MaxEvent, source.Articles, source.Taxonomy, pages, _listCursor, baseProjection, log, evidence, distribution,
-            ct, source.TaxonomyEpoch, source.Media, source.SiteConfigRevision, source.SitePagesMask, _searchCursor,
-            buildLocalCorpus: buildLocalCorpus);
+    private Task<(bool StillCurrent, PublicSnapshot? Candidate)> BuildProjectionCandidateAsync(long expectedEpoch,
+        ProjectionSource source, PublicSnapshot? baseProjection, CancellationToken ct) =>
+        _coordinator.BuildCandidateAsync(expectedEpoch, buildCt =>
+            new PublicSnapshot(source.MaxEvent, source.Articles, source.Taxonomy, pages, _listCursor, baseProjection, log,
+                evidence, distribution, buildCt, source.TaxonomyEpoch, source.Media, source.SiteConfigRevision,
+                source.SitePagesMask, _searchCursor, buildLocalCorpus: buildLocalCorpus), ct,
+            lease?.Stopped ?? CancellationToken.None);
 
     private sealed record ProjectionSource(
         long MaxEvent,
@@ -736,7 +731,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         PublishedMediaProjection? Media,
         List<Article> Articles);
 
-    private async Task<ProjectionSource?> ReadProjectionSourceAsync(bool markOutboxIfUnchanged, CancellationToken ct)
+    private async Task<ProjectionSource?> ReadProjectionSourceAsync(CancellationToken ct)
     {
         lease?.RequireCurrent();
         using var stop = lease is null ? null : CancellationTokenSource.CreateLinkedTokenSource(ct, lease.Stopped);
@@ -749,12 +744,8 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
             current.SiteConfigRevision != siteConfigRevision || current.SitePagesMask != sitePagesMask;
         if (!rebuilt)
         {
-            if (markOutboxIfUnchanged && maxPendingOutboxId > 0)
-            {
-                await SqlCommands.Execute(connection, tx, ct, """
-                    update public.blog_outbox set processed_at=now() where processed_at is null and id <= $1
-                    """, maxPendingOutboxId);
-            }
+            if (maxPendingOutboxId > 0)
+                await SqlCommands.Execute(connection, tx, ct, MarkOutboxProcessedSql, maxPendingOutboxId);
             await InstanceLease.CommitProtected(tx, lease, ct);
             return null;
         }
@@ -823,9 +814,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         ct = stop?.Token ?? ct;
         await using var connection = await db.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(connection, lease, ct);
-        await SqlCommands.Execute(connection, tx, ct, """
-            update public.blog_outbox set processed_at=now() where processed_at is null and id <= $1
-            """, maxPendingOutboxId);
+        await SqlCommands.Execute(connection, tx, ct, MarkOutboxProcessedSql, maxPendingOutboxId);
         await InstanceLease.CommitProtected(tx, lease, ct);
     }
 
