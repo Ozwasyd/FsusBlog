@@ -18,49 +18,27 @@ public sealed partial class ArticleSearchIndex
         long PublishedAtTicks,
         long CreatedAtTicks);
 
-    private static int CompareHeapHits(HeapHit left, HeapHit right, ArticleSearchSort sort)
-    {
-        var tierCmp = ((byte)left.Tier).CompareTo((byte)right.Tier);
-        if (tierCmp != 0) return tierCmp;
-        if (sort == ArticleSearchSort.Latest)
-        {
-            var pub = right.PublishedAtTicks.CompareTo(left.PublishedAtTicks);
-            if (pub != 0) return pub;
-            var score = right.Score.CompareTo(left.Score);
-            if (score != 0) return score;
-            var created = right.CreatedAtTicks.CompareTo(left.CreatedAtTicks);
-            return created != 0 ? created : right.ArticleId.CompareTo(left.ArticleId);
-        }
-        else
-        {
-            var score = right.Score.CompareTo(left.Score);
-            if (score != 0) return score;
-            var created = right.CreatedAtTicks.CompareTo(left.CreatedAtTicks);
-            return created != 0 ? created : right.ArticleId.CompareTo(left.ArticleId);
-        }
-    }
+    private static int CompareHeapHits(in HeapHit left, in HeapHit right, ArticleSearchSort sort) =>
+        CompareHeapHit(in left, right.Tier, right.Score, right.PublishedAtTicks, right.CreatedAtTicks, right.ArticleId, sort);
 
-    private static int CompareHeapHitToCursor(HeapHit hit, SearchCursorPosition cursor, ArticleSearchSort sort)
+    private static int CompareHeapHitToCursor(in HeapHit hit, SearchCursorPosition cursor, ArticleSearchSort sort) =>
+        CompareHeapHit(in hit, cursor.Tier, BitConverter.Int64BitsToDouble(cursor.ScoreBits),
+            cursor.PublishedAtTicks, cursor.CreatedAtTicks, cursor.Id, sort);
+
+    private static int CompareHeapHit(in HeapHit left, SearchMatchTier rightTier, double rightScore,
+        long rightPublishedAtTicks, long rightCreatedAtTicks, int rightArticleId, ArticleSearchSort sort)
     {
-        var tierCmp = ((byte)hit.Tier).CompareTo((byte)cursor.Tier);
+        var tierCmp = ((byte)left.Tier).CompareTo((byte)rightTier);
         if (tierCmp != 0) return tierCmp;
-        var cursorScore = BitConverter.Int64BitsToDouble(cursor.ScoreBits);
         if (sort == ArticleSearchSort.Latest)
         {
-            var pub = cursor.PublishedAtTicks.CompareTo(hit.PublishedAtTicks);
+            var pub = rightPublishedAtTicks.CompareTo(left.PublishedAtTicks);
             if (pub != 0) return pub;
-            var score = cursorScore.CompareTo(hit.Score);
-            if (score != 0) return score;
-            var created = cursor.CreatedAtTicks.CompareTo(hit.CreatedAtTicks);
-            return created != 0 ? created : cursor.Id.CompareTo(hit.ArticleId);
         }
-        else
-        {
-            var score = cursorScore.CompareTo(hit.Score);
-            if (score != 0) return score;
-            var created = cursor.CreatedAtTicks.CompareTo(hit.CreatedAtTicks);
-            return created != 0 ? created : cursor.Id.CompareTo(hit.ArticleId);
-        }
+        var score = rightScore.CompareTo(left.Score);
+        if (score != 0) return score;
+        var created = rightCreatedAtTicks.CompareTo(left.CreatedAtTicks);
+        return created != 0 ? created : rightArticleId.CompareTo(left.ArticleId);
     }
 
     private ArticleSearchHit[] MaterializeHits(HeapHit[] sorted)
