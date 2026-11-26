@@ -1,3 +1,6 @@
+using System.IO.Compression;
+using FsusBlog.V2.Core.Extensions;
+
 namespace FsusBlog.V2.Tests;
 
 internal abstract class AppearancePackageStore

@@ -45,6 +45,8 @@
     <Using Include="FsusBlog.V2.Contracts.AuthorTextRankedPage" Alias="AuthorTextRankedPage" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../Core/AppearancePackageStore.cs" Link="AppearancePackageStore.cs" />
+    <Compile Include="../Core/SignedExtensionFixture.cs" Link="SignedExtensionFixture.cs" />
     <Compile Remove="Migration/**/*.cs" />
   </ItemGroup>
 </Project>
