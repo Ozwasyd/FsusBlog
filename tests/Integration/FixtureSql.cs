@@ -91,4 +91,12 @@ internal static class FixtureSql
         await using var command = Store.Sql(db, tx, sql, arguments);
         return await command.ExecuteScalarAsync(ct);
     }
+
+    internal static async Task<string> ExpectSchemaError(NpgsqlConnection db, string expected, CancellationToken ct,
+        SchemaAdmission options = default, StringComparison comparison = StringComparison.Ordinal)
+    {
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct, options));
+        Assert.Contains(expected, failure.Message, comparison);
+        return failure.Message;
+    }
 }

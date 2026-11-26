@@ -10,13 +10,11 @@ public sealed class ArticleReadSchemaPostgresTests
         Assert.True(await CurrentSchema.HasArticleReadSchemaAsync(db, null, ct));
 
         await Execute(db, "ALTER TABLE public.article_read_hour RENAME TO incomplete_article_read_hour", ct);
-        var partial = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("aggregate storage is incomplete", partial.Message, StringComparison.Ordinal);
+        await FixtureSql.ExpectSchemaError(db, "aggregate storage is incomplete", ct);
         await Execute(db, "ALTER TABLE public.incomplete_article_read_hour RENAME TO article_read_hour", ct);
 
         await Execute(db, "DELETE FROM public.article_read_epoch", ct);
-        var missingWatermark = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("watermark is missing", missingWatermark.Message, StringComparison.Ordinal);
+        await FixtureSql.ExpectSchemaError(db, "watermark is missing", ct);
         await Execute(db, "INSERT INTO public.article_read_epoch (singleton) VALUES (true)", ct);
 
         await Execute(db, """
@@ -24,13 +22,11 @@ public sealed class ArticleReadSchemaPostgresTests
                 DROP CONSTRAINT article_read_dwell_bucket_check,
                 ADD CHECK (bucket BETWEEN 0 AND 4)
             """, ct);
-        var wrongBucket = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("article_read_dwell c bucket bucket>=0ANDbucket<=3", wrongBucket.Message, StringComparison.Ordinal);
+        await FixtureSql.ExpectSchemaError(db, "article_read_dwell c bucket bucket>=0ANDbucket<=3", ct);
 
         await Execute(db, "DROP TABLE public.article_read_hour, public.article_read_dwell, public.article_read_epoch", ct);
         Assert.False(await CurrentSchema.HasArticleReadSchemaAsync(db, null, ct));
-        var totalsWithoutAggregates = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("article read total schema presence", totalsWithoutAggregates.Message, StringComparison.Ordinal);
+        await FixtureSql.ExpectSchemaError(db, "article read total schema presence", ct);
         await Execute(db, "DROP TABLE public.article_read_total", ct);
         await CurrentSchema.VerifyAsync(db, ct);
     }
@@ -43,12 +39,10 @@ public sealed class ArticleReadSchemaPostgresTests
         Assert.True(await CurrentSchema.HasArticleReadTotalSchemaAsync(db, null, ct));
 
         await Execute(db, "DROP INDEX public.article_read_total_rank", ct);
-        var missing = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("descending btree index", missing.Message, StringComparison.Ordinal);
+        await FixtureSql.ExpectSchemaError(db, "descending btree index", ct);
 
         await Execute(db, "CREATE INDEX article_read_total_rank ON public.article_read_total (views DESC, article_id)", ct);
-        var wrongOrder = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-        Assert.Contains("descending btree index", wrongOrder.Message, StringComparison.Ordinal);
+        await FixtureSql.ExpectSchemaError(db, "descending btree index", ct);
 
         await Execute(db, "DROP TABLE public.article_read_total", ct);
         Assert.False(await CurrentSchema.HasArticleReadTotalSchemaAsync(db, null, ct));

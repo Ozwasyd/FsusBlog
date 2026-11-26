@@ -42,22 +42,22 @@ public sealed class SchemaAdmissionPostgresTests
         await using var database = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromSeconds(60));
         await using var connection = await database.DataSource.OpenConnectionAsync(ct);
         await CurrentSchema.VerifyAsync(connection, ct, new(AdminCommentBatch: true));
-        await ExpectVerifyError(connection, "batch schema presence", ct, new(AdminCommentBatch: false), StringComparison.OrdinalIgnoreCase);
+        await FixtureSql.ExpectSchemaError(connection, "batch schema presence", ct, new(AdminCommentBatch: false), StringComparison.OrdinalIgnoreCase);
 
         await database.Exec("ALTER TABLE public.admin_comment_batch_item RENAME TO incomplete_comment_batch_item");
-        await ExpectVerifyError(connection, "batch storage is incomplete", ct, cmp: StringComparison.OrdinalIgnoreCase);
+        await FixtureSql.ExpectSchemaError(connection, "batch storage is incomplete", ct, comparison: StringComparison.OrdinalIgnoreCase);
         await database.Exec("ALTER TABLE public.incomplete_comment_batch_item RENAME TO admin_comment_batch_item");
 
         await database.Exec("""
             ALTER TABLE public.admin_comment_batch_step_up
                 DROP CONSTRAINT admin_comment_batch_step_up_action_check, ADD CHECK (action = 1)
             """);
-        await ExpectVerifyError(connection, "admin_comment_batch_step_up c action action=6", ct);
+        await FixtureSql.ExpectSchemaError(connection, "admin_comment_batch_step_up c action action=6", ct);
 
         await database.Exec("DROP TABLE public.admin_comment_batch_item, public.admin_comment_batch, public.admin_comment_batch_step_up");
         await CurrentSchema.VerifyAsync(connection, ct, new(AdminCommentBatch: false));
         await CurrentSchema.VerifyAsync(connection, ct);
-        await ExpectVerifyError(connection, "batch schema presence", ct, new(AdminCommentBatch: true), StringComparison.OrdinalIgnoreCase);
+        await FixtureSql.ExpectSchemaError(connection, "batch schema presence", ct, new(AdminCommentBatch: true), StringComparison.OrdinalIgnoreCase);
     }
 
     [PostgresFact]
@@ -68,15 +68,15 @@ public sealed class SchemaAdmissionPostgresTests
         await CurrentSchema.VerifyAsync(connection, ct, new(DocumentExports: true));
 
         await database.Exec("ALTER INDEX public.author_document_export_pending RENAME TO wrong_document_export_pending");
-        await ExpectVerifyError(connection, "document export index shape mismatch", ct);
+        await FixtureSql.ExpectSchemaError(connection, "document export index shape mismatch", ct);
         await database.Exec("ALTER INDEX public.wrong_document_export_pending RENAME TO author_document_export_pending");
 
         await database.Exec("ALTER TABLE public.author_document_export DROP CONSTRAINT author_document_export_output_check");
-        await ExpectVerifyError(connection, "octet_length(output)<=4194304", ct);
+        await FixtureSql.ExpectSchemaError(connection, "octet_length(output)<=4194304", ct);
 
         await database.Exec("DROP TABLE public.author_document_export");
         await CurrentSchema.VerifyAsync(connection, ct);
-        await ExpectVerifyError(connection, "document export schema presence", ct, new(DocumentExports: true));
+        await FixtureSql.ExpectSchemaError(connection, "document export schema presence", ct, new(DocumentExports: true));
     }
 
     [PostgresFact]
@@ -134,7 +134,7 @@ public sealed class SchemaAdmissionPostgresTests
         foreach (var (prepare, restore, expected) in drifts)
         {
             await database.Exec(prepare);
-            var msg = await ExpectVerifyError(connection, "constraint shape mismatch", ct);
+            var msg = await FixtureSql.ExpectSchemaError(connection, "constraint shape mismatch", ct);
             Assert.Contains(expected, msg, StringComparison.Ordinal);
             await database.Exec(restore);
             await CurrentSchema.VerifyAsync(connection, ct);
@@ -152,14 +152,6 @@ public sealed class SchemaAdmissionPostgresTests
     {
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(async () => { await using var _ = await ServerProcess.Start(dsn, ct); });
         Assert.Contains(expected, failure.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static async Task<string> ExpectVerifyError(NpgsqlConnection db, string expected, CancellationToken ct,
-        SchemaAdmission options = default, StringComparison cmp = StringComparison.Ordinal)
-    {
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct, options));
-        Assert.Contains(expected, failure.Message, cmp);
-        return failure.Message;
     }
 
     private static Task<int> InsertAppealStepUp(ScratchDatabase db, (Guid Id, string Token, byte[] Digest) admin, short kind, string? options) =>

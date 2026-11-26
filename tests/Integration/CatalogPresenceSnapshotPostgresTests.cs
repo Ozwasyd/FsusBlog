@@ -80,8 +80,7 @@ public sealed class CatalogPresenceSnapshotPostgresTests
         async Task Drift(string mutate, string expected, string? restore = null)
         {
             await database.Exec(mutate);
-            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchema.VerifyAsync(db, ct));
-            Assert.Contains(expected, error.Message, StringComparison.Ordinal);
+            await FixtureSql.ExpectSchemaError(db, expected, ct);
             if (restore is not null)
             {
                 await database.Exec(restore);
