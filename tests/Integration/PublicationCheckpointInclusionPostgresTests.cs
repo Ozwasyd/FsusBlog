@@ -35,7 +35,7 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
             settings[Archive + "Path"] = Path.Combine(directory.FullName, "archive.json");
             var migration = Environment.GetEnvironmentVariable(PublicationTransparencyFact.MigrationPath)!;
             var runner = Environment.GetEnvironmentVariable("DOTNET_BIN") ?? "dotnet";
-            await Run(runner, [migration, "publication-transparency", "enable"], migrationEnvironment: true);
+            await Migrate([migration, "publication-transparency", "enable"]);
 
             var authorSession = await MediaFixture.CreateSession(fixture.DataSource, "Daily member fixture", ct, canAuthor: true);
             var session = authorSession.Token;
@@ -96,8 +96,8 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                     Assert.Equal(checkpoint.ToJsonString(), parsed["checkpoint"]!.ToJsonString());
                     var bundlePath = Path.Combine(directory.FullName, $"member-{member.Sequence}.json");
                     await File.WriteAllTextAsync(bundlePath, bundle, ct);
-                    var result = JsonNode.Parse(await Run("node", [PublicationFixture.Tool("verify-publication-checkpoint.mjs"),
-                        origin, manifest, headPath, bundlePath, "--daily", day, Coordinate(member.Sequence), Hex(member.Entry)]))!;
+                    var result = JsonNode.Parse(await Run(PublicationFixture.Verifier("checkpoint",
+                        origin, manifest, headPath, bundlePath, "--daily", day, Coordinate(member.Sequence), Hex(member.Entry))))!;
                     Assert.Equal(Coordinate(member.Sequence), result["inclusionSequence"]!.GetValue<string>());
                     evidence.WriteLine($"Node independently verified day {day}, ledger sequence {member.Sequence} and entry {Hex(member.Entry)}.");
                 }
@@ -105,7 +105,7 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                     $"/integrity/v2/article/{omitted.Article.Id}/{covered.Publication}/daily-proof.json" })
                     await Get(client, missing, NotFound);
 
-                await PublicationFixture.Edit(server, address.Authority, session, WireRoutes.Retract,
+                await PublicationFixture.Edit(server, session, WireRoutes.Retract,
                     new(oddLeaf.Article.Id, oddLeaf.Article.Revision, Guid.NewGuid(), "", ""), ct);
                 await Get(client, oddLeaf.Path, NotFound);
                 Assert.Equal(aggregate, await Get(client, dayRoute, OK));
@@ -147,32 +147,32 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                     var initial = await Get(client, headRoute, OK);
                     Assert.Equal(await File.ReadAllTextAsync(headPath, ct), initial);
                     var quietDay = headAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                    var firstRun = JsonNode.Parse(await Run(runner, args, migrationEnvironment: true, overrides: signer))!;
+                    var firstRun = JsonNode.Parse(await Migrate(args, overrides: signer))!;
                     Assert.Equal(quietDay, firstRun["scopeKey"]!.GetValue<string>());
                     await VerifyAutomaticArchive(firstRun, quietDay, 0);
                     var explicitDay = args.Append(day).ToArray();
-                    var result = JsonNode.Parse(await Run(runner, explicitDay, migrationEnvironment: true, overrides: signer))!;
+                    var result = JsonNode.Parse(await Migrate(explicitDay, overrides: signer))!;
                     await VerifyAutomaticArchive(result, day, 3);
                     (sealedPath, sealedHash) = (result["path"]!.GetValue<string>(), result["sha256"]!.GetValue<string>());
                     var original = await File.ReadAllBytesAsync(sealedPath, ct);
-                    Assert.True(JsonNode.DeepEquals(result, JsonNode.Parse(await Run(runner, explicitDay, migrationEnvironment: true, overrides: signer))));
+                    Assert.True(JsonNode.DeepEquals(result, JsonNode.Parse(await Migrate(explicitDay, overrides: signer))));
                     Assert.Equal(original, await File.ReadAllBytesAsync(sealedPath, ct));
 
                     var changed = JsonNode.Parse(original)!;
                     changed["checkpoints"]![0]!["entryCount"] = 2;
                     var changedBytes = JsonSerializer.SerializeToUtf8Bytes(changed);
                     await ReplaceSealedArchive(changedBytes);
-                    await Run(runner, explicitDay, migrationEnvironment: true, overrides: signer, failure: "bytes were changed");
+                    await Migrate(explicitDay, overrides: signer, failure: "bytes were changed");
                     Assert.Equal(changedBytes, await File.ReadAllBytesAsync(sealedPath, ct));
                     await ReplaceSealedArchive(original);
 
                     var openDay = await fixture.Scalar<string>("select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD')");
-                    await Run(runner, [.. args, openDay], migrationEnvironment: true, overrides: signer, failure: "still open");
+                    await Migrate([.. args, openDay], overrides: signer, failure: "still open");
                     var wrong = args.ToArray();
                     wrong[6] = new string('0', 64);
-                    await Run(runner, wrong, migrationEnvironment: true, overrides: signer, failure: "independently retained native head");
+                    await Migrate(wrong, overrides: signer, failure: "independently retained native head");
                     signer[CheckpointSigning + "KeyId"] = Key;
-                    await Run(runner, args, migrationEnvironment: true, overrides: signer, failure: "separately registered");
+                    await Migrate(args, overrides: signer, failure: "separately registered");
                     Assert.Equal(initial, await Get(client, headRoute, OK));
                     Assert.Equal(tail.Sequence, await fixture.Scalar<long>("select count(*) from public.article_publication_transparency"));
                 });
@@ -199,8 +199,8 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
                     var (signedHeadPath, bundlePath) = (Path.Combine(directory.FullName, "automatic-head.json"), Path.Combine(directory.FullName, "automatic-day.json"));
                     await File.WriteAllTextAsync(signedHeadPath, signed["head"]!.ToJsonString(), ct);
                     await File.WriteAllTextAsync(bundlePath, "{\"checkpoint\":" + cp.ToJsonString() + ",\"inclusion\":null}", ct);
-                    var verified = JsonNode.Parse(await Run("node",
-                        [PublicationFixture.Tool("verify-publication-checkpoint.mjs"), origin, manifest, signedHeadPath, bundlePath, "--daily", scope]))!;
+                    var verified = JsonNode.Parse(await Run(PublicationFixture.Verifier("checkpoint",
+                        origin, manifest, signedHeadPath, bundlePath, "--daily", scope)))!;
                     Assert.Equal((scope, count == 0 ? "0" : Coordinate(tail.Sequence)),
                         (verified["scopeKey"]!.GetValue<string>(), verified["toSequence"]!.GetValue<string>()));
                     evidence.WriteLine($"Node verified automatic date {scope}, {count} entries, archive SHA-256 {Hex(SHA256.HashData(bytes))}.");
@@ -245,20 +245,21 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
             }
 
             JsonObject ForDay(JsonNode bundle) => new() { ["scopeKey"] = day, ["inclusion"] = bundle["inclusion"]!.DeepClone() };
-            Task<string> Checkpoint(long sequence) => Run(runner,
-                [migration, "publication-transparency", "checkpoint-daily", origin, manifest, headPath, day, Coordinate(sequence)], migrationEnvironment: true);
+            Task<string> Checkpoint(long sequence) => Migrate(
+                [migration, "publication-transparency", "checkpoint-daily", origin, manifest, headPath, day, Coordinate(sequence)]);
 
-            async Task<string> Run(string executable, string[] arguments, bool migrationEnvironment = false,
-                IReadOnlyDictionary<string, string>? overrides = null, string? failure = null)
+            Task<string> Migrate(string[] arguments, IReadOnlyDictionary<string, string>? overrides = null, string? failure = null)
             {
-                var start = FixtureProcess.Command(executable, arguments);
-                if (migrationEnvironment)
-                {
-                    start.Environment["FSUSBLOG_DB"] = fixture.ConnectionString;
-                    start.Environment[Signing + "CurrentKeyId"] = Key;
-                    start.Environment[Signing + "NativeV2PrivateKeyFile"] = privateFile;
-                }
+                var start = FixtureProcess.Command(runner, arguments);
+                start.Environment["FSUSBLOG_DB"] = fixture.ConnectionString;
+                start.Environment[Signing + "CurrentKeyId"] = Key;
+                start.Environment[Signing + "NativeV2PrivateKeyFile"] = privateFile;
                 if (overrides is not null) foreach (var (name, value) in overrides) start.Environment[name] = value;
+                return Run(start, failure);
+            }
+
+            async Task<string> Run(ProcessStartInfo start, string? failure = null)
+            {
                 var result = await FixtureProcess.Run(start, ct);
                 if (failure is null) Assert.True(result.Code == 0, result.Error);
                 else
@@ -279,8 +280,7 @@ public sealed class PublicationCheckpointInclusionPostgresTests(ITestOutputHelpe
 
             async Task<string> Get(HttpClient client, string path, HttpStatusCode code)
             {
-                using var request = new HttpRequestMessage(HttpMethod.Get, path) { Version = HttpVersion.Version20, VersionPolicy = HttpVersionPolicy.RequestVersionExact };
-                using var response = Expect(code, await client.SendAsync(request, ct));
+                using var response = Expect(code, await client.GetAsync(path, ct));
                 evidence.WriteLine($"GET {path} -> {(int)response.StatusCode}, Cache-Control {response.Headers.CacheControl}.");
                 Assert.Equal((HttpVersion.Version20, false, true), (response.Version, response.Headers.Contains("Set-Cookie"), response.Headers.CacheControl?.NoStore == true));
                 return await response.Content.ReadAsStringAsync(ct);

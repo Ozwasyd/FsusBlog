@@ -39,10 +39,10 @@ public sealed class PublicationHeadPostgresTests
                 await fixture.Exec("create table public.first_head_fixture as table public.publication_transparency_head");
                 var proofUrl = await PublicationFixture.ProofPath(fixture, release.Id, ct);
                 Assert.NotEqual(JsonNode.Parse(first)!["signature"]!.GetValue<string>(),
-                    JsonNode.Parse(await OkString(Send(server, HttpMethod.Get, proofUrl), ct))!["signature"]!.GetValue<string>());
-                await PublicationFixture.Edit(server, Host, session, WireRoutes.Retract,
+                    JsonNode.Parse(await OkString(Get(server, proofUrl), ct))!["signature"]!.GetValue<string>());
+                await PublicationFixture.Edit(server, session, WireRoutes.Retract,
                     new(release.Id, release.Revision, Guid.NewGuid(), "", ""), ct);
-                await CheckStatusAsync(NotFound, Send(server, HttpMethod.Get, proofUrl));
+                await CheckStatusAsync(NotFound, Get(server, proofUrl));
                 Assert.Equal(first, await WaitForHead(server, "1"));
                 await Status(server, NotFound, "wrong.example.test");
                 await Status(server, Forbidden, Host, "http");
@@ -81,7 +81,7 @@ public sealed class PublicationHeadPostgresTests
             Assert.Null(dayBundle["inclusion"]);
             var dayFile = Path.Combine(scratch.FullName, "daily-checkpoint.json");
             await File.WriteAllTextAsync(dayFile, dailyCheckpoint.Output, ct);
-            await Run(FixtureProcess.Command("node", PublicationFixture.Tool("verify-publication-checkpoint.mjs"), Origin,
+            await Run(PublicationFixture.Verifier("checkpoint", Origin,
                 Path.Combine(scratch.FullName, "keys.json"), Path.Combine(scratch.FullName, "head.json"), dayFile, "--daily", priorDay));
             AssertFailed(await Checkpoint(currentPath, day: attestedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)), "on or after the next UTC midnight");
             AssertFailed(await Checkpoint(currentPath, day: priorDay, include: "1"), "cannot include a ledger entry");
@@ -122,7 +122,7 @@ public sealed class PublicationHeadPostgresTests
                 Assert.True(await fixture.TerminateAdvisoryOwner(PublicationLocks.Ownership, 5000, ct));
                 for (var attempt = 0; ; attempt++)
                 {
-                    using var denied = await Send(server, HttpMethod.Get, Head);
+                    using var denied = await Get(server, Head);
                     if (denied.StatusCode == ServiceUnavailable) break;
                     Assert.InRange(attempt, 0, 40);
                     await Task.Delay(50, ct);
@@ -139,7 +139,7 @@ public sealed class PublicationHeadPostgresTests
                 var proofUrl = await PublicationFixture.ProofPath(fixture, next.Id, ct);
                 for (var attempt = 0; ; attempt++)
                 {
-                    using var proof = await Send(server, HttpMethod.Get, proofUrl);
+                    using var proof = await Get(server, proofUrl);
                     if (proof.IsSuccessStatusCode) break;
                     Assert.InRange(attempt, 0, 100);
                     await Task.Delay(100, ct);
@@ -153,22 +153,22 @@ public sealed class PublicationHeadPostgresTests
 
             Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, config, request => PublicationFixture.Forward(request, Host));
 
-            async Task<HttpResponseMessage> Send(ServerProcess server, HttpMethod method, string url, byte[]? body = null,
+            async Task<HttpResponseMessage> Get(ServerProcess server, string url,
                 string host = Host, string scheme = "https")
             {
-                var response = await PublicationFixture.SendForwarded(server, method, url, host, session, body, ct, scheme);
+                var response = await PublicationFixture.ForwardedGet(server.Client, url, host, ct, scheme);
                 if (url == Head && config.ContainsKey(Anchor)) Assert.True(response.Headers.CacheControl?.NoStore);
                 return response;
             }
 
             Task Status(ServerProcess server, HttpStatusCode code, string host = Host, string scheme = "https") =>
-                CheckStatusAsync(code, Send(server, HttpMethod.Get, Head, host: host, scheme: scheme));
+                CheckStatusAsync(code, Get(server, Head, host: host, scheme: scheme));
 
             async Task<string> WaitForHead(ServerProcess server, string sequence)
             {
                 for (var attempt = 0; ; attempt++)
                 {
-                    using var response = await Send(server, HttpMethod.Get, Head);
+                    using var response = await Get(server, Head);
                     if (response.IsSuccessStatusCode)
                     {
                         var body = await response.Content.ReadAsStringAsync(ct);
@@ -183,14 +183,14 @@ public sealed class PublicationHeadPostgresTests
             {
                 var keyFile = Path.Combine(scratch.FullName, "keys.json");
                 var headFile = Path.Combine(scratch.FullName, "head.json");
-                await File.WriteAllTextAsync(keyFile, await OkString(Send(server, HttpMethod.Get, Registry), ct), ct);
+                await File.WriteAllTextAsync(keyFile, await OkString(Get(server, Registry), ct), ct);
                 await File.WriteAllTextAsync(headFile, head, ct);
-                await Run(FixtureProcess.Command("node", PublicationFixture.Tool("verify-publication-head.mjs"), Origin, keyFile, headFile));
+                await Run(PublicationFixture.Verifier("head", Origin, keyFile, headFile));
                 return head;
             }
 
             Task<Draft> Publish(ServerProcess server, string body) =>
-                PublicationFixture.Publish(server, Host, session, "Public anchor fixture", body, ct);
+                PublicationFixture.Publish(server, session, "Public anchor fixture", body, ct);
         }
         finally { scratch.Delete(recursive: true); }
 
@@ -213,7 +213,7 @@ public sealed class PublicationHeadPostgresTests
             var bundle = Path.Combine(scratch.FullName, "checkpoint.json");
             await File.WriteAllTextAsync(bundle, output, ct);
             var expected = await fixture.Scalar<string>("select encode(entry_sha256,'hex') from public.article_publication_transparency where seq=2");
-            await Run(FixtureProcess.Command("node", PublicationFixture.Tool("verify-publication-checkpoint.mjs"), Origin,
+            await Run(PublicationFixture.Verifier("checkpoint", Origin,
                 Path.Combine(scratch.FullName, "keys.json"), Path.Combine(scratch.FullName, "head.json"), bundle, "release-fixture.1", "2", expected));
         }
 

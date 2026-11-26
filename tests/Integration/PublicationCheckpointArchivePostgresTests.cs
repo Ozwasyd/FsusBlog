@@ -179,7 +179,7 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
                     algorithm = ArticlePublicationProofPayloadV2.Algorithm, keys }), ct);
                 await File.WriteAllTextAsync(headPath, witness, ct);
                 await File.WriteAllTextAsync(bundlePath, bundle, ct);
-                var result = await FixtureProcess.Run(FixtureProcess.Command("node", PublicationFixture.Tool("verify-publication-checkpoint.mjs"),
+                var result = await FixtureProcess.Run(PublicationFixture.Verifier("checkpoint",
                     origin, keyPath, headPath, bundlePath, "--daily", date), ct);
                 Assert.True(result.Code == 0, result.Error);
                 Assert.Equal(date, JsonNode.Parse(result.Output)!["scopeKey"]!.GetValue<string>());
@@ -187,10 +187,8 @@ public sealed class PublicationCheckpointArchivePostgresTests(ITestOutputHelper 
 
             async Task<string> Read(HttpClient client, string target, HttpStatusCode expected, string? host = null, string transport = "https")
             {
-                using var request = new HttpRequestMessage(HttpMethod.Get, target);
-                if (!viaCaddy) PublicationFixture.Forward(request, host ?? address.Authority, transport);
-                else { request.Version = HttpVersion.Version20; request.VersionPolicy = HttpVersionPolicy.RequestVersionExact; }
-                using var response = Expect(expected, await client.SendAsync(request, ct));
+                using var response = Expect(expected, viaCaddy ? await client.GetAsync(target, ct)
+                    : await PublicationFixture.ForwardedGet(client, target, host ?? address.Authority, ct, transport));
                 if (viaCaddy)
                 {
                     Assert.Equal(HttpVersion.Version20, response.Version);

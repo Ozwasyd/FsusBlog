@@ -16,22 +16,16 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         await using var db = await ScratchDatabase.CreateTimed(out var ct, TimeSpan.FromMinutes(3));
         var author = await MediaFixture.CreateSession(db.DataSource, "TLS image pacing author", ct);
         var workspace = Directory.CreateTempSubdirectory("fsus-published-media-caddy-");
-        using (new MediaFixture.DirectoryCleanup(workspace))
+        using var cleanup = new MediaFixture.DirectoryCleanup(workspace);
+        var privateRoot = MediaFixture.CreateOwnedDirectory(workspace.FullName, "private");
+        var publicRoot = MediaFixture.CreateOwnedDirectory(workspace.FullName, "public");
+        var tls = MediaFixture.CreateOwnedDirectory(workspace.FullName, "tls");
+        var address = NativeCaddyProxy.NewAddress();
+        var settings = MediaFixture.PublicSettings(privateRoot, publicRoot);
+        settings["FSUSBLOG_PUBLIC_ORIGIN"] = address.GetLeftPart(UriPartial.Authority);
+        settings[LoopbackProxy.ConfigurationKey] = "true";
+        await PublicationFixture.WithPublicServer(db, tls, address, settings, _proxyOutput, viaCaddy: true, async (client, _) =>
         {
-            var privateRoot = MediaFixture.CreateOwnedDirectory(workspace.FullName, "private");
-            var publicRoot = MediaFixture.CreateOwnedDirectory(workspace.FullName, "public");
-            var tls = MediaFixture.CreateOwnedDirectory(workspace.FullName, "tls");
-            var address = NativeCaddyProxy.NewAddress();
-            await using var upstream = await ServerProcess.Start(db.ConnectionString, ct, new Dictionary<string, string>
-            {
-                ["FSUSBLOG_PUBLIC_ORIGIN"] = address.GetLeftPart(UriPartial.Authority),
-                [MediaEndpoints.StorageSetting] = privateRoot,
-                [PublishedMediaEndpoints.StorageSetting] = publicRoot,
-                [LoopbackProxy.ConfigurationKey] = "true"
-            }, ready => PublicationFixture.Forward(ready, address.Authority));
-            await using var proxy = await NativeCaddyProxy.Start(upstream.Client.BaseAddress!, tls, ct, address);
-            var client = proxy.Client;
-            _proxyOutput.WriteLine($"Caddy SHA-256 leaf pin {proxy.Fingerprint}, HTTP/2 on {client.BaseAddress}");
             var image = await Upload(client, author, "pacing-fixture.png", "image/png", NoiseImage(), ct);
             Assert.InRange(image.Bytes.Length, 11 * MiB, 15 * MiB);
             var draft = await SaveDraft(client, author, "TLS paced image", "Published media pressure fixture.", ct);
@@ -144,7 +138,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
             Assert.True(receivedBeforeWithdrawal < image.Bytes.Length);
             using var stale = await ProxyRequest(client, HttpMethod.Head, raw, ct);
             await CheckEmpty(stale, NotFound, ct);
-        }
+        }, ct);
     }
 
     private static async Task WaitForReadLease(HttpClient client, string path, Asset image, CancellationToken ct)

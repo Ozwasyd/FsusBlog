@@ -195,7 +195,7 @@ public sealed class PublicationProofPostgresTests
 
             async Task VerifyTool(string proof, string keys, bool success)
             {
-                var result = await FixtureProcess.Run(FixtureProcess.Command("node", PublicationFixture.Tool("verify-publication-proof.mjs"), Origin, keys, proof), ct);
+                var result = await FixtureProcess.Run(PublicationFixture.Verifier("proof", Origin, keys, proof), ct);
                 Assert.True((result.Code == 0) == success, result.Error);
             }
         }

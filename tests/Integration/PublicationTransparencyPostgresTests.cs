@@ -34,7 +34,7 @@ public sealed class PublicationTransparencyPostgresTests
                 var first = await Publish(server);
                 var firstUrl = await PublicationFixture.ProofPath(fixture, first.Id, ct);
                 await Wait("select count(*)=1 from public.article_publication_transparency");
-                await CheckStatusAsync(OK, Send(server, HttpMethod.Get, firstUrl));
+                await CheckStatusAsync(OK, Get(server, firstUrl));
                 var anchor = Succeeded(await Audit());
                 firstPin = anchor["entrySha256"]!.GetValue<string>();
                 Assert.Equal(1, anchor["trustedSignatures"]!.GetValue<int>());
@@ -56,14 +56,14 @@ public sealed class PublicationTransparencyPostgresTests
                            origin,key_id,key_version,key_sha256,issued_at,signature from public.article_publication_proof
                     """));
                 Assert.Equal(PostgresErrorCodes.NotNullViolation, oldWriter.SqlState);
-                await CheckStatusAsync(NotFound, Send(server, HttpMethod.Get, successorUrl));
+                await CheckStatusAsync(NotFound, Get(server, successorUrl));
                 await fixture.Exec("alter table public.article_publication_transparency drop constraint transparency_fixture_fail; drop sequence public.transparency_fixture_attempt;");
                 await Wait("select count(*)=2 from public.article_publication_transparency");
                 lastOld = await fixture.Scalar<DateTime>("select max(issued_at) from public.article_publication_proof");
-                await PublicationFixture.Edit(server, Host, session, WireRoutes.Retract,
+                await PublicationFixture.Edit(server, session, WireRoutes.Retract,
                     new(successor.Id, successor.Revision, Guid.NewGuid(), "", ""), ct);
-                await CheckStatusAsync(NotFound, Send(server, HttpMethod.Get, successorUrl));
-                await CheckStatusAsync(NotFound, Send(server, HttpMethod.Get, "/integrity/v2/log/head"));
+                await CheckStatusAsync(NotFound, Get(server, successorUrl));
+                await CheckStatusAsync(NotFound, Get(server, "/integrity/v2/log/head"));
                 Assert.True(Succeeded(await Audit("1", firstPin))["prefixVerified"]!.GetValue<bool>());
             }
 
@@ -75,7 +75,7 @@ public sealed class PublicationTransparencyPostgresTests
             {
                 var second = await Publish(server);
                 await Wait("select count(*)=3 from public.article_publication_transparency");
-                await CheckStatusAsync(OK, Send(server, HttpMethod.Get, await PublicationFixture.ProofPath(fixture, second.Id, ct)));
+                await CheckStatusAsync(OK, Get(server, await PublicationFixture.ProofPath(fixture, second.Id, ct)));
                 var rotated = Succeeded(await Audit("1", firstPin));
                 Assert.Equal((3, 2), (rotated["trustedSignatures"]!.GetValue<int>(), rotated["retiredEligibleSignatures"]!.GetValue<int>()));
             }
@@ -121,10 +121,10 @@ public sealed class PublicationTransparencyPostgresTests
                 await fixture.Scalar<long>("select count(*) from public.article_publication_transparency")));
 
             Task<ServerProcess> Start() => ServerProcess.Start(fixture.ConnectionString, ct, config, request => PublicationFixture.Forward(request, Host));
-            async Task Registry(ServerProcess server) => await File.WriteAllBytesAsync(path, await OkBytes(Send(server, HttpMethod.Get, "/integrity/v2/keys.json"), ct), ct);
-            Task<Draft> Publish(ServerProcess server, Draft? previous = null) => PublicationFixture.Publish(server, Host, session, "Public ledger", "原始 source\n", ct, previous);
-            Task<HttpResponseMessage> Send(ServerProcess server, HttpMethod method, string url) =>
-                PublicationFixture.SendForwarded(server, method, url, Host, session, frame: null, ct);
+            async Task Registry(ServerProcess server) => await File.WriteAllBytesAsync(path, await OkBytes(Get(server, "/integrity/v2/keys.json"), ct), ct);
+            Task<Draft> Publish(ServerProcess server, Draft? previous = null) => PublicationFixture.Publish(server, session, "Public ledger", "原始 source\n", ct, previous);
+            Task<HttpResponseMessage> Get(ServerProcess server, string url) =>
+                PublicationFixture.ForwardedGet(server.Client, url, Host, ct);
         }
         finally { scratch.Delete(recursive: true); }
 

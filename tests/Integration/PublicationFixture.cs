@@ -63,11 +63,11 @@ internal static class PublicationFixture
         $"/integrity/v2/article/{article}/{await db.ScalarAsync<long>(ct,
             "select publication_id from public.article_publication where article_id=$1", article)}/rights.json";
 
-    internal static async Task<Draft> Publish(ServerProcess server, string host, string token, string title, string body,
+    internal static async Task<Draft> Publish(ServerProcess server, string token, string title, string body,
         CancellationToken ct, Draft? previous = null)
     {
-        var draft = await Edit(server, host, token, WireRoutes.Save, new(previous?.Id ?? 0, previous?.Revision ?? 0, Guid.NewGuid(), title, body), ct);
-        return await Edit(server, host, token, WireRoutes.Publish, new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""), ct);
+        var draft = await Edit(server, token, WireRoutes.Save, new(previous?.Id ?? 0, previous?.Revision ?? 0, Guid.NewGuid(), title, body), ct);
+        return await Edit(server, token, WireRoutes.Publish, new(draft.Id, draft.Revision, Guid.NewGuid(), "", ""), ct);
     }
 
     internal static async Task<string> InstallReadOnlyJson(string path, JsonNode content, CancellationToken ct)
@@ -102,24 +102,19 @@ internal static class PublicationFixture
     internal static byte[] SignP256(ECDsa key, byte[] bytes) =>
         key.SignData(bytes, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
 
-    internal static async Task<HttpResponseMessage> SendForwarded(ServerProcess server, HttpMethod method, string route,
-        string host, string token, byte[]? frame, CancellationToken ct, string transport = "https")
+    internal static async Task<HttpResponseMessage> ForwardedGet(HttpClient client, string route, string host,
+        CancellationToken ct, string transport = "https")
     {
-        using var request = SiteAedsFixture.Request(method, route, frame, frame is null ? null : token, handle: null);
+        using var request = new HttpRequestMessage(HttpMethod.Get, route);
         Forward(request, host, transport);
-        return await server.Client.SendAsync(request, ct);
+        return await client.SendAsync(request, ct);
     }
 
-    internal static async Task<Draft> Edit(ServerProcess server, string host, string token, string route,
+    internal static async Task<Draft> Edit(ServerProcess server, string token, string route,
         ArticleCommand command, CancellationToken ct)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, route)
-        {
-            Content = new ByteArrayContent(Wire.EncodeArticleCommand(command))
-        };
-        request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(Aeds.ContentType);
-        request.Headers.Add("Cookie", $"__Host-FsusAdminSession={token}");
-        Forward(request, AdminHost, "https");
+        using var request = SiteAedsFixture.Request(HttpMethod.Post, route, Wire.EncodeArticleCommand(command), token, handle: null, secure: true);
+        Forward(request, AdminHost);
         using var response = await server.Client.SendAsync(request, ct);
         response.EnsureSuccessStatusCode();
         return Wire.DecodeDraft(await response.Content.ReadAsByteArrayAsync(ct));
@@ -142,7 +137,10 @@ internal static class PublicationFixture
         request.Headers.Add("X-Forwarded-Proto", transport);
     }
 
-    internal static string Tool(string name)
+    internal static ProcessStartInfo Verifier(string subject, params string[] arguments) =>
+        FixtureProcess.Command("node", [Tool($"verify-publication-{subject}.mjs"), .. arguments]);
+
+    private static string Tool(string name)
     {
         for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
         {
