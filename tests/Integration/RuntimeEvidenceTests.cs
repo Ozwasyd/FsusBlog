@@ -3,14 +3,12 @@ public sealed class RuntimeEvidenceTests
     [Fact]
     public async Task RecordsSlowRequestsOnlyInTheMeasurementWindowWithABoundedBuffer()
     {
-        var directory = Directory.CreateTempSubdirectory();
-        var output = Path.Combine(directory.FullName, "runtime.ndjson");
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        try
+        using (var evidence = new RuntimeEvidenceFixture("fsusv2-runtime-"))
         {
-            await using var observer = new RuntimeEvidence(directory.FullName, output, new HttpContextAccessor(), captureSlowRequests: true);
+            await using var observer = new RuntimeEvidence(evidence.DirectoryPath, evidence.OutputPath, new HttpContextAccessor(), captureSlowRequests: true);
             Assert.Equal(0, observer.SlowRequestStart(0));
-            await MarkAsync(directory, "measure-before", timeout.Token);
+            await evidence.PublishMark("measure-before", timeout.Token, pollMilliseconds: 10);
             Assert.Equal(0, observer.SlowRequestStart(4));
             var request = new DefaultHttpContext();
             request.Response.StatusCode = StatusCodes.Status200OK;
@@ -18,9 +16,9 @@ public sealed class RuntimeEvidenceTests
             Assert.NotEqual(0, observer.SlowRequestStart(1));
             var slow = Stopwatch.GetTimestamp() - Stopwatch.Frequency / 10;
             for (int i = 0; i < 4097; i++) observer.CountRequest(request, 1, slow);
-            await MarkAsync(directory, "measure-after", timeout.Token);
+            await evidence.PublishMark("measure-after", timeout.Token, pollMilliseconds: 10);
             Assert.Equal(0, observer.SlowRequestStart(1));
-            var lines = await File.ReadAllLinesAsync(output, timeout.Token);
+            var lines = await File.ReadAllLinesAsync(evidence.OutputPath, timeout.Token);
             int retained = 0;
             int omitted = 0;
             foreach (var line in lines)
@@ -39,17 +37,14 @@ public sealed class RuntimeEvidenceTests
             }
             Assert.Equal((4096, 1), (retained, omitted));
         }
-        finally { directory.Delete(recursive: true); }
     }
 
     [Fact]
     public async Task CapturesSplitPauseFromTheCurrentClr()
     {
-        var directory = Directory.CreateTempSubdirectory();
-        var output = Path.Combine(directory.FullName, "runtime.ndjson");
-        try
+        using (var evidence = new RuntimeEvidenceFixture("fsusv2-runtime-"))
         {
-            await using (var observer = new RuntimeEvidence(directory.FullName, output, new Microsoft.AspNetCore.Http.HttpContextAccessor()))
+            await using (var observer = new RuntimeEvidence(evidence.DirectoryPath, evidence.OutputPath, new Microsoft.AspNetCore.Http.HttpContextAccessor()))
             {
                 var baseline = GC.CollectionCount(0);
                 GC.Collect(0, GCCollectionMode.Forced, blocking: true);
@@ -61,23 +56,12 @@ public sealed class RuntimeEvidenceTests
                 {
                     // The native event dispatcher is asynchronous, so ask for
                     // another sample until it has delivered the full sequence.
-                    File.Delete(await MarkAsync(directory, "drain", timeout.Token));
-                    data = await File.ReadAllTextAsync(output, timeout.Token);
+                    File.Delete(await evidence.PublishMark("drain", timeout.Token, pollMilliseconds: 10));
+                    data = await File.ReadAllTextAsync(evidence.OutputPath, timeout.Token);
                 } while (!data.Contains("\"SuspensionMilliseconds\"", StringComparison.Ordinal));
                 Assert.Contains("\"ResumeMilliseconds\"", data);
             }
         }
-        finally { directory.Delete(recursive: true); }
-    }
-
-    private static async Task<string> MarkAsync(DirectoryInfo directory, string value, CancellationToken ct)
-    {
-        var next = Path.Combine(directory.FullName, "runtime.mark.next");
-        await File.WriteAllTextAsync(next, value, ct);
-        File.Move(next, Path.Combine(directory.FullName, "runtime.mark"));
-        var ack = Path.Combine(directory.FullName, value + ".ack");
-        while (!File.Exists(ack)) await Task.Delay(10, ct);
-        return ack;
     }
 
     [Fact]

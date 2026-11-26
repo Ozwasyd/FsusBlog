@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 EVAL_DIR = Path(__file__).resolve().parent / "SearchEval"
 CORPUS_PATH = EVAL_DIR / "corpus.v1.json"
@@ -101,8 +101,6 @@ def _article(
 def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     articles: list[dict[str, Any]] = []
     queries: list[dict[str, Any]] = []
-    next_id = 1
-    q_seq = 1
 
     def add_art(
         title: str,
@@ -113,9 +111,7 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
         day: int,
         group: str,
     ) -> int:
-        nonlocal next_id
-        aid = next_id
-        next_id += 1
+        aid = len(articles) + 1
         articles.append(_article(aid, title, summary, body, cat, tags, day, group))
         return aid
 
@@ -129,10 +125,9 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
         notes: str,
         expected_empty: bool = False,
     ) -> None:
-        nonlocal q_seq
         split = "tuning" if idx_in_cat % 2 == 0 else "holdout"
         queries.append({
-            "id": f"q-{q_seq:03d}",
+            "id": f"q-{len(queries) + 1:03d}",
             "split": split,
             "category": category,
             "query": query,
@@ -143,7 +138,35 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
             "judgments": {str(k): v for k, v in sorted(judgments.items())},
             "notes": notes,
         })
-        q_seq += 1
+
+    def add_matching_query(
+        group: str, index: int, query: str, article_id: int, notes: str, *, rarity: str = "rare",
+    ) -> None:
+        add_q(group, index, query, [article_id], {article_id: 3}, rarity, notes)
+
+    def add_topic_queries(
+        topics: Sequence[tuple[str, str, str]],
+        group: str,
+        *,
+        first_day: int,
+        categories: Sequence[int],
+        tags: list[int],
+        heading: str,
+        details: str,
+        notes: str,
+        common_before: int = 0,
+    ) -> None:
+        for index, (query, title, summary) in enumerate(topics):
+            body = section(title, summary, heading, details.format(query=query))
+            category = categories[index % len(categories)]
+            article_id = add_art(title, summary, body, category, tags, first_day + index, group)
+            add_matching_query(
+                group, index, query, article_id, notes.format(query=query, article=article_id),
+                rarity="common" if index < common_before else "rare",
+            )
+
+    def section(title: str, summary: str, heading: str, details: str) -> str:
+        return f"# {title}\n\n{summary}\n\n## {heading}\n\n{details}"
 
     # ------------------------------------------------------------------
     # 1. Chinese dictionary vocabulary (30 queries, paired primary/secondary)
@@ -240,19 +263,15 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
         ("缓存穿透", "空结果边界与防缓存穿透设计", "在不缓存瞬态故障的前提下缓解高基数查询造成的缓存穿透。"),
         ("垃圾回收", "大堆服务中的垃圾回收暂停观测", "追踪托管堆分配速率与垃圾回收暂停对查询尾延迟的影响。"),
     ]
-    for i, (term, title, summary) in enumerate(unknown_specs):
-        body = (
-            f"# {title}\n\n"
-            f"{summary}\n\n"
-            f"## 原理分析\n\n"
-            f"在现代系统工程中，{term} 是解决特定瓶颈的重要手段。"
-            f"本文通过具体实验说明 {term} 的边界条件、实现细节与验证方法。"
-        )
-        aid = add_art(title, summary, body, 1 + (i % 6), [6, 8, 14], 40 + i, "chinese_unknown")
-        add_q(
-            "chinese_unknown", i, term, [aid], {aid: 3}, "rare",
-            f"Unknown Chinese compound '{term}' (not in lexicon); isolated character matches must not outrank target {aid}.",
-        )
+    add_topic_queries(
+        unknown_specs, "chinese_unknown", first_day=40, categories=range(1, 7), tags=[6, 8, 14],
+        heading="原理分析",
+        details=(
+            "在现代系统工程中，{query} 是解决特定瓶颈的重要手段。"
+            "本文通过具体实验说明 {query} 的边界条件、实现细节与验证方法。"
+        ),
+        notes="Unknown Chinese compound '{query}' (not in lexicon); isolated character matches must not outrank target {article}.",
+    )
 
     # ------------------------------------------------------------------
     # 3. Chinese personal, place, and historical/project names (30 queries)
@@ -289,19 +308,15 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
         ("郦道元", "郦道元水经注河道地理考证", "借助现代水系图对照郦道元水经注记载的古代河流变迁。"),
         ("孙思邈", "孙思邈千金要方医德与食疗观念", "摘记孙思邈大医精诚篇与早期临床经验整理体例。"),
     ]
-    for i, (name, title, summary) in enumerate(name_specs):
-        body = (
-            f"# {title}\n\n"
-            f"{summary}\n\n"
-            f"## 札记正文\n\n"
-            f"在查阅相关史料与技术文献时，{name} 留下了极具代表性的记录。"
-            f"本文整理了关于 {name} 的核心脉络与参考线索，供后续查阅。"
-        )
-        aid = add_art(title, summary, body, 8, [16], 70 + i, "chinese_names")
-        add_q(
-            "chinese_names", i, name, [aid], {aid: 3}, "rare",
-            f"Chinese name/entity query '{name}' targeting article {aid}.",
-        )
+    add_topic_queries(
+        name_specs, "chinese_names", first_day=70, categories=(8,), tags=[16],
+        heading="札记正文",
+        details=(
+            "在查阅相关史料与技术文献时，{query} 留下了极具代表性的记录。"
+            "本文整理了关于 {query} 的核心脉络与参考线索，供后续查阅。"
+        ),
+        notes="Chinese name/entity query '{query}' targeting article {article}.",
+    )
 
     # ------------------------------------------------------------------
     # 4. Single-character Chinese queries (30 queries)
@@ -346,9 +361,8 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
             f"通过拆解「{ch}」在不同层次的语义，可以更清晰地理解整体架构约束。"
         )
         aid = add_art(title, summary, body, 1 + (i % 7), [9, 14], 100 + i, "chinese_single_char")
-        add_q(
-            "chinese_single_char", i, ch, [aid], {aid: 3}, "rare",
-            f"Explicit single-character CJK query '{ch}' targeting article {aid}.",
+        add_matching_query(
+            "chinese_single_char", i, ch, aid, f"Explicit single-character CJK query '{ch}' targeting article {aid}.",
         )
 
     # ------------------------------------------------------------------
@@ -386,18 +400,12 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
         ("QueryCoalescer", "QueryCoalescer 并发同键单飞合并器", "实现每调用方独立取消与有界容量的 QueryCoalescer。"),
         ("SegmentManifest", "SegmentManifest 不可变段清单与活跃位图", "通过 SegmentManifest 原子发布全局 DF 与文档存活视图。"),
     ]
-    for i, (ident, title, summary) in enumerate(id_specs):
-        body = (
-            f"# {title}\n\n"
-            f"{summary}\n\n"
-            f"## 详细说明\n\n"
-            f"本次排查围绕 `{ident}` 展开，确保在检索与日志审计中能够精确命中 `{ident}` 而非零散词段。"
-        )
-        aid = add_art(title, summary, body, 2 if i % 2 == 0 else 1, [1, 2, 6], 130 + i, "technical_identifier")
-        add_q(
-            "technical_identifier", i, ident, [aid], {aid: 3}, "rare",
-            f"Technical identifier query '{ident}' targeting article {aid}.",
-        )
+    add_topic_queries(
+        id_specs, "technical_identifier", first_day=130, categories=(2, 1), tags=[1, 2, 6],
+        heading="详细说明",
+        details="本次排查围绕 `{query}` 展开，确保在检索与日志审计中能够精确命中 `{query}` 而非零散词段。",
+        notes="Technical identifier query '{query}' targeting article {article}.",
+    )
 
     # ------------------------------------------------------------------
     # 6. Punctuation-sensitive technical terms (30 queries)
@@ -434,19 +442,15 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
         ("SHA-512", "SHA-512 与 SHA-256 在密码学摘要中的分工", "说明校验链中使用固定摘要算法与域分离前缀的重要性。"),
         ("WebAssembly/WASI", "WebAssembly/WASI 离线插件执行模型", "探讨面向确定性文本处理的 WebAssembly/WASI 隔离边界。"),
     ]
-    for i, (term, title, summary) in enumerate(punct_specs):
-        body = (
-            f"# {title}\n\n"
-            f"{summary}\n\n"
-            f"## 技术要点\n\n"
-            f"正确保留 `{term}` 中的标点与符号对于技术搜索至关重要。"
-            f"如果分词器错误剥离符号，搜索 {term} 就会退化为无关单字母并产生大量噪声。"
-        )
-        aid = add_art(title, summary, body, 6, [4, 13, 6], 160 + i, "punctuation_sensitive")
-        add_q(
-            "punctuation_sensitive", i, term, [aid], {aid: 3}, "rare",
-            f"Punctuation-sensitive technical query '{term}' targeting article {aid}.",
-        )
+    add_topic_queries(
+        punct_specs, "punctuation_sensitive", first_day=160, categories=(6,), tags=[4, 13, 6],
+        heading="技术要点",
+        details=(
+            "正确保留 `{query}` 中的标点与符号对于技术搜索至关重要。"
+            "如果分词器错误剥离符号，搜索 {query} 就会退化为无关单字母并产生大量噪声。"
+        ),
+        notes="Punctuation-sensitive technical query '{query}' targeting article {article}.",
+    )
 
     # ------------------------------------------------------------------
     # 7. Simplified / Traditional Chinese variants (30 queries)
@@ -486,15 +490,10 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
         ("权限校验", "權限校驗", "管理端權限校驗與會話代次綁定", "每次敏感寫入前重驗權限校驗會話與 Passkey 二次確認。"),
     ]
     for i, (query_form, article_form, title, summary) in enumerate(sc_tc_pairs):
-        body = (
-            f"# {title}\n\n"
-            f"{summary}\n\n"
-            f"## 實踐與總結\n\n"
-            f"本篇聚焦「{article_form}」，提供可執行的檢查清單與回顧。"
-        )
+        body = section(title, summary, "實踐與總結", f"本篇聚焦「{article_form}」，提供可執行的檢查清單與回顧。")
         aid = add_art(title, summary, body, 1 + (i % 7), [9, 6], 190 + i, "simplified_traditional")
-        add_q(
-            "simplified_traditional", i, query_form, [aid], {aid: 3}, "rare",
+        add_matching_query(
+            "simplified_traditional", i, query_form, aid,
             f"SC/TC variant query '{query_form}' matching article {aid} written with '{article_form}'.",
         )
 
@@ -534,10 +533,8 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
         ("发布坐标 不可变证明", "发布坐标 不可变证明 与透明日志", "将文章修订号、发布坐标 不可变证明绑定到公开响应头与帧。", "发布坐标 不可变证明"),
     ]
     for i, (q_text, title, summary, literal) in enumerate(phrase_specs):
-        body = (
-            f"# {title}\n\n"
-            f"{summary}\n\n"
-            f"## 关键短语上下文\n\n"
+        body = section(
+            title, summary, "关键短语上下文",
             f"在设计评审中我们反复强调「{literal}」必须作为整体契约来验证，而不能只看零散词项。"
         )
         aid = add_art(title, summary, body, 2, [2, 6, 9], 220 + i, "phrase")
@@ -594,19 +591,13 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
         ("CSP 策略 脚本消毒", "严格 CSP 策略 脚本消毒与片段渲染", "确保搜索高亮片段绝不绕过 CSP 策略或注入可执行脚本。"),
         ("SQLite 与 PostgreSQL 对比", "单机部署 SQLite 与 PostgreSQL 对比", "从并发写入、MVCC 与运维可靠性对比两类数据库选型。"),
     ]
-    for i, (q_text, title, summary) in enumerate(mixed_specs):
-        body = (
-            f"# {title}\n\n"
-            f"{summary}\n\n"
-            f"## 工程落地\n\n"
-            f"在实践「{q_text}」时，我们重点验证了端到端一致性、资源上限与失败恢复路径。"
-        )
-        aid = add_art(title, summary, body, 1 + (i % 7), [2, 6, 9], 250 + i, "mixed_language")
-        add_q(
-            "mixed_language", i, q_text, [aid], {aid: 3},
-            "common" if i < 4 else "rare",
-            f"Mixed Chinese/English query '{q_text}' targeting article {aid}.",
-        )
+    add_topic_queries(
+        mixed_specs, "mixed_language", first_day=250, categories=range(1, 8), tags=[2, 6, 9],
+        heading="工程落地",
+        details="在实践「{query}」时，我们重点验证了端到端一致性、资源上限与失败恢复路径。",
+        notes="Mixed Chinese/English query '{query}' targeting article {article}.",
+        common_before=4,
+    )
 
     # ------------------------------------------------------------------
     # 10. Long natural-language queries (30 queries)
@@ -798,11 +789,12 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
     ]
     all_long = long_specs + long_specs_extra
     for i, (q_text, title, summary, body_extra) in enumerate(all_long):
-        body = f"# {title}\n\n{summary}\n\n## 详细阐述\n\n{body_extra}"
+        body = section(title, summary, "详细阐述", body_extra)
         aid = add_art(title, summary, body, 2 if i % 2 == 0 else 1, [2, 6, 9], 280 + i, "long_query")
-        add_q(
-            "long_query", i, q_text, [aid], {aid: 3}, "common" if i < 6 else "rare",
+        add_matching_query(
+            "long_query", i, q_text, aid,
             f"Long natural-language query ({len(q_text.split())} terms) targeting article {aid}.",
+            rarity="common" if i < 6 else "rare",
         )
 
     # ------------------------------------------------------------------
@@ -830,13 +822,11 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
         ("VisibleEscaped13", "转义符号正文示例", "# 字符\n\n正文包含 \\*VisibleEscaped13\\* 文本。"),
         ("VisibleFootnote14", "补充注释正文示例", "# 尾注\n\n正文说明（VisibleFootnote14）保持可见。"),
     ]
-    md_ids: list[int] = []
     for i, (token, title, body) in enumerate(md_visible_specs):
         summary = f"用于测试已发布 Markdown 抽取边界的合成文章 {i + 1}。"
         aid = add_art(title, summary, body, 7, [7, 2], 310 + i, "markdown_boundary")
-        md_ids.append(aid)
-        add_q(
-            "markdown_boundary", i, token, [aid], {aid: 3}, "rare",
+        add_matching_query(
+            "markdown_boundary", i, token, aid,
             f"Visible Markdown content query '{token}' targeting article {aid}.",
         )
 
@@ -923,30 +913,20 @@ def _build_corpus_and_queries() -> tuple[list[dict[str, Any]], list[dict[str, An
         ("批处理作业清单", "介绍 batch 任务、job 队列和第 42 周排期。", "batch、job 与 42 分散在不同句子中。"),
         ("多页面频率偏移对照组", "用于测试紧凑语料分页局部 IDF 与全局统计差异。", "博客搜索 与 公开页 在本页高频重复出现以检验跨页排序稳定性。"),
     ]
-    distractor_idx = 0
-    while len(articles) < 420:
-        aid_preview = next_id
-        if distractor_idx < len(isolated_distractors):
-            t, s, b = isolated_distractors[distractor_idx]
-            add_art(t, s, f"# {t}\n\n{s}\n\n{b}", 7, [16], 350 + distractor_idx, "distractor_targeted")
-            distractor_idx += 1
-        else:
-            # Spread common terms heavily across page 1/2 and keep page 3 sparser to surface page-local IDF skew
-            n = aid_preview
-            if n <= 380:
-                theme = "通用工程日志 博客搜索 公开页 服务端 架构 数据库 索引"
-            else:
-                theme = "月末巡检纪要 归档 缓存"
-            title = f"日常工程手记 #{n:03d} — 常规维护与巡检"
-            summary = f"第 {n:03d} 篇常规合成文章，用于模拟真实博客多页语料规模与词频分布。"
-            body = (
-                f"# {title}\n\n"
-                f"{summary}\n\n"
-                f"## 巡检项\n\n"
-                f"常规记录覆盖 {theme}，检查服务状态、日志轮转、磁盘空间与备份完整性。\n"
-                f"文章序号 marker-{n:03d} 用于区分各篇正文长度与词项统计。"
-            )
-            add_art(title, summary, body, 1 + (n % 8), [1 + (n % 16)], 360 + (n % 30), "distractor_background")
+    for index, (title, summary, details) in enumerate(isolated_distractors[: max(0, 420 - len(articles))]):
+        add_art(title, summary, f"# {title}\n\n{summary}\n\n{details}", 7, [16], 350 + index, "distractor_targeted")
+
+    # Concentrate common terms on pages 1 and 2 to test differences in page-local IDF.
+    for article_id in range(len(articles) + 1, 421):
+        theme = "通用工程日志 博客搜索 公开页 服务端 架构 数据库 索引" if article_id <= 380 else "月末巡检纪要 归档 缓存"
+        title = f"日常工程手记 #{article_id:03d} — 常规维护与巡检"
+        summary = f"第 {article_id:03d} 篇常规合成文章，用于模拟真实博客多页语料规模与词频分布。"
+        body = section(
+            title, summary, "巡检项",
+            f"常规记录覆盖 {theme}，检查服务状态、日志轮转、磁盘空间与备份完整性。\n"
+            f"文章序号 marker-{article_id:03d} 用于区分各篇正文长度与词项统计。",
+        )
+        add_art(title, summary, body, 1 + (article_id % 8), [1 + (article_id % 16)], 360 + (article_id % 30), "distractor_background")
 
     return articles, queries
 

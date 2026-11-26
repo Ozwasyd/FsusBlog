@@ -1,3 +1,5 @@
+using static FsusBlog.V2.Integration.Tests.RuntimeEvidenceFixture;
+
 public sealed class ArticleSearchPostgresTests
 {
     [Fact]
@@ -131,17 +133,11 @@ public sealed class ArticleSearchPostgresTests
                 """ + "\n" + PublicationFixture.DefaultRightsForPublishedArticles);
         }, ct);
 
-        var evidence = Directory.CreateTempSubdirectory("fsusv2-fas4-");
-        using (new MediaFixture.DirectoryCleanup(evidence))
+        using (var evidence = new RuntimeEvidenceFixture("fsusv2-fas4-"))
         {
-            var output = Path.Combine(evidence.FullName, "runtime.ndjson");
-            await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-            {
-                ["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"] = evidence.FullName,
-                ["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] = output
-            });
+            await using var server = await evidence.Start(fixture.ConnectionString, ct);
             var client = server.Client;
-            var before = await Mark(evidence, output, "measure-before", ct);
+            var before = await evidence.Mark("measure-before", ct);
             var (needle, generation, _) = await Query(client, PathFor("  ＮＥＥＤＬＥ needle\t "), ct);
             Assert.Equal([1, 4, 5, 2, 3], needle.Select(item => item.Id));
             Assert.Equal(new Hit(1, 1, 1, 10_001, 1), needle[0]);
@@ -174,10 +170,9 @@ public sealed class ArticleSearchPostgresTests
                 Assert.Equal(total, gotTotal);
                 Assert.Equal(expected, hits.Select(item => item.Id));
             }
-            var after = await Mark(evidence, output, "measure-after", ct);
+            var after = await evidence.Mark("measure-after", ct);
             Assert.Equal(17, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
-            Assert.Equal(Count(before, "dbCommandStarts"), Count(after, "dbCommandStarts"));
-            Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(after, "dbPhysicalOpenStarts"));
+            AssertNoDatabaseActivity(before, after);
             using (var corpus = await client.GetAsync(WireRoutes.PublicSearchCorpus, ct))
                 Assert.Equal(generation, Assert.Single(corpus.Headers.GetValues(WireHeaders.SearchIndexGeneration)));
             foreach (var bad in new[] { WireRoutes.PublicSearch, $"{PathFor("needle")}&sort=hot", $"{PathFor("needle")}&page=0", $"{PathFor("needle")}&size=101" })
@@ -241,17 +236,11 @@ public sealed class ArticleSearchPostgresTests
             await FixtureSql.ExecuteAsync(db, tx, ct, PublicationFixture.AllCurrentArticlesWithDefaultRights);
         }, ct);
 
-        var evidence = Directory.CreateTempSubdirectory("fsusv2-fas4-paged-");
-        using (new MediaFixture.DirectoryCleanup(evidence))
+        using (var evidence = new RuntimeEvidenceFixture("fsusv2-fas4-paged-"))
         {
-            var output = Path.Combine(evidence.FullName, "runtime.ndjson");
-            await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-            {
-                ["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"] = evidence.FullName,
-                ["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] = output
-            });
+            await using var server = await evidence.Start(fixture.ConnectionString, ct);
             var client = server.Client;
-            var before = await Mark(evidence, output, "measure-before", ct);
+            var before = await evidence.Mark("measure-before", ct);
             foreach (var (term, sort, page, size, total, expected) in new (string, string, int, int, int, int[])[]
             {
                 ("needle", "relevance", 1, 10, 3, [1, 2, 3]),
@@ -267,10 +256,9 @@ public sealed class ArticleSearchPostgresTests
                 Assert.Equal(total, gotTotal);
                 Assert.Equal(expected, hits.Select(item => item.Id));
             }
-            var after = await Mark(evidence, output, "measure-after", ct);
+            var after = await evidence.Mark("measure-after", ct);
             Assert.Equal(7, Count(after, "requestStatus200") - Count(before, "requestStatus200"));
-            Assert.Equal(Count(before, "dbCommandStarts"), Count(after, "dbCommandStarts"));
-            Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(after, "dbPhysicalOpenStarts"));
+            AssertNoDatabaseActivity(before, after);
             foreach (var bad in new[] { "&sort=hot", "&page=0", "&page=10001", "&size=0", "&size=101" })
                 await ExpectError(client, PathFor("needle") + bad, BadRequest, ct);
         }
@@ -318,17 +306,11 @@ public sealed class ArticleSearchPostgresTests
                 "select setval(pg_get_serial_sequence('public.article', 'id'), 2005, true)");
         }, ct);
 
-        var evidence = Directory.CreateTempSubdirectory("fsusv2-search-v2-");
-        using (new MediaFixture.DirectoryCleanup(evidence))
+        using (var evidence = new RuntimeEvidenceFixture("fsusv2-search-v2-"))
         {
-            var output = Path.Combine(evidence.FullName, "runtime.ndjson");
-            await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-            {
-                ["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"] = evidence.FullName,
-                ["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] = output
-            });
+            await using var server = await evidence.Start(fixture.ConnectionString, ct);
             var client = server.Client;
-            var before = await Mark(evidence, output, "measure-before", ct);
+            var before = await evidence.Mark("measure-before", ct);
 
             // 1. Boundary counts: 0, 1, and >1000 (LowerBound, never Exact)
             var zero = await QueryV2(client, V2Path("doesnotmatchanythingxyz"), ct);
@@ -406,9 +388,8 @@ public sealed class ArticleSearchPostgresTests
             }
             Assert.Equal((10, 1000, 1000), (bulkPages, bulkIds.Count, bulkIds.Distinct().Count()));
 
-            var after = await Mark(evidence, output, "measure-after", ct);
-            Assert.Equal(Count(before, "dbCommandStarts"), Count(after, "dbCommandStarts"));
-            Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(after, "dbPhysicalOpenStarts"));
+            var after = await evidence.Mark("measure-after", ct);
+            AssertNoDatabaseActivity(before, after);
 
             // 4. Cursor tamper / mismatch / invalid query / unsupported profile rejections
             var tampered = firstPageCursor![..^1] + (firstPageCursor[^1] == 'A' ? 'B' : 'A');
@@ -462,17 +443,11 @@ public sealed class ArticleSearchPostgresTests
             await FixtureSql.ExecuteAsync(db, tx, ct, "select setval(pg_get_serial_sequence('public.article', 'id'), 25, true)");
         }, ct);
 
-        var evidence = Directory.CreateTempSubdirectory("fsusv2-search-cache-");
-        using (new MediaFixture.DirectoryCleanup(evidence))
+        using (var evidence = new RuntimeEvidenceFixture("fsusv2-search-cache-"))
         {
-            var output = Path.Combine(evidence.FullName, "runtime.ndjson");
-            await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-            {
-                ["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"] = evidence.FullName,
-                ["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] = output
-            });
+            await using var server = await evidence.Start(fixture.ConnectionString, ct);
             var client = server.Client;
-            var before = await Mark(evidence, output, "measure-before", ct);
+            var before = await evidence.Mark("measure-before", ct);
 
             // 1. Concurrent identical V2 requests + repeated hits + distinct sort/size/FAS4 requests
             var secretQuery = "sharedcachebeacon";
@@ -509,9 +484,8 @@ public sealed class ArticleSearchPostgresTests
             Assert.Equal(25, fas4Res.Total);
             Assert.Equal(Enumerable.Range(21, 5).Reverse(), fas4Res.Hits.Select(static h => h.Id));
 
-            var mid = await Mark(evidence, output, "measure-after", ct);
-            Assert.Equal(Count(before, "dbCommandStarts"), Count(mid, "dbCommandStarts"));
-            Assert.Equal(Count(before, "dbPhysicalOpenStarts"), Count(mid, "dbPhysicalOpenStarts"));
+            var mid = await evidence.Mark("measure-after", ct);
+            AssertNoDatabaseActivity(before, mid);
 
             var scMid = mid.GetProperty("searchCache");
             var hitsMid = scMid.GetProperty("hits").GetInt64();
@@ -535,13 +509,13 @@ public sealed class ArticleSearchPostgresTests
             Assert.Equal(24, afterWithdraw.TotalCount);
             Assert.DoesNotContain(afterWithdraw.Items, item => item.Id == 25);
 
-            var after = await Mark(evidence, output, "drain", ct);
+            var after = await evidence.Mark("drain", ct);
             var scAfter = after.GetProperty("searchCache");
             Assert.True(scAfter.GetProperty("generationRestarts").GetInt64() >= 1);
             Assert.True(scAfter.GetProperty("generationEvictions").GetInt64() >= 1);
 
             // Privacy guard: raw user query text must NEVER appear in RuntimeEvidence telemetry.
-            var telemetryText = await File.ReadAllTextAsync(output, ct);
+            var telemetryText = await File.ReadAllTextAsync(evidence.OutputPath, ct);
             Assert.DoesNotContain(secretQuery, telemetryText, StringComparison.OrdinalIgnoreCase);
         }
     }
@@ -619,25 +593,9 @@ public sealed class ArticleSearchPostgresTests
     private static async Task ExpectError(HttpClient client, string path, HttpStatusCode status, CancellationToken ct) =>
         Aeds.Decode(await ExpectBytes(status, client.GetAsync(path, ct), ct), FrameType.ApiError);
 
-    private static async Task<JsonElement> Mark(DirectoryInfo evidence, string output, string name, CancellationToken ct)
-    {
-        var staging = Path.Combine(evidence.FullName, "stage");
-        await File.WriteAllTextAsync(staging, name, ct);
-        File.Move(staging, Path.Combine(evidence.FullName, "runtime.mark"));
-        while (!File.Exists(Path.Combine(evidence.FullName, name + ".ack"))) await Task.Delay(20, ct);
-        var matches = new List<JsonElement>();
-        foreach (var line in await File.ReadAllLinesAsync(output, ct))
-        {
-            using var row = JsonDocument.Parse(line);
-            if (row.RootElement.GetProperty("mark").GetString() == name) matches.Add(row.RootElement.Clone());
-        }
-        return Assert.Single(matches);
-    }
-
     private static string PathFor(string keyword) => $"{WireRoutes.PublicSearch}?q={Uri.EscapeDataString(keyword)}";
     private static string PagePath(string keyword, string sort, int page, int size) =>
         $"{PathFor(keyword)}&sort={Uri.EscapeDataString(sort)}&page={page}&size={size}";
-    private static long Count(JsonElement marker, string bucket) => marker.GetProperty(bucket).GetProperty("otherHttp").GetInt64();
 
     private static Hit[] ReadHits(byte[] frame)
     {

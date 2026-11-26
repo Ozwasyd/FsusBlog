@@ -77,15 +77,10 @@ internal static class SearchEvalRunner
         var buildWallMs = sw.Elapsed.TotalMilliseconds;
 
         // 2. Build LocalSearchCorpusSnapshot and optionally emit FSPK v4 pages for Node/TS local evaluator
-        var fspkCpuBefore = proc.TotalProcessorTime;
-        var fspkAllocBefore = GC.GetTotalAllocatedBytes(true);
-        var fspkSw = Stopwatch.StartNew();
+        var fspkRuntime = new RuntimeMeasurement(proc);
         var corpusSnapshot = LocalSearchCorpus.BuildSnapshot(articles, null, CancellationToken.None)
             ?? throw new InvalidOperationException("LocalSearchCorpus.BuildSnapshot returned null");
-        fspkSw.Stop();
-        var fspkWallMs = fspkSw.Elapsed.TotalMilliseconds;
-        var fspkCpuMs = (proc.TotalProcessorTime - fspkCpuBefore).TotalMilliseconds;
-        var fspkAllocBytes = GC.GetTotalAllocatedBytes(true) - fspkAllocBefore;
+        var (fspkWall, fspkCpuMs, fspkAllocBytes) = fspkRuntime.Stop();
         long fspkTotalBytes = corpusSnapshot.Pages.Sum(p => (long)p.Length);
 
         if (emitFspkDir is not null)
@@ -113,9 +108,7 @@ internal static class SearchEvalRunner
         long totalResponseBytes = 0;
         var failedCount = 0;
 
-        var qCpuBefore = proc.TotalProcessorTime;
-        var qAllocBefore = GC.GetTotalAllocatedBytes(true);
-        var qWallSw = Stopwatch.StartNew();
+        var queryRuntime = new RuntimeMeasurement(proc);
         foreach (var q in queryDoc.Queries)
         {
             var qsw = Stopwatch.StartNew();
@@ -155,9 +148,7 @@ internal static class SearchEvalRunner
                 });
             }
         }
-        qWallSw.Stop();
-        var queryCpuMs = (proc.TotalProcessorTime - qCpuBefore).TotalMilliseconds;
-        var queryAllocBytes = GC.GetTotalAllocatedBytes(true) - qAllocBefore;
+        var (queryWall, queryCpuMs, queryAllocBytes) = queryRuntime.Stop();
 
         // 4b. Measure #47 PublicSearchResult V2 payload bytes & snippet extraction cost + #48 execution stats
         var v2LatenciesMs = new List<double>(queryDoc.Queries.Length);
@@ -169,9 +160,7 @@ internal static class SearchEvalRunner
         var v2SnippetsGenerated = 0;
         long v2PostingsDecoded = 0, v2BlocksVisited = 0, v2BlocksSkipped = 0, v2PositionsRead = 0, v2CandidatesScored = 0, v2PosSkipsByBound = 0;
         var pathCounts = new Dictionary<string, int>();
-        var v2CpuBefore = proc.TotalProcessorTime;
-        var v2AllocBefore = GC.GetTotalAllocatedBytes(true);
-        var v2WallSw = Stopwatch.StartNew();
+        var v2Runtime = new RuntimeMeasurement(proc);
         foreach (var q in queryDoc.Queries)
         {
             var plan = SearchQueryPlan.Build(q.Query, CancellationToken.None);
@@ -187,27 +176,10 @@ internal static class SearchEvalRunner
             pathCounts[pathName] = pathCounts.GetValueOrDefault(pathName) + 1;
 
             var swSnip = Stopwatch.StartNew();
-            var hits = new PublicSearchHit[cPage.Hits.Length];
-            for (var i = 0; i < cPage.Hits.Length; i++)
-            {
-                var hit = cPage.Hits[i];
-                var a = hit.Article;
-                var snip = SearchSnippetExtractor.Extract(a, plan, CancellationToken.None);
-                v2SnippetsGenerated++;
-                hits[i] = new PublicSearchHit(
-                    a.Id, a.Revision, a.RevisionNo, a.Publication, a.PublicationNo,
-                    a.PublishedAt.ToUnixTimeMilliseconds(), a.CreatedAt.ToUnixTimeMilliseconds(), 0,
-                    a.Category?.Id ?? 0, a.Category?.Name ?? "",
-                    a.Tags is { Count: > 0 } ts ? ts.Select(static t => new PublicSearchTag(t.Id, t.Name)).ToArray() : [],
-                    a.Title, a.Summary ?? "",
-                    hit.Tier == SearchMatchTier.Relaxed ? PublicSearchMatchTier.Relaxed : PublicSearchMatchTier.Primary,
-                    snip.Field, snip.Text, snip.Highlights);
-            }
+            var hits = BuildHits(cPage, plan, CancellationToken.None);
+            v2SnippetsGenerated += hits.Length;
             swSnip.Stop();
-            var v2Frame = Wire.EncodePublicSearchResult(new PublicSearchResult(
-                123456789L, index.ProfileVersion, index.AnalyzerVersion,
-                cPage.TotalCount, cPage.TotalRelation, cPage.PrimaryCount, cPage.RelaxedCount,
-                cPage.HasMore, cPage.HasMore ? new string('A', 162) : "", hits));
+            var v2Frame = EncodePage(index, cPage, 123456789L, hits);
             swTotal.Stop();
             var totalMs = swTotal.Elapsed.TotalMilliseconds;
             v2TotalPayloadBytes += v2Frame.Length;
@@ -217,9 +189,7 @@ internal static class SearchEvalRunner
             else if (q.Rarity == "common") v2CommonLatenciesMs.Add(totalMs);
             snippetOnlyLatenciesMs.Add(swSnip.Elapsed.TotalMilliseconds);
         }
-        v2WallSw.Stop();
-        var v2CpuMs = (proc.TotalProcessorTime - v2CpuBefore).TotalMilliseconds;
-        var v2AllocBytes = GC.GetTotalAllocatedBytes(true) - v2AllocBefore;
+        var (v2Wall, v2CpuMs, v2AllocBytes) = v2Runtime.Stop();
 
         // 4c. Deterministic 2,500-document multi-block broad-query pruning benchmark (#48)
         var broadBenchmark = RunBroadCorpusPruningBenchmark(articles);
@@ -236,9 +206,7 @@ internal static class SearchEvalRunner
         var hotQueries = queryDoc.Queries.Where(q => q.Rarity == "common").Take(8).ToArray();
         if (hotQueries.Length == 0) hotQueries = queryDoc.Queries.Take(8).ToArray();
         var repeatedLatencies = new List<double>();
-        var repCpuBefore = proc.TotalProcessorTime;
-        var repAllocBefore = GC.GetTotalAllocatedBytes(true);
-        var repSw = Stopwatch.StartNew();
+        var repeatedRuntime = new RuntimeMeasurement(proc);
         for (var r = 0; r < iterations * 10; r++)
         {
             var q = hotQueries[r % hotQueries.Length];
@@ -247,17 +215,13 @@ internal static class SearchEvalRunner
             t.Stop();
             repeatedLatencies.Add(t.Elapsed.TotalMilliseconds);
         }
-        repSw.Stop();
-        var repCpuMs = (proc.TotalProcessorTime - repCpuBefore).TotalMilliseconds;
-        var repAllocBytes = GC.GetTotalAllocatedBytes(true) - repAllocBefore;
+        var (repWall, repCpuMs, repAllocBytes) = repeatedRuntime.Stop();
 
         // 6. Concurrent searches
         var concurrentTotal = queryDoc.Queries.Length * Math.Max(1, iterations);
         var concurrentLatencies = new double[concurrentTotal];
         var concurrentFailures = 0;
-        var concCpuBefore = proc.TotalProcessorTime;
-        var concAllocBefore = GC.GetTotalAllocatedBytes(true);
-        var concSw = Stopwatch.StartNew();
+        var concurrentRuntime = new RuntimeMeasurement(proc);
         Parallel.For(0, concurrentTotal, new ParallelOptions { MaxDegreeOfParallelism = concurrency }, idx =>
         {
             var q = queryDoc.Queries[idx % queryDoc.Queries.Length];
@@ -273,9 +237,7 @@ internal static class SearchEvalRunner
             t.Stop();
             concurrentLatencies[idx] = t.Elapsed.TotalMilliseconds;
         });
-        concSw.Stop();
-        var concCpuMs = (proc.TotalProcessorTime - concCpuBefore).TotalMilliseconds;
-        var concAllocBytes = GC.GetTotalAllocatedBytes(true) - concAllocBefore;
+        var (concurrentElapsed, concCpuMs, concAllocBytes) = concurrentRuntime.Stop();
 
         // 7. Cancellation check
         var cancelSucceeded = 0;
@@ -387,7 +349,7 @@ internal static class SearchEvalRunner
                 serverBuildAllocBytes = buildAllocBytes,
                 serverRetainedBytes = retainedIndexBytes,
                 peakWorkingSetBytes = Math.Max(peakWorkingSet, proc.WorkingSet64),
-                fspkBuildWallMs = fspkWallMs,
+                fspkBuildWallMs = fspkWall.TotalMilliseconds,
                 fspkBuildCpuMs = fspkCpuMs,
                 fspkBuildAllocBytes = fspkAllocBytes
             },
@@ -396,7 +358,7 @@ internal static class SearchEvalRunner
                 offered = queryDoc.Queries.Length,
                 succeeded = queryDoc.Queries.Length - failedCount,
                 failed = failedCount,
-                wallMs = qWallSw.Elapsed.TotalMilliseconds,
+                wallMs = queryWall.TotalMilliseconds,
                 cpuMs = queryCpuMs,
                 allocBytes = queryAllocBytes,
                 totalResponseBytes,
@@ -411,7 +373,7 @@ internal static class SearchEvalRunner
                 totalResponseBytes = v2TotalPayloadBytes,
                 fas4TotalResponseBytes = totalResponseBytes,
                 responseBytes = Summarize(v2PayloadBytesList),
-                wallMs = v2WallSw.Elapsed.TotalMilliseconds,
+                wallMs = v2Wall.TotalMilliseconds,
                 cpuMs = v2CpuMs,
                 allocBytes = v2AllocBytes,
                 endToEndLatencyMs = Summarize(v2LatenciesMs),
@@ -435,7 +397,7 @@ internal static class SearchEvalRunner
             repeatedHot = new
             {
                 offered = repeatedLatencies.Count,
-                wallMs = repSw.Elapsed.TotalMilliseconds,
+                wallMs = repWall.TotalMilliseconds,
                 cpuMs = repCpuMs,
                 allocBytes = repAllocBytes,
                 latencyMs = Summarize(repeatedLatencies)
@@ -446,8 +408,8 @@ internal static class SearchEvalRunner
                 offered = concurrentTotal,
                 succeeded = concurrentTotal - concurrentFailures,
                 failed = concurrentFailures,
-                wallMs = concSw.Elapsed.TotalMilliseconds,
-                throughputQps = concSw.Elapsed.TotalSeconds > 0 ? (concurrentTotal - concurrentFailures) / concSw.Elapsed.TotalSeconds : 0,
+                wallMs = concurrentElapsed.TotalMilliseconds,
+                throughputQps = concurrentElapsed.TotalSeconds > 0 ? (concurrentTotal - concurrentFailures) / concurrentElapsed.TotalSeconds : 0,
                 cpuMs = concCpuMs,
                 allocBytes = concAllocBytes,
                 latencyMs = Summarize(concurrentLatencies)
@@ -475,6 +437,34 @@ internal static class SearchEvalRunner
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
         File.WriteAllText(outputPath, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
     }
+
+    private static PublicSearchHit[] BuildHits(
+        ArticleSearchCursorPage cPage, SearchQueryPlan plan, CancellationToken cancellationToken)
+    {
+        var hits = new PublicSearchHit[cPage.Hits.Length];
+        for (var i = 0; i < cPage.Hits.Length; i++)
+        {
+            var hit = cPage.Hits[i];
+            var a = hit.Article;
+            var snip = SearchSnippetExtractor.Extract(a, plan, cancellationToken);
+            hits[i] = new PublicSearchHit(
+                a.Id, a.Revision, a.RevisionNo, a.Publication, a.PublicationNo,
+                a.PublishedAt.ToUnixTimeMilliseconds(), a.CreatedAt.ToUnixTimeMilliseconds(), 0,
+                a.Category?.Id ?? 0, a.Category?.Name ?? "",
+                a.Tags is { Count: > 0 } ts ? ts.Select(static t => new PublicSearchTag(t.Id, t.Name)).ToArray() : [],
+                a.Title, a.Summary ?? "",
+                hit.Tier == SearchMatchTier.Relaxed ? PublicSearchMatchTier.Relaxed : PublicSearchMatchTier.Primary,
+                snip.Field, snip.Text, snip.Highlights);
+        }
+        return hits;
+    }
+
+    private static byte[] EncodePage(
+        ArticleSearchIndex index, ArticleSearchCursorPage page, long generation, PublicSearchHit[] hits) =>
+        Wire.EncodePublicSearchResult(new PublicSearchResult(
+            generation, index.ProfileVersion, index.AnalyzerVersion,
+            page.TotalCount, page.TotalRelation, page.PrimaryCount, page.RelaxedCount,
+            page.HasMore, page.HasMore ? new string('A', 162) : "", hits));
 
     private static object RunBroadCorpusPruningBenchmark(Article[] seedArticles)
     {
@@ -570,31 +560,26 @@ internal static class SearchEvalRunner
         var proc = Process.GetCurrentProcess();
         const long evalGeneration = 900_001L;
         const int streamLength = 300;
+        var options = new SearchResultCacheOptions(
+            MaxEntries: 512,
+            MaxRetainedBytes: 8 * 1024 * 1024,
+            MaxInFlightKeys: 32,
+            MaxWaitersPerKey: 16,
+            MaxTotalWaiters: 32,
+            MaxRetainedGenerations: 1);
         var positiveQueries = queries.Where(static q => !q.ExpectedEmpty).ToArray();
         if (positiveQueries.Length < 10) positiveQueries = queries;
+
+        SearchResultCacheKey CreateCacheKey(SearchQueryPlan plan, ArticleSearchSort sort, int size) => new(
+            SearchCacheEndpointKind.V2, evalGeneration, index.ProfileVersion, index.AnalyzerVersion,
+            index.UsesWideProfile, plan.BuildCanonicalCacheKey(), sort,
+            0, size, true, SearchCursorCacheKey.None, ArticleSearchIndex.MaxPaginatedResults,
+            ArticleSearchIndex.DefaultWorkBudgetCandidates);
 
         byte[] ComputeV2Frame(SearchQueryPlan plan, ArticleSearchSort sort, int size, CancellationToken ct)
         {
             var cPage = index.SearchWithCursor(plan, sort, size, null, 0, ct);
-            var hits = new PublicSearchHit[cPage.Hits.Length];
-            for (var i = 0; i < cPage.Hits.Length; i++)
-            {
-                var hit = cPage.Hits[i];
-                var a = hit.Article;
-                var snip = SearchSnippetExtractor.Extract(a, plan, ct);
-                hits[i] = new PublicSearchHit(
-                    a.Id, a.Revision, a.RevisionNo, a.Publication, a.PublicationNo,
-                    a.PublishedAt.ToUnixTimeMilliseconds(), a.CreatedAt.ToUnixTimeMilliseconds(), 0,
-                    a.Category?.Id ?? 0, a.Category?.Name ?? "",
-                    a.Tags is { Count: > 0 } ts ? ts.Select(static t => new PublicSearchTag(t.Id, t.Name)).ToArray() : [],
-                    a.Title, a.Summary ?? "",
-                    hit.Tier == SearchMatchTier.Relaxed ? PublicSearchMatchTier.Relaxed : PublicSearchMatchTier.Primary,
-                    snip.Field, snip.Text, snip.Highlights);
-            }
-            return Wire.EncodePublicSearchResult(new PublicSearchResult(
-                evalGeneration, index.ProfileVersion, index.AnalyzerVersion,
-                cPage.TotalCount, cPage.TotalRelation, cPage.PrimaryCount, cPage.RelaxedCount,
-                cPage.HasMore, cPage.HasMore ? new string('A', 162) : "", hits));
+            return EncodePage(index, cPage, evalGeneration, BuildHits(cPage, plan, ct));
         }
 
         // Build deterministic query streams of REAL matching queries with exact target repeat rates (0%, 10%, 40%, 75%)
@@ -636,18 +621,9 @@ internal static class SearchEvalRunner
         object MeasureStream(string label, double targetHitRate, bool useCache)
         {
             var stream = BuildStream(targetHitRate);
-            var options = new SearchResultCacheOptions(
-                MaxEntries: 512,
-                MaxRetainedBytes: 8 * 1024 * 1024,
-                MaxInFlightKeys: 32,
-                MaxWaitersPerKey: 16,
-                MaxTotalWaiters: 32,
-                MaxRetainedGenerations: 1);
             using var cache = new SearchResultCache(options);
             var lats = new double[stream.Length];
-            var cpuBefore = proc.TotalProcessorTime;
-            var allocBefore = GC.GetTotalAllocatedBytes(true);
-            var swAll = Stopwatch.StartNew();
+            var runtime = new RuntimeMeasurement(proc);
 
             for (var i = 0; i < stream.Length; i++)
             {
@@ -660,20 +636,14 @@ internal static class SearchEvalRunner
                 }
                 else
                 {
-                    var key = new SearchResultCacheKey(
-                        SearchCacheEndpointKind.V2, evalGeneration, index.ProfileVersion, index.AnalyzerVersion,
-                        index.UsesWideProfile, plan.BuildCanonicalCacheKey(), sort,
-                        0, size, true, SearchCursorCacheKey.None, ArticleSearchIndex.MaxPaginatedResults,
-                        ArticleSearchIndex.DefaultWorkBudgetCandidates);
+                    var key = CreateCacheKey(plan, sort, size);
                     _ = cache.GetOrExecuteAsync(key, ct => ValueTask.FromResult(new CachedSearchPayload(ComputeV2Frame(plan, sort, size, ct), 0)), CancellationToken.None)
                         .AsTask().GetAwaiter().GetResult();
                 }
                 sw.Stop();
                 lats[i] = sw.Elapsed.TotalMilliseconds;
             }
-            swAll.Stop();
-            var cpuMs = (proc.TotalProcessorTime - cpuBefore).TotalMilliseconds;
-            var allocBytes = GC.GetTotalAllocatedBytes(true) - allocBefore;
+            var (elapsed, cpuMs, allocBytes) = runtime.Stop();
             var stats = cache.SnapshotStats();
             var executions = useCache ? stats.Executions : stream.Length;
             var saved = stream.Length - executions;
@@ -695,7 +665,7 @@ internal static class SearchEvalRunner
                 maxRetainedBytes = options.MaxRetainedBytes,
                 entryCount = stats.EntryCount,
                 maxEntries = options.MaxEntries,
-                wallMs = swAll.Elapsed.TotalMilliseconds,
+                wallMs = elapsed.TotalMilliseconds,
                 cpuMs,
                 allocBytes,
                 latencyMs = Summarize(lats)
@@ -709,28 +679,15 @@ internal static class SearchEvalRunner
             var waves = 12;
             var fanout = Math.Max(4, concurrency * 2);
             var totalOffered = waves * fanout;
-            var options = new SearchResultCacheOptions(
-                MaxEntries: 512,
-                MaxRetainedBytes: 8 * 1024 * 1024,
-                MaxInFlightKeys: 32,
-                MaxWaitersPerKey: 16,
-                MaxTotalWaiters: 32,
-                MaxRetainedGenerations: 1);
             using var cache = new SearchResultCache(options);
             var lats = new double[totalOffered];
-            var cpuBefore = proc.TotalProcessorTime;
-            var allocBefore = GC.GetTotalAllocatedBytes(true);
-            var swAll = Stopwatch.StartNew();
+            var runtime = new RuntimeMeasurement(proc);
 
             for (var w = 0; w < waves; w++)
             {
                 var q = burstQueries[w % burstQueries.Length];
                 var plan = SearchQueryPlan.Build(q, CancellationToken.None);
-                var key = new SearchResultCacheKey(
-                    SearchCacheEndpointKind.V2, evalGeneration, index.ProfileVersion, index.AnalyzerVersion,
-                    index.UsesWideProfile, plan.BuildCanonicalCacheKey(), ArticleSearchSort.Relevance,
-                    0, 10, true, SearchCursorCacheKey.None, ArticleSearchIndex.MaxPaginatedResults,
-                    ArticleSearchIndex.DefaultWorkBudgetCandidates);
+                var key = CreateCacheKey(plan, ArticleSearchSort.Relevance, 10);
                 using var barrier = new ManualResetEventSlim(false);
                 var tasks = new Task[fanout];
                 for (var f = 0; f < fanout; f++)
@@ -749,9 +706,7 @@ internal static class SearchEvalRunner
                 Task.WaitAll(tasks);
             }
 
-            swAll.Stop();
-            var cpuMs = (proc.TotalProcessorTime - cpuBefore).TotalMilliseconds;
-            var allocBytes = GC.GetTotalAllocatedBytes(true) - allocBefore;
+            var (elapsed, cpuMs, allocBytes) = runtime.Stop();
             var stats = cache.SnapshotStats();
             var saved = totalOffered - stats.Executions;
 
@@ -770,7 +725,7 @@ internal static class SearchEvalRunner
                 retainedBytes = stats.RetainedBytes,
                 maxRetainedBytes = options.MaxRetainedBytes,
                 entryCount = stats.EntryCount,
-                wallMs = swAll.Elapsed.TotalMilliseconds,
+                wallMs = elapsed.TotalMilliseconds,
                 cpuMs,
                 allocBytes,
                 latencyMs = Summarize(lats)
@@ -1013,6 +968,21 @@ internal static class SearchEvalRunner
                 incremental = MeasureWorkload("high_churn_incremental", highChurn: true, opCount: 50, useIncremental: true, includeLocalCorpus: false),
             }
         };
+    }
+
+    private readonly struct RuntimeMeasurement(Process process)
+    {
+        private readonly TimeSpan cpuBefore = process.TotalProcessorTime;
+        private readonly long allocatedBefore = GC.GetTotalAllocatedBytes(true);
+        private readonly Stopwatch clock = Stopwatch.StartNew();
+
+        internal (TimeSpan Elapsed, double CpuMs, long AllocatedBytes) Stop()
+        {
+            clock.Stop();
+            return (clock.Elapsed,
+                (process.TotalProcessorTime - cpuBefore).TotalMilliseconds,
+                GC.GetTotalAllocatedBytes(true) - allocatedBefore);
+        }
     }
 
     private static object Summarize(IReadOnlyList<double> values)

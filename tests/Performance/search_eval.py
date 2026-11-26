@@ -571,25 +571,25 @@ def run_paired_baseline(
     _, overhead_sample = probe.measure(lambda: None)
     overhead_j = overhead_sample.joules if overhead_sample.available else None
 
-    server_rounds: list[dict[str, Any]] = []
-    local_rounds: list[dict[str, Any]] = []
-    server_energy_samples: list[EnergySample] = []
-    local_energy_samples: list[EnergySample] = []
+    engine_rounds: dict[str, list[dict[str, Any]]] = {"server": [], "local": []}
+    energy_samples: dict[str, list[EnergySample]] = {"server": [], "local": []}
     ordering: list[list[str]] = []
+
+    def server_command(out_file: Path, iterations: int, operations: int) -> list[str]:
+        return [
+            dotnet_bin, "run", "--project", str(PROTOCOL_CSPROJ), "-c", "Release", "--no-build", "--",
+            "--search-eval", "--corpus", str(corpus_path), "--queries", str(queries_path),
+            "--out", str(out_file), "--iterations", str(iterations),
+            "--concurrency", str(concurrency), "--churn-ops", str(operations),
+        ]
 
     with tempfile.TemporaryDirectory(prefix="fsus-search-eval-") as tmp:
         tmp_dir = Path(tmp)
         fspk_dir = tmp_dir / "fspk"
 
-        # Seed FSPK pages once during warm-up so alternating orders can start with either engine
-        warmup_out = tmp_dir / "warmup-server.json"
+        # Seed FSPK pages once during warm-up so alternating orders can start with either engine.
         subprocess.run(
-            [
-                dotnet_bin, "run", "--project", str(PROTOCOL_CSPROJ), "-c", "Release", "--no-build", "--",
-                "--search-eval", "--corpus", str(corpus_path), "--queries", str(queries_path),
-                "--out", str(warmup_out), "--emit-fspk-dir", str(fspk_dir),
-                "--iterations", "1", "--concurrency", str(concurrency), "--churn-ops", "3",
-            ],
+            server_command(tmp_dir / "warmup-server.json", 1, 3) + ["--emit-fspk-dir", str(fspk_dir)],
             cwd=str(ROOT), check=True,
         )
 
@@ -597,76 +597,54 @@ def run_paired_baseline(
             order = ["server", "local"] if r % 2 == 0 else ["local", "server"]
             ordering.append(order)
             for engine in order:
+                out_file = tmp_dir / f"{engine}-round-{r}.json"
                 if engine == "server":
-                    out_file = tmp_dir / f"server-round-{r}.json"
-                    cmd = [
-                        dotnet_bin, "run", "--project", str(PROTOCOL_CSPROJ), "-c", "Release", "--no-build", "--",
-                        "--search-eval", "--corpus", str(corpus_path), "--queries", str(queries_path),
-                        "--out", str(out_file), "--iterations", "2", "--concurrency", str(concurrency),
-                        "--churn-ops", str(churn_ops),
-                    ]
-                    _, sample = probe.measure(lambda c=cmd: subprocess.run(c, cwd=str(ROOT), check=True))
-                    server_rounds.append(json.loads(out_file.read_text(encoding="utf-8")))
-                    server_energy_samples.append(sample)
+                    cmd = server_command(out_file, 2, churn_ops)
                 else:
-                    out_file = tmp_dir / f"local-round-{r}.json"
                     cmd = [
                         node_bin, str(LOCAL_SCRIPT), "--fspk-dir", str(fspk_dir),
                         "--queries", str(queries_path), "--out", str(out_file),
                         "--concurrency", str(concurrency),
                     ]
-                    _, sample = probe.measure(lambda c=cmd: subprocess.run(c, cwd=str(ROOT), check=True))
-                    local_rounds.append(json.loads(out_file.read_text(encoding="utf-8")))
-                    local_energy_samples.append(sample)
+                _, sample = probe.measure(lambda c=cmd: subprocess.run(c, cwd=str(ROOT), check=True))
+                engine_rounds[engine].append(json.loads(out_file.read_text(encoding="utf-8")))
+                energy_samples[engine].append(sample)
 
+    server_rounds = engine_rounds["server"]
+    local_rounds = engine_rounds["local"]
     server_ref = server_rounds[0]
     local_ref = local_rounds[0]
-
-    server_rel = compute_relevance_report(queries, server_ref["results"])
-    local_rel = compute_relevance_report(queries, local_ref["results"])
     cross_path_eq = compute_equivalence_check(server_ref["results"], local_ref["results"], top_k=10)
 
     gates = config["provisionalGates"]
     scenarios = config["energyModel"]["amortizationScenarios"]
     net_model = config["energyModel"]["networkEnergyEstimate"]
 
-    server_p95_median = statistics.median(r["queryPass"]["latencyMs"]["p95"] for r in server_rounds)
-    local_p95_median = statistics.median(r["warmSession"]["latencyMs"]["p95"] for r in local_rounds)
+    def evaluate_engine(engine: str, query_section: str, rejected_requests: int):
+        runs = engine_rounds[engine]
+        relevance = compute_relevance_report(queries, runs[0]["results"])
+        metrics = runs[0][query_section]
+        p95_median = statistics.median(run[query_section]["latencyMs"]["p95"] for run in runs)
+        gate = evaluate_provisional_gates(
+            relevance["holdout"], p95_median,
+            metrics["offered"], metrics["failed"], rejected_requests, gates,
+        )
+        energy = compute_energy_accounting(
+            query_sample=energy_samples[engine][0],
+            indexing_sample=None,
+            idle_power_watts=idle_power_w,
+            overhead_joules=overhead_j,
+            successful_queries=metrics["succeeded"],
+            offered_queries=metrics["offered"],
+            failed_requests=metrics["failed"],
+            rejected_requests=rejected_requests,
+            quality_qualified=gate["qualityQualified"],
+            scenarios=scenarios,
+        )
+        return relevance, gate, energy
 
-    server_gate = evaluate_provisional_gates(
-        server_rel["holdout"], server_p95_median,
-        server_ref["queryPass"]["offered"], server_ref["queryPass"]["failed"], 0, gates,
-    )
-    local_gate = evaluate_provisional_gates(
-        local_rel["holdout"], local_p95_median,
-        local_ref["warmSession"]["offered"], local_ref["warmSession"]["failed"],
-        local_ref["warmSession"]["rejected"], gates,
-    )
-
-    server_energy = compute_energy_accounting(
-        query_sample=server_energy_samples[0],
-        indexing_sample=None,
-        idle_power_watts=idle_power_w,
-        overhead_joules=overhead_j,
-        successful_queries=server_ref["queryPass"]["succeeded"],
-        offered_queries=server_ref["queryPass"]["offered"],
-        failed_requests=server_ref["queryPass"]["failed"],
-        rejected_requests=0,
-        quality_qualified=server_gate["qualityQualified"],
-        scenarios=scenarios,
-    )
-    local_energy = compute_energy_accounting(
-        query_sample=local_energy_samples[0],
-        indexing_sample=None,
-        idle_power_watts=idle_power_w,
-        overhead_joules=overhead_j,
-        successful_queries=local_ref["warmSession"]["succeeded"],
-        offered_queries=local_ref["warmSession"]["offered"],
-        failed_requests=local_ref["warmSession"]["failed"],
-        rejected_requests=local_ref["warmSession"]["rejected"],
-        quality_qualified=local_gate["qualityQualified"],
-        scenarios=scenarios,
-    )
+    server_rel, server_gate, server_energy = evaluate_engine("server", "queryPass", rejected_requests=0)
+    local_rel, local_gate, local_energy = evaluate_engine("local", "warmSession", local_ref["warmSession"]["rejected"])
 
     report = {
         "schemaVersion": "fsusblog-search-eval-report-v1",

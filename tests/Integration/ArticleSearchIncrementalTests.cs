@@ -292,17 +292,11 @@ public sealed class ArticleSearchIncrementalTests
                 """);
         }, ct);
 
-        var evidenceDir = Directory.CreateTempSubdirectory("fsusblog-inc-ev-");
-        try
-        {
-        var output = Path.Combine(evidenceDir.FullName, "evidence.ndjson");
-
-        await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
+        using var evidence = new RuntimeEvidenceFixture("fsusblog-inc-ev-");
+        await using var server = await evidence.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
         {
             ["FSUSBLOG_LOCAL_SEARCH_CORPUS"] = "false",
             ["FSUSBLOG_WIDE_SEARCH_CORPUS"] = "false",
-            ["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"] = evidenceDir.FullName,
-            ["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] = output,
         });
         var client = server.Client;
 
@@ -330,10 +324,10 @@ public sealed class ArticleSearchIncrementalTests
         var retracted = await SiteAedsFixture.ArticleCommand(client, WireRoutes.Retract, token, null, new(5, 1, Guid.NewGuid(), "", ""), ct);
         Assert.False(retracted.Published);
 
-        var before = await MarkEvidence(evidenceDir.FullName, output, "measure-before", ct);
+        var before = await evidence.Mark("measure-before", ct);
         var canaryRes = Wire.DecodePublicSearchResult(await ExpectBytes(OK, client.GetAsync($"{WireRoutes.PublicSearchV2}?q=target_withdraw_canary_5&size=10", ct), ct));
         var countRes = Wire.DecodePublicSearchResult(await ExpectBytes(OK, client.GetAsync($"{WireRoutes.PublicSearchV2}?q=SharedIncrementalToken&size=10", ct), ct));
-        var after = await MarkEvidence(evidenceDir.FullName, output, "measure-after", ct);
+        var after = await evidence.Mark("measure-after", ct);
 
         Assert.Empty(canaryRes.Items);
         Assert.Equal(0, canaryRes.TotalCount);
@@ -341,12 +335,7 @@ public sealed class ArticleSearchIncrementalTests
         Assert.NotEqual(afterEdit.Generation, countRes.Generation);
 
         // Verify ZERO SQL commands and ZERO physical DB connections during search!
-        Assert.Equal(
-            before.GetProperty("dbCommandStarts").GetProperty("otherHttp").GetInt64(),
-            after.GetProperty("dbCommandStarts").GetProperty("otherHttp").GetInt64());
-        Assert.Equal(
-            before.GetProperty("dbPhysicalOpenStarts").GetProperty("otherHttp").GetInt64(),
-            after.GetProperty("dbPhysicalOpenStarts").GetProperty("otherHttp").GetInt64());
+        RuntimeEvidenceFixture.AssertNoDatabaseActivity(before, after);
 
         // 4. Republish article 5 -> immediately visible again, count returns to 30!
         var repub = await SiteAedsFixture.ArticleCommand(client, WireRoutes.Publish, token, null, new(5, retracted.Revision, Guid.NewGuid(), "", ""), ct);
@@ -384,11 +373,6 @@ public sealed class ArticleSearchIncrementalTests
             snap2.SearchBuildStats.SkippedAnalysisDocuments,
             snap2.SearchBuildStats.RemovedDocuments));
         Assert.Empty(Wire.DecodePublicSearchResult(snap2.SearchV2("direct_inc_edit_12", ArticleSearchSort.Relevance, 10, null, ct)).Items);
-        }
-        finally
-        {
-            if (evidenceDir.Exists) evidenceDir.Delete(recursive: true);
-        }
     }
 
     [PostgresFact]
@@ -477,19 +461,4 @@ public sealed class ArticleSearchIncrementalTests
         PublicSnapshot? previous, PublicListCursor cursor, long taxonomyEpoch = 0, bool buildLocalCorpus = true) =>
         new(watermark, articles, new([], [], []), EmptyPages, cursor, previous, NullLogger.Instance,
             null, null, CancellationToken.None, taxonomyEpoch, buildLocalCorpus: buildLocalCorpus);
-
-    private static async Task<System.Text.Json.JsonElement> MarkEvidence(string evidencePath, string output, string name, CancellationToken ct)
-    {
-        var staging = Path.Combine(evidencePath, "stage");
-        await File.WriteAllTextAsync(staging, name, ct);
-        File.Move(staging, Path.Combine(evidencePath, "runtime.mark"));
-        while (!File.Exists(Path.Combine(evidencePath, name + ".ack"))) await Task.Delay(20, ct);
-        var matches = new List<System.Text.Json.JsonElement>();
-        foreach (var line in await File.ReadAllLinesAsync(output, ct))
-        {
-            using var row = System.Text.Json.JsonDocument.Parse(line);
-            if (row.RootElement.GetProperty("mark").GetString() == name) matches.Add(row.RootElement.Clone());
-        }
-        return Assert.Single(matches);
-    }
 }
