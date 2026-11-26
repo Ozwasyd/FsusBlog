@@ -1087,40 +1087,42 @@ public sealed partial class ArticleSearchIndex
         HashSet<SearchTermKey> neededKeys, CancellationToken ct)
     {
         var result = new Dictionary<SearchTermKey, List<uint>>();
-        void Collect(IReadOnlyList<SearchToken> tokens, SearchScoreField field, int posShift)
+        var collector = (Keys: neededKeys, Result: result);
+        static void Collect((HashSet<SearchTermKey> Keys, Dictionary<SearchTermKey, List<uint>> Result) state,
+            IReadOnlyList<SearchToken> tokens, SearchScoreField field, int posShift)
         {
             foreach (var tok in tokens)
             {
                 if (tok.Kind is not (SearchTokenKind.Exact or SearchTokenKind.CjkBigram or SearchTokenKind.Subword or SearchTokenKind.ScriptAlias))
                     continue;
                 var key = SearchTermKey.From(tok);
-                if (!neededKeys.Contains(key)) continue;
-                if (!result.TryGetValue(key, out var list)) result[key] = list = [];
+                if (!state.Keys.Contains(key)) continue;
+                if (!state.Result.TryGetValue(key, out var list)) state.Result[key] = list = [];
                 list.Add(SearchScoringProfile.PackPosition(field, tok.Position + posShift, tok.Width));
             }
         }
 
         var title = SearchTextAnalyzer.AnalyzePlainField(article.Title, SearchFieldKind.Title, SearchAnalysisMode.Index, 0, ct);
-        Collect(title.Tokens, SearchScoreField.Title, 0);
+        Collect(collector, title.Tokens, SearchScoreField.Title, 0);
         var summary = SearchTextAnalyzer.AnalyzePlainField(article.Summary ?? "", SearchFieldKind.Summary, SearchAnalysisMode.Index, 0, ct);
-        Collect(summary.Tokens, SearchScoreField.Summary, 0);
+        Collect(collector, summary.Tokens, SearchScoreField.Summary, 0);
         var taxPos = 0;
         if (article.Category is { Name.Length: > 0 } cat)
         {
             var catRes = SearchTextAnalyzer.AnalyzePlainField(cat.Name, SearchFieldKind.Taxonomy, SearchAnalysisMode.Index, taxPos, ct);
-            Collect(catRes.Tokens, SearchScoreField.Taxonomy, 0);
+            Collect(collector, catRes.Tokens, SearchScoreField.Taxonomy, 0);
             taxPos = catRes.EndPosition + SearchTextAnalyzer.BlockPositionGap;
         }
         foreach (var tag in article.Tags ?? [])
         {
             if (string.IsNullOrEmpty(tag.Name)) continue;
             var tagRes = SearchTextAnalyzer.AnalyzePlainField(tag.Name, SearchFieldKind.Taxonomy, SearchAnalysisMode.Index, taxPos, ct);
-            Collect(tagRes.Tokens, SearchScoreField.Taxonomy, 0);
+            Collect(collector, tagRes.Tokens, SearchScoreField.Taxonomy, 0);
             taxPos = tagRes.EndPosition + SearchTextAnalyzer.BlockPositionGap;
         }
-        SearchTextAnalyzer.VisitMarkdownIndexTokens(article.Body ?? "", (tokens, field, shift) =>
+        SearchTextAnalyzer.VisitMarkdownIndexTokens(article.Body ?? "", collector, static (state, tokens, field, shift) =>
         {
-            Collect(tokens, SearchScoringProfile.ToScoreField(field), shift);
+            Collect(state, tokens, SearchScoringProfile.ToScoreField(field), shift);
             return true;
         }, ct, out _, out _);
 
