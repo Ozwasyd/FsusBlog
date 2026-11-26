@@ -6,7 +6,7 @@ namespace FsusBlog.V2.Integration.Tests;
 public sealed class CatalogVerificationOptionsPostgresTests
 {
     [Fact]
-    public void DefaultOptionsPreserveEveryLegacyParameterDefaultAndSignature()
+    public void DefaultOptionsPreserveEverySupportedParameterDefaultAndSignature()
     {
         var method = typeof(CurrentSchema).GetMethod(
             nameof(CurrentSchema.VerifyCatalogAsync),
@@ -21,14 +21,13 @@ public sealed class CatalogVerificationOptionsPostgresTests
         var options = new CatalogVerificationOptions();
         Assert.Equal(CatalogVerificationOptions.Default, options);
 
-        // 9 core bool flags
+        // 8 core bool flags
         Assert.All(new[]
         {
             options.Core.RecoveryScope, options.Core.RevisionHistory, options.Core.AdminIdentity,
             options.Core.PublicationHistory, options.Core.ArticleSchedule, options.Core.MediaUpload,
             options.Core.PublicationRights, options.Core.CanvasHistory
         }, Assert.True);
-        Assert.False(options.Core.LegacyCanvas);
 
         // 37 optional bool? flags default to null (auto-detect)
         Assert.All(new bool?[]
@@ -136,6 +135,24 @@ public sealed class CatalogVerificationOptionsPostgresTests
             Media = new() { ArticleMedia = true, ArticleCover = true, PublicationMedia = true, PublicationCover = true },
             Publication = new() { Canonical = true, Proof = true, Transparency = true, Head = true, ArticleRead = true, ArticleReadTotal = true }
         }, ct));
+
+        // History admission remains independent of the current Canvas document and link-plan shape.
+        var withoutCanvasHistory = new CatalogVerificationOptions { Core = new(CanvasHistory: false) };
+        Assert.False(await VerifyInReadOnlyTx(db, withoutCanvasHistory, ct));
+        await FixtureSql.ExecuteAsync(db, null, ct, """
+            ALTER TABLE public.canvas_link_plan DROP CONSTRAINT canvas_link_plan_canvas_id_fkey,
+                ADD FOREIGN KEY (canvas_id,edge_id) REFERENCES public.canvas_edge(canvas_id,id)
+            """);
+        await ExpectInvalid("canvas_link_plan", withoutCanvasHistory);
+        await ExpectInvalid("canvas_link_plan");
+        await FixtureSql.ExecuteAsync(db, null, ct, """
+            ALTER TABLE public.canvas_link_plan DROP CONSTRAINT canvas_link_plan_canvas_id_edge_id_fkey,
+                ADD FOREIGN KEY (canvas_id) REFERENCES public.authoring_canvas(id);
+            ALTER TABLE public.canvas_history_patch RENAME TO absent_canvas_history_patch
+            """);
+        await ExpectInvalid("canvas_history_patch");
+        Assert.False(await VerifyInReadOnlyTx(db, withoutCanvasHistory, ct));
+        await FixtureSql.ExecuteAsync(db, null, ct, "ALTER TABLE public.absent_canvas_history_patch RENAME TO canvas_history_patch");
 
         await ExpectInvalid("Comment report schema presence", new() { Comments = new() { Report = false } });
         await ExpectInvalid("Recovery Key schema presence", new() { Site = new() { RecoveryKey = false } });
