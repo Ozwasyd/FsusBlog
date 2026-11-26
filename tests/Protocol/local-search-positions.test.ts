@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import { ProtocolError } from '../../src/Contracts/aeds.ts';
 import { encodeLocalSearchResult, queryCorpusPage } from '../../src/Contracts/local-search.ts';
 import type { ArticleCard } from '../../src/Contracts/public-articles.ts';
-import { WireLayouts as L } from '../../src/Contracts/wire.generated.ts';
+import { packFspk, type FspkPosition } from './fspk-fixture.ts';
 
-type Position = { at: number; width: number; field: 1 | 4 };
+type Position = FspkPosition & { field: 1 | 4 };
 type Posting = { id: number; positions: Position[]; frequencies: readonly [number, number, number] };
 type Term = { hash: number; idf: number; postings: Posting[] };
 type Document = { id: number; length: number; time: number };
@@ -27,7 +27,7 @@ const documents: Document[] = [
   { id: 29, length: 160, time },
   { id: 31, length: 160, time },
 ];
-const position = (at: number, width = 1, field: 1 | 4 = 1): Position => ({ at, field, width });
+const position = (at: number, width = 1, field: 1 | 4 = 1): Position => ({ offset: at, field, width });
 const consecutive = (count: number) => Array.from({ length: count }, (_, index) => position(index));
 const posting = (id: number, positions: Position[]): Posting => ({
   id, positions,
@@ -92,7 +92,7 @@ test('bounded FSPK scoring agrees exactly with a materialized position map', () 
 test('long validated spans preserve an exact late phrase and reject a near miss', () => {
   const length = 100_000;
   const dense = Array.from({ length: 32_768 }, (_, index) => position(index * 3));
-  const last = dense[dense.length - 1].at;
+  const last = dense[dense.length - 1].offset;
   const rows: Document[] = [{ id: 1, length, time }];
   const fixture: Term[] = [
     { hash: a, idf: 1.125, postings: [posting(1, dense)] },
@@ -134,7 +134,7 @@ function rankOracle(query: number[]) {
       if (!positions.has(doc.id)) positions.set(doc.id, new Map());
       const index = positions.get(doc.id)!;
       for (const hit of row.positions) {
-        const key = `${hit.field}:${hit.at}:${hit.width}`;
+        const key = `${hit.field}:${hit.offset}:${hit.width}`;
         if (!index.has(key)) index.set(key, { position: hit, hashes: new Set() });
         index.get(key)!.hashes.add(term.hash);
       }
@@ -147,8 +147,8 @@ function rankOracle(query: number[]) {
     for (let i = 0; i < query.length; i++) {
       const next = new Set<string>();
       for (const { position: hit, hashes } of occurrences.values()) {
-        if (hashes.has(query[i]) && (i === 0 || endpoints.has(`${hit.field}:${hit.at}`)))
-          next.add(`${hit.field}:${hit.at + hit.width}`);
+        if (hashes.has(query[i]) && (i === 0 || endpoints.has(`${hit.field}:${hit.offset}`)))
+          next.add(`${hit.field}:${hit.offset + hit.width}`);
       }
       endpoints = next;
       if (endpoints.size === 0) break;
@@ -168,73 +168,10 @@ function card({ id, time }: Document): ArticleCard {
 }
 
 function packageFor(rows: Document[], index: Term[]) {
-  const align = (value: number) => Math.ceil(value / 8) * 8;
-  const termAt = L.SearchShardHeaderSize;
-  const docAt = align(termAt + index.length * L.SearchTermRecordSize);
-  const stringAt = align(docAt + rows.length * L.SearchDocumentRecordSize);
-  const postingAt = align(stringAt + 1);
-  const postings: number[] = [];
-  const entries = index.map(term => {
-    const start = postings.length;
-    writeVarint(term.postings.length);
-    let lastId = 0;
-    for (const row of term.postings) {
-      writeVarint(row.id - lastId);
-      postings.push(...row.frequencies);
-      writeVarint(row.positions.length);
-      let prior = 0;
-      for (const hit of row.positions) {
-        writeVarint(hit.at - prior);
-        writeVarint(hit.width);
-        writeVarint(hit.field);
-        prior = hit.at;
-      }
-      lastId = row.id;
-    }
-    return { term, start, length: postings.length - start };
-  });
-  const begin = L.SearchPackagePayloadOffset;
-  const bytes = new Uint8Array(begin + postingAt + postings.length);
-  const frame = new DataView(bytes.buffer);
-  const shard = new DataView(bytes.buffer, begin);
-  frame.setUint32(0, L.SearchPackageMagic, true);
-  frame.setUint32(4, L.SearchArtifactVersion, true);
-  frame.setUint32(8, 1, true);
-  frame.setUint32(L.SearchPackageEntryOffset + 8, begin, true);
-  frame.setUint32(L.SearchPackageEntryOffset + 12, shard.byteLength, true);
-  [L.SearchShardMagic, L.SearchArtifactVersion, 0, 1, index.length, rows.length, 0, 0, 0, termAt, docAt,
-    stringAt, stringAt, stringAt, stringAt, postingAt, postings.length]
-    .forEach((value, slot) => shard.setUint32(slot * 4, value, true));
-  shard.setFloat32(68, average, true);
-  for (const [i, { term, start, length }] of entries.entries()) {
-    const at = termAt + i * L.SearchTermRecordSize;
-    shard.setUint32(at, term.hash, true);
-    shard.setFloat32(at + 4, term.idf, true);
-    shard.setUint32(at + 8, start, true);
-    shard.setUint32(at + 12, length, true);
-    shard.setUint32(at + 16, Number(term.postings.some(row => row.positions.length > 0)), true);
-  }
-  rows.forEach((row, i) => {
-    const at = docAt + i * L.SearchDocumentRecordSize;
-    shard.setUint32(at, row.id, true);
-    shard.setUint16(at + 4, 65535, true);
-    shard.setUint32(at + 20, row.length, true);
-    shard.setBigInt64(at + 24, BigInt(row.time), true);
-    shard.setUint16(at + 36, 1, true);
-    shard.setBigInt64(at + 52, 1n, true);
-    shard.setUint32(at + 60, 1, true);
-    shard.setBigInt64(at + 64, BigInt(row.id), true);
-    shard.setUint32(at + 72, 1, true);
-  });
-  bytes[begin + stringAt] = 84;
-  bytes.set(postings, begin + postingAt);
-  return bytes;
-
-  function writeVarint(value: number) {
-    while (value >= 128) {
-      postings.push(value % 128 + 128);
-      value = Math.floor(value / 128);
-    }
-    postings.push(value);
-  }
+  return packFspk(
+    rows.map(row => ({ ...row, publication: BigInt(row.id), title: { offset: 0, length: 1 } })),
+    index,
+    [Uint8Array.of(84)],
+    average,
+  );
 }

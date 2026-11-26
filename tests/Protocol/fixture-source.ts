@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs';
 import type { TestContext } from 'node:test';
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import { PodWriter } from '../../src/Contracts/binary.ts';
-import type { FrameType } from '../../src/Contracts/wire.generated.ts';
+import { FrameType, WireLayouts } from '../../src/Contracts/wire.generated.ts';
+
+const encoder = new TextEncoder();
 
 export const fixtureText = (name: string) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
 export const hexBytes = (hex: string) => Buffer.from(hex, 'hex');
@@ -27,6 +29,17 @@ export function frameResponse(frame: BodyInit | null, headers: Record<string, st
 
 export function encodedResponse(type: FrameType, payload: Uint8Array, headers: Record<string, string> = {}) {
   return frameResponse(encodeFrame(type, payload), headers);
+}
+
+export function apiErrorResponse(status: number, details: string, message = 'Request failed', headers: Record<string, string> = {}): Response {
+  const payload = new Uint8Array(WireLayouts.ErrorBytes);
+  const view = new DataView(payload.buffer);
+  payload[0] = 1;
+  payload[1] = 1;
+  view.setInt32(WireLayouts.ErrorStatusOffset, status, true);
+  payload.set(encoder.encode(message).subarray(0, 255), WireLayouts.ErrorMessageOffset);
+  payload.set(encoder.encode(details).subarray(0, 255), WireLayouts.ErrorDetailsOffset);
+  return new Response(encodeFrame(FrameType.ApiError, payload), { status, headers: { 'Content-Type': 'application/octet-stream', ...headers } });
 }
 
 export function podFrame(type: FrameType, write: (writer: PodWriter) => void) {
@@ -87,6 +100,15 @@ export function rejectBytes(decode: (payload: Uint8Array) => unknown, payload: U
 export function rejectWrongLength(decode: (payload: Uint8Array) => unknown, payload: Uint8Array) {
   throws(() => decode(payload.subarray(0, -1)), ProtocolError);
   throws(() => decode(appendByte(payload)), ProtocolError);
+}
+
+export function replaceProperty(t: TestContext, target: object, key: string, value: unknown) {
+  const previous = Object.getOwnPropertyDescriptor(target, key);
+  Object.defineProperty(target, key, { configurable: true, value });
+  t.after(() => {
+    if (previous) Object.defineProperty(target, key, previous);
+    else Reflect.deleteProperty(target, key);
+  });
 }
 
 export type RecordedCall = { url: string; method: string; headers: Headers; body: Uint8Array };

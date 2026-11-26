@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import {
@@ -16,19 +15,13 @@ import {
   WireRoutes,
   type PublicSearchResult,
 } from '../../src/Contracts/wire.generated.ts';
-
-function readHex(relative: string): Uint8Array {
-  const hex = readFileSync(new URL(relative, import.meta.url), 'utf8').replace(/\s+/g, '');
-  const out = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < out.length; i++) out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-  return out;
-}
+import { hexFixture } from './fixture-source.ts';
 
 test('PublicSearchResult v2 golden AEDS vector matches C# encoder byte-for-byte', () => {
   assert.equal(WireRoutes.PublicSearchV2, '/api/v2/public/search.aeds');
   assert.equal(FrameType.PublicSearchResult, 33081);
 
-  const wireBytes = readHex('./fixtures/public-search-result-v2.hex');
+  const wireBytes = Uint8Array.from(hexFixture('public-search-result-v2.hex', 'strip'));
   const frame = decodeFrame(wireBytes, FrameType.PublicSearchResult);
   const decoded = decodePublicSearchV2(frame.payload, '9876543210123');
 

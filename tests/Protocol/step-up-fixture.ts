@@ -2,6 +2,7 @@ import type { TestContext } from 'node:test';
 import type { AdminSession } from '../../src/Contracts/admin-identity.ts';
 import { encodeFrame } from '../../src/Contracts/aeds.ts';
 import { FrameType, WireHeaders, WireLayouts, WireLimits } from '../../src/Contracts/wire.generated.ts';
+import { replaceProperty } from './fixture-source.ts';
 
 const encoder = new TextEncoder();
 export const validProof = 'P'.repeat(43);
@@ -20,17 +21,6 @@ export const permissionHeader = (session: string) => ({ [WireHeaders.AdminPermis
 
 export function emptySuccessFrame(): Uint8Array<ArrayBuffer> {
   return encodeFrame(FrameType.EmptySuccess, Uint8Array.of(1, 0, 0, 0));
-}
-
-export function apiErrorResponse(status: number, details: string, message = 'Request failed'): Response {
-  const payload = new Uint8Array(WireLayouts.ErrorBytes);
-  const view = new DataView(payload.buffer);
-  payload[0] = 1;
-  payload[1] = 1;
-  view.setInt32(WireLayouts.ErrorStatusOffset, status, true);
-  payload.set(encoder.encode(message).subarray(0, 255), WireLayouts.ErrorMessageOffset);
-  payload.set(encoder.encode(details).subarray(0, 255), WireLayouts.ErrorDetailsOffset);
-  return new Response(encodeFrame(FrameType.ApiError, payload), { status, headers: { 'Content-Type': 'application/octet-stream' } });
 }
 
 export function loginBeginFrame(allowCredentialsCount = 1): Uint8Array<ArrayBuffer> {
@@ -102,15 +92,6 @@ export function powChallengeFrame({
   view.setBigInt64(WireLayouts.PowChallengeTimestampOffset, timestamp, true);
   payload.set(encoder.encode(signature).subarray(0, 64), WireLayouts.PowChallengeSignatureOffset);
   return encodeFrame(FrameType.PowChallenge, payload);
-}
-
-export function replaceProperty(t: TestContext, target: object, key: string, value: unknown) {
-  const previous = Object.getOwnPropertyDescriptor(target, key);
-  Object.defineProperty(target, key, { configurable: true, value });
-  t.after(() => {
-    if (previous) Object.defineProperty(target, key, previous);
-    else Reflect.deleteProperty(target, key);
-  });
 }
 
 export function installPasskeyEnvironment(

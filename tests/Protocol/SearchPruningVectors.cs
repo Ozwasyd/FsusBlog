@@ -90,49 +90,7 @@ internal static class SearchPruningVectors
                 var gotFull = index.SearchDetailed(q, sort, 1, 200, CancellationToken.None, out _);
                 AssertDetailedPrefixEqual($"detailed200:{sort}:{q}", expectedAll, gotFull, 200);
 
-                // 2. Full cursor pagination walk (pageSize=7) vs ExhaustiveSearchOracle
-                var walked = new List<ArticleSearchHit>();
-                SearchCursorPosition? cursor = null;
-                var returnedSoFar = 0;
-                var pageNum = 0;
-                while (true)
-                {
-                    pageNum++;
-                    var page = index.SearchWithCursor(q, sort, 7, cursor, returnedSoFar, CancellationToken.None, out var stats);
-                    // Validate truthful count invariants (Wire.Validate contract)
-                    Require(page.TotalCount >= page.Hits.Length, $"[{sort}:{q}] p{pageNum} TotalCount < Hits.Length");
-                    if (page.TotalRelation == PublicSearchTotalRelation.Exact)
-                    {
-                        Require(page.PrimaryCount + page.RelaxedCount == page.TotalCount,
-                            $"[{sort}:{q}] p{pageNum} Exact sum mismatch");
-                        Require(page.TotalCount == expectedAll.Total,
-                            $"[{sort}:{q}] p{pageNum} Exact total={page.TotalCount}, expected={expectedAll.Total} (path={stats.Path})");
-                    }
-                    else
-                    {
-                        Require(page.PrimaryCount + page.RelaxedCount <= page.TotalCount,
-                            $"[{sort}:{q}] p{pageNum} LowerBound sum exceeds TotalCount");
-                        Require(page.TotalCount <= expectedAll.Total,
-                            $"[{sort}:{q}] p{pageNum} LowerBound total={page.TotalCount} OVER-REPORTED true total={expectedAll.Total}!");
-                    }
-
-                    walked.AddRange(page.Hits);
-                    returnedSoFar += page.Hits.Length;
-                    if (!page.HasMore) break;
-                    Require(page.LastHitPosition is not null, $"[{sort}:{q}] p{pageNum} HasMore=true without cursor");
-                    cursor = page.LastHitPosition;
-                    Require(pageNum <= 60, $"[{sort}:{q}] infinite cursor loop");
-                }
-
-                Require(walked.Count == expectedAll.Hits.Length,
-                    $"[{sort}:{q}] cursor walked {walked.Count} hits, oracle has {expectedAll.Hits.Length}");
-                for (var i = 0; i < walked.Count; i++)
-                {
-                    var e = expectedAll.Hits[i];
-                    var a = walked[i];
-                    Require(e.Article.Id == a.Article.Id && e.Tier == a.Tier && Math.Abs(e.Score - a.Score) <= 1e-11,
-                        $"[{sort}:{q}] cursor hit[{i}] expected=({e.Article.Id},{e.Tier},{e.Score:R}) got=({a.Article.Id},{a.Tier},{a.Score:R})");
-                }
+                CheckSearchCursorWalk($"pruning:{sort}:{q}", index, expectedAll, q, sort, 7, 60, checkLowerBoundTierSum: true);
             }
         }
     }
@@ -478,32 +436,12 @@ internal static class SearchPruningVectors
 
     private static void AssertDetailedPrefixEqual(string label, ArticleSearchDetailedPage expected, ArticleSearchDetailedPage actual, int limit)
     {
-        Require(expected.Total == actual.Total && expected.PrimaryTotal == actual.PrimaryTotal && expected.RelaxedTotal == actual.RelaxedTotal,
-            $"[{label}] counts expected=({expected.Total},{expected.PrimaryTotal},{expected.RelaxedTotal}) actual=({actual.Total},{actual.PrimaryTotal},{actual.RelaxedTotal})");
-        var expectedLen = Math.Min(expected.Hits.Length, limit);
-        Require(actual.Hits.Length == expectedLen,
-            $"[{label}] hit length expected={expectedLen} actual={actual.Hits.Length}");
-        for (var i = 0; i < expectedLen; i++)
-        {
-            var e = expected.Hits[i];
-            var a = actual.Hits[i];
-            Require(e.Article.Id == a.Article.Id && e.Tier == a.Tier && Math.Abs(e.Score - a.Score) <= 1e-11,
-                $"[{label}][{i}] expected=({e.Article.Id},{e.Tier},{e.Score:R}) actual=({a.Article.Id},{a.Tier},{a.Score:R})");
-        }
+        CheckSearchTotals(label, expected, actual);
+        CheckSearchHits(label, expected.Hits.AsSpan(0, Math.Min(expected.Hits.Length, limit)), actual.Hits, 1e-11);
     }
 
-    private static void AssertCursorTopKMatchesOracle(string label, ArticleSearchDetailedPage expected, ArticleSearchCursorPage actual)
-    {
-        Require(actual.Hits.Length == expected.Hits.Length,
-            $"[{label}] length expected={expected.Hits.Length} actual={actual.Hits.Length}");
-        for (var i = 0; i < expected.Hits.Length; i++)
-        {
-            var e = expected.Hits[i];
-            var a = actual.Hits[i];
-            Require(e.Article.Id == a.Article.Id && e.Tier == a.Tier && Math.Abs(e.Score - a.Score) <= 1e-11,
-                $"[{label}][{i}] expected=({e.Article.Id},{e.Tier},{e.Score:R}) actual=({a.Article.Id},{a.Tier},{a.Score:R})");
-        }
-    }
+    private static void AssertCursorTopKMatchesOracle(string label, ArticleSearchDetailedPage expected, ArticleSearchCursorPage actual) =>
+        CheckSearchHits(label, expected.Hits, actual.Hits, 1e-11);
 
     private static void Require(bool condition, string message)
     {
