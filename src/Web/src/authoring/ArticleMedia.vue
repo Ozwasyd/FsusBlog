@@ -30,6 +30,7 @@ const confirmation = shallowRef<PublishImagesSelection>()
 const confirmationHeading = ref<HTMLElement>()
 const reviewButton = ref<InstanceType<typeof ElButton>>()
 const preview = shallowRef<{ id: string; path: string; type: string }>()
+const previewFormats = ['html', 'epub', 'docx'] as const
 const batchFormats = { html: 'HTML', epub: 'EPUB', docx: 'Word', pdf: 'PDF' } as const
 const pdfAvailable = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-pdf-export"]')?.content === '1'
 type BatchFormat = keyof typeof batchFormats
@@ -39,18 +40,29 @@ const documentTasks = document.head.querySelector<HTMLMetaElement>('meta[name="f
 const savedImages = computed(() => attached.value.filter(asset => exportSelection.value.includes(asset.id)).map(asset => asset.id).join(','))
 const exportKey = (format: BatchFormat, images: string) => `${format}:${images}`
 const queued = (format: BatchFormat, images: string) => imageExports.get(exportKey(format, images))?.queued
+const exportDisabled = computed(() => pending.value || !props.credential)
 const options = computed(() => library.value.filter(asset => !attached.value.some(entry => entry.id === asset.id)))
 let task = new AbortController()
 
 function current(signal: AbortSignal) { return task.signal === signal && !signal.aborted }
 function label(id: string) { return library.value.find(asset => asset.id === id)?.name ?? id }
 
-async function load() {
+async function mediaRequest(failure: () => string, work: (signal: AbortSignal, credential: string) => Promise<void>) {
   const signal = task.signal
   const credential = props.credential
   if (!credential) return
   pending.value = true
   try {
+    await work(signal, credential)
+  } catch {
+    if (current(signal)) error.value = failure()
+  } finally {
+    if (current(signal)) pending.value = false
+  }
+}
+
+function load() {
+  return mediaRequest(() => t('author.articleMedia.private.attachments.could.not.be.loaded'), async (signal, credential) => {
     // A single disabled library response distinguishes configuration from draft concurrency errors.
     const page = await listMedia(undefined, signal, credential).catch(error => {
       if (error instanceof ApiError && error.status === 404) return null
@@ -68,32 +80,24 @@ async function load() {
     publishEnabled.value = existing.publishImages
     publishCoverEnabled.value = existing.publishCover
     error.value = ''
-  } catch { if (current(signal)) error.value = t('author.articleMedia.private.attachments.could.not.be.loaded') }
-  finally { if (current(signal)) pending.value = false }
+  })
 }
 
-async function loadMore() {
-  const signal = task.signal
-  const credential = props.credential
-  if (!credential || !more.value || pending.value) return
-  pending.value = true
-  try {
+function loadMore() {
+  if (!more.value || pending.value) return
+  return mediaRequest(() => t('author.articleMedia.the.next.page.of.private.images.could.not.be'), async (signal, credential) => {
     const page = await listMedia(library.value.at(-1), signal, credential)
     if (!current(signal)) return
     const known = new Set(library.value.map(item => item.id))
     library.value = [...library.value, ...page.items.filter(item => !known.has(item.id))]
     more.value = page.hasMore
     error.value = ''
-  } catch { if (current(signal)) error.value = t('author.articleMedia.the.next.page.of.private.images.could.not.be') }
-  finally { if (current(signal)) pending.value = false }
+  })
 }
 
-async function openPreview(id: string) {
-  const signal = task.signal
-  const credential = props.credential
-  if (!credential || pending.value) return
-  pending.value = true
-  try {
+function openPreview(id: string) {
+  if (pending.value) return
+  return mediaRequest(() => t('author.articleMedia.private.preview.expired.try.again.from.the.current.draft'), async (signal, credential) => {
     const state = await articleMedia(props.articleId, props.revision, credential, signal)
     const pair = state.entries.find(entry => entry.id === id)
     if (!current(signal)) return
@@ -103,24 +107,20 @@ async function openPreview(id: string) {
     closePreview()
     preview.value = { id, path: URL.createObjectURL(bytes), type: bytes.type }
     error.value = ''
-  } catch { if (current(signal)) error.value = t('author.articleMedia.private.preview.expired.try.again.from.the.current.draft') }
-  finally { if (current(signal)) pending.value = false }
+  })
 }
 
-async function queueDocument(format: BatchFormat, images: string) {
+function queueDocument(format: BatchFormat, images: string) {
   const { articleId: article, revision, credential } = props
   if (!images || !credential || pending.value || queued(format, images)) return
-  const signal = task.signal
   const key = exportKey(format, images)
   const id = imageExports.get(key)?.id ?? crypto.randomUUID()
   imageExports.set(key, { id })
-  pending.value = true
-  error.value = ''
-  try {
+  return mediaRequest(() => t('author.articleMedia.queue.failed', { format: batchFormats[format] }), async (signal, credential) => {
+    error.value = ''
     await createDocumentExportTask({ id, article, revision, sourceRevision: revision, format }, credential, signal, images)
     if (current(signal)) imageExports.set(key, { id, queued: true })
-  } catch { if (current(signal)) error.value = t('author.articleMedia.queue.failed', { format: batchFormats[format] }) }
-  finally { if (current(signal)) pending.value = false }
+  })
 }
 
 function toggleExport(id: string, checked: boolean) {
@@ -214,7 +214,7 @@ onBeforeUnmount(() => {
             <ElButton native-type="button" text :disabled="pending" @click="openPreview(asset.id)">{{ t('author.articleMedia.preview', { p0: String(label(asset.id)) }) }}</ElButton>
             <ElButton native-type="button" text :disabled="pending || !canChange" @click="emit('save', { assetId: asset.id, attach: false })">{{ t('author.articleMedia.detach', { p0: String(label(asset.id)) }) }}</ElButton>
             <ElCheckbox v-if="attached.length > 1" :model-value="exportSelection.includes(asset.id)"
-              :disabled="pending || !credential || (exportSelection.length >= maxDocumentExportImages && !exportSelection.includes(asset.id))"
+              :disabled="exportDisabled || (exportSelection.length >= maxDocumentExportImages && !exportSelection.includes(asset.id))"
               @update:model-value="value => toggleExport(asset.id, value === true)">{{ t('author.articleMedia.include.in.exports', { p0: String(label(asset.id)) }) }}</ElCheckbox>
             <ElCheckbox v-if="publishEnabled" :model-value="publicationSelection.includes(asset.id)"
               :disabled="pending || !canPublish || !!confirmation"
@@ -227,9 +227,9 @@ onBeforeUnmount(() => {
           <template v-for="(label, format) in batchFormats" :key="format">
             <template v-if="format === 'pdf' ? pdfAvailable : attached.length > 1">
               <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" :format="format"
-                :attachment="savedImages" :disabled="pending || !credential" />
+                :attachment="savedImages" :disabled="exportDisabled" />
               <ElButton v-if="documentTasks" native-type="button"
-                :disabled="pending || !credential || queued(format, savedImages)" @click="queueDocument(format, savedImages)">
+                :disabled="exportDisabled || queued(format, savedImages)" @click="queueDocument(format, savedImages)">
                 {{ queued(format, savedImages) ? t('author.articleMedia.saved.images.added', { format: label }) : t('author.articleMedia.queue.saved.images', { format: label }) }}
               </ElButton>
             </template>
@@ -263,16 +263,15 @@ onBeforeUnmount(() => {
         <div v-if="preview" class="attachment-preview">
           <ElButton native-type="button" text @click="closePreview">{{ t('author.articleMedia.close.image.preview') }}</ElButton>
           <img :src="preview.path" :alt="label(preview.id)" @error="error = t('author.articleMedia.preview.expired.again')" />
-          <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="html"
-            :attachment="preview.id" :disabled="pending || !credential" />
-          <ElButton v-if="documentTasks" native-type="button" :disabled="pending || !credential || queued('html', preview.id)" @click="queueDocument('html', preview.id)">
-            {{ queued('html', preview.id) ? t('author.articleMedia.html.task.added') : t('author.articleMedia.queue.html.with.this.image') }}
-          </ElButton>
-          <MarkdownExportControl :article="articleId" :revision="revision" :selected="revision" format="epub"
-            :attachment="preview.id" :disabled="pending || !credential" />
-          <MarkdownExportControl v-if="preview.type === 'image/png' || preview.type === 'image/jpeg'"
-            :article="articleId" :revision="revision" :selected="revision" format="docx"
-            :attachment="preview.id" :disabled="pending || !credential" />
+          <template v-for="format in previewFormats" :key="format">
+            <MarkdownExportControl v-if="format !== 'docx' || preview.type === 'image/png' || preview.type === 'image/jpeg'"
+              :article="articleId" :revision="revision" :selected="revision" :format="format"
+              :attachment="preview.id" :disabled="exportDisabled" />
+            <ElButton v-if="format === 'html' && documentTasks" native-type="button"
+              :disabled="exportDisabled || queued(format, preview.id)" @click="queueDocument(format, preview.id)">
+              {{ queued(format, preview.id) ? t('author.articleMedia.html.task.added') : t('author.articleMedia.queue.html.with.this.image') }}
+            </ElButton>
+          </template>
         </div>
       </template>
     </template>
