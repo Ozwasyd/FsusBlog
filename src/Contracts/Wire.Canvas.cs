@@ -153,12 +153,7 @@ public static partial class Wire
 
     public static CanvasGraphHistory DecodeCanvasGraphHistory(ReadOnlySpan<byte> frame) =>
         DecodeRecord<CanvasGraphHistory>(FrameType.CanvasGraphHistory, frame, static (ref Reader r) =>
-        {
-            var revision = r.I64();
-            var undo = r.I64();
-            var redo = r.I64();
-            return new(revision, undo == 0 ? null : undo, redo == 0 ? null : redo);
-        }, ValidateCanvasHistory);
+            new(r.I64(), NullIf(r.I64(), 0L), NullIf(r.I64(), 0L)), ValidateCanvasHistory);
 
     private static void ValidateCanvasHistory(CanvasGraphHistory history) =>
         Check(history.Revision > 0 && history.UndoRevision is not <= 0 && history.RedoRevision is not <= 0 &&
@@ -204,8 +199,8 @@ public static partial class Wire
         {
             var article = r.I32();
             var anchor = node.Kind == 0 ? null : r.Text(CanvasGraphAnchorBytes);
-            var pin = r.I64();
-            return node with { ArticleId = article, Anchor = anchor, PinnedRevision = pin == 0 ? null : pin };
+            var pin = NullIf(r.I64(), 0L);
+            return node with { ArticleId = article, Anchor = anchor, PinnedRevision = pin };
         }
         if (node.Kind == 3) return node with { Text = r.Text(CanvasGraphNoteBytes) };
         if (node.Kind != 4) throw CanvasProtocolError();
@@ -269,13 +264,8 @@ public static partial class Wire
         DecodeRecord<CanvasBundlePlan>(FrameType.CanvasBundlePlan, frame, static (ref Reader input) =>
             new(input.Text(CanvasBundleDigestBytes), input.I64(), input.Text(TitleBytes), input.I32(), input.I32(),
                 input.Items(0, CanvasBundleMaxReferences, CanvasProtocolError, static (ref Reader r) =>
-                {
-                    var slot = r.I32();
-                    var kind = r.I32();
-                    var pinned = r.Bool();
-                    var anchor = r.Text(CanvasGraphAnchorBytes);
-                    return new CanvasBundleReference(slot, kind, pinned, anchor.Length == 0 ? null : anchor);
-                })), ValidateCanvasBundlePlan);
+                    new CanvasBundleReference(r.I32(), r.I32(), r.Bool(), NullIfEmpty(r.Text(CanvasGraphAnchorBytes))))),
+            ValidateCanvasBundlePlan);
 
     public static byte[] EncodeCanvasBundleExecute(CanvasBundleExecute execute) =>
         EncodeRecord(FrameType.CanvasBundleExecute, execute, ValidateCanvasBundleExecute, static (w, value) =>
@@ -287,10 +277,8 @@ public static partial class Wire
         DecodeRecord<CanvasBundleExecute>(FrameType.CanvasBundleExecute, frame, CanvasBundleExecuteFrameBytes, InvalidCanvasBundle,
             static (ref Reader input) => new(input.Uuid(), input.Uuid(), input.Text(CanvasBundleDigestBytes),
                 input.Items(0, CanvasBundleMaxReferences, CanvasProtocolError, static (ref Reader r) =>
-                {
-                    var (slot, article, revision) = (r.I32(), r.I32(), r.I64());
-                    return new CanvasBundleMapping(slot, article, revision == 0 ? null : revision);
-                }), input.Bytes(CanvasBundleBytes).ToArray()), ValidateCanvasBundleExecute);
+                    new CanvasBundleMapping(r.I32(), r.I32(), NullIf(r.I64(), 0L))),
+                input.Bytes(CanvasBundleBytes).ToArray()), ValidateCanvasBundleExecute);
 
     private static void ValidateCanvasBundlePlan(CanvasBundlePlan plan)
     {
@@ -343,21 +331,14 @@ public static partial class Wire
 
     public static CanvasReferenceResolution DecodeCanvasReferenceResolution(ReadOnlySpan<byte> frame) =>
         DecodeRecord<CanvasReferenceResolution>(FrameType.CanvasReferenceResolution, frame, static (ref Reader r) =>
-        {
-            var canvasId = r.Uuid();
-            var nodeId = r.Uuid();
-            var canvasRevision = r.I64();
-            var state = (CanvasReferenceState)r.I32();
-            var articleId = r.I32();
-            var articleRevision = r.I64();
-            var pinned = r.Bool();
-            var title = r.Text(TitleBytes);
-            var excerpt = r.Text(CanvasReferenceExcerptBytes);
-            var sourceOffset = r.I32();
-            return new(canvasId, nodeId, canvasRevision, state, articleId == 0 ? null : articleId,
-                articleRevision == 0 ? null : articleRevision, pinned, title.Length == 0 ? null : title,
-                excerpt.Length == 0 ? null : excerpt, sourceOffset == -1 ? null : sourceOffset);
-        }, ValidateCanvasReference);
+            new(r.Uuid(), r.Uuid(), r.I64(), (CanvasReferenceState)r.I32(),
+                NullIf(r.I32(), 0), NullIf(r.I64(), 0L), r.Bool(), NullIfEmpty(r.Text(TitleBytes)),
+                NullIfEmpty(r.Text(CanvasReferenceExcerptBytes)), NullIf(r.I32(), -1)), ValidateCanvasReference);
+
+    private static T? NullIf<T>(T value, T sentinel) where T : struct, IEquatable<T> =>
+        value.Equals(sentinel) ? null : value;
+
+    private static string? NullIfEmpty(string value) => value.Length == 0 ? null : value;
 
     private static void ValidateCanvasReference(CanvasReferenceResolution value)
     {

@@ -453,7 +453,7 @@ public sealed partial class ArticleSearchIndex
                     }
 
                     var posStart = 0;
-                    ushort posCount = 0;
+                    var posCount = 0;
                     if (acc.PosCount > 0)
                     {
                         _posScratch.Clear();
@@ -462,17 +462,14 @@ public sealed partial class ArticleSearchIndex
                         _posScratch.Sort();
                         posStart = Positions.Count;
                         uint last = 0;
-                        var added = 0;
                         for (var i = 0; i < _posScratch.Count; i++)
                         {
                             var val = _posScratch[i];
                             if (i > 0 && val == last) continue;
                             last = val;
                             Positions.Add(val);
-                            added++;
-                            if (added == ushort.MaxValue) break;
                         }
-                        posCount = (ushort)added;
+                        posCount = Positions.Count - posStart;
                     }
 
                     Pending.Add(new PendingPosting(
@@ -534,7 +531,7 @@ public sealed partial class ArticleSearchIndex
         byte Tf0, byte Tf1, byte Tf2, byte Tf3, byte Tf4,
         byte ExactFlags,
         int PosStart,
-        ushort PosCount)
+        int PosCount)
     {
         internal double FieldTf(int field) => (field switch
         {
