@@ -204,18 +204,11 @@ public sealed class SiteCapabilitiesTests
         Assert.NotNull(SubscriptionIdentity.Read(parsed["FSUSBLOG_SUBSCRIPTION_HMAC_KEY"]));
     }
 
-    private static void AttachHttps(HttpRequestMessage request, string clientIp, string host = "blog.example.test")
-    {
-        request.Headers.Host = host;
-        request.Headers.Add("X-Forwarded-Proto", "https");
-        request.Headers.Add("X-Forwarded-For", clientIp);
-    }
-
     private static async Task<HttpResponseMessage> SendHttps(HttpClient client, HttpMethod method, string route,
         string clientIp, CancellationToken ct, string? cookie = null, string host = "blog.example.test")
     {
         using var req = new HttpRequestMessage(method, route);
-        AttachHttps(req, clientIp, host);
+        SiteAedsFixture.ForwardHttps(req, host, clientIp);
         if (cookie is not null) req.Headers.Add("Cookie", cookie);
         return await client.SendAsync(req, ct);
     }
@@ -228,15 +221,12 @@ public sealed class SiteCapabilitiesTests
         var (_, readerToken, _) = await fixture.SignInSiteUser("cap-reader", ct, minutes: 5);
         using var dataDir = MediaFixture.OwnedTempDirectory("fsusblog-cap-data-");
 
-        static void AttachPublicHttps(HttpRequestMessage request) => AttachHttps(request, "198.51.100.10");
+        const string clientIp = "198.51.100.10";
         Task<HttpResponseMessage> HttpsSend(HttpClient client, HttpMethod method, string route, string? cookie = null, string host = "blog.example.test") =>
-            SendHttps(client, method, route, "198.51.100.10", ct, cookie, host);
+            SendHttps(client, method, route, clientIp, ct, cookie, host);
 
-        await using (var enabled = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-        {
-            [LoopbackProxy.ConfigurationKey] = "true", [PublicSiteConfiguration.OriginKey] = PublicOrigin,
-            ["FSUSBLOG_ADMIN_ORIGIN"] = AdminOrigin, [SiteCapabilities.DataDirSetting] = dataDir.FullName,
-        }, AttachPublicHttps))
+        await using (var enabled = await SiteAedsFixture.StartForwardedSite(fixture, PublicOrigin, clientIp, ct,
+            ("FSUSBLOG_ADMIN_ORIGIN", AdminOrigin), (SiteCapabilities.DataDirSetting, dataDir.FullName)))
         {
             Assert.All(["private-media", "public-media"], dir => Assert.True(Directory.Exists(Path.Combine(dataDir.FullName, dir))));
             var html = await OkString(HttpsSend(enabled.Client, HttpMethod.Get, "/"), ct);
@@ -262,14 +252,11 @@ public sealed class SiteCapabilitiesTests
             await CheckStatusAsync(OK, HttpsSend(enabled.Client, HttpMethod.Get, "/admin", host: "admin.example.test"));
         }
 
-        await using (var disabled = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-        {
-            [LoopbackProxy.ConfigurationKey] = "true", [PublicSiteConfiguration.OriginKey] = PublicOrigin,
-            ["FSUSBLOG_PASSKEY_ORIGIN"] = "", [PublicHotArticles.Setting] = "false", [ArticleReadEndpoints.Setting] = "false",
-            [DocumentExportEndpoints.Setting] = "false", [SiteCapabilities.PublicCommentsSetting] = "false",
-            [InboxWriteEndpoints.Setting] = "false", [WideSearchCorpusEndpoints.Setting] = "false",
-            [SiteTraffic.EnabledSetting] = "false", [SiteCapabilities.PublicSearchModeSetting] = "local",
-        }, AttachPublicHttps))
+        await using (var disabled = await SiteAedsFixture.StartForwardedSite(fixture, PublicOrigin, clientIp, ct,
+            ("FSUSBLOG_PASSKEY_ORIGIN", ""), (PublicHotArticles.Setting, "false"), (ArticleReadEndpoints.Setting, "false"),
+            (DocumentExportEndpoints.Setting, "false"), (SiteCapabilities.PublicCommentsSetting, "false"),
+            (InboxWriteEndpoints.Setting, "false"), (WideSearchCorpusEndpoints.Setting, "false"),
+            (SiteTraffic.EnabledSetting, "false"), (SiteCapabilities.PublicSearchModeSetting, "local")))
         {
             var html = await OkString(HttpsSend(disabled.Client, HttpMethod.Get, "/"), ct);
             Assert.All([PublicHotArticles.PageMarker, ArticleReadEndpoints.PageMarker, DocumentExportEndpoints.Marker],
@@ -302,10 +289,7 @@ public sealed class SiteCapabilitiesTests
         Task<byte[]> ExpectGet(HttpClient client, string path, HttpStatusCode status, string? cookie = null, string host = "blog.example.test") =>
             ExpectBytes(status, SendHttps(client, HttpMethod.Get, path, clientIp, ct, cookie, host), ct);
 
-        await using (var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-        {
-            [LoopbackProxy.ConfigurationKey] = "true", [PublicSiteConfiguration.OriginKey] = PublicOrigin,
-        }, req => AttachHttps(req, clientIp)))
+        await using (var server = await SiteAedsFixture.StartForwardedSite(fixture, PublicOrigin, clientIp, ct))
         {
             await ExpectGet(server.Client, "/", OK);
             await ExpectGet(server.Client, "/admin", OK);
@@ -324,10 +308,7 @@ public sealed class SiteCapabilitiesTests
             await ExpectGet(server.Client, WireRoutes.AdminSession, Unauthorized, readerCookie);
         }
 
-        await using (var publicOnly = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
-        {
-            [LoopbackProxy.ConfigurationKey] = "true", [PublicSiteConfiguration.OriginKey] = PublicOrigin, ["FSUSBLOG_ADMIN_ORIGIN"] = "",
-        }, req => AttachHttps(req, clientIp)))
+        await using (var publicOnly = await SiteAedsFixture.StartForwardedSite(fixture, PublicOrigin, clientIp, ct, ("FSUSBLOG_ADMIN_ORIGIN", "")))
         {
             await ExpectGet(publicOnly.Client, "/", OK);
             foreach (var blocked in new[] { "/admin", WireRoutes.AdminSession, WireRoutes.AuthoringSession })

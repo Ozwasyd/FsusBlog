@@ -10,6 +10,25 @@ internal static class SiteAedsFixture
     internal static bool IsHttps(HttpClient client) =>
         string.Equals(client.BaseAddress?.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
 
+    internal static Task<ServerProcess> StartForwardedSite(ScratchDatabase database, string origin, string clientIp,
+        CancellationToken ct, params (string Key, string Value)[] additionalSettings)
+    {
+        var settings = new Dictionary<string, string>
+        {
+            [LoopbackProxy.ConfigurationKey] = "true", [PublicSiteConfiguration.OriginKey] = origin,
+        };
+        foreach (var (key, value) in additionalSettings) settings.Add(key, value);
+        var host = new Uri(origin).Authority;
+        return ServerProcess.Start(database.ConnectionString, ct, settings, request => ForwardHttps(request, host, clientIp));
+    }
+
+    internal static void ForwardHttps(HttpRequestMessage request, string host, string clientIp)
+    {
+        request.Headers.Host = host;
+        request.Headers.Add("X-Forwarded-Proto", "https");
+        request.Headers.Add("X-Forwarded-For", clientIp);
+    }
+
     internal static HttpRequestMessage Request(HttpMethod method, string route, byte[]? frame, string? token, string? handle,
         bool secure = false)
     {
