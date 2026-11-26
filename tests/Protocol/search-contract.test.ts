@@ -16,6 +16,7 @@ import {
   type PublicSearchResult,
 } from '../../src/Contracts/wire.generated.ts';
 import { hexFixture } from './fixture-source.ts';
+import { oneHitSearchResult } from './public-search-fixture.ts';
 
 test('PublicSearchResult v2 golden AEDS vector matches C# encoder byte-for-byte', () => {
   assert.equal(WireRoutes.PublicSearchV2, '/api/v2/public/search.aeds');
@@ -115,38 +116,10 @@ test('PublicSearchResult v2 golden AEDS vector matches C# encoder byte-for-byte'
 });
 
 test('decodePublicSearchV2 rejects malformed counts, cursors, generations, and surrogate-splitting highlights', () => {
-  const base: PublicSearchResult = {
-    generation: 100n,
-    profileVersion: WireLimits.SearchFas4Profile,
-    analyzerVersion: WireLimits.SearchAnalyzerVersion,
-    totalCount: 1,
-    totalRelation: PublicSearchTotalRelation.Exact,
-    primaryCount: 1,
-    relaxedCount: 0,
-    hasMore: false,
-    nextCursor: '',
-    items: [
-      {
-        id: 1,
-        revision: 1n,
-        revisionNo: 1,
-        publication: 1n,
-        publicationNo: 1,
-        publishedAtUnixMs: 1770000000000n,
-        createdAtUnixMs: 1770000000000n,
-        views: 0,
-        categoryId: 0,
-        categoryName: '',
-        tags: [],
-        title: 'Test',
-        summary: 'Summary',
-        matchTier: PublicSearchMatchTier.Primary,
-        snippetField: PublicSearchSnippetField.Body,
-        snippet: '🚀 abc',
-        highlights: [{ start: 3, end: 6 }],
-      },
-    ],
-  };
+  const base = oneHitSearchResult({
+    id: 1, publishedAtUnixMs: 1770000000000n, title: 'Test',
+    snippetField: PublicSearchSnippetField.Body, snippet: '🚀 abc', highlights: [{ start: 3, end: 6 }],
+  }, { generation: 100n });
 
   assert.throws(() => decodePublicSearchV2(encodePublicSearchResult(base), '999'), ProtocolError);
 

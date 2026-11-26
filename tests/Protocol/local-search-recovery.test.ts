@@ -1,18 +1,10 @@
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 import { ApiError, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
-import {
-  encodePublicSearchResult,
-  FrameType,
-  PublicSearchMatchTier,
-  PublicSearchSnippetField,
-  PublicSearchTotalRelation,
-  WireHeaders,
-  WireLimits,
-  type PublicSearchResult,
-} from '../../src/Contracts/wire.generated.ts';
+import { encodePublicSearchResult, FrameType, WireHeaders } from '../../src/Contracts/wire.generated.ts';
 import { createLocalSearch } from '../../src/Web/src/localSearch.ts';
 import { apiErrorResponse, captureFetch, replaceProperty } from './fixture-source.ts';
+import { oneHitSearchResult } from './public-search-fixture.ts';
 
 function installServerModeDom(t: TestContext) {
   replaceProperty(t, globalThis, 'document', { head: { querySelector: () => null } });
@@ -32,38 +24,11 @@ function errorResponse(status: number, message: string, details: string): Respon
 }
 
 function searchOkResponse(generation: bigint, articleId: number, nextCursor = ''): Response {
-  const payload: PublicSearchResult = {
-    generation,
-    profileVersion: WireLimits.SearchFas4Profile,
-    analyzerVersion: WireLimits.SearchAnalyzerVersion,
-    totalCount: nextCursor ? 15 : 1,
-    totalRelation: PublicSearchTotalRelation.Exact,
-    primaryCount: nextCursor ? 15 : 1,
-    relaxedCount: 0,
-    hasMore: nextCursor.length > 0,
-    nextCursor,
-    items: [
-      {
-        id: articleId,
-        revision: 1n,
-        revisionNo: 1,
-        publication: 100n + BigInt(articleId),
-        publicationNo: 1,
-        publishedAtUnixMs: 1_700_000_000_000n,
-        createdAtUnixMs: 1_700_000_000_000n,
-        views: 0,
-        categoryId: 0,
-        categoryName: '',
-        tags: [],
-        title: `Article ${articleId}`,
-        summary: 'Summary',
-        matchTier: PublicSearchMatchTier.Primary,
-        snippetField: PublicSearchSnippetField.Title,
-        snippet: `Article ${articleId}`,
-        highlights: [],
-      },
-    ],
-  };
+  const total = nextCursor ? 15 : 1;
+  const payload = oneHitSearchResult({
+    id: articleId, publication: 100n + BigInt(articleId),
+    publishedAtUnixMs: 1_700_000_000_000n, title: `Article ${articleId}`,
+  }, { generation, totalCount: total, primaryCount: total, hasMore: nextCursor.length > 0, nextCursor });
   const frame = encodeFrame(FrameType.PublicSearchResult, encodePublicSearchResult(payload));
   return aedsResponse(200, frame, generation.toString());
 }
@@ -103,32 +68,19 @@ test('repeated consecutive generation changes stop after one retry without loopi
 test('malformed frames, cursor errors, auth failures, budget errors, and transport errors never auto-restart', async t => {
   installServerModeDom(t);
 
+  const requestErrors = [
+    ['400 search_cursor_invalid', 400, 'Invalid cursor', 'search_cursor_invalid', true],
+    ['401 unauthorized', 401, 'Unauthorized', 'unauthorized', false],
+    ['403 forbidden', 403, 'Forbidden', 'forbidden', false],
+    ['503 budget exceeded', 503, 'Budget exceeded', 'search_budget_exceeded', true],
+    ['409 without generation detail', 409, 'Generic conflict', 'other_conflict', true],
+  ] as const;
   const cases: { name: string; respond: () => Promise<Response>; check: (error: unknown) => boolean }[] = [
-    {
-      name: '400 search_cursor_invalid',
-      respond: async () => errorResponse(400, 'Invalid cursor', 'search_cursor_invalid'),
-      check: e => e instanceof ApiError && e.status === 400 && e.details === 'search_cursor_invalid',
-    },
-    {
-      name: '401 unauthorized',
-      respond: async () => errorResponse(401, 'Unauthorized', 'unauthorized'),
-      check: e => e instanceof ApiError && e.status === 401,
-    },
-    {
-      name: '403 forbidden',
-      respond: async () => errorResponse(403, 'Forbidden', 'forbidden'),
-      check: e => e instanceof ApiError && e.status === 403,
-    },
-    {
-      name: '503 budget exceeded',
-      respond: async () => errorResponse(503, 'Budget exceeded', 'search_budget_exceeded'),
-      check: e => e instanceof ApiError && e.status === 503 && e.details === 'search_budget_exceeded',
-    },
-    {
-      name: '409 without generation detail',
-      respond: async () => errorResponse(409, 'Generic conflict', 'other_conflict'),
-      check: e => e instanceof ApiError && e.status === 409 && e.details === 'other_conflict',
-    },
+    ...requestErrors.map(([name, status, message, detail, requireDetail]) => ({
+      name,
+      respond: async () => errorResponse(status, message, detail),
+      check: (e: unknown) => e instanceof ApiError && e.status === status && (!requireDetail || e.details === detail),
+    })),
     {
       name: 'corrupt AEDS bytes',
       respond: async () => aedsResponse(200, new Uint8Array([0xde, 0xad, 0xbe, 0xef]), '2002'),
