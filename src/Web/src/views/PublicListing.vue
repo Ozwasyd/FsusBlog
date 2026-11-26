@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { t } from '../siteLocale'
+import { t, type MessageKey } from '../siteLocale'
 import ArchiveTimeline from '../components/ArchiveTimeline.vue'
 import { computed, onScopeDispose, shallowRef, ref, watch } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter, type LocationQueryRaw } from 'vue-router'
 import { ElAlert, ElButton, ElInput, ElLink, ElPaginationBar } from '@ozwasyd/element-plus'
 import {
   api, ApiError, sliceSnippetHighlights,
@@ -73,15 +73,9 @@ const cursorExpired = ref(false)
 const previousByCursor = new Map<string, string | undefined>()
 let pendingRestartSync: { query: string; sort: PublicSearchSort; reload: number } | null = null
 const priorCursor = computed(() => cursor.value && previousByCursor.get(cursor.value))
-const previousPageQuery = computed(() => page.value > 2 && priorCursor.value
-  ? { page: page.value - 1, cursor: priorCursor.value }
-  : {})
-const previousSearchPageQuery = computed(() => page.value > 2 && priorCursor.value
-  ? searchRouteQuery(query.value, searchSort.value, page.value - 1, priorCursor.value)
-  : searchRouteQuery(query.value, searchSort.value))
 const input = ref('')
-const articles = shallowRef<ArticleCard[]>([])
-const searchHits = shallowRef<readonly PublicSearchResultItem[]>([])
+type ListingItem = ArticleCard | PublicSearchResultItem
+const articles = shallowRef<ListingItem[]>([])
 const loading = ref(true)
 const failed = ref(false)
 const reload = ref(0)
@@ -94,6 +88,51 @@ const searchPageOutOfRange = computed(() => isSearch.value && !searchUsesCursors
 const searchCountText = computed(() => searchTotalRelation.value === 'lowerBound'
   ? t('reading.searchAtLeastMatches', { count: readCount.format(searchTotal.value) })
   : t(searchTotal.value === 1 ? 'reading.searchMatch' : 'reading.searchMatches', { count: readCount.format(searchTotal.value) }))
+const searchReady = computed(() => !loading.value && !failed.value && !searchCursorIssue.value &&
+  !searchBudgetExceeded.value && !searchRouteTooLong.value && !!query.value)
+
+const pagination = computed(() => {
+  const searching = isSearch.value
+  const ordinal = page.value
+  const nextToken = nextCursor.value
+  const cursorBased = !searching || searchUsesCursors.value
+  if (searching) {
+    if (!searchReady.value || !(ordinal > 1 || (cursorBased ? searchHasMore.value : searchTotal.value > pageSize))) return
+  } else if (loading.value || failed.value || cursorExpired.value || missing.value || !nextToken && ordinal <= 1) {
+    return
+  }
+
+  const links: { direction: 'previous' | 'next'; query: LocationQueryRaw; label: MessageKey }[] = []
+  const priorToken = ordinal > 2 ? priorCursor.value : undefined
+  const unavailable = searching && !cursorBased && searchPageOutOfRange.value
+  if (ordinal > 1 || unavailable) {
+    const restart = unavailable || cursorBased && !priorToken
+    const previous = restart ? undefined : ordinal - 1
+    links.push({
+      direction: 'previous',
+      query: searching ? searchRouteQuery(query.value, searchSort.value, previous, cursorBased ? priorToken : undefined)
+        : priorToken ? { page: previous, cursor: priorToken } : {},
+      label: unavailable || (cursorBased && ordinal > 2 && !priorToken) ? 'reading.firstPage' : 'reading.previous',
+    })
+  }
+  if (cursorBased ? nextToken && (!searching || searchHasMore.value) : ordinal * pageSize < searchTotal.value) {
+    links.push({
+      direction: 'next',
+      query: searching ? searchRouteQuery(query.value, searchSort.value, ordinal + 1, cursorBased ? nextToken ?? undefined : undefined)
+        : { page: ordinal + 1, cursor: nextToken },
+      label: 'reading.next',
+    })
+  }
+  return { label: searching ? 'reading.searchPages' as const : 'reading.articlePages' as const, links }
+})
+
+function rememberCursor(next: string | null, previous: string | undefined) {
+  if (!next) return
+  if (previousByCursor.size >= 100) previousByCursor.clear()
+  previousByCursor.set(next, previous)
+}
+
+const isSearchHit = (item: ListingItem): item is PublicSearchResultItem => isSearch.value && 'snippetField' in item
 const hasSearchTitleHighlight = (item: PublicSearchResultItem) =>
   item.snippetField === 'title' && item.snippet === item.title && item.highlights.length > 0
 const hasSearchBodySnippet = (item: PublicSearchResultItem) =>
@@ -118,7 +157,6 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, 
   const request = new AbortController()
   cleanup(() => request.abort())
   articles.value = []
-  searchHits.value = []
   nextCursor.value = null
   searchTotal.value = 0
   searchTotalRelation.value = 'exact'
@@ -152,7 +190,6 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, 
       const res = await localSearch.search(text, request.signal, ordinal, pageSize, sort, currentCursor)
       if (!request.signal.aborted) {
         if (res.restartedFromGenerationChange) previousByCursor.clear()
-        searchHits.value = res.items
         articles.value = [...res.items]
         nextCursor.value = res.nextCursor
         searchTotal.value = res.total
@@ -162,10 +199,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, 
         searchHasMore.value = res.hasMore
         searchUsesCursors.value = res.usesCursors
         searchGenerationRestarted.value = res.restartedFromGenerationChange === true
-        if (res.nextCursor) {
-          if (previousByCursor.size >= 100) previousByCursor.clear()
-          previousByCursor.set(res.nextCursor, res.restartedFromGenerationChange ? undefined : token)
-        }
+        rememberCursor(res.nextCursor, res.restartedFromGenerationChange ? undefined : token)
         if (res.restartedFromGenerationChange && (ordinal > 1 || token !== undefined)) {
           loading.value = false
           pendingRestartSync = { query: text, sort, reload: reloadCount }
@@ -199,10 +233,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, searchSort, 
       articles.value = result.items
       nextCursor.value = result.nextCursor
       if (!home && !kind) archiveTotal.value = result.total
-      if (result.nextCursor) {
-        if (previousByCursor.size >= 100) previousByCursor.clear()
-        previousByCursor.set(result.nextCursor, token)
-      }
+      rememberCursor(result.nextCursor, token)
     }
   } catch (error) {
     if (!request.signal.aborted) {
@@ -265,7 +296,7 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
         <input v-if="searchSort !== 'relevance'" type="hidden" name="sort" :value="searchSort">
         <ElButton type="primary" native-type="submit" :disabled="searchTooLong">{{ t('page.search') }}</ElButton>
       </form>
-      <div v-if="!loading && !failed && !searchCursorIssue && !searchBudgetExceeded && !searchRouteTooLong && query && searchTotal > 0" class="search-toolbar">
+      <div v-if="searchReady && searchTotal > 0" class="search-toolbar">
         <span class="metadata">{{ searchCountText }}</span>
         <nav v-if="searchTotal > 1" class="search-sort" :aria-label="t('reading.searchSort')">
           <RouterLink :to="{ name: 'search', query: searchRouteQuery(query, 'relevance') }" :aria-current="searchSort === 'relevance' ? 'true' : undefined">
@@ -276,10 +307,10 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
           </RouterLink>
         </nav>
       </div>
-      <p v-if="!loading && !failed && !searchCursorIssue && !searchBudgetExceeded && !searchRouteTooLong && query && searchGenerationRestarted" class="muted search-relaxed-notice" role="status">
+      <p v-if="searchReady && searchGenerationRestarted" class="muted search-relaxed-notice" role="status">
         {{ t('reading.searchGenerationRestarted') }}
       </p>
-      <p v-if="!loading && !failed && !searchCursorIssue && !searchBudgetExceeded && !searchRouteTooLong && query && searchPrimaryCount === 0 && searchRelaxedCount > 0" class="muted search-relaxed-notice" role="status">
+      <p v-if="searchReady && searchPrimaryCount === 0 && searchRelaxedCount > 0" class="muted search-relaxed-notice" role="status">
         {{ t('reading.searchRelaxedNotice') }}
       </p>
     </div>
@@ -322,12 +353,12 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
     <p v-else-if="!articles.length" class="muted">
       {{ t(isSearch ? query ? 'reading.noSearchMatches' : 'reading.searchPrompt' : taxonomy ? 'reading.noTaxonomyArticles' : 'reading.noArticles') }}
     </p>
-    <ol v-else-if="isSearch" class="article-list">
-      <li v-for="item in searchHits" :key="item.id">
+    <ol v-else :key="isSearch ? 'search' : 'articles'" class="article-list">
+      <li v-for="item in articles" :key="item.id">
         <article>
           <h2>
             <RouterLink :to="{ name: 'article', params: { id: item.id } }">
-              <template v-if="hasSearchTitleHighlight(item)">
+              <template v-if="isSearchHit(item) && hasSearchTitleHighlight(item)">
                 <template v-for="(seg, idx) in sliceSnippetHighlights(item.title, item.highlights)" :key="idx">
                   <mark v-if="seg.highlight" class="search-highlight">{{ seg.text }}</mark>
                   <template v-else>{{ seg.text }}</template>
@@ -340,9 +371,9 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
             <time v-if="item.publishedAt" :datetime="date(item.publishedAt)">{{ date(item.publishedAt) }}</time>
             <RouterLink v-if="item.category.id > 0" :to="{ name: 'category', params: { id: item.category.id } }">{{ item.category.name }}</RouterLink>
             <RouterLink v-for="tag in item.tags" :key="tag.id" :to="{ name: 'tag', params: { id: tag.id } }">#{{ tag.name }}</RouterLink>
-            <span v-if="item.matchTier === 'relaxed'">{{ t('reading.searchPartialMatch') }}</span>
+            <span v-if="isSearchHit(item) && item.matchTier === 'relaxed'">{{ t('reading.searchPartialMatch') }}</span>
           </div>
-          <p v-if="hasSearchBodySnippet(item)" class="search-snippet" :class="{ 'search-snippet--code': item.snippetField === 'code' }">
+          <p v-if="isSearchHit(item) && hasSearchBodySnippet(item)" class="search-snippet" :class="{ 'search-snippet--code': item.snippetField === 'code' }">
             <template v-for="(seg, idx) in sliceSnippetHighlights(item.snippet, item.highlights)" :key="idx">
               <mark v-if="seg.highlight" class="search-highlight">{{ seg.text }}</mark>
               <template v-else>{{ seg.text }}</template>
@@ -352,55 +383,13 @@ const date = (value: number) => new Date(value).toISOString().slice(0, 10)
         </article>
       </li>
     </ol>
-    <ol v-else class="article-list">
-      <li v-for="item in articles" :key="item.id">
-        <article>
-          <h2><RouterLink :to="{ name: 'article', params: { id: item.id } }">{{ item.title }}</RouterLink></h2>
-          <div class="article-taxonomy metadata">
-            <time v-if="item.publishedAt" :datetime="date(item.publishedAt)">{{ date(item.publishedAt) }}</time>
-            <RouterLink v-if="item.category.id > 0" :to="{ name: 'category', params: { id: item.category.id } }">{{ item.category.name }}</RouterLink>
-            <RouterLink v-for="tag in item.tags" :key="tag.id" :to="{ name: 'tag', params: { id: tag.id } }">#{{ tag.name }}</RouterLink>
-          </div>
-          <p v-if="item.summary">{{ item.summary }}</p>
-        </article>
-      </li>
-    </ol>
-    <ElPaginationBar v-if="isSearch && !loading && !failed && !searchCursorIssue && !searchBudgetExceeded && !searchRouteTooLong && query && (page > 1 || (searchUsesCursors ? searchHasMore : searchTotal > pageSize))" :ariaLabel="t('reading.searchPages')" class="page-links">
+    <ElPaginationBar v-if="pagination" :key="pagination.label" :ariaLabel="t(pagination.label)" class="page-links">
       <template #summary>
         <span aria-current="page">{{ t('reading.pageNumber', { page }) }}</span>
       </template>
       <template #pagination>
-        <template v-if="searchUsesCursors">
-          <RouterLink v-if="page > 1" :to="{ query: previousSearchPageQuery }" custom v-slot="{ href, navigate }">
-            <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t(page > 2 && !priorCursor ? 'reading.firstPage' : 'reading.previous') }}</ElButton>
-          </RouterLink>
-          <RouterLink v-if="searchHasMore && nextCursor" :to="{ query: searchRouteQuery(query, searchSort, page + 1, nextCursor) }" custom v-slot="{ href, navigate }">
-            <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t('reading.next') }}</ElButton>
-          </RouterLink>
-        </template>
-        <template v-else>
-          <RouterLink v-if="searchPageOutOfRange" :to="{ query: searchRouteQuery(query) }" custom v-slot="{ href, navigate }">
-            <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t('reading.firstPage') }}</ElButton>
-          </RouterLink>
-          <RouterLink v-else-if="page > 1" :to="{ query: searchRouteQuery(query, searchSort, page - 1) }" custom v-slot="{ href, navigate }">
-            <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t('reading.previous') }}</ElButton>
-          </RouterLink>
-          <RouterLink v-if="page * pageSize < searchTotal" :to="{ query: searchRouteQuery(query, searchSort, page + 1) }" custom v-slot="{ href, navigate }">
-            <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t('reading.next') }}</ElButton>
-          </RouterLink>
-        </template>
-      </template>
-    </ElPaginationBar>
-    <ElPaginationBar v-if="!isSearch && !loading && !failed && !cursorExpired && !missing && (nextCursor || page > 1)" :ariaLabel="t('reading.articlePages')" class="page-links">
-      <template #summary>
-        <span aria-current="page">{{ t('reading.pageNumber', { page }) }}</span>
-      </template>
-      <template #pagination>
-        <RouterLink v-if="page > 1" :to="{ query: previousPageQuery }" custom v-slot="{ href, navigate }">
-          <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t(page > 2 && !priorCursor ? 'reading.firstPage' : 'reading.previous') }}</ElButton>
-        </RouterLink>
-        <RouterLink v-if="nextCursor" :to="{ query: { page: page + 1, cursor: nextCursor } }" custom v-slot="{ href, navigate }">
-          <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t('reading.next') }}</ElButton>
+        <RouterLink v-for="link in pagination.links" :key="link.direction" :to="{ query: link.query }" custom v-slot="{ href, navigate }">
+          <ElButton tag="a" v-bind="{ href }" @click="navigate">{{ t(link.label) }}</ElButton>
         </RouterLink>
       </template>
     </ElPaginationBar>
