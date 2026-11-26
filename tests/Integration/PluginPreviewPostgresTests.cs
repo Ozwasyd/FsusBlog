@@ -113,9 +113,8 @@ public sealed class PluginPreviewPostgresTests
         Assert.Equal(currentBody, await fixture.Scalar<string>(
             "select body from public.article_revision where article_id=$1 and revision=$2", current.Id, current.Revision));
 
-        async Task<ArticleState> Save(int id, long revision, string markdown) =>
-            (await store.WithSession(owner.Token, true, (connection, tx, actor) => Store.Execute(connection, tx, actor, ArticleAction.Save,
-                new(id, revision, Guid.NewGuid(), "Private preview title", markdown), ct), ct)).Article;
+        Task<ArticleState> Save(int id, long revision, string markdown) =>
+            PublicationFixture.EditDraft(store, owner.Token, ArticleAction.Save, new(id, revision, Guid.NewGuid(), "Private preview title", markdown), ct);
 
         async Task<string> Grant(ArticleState article)
         {

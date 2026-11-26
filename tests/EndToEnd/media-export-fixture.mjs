@@ -4,6 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+export async function captureAttachmentDownload(page, button, attachment) {
+  const [receipt, download] = await Promise.all([attachment, page.waitForEvent('download'), button.click()])
+  return { receipt, download }
+}
+
 export async function inspectDownloadedFile(download, response, prefix, name, inspect) {
   const scratch = await mkdtemp(join(tmpdir(), prefix))
   try {

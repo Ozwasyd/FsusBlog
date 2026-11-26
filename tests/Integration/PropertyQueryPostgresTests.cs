@@ -479,10 +479,10 @@ public sealed class PropertyQueryPostgresTests
         Task<byte[]> PutAs(string actor, ArticleState article, long schemaRev, long version, Guid field, long definition, PropertyFieldValue value) =>
             Send(WireRoutes.PropertyValueCommand, Wire.EncodePropertyValueInput(new(article.Id, article.Revision, schemaRev, version,
                 field, definition, Guid.NewGuid(), value)), actor);
-        async Task<ArticleState> Article(string title, string token, string body = "Private") => (await store.WithSession(token, true, (c, t, a) =>
-            Store.Execute(c, t, a, ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, body), ct), ct)).Article;
-        async Task<ArticleState> Publication(ArticleState article, ArticleAction action, string token) => (await store.WithSession(token, true, (c, t, a) =>
-            Store.Execute(c, t, a, action, new(article.Id, article.Revision, Guid.NewGuid(), "", ""), ct), ct)).Article;
+        Task<ArticleState> Article(string title, string token, string body = "Private") =>
+            PublicationFixture.EditDraft(store, token, ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, body), ct);
+        Task<ArticleState> Publication(ArticleState article, ArticleAction action, string token) =>
+            PublicationFixture.EditDraft(store, token, action, new(article.Id, article.Revision, Guid.NewGuid(), "", ""), ct);
         async Task<byte[]> Send(string route, byte[]? packet, string? session, HttpStatusCode status = OK, string? sessionId = null)
         {
             var response = await Response(route, packet, session, sessionId);

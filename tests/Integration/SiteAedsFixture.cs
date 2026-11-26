@@ -137,6 +137,15 @@ internal static class SiteAedsFixture
         string title, string body, CancellationToken ct) =>
         ArticleCommand(client, WireRoutes.Save, token, handle, new(id, revision, Guid.NewGuid(), title, body), ct);
 
+    internal static async Task<Draft> SaveAndPublish(HttpClient client, string token, string title, string body, CancellationToken ct)
+    {
+        var draft = await SaveDraft(client, token, null, 0, 0, title, body, ct);
+        return await ChangePublication(client, WireRoutes.Publish, token, draft.Id, draft.Revision, ct);
+    }
+
+    internal static Task<Draft> ChangePublication(HttpClient client, string route, string token, int id, long revision, CancellationToken ct) =>
+        ArticleCommand(client, route, token, null, new(id, revision, Guid.NewGuid(), "", ""), ct);
+
     internal static async Task<Draft> ArticleCommand(HttpClient client, string route, string token, string? handle,
         ArticleCommand command, CancellationToken ct) =>
         Wire.DecodeDraft(await OkBytes(Send(client, HttpMethod.Post, route, Wire.EncodeArticleCommand(command), token, handle, ct), ct));

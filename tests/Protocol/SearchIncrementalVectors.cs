@@ -492,16 +492,9 @@ internal static class SearchIncrementalVectors
             {
                 var exp = expected.SearchDetailed(q, sort, 1, 50, CancellationToken.None);
                 var got = actual.SearchDetailed(q, sort, 1, 50, CancellationToken.None);
-                Require(exp.Total == got.Total && exp.PrimaryTotal == got.PrimaryTotal && exp.RelaxedTotal == got.RelaxedTotal,
-                    $"[{label}:{sort}:{q}] counts expected=({exp.Total},{exp.PrimaryTotal},{exp.RelaxedTotal}) got=({got.Total},{got.PrimaryTotal},{got.RelaxedTotal})");
-                Require(exp.Hits.Length == got.Hits.Length, $"[{label}:{sort}:{q}] hits length mismatch");
-                for (var i = 0; i < exp.Hits.Length; i++)
-                {
-                    Require(exp.Hits[i].Article.Id == got.Hits[i].Article.Id &&
-                            exp.Hits[i].Tier == got.Hits[i].Tier &&
-                            Math.Abs(exp.Hits[i].Score - got.Hits[i].Score) <= 1e-11,
-                        $"[{label}:{sort}:{q}] hit[{i}] mismatch");
-                }
+                var context = $"{label}:{sort}:{q}";
+                CheckSearchTotals(context, exp, got);
+                CheckSearchHits(context, exp.Hits, got.Hits, 1e-11);
             }
         }
     }
@@ -516,53 +509,13 @@ internal static class SearchIncrementalVectors
                 var freshPage = fresh.SearchDetailed(q, sort, 1, 200, CancellationToken.None);
                 var incPage = inc.SearchDetailed(q, sort, 1, 200, CancellationToken.None);
 
-                Require(incPage.Total == expectedAll.Total && incPage.PrimaryTotal == expectedAll.PrimaryTotal &&
-                        incPage.RelaxedTotal == expectedAll.RelaxedTotal,
-                    $"[{label}:{sort}:{q}] detailed counts mismatch inc=({incPage.Total},{incPage.PrimaryTotal},{incPage.RelaxedTotal}) oracle=({expectedAll.Total},{expectedAll.PrimaryTotal},{expectedAll.RelaxedTotal})");
+                var context = $"{label}:{sort}:{q}";
+                CheckSearchTotals(context, expectedAll, incPage);
                 Require(incPage.Hits.Length == freshPage.Hits.Length,
-                    $"[{label}:{sort}:{q}] hit count mismatch inc={incPage.Hits.Length} fresh={freshPage.Hits.Length}");
-                for (var i = 0; i < incPage.Hits.Length; i++)
-                {
-                    var e = expectedAll.Hits[i];
-                    var a = incPage.Hits[i];
-                    Require(e.Article.Id == a.Article.Id && e.Tier == a.Tier && Math.Abs(e.Score - a.Score) <= 1e-11,
-                        $"[{label}:{sort}:{q}] detailed hit[{i}] exp=({e.Article.Id},{e.Tier},{e.Score:R}) got=({a.Article.Id},{a.Tier},{a.Score:R})");
-                }
+                    $"[{context}] hit count mismatch inc={incPage.Hits.Length} fresh={freshPage.Hits.Length}");
+                CheckSearchHits(context, expectedAll.Hits.AsSpan(0, freshPage.Hits.Length), incPage.Hits, 1e-11);
 
-                // Full cursor pagination walk
-                var walked = new List<ArticleSearchHit>();
-                SearchCursorPosition? cursor = null;
-                var returnedSoFar = 0;
-                var pages = 0;
-                while (true)
-                {
-                    pages++;
-                    var page = inc.SearchWithCursor(q, sort, 9, cursor, returnedSoFar, CancellationToken.None);
-                    Require(page.TotalCount >= page.Hits.Length, $"[{label}:{sort}:{q}] TotalCount < Hits.Length");
-                    if (page.TotalRelation == PublicSearchTotalRelation.Exact)
-                    {
-                        Require(page.PrimaryCount + page.RelaxedCount == page.TotalCount, $"[{label}:{sort}:{q}] Exact sum mismatch");
-                        Require(page.TotalCount == expectedAll.Total, $"[{label}:{sort}:{q}] Exact total={page.TotalCount} != {expectedAll.Total}");
-                    }
-                    else
-                    {
-                        Require(page.TotalCount <= expectedAll.Total, $"[{label}:{sort}:{q}] LowerBound over-reported");
-                    }
-                    walked.AddRange(page.Hits);
-                    returnedSoFar += page.Hits.Length;
-                    if (!page.HasMore) break;
-                    cursor = page.LastHitPosition;
-                    Require(cursor is not null && pages <= 50, $"[{label}:{sort}:{q}] bad cursor loop");
-                }
-                Require(walked.Count == expectedAll.Hits.Length,
-                    $"[{label}:{sort}:{q}] cursor walked {walked.Count} != oracle {expectedAll.Hits.Length}");
-                for (var i = 0; i < walked.Count; i++)
-                {
-                    var e = expectedAll.Hits[i];
-                    var a = walked[i];
-                    Require(e.Article.Id == a.Article.Id && e.Tier == a.Tier && Math.Abs(e.Score - a.Score) <= 1e-11,
-                        $"[{label}:{sort}:{q}] cursor hit[{i}] mismatch");
-                }
+                CheckSearchCursorWalk(context, inc, expectedAll, q, sort, 9, 50, checkLowerBoundTierSum: false);
             }
         }
     }

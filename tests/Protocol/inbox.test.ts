@@ -7,8 +7,8 @@ import { decodeInboxCreated, decodeInboxReplied, decodeSystemNoticeSent } from '
 import { decodeInboxReplay } from '../../src/Contracts/inbox-replay.ts';
 import { inboxCreateFrame, inboxReplyFrame } from '../../src/Contracts/inbox-write.ts';
 import { FrameType, WireHeaders, WireLayouts, WireRoutes } from '../../src/Contracts/wire.generated.ts';
-import { captureFetch, framedFixture, frameResponse, hexBytes, hexFixture, podFrame, withI64 } from './fixture-source.ts';
-import { emptySuccessFrame, replaceProperty } from './step-up-fixture.ts';
+import { captureFetch, framedFixture, frameResponse, hexBytes, hexFixture, podFrame, replaceProperty, withI64 } from './fixture-source.ts';
+import { emptySuccessFrame } from './step-up-fixture.ts';
 
 const fixture = (name: string) => Uint8Array.from(hexFixture(`${name}.hex`, 'strip'));
 

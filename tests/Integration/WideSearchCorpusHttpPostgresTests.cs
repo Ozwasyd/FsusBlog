@@ -50,7 +50,7 @@ public sealed class WideSearchCorpusHttpPostgresTests
         await AssertRejectedCoordinates(client, current, ct);
 
         Assert.Equal(new Draft(ArticleCount, 2, "Quiet", "boundaryrank", false),
-            await SiteAedsFixture.ArticleCommand(client, WireRoutes.Retract, token, null, new(ArticleCount, 1, Guid.NewGuid(), "", ""), ct));
+            await SiteAedsFixture.ChangePublication(client, WireRoutes.Retract, token, ArticleCount, 1, ct));
 
         var replacement = await GetManifest(client, ArticleCount - 1, ct);
         Assert.NotEqual(current.Generation, replacement.Generation);

@@ -2,7 +2,7 @@ import { deepEqual, equal, match, notEqual, rejects, throws } from 'node:assert/
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
-  altPermissionSession as altSiteSession, apiErrorResponse, emptySuccessFrame, installPasskeyEnvironment,
+  altPermissionSession as altSiteSession, emptySuccessFrame, installPasskeyEnvironment,
   installPowWorker, loginBeginFrame, mfaChallengeResultFrame, powChallengeFrame,
   validPermissionSession as validSiteSession, validProof, type FakePowWorker,
 } from './step-up-fixture.ts';
@@ -24,7 +24,7 @@ import {
   decodePublicCommentSubmission, decodeRecoveryKeyVerify, encodePublicCommentSubmissionResult,
   FrameType, WireHeaders, WireLayouts, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts';
-import { captureFetch, frameResponse, hexFixture, podFrame, type RecordedCall } from './fixture-source.ts';
+import { apiErrorResponse, captureFetch, frameResponse, hexFixture, podFrame, type RecordedCall } from './fixture-source.ts';
 
 const encoder = new TextEncoder();
 const validSalt = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';

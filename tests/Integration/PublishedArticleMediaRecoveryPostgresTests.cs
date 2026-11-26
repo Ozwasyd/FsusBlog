@@ -37,11 +37,10 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
                 current = await Upload(client, owner, "current-private.png", "image/png",
                     MediaFixture.SolidImage(SKEncodedImageFormat.Png, SKColors.SeaGreen), ct);
                 Assert.NotEqual(historical.Digest, current.Digest);
-                var draft = await PostDraft(client, WireRoutes.Save,
-                    Wire.EncodeArticleCommand(new(0, 0, Guid.NewGuid(), "Media recovery", "Original published body.")), owner, ct);
-                var first = await Release(await Attach(client, owner, draft, historical.Id, ct), historical);
+                var draft = await SaveDraft(client, owner, "Media recovery", "Original published body.", ct);
+                var first = await AttachAndPublish(client, owner, draft, historical.Id, ct);
                 historicalPublication = await PublicationId(source, first, ct);
-                var second = await Release(await Attach(client, owner, first, current.Id, ct), current);
+                var second = await AttachAndPublish(client, owner, first, current.Id, ct);
                 currentPublication = await PublicationId(source, second, ct);
                 article = second.Id;
                 Assert.True(historicalPublication < currentPublication);
@@ -53,10 +52,6 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
 
                 var live = await InvokeMigration(source.ConnectionString, "rebuild", site, restoredPrivate, restoredPublic, web, ct);
                 AssertFailed(live, "Stop the serving process before changing the database schema.");
-
-                Task<Draft> Release(Draft revision, Asset image) =>
-                    PostDraft(client, WireRoutes.ArticlePublishImages,
-                        Wire.EncodeArticlePublishImages(new(revision.Id, revision.Revision, Guid.NewGuid(), [image.Id])), owner, ct);
             }
 
             foreach (var image in new[] { historical, current })
@@ -144,10 +139,7 @@ public sealed partial class PublishedArticleMediaHttpPostgresTests
         var raw = RawPath(article, release, digest);
         await AssertEmptyImageResponse(client, HttpMethod.Get, raw, HttpStatusCode.NotFound, ct);
         await AssertEmptyImageResponse(client, HttpMethod.Head, raw, HttpStatusCode.NotFound, ct);
-        using var manifest = await client.GetAsync(ManifestPath(article, release), ct);
-        Assert.Equal(HttpStatusCode.NotFound, manifest.StatusCode);
-        Assert.True(manifest.Headers.CacheControl?.NoStore);
-        Assert.Empty(await manifest.Content.ReadAsByteArrayAsync(ct));
+        await AssertHiddenManifest(client, ManifestPath(article, release), ct);
     }
 
     [UnsupportedOSPlatform("windows")]

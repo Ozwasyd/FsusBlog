@@ -6,8 +6,7 @@ import { FrameType, WireHeaders, WireLayouts as L, WireRoutes } from '../../src/
 import {
   fetchWideSearchManifest, fetchWideSearchPage, verifyWideSearchGeneration, verifyWideSearchPageBytes,
 } from '../../src/Web/src/wideSearchWire.ts'
-import { hexBytes, sha256Hex } from './fixture-source.ts'
-import { apiErrorResponse } from './step-up-fixture.ts'
+import { apiErrorResponse, hexBytes, sha256Hex } from './fixture-source.ts'
 
 type FixturePage = { first: number; last: number; count: number; bytes: Uint8Array<ArrayBuffer> }
 const generation = '9223372036854775807'

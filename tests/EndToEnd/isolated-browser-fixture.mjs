@@ -135,6 +135,18 @@ export async function withBrowserEvidence(browser, evidence, filename, fields, r
   if (failure) throw failure
 }
 
+// Exercise the same normal desktop and dark narrow view in separate browser contexts.
+export async function withDesktopAndNarrow(browser, run) {
+  const devices = [
+    { name: 'desktop', colorScheme: 'light', viewport: { width: 1280, height: 800 } },
+    { name: 'mobile', colorScheme: 'dark', viewport: { width: 375, height: 850 } },
+  ]
+  for (const [index, device] of devices.entries()) {
+    const { viewport, colorScheme } = device
+    await withTempContext(browser, { viewport, colorScheme }, context => run(context, index, device))
+  }
+}
+
 export async function withTempContext(browser, options, run) {
   if (typeof options === 'function') [run, options] = [options, undefined]
   const context = await browser.newContext(options)

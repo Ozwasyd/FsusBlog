@@ -250,17 +250,8 @@ internal static class SearchRankingVectors
 
     private static void AssertDetailedEqual(string label, ArticleSearchDetailedPage expected, ArticleSearchDetailedPage actual)
     {
-        Require(expected.Total == actual.Total && expected.PrimaryTotal == actual.PrimaryTotal && expected.RelaxedTotal == actual.RelaxedTotal,
-            $"[{label}] counts expected=({expected.Total},{expected.PrimaryTotal},{expected.RelaxedTotal}) actual=({actual.Total},{actual.PrimaryTotal},{actual.RelaxedTotal})");
-        Require(expected.Hits.Length == actual.Hits.Length,
-            $"[{label}] hit length expected={expected.Hits.Length} actual={actual.Hits.Length}");
-        for (var i = 0; i < expected.Hits.Length; i++)
-        {
-            var e = expected.Hits[i];
-            var a = actual.Hits[i];
-            Require(e.Article.Id == a.Article.Id && e.Tier == a.Tier && Math.Abs(e.Score - a.Score) <= 1e-12,
-                $"[{label}][{i}] expected=({e.Article.Id},{e.Tier},{e.Score:R}) actual=({a.Article.Id},{a.Tier},{a.Score:R})");
-        }
+        CheckSearchTotals(label, expected, actual);
+        CheckSearchHits(label, expected.Hits, actual.Hits, 1e-12);
     }
 
     private static Article Art(int id, string title, string body, DateTimeOffset when,

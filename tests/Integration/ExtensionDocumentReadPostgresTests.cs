@@ -119,9 +119,8 @@ public sealed class ExtensionDocumentReadPostgresTests
         }
         finally { root.Delete(recursive: true); }
 
-        async Task<ArticleState> Save(int id, long revision, string body) =>
-            (await store.WithSession(author.Token, true, (conn, tx, actor) => Store.Execute(conn, tx, actor, ArticleAction.Save,
-                new(id, revision, Guid.NewGuid(), "Private draft", body), ct), ct)).Article;
+        Task<ArticleState> Save(int id, long revision, string body) =>
+            PublicationFixture.EditDraft(store, author.Token, ArticleAction.Save, new(id, revision, Guid.NewGuid(), "Private draft", body), ct);
 
     }
 

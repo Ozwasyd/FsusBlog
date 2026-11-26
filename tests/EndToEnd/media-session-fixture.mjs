@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { api } from '../../src/Contracts/client.ts'
 import { decodeDraft, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { sha256Hex } from './admin-workspace-fixture.mjs'
 import { assertStatus, readFrame } from './response-status-fixture.mjs'
@@ -7,10 +8,9 @@ import { exactButton, roleWithExactName } from './role-locators.mjs'
 import { signInFreshAdmin } from './webauthn-fixture.mjs'
 
 export const mediaBootstraps = [process.env.FSUSBLOG_TEST_AUTHOR_BOOTSTRAP, process.env.FSUSBLOG_TEST_MOBILE_BOOTSTRAP]
-export const mediaViewports = [
-  { name: 'desktop', colorScheme: 'light', viewport: { width: 1280, height: 800 } },
-  { name: 'mobile', colorScheme: 'dark', viewport: { width: 375, height: 850 } },
-]
+export function saveMediaDraft(session, title, body) {
+  return api.save({ id: 0, expectedRevision: 0n, idempotencyKey: crypto.randomUUID(), title, body }, undefined, session)
+}
 
 export async function currentMediaSession(page, origin) {
   const response = await page.request.get(origin + WireRoutes.AuthoringSession)

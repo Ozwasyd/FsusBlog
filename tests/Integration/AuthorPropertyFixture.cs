@@ -133,8 +133,8 @@ internal sealed class AuthorPropertyFixture(ScratchDatabase database, HttpClient
     internal Task<ArticleState> Save(Actor actor, string title, string body) =>
         ChangeArticle(actor, ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, body));
 
-    internal async Task<ArticleState> ChangeArticle(Actor actor, ArticleAction action, Edit edit) =>
-        (await _store.WithSession(actor.Token, true, (db, tx, identity) => Store.Execute(db, tx, identity, action, edit, ct), ct)).Article;
+    internal Task<ArticleState> ChangeArticle(Actor actor, ArticleAction action, Edit edit) =>
+        PublicationFixture.EditDraft(_store, actor.Token, action, edit, ct);
 
     internal Task<(long Revision, DateTime Updated)> ArticleStamp(int id) =>
         database.QueryRowAsync(ct, "select revision,updated_at from public.article where id=$1",

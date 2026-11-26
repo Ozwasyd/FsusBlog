@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import { ApiError, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts';
 import {
   encodePublicSearchResult,
@@ -8,24 +8,14 @@ import {
   PublicSearchSnippetField,
   PublicSearchTotalRelation,
   WireHeaders,
-  WireLayouts,
   WireLimits,
   type PublicSearchResult,
 } from '../../src/Contracts/wire.generated.ts';
 import { createLocalSearch } from '../../src/Web/src/localSearch.ts';
+import { apiErrorResponse, captureFetch, replaceProperty } from './fixture-source.ts';
 
-const encoder = new TextEncoder();
-
-function installServerModeDom() {
-  const previousDocument = (globalThis as { document?: unknown }).document;
-  (globalThis as { document?: unknown }).document = {
-    head: {
-      querySelector: () => null,
-    },
-  };
-  return () => {
-    (globalThis as { document?: unknown }).document = previousDocument;
-  };
+function installServerModeDom(t: TestContext) {
+  replaceProperty(t, globalThis, 'document', { head: { querySelector: () => null } });
 }
 
 function aedsResponse(status: number, bytes: Uint8Array<ArrayBuffer>, generation?: string): Response {
@@ -38,15 +28,7 @@ function aedsResponse(status: number, bytes: Uint8Array<ArrayBuffer>, generation
 }
 
 function errorResponse(status: number, message: string, details: string): Response {
-  const payload = new Uint8Array(WireLayouts.ErrorBytes);
-  const view = new DataView(payload.buffer);
-  payload[0] = 1;
-  payload[1] = 1;
-  view.setInt32(WireLayouts.ErrorStatusOffset, status, true);
-  payload.set(encoder.encode(message).subarray(0, 255), WireLayouts.ErrorMessageOffset);
-  payload.set(encoder.encode(details).subarray(0, 255), WireLayouts.ErrorDetailsOffset);
-  const frame = encodeFrame(FrameType.ApiError, payload);
-  return aedsResponse(status, frame);
+  return apiErrorResponse(status, details, message, { 'Cache-Control': 'no-store' });
 }
 
 function searchOkResponse(generation: bigint, articleId: number, nextCursor = ''): Response {
@@ -86,67 +68,40 @@ function searchOkResponse(generation: bigint, articleId: number, nextCursor = ''
   return aedsResponse(200, frame, generation.toString());
 }
 
-test('controlled generation change restarts coherently from page 1 at most once', async () => {
-  const restoreDom = installServerModeDom();
-  const originalFetch = globalThis.fetch;
-  const seenUrls: string[] = [];
-  let calls = 0;
+test('controlled generation change restarts coherently from page 1 at most once', async t => {
+  installServerModeDom(t);
+  const calls = captureFetch(t, () => calls.length === 1
+    ? errorResponse(409, 'The public search index changed.', 'search_generation_changed')
+    : searchOkResponse(2002n, 77, 'fresh-cursor-2002'));
 
-  globalThis.fetch = (async (input: string | URL | Request) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-    seenUrls.push(url);
-    calls++;
-    if (calls === 1) {
-      return errorResponse(409, 'The public search index changed.', 'search_generation_changed');
-    }
-    return searchOkResponse(2002n, 77, 'fresh-cursor-2002');
-  }) as typeof fetch;
-
-  try {
-    const search = createLocalSearch({ requestTimeoutMs: 5_000 });
-    const result = await search.search('alpha', new AbortController().signal, 2, 10, 'relevance', 'stale-cursor-1001');
-    assert.equal(calls, 2, 'Controlled generation change must perform exactly one automatic restart');
-    assert.match(seenUrls[0], /cursor=stale-cursor-1001/);
-    assert.doesNotMatch(seenUrls[1], /cursor=/, 'Automatic restart must drop obsolete cursor and start from page 1');
-    assert.equal(result.restartedFromGenerationChange, true);
-    assert.equal(result.generation, '2002');
-    assert.equal(result.items[0].id, 77);
-    assert.equal(result.nextCursor, 'fresh-cursor-2002');
-    search.dispose();
-  } finally {
-    globalThis.fetch = originalFetch;
-    restoreDom();
-  }
+  const search = createLocalSearch({ requestTimeoutMs: 5_000 });
+  const result = await search.search('alpha', new AbortController().signal, 2, 10, 'relevance', 'stale-cursor-1001');
+  assert.equal(calls.length, 2, 'Controlled generation change must perform exactly one automatic restart');
+  assert.match(calls[0].url, /cursor=stale-cursor-1001/);
+  assert.doesNotMatch(calls[1].url, /cursor=/, 'Automatic restart must drop obsolete cursor and start from page 1');
+  assert.equal(result.restartedFromGenerationChange, true);
+  assert.equal(result.generation, '2002');
+  assert.equal(result.items[0].id, 77);
+  assert.equal(result.nextCursor, 'fresh-cursor-2002');
+  search.dispose();
 });
 
-test('repeated consecutive generation changes stop after one retry without looping', async () => {
-  const restoreDom = installServerModeDom();
-  const originalFetch = globalThis.fetch;
-  let calls = 0;
+test('repeated consecutive generation changes stop after one retry without looping', async t => {
+  installServerModeDom(t);
+  const calls = captureFetch(t, () => errorResponse(409, 'The public search index changed.', 'search_generation_changed'));
 
-  globalThis.fetch = (async () => {
-    calls++;
-    return errorResponse(409, 'The public search index changed.', 'search_generation_changed');
-  }) as typeof fetch;
-
-  try {
-    const search = createLocalSearch({ requestTimeoutMs: 5_000 });
-    await assert.rejects(
-      () => search.search('alpha', new AbortController().signal, 2, 10, 'relevance', 'stale-cursor-1001'),
-      (error: unknown) =>
-        error instanceof ApiError && error.status === 409 && error.details === 'search_generation_changed',
-    );
-    assert.equal(calls, 2, 'Must stop after a single automatic restart and never enter a retry loop');
-    search.dispose();
-  } finally {
-    globalThis.fetch = originalFetch;
-    restoreDom();
-  }
+  const search = createLocalSearch({ requestTimeoutMs: 5_000 });
+  await assert.rejects(
+    () => search.search('alpha', new AbortController().signal, 2, 10, 'relevance', 'stale-cursor-1001'),
+    (error: unknown) =>
+      error instanceof ApiError && error.status === 409 && error.details === 'search_generation_changed',
+  );
+  assert.equal(calls.length, 2, 'Must stop after a single automatic restart and never enter a retry loop');
+  search.dispose();
 });
 
-test('malformed frames, cursor errors, auth failures, budget errors, and transport errors never auto-restart', async () => {
-  const restoreDom = installServerModeDom();
-  const originalFetch = globalThis.fetch;
+test('malformed frames, cursor errors, auth failures, budget errors, and transport errors never auto-restart', async t => {
+  installServerModeDom(t);
 
   const cases: { name: string; respond: () => Promise<Response>; check: (error: unknown) => boolean }[] = [
     {
@@ -186,73 +141,54 @@ test('malformed frames, cursor errors, auth failures, budget errors, and transpo
     },
   ];
 
-  try {
-    for (const tc of cases) {
-      let calls = 0;
-      globalThis.fetch = (async () => {
-        calls++;
-        return tc.respond();
-      }) as typeof fetch;
-
-      const search = createLocalSearch({ requestTimeoutMs: 5_000 });
-      await assert.rejects(
-        () => search.search('alpha', new AbortController().signal, 2, 10, 'relevance', 'cursor-1'),
-        tc.check,
-        `Case ${tc.name} threw unexpected error`,
-      );
-      assert.equal(calls, 1, `Case ${tc.name} must never automatically retry`);
-      search.dispose();
-    }
-  } finally {
-    globalThis.fetch = originalFetch;
-    restoreDom();
+  let respond = cases[0].respond;
+  const calls = captureFetch(t, () => respond());
+  for (const tc of cases) {
+    respond = tc.respond;
+    const previousCalls = calls.length;
+    const search = createLocalSearch({ requestTimeoutMs: 5_000 });
+    await assert.rejects(
+      () => search.search('alpha', new AbortController().signal, 2, 10, 'relevance', 'cursor-1'),
+      tc.check,
+      `Case ${tc.name} threw unexpected error`,
+    );
+    assert.equal(calls.length - previousCalls, 1, `Case ${tc.name} must never automatically retry`);
+    search.dispose();
   }
 });
 
-test('generation restart honors the original request deadline and caller cancellation', async () => {
-  const restoreDom = installServerModeDom();
-  const originalFetch = globalThis.fetch;
+test('generation restart honors the original request deadline and caller cancellation', async t => {
+  installServerModeDom(t);
 
-  try {
-    // 1. Original deadline expires during the single restart
-    let calls = 0;
-    globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
-      calls++;
-      if (calls === 1) {
-        return errorResponse(409, 'Changed', 'search_generation_changed');
-      }
-      return await new Promise<Response>((_, reject) => {
-        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
-      });
-    }) as typeof fetch;
+  // The original deadline expires during the single restart.
+  let respond = async (init?: RequestInit): Promise<Response> => {
+    if (calls.length === 1) return errorResponse(409, 'Changed', 'search_generation_changed');
+    return new Promise<Response>((_, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true });
+    });
+  };
+  const calls = captureFetch(t, (_, init) => respond(init));
+  const search = createLocalSearch({ requestTimeoutMs: 40 });
+  await assert.rejects(
+    () => search.search('alpha', new AbortController().signal, 2, 10, 'relevance', 'cursor-1'),
+    (error: unknown) => error instanceof DOMException && error.name === 'TimeoutError',
+  );
+  assert.equal(calls.length, 2);
+  search.dispose();
 
-    const search = createLocalSearch({ requestTimeoutMs: 40 });
-    await assert.rejects(
-      () => search.search('alpha', new AbortController().signal, 2, 10, 'relevance', 'cursor-1'),
-      (error: unknown) => error instanceof DOMException && error.name === 'TimeoutError',
-    );
-    assert.equal(calls, 2);
-    search.dispose();
-
-    // 2. Caller cancellation during first request suppresses retry completely
-    let cancelCalls = 0;
-    const caller = new AbortController();
-    globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
-      cancelCalls++;
-      caller.abort(new DOMException('Cancelled by caller', 'AbortError'));
-      init?.signal?.throwIfAborted();
-      return errorResponse(409, 'Changed', 'search_generation_changed');
-    }) as typeof fetch;
-
-    const search2 = createLocalSearch({ requestTimeoutMs: 5_000 });
-    await assert.rejects(
-      () => search2.search('alpha', caller.signal, 2, 10, 'relevance', 'cursor-1'),
-      (error: unknown) => error instanceof DOMException && error.name === 'AbortError',
-    );
-    assert.equal(cancelCalls, 1, 'Aborted caller must never trigger a restart request');
-    search2.dispose();
-  } finally {
-    globalThis.fetch = originalFetch;
-    restoreDom();
-  }
+  // Caller cancellation during the first request suppresses retry completely.
+  const previousCalls = calls.length;
+  const caller = new AbortController();
+  respond = async init => {
+    caller.abort(new DOMException('Cancelled by caller', 'AbortError'));
+    init?.signal?.throwIfAborted();
+    return errorResponse(409, 'Changed', 'search_generation_changed');
+  };
+  const search2 = createLocalSearch({ requestTimeoutMs: 5_000 });
+  await assert.rejects(
+    () => search2.search('alpha', caller.signal, 2, 10, 'relevance', 'cursor-1'),
+    (error: unknown) => error instanceof DOMException && error.name === 'AbortError',
+  );
+  assert.equal(calls.length - previousCalls, 1, 'Aborted caller must never trigger a restart request');
+  search2.dispose();
 });

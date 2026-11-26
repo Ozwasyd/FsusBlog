@@ -13,7 +13,7 @@ import {
   SEARCH_SCORING_PROFILE_VERSION,
 } from '../../src/Contracts/search-query-plan.ts';
 import { analyzeText, SEARCH_ANALYZER_VERSION } from '../../src/Contracts/search-analyzer.ts';
-import { WireLayouts as L, WireLimits as Limit } from '../../src/Contracts/wire.generated.ts';
+import { packFspk, type FspkPosition, type FspkTerm } from './fspk-fixture.ts';
 
 interface ExpectedConcept {
   kind: string;
@@ -91,18 +91,11 @@ interface SyntheticDoc {
 }
 
 const utf8 = new TextEncoder();
-const align8 = (n: number) => (n + 7) & ~7;
 const quantizeTf = (v: number) => v <= 10 ? v : v <= 12 ? 11 : v <= 15 ? 12 : v <= 20 ? 13 : v <= 30 ? 14 : v <= 50 ? 15 : v <= 100 ? 16 : 17;
-
-function writeVarint(out: number[], value: number) {
-  for (; value >= 128; value >>>= 7) out.push((value & 127) | 128);
-  out.push(value);
-}
 
 function buildFspkPage(docsInput: readonly SyntheticDoc[]): Uint8Array {
   const docs = [...docsInput].sort((a, b) => a.id - b.id);
-  type Pos = { offset: number; field: number; width: number };
-  type Freq = { title: number; meta: number; body: number; positions: Pos[] };
+  type Freq = { title: number; meta: number; body: number; positions: FspkPosition[] };
   const docEntries = docs.map(doc => {
     const terms = new Map<number, Freq>();
     let length = 0;
@@ -139,40 +132,24 @@ function buildFspkPage(docsInput: readonly SyntheticDoc[]): Uint8Array {
   }
   const sortedHashes = [...inverted.keys()].sort((a, b) => a - b);
 
-  const postingBytes: number[] = [];
-  const termMeta: { hash: number; idf: number; offset: number; length: number; hasPositions: boolean }[] = [];
+  const terms: FspkTerm[] = [];
   for (const hash of sortedHashes) {
     const postings = inverted.get(hash)!;
-    const start = postingBytes.length;
-    writeVarint(postingBytes, postings.length);
-    let prevId = 0;
-    let hasPositions = false;
-    for (const p of postings) {
-      writeVarint(postingBytes, p.id - prevId);
-      prevId = p.id;
-      postingBytes.push(quantizeTf(p.tf.title), quantizeTf(p.tf.meta), quantizeTf(p.tf.body));
-      if (p.tf.positions.length === 0) {
-        writeVarint(postingBytes, 0);
-      } else {
-        hasPositions = true;
-        p.tf.positions.sort((a, b) => a.offset - b.offset || a.field - b.field || a.width - b.width);
-        const dedup: Pos[] = [];
-        for (const pos of p.tf.positions) {
-          const last = dedup[dedup.length - 1];
-          if (!last || last.offset !== pos.offset || last.field !== pos.field || last.width !== pos.width) dedup.push(pos);
-        }
-        writeVarint(postingBytes, dedup.length);
-        let prevPos = 0;
-        for (const pos of dedup) {
-          writeVarint(postingBytes, pos.offset - prevPos);
-          writeVarint(postingBytes, pos.width);
-          writeVarint(postingBytes, pos.field);
-          prevPos = pos.offset;
-        }
-      }
-    }
     const idf = Math.fround(Math.log(1 + (docEntries.length - postings.length + 0.5) / (postings.length + 0.5)));
-    termMeta.push({ hash, idf, offset: start, length: postingBytes.length - start, hasPositions });
+    terms.push({
+      hash,
+      idf,
+      postings: postings.map(({ id, tf }) => ({
+        id,
+        frequencies: [quantizeTf(tf.title), quantizeTf(tf.meta), quantizeTf(tf.body)],
+        positions: tf.positions
+          .sort((a, b) => a.offset - b.offset || a.field - b.field || a.width - b.width)
+          .filter((pos, index, sorted) => {
+            const previous = sorted[index - 1];
+            return !previous || previous.offset !== pos.offset || previous.field !== pos.field || previous.width !== pos.width;
+          }),
+      })),
+    });
   }
 
   const stringChunks: Uint8Array[] = [];
@@ -184,68 +161,16 @@ function buildFspkPage(docsInput: readonly SyntheticDoc[]): Uint8Array {
     stringTotal += encoded.length;
     return { offset, length: encoded.length };
   };
-  const docSlices = docEntries.map(d => ({ title: appendStr(d.doc.title), summary: appendStr(d.doc.summary) }));
-
-  const termAt = L.SearchShardHeaderSize;
-  const docAt = align8(termAt + termMeta.length * L.SearchTermRecordSize);
-  const catAt = align8(docAt + docEntries.length * L.SearchDocumentRecordSize);
-  const tagAt = catAt;
-  const tagRefAt = tagAt;
-  const stringAt = tagRefAt;
-  const postingAt = align8(stringAt + stringTotal);
-  const shardSize = postingAt + postingBytes.length;
-
-  const buf = new Uint8Array(L.SearchPackagePayloadOffset + shardSize);
-  const v = new DataView(buf.buffer);
-  v.setUint32(0, L.SearchPackageMagic, true);
-  v.setUint32(4, L.SearchArtifactVersion, true);
-  v.setUint32(8, 1, true);
-  v.setUint32(L.SearchPackageEntryOffset + 8, L.SearchPackagePayloadOffset, true);
-  v.setUint32(L.SearchPackageEntryOffset + 12, shardSize, true);
-
-  const s = new DataView(buf.buffer, L.SearchPackagePayloadOffset);
-  const header = [
-    L.SearchShardMagic, L.SearchArtifactVersion, 0, 1, termMeta.length, docEntries.length, 0, 0, 0,
-    termAt, docAt, catAt, tagAt, tagRefAt, stringAt, postingAt, postingBytes.length,
-  ];
-  header.forEach((val, idx) => s.setUint32(idx * 4, val, true));
-  const meanLen = docEntries.reduce((sum, d) => sum + d.length, 0) / Math.max(1, docEntries.length);
-  s.setFloat32(68, meanLen, true);
-
-  termMeta.forEach((t, i) => {
-    const at = termAt + i * L.SearchTermRecordSize;
-    s.setUint32(at, t.hash, true);
-    s.setFloat32(at + 4, t.idf, true);
-    s.setUint32(at + 8, t.offset, true);
-    s.setUint32(at + 12, t.length, true);
-    s.setUint32(at + 16, t.hasPositions ? 1 : 0, true);
-  });
-
-  docEntries.forEach((d, i) => {
-    const at = docAt + i * L.SearchDocumentRecordSize;
-    s.setUint32(at, d.doc.id, true);
-    s.setUint16(at + 4, 65535, true);
-    s.setUint16(at + 6, 0, true);
-    s.setUint32(at + 8, 0, true);
-    s.setUint32(at + 20, d.length, true);
-    s.setBigInt64(at + 24, BigInt(d.doc.publishedAt), true);
-    s.setUint32(at + 32, docSlices[i].title.offset, true);
-    s.setUint16(at + 36, docSlices[i].title.length, true);
-    s.setUint32(at + 40, docSlices[i].summary.offset, true);
-    s.setUint16(at + 44, docSlices[i].summary.length, true);
-    s.setBigInt64(at + 52, 1n, true);
-    s.setUint32(at + 60, 1, true);
-    s.setBigInt64(at + 64, BigInt(1000 + d.doc.id), true);
-    s.setUint32(at + 72, 1, true);
-  });
-
-  let strPos = L.SearchPackagePayloadOffset + stringAt;
-  for (const chunk of stringChunks) {
-    buf.set(chunk, strPos);
-    strPos += chunk.length;
-  }
-  buf.set(postingBytes, L.SearchPackagePayloadOffset + postingAt);
-  return buf;
+  const documents = docEntries.map(({ doc, length }) => ({
+    id: doc.id,
+    length,
+    time: doc.publishedAt,
+    publication: BigInt(1000 + doc.id),
+    title: appendStr(doc.title),
+    summary: appendStr(doc.summary),
+  }));
+  const meanLength = docEntries.reduce((sum, entry) => sum + entry.length, 0) / Math.max(1, docEntries.length);
+  return packFspk(documents, terms, stringChunks, meanLength);
 }
 
 test('adversarial repartitioning and merging never change global local-FSPK ordering for relevance or latest', () => {

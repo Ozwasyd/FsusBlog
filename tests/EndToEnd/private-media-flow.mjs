@@ -24,80 +24,76 @@ await isolated.withBrowserEvidence(
   evidence,
   'private-media-browser.json',
   failure => ({ results, failure: failure?.stack }),
-  async () => {
-    for (const [index, entry] of media.mediaViewports.entries()) await verifyViewport(index, entry)
-  },
+  () => isolated.withDesktopAndNarrow(browser, verifyViewport),
 )
 console.log('Private PNG upload, authorized image read and file removal verified in desktop and mobile Chrome.')
 
-async function verifyViewport(index, { name, colorScheme, viewport }) {
-  await isolated.withTempContext(browser, { viewport, colorScheme }, async context => {
-    const diagnostics = []
-    const page = observePageErrors(await context.newPage(), diagnostics, true)
+async function verifyViewport(context, index, { name, viewport }) {
+  const diagnostics = []
+  const page = observePageErrors(await context.newPage(), diagnostics, true)
 
-    await context.addCookies([chineseLocale])
-    const anonymousLibrary = await page.goto(`${url}/admin/assets`)
-    assertStatus(anonymousLibrary, 200)
-    await exactText(page, '请使用作者账号登录').waitFor()
-    assert.match(await page.title(), /资产库/)
-    assert.equal(anonymousLibrary.headers()['x-robots-tag'], 'noindex')
-    assert.equal(await page.getByLabel('选择图片').count(), 0)
+  await context.addCookies([chineseLocale])
+  const anonymousLibrary = await page.goto(`${url}/admin/assets`)
+  assertStatus(anonymousLibrary, 200)
+  await exactText(page, '请使用作者账号登录').waitFor()
+  assert.match(await page.title(), /资产库/)
+  assert.equal(anonymousLibrary.headers()['x-robots-tag'], 'noindex')
+  assert.equal(await page.getByLabel('选择图片').count(), 0)
 
-    await signInFreshAdmin(page, url, media.mediaBootstraps[index])
-    await context.addCookies([chineseLocale])
-    await page.goto(`${url}/admin/assets`)
-    await exactText(page, '还没有图片').waitFor()
-    await isolated.saveShot(page, evidence, `private-media-${name}-empty.png`, {})
+  await signInFreshAdmin(page, url, media.mediaBootstraps[index])
+  await context.addCookies([chineseLocale])
+  await page.goto(`${url}/admin/assets`)
+  await exactText(page, '还没有图片').waitFor()
+  await isolated.saveShot(page, evidence, `private-media-${name}-empty.png`, {})
 
-    const fileName = `integration-${name}.png`
-    const imageBytes = await media.imageBytes(page, [180, 90], ['#374f6b', '#cddfef'], [25, 20, 80, 50])
-    let continuation
-    if (resumable) continuation = await verifyContinuation(page, chunkedFile(fileName, imageBytes), name)
-    else {
-      await page.getByLabel('选择图片').setInputFiles({ name: fileName, mimeType: 'image/png', buffer: imageBytes })
-      const upload = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v2/media/upload.aeds')
-      await page.getByRole('button', { name: '上传图片' }).click()
-      assertStatus(await upload, 200)
-      assert.equal(await page.getByText(/当前标签页重新选择/).count(), 0)
-    }
-    await page.getByRole('status').getByText('图片已保存。').waitFor()
-    const show = page.getByRole('button', { name: `查看 ${fileName}` })
-    await show.focus()
-    await page.keyboard.press('Enter')
-    const preview = page.getByRole('img', { name: fileName })
-    await preview.waitFor()
-    await page.waitForFunction(target => [...document.images].find(image => image.alt === target)?.naturalWidth === 180, fileName)
-    assert.equal(await page.getByRole('heading', { name: fileName }).evaluate(node => node === document.activeElement), true)
-    await isolated.assertNoOverflow(page)
-    const imageHref = await preview.getAttribute('src')
-    const forbidden = await fetch(new URL(imageHref, url))
-    assert.equal(forbidden.status, 404)
-    assert.equal((await forbidden.arrayBuffer()).byteLength, 0)
-    assert.equal((await readdir(storage)).length, 1)
-    await isolated.saveShot(page, evidence, `private-media-${name}-view.png`, {})
+  const fileName = `integration-${name}.png`
+  const imageBytes = await media.imageBytes(page, [180, 90], ['#374f6b', '#cddfef'], [25, 20, 80, 50])
+  let continuation
+  if (resumable) continuation = await verifyContinuation(page, chunkedFile(fileName, imageBytes), name)
+  else {
+    await page.getByLabel('选择图片').setInputFiles({ name: fileName, mimeType: 'image/png', buffer: imageBytes })
+    const upload = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v2/media/upload.aeds')
+    await page.getByRole('button', { name: '上传图片' }).click()
+    assertStatus(await upload, 200)
+    assert.equal(await page.getByText(/当前标签页重新选择/).count(), 0)
+  }
+  await page.getByRole('status').getByText('图片已保存。').waitFor()
+  const show = page.getByRole('button', { name: `查看 ${fileName}` })
+  await show.focus()
+  await page.keyboard.press('Enter')
+  const preview = page.getByRole('img', { name: fileName })
+  await preview.waitFor()
+  await page.waitForFunction(target => [...document.images].find(image => image.alt === target)?.naturalWidth === 180, fileName)
+  assert.equal(await page.getByRole('heading', { name: fileName }).evaluate(node => node === document.activeElement), true)
+  await isolated.assertNoOverflow(page)
+  const imageHref = await preview.getAttribute('src')
+  const forbidden = await fetch(new URL(imageHref, url))
+  assert.equal(forbidden.status, 404)
+  assert.equal((await forbidden.arrayBuffer()).byteLength, 0)
+  assert.equal((await readdir(storage)).length, 1)
+  await isolated.saveShot(page, evidence, `private-media-${name}-view.png`, {})
 
-    await page.getByRole('button', { name: '关闭预览' }).click()
-    assert.equal(await show.evaluate(node => node === document.activeElement), true)
-    const remove = page.getByRole('button', { name: `删除 ${fileName}` })
-    await remove.click()
-    await exactButton(page, '取消').click()
-    await show.waitFor()
-    await remove.click()
-    const deletion = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/remove.aeds'))
-    await exactButton(page, '删除图片').click()
-    assertStatus(await deletion, 200)
-    await page.getByRole('status').getByText('图片已删除。').waitFor()
-    await show.waitFor({ state: 'hidden' })
-    assertStatus(await context.request.get(new URL(imageHref, url).href), 404)
-    assert.deepEqual(await readdir(storage), [])
-    if (resumable && name === 'desktop') {
-      await verifyAccountSwitch(page, chunkedFile('account-switch.png', imageBytes), context)
-      continuation.accountSwitchIsolated = true
-    }
-    assert.deepEqual(diagnostics, [])
-    results.push({ name, viewport, title: await page.title(), upload: true, privateRead: true,
-      keyboardFocus: true, remove: true, assetFileRemoved: true, continuation, diagnostics })
-  })
+  await page.getByRole('button', { name: '关闭预览' }).click()
+  assert.equal(await show.evaluate(node => node === document.activeElement), true)
+  const remove = page.getByRole('button', { name: `删除 ${fileName}` })
+  await remove.click()
+  await exactButton(page, '取消').click()
+  await show.waitFor()
+  await remove.click()
+  const deletion = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/remove.aeds'))
+  await exactButton(page, '删除图片').click()
+  assertStatus(await deletion, 200)
+  await page.getByRole('status').getByText('图片已删除。').waitFor()
+  await show.waitFor({ state: 'hidden' })
+  assertStatus(await context.request.get(new URL(imageHref, url).href), 404)
+  assert.deepEqual(await readdir(storage), [])
+  if (resumable && name === 'desktop') {
+    await verifyAccountSwitch(page, chunkedFile('account-switch.png', imageBytes), context)
+    continuation.accountSwitchIsolated = true
+  }
+  assert.deepEqual(diagnostics, [])
+  results.push({ name, viewport, title: await page.title(), upload: true, privateRead: true,
+    keyboardFocus: true, remove: true, assetFileRemoved: true, continuation, diagnostics })
 }
 
 function beginMutation(requests) { return requests.find(([path]) => path.endsWith('/begin.aeds'))[1] }

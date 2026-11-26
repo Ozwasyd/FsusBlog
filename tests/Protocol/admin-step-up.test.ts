@@ -1,8 +1,8 @@
 import { deepEqual, equal, match, rejects, throws } from 'node:assert/strict';
 import { test } from 'node:test';
-import { captureFetch, encodedResponse, frameResponse, podFrame, rejectInputs } from './fixture-source.ts';
+import { apiErrorResponse, captureFetch, encodedResponse, frameResponse, podFrame, rejectInputs } from './fixture-source.ts';
 import {
-  adminSessionFixture, altPermissionSession, apiErrorResponse, emptySuccessFrame, installPasskeyEnvironment,
+  adminSessionFixture, altPermissionSession, emptySuccessFrame, installPasskeyEnvironment,
   installPowWorker, loginBeginFrame, mfaChallengeResultFrame, permissionHeader, powChallengeFrame,
   validPermissionSession, validProof,
 } from './step-up-fixture.ts';
