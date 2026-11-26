@@ -180,14 +180,10 @@ public static partial class Wire
 
     private static TCmd DecodeBodyOpsCommand<TOp, TCmd>(FrameType type, ReadOnlySpan<byte> frame, int maxBytes,
         Func<ProtocolException> invalid, ReadRecord<TOp> readOp,
-        Func<int, long, Guid, string, string, TOp[], TCmd> build, Action<TCmd> validate)
-    {
-        var value = DecodeFrame(type, frame, maxBytes, invalid, (ref Reader reader) => build(reader.I32(), reader.I64(),
+        Func<int, long, Guid, string, string, TOp[], TCmd> build, Action<TCmd> validate) =>
+        DecodeRecord(type, frame, maxBytes, invalid, (ref Reader reader) => build(reader.I32(), reader.I64(),
             reader.Uuid(), reader.Text(TitleBytes), reader.Text(BodyBytes),
-            reader.Items(0, ArticleBodyInsertionOperations, invalid, readOp)));
-        validate(value);
-        return value;
-    }
+            reader.Items(0, ArticleBodyInsertionOperations, invalid, readOp)), validate);
 
     private static byte[] EncodeBodyOpsChain<TEdge>(FrameType type, int id, long revision, long sourceRevision,
         bool available, string sourceBody, string body, IReadOnlyList<TEdge> edges, Action<Writer, TEdge> writeEdge) =>
@@ -196,14 +192,10 @@ public static partial class Wire
 
     private static TChain DecodeBodyOpsChain<TEdge, TChain>(FrameType type, ReadOnlySpan<byte> frame, int maxBytes,
         Func<ProtocolException> invalid, ReadRecord<TEdge> readEdge,
-        Func<int, long, long, bool, string, string, TEdge[], TChain> build, Action<TChain> validate)
-    {
-        var value = DecodeFrame(type, frame, maxBytes, invalid, (ref Reader reader) => build(reader.I32(), reader.I64(),
+        Func<int, long, long, bool, string, string, TEdge[], TChain> build, Action<TChain> validate) =>
+        DecodeRecord(type, frame, maxBytes, invalid, (ref Reader reader) => build(reader.I32(), reader.I64(),
             reader.I64(), reader.Bool(), reader.Text(BodyBytes), reader.Text(BodyBytes),
-            reader.Items(0, ArticleBodyInsertionChainEdges, invalid, readEdge)));
-        validate(value);
-        return value;
-    }
+            reader.Items(0, ArticleBodyInsertionChainEdges, invalid, readEdge)), validate);
 
     private static void WriteBodyEdit(Writer writer, BodyEdit edit) =>
         writer.I32(edit.Offset).I32(edit.RemovedLength).Text(edit.Insert, BodyBytes);

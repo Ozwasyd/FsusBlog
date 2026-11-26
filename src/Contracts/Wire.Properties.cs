@@ -197,27 +197,21 @@ public static partial class Wire
             return new PropertySchemaInput(command, kind, options);
         });
 
-    public static byte[] EncodePropertyValueInput(PropertyValueInput input)
-    {
-        ValidateValueInput(input);
-        return EncodeFrame(FrameType.PropertyValueCommand, writer =>
-            WriteValue(writer.I32(input.ArticleId).I64(input.ArticleRevision).I64(input.SchemaRevision).I64(input.ValueRevision)
-                .Uuid(input.DefinitionId).I64(input.DefinitionRevision).Uuid(input.RequestId), input.Value));
-    }
+    public static byte[] EncodePropertyValueInput(PropertyValueInput input) =>
+        EncodeRecord(FrameType.PropertyValueCommand, input, ValidateValueInput, static (writer, value) =>
+            WriteValue(writer.I32(value.ArticleId).I64(value.ArticleRevision).I64(value.SchemaRevision).I64(value.ValueRevision)
+                .Uuid(value.DefinitionId).I64(value.DefinitionRevision).Uuid(value.RequestId), value.Value));
 
     public static PropertyValueInput DecodePropertyValueInput(ReadOnlySpan<byte> frame) =>
         DecodeRecord<PropertyValueInput>(FrameType.PropertyValueCommand, frame, static (ref Reader reader) =>
             new(reader.I32(), reader.I64(), reader.I64(), reader.I64(),
                 reader.Uuid(), reader.I64(), reader.Uuid(), ReadValue(ref reader)), ValidateValueInput);
 
-    public static byte[] EncodePropertyValueBatch(PropertyValueBatchInput input)
-    {
-        ValidateBatch(input);
-        return EncodeFrame(FrameType.PropertyValueBatchCommand, writer =>
-            writer.I32(input.ArticleId).I64(input.ArticleRevision).I64(input.SchemaRevision).I64(input.ValueRevision)
-                .Uuid(input.RequestId).Items(input.Changes, static (w, change) =>
+    public static byte[] EncodePropertyValueBatch(PropertyValueBatchInput input) =>
+        EncodeRecord(FrameType.PropertyValueBatchCommand, input, ValidateBatch, static (writer, value) =>
+            writer.I32(value.ArticleId).I64(value.ArticleRevision).I64(value.SchemaRevision).I64(value.ValueRevision)
+                .Uuid(value.RequestId).Items(value.Changes, static (w, change) =>
                     WriteValue(w.Uuid(change.DefinitionId).I64(change.DefinitionRevision), change.Value)));
-    }
 
     public static PropertyValueBatchInput DecodePropertyValueBatch(ReadOnlySpan<byte> frame) =>
         DecodeRecord<PropertyValueBatchInput>(FrameType.PropertyValueBatchCommand, frame, PropertyBatchMaxCommandBytes, InvalidProperty,
@@ -240,19 +234,16 @@ public static partial class Wire
         Check(receipt.ArticleId > 0 && receipt.SchemaRevision > 0 && receipt.ValueRevision > 0 && receipt.RequestId != Guid.Empty,
             InvalidProperty);
 
-    public static byte[] EncodePropertyEditor(PropertyEditorWorkspace input)
-    {
-        ValidateEditor(input);
-        return EncodeFrame(FrameType.PropertyEditor, writer =>
-            WritePropertyWorkspaceHeader(writer, input.ArticleId, input.ArticleRevision, input.SchemaRevision,
-                input.ValueRevision, input.NextKey).Items(input.Fields, static (w, field) =>
+    public static byte[] EncodePropertyEditor(PropertyEditorWorkspace input) =>
+        EncodeRecord(FrameType.PropertyEditor, input, ValidateEditor, static (writer, value) =>
+            WritePropertyWorkspaceHeader(writer, value.ArticleId, value.ArticleRevision, value.SchemaRevision,
+                value.ValueRevision, value.NextKey).Items(value.Fields, static (w, field) =>
             {
                 WritePropertyFieldPrefix(w, field.DefinitionId, field.DefinitionRevision, field.MachineKey, field.Label, field.Deprecated)
                     .I32((int)field.Kind);
                 WriteOptions(w, field.Options);
                 WriteValue(w, field.Value);
             }));
-    }
 
     public static PropertyEditorWorkspace DecodePropertyEditor(ReadOnlySpan<byte> frame) =>
         DecodeRecord<PropertyEditorWorkspace>(FrameType.PropertyEditor, frame, static (ref Reader reader) =>
