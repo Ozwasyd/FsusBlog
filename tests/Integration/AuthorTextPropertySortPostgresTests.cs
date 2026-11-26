@@ -15,6 +15,8 @@ public sealed class AuthorTextPropertySortPostgresTests
         var outsider = await SignIn(fixture, "Sort outsider", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var author = new AuthorPropertyFixture(fixture, server.Client, ct);
+        var (read, reject) = author.BindSearch<AuthorTextPropertySortQuery, AuthorTextPropertySortPage>(
+            Wire.EncodeAuthorTextPropertySortQuery, static (query, wire) => Wire.DecodeAuthorTextPropertySortPage(wire, query.IncludeHeading, expectFacet: query.Facet is not null));
 
         var number = await author.Define(owner, "ranking", PropertyFieldKind.Number, sortable: true);
         var flag = await author.Define(owner, "flag", PropertyFieldKind.Boolean, filterable: true, sortable: true);
@@ -59,10 +61,10 @@ public sealed class AuthorTextPropertySortPostgresTests
         var first = await VerifyPages(ascending, owner, ascendingRows);
         await VerifyPages(descending, owner, descendingRows);
         var continuation = Continue(ascending, first.Search.NextCursor);
-        await Reject(continuation with { Direction = descending.Direction }, owner, HttpStatusCode.Conflict);
-        await Reject(continuation with { DefinitionId = flag.Id, DefinitionRevision = flag.Revision }, owner, HttpStatusCode.Conflict);
-        await Reject(continuation with { Facet = new(flag.Id, flag.Revision) }, owner, HttpStatusCode.Conflict);
-        await Reject(continuation, outsider, HttpStatusCode.Conflict);
+        await reject(continuation with { Direction = descending.Direction }, owner, HttpStatusCode.Conflict);
+        await reject(continuation with { DefinitionId = flag.Id, DefinitionRevision = flag.Revision }, owner, HttpStatusCode.Conflict);
+        await reject(continuation with { Facet = new(flag.Id, flag.Revision) }, owner, HttpStatusCode.Conflict);
+        await reject(continuation, outsider, HttpStatusCode.Conflict);
 
         var flagSort = Query(owner, flag, AuthorTextPropertySortDirection.Ascending);
         await VerifyPages(flagSort, owner, Expect(members, member => member.Flag, flagSort.Direction));
@@ -79,11 +81,11 @@ public sealed class AuthorTextPropertySortPostgresTests
         var foreignPage = await Ready(Query(outsider, outsiderNumber, descending.Direction), outsider);
         Assert.Equal(1, foreignPage.Search.Total);
         Assert.Equal(foreign.Id, Assert.Single(foreignPage.Search.Rows).Id);
-        await Reject(Query(outsider, flag, ascending.Direction), outsider, HttpStatusCode.NotFound);
-        await Reject(Query(owner, disabled, ascending.Direction), owner, HttpStatusCode.NotFound);
-        await Reject(Query(owner, retired, ascending.Direction), owner, HttpStatusCode.NotFound);
-        await Reject(ascending with { DefinitionRevision = number.Revision - 1 }, owner, HttpStatusCode.Conflict);
-        await Reject(ascending with { Search = ascending.Search with { SchemaRevision = owner.SchemaRevision - 1 } }, owner, HttpStatusCode.Conflict);
+        await reject(Query(outsider, flag, ascending.Direction), outsider, HttpStatusCode.NotFound);
+        await reject(Query(owner, disabled, ascending.Direction), owner, HttpStatusCode.NotFound);
+        await reject(Query(owner, retired, ascending.Direction), owner, HttpStatusCode.NotFound);
+        await reject(ascending with { DefinitionRevision = number.Revision - 1 }, owner, HttpStatusCode.Conflict);
+        await reject(ascending with { Search = ascending.Search with { SchemaRevision = owner.SchemaRevision - 1 } }, owner, HttpStatusCode.Conflict);
 
         // Moving a previously missing off-page value leaves the article source revision and rank clock intact.
         var moved = ascendingRows[^1];
@@ -92,14 +94,14 @@ public sealed class AuthorTextPropertySortPostgresTests
         var replacement = new PropertyFieldValue.Number(-100);
         await author.Put(owner, moved.Article, number, replacement);
         Assert.Equal(before, await author.ArticleStamp(moved.Article.Id));
-        await Reject(continuation, owner, HttpStatusCode.Conflict);
+        await reject(continuation, owner, HttpStatusCode.Conflict);
         members[Array.IndexOf(members, moved)] = moved with { Number = replacement };
         var after = await VerifyPages(ascending, owner, Expect(members, member => member.Number, ascending.Direction));
         Assert.Equal(moved.Article.Id, after.Search.Rows[0].Id);
 
         number = await author.SetProjection(owner, number, searchable: true, sortable: false);
-        await Reject(Continue(ascending, after.Search.NextCursor), owner, HttpStatusCode.Conflict);
-        await Reject(Query(owner, number, ascending.Direction), owner, HttpStatusCode.NotFound);
+        await reject(Continue(ascending, after.Search.NextCursor), owner, HttpStatusCode.Conflict);
+        await reject(Query(owner, number, ascending.Direction), owner, HttpStatusCode.NotFound);
 
         AuthorTextPropertySortQuery Query(Actor actor, Field field, AuthorTextPropertySortDirection direction) =>
             new(new(Keyword, "", null, null, actor.SchemaRevision, []), false, field.Id, field.Revision, direction, null);
@@ -118,7 +120,7 @@ public sealed class AuthorTextPropertySortPostgresTests
                 return page;
             }
             Assert.NotEmpty(page.Search.NextCursor);
-            var next = await Read(Continue(query, page.Search.NextCursor), actor);
+            var next = await read(Continue(query, page.Search.NextCursor), actor);
             Assert.True(next.Search.Ready);
             Assert.Equal(page.Search.Total, next.Search.Total);
             Assert.Equal(page.Search.StateCounts, next.Search.StateCounts);
@@ -129,15 +131,8 @@ public sealed class AuthorTextPropertySortPostgresTests
         }
 
         Task<AuthorTextPropertySortPage> Ready(AuthorTextPropertySortQuery query, Actor actor) =>
-            ReadyWithFacet(() => Read(query, actor), page => (page.Search, page.Facet));
+            ReadyWithFacet(() => read(query, actor), page => (page.Search, page.Facet));
 
-        async Task<AuthorTextPropertySortPage> Read(AuthorTextPropertySortQuery query, Actor actor) =>
-            Wire.DecodeAuthorTextPropertySortPage(
-                await author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertySortQuery(query), actor),
-                includeHeading: query.IncludeHeading, expectFacet: query.Facet is not null);
-
-        Task<byte[]> Reject(AuthorTextPropertySortQuery query, Actor actor, HttpStatusCode status) =>
-            author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertySortQuery(query), actor, status);
     }
 
     private static AuthorTextPropertySortQuery Continue(AuthorTextPropertySortQuery query, string cursor) =>

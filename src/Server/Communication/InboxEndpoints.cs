@@ -34,9 +34,7 @@ internal static class InboxEndpoints
                     ? await inbox.DeltaAsync(id, last, 50, ct)
                     : await inbox.GetAsync(id, before, 50, ct);
                 if (detail is null) throw new BusinessException(Rejection.NotFound, "Conversation not found.");
-                return new Response(InboxWire.EncodeDetail(new(detail.Id, detail.Subject, (int)detail.Status, Count(detail.UnreadCount),
-                    detail.LastMessageAt, detail.ReadSnapshot, detail.IsSystem, detail.Status != ConversationStatus.Closed,
-                    detail.Messages.Select(m => Project(m, false)).ToArray(), detail.Previous)));
+                return new Response(EncodeDetail(detail, Count(detail.UnreadCount), detail.IsSystem));
             }, ct));
 
         app.MapCommandPost(WireRoutes.InboxRead, (long id, HttpContext ctx, Store store, CancellationToken ct) =>
@@ -76,7 +74,7 @@ internal static class InboxEndpoints
         var token = ctx.Request.Cookies[cookie];
         var (response, expiresAt) = await store.WithSession(token, false, async (connection, transaction, actor) =>
         {
-            RequireCurrentIfSent(ctx, actor.Id, token!);
+            SiteSessions.IfCurrent(actor.Id, token, SiteSessions.Requested(ctx));
             var frame = await operation(new InboxStore(connection, transaction, actor.Id));
             return (frame, actor.ExpiresAt);
         }, cancellationToken);
@@ -84,12 +82,6 @@ internal static class InboxEndpoints
         if (response.Cursor is long next)
             ctx.Response.Headers[WireHeaders.InboxReplayCursor] = InboxReplayCursor.Encode(token!, next);
         return ServerHttp.Frame(response.Frame);
-    }
-
-    internal static void RequireCurrentIfSent(HttpContext ctx, Guid actorId, string token)
-    {
-        if (ctx.Request.Headers.TryGetValue(WireHeaders.CurrentSession, out var expected))
-            SiteSessions.RequireCurrent(actorId, Store.TokenDigest(token)!, expected.Count == 1 ? expected[0] : null);
     }
 
     private static long? QueryInt(HttpContext ctx, string field)
@@ -101,6 +93,11 @@ internal static class InboxEndpoints
 
     internal static InboxMessageRecord Project(InboxMessage message, bool replayed) =>
         new(message.Id, message.ConversationId, (int)message.Sender, message.SentAt, message.Body, Name(message.Sender), replayed);
+
+    internal static byte[] EncodeDetail(InboxDetail detail, int unread, bool system, bool createResponse = false, bool replayed = false) =>
+        InboxWire.EncodeDetail(new(detail.Id, detail.Subject, (int)detail.Status, unread, detail.LastMessageAt,
+            detail.ReadSnapshot, system, detail.Status != ConversationStatus.Closed, detail.Messages.Select(message => Project(message, false)).ToArray(),
+            createResponse ? null : detail.Previous, replayed), createResponse);
 
     internal static string Name(InboxSender sender) => sender switch
     {
@@ -157,7 +154,7 @@ internal static class InboxWriteEndpoints
 
                 return await store.WithSession(session, false, async (db, tx, actor) =>
                 {
-                    InboxEndpoints.RequireCurrentIfSent(ctx, actor.Id, session!);
+                    SiteSessions.IfCurrent(actor.Id, session, SiteSessions.Requested(ctx));
                     var input = Read(bytes, conversation);
                     var inbox = new InboxStore(db, tx, actor.Id, fenceVisibleMessages);
                     if (issue)
@@ -175,10 +172,8 @@ internal static class InboxWriteEndpoints
                     var created = await inbox.CreateAsync(key, input.Subject, input.Body, ct);
                     var detail = await inbox.GetAsync(created.Message.ConversationId, null, 50, ct) ??
                         throw new InvalidOperationException("Created conversation could not be materialized.");
-                    return InboxWire.EncodeDetail(new(detail.Id, detail.Subject, (int)detail.Status,
-                        InboxEndpoints.Count(detail.UnreadCount), detail.LastMessageAt, detail.ReadSnapshot, detail.IsSystem,
-                        detail.Status != ConversationStatus.Closed, detail.Messages.Select(m => InboxEndpoints.Project(m, false)).ToArray(),
-                        Replayed: created.Replayed), createResponse: true);
+                    return InboxEndpoints.EncodeDetail(detail, InboxEndpoints.Count(detail.UnreadCount), detail.IsSystem,
+                        createResponse: true, replayed: created.Replayed);
                 }, ct);
             }, scope);
         }

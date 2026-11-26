@@ -49,6 +49,15 @@ internal sealed class AuthorPropertyFixture(ScratchDatabase database, HttpClient
     internal Task<byte[]> Send(string route, byte[] data, Actor actor, HttpStatusCode status = HttpStatusCode.OK) =>
         SiteAedsFixture.ExpectPrivate(client, HttpMethod.Post, route, data, actor.Token, actor.Handle, status, ct);
 
+    internal (Func<TQuery, Actor, Task<TPage>> Read, Func<TQuery, Actor, HttpStatusCode, Task<byte[]>> Reject)
+        BindSearch<TQuery, TPage>(Func<TQuery, byte[]> encode, Func<TQuery, byte[], TPage> decode)
+    {
+        return (async (query, actor) => decode(query, await Submit(query, actor, HttpStatusCode.OK)), Submit);
+
+        Task<byte[]> Submit(TQuery query, Actor actor, HttpStatusCode status) =>
+            Send(WireRoutes.AuthorTextSearch, encode(query), actor, status);
+    }
+
     internal Task<Field> Create(Actor actor, string key, PropertyFieldKind kind, Guid? id = null, PropertyFieldOption[]? options = null) =>
         ChangeDefinition(actor, 1, id ?? Guid.NewGuid(), 0, key, key, kind, options);
 

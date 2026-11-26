@@ -14,6 +14,8 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         var outsider = await SignIn(fixture, "Facet outsider", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var author = new AuthorPropertyFixture(fixture, server.Client, ct);
+        var (read, reject) = author.BindSearch<AuthorTextPropertyFacetQuery, AuthorTextPropertyFacetPage>(
+            Wire.EncodeAuthorTextPropertyFacetQuery, static (query, wire) => Wire.DecodeAuthorTextPropertyFacetPage(wire, query.IncludeHeading));
 
         var red = Guid.Parse("00000000-0000-4000-8000-000000000001");
         var blue = Guid.Parse("00000000-0000-4000-8000-000000000002");
@@ -89,7 +91,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         RequireBoolFacet(first.Facet, flag, 4, 3, 7, 10);
 
         var continuation = request with { Search = request.Search with { Cursor = first.Search.NextCursor } };
-        var tail = await Read(continuation, owner);
+        var tail = await read(continuation, owner);
         Assert.True(tail.Search.Ready);
         Assert.Equal(matches, tail.Search.Total);
         Assert.Empty(tail.Search.NextCursor);
@@ -122,15 +124,15 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         var outsiderPage = await Ready(Query(outsider, outsiderFlag), outsider);
         Assert.Equal(foreign.Id, Assert.Single(outsiderPage.Search.Rows).Id);
         RequireBoolFacet(outsiderPage.Facet, outsiderFlag, 0, 0, 1, 0);
-        await Reject(Query(outsider, multi), outsider, HttpStatusCode.NotFound);
-        await Reject(Query(owner, new(Guid.NewGuid(), 1)), owner, HttpStatusCode.NotFound);
-        await Reject(Query(owner, disabled), owner, HttpStatusCode.NotFound);
-        await Reject(Query(owner, deprecated with { Revision = deprecated.Revision + 1 }), owner, HttpStatusCode.NotFound);
-        await Reject(Query(owner, unsupported), owner, HttpStatusCode.BadRequest);
-        await Reject(request with { Search = request.Search with { SchemaRevision = owner.SchemaRevision - 1 } }, owner, HttpStatusCode.Conflict);
-        await Reject(request with { DefinitionRevision = flag.Revision - 1 }, owner, HttpStatusCode.Conflict);
-        await Reject(continuation with { DefinitionId = multi.Id, DefinitionRevision = multi.Revision }, owner, HttpStatusCode.Conflict);
-        await Reject(continuation, owner with { Handle = null }, HttpStatusCode.Conflict);
+        await reject(Query(outsider, multi), outsider, HttpStatusCode.NotFound);
+        await reject(Query(owner, new(Guid.NewGuid(), 1)), owner, HttpStatusCode.NotFound);
+        await reject(Query(owner, disabled), owner, HttpStatusCode.NotFound);
+        await reject(Query(owner, deprecated with { Revision = deprecated.Revision + 1 }), owner, HttpStatusCode.NotFound);
+        await reject(Query(owner, unsupported), owner, HttpStatusCode.BadRequest);
+        await reject(request with { Search = request.Search with { SchemaRevision = owner.SchemaRevision - 1 } }, owner, HttpStatusCode.Conflict);
+        await reject(request with { DefinitionRevision = flag.Revision - 1 }, owner, HttpStatusCode.Conflict);
+        await reject(continuation with { DefinitionId = multi.Id, DefinitionRevision = multi.Revision }, owner, HttpStatusCode.Conflict);
+        await reject(continuation, owner with { Handle = null }, HttpStatusCode.Conflict);
 
         // A property edit on a later page changes only the value revision.
         var offPage = Array.FindIndex(articles, article => article.Id == tail.Search.Rows[^1].Id);
@@ -140,7 +142,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
         await author.Put(owner, articles[offPage], flag, replacement);
         Assert.Equal(before, await author.ArticleStamp(articles[offPage].Id));
         values[offPage] = replacement;
-        await Reject(continuation, owner, HttpStatusCode.Conflict);
+        await reject(continuation, owner, HttpStatusCode.Conflict);
         var updated = await Ready(request, owner);
         Assert.Equal(matches, updated.Search.Total);
         RequireFlags(updated, flag, values);
@@ -150,14 +152,14 @@ public sealed class AuthorTextPropertyFacetPostgresTests
             "Independent title", "Independent body"));
         Assert.Equal(articles[0].Revision + 1, revised.Revision);
         Assert.NotEmpty(updated.Search.NextCursor);
-        await Reject(request with { Search = request.Search with { Cursor = updated.Search.NextCursor } }, owner, HttpStatusCode.Conflict);
+        await reject(request with { Search = request.Search with { Cursor = updated.Search.NextCursor } }, owner, HttpStatusCode.Conflict);
         var current = await Ready(request, owner);
         Assert.Equal(matches - 1, current.Search.Total);
         RequireFlags(current, flag, values.Skip(1));
 
         var renamed = await author.ChangeDefinition(owner, 2, flag.Id, flag.Revision, label: "Renamed flag");
-        await Reject(request, owner, HttpStatusCode.Conflict);
-        await Reject(Query(owner, flag), owner, HttpStatusCode.Conflict);
+        await reject(request, owner, HttpStatusCode.Conflict);
+        await reject(Query(owner, flag), owner, HttpStatusCode.Conflict);
         var atNewSchema = await Ready(Query(owner, renamed), owner);
         Assert.Equal(matches - 1, atNewSchema.Search.Total);
         RequireFlags(atNewSchema, renamed, values.Skip(1));
@@ -166,14 +168,7 @@ public sealed class AuthorTextPropertyFacetPostgresTests
             new(new(Keyword, "", null, null, actor.SchemaRevision, conditions), false, field.Id, field.Revision);
 
         Task<AuthorTextPropertyFacetPage> Ready(AuthorTextPropertyFacetQuery query, Actor actor) =>
-            ReadyWithFacet(() => Read(query, actor), page => (page.Search, page.Facet));
-
-        async Task<AuthorTextPropertyFacetPage> Read(AuthorTextPropertyFacetQuery query, Actor actor) =>
-            Wire.DecodeAuthorTextPropertyFacetPage(
-                await author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyFacetQuery(query), actor), query.IncludeHeading);
-
-        Task<byte[]> Reject(AuthorTextPropertyFacetQuery query, Actor actor, HttpStatusCode expected) =>
-            author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyFacetQuery(query), actor, expected);
+            ReadyWithFacet(() => read(query, actor), page => (page.Search, page.Facet));
 
         async Task Archive(ArticleState draft)
         {

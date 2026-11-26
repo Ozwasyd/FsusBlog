@@ -91,14 +91,12 @@ public static partial class Wire
                     _ => throw CanvasProtocolError()
                 })), ValidateCanvasCommand);
 
-    public static byte[] EncodeCanvasGraphCommand(CanvasGraphCommand command)
-    {
-        ValidateCanvasCommand(command);
-        return EncodeFrame(FrameType.CanvasGraphCommand, w =>
+    public static byte[] EncodeCanvasGraphCommand(CanvasGraphCommand command) =>
+        EncodeRecord(FrameType.CanvasGraphCommand, command, ValidateCanvasCommand, static (w, value) =>
         {
-            w.Uuid(command.Id).Uuid(command.CommandId).I64(command.ExpectedRevision).I32((int)command.Action)
-                .Text(command.Title, TitleBytes).Optional(command.Viewport, WriteViewport)
-                .Items(command.Changes, static (cw, item) =>
+            w.Uuid(value.Id).Uuid(value.CommandId).I64(value.ExpectedRevision).I32((int)value.Action)
+                .Text(value.Title, TitleBytes).Optional(value.Viewport, WriteViewport)
+                .Items(value.Changes, static (cw, item) =>
                 {
                     switch (item)
                     {
@@ -111,7 +109,6 @@ public static partial class Wire
                 });
             if (w.Written.Length + Aeds.HeaderSize > CanvasGraphCommandBytes) throw CanvasProtocolError();
         });
-    }
 
     public static byte[] EncodeCanvasGraphReceipt(CanvasGraphReceipt receipt) =>
         EncodeFrame(FrameType.CanvasGraphReceipt, w => WriteCanvasReceipt(w, receipt));

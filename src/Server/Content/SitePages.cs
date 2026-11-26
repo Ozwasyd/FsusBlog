@@ -11,8 +11,7 @@ internal sealed class SitePages
     private const string Unconfigured = "页面内容正在准备中，请稍后再试。";
     private static readonly string[] ReadMethods = [HttpMethods.Get, HttpMethods.Head];
     private static readonly UTF8Encoding Utf8 = new(false, true);
-    private static readonly (string Slug, string Title)[] Definitions =
-        [("about", "关于"), ("privacy", "隐私政策"), ("guidelines", "用户守则"), ("copyright", "版权声明")];
+    private static readonly string[] Slugs = ["about", "privacy", "guidelines", "copyright"];
 
     private sealed record Page(AdminSitePageRevision Revision, AdminSitePageRevision EditorBaseline, long SiteConfigRevision, byte[] Html, byte[] Frame, bool Configured,
         EntityTagHeaderValue HtmlTag, EntityTagHeaderValue FrameTag, byte[] EnglishHtml, EntityTagHeaderValue EnglishHtmlTag);
@@ -23,7 +22,6 @@ internal sealed class SitePages
     private readonly NpgsqlDataSource source;
     private readonly InstanceLease lease;
     private int liveConfiguredMask;
-    internal IReadOnlyList<string> ConfiguredPaths { get; }
 
     internal int ConfiguredMask { get; }
     internal bool EditorEnabled { get; }
@@ -32,9 +30,9 @@ internal sealed class SitePages
     {
         var mask = Volatile.Read(ref liveConfiguredMask);
         if (mask == 0) return [];
-        var paths = new List<string>(Definitions.Length);
-        for (var index = 0; index < Definitions.Length; index++)
-            if ((mask & (1 << index)) != 0) paths.Add("/" + Definitions[index].Slug);
+        var paths = new List<string>(Slugs.Length);
+        for (var index = 0; index < Slugs.Length; index++)
+            if ((mask & (1 << index)) != 0) paths.Add("/" + Slugs[index]);
         return paths;
     }
 
@@ -47,8 +45,8 @@ internal sealed class SitePages
         while (await rows.ReadAsync(ct))
         {
             var slug = rows.GetString(0);
-            for (var index = 0; index < Definitions.Length; index++)
-                if (string.Equals(Definitions[index].Slug, slug, StringComparison.OrdinalIgnoreCase))
+            for (var index = 0; index < Slugs.Length; index++)
+                if (string.Equals(Slugs[index], slug, StringComparison.OrdinalIgnoreCase))
                     mask |= 1 << index;
         }
         Volatile.Write(ref liveConfiguredMask, mask);
@@ -57,8 +55,8 @@ internal sealed class SitePages
 
     internal void MarkPublished(string slug)
     {
-        for (var index = 0; index < Definitions.Length; index++)
-            if (string.Equals(Definitions[index].Slug, slug, StringComparison.OrdinalIgnoreCase))
+        for (var index = 0; index < Slugs.Length; index++)
+            if (string.Equals(Slugs[index], slug, StringComparison.OrdinalIgnoreCase))
                 Interlocked.Or(ref liveConfiguredMask, 1 << index);
     }
 
@@ -92,33 +90,20 @@ internal sealed class SitePages
         this.source = source;
         this.lease = lease;
         EditorEnabled = editorEnabled;
-        if (string.IsNullOrWhiteSpace(configuredRoot))
-        {
-            current = BuildPages(null, null);
-        }
-        else
-        {
-            var root = CheckRoot(configuredRoot);
-            using var anchored = NativeUnixFile.Supported ? NativeUnixFile.OpenDirectory(root) : null;
-            current = BuildPages(root, anchored);
-        }
-        for (var index = 0; index < Definitions.Length; index++)
-            if (current[Definitions[index].Slug].Configured) ConfiguredMask |= 1 << index;
-        liveConfiguredMask = ConfiguredMask;
-        ConfiguredPaths = Definitions.Where(spec => current[spec.Slug].Configured)
-            .Select(spec => "/" + spec.Slug).ToArray();
-
-        FrozenDictionary<string, Page> BuildPages(string? root, SafeFileHandle? anchored) => Definitions.ToFrozenDictionary(
-            spec => spec.Slug,
-            spec =>
+        var root = string.IsNullOrWhiteSpace(configuredRoot) ? null : CheckRoot(configuredRoot);
+        using (var anchored = root is not null && NativeUnixFile.Supported ? NativeUnixFile.OpenDirectory(root) : null)
+            current = Slugs.ToFrozenDictionary(slug => slug, slug =>
             {
-                var markdown = root is null ? Unconfigured : Read(root, anchored, spec.Slug + ".md");
-                var publicRevision = new AdminSitePageRevision(spec.Slug, 0, SitePagePublicationStore.Digest(markdown), markdown);
+                var markdown = root is null ? Unconfigured : Read(root, anchored, slug + ".md");
+                var publicRevision = new AdminSitePageRevision(slug, 0, SitePagePublicationStore.Digest(markdown), markdown);
                 var editorBaseline = root is null
-                    ? new AdminSitePageRevision(spec.Slug, 0, SitePagePublicationStore.Digest(string.Empty), string.Empty)
+                    ? new AdminSitePageRevision(slug, 0, SitePagePublicationStore.Digest(string.Empty), string.Empty)
                     : publicRevision;
-                return Build(spec, publicRevision, editorBaseline, root is not null);
+                return Build(publicRevision, editorBaseline, root is not null);
             }, StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < Slugs.Length; index++)
+            if (current[Slugs[index]].Configured) ConfiguredMask |= 1 << index;
+        liveConfiguredMask = ConfiguredMask;
     }
 
     internal void Map(WebApplication app)
@@ -148,54 +133,48 @@ internal sealed class SitePages
     private async Task<Page> PublicPage(Page baseline, CancellationToken ct)
     {
         var siteConfigRevision = renderer.SiteConfigRevision;
-        if (!EditorEnabled)
-        {
-            if (baseline.SiteConfigRevision == siteConfigRevision) return baseline;
-            if (published.TryGetValue(baseline.Revision.Slug, out var cached) &&
-                cached.Revision.Revision == 0 && cached.SiteConfigRevision == siteConfigRevision)
-                return cached;
-            var refreshed = Build(Definitions.Single(spec => spec.Slug == baseline.Revision.Slug), baseline.Revision, baseline.EditorBaseline, baseline.Configured);
-            published[baseline.Revision.Slug] = refreshed;
-            return refreshed;
-        }
+        if (!EditorEnabled) return ReadBaseline();
         await using var db = await source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         var revision = await SitePagePublicationStore.Read(db, tx, baseline.EditorBaseline, ct);
         await InstanceLease.CommitProtected(tx, lease, ct);
-        if (revision.Revision == 0)
-        {
-            if (baseline.SiteConfigRevision == siteConfigRevision) return baseline;
-            if (published.TryGetValue(baseline.Revision.Slug, out var cached0) &&
-                cached0.Revision.Revision == 0 && cached0.SiteConfigRevision == siteConfigRevision)
-                return cached0;
-            var refreshed0 = Build(Definitions.Single(spec => spec.Slug == baseline.Revision.Slug), baseline.Revision, baseline.EditorBaseline, baseline.Configured);
-            published[baseline.Revision.Slug] = refreshed0;
-            return refreshed0;
-        }
+        if (revision.Revision == 0) return ReadBaseline();
         MarkPublished(revision.Slug);
         if (published.TryGetValue(revision.Slug, out var ready) &&
             ready.Revision.Revision == revision.Revision && ready.SiteConfigRevision == siteConfigRevision)
             return ready;
-        var page = Build(Definitions.Single(spec => spec.Slug == revision.Slug), revision, baseline.EditorBaseline, configured: true);
+        var page = Build(revision, baseline.EditorBaseline, configured: true);
         published.AddOrUpdate(revision.Slug, page, (_, previous) =>
             previous.Revision.Revision > revision.Revision ||
             (previous.Revision.Revision == revision.Revision && previous.SiteConfigRevision > page.SiteConfigRevision)
                 ? previous : page);
         return page;
+
+        Page ReadBaseline()
+        {
+            if (baseline.SiteConfigRevision == siteConfigRevision) return baseline;
+            var slug = baseline.Revision.Slug;
+            if (published.TryGetValue(slug, out var cached) && cached.Revision.Revision == 0 && cached.SiteConfigRevision == siteConfigRevision)
+                return cached;
+            var refreshed = Build(baseline.Revision, baseline.EditorBaseline, baseline.Configured);
+            published[slug] = refreshed;
+            return refreshed;
+        }
     }
 
-    private Page Build((string Slug, string Title) spec, AdminSitePageRevision revision, AdminSitePageRevision editorBaseline, bool configured)
+    private Page Build(AdminSitePageRevision revision, AdminSitePageRevision editorBaseline, bool configured)
     {
+        var slug = revision.Slug;
         var siteConfigRevision = renderer.SiteConfigRevision;
-        var frame = SitePageWire.Encode(spec.Slug, revision.Markdown);
+        var frame = SitePageWire.Encode(slug, revision.Markdown);
         var state = configured ? "published" : "unconfigured";
         var body = PublicArticleHtml.RenderMarkdown(revision.Markdown);
         byte[] HtmlFor(string locale)
         {
-            var title = SiteLocale.Text(locale, "policy." + spec.Slug);
-            var content = $"<article class=\"reading-column editorial-page article-body\" data-fsus-surface=\"reading\" data-site-page=\"{spec.Slug}\" data-state=\"{state}\"><header class=\"editorial-rule\"><h1>{HtmlEncoder.Default.Encode(title)}</h1></header>" +
+            var title = SiteLocale.Text(locale, "policy." + slug);
+            var content = $"<article class=\"reading-column editorial-page article-body\" data-fsus-surface=\"reading\" data-site-page=\"{slug}\" data-state=\"{state}\"><header class=\"editorial-rule\"><h1>{HtmlEncoder.Default.Encode(title)}</h1></header>" +
                 $"<div class=\"blog-markdown\" data-site-page-body lang=\"zh-CN\">{body}</div></article>";
-            return renderer.PublicPage(content, title, noIndex: !configured, publicPath: "/" + spec.Slug, contentDriven: true, locale: locale);
+            return renderer.PublicPage(content, title, noIndex: !configured, publicPath: "/" + slug, contentDriven: true, locale: locale);
         }
         var html = HtmlFor(SiteLocale.Default);
         var englishHtml = HtmlFor("en");

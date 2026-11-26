@@ -219,16 +219,8 @@ internal sealed class AdminInboxNoticeStore(AdminSessionGate gate)
             long conversation = replay ?? await CreateNotice();
             var current = await inbox.GetAsync(conversation, null, 50, ct) ??
                 throw new InvalidOperationException("Administrator system notice has no account-visible conversation.");
-            return InboxWire.EncodeDetail(new(current.Id, current.Subject, (int)current.Status, checked((int)current.UnreadCount),
-                current.LastMessageAt, current.ReadSnapshot, true, current.Status != ConversationStatus.Closed,
-                current.Messages.Select(message => new InboxMessageRecord(message.Id, current.Id, (int)message.Sender, message.SentAt,
-                    message.Body, message.Sender switch
-                    {
-                        InboxSender.Account => "你",
-                        InboxSender.Administrator => "管理员",
-                        InboxSender.System => "系统",
-                        _ => throw new InvalidOperationException("Unsupported inbox sender.")
-                    })).ToArray(), Replayed: replay.HasValue), createResponse: true);
+            return InboxEndpoints.EncodeDetail(current, checked((int)current.UnreadCount), system: true,
+                createResponse: true, replayed: replay.HasValue);
 
             async Task<long> CreateNotice()
             {

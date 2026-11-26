@@ -13,6 +13,14 @@ public sealed class AuthorTextPropertyTextPostgresTests
         var stranger = await SignIn(fixture, "Property text stranger", ct);
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct);
         var author = new AuthorPropertyFixture(fixture, server.Client, ct);
+        var (read, reject) = author.BindSearch<AuthorTextPropertyTextQuery, AuthorTextFacetedPage>(
+            Wire.EncodeAuthorTextPropertyTextQuery, static (_, wire) => Wire.DecodeAuthorTextPropertyTextPage(wire));
+        var (readComposed, rejectComposed) = author.BindSearch<AuthorTextPropertyTextQualifiedQuery, AuthorTextPropertySortPage>(
+            Wire.EncodeAuthorTextPropertyTextQualifiedQuery,
+            static (query, wire) => Wire.DecodeAuthorTextPropertyTextQualifiedPage(wire, expectFacet: query.Facet is not null));
+        var (readMixed, rejectMixed) = author.BindSearch<AuthorTextPropertyTextMixedQuery, AuthorTextPropertySortPage>(
+            Wire.EncodeAuthorTextPropertyTextMixedQuery,
+            static (query, wire) => Wire.DecodeAuthorTextPropertyTextMixedPage(wire, query.IncludeHeading, expectFacet: query.Facet is not null));
 
         var selected = await author.Define(owner, "research", PropertyFieldKind.Text, searchable: true);
         var other = await author.Define(owner, "notes", PropertyFieldKind.Text, searchable: true);
@@ -44,7 +52,7 @@ public sealed class AuthorTextPropertyTextPostgresTests
         await author.Put(stranger, foreign, foreignField, new PropertyFieldValue.Text(input));
 
         var query = Query(owner, selected, phrase);
-        var pending = await Read(query, owner);
+        var pending = await read(query, owner);
         Assert.False(pending.Ready);
         Assert.Empty(pending.Rows);
         Assert.Empty(pending.NextCursor);
@@ -76,14 +84,14 @@ public sealed class AuthorTextPropertyTextPostgresTests
             "select count(*) from public.author_text_property_document where owner_id=$1 and definition_id=$2",
             stranger.Id, foreignField.Id));
 
-        var first = await Read(query, owner);
+        var first = await read(query, owner);
         Assert.True(first.Ready);
         Assert.Equal(cohort.Count, first.Total);
         Assert.Equal(new[] { cohort.Count, 0, 0, 0 }, first.StateCounts);
         Assert.Equal(WireLimits.AuthorTextSearchRows, first.Rows.Count);
         Assert.NotEmpty(first.NextCursor);
         var continuation = query with { Search = query.Search with { Cursor = first.NextCursor } };
-        var second = await Read(continuation, owner);
+        var second = await read(continuation, owner);
         Assert.True(second.Ready);
         Assert.Equal(first.Total, second.Total);
         Assert.Empty(second.NextCursor);
@@ -110,7 +118,7 @@ public sealed class AuthorTextPropertyTextPostgresTests
             UpdatedFromUnixMs = DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeMilliseconds(),
         }, selected.Id, selected.Revision, new(flag.Id, flag.Revision),
             new(order.Id, order.Revision, AuthorTextPropertySortDirection.Ascending));
-        var composed = await ReadComposed(composition, owner);
+        var composed = await readComposed(composition, owner);
         Assert.True(composed.Search.Ready);
         Assert.Equal(cohort.Count, composed.Search.Total);
         Assert.Equal(new[] { cohort[^1].Id, cohort[0].Id }, composed.Search.Rows.Take(2).Select(row => row.Id));
@@ -123,24 +131,24 @@ public sealed class AuthorTextPropertyTextPostgresTests
         RequireBooleanFacet(composed, cohort.Count - 2, falseCount: 1, trueCount: 1);
         Assert.NotEmpty(composed.Search.NextCursor);
         var composedAfter = composition with { Search = composition.Search with { Cursor = composed.Search.NextCursor } };
-        var composedLast = await ReadComposed(composedAfter, owner);
+        var composedLast = await readComposed(composedAfter, owner);
         Assert.Empty(composedLast.Search.NextCursor);
         Assert.Single(composedLast.Search.Rows);
         RequireBooleanFacet(composedLast, cohort.Count - 2, falseCount: 1, trueCount: 1);
         Assert.Equal(cohort.Select(article => article.Id).Order(),
             composed.Search.Rows.Concat(composedLast.Search.Rows).Select(row => row.Id).Order());
-        await RejectComposed(composedAfter with
+        await rejectComposed(composedAfter with
         {
             Sort = composition.Sort! with { Direction = AuthorTextPropertySortDirection.Descending },
         }, owner, HttpStatusCode.Conflict);
-        await RejectComposed(composedAfter with { Facet = null }, owner, HttpStatusCode.Conflict);
-        await Reject(new(composedAfter.Search, selected.Id, selected.Revision), owner, HttpStatusCode.Conflict);
+        await rejectComposed(composedAfter with { Facet = null }, owner, HttpStatusCode.Conflict);
+        await reject(new(composedAfter.Search, selected.Id, selected.Revision), owner, HttpStatusCode.Conflict);
 
-        RequireBooleanFacet(await ReadComposed(composition with { Sort = null }, owner), cohort.Count - 2, falseCount: 1, trueCount: 1);
-        var orderedOnly = await ReadComposed(composition with { Facet = null }, owner);
+        RequireBooleanFacet(await readComposed(composition with { Sort = null }, owner), cohort.Count - 2, falseCount: 1, trueCount: 1);
+        var orderedOnly = await readComposed(composition with { Facet = null }, owner);
         Assert.Null(orderedOnly.Facet);
         Assert.Equal(composed.Search.Rows.Select(row => row.Id), orderedOnly.Search.Rows.Select(row => row.Id));
-        var narrowed = await ReadComposed(composition with
+        var narrowed = await readComposed(composition with
         {
             Search = composition.Search with { Conditions = filtered.Search.Conditions },
         }, owner);
@@ -149,9 +157,9 @@ public sealed class AuthorTextPropertyTextPostgresTests
 
         Assert.Equal(unrelated.Id, Assert.Single((await Ready(Query(owner, other, phrase), owner)).Rows).Id);
         Assert.Equal(foreign.Id, Assert.Single((await Ready(Query(stranger, foreignField, phrase), stranger)).Rows).Id);
-        await Reject(Query(owner, selected, "field.title:café"), owner, HttpStatusCode.BadRequest);
-        await Reject(Query(owner, flag, phrase), owner, HttpStatusCode.NotFound);
-        await Reject(continuation with { DefinitionId = other.Id, DefinitionRevision = other.Revision }, owner, HttpStatusCode.Conflict);
+        await reject(Query(owner, selected, "field.title:café"), owner, HttpStatusCode.BadRequest);
+        await reject(Query(owner, flag, phrase), owner, HttpStatusCode.NotFound);
+        await reject(continuation with { DefinitionId = other.Id, DefinitionRevision = other.Revision }, owner, HttpStatusCode.Conflict);
 
         var hit = new PropertyTextHitRequest(last.Id, last.Revision, owner.SchemaRevision, 0, selected.Id, selected.Revision, last.SourceDigest);
         var exact = Wire.DecodePropertyEditor(await ReadHit(hit, owner));
@@ -170,7 +178,7 @@ public sealed class AuthorTextPropertyTextPostgresTests
         var edited = Assert.Single(cohort, article => article.Id == last.Id);
         await author.Put(owner, edited, selected, new PropertyFieldValue.Text("Independently replaced"));
         await ReadHit(pinned, owner, HttpStatusCode.Conflict);
-        await Reject(continuation, owner, HttpStatusCode.Conflict);
+        await reject(continuation, owner, HttpStatusCode.Conflict);
         var refreshed = await Ready(query, owner);
         Assert.Equal(cohort.Count - 1, refreshed.Total);
         Assert.DoesNotContain(refreshed.Rows, row => row.Id == last.Id);
@@ -181,26 +189,26 @@ public sealed class AuthorTextPropertyTextPostgresTests
         await ReadHit(pinned, owner, HttpStatusCode.Conflict);
         Assert.Equal(author.ValueRevision(hit.ArticleId), Wire.DecodePropertyEditor(await ReadHit(hit, owner)).ValueRevision);
 
-        var beforeSortEdit = await ReadComposed(composition, owner);
+        var beforeSortEdit = await readComposed(composition, owner);
         var beforeSortEditAfter = composition with { Search = composition.Search with { Cursor = beforeSortEdit.Search.NextCursor } };
-        var offPage = Assert.Single((await ReadComposed(beforeSortEditAfter, owner)).Search.Rows);
+        var offPage = Assert.Single((await readComposed(beforeSortEditAfter, owner)).Search.Rows);
         await author.Put(owner, Assert.Single(cohort, article => article.Id == offPage.Id), order, new PropertyFieldValue.Number(-100));
-        await RejectComposed(beforeSortEditAfter, owner, HttpStatusCode.Conflict);
-        var moved = await ReadComposed(composition, owner);
+        await rejectComposed(beforeSortEditAfter, owner, HttpStatusCode.Conflict);
+        var moved = await readComposed(composition, owner);
         Assert.Equal(offPage.Id, moved.Search.Rows[0].Id);
         Assert.Equal(offPage.Revision, moved.Search.Rows[0].Revision);
         Assert.Equal(offPage.SourceDigest, moved.Search.Rows[0].SourceDigest);
         RequireBooleanFacet(moved, cohort.Count - 2, falseCount: 1, trueCount: 1);
 
         order = await author.SetProjection(owner, order, searchable: false, sortable: false);
-        await RejectComposed(composition with
+        await rejectComposed(composition with
         {
             Search = composition.Search with { SchemaRevision = owner.SchemaRevision },
             Sort = composition.Sort! with { DefinitionRevision = order.Revision },
         }, owner, HttpStatusCode.NotFound);
 
         selected = await EnableText(owner, selected, false);
-        await Reject(Query(owner, selected, phrase), owner, HttpStatusCode.NotFound);
+        await reject(Query(owner, selected, phrase), owner, HttpStatusCode.NotFound);
         Assert.Equal(0L, await fixture.ScalarAsync<long>(ct, "select count(*) from public.author_text_document where owner_id=$1", owner.Id));
 
         selected = await EnableText(owner, selected, true);
@@ -217,7 +225,7 @@ public sealed class AuthorTextPropertyTextPostgresTests
             "", DateTimeOffset.UtcNow.AddDays(-1).ToUnixTimeMilliseconds(), null, owner.SchemaRevision, []),
             selected.Id, selected.Revision, false, new(flag.Id, flag.Revision),
             new(order.Id, order.Revision, AuthorTextPropertySortDirection.Ascending));
-        var coldMixed = await ReadMixed(mixed);
+        var coldMixed = await readMixed(mixed, owner);
         Assert.False(coldMixed.Search.Ready);
         Assert.Empty(coldMixed.Search.Rows);
         Assert.Null(coldMixed.Facet);
@@ -227,13 +235,13 @@ public sealed class AuthorTextPropertyTextPostgresTests
         RequireBooleanFacet(readyMixed, cohort.Count - 2, falseCount: 1, trueCount: 1);
         Assert.All(readyMixed.Search.Rows, row => RequireSource(row, 5, canonical, "Café"));
         var mixedAfter = mixed with { Search = mixed.Search with { Cursor = readyMixed.Search.NextCursor } };
-        var lastMixedPage = await ReadMixed(mixedAfter);
+        var lastMixedPage = await readMixed(mixedAfter, owner);
         var lastMixed = Assert.Single(lastMixedPage.Search.Rows);
         RequireBooleanFacet(lastMixedPage, cohort.Count - 2, falseCount: 1, trueCount: 1);
         Assert.Equal(cohort.Select(article => article.Id).Order(),
             readyMixed.Search.Rows.Append(lastMixed).Select(row => row.Id).Order());
-        await RejectMixed(mixedAfter with { IncludeHeading = true }, HttpStatusCode.Conflict);
-        await Reject(new(mixedAfter.Search with { Query = $"field.property:{phrase}" }, selected.Id, selected.Revision),
+        await rejectMixed(mixedAfter with { IncludeHeading = true }, owner, HttpStatusCode.Conflict);
+        await reject(new(mixedAfter.Search with { Query = $"field.property:{phrase}" }, selected.Id, selected.Revision),
             owner, HttpStatusCode.Conflict);
 
         var fromBody = await ReadyMixed(mixed with
@@ -256,7 +264,7 @@ public sealed class AuthorTextPropertyTextPostgresTests
         });
         RequireSource(Assert.Single(fromSummary.Search.Rows), 3, specialSummary, "star");
         var headingQuery = mixed with { Search = mixed.Search with { Query = "field.heading:\"canopy orbit\" field.property:enamel" } };
-        await RejectMixed(headingQuery, HttpStatusCode.BadRequest);
+        await rejectMixed(headingQuery, owner, HttpStatusCode.BadRequest);
         RequireSource(Assert.Single((await ReadyMixed(headingQuery with { IncludeHeading = true })).Search.Rows), 4, specialBody, "Canopy");
 
         Assert.Empty((await ReadyMixed(mixed with
@@ -267,8 +275,8 @@ public sealed class AuthorTextPropertyTextPostgresTests
         {
             Search = mixed.Search with { Query = $"field.title:café field.property:{phrase}" },
         })).Search.Rows);
-        await RejectMixed(mixed with { Search = mixed.Search with { Query = "field.title:article" } }, HttpStatusCode.BadRequest);
-        await RejectMixed(mixed with { Search = mixed.Search with { Query = "field.property:café" } }, HttpStatusCode.BadRequest);
+        await rejectMixed(mixed with { Search = mixed.Search with { Query = "field.title:article" } }, owner, HttpStatusCode.BadRequest);
+        await rejectMixed(mixed with { Search = mixed.Search with { Query = "field.property:café" } }, owner, HttpStatusCode.BadRequest);
         var bothFiltered = await ReadyMixed(mixed with
         {
             Search = mixed.Search with { Query = $"independent field.property:{phrase}", Conditions = filtered.Search.Conditions },
@@ -279,11 +287,11 @@ public sealed class AuthorTextPropertyTextPostgresTests
         var mixedArticle = Assert.Single(cohort, article => article.Id == lastMixed.Id);
         var articleEdit = await author.ChangeArticle(owner, ArticleAction.Save,
             new(mixedArticle.Id, mixedArticle.Revision, Guid.NewGuid(), mixedArticle.Title, "Current replacement body"));
-        await RejectMixed(mixedAfter, HttpStatusCode.Conflict);
+        await rejectMixed(mixedAfter, owner, HttpStatusCode.Conflict);
         var currentMixed = await ReadyMixed(mixed);
         var propertyAfter = mixed with { Search = mixed.Search with { Cursor = currentMixed.Search.NextCursor } };
         await author.Put(owner, articleEdit, selected, new PropertyFieldValue.Text("Replaced precise property"));
-        await RejectMixed(propertyAfter, HttpStatusCode.Conflict);
+        await rejectMixed(propertyAfter, owner, HttpStatusCode.Conflict);
         var removed = await ReadyMixed(mixed);
         Assert.Equal(cohort.Count - 1, removed.Search.Total);
         Assert.DoesNotContain(removed.Search.Rows, row => row.Id == articleEdit.Id);
@@ -292,7 +300,7 @@ public sealed class AuthorTextPropertyTextPostgresTests
             new(new(text, "", null, null, actor.SchemaRevision, []), field.Id, field.Revision);
 
         Task<AuthorTextFacetedPage> Ready(AuthorTextPropertyTextQuery request, Actor actor) =>
-            AuthorPropertyFixture.Ready(() => Read(request, actor), page =>
+            AuthorPropertyFixture.Ready(() => read(request, actor), page =>
             {
                 if (page.Ready) return true;
                 Assert.Empty(page.Rows);
@@ -300,35 +308,13 @@ public sealed class AuthorTextPropertyTextPostgresTests
                 return false;
             }, "The fixture property index did not finish within eight requests.");
 
-        async Task<AuthorTextFacetedPage> Read(AuthorTextPropertyTextQuery request, Actor actor) =>
-            Wire.DecodeAuthorTextPropertyTextPage(await author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextQuery(request), actor));
-
-        Task<byte[]> Reject(AuthorTextPropertyTextQuery request, Actor actor, HttpStatusCode status) =>
-            author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextQuery(request), actor, status);
-
-        async Task<AuthorTextPropertySortPage> ReadComposed(AuthorTextPropertyTextQualifiedQuery request, Actor actor) =>
-            Wire.DecodeAuthorTextPropertyTextQualifiedPage(
-                await author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextQualifiedQuery(request), actor),
-                expectFacet: request.Facet is not null);
-
-        Task<byte[]> RejectComposed(AuthorTextPropertyTextQualifiedQuery request, Actor actor, HttpStatusCode status) =>
-            author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextQualifiedQuery(request), actor, status);
-
         Task<AuthorTextPropertySortPage> ReadyMixed(AuthorTextPropertyTextMixedQuery request) =>
-            AuthorPropertyFixture.Ready(() => ReadMixed(request), page =>
+            AuthorPropertyFixture.Ready(() => readMixed(request, owner), page =>
             {
                 if (page.Search.Ready) return true;
                 Assert.Empty(page.Search.Rows);
                 return false;
             }, "The fixture mixed index did not finish within eight requests.");
-
-        async Task<AuthorTextPropertySortPage> ReadMixed(AuthorTextPropertyTextMixedQuery request) =>
-            Wire.DecodeAuthorTextPropertyTextMixedPage(
-                await author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextMixedQuery(request), owner),
-                includeHeading: request.IncludeHeading, expectFacet: request.Facet is not null);
-
-        Task<byte[]> RejectMixed(AuthorTextPropertyTextMixedQuery request, HttpStatusCode status) =>
-            author.Send(WireRoutes.AuthorTextSearch, Wire.EncodeAuthorTextPropertyTextMixedQuery(request), owner, status);
 
         void RequireBooleanFacet(AuthorTextPropertySortPage page, int missing, int falseCount, int trueCount) =>
             RequireBoolFacet(page.Facet, flag, missing, 0, falseCount, trueCount);

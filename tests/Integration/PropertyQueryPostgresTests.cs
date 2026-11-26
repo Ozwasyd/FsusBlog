@@ -21,37 +21,24 @@ public sealed class PropertyQueryPostgresTests
         var target = await Publication(await Article("Reference target", owner), ArticleAction.Publish, owner);
         var options = new[] { new PropertyFieldOption(Guid.NewGuid(), "Red"), new PropertyFieldOption(Guid.NewGuid(), "Blue"),
             new PropertyFieldOption(Guid.NewGuid(), "Green") };
-        long schema = 0;
-        var definitions = new (PropertyFieldKind Kind, PropertyFieldValue Primary, PropertyFieldValue Empty)[]
-        {
-            (PropertyFieldKind.Text, new PropertyFieldValue.Text(""), new PropertyFieldValue.Null()),
-            (PropertyFieldKind.Number, new PropertyFieldValue.Number(9007199254740993.1234567m), new PropertyFieldValue.Number(0)),
-            (PropertyFieldKind.Boolean, new PropertyFieldValue.Boolean(false), new PropertyFieldValue.Boolean(true)),
-            (PropertyFieldKind.Date, new PropertyFieldValue.Date(DateTimeOffset.FromUnixTimeMilliseconds(1794669740123)), new PropertyFieldValue.Null()),
-            (PropertyFieldKind.SingleSelect, new PropertyFieldValue.SingleSelect(options[0].Id), new PropertyFieldValue.SingleSelect(options[1].Id)),
-            (PropertyFieldKind.MultiSelect, new PropertyFieldValue.MultiSelect([]), new PropertyFieldValue.MultiSelect([options[0].Id])),
-            (PropertyFieldKind.ArticleReference, new PropertyFieldValue.ArticleReference([target.Id]), new PropertyFieldValue.Null()),
-            (PropertyFieldKind.Url, new PropertyFieldValue.Url("https://example.net/guide"), new PropertyFieldValue.Null()),
-        };
-        var fields = new List<Guid>();
-        foreach (var (kind, _, _) in definitions)
-        {
-            var id = Guid.NewGuid();
-            var choice = kind is PropertyFieldKind.SingleSelect or PropertyFieldKind.MultiSelect;
-            await Schema(owner, 1, id, schema++, 0, $"property-{fields.Count}", $"Field {fields.Count}", kind, choice ? options : []);
-            fields.Add(id);
-        }
+        var definitions = TypedPropertyFixture.Samples(target.Id, options[0].Id, [], "");
+        var nil = new PropertyFieldValue.Null();
+        PropertyFieldValue[] emptyValues = [nil, new PropertyFieldValue.Number(0), new PropertyFieldValue.Boolean(true), nil,
+            new PropertyFieldValue.SingleSelect(options[1].Id), new PropertyFieldValue.MultiSelect([options[0].Id]), nil, nil];
+        var fields = await TypedPropertyFixture.CreateDefinitions(definitions, options, index => ($"property-{index}", $"Field {index}"),
+            frame => Send(WireRoutes.PropertySchemaCommand, frame, owner));
+        long schema = fields.Length;
         var outsiderFrame = Wire.EncodePropertyArticleQuery(new(schema, fields[0], 1, new PropertyFieldValue.Missing(), ""));
         foreach (var (actor, status) in new (string?, HttpStatusCode)[] { (owner, NotFound), (null, Unauthorized), (outsider, Conflict) })
             await Send(WireRoutes.PropertyArticleQuery, outsiderFrame, actor, status);
         await Group([Present(0, 1)], status: NotFound);
 
-        for (var i = 0; i < fields.Count; i++)
+        for (var i = 0; i < fields.Length; i++)
         {
-            await Put(primary, fields[i], definitions[i].Primary, i, 1);
-            await Put(empty, fields[i], definitions[i].Empty, i, 1);
+            await Put(primary, fields[i], definitions[i].Value, i, 1);
+            await Put(empty, fields[i], emptyValues[i], i, 1);
         }
-        for (var i = 0; i < fields.Count; i++)
+        for (var i = 0; i < fields.Length; i++)
         {
             var toggle = Wire.EncodePropertyFilterabilityCommand(new(fields[i], Guid.NewGuid(), schema++, 1, true));
             var first = await Send(WireRoutes.PropertyFilterability, toggle, owner);
@@ -60,17 +47,17 @@ public sealed class PropertyQueryPostgresTests
         var catalog = Wire.DecodePropertyFilterCatalog(await Send(WireRoutes.PropertyFilterCatalog, null, owner));
         Assert.Equal(schema, catalog.SchemaRevision);
         Assert.All(catalog.Fields, field => Assert.True(field.Enabled && !field.Deprecated));
-        for (var i = 0; i < fields.Count; i++)
+        for (var i = 0; i < fields.Length; i++)
         {
-            Assert.Equal(primary.Id, await SingleFilter(i, definitions[i].Primary));
+            Assert.Equal(primary.Id, await SingleFilter(i, definitions[i].Value));
             var qualified = await Qualified(new(lexicalQuery, "", null, null, schema,
-                [new(fields[i], 2, PropertyComparison.Equal, definitions[i].Primary)]));
+                [new(fields[i], 2, PropertyComparison.Equal, definitions[i].Value)]));
             Assert.Equal((primary.Id, 1), (Assert.Single(qualified.Rows).Id, qualified.Total));
             Assert.Equal(new[] { 1, 0, 0, 0 }, qualified.StateCounts);
             var missingRows = (await Filter(i, new PropertyFieldValue.Missing())).Rows;
             Assert.Contains(missingRows, row => row.Id == missing.Id);
             Assert.DoesNotContain(missingRows, row => row.Id == foreign.Id);
-            int[] presentIds = definitions[i].Empty is PropertyFieldValue.Null ? [primary.Id] : [empty.Id, primary.Id];
+            int[] presentIds = emptyValues[i] is PropertyFieldValue.Null ? [primary.Id] : [empty.Id, primary.Id];
             Assert.Equal(presentIds, Ids(await Group([Present(i)])));
         }
         await Group([Present(0, 1)], status: Conflict);
@@ -82,18 +69,18 @@ public sealed class PropertyQueryPostgresTests
         for (var i = 0; i < WireLimits.PropertyPageSize; i++)
         {
             var article = await Article($"Number page {i}", owner, (i == 0 ? summaryPrefix : "Private ") + matchText);
-            await Put(article, fields[1], definitions[1].Primary, 0, 2);
+            await Put(article, fields[1], definitions[1].Value, 0, 2);
             summaryMatches.Add(article);
         }
-        var firstPage = await Filter(1, definitions[1].Primary);
+        var firstPage = await Filter(1, definitions[1].Value);
         Assert.Equal(WireLimits.PropertyPageSize, firstPage.Rows.Count);
         Assert.NotEmpty(firstPage.NextCursor);
-        Assert.Equal(primary.Id, await SingleFilter(1, definitions[1].Primary, firstPage.NextCursor));
+        Assert.Equal(primary.Id, await SingleFilter(1, definitions[1].Value, firstPage.NextCursor));
         await Filter(1, new PropertyFieldValue.Number(0), BadRequest, firstPage.NextCursor);
-        await Filter(1, definitions[1].Primary, BadRequest, (firstPage.NextCursor[0] == 'A' ? "B" : "A") + firstPage.NextCursor[1..]);
+        await Filter(1, definitions[1].Value, BadRequest, (firstPage.NextCursor[0] == 'A' ? "B" : "A") + firstPage.NextCursor[1..]);
 
-        var score = ((PropertyFieldValue.Number)definitions[1].Primary).Value;
-        var time = ((PropertyFieldValue.Date)definitions[3].Primary).Value;
+        var score = ((PropertyFieldValue.Number)definitions[1].Value).Value;
+        var time = ((PropertyFieldValue.Date)definitions[3].Value).Value;
         var lower = new PropertyCondition(fields[1], 2, PropertyComparison.AtLeast, new PropertyFieldValue.Number(score));
         var upper = new PropertyCondition(fields[1], 2, PropertyComparison.LessThan, new PropertyFieldValue.Number(score + 0.0000001m));
         var date = new PropertyCondition(fields[3], 2, PropertyComparison.AtMost, new PropertyFieldValue.Date(time.ToOffset(TimeSpan.FromHours(8))));
@@ -132,7 +119,7 @@ public sealed class PropertyQueryPostgresTests
         Assert.Equal(rankTimeBeforeEdit, await ModifiedAt(changedOffPage.Id));
         await Qualified(scoreContinuation, Conflict);
         Assert.Equal(rankedScores.Total - 1, (await Qualified(allScores)).Total);
-        await Put(changedOffPage, fields[1], definitions[1].Primary, 2, 2);
+        await Put(changedOffPage, fields[1], definitions[1].Value, 2, 2);
         var groupPage = await Group([lower, upper]);
         Assert.Equal(Ids(firstPage), Ids(groupPage));
         Assert.NotEmpty(groupPage.NextCursor);
@@ -188,12 +175,12 @@ public sealed class PropertyQueryPostgresTests
         Assert.NotEmpty((await RunViewFrame(currentRun)).Rows);
 
         target = await Publication(target, ArticleAction.Retract, owner);
-        await Filter(6, definitions[6].Primary, NotFound);
+        await Filter(6, definitions[6].Value, NotFound);
         Assert.Empty((await Group([Present(6)])).Rows);
-        await Group([lower with { DefinitionRevision = 3 }, new(fields[6], 2, PropertyComparison.Equal, definitions[6].Primary)], status: NotFound);
+        await Group([lower with { DefinitionRevision = 3 }, new(fields[6], 2, PropertyComparison.Equal, definitions[6].Value)], status: NotFound);
         await Qualified(new(lexicalQuery, "", null, null, schema, [ReferenceAnyOf(target.Id)]), NotFound);
         await Filterable(fields[1], schema, 3, false);
-        await Filter(1, definitions[1].Primary, Conflict, firstPage.NextCursor);
+        await Filter(1, definitions[1].Value, Conflict, firstPage.NextCursor);
         schema++;
         await Send(WireRoutes.PropertyArticleQuery, Wire.EncodePropertyArticleQuery(new(schema, fields[1], 4, new PropertyFieldValue.Missing(), "")), owner, NotFound);
         await Group([date, lower with { DefinitionRevision = 4 }], status: NotFound);
@@ -324,15 +311,15 @@ public sealed class PropertyQueryPostgresTests
         await Filterable(fields[1], schema++, 4, true);
         var afterSummary = await Article("Beyond the excerpt", owner, summaryPrefix + "x" + matchText);
         var wildcardOnly = await Article("C12XYNeedle", owner);
-        await Put(afterSummary, fields[1], definitions[1].Primary, 0, 5);
-        await Put(wildcardOnly, fields[1], definitions[1].Primary, 0, 5);
-        var scoreMatch = new PropertyCondition(fields[1], 5, PropertyComparison.Equal, definitions[1].Primary);
+        await Put(afterSummary, fields[1], definitions[1].Value, 0, 5);
+        await Put(wildcardOnly, fields[1], definitions[1].Value, 0, 5);
+        var scoreMatch = new PropertyCondition(fields[1], 5, PropertyComparison.Equal, definitions[1].Value);
         var scoreOnly = await Group([scoreMatch]);
         Assert.Contains(scoreOnly.Rows, row => row.Id == afterSummary.Id);
         Assert.Contains(scoreOnly.Rows, row => row.Id == wildcardOnly.Id);
 
         await Schema(outsider, 1, fields[1], 2, 0, "same-score", "Same score", PropertyFieldKind.Number, []);
-        await PutAs(outsider, foreignTarget, 3, 2, fields[1], 1, definitions[1].Primary);
+        await PutAs(outsider, foreignTarget, 3, 2, fields[1], 1, definitions[1].Value);
         await Filterable(fields[1], 3, 1, true, outsider);
         Assert.Equal(foreignTarget.Id, Assert.Single((await QueryGroup(new(4, [scoreMatch with { DefinitionRevision = 2 }], "", keyword),
             outsider, outsiderHandle)).Rows).Id);
