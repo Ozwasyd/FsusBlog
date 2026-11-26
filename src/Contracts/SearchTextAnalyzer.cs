@@ -381,6 +381,12 @@ public static class SearchTextAnalyzer
 
     internal static bool VisitMarkdownIndexTokens(string markdown,
         Func<IReadOnlyList<SearchToken>, SearchFieldKind, int, bool> visit, CancellationToken ct,
+        out int headingLength, out int bodyLength) =>
+        VisitMarkdownIndexTokens(markdown, visit, static (callback, tokens, field, shift) => callback(tokens, field, shift),
+            ct, out headingLength, out bodyLength);
+
+    internal static bool VisitMarkdownIndexTokens<TState>(string markdown, TState state,
+        Func<TState, IReadOnlyList<SearchToken>, SearchFieldKind, int, bool> visit, CancellationToken ct,
         out int headingLength, out int bodyLength)
     {
         var spans = SearchMarkdownExtractor.Extract(markdown, ct);
@@ -398,9 +404,9 @@ public static class SearchTextAnalyzer
         bool VisitField(SearchFieldAnalysis field, int shift, out int length, out int end)
         {
             if (field.Tokens.Count == MaxTokensPerField)
-                return ReplayMarkdownField(markdown, spans, field.Field, shift, visit, ct, out length, out end);
+                return ReplayMarkdownField(markdown, spans, field.Field, shift, state, visit, ct, out length, out end);
             (length, end) = (field.SourceLength, field.EndPosition);
-            return field.Tokens.Count == 0 || visit(field.Tokens, field.Field, shift);
+            return field.Tokens.Count == 0 || visit(state, field.Tokens, field.Field, shift);
         }
     }
 
@@ -430,11 +436,12 @@ public static class SearchTextAnalyzer
         batch.Flush();
     }
 
-    private static bool ReplayMarkdownField(string markdown, List<MarkdownVisibleSpan> spans, SearchFieldKind field,
-        int shift, Func<IReadOnlyList<SearchToken>, SearchFieldKind, int, bool> visit, CancellationToken ct,
+    private static bool ReplayMarkdownField<TState>(string markdown, List<MarkdownVisibleSpan> spans, SearchFieldKind field,
+        int shift, TState state, Func<TState, IReadOnlyList<SearchToken>, SearchFieldKind, int, bool> visit, CancellationToken ct,
         out int length, out int position)
     {
-        var batch = new IndexTokenBatch(visit) { Field = field, PositionShift = shift };
+        var batch = new IndexTokenBatch((tokens, kind, positionShift) => visit(state, tokens, kind, positionShift))
+            { Field = field, PositionShift = shift };
         length = position = 0;
         try
         {
