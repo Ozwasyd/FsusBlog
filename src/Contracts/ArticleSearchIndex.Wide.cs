@@ -463,14 +463,14 @@ public sealed partial class ArticleSearchIndex
             if (role == 0) ExactFlags |= ExactFlagBit;
         }
 
-        internal readonly double FieldTf(int field) => (field switch
+        internal readonly void CopyTfs(Span<double> target)
         {
-            0 => Tf0,
-            1 => Tf1,
-            2 => Tf2,
-            3 => Tf3,
-            _ => Tf4
-        }) * 0.5;
+            target[0] = Tf0 * 0.5;
+            target[1] = Tf1 * 0.5;
+            target[2] = Tf2 * 0.5;
+            target[3] = Tf3 * 0.5;
+            target[4] = Tf4 * 0.5;
+        }
     }
 
     private sealed class WideResolvedTerm
@@ -739,7 +739,6 @@ public sealed partial class ArticleSearchIndex
             for (var c = 0; c < concepts.Length; c++)
             {
                 var concept = concepts[c];
-                tfs.Clear();
                 var matched = EvaluateWideConcept(ordinal, concept, termMaps, shortPrefixMaps[c], ref positions, tfs, ref stats,
                     out var exactFormHit, out var usedShortPrefixOnly);
                 if (!matched)
@@ -986,19 +985,9 @@ public sealed partial class ArticleSearchIndex
         {
             case SearchConceptKind.CjkSequence:
             {
-                foreach (var st in concept.Steps)
-                    if (termMaps[st.CanonicalKey].Docs is not { } d || !d.ContainsKey(ordinal)) return false;
+                if (!TryMinimumWideTfs(ordinal, concept.Steps, termMaps, out var minimum)) return false;
                 if (!WideMatchesExactSequence(positions.Get(ref stats), concept.Steps, out _)) return false;
-                for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
-                {
-                    var minTf = double.MaxValue;
-                    foreach (var st in concept.Steps)
-                    {
-                        var tf = termMaps[st.CanonicalKey].Docs![ordinal].FieldTf(f);
-                        if (tf < minTf) minTf = tf;
-                    }
-                    tfs[f] = minTf == double.MaxValue ? 0 : minTf;
-                }
+                minimum.CopyTfs(tfs);
                 exactFormHit = true;
                 foreach (var st in concept.Steps)
                 {
@@ -1016,32 +1005,19 @@ public sealed partial class ArticleSearchIndex
             {
                 WideTermDocData exactData = default;
                 var hasExact = termMaps[concept.Steps[0].CanonicalKey].Docs is { } exMap && exMap.TryGetValue(ordinal, out exactData);
-                var hasAllSub = concept.Steps.Length > 1;
-                for (var i = 1; i < concept.Steps.Length; i++)
-                {
-                    if (termMaps[concept.Steps[i].CanonicalKey].Docs is not { } d || !d.ContainsKey(ordinal))
-                    {
-                        hasAllSub = false;
-                        break;
-                    }
-                }
+                WideTermDocData minimum = default;
+                var hasAllSub = concept.Steps.Length > 1 &&
+                    TryMinimumWideTfs(ordinal, concept.Steps.AsSpan(1), termMaps, out minimum);
                 if (!hasExact && !hasAllSub) return false;
-
-                for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
+                if (hasAllSub)
                 {
-                    var tf = hasExact ? exactData.FieldTf(f) : 0.0;
-                    if (hasAllSub)
-                    {
-                        var minSub = double.MaxValue;
-                        for (var i = 1; i < concept.Steps.Length; i++)
-                        {
-                            var stf = termMaps[concept.Steps[i].CanonicalKey].Docs![ordinal].FieldTf(f);
-                            if (stf < minSub) minSub = stf;
-                        }
-                        if (minSub != double.MaxValue && minSub > tf) tf = minSub;
-                    }
-                    tfs[f] = tf;
+                    exactData.Tf0 = Math.Max(exactData.Tf0, minimum.Tf0);
+                    exactData.Tf1 = Math.Max(exactData.Tf1, minimum.Tf1);
+                    exactData.Tf2 = Math.Max(exactData.Tf2, minimum.Tf2);
+                    exactData.Tf3 = Math.Max(exactData.Tf3, minimum.Tf3);
+                    exactData.Tf4 = Math.Max(exactData.Tf4, minimum.Tf4);
                 }
+                exactData.CopyTfs(tfs);
                 exactFormHit = hasExact && (exactData.ExactFlags & ExactFlagBit) != 0;
                 return true;
             }
@@ -1050,8 +1026,7 @@ public sealed partial class ArticleSearchIndex
                 var step = concept.Steps[0];
                 if (termMaps[step.CanonicalKey].Docs is { } dMap && dMap.TryGetValue(ordinal, out var data))
                 {
-                    for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
-                        tfs[f] = data.FieldTf(f);
+                    data.CopyTfs(tfs);
                     exactFormHit = step.DiffersFromExactForm
                         ? (termMaps[step.ExactFormKey].Docs is { } eMap && eMap.TryGetValue(ordinal, out var ex) && (ex.ExactFlags & ExactFlagBit) != 0)
                         : (data.ExactFlags & ExactFlagBit) != 0;
@@ -1059,6 +1034,7 @@ public sealed partial class ArticleSearchIndex
                 }
                 if (shortPrefixMap is not null && shortPrefixMap.TryGetValue(ordinal, out var packed) && packed != 0)
                 {
+                    tfs.Clear();
                     UnpackShortPrefixTfs(packed, tfs);
                     usedShortPrefixOnly = true;
                     return true;
@@ -1066,6 +1042,22 @@ public sealed partial class ArticleSearchIndex
                 return false;
             }
         }
+    }
+
+    private static bool TryMinimumWideTfs(int ordinal, ReadOnlySpan<SearchConceptStep> steps,
+        Dictionary<SearchTermKey, WideResolvedTerm> termMaps, out WideTermDocData minimum)
+    {
+        minimum = new() { Tf0 = 255, Tf1 = 255, Tf2 = 255, Tf3 = 255, Tf4 = 255 };
+        foreach (var step in steps)
+        {
+            if (termMaps[step.CanonicalKey].Docs is not { } docs || !docs.TryGetValue(ordinal, out var data)) return false;
+            minimum.Tf0 = Math.Min(minimum.Tf0, data.Tf0);
+            minimum.Tf1 = Math.Min(minimum.Tf1, data.Tf1);
+            minimum.Tf2 = Math.Min(minimum.Tf2, data.Tf2);
+            minimum.Tf3 = Math.Min(minimum.Tf3, data.Tf3);
+            minimum.Tf4 = Math.Min(minimum.Tf4, data.Tf4);
+        }
+        return true;
     }
 
     private static Dictionary<SearchTermKey, List<uint>> ExtractWideCandidatePositions(Article article,
