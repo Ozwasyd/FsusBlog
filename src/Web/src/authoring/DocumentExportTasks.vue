@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { t } from '../siteLocale'
+import { t, type MessageKey } from '../siteLocale'
 import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError, ProtocolError } from '../../../Contracts/aeds'
@@ -9,20 +9,20 @@ import {
   type DocumentExportFailure, type DocumentExportFormat, type DocumentExportStatus, type DocumentExportTask,
 } from '../../../Contracts/document-export-tasks'
 import { credentialEpoch, currentSession, identityEpoch, recheckCredential } from '../authorSession'
+import { downloadExport, exportFormatLabels } from './articleExport'
 
 const props = defineProps<{ article: number; revision: bigint; selected: bigint; active: boolean; disabled?: boolean }>()
 const enabled = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-document-export-tasks"]')?.content === '1'
 const pdfAvailable = document.head.querySelector<HTMLMetaElement>('meta[name="fsus-pdf-export"]')?.content === '1'
 const formats: readonly DocumentExportFormat[] = pdfAvailable ? ['html', 'pdf', 'docx', 'epub'] : ['html', 'docx', 'epub']
-const labels: Record<DocumentExportFormat, string> = { html: 'HTML', pdf: 'PDF', docx: 'Word', epub: 'EPUB' }
-const states: Record<DocumentExportStatus, string> = {
-  get queued() { return t('author.documentExportTasks.queued') }, get running() { return t('author.documentExportTasks.running') }, get succeeded() { return t('author.documentExportTasks.ready') }, get failed() { return t('author.documentExportTasks.failed') }, get cancelled() { return t('author.documentExportTasks.cancelled') },
-  get blocked() { return t('author.documentExportTasks.blocked') }, get cancelling() { return t('author.documentExportTasks.cancelling') },
+const states: Record<DocumentExportStatus, MessageKey> = {
+  queued: 'author.documentExportTasks.queued', running: 'author.documentExportTasks.running', succeeded: 'author.documentExportTasks.ready', failed: 'author.documentExportTasks.failed', cancelled: 'author.documentExportTasks.cancelled',
+  blocked: 'author.documentExportTasks.blocked', cancelling: 'author.documentExportTasks.cancelling',
 }
-const failures: Record<DocumentExportFailure, string> = {
-  none: '', get 'unsupported-input'() { return t('author.documentExportTasks.this.revision.exceeds.the.format.limits.or.contains.unsupported') },
-  get 'provider-unavailable'() { return t('author.documentExportTasks.this.format.is.currently.unavailable') }, get permission() { return t('author.documentExportTasks.the.saved.revision.is.no.longer.available') },
-  get interruption() { return t('author.documentExportTasks.the.export.was.interrupted') },
+const failures: Record<Exclude<DocumentExportFailure, 'none'>, MessageKey> = {
+  'unsupported-input': 'author.documentExportTasks.this.revision.exceeds.the.format.limits.or.contains.unsupported',
+  'provider-unavailable': 'author.documentExportTasks.this.format.is.currently.unavailable', permission: 'author.documentExportTasks.the.saved.revision.is.no.longer.available',
+  interruption: 'author.documentExportTasks.the.export.was.interrupted',
 }
 const open = ref(false)
 const loading = ref(false)
@@ -170,15 +170,7 @@ async function download(task: DocumentExportTask, action: 'export' | 'receipt' |
     if (!current() || !downloadable(task, Date.now())) return
     if (details) formattingWarnings.value = { id: task.id, items: details.warnings }
     if (action === 'review') return
-    const url = URL.createObjectURL(blob)
-    try {
-      const link = document.createElement('a')
-      link.href = url
-      link.download = action === 'receipt' ? 'article.export-receipt.json' : `article.${task.format}`
-      link.click()
-    } finally {
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    }
+    downloadExport(blob, action === 'receipt' ? 'article.export-receipt.json' : `article.${task.format}`)
   })
 }
 
@@ -203,7 +195,7 @@ onScopeDispose(stop)
       <div class="document-export-controls">
         <div class="document-export-format">
           <ElSelect v-model="format" :ariaLabel="t('author.documentExportTasks.export.format')" :disabled="disabled || busy">
-            <ElOption v-for="value in formats" :key="value" :value="value" :label="labels[value]" />
+            <ElOption v-for="value in formats" :key="value" :value="value" :label="exportFormatLabels[value]" />
           </ElSelect>
         </div>
         <ElButton native-type="button" :disabled="disabled || busy" @click="create">{{ t('author.documentExportTasks.create.export.task') }}</ElButton>
@@ -215,15 +207,15 @@ onScopeDispose(stop)
       <ElAlert v-if="actionError" :title="actionError" type="error" :closable="false" />
       <ul v-if="tasks.length" class="document-export-list" :aria-label="t('author.documentExportTasks.recent.export.tasks')">
         <li v-for="task in tasks" :key="task.id">
-          <strong>{{ t('author.revisionHistory.revision', { p0: String(labels[task.format]), p1: String(task.sourceRevision) }) }}</strong>
-          <span role="status">{{ task.status === 'succeeded' && !downloadable(task) ? t('admin.sessionExpired') : states[task.status] }}</span>
-          <span v-if="task.failure !== 'none'">{{ failures[task.failure] }}</span>
+          <strong>{{ t('author.revisionHistory.revision', { p0: String(exportFormatLabels[task.format]), p1: String(task.sourceRevision) }) }}</strong>
+          <span role="status">{{ task.status === 'succeeded' && !downloadable(task) ? t('admin.sessionExpired') : t(states[task.status]) }}</span>
+          <span v-if="task.failure !== 'none'">{{ t(failures[task.failure]) }}</span>
           <div v-if="cancelable(task) || downloadable(task)">
             <ElButton v-if="cancelable(task)" native-type="button" text :disabled="busy" @click="cancel(task)">{{ t('author.documentExportTasks.cancel.task') }}</ElButton>
             <template v-if="downloadable(task)">
               <ElButton native-type="button" text :disabled="busy" @click="download(task)">{{ t('author.documentExportTasks.download.export') }}</ElButton>
               <ElButton native-type="button" text :disabled="busy" @click="download(task, 'receipt')">{{ t('author.documentExportTasks.download.receipt') }}</ElButton>
-              <ElButton v-if="hasExportWarnings(task.format)" native-type="button" text :disabled="busy" @click="download(task, 'review')">{{ t('author.documentExportTasks.review.formatting', { p0: String(labels[task.format]) }) }}</ElButton>
+              <ElButton v-if="hasExportWarnings(task.format)" native-type="button" text :disabled="busy" @click="download(task, 'review')">{{ t('author.documentExportTasks.review.formatting', { p0: String(exportFormatLabels[task.format]) }) }}</ElButton>
             </template>
           </div>
           <div v-if="downloadable(task) && formattingWarnings?.id === task.id" role="status">
@@ -232,7 +224,7 @@ onScopeDispose(stop)
                 {{ documentWarningLabels[warning.code] }} ({{ warning.occurrences }})
               </li>
             </ul>
-            <p v-else>{{ t('author.documentExportTasks.no.formatting.warnings.were.reported', { p0: String(labels[task.format]) }) }}</p>
+            <p v-else>{{ t('author.documentExportTasks.no.formatting.warnings.were.reported', { p0: String(exportFormatLabels[task.format]) }) }}</p>
           </div>
         </li>
       </ul>
