@@ -71,6 +71,17 @@ const field = <K extends keyof CanvasFormFields>(key: K) => computed({
 const title = field('title'), nodeKind = field('nodeKind'), note = field('note'), article = field('article'), anchor = field('anchor')
 const pinned = field('pinned'), endpoint = field('endpoint'), choiceFilter = field('choiceFilter'), edgeKind = field('edgeKind'), label = field('label')
 
+const formActions = {
+  title: { save: () => controller.saveTitle(), label: 'author.canvas.save_canvas', ready: () => !!title.value.trim() },
+  node: { save: () => controller.saveNode(), label: 'author.canvas.save_node', ready: () => true },
+  edge: { save: () => controller.saveEdge(), label: 'author.canvas.save_edge', ready: () => !!endpoint.value },
+} as const
+const formAction = computed(() => state.value.form && formActions[state.value.form])
+const formLocked = computed(() => state.value.working || !!state.value.retry)
+const linkLocked = computed(() => state.value.linkPending || state.value.linkUnconfirmed)
+const isReferenceKind = computed(() =>
+  nodeKind.value === 'article-reference' || nodeKind.value === 'heading-reference' || nodeKind.value === 'block-reference')
+
 const nodeTypeLabels = computed(() => ({
   'plain-text-note': t('author.canvas.note'), 'article-reference': t('page.article'),
   'heading-reference': t('author.canvas.heading'), 'block-reference': t('author.canvas.block'), 'group-frame': t('author.canvas.frame'),
@@ -288,72 +299,72 @@ function historyShortcut(event: KeyboardEvent) {
 
     <ElDialog v-if="state.authorized" :model-value="!!state.form" :title="state.form === 'title' ? (state.document ? t('author.canvas.rename_canvas') : t('author.canvas.new_canvas')) :
       state.form === 'node' ? (state.editingNode ? t('author.canvas.edit_node') : t('author.canvas.add_node')) : (state.editingEdge ? t('author.canvas.edit_edge') : t('author.canvas.connect_nodes'))"
-      append-to-body :close-on-click-modal="!state.working && !state.retry" :close-on-press-escape="!state.working && !state.retry"
-      :show-close="!state.working && !state.retry" @close="() => { if (!state.working && !state.retry) controller.closeForm() }">
-      <form v-if="state.form === 'title'" class="canvas-form" @submit.prevent="controller.saveTitle()">
-        <label for="canvas-name">{{ t('author.canvas.canvas_title') }}</label>
-        <input id="canvas-name" v-model="title" maxlength="128" :disabled="state.working || !!state.retry" />
-        <ElButton native-type="submit" type="primary" :disabled="state.working || !!state.retry || !title.trim()">{{ t('author.canvas.save_canvas') }}</ElButton>
-      </form>
-      <form v-else-if="state.form === 'node'" class="canvas-form" @submit.prevent="controller.saveNode()">
-        <label v-if="nodeKind === 'article-reference' || nodeKind === 'heading-reference' || nodeKind === 'block-reference'" for="canvas-reference">{{ t('author.canvas.reference_type') }}</label>
-        <select v-if="nodeKind === 'article-reference' || nodeKind === 'heading-reference' || nodeKind === 'block-reference'"
-          id="canvas-reference" v-model="nodeKind" :disabled="!!state.editingNode || state.working || !!state.retry">
-          <option value="article-reference">{{ t('page.article') }}</option><option value="heading-reference">{{ t('author.canvas.heading') }}</option><option value="block-reference">{{ t('author.canvas.block') }}</option>
-        </select>
-        <template v-if="nodeKind === 'plain-text-note' || nodeKind === 'group-frame'">
-          <label for="canvas-node-text">{{ nodeKind === 'group-frame' ? t('author.canvas.frame_name') : t('author.canvas.note_text') }}</label>
-          <textarea id="canvas-node-text" v-model="note" :maxlength="nodeKind === 'group-frame' ? 128 : 8192" rows="4" :disabled="state.working || !!state.retry" />
-          <template v-if="nodeKind === 'group-frame'">
-            <label for="canvas-filter-members">{{ t('author.canvas.filter_loaded_frame_members') }}</label>
-            <input id="canvas-filter-members" v-model="choiceFilter" :disabled="state.working || !!state.retry" />
-            <label for="canvas-members">{{ t('author.canvas.loaded_frame_members') }}</label>
-            <select id="canvas-members" multiple :disabled="state.working || !!state.retry" @change="setMembers">
-              <option v-for="node in memberChoices" :key="node.id" :value="node.id" :selected="state.members.includes(node.id)">{{ nodeLabel(node) }}</option>
-            </select>
-            <p>{{ t('author.canvas.count_selected', { count: state.members.length }) }}</p>
+      append-to-body :close-on-click-modal="!formLocked" :close-on-press-escape="!formLocked"
+      :show-close="!formLocked" @close="() => { if (!formLocked) controller.closeForm() }">
+      <form v-if="formAction" :key="state.form" class="canvas-form" @submit.prevent="formAction.save()">
+        <template v-if="state.form === 'title'">
+          <label for="canvas-name">{{ t('author.canvas.canvas_title') }}</label>
+          <input id="canvas-name" v-model="title" maxlength="128" :disabled="formLocked" />
+        </template>
+        <template v-else-if="state.form === 'node'">
+          <label v-if="isReferenceKind" for="canvas-reference">{{ t('author.canvas.reference_type') }}</label>
+          <select v-if="isReferenceKind"
+            id="canvas-reference" v-model="nodeKind" :disabled="!!state.editingNode || formLocked">
+            <option value="article-reference">{{ t('page.article') }}</option><option value="heading-reference">{{ t('author.canvas.heading') }}</option><option value="block-reference">{{ t('author.canvas.block') }}</option>
+          </select>
+          <template v-if="nodeKind === 'plain-text-note' || nodeKind === 'group-frame'">
+            <label for="canvas-node-text">{{ nodeKind === 'group-frame' ? t('author.canvas.frame_name') : t('author.canvas.note_text') }}</label>
+            <textarea id="canvas-node-text" v-model="note" :maxlength="nodeKind === 'group-frame' ? 128 : 8192" rows="4" :disabled="formLocked" />
+            <template v-if="nodeKind === 'group-frame'">
+              <label for="canvas-filter-members">{{ t('author.canvas.filter_loaded_frame_members') }}</label>
+              <input id="canvas-filter-members" v-model="choiceFilter" :disabled="formLocked" />
+              <label for="canvas-members">{{ t('author.canvas.loaded_frame_members') }}</label>
+              <select id="canvas-members" multiple :disabled="formLocked" @change="setMembers">
+                <option v-for="node in memberChoices" :key="node.id" :value="node.id" :selected="state.members.includes(node.id)">{{ nodeLabel(node) }}</option>
+              </select>
+              <p>{{ t('author.canvas.count_selected', { count: state.members.length }) }}</p>
+            </template>
+          </template>
+          <template v-else>
+            <label for="canvas-article">{{ t('admin.moderation.m35') }}</label><input id="canvas-article" v-model="article" inputmode="numeric" :disabled="formLocked" />
+            <template v-if="nodeKind !== 'article-reference'">
+              <label for="canvas-anchor">{{ t('author.canvas.anchor_id') }}</label><input id="canvas-anchor" v-model="anchor" maxlength="64" :disabled="formLocked" />
+            </template>
+            <label for="canvas-pin">{{ t('author.canvas.pinned_revision_optional') }}</label><input id="canvas-pin" v-model="pinned" inputmode="numeric" :disabled="formLocked" />
           </template>
         </template>
-        <template v-else>
-          <label for="canvas-article">{{ t('admin.moderation.m35') }}</label><input id="canvas-article" v-model="article" inputmode="numeric" :disabled="state.working || !!state.retry" />
-          <template v-if="nodeKind !== 'article-reference'">
-            <label for="canvas-anchor">{{ t('author.canvas.anchor_id') }}</label><input id="canvas-anchor" v-model="anchor" maxlength="64" :disabled="state.working || !!state.retry" />
-          </template>
-          <label for="canvas-pin">{{ t('author.canvas.pinned_revision_optional') }}</label><input id="canvas-pin" v-model="pinned" inputmode="numeric" :disabled="state.working || !!state.retry" />
+        <template v-else-if="state.form === 'edge'">
+          <label for="canvas-filter-endpoint">{{ t('author.canvas.filter_loaded_nodes') }}</label>
+          <input id="canvas-filter-endpoint" v-model="choiceFilter" :disabled="formLocked" />
+          <label for="canvas-endpoint">{{ t('author.canvas.target_node') }}</label>
+          <select id="canvas-endpoint" v-model="endpoint" :disabled="formLocked">
+            <option value="" disabled>{{ t('author.canvas.choose_a_loaded_node') }}</option>
+            <option v-if="state.editingEdge && !state.byId.has(state.editingEdge.targetNodeId)" :value="state.editingEdge.targetNodeId">{{ t('author.canvas.current_target') }}</option>
+            <option v-for="node in endpointChoices" :key="node.id" :value="node.id">{{ nodeLabel(node) }}</option>
+          </select>
+          <label for="canvas-edge-kind">{{ t('author.canvas.edge_type') }}</label>
+          <select id="canvas-edge-kind" v-model="edgeKind" :disabled="formLocked">
+            <option value="visual-only">{{ t('author.canvas.visual_connection') }}</option><option value="explicit-reference-note">{{ t('author.canvas.explicit_reference') }}</option>
+          </select>
+          <label for="canvas-edge-label">{{ t('author.canvas.edge_label_optional') }}</label>
+          <input id="canvas-edge-label" v-model="label" maxlength="128" :disabled="formLocked" />
         </template>
-        <ElButton native-type="submit" type="primary" :disabled="state.working || !!state.retry">{{ t('author.canvas.save_node') }}</ElButton>
-      </form>
-      <form v-else-if="state.form === 'edge'" class="canvas-form" @submit.prevent="controller.saveEdge()">
-        <label for="canvas-filter-endpoint">{{ t('author.canvas.filter_loaded_nodes') }}</label>
-        <input id="canvas-filter-endpoint" v-model="choiceFilter" :disabled="state.working || !!state.retry" />
-        <label for="canvas-endpoint">{{ t('author.canvas.target_node') }}</label>
-        <select id="canvas-endpoint" v-model="endpoint" :disabled="state.working || !!state.retry">
-          <option value="" disabled>{{ t('author.canvas.choose_a_loaded_node') }}</option>
-          <option v-if="state.editingEdge && !state.byId.has(state.editingEdge.targetNodeId)" :value="state.editingEdge.targetNodeId">{{ t('author.canvas.current_target') }}</option>
-          <option v-for="node in endpointChoices" :key="node.id" :value="node.id">{{ nodeLabel(node) }}</option>
-        </select>
-        <label for="canvas-edge-kind">{{ t('author.canvas.edge_type') }}</label>
-        <select id="canvas-edge-kind" v-model="edgeKind" :disabled="state.working || !!state.retry">
-          <option value="visual-only">{{ t('author.canvas.visual_connection') }}</option><option value="explicit-reference-note">{{ t('author.canvas.explicit_reference') }}</option>
-        </select>
-        <label for="canvas-edge-label">{{ t('author.canvas.edge_label_optional') }}</label>
-        <input id="canvas-edge-label" v-model="label" maxlength="128" :disabled="state.working || !!state.retry" />
-        <ElButton native-type="submit" type="primary" :disabled="state.working || !!state.retry || !endpoint">{{ t('author.canvas.save_edge') }}</ElButton>
+        <ElButton native-type="submit" type="primary" :disabled="formLocked || !formAction.ready()">{{ t(formAction.label) }}</ElButton>
       </form>
       <p v-if="state.form && error" role="alert">{{ error }}</p>
       <ElButton v-if="state.retry" :disabled="state.working" @click="controller.send(state.retry)">{{ t('author.canvas.retry_change') }}</ElButton>
       <ElButton v-else-if="state.form" :disabled="state.working" @click="controller.closeForm()">{{ t('nav.cancel') }}</ElButton>
     </ElDialog>
 
-    <ElDialog v-if="state.authorized" :model-value="!!state.plan" :title="t('author.canvas.review_article_link')" append-to-body :show-close="!state.linkPending && !state.linkUnconfirmed"
-      :close-on-press-escape="!state.linkPending && !state.linkUnconfirmed" :close-on-click-modal="!state.linkPending && !state.linkUnconfirmed" @close="controller.cancelLink()">
+    <ElDialog v-if="state.authorized" :model-value="!!state.plan" :title="t('author.canvas.review_article_link')" append-to-body :show-close="!linkLocked"
+      :close-on-press-escape="!linkLocked" :close-on-click-modal="!linkLocked" @close="controller.cancelLink()">
       <div v-if="state.plan">
         <p>{{ t('author.canvas.add_this_markdown_to_the_end_of_article_article_s_private_draft', { article: state.plan.hostArticleId }) }}</p>
         <p v-if="state.plan.edgeKind === 'visual-only'">{{ t('author.canvas.use_the_selected_visual_connection_as_an_article_link_the_connection_stays_in_the_canvas') }}</p>
         <pre class="canvas-link-preview">{{ state.plan.insertedMarkdown }}</pre>
         <p v-if="error" role="alert">{{ error }}</p>
         <div class="canvas-toolbar">
-          <ElButton :disabled="state.linkPending || state.linkUnconfirmed" @click="controller.cancelLink()">{{ t('nav.cancel') }}</ElButton>
+          <ElButton :disabled="linkLocked" @click="controller.cancelLink()">{{ t('nav.cancel') }}</ElButton>
           <ElButton type="primary" :disabled="state.linkPending" @click="controller.applyLink()">{{ state.linkUnconfirmed ? t('author.canvas.retry_confirmation') : t('author.canvas.confirm_link') }}</ElButton>
         </div>
       </div>
