@@ -816,46 +816,51 @@ public sealed partial class ArticleSearchIndex
         {
             var bStart = start + b * PostingBlockSize;
             var bEnd = Math.Min(start + count, bStart + PostingBlockSize);
-            byte mTf0 = 0, mTf1 = 0, mTf2 = 0, mTf3 = 0, mTf4 = 0, anyExact = 0;
-            ushort minL0 = ushort.MaxValue, minL1 = ushort.MaxValue, minL2 = ushort.MaxValue,
-                   minL3 = ushort.MaxValue, minL4 = ushort.MaxValue;
-            var maxPub = long.MinValue;
-            var minPub = long.MaxValue;
-
-            for (var i = bStart; i < bEnd; i++)
-            {
-                var p = postings[i];
-                if (p.Tf0 > mTf0) mTf0 = p.Tf0;
-                if (p.Tf1 > mTf1) mTf1 = p.Tf1;
-                if (p.Tf2 > mTf2) mTf2 = p.Tf2;
-                if (p.Tf3 > mTf3) mTf3 = p.Tf3;
-                if (p.Tf4 > mTf4) mTf4 = p.Tf4;
-                anyExact |= (byte)(p.ExactFlags & ExactFlagBit);
-
-                var d = documents[p.Ordinal];
-                var l0 = (ushort)Math.Min(ushort.MaxValue, d.TitleLen);
-                var l1 = (ushort)Math.Min(ushort.MaxValue, d.HeadingLen);
-                var l2 = (ushort)Math.Min(ushort.MaxValue, d.SummaryLen);
-                var l3 = (ushort)Math.Min(ushort.MaxValue, d.TaxonomyLen);
-                var l4 = (ushort)Math.Min(ushort.MaxValue, d.BodyLen);
-                if (l0 < minL0) minL0 = l0;
-                if (l1 < minL1) minL1 = l1;
-                if (l2 < minL2) minL2 = l2;
-                if (l3 < minL3) minL3 = l3;
-                if (l4 < minL4) minL4 = l4;
-
-                var pub = d.PublishedAtTicks;
-                if (pub > maxPub) maxPub = pub;
-                if (pub < minPub) minPub = pub;
-            }
-
-            blocks[blockCursor++] = new SearchPostingBlockMeta(
-                postings[bEnd - 1].Ordinal,
-                mTf0, mTf1, mTf2, mTf3, mTf4,
-                anyExact,
-                minL0, minL1, minL2, minL3, minL4,
-                maxPub, minPub);
+            blocks[blockCursor++] = SummarizePostingBlock(documents, postings.AsSpan(bStart, bEnd - bStart));
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SearchPostingBlockMeta SummarizePostingBlock(DocumentMeta[] documents, ReadOnlySpan<Posting> block)
+    {
+        byte mTf0 = 0, mTf1 = 0, mTf2 = 0, mTf3 = 0, mTf4 = 0, anyExact = 0;
+        ushort minL0 = ushort.MaxValue, minL1 = ushort.MaxValue, minL2 = ushort.MaxValue,
+               minL3 = ushort.MaxValue, minL4 = ushort.MaxValue;
+        var maxPub = long.MinValue;
+        var minPub = long.MaxValue;
+
+        foreach (ref readonly var p in block)
+        {
+            if (p.Tf0 > mTf0) mTf0 = p.Tf0;
+            if (p.Tf1 > mTf1) mTf1 = p.Tf1;
+            if (p.Tf2 > mTf2) mTf2 = p.Tf2;
+            if (p.Tf3 > mTf3) mTf3 = p.Tf3;
+            if (p.Tf4 > mTf4) mTf4 = p.Tf4;
+            anyExact |= (byte)(p.ExactFlags & ExactFlagBit);
+
+            ref readonly var d = ref documents[p.Ordinal];
+            var l0 = (ushort)Math.Min(ushort.MaxValue, d.TitleLen);
+            var l1 = (ushort)Math.Min(ushort.MaxValue, d.HeadingLen);
+            var l2 = (ushort)Math.Min(ushort.MaxValue, d.SummaryLen);
+            var l3 = (ushort)Math.Min(ushort.MaxValue, d.TaxonomyLen);
+            var l4 = (ushort)Math.Min(ushort.MaxValue, d.BodyLen);
+            if (l0 < minL0) minL0 = l0;
+            if (l1 < minL1) minL1 = l1;
+            if (l2 < minL2) minL2 = l2;
+            if (l3 < minL3) minL3 = l3;
+            if (l4 < minL4) minL4 = l4;
+
+            var pub = d.PublishedAtTicks;
+            if (pub > maxPub) maxPub = pub;
+            if (pub < minPub) minPub = pub;
+        }
+
+        return new SearchPostingBlockMeta(
+            block[^1].Ordinal,
+            mTf0, mTf1, mTf2, mTf3, mTf4,
+            anyExact,
+            minL0, minL1, minL2, minL3, minL4,
+            maxPub, minPub);
     }
 
     private static void BuildShortPrefixBlocks(
@@ -871,40 +876,45 @@ public sealed partial class ArticleSearchIndex
         {
             var bStart = spStart + b * PostingBlockSize;
             var bEnd = Math.Min(spStart + count, bStart + PostingBlockSize);
-            ushort maxT = 0, maxS = 0, maxX = 0;
-            ushort minL0 = ushort.MaxValue, minL2 = ushort.MaxValue, minL3 = ushort.MaxValue;
-            var maxPub = long.MinValue;
-            var minPub = long.MaxValue;
-
-            for (var i = bStart; i < bEnd; i++)
-            {
-                var sp = spPostings[i];
-                var tHits = (ushort)((sp.Packed >> 20) & 1023);
-                var sHits = (ushort)((sp.Packed >> 10) & 1023);
-                var xHits = (ushort)(sp.Packed & 1023);
-                if (tHits > maxT) maxT = tHits;
-                if (sHits > maxS) maxS = sHits;
-                if (xHits > maxX) maxX = xHits;
-
-                var d = documents[sp.Ordinal];
-                var l0 = (ushort)Math.Min(ushort.MaxValue, d.TitleLen);
-                var l2 = (ushort)Math.Min(ushort.MaxValue, d.SummaryLen);
-                var l3 = (ushort)Math.Min(ushort.MaxValue, d.TaxonomyLen);
-                if (l0 < minL0) minL0 = l0;
-                if (l2 < minL2) minL2 = l2;
-                if (l3 < minL3) minL3 = l3;
-
-                var pub = d.PublishedAtTicks;
-                if (pub > maxPub) maxPub = pub;
-                if (pub < minPub) minPub = pub;
-            }
-
-            spBlocks[spBlockCursor++] = new ShortPrefixBlockMeta(
-                spPostings[bEnd - 1].Ordinal,
-                maxT, maxS, maxX,
-                minL0, minL2, minL3,
-                maxPub, minPub);
+            spBlocks[spBlockCursor++] = SummarizeShortPrefixBlock(documents, spPostings.AsSpan(bStart, bEnd - bStart));
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ShortPrefixBlockMeta SummarizeShortPrefixBlock(DocumentMeta[] documents, ReadOnlySpan<ShortPrefixPosting> block)
+    {
+        ushort maxT = 0, maxS = 0, maxX = 0;
+        ushort minL0 = ushort.MaxValue, minL2 = ushort.MaxValue, minL3 = ushort.MaxValue;
+        var maxPub = long.MinValue;
+        var minPub = long.MaxValue;
+
+        foreach (ref readonly var sp in block)
+        {
+            var tHits = (ushort)((sp.Packed >> 20) & 1023);
+            var sHits = (ushort)((sp.Packed >> 10) & 1023);
+            var xHits = (ushort)(sp.Packed & 1023);
+            if (tHits > maxT) maxT = tHits;
+            if (sHits > maxS) maxS = sHits;
+            if (xHits > maxX) maxX = xHits;
+
+            ref readonly var d = ref documents[sp.Ordinal];
+            var l0 = (ushort)Math.Min(ushort.MaxValue, d.TitleLen);
+            var l2 = (ushort)Math.Min(ushort.MaxValue, d.SummaryLen);
+            var l3 = (ushort)Math.Min(ushort.MaxValue, d.TaxonomyLen);
+            if (l0 < minL0) minL0 = l0;
+            if (l2 < minL2) minL2 = l2;
+            if (l3 < minL3) minL3 = l3;
+
+            var pub = d.PublishedAtTicks;
+            if (pub > maxPub) maxPub = pub;
+            if (pub < minPub) minPub = pub;
+        }
+
+        return new ShortPrefixBlockMeta(
+            block[^1].Ordinal,
+            maxT, maxS, maxX,
+            minL0, minL2, minL3,
+            maxPub, minPub);
     }
 
     /// <summary>
@@ -1036,45 +1046,7 @@ public sealed partial class ArticleSearchIndex
             {
                 var bStart = startPosting + b * PostingBlockSize;
                 var bEnd = Math.Min(startPosting + liveTermCount, bStart + PostingBlockSize);
-                byte mTf0 = 0, mTf1 = 0, mTf2 = 0, mTf3 = 0, mTf4 = 0, anyExact = 0;
-                ushort minL0 = ushort.MaxValue, minL1 = ushort.MaxValue, minL2 = ushort.MaxValue,
-                       minL3 = ushort.MaxValue, minL4 = ushort.MaxValue;
-                var maxPub = long.MinValue;
-                var minPub = long.MaxValue;
-
-                for (var i = bStart; i < bEnd; i++)
-                {
-                    var p = postingSpan[i];
-                    if (p.Tf0 > mTf0) mTf0 = p.Tf0;
-                    if (p.Tf1 > mTf1) mTf1 = p.Tf1;
-                    if (p.Tf2 > mTf2) mTf2 = p.Tf2;
-                    if (p.Tf3 > mTf3) mTf3 = p.Tf3;
-                    if (p.Tf4 > mTf4) mTf4 = p.Tf4;
-                    anyExact |= (byte)(p.ExactFlags & ExactFlagBit);
-
-                    var d = mergedDocs[p.Ordinal];
-                    var l0 = (ushort)Math.Min(ushort.MaxValue, d.TitleLen);
-                    var l1 = (ushort)Math.Min(ushort.MaxValue, d.HeadingLen);
-                    var l2 = (ushort)Math.Min(ushort.MaxValue, d.SummaryLen);
-                    var l3 = (ushort)Math.Min(ushort.MaxValue, d.TaxonomyLen);
-                    var l4 = (ushort)Math.Min(ushort.MaxValue, d.BodyLen);
-                    if (l0 < minL0) minL0 = l0;
-                    if (l1 < minL1) minL1 = l1;
-                    if (l2 < minL2) minL2 = l2;
-                    if (l3 < minL3) minL3 = l3;
-                    if (l4 < minL4) minL4 = l4;
-
-                    var pub = d.PublishedAtTicks;
-                    if (pub > maxPub) maxPub = pub;
-                    if (pub < minPub) minPub = pub;
-                }
-
-                mergedBlocks.Add(new SearchPostingBlockMeta(
-                    postingSpan[bEnd - 1].Ordinal,
-                    mTf0, mTf1, mTf2, mTf3, mTf4,
-                    anyExact,
-                    minL0, minL1, minL2, minL3, minL4,
-                    maxPub, minPub));
+                mergedBlocks.Add(SummarizePostingBlock(mergedDocs, postingSpan.Slice(bStart, bEnd - bStart)));
             }
             mergedTerms.Add(new Term(minKey, startPosting, liveTermCount, blockStart, bCount));
         }
@@ -1134,39 +1106,7 @@ public sealed partial class ArticleSearchIndex
             {
                 var bStart = startSp + b * PostingBlockSize;
                 var bEnd = Math.Min(startSp + liveSpCount, bStart + PostingBlockSize);
-                ushort maxT = 0, maxS = 0, maxX = 0;
-                ushort minL0 = ushort.MaxValue, minL2 = ushort.MaxValue, minL3 = ushort.MaxValue;
-                var maxPub = long.MinValue;
-                var minPub = long.MaxValue;
-
-                for (var i = bStart; i < bEnd; i++)
-                {
-                    var sp = spSpan[i];
-                    var tHits = (ushort)((sp.Packed >> 20) & 1023);
-                    var sHits = (ushort)((sp.Packed >> 10) & 1023);
-                    var xHits = (ushort)(sp.Packed & 1023);
-                    if (tHits > maxT) maxT = tHits;
-                    if (sHits > maxS) maxS = sHits;
-                    if (xHits > maxX) maxX = xHits;
-
-                    var d = mergedDocs[sp.Ordinal];
-                    var l0 = (ushort)Math.Min(ushort.MaxValue, d.TitleLen);
-                    var l2 = (ushort)Math.Min(ushort.MaxValue, d.SummaryLen);
-                    var l3 = (ushort)Math.Min(ushort.MaxValue, d.TaxonomyLen);
-                    if (l0 < minL0) minL0 = l0;
-                    if (l2 < minL2) minL2 = l2;
-                    if (l3 < minL3) minL3 = l3;
-
-                    var pub = d.PublishedAtTicks;
-                    if (pub > maxPub) maxPub = pub;
-                    if (pub < minPub) minPub = pub;
-                }
-
-                mergedSpBlocks.Add(new ShortPrefixBlockMeta(
-                    spSpan[bEnd - 1].Ordinal,
-                    maxT, maxS, maxX,
-                    minL0, minL2, minL3,
-                    maxPub, minPub));
+                mergedSpBlocks.Add(SummarizeShortPrefixBlock(mergedDocs, spSpan.Slice(bStart, bEnd - bStart)));
             }
             mergedSpTerms.Add(new ShortPrefixTerm(minSpKey, startSp, liveSpCount, blockStart, bCount));
         }
