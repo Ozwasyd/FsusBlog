@@ -1120,7 +1120,7 @@ public sealed partial class ArticleSearchIndex
     {
         bestField = SearchScoreField.Body;
         if (steps.Length == 0) return false;
-        var lists = new IReadOnlyList<uint>[steps.Length];
+        var lists = new List<uint>[steps.Length];
         for (var i = 0; i < steps.Length; i++)
         {
             if (!posMap.TryGetValue(steps[i].CanonicalKey, out var list) || list.Count == 0) return false;
@@ -1132,7 +1132,7 @@ public sealed partial class ArticleSearchIndex
     private static bool WideMatchesTightProximity(Dictionary<SearchTermKey, List<uint>> posMap, SearchConceptStep[] steps, int maxSpan)
     {
         if (steps.Length < 2) return false;
-        var lists = new IReadOnlyList<uint>[steps.Length];
+        var lists = new List<uint>[steps.Length];
         for (var i = 0; i < steps.Length; i++)
         {
             if (!posMap.TryGetValue(steps[i].CanonicalKey, out var list) || list.Count == 0) return false;

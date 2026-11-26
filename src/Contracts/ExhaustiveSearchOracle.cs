@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace FsusBlog.V2.Contracts;
 
 /// <summary>
@@ -448,7 +450,7 @@ public sealed class ExhaustiveSearchOracle
         return MatchPositionsExactSequence(lists, steps, out matchedField);
     }
 
-    internal static bool MatchPositionsExactSequence(IReadOnlyList<uint>[] posLists, SearchConceptStep[] steps, out SearchScoreField bestField)
+    internal static bool MatchPositionsExactSequence(List<uint>[] posLists, SearchConceptStep[] steps, out SearchScoreField bestField)
     {
         bestField = SearchScoreField.Body;
         if (steps.Length == 0 || posLists[0].Count == 0) return false;
@@ -464,7 +466,7 @@ public sealed class ExhaustiveSearchOracle
             for (var s = 1; s < steps.Length; s++)
             {
                 var targetPos = pos0 + (steps[s].RelativeOffset - baseOffset);
-                if (!ContainsFieldAndPos(posLists[s], field, targetPos))
+                if (!ContainsFieldAndPos(CollectionsMarshal.AsSpan(posLists[s]), field, targetPos))
                 {
                     allOk = false;
                     break;
@@ -494,7 +496,7 @@ public sealed class ExhaustiveSearchOracle
         return MatchPositionsTightProximity(lists, maxSpan);
     }
 
-    internal static bool MatchPositionsTightProximity(IReadOnlyList<uint>[] posLists, int maxSpan)
+    internal static bool MatchPositionsTightProximity(List<uint>[] posLists, int maxSpan)
     {
         if (posLists.Length < 2) return false;
         for (var f = 0; f < SearchScoringProfile.FieldCount; f++)
@@ -510,7 +512,7 @@ public sealed class ExhaustiveSearchOracle
                 var allNear = true;
                 for (var s = 1; s < posLists.Length; s++)
                 {
-                    if (!TryFindClosestInField(posLists[s], field, anchor, out var closest))
+                    if (!TryFindClosestInField(CollectionsMarshal.AsSpan(posLists[s]), field, anchor, out var closest))
                     {
                         allNear = false;
                         break;
@@ -521,23 +523,6 @@ public sealed class ExhaustiveSearchOracle
                 }
                 if (allNear) return true;
             }
-        }
-        return false;
-    }
-
-    internal static bool ContainsFieldAndPos(IReadOnlyList<uint> sortedPacked, SearchScoreField field, int targetPos)
-    {
-        if (targetPos < 0 || sortedPacked.Count == 0) return false;
-        var targetFp = (((uint)field & 7U) << 25) | (uint)Math.Clamp(targetPos, 0, 0x01FF_FFFF);
-        var lo = 0;
-        var hi = sortedPacked.Count - 1;
-        while (lo <= hi)
-        {
-            var mid = lo + ((hi - lo) >> 1);
-            var midFp = sortedPacked[mid] >> 4;
-            if (midFp == targetFp) return true;
-            if (midFp < targetFp) lo = mid + 1;
-            else hi = mid - 1;
         }
         return false;
     }
@@ -586,23 +571,6 @@ public sealed class ExhaustiveSearchOracle
             var p = SearchScoringProfile.UnpackPosition(sortedPacked[lo - 1]);
             var d = Math.Abs(p - anchor);
             if (d < bestDist) { bestDist = d; closest = p; }
-        }
-        return bestDist != int.MaxValue;
-    }
-
-    private static bool TryFindClosestInField(IReadOnlyList<uint> sortedPacked, SearchScoreField field, int anchor, out int closest)
-    {
-        if (sortedPacked is List<uint> list)
-            return TryFindClosestInField(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(list), field, anchor, out closest);
-        closest = 0;
-        var bestDist = int.MaxValue;
-        for (var i = 0; i < sortedPacked.Count; i++)
-        {
-            var p = sortedPacked[i];
-            if (SearchScoringProfile.UnpackField(p) != field) continue;
-            var pos = SearchScoringProfile.UnpackPosition(p);
-            var dist = Math.Abs(pos - anchor);
-            if (dist < bestDist) { bestDist = dist; closest = pos; }
         }
         return bestDist != int.MaxValue;
     }
