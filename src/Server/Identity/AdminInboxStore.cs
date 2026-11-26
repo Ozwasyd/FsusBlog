@@ -325,8 +325,7 @@ internal sealed class AdminInboxStore(AdminSessionGate gate)
                     AND CASE $2 WHEN -1 THEN true WHEN 3 THEN unread.count>0 WHEN 4 THEN c.is_system ELSE c.status=$2 END
                 ORDER BY c.id DESC LIMIT $3
                 """, r => InboxRow(r, 6), position?.First ?? 0L, filter, Wire.AdminInboxPageSize + 1);
-            var hasMore = rows.Count > Wire.AdminInboxPageSize;
-            if (hasMore) rows.RemoveAt(Wire.AdminInboxPageSize);
+            var hasMore = SqlCommands.TrimPage(rows, Wire.AdminInboxPageSize);
             return new AdminInboxPage(rows, hasMore ? new AdminInboxCursor(rows[^1].Id, 0).Encode(admin.Digest, scope) : null);
         }, ct);
 

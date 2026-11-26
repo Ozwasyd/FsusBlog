@@ -427,8 +427,7 @@ internal static class CommentAppeals
             """, row => new AuthorAppealRow(row.GetInt32(0), row.GetInt64(1), row.GetBoolean(6) ? "" : row.GetString(2),
                 row.GetInt16(3), row.GetInt32(4), row.IsDBNull(5) ? null : row.GetString(5), row.GetBoolean(7)),
             owner, before, Wire.CommentAppealPageSize + 1, status, keyword, pendingEditEnabled, WireLimits.CommentAuthorEditWindowMinutes);
-        var hasMore = rows.Count > Wire.CommentAppealPageSize;
-        if (hasMore) rows.RemoveAt(Wire.CommentAppealPageSize);
+        var hasMore = SqlCommands.TrimPage(rows, Wire.CommentAppealPageSize);
         return Wire.EncodeAuthorAppeals(rows, hasMore);
     }
 

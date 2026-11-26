@@ -17,9 +17,7 @@ internal sealed class SavedViewStore(NpgsqlConnection db, NpgsqlTransaction tx, 
             where site_id=$1 and owner_id=$2 and not retired and id>$3 order by id limit $4
             """, r => new SavedViewSummary(r.GetGuid(0), r.GetInt64(1), r.GetString(2)),
             site, actor.Id, after, WireLimits.SavedViewPageSize + 1);
-        if (views.Count <= WireLimits.SavedViewPageSize) return new(revision, Guid.Empty, views);
-        views.RemoveAt(views.Count - 1);
-        return new(revision, views[^1].Id, views);
+        return new(revision, TrimPage(views, WireLimits.SavedViewPageSize) ? views[^1].Id : Guid.Empty, views);
     }
 
     internal async Task<SavedViewReceipt> Change(SavedViewCommand input, CancellationToken ct)
@@ -124,10 +122,8 @@ internal sealed class SavedViewStore(NpgsqlConnection db, NpgsqlTransaction tx, 
             where p.site_id=$1 and p.owner_id=$2 order by p.pin_order offset $3 limit $4
             """, r => new SavedViewSummary(r.GetGuid(0), r.GetInt64(1), r.GetString(2)),
             site, actor.Id, offset, WireLimits.SavedViewPageSize + 1);
-        if (page.Count <= WireLimits.SavedViewPageSize)
-            return new(revision, fallback, requestedView?.View, requestedView?.Pinned ?? false, 0, page);
-        page.RemoveAt(page.Count - 1);
-        return new(revision, fallback, requestedView?.View, requestedView?.Pinned ?? false, offset + page.Count, page);
+        var next = TrimPage(page, WireLimits.SavedViewPageSize) ? offset + page.Count : 0;
+        return new(revision, fallback, requestedView?.View, requestedView?.Pinned ?? false, next, page);
     }
 
     internal async Task<SavedViewReceipt> ChangePlacement(SavedViewPlacementCommand input, CancellationToken ct)

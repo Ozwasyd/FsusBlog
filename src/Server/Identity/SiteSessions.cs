@@ -23,8 +23,7 @@ internal static class SiteSessions
                 return new SiteSessionRow(Id(actor.Id, row), reader.GetUnixMilliseconds(1),
                     row.AsSpan().SequenceEqual(digest), reader.GetBoolean(2) ? 2 : 1, reader.GetBoolean(3));
             }, actor.Id, actor.Generation, digest, WireLimits.SiteSessionListSize + 1);
-            var hasMore = rows.Count > WireLimits.SiteSessionListSize;
-            if (hasMore) rows.RemoveAt(WireLimits.SiteSessionListSize);
+            var hasMore = SqlCommands.TrimPage(rows, WireLimits.SiteSessionListSize);
             return new SiteSessionList(rows, hasMore);
         }, ct);
 

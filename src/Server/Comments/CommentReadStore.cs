@@ -138,12 +138,8 @@ internal sealed class CommentReadStore(NpgsqlDataSource source)
             )
             """, article) is true;
 
-    private static long? TakePage(List<CommentNode> rows, int limit)
-    {
-        if (rows.Count <= limit) return null;
-        rows.RemoveAt(rows.Count - 1);
-        return rows[^1].Id;
-    }
+    private static long? TakePage(List<CommentNode> rows, int limit) =>
+        SqlCommands.TrimPage(rows, limit) ? rows[^1].Id : null;
 
     private static Task<List<CommentNode>> Read(NpgsqlConnection db, NpgsqlTransaction tx, string query,
         CancellationToken ct, params object[] parameters) =>

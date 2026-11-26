@@ -194,8 +194,7 @@ internal sealed partial class PropertyStore
         sql.Append(" order by a.id desc limit $3");
         var matches = await SqlCommands.QueryList(db, tx, ct, sql.ToString(),
             r => new PropertyArticleRow(r.GetInt32(0), r.GetInt64(1), r.GetString(2)), parameters.ToArray());
-        var more = matches.Count > WireLimits.PropertyPageSize;
-        if (more) matches.RemoveAt(matches.Count - 1);
+        var more = SqlCommands.TrimPage(matches, WireLimits.PropertyPageSize);
         return new(more ? Cursor(binding, matches[^1].Id) : "", matches);
     }
 
