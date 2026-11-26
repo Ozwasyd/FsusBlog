@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { computed, reactive, ref, shallowRef } from 'vue'
-import { ElTabs, ElTabPane } from '@ozwasyd/element-plus'
+import { computed, defineAsyncComponent, reactive, ref, shallowRef, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { ElAlert, ElTabs, ElTabPane } from '@ozwasyd/element-plus'
 import { t } from '../siteLocale'
+import { currentSession, refreshSession } from '../authorSession'
+import { savedViewLink } from '../authoring/savedViewLink'
 import AdminArticleInventory from './AdminArticleInventory.vue'
 import AdminTaxonomy from './AdminTaxonomy.vue'
 import AdminArticleRollback from './AdminArticleRollback.vue'
@@ -12,14 +15,29 @@ export type AdminArticleTaxonomyFilter = Readonly<{
   name: string
 }>
 
-defineProps<{ sessionSignal: AbortSignal; canRollback?: boolean }>()
+const props = defineProps<{ sessionSignal: AbortSignal; canRollback?: boolean }>()
 const emit = defineEmits<{ 'session-lost': [cause: unknown] }>()
+const SavedViewPanel = defineAsyncComponent(() => import('../authoring/SavedViewPanel.vue'))
+const route = useRoute()
+const showSavedView = computed(() => savedViewLink(route.query) !== undefined)
+const savedViewAuthorized = ref<boolean>()
 const selected = ref<string | number>('articles')
 const keyword = ref('')
 const taxonomyFilter = shallowRef<AdminArticleTaxonomyFilter>()
 const working = reactive({ articles: false, trash: false, recovery: false })
 const locked = computed(() => Object.values(working).some(Boolean))
 const mayLeave = () => !locked.value
+
+watch(showSavedView, async (show, _, cleanup) => {
+  savedViewAuthorized.value = undefined
+  if (!show) return
+  selected.value = 'articles'
+  const request = new AbortController()
+  cleanup(() => request.abort())
+  const signal = AbortSignal.any([props.sessionSignal, request.signal])
+  const authorized = await refreshSession(signal, false).then(() => currentSession.value !== null, () => false)
+  if (!signal.aborted) savedViewAuthorized.value = authorized
+}, { immediate: true })
 
 function openArticlesByTaxonomy(filter: AdminArticleTaxonomyFilter) {
   taxonomyFilter.value = filter
@@ -30,7 +48,13 @@ function openArticlesByTaxonomy(filter: AdminArticleTaxonomyFilter) {
 <template>
   <ElTabs v-model="selected" class="admin-article-tabs" :before-leave="mayLeave">
     <ElTabPane name="articles" :label="t('admin.articles.articles')" lazy>
+      <template v-if="showSavedView">
+        <p v-if="savedViewAuthorized === undefined" role="status">{{ t('author.savedViewPanel.loading.saved.views') }}</p>
+        <SavedViewPanel v-else-if="savedViewAuthorized" />
+        <ElAlert v-else type="error" :closable="false" :title="t('author.savedViewPanel.saved.views.are.temporarily.unavailable')" />
+      </template>
       <AdminArticleInventory
+        v-else
         v-model:keyword="keyword"
         :taxonomy-filter="taxonomyFilter"
         :session-signal="sessionSignal"

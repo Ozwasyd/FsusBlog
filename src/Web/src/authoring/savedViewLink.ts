@@ -1,5 +1,7 @@
 import type { LocationQuery } from 'vue-router'
 
+export const savedViewRoute = 'admin-articles'
+
 export type SavedViewLink = { id: string } | 'invalid' | undefined
 
 export function savedViewLink(query: LocationQuery): SavedViewLink {

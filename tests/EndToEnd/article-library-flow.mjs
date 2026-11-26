@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
+import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeAuthorArticlePage } from '../../src/Contracts/author-articles.ts'
 import { decodeRecentOpens } from '../../src/Contracts/author-recent-opens.ts'
+import { PodReader, PodWriter } from '../../src/Contracts/binary.ts'
+import { decodePropertyMatches, encodePropertyQuery } from '../../src/Contracts/property-query.ts'
+import { encodePropertySchemaCommand, encodePropertyValueCommand } from '../../src/Contracts/property-values.ts'
 import * as wire from '../../src/Contracts/wire.generated.ts'
 import * as authoring from './browser-authoring-fixture.mjs'
 import * as isolated from './isolated-browser-fixture.mjs'
@@ -35,6 +40,112 @@ const recentIds = (context, handle) => recentOpens(context, handle).then(page =>
 async function openMobileMenuItem(page, name) {
   await button(page, 'More actions').click()
   await loc.exactMenuItem(page, name).click()
+}
+
+async function verifyPinnedView({ browser, page, author, outsider, handle, article }) {
+  const id = randomUUID(), view = randomUUID(), name = 'Pinned library witness'
+  const post = (path, frame, input, receipt = FrameType.PropertyCommandReceipt) =>
+    authoring.postReceipt(author, origin, path, frame, input, receipt, handle)
+  await post(WireRoutes.PropertySchemaCommand, FrameType.PropertySchemaCommand, encodePropertySchemaCommand({
+    operation: 1, definitionId: id, requestId: randomUUID(), schemaRevision: 0n, definitionRevision: 0n,
+    machineKey: 'library-witness', label: 'Library witness', kind: 'text',
+  }))
+  const value = { kind: 'text', value: 'Pinned result' }
+  await post(WireRoutes.PropertyValueCommand, FrameType.PropertyValueCommand, encodePropertyValueCommand({
+    articleId: article.id, articleRevision: article.revision, schemaRevision: 1n, valueRevision: 0n,
+    definitionId: id, definitionRevision: 1n, requestId: randomUUID(), value,
+  }))
+  await post(WireRoutes.PropertyFilterability, FrameType.PropertyFilterabilityCommand, wire.encodePropertyFilterabilityCommand({
+    definitionId: id, requestId: randomUUID(), schemaRevision: 1n, definitionRevision: 1n, enabled: true,
+  }))
+  const saved = new PodWriter()
+  saved.i32(1)
+  saved.uuid(view)
+  saved.i64(0n)
+  saved.i64(0n)
+  saved.uuid(randomUUID())
+  saved.text(name, WireLimits.SavedViewNameBytes)
+  saved.bytes(encodePropertyQuery({
+    schema: 2n, conditions: [{ field: { id, revision: 2n, kind: 'text' }, comparison: 'equal', value }], cursor: '',
+  }))
+  await post(WireRoutes.SavedViews, FrameType.SavedViewCommand, saved.finish(), FrameType.SavedViewReceipt)
+  const pin = new PodWriter()
+  pin.i32(4)
+  pin.uuid(view)
+  pin.i64(1n)
+  pin.i64(1n)
+  pin.uuid(randomUUID())
+  pin.uuid('00000000-0000-0000-0000-000000000000')
+  await post(WireRoutes.SavedViewPlacement, FrameType.SavedViewPlacementCommand, pin.finish(), FrameType.SavedViewReceipt)
+
+  const path = `/admin/articles?view=${view}&viewSchema=1`
+  const results = target => loc.exactRegion(target, 'Saved view results')
+  await page.setViewportSize({ width: 375, height: 850 })
+  await page.goto(editor(article.id))
+  await expect(body(page)).toHaveValue(article.body)
+  const dirty = article.body + ' Unsaved before opening a pinned view.'
+  await body(page).fill(dirty)
+  await openMobileMenuItem(page, 'Article library')
+  const library = loc.exactDialog(page, 'Article library')
+  await button(library, 'Pinned views').click()
+  const link = loc.exactLink(library, name)
+  await expect(link).toHaveAttribute('href', path)
+  const executions = []
+  page.on('request', sent => {
+    if (new URL(sent.url()).pathname === WireRoutes.SavedViewExecute) executions.push(sent)
+  })
+  await link.click()
+  await button(page, 'Keep writing').click()
+  await expect(page).toHaveURL(editor(article.id))
+  await expect(body(page)).toHaveValue(dirty)
+  assert.equal(executions.length, 0)
+  await link.click()
+  const execution = page.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.SavedViewExecute)
+  await button(page, 'Discard changes').click()
+  await expect(page).toHaveURL(origin + path)
+  const response = await execution
+  const matches = await readFrame(response, FrameType.PropertyArticlePage, decodePropertyMatches)
+  assert.equal(executions.length, 1)
+  assert.equal(response.request().headers()[WireHeaders.CurrentSession.toLowerCase()], handle)
+  const input = new PodReader(decodeFrame(response.request().postDataBuffer(), FrameType.SavedViewExecute).payload)
+  assert.equal(input.uuid(), view)
+  assert.equal(input.i64(), 1n)
+  assert.equal(input.text(WireLimits.PropertyQueryCursorChars), '')
+  input.finish()
+  assert.deepEqual(matches.rows.map(row => row.id), [article.id])
+  await page.waitForFunction(() => !document.documentElement.hasAttribute('data-fsusblog-transitioning'))
+  await expect(loc.roleWithExactName(results(page), 'heading', name)).toBeFocused()
+  await expect(loc.exactLink(results(page), article.title)).toHaveAttribute('href', `/admin/articles/edit/${article.id}`)
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), 375)
+  await isolated.saveShot(page, evidence, 'pinned-view-mobile.png')
+
+  await isolated.withTempContext(browser, {
+    storageState: await author.storageState(), viewport: { width: 1280, height: 850 }, colorScheme: 'dark',
+  }, async context => {
+    const direct = monitor(await context.newPage())
+    await direct.goto(origin + path)
+    await expect(loc.exactLink(results(direct), article.title)).toBeVisible()
+    await expect(direct.locator('html')).toHaveAttribute('data-theme-resolved', 'dark')
+    await isolated.saveShot(direct, evidence, 'pinned-view-desktop-dark.png')
+    await direct.goto(origin + path.replace('viewSchema=1', 'viewSchema=2'))
+    await expect(loc.exactText(direct, 'Invalid saved-view link.')).toBeVisible()
+    await expect(results(direct)).toHaveCount(0)
+    await loc.exactLink(direct, 'Back to all views').click()
+    await expect(direct).toHaveURL(origin + '/admin/articles')
+    await expect(loc.roleWithExactName(direct, 'textbox', 'Title or summary')).toBeVisible()
+  })
+  const peer = monitor(await outsider.newPage())
+  try {
+    const foreignRead = peer.waitForResponse(response => new URL(response.url()).pathname === WireRoutes.SavedViewPlacement)
+    await peer.goto(origin + path)
+    assertStatus(await foreignRead, 404)
+    await expect(peer.getByRole('alert')).toBeVisible()
+    await expect(results(peer)).toHaveCount(0)
+  } finally {
+    await peer.close()
+  }
+  observations.push({ pinnedViewLink: true, guardedDirtyDraft: true, exactSavedQuery: true,
+    directLink: true, invalidAndForeignLinksRejected: true })
 }
 
 const withHeld = (page, pattern, trigger, whileHeld) => withHeldResponse(page, pattern, trigger, async held => {
@@ -407,6 +518,7 @@ await isolated.withBrowserEvidence(browser, evidence, 'article-library-result.js
     await expect(quick.getByRole('option', { name: new RegExp(staleTitle) })).toHaveCount(0)
   })
   observations.push({ sameCredentialOwnerPeerOwner: true, delayedRealQueryReachedBrowserDespiteAbort: true, staleQuerySuppressed: true })
+  await verifyPinnedView({ browser, page, author, outsider, handle, article: first })
   observations.push({ ownerAndCredentialFence: true, exactActiveRevealOutsidePage: true, distinctDuplicateArticleIds: true,
     boundedPages: true, routeWaitsForOwnedDraft: true, separateBrowserTab: true, editorWidthBefore: width, editorWidthAfter: openWidth,
     mobileDrawerAndFocusReturn: true, latePreviousAccountReadSuppressed: true, exactDurableRecentOpens: true })

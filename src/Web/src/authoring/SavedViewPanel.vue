@@ -8,11 +8,10 @@ import type { PropertyMatches, PropertyQuery } from '../../../Contracts/property
 import { changeSavedView, listSavedViews, placeSavedView, runSavedView, savedViewPlacement,
   type PlacementAction, type PlacementChange, type SavedView, type SavedViewCatalog, type SavedViewChange, type SavedViewPlacement } from '../../../Contracts/saved-views'
 import { currentSession, identityEpoch, invalidateSession } from '../authorSession'
-import { savedViewLink } from './savedViewLink'
+import { savedViewLink, savedViewRoute } from './savedViewLink'
 
 const props = defineProps<{ query?: PropertyQuery; readOnly?: boolean }>()
 const route = useRoute()
-const surface = computed(() => props.readOnly ? 'article-search' : 'article-list')
 const deepLink = computed(() => savedViewLink(route.query))
 const open = ref(false)
 const linkClosed = ref(false)
@@ -236,12 +235,12 @@ function reload() {
     <div v-if="error" ref="alert" tabindex="-1"><ElAlert :title="error" type="error" :closable="false" /></div>
     <p v-if="busy" role="status">{{ t('author.savedViewPanel.loading.saved.views') }}</p>
     <ElButton v-if="error && !busy && !saving && !deepLink" text @click="reload">{{ t('author.savedViewPanel.reload.saved.views') }}</ElButton>
-    <RouterLink v-if="deepLink" :to="{ name: surface }">{{ t('author.savedViewPanel.back.to.all.views') }}</RouterLink>
+    <RouterLink v-if="deepLink" :to="{ name: savedViewRoute }">{{ t('author.savedViewPanel.back.to.all.views') }}</RouterLink>
     <template v-if="page">
       <nav v-if="placement?.pins.length" :aria-label="t('author.savedViewPanel.pinned.views')">
         <ul>
           <li v-for="pin in placement.pins" :key="pin.id">
-            <RouterLink :to="{ name: surface, query: { view: pin.id, viewSchema: '1' } }">
+            <RouterLink :to="{ name: savedViewRoute, query: { view: pin.id, viewSchema: '1' } }">
               {{ pin.name }}{{ pin.id === defaultId ? t('author.savedViewPanel.default') : '' }}
             </RouterLink>
           </li>
@@ -257,7 +256,7 @@ function reload() {
       <ElButton v-if="page.nextId" text :disabled="busy || saving" @click="load(true)">{{ t('author.savedViewPanel.more.saved.views') }}</ElButton>
       <template v-if="view">
         <ElButton :disabled="busy || saving" @click="openView()">{{ t('author.savedViewPanel.open.saved.view') }}</ElButton>
-        <RouterLink v-if="placement" :to="{ name: surface, query: { view: view.id, viewSchema: '1' } }">{{ t('author.savedViewPanel.saved.view.link') }}</RouterLink>
+        <RouterLink v-if="placement" :to="{ name: savedViewRoute, query: { view: view.id, viewSchema: '1' } }">{{ t('author.savedViewPanel.saved.view.link') }}</RouterLink>
         <template v-if="!props.readOnly">
           <ElButton v-if="placement && knowsPin" text :disabled="busy || saving" @click="place(pinned ? 'unpin' : 'pin')">
             {{ pinned ? t('author.savedViewPanel.unpin.view') : t('author.savedViewPanel.pin.view') }}
