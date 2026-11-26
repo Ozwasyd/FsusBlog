@@ -103,8 +103,7 @@ async function load(append = false, source: LoadSource = append ? 'more' : 'refr
     if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else failure.value = 'admin.readers.loadFailed'
   } finally {
-    if (req.isCurrent()) {
-      req.finish()
+    if (req.finish()) {
       loading.value = false
       loadingSource.value = null
     }

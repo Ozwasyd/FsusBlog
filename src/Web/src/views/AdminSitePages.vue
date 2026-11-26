@@ -60,7 +60,7 @@ async function readOverview(force = true) {
     if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else if (force || !(cause instanceof ApiError && cause.status === 403)) error.value = 'admin.sitePageLoadFailed'
   } finally {
-    if (req.isCurrent()) { req.finish(); busy.value = false }
+    if (req.finish()) busy.value = false
   }
 }
 
@@ -81,7 +81,7 @@ async function toggleReadOnlyView(slug: SitePageSlug) {
     if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else error.value = 'admin.sitePageLoadFailed'
   } finally {
-    if (req.isCurrent()) { req.finish(); readingSlug.value = undefined }
+    if (req.finish()) readingSlug.value = undefined
   }
 }
 

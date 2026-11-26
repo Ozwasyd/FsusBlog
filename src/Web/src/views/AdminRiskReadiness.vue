@@ -49,7 +49,7 @@ async function check(force = true) {
     if (isAdminSessionLost(cause)) emit('session-lost', cause)
     else if (force || !(cause instanceof ApiError && cause.status === 403)) error.value = 'admin.riskCheckFailed'
   } finally {
-    if (req.isCurrent()) { req.finish(); busy.value = false }
+    if (req.finish()) busy.value = false
   }
 }
 
@@ -76,7 +76,7 @@ async function change(rollback: boolean) {
     else if (cause instanceof ApiError && cause.status === 409) error.value = 'admin.riskPolicyChanged'
     else error.value = 'admin.riskPolicyUnconfirmed'
   } finally {
-    if (req.isCurrent()) { req.finish(); busy.value = false }
+    if (req.finish()) busy.value = false
   }
 }
 
