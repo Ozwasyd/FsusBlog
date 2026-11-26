@@ -57,10 +57,11 @@ internal static class PublicReadEndpoints
                 size is < 1 or > 100 || sizeText != size.ToString(CultureInfo.InvariantCulture)))
                 return ServerHttp.Error(ctx, 400, "Invalid search page size.");
             var snapshot = ServerHttp.Snapshot(ctx, publications);
-            (byte[] Bytes, int Total)? result;
+            CachedSearchPayload? result;
             try
             {
-                result = await searchCache.SearchFas4Async(publications, snapshot, keyword, sort, page, size, paginated, ctx.RequestAborted);
+                result = await searchCache.SearchAsync(publications, snapshot, keyword, sort, size, ctx.RequestAborted,
+                    fas4Page: (page, paginated));
             }
             catch (PublicUnavailableException)
             {
@@ -115,7 +116,9 @@ internal static class PublicReadEndpoints
             byte[] frame;
             try
             {
-                frame = await searchCache.SearchV2Async(publications, snapshot, keyword, sort, size, cursor, ctx.RequestAborted);
+                var result = await searchCache.SearchAsync(publications, snapshot, keyword, sort, size, ctx.RequestAborted, cursor: cursor)
+                    ?? throw PublicSearchFailure.Unavailable();
+                frame = result.Bytes;
             }
             catch (PublicUnavailableException)
             {
