@@ -78,7 +78,7 @@ internal static partial class CurrentSchema
         if (hasPrivateMediaImportOrigin && !hasArticleMedia)
             throw new InvalidOperationException("Imported private media requires the article attachment schema.");
 
-        shapes.AddRange([GetCoreShape(hasArticleSummary), CommunicationShape, TaxonomyShape, core.LegacyCanvas ? LegacyCanvasShape : CanvasShape,
+        shapes.AddRange([GetCoreShape(hasArticleSummary), CommunicationShape, TaxonomyShape, CanvasShape,
             PropertyShape, PasskeyShape, MfaShape, GetCommentShape(core.AdminIdentity), GetMediaShape(hasPrivateMediaImportOrigin)]);
         AddIf(hasArticleMedia, ArticleMediaShape);
         AddIf(PropertySnapshotTable.IsPresent(catalog), PropertySnapshotShape);
@@ -89,7 +89,7 @@ internal static partial class CurrentSchema
         AddIf(core.ArticleSchedule, ArticleScheduleShape);
         AddIf(core.MediaUpload, MediaUploadShape);
         AddIf(core.PublicationRights, PublicationRightsShape);
-        AddIf(!core.LegacyCanvas && core.CanvasHistory, CanvasHistoryShape);
+        AddIf(core.CanvasHistory, CanvasHistoryShape);
         AddIf(core.RecoveryScope, RecoveryScopeShape);
         AddIf(site.Subscription ?? catalog.HasRelation(SiteSubscriptionRelation), SiteSubscriptionShape);
         AddIf(catalog.HasRelation(SiteTrafficRelation), SiteTrafficShape);

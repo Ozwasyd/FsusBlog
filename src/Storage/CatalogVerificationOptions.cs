@@ -39,7 +39,7 @@ internal sealed record CatalogVerificationOptions
 internal sealed record CoreCatalogOptions(
     bool RecoveryScope = true, bool RevisionHistory = true, bool AdminIdentity = true,
     bool PublicationHistory = true, bool ArticleSchedule = true, bool MediaUpload = true,
-    bool PublicationRights = true, bool CanvasHistory = true, bool LegacyCanvas = false)
+    bool PublicationRights = true, bool CanvasHistory = true)
 {
     internal static readonly CoreCatalogOptions Default = new();
 }

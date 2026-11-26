@@ -623,9 +623,7 @@ public static class SearchTextAnalyzer
 
         // Standard CJK run (2..4096): Viterbi segmentation on SC-folded view so Traditional and Simplified
         // segment on identical dictionary boundaries.
-        var segments = new List<(int Rel, int Width)>(Math.Min(runLen, 32));
-        foreach (var (segStart, segWidth) in SearchLexicon.Segment(simpSrc, simpBase, simpBase + runLen))
-            segments.Add((segStart - simpBase, segWidth));
+        var widths = SearchLexicon.SegmentWidths(simpSrc, simpBase, runLen);
 
         ulong emittedMask = 0;
         HashSet<int>? emittedOverflow = runLen > 64 ? [] : null;
@@ -649,10 +647,9 @@ public static class SearchTextAnalyzer
                 SearchTokenKind.CjkBigram, basePos + rel, 2, advance, abs, abs + 2);
         }
 
-        var idx = 0;
-        while (idx < segments.Count)
+        for (var rel = 0; rel < runLen;)
         {
-            var (rel, width) = segments[idx];
+            var width = widths[rel];
             if (width >= 2)
             {
                 var abs = start + rel;
@@ -692,15 +689,14 @@ public static class SearchTextAnalyzer
                             SearchTokenKind.CjkChar, basePos + rel + r, 1, 0, abs + r, abs + r + 1);
                     }
                 }
-                idx++;
+                rel += width;
             }
             else
             {
                 // Group contiguous unknown 1-char segments
-                var groupStart = rel;
-                while (idx < segments.Count && segments[idx].Width == 1) idx++;
-                var groupEnd = idx < segments.Count ? segments[idx].Rel : runLen;
-                var groupLen = groupEnd - groupStart;
+                var groupStart = rel++;
+                while (rel < runLen && widths[rel] == 1) rel++;
+                var groupLen = rel - groupStart;
 
                 if (groupLen == 1)
                 {
@@ -756,8 +752,8 @@ public static class SearchTextAnalyzer
         // dictionary boundaries retain exact positional bigrams.
         if (indexMode)
         {
-            for (var s = 1; s < segments.Count; s++)
-                EmitBigramOnce(segments[s].Rel - 1, 0);
+            for (var boundary = (int)widths[0]; boundary < runLen; boundary += widths[boundary])
+                EmitBigramOnce(boundary - 1, 0);
         }
 
         return runLen;

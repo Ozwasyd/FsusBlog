@@ -9,7 +9,6 @@ internal static class SearchLexicon
     internal static bool IsCjk(char value) => value is >= '\u3400' and <= '\u4dbf' or
         >= '\u4e00' and <= '\u9fff' or >= '\u3040' and <= '\u30ff' or >= '\uac00' and <= '\ud7af';
 
-    internal const int MaxSegment = 4096;
     private static readonly Dictionary<string, int> Weights;
     private static readonly HashSet<string> Stopwords;
     internal static readonly int MaxWord;
@@ -30,16 +29,9 @@ internal static class SearchLexicon
 
     internal static bool IsWord(ReadOnlySpan<char> word) => Weights.GetAlternateLookup<ReadOnlySpan<char>>().ContainsKey(word);
 
-    internal static IEnumerable<(int Start, int Width)> Segment(string text, int start, int end)
+    internal static byte[] SegmentWidths(string text, int start, int length)
     {
-        var length = end - start;
-        if (length == 1 || length > MaxSegment)
-        {
-            for (var at = start; at < end; at++) yield return (at, 1);
-            yield break;
-        }
-
-        var next = new byte[length];
+        var widths = new byte[length];
         var scores = new int[length + 1];
         var words = Weights.GetAlternateLookup<ReadOnlySpan<char>>();
         for (var at = length - 1; at >= 0; at--)
@@ -55,9 +47,9 @@ internal static class SearchLexicon
                 if (candidate < score || candidate == score && width <= best) continue;
                 (score, best) = (candidate, width);
             }
-            next[at] = checked((byte)best);
+            widths[at] = checked((byte)best);
             scores[at] = score;
         }
-        for (var at = 0; at < length; at += next[at]) yield return (start + at, next[at]);
+        return widths;
     }
 }

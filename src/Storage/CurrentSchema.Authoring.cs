@@ -211,20 +211,10 @@ internal static partial class CurrentSchema
             "p canvas_id,revision", "u canvas_id,command_id", "f canvas_id public.authoring_canvas:id",
             "f actor_id public.admin_principal:id", Pos("revision"), Bytes32("fingerprint"),
             "c node_count node_count>=0ANDnode_count<=10000", "c edge_count edge_count>=0ANDedge_count<=10000"),
-        CanvasLinkPlan("f canvas_id public.authoring_canvas:id"));
-
-    private static SchemaFacts CanvasLinkPlan(string canvasReference) => Table(
-        "canvas_link_plan id:uuid canvas_id:uuid edge_id:uuid canvas_revision:int8 host_revision:int8 target_revision:int8 source_offset:int4 insert_digest:bytea session_digest:bytea session_generation:int8 expires_at:timestamptz applied_article_id:int4? applied_revision:int8? applied_canvas_revision:int8?",
-        "p id", Pos("canvas_revision", "host_revision", "target_revision", "session_generation"), NonNeg("source_offset"),
-        Bytes32("insert_digest", "session_digest"), canvasReference,
-        "f applied_article_id,applied_revision public.article_revision:article_id,revision");
-
-    private static readonly SchemaFacts LegacyCanvasShape = Tables(
-        Table("authoring_canvas id:uuid owner_id:uuid revision:int8", "p id", "f owner_id public.admin_principal:id", Pos("revision")),
-        Table("canvas_edge canvas_id:uuid id:uuid article_id:int4 target_article_id:int4 explicit_reference:bool",
-            "p canvas_id,id", "f canvas_id public.authoring_canvas:id", "f article_id public.article:id",
-            "f target_article_id public.article:id", "c article_id,target_article_id article_id<>target_article_id"),
-        CanvasLinkPlan("f canvas_id,edge_id public.canvas_edge:canvas_id,id"));
+        Table("canvas_link_plan id:uuid canvas_id:uuid edge_id:uuid canvas_revision:int8 host_revision:int8 target_revision:int8 source_offset:int4 insert_digest:bytea session_digest:bytea session_generation:int8 expires_at:timestamptz applied_article_id:int4? applied_revision:int8? applied_canvas_revision:int8?",
+            "p id", Pos("canvas_revision", "host_revision", "target_revision", "session_generation"), NonNeg("source_offset"),
+            Bytes32("insert_digest", "session_digest"), "f canvas_id public.authoring_canvas:id",
+            "f applied_article_id,applied_revision public.article_revision:article_id,revision"));
 
     private static SchemaFacts DocumentExportShape(bool attachments, bool imageList, bool currentProvider, ExportImageScope scope) => Table(
         "author_document_export owner_id:uuid id:uuid article_id:int4 expected_revision:int8 source_revision:int8 " +
