@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -670,8 +671,9 @@ public sealed partial class ArticleSearchIndex
             return new([], 0, [], 0, false);
 
         // Select smallest driver or union of candidates
-        var candidates = CollectWideCandidates(plan, concepts, termMaps, shortPrefixMaps, allowsRelaxation, ct);
-        if (candidates.Count == 0) return new([], 0, [], 0, false);
+        using var candidates = CollectWideCandidates(plan, concepts, termMaps, shortPrefixMaps, allowsRelaxation, ct);
+        var ordinals = candidates.Ordinals;
+        if (ordinals.IsEmpty) return new([], 0, [], 0, false);
 
         // Identify keys that require positional extraction on candidates
         HashSet<SearchTermKey>? positionalKeys = null;
@@ -703,7 +705,7 @@ public sealed partial class ArticleSearchIndex
         var cursorScore = hasCursor ? BitConverter.Int64BitsToDouble(cursorVal.ScoreBits) : 0.0;
 
         var scoredCandidates = 0;
-        foreach (var ordinal in candidates)
+        foreach (var ordinal in ordinals)
         {
             ct.ThrowIfCancellationRequested();
             if (++scoredCandidates > workBudget)
@@ -883,7 +885,34 @@ public sealed partial class ArticleSearchIndex
         }
     }
 
-    private static List<int> CollectWideCandidates(
+    private readonly struct WideCandidateBuffer(int[]? buffer, int count) : IDisposable
+    {
+        internal ReadOnlySpan<int> Ordinals => buffer.AsSpan(0, count);
+
+        internal static WideCandidateBuffer Copy(ICollection<int> ordinals)
+        {
+            var count = ordinals.Count;
+            if (count == 0) return default;
+            var buffer = ArrayPool<int>.Shared.Rent(count);
+            try
+            {
+                ordinals.CopyTo(buffer, 0);
+                return new(buffer, count);
+            }
+            catch
+            {
+                ArrayPool<int>.Shared.Return(buffer);
+                throw;
+            }
+        }
+
+        public void Dispose()
+        {
+            if (buffer is not null) ArrayPool<int>.Shared.Return(buffer);
+        }
+    }
+
+    private static WideCandidateBuffer CollectWideCandidates(
         SearchQueryPlan plan,
         SearchConcept[] concepts,
         Dictionary<SearchTermKey, WideResolvedTerm> termMaps,
@@ -917,12 +946,7 @@ public sealed partial class ArticleSearchIndex
         }
 
         if (smallestDriver is { } driver)
-        {
-            if (driver.Docs is null) return [];
-            var result = new List<int>(driver.Docs.Count);
-            foreach (var ord in driver.Docs.Keys) result.Add(ord);
-            return result;
-        }
+            return driver.Docs is { } docs ? WideCandidateBuffer.Copy(docs.Keys) : default;
 
         var union = new HashSet<int>();
         for (var c = 0; c < concepts.Length; c++)
@@ -964,7 +988,7 @@ public sealed partial class ArticleSearchIndex
                     foreach (var ord in sp.Keys) union.Add(ord);
             }
         }
-        return [.. union];
+        return WideCandidateBuffer.Copy(union);
     }
 
     private static bool EvaluateWideConcept(
