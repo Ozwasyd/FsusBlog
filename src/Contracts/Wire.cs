@@ -24,10 +24,8 @@ public static partial class Wire
     private static T DecodeFrame<T>(FrameType type, ReadOnlySpan<byte> frame, int maximumBytes,
         Func<ProtocolException> invalid, ReadRecord<T> read)
     {
-        var reader = Reader.Open(frame, type, maximumBytes, invalid);
-        var value = read(ref reader);
-        reader.Finish();
-        return value;
+        if (frame.Length > maximumBytes) throw invalid();
+        return DecodeFrame(type, frame, read);
     }
 
     private static byte[] EncodeRecord<T>(FrameType type, T value, Action<T> validate, Action<Writer, T> write)
@@ -190,12 +188,6 @@ public static partial class Wire
     private ref struct Reader(ReadOnlySpan<byte> payload)
     {
         private ReadOnlySpan<byte> remaining = payload;
-
-        public static Reader Open(ReadOnlySpan<byte> frame, FrameType type, int maximumBytes, Func<ProtocolException> invalid)
-        {
-            if (frame.Length > maximumBytes) throw invalid();
-            return new Reader(Aeds.Decode(frame, type));
-        }
 
         public byte Byte() => Take(1)[0];
         public int I32() => BinaryPrimitives.ReadInt32LittleEndian(Take(4));

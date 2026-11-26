@@ -39,97 +39,34 @@ internal sealed class PublicSearchCache : IDisposable
 
     internal void Clear() => _cache.Clear();
 
-    internal async ValueTask<(byte[] Bytes, int Total)?> SearchFas4Async(
-        Publications publications,
-        PublicSnapshot snapshot,
-        string keyword,
-        ArticleSearchSort sort,
-        int page,
-        int size,
-        bool paginated,
-        CancellationToken ct,
-        TimeSpan? callerDeadline = null)
-    {
-        RequireCurrent(publications, snapshot);
-        if (!snapshot.HasSearchIndex) return null;
-
-        var plan = SearchQueryPlan.Build(keyword, ct);
-        var key = new SearchResultCacheKey(
-            SearchCacheEndpointKind.Fas4,
-            snapshot.Generation,
-            snapshot.SearchProfileVersion,
-            snapshot.SearchAnalyzerVersion,
-            snapshot.SearchUsesWideProfile,
-            plan.BuildCanonicalCacheKey(),
-            sort,
-            page,
-            size,
-            paginated,
-            SearchCursorCacheKey.None,
-            ArticleSearchIndex.MaxPaginatedResults,
-            ArticleSearchIndex.DefaultWorkBudgetCandidates);
-
-        try
-        {
-            var payload = await _cache.GetOrExecuteAsync(
-                key,
-                async workCt =>
-                {
-                    if (_beforeCompute is not null) await _beforeCompute(workCt).ConfigureAwait(false);
-                    workCt.ThrowIfCancellationRequested();
-                    if (!IsCurrent(publications, snapshot))
-                        throw new SearchGenerationObsoleteException();
-                    var computed = snapshot.SearchPageWithPlan(plan, sort, page, size, workCt)
-                        ?? throw PublicSearchFailure.Unavailable();
-                    return new CachedSearchPayload(computed.Bytes, computed.Total, long.MaxValue);
-                },
-                ct,
-                callerDeadline,
-                () => IsCurrent(publications, snapshot)).ConfigureAwait(false);
-
-            RequireCurrent(publications, snapshot);
-            return (payload.Bytes, payload.Total);
-        }
-        catch (SearchGenerationObsoleteException)
-        {
-            throw new PublicUnavailableException();
-        }
-        catch (SearchWorkRejectedException)
-        {
-            throw PublicSearchFailure.BudgetExceeded();
-        }
-        catch (TimeoutException)
-        {
-            throw PublicSearchFailure.BudgetExceeded();
-        }
-        catch (PublicSearchFailure failure) when (failure.Details == "search_unavailable")
-        {
-            return null;
-        }
-    }
-
-    internal async ValueTask<byte[]> SearchV2Async(
+    internal async ValueTask<CachedSearchPayload?> SearchAsync(
         Publications publications,
         PublicSnapshot snapshot,
         string keyword,
         ArticleSearchSort sort,
         int size,
-        string? cursor,
         CancellationToken ct,
+        (int Number, bool Paginated)? fas4Page = null,
+        string? cursor = null,
         int? countThreshold = null,
         int? workBudget = null,
         TimeSpan? callerDeadline = null)
     {
         RequireCurrent(publications, snapshot);
-        if (!snapshot.HasSearchIndex) throw PublicSearchFailure.Unavailable();
+        if (!snapshot.HasSearchIndex)
+        {
+            if (fas4Page.HasValue) return null;
+            throw PublicSearchFailure.Unavailable();
+        }
 
         var plan = SearchQueryPlan.Build(keyword, ct);
-        DecodedSearchCursor? decoded = null;
+        var cursorKey = SearchCursorCacheKey.None;
         if (cursor is not null)
         {
             try
             {
-                decoded = snapshot.DecodeSearchCursor(plan, sort, size, cursor);
+                var decoded = snapshot.DecodeSearchCursor(plan, sort, size, cursor);
+                cursorKey = SearchCursorCacheKey.From(decoded.Position, decoded.ReturnedSoFar);
             }
             catch (PublicSearchFailure failure) when (failure.Details == "search_generation_changed")
             {
@@ -138,26 +75,20 @@ internal sealed class PublicSearchCache : IDisposable
             }
         }
 
-        var effectiveThreshold = countThreshold ?? ArticleSearchIndex.MaxPaginatedResults;
-        var effectiveBudget = workBudget ?? ArticleSearchIndex.DefaultWorkBudgetCandidates;
-        var cursorKey = decoded is { } d
-            ? SearchCursorCacheKey.From(d.Position, d.ReturnedSoFar)
-            : SearchCursorCacheKey.None;
-
         var key = new SearchResultCacheKey(
-            SearchCacheEndpointKind.V2,
+            fas4Page.HasValue ? SearchCacheEndpointKind.Fas4 : SearchCacheEndpointKind.V2,
             snapshot.Generation,
             snapshot.SearchProfileVersion,
             snapshot.SearchAnalyzerVersion,
             snapshot.SearchUsesWideProfile,
             plan.BuildCanonicalCacheKey(),
             sort,
-            Page: 0,
+            fas4Page?.Number ?? 0,
             size,
-            Paginated: true,
+            fas4Page?.Paginated ?? true,
             cursorKey,
-            effectiveThreshold,
-            effectiveBudget);
+            countThreshold ?? ArticleSearchIndex.MaxPaginatedResults,
+            workBudget ?? ArticleSearchIndex.DefaultWorkBudgetCandidates);
 
         try
         {
@@ -169,8 +100,22 @@ internal sealed class PublicSearchCache : IDisposable
                     workCt.ThrowIfCancellationRequested();
                     if (!IsCurrent(publications, snapshot))
                         throw new SearchGenerationObsoleteException();
-                    var frame = snapshot.SearchV2WithPlan(plan, sort, size, decoded, workCt, out var hasMore,
-                        countThreshold, workBudget);
+
+                    if (key.Endpoint == SearchCacheEndpointKind.Fas4)
+                    {
+                        var computed = snapshot.SearchPageWithPlan(plan, key.Sort, key.Page, key.Size, workCt)
+                            ?? throw PublicSearchFailure.Unavailable();
+                        return new CachedSearchPayload(computed.Bytes, computed.Total);
+                    }
+
+                    var continuation = key.Cursor;
+                    DecodedSearchCursor? decoded = continuation.HasCursor
+                        ? new(new SearchCursorPosition(continuation.Tier, continuation.ScoreBits,
+                            continuation.PublishedAtTicks, continuation.CreatedAtTicks, continuation.Id),
+                            continuation.ReturnedSoFar)
+                        : null;
+                    var frame = snapshot.SearchV2WithPlan(plan, key.Sort, key.Size, decoded, workCt, out var hasMore,
+                        key.CountThreshold, key.WorkBudget);
                     var validUntil = hasMore
                         ? snapshot.SearchCursorNowUtcSeconds + MaxCursorReuseSeconds
                         : long.MaxValue;
@@ -181,19 +126,19 @@ internal sealed class PublicSearchCache : IDisposable
                 () => IsCurrent(publications, snapshot)).ConfigureAwait(false);
 
             RequireCurrent(publications, snapshot);
-            return payload.Bytes;
+            return payload;
         }
         catch (SearchGenerationObsoleteException)
         {
             throw new PublicUnavailableException();
         }
-        catch (SearchWorkRejectedException)
+        catch (Exception failure) when (failure is SearchWorkRejectedException or TimeoutException)
         {
             throw PublicSearchFailure.BudgetExceeded();
         }
-        catch (TimeoutException)
+        catch (PublicSearchFailure failure) when (fas4Page.HasValue && failure.Details == "search_unavailable")
         {
-            throw PublicSearchFailure.BudgetExceeded();
+            return null;
         }
     }
 

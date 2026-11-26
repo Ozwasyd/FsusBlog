@@ -516,8 +516,9 @@ public sealed class PublicSearchCacheTests
             new(watermark, articles, new([], [], []), pages, listCursor, previous, NullLogger.Instance, null, null,
                 CancellationToken.None, taxonomyEpoch, searchCursor: searchCursor);
 
-        ValueTask<byte[]> Search(PublicSnapshot snapshot, string query, int size = 10, string? cursor = null) =>
-            searchCache.SearchV2Async(publications, snapshot, query, ArticleSearchSort.Relevance, size, cursor, CancellationToken.None);
+        async ValueTask<byte[]> Search(PublicSnapshot snapshot, string query, int size = 10, string? cursor = null) =>
+            (await searchCache.SearchAsync(publications, snapshot, query, ArticleSearchSort.Relevance, size,
+                CancellationToken.None, cursor: cursor))!.Value.Bytes;
     }
 
     private static SearchResultCacheKey MakeKey(

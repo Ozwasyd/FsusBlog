@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.IO.Compression;
 using System.Text;
 using static FsusBlog.V2.Core.Extensions.ExtensionManifestReader;
 using static FsusBlog.V2.Core.Extensions.ExtensionPackageVerifier;
@@ -126,11 +125,8 @@ public sealed class PureRenderPlugin : IDisposable
     }
 
     private static Package ReadPackage(byte[] bytes, CancellationToken ct)
-    {
-        try
+        => ExtensionArchive.Read<Package>(bytes, "plugin-archive-invalid", null, zip =>
         {
-            using var stream = new MemoryStream(bytes, writable: false);
-            using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
             if (zip.Entries.Count != 5) throw Reject("plugin-package-entries");
             var data = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             foreach (var entry in zip.Entries)
@@ -144,15 +140,9 @@ public sealed class PureRenderPlugin : IDisposable
                     "signature/signature.sig" => 132,
                     _ => 0
                 };
-                var type = (entry.ExternalAttributes >> 16) & 0xf000;
-                if (entry.Length <= 0 || entry.Length > maximum || type is not (0 or 0x8000) ||
-                    (entry.ExternalAttributes & ((int)FileAttributes.Directory | (int)FileAttributes.ReparsePoint)) != 0 || data.ContainsKey(name))
+                if (entry.Length <= 0 || entry.Length > maximum || !ExtensionArchive.IsRegularFile(entry) || data.ContainsKey(name))
                     throw Reject("plugin-package-entry");
-                using var file = entry.Open();
-                var content = new byte[(int)entry.Length];
-                file.ReadExactly(content);
-                if (file.ReadByte() != -1) throw Reject("plugin-package-entry");
-                data.Add(name, content);
+                data.Add(name, ExtensionArchive.ReadExact(entry, "plugin-package-entry"));
             }
             var checksums = data["signature/checksums.json"];
             var signed = data["signature/signature.sig"];
@@ -161,12 +151,7 @@ public sealed class PureRenderPlugin : IDisposable
             foreach (var name in new[] { "manifest.json", "config.schema.json", "index.js" })
                 if (!hashes.TryGetValue(name, out var hash) || hash != Digest(data[name])) throw Reject("plugin-checksums");
             return new(data["manifest.json"], data["config.schema.json"], data["index.js"], checksums, signed);
-        }
-        catch (Exception error) when (error is IOException or InvalidDataException or NotSupportedException)
-        {
-            throw Reject("plugin-archive-invalid");
-        }
-    }
+        });
 
     private static bool Label(string value, int max) => value.Length > 0 && value.Length <= max && !value.Any(char.IsControl);
     private static bool Canonical(string versionPart) => versionPart == "0" || versionPart[0] != '0';
