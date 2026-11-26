@@ -14,61 +14,82 @@ import { applySiteBrand, bumpSiteConfigEpoch, safeBrandAssetUrl } from '../siteB
 import { t, type MessageKey } from '../siteLocale'
 import { useDelayedBusy } from '../delayedBusy'
 import { isAdminSessionLost, useAdminRequests } from './adminSessionClear'
+import AdminSiteConfigFields from './AdminSiteConfigFields.vue'
+import { fieldId, fieldInputAttrs, fieldLabel, type FieldKey, type SiteConfigField, type SiteConfigFieldControls } from './siteConfigFields'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ 'session-lost': [error: unknown] }>()
 
 type ConfigTab = 'seo' | 'brand' | 'compliance'
-type FieldKey = Exclude<keyof AdminSiteConfigCommand, 'expectedRevision' | 'expectedDigest' | 'complianceEnabled' | 'regionMode'>
 type FormModel = Record<FieldKey, string> & { complianceEnabled: boolean; regionMode: 'global' | 'mainland-cn' }
-type FieldSpec = { key: FieldKey; hint?: MessageKey; placeholder?: string; type?: string; id?: boolean; ac?: string; im?: string }
 
-const tabFields: Readonly<Record<ConfigTab, readonly FieldKey[]>> = {
-  seo: ['title', 'author', 'description', 'ogImage'],
-  brand: [
-    'siteLogoUrl', 'siteLogoDarkUrl', 'siteWordmarkUrl', 'faviconSvgUrl', 'faviconIcoUrl', 'faviconPngUrl',
-    'appleTouchIconUrl', 'manifestName', 'manifestShortName', 'themeColor', 'backgroundColor',
-    'pwaIcon192Url', 'pwaIcon512Url', 'pwaMaskableIconUrl',
-  ],
-  compliance: [
-    'copyrightOwner', 'copyrightStartYear', 'copyrightText', 'contentLicenseName', 'contentLicenseUrl',
-    'icpRecordNumber', 'icpRecordUrl', 'policeRecordNumber', 'policeRecordUrl', 'policeBadgeIconUrl',
-    'operatorName', 'contactEmail',
-  ],
-}
-const fieldTabs = Object.fromEntries(
-  (Object.entries(tabFields) as [ConfigTab, readonly FieldKey[]][]).flatMap(([tab, keys]) => keys.map(key => [key, tab])),
-) as Readonly<Record<FieldKey, ConfigTab>>
-const fieldOrder = Object.values(tabFields).flat() as FieldKey[]
 const shortTextFields = new Set<FieldKey>(['manifestName', 'manifestShortName', 'copyrightOwner', 'contentLicenseName', 'operatorName'])
 const assetUrlFields = new Set<FieldKey>([
   'ogImage', 'faviconSvgUrl', 'faviconIcoUrl', 'faviconPngUrl', 'appleTouchIconUrl',
   'pwaIcon192Url', 'pwaIcon512Url', 'pwaMaskableIconUrl', 'siteLogoUrl', 'siteLogoDarkUrl', 'siteWordmarkUrl',
 ])
-const brandLogos = { siteLogoUrl: '/assets/logo.svg', siteLogoDarkUrl: '/assets/logo-dark.svg' } as const
-const favicons = { faviconSvgUrl: '/assets/favicon.svg', faviconIcoUrl: '/assets/favicon.ico', faviconPngUrl: '/assets/favicon.png', appleTouchIconUrl: '/assets/apple-touch-icon.png' } as const
-const pwaIcons = { pwaIcon192Url: '/assets/icon-192.png', pwaIcon512Url: '/assets/icon-512.png', pwaMaskableIconUrl: '/assets/icon-maskable-512.png' } as const
-const primaryFields = { title: 'organization', author: 'name' } as const
+const seoFields: readonly SiteConfigField[] = [
+  { key: 'title', hint: 'admin.siteConfig.siteTitleHint', autocomplete: 'organization', required: true },
+  { key: 'author', hint: 'admin.siteConfig.authorHint', autocomplete: 'name', required: true },
+  { key: 'description', hint: 'admin.siteConfig.descriptionHint', type: 'textarea', autosize: { minRows: 3, maxRows: 6 } },
+  { key: 'ogImage', hint: 'admin.siteConfig.assetUrlHint', placeholder: '/assets/og.png', identifier: true },
+]
+const brandLogos: readonly SiteConfigField[] = [
+  { key: 'siteLogoUrl', placeholder: '/assets/logo.svg', hintId: 'site-config-hint-brand-urls', identifier: true },
+  { key: 'siteLogoDarkUrl', placeholder: '/assets/logo-dark.svg', hintId: 'site-config-hint-brand-urls', identifier: true },
+  { key: 'siteWordmarkUrl', hint: 'admin.siteConfig.siteWordmarkHint', placeholder: '/assets/wordmark.svg', identifier: true },
+]
+const favicons: readonly SiteConfigField[] = [
+  { key: 'faviconSvgUrl', placeholder: '/assets/favicon.svg', identifier: true },
+  { key: 'faviconIcoUrl', placeholder: '/assets/favicon.ico', identifier: true },
+  { key: 'faviconPngUrl', placeholder: '/assets/favicon.png', identifier: true },
+  { key: 'appleTouchIconUrl', placeholder: '/assets/apple-touch-icon.png', identifier: true },
+]
+const pwaIcons: readonly SiteConfigField[] = [
+  { key: 'pwaIcon192Url', placeholder: '/assets/icon-192.png', identifier: true },
+  { key: 'pwaIcon512Url', placeholder: '/assets/icon-512.png', identifier: true },
+  { key: 'pwaMaskableIconUrl', placeholder: '/assets/icon-maskable-512.png', identifier: true },
+]
 const manifestColors = { themeColor: { fallback: '#1f4e79', manifestKey: 'theme_color' }, backgroundColor: { fallback: '#ffffff', manifestKey: 'background_color' } } as const
-const manifestNames = ['manifestName', 'manifestShortName'] as const
-const registrations = [
-  { number: 'icpRecordNumber', url: 'icpRecordUrl', hint: 'admin.siteConfig.icpUrlHint', placeholder: 'https://beian.miit.gov.cn/' },
-  { number: 'policeRecordNumber', url: 'policeRecordUrl', hint: 'admin.siteConfig.policeUrlHint', placeholder: 'https://beian.mps.gov.cn/' },
-] as const
-const copyrightFields: readonly FieldSpec[] = [
+const manifestNames: readonly SiteConfigField[] = [
+  { key: 'manifestName', hint: 'admin.siteConfig.manifestNameHint' },
+  { key: 'manifestShortName', hint: 'admin.siteConfig.manifestShortNameHint' },
+]
+const registrationFields: readonly SiteConfigField[] = [
+  { key: 'icpRecordNumber', identifier: true },
+  { key: 'icpRecordUrl', hint: 'admin.siteConfig.icpUrlHint', placeholder: 'https://beian.miit.gov.cn/', identifier: true },
+  { key: 'policeRecordNumber', identifier: true },
+  { key: 'policeRecordUrl', hint: 'admin.siteConfig.policeUrlHint', placeholder: 'https://beian.mps.gov.cn/', identifier: true },
+]
+const policeBadgeFields: readonly SiteConfigField[] = [
+  { key: 'policeBadgeIconUrl', hint: 'admin.siteConfig.assetUrlHint', placeholder: '/assets/police-badge.png', identifier: true },
+]
+const copyrightFields: readonly SiteConfigField[] = [
   { key: 'copyrightOwner' },
-  { key: 'copyrightStartYear', hint: 'admin.siteConfig.copyrightStartYearHint', placeholder: '2024', id: true, im: 'numeric' },
+  { key: 'copyrightStartYear', hint: 'admin.siteConfig.copyrightStartYearHint', placeholder: '2024', identifier: true, inputmode: 'numeric' },
 ]
-const licenseFields: readonly FieldSpec[] = [
+const copyrightTextFields: readonly SiteConfigField[] = [
+  { key: 'copyrightText', type: 'textarea', autosize: { minRows: 2, maxRows: 4 } },
+]
+const licenseFields: readonly SiteConfigField[] = [
   { key: 'contentLicenseName', placeholder: 'CC BY 4.0' },
-  { key: 'contentLicenseUrl', hint: 'admin.siteConfig.httpsUrlHint', placeholder: 'https://creativecommons.org/licenses/by/4.0/', id: true },
+  { key: 'contentLicenseUrl', hint: 'admin.siteConfig.httpsUrlHint', placeholder: 'https://creativecommons.org/licenses/by/4.0/', identifier: true },
 ]
-const operatorFields: readonly FieldSpec[] = [
+const operatorFields: readonly SiteConfigField[] = [
   { key: 'operatorName' },
-  { key: 'contactEmail', type: 'email', hint: 'admin.siteConfig.contactEmailHint', placeholder: 'contact@example.com', id: true, ac: 'email' },
+  { key: 'contactEmail', type: 'email', hint: 'admin.siteConfig.contactEmailHint', placeholder: 'contact@example.com', identifier: true, autocomplete: 'email' },
 ]
 
-const fieldLabel = (field: FieldKey): MessageKey => field === 'title' ? 'admin.siteConfig.siteTitle' : `admin.siteConfig.${field}`
+const fieldKeys = (fields: readonly SiteConfigField[]) => fields.map(({ key }) => key)
+const tabFields: Record<ConfigTab, readonly FieldKey[]> = {
+  seo: fieldKeys(seoFields),
+  brand: [...fieldKeys([...brandLogos, ...favicons, ...manifestNames]), 'themeColor', 'backgroundColor', ...fieldKeys(pwaIcons)],
+  compliance: fieldKeys([...copyrightFields, ...copyrightTextFields, ...licenseFields, ...registrationFields, ...policeBadgeFields, ...operatorFields]),
+}
+const fieldTabs = Object.fromEntries(
+  (Object.entries(tabFields) as [ConfigTab, readonly FieldKey[]][]).flatMap(([tab, keys]) => keys.map(key => [key, tab])),
+) as Readonly<Record<FieldKey, ConfigTab>>
+const fieldOrder = Object.values(tabFields).flat()
 const textFields = (read: (field: FieldKey) => string) =>
   Object.fromEntries(fieldOrder.map(field => [field, read(field)])) as Record<FieldKey, string>
 const emptyForm = (): FormModel => ({ ...textFields(() => ''), complianceEnabled: false, regionMode: 'global' })
@@ -145,21 +166,16 @@ const allErrors = computed(() => {
 const visibleError = (field: FieldKey) => (submitted.value || touched[field]) ? allErrors.value[field] : undefined
 const errorMessage = (code: SiteConfigFieldError) => t(`admin.siteConfig.error.${code}` as MessageKey)
 
-function fieldInputBind(
-  field: FieldKey,
-  opts: { hintId?: string; identifier?: boolean; required?: boolean; autocomplete?: string; inputmode?: string } = {},
-): Record<string, unknown> {
-  const invalid = Boolean(visibleError(field))
-  const ids = [opts.hintId, invalid ? `site-config-error-${field}` : undefined].filter(Boolean) as string[]
-  return {
-    name: field,
-    'aria-invalid': invalid ? 'true' : 'false',
-    ...(ids.length ? { 'aria-describedby': ids.join(' ') } : {}),
-    ...(opts.required ? { required: true } : {}),
-    ...(opts.autocomplete ? { autocomplete: opts.autocomplete } : {}),
-    ...(opts.inputmode ? { inputmode: opts.inputmode } : {}),
-    ...(opts.identifier ? { autocorrect: 'off', autocapitalize: 'none', spellcheck: false } : {}),
-  }
+const fieldControls: SiteConfigFieldControls = {
+  values: form,
+  get disabled() { return saving.value },
+  error(field) {
+    const issue = visibleError(field)
+    return issue ? errorMessage(issue) : ''
+  },
+  change(field, value) { form[field] = value },
+  input: onInput,
+  blur: onBlur,
 }
 
 function clearAnnouncement() {
@@ -359,32 +375,7 @@ onScopeDispose(clearAnnouncement)
           </template>
           <div class="site-config-split">
             <div class="site-config-fields">
-              <div v-for="(autocomplete, field) in primaryFields" :key="field" class="config-field">
-                <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }} <span aria-hidden="true">*</span></label>
-                <span :id="`site-config-hint-${field}`" class="config-hint">{{ t(field === 'title' ? 'admin.siteConfig.siteTitleHint' : 'admin.siteConfig.authorHint') }}</span>
-                <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :disabled="saving"
-                  v-bind="fieldInputBind(field, { hintId: `site-config-hint-${field}`, required: true, autocomplete })"
-                  @blur="onBlur(field)" @input="onInput(field)" />
-                <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
-              </div>
-
-              <div class="config-field">
-                <label for="site-config-field-description">{{ t('admin.siteConfig.description') }}</label>
-                <span id="site-config-hint-description" class="config-hint">{{ t('admin.siteConfig.descriptionHint') }}</span>
-                <ElInput id="site-config-field-description" v-model="form.description" type="textarea" :autosize="{ minRows: 3, maxRows: 6 }" :disabled="saving"
-                  v-bind="fieldInputBind('description', { hintId: 'site-config-hint-description' })"
-                  @blur="onBlur('description')" @input="onInput('description')" />
-                <p v-if="visibleError('description')" id="site-config-error-description" class="config-error">{{ errorMessage(visibleError('description')!) }}</p>
-              </div>
-
-              <div class="config-field">
-                <label for="site-config-field-ogImage">{{ t('admin.siteConfig.ogImage') }}</label>
-                <span id="site-config-hint-ogImage" class="config-hint">{{ t('admin.siteConfig.assetUrlHint') }}</span>
-                <ElInput id="site-config-field-ogImage" v-model="form.ogImage" placeholder="/assets/og.png" :disabled="saving"
-                  v-bind="fieldInputBind('ogImage', { hintId: 'site-config-hint-ogImage', identifier: true })"
-                  @blur="onBlur('ogImage')" @input="onInput('ogImage')" />
-                <p v-if="visibleError('ogImage')" id="site-config-error-ogImage" class="config-error">{{ errorMessage(visibleError('ogImage')!) }}</p>
-              </div>
+              <AdminSiteConfigFields :fields="seoFields" :controls="fieldControls" />
 
               <div class="config-field">
                 <span class="config-readonly-label">{{ t('admin.siteConfig.canonicalOrigin') }}</span>
@@ -420,47 +411,20 @@ onScopeDispose(clearAnnouncement)
               <fieldset class="config-fieldset">
                 <legend>{{ t('admin.siteConfig.brandGroup') }}</legend>
                 <p id="site-config-hint-brand-urls" class="config-hint">{{ t('admin.siteConfig.assetUrlHint') }}</p>
-                <div v-for="(placeholder, field) in brandLogos" :key="field" class="config-field">
-                  <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }}</label>
-                  <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :placeholder="placeholder" :disabled="saving"
-                    v-bind="fieldInputBind(field, { hintId: 'site-config-hint-brand-urls', identifier: true })"
-                    @blur="onBlur(field)" @input="onInput(field)" />
-                  <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
-                </div>
-                <div class="config-field">
-                  <label for="site-config-field-siteWordmarkUrl">{{ t('admin.siteConfig.siteWordmarkUrl') }}</label>
-                  <span id="site-config-hint-siteWordmarkUrl" class="config-hint">{{ t('admin.siteConfig.siteWordmarkHint') }}</span>
-                  <ElInput id="site-config-field-siteWordmarkUrl" v-model="form.siteWordmarkUrl" placeholder="/assets/wordmark.svg" :disabled="saving"
-                    v-bind="fieldInputBind('siteWordmarkUrl', { hintId: 'site-config-hint-siteWordmarkUrl', identifier: true })"
-                    @blur="onBlur('siteWordmarkUrl')" @input="onInput('siteWordmarkUrl')" />
-                  <p v-if="visibleError('siteWordmarkUrl')" id="site-config-error-siteWordmarkUrl" class="config-error">{{ errorMessage(visibleError('siteWordmarkUrl')!) }}</p>
-                </div>
+                <AdminSiteConfigFields :fields="brandLogos" :controls="fieldControls" />
               </fieldset>
 
               <fieldset class="config-fieldset">
                 <legend>{{ t('admin.siteConfig.faviconGroup') }}</legend>
                 <div class="config-grid-2">
-                  <div v-for="(placeholder, field) in favicons" :key="field" class="config-field">
-                    <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }}</label>
-                    <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :placeholder="placeholder" :disabled="saving"
-                      v-bind="fieldInputBind(field, { identifier: true })"
-                      @blur="onBlur(field)" @input="onInput(field)" />
-                    <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
-                  </div>
+                  <AdminSiteConfigFields :fields="favicons" :controls="fieldControls" />
                 </div>
               </fieldset>
 
               <fieldset class="config-fieldset">
                 <legend>{{ t('admin.siteConfig.pwaGroup') }}</legend>
                 <div class="config-grid-2">
-                  <div v-for="field in manifestNames" :key="field" class="config-field">
-                    <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }}</label>
-                    <span :id="`site-config-hint-${field}`" class="config-hint">{{ t(`admin.siteConfig.${field}Hint`) }}</span>
-                    <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :disabled="saving"
-                      v-bind="fieldInputBind(field, { hintId: `site-config-hint-${field}` })"
-                      @blur="onBlur(field)" @input="onInput(field)" />
-                    <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
-                  </div>
+                  <AdminSiteConfigFields :fields="manifestNames" :controls="fieldControls" />
                   <div v-for="({ fallback }, field) in manifestColors" :key="field" class="config-field">
                     <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }}</label>
                     <span :id="`site-config-hint-${field}`" class="config-hint">{{ t('admin.siteConfig.colorHint') }}</span>
@@ -468,7 +432,7 @@ onScopeDispose(clearAnnouncement)
                       <input class="config-color-picker" type="color" :value="pickerColor(form[field], fallback)"
                         :aria-label="t(fieldLabel(field))" :disabled="saving" @input="onColorPicker(field, $event)">
                       <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :placeholder="fallback" :disabled="saving"
-                        v-bind="fieldInputBind(field, { hintId: `site-config-hint-${field}`, identifier: true })"
+                        v-bind="fieldInputAttrs(field, !!visibleError(field), { hintId: fieldId('hint', field), identifier: true })"
                         @blur="onBlur(field)" @input="onInput(field)" />
                       <ElButton v-if="form[field]" native-type="button" text :disabled="saving" @click="clearColor(field)">
                         {{ t('admin.siteConfig.clearColor') }}
@@ -478,13 +442,7 @@ onScopeDispose(clearAnnouncement)
                   </div>
                 </div>
 
-                <div v-for="(placeholder, field) in pwaIcons" :key="field" class="config-field">
-                  <label :for="`site-config-field-${field}`">{{ t(fieldLabel(field)) }}</label>
-                  <ElInput :id="`site-config-field-${field}`" v-model="form[field]" :placeholder="placeholder" :disabled="saving"
-                    v-bind="fieldInputBind(field, { identifier: true })"
-                    @blur="onBlur(field)" @input="onInput(field)" />
-                  <p v-if="visibleError(field)" :id="`site-config-error-${field}`" class="config-error">{{ errorMessage(visibleError(field)!) }}</p>
-                </div>
+                <AdminSiteConfigFields :fields="pwaIcons" :controls="fieldControls" />
               </fieldset>
             </div>
 
@@ -560,30 +518,11 @@ onScopeDispose(clearAnnouncement)
               <fieldset class="config-fieldset">
                 <legend>{{ t('admin.siteConfig.copyrightGroup') }}</legend>
                 <div class="config-grid-2">
-                  <div v-for="f in copyrightFields" :key="f.key" class="config-field">
-                    <label :for="`site-config-field-${f.key}`">{{ t(fieldLabel(f.key)) }}</label>
-                    <span v-if="f.hint" :id="`site-config-hint-${f.key}`" class="config-hint">{{ t(f.hint) }}</span>
-                    <ElInput :id="`site-config-field-${f.key}`" v-model="form[f.key]" :type="f.type ?? 'text'" :placeholder="f.placeholder" :disabled="saving"
-                      v-bind="fieldInputBind(f.key, { hintId: f.hint ? `site-config-hint-${f.key}` : undefined, identifier: f.id, autocomplete: f.ac, inputmode: f.im })"
-                      @blur="onBlur(f.key)" @input="onInput(f.key)" />
-                    <p v-if="visibleError(f.key)" :id="`site-config-error-${f.key}`" class="config-error">{{ errorMessage(visibleError(f.key)!) }}</p>
-                  </div>
+                  <AdminSiteConfigFields :fields="copyrightFields" :controls="fieldControls" />
                 </div>
-                <div class="config-field">
-                  <label for="site-config-field-copyrightText">{{ t('admin.siteConfig.copyrightText') }}</label>
-                  <ElInput id="site-config-field-copyrightText" v-model="form.copyrightText" type="textarea" :autosize="{ minRows: 2, maxRows: 4 }" :disabled="saving"
-                    v-bind="fieldInputBind('copyrightText')" @blur="onBlur('copyrightText')" @input="onInput('copyrightText')" />
-                  <p v-if="visibleError('copyrightText')" id="site-config-error-copyrightText" class="config-error">{{ errorMessage(visibleError('copyrightText')!) }}</p>
-                </div>
+                <AdminSiteConfigFields :fields="copyrightTextFields" :controls="fieldControls" />
                 <div class="config-grid-2">
-                  <div v-for="f in licenseFields" :key="f.key" class="config-field">
-                    <label :for="`site-config-field-${f.key}`">{{ t(fieldLabel(f.key)) }}</label>
-                    <span v-if="f.hint" :id="`site-config-hint-${f.key}`" class="config-hint">{{ t(f.hint) }}</span>
-                    <ElInput :id="`site-config-field-${f.key}`" v-model="form[f.key]" :type="f.type ?? 'text'" :placeholder="f.placeholder" :disabled="saving"
-                      v-bind="fieldInputBind(f.key, { hintId: f.hint ? `site-config-hint-${f.key}` : undefined, identifier: f.id, autocomplete: f.ac, inputmode: f.im })"
-                      @blur="onBlur(f.key)" @input="onInput(f.key)" />
-                    <p v-if="visibleError(f.key)" :id="`site-config-error-${f.key}`" class="config-error">{{ errorMessage(visibleError(f.key)!) }}</p>
-                  </div>
+                  <AdminSiteConfigFields :fields="licenseFields" :controls="fieldControls" />
                 </div>
               </fieldset>
 
@@ -591,43 +530,15 @@ onScopeDispose(clearAnnouncement)
                 <legend>{{ t('admin.siteConfig.cnGroup') }}</legend>
                 <p class="config-hint">{{ t('admin.siteConfig.cnHint') }}</p>
                 <div class="config-grid-2">
-                  <template v-for="record in registrations" :key="record.number">
-                    <div class="config-field">
-                      <label :for="`site-config-field-${record.number}`">{{ t(fieldLabel(record.number)) }}</label>
-                      <ElInput :id="`site-config-field-${record.number}`" v-model="form[record.number]" :disabled="saving"
-                        v-bind="fieldInputBind(record.number, { identifier: true })" @blur="onBlur(record.number)" @input="onInput(record.number)" />
-                      <p v-if="visibleError(record.number)" :id="`site-config-error-${record.number}`" class="config-error">{{ errorMessage(visibleError(record.number)!) }}</p>
-                    </div>
-                    <div class="config-field">
-                      <label :for="`site-config-field-${record.url}`">{{ t(fieldLabel(record.url)) }}</label>
-                      <span :id="`site-config-hint-${record.url}`" class="config-hint">{{ t(record.hint) }}</span>
-                      <ElInput :id="`site-config-field-${record.url}`" v-model="form[record.url]" :placeholder="record.placeholder" :disabled="saving"
-                        v-bind="fieldInputBind(record.url, { hintId: `site-config-hint-${record.url}`, identifier: true })" @blur="onBlur(record.url)" @input="onInput(record.url)" />
-                      <p v-if="visibleError(record.url)" :id="`site-config-error-${record.url}`" class="config-error">{{ errorMessage(visibleError(record.url)!) }}</p>
-                    </div>
-                  </template>
+                  <AdminSiteConfigFields :fields="registrationFields" :controls="fieldControls" />
                 </div>
-                <div class="config-field">
-                  <label for="site-config-field-policeBadgeIconUrl">{{ t('admin.siteConfig.policeBadgeIconUrl') }}</label>
-                  <span id="site-config-hint-policeBadgeIconUrl" class="config-hint">{{ t('admin.siteConfig.assetUrlHint') }}</span>
-                  <ElInput id="site-config-field-policeBadgeIconUrl" v-model="form.policeBadgeIconUrl" placeholder="/assets/police-badge.png" :disabled="saving"
-                    v-bind="fieldInputBind('policeBadgeIconUrl', { hintId: 'site-config-hint-policeBadgeIconUrl', identifier: true })"
-                    @blur="onBlur('policeBadgeIconUrl')" @input="onInput('policeBadgeIconUrl')" />
-                  <p v-if="visibleError('policeBadgeIconUrl')" id="site-config-error-policeBadgeIconUrl" class="config-error">{{ errorMessage(visibleError('policeBadgeIconUrl')!) }}</p>
-                </div>
+                <AdminSiteConfigFields :fields="policeBadgeFields" :controls="fieldControls" />
               </fieldset>
 
               <fieldset class="config-fieldset">
                 <legend>{{ t('admin.siteConfig.operatorGroup') }}</legend>
                 <div class="config-grid-2">
-                  <div v-for="f in operatorFields" :key="f.key" class="config-field">
-                    <label :for="`site-config-field-${f.key}`">{{ t(fieldLabel(f.key)) }}</label>
-                    <span v-if="f.hint" :id="`site-config-hint-${f.key}`" class="config-hint">{{ t(f.hint) }}</span>
-                    <ElInput :id="`site-config-field-${f.key}`" v-model="form[f.key]" :type="f.type ?? 'text'" :placeholder="f.placeholder" :disabled="saving"
-                      v-bind="fieldInputBind(f.key, { hintId: f.hint ? `site-config-hint-${f.key}` : undefined, identifier: f.id, autocomplete: f.ac, inputmode: f.im })"
-                      @blur="onBlur(f.key)" @input="onInput(f.key)" />
-                    <p v-if="visibleError(f.key)" :id="`site-config-error-${f.key}`" class="config-error">{{ errorMessage(visibleError(f.key)!) }}</p>
-                  </div>
+                  <AdminSiteConfigFields :fields="operatorFields" :controls="fieldControls" />
                 </div>
               </fieldset>
             </div>
@@ -693,10 +604,10 @@ onScopeDispose(clearAnnouncement)
 .config-fieldset { display: grid; gap: 14px; margin: 0; padding: 14px 16px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--fsus-radius-panel, 10px); min-inline-size: 0; }
 .config-fieldset legend { padding-inline: 6px; font-size: var(--el-font-size-small); font-weight: 600; color: var(--el-text-color-primary); }
 .config-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 14px 16px; }
-.config-field { display: grid; align-content: start; gap: 4px; min-inline-size: 0; }
-.config-field label, .config-readonly-label { font-size: var(--el-font-size-small); font-weight: 500; color: var(--el-text-color-primary); }
-.config-hint { margin: 0; font-size: var(--el-font-size-extra-small); line-height: 1.45; color: var(--el-text-color-secondary); }
-.config-error { margin: 2px 0 0; font-size: var(--el-font-size-extra-small); line-height: 1.4; color: var(--el-color-danger); }
+.site-config-fields :deep(.config-field) { display: grid; align-content: start; gap: 4px; min-inline-size: 0; }
+.site-config-fields :deep(.config-field label), .config-readonly-label { font-size: var(--el-font-size-small); font-weight: 500; color: var(--el-text-color-primary); }
+.site-config-fields :deep(.config-hint) { margin: 0; font-size: var(--el-font-size-extra-small); line-height: 1.45; color: var(--el-text-color-secondary); }
+.site-config-fields :deep(.config-error) { margin: 2px 0 0; font-size: var(--el-font-size-extra-small); line-height: 1.4; color: var(--el-color-danger); }
 .config-origin-value { display: block; padding: 8px 10px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--el-border-radius-base); background: var(--el-fill-color-light); font-size: var(--el-font-size-small); color: var(--el-text-color-regular); overflow-wrap: anywhere; }
 .config-color-row { display: flex; align-items: center; gap: 8px; }
 .config-color-picker { inline-size: 36px; block-size: 32px; padding: 2px; border: 1px solid var(--el-border-color); border-radius: var(--el-border-radius-base); background: var(--el-bg-color); cursor: pointer; flex-shrink: 0; }
