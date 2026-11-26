@@ -591,35 +591,42 @@ public static class SearchTextAnalyzer
         }
 
         // Long CJK run (> 4096): bounded linear scan without DP table allocation
-        if (runLen > MaxCjkSegment)
+        int EmitLongRun(string source, int sourceStart, int length, int startPosition, bool indexing,
+            string folded, int foldedStart, CancellationToken cancellationToken)
         {
-            for (var rel = 0; rel < runLen; rel++)
+            for (var rel = 0; rel < length; rel++)
             {
-                if ((rel & 255) == 0) ct.ThrowIfCancellationRequested();
-                var abs = start + rel;
-                var pos = basePos + rel;
-                for (var w = Math.Min(SearchLexicon.MaxWord, runLen - rel); w >= 2; w--)
+                if ((rel & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
+                var abs = sourceStart + rel;
+                var pos = startPosition + rel;
+                for (var w = Math.Min(SearchLexicon.MaxWord, length - rel); w >= 3; w--)
                 {
-                    var simpCand = simpSrc.AsSpan(simpBase + rel, w);
+                    var simpCand = folded.AsSpan(foldedStart + rel, w);
                     if (SearchLexicon.IsWord(simpCand))
                     {
-                        EmitWithScriptAlias(text.Substring(abs, w), simpCand,
+                        EmitWithScriptAlias(source.Substring(abs, w), simpCand,
                             SearchTokenKind.Exact, pos, w, 0, abs, abs + w);
                     }
                 }
-                if (rel + 1 < runLen && !SearchLexicon.IsWord(simpSrc.AsSpan(simpBase + rel, 2)))
+                if (rel + 1 < length)
                 {
-                    EmitWithScriptAlias(text.Substring(abs, 2), simpSrc.AsSpan(simpBase + rel, 2),
-                        SearchTokenKind.CjkBigram, pos, 2, indexMode ? 0 : 1, abs, abs + 2);
+                    var bigram = folded.AsSpan(foldedStart + rel, 2);
+                    var known = SearchLexicon.IsWord(bigram);
+                    EmitWithScriptAlias(source.Substring(abs, 2), bigram,
+                        known ? SearchTokenKind.Exact : SearchTokenKind.CjkBigram,
+                        pos, 2, known || indexing ? 0 : 1, abs, abs + 2);
                 }
-                if (indexMode)
+                if (indexing)
                 {
-                    EmitWithScriptAlias(text.Substring(abs, 1), simpSrc.AsSpan(simpBase + rel, 1),
+                    EmitWithScriptAlias(source.Substring(abs, 1), folded.AsSpan(foldedStart + rel, 1),
                         SearchTokenKind.CjkChar, pos, 1, 1, abs, abs + 1);
                 }
             }
-            return runLen;
+            return length;
         }
+
+        if (runLen > MaxCjkSegment)
+            return EmitLongRun(text, start, runLen, basePos, indexMode, simpSrc, simpBase, ct);
 
         // Standard CJK run (2..4096): Viterbi segmentation on SC-folded view so Traditional and Simplified
         // segment on identical dictionary boundaries.
