@@ -405,8 +405,10 @@ probe() {
 }
 restart_server() {
   local log=$1 ready_path=${2:-/health/ready} out=${3:-/dev/null}
-  kill "$server_pid"
-  wait "$server_pid" 2>/dev/null || true
+  if [[ -n "$server_pid" ]]; then
+    kill "$server_pid"
+    wait "$server_pid" 2>/dev/null || true
+  fi
   "$dotnet" "$server" --urls "http://127.0.0.1:$upstream_port" > "$evidence/$log.log" 2>&1 &
   server_pid=$!
   for (( attempt=0; attempt<120; attempt++ )); do
@@ -496,6 +498,7 @@ if [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE:-0} == 1 ]]; then
   grep -Fq '#225533' "$evidence/appearance-restarted.css"
   kill "$server_pid"
   wait "$server_pid" 2>/dev/null || true
+  server_pid=''
   python3 - "$FSUSBLOG_APPEARANCE_ROOT/appearance.json" <<'PY'
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
