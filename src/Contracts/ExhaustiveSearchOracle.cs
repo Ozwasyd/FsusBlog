@@ -409,9 +409,11 @@ public sealed class ExhaustiveSearchOracle
                         taxHits += ArticleSearchTokens.CountAsciiPrefixMatches(tag.Name, prefix.AsSpan());
                     if (titleHits + sumHits + taxHits > 0)
                     {
-                        tfs[(int)SearchScoreField.Title] = titleHits * SearchScoringProfile.ShortPrefixTitleTf;
-                        tfs[(int)SearchScoreField.Summary] = sumHits * SearchScoringProfile.ShortPrefixSummaryTf;
-                        tfs[(int)SearchScoreField.Taxonomy] = taxHits * SearchScoringProfile.ShortPrefixTaxonomyTf;
+                        // Match the scoring precision of the index's three 10-bit hit counts.
+                        const int maxPrefixHits = (1 << 10) - 1;
+                        tfs[(int)SearchScoreField.Title] = Math.Min(titleHits, maxPrefixHits) * SearchScoringProfile.ShortPrefixTitleTf;
+                        tfs[(int)SearchScoreField.Summary] = Math.Min(sumHits, maxPrefixHits) * SearchScoringProfile.ShortPrefixSummaryTf;
+                        tfs[(int)SearchScoreField.Taxonomy] = Math.Min(taxHits, maxPrefixHits) * SearchScoringProfile.ShortPrefixTaxonomyTf;
                         usedShortPrefixOnly = true;
                         return true;
                     }

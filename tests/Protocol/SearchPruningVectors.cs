@@ -359,6 +359,9 @@ internal static class SearchPruningVectors
     private static void VerifyShortPrefixIndexMatchesOracleBitForBit()
     {
         var when = new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero);
+        var tagPrefix = string.Concat(Enumerable.Repeat("za ", 33));
+        var tags = Enumerable.Range(1, WireLimits.TaxonomyTagCount)
+            .Select(id => new TaxonomyName(id + 2, tagPrefix + $"tag{id}")).ToArray();
         var articles = new[]
         {
             new Article(1, 1, 1, 1, 1, "Go Runtime", "body without prefix", when, when, when, "Golang summary", new(1, "GoLang"), [new(2, "goTool")]),
@@ -366,17 +369,20 @@ internal static class SearchPruningVectors
             new Article(3, 1, 3, 1, 1, "ﬁlter pipeline", "ligature 6-char title", when.AddMinutes(2), when, when),
             new Article(4, 1, 4, 1, 1, "CamelCaseFooBarBaz", "subword prefix matches", when.AddMinutes(3), when, when, "alphaBetaGamma"),
             new Article(5, 1, 5, 1, 1, "C", "exact single letter C", when.AddMinutes(4), when, when),
-            new Article(6, 1, 6, 1, 1, "Compiler Design", "prefix c in title", when.AddMinutes(5), when, when)
+            new Article(6, 1, 6, 1, 1, "Compiler Design", "prefix c in title", when.AddMinutes(5), when, when),
+            new Article(7, 1, 7, 1, 1, "At the taxonomy hit limit", "body", when.AddMinutes(6), when, when, null, null, tags[..^1]),
+            new Article(8, 1, 8, 1, 1, "Above the taxonomy hit limit", "body", when.AddMinutes(7), when, when, null, null, tags)
         };
         var index = ArticleSearchIndex.Build(articles, CancellationToken.None)!;
         var oracle = ExhaustiveSearchOracle.Build(articles, CancellationToken.None);
 
-        foreach (var q in new[] { "g", "go", "fi", "f", "c", "ba", "b", "be", "go c" })
+        foreach (var q in new[] { "g", "go", "fi", "f", "c", "ba", "b", "be", "go c", "z" })
         {
             foreach (var sort in new[] { ArticleSearchSort.Relevance, ArticleSearchSort.Latest })
             {
                 var exp = oracle.SearchDetailed(q, sort, 1, 20, CancellationToken.None);
                 var got = index.SearchDetailed(q, sort, 1, 20, CancellationToken.None, out _);
+                if (q == "z") Require(got.Hits.Length == 2, "Both short-prefix saturation fixtures must match.");
                 AssertDetailedPrefixEqual($"short-prefix:{sort}:{q}", exp, got, 20);
             }
         }
