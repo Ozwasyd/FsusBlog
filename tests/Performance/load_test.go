@@ -57,6 +57,9 @@ func TestLoadTargetRequiresExplicitPrivateLiteral(t *testing.T) {
 	}{
 		{name: "loopback IPv4", target: "http://127.0.0.1:8080", expected: "http://127.0.0.1:8080"},
 		{name: "loopback IPv6", target: "https://[::1]:443", expected: "https://[::1]:443"},
+		{name: "loopback TLS localhost", target: "https://localhost:8443", authority: "ca.pem", expected: "https://localhost:8443"},
+		{name: "localhost TLS requires fixture CA", target: "https://localhost:8443"},
+		{name: "default rejects other host names with CA", target: "https://test.local:8443", authority: "ca.pem"},
 		{name: "default rejects private", target: "http://192.168.0.2:8080"},
 		{name: "default rejects host names", target: "http://localhost:8080"},
 		{name: "private IPv4", privateTarget: "http://192.168.0.2:8080", expected: "http://192.168.0.2:8080"},
@@ -92,6 +95,37 @@ func TestLoadTargetRequiresExplicitPrivateLiteral(t *testing.T) {
 				t.Fatalf("got %s, %v; want %s", origin, err, tc.expected)
 			}
 		})
+	}
+}
+
+func TestLoadDialAddressPinsLocalhost(t *testing.T) {
+	if actual := loadDialAddress("localhost:8443"); actual != "127.0.0.1:8443" {
+		t.Fatalf("localhost must dial IPv4 loopback, got %s", actual)
+	}
+	if actual := loadDialAddress("[::1]:8443"); actual != "[::1]:8443" {
+		t.Fatalf("IPv6 loopback changed, got %s", actual)
+	}
+}
+
+func TestDetailHTMLValidatesThePublishedBody(t *testing.T) {
+	const title, text = "Fixture article", "Field notes & maps."
+	w := workload{articles: make([]article, 21)}
+	w.articles[0] = article{Title: title, HTMLBodyBytes: len(text), HTMLBodySHA: sha256Hex([]byte(text))}
+	heading := "<header><h1>" + title + "</h1></header>"
+	render := func(body string) []byte {
+		return []byte(heading + `<div class="blog-markdown" data-fsus-article-read-body>` + body + "</div>")
+	}
+	if err := w.validate(detailHTML, 1, render("<p>Field notes &amp; maps.</p>\n")); err != nil {
+		t.Fatal(err)
+	}
+	for _, body := range [][]byte{
+		render("<p>Different text.</p>"),
+		render("<p>Field notes &amp; maps.</p><p>Unexpected content.</p>"),
+		[]byte(heading + "<p>Field notes &amp; maps.</p>"),
+	} {
+		if err := w.validate(detailHTML, 1, body); err == nil {
+			t.Fatalf("unexpected HTML passed: %s", body)
+		}
 	}
 }
 

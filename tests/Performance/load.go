@@ -253,6 +253,10 @@ type corpusPreflight struct {
 
 func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, published []article) error {
 	transport := &http.Transport{TLSClientConfig: w.tlsConfig, DisableCompression: true, DisableKeepAlives: true}
+	dialer := &net.Dialer{}
+	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		return dialer.DialContext(ctx, network, loadDialAddress(address))
+	}
 	client := &http.Client{Transport: transport, Timeout: requestLimit,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	generationHeader, pagesHeader := w.wire.Headers["SearchIndexGeneration"], w.wire.Headers["SearchIndexPages"]
@@ -511,10 +515,11 @@ func (c *connection) connectContext(ctx context.Context, deadline time.Time) err
 	dialer := &net.Dialer{Deadline: deadline}
 	var socket net.Conn
 	var err error
+	address := loadDialAddress(c.origin.Host)
 	if c.origin.Scheme == "https" {
-		socket, err = (&tls.Dialer{NetDialer: dialer, Config: c.tlsConfig}).DialContext(ctx, "tcp", c.origin.Host)
+		socket, err = (&tls.Dialer{NetDialer: dialer, Config: c.tlsConfig}).DialContext(ctx, "tcp", address)
 	} else {
-		socket, err = dialer.DialContext(ctx, "tcp", c.origin.Host)
+		socket, err = dialer.DialContext(ctx, "tcp", address)
 	}
 	if err != nil {
 		return err
@@ -693,10 +698,12 @@ func (w workload) validate(class route, id int, body []byte) error {
 		if !bytes.Contains(body, []byte("<h1>"+a.Title+"</h1>")) {
 			return errors.New("HTML detail has a different title")
 		}
-		_, after, found := strings.Cut(string(body), "</h1><p>")
-		markup, _, closed := strings.Cut(after, "</p>")
+		_, after, found := strings.Cut(string(body), " data-fsus-article-read-body>")
+		container, _, closed := strings.Cut(after, "</div>")
+		paragraph, opened := strings.CutPrefix(strings.TrimSpace(container), "<p>")
+		markup, ended := strings.CutSuffix(paragraph, "</p>")
 		text := []byte(html.UnescapeString(markup))
-		if !found || !closed || len(text) != a.HTMLBodyBytes || sha256Hex(text) != a.HTMLBodySHA {
+		if !found || !closed || !opened || !ended || len(text) != a.HTMLBodyBytes || sha256Hex(text) != a.HTMLBodySHA {
 			return errors.New("HTML detail body differs from the seeded article")
 		}
 		return nil
@@ -1344,6 +1351,15 @@ func captureStage(ctx context.Context, pool []connection, w workload, rate, seco
 	}
 }
 
+// localhost is a WebAuthn relying party, but the load client must never resolve it over DNS.
+func loadDialAddress(address string) string {
+	host, port, err := net.SplitHostPort(address)
+	if err == nil && host == "localhost" {
+		return net.JoinHostPort("127.0.0.1", port)
+	}
+	return address
+}
+
 func parseLoadTarget(target, privateTarget, authority string) (*url.URL, error) {
 	if target != "" && privateTarget != "" {
 		return nil, errors.New("choose exactly one of -target or -private-target")
@@ -1358,8 +1374,11 @@ func parseLoadTarget(target, privateTarget, authority string) (*url.URL, error) 
 		return nil, errors.New("target requires an explicit HTTP or HTTPS origin and port")
 	}
 	if privateTarget == "" {
+		if origin.Hostname() == "localhost" && origin.Scheme == "https" && authority != "" {
+			return origin, nil
+		}
 		if !net.ParseIP(origin.Hostname()).IsLoopback() {
-			return nil, errors.New("-target requires a literal loopback address")
+			return nil, errors.New("-target requires a literal loopback address or HTTPS localhost with an explicit -ca PEM")
 		}
 		return origin, nil
 	}
@@ -1423,6 +1442,7 @@ func run() int {
 		if w.tlsConfig, err = loadTLSConfig(*authority); err != nil {
 			return fail(err)
 		}
+		w.tlsConfig.ServerName = origin.Hostname()
 	}
 	out, err := os.OpenFile(*output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
