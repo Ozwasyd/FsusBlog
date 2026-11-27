@@ -57,6 +57,8 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
             throw new InvalidOperationException("Fixture plan exceeds the file budget.");
 
         var settings = ReadConnectionSettings();
+        // Reuse plans for the fixed set of parameterized commands in the 100k fixture.
+        if (count == 100_000) settings.MaxAutoPrepare = 128;
         var plan = new PlanReader(stream);
         if (await plan.Read(ct) != Header) throw new InvalidOperationException("Unexpected article plan header.");
 
