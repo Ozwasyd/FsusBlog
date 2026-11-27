@@ -250,8 +250,7 @@ public static class InboxWire
         public byte[] Frame(FrameType type)
         {
             I32(arena.WrittenCount);
-            buffer.Write(arena.WrittenSpan);
-            return Aeds.Encode(type, buffer.WrittenSpan);
+            return Aeds.Encode(type, Written, arena.WrittenSpan);
         }
     }
 }
