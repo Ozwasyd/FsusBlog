@@ -324,10 +324,15 @@ if [[ "$proxy_mode" == true ]]; then
   "$dotnet" "$run/migrate/FsusBlog.V2.Cli.dll" operator proxy-check |
     node "$run/source/tests/Performance/proxy-boundary.mjs" "$target" "$origin" "$proxy_ca" "$FSUSBLOG_TLS_CERTIFICATE" \
       > "$evidence/proxy-boundary.log" 2>&1
+  [[ "$(readiness)" == 204 ]]
 else
   target=$origin
+  wait_for_direct_readiness "$((startup_started + 120))" || {
+    echo 'Owned Kestrel did not return readiness 204 within 120 seconds.' >&2
+    exit 1
+  }
+  printf 'ready_after_seconds=%s\n' "$((SECONDS - startup_started))" >> "$evidence/environment.txt"
 fi
-[[ "$(readiness)" == 204 ]]
 read -r postgres_pid < "$run/pg/postmaster.pid"
 {
   printf 'owner_pid=%s\npostgres_pid=%s\nserver_pid=%s\norigin=%s\n' "$$" "$postgres_pid" "$server_pid" "$origin"

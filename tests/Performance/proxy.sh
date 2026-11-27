@@ -99,3 +99,14 @@ EOF
 readiness() {
   curl -sS --max-time 1 --noproxy '*' "${curl_flags[@]}" -o /dev/null -w '%{http_code}' "$target/health/ready"
 }
+
+wait_for_direct_readiness() {
+  local deadline=$1 status
+  while (( SECONDS < deadline )); do
+    own_child "$server_pid" || return 1
+    status=$(readiness 2>/dev/null) || status=
+    [[ "$status" != 204 ]] || return 0
+    sleep 0.2
+  done
+  return 1
+}
