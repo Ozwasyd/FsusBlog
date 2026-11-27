@@ -202,7 +202,7 @@ internal static partial class Cli
         try
         {
             await using var tx = await connection.BeginTransactionAsync(ct);
-            await using (var handoff = ParameterizedCommand(connection, tx,
+            await using (var handoff = DatabaseSql.Create(connection, tx,
                 "select pg_catalog.pg_advisory_xact_lock_shared($1,$2)", PublicationLocks.HandoffClass, PublicationLocks.HandoffObject))
             {
                 handoff.CommandTimeout = 5;
