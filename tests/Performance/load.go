@@ -698,10 +698,12 @@ func (w workload) validate(class route, id int, body []byte) error {
 		if !bytes.Contains(body, []byte("<h1>"+a.Title+"</h1>")) {
 			return errors.New("HTML detail has a different title")
 		}
-		_, after, found := strings.Cut(string(body), "</h1><p>")
-		markup, _, closed := strings.Cut(after, "</p>")
+		_, after, found := strings.Cut(string(body), " data-fsus-article-read-body>")
+		container, _, closed := strings.Cut(after, "</div>")
+		paragraph, opened := strings.CutPrefix(strings.TrimSpace(container), "<p>")
+		markup, ended := strings.CutSuffix(paragraph, "</p>")
 		text := []byte(html.UnescapeString(markup))
-		if !found || !closed || len(text) != a.HTMLBodyBytes || sha256Hex(text) != a.HTMLBodySHA {
+		if !found || !closed || !opened || !ended || len(text) != a.HTMLBodyBytes || sha256Hex(text) != a.HTMLBodySHA {
 			return errors.New("HTML detail body differs from the seeded article")
 		}
 		return nil

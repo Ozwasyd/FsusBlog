@@ -107,6 +107,28 @@ func TestLoadDialAddressPinsLocalhost(t *testing.T) {
 	}
 }
 
+func TestDetailHTMLValidatesThePublishedBody(t *testing.T) {
+	const title, text = "Fixture article", "Field notes & maps."
+	w := workload{articles: make([]article, 21)}
+	w.articles[0] = article{Title: title, HTMLBodyBytes: len(text), HTMLBodySHA: sha256Hex([]byte(text))}
+	heading := "<header><h1>" + title + "</h1></header>"
+	render := func(body string) []byte {
+		return []byte(heading + `<div class="blog-markdown" data-fsus-article-read-body>` + body + "</div>")
+	}
+	if err := w.validate(detailHTML, 1, render("<p>Field notes &amp; maps.</p>\n")); err != nil {
+		t.Fatal(err)
+	}
+	for _, body := range [][]byte{
+		render("<p>Different text.</p>"),
+		render("<p>Field notes &amp; maps.</p><p>Unexpected content.</p>"),
+		[]byte(heading + "<p>Field notes &amp; maps.</p>"),
+	} {
+		if err := w.validate(detailHTML, 1, body); err == nil {
+			t.Fatalf("unexpected HTML passed: %s", body)
+		}
+	}
+}
+
 func TestRequestPathsCannotChangeLoadOrigin(t *testing.T) {
 	origin := must(parseLoadTarget("", "http://192.168.0.2:8080", ""))(t)
 	req := must(newLoadRequest(context.Background(), http.MethodGet, origin, "/one/two.aeds?generation=3&page=1"))(t)
