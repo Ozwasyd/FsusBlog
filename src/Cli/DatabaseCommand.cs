@@ -2,31 +2,17 @@ internal static partial class Cli
 {
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
 
-    private static NpgsqlCommand ParameterizedCommand(NpgsqlConnection db, NpgsqlTransaction? tx, string text, params object[] args)
-    {
-        var command = new NpgsqlCommand(text, db, tx);
-        foreach (var arg in args)
-            command.Parameters.Add(arg is NpgsqlParameter typed ? typed : new NpgsqlParameter { Value = arg });
-        return command;
-    }
+    internal static Task<int> ExecuteAsync(NpgsqlConnection db, NpgsqlTransaction? tx, string sql, CancellationToken ct, params object[] args) =>
+        DatabaseSql.ExecuteAsync(db, tx, ct, sql, args);
 
-    internal static async Task<int> ExecuteAsync(NpgsqlConnection db, NpgsqlTransaction? tx, string sql, CancellationToken ct, params object[] args)
-    {
-        await using var command = ParameterizedCommand(db, tx, sql, args);
-        return await command.ExecuteNonQueryAsync(ct);
-    }
-
-    internal static async Task<object?> ScalarAsync(NpgsqlConnection db, NpgsqlTransaction? tx, string sql, CancellationToken ct, params object[] args)
-    {
-        await using var command = ParameterizedCommand(db, tx, sql, args);
-        return await command.ExecuteScalarAsync(ct);
-    }
+    internal static Task<object?> ScalarAsync(NpgsqlConnection db, NpgsqlTransaction? tx, string sql, CancellationToken ct, params object[] args) =>
+        DatabaseSql.ScalarAsync(db, tx, ct, sql, args);
 
     private static async Task<List<T>> QueryListAsync<T>(NpgsqlConnection db, NpgsqlTransaction? tx, string sql,
         Func<NpgsqlDataReader, T> read, CancellationToken ct, params object[] args)
     {
         var rows = new List<T>();
-        await using var command = ParameterizedCommand(db, tx, sql, args);
+        await using var command = DatabaseSql.Create(db, tx, sql, args);
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct)) rows.Add(read(reader));
         return rows;
@@ -35,7 +21,7 @@ internal static partial class Cli
     private static async Task<T> QueryRequiredAsync<T>(NpgsqlConnection db, NpgsqlTransaction? tx, string sql,
         Func<NpgsqlDataReader, T> read, Func<Exception> missing, CancellationToken ct, params object[] args)
     {
-        await using var command = ParameterizedCommand(db, tx, sql, args);
+        await using var command = DatabaseSql.Create(db, tx, sql, args);
         await using var reader = await command.ExecuteReaderAsync(ct);
         if (!await reader.ReadAsync(ct)) throw missing();
         return read(reader);
@@ -44,7 +30,7 @@ internal static partial class Cli
     private static async Task ReadAllAsync(NpgsqlConnection db, NpgsqlTransaction? tx, string sql,
         Action<NpgsqlDataReader> read, CancellationToken ct, params object[] args)
     {
-        await using var command = ParameterizedCommand(db, tx, sql, args);
+        await using var command = DatabaseSql.Create(db, tx, sql, args);
         await using var reader = await command.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct)) read(reader);
     }

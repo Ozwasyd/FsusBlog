@@ -2,13 +2,8 @@ namespace FsusBlog.V2.Server;
 
 internal static class SqlCommands
 {
-    internal static NpgsqlCommand Create(NpgsqlConnection db, NpgsqlTransaction? transaction, string sql, params object[] parameters)
-    {
-        var command = new NpgsqlCommand(sql, db, transaction);
-        foreach (var parameter in parameters)
-            command.Parameters.Add(parameter is NpgsqlParameter typed ? typed : new NpgsqlParameter { Value = parameter });
-        return command;
-    }
+    internal static NpgsqlCommand Create(NpgsqlConnection db, NpgsqlTransaction? transaction, string sql, params object[] parameters) =>
+        DatabaseSql.Create(db, transaction, sql, parameters);
 
     internal static long GetUnixMilliseconds(this NpgsqlDataReader reader, int column) =>
         reader.GetFieldValue<DateTimeOffset>(column).ToUnixTimeMilliseconds();
@@ -23,17 +18,11 @@ internal static class SqlCommands
         return true;
     }
 
-    internal static async Task<int> Execute(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql, params object[] parameters)
-    {
-        await using var command = Create(db, tx, sql, parameters);
-        return await command.ExecuteNonQueryAsync(ct);
-    }
+    internal static Task<int> Execute(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql, params object[] parameters) =>
+        DatabaseSql.ExecuteAsync(db, tx, ct, sql, parameters);
 
-    internal static async Task<object?> Scalar(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql, params object[] parameters)
-    {
-        await using var command = Create(db, tx, sql, parameters);
-        return await command.ExecuteScalarAsync(ct);
-    }
+    internal static Task<object?> Scalar(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql, params object[] parameters) =>
+        DatabaseSql.ScalarAsync(db, tx, ct, sql, parameters);
 
     internal static async Task<T?> QueryOne<T>(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct, string sql,
         Func<NpgsqlDataReader, T> read, params object[] parameters) where T : class

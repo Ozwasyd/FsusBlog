@@ -31,27 +31,11 @@ internal static class RequiredReaderRow
 
 internal static partial class CurrentSchema
 {
-    internal static async Task<int> ExecuteAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,
-        string sql, params object[] parameters)
-    {
-        await using var command = Command(db, tx, sql, parameters);
-        return await command.ExecuteNonQueryAsync(ct);
-    }
+    internal static Task<int> ExecuteAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,
+        string sql, params object[] parameters) => DatabaseSql.ExecuteAsync(db, tx, ct, sql, parameters);
 
-    private static async Task<object?> ScalarAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,
-        string sql, params object[] parameters)
-    {
-        await using var query = Command(db, tx, sql, parameters);
-        return await query.ExecuteScalarAsync(ct);
-    }
-
-    private static NpgsqlCommand Command(NpgsqlConnection db, NpgsqlTransaction? tx, string sql, object[] parameters)
-    {
-        var command = new NpgsqlCommand(sql, db, tx);
-        foreach (var parameter in parameters)
-            command.Parameters.Add(parameter is NpgsqlParameter typed ? typed : new NpgsqlParameter { Value = parameter });
-        return command;
-    }
+    private static Task<object?> ScalarAsync(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,
+        string sql, params object[] parameters) => DatabaseSql.ScalarAsync(db, tx, ct, sql, parameters);
 
     private static async Task<T> ProbeAsync<T>(NpgsqlConnection db, NpgsqlTransaction? tx, CancellationToken ct,
         string[] relations, string[] columns, string[] checks, Func<CatalogPresenceSnapshot, T> inspect) =>
