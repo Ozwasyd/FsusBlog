@@ -11,6 +11,39 @@ public sealed partial class NightlyFixturePostgresTests
     private static readonly byte[] ShardedPlanHeader = Encoding.ASCII.GetBytes(Header + "\n");
     private static readonly UTF8Encoding ShardedPlanUtf8 = new(false, true);
 
+    private static async Task<Stream> OpenNightlyCheckpointInputAsync(string path, CheckpointBinding binding, CancellationToken ct)
+    {
+        var directory = PrivateDirectory(Path.GetDirectoryName(path)!);
+        if (Path.GetFileName(path) != "articles.tsv" || !IsPlanSha(binding.PlanHash) || !IsPlanSha(binding.ManifestHash))
+            throw new InvalidOperationException("Expected the sealed Nightly TSV and manifest.");
+
+        await using var manifest = OpenPrivatePlanFile(Path.Combine(directory, "plan.json"));
+        if (manifest.Length is <= 0 or > ShardedPlanMaxLineBytes || await ReadCheckpointSourceHash(manifest, ct) != binding.ManifestHash)
+            throw new InvalidOperationException("The Nightly manifest differs from its recorded SHA-256.");
+        using var document = await JsonDocument.ParseAsync(manifest,
+            new JsonDocumentOptions { AllowDuplicateProperties = false, MaxDepth = 16 }, ct);
+        var plan = document.RootElement;
+        if (plan.GetProperty("format").GetString() != "fsusblog-v2-nightly-postgres-fixture-v2" ||
+            plan.GetProperty("profile").GetString() != "nightly" ||
+            plan.GetProperty("articles").GetInt32() != binding.Count ||
+            plan.GetProperty("scheduleDueUnixMs").GetInt64() != binding.Due ||
+            plan.GetProperty("articlePlanSha256").GetString() != binding.PlanHash)
+            throw new InvalidOperationException("The Nightly manifest does not match the selected plan and schedule.");
+
+        var input = OpenPrivatePlanFile(Path.Combine(directory, "articles.tsv"));
+        try
+        {
+            if (input.Length is <= 0 or > ShardedPlanMaxBytes || await ReadCheckpointSourceHash(input, ct) != binding.PlanHash)
+                throw new InvalidOperationException("The Nightly TSV differs from its sealed plan.");
+            return input;
+        }
+        catch
+        {
+            await input.DisposeAsync();
+            throw;
+        }
+    }
+
     private static async Task<Stream> OpenShardedArticleInputAsync(string manifestPath, int count, long due,
         string manifestSha, string logicalSha, CancellationToken ct)
     {
@@ -21,12 +54,12 @@ public sealed partial class NightlyFixturePostgresTests
             _ => throw new InvalidOperationException("Expected the pilot or million-article sharded checkpoint plan.")
         };
         if (!Path.IsPathFullyQualified(manifestPath) || due <= 0 ||
-            !IsShardedPlanSha(manifestSha) || !IsShardedPlanSha(logicalSha))
+            !IsPlanSha(manifestSha) || !IsPlanSha(logicalSha))
             throw new InvalidOperationException("Expected a sealed sharded checkpoint plan and schedule.");
         int shardCount = (count + rowsPerShard - 1) / rowsPerShard;
 
         var directory = PrivateDirectory(Path.GetDirectoryName(manifestPath)!);
-        await using var manifest = OpenShardedPlanFile(Path.Combine(directory, Path.GetFileName(manifestPath)));
+        await using var manifest = OpenPrivatePlanFile(Path.Combine(directory, Path.GetFileName(manifestPath)));
         long manifestLength = manifest.Length;
         if (manifestLength is <= 0 or > ShardedPlanMaxLineBytes)
             throw new InvalidOperationException("The sharded checkpoint manifest exceeds its byte budget.");
@@ -71,10 +104,10 @@ public sealed partial class NightlyFixturePostgresTests
                     entry.GetProperty("firstArticle").GetInt32() != article ||
                     entry.GetProperty("lastArticle").GetInt32() != article + expectedRows - 1 ||
                     expectedRows is <= 0 or > ShardedPlanMaxRows || entry.GetProperty("rows").GetInt32() != expectedRows ||
-                    bytes <= ShardedPlanHeader.Length || bytes > ShardedPlanMaxBytes || !IsShardedPlanSha(sha))
+                    bytes <= ShardedPlanHeader.Length || bytes > ShardedPlanMaxBytes || !IsPlanSha(sha))
                     throw new InvalidOperationException($"Unexpected row interval, byte count or SHA-256 for fixture shard {ordinal}.");
 
-                var file = OpenShardedPlanFile(Path.Combine(directory, ShardedPlanLeaf(ordinal)));
+                var file = OpenPrivatePlanFile(Path.Combine(directory, ShardedPlanLeaf(ordinal)));
                 int skip = ordinal == 1 ? 0 : ShardedPlanHeader.Length;
                 shards.Add(new(file, logicalLength, skip, bytes - skip));
                 await VerifyPhysicalShardAsync(file, ordinal, article, expectedRows, bytes, sha!, logicalHash, buffer, partialLine, ct);
@@ -93,13 +126,13 @@ public sealed partial class NightlyFixturePostgresTests
         }
     }
 
-    private static bool IsShardedPlanSha(string? value) =>
+    private static bool IsPlanSha(string? value) =>
         value is { Length: 64 } && value.All(char.IsAsciiHexDigitLower);
 
     private static string ShardedPlanLeaf(int ordinal) =>
         "articles-" + ordinal.ToString("D5", CultureInfo.InvariantCulture) + ".tsv";
 
-    private static FileStream OpenShardedPlanFile(string path)
+    private static FileStream OpenPrivatePlanFile(string path)
     {
         var info = new FileInfo(path);
         const FileAttributes forbidden = FileAttributes.ReparsePoint | FileAttributes.Directory | FileAttributes.Device;
@@ -107,14 +140,14 @@ public sealed partial class NightlyFixturePostgresTests
         const UnixFileMode readWrite = read | UnixFileMode.UserWrite;
         if (OperatingSystem.IsWindows() || !info.Exists || (info.Attributes & forbidden) != 0 ||
             File.GetUnixFileMode(path) is not (read or readWrite))
-            throw new InvalidOperationException("Expected a private regular fixture manifest or shard file.");
+            throw new InvalidOperationException("Expected a private regular fixture plan, manifest, or shard.");
 
         // The validator and the existing TSV reader already supply their own bounded buffers.
         var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
         if (file.CanSeek) return file;
         file.Dispose();
-        throw new InvalidOperationException("Expected a seekable fixture manifest or shard file.");
+        throw new InvalidOperationException("Expected a seekable fixture plan, manifest, or shard.");
     }
 
     private static async Task VerifyPhysicalShardAsync(FileStream file, int ordinal, int first, int expectedRows, long bytes,

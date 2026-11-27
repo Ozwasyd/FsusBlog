@@ -319,9 +319,10 @@ fixture_optional_vars=(
     FSUSBLOG_NIGHTLY_FIXTURE_DEADLINE_UNIX_MS
 )
 unset "${fixture_optional_vars[@]}"
-if [[ $checkpoint_pilot == true || $million_articles == true ]]; then
-    checkpoint_plan_sha=$(python3 -B -c 'import json,sys; print(json.load(sys.stdin)["articlePlanSha256"])' < "$article_input")
-    checkpoint_manifest_sha=$(shasum -a 256 -- "$article_input")
+if [[ $checkpoint_pilot == true || $million_articles == true || $nightly == true ]]; then
+    checkpoint_manifest="$scratch/plan.json"
+    checkpoint_plan_sha=$(python3 -B -c 'import json,sys; print(json.load(sys.stdin)["articlePlanSha256"])' < "$checkpoint_manifest")
+    checkpoint_manifest_sha=$(shasum -a 256 -- "$checkpoint_manifest")
     checkpoint_manifest_sha=${checkpoint_manifest_sha%% *}
     [[ $checkpoint_plan_sha =~ ^[0-9a-f]{64}$ && $checkpoint_manifest_sha =~ ^[0-9a-f]{64}$ ]]
     export FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PLAN_SHA256="$checkpoint_plan_sha"
@@ -335,20 +336,25 @@ if [[ $checkpoint_pilot == true ]]; then
 fi
 writer=("$dotnet" vstest "$test_dll" '--TestCaseFilter:FullyQualifiedName~NightlyFixturePostgresTests.WritePlannedArticles'
     '--logger:console;verbosity=detailed')
-if [[ $million_articles == true ]]; then
+if [[ $million_articles == true || $nightly == true ]]; then
     writer_deadline=$(python3 -B -c 'import time; print(int((time.time()+90*60)*1000))')
-    export FSUSBLOG_NIGHTLY_FIXTURE_ARTICLE_SCALE=1 FSUSBLOG_NIGHTLY_FIXTURE_DEADLINE_UNIX_MS="$writer_deadline"
+    if [[ $million_articles == true ]]; then export FSUSBLOG_NIGHTLY_FIXTURE_ARTICLE_SCALE=1; fi
+    export FSUSBLOG_NIGHTLY_FIXTURE_DEADLINE_UNIX_MS="$writer_deadline"
     printf 'writer_deadline_unix_ms=%s\n' "$writer_deadline" >> "$evidence/run.txt"
-    if phase write-articles "${writer[@]}"; then
-        :
-    else
-        first_exit=$?
-        printf 'first_writer_exit=%s\n' "$first_exit" >> "$evidence/run.txt"
-        if ! awk '/^ *checkpoint_worker_retry_allowed=transient_connection_failure$/ { found=1 } END { exit !found }' "$evidence/write-articles.log"; then
-            exit "$first_exit"
+    writer_stage=write-articles
+    writer_attempt=1
+    while :; do
+        if phase "$writer_stage" "${writer[@]}"; then break; else writer_exit=$?; fi
+        printf 'writer_attempt=%s writer_exit=%s\n' "$writer_attempt" "$writer_exit" >> "$evidence/run.txt"
+        if [[ $million_articles == true && $writer_attempt != 1 ]] ||
+            ! grep -Eq '^ *checkpoint_worker_retry_allowed=(transient_connection_failure|lease_interrupted)$' "$evidence/$writer_stage.log"; then
+            exit "$writer_exit"
         fi
-        phase resume-articles "${writer[@]}"
-    fi
+        if (( $(date +%s) * 1000 >= writer_deadline )); then exit "$writer_exit"; fi
+        sleep 1
+        writer_stage="resume-articles-$writer_attempt"
+        writer_attempt=$((writer_attempt + 1))
+    done
 else
     phase write-articles "${writer[@]}"
 fi
