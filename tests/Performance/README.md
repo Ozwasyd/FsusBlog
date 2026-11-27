@@ -103,3 +103,5 @@ tests/Performance/run.sh proxy-launch-soak artifacts/launch-tls-soak "$QPS"
 先在目标平台上用同一冻结提交运行 `tools/build-release.sh`，将发布目录的绝对路径设为 `FSUSBLOG_PERF_RELEASE`。每轮独立校验并解包同一归档，核对提交、FsusUI 版本和反代配置。未设置该变量时，运行器会逐轮构建，可用于探测。
 
 每轮在选定档位独立预热 30 秒；短档计时 60 秒，TLS 长测计时 900 秒。保留 `release-inputs.sha256`、`launch-gate.json`、`outcome.txt` 与原始采样；只有数值判定通过、退出码为 0 且清理完成的轮次才有效。另行核验各轮发布包摘要、提交、语料、档位一致及发压端资源余量；公网测量和最终限流不由此脚本代办。`direct`、`proxy`、`soak` 继续用于原固定档位，不替代上述入口。
+
+长测分别归因发布刷新、租约、作者检索索引重建、文档导出与站内信通知监听的数据库活动。测量期间出现未归类的 PostgreSQL 命令即判失败。

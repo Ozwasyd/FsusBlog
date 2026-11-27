@@ -1,10 +1,11 @@
 namespace FsusBlog.V2.Server.Authoring;
 
 internal sealed class DocumentExportWorker(NpgsqlDataSource source, InstanceLease lease, PdfDocumentExport? pdf,
-    MediaFiles? media, ILogger<DocumentExportWorker> log) : BackgroundService
+    MediaFiles? media, ILogger<DocumentExportWorker> log, RuntimeEvidence? evidence = null) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        using var attribution = evidence?.DocumentExportWork();
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, lease.Stopped);
         var ct = lifetime.Token;
         var initialized = false;

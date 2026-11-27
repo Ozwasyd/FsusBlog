@@ -227,7 +227,7 @@ internal static class InboxReplayCursor
     }
 }
 
-internal sealed class InboxWake(string connectionString, ILogger<InboxWake> log) : BackgroundService
+internal sealed class InboxWake(string connectionString, ILogger<InboxWake> log, RuntimeEvidence? evidence = null) : BackgroundService
 {
     private static readonly TimeSpan WaitSlice = TimeSpan.FromSeconds(1);
     private readonly string _listenerConnection = new NpgsqlConnectionStringBuilder(connectionString)
@@ -240,6 +240,7 @@ internal sealed class InboxWake(string connectionString, ILogger<InboxWake> log)
 
     protected override async Task ExecuteAsync(CancellationToken stop)
     {
+        using var attribution = evidence?.InboxWakeWork();
         while (!stop.IsCancellationRequested)
         {
             try

@@ -1,5 +1,29 @@
 public sealed class RuntimeEvidenceTests
 {
+    [PostgresFact]
+    public async Task SeparatesBackgroundWorkersFromHotReadsOnTheRunningServer()
+    {
+        await using var database = await ScratchDatabase.CreateTimed(out var ct);
+        using var evidence = new RuntimeEvidenceFixture("fsusv2-runtime-");
+        await using var server = await evidence.Start(database.ConnectionString, ct);
+        var before = await evidence.Mark("measure-before", ct);
+        await Task.Delay(TimeSpan.FromSeconds(4), ct);
+        using var home = Ok(await server.Client.GetAsync("/", ct));
+        var after = await evidence.Mark("measure-after", ct);
+
+        Assert.True(Commands(after, "inboxWake") > 0);
+        Assert.True(Commands(after, "publication") > Commands(before, "publication"));
+        Assert.True(Commands(after, "authorTextRebuild") > Commands(before, "authorTextRebuild"));
+        Assert.True(Commands(after, "documentExport") > Commands(before, "documentExport"));
+        Assert.Equal(Commands(before, "background"), Commands(after, "background"));
+        Assert.Equal(Commands(before, "homeHtml"), Commands(after, "homeHtml"));
+        Assert.Equal(1L, after.GetProperty("requestStatus200").GetProperty("homeHtml").GetInt64() -
+            before.GetProperty("requestStatus200").GetProperty("homeHtml").GetInt64());
+
+        static long Commands(JsonElement marker, string category) =>
+            marker.GetProperty("dbCommandStarts").GetProperty(category).GetInt64();
+    }
+
     [Fact]
     public async Task RecordsSlowRequestsOnlyInTheMeasurementWindowWithABoundedBuffer()
     {

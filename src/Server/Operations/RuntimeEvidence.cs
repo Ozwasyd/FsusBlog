@@ -15,10 +15,14 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
     private const int Publication = 6;
     private const int Lease = 7;
     private const int Comments = 8;
+    private const int AuthorTextRebuild = 9;
+    private const int DocumentExport = 10;
+    private const int InboxWake = 11;
     private const int SlowRequestLimit = 4096;
     private const int SlowRequestMilliseconds = 20;
     private static readonly string[] Classes =
-        ["homeHtml", "detailHtml", "homeAeds", "detailAeds", "background", "otherHttp", "publication", "lease", "comments"];
+        ["homeHtml", "detailHtml", "homeAeds", "detailAeds", "background", "otherHttp", "publication", "lease", "comments",
+            "authorTextRebuild", "documentExport", "inboxWake"];
     private readonly string _directory;
     private readonly IHttpContextAccessor _http;
     private readonly StreamWriter _output;
@@ -121,6 +125,9 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
 
     internal IDisposable PublicationWork() => EnterBackground(Publication);
     internal IDisposable LeaseWork() => EnterBackground(Lease);
+    internal IDisposable AuthorTextRebuildWork() => EnterBackground(AuthorTextRebuild);
+    internal IDisposable DocumentExportWork() => EnterBackground(DocumentExport);
+    internal IDisposable InboxWakeWork() => EnterBackground(InboxWake);
 
     private IDisposable EnterBackground(int category)
     {

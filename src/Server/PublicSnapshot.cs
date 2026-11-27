@@ -630,6 +630,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
 
     internal async Task Refresh(CancellationToken ct)
     {
+        using var attribution = evidence?.PublicationWork();
         lease?.RequireCurrent();
         ProjectionSource? source;
         long expectedEpoch;
@@ -656,7 +657,6 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         finally { _writers.Release(); }
 
         // Build the candidate snapshot OUTSIDE _writers and OUTSIDE any open PostgreSQL transaction (#51).
-        using var attribution = evidence?.PublicationWork();
         var (stillCurrent, next) = await BuildProjectionCandidateAsync(expectedEpoch, source, baseProjection, ct);
         if (!stillCurrent || next is null) return;
 
@@ -672,7 +672,6 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
 
     private async Task PublishScheduled(CancellationToken ct)
     {
-        using var attribution = evidence?.PublicationWork();
         await using var connection = await db.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(connection, lease, ct);
         if (await Authoring.ArticleScheduleStore.PublishDue(connection, tx, ct) != 0)

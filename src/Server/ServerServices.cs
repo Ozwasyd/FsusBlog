@@ -56,7 +56,7 @@ internal static class ServerServices
         {
             builder.Services.AddHostedService(services => new DocumentExportWorker(services.GetRequiredService<NpgsqlDataSource>(),
                 services.GetRequiredService<InstanceLease>(), capabilities.PdfExport, services.GetService<MediaFiles>(),
-                services.GetRequiredService<ILogger<DocumentExportWorker>>()));
+                services.GetRequiredService<ILogger<DocumentExportWorker>>(), services.GetService<RuntimeEvidence>()));
         }
 
         if (capabilities.PublicHotArticles)
@@ -113,7 +113,8 @@ internal static class ServerServices
                 builder.Services.AddHostedService<WideSearchCorpusWorker>();
             }
 
-            builder.Services.AddSingleton(services => new InboxWake(connectionString, services.GetRequiredService<ILogger<InboxWake>>()));
+            builder.Services.AddSingleton(services => new InboxWake(connectionString,
+                services.GetRequiredService<ILogger<InboxWake>>(), services.GetService<RuntimeEvidence>()));
             builder.Services.AddHostedService(services => services.GetRequiredService<InboxWake>());
             builder.Services.AddSingleton<CommentReadStore>();
             builder.Services.AddSingleton(_ => new ScopedPow(TimeProvider.System));
