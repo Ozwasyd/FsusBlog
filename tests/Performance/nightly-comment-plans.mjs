@@ -8,7 +8,7 @@ import { assertOwnedFile, sha256, writePrivate } from './nightly-owned-evidence.
 
 const maxWindowBytes = 8 * 1024 * 1024;
 const sql = {
-  roots: '27c166eba4b866a0d6bec7c79f52c294f05a9593c3ef8732075c6d7094422199',
+  roots: '3a7744e36ae426a125d80cb2e78ddc4b6d642a535bc73d18e71af3e972b3f39c',
   previews: '65c33e4a0140b498a79e5b02eff0f1fa4deeceae0611c6276563bb9bd762dd3c',
   parent: 'f002da45a91df45a7b6db44f3a3164e0e75efadf06757893d896c218537a3820',
   children: '4c812cbdf5244cf37019be61b78c6b5ee28f1b9ee6c573e1b00ac0a54c574521',
