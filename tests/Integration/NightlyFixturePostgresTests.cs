@@ -5,6 +5,7 @@ namespace FsusBlog.V2.Integration.Tests;
 public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output)
 {
     private const int BatchSize = 64;
+    private const int NightlyArticleCount = 100_000;
     private const string Header = "id\tkind\tcategory\ttag\ttitle\tbody\treplacement_title\treplacement_body";
     private const string ArchiveReason = "Archive the reviewed nightly source release";
     private static readonly Guid Owner = Guid.Parse("72654af7-cd13-4fe0-8bce-9a0c0266d908");
@@ -14,27 +15,29 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
     [NightlyFixtureFact]
     public async Task WritePlannedArticles()
     {
+        var count = int.Parse(Required("COUNT"), NumberStyles.None, CultureInfo.InvariantCulture);
         bool scale = Environment.GetEnvironmentVariable("FSUSBLOG_NIGHTLY_FIXTURE_ARTICLE_SCALE") == "1";
         try
         {
-            await WriteArticles(scale);
+            await WriteArticles(count, scale);
         }
-        catch (NpgsqlException error) when (scale && error.IsTransient)
+        catch (NpgsqlException error) when ((scale || count == NightlyArticleCount) && error.IsTransient)
         {
             output.WriteLine("checkpoint_worker_retry_allowed=transient_connection_failure");
             throw;
         }
     }
 
-    private async Task WriteArticles(bool scale)
+    private async Task WriteArticles(int count, bool scale)
     {
-        var count = int.Parse(Required("COUNT"), NumberStyles.None, CultureInfo.InvariantCulture);
-        if (scale ? count != MillionArticleCount : count is not (20 or 100_000))
+        if (scale ? count != MillionArticleCount : count is not (CheckpointPilotCount or NightlyArticleCount))
             throw new InvalidOperationException("Unexpected article count for the selected owned fixture profile.");
-        long deadline = scale
+        bool nightly = count == NightlyArticleCount;
+        bool resumable = nightly || scale;
+        long deadline = resumable
             ? long.Parse(Required("DEADLINE_UNIX_MS"), NumberStyles.None, CultureInfo.InvariantCulture)
             : 0;
-        var budget = scale ? DateTimeOffset.FromUnixTimeMilliseconds(deadline) - DateTimeOffset.UtcNow : WriterBudget;
+        var budget = resumable ? DateTimeOffset.FromUnixTimeMilliseconds(deadline) - DateTimeOffset.UtcNow : WriterBudget;
         if (budget <= TimeSpan.Zero || budget > WriterBudget)
             throw new InvalidOperationException("The article writer is outside its original 90-minute deadline.");
         var due = long.Parse(Required("DUE_UNIX_MS"), NumberStyles.None, CultureInfo.InvariantCulture);
@@ -46,19 +49,22 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         if (!Path.IsPathFullyQualified(planPath)) throw new InvalidOperationException("Expected an absolute fixture plan path.");
         using var timeout = new CancellationTokenSource(budget);
         var ct = timeout.Token;
-        var checkpoint = scale || Environment.GetEnvironmentVariable("FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT") == "1"
+        var checkpoint = resumable || Environment.GetEnvironmentVariable("FSUSBLOG_NIGHTLY_FIXTURE_CHECKPOINT_PILOT") == "1"
             ? new CheckpointBinding(site, due, Required("CHECKPOINT_PLAN_SHA256"), Required("CHECKPOINT_MANIFEST_SHA256"), count, deadline)
             : null;
-        await using Stream stream = checkpoint is null
-            ? new FileStream(planPath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024,
-                FileOptions.Asynchronous | FileOptions.SequentialScan)
-            : await OpenShardedArticleInputAsync(planPath, count, due, checkpoint.ManifestHash, checkpoint.PlanHash, ct);
+        await using Stream stream = checkpoint switch
+        {
+            null => new FileStream(planPath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan),
+            _ when nightly => await OpenNightlyCheckpointInputAsync(planPath, checkpoint, ct),
+            _ => await OpenShardedArticleInputAsync(planPath, count, due, checkpoint.ManifestHash, checkpoint.PlanHash, ct)
+        };
         if (stream.Length <= 0 || !scale && stream.Length > 512L * 1024 * 1024)
             throw new InvalidOperationException("Fixture plan exceeds the file budget.");
 
         var settings = ReadConnectionSettings();
         // Reuse plans for the fixed set of parameterized commands in the 100k fixture.
-        if (count == 100_000) settings.MaxAutoPrepare = 128;
+        if (nightly) settings.MaxAutoPrepare = 128;
         var plan = new PlanReader(stream);
         if (await plan.Read(ct) != Header) throw new InvalidOperationException("Unexpected article plan header.");
 
@@ -74,7 +80,7 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
                 throw new InvalidOperationException("Fixture target does not match the private PostgreSQL cluster.");
             var untilDue = dueAt - row.GetFieldValue<DateTimeOffset>(1) - TimeSpan.FromSeconds(15);
             if (untilDue <= TimeSpan.Zero) throw new InvalidOperationException("Fixture schedule must stay in the future.");
-            if (scale)
+            if (resumable)
             {
                 var remaining = DateTimeOffset.FromUnixTimeMilliseconds(deadline) - DateTimeOffset.UtcNow;
                 if (remaining <= TimeSpan.Zero) throw new InvalidOperationException("The article writer deadline elapsed.");
@@ -92,9 +98,22 @@ public sealed partial class NightlyFixturePostgresTests(ITestOutputHelper output
         int batches = 0;
         var band = count / 20;
         var archiveStart = 18 * band + 1;
-        if (scale)
+        if (resumable)
         {
-            await WriteMillionArticleFixture(db, settings, lease, stream, plan.Position, actor, checkpoint!, archiveStart, band, ct);
+            try
+            {
+                await WriteResumableArticleFixture(db, settings, lease, stream, plan.Position, actor, checkpoint!, archiveStart, band, ct);
+            }
+            catch (OperationCanceledException) when (nightly && lease.Stopped.IsCancellationRequested && !timeout.IsCancellationRequested)
+            {
+                output.WriteLine("checkpoint_worker_retry_allowed=lease_interrupted");
+                throw;
+            }
+            catch (PublicUnavailableException) when (nightly && !lease.IsCurrent && !timeout.IsCancellationRequested)
+            {
+                output.WriteLine("checkpoint_worker_retry_allowed=lease_interrupted");
+                throw;
+            }
             return;
         }
         long archiveOffset = 0;

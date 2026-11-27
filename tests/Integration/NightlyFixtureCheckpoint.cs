@@ -96,7 +96,7 @@ public sealed partial class NightlyFixturePostgresTests
         return next;
     }
 
-    private async Task WriteMillionArticleFixture(NpgsqlConnection db, NpgsqlConnectionStringBuilder settings,
+    private async Task WriteResumableArticleFixture(NpgsqlConnection db, NpgsqlConnectionStringBuilder settings,
         InstanceLease lease, Stream source, long firstOffset, Identity actor, CheckpointBinding binding, int archiveStart,
         int band, CancellationToken ct)
     {
@@ -151,7 +151,8 @@ public sealed partial class NightlyFixturePostgresTests
         var archiveGate = new AdminSessionGate(data, lease);
         var store = new AdminArticleArchiveStore(archiveGate, new AdminStepUpService(archiveGate));
         var session = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-        if (await FixtureSql.ScalarAsync(db, null, ct, "select exists (select from public.admin_principal)") is true)
+        if (await FixtureSql.ScalarAsync(db, null, ct,
+            "select exists (select from public.admin_principal where id=$1)", ArchiveAdministrator) is true)
             await Protected(db, lease, ct, async tx =>
             {
                 await ReadCheckpoint(db, tx, binding, ct);
@@ -293,7 +294,7 @@ public sealed partial class NightlyFixturePostgresTests
                     manifest_sha256 bytea not null check(octet_length(manifest_sha256)=32),
                     due_unix_ms bigint not null check(due_unix_ms>0),
                     deadline_unix_ms bigint not null,
-                    article_count integer not null check(article_count in (20,1000000)),
+                    article_count integer not null check(article_count in (20,100000,1000000)),
                     committed_articles integer not null check(committed_articles between 0 and article_count),
                     next_offset bigint not null check(next_offset>0),
                     archive_offset bigint not null check(archive_offset>=0),
@@ -303,7 +304,7 @@ public sealed partial class NightlyFixturePostgresTests
                     archive_intent_sha256 bytea check(octet_length(archive_intent_sha256)=32),
                     archived_articles integer not null default 0 check(archived_articles between 0 and article_count/20),
                     finished boolean not null default false,
-                    check(article_count=20 and deadline_unix_ms=0 or article_count=1000000 and deadline_unix_ms between 1 and due_unix_ms-1),
+                    check(article_count=20 and deadline_unix_ms=0 or article_count in (100000,1000000) and deadline_unix_ms between 1 and due_unix_ms-1),
                     check((archive_stage=0)=(archive_article is null)),
                     check((archive_article is null)=(archive_intent_sha256 is null)),
                     check(not finished or (archive_stage=0 and archived_articles=article_count/20 and committed_articles=article_count))

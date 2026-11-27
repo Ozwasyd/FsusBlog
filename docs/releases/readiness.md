@@ -28,6 +28,6 @@ V1 已退役。历史旧数据以只读归档保留，仓库已移除 V1 离线�
 发布候选打标前，必须在同一冻结提交上顺序核验并归档结果：
 
 1. **静态与单元门禁**：`dotnet build FsusBlog.V2.slnx -c Release --no-restore`（0 警告 0 错误）、`Core.Tests`、`Platform.Tests`、`./tools/protocol-test.sh`、`pnpm --dir src/Web typecheck && pnpm --dir src/Web build`、`python3 tools/check-docs.py`。
-2. **实库与浏览器闭环**：隔离 PostgreSQL 18 完整集成测试、CLI 迁移/备份/物理备库套件，以及桌面 + 移动（明暗主题）真实浏览器端到端回归。
+2. **实库与浏览器闭环**：隔离 PostgreSQL 18 完整集成测试、CLI 迁移/备份/物理备库套件，以及桌面 + 移动（明暗主题）真实浏览器端到端回归。10 万篇 Nightly 在短暂连接或租约中断后从同一语料的已提交检查点恢复，所有写入尝试共用 90 分钟时限。完整回读和 HTTP 检查通过且临时库清理完成后才记为通过。
 3. **发布包完整性**：`tools/build-release.sh` 产出并独立核验 `SHA256SUMS`、`payload.sha256`、`history.bundle`（空裸库 `git fsck --full`）与目标 Linux/macOS 实机冷启动和重启一致。
 4. **容量与长稳验收**：按[单机首发验收](../../tests/Performance/README.md#4-单机首发验收)在目标部署规格上测定并复核首发流量上限，归档直连和 TLS 各两轮、900 秒 TLS 长测及独立的公网验证结果。不要求首发达到 10,500 QPS；没有独立双机记录时，双机专项标记为未验收。
