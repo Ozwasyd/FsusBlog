@@ -26,9 +26,9 @@ public static class PublicArticles
     {
         ValidateArticle(article);
         var title = Utf8.GetBytes(article.Title);
-        if (Utf8.GetByteCount(article.Body) > WireLimits.BodyBytes)
+        var bodyLength = Utf8.GetByteCount(article.Body);
+        if (bodyLength > WireLimits.BodyBytes)
             throw new ProtocolException("Public article body exceeds its byte limit");
-        var body = Utf8.GetBytes(article.Body);
         var cover = article.CoverMediaDigest is null ? [] : Utf8.GetBytes(PublishedArticleImage.FilePath(article.Id, article.Publication, article.CoverMediaDigest));
         var summary = SummaryBytes(article);
         var taxonomy = EncodeTaxonomy(article);
@@ -37,7 +37,7 @@ public static class PublicArticles
         var rightsOffset = checked(tagOffset + taxonomy.Tags.Length * ArticleTagRecordSize);
         var blobOffset = rightsOffset + ArticleRightsRecordSize;
         var rightsText = article.Rights is { } snapshot ? RightsText(article, snapshot) : [];
-        var blobLength = checked(title.Length + body.Length + summary.Length + cover.Length + taxonomy.BlobLength + rightsText.Sum(text => text.Length));
+        var blobLength = checked(title.Length + bodyLength + summary.Length + cover.Length + taxonomy.BlobLength + rightsText.Sum(text => text.Length));
         var bytes = Allocate(checked(blobOffset + blobLength));
         var header = bytes.AsSpan(0, ArticleDetailHeaderSize);
         I32(header, 0, ArticleDetailV5Magic);
@@ -60,7 +60,8 @@ public static class PublicArticles
         I64(record, ArticleDetailUpdatedAtOffset, article.UpdatedAt.ToUnixTimeMilliseconds());
         WriteCoordinates(record[ArticleDetailCoordinatesOffset..], article);
         WriteText(record, ArticleDetailTitleOffset, blob, title, ref offset);
-        WriteText(record, ArticleDetailBodyOffset, blob, body, ref offset);
+        WriteSlice(record, ArticleDetailBodyOffset, offset, bodyLength);
+        offset += Utf8.GetBytes(article.Body, blob.Slice(offset, bodyLength));
         WriteText(record, ArticleDetailSummaryOffset, blob, summary, ref offset);
         WriteText(record, ArticleDetailCoverOffset, blob, cover, ref offset);
         WriteText(record, ArticleDetailCategoryOffset, blob, taxonomy.Category, ref offset);
