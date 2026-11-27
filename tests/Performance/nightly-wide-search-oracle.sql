@@ -1,5 +1,5 @@
 \ir nightly-oracle-scope.sql
-SELECT :owned AND :'due_unix_ms' ~ '^[1-9][0-9]{0,15}$' AS owned \gset
+SELECT :'owned'::boolean AND :'due_unix_ms' ~ '^[1-9][0-9]{0,15}$' AS owned \gset
 \if :owned
 \else
 DO $$ BEGIN RAISE EXCEPTION 'Nightly wide search oracle requires the owned Unix-only fixture and its sealed inputs'; END $$;
