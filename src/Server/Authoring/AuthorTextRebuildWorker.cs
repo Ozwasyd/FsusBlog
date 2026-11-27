@@ -1,6 +1,7 @@
 namespace FsusBlog.V2.Server.Authoring;
 
-internal sealed class AuthorTextRebuildWorker(NpgsqlDataSource source, InstanceLease lease, ILogger<AuthorTextRebuildWorker> log)
+internal sealed class AuthorTextRebuildWorker(NpgsqlDataSource source, InstanceLease lease, ILogger<AuthorTextRebuildWorker> log,
+    RuntimeEvidence? evidence = null)
     : BackgroundService
 {
     private const string WorkSavepoint = "author_index_work";
@@ -27,6 +28,7 @@ internal sealed class AuthorTextRebuildWorker(NpgsqlDataSource source, InstanceL
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!lease.AuthorTextRebuildInstalled) return;
+        using var attribution = evidence?.AuthorTextRebuildWork();
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, lease.Stopped);
         try
         {
