@@ -21,8 +21,8 @@ public sealed partial class ArticleSearchIndex
 
     private sealed record WideBlock(int First, int Count, WideTerm[] Terms, byte[] Postings);
 
-    /// <summary>Collision-safe alias entry: 64-bit hash + UTF-8 term bytes slice in NamePool + source links offset.</summary>
-    private readonly record struct WideAlias(ulong Hash64, int NameOffset, ushort NameLength, int Offset);
+    // UTF-8 names are contiguous in lexical order. Negative link references inline one link.
+    private readonly record struct WideAlias(int NameOffset, int LinkReference);
 
     private readonly record struct WideDocument(Article Article, int TitleLen, int HeadingLen, int SummaryLen, int TaxonomyLen, int BodyLen)
     {
@@ -44,7 +44,7 @@ public sealed partial class ArticleSearchIndex
             + NamePool.Length + Sources.Length
             + Blocks.Sum(static b => (long)b.Terms.Length * Unsafe.SizeOf<WideTerm>() + b.Postings.Length);
 
-        internal ReadOnlySpan<byte> SourcesFor(SearchTermKey key)
+        internal WideLinks SourcesFor(SearchTermKey key)
         {
             var utf8Len = Encoding.UTF8.GetByteCount(key.Term);
             byte[]? rented = null;
@@ -57,25 +57,27 @@ public sealed partial class ArticleSearchIndex
                 while (start < end)
                 {
                     var middle = start + (end - start) / 2;
-                    var cmp = CompareAlias(Aliases[middle], key.Hash64, termBytes);
+                    var alias = Aliases[middle];
+                    var nameEnd = middle + 1 == Aliases.Length ? NamePool.Length : Aliases[middle + 1].NameOffset;
+                    var cmp = NamePool.AsSpan(alias.NameOffset, nameEnd - alias.NameOffset).SequenceCompareTo(termBytes);
                     if (cmp < 0) start = middle + 1;
-                    else end = middle;
+                    else if (cmp > 0) end = middle;
+                    else
+                    {
+                        // SearchPage also accepts caller-built query plans. Honor the supplied full hash.
+                        if (SearchTextAnalyzer.HashUtf8Term64(termBytes) != key.Hash64) return default;
+                        var offset = alias.LinkReference;
+                        if (offset < 0) return new(default, false, ~offset);
+                        var header = ReadVarint(Sources, ref offset);
+                        return new(Sources.AsSpan(offset, header >> 1), (header & 1) != 0);
+                    }
                 }
-                if (start == Aliases.Length || CompareAlias(Aliases[start], key.Hash64, termBytes) != 0) return [];
-                var limit = start + 1 == Aliases.Length ? Sources.Length : Aliases[start + 1].Offset;
-                return Sources.AsSpan(Aliases[start].Offset, limit - Aliases[start].Offset);
+                return default;
             }
             finally
             {
                 if (rented is not null) ArrayPool<byte>.Shared.Return(rented);
             }
-        }
-
-        private int CompareAlias(WideAlias alias, ulong hash64, ReadOnlySpan<byte> termBytes)
-        {
-            var cmp = alias.Hash64.CompareTo(hash64);
-            if (cmp != 0) return cmp;
-            return NamePool.AsSpan(alias.NameOffset, alias.NameLength).SequenceCompareTo(termBytes);
         }
     }
 
@@ -86,6 +88,8 @@ public sealed partial class ArticleSearchIndex
             SearchTermKey[] ScriptAliases,
             SearchTermKey[] DerivedAliases,
             int Previous);
+
+        private readonly record struct UnsortedAlias(int NameOffset, int NameLength, List<int> Links, int LinkHeader);
 
         private readonly Dictionary<ulong, int> _heads = [];
         private readonly List<Source> _sources = [];
@@ -119,7 +123,6 @@ public sealed partial class ArticleSearchIndex
 
         internal WideIndex? Pack(WideDocument[] documents, WideBlock[] blocks, int availableBytes, CancellationToken ct)
         {
-            if (_linkCount > availableBytes) return null;
             var references = new Dictionary<SearchTermKey, List<int>>();
             for (var id = 0; id < _sources.Count; id++)
             {
@@ -129,62 +132,117 @@ public sealed partial class ArticleSearchIndex
                 if (source.Primary is { } p) Add(p, id * 3);
                 foreach (var sa in source.ScriptAliases) Add(sa, id * 3 + 1);
                 foreach (var da in source.DerivedAliases) Add(da, id * 3 + 2);
-                if ((long)references.Count * Unsafe.SizeOf<WideAlias>() + _linkCount > availableBytes)
+                if ((long)references.Count * Unsafe.SizeOf<WideAlias>() > availableBytes)
                     return null;
             }
 
-            var byteCount = 0;
             var nameBytesTotal = 0;
-            foreach (var (key, links) in references)
+            foreach (var key in references.Keys)
             {
                 nameBytesTotal += Encoding.UTF8.GetByteCount(key.Term);
-                EncodeDeltas(links, [], ref byteCount, ct);
+                ct.ThrowIfCancellationRequested();
             }
-            if ((long)references.Count * Unsafe.SizeOf<WideAlias>() + nameBytesTotal + byteCount > availableBytes)
+            var availableLinkBytes = availableBytes - references.Count * Unsafe.SizeOf<WideAlias>() - nameBytesTotal;
+            if (availableLinkBytes < 0)
                 return null;
 
-            var orderedKeys = references.Keys.ToArray();
-            Array.Sort(orderedKeys, static (left, right) =>
-            {
-                var cmp = left.Hash64.CompareTo(right.Hash64);
-                if (cmp != 0) return cmp;
-                return Encoding.UTF8.GetBytes(left.Term).AsSpan().SequenceCompareTo(Encoding.UTF8.GetBytes(right.Term));
-            });
-
-            var namePool = new byte[nameBytesTotal];
-            var sources = new byte[byteCount];
-            var aliases = new WideAlias[orderedKeys.Length];
+            var unsortedNames = new byte[nameBytesTotal];
+            var entries = new UnsortedAlias[references.Count];
+            var linkBytes = 0;
             var namePos = 0;
-            var offset = 0;
-            for (var index = 0; index < orderedKeys.Length; index++)
-            {
-                var key = orderedKeys[index];
-                var nLen = Encoding.UTF8.GetBytes(key.Term, namePool.AsSpan(namePos));
-                aliases[index] = new WideAlias(key.Hash64, namePos, checked((ushort)nLen), offset);
-                namePos += nLen;
-                EncodeDeltas(references[key], sources, ref offset, ct);
-            }
-            return new WideIndex(documents, blocks, aliases, namePool, sources);
-
-            static void EncodeDeltas(List<int> links, Span<byte> target, ref int pos, CancellationToken ct)
+            var index = 0;
+            foreach (var (key, links) in references)
             {
                 ct.ThrowIfCancellationRequested();
-                var previous = 0;
-                for (var i = 0; i < links.Count; i++)
+                var header = ~links[0];
+                if (links.Count > 1)
                 {
-                    if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
-                    var delta = links[i] - previous;
-                    previous = links[i];
-                    if (target.IsEmpty) pos += VarintWidth(delta);
-                    else WriteVarint(target, ref pos, delta);
+                    var rawBytes = EncodeDeltas(links, false, [], ct);
+                    var runBytes = links.Count > 2 ? EncodeDeltas(links, true, [], ct) : rawBytes;
+                    header = runBytes < rawBytes ? (runBytes << 1) | 1 : rawBytes << 1;
+                    linkBytes += VarintWidth(header) + (header >> 1);
+                    if (linkBytes > availableLinkBytes) return null;
                 }
+                var length = Encoding.UTF8.GetBytes(key.Term, unsortedNames.AsSpan(namePos));
+                entries[index++] = new(namePos, length, links, header);
+                namePos += length;
             }
+            Array.Sort(entries, (left, right) =>
+                unsortedNames.AsSpan(left.NameOffset, left.NameLength)
+                    .SequenceCompareTo(unsortedNames.AsSpan(right.NameOffset, right.NameLength)));
+
+            var namePool = new byte[nameBytesTotal];
+            var sources = new byte[linkBytes];
+            var aliases = new WideAlias[entries.Length];
+            namePos = 0;
+            var offset = 0;
+            for (var i = 0; i < entries.Length; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var entry = entries[i];
+                aliases[i] = new(namePos, entry.LinkHeader < 0 ? entry.LinkHeader : offset);
+                unsortedNames.AsSpan(entry.NameOffset, entry.NameLength).CopyTo(namePool.AsSpan(namePos));
+                namePos += entry.NameLength;
+                if (entry.LinkHeader < 0) continue;
+                WriteVarint(sources, ref offset, entry.LinkHeader);
+                offset += EncodeDeltas(entry.Links, (entry.LinkHeader & 1) != 0, sources.AsSpan(offset), ct);
+            }
+            return new WideIndex(documents, blocks, aliases, namePool, sources);
 
             void Add(SearchTermKey key, int link)
             {
                 if (!references.TryGetValue(key, out var links)) references.Add(key, links = []);
                 links.Add(link);
             }
+        }
+
+        private static int EncodeDeltas(List<int> links, bool runs, Span<byte> target, CancellationToken ct)
+        {
+            var offset = 0;
+            var previous = 0;
+            var stride = 0;
+            var count = 0;
+            for (var i = 0; i < links.Count; i++)
+            {
+                if ((i & 1023) == 0) ct.ThrowIfCancellationRequested();
+                var delta = links[i] - previous;
+                previous = links[i];
+                if (!runs)
+                {
+                    AppendVarint(target, ref offset, delta);
+                    continue;
+                }
+                if (delta != stride && count != 0)
+                {
+                    AppendRun(target, ref offset, stride, count);
+                    count = 0;
+                }
+                stride = delta;
+                count++;
+            }
+            if (count != 0) AppendRun(target, ref offset, stride, count);
+            return offset;
+        }
+
+        // In a run-coded list the low bit marks a run count; both forms preserve zero deltas.
+        private static void AppendRun(Span<byte> target, ref int offset, int delta, int count)
+        {
+            var code = delta << 1;
+            if ((count - 1) * VarintWidth(code) > VarintWidth(count))
+            {
+                AppendVarint(target, ref offset, code | 1);
+                AppendVarint(target, ref offset, count);
+            }
+            else
+            {
+                for (var i = 0; i < count; i++) AppendVarint(target, ref offset, code);
+            }
+        }
+
+        private static void AppendVarint(Span<byte> target, ref int offset, int value)
+        {
+            if (target.IsEmpty) offset += VarintWidth(value);
+            else WriteVarint(target, ref offset, value);
         }
     }
 
@@ -534,7 +592,7 @@ public sealed partial class ArticleSearchIndex
             ct.ThrowIfCancellationRequested();
             var rt = new WideResolvedTerm();
             termMaps[key] = rt;
-            foreach (var link in new WideLinks(wide.SourcesFor(key)))
+            foreach (var link in wide.SourcesFor(key))
             {
                 var sid = (uint)(link / 3);
                 var role = link % 3;
@@ -1166,18 +1224,30 @@ public sealed partial class ArticleSearchIndex
         return ExhaustiveSearchOracle.MatchPositionsTightProximity(lists, maxSpan);
     }
 
-    private ref struct WideLinks(ReadOnlySpan<byte> bytes)
+    private ref struct WideLinks(ReadOnlySpan<byte> bytes, bool runs, int singleton = -1)
     {
         private readonly ReadOnlySpan<byte> _bytes = bytes;
-        private int _offset, _link;
+        private readonly bool _runs = runs;
+        private int _offset, _delta;
+        private int _link = Math.Max(singleton, 0);
+        private int _remaining = singleton >= 0 ? 1 : 0;
 
         public readonly WideLinks GetEnumerator() => this;
         public readonly int Current => _link;
 
         public bool MoveNext()
         {
+            if (_remaining != 0)
+            {
+                _remaining--;
+                _link += _delta;
+                return true;
+            }
             if (_offset == _bytes.Length) return false;
-            _link += ReadVarint(_bytes, ref _offset);
+            var code = ReadVarint(_bytes, ref _offset);
+            _delta = _runs ? code >> 1 : code;
+            if (_runs && (code & 1) != 0) _remaining = ReadVarint(_bytes, ref _offset) - 1;
+            _link += _delta;
             return true;
         }
     }
