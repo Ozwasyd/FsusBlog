@@ -57,7 +57,7 @@ tests/Performance/run.sh proxy-supplier artifacts/p2-tls-supplier-1
 ### 运行器与诊断模式说明
 
 - **隔离与清理**：运行器使用原生 `initdb` 按次创建私有 Unix socket 数据库，在快照源目录构建并执行 `FsusBlog.V2.Cli` `plan`/`apply`/`verify`，退出时强制验证并移除临时 PostgreSQL、Kestrel、Caddy 与临时目录，保留指定证据目录（含 `outcome.txt`、`owner.txt`、`environment.txt`、`*.sha256`、`fixture.json`、`commands.txt` 与 `server-process.csv`）。
-- **代理模式（`proxy*`）**：使用仓库交付的 [`deploy/Caddyfile`](../../deploy/Caddyfile) 与按轮独立生成的回环 TLS CA，同时校验裸后端拒绝、转发头重建、Passkey 来源与会话 Cookie。
+- **代理模式（`proxy*`）**：使用仓库交付的 [`deploy/Caddyfile`](../../deploy/Caddyfile) 与按轮独立生成的回环 TLS CA。设置 `FSUSBLOG_TEST_CHROME` 为与锁文件匹配的 Chromium 绝对路径。计时前用真实浏览器和虚拟认证器完成 Passkey 登录，并核验裸后端拒绝、转发头重建、会话 Cookie 与登出。发压器对 `https://localhost` 保留 TLS 主机名校验，并固定连接 IPv4 回环。
 - **连接复用与 TLS 预建连**：`FSUSBLOG_PERF_REUSE_CONNECTIONS=1` 在单档内共用一个连接池完成预热与计时；`FSUSBLOG_PERF_PRECONNECT_TLS=1` 顺序预建 256 条 TLS 连接以隔离握手开销。
 - **运行时观察（`soak` / `FSUSBLOG_PERF_RUNTIME=1`）**：通过私有文件标记划定计时窗口，输出 `runtime-result.json`，独立统计四条热读路由归因的 Npgsql 命令/物理连接、GC 暂停分段分位、堆分配、RSS 与线程池排队，不记录 SQL、客户端路径或凭据。
 - **慢请求与供给余量**：`peak`/`proxy-peak` 记录 ≥ 20 ms 慢请求分段与 CLR 暂停交叉；`supplier`/`proxy-supplier` 以 11,000 QPS（660,000 请求）验证供给端余量；可通过 `FSUSBLOG_PERF_SUPPLIER_PROCS` 单独约束负载进程的 `GOMAXPROCS`。
@@ -75,7 +75,7 @@ python3 tests/Performance/capacity.py --direct PATH_1 --direct PATH_2 --proxy PA
 ```
 
 - `--require-peak-quorum` 校验直连与 TLS 是否各有至少两轮独立峰值通过；未通过时退出码为 `1`，标准输出保留全部传入轮次的原始复算结果。
-- 双实机专项验收需由协调方独立保存 `private-supplier.json`（版本 `1`，绑定 `runId`/`invocationId`/`attemptId`、`topology`、`target`、`generation`、双机 `serverHostId`/`supplierHostId` 摘要，以及归档、清单、语料、协议、工具和每档报告的 SHA-256），并在复算时附加 `--private-supplier-inputs TRUSTED_INPUTS` 执行完整准入校验。独立供给客户端通过 `-private-target` 与 `-ca` 指向私网被测目标（默认 `-target` 仅接受显式回环地址）。
+- 双实机专项验收需由协调方独立保存 `private-supplier.json`（版本 `1`，绑定 `runId`/`invocationId`/`attemptId`、`topology`、`target`、`generation`、双机 `serverHostId`/`supplierHostId` 摘要，以及归档、清单、语料、协议、工具和每档报告的 SHA-256），并在复算时附加 `--private-supplier-inputs TRUSTED_INPUTS` 执行完整准入校验。独立供给客户端通过 `-private-target` 与 `-ca` 指向私网被测目标。默认 `-target` 限于回环地址，使用 `https://localhost` 时必须指定 `-ca`。
 
 ---
 
@@ -91,6 +91,7 @@ python3 tests/Performance/capacity.py --direct PATH_1 --direct PATH_2 --proxy PA
 在目标 VPS 上从仓库根目录执行。QPS 参数为 10–11,000 范围内的 10 的倍数；每次使用独立的新证据目录。先用相同入口逐档探测，再将 `QPS` 设为选定的共同档位（下例的 500 仅是示例，不是发布门槛）：
 
 ```bash
+export FSUSBLOG_PERF_RELEASE=/absolute/path/to/verified-release
 QPS=500
 for round in 1 2; do
   tests/Performance/run.sh launch-direct "artifacts/launch-direct-$round" "$QPS"
@@ -99,4 +100,6 @@ done
 tests/Performance/run.sh proxy-launch-soak artifacts/launch-tls-soak "$QPS"
 ```
 
-每轮在选定档位独立预热 30 秒；短档计时 60 秒，TLS 长测计时 900 秒。保留 `launch-gate.json`、`outcome.txt` 与原始采样；只有数值判定通过、退出码为 0 且清理完成的轮次才有效。另行核验各轮提交、语料、档位一致及发压端资源余量；公网测量和最终限流不由此脚本代办。`direct`、`proxy`、`soak` 继续用于原固定档位，不替代上述入口。
+先在目标平台上用同一冻结提交运行 `tools/build-release.sh`，将发布目录的绝对路径设为 `FSUSBLOG_PERF_RELEASE`。每轮独立校验并解包同一归档，核对提交、FsusUI 版本和反代配置。未设置该变量时，运行器会逐轮构建，可用于探测。
+
+每轮在选定档位独立预热 30 秒；短档计时 60 秒，TLS 长测计时 900 秒。保留 `release-inputs.sha256`、`launch-gate.json`、`outcome.txt` 与原始采样；只有数值判定通过、退出码为 0 且清理完成的轮次才有效。另行核验各轮发布包摘要、提交、语料、档位一致及发压端资源余量；公网测量和最终限流不由此脚本代办。`direct`、`proxy`、`soak` 继续用于原固定档位，不替代上述入口。

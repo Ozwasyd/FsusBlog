@@ -24,6 +24,13 @@ case "$mode" in
     exit 2
     ;;
 esac
+release=${FSUSBLOG_PERF_RELEASE:-}
+if [[ -n "$release" ]]; then
+  [[ -n "$launch_rate" && "$release" = /* && -d "$release" && -z "$(git status --porcelain)" ]] || {
+    echo 'A sealed release requires a launch mode, an absolute release directory, and a clean checkout.' >&2
+    exit 2
+  }
+fi
 proxy_mode=false
 runtime_evidence=false
 slow_requests=false
@@ -45,6 +52,10 @@ caddy=${CADDY_BIN:-caddy}
 if [[ "$mode" == proxy* ]]; then
   proxy_mode=true
   command -v "$caddy" >/dev/null || { echo "Missing local executable: $caddy" >&2; exit 2; }
+  [[ ${FSUSBLOG_TEST_CHROME:-} = /* && -x $FSUSBLOG_TEST_CHROME ]] || {
+    echo 'Set FSUSBLOG_TEST_CHROME to an absolute Chromium executable for the TLS Passkey check.' >&2
+    exit 2
+  }
 fi
 # shellcheck source=tests/Performance/proxy.sh
 source tests/Performance/proxy.sh
@@ -139,7 +150,7 @@ trap 'exit 143' TERM
 
 # Capture the exact files used by the build, including tracked changes and new candidate code.
 source_hash() {
-  git ls-files -c -o --exclude-standard -z -- src tests/Performance tests/Fixtures/publication-rights.sql deploy 'Directory.Build.*' NuGet.Config global.json | python3 -c '
+  git ls-files -c -o --exclude-standard -z -- src tests/Performance tests/EndToEnd tests/Fixtures/publication-rights.sql deploy 'Directory.Build.*' NuGet.Config global.json | python3 -c '
 import hashlib, os, sys
 from pathlib import Path
 h = hashlib.sha256()
@@ -203,6 +214,11 @@ mkdir -p "$run/source/src" "$run/source/tests/Performance" "$run/source/tests/Fi
 rsync -a --exclude bin --exclude obj --exclude dist --exclude node_modules --exclude .DS_Store src/ "$run/source/src/"
 cp Directory.Build.* NuGet.Config global.json "$run/source/"
 cp tests/Performance/{seed.py,load.go,cold.go,proxy-boundary.mjs,proxy.sh,runtime.py,runtime.sh} "$run/source/tests/Performance/"
+if [[ "$proxy_mode" == true ]]; then
+  mkdir "$run/source/tests/EndToEnd"
+  cp tests/EndToEnd/{isolated-browser-fixture,response-status-fixture,response-wait-fixture,role-locators,web-package-fixture,webauthn-fixture}.mjs \
+    "$run/source/tests/EndToEnd/"
+fi
 if [[ -n "$launch_rate" ]]; then
   cp tests/Performance/{launch_gate.py,capacity.py} "$run/source/tests/Performance/"
 fi
@@ -213,15 +229,38 @@ ln -s "$repo/src/Web/node_modules" "$run/source/src/Web/node_modules"
 [[ "$(source_hash)" == "$candidate" && "$(git rev-parse HEAD)" == "$commit" ]] || { echo 'Candidate changed while copying inputs.' >&2; exit 1; }
 {
   cd "$run/source"
-  "$dotnet" restore src/Server/FsusBlog.V2.Server.csproj --locked-mode
-  "$dotnet" restore src/Cli/FsusBlog.V2.Cli.csproj --locked-mode
-  "$dotnet" build src/Server/FsusBlog.V2.Server.csproj -c Release --no-restore --output "$run/server"
-  "$dotnet" build src/Cli/FsusBlog.V2.Cli.csproj -c Release --no-restore --output "$run/migrate"
-  (cd src/Web && node node_modules/vite/bin/vite.js build --outDir "$run/web")
+  if [[ -n "$release" ]]; then
+    mkdir "$run/sealed"
+    cp -- "$release"/{SHA256SUMS,payload.sha256,fsusui-wasm.sha256,fsusblog-v2.tar.gz,history.bundle} "$run/sealed/"
+    python3 -B "$repo/tools/verify-release.py" "$run/sealed" > "$evidence/release-verification.json"
+    (cd "$run/sealed" && shasum -a 256 fsusblog-v2.tar.gz payload.sha256 "$repo/tools/verify-release.py") > "$evidence/release-inputs.sha256"
+    mkdir "$run/sealed/payload"
+    payload="$run/sealed/payload"
+    tar -xzf "$run/sealed/fsusblog-v2.tar.gz" -C "$payload"
+    grep -Fxq "fsusblog_commit=$commit" "$payload/release.txt"
+    grep -Fxq "fsusui_package=$ui_package" "$payload/release.txt"
+    [[ -s "$payload/server/FsusBlog.V2.Server.dll" && -s "$payload/cli/FsusBlog.V2.Cli.dll" ]]
+    cmp "$payload/Caddyfile" "$run/source/deploy/Caddyfile"
+    mv -- "$payload/server" "$payload/web" "$run/"
+    mv -- "$payload/cli" "$run/migrate"
+    find "$run/sealed" -depth -delete
+  else
+    "$dotnet" restore src/Server/FsusBlog.V2.Server.csproj --locked-mode
+    "$dotnet" restore src/Cli/FsusBlog.V2.Cli.csproj --locked-mode
+    "$dotnet" build src/Server/FsusBlog.V2.Server.csproj -c Release --no-restore --output "$run/server"
+    "$dotnet" build src/Cli/FsusBlog.V2.Cli.csproj -c Release --no-restore --output "$run/migrate"
+    (cd src/Web && node node_modules/vite/bin/vite.js build --outDir "$run/web")
+  fi
   go build -trimpath -o "$run/load" tests/Performance/{load,cold}.go
   cd "$repo"
 } > "$evidence/build.log" 2>&1
 ui_inputs | cmp -s "$evidence/fsusui-inputs.sha256" - || { echo 'FsusUI package artifacts changed during build.' >&2; exit 1; }
+if [[ -n "$release" ]]; then
+  [[ "$(source_hash)" == "$candidate" && "$(git rev-parse HEAD)" == "$commit" && -z "$(git status --porcelain)" ]] || {
+    echo 'Candidate changed while verifying release inputs.' >&2
+    exit 1
+  }
+fi
 (cd "$run" && find server migrate web load -type f -print0 | xargs -0 shasum -a 256 | LC_ALL=C sort -k2) > "$evidence/build.sha256"
 
 stage=database
@@ -256,8 +295,8 @@ fi
 runtime_env+=("FSUSBLOG_RUNTIME_SLOW_REQUESTS=$slow_requests")
 unset FSUSBLOG_PASSKEY_ORIGIN FSUSBLOG_PASSKEY_RP_ID
 if [[ "$proxy_mode" == true ]]; then
-  target="https://127.0.0.1:$(choose_loopback_port)"
-  export FSUSBLOG_PASSKEY_ORIGIN=$target FSUSBLOG_PASSKEY_RP_ID=127.0.0.1
+  target="https://localhost:$(choose_loopback_port)"
+  export FSUSBLOG_PASSKEY_ORIGIN=$target FSUSBLOG_PASSKEY_RP_ID=localhost
 fi
 env FSUSBLOG_WEB_DIST="$run/web" ASPNETCORE_ENVIRONMENT=Production ASPNETCORE_URLS= \
   FSUSBLOG_TRUST_LOOPBACK_PROXY="$proxy_mode" \
@@ -266,7 +305,8 @@ env FSUSBLOG_WEB_DIST="$run/web" ASPNETCORE_ENVIRONMENT=Production ASPNETCORE_UR
   "Logging__LogLevel__FsusBlog.V2.Server.Publications=$cache_level" \
   "$dotnet" "$server" --urls http://127.0.0.1:0 > "$evidence/server.log" 2>&1 &
 server_pid=$!
-for _ in {1..150}; do
+startup_started=$SECONDS
+while (( SECONDS - startup_started < 120 )); do
   own_child "$server_pid" || { echo 'Owned Kestrel exited before readiness.' >&2; exit 1; }
   url=$(sed -nE 's/.*Now listening on: (http:\/\/127\.0\.0\.1:[0-9]+).*/\1/p' "$evidence/server.log" | head -n1)
   if [[ -n "$url" ]] && lsof -n -P -a -p "$server_pid" -iTCP@127.0.0.1:"${url##*:}" -sTCP:LISTEN >/dev/null; then
@@ -275,13 +315,14 @@ for _ in {1..150}; do
   fi
   sleep 0.2
 done
-[[ -n "$origin" ]] || { echo 'Owned Kestrel did not become ready.' >&2; exit 1; }
+[[ -n "$origin" ]] || { echo 'Owned Kestrel did not bind within 120 seconds.' >&2; exit 1; }
+printf 'listener_started_after_seconds=%s\n' "$((SECONDS - startup_started))" >> "$evidence/environment.txt"
 if [[ "$proxy_mode" == true ]]; then
   stage=proxy-startup
   start_proxy
   stage=proxy-boundary
   "$dotnet" "$run/migrate/FsusBlog.V2.Cli.dll" operator proxy-check |
-    node "$run/source/tests/Performance/proxy-boundary.mjs" "$target" "$origin" "$proxy_ca" \
+    node "$run/source/tests/Performance/proxy-boundary.mjs" "$target" "$origin" "$proxy_ca" "$FSUSBLOG_TLS_CERTIFICATE" \
       > "$evidence/proxy-boundary.log" 2>&1
 else
   target=$origin
