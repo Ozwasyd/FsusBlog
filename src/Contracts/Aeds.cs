@@ -26,6 +26,19 @@ public static class Aeds
         return frame;
     }
 
+    internal static byte[] Encode(FrameType type, ReadOnlySpan<byte> prefix, ReadOnlySpan<byte> tail)
+    {
+        if (!Enum.IsDefined(type) || prefix.Length > WireLimits.MaxPayloadBytes - tail.Length)
+            throw new ProtocolException("Unsupported AEDS type or payload size");
+
+        var frame = new byte[HeaderSize + prefix.Length + tail.Length];
+        var payload = frame.AsSpan(HeaderSize);
+        prefix.CopyTo(payload);
+        tail.CopyTo(payload[prefix.Length..]);
+        WriteHeader(frame, type, payload);
+        return frame;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void WriteHeader(byte[] frame, FrameType type, ReadOnlySpan<byte> payload)
     {
