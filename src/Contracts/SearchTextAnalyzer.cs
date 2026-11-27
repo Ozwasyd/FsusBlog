@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 namespace FsusBlog.V2.Contracts;
@@ -121,8 +122,6 @@ public static class SearchTextAnalyzer
 
     private static (ulong Hash64, uint Hash32) HashTermBoth(ReadOnlySpan<char> term)
     {
-        const ulong offsetBasis = 14695981039346656037UL;
-        const ulong prime = 1099511628211UL;
         // A UTF-16 unit needs at most three UTF-8 bytes, so this path uses at most 384 stack bytes.
         var shortTerm = term.Length <= 128;
         var capacity = shortTerm ? term.Length * 3 : Utf8.GetByteCount(term);
@@ -133,18 +132,24 @@ public static class SearchTextAnalyzer
         try
         {
             buf = buf[..Utf8.GetBytes(term, buf)];
-            var h64 = offsetBasis;
-            for (var i = 0; i < buf.Length; i++)
-            {
-                h64 ^= buf[i];
-                h64 *= prime;
-            }
-            return (h64, LocalSearchCorpus.HashUtf8Bytes(buf));
+            return (HashUtf8Term64(buf), LocalSearchCorpus.HashUtf8Bytes(buf));
         }
         finally
         {
             if (pooled is not null) ArrayPool<byte>.Shared.Return(pooled);
         }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ulong HashUtf8Term64(ReadOnlySpan<byte> term)
+    {
+        var hash = 14695981039346656037UL;
+        for (var i = 0; i < term.Length; i++)
+        {
+            hash ^= term[i];
+            hash *= 1099511628211UL;
+        }
+        return hash;
     }
 
     /// <summary>
