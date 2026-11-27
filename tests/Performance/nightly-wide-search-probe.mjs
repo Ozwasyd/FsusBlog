@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeArticle } from '../../src/Contracts/public-articles.ts'
+import { LOCAL_SEARCH_PROFILE } from '../../src/Contracts/local-search.ts'
 import { FrameType, WireLayouts as L, WireLimits as Limit, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { HEADERS, HEX64, parseLoopbackOrigin, readBoundedJson, sha256, writePrivate } from './nightly-owned-evidence.mjs'
 
@@ -24,10 +25,11 @@ const budgetMs = 180_000
 
 const { bytes: oracleBytes, data: oracle } = readBoundedJson(oraclePath, 64 * 1024, 'Expected a bounded independent SQL oracle')
 assert.deepEqual(
-  [oracle.version, oracle.profile, oracle.documentCount, oracle.bodyCanary.term, oracle.bodyCanary.id,
+  [oracle.version, oracle.profile, oracle.rankProfile, oracle.documentCount, oracle.bodyCanary.term, oracle.bodyCanary.id,
     oracle.bodyCanary.revision, oracle.bodyCanary.publication, oracle.broad.term, oracle.broad.page,
     oracle.broad.size, oracle.broad.items.length, new Set(oracle.broad.items.map(r => r.id)).size],
-  [1, 'nightly', documents, 'c11body090000', 90_000, '3', '85000', 'observations', 8500, 10, 10, 10])
+  [2, 'nightly', LOCAL_SEARCH_PROFILE, documents,
+    'c11body090000', 90_000, '3', '85000', 'observations', 8500, 10, 10, 10])
 for (const hash of [oracle.fixtureSha256, oracle.readbackSha256, oracle.bodyCanary.bodySha256]) assert.match(hash, HEX64)
 for (const row of [oracle.bodyCanary, ...oracle.broad.items]) {
   assert(Number.isInteger(row.id) && (row.id >= 1 && row.id <= 80_000 || row.id >= 85_001 && row.id <= 90_000))
