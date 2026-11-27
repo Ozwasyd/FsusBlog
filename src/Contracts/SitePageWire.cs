@@ -47,12 +47,14 @@ public static class SitePageWire
         if (byteCount > WireLimits.PageContentBytes)
             throw new ProtocolException("Site page exceeds its byte limit");
 
-        var payload = new byte[WireLayouts.PageContentBlobOffset + byteCount];
+        var frame = new byte[Aeds.HeaderSize + WireLayouts.PageContentBlobOffset + byteCount];
+        var payload = frame.AsSpan(Aeds.HeaderSize);
         var slugBytes = WireLayouts.PageContentSlugBytes;
-        Utf8.GetBytes(slug, payload.AsSpan(0, slugBytes));
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(slugBytes + 4), byteCount);
-        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(slugBytes + 8), byteCount);
-        Utf8.GetBytes(markdown, payload.AsSpan(WireLayouts.PageContentBlobOffset));
-        return Aeds.Encode(FrameType.PageContent, payload);
+        Utf8.GetBytes(slug, payload[..slugBytes]);
+        BinaryPrimitives.WriteInt32LittleEndian(payload[(slugBytes + 4)..], byteCount);
+        BinaryPrimitives.WriteInt32LittleEndian(payload[(slugBytes + 8)..], byteCount);
+        Utf8.GetBytes(markdown, payload[WireLayouts.PageContentBlobOffset..]);
+        Aeds.WriteHeader(frame, FrameType.PageContent, payload);
+        return frame;
     }
 }
