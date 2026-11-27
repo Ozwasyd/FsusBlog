@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace FsusBlog.V2.Contracts;
 
 public sealed class ProtocolException(string message) : Exception(message);
@@ -19,14 +21,21 @@ public static class Aeds
             throw new ProtocolException("Unsupported AEDS type or payload size");
 
         var frame = new byte[HeaderSize + payload.Length];
+        WriteHeader(frame, type, payload);
+        payload.CopyTo(frame.AsSpan(HeaderSize));
+        return frame;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void WriteHeader(byte[] frame, FrameType type, ReadOnlySpan<byte> payload)
+    {
+        // The reserved flags remain zero in the freshly allocated frame.
         BinaryPrimitives.WriteInt32LittleEndian(frame, WireHeader.Magic);
         frame[WireHeader.VersionOffset] = WireHeader.Version;
         frame[WireHeader.LengthOffset] = HeaderSize;
         BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(WireHeader.TypeOffset), (ushort)type);
         BinaryPrimitives.WriteInt32LittleEndian(frame.AsSpan(WireHeader.PayloadLengthOffset), payload.Length);
         BinaryPrimitives.WriteUInt16LittleEndian(frame.AsSpan(WireHeader.CrcOffset), Crc16(payload));
-        payload.CopyTo(frame.AsSpan(HeaderSize));
-        return frame;
     }
 
     public static ReadOnlySpan<byte> Decode(ReadOnlySpan<byte> frame, FrameType expected)

@@ -104,7 +104,7 @@ stage=upstream-start
 (
     cd -- "$run"
     exec env -i PATH="$PATH" LC_ALL=C TZ=UTC TMPDIR="$run" ASPNETCORE_ENVIRONMENT=Production \
-        FSUSBLOG_DB="$connection" FSUSBLOG_WEB_DIST="$web" FSUSBLOG_WIDE_SEARCH_CORPUS=true \
+        FSUSBLOG_DB="$connection" FSUSBLOG_WEB_DIST="$web" FSUSBLOG_WIDE_SEARCH_CORPUS=true FSUSBLOG_PUBLIC_SEARCH_MODE=auto \
         FSUSBLOG_TRUST_LOOPBACK_PROXY=true FSUSBLOG_PUBLIC_ORIGIN="$target" \
         Logging__LogLevel__Microsoft=Warning Logging__LogLevel__Microsoft.Hosting.Lifetime=Information \
         "$dotnet" "$server" --urls "$origin"

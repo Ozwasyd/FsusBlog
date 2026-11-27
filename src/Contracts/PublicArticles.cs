@@ -38,8 +38,9 @@ public static class PublicArticles
         var blobOffset = rightsOffset + ArticleRightsRecordSize;
         var rightsText = article.Rights is { } snapshot ? RightsText(article, snapshot) : [];
         var blobLength = checked(title.Length + bodyLength + summary.Length + cover.Length + taxonomy.BlobLength + rightsText.Sum(text => text.Length));
-        var bytes = Allocate(checked(blobOffset + blobLength));
-        var header = bytes.AsSpan(0, ArticleDetailHeaderSize);
+        var frame = Allocate(checked(blobOffset + blobLength), Aeds.HeaderSize);
+        var bytes = frame.AsSpan(Aeds.HeaderSize);
+        var header = bytes[..ArticleDetailHeaderSize];
         I32(header, 0, ArticleDetailV5Magic);
         I32(header, 4, ArticleDetailV5Version);
         I32(header, 12, recordOffset);
@@ -51,8 +52,8 @@ public static class PublicArticles
         I32(header, 36, blobOffset);
         I32(header, 40, blobLength);
 
-        var record = bytes.AsSpan(recordOffset, ArticleDetailV5RecordSize);
-        var blob = bytes.AsSpan(blobOffset);
+        var record = bytes.Slice(recordOffset, ArticleDetailV5RecordSize);
+        var blob = bytes[blobOffset..];
         var offset = 0;
         WriteCommon(record, article);
         I32(record, ArticleDetailStatusOffset, ArticlePublishedStatus);
@@ -66,9 +67,9 @@ public static class PublicArticles
         WriteText(record, ArticleDetailCoverOffset, blob, cover, ref offset);
         WriteText(record, ArticleDetailCategoryOffset, blob, taxonomy.Category, ref offset);
         for (var i = 0; i < taxonomy.Tags.Length; i++)
-            WriteTag(bytes.AsSpan(tagOffset + i * ArticleTagRecordSize, ArticleTagRecordSize),
+            WriteTag(bytes.Slice(tagOffset + i * ArticleTagRecordSize, ArticleTagRecordSize),
                 blob, taxonomy.Tags[i], ref offset);
-        var rights = bytes.AsSpan(rightsOffset, ArticleRightsRecordSize);
+        var rights = bytes.Slice(rightsOffset, ArticleRightsRecordSize);
         if (article.Rights is { } published)
         {
             var policy = published.Policy;
@@ -87,7 +88,8 @@ public static class PublicArticles
             if (i < rightsText.Length) WriteText(rights, slot, blob, rightsText[i], ref offset);
             else WriteSlice(rights, slot, offset, 0);
         }
-        return Aeds.Encode(FrameType.ArticleDetail, bytes);
+        Aeds.WriteHeader(frame, FrameType.ArticleDetail, bytes);
+        return frame;
     }
 
     private static byte[][] RightsText(Article article, PublishedArticleRights snapshot)
@@ -252,11 +254,11 @@ public static class PublicArticles
             throw new ProtocolException("Invalid public article count");
     }
 
-    private static byte[] Allocate(int length)
+    private static byte[] Allocate(int length, int prefix = 0)
     {
         if (length > WireLimits.MaxPayloadBytes)
             throw new ProtocolException("Public article payload exceeds its byte limit");
-        return new byte[length];
+        return new byte[prefix + length];
     }
 
     private static void WriteCommon(Span<byte> record, Article article)
