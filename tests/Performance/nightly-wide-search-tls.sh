@@ -77,8 +77,11 @@ cleanup() {
             cleaned=no
         fi
     done
-    if [[ $cleaned == yes ]]; then find "$run" -depth -delete || cleaned=no; fi
+    if [[ $cleaned == yes && $status == 0 ]]; then find "$run" -depth -delete || cleaned=no; fi
     if [[ $cleaned != yes && $status == 0 ]]; then status=1; fi
+    if [[ $status != 0 && -d $run ]]; then
+        printf 'scratch_retained=%s\n' "$run" >> "$evidence/run.txt"
+    fi
     printf 'stop_stage=%s\nexit=%s\ncleanup=%s\nfinished=%s\n' "$stage" "$status" "$cleaned" "$(date -u +%FT%TZ)" >> "$evidence/run.txt"
     exit "$status"
 }

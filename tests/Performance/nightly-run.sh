@@ -103,8 +103,11 @@ cleanup() {
         pg_ctl -D "$data_dir" -m fast -w -t 20 stop >> "$evidence/postgres.log" 2>&1 || cleaned=no
     fi
     if pg_ctl -D "$data_dir" status >/dev/null 2>&1 || [[ -S "$scratch/socket/.s.PGSQL.$pg_port" ]]; then cleaned=no; fi
-    if [[ $cleaned == yes ]]; then find "$scratch" -depth -delete || cleaned=no; fi
+    if [[ $cleaned == yes && $result == 0 ]]; then find "$scratch" -depth -delete || cleaned=no; fi
     [[ $cleaned == yes ]] || result=1
+    if [[ $result != 0 && -d $scratch ]]; then
+        printf 'scratch_retained=%s\n' "$scratch" >> "$evidence/run.txt"
+    fi
     printf 'stop_stage=%s\nexit=%s\ncleanup=%s\nfinished=%s\n' "$stage" "$result" "$cleaned" "$(date -u +%FT%TZ)" >> "$evidence/run.txt"
     exit "$result"
 }
