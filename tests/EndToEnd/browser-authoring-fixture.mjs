@@ -261,9 +261,10 @@ export function authorFixture(origin, diagnostics) {
     decode((await post(context, path, type, payload, expected, credential, extra)).payload)
   function saveSummary(context, draft, text, credential) {
     const idempotencyKey = randomUUID()
-    const payload = encodeArticleSummaryCommand({ id: draft.id, expectedRevision: draft.revision, idempotencyKey, text })
+    const frame = encodeArticleSummaryCommand({ id: draft.id, expectedRevision: draft.revision, idempotencyKey, text })
     return postDecoded(context, WireRoutes.ArticleSummarySave, FrameType.ArticleSummaryCommand,
-      payload, FrameType.Draft, wire.decodeDraft, credential, { [WireHeaders.ClientMutationId]: idempotencyKey })
+      decodeFrame(frame, FrameType.ArticleSummaryCommand).payload, FrameType.Draft, wire.decodeDraft, credential,
+      { [WireHeaders.ClientMutationId]: idempotencyKey })
   }
   const assignTaxonomy = (context, draft, categoryId, tagIds, credential) =>
     postDecoded(context, WireRoutes.TaxonomyAssignment, FrameType.TaxonomyAssignment,
