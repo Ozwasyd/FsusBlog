@@ -66,7 +66,7 @@ export function verifySignedInCommentReport({ browser, author, siteOrigin, artic
       await selectOption(author, dialog, 'Report reason', label)
       await detail.fill(reportDetail)
       await isolated.assertNoOverflow(author)
-      const result = await clickForResponse(author, url, send, undefined)
+      const result = await clickForResponse(author, url, send, 'POST')
       await assertNoStore(result)
       const receipt = await readJsonFrame(result, FrameType.CommentReportResult)
       assert.deepEqual(Object.keys(receipt).sort(), ['code', 'duplicate', 'reportId', 'success'])
