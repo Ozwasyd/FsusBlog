@@ -12,8 +12,8 @@ importers:
         specifier: 5.2.1
         version: 5.2.1
       '@ozwasyd/element-plus':
-        specifier: 1.6.0-preview.11
-        version: 1.6.0-preview.11(vue@3.5.32(typescript@6.0.2))
+        specifier: 1.6.0
+        version: 1.6.0(vue@3.5.32(typescript@6.0.2))
       vue:
         specifier: 3.5.32
         version: 3.5.32(typescript@6.0.2)
@@ -371,8 +371,8 @@ packages:
   '@mermaid-js/parser@1.2.1':
     resolution: {integrity: sha512-n12NohV3mrUyUL2o93IgG/ifeW9FTyeJn3zDxkhwa8MJ9Fxg3HQMlA3RiGmD/3UnJvheztkjjQAjA2T4LmUcpw==}
 
-  '@ozwasyd/element-plus@1.6.0-preview.11':
-    resolution: {integrity: sha512-C26355Ewmp5K2U4tDNi7MrRCueYAldw5KO7AXgEPmyP9Oq5+xd+u0Puu643sQvT4gYwrNSJIEyqpKYcMhb6Qcw==, tarball: https://npm.pkg.github.com/download/@ozwasyd/element-plus/1.6.0-preview.11/7450a1a333fe09303d7c64df92824dd6d4637842}
+  '@ozwasyd/element-plus@1.6.0':
+    resolution: {integrity: sha512-qFz4l3PmNMPr9ccn5oQPhOEnnhL5ld6bFg5XKN3mh7klqH2DEpgwg9kw7r6Fgu07ncPqJQbgfyprRTNv9OJj6w==, tarball: https://npm.pkg.github.com/download/@ozwasyd/element-plus/1.6.0/f09427fca41d4c52290067420ef0076cf880c3f1}
     peerDependencies:
       vue: ^3.5.0
 
@@ -1904,7 +1904,7 @@ snapshots:
     dependencies:
       '@chevrotain/types': 11.1.2
 
-  '@ozwasyd/element-plus@1.6.0-preview.11(vue@3.5.32(typescript@6.0.2))':
+  '@ozwasyd/element-plus@1.6.0(vue@3.5.32(typescript@6.0.2))':
     dependencies:
       '@ctrl/tinycolor': 3.6.1
       '@floating-ui/dom': 1.8.0

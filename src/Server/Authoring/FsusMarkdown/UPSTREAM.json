@@ -1,10 +1,10 @@
 {
   "repository": "https://github.com/Ozwasyd/FsusUI",
   "package": "@ozwasyd/element-plus",
-  "version": "1.6.0-preview.11",
-  "packageIntegrity": "sha512-C26355Ewmp5K2U4tDNi7MrRCueYAldw5KO7AXgEPmyP9Oq5+xd+u0Puu643sQvT4gYwrNSJIEyqpKYcMhb6Qcw==",
-  "tag": "v1.6.0-preview.11",
-  "commit": "4cef4a6463ec752242a9ad2c0e8584e222414e37",
+  "version": "1.6.0",
+  "packageIntegrity": "sha512-qFz4l3PmNMPr9ccn5oQPhOEnnhL5ld6bFg5XKN3mh7klqH2DEpgwg9kw7r6Fgu07ncPqJQbgfyprRTNv9OJj6w==",
+  "tag": "v1.6.0",
+  "commit": "c4c70eb07e3bd25cfa190e6cbaaed68a68ab6f11",
   "sourceRoot": "vue/packages/wasm/markdown",
   "files": {
     "include/markdown_contract.hpp": "a2c943c2fc5ccacd546f18a85946873bfff8548cef84fcb273c0fdb582707486",
