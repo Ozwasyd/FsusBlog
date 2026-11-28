@@ -71,6 +71,10 @@ export async function exerciseWideSearchWorker({ page, origin, manifest, withdra
       }, cacheName, { timeout })
       assert.equal(await cards(page).count(), 0)
       assert.equal(await cards(peer).count(), 0)
+      // A slow, verified wide transfer can outlast the generic 15-second request.
+      await delay(16_000)
+      assert.equal(await loadError(page).count(), 0)
+      assert.equal(await loadError(peer).count(), 0)
       firstPage.release()
       await Promise.all([assertCards(page, deepIds), assertCards(peer, deepIds)])
       assert.equal(search.searchWorker(page), firstWorker)

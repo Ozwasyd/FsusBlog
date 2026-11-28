@@ -3,6 +3,7 @@ import { toHex } from '../../Contracts/binary.ts'
 import { FrameType, WireHeader, WireHeaders, WireLayouts as L, WireLimits as Limit, WireRoutes } from '../../Contracts/wire.generated.ts'
 
 export type WideSearchIdentity = Readonly<{ generation: string; digest: string; pageCount: number }>
+export const wideSearchAttemptMs = 300_000
 
 export type WideSearchPage = Readonly<{
   number: number

@@ -42,6 +42,7 @@
   - `GET /api/v2/public/search-corpus/wide/v1/manifest.aeds`（AEDS `33004`）：返回当前代次、总篇数、页数、总字节数、内容摘要及每页范围/偏移/长度/SHA-256。
   - `HEAD` / `GET /api/v2/public/search-corpus/wide/v1/pages/{page}?generation=…&digest=…`：`HEAD` 校验当前代次返回 `204`；`GET` 返回原始 FSPK 与强 ETag（`no-store`，并发限 2 路无排队）；已知代次失效返回 `409`，完整语料不可用返回 `503`。
 - **客户端宽档缓存**：独立同源 IndexedDB 经 Web Lock 串行协调，上限 512 页 / 256 MiB；全页下载校验与封存前 `HEAD` 全部通过后才开放查询，损坏页或失效代次立即清空缓存。
+- Worker 验证宽语料清单后，搜索路由沿用宽语料已有的 300 秒加载时限，从发起查询时计时。紧凑档和服务端查询继续使用默认 15 秒时限。
 
 ## 5. 验证入口
 

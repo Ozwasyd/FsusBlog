@@ -25,19 +25,25 @@ export type SearchReply =
   | { id: number; ok: true; frame: Uint8Array; visibility: Visibility | null }
   | { id: number; ok: true; fallback: 'server' }
   | { id: number; ok: false; status: number; message: string }
+export type SearchWorkerMessage = SearchReply | { id: number; stage: 'wide-admission' }
 
 const compact = createCorpusSearch({ storage: compactSearchStorage })
 const wide = createWideSearch()
 let pending: SearchRequest | undefined
-let running: { id: number; controller: AbortController } | undefined
+let running: { id: number; controller: AbortController; wideAdmission: boolean } | undefined
 
-async function runSearch({ query, page, size, sort, mode }: SearchRequest, signal: AbortSignal): Promise<WorkerResult> {
+function postWideAdmission(id: number) {
+  self.postMessage({ id, stage: 'wide-admission' } satisfies SearchWorkerMessage)
+}
+
+async function runSearch({ query, page, size, sort, mode }: SearchRequest, signal: AbortSignal,
+  onWideAdmission: () => void): Promise<WorkerResult> {
   async function searchCompact(): Promise<WorkerResult> {
     const { frame, generation } = await compact(query, signal, page, size, sort)
     return { frame, visibility: generation === null ? null : { kind: 'compact', generation } }
   }
   async function searchWide(): Promise<WorkerResult | undefined> {
-    const result = await wide.search(query, page, size, signal, sort)
+    const result = await wide.search(query, page, size, signal, sort, onWideAdmission)
     return result && { frame: result.frame, visibility: result.identity === null ? null : { kind: 'wide', identity: result.identity } }
   }
 
@@ -66,9 +72,15 @@ async function pump() {
     const job: SearchRequest = pending
     pending = undefined
     const controller = new AbortController()
-    running = { id: job.id, controller }
+    const operation = { id: job.id, controller, wideAdmission: false }
+    running = operation
     try {
-      const outcome = await runSearch(job, controller.signal)
+      const outcome = await runSearch(job, controller.signal, () => {
+        operation.wideAdmission = true
+        if (!controller.signal.aborted) postWideAdmission(job.id)
+        // A queued query inherits admission while the superseded query finishes sealing the corpus.
+        if (pending) postWideAdmission(pending.id)
+      })
       if (!controller.signal.aborted) {
         if ('fallback' in outcome) {
           self.postMessage({ id: job.id, ok: true, fallback: outcome.fallback } satisfies SearchReply)
@@ -96,6 +108,7 @@ self.addEventListener('message', ({ data }: MessageEvent<SearchCommand>) => {
   switch (data.kind) {
     case 'search':
       pending = data
+      if (running?.wideAdmission) postWideAdmission(data.id)
       running?.controller.abort()
       void pump()
       break
