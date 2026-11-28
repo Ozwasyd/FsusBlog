@@ -5,8 +5,8 @@ import {
 } from '../../Contracts/local-search.ts'
 import { WireLimits } from '../../Contracts/wire.generated.ts'
 import { discardCompactSearchCorpus } from './compactSearchStorage.ts'
-import type { SearchCommand, SearchReply, WorkerSearchMode } from './search.worker.ts'
-import { verifyWideSearchGeneration } from './wideSearchWire.ts'
+import type { SearchCommand, SearchReply, SearchWorkerMessage, WorkerSearchMode } from './search.worker.ts'
+import { verifyWideSearchGeneration, wideSearchAttemptMs } from './wideSearchWire.ts'
 
 export type PublicSearchMode = 'auto' | 'local' | 'server'
 export type PublicSearchDisplayResult = PublicSearchV2Page & Readonly<{
@@ -126,6 +126,7 @@ export function createLocalSearch(options?: LocalSearchOptions) {
     sort: PublicSearchSort,
     workerMode: WorkerSearchMode,
     signal: AbortSignal,
+    onWideAdmission: () => void,
   ): Promise<SearchReply> {
     return new Promise<SearchReply>((resolve, reject) => {
       function cleanup() {
@@ -137,8 +138,12 @@ export function createLocalSearch(options?: LocalSearchOptions) {
         current.postMessage({ kind: 'cancel', id } satisfies SearchCommand)
         reject(signal.reason)
       }
-      function receive(event: MessageEvent<SearchReply>) {
+      function receive(event: MessageEvent<SearchWorkerMessage>) {
         if (event.data.id !== id) return
+        if ('stage' in event.data) {
+          onWideAdmission()
+          return
+        }
         cleanup()
         resolve(event.data)
       }
@@ -162,9 +167,21 @@ export function createLocalSearch(options?: LocalSearchOptions) {
     active = request
     const cancel = () => request.abort(signal.reason)
     signal.addEventListener('abort', cancel, { once: true })
+    const started = performance.now()
+    const timeout = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    function setDeadline(deadline: number) {
+      clearTimeout(timer)
+      timer = setTimeout(() => timeout.abort(new DOMException('Public search request timed out', 'TimeoutError')),
+        Math.max(0, deadline - performance.now()))
+    }
+    if (requestTimeoutMs > 0) setDeadline(started + requestTimeoutMs)
     const deadlineSignal = requestTimeoutMs > 0
-      ? AbortSignal.any([request.signal, AbortSignal.timeout(requestTimeoutMs)])
+      ? AbortSignal.any([request.signal, timeout.signal])
       : request.signal
+    function onWideAdmission() {
+      if (options?.requestTimeoutMs === undefined && !deadlineSignal.aborted) setDeadline(started + wideSearchAttemptMs)
+    }
     try {
       const mode = readPublicSearchMode()
       if (mode === 'server' || (mode === 'auto' && (preferServer || typeof Worker === 'undefined'))) {
@@ -181,7 +198,7 @@ export function createLocalSearch(options?: LocalSearchOptions) {
         const targetCursor = attempt === 0 ? cursor : undefined
         const id = ++sequence
         const current = worker ??= startWorker()
-        const reply = await executeWorkerSearch(current, id, query, targetPage, size, sort, workerMode, deadlineSignal)
+        const reply = await executeWorkerSearch(current, id, query, targetPage, size, sort, workerMode, deadlineSignal, onWideAdmission)
         if (!reply.ok) {
           if (reply.status === 409) {
             if (worker === current) stopWorker()
@@ -239,6 +256,7 @@ export function createLocalSearch(options?: LocalSearchOptions) {
       }
       throw new ApiError('Published articles have changed. Start from the first page to see current search results.', 409, 'search_generation_changed')
     } finally {
+      clearTimeout(timer)
       signal.removeEventListener('abort', cancel)
       if (active === request) active = undefined
     }

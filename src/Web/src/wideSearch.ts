@@ -8,7 +8,7 @@ import type { SearchQueryPlan } from '../../Contracts/search-query-plan.ts'
 import type { ArticleCard } from '../../Contracts/public-articles.ts'
 import { withWideSearchStorage, type WideSearchStorage } from './wideSearchStorage.ts'
 import {
-  fetchWideSearchManifest, fetchWideSearchPage, verifyWideSearchGeneration, verifyWideSearchPageBytes,
+  fetchWideSearchManifest, fetchWideSearchPage, verifyWideSearchGeneration, verifyWideSearchPageBytes, wideSearchAttemptMs,
   type WideSearchIdentity, type WideSearchManifest, type WideSearchPage,
 } from './wideSearchWire.ts'
 
@@ -21,7 +21,6 @@ type CachedRanking = {
   positions: Uint32Array
 }
 
-const attemptMs = 300_000
 const rowsPerSlot = 256 // Each FSPK page contains at most 200 articles.
 
 function sameIdentity(left: WideSearchIdentity, right: WideSearchIdentity) {
@@ -123,6 +122,7 @@ export function createWideSearch() {
     size: number,
     request: AbortSignal,
     sort: PublicSearchSort = 'relevance',
+    onWideAdmission?: () => void,
   ): Promise<Result | undefined> {
     if (!Number.isInteger(page) || page < 1 || page > 10000 || !Number.isInteger(size) || size < 1 || size > 100) {
       throw new ProtocolError('Invalid local search query page')
@@ -132,8 +132,8 @@ export function createWideSearch() {
     if (plan.isEmpty || plan.isOverlongExactIdentifier) return { frame: encodeLocalSearchResult([], 0), identity: null }
 
     // Changing the query only cancels scoring and display. The active route owns admission.
-    const deadline = Date.now() + attemptMs
-    const attempt = AbortSignal.timeout(attemptMs)
+    const deadline = Date.now() + wideSearchAttemptMs
+    const attempt = AbortSignal.timeout(wideSearchAttemptMs)
     const scoring = AbortSignal.any([request, attempt])
     function check(signal: AbortSignal) {
       signal.throwIfAborted()
@@ -149,6 +149,7 @@ export function createWideSearch() {
       return undefined
     }
     preferred = true
+    onWideAdmission?.()
 
     let abandoned: CachedCorpus | undefined
     async function discard(storage: WideSearchStorage, corpus: CachedCorpus) {
